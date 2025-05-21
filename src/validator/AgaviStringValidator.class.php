@@ -71,9 +71,9 @@ class AgaviStringValidator extends AgaviValidator
 		
 		$value = $originalValue;
 		
-		if($utf8) {
+		/*if($utf8) {
 			$value = utf8_decode($value);
-		}
+		}*/
 		
 		if($this->hasParameter('min') and strlen($value) < $this->getParameter('min')) {
 			$this->throwError('min');
