@@ -421,7 +421,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 			$retval = $default;
 		}
 		
-		return $retval ?? "";
+		return $retval;
 	}
 	
 	/**
@@ -450,7 +450,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 			$retval = $default;
 		}
 		
-		return $retval ?? "";
+		return $retval;
 	}
 	
 	/**
