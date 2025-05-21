@@ -288,22 +288,6 @@ class AgaviWebRequest extends AgaviRequest
 
 		$rla = ini_get('register_long_arrays');
 
-		// very first thing to do: remove magic quotes
-		if(get_magic_quotes_gpc()) {
-			trigger_error('Support for php.ini directive "magic_quotes_gpc" is deprecated and will be dropped in Agavi 1.2. The setting is deprecated in PHP 5.3 and will be removed in PHP 5.4. Please refer to the PHP manual for details.', E_USER_DEPRECATED);
-			$_GET = self::clearMagicQuotes($_GET);
-			$_POST = self::clearMagicQuotes($_POST);
-			$_COOKIE = self::clearMagicQuotes($_COOKIE);
-			$_REQUEST = self::clearMagicQuotes($_REQUEST);
-			$_FILES = self::clearMagicQuotes($_FILES);
-			if($rla) {
-				$GLOBALS['HTTP_GET_VARS'] = $_GET;
-				$GLOBALS['HTTP_POST_VARS'] = $_POST;
-				$GLOBALS['HTTP_COOKIE_VARS'] = $_COOKIE;
-				$GLOBALS['HTTP_POST_FILES'] = $_FILES;
-			}
-		}
-
 		$sources = array_merge(array(
 			'HTTPS' => 'HTTPS',
 			'REQUEST_METHOD' => 'REQUEST_METHOD',
