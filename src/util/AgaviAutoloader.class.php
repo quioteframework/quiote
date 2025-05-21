@@ -98,7 +98,7 @@ class AgaviAutoloader
 		$class = substr($class, $lastBackslash+1);
 		
 		foreach(self::$namespaces as $prefix => $path) {
-			if(strpos($namespace . '\\', $prefix . '\\') === 0) { // make sure we terminate the prefix, or else a prefix like "Doc" would load "Doctrine"
+			if(str_starts_with($namespace . '\\', $prefix . '\\')) { // make sure we terminate the prefix, or else a prefix like "Doc" would load "Doctrine"
 				$file = str_replace('\\', DIRECTORY_SEPARATOR, substr($namespace, strlen($prefix))) // strip the prefix from the namespace and replace backslashes
 				      . DIRECTORY_SEPARATOR
 				      . str_replace('_', DIRECTORY_SEPARATOR, $class) // replace underscores in the class name in conformance with PSR-0

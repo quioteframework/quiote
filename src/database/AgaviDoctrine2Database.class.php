@@ -80,7 +80,7 @@ abstract class AgaviDoctrine2Database extends AgaviDatabase
 				// the ORM namespace's Version class exists or could be autloaded; let's assume that the class loader for any Doctrine stuff won't need registration then
 				continue;
 			}
-			if(strpos($namespace, 'Doctrine\\') === 0 && class_exists($namespace . '\Version')) {
+			if(str_starts_with($namespace, 'Doctrine\\') && class_exists($namespace . '\Version')) {
 				// it is a Doctrine namespace, and the namespace's Version class exists or could be autloaded; let's assume that the class loader won't need registration then
 				continue;
 			}

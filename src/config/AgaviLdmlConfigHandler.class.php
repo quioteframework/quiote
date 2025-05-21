@@ -79,11 +79,11 @@ class AgaviLdmlConfigHandler extends AgaviConfigHandler
 		);
 
 		// fix the day indices for all day fields
-		foreach($data['calendars'] as $calKey => &$calValue) {
+		foreach($data['calendars'] as &$calValue) {
 			// skip the 'default' => '' key => value pair
 			if(is_array($calValue)) {
 				if(isset($calValue['days']['format'])) {
-					foreach($calValue['days']['format'] as $formatKey => &$formatValue) {
+					foreach($calValue['days']['format'] as &$formatValue) {
 						if(is_array($formatValue)) {
 							$newData = array();
 							foreach($formatValue as $day => $value) {
@@ -95,7 +95,7 @@ class AgaviLdmlConfigHandler extends AgaviConfigHandler
 				}
 
 				if(isset($calValue['days']['stand-alone'])) {
-					foreach($calValue['days']['stand-alone'] as $formatKey => &$formatValue) {
+					foreach($calValue['days']['stand-alone'] as &$formatValue) {
 						if(is_array($formatValue)) {
 							$newData = array();
 							foreach($formatValue as $day => $value) {

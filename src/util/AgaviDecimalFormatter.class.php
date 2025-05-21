@@ -745,7 +745,7 @@ class AgaviDecimalFormatter
 			}
 
 			if(!empty($matches['minus'])) {
-				$num = $num * -1;
+				$num *= -1;
 			}
 			
 			return $num;

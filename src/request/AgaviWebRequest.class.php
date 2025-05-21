@@ -374,13 +374,13 @@ class AgaviWebRequest extends AgaviRequest
 			);
 		}
 
-		if(isset($_SERVER['UNENCODED_URL']) && isset($_SERVER['SERVER_SOFTWARE']) && strpos($_SERVER['SERVER_SOFTWARE'], 'Microsoft-IIS') !== false) {
+		if(isset($_SERVER['UNENCODED_URL']) && isset($_SERVER['SERVER_SOFTWARE']) && str_contains($_SERVER['SERVER_SOFTWARE'], 'Microsoft-IIS')) {
 			// Microsoft IIS 7 with URL Rewrite Module
 			$this->requestUri = $_SERVER['UNENCODED_URL'];
-		} elseif(isset($_SERVER['HTTP_X_REWRITE_URL']) && isset($_SERVER['SERVER_SOFTWARE']) && strpos($_SERVER['SERVER_SOFTWARE'], 'Microsoft-IIS') !== false) {
+		} elseif(isset($_SERVER['HTTP_X_REWRITE_URL']) && isset($_SERVER['SERVER_SOFTWARE']) && str_contains($_SERVER['SERVER_SOFTWARE'], 'Microsoft-IIS')) {
 			// Microsoft IIS with ISAPI_Rewrite
 			$this->requestUri = $_SERVER['HTTP_X_REWRITE_URL'];
-		} elseif(!isset($_SERVER['REQUEST_URI']) && isset($_SERVER['SERVER_SOFTWARE']) && strpos($_SERVER['SERVER_SOFTWARE'], 'Microsoft-IIS') !== false) {
+		} elseif(!isset($_SERVER['REQUEST_URI']) && isset($_SERVER['SERVER_SOFTWARE']) && str_contains($_SERVER['SERVER_SOFTWARE'], 'Microsoft-IIS')) {
 			// Microsoft IIS with PHP in CGI mode
 			$this->requestUri = $_SERVER['ORIG_PATH_INFO'] . (isset($_SERVER['QUERY_STRING']) && $_SERVER['QUERY_STRING'] != '' ? '?' . $_SERVER['QUERY_STRING'] : '');
 		} elseif(isset($_SERVER['REQUEST_URI'])) {
@@ -467,7 +467,7 @@ class AgaviWebRequest extends AgaviRequest
 
 		$headers = array();
 		foreach($_SERVER as $key => $value) {
-			if(substr($key, 0, 5) == 'HTTP_') {
+			if(str_starts_with($key, 'HTTP_')) {
 				$headers[substr($key, 5)] = $value;
 			} elseif($key == 'CONTENT_TYPE' || $key == 'CONTENT_LENGTH') {
 				// yeah, whatever, PHP...
@@ -560,7 +560,7 @@ class AgaviWebRequest extends AgaviRequest
 			}
 			
 			foreach($_SERVER as $key => $value) {
-				if(substr($key, 0, 5) == 'HTTP_' || $key == 'CONTENT_TYPE' || $key == 'CONTENT_LENGTH') {
+				if(str_starts_with($key, 'HTTP_') || $key == 'CONTENT_TYPE' || $key == 'CONTENT_LENGTH') {
 					unset($_SERVER[$key]);
 					unset($_ENV[$key]);
 					if($rla) {

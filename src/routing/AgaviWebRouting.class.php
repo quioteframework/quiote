@@ -120,7 +120,7 @@ class AgaviWebRouting extends AgaviRouting
 		if($this->isEnabled() && $rewritten) {
 			// strip the one trailing ampersand, see above
 			$queryWasEmptied = false;
-			if($ru['query'] !== '' && isset($_SERVER['SERVER_SOFTWARE']) && strpos($_SERVER['SERVER_SOFTWARE'], 'Apache') !== false) {
+			if($ru['query'] !== '' && isset($_SERVER['SERVER_SOFTWARE']) && str_contains($_SERVER['SERVER_SOFTWARE'], 'Apache')) {
 				$ru['query'] = preg_replace('/&$/D', '', $ru['query']);
 				if($ru['query'] == '') {
 					$queryWasEmptied = true;
@@ -128,13 +128,13 @@ class AgaviWebRouting extends AgaviRouting
 			}
 
 			$stripFromQuery = '&' . $ru['query'];
-			if($ru['query'] == '' && !$queryWasEmptied && isset($_SERVER['SERVER_SOFTWARE']) && strpos($_SERVER['SERVER_SOFTWARE'], 'Apache') !== false) {
+			if($ru['query'] == '' && !$queryWasEmptied && isset($_SERVER['SERVER_SOFTWARE']) && str_contains($_SERVER['SERVER_SOFTWARE'], 'Apache')) {
 				// if the query is empty, simply give apache2 nothing instead of an "&", since that could kill a real trailing ampersand in the path, as Apache strips those from the query string (which has the rewritten path), but not the request uri
 				$stripFromQuery = '';
 			}
 			$this->input = preg_replace('/' . preg_quote($stripFromQuery, '/') . '$/D', '', $qs);
 
-			if(isset($_SERVER['SERVER_SOFTWARE']) && strpos($_SERVER['SERVER_SOFTWARE'], 'Apache/2') !== false) {
+			if(isset($_SERVER['SERVER_SOFTWARE']) && str_contains($_SERVER['SERVER_SOFTWARE'], 'Apache/2')) {
 				$sru = $_SERVER['REQUEST_URI'];
 				
 				if(($fqmp = strpos($sru, '?')) !== false && ($fqmp == strlen($sru)-1)) {
@@ -157,7 +157,7 @@ class AgaviWebRouting extends AgaviRouting
 				$this->input = $input;
 			}
 
-			if(!(isset($_SERVER['SERVER_SOFTWARE']) && (strpos($_SERVER['SERVER_SOFTWARE'], 'Apache/1') !== false || (strpos($_SERVER['SERVER_SOFTWARE'], 'Microsoft-IIS') !== false && isset($_SERVER['UNENCODED_URL']))))) {
+			if(!(isset($_SERVER['SERVER_SOFTWARE']) && (str_contains($_SERVER['SERVER_SOFTWARE'], 'Apache/1') || (str_contains($_SERVER['SERVER_SOFTWARE'], 'Microsoft-IIS') && isset($_SERVER['UNENCODED_URL']))))) {
 				// don't do that for Apache 1 or IIS 7 with URL Rewrite Module, it's already rawurldecode()d there
 				$this->input = rawurldecode($this->input);
 			}
@@ -192,7 +192,7 @@ class AgaviWebRouting extends AgaviRouting
 			$this->prefix .= substr($sn, $appendFrom);
 
 			$this->input = substr($path, $appendFrom);
-			if(!isset($_SERVER['SERVER_SOFTWARE']) || strpos($_SERVER['SERVER_SOFTWARE'], 'Microsoft-IIS') === false || isset($_SERVER['HTTP_X_REWRITE_URL']) || !isset($_SERVER['GATEWAY_INTERFACE']) || strpos($_SERVER['GATEWAY_INTERFACE'], 'CGI') === false) {
+			if(!isset($_SERVER['SERVER_SOFTWARE']) || !str_contains($_SERVER['SERVER_SOFTWARE'], 'Microsoft-IIS') || isset($_SERVER['HTTP_X_REWRITE_URL']) || !isset($_SERVER['GATEWAY_INTERFACE']) || !str_contains($_SERVER['GATEWAY_INTERFACE'], 'CGI')) {
 				// don't do that for IIS-CGI, it's already rawurldecode()d there
 				$this->input = rawurldecode($this->input);
 			}
@@ -206,7 +206,7 @@ class AgaviWebRouting extends AgaviRouting
 			$this->input = "/";
 		}
 
-		if(substr($this->basePath, -1, 1) != '/') {
+		if(!str_ends_with($this->basePath, '/')) {
 			$this->basePath .= '/';
 		}
 
@@ -256,7 +256,7 @@ class AgaviWebRouting extends AgaviRouting
 	{
 		$req = $this->context->getRequest();
 
-		if(substr($route, -1) == '*') {
+		if(str_ends_with($route, '*')) {
 			$options['refill_all_parameters'] = true;
 			$route = substr($route, 0, -1);
 		}
@@ -406,7 +406,7 @@ class AgaviWebRouting extends AgaviRouting
 				$scheme = '//';
 			} else {
 				// given scheme plus "://"
-				$scheme = $scheme . '://';
+				$scheme .= '://';
 			}
 			
 			$retval = $scheme . $authority . $retval;

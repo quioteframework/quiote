@@ -88,7 +88,7 @@ class AgaviHttpRedirectRoutingCallback extends AgaviRoutingCallback
 			
 			$arguments = (array)$this->getParameter('arguments');
 			// expand ${foo} in arguments using incoming parameters, this enables basic rewriting of arguments
-			array_walk_recursive($arguments, function(&$argument) use($parameters) { $argument = AgaviToolkit::expandVariables($argument, $parameters); });
+			array_walk_recursive($arguments, function(&$argument) use($parameters): void { $argument = AgaviToolkit::expandVariables($argument, $parameters); });
 			
 			$options = $this->getParameter('options', array());
 			// prepare options; make sure URLs are absolute and separator is "&" by default

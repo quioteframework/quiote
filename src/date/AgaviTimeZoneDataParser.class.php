@@ -509,7 +509,7 @@ class AgaviTimeZoneDataParser
 			$typeId = 0;
 			$myFinalTypes = array();
 			$myFinalRules = array();
-			foreach($myTypes as $key => $ids) {
+			foreach($myTypes as $ids) {
 				$firstRule = $myRules[$ids[0]];
 				$myFinalTypes[$typeId] = array('rawOffset' => $firstRule['rawOffset'], 'dstOffset' => $firstRule['dstOffset'], 'name' => $firstRule['name']);
 				foreach($ids as $id) {
@@ -928,7 +928,7 @@ class AgaviTimeZoneDataParser
 			}
 
 			$format = $zoneColumns[$indexBase + 3];
-			if(strpos($format, '/') !== false) {
+			if(str_contains($format, '/')) {
 				$format = explode('/', $format);
 			}
 

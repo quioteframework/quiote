@@ -61,7 +61,7 @@ class AgaviDependencyManager
 	{
 		$currentParts = $base->getParts();
 		foreach($tokens as $token) {
-			if($currentParts && strpos($token, '%') !== false) { 
+			if($currentParts && str_contains($token, '%')) { 
 				// the depends attribute contains sprintf syntax 
 				$token = vsprintf($token, $currentParts); 
 			}
@@ -89,7 +89,7 @@ class AgaviDependencyManager
 	{
 		$currentParts = $base->getParts();
 		foreach($tokens as $token) {
-			if($currentParts && strpos($token, '%') !== false) { 
+			if($currentParts && str_contains($token, '%')) { 
 				// the depends attribute contains sprintf syntax 
 				$token = vsprintf($token, $currentParts); 
 			}

@@ -201,7 +201,7 @@ class AgaviException extends Exception
 			}
 			
 			// drop leading </span>
-			if(strpos($line, '</span>') === 0) {
+			if(str_starts_with($line, '</span>')) {
 				$line = substr($line, 7);
 				// no style to carry over from previous line(s)
 				$remember = null;
@@ -224,7 +224,7 @@ class AgaviException extends Exception
 				continue;
 			}
 			
-			if(substr($line, -7) == '</span>') {
+			if(str_ends_with($line, '</span>')) {
 				// discard previous style if style terminates in this line
 				$remember = null;
 			} else {

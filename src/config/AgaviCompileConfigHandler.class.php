@@ -142,7 +142,7 @@ class AgaviCompileConfigHandler extends AgaviXmlConfigHandler
 							// something was appended, optionally add a newline
 							if($appended) {
 								$replace = null;
-								if(strstr($text, "\n") !== false) {
+								if(str_contains($text, "\n")) {
 									$replace = "\n";
 								}
 								if($replace) {
@@ -170,12 +170,12 @@ class AgaviCompileConfigHandler extends AgaviXmlConfigHandler
 			$data = $tokenized;
 		}
 		$data = trim($data);
-		if(substr($data, 0, 5) == '<?php') {
+		if(str_starts_with($data, '<?php')) {
 			$data = substr($data, 5);
-		} elseif(substr($data, 0, 2) == '<?') {
+		} elseif(str_starts_with($data, '<?')) {
 			$data = substr($data, 2);
 		}
-		if(substr($data, -2, 2) == '?>') {
+		if(str_ends_with($data, '?>')) {
 			$data = substr($data, 0, -2);
 		}
 		$data = preg_replace('/\s*\?>\s*<\?(php)?\s*/', '', $data);

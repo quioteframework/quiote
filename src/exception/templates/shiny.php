@@ -43,13 +43,13 @@ if(isset($_SERVER['HTTP_USER_AGENT'])) {
 } elseif(isset($context) && ($rq = $context->getRequest()) !== null && !$rq->isLocked() && ($rd = $rq->getRequestData()) !== null && $rd instanceof AgaviIHeadersRequestDataHolder) {
 	$ua = $rd->getHeader('User-Agent');
 }
-if(strpos($ua, 'AppleWebKit') !== false) {
+if(str_contains($ua, 'AppleWebKit')) {
 	if(preg_match('#AppleWebKit/(\d+)#', $ua, $matches)) {
 		if((int)$matches[1] >= 420) {
 			$svg = true;
 		}
 	}
-} elseif(strpos($ua, 'Gecko') !== false) {
+} elseif(str_contains($ua, 'Gecko')) {
 	if(preg_match('#rv:([0-9\.]+)#', $ua, $matches)) {
 		if(version_compare($matches[1], '1.8', '>=')) {
 			$svg = true;

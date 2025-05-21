@@ -558,7 +558,7 @@ abstract class AgaviValidator extends AgaviParameterHolder
 		$array =& $this->validationParameters->getAll($source);
 		$currentParts = $this->curBase->getParts();
 		
-		if(count($currentParts) > 0 && strpos($name, '%') !== false) {
+		if(count($currentParts) > 0 && str_contains($name, '%')) {
 			// this is a validator which actually has a base (<arguments base="xx">) set
 			// and the export name contains sprintf syntax
 			$name = vsprintf($name, $currentParts);

@@ -467,7 +467,7 @@ class AgaviUploadedFile implements ArrayAccess
 		if(!$this->hasOpenStream() && $this->hasBufferedContents()) {
 			// copy the contents into a temp stream
 			$this->stream = fopen('php://temp', 'rb+');
-			fputs($this->stream, $this->getContents());
+			fwrite($this->stream, $this->getContents());
 			rewind($this->stream);
 		}
 		

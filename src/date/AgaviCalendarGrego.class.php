@@ -171,9 +171,9 @@ final class AgaviCalendarGrego
 		} else {
 			++$year;
 		}
-		
+
 		$isLeap = self::isLeapYear($year);
-		
+
 		// Gregorian day zero is a Monday.
 		$dow = (int) fmod($day + 1, 7);
 		$dow += ($dow < 0) ? (AgaviDateDefinitions::SUNDAY + 7) : AgaviDateDefinitions::SUNDAY;

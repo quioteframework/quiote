@@ -308,7 +308,7 @@ class AgaviDateTimeValidator extends AgaviValidator
 			} else {
 				$result = $minMaxValue;
 			}
-		} elseif(strpos($minMax, '.') === false) {
+		} elseif(!str_contains($minMax, '.')) {
 			// a strtotime compatible string does not contain a dot, so all strings with dots are assumed to be
 			// strings matching the calendar format and all others are handled with strtotime
 			$tz = $locale->getLocaleTimeZone();

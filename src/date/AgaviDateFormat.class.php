@@ -309,7 +309,7 @@ class AgaviDateFormat
 					$year = $data[AgaviDateDefinitions::YEAR];
 					if($count == 2) {
 						// strip year to 2 chars
-						$year = $year % 100;
+						$year %= 100;
 					}
 					$out .= str_pad($year, $count, '0', STR_PAD_LEFT);
 					break;
@@ -415,7 +415,7 @@ class AgaviDateFormat
 								$displayString = $locale->getTimeZoneLongGenericName($tzid);
 							}
 							// if we don't have the generic data available
-							if(!$displayString && strlen($tzid) > 2 && strpos($tzid, '/') !== false && strncmp($tzid, 'Etc', 3) != 0) {
+							if(!$displayString && strlen($tzid) > 2 && str_contains($tzid, '/') && !str_starts_with($tzid, 'Etc')) {
 								$hasMultiple = false;
 								$territory = $tm->getTimeZoneTerritory($tzid, $hasMultiple);
 								// TODO: there are lots of rules in the ldml spec which could be covered here too
@@ -871,7 +871,7 @@ class AgaviDateFormat
 								$idToTzMap = array();
 								$tzNames = $locale->getTimeZoneNames();
 								foreach($tzNames as $tzId => $tz) {
-									foreach($tz as $type => $names) {
+									foreach($tz as $names) {
 										if(is_array($names)) {
 											foreach($names as $name) {
 												$localizedTzMap[$z] = $name;

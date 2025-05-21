@@ -93,7 +93,7 @@ final class AgaviArrayPathDefinition
 			$part = $parts[$i];
 			$last = ($i+1 == $c);
 			if($part !== null) {
-				if(is_array($a) && is_numeric($part) && strpos($part, '.') === false && strpos($part, ',') === false && (isset($a[(int)$part]) || array_key_exists((int)$part, $a))) {
+				if(is_array($a) && is_numeric($part) && !str_contains($part, '.') && !str_contains($part, ',') && (isset($a[(int)$part]) || array_key_exists((int)$part, $a))) {
 					$part = (int)$part;
 				}
 				if(is_array($a) && (isset($a[$part]) || array_key_exists($part, $a))) {
@@ -134,7 +134,7 @@ final class AgaviArrayPathDefinition
 
 		foreach($parts as $part) {
 			if($part !== null) {
-				if(is_array($a) && is_numeric($part) && strpos($part, '.') === false && strpos($part, ',') === false && (isset($a[(int)$part]) || array_key_exists((int)$part, $a))) {
+				if(is_array($a) && is_numeric($part) && !str_contains($part, '.') && !str_contains($part, ',') && (isset($a[(int)$part]) || array_key_exists((int)$part, $a))) {
 					$part = (int)$part;
 				}
 				if(is_array($a) && (isset($a[$part]) || array_key_exists($part, $a))) {
@@ -169,7 +169,7 @@ final class AgaviArrayPathDefinition
 
 		foreach($parts as $part) {
 			if($part !== null) {
-				if(is_array($a) && is_numeric($part) && strpos($part, '.') === false && strpos($part, ',') === false && (isset($a[(int)$part]) || array_key_exists((int)$part, $a))) {
+				if(is_array($a) && is_numeric($part) && !str_contains($part, '.') && !str_contains($part, ',') && (isset($a[(int)$part]) || array_key_exists((int)$part, $a))) {
 					$part = (int)$part;
 				}
 				if(is_array($a) && (isset($a[$part]) || array_key_exists($part, $a))) {
@@ -203,7 +203,7 @@ final class AgaviArrayPathDefinition
 
 		foreach($parts as $part) {
 			if($part !== null) {
-				if(is_array($a) && is_numeric($part) && strpos($part, '.') === false && strpos($part, ',') === false && (isset($a[(int)$part]) || array_key_exists((int)$part, $a))) {
+				if(is_array($a) && is_numeric($part) && !str_contains($part, '.') && !str_contains($part, ',') && (isset($a[(int)$part]) || array_key_exists((int)$part, $a))) {
 					$part = (int)$part;
 				}
 				if(!isset($a[$part]) || !is_array($a[$part]) || (is_array($a) && !(isset($a[$part]) || array_key_exists($part, $a)))) {
@@ -235,7 +235,7 @@ final class AgaviArrayPathDefinition
 		$parts = array();
 		$absolute = ($path[0] != '[');
 		if(($pos = strpos($path, '[')) === false) {
-			if(strpos($path, ']') !== false) {
+			if(str_contains($path, ']')) {
 				throw new InvalidArgumentException('Invalid "]" without opening "[" found');
 			}
 			$parts[] = $path;

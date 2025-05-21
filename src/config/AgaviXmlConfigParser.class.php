@@ -507,7 +507,7 @@ class AgaviXmlConfigParser
 				$parts = explode('#', $attribute->nodeValue, 2);
 				$parts[0] = str_replace('\\', '/', AgaviToolkit::expandDirectives($parts[0]));
 				$attribute->nodeValue = rawurlencode($parts[0]) . (isset($parts[1]) ? '#' . $parts[1] : '');
-				if(strpos($parts[0], '*') !== false || strpos($parts[0], '{') !== false) {
+				if(str_contains($parts[0], '*') || str_contains($parts[0], '{')) {
 					$glob = glob($parts[0], GLOB_BRACE);
 					if($glob) {
 						$glob = array_unique($glob); // it could be that someone used /path/to/{Foo,*}/burp.xml so Foo would come before all others, that's why we need to remove duplicates as the * would match Foo again
@@ -680,7 +680,7 @@ class AgaviXmlConfigParser
 			if(in_array($type, array('text/xml', 'text/xsl', 'application/xml', 'application/xsl+xml'))) {
 				$href = $href = $fragment->firstChild->getAttribute('href');
 				
-				if(strpos($href, '#') === 0) {
+				if(str_starts_with($href, '#')) {
 					// the href points to an embedded XSL stylesheet (with ID reference), so let's see if we can find it
 					$stylesheets = $xpath->query("//*[@id='" . substr($href, 1) . "']", $document);
 					if($stylesheets->length) {
@@ -788,7 +788,7 @@ class AgaviXmlConfigParser
 		if($document->documentElement->hasAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'schemaLocation')) {
 			// find locations. for namespaces, they are space separated pairs of a namespace URI and a schema location
 			$locations = preg_split('/\s+/', $document->documentElement->getAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'schemaLocation'));
-			for($i = 1; $i < count($locations); $i = $i + 2) {
+			for($i = 1; $i < count($locations); $i += 2) {
 				$sources[] = $locations[$i];
 			}
 		}

@@ -710,7 +710,7 @@ class AgaviTranslationManager
 		$availableLocale = $this->availableLocales[$this->getLocaleIdentifier($identifier)];
 
 		// if the user wants all options reset he supplies an 'empty' option set (identifier ends with @)
-		if(substr($identifier, -1) == '@') {
+		if(str_ends_with($identifier, '@')) {
 			$idData['options'] = array();
 		} else {
 			$idData['options'] = array_merge($availableLocale['identifierData']['options'], $idData['options']);

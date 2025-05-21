@@ -70,8 +70,7 @@ abstract class AgaviConfigHandler extends AgaviBaseConfigHandler implements Agav
 					// created entry (the last in the array). The value doesn't matter
 					// since it will be overwritten anyways
 					$data[] = 0;
-					end($data);
-					$name = key($data);
+					$name = array_key_last($data);
 				} else {
 					$name = $node->getAttribute('name');
 				}

@@ -323,7 +323,7 @@ class AgaviController extends AgaviParameterHolder
 			)
 		);
 		
-		if(is_readable($file) && substr($actionName, 0, 1) !== '/') {
+		if(is_readable($file) && !str_starts_with($actionName, '/')) {
 			return $file;
 		}
 		
@@ -413,7 +413,7 @@ class AgaviController extends AgaviParameterHolder
 			)
 		);
 		
-		if(is_readable($file) && substr($viewName, 0, 1) !== '/') {
+		if(is_readable($file) && !str_starts_with($viewName, '/')) {
 			return $file;
 		}
 		

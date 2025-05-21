@@ -285,7 +285,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 		}
 
 		if(isset($options['defaults'])) {
-			foreach($options['defaults'] as $name => &$value) {
+			foreach($options['defaults'] as &$value) {
 				$val = $pre = $post = null;
 				if(preg_match('#(.*)\{(.*)\}(.*)#', $value, $match)) {
 					$pre = $match[1];
@@ -707,7 +707,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 				if($r['opt']['anchor'] & self::ANCHOR_START || $r['opt']['anchor'] == self::ANCHOR_NONE) {
 					$uri = $r['opt']['reverseStr'] . $uri;
 				} else {
-					$uri = $uri . $r['opt']['reverseStr'];
+					$uri .= $r['opt']['reverseStr'];
 				}
 			}
 
@@ -1551,8 +1551,8 @@ abstract class AgaviRouting extends AgaviParameterHolder
 		$reverseStr = '';
 
 		$anchor = 0;
-		$anchor |= (substr($str, 0, 1) == '^') ? self::ANCHOR_START : 0;
-		$anchor |= (substr($str, -1) == '$') ? self::ANCHOR_END : 0;
+		$anchor |= (str_starts_with($str, '^')) ? self::ANCHOR_START : 0;
+		$anchor |= (str_ends_with($str, '$')) ? self::ANCHOR_END : 0;
 
 		$str = substr($str, (int)$anchor & self::ANCHOR_START, $anchor & self::ANCHOR_END ? -1 : strlen($str));
 

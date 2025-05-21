@@ -3195,7 +3195,7 @@ abstract class AgaviCalendar
 			default:
 				break;
 		}
-		$dowLocal = $dowLocal % 7;
+		$dowLocal %= 7;
 		if($dowLocal < 0) {
 			$dowLocal += 7;
 		}

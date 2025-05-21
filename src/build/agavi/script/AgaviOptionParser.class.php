@@ -168,7 +168,7 @@ class AgaviOptionParser
 					$handler = $option['handler'];
 				} else {
 					foreach($option['long_names'] as $name) {
-						if(strpos($source[$i], $this->longNamePrefix . $name . $this->nameSeparator) === 0) {
+						if(str_starts_with($source[$i], $this->longNamePrefix . $name . $this->nameSeparator)) {
 							if($option['arguments'] === 1) {
 								$arguments[] = substr($source[$i], strpos($source[$i], $this->nameSeparator) + 1);
 								$name = $optionName;
@@ -184,8 +184,8 @@ class AgaviOptionParser
 			}
 			
 			if($handler === null) {
-				if(strpos($source[$i], $this->shortNamePrefix) === 0 ||
-					strpos($source[$i], $this->longNamePrefix) === 0) {
+				if(str_starts_with($source[$i], $this->shortNamePrefix) ||
+					str_starts_with($source[$i], $this->longNamePrefix)) {
 					throw new AgaviOptionException(sprintf('Unexpected option %s', $source[$i]));
 				} else {
 					/* Accept arguments. */

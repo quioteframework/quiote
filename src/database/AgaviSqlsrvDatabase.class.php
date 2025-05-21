@@ -50,7 +50,7 @@ class AgaviSqlsrvDatabase extends AgaviDatabase
 
 		if($this->hasParameter('settings')) {
 			foreach((array)$this->getParameter('settings') as $key => $value) {
-				if(!sqlsrv_configure($key, is_string($value) && strpos($value, 'SQLSRV_') === 0 && defined($value) ? constant($value) : (is_numeric($value) ? (int)$value : $value))) {
+				if(!sqlsrv_configure($key, is_string($value) && str_starts_with($value, 'SQLSRV_') && defined($value) ? constant($value) : (is_numeric($value) ? (int)$value : $value))) {
 					throw new AgaviDatabaseException(sprintf('Unsupported key or value for setting "%s".', $key));
 				}
 			}
@@ -58,7 +58,7 @@ class AgaviSqlsrvDatabase extends AgaviDatabase
 
 		$connectionInfo = $this->getParameter('connection_info');
 		foreach($connectionInfo as &$value) {
-			$value = is_string($value) && strpos($value, 'SQLSRV_') === 0 && defined($value) ? constant($value) : (is_numeric($value) ? (int)$value : $value);
+			$value = is_string($value) && str_starts_with($value, 'SQLSRV_') && defined($value) ? constant($value) : (is_numeric($value) ? (int)$value : $value);
 		}
 		
 		$this->connection = sqlsrv_connect($serverName, $connectionInfo);

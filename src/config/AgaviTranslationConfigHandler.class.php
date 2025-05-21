@@ -104,7 +104,7 @@ class AgaviTranslationConfigHandler extends AgaviXmlConfigHandler
 					if(!class_exists($translator[$type]['class'])) {
 						throw new AgaviConfigurationException(sprintf('The Translator or Formatter class "%s" for domain "%s" could not be found.', $translator[$type]['class'], $domain));
 					}
-					$data[] = join("\n", array(
+					$data[] = implode("\n", array(
 						sprintf('$this->translators[%s][%s] = new %s();', var_export($domain, true), var_export($type, true), $translator[$type]['class']),
 						sprintf('$this->translators[%s][%s]->initialize($this->getContext(), %s);', var_export($domain, true), var_export($type, true), var_export($translator[$type]['params'], true)),
 						sprintf('$this->translatorFilters[%s][%s] = %s;', var_export($domain, true), var_export($type, true), var_export($translator[$type]['filters'], true)),

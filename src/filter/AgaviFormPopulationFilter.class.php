@@ -238,7 +238,7 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 						$this->doc->encoding = self::ENCODING_UTF_8;
 					}
 				}
-				if(strpos($meta->getAttribute('content'), 'application/xhtml+xml') !== false) {
+				if(str_contains($meta->getAttribute('content'), 'application/xhtml+xml')) {
 					$properXhtml = true;
 				}
 				break;
@@ -307,7 +307,7 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 					$action = preg_replace('/#.*$/', '', trim($form->getAttribute('action')));
 					if(!(
 						$action == $rurl ||
-						(strpos($action, '/') === 0 && preg_replace(array('#/\./#', '#/\.$#', '#[^\./]+/\.\.(/|\z)#', '#/{2,}#'), array('/', '/', '', '/'), $action) == $ruri) ||
+						(str_starts_with($action, '/') && preg_replace(array('#/\./#', '#/\.$#', '#[^\./]+/\.\.(/|\z)#', '#/{2,}#'), array('/', '/', '', '/'), $action) == $ruri) ||
 						$baseHref . preg_replace(array('#/\./#', '#/\.$#', '#[^\./]+/\.\.(/|\z)#', '#/{2,}#'), array('/', '/', '', '/'), $action) == $rurl
 					)) {
 						continue;

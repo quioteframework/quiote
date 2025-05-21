@@ -43,11 +43,11 @@ final class AgaviToolkit
 	 */
 	public static function isPathAbsolute($path)
 	{
-		if(strpos($path, "file://") === 0) {
+		if(str_starts_with($path, "file://")) {
 			$path = substr($path, 7);
 		}
 		
-		if($path[0] == '/' || substr($path, 0, 2) == '\\\\' ||
+		if($path[0] == '/' || str_starts_with($path, '\\\\') ||
 			(
 				strlen($path) >= 3 && ctype_alpha($path[0]) &&
 				$path[1] == ':' &&
@@ -164,7 +164,7 @@ final class AgaviToolkit
 						$continue = true;
 					} else {
 						foreach($ignores as $ignore) {
-							if(strpos($pathname, DIRECTORY_SEPARATOR . $ignore . DIRECTORY_SEPARATOR) !== false) {
+							if(str_contains($pathname, DIRECTORY_SEPARATOR . $ignore . DIRECTORY_SEPARATOR)) {
 								$continue = true;
 								break;
 							} elseif(strrpos($pathname, DIRECTORY_SEPARATOR . $ignore) == (strlen($pathname) - strlen(DIRECTORY_SEPARATOR . $ignore))) {
@@ -218,7 +218,7 @@ final class AgaviToolkit
 			foreach($countedDefs[$paramCount] as $key => $paramDef) {
 				$success = true;
 				for($i = 0; $i < $paramCount; ++$i) {
-					if(substr(gettype($parameters[$i]), 0, strlen($paramDef['parameters'][$i])) != $paramDef['parameters'][$i]) {
+					if(!str_starts_with(gettype($parameters[$i]), $paramDef['parameters'][$i])) {
 						$success = false;
 						break;
 					}
