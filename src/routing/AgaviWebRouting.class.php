@@ -431,6 +431,9 @@ class AgaviWebRouting extends AgaviRouting
 	 */
 	public function escapeOutputParameter($string)
 	{
+		if ($string === null) {
+			return '';
+		}
 		return rawurlencode($string);
 	}
 
