@@ -342,7 +342,7 @@ class AgaviConfigValueHolder implements ArrayAccess, IteratorAggregate
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function offsetExists($offset)
+	public function offsetExists($offset): bool
 	{
 		return isset($this->_childs[$offset]);
 	}
@@ -357,7 +357,7 @@ class AgaviConfigValueHolder implements ArrayAccess, IteratorAggregate
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function offsetGet($offset)
+	public function offsetGet($offset): AgaviConfigValueHolder|null
 	{
 		if(!isset($this->_childs[$offset]))
 			return null;
@@ -373,7 +373,7 @@ class AgaviConfigValueHolder implements ArrayAccess, IteratorAggregate
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function offsetSet($offset, $value)
+	public function offsetSet($offset, $value): void
 	{
 		$this->_childs[$offset] = $value;
 	}
@@ -386,7 +386,7 @@ class AgaviConfigValueHolder implements ArrayAccess, IteratorAggregate
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function offsetUnset($offset)
+	public function offsetUnset($offset): void	
 	{
 		unset($this->_childs[$offset]);
 	}
@@ -399,7 +399,7 @@ class AgaviConfigValueHolder implements ArrayAccess, IteratorAggregate
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function getIterator()
+	public function getIterator(): Traversable
 	{
 		return new ArrayIterator($this->getChildren());
 	}
