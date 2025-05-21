@@ -298,7 +298,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function getChildren($name, $namespaceUri = null, $pluralMagic = false): false|DOMNodeList
+	public function getChildren($name, $namespaceUri = null, $pluralMagic = false): null|DOMNodeList
 	{
 		// if arg is null, then only check for elements from our default namespace
 		// if namespace uri is null, use default ns. if empty string, use no ns
@@ -371,7 +371,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function getChild($name, $namespaceUri = null): false|AgaviXmlConfigDomElement
+	public function getChild($name, $namespaceUri = null): null|AgaviXmlConfigDomElement
 	{
 		// if arg is null, then only check for elements from our default namespace
 		// if namespace uri is null, use default ns. if empty string, use no ns
@@ -410,7 +410,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function getAttribute($name, $default = null): string|null
+	public function getAttribute($name, $default = null): string
 	{
 		$retval = parent::getAttribute($name);
 		
@@ -420,7 +420,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 			$retval = $default;
 		}
 		
-		return $retval;
+		return $retval ?? "";
 	}
 	
 	/**
@@ -440,7 +440,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function getAttributeNS($namespaceUri, $localName, $default = null): string|null
+	public function getAttributeNS($namespaceUri, $localName, $default = null): string
 	{
 		$retval = parent::getAttributeNS($namespaceUri, $localName);
 		
@@ -448,7 +448,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 			$retval = $default;
 		}
 		
-		return $retval;
+		return $retval ?? "";
 	}
 	
 	/**
