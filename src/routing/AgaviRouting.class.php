@@ -1514,8 +1514,9 @@ abstract class AgaviRouting extends AgaviParameterHolder
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	protected function parseInput(array $route, $input, &$matches)
+	protected function parseInput(array $route, $input, &$matches): bool|int
 	{
+		if ($input == null) return false;
 		if($route['opt']['source'] !== null) {
 			$parts = AgaviArrayPathDefinition::getPartsFromPath($route['opt']['source']);
 			$partArray = $parts['parts'];
