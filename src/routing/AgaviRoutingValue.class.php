@@ -32,7 +32,7 @@
 class AgaviRoutingValue implements AgaviIRoutingValue
 {
 	protected $context;
-	
+	protected $contextName;
 	protected $value;
 	protected $prefix;
 	protected $postfix;
