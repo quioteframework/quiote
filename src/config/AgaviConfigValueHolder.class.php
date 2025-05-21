@@ -29,6 +29,7 @@
  *
  * @version    $Id$
  */
+#[AllowDynamicProperties]
 class AgaviConfigValueHolder implements ArrayAccess, IteratorAggregate
 {
 	/**
@@ -47,46 +48,6 @@ class AgaviConfigValueHolder implements ArrayAccess, IteratorAggregate
 	 * @var        string The value.
 	 */
 	protected $_value = null;
-	protected $displayName;
-	protected $symbol;
-	protected $short;
-	protected $long;
-	protected $generic;
-	protected $standard;
-	protected $daylght;
-	protected $numbers;
-	protected $currencyFormats;
-	protected $currencyFormatLength;
-	protected $currencyFormat;
-	protected $currencies;
-	protected $pattern;
-	protected $references;
-	protected $ldml;
-	protected $identity;
-	protected $version;
-	protected $generation;
-	protected $localeDisplayNames;
-	protected $measurementSystemNames;
-	protected $measurementSystemName;
-	protected $layout;
-	protected $orientation;
-	protected $characters;
-	protected $exemplarCharacters;
-	protected $delimiters;
-	protected $quotationStart;
-	protected $quotationEnd;
-	protected $alternateQuotationStart;
-	protected $alternateQuotationEnd;
-	protected $dates;
-	protected $localizedPatternChars;
-	protected $calendars;
-	protected $eras;
-	protected $eraAbbr;
-	protected $era;
-	protected $dateFormats;
-	protected $dateFormatLength;
-	protected $dateFormat;
-	protected $alias;
 
 
 	/**
