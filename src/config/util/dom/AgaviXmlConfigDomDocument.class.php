@@ -274,13 +274,13 @@ class AgaviXmlConfigDomDocument extends DOMDocument
 	 * @author     Noah Fontes <noah.fontes@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function schemaValidate($filename)
+	public function schemaValidate($filename, $flags = 0)
 	{
 		$luie = libxml_use_internal_errors(true);
 		libxml_clear_errors();
 		
 		// gotta do the @ to suppress PHP warnings when the schema cannot be loaded or is invalid
-		if(!$result = @parent::schemaValidate($filename)) {
+		if(!$result = @parent::schemaValidate($filename, $flags)) {
 			$errors = array();
 			foreach(libxml_get_errors() as $error) {
 				$errors[] = sprintf('[%s #%d] Line %d: %s', $error->level == LIBXML_ERR_WARNING ? 'Warning' : ($error->level == LIBXML_ERR_ERROR ? 'Error' : 'Fatal'), $error->code, $error->line, $error->message);
@@ -312,13 +312,13 @@ class AgaviXmlConfigDomDocument extends DOMDocument
 	 * @author     Noah Fontes <noah.fontes@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function schemaValidateSource($source)
+	public function schemaValidateSource($source, $flags = 0)
 	{
 		$luie = libxml_use_internal_errors(true);
 		libxml_clear_errors();
 		
 		// gotta do the @ to suppress PHP warnings when the schema cannot be loaded or is invalid
-		if(!$result = @parent::schemaValidateSource($source)) {
+		if(!$result = @parent::schemaValidateSource($source, $flags)) {
 			$errors = array();
 			foreach(libxml_get_errors() as $error) {
 				$errors[] = sprintf('[%s #%d] Line %d: %s', $error->level == LIBXML_ERR_WARNING ? 'Warning' : ($error->level == LIBXML_ERR_ERROR ? 'Error' : 'Fatal'), $error->code, $error->line, $error->message);
