@@ -1553,8 +1553,8 @@ abstract class AgaviRouting extends AgaviParameterHolder
 		$reverseStr = '';
 
 		$anchor = 0;
-		$anchor |= (str_starts_with($str, '^')) ? self::ANCHOR_START : 0;
-		$anchor |= (str_ends_with($str, '$')) ? self::ANCHOR_END : 0;
+		$anchor |= $str !== null ? str_starts_with($str, '^') ? self::ANCHOR_START : 0 : 0;
+		$anchor |= $str !== null ? str_ends_with($str, '$') ? self::ANCHOR_END : 0 : 0;
 
 		$str = substr($str, (int)$anchor & self::ANCHOR_START, $anchor & self::ANCHOR_END ? -1 : strlen($str));
 
