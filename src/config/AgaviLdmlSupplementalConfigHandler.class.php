@@ -104,12 +104,12 @@ class AgaviLdmlSupplementalConfigHandler extends AgaviXmlConfigHandler
 				if ($language->getAttribute('scripts') !== null) {
 					$scripts = explode(' ', $language->getAttribute('scripts'));
 				} else {
-					$scripts = '';
+					$scripts = [];
 				}
 				if ($language->getAttribute('territories') !== null) {
 					$territories = explode(' ', $language->getAttribute('territories'));
 				} else {
-					$territories = '';
+					$territories = [];
 				}
 				$alt = $language->getAttribute('alt', 'primary');
 
