@@ -317,8 +317,11 @@ final class AgaviToolkit
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public static function expandDirectives($value)
+	public static function expandDirectives($value): array|string|null
 	{
+		if ($value === null) {
+			return null;
+		}
 		do {
 			$oldvalue = $value;
 			$value = preg_replace_callback(
