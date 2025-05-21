@@ -372,23 +372,23 @@ final class AgaviDateDefinitions
 	/** 
 	 * The number of milliseconds per second
 	 */
-	const MILLIS_PER_SECOND          = 1000.0;
+	const MILLIS_PER_SECOND          = 1000;
 	/** 
 	 * The number of milliseconds per minute
 	 */
-	const MILLIS_PER_MINUTE          = 60000.0;
+	const MILLIS_PER_MINUTE          = 60000;
 	/**
 	 * The number of milliseconds per hour
 	 */
-	const MILLIS_PER_HOUR            = 3600000.0;
+	const MILLIS_PER_HOUR            = 3600000;
 	/**
 	 * The number of milliseconds per day
 	 */
-	const MILLIS_PER_DAY             = 86400000.0;
+	const MILLIS_PER_DAY             = 86400000;
 	/**
 	 * The number of milliseconds per week 
 	 */
-	const MILLIS_PER_WEEK            = 604800000.0; // 7 * MILLIS_PER_DAY
+	const MILLIS_PER_WEEK            = 604800000; // 7 * MILLIS_PER_DAY
 
 	/**
 	 * The number of seconds per day
@@ -403,12 +403,12 @@ final class AgaviDateDefinitions
 	/**
 	 * January the 1. in year 1 (Gregorian) as julian day
 	 */
-	const JAN_1_1_JULIAN_DAY         = 1721426.0;
+	const JAN_1_1_JULIAN_DAY         = 1721426;
 
 	/**
 	 * January 1, 1970 (Gregorian) as julian day
 	 */
-	const EPOCH_START_AS_JULIAN_DAY  = 2440588.0;
+	const EPOCH_START_AS_JULIAN_DAY  = 2440588;
 
 	private function __construct()
 	{
