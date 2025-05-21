@@ -410,7 +410,8 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function getAttribute($name, $default = null): string
+	#[ReturnTypeWillChange]
+	public function getAttribute($name, $default = null): string|null
 	{
 		$retval = parent::getAttribute($name);
 		
@@ -440,7 +441,8 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function getAttributeNS($namespaceUri, $localName, $default = null): string
+	#[ReturnTypeWillChange]
+	public function getAttributeNS($namespaceUri, $localName, $default = null): string|null
 	{
 		$retval = parent::getAttributeNS($namespaceUri, $localName);
 		
