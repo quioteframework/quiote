@@ -77,12 +77,12 @@ class AgaviXsltProcessor extends XSLTProcessor
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function transformToDoc($doc)
+	public function transformToDoc($doc, $returnClass = null)
 	{
 		$luie = libxml_use_internal_errors(true);
 		libxml_clear_errors();
 		
-		$result = parent::transformToDoc($doc);
+		$result = parent::transformToDoc($doc, $returnClass);
 		
 		// check if result is false, too, as that means the transformation failed for reasons like infinite template recursion
 		if($result === false || libxml_get_last_error() !== false || count(libxml_get_errors())) {
