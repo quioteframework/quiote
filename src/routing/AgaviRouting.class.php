@@ -1516,7 +1516,6 @@ abstract class AgaviRouting extends AgaviParameterHolder
 	 */
 	protected function parseInput(array $route, $input, &$matches): bool|int
 	{
-		if ($input == null) $input = "";
 		if($route['opt']['source'] !== null) {
 			$parts = AgaviArrayPathDefinition::getPartsFromPath($route['opt']['source']);
 			$partArray = $parts['parts'];
@@ -1533,7 +1532,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 				}
 			}
 		}
-		return preg_match($route['rxp'], $input, $matches, PREG_OFFSET_CAPTURE);
+		return preg_match($route['rxp'], $input ?? "", $matches, PREG_OFFSET_CAPTURE);
 	}
 
 	/**
