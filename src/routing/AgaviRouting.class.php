@@ -1658,6 +1658,9 @@ abstract class AgaviRouting extends AgaviParameterHolder
 						}
 
 						if(!$rxName) {
+							$rxPrefix ??= "";
+							$rxInner ??= "";
+							$rxPostFix ??= "";
 							$myRx = $rxPrefix . $rxInner . $rxPostfix;
 							// if the entire regular expression doesn't contain any regular expression character we can safely append it to the reverseStr
 							//if(strlen($myRx) == strcspn($myRx, $rxChars)) {
