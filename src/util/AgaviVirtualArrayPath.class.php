@@ -52,7 +52,7 @@ class AgaviVirtualArrayPath
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function __construct($path)
+	public function __construct(string $path)
 	{
 		if(strlen($path) == 0) {
 			$this->absolute = true;

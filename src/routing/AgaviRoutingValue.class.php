@@ -344,11 +344,12 @@ class AgaviRoutingValue implements AgaviIRoutingValue
 	 * @author     Dominik del Bondio <dominik.del.bondio@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function offsetGet($offset)
+	public function offsetGet($offset): mixed
 	{
 		if(isset(self::$arrayMap[$offset])) {
 			return $this->{self::$arrayMap[$offset]};
 		}
+		return null;
 	}
 	
 	/**
