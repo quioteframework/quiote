@@ -1565,10 +1565,10 @@ abstract class AgaviRouting extends AgaviParameterHolder
 		$tmpStr = '';
 		$inEscape = false;
 
-		$rxName = "";
-		$rxInner = "";
-		$rxPrefix = "";
-		$rxPostfix = "";
+		$rxName = null;
+		$rxInner = null;
+		$rxPrefix = null;
+		$rxPostfix = null;
 		$parenthesisCount = 0;
 		$bracketCount = 0;
 		$hasBrackets = false;
