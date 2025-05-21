@@ -37,12 +37,12 @@ class AgaviXsltProcessor extends XSLTProcessor
 	 * @author     Noah Fontes <noah.fontes@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function importStylesheet($stylesheet)
+	public function importStylesheet($stylesheet): bool
 	{
 		$luie = libxml_use_internal_errors(true);
 		libxml_clear_errors();
 		
-		parent::importStylesheet($stylesheet);
+		$retVal = parent::importStylesheet($stylesheet);
 		
 		// libxml_get_last_error() returns false if importStylesheet failed, libxml_get_errors() works nontheless. zomfg libxml.
 		// also, if we catch the errors here and throw an exception, we don't need an @ further down at transformToDoc().
@@ -64,6 +64,7 @@ class AgaviXsltProcessor extends XSLTProcessor
 		}
 		
 		libxml_use_internal_errors($luie);
+		return $retVal;
 	}
 	
 	/**
@@ -77,7 +78,7 @@ class AgaviXsltProcessor extends XSLTProcessor
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function transformToDoc($doc, $returnClass = null)
+	public function transformToDoc($doc, $returnClass = null): false|object
 	{
 		$luie = libxml_use_internal_errors(true);
 		libxml_clear_errors();
