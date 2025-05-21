@@ -61,6 +61,33 @@ class AgaviConfigValueHolder implements ArrayAccess, IteratorAggregate
 	protected $currencies;
 	protected $pattern;
 	protected $references;
+	protected $ldml;
+	protected $identity;
+	protected $version;
+	protected $generation;
+	protected $localeDisplayNames;
+	protected $measurementSystemNames;
+	protected $measurementSystemName;
+	protected $layout;
+	protected $orientation;
+	protected $characters;
+	protected $exemplarCharacters;
+	protected $delimiters;
+	protected $quotationStart;
+	protected $quotationEnd;
+	protected $alternateQuotationStart;
+	protected $alternateQuotationEnd;
+	protected $dates;
+	protected $localizedPatternChars;
+	protected $calendars;
+	protected $eras;
+	protected $eraAbbr;
+	protected $era;
+	protected $dateFormats;
+	protected $dateFormatLength;
+	protected $dateFormat;
+	protected $alias;
+
 
 	/**
 	 * Sets the name of this value.
