@@ -371,7 +371,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function getChild($name, $namespaceUri = null): false|DOMNodeList
+	public function getChild($name, $namespaceUri = null): false|AgaviXmlConfigDomElement
 	{
 		// if arg is null, then only check for elements from our default namespace
 		// if namespace uri is null, use default ns. if empty string, use no ns

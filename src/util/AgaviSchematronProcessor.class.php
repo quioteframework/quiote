@@ -38,6 +38,8 @@ class AgaviSchematronProcessor extends AgaviParameterHolder
 	
 	const NAMESPACE_XSL_1999 = 'http://www.w3.org/1999/XSL/Transform';
 	
+	private $chain;
+
 	/**
 	 * @var        array A cache of processor instances.
 	 */
