@@ -1665,7 +1665,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 							$myRx = $rxPrefix . $rxInner . $rxPostfix;
 							// if the entire regular expression doesn't contain any regular expression character we can safely append it to the reverseStr
 							//if(strlen($myRx) == strcspn($myRx, $rxChars)) {
-							if(strpbrk($myRx, $rxChars) === false) {
+							if(@strpbrk($myRx, $rxChars) === false) {
 								$reverseStr .= $myRx;
 							}
 							$rxStr .= str_replace('#', '\#', sprintf('(%s)', $myRx));
@@ -1674,13 +1674,13 @@ abstract class AgaviRouting extends AgaviParameterHolder
 							$reverseStr .= sprintf('(:%s:)', $rxName);
 
 							if(!isset($vars[$rxName])) {
-								if(strpbrk($rxPrefix, $rxChars) !== false) {
+								if(@strpbrk($rxPrefix, $rxChars) !== false) {
 									$rxPrefix = null;
 								}
-								if(strpbrk($rxInner, $rxChars) !== false) {
+								if(@strpbrk($rxInner, $rxChars) !== false) {
 									$rxInner = null;
 								}
-								if(strpbrk($rxPostfix, $rxChars) !== false) {
+								if(@strpbrk($rxPostfix, $rxChars) !== false) {
 									$rxPostfix = null;
 								}
 
