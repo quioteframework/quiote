@@ -1563,10 +1563,10 @@ abstract class AgaviRouting extends AgaviParameterHolder
 		$tmpStr = '';
 		$inEscape = false;
 
-		$rxName = null;
-		$rxInner = null;
-		$rxPrefix = null;
-		$rxPostfix = null;
+		$rxName = "";
+		$rxInner = "";
+		$rxPrefix = "";
+		$rxPostfix = "";
 		$parenthesisCount = 0;
 		$bracketCount = 0;
 		$hasBrackets = false;
@@ -1644,6 +1644,9 @@ abstract class AgaviRouting extends AgaviParameterHolder
 					if($parenthesisCount > 0) {
 						$tmpStr .= $c;
 					} else {
+						$rxPrefix ?? "";
+						$rxInner ?? "";
+						$rxPostFix ?? "";
 						if($parenthesisCount < 0) {
 							throw new AgaviException('The pattern ' . $str . ' contains an unbalanced set of parentheses!');
 						}
@@ -1658,9 +1661,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 						}
 
 						if(!$rxName) {
-							$rxPrefix ??= "";
-							$rxInner ??= "";
-							$rxPostFix ??= "";
+							
 							$myRx = $rxPrefix . $rxInner . $rxPostfix;
 							// if the entire regular expression doesn't contain any regular expression character we can safely append it to the reverseStr
 							//if(strlen($myRx) == strcspn($myRx, $rxChars)) {
