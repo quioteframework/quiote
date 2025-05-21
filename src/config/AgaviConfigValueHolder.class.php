@@ -47,6 +47,9 @@ class AgaviConfigValueHolder implements ArrayAccess, IteratorAggregate
 	 * @var        string The value.
 	 */
 	protected $_value = null;
+	protected $displayName;
+	protected $symbol;
+	protected $references;
 
 	/**
 	 * Sets the name of this value.
