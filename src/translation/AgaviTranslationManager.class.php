@@ -35,6 +35,8 @@ class AgaviTranslationManager
 	const CURRENCY = 'cur';
 	const DATETIME = 'date';
 
+	protected $translatorFilters = [];
+	
 	/**
 	 * @var        AgaviContext An AgaviContext instance.
 	 */
