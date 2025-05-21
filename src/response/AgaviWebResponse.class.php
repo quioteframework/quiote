@@ -708,7 +708,7 @@ class AgaviWebResponse extends AgaviResponse
 			}
 
 			if($values['encode_callback']) {
-				$values['value'] = call_user_func($values['encode_callback'], $values['value']);
+				$values['value'] = $values['encode_callback'] != null ? call_user_func($values['encode_callback'], $values['value']) : $values['value'];
 			}
 			
 			if($values['path'] === null) {
