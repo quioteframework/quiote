@@ -715,8 +715,8 @@ class AgaviWebResponse extends AgaviResponse
 			if($values['path'] === null) {
 				$values['path'] = $basePath;
 			}
-			
-			setrawcookie($name, $values['value'], $expire, $values['path'], $values['domain'], $values['secure'], $values['httponly']);
+			if ($values['value'] !== null)
+				setrawcookie($name, $values['value'], $expire, $values['path'], $values['domain'], $values['secure'], $values['httponly']);
 		}
 		
 		// send headers
