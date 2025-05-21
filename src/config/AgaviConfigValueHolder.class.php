@@ -49,6 +49,17 @@ class AgaviConfigValueHolder implements ArrayAccess, IteratorAggregate
 	protected $_value = null;
 	protected $displayName;
 	protected $symbol;
+	protected $short;
+	protected $long;
+	protected $generic;
+	protected $standard;
+	protected $daylght;
+	protected $numbers;
+	protected $currencyFormats;
+	protected $currencyFormatLength;
+	protected $currencyFormat;
+	protected $currencies;
+	protected $pattern;
 	protected $references;
 
 	/**
