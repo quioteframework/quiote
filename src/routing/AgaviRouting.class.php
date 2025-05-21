@@ -1516,7 +1516,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 	 */
 	protected function parseInput(array $route, $input, &$matches): bool|int
 	{
-		if ($input == null) return false;
+		if ($input == null) $input = "";
 		if($route['opt']['source'] !== null) {
 			$parts = AgaviArrayPathDefinition::getPartsFromPath($route['opt']['source']);
 			$partArray = $parts['parts'];
@@ -1646,9 +1646,6 @@ abstract class AgaviRouting extends AgaviParameterHolder
 					if($parenthesisCount > 0) {
 						$tmpStr .= $c;
 					} else {
-						$rxPrefix ?? "";
-						$rxInner ?? "";
-						$rxPostFix ?? "";
 						if($parenthesisCount < 0) {
 							throw new AgaviException('The pattern ' . $str . ' contains an unbalanced set of parentheses!');
 						}
