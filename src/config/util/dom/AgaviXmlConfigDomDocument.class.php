@@ -189,7 +189,7 @@ class AgaviXmlConfigDomDocument extends DOMDocument
 	 * @author     Noah Fontes <noah.fontes@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function xinclude($options = 0)
+	public function xinclude($options = 0): false|int
 	{
 		$luie = libxml_use_internal_errors(true);
 		libxml_clear_errors();
@@ -274,7 +274,7 @@ class AgaviXmlConfigDomDocument extends DOMDocument
 	 * @author     Noah Fontes <noah.fontes@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function schemaValidate($filename, $flags = 0)
+	public function schemaValidate($filename, $flags = 0): bool
 	{
 		$luie = libxml_use_internal_errors(true);
 		libxml_clear_errors();
@@ -312,7 +312,7 @@ class AgaviXmlConfigDomDocument extends DOMDocument
 	 * @author     Noah Fontes <noah.fontes@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function schemaValidateSource($source, $flags = 0)
+	public function schemaValidateSource($source, $flags = 0): bool
 	{
 		$luie = libxml_use_internal_errors(true);
 		libxml_clear_errors();
@@ -349,7 +349,7 @@ class AgaviXmlConfigDomDocument extends DOMDocument
 	 * @author     Noah Fontes <noah.fontes@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function relaxNGValidate($filename)
+	public function relaxNGValidate($filename): bool
 	{
 		$luie = libxml_use_internal_errors(true);
 		libxml_clear_errors();

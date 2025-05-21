@@ -40,7 +40,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function __toString()
+	public function __toString(): string
 	{
 		return $this->getValue();
 	}
@@ -53,7 +53,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function getName()
+	public function getName(): string
 	{
 		// what to return here? name with prefix? no.
 		// but... element name, or with ns prefix?
@@ -68,7 +68,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function getValue()
+	public function getValue(): string
 	{
 		// TODO: or textContent?
 		// trimmed or not? in utf-8 or native encoding?
@@ -94,7 +94,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.1.0
 	 */
-	public function getLiteralValue()
+	public function getLiteralValue(): mixed
 	{
 		$value = $this->getValue();
 		// XML specifies [\x9\xA\xD\x20] as whitespace
@@ -133,7 +133,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function getIterator()
+	public function getIterator(): Traversable
 	{
 		// should only pull elements from the default ns
 		$prefix = $this->ownerDocument->getDefaultNamespacePrefix();
@@ -156,7 +156,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 	 * @author     Noah Fontes <noah.fontes@bitextender.com>
 	 * @since      1.0.0
 	 */
-	protected function singularize($name)
+	protected function singularize($name): string
 	{
 		// TODO: shouldn't this be static?
 		$names = preg_split('#([_\-\.])#', $name, -1, PREG_SPLIT_DELIM_CAPTURE);
@@ -179,7 +179,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function get($name, $namespaceUri = null)
+	public function get($name, $namespaceUri = null): DOMNodeList
 	{
 		return $this->getChildren($name, $namespaceUri, true);
 	}
@@ -200,7 +200,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function has($name, $namespaceUri = null)
+	public function has($name, $namespaceUri = null): bool
 	{
 		return $this->hasChildren($name, $namespaceUri, true);
 	}
@@ -221,7 +221,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function countChildren($name, $namespaceUri = null, $pluralMagic = false)
+	public function countChildren($name, $namespaceUri = null, $pluralMagic = false): int
 	{
 		// if arg is null, then only check for elements from our default namespace
 		// if namespace uri is null, use default ns. if empty string, use no ns
@@ -277,7 +277,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function hasChildren($name, $namespaceUri = null, $pluralMagic = false)
+	public function hasChildren($name, $namespaceUri = null, $pluralMagic = false): bool
 	{
 		return $this->countChildren($name, $namespaceUri, $pluralMagic) !== 0;
 	}
@@ -298,7 +298,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function getChildren($name, $namespaceUri = null, $pluralMagic = false)
+	public function getChildren($name, $namespaceUri = null, $pluralMagic = false): false|DOMNodeList
 	{
 		// if arg is null, then only check for elements from our default namespace
 		// if namespace uri is null, use default ns. if empty string, use no ns
@@ -351,7 +351,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function hasChild($name, $namespaceUri = null)
+	public function hasChild($name, $namespaceUri = null): bool
 	{
 		return $this->getChild($name, $namespaceUri) !== null;
 	}
@@ -371,7 +371,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function getChild($name, $namespaceUri = null)
+	public function getChild($name, $namespaceUri = null): false|DOMNodeList
 	{
 		// if arg is null, then only check for elements from our default namespace
 		// if namespace uri is null, use default ns. if empty string, use no ns
@@ -410,7 +410,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function getAttribute($name, $default = null)
+	public function getAttribute($name, $default = null): mixed
 	{
 		$retval = parent::getAttribute($name);
 		
@@ -440,7 +440,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function getAttributeNS($namespaceUri, $localName, $default = null)
+	public function getAttributeNS($namespaceUri, $localName, $default = null): mixed
 	{
 		$retval = parent::getAttributeNS($namespaceUri, $localName);
 		
@@ -459,7 +459,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function getAttributes()
+	public function getAttributes(): array
 	{
 		return $this->getAttributesNS('');
 	}
@@ -472,7 +472,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function getAttributesNS($namespaceUri)
+	public function getAttributesNS($namespaceUri): array
 	{
 		$retval = array();
 		
@@ -491,7 +491,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function hasAgaviParameters()
+	public function hasAgaviParameters(): bool
 	{
 		if($this->ownerDocument->isAgaviConfiguration()) {
 			return $this->has('parameters', AgaviXmlConfigParser::NAMESPACE_AGAVI_ENVELOPE_LATEST);
@@ -512,7 +512,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function getAgaviParameters(array $existing = array())
+	public function getAgaviParameters(array $existing = []): array
 	{
 		$result = $existing;
 		$offset = 0;
