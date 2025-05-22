@@ -38,7 +38,6 @@ class AgaviDispatchFilter extends AgaviFilter implements AgaviIGlobalFilter
 	 *
 	 * The DispatchFilter executes the execution container.
 	 *
-	 * @param      AgaviFilterChain        The filter chain.
 	 * @param      AgaviExecutionContainer The current execution container.
 	 *
 	 * @throws     <b>AgaviFilterException</b> If an error occurs during execution.
@@ -46,9 +45,15 @@ class AgaviDispatchFilter extends AgaviFilter implements AgaviIGlobalFilter
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function execute(AgaviFilterChain $filterChain, AgaviExecutionContainer $container)
+	public function execute(AgaviExecutionContainer $container)
 	{
 		$container->setResponse($container->execute());
+	}
+
+	// This filter should always be a pre-filter
+	public function isPostFilter(): bool
+	{
+		return false;
 	}
 }
 

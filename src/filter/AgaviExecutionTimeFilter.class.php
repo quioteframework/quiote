@@ -53,36 +53,9 @@ class AgaviExecutionTimeFilter extends AgaviFilter implements AgaviIGlobalFilter
 	 * @author     Sean Kerr <skerr@mojavi.org>
 	 * @since      0.9.0
 	 */
-	public function execute(AgaviFilterChain $filterChain, AgaviExecutionContainer $container)
+	public function execute(AgaviExecutionContainer $container)
 	{
-		$comment = $this->getParameter('comment', false);
-		$replace = $this->getParameter('replace', false);
 		
-		$start = microtime(true);
-		$filterChain->execute($container);
-		
-		$response = $container->getResponse();
-		
-		$outputTypes = (array) $this->getParameter('output_types');
-		if(!$response->isContentMutable() || (is_array($outputTypes) && !in_array($response->getOutputType()->getName(), $outputTypes))) {
-			return;
-		}
-		
-		$time = (microtime(true) - $start);
-		
-		
-		if($replace) {
-			$output = $response->getContent();
-			$output = str_replace($replace, $time, $output);
-			$response->setContent($output);
-		}
-		
-		if($comment) {
-			if($comment === true) {
-				$comment = "\n\n<!-- This page took %s seconds to process -->";
-			}
-			$response->appendContent(sprintf($comment, $time));
-		}
 	}
 
 	/**

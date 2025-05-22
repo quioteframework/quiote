@@ -28,7 +28,7 @@
  *
  * @version    $Id$
  */
-class AgaviExecutionContainer extends AgaviAttributeHolder
+class AgaviExecutionContainer extends \AgaviAttributeHolder
 {
 	/**
 	 * @var        AgaviContext The context instance.
@@ -115,6 +115,11 @@ class AgaviExecutionContainer extends AgaviAttributeHolder
 	 * @var        AgaviExecutionContainer The next container to execute.
 	 */
 	protected $next = null;
+
+	/**
+	 * @var bool Indicates if this container is the result of a security forward.
+	 */
+	protected $securityForwarded = false;
 
 	/**
 	 * Action names may contain any valid PHP token, as well as dots and slashes
@@ -252,6 +257,35 @@ class AgaviExecutionContainer extends AgaviAttributeHolder
 	 */
 	public function execute()
 	{
+		$logger = null;
+		if ($this->context && method_exists($this->context, 'getLoggerManager') && $this->context->getLoggerManager()) {
+			$logger = $this->context->getLoggerManager();
+		}
+		$log = function($msg) use ($logger) {
+			if ($logger) {
+				$logger->logDebug($msg);
+			} else {
+				error_log($msg);
+			}
+		};
+
+		$log("AgaviExecutionContainer::execute() called. Module: {$this->getModuleName()}, Action: {$this->getActionName()}, is_slot: " . var_export($this->getParameter('is_slot', false), true));
+
+		// Slot recursion guard
+		static $slotStack = [];
+		$isSlot = $this->getParameter('is_slot', false);
+		if ($isSlot) {
+			$key = $this->getModuleName() . '/' . $this->getActionName();
+			$slotStack[] = $key;
+			$count = 0;
+			foreach ($slotStack as $slot) {
+				if ($slot === $key) $count++;
+			}
+			if ($count > 10) { // Arbitrary limit, adjust as needed
+				throw new AgaviException("Infinite slot recursion detected for slot: $key");
+			}
+		}
+
 		$controller = $this->context->getController();
 
 		$controller->countExecution();
@@ -261,44 +295,55 @@ class AgaviExecutionContainer extends AgaviAttributeHolder
 		try {
 			$actionInstance = $this->getActionInstance();
 		} catch(AgaviDisabledModuleException $e) {
+			$log("Module disabled: $moduleName");
 			$this->setNext($this->createSystemActionForwardContainer('module_disabled'));
 			return $this->proceed();
 		} catch(AgaviFileNotFoundException $e) {
+			$log("Action file not found: $moduleName / " . $this->getActionName());
 			$this->setNext($this->createSystemActionForwardContainer('error_404'));
 			return $this->proceed();
-		} // do not catch AgaviClassNotFoundException, we want that to bubble up since it means the class in the action file is named incorrectly
-		
+		}
+
 		// copy and merge request data as required
 		$this->initRequestData();
-		
+
+		// If this is a slot execution, skip the filter chain and run only the execution filter logic.
+		if ($isSlot) {
+			$log("Slot execution detected. Running only execution filter for slot: {$this->getModuleName()} / {$this->getActionName()}");
+			$executionFilter = $this->context->getController()->getFilter('execution');
+			$executionFilter->execute($this);
+			$result = $this->proceed();
+			array_pop($slotStack);
+			return $result;
+		}
+
+		$log("Running full filter chain for: {$this->getModuleName()} / {$this->getActionName()}");
 		$filterChain = $this->getFilterChain();
-		
+
+		// Register filters (only once per execution)
 		if(!$actionInstance->isSimple()) {
-			// simple actions have no filters
-
-			if(AgaviConfig::get('core.available', false)) {
-				// the application is available so we'll register
-				// globally defined and module-specific action filters, otherwise skip them
-
-				// does this action require security?
-				if(AgaviConfig::get('core.use_security', false)) {
-					// register security filter
-					$filterChain->register($controller->getFilter('security'), 'agavi_security_filter');
-				}
-
-				// load filters
-				$controller->loadFilters($filterChain, 'action');
-				$controller->loadFilters($filterChain, 'action', $moduleName);
+			if(AgaviConfig::get('core.use_security', false)) {
+				$log("Registering security filter");
+				$filterChain->register($controller->getFilter('security'), 'agavi_security_filter');
 			}
+
+			// load filters
+			$log("Loading action filters");
+			$controller->loadFilters($filterChain, 'action');
+			$controller->loadFilters($filterChain, 'action', $moduleName);
 		}
 
 		// register the execution filter
+		$log("Registering execution filter");
 		$filterChain->register($controller->getFilter('execution'), 'agavi_execution_filter');
 
 		// process the filter chain
-		$filterChain->execute($this);
-		
-		return $this->proceed();
+		$log("Executing filter chain for: {$this->getModuleName()} / {$this->getActionName()}");
+		$filterChain->execute($this, null);
+
+		$log("Execution finished for: {$this->getModuleName()} / {$this->getActionName()}");
+		$result = $this->proceed();
+		return $result;
 	}
 	
 	/**
@@ -435,7 +480,7 @@ class AgaviExecutionContainer extends AgaviAttributeHolder
 	 *
 	 * @return     AgaviFilterChain The container's filter chain.
 	 *
-	 * @author     David Zülke <david.zuelke@bitextender.com>
+	 * @author     David Zülke <david.zuelke@bitxtender.com>
 	 * @since      1.1.0
 	 */
 	public function getFilterChain()
@@ -1027,6 +1072,26 @@ class AgaviExecutionContainer extends AgaviAttributeHolder
 		$retval = $this->next;
 		$this->next = null;
 		return $retval;
+	}
+
+	/**
+	 * Check if this container is the result of a security forward.
+	 *
+	 * @return bool
+	 */
+	public function isSecurityForwarded()
+	{
+		return $this->securityForwarded;
+	}
+
+	/**
+	 * Mark this container as the result of a security forward.
+	 *
+	 * @param bool $flag
+	 */
+	public function setSecurityForwarded($flag = true)
+	{
+		$this->securityForwarded = (bool)$flag;
 	}
 }
 

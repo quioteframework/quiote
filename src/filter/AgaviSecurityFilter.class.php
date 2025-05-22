@@ -34,53 +34,60 @@
  */
 class AgaviSecurityFilter extends AgaviFilter implements AgaviIActionFilter, AgaviISecurityFilter
 {
-	/**
-	 * Execute this filter.
-	 *
-	 * @param      AgaviFilterChain        A FilterChain instance.
-	 * @param      AgaviExecutionContainer The current execution container.
-	 *
-	 * @author     David Zülke <dz@bitxtender.com>
-	 * @author     Sean Kerr <skerr@mojavi.org>
-	 * @since      0.9.0
-	 */
-	public function execute(AgaviFilterChain $filterChain, AgaviExecutionContainer $container)
-	{
-		// get the cool stuff
-		$context    = $this->getContext();
-		$user       = $context->getUser();
+    /**
+     * Execute this filter.
+     *
+     * @param      AgaviExecutionContainer The current execution container.
+     *
+     * @author     David Zülke <dz@bitxtender.com>
+     * @author     Sean Kerr <skerr@mojavi.org>
+     * @since      0.9.0
+     */
+    public function execute(AgaviExecutionContainer $container)
+    {
+        static $handlingRedirects = array();
+        $actionKey = $container->getModuleName() . '/' . $container->getActionName();
+        if(isset($handlingRedirects[$actionKey])) {
+            return;
+        }
 
-		// get the current action instance
-		$actionInstance = $container->getActionInstance();
+        if($container->isSecurityForwarded()) {
+            throw new AgaviException('Infinite security forwarding detected');
+        }
 
-		if(!$actionInstance->isSecure()) {
-			// the action instance does not require authentication, so we can continue in the chain and then bail out early
-			return $filterChain->execute($container);
-		}
+        $context    = $this->getContext();
+        $user       = $context->getUser();
+        $actionInstance = $container->getActionInstance();
 
-		// get the credential required for this action
-		$credential = $actionInstance->getCredentials();
+        if(!$actionInstance->isSecure()) {
+            return;
+        }
 
-		// credentials can be anything you wish; a string, array, object, etc.
-		// as long as you add the same exact data to the user as a credential,
-		// it will use it and authorize the user as having the credential
-		//
-		// NOTE: the nice thing about the Action class is that getCredential()
-		//       is vague enough to describe any level of security and can be
-		//       used to retrieve such data and should never have to be altered
-		if($user->isAuthenticated() && ($credential === null || $user->hasCredentials($credential))) {
-			// the user has access, continue
-			$filterChain->execute($container);
-		} else {
-			if($user->isAuthenticated()) {
-				// the user doesn't have access
-				$container->setNext($container->createSystemActionForwardContainer('secure'));
-			} else {
-				// the user is not authenticated
-				$container->setNext($container->createSystemActionForwardContainer('login'));
-			}
-		}
-	}
+        $credential = $actionInstance->getCredentials();
+
+        if($user->isAuthenticated() && ($credential === null || $user->hasCredentials($credential))) {
+            // user has access, continue
+            return;
+        } else {
+            try {
+                $handlingRedirects[$actionKey] = true;
+
+                if($user->isAuthenticated()) {
+                    $container->setNext($container->createSystemActionForwardContainer('secure'));
+                } else {
+                    $forwardContainer = $container->createSystemActionForwardContainer('login');
+                    $forwardContainer->setSecurityForwarded(true);
+                    $container->setNext($forwardContainer);
+                    return;
+                }
+            } finally {
+                unset($handlingRedirects[$actionKey]);
+            }
+        }
+    }
+
+    public function isPostFilter(): bool
+    {
+        return false;
+    }
 }
-
-?>

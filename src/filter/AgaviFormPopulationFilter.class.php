@@ -65,7 +65,6 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 	/**
 	 * Execute this filter.
 	 *
-	 * @param      AgaviFilterChain        The filter chain.
 	 * @param      AgaviExecutionContainer The current execution container.
 	 *
 	 * @throws     <b>AgaviFilterException</b> If an error occurs during execution.
@@ -73,9 +72,8 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function execute(AgaviFilterChain $filterChain, AgaviExecutionContainer $container)
+	public function execute(AgaviExecutionContainer $container)
 	{
-		$filterChain->execute($container);
 		$response = $container->getResponse();
 
 		if(!$response->isContentMutable() || !($output = $response->getContent())) {
@@ -705,6 +703,11 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 		}
 		unset($this->xpath);
 		unset($this->doc);
+	}
+
+	public function isPostFilter(): bool
+	{
+		return false;
 	}
 
 	/**

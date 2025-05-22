@@ -29,6 +29,10 @@
  */
 class AgaviWebResponse extends AgaviResponse
 {
+
+	protected $outputTypeName;
+	protected $outpuTypeName;
+	protected $contextName;
 	/**
 	 * @var        array An array of all HTTP 1.0 status codes and their message.
 	 */

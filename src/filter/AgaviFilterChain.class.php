@@ -22,6 +22,7 @@
  *
  * @author     Sean Kerr <skerr@mojavi.org>
  * @author     David Zülke <dz@bitxtender.com>
+ * @author     Markus Lervik <markus.lervik@thejakamo.com>
  * @copyright  Authors
  * @copyright  The Agavi Project
  *
@@ -31,150 +32,77 @@
  */
 class AgaviFilterChain
 {
-	/**
-	 * @constant   string Filter chain type identifier "action".
-	 */
-	const TYPE_ACTION = 'action';
-	
-	/**
-	 * @constant   string Filter chain type identifier "global".
-	 */
-	const TYPE_GLOBAL = 'global';
-	
-	/**
-	 * @var        array An array to keep track of filter execution.
-	 */
-	protected static $filterLog;
-	
-	/**
-	 * @var        string The unique key to access the list of filters and their
-	 *                    execution count for this filter chain's Context.
-	 */
-	protected $filterLogKey = '';
-	
-	/**
-	 * @var        array The elements in this chain.
-	 */
-	protected $chain = array();
-	
-	/**
-	 * @var        AgaviExecutionContainer The execution container that is handed to filters.
-	 */
-	protected $context = null;
+	protected array $preFilters = [];
+	protected array $postFilters = [];
+	protected array $names = [];
+	protected int $type;
 
-	/**
-	 * @var        string The type of filter chain.
-	 * @see        AgaviFilterChain::TYPE_ACTION
-	 * @see        AgaviFilterChain::TYPE_GLOBAL
-	 */
-	protected $type = self::TYPE_ACTION;
-	
-	/**
-	 * Initialize this Filter Chain.
-	 *
-	 * @param      AgaviResponse the Response instance for this Chain.
-	 * @param      array An array of initialization parameters.
-	 *
-	 * @author     David Zülke <dz@bitxtender.com>
-	 * @since      0.11.0
-	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
-	{
-		$this->context = $context;
-		$this->filterLogKey = $context->getName();
-	}
-	
-	/**
-	 * Set the type of this filter chain.
-	 *
-	 * @see        AgaviFilterChain::TYPE_ACTION
-	 * @see        AgaviFilterChain::TYPE_GLOBAL
-	 *
-	 * @param      string The type identifier.
-	 *
-	 * @author     David Zülke <david.zuelke@bitextender.com>
-	 * @since      1.1.0
-	 */
-	public function setType($type)
+	const TYPE_GLOBAL = 1;
+	const TYPE_ACTION = 2;
+
+	public function setType(int $type)
 	{
 		$this->type = $type;
 	}
-	
-	/**
-	 * Get the type of this filter chain.
-	 *
-	 * @see        AgaviFilterChain::TYPE_ACTION
-	 * @see        AgaviFilterChain::TYPE_GLOBAL
-	 *
-	 * @return     string The type identifier.
-	 *
-	 * @author     David Zülke <david.zuelke@bitextender.com>
-	 * @since      1.1.0
-	 */
-	public function getType()
+
+	public function registerPre($filter, string $name)
 	{
-		return $this->type;
+		$this->preFilters[$name] = $filter;
 	}
-	
-	/**
-	 * Execute the next filter in this chain.
-	 *
-	 * @param      AgaviExecutionContainer The current execution container.
-	 *
-	 * @author     Sean Kerr <skerr@mojavi.org>
-	 * @author     David Zülke <dz@bitxtender.com>
-	 * @since      0.9.0
-	 */
-	public function execute(AgaviExecutionContainer $container)
+
+	public function registerPost($filter, string $name)
 	{
-		if($filter = current($this->chain)) {
-			// advance the pointer immediately; the next filter will call this again
-			next($this->chain);
-			$count = ++self::$filterLog[$this->filterLogKey][$fc = get_class($filter)];
-			if($count == 1 && method_exists($filter, 'executeOnce')) {
-				trigger_error(sprintf('Filter "%s" is implementing the deprecated method AgaviIFilter::executeOnce(); support will be removed in Agavi 1.2. Please refer to UPGRADING or ticket #1410 for details.', $fc), E_USER_DEPRECATED);
-				$filter->executeOnce($this, $container);
+		$this->postFilters[$name] = $filter;
+	}
+
+	/**
+	 * Executes all pre-filters, then the action, then all post-filters.
+	 * $actionCallback is a closure that runs the action.
+	 */
+	public function execute($container, callable $actionCallback = null)
+	{
+		$logger = null;
+		if (method_exists($container, 'getContext') && $container->getContext() && method_exists($container->getContext(), 'getLoggerManager') && $container->getContext()->getLoggerManager()) {
+			$logger = $container->getContext()->getLoggerManager();
+		}
+		$log = function($msg) use ($logger) {
+			if ($logger) {
+				$logger->logDebug($msg);
 			} else {
-				$filter->execute($this, $container);
+				error_log($msg);
 			}
+		};
+
+		$log("AgaviFilterChain::execute() start for: " . $container->getModuleName() . " / " . $container->getActionName());
+
+		if ($actionCallback === null) {
+			// No-op: do not call $c->execute() after filters
+			$actionCallback = function($c) {};
+		}
+		foreach($this->preFilters as $name => $filter) {
+			$log("Executing pre-filter: $name (" . get_class($filter) . ")");
+			$filter->execute($container);
+		}
+		$log("Executing action callback");
+		$actionCallback($container);
+		foreach($this->postFilters as $name => $filter) {
+			$log("Executing post-filter: $name (" . get_class($filter) . ")");
+			$filter->execute($container);
+		}
+		$log("AgaviFilterChain::execute() end for: " . $container->getModuleName() . " / " . $container->getActionName());
+	}
+
+	public function register($filter, string $name)
+	{
+		if (method_exists($filter, 'isPostFilter') && $filter->isPostFilter()) {
+			$this->registerPost($filter, $name);
+		} else {
+			$this->registerPre($filter, $name);
 		}
 	}
 
-	/**
-	 * Get a named filter instance from this chain.
-	 *
-	 * @param      string The name of the filter in this chain.
-	 *
-	 * @return     AgaviIFilter The filter instance, or null if no such filter.
-	 *
-	 * @author     David Zülke <david.zuelke@bitextender.com>
-	 * @since      1.1.0
-	 */
-	public function getFilter($name)
+	public function initialize($context, $parameters = array())
 	{
-		if(isset($this->chain[$name])) {
-			return $this->chain[$name];
-		}
-	}
-
-	/**
-	 * Register a filter with this chain.
-	 *
-	 * @param      AgaviIFilter A Filter implementation instance.
-	 * @param      string       The filter name.
-	 *
-	 * @author     Sean Kerr <skerr@mojavi.org>
-	 * @author     David Zülke <dz@bitxtender.com>
-	 * @since      0.9.0
-	 */
-	public function register(AgaviIFilter $filter, $name)
-	{
-		$this->chain[$name] = $filter;
-		$filterClass = get_class($filter);
-		if(!isset(self::$filterLog[$this->filterLogKey][$filterClass])) {
-			self::$filterLog[$this->filterLogKey][$filterClass] = 0;
-		}
+		// No-op for compatibility with factory system.
 	}
 }
-
-?>
