@@ -39,12 +39,12 @@ class AgaviRequestDataHolder extends AgaviParameterHolder implements AgaviIParam
 	 * @var        array An array of source names and references to their data
 	 *                   containers. Unset again after construction is complete.
 	 */
-	private $sources = array();
+	private $sources = [];
 
 	/*
 	 * @var        array An array of plural source names and their singular forms.
 	 */
-	private $sourceNames = array();
+	private $sourceNames = [];
 
 	/**
 	 * Merge in parameters from another request data holder.
@@ -294,7 +294,7 @@ class AgaviRequestDataHolder extends AgaviParameterHolder implements AgaviIParam
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function __construct(array $data = array())
+	public function __construct(array $data = [])
 	{
 		$this->registerSource(self::SOURCE_PARAMETERS, $this->parameters);
 		
@@ -302,7 +302,7 @@ class AgaviRequestDataHolder extends AgaviParameterHolder implements AgaviIParam
 			if(isset($data[$name]) && is_array($data[$name])) {
 				$container = $data[$name];
 			} else {
-				$container = array();
+				$container = [];
 			}
 		}
 		

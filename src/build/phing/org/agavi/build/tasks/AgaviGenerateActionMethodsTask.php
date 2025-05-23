@@ -39,7 +39,7 @@ class AgaviGenerateActionMethodsTask extends AgaviTask
 	/**
 	 * @var          array the list of request methods to generate handlers for
 	 */
-	protected $methods = array();
+	protected $methods = [];
 	
 	/**
 	 * @var          boolean whether the generated action should be simple
@@ -73,10 +73,10 @@ class AgaviGenerateActionMethodsTask extends AgaviTask
 	 */
 	public function setMethods($methodNames)
 	{
-		if ("" == trim($methodNames)) {
-			$this->methods = array();
+		if ("" == trim((string) $methodNames)) {
+			$this->methods = [];
 		} else {
-			$this->methods = explode(" ", $methodNames);
+			$this->methods = explode(" ", (string) $methodNames);
 		}		
 	}
 	
@@ -145,7 +145,7 @@ class AgaviGenerateActionMethodsTask extends AgaviTask
 		
 		$methodDeclarations = '';
 		foreach($this->methods as $methodName) {
-			$methodDeclarations .= str_replace('%%METHOD_NAME%%', ucfirst($methodName), $template);
+			$methodDeclarations .= str_replace('%%METHOD_NAME%%', ucfirst((string) $methodName), $template);
 		}
 		
 		if($this->isSimple) {

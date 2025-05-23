@@ -15,34 +15,34 @@
  * @version    $Id$
  */
 
-return array (
+return  [
   'types' => 
-  array (
+   [
     0 => 
-    array (
+     [
       'rawOffset' => 0,
       'dstOffset' => 0,
       'name' => 'GMT',
-    ),
-  ),
+    ],
+  ],
   'rules' => 
-  array (
+   [
     0 => 
-    array (
+     [
       'time' => -1830383032.0,
       'type' => 0,
-    ),
-  ),
+    ],
+  ],
   'finalRule' => 
-  array (
+   [
     'type' => 'static',
     'name' => 'GMT',
     'offset' => 0,
     'startYear' => 1913,
-  ),
+  ],
   'source' => '(unknown)',
   'version' => '(unknown)',
   'name' => 'Africa/Abidjan',
-);
+];
 
 ?>

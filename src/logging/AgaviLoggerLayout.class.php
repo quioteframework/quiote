@@ -48,7 +48,7 @@ abstract class AgaviLoggerLayout extends AgaviParameterHolder
 	 * @author     Veikko Mäkinen <mail@veikkomakinen.com>
 	 * @since      0.10.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		$this->context = $context;
 		$this->parameters = $parameters;

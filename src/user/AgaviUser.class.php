@@ -82,7 +82,7 @@ class AgaviUser extends AgaviAttributeHolder
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.9.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		$this->context = $context;
 
@@ -101,7 +101,7 @@ class AgaviUser extends AgaviAttributeHolder
 
 		if($this->attributes == null) {
 			// initialize our attributes array
-			$this->attributes = array();
+			$this->attributes = [];
 		}
 	}
 

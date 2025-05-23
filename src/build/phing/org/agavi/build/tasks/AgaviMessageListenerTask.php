@@ -45,7 +45,7 @@ class AgaviMessageListenerTask extends AgaviListenerTask
 		$object = $objectType->getInstance();
 		if(!$object instanceof AgaviIPhingMessageListener) {
 			throw new BuildException(sprintf('Cannot add message listener: Object is of type %s which does not implement %s',
-				get_class($object), 'AgaviIPhingMessageListener'));
+				$object::class, 'AgaviIPhingMessageListener'));
 		}
 		
 		$dispatcher = AgaviPhingEventDispatcherManager::get($this->project);

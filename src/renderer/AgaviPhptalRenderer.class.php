@@ -61,7 +61,8 @@ class AgaviPhptalRenderer extends AgaviRenderer
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function __sleep()
+	#[\Override]
+    public function __sleep()
 	{
 		$keys = parent::__sleep();
 		unset($keys[array_search('phptal', $keys)]);
@@ -140,7 +141,7 @@ class AgaviPhptalRenderer extends AgaviRenderer
 	 * @author     Benjamin Muskalla <bm@bmuskalla.de>
 	 * @since      0.11.0
 	 */
-	public function render(AgaviTemplateLayer $layer, array &$attributes = array(), array &$slots = array(), array &$moreAssigns = array())
+	public function render(AgaviTemplateLayer $layer, array &$attributes = [], array &$slots = [], array &$moreAssigns = [])
 	{
 		$engine = $this->getEngine();
 		

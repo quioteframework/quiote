@@ -78,7 +78,7 @@ class AgaviUploadedFile implements ArrayAccess
 	/**
 	 * @var        array An array to map get* method name fragments to indices.
 	 */
-	protected static $indexMap = array(
+	protected static $indexMap = [
 		'name' => 'name',
 		'type' => 'type',
 		'size' => 'size',
@@ -88,7 +88,7 @@ class AgaviUploadedFile implements ArrayAccess
 		'is_moved' => 'isMoved',
 		'contents' => 'contents',
 		'stream' => 'stream',
-	);
+	];
 	
 	/**
 	 * Constructor.
@@ -102,7 +102,7 @@ class AgaviUploadedFile implements ArrayAccess
 	 */
 	public function __construct(array $array)
 	{
-		$defaults = array(
+		$defaults = [
 			'name' => null,
 			'type' => null,
 			'size' => -1,
@@ -111,8 +111,8 @@ class AgaviUploadedFile implements ArrayAccess
 			'is_uploaded_file' => false,
 			'contents' => null,
 			'stream' => null,
-		);
-		$array = array_merge($defaults, $array, array('is_moved' => false)); // make sure it's marked not moved by default
+		];
+		$array = array_merge($defaults, $array, ['is_moved' => false]); // make sure it's marked not moved by default
 		
 		// we need exactly one of tmp_name, contents or stream
 		if(
@@ -164,7 +164,7 @@ class AgaviUploadedFile implements ArrayAccess
 	public function __isset($key)
 	{
 		trigger_error('Property access in AgaviUploadedFile is deprecated and will be removed in Agavi 1.2. Please use getter methods or array access instead.', E_USER_DEPRECATED);
-		return in_array($key, array('name', 'type', 'size', 'tmpName', 'error', 'isUploadedFile')) && isset($this->$key);
+		return in_array($key, ['name', 'type', 'size', 'tmpName', 'error', 'isUploadedFile']) && isset($this->$key);
 	}
 	
 	/**
@@ -179,7 +179,7 @@ class AgaviUploadedFile implements ArrayAccess
 	 */
 	public function offsetExists($key): bool
 	{
-		if(in_array($key, array('name', 'type', 'size', 'tmp_name', 'error', 'is_uploaded_file'))) {
+		if(in_array($key, ['name', 'type', 'size', 'tmp_name', 'error', 'is_uploaded_file'])) {
 			$property = self::$indexMap[$key];
 			return isset($this->$property);
 		}
@@ -516,7 +516,7 @@ class AgaviUploadedFile implements ArrayAccess
 		}
 		
 		// get our directory path from the destination filename
-		$directory = dirname($dest);
+		$directory = dirname((string) $dest);
 		if(!is_readable($directory)) {
 			if($create && !AgaviToolkit::mkdir($directory, $dirMode, true)) {
 				// failed to create the directory

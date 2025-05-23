@@ -49,7 +49,7 @@ class AgaviXmlConfigDomDocument extends DOMDocument
 	/**
 	 * @var        array A map of DOM classes and extended Agavi implementations.
 	 */
-	protected $nodeClassMap = array(
+	protected $nodeClassMap = [
 		'DOMAttr'                  => 'AgaviXmlConfigDomAttr',
 		'DOMCharacterData'         => 'AgaviXmlConfigDomCharacterData',
 		'DOMComment'               => 'AgaviXmlConfigDomComment',
@@ -64,7 +64,7 @@ class AgaviXmlConfigDomDocument extends DOMDocument
 		// 'DOMNotation'              => 'AgaviXmlConfigDomNotation',
 		'DOMProcessingInstruction' => 'AgaviXmlConfigDomProcessingInstruction',
 		'DOMText'                  => 'AgaviXmlConfigDomText',
-	);
+	];
 	
 	/**
 	 * The constructor.
@@ -108,7 +108,7 @@ class AgaviXmlConfigDomDocument extends DOMDocument
 		$result = parent::load($filename, $options);
 		
 		if(libxml_get_last_error() !== false) {
-			$errors = array();
+			$errors = [];
 			foreach(libxml_get_errors() as $error) {
 				$errors[] = sprintf('[%s #%d] Line %d: %s', $error->level == LIBXML_ERR_WARNING ? 'Warning' : ($error->level == LIBXML_ERR_ERROR ? 'Error' : 'Fatal'), $error->code, $error->line, $error->message);
 			}
@@ -153,7 +153,7 @@ class AgaviXmlConfigDomDocument extends DOMDocument
 		$result = parent::loadXML($source, $options);
 		
 		if(libxml_get_last_error() !== false) {
-			$errors = array();
+			$errors = [];
 			foreach(libxml_get_errors() as $error) {
 				$errors[] = sprintf('[%s #%d] Line %d: %s', $error->level == LIBXML_ERR_WARNING ? 'Warning' : ($error->level == LIBXML_ERR_ERROR ? 'Error' : 'Fatal'), $error->code, $error->line, $error->message);
 			}
@@ -198,7 +198,7 @@ class AgaviXmlConfigDomDocument extends DOMDocument
 		
 		if(libxml_get_last_error() !== false) {
 			$throw = false;
-			$errors = array();
+			$errors = [];
 			foreach(libxml_get_errors() as $error) {
 				if($error->level != LIBXML_ERR_WARNING) {
 					$throw = true;
@@ -243,7 +243,7 @@ class AgaviXmlConfigDomDocument extends DOMDocument
 		$result = parent::importNode($node, $deep);
 		
 		if(libxml_get_last_error() !== false) {
-			$errors = array();
+			$errors = [];
 			foreach(libxml_get_errors() as $error) {
 				$errors[] = sprintf('[%s #%d] Line %d: %s', $error->level == LIBXML_ERR_WARNING ? 'Warning' : ($error->level == LIBXML_ERR_ERROR ? 'Error' : 'Fatal'), $error->code, $error->line, $error->message);
 			}
@@ -281,7 +281,7 @@ class AgaviXmlConfigDomDocument extends DOMDocument
 		
 		// gotta do the @ to suppress PHP warnings when the schema cannot be loaded or is invalid
 		if(!$result = @parent::schemaValidate($filename, $flags)) {
-			$errors = array();
+			$errors = [];
 			foreach(libxml_get_errors() as $error) {
 				$errors[] = sprintf('[%s #%d] Line %d: %s', $error->level == LIBXML_ERR_WARNING ? 'Warning' : ($error->level == LIBXML_ERR_ERROR ? 'Error' : 'Fatal'), $error->code, $error->line, $error->message);
 			}
@@ -319,7 +319,7 @@ class AgaviXmlConfigDomDocument extends DOMDocument
 		
 		// gotta do the @ to suppress PHP warnings when the schema cannot be loaded or is invalid
 		if(!$result = @parent::schemaValidateSource($source, $flags)) {
-			$errors = array();
+			$errors = [];
 			foreach(libxml_get_errors() as $error) {
 				$errors[] = sprintf('[%s #%d] Line %d: %s', $error->level == LIBXML_ERR_WARNING ? 'Warning' : ($error->level == LIBXML_ERR_ERROR ? 'Error' : 'Fatal'), $error->code, $error->line, $error->message);
 			}
@@ -356,7 +356,7 @@ class AgaviXmlConfigDomDocument extends DOMDocument
 		
 		// gotta do the @ to suppress PHP warnings when the schema cannot be loaded or is invalid
 		if(!$result = @parent::relaxNGValidate($filename)) {
-			$errors = array();
+			$errors = [];
 			foreach(libxml_get_errors() as $error) {
 				$errors[] = sprintf('[%s #%d] Line %d: %s', $error->level == LIBXML_ERR_WARNING ? 'Warning' : ($error->level == LIBXML_ERR_ERROR ? 'Error' : 'Fatal'), $error->code, $error->line, $error->message);
 			}
@@ -477,7 +477,7 @@ class AgaviXmlConfigDomDocument extends DOMDocument
 	 */
 	public function getConfigurationElements()
 	{
-		$retval = array();
+		$retval = [];
 		
 		if($this->isAgaviConfiguration()) {
 			$agaviNs = $this->getAgaviEnvelopeNamespace();

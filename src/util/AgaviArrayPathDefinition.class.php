@@ -207,7 +207,7 @@ final class AgaviArrayPathDefinition
 					$part = (int)$part;
 				}
 				if(!isset($a[$part]) || !is_array($a[$part]) || (is_array($a) && !(isset($a[$part]) || array_key_exists($part, $a)))) {
-					$a[$part] = array();
+					$a[$part] = [];
 				}
 				$a = &$a[$part];
 			}
@@ -228,21 +228,21 @@ final class AgaviArrayPathDefinition
 	 */
 	public static function getPartsFromPath($path)
 	{
-		if(strlen($path) == 0) {
-			return array('parts' => array(), 'absolute' => true);
+		if(strlen((string) $path) == 0) {
+			return ['parts' => [], 'absolute' => true];
 		}
 
-		$parts = array();
+		$parts = [];
 		$absolute = ($path[0] != '[');
-		if(($pos = strpos($path, '[')) === false) {
-			if(str_contains($path, ']')) {
+		if(($pos = strpos((string) $path, '[')) === false) {
+			if(str_contains((string) $path, ']')) {
 				throw new InvalidArgumentException('Invalid "]" without opening "[" found');
 			}
 			$parts[] = $path;
 		} else {
 			$state = 0;
 			$cur = '';
-			foreach(str_split($path) as $c) {
+			foreach(str_split((string) $path) as $c) {
 				// this is the fastest way to loop over an string
 				switch($state) {
 					// the order is significant for performance
@@ -291,7 +291,7 @@ final class AgaviArrayPathDefinition
 			}
 		}
 
-		return array('parts' => $parts, 'absolute' => $absolute);
+		return ['parts' => $parts, 'absolute' => $absolute];
 	}
 
 
@@ -310,7 +310,7 @@ final class AgaviArrayPathDefinition
 	 */
 	public static function getFlatKeyNames(array $array, $prefix = null)
 	{
-		$names = array();
+		$names = [];
 		foreach($array as $key => $value) {
 			if($prefix === null) {
 				// create the top node when no prefix was given
@@ -350,11 +350,11 @@ final class AgaviArrayPathDefinition
 	 */
 	public static function flatten($array, $prefix = null)
 	{
-		$flatArray = array();
+		$flatArray = [];
 		foreach($array as $key => $value) {
 			if($prefix === null) {
 				// create the top node when no prefix was given
-				if(strlen($key) == 0) {
+				if(strlen((string) $key) == 0) {
 					// when an empty key was used at top level, create a "relative" path, so the empty string doesn't get lost
 					$name = '[' . $key . ']';
 				} else {

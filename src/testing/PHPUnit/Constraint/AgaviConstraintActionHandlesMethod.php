@@ -22,23 +22,21 @@ class AgaviConstraintActionHandlesMethod extends AgaviBaseConstraintBecausePhpun
 	protected $actionInstance;
 	
 	/**
-	 * @var        bool Whether generic 'execute' methods should be accepted.
-	 */
-	protected $acceptGeneric;
-	
-	/**
-	 * Class constructor.
-	 * 
-	 * @param      AgaviAction Instance of the Action to test.
-	 * @param      bool        Whether generic execute methods should be accepted.
-	 * 
-	 * @author     Felix Gilcher <felix.gilcher@bitextender.com>
-	 * @since      1.0.0
-	 */
-	public function __construct(AgaviAction $actionInstance, $acceptGeneric = true)
+     * Class constructor.
+     *
+     * @param      AgaviAction Instance of the Action to test.
+     * @param      bool        Whether generic execute methods should be accepted.
+     *
+     * @author     Felix Gilcher <felix.gilcher@bitextender.com>
+     * @since      1.0.0
+     * @param bool $acceptGeneric
+     */
+    public function __construct(AgaviAction $actionInstance, /**
+     * @var        bool Whether generic 'execute' methods should be accepted.
+     */
+    protected $acceptGeneric = true)
 	{
 		$this->actionInstance = $actionInstance;
-		$this->acceptGeneric = $acceptGeneric;
 	}
 	
 	/**
@@ -52,10 +50,11 @@ class AgaviConstraintActionHandlesMethod extends AgaviBaseConstraintBecausePhpun
 	 * @author     Felix Gilcher <felix.gilcher@bitextender.com>
 	 * @since      1.0.7
 	 */
-	public function matches($other)
+	#[\Override]
+    public function matches($other)
 	{
 		$executeMethod = 'execute' . $other;
-		if(is_callable(array($this->actionInstance, $executeMethod)) || ($this->acceptGeneric && is_callable(array($this->actionInstance, 'execute')))) {
+		if(is_callable([$this->actionInstance, $executeMethod]) || ($this->acceptGeneric && is_callable([$this->actionInstance, 'execute']))) {
 			return true;
 		}
 		
@@ -74,7 +73,7 @@ class AgaviConstraintActionHandlesMethod extends AgaviBaseConstraintBecausePhpun
 	{
 		return sprintf(
 			'%1$s handles method',
-			get_class($this->actionInstance)
+			$this->actionInstance::class
 		);
 	}
 	
@@ -95,13 +94,13 @@ class AgaviConstraintActionHandlesMethod extends AgaviBaseConstraintBecausePhpun
 		if($not) {
 			return sprintf(
 				'Failed asserting that %1$s does not handle method "%2$s".',
-				get_class($this->actionInstance),
+				$this->actionInstance::class,
 				$other
 			);
 		} else {
 			return sprintf(
 				'Failed asserting that %1$s handles method "%2$s".',
-				get_class($this->actionInstance),
+				$this->actionInstance::class,
 				$other
 			);
 		}

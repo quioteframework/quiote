@@ -27,7 +27,7 @@
  *
  * @version    $Id$
  */
-class AgaviOutputType extends AgaviParameterHolder
+class AgaviOutputType extends AgaviParameterHolder implements \Stringable
 {
 	/**
 	 * @var        AgaviContext The context instance.
@@ -42,7 +42,7 @@ class AgaviOutputType extends AgaviParameterHolder
 	/**
 	 * @var        array An array of Renderers (settings and instances).
 	 */
-	protected $renderers = array();
+	protected $renderers = [];
 	
 	/**
 	 * @var        string The name of the default Renderer, if set.
@@ -52,7 +52,7 @@ class AgaviOutputType extends AgaviParameterHolder
 	/**
 	 * @var        array An array of configured layouts.
 	 */
-	protected $layouts = array();
+	protected $layouts = [];
 	
 	/**
 	 * @var        string The name of the default layout, if set.
@@ -111,7 +111,7 @@ class AgaviOutputType extends AgaviParameterHolder
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public final function __toString()
+	public final function __toString(): string
 	{
 		return $this->getName();
 	}

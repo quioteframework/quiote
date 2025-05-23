@@ -48,7 +48,8 @@ class AgaviArraylengthValidator extends AgaviValidator
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.2
 	 */
-	protected function checkAllArgumentsSet($throwError = true)
+	#[\Override]
+    protected function checkAllArgumentsSet($throwError = true)
 	{
 		// copied from AgaviValidator::checkAllArgumentsSet()
 		$isRequired = $this->getParameter('required', true);

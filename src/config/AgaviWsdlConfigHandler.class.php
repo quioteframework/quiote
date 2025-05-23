@@ -46,7 +46,7 @@ class AgaviWsdlConfigHandler extends AgaviXmlConfigHandler
 	{
 		$ro = $this->context->getRouting();
 		
-		$cleanAppName = preg_replace('/\W/', '', AgaviConfig::get('core.app_name'));
+		$cleanAppName = preg_replace('/\W/', '', (string) AgaviConfig::get('core.app_name'));
 		
 		$xpath = new DOMXPath($doc);
 		$xpath->registerNamespace('soap', 'http://schemas.xmlsoap.org/wsdl/soap/');
@@ -71,8 +71,8 @@ class AgaviWsdlConfigHandler extends AgaviXmlConfigHandler
 		$paramSoapFaultNamespace      = $ro->getParameter('wsdl_generator[soap][fault][namespace]',       /*'urn:' . $paramWsdlDefinitionsName*/ null);
 		$paramSoapFaultEncodingStyle  = $ro->getParameter('wsdl_generator[soap][fault][encoding_style]',  'http://schemas.xmlsoap.org/soap/encoding/');
 		
-		$paramGlobalRequestHeaders    = $ro->getParameter('wsdl_generator[global_headers][request]',      array());
-		$paramGlobalResponseHeaders   = $ro->getParameter('wsdl_generator[global_headers][response]',     array());
+		$paramGlobalRequestHeaders    = $ro->getParameter('wsdl_generator[global_headers][request]',      []);
+		$paramGlobalResponseHeaders   = $ro->getParameter('wsdl_generator[global_headers][response]',     []);
 		
 		$wsdlDefinitions = $xpath->query('/wsdl:definitions');
 		foreach($wsdlDefinitions as $wsdlDefinition) {
@@ -96,13 +96,13 @@ class AgaviWsdlConfigHandler extends AgaviXmlConfigHandler
 				$wsdlOperations = $xpath->query('wsdl:operation', $wsdlBinding);
 				foreach($wsdlOperations as $wsdlOperation) {
 					
-					foreach(array('input' => $paramGlobalRequestHeaders, 'output' => $paramGlobalResponseHeaders) as $target => $headers) {
+					foreach(['input' => $paramGlobalRequestHeaders, 'output' => $paramGlobalResponseHeaders] as $target => $headers) {
 						foreach($headers as $header) {
 							if(!isset($header['namespace'])) {
 								$header['namespace'] = $targetNamespaceUri;
 							}
 							$element = $doc->createElementNS('http://schemas.xmlsoap.org/wsdl/soap/', 'soap:header');
-							foreach(array('encodingStyle', 'message', 'namespace', 'part', 'use') as $key) {
+							foreach(['encodingStyle', 'message', 'namespace', 'part', 'use'] as $key) {
 								if(isset($header[$key])) {
 									$element->setAttribute($key, $header[$key]);
 								}

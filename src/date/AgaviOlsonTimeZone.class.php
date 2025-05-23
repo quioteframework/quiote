@@ -102,13 +102,13 @@ class AgaviOlsonTimeZone extends AgaviTimeZone
 			parent::__construct($arguments[0]);
 			return;
 		}
-		$fName = AgaviToolkit::overloadHelper(array(
-			array('name' => 'constructorOSA',
-						'parameters' => array('object', 'string', 'array')),
-			),
+		$fName = AgaviToolkit::overloadHelper([
+			['name' => 'constructorOSA',
+						'parameters' => ['object', 'string', 'array']],
+			],
 			$arguments
 		);
-		call_user_func_array(array($this, $fName), $arguments);
+		call_user_func_array([$this, $fName], $arguments);
 	}
 
 	/**
@@ -139,9 +139,9 @@ class AgaviOlsonTimeZone extends AgaviTimeZone
 	protected function constructEmpty()
 	{
 		$this->transitionCount = 0;
-		$this->transitions = array();
+		$this->transitions = [];
 		// TODO: this should probably contain at least one item
-		$this->types = array();
+		$this->types = [];
 	}
 
 	/**
@@ -203,11 +203,12 @@ class AgaviOlsonTimeZone extends AgaviTimeZone
 	 * @author     The ICU Project
 	 * @since      0.11.0
 	 */
-	function __is_equal(AgaviTimeZone $that)
+	#[\Override]
+    function __is_equal(AgaviTimeZone $that)
 	{
 		// TODO: we need to compare finalyear and the transitions and finalzone
 		return ($this === $that ||
-						(get_class($this) == get_class($that) &&
+						(static::class == $that::class &&
 							AgaviTimeZone::__is_equal($that) 
 						));
 	}
@@ -279,7 +280,8 @@ class AgaviOlsonTimeZone extends AgaviTimeZone
 	 * @author     The ICU Project
 	 * @since      0.11.0
 	 */
-	public function getOffsetRef($date, $local, &$rawoff, &$dstoff)
+	#[\Override]
+    public function getOffsetRef($date, $local, &$rawoff, &$dstoff)
 	{
 		// The check against finalMillis will suffice most of the time, except
 		// for the case in which finalMillis == DBL_MAX, date == DBL_MAX,
@@ -463,7 +465,8 @@ class AgaviOlsonTimeZone extends AgaviTimeZone
 	 * @author     The ICU Project
 	 * @since      0.11.0
 	 */
-	public function getDSTSavings()
+	#[\Override]
+    public function getDSTSavings()
 	{
 		if($this->finalZone !== null) {
 			return $this->finalZone->getDSTSavings();
@@ -480,7 +483,8 @@ class AgaviOlsonTimeZone extends AgaviTimeZone
 	 * @author     The ICU Project
 	 * @since      0.11.0
 	 */
-	public function inDaylightTime($date)
+	#[\Override]
+    public function inDaylightTime($date)
 	{
 		$raw = 0;
 		$dst = 0;

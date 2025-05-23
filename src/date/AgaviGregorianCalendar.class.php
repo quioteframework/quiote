@@ -56,31 +56,31 @@ class AgaviGregorianCalendar extends AgaviCalendar
 		$arguments = func_get_args();
 
 		$fName = AgaviToolkit::overloadHelper(
-			array(
-				array(
+			[
+				[
 					'name' => 'constructorO',
-					'parameters' => array('object')
-				),
-				array(
+					'parameters' => ['object']
+				],
+				[
 					'name' => 'constructorOO',
-					'parameters' => array('object', 'object')
-					),
-				array(
+					'parameters' => ['object', 'object']
+					],
+				[
 					'name' => 'constructorOIII',
-					'parameters' => array('object', 'int', 'int', 'int')
-				),
-				array(
+					'parameters' => ['object', 'int', 'int', 'int']
+				],
+				[
 					'name' => 'constructorOIIIII',
-					'parameters' => array('object', 'int', 'int', 'int', 'int', 'int')
-				),
-				array(
+					'parameters' => ['object', 'int', 'int', 'int', 'int', 'int']
+				],
+				[
 					'name' => 'constructorOIIIIII',
-					'parameters' => array('object', 'int', 'int', 'int', 'int', 'int', 'int')
-				),
-			),
+					'parameters' => ['object', 'int', 'int', 'int', 'int', 'int', 'int']
+				],
+			],
 			$arguments
 		);
-		call_user_func_array(array($this, $fName), $arguments);
+		call_user_func_array([$this, $fName], $arguments);
 	}
 
 	/**
@@ -90,7 +90,8 @@ class AgaviGregorianCalendar extends AgaviCalendar
 	 * @author     The ICU Project
 	 * @since      0.11.0
 	 */
-	protected function initVariables()
+	#[\Override]
+    protected function initVariables()
 	{
 		parent::initVariables();
 
@@ -129,7 +130,7 @@ class AgaviGregorianCalendar extends AgaviCalendar
 			$zone = $this->translationManager->getDefaultTimeZone();
 			$locale = $this->translationManager->getCurrentLocale();
 		} else {
-			throw new InvalidArgumentException('Object of type ' . get_class($zoneOrLocale) . ' was not expected');
+			throw new InvalidArgumentException('Object of type ' . $zoneOrLocale::class . ' was not expected');
 		}
 		parent::constructorOO($zone, $locale);
 
@@ -146,7 +147,8 @@ class AgaviGregorianCalendar extends AgaviCalendar
 	 * @author     The ICU Project
 	 * @since      0.11.0
 	 */
-	protected function constructorOO(AgaviTimeZone $zone, AgaviLocale $locale)
+	#[\Override]
+    protected function constructorOO(AgaviTimeZone $zone, AgaviLocale $locale)
 	{
 		parent::constructorOO($zone, $locale);
 		$this->setTimeInMillis(self::getNow());
@@ -336,7 +338,8 @@ class AgaviGregorianCalendar extends AgaviCalendar
 	 * @author     The ICU Project
 	 * @since      0.11.0
 	 */
-	public function isEquivalentTo(AgaviCalendar $other)
+	#[\Override]
+    public function isEquivalentTo(AgaviCalendar $other)
 	{
 		// Calendar override.
 		return AgaviCalendar::isEquivalentTo($other) && $this->getGregorianChange() == $other->getGregorianChange();
@@ -349,7 +352,8 @@ class AgaviGregorianCalendar extends AgaviCalendar
 	 * @author     The ICU Project
 	 * @since      0.11.0
 	 */
-	public function getActualMinimum($field)
+	#[\Override]
+    public function getActualMinimum($field)
 	{
 		return $this->getMinimum($field);
 	}
@@ -361,7 +365,8 @@ class AgaviGregorianCalendar extends AgaviCalendar
 	 * @author     The ICU Project
 	 * @since      0.11.0
 	 */
-	public function getActualMaximum($field)
+	#[\Override]
+    public function getActualMaximum($field)
 	{
 		/* It is a known limitation that the code here (and in getActualMinimum)
 		* won't behave properly at the extreme limits of GregorianCalendar's
@@ -417,7 +422,7 @@ class AgaviGregorianCalendar extends AgaviCalendar
 					*/
 					$lowGood = self::$kGregorianCalendarLimits[AgaviDateDefinitions::YEAR][1];
 					$highBad = self::$kGregorianCalendarLimits[AgaviDateDefinitions::YEAR][2] + 1;
-					while((lowGood + 1) < highBad) {
+					while((\LOWGOOD + 1) < \HIGHBAD) {
 						$y = (int)(($lowGood + $highBad) / 2);
 						$cal->set(AgaviDateDefinitions::YEAR, $y);
 						if($cal->get(AgaviDateDefinitions::YEAR) == $y && $cal->get(AgaviDateDefinitions::ERA) == $era) {
@@ -520,7 +525,8 @@ class AgaviGregorianCalendar extends AgaviCalendar
 	 * @author     The ICU Project
 	 * @since      0.11.0
 	 */
-	protected function handleComputeJulianDay($bestField)
+	#[\Override]
+    protected function handleComputeJulianDay($bestField)
 	{
 		$this->fInvertGregorian = false;
 
@@ -561,7 +567,8 @@ class AgaviGregorianCalendar extends AgaviCalendar
 	 * @author     The ICU Project
 	 * @since      0.11.0
 	 */
-	protected function handleGetMonthLength($extendedYear, $month)
+	#[\Override]
+    protected function handleGetMonthLength($extendedYear, $month)
 	{
 		// If the month is out of range, adjust it into range, and
 		// modify the extended year value accordingly.
@@ -579,7 +586,8 @@ class AgaviGregorianCalendar extends AgaviCalendar
 	 * @author     The ICU Project
 	 * @since      0.11.0
 	 */
-	protected function handleGetYearLength($eyear)
+	#[\Override]
+    protected function handleGetYearLength($eyear)
 	{
 		return $this->isLeapYear($eyear) ? 366 : 365;
 	}
@@ -742,7 +750,8 @@ class AgaviGregorianCalendar extends AgaviCalendar
 	 * @author     The ICU Project
 	 * @since      0.11.0
 	 */
-	protected function handleGetExtendedYearFromWeekFields($yearWoy, $woy)
+	#[\Override]
+    protected function handleGetExtendedYearFromWeekFields($yearWoy, $woy)
 	{
 		// convert year to extended form
 		$era = $this->internalGet(AgaviDateDefinitions::ERA, self::AD);
@@ -759,7 +768,8 @@ class AgaviGregorianCalendar extends AgaviCalendar
 	 * @author     The ICU Project
 	 * @since      0.11.0
 	 */
-	protected function handleComputeFields($julianDay)
+	#[\Override]
+    protected function handleComputeFields($julianDay)
 	{
 		if($julianDay >= $this->fCutoverJulianDay) {
 			$month = $this->getGregorianMonth();
@@ -906,7 +916,7 @@ class AgaviGregorianCalendar extends AgaviCalendar
 	 */
 	private function boundsCheck($value, $field)
 	{
-		return $value >= $this->getMinimum($field) && $value <= $this->getMaximum(field);
+		return $value >= $this->getMinimum($field) && $value <= $this->getMaximum(\FIELD);
 	}
 
 	/**
@@ -1107,7 +1117,7 @@ class AgaviGregorianCalendar extends AgaviCalendar
 		$needsUpdate = (self::$fgSystemDefaultCenturyStart == self::$fgSystemDefaultCentury);
 
 		if($needsUpdate) {
-			$this->initializeSystemDefaultCentury();
+			self::initializeSystemDefaultCentury();
 		}
 
 		// use defaultCenturyStart unless it's the flag value;
@@ -1133,7 +1143,7 @@ class AgaviGregorianCalendar extends AgaviCalendar
 		$needsUpdate = (self::$fgSystemDefaultCenturyStart == self::$fgSystemDefaultCentury);
 
 		if($needsUpdate) {
-			$this->initializeSystemDefaultCentury();
+			self::initializeSystemDefaultCentury();
 		}
 
 		// use defaultCenturyStart unless it's the flag value;
@@ -1169,36 +1179,36 @@ class AgaviGregorianCalendar extends AgaviCalendar
 		}
 	}
 
-	protected static $kNumDays         = array(0,  31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334); // 0-based, for day-in-year
-	protected static $kLeapNumDays     = array(0,  31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335); // 0-based, for day-in-year
-	protected static $kMonthLength     = array(31, 28, 31, 30,  31,  30,  31,  31,  30,  31,  30,  31); // 0-based
-	protected static $kLeapMonthLength = array(31, 29, 31, 30,  31,  30,  31,  31,  30,  31,  30,  31); // 0-based
-	protected static $kGregorianCalendarLimits = array(
+	protected static $kNumDays         = [0,  31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]; // 0-based, for day-in-year
+	protected static $kLeapNumDays     = [0,  31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335]; // 0-based, for day-in-year
+	protected static $kMonthLength     = [31, 28, 31, 30,  31,  30,  31,  31,  30,  31,  30,  31]; // 0-based
+	protected static $kLeapMonthLength = [31, 29, 31, 30,  31,  30,  31,  31,  30,  31,  30,  31]; // 0-based
+	protected static $kGregorianCalendarLimits = [
 		//     Minimum  Greatest   Least      Maximum
 		//                Minimum   Maximum
-		array(        0,        0,        1,        1 ), // ERA
-		array(        1,        1,   140742,   144683 ), // YEAR
-		array(        0,        0,       11,       11 ), // MONTH
-		array(        1,        1,       52,       53 ), // WEEK_OF_YEAR
-		array(        0,        0,        4,        6 ), // WEEK_OF_MONTH
-		array(        1,        1,       28,       31 ), // DAY_OF_MONTH
-		array(        1,        1,      365,      366 ), // DAY_OF_YEAR
-		array(/*N/A*/-1,/*N/A*/-1,/*N/A*/-1,/*N/A*/-1 ), // DAY_OF_WEEK
-		array(       -1,       -1,        4,        5 ), // DAY_OF_WEEK_IN_MONTH
-		array(/*N/A*/-1,/*N/A*/-1,/*N/A*/-1,/*N/A*/-1 ), // AM_PM
-		array(/*N/A*/-1,/*N/A*/-1,/*N/A*/-1,/*N/A*/-1 ), // HOUR
-		array(/*N/A*/-1,/*N/A*/-1,/*N/A*/-1,/*N/A*/-1 ), // HOUR_OF_DAY
-		array(/*N/A*/-1,/*N/A*/-1,/*N/A*/-1,/*N/A*/-1 ), // MINUTE
-		array(/*N/A*/-1,/*N/A*/-1,/*N/A*/-1,/*N/A*/-1 ), // SECOND
-		array(/*N/A*/-1,/*N/A*/-1,/*N/A*/-1,/*N/A*/-1 ), // MILLISECOND
-		array(/*N/A*/-1,/*N/A*/-1,/*N/A*/-1,/*N/A*/-1 ), // ZONE_OFFSET
-		array(/*N/A*/-1,/*N/A*/-1,/*N/A*/-1,/*N/A*/-1 ), // DST_OFFSET
-		array(  -140742,  -140742,   140742,   144683 ), // YEAR_WOY
-		array(/*N/A*/-1,/*N/A*/-1,/*N/A*/-1,/*N/A*/-1 ), // DOW_LOCAL
-		array(  -140742,  -140742,   140742,   144683 ), // EXTENDED_YEAR
-		array(/*N/A*/-1,/*N/A*/-1,/*N/A*/-1,/*N/A*/-1 ), // JULIAN_DAY
-		array(/*N/A*/-1,/*N/A*/-1,/*N/A*/-1,/*N/A*/-1 ), // MILLISECONDS_IN_DAY
-	);
+		[        0,        0,        1,        1 ], // ERA
+		[        1,        1,   140742,   144683 ], // YEAR
+		[        0,        0,       11,       11 ], // MONTH
+		[        1,        1,       52,       53 ], // WEEK_OF_YEAR
+		[        0,        0,        4,        6 ], // WEEK_OF_MONTH
+		[        1,        1,       28,       31 ], // DAY_OF_MONTH
+		[        1,        1,      365,      366 ], // DAY_OF_YEAR
+		[/*N/A*/-1,/*N/A*/-1,/*N/A*/-1,/*N/A*/-1 ], // DAY_OF_WEEK
+		[       -1,       -1,        4,        5 ], // DAY_OF_WEEK_IN_MONTH
+		[/*N/A*/-1,/*N/A*/-1,/*N/A*/-1,/*N/A*/-1 ], // AM_PM
+		[/*N/A*/-1,/*N/A*/-1,/*N/A*/-1,/*N/A*/-1 ], // HOUR
+		[/*N/A*/-1,/*N/A*/-1,/*N/A*/-1,/*N/A*/-1 ], // HOUR_OF_DAY
+		[/*N/A*/-1,/*N/A*/-1,/*N/A*/-1,/*N/A*/-1 ], // MINUTE
+		[/*N/A*/-1,/*N/A*/-1,/*N/A*/-1,/*N/A*/-1 ], // SECOND
+		[/*N/A*/-1,/*N/A*/-1,/*N/A*/-1,/*N/A*/-1 ], // MILLISECOND
+		[/*N/A*/-1,/*N/A*/-1,/*N/A*/-1,/*N/A*/-1 ], // ZONE_OFFSET
+		[/*N/A*/-1,/*N/A*/-1,/*N/A*/-1,/*N/A*/-1 ], // DST_OFFSET
+		[  -140742,  -140742,   140742,   144683 ], // YEAR_WOY
+		[/*N/A*/-1,/*N/A*/-1,/*N/A*/-1,/*N/A*/-1 ], // DOW_LOCAL
+		[  -140742,  -140742,   140742,   144683 ], // EXTENDED_YEAR
+		[/*N/A*/-1,/*N/A*/-1,/*N/A*/-1,/*N/A*/-1 ], // JULIAN_DAY
+		[/*N/A*/-1,/*N/A*/-1,/*N/A*/-1,/*N/A*/-1 ], // MILLISECONDS_IN_DAY
+	];
 }
 
 ?>

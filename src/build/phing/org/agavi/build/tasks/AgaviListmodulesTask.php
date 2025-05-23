@@ -75,7 +75,7 @@ class AgaviListmodulesTask extends AgaviTask
 			throw new BuildException('The path attribute must be a valid project base directory');
 		}
 		
-		$modules = array();
+		$modules = [];
 		foreach(new DirectoryIterator($this->path->getAbsolutePath() . DIRECTORY_SEPARATOR . $this->project->getProperty('project.directory.app.modules')) as $file) {
 			if($file->isDot()) {
 				continue;

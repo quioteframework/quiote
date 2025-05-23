@@ -66,7 +66,8 @@ class AgaviPostgresqlSessionStorage extends AgaviSessionStorage
 	 * @author     Sean Kerr <skerr@mojavi.org>
 	 * @since      0.9.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	#[\Override]
+    public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		// initialize the parent
 		parent::initialize($context, $parameters);
@@ -79,12 +80,12 @@ class AgaviPostgresqlSessionStorage extends AgaviSessionStorage
 
 		// use this object as the session handler
 		session_set_save_handler(
-			array($this, 'sessionOpen'),
-			array($this, 'sessionClose'),
-			array($this, 'sessionRead'),
-			array($this, 'sessionWrite'),
-			array($this, 'sessionDestroy'),
-			array($this, 'sessionGC')
+			$this->sessionOpen(...),
+			$this->sessionClose(...),
+			$this->sessionRead(...),
+			$this->sessionWrite(...),
+			$this->sessionDestroy(...),
+			$this->sessionGC(...)
 		);
 	}
 
@@ -130,7 +131,7 @@ class AgaviPostgresqlSessionStorage extends AgaviSessionStorage
 		$db_id_col = $this->getParameter('db_id_col', 'sess_id');
 
 		// cleanup the session id, just in case
-		$id = addslashes($id);
+		$id = addslashes((string) $id);
 
 		// delete the record associated with this id
 		$sql = sprintf("DELETE FROM %s WHERE %s = '%s'", $db_table, $db_id_col, $id);
@@ -245,7 +246,7 @@ class AgaviPostgresqlSessionStorage extends AgaviSessionStorage
 		$db_time_col = $this->getParameter('db_time_col', 'sess_time');
 
 		// cleanup the session id, just in case
-		$id = addslashes($id);
+		$id = addslashes((string) $id);
 
 		// retrieve the record associated with this id
 		$sql = sprintf("SELECT %s FROM %s WHERE %s = '%s'", $db_data_col, $db_table, $db_id_col, $id);
@@ -289,8 +290,8 @@ class AgaviPostgresqlSessionStorage extends AgaviSessionStorage
 		$db_time_col = $this->getParameter('db_time_col', 'sess_time');
 
 		// cleanup the session id and data, just in case
-		$id   = addslashes($id);
-		$data = addslashes($data);
+		$id   = addslashes((string) $id);
+		$data = addslashes((string) $data);
 
 		$ts = date($this->getParameter('date_format', 'U'));
 		if(is_numeric($ts)) {

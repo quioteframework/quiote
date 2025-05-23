@@ -56,7 +56,7 @@ abstract class AgaviBasicTranslator implements AgaviITranslator
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		$this->context = $context;
 	}

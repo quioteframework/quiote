@@ -48,7 +48,8 @@ class AgaviRotatingFileLoggerAppender extends AgaviFileLoggerAppender
 	 * @author     Veikko Mäkinen <mail@veikkomakinen.com>
 	 * @since      0.11.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	#[\Override]
+    public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		$cycle = 7;
 		$prefix = str_replace(' ', '_', AgaviConfig::get('core.app_name')) . '-';
@@ -86,7 +87,7 @@ class AgaviRotatingFileLoggerAppender extends AgaviFileLoggerAppender
 			$remove = glob($dir . $prefix . '*-*-*' . $suffix);
 			if($remove === false) {
 				// who cares, it's just log files
-				$remove = array();
+				$remove = [];
 			}
 			
 			foreach(array_slice($remove, 0, -$cycle + 1) as $filename) {

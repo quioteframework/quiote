@@ -41,7 +41,8 @@ class AgaviIssetValidator extends AgaviValidator
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	protected function checkAllArgumentsSet($throwError = true)
+	#[\Override]
+    protected function checkAllArgumentsSet($throwError = true)
 	{
 		if($this->getParameter('required', true)) {
 			return true;

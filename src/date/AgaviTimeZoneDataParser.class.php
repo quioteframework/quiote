@@ -69,7 +69,7 @@ class AgaviTimeZoneDataParser
 	/**
 	 * @var        array The preprocessed rules array.
 	 */
-	protected $rules = array();
+	protected $rules = [];
 
 	/**
 	 * @see        AgaviConfigParser::parse()
@@ -103,36 +103,36 @@ class AgaviTimeZoneDataParser
 		
 		// find version info
 		if(!preg_match('/^#\s*@\(#\)\s*(?P<filename>\S+)\s+(?P<version>\S+)\s*$/m', $data, $meta)) {
-			$meta = array(
+			$meta = [
 				'filename' => '(unknown)',
 				'version' => '(unknown)',
-			);
+			];
 		}
 		
 		$zoneLines = explode("\n", $data);
 		// filter comments
-		$zoneLines = array_filter($zoneLines, function($line) { return !(strlen(trim($line)) == 0 || preg_match('!^\s*#!', $line)); });
+		$zoneLines = array_filter($zoneLines, fn($line) => !(strlen(trim((string) $line)) == 0 || preg_match('!^\s*#!', (string) $line)));
 
-		$zones = array();
-		$rules = array();
-		$links = array();
-		while(list($i, $line) = each($zoneLines)) { // for($i = 0, $c = count($zoneLines); $i < $c; ++$i) {
-			$line = $zoneLines[$i];
-
-			if(preg_match('!^\s*Rule\s*(.*)!', $line, $match)) {
+		$zones = [];
+		$rules = [];
+		$links = [];
+		foreach ($zoneLines as $i => $line) {
+            // for($i = 0, $c = count($zoneLines); $i < $c; ++$i) {
+            $line = $zoneLines[$i];
+            if(preg_match('!^\s*Rule\s*(.*)!', $line, $match)) {
 				$cols = $this->splitLine($match[1], 9);
 				$rule = $this->parseRule($cols);
 				$rules[$rule['name']][] = $rule;
 			} elseif(preg_match('!^\s*Zone\s*(.*)!', $line, $match)) {
-				$colLines = array();
+				$colLines = [];
 				$lineCols = $this->splitLine($match[1], 5);
 				$colLines[] = $lineCols;
 				// the until column exists so we need to fetch the continuation line
-				if(isset($lineCols[4]) && list($i, $line) = each($zoneLines)) {
+				if(isset($lineCols[4]) && [$i, $line] = each($zoneLines)) {
 					do {
 						$lineCols = $this->splitLine($line, 4);
 						$colLines[] = $lineCols;
-					} while(isset($lineCols[3]) && list($i, $line) = each($zoneLines));
+					} while(isset($lineCols[3]) && [$i, $line] = each($zoneLines));
 				}
 
 				$zone = $this->parseZone($colLines);
@@ -147,12 +147,12 @@ class AgaviTimeZoneDataParser
 			} else {
 				throw new AgaviException('Unknown line ' . $line . ' in file ' . $file);
 			}
-		}
+        }
 
 		$this->prepareRules($rules);
 		$zones = $this->generateDatatables($zones);
 
-		return array('zones' => $zones, 'links' => $links, 'meta' => $meta);
+		return ['zones' => $zones, 'links' => $links, 'meta' => $meta];
 	}
 
 	/**
@@ -166,11 +166,11 @@ class AgaviTimeZoneDataParser
 	 */
 	protected function prepareRules($rules)
 	{
-		$finalRules = array();
+		$finalRules = [];
 
 		foreach($rules as $name => $ruleList) {
-			$activeRules = array();
-			$myRules = array();
+			$activeRules = [];
+			$myRules = [];
 
 			$cnt = count($ruleList);
 			for($i = 0; $i < $cnt; ++$i) {
@@ -206,7 +206,7 @@ class AgaviTimeZoneDataParser
 						} elseif($year != $activeRule['startYear'] && ($hasNonFinalRules || !$last)) {
 							// if the year is the start year this rule has already been processed for this year
 							$time = $this->getOnDate($year, $activeRule['month'], $activeRule['on'], $myRule['at'], 0, 0);
-							$myRules[] = array('time' => $time, 'rule' => $activeRule);
+							$myRules[] = ['time' => $time, 'rule' => $activeRule];
 						}
 					}
 
@@ -214,7 +214,7 @@ class AgaviTimeZoneDataParser
 						$time = $this->getOnDate($year, $myRule['month'], $myRule['on'], $myRule['at'], 0, 0);
 
 						if(($myRule['endYear'] != self::MAX_YEAR_VALUE || $year == $myRule['startYear']) || $hasNonFinalRules) {
-							$myRules[] = array('time' => $time, 'rule' => $myRule);
+							$myRules[] = ['time' => $time, 'rule' => $myRule];
 						}
 
 						if($myRule['startYear'] != $myRule['endYear']) {
@@ -226,7 +226,7 @@ class AgaviTimeZoneDataParser
 				} while(count($activeRules) && ((!$last && $ruleList[$i + 1]['startYear'] > $year) || ($last && $year < self::MAX_GEN_YEAR)));
 			}
 
-			usort($myRules, array(__CLASS__, 'ruleCmp'));
+			usort($myRules, self::ruleCmp(...));
 			$finalRules[$name]['activeRules'] = $activeRules;
 			$finalRules[$name]['rules'] = $myRules;
 		}
@@ -246,13 +246,9 @@ class AgaviTimeZoneDataParser
 	 * @since      0.11.0
 	 */
 	public static function ruleCmp($a, $b)
-	{
-		if($a['time'] == $b['time']) {
-			return 0;
-		}
-		
-		return ($a['time'] < $b['time']) ? -1 : 1;
-	}
+    {
+        return $a['time'] <=> $b['time'];
+    }
 
 	/**
 	 * Returns as rules with the given name within the given limits.
@@ -277,7 +273,7 @@ class AgaviTimeZoneDataParser
 
 		$lastDstOff = 0;
 
-		$rules = array();
+		$rules = [];
 		$lastUntilTime = $untilTime = null;
 		$firstHit = true;
 		$lastRule = null;
@@ -290,7 +286,7 @@ class AgaviTimeZoneDataParser
 
 			if($until !== null) {
 				$untilDate = $this->dateStrToArray($until);
-				$untilTime = $this->getOnDate($untilDate['year'], $untilDate['month'], array('type' => 'date', 'date' => $untilDate['day'], 'day' => null), array('secondsInDay' => $untilDate['time']['seconds'], 'type' => $untilDate['time']['type']), $gmtOff, $dstOff);
+				$untilTime = $this->getOnDate($untilDate['year'], $untilDate['month'], ['type' => 'date', 'date' => $untilDate['day'], 'day' => null], ['secondsInDay' => $untilDate['time']['seconds'], 'type' => $untilDate['time']['type']], $gmtOff, $dstOff);
 			}
 
 			switch($rule['rule']['at']['type']) {
@@ -314,13 +310,13 @@ class AgaviTimeZoneDataParser
 				if($from != $time) {
 					$insertRuleName = sprintf(is_array($format) ? $format[0] : $format, $lastSkippedRule !== null ? $lastSkippedRule['rule']['variablePart'] : '');
 
-					$rules[] = array(
+					$rules[] = [
 						'time' => $from,
 						'rawOffset' => $gmtOff,
 						'dstOffset' => 0,
 						'name' => $insertRuleName,
 						'fromEndless' => false,
-					);
+					];
 				}
 				$firstHit = false;
 			}
@@ -329,19 +325,19 @@ class AgaviTimeZoneDataParser
 				break;
 			}
 
-			$rules[] = array(
+			$rules[] = [
 				'time' => $time,
 				'rawOffset' => $gmtOff,
 				'dstOffset' => $dstOff,
 				'name' => sprintf(is_array($format) ? ($dstOff == 0 ? $format[0] : $format[1]) : $format, $rule['rule']['variablePart']),
 				'fromEndless' => $isEndless,
-			);
+			];
 
 			$lastUntilTime = $untilTime;
 			$lastRule = $rule;
 		}
 
-		return array('rules' => $rules, 'untilTime' => $lastUntilTime, 'activeRules' => $this->rules[$name]['activeRules']);
+		return ['rules' => $rules, 'untilTime' => $lastUntilTime, 'activeRules' => $this->rules[$name]['activeRules']];
 	}
 
 	/**
@@ -356,12 +352,12 @@ class AgaviTimeZoneDataParser
 	 */
 	protected function generateDatatables($zones)
 	{
-		$zoneTables = array();
+		$zoneTables = [];
 
 		foreach($zones as $zone) {
 			$start = true;
-			$myRules = array();
-			$finalRule = array();
+			$myRules = [];
+			$finalRule = [];
 			$activeSubRules = null;
 			$lastRuleEndTime = null;
 			$lastDstOff = 0;
@@ -391,13 +387,13 @@ class AgaviTimeZoneDataParser
 				} else {
 					if($until) {
 						$untilDate = $this->dateStrToArray($until);
-						$untilDateTime = $this->getOnDate($untilDate['year'], $untilDate['month'], array('type' => 'date', 'date' => $untilDate['day'], 'day' => null), array('secondsInDay' => $untilDate['time']['seconds'], 'type' => $untilDate['time']['type']), $gmtOff, $dstOff);
+						$untilDateTime = $this->getOnDate($untilDate['year'], $untilDate['month'], ['type' => 'date', 'date' => $untilDate['day'], 'day' => null], ['secondsInDay' => $untilDate['time']['seconds'], 'type' => $untilDate['time']['type']], $gmtOff, $dstOff);
 					} else {
 						$untilDateTime = null;
 					}
 
 					if($lastRuleEndTime !== null) {
-						$myRules[] = array('time' => $lastRuleEndTime, 'rawOffset' => $gmtOff, 'dstOffset' => $dstOff, 'name' => $format);
+						$myRules[] = ['time' => $lastRuleEndTime, 'rawOffset' => $gmtOff, 'dstOffset' => $dstOff, 'name' => $format];
 					} else {
 						// TODO: we probably don't need to add the first rule at all, check this!
 					}
@@ -429,7 +425,7 @@ class AgaviTimeZoneDataParser
 							throw new AgaviException('unexpected active rule count ' . $cnt);
 						}
 						if($cnt == 0) {
-							$finalRule = array('type' => 'none', 'offset' => $gmtOff, 'startYear' => $lastRuleStartYear);
+							$finalRule = ['type' => 'none', 'offset' => $gmtOff, 'startYear' => $lastRuleStartYear];
 						} else {
 							// normalize the keys
 							$on = 0;
@@ -441,27 +437,27 @@ class AgaviTimeZoneDataParser
 								$off = 0;
 							}
 
-							$finalRule = array(
+							$finalRule = [
 								'type' => 'dynamic',
 								'offset' => $gmtOff,
 								'name' => $format,
 								'save' => $sr[$on]['save'],
-								'start' => array(
+								'start' => [
 									'month' => $sr[$on]['month'],
 									'date' => null,
 									'day_of_week' => null,
 									'time' => $sr[$on]['at']['secondsInDay'] * AgaviDateDefinitions::MILLIS_PER_SECOND,
 									'type' => AgaviSimpleTimeZone::WALL_TIME,
-								),
-								'end' => array(
+								],
+								'end' => [
 									'month' => $sr[$off]['month'],
 									'date' => null,
 									'day_of_week' => null,
 									'time' => $sr[$off]['at']['secondsInDay'] * AgaviDateDefinitions::MILLIS_PER_SECOND,
 									'type' => AgaviSimpleTimeZone::WALL_TIME,
-								),
+								],
 								'startYear' => $lastRuleStartYear, 
-							);
+							];
 
 							for($i = 0; $i < count($sr); ++$i) {
 
@@ -493,12 +489,12 @@ class AgaviTimeZoneDataParser
 							}
 						}
 					} else {
-						$finalRule = array('type' => 'static', 'name' => $format, 'offset' => $gmtOff, 'startYear' => $lastRuleStartYear);
+						$finalRule = ['type' => 'static', 'name' => $format, 'offset' => $gmtOff, 'startYear' => $lastRuleStartYear];
 					}
 				}
 			}
 
-			$myTypes = array();
+			$myTypes = [];
 
 			// compact the same (raw|dst)offset & name fields
 			foreach($myRules as $id => $rule) {
@@ -507,20 +503,20 @@ class AgaviTimeZoneDataParser
 			}
 
 			$typeId = 0;
-			$myFinalTypes = array();
-			$myFinalRules = array();
+			$myFinalTypes = [];
+			$myFinalRules = [];
 			foreach($myTypes as $ids) {
 				$firstRule = $myRules[$ids[0]];
-				$myFinalTypes[$typeId] = array('rawOffset' => $firstRule['rawOffset'], 'dstOffset' => $firstRule['dstOffset'], 'name' => $firstRule['name']);
+				$myFinalTypes[$typeId] = ['rawOffset' => $firstRule['rawOffset'], 'dstOffset' => $firstRule['dstOffset'], 'name' => $firstRule['name']];
 				foreach($ids as $id) {
-					$myFinalRules[] = array('time' => $myRules[$id]['time'], 'type' => $typeId);
+					$myFinalRules[] = ['time' => $myRules[$id]['time'], 'type' => $typeId];
 				}
 				++$typeId;
 			}
 
-			usort($myFinalRules, array(__CLASS__, 'ruleCmp'));
+			usort($myFinalRules, self::ruleCmp(...));
 
-			$zoneTables[$zone['name']] = array('types' => $myFinalTypes, 'rules' => $myFinalRules, 'finalRule' => $finalRule, 'source' => $zone['source'], 'version' => $zone['version']);
+			$zoneTables[$zone['name']] = ['types' => $myFinalTypes, 'rules' => $myFinalRules, 'finalRule' => $finalRule, 'source' => $zone['source'], 'version' => $zone['version']];
 		}
 
 		return $zoneTables;
@@ -600,12 +596,12 @@ class AgaviTimeZoneDataParser
 	 */
 	protected function splitLine($line, $itemCount)
 	{
-		$line = trim($line);
+		$line = trim((string) $line);
 
 		$inQuote = false;
 		$itemStr = '';
 		$lastChar = false;
-		$items = array();
+		$items = [];
 		$itemPos = 0;
 		for($i = 0, $l = strlen($line); $i < $l; ++$i) {
 			if($i + 1 == $l) {
@@ -749,17 +745,17 @@ class AgaviTimeZoneDataParser
 
 		$name = $ruleColumns[0];
 		$startYear = $ruleColumns[1];
-		if(substr_compare($startYear, 'mi', 0, 2, true) == 0) {
+		if(substr_compare((string) $startYear, 'mi', 0, 2, true) == 0) {
 			$startYear = self::MIN_YEAR_VALUE;
-		} else if(substr_compare($startYear, 'ma', 0, 2, true) == 0) {
+		} else if(substr_compare((string) $startYear, 'ma', 0, 2, true) == 0) {
 			$startYear = self::MAX_YEAR_VALUE;
 		}
 		$endYear = $ruleColumns[2];
-		if(substr_compare($endYear, 'mi', 0, 2, true) == 0) {
+		if(substr_compare((string) $endYear, 'mi', 0, 2, true) == 0) {
 			$endYear = self::MIN_YEAR_VALUE;
-		} else if(substr_compare($endYear, 'ma', 0, 2, true) == 0) {
+		} else if(substr_compare((string) $endYear, 'ma', 0, 2, true) == 0) {
 			$endYear = self::MAX_YEAR_VALUE;
-		} else if(substr_compare($endYear, 'o', 0, 1, true) == 0) {
+		} else if(substr_compare((string) $endYear, 'o', 0, 1, true) == 0) {
 			$endYear = $startYear;
 		}
 
@@ -775,36 +771,36 @@ class AgaviTimeZoneDataParser
 
 		$on = $ruleColumns[5];
 		if(is_numeric($on)) {
-			$on = array('type' => 'date', 'date' => $on, 'day' => null);
-		} elseif(preg_match('!^last(.*)$!', $on, $match)) {
+			$on = ['type' => 'date', 'date' => $on, 'day' => null];
+		} elseif(preg_match('!^last(.*)$!', (string) $on, $match)) {
 			$day = $this->getDayFromAbbr($match[1]);
 			if(!is_numeric($day)) {
 				throw new Exception('Unknown day "'.$day.'" in rule ' . $name);
 			}
 
-			$on = array('type' => 'last', 'date' => null, 'day' => $day);
-		} elseif(preg_match('!^([a-z]+)(\>\=|\<\=)([0-9]+)$!i', $on, $match)) {
+			$on = ['type' => 'last', 'date' => null, 'day' => $day];
+		} elseif(preg_match('!^([a-z]+)(\>\=|\<\=)([0-9]+)$!i', (string) $on, $match)) {
 			$day = $this->getDayFromAbbr($match[1]);
 			if(!is_numeric($day)) {
 				throw new Exception('Unknown day "'.$day.'" in rule ' . $name);
 			}
 
-			$on = array('type' => $match[2], 'date' => $match[3], 'day' => $day);
+			$on = ['type' => $match[2], 'date' => $match[3], 'day' => $day];
 		} else {
 			throw new Exception('unknown on column (' . $on . ') in rule ' . $name);
 		}
 
 		$at = $ruleColumns[6];
-		$lastAtChar = substr($at, -1);
+		$lastAtChar = substr((string) $at, -1);
 		$atType = 'wallclock';
 		if($lastAtChar == 'w') {
-			$at = substr($at, 0, -1);
+			$at = substr((string) $at, 0, -1);
 		} elseif($lastAtChar == 's') {
 			$atType = 'standard';
-			$at = substr($at, 0, -1);
+			$at = substr((string) $at, 0, -1);
 		} elseif($lastAtChar == 'u' || $lastAtChar == 'z' || $lastAtChar == 'g') {
 			$atType = 'universal';
-			$at = substr($at, 0, -1);
+			$at = substr((string) $at, 0, -1);
 		}
 
 		if($at == '-') {
@@ -813,7 +809,7 @@ class AgaviTimeZoneDataParser
 			$at = $this->timeStrToSeconds($at);
 		}
 
-		$at = array('type' => $atType, 'secondsInDay' => $at);
+		$at = ['type' => $atType, 'secondsInDay' => $at];
 
 		$save = $this->timeStrToSeconds($ruleColumns[7]);
 
@@ -822,7 +818,7 @@ class AgaviTimeZoneDataParser
 			$variablePart = '';
 		}
 
-		return array(
+		return [
 			'name' => $name,
 			'startYear' => $startYear,
 			'endYear' => $endYear,
@@ -832,7 +828,7 @@ class AgaviTimeZoneDataParser
 			'at' => $at,
 			'save' => $save,
 			'variablePart' => $variablePart
-		);
+		];
 	}
 
 	/*
@@ -905,13 +901,13 @@ class AgaviTimeZoneDataParser
 
 		$name = $zoneLines[$i][0];
 
-		$rules = array();
+		$rules = [];
 
 		do {
 			$zoneColumns = $zoneLines[$i];
 			$gmtOff = $zoneColumns[$indexBase + 1];
 			if($gmtOff[0] == '-') {
-				$gmtOff = - $this->timeStrToSeconds(substr($gmtOff, 1));
+				$gmtOff = - $this->timeStrToSeconds(substr((string) $gmtOff, 1));
 			} else {
 				$gmtOff = $this->timeStrToSeconds($gmtOff);
 			}
@@ -919,17 +915,17 @@ class AgaviTimeZoneDataParser
 			$rule = $zoneColumns[$indexBase + 2];
 			if($rule == '-') {
 				$rule = null;
-			} elseif(preg_match('!^[^\s0-9][^\s]+$!', $rule)) {
+			} elseif(preg_match('!^[^\s0-9][^\s]+$!', (string) $rule)) {
 				
-			} elseif(preg_match('!^([0-9]+):([0-9]+)!', $rule, $match)) {
+			} elseif(preg_match('!^([0-9]+):([0-9]+)!', (string) $rule, $match)) {
 				$rule = $match[1] * 3600 + $match[2] * 60;
 			} else {
 				throw new Exception('Unknown rule column "' . $rule . '" in zone ' . $name);
 			}
 
 			$format = $zoneColumns[$indexBase + 3];
-			if(str_contains($format, '/')) {
-				$format = explode('/', $format);
+			if(str_contains((string) $format, '/')) {
+				$format = explode('/', (string) $format);
 			}
 
 			$until = null;
@@ -937,13 +933,13 @@ class AgaviTimeZoneDataParser
 				$until = $zoneColumns[$indexBase + 4];
 			}
 
-			$rules[] = array('gmtOff' => $gmtOff, 'rule' => $rule, 'format' => $format, 'until' => $until);
+			$rules[] = ['gmtOff' => $gmtOff, 'rule' => $rule, 'format' => $format, 'until' => $until];
 
 			$indexBase = -1;
 			++$i;
 		} while($i < $c);
 
-		return array('name' => $name, 'rules' => $rules);
+		return ['name' => $name, 'rules' => $rules];
 	}
 
 	/**
@@ -958,10 +954,10 @@ class AgaviTimeZoneDataParser
 	 */
 	protected function getMonthFromAbbr($month)
 	{
-		static $months = array(AgaviDateDefinitions::JANUARY => 'january', AgaviDateDefinitions::FEBRUARY => 'february', AgaviDateDefinitions::MARCH => 'march', AgaviDateDefinitions::APRIL => 'april', AgaviDateDefinitions::MAY => 'may', AgaviDateDefinitions::JUNE => 'june', AgaviDateDefinitions::JULY => 'july', AgaviDateDefinitions::AUGUST => 'august', AgaviDateDefinitions::SEPTEMBER => 'september', AgaviDateDefinitions::OCTOBER => 'october', AgaviDateDefinitions::NOVEMBER => 'november', AgaviDateDefinitions::DECEMBER => 'december');
+		static $months = [AgaviDateDefinitions::JANUARY => 'january', AgaviDateDefinitions::FEBRUARY => 'february', AgaviDateDefinitions::MARCH => 'march', AgaviDateDefinitions::APRIL => 'april', AgaviDateDefinitions::MAY => 'may', AgaviDateDefinitions::JUNE => 'june', AgaviDateDefinitions::JULY => 'july', AgaviDateDefinitions::AUGUST => 'august', AgaviDateDefinitions::SEPTEMBER => 'september', AgaviDateDefinitions::OCTOBER => 'october', AgaviDateDefinitions::NOVEMBER => 'november', AgaviDateDefinitions::DECEMBER => 'december'];
 
 		foreach($months as $i => $m) {
-			if(substr_compare($m, $month, 0, strlen($month), true) == 0) {
+			if(substr_compare((string) $m, (string) $month, 0, strlen((string) $month), true) == 0) {
 				$month = $i;
 				break;
 			}
@@ -982,10 +978,10 @@ class AgaviTimeZoneDataParser
 	 */
 	protected function getDayFromAbbr($day)
 	{
-		static $days = array(AgaviDateDefinitions::SUNDAY => 'sunday', AgaviDateDefinitions::MONDAY => 'monday', AgaviDateDefinitions::TUESDAY => 'tuesday', AgaviDateDefinitions::WEDNESDAY => 'wednesday', AgaviDateDefinitions::THURSDAY => 'thursday', AgaviDateDefinitions::FRIDAY => 'friday', AgaviDateDefinitions::SATURDAY => 'saturday');
+		static $days = [AgaviDateDefinitions::SUNDAY => 'sunday', AgaviDateDefinitions::MONDAY => 'monday', AgaviDateDefinitions::TUESDAY => 'tuesday', AgaviDateDefinitions::WEDNESDAY => 'wednesday', AgaviDateDefinitions::THURSDAY => 'thursday', AgaviDateDefinitions::FRIDAY => 'friday', AgaviDateDefinitions::SATURDAY => 'saturday'];
 
 		foreach($days as $i => $d) {
-			if(substr_compare($d, $day, 0, strlen($day), true) == 0) {
+			if(substr_compare((string) $d, (string) $day, 0, strlen((string) $day), true) == 0) {
 				$day = $i;
 				break;
 			}
@@ -1006,7 +1002,7 @@ class AgaviTimeZoneDataParser
 	 */
 	protected function timeStrToSeconds($time)
 	{
-		if(preg_match('!^(-?)([0-9]{1,2})(\:[0-9]{1,2})?(\:[0-9]{1,2})?$!', $time, $match)) {
+		if(preg_match('!^(-?)([0-9]{1,2})(\:[0-9]{1,2})?(\:[0-9]{1,2})?$!', (string) $time, $match)) {
 			$seconds = 0;
 			if(isset($match[4])) {
 				$seconds += substr($match[4], 1);
@@ -1039,8 +1035,8 @@ class AgaviTimeZoneDataParser
 	 */
 	protected function dateStrToArray($date)
 	{
-		$array = array('year' => 0, 'month' => 0, 'day' => 1, 'time' => array('type' => 'wallclock', 'seconds' => 0));
-		if(preg_match('!(\d{4})(\s+[a-z0-9]+)?(\s+\d+)?(\s+\d[^\s]*)?!i', $date, $match)) {
+		$array = ['year' => 0, 'month' => 0, 'day' => 1, 'time' => ['type' => 'wallclock', 'seconds' => 0]];
+		if(preg_match('!(\d{4})(\s+[a-z0-9]+)?(\s+\d+)?(\s+\d[^\s]*)?!i', (string) $date, $match)) {
 			$match = array_map('trim', $match);
 			$array['year'] = $match[1];
 			if(isset($match[2])) {
@@ -1062,7 +1058,7 @@ class AgaviTimeZoneDataParser
 					$type = 'universal';
 					$time = substr($time, 0, -1);
 				}
-				$array['time'] = array('type' => $type, 'seconds' => $this->timeStrToSeconds($time));
+				$array['time'] = ['type' => $type, 'seconds' => $this->timeStrToSeconds($time)];
 			}
 		} else {
 			throw new Exception('unknown date format: "' . $date . '"');

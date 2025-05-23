@@ -34,12 +34,12 @@ class AgaviAutoloader
 	/**
 	 * @var        array An assoc array of classes and file paths for autoloading.
 	 */
-	public static $classes = array();
+	public static $classes = [];
 	
 	/**
 	 * @var        array An assoc array of namespaces and paths for autoloading.
 	 */
-	public static $namespaces = array();
+	public static $namespaces = [];
 
 	/**
 	 * Add classes to the autoloader.
@@ -88,14 +88,14 @@ class AgaviAutoloader
 		}
 		
 		// nothing yet; let's see if it's in one of our namespace map paths
-		$lastBackslash = strrpos($class, '\\');
+		$lastBackslash = strrpos((string) $class, '\\');
 		if($lastBackslash === false) {
 			return false;
 		}
 		
 		// split input into namespace and class name
-		$namespace = substr($class, 0, $lastBackslash);
-		$class = substr($class, $lastBackslash+1);
+		$namespace = substr((string) $class, 0, $lastBackslash);
+		$class = substr((string) $class, $lastBackslash+1);
 		
 		foreach(self::$namespaces as $prefix => $path) {
 			if(str_starts_with($namespace . '\\', $prefix . '\\')) { // make sure we terminate the prefix, or else a prefix like "Doc" would load "Doctrine"

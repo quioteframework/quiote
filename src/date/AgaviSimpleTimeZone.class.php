@@ -63,10 +63,11 @@ class AgaviSimpleTimeZone extends AgaviTimeZone
 	 * @author     The ICU Project
 	 * @since      0.11.0
 	 */
-	function __is_equal(AgaviTimeZone $that)
+	#[\Override]
+    function __is_equal(AgaviTimeZone $that)
 	{
 		return ($this === $that ||
-						(get_class($this) == get_class($that) &&
+						(static::class == $that::class &&
 							AgaviTimeZone::__is_equal($that) &&
 							$this->hasSameRules($that)
 						));
@@ -95,19 +96,19 @@ class AgaviSimpleTimeZone extends AgaviTimeZone
 			$arguments[2] = '';
 		}
 		
-		$fName = AgaviToolkit::overloadHelper(array(
-			array('name' => 'constructorOIS',
-						'parameters' => array('object', 'int', 'string')),
-			array('name' => 'constructorOISIIIIIIII',
-						'parameters' => array('object', 'int', 'string', 'int', 'int', 'int', 'int', 'int', 'int', 'int', 'int')),
-			array('name' => 'constructorOISIIIIIIIII',
-						'parameters' => array('object', 'int', 'string', 'int', 'int', 'int', 'int', 'int', 'int', 'int', 'int', 'int')),
-			array('name' => 'constructorOISIIIIIIIIIII',
-						'parameters' => array('object', 'int', 'string', 'int', 'int', 'int', 'int', 'int', 'int', 'int', 'int', 'int', 'int', 'int')),
-			),
+		$fName = AgaviToolkit::overloadHelper([
+			['name' => 'constructorOIS',
+						'parameters' => ['object', 'int', 'string']],
+			['name' => 'constructorOISIIIIIIII',
+						'parameters' => ['object', 'int', 'string', 'int', 'int', 'int', 'int', 'int', 'int', 'int', 'int']],
+			['name' => 'constructorOISIIIIIIIII',
+						'parameters' => ['object', 'int', 'string', 'int', 'int', 'int', 'int', 'int', 'int', 'int', 'int', 'int']],
+			['name' => 'constructorOISIIIIIIIIIII',
+						'parameters' => ['object', 'int', 'string', 'int', 'int', 'int', 'int', 'int', 'int', 'int', 'int', 'int', 'int', 'int']],
+			],
 			$arguments
 		);
-		call_user_func_array(array($this, $fName), $arguments);
+		call_user_func_array([$this, $fName], $arguments);
 	}
 
 	/**
@@ -320,23 +321,23 @@ class AgaviSimpleTimeZone extends AgaviTimeZone
 	public function setStartRule()
 	{
 		$arguments = func_get_args();
-		$fName = AgaviToolkit::overloadHelper(array(
-			array('name' => 'setStartRuleIIII',
-						'parameters' => array('int', 'int', 'int', 'int')),
-			array('name' => 'setStartRuleIIIIF',
-						'parameters' => array('int', 'int', 'int', 'int', 'double')),
-			array('name' => 'setStartRuleIII',
-						'parameters' => array('int', 'int', 'int')),
-			array('name' => 'setStartRuleIIIF',
-						'parameters' => array('int', 'int', 'int', 'double')),
-			array('name' => 'setStartRuleIIIIB',
-						'parameters' => array('int', 'int', 'int', 'int', 'bool')),
-			array('name' => 'setStartRuleIIIIFB',
-						'parameters' => array('int', 'int', 'int', 'int', 'float', 'bool')),
-			),
+		$fName = AgaviToolkit::overloadHelper([
+			['name' => 'setStartRuleIIII',
+						'parameters' => ['int', 'int', 'int', 'int']],
+			['name' => 'setStartRuleIIIIF',
+						'parameters' => ['int', 'int', 'int', 'int', 'double']],
+			['name' => 'setStartRuleIII',
+						'parameters' => ['int', 'int', 'int']],
+			['name' => 'setStartRuleIIIF',
+						'parameters' => ['int', 'int', 'int', 'double']],
+			['name' => 'setStartRuleIIIIB',
+						'parameters' => ['int', 'int', 'int', 'int', 'bool']],
+			['name' => 'setStartRuleIIIIFB',
+						'parameters' => ['int', 'int', 'int', 'int', 'float', 'bool']],
+			],
 			$arguments
 		);
-		call_user_func_array(array($this, $fName), $arguments);
+		call_user_func_array([$this, $fName], $arguments);
 	}
 
 	/**
@@ -566,23 +567,23 @@ class AgaviSimpleTimeZone extends AgaviTimeZone
 	public function setEndRule()
 	{
 		$arguments = func_get_args();
-		$fName = AgaviToolkit::overloadHelper(array(
-			array('name' => 'setEndRuleIIII',
-						'parameters' => array('int', 'int', 'int', 'int')),
-			array('name' => 'setEndRuleIIIIF',
-						'parameters' => array('int', 'int', 'int', 'int', 'double')),
-			array('name' => 'setEndRuleIII',
-						'parameters' => array('int', 'int', 'int')),
-			array('name' => 'setEndRuleIIIF',
-						'parameters' => array('int', 'int', 'int', 'double')),
-			array('name' => 'setEndRuleIIIIB',
-						'parameters' => array('int', 'int', 'int', 'int', 'bool')),
-			array('name' => 'setEndRuleIIIIFB',
-						'parameters' => array('int', 'int', 'int', 'int', 'float', 'bool')),
-			),
+		$fName = AgaviToolkit::overloadHelper([
+			['name' => 'setEndRuleIIII',
+						'parameters' => ['int', 'int', 'int', 'int']],
+			['name' => 'setEndRuleIIIIF',
+						'parameters' => ['int', 'int', 'int', 'int', 'double']],
+			['name' => 'setEndRuleIII',
+						'parameters' => ['int', 'int', 'int']],
+			['name' => 'setEndRuleIIIF',
+						'parameters' => ['int', 'int', 'int', 'double']],
+			['name' => 'setEndRuleIIIIB',
+						'parameters' => ['int', 'int', 'int', 'int', 'bool']],
+			['name' => 'setEndRuleIIIIFB',
+						'parameters' => ['int', 'int', 'int', 'int', 'float', 'bool']],
+			],
 			$arguments
 		);
-		call_user_func_array(array($this, $fName), $arguments);
+		call_user_func_array([$this, $fName], $arguments);
 	}
 
 	/**
@@ -749,21 +750,22 @@ class AgaviSimpleTimeZone extends AgaviTimeZone
 	 * @author     The ICU Project
 	 * @since      0.11.0
 	 */
-	public function getOffset()
+	#[\Override]
+    public function getOffset()
 	{
 		$arguments = func_get_args();
-		$fName = AgaviToolkit::overloadHelper(array(
-			array('name' => 'getOffsetIIIIII',
-						'parameters' => array('int', 'int', 'int', 'int', 'int', 'int')),
-			array('name' => 'getOffsetIIIIIII',
-						'parameters' => array('int', 'int', 'int', 'int', 'int', 'int', 'int')),
-			array('name' => 'getOffsetIIIIIIII',
-						'parameters' => array('int', 'int', 'int', 'int', 'int', 'int', 'int', 'int')),
-			),
+		$fName = AgaviToolkit::overloadHelper([
+			['name' => 'getOffsetIIIIII',
+						'parameters' => ['int', 'int', 'int', 'int', 'int', 'int']],
+			['name' => 'getOffsetIIIIIII',
+						'parameters' => ['int', 'int', 'int', 'int', 'int', 'int', 'int']],
+			['name' => 'getOffsetIIIIIIII',
+						'parameters' => ['int', 'int', 'int', 'int', 'int', 'int', 'int', 'int']],
+			],
 			$arguments
 		);
 
-		return call_user_func_array(array($this, $fName), $arguments);
+		return call_user_func_array([$this, $fName], $arguments);
 	}
 
 	/**
@@ -990,7 +992,8 @@ class AgaviSimpleTimeZone extends AgaviTimeZone
 	 * @author     The ICU Project
 	 * @since      0.11.0
 	 */
-	public function getDSTSavings()
+	#[\Override]
+    public function getDSTSavings()
 	{
 		return $this->dstSavings;
 	}
@@ -1022,12 +1025,13 @@ class AgaviSimpleTimeZone extends AgaviTimeZone
 	 * @author     The ICU Project
 	 * @since      0.11.0
 	 */
-	public function hasSameRules(AgaviTimeZone $other)
+	#[\Override]
+    public function hasSameRules(AgaviTimeZone $other)
 	{
 		if($this === $other) {
 			return true;
 		}
-		if(get_class($this) != get_class($other)) {
+		if(static::class != $other::class) {
 			return false;
 		}
 
@@ -1426,7 +1430,7 @@ return true;
 	private $startYear;  // the year these DST rules took effect
 	private $rawOffset;  // the TimeZone's raw GMT offset
 	private $useDaylight; // flag indicating whether this TimeZone uses DST
-	private static $STATICMONTHLENGTH = array(31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31);
+	private static $STATICMONTHLENGTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 	private $startMode, $endMode;   // flags indicating what kind of rules the DST rules are
 
 	/**

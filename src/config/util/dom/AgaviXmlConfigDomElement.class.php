@@ -28,7 +28,7 @@
  *
  * @version    $Id$
  */
-class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
+class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate, \Stringable
 {
 	/**
 	 * __toString() magic method, returns the element value.
@@ -159,7 +159,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 	protected function singularize($name): string
 	{
 		// TODO: shouldn't this be static?
-		$names = preg_split('#([_\-\.])#', $name, -1, PREG_SPLIT_DELIM_CAPTURE);
+		$names = preg_split('#([_\-\.])#', (string) $name, -1, PREG_SPLIT_DELIM_CAPTURE);
 		$names[count($names) - 1] = AgaviInflector::singularize(end($names));
 		return implode('', $names);
 	}
@@ -225,7 +225,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 	{
 		// if arg is null, then only check for elements from our default namespace
 		// if namespace uri is null, use default ns. if empty string, use no ns
-		$namespaceUri = ($namespaceUri === null ? $this->ownerDocument->getDefaultNamespaceUri() : $namespaceUri);
+		$namespaceUri ??= $this->ownerDocument->getDefaultNamespaceUri();
 		
 		// init our vars
 		$query = '';
@@ -302,7 +302,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 	{
 		// if arg is null, then only check for elements from our default namespace
 		// if namespace uri is null, use default ns. if empty string, use no ns
-		$namespaceUri = ($namespaceUri === null ? $this->ownerDocument->getDefaultNamespaceUri() : $namespaceUri);
+		$namespaceUri ??= $this->ownerDocument->getDefaultNamespaceUri();
 		
 		// init our vars
 		$query = '';
@@ -375,7 +375,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 	{
 		// if arg is null, then only check for elements from our default namespace
 		// if namespace uri is null, use default ns. if empty string, use no ns
-		$namespaceUri = ($namespaceUri === null ? $this->ownerDocument->getDefaultNamespaceUri() : $namespaceUri);
+		$namespaceUri ??= $this->ownerDocument->getDefaultNamespaceUri();
 		
 		// tag our element, because libxml will mess things up otherwise
 		$marker = uniqid('', true);
@@ -476,7 +476,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 	 */
 	public function getAttributesNS($namespaceUri): array
 	{
-		$retval = array();
+		$retval = [];
 		
 		foreach($this->ownerDocument->getXpath()->query(sprintf('@*[namespace-uri() = "%s"]', $namespaceUri), $this) as $attribute) {
 			$retval[$attribute->localName] = $attribute->nodeValue;
@@ -531,7 +531,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate
 				}
 				
 				if($element->hasAgaviParameters()) {
-					$result[$key] = isset($result[$key]) && is_array($result[$key]) ? $result[$key] : array();
+					$result[$key] = isset($result[$key]) && is_array($result[$key]) ? $result[$key] : [];
 					$result[$key] = $element->getAgaviParameters($result[$key]);
 				} else {
 					$result[$key] = $element->getLiteralValue();

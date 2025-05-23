@@ -44,13 +44,6 @@ abstract class AgaviTimeZone
 	protected $translationManager = null;
 
 	/**
-	 * The id of this time zone.
-	 *
-	 * @var        string
-	 */
-	protected $id;
-
-	/**
 	 * @var        string The "resolved" id. This means if the original id pointed
 	 *                    to a link timezone this will contain the id of the 
 	 *                    timezone the link resolved to.
@@ -99,16 +92,16 @@ abstract class AgaviTimeZone
 	public function getOffset()
 	{
 		$arguments = func_get_args();
-		$fName = AgaviToolkit::overloadHelper(array(
-			array('name' => 'getOffsetIIIIII',
-						'parameters' => array('int', 'int', 'int', 'int', 'int', 'int')),
-			array('name' => 'getOffsetIIIIIII',
-						'parameters' => array('int', 'int', 'int', 'int', 'int', 'int', 'int')),
-			),
+		$fName = AgaviToolkit::overloadHelper([
+			['name' => 'getOffsetIIIIII',
+						'parameters' => ['int', 'int', 'int', 'int', 'int', 'int']],
+			['name' => 'getOffsetIIIIIII',
+						'parameters' => ['int', 'int', 'int', 'int', 'int', 'int', 'int']],
+			],
 			$arguments
 		);
 
-		return call_user_func_array(array($this, $fName), $arguments);
+		return call_user_func_array([$this, $fName], $arguments);
 	}
 
 	/**
@@ -428,19 +421,22 @@ abstract class AgaviTimeZone
 	}
 
 	/**
-	 * Construct a timezone with a given ID.
-	 * 
-	 * @param      AgaviTranslationManager The translation Manager
-	 * @param      string A system time zone ID
-	 * 
-	 * @author     Dominik del Bondio <ddb@bitxtender.com>
-	 * @author     The ICU Project
-	 * @since      0.11.0
-	 */
-	protected function __construct(AgaviTranslationManager $tm, $id = '')
+     * Construct a timezone with a given ID.
+     *
+     * @param      AgaviTranslationManager The translation Manager
+     * @param      string A system time zone ID
+     *
+     * @author     Dominik del Bondio <ddb@bitxtender.com>
+     * @author     The ICU Project
+     * @since      0.11.0
+     * @param string $id
+     */
+    protected function __construct(AgaviTranslationManager $tm, /**
+     * The id of this time zone.
+     */
+    protected $id = '')
 	{
 		$this->translationManager = $tm;
-		$this->id = $id;
 	}
 
 	/**
@@ -524,12 +520,12 @@ abstract class AgaviTimeZone
 		$minutes = 0;
 		$seconds = 0;
 		$negative = false;
-		if(preg_match('#^GMT([+-])(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$#', $id, $match)) {
+		if(preg_match('#^GMT([+-])(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$#', (string) $id, $match)) {
 			$negative = $match[1] == '-';
 			$hours = $match[2];
 			$minutes = $match[3];
-			$seconds = isset($match[4]) ? $match[4] : 0;
-		} elseif(preg_match('#^GMT([+-])(\d{1,6})$#', $id, $match)) {
+			$seconds = $match[4] ?? 0;
+		} elseif(preg_match('#^GMT([+-])(\d{1,6})$#', (string) $id, $match)) {
 			$negative = $match[1] == '-';
 			// Supported formats are below -
 			//
@@ -592,7 +588,7 @@ abstract class AgaviTimeZone
 	 * @since      0.11.0
 	 */
 	public function __is_equal(AgaviTimeZone $that) {
-		return get_class($this) == get_class($that) && $this->getId() == $that->getId();
+		return static::class == $that::class && $this->getId() == $that->getId();
 	}
 
 	/**
@@ -609,7 +605,7 @@ abstract class AgaviTimeZone
 	 * @since      0.11.0
 	 */
 	public function __is_not_equal(AgaviTimeZone $that) {
-		return get_class($this) != get_class($that) || $this->getId() != $that->getId();
+		return static::class != $that::class || $this->getId() != $that->getId();
 	}
 
 	/**

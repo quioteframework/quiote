@@ -22,23 +22,21 @@ class AgaviConstraintViewHandlesOutputType extends AgaviBaseConstraintBecausePhp
 	protected $viewInstance;
 	
 	/**
-	 * @var        bool Whether generic 'execute' methods should be accepted.
-	 */
-	protected $acceptGeneric;
-	
-	/**
-	 * constructor
-	 * 
-	 * @param      AgaviView Instance of the View to test
-	 * @param      bool      Whether generic execute methods should be accepted.
-	 * 
-	 * @author     Felix Gilcher <felix.gilcher@bitextender.com>
-	 * @since      1.0.0
-	 */
-	public function __construct(AgaviView $viewInstance, $acceptGeneric = false)
+     * constructor
+     *
+     * @param      AgaviView Instance of the View to test
+     * @param      bool      Whether generic execute methods should be accepted.
+     *
+     * @author     Felix Gilcher <felix.gilcher@bitextender.com>
+     * @since      1.0.0
+     * @param bool $acceptGeneric
+     */
+    public function __construct(AgaviView $viewInstance, /**
+     * @var        bool Whether generic 'execute' methods should be accepted.
+     */
+    protected $acceptGeneric = false)
 	{
 		$this->viewInstance = $viewInstance;
-		$this->acceptGeneric = $acceptGeneric;
 	}
 	
 	/**
@@ -52,10 +50,11 @@ class AgaviConstraintViewHandlesOutputType extends AgaviBaseConstraintBecausePhp
 	 * @author     Felix Gilcher <felix.gilcher@bitextender.com>
 	 * @since      1.0.7
 	 */
-	public function matches($other)
+	#[\Override]
+    public function matches($other)
 	{
 		$executeMethod = 'execute' . $other;
-		if(is_callable(array($this->viewInstance, $executeMethod)) || ($this->acceptGeneric && is_callable(array($this->viewInstance, 'execute')))) {
+		if(is_callable([$this->viewInstance, $executeMethod]) || ($this->acceptGeneric && is_callable($this->viewInstance->execute(...)))) {
 			return true;
 		}
 		
@@ -75,7 +74,7 @@ class AgaviConstraintViewHandlesOutputType extends AgaviBaseConstraintBecausePhp
 		return sprintf(
 			'%1$s handles output type',
 		
-			get_class($this->viewInstance)
+			$this->viewInstance::class
 		);
 	}
 	
@@ -96,13 +95,13 @@ class AgaviConstraintViewHandlesOutputType extends AgaviBaseConstraintBecausePhp
 		if($not) {
 			return sprintf(
 				'Failed asserting that %1$s does not handle output type "%2$s".',
-				get_class($this->viewInstance),
+				$this->viewInstance::class,
 				$other
 			);
 		} else {
 			return sprintf(
 				'Failed asserting that %1$s handles output type "%2$s".',
-				get_class($this->viewInstance),
+				$this->viewInstance::class,
 				$other
 			);
 		}

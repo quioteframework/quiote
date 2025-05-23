@@ -72,7 +72,7 @@ interface AgaviIRoutingValue extends ArrayAccess
 	 * @author     Dominik del Bondio <dominik.del.bondio@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array());
+	public function initialize(AgaviContext $context, array $parameters = []);
 	
 	/**
 	 * Set the value.

@@ -57,7 +57,8 @@ class AgaviHttpRedirectRoutingCallback extends AgaviRoutingCallback
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.1.0
 	 */
-	public function initialize(AgaviContext $context, array &$route)
+	#[\Override]
+    public function initialize(AgaviContext $context, array &$route)
 	{
 		parent::initialize($context, $route);
 		
@@ -78,7 +79,8 @@ class AgaviHttpRedirectRoutingCallback extends AgaviRoutingCallback
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.1.0
 	 */
-	public function onMatched(array &$parameters, AgaviExecutionContainer $container)
+	#[\Override]
+    public function onMatched(array &$parameters, AgaviExecutionContainer $container)
 	{
 		$routing = $this->getContext()->getRouting();
 		
@@ -90,7 +92,7 @@ class AgaviHttpRedirectRoutingCallback extends AgaviRoutingCallback
 			// expand ${foo} in arguments using incoming parameters, this enables basic rewriting of arguments
 			array_walk_recursive($arguments, function(&$argument) use($parameters): void { $argument = AgaviToolkit::expandVariables($argument, $parameters); });
 			
-			$options = $this->getParameter('options', array());
+			$options = $this->getParameter('options', []);
 			// prepare options; make sure URLs are absolute and separator is "&" by default
 			if(is_array($options)) {
 				// it's an array of options, not a gen options preset name; set our defaults
@@ -119,15 +121,15 @@ class AgaviHttpRedirectRoutingCallback extends AgaviRoutingCallback
 				)
 			);
 		} else {
-			$parts = array();
-			foreach(array('scheme', 'host', 'port', 'user', 'pass', 'path', 'query', 'fragment') as $part) {
+			$parts = [];
+			foreach(['scheme', 'host', 'port', 'user', 'pass', 'path', 'query', 'fragment'] as $part) {
 				if(($value = $this->getParameter($part)) !== null) {
 					$parts[$part] = $value;
 				}
 			}
 			
 			if($parts) {
-				$url = AgaviToolkit::buildUrl(array_merge(parse_url($this->getContext()->getRequest()->getUrl()), $parts));
+				$url = AgaviToolkit::buildUrl(array_merge(parse_url((string) $this->getContext()->getRequest()->getUrl()), $parts));
 			} else {
 				// improper configuration for whatever reason; bail out
 				return false;

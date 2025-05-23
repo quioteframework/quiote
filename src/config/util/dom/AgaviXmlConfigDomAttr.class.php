@@ -27,11 +27,11 @@
  *
  * @version    $Id$
  */
-class AgaviXmlConfigDomAttr extends DOMAttr
+class AgaviXmlConfigDomAttr extends DOMAttr implements \Stringable
 {
-	public function __toString()
+	public function __toString(): string
 	{
-		return $this->getValue();
+		return (string) $this->getValue();
 	}
 	
 	public function getValue()

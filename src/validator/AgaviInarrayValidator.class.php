@@ -49,7 +49,7 @@ class AgaviInarrayValidator extends AgaviValidator
 	{
 		$list = $this->getParameter('values');
 		if(!is_array($list)) {
-			$list = explode($this->getParameter('sep'), $list);
+			$list = explode($this->getParameter('sep'), (string) $list);
 		}
 		$value = $this->getData($this->getArgument());
 		

@@ -56,7 +56,7 @@ class AgaviModuleConfigHandler extends AgaviXmlConfigHandler
 		
 		$enabled = false;
 		$prefix = 'modules.${moduleName}.';
-		$data = array();
+		$data = [];
 		
 		// loop over <configuration> elements
 		foreach($document->getConfigurationElements() as $configuration) {
@@ -88,7 +88,7 @@ class AgaviModuleConfigHandler extends AgaviXmlConfigHandler
 			}
 		}
 		
-		$code = array();
+		$code = [];
 		$code[] = '$lcModuleName = strtolower($moduleName);';
 		$code[] = 'AgaviConfig::set(AgaviToolkit::expandVariables(' . var_export($prefix . 'enabled', true) . ', array(\'moduleName\' => $lcModuleName)), ' . var_export($enabled, true) . ', true, true);';
 		if(count($data)) {

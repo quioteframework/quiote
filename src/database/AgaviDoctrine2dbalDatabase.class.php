@@ -51,7 +51,8 @@ class AgaviDoctrine2dbalDatabase extends AgaviDoctrine2Database
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.6
 	 */
-	public function getResource()
+	#[\Override]
+    public function getResource()
 	{
 		return $this->getConnection()->getWrappedConnection();
 	}

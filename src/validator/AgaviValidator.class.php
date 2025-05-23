@@ -118,12 +118,12 @@ abstract class AgaviValidator extends AgaviParameterHolder
 	 * @var        array The name of the request parameters serving as argument to
 	 *                   this validator.
 	 */
-	protected $arguments = array();
+	protected $arguments = [];
 
 	/**
 	 * @var        array The error messages.
 	 */
-	protected $errorMessages = array();
+	protected $errorMessages = [];
 
 	/**
 	 * @var        AgaviValidationIncident The current incident.
@@ -133,7 +133,7 @@ abstract class AgaviValidator extends AgaviParameterHolder
 	/**
 	 * @var        array The affected arguments of this validation run.
 	 */
-	protected $affectedArguments = array();
+	protected $affectedArguments = [];
 
 	/**
 	 * Returns the base path of this validator.
@@ -158,7 +158,7 @@ abstract class AgaviValidator extends AgaviParameterHolder
 	 */
 	public function getBaseKeys()
 	{
-		$keys = array();
+		$keys = [];
 		$l = $this->curBase->length();
 		for($i = 1; $i < $l; ++$i) {
 			$keys[] = $this->curBase->get($i);
@@ -208,7 +208,7 @@ abstract class AgaviValidator extends AgaviParameterHolder
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array(), array $arguments = array(), array $errors = array())
+	public function initialize(AgaviContext $context, array $parameters = [], array $arguments = [], array $errors = [])
 	{
 		$this->context = $context;
 
@@ -216,10 +216,10 @@ abstract class AgaviValidator extends AgaviParameterHolder
 		$this->errorMessages = $errors;
 
 		if(!isset($parameters['depends']) || !is_array($parameters['depends'])) {
-			$parameters['depends'] = (!empty($parameters['depends'])) ? explode(' ', $parameters['depends']) : array();
+			$parameters['depends'] = (!empty($parameters['depends'])) ? explode(' ', (string) $parameters['depends']) : [];
 		}
 		if(!isset($parameters['provides']) || !is_array($parameters['provides'])) {
-			$parameters['provides'] = (!empty($parameters['provides'])) ? explode(' ', $parameters['provides']) : array();
+			$parameters['provides'] = (!empty($parameters['provides'])) ? explode(' ', (string) $parameters['provides']) : [];
 		}
 
 		if(!isset($parameters['source'])) {
@@ -756,21 +756,14 @@ abstract class AgaviValidator extends AgaviParameterHolder
 	 */
 	public static function mapErrorCode($code)
 	{
-		switch(strtolower($code)) {
-			case 'critical':
-				return self::CRITICAL;
-			case 'error':
-				return self::ERROR;
-			case 'notice':
-				return self::NOTICE;
-			case 'none':
-			case 'silent':
-				return self::SILENT;
-			case 'info':
-				return self::INFO;
-			default:
-				throw new AgaviValidatorException('unknown error code: '.$code);
-		}
+		return match (strtolower((string) $code)) {
+            'critical' => self::CRITICAL,
+            'error' => self::ERROR,
+            'notice' => self::NOTICE,
+            'none', 'silent' => self::SILENT,
+            'info' => self::INFO,
+            default => throw new AgaviValidatorException('unknown error code: '.$code),
+        };
 	}
 
 	/**
@@ -786,9 +779,9 @@ abstract class AgaviValidator extends AgaviParameterHolder
 		$paramType = $this->getParameter('source');
 
 		$array = $this->validationParameters->getAll($paramType);
-		$names = $this->curBase->getValue($array, array());
+		$names = $this->curBase->getValue($array, []);
 
-		return is_array($names) ? array_keys($names) : array();
+		return is_array($names) ? array_keys($names) : [];
 	}
 
 	/**
@@ -801,7 +794,7 @@ abstract class AgaviValidator extends AgaviParameterHolder
 	 */
 	protected function getFullArgumentNames()
 	{
-		$arguments = array();
+		$arguments = [];
 		foreach($this->getArguments() as $argument) {
 			if($argument) {
 				$arguments[] = $this->curBase->pushRetNew($argument)->__toString();

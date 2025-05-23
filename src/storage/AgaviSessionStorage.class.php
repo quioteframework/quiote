@@ -111,7 +111,7 @@ class AgaviSessionStorage extends AgaviStorage
 			if(is_numeric($lifetime)) {
 				$lifetime = (int) $lifetime;
 			} else {
-				$lifetime = strtotime($lifetime, 0);
+				$lifetime = strtotime((string) $lifetime, 0);
 			}
 			$path = $this->getParameter('session_cookie_path', $cookieDefaults['path']);
 			if($path === true) {
@@ -134,7 +134,7 @@ class AgaviSessionStorage extends AgaviStorage
 			session_start();
 			
 			if($lifetime !== 0) {
-				setcookie(session_name(), session_id(), time() + $lifetime, $path, $domain, $secure, $httpOnly);
+				setcookie(session_name(), session_id(), ['expires' => time() + $lifetime, 'path' => $path, 'domain' => $domain, 'secure' => $secure, 'httponly' => $httpOnly]);
 			}
 		}
 	}
@@ -154,10 +154,7 @@ class AgaviSessionStorage extends AgaviStorage
 	 */
 	public function read($key)
 	{
-		if(isset($_SESSION[$key])) {
-			return $_SESSION[$key];
-		}
-		return null;
+		return $_SESSION[$key] ?? null;
 	}
 
 	/**

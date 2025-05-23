@@ -52,7 +52,7 @@ abstract class AgaviFlowTestCase extends AgaviPhpUnitTestCase implements AgaviIF
 	 * @param        array  $data
 	 * @param        string $dataName
 	 */
-	public function __construct($name = NULL, array $data = array(), $dataName = '')
+	public function __construct($name = NULL, array $data = [], $dataName = '')
 	{
 		parent::__construct($name, $data, $dataName);
 		$this->setRunTestInSeparateProcess(true);
@@ -77,7 +77,7 @@ abstract class AgaviFlowTestCase extends AgaviPhpUnitTestCase implements AgaviIF
 	 * @author       Felix Gilcher <felix.gilcher@bitextender.com>
 	 * @since        1.0.0 
 	 */
-	public function dispatch($parameters = array())
+	public function dispatch($parameters = [])
 	{
 		$_SERVER['REQUEST_URI'] = $this->getDispatchScriptName() . $this->getRoutingInput();
 		$_SERVER['SCRIPT_NAME'] = $this->getDispatchScriptName();

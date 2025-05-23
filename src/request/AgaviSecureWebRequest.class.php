@@ -42,10 +42,11 @@ class AgaviSecureWebRequest extends AgaviWebRequest {
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.10.0
 	 */
-	public function isHTTPS()
+	#[\Override]
+    public function isHTTPS()
 	{
 
-		return (isset($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) == 'on');
+		return (isset($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) == 'on');
 
 	}
 
@@ -61,7 +62,7 @@ class AgaviSecureWebRequest extends AgaviWebRequest {
 	public function hasValidClientCert()
 	{
 
-		return (isset($_SERVER['SSL_CLIENT_VERIFY']) && strtoupper($_SERVER['SSL_CLIENT_VERIFY']) == 'SUCCESS');
+		return (isset($_SERVER['SSL_CLIENT_VERIFY']) && strtoupper((string) $_SERVER['SSL_CLIENT_VERIFY']) == 'SUCCESS');
 
 	}
 

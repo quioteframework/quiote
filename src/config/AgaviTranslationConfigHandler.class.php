@@ -54,8 +54,8 @@ class AgaviTranslationConfigHandler extends AgaviXmlConfigHandler
 		
 		$config = $document->documentURI;
 		
-		$translatorData = array();
-		$localeData = array();
+		$translatorData = [];
+		$localeData = [];
 
 		$defaultDomain = '';
 		$defaultLocale = null;
@@ -71,7 +71,7 @@ class AgaviTranslationConfigHandler extends AgaviXmlConfigHandler
 				foreach($availableLocales as $locale) {
 					$name = $locale->getAttribute('identifier');
 					if(!isset($localeData[$name])) {
-						$localeData[$name] = array('name' => $name, 'params' => array(), 'fallback' => null, 'ldml_file' => null);
+						$localeData[$name] = ['name' => $name, 'params' => [], 'fallback' => null, 'ldml_file' => null];
 					}
 					$localeData[$name]['params'] = $locale->getAgaviParameters($localeData[$name]['params']);
 					$localeData[$name]['fallback'] = $locale->getAttribute('fallback', $localeData[$name]['fallback']);
@@ -86,7 +86,7 @@ class AgaviTranslationConfigHandler extends AgaviXmlConfigHandler
 			}
 		}
 
-		$data = array();
+		$data = [];
 
 		$data[] = sprintf('$this->defaultDomain = %s;', var_export($defaultDomain, true));
 		$data[] = sprintf('$this->defaultLocaleIdentifier = %s;', var_export($defaultLocale, true));
@@ -99,16 +99,16 @@ class AgaviTranslationConfigHandler extends AgaviXmlConfigHandler
 		}
 
 		foreach($translatorData as $domain => $translator) {
-			foreach(array('msg', 'num', 'cur', 'date') as $type) {
+			foreach(['msg', 'num', 'cur', 'date'] as $type) {
 				if(isset($translator[$type]['class'])) {
 					if(!class_exists($translator[$type]['class'])) {
 						throw new AgaviConfigurationException(sprintf('The Translator or Formatter class "%s" for domain "%s" could not be found.', $translator[$type]['class'], $domain));
 					}
-					$data[] = implode("\n", array(
+					$data[] = implode("\n", [
 						sprintf('$this->translators[%s][%s] = new %s();', var_export($domain, true), var_export($type, true), $translator[$type]['class']),
 						sprintf('$this->translators[%s][%s]->initialize($this->getContext(), %s);', var_export($domain, true), var_export($type, true), var_export($translator[$type]['params'], true)),
 						sprintf('$this->translatorFilters[%s][%s] = %s;', var_export($domain, true), var_export($type, true), var_export($translator[$type]['filters'], true)),
-					));
+					]);
 				}
 			}
 		}
@@ -128,10 +128,10 @@ class AgaviTranslationConfigHandler extends AgaviXmlConfigHandler
 	 */
 	protected function getFilters($translator)
 	{
-		$filters = array();
+		$filters = [];
 		if($translator->has('filters')) {
 			foreach($translator->get('filters') as $filter) {
-				$func = explode('::', $filter->getValue());
+				$func = explode('::', (string) $filter->getValue());
 				if(count($func) != 2) {
 					$func = $func[0];
 				}
@@ -157,12 +157,12 @@ class AgaviTranslationConfigHandler extends AgaviXmlConfigHandler
 	 */
 	protected function getTranslators($translators, &$data, $parent = null)
 	{
-		static $defaultData = array(
-			'msg'  => array('class' => null, 'filters' => array(), 'params' => array()),
-			'num'  => array('class' => 'AgaviNumberFormatter', 'filters' => array(), 'params' => array()),
-			'cur'  => array('class' => 'AgaviCurrencyFormatter', 'filters' => array(), 'params' => array()),
-			'date' => array('class' => 'AgaviDateFormatter', 'filters' => array(), 'params' => array()),
-		);
+		static $defaultData = [
+			'msg'  => ['class' => null, 'filters' => [], 'params' => []],
+			'num'  => ['class' => 'AgaviNumberFormatter', 'filters' => [], 'params' => []],
+			'cur'  => ['class' => 'AgaviCurrencyFormatter', 'filters' => [], 'params' => []],
+			'date' => ['class' => 'AgaviDateFormatter', 'filters' => [], 'params' => []],
+		];
 
 		foreach($translators as $translator) {
 			$domain = $translator->getAttribute('domain');
@@ -173,13 +173,13 @@ class AgaviTranslationConfigHandler extends AgaviXmlConfigHandler
 				if(!$parent) {
 					$data[$domain] = $defaultData;
 				} else {
-					$data[$domain] = array();
+					$data[$domain] = [];
 				}
 			}
 
 			$domainData =& $data[$domain];
 
-			foreach(array('msg' => 'message_translator', 'num' => 'number_formatter', 'cur' => 'currency_formatter', 'date' => 'date_formatter') as $type => $nodeName) {
+			foreach(['msg' => 'message_translator', 'num' => 'number_formatter', 'cur' => 'currency_formatter', 'date' => 'date_formatter'] as $type => $nodeName) {
 				if($translator->hasChild($nodeName)) {
 					$node = $translator->getChild($nodeName);
 					if(!isset($domainData[$type])) {

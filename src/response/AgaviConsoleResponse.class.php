@@ -47,7 +47,8 @@ class AgaviConsoleResponse extends AgaviResponse
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function merge(AgaviResponse $otherResponse)
+	#[\Override]
+    public function merge(AgaviResponse $otherResponse)
 	{
 		parent::merge($otherResponse);
 	}
@@ -62,7 +63,7 @@ class AgaviConsoleResponse extends AgaviResponse
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function setRedirect($to)
+	public function setRedirect($to): never
 	{
 		throw new BadMethodCallException('Redirects are not implemented for Console.');
 	}
@@ -77,7 +78,7 @@ class AgaviConsoleResponse extends AgaviResponse
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function getRedirect()
+	public function getRedirect(): never
 	{
 		throw new BadMethodCallException('Redirects are not implemented for Console.');
 	}
@@ -92,7 +93,7 @@ class AgaviConsoleResponse extends AgaviResponse
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function hasRedirect()
+	public function hasRedirect(): never
 	{
 		throw new BadMethodCallException('Redirects are not implemented for Console.');
 	}
@@ -105,7 +106,7 @@ class AgaviConsoleResponse extends AgaviResponse
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function clearRedirect()
+	public function clearRedirect(): never
 	{
 		throw new BadMethodCallException('Redirects are not implemented for Console.');
 	}
@@ -146,7 +147,8 @@ class AgaviConsoleResponse extends AgaviResponse
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function isContentMutable()
+	#[\Override]
+    public function isContentMutable()
 	{
 		return !is_resource($this->content);
 	}
@@ -161,7 +163,7 @@ class AgaviConsoleResponse extends AgaviResponse
 	{
 		$this->sendContent();
 		
-		register_shutdown_function(array($this, 'sendExit'));
+		register_shutdown_function([$this, 'sendExit']);
 	}
 	
 	/**
@@ -182,7 +184,8 @@ class AgaviConsoleResponse extends AgaviResponse
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	protected function sendContent()
+	#[\Override]
+    protected function sendContent()
 	{
 		$isContentMutable = $this->isContentMutable();
 		
@@ -201,7 +204,7 @@ class AgaviConsoleResponse extends AgaviResponse
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function sendExit()
+	public function sendExit(): never
 	{
 		exit($this->exitCode);
 	}

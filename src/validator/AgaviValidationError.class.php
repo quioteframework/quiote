@@ -30,19 +30,9 @@
 class AgaviValidationError
 {
 	/**
-	 * @var        string The message for this error.
-	 */
-	protected $message = null;
-
-	/**
-	 * @var        string The name of the message.
-	 */
-	protected $name = null;
-
-	/**
 	 * @var        array The fields this error affects.
 	 */
-	protected $arguments = array();
+	protected $arguments = [];
 
 	/**
 	 * @var        AgaviValidationIncident The incident in which this error 
@@ -51,19 +41,25 @@ class AgaviValidationError
 	protected $incident = null;
 
 	/**
-	 * Constructor
-	 *
-	 * @param      string The message of this error.
-	 * @param      string The name of the message.
-	 * @param      array The arguments affected by this error.
-	 *
-	 * @author     Dominik del Bondio <ddb@bitxtender.com>
-	 * @since      0.11.0
-	 */
-	public function __construct($message, $name, array $arguments)
+     * Constructor
+     *
+     * @param      string The message of this error.
+     * @param      string The name of the message.
+     * @param      array The arguments affected by this error.
+     *
+     * @author     Dominik del Bondio <ddb@bitxtender.com>
+     * @since      0.11.0
+     * @param string $message
+     * @param string $name
+     */
+    public function __construct(/**
+     * @var        string The message for this error.
+     */
+    protected $message, /**
+     * @var        string The name of the message.
+     */
+    protected $name, array $arguments)
 	{
-		$this->message = $message;
-		$this->name = $name;
 		foreach($arguments as $argument) {
 			if(!($argument instanceof AgaviValidationArgument)) {
 				$argument = new AgaviValidationArgument($argument);
@@ -220,7 +216,7 @@ class AgaviValidationError
 	 */
 	public function getFields()
 	{
-		$fields = array();
+		$fields = [];
 		foreach($this->arguments as $argument) {
 			$fields[] = $argument->getName();
 		}

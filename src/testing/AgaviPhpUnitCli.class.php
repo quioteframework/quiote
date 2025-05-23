@@ -41,8 +41,8 @@ class AgaviPhpUnitCli extends PHPUnit_TextUI_Command
 		$this->longOptions['no-expand-configuration'] = 'handleNoExpandConfiguration';
 		
 		$this->arguments['agaviEnvironment'] = !empty($_SERVER['AGAVI_ENVIRONMENT']) ? $_SERVER['AGAVI_ENVIRONMENT'] : 'testing';
-		$this->arguments['agaviIncludeSuites'] = array();
-		$this->arguments['agaviExcludeSuites'] = array();
+		$this->arguments['agaviIncludeSuites'] = [];
+		$this->arguments['agaviExcludeSuites'] = [];
 		$this->arguments['agaviExpandConfiguration'] = true;
 	}
 
@@ -71,7 +71,7 @@ class AgaviPhpUnitCli extends PHPUnit_TextUI_Command
 	{
 		$this->arguments['agaviIncludeSuites'] = array_merge(
 			$this->arguments['agaviIncludeSuites'],
-			explode(',', $value)
+			explode(',', (string) $value)
 		);
 	}
 	
@@ -87,7 +87,7 @@ class AgaviPhpUnitCli extends PHPUnit_TextUI_Command
 	{
 		$this->arguments['agaviExcludeSuites'] = array_merge(
 			$this->arguments['agaviExcludeSuites'],
-			explode(',', $value)
+			explode(',', (string) $value)
 		);
 	}
 	
@@ -126,7 +126,8 @@ class AgaviPhpUnitCli extends PHPUnit_TextUI_Command
 	 * @author     Dominik del Bondio <dominik.del.bondio@bitextender.com>
 	 * @since      1.1.0
 	 */
-	protected function showHelp()
+	#[\Override]
+    protected function showHelp()
 	{
 		parent::showHelp();
 		echo <<<EOT
@@ -165,7 +166,7 @@ EOT;
 		// ensure the bootstrap script doesn't run and bootstraps agavi another time
 		define('AGAVI_TESTING_BOOTSTRAPPED', true);
 		AgaviToolkit::clearCache();
-		$this->bootstrap($this->arguments['agaviEnvironment']);
+		static::bootstrap($this->arguments['agaviEnvironment']);
 		
 		
 		// use the default configuration only if another configuration was not given as command line argument
@@ -174,7 +175,7 @@ EOT;
 			$this->arguments['configuration'] = $defaultConfigPath;
 		}
 		
-		$this->arguments['configuration'] = $this->expandConfiguration($this->arguments['configuration']);
+		$this->arguments['configuration'] = self::expandConfiguration($this->arguments['configuration']);
 
 		if(count($this->options[1]) > 0) {
 			// positional args were given, so the user specified a test or folder on the command line
@@ -234,9 +235,7 @@ EOT;
 			));
 			// ensure that the execution order of the tests is always in deterministic
 			// order and doesn't depend on the filesystem order
-			usort($files, function($a, $b) {
-				return strcmp($a->getPathName(), $b->getPathName());
-			});
+			usort($files, fn($a, $b) => strcmp((string) $a->getPathName(), (string) $b->getPathName()));
 			
 			foreach($files as $finfo) {
 				if($finfo->isFile()) {

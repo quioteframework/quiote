@@ -54,7 +54,8 @@ class AgaviImageFileValidator  extends AgaviBaseFileValidator
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	protected function validate()
+	#[\Override]
+    protected function validate()
 	{
 		if(!parent::validate()) {
 			return false;
@@ -68,7 +69,7 @@ class AgaviImageFileValidator  extends AgaviBaseFileValidator
 			return false;
 		}
 
-		list($width, $height, $imageType) = $type;
+		[$width, $height, $imageType] = $type;
 
 		if($this->hasParameter('max_width') && $width > $this->getParameter('max_width')) {
 			$this->throwError('max_width');
@@ -94,21 +95,21 @@ class AgaviImageFileValidator  extends AgaviBaseFileValidator
 		
 		// We need this additional alias map because image_type_to_extension()
 		// returns only "jpeg" but not "jpg" or "tiff" but not "tif"
-		$aliases = array(
+		$aliases = [
 			IMAGETYPE_JPEG    => 'jpg',
 			IMAGETYPE_TIFF_II => 'tif',
 			IMAGETYPE_TIFF_MM => 'tif',
-		);
+		];
 		$ext = image_type_to_extension($imageType, false);
 		
-		$format = $this->getParameter('format', array());
+		$format = $this->getParameter('format', []);
 		
 		if(!is_array($format)) {
-			$format = explode(' ', $this->getParameter('format'));
+			$format = explode(' ', (string) $this->getParameter('format'));
 		}
 		
 		foreach($format as $name) {
-			$lName = strtolower($name);
+			$lName = strtolower((string) $name);
 			if($ext == $lName) {
 				return true;
 			} elseif(isset($aliases[$imageType]) && $aliases[$imageType] == $name) {

@@ -38,7 +38,8 @@ class AgaviWebserviceRouting extends AgaviRouting
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	#[\Override]
+    public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		parent::initialize($context, $parameters);
 		

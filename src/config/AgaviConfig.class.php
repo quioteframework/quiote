@@ -32,12 +32,12 @@ class AgaviConfig
 	/**
 	 * @var        array
 	 */
-	private static $config = array();
+	private static $config = [];
 
 	/**
 	 * @var        array
 	 */
-	private static $readonlies = array();
+	private static $readonlies = [];
 
 	/**
 	 * Get a configuration value.

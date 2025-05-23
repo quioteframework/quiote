@@ -43,9 +43,10 @@ class AgaviSecurityFilter extends AgaviFilter implements AgaviIActionFilter, Aga
      * @author     Sean Kerr <skerr@mojavi.org>
      * @since      0.9.0
      */
+    #[\Override]
     public function execute(AgaviExecutionContainer $container)
     {
-        static $handlingRedirects = array();
+        static $handlingRedirects = [];
         $actionKey = $container->getModuleName() . '/' . $container->getActionName();
         if(isset($handlingRedirects[$actionKey])) {
             return;

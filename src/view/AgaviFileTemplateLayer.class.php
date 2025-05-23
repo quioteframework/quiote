@@ -37,21 +37,21 @@ class AgaviFileTemplateLayer extends AgaviStreamTemplateLayer
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function __construct(array $parameters = array())
+	public function __construct(array $parameters = [])
 	{
-		$targets = array();
+		$targets = [];
 		if(AgaviConfig::get('core.use_translation')) {
 			$targets[] = '${directory}/${locale}/${template}${extension}';
 			$targets[] = '${directory}/${template}.${locale}${extension}';
 		}
 		$targets[] = '${directory}/${template}${extension}';
 		
-		parent::__construct(array_merge(array(
+		parent::__construct(array_merge([
 			'directory' => AgaviConfig::get('core.module_dir') . '/${module}/templates',
 			'scheme' => 'file',
 			'check' => true,
 			'targets' => $targets,
-		), $parameters));
+		], $parameters));
 	}
 	
 	/**
@@ -65,9 +65,10 @@ class AgaviFileTemplateLayer extends AgaviStreamTemplateLayer
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	#[\Override]
+    public function initialize(AgaviContext $context, array $parameters = [])
 	{
-		$this->setParameter('directory', AgaviToolkit::evaluateModuleDirective(isset($parameters['module']) ? $parameters['module'] : '', 'agavi.template.directory'));
+		$this->setParameter('directory', AgaviToolkit::evaluateModuleDirective($parameters['module'] ?? '', 'agavi.template.directory'));
 		
 		parent::initialize($context, $parameters);
 	}
@@ -82,7 +83,8 @@ class AgaviFileTemplateLayer extends AgaviStreamTemplateLayer
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function getResourceStreamIdentifier()
+	#[\Override]
+    public function getResourceStreamIdentifier()
 	{
 		$retval = null;
 		$template = $this->getParameter('template');

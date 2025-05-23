@@ -124,7 +124,7 @@ abstract class AgaviViewTestCase extends AgaviFragmentTestCase
 		$response = $this->container->getResponse();
 		try {
 			$this->assertTrue($response->hasRedirect(), $message);
-		} catch (AgaviException $e) {
+		} catch (AgaviException) {
 			$this->fail($message);
 		}
 	}
@@ -142,7 +142,7 @@ abstract class AgaviViewTestCase extends AgaviFragmentTestCase
 		$response = $this->container->getResponse();
 		try {
 			$this->assertFalse($response->hasRedirect(), $message);
-		} catch (AgaviException $e) {
+		} catch (AgaviException) {
 			$this->fail($message);
 		}
 	}
@@ -161,7 +161,7 @@ abstract class AgaviViewTestCase extends AgaviFragmentTestCase
 		$response = $this->container->getResponse();
 		try {
 			$this->assertEquals($expected, $response->getRedirect(), $message);
-		} catch (AgaviException $e) {
+		} catch (AgaviException) {
 			$this->fail($message);
 		}
 	}

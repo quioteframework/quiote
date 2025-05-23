@@ -30,7 +30,7 @@
  * @version    $Id$
  */
 #[AllowDynamicProperties]
-class AgaviConfigValueHolder implements ArrayAccess, IteratorAggregate
+class AgaviConfigValueHolder implements ArrayAccess, IteratorAggregate, \Stringable
 {
 	/**
 	 * @var        string The name of this value.
@@ -39,11 +39,11 @@ class AgaviConfigValueHolder implements ArrayAccess, IteratorAggregate
 	/**
 	 * @var        array The attributes of this value.
 	 */
-	protected $_attributes = array();
+	protected $_attributes = [];
 	/**
 	 * @var        array The child nodes of this value.
 	 */
-	protected $_childs = array();
+	protected $_childs = [];
 	/**
 	 * @var        string The value.
 	 */
@@ -108,10 +108,10 @@ class AgaviConfigValueHolder implements ArrayAccess, IteratorAggregate
 		} else {
 			$tagName = $name;
 			$tagNameStart = '';
-			if(($lastUScore = strrpos($tagName, '_')) !== false) {
+			if(($lastUScore = strrpos((string) $tagName, '_')) !== false) {
 				$lastUScore++;
-				$tagNameStart = substr($tagName, 0, $lastUScore);
-				$tagName = substr($tagName, $lastUScore);
+				$tagNameStart = substr((string) $tagName, 0, $lastUScore);
+				$tagName = substr((string) $tagName, $lastUScore);
 			}
 
 			// check if the requested node was specified using the plural version
@@ -217,7 +217,7 @@ class AgaviConfigValueHolder implements ArrayAccess, IteratorAggregate
 		if($nodename === null) {
 			return $this->_childs;
 		} else {
-			$childs = array();
+			$childs = [];
 			foreach($this->_childs as $child) {
 				if($child->getName() == $nodename) {
 					$childs[] = $child;
@@ -274,7 +274,7 @@ class AgaviConfigValueHolder implements ArrayAccess, IteratorAggregate
 	 */
 	public function getAttribute($name, $default = null)
 	{
-		return isset($this->_attributes[$name]) ? $this->_attributes[$name] : $default;
+		return $this->_attributes[$name] ?? $default;
 	}
 
 	/**
@@ -326,12 +326,12 @@ class AgaviConfigValueHolder implements ArrayAccess, IteratorAggregate
 	 */
 	public function getNode()
 	{
-		return array(
+		return [
 			'name' => $this->_name,
 			'attributes' => $this->_attributes,
 			'children' => $this->_childs,
 			'value' => $this->_value,
-		);
+		];
 	}
 
 	/**
@@ -415,7 +415,7 @@ class AgaviConfigValueHolder implements ArrayAccess, IteratorAggregate
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function __toString()
+	public function __toString(): string
 	{
 		return $this->_value;
 	}

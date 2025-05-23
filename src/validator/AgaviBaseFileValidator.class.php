@@ -56,7 +56,8 @@ abstract class AgaviBaseFileValidator extends AgaviValidator
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array(), array $arguments = array(), array $errors = array())
+	#[\Override]
+    public function initialize(AgaviContext $context, array $parameters = [], array $arguments = [], array $errors = [])
 	{
 		if(!isset($parameters['source'])) {
 			$parameters['source'] = AgaviWebRequestDataHolder::SOURCE_FILES;
@@ -103,15 +104,15 @@ abstract class AgaviBaseFileValidator extends AgaviValidator
 			}
 			
 			if($this->hasParameter('extension')) {
-				$fileinfo = pathinfo($file->getName()) + array('extension' => '');
+				$fileinfo = pathinfo($file->getName()) + ['extension' => ''];
 				
-				$extensions = $this->getParameter('extension', array());
+				$extensions = $this->getParameter('extension', []);
 				if(!is_array($extensions)) {
-					$extensions = explode(' ', $this->getParameter('extension'));
+					$extensions = explode(' ', (string) $this->getParameter('extension'));
 				}
 				
 				foreach($extensions as $extension) {
-					if(strtolower($extension) == strtolower($fileinfo['extension'])) {
+					if(strtolower((string) $extension) == strtolower($fileinfo['extension'])) {
 						return true;
 					}
 				}

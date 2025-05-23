@@ -132,33 +132,33 @@ abstract class AgaviCalendar
 	const LIMIT_MAXIMUM             = 3;
 	const LIMIT_COUNT               = 4;
 
-	protected static $kCalendarLimits = array(
+	protected static $kCalendarLimits = [
 		//               Minimum        Greatest min            Least max         Greatest max
-		array(         /*N/A*/-1,          /*N/A*/-1,           /*N/A*/-1,           /*N/A*/-1 ), // ERA
-		array(         /*N/A*/-1,          /*N/A*/-1,           /*N/A*/-1,           /*N/A*/-1 ), // YEAR
-		array(         /*N/A*/-1,          /*N/A*/-1,           /*N/A*/-1,           /*N/A*/-1 ), // MONTH
-		array(         /*N/A*/-1,          /*N/A*/-1,           /*N/A*/-1,           /*N/A*/-1 ), // WEEK_OF_YEAR
-		array(         /*N/A*/-1,          /*N/A*/-1,           /*N/A*/-1,           /*N/A*/-1 ), // WEEK_OF_MONTH
-		array(         /*N/A*/-1,          /*N/A*/-1,           /*N/A*/-1,           /*N/A*/-1 ), // DAY_OF_MONTH
-		array(         /*N/A*/-1,          /*N/A*/-1,           /*N/A*/-1,           /*N/A*/-1 ), // DAY_OF_YEAR
-		array(                 1,                  1,                   7,                   7 ), // DAY_OF_WEEK
-		array(         /*N/A*/-1,          /*N/A*/-1,           /*N/A*/-1,           /*N/A*/-1 ), // DAY_OF_WEEK_IN_MONTH
-		array(                 0,                  0,                   1,                   1 ), // AM_PM
-		array(                 0,                  0,                  11,                  11 ), // HOUR
-		array(                 0,                  0,                  23,                  23 ), // HOUR_OF_DAY
-		array(                 0,                  0,                  59,                  59 ), // MINUTE
-		array(                 0,                  0,                  59,                  59 ), // SECOND
-		array(                 0,                  0,                 999,                 999 ), // MILLISECOND
+		[         /*N/A*/-1,          /*N/A*/-1,           /*N/A*/-1,           /*N/A*/-1 ], // ERA
+		[         /*N/A*/-1,          /*N/A*/-1,           /*N/A*/-1,           /*N/A*/-1 ], // YEAR
+		[         /*N/A*/-1,          /*N/A*/-1,           /*N/A*/-1,           /*N/A*/-1 ], // MONTH
+		[         /*N/A*/-1,          /*N/A*/-1,           /*N/A*/-1,           /*N/A*/-1 ], // WEEK_OF_YEAR
+		[         /*N/A*/-1,          /*N/A*/-1,           /*N/A*/-1,           /*N/A*/-1 ], // WEEK_OF_MONTH
+		[         /*N/A*/-1,          /*N/A*/-1,           /*N/A*/-1,           /*N/A*/-1 ], // DAY_OF_MONTH
+		[         /*N/A*/-1,          /*N/A*/-1,           /*N/A*/-1,           /*N/A*/-1 ], // DAY_OF_YEAR
+		[                 1,                  1,                   7,                   7 ], // DAY_OF_WEEK
+		[         /*N/A*/-1,          /*N/A*/-1,           /*N/A*/-1,           /*N/A*/-1 ], // DAY_OF_WEEK_IN_MONTH
+		[                 0,                  0,                   1,                   1 ], // AM_PM
+		[                 0,                  0,                  11,                  11 ], // HOUR
+		[                 0,                  0,                  23,                  23 ], // HOUR_OF_DAY
+		[                 0,                  0,                  59,                  59 ], // MINUTE
+		[                 0,                  0,                  59,                  59 ], // SECOND
+		[                 0,                  0,                 999,                 999 ], // MILLISECOND
 		//    -12*self::kOneHour, -12*self::kOneHour,   12*self::kOneHour,   15*self::kOneHour
-		array(         -43200000,          -43200000,            43200000,            54000000 ), // ZONE_OFFSET
-		array(                 0,                  0,AgaviDateDefinitions::MILLIS_PER_HOUR , AgaviDateDefinitions::MILLIS_PER_HOUR ), // DST_OFFSET
-		array(         /*N/A*/-1,          /*N/A*/-1,           /*N/A*/-1,           /*N/A*/-1 ), // YEAR_WOY
-		array(                 1,                  1,                   7,                   7 ), // DOW_LOCAL
-		array(         /*N/A*/-1,          /*N/A*/-1,           /*N/A*/-1,           /*N/A*/-1 ), // EXTENDED_YEAR
-		array(  self::MIN_JULIAN,   self::MIN_JULIAN,    self::MAX_JULIAN,    self::MAX_JULIAN ), // JULIAN_DAY
+		[         -43200000,          -43200000,            43200000,            54000000 ], // ZONE_OFFSET
+		[                 0,                  0,AgaviDateDefinitions::MILLIS_PER_HOUR , AgaviDateDefinitions::MILLIS_PER_HOUR ], // DST_OFFSET
+		[         /*N/A*/-1,          /*N/A*/-1,           /*N/A*/-1,           /*N/A*/-1 ], // YEAR_WOY
+		[                 1,                  1,                   7,                   7 ], // DOW_LOCAL
+		[         /*N/A*/-1,          /*N/A*/-1,           /*N/A*/-1,           /*N/A*/-1 ], // EXTENDED_YEAR
+		[  self::MIN_JULIAN,   self::MIN_JULIAN,    self::MAX_JULIAN,    self::MAX_JULIAN ], // JULIAN_DAY
 		//                     0,                  0, 24*self::kOneHour-1, 24*self::kOneHour-1
-		array(                 0,                  0,           86399999,             86399999 ), // MILLISECONDS_IN_DAY
-	);
+		[                 0,                  0,           86399999,             86399999 ], // MILLISECONDS_IN_DAY
+	];
 
 	/**
 	 * Returns the current UTC (GMT) time measured in milliseconds since 0:00:00
@@ -353,7 +353,7 @@ abstract class AgaviCalendar
 	 */
 	public function isEquivalentTo(AgaviCalendar $other)
 	{
-		return	get_class($this)                   == get_class($other) &&
+		return	static::class                   == $other::class &&
 						$this->isLenient()                 == $other->isLenient() &&
 						$this->getFirstDayOfWeek()         == $other->getFirstDayOfWeek() &&
 						$this->getMinimalDaysInFirstWeek() == $other->getMinimalDaysInFirstWeek() &&
@@ -1463,19 +1463,19 @@ abstract class AgaviCalendar
 	{
 		$arguments = func_get_args();
 
-		$fName = AgaviToolkit::overloadHelper(array(
-			array('name' => 'set1',
-						'parameters' => array('int', 'int')),
-			array('name' => 'set2',
-						'parameters' => array('int', 'int', 'int')),
-			array('name' => 'set3',
-						'parameters' => array('int', 'int', 'int', 'int', 'int')),
-			array('name' => 'set4',
-						'parameters' => array('int', 'int', 'int', 'int', 'int', 'int')),
-			),
+		$fName = AgaviToolkit::overloadHelper([
+			['name' => 'set1',
+						'parameters' => ['int', 'int']],
+			['name' => 'set2',
+						'parameters' => ['int', 'int', 'int']],
+			['name' => 'set3',
+						'parameters' => ['int', 'int', 'int', 'int', 'int']],
+			['name' => 'set4',
+						'parameters' => ['int', 'int', 'int', 'int', 'int', 'int']],
+			],
 			$arguments
 		);
-		call_user_func_array(array($this, $fName), $arguments);
+		call_user_func_array([$this, $fName], $arguments);
 	}
 
 	/**
@@ -1587,15 +1587,15 @@ abstract class AgaviCalendar
 	{
 		$arguments = func_get_args();
 
-		$fName = AgaviToolkit::overloadHelper(array(
-			array('name' => 'clear1',
-						'parameters' => array()),
-			array('name' => 'clear2',
-						'parameters' => array('int')),
-			),
+		$fName = AgaviToolkit::overloadHelper([
+			['name' => 'clear1',
+						'parameters' => []],
+			['name' => 'clear2',
+						'parameters' => ['int']],
+			],
 			$arguments
 		);
-		call_user_func_array(array($this, $fName), $arguments);
+		call_user_func_array([$this, $fName], $arguments);
 	}
 
 	/**
@@ -2006,23 +2006,10 @@ abstract class AgaviCalendar
 	 */
 	protected function getLimit($field, $limitType)
 	{
-		switch($field) {
-			case AgaviDateDefinitions::DAY_OF_WEEK:
-			case AgaviDateDefinitions::AM_PM:
-			case AgaviDateDefinitions::HOUR:
-			case AgaviDateDefinitions::HOUR_OF_DAY:
-			case AgaviDateDefinitions::MINUTE:
-			case AgaviDateDefinitions::SECOND:
-			case AgaviDateDefinitions::MILLISECOND:
-			case AgaviDateDefinitions::ZONE_OFFSET:
-			case AgaviDateDefinitions::DST_OFFSET:
-			case AgaviDateDefinitions::DOW_LOCAL:
-			case AgaviDateDefinitions::JULIAN_DAY:
-			case AgaviDateDefinitions::MILLISECONDS_IN_DAY:
-				return self::$kCalendarLimits[$field][$limitType];
-			default:
-				return $this->handleGetLimit($field, $limitType);
-		}
+		return match ($field) {
+            AgaviDateDefinitions::DAY_OF_WEEK, AgaviDateDefinitions::AM_PM, AgaviDateDefinitions::HOUR, AgaviDateDefinitions::HOUR_OF_DAY, AgaviDateDefinitions::MINUTE, AgaviDateDefinitions::SECOND, AgaviDateDefinitions::MILLISECOND, AgaviDateDefinitions::ZONE_OFFSET, AgaviDateDefinitions::DST_OFFSET, AgaviDateDefinitions::DOW_LOCAL, AgaviDateDefinitions::JULIAN_DAY, AgaviDateDefinitions::MILLISECONDS_IN_DAY => self::$kCalendarLimits[$field][$limitType],
+            default => $this->handleGetLimit($field, $limitType),
+        };
 	}
 
 	/**
@@ -2553,36 +2540,36 @@ abstract class AgaviCalendar
 	 * @author     The ICU Project
 	 * @since      0.11.0
 	 */
-	static $kDatePrecedence = array(
-		array(
-			array(AgaviDateDefinitions::DAY_OF_MONTH, self::RESOLVE_STOP),
-			array(AgaviDateDefinitions::WEEK_OF_YEAR, AgaviDateDefinitions::DAY_OF_WEEK, self::RESOLVE_STOP),
-			array(AgaviDateDefinitions::WEEK_OF_MONTH, AgaviDateDefinitions::DAY_OF_WEEK, self::RESOLVE_STOP),
-			array(AgaviDateDefinitions::DAY_OF_WEEK_IN_MONTH, AgaviDateDefinitions::DAY_OF_WEEK, self::RESOLVE_STOP),
-			array(AgaviDateDefinitions::WEEK_OF_YEAR, AgaviDateDefinitions::DOW_LOCAL, self::RESOLVE_STOP),
-			array(AgaviDateDefinitions::WEEK_OF_MONTH, AgaviDateDefinitions::DOW_LOCAL, self::RESOLVE_STOP),
-			array(AgaviDateDefinitions::DAY_OF_WEEK_IN_MONTH, AgaviDateDefinitions::DOW_LOCAL, self::RESOLVE_STOP),
-			array(AgaviDateDefinitions::DAY_OF_YEAR, self::RESOLVE_STOP),
+	static $kDatePrecedence = [
+		[
+			[AgaviDateDefinitions::DAY_OF_MONTH, self::RESOLVE_STOP],
+			[AgaviDateDefinitions::WEEK_OF_YEAR, AgaviDateDefinitions::DAY_OF_WEEK, self::RESOLVE_STOP],
+			[AgaviDateDefinitions::WEEK_OF_MONTH, AgaviDateDefinitions::DAY_OF_WEEK, self::RESOLVE_STOP],
+			[AgaviDateDefinitions::DAY_OF_WEEK_IN_MONTH, AgaviDateDefinitions::DAY_OF_WEEK, self::RESOLVE_STOP],
+			[AgaviDateDefinitions::WEEK_OF_YEAR, AgaviDateDefinitions::DOW_LOCAL, self::RESOLVE_STOP],
+			[AgaviDateDefinitions::WEEK_OF_MONTH, AgaviDateDefinitions::DOW_LOCAL, self::RESOLVE_STOP],
+			[AgaviDateDefinitions::DAY_OF_WEEK_IN_MONTH, AgaviDateDefinitions::DOW_LOCAL, self::RESOLVE_STOP],
+			[AgaviDateDefinitions::DAY_OF_YEAR, self::RESOLVE_STOP],
 			//    kResolveRemap | UCAL_DAY_OF_MONTH
-			array(37, AgaviDateDefinitions::YEAR, self::RESOLVE_STOP),  // if YEAR is set over YEAR_WOY use DAY_OF_MONTH
+			[37, AgaviDateDefinitions::YEAR, self::RESOLVE_STOP],  // if YEAR is set over YEAR_WOY use DAY_OF_MONTH
 			//    kResolveRemap | UCAL_WEEK_OF_YEAR
-			array(35, AgaviDateDefinitions::YEAR_WOY, self::RESOLVE_STOP),  // if YEAR_WOY is set,  calc based on WEEK_OF_YEAR
-			array(self::RESOLVE_STOP),
-		),
-		array(
-			array(AgaviDateDefinitions::WEEK_OF_YEAR, self::RESOLVE_STOP),
-			array(AgaviDateDefinitions::WEEK_OF_MONTH, self::RESOLVE_STOP),
-			array(AgaviDateDefinitions::DAY_OF_WEEK_IN_MONTH, self::RESOLVE_STOP),
+			[35, AgaviDateDefinitions::YEAR_WOY, self::RESOLVE_STOP],  // if YEAR_WOY is set,  calc based on WEEK_OF_YEAR
+			[self::RESOLVE_STOP],
+		],
+		[
+			[AgaviDateDefinitions::WEEK_OF_YEAR, self::RESOLVE_STOP],
+			[AgaviDateDefinitions::WEEK_OF_MONTH, self::RESOLVE_STOP],
+			[AgaviDateDefinitions::DAY_OF_WEEK_IN_MONTH, self::RESOLVE_STOP],
 			//    kResolveRemap | UCAL_DAY_OF_WEEK_IN_MONTH
-			array(40, AgaviDateDefinitions::DAY_OF_WEEK, self::RESOLVE_STOP),
+			[40, AgaviDateDefinitions::DAY_OF_WEEK, self::RESOLVE_STOP],
 			//    self::kResolveRemap | UCAL_DAY_OF_WEEK_IN_MONTH
-			array(40, AgaviDateDefinitions::DOW_LOCAL, self::RESOLVE_STOP),
-			array(self::RESOLVE_STOP),
-		),
-		array(
-			array(self::RESOLVE_STOP),
-		),
-	);
+			[40, AgaviDateDefinitions::DOW_LOCAL, self::RESOLVE_STOP],
+			[self::RESOLVE_STOP],
+		],
+		[
+			[self::RESOLVE_STOP],
+		],
+	];
 
 	/**
 	 * @var        array Precedence table for Year
@@ -2593,17 +2580,17 @@ abstract class AgaviCalendar
 	 * @author     The ICU Project
 	 * @since      0.11.0
 	 */
-	protected static $kYearPrecedence = array(
-		array(
-			array(AgaviDateDefinitions::YEAR, self::RESOLVE_STOP),
-			array(AgaviDateDefinitions::EXTENDED_YEAR, self::RESOLVE_STOP),
-			array(AgaviDateDefinitions::YEAR_WOY, AgaviDateDefinitions::WEEK_OF_YEAR, self::RESOLVE_STOP),  // YEAR_WOY is useless without WEEK_OF_YEAR
-			array(self::RESOLVE_STOP),
-		),
-		array(
-			array(self::RESOLVE_STOP),
-		),
-	);
+	protected static $kYearPrecedence = [
+		[
+			[AgaviDateDefinitions::YEAR, self::RESOLVE_STOP],
+			[AgaviDateDefinitions::EXTENDED_YEAR, self::RESOLVE_STOP],
+			[AgaviDateDefinitions::YEAR_WOY, AgaviDateDefinitions::WEEK_OF_YEAR, self::RESOLVE_STOP],  // YEAR_WOY is useless without WEEK_OF_YEAR
+			[self::RESOLVE_STOP],
+		],
+		[
+			[self::RESOLVE_STOP],
+		],
+	];
 
 	/**
 	 * @var        array Precedence table for Day of Week
@@ -2614,16 +2601,16 @@ abstract class AgaviCalendar
 	 * @author     The ICU Project
 	 * @since      0.11.0
 	 */
-	protected static $kDOWPrecedence = array(
-		array(
-			array(AgaviDateDefinitions::DAY_OF_WEEK, self::RESOLVE_STOP, self::RESOLVE_STOP),
-			array(AgaviDateDefinitions::DOW_LOCAL, self::RESOLVE_STOP, self::RESOLVE_STOP),
-			array(self::RESOLVE_STOP),
-		),
-		array(
-			array(self::RESOLVE_STOP),
-		),
-	);
+	protected static $kDOWPrecedence = [
+		[
+			[AgaviDateDefinitions::DAY_OF_WEEK, self::RESOLVE_STOP, self::RESOLVE_STOP],
+			[AgaviDateDefinitions::DOW_LOCAL, self::RESOLVE_STOP, self::RESOLVE_STOP],
+			[self::RESOLVE_STOP],
+		],
+		[
+			[self::RESOLVE_STOP],
+		],
+	];
 
 	/**
 	 * Given a precedence table, return the newest field combination in

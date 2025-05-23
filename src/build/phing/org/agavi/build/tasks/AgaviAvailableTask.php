@@ -78,19 +78,12 @@ class AgaviAvailableTask extends AgaviTask
 	 */
 	public function setType($type)
 	{
-		switch($type) {
-		case 'any':
-			$this->type = self::TYPE_ANY;
-			break;
-		case 'file':
-			$this->type = self::TYPE_FILE;
-			break;
-		case 'directory':
-			$this->type = self::TYPE_DIRECTORY;
-			break;
-		default:
-			throw new BuildException('The type attribute must be one of {any, file, directory}');
-		}
+		$this->type = match ($type) {
+            'any' => self::TYPE_ANY,
+            'file' => self::TYPE_FILE,
+            'directory' => self::TYPE_DIRECTORY,
+            default => throw new BuildException('The type attribute must be one of {any, file, directory}'),
+        };
 	}
 	
 	/**

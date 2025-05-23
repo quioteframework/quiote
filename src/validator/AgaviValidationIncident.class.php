@@ -32,34 +32,33 @@ class AgaviValidationIncident
 	/**
 	 * @var        array The errors of this incident.
 	 */
-	protected $errors = array();
+	protected $errors = [];
 
 	/**
-	 * @var        AgaviValidator The source of this incident.
-	 */
-	protected $validator = null;
-
-	/**
-	 * @var        int The severity of this incident.
-	 */
-	protected $severity = null;
-
-	/**
-	 * Constructor
-	 *
-	 * @param      AgaviValidator The validator which caused this incident (null 
-	 *                            for errors thrown not in the validation)
-	 * @param      int The severity of the incident
-	 * @param      array The fields affected by this error.
-	 *
-	 * @author     Dominik del Bondio <ddb@bitxtender.com>
-	 * @since      0.11.0
-	 */
-	public function __construct($validator, $severity = AgaviValidator::ERROR)
-	{
-		$this->validator = $validator;
-		$this->severity = $severity;
-	}
+     * Constructor
+     *
+     * @param      AgaviValidator The validator which caused this incident (null
+     *                            for errors thrown not in the validation)
+     * @param      int The severity of the incident
+     * @param      array The fields affected by this error.
+     *
+     * @author     Dominik del Bondio <ddb@bitxtender.com>
+     * @since      0.11.0
+     * @param \AgaviValidator $validator
+     * @param int $severity
+     */
+    public function __construct(
+        /**
+         * @var        AgaviValidator The source of this incident.
+         */
+        protected $validator,
+        /**
+         * @var        int The severity of this incident.
+         */
+        protected $severity = AgaviValidator::ERROR
+    )
+    {
+    }
 
 	/**
 	 * Sets the severity of this incident.
@@ -167,7 +166,7 @@ class AgaviValidationIncident
 	 */
 	public function getArguments()
 	{
-		$arguments = array();
+		$arguments = [];
 		foreach($this->errors as $error) {
 			foreach($error->getArguments() as $argument) {
 				$arguments[$argument->getHash()] = $argument;
@@ -220,7 +219,7 @@ class AgaviValidationIncident
 	 */
 	public function getFields()
 	{
-		$fields = array();
+		$fields = [];
 		foreach($this->errors as $error) {
 			$fields = array_merge($fields, $error->getFields());
 		}
@@ -243,7 +242,7 @@ class AgaviValidationIncident
 	public function getFieldErrors($fieldname)
 	{
 		$argument = new AgaviValidationArgument($fieldname);
-		$errors = array();
+		$errors = [];
 		foreach($this->errors as $error) {
 			if($error->hasArgument($argument)) {
 				$errors[] = $error;

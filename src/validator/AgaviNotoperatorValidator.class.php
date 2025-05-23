@@ -63,7 +63,8 @@ class AgaviNotoperatorValidator extends AgaviOperatorValidator
 	 *
 	 * @deprecated 1.0.0
 	 */
-	public function addFieldResult($validator, $fieldname, $result)
+	#[\Override]
+    public function addFieldResult($validator, $fieldname, $result)
 	{
 		// prevent reporting of any child validators
 	}
@@ -79,7 +80,8 @@ class AgaviNotoperatorValidator extends AgaviOperatorValidator
 	 * @author     Dominik del Bondio <dominik.del.bondio@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function addArgumentResult(AgaviValidationArgument $argument, $result, $validator = null)
+	#[\Override]
+    public function addArgumentResult(AgaviValidationArgument $argument, $result, $validator = null)
 	{
 		// prevent reporting of any child validators
 	}
@@ -92,7 +94,8 @@ class AgaviNotoperatorValidator extends AgaviOperatorValidator
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function addIncident(AgaviValidationIncident $incident)
+	#[\Override]
+    public function addIncident(AgaviValidationIncident $incident)
 	{
 		// prevent reporting of any child validators
 	}

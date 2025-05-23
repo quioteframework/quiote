@@ -127,13 +127,13 @@ class AgaviDateTimeValidator extends AgaviValidator
 
 			try {
 				$cal->getTime();
-			} catch(Exception $e) {
+			} catch(Exception) {
 				$this->throwError('check');
 				return false;
 			}
 		} else {
 			if($argFormat = $this->getParameter('arguments_format')) {
-				$values = array();
+				$values = [];
 				foreach($this->getArguments() as $field) {
 					$values[] = $this->getData($field);
 				}
@@ -147,9 +147,9 @@ class AgaviDateTimeValidator extends AgaviValidator
 			}
 
 			$matchedFormat = false;
-			foreach((array)$this->getParameter('formats', array()) as $key => $item) {
+			foreach((array)$this->getParameter('formats', []) as $key => $item) {
 				if(!is_array($item)) {
-					$item = array((is_int($key) ? 'format' : $key) => $item);
+					$item = [(is_int($key) ? 'format' : $key) => $item];
 				}
 				
 				$itemLocale = empty($item['locale']) ? $locale : $tm->getLocale($item['locale']);
@@ -158,7 +158,7 @@ class AgaviDateTimeValidator extends AgaviValidator
 				if($type == 'format') {
 					$formatString = $item['format'];
 				} elseif($type == 'time' || $type == 'date' || $type == 'datetime') {
-					$format = isset($item['format']) ? $item['format'] : null;
+					$format = $item['format'] ?? null;
 					$formatString = AgaviDateFormatter::resolveFormat($format, $itemLocale, $type);
 				} elseif($type == 'translation_domain') {
 					$td = $item['translation_domain'];
@@ -173,7 +173,7 @@ class AgaviDateTimeValidator extends AgaviValidator
 								$this->throwError('check');
 								return false;
 							}
-						} catch(Exception $e) {
+						} catch(Exception) {
 							$matchedFormat = false;
 						}
 					}
@@ -187,7 +187,7 @@ class AgaviDateTimeValidator extends AgaviValidator
 								$this->throwError('check');
 								return false;
 							}
-						} catch(Exception $e) {
+						} catch(Exception) {
 							$matchedFormat = false;
 						}
 					}
@@ -201,7 +201,7 @@ class AgaviDateTimeValidator extends AgaviValidator
 						// no exception got thrown so the parsing was successful
 						$matchedFormat = true;
 						break;
-					} catch(Exception $e) {
+					} catch(Exception) {
 						// nop
 					}
 				}
@@ -223,14 +223,14 @@ class AgaviDateTimeValidator extends AgaviValidator
 				if($type == 'format') {
 					$formatString = $cast['format'];
 				} elseif($type == 'time' || $type == 'date' || $type == 'datetime') {
-					$format = isset($cast['format']) ? $cast['format'] : null;
+					$format = $cast['format'] ?? null;
 					$formatString = AgaviDateFormatter::resolveFormat($format, $locale, $type);
 				}
 
 				$format = new AgaviDateFormat($formatString);
 				$value = $format->format($cal, $cal->getType(), $locale);
 			} else {
-				$cast = strtolower($cast);
+				$cast = strtolower((string) $cast);
 				if($cast == 'unix') {
 					$value = $cal->getUnixTimestamp();
 				} elseif($cast == 'string') {
@@ -308,7 +308,7 @@ class AgaviDateTimeValidator extends AgaviValidator
 			} else {
 				$result = $minMaxValue;
 			}
-		} elseif(!str_contains($minMax, '.')) {
+		} elseif(!str_contains((string) $minMax, '.')) {
 			// a strtotime compatible string does not contain a dot, so all strings with dots are assumed to be
 			// strings matching the calendar format and all others are handled with strtotime
 			$tz = $locale->getLocaleTimeZone();
@@ -319,7 +319,7 @@ class AgaviDateTimeValidator extends AgaviValidator
 			}
 			// create the calendar in the requested locale/timezone
 			$result = $this->getContext()->getTranslationManager()->createCalendar($locale);
-			$result->setUnixTimestamp(strtotime($minMax));
+			$result->setUnixTimestamp(strtotime((string) $minMax));
 			if($tz) {
 				// reset the php timezone
 				date_default_timezone_set($oldDefaultTimezone);

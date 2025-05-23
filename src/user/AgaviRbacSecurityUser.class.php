@@ -159,7 +159,8 @@ class AgaviRbacSecurityUser extends AgaviSecurityUser implements AgaviISecurityU
 	 * @author     Harald Kirschner <mail@digitarald.de>
 	 * @since      0.11.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	#[\Override]
+    public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		parent::initialize($context, $parameters);
 
@@ -168,7 +169,7 @@ class AgaviRbacSecurityUser extends AgaviSecurityUser implements AgaviISecurityU
 		$this->roles = (array) $this->context->getStorage()->read(self::ROLES_NAMESPACE);
 
 		if(!$this->authenticated) {
-			$this->roles = array();
+			$this->roles = [];
 		}
 	}
 
@@ -194,7 +195,8 @@ class AgaviRbacSecurityUser extends AgaviSecurityUser implements AgaviISecurityU
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function shutdown()
+	#[\Override]
+    public function shutdown()
 	{
 		$this->context->getStorage()->write(self::ROLES_NAMESPACE, $this->roles);
 		

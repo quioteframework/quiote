@@ -67,7 +67,8 @@ class AgaviEzctemplateRenderer extends AgaviRenderer implements AgaviIReusableRe
 	 * @author     Felix Weis <mail@felixweis.com>
 	 * @since      0.11.0
 	 */
-	public function __sleep()
+	#[\Override]
+    public function __sleep()
 	{
 		$keys = parent::__sleep();
 		unset($keys[array_search('ezctemplate', $keys)]);
@@ -134,7 +135,7 @@ class AgaviEzctemplateRenderer extends AgaviRenderer implements AgaviIReusableRe
 		$config->addExtension('AgaviEzctemplateCustomBlocks');
 		$config->addExtension('AgaviEzctemplateCustomFunctions');
 		
-		foreach($this->getParameter('extensions', array()) as $extension) {
+		foreach($this->getParameter('extensions', []) as $extension) {
 			$config->addExtension($extension);
 		}
 		
@@ -156,7 +157,7 @@ class AgaviEzctemplateRenderer extends AgaviRenderer implements AgaviIReusableRe
 	 * @author     Felix Weis <mail@felixweis.com>
 	 * @since      0.11.0
 	 */
-	public function render(AgaviTemplateLayer $layer, array &$attributes = array(), array &$slots = array(), array &$moreAssigns = array())
+	public function render(AgaviTemplateLayer $layer, array &$attributes = [], array &$slots = [], array &$moreAssigns = [])
 	{
 		$engine = $this->getEngine();
 

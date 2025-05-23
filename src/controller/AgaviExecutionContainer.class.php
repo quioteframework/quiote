@@ -177,7 +177,7 @@ class AgaviExecutionContainer extends \AgaviAttributeHolder
 		
 		try {
 			$this->globalRequestData = $this->context->getRequest()->getRequestData();
-		} catch(AgaviException $e) {
+		} catch(AgaviException) {
 			$this->globalRequestData = new AgaviRequestDataHolder();
 		}
 		unset($this->contextName, $this->outputTypeName);
@@ -192,7 +192,7 @@ class AgaviExecutionContainer extends \AgaviAttributeHolder
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		$this->microtime = microtime(true);
 
@@ -261,7 +261,7 @@ class AgaviExecutionContainer extends \AgaviAttributeHolder
 		if ($this->context && method_exists($this->context, 'getLoggerManager') && $this->context->getLoggerManager()) {
 			$logger = $this->context->getLoggerManager();
 		}
-		$log = function($msg) use ($logger) {
+		$log = function($msg) use ($logger): void {
 			if ($logger) {
 				$logger->logDebug($msg);
 			} else {
@@ -294,11 +294,11 @@ class AgaviExecutionContainer extends \AgaviAttributeHolder
 
 		try {
 			$actionInstance = $this->getActionInstance();
-		} catch(AgaviDisabledModuleException $e) {
+		} catch(AgaviDisabledModuleException) {
 			$log("Module disabled: $moduleName");
 			$this->setNext($this->createSystemActionForwardContainer('module_disabled'));
 			return $this->proceed();
-		} catch(AgaviFileNotFoundException $e) {
+		} catch(AgaviFileNotFoundException) {
 			$log("Action file not found: $moduleName / " . $this->getActionName());
 			$this->setNext($this->createSystemActionForwardContainer('error_404'));
 			return $this->proceed();
@@ -395,16 +395,16 @@ class AgaviExecutionContainer extends \AgaviAttributeHolder
 	 */
 	public function createSystemActionForwardContainer($type, AgaviException $e = null)
 	{
-		if(!in_array($type, array('error_404', 'module_disabled', 'secure', 'login', 'unavailable'))) {
+		if(!in_array($type, ['error_404', 'module_disabled', 'secure', 'login', 'unavailable'])) {
 			throw new AgaviException(sprintf('Unknown system forward type "%1$s"', $type));
 		}
 		
 		// track the requested module so we have access to the data in the error 404 page
-		$forwardInfoData = array(
+		$forwardInfoData = [
 			'requested_module' => $this->getModuleName(),
 			'requested_action' => $this->getActionName(),
 			'exception'        => $e,
-		);
+		];
 		$forwardInfoNamespace = 'org.agavi.controller.forwards.' . $type;
 		
 		$moduleName = AgaviConfig::get('actions.' . $type . '_module');
@@ -524,12 +524,12 @@ class AgaviExecutionContainer extends \AgaviAttributeHolder
 
 		$useGenericMethods = false;
 		$executeMethod = 'execute' . $method;
-		if(!is_callable(array($actionInstance, $executeMethod))) {
+		if(!is_callable([$actionInstance, $executeMethod])) {
 			$executeMethod = 'execute';
 			$useGenericMethods = true;
 		}
 
-		if($actionInstance->isSimple() || ($useGenericMethods && !is_callable(array($actionInstance, $executeMethod)))) {
+		if($actionInstance->isSimple() || ($useGenericMethods && !is_callable([$actionInstance, $executeMethod]))) {
 			// this action will skip validation/execution for this method
 			// get the default view
 			$key = $request->toggleLock();
@@ -563,7 +563,7 @@ class AgaviExecutionContainer extends \AgaviAttributeHolder
 			} else {
 				// validation failed
 				$handleErrorMethod = 'handle' . $method . 'Error';
-				if(!is_callable(array($actionInstance, $handleErrorMethod))) {
+				if(!is_callable([$actionInstance, $handleErrorMethod])) {
 					$handleErrorMethod = 'handleError';
 				}
 				$key = $request->toggleLock();
@@ -587,10 +587,10 @@ class AgaviExecutionContainer extends \AgaviAttributeHolder
 			$viewName = AgaviToolkit::evaluateModuleDirective(
 				$moduleName,
 				'agavi.view.name',
-				array(
+				[
 					'actionName' => $actionName,
 					'viewName' => $viewName,
-				)
+				]
 			);
 			$viewModule = $moduleName;
 		} else {
@@ -598,7 +598,7 @@ class AgaviExecutionContainer extends \AgaviAttributeHolder
 			$viewModule = AgaviView::NONE;
 		}
 
-		return array($viewModule, $viewName === AgaviView::NONE ? AgaviView::NONE : AgaviToolkit::canonicalName($viewName));
+		return [$viewModule, $viewName === AgaviView::NONE ? AgaviView::NONE : AgaviToolkit::canonicalName($viewName)];
 	}
 	
 	/**
@@ -630,7 +630,7 @@ class AgaviExecutionContainer extends \AgaviAttributeHolder
 		$validated = $validationManager->execute($requestData);
 
 		$validateMethod = 'validate' . $method;
-		if(!is_callable(array($actionInstance, $validateMethod))) {
+		if(!is_callable([$actionInstance, $validateMethod])) {
 			$validateMethod = 'validate';
 		}
 
@@ -663,10 +663,10 @@ class AgaviExecutionContainer extends \AgaviAttributeHolder
 		$validationConfig = AgaviToolkit::evaluateModuleDirective(
 			$moduleName,
 			'agavi.validate.path',
-			array(
+			[
 				'moduleName' => $moduleName,
 				'actionName' => $actionName,
-			)
+			]
 		);
 		if(is_readable($validationConfig)) {
 			// load validation configuration
@@ -676,7 +676,7 @@ class AgaviExecutionContainer extends \AgaviAttributeHolder
 
 		// manually load validators
 		$registerValidatorsMethod = 'register' . $method . 'Validators';
-		if(!is_callable(array($actionInstance, $registerValidatorsMethod))) {
+		if(!is_callable([$actionInstance, $registerValidatorsMethod])) {
 			$registerValidatorsMethod = 'registerValidators';
 		}
 		$actionInstance->$registerValidatorsMethod();

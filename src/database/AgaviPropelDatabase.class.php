@@ -70,7 +70,8 @@ class AgaviPropelDatabase extends AgaviDatabase
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.10.0
 	 */
-	public function initialize(AgaviDatabaseManager $databaseManager, array $parameters = array())
+	#[\Override]
+    public function initialize(AgaviDatabaseManager $databaseManager, array $parameters = [])
 	{
 		parent::initialize($databaseManager, $parameters);
 		$configPath = AgaviToolkit::expandDirectives($this->getParameter('config'));
@@ -102,14 +103,14 @@ class AgaviPropelDatabase extends AgaviDatabase
 			// old-style config array; PropelConfiguration was added after 1.3.0, http://trac.agavi.org/ticket/1195
 			$config = Propel::getConfiguration();
 			$config['datasources'][$datasource]['adapter'] = $this->getParameter('overrides[adapter]', $config['datasources'][$datasource]['adapter']);
-			$config['datasources'][$datasource]['connection'] = array_merge($config['datasources'][$datasource]['connection'], $this->getParameter('overrides[connection]', array()));
+			$config['datasources'][$datasource]['connection'] = array_merge($config['datasources'][$datasource]['connection'], $this->getParameter('overrides[connection]', []));
 			
 			// also the autoload classes 
-			$config['datasources'][$datasource]['classes'] = array_merge($config['datasources'][$datasource]['classes'], $this->getParameter('overrides[classes]', array()));
+			$config['datasources'][$datasource]['classes'] = array_merge($config['datasources'][$datasource]['classes'], $this->getParameter('overrides[classes]', []));
 			
 			// and init queries
 			if(!isset($config['datasources'][$datasource]['connection']['settings']['queries']['query'])) {
-				$config['datasources'][$datasource]['connection']['settings']['queries']['query'] = array();
+				$config['datasources'][$datasource]['connection']['settings']['queries']['query'] = [];
 			}
 			// array cast because "query" might be a string if just one init query was given, http://trac.agavi.org/ticket/1194
 			$config['datasources'][$datasource]['connection']['settings']['queries']['query'] = array_merge((array)$config['datasources'][$datasource]['connection']['settings']['queries']['query'], (array)$this->getParameter('init_queries'));
@@ -127,7 +128,7 @@ class AgaviPropelDatabase extends AgaviDatabase
 			}
 			
 			// handle init queries in a cross-adapter fashion (they all support the "init_queries" param)
-			$queries = (array)$config->getParameter('datasources.' . $datasource . '.connection.settings.queries.query', array());
+			$queries = (array)$config->getParameter('datasources.' . $datasource . '.connection.settings.queries.query', []);
 			// yes... it's one array, [connection][settings][queries][query], with all the init queries from the config, so we append to that
 			$queries = array_merge($queries, (array)$this->getParameter('init_queries'));
 			$config->setParameter('datasources.' . $datasource . '.connection.settings.queries.query', $queries);

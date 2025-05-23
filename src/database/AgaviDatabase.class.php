@@ -146,7 +146,7 @@ abstract class AgaviDatabase extends AgaviParameterHolder
 	 * @author     Sean Kerr <skerr@mojavi.org>
 	 * @since      0.9.0
 	 */
-	public function initialize(AgaviDatabaseManager $databaseManager, array $parameters = array())
+	public function initialize(AgaviDatabaseManager $databaseManager, array $parameters = [])
 	{
 		$this->databaseManager = $databaseManager;
 		

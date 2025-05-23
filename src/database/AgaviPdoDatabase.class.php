@@ -41,11 +41,12 @@ class AgaviPdoDatabase extends AgaviDatabase
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.5
 	 */
-	public function initialize(AgaviDatabaseManager $databaseManager, array $parameters = array())
+	#[\Override]
+    public function initialize(AgaviDatabaseManager $databaseManager, array $parameters = [])
 	{
 		parent::initialize($databaseManager, $parameters);
 		
-		if($this->getParameter('warn_mysql_charset', true) && str_starts_with($this->getParameter('dsn'), 'mysql:')) {
+		if($this->getParameter('warn_mysql_charset', true) && str_starts_with((string) $this->getParameter('dsn'), 'mysql:')) {
 			if($matches = preg_grep('/^\s*SET\s+NAMES\b/i', (array)$this->getParameter('init_queries'))) {
 				throw new AgaviDatabaseException(sprintf(
 					'Depending on your MySQL server configuration, it may not be safe to use "SET NAMES" to configure the connection encoding, as the underlying MySQL client library will not be aware of the changed character set.' .
@@ -55,7 +56,7 @@ class AgaviPdoDatabase extends AgaviDatabase
 					$matches[0]
 				));
 			}
-			if(str_contains($this->getParameter('dsn'), ';charset=') && version_compare(PHP_VERSION, '5.3.6', '<')) {
+			if(str_contains((string) $this->getParameter('dsn'), ';charset=') && version_compare(PHP_VERSION, '5.3.6', '<')) {
 				throw new AgaviDatabaseException(
 					'The "charset" option in a PDO_MYSQL DSN has no effect in PHP versions prior to 5.3.6. In combination with certain multi-byte character sets such as GBK or Big5, this may cause incorrectly escaped characters in prepared statements and quoted strings, potentially leading to vulnerabilities in application code.' . "\n\n" .
 					'There are two ways of working around this problem:' . "\n" .
@@ -100,7 +101,7 @@ class AgaviPdoDatabase extends AgaviDatabase
 			$username = $this->getParameter('username');
 			$password = $this->getParameter('password');
 
-			$options = array();
+			$options = [];
 
 			if($this->hasParameter('options')) {
 				foreach((array)$this->getParameter('options') as $key => $value) {
@@ -111,10 +112,10 @@ class AgaviPdoDatabase extends AgaviDatabase
 			$this->connection = $this->resource = new PDO($dsn, $username, $password, $options);
 
 			// default connection attributes
-			$attributes = array(
+			$attributes = [
 				// lets generate exceptions instead of silent failures
 				PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
-			);
+			];
 			if($this->hasParameter('attributes')) {
 				foreach((array)$this->getParameter('attributes') as $key => $value) {
 					$attributes[is_string($key) && strpos($key, '::') ? constant($key) : $key] = is_string($value) && strpos($value, '::') ? constant($value) : $value;

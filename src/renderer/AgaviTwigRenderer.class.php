@@ -48,7 +48,8 @@ class AgaviTwigRenderer extends AgaviRenderer implements AgaviIReusableRenderer
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.6
 	 */
-	public function __sleep()
+	#[\Override]
+    public function __sleep()
 	{
 		$keys = parent::__sleep();
 		unset($keys[array_search('twig', $keys)]);
@@ -64,16 +65,17 @@ class AgaviTwigRenderer extends AgaviRenderer implements AgaviIReusableRenderer
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	#[\Override]
+    public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		parent::initialize($context, $parameters);
 		
 		$this->setParameter('options', array_merge(
-			array(
+			[
 				'debug' => AgaviConfig::get('core.debug'),
 				'cache' => AgaviConfig::get('core.debug') ? false : AgaviConfig::get('core.cache_dir') . DIRECTORY_SEPARATOR . 'templates' . DIRECTORY_SEPARATOR . 'twig',
-			),
-			(array)$this->getParameter('options', array())
+			],
+			(array)$this->getParameter('options', [])
 		));
 	}
 	
@@ -95,7 +97,7 @@ class AgaviTwigRenderer extends AgaviRenderer implements AgaviIReusableRenderer
 		}
 		
 		// loader is set in render()
-		return new Twig_Environment(null, (array)$this->getParameter('options', array()));
+		return new Twig_Environment(null, (array)$this->getParameter('options', []));
 	}
 
 	/**
@@ -133,7 +135,7 @@ class AgaviTwigRenderer extends AgaviRenderer implements AgaviIReusableRenderer
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.6
 	 */
-	public function render(AgaviTemplateLayer $layer, array &$attributes = array(), array &$slots = array(), array &$moreAssigns = array())
+	public function render(AgaviTemplateLayer $layer, array &$attributes = [], array &$slots = [], array &$moreAssigns = [])
 	{
 		$twig = $this->getEngine();
 		
@@ -142,12 +144,12 @@ class AgaviTwigRenderer extends AgaviRenderer implements AgaviIReusableRenderer
 			$pathinfo = pathinfo($path);
 			// set the directory the template is in as the first path to load from, and the directory set on the layer second
 			// that way, including another template inside this template will look at e.g. a locale subdirectory first before falling back to the originally defined folder
-			$paths = array(
+			$paths = [
 				$pathinfo['dirname'],
 				$layer->getParameter('directory'),
-			);
+			];
 			// also allow loading from the main template dir by default, and any other directories the user has set through configuration
-			foreach((array)$this->getParameter('template_dirs', array(AgaviConfig::get('core.template_dir'))) as $dir) {
+			foreach((array)$this->getParameter('template_dirs', [AgaviConfig::get('core.template_dir')]) as $dir) {
 				$paths[] = $dir;
 			}
 			$twig->setLoader(new Twig_Loader_Filesystem($paths));
@@ -159,7 +161,7 @@ class AgaviTwigRenderer extends AgaviRenderer implements AgaviIReusableRenderer
 		}
 		$template = $twig->loadTemplate($source);
 		
-		$data = array();
+		$data = [];
 		
 		// template vars
 		if($this->extractVars) {

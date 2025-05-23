@@ -15,34 +15,34 @@
  * @version    $Id$
  */
 
-return array (
+return  [
   'types' => 
-  array (
+   [
     0 => 
-    array (
+     [
       'rawOffset' => -36000,
       'dstOffset' => 0,
       'name' => '-10',
-    ),
-  ),
+    ],
+  ],
   'rules' => 
-  array (
+   [
     0 => 
-    array (
+     [
       'time' => -1806674504.0,
       'type' => 0,
-    ),
-  ),
+    ],
+  ],
   'finalRule' => 
-  array (
+   [
     'type' => 'static',
     'name' => '-10',
     'offset' => -36000,
     'startYear' => 1913,
-  ),
+  ],
   'source' => '(unknown)',
   'version' => '(unknown)',
   'name' => 'Pacific/Tahiti',
-);
+];
 
 ?>

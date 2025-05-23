@@ -35,7 +35,7 @@ abstract class AgaviOperatorValidator extends AgaviValidator implements AgaviIVa
 	/**
 	 * @var        array The child validators.
 	 */
-	protected $children = array();
+	protected $children = [];
 
 	/**
 	 * @var        int The highest error severity in the container.
@@ -199,7 +199,8 @@ abstract class AgaviOperatorValidator extends AgaviValidator implements AgaviIVa
 	 * @author     Uwe Mesecke <uwe@mesecke.net>
 	 * @since      0.11.0
 	 */
-	public function getDependencyManager()
+	#[\Override]
+    public function getDependencyManager()
 	{
 		return $this->parentContainer->getDependencyManager();
 	}
@@ -230,7 +231,8 @@ abstract class AgaviOperatorValidator extends AgaviValidator implements AgaviIVa
 	 * @author     Uwe Mesecke <uwe@mesecke.net>
 	 * @since      0.11.0
 	 */
-	public function execute(AgaviRequestDataHolder $parameters)
+	#[\Override]
+    public function execute(AgaviRequestDataHolder $parameters)
 	{
 		// check if we have a valid setup of validators
 		$this->checkValidSetup();

@@ -88,7 +88,7 @@ class AgaviDecimalFormatter
 	 * @var        array An array containing the distances for the grouping 
 	 *                   operators which will be applied to the number
 	 */
-	protected $groupingDistances = array();
+	protected $groupingDistances = [];
 
 	/**
 	 * @var        string The grouping(thousands) separator
@@ -164,21 +164,21 @@ class AgaviDecimalFormatter
 
 		$this->originalFormatString = $format;
 
-		if(($pos = strpos($format, ';')) !== false) {
+		if(($pos = strpos((string) $format, ';')) !== false) {
 			$fullFormat = $format;
-			$format = substr($fullFormat, 0, $pos);
-			$negativeFormat = substr($fullFormat, $pos + 1);
+			$format = substr((string) $fullFormat, 0, $pos);
+			$negativeFormat = substr((string) $fullFormat, $pos + 1);
 		} else {
 			$fullFormat = $format;
 			$negativeFormat = '-#';
 		}
 
-		$numberChars = array('0', '#', '.', ',');
+		$numberChars = ['0', '#', '.', ','];
 
 		$formatStr = '';
 
 		// an array containing the distances between the grouping operators (and up to the decimals) from left to right
-		$groupingDistances = array();
+		$groupingDistances = [];
 		$currentGroupingDistance = 0;
 
 		$hasMinus = false;
@@ -193,7 +193,7 @@ class AgaviDecimalFormatter
 		$inQuote = false;
 		$quoteStr = '';
 		$state = self::IN_PREFIX;
-		$len = strlen($format);
+		$len = strlen((string) $format);
 
 		for($i = 0; $i < $len; ++$i) {
 			$c = $format[$i];
@@ -325,7 +325,7 @@ class AgaviDecimalFormatter
 		$hasMinus = true;
 		$negativeFormat = preg_replace('/[' . preg_quote(implode('', $numberChars), '/') . ']+/', $formatStr, $negativeFormat);
 		// replace the currency specifier from the old string if it was specified extra in the negative one
-		if(($pos = strpos($negativeFormat, /*'¤'*/ chr(194) . chr(164))) !== false) {
+		if(($pos = strpos((string) $negativeFormat, /*'¤'*/ chr(194) . chr(164))) !== false) {
 			$negativeFormat = str_replace('%3$s', '', $negativeFormat);
 			$negativeFormat = str_replace(chr(194) . chr(164), '%3$s', $negativeFormat);
 		}
@@ -375,7 +375,7 @@ class AgaviDecimalFormatter
 			}
 			$integralPart = (string) $number;
 		} else {
-			$number = trim($number);
+			$number = trim((string) $number);
 			$len = strlen($number);
 			// empty string will result in 0
 			if($len == 0) {
@@ -522,7 +522,7 @@ class AgaviDecimalFormatter
 			$number = '-' . $number;
 		}
 
-		return array($number, $isNegative ? '-' : '', $currencySymbol);
+		return [$number, $isNegative ? '-' : '', $currencySymbol];
 	}
 
 	/**
@@ -594,13 +594,13 @@ class AgaviDecimalFormatter
 	 */
 	public function getRoundingModeFromString($mode)
 	{
-		static $map = array(
+		static $map = [
 			'none' => self::ROUND_NONE,
 			'scientific' => self::ROUND_SCIENTIFIC,
 			'financial' => self::ROUND_FINANCIAL,
 			'floor' => self::ROUND_FLOOR,
 			'ceil' => self::ROUND_CEIL,
-		);
+		];
 
 		if(!isset($map[$mode])) {
 			throw new InvalidArgumentException('Unknown rounding mode "' . $mode . '"');
@@ -611,7 +611,7 @@ class AgaviDecimalFormatter
 	
 	protected static function getDecimalParseRegex(AgaviLocale $locale = null)
 	{
-		static $patternCache = array();
+		static $patternCache = [];
 		
 		if($locale) {
 			$localeId = $locale->getIdentifier();
@@ -629,22 +629,22 @@ class AgaviDecimalFormatter
 			$decimalSeparator = $locale->getNumberSymbolDecimal();
 			$minusSign = $locale->getNumberSymbolMinusSign();
 		} else {
-			$decimalFormats = array('#,##0.###');
+			$decimalFormats = ['#,##0.###'];
 			$groupingSeparator = ',';
 			$decimalSeparator = '.';
 			$minusSign = '-';
 		}
 		
-		$patterns = array();
+		$patterns = [];
 		
 		foreach($decimalFormats as $decimalFormatList) {
-			$decimalFormatList = explode(';', $decimalFormatList, 2);
+			$decimalFormatList = explode(';', (string) $decimalFormatList, 2);
 			if(count($decimalFormatList) == 1) {
 				// no pattern for negative numbers
 				// we need a copy of the format with a minus prefix
 				$decimalFormatList[1] = '-' . $decimalFormatList[0];
 			}
-			foreach(array(true, false) as $withFraction):
+			foreach([true, false] as $withFraction):
 			foreach($decimalFormatList as $decimalFormat) {
 				// we need to make three parts: number, decimal part and minus sign
 				$decimalFormatChunks = preg_split('/([\.\-])/', $decimalFormat, 0, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
@@ -653,16 +653,16 @@ class AgaviDecimalFormatter
 				foreach($decimalFormatChunks as &$decimalFormatChunk) {
 					if($decimalFormatChunk == '-') {
 						// always allow "-" in addition to the minus sign supplied by the locale. we do this because some locales (e.g. da, fa, se, sv) have U+2212 (the "real" minus sign) defined in the locale data, but no human can really type that character on their keyboard. consider it lenient parsing ;) see ticket #1293
-						$decimalFormatChunk = '(?P<minus>' . preg_quote($minusSign, '#') . '|-)';
+						$decimalFormatChunk = '(?P<minus>' . preg_quote((string) $minusSign, '#') . '|-)';
 					} elseif($decimalFormatChunk == '.') {
 						$pastDecimalSeparator = true;
 						if($withFraction) {
-							$decimalFormatChunk = preg_quote($decimalSeparator, '#');
+							$decimalFormatChunk = preg_quote((string) $decimalSeparator, '#');
 						} else {
 							$decimalFormatChunk = '';
 						}
 					} else {
-						$decimalFormatChunk = preg_replace('/[#0,]+/u', '[\d' . preg_quote($groupingSeparator, '#') . ']*', $decimalFormatChunk);
+						$decimalFormatChunk = preg_replace('/[#0,]+/u', '[\d' . preg_quote((string) $groupingSeparator, '#') . ']*', $decimalFormatChunk);
 						if(!$pastDecimalSeparator) {
 							if($withFraction) {
 								$decimalFormatChunk = '(?P<num>(?=[\d,]*\d)' . $decimalFormatChunk . '(\d|' . $decimalFormatChunk . '(?=\.[\d,]*\d)))?';
@@ -703,7 +703,7 @@ class AgaviDecimalFormatter
 	 */
 	public static function parse($string, $locale = null, &$hasExtraChars = false)
 	{
-		$string = trim($string);
+		$string = trim((string) $string);
 
 		$pattern = self::getDecimalParseRegex($locale);
 

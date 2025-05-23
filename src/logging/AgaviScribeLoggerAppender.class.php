@@ -56,7 +56,7 @@ class AgaviScribeLoggerAppender extends AgaviLoggerAppender
 	/**
 	 * @var        array A buffer of messages to log
 	 */
-	protected $buffer = array();
+	protected $buffer = [];
 	
 	/**
 	 * Retrieve the scribeClient instance to write to.
@@ -110,7 +110,7 @@ class AgaviScribeLoggerAppender extends AgaviLoggerAppender
 	{
 		try {
 			$this->flush();
-		} catch(AgaviLoggingException $e) {
+		} catch(AgaviLoggingException) {
 			// not much we can do at this point...
 		}
 		if($this->transport) {
@@ -136,10 +136,10 @@ class AgaviScribeLoggerAppender extends AgaviLoggerAppender
 			throw new AgaviLoggingException('No Layout set');
 		}
 		
-		$this->buffer[] = new LogEntry(array(
+		$this->buffer[] = new LogEntry([
 			'category' => $message->getParameter('scribe.category', $this->getParameter('default_category', 'default')),
 			'message' => (string)$this->getLayout()->format($message),
-		));
+		]);
 		
 		if(!$this->getParameter('buffer', false)) {
 			$this->flush();
@@ -161,7 +161,7 @@ class AgaviScribeLoggerAppender extends AgaviLoggerAppender
 		
 		$this->getScribeClient()->Log($this->buffer);
 		
-		$this->buffer = array();
+		$this->buffer = [];
 	}
 }
 

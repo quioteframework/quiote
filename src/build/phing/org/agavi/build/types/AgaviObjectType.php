@@ -134,13 +134,13 @@ class AgaviObjectType extends AgaviType
 	public function getRef(Project $project)
 	{
 		if(!$this->checked) {
-			$stack = array($this);
+			$stack = [$this];
 			$this->dieOnCircularReference($stack, $project);
 		}
 		
 		$object = $this->ref->getReferencedObject($project);
 		if(!$object instanceof AgaviObjectType) {
-			throw new BuildException(sprintf('%s is not an instance of %s', $this->ref->getRefId(), get_class()));
+			throw new BuildException(sprintf('%s is not an instance of %s', $this->ref->getRefId(), self::class));
 		}
 		
 		return $object;

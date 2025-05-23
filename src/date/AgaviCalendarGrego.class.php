@@ -48,18 +48,18 @@ final class AgaviCalendarGrego
 	{
 	}
 
-	const JULIAN_1_CE    = 1721426; // January 1, 1 CE Gregorian
-	const JULIAN_1970_CE = 2440588; // January 1, 1970 CE Gregorian
+	const int JULIAN_1_CE    = 1721426; // January 1, 1 CE Gregorian
+	const int JULIAN_1970_CE = 2440588; // January 1, 1970 CE Gregorian
 
-	private static $DAYS_BEFORE = array(
+	private static $DAYS_BEFORE = [
 		0,31,59,90,120,151,181,212,243,273,304,334,
 		0,31,60,91,121,152,182,213,244,274,305,335
-	);
+	];
 
-	private static $MONTH_LENGTH = array(
+	private static $MONTH_LENGTH = [
 		31,28,31,30,31,30,31,31,30,31,30,31,
 		31,29,31,30,31,30,31,31,30,31,30,31
-	);
+	];
 
 	/**
 	 * Return TRUE if the given year is a leap year.

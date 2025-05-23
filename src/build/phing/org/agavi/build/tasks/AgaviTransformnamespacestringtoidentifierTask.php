@@ -37,7 +37,8 @@ class AgaviTransformnamespacestringtoidentifierTask extends AgaviTransformstring
 	/**
 	 * Executes the task.
 	 */
-	public function main()
+	#[\Override]
+    public function main()
 	{
 		if($this->property === null) {
 			throw new BuildException('The property attribute must be specified');
@@ -46,7 +47,7 @@ class AgaviTransformnamespacestringtoidentifierTask extends AgaviTransformstring
 			throw new BuildException('The string attribute must be specified and must be non-empty');
 		}
 
-		$transformables = explode('.', $this->string);
+		$transformables = explode('.', (string) $this->string);
 		foreach($transformables as &$transformable) {
 			$transform = new AgaviIdentifierTransform();
 			$transform->setInput($transformable);

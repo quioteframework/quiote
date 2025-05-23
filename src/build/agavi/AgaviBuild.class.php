@@ -38,7 +38,7 @@ final class AgaviBuild
 	 * @var        array An associative array of classes and files that
 	 *                   can be autoloaded.
 	 */
-	public static $autoloads = array(
+	public static $autoloads = [
 		'AgaviBuildException' => 'exception/AgaviBuildException.class.php',
 		'AgaviCheck' => 'check/AgaviCheck.class.php',
 		'AgaviFilesystemCheck' => 'check/AgaviFilesystemCheck.class.php',
@@ -71,7 +71,7 @@ final class AgaviBuild
 		'AgaviPhingMessageAdapter' => 'phing/AgaviPhingMessageAdapter.class.php',
 		'AgaviBuildLogger' => 'phing/AgaviBuildLogger.php',
 		'AgaviProxyBuildLogger' => 'phing/AgaviProxyBuildLogger.php'
-	);
+	];
 
 	/**
 	 * Autoloads classes.
@@ -103,7 +103,7 @@ final class AgaviBuild
 	public static function bootstrap()
 	{
 		if(self::$bootstrapped === false) {
-			spl_autoload_register(array('AgaviBuild', '__autoload'));
+			spl_autoload_register(['AgaviBuild', '__autoload']);
 		}
 		
 		self::$bootstrapped = true;

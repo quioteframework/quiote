@@ -50,7 +50,7 @@ class AgaviLdmlSupplementalConfigHandler extends AgaviXmlConfigHandler
 	 */
 	public function execute(AgaviXmlConfigDomDocument $document)
 	{
-		$dayMap = array(
+		$dayMap = [
 			'sun' => AgaviDateDefinitions::SUNDAY,
 			'mon' => AgaviDateDefinitions::MONDAY,
 			'tue' => AgaviDateDefinitions::TUESDAY,
@@ -58,29 +58,29 @@ class AgaviLdmlSupplementalConfigHandler extends AgaviXmlConfigHandler
 			'thu' => AgaviDateDefinitions::THURSDAY,
 			'fri' => AgaviDateDefinitions::FRIDAY,
 			'sat' => AgaviDateDefinitions::SATURDAY,
-		);
+		];
 
 		$dataTree = $document->documentElement;
 
-		$parsedData = array();
-		$data = array();
+		$parsedData = [];
+		$data = [];
 
 		foreach($dataTree->getChild('currencyData') as $currencyNode) {
 			if($currencyNode->localName == 'fractions') {
 				foreach($currencyNode as $info) {
-					$data['fractions'][$info->getAttribute('iso4217')] = array(
+					$data['fractions'][$info->getAttribute('iso4217')] = [
 						'digits' => $info->getAttribute('digits', 2),
 						'rounding' => $info->getAttribute('rounding', 1),
-					);
+					];
 				}
 			} elseif($currencyNode->localName == 'region') {
 				foreach($currencyNode as $currency) {
 					if($currency->getName() == 'currency') {
-						$data['territories'][$currencyNode->getAttribute('iso3166')]['currencies'][$currency->getAttribute('iso4217')] = array(
+						$data['territories'][$currencyNode->getAttribute('iso3166')]['currencies'][$currency->getAttribute('iso4217')] = [
 							'currency' => $currency->getAttribute('iso4217'), 
 							'from' => $currency->getAttribute('from'),
 							'to' => $currency->getAttribute('to'),
-						);
+						];
 					} else {
 						throw new AgaviException('Invalid tag ' . $currency->localName . ' in region tag');
 					}
@@ -92,7 +92,7 @@ class AgaviLdmlSupplementalConfigHandler extends AgaviXmlConfigHandler
 
 		foreach($dataTree->getChild('territoryContainment') as $group) {
 			if($group->localName == 'group') {
-				$data['territoryContainment'][$group->getAttribute('type')] = explode(' ', $group->getAttribute('contains'));
+				$data['territoryContainment'][$group->getAttribute('type')] = explode(' ', (string) $group->getAttribute('contains'));
 			} else {
 				throw new AgaviException('Invalid tag ' . $group->localName . ' in territoryContainment tag');
 			}
@@ -132,7 +132,7 @@ class AgaviLdmlSupplementalConfigHandler extends AgaviXmlConfigHandler
 
 		foreach($dataTree->getChild('calendarData') as $calendar) {
 			$type = $calendar->getAttribute('type');
-			foreach(explode(' ', $calendar->getAttribute('territories')) as $territory) {
+			foreach(explode(' ', (string) $calendar->getAttribute('territories')) as $territory) {
 				$data['territories'][$territory]['calendar'] = $type;
 			}
 		}
@@ -140,7 +140,7 @@ class AgaviLdmlSupplementalConfigHandler extends AgaviXmlConfigHandler
 		foreach($dataTree->getChild('weekData') as $entry) {
 			$entryName = $entry->localName;
 			if($entryName == 'minDays') {
-				foreach(explode(' ', $entry->getAttribute('territories')) as $territory) {
+				foreach(explode(' ', (string) $entry->getAttribute('territories')) as $territory) {
 					$countries = $this->resolveTerritoryToCountries($data['territoryContainment'], $territory);
 					foreach($countries as $country) {
 						$data['territories'][$country]['week'][$entryName] = $entry->getAttribute('count');
@@ -148,7 +148,7 @@ class AgaviLdmlSupplementalConfigHandler extends AgaviXmlConfigHandler
 				}
 			} elseif($entryName == 'firstDay' || $entryName == 'weekendStart' || $entryName == 'weekendEnd') {
 				if(!$entry->hasAttribute('alt')) {
-					foreach(explode(' ', $entry->getAttribute('territories')) as $territory) {
+					foreach(explode(' ', (string) $entry->getAttribute('territories')) as $territory) {
 						$countries = $this->resolveTerritoryToCountries($data['territoryContainment'], $territory);
 						foreach($countries as $country) {
 							$data['territories'][$country]['week'][$entryName] = $dayMap[$entry->getAttribute('day')];
@@ -161,8 +161,8 @@ class AgaviLdmlSupplementalConfigHandler extends AgaviXmlConfigHandler
 
 		}
 
-		$data['timezones'] = array('territories' => array(), 'multiZones' => array());
-		foreach(explode(' ', $dataTree->getChild('timezoneData')->getChild('zoneFormatting')->getAttribute('multizone')) as $zone) {
+		$data['timezones'] = ['territories' => [], 'multiZones' => []];
+		foreach(explode(' ', (string) $dataTree->getChild('timezoneData')->getChild('zoneFormatting')->getAttribute('multizone')) as $zone) {
 			$data['timezones']['multiZones'][$zone] = true;
 		}
 
@@ -176,7 +176,7 @@ class AgaviLdmlSupplementalConfigHandler extends AgaviXmlConfigHandler
 			}
 		}
 
-		$code = array();
+		$code = [];
 		$code[] = 'return ' . var_export($data, true) . ';';
 
 		return $this->generate($code, $document->documentURI);
@@ -187,11 +187,11 @@ class AgaviLdmlSupplementalConfigHandler extends AgaviXmlConfigHandler
 		if(!isset($territoryContainments[$territory])) {
 			return (array) $territory;
 		}
-		$resultCountries = array();
+		$resultCountries = [];
 		
 		$territories = $territoryContainments[$territory];
 		do {
-			$newTerrs = array();
+			$newTerrs = [];
 			foreach($territories as $terr) {
 				if(isset($territoryContainments[$terr])) {
 					foreach($territoryContainments[$terr] as $resolvedTerr) {

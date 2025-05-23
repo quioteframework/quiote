@@ -59,7 +59,7 @@ class AgaviXsltRenderer extends AgaviRenderer implements AgaviIReusableRenderer
 		$loaded = @$result->loadXML($source, $options);
 		
 		if(libxml_get_last_error() !== false || !$loaded) {
-			$errors = array();
+			$errors = [];
 			foreach(libxml_get_errors() as $error) {
 				$errors[] = sprintf('[%s #%d] Line %d: %s', $error->level == LIBXML_ERR_WARNING ? 'Warning' : ($error->level == LIBXML_ERR_ERROR ? 'Error' : 'Fatal'), $error->code, $error->line, $error->message);
 			}
@@ -67,7 +67,7 @@ class AgaviXsltRenderer extends AgaviRenderer implements AgaviIReusableRenderer
 			libxml_use_internal_errors($luie);
 			
 			if(!$errors) {
-				$errors = array('Unknown error (document empty?)');
+				$errors = ['Unknown error (document empty?)'];
 			}
 			throw new DOMException(
 				sprintf(
@@ -104,7 +104,7 @@ class AgaviXsltRenderer extends AgaviRenderer implements AgaviIReusableRenderer
 		$result->load($source, $options);
 		
 		if(libxml_get_last_error() !== false) {
-			$errors = array();
+			$errors = [];
 			foreach(libxml_get_errors() as $error) {
 				$errors[] = sprintf('[%s #%d] Line %d: %s', $error->level == LIBXML_ERR_WARNING ? 'Warning' : ($error->level == LIBXML_ERR_ERROR ? 'Error' : 'Fatal'), $error->code, $error->line, $error->message);
 			}
@@ -112,7 +112,7 @@ class AgaviXsltRenderer extends AgaviRenderer implements AgaviIReusableRenderer
 			libxml_use_internal_errors($luie);
 			
 			if(!$errors) {
-				$errors = array('Unknown error (document empty?)');
+				$errors = ['Unknown error (document empty?)'];
 			}
 			throw new DOMException(
 				sprintf(
@@ -141,7 +141,7 @@ class AgaviXsltRenderer extends AgaviRenderer implements AgaviIReusableRenderer
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.1.0
 	 */
-	public function render(AgaviTemplateLayer $layer, array &$attributes = array(), array &$slots = array(), array &$moreAssigns = array())
+	public function render(AgaviTemplateLayer $layer, array &$attributes = [], array &$slots = [], array &$moreAssigns = [])
 	{
 		if($this->getParameter('envelope', true)) {
 			if(!($moreAssigns['inner'] instanceof DOMDocument)) {

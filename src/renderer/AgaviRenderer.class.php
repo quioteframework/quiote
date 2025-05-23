@@ -58,12 +58,12 @@ abstract class AgaviRenderer extends AgaviParameterHolder
 	/**
 	 * @var        array An array of objects to be exported for use in templates.
 	 */
-	protected $assigns = array();
+	protected $assigns = [];
 	
 	/**
 	 * @var        array An array of names for the "more" assigns.
 	 */
-	protected $moreAssignNames = array();
+	protected $moreAssignNames = [];
 	
 	/**
 	 * Pre-serialization callback.
@@ -104,7 +104,7 @@ abstract class AgaviRenderer extends AgaviParameterHolder
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		$this->context = $context;
 		
@@ -120,9 +120,9 @@ abstract class AgaviRenderer extends AgaviParameterHolder
 			throw new AgaviException('Template and Slots container variable names cannot be identical.');
 		}
 		
-		foreach($this->getParameter('assigns', array()) as $item => $var) {
+		foreach($this->getParameter('assigns', []) as $item => $var) {
 			$getter = 'get' . str_replace('_', '', $item);
-			if(is_callable(array($this->context, $getter))) {
+			if(is_callable([$this->context, $getter])) {
 				if($var === null) {
 					// the name is null, which means this one should not be assigned
 					// we do this in here, not for the moreAssignNames, since those are checked later in the renderer
@@ -174,7 +174,7 @@ abstract class AgaviRenderer extends AgaviParameterHolder
 	 */
 	protected static function &buildMoreAssigns(&$moreAssigns, $moreAssignNames)
 	{
-		$retval = array();
+		$retval = [];
 		
 		foreach($moreAssigns as $name => &$value) {
 			if(isset($moreAssignNames[$name])) {
@@ -202,7 +202,7 @@ abstract class AgaviRenderer extends AgaviParameterHolder
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	abstract public function render(AgaviTemplateLayer $layer, array &$attributes = array(), array &$slots = array(), array &$moreAssigns = array());
+	abstract public function render(AgaviTemplateLayer $layer, array &$attributes = [], array &$slots = [], array &$moreAssigns = []);
 }
 
 ?>

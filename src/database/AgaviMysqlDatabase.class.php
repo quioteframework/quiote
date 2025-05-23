@@ -56,7 +56,8 @@ class AgaviMysqlDatabase extends AgaviDatabase
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.5
 	 */
-	public function initialize(AgaviDatabaseManager $databaseManager, array $parameters = array())
+	#[\Override]
+    public function initialize(AgaviDatabaseManager $databaseManager, array $parameters = [])
 	{
 		parent::initialize($databaseManager, $parameters);
 		
@@ -115,18 +116,18 @@ class AgaviMysqlDatabase extends AgaviDatabase
 		
 		if($password === null) {
 			if($user === null) {
-				$args = array($host, null, null);
+				$args = [$host, null, null];
 			} else {
-				$args = array($host, $user, null);
+				$args = [$host, $user, null];
 			}
 		} else {
-			$args = array($host, $user, $password);
+			$args = [$host, $user, $password];
 		}
 		
 		if($persistent) {
 			$this->connection = call_user_func_array('mysql_pconnect', $args);
 		} else {
-			$this->connection = call_user_func_array('mysql_connect', $args + array(true));
+			$this->connection = call_user_func_array('mysql_connect', $args + [true]);
 		}
 		
 		// make sure the connection went through
@@ -174,13 +175,13 @@ class AgaviMysqlDatabase extends AgaviDatabase
 	protected function loadParameters(array $array)
 	{
 		// list of available parameters
-		$available = array('database', 'host', 'password', 'username');
+		$available = ['database', 'host', 'password', 'username'];
 
-		$parameters = array();
+		$parameters = [];
 
 		foreach($available as $parameter) {
-			$$parameter = $this->getParameter($parameter);
-			$parameters[$parameter] = ($$parameter != null) ? $array[$$parameter] : null;
+			${$parameter} = $this->getParameter($parameter);
+			$parameters[$parameter] = (${$parameter} != null) ? $array[${$parameter}] : null;
 		}
 
 		return $parameters;

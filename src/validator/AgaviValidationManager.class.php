@@ -38,7 +38,7 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 	/**
 	 * @var        array An array of child validators.
 	 */
-	protected $children = array();
+	protected $children = [];
 
 	/**
 	 * @var        AgaviContext The context instance.
@@ -75,10 +75,10 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 	 * @author     Uwe Mesecke <uwe@mesecke.net>
 	 * @since      0.11.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		if(isset($parameters['mode'])) {
-			if(!in_array($parameters['mode'], array(self::MODE_RELAXED, self::MODE_CONDITIONAL, self::MODE_STRICT))) {
+			if(!in_array($parameters['mode'], [self::MODE_RELAXED, self::MODE_CONDITIONAL, self::MODE_STRICT])) {
 				throw new AgaviConfigurationException('Invalid validation mode "' . $parameters['mode'] . '" specified');
 			}
 		} else {
@@ -90,7 +90,7 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 
 		$this->dependencyManager = new AgaviDependencyManager();
 		$this->report = new AgaviValidationReport();
-		$this->children = array();
+		$this->children = [];
 	}
 
 	/**
@@ -133,7 +133,7 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function createValidator($class, array $arguments, array $errors = array(), $parameters = array(), AgaviIValidatorContainer $parent = null)
+	public function createValidator($class, array $arguments, array $errors = [], $parameters = [], AgaviIValidatorContainer $parent = null)
 	{
 		if($parent === null) {
 			$parent = $this;
@@ -164,7 +164,7 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 		foreach($this->children as $child) {
 			$child->shutdown();
 		}
-		$this->children = array();
+		$this->children = [];
 	}
 
 	/**
@@ -513,7 +513,7 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 	 */
 	public function getSucceededFields($source)
 	{
-		$names = array();
+		$names = [];
 		$arguments = $this->report->getSucceededArguments($source);
 		foreach($arguments as $argument) {
 			$names[] = $argument->getName();
@@ -555,7 +555,7 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 	 */
 	public function getIncidents($minSeverity = null)
 	{
-		$incidents = array();
+		$incidents = [];
 		if($minSeverity === null) {
 			return $this->report->getIncidents();
 		} else {
@@ -588,7 +588,7 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 		if($minSeverity === null) {
 			return $incidents;
 		} else {
-			$matchingIncidents = array();
+			$matchingIncidents = [];
 			foreach($incidents as $incident) {
 				if($incident->getSeverity() >= $minSeverity) {
 					$matchingIncidents[] = $incident;
@@ -617,7 +617,7 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 		if($minSeverity === null) {
 			return $incidents;
 		} else {
-			$matchingIncidents = array();
+			$matchingIncidents = [];
 			foreach($incidents as $incident) {
 				if($incident->getSeverity() >= $minSeverity) {
 					$matchingIncidents[] = $incident;
@@ -644,7 +644,7 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 	public function getFieldErrors($fieldname, $minSeverity = null)
 	{
 		$incidents = $this->getFieldIncidents($fieldname, $minSeverity);
-		$errors = array();
+		$errors = [];
 		foreach($incidents as $incident) {
 			$errors = array_merge($errors, $incident->getErrors());
 		}
@@ -668,7 +668,7 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 	public function getValidatorFieldErrors($validatorName, $fieldname, $minSeverity = null)
 	{
 		$incidents = $this->getFieldIncidents($fieldname, $minSeverity);
-		$matchingIncidents = array();
+		$matchingIncidents = [];
 		foreach($incidents as $incident) {
 			$validator = $incident->getValidator();
 			if($validator && $validator->getName() == $validatorName) {
@@ -692,7 +692,7 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 	 */
 	public function getFailedFields($minSeverity = null)
 	{
-		$fields = array();
+		$fields = [];
 		foreach($this->getIncidents($minSeverity) as $incident) {
 			$fields = array_merge($fields, $incident->getFields());
 		}
@@ -758,7 +758,7 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 	 */
 	public function getErrors($name = null)
 	{
-		$errors = array();
+		$errors = [];
 
 		foreach($this->getIncidents(AgaviValidator::NOTICE) as $incident) {
 			$validator = $incident->getValidator();
@@ -766,7 +766,7 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 				$msg = $error->getMessage();
 				foreach($error->getFields() as $field) {
 					if(!isset($errors[$field])) {
-						$errors[$field] = array('messages' => array(), 'validators' => array());
+						$errors[$field] = ['messages' => [], 'validators' => []];
 					}
 					$errors[$field]['messages'][] = $msg;
 					if($validator) {
@@ -779,7 +779,7 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 		if($name === null) {
 			return $errors;
 		} else {
-			return isset($errors[$name]) ? $errors[$name] : null;
+			return $errors[$name] ?? null;
 		}
 	}
 
@@ -802,7 +802,7 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 
 		if($name !== null) {
 			$incidents = $this->getFieldIncidents($name, AgaviValidator::NOTICE);
-			$msgs = array();
+			$msgs = [];
 			foreach($incidents as $incident) {
 				foreach($incident->getErrors() as $error) {
 					$msgs[] = $error->getMessage();
@@ -811,10 +811,10 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 			return $msgs;
 		} else {
 			$incidents = $this->getIncidents(AgaviValidator::NOTICE);
-			$msgs = array();
+			$msgs = [];
 			foreach($incidents as $incident) {
 				foreach($incident->getErrors() as $error) {
-					$msgs[] = array('message' => $error->getMessage(), 'errors' => $error->getFields());
+					$msgs[] = ['message' => $error->getMessage(), 'errors' => $error->getFields()];
 				}
 			}
 			return $msgs;
@@ -874,7 +874,7 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 	{
 		$name = new AgaviValidationArgument($name);
 		$incident = new AgaviValidationIncident(null, AgaviValidator::ERROR);
-		$incident->addError(new AgaviValidationError($message, null, array($name)));
+		$incident->addError(new AgaviValidationError($message, null, [$name]));
 		$this->addIncident($incident);
 	}
 
@@ -897,7 +897,7 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 		$incident = new AgaviValidationIncident(null, AgaviValidator::ERROR);
 		foreach($errors as $name => $error) {
 			$name = new AgaviValidationArgument($name);
-			$incident->addError(new AgaviValidationError($error, null, array($name)));
+			$incident->addError(new AgaviValidationError($error, null, [$name]));
 		}
 
 		$this->addIncident($incident);

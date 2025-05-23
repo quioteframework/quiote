@@ -98,7 +98,7 @@ class AgaviValidationReportQuery implements AgaviIValidationReportQuery
 			if(!($argument instanceof AgaviValidationArgument)) {
 				$argument = new AgaviValidationArgument($argument);
 			}
-			$argument = array($argument);
+			$argument = [$argument];
 		}
 		$obj = clone $this;
 		$obj->argumentFilter = $argument;
@@ -119,7 +119,7 @@ class AgaviValidationReportQuery implements AgaviIValidationReportQuery
 	public function byValidator($name)
 	{
 		if(!is_array($name)) {
-			$name = array($name);
+			$name = [$name];
 		}
 		$obj = clone $this;
 		$obj->validatorFilter = $name;
@@ -140,7 +140,7 @@ class AgaviValidationReportQuery implements AgaviIValidationReportQuery
 	public function byErrorName($name)
 	{
 		if(!is_array($name)) {
-			$name = array($name);
+			$name = [$name];
 		}
 		$obj = clone $this;
 		$obj->errorNameFilter = $name;
@@ -194,7 +194,7 @@ class AgaviValidationReportQuery implements AgaviIValidationReportQuery
 	protected function getFilteredIncidents()
 	{
 		$incidents = $this->report->getIncidents();
-		$resultIncidents = array();
+		$resultIncidents = [];
 		foreach($incidents as $incident) {
 			if($this->validatorFilter && $incident->getValidator()) {
 				if(!in_array($incident->getValidator()->getName(), $this->validatorFilter)) {
@@ -269,7 +269,7 @@ class AgaviValidationReportQuery implements AgaviIValidationReportQuery
 	public function getErrors()
 	{
 		$incidents = $this->getFilteredIncidents();
-		$errors = array();
+		$errors = [];
 		foreach($incidents as $incident) {
 			foreach($incident->getErrors() as $error) {
 				if(!$this->errorNameFilter || in_array($error->getName(), $this->errorNameFilter)) {
@@ -293,7 +293,7 @@ class AgaviValidationReportQuery implements AgaviIValidationReportQuery
 	public function getErrorMessages()
 	{
 		$errors = $this->getErrors();
-		$errorMessages = array();
+		$errorMessages = [];
 		foreach($errors as $error) {
 			$errorMessages[] = $error->getMessage();
 		}
@@ -312,7 +312,7 @@ class AgaviValidationReportQuery implements AgaviIValidationReportQuery
 	public function getArguments()
 	{
 		$errors = $this->getErrors();
-		$arguments = array();
+		$arguments = [];
 		foreach($errors as $error) {
 			foreach($error->getArguments() as $argument) {
 				if(!$this->argumentFilter || in_array($argument, $this->argumentFilter)) {
@@ -368,9 +368,9 @@ class AgaviValidationReportQuery implements AgaviIValidationReportQuery
 	{
 		// if a filter for error names exist the result can't be success/not processed
 		// since if you have an error name the field must have thrown an error
-		$results = array();
+		$results = [];
 		
-		$arguments = array();
+		$arguments = [];
 		foreach($this->getArguments() as $argument) {
 			$arguments[$argument->getHash()] = $argument;
 		}
@@ -388,7 +388,7 @@ class AgaviValidationReportQuery implements AgaviIValidationReportQuery
 		} elseif($this->errorNameFilter) {
 			return null;
 		} else {
-			$results = array();
+			$results = [];
 			if(count($this->argumentFilter) == 1) {
 				// retrieve the argument filter independent of the key
 				$argument = reset($this->argumentFilter);

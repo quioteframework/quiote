@@ -38,7 +38,7 @@ class AgaviSoapRequestDataHolder extends AgaviWebserviceRequestDataHolder implem
 	/**
 	 * @var        array An array of headers sent with the request.
 	 */
-	protected $headers = array();
+	protected $headers = [];
 	
 	/**
 	 * Constructor
@@ -49,7 +49,7 @@ class AgaviSoapRequestDataHolder extends AgaviWebserviceRequestDataHolder implem
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function __construct(array $data = array())
+	public function __construct(array $data = [])
 	{
 		// SOAP headers
 		$this->registerSource(self::SOURCE_HEADERS, $this->headers);
@@ -66,7 +66,7 @@ class AgaviSoapRequestDataHolder extends AgaviWebserviceRequestDataHolder implem
 	 */
 	public function clearHeaders()
 	{
-		$this->headers = array();
+		$this->headers = [];
 	}
 
 	/**
@@ -96,11 +96,7 @@ class AgaviSoapRequestDataHolder extends AgaviWebserviceRequestDataHolder implem
 	 */
 	public function &getHeader($name, $default = null)
 	{
-		if(isset($this->headers[$name])) {
-			return $this->headers[$name];
-		}
-
-		return $default;
+		return $this->headers[$name] ?? $default;
 	}
 	
 	/**

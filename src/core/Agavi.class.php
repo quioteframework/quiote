@@ -40,7 +40,7 @@ final class Agavi
 	public static function bootstrap($environment = null)
 	{
 		// set up our __autoload
-		spl_autoload_register(array('AgaviAutoloader', 'loadClass'));
+		spl_autoload_register(['AgaviAutoloader', 'loadClass']);
 
 		try {
 			if($environment === null) {

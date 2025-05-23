@@ -34,7 +34,7 @@ class AgaviOptionParser
 	/**
 	 * @var        array The data from which options are read.
 	 */
-	protected $source = array();
+	protected $source = [];
 	
 	/**
 	 * @var        array All of the arguments that are passed to the program via
@@ -42,7 +42,7 @@ class AgaviOptionParser
 	 *
 	 * @see        AgaviOptionParser::$source
 	 */
-	protected $passedArguments = array();
+	protected $passedArguments = [];
 	
 	/**
 	 * @var        array All of the options that are passed to the program via
@@ -50,7 +50,7 @@ class AgaviOptionParser
 	 *
 	 * @see        AgaviOptionParser::$source
 	 */
-	protected $passedOptions = array();
+	protected $passedOptions = [];
 	
 	/**
 	 * @var        string The separator character for long option names.
@@ -76,11 +76,11 @@ class AgaviOptionParser
 	/**
 	 * @var        array Default values for each option.
 	 */
-	protected $defaults = array(
-		'short_names' => array(),
-		'long_names' => array(),
+	protected $defaults = [
+		'short_names' => [],
+		'long_names' => [],
 		'arguments' => 0,
-	);
+	];
 	
 	/**
 	 * Creates a new option parser.
@@ -138,7 +138,7 @@ class AgaviOptionParser
 	 */
 	public function parse()
 	{
-		$options = array();
+		$options = [];
 		foreach($this->options as $option) {
 			$options[] = array_merge($this->defaults, $option);
 		}
@@ -153,10 +153,10 @@ class AgaviOptionParser
 			$increment = 0;
 			$name = null;
 			$handler = null;
-			$arguments = array();
+			$arguments = [];
 			foreach($options as $optionName => $option) {
-				if(in_array($source[$i], array_map(array($this, 'getSourceNameForShortName'), $option['short_names'])) ||
-					in_array($source[$i], array_map(array($this, 'getSourceNameForLongName'), $option['long_names']))) {
+				if(in_array($source[$i], array_map([$this, 'getSourceNameForShortName'], $option['short_names'])) ||
+					in_array($source[$i], array_map([$this, 'getSourceNameForLongName'], $option['long_names']))) {
 					$arguments = array_slice($source, $i + 1, $option['arguments']);
 					if(count($arguments) !== $option['arguments']) {
 						throw new AgaviOptionException(
@@ -168,9 +168,9 @@ class AgaviOptionParser
 					$handler = $option['handler'];
 				} else {
 					foreach($option['long_names'] as $name) {
-						if(str_starts_with($source[$i], $this->longNamePrefix . $name . $this->nameSeparator)) {
+						if(str_starts_with((string) $source[$i], $this->longNamePrefix . $name . $this->nameSeparator)) {
 							if($option['arguments'] === 1) {
-								$arguments[] = substr($source[$i], strpos($source[$i], $this->nameSeparator) + 1);
+								$arguments[] = substr((string) $source[$i], strpos((string) $source[$i], $this->nameSeparator) + 1);
 								$name = $optionName;
 								$handler = $options['handler'];
 							} else {
@@ -184,8 +184,8 @@ class AgaviOptionParser
 			}
 			
 			if($handler === null) {
-				if(str_starts_with($source[$i], $this->shortNamePrefix) ||
-					str_starts_with($source[$i], $this->longNamePrefix)) {
+				if(str_starts_with((string) $source[$i], $this->shortNamePrefix) ||
+					str_starts_with((string) $source[$i], $this->longNamePrefix)) {
 					throw new AgaviOptionException(sprintf('Unexpected option %s', $source[$i]));
 				} else {
 					/* Accept arguments. */
@@ -193,14 +193,12 @@ class AgaviOptionParser
 				}
 			}
 
-			$this->passedOptions[$name] = isset($this->passedOptions[$name])
-				? $this->passedOptions[$name]
-				: array();
-			$this->passedOptions[$name][] = array(
+			$this->passedOptions[$name] ??= [];
+			$this->passedOptions[$name][] = [
 				'source' => $source[$i],
 				'arguments' => $arguments,
 				'handler' => $handler
-			);
+			];
 			
 			$i += $increment;
 		}
@@ -306,12 +304,12 @@ class AgaviOptionParser
 	 */
 	public function addOption($name, array $shortNames, array $longNames, $handler, $arguments = 0)
 	{
-		$this->options[(string)$name] = array(
+		$this->options[(string)$name] = [
 			'short_names' => $shortNames,
 			'long_names' => $longNames,
 			'handler' => $handler,
 			'arguments' => $arguments
-		);
+		];
 	}
 	
 	/**

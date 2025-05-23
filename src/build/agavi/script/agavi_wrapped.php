@@ -54,7 +54,7 @@ try {
 				$GLOBALS['ERROR']->write(sprintf('Error: Phing version %s or later required', MIN_PHING_VERSION) . PHP_EOL);
 				exit(1);
 			}
-		} catch(Exception $e) {
+		} catch(Exception) {
 			$GLOBALS['ERROR']->write(sprintf('Error: Phing version could not be determined; Phing %s or later required', MIN_PHING_VERSION) . PHP_EOL);
 			exit(1);
 		}
@@ -65,7 +65,7 @@ try {
 }
 
 
-$GLOBALS['PROPERTIES'] = array();
+$GLOBALS['PROPERTIES'] = [];
 $GLOBALS['SHOW_LIST'] = false;
 $GLOBALS['VERBOSE'] = false;
 $GLOBALS['LOGGER'] = 'phing.listener.AnsiColorLogger';
@@ -74,7 +74,7 @@ $GLOBALS['BUILD'] = new PhingFile(BUILD_DIRECTORY . '/build.xml');
 /* Define parser callbacks. */
 function input_help_display()
 {
-	$GLOBALS['OUTPUT']->write(sprintf('Usage: %s [options] [target...]', basename($_SERVER['argv'][0])) . PHP_EOL);
+	$GLOBALS['OUTPUT']->write(sprintf('Usage: %s [options] [target...]', basename((string) $_SERVER['argv'][0])) . PHP_EOL);
 	$GLOBALS['OUTPUT']->write('Options:' . PHP_EOL);
 	$GLOBALS['OUTPUT']->write('  -h -? --help                     Displays the help for this utility' . PHP_EOL);
 	$GLOBALS['OUTPUT']->write('  -v --version                     Displays relevant version information' . PHP_EOL);
@@ -86,13 +86,13 @@ function input_help_display()
 	$GLOBALS['OUTPUT']->write('  --logger <class>                 Sets the configuration logger class to <class>' . PHP_EOL);
 }
 
-function input_help(AgaviOptionParser $parser, $name, $arguments, $scriptArguments)
+function input_help(AgaviOptionParser $parser, $name, $arguments, $scriptArguments): never
 {
 	input_help_display();
 	exit(0);
 }
 
-function input_version(AgaviOptionParser $parser, $name, $arguments, $scriptArguments)
+function input_version(AgaviOptionParser $parser, $name, $arguments, $scriptArguments): never
 {
 	$GLOBALS['OUTPUT']->write('Agavi project configuration system, script version $Id$' . PHP_EOL);
 	$GLOBALS['OUTPUT']->write(Phing::getPhingVersion() . PHP_EOL);
@@ -142,14 +142,14 @@ function input_logger(AgaviOptionParser $parser, $name, $arguments, $scriptArgum
 
 /* Parse incoming arguments. */
 $parser = new AgaviOptionParser(array_slice($_SERVER['argv'], 1));
-$parser->addOption('help', array('h', '?'), array('help'), 'input_help');
-$parser->addOption('version', array('v'), array('version'), 'input_version');
-$parser->addOption('list', array('l'), array('list', 'targets'), 'input_list');
-$parser->addOption('define', array('D'), array('define'), 'input_define', 2);
-$parser->addOption('verbose', array(), array('verbose'), 'input_verbose');
-$parser->addOption('agavi_source_directory', array(), array('agavi-source-directory'), 'input_agavi_source_directory', 1);
-$parser->addOption('include_path', array(), array('include-path'), 'input_include_path', 1);
-$parser->addOption('logger', array(), array('logger'), 'input_logger', 1);
+$parser->addOption('help', ['h', '?'], ['help'], 'input_help');
+$parser->addOption('version', ['v'], ['version'], 'input_version');
+$parser->addOption('list', ['l'], ['list', 'targets'], 'input_list');
+$parser->addOption('define', ['D'], ['define'], 'input_define', 2);
+$parser->addOption('verbose', [], ['verbose'], 'input_verbose');
+$parser->addOption('agavi_source_directory', [], ['agavi-source-directory'], 'input_agavi_source_directory', 1);
+$parser->addOption('include_path', [], ['include-path'], 'input_include_path', 1);
+$parser->addOption('logger', [], ['logger'], 'input_logger', 1);
 
 try {
 	$parser->parse();
@@ -217,7 +217,7 @@ try {
 			$task = $project->createTask('agavi.locate-project');
 			$task->setProperty('project.directory');
 			
-			$path = new PhingFile(dirname($_SERVER['argv'][0]));
+			$path = new PhingFile(dirname((string) $_SERVER['argv'][0]));
 			$path = $path->isAbsolute() ? $path : new PhingFile(START_DIRECTORY, (string)$path);
 			
 			$task->setPath($path);
@@ -300,10 +300,10 @@ try {
 		$GLOBALS['OUTPUT']->write('Targets:' . PHP_EOL);
 		
 		$size = 0;
-		$targets = array();
+		$targets = [];
 		foreach($project->getTargets() as $target) {
 			$name = $target->getName();
-			$nameSize = strlen($name);
+			$nameSize = strlen((string) $name);
 			$description = $target->getDescription();
 			if($description !== null) {
 				$size = $nameSize > $size ? $nameSize : $size;
@@ -330,7 +330,7 @@ try {
 		$project->fireBuildStarted();
 		
 		$GLOBALS['TARGETS'] = count($GLOBALS['TARGETS']) === 0
-			? array($project->getDefaultTarget())
+			? [$project->getDefaultTarget()]
 			: $GLOBALS['TARGETS'];
 		
 		$project->executeTargets($GLOBALS['TARGETS']);

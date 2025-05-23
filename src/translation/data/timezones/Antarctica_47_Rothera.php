@@ -15,34 +15,34 @@
  * @version    $Id$
  */
 
-return array (
+return  [
   'types' => 
-  array (
+   [
     0 => 
-    array (
+     [
       'rawOffset' => -10800,
       'dstOffset' => 0,
       'name' => '-03',
-    ),
-  ),
+    ],
+  ],
   'rules' => 
-  array (
+   [
     0 => 
-    array (
+     [
       'time' => 218246400.0,
       'type' => 0,
-    ),
-  ),
+    ],
+  ],
   'finalRule' => 
-  array (
+   [
     'type' => 'static',
     'name' => '-03',
     'offset' => -10800,
     'startYear' => 1977,
-  ),
+  ],
   'source' => '(unknown)',
   'version' => '(unknown)',
   'name' => 'Antarctica/Rothera',
-);
+];
 
 ?>

@@ -36,7 +36,7 @@ class AgaviWebResponse extends AgaviResponse
 	/**
 	 * @var        array An array of all HTTP 1.0 status codes and their message.
 	 */
-	protected $http10StatusCodes = array(
+	protected $http10StatusCodes = [
 		'200' => "HTTP/1.0 200 OK",
 		'201' => "HTTP/1.0 201 Created",
 		'202' => "HTTP/1.0 202 Accepted",
@@ -71,12 +71,12 @@ class AgaviWebResponse extends AgaviResponse
 		'503' => "HTTP/1.0 503 Service Unavailable",
 		'504' => "HTTP/1.0 504 Gateway Timeout",
 		'505' => "HTTP/1.0 505 HTTP Version Not Supported",
-	);
+	];
 	
 	/**
 	 * @var        array An array of all HTTP 1.1 status codes and their message.
 	 */
-	protected $http11StatusCodes = array(
+	protected $http11StatusCodes = [
 		'100' => "HTTP/1.1 100 Continue",
 		'101' => "HTTP/1.1 101 Switching Protocols",
 		'200' => "HTTP/1.1 200 OK",
@@ -117,7 +117,7 @@ class AgaviWebResponse extends AgaviResponse
 		'503' => "HTTP/1.1 503 Service Unavailable",
 		'504' => "HTTP/1.1 504 Gateway Timeout",
 		'505' => "HTTP/1.1 505 HTTP Version Not Supported",
-	);
+	];
 	
 	/**
 		* @var        array The array with the HTTP status codes to be used here.
@@ -132,12 +132,12 @@ class AgaviWebResponse extends AgaviResponse
 	/**
 	 * @var        array The HTTP headers scheduled to be sent with the response.
 	 */
-	protected $httpHeaders = array();
+	protected $httpHeaders = [];
 	
 	/**
 	 * @var        array The Cookies scheduled to be sent with the response.
 	 */
-	protected $cookies = array();
+	protected $cookies = [];
 	
 	/**
 	 * @var        array An array of redirect information, or null if no redirect.
@@ -153,7 +153,8 @@ class AgaviWebResponse extends AgaviResponse
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	#[\Override]
+    public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		parent::initialize($context, $parameters);
 		
@@ -164,28 +165,25 @@ class AgaviWebResponse extends AgaviResponse
 			$parameters['cookie_secure'] = $request->isHttps();
 		}
 		
-		$this->setParameters(array(
-			'cookie_lifetime' => isset($parameters['cookie_lifetime']) ? $parameters['cookie_lifetime'] : 0,
-			'cookie_path'     => isset($parameters['cookie_path'])     ? $parameters['cookie_path']     : null,
-			'cookie_domain'   => isset($parameters['cookie_domain'])   ? $parameters['cookie_domain']   : "",
-			'cookie_secure'   => isset($parameters['cookie_secure'])   ? $parameters['cookie_secure']   : false,
-			'cookie_httponly' => isset($parameters['cookie_httponly']) ? $parameters['cookie_httponly'] : false,
+		$this->setParameters([
+			'cookie_lifetime' => $parameters['cookie_lifetime'] ?? 0,
+			'cookie_path'     => $parameters['cookie_path'] ?? null,
+			'cookie_domain'   => $parameters['cookie_domain'] ?? "",
+			'cookie_secure'   => $parameters['cookie_secure'] ?? false,
+			'cookie_httponly' => $parameters['cookie_httponly'] ?? false,
 			// For historical reasons, PHP's setcookie() encodes cookies with urlencode(), which
 			// is not compliant with RFC 6265 as it encodes spaces as a "+" sign instead of "%20".
 			// This makes most client-side Javascript cookie libraries decode it not as a space
 			// but as an actual plus sign. We sadly cannot change the default encoding of cookies
 			// as it would be a breaking change, but introduced a setting instead, which we
 			// recommend to set to "rawurlencode" for new projects.
-			'cookie_encode_callback' => isset($parameters['cookie_encode_callback']) ? $parameters['cookie_encode_callback'] : 'urlencode',
-		));
+			'cookie_encode_callback' => $parameters['cookie_encode_callback'] ?? 'urlencode',
+		]);
 		
-		switch($request->getProtocol()) {
-			case 'HTTP/1.1':
-				$this->httpStatusCodes = $this->http11StatusCodes;
-				break;
-			default:
-				$this->httpStatusCodes = $this->http10StatusCodes;
-		}
+		$this->httpStatusCodes = match ($request->getProtocol()) {
+            'HTTP/1.1' => $this->http11StatusCodes,
+            default => $this->http10StatusCodes,
+        };
 	}
 	
 	/**
@@ -202,7 +200,7 @@ class AgaviWebResponse extends AgaviResponse
 	{
 		if($this->redirect) {
 			$location = $this->redirect['location'];
-			if(!preg_match('#^[^:]+://#', $location)) {
+			if(!preg_match('#^[^:]+://#', (string) $location)) {
 				if(isset($location[0]) && $location[0] == '/') {
 					$rq = $this->context->getRequest();
 					$location = $rq->getUrlScheme() . '://' . $rq->getUrlAuthority() . $location;
@@ -228,7 +226,8 @@ class AgaviWebResponse extends AgaviResponse
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function sendContent()
+	#[\Override]
+    public function sendContent()
 	{
 		if(is_resource($this->content) && $this->getParameter('use_sendfile_header', false)) {
 			$info = stream_get_meta_data($this->content);
@@ -250,8 +249,8 @@ class AgaviWebResponse extends AgaviResponse
 	{
 		$this->clearContent();
 		$this->httpStatusCode = '200';
-		$this->httpHeaders = array();
-		$this->cookies = array();
+		$this->httpHeaders = [];
+		$this->cookies = [];
 		$this->redirect = null;
 	}
 	
@@ -263,7 +262,8 @@ class AgaviWebResponse extends AgaviResponse
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      0.11.6
 	 */
-	public function hasContent()
+	#[\Override]
+    public function hasContent()
 	{
 		return $this->content !== null && $this->content !== '';
 	}
@@ -307,7 +307,8 @@ class AgaviWebResponse extends AgaviResponse
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function merge(AgaviResponse $otherResponse)
+	#[\Override]
+    public function merge(AgaviResponse $otherResponse)
 	{
 		parent::merge($otherResponse);
 		
@@ -389,12 +390,12 @@ class AgaviWebResponse extends AgaviResponse
 	 */
 	public function normalizeHttpHeaderName($name)
 	{
-		if(strtolower($name) == "etag") {
+		if(strtolower((string) $name) == "etag") {
 			return "ETag";
-		} elseif(strtolower($name) == "www-authenticate") {
+		} elseif(strtolower((string) $name) == "www-authenticate") {
 			return "WWW-Authenticate";
 		} else {
-			return str_replace(' ', '-', ucwords(str_replace('-', ' ', strtolower($name))));
+			return str_replace(' ', '-', ucwords(str_replace('-', ' ', strtolower((string) $name))));
 		}
 	}
 
@@ -466,7 +467,7 @@ class AgaviWebResponse extends AgaviResponse
 	{
 		$name = $this->normalizeHttpHeaderName($name);
 		if(!isset($this->httpHeaders[$name]) || $replace) {
-			$this->httpHeaders[$name] = array();
+			$this->httpHeaders[$name] = [];
 		}
 		if(is_array($value)) {
 			$this->httpHeaders[$name] = array_merge($this->httpHeaders[$name], $value);
@@ -501,18 +502,18 @@ class AgaviWebResponse extends AgaviResponse
 	 */
 	public function setCookie($name, $value, $lifetime = null, $path = null, $domain = null, $secure = null, $httponly = null, $encodeCallback = null)
 	{
-		$lifetime       =         $lifetime       !== null ? $lifetime       : $this->getParameter('cookie_lifetime');
-		$path           =         $path           !== null ? $path           : $this->getParameter('cookie_path');
-		$domain         =         $domain         !== null ? $domain         : $this->getParameter('cookie_domain');
-		$secure         = (bool) ($secure         !== null ? $secure         : $this->getParameter('cookie_secure'));
-		$httponly       = (bool) ($httponly       !== null ? $httponly       : $this->getParameter('cookie_httponly'));
-		$encodeCallback =         $encodeCallback !== null ? $encodeCallback : $this->getParameter('cookie_encode_callback');
+		$lifetime ??= $this->getParameter('cookie_lifetime');
+		$path ??= $this->getParameter('cookie_path');
+		$domain ??= $this->getParameter('cookie_domain');
+		$secure         = (bool) ($secure ?? $this->getParameter('cookie_secure'));
+		$httponly       = (bool) ($httponly ?? $this->getParameter('cookie_httponly'));
+		$encodeCallback ??= $this->getParameter('cookie_encode_callback');
 		
 		if($encodeCallback !== false && !is_callable($encodeCallback)) {
 			throw new AgaviException(sprintf('setCookie() $encodeCallback argument is not callable: %s', $encodeCallback));
 		}
 		
-		$this->cookies[$name] = array(
+		$this->cookies[$name] = [
 			'value' => $value,
 			'lifetime' => $lifetime,
 			'path' => $path,
@@ -520,7 +521,7 @@ class AgaviWebResponse extends AgaviResponse
 			'secure' => $secure,
 			'httponly' => $httponly,
 			'encode_callback' => $encodeCallback
-		);
+		];
 	}
 	
 	/**
@@ -642,7 +643,7 @@ class AgaviWebResponse extends AgaviResponse
 	 */
 	public function clearHttpHeaders()
 	{
-		$this->httpHeaders = array();
+		$this->httpHeaders = [];
 	}
 	
 	/**
@@ -665,7 +666,7 @@ class AgaviWebResponse extends AgaviResponse
 		if($outputType !== null) {
 			$httpHeaders = $outputType->getParameter('http_headers');
 			if(!is_array($httpHeaders)) {
-				$httpHeaders = array();
+				$httpHeaders = [];
 			}
 			foreach($httpHeaders as $name => $value) {
 				if(!$this->hasHttpHeader($name)) {
@@ -720,7 +721,7 @@ class AgaviWebResponse extends AgaviResponse
 				$values['path'] = $basePath;
 			}
 			if ($values['value'] !== null)
-				setrawcookie($name, $values['value'], $expire, $values['path'], $values['domain'], $values['secure'], $values['httponly']);
+				setrawcookie($name, $values['value'], ['expires' => $expire, 'path' => $values['path'], 'domain' => $values['domain'], 'secure' => $values['secure'], 'httponly' => $values['httponly']]);
 		}
 		
 		// send headers
@@ -748,7 +749,7 @@ class AgaviWebResponse extends AgaviResponse
 		if(!$this->validateHttpStatusCode($code)) {
 			throw new AgaviException(sprintf('Invalid %s Redirect Status code: %s', $this->context->getRequest()->getProtocol(), $code));
 		}
-		$this->redirect = array('location' => $location, 'code' => $code);
+		$this->redirect = ['location' => $location, 'code' => $code];
 	}
 
 	/**

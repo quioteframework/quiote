@@ -15,34 +15,34 @@
  * @version    $Id$
  */
 
-return array (
+return  [
   'types' => 
-  array (
+   [
     0 => 
-    array (
+     [
       'rawOffset' => -32400,
       'dstOffset' => 0,
       'name' => '-09',
-    ),
-  ),
+    ],
+  ],
   'rules' => 
-  array (
+   [
     0 => 
-    array (
+     [
       'time' => -1806678012.0,
       'type' => 0,
-    ),
-  ),
+    ],
+  ],
   'finalRule' => 
-  array (
+   [
     'type' => 'static',
     'name' => '-09',
     'offset' => -32400,
     'startYear' => 1913,
-  ),
+  ],
   'source' => '(unknown)',
   'version' => '(unknown)',
   'name' => 'Pacific/Gambier',
-);
+];
 
 ?>

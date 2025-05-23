@@ -44,7 +44,7 @@ class AgaviEzctemplateCustomFunctions implements ezcTemplateCustomFunction
 	{
 		$def = new ezcTemplateCustomFunctionDefinition();
 		
-		$def->class = __CLASS__;
+		$def->class = self::class;
 		$def->sendTemplateObject = true;
 		$def->method = $name;
 		
@@ -77,7 +77,7 @@ class AgaviEzctemplateCustomFunctions implements ezcTemplateCustomFunction
 	 * @author     Felix Weis <mail@felixweis.com>
 	 * @since      0.11.0
 	 */
-	public static function call($function, $param_arr = array())
+	public static function call($function, $param_arr = [])
 	{
 		return call_user_func_array($function, $param_arr);
 	}
@@ -196,7 +196,7 @@ class AgaviEzctemplateCustomFunctions implements ezcTemplateCustomFunction
 	 * @author     Felix Weis <mail@felixweis.com>
 	 * @since      0.11.0
 	 */
-	public static function route(ezcTemplate $obj, $name, array $params = array(), $options = array())
+	public static function route(ezcTemplate $obj, $name, array $params = [], $options = [])
 	{
 		return $obj->getContext()->getRouting()->gen($name, $params, $options);
 	}

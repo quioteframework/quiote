@@ -68,7 +68,7 @@ class AgaviNumberFormatter extends AgaviDecimalFormatter implements AgaviITransl
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		$this->context = $context;
 		if(!empty($parameters['rounding_mode'])) {

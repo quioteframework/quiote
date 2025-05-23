@@ -38,7 +38,7 @@ class AgaviConsoleRequestDataHolder extends AgaviRequestDataHolder implements Ag
 	/**
 	 * @var        array An array of files uploaded during the request.
 	 */
-	protected $files = array();
+	protected $files = [];
 
 	/**
 	 * Retrieve an array of file information.
@@ -60,7 +60,7 @@ class AgaviConsoleRequestDataHolder extends AgaviRequestDataHolder implements Ag
 		} else {
 			try {
 				$retval =& AgaviArrayPathDefinition::getValue($name, $this->files);
-			} catch(InvalidArgumentException $e) {
+			} catch(InvalidArgumentException) {
 				$retval = $default;
 			}
 		}
@@ -103,7 +103,7 @@ class AgaviConsoleRequestDataHolder extends AgaviRequestDataHolder implements Ag
 		} else {
 			try {
 				$val = AgaviArrayPathDefinition::getValue($name, $this->files);
-			} catch(InvalidArgumentException $e) {
+			} catch(InvalidArgumentException) {
 				return false;
 			}
 		}
@@ -161,7 +161,7 @@ class AgaviConsoleRequestDataHolder extends AgaviRequestDataHolder implements Ag
 		}
 		try {
 			return AgaviArrayPathDefinition::unsetValue($name, $this->files);
-		} catch(InvalidArgumentException $e) {
+		} catch(InvalidArgumentException) {
 		}
 	}
 
@@ -202,7 +202,7 @@ class AgaviConsoleRequestDataHolder extends AgaviRequestDataHolder implements Ag
 	 */
 	public function clearFiles()
 	{
-		$this->files = array();
+		$this->files = [];
 	}
 
 	/**
@@ -242,7 +242,7 @@ class AgaviConsoleRequestDataHolder extends AgaviRequestDataHolder implements Ag
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function __construct(array $data = array())
+	public function __construct(array $data = [])
 	{
 		$this->registerSource(self::SOURCE_FILES, $this->files);
 		

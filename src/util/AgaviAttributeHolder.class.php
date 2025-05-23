@@ -33,7 +33,7 @@ abstract class AgaviAttributeHolder extends AgaviParameterHolder
 	/**
 	 * @var        array An array of attributes
 	 */
-	protected $attributes = array();
+	protected $attributes = [];
 
 	/**
 	 * @var        string The default attribute namespace
@@ -61,7 +61,7 @@ abstract class AgaviAttributeHolder extends AgaviParameterHolder
 	 */
 	public function clearAttributes()
 	{
-		$this->attributes = array();
+		$this->attributes = [];
 	}
 
 	/**
@@ -91,7 +91,7 @@ abstract class AgaviAttributeHolder extends AgaviParameterHolder
 
 			try {
 				return AgaviArrayPathDefinition::getValue($name, $this->attributes[$ns], $default);
-			} catch(InvalidArgumentException $e) {
+			} catch(InvalidArgumentException) {
 				return $default;
 			}
 		}
@@ -161,7 +161,7 @@ abstract class AgaviAttributeHolder extends AgaviParameterHolder
 			$ns = $this->defaultNamespace;
 		}
 
-		$retval = array();
+		$retval = [];
 		
 		if(isset($this->attributes[$ns])) {
 			$retval =& $this->attributes[$ns];
@@ -233,7 +233,7 @@ abstract class AgaviAttributeHolder extends AgaviParameterHolder
 			
 			try {
 				return AgaviArrayPathDefinition::hasValue($name, $this->attributes[$ns]);
-			} catch(InvalidArgumentException $e) {
+			} catch(InvalidArgumentException) {
 				return false;
 			}
 		}
@@ -283,7 +283,7 @@ abstract class AgaviAttributeHolder extends AgaviParameterHolder
 			} else {
 				try {
 					$retval =& AgaviArrayPathDefinition::unsetValue($name, $this->attributes[$ns]);
-				} catch(InvalidArgumentException $e) {
+				} catch(InvalidArgumentException) {
 				}
 			}
 		}
@@ -335,7 +335,7 @@ abstract class AgaviAttributeHolder extends AgaviParameterHolder
 		}
 
 		if(!isset($this->attributes[$ns])) {
-			$this->attributes[$ns] = array();
+			$this->attributes[$ns] = [];
 		}
 
 		$this->attributes[$ns][$name] = $value;
@@ -361,7 +361,7 @@ abstract class AgaviAttributeHolder extends AgaviParameterHolder
 		}
 
 		if(!isset($this->attributes[$ns])) {
-			$this->attributes[$ns] = array();
+			$this->attributes[$ns] = [];
 		}
 
 		if(!isset($this->attributes[$ns][$name]) || !is_array($this->attributes[$ns][$name])) {
@@ -391,7 +391,7 @@ abstract class AgaviAttributeHolder extends AgaviParameterHolder
 		}
 
 		if(!isset($this->attributes[$ns])) {
-			$this->attributes[$ns] = array();
+			$this->attributes[$ns] = [];
 		}
 
 		$this->attributes[$ns][$name] =& $value;
@@ -417,7 +417,7 @@ abstract class AgaviAttributeHolder extends AgaviParameterHolder
 		}
 
 		if(!isset($this->attributes[$ns])) {
-			$this->attributes[$ns] = array();
+			$this->attributes[$ns] = [];
 		}
 
 		if(!isset($this->attributes[$ns][$name]) || !is_array($this->attributes[$ns][$name])) {
@@ -447,7 +447,7 @@ abstract class AgaviAttributeHolder extends AgaviParameterHolder
 		}
 
 		if(!isset($this->attributes[$ns])) {
-			$this->attributes[$ns] = array();
+			$this->attributes[$ns] = [];
 		}
 
 		// array_merge would reindex numeric keys, so we use the + operator
@@ -475,7 +475,7 @@ abstract class AgaviAttributeHolder extends AgaviParameterHolder
 		}
 
 		if(!isset($this->attributes[$ns])) {
-			$this->attributes[$ns] = array();
+			$this->attributes[$ns] = [];
 		}
 
 		foreach($attributes as $key => &$value) {

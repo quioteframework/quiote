@@ -33,7 +33,7 @@ class AgaviLogger implements AgaviILogger
 	/**
 	 * @var        array An array of AgaviLoggerAppenders.
 	 */
-	protected $appenders = array();
+	protected $appenders = [];
 
 	/**
 	 * @var        int Logging level.

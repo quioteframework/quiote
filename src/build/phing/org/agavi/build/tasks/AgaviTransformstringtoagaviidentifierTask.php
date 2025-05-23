@@ -37,7 +37,8 @@ class AgaviTransformstringtoagaviidentifierTask extends AgaviTransformstringtoid
 	/**
 	 * Executes the task.
 	 */
-	public function main()
+	#[\Override]
+    public function main()
 	{
 		if($this->property === null) {
 			throw new BuildException('The property attribute must be specified');
@@ -46,7 +47,7 @@ class AgaviTransformstringtoagaviidentifierTask extends AgaviTransformstringtoid
 			throw new BuildException('The string attribute must be specified and must be non-empty');
 		}
 
-		$this->string = ucfirst(strtolower($this->string));
+		$this->string = ucfirst(strtolower((string) $this->string));
 		parent::main();
 	}
 }

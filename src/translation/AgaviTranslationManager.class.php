@@ -45,7 +45,7 @@ class AgaviTranslationManager
 	/**
 	 * @var        array An array of the translator instances for the domains.
 	 */
-	protected $translators = array();
+	protected $translators = [];
 
 	/**
 	 * @var        AgaviLocale The current locale.
@@ -76,42 +76,42 @@ class AgaviTranslationManager
 	 * @var        array The available locales which have been defined in the 
 	 *                   translation.xml config file.
 	 */
-	protected $availableConfigLocales = array();
+	protected $availableConfigLocales = [];
 
 	/**
 	 * @var        array All available locales. Just stores the info for lazyload.
 	 */
-	protected $availableLocales = array();
+	protected $availableLocales = [];
 
 	/**
 	 * @var        array A cache for locale instances.
 	 */
-	protected $localeCache = array();
+	protected $localeCache = [];
 
 	/**
 	 * @var        array A cache for locale identifiers resolved from a string.
 	 */
-	protected $localeIdentifierCache = array();
+	protected $localeIdentifierCache = [];
 
 	/**
 	 * @var        array A cache for the data of the available locales.
 	 */
-	protected $localeDataCache = array();
+	protected $localeDataCache = [];
 
 	/**
 	 * @var        array The supplemental data from the cldr
 	 */
-	protected $supplementalData = array();
+	protected $supplementalData = [];
 
 	/**
 	 * @var        array The list of available time zones.
 	 */
-	protected $timeZoneList = array();
+	protected $timeZoneList = [];
 
 	/**
 	 * @var        array A cache for the time zone instances.
 	 */
-	protected $timeZoneCache = array();
+	protected $timeZoneCache = [];
 
 	/**
 	 * @var        string The default time zone. If not set the timezone php 
@@ -128,7 +128,7 @@ class AgaviTranslationManager
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		$this->context = $context;
 
@@ -459,7 +459,7 @@ class AgaviTranslationManager
 	 */
 	public function __($singularMessage, $pluralMessage, $amount, $domain = null, $locale = null, array $parameters = null)
 	{
-		return $this->_(array($singularMessage, $pluralMessage, $amount), $domain, $locale, $parameters);
+		return $this->_([$singularMessage, $pluralMessage, $amount], $domain, $locale, $parameters);
 	}
 
 	/**
@@ -480,7 +480,7 @@ class AgaviTranslationManager
 			$domain = $this->defaultDomain . $domain;
 		}
 
-		$domainParts = explode('.', $domain);
+		$domainParts = explode('.', (string) $domain);
 
 		do {
 			if(count($domainParts) == 0) {
@@ -490,7 +490,7 @@ class AgaviTranslationManager
 			array_pop($domainParts);
 		} while(!isset($this->translators[$td]) || ($type && !isset($this->translators[$td][$type])));
 
-		$domainExtra = substr($domain, strlen($td) + 1);
+		$domainExtra = substr((string) $domain, strlen($td) + 1);
 		$domain = $td;
 		return $type ? $this->translators[$td][$type] : $this->translators[$td];
 	}
@@ -513,7 +513,7 @@ class AgaviTranslationManager
 		try {
 			$domainExtra = '';
 			return $this->getTranslators($domain, $domainExtra, $type);
-		} catch(InvalidArgumentException $e) {
+		} catch(InvalidArgumentException) {
 			return null;
 		}
 	}
@@ -618,17 +618,17 @@ class AgaviTranslationManager
 	{
 		// if a locale with the given identifier doesn't exist try to find the closest matches
 		if(isset($this->availableLocales[$identifier])) {
-			return array($identifier);
+			return [$identifier];
 		}
 		
 		$idData = AgaviLocale::parseLocaleIdentifier($identifier);
 		
-		$matchingLocaleIdentifiers = array();
+		$matchingLocaleIdentifiers = [];
 		// iterate over all available locales
 		foreach($this->availableLocales as $availableLocaleIdentifier => $availableLocale) {
 			$matched = false;
 			// iterate over possible properties to compare against (all given ones must match)
-			foreach(array('language', 'script', 'territory', 'variant') as $propertyName) {
+			foreach(['language', 'script', 'territory', 'variant'] as $propertyName) {
 				// only perform check if property was in $identifier
 				if(isset($idData[$propertyName])) {
 					// compare against data in locale
@@ -712,14 +712,14 @@ class AgaviTranslationManager
 		$availableLocale = $this->availableLocales[$this->getLocaleIdentifier($identifier)];
 
 		// if the user wants all options reset he supplies an 'empty' option set (identifier ends with @)
-		if(str_ends_with($identifier, '@')) {
-			$idData['options'] = array();
+		if(str_ends_with((string) $identifier, '@')) {
+			$idData['options'] = [];
 		} else {
 			$idData['options'] = array_merge($availableLocale['identifierData']['options'], $idData['options']);
 		}
 
-		if(($atPos = strpos($identifier, '@')) !== false) {
-			$identifier = $availableLocale['identifierData']['locale_str'] . substr($identifier, $atPos);
+		if(($atPos = strpos((string) $identifier, '@')) !== false) {
+			$identifier = $availableLocale['identifierData']['locale_str'] . substr((string) $identifier, $atPos);
 		} else {
 			$identifier = $availableLocale['identifier'];
 		}
@@ -890,7 +890,7 @@ class AgaviTranslationManager
 		if(!isset($this->timeZoneList[$id])) {
 			try {
 				return AgaviTimeZone::createCustomTimeZone($this, $id);
-			} catch(Exception $e) {
+			} catch(Exception) {
 				return null;
 			}
 		}
@@ -962,13 +962,10 @@ class AgaviTranslationManager
 			}
 		}
 
-		switch($calendarType) {
-			case AgaviCalendar::GREGORIAN:
-				$c = new AgaviGregorianCalendar($this /* $locale */);
-				break;
-			default:
-				throw new AgaviException('Calendar type ' . $calendarType . ' not supported');
-		}
+		$c = match ($calendarType) {
+            AgaviCalendar::GREGORIAN => new AgaviGregorianCalendar($this /* $locale */),
+            default => throw new AgaviException('Calendar type ' . $calendarType . ' not supported'),
+        };
 
 		// Now, reset calendar to default state:
 		if($zone) {
@@ -986,7 +983,7 @@ class AgaviTranslationManager
 			}
 			$c->setTimeZone($this->createTimeZone($tzName));
 			$dateStr = $time->format('Y z G i s');
-			list($year, $doy, $hour, $minute, $second) = explode(' ', $dateStr);
+			[$year, $doy, $hour, $minute, $second] = explode(' ', $dateStr);
 			$c->set(AgaviDateDefinitions::YEAR, $year);
 			$c->set(AgaviDateDefinitions::DAY_OF_YEAR, $doy + 1);
 			$c->set(AgaviDateDefinitions::HOUR_OF_DAY, $hour);
@@ -1034,7 +1031,7 @@ class AgaviTranslationManager
 	public function getTerritoryData($country)
 	{
 		if(!isset($this->supplementalData['territories'][$country])) {
-			return array();
+			return [];
 		}
 		return $this->supplementalData['territories'][$country];
 	}

@@ -65,7 +65,7 @@ class AgaviFilterChain
 		if (method_exists($container, 'getContext') && $container->getContext() && method_exists($container->getContext(), 'getLoggerManager') && $container->getContext()->getLoggerManager()) {
 			$logger = $container->getContext()->getLoggerManager();
 		}
-		$log = function($msg) use ($logger) {
+		$log = function($msg) use ($logger): void {
 			if ($logger) {
 				$logger->logDebug($msg);
 			} else {
@@ -77,16 +77,16 @@ class AgaviFilterChain
 
 		if ($actionCallback === null) {
 			// No-op: do not call $c->execute() after filters
-			$actionCallback = function($c) {};
+			$actionCallback = function($c): void {};
 		}
 		foreach($this->preFilters as $name => $filter) {
-			$log("Executing pre-filter: $name (" . get_class($filter) . ")");
+			$log("Executing pre-filter: $name (" . $filter::class . ")");
 			$filter->execute($container);
 		}
 		$log("Executing action callback");
 		$actionCallback($container);
 		foreach($this->postFilters as $name => $filter) {
-			$log("Executing post-filter: $name (" . get_class($filter) . ")");
+			$log("Executing post-filter: $name (" . $filter::class . ")");
 			$filter->execute($container);
 		}
 		$log("AgaviFilterChain::execute() end for: " . $container->getModuleName() . " / " . $container->getActionName());
@@ -101,7 +101,7 @@ class AgaviFilterChain
 		}
 	}
 
-	public function initialize($context, $parameters = array())
+	public function initialize($context, $parameters = [])
 	{
 		// No-op for compatibility with factory system.
 	}

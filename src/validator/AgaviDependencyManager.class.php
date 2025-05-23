@@ -32,7 +32,7 @@ class AgaviDependencyManager
 	/**
 	 * @var array already provided tokens.
 	 */
-	protected $depData = array();
+	protected $depData = [];
 	
 	/**
 	 * Clears the dependency cache.
@@ -42,7 +42,7 @@ class AgaviDependencyManager
 	 */
 	public function clear()
 	{
-		$this->depData = array();
+		$this->depData = [];
 	}
 	
 	/**
@@ -61,7 +61,7 @@ class AgaviDependencyManager
 	{
 		$currentParts = $base->getParts();
 		foreach($tokens as $token) {
-			if($currentParts && str_contains($token, '%')) { 
+			if($currentParts && str_contains((string) $token, '%')) { 
 				// the depends attribute contains sprintf syntax 
 				$token = vsprintf($token, $currentParts); 
 			}
@@ -89,7 +89,7 @@ class AgaviDependencyManager
 	{
 		$currentParts = $base->getParts();
 		foreach($tokens as $token) {
-			if($currentParts && str_contains($token, '%')) { 
+			if($currentParts && str_contains((string) $token, '%')) { 
 				// the depends attribute contains sprintf syntax 
 				$token = vsprintf($token, $currentParts); 
 			}
@@ -122,7 +122,7 @@ class AgaviDependencyManager
 				$index++; // always increment so static key parts are "skipped" properly
 				return $matches[1] !== '' ? $matches[0] : '[%'.$index.'$s]'; // leave parts other than "[]" intact, else inject numeric accessor
 			},
-			$string
+			(string) $string
 		);
 	}
 	

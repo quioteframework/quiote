@@ -28,7 +28,7 @@
  *
  * @version    $Id$
  */
-class AgaviLoggerMessage extends AgaviParameterHolder
+class AgaviLoggerMessage extends AgaviParameterHolder implements \Stringable
 {
 	/**
 	 * Constructor.
@@ -53,7 +53,7 @@ class AgaviLoggerMessage extends AgaviParameterHolder
 	 * @author     Bob Zoller <bob@agavi.org>
 	 * @since      0.10.0
 	 */
-	public function __toString()
+	public function __toString(): string
 	{
 		return(is_array($this->getParameter('message')) ? implode("\n", $this->getParameter('message')) : (string) $this->getParameter('message'));
 	}

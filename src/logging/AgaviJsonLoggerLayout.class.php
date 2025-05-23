@@ -52,19 +52,12 @@ class AgaviJsonLoggerLayout extends AgaviLoggerLayout
 	 */
 	public function format(AgaviLoggerMessage $message)
 	{
-		switch($this->getParameter('mode', 'parameters')) {
-			case 'full':
-				$value = $message;
-				break;
-			case 'message':
-				$value = $message->getMessage();
-				break;
-			case 'parameter':
-				$value = $message->getParameter($this->getParameter('parameter', 'message'));
-				break;
-			default:
-				$value = $message->getParameters();
-		}
+		$value = match ($this->getParameter('mode', 'parameters')) {
+            'full' => $message,
+            'message' => $message->getMessage(),
+            'parameter' => $message->getParameter($this->getParameter('parameter', 'message')),
+            default => $message->getParameters(),
+        };
 		
 		return json_encode($value);
 	}

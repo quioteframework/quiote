@@ -32,7 +32,7 @@ class AgaviValidationReport implements AgaviIValidationReportQuery
 	/**
 	 * @var        array A List of result severities for each argument which has been validated.
 	 */
-	protected $argumentResults = array();
+	protected $argumentResults = [];
 	
 	/**
 	 * @var        int The highest error severity thrown by the validation run.
@@ -42,12 +42,12 @@ class AgaviValidationReport implements AgaviIValidationReportQuery
 	/**
 	 * @var        array The incidents which were thrown by the validation run.
 	 */
-	protected $incidents = array();
+	protected $incidents = [];
 	
 	/**
 	 * @var        array The depend tokens provided by the validation run.
 	 */
-	protected $providedDependTokens = array();
+	protected $providedDependTokens = [];
 	
 	/**
 	 * Retrieves the highest validation result code in this report.
@@ -130,7 +130,7 @@ class AgaviValidationReport implements AgaviIValidationReportQuery
 	 */
 	public function getIncidents()
 	{
-		$incidents = array();
+		$incidents = [];
 		foreach($this->incidents as $validatorIncidents) {
 			$incidents = array_merge($incidents, $validatorIncidents);
 		}
@@ -145,7 +145,7 @@ class AgaviValidationReport implements AgaviIValidationReportQuery
 	 * @author     Steffen Gransow <agavi@mivesto.de>
 	 * @since      1.1.0
 	 */
-	public function setDependTokens(array $dependTokens = array())
+	public function setDependTokens(array $dependTokens = [])
 	{
 		$this->providedDependTokens = $dependTokens;
 	}
@@ -191,11 +191,11 @@ class AgaviValidationReport implements AgaviIValidationReportQuery
 	 */
 	public function addArgumentResult(AgaviValidationArgument $argument, $result, AgaviValidator $validator = null)
 	{
-		$this->argumentResults[$argument->getHash()][] = array(
+		$this->argumentResults[$argument->getHash()][] = [
 			'argument' => $argument,
 			'severity' => $result,
 			'validator' => $validator,
-		);
+		];
 	}
 	
 	/**
@@ -296,7 +296,7 @@ class AgaviValidationReport implements AgaviIValidationReportQuery
 	 */
 	public function getSucceededArguments($source = null)
 	{
-		$arguments = array();
+		$arguments = [];
 		foreach($this->argumentResults as $results) {
 			$hasInSource = false;
 			$severity = AgaviValidator::NOT_PROCESSED;
@@ -329,10 +329,10 @@ class AgaviValidationReport implements AgaviIValidationReportQuery
 	{
 		// shortcut if validation was successful - there won't be failed args in that case
 		if($this->getResult() <= AgaviValidator::INFO) {
-			return array();
+			return [];
 		}
 		
-		$arguments = array();
+		$arguments = [];
 		foreach($this->argumentResults as $results) {
 			$hasInSource = false;
 			$severity = AgaviValidator::NOT_PROCESSED;

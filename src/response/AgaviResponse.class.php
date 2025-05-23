@@ -55,7 +55,7 @@ abstract class AgaviResponse extends AgaviAttributeHolder
 	public function __sleep()
 	{
 		$vars = get_object_vars($this);
-		$also = array();
+		$also = [];
 		
 		$this->contextName = $this->context->getName();
 		unset($vars['context']);
@@ -123,7 +123,7 @@ abstract class AgaviResponse extends AgaviAttributeHolder
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		$this->context = $context;
 		$this->setParameters($parameters);
@@ -209,7 +209,7 @@ abstract class AgaviResponse extends AgaviAttributeHolder
 				return false;
 			}
 		} else {
-			return strlen($this->content);
+			return strlen((string) $this->content);
 		}
 	}
 	

@@ -31,30 +31,28 @@
 class AgaviValidationArgument
 {
 	/**
-	 * @var        string the name of the argument.
-	 */
-	protected $name;
-	
-	/**
 	 * @var        string the name of the source.
 	 */
 	protected $source;
 	
 	/**
-	 * Create a new AgaviValidationArgument instance.
-	 * 
-	 * @param      string the name of the argument.
-	 * @param      string the name of the source, if null, AgaviRequestDataHolder::SOURCE_PARAMETERS is used.
-	 * 
-	 * @author     Dominik del Bondio <dominik.del.bondio@bitextender.com>
-	 * @since      1.0.0
-	 */
-	public function __construct($name, $source = null)
+     * Create a new AgaviValidationArgument instance.
+     *
+     * @param      string the name of the argument.
+     * @param      string the name of the source, if null, AgaviRequestDataHolder::SOURCE_PARAMETERS is used.
+     *
+     * @author     Dominik del Bondio <dominik.del.bondio@bitextender.com>
+     * @since      1.0.0
+     * @param string $name
+     */
+    public function __construct(/**
+     * @var        string the name of the argument.
+     */
+    protected $name, $source = null)
 	{
 		if($source === null) {
 			$source = AgaviRequestDataHolder::SOURCE_PARAMETERS;
 		}
-		$this->name = $name;
 		$this->source = $source;
 	}
 	

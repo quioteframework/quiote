@@ -41,7 +41,8 @@ abstract class AgaviBaseConstraintBecausePhpunitSucksAtBackwardsCompatibility ex
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.7
 	 */
-	public function evaluate($other, $description = '', $returnResult = false)
+	#[\Override]
+    public function evaluate($other, $description = '', $returnResult = false)
 	{
 		if(version_compare(PHPUnit_Runner_Version::id(), '3.6', '<')) {
 			return $this->matches($other);

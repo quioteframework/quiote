@@ -43,16 +43,16 @@ class AgaviSchematronProcessor extends AgaviParameterHolder
 	/**
 	 * @var        array A cache of processor instances.
 	 */
-	protected static $processors = array();
+	protected static $processors = [];
 	
 	/**
 	 * @var        array The list of Schematron implementation paths to process.
 	 */
-	protected static $defaultChain = array(
+	protected static $defaultChain = [
 		'%core.agavi_dir%/config/schematron/iso_dsdl_include.xsl',
 		'%core.agavi_dir%/config/schematron/iso_abstract_expand.xsl',
 		'%core.agavi_dir%/config/schematron/iso_svrl_for_xslt1.xsl'
-	);
+	];
 	
 	/**
 	 * @var        DOMNode The node the processor will work on.
@@ -76,7 +76,7 @@ class AgaviSchematronProcessor extends AgaviParameterHolder
 			throw new AgaviException('Schematron processor chain must contain at least one path name.');
 		}
 		
-		$this->chain = array_map(array('AgaviToolkit', 'expandDirectives'), $chain);
+		$this->chain = array_map(['AgaviToolkit', 'expandDirectives'], $chain);
 	}
 	
 	/**
@@ -89,7 +89,7 @@ class AgaviSchematronProcessor extends AgaviParameterHolder
 	 */
 	public function getProcessors()
 	{
-		$retval = array();
+		$retval = [];
 		foreach($this->chain as $path) {
 			$retval[] = static::getProcessor($path);
 		}

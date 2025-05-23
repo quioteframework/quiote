@@ -38,7 +38,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 	/**
 	 * @var        array An array of route information
 	 */
-	protected $routes = array();
+	protected $routes = [];
 
 	/**
 	 * @var        AgaviContext An AgaviContext instance.
@@ -53,7 +53,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 	/**
 	 * @var        array An array of AgaviRoutingArraySource.
 	 */
-	protected $sources = array();
+	protected $sources = [];
 
 	/**
 	 * @var        string Route prefix to use with gen()
@@ -63,12 +63,12 @@ abstract class AgaviRouting extends AgaviParameterHolder
 	/**
 	 * @var        array An array of default options for gen()
 	 */
-	protected $defaultGenOptions = array();
+	protected $defaultGenOptions = [];
 
 	/**
 	 * @var        array An array of default options presets for gen()
 	 */
-	protected $genOptionsPresets = array();
+	protected $genOptionsPresets = [];
 
 	/**
 	 * Constructor.
@@ -82,11 +82,11 @@ abstract class AgaviRouting extends AgaviParameterHolder
 		// will be removed in 1.1
 		$this->setParameter('enabled', AgaviConfig::get('core.use_routing', true));
 		
-		$this->defaultGenOptions = array_merge($this->defaultGenOptions, array(
+		$this->defaultGenOptions = array_merge($this->defaultGenOptions, [
 			'relative' => true,
 			'refill_all_parameters' => false,
 			'omit_defaults' => false,
-		));
+		]);
 	}
 	
 	/**
@@ -99,7 +99,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		$this->context = $context;
 
@@ -107,12 +107,12 @@ abstract class AgaviRouting extends AgaviParameterHolder
 
 		$this->defaultGenOptions = array_merge(
 			$this->defaultGenOptions,
-			$this->getParameter('default_gen_options', array())
+			$this->getParameter('default_gen_options', [])
 		);
 
 		$this->genOptionsPresets = array_merge(
 			$this->genOptionsPresets,
-			$this->getParameter('gen_options_presets', array())
+			$this->getParameter('gen_options_presets', [])
 		);
 		
 		// and load the config.
@@ -259,7 +259,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function addRoute($route, array $options = array(), $parent = null)
+	public function addRoute($route, array $options = [], $parent = null)
 	{
 		// catch the old options from the route which has to be overwritten
 		if(isset($options['name']) && isset($this->routes[$options['name']])) {
@@ -276,18 +276,18 @@ abstract class AgaviRouting extends AgaviParameterHolder
 				$defaultOpts['parent'] = $parent;
 			}
 		} else {
-			$defaultOpts = array('name' => AgaviToolkit::uniqid(), 'stop' => true, 'output_type' => null, 'module' => null, 'action' => null, 'parameters' => array(), 'ignores' => array(), 'defaults' => array(), 'childs' => array(), 'callbacks' => array(), 'imply' => false, 'cut' => null, 'source' => null, 'method' => null, 'constraint' => array(), 'locale' => null, 'pattern_parameters' => array(), 'optional_parameters' => array(), 'parent' => $parent, 'reverseStr' => '', 'nostops' => array(), 'anchor' => self::ANCHOR_NONE);
+			$defaultOpts = ['name' => AgaviToolkit::uniqid(), 'stop' => true, 'output_type' => null, 'module' => null, 'action' => null, 'parameters' => [], 'ignores' => [], 'defaults' => [], 'childs' => [], 'callbacks' => [], 'imply' => false, 'cut' => null, 'source' => null, 'method' => null, 'constraint' => [], 'locale' => null, 'pattern_parameters' => [], 'optional_parameters' => [], 'parent' => $parent, 'reverseStr' => '', 'nostops' => [], 'anchor' => self::ANCHOR_NONE];
 		}
 		// retain backwards compatibility to 0.11
 		if(isset($options['callback'])) {
-			$options['callbacks'] = array(array('class' => $options['callback'], 'parameters' => array()));
+			$options['callbacks'] = [['class' => $options['callback'], 'parameters' => []]];
 			unset($options['callback']);
 		}
 
 		if(isset($options['defaults'])) {
 			foreach($options['defaults'] as &$value) {
 				$val = $pre = $post = null;
-				if(preg_match('#(.*)\{(.*)\}(.*)#', $value, $match)) {
+				if(preg_match('#(.*)\{(.*)\}(.*)#', (string) $value, $match)) {
 					$pre = $match[1];
 					$val = $match[2];
 					$post = $match[3];
@@ -301,9 +301,9 @@ abstract class AgaviRouting extends AgaviParameterHolder
 
 		// set the default options + user opts
 		$options = array_merge($defaultOpts, $options);
-		list($regexp, $options['reverseStr'], $routeParams, $options['anchor']) = $this->parseRouteString($route);
+		[$regexp, $options['reverseStr'], $routeParams, $options['anchor']] = $this->parseRouteString($route);
 
-		$params = array();
+		$params = [];
 
 		// transfer the parameters and fill available automatic defaults
 		foreach($routeParams as $name => $param) {
@@ -372,7 +372,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 		// make sure we have no duplicates in the nostops (can happen when a route is overwritten)
 		$options['nostops'] = array_unique($options['nostops']);
 
-		$route = array('rxp' => $regexp, 'par' => $params, 'opt' => $options, 'matches' => array());
+		$route = ['rxp' => $regexp, 'par' => $params, 'opt' => $options, 'matches' => []];
 		$this->routes[$routeName] = $route;
 
 		return $routeName;
@@ -419,15 +419,15 @@ abstract class AgaviRouting extends AgaviParameterHolder
 	 */
 	public function getAffectedRoutes($route, &$isNullRoute = false)
 	{
-		$includedRoutes = array();
-		$excludedRoutes = array();
+		$includedRoutes = [];
+		$excludedRoutes = [];
 		
 		if($route === null) {
-			$includedRoutes = array_reverse($this->getContext()->getRequest()->getAttribute('matched_routes', 'org.agavi.routing', array()));
+			$includedRoutes = array_reverse($this->getContext()->getRequest()->getAttribute('matched_routes', 'org.agavi.routing', []));
 			$isNullRoute = true;
 		} elseif(strlen($route) > 0) {
 			if($route[0] == '-' || $route[0] == '+') {
-				$includedRoutes = array_reverse($this->getContext()->getRequest()->getAttribute('matched_routes', 'org.agavi.routing', array()));
+				$includedRoutes = array_reverse($this->getContext()->getRequest()->getAttribute('matched_routes', 'org.agavi.routing', []));
 				$isNullRoute = true;
 			}
 			
@@ -454,12 +454,12 @@ abstract class AgaviRouting extends AgaviParameterHolder
 			unset($includedRoutes[0]);
 		}
 		
-		$myRoutes = array();
+		$myRoutes = [];
 		foreach($includedRoutes as $r) {
 			$myRoutes[$r] = true;
 		}
 
-		$affectedRoutes = array();
+		$affectedRoutes = [];
 
 		if(isset($this->routes[$route])) {
 			$parent = $route;
@@ -509,7 +509,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 	 */
 	public function getMatchedParameters(array $routeNames)
 	{
-		$params = array();
+		$params = [];
 		foreach($routeNames as $name) {
 			if(isset($this->routes[$name])) {
 				$route = $this->routes[$name];
@@ -533,7 +533,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	protected function resolveGenOptions($input = array())
+	protected function resolveGenOptions($input = [])
 	{
 		if(is_string($input)) {
 			// A single option preset was given
@@ -593,10 +593,10 @@ abstract class AgaviRouting extends AgaviParameterHolder
 	protected function assembleRoutes(array $options, array $routeNames, array $params)
 	{
 		$uri = '';
-		$defaultParams = array();
-		$availableParams = array();
-		$matchedParams = array(); // the merged incoming matched params of implied routes
-		$optionalParams = array();
+		$defaultParams = [];
+		$availableParams = [];
+		$matchedParams = []; // the merged incoming matched params of implied routes
+		$optionalParams = [];
 		$firstRoute = true;
 		
 		foreach($routeNames as $routeName) {
@@ -627,11 +627,11 @@ abstract class AgaviRouting extends AgaviParameterHolder
 						}
 						foreach($defaultsCopy as &$default) {
 							if($default instanceof AgaviIRoutingValue) {
-								$default = array(
+								$default = [
 									'pre' => $default->getPrefix(),
 									'val' => $default->getValue(),
 									'post' => $default->getPostfix(),
-								);
+								];
 							}
 						}
 						$changedParamsCopy = $paramsCopy;
@@ -639,7 +639,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 							continue 2;
 						}
 						// find all params changed in the callback, but ignore unset() parameters since they will be filled in at a later stage (and doing something the them would prevent default values being inserted after unset()tting of a parameter)
-						$diff = array();
+						$diff = [];
 						foreach($paramsCopy as $key => $value) {
 							if(!array_key_exists($key, $changedParamsCopy) || $changedParamsCopy[$key] !== $value) {
 								$diff[$key] = $value;
@@ -653,7 +653,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 							continue 2;
 						}
 						// find all params changed in the callback, but ignore unset() parameters since they will be filled in at a later stage (and doing something the them would prevent default values being inserted after unset()tting of a parameter)
-						$diff = array();
+						$diff = [];
 						foreach($params as $key => $value) {
 							if(!array_key_exists($key, $paramsCopy) || $paramsCopy[$key] !== $value) {
 								$diff[$key] = $value;
@@ -717,7 +717,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 		
 		$availableParams = array_reverse($availableParams);
 		
-		return array(
+		return [
 			'uri' => $uri,
 			'options' => $options,
 			'user_parameters' => $params,
@@ -725,7 +725,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 			'matched_parameters' => $matchedParams,
 			'optional_parameters' => $optionalParams,
 			'default_parameters' => $defaultParams,
-		);
+		];
 	}
 	
 	/**
@@ -776,7 +776,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 	protected function refillMatchedAndDefaultParameters(array $options, array $originalUserParams, array $params, array $availableParams, array $matchedParams, array $optionalParams, array $defaultParams)
 	{
 		$refillValue = true;
-		$finalParams = array();
+		$finalParams = [];
 		foreach($availableParams as $name) {
 			// loop all params and fill all with the matched parameters
 			// until a user (not callback) supplied parameter is encountered.
@@ -803,7 +803,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 			} elseif($hasDefault) {
 				// now we just need to check if there are defaults for this available param and fill them in if applicable
 				$default = $defaultParams[$name];
-				if(!$isOptional || ($default->getValue() != null && strlen($default->getValue()) > 0)) {
+				if(!$isOptional || ($default->getValue() != null && strlen((string) $default->getValue()) > 0)) {
 					$finalParams[$name] = clone $default;
 				} elseif($isOptional) {
 					// there is no default or incoming match for this optional param, so remove it
@@ -1004,7 +1004,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 			}
 			return $parameters;
 		} else {
-			return array();
+			return [];
 		}
 	}
 
@@ -1023,7 +1023,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function gen($route, array $params = array(), $options = array())
+	public function gen($route, array $params = [], $options = [])
 	{
 		if(array_key_exists('prefix', $options)) {
 			$prefix = (string) $options['prefix'];
@@ -1035,7 +1035,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 		$routes = $this->getAffectedRoutes($route, $isNullRoute);
 		
 		if(count($routes) == 0) {
-			return array($route, array(), $options, $params, $isNullRoute);
+			return [$route, [], $options, $params, $isNullRoute];
 		}
 		
 		if($isNullRoute) {
@@ -1073,8 +1073,8 @@ abstract class AgaviRouting extends AgaviParameterHolder
 
 		$params = $this->encodeParameters($options, $params);
 
-		$from = array();
-		$to = array();
+		$from = [];
+		$to = [];
 		
 
 		// remove not specified available parameters
@@ -1091,7 +1091,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 		}
 
 		$uri = str_replace($from, $to, $assembledInformation['uri']);
-		return array($prefix . $uri, $params, $options, $extras, $isNullRoute);
+		return [$prefix . $uri, $params, $options, $extras, $isNullRoute];
 	}
 	
 	
@@ -1135,11 +1135,11 @@ abstract class AgaviRouting extends AgaviParameterHolder
 			return $container;
 		}
 
-		$matchedRoutes = array();
+		$matchedRoutes = [];
 
 		$input = $this->input;
 
-		$vars = array();
+		$vars = [];
 		$ot = null;
 		$locale = null;
 		$method = null;
@@ -1150,7 +1150,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 		
 		$requestMethod = $rq->getMethod();
 
-		$routes = array();
+		$routes = [];
 		// get all top level routes
 		foreach($this->routes as $name => $route) {
 			if(!$route['opt']['parent']) {
@@ -1159,7 +1159,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 		}
 
 		// prepare the working stack with the root routes
-		$routeStack = array($routes);
+		$routeStack = [$routes];
 
 		do {
 			$routes = array_pop($routeStack);
@@ -1176,7 +1176,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 						}
 					}
 
-					$match = array();
+					$match = [];
 					if($this->parseInput($route, $input, $match)) {
 						$varsBackup = $vars;
 						
@@ -1186,7 +1186,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 							$container = clone $container;
 						}
 						
-						$ign = array();
+						$ign = [];
 						if(count($opts['ignores']) > 0) {
 							$ign = array_flip($opts['ignores']);
 						}
@@ -1250,7 +1250,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 							// and because it makes sense - maybe a callback checks or changes the output type name
 							try {
 								$container->setOutputType($this->context->getController()->getOutputType($ot));
-							} catch(AgaviException $e) {
+							} catch(AgaviException) {
 							}
 						}
 
@@ -1267,7 +1267,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 								// and because it makes sense - maybe a callback checks or changes the locale name
 								try {
 									$tm->setLocale($locale);
-								} catch(AgaviException $e) {
+								} catch(AgaviException) {
 								}
 							}
 						} else {
@@ -1326,7 +1326,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 										$callbackSuccess = false;
 										
 										// reset the matches array. it must be populated by the time onMatched() is called so matches can be modified in a callback
-										$route['matches'] = array();
+										$route['matches'] = [];
 										// restore the variables from the variables which were set before this route matched
 										$vars = $varsBackup;
 										// reset all relevant container data we already set in the container for this (now non matching) route
@@ -1449,9 +1449,9 @@ abstract class AgaviRouting extends AgaviParameterHolder
 							$ni = '';
 							// if the route didn't match from the start of the input preserve the 'prefix'
 							if($match[0][1] > 0) {
-								$ni = substr($s, 0, $match[0][1]);
+								$ni = substr((string) $s, 0, $match[0][1]);
 							}
-							$ni .= substr($s, $match[0][1] + strlen($match[0][0]));
+							$ni .= substr((string) $s, $match[0][1] + strlen((string) $match[0][0]));
 							$s = $ni;
 						}
 
@@ -1488,10 +1488,10 @@ abstract class AgaviRouting extends AgaviParameterHolder
 			$container->setActionName(AgaviConfig::get('actions.error_404_action'));
 			
 			if($umap) {
-				$rd->setParameters(array(
+				$rd->setParameters([
 					$ma => $container->getModuleName(),
 					$aa => $container->getActionName(),
-				));
+				]);
 			}
 		}
 
@@ -1547,7 +1547,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 	 */
 	protected function parseRouteString($str)
 	{
-		$vars = array();
+		$vars = [];
 		$rxStr = '';
 		$reverseStr = '';
 
@@ -1555,9 +1555,9 @@ abstract class AgaviRouting extends AgaviParameterHolder
 		$anchor |= $str !== null ? str_starts_with($str, '^') ? self::ANCHOR_START : 0 : 0;
 		$anchor |= $str !== null ? str_ends_with($str, '$') ? self::ANCHOR_END : 0 : 0;
 
-		$str = substr($str, (int)$anchor & self::ANCHOR_START, $anchor & self::ANCHOR_END ? -1 : ($str !== null ? strlen($str) : 0));
+		$str = substr((string) $str, (int)$anchor & self::ANCHOR_START, $anchor & self::ANCHOR_END ? -1 : ($str !== null ? strlen($str) : 0));
 
-		$rxChars = implode('', array('.', '\\', '+', '*', '?', '[', '^', ']', '$', '(', ')', '{', '}', '=', '!', '<', '>', '|', ':'));
+		$rxChars = implode('', ['.', '\\', '+', '*', '?', '[', '^', ']', '$', '(', ')', '{', '}', '=', '!', '<', '>', '|', ':']);
 
 		$len = strlen($str);
 		$state = 'start';
@@ -1583,7 +1583,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 				if(
 					($cNext == '\\') ||
 					($state == 'start' && $cNext == '(') ||
-					($state == 'rxStart' && in_array($cNext, array('(',')','{','}')))
+					($state == 'rxStart' && in_array($cNext, ['(',')','{','}']))
 				) {
 					$inEscape = true;
 					continue;
@@ -1632,7 +1632,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 				} elseif($c == '}') {
 					--$bracketCount;
 					if($bracketCount == 0) {
-						list($rxName, $rxInner) = $this->parseParameterDefinition($tmpStr);
+						[$rxName, $rxInner] = $this->parseParameterDefinition($tmpStr);
 						$tmpStr = '';
 					} else {
 						$tmpStr .= $c;
@@ -1650,7 +1650,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 						}
 
 						if(!$hasBrackets) {
-							list($rxName, $rxInner) = $this->parseParameterDefinition($tmpStr);
+							[$rxName, $rxInner] = $this->parseParameterDefinition($tmpStr);
 						} else {
 							if($bracketCount != 0) {
 								throw new AgaviException('The pattern ' . $str . ' contains an unbalanced set of brackets!');
@@ -1672,17 +1672,17 @@ abstract class AgaviRouting extends AgaviParameterHolder
 							$reverseStr .= sprintf('(:%s:)', $rxName);
 
 							if(!isset($vars[$rxName])) {
-								if(@strpbrk($rxPrefix, $rxChars) !== false) {
+								if(@strpbrk((string) $rxPrefix, $rxChars) !== false) {
 									$rxPrefix = null;
 								}
-								if(@strpbrk($rxInner, $rxChars) !== false) {
+								if(@strpbrk((string) $rxInner, $rxChars) !== false) {
 									$rxInner = null;
 								}
-								if(@strpbrk($rxPostfix, $rxChars) !== false) {
+								if(@strpbrk((string) $rxPostfix, $rxChars) !== false) {
 									$rxPostfix = null;
 								}
 
-								$vars[$rxName] = array('pre' => $rxPrefix, 'val' => $rxInner, 'post' => $rxPostfix, 'is_optional' => false);
+								$vars[$rxName] = ['pre' => $rxPrefix, 'val' => $rxInner, 'post' => $rxPostfix, 'is_optional' => false];
 							}
 						}
 
@@ -1713,7 +1713,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 		}
 
 		$rxStr = sprintf('#%s%s%s#', $anchor & self::ANCHOR_START ? '^' : '', $rxStr, $anchor & self::ANCHOR_END ? '$' : '');
-		return array($rxStr, $reverseStr, $vars, $anchor);
+		return [$rxStr, $reverseStr, $vars, $anchor];
 	}
 
 	/**
@@ -1728,8 +1728,8 @@ abstract class AgaviRouting extends AgaviParameterHolder
 	 */
 	protected function parseParameterDefinition($def)
 	{
-		preg_match('#(?:([a-z0-9_-]+):)?(.*)#i', $def, $match);
-		return array($match[1] !== '' ? $match[1] : null, $match[2]);
+		preg_match('#(?:([a-z0-9_-]+):)?(.*)#i', (string) $def, $match);
+		return [$match[1] !== '' ? $match[1] : null, $match[2]];
 	}
 	
 	/**

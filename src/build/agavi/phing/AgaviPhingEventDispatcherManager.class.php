@@ -32,7 +32,7 @@ final class AgaviPhingEventDispatcherManager
 	/**
 	 * @var        array List of AgaviPhingEventDispatcher instances.
 	 */
-	protected static $dispatchers = array();
+	protected static $dispatchers = [];
 	
 	/**
 	 * Retrieves a dispatcher for a project.

@@ -34,7 +34,7 @@ class AgaviResolveconfigurationTask extends AgaviTask
 	protected $property;
 	protected $string;
 	protected $expandDirectives = true;
-	protected $variables = array();
+	protected $variables = [];
 
 	/**
 	 * Sets the property that this task will modify.
@@ -93,7 +93,7 @@ class AgaviResolveconfigurationTask extends AgaviTask
 		$this->tryLoadAgavi();
 		$this->tryBootstrapAgavi();
 		
-		$assigns = array();
+		$assigns = [];
 		foreach($this->variables as $variable) {
 			$assigns[$variable->getName()] = $variable->getValue();
 		}

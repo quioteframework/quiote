@@ -63,7 +63,7 @@ abstract class AgaviFragmentTestCase extends AgaviPhpUnitTestCase implements Aga
 	 * @param  array  $data
 	 * @param  string $dataName
 	 */
-	public function __construct($name = NULL, array $data = array(), $dataName = '')
+	public function __construct($name = NULL, array $data = [], $dataName = '')
 	{
 		parent::__construct($name, $data, $dataName);
 		$this->setRunTestInSeparateProcess(true);
@@ -129,10 +129,10 @@ abstract class AgaviFragmentTestCase extends AgaviPhpUnitTestCase implements Aga
 			$shortName = AgaviToolkit::evaluateModuleDirective(
 				$this->moduleName,
 				'agavi.view.name',
-				array(
+				[
 					'actionName' => $this->actionName,
 					'viewName' => $shortName,
-				)
+				]
 			);
 			$shortName = AgaviToolkit::canonicalName($shortName);
 		}
@@ -228,7 +228,7 @@ class %1$s extends %2$s
 		$context->setFactoryInfo('execution_container', $ecfi);
 		
 		if(!($arguments instanceof AgaviRequestDataHolder)) {
-			$arguments = $this->createRequestDataHolder(array(AgaviRequestDataHolder::SOURCE_PARAMETERS => $arguments));
+			$arguments = $this->createRequestDataHolder([AgaviRequestDataHolder::SOURCE_PARAMETERS => $arguments]);
 		}
 		// create a new execution container with the wrapped class
 		$container = $context->getController()->createExecutionContainer($this->moduleName, $this->actionName, $arguments, $outputType, $requestMethod);
@@ -269,7 +269,7 @@ class %1$s extends %2$s
 	 * @author     Felix Gilcher <felix.gilcher@bitextender.com>
 	 * @since      1.0.0
 	 */
-	protected function createRequestDataHolder(array $arguments = array(), $type = null)
+	protected function createRequestDataHolder(array $arguments = [], $type = null)
 	{
 		if(null === $type) {
 			$type = $this->getContext()->getRequest()->getParameter('request_data_holder_class', 'AgaviRequestDataHolder');

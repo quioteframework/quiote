@@ -51,16 +51,12 @@ class AgaviPassthruLoggerLayout extends AgaviLoggerLayout
 	 */
 	public function format(AgaviLoggerMessage $message)
 	{
-		switch($this->getParameter('mode', 'to_string')) {
-			case 'full':
-				return $message;
-			case 'message':
-				return $message->getMessage();
-			case 'parameter':
-				return $message->getParameter($this->getParameter('parameter', 'message'));
-			default:
-				return $message->__toString();
-		}
+		return match ($this->getParameter('mode', 'to_string')) {
+            'full' => $message,
+            'message' => $message->getMessage(),
+            'parameter' => $message->getParameter($this->getParameter('parameter', 'message')),
+            default => $message->__toString(),
+        };
 	}
 }
 

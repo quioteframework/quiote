@@ -43,7 +43,7 @@ class AgaviConfigCache
 	 * @var        array A string=>bool array containing config handler files and
 	 *                   their loaded status.
 	 */
-	protected static $handlerFiles = array();
+	protected static $handlerFiles = [];
 
 	/**
 	 * @var        bool Whether there is an entry in self::$handlerFiles that
@@ -134,7 +134,7 @@ class AgaviConfigCache
 	protected static function getHandlerInfo($name)
 	{
 		// grab the base name of the originally requested config path
-		$basename = basename($name);
+		$basename = basename((string) $name);
 
 		$handlerInfo = null;
 
@@ -151,7 +151,7 @@ class AgaviConfigCache
 				// replace wildcard chars in the configuration and create the pattern
 				$pattern = sprintf('#%s#', str_replace('\*', '.*?', preg_quote($key, '#')));
 
-				if(preg_match($pattern, $name)) {
+				if(preg_match($pattern, (string) $name)) {
 					$handlerInfo = $value;
 					break;
 				}
@@ -288,9 +288,9 @@ class AgaviConfigCache
 	{
 		$environment = AgaviConfig::get('core.environment');
 
-		if(strlen($config) > 3 && ctype_alpha($config[0]) && $config[1] == ':' && ($config[2] == '\\' || $config[2] == '/')) {
+		if(strlen((string) $config) > 3 && ctype_alpha((string) $config[0]) && $config[1] == ':' && ($config[2] == '\\' || $config[2] == '/')) {
 			// file is a windows absolute path, strip off the drive letter
-			$config = substr($config, 3);
+			$config = substr((string) $config, 3);
 		}
 
 		// replace unfriendly filename characters with an underscore and postfix the name with a php extension
@@ -302,7 +302,7 @@ class AgaviConfigCache
 				'_', 
 				sprintf(
 					'%1$s_%2$s_%3$s', 
-					basename($config), 
+					basename((string) $config), 
 					$environment, 
 					$context
 				)
@@ -359,7 +359,7 @@ class AgaviConfigCache
 		if(self::$handlers !== null) {
 			return;
 		} else {
-			self::$handlers = array();
+			self::$handlers = [];
 		}
 		
 		// some checks first
@@ -413,39 +413,39 @@ class AgaviConfigCache
 		}
 		
 		// manually create our config_handlers.xml handler
-		self::$handlers['config_handlers.xml'] = array(
+		self::$handlers['config_handlers.xml'] = [
 			'class' => 'AgaviConfigHandlersConfigHandler',
-			'parameters' => array(
-			),
-			'transformations' => array(
-				AgaviXmlConfigParser::STAGE_SINGLE => array(
+			'parameters' => [
+			],
+			'transformations' => [
+				AgaviXmlConfigParser::STAGE_SINGLE => [
 					// 0.11 -> 1.0
 					$agaviDir . '/config/xsl/config_handlers.xsl',
 					// 1.0 -> 1.0 with AgaviReturnArrayConfigHandler <transformation> for Agavi 1.1
 					$agaviDir . '/config/xsl/config_handlers.xsl',
-				),
-				AgaviXmlConfigParser::STAGE_COMPILATION => array(
-				),
-			),
-			'validations' => array(
-				AgaviXmlConfigParser::STAGE_SINGLE => array(
-					AgaviXmlConfigParser::STEP_TRANSFORMATIONS_BEFORE => array(
-					),
-					AgaviXmlConfigParser::STEP_TRANSFORMATIONS_AFTER => array(
-						AgaviXmlConfigParser::VALIDATION_TYPE_XMLSCHEMA => array(
+				],
+				AgaviXmlConfigParser::STAGE_COMPILATION => [
+				],
+			],
+			'validations' => [
+				AgaviXmlConfigParser::STAGE_SINGLE => [
+					AgaviXmlConfigParser::STEP_TRANSFORMATIONS_BEFORE => [
+					],
+					AgaviXmlConfigParser::STEP_TRANSFORMATIONS_AFTER => [
+						AgaviXmlConfigParser::VALIDATION_TYPE_XMLSCHEMA => [
 							$agaviDir . '/config/xsd/config_handlers.xsd',
-						),
-						AgaviXmlConfigParser::VALIDATION_TYPE_SCHEMATRON => array(
+						],
+						AgaviXmlConfigParser::VALIDATION_TYPE_SCHEMATRON => [
 							$agaviDir . '/config/sch/config_handlers.sch',
-						),
-					),
-				),
-				AgaviXmlConfigParser::STAGE_COMPILATION => array(
-					AgaviXmlConfigParser::STEP_TRANSFORMATIONS_BEFORE => array(),
-					AgaviXmlConfigParser::STEP_TRANSFORMATIONS_AFTER => array()
-				),
-			),
-		);
+						],
+					],
+				],
+				AgaviXmlConfigParser::STAGE_COMPILATION => [
+					AgaviXmlConfigParser::STEP_TRANSFORMATIONS_BEFORE => [],
+					AgaviXmlConfigParser::STEP_TRANSFORMATIONS_AFTER => []
+				],
+			],
+		];
 
 		$cfg = AgaviConfig::get('core.config_dir') . '/config_handlers.xml';
 		if(!is_readable($cfg)) {
@@ -515,7 +515,7 @@ class AgaviConfigCache
 			$data = file_get_contents($cache) . $data;
 		}
 
-		$tmpName = tempnam($cacheDir, basename($cache));
+		$tmpName = tempnam($cacheDir, basename((string) $cache));
 		if(@file_put_contents($tmpName, $data) !== false) {
 			// that worked, but that doesn't mean we're safe yet
 			// first, we cannot know if the destination directory really was writeable, as tempnam() falls back to the system temp dir

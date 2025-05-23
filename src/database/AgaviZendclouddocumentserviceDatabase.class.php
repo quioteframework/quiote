@@ -56,7 +56,8 @@ class AgaviZendclouddocumentserviceDatabase extends AgaviDatabase
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.5
 	 */
-	public function initialize(AgaviDatabaseManager $databaseManager, array $parameters = array())
+	#[\Override]
+    public function initialize(AgaviDatabaseManager $databaseManager, array $parameters = [])
 	{
 		parent::initialize($databaseManager, $parameters);
 		
@@ -71,8 +72,8 @@ class AgaviZendclouddocumentserviceDatabase extends AgaviDatabase
 			Zend_Loader::loadClass($this->getParameter('factory_class'));
 		}
 		
-		$factoryOptions = array();
-		foreach((array)$this->getParameter('factory_options', array()) as $name => $value) {
+		$factoryOptions = [];
+		foreach((array)$this->getParameter('factory_options', []) as $name => $value) {
 			// resolve constants like "Zend_Cloud_DocumentService_Factory::DOCUMENT_ADAPTER_KEY"
 			if(strpos($name, '::') && defined($name)) {
 				$name = constant($name);
@@ -97,9 +98,9 @@ class AgaviZendclouddocumentserviceDatabase extends AgaviDatabase
 	public function connect()
 	{
 		try {
-			$this->connection = call_user_func(array($this->getParameter('factory_class'), 'getAdapter'), $this->getParameter('factory_options'));
+			$this->connection = call_user_func([$this->getParameter('factory_class'), 'getAdapter'], $this->getParameter('factory_options'));
 		} catch(Zend_Exception $e) {
-			throw new AgaviDatabaseException(sprintf("Caught exception of type %s while creating adapter instance; details:\n\n%s", get_class($e), $e->getMessage()), 0, $e);
+			throw new AgaviDatabaseException(sprintf("Caught exception of type %s while creating adapter instance; details:\n\n%s", $e::class, $e->getMessage()), 0, $e);
 		}
 	}
 	
@@ -111,7 +112,8 @@ class AgaviZendclouddocumentserviceDatabase extends AgaviDatabase
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.5
 	 */
-	public function getResource()
+	#[\Override]
+    public function getResource()
 	{
 		return $this->getConnection()->getClient();
 	}

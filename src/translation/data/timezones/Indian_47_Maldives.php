@@ -15,45 +15,45 @@
  * @version    $Id$
  */
 
-return array (
+return  [
   'types' => 
-  array (
+   [
     0 => 
-    array (
+     [
       'rawOffset' => 17640,
       'dstOffset' => 0,
       'name' => 'MMT',
-    ),
+    ],
     1 => 
-    array (
+     [
       'rawOffset' => 18000,
       'dstOffset' => 0,
       'name' => '+05',
-    ),
-  ),
+    ],
+  ],
   'rules' => 
-  array (
+   [
     0 => 
-    array (
+     [
       'time' => -2840158440.0,
       'type' => 0,
-    ),
+    ],
     1 => 
-    array (
+     [
       'time' => -315636840.0,
       'type' => 1,
-    ),
-  ),
+    ],
+  ],
   'finalRule' => 
-  array (
+   [
     'type' => 'static',
     'name' => '+05',
     'offset' => 18000,
     'startYear' => 1960,
-  ),
+  ],
   'source' => '(unknown)',
   'version' => '(unknown)',
   'name' => 'Indian/Maldives',
-);
+];
 
 ?>

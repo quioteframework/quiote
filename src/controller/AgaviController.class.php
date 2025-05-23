@@ -54,15 +54,15 @@ class AgaviController extends AgaviParameterHolder
 	/**
 	 * @var        array An array of filter instances for reuse.
 	 */
-	protected $filters = array(
-		'global' => array(),
-		'action' => array(
+	protected $filters = [
+		'global' => [],
+		'action' => [
 			'*' => null
-		),
+		],
 		'dispatch' => null,
 		'execution' => null,
 		'security' => null
-	);
+	];
 	
 	/**
 	 * @var        string The default Output Type.
@@ -72,7 +72,7 @@ class AgaviController extends AgaviParameterHolder
 	/**
 	 * @var        array An array of registered Output Types.
 	 */
-	protected $outputTypes = array();
+	protected $outputTypes = [];
 	
 	/**
 	 * @var        array Ref to the request data object from the request.
@@ -143,18 +143,18 @@ class AgaviController extends AgaviParameterHolder
 	 */
 	public function initializeModule($moduleName)
 	{
-		$lowerModuleName = strtolower($moduleName);
+		$lowerModuleName = strtolower((string) $moduleName);
 		
 		if(null === AgaviConfig::get('modules.' . $lowerModuleName . '.enabled')) {
 			// set some defaults first
-			AgaviConfig::fromArray(array(
+			AgaviConfig::fromArray([
 				'modules.' . $lowerModuleName . '.agavi.action.path' => '%core.module_dir%/${moduleName}/actions/${actionName}Action.class.php',
 				'modules.' . $lowerModuleName . '.agavi.cache.path' => '%core.module_dir%/${moduleName}/cache/${actionName}.xml',
 				'modules.' . $lowerModuleName . '.agavi.template.directory' => '%core.module_dir%/${module}/templates',
 				'modules.' . $lowerModuleName . '.agavi.validate.path' => '%core.module_dir%/${moduleName}/validate/${actionName}.xml',
 				'modules.' . $lowerModuleName . '.agavi.view.path' => '%core.module_dir%/${moduleName}/views/${viewName}View.class.php',
 				'modules.' . $lowerModuleName . '.agavi.view.name' => '${actionName}${viewName}',
-			));
+			]);
 			// include the module configuration
 			// loaded only once due to the way load() (former import()) works
 			if(is_readable(AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/config/module.xml')) {
@@ -246,7 +246,7 @@ class AgaviController extends AgaviParameterHolder
 				$filterChain->registerPre($this->filters['dispatch'], 'agavi_dispatch_filter');
 				
 				// execute pre-filters, action, post-filters
-				$filterChain->execute($container, function($container) {
+				$filterChain->execute($container, function($container): void {
 						// No-op: action execution is handled by the execution filter in the action filter chain.
 				});
 				
@@ -307,10 +307,10 @@ class AgaviController extends AgaviParameterHolder
 		$file = AgaviToolkit::evaluateModuleDirective(
 			$moduleName,
 			'agavi.action.path',
-			array(
+			[
 				'moduleName' => $moduleName,
 				'actionName' => $actionName,
-			)
+			]
 		);
 		
 		if(is_readable($file) && !str_starts_with($actionName, '/')) {
@@ -397,10 +397,10 @@ class AgaviController extends AgaviParameterHolder
 		$file = AgaviToolkit::evaluateModuleDirective(
 			$moduleName,
 			'agavi.view.path',
-			array(
+			[
 				'moduleName' => $moduleName,
 				'viewName' => $viewName,
-			)
+			]
 		);
 		
 		if(is_readable($file) && !str_starts_with($viewName, '/')) {
@@ -464,10 +464,10 @@ class AgaviController extends AgaviParameterHolder
 	public function __construct()
 	{
 		parent::__construct();
-		$this->setParameters(array(
+		$this->setParameters([
 			'max_executions' => 20,
 			'send_response' => true,
-		));
+		]);
 	}
 	
 	/**
@@ -479,7 +479,7 @@ class AgaviController extends AgaviParameterHolder
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.9.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		$this->context = $context;
 		
@@ -511,7 +511,7 @@ class AgaviController extends AgaviParameterHolder
 	 */
 	public function getFilter($which)
 	{
-		return (isset($this->filters[$which]) ? $this->filters[$which] : null);
+		return ($this->filters[$which] ?? null);
 	}
 	
 	/**
@@ -550,10 +550,10 @@ class AgaviController extends AgaviParameterHolder
 		
 		if(($which != 'global' && !isset($this->filters[$which][$module])) || $which == 'global' && $this->filters[$which] == null) {
 			if($which == 'global') {
-				$this->filters[$which] = array();
+				$this->filters[$which] = [];
 				$filters =& $this->filters[$which];
 			} else {
-				$this->filters[$which][$module] = array();
+				$this->filters[$which][$module] = [];
 				$filters =& $this->filters[$which][$module];
 			}
 			$config = ($module == '*' ? AgaviConfig::get('core.config_dir') : AgaviConfig::get('core.module_dir') . '/' . $module . '/config') . '/' . $which . '_filters.xml';

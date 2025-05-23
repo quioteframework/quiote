@@ -33,18 +33,16 @@ class AgaviRoutingValue implements AgaviIRoutingValue
 {
 	protected $context;
 	protected $contextName;
-	protected $value;
 	protected $prefix;
 	protected $postfix;
-	protected $valueNeedsEncoding = true;
 	protected $prefixNeedsEncoding = false;
 	protected $postfixNeedsEncoding = false;
 	
-	protected static $arrayMap = array(
+	protected static $arrayMap = [
 		'pre'  => 'prefix',
 		'val'  => 'value',
 		'post' => 'postfix',
-	);
+	];
 	
 	/**
 	 * Constructor.
@@ -55,11 +53,9 @@ class AgaviRoutingValue implements AgaviIRoutingValue
 	 * @author     Dominik del Bondio <dominik.del.bondio@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function __construct($value, $valueNeedsEncoding = true)
-	{
-		$this->value = $value;
-		$this->valueNeedsEncoding = $valueNeedsEncoding;
-	}
+	public function __construct(protected $value, protected $valueNeedsEncoding = true)
+    {
+    }
 	
 	/**
 	 * Pre-serialization callback.
@@ -102,7 +98,7 @@ class AgaviRoutingValue implements AgaviIRoutingValue
 	 * @author     Dominik del Bondio <dominik.del.bondio@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		$this->context = $context;
 	}
@@ -394,7 +390,7 @@ class AgaviRoutingValue implements AgaviIRoutingValue
 	 */
 	public function __toString(): string
 	{
-		return $this->context->getRouting()->escapeOutputParameter($this->value);
+		return (string) $this->context->getRouting()->escapeOutputParameter($this->value);
 	}
 }
 

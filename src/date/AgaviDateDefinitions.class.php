@@ -42,14 +42,14 @@ final class AgaviDateDefinitions
 	 * 
 	 * @since      0.11.0
 	 */
-	const ERA                     = 0;
+	const int ERA                     = 0;
 
 	/**
 	 * Field number indicating the year. This is a calendar-specific value.
 	 * 
 	 * @since      0.11.0
 	 */
-	const YEAR                    = 1;
+	const int YEAR                    = 1;
 
 	/**
 	 * Field number indicating the month. 
@@ -73,7 +73,7 @@ final class AgaviDateDefinitions
 	 * 
 	 * @since      0.11.0
 	 */
-	const MONTH                   = 2;
+	const int MONTH                   = 2;
 
 	/**
 	 * Field number indicating the week number within the current year.
@@ -85,7 +85,7 @@ final class AgaviDateDefinitions
 	 * 
 	 * @since      0.11.0
 	 */
-	const WEEK_OF_YEAR            = 3;
+	const int WEEK_OF_YEAR            = 3;
 
 	/**
 	 * Field number indicating the week number within the current month.
@@ -100,7 +100,7 @@ final class AgaviDateDefinitions
 	 * 
 	 * @since      0.11.0
 	 */
-	const WEEK_OF_MONTH           = 4;
+	const int WEEK_OF_MONTH           = 4;
 
 	/**
 	 * Field number indicating the day of the month.
@@ -112,7 +112,7 @@ final class AgaviDateDefinitions
 	 * 
 	 * @since      0.11.0
 	 */
-	const DATE                    = 5;
+	const int DATE                    = 5;
 
 	/**
 	 * Field number indicating the day number within the current year.
@@ -121,7 +121,7 @@ final class AgaviDateDefinitions
 	 * 
 	 * @since      0.11.0
 	 */
-	const DAY_OF_YEAR             = 6;
+	const int DAY_OF_YEAR             = 6;
 
 	/**
 	 * Field number indicating the day of the week.
@@ -139,7 +139,7 @@ final class AgaviDateDefinitions
 	 * 
 	 * @since      0.11.0
 	 */
-	const DAY_OF_WEEK             = 7;
+	const int DAY_OF_WEEK             = 7;
 
 	/**
 	 * Field number indicating the ordinal number of the day of the week within 
@@ -168,7 +168,7 @@ final class AgaviDateDefinitions
 	 * 
 	 * @since      0.11.0
 	 */
-	const DAY_OF_WEEK_IN_MONTH    = 8;
+	const int DAY_OF_WEEK_IN_MONTH    = 8;
 
 	/**
 	 * Field number indicating  whether the {@link HOUR} is before or after noon.
@@ -181,7 +181,7 @@ final class AgaviDateDefinitions
 	 * 
 	 * @since      0.11.0
 	 */
-	const AM_PM                   = 9;
+	const int AM_PM                   = 9;
 
 	/**
 	 * Field number indicating the hour of the morning or afternoon.
@@ -194,7 +194,7 @@ final class AgaviDateDefinitions
 	 * 
 	 * @since      0.11.0
 	 */
-	const HOUR                    = 10;
+	const int HOUR                    = 10;
 
 	/**
 	 * Field number indicating the hour of the day.
@@ -206,7 +206,7 @@ final class AgaviDateDefinitions
 	 * 
 	 * @since      0.11.0
 	 */
-	const HOUR_OF_DAY             = 11;
+	const int HOUR_OF_DAY             = 11;
 
 	/**
 	 * Field number indicating the  minute within the hour.
@@ -215,7 +215,7 @@ final class AgaviDateDefinitions
 	 * 
 	 * @since      0.11.0
 	 */
-	const MINUTE                  = 12;
+	const int MINUTE                  = 12;
 
 	/**
 	 * Field number indicating the second within the minute.
@@ -224,7 +224,7 @@ final class AgaviDateDefinitions
 	 * 
 	 * @since      0.11.0
 	 */
-	const SECOND                  = 13;
+	const int SECOND                  = 13;
 
 	/**
 	 * Field number indicating the millisecond within the second.
@@ -233,21 +233,21 @@ final class AgaviDateDefinitions
 	 * 
 	 * @since      0.11.0
 	 */
-	const MILLISECOND             = 14;
+	const int MILLISECOND             = 14;
 
 	/**
 	 * Field number indicating the raw offset from GMT in milliseconds.
 	 * 
 	 * @since      0.11.0
 	 */
-	const ZONE_OFFSET             = 15;
+	const int ZONE_OFFSET             = 15;
 
 	/**
 	 * Field number indicating the  daylight savings offset in milliseconds.
 	 * 
 	 * @since      0.11.0
 	 */
-	const DST_OFFSET              = 16;
+	const int DST_OFFSET              = 16;
 	
 	/**
 	 * Field number indicating the extended year corresponding to the
@@ -257,7 +257,7 @@ final class AgaviDateDefinitions
 	 * 
 	 * @since      0.11.0
 	 */
-	const YEAR_WOY                = 17;
+	const int YEAR_WOY                = 17;
 
 	/**
 	 * Field number indicating the localized day of week.
@@ -267,7 +267,7 @@ final class AgaviDateDefinitions
 	 * 
 	 * @since      0.11.0
 	 */
-	const DOW_LOCAL               = 18;
+	const int DOW_LOCAL               = 18;
 	
 	/**
 	 * Year of this calendar system, encompassing all supra-year fields.
@@ -277,7 +277,7 @@ final class AgaviDateDefinitions
 	 * 
 	 * @since      0.11.0
 	 */
-	const EXTENDED_YEAR           = 19;
+	const int EXTENDED_YEAR           = 19;
 
 	/**
 	 * Field number indicating the modified Julian day number.
@@ -290,7 +290,7 @@ final class AgaviDateDefinitions
 	 * 
 	 * @since      0.11.0
 	 */
-	const JULIAN_DAY              = 20;
+	const int JULIAN_DAY              = 20;
 
 	/**
 	 * Ranges from 0 to 23:59:59.999 (regardless of DST).
@@ -304,14 +304,14 @@ final class AgaviDateDefinitions
 	 * 
 	 * @since      0.11.0
 	 */
-	const MILLISECONDS_IN_DAY     = 21;
+	const int MILLISECONDS_IN_DAY     = 21;
 	
 	/**
 	 * Field count
 	 * 
 	 * @since      0.11.0
 	 */
-	const FIELD_COUNT             = 22;
+	const int FIELD_COUNT             = 22;
 
 	/**
 	 * Field number indicating the day of the month.
@@ -322,93 +322,93 @@ final class AgaviDateDefinitions
 	 * 
 	 * @since      0.11.0
 	 */
-	const DAY_OF_MONTH            = AgaviDateDefinitions::DATE;
+	const int DAY_OF_MONTH            = AgaviDateDefinitions::DATE;
 
 	/** January */
-	const JANUARY                 = 0;
+	const int JANUARY                 = 0;
 	/** February */
-	const FEBRUARY                = 1;
+	const int FEBRUARY                = 1;
 	/** March */
-	const MARCH                   = 2;
+	const int MARCH                   = 2;
 	/** April */
-	const APRIL                   = 3;
+	const int APRIL                   = 3;
 	/** May */
-	const MAY                     = 4;
+	const int MAY                     = 4;
 	/** June */
-	const JUNE                    = 5;
+	const int JUNE                    = 5;
 	/** July */
-	const JULY                    = 6;
+	const int JULY                    = 6;
 	/** August */
-	const AUGUST                  = 7;
+	const int AUGUST                  = 7;
 	/** September */
-	const SEPTEMBER               = 8;
+	const int SEPTEMBER               = 8;
 	/** October */
-	const OCTOBER                 = 9;
+	const int OCTOBER                 = 9;
 	/** November */
-	const NOVEMBER                = 10;
+	const int NOVEMBER                = 10;
 	/** December */
-	const DECEMBER                = 11;
+	const int DECEMBER                = 11;
 	/** Value of the <kbd>MONTH</kbd> field indicating the
 		* thirteenth month of the year. Although the Gregorian calendar
 		* does not use this value, lunar calendars do.
 		*/
-	const UNDECIMBER              = 12;
+	const int UNDECIMBER              = 12;
 
 	/** Sunday */
-	const SUNDAY                  = 1;
+	const int SUNDAY                  = 1;
 	/** Monday */
-	const MONDAY                  = 2;
+	const int MONDAY                  = 2;
 	/** Tuesday */
-	const TUESDAY                 = 3;
+	const int TUESDAY                 = 3;
 	/** Wednesday */
-	const WEDNESDAY               = 4;
+	const int WEDNESDAY               = 4;
 	/** Thursday */
-	const THURSDAY                = 5;
+	const int THURSDAY                = 5;
 	/** Friday */
-	const FRIDAY                  = 6;
+	const int FRIDAY                  = 6;
 	/** Saturday */
-	const SATURDAY                = 7;
+	const int SATURDAY                = 7;
 
 	/** 
 	 * The number of milliseconds per second
 	 */
-	const MILLIS_PER_SECOND          = 1000;
+	const int MILLIS_PER_SECOND          = 1000;
 	/** 
 	 * The number of milliseconds per minute
 	 */
-	const MILLIS_PER_MINUTE          = 60000;
+	const int MILLIS_PER_MINUTE          = 60000;
 	/**
 	 * The number of milliseconds per hour
 	 */
-	const MILLIS_PER_HOUR            = 3600000;
+	const int MILLIS_PER_HOUR            = 3600000;
 	/**
 	 * The number of milliseconds per day
 	 */
-	const MILLIS_PER_DAY             = 86400000;
+	const int MILLIS_PER_DAY             = 86400000;
 	/**
 	 * The number of milliseconds per week 
 	 */
-	const MILLIS_PER_WEEK            = 604800000; // 7 * MILLIS_PER_DAY
+	const int MILLIS_PER_WEEK            = 604800000; // 7 * MILLIS_PER_DAY
 
 	/**
 	 * The number of seconds per day
 	 */
-	const SECONDS_PER_DAY            = 86400;
+	const int SECONDS_PER_DAY            = 86400;
 
 	/**
 	 * The start year of the epoch
 	 */
-	const EPOCH_YEAR                 = 1970;
+	const int EPOCH_YEAR                 = 1970;
 
 	/**
 	 * January the 1. in year 1 (Gregorian) as julian day
 	 */
-	const JAN_1_1_JULIAN_DAY         = 1721426;
+	const int JAN_1_1_JULIAN_DAY         = 1721426;
 
 	/**
 	 * January 1, 1970 (Gregorian) as julian day
 	 */
-	const EPOCH_START_AS_JULIAN_DAY  = 2440588;
+	const int EPOCH_START_AS_JULIAN_DAY  = 2440588;
 
 	private function __construct()
 	{

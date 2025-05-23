@@ -33,7 +33,7 @@ class AgaviWritepropertiesTask extends AgaviTask
 {
 	protected $file = null;
 	protected $update = false;
-	protected $properties = array();
+	protected $properties = [];
 
 	/**
 	 * Sets the file that this property will modify.
@@ -80,7 +80,7 @@ class AgaviWritepropertiesTask extends AgaviTask
 			try {
 				$properties->load($this->file);
 			}
-			catch(IOException $ioe) {
+			catch(IOException) {
 				/* File doesn't exist or isn't readable, so don't worry here. */
 			}
 		}

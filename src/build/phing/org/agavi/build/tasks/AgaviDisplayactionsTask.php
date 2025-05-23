@@ -74,17 +74,17 @@ class AgaviDisplayactionsTask extends AgaviTask
 		
 		$actionPath = AgaviToolkit::expandVariables(
 			AgaviToolkit::expandDirectives(AgaviConfig::get(
-				sprintf('modules.%s.agavi.action.path', strtolower($this->path->getName())),
+				sprintf('modules.%s.agavi.action.path', strtolower((string) $this->path->getName())),
 				'%core.module_dir%/${moduleName}/actions/${actionName}Action.class.php'
 			)),
-			array(
+			[
 				'moduleName' => $this->path->getName()
-			)
+			]
 		);
 		$pattern = '#^' . AgaviToolkit::expandVariables(
 			/* Blaaaaaaaaauuuuuughhhhhhh... */
-			str_replace('\\$\\{actionName\\}', '${actionName}', preg_quote($actionPath, '#')),
-			array('actionName' => '(?P<action_name>.*?)')
+			str_replace('\\$\\{actionName\\}', '${actionName}', preg_quote((string) $actionPath, '#')),
+			['actionName' => '(?P<action_name>.*?)']
 		) . '$#';
 		
 		$iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($this->path->getAbsolutePath()));
@@ -95,7 +95,7 @@ class AgaviDisplayactionsTask extends AgaviTask
 			}
 			
 			$file = $rdi->getPathname();
-			if(preg_match($pattern, $file, $matches)) {
+			if(preg_match($pattern, (string) $file, $matches)) {
 				$this->log(str_replace(DIRECTORY_SEPARATOR, '.', $matches['action_name']));
 			}
 		}

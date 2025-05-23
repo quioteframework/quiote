@@ -53,7 +53,7 @@ class AgaviRbacDefinitionConfigHandler extends AgaviXmlConfigHandler
 		// set up our default namespace
 		$document->setDefaultNamespace(self::XML_NAMESPACE, 'rbac_definitions');
 		
-		$data = array();
+		$data = [];
 
 		foreach($document->getConfigurationElements() as $cfg) {
 			if(!$cfg->has('roles')) {
@@ -82,9 +82,9 @@ class AgaviRbacDefinitionConfigHandler extends AgaviXmlConfigHandler
 	{
 		foreach($roles as $role) {
 			$name = $role->getAttribute('name');
-			$entry = array();
+			$entry = [];
 			$entry['parent'] = $parent;
-			$entry['permissions'] = array();
+			$entry['permissions'] = [];
 			if($role->has('permissions')) {
 				foreach($role->get('permissions') as $permission) {
 					$entry['permissions'][] = $permission->getValue();

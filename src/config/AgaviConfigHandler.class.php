@@ -60,9 +60,9 @@ abstract class AgaviConfigHandler extends AgaviBaseConfigHandler implements Agav
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	protected function getItemParameters($itemNode, $oldValues = array(), $literalize = true)
+	protected function getItemParameters($itemNode, $oldValues = [], $literalize = true)
 	{
-		$data = array();
+		$data = [];
 		if($itemNode->hasChildren('parameters')) {
 			foreach($itemNode->parameters as $node) {
 				if(!$node->hasAttribute('name')) {
@@ -75,7 +75,7 @@ abstract class AgaviConfigHandler extends AgaviBaseConfigHandler implements Agav
 					$name = $node->getAttribute('name');
 				}
 				if($node->hasChildren('parameters')) {
-					$data[$name] = (isset($oldValues[$name]) && is_array($oldValues[$name])) ? $oldValues[$name] : array();
+					$data[$name] = (isset($oldValues[$name]) && is_array($oldValues[$name])) ? $oldValues[$name] : [];
 					$data[$name] = $this->getItemParameters($node, $data[$name], $literalize);
 				} else {
 					$data[$name] = $literalize ? AgaviToolkit::literalize($node->getValue()) : $node->getValue();
@@ -103,7 +103,7 @@ abstract class AgaviConfigHandler extends AgaviBaseConfigHandler implements Agav
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.9.0
 	 */
-	public function initialize($validationFile = null, $parser = null, $parameters = array())
+	public function initialize($validationFile = null, $parser = null, $parameters = [])
 	{
 		$this->validationFile = $validationFile;
 		$this->parser = $parser;
@@ -159,7 +159,7 @@ abstract class AgaviConfigHandler extends AgaviBaseConfigHandler implements Agav
 	 */
 	public function orderConfigurations(AgaviConfigValueHolder $configurations, $environment = null, $context = null, $autoloadParser = true)
 	{
-		$configs = array();
+		$configs = [];
 
 		if($configurations->hasAttribute('parent')) {
 			$parent = AgaviToolkit::literalize($configurations->getAttribute('parent'));

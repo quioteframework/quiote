@@ -48,7 +48,7 @@ class AgaviReturnArrayConfigHandler extends AgaviXmlConfigHandler
 	{
 		$document->setDefaultNamespace($this->getParameter('namespace_uri', ''));
 		
-		$data = array();
+		$data = [];
 		foreach($document->getConfigurationElements() as $cfg) {
 			$data = array_merge($data, $this->convertToArray($cfg, true));
 		}
@@ -81,7 +81,7 @@ class AgaviReturnArrayConfigHandler extends AgaviXmlConfigHandler
 		
 		$singularParentName = AgaviInflector::singularize($item->getName());
 
-		$data = array();
+		$data = [];
 
 		$attribs = $item->getAttributes();
 		$numAttribs = count($attribs);
@@ -90,7 +90,7 @@ class AgaviReturnArrayConfigHandler extends AgaviXmlConfigHandler
 		}
 		
 		foreach($item->getAttributes() as $name => $value) {
-			if(($topLevel && in_array($name, array('context', 'environment'))) || $name == $idAttribute) {
+			if(($topLevel && in_array($name, ['context', 'environment'])) || $name == $idAttribute) {
 				continue;
 			}
 
@@ -121,12 +121,12 @@ class AgaviReturnArrayConfigHandler extends AgaviXmlConfigHandler
 			}
 			
 		} else {
-			$names = array();
+			$names = [];
 			$children = $item->ownerDocument->getXpath()->query(sprintf('*[namespace-uri() = "%s"]', $item->ownerDocument->getDefaultNamespaceUri()), $item);
 			foreach($children as $child) {
 				$names[] = $child->getName();
 			}
-			$dupes = array();
+			$dupes = [];
 			foreach(array_unique(array_diff_assoc($names, array_unique($names))) as $name) {
 				$dupes[] = $name;
 			}
@@ -137,7 +137,7 @@ class AgaviReturnArrayConfigHandler extends AgaviXmlConfigHandler
 				if(($hasId || $isDupe) && !$hasParent) {
 					// it's one of multiple tags in this level without the respective plural form as the parent node
 					if(!isset($data[$idx = AgaviInflector::pluralize($child->getName())])) {
-						$data[$idx] = array();
+						$data[$idx] = [];
 					}
 					$hasParent = true;
 					$to =& $data[$idx];

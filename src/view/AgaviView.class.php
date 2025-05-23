@@ -51,7 +51,7 @@ abstract class AgaviView
 	/**
 	 * @var        array An array of defined layers.
 	 */
-	protected $layers = array();
+	protected $layers = [];
 
 	/**
 	 * Execute any presentation logic and set template attributes.
@@ -143,7 +143,7 @@ abstract class AgaviView
 		if(!is_subclass_of($layer, 'AgaviTemplateLayer')) {
 			throw new AgaviViewException('Class "$class" is not a subclass of AgaviTemplateLayer');
 		}
-		$layer->initialize($this->context, array('name' => $name, 'module' => $this->container->getViewModuleName(), 'template' => $this->container->getViewName(), 'output_type' => $this->container->getOutputType()->getName()));
+		$layer->initialize($this->context, ['name' => $name, 'module' => $this->container->getViewModuleName(), 'template' => $this->container->getViewName(), 'output_type' => $this->container->getOutputType()->getName()]);
 		if($renderer instanceof AgaviRenderer) {
 			$layer->setRenderer($renderer);
 		} else {
@@ -184,7 +184,7 @@ abstract class AgaviView
 		} else {
 			$dest = array_search($otherLayer, $this->layers, true) + 1;
 		}
-		array_splice($this->layers, $dest, 0, array($layer));
+		array_splice($this->layers, $dest, 0, [$layer]);
 
 		return $layer;
 	}
@@ -221,7 +221,7 @@ abstract class AgaviView
 		} else {
 			$dest = array_search($otherLayer, $this->layers, true);
 		}
-		array_splice($this->layers, $dest, 0, array($layer));
+		array_splice($this->layers, $dest, 0, [$layer]);
 
 		return $layer;
 	}
@@ -250,7 +250,7 @@ abstract class AgaviView
 	 */
 	public function clearLayers()
 	{
-		$this->layers = array();
+		$this->layers = [];
 	}
 
 	/**
@@ -343,7 +343,7 @@ abstract class AgaviView
 	{
 		if($arguments !== null && !($arguments instanceof AgaviRequestDataHolder)) {
 			$rdhc = $this->context->getRequest()->getParameter('request_data_holder_class');
-			$arguments = new $rdhc(array(AgaviRequestDataHolder::SOURCE_PARAMETERS => $arguments));
+			$arguments = new $rdhc([AgaviRequestDataHolder::SOURCE_PARAMETERS => $arguments]);
 		}
 		$container = $this->container->createExecutionContainer($moduleName, $actionName, $arguments, $outputType, $requestMethod);
 		$container->setParameter('is_slot', true);
@@ -379,7 +379,7 @@ abstract class AgaviView
 		if($arguments !== null) {
 			if(!($arguments instanceof AgaviRequestDataHolder)) {
 				$rdhc = $this->context->getRequest()->getParameter('request_data_holder_class');
-				$arguments = new $rdhc(array(AgaviRequestDataHolder::SOURCE_PARAMETERS => $arguments));
+				$arguments = new $rdhc([AgaviRequestDataHolder::SOURCE_PARAMETERS => $arguments]);
 			}
 		} else {
 			// we carry over our container's arguments

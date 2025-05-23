@@ -44,7 +44,7 @@ interface AgaviILegacyConfigHandler
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.9.0
 	 */
-	public function initialize($validationFile = null, $parser = null, $parameters = array());
+	public function initialize($validationFile = null, $parser = null, $parameters = []);
 	
 	/**
 	 * Execute this configuration handler.

@@ -15,34 +15,34 @@
  * @version    $Id$
  */
 
-return array (
+return  [
   'types' => 
-  array (
+   [
     0 => 
-    array (
+     [
       'rawOffset' => 21600,
       'dstOffset' => 0,
       'name' => '+06',
-    ),
-  ),
+    ],
+  ],
   'rules' => 
-  array (
+   [
     0 => 
-    array (
+     [
       'time' => -1325483420.0,
       'type' => 0,
-    ),
-  ),
+    ],
+  ],
   'finalRule' => 
-  array (
+   [
     'type' => 'static',
     'name' => '+06',
     'offset' => 21600,
     'startYear' => 1928,
-  ),
+  ],
   'source' => '(unknown)',
   'version' => '(unknown)',
   'name' => 'Asia/Urumqi',
-);
+];
 
 ?>

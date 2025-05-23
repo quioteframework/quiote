@@ -33,12 +33,12 @@ class AgaviSimpleTranslator extends AgaviBasicTranslator
 	/**
 	 * @var        array The data for each domain
 	 */
-	protected $domainData = array();
+	protected $domainData = [];
 
 	/**
 	 * @var        array The data for the currently active locale
 	 */
-	protected $currentData = array();
+	protected $currentData = [];
 
 	/**
 	 * @var        AgaviLocale The currently set locale
@@ -54,11 +54,12 @@ class AgaviSimpleTranslator extends AgaviBasicTranslator
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	#[\Override]
+    public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		parent::initialize($context);
 
-		$domainData = array();
+		$domainData = [];
 
 		foreach((array)$parameters as $domain => $locales) {
 			foreach((array)$locales as $locale => $translations) {
@@ -99,7 +100,7 @@ class AgaviSimpleTranslator extends AgaviBasicTranslator
 		if(is_array($message)) {
 			throw new AgaviException('The simple translator doesn\'t support pluralized input');
 		} else {
-			$data = isset($this->currentData[(string)$domain][$message]) ? $this->currentData[(string)$domain][$message] : $message;
+			$data = $this->currentData[(string)$domain][$message] ?? $message;
 		}
 
 		if($locale && $locale !== $this->locale) {
@@ -123,7 +124,7 @@ class AgaviSimpleTranslator extends AgaviBasicTranslator
 	public function localeChanged($newLocale)
 	{
 		$this->locale = $newLocale;
-		$this->currentData = AgaviToolkit::getValueByKeyList($this->domainData, AgaviLocale::getLookupPath($this->locale->getIdentifier()), array());
+		$this->currentData = AgaviToolkit::getValueByKeyList($this->domainData, AgaviLocale::getLookupPath($this->locale->getIdentifier()), []);
 	}
 
 }

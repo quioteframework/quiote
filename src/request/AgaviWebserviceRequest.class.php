@@ -48,9 +48,9 @@ abstract class AgaviWebserviceRequest extends AgaviRequest
 	public function __construct()
 	{
 		parent::__construct();
-		$this->setParameters(array(
+		$this->setParameters([
 			'request_data_holder_class' => 'AgaviWebserviceRequestDataHolder',
-		));
+		]);
 	}
 	
 	/**
@@ -65,10 +65,11 @@ abstract class AgaviWebserviceRequest extends AgaviRequest
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	#[\Override]
+    public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		// empty $_POST just to be sure
-		$_POST = array();
+		$_POST = [];
 		
 		// grab the POST body
 		$this->input = file_get_contents('php://input');

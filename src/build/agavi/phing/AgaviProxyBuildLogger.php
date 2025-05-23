@@ -46,7 +46,8 @@ class AgaviProxyBuildLogger extends AgaviBuildLogger
 	 * @author     Noah Fontes <noah.fontes@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function targetStarted(BuildEvent $event)
+	#[\Override]
+    public function targetStarted(BuildEvent $event)
 	{
 		if(!$event->getTarget() instanceof AgaviProxyTarget) {
 			parent::targetStarted($event);
@@ -67,7 +68,8 @@ class AgaviProxyBuildLogger extends AgaviBuildLogger
 	 * @author     Noah Fontes <noah.fontes@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function targetFinished(BuildEvent $event)
+	#[\Override]
+    public function targetFinished(BuildEvent $event)
 	{
 		if(!$event->getTarget() instanceof AgaviProxyTarget) {
 			parent::targetFinished($event);

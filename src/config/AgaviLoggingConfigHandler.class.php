@@ -60,17 +60,17 @@ class AgaviLoggingConfigHandler extends AgaviXmlConfigHandler
 		$document->setDefaultNamespace(self::XML_NAMESPACE, 'logging');
 		
 		// init our data, includes, methods, appenders and appenders arrays
-		$code      = array();
-		$loggers   = array();
-		$appenders = array();
-		$layouts   = array();
+		$code      = [];
+		$loggers   = [];
+		$appenders = [];
+		$layouts   = [];
 
 		foreach($document->getConfigurationElements() as $cfg) {
 			if($cfg->has('loggers')) {
 				foreach($cfg->get('loggers') as $logger) {
 					$name = $logger->getAttribute('name');
 					if(!isset($loggers[$name])) {
-						$loggers[$name] = array('class' => null, 'level' => null, 'appenders' => array(), 'params' => array());
+						$loggers[$name] = ['class' => null, 'level' => null, 'appenders' => [], 'params' => []];
 					}
 					$loggers[$name]['class'] = $logger->hasAttribute('class') ? $logger->getAttribute('class') : $loggers[$name]['class'];
 					$loggers[$name]['level'] = $logger->hasAttribute('level') ? $logger->getAttribute('level') : $loggers[$name]['level'];
@@ -87,7 +87,7 @@ class AgaviLoggingConfigHandler extends AgaviXmlConfigHandler
 				foreach($cfg->get('appenders') as $appender) {
 					$name = $appender->getAttribute('name');
 					if(!isset($appenders[$name])) {
-						$appenders[$name] = array('class' => null, 'layout' => null, 'params' => array());
+						$appenders[$name] = ['class' => null, 'layout' => null, 'params' => []];
 					}
 					$appenders[$name]['class'] = $appender->hasAttribute('class') ? $appender->getAttribute('class') : $appenders[$name]['class'];
 					$appenders[$name]['layout'] = $appender->hasAttribute('layout') ? $appender->getAttribute('layout') : $appenders[$name]['layout'];
@@ -100,7 +100,7 @@ class AgaviLoggingConfigHandler extends AgaviXmlConfigHandler
 				foreach($cfg->get('layouts') as $layout) {
 					$name = $layout->getAttribute('name');
 					if(!isset($layouts[$name])) {
-						$layouts[$name] = array('class' => null, 'params' => array());
+						$layouts[$name] = ['class' => null, 'params' => []];
 					}
 
 					$layouts[$name]['class'] = $layout->hasAttribute('class') ? $layout->getAttribute('class') : $layouts[$name]['class'];

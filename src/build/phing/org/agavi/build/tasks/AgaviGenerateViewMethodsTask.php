@@ -39,7 +39,7 @@ class AgaviGenerateViewMethodsTask extends AgaviTask
 	/**
 	 * @var          string the output type names to generate methods for
 	 */
-	protected $outputType = array();
+	protected $outputType = [];
 	
 	/**
 	 * @var          string the action name this view belongs to
@@ -113,7 +113,7 @@ class AgaviGenerateViewMethodsTask extends AgaviTask
 		
 		$methodDeclarations = $this->project->getUserProperty($this->property);
 		
-		$methodDeclarations .= str_replace(array('%%OUTPUT_TYPE_NAME%%', '%%ACTION_NAME%%'), array(ucfirst($this->outputType), $this->actionName), $template);
+		$methodDeclarations .= str_replace(['%%OUTPUT_TYPE_NAME%%', '%%ACTION_NAME%%'], [ucfirst($this->outputType), $this->actionName], $template);
 		
 		$this->project->setUserProperty($this->property, $methodDeclarations);
 	}

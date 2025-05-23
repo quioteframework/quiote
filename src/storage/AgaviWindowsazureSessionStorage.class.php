@@ -57,7 +57,8 @@ class AgaviWindowsazureSessionStorage extends AgaviSessionStorage
 	 * @author     David Zülke <david.zuelke@bitextender.com
 	 * @since      1.0.4
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	#[\Override]
+    public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		// initialize the parent
 		parent::initialize($context, $parameters);

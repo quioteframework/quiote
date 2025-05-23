@@ -43,13 +43,13 @@ final class AgaviToolkit
 	 */
 	public static function isPathAbsolute($path)
 	{
-		if(str_starts_with($path, "file://")) {
-			$path = substr($path, 7);
+		if(str_starts_with((string) $path, "file://")) {
+			$path = substr((string) $path, 7);
 		}
 		
-		if($path[0] == '/' || str_starts_with($path, '\\\\') ||
+		if($path[0] == '/' || str_starts_with((string) $path, '\\\\') ||
 			(
-				strlen($path) >= 3 && ctype_alpha($path[0]) &&
+				strlen((string) $path) >= 3 && ctype_alpha((string) $path[0]) &&
 				$path[1] == ':' &&
 				($path[2] == '\\' || $path[2] == '/')
 			)
@@ -122,7 +122,7 @@ final class AgaviToolkit
 	{
 		$equalAmount = 0;
 		$base = '';
-		$maxEqualAmount = min(strlen($baseString), strlen($compString));
+		$maxEqualAmount = min(strlen((string) $baseString), strlen((string) $compString));
 		for($i = 0; ($i < $maxEqualAmount) && $baseString[$i] == $compString[$i]; ++$i) {
 			$base .= $baseString[$i];
 			$equalAmount = $i + 1;
@@ -146,7 +146,7 @@ final class AgaviToolkit
 			throw new AgaviException('Holy disk wipe, Batman! It seems that the value of "core.cache_dir" is empty, and because Agavi considers you its most dearest of friends, it chose not to erase your entire file system. Skynet or other evil machines may not be so forgiving however, so please fix whatever code you wrote that caused this :)');
 		}
 		
-		$ignores = array('.', '..', '.svn', 'CVS', '_darcs', '.arch-params', '.monotone', '.bzr', '.gitignore', '.gitkeep');
+		$ignores = ['.', '..', '.svn', 'CVS', '_darcs', '.arch-params', '.monotone', '.bzr', '.gitignore', '.gitkeep'];
 		$path = str_replace('/', DIRECTORY_SEPARATOR, str_replace('\\', DIRECTORY_SEPARATOR, $path));
 		$path = realpath(AgaviConfig::get('core.cache_dir') . DIRECTORY_SEPARATOR . $path);
 		if($path === false) {
@@ -183,7 +183,7 @@ final class AgaviToolkit
 						@unlink($pathname);
 					}
 				}
-			} catch(Exception $e) {
+			} catch(Exception) {
 				// ignore all exceptions in case the path didn't exist anymore
 			}
 		}
@@ -203,7 +203,7 @@ final class AgaviToolkit
 	 */
 	public static function overloadHelper(array $definitions, array $parameters)
 	{
-		$countedDefs = array();
+		$countedDefs = [];
 		foreach($definitions as $def) {
 			$countedDefs[count($def['parameters'])][] = $def;
 		}
@@ -218,7 +218,7 @@ final class AgaviToolkit
 			foreach($countedDefs[$paramCount] as $key => $paramDef) {
 				$success = true;
 				for($i = 0; $i < $paramCount; ++$i) {
-					if(!str_starts_with(gettype($parameters[$i]), $paramDef['parameters'][$i])) {
+					if(!str_starts_with(gettype($parameters[$i]), (string) $paramDef['parameters'][$i])) {
 						$success = false;
 						break;
 					}
@@ -250,16 +250,16 @@ final class AgaviToolkit
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public static function expandVariables($string, array $arguments = array())
+	public static function expandVariables($string, array $arguments = [])
 	{
 		// replacing the other two forms is faster than using three different search values in the str_replace
 		// also, if we had three search patterns, ${foo} with an argument {foo} would be replaced...
 		$string = preg_replace(
 			'/((\{\$)|\$)([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)(?(2)\}|)/',
 			'${$3}',
-			$string
+			(string) $string
 		);
-		$search = array();
+		$search = [];
 		foreach($arguments as $key => $value) {
 			$search[] = '${' . $key . '}';
 		}
@@ -326,8 +326,8 @@ final class AgaviToolkit
 			$oldvalue = $value;
 			$value = preg_replace_callback(
 				'/\%([\w\.]+?)\%/',
-				function($matches) { return AgaviConfig::get($matches[1], '%' . $matches[1] . '%'); },
-				$value
+				fn($matches) => AgaviConfig::get($matches[1], '%' . $matches[1] . '%'),
+				(string) $value
 			);
 		} while($oldvalue != $value);
 		
@@ -371,7 +371,7 @@ final class AgaviToolkit
 	 */
 	public static function isPortNecessary($scheme, $port)
 	{
-		static $protocolList = array(
+		static $protocolList = [
 			'ftp' => 21,
 			'ssh' => 22,
 			'telnet' => 23,
@@ -380,8 +380,8 @@ final class AgaviToolkit
 			'nttp' => 119,
 			'https' => 443,
 			'mms' => 1755,
-		);
-		if(isset($protocolList[$scheme = strtolower($scheme)]) && $protocolList[$scheme] === $port) {
+		];
+		if(isset($protocolList[$scheme = strtolower((string) $scheme)]) && $protocolList[$scheme] === $port) {
 			return false;
 		}
 		return true;
@@ -438,7 +438,7 @@ final class AgaviToolkit
 	 */
 	public static function uniqid($prefix = '')
 	{
-		return uniqid($prefix, true);
+		return uniqid((string) $prefix, true);
 	}
 	
 	/**
@@ -469,14 +469,14 @@ final class AgaviToolkit
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public static function evaluateModuleDirective($moduleName, $directiveNameFragment, $variables = array())
+	public static function evaluateModuleDirective($moduleName, $directiveNameFragment, $variables = [])
 	{
 		return AgaviToolkit::expandVariables(
 			AgaviToolkit::expandDirectives(
 				AgaviConfig::get(
 					sprintf(
 						'modules.%s.%s',
-						strtolower($moduleName),
+						strtolower((string) $moduleName),
 						$directiveNameFragment
 					)
 				)

@@ -37,12 +37,12 @@ class AgaviGettextTranslator extends AgaviBasicTranslator
 	/**
 	 * @var        array The paths to the locale files indexed by domains
 	 */
-	protected $domainPaths = array();
+	protected $domainPaths = [];
 
 	/**
 	 * @var        array The data for each domain
 	 */
-	protected $domainData = array();
+	protected $domainData = [];
 	
 	/**
 	 * @var        string The locale identifier of the current locale
@@ -74,7 +74,8 @@ class AgaviGettextTranslator extends AgaviBasicTranslator
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	#[\Override]
+    public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		parent::initialize($context);
 
@@ -141,7 +142,7 @@ class AgaviGettextTranslator extends AgaviBasicTranslator
 				$data = ($msgId == 0) ? $singularMsg : $pluralMsg;
 			}
 		} else {
-			$data = isset($this->domainData[$domain]['msgs'][$message]) ? $this->domainData[$domain]['msgs'][$message] : $message;
+			$data = $this->domainData[$domain]['msgs'][$message] ?? $message;
 		}
 
 		// in "devel" mode, write a gettext() or ngettext() call to a file for xgettext parsing
@@ -176,7 +177,7 @@ class AgaviGettextTranslator extends AgaviBasicTranslator
 	public function localeChanged($newLocale)
 	{
 		$this->locale = $newLocale;
-		$this->domainData = array();
+		$this->domainData = [];
 		$this->pluralFormFunc = null;
 	}
 
@@ -204,12 +205,12 @@ class AgaviGettextTranslator extends AgaviBasicTranslator
 			$basePath = $this->domainPaths[$domain];
 		}
 
-		$basePath = AgaviToolkit::expandVariables($basePath, array('domain' => $domain));
+		$basePath = AgaviToolkit::expandVariables($basePath, ['domain' => $domain]);
 
-		$data = array();
+		$data = [];
 
 		foreach($localeNameBases as $localeNameBase) {
-			$fileName = AgaviToolkit::expandVariables($basePath, array('locale' => $localeNameBase));
+			$fileName = AgaviToolkit::expandVariables($basePath, ['locale' => $localeNameBase]);
 			if($fileName === $basePath) {
 				// no replacing of $locale happened
 				$fileName = $basePath . '/' . $localeNameBase . '.mo';
@@ -222,7 +223,7 @@ class AgaviGettextTranslator extends AgaviBasicTranslator
 			}
 		}
 
-		$headers = array();
+		$headers = [];
 
 		if(count($data)) {
 			$headerData = str_replace("\r", '', $data['']);
@@ -241,7 +242,7 @@ class AgaviGettextTranslator extends AgaviBasicTranslator
 			$pf = $headers['Plural-Forms'];
 			if(preg_match('#nplurals=\d+;\s+plural=(.*)$#D', $pf, $match)) {
 				$funcCode = $match[1];
-				$validOpChars = array(' ', 'n', '!', '&', '|', '<', '>', '(', ')', '?', ':', ';', '=', '+', '*', '/', '%', '-');
+				$validOpChars = [' ', 'n', '!', '&', '|', '<', '>', '(', ')', '?', ':', ';', '=', '+', '*', '/', '%', '-'];
 				if(preg_match('#[^\d' . preg_quote(implode('', $validOpChars), '#') . ']#', $funcCode, $errorMatch)) {
 					throw new AgaviException('Illegal character ' . $errorMatch[0] . ' in plural form ' . $funcCode);
 				}
@@ -290,11 +291,13 @@ class AgaviGettextTranslator extends AgaviBasicTranslator
 				}
 				$funcCode .= ';';
 				$funcCode = 'return ' . str_replace('n', '$n', $funcCode);
-				$this->pluralFormFunc = create_function('$n', $funcCode);
+				$this->pluralFormFunc = function ($n) use ($funcCode): void {
+                    eval($funcCode);
+                };
 			}
 		}
 
-		$this->domainData[$domain] = array('headers' => $headers, 'msgs' => $data);
+		$this->domainData[$domain] = ['headers' => $headers, 'msgs' => $data];
 	}
 }
 

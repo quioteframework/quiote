@@ -55,14 +55,14 @@ class AgaviOutputTypeConfigHandler extends AgaviXmlConfigHandler
 		// remember the config file path
 		$config = $document->documentURI;
 		
-		$data = array();
+		$data = [];
 		$defaultOt = null;
 		foreach($document->getConfigurationElements() as $cfg) {
 			if(!$cfg->has('output_types')) {
 				continue;
 			}
 			
-			$otnames = array();
+			$otnames = [];
 			foreach($cfg->get('output_types') as $outputType) {
 				$otname = $outputType->getAttribute('name');
 				if(in_array($otname, $otnames)) {
@@ -77,51 +77,51 @@ class AgaviOutputTypeConfigHandler extends AgaviXmlConfigHandler
 
 			foreach($cfg->get('output_types') as $outputType) {
 				$outputTypeName = $outputType->getAttribute('name');
-				$data[$outputTypeName] = isset($data[$outputTypeName]) ? $data[$outputTypeName] : array('parameters' => array(), 'default_renderer' => null, 'renderers' => array(), 'layouts' => array(), 'default_layout' => null, 'exception_template' => null);
+				$data[$outputTypeName] ??= ['parameters' => [], 'default_renderer' => null, 'renderers' => [], 'layouts' => [], 'default_layout' => null, 'exception_template' => null];
 				if($outputType->has('renderers')) {
 					foreach($outputType->get('renderers') as $renderer) {
 						$rendererName = $renderer->getAttribute('name');
-						$data[$outputTypeName]['renderers'][$rendererName] = array(
+						$data[$outputTypeName]['renderers'][$rendererName] = [
 							'class' => $renderer->getAttribute('class'),
 							'instance' => null,
-							'parameters' => $renderer->getAgaviParameters(array()),
-						);
+							'parameters' => $renderer->getAgaviParameters([]),
+						];
 					}
 					$data[$outputTypeName]['default_renderer'] = $outputType->getChild('renderers')->getAttribute('default');
 				}
 				if($outputType->has('layouts')) {
 					foreach($outputType->get('layouts') as $layout) {
-						$layers = array();
+						$layers = [];
 						
 						if($layout->has('layers')) {
 							foreach($layout->get('layers') as $layer) {
-								$slots = array();
+								$slots = [];
 								
 								if($layer->has('slots')) {
 									foreach($layer->get('slots') as $slot) {
-										$slots[$slot->getAttribute('name')] = array(
+										$slots[$slot->getAttribute('name')] = [
 											'action' => $slot->getAttribute('action'),
 											'module' => $slot->getAttribute('module'),
 											'output_type' => $slot->getAttribute('output_type'),
 											'request_method' => $slot->getAttribute('method'),
-											'parameters' => $slot->getAgaviParameters(array()),
-										);
+											'parameters' => $slot->getAgaviParameters([]),
+										];
 									}
 								}
 								
-								$layers[$layer->getAttribute('name')] = array(
+								$layers[$layer->getAttribute('name')] = [
 									'class' => $layer->getAttribute('class', $this->getParameter('default_layer_class', 'AgaviFileTemplateLayer')),
-									'parameters' => $layer->getAgaviParameters(array()),
+									'parameters' => $layer->getAgaviParameters([]),
 									'renderer' => $layer->getAttribute('renderer'),
 									'slots' => $slots,
-								);
+								];
 							}
 						}
 						
-						$data[$outputTypeName]['layouts'][$layout->getAttribute('name')] = array(
+						$data[$outputTypeName]['layouts'][$layout->getAttribute('name')] = [
 							'layers' => $layers,
-							'parameters' => $layout->getAgaviParameters(array()),
-						);
+							'parameters' => $layout->getAgaviParameters([]),
+						];
 					}
 					$data[$outputTypeName]['default_layout'] = $outputType->getChild('layouts')->getAttribute('default');
 				}
@@ -142,7 +142,7 @@ class AgaviOutputTypeConfigHandler extends AgaviXmlConfigHandler
 			throw new AgaviConfigurationException($error);
 		}
 		
-		$code = array();
+		$code = [];
 		foreach($data as $outputTypeName => $outputType) {
 			$code[] = '$ot = new AgaviOutputType();';
 			$code[] = sprintf(

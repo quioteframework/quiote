@@ -55,131 +55,131 @@ class AgaviFactoryConfigHandler extends AgaviXmlConfigHandler
 		$document->setDefaultNamespace(self::XML_NAMESPACE, 'factories');
 		
 		$config = $document->documentURI;
-		$data = array();
+		$data = [];
 		
 		// The order of this initialization code is fixed, to not change
 		// name => required?
-		$factories = array(
-			'execution_container' => array(
+		$factories = [
+			'execution_container' => [
 				'required' => true,
 				'var' => null,
-				'must_implement' => array(
-				),
-			),
+				'must_implement' => [
+				],
+			],
 			
-			'validation_manager' => array(
+			'validation_manager' => [
 				'required' => true,
 				'var' => null,
-				'must_implement' => array(
-				),
-			),
+				'must_implement' => [
+				],
+			],
 			
-			'dispatch_filter' => array(
+			'dispatch_filter' => [
 				'required' => true,
 				'var' => null,
-				'must_implement' => array(
+				'must_implement' => [
 					'AgaviIGlobalFilter',
-				),
-			),
+				],
+			],
 			
-			'execution_filter' => array(
+			'execution_filter' => [
 				'required' => true,
 				'var' => null,
-				'must_implement' => array(
+				'must_implement' => [
 					'AgaviIActionFilter',
-				),
-			),
+				],
+			],
 			
-			'security_filter' => array(
+			'security_filter' => [
 				'required' => AgaviConfig::get('core.use_security', false),
 				'var' => null,
-				'must_implement' => array(
+				'must_implement' => [
 					'AgaviIActionFilter',
 					'AgaviISecurityFilter',
-				),
-			),
+				],
+			],
 			
-			'filter_chain' => array(
+			'filter_chain' => [
 				'required' => true,
 				'var' => null,
-				'must_implement' => array(
-				),
-			),
+				'must_implement' => [
+				],
+			],
 			
-			'response' => array(
+			'response' => [
 				'required' => true,
 				'var' => null,
-				'must_implement' => array(
-				),
-			),
+				'must_implement' => [
+				],
+			],
 			
-			'database_manager' => array(
+			'database_manager' => [
 				'required' => AgaviConfig::get('core.use_database', false),
 				'var' => 'databaseManager',
-				'must_implement' => array(
-				),
-			),
+				'must_implement' => [
+				],
+			],
 			
 			'database_manager', // startup()
 			
-			'logger_manager' => array(
+			'logger_manager' => [
 				'required' => AgaviConfig::get('core.use_logging', false),
 				'var' => 'loggerManager',
-				'must_implement' => array(
-				),
-			),
+				'must_implement' => [
+				],
+			],
 			
 			'logger_manager', // startup()
 			
-			'translation_manager' => array(
+			'translation_manager' => [
 				'required' => AgaviConfig::get('core.use_translation', false),
 				'var' => 'translationManager',
-				'must_implement' => array(
-				),
-			),
+				'must_implement' => [
+				],
+			],
 			
-			'request' => array(
+			'request' => [
 				'required' => true,
 				'var' => 'request',
-				'must_implement' => array(
-				),
-			),
+				'must_implement' => [
+				],
+			],
 			
-			'routing' => array(
+			'routing' => [
 				'required' => true,
 				'var' => 'routing',
-				'must_implement' => array(
-				),
-			),
+				'must_implement' => [
+				],
+			],
 			
-			'controller' => array(
+			'controller' => [
 				'required' => true,
 				'var' => 'controller',
-				'must_implement' => array(
-				),
-			),
+				'must_implement' => [
+				],
+			],
 			
-			'storage' => array(
+			'storage' => [
 				'required' => true,
 				'var' => 'storage',
-				'must_implement' => array(
-				),
-			),
+				'must_implement' => [
+				],
+			],
 			
 			'storage', // startup()
 			
-			'user' => array(
+			'user' => [
 				'required' => true,
 				'var' => 'user',
 				'must_implement' => (
 					AgaviConfig::get('core.use_security')
-					? array(
+					? [
 						'AgaviISecurityUser',
-					)
-					: array(
-					)
+					]
+					: [
+					]
 				),
-			),
+			],
 			
 			'translation_manager', // startup()
 			
@@ -190,22 +190,22 @@ class AgaviFactoryConfigHandler extends AgaviXmlConfigHandler
 			'request', // startup()
 			
 			'controller', // startup()
-		);
+		];
 		
 		foreach($document->getConfigurationElements() as $configuration) {
 			foreach($factories as $factory => $info) {
 				if(is_array($info) && $info['required'] && $configuration->hasChild($factory)) {
 					$element = $configuration->getChild($factory);
 					
-					$data[$factory] = isset($data[$factory]) ? $data[$factory] : array('class' => null, 'params' => array());
+					$data[$factory] ??= ['class' => null, 'params' => []];
 					$data[$factory]['class'] = $element->getAttribute('class', $data[$factory]['class']);
 					$data[$factory]['params'] = $element->getAgaviParameters($data[$factory]['params']);
 				}
 			}
 		}
 		
-		$code = array();
-		$shutdownSequence = array();
+		$code = [];
+		$shutdownSequence = [];
 		
 		foreach($factories as $factory => $info) {
 			if(is_array($info)) {
@@ -246,10 +246,10 @@ class AgaviFactoryConfigHandler extends AgaviXmlConfigHandler
 					$code[] = sprintf(
 						'$this->factories[%1$s] = %2$s;',
 						var_export($factory, true),
-						var_export(array(
+						var_export([
 							'class' => $data[$factory]['class'],
 							'parameters' => $data[$factory]['params'],
-						), true)
+						], true)
 					);
 				}
 			} else {

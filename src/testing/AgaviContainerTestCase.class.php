@@ -59,7 +59,7 @@ abstract class AgaviContainerTestCase extends AgaviFragmentTestCase
 		$controller->setParameter('send_response', false);
 		
 		if(!($arguments instanceof AgaviRequestDataHolder)) {
-			$arguments = $this->createRequestDataHolder(array(AgaviRequestDataHolder::SOURCE_PARAMETERS => $arguments));
+			$arguments = $this->createRequestDataHolder([AgaviRequestDataHolder::SOURCE_PARAMETERS => $arguments]);
 		}
 		
 		$this->response = $controller->dispatch(null, $controller->createExecutionContainer($this->moduleName, $this->actionName, $arguments, $outputType, $requestMethod));

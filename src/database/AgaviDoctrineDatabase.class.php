@@ -61,7 +61,8 @@ class AgaviDoctrineDatabase extends AgaviDatabase
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function getResource()
+	#[\Override]
+    public function getResource()
 	{
 		return $this->getConnection()->getDbh();
 	}
@@ -77,7 +78,8 @@ class AgaviDoctrineDatabase extends AgaviDatabase
 	 * @author     TANAKA Koichi <tanaka@ensites.com>
 	 * @since      0.11.0
 	 */
-	public function initialize(AgaviDatabaseManager $databaseManager, array $parameters = array())
+	#[\Override]
+    public function initialize(AgaviDatabaseManager $databaseManager, array $parameters = [])
 	{
 		parent::initialize($databaseManager, $parameters);
 		
@@ -98,9 +100,9 @@ class AgaviDoctrineDatabase extends AgaviDatabase
 		// in any case, it's loaded now. maybe we need to register the autoloading stuff for it!
 		// we need this list further down
 		$splAutoloadFunctions = spl_autoload_functions();
-		if(!in_array(array('Doctrine', 'autoload'), $splAutoloadFunctions) && !in_array(array('Doctrine_Core', 'autoload'), $splAutoloadFunctions)) {
+		if(!in_array(['Doctrine', 'autoload'], $splAutoloadFunctions) && !in_array(['Doctrine_Core', 'autoload'], $splAutoloadFunctions)) {
 			// we do
-			spl_autoload_register(array('Doctrine', 'autoload'));
+			spl_autoload_register(['Doctrine', 'autoload']);
 		}
 		
 		// cool. Assign the Doctrine Manager instance
@@ -138,11 +140,11 @@ class AgaviDoctrineDatabase extends AgaviDatabase
 				$this->connection->setOption($optionName, $optionValue);
 			}
 			
-			foreach(array(
+			foreach([
 				'manager_attributes' => $this->doctrineManager,
 				'attributes' => $this->connection,
-			) as $attributesKey => $attributesDestination) {
-				foreach((array)$this->getParameter($attributesKey, array()) as $attributeName => $attributeValue) {
+			] as $attributesKey => $attributesDestination) {
+				foreach((array)$this->getParameter($attributesKey, []) as $attributeName => $attributeValue) {
 					if($is12) {
 						if(!strpos($attributeName, '::')) {
 							throw new AgaviDatabaseException(sprintf('For Doctrine 1.2 and newer, attribute names (and, if desired to be resolved against a constant, values) must be fully qualified, e.g. "Doctrine_Core::ATTR_VALIDATE" and "Doctrine_Core::VALIDATE_NONE". Given attribute with name "%s" in collection "%s" does not match this condition.', $attributeName, $attributesKey));
@@ -157,10 +159,10 @@ class AgaviDoctrineDatabase extends AgaviDatabase
 						$attributeName = constant($attributeName);
 					}
 					
-					if(strpos($attributeValue, '::') && defined($attributeValue)) {
+					if(strpos((string) $attributeValue, '::') && defined($attributeValue)) {
 						// resolve from constant if possible
 						$attributeValue = constant($attributeValue);
-					} elseif(ctype_digit($attributeValue)) {
+					} elseif(ctype_digit((string) $attributeValue)) {
 						// cast numeric type to int
 						$attributeValue = (int)$attributeValue;
 					} elseif(($attributeName == Doctrine::ATTR_QUERY_CACHE || $attributeName == Doctrine::ATTR_RESULT_CACHE) && (is_string($attributeValue) || (is_array($attributeValue) && isset($attributeValue['class'])))) {
@@ -168,7 +170,7 @@ class AgaviDoctrineDatabase extends AgaviDatabase
 						// we only allow basic cases where the ctor argument array for options requires scalar values
 						// if people want to use e.g. Doctrine_Cache_Db, which requires an instance of Doctrine_Connection as the argument, they should use a custom connection event listener
 						$driverClass = is_string($attributeValue) ? $attributeValue : $attributeValue['class'];
-						$driverOptions = is_array($attributeValue) && isset($attributeValue['options']) && is_array($attributeValue['options']) ? $attributeValue['options'] : array();
+						$driverOptions = is_array($attributeValue) && isset($attributeValue['options']) && is_array($attributeValue['options']) ? $attributeValue['options'] : [];
 						$attributeValue = new $driverClass($driverOptions);
 					}
 					
@@ -176,11 +178,11 @@ class AgaviDoctrineDatabase extends AgaviDatabase
 				}
 			}
 			
-			foreach((array)$this->getParameter('impls', array()) as $templateName => $className) {
+			foreach((array)$this->getParameter('impls', []) as $templateName => $className) {
 				$this->connection->setImpl($templateName, $className);
 			}
 			
-			foreach((array)$this->getParameter('manager_impls', array()) as $templateName => $className) {
+			foreach((array)$this->getParameter('manager_impls', []) as $templateName => $className) {
 				$this->doctrineManager->setImpl($templateName, $className);
 			}
 			
@@ -189,8 +191,8 @@ class AgaviDoctrineDatabase extends AgaviDatabase
 			
 			// for 1.2, handle model autoloading and base paths
 			if($is12 && ($this->hasParameter('load_models') || $this->hasParameter('models_directory'))) {
-				if(!in_array(array('Doctrine', 'modelsAutoload'), $splAutoloadFunctions) && !in_array(array('Doctrine_Core', 'modelsAutoload'), $splAutoloadFunctions)) {
-					spl_autoload_register(array('Doctrine_Core', 'modelsAutoload'));
+				if(!in_array(['Doctrine', 'modelsAutoload'], $splAutoloadFunctions) && !in_array(['Doctrine_Core', 'modelsAutoload'], $splAutoloadFunctions)) {
+					spl_autoload_register(['Doctrine_Core', 'modelsAutoload']);
 				}
 				
 				if($this->hasParameter('models_directory')) {
@@ -200,23 +202,23 @@ class AgaviDoctrineDatabase extends AgaviDatabase
 			
 			// for 1.2, handle extension autoloading, base paths and registration
 			if($is12 && ($this->hasParameter('extensions_path') || $this->hasParameter('register_extensions'))) {
-				if(!in_array(array('Doctrine', 'extensionsAutoload'), $splAutoloadFunctions) && !in_array(array('Doctrine_Core', 'extensionsAutoload'), $splAutoloadFunctions)) {
-					spl_autoload_register(array('Doctrine_Core', 'extensionsAutoload'));
+				if(!in_array(['Doctrine', 'extensionsAutoload'], $splAutoloadFunctions) && !in_array(['Doctrine_Core', 'extensionsAutoload'], $splAutoloadFunctions)) {
+					spl_autoload_register(['Doctrine_Core', 'extensionsAutoload']);
 				}
 				
 				if($this->hasParameter('extensions_path')) {
 					Doctrine_Core::setExtensionsPath($this->getParameter('extensions_path'));
 				}
-				foreach((array)$this->getParameter('register_extensions', array()) as $extensionName) {
+				foreach((array)$this->getParameter('register_extensions', []) as $extensionName) {
 					if(is_array($extensionName)) {
-						call_user_func_array(array($this->doctrineManager, 'registerExtension'), $extensionName);
+						call_user_func_array([$this->doctrineManager, 'registerExtension'], $extensionName);
 					} else {
 						$this->doctrineManager->registerExtension($extensionName);
 					}
 				}
 			}
 			
-			foreach((array)$this->getParameter('bind_components', array()) as $componentName) {
+			foreach((array)$this->getParameter('bind_components', []) as $componentName) {
 				$this->doctrineManager->bindComponent($componentName, $name);
 			}
 		} catch(Doctrine_Exception $e) {

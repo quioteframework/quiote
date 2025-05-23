@@ -29,7 +29,7 @@
  */
 class AgaviLdmlConfigHandler extends AgaviConfigHandler
 {
-	protected $nodeRefs = array();
+	protected $nodeRefs = [];
 
 	/**
 	 * Execute this configuration handler.
@@ -50,14 +50,14 @@ class AgaviLdmlConfigHandler extends AgaviConfigHandler
 	 */
 	public function execute($config, $context = null)
 	{
-		$pathParts = pathinfo($config);
+		$pathParts = pathinfo((string) $config);
 		// unlike basename, filename does not contain the extension, which is what we need there
 		$lookupPaths = AgaviLocale::getLookupPath($pathParts['filename']);
 		$lookupPaths[] = 'root';
 
-		$data = array(
-			'layout' => array('orientation' => array('lines' => 'top-to-bottom', 'characters' => 'left-to-right')),
-		);
+		$data = [
+			'layout' => ['orientation' => ['lines' => 'top-to-bottom', 'characters' => 'left-to-right']],
+		];
 
 		foreach(array_reverse($lookupPaths) as $basename) {
 			$filePath = $pathParts['dirname'] . '/' . $basename . '.' . $pathParts['extension'];
@@ -68,7 +68,7 @@ class AgaviLdmlConfigHandler extends AgaviConfigHandler
 			}
 		}
 
-		$dayMap = array(
+		$dayMap = [
 										'sun' => AgaviDateDefinitions::SUNDAY,
 										'mon' => AgaviDateDefinitions::MONDAY,
 										'tue' => AgaviDateDefinitions::TUESDAY,
@@ -76,7 +76,7 @@ class AgaviLdmlConfigHandler extends AgaviConfigHandler
 										'thu' => AgaviDateDefinitions::THURSDAY,
 										'fri' => AgaviDateDefinitions::FRIDAY,
 										'sat' => AgaviDateDefinitions::SATURDAY,
-		);
+		];
 
 		// fix the day indices for all day fields
 		foreach($data['calendars'] as &$calValue) {
@@ -85,7 +85,7 @@ class AgaviLdmlConfigHandler extends AgaviConfigHandler
 				if(isset($calValue['days']['format'])) {
 					foreach($calValue['days']['format'] as &$formatValue) {
 						if(is_array($formatValue)) {
-							$newData = array();
+							$newData = [];
 							foreach($formatValue as $day => $value) {
 								$newData[$dayMap[$day]] = $value;
 							}
@@ -97,7 +97,7 @@ class AgaviLdmlConfigHandler extends AgaviConfigHandler
 				if(isset($calValue['days']['stand-alone'])) {
 					foreach($calValue['days']['stand-alone'] as &$formatValue) {
 						if(is_array($formatValue)) {
-							$newData = array();
+							$newData = [];
 							foreach($formatValue as $day => $value) {
 								$newData[$dayMap[$day]] = $value;
 							}
@@ -108,7 +108,7 @@ class AgaviLdmlConfigHandler extends AgaviConfigHandler
 			}
 		}
 
-		$code = array();
+		$code = [];
 		$code[] = 'return ' . var_export($data, true) . ';';
 
 		return $this->generate($code, $config);
@@ -124,7 +124,7 @@ class AgaviLdmlConfigHandler extends AgaviConfigHandler
 	 */
 	protected function prepareParentInformation($ldmlTree)
 	{
-		$this->nodeRefs = array();
+		$this->nodeRefs = [];
 		$i = 0;
 		$ldmlTree->setAttribute('__agavi_node_id', $i);
 		$ldmlTree->setAttribute('__agavi_parent_id', null);
@@ -359,27 +359,27 @@ array data format
 			$ldn = $ldmlTree->localeDisplayNames;
 
 			if(isset($ldn->languages)) {
-				$data['displayNames']['languages'] = isset($data['displayNames']['languages']) ? $data['displayNames']['languages'] : array();
+				$data['displayNames']['languages'] ??= [];
 				$this->getTypeList($ldn->languages, $data['displayNames']['languages']);
 			}
 
 			if(isset($ldn->scripts)) {
-				$data['displayNames']['scripts'] = isset($data['displayNames']['scripts']) ? $data['displayNames']['scripts'] : array();
+				$data['displayNames']['scripts'] ??= [];
 				$this->getTypeList($ldn->scripts, $data['displayNames']['scripts']);
 			}
 
 			if(isset($ldn->territories)) {
-				$data['displayNames']['territories'] = isset($data['displayNames']['territories']) ? $data['displayNames']['territories'] : array();
-				$this->getTypeList($ldn->territories, $data['displayNames']['territories'], false);
+				$data['displayNames']['territories'] ??= [];
+				$this->getTypeList($ldn->territories, $data['displayNames']['territories']);
 			}
 
 			if(isset($ldn->variants)) {
-				$data['displayNames']['variants'] = isset($data['displayNames']['variants']) ? $data['displayNames']['variants'] : array();
+				$data['displayNames']['variants'] ??= [];
 				$this->getTypeList($ldn->variants, $data['displayNames']['variants']);
 			}
 
 			if(isset($ldn->keys)) {
-				$data['displayNames']['keys'] = isset($data['displayNames']['keys']) ? $data['displayNames']['keys'] : array();
+				$data['displayNames']['keys'] ??= [];
 				$this->getTypeList($ldn->keys, $data['displayNames']['keys']);
 			}
 
@@ -390,7 +390,7 @@ array data format
 			*/
 
 			if(isset($ldn->measurementSystemNames)) {
-				$data['displayNames']['measurementSystemNames'] = isset($data['displayNames']['measurementSystemNames']) ? $data['displayNames']['measurementSystemNames'] : array();
+				$data['displayNames']['measurementSystemNames'] ??= [];
 				$this->getTypeList($ldn->measurementSystemNames, $data['displayNames']['measurementSystemNames']);
 			}
 		}
@@ -433,7 +433,7 @@ array data format
 						$calendarName = $calendar->getAttribute('type');
 
 						if(!isset($data['calendars'][$calendarName])) {
-							$data['calendars'][$calendarName] = array();
+							$data['calendars'][$calendarName] = [];
 						}
 
 						if(isset($calendar->months)) {
@@ -554,7 +554,7 @@ array data format
 					$data['timeZoneNames']['abbreviationFallback'] = $tzn->abbreviationFallback->getAttribute('choice');
 				}
 				if(isset($tzn->singleCountries)) {
-					$data['timeZoneNames']['singleCountries'] = explode(' ', $tzn->singleCountries->getAttribute('list'));
+					$data['timeZoneNames']['singleCountries'] = explode(' ', (string) $tzn->singleCountries->getAttribute('list'));
 				}
 
 				foreach($tzn as $zone) {
@@ -590,7 +590,7 @@ array data format
 		if(isset($ldmlTree->numbers)) {
 			$nums = $ldmlTree->numbers;
 			if(!isset($data['numbers'])) {
-				$data['numbers'] = array();
+				$data['numbers'] = [];
 			}
 
 			if(isset($nums->symbols)) {
@@ -890,7 +890,7 @@ array data format
 				throw new AgaviException('The alias handling doesn\'t support any source except locale (' . $alias->getAttribute('source') . ' was given)');
 			}
 
-			$pathParts = explode('/', $alias->getAttribute('path'));
+			$pathParts = explode('/', (string) $alias->getAttribute('path'));
 
 			$currentNodeId = $item->getAttribute('__agavi_node_id');
 			
@@ -899,7 +899,7 @@ array data format
 				if($part == '..') {
 					$currentNodeId = $this->nodeRefs[$currentNodeId]->getAttribute('__agavi_parent_id');
 				} else {
-					$predicates = array();
+					$predicates = [];
 					if(preg_match('#([^\[]+)\[([^\]]+)\]#', $part, $match)) {
 						if(!preg_match('#@([^=]+)=\'([^\']+)\'#', $match[2], $predMatch)) {
 							throw new AgaviException('Unknown predicate ' . $match[2] . ' in alias xpath spec');
@@ -957,7 +957,7 @@ array data format
 		if($handleQuotes) {
 			// needs to be < -1 to not confuse the algorithm in the first run
 			$lastClose = -2;
-			if(preg_match_all("#'(?:''|[^'])+'|" . $rx . "#", $input, $matches, PREG_PATTERN_ORDER | PREG_OFFSET_CAPTURE)) {
+			if(preg_match_all("#'(?:''|[^'])+'|" . $rx . "#", (string) $input, $matches, PREG_PATTERN_ORDER | PREG_OFFSET_CAPTURE)) {
 				$output = $input;
 				$offsetMod = 0;
 				$ml = $matches[0];
@@ -971,8 +971,8 @@ array data format
 						// escape sequence for parts coming after this sequence
 						$quoteBefore = ($i > 0 && (strlen($ml[$i - 1][0]) + $ml[$i - 1][1]) == $match[1]);
 						$quoteAfter = ($i + 1 < $len && $ml[$i + 1][0][0] == '\'' && (strlen($match[0]) + $match[1]) == $ml[$i + 1][1]);
-						$oldLen = strlen($output);
-						$unescaped = $this->unescapeCallback(array($match[0], substr($match[0], 1)));
+						$oldLen = strlen((string) $output);
+						$unescaped = $this->unescapeCallback([$match[0], substr($match[0], 1)]);
 						$unescaped = ($quoteBefore ? '' : '\'') . $unescaped . ($quoteAfter ? '' : '\'');
 						$replacedPartLen = strlen($match[0]) + ((int) $quoteBefore) + ((int) $quoteAfter);
 						// replace the matched escape sequence with the unescaped one. we also replace the opening or closing quote
@@ -986,7 +986,7 @@ array data format
 				$output = $input;
 			}
 		} else {
-			$output = preg_replace_callback('#' . $rx . '#', array($this, 'unescapeCallback'), $input);
+			$output = preg_replace_callback('#' . $rx . '#', [$this, 'unescapeCallback'], (string) $input);
 		}
 
 		return $output;
@@ -1005,7 +1005,7 @@ array data format
 	 */
 	protected function unescapeCallback($matches)
 	{
-		static $map = array(
+		static $map = [
 			'a' => "\x07",
 			'b' => "\x08",
 			't' => "\x09",
@@ -1014,17 +1014,17 @@ array data format
 			'f' => "\x0C",
 			'r' => "\x0D",
 			'\\' => '\\',
-		);
+		];
 		
 		
 		$res = '';
 		
 		$char = $matches[1][0];
-		$seq = substr($matches[1], 1);
+		$seq = substr((string) $matches[1], 1);
 		if($char == 'u' || $char == 'U' || $char == 'x') {
 			$res = html_entity_decode('&#x' . $seq . ';', ENT_QUOTES, 'utf-8');
 		} elseif(is_numeric($char)) {
-			$res = html_entity_decode('&#' . octdec($matches[1]) . ';', ENT_QUOTES, 'utf-8');
+			$res = html_entity_decode('&#' . octdec((string) $matches[1]) . ';', ENT_QUOTES, 'utf-8');
 		} elseif(isset($map[$char])) {
 			$res = $map[$char];
 		} else {

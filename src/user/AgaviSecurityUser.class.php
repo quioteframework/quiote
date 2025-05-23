@@ -78,7 +78,7 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser
 	public function clearCredentials()
 	{
 		$this->credentials = null;
-		$this->credentials = array();
+		$this->credentials = [];
 	}
 
 	/**
@@ -156,7 +156,8 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser
 	 * @author     Sean Kerr <skerr@mojavi.org>
 	 * @since      0.9.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	#[\Override]
+    public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		// initialize parent
 		parent::initialize($context, $parameters);
@@ -170,7 +171,7 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser
 		if($this->authenticated == null) {
 			// initialize our data
 			$this->authenticated = false;
-			$this->credentials   = array();
+			$this->credentials   = [];
 		}
 	}
 
@@ -233,7 +234,8 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser
 	 * @author     Sean Kerr <skerr@mojavi.org>
 	 * @since      0.9.0
 	 */
-	public function shutdown()
+	#[\Override]
+    public function shutdown()
 	{
 		$storage = $this->getContext()->getStorage();
 

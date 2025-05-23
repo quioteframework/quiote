@@ -88,7 +88,7 @@ class AgaviConfiguremoduleTask extends AgaviTask
 		 * consistency.
 		 *
 		 * If you change this, you're fucking asking for it. */
-		$values = array();
+		$values = [];
 		$lowerModuleName = strtolower($moduleName);
 		
 		$values['action.path'] = AgaviConfig::get(
@@ -97,7 +97,7 @@ class AgaviConfiguremoduleTask extends AgaviTask
 		);
 		$values['action.path'] = AgaviToolkit::expandVariables(
 			$values['action.path'],
-			array('moduleName' => $moduleName)
+			['moduleName' => $moduleName]
 		);
 		
 		$values['cache.path'] = AgaviConfig::get(
@@ -106,7 +106,7 @@ class AgaviConfiguremoduleTask extends AgaviTask
 		);
 		$values['cache.path'] = AgaviToolkit::expandVariables(
 			$values['cache.path'],
-			array('moduleName' => $moduleName)
+			['moduleName' => $moduleName]
 		);
 		
 		$values['templates.directory'] = AgaviConfig::get(
@@ -115,7 +115,7 @@ class AgaviConfiguremoduleTask extends AgaviTask
 		);
 		$values['templates.directory'] = AgaviToolkit::expandVariables(
 			$values['templates.directory'],
-			array('module' => $moduleName)
+			['module' => $moduleName]
 		);
 		
 		$values['validate.path'] = AgaviConfig::get(
@@ -124,7 +124,7 @@ class AgaviConfiguremoduleTask extends AgaviTask
 		);
 		$values['validate.path'] = AgaviToolkit::expandVariables(
 			$values['validate.path'],
-			array('moduleName' => $moduleName)
+			['moduleName' => $moduleName]
 		);
 		
 		$values['view.path'] = AgaviConfig::get(
@@ -133,7 +133,7 @@ class AgaviConfiguremoduleTask extends AgaviTask
 		);
 		$values['view.path'] = AgaviToolkit::expandVariables(
 			$values['view.path'],
-			array('moduleName' => $moduleName)
+			['moduleName' => $moduleName]
 		);
 		
 		$values['view.name'] = AgaviConfig::get(

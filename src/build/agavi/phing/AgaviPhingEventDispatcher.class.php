@@ -37,17 +37,17 @@ final class AgaviPhingEventDispatcher extends AgaviEventDispatcher implements Bu
 	/**
 	 * @var        array An array of AgaviIPhingTargetListener instances.
 	 */
-	protected $targetListeners = array();
+	protected $targetListeners = [];
 	
 	/**
 	 * @var        array An array of AgaviIPhingTaskListener instances.
 	 */
-	protected $taskListeners = array();
+	protected $taskListeners = [];
 	
 	/**
 	 * @var        array An array of AgaviIPhingMessageListener instances.
 	 */
-	protected $messageListeners = array();
+	protected $messageListeners = [];
 	
 	/**
 	 * Creates a new event dispatcher.

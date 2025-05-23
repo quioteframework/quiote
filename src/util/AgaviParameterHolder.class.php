@@ -34,7 +34,7 @@ class AgaviParameterHolder
 	/**
 	 * @var        array An array of parameters
 	 */
-	protected $parameters = array();
+	protected $parameters = [];
 
 	/**
 	 * Constructor. Accepts an array of initial parameters as an argument.
@@ -44,7 +44,7 @@ class AgaviParameterHolder
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function __construct(array $parameters = array())
+	public function __construct(array $parameters = [])
 	{
 		$this->parameters = $parameters;
 	}
@@ -57,7 +57,7 @@ class AgaviParameterHolder
 	 */
 	public function clearParameters()
 	{
-		$this->parameters = array();
+		$this->parameters = [];
 	}
 
 	/**
@@ -79,7 +79,7 @@ class AgaviParameterHolder
 		}
 		try {
 			return AgaviArrayPathDefinition::getValue($name, $this->parameters, $default);
-		} catch(InvalidArgumentException $e) {
+		} catch(InvalidArgumentException) {
 			return $default;
 		}
 	}
@@ -142,7 +142,7 @@ class AgaviParameterHolder
 		}
 		try {
 			return AgaviArrayPathDefinition::hasValue($name, $this->parameters);
-		} catch(InvalidArgumentException $e) {
+		} catch(InvalidArgumentException) {
 			return false;
 		}
 	}
@@ -169,7 +169,7 @@ class AgaviParameterHolder
 		$retval = null;
 		try {
 			$retval =& AgaviArrayPathDefinition::unsetValue($name, $this->parameters);
-		} catch(InvalidArgumentException $e) {
+		} catch(InvalidArgumentException) {
 		}
 		return $retval;
 	}

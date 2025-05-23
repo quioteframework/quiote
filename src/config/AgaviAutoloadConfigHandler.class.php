@@ -56,7 +56,7 @@ class AgaviAutoloadConfigHandler extends AgaviXmlConfigHandler
 		// set up our default namespace
 		$document->setDefaultNamespace(self::XML_NAMESPACE, 'autoload');
 
-		$classes = $namespaces = array();
+		$classes = $namespaces = [];
 		
 		foreach($document->getConfigurationElements() as $configuration) {
 			if(!$configuration->has('autoloads')) {
@@ -100,15 +100,15 @@ class AgaviAutoloadConfigHandler extends AgaviXmlConfigHandler
 				} else {
 					// it's a whole namespace
 					// trim backslashes from the namespace and trailing slashes or backslashes from the path
-					$namespaces[trim($autoload->getAttribute('namespace'), '\\')] = rtrim($file, '/\\'); 
+					$namespaces[trim((string) $autoload->getAttribute('namespace'), '\\')] = rtrim($file, '/\\'); 
 				}
 			}
 		}
 
-		$code = array(
+		$code = [
 			'AgaviAutoloader::addClasses(' . var_export($classes, true) . ');',
 			'AgaviAutoloader::addNamespaces(' . var_export($namespaces, true) . ');',
-		);
+		];
 
 		return $this->generate($code, $document->documentURI);
 	}

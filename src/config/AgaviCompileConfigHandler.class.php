@@ -56,7 +56,7 @@ class AgaviCompileConfigHandler extends AgaviXmlConfigHandler
 		
 		$config = $document->documentURI;
 		
-		$data = array();
+		$data = [];
 		
 		// let's do our fancy work
 		foreach($document->getConfigurationElements() as $configuration) {
@@ -65,7 +65,7 @@ class AgaviCompileConfigHandler extends AgaviXmlConfigHandler
 			}
 			
 			foreach($configuration->get('compiles') as $compileFile) {
-				$file = trim($compileFile->getValue());
+				$file = trim((string) $compileFile->getValue());
 				
 				$file = AgaviToolkit::expandDirectives($file);
 				$file = self::replacePath($file);
@@ -127,7 +127,7 @@ class AgaviCompileConfigHandler extends AgaviXmlConfigHandler
 					$tokenized .= $token;
 					$appended = true;
 				} else {
-					@list($id,$text) = $token;
+					@[$id, $text] = $token;
 					switch($id) {
 						case T_COMMENT:
 						case T_DOC_COMMENT:

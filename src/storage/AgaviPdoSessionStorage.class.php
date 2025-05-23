@@ -75,7 +75,8 @@ class AgaviPdoSessionStorage extends AgaviSessionStorage
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.10.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	#[\Override]
+    public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		// initialize the parent
 		parent::initialize($context, $parameters);
@@ -88,12 +89,12 @@ class AgaviPdoSessionStorage extends AgaviSessionStorage
 
 		// use this object as the session handler
 		session_set_save_handler(
-			array($this, 'sessionOpen'),
-			array($this, 'sessionClose'),
-			array($this, 'sessionRead'),
-			array($this, 'sessionWrite'),
-			array($this, 'sessionDestroy'),
-			array($this, 'sessionGC')
+			$this->sessionOpen(...),
+			$this->sessionClose(...),
+			$this->sessionRead(...),
+			$this->sessionWrite(...),
+			$this->sessionDestroy(...),
+			$this->sessionGC(...)
 		);
 	}
 
@@ -146,7 +147,7 @@ class AgaviPdoSessionStorage extends AgaviSessionStorage
 
 		try {
 			$stmt = $this->connection->prepare($sql);
-			$result = $stmt->execute(array($id));
+			$result = $stmt->execute([$id]);
 			if(!$result) {
 				$errorInfo = $stmt->errorInfo();
 				$e = new PDOException($errorInfo[2], $errorInfo[0]);
@@ -280,7 +281,7 @@ class AgaviPdoSessionStorage extends AgaviSessionStorage
 			$sql = sprintf('SELECT %s FROM %s WHERE %s = ?', $db_data_col, $db_table, $db_id_col);
 
 			$stmt = $this->connection->prepare($sql);
-			$result = $stmt->execute(array($id));
+			$result = $stmt->execute([$id]);
 			
 			if(!$result) {
 				$errorInfo = $stmt->errorInfo();
@@ -340,7 +341,7 @@ class AgaviPdoSessionStorage extends AgaviSessionStorage
 
 		if($isOracle) {
 			$sp = fopen('php://memory', 'r+');
-			fwrite($sp, $data);
+			fwrite($sp, (string) $data);
 			rewind($sp);
 		} else {
 			$sp = $data;

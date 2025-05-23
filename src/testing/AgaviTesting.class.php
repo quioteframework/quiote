@@ -86,7 +86,7 @@ class AgaviTesting
 	 * @since      1.0.0
 	 * @deprecated 1.1.0 Use AgaviPhpUnitCli
 	 */
-	public static function dispatch($arguments = array(), $exit = true)
+	public static function dispatch($arguments = [], $exit = true)
 	{
 		
 		$suites = include AgaviConfigCache::checkConfig(AgaviConfig::get('core.testing_dir').'/config/suites.xml');
@@ -94,7 +94,7 @@ class AgaviTesting
 		
 		if(!empty($arguments['include-suite'])) {
 			
-			$names = explode(',', $arguments['include-suite']);
+			$names = explode(',', (string) $arguments['include-suite']);
 			unset($arguments['include-suite']);
 			
 			foreach($names as $name) {
@@ -106,9 +106,9 @@ class AgaviTesting
 			}
 				
 		} else {
-			$excludes = array();
+			$excludes = [];
 			if(!empty($arguments['exclude-suite'])) {
-				$excludes = explode(',', $arguments['exclude-suite']);
+				$excludes = explode(',', (string) $arguments['exclude-suite']);
 				unset($arguments['exclude-suite']);
 			}
 			foreach($suites as $name => $suite) {
@@ -210,7 +210,7 @@ class AgaviTesting
 	 */
 	public static function processCommandlineOptions()
 	{
-		$longOptions = array(
+		$longOptions = [
 			'configuration=',
 			'coverage-html=',
 			'coverage-clover=',
@@ -227,7 +227,7 @@ class AgaviTesting
 			'log-xml=',
 			'include-suite=',
 			'exclude-suite=',
-		);
+		];
 		
 		try {
 			$options = PHPUnit_Util_Getopt::getopt(
@@ -239,7 +239,7 @@ class AgaviTesting
 			PHPUnit_TextUI_TestRunner::showError($e->getMessage());
 		}
 		
-		$arguments = array(); 
+		$arguments = []; 
 		
 		foreach($options[0] as $option) {
 			switch($option[0]) {

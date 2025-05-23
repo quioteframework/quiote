@@ -103,7 +103,7 @@ class AgaviLocateprojectTask extends AgaviTask
 		}
 		
 		/* Check if "app" or "pub" are in the current path. */
-		if(preg_match(sprintf('#^(.+?)/(?:%s|%s)(?:/|$)#', $this->project->getProperty('project.directory.app'), $this->project->getProperty('project.directory.pub')), $this->path->getPath(), $matches)) {
+		if(preg_match(sprintf('#^(.+?)/(?:%s|%s)(?:/|$)#', $this->project->getProperty('project.directory.app'), $this->project->getProperty('project.directory.pub')), (string) $this->path->getPath(), $matches)) {
 			$directory = new PhingFile($matches[1]);
 			$check->setPath($directory->getAbsolutePath());
 			if($check->check()) {

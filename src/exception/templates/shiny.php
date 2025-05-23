@@ -43,14 +43,14 @@ if(isset($_SERVER['HTTP_USER_AGENT'])) {
 } elseif(isset($context) && ($rq = $context->getRequest()) !== null && !$rq->isLocked() && ($rd = $rq->getRequestData()) !== null && $rd instanceof AgaviIHeadersRequestDataHolder) {
 	$ua = $rd->getHeader('User-Agent');
 }
-if(str_contains($ua, 'AppleWebKit')) {
-	if(preg_match('#AppleWebKit/(\d+)#', $ua, $matches)) {
+if(str_contains((string) $ua, 'AppleWebKit')) {
+	if(preg_match('#AppleWebKit/(\d+)#', (string) $ua, $matches)) {
 		if((int)$matches[1] >= 420) {
 			$svg = true;
 		}
 	}
-} elseif(str_contains($ua, 'Gecko')) {
-	if(preg_match('#rv:([0-9\.]+)#', $ua, $matches)) {
+} elseif(str_contains((string) $ua, 'Gecko')) {
+	if(preg_match('#rv:([0-9\.]+)#', (string) $ua, $matches)) {
 		if(version_compare($matches[1], '1.8', '>=')) {
 			$svg = true;
 		}
@@ -352,14 +352,14 @@ if($svg) {
 <?php if($svg): ?>
 			<div style="float:left; position:relative; margin-top:-1.75em; margin-left:-5.5em; height:5em; width:5em;"><svg:svg viewBox="4 7 39 34" preserveAspectRatio="xMaxYMax meet" xmlns:svg="http://www.w3.org/2000/svg" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><svg:use xlink:href="#arrow" /></svg:svg></div>
 <?php endif; ?>
-			The <?php echo get_class($e); ?> was caused by <?php if(count($exceptions) == 2): ?>another exception<?php else: ?>other exceptions<?php endif; ?>. A full chain of exceptions is listed below.
+			The <?php echo $e::class; ?> was caused by <?php if(count($exceptions) == 2): ?>another exception<?php else: ?>other exceptions<?php endif; ?>. A full chain of exceptions is listed below.
 		</div>
 <?php endif; ?>
 <?php foreach($exceptions as $ei => $e): ?>
 		<section id="exception<?php echo $ei; ?>" class="<?php if($ei+1 != count($exceptions)): ?>closed<?php endif; ?>">
-			<h2 class="exception"><a href="#exception<?php echo $ei; ?>" title="Toggle exception information" onclick="this.parentNode.parentNode.className = this.parentNode.parentNode.className == 'closed' ? '' : 'closed'; return false;"><?php echo get_class($e); ?></a></h2>
+			<h2 class="exception"><a href="#exception<?php echo $ei; ?>" title="Toggle exception information" onclick="this.parentNode.parentNode.className = this.parentNode.parentNode.className == 'closed' ? '' : 'closed'; return false;"><?php echo $e::class; ?></a></h2>
 			<div class="container" id="exception<?php echo $ei; ?>container">
-<?php $msg = nl2br(htmlspecialchars($e->getMessage())); ?>
+<?php $msg = nl2br(htmlspecialchars((string) $e->getMessage())); ?>
 <?php if($msg != ''): ?>
 				<div class="box message<?php if($svg): ?> nice<?php endif; ?>">
 <?php if($svg): ?>
@@ -372,9 +372,9 @@ if($svg) {
 				<ol>
 <?php
 $i = 0;
-$highlights = array();
-$filepaths = array();
-foreach(array(
+$highlights = [];
+$filepaths = [];
+foreach([
 	'core.module_dir',
 	'core.template_dir',
 	'core.config_dir',
@@ -382,17 +382,17 @@ foreach(array(
 	'core.lib_dir',
 	'core.app_dir',
 	'core.agavi_dir',
-) as $directive) {
-	$filepaths['#^' . preg_quote(AgaviConfig::get($directive)) . '(?<=.)#'] = sprintf('<abbr title="%s">%s</abbr>', htmlspecialchars(AgaviConfig::get($directive)), $directive);
+] as $directive) {
+	$filepaths['#^' . preg_quote((string) AgaviConfig::get($directive)) . '(?<=.)#'] = sprintf('<abbr title="%s">%s</abbr>', htmlspecialchars((string) AgaviConfig::get($directive)), $directive);
 } 
-$fixedTrace = AgaviException::getFixedTrace($e, isset($exceptions[$ei+1]) ? $exceptions[$ei+1] : null);
+$fixedTrace = AgaviException::getFixedTrace($e, $exceptions[$ei+1] ?? null);
 foreach($fixedTrace as $trace):
 	$i++;
 	if(isset($trace['file']) && !isset($highlights[$trace['file']])) {
 		$highlights[$trace['file']] = AgaviException::highlightFile($trace['file']);
 	}
 ?>
-					<li id="exception<?php echo $ei; ?>frame<?php echo $i; ?>"<?php if($i != 2 && count($fixedTrace) > 1): ?> class="closed"<?php endif; ?>>at <?php if($i > 1): ?><strong><?php if(isset($trace['class'])): ?><?php echo $trace['class'], htmlspecialchars($trace['type']); ?><?php endif; ?><?php echo $trace['function']; ?>(</strong><?php if(isset($trace['args'])): ?><?php echo AgaviException::buildParamList($trace['args']); ?><strong>)</strong><?php endif; ?><?php else: ?><em>exception origin</em><?php endif; ?><br />in <?php if(isset($trace['file'])): echo preg_replace(array_keys($filepaths), $filepaths, $trace['file']); ?> <a href="#frame<?php echo $i; ?>" class="toggle" title="Toggle source code snippet" onclick="this.parentNode.className = this.parentNode.className == 'closed' ? '' : 'closed'; return false;">line <?php echo $trace['line']; ?></a><ol start="<?php echo $start = $trace['line'] < 4 ? 1 : $trace['line'] - 3; ?>" style="padding-left:<?php echo strlen($start+6)*0.6+2; ?>em"><?php
+					<li id="exception<?php echo $ei; ?>frame<?php echo $i; ?>"<?php if($i != 2 && count($fixedTrace) > 1): ?> class="closed"<?php endif; ?>>at <?php if($i > 1): ?><strong><?php if(isset($trace['class'])): ?><?php echo $trace['class'], htmlspecialchars((string) $trace['type']); ?><?php endif; ?><?php echo $trace['function']; ?>(</strong><?php if(isset($trace['args'])): ?><?php echo AgaviException::buildParamList($trace['args']); ?><strong>)</strong><?php endif; ?><?php else: ?><em>exception origin</em><?php endif; ?><br />in <?php if(isset($trace['file'])): echo preg_replace(array_keys($filepaths), $filepaths, $trace['file']); ?> <a href="#frame<?php echo $i; ?>" class="toggle" title="Toggle source code snippet" onclick="this.parentNode.className = this.parentNode.className == 'closed' ? '' : 'closed'; return false;">line <?php echo $trace['line']; ?></a><ol start="<?php echo $start = $trace['line'] < 4 ? 1 : $trace['line'] - 3; ?>" style="padding-left:<?php echo strlen($start+6)*0.6+2; ?>em"><?php
 $lines = array_slice($highlights[$trace['file']], $start - 1, 7, true);
 foreach($lines as $key => &$line) {
 	if($key + 1 == $trace['line']): ?><li class="highlight"><?php if($svg): ?><div style="float:left; width:1em; height:1em; margin-left:-1.35em; background-color:#FFF;"><svg:svg viewBox="3 3 42 42" preserveAspectRatio="xMaxYMax meet" xmlns:svg="http://www.w3.org/2000/svg" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><svg:use xlink:href="#warningSign" /></svg:svg></div><?php endif; else: ?><li><?php endif; ?><code><?php
@@ -411,7 +411,7 @@ endforeach;
 			<div class="container">
 				<dl>
 					<dt>Agavi:</dt>
-					<dd><?php echo htmlspecialchars(AgaviConfig::get('agavi.version')); ?></dd>
+					<dd><?php echo htmlspecialchars((string) AgaviConfig::get('agavi.version')); ?></dd>
 					<dt>PHP:</dt>
 					<dd><?php echo htmlspecialchars(phpversion()); ?></dd>
 					<dt>System:</dt>

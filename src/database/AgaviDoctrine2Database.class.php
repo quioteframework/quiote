@@ -62,7 +62,8 @@ abstract class AgaviDoctrine2Database extends AgaviDatabase
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.6
 	 */
-	public function initialize(AgaviDatabaseManager $databaseManager, array $parameters = array())
+	#[\Override]
+    public function initialize(AgaviDatabaseManager $databaseManager, array $parameters = [])
 	{
 		parent::initialize($databaseManager, $parameters);
 		
@@ -75,7 +76,7 @@ abstract class AgaviDoctrine2Database extends AgaviDatabase
 		// by default, we assume an install via PEAR, with all of Doctrine in one folder and on the include path
 		// if people want to do the smart thing and ship a Doctrine release with their app, they just need to point the entire "Doctrine" namespace to the path
 		// for bleeding edge git stuff or similar, the paths for the namespaces can be given individually, see the Doctrine manual for examples
-		foreach((array)$this->getParameter('class_loaders', array('Doctrine' => null)) as $namespace => $includePath) {
+		foreach((array)$this->getParameter('class_loaders', ['Doctrine' => null]) as $namespace => $includePath) {
 			if($namespace == 'Doctrine' && class_exists('Doctrine\ORM\Version')) {
 				// the ORM namespace's Version class exists or could be autloaded; let's assume that the class loader for any Doctrine stuff won't need registration then
 				continue;

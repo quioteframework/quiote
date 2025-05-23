@@ -37,7 +37,7 @@ class AgaviSoapResponse extends AgaviResponse
 	/**
 	 * @var        array An array of SOAP headers to send with the response.
 	 */
-	protected $soapHeaders = array();
+	protected $soapHeaders = [];
 	
 	/**
 	 * Import response metadata (SOAP headers) from another response.
@@ -47,7 +47,8 @@ class AgaviSoapResponse extends AgaviResponse
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function merge(AgaviResponse $otherResponse)
+	#[\Override]
+    public function merge(AgaviResponse $otherResponse)
 	{
 		parent::merge($otherResponse);
 		
@@ -70,7 +71,7 @@ class AgaviSoapResponse extends AgaviResponse
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function setRedirect($to)
+	public function setRedirect($to): never
 	{
 		throw new BadMethodCallException('Redirects are not implemented for SOAP.');
 	}
@@ -85,7 +86,7 @@ class AgaviSoapResponse extends AgaviResponse
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function getRedirect()
+	public function getRedirect(): never
 	{
 		throw new BadMethodCallException('Redirects are not implemented for SOAP.');
 	}
@@ -100,7 +101,7 @@ class AgaviSoapResponse extends AgaviResponse
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function hasRedirect()
+	public function hasRedirect(): never
 	{
 		throw new BadMethodCallException('Redirects are not implemented for SOAP.');
 	}
@@ -113,7 +114,7 @@ class AgaviSoapResponse extends AgaviResponse
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function clearRedirect()
+	public function clearRedirect(): never
 	{
 		throw new BadMethodCallException('Redirects are not implemented for SOAP.');
 	}
@@ -124,7 +125,8 @@ class AgaviSoapResponse extends AgaviResponse
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function isContentMutable()
+	#[\Override]
+    public function isContentMutable()
 	{
 		return false;
 	}
@@ -137,7 +139,8 @@ class AgaviSoapResponse extends AgaviResponse
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function clearContent()
+	#[\Override]
+    public function clearContent()
 	{
 		$this->content = null;
 		return true;
@@ -176,7 +179,7 @@ class AgaviSoapResponse extends AgaviResponse
 	 */
 	public function clearSoapHeaders()
 	{
-		$this->soapHeaders = array();
+		$this->soapHeaders = [];
 	}
 	
 	/**

@@ -59,24 +59,24 @@ class AgaviConfigParser
 		
 		$parser = new AgaviXmlConfigParser($config, AgaviConfig::get('core.environment'), null);
 		
-		$validation = array(
-			AgaviXmlConfigParser::STEP_TRANSFORMATIONS_BEFORE => array(),
-			AgaviXmlConfigParser::STEP_TRANSFORMATIONS_AFTER => array(
-				AgaviXmlConfigParser::VALIDATION_TYPE_XMLSCHEMA => array(),
-			),
-		);
+		$validation = [
+			AgaviXmlConfigParser::STEP_TRANSFORMATIONS_BEFORE => [],
+			AgaviXmlConfigParser::STEP_TRANSFORMATIONS_AFTER => [
+				AgaviXmlConfigParser::VALIDATION_TYPE_XMLSCHEMA => [],
+			],
+		];
 		if($validationFile !== null) {
 			$validation[AgaviXmlConfigParser::STEP_TRANSFORMATIONS_AFTER][AgaviXmlConfigParser::VALIDATION_TYPE_XMLSCHEMA][] = $validationFile;
 		}
-		$doc = $parser->execute(array(), $validation);
+		$doc = $parser->execute([], $validation);
 		
 		// remember encoding for convertEncoding()
-		$this->encoding = strtolower($doc->encoding);
+		$this->encoding = strtolower((string) $doc->encoding);
 		
 		$rootRes = new AgaviConfigValueHolder();
 		
 		if($doc->documentElement) {
-			$this->parseNodes(array($doc->documentElement), $rootRes);
+			$this->parseNodes([$doc->documentElement], $rootRes);
 		}
 		
 		return $rootRes;
@@ -136,9 +136,9 @@ class AgaviConfigParser
 		if($this->encoding == 'utf-8') {
 			return $value;
 		} elseif($this->encoding == 'iso-8859-1') {
-			return utf8_decode($value);
+			return mb_convert_encoding((string) $value, 'ISO-8859-1');
 		} elseif(function_exists('iconv')) {
-			return iconv('UTF-8', $this->encoding, $value);
+			return iconv('UTF-8', $this->encoding, (string) $value);
 		} else {
 			throw new AgaviParseException('No iconv module available, configuration file "' . $this->config . '" with input encoding "' . $this->encoding . '" cannot be parsed.');
 		}

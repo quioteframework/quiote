@@ -44,7 +44,7 @@ if(!defined('STDOUT') || (function_exists('posix_isatty') && !posix_isatty(STDOU
 	$cols = false;
 } elseif(file_exists('/bin/stty') && is_executable('/bin/stty') && $sttySize = exec('/bin/stty size 2>/dev/null')) {
 	// grab the terminal width for line wrapping if possible
-	list(, $cols) = explode(' ', $sttySize);
+	[, $cols] = explode(' ', $sttySize);
 }
 
 ?>
@@ -54,17 +54,17 @@ if(!defined('STDOUT') || (function_exists('posix_isatty') && !posix_isatty(STDOU
 #####################
 
 <?php if(count($exceptions) > 1): ?>
-<?php $msg = sprintf('The %s was caused by %s. A full chain of exceptions is listed below.', get_class($e), ((count($exceptions) == 2) ? 'another exception' : 'other exceptions')); echo $cols ? wordwrap($msg, $cols, "\n") : $msg; ?>
+<?php $msg = sprintf('The %s was caused by %s. A full chain of exceptions is listed below.', $e::class, ((count($exceptions) == 2) ? 'another exception' : 'other exceptions')); echo $cols ? wordwrap($msg, $cols, "\n") : $msg; ?>
 
 
 <?php endif; ?>
 <?php foreach($exceptions as $ei => $e): ?>
 
-  <?php echo get_class($e); ?> 
-==<?php echo str_repeat("=", strlen(get_class($e))); ?>==
+  <?php echo $e::class; ?> 
+==<?php echo str_repeat("=", strlen($e::class)); ?>==
 
 <?php
-$lines = explode("\n", trim($e->getMessage()));
+$lines = explode("\n", trim((string) $e->getMessage()));
 foreach($lines as $line):
 ?>
   <?php echo $cols ? wordwrap($line, $cols-2, "\n  ", true) : $line; ?>
@@ -75,7 +75,7 @@ foreach($lines as $line):
   -----------
 <?php
 $i = 0;
-$traceLines = AgaviException::getFixedTrace($e, isset($exceptions[$ei+1]) ? $exceptions[$ei+1] : null);
+$traceLines = AgaviException::getFixedTrace($e, $exceptions[$ei+1] ?? null);
 $traceCount = count($traceLines);
 foreach($traceLines as $trace) {
 	$i++;
@@ -95,7 +95,7 @@ endforeach;
   Version Information
 =======================
 
-  Agavi:     <?php echo $cols ? wordwrap(AgaviConfig::get('agavi.version'), $cols-13, "\n             ", true) : AgaviConfig::get('agavi.version'); ?>
+  Agavi:     <?php echo $cols ? wordwrap((string) AgaviConfig::get('agavi.version'), $cols-13, "\n             ", true) : AgaviConfig::get('agavi.version'); ?>
 
   PHP:       <?php echo $cols ? wordwrap(phpversion(), $cols-13, "\n             ", true) : phpversion(); ?>
 

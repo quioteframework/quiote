@@ -33,7 +33,7 @@ final class AgaviInflector
 	/**
 	 * @const      string
 	 */
-		const UNCOUNTABLE_REGEX = '/(
+		const string UNCOUNTABLE_REGEX = '/(
 			advice|
 			equipment|
 			information|
@@ -61,7 +61,7 @@ final class AgaviInflector
 	/**
 	 * @var        array singular => plural mapping
 	 */
-	protected static $singularMatches = array(
+	protected static $singularMatches = [
 		self::UNCOUNTABLE_REGEX => '$1',
 		'/child$/i' => 'children',
 		'/man$/i' => 'men',
@@ -90,12 +90,12 @@ final class AgaviInflector
 		'/(ax|test)is$/i' => '$1es',
 		'/s$/i' => 's',
 		'/$/' => 's',
-	);
+	];
 
 	/**
 	 * @var        array plural => singular mapping
 	 */
-	protected static $pluralMatches = array(
+	protected static $pluralMatches = [
 		self::UNCOUNTABLE_REGEX => '\1',
 		'/children$/i' => 'child',
 		'/men$/i' => 'man',
@@ -129,17 +129,17 @@ final class AgaviInflector
 		'/([ti])a$/i' => '\1um',
 		'/(n)ews$/i' => '\1ews',
 		'/s$/i' => '',
-	);
+	];
 
 	/**
 	 * @var        array An array remembering the results of singularize()
 	 */
-	protected static $singularizeCache = array();
+	protected static $singularizeCache = [];
 	
 	/**
 	 * @var        array An array remembering the results of pluralize()
 	 */
-	protected static $pluralizeCache = array();
+	protected static $pluralizeCache = [];
 
 	/**
 	 * Translates a noun from its plural form in its singular form
@@ -161,7 +161,7 @@ final class AgaviInflector
 		$count = 0;
 		$singularizedWord = $word;
 		foreach(self::$pluralMatches as $regexp => $replacement) {
-			$singularizedWord = preg_replace($regexp, $replacement, $word, 1, $count);
+			$singularizedWord = preg_replace($regexp, (string) $replacement, (string) $word, 1, $count);
 			if($count) {
 				break;
 			}
@@ -192,7 +192,7 @@ final class AgaviInflector
 		$count = 0;
 		$pluralizedWord = $word;
 		foreach(self::$singularMatches as $regexp => $replacement) {
-			$pluralizedWord = preg_replace($regexp, $replacement, $pluralizedWord, 1, $count);
+			$pluralizedWord = preg_replace($regexp, (string) $replacement, (string) $pluralizedWord, 1, $count);
 			if($count) {
 				break;
 			}

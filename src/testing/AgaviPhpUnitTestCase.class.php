@@ -58,7 +58,7 @@ abstract class AgaviPhpUnitTestCase extends PHPUnit_Framework_TestCase
 	 * 
 	 * @since        1.1.0
 	 */
-	public function __construct($name = NULL, array $data = array(), $dataName = '')
+	public function __construct($name = NULL, array $data = [], $dataName = '')
 	{
 		parent::__construct($name, $data, $dataName);
 		$this->myDataName = $dataName;
@@ -204,7 +204,7 @@ abstract class AgaviPhpUnitTestCase extends PHPUnit_Framework_TestCase
 	 * @since        1.1.0
 	 */
 	private function getClassDependendFiles(ReflectionClass $reflectionClass, $isBlacklisted) {
-		$requires = array();
+		$requires = [];
 		
 		while($reflectionClass) {
 			$file = $reflectionClass->getFileName();
@@ -216,7 +216,7 @@ abstract class AgaviPhpUnitTestCase extends PHPUnit_Framework_TestCase
 				$file = $interface->getFileName();
 				$requires = array_merge($requires, $this->getClassDependendFiles($interface, $isBlacklisted));
 			}
-			if(is_callable(array($reflectionClass, 'getTraits'))) {
+			if(is_callable($reflectionClass->getTraits(...))) {
 				// FIXME: remove check after bumping php requirement to 5.4
 				foreach($reflectionClass->getTraits() as $trait) {
 					$file = $trait->getFileName();
@@ -243,11 +243,11 @@ abstract class AgaviPhpUnitTestCase extends PHPUnit_Framework_TestCase
 		// being started and if the test class depends on any files from Agavi (like
 		// AgaviPhpUnitTestCase) it would not be loaded when the test is instantiated
 		
-		$classesInTest = array();
-		$reflectionClass = new ReflectionClass(get_class($this));
+		$classesInTest = [];
+		$reflectionClass = new ReflectionClass(static::class);
 		$testFile = $reflectionClass->getFileName();
 		
-		$getDeclaredFuncs = array('get_declared_classes', 'get_declared_interfaces');
+		$getDeclaredFuncs = ['get_declared_classes', 'get_declared_interfaces'];
 		if(version_compare(PHP_VERSION, '5.4', '>=')) {
 			$getDeclaredFuncs[] = 'get_declared_traits';
 		}
@@ -263,21 +263,15 @@ abstract class AgaviPhpUnitTestCase extends PHPUnit_Framework_TestCase
 		// FIXME: added by phpunit 4.x
 		if(class_exists('PHPUnit_Util_Blacklist')) {
 			$blacklist = new PHPUnit_Util_Blacklist;
-			$isBlacklisted = function($file) use ($testFile, $blacklist) {
-				return $file === $testFile || $blacklist->isBlacklisted($file);
-			};
-		} elseif(is_callable(array('PHPUnit_Util_GlobalState', 'phpunitFiles'))) {
+			$isBlacklisted = (fn($file) => $file === $testFile || $blacklist->isBlacklisted($file));
+		} elseif(is_callable(['PHPUnit_Util_GlobalState', 'phpunitFiles'])) {
 			$blacklist = PHPUnit_Util_GlobalState::phpunitFiles();
-			$isBlacklisted = function($file) use ($testFile, $blacklist) {
-				return $file === $testFile || isset($blacklist[$file]);
-			};
+			$isBlacklisted = (fn($file) => $file === $testFile || isset($blacklist[$file]));
 		} else {
-			$isBlacklisted = function($file) use ($testFile) {
-				return $file === $testFile;
-			};
+			$isBlacklisted = (fn($file) => $file === $testFile);
 		}
 
-		$classesToFile = array('AgaviTesting' => realpath(__DIR__ . '/AgaviTesting.class.php'));
+		$classesToFile = ['AgaviTesting' => realpath(__DIR__ . '/AgaviTesting.class.php')];
 		foreach($classesInTest as $className) {
 			$classesToFile = array_merge(
 				$classesToFile,
@@ -301,9 +295,9 @@ abstract class AgaviPhpUnitTestCase extends PHPUnit_Framework_TestCase
 		parent::prepareTemplate($template);
 		
 		// FIXME: workaround for php unit bug (https://github.com/sebastianbergmann/phpunit/pull/1338)
-		$template->setVar(array(
+		$template->setVar([
 			'dataName' => "'.(" . var_export($this->myDataName, true) . ").'"
-		));
+		]);
 
 		// FIXME: if we have full composer autoloading we can remove this
 		// we need to restore the included files even without global state, since otherwise
@@ -328,16 +322,16 @@ abstract class AgaviPhpUnitTestCase extends PHPUnit_Framework_TestCase
 			define("AGAVI_TESTING_IN_SEPERATE_PROCESS", true);
 			define("AGAVI_TESTING_ORIGINAL_PHPUNIT_BOOTSTRAP", %s);
 			',
-			var_export(isset($GLOBALS["__PHPUNIT_BOOTSTRAP"]) ? $GLOBALS["__PHPUNIT_BOOTSTRAP"] : null, true)
+			var_export($GLOBALS["__PHPUNIT_BOOTSTRAP"] ?? null, true)
 		);
 		
 		
-		$isolatedTestSettings = array(
+		$isolatedTestSettings = [
 			'environment' => $this->getIsolationEnvironment(),
 			'defaultContext' => $this->getIsolationDefaultContext(),
 			'clearCache' => $this->getClearCache(),
 			'bootstrap' => $this->doBootstrap(),
-		);
+		];
 		$globals = sprintf('
 			$GLOBALS["AGAVI_TESTING_CONFIG"] = %s;
 			$GLOBALS["AGAVI_TESTING_ISOLATED_TEST_SETTINGS"] = %s;
@@ -349,11 +343,11 @@ abstract class AgaviPhpUnitTestCase extends PHPUnit_Framework_TestCase
 		);
 
 		if(!$this->preserveGlobalState) {
-			$template->setVar(array(
+			$template->setVar([
 				'included_files' => $fileAutoloader,
 				'constants' => $constants,
 				'globals' => $globals,
-			));
+			]);
 		} else {
 			// HACK: oh great, text/template doesn't expose the already set variables, but we need to modify
 			// them instead of overwriting them. So let's use the reflection to the rescue here.
@@ -361,11 +355,11 @@ abstract class AgaviPhpUnitTestCase extends PHPUnit_Framework_TestCase
 			$property = $reflected->getProperty('values');
 			$property->setAccessible(true);
 			$oldVars = $property->getValue($template);
-			$template->setVar(array(
+			$template->setVar([
 				'included_files' => $fileAutoloader,
 				'constants' => $oldVars['constants'] . PHP_EOL . $constants,
 				'globals' => $oldVars['globals'] . PHP_EOL . $globals,
-			));
+			]);
 			
 		}
 	}

@@ -57,17 +57,17 @@ class AgaviStringtoarrayTransform extends AgaviTransform
 		$input = $this->getInput();
 		
 		if($input === null) {
-			return array();
+			return [];
 		}
 		
-		$delimiter = preg_quote($this->delimiter, '#');
+		$delimiter = preg_quote((string) $this->delimiter, '#');
 		$pattern = sprintf('#(?:(?P<unquoted>[^"\'%s].+)|\'(?P<single_quoted>(?:\\\\\'|[^\'])+)\'|"(?P<double_quoted>(?:\\\\"|[^"])+)")(?=[%s]|$)#U',
 			$delimiter, $delimiter);
 		
-		$matches = array();
+		$matches = [];
 		preg_match_all($pattern, $input, $matches, PREG_SET_ORDER);
 		
-		$result = array();
+		$result = [];
 		foreach($matches as $match) {
 			/* This has everything to do with the order of the regular expression.
 			 * Watch it. */

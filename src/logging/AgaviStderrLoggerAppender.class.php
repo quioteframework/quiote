@@ -38,7 +38,8 @@ class AgaviStderrLoggerAppender extends AgaviStreamLoggerAppender
 	 * @author     Bob Zoller <bob@agavi.org>
 	 * @since      0.10.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	#[\Override]
+    public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		$parameters['destination'] = 'php://stderr';
 		// 'a' doesn't work on Linux

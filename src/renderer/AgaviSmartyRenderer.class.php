@@ -72,7 +72,8 @@ class AgaviSmartyRenderer extends AgaviRenderer implements AgaviIReusableRendere
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function __sleep()
+	#[\Override]
+    public function __sleep()
 	{
 		$keys = parent::__sleep();
 		unset($keys[array_search('smarty', $keys)]);
@@ -123,7 +124,7 @@ class AgaviSmartyRenderer extends AgaviRenderer implements AgaviIReusableRendere
 
 		$this->smarty = $this->createEngineInstance();
 		
-		$this->isSmarty2 = !defined("Smarty::SMARTY_VERSION") || !preg_match('#^Smarty.?3#', Smarty::SMARTY_VERSION, $matches);
+		$this->isSmarty2 = !defined("Smarty::SMARTY_VERSION") || !preg_match('#^Smarty.?3#', (string) Smarty::SMARTY_VERSION, $matches);
 		
 		if($this->isSmarty2) {
 			$this->smarty->config_dir = AgaviConfig::get('core.config_dir');
@@ -173,7 +174,7 @@ class AgaviSmartyRenderer extends AgaviRenderer implements AgaviIReusableRendere
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function render(AgaviTemplateLayer $layer, array &$attributes = array(), array &$slots = array(), array &$moreAssigns = array())
+	public function render(AgaviTemplateLayer $layer, array &$attributes = [], array &$slots = [], array &$moreAssigns = [])
 	{
 		$engine = $this->getEngine();
 		if($this->isSmarty2) {

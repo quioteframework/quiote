@@ -45,7 +45,8 @@ class AgaviDispatchFilter extends AgaviFilter implements AgaviIGlobalFilter
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function execute(AgaviExecutionContainer $container)
+	#[\Override]
+    public function execute(AgaviExecutionContainer $container)
 	{
 		$container->setResponse($container->execute());
 	}

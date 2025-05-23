@@ -39,9 +39,9 @@ class AgaviSoapRequest extends AgaviWebserviceRequest
 	public function __construct()
 	{
 		parent::__construct();
-		$this->setParameters(array(
+		$this->setParameters([
 			'request_data_holder_class' => 'AgaviSoapRequestDataHolder',
-		));
+		]);
 	}
 	
 	/**
@@ -57,15 +57,16 @@ class AgaviSoapRequest extends AgaviWebserviceRequest
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.9.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	#[\Override]
+    public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		parent::initialize($context, $parameters);
 		
 		$rdhc = $this->getParameter('request_data_holder_class');
-		$this->setRequestData(new $rdhc(array(
-			constant("$rdhc::SOURCE_PARAMETERS") => array(),
-			constant("$rdhc::SOURCE_HEADERS") => array(),
-		)));
+		$this->setRequestData(new $rdhc([
+			constant("$rdhc::SOURCE_PARAMETERS") => [],
+			constant("$rdhc::SOURCE_HEADERS") => [],
+		]));
 		
 		$this->setMethod($this->getParameter('default_method', 'read'));
 	}

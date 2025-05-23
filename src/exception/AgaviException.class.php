@@ -73,7 +73,7 @@ class AgaviException extends Exception
 		$fixedTrace = $e->getTrace();
 		
 		if(!isset($fixedTrace[0]['file']) || !($fixedTrace[0]['file'] == $e->getFile() && $fixedTrace[0]['line'] == $e->getLine())) {
-			$fixedTrace = array_merge(array(array('file' => $e->getFile(), 'line' => $e->getLine())), $fixedTrace);
+			$fixedTrace = array_merge([['file' => $e->getFile(), 'line' => $e->getLine()]], $fixedTrace);
 		}
 		
 		if($next) {
@@ -103,7 +103,7 @@ class AgaviException extends Exception
 	 */
 	public static function buildParamList($params, $html = true, $level = 1)
 	{
-		$retval = array();
+		$retval = [];
 		foreach($params as $key => $param) {
 			if(is_string($key)) {
 				if(preg_match('/^(.{5}).{2,}(.{5})$/us', $key, $matches)) {
@@ -122,9 +122,9 @@ class AgaviException extends Exception
 					break;
 				case 'object':
 					if($html) {
-						$retval[] = $key . '[object <em>' . get_class($param) . '</em>]';
+						$retval[] = $key . '[object <em>' . $param::class . '</em>]';
 					} else {
-						$retval[] = $key . '[object ' . get_class($param) . ']';
+						$retval[] = $key . '[object ' . $param::class . ']';
 					}
 					break;
 				case 'resource':
@@ -187,9 +187,9 @@ class AgaviException extends Exception
 		$code = highlight_string(str_replace('	', '  ', $code), true);
 		// time to cleanup this highlighted string
 		// first, drop all newlines (we'll explode by "<br />")
-		$code = str_replace(array("\r\n", "\n", "\r"), array('', '', ''), $code);
+		$code = str_replace(["\r\n", "\n", "\r"], ['', '', ''], $code);
 		// second, remove start and end wrappers and replace &nbsp; with numeric entity
-		$code = str_replace(array(sprintf('<code><span style="color: %s">', ini_get('highlight.html')), '</span></code>', '&nbsp;'), array('', '', '&#160;'), $code);
+		$code = str_replace([sprintf('<code><span style="color: %s">', ini_get('highlight.html')), '</span></code>', '&nbsp;'], ['', '', '&#160;'], $code);
 		// make an array of lines
 		$code = explode('<br />', $code);
 		// iterate and cleanup each line
@@ -268,7 +268,7 @@ class AgaviException extends Exception
 		// nice touch: an exception template can change this value :)
 		$exitCode = 70;
 		
-		$exceptions = array();
+		$exceptions = [];
 		// reverse order of exceptions for linking
 		$ce = $e;
 		while($ce) {

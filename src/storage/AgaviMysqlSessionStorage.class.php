@@ -69,7 +69,8 @@ class AgaviMysqlSessionStorage extends AgaviSessionStorage
 	 * @author     Sean Kerr <skerr@mojavi.org>
 	 * @since      0.9.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	#[\Override]
+    public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		// initialize the parent
 		parent::initialize($context, $parameters);
@@ -82,12 +83,12 @@ class AgaviMysqlSessionStorage extends AgaviSessionStorage
 
 		// use this object as the session handler
 		session_set_save_handler(
-			array($this, 'sessionOpen'),
-			array($this, 'sessionClose'),
-			array($this, 'sessionRead'),
-			array($this, 'sessionWrite'),
-			array($this, 'sessionDestroy'),
-			array($this, 'sessionGC')
+			$this->sessionOpen(...),
+			$this->sessionClose(...),
+			$this->sessionRead(...),
+			$this->sessionWrite(...),
+			$this->sessionDestroy(...),
+			$this->sessionGC(...)
 		);
 	}
 

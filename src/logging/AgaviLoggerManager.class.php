@@ -32,7 +32,7 @@ class AgaviLoggerManager
 	/**
 	 * @var        array An array of AgaviLoggers.
 	 */
-	protected $loggers = array();
+	protected $loggers = [];
 
 	/**
 	 * @var        AgaviContext An AgaviContext instance.
@@ -76,7 +76,7 @@ class AgaviLoggerManager
 	 * @author     Sean Kerr <skerr@mojavi.org>
 	 * @since      0.9.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		$this->context = $context;
 		
@@ -105,10 +105,7 @@ class AgaviLoggerManager
 		if($name === null) {
 			$name = $this->defaultLoggerName;
 		}
-		if(isset($this->loggers[$name])) {
-			return $this->loggers[$name];
-		}
-		return null;
+		return $this->loggers[$name] ?? null;
 	}
 
 	/**
@@ -266,7 +263,7 @@ class AgaviLoggerManager
 		}
 		
 		// the loggers to log to
-		$loggers = array();
+		$loggers = [];
 		
 		if($loggerOrSeverity === null) {
 			// no logger/severity given - log to all loggers
@@ -313,7 +310,7 @@ class AgaviLoggerManager
 	 */
 	public function shutdown()
 	{
-		$appenders = array();
+		$appenders = [];
 		// loop through our loggers and shut them all down
 		foreach($this->loggers as $name => $logger) {
 			$appenders += $logger->getAppenders();

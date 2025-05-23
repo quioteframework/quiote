@@ -38,7 +38,8 @@ class AgaviConsoleRouting extends AgaviRouting
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	#[\Override]
+    public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		parent::initialize($context, $parameters);
 		
@@ -53,7 +54,8 @@ class AgaviConsoleRouting extends AgaviRouting
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function startup()
+	#[\Override]
+    public function startup()
 	{
 		parent::startup();
 		

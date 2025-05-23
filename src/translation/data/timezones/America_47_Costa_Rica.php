@@ -15,96 +15,96 @@
  * @version    $Id$
  */
 
-return array (
+return  [
   'types' => 
-  array (
+   [
     0 => 
-    array (
+     [
       'rawOffset' => -20173,
       'dstOffset' => 0,
       'name' => 'SJMT',
-    ),
+    ],
     1 => 
-    array (
+     [
       'rawOffset' => -21600,
       'dstOffset' => 0,
       'name' => 'CT',
-    ),
+    ],
     2 => 
-    array (
+     [
       'rawOffset' => -21600,
       'dstOffset' => 3600,
       'name' => 'CDT',
-    ),
+    ],
     3 => 
-    array (
+     [
       'rawOffset' => -21600,
       'dstOffset' => 0,
       'name' => 'CST',
-    ),
-  ),
+    ],
+  ],
   'rules' => 
-  array (
+   [
     0 => 
-    array (
+     [
       'time' => -2524501427.0,
       'type' => 0,
-    ),
+    ],
     1 => 
-    array (
+     [
       'time' => -1545071027.0,
       'type' => 1,
-    ),
+    ],
     2 => 
-    array (
+     [
       'time' => 288770400.0,
       'type' => 2,
-    ),
+    ],
     3 => 
-    array (
+     [
       'time' => 297234000.0,
       'type' => 3,
-    ),
+    ],
     4 => 
-    array (
+     [
       'time' => 320220000.0,
       'type' => 2,
-    ),
+    ],
     5 => 
-    array (
+     [
       'time' => 328683600.0,
       'type' => 3,
-    ),
+    ],
     6 => 
-    array (
+     [
       'time' => 664264800.0,
       'type' => 2,
-    ),
+    ],
     7 => 
-    array (
+     [
       'time' => 678344400.0,
       'type' => 3,
-    ),
+    ],
     8 => 
-    array (
+     [
       'time' => 695714400.0,
       'type' => 2,
-    ),
+    ],
     9 => 
-    array (
+     [
       'time' => 700635600.0,
       'type' => 3,
-    ),
-  ),
+    ],
+  ],
   'finalRule' => 
-  array (
+   [
     'type' => 'none',
     'offset' => -21600,
     'startYear' => 1993,
-  ),
+  ],
   'source' => '(unknown)',
   'version' => '(unknown)',
   'name' => 'America/Costa_Rica',
-);
+];
 
 ?>

@@ -35,17 +35,17 @@ class AgaviRecursiveDirectoryFilterIterator extends RecursiveFilterIterator
 	 * The list of default excludes
 	 * @var          array
 	 */
-	public static $defaultExcludes = array('.', '..', '.svn', 'CVS', '_darcs', '.arch-params', '.monotone', '.bzr');
+	public static $defaultExcludes = ['.', '..', '.svn', 'CVS', '_darcs', '.arch-params', '.monotone', '.bzr'];
 	
 	/**
 	 * @var          array the list of excludes
 	 */
-	protected $excludes = array();
+	protected $excludes = [];
 	
 	/**
 	 * @var          array the list of include patterns
 	 */
-	protected $includes = array();
+	protected $includes = [];
 	
 	/**
 	 * Creates a new AgaviRecursiveDirectoryFilterIterator.
@@ -55,7 +55,7 @@ class AgaviRecursiveDirectoryFilterIterator extends RecursiveFilterIterator
 	 * @var          array the list of exclude patterns (literal)
 	 * @var          boolean whether to use the default exclude patterns.
 	 */
-	public function __construct(RecursiveDirectoryIterator $iterator, array $includes = array(), array $excludes = array(), $noDefaultExcludes = false)
+	public function __construct(RecursiveDirectoryIterator $iterator, array $includes = [], array $excludes = [], $noDefaultExcludes = false)
 	{
 		parent::__construct($iterator);
 		if(!$noDefaultExcludes) {
@@ -104,7 +104,7 @@ class AgaviRecursiveDirectoryFilterIterator extends RecursiveFilterIterator
 			return true;
 		}
 		foreach($this->includes as $pattern) {
-			if(preg_match($pattern, $this->current()->getPathName())) {
+			if(preg_match($pattern, (string) $this->current()->getPathName())) {
 				return true;
 			}
 		}

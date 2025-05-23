@@ -54,7 +54,7 @@ class AgaviFilterConfigHandler extends AgaviXmlConfigHandler
 		
 		$config = $document->documentURI;
 		
-		$filters = array();
+		$filters = [];
 		
 		foreach($document->getConfigurationElements() as $cfg) {
 			if($cfg->has('filters')) {
@@ -62,7 +62,7 @@ class AgaviFilterConfigHandler extends AgaviXmlConfigHandler
 					$name = $filter->getAttribute('name', AgaviToolkit::uniqid());
 					
 					if(!isset($filters[$name])) {
-						$filters[$name] = array('params' => array(), 'enabled' => AgaviToolkit::literalize($filter->getAttribute('enabled', true)));
+						$filters[$name] = ['params' => [], 'enabled' => AgaviToolkit::literalize($filter->getAttribute('enabled', true))];
 					} else {
 						$filters[$name]['enabled'] = AgaviToolkit::literalize($filter->getAttribute('enabled', $filters[$name]['enabled']));
 					}
@@ -76,7 +76,7 @@ class AgaviFilterConfigHandler extends AgaviXmlConfigHandler
 			}
 		}
 		
-		$data = array();
+		$data = [];
 
 		foreach($filters as $name => $filter) {
 			if(stripos($name, 'agavi') === 0) {
@@ -87,7 +87,7 @@ class AgaviFilterConfigHandler extends AgaviXmlConfigHandler
 			}
 			if($filter['enabled']) {
 				$rc = new ReflectionClass($filter['class']);
-				$if = 'AgaviI' . ucfirst(strtolower(substr(basename($config), 0, strpos(basename($config), '_filters')))) . 'Filter';
+				$if = 'AgaviI' . ucfirst(strtolower(substr(basename((string) $config), 0, strpos(basename((string) $config), '_filters')))) . 'Filter';
 				if(!$rc->implementsInterface($if)) {
 					throw new AgaviFactoryException('Filter "' . $name . '" does not implement interface "' . $if . '"');
 				}

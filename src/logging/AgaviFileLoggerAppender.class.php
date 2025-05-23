@@ -39,7 +39,8 @@ class AgaviFileLoggerAppender extends AgaviStreamLoggerAppender
 	 * @author     Bob Zoller <bob@agavi.org>
 	 * @since      0.10.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	#[\Override]
+    public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		// for < 0.11.2 BC
 		if(isset($parameters['file'])) {
@@ -62,10 +63,11 @@ class AgaviFileLoggerAppender extends AgaviStreamLoggerAppender
 	 * @author     Bob Zoller <bob@agavi.org>
 	 * @since      0.10.0
 	 */
-	protected function getHandle()
+	#[\Override]
+    protected function getHandle()
 	{
 		$destination = $this->getParameter('destination');
-		if(is_null($this->handle) && (!is_writable(dirname($destination)) || (file_exists($destination) && !is_writable($destination)))) {
+		if(is_null($this->handle) && (!is_writable(dirname((string) $destination)) || (file_exists($destination) && !is_writable($destination)))) {
 			throw new AgaviLoggingException('Cannot open file "' . $destination . '", please check permissions on file or directory.');
 		}
 		

@@ -37,7 +37,7 @@ class AgaviSelectpathTask extends AgaviTask
 	protected $property = null;
 	protected $path = null;
 	protected $type = null;
-	protected $froms = array();
+	protected $froms = [];
 	
 	/**
 	 * Sets the property that this task will modify.

@@ -33,7 +33,7 @@ class AgaviXmlrpcepiphpResponse extends AgaviResponse
 	/**
 	 * @var        array The content to send back with this response.
 	 */
-	protected $content = array();
+	protected $content = [];
 	
 	/**
 	 * Check whether or not some content is set.
@@ -43,9 +43,10 @@ class AgaviXmlrpcepiphpResponse extends AgaviResponse
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      0.11.6
 	 */
-	public function hasContent()
+	#[\Override]
+    public function hasContent()
 	{
-		return $this->content !== array();
+		return $this->content !== [];
 	}
 	
 	/**
@@ -60,7 +61,8 @@ class AgaviXmlrpcepiphpResponse extends AgaviResponse
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function setContent($content)
+	#[\Override]
+    public function setContent($content)
 	{
 		return parent::setContent((array) $content);
 	}
@@ -75,7 +77,8 @@ class AgaviXmlrpcepiphpResponse extends AgaviResponse
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function prependContent($content)
+	#[\Override]
+    public function prependContent($content)
 	{
 		return $this->setContent((array) $content + $this->getContent());
 	}
@@ -90,7 +93,8 @@ class AgaviXmlrpcepiphpResponse extends AgaviResponse
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function appendContent($content)
+	#[\Override]
+    public function appendContent($content)
 	{
 		return $this->setContent($this->getContent() + (array) $content);
 	}
@@ -103,7 +107,8 @@ class AgaviXmlrpcepiphpResponse extends AgaviResponse
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function merge(AgaviResponse $otherResponse)
+	#[\Override]
+    public function merge(AgaviResponse $otherResponse)
 	{
 		parent::merge($otherResponse);
 	}
@@ -118,7 +123,7 @@ class AgaviXmlrpcepiphpResponse extends AgaviResponse
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function setRedirect($to)
+	public function setRedirect($to): never
 	{
 		throw new BadMethodCallException('Redirects are not implemented for XMLRPC.');
 	}
@@ -133,7 +138,7 @@ class AgaviXmlrpcepiphpResponse extends AgaviResponse
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function getRedirect()
+	public function getRedirect(): never
 	{
 		throw new BadMethodCallException('Redirects are not implemented for XMLRPC.');
 	}
@@ -148,7 +153,7 @@ class AgaviXmlrpcepiphpResponse extends AgaviResponse
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function hasRedirect()
+	public function hasRedirect(): never
 	{
 		throw new BadMethodCallException('Redirects are not implemented for XMLRPC.');
 	}
@@ -161,7 +166,7 @@ class AgaviXmlrpcepiphpResponse extends AgaviResponse
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function clearRedirect()
+	public function clearRedirect(): never
 	{
 		throw new BadMethodCallException('Redirects are not implemented for XMLRPC.');
 	}
@@ -172,7 +177,8 @@ class AgaviXmlrpcepiphpResponse extends AgaviResponse
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function isContentMutable()
+	#[\Override]
+    public function isContentMutable()
 	{
 		return false;
 	}
@@ -185,9 +191,10 @@ class AgaviXmlrpcepiphpResponse extends AgaviResponse
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function clearContent()
+	#[\Override]
+    public function clearContent()
 	{
-		$this->content = array();
+		$this->content = [];
 		return true;
 	}
 	
@@ -199,12 +206,12 @@ class AgaviXmlrpcepiphpResponse extends AgaviResponse
 	 */
 	public function send(AgaviOutputType $outputType = null)
 	{
-		$encoding = array('encoding' => $this->getParameter('output_options[encoding]', 'utf-8'));
+		$encoding = ['encoding' => $this->getParameter('output_options[encoding]', 'utf-8')];
 		if($outputType) {
-			$encoding = array('encoding' => $outputType->getParameter('encoding', $encoding['encoding']));
+			$encoding = ['encoding' => $outputType->getParameter('encoding', $encoding['encoding'])];
 		}
 		
-		$outputOptions = array_merge(array('escaping' => array('markup', 'non-print')), (array) $this->getParameter('output_options', array()), $encoding);
+		$outputOptions = array_merge(['escaping' => ['markup', 'non-print']], (array) $this->getParameter('output_options', []), $encoding);
 		
 		$this->content = xmlrpc_encode_request(null, $this->content, $outputOptions);
 		
@@ -223,8 +230,8 @@ class AgaviXmlrpcepiphpResponse extends AgaviResponse
 	public function clear()
 	{
 		$this->clearContent();
-		$this->httpHeaders = array();
-		$this->cookies = array();
+		$this->httpHeaders = [];
+		$this->cookies = [];
 	}
 }
 

@@ -34,12 +34,12 @@ abstract class AgaviRequest extends AgaviAttributeHolder
 	/**
 	 * @var        array An associative array of attributes
 	 */
-	protected $attributes = array();
+	protected $attributes = [];
 
 	/**
 	 * @var        array An associative array of errors
 	 */
-	protected $errors     = array();
+	protected $errors     = [];
 
 	/**
 	 * @var        string The request method name
@@ -96,12 +96,12 @@ abstract class AgaviRequest extends AgaviAttributeHolder
 	 */
 	public function __construct()
 	{
-		$this->setParameters(array(
+		$this->setParameters([
 			'use_module_action_parameters' => false,
 			'module_accessor' => 'module',
 			'action_accessor' => 'action',
 			'request_data_holder_class' => 'AgaviRequestDataHolder',
-		));
+		]);
 	}
 
 	/**
@@ -116,7 +116,7 @@ abstract class AgaviRequest extends AgaviAttributeHolder
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.9.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		$this->context = $context;
 		
@@ -206,12 +206,12 @@ abstract class AgaviRequest extends AgaviAttributeHolder
 				}
 			}
 			if(isset($_SERVER['argv'])) {
-				$_SERVER['argv'] = array();
+				$_SERVER['argv'] = [];
 				if(isset($GLOBALS['argv'])) {
-					$GLOBALS['argv'] = array();
+					$GLOBALS['argv'] = [];
 				}
 				if($rla) {
-					$GLOBALS['HTTP_SERVER_VARS']['argv'] = array();
+					$GLOBALS['HTTP_SERVER_VARS']['argv'] = [];
 				}
 			}
 		}

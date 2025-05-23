@@ -32,7 +32,7 @@ class AgaviRoutingArraySource implements AgaviIRoutingSource
 	/**
 	 * @var        array An array with data.
 	 */
-	protected $data = array();
+	protected $data = [];
 
 	/**
 	 * Constructor.

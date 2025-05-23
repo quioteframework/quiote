@@ -55,7 +55,8 @@ class AgaviMysqliDatabase extends AgaviMysqlDatabase
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.5
 	 */
-	public function initialize(AgaviDatabaseManager $databaseManager, array $parameters = array())
+	#[\Override]
+    public function initialize(AgaviDatabaseManager $databaseManager, array $parameters = [])
 	{
 		parent::initialize($databaseManager, $parameters);
 		
@@ -74,7 +75,8 @@ class AgaviMysqliDatabase extends AgaviMysqlDatabase
 	 * @author     Blake Matheny <bmatheny@compendiumblogware.com>
 	 * @since      1.0.0
 	 */
-	protected function connect()
+	#[\Override]
+    protected function connect()
 	{
 		// determine how to get our
 		$method = $this->getParameter('method', 'normal');
@@ -112,12 +114,12 @@ class AgaviMysqliDatabase extends AgaviMysqlDatabase
 
 		if($password === null) {
 			if($user === null) {
-				$args = array($host, null, null);
+				$args = [$host, null, null];
 			} else {
-				$args = array($host, $user, null);
+				$args = [$host, $user, null];
 			}
 		} else {
-			$args = array($host, $user, $password);
+			$args = [$host, $user, $password];
 		}
 		
 		$this->connection = new mysqli($args[0], $args[1], $args[2]);
@@ -160,7 +162,8 @@ class AgaviMysqliDatabase extends AgaviMysqlDatabase
 	 * @author     Blake Matheny <bmatheny@compendiumblogware.com>
 	 * @since      1.0.0
 	 */
-	public function shutdown()
+	#[\Override]
+    public function shutdown()
 	{
 		if($this->connection != null) {
 			$this->connection->close();

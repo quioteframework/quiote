@@ -69,7 +69,7 @@ class AgaviDateFormat
 	 * @author     Dominik del Bondio <dominik.del.bondio@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		$this->context = $context;
 	}
@@ -124,7 +124,7 @@ class AgaviDateFormat
 	 * @var        array The default mapping of format characters to their 
 	 *                   meanings.
 	 */
-	protected static $defaultMap = array(
+	protected static $defaultMap = [
 		'G' => self::T_ERA,
 		'y' => self::T_YEAR,
 		'M' => self::T_MONTH,
@@ -154,7 +154,7 @@ class AgaviDateFormat
 		'L' => self::T_SA_MONTH,
 		'Q' => self::T_QUARTER,
 		'q' => self::T_SA_QUARTER,
-	);
+	];
 
 	/**
 	 * @var        array The list of tokens in the format.
@@ -266,7 +266,7 @@ class AgaviDateFormat
 			try {
 				// maybe it is a date/time string we can parse...
 				$cal = $tm->createCalendar(new DateTime($data));
-			} catch(Exception $e) {
+			} catch(Exception) {
 				// err... no, it isn't. try to use the message as a calendar name
 				$cal = $tm->createCalendar($data);
 			}
@@ -311,7 +311,7 @@ class AgaviDateFormat
 						// strip year to 2 chars
 						$year %= 100;
 					}
-					$out .= str_pad($year, $count, '0', STR_PAD_LEFT);
+					$out .= str_pad((string) $year, $count, '0', STR_PAD_LEFT);
 					break;
 
 				case self::T_MONTH:
@@ -329,7 +329,7 @@ class AgaviDateFormat
 					break;
 
 				case self::T_DATE:
-					$out .= str_pad($data[AgaviDateDefinitions::DATE], $count, '0', STR_PAD_LEFT);
+					$out .= str_pad((string) $data[AgaviDateDefinitions::DATE], $count, '0', STR_PAD_LEFT);
 					break;
 
 				case self::T_HOUR_1_24:
@@ -338,19 +338,19 @@ class AgaviDateFormat
 					break;
 
 				case self::T_HOUR_0_23:
-					$out .= str_pad($data[AgaviDateDefinitions::HOUR_OF_DAY], $count, '0', STR_PAD_LEFT);
+					$out .= str_pad((string) $data[AgaviDateDefinitions::HOUR_OF_DAY], $count, '0', STR_PAD_LEFT);
 					break;
 
 				case self::T_MINUTE:
-					$out .= str_pad($data[AgaviDateDefinitions::MINUTE], $count, '0', STR_PAD_LEFT);
+					$out .= str_pad((string) $data[AgaviDateDefinitions::MINUTE], $count, '0', STR_PAD_LEFT);
 					break;
 
 				case self::T_SECOND:
-					$out .= str_pad($data[AgaviDateDefinitions::SECOND], $count, '0', STR_PAD_LEFT);
+					$out .= str_pad((string) $data[AgaviDateDefinitions::SECOND], $count, '0', STR_PAD_LEFT);
 					break;
 
 				case self::T_FRACTIONAL_SECOND:
-					$value = str_pad($data[AgaviDateDefinitions::MILLISECOND], 3, '0', STR_PAD_LEFT);
+					$value = str_pad((string) $data[AgaviDateDefinitions::MILLISECOND], 3, '0', STR_PAD_LEFT);
 					$value = substr($value, 0, $count);
 					$out .= $value;
 					break;
@@ -367,19 +367,19 @@ class AgaviDateFormat
 					break;
 
 				case self::T_DAY_OF_YEAR:
-					$out .= str_pad($data[AgaviDateDefinitions::DAY_OF_YEAR], $count, '0', STR_PAD_LEFT);
+					$out .= str_pad((string) $data[AgaviDateDefinitions::DAY_OF_YEAR], $count, '0', STR_PAD_LEFT);
 					break;
 
 				case self::T_DAY_OF_WEEK_IN_MONTH:
-					$out .= str_pad($data[AgaviDateDefinitions::DAY_OF_WEEK_IN_MONTH], $count, '0', STR_PAD_LEFT);
+					$out .= str_pad((string) $data[AgaviDateDefinitions::DAY_OF_WEEK_IN_MONTH], $count, '0', STR_PAD_LEFT);
 					break;
 
 				case self::T_WEEK_OF_YEAR:
-					$out .= str_pad($data[AgaviDateDefinitions::WEEK_OF_YEAR], $count, '0', STR_PAD_LEFT);
+					$out .= str_pad((string) $data[AgaviDateDefinitions::WEEK_OF_YEAR], $count, '0', STR_PAD_LEFT);
 					break;
 
 				case self::T_WEEK_OF_MONTH:
-					$out .= str_pad($data[AgaviDateDefinitions::WEEK_OF_MONTH], $count, '0', STR_PAD_LEFT);
+					$out .= str_pad((string) $data[AgaviDateDefinitions::WEEK_OF_MONTH], $count, '0', STR_PAD_LEFT);
 					break;
 
 				case self::T_AM_PM:
@@ -397,7 +397,7 @@ class AgaviDateFormat
 					break;
 
 				case self::T_HOUR_0_11:
-					$out .= str_pad($data[AgaviDateDefinitions::HOUR], $count, '0', STR_PAD_LEFT);
+					$out .= str_pad((string) $data[AgaviDateDefinitions::HOUR], $count, '0', STR_PAD_LEFT);
 					break;
 
 				case self::T_TIMEZONE:
@@ -447,7 +447,7 @@ class AgaviDateFormat
 					break;
 
 				case self::T_ISO_YEAR:
-					$out .= str_pad($data[AgaviDateDefinitions::YEAR_WOY], $count, '0', STR_PAD_LEFT);
+					$out .= str_pad((string) $data[AgaviDateDefinitions::YEAR_WOY], $count, '0', STR_PAD_LEFT);
 					break;
 
 				case self::T_LOCAL_DAY_OF_WEEK:
@@ -460,20 +460,20 @@ class AgaviDateFormat
 					} elseif($count == 3) {
 						$out .= $locale->getCalendarDayAbbreviated($calendarType, $dow);
 					} else {
-						$out .= str_pad($dow, $count, '0', STR_PAD_LEFT);
+						$out .= str_pad((string) $dow, $count, '0', STR_PAD_LEFT);
 					}
 					break;
 
 				case self::T_EXTENDED_YEAR:
-					$out .= str_pad($data[AgaviDateDefinitions::EXTENDED_YEAR], $count, '0', STR_PAD_LEFT);
+					$out .= str_pad((string) $data[AgaviDateDefinitions::EXTENDED_YEAR], $count, '0', STR_PAD_LEFT);
 					break;
 
 				case self::T_MODIFIED_JD:
-					$out .= str_pad($data[AgaviDateDefinitions::JULIAN_DAY], $count, '0', STR_PAD_LEFT);
+					$out .= str_pad((string) $data[AgaviDateDefinitions::JULIAN_DAY], $count, '0', STR_PAD_LEFT);
 					break;
 
 				case self::T_MS_IN_DAY:
-					$out .= str_pad($data[AgaviDateDefinitions::MILLISECONDS_IN_DAY], $count, '0', STR_PAD_LEFT);
+					$out .= str_pad((string) $data[AgaviDateDefinitions::MILLISECONDS_IN_DAY], $count, '0', STR_PAD_LEFT);
 					break;
 
 				case self::T_TIMEZONE_RFC:
@@ -553,13 +553,13 @@ class AgaviDateFormat
 		}
 		$this->originalFormatString = $format;
 
-		$this->tokenList = array();
+		$this->tokenList = [];
 		$tokenIdx = 0;
 
 		$escapeStr = '';
 
 		$inEscape = false;
-		$fLen = strlen($format);
+		$fLen = strlen((string) $format);
 		for($i = 0; $i < $fLen; ++$i) {
 			$c = $format[$i];
 			$cNext = ($i + 1 < $fLen) ? $format[$i+1] : '';
@@ -571,7 +571,7 @@ class AgaviDateFormat
 						++$i;
 					} else {
 						$inEscape = false;
-						$this->tokenList[$tokenIdx] = array(self::T_TEXT, $escapeStr);
+						$this->tokenList[$tokenIdx] = [self::T_TEXT, $escapeStr];
 						++$tokenIdx;
 						$escapeStr = '';
 					}
@@ -581,7 +581,7 @@ class AgaviDateFormat
 			} else {
 				if($c == '\'') {
 					if($cNext == '\'') {
-						$this->tokenList[$tokenIdx] = array(self::T_TEXT, $c);
+						$this->tokenList[$tokenIdx] = [self::T_TEXT, $c];
 						++$tokenIdx;
 						++$i;
 					} else {
@@ -589,28 +589,28 @@ class AgaviDateFormat
 						$inEscape = true;
 					}
 				} else {
-					if(preg_match('#[a-z]#i', $c)) {
+					if(preg_match('#[a-z]#i', (string) $c)) {
 						if(isset($charToTokenMap[$c])) {
 							$tok = $charToTokenMap[$c];
 							if($tokenIdx > 0 && $this->tokenList[$tokenIdx - 1][0] == $tok) {
 								// increase the tokencount if the last token was the same as this 
 								++$this->tokenList[$tokenIdx - 1][1];
 							} else {
-								$this->tokenList[$tokenIdx] = array($tok, 1);
+								$this->tokenList[$tokenIdx] = [$tok, 1];
 								++$tokenIdx;
 							}
 						} else {
 							throw new AgaviException('Unknown pattern char "' . $c . '" (#'. ord($c) . ') in format string "' . $format . '" at index ' . $i);
 						}
 					} else {
-						$this->tokenList[$tokenIdx] = array(self::T_TEXT, $c);
+						$this->tokenList[$tokenIdx] = [self::T_TEXT, $c];
 						++$tokenIdx;
 					}
 				}
 			}
 		}
 		if($escapeStr) {
-			$this->tokenList[$tokenIdx] = array(self::T_TEXT, $escapeStr);
+			$this->tokenList[$tokenIdx] = [self::T_TEXT, $escapeStr];
 			++$tokenIdx;
 		}
 	}
@@ -663,11 +663,11 @@ class AgaviDateFormat
 		$calendarType = AgaviCalendar::GREGORIAN;
 		$datePos = 0;
 
-		$unprocessedTokens = array();
+		$unprocessedTokens = [];
 
 		$tlCount = isset($this->tokenList) ? count($this->tokenList) : 0;
 		for($i = 0; $i < $tlCount; ++$i) {
-			if($datePos >= strlen($dateString)) {
+			if($datePos >= strlen((string) $dateString)) {
 				if($strict) {
 					throw new AgaviException('Input string "' . $dateString . '" is to short');
 				}
@@ -678,7 +678,7 @@ class AgaviDateFormat
 			$type = $this->getTokenType($token);
 			// this and the next token are numbers
 			if($type == 'number' && $i + 1 < $tlCount && $this->getTokenType($this->tokenList[$i + 1]) == 'number') {
-				$unprocessedTokens = array($token);
+				$unprocessedTokens = [$token];
 
 				// store all abutting numerical tokens for later processing
 				do {
@@ -687,7 +687,7 @@ class AgaviDateFormat
 				} while($i + 1 < $tlCount && $this->getTokenType($this->tokenList[$i + 1]) == 'number');
 
 				// retrieve the amount of number characters at our current parse position
-				$numberLen = strspn($dateString, '0123456789', $datePos);
+				$numberLen = strspn((string) $dateString, '0123456789', $datePos);
 
 				// calculate the length the numbers should have from the tokens
 				$tokenReqLen = 0;
@@ -722,7 +722,7 @@ class AgaviDateFormat
 						throw new AgaviException('Token type ' . $token[0] . ' claims to be numerical but has no date field');
 					}
 
-					$number = (int) substr($dateString, $datePos, $token[1]);
+					$number = (int) substr((string) $dateString, $datePos, $token[1]);
 
 					$datePos += $token[1];
 					if($dateField == AgaviDateDefinitions::HOUR_OF_DAY && $token[0] == AgaviDateFormat::T_HOUR_1_24 && $number == 24) {
@@ -743,7 +743,7 @@ class AgaviDateFormat
 					}
 				}
 			} elseif($type == 'number') {
-				$numberLen = strspn($dateString, '0123456789', $datePos);
+				$numberLen = strspn((string) $dateString, '0123456789', $datePos);
 				$dateField = $this->getDateFieldFromTokenType($token[0]);
 				if($dateField === null) {
 					throw new AgaviException('Token type ' . $token[0] . ' claims to be numerical but has no date field');
@@ -753,9 +753,9 @@ class AgaviDateFormat
 				}
 				if($dateField == AgaviDateDefinitions::MILLISECOND && $numberLen > 3) {
 					// we only store in millisecond precision so only use the first 3 digits of the fractional second
-					$number = (int) substr($dateString, $datePos, 3);
+					$number = (int) substr((string) $dateString, $datePos, 3);
 				} else {
-					$number = (int) substr($dateString, $datePos, $numberLen);
+					$number = (int) substr((string) $dateString, $datePos, $numberLen);
 				}
 
 				$datePos += $numberLen;
@@ -787,12 +787,12 @@ class AgaviDateFormat
 				$count = $token[1];
 				switch($token[0]) {
 					case self::T_TEXT:
-						if(substr_compare($dateString, $token[1], $datePos, strlen($token[1])) == 0) {
-							$datePos += strlen($token[1]);
+						if(substr_compare((string) $dateString, (string) $token[1], $datePos, strlen((string) $token[1])) == 0) {
+							$datePos += strlen((string) $token[1]);
 						} elseif($i + 1 == $tlCount && !$strict) {
 							// when the last text token didn't match we don't do anything in non strict mode
 						} else {
-							throw new AgaviException('Unknown character in "' . $dateString . '" at pos ' . $datePos . ' (expected: "' . $token[1] . '", got: "' . substr($dateString, $datePos, strlen($token[1])) . '")');
+							throw new AgaviException('Unknown character in "' . $dateString . '" at pos ' . $datePos . ' (expected: "' . $token[1] . '", got: "' . substr((string) $dateString, $datePos, strlen((string) $token[1])) . '")');
 						}
 						break;
 
@@ -835,10 +835,10 @@ class AgaviDateFormat
 						break;
 
 					case self::T_AM_PM:
-						$items = array(
+						$items = [
 							0 => $locale->getCalendarAm($calendarType),
 							1 => $locale->getCalendarPm($calendarType),
-						);
+						];
 
 						$item = null;
 						if($this->matchStringWithFallbacks($dateString, $items, $datePos, $item)) {
@@ -851,7 +851,7 @@ class AgaviDateFormat
 					case self::T_TIMEZONE:
 					case self::T_TIMEZONE_GENERIC:
 					case self::T_TIMEZONE_RFC:
-						$remainder = substr($dateString, $datePos);
+						$remainder = substr((string) $dateString, $datePos);
 						if(preg_match('#^(GMT)?(\+|-)?(\d{1,2}:\d{1,2}|\d{1,2}\d{1,2})#i', $remainder, $match)) {
 							$datePos += strlen($match[0]);
 							if(strtolower($match[1]) != 'gmt') {
@@ -867,8 +867,8 @@ class AgaviDateFormat
 							if(!($tz = $tm->createTimeZone($remainder))) {
 								// try to match a localized timezone string
 								$z = 0;
-								$localizedTzMap = array();
-								$idToTzMap = array();
+								$localizedTzMap = [];
+								$idToTzMap = [];
 								$tzNames = $locale->getTimeZoneNames();
 								foreach($tzNames as $tzId => $tz) {
 									foreach($tz as $names) {
@@ -943,7 +943,7 @@ class AgaviDateFormat
 		$cal->getTime();
 		if($strict) {
 			// calculate the time to get errors for invalid dates
-			if($datePos < strlen($dateString)) {
+			if($datePos < strlen((string) $dateString)) {
 				throw new AgaviException('Input string "' . $dateString . '" has characters after the date');
 			}
 		}
@@ -963,7 +963,7 @@ class AgaviDateFormat
 	 */
 	protected function getDateFieldFromTokenType($type)
 	{
-		static $typeMap = array(
+		static $typeMap = [
 			self::T_ERA                     => AgaviDateDefinitions::ERA,
 			self::T_YEAR                    => AgaviDateDefinitions::YEAR,
 			self::T_MONTH                   => AgaviDateDefinitions::MONTH,
@@ -990,7 +990,7 @@ class AgaviDateFormat
 			self::T_MS_IN_DAY               => AgaviDateDefinitions::MILLISECONDS_IN_DAY,
 			self::T_QUARTER                 => AgaviDateDefinitions::MONTH,
 			self::T_SA_QUARTER              => AgaviDateDefinitions::MONTH,
-		);
+		];
 
 		if(isset($typeMap[$type])) {
 			return $typeMap[$type];
@@ -1015,12 +1015,12 @@ class AgaviDateFormat
 	 */
 	protected function matchStringWithFallbacks($string, array $possibilities, &$offset, &$matchedKey)
 	{
-		$strlen = strlen($string);
+		$strlen = strlen((string) $string);
 		// TODO: change this to match to longest match and not the first one.
 		foreach($possibilities as $key => $possibility) {
-			$possLen = strlen($possibility);
+			$possLen = strlen((string) $possibility);
 			// avoid warning when $string is not long enough for the possibility
-			if($strlen >= ($offset + $possLen) && substr_compare($string, $possibility, $offset, $possLen) == 0) {
+			if($strlen >= ($offset + $possLen) && substr_compare((string) $string, (string) $possibility, $offset, $possLen) == 0) {
 				$offset += $possLen;
 				$matchedKey = $key;
 				return true;

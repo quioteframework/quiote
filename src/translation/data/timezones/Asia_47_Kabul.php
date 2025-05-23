@@ -15,45 +15,45 @@
  * @version    $Id$
  */
 
-return array (
+return  [
   'types' => 
-  array (
+   [
     0 => 
-    array (
+     [
       'rawOffset' => 14400,
       'dstOffset' => 0,
       'name' => '+04',
-    ),
+    ],
     1 => 
-    array (
+     [
       'rawOffset' => 16200,
       'dstOffset' => 0,
       'name' => '+0430',
-    ),
-  ),
+    ],
+  ],
   'rules' => 
-  array (
+   [
     0 => 
-    array (
+     [
       'time' => -2524538208.0,
       'type' => 0,
-    ),
+    ],
     1 => 
-    array (
+     [
       'time' => -788932800.0,
       'type' => 1,
-    ),
-  ),
+    ],
+  ],
   'finalRule' => 
-  array (
+   [
     'type' => 'static',
     'name' => '+0430',
     'offset' => 16200,
     'startYear' => 1945,
-  ),
+  ],
   'source' => '(unknown)',
   'version' => '(unknown)',
   'name' => 'Asia/Kabul',
-);
+];
 
 ?>

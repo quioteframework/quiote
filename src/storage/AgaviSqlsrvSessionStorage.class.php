@@ -65,7 +65,8 @@ class AgaviSqlsrvSessionStorage extends AgaviSessionStorage
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.6
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	#[\Override]
+    public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		// initialize the parent
 		parent::initialize($context, $parameters);
@@ -78,12 +79,12 @@ class AgaviSqlsrvSessionStorage extends AgaviSessionStorage
 		
 		// use this object as the session handler
 		session_set_save_handler(
-			array($this, 'sessionOpen'),
-			array($this, 'sessionClose'),
-			array($this, 'sessionRead'),
-			array($this, 'sessionWrite'),
-			array($this, 'sessionDestroy'),
-			array($this, 'sessionGC')
+			$this->sessionOpen(...),
+			$this->sessionClose(...),
+			$this->sessionRead(...),
+			$this->sessionWrite(...),
+			$this->sessionDestroy(...),
+			$this->sessionGC(...)
 		);
 	}
 	
@@ -129,7 +130,7 @@ class AgaviSqlsrvSessionStorage extends AgaviSessionStorage
 		// delete the record associated with this id
 		$sql = sprintf("DELETE FROM %s WHERE %s = ?", $db_table, $db_id_col);
 		
-		if(sqlsrv_query($this->connection, $sql, array($id))) {
+		if(sqlsrv_query($this->connection, $sql, [$id])) {
 			return true;
 		}
 		
@@ -172,7 +173,7 @@ class AgaviSqlsrvSessionStorage extends AgaviSessionStorage
 		// delete the records that are expired
 		$sql = sprintf('DELETE FROM %s WHERE %s < ?', $db_table, $db_time_col);
 		
-		if(sqlsrv_query($this->connection, $sql, array($time))) {
+		if(sqlsrv_query($this->connection, $sql, [$time])) {
 			return true;
 		}
 		
@@ -235,7 +236,7 @@ class AgaviSqlsrvSessionStorage extends AgaviSessionStorage
 		// delete the record associated with this id
 		$sql = sprintf("SELECT %s FROM %s WHERE %s = ?", $db_data_col, $db_table, $db_id_col);
 		
-		$result = sqlsrv_query($this->connection, $sql, array($id));
+		$result = sqlsrv_query($this->connection, $sql, [$id]);
 		
 		if($result != false && sqlsrv_fetch($result)) {
 			// found the session
@@ -289,7 +290,7 @@ class AgaviSqlsrvSessionStorage extends AgaviSessionStorage
 			$db_id_col
 		);
 		
-		$result = sqlsrv_query($this->connection, $sql, array(array($data, SQLSRV_PARAM_IN, SQLSRV_PHPTYPE_STRING(SQLSRV_ENC_BINARY)), $ts, $id));
+		$result = sqlsrv_query($this->connection, $sql, [[$data, SQLSRV_PARAM_IN, SQLSRV_PHPTYPE_STRING(SQLSRV_ENC_BINARY)], $ts, $id]);
 		if($result !== false && sqlsrv_rows_affected($result)) {
 			return true;
 		} elseif($result !== false) {
@@ -302,7 +303,7 @@ class AgaviSqlsrvSessionStorage extends AgaviSessionStorage
 				$db_id_col
 			);
 			
-			$result = sqlsrv_query($this->connection, $sql, array(array($data, SQLSRV_PARAM_IN, SQLSRV_PHPTYPE_STRING(SQLSRV_ENC_BINARY)), $ts, $id));
+			$result = sqlsrv_query($this->connection, $sql, [[$data, SQLSRV_PARAM_IN, SQLSRV_PHPTYPE_STRING(SQLSRV_ENC_BINARY)], $ts, $id]);
 			if($result !== false && sqlsrv_rows_affected($result)) {
 				return true;
 			}

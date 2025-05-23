@@ -37,15 +37,15 @@ class AgaviStreamTemplateLayer extends AgaviTemplateLayer
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function __construct(array $parameters = array())
+	public function __construct(array $parameters = [])
 	{
-		parent::__construct(array_merge(array(
+		parent::__construct(array_merge([
 			'check' => false,
 			'scheme' => null,
-			'targets' => array(
+			'targets' => [
 				'${template}',
-			),
-		), $parameters));
+			],
+		], $parameters));
 	}
 	
 	/**
@@ -67,16 +67,16 @@ class AgaviStreamTemplateLayer extends AgaviTemplateLayer
 			return null;
 		}
 		
-		$args = array();
+		$args = [];
 		if(AgaviConfig::get('core.use_translation')) {
 			// i18n is enabled, build a list of sprintf args with the locale identifier
 			foreach(AgaviLocale::getLookupPath($this->context->getTranslationManager()->getCurrentLocaleIdentifier()) as $identifier) {
-				$args[] = array('locale' => $identifier);
+				$args[] = ['locale' => $identifier];
 			}
 		}
 		
 		if(empty($args)) {
-			$args[] = array(); // add one empty arg to always trigger target lookups (even if i18n is disabled etc.)
+			$args[] = []; // add one empty arg to always trigger target lookups (even if i18n is disabled etc.)
 		}
 		
 		$scheme = $this->getParameter('scheme');
@@ -86,10 +86,10 @@ class AgaviStreamTemplateLayer extends AgaviTemplateLayer
 		}
 		$check = $this->getParameter('check');
 		
-		$attempts = array();
+		$attempts = [];
 		
 		// try each of the patterns
-		foreach((array)$this->getParameter('targets', array()) as $pattern) {
+		foreach((array)$this->getParameter('targets', []) as $pattern) {
 			// try pattern with each argument list
 			foreach($args as $arg) {
 				$target = AgaviToolkit::expandVariables($pattern, array_merge(array_filter($this->getParameters(), 'is_scalar'), array_filter($this->getParameters(), 'is_null'), $arg));

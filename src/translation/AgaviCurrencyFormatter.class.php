@@ -74,7 +74,7 @@ class AgaviCurrencyFormatter extends AgaviDecimalFormatter implements AgaviITran
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		$this->context = $context;
 		if(!empty($parameters['rounding_mode'])) {
@@ -140,7 +140,7 @@ class AgaviCurrencyFormatter extends AgaviDecimalFormatter implements AgaviITran
 		$fn->setFractionDigits($fraction['digits']);
 		
 		if($fraction['rounding'] > 0) {
-			$roundingUnit = pow(10, -$fraction['digits']) * $fraction['rounding'];
+			$roundingUnit = 10 ** -$fraction['digits'] * $fraction['rounding'];
 			$message = round($message / $roundingUnit) * $roundingUnit;
 		}
 		
@@ -216,17 +216,12 @@ class AgaviCurrencyFormatter extends AgaviDecimalFormatter implements AgaviITran
 		if($name === null) {
 			$name = $code;
 		}
-
-		switch($this->currencyType) {
-			case AgaviDecimalFormatter::CURRENCY_SYMBOL:
-				return $symbol;
-			case AgaviDecimalFormatter::CURRENCY_CODE:
-				return $code;
-			case AgaviDecimalFormatter::CURRENCY_NAME:
-				return $name;
-		}
-
-		return null;
+        return match ($this->currencyType) {
+            AgaviDecimalFormatter::CURRENCY_SYMBOL => $symbol,
+            AgaviDecimalFormatter::CURRENCY_CODE => $code,
+            AgaviDecimalFormatter::CURRENCY_NAME => $name,
+            default => null,
+        };
 	}
 
 	/**

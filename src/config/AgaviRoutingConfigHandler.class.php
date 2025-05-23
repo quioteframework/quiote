@@ -36,7 +36,7 @@ class AgaviRoutingConfigHandler extends AgaviXmlConfigHandler
 	/**
 	 * @var        array Stores the generated names of unnamed routes.
 	 */
-	protected $unnamedRoutes = array();
+	protected $unnamedRoutes = [];
 	
 	/**
 	 * Execute this configuration handler.
@@ -63,10 +63,10 @@ class AgaviRoutingConfigHandler extends AgaviXmlConfigHandler
 		$routing = AgaviContext::getInstance($this->context)->getRouting();
 
 		// reset the stored route names
-		$this->unnamedRoutes = array();
+		$this->unnamedRoutes = [];
 
 		// clear the routing
-		$routing->importRoutes(array());
+		$routing->importRoutes([]);
 		
 		foreach($document->getConfigurationElements() as $cfg) {
 			if($cfg->has('routes')) {
@@ -99,7 +99,7 @@ class AgaviRoutingConfigHandler extends AgaviXmlConfigHandler
 	{
 		foreach($routes as $route) {
 			$pattern = AgaviToolkit::expandDirectives($route->getAttribute('pattern'));
-			$opts = array();
+			$opts = [];
 			if($route->hasAttribute('imply'))					$opts['imply']				= AgaviToolkit::literalize($route->getAttribute('imply'));
 			if($route->hasAttribute('cut'))						$opts['cut']					= AgaviToolkit::literalize($route->getAttribute('cut'));
 			if($route->hasAttribute('stop'))					$opts['stop']					= AgaviToolkit::literalize($route->getAttribute('stop'));
@@ -126,12 +126,12 @@ class AgaviRoutingConfigHandler extends AgaviXmlConfigHandler
 			}
 
 			if($route->has('callbacks')) {
-				$opts['callbacks'] = array();
+				$opts['callbacks'] = [];
 				foreach($route->get('callbacks') as $callback) {
-					$opts['callbacks'][] = array(
+					$opts['callbacks'][] = [
 						'class' => $callback->getAttribute('class'),
 						'parameters' => $callback->getAgaviParameters(),
-					);
+					];
 				}
 			}
 

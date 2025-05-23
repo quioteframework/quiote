@@ -44,7 +44,7 @@ class AgaviEzctemplateCustomBlocks implements ezcTemplateCustomBlock
 	{
 		$def = new ezcTemplateCustomBlockDefinition();
 		
-		$def->class = __CLASS__;
+		$def->class = self::class;
 		$def->sendTemplateObject = true;
 		$def->method = $name;
 		
@@ -54,8 +54,8 @@ class AgaviEzctemplateCustomBlocks implements ezcTemplateCustomBlock
 			case '_d':
 			case '_n':
 				$def->startExpressionName = 'value';
-				$def->requiredParameters = array('value');
-				$def->optionalParameters  = array('domain', 'locale');
+				$def->requiredParameters = ['value'];
+				$def->optionalParameters  = ['domain', 'locale'];
 				if($name == '_') {
 					$def->optionalParameters[] = 'parameters';
 				}
@@ -63,14 +63,14 @@ class AgaviEzctemplateCustomBlocks implements ezcTemplateCustomBlock
 			
 			case '__':
 				$def->startExpressionName = 'singularMessage';
-				$def->optionalParameters  = array('domain', 'locale', 'parameters');
-				$def->requiredParameters = array('singularMessage', 'pluralMessage', 'amount');
+				$def->optionalParameters  = ['domain', 'locale', 'parameters'];
+				$def->requiredParameters = ['singularMessage', 'pluralMessage', 'amount'];
 				return $def;
 			
 			case 'route':
 				$def->startExpressionName = 'name';
-				$def->requiredParameters = array('name');
-				$def->optionalParameters  = array('params', 'options');
+				$def->requiredParameters = ['name'];
+				$def->optionalParameters  = ['params', 'options'];
 				return $def;
 			
 			default:
@@ -90,9 +90,9 @@ class AgaviEzctemplateCustomBlocks implements ezcTemplateCustomBlock
 	 * @author     Felix Weis <mail@felixweis.com>
 	 * @since      0.11.0
 	 */
-	public static function _($obj, $params = array())
+	public static function _($obj, $params = [])
 	{
-		$params += array('domain' => null, 'locale' => null, 'parameters' => null);
+		$params += ['domain' => null, 'locale' => null, 'parameters' => null];
 		return $obj->getContext()->getTranslationManager()->_($params['value'], $params['domain'], $params['locale'], $params['parameters']);
 	}
 
@@ -107,9 +107,9 @@ class AgaviEzctemplateCustomBlocks implements ezcTemplateCustomBlock
 	 * @author     Felix Weis <mail@felixweis.com>
 	 * @since      0.11.0
 	 */
-	public static function __($obj, $params = array())
+	public static function __($obj, $params = [])
 	{
-		$params += array('domain' => null, 'locale' => null, 'parameters' => null);
+		$params += ['domain' => null, 'locale' => null, 'parameters' => null];
 		return $obj->getContext()->getTranslationManager()->__($obj, $params['singularMessage'], $params['pluralMessage'], $params['amount'], $params['domain'], $params['locale'], $params['parameters']);
 	}
 
@@ -124,9 +124,9 @@ class AgaviEzctemplateCustomBlocks implements ezcTemplateCustomBlock
 	 * @author     Felix Weis <mail@felixweis.com>
 	 * @since      0.11.0
 	 */
-	public static function _c($obj, $params = array())
+	public static function _c($obj, $params = [])
 	{
-		$params += array('domain' => null, 'locale' => null);
+		$params += ['domain' => null, 'locale' => null];
 		return $obj->getContext()->getTranslationManager()->_c($params['value'], $params['domain'], $params['locale']);;
 	}
 
@@ -141,9 +141,9 @@ class AgaviEzctemplateCustomBlocks implements ezcTemplateCustomBlock
 	 * @author     Felix Weis <mail@felixweis.com>
 	 * @since      0.11.0
 	 */
-	public static function _d($obj, $params = array())
+	public static function _d($obj, $params = [])
 	{
-		$params += array('domain' => null, 'locale' => null);
+		$params += ['domain' => null, 'locale' => null];
 		return $obj->getContext()->getTranslationManager()->_d($params['value'], $params['domain'], $params['locale']);;
 	}
 
@@ -158,9 +158,9 @@ class AgaviEzctemplateCustomBlocks implements ezcTemplateCustomBlock
 	 * @author     Felix Weis <mail@felixweis.com>
 	 * @since      0.11.0
 	 */
-	public static function _n($obj, $params = array())
+	public static function _n($obj, $params = [])
 	{
-		$params += array('domain' => null, 'locale' => null);
+		$params += ['domain' => null, 'locale' => null];
 		return $obj->getContext()->getTranslationManager()->_n($params['value'], $params['domain'], $params['locale']);
 	}
 
@@ -175,9 +175,9 @@ class AgaviEzctemplateCustomBlocks implements ezcTemplateCustomBlock
 	 * @author     Felix Weis <mail@felixweis.com>
 	 * @since      0.11.0
 	 */
-	public static function route($obj, $params = array())
+	public static function route($obj, $params = [])
 	{
-		$params += array('params' => array(), 'options' => array());
+		$params += ['params' => [], 'options' => []];
 		return $obj->getContext()->getRouting()->gen($params['name'], $params['params'], $params['options']);
 	}
 }

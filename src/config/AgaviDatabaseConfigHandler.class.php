@@ -56,7 +56,7 @@ class AgaviDatabaseConfigHandler extends AgaviXmlConfigHandler
 		// set up our default namespace
 		$document->setDefaultNamespace(self::XML_NAMESPACE, 'databases');
 		
-		$databases = array();
+		$databases = [];
 		$default = null;
 		foreach($document->getConfigurationElements() as $configuration) {
 			if(!$configuration->hasChildren('databases')) {
@@ -82,7 +82,7 @@ class AgaviDatabaseConfigHandler extends AgaviXmlConfigHandler
 				$name = $database->getAttribute('name');
 
 				if(!isset($databases[$name])) {
-					$databases[$name] = array('parameters' => array());
+					$databases[$name] = ['parameters' => []];
 
 					if(!$database->hasAttribute('class')) {
 						$error = 'Configuration file "%s" specifies database "%s" with missing class key';
@@ -105,7 +105,7 @@ class AgaviDatabaseConfigHandler extends AgaviXmlConfigHandler
 			throw new AgaviConfigurationException($error);
 		}
 
-		$data = array();
+		$data = [];
 
 		foreach($databases as $name => $db) {
 			// append new data

@@ -34,13 +34,8 @@
  *
  * @version    $Id$
  */
-class AgaviContext
+class AgaviContext implements \Stringable
 {
-	/**
-	 * @var        string The name of the Context.
-	 */
-	protected $name = '';
-	
 	/**
 	 * @var        AgaviController A Controller instance.
 	 */
@@ -49,7 +44,7 @@ class AgaviContext
 	/**
 	 * @var        array An array of class names for frequently used factories.
 	 */
-	protected $factories = array(
+	protected $factories = [
 		'dispatch_filter' => null,
 		'execution_container' => null,
 		'execution_filter' => null,
@@ -57,7 +52,7 @@ class AgaviContext
 		'response' => null,
 		'security_filter' => null,
 		'validation_manager' => null,
-	);
+	];
 	
 	/**
 	 * @var        AgaviDatabaseManager A DatabaseManager instance.
@@ -97,17 +92,17 @@ class AgaviContext
 	/**
 	 * @var        array The array used for the shutdown sequence.
 	 */
-	protected $shutdownSequence = array();
+	protected $shutdownSequence = [];
 	
 	/**
 	 * @var        array An array of AgaviContext instances.
 	 */
-	protected static $instances = array();
+	protected static $instances = [];
 	
 	/**
 	 * @var        array An array of SingletonModel instances.
 	 */
-	protected $singletonModelInstances = array();
+	protected $singletonModelInstances = [];
 
 	/**
 	 * Clone method, overridden to prevent cloning, there can be only one.
@@ -121,19 +116,24 @@ class AgaviContext
 	}
 
 	/**
-	 * Constructor method, intentionally made protected so the context cannot be
-	 * created directly.
-	 *
-	 * @param      string The name of this context.
-	 *
-	 * @author     David Zülke <dz@bitxtender.com>
-	 * @author     Mike Vincent <mike@agavi.org>
-	 * @since      0.9.0
-	 */
-	protected function __construct($name)
-	{
-		$this->name = $name;
-	}
+     * Constructor method, intentionally made protected so the context cannot be
+     * created directly.
+     *
+     * @param      string The name of this context.
+     *
+     * @author     David Zülke <dz@bitxtender.com>
+     * @author     Mike Vincent <mike@agavi.org>
+     * @since      0.9.0
+     * @param string $name
+     */
+    protected function __construct(
+        /**
+         * @var        string The name of the Context.
+         */
+        protected $name
+    )
+    {
+    }
 
 	/**
 	 * __toString overload, returns the name of the Context.
@@ -145,7 +145,7 @@ class AgaviContext
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function __toString()
+	public function __toString(): string
 	{
 		return $this->getName();
 	}
@@ -283,7 +283,7 @@ class AgaviContext
 			}
 			$profile = strtolower($profile);
 			if(!isset(self::$instances[$profile])) {
-				$class = AgaviConfig::get('core.context_implementation', get_called_class());
+				$class = AgaviConfig::get('core.context_implementation', static::class);
 				self::$instances[$profile] = new $class($profile);
 				self::$instances[$profile]->initialize();
 			}
@@ -323,7 +323,7 @@ class AgaviContext
 			AgaviException::render($e, $this);
 		}
 		
-		register_shutdown_function(array($this, 'shutdown'));
+		register_shutdown_function([$this, 'shutdown']);
 	}
 	
 	/**
@@ -373,7 +373,7 @@ class AgaviContext
 		} else {
 			try {
 				$this->controller->initializeModule($moduleName);
-			} catch(AgaviDisabledModuleException $e) {
+			} catch(AgaviDisabledModuleException) {
 				// swallow, this will load the modules autoload but throw an exception 
 				// if the module is disabled.
 			}
@@ -425,7 +425,7 @@ class AgaviContext
 			}
 		}
 		
-		if(is_callable(array($model, 'initialize'))) {
+		if(is_callable([$model, 'initialize'])) {
 			// pass the constructor params again. dual use for the win
 			$model->initialize($this, (array) $parameters);
 		}

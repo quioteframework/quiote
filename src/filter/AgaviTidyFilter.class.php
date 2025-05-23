@@ -40,7 +40,8 @@ class AgaviTidyFilter extends AgaviFilter implements AgaviIGlobalFilter
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function execute(AgaviFilterChain $filterChain, AgaviExecutionContainer $container)
+	#[\Override]
+    public function execute(AgaviFilterChain $filterChain, AgaviExecutionContainer $container = null)
 	{
 		// nothing to do so far. let's carry on in the chain
 		$filterChain->execute($container);
@@ -105,21 +106,22 @@ class AgaviTidyFilter extends AgaviFilter implements AgaviIGlobalFilter
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	#[\Override]
+    public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		// set defaults
-		$this->setParameters(array(
+		$this->setParameters([
 			'methods'          => null,
 			'output_types'     => null,
 			
-			'tidy_options'     => array(),
+			'tidy_options'     => [],
 			'tidy_encoding'    => null,
 			
 			'ignore_errors'    => true,
 			'log_errors'       => true,
 			'logging_severity' => AgaviLogger::WARN,
 			'logging_logger'   => null,
-		));
+		]);
 		
 		// initialize parent
 		parent::initialize($context, $parameters);

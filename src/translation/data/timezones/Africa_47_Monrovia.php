@@ -15,56 +15,56 @@
  * @version    $Id$
  */
 
-return array (
+return  [
   'types' => 
-  array (
+   [
     0 => 
-    array (
+     [
       'rawOffset' => -2588,
       'dstOffset' => 0,
       'name' => 'MMT',
-    ),
+    ],
     1 => 
-    array (
+     [
       'rawOffset' => -2670,
       'dstOffset' => 0,
       'name' => 'MMT',
-    ),
+    ],
     2 => 
-    array (
+     [
       'rawOffset' => 0,
       'dstOffset' => 0,
       'name' => 'GMT',
-    ),
-  ),
+    ],
+  ],
   'rules' => 
-  array (
+   [
     0 => 
-    array (
+     [
       'time' => -2776979812.0,
       'type' => 0,
-    ),
+    ],
     1 => 
-    array (
+     [
       'time' => -1604359012.0,
       'type' => 1,
-    ),
+    ],
     2 => 
-    array (
+     [
       'time' => 63593070.0,
       'type' => 2,
-    ),
-  ),
+    ],
+  ],
   'finalRule' => 
-  array (
+   [
     'type' => 'static',
     'name' => 'GMT',
     'offset' => 0,
     'startYear' => 1973,
-  ),
+  ],
   'source' => '(unknown)',
   'version' => '(unknown)',
   'name' => 'Africa/Monrovia',
-);
+];
 
 ?>

@@ -42,7 +42,7 @@ abstract class AgaviTemplateLayer extends AgaviParameterHolder
 	/**
 	 * @var        array An associative array of execution containers for slots.
 	 */
-	protected $slots = array();
+	protected $slots = [];
 	
 	/**
 	 * Constructor.
@@ -52,12 +52,12 @@ abstract class AgaviTemplateLayer extends AgaviParameterHolder
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function __construct(array $parameters = array())
+	public function __construct(array $parameters = [])
 	{
-		parent::__construct(array_merge(array(
+		parent::__construct(array_merge([
 			'module' => null,
 			'template' => null,
-		), $parameters));
+		], $parameters));
 	}
 	
 	/**
@@ -71,12 +71,12 @@ abstract class AgaviTemplateLayer extends AgaviParameterHolder
 	 */
 	public function __call($name, array $args)
 	{
-		$matches = array();
-		if(preg_match('/^(has|get|set|remove)(.+)$/', $name, $matches)) {
+		$matches = [];
+		if(preg_match('/^(has|get|set|remove)(.+)$/', (string) $name, $matches)) {
 			$method = $matches[1] . 'Parameter';
 			// transform "FooBarBaz" (from "setTemplateDir" etc) to "foo_bar_baz"
-			$parameter = strtolower(preg_replace('/((?<!\A)[A-Z])/u', '_$1', $matches[2]));
-			return call_user_func_array(array($this, $method), array_merge(array($parameter), $args));
+			$parameter = strtolower((string) preg_replace('/((?<!\A)[A-Z])/u', '_$1', $matches[2]));
+			return call_user_func_array([$this, $method], array_merge([$parameter], $args));
 		}
 	}
 	
@@ -137,9 +137,9 @@ abstract class AgaviTemplateLayer extends AgaviParameterHolder
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function execute(AgaviRenderer $renderer = null, array &$attributes = array(), array &$moreAssigns = array())
+	public function execute(AgaviRenderer $renderer = null, array &$attributes = [], array &$moreAssigns = [])
 	{
-		$output = array();
+		$output = [];
 		
 		foreach($this->getSlots() as $slotName => $slotContainer) {
 			$slotResponse = $slotContainer->execute();
@@ -166,7 +166,7 @@ abstract class AgaviTemplateLayer extends AgaviParameterHolder
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		$this->context = $context;
 		

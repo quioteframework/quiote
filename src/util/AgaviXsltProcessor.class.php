@@ -47,7 +47,7 @@ class AgaviXsltProcessor extends XSLTProcessor
 		// libxml_get_last_error() returns false if importStylesheet failed, libxml_get_errors() works nontheless. zomfg libxml.
 		// also, if we catch the errors here and throw an exception, we don't need an @ further down at transformToDoc().
 		if(libxml_get_last_error() !== false || count(libxml_get_errors())) {
-			$errors = array();
+			$errors = [];
 			foreach(libxml_get_errors() as $error) {
 				$errors[] = sprintf('[%s #%d] Line %d: %s', $error->level == LIBXML_ERR_WARNING ? 'Warning' : ($error->level == LIBXML_ERR_ERROR ? 'Error' : 'Fatal'), $error->code, $error->line, $error->message);
 			}
@@ -87,7 +87,7 @@ class AgaviXsltProcessor extends XSLTProcessor
 		
 		// check if result is false, too, as that means the transformation failed for reasons like infinite template recursion
 		if($result === false || libxml_get_last_error() !== false || count(libxml_get_errors())) {
-			$errors = array();
+			$errors = [];
 			foreach(libxml_get_errors() as $error) {
 				$errors[] = sprintf('[%s #%d] Line %d: %s', $error->level == LIBXML_ERR_WARNING ? 'Warning' : ($error->level == LIBXML_ERR_ERROR ? 'Error' : 'Fatal'), $error->code, $error->line, $error->message);
 			}

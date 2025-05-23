@@ -38,7 +38,8 @@ class AgaviSoapRouting extends AgaviWebserviceRouting
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	#[\Override]
+    public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		// must always be on
 		// don't do this after parent::initialize() as AgaviWebserviceRouting::initialize() checks the value already

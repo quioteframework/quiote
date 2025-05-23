@@ -60,7 +60,8 @@ class AgaviDateFormatter extends AgaviDateFormat implements AgaviITranslator
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	#[\Override]
+    public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		parent::initialize($context, $parameters);
 		$type = 'datetime';
@@ -68,7 +69,7 @@ class AgaviDateFormatter extends AgaviDateFormat implements AgaviITranslator
 		if(isset($parameters['translation_domain'])) {
 			$this->translationDomain = $parameters['translation_domain'];
 		}
-		if(isset($parameters['type']) && in_array($parameters['type'], array('date', 'time'))) {
+		if(isset($parameters['type']) && in_array($parameters['type'], ['date', 'time'])) {
 			$type = $parameters['type'];
 		}
 		if(isset($parameters['format'])) {
@@ -145,8 +146,8 @@ class AgaviDateFormatter extends AgaviDateFormat implements AgaviITranslator
 			$format = $this->customFormat;
 		}
 		
-		if($format === null || $this->isDateSpecifier($format)) {
-			$format = $this->resolveSpecifier($this->locale, $format, $this->type);
+		if($format === null || static::isDateSpecifier($format)) {
+			$format = static::resolveSpecifier($this->locale, $format, $this->type);
 		}
 		
 		$this->setFormat($format);
@@ -217,7 +218,7 @@ class AgaviDateFormatter extends AgaviDateFormat implements AgaviITranslator
 		if($type == 'datetime') {
 			$formatName = $locale->getCalendarDateTimeFormatDefaultName($calendarType);
 			$formatStr = $locale->getCalendarDateTimeFormat($calendarType, $formatName);
-			$format = str_replace(array('{0}', '{1}'), array($timeFormat, $dateFormat), $formatStr);
+			$format = str_replace(['{0}', '{1}'], [$timeFormat, $dateFormat], $formatStr);
 		}
 
 		return $format;
@@ -236,7 +237,7 @@ class AgaviDateFormatter extends AgaviDateFormat implements AgaviITranslator
 	 */
 	protected static function isDateSpecifier($format)
 	{
-		static $specifiers = array('full', 'long', 'medium', 'short');
+		static $specifiers = ['full', 'long', 'medium', 'short'];
 
 		return in_array($format, $specifiers);
 	}

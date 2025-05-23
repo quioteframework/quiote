@@ -121,8 +121,8 @@ class AgaviGenerateModelAttributesTask extends AgaviTask
 	 */
 	public function setAttributeAccessLevel($level)
 	{
-		$level = strtolower($level);
-		if(!in_array($level, array("private", "protected", "public"))) {
+		$level = strtolower((string) $level);
+		if(!in_array($level, ["private", "protected", "public"])) {
 			throw new BuildException(
 				sprintf(
 					'The access level "%1$s" is not a valid access level, must be any of [private, protected, public]', 
@@ -214,7 +214,7 @@ class AgaviGenerateModelAttributesTask extends AgaviTask
 		
 		
 		$type = $this->type;
-		$isScalar = in_array(strtolower($type), array("int", "integer", "float", "double", "string", "bool", "boolean", "mixed"));
+		$isScalar = in_array(strtolower($type), ["int", "integer", "float", "double", "string", "bool", "boolean", "mixed"]);
 		if($isScalar) {
 			$typehint = "";
 		} else {
@@ -224,15 +224,15 @@ class AgaviGenerateModelAttributesTask extends AgaviTask
 		$variable = '$'.$varname;
 		$level = $this->accessLevel;
 		
-		$search = array('%%TYPE%%', '%%VARIABLE%%', '%%VARNAME%%', '%%ACCESS_LEVEL%%', '%%TYPE_HINT%%');
-		$replace = array($type, $variable, $varname, $level, $typehint);
+		$search = ['%%TYPE%%', '%%VARIABLE%%', '%%VARNAME%%', '%%ACCESS_LEVEL%%', '%%TYPE_HINT%%'];
+		$replace = [$type, $variable, $varname, $level, $typehint];
 		
 		$attrList .= str_replace($search, $replace, $attributeListItemTemplate);
 		
 		$search[] = '%%METHODNAME%%';
 		
-		$attrAccessors .= str_replace($search, array_merge($replace, array('set'.ucfirst($varname))), $attributeSetterTemplate);
-		$attrAccessors .= str_replace($search, array_merge($replace, array('get'.ucfirst($varname))), $attributeGetterTemplate);
+		$attrAccessors .= str_replace($search, array_merge($replace, ['set'.ucfirst($varname)]), $attributeSetterTemplate);
+		$attrAccessors .= str_replace($search, array_merge($replace, ['get'.ucfirst($varname)]), $attributeGetterTemplate);
 		
 		$this->project->setUserProperty($this->attributeAccessorsProperty, $attrAccessors);
 		$this->project->setUserProperty($this->attributeListProperty, $attrList);

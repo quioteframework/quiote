@@ -15,23 +15,23 @@
  * @version    $Id$
  */
 
-return array (
+return  [
   'types' => 
-  array (
-  ),
+   [
+  ],
   'rules' => 
-  array (
-  ),
+   [
+  ],
   'finalRule' => 
-  array (
+   [
     'type' => 'static',
     'name' => '+14',
     'offset' => 50400,
     'startYear' => -2147483647,
-  ),
+  ],
   'source' => '(unknown)',
   'version' => '(unknown)',
   'name' => 'Etc/GMT-14',
-);
+];
 
 ?>

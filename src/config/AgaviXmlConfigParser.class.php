@@ -74,22 +74,22 @@ class AgaviXmlConfigParser
 	 * @var        array A list of XML namespaces for Agavi configuration files as
 	 *                   keys and their associated XPath namespace prefix (value).
 	 */
-	public static $agaviEnvelopeNamespaces = array(
+	public static $agaviEnvelopeNamespaces = [
 		self::NAMESPACE_AGAVI_ENVELOPE_0_11 => 'agavi_envelope_0_11',
 		self::NAMESPACE_AGAVI_ENVELOPE_1_0 => 'agavi_envelope_1_0',
 		self::NAMESPACE_AGAVI_ENVELOPE_1_1 => 'agavi_envelope_1_1',
-	);
+	];
 	
 	/**
 	 * @var        array A list of all XML namespaces that are used internally by
 	 *                   the configuration parser.
 	 */
-	public static $agaviNamespaces = array(
+	public static $agaviNamespaces = [
 		self::NAMESPACE_AGAVI_ENVELOPE_0_11 => 'agavi_envelope_0_11',
 		self::NAMESPACE_AGAVI_ENVELOPE_1_0 => 'agavi_envelope_1_0',
 		self::NAMESPACE_AGAVI_ENVELOPE_1_1 => 'agavi_envelope_1_1',
 		self::NAMESPACE_AGAVI_ANNOTATIONS_1_0 => 'agavi_annotations_1_0',
-	);
+	];
 	
 	/**
 	 * @var        string Path to the config file we're parsing in this instance.
@@ -100,11 +100,6 @@ class AgaviXmlConfigParser
 	 * @var        string The name of the current environment.
 	 */
 	protected $environment = '';
-	
-	/**
-	 * @var        string The name of the current context.
-	 */
-	protected $context = null;
 	
 	/**
 	 * @var        DOMDocument The document we're parsing here.
@@ -211,12 +206,12 @@ class AgaviXmlConfigParser
 	 * @author     Noah Fontes <noah.fontes@bitextender.com>
 	 * @since      0.11.0
 	 */
-	public static function run($path, $environment, $context = null, array $transformationInfo = array(), array $validationInfo = array())
+	public static function run($path, $environment, $context = null, array $transformationInfo = [], array $validationInfo = [])
 	{
 		$isAgaviConfigFormat = true;
 		// build an array of documents (this one, and the parents)
-		$docs = array();
-		$previousPaths = array();
+		$docs = [];
+		$previousPaths = [];
 		$nextPath = $path;
 		while($nextPath !== null) {
 			// run the single stage parser
@@ -263,7 +258,7 @@ class AgaviXmlConfigParser
 			// reverse the array - we want the parents first!
 			$docs = array_reverse($docs);
 			
-			$configurationElements = array();
+			$configurationElements = [];
 			
 			// TODO: I bet this leaks memory due to the nodes being taken out of the docs. beware circular refs!
 			foreach($docs as $doc) {
@@ -299,12 +294,12 @@ class AgaviXmlConfigParser
 			}
 			
 			// generic <configuration> first, then those with an environment attribute, then those with context, then those with both
-			$configurationOrder = array(
+			$configurationOrder = [
 				'count(self::node()[@agavi_annotations_latest:matched and not(@environment) and not(@context)])',
 				'count(self::node()[@agavi_annotations_latest:matched and @environment and not(@context)])',
 				'count(self::node()[@agavi_annotations_latest:matched and not(@environment) and @context])',
 				'count(self::node()[@agavi_annotations_latest:matched and @environment and @context])',
-			);
+			];
 			
 			// now we sort the nodes according to the rules
 			foreach($configurationOrder as $xpath) {
@@ -350,31 +345,33 @@ class AgaviXmlConfigParser
 	public static function testPattern($pattern, $subject)
 	{
 		// four backslashes mean one literal backslash
-		$pattern = preg_replace('/\\\\+#/', '\\#', $pattern);
-		return (preg_match('#^(' . implode('|', array_map('trim', explode(' ', $pattern))) . ')$#', $subject) > 0);
+		$pattern = preg_replace('/\\\\+#/', '\\#', (string) $pattern);
+		return (preg_match('#^(' . implode('|', array_map('trim', explode(' ', $pattern))) . ')$#', (string) $subject) > 0);
 	}
 	
 	/**
-	 * The constructor.
-	 * Will make a DOMDocument instance using the given path.
-	 *
-	 * @param      string The path to the configuration file.
-	 * @param      string The optional name of the current environment.
-	 * @param      string The optional name of the current context.
-	 *
-	 * @author     David Zülke <dz@bitxtender.com>
-	 * @author     Noah Fontes <noah.fontes@bitextender.com>
-	 * @since      1.0.0
-	 */
-	public function __construct($path, $environment = null, $context = null)
+     * The constructor.
+     * Will make a DOMDocument instance using the given path.
+     *
+     * @param      string The path to the configuration file.
+     * @param      string The optional name of the current environment.
+     * @param      string The optional name of the current context.
+     *
+     * @author     David Zülke <dz@bitxtender.com>
+     * @author     Noah Fontes <noah.fontes@bitextender.com>
+     * @since      1.0.0
+     * @param string $context
+     */
+    public function __construct($path, $environment = null, /**
+     * @var        string The name of the current context.
+     */
+    protected $context = null)
 	{
 		// store environment...
 		if($environment === null) {
 			$environment = AgaviConfig::get('core.environment');
 		}
 		$this->environment = $environment;
-		// ... and context names
-		$this->context = $context;
 		
 		if(!is_readable($path)) {
 			$error = 'Configuration file "' . $path . '" does not exist or is unreadable';
@@ -416,7 +413,7 @@ class AgaviXmlConfigParser
 	 * @author     Noah Fontes <noah.fontes@bitextender.com>
 	 * @since      0.11.0
 	 */
-	public function execute(array $transformationInfo = array(), array $validationInfo = array())
+	public function execute(array $transformationInfo = [], array $validationInfo = [])
 	{
 		// resolve xincludes
 		self::xinclude($this->doc);
@@ -462,7 +459,7 @@ class AgaviXmlConfigParser
 	 * @author     Noah Fontes <noah.fontes@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public static function executeCompilation(AgaviXmlConfigDomDocument $document, $environment, $context, array $transformationInfo = array(), array $validationInfo = array())
+	public static function executeCompilation(AgaviXmlConfigDomDocument $document, $environment, $context, array $transformationInfo = [], array $validationInfo = [])
 	{
 		// resolve xincludes
 		self::xinclude($document);
@@ -504,7 +501,7 @@ class AgaviXmlConfigParser
 			$element = $elements->item($i);
 			if($element->hasAttribute('href')) {
 				$attribute = $element->getAttributeNode('href');
-				$parts = explode('#', $attribute->nodeValue, 2);
+				$parts = explode('#', (string) $attribute->nodeValue, 2);
 				$parts[0] = str_replace('\\', '/', AgaviToolkit::expandDirectives($parts[0]));
 				$attribute->nodeValue = rawurlencode($parts[0]) . (isset($parts[1]) ? '#' . $parts[1] : '');
 				if(str_contains($parts[0], '*') || str_contains($parts[0], '{')) {
@@ -553,10 +550,10 @@ class AgaviXmlConfigParser
 	{
 		if($document->isAgaviConfiguration()) {
 			// it's an agavi config, so we need to set "matched" flags on all <configuration> elements where "context" and "environment" attributes match the values below
-			$testAttributes = array(
+			$testAttributes = [
 				'context' => $context,
 				'environment' => $environment,
-			);
+			];
 			
 			foreach($document->getConfigurationElements() as $configuration) {
 				// assume that the element counts as matched, in case it doesn't have "context" or "environment" attributes
@@ -590,7 +587,7 @@ class AgaviXmlConfigParser
 	 * @author     Noah Fontes <noah.fontes@bitextender.com>
 	 * @since      0.11.0
 	 */
-	public static function transform(AgaviXmlConfigDomDocument $document, $environment, $context, array $transformationInfo = array(), $transformations = array())
+	public static function transform(AgaviXmlConfigDomDocument $document, $environment, $context, array $transformationInfo = [], $transformations = [])
 	{
 		// loop over all the paths we found and load the files
 		foreach($transformationInfo as $href) {
@@ -620,11 +617,11 @@ class AgaviXmlConfigParser
 			// first arg is the namespace URI, which PHP doesn't support. awesome. see http://bugs.php.net/bug.php?id=30622 for the sad details
 			// we could use "agavi:context" etc, that does work even without such a prefix being declared in the stylesheet, but that would be completely non-XML-ish, confusing, and against the spec. so we use dots instead.
 			// the string casts are required for hhvm ($context could be null for example and hhvm bails out on that)
-			$proc->setParameter('', array(
+			$proc->setParameter('', [
 				'agavi.config_path' => (string)$document->documentURI,
 				'agavi.environment' => (string)$environment,
 				'agavi.context' => (string)$context,
-			));
+			]);
 			
 			try {
 				// transform the doc
@@ -664,8 +661,8 @@ class AgaviXmlConfigParser
 	 */
 	public static function transformProcessingInstructions(AgaviXmlConfigDomDocument $document, $environment, $context)
 	{
-		$transformations = array();
-		$transformationInfo = array();
+		$transformations = [];
+		$transformationInfo = [];
 		
 		$xpath = $document->getXpath();
 		
@@ -677,12 +674,12 @@ class AgaviXmlConfigParser
 			$fragment->appendXml('<foo ' . $pi->data . ' />');
 			$type = $fragment->firstChild->getAttribute('type');
 			// we process only the types below...
-			if(in_array($type, array('text/xml', 'text/xsl', 'application/xml', 'application/xsl+xml'))) {
+			if(in_array($type, ['text/xml', 'text/xsl', 'application/xml', 'application/xsl+xml'])) {
 				$href = $href = $fragment->firstChild->getAttribute('href');
 				
-				if(str_starts_with($href, '#')) {
+				if(str_starts_with((string) $href, '#')) {
 					// the href points to an embedded XSL stylesheet (with ID reference), so let's see if we can find it
-					$stylesheets = $xpath->query("//*[@id='" . substr($href, 1) . "']", $document);
+					$stylesheets = $xpath->query("//*[@id='" . substr((string) $href, 1) . "']", $document);
 					if($stylesheets->length) {
 						// excellent. make a new doc from that element!
 						try {
@@ -723,14 +720,14 @@ class AgaviXmlConfigParser
 	 * @author     Noah Fontes <noah.fontes@bitextender.com>
 	 * @since      0.11.0
 	 */
-	public static function validate(AgaviXmlConfigDomDocument $document, $environment, $context, array $validationInfo = array())
+	public static function validate(AgaviXmlConfigDomDocument $document, $environment, $context, array $validationInfo = [])
 	{
 		// bail out right away if validation is disabled
 		if(AgaviConfig::get('core.skip_config_validation', false)) {
 			return;
 		}
 		
-		$errors = array();
+		$errors = [];
 		
 		foreach($validationInfo as $type => $files) {
 			try {
@@ -784,7 +781,7 @@ class AgaviXmlConfigParser
 	public static function validateXsi(AgaviXmlConfigDomDocument $document)
 	{
 		// next, find (and validate against) XML schema instance declarations
-		$sources = array();
+		$sources = [];
 		if($document->documentElement->hasAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'schemaLocation')) {
 			// find locations. for namespaces, they are space separated pairs of a namespace URI and a schema location
 			$locations = preg_split('/\s+/', $document->documentElement->getAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'schemaLocation'));
@@ -798,13 +795,13 @@ class AgaviXmlConfigParser
 		}
 		if($sources) {
 			// we have instances to validate against...
-			$schemas = array();
+			$schemas = [];
 			foreach($sources as &$source) {
 				// so for each location, we need to grab the file and validate against this grabbed source code, as libxml often has a hard time retrieving stuff over HTTP
 				$source = AgaviToolkit::expandDirectives($source);
 				if(parse_url($source, PHP_URL_SCHEME) === null && !AgaviToolkit::isPathAbsolute($source)) {
 					// the schema location is relative to the XML file
-					$source = dirname($document->documentURI) . DIRECTORY_SEPARATOR . $source;
+					$source = dirname((string) $document->documentURI) . DIRECTORY_SEPARATOR . $source;
 				}
 				$schema = @file_get_contents($source);
 				if($schema === false) {
@@ -827,7 +824,7 @@ class AgaviXmlConfigParser
 	 * @author     Noah Fontes <noah.fontes@bitextender.com>
 	 * @since      0.11.0
 	 */
-	public static function validateXmlschema(AgaviXmlConfigDomDocument $document, array $validationFiles = array())
+	public static function validateXmlschema(AgaviXmlConfigDomDocument $document, array $validationFiles = [])
 	{
 		foreach($validationFiles as $validationFile) {
 			if(!is_resource($validationFile) && !is_readable($validationFile)) {
@@ -852,7 +849,7 @@ class AgaviXmlConfigParser
 	 * @author     Noah Fontes <noah.fontes@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public static function validateXmlschemaSource(AgaviXmlConfigDomDocument $document, array $validationSources = array())
+	public static function validateXmlschemaSource(AgaviXmlConfigDomDocument $document, array $validationSources = [])
 	{
 		foreach($validationSources as $validationSource) {
 			try {
@@ -873,7 +870,7 @@ class AgaviXmlConfigParser
 	 * @author     Noah Fontes <noah.fontes@bitextender.com>
 	 * @since      0.11.0
 	 */
-	public static function validateRelaxng(AgaviXmlConfigDomDocument $document, array $validationFiles = array())
+	public static function validateRelaxng(AgaviXmlConfigDomDocument $document, array $validationFiles = [])
 	{
 		foreach($validationFiles as $validationFile) {
 			if(!is_readable($validationFile)) {
@@ -900,7 +897,7 @@ class AgaviXmlConfigParser
 	 * @author     Noah Fontes <noah.fontes@bitextender.com>
 	 * @since      0.11.0
 	 */
-	public static function validateSchematron(AgaviXmlConfigDomDocument $document, $environment, $context, array $validationFiles = array())
+	public static function validateSchematron(AgaviXmlConfigDomDocument $document, $environment, $context, array $validationFiles = [])
 	{
 		if(AgaviConfig::get('core.skip_config_transformations', false)) {
 			return;
@@ -912,11 +909,11 @@ class AgaviXmlConfigParser
 		// set some info (config file path, context name, environment name) as params
 		// first arg is the namespace URI, which PHP doesn't support. awesome. see http://bugs.php.net/bug.php?id=30622 for the sad details
 		// we could use "agavi:context" etc, that does work even without such a prefix being declared in the stylesheet, but that would be completely non-XML-ish, confusing, and against the spec. so we use dots instead.
-		$schematron->setParameters(array(
+		$schematron->setParameters([
 			'agavi.config_path' => $document->documentURI,
 			'agavi.environment' => $environment,
 			'agavi.context' => $context,
-		));
+		]);
 		
 		// loop over all validation files. those are .sch schematron schemas, which we transform to an XSL document that is then used to validate the source document :)
 		foreach($validationFiles as $href) {
@@ -945,7 +942,7 @@ class AgaviXmlConfigParser
 			
 			$results = $xpath->query('/svrl:schematron-output/svrl:failed-assert/svrl:text');
 			if($results->length) {
-				$errors = array('Failed assertions:');
+				$errors = ['Failed assertions:'];
 				
 				foreach($results as $result) {
 					$errors[] = $result->nodeValue;

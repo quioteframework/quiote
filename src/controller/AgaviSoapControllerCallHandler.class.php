@@ -72,7 +72,7 @@ class AgaviSoapControllerCallHandler
 		$functions = $ct->getSoapClient()->__getFunctions();
 		foreach($functions as $function) {
 			// now we try to match the called method against the function signatures
-			if(preg_match('/^(?:\S+|list\([^\)]*\))\s' . preg_quote($name, '/') . '\(([^\)]*)\)$/', $function, $matches)) {
+			if(preg_match('/^(?:\S+|list\([^\)]*\))\s' . preg_quote((string) $name, '/') . '\(([^\)]*)\)$/', (string) $function, $matches)) {
 				// we found something, so we can extract all method argument names
 				preg_match_all('/\$([\w]+)/', $matches[1], $params);
 				for($i = 0; $i < count($params[1]); $i++) {
@@ -82,7 +82,7 @@ class AgaviSoapControllerCallHandler
 				}
 				// and while we're at it, please get us the name of the return value as well, we need it in document/literal wrapped WSDL styles
 				$returnType = '';
-				if(preg_match('/^(\w+) /', $function, $matches)) {
+				if(preg_match('/^(\w+) /', (string) $function, $matches)) {
 					$returnType = $matches[1];
 				}
 				break;
@@ -92,7 +92,7 @@ class AgaviSoapControllerCallHandler
 		
 		// for document/literal wrapped style services, unpack the complex type passed in by php, see http://bugs.php.net/bug.php?id=30302 - PHP produces an stdClass object with named members.
 		if($ct->getParameter('force_document_literal_wrapped_marshalling', false)) {
-			$unpackedArguments = array();
+			$unpackedArguments = [];
 			foreach($arguments as $argument) {
 				foreach($argument as $name => $value) {
 					$unpackedArguments[$name] = $value;
@@ -125,7 +125,7 @@ class AgaviSoapControllerCallHandler
 				$originalResponseContent = $responseContent;
 				$wrapperFound = false;
 				foreach($ct->getSoapClient()->__getTypes() as $type) {
-					if($originalResponseContent !== null && preg_match('/^struct ' . preg_quote($returnType, '/') . ' \{\s*(.+)\s*\}$/s', $type, $matches)) {
+					if($originalResponseContent !== null && preg_match('/^struct ' . preg_quote($returnType, '/') . ' \{\s*(.+)\s*\}$/s', (string) $type, $matches)) {
 						// next: extract all the return value part names (usually just one)
 						$returnPartCount = preg_match_all('/^\s*(?P<type>\w+) (?P<name>\w+);$/m', $matches[1], $returnParts);
 						
@@ -133,7 +133,7 @@ class AgaviSoapControllerCallHandler
 						// so the code further down works without additional checks
 						// a check like !is_array() would be wrong as the return value might be an array itself already (e.g. for a list of objects)
 						if($returnPartCount == 1) {
-							$originalResponseContent = array($originalResponseContent);
+							$originalResponseContent = [$originalResponseContent];
 						}
 						
 						$responseContent = new stdClass();
@@ -159,7 +159,7 @@ class AgaviSoapControllerCallHandler
 						// we set $wrapperFound only now
 						$wrapperFound = true;
 						break;
-					} elseif($originalResponseContent === null && preg_match('/^struct ' . preg_quote($returnType, '/') . ' \{\s*\}$/s', $type, $matches)) {
+					} elseif($originalResponseContent === null && preg_match('/^struct ' . preg_quote($returnType, '/') . ' \{\s*\}$/s', (string) $type, $matches)) {
 						$wrapperFound = true;
 						$responseContent = new stdClass();
 						break;

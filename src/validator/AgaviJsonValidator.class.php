@@ -30,7 +30,7 @@
  */
 class AgaviJsonValidator extends AgaviValidator
 {
-	protected $jsonErrors = array(
+	protected $jsonErrors = [
 		'depth',
 		'state_mismatch',
 		'ctrl_char',
@@ -39,7 +39,7 @@ class AgaviJsonValidator extends AgaviValidator
 		'recursion',
 		'inf_or_nan',
 		'unsupported_type',
-	);
+	];
 	
 	/**
 	 * Validates the input.
@@ -53,12 +53,12 @@ class AgaviJsonValidator extends AgaviValidator
 	{
 		$json = $this->getData($this->getArgument());
 		
-		$ret = json_decode($json, $this->getParameter('assoc', true));
+		$ret = json_decode((string) $json, $this->getParameter('assoc', true));
 		
 		if($json !== '' && $ret === null) {
 			$jsonError = json_last_error();
 			foreach($this->jsonErrors as $errorName) {
-				$constName = 'JSON_ERROR_' . strtoupper($errorName);
+				$constName = 'JSON_ERROR_' . strtoupper((string) $errorName);
 				if(defined($constName) && constant($constName) === $jsonError) {
 					$this->throwError($errorName);
 					return false;

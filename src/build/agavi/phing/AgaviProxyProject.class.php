@@ -42,11 +42,11 @@ class AgaviProxyProject extends Project
 	/**
 	 * @var        array A List of properties to set on the proxy.
 	 */
-	protected static $protectedProperties = array(
+	protected static $protectedProperties = [
 		'phing.file',
 		'basedir',
 		'project.basedir'
-	);
+	];
 	
 	/**
 	 * Creates a new proxied project.

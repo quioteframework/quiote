@@ -227,9 +227,9 @@ class AgaviWebRequest extends AgaviRequest
 	public function __construct()
 	{
 		parent::__construct();
-		$this->setParameters(array(
+		$this->setParameters([
 			'request_data_holder_class' => 'AgaviWebRequestDataHolder',
-		));
+		]);
 	}
 
 	/**
@@ -252,10 +252,10 @@ class AgaviWebRequest extends AgaviRequest
 		// http://trac.agavi.org/ticket/944
 		// http://bugs.php.net/bug.php?id=41093
 		
-		$retval = array();
+		$retval = [];
 
 		foreach($input as $key => $value) {
-			$key = stripslashes($key);
+			$key = stripslashes((string) $key);
 
 			if(is_array($value)) {
 				$retval[$key] = self::clearMagicQuotes($value);
@@ -282,38 +282,39 @@ class AgaviWebRequest extends AgaviRequest
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.9.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = array())
+	#[\Override]
+    public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		parent::initialize($context, $parameters);
 
 		$rla = ini_get('register_long_arrays');
 
-		$sources = array_merge(array(
+		$sources = array_merge([
 			'HTTPS' => 'HTTPS',
 			'REQUEST_METHOD' => 'REQUEST_METHOD',
 			'SERVER_NAME' => 'SERVER_NAME',
 			'SERVER_PORT' => 'SERVER_PORT',
 			'SERVER_PROTOCOL' => 'SERVER_PROTOCOL',
 			'SERVER_SOFTWARE' => 'SERVER_SOFTWARE',
-		), (array)$this->getParameter('sources'));
+		], (array)$this->getParameter('sources'));
 		$this->setParameter('sources', $sources);
 
 		// this is correct: if a user-supplied parameter was set, then null is used as the default return value, which means getSourceValue() returns the user-supplied parameter as a last resort if a key of the same name could not be found. allows setting of static values for any of those below
-		$sourceDefaults = array(
+		$sourceDefaults = [
 			'HTTPS' => isset($parameters['sources']['HTTPS']) ? null : 'off',
 			'REQUEST_METHOD' => isset($parameters['sources']['REQUEST_METHOD']) ? null : 'GET',
 			'SERVER_NAME' => null,
 			'SERVER_PORT' => isset($parameters['sources']['SERVER_PORT']) ? null : $this->urlPort,
 			'SERVER_PROTOCOL' => isset($parameters['sources']['SERVER_PROTOCOL']) ? null : 'HTTP/1.0',
 			'SERVER_SOFTWARE' => null,
-		);
+		];
 
-		$methods = array_merge(array(
+		$methods = array_merge([
 			'GET' => 'read',
 			'POST' => 'write',
 			'PUT' => 'create',
 			'DELETE' => 'remove',
-		), (array)$this->getParameter('method_names'));
+		], (array)$this->getParameter('method_names'));
 		$this->setParameter('method_names', $methods);
 
 		$REQUEST_METHOD = self::getSourceValue($sources['REQUEST_METHOD'], $sourceDefaults['REQUEST_METHOD']);
@@ -325,7 +326,7 @@ class AgaviWebRequest extends AgaviRequest
 		$this->protocol = self::getSourceValue($sources['SERVER_PROTOCOL'], $sourceDefaults['SERVER_PROTOCOL']);
 		
 		// "on" (e.g. Apache or IIS) or "https" (e.g. Amazon EC2 Elastic Load Balancer) or "1" or integer 1 or true (e.g. statically set from a config file)
-		$HTTPS = (bool)preg_match('/^(on|https|1)$/i', self::getSourceValue($sources['HTTPS'], $sourceDefaults['HTTPS']));
+		$HTTPS = (bool)preg_match('/^(on|https|1)$/i', (string) self::getSourceValue($sources['HTTPS'], $sourceDefaults['HTTPS']));
 
 		$this->urlScheme = 'http' . ($HTTPS ? 's' : '');
 
@@ -333,10 +334,10 @@ class AgaviWebRequest extends AgaviRequest
 
 		$SERVER_NAME = self::getSourceValue($sources['SERVER_NAME'], $sourceDefaults['SERVER_NAME']);
 		$port = $this->getUrlPort();
-		if(preg_match_all('/\:/', $SERVER_NAME, $m) > 1) {
-			$this->urlHost = preg_replace('/\]\:' . preg_quote($port, '/') . '$/', '', $SERVER_NAME);
+		if(preg_match_all('/\:/', (string) $SERVER_NAME, $m) > 1) {
+			$this->urlHost = preg_replace('/\]\:' . preg_quote($port, '/') . '$/', '', (string) $SERVER_NAME);
 		} else {
-			$this->urlHost = preg_replace('/\:' . preg_quote($port, '/') . '$/', '', $SERVER_NAME);
+			$this->urlHost = preg_replace('/\:' . preg_quote($port, '/') . '$/', '', (string) $SERVER_NAME);
 		}
 
 		$_SERVER['SERVER_SOFTWARE'] = self::getSourceValue($sources['SERVER_SOFTWARE'], $sourceDefaults['SERVER_SOFTWARE']);
@@ -390,22 +391,22 @@ class AgaviWebRequest extends AgaviRequest
 		// more details:
 		// http://trac.agavi.org/ticket/1019
 		// http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2009-0417
-		list($this->requestUri, $_SERVER['REQUEST_URI']) = str_replace(
-			array(' ',   '"',   '\'',  '<',   '>',   '`',   /*'&'*/),
-			array('%20', '%22', '%27', '%3C', '%3E', '%60', /*'%26'*/),
-			array($this->requestUri, $_SERVER['REQUEST_URI'])
+		[$this->requestUri, $_SERVER['REQUEST_URI']] = str_replace(
+			[' ',   '"',   '\'',  '<',   '>',   '`',   /*'&'*/],
+			['%20', '%22', '%27', '%3C', '%3E', '%60', /*'%26'*/],
+			[$this->requestUri, $_SERVER['REQUEST_URI']]
 		);
 		if($rla) {
 			$GLOBALS['HTTP_SERVER_VARS']['REQUEST_URI'] = $this->getRequestUri();
 		}
 		
 		// 'scheme://authority' is necessary so parse_url doesn't stumble over '://' in the request URI
-		$parts = array_merge(array('path' => '', 'query' => ''), parse_url('scheme://authority' . $this->getRequestUri()));
+		$parts = array_merge(['path' => '', 'query' => ''], parse_url('scheme://authority' . $this->getRequestUri()));
 		$this->urlPath = $parts['path'];
 		$this->urlQuery = $parts['query'];
 		unset($parts);
 
-		$files = array();
+		$files = [];
 		$ufc = $this->getParameter('uploaded_file_class', 'AgaviUploadedFile');
 
 		if($this->getMethod() == $methods['PUT']) {
@@ -420,36 +421,36 @@ class AgaviWebRequest extends AgaviRequest
 				// some other data via PUT. we need to populate $_FILES manually
 				$httpBody = file_get_contents('php://input');
 
-				$files = array(
-					$this->getParameter('http_put_file_name', 'put_file') => new $ufc(array(
+				$files = [
+					$this->getParameter('http_put_file_name', 'put_file') => new $ufc([
 						'name' => $this->getMethod(),
-						'type' => isset($_SERVER['CONTENT_TYPE']) ? $_SERVER['CONTENT_TYPE'] : 'application/octet-stream',
+						'type' => $_SERVER['CONTENT_TYPE'] ?? 'application/octet-stream',
 						'size' => strlen($httpBody),
 						'contents' => $httpBody,
 						'error' => UPLOAD_ERR_OK,
 						'is_uploaded_file' => false,
-					))
-				);
+					])
+				];
 			}
 		} elseif($this->getMethod() == $methods['POST'] && (!isset($_SERVER['CONTENT_TYPE']) || (isset($_SERVER['CONTENT_TYPE']) && !preg_match('#^(application/x-www-form-urlencoded|multipart/form-data)(;[^;]+)*?$#', $_SERVER['CONTENT_TYPE'])))) {
 			// POST, but no regular urlencoded data or file upload. lets put the request payload into a file
 			$httpBody = file_get_contents('php://input');
 
-			$files = array(
-				$this->getParameter('http_post_file_name', 'post_file') => new $ufc(array(
+			$files = [
+				$this->getParameter('http_post_file_name', 'post_file') => new $ufc([
 					'name' => $this->getMethod(),
-					'type' => isset($_SERVER['CONTENT_TYPE']) ? $_SERVER['CONTENT_TYPE'] : 'application/octet-stream',
+					'type' => $_SERVER['CONTENT_TYPE'] ?? 'application/octet-stream',
 					'size' => strlen($httpBody),
 					'contents' => $httpBody,
 					'error' => UPLOAD_ERR_OK,
 					'is_uploaded_file' => false,
-				))
-			);
+				])
+			];
 		} elseif($this->getMethod() == $methods['POST'] && isset($_SERVER['CONTENT_TYPE']) && preg_match('#^multipart/form-data(;[^;]+)*?$#', $_SERVER['CONTENT_TYPE'])) {
 			$files = static::fixFilesArray($_FILES, $ufc);
 		}
 
-		$headers = array();
+		$headers = [];
 		foreach($_SERVER as $key => $value) {
 			if(str_starts_with($key, 'HTTP_')) {
 				$headers[substr($key, 5)] = $value;
@@ -460,12 +461,12 @@ class AgaviWebRequest extends AgaviRequest
 		}
 
 		$rdhc = $this->getParameter('request_data_holder_class');
-		$this->setRequestData(new $rdhc(array(
+		$this->setRequestData(new $rdhc([
 			constant("$rdhc::SOURCE_PARAMETERS") => array_merge($_GET, $_POST),
 			constant("$rdhc::SOURCE_COOKIES") => $_COOKIE,
 			constant("$rdhc::SOURCE_FILES") => $files,
 			constant("$rdhc::SOURCE_HEADERS") => $headers,
-		)));
+		]));
 	}
 
 	/**
@@ -480,7 +481,7 @@ class AgaviWebRequest extends AgaviRequest
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      1.1.0
 	 */
-	protected static function fixFilesArray($input, $uploadedFileClass = 'AgaviUploadedFile', $index = array(), &$output = array())
+	protected static function fixFilesArray($input, $uploadedFileClass = 'AgaviUploadedFile', $index = [], &$output = [])
 	{
 		$fromIndex = $index;
 		if(count($fromIndex) > 0) {
@@ -488,8 +489,8 @@ class AgaviWebRequest extends AgaviRequest
 			array_unshift($fromIndex, $first, 'error');
 		}
 		$sub = AgaviArrayPathDefinition::getValue($fromIndex, $input);
-		$theIndices = array();
-		foreach(array('name', 'type', 'size', 'tmp_name', 'error', 'is_uploaded_file') as $name) {
+		$theIndices = [];
+		foreach(['name', 'type', 'size', 'tmp_name', 'error', 'is_uploaded_file'] as $name) {
 			$theIndex = $fromIndex;
 			$first = array_shift($theIndex);
 			array_shift($theIndex);
@@ -498,20 +499,20 @@ class AgaviWebRequest extends AgaviRequest
 		}
 		if(is_array($sub)) {
 			foreach($sub as $key => $value) {
-				$toIndex = array_merge($index, array($key));
+				$toIndex = array_merge($index, [$key]);
 				if(is_array($value)) {
 					static::fixFilesArray($input, $uploadedFileClass, $toIndex, $output);
 				} else {
-					$data = array();
+					$data = [];
 					foreach($theIndices as $name => $theIndex) {
-						$data[$name] = AgaviArrayPathDefinition::getValue(array_merge($theIndex, array($key)), $input, $name == 'is_uploaded_file' ? true : null);
+						$data[$name] = AgaviArrayPathDefinition::getValue(array_merge($theIndex, [$key]), $input, $name == 'is_uploaded_file' ? true : null);
 					}
 					$data = new $uploadedFileClass($data);
 					AgaviArrayPathDefinition::setValue($toIndex, $output, $data);
 				}
 			}
 		} else {
-			$data = array();
+			$data = [];
 			foreach($theIndices as $name => $theIndex) {
 				$data[$name] = AgaviArrayPathDefinition::getValue($theIndex, $input, $name == 'is_uploaded_file' ? true : null);
 			}
@@ -530,17 +531,18 @@ class AgaviWebRequest extends AgaviRequest
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function startup()
+	#[\Override]
+    public function startup()
 	{
 		parent::startup();
 		
 		if($this->getParameter('unset_input', true)) {
 			$rla = ini_get('register_long_arrays');
 			
-			$_GET = $_POST = $_COOKIE = $_REQUEST = $_FILES = array();
+			$_GET = $_POST = $_COOKIE = $_REQUEST = $_FILES = [];
 			if($rla) {
 				// clean long arrays, too!
-				$GLOBALS['HTTP_GET_VARS'] = $GLOBALS['HTTP_POST_VARS'] = $GLOBALS['HTTP_COOKIE_VARS'] = $GLOBALS['HTTP_POST_FILES'] = array();
+				$GLOBALS['HTTP_GET_VARS'] = $GLOBALS['HTTP_POST_VARS'] = $GLOBALS['HTTP_COOKIE_VARS'] = $GLOBALS['HTTP_POST_FILES'] = [];
 			}
 			
 			foreach($_SERVER as $key => $value) {

@@ -84,7 +84,8 @@ class AgaviSoapController extends AgaviController
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function startup()
+	#[\Override]
+    public function startup()
 	{
 		parent::startup();
 		
@@ -98,10 +99,10 @@ class AgaviSoapController extends AgaviController
 		
 		// get the name of the class to use for the client, defaults to PHP's own "SoapClient"
 		$soapClientClass = $this->getParameter('soap_client_class', 'SoapClient');
-		$soapClientOptions = $this->getParameter('soap_client_options', array());
+		$soapClientOptions = $this->getParameter('soap_client_options', []);
 		// get the name of the class to use for the server, defaults to PHP's own "SoapServer"
 		$soapServerClass = $this->getParameter('soap_server_class', 'SoapServer');
-		$soapServerOptions = $this->getParameter('soap_server_options', array());
+		$soapServerOptions = $this->getParameter('soap_server_options', []);
 		// get the name of the class to use for handling soap calls, defaults to Agavi's "AgaviSoapControllerCallHandler"
 		$soapHandlerClass = $this->getParameter('soap_handler_class', 'AgaviSoapControllerCallHandler');
 		
@@ -128,7 +129,7 @@ class AgaviSoapController extends AgaviController
 		if($this->getParameter('auto_classmap')) {
 			// we have to create a classmap automatically.
 			// to do that, we read the defined types, and set identical values for type and class name.
-			$classmap = array();
+			$classmap = [];
 			
 			// with an optional prefix, of course.
 			$prefix = $this->getParameter('auto_classmap_prefix', '');
@@ -162,7 +163,7 @@ class AgaviSoapController extends AgaviController
 				$xpath = new DOMXPath($doc);
 				$xpath->registerNamespace('soap', 'http://schemas.xmlsoap.org/wsdl/soap/');
 				
-				$code = array();
+				$code = [];
 				
 				$code[] = '<?php';
 				$code[] = sprintf('class %s extends %s {', $newSoapHandlerClass, $soapHandlerClass);
@@ -172,7 +173,7 @@ class AgaviSoapController extends AgaviController
 				$code[] = '    $this->rd = $this->context->getRequest()->getRequestData();';
 				$code[] = '  }';
 				
-				$headers = array();
+				$headers = [];
 				
 				foreach($xpath->query('//soap:header') as $header) {
 					$name = $header->getAttribute('part');
@@ -217,7 +218,8 @@ class AgaviSoapController extends AgaviController
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function dispatch(AgaviRequestDataHolder $arguments = null, AgaviExecutionContainer $container = null)
+	#[\Override]
+    public function dispatch(AgaviRequestDataHolder $arguments = null, AgaviExecutionContainer $container = null)
 	{
 		// Remember The Milk... err... the arguments given.
 		$this->dispatchArguments = $arguments;

@@ -73,7 +73,7 @@ class AgaviNumberValidator extends AgaviValidator
 			$parsedValue = $value;
 		}
 		
-		switch(strtolower($this->getParameter('type'))) {
+		switch(strtolower((string) $this->getParameter('type'))) {
 			case 'int':
 			case 'integer':
 				if(!is_int($parsedValue) || $hasExtraChars) {
@@ -109,7 +109,7 @@ class AgaviNumberValidator extends AgaviValidator
 			return false;
 		}
 		
-		switch(strtolower($this->getParameter('cast_to', $this->getParameter('type')))) {
+		switch(strtolower((string) $this->getParameter('cast_to', $this->getParameter('type')))) {
 			case 'int':
 			case 'integer':
 				$parsedValue = (int) $parsedValue;

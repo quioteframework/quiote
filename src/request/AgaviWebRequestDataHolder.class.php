@@ -49,17 +49,17 @@ class AgaviWebRequestDataHolder extends AgaviRequestDataHolder implements AgaviI
 	/**
 	 * @var        array An (proper) array of files uploaded during the request.
 	 */
-	protected $files = array();
+	protected $files = [];
 	
 	/**
 	 * @var        array An array of cookies set in the request.
 	 */
-	protected $cookies = array();
+	protected $cookies = [];
 	
 	/**
 	 * @var        array An array of headers sent with the request.
 	 */
-	protected $headers = array();
+	protected $headers = [];
 
 	/**
 	 * Checks if there is a value of a parameter is empty or not set.
@@ -72,7 +72,8 @@ class AgaviWebRequestDataHolder extends AgaviRequestDataHolder implements AgaviI
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function isParameterValueEmpty($field)
+	#[\Override]
+    public function isParameterValueEmpty($field)
 	{
 		$value = $this->getParameter($field);
 		return ($value === null || $value === '');
@@ -86,7 +87,7 @@ class AgaviWebRequestDataHolder extends AgaviRequestDataHolder implements AgaviI
 	 */
 	public function clearCookies()
 	{
-		$this->cookies = array();
+		$this->cookies = [];
 	}
 
 	/**
@@ -106,7 +107,7 @@ class AgaviWebRequestDataHolder extends AgaviRequestDataHolder implements AgaviI
 		}
 		try {
 			return AgaviArrayPathDefinition::hasValue($name, $this->cookies);
-		} catch(InvalidArgumentException $e) {
+		} catch(InvalidArgumentException) {
 			return false;
 		}
 	}
@@ -147,7 +148,7 @@ class AgaviWebRequestDataHolder extends AgaviRequestDataHolder implements AgaviI
 		}
 		try {
 			return AgaviArrayPathDefinition::getValue($name, $this->cookies, $default);
-		} catch(InvalidArgumentException $e) {
+		} catch(InvalidArgumentException) {
 			return $default;
 		}
 	}
@@ -204,7 +205,7 @@ class AgaviWebRequestDataHolder extends AgaviRequestDataHolder implements AgaviI
 		}
 		try {
 			return AgaviArrayPathDefinition::unsetValue($name, $this->cookies);
-		} catch(InvalidArgumentException $e) {
+		} catch(InvalidArgumentException) {
 		}
 	}
 
@@ -257,7 +258,7 @@ class AgaviWebRequestDataHolder extends AgaviRequestDataHolder implements AgaviI
 	 */
 	public function clearHeaders()
 	{
-		$this->headers = array();
+		$this->headers = [];
 	}
 
 	/**
@@ -287,7 +288,7 @@ class AgaviWebRequestDataHolder extends AgaviRequestDataHolder implements AgaviI
 	 */
 	public function &getHeader($name, $default = null)
 	{
-		$name = str_replace('-', '_', strtoupper($name));
+		$name = str_replace('-', '_', strtoupper((string) $name));
 		if(isset($this->headers[$name]) || array_key_exists($name, $this->headers)) {
 			return $this->headers[$name];
 		}
@@ -308,7 +309,7 @@ class AgaviWebRequestDataHolder extends AgaviRequestDataHolder implements AgaviI
 	 */
 	public function hasHeader($name)
 	{
-		$name = str_replace('-', '_', strtoupper($name));
+		$name = str_replace('-', '_', strtoupper((string) $name));
 		return (isset($this->headers[$name]) || array_key_exists($name, $this->headers));
 	}
 	
@@ -341,7 +342,7 @@ class AgaviWebRequestDataHolder extends AgaviRequestDataHolder implements AgaviI
 	 */
 	public function setHeader($name, $value)
 	{
-		$this->headers[str_replace('-', '_', strtoupper($name))] = $value;
+		$this->headers[str_replace('-', '_', strtoupper((string) $name))] = $value;
 	}
 
 	/**
@@ -371,7 +372,7 @@ class AgaviWebRequestDataHolder extends AgaviRequestDataHolder implements AgaviI
 	public function &removeHeader($name)
 	{
 		$retval = null;
-		$name = str_replace('-', '_', strtoupper($name));
+		$name = str_replace('-', '_', strtoupper((string) $name));
 		if(isset($this->headers[$name]) || array_key_exists($name, $this->headers)) {
 			$retval =& $this->headers[$name];
 			unset($this->headers[$name]);
@@ -412,7 +413,7 @@ class AgaviWebRequestDataHolder extends AgaviRequestDataHolder implements AgaviI
 		} else {
 			try {
 				$retval =& AgaviArrayPathDefinition::getValue($name, $this->files);
-			} catch(InvalidArgumentException $e) {
+			} catch(InvalidArgumentException) {
 				$retval = $default;
 			}
 		}
@@ -455,7 +456,7 @@ class AgaviWebRequestDataHolder extends AgaviRequestDataHolder implements AgaviI
 		} else {
 			try {
 				$val = AgaviArrayPathDefinition::getValue($name, $this->files);
-			} catch(InvalidArgumentException $e) {
+			} catch(InvalidArgumentException) {
 				return false;
 			}
 		}
@@ -516,7 +517,7 @@ class AgaviWebRequestDataHolder extends AgaviRequestDataHolder implements AgaviI
 		}
 		try {
 			return AgaviArrayPathDefinition::unsetValue($name, $this->files);
-		} catch(InvalidArgumentException $e) {
+		} catch(InvalidArgumentException) {
 		}
 	}
 
@@ -557,7 +558,7 @@ class AgaviWebRequestDataHolder extends AgaviRequestDataHolder implements AgaviI
 	 */
 	public function clearFiles()
 	{
-		$this->files = array();
+		$this->files = [];
 	}
 
 	/**
@@ -597,7 +598,7 @@ class AgaviWebRequestDataHolder extends AgaviRequestDataHolder implements AgaviI
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function __construct(array $data = array())
+	public function __construct(array $data = [])
 	{
 		$this->registerSource(self::SOURCE_COOKIES, $this->cookies);
 		$this->registerSource(self::SOURCE_FILES, $this->files);

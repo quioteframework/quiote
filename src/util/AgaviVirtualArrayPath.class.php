@@ -32,7 +32,7 @@
  *
  * @version    $Id$
  */
-class AgaviVirtualArrayPath
+class AgaviVirtualArrayPath implements \Stringable
 {
 	/**
 	 * @var        bool Is path absolute?
@@ -41,7 +41,7 @@ class AgaviVirtualArrayPath
 	/**
 	 * @var        array Array components.
 	 */
-	protected $parts = array();
+	protected $parts = [];
 	
 	/**
 	 * constructor
@@ -87,7 +87,7 @@ class AgaviVirtualArrayPath
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function __toString()
+	public function __toString(): string
 	{
 		$parts = $this->parts;
 		if(count($parts) == 0) {
