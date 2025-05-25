@@ -41,7 +41,7 @@
 	},
 	"autoload": {
 		"psr-4": {
-			"Agavi\\": "src/"
+			"Agavi\\": ["src/Core/", "src/"]
 		}
 	},
 	"bin": ["etc/composer/bin/agavi"]
