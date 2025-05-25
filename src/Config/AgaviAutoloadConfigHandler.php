@@ -110,8 +110,8 @@ class AgaviAutoloadConfigHandler extends AgaviXmlConfigHandler
 		}
 
 		$code = [
-			'AgaviAutoloader::addClasses(' . var_export($classes, true) . ');',
-			'AgaviAutoloader::addNamespaces(' . var_export($namespaces, true) . ');',
+			'Agavi\Util\AgaviAutoloader::addClasses(' . var_export($classes, true) . ');',
+			'Agavi\Util\AgaviAutoloader::addNamespaces(' . var_export($namespaces, true) . ');',
 		];
 
 		return $this->generate($code, $document->documentURI);
