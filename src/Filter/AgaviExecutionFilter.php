@@ -15,6 +15,17 @@
 // +---------------------------------------------------------------------------+
 namespace Agavi\Filter;
 
+use Agavi\Config\AgaviConfig;
+use Agavi\Config\AgaviConfigCache;
+use Agavi\Controller\AgaviExecutionContainer;
+use Agavi\Exception\AgaviException;
+use Agavi\Exception\AgaviUncacheableException;
+use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\User\AgaviISecurityUser;
+use Agavi\Util\AgaviArrayPathDefinition;
+use Agavi\Util\AgaviToolkit;
+use Agavi\View\AgaviView;
+
 /**
  * AgaviExecutionFilter is the last filter registered for each filter chain.
  * This filter does all action and view execution.
@@ -271,7 +282,7 @@ class AgaviExecutionFilter extends AgaviFilter implements AgaviIActionFilter
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function getVariable($name, $source = 'string', $namespace = null, AgaviExecutionContainer $container = null)
+	public function getVariable($name, $source = 'string', $namespace = null, ?AgaviExecutionContainer $container = null)
 	{
 		$val = $name;
 		
@@ -452,7 +463,7 @@ class AgaviExecutionFilter extends AgaviFilter implements AgaviIActionFilter
 				$key = $request->toggleLock();
 				try {
 					$viewInstance = $container->getViewInstance();
-				} catch(Exception $e) {
+				} catch(\Exception $e) {
 					$request->toggleLock($key);
 					throw $e;
 				}
@@ -605,7 +616,7 @@ class AgaviExecutionFilter extends AgaviFilter implements AgaviIActionFilter
 						$key = $request->toggleLock();
 						try {
 							$nextOutput = $layer->getRenderer()->render($layer, $attributes, $output, $moreAssigns);
-						} catch(Exception $e) {
+						} catch(\Exception $e) {
 							$request->toggleLock($key);
 							throw $e;
 						}
@@ -684,7 +695,7 @@ class AgaviExecutionFilter extends AgaviFilter implements AgaviIActionFilter
 		$key = $request->toggleLock();
 		try {
 			$viewResult = $viewInstance->$executeMethod($container->getRequestData());
-		} catch(Exception $e) {
+		} catch(\Exception $e) {
 			$request->toggleLock($key);
 			throw $e;
 		}
