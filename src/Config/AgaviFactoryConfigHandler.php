@@ -82,7 +82,7 @@ class AgaviFactoryConfigHandler extends AgaviXmlConfigHandler
 				'required' => true,
 				'var' => null,
 				'must_implement' => [
-					'AgaviIGlobalFilter',
+					'Agavi\\Filter\\AgaviIGlobalFilter',
 				],
 			],
 			
@@ -90,7 +90,7 @@ class AgaviFactoryConfigHandler extends AgaviXmlConfigHandler
 				'required' => true,
 				'var' => null,
 				'must_implement' => [
-					'AgaviIActionFilter',
+					'Agavi\\Filter\\AgaviIActionFilter',
 				],
 			],
 			
@@ -98,8 +98,8 @@ class AgaviFactoryConfigHandler extends AgaviXmlConfigHandler
 				'required' => AgaviConfig::get('core.use_security', false),
 				'var' => null,
 				'must_implement' => [
-					'AgaviIActionFilter',
-					'AgaviISecurityFilter',
+					'Agavi\\Filter\\AgaviIActionFilter',
+					'Agavi\\Filter\\AgaviISecurityFilter',
 				],
 			],
 			
@@ -178,7 +178,7 @@ class AgaviFactoryConfigHandler extends AgaviXmlConfigHandler
 				'must_implement' => (
 					AgaviConfig::get('core.use_security')
 					? [
-						'AgaviISecurityUser',
+						'Agavi\\User\\AgaviISecurityUser',
 					]
 					: [
 					]
