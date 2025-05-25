@@ -17,7 +17,7 @@
 		"irc": "irc://irc.freenode.org/agavi"
 	},
 	"require": {
-		"php": ">=5.2.0",
+		"php": ">=8.4.0",
 		"ext-dom": "*",
 		"lib-libxml": "*",
 		"ext-spl": "*",
@@ -40,7 +40,9 @@
 		"ext-iconv": "Enable iconv if you need to convert between other charset than iso-8859-1 and utf-8"
 	},
 	"autoload": {
-		"files": ["src/composerInit.php"]
+		"psr-4": {
+			"Agavi\\": "src/"
+		}
 	},
 	"bin": ["etc/composer/bin/agavi"]
 }
