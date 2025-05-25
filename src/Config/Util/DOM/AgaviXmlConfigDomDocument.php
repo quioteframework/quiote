@@ -53,20 +53,20 @@ class AgaviXmlConfigDomDocument extends \DOMDocument
 	 * @var        array A map of DOM classes and extended Agavi implementations.
 	 */
 	protected $nodeClassMap = [
-		'DOMAttr'                  => 'AgaviXmlConfigDomAttr',
-		'DOMCharacterData'         => 'AgaviXmlConfigDomCharacterData',
-		'DOMComment'               => 'AgaviXmlConfigDomComment',
+		'DOMAttr'                  => 'Agavi\Config\Util\DOM\AgaviXmlConfigDomAttr',
+		'DOMCharacterData'         => 'Agavi\Config\Util\DOM\AgaviXmlConfigDomCharacterData',
+		'DOMComment'               => 'Agavi\Config\Util\DOM\AgaviXmlConfigDomComment',
 		// yes, even DOMDocument, so we don't get back a vanilla DOMDocument when doing $doc->documentElement etc
-		'DOMDocument'              => 'AgaviXmlConfigDomDocument',
-		'DOMDocumentFragment'      => 'AgaviXmlConfigDomDocumentFragment',
-		'DOMDocumentType'          => 'AgaviXmlConfigDomDocumentType',
-		'DOMElement'               => 'AgaviXmlConfigDomElement',
-		'DOMEntity'                => 'AgaviXmlConfigDomEntity',
-		'DOMEntityReference'       => 'AgaviXmlConfigDomEntityReference',
-		'DOMNode'                  => 'AgaviXmlConfigDomNode',
-		// 'DOMNotation'              => 'AgaviXmlConfigDomNotation',
-		'DOMProcessingInstruction' => 'AgaviXmlConfigDomProcessingInstruction',
-		'DOMText'                  => 'AgaviXmlConfigDomText',
+		'DOMDocument'              => 'Agavi\Config\Util\DOM\AgaviXmlConfigDomDocument',
+		'DOMDocumentFragment'      => 'Agavi\Config\Util\DOM\AgaviXmlConfigDomDocumentFragment',
+		'DOMDocumentType'          => 'Agavi\Config\Util\DOM\AgaviXmlConfigDomDocumentType',
+		'DOMElement'               => 'Agavi\Config\Util\DOM\AgaviXmlConfigDomElement',
+		'DOMEntity'                => 'Agavi\Config\Util\DOM\AgaviXmlConfigDomEntity',
+		'DOMEntityReference'       => 'Agavi\Config\Util\DOM\AgaviXmlConfigDomEntityReference',
+		'DOMNode'                  => 'Agavi\Config\Util\DOM\AgaviXmlConfigDomNode',
+		// 'DOMNotation'              => 'Agavi\Config\Util\DOM\AgaviXmlConfigDomNotation',
+		'DOMProcessingInstruction' => 'Agavi\Config\Util\DOM\AgaviXmlConfigDomProcessingInstruction',
+		'DOMText'                  => 'Agavi\Config\Util\DOM\AgaviXmlConfigDomText',
 	];
 	
 	/**
