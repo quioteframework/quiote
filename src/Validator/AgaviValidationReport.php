@@ -190,7 +190,7 @@ class AgaviValidationReport implements AgaviIValidationReportQuery
 	 * @author     Dominik del Bondio <dominik.del.bondio@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function addArgumentResult(AgaviValidationArgument $argument, $result, AgaviValidator $validator = null)
+	public function addArgumentResult(AgaviValidationArgument $argument, $result, ?AgaviValidator $validator = null)
 	{
 		$this->argumentResults[$argument->getHash()][] = [
 			'argument' => $argument,

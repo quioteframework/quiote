@@ -14,6 +14,14 @@
 // +---------------------------------------------------------------------------+
 namespace Agavi\Validator;
 
+use Agavi\AgaviContext;
+use Agavi\Exception\AgaviConfigurationException;
+use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Util\AgaviArrayPathDefinition;
+use Agavi\Util\AgaviParameterHolder;
+use Agavi\Util\AgaviVirtualArrayPath;
+use InvalidArgumentException;
+
 /**
  * AgaviValidationManager provides management for request parameters and their
  * associated validators.
@@ -134,7 +142,7 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function createValidator($class, array $arguments, array $errors = [], $parameters = [], AgaviIValidatorContainer $parent = null)
+	public function createValidator($class, array $arguments, array $errors = [], $parameters = [], ?AgaviIValidatorContainer $parent = null)
 	{
 		if($parent === null) {
 			$parent = $this;

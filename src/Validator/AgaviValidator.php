@@ -14,6 +14,15 @@
 // +---------------------------------------------------------------------------+
 namespace Agavi\Validator;
 
+use Agavi\AgaviContext;
+use Agavi\Exception\AgaviConfigurationException;
+use Agavi\Exception\AgaviValidatorException;
+use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Util\AgaviArrayPathDefinition;
+use Agavi\Util\AgaviParameterHolder;
+use Agavi\Util\AgaviToolkit;
+use Agavi\Util\AgaviVirtualArrayPath;
+
 /**
  * AgaviValidator allows you to validate input
  *

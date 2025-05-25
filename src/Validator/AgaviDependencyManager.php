@@ -14,6 +14,8 @@
 // +---------------------------------------------------------------------------+
 namespace Agavi\Validator;
 
+use Agavi\Util\AgaviVirtualArrayPath;
+
 /**
  * AgaviDependencyManager handles the dependencies in the validation process
  *
