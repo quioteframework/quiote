@@ -12,6 +12,12 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Logging;
+
+use Agavi\AgaviContext;
+use Agavi\Config\AgaviConfig;
+use Agavi\Config\AgaviConfigCache;
+use Agavi\Exception\AgaviLoggingException;
 
 /**
  * AgaviLoggerManager provides accessibility and management of all loggers.

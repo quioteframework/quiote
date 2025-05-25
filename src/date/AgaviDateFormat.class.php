@@ -12,6 +12,11 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\DateTime;
+
+use Agavi\AgaviContext;
+use Agavi\Exception\AgaviException;
+use Agavi\Translation\AgaviLocale;
 
 /**
  * This class lets your format date and time according to a given format 
@@ -232,7 +237,7 @@ class AgaviDateFormat
 				$locale = $tm->getCurrentLocale();
 			}
 		} else {
-			throw new InvalidArgumentException('This AgaviDateFormat has not been initialize()d. To be able to pass a string as locale you need to call initialize() or create this AgaviDateFormat using AgaviTranslationManager::createDateFormat()');
+			throw new \InvalidArgumentException('This AgaviDateFormat has not been initialize()d. To be able to pass a string as locale you need to call initialize() or create this AgaviDateFormat using AgaviTranslationManager::createDateFormat()');
 		}
 		
 		$tzid = null;
@@ -252,7 +257,7 @@ class AgaviDateFormat
 		if($data instanceof AgaviCalendar) {
 			$cal = $data;
 			$calNeedsClone = true;
-		} elseif($data instanceof DateTime) {
+		} elseif($data instanceof \DateTime) {
 			$cal = $this->context->getTranslationManager()->createCalendar($data);
 		} elseif(is_int($data)) {
 			$cal = $this->context->getTranslationManager()->createCalendar($locale);
@@ -265,8 +270,8 @@ class AgaviDateFormat
 			// implicitly converted to a string, so there is no explicit is_string check)
 			try {
 				// maybe it is a date/time string we can parse...
-				$cal = $tm->createCalendar(new DateTime($data));
-			} catch(Exception) {
+				$cal = $tm->createCalendar(new \DateTime($data));
+			} catch(\Exception) {
 				// err... no, it isn't. try to use the message as a calendar name
 				$cal = $tm->createCalendar($data);
 			}
@@ -644,7 +649,7 @@ class AgaviDateFormat
 				$locale = $tm->getCurrentLocale();
 			}
 		} else {
-			throw new InvalidArgumentException('This AgaviDateFormat has not been initialize()d. To be able to pass a string as locale you need to call initialize() or create this AgaviDateFormat using AgaviTranslationManager::createDateFormat()');
+			throw new \InvalidArgumentException('This AgaviDateFormat has not been initialize()d. To be able to pass a string as locale you need to call initialize() or create this AgaviDateFormat using AgaviTranslationManager::createDateFormat()');
 		}
 		
 		$cal = $tm->createCalendar($locale);

@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Translation;
 /**
  * AgaviBasicTranslator defines some base functions for all translators.
  * 

@@ -12,6 +12,9 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Routing;
+
+use Agavi\Util\AgaviParameterHolder;
 
 /**
  * AgaviRoutingCallback allows you to provide callbacks into the routing

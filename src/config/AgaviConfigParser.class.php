@@ -13,6 +13,9 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Config;
+
+use Agavi\Exception\AgaviParseException;
 
 /**
  * AgaviConfigParser parses XML files using AgaviXmlConfigParser, but returns

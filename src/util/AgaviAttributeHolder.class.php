@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Util;
 /**
  * AgaviAttributeHolder provides a base class for managing attributes with
  * namespaces. It contains all the functionality AgaviParameterHolder provides.

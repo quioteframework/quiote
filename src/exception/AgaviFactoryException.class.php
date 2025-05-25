@@ -13,7 +13,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Exception;
 /**
  * AgaviFactoryException is thrown when an error occurs while attempting to 
  * create a new factory implementation instance.

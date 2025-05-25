@@ -12,6 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Controller;
 
 /**
  * A container used for each action execution that holds necessary information,
@@ -28,8 +29,34 @@
  *
  * @version    $Id$
  */
-class AgaviExecutionContainer extends \AgaviAttributeHolder
+use Agavi\Util\AgaviAttributeHolder;
+use Agavi\Exception\AgaviException;
+use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Exception\AgaviDisabledModuleException;
+use Agavi\Exception\AgaviFileNotFoundException;
+use Agavi\Exception\AgaviConfigurationException;
+use Agavi\Filter\AgaviFilterChain;
+use Agavi\AgaviContext;
+use Agavi\Config\AgaviConfig;
+use Agavi\View\AgaviView;
+use Agavi\Util\AgaviToolkit;
+use Agavi\Config\AgaviConfigCache;
+use Agavi\Response\AgaviResponse;
+
+use \Exception;
+class AgaviExecutionContainer extends AgaviAttributeHolder
 {
+
+	/**
+	 * @var string The context name
+	 */
+	protected $contextName;
+
+	/**
+	 * @var string The output type name
+	 */
+	protected $outputTypeName;
+	
 	/**
 	 * @var        AgaviContext The context instance.
 	 */
@@ -222,7 +249,7 @@ class AgaviExecutionContainer extends \AgaviAttributeHolder
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function createExecutionContainer($moduleName = null, $actionName = null, AgaviRequestDataHolder $arguments = null, $outputType = null, $requestMethod = null)
+	public function createExecutionContainer($moduleName = null, $actionName = null, ?AgaviRequestDataHolder $arguments = null, $outputType = null, $requestMethod = null)
 	{
 		if($outputType === null) {
 			$outputType = $this->getOutputType()->getName();
@@ -393,7 +420,7 @@ class AgaviExecutionContainer extends \AgaviAttributeHolder
 	 * @author     Felix Gilcher <felix.gilcher@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function createSystemActionForwardContainer($type, AgaviException $e = null)
+	public function createSystemActionForwardContainer($type, ?AgaviException $e = null)
 	{
 		if(!in_array($type, ['error_404', 'module_disabled', 'secure', 'login', 'unavailable'])) {
 			throw new AgaviException(sprintf('Unknown system forward type "%1$s"', $type));

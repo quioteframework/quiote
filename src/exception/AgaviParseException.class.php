@@ -13,7 +13,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Exception;
 /**
  * AgaviParseException is thrown when a parsing procedure fails to complete
  * successfully.

@@ -13,7 +13,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Exception;
 /**
  * AgaviSecurityException is thrown when a security related error occurs.
  *

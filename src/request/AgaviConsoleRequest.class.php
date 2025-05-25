@@ -12,6 +12,9 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Request;
+
+use Agavi\AgaviContext;
 
 /**
  * AgaviConsoleRequest provides support for console-only request information

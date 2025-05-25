@@ -12,6 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Validator;
 
 /**
  * AgaviIValidatorContainer is an interface for classes which contains several

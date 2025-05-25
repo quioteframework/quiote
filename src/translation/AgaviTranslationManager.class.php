@@ -12,6 +12,19 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Translation;
+
+use Agavi\AgaviContext;
+use Agavi\Config\AgaviConfig;
+use Agavi\Config\AgaviConfigCache;
+use Agavi\DateTime\AgaviCalendar;
+use Agavi\DateTime\AgaviDateDefinitions;
+use Agavi\DateTime\AgaviDateFormat;
+use Agavi\DateTime\AgaviGregorianCalendar;
+use Agavi\DateTime\AgaviOlsonTimeZone;
+use Agavi\DateTime\AgaviTimeZone;
+use Agavi\Exception\AgaviException;
+use DateTime;
 
 /**
  * The translation manager manages the interface between the application and the
@@ -415,7 +428,7 @@ class AgaviTranslationManager
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function _($message, $domain = null, $locale = null, array $parameters = null)
+	public function _($message, $domain = null, $locale = null, ?array $parameters = null)
 	{
 		if($domain === null) {
 			$domain = $this->defaultDomain;
@@ -457,7 +470,7 @@ class AgaviTranslationManager
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function __($singularMessage, $pluralMessage, $amount, $domain = null, $locale = null, array $parameters = null)
+	public function __($singularMessage, $pluralMessage, $amount, $domain = null, $locale = null, ?array $parameters = null)
 	{
 		return $this->_([$singularMessage, $pluralMessage, $amount], $domain, $locale, $parameters);
 	}
@@ -469,7 +482,7 @@ class AgaviTranslationManager
 	 * @param      string The remaining part in the domain which didn't match
 	 * @param      string The type of the translator
 	 *
-	 * @return     array An array of translators for the given domain
+	 * @return     array|object An array of translators for the given domain
 	 *
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
@@ -484,7 +497,7 @@ class AgaviTranslationManager
 
 		do {
 			if(count($domainParts) == 0) {
-				throw new InvalidArgumentException(sprintf('No translator exists for the domain "%s"', $domain));
+				throw new \InvalidArgumentException(sprintf('No translator exists for the domain "%s"', $domain));
 			}
 			$td = implode('.', $domainParts);
 			array_pop($domainParts);
@@ -513,7 +526,7 @@ class AgaviTranslationManager
 		try {
 			$domainExtra = '';
 			return $this->getTranslators($domain, $domainExtra, $type);
-		} catch(InvalidArgumentException) {
+		} catch(\InvalidArgumentException) {
 			return null;
 		}
 	}
@@ -890,7 +903,7 @@ class AgaviTranslationManager
 		if(!isset($this->timeZoneList[$id])) {
 			try {
 				return AgaviTimeZone::createCustomTimeZone($this, $id);
-			} catch(Exception) {
+			} catch(\Exception) {
 				return null;
 			}
 		}
@@ -938,7 +951,7 @@ class AgaviTranslationManager
 			$locale = $type;
 		} elseif($type instanceof AgaviTimeZone) {
 			$zone = $type;
-		} elseif($type instanceof DateTime) {
+		} elseif($type instanceof \DateTime) {
 			$time = $type;
 		} elseif(is_int($type)) {
 			$time = $type * AgaviDateDefinitions::MILLIS_PER_SECOND;

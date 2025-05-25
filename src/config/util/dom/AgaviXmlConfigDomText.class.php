@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Config\Util\DOM;
 /**
  * Extended DOMText class.
  *
@@ -27,7 +27,7 @@
  *
  * @version    $Id$
  */
-class AgaviXmlConfigDomText extends DOMText
+class AgaviXmlConfigDomText extends \DOMText
 {
 }
 

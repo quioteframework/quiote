@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Util;
 /**
  * AgaviAutoloader is an autoloader implementation with support for namespaces,
  * conforming to the PSR-0 standard. It also allows a plain mapping of class

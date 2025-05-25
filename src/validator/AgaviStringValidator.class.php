@@ -12,6 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Validator;
 
 /**
  * AgaviStringValidator allows you to apply string-related constraints to a

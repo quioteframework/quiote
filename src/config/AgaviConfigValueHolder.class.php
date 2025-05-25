@@ -12,6 +12,10 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Config;
+
+use Agavi\Util\AgaviInflector;
+use AllowDynamicProperties;
 
 /**
  * AgaviConfigValueHolder is the storage class for the AgaviXmlConfigHandler
@@ -30,7 +34,7 @@
  * @version    $Id$
  */
 #[AllowDynamicProperties]
-class AgaviConfigValueHolder implements ArrayAccess, IteratorAggregate, \Stringable
+class AgaviConfigValueHolder implements \ArrayAccess, \IteratorAggregate, \Stringable
 {
 	/**
 	 * @var        string The name of this value.
@@ -401,9 +405,9 @@ class AgaviConfigValueHolder implements ArrayAccess, IteratorAggregate, \Stringa
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function getIterator(): Traversable
+	public function getIterator(): \Traversable
 	{
-		return new ArrayIterator($this->getChildren());
+		return new \ArrayIterator($this->getChildren());
 	}
 
 	/**

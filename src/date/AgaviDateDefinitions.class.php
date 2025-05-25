@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\DateTime;
 /**
  * Field definitions for the AgaviCalendar and day of week and months constants
  *

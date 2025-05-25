@@ -12,6 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Validator;
 
 /**
  * AgaviDependencyManager handles the dependencies in the validation process

@@ -12,6 +12,11 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Config;
+
+use Agavi\Config\Util\DOM\AgaviXmlConfigDomDocument;
+use Agavi\DateTime\AgaviDateDefinitions;
+use Agavi\Exception\AgaviException;
 
 /**
  * AgaviLdmlSupplementalConfigHandler allows you to parse ldml supplemental data
@@ -48,7 +53,7 @@ class AgaviLdmlSupplementalConfigHandler extends AgaviXmlConfigHandler
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      0.11.0
 	 */
-	public function execute(AgaviXmlConfigDomDocument $document)
+	public function execute(AgaviXmlConfigDomDocument $document) : bool
 	{
 		$dayMap = [
 			'sun' => AgaviDateDefinitions::SUNDAY,

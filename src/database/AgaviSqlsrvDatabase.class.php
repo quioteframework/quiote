@@ -12,6 +12,9 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Database;
+
+use Agavi\Exception\AgaviDatabaseException;
 
 /**
  * AgaviSqlsrvDatabase provides connectivity for the Microsoft SQL Server driver

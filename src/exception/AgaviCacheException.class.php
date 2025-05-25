@@ -13,7 +13,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Exception;
 /**
  * AgaviCacheException is thrown when ConfigCache fails to execute properly.
  *

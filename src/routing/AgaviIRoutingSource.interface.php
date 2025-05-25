@@ -12,6 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Routing;
 
 /**
  * AgaviIRoutingSource allows you to provide sources for the routing

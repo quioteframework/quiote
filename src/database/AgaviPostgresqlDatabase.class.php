@@ -13,6 +13,9 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Database;
+
+use Agavi\Exception\AgaviDatabaseException;
 
 /**
  * AgaviPostgresqlDatabase provides connectivity for the PostgreSQL brand 

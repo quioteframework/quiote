@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Config\Util\DOM;
 /**
  * Extended DOMProcessingInstruction class.
  *
@@ -27,7 +27,7 @@
  *
  * @version    $Id$
  */
-class AgaviXmlConfigDomProcessingInstruction extends DOMProcessingInstruction
+class AgaviXmlConfigDomProcessingInstruction extends \DOMProcessingInstruction
 {
 }
 

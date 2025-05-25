@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Logging;
 /**
  * AgaviJsonLoggerLayout is an AgaviLoggerLayout that will return a JSON
  * representation of the AgaviLoggerMessage or parts of it, depending on the

@@ -12,6 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Validator;
 
 /**
  * AgaviNumberValidator verifies that a parameter is a number and allows you to

@@ -13,6 +13,12 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Config;
+
+use Agavi\Config\Util\DOM\AgaviXmlConfigDomDocument;
+use Agavi\Exception\AgaviConfigurationException;
+use Agavi\Exception\AgaviFactoryException;
+use Agavi\Util\AgaviToolkit;
 
 /**
  * AgaviFilterConfigHandler allows you to register filters with the system.
@@ -47,7 +53,7 @@ class AgaviFilterConfigHandler extends AgaviXmlConfigHandler
 	 * @author     Sean Kerr <skerr@mojavi.org>
 	 * @since      0.9.0
 	 */
-	public function execute(AgaviXmlConfigDomDocument $document)
+	public function execute(AgaviXmlConfigDomDocument $document) : bool
 	{
 		// set up our default namespace
 		$document->setDefaultNamespace(self::XML_NAMESPACE, 'filters');
@@ -86,7 +92,7 @@ class AgaviFilterConfigHandler extends AgaviXmlConfigHandler
 				throw new AgaviConfigurationException('No class name specified for filter "' . $name . '" in ' . $config);
 			}
 			if($filter['enabled']) {
-				$rc = new ReflectionClass($filter['class']);
+				$rc = new \ReflectionClass($filter['class']);
 				$if = 'AgaviI' . ucfirst(strtolower(substr(basename((string) $config), 0, strpos(basename((string) $config), '_filters')))) . 'Filter';
 				if(!$rc->implementsInterface($if)) {
 					throw new AgaviFactoryException('Filter "' . $name . '" does not implement interface "' . $if . '"');

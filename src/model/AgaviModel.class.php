@@ -13,6 +13,9 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Model;
+
+use Agavi\AgaviContext;
 
 /**
  * AgaviModel provides a convention for separating business logic from 
@@ -34,6 +37,8 @@
  */
 abstract class AgaviModel implements AgaviIModel
 {
+
+	protected $_contextName;
 	/**
 	 * @var        AgaviContext An AgaviContext instance.
 	 */

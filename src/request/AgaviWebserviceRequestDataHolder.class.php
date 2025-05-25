@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Request;
 /**
  * AgaviWebserviceRequestDataHolder is the base class for webservice request
  * data holders.

@@ -12,6 +12,9 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Storage;
+
+use Agavi\AgaviContext;
 
 /**
  * Provides support for session storage using a Windows Azure table store.

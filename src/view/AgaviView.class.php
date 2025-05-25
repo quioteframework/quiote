@@ -13,6 +13,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\View;
 
 /**
  * A view represents the presentation layer of an action. Output can be
@@ -31,6 +32,7 @@
  *
  * @version    $Id$
  */
+use Agavi\Controller\AgaviExecutionContainer;
 abstract class AgaviView
 {
 	/**

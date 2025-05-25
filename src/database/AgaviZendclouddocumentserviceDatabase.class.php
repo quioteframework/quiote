@@ -13,6 +13,9 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Database;
+
+use Agavi\Exception\AgaviDatabaseException;
 
 /**
  * AgaviZendclouddocumentserviceDatabase provides connectivity to databases
@@ -69,7 +72,7 @@ class AgaviZendclouddocumentserviceDatabase extends AgaviDatabase
 			if(!class_exists('Zend_Loader')) {
 				require('Zend/Loader.php');
 			}
-			Zend_Loader::loadClass($this->getParameter('factory_class'));
+			\Zend_Loader::loadClass($this->getParameter('factory_class'));
 		}
 		
 		$factoryOptions = [];
@@ -99,7 +102,7 @@ class AgaviZendclouddocumentserviceDatabase extends AgaviDatabase
 	{
 		try {
 			$this->connection = call_user_func([$this->getParameter('factory_class'), 'getAdapter'], $this->getParameter('factory_options'));
-		} catch(Zend_Exception $e) {
+		} catch(\Zend_Exception $e) {
 			throw new AgaviDatabaseException(sprintf("Caught exception of type %s while creating adapter instance; details:\n\n%s", $e::class, $e->getMessage()), 0, $e);
 		}
 	}
@@ -142,7 +145,7 @@ class AgaviZendclouddocumentserviceDatabase extends AgaviDatabase
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.5
 	 */
-	public function listDocuments(array $options = null)
+	public function listDocuments(?array $options = null)
 	{
 		if(!$this->hasParameter('collection')) {
 			throw new AgaviDatabaseException('Convenience functions require configuration parameter "collection".');

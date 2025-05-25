@@ -13,7 +13,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Storage;
 /**
  * Provides support for session storage using a MySQL brand database.
  *

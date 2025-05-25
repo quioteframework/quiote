@@ -12,6 +12,9 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Request;
+
+use Agavi\AgaviContext;
 
 /**
  * AgaviWebserviceRequest is the base class for Web Service requests

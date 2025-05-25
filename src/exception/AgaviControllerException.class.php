@@ -13,7 +13,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Exception;
 /**
  * AgaviControllerException is thrown when a requested Controller implementation
  * doesn't exist.

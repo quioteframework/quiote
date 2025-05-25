@@ -12,6 +12,12 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Translation;
+
+use Agavi\AgaviContext;
+use Agavi\DateTime\AgaviCalendar;
+use Agavi\Exception\AgaviException;
+use Agavi\Util\AgaviParameterHolder;
 
 /**
  * The locale saves all kind of info about a locale
@@ -66,7 +72,7 @@ class AgaviLocale extends AgaviParameterHolder
 		$tzId = '';
 		if($item instanceof AgaviCalendar) {
 			$tzId = $item->getTimeZone()->getResolvedId();
-		} elseif($item instanceof DateTime) {
+		} elseif($item instanceof \DateTime) {
 			$tzId = $item->getTimezone()->getName();
 			if(preg_match('/^[+-][0-9]+/', $tzId)) {
 				$tzId = 'GMT' . $tzId;

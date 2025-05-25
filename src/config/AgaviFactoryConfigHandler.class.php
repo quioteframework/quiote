@@ -12,6 +12,10 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Config;
+
+use Agavi\Config\Util\DOM\AgaviXmlConfigDomDocument;
+use Agavi\Exception\AgaviConfigurationException;
 
 /**
  * AgaviFactoryConfigHandler allows you to specify which factory implementation 
@@ -49,7 +53,7 @@ class AgaviFactoryConfigHandler extends AgaviXmlConfigHandler
 	 * @author     Noah Fontes <noah.fontes@bitextender.com>
 	 * @since      0.11.0
 	 */
-	public function execute(AgaviXmlConfigDomDocument $document)
+	public function execute(AgaviXmlConfigDomDocument $document) : bool
 	{
 		// set up our default namespace
 		$document->setDefaultNamespace(self::XML_NAMESPACE, 'factories');
@@ -219,8 +223,8 @@ class AgaviFactoryConfigHandler extends AgaviXmlConfigHandler
 				}
 				
 				try {
-					$rc = new ReflectionClass($data[$factory]['class']);
-				} catch(ReflectionException $e) {
+					$rc = new \ReflectionClass($data[$factory]['class']);
+				} catch(\ReflectionException $e) {
 					$error = 'Configuration file "%s" specifies unknown class "%s" for entry "%s"';
 					$error = sprintf($error, $config, $data[$factory]['class'], $factory);
 					throw new AgaviConfigurationException($error, 0,  $e);

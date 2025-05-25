@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Response;
 /**
  * AgaviXmlrpcepiphpResponse handles XMLRPC Web Service responses using the
  * XMLRPC-EPI extension for PHP.

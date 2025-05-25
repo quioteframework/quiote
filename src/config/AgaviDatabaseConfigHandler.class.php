@@ -13,6 +13,11 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Config;
+
+use Agavi\Config\Util\DOM\AgaviXmlConfigDomDocument;
+use Agavi\Exception\AgaviConfigurationException;
+use Agavi\Exception\AgaviParseException;
 
 /**
  * AgaviDatabaseConfigHandler allows you to setup database connections in a
@@ -51,7 +56,7 @@ class AgaviDatabaseConfigHandler extends AgaviXmlConfigHandler
 	 * @author     Noah Fontes <noah.fontes@bitextender.com>
 	 * @since      0.9.0
 	 */
-	public function execute(AgaviXmlConfigDomDocument $document)
+	public function execute(AgaviXmlConfigDomDocument $document) : bool
 	{
 		// set up our default namespace
 		$document->setDefaultNamespace(self::XML_NAMESPACE, 'databases');

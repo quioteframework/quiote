@@ -12,6 +12,10 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Logging;
+
+use Agavi\AgaviContext;
+use Agavi\Util\AgaviParameterHolder;
 
 /**
  * AgaviLoggerAppender allows you to specify a destination for log data and 

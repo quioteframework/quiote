@@ -13,6 +13,11 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Storage;
+
+use Agavi\AgaviContext;
+use Agavi\Exception\AgaviDatabaseException;
+use Agavi\Exception\AgaviInitializationException;
 
 /**
  * Provides support for session storage using a PostgreSQL brand database.
@@ -50,7 +55,7 @@
 class AgaviPostgresqlSessionStorage extends AgaviSessionStorage
 {
 	/**
-	 * @var        resource A postgresql database resource.
+	 * @var        \PgSql\Connection A postgresql database resource.
 	 */
 	protected $resource = null;
 

@@ -12,6 +12,9 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Routing;
+
+use Agavi\AgaviContext;
 
 /**
  * Routing values are used internally and, optionally, by users in gen() calls
@@ -37,6 +40,9 @@ class AgaviRoutingValue implements AgaviIRoutingValue
 	protected $postfix;
 	protected $prefixNeedsEncoding = false;
 	protected $postfixNeedsEncoding = false;
+	protected $valueEncoded;
+	protected $postfixEncoded;
+	protected $prefixEncoded;
 	
 	protected static $arrayMap = [
 		'pre'  => 'prefix',

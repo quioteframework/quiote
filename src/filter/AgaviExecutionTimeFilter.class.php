@@ -13,6 +13,10 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Filter;
+
+use Agavi\AgaviContext;
+use Agavi\Controller\AgaviExecutionContainer;
 
 /**
  * AgaviExecutionTimeFilter tracks the length of time it takes for an entire

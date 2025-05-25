@@ -12,6 +12,9 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Database\Doctrine;
+
+use Agavi\Database\AgaviDoctrineDatabase;
 
 /**
  * An event listener for AgaviDoctrineDatabase.

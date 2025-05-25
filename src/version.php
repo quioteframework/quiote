@@ -27,13 +27,15 @@
  * @version    $Id$
  */
 
+ use Agavi\Config\AgaviConfig;
+
 AgaviConfig::set('agavi.name', 'Agavi');
 
-AgaviConfig::set('agavi.major_version', '1');
-AgaviConfig::set('agavi.minor_version', '1');
+AgaviConfig::set('agavi.major_version', '2');
+AgaviConfig::set('agavi.minor_version', '0');
 AgaviConfig::set('agavi.micro_version', '0');
 AgaviConfig::set('agavi.status', 'dev');
-AgaviConfig::set('agavi.branch', 'trunk');
+AgaviConfig::set('agavi.branch', 'php84');
 
 AgaviConfig::set('agavi.version',
 	AgaviConfig::get('agavi.major_version') . '.' .

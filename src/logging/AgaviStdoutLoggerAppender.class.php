@@ -12,6 +12,9 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Logging;
+
+use Agavi\AgaviContext;
 
 /**
  * AgaviStdoutLoggerAppender appends an AgaviLoggerMessage to stdout.

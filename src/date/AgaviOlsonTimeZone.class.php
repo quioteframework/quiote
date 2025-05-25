@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\DateTime;
 /**
  * A time zone based on the Olson database. Olson time zones change behavior 
  * over time. The raw offset, rules, presence or absence of daylight savings 

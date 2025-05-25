@@ -13,6 +13,10 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Config;
+
+use Agavi\Config\Util\DOM\AgaviXmlConfigDomDocument;
+use Agavi\Exception\AgaviConfigurationException;
 
 /**
  * AgaviLoggingConfigHandler allows you to register loggers with the system.
@@ -54,7 +58,7 @@ class AgaviLoggingConfigHandler extends AgaviXmlConfigHandler
 	 * @author     Sean Kerr <skerr@mojavi.org>
 	 * @since      0.9.0
 	 */
-	public function execute(AgaviXmlConfigDomDocument $document)
+	public function execute(AgaviXmlConfigDomDocument $document) : bool
 	{
 		// set up our default namespace
 		$document->setDefaultNamespace(self::XML_NAMESPACE, 'logging');

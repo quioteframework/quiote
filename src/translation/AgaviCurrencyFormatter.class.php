@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Translation;
 /**
  * The currency formatter will format numbers according to a given format and 
  * a given currency symbol

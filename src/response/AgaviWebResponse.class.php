@@ -12,6 +12,13 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Response;
+
+use Agavi\AgaviContext;
+use Agavi\Config\AgaviConfig;
+use Agavi\Controller\AgaviOutputType;
+use Agavi\Exception\AgaviException;
+use Agavi\Routing\AgaviWebRouting;
 
 /**
  * AgaviWebResponse handles HTTP responses.
@@ -196,7 +203,7 @@ class AgaviWebResponse extends AgaviResponse
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function send(AgaviOutputType $outputType = null)
+	public function send(?AgaviOutputType $outputType = null)
 	{
 		if($this->redirect) {
 			$location = $this->redirect['location'];
@@ -652,7 +659,7 @@ class AgaviWebResponse extends AgaviResponse
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	protected function sendHttpResponseHeaders(AgaviOutputType $outputType = null)
+	protected function sendHttpResponseHeaders(?AgaviOutputType $outputType = null)
 	{
 		if($outputType === null) {
 			$outputType = $this->getOutputType();

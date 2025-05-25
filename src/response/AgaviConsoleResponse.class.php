@@ -12,6 +12,10 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Response;
+
+use Agavi\Controller\AgaviOutputType;
+use BadMethodCallException;
 
 /**
  * AgaviConsoleResponse handles command line responses.
@@ -159,7 +163,7 @@ class AgaviConsoleResponse extends AgaviResponse
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function send(AgaviOutputType $outputType = null)
+	public function send(?AgaviOutputType $outputType = null)
 	{
 		$this->sendContent();
 		

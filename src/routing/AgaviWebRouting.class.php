@@ -12,6 +12,10 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Routing;
+
+use Agavi\AgaviContext;
+use Agavi\Util\AgaviToolkit;
 
 /**
  * AgaviWebRouting sets the prefix and input with some magic from the request
@@ -169,10 +173,7 @@ class AgaviWebRouting extends AgaviRouting
 			$parsedRuQuery = $parsedInput = '';
 			parse_str((string) $ru['query'], $parsedRuQuery);
 			parse_str($this->input, $parsedInput);
-			if(get_magic_quotes_gpc()) {
-				$parsedRuQuery = AgaviWebRequest::clearMagicQuotes($parsedRuQuery);
-				$parsedInput = AgaviWebRequest::clearMagicQuotes($parsedInput /* start on the first level */);
-			}
+			
 			foreach(array_diff(array_keys($parsedInput), array_keys($parsedRuQuery)) as $unset) {
 				// our element is in $_GET
 				unset($_GET[$unset]);

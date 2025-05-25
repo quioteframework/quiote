@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Util;
 /**
  * Extended XSLTProcessor class that throws exceptions on errors.
  *

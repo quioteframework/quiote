@@ -13,6 +13,10 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Util;
+
+use Agavi\Config\AgaviConfig;
+use Agavi\Exception\AgaviException;
 
 /**
  * AgaviToolkit provides basic utility methods.
@@ -156,7 +160,7 @@ final class AgaviToolkit
 			@unlink($path);
 		} else {
 			try {
-				foreach(new RecursiveIteratorIterator(new RecursiveDirectoryIterator($path), RecursiveIteratorIterator::CHILD_FIRST) as $iterator) {
+				foreach(new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($path), \RecursiveIteratorIterator::CHILD_FIRST) as $iterator) {
 					// omg, thanks spl for always using forward slashes ... even on windows
 					$pathname = str_replace('/', DIRECTORY_SEPARATOR, str_replace('\\', DIRECTORY_SEPARATOR, $iterator->getPathname()));
 					$continue = false;
@@ -183,7 +187,7 @@ final class AgaviToolkit
 						@unlink($pathname);
 					}
 				}
-			} catch(Exception) {
+			} catch(\Exception) {
 				// ignore all exceptions in case the path didn't exist anymore
 			}
 		}

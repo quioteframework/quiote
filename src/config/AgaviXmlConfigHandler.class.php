@@ -12,6 +12,9 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Config;
+
+use Agavi\AgaviContext;
 
 /**
  * AgaviXmlConfigHandler is the base config handler that deals with DOMDocuments
@@ -47,7 +50,7 @@ abstract class AgaviXmlConfigHandler extends AgaviBaseConfigHandler implements A
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function initialize(AgaviContext $context = null, $parameters = [])
+	public function initialize(?AgaviContext $context = null, $parameters = [])
 	{
 		$this->context = $context;
 		$this->setParameters($parameters);

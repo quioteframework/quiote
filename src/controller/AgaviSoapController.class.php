@@ -13,6 +13,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Controller;
 
 /**
  * AgaviSoapController handles SOAP requests.
@@ -28,6 +29,8 @@
  *
  * @version    $Id$
  */
+use Agavi\Config\AgaviConfigCache;
+use Agavi\Request\AgaviRequestDataHolder;
 class AgaviSoapController extends AgaviController
 {
 	/**
@@ -158,9 +161,9 @@ class AgaviSoapController extends AgaviController
 			$cache = AgaviConfigCache::getCacheName($soapHandlerClass, $this->context->getName());
 			
 			if(AgaviConfigCache::isModified($wsdl, $cache)) {
-				$doc = new DOMDocument();
+				$doc = new \DOMDocument();
 				$doc->load($wsdl);
-				$xpath = new DOMXPath($doc);
+				$xpath = new \DOMXPath($doc);
 				$xpath->registerNamespace('soap', 'http://schemas.xmlsoap.org/wsdl/soap/');
 				
 				$code = [];
@@ -175,6 +178,7 @@ class AgaviSoapController extends AgaviController
 				
 				$headers = [];
 				
+				/** @var \DOMElement $header */
 				foreach($xpath->query('//soap:header') as $header) {
 					$name = $header->getAttribute('part');
 					
@@ -219,7 +223,7 @@ class AgaviSoapController extends AgaviController
 	 * @since      0.11.0
 	 */
 	#[\Override]
-    public function dispatch(AgaviRequestDataHolder $arguments = null, AgaviExecutionContainer $container = null)
+    public function dispatch(?AgaviRequestDataHolder $arguments = null, ?AgaviExecutionContainer $container = null)
 	{
 		// Remember The Milk... err... the arguments given.
 		$this->dispatchArguments = $arguments;
@@ -246,7 +250,7 @@ class AgaviSoapController extends AgaviController
 			// return the content so SoapServer can send it.
 			// AgaviSoapResponse::send() does not send the content, but sets the headers on the SoapServer
 			return parent::dispatch($this->dispatchArguments, $this->dispatchContainer);
-		} catch(SoapFault $f) {
+		} catch(\SoapFault $f) {
 			$this->response->clear();
 			$this->response->setContent($f);
 			// return the content so SoapServer can send it.

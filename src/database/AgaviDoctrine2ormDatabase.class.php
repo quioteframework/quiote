@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Database;
 /**
  * A database adapter for the Doctrine2 ORM. Can be used standalone, or by
  * referencing an AgaviDoctrine2dbalDatabase connection.

@@ -12,6 +12,9 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Routing;
+
+use Agavi\User\AgaviISecurityUser;
 
 /**
  * AgaviRoutingUserSource allows you to provide an user source for the routing

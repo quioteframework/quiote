@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Renderer;
 /**
  * This interface can be implemented by Renderers to indicate that their
  * instances may be used more than once for rendering.

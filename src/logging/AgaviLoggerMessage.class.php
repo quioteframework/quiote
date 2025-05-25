@@ -12,6 +12,9 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Logging;
+
+use Agavi\Util\AgaviParameterHolder;
 
 /**
  * AgaviLoggerMessage, by default, holds a message and a priority level.

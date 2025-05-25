@@ -12,6 +12,10 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Logging;
+
+use Agavi\AgaviContext;
+use Agavi\Util\AgaviParameterHolder;
 
 /**
  * AgaviLoggerLayout allows you to specify a message layout for log messages.

@@ -12,6 +12,11 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Logging;
+
+use Agavi\AgaviContext;
+use Agavi\Exception\AgaviException;
+use Agavi\Exception\AgaviLoggingException;
 
 /**
  * AgaviStreamLoggerAppender appends AgaviLoggerMessages to a given stream.

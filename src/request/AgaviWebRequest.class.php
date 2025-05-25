@@ -13,6 +13,12 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Request;
+
+use Agavi\AgaviContext;
+use Agavi\Exception\AgaviException;
+use Agavi\Util\AgaviArrayPathDefinition;
+use Agavi\Util\AgaviToolkit;
 
 /**
  * AgaviWebRequest provides additional support for web-only client requests
@@ -414,9 +420,6 @@ class AgaviWebRequest extends AgaviRequest
 			if(isset($_SERVER['CONTENT_TYPE']) && $this->getParameter('http_put_decode_urlencoded', true) && preg_match('#^application/x-www-form-urlencoded(;[^;]+)*?$#', $_SERVER['CONTENT_TYPE'])) {
 				// urlencoded data was sent, we can decode that
 				parse_str(file_get_contents('php://input'), $_POST);
-				if(function_exists('get_magic_quotes_gpc') && get_magic_quotes_gpc()) {
-					$_POST = self::clearMagicQuotes($_POST);
-				}
 			} else {
 				// some other data via PUT. we need to populate $_FILES manually
 				$httpBody = file_get_contents('php://input');

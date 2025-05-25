@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Translation;
 /**
  * AgaviGettextTranslator defines the translator interface for gettext.
  * 

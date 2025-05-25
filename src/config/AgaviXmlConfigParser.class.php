@@ -12,6 +12,15 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Config;
+
+use Agavi\Config\Util\DOM\AgaviXmlConfigDomDocument;
+use Agavi\Config\Util\DOM\AgaviXmlConfigDomElement;
+use Agavi\Exception\AgaviParseException;
+use Agavi\Exception\AgaviUnreadableException;
+use Agavi\Util\AgaviSchematronProcessor;
+use Agavi\Util\AgaviToolkit;
+use Agavi\Util\AgaviXsltProcessor;
 
 /**
  * AgaviXmlConfigParser handles both Agavi and foreign XML configuration files,
@@ -102,21 +111,21 @@ class AgaviXmlConfigParser
 	protected $environment = '';
 	
 	/**
-	 * @var        DOMDocument The document we're parsing here.
+	 * @var        \DOMDocument The document we're parsing here.
 	 */
 	protected $doc = null;
 	
 	/**
 	 * Test if the given document looks like an Agavi config file.
 	 *
-	 * @param      DOMDocument The document to test.
+	 * @param      AgaviXmlConfigDomDocument The document to test.
 	 *
 	 * @return     bool True, if it is an Agavi config document, false otherwise.
 	 *
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public static function isAgaviConfigurationDocument(DOMDocument $doc)
+	public static function isAgaviConfigurationDocument(AgaviXmlConfigDomDocument $doc)
 	{
 		return $doc->documentElement && $doc->documentElement->localName == 'configurations' && self::isAgaviEnvelopeNamespace($doc->documentElement->namespaceURI);
 	}
@@ -199,7 +208,7 @@ class AgaviXmlConfigParser
 	 * @param      array  An associative array of transformation information.
 	 * @param      array  An associative array of validation information.
 	 *
-	 * @return     DOMDocument A properly merged DOMDocument.
+	 * @return     AgaviXmlConfigDomDocument A properly merged DOMDocument.
 	 *
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
@@ -386,7 +395,7 @@ class AgaviXmlConfigParser
 			$this->doc = new AgaviXmlConfigDomDocument();
 			$this->doc->substituteEntities = true;
 			$this->doc->load($path);
-		} catch(DOMException $dome) {
+		} catch(\DOMException $dome) {
 			throw new AgaviParseException(sprintf('Configuration file "%s" could not be parsed: %s', $path, $dome->getMessage()), 0, $dome);
 		}
 	}
@@ -406,7 +415,7 @@ class AgaviXmlConfigParser
 	 * @param      array An array of XSL paths for transformation.
 	 * @param      array An associative array of validation information.
 	 *
-	 * @return     DOMDocument Our DOMDocument.
+	 * @return     AgaviXmlConfigDomDocument Our DOMDocument.
 	 *
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
@@ -523,7 +532,7 @@ class AgaviXmlConfigParser
 		// perform xincludes
 		try {
 			$document->xinclude();
-		} catch(DOMException $dome) {
+		} catch(\DOMException $dome) {
 			throw new AgaviParseException(sprintf('Configuration file "%s" could not be parsed: %s', $document->documentURI, $dome->getMessage()), 0, $dome);
 		}
 		
@@ -594,7 +603,7 @@ class AgaviXmlConfigParser
 			try {
 				$xsl = new AgaviXmlConfigDomDocument();
 				$xsl->load($href);
-			} catch(DOMException $dome) {
+			} catch(\DOMException $dome) {
 				throw new AgaviParseException(sprintf('Configuration file "%s" could not be parsed: Could not load XSL stylesheet "%s": %s', $document->documentURI, $href, $dome->getMessage()), 0, $dome);
 			}
 			
@@ -609,7 +618,7 @@ class AgaviXmlConfigParser
 				$proc = new AgaviXsltProcessor();
 				$proc->registerPHPFunctions();
 				$proc->importStylesheet($xsl);
-			} catch(Exception $e) {
+			} catch(\Exception $e) {
 				throw new AgaviParseException(sprintf('Configuration file "%s" could not be parsed: Could not import XSL stylesheet "%s": %s', $document->documentURI, $xsl->documentURI, $e->getMessage()), 0, $e);
 			}
 			
@@ -626,7 +635,7 @@ class AgaviXmlConfigParser
 			try {
 				// transform the doc
 				$newdoc = $proc->transformToDoc($document);
-			} catch(Exception $e) {
+			} catch(\Exception $e) {
 				throw new AgaviParseException(sprintf('Configuration file "%s" could not be parsed: Could not transform the document using the XSL stylesheet "%s": %s', $document->documentURI, $xsl->documentURI, $e->getMessage()), 0, $e);
 			}
 			
@@ -685,7 +694,7 @@ class AgaviXmlConfigParser
 						try {
 							$xsl = new AgaviXmlConfigDomDocument();
 							$xsl->appendChild($xsl->importNode($stylesheets->item(0), true));
-						} catch(DOMException $dome) {
+						} catch(\DOMException $dome) {
 							throw new AgaviParseException(sprintf('Configuration file "%s" could not be parsed: Could not load XSL stylesheet "%s": %s', $document->documentURI, $href, $dome->getMessage()), 0, $dome);
 						}
 						
@@ -833,7 +842,7 @@ class AgaviXmlConfigParser
 			
 			try {
 				$document->schemaValidate($validationFile);
-			} catch(DOMException $dome) {
+			} catch(\DOMException $dome) {
 				throw new AgaviParseException(sprintf('XML Schema validation of configuration file "%s" failed:' . "\n\n%s", $document->documentURI, $dome->getMessage()), 0, $dome);
 			}
 		}
@@ -854,7 +863,7 @@ class AgaviXmlConfigParser
 		foreach($validationSources as $validationSource) {
 			try {
 				$document->schemaValidateSource($validationSource);
-			} catch(DOMException $dome) {
+			} catch(\DOMException $dome) {
 				throw new AgaviParseException(sprintf('XML Schema validation of configuration file "%s" failed:' . "\n\n%s", $document->documentURI, $dome->getMessage()), 0, $dome);
 			}
 		}
@@ -879,7 +888,7 @@ class AgaviXmlConfigParser
 			
 			try {
 				$document->relaxNGValidate($validationFile);
-			} catch(DOMException $dome) {
+			} catch(\DOMException $dome) {
 				throw new AgaviParseException(sprintf('RELAX NG validation of configuration file "%s" failed:' . "\n\n%s", $document->documentURI, $dome->getMessage()), 0, $dome);
 			}
 		}
@@ -925,14 +934,14 @@ class AgaviXmlConfigParser
 			try {
 				$sch = new AgaviXmlConfigDomDocument();
 				$sch->load($href);
-			} catch(DOMException $dome) {
+			} catch(\DOMException $dome) {
 				throw new AgaviParseException(sprintf('Schematron validation of configuration file "%s" failed: Could not load schema file "%s": %s', $document->documentURI, $href, $dome->getMessage()), 0, $dome);
 			}
 			
 			// perform the validation transformation
 			try {
 				$result = $schematron->transform($sch);
-			} catch(Exception $e) {
+			} catch(\Exception $e) {
 				throw new AgaviParseException(sprintf('Schematron validation of configuration file "%s" failed: Transformation failed: %s', $document->documentURI, $e->getMessage()), 0, $e);
 			}
 			

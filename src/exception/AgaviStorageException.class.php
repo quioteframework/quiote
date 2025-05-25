@@ -13,7 +13,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Exception;
 /**
  * AgaviStorageException is thrown when a requested Storage implementation 
  * doesn't exist or data cannot be read from or written to the storage.

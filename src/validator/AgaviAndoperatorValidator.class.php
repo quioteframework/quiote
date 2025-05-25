@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Validator;
 /**
  * AgaviANDOperatorValidator only succeeds if all sub-validators succeeded
  * 

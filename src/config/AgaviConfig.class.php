@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Config;
 /**
  * AgaviConfig acts as global registry of agavi related configuration settings
  *

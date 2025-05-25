@@ -13,6 +13,9 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Database;
+
+use Agavi\Exception\AgaviDatabaseException;
 
 /**
  * AgaviMysqlDatabase provides connectivity for the MySQL brand database.

@@ -12,6 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Filter;
 
 /**
  * Security Filter interface. A SecurityFilter implementation must implement it.

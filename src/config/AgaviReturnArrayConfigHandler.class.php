@@ -12,6 +12,12 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Config;
+
+use Agavi\Config\Util\DOM\AgaviXmlConfigDomDocument;
+use Agavi\Config\Util\DOM\AgaviXmlConfigDomElement;
+use Agavi\Util\AgaviInflector;
+use Agavi\Util\AgaviToolkit;
 
 /**
  * AgaviReturnArrayConfigHandler allows you to retrieve the contents of a config
@@ -44,7 +50,7 @@ class AgaviReturnArrayConfigHandler extends AgaviXmlConfigHandler
 	 * @author     David Zülke <david.zuelke@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function execute(AgaviXmlConfigDomDocument $document)
+	public function execute(AgaviXmlConfigDomDocument $document) : bool
 	{
 		$document->setDefaultNamespace($this->getParameter('namespace_uri', ''));
 		

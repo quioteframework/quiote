@@ -12,6 +12,13 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Config\Util\DOM;
+
+use Agavi\Config\AgaviXmlConfigParser;
+use Agavi\Util\AgaviInflector;
+use Agavi\Util\AgaviToolkit;
+use ReturnTypeWillChange;
+use Traversable;
 
 /**
  * Extended DOMElement class with several convenience enhancements.
@@ -28,7 +35,7 @@
  *
  * @version    $Id$
  */
-class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate, \Stringable
+class AgaviXmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \Stringable
 {
 	/**
 	 * __toString() magic method, returns the element value.
@@ -179,7 +186,7 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate, 
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function get($name, $namespaceUri = null): DOMNodeList
+	public function get($name, $namespaceUri = null): \DOMNodeList
 	{
 		return $this->getChildren($name, $namespaceUri, true);
 	}
@@ -292,13 +299,13 @@ class AgaviXmlConfigDomElement extends DOMElement implements IteratorAggregate, 
 	 * @param      bool   Whether or not to apply automatic singular/plural
 	 *                    handling that skips plural container elements.
 	 *
-	 * @return     DOMNodeList A list of the child elements.
+	 * @return     \DOMNodeList A list of the child elements.
 	 *
 	 * @author     Noah Fontes <noah.fontes@bitextender.com>
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function getChildren($name, $namespaceUri = null, $pluralMagic = false): null|DOMNodeList
+	public function getChildren($name, $namespaceUri = null, $pluralMagic = false): null|\DOMNodeList
 	{
 		// if arg is null, then only check for elements from our default namespace
 		// if namespace uri is null, use default ns. if empty string, use no ns

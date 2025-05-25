@@ -12,6 +12,10 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Filter;
+
+use Agavi\AgaviContext;
+use Agavi\Controller\AgaviExecutionContainer;
 
 /**
  * AgaviFilter provides a way for you to intercept incoming requests or outgoing

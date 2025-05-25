@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Logging;
 /**
  * AgaviTimestampLoggerLayout prepends the current date and time to the message.
  *

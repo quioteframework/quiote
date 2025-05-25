@@ -13,6 +13,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Storage;
 
 /**
  * AgaviStorage allows you to customize the way Agavi stores its persistent 
@@ -29,6 +30,9 @@
  *
  * @version    $Id$
  */
+
+use Agavi\AgaviContext;
+use Agavi\Util\AgaviParameterHolder;
 abstract class AgaviStorage extends AgaviParameterHolder
 {
 	/**

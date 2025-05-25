@@ -12,6 +12,10 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Util;
+
+use Agavi\Exception\AgaviException;
+use Agavi\Exception\AgaviParseException;
 
 /**
  * AgaviSchematronProcessor transforms DOM documents according to ISO Schematron
@@ -66,7 +70,7 @@ class AgaviSchematronProcessor extends AgaviParameterHolder
 	 * @author     Noah Fontes <noah.fontes@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function __construct(array $chain = null)
+	public function __construct(?array $chain = null)
 	{
 		if($chain === null) {
 			$chain = static::$defaultChain;
@@ -109,7 +113,7 @@ class AgaviSchematronProcessor extends AgaviParameterHolder
 	protected static function getProcessor($path)
 	{
 		if(!isset(self::$processors[$path])) {
-			$processorImpl = new DOMDocument();
+			$processorImpl = new \DOMDocument();
 			$processorImpl->load($path);
 			$processor = new AgaviXsltProcessor();
 			$processor->importStylesheet($processorImpl);
@@ -122,12 +126,12 @@ class AgaviSchematronProcessor extends AgaviParameterHolder
 	/**
 	 * Sets the node that this processor will transform and validate.
 	 *
-	 * @param      DOMNode The node to use.
+	 * @param      \DOMNode The node to use.
 	 *
 	 * @author     Noah Fontes <noah.fontes@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function setNode(DOMNode $node)
+	public function setNode(\DOMNode $node)
 	{
 		$this->node = $node;
 	}
@@ -164,14 +168,14 @@ class AgaviSchematronProcessor extends AgaviParameterHolder
 	/**
 	 * Validates the node against a given Schematron validation file.
 	 *
-	 * @param      DOMDocument The validator to use.
+	 * @param      \DOMDocument The validator to use.
 	 *
 	 * @return     AgaviXmlConfigDomDocument The transformed validation document.
 	 *
 	 * @author     Noah Fontes <noah.fontes@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function transform(DOMDocument $schema)
+	public function transform(\DOMDocument $schema)
 	{
 		// do we even have a document?
 		if($this->node === null) {
@@ -193,7 +197,7 @@ class AgaviSchematronProcessor extends AgaviParameterHolder
 			}
 			try {
 				$validatorImpl = $processor->transformToDoc($validatorImpl);
-			} catch(Exception $e) {
+			} catch(\Exception $e) {
 				if($first) {
 					$this->cleanupProcessor($processor);
 				}
@@ -214,14 +218,14 @@ class AgaviSchematronProcessor extends AgaviParameterHolder
 		try {
 			$validator = new AgaviXsltProcessor();
 			$validator->importStylesheet($validatorImpl);
-		} catch(Exception $e) {
+		} catch(\Exception $e) {
 			throw new AgaviParseException(sprintf('Could not process the schema file "%s": %s', $schema->documentURI, $e->getMessage()), 0, $e);
 		}
 		
 		// run the validation by transforming our document using the generated validation stylesheet
 		try {
 			$result = $validator->transformToDoc($this->node);
-		} catch(Exception $e) {
+		} catch(\Exception $e) {
 			throw new AgaviParseException(sprintf('Could not validate the document against the schema file "%s": %s', $schema->documentURI, $e->getMessage()), 0, $e);
 		}
 		

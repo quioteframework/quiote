@@ -12,6 +12,16 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Routing;
+
+use Agavi\AgaviContext;
+use Agavi\Config\AgaviConfig;
+use Agavi\Config\AgaviConfigCache;
+use Agavi\Exception\AgaviException;
+use Agavi\Response\AgaviResponse;
+use Agavi\Util\AgaviArrayPathDefinition;
+use Agavi\Util\AgaviParameterHolder;
+use Agavi\Util\AgaviToolkit;
 
 /**
  * AgaviRouting allows you to centralize your entry point urls in your web
@@ -635,7 +645,7 @@ abstract class AgaviRouting extends AgaviParameterHolder
 							}
 						}
 						$changedParamsCopy = $paramsCopy;
-						if(!$callbackInstance->onGenerate($defaultsCopy, $paramsCopy, $options)) {
+						if($callbackInstance instanceof AgaviRoutingCallback && !$callbackInstance->onGenerate($defaultsCopy, $paramsCopy, $options)) {
 							continue 2;
 						}
 						// find all params changed in the callback, but ignore unset() parameters since they will be filled in at a later stage (and doing something the them would prevent default values being inserted after unset()tting of a parameter)
@@ -1552,8 +1562,8 @@ abstract class AgaviRouting extends AgaviParameterHolder
 		$reverseStr = '';
 
 		$anchor = 0;
-		$anchor |= $str !== null ? str_starts_with($str, '^') ? self::ANCHOR_START : 0 : 0;
-		$anchor |= $str !== null ? str_ends_with($str, '$') ? self::ANCHOR_END : 0 : 0;
+		$anchor |= $str !== null ? (str_starts_with($str, '^') ? self::ANCHOR_START : 0) : 0;
+		$anchor |= $str !== null ? (str_ends_with($str, '$') ? self::ANCHOR_END : 0) : 0;
 
 		$str = substr((string) $str, (int)$anchor & self::ANCHOR_START, $anchor & self::ANCHOR_END ? -1 : ($str !== null ? strlen($str) : 0));
 

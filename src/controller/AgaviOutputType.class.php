@@ -12,6 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Controller;
 
 /**
  * This class holds information about an Output Type.
@@ -27,6 +28,10 @@
  *
  * @version    $Id$
  */
+use Agavi\Util\AgaviParameterHolder;
+use Agavi\AgaviContext;
+use Agavi\Exception\AgaviException;
+use Agavi\Renderer\AgaviIReusableRenderer;
 class AgaviOutputType extends AgaviParameterHolder implements \Stringable
 {
 	/**

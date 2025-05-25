@@ -12,6 +12,10 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Database;
+
+use Agavi\Exception\AgaviDatabaseException;
+use PDO;
 
 /**
  * AgaviPdoDatabase provides connectivity for the PDO database API layer.
@@ -127,7 +131,7 @@ class AgaviPdoDatabase extends AgaviDatabase
 			foreach((array)$this->getParameter('init_queries') as $query) {
 				$this->connection->exec($query);
 			}
-		} catch(PDOException $e) {
+		} catch(\PDOException $e) {
 			throw new AgaviDatabaseException($e->getMessage(), 0, $e);
 		}
 	}

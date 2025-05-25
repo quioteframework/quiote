@@ -13,6 +13,11 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Controller;
+
+use Agavi\AgaviContext;
+use SoapFault;
+use stdClass;
 
 /**
  * AgaviSoapControllerCallHandler has the __call overload for the PHP SOAP ext.

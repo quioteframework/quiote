@@ -12,6 +12,11 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Request;
+
+use Agavi\Util\AgaviInflector;
+use Agavi\Util\AgaviParameterHolder;
+use InvalidArgumentException;
 
 /**
  * AgaviRequestDataHolder provides methods for retrieving client request 
@@ -88,7 +93,7 @@ class AgaviRequestDataHolder extends AgaviParameterHolder implements AgaviIParam
 			$funcname = 'clear' . $source;
 			$this->$funcname();
 		} else {
-			throw new InvalidArgumentException('Unknown source ' . $source . ' specified');
+			throw new \InvalidArgumentException('Unknown source ' . $source . ' specified');
 		}
 	}
 
@@ -125,7 +130,7 @@ class AgaviRequestDataHolder extends AgaviParameterHolder implements AgaviIParam
 			$funcname = 'get' . $this->sourceNames[$source];
 			return $this->$funcname($field, $default);
 		} else {
-			throw new InvalidArgumentException('Unknown source ' . $source . 'specified');
+			throw new \InvalidArgumentException('Unknown source ' . $source . 'specified');
 		}
 	}
 
@@ -146,7 +151,7 @@ class AgaviRequestDataHolder extends AgaviParameterHolder implements AgaviIParam
 			$funcname = 'get' . $source;
 			return $this->$funcname();
 		} else {
-			throw new InvalidArgumentException('Unknown source ' . $source . 'specified');
+			throw new \InvalidArgumentException('Unknown source ' . $source . 'specified');
 		}
 	}
 
@@ -168,7 +173,7 @@ class AgaviRequestDataHolder extends AgaviParameterHolder implements AgaviIParam
 			$funcname = 'has' . $this->sourceNames[$source];
 			return $this->$funcname($field);
 		} else {
-			throw new InvalidArgumentException('Unknown source ' . $source . 'specified');
+			throw new \InvalidArgumentException('Unknown source ' . $source . 'specified');
 		}
 	}
 

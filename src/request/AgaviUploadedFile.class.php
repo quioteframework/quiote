@@ -12,6 +12,13 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Request;
+
+use Agavi\Exception\AgaviException;
+use Agavi\Exception\AgaviFileException;
+use Agavi\Util\AgaviToolkit;
+use BadMethodCallException;
+use InvalidArgumentException;
 
 /**
  * AgaviUploadedFile is a container with information for files that were
@@ -28,7 +35,7 @@
  *
  * @version    $Id$
  */
-class AgaviUploadedFile implements ArrayAccess
+class AgaviUploadedFile implements \ArrayAccess
 {
 	/**
 	 * @var        string The name of the file.
@@ -487,7 +494,7 @@ class AgaviUploadedFile implements ArrayAccess
 	 */
 	public function getMimeType($charset = false)
 	{
-		$finfo = new finfo($charset ? FILEINFO_MIME : FILEINFO_MIME_TYPE);
+		$finfo = new \Finfo($charset ? FILEINFO_MIME : FILEINFO_MIME_TYPE);
 		// don't use finfo_file() to avoid unnecessary hits to disk in case it's not an uploaded file
 		return $finfo->buffer($this->getContents());
 	}

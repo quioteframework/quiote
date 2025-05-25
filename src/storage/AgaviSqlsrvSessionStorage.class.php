@@ -12,6 +12,12 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Storage;
+
+use Agavi\AgaviContext;
+use Agavi\Database\AgaviSqlsrvDatabase;
+use Agavi\Exception\AgaviInitializationException;
+use Agavi\Exception\AgaviStorageException;
 
 /**
  * Provides support for session storage using an ext/sqlsrv connection.

@@ -12,6 +12,10 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Response;
+
+use Agavi\Controller\AgaviOutputType;
+use BadMethodCallException;
 
 /**
  * AgaviSoapResponse handles SOAP Web Service responses using the PHP SOAP ext.
@@ -152,7 +156,7 @@ class AgaviSoapResponse extends AgaviResponse
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function send(AgaviOutputType $outputType = null)
+	public function send(?AgaviOutputType $outputType = null)
 	{
 		$this->sendSoapHeaders();
 		// don't send content, that's done by returning it from Controller::dispatch(), so SoapServer::handle() deals with the rest
@@ -231,12 +235,12 @@ class AgaviSoapResponse extends AgaviResponse
 	/**
 	 * Add a SOAP Header to this response.
 	 *
-	 * @param      SoapHeader The SOAP header to set.
+	 * @param      \SoapHeader The SOAP header to set.
 	 *
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function addSoapHeader(SoapHeader $soapHeader)
+	public function addSoapHeader(\SoapHeader $soapHeader)
 	{
 		$this->removeSoapHeader($soapHeader->namespace, $soapHeader->name);
 		$this->soapHeaders[] = $soapHeader;
@@ -261,9 +265,9 @@ class AgaviSoapResponse extends AgaviResponse
 	public function setSoapHeader($namespace, $name, $data = null, $mustUnderstand = false, $actor = null)
 	{
 		if($actor === null) {
-			$h = new SoapHeader($namespace, $name, $data, $mustUnderstand);
+			$h = new \SoapHeader($namespace, $name, $data, $mustUnderstand);
 		} else {
-			$h = new SoapHeader($namespace, $name, $data, $mustUnderstand, $actor);
+			$h = new \SoapHeader($namespace, $name, $data, $mustUnderstand, $actor);
 		}
 		$this->addSoapHeader($h);
 	}

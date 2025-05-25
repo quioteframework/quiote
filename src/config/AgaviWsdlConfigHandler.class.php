@@ -12,6 +12,9 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Config;
+
+use Agavi\Config\Util\DOM\AgaviXmlConfigDomDocument;
 
 /**
  * AgaviWsdlConfigHandler simply writes the given WSDL file to disk.
@@ -42,13 +45,13 @@ class AgaviWsdlConfigHandler extends AgaviXmlConfigHandler
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function execute(AgaviXmlConfigDomDocument $doc)
+	public function execute(AgaviXmlConfigDomDocument $doc) : bool
 	{
 		$ro = $this->context->getRouting();
 		
 		$cleanAppName = preg_replace('/\W/', '', (string) AgaviConfig::get('core.app_name'));
 		
-		$xpath = new DOMXPath($doc);
+		$xpath = new \DOMXPath($doc);
 		$xpath->registerNamespace('soap', 'http://schemas.xmlsoap.org/wsdl/soap/');
 		$xpath->registerNamespace('wsdl', 'http://schemas.xmlsoap.org/wsdl/');
 		
@@ -75,6 +78,7 @@ class AgaviWsdlConfigHandler extends AgaviXmlConfigHandler
 		$paramGlobalResponseHeaders   = $ro->getParameter('wsdl_generator[global_headers][response]',     []);
 		
 		$wsdlDefinitions = $xpath->query('/wsdl:definitions');
+		/** @var \DOMElement $wsdlDefinition */
 		foreach($wsdlDefinitions as $wsdlDefinition) {
 			$targetNamespaceUri = $wsdlDefinition->getAttribute('targetNamespace');
 			$targetNamespacePrefix = $wsdlDefinition->lookupPrefix($targetNamespaceUri);
@@ -82,11 +86,13 @@ class AgaviWsdlConfigHandler extends AgaviXmlConfigHandler
 			$wsdlDefinition->setAttribute('name', $paramWsdlDefinitionsName);
 			
 			$wsdlBindings = $xpath->query('wsdl:binding', $wsdlDefinition);
+			/** @var \DOMElement $wsdlBinding */
 			foreach($wsdlBindings as $wsdlBinding) {
 				$wsdlBinding->setAttribute('name', $paramWsdlDefinitionsName . 'Binding');
 				$wsdlBinding->setAttribute('type', $targetNamespacePrefix . ':' . $paramWsdlDefinitionsName . 'PortType');
 				
 				$soapBindings = $xpath->query('soap:binding', $wsdlBinding);
+				/** @var \DOMElement $soapBinding */
 				foreach($soapBindings as $soapBinding) {
 					$soapBinding->setAttribute('style', $paramSoapBindingStyle);
 					$soapBinding->setAttribute('transport', $paramSoapBindingTransport);
@@ -94,6 +100,7 @@ class AgaviWsdlConfigHandler extends AgaviXmlConfigHandler
 				}
 				
 				$wsdlOperations = $xpath->query('wsdl:operation', $wsdlBinding);
+				/** @var \DOMElement $wsdlOperation */
 				foreach($wsdlOperations as $wsdlOperation) {
 					
 					foreach(['input' => $paramGlobalRequestHeaders, 'output' => $paramGlobalResponseHeaders] as $target => $headers) {
@@ -113,12 +120,14 @@ class AgaviWsdlConfigHandler extends AgaviXmlConfigHandler
 					
 					if($paramSoapBodyNamespace !== null) {
 						$soapOperations = $xpath->query('soap:operation', $wsdlOperation);
+						/** @var \DOMElement $soapOperation */
 						foreach($soapOperations as $soapOperation) {
 							$soapOperation->setAttribute('soapAction', $paramSoapBodyNamespace . '#' . $wsdlOperation->getAttribute('name'));
 						}
 					}
 					
 					$soapBodies = $xpath->query('.//soap:body', $wsdlOperation);
+					/** @var \DOMElement $soapBody */
 					foreach($soapBodies as $soapBody) {
 						if(!$soapBody->hasAttribute('use')) {
 							$soapBody->setAttribute('use', $paramSoapBodyUse);
@@ -134,6 +143,7 @@ class AgaviWsdlConfigHandler extends AgaviXmlConfigHandler
 					}
 					
 					$soapHeaders = $xpath->query('.//soap:header', $wsdlOperation);
+					/** @var \DOMElement $soapHeader */
 					foreach($soapHeaders as $soapHeader) {
 						if(!$soapHeader->hasAttribute('use')) {
 							$soapHeader->setAttribute('use', $paramSoapHeaderUse);
@@ -149,6 +159,7 @@ class AgaviWsdlConfigHandler extends AgaviXmlConfigHandler
 					}
 					
 					$soapFaults = $xpath->query('.//soap:fault', $wsdlOperation);
+					/** @var \DOMElement $soapFault */
 					foreach($soapFaults as $soapFault) {
 						if(!$soapFault->hasAttribute('use')) {
 							$soapFault->setAttribute('use', $paramSoapFaultUse);
@@ -166,20 +177,24 @@ class AgaviWsdlConfigHandler extends AgaviXmlConfigHandler
 			}
 			
 			$wsdlPortTypes = $xpath->query('wsdl:portType', $wsdlDefinition);
+			/** @var \DOMElement $wsdlPortType */
 			foreach($wsdlPortTypes as $wsdlPortType) {
 				$wsdlPortType->setAttribute('name', $paramWsdlDefinitionsName . 'PortType');
 			}
 			
 			$wsdlServices = $xpath->query('wsdl:service', $wsdlDefinition);
+			/** @var \DOMElement $wsdlService */
 			foreach($wsdlServices as $wsdlService) {
 				$wsdlService->setAttribute('name', $paramWsdlDefinitionsName . 'Service');
 				
 				$wsdlPorts = $xpath->query('wsdl:port', $wsdlService);
+				/** @var \DOMElement $wsdlPort */
 				foreach($wsdlPorts as $wsdlPort) {
 					$wsdlPort->setAttribute('name', $paramWsdlDefinitionsName . 'Port');
 					$wsdlPort->setAttribute('binding', $targetNamespacePrefix . ':' . $paramWsdlDefinitionsName . 'Binding');
 					
 					$soapAddresses = $xpath->query('soap:address', $wsdlPort);
+					/** @var \DOMElement $soapAddress */
 					foreach($soapAddresses as $soapAddress) {
 						$soapAddress->setAttribute('location', $paramSoapAddressLocation);
 					}

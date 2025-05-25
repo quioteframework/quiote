@@ -12,6 +12,9 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Request;
+
+use Agavi\AgaviContext;
 
 /**
  * AgaviXmlrpcepiphpRequest is an implementation for handling XMLRPC Web

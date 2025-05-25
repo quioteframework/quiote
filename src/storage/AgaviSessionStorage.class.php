@@ -13,6 +13,10 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Storage;
+
+use Agavi\Request\AgaviWebRequest;
+use Agavi\Routing\AgaviWebRouting;
 
 /**
  * AgaviSessionStorage is the interface used by Agavi to store session data from

@@ -12,6 +12,9 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Routing;
+
+use Agavi\AgaviContext;
 
 /**
  * AgaviWebserviceRouting handles the routing for Web Service requests.

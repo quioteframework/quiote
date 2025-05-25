@@ -12,6 +12,13 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\DateTime;
+
+use Agavi\Translation\AgaviLocale;
+use Agavi\Util\AgaviToolkit;
+use DateTime;
+use DateTimeZone;
+use OverflowException;
 
 /**
  * Ported from ICU:
@@ -519,7 +526,7 @@ abstract class AgaviCalendar
 				break;
 
 			default:
-				throw new InvalidArgumentException('AgaviCalendar::add(): field ' . $field . ' is not supported');
+				throw new \InvalidArgumentException('AgaviCalendar::add(): field ' . $field . ' is not supported');
 				return;
 		}
 
@@ -897,7 +904,7 @@ abstract class AgaviCalendar
 				return;
 		default:
 				// Other fields cannot be rolled by this method
-				throw new InvalidArgumentException('AgaviCalendar::roll(): field ' . $field . ' cannot be rolled with this method');
+				throw new \InvalidArgumentException('AgaviCalendar::roll(): field ' . $field . ' cannot be rolled with this method');
 		}
 	}
 
@@ -987,7 +994,7 @@ abstract class AgaviCalendar
 					if($max < 0) {
 						// TODO: check if we can change this to float to support a larger range
 						// Field difference too large to fit into int32_t
-						throw new InvalidArgumentException('The difference is to large to fit into an integer');
+						throw new \InvalidArgumentException('The difference is to large to fit into an integer');
 					}
 				}
 			}
@@ -1021,7 +1028,7 @@ abstract class AgaviCalendar
 					if($max == 0) {
 						// TODO: see above
 						// Field difference too large to fit into int32_t
-						throw new InvalidArgumentException('The difference is to large to fit into an integer');
+						throw new \InvalidArgumentException('The difference is to large to fit into an integer');
 					}
 				}
 			}
@@ -1059,7 +1066,7 @@ abstract class AgaviCalendar
 	 * @author     The ICU Project
 	 * @since      0.11.0
 	 */
-	public function setTimeZone(AgaviTimeZone $zone = null)
+	public function setTimeZone(?AgaviTimeZone $zone = null)
 	{
 		// Do nothing if passed-in zone is NULL
 		if(!$zone) {
@@ -2886,9 +2893,9 @@ abstract class AgaviCalendar
 		$this->internalSet(AgaviDateDefinitions::DAY_OF_YEAR, $this->getGregorianDayOfYear());
 		$eyear = $this->getGregorianYear();
 		$this->internalSet(AgaviDateDefinitions::EXTENDED_YEAR, $eyear);
-		$era = GregorianCalendar::AD;
+		$era = AgaviGregorianCalendar::AD;
 		if($eyear < 1) {
-			$era = GregorianCalendar::BC;
+			$era = AgaviGregorianCalendar::BC;
 			$eyear = 1 - $eyear;
 		}
 		$this->internalSet(AgaviDateDefinitions::ERA, $era);
@@ -3507,7 +3514,7 @@ abstract class AgaviCalendar
 				break;
 			case AgaviDateDefinitions::DAY_OF_WEEK_IN_MONTH:
 				if($this->internalGet($field) == 0) {
-					throw new InvalidArgumentException('DAY_OF_WEEK_IN_MONTH cannot be zero');
+					throw new \InvalidArgumentException('DAY_OF_WEEK_IN_MONTH cannot be zero');
 					return;
 				}
 				$this->validateField1($field, $this->getMinimum($field), $this->getMaximum($field));
@@ -3540,7 +3547,7 @@ abstract class AgaviCalendar
 	{
 		$value = $this->fFields[$field];
 		if($value < $min || $value > $max) {
-			throw new InvalidArgumentException('Illegal argument error. Field: ' . $field . '. Value ' . $value . ' is not within ' . $min . ' and ' . $max);
+			throw new \InvalidArgumentException('Illegal argument error. Field: ' . $field . '. Value ' . $value . ' is not within ' . $min . ' and ' . $max);
 		}
 	}
 

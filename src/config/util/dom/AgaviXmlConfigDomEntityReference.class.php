@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Config\Util\DOM;
 /**
  * Extended DOMEntityReference class.
  *
@@ -27,7 +27,7 @@
  *
  * @version    $Id$
  */
-class AgaviXmlConfigDomEntityReference extends DOMEntityReference
+class AgaviXmlConfigDomEntityReference extends \DOMEntityReference
 {
 }
 

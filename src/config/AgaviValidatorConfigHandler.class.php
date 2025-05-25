@@ -12,6 +12,12 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Config;
+
+use Agavi\Config\Util\DOM\AgaviXmlConfigDomDocument;
+use Agavi\Config\Util\DOM\AgaviXmlConfigDomElement;
+use Agavi\Exception\AgaviValidatorException;
+use Agavi\Util\AgaviToolkit;
 
 /**
  * AgaviValidatorConfigHandler allows you to register validators with the
@@ -56,7 +62,7 @@ class AgaviValidatorConfigHandler extends AgaviXmlConfigHandler
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function execute(AgaviXmlConfigDomDocument $document)
+	public function execute(AgaviXmlConfigDomDocument $document) : bool
 	{
 		$document->setDefaultNamespace(self::XML_NAMESPACE, 'validators');
 		

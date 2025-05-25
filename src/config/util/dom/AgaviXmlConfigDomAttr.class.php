@@ -12,6 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Config\Util\DOM;
 
 /**
  * Extended DOMAttr class.
@@ -27,7 +28,7 @@
  *
  * @version    $Id$
  */
-class AgaviXmlConfigDomAttr extends DOMAttr implements \Stringable
+class AgaviXmlConfigDomAttr extends \DOMAttr implements \Stringable
 {
 	public function __toString(): string
 	{

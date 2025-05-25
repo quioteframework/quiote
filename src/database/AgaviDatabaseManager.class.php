@@ -13,6 +13,12 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Database;
+
+use Agavi\AgaviContext;
+use Agavi\Config\AgaviConfig;
+use Agavi\Config\AgaviConfigCache;
+use Agavi\Exception\AgaviDatabaseException;
 
 /**
  * AgaviDatabaseManager allows you to setup your database connectivity before 

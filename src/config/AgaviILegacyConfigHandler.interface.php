@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Config;
 /**
  * AgaviILegacyConfigHandler is the interface that all old-style config handlers
  * which deal with ConfigValueHolders and parse configs themselves implement.

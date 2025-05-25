@@ -12,6 +12,10 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Logging;
+
+use Agavi\AgaviContext;
+use Agavi\Exception\AgaviLoggingException;
 
 /**
  * AgaviFileLoggerAppender appends AgaviLoggerMessages to a given file.

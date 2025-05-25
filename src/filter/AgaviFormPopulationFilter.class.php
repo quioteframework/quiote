@@ -12,6 +12,21 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Filter;
+
+use Agavi\AgaviContext;
+use Agavi\Config\AgaviConfig;
+use Agavi\Controller\AgaviExecutionContainer;
+use Agavi\Exception\AgaviException;
+use Agavi\Exception\AgaviParseException;
+use Agavi\Logging\AgaviLogger;
+use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Request\AgaviWebRequestDataHolder;
+use Agavi\Util\AgaviParameterHolder;
+use Agavi\Util\AgaviToolkit;
+use Agavi\Validator\AgaviValidationArgument;
+use Agavi\Validator\AgaviValidationReport;
+use Agavi\Validator\AgaviValidator;
 
 /**
  * AgaviFormPopulationFilter automatically populates a form that is re-posted,
@@ -47,12 +62,12 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 	const ENCODING_ISO_8859_1 = 'iso-8859-1';
 
 	/**
-	 * @var        DOMDocument Our (X)HTML document.
+	 * @var        \DOMDocument Our (X)HTML document.
 	 */
 	protected $doc;
 
 	/**
-	 * @var        DOMXPath Our XPath instance for the document.
+	 * @var        \DOMXPath Our XPath instance for the document.
 	 */
 	protected $xpath;
 
@@ -142,7 +157,7 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 		$luie = libxml_use_internal_errors(true);
 		libxml_clear_errors();
 
-		$this->doc = new DOMDocument();
+		$this->doc = new \DOMDocument();
 
 		$this->doc->substituteEntities = $cfg['dom_substitute_entities'];
 		$this->doc->resolveExternals   = $cfg['dom_resolve_externals'];
@@ -163,7 +178,7 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 
 		if($xhtml && $cfg['parse_xhtml_as_xml']) {
 			$this->doc->loadXML($output);
-			$this->xpath = new DomXPath($this->doc);
+			$this->xpath = new \DomXPath($this->doc);
 			if($this->doc->documentElement && $this->doc->documentElement->namespaceURI) {
 				$this->xpath->registerNamespace('html', $this->doc->documentElement->namespaceURI);
 				$this->xmlnsPrefix = 'html:';
@@ -172,7 +187,7 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 			}
 		} else {
 			$this->doc->loadHTML($output);
-			$this->xpath = new DomXPath($this->doc);
+			$this->xpath = new \DomXPath($this->doc);
 			$this->xmlnsPrefix = '';
 		}
 
@@ -227,6 +242,7 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 		libxml_use_internal_errors($luie);
 
 		$properXhtml = false;
+		/** @var \DOMElement $meta */
 		foreach($this->xpath->query(sprintf('//%1$shead/%1$smeta', $this->xmlnsPrefix)) as $meta) {
 			if(strtolower($meta->getAttribute('http-equiv')) == 'content-type') {
 				if($this->doc->encoding === null) {
@@ -261,9 +277,12 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 			throw new AgaviException('No iconv module available, input encoding "' . $encoding . '" cannot be handled.');
 		}
 
+		/** @var \DOMNodeList<\DOMNode|\DOMNameSpaceNode>|false $base */
 		$base = $this->xpath->query(sprintf('/%1$shtml/%1$shead/%1$sbase[@href]', $this->xmlnsPrefix));
 		if($base->length) {
-			$baseHref = $base->item(0)->getAttribute('href');
+			/** @var \DOMElement $item */
+			$item = $base->item(0);
+			$baseHref = $item->getAttribute('href');
 		} else {
 			$baseHref = $rq->getUrl();
 		}
@@ -300,6 +319,7 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 		// an array of all validation incidents; errors inserted for fields or multiple fields will be removed in here
 		$allIncidents = $vr->getIncidents();
 
+		/** @var \DOMElement $form */
 		foreach($forms as $form) {
 			if($form->tagName == 'form') {
 				if($populate instanceof AgaviParameterHolder) {
@@ -366,6 +386,7 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 				);
 			}
 			
+			/** @var \DOMElement $element */
 			foreach($this->xpath->query($query, $form) as $element) {
 
 				$pname = $name = $element->getAttribute('name');
@@ -456,6 +477,7 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 							$errorClassResults = $this->xpath->query(AgaviToolkit::expandVariables($xpathExpression, ['htmlnsPrefix' => $this->xmlnsPrefix]), $errorClassElement);
 							if($errorClassResults && $errorClassResults->length) {
 								// we have results. the xpath expressions are used to locale the actual elements we set the error class on - doesn't necessarily have to be the erroneous element or the label!
+								/** @var \DOMElement $errorClassDestinationElement */
 								foreach($errorClassResults as $errorClassDestinationElement) {
 									$errorClassDestinationElement->setAttribute('class', preg_replace('/\s*$/', ' ' . $errorClassName, $errorClassDestinationElement->getAttribute('class')));
 								}
@@ -561,6 +583,7 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 				} elseif($element->nodeName == 'select') {
 					// select elements
 					// yes, we still use XPath because there could be OPTGROUPs
+					/** @var \DOMElement $option */
 					foreach($this->xpath->query(sprintf('descendant::%1$soption', $this->xmlnsPrefix), $element) as $option) {
 						$option->removeAttribute('selected');
 						if($p->hasParameter($pname) && ($option->getAttribute('value') === $value || ($multiple && is_array($value) && in_array($option->getAttribute('value'), $value)))) {
@@ -707,7 +730,7 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 	 * Insert the error messages from the given incidents into the given element
 	 * using the given rules.
 	 *
-	 * @param      DOMElement The element to work on.
+	 * @param      \DOMElement The element to work on.
 	 * @param      array      An array of insertion rules
 	 * @param      array      An array of AgaviValidationIncidents.
 	 *
@@ -716,7 +739,7 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	protected function insertErrorMessages(DOMElement $element, array $rules, array $incidents)
+	protected function insertErrorMessages(\DOMElement $element, array $rules, array $incidents)
 	{
 		$errors = [];
 		foreach($incidents as $incident) {

@@ -11,6 +11,9 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Logging;
+
+use Agavi\AgaviContext;
 
 /**
  * AgaviRotatingFileLoggerAppender extends AgaviFileLoggerAppender by enabling 

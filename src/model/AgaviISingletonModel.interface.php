@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Model;
 /**
  * An extension to AgaviModel, but for implementation as a Singleton
  * 

@@ -13,7 +13,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Action;
 /**
  * AgaviAction allows you to separate application and business logic from your
  * presentation. By providing a core set of methods used by the framework,
@@ -31,10 +31,12 @@
  *
  * @version    $Id$
  */
+use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Controller\AgaviExecutionContainer;
 abstract class AgaviAction
 {
 	/**
-	 * @var        AgaviExecutionContainer This action's execution container.
+	 * @var AgaviExecutionContainer This action's execution container.
 	 */
 	protected $container = null;
 

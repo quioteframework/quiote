@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\DateTime;
 /**
  * Ported from ICU:
  *  icu/trunk/source/i18n/simpletz.cpp        r21282

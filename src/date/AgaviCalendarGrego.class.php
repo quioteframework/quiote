@@ -12,6 +12,9 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\DateTime;
+
+use Agavi\Util\AgaviToolkit;
 
 /**
  * A utility class providing proleptic Gregorian calendar functions used by 

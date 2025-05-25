@@ -13,6 +13,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Storage;
 
 /**
  * AgaviNullStorage doesn't store what it is given and always returns null on

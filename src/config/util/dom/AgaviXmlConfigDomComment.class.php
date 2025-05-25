@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Config\Util\DOM;
 /**
  * Extended DOMComment class.
  *
@@ -27,7 +27,7 @@
  *
  * @version    $Id$
  */
-class AgaviXmlConfigDomComment extends DOMComment
+class AgaviXmlConfigDomComment extends \DOMComment
 {
 }
 

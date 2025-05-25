@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Config\Util\DOM;
 /**
  * Extended DOMDocumentFragment class.
  *
@@ -27,7 +27,7 @@
  *
  * @version    $Id$
  */
-class AgaviXmlConfigDomDocumentFragment extends DOMDocumentFragment
+class AgaviXmlConfigDomDocumentFragment extends \DOMDocumentFragment
 {
 }
 

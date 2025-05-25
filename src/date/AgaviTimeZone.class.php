@@ -12,6 +12,11 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\DateTime;
+
+use Agavi\Translation\AgaviLocale;
+use Agavi\Translation\AgaviTranslationManager;
+use Agavi\Util\AgaviToolkit;
 
 /**
  * Ported from ICU:
@@ -289,7 +294,7 @@ abstract class AgaviTimeZone
 	 * @author     The ICU Project
 	 * @since      0.11.0
 	 */
-	public function getDisplayName($daylight = null, $style = null, AgaviLocale $locale = null)
+	public function getDisplayName($daylight = null, $style = null, ?AgaviLocale $locale = null)
 	{
 		if($daylight === null) {
 			$daylight = false;
@@ -304,7 +309,7 @@ abstract class AgaviTimeZone
 				$locale = $this->translationManager->getCurrentLocale();
 			}
 		} else {
-			throw new InvalidArgumentException('Illegal arguments for AgaviTimeZone::getDisplayName');
+			throw new \InvalidArgumentException('Illegal arguments for AgaviTimeZone::getDisplayName');
 		}
 
 		$displayString = null;
@@ -554,11 +559,11 @@ abstract class AgaviTimeZone
 					break;
 			}
 		} else {
-			throw new InvalidArgumentException('Zone identifier is not parseable');
+			throw new \InvalidArgumentException('Zone identifier is not parseable');
 		}
 		
 		if($hours > $maxCustomHour || $minutes > $maxCustomMin || $seconds > $maxCustomSec) {
-			throw new InvalidArgumentException('Zone identifier is not parseable');
+			throw new \InvalidArgumentException('Zone identifier is not parseable');
 		}
 		
 		$offset = $hours * 3600 + $minutes * 60 + $seconds;

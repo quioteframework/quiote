@@ -13,6 +13,14 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Config;
+
+use Agavi\AgaviContext;
+use Agavi\Exception\AgaviCacheException;
+use Agavi\Exception\AgaviConfigurationException;
+use Agavi\Exception\AgaviException;
+use Agavi\Exception\AgaviUnreadableException;
+use Agavi\Util\AgaviToolkit;
 
 /**
  * AgaviConfigCache allows you to customize the format of a configuration
@@ -75,7 +83,7 @@ class AgaviConfigCache
 	 * @author     Felix Gilcher <felix.gilcher@bitextender.com>
 	 * @since      0.9.0
 	 */
-	protected static function callHandler($name, $config, $cache, $context, array $handlerInfo = null)
+	protected static function callHandler($name, $config, $cache, $context, ?array $handlerInfo = null)
 	{
 		self::setupHandlers();
 		

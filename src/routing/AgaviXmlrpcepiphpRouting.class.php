@@ -12,6 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Routing;
 
 /**
  * AgaviXmlrpcepiphpRouting handles the routing for XMLRPC web service requests.

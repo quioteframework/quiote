@@ -13,6 +13,11 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Config;
+
+use Agavi\Config\Util\DOM\AgaviXmlConfigDomDocument;
+use Agavi\Exception\AgaviException;
+use Agavi\Util\AgaviToolkit;
 
 /**
  * AgaviConfigHandlersConfigHandler allows you to specify configuration handlers
@@ -53,7 +58,7 @@ class AgaviConfigHandlersConfigHandler extends AgaviXmlConfigHandler
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      0.11.0
 	 */
-	public function execute(AgaviXmlConfigDomDocument $document)
+	public function execute(AgaviXmlConfigDomDocument $document) : bool
 	{
 		// set up our default namespace
 		$document->setDefaultNamespace(self::XML_NAMESPACE, 'config_handlers');

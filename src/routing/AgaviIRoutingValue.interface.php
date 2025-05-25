@@ -12,6 +12,9 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Routing;
+
+use Agavi\AgaviContext;
 
 /**
  * Routing values are used internally and, optionally, by users in gen() calls
@@ -29,7 +32,7 @@
  *
  * @version    $Id$
  */
-interface AgaviIRoutingValue extends ArrayAccess
+interface AgaviIRoutingValue extends \ArrayAccess
 {
 	/**
 	 * Constructor.

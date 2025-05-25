@@ -13,6 +13,9 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Config;
+
+use Agavi\Util\AgaviToolkit;
 
 /**
  * AgaviConfigHandler allows a developer to create a custom formatted

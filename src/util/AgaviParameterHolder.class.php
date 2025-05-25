@@ -13,7 +13,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Util;
 /**
  * AgaviParameterHolder provides a base class for managing parameters.
  *

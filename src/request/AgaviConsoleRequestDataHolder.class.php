@@ -12,6 +12,9 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Request;
+
+use Agavi\Util\AgaviArrayPathDefinition;
 
 /**
  * AgaviConsoleRequestDataHolder provides methods for retrieving client request
@@ -60,7 +63,7 @@ class AgaviConsoleRequestDataHolder extends AgaviRequestDataHolder implements Ag
 		} else {
 			try {
 				$retval =& AgaviArrayPathDefinition::getValue($name, $this->files);
-			} catch(InvalidArgumentException) {
+			} catch(\InvalidArgumentException) {
 				$retval = $default;
 			}
 		}
@@ -103,7 +106,7 @@ class AgaviConsoleRequestDataHolder extends AgaviRequestDataHolder implements Ag
 		} else {
 			try {
 				$val = AgaviArrayPathDefinition::getValue($name, $this->files);
-			} catch(InvalidArgumentException) {
+			} catch(\InvalidArgumentException) {
 				return false;
 			}
 		}
@@ -161,7 +164,7 @@ class AgaviConsoleRequestDataHolder extends AgaviRequestDataHolder implements Ag
 		}
 		try {
 			return AgaviArrayPathDefinition::unsetValue($name, $this->files);
-		} catch(InvalidArgumentException) {
+		} catch(\InvalidArgumentException) {
 		}
 	}
 

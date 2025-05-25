@@ -13,6 +13,10 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Filter;
+
+use Agavi\Controller\AgaviExecutionContainer;
+use Agavi\Exception\AgaviException;
 
 /**
  * AgaviBasicSecurityFilter checks security by calling the getCredentials() 

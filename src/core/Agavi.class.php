@@ -12,6 +12,12 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi;
+
+use Agavi\Config\AgaviConfig;
+use Agavi\Config\AgaviConfigCache;
+use Agavi\Exception\AgaviException;
+use Agavi\Util\AgaviToolkit;
 
 /**
  * Main framework class used for autoloading and initial bootstrapping of Agavi.
@@ -107,7 +113,7 @@ final class Agavi
 			// required classes for the framework
 			AgaviConfigCache::load($compile);
 
-		} catch(Exception $e) {
+		} catch(\Exception $e) {
 			AgaviException::render($e);
 		}
 	}

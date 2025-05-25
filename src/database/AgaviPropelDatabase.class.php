@@ -12,6 +12,10 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Database;
+
+use Agavi\Exception\AgaviDatabaseException;
+use Agavi\Util\AgaviToolkit;
 
 /**
  * An Agavi Database driver for Propel. Supports Propel 1.3 and later.
@@ -45,6 +49,8 @@
  *
  * @version    $Id$
  */
+use Propel\Propel;
+use Propel\Configration\PropelConfiguration;
 class AgaviPropelDatabase extends AgaviDatabase
 {
 	/**

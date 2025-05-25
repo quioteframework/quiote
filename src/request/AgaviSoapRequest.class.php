@@ -12,6 +12,9 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Request;
+
+use Agavi\AgaviContext;
 
 /**
  * AgaviSoapRequest is an implementation for handling SOAP Web Services using

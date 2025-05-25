@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Exception;
 /**
  * AgaviUncacheableException can be thrown by cache group callbacks to signal to
  * the framework's execution filter that no caching should occur.

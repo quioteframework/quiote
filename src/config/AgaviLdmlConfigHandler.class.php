@@ -12,6 +12,12 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Config;
+
+use Agavi\DateTime\AgaviDateDefinitions;
+use Agavi\Exception\AgaviException;
+use Agavi\Translation\AgaviLocale;
+use Exception;
 
 /**
  * AgaviLdmlConfigHandler allows you to parse ldml files into an array.

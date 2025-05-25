@@ -12,6 +12,9 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Config\Util\DOM;
+
+use Agavi\Config\AgaviXmlConfigParser;
 
 /**
  * Extended DOMDocument class with several convenience enhancements.
@@ -28,7 +31,7 @@
  *
  * @version    $Id$
  */
-class AgaviXmlConfigDomDocument extends DOMDocument
+class AgaviXmlConfigDomDocument extends \DOMDocument
 {
 	/**
 	 * @var        string Default namespace used by several convenience methods in
@@ -86,7 +89,7 @@ class AgaviXmlConfigDomDocument extends DOMDocument
 			$this->registerNodeClass($domClass, $agaviClass);
 		}
 		
-		$this->xpath = new DOMXPath($this);
+		$this->xpath = new \DOMXPath($this);
 	}
 	
 	/**
@@ -100,7 +103,7 @@ class AgaviXmlConfigDomDocument extends DOMDocument
 	 * @author     Noah Fontes <noah.fontes@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function load($filename, $options = 0)
+	public function load($filename, $options = 0) : bool
 	{
 		$luie = libxml_use_internal_errors(true);
 		libxml_clear_errors();
@@ -114,7 +117,7 @@ class AgaviXmlConfigDomDocument extends DOMDocument
 			}
 			libxml_clear_errors();
 			libxml_use_internal_errors($luie);
-			throw new DOMException(
+			throw new \DOMException(
 				sprintf(
 					'Error%s occurred while parsing the document: ' . "\n\n%s",
 					count($errors) > 1 ? 's' : '',
@@ -125,7 +128,7 @@ class AgaviXmlConfigDomDocument extends DOMDocument
 		
 		libxml_use_internal_errors($luie);
 		
-		$this->xpath = new DOMXPath($this);
+		$this->xpath = new \DOMXPath($this);
 		
 		if($this->isAgaviConfiguration()) {
 			AgaviXmlConfigParser::registerAgaviNamespaces($this);
@@ -145,7 +148,7 @@ class AgaviXmlConfigDomDocument extends DOMDocument
 	 * @author     Noah Fontes <noah.fontes@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function loadXml($source, $options = 0)
+	public function loadXml($source, $options = 0) : bool
 	{
 		$luie = libxml_use_internal_errors(true);
 		libxml_clear_errors();
@@ -159,7 +162,7 @@ class AgaviXmlConfigDomDocument extends DOMDocument
 			}
 			libxml_clear_errors();
 			libxml_use_internal_errors($luie);
-			throw new DOMException(
+			throw new \DOMException(
 				sprintf(
 					'Error%s occurred while parsing the document: ' . "\n\n%s",
 					count($errors) > 1 ? 's' : '',
@@ -170,7 +173,7 @@ class AgaviXmlConfigDomDocument extends DOMDocument
 		
 		libxml_use_internal_errors($luie);
 		
-		$this->xpath = new DOMXPath($this);
+		$this->xpath = new \DOMXPath($this);
 		
 		if($this->isAgaviConfiguration()) {
 			AgaviXmlConfigParser::registerAgaviNamespaces($this);
@@ -208,7 +211,7 @@ class AgaviXmlConfigDomDocument extends DOMDocument
 			libxml_clear_errors();
 			if($throw) {
 				libxml_use_internal_errors($luie);
-				throw new DOMException(
+				throw new \DOMException(
 					sprintf(
 						'Error%s occurred while resolving XInclude directives: ' . "\n\n%s", 
 						count($errors) > 1 ? 's' : '', 
@@ -235,7 +238,7 @@ class AgaviXmlConfigDomDocument extends DOMDocument
 	 * @author     Noah Fontes <noah.fontes@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function importNode(DOMNode $node, $deep = false)
+	public function importNode(\DOMNode $node, $deep = false)
 	{
 		$luie = libxml_use_internal_errors(true);
 		libxml_clear_errors();
@@ -249,7 +252,7 @@ class AgaviXmlConfigDomDocument extends DOMDocument
 			}
 			libxml_clear_errors();
 			libxml_use_internal_errors($luie);
-			throw new DOMException(
+			throw new \DOMException(
 				sprintf(
 					'Error%s occurred while importing a new node "%s": ' . "\n\n%s",
 					count($errors) > 1 ? 's' : '', 
@@ -287,7 +290,7 @@ class AgaviXmlConfigDomDocument extends DOMDocument
 			}
 			libxml_clear_errors();
 			libxml_use_internal_errors($luie);
-			throw new DOMException(
+			throw new \DOMException(
 				sprintf(
 					'XML Schema validation with "%s" failed due to the following error%s: ' . "\n\n%s", 
 					$filename, 
@@ -325,7 +328,7 @@ class AgaviXmlConfigDomDocument extends DOMDocument
 			}
 			libxml_clear_errors();
 			libxml_use_internal_errors($luie);
-			throw new DOMException(
+			throw new \DOMException(
 				sprintf(
 					'XML Schema validation failed due to the following error%s: ' . "\n\n%s", 
 					count($errors) > 1 ? 's' : '', 
@@ -362,7 +365,7 @@ class AgaviXmlConfigDomDocument extends DOMDocument
 			}
 			libxml_clear_errors();
 			libxml_use_internal_errors($luie);
-			throw new DOMException(
+			throw new \DOMException(
 				sprintf(
 					'RELAX NG validation with "%s" failed due to the following error%s: ' . "\n\n%s",
 					$filename,

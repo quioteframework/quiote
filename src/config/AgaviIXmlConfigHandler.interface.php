@@ -12,6 +12,10 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Config;
+
+use Agavi\AgaviContext;
+use Agavi\Config\Util\DOM\AgaviXmlConfigDomDocument;
 
 /**
  * AgaviIXmlConfigHandler is the interface that config handlers may implement to
@@ -43,7 +47,7 @@ interface AgaviIXmlConfigHandler
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function initialize(AgaviContext $context = null, $parameters = []);
+	public function initialize(?AgaviContext $context = null, $parameters = []);
 	
 	/**
 	 * Execute this configuration handler.

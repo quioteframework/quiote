@@ -12,6 +12,12 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\DateTime;
+
+use Agavi\AgaviContext;
+use Agavi\Exception\AgaviException;
+use Agavi\Exception\AgaviUnreadableException;
+use Exception;
 
 /**
  * AgaviTimeZoneDataParser allows you to retrieve the contents of the olson 
@@ -116,10 +122,10 @@ class AgaviTimeZoneDataParser
 		$zones = [];
 		$rules = [];
 		$links = [];
-		foreach ($zoneLines as $i => $line) {
-            // for($i = 0, $c = count($zoneLines); $i < $c; ++$i) {
-            $line = $zoneLines[$i];
-            if(preg_match('!^\s*Rule\s*(.*)!', $line, $match)) {
+		for ($i = 0, $c = count($zoneLines); $i < $c; $i++) {
+			$line = $zoneLines[$i];
+
+			if(preg_match('!^\s*Rule\s*(.*)!', $line, $match)) {
 				$cols = $this->splitLine($match[1], 9);
 				$rule = $this->parseRule($cols);
 				$rules[$rule['name']][] = $rule;
@@ -127,12 +133,20 @@ class AgaviTimeZoneDataParser
 				$colLines = [];
 				$lineCols = $this->splitLine($match[1], 5);
 				$colLines[] = $lineCols;
+
 				// the until column exists so we need to fetch the continuation line
-				if(isset($lineCols[4]) && [$i, $line] = each($zoneLines)) {
-					do {
+				if(isset($lineCols[4])) {
+					// Continue processing subsequent lines
+					while(++$i < $c) {
+						$line = $zoneLines[$i];
 						$lineCols = $this->splitLine($line, 4);
 						$colLines[] = $lineCols;
-					} while(isset($lineCols[3]) && [$i, $line] = each($zoneLines));
+
+						// Break if this line doesn't have the continuation marker
+						if(!isset($lineCols[3])) {
+							break;
+						}
+					}
 				}
 
 				$zone = $this->parseZone($colLines);
@@ -147,7 +161,7 @@ class AgaviTimeZoneDataParser
 			} else {
 				throw new AgaviException('Unknown line ' . $line . ' in file ' . $file);
 			}
-        }
+		}
 
 		$this->prepareRules($rules);
 		$zones = $this->generateDatatables($zones);
@@ -268,7 +282,7 @@ class AgaviTimeZoneDataParser
 	protected function getRules($name, $from, $until, $gmtOff, $format)
 	{
 		if(!isset($this->rules[$name])) {
-			throw new InvalidArgumentException('No rule with the name ' . $name . ' exists');
+			throw new \InvalidArgumentException('No rule with the name ' . $name . ' exists');
 		}
 
 		$lastDstOff = 0;

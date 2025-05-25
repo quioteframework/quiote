@@ -13,6 +13,9 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Database;
+
+use Agavi\Util\AgaviParameterHolder;
 
 /**
  * AgaviDatabase is a base abstraction class that allows you to setup any type

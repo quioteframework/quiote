@@ -12,6 +12,10 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Request;
+
+use Agavi\Util\AgaviArrayPathDefinition;
+use InvalidArgumentException;
 
 /**
  * AgaviWebRequestDataHolder provides methods for retrieving client request 

@@ -12,6 +12,12 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Config;
+
+use Agavi\AgaviContext;
+use Agavi\Config\Util\DOM\AgaviXmlConfigDomDocument;
+use Agavi\Routing\AgaviRouting;
+use Agavi\Util\AgaviToolkit;
 
 /**
  * AgaviRoutingConfigHandler allows you to specify a list of routes that will
@@ -55,7 +61,7 @@ class AgaviRoutingConfigHandler extends AgaviXmlConfigHandler
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      0.11.0
 	 */
-	public function execute(AgaviXmlConfigDomDocument $document)
+	public function execute(AgaviXmlConfigDomDocument $document) : bool
 	{
 		// set up our default namespace
 		$document->setDefaultNamespace(self::XML_NAMESPACE, 'routing');

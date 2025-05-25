@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Model;
 /**
  * AgaviModel provides a convention for separating business logic from 
  * application logic. When using a model you're providing a globally accessible

@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Request;
 /**
  * AgaviSoapRequestDataHolder provides methods for retrieving client request 
  * information parameters and headers of SOAP calls.

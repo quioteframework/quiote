@@ -13,7 +13,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\User;
 /**
  * AgaviSecurityUser provides advanced security manipulation methods.
  *

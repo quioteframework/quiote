@@ -13,6 +13,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Filter;
 
 /**
  * AgaviFilterChain manages registered filters for a specific context.
@@ -59,7 +60,7 @@ class AgaviFilterChain
 	 * Executes all pre-filters, then the action, then all post-filters.
 	 * $actionCallback is a closure that runs the action.
 	 */
-	public function execute($container, callable $actionCallback = null)
+	public function execute($container, ?callable $actionCallback = null)
 	{
 		$logger = null;
 		if (method_exists($container, 'getContext') && $container->getContext() && method_exists($container->getContext(), 'getLoggerManager') && $container->getContext()->getLoggerManager()) {

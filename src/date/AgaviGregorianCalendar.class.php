@@ -12,6 +12,12 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\DateTime;
+
+use Agavi\Translation\AgaviLocale;
+use Agavi\Translation\AgaviTranslationManager;
+use Agavi\Util\AgaviToolkit;
+use InvalidArgumentException;
 
 /**
  * Ported from ICU:
@@ -122,6 +128,7 @@ class AgaviGregorianCalendar extends AgaviCalendar
 			$zone = $zoneOrLocale;
 			$locale = $this->translationManager->getCurrentLocale();
 		} elseif($zoneOrLocale instanceof AgaviLocale) {
+			// BUG, AgaviLocale doesn't have a getTranslationManager method
 			$this->translationManager = $zoneOrLocale->getTranslationManager();
 			$zone = $this->translationManager->getDefaultTimeZone();
 			$locale = $zoneOrLocale;
@@ -130,7 +137,7 @@ class AgaviGregorianCalendar extends AgaviCalendar
 			$zone = $this->translationManager->getDefaultTimeZone();
 			$locale = $this->translationManager->getCurrentLocale();
 		} else {
-			throw new InvalidArgumentException('Object of type ' . $zoneOrLocale::class . ' was not expected');
+			throw new \InvalidArgumentException('Object of type ' . $zoneOrLocale::class . ' was not expected');
 		}
 		parent::constructorOO($zone, $locale);
 
@@ -330,7 +337,7 @@ class AgaviGregorianCalendar extends AgaviCalendar
 	 * Returns true if the given Calendar object is equivalent to this
 	 * one.  Calendar override.
 	 *
-	 * @param      AgaviCalendar the Calendar to be compared with this Calendar
+	 * @param      AgaviGregorianCalendar the Calendar to be compared with this Calendar
 	 * 
 	 * @return     bool 
 	 * 
@@ -338,11 +345,14 @@ class AgaviGregorianCalendar extends AgaviCalendar
 	 * @author     The ICU Project
 	 * @since      0.11.0
 	 */
-	#[\Override]
     public function isEquivalentTo(AgaviCalendar $other)
 	{
-		// Calendar override.
-		return AgaviCalendar::isEquivalentTo($other) && $this->getGregorianChange() == $other->getGregorianChange();
+		if ($other instanceof AgaviGregorianCalendar) {
+			return AgaviCalendar::isEquivalentTo($other) && $this->getGregorianChange() == $other->getGregorianChange();
+
+		} else {
+			return AgaviCalendar::isEquivalentTo($other);
+		}
 	}
 
 	/**
@@ -422,7 +432,7 @@ class AgaviGregorianCalendar extends AgaviCalendar
 					*/
 					$lowGood = self::$kGregorianCalendarLimits[AgaviDateDefinitions::YEAR][1];
 					$highBad = self::$kGregorianCalendarLimits[AgaviDateDefinitions::YEAR][2] + 1;
-					while((\LOWGOOD + 1) < \HIGHBAD) {
+					while(($lowGood + 1) < $highBad) {
 						$y = (int)(($lowGood + $highBad) / 2);
 						$cal->set(AgaviDateDefinitions::YEAR, $y);
 						if($cal->get(AgaviDateDefinitions::YEAR) == $y && $cal->get(AgaviDateDefinitions::ERA) == $era) {
@@ -916,7 +926,7 @@ class AgaviGregorianCalendar extends AgaviCalendar
 	 */
 	private function boundsCheck($value, $field)
 	{
-		return $value >= $this->getMinimum($field) && $value <= $this->getMaximum(\FIELD);
+		return $value >= $this->getMinimum($field) && $value <= $this->getMaximum($field);
 	}
 
 	/**
@@ -1168,7 +1178,7 @@ class AgaviGregorianCalendar extends AgaviCalendar
 		// the current time.
 		// No point in locking as it should be idempotent.
 		if(self::$fgSystemDefaultCenturyStart == self::$fgSystemDefaultCentury) {
-			$calendar = new GregorianCalendar();
+			$calendar = new AgaviGregorianCalendar();
 			$calendar->setTime(AgaviCalendar::getNow());
 			$calendar->add(AgaviDateDefinitions::YEAR, -80);
 

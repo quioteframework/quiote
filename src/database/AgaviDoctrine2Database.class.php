@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Database;
 /**
  * An abstract database adapter for the Doctrine2 DBAL and ORM.
  *

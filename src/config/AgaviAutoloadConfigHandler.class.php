@@ -13,7 +13,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Config;
 /**
  * AgaviAutoloadConfigHandler allows you to specify a list of classes that will
  * automatically be included for you upon first use.
@@ -31,6 +31,10 @@
  *
  * @version    $Id$
  */
+use Agavi\Config\Util\DOM\AgaviXmlConfigDomDocument;
+use Agavi\Exception\AgaviParseException;
+use Agavi\Util\AgaviToolkit;
+
 class AgaviAutoloadConfigHandler extends AgaviXmlConfigHandler
 {
 	const XML_NAMESPACE = 'http://agavi.org/agavi/config/parts/autoload/1.1';

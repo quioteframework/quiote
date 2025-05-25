@@ -12,6 +12,13 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Routing;
+
+use Agavi\AgaviContext;
+use Agavi\Controller\AgaviExecutionContainer;
+use Agavi\Exception\AgaviException;
+use Agavi\Response\AgaviWebResponse;
+use Agavi\Util\AgaviToolkit;
 
 /**
  * AgaviHttpRedirectRoutingCallback allows redirection of a matched route to a

@@ -12,6 +12,11 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Storage;
+
+use Agavi\AgaviContext;
+use Agavi\Exception\AgaviDatabaseException;
+use Agavi\Exception\AgaviInitializationException;
 
 /**
  * Provides support for session storage using a PDO database abstraction
@@ -150,12 +155,12 @@ class AgaviPdoSessionStorage extends AgaviSessionStorage
 			$result = $stmt->execute([$id]);
 			if(!$result) {
 				$errorInfo = $stmt->errorInfo();
-				$e = new PDOException($errorInfo[2], $errorInfo[0]);
+				$e = new \PDOException($errorInfo[2], $errorInfo[0]);
 				$e->errorInfo = $errorInfo;
 				throw $e;
 			}
 			return true;
-		} catch(PDOException $e) {
+		} catch(\PDOException $e) {
 			$error = sprintf('PDOException was thrown when trying to manipulate session data. Message: "%s"', $e->getMessage());
 			throw new AgaviDatabaseException($error, 0, $e);
 		}
@@ -198,21 +203,21 @@ class AgaviPdoSessionStorage extends AgaviSessionStorage
 			$stmt = $this->connection->prepare($sql);
 			if(is_numeric($time)) {
 				$time = (int)$time;
-				$stmt->bindValue(':time', $time, PDO::PARAM_INT);
+				$stmt->bindValue(':time', $time, \PDO::PARAM_INT);
 			} else {
-				$stmt->bindValue(':time', $time, PDO::PARAM_STR);
+				$stmt->bindValue(':time', $time, \PDO::PARAM_STR);
 			}
 			$result = $stmt->execute();
 			
 			if(!$result) {
 				$errorInfo = $stmt->errorInfo();
-				$e = new PDOException($errorInfo[2], $errorInfo[0]);
+				$e = new \PDOException($errorInfo[2], $errorInfo[0]);
 				$e->errorInfo = $errorInfo;
 				throw $e;
 			}
 			
 			return true;
-		} catch(PDOException $e) {
+		} catch(\PDOException $e) {
 			$error = sprintf('PDOException was thrown when trying to manipulate session data. Message: "%s"', $e->getMessage());
 			throw new AgaviDatabaseException($error, 0, $e);
 		}
@@ -242,7 +247,7 @@ class AgaviPdoSessionStorage extends AgaviSessionStorage
 		$database = $this->getParameter('database', null);
 
 		$this->connection = $this->getContext()->getDatabaseConnection($database);
-		if($this->connection === null || !$this->connection instanceof PDO) {
+		if($this->connection === null || !$this->connection instanceof \PDO) {
 			$error = 'Database connection "' . $database . '" could not be found or is not a PDO database connection.';
 			throw new AgaviDatabaseException($error);
 		}
@@ -285,12 +290,12 @@ class AgaviPdoSessionStorage extends AgaviSessionStorage
 			
 			if(!$result) {
 				$errorInfo = $stmt->errorInfo();
-				$e = new PDOException($errorInfo[2], $errorInfo[0]);
+				$e = new \PDOException($errorInfo[2], $errorInfo[0]);
 				$e->errorInfo = $errorInfo;
 				throw $e;
 			}
 			
-			if($result = $stmt->fetch(PDO::FETCH_NUM)) {
+			if($result = $stmt->fetch(\PDO::FETCH_NUM)) {
 				$result = $result[0];
 				// pdo is returning the LOB as stream, so check if we had a lob (this seems to differ from db to db)
 				if(is_resource($result)) {
@@ -300,7 +305,7 @@ class AgaviPdoSessionStorage extends AgaviSessionStorage
 			}
 
 			return '';
-		} catch(PDOException $e) {
+		} catch(\PDOException $e) {
 			$error = sprintf('PDOException was thrown when trying to manipulate session data. Message: "%s"', $e->getMessage());
 			throw new AgaviDatabaseException($error, 0, $e);
 		}
@@ -335,9 +340,9 @@ class AgaviPdoSessionStorage extends AgaviSessionStorage
 		$db_id_col   = $this->getParameter('db_id_col', 'sess_id');
 		$db_time_col = $this->getParameter('db_time_col', 'sess_time');
 
-		$isOracle = $this->connection->getAttribute(PDO::ATTR_DRIVER_NAME) == 'oracle';
+		$isOracle = $this->connection->getAttribute(\PDO::ATTR_DRIVER_NAME) == 'oracle';
 		$useLob = $this->getParameter('data_as_lob', true);
-		$columnType = ($isOracle || $useLob) ? PDO::PARAM_LOB : PDO::PARAM_STR;
+		$columnType = ($isOracle || $useLob) ? \PDO::PARAM_LOB : \PDO::PARAM_STR;
 
 		if($isOracle) {
 			$sp = fopen('php://memory', 'r+');
@@ -360,24 +365,24 @@ class AgaviPdoSessionStorage extends AgaviSessionStorage
 			$stmt->bindParam(':id', $id);
 			$stmt->bindParam(':data', $sp, $columnType);
 			if(is_int($ts)) {
-				$stmt->bindValue(':time', $ts, PDO::PARAM_INT);
+				$stmt->bindValue(':time', $ts, \PDO::PARAM_INT);
 			} else {
-				$stmt->bindValue(':time', $ts, PDO::PARAM_STR);
+				$stmt->bindValue(':time', $ts, \PDO::PARAM_STR);
 			}
 			$this->connection->beginTransaction();
 			if(!$stmt->execute()) {
 				$errorInfo = $stmt->errorInfo();
-				$e = new PDOException($errorInfo[2], $errorInfo[0]);
+				$e = new \PDOException($errorInfo[2], $errorInfo[0]);
 				$e->errorInfo = $errorInfo;
 				throw $e;
 			}
 			if(!$this->connection->commit()) {
 				$errorInfo = $stmt->errorInfo();
-				$e = new PDOException($errorInfo[2], $errorInfo[0]);
+				$e = new \PDOException($errorInfo[2], $errorInfo[0]);
 				$e->errorInfo = $errorInfo;
 				throw $e;
 			}
-		} catch(PDOException $e) {
+		} catch(\PDOException $e) {
 			// something went wrong; probably a key collision, which means this session already exists
 			$this->connection->rollback();
 
@@ -390,25 +395,25 @@ class AgaviPdoSessionStorage extends AgaviSessionStorage
 			$stmt = $this->connection->prepare($sql);
 			$stmt->bindParam(':data', $sp, $columnType);
 			if(is_int($ts)) {
-				$stmt->bindValue(':time', $ts, PDO::PARAM_INT);
+				$stmt->bindValue(':time', $ts, \PDO::PARAM_INT);
 			} else {
-				$stmt->bindValue(':time', $ts, PDO::PARAM_STR);
+				$stmt->bindValue(':time', $ts, \PDO::PARAM_STR);
 			}
 			$stmt->bindParam(':id', $id);
 			$this->connection->beginTransaction();
 			if(!$stmt->execute()) {
 				$errorInfo = $stmt->errorInfo();
-				$e = new PDOException($errorInfo[2], $errorInfo[0]);
+				$e = new \PDOException($errorInfo[2], $errorInfo[0]);
 				$e->errorInfo = $errorInfo;
 				throw $e;
 			}
 			if(!$this->connection->commit()) {
 				$errorInfo = $stmt->errorInfo();
-				$e = new PDOException($errorInfo[2], $errorInfo[0]);
+				$e = new \PDOException($errorInfo[2], $errorInfo[0]);
 				$e->errorInfo = $errorInfo;
 				throw $e;
 			}
-		} catch(PDOException $e) {
+		} catch(\PDOException $e) {
 			$this->connection->rollback();
 			$error = sprintf('PDOException was thrown when trying to manipulate session data. Message: "%s"', $e->getMessage());
 			throw new AgaviDatabaseException($error, 0, $e);

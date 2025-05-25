@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Config;
 /**
  * AgaviTranslationConfigHandler allows you to define translator implementations
  * for different domains.

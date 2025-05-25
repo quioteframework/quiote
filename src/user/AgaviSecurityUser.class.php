@@ -13,6 +13,9 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\User;
+
+use Agavi\AgaviContext;
 
 /**
  * AgaviBasicSecurityUser will handle any type of data as a credential.

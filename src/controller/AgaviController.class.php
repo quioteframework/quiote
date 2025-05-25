@@ -13,7 +13,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Controller;
 /**
  * AgaviController directs application flow.
  *
@@ -29,6 +29,21 @@
  *
  * @version    $Id$
  */
+use Agavi\Util\AgaviParameterHolder;
+use Agavi\Exception\AgaviControllerException;
+use Agavi\Config\AgaviConfig;
+use Agavi\Config\AgaviConfigCache;
+use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Exception\AgaviDisabledModuleException;
+use Agavi\Response\AgaviResponse;
+use Agavi\Exception\AgaviException;
+use Agavi\Util\AgaviToolkit;
+use Agavi\Exception\AgaviClassNotFoundException;
+use Agavi\Exception\AgaviFileNotFoundException;
+use Agavi\AgaviContext;
+use Agavi\Filter\AgaviFilterChain;
+
+use \Exception;
 class AgaviController extends AgaviParameterHolder
 {
 	/**
@@ -115,7 +130,7 @@ class AgaviController extends AgaviParameterHolder
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function createExecutionContainer($moduleName = null, $actionName = null, AgaviRequestDataHolder $arguments = null, $outputType = null, $requestMethod = null)
+	public function createExecutionContainer($moduleName = null, $actionName = null, ?AgaviRequestDataHolder $arguments = null, $outputType = null, $requestMethod = null)
 	{
 		// create a new execution container
 		$container = $this->context->createInstanceFor('execution_container');
@@ -201,7 +216,7 @@ class AgaviController extends AgaviParameterHolder
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.9.0
 	 */
-	public function dispatch(AgaviRequestDataHolder $arguments = null, AgaviExecutionContainer $container = null)
+	public function dispatch(?AgaviRequestDataHolder $arguments = null, ?AgaviExecutionContainer $container = null)
 	{
 		try {
 			

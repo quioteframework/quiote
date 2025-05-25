@@ -13,7 +13,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Filter;
 /**
  * AgaviDispatchFilter is the last in the chain of global filters and executes
  * the execution container, also re-setting the container's response to the

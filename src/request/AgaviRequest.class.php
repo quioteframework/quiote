@@ -12,6 +12,12 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Request;
+
+use Agavi\AgaviContext;
+use Agavi\Exception\AgaviException;
+use Agavi\Util\AgaviAttributeHolder;
+use Agavi\Util\AgaviToolkit;
 
 /**
  * AgaviRequest provides methods for manipulating client request information

@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Logging;
 /**
  * AgaviPassthruLoggerLayout is an AgaviLoggerLayout that will return the entire
  * AgaviLoggerMessage or parts of it, depending on the configuration.

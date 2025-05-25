@@ -12,6 +12,9 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Logging;
+
+use Agavi\Exception\AgaviLoggingException;
 
 /**
  * AgaviLogger provides an easy way to manage multiple log destinations and 

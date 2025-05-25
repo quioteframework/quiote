@@ -12,6 +12,9 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Routing;
+
+use Agavi\Util\AgaviArrayPathDefinition;
 
 /**
  * AgaviRoutingArraySource allows you to provide array sources for the routing

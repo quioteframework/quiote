@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Response;
 /**
  * AgaviResponse handles the output and other stuff sent back to the client.
  *
@@ -27,8 +27,16 @@
  *
  * @version    $Id$
  */
+use Agavi\Controller\AgaviOutputType;
+use Agavi\Util\AgaviAttributeHolder;
+use Agavi\AgaviContext;
 abstract class AgaviResponse extends AgaviAttributeHolder
 {
+
+	protected $contextName;
+	protected $outputTypeName;
+	protected $contentStreamMeta;
+
 	/**
 	 * @var        AgaviContext An AgaviContext instance.
 	 */
@@ -342,7 +350,7 @@ abstract class AgaviResponse extends AgaviAttributeHolder
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	abstract public function send(AgaviOutputType $outputType = null);
+	abstract public function send(?AgaviOutputType $outputType = null);
 	
 	/**
 	 * Determine whether the content in the response may be modified by appending

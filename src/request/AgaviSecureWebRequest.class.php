@@ -11,7 +11,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Request;
 /**
  * AgaviSecureWebRequest provides additional support for HTTPS client requests
  * such as SSL certificate inspection.

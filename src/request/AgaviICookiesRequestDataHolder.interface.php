@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-
+namespace Agavi\Request;
 /**
  * Interface for RequestDataHolders that allow access to Cookies.
  *

@@ -12,6 +12,12 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\Renderer;
+
+use Agavi\AgaviContext;
+use Agavi\Exception\AgaviException;
+use Agavi\Util\AgaviParameterHolder;
+use Agavi\View\AgaviTemplateLayer;
 
 /**
  * A renderer produces the output as defined by a View
@@ -29,6 +35,7 @@
  */
 abstract class AgaviRenderer extends AgaviParameterHolder
 {
+	protected $contextName = null;
 	/**
 	 * @var        AgaviContext An AgaviContext instance.
 	 */

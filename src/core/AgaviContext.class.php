@@ -13,6 +13,19 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi;
+
+use Agavi\Config\AgaviConfig;
+use Agavi\Config\AgaviConfigCache;
+use Agavi\Exception\AgaviAutoloadException;
+use Agavi\Exception\AgaviDisabledModuleException;
+use Agavi\Exception\AgaviException;
+use Agavi\Routing\AgaviRouting;
+use Agavi\Routing\AgaviSoapRouting;
+use Agavi\Routing\AgaviWebRouting;
+use Agavi\User\AgaviISecurityUser;
+use Agavi\User\AgaviUser;
+use Agavi\Util\AgaviToolkit;
 
 /**
  * AgaviContext provides information about the current application context, 
@@ -288,7 +301,7 @@ class AgaviContext implements \Stringable
 				self::$instances[$profile]->initialize();
 			}
 			return self::$instances[$profile];
-		} catch(Exception $e) {
+		} catch(\Exception $e) {
 			AgaviException::render($e);
 		}
 	}
@@ -319,7 +332,7 @@ class AgaviContext implements \Stringable
 	{
 		try {
 			include(AgaviConfigCache::checkConfig(AgaviConfig::get('core.config_dir') . '/factories.xml', $this->name));
-		} catch(Exception $e) {
+		} catch(\Exception $e) {
 			AgaviException::render($e, $this);
 		}
 		
@@ -355,7 +368,7 @@ class AgaviContext implements \Stringable
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function getModel($modelName, $moduleName = null, array $parameters = null)
+	public function getModel($modelName, $moduleName = null, ?array $parameters = null)
 	{
 		$origModelName = $modelName;
 		$modelName = AgaviToolkit::canonicalName($modelName);
@@ -398,7 +411,7 @@ class AgaviContext implements \Stringable
 		
 		// so if we're here, we found something, right? good.
 		
-		$rc = new ReflectionClass($class);
+		$rc = new \ReflectionClass($class);
 		
 		if($rc->implementsInterface('AgaviISingletonModel')) {
 			// it's a singleton
@@ -462,7 +475,7 @@ class AgaviContext implements \Stringable
 	/**
 	 * Retrieve the routing.
 	 *
-	 * @return     AgaviRouting The current Routing implementation instance.
+	 * @return     AgaviRouting|AgaviWebRouting|AgaviSoapRouting The current Routing implementation instance.
 	 *
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
@@ -502,7 +515,7 @@ class AgaviContext implements \Stringable
 	/**
 	 * Retrieve the user.
 	 *
-	 * @return     AgaviUser The current User implementation instance.
+	 * @return     AgaviUser|AgaviISecurityUser The current User implementation instance.
 	 *
 	 * @author     Sean Kerr <skerr@mojavi.org>
 	 * @since      0.9.0

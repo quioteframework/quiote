@@ -13,6 +13,10 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
+namespace Agavi\User;
+
+use Agavi\AgaviContext;
+use Agavi\Util\AgaviAttributeHolder;
 
 /**
  * AgaviUser wraps a client session and provides accessor methods for user
