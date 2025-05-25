@@ -391,9 +391,9 @@ class AgaviConfigCache
 			'transformations' => [
 				AgaviXmlConfigParser::STAGE_SINGLE => [
 					// 0.11 -> 1.0
-					$agaviDir . '/config/xsl/config_handlers.xsl',
+					$agaviDir . '/Config/xsl/config_handlers.xsl',
 					// 1.0 -> 1.0 with AgaviReturnArrayConfigHandler <transformation> for Agavi 1.1
-					$agaviDir . '/config/xsl/config_handlers.xsl',
+					$agaviDir . '/Config/xsl/config_handlers.xsl',
 				],
 				AgaviXmlConfigParser::STAGE_COMPILATION => [
 				],
@@ -404,10 +404,10 @@ class AgaviConfigCache
 					],
 					AgaviXmlConfigParser::STEP_TRANSFORMATIONS_AFTER => [
 						AgaviXmlConfigParser::VALIDATION_TYPE_XMLSCHEMA => [
-							$agaviDir . '/config/xsd/config_handlers.xsd',
+							$agaviDir . '/Config/xsd/config_handlers.xsd',
 						],
 						AgaviXmlConfigParser::VALIDATION_TYPE_SCHEMATRON => [
-							$agaviDir . '/config/sch/config_handlers.sch',
+							$agaviDir . '/Config/sch/config_handlers.sch',
 						],
 					],
 				],

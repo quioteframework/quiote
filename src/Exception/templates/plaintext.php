@@ -28,6 +28,9 @@
  * @version    $Id$
  */
 
+use Agavi\Config\AgaviConfig;
+use Agavi\Exception\AgaviException;
+
 // we're not supposed to display errors
 // let's throw the exception so it shows up in error logs
 if(!ini_get('display_errors')) {
@@ -101,6 +104,6 @@ endforeach;
 
   System:    <?php echo $cols ? wordwrap(php_uname(), $cols-13, "\n             ", true): php_uname(); ?>
 
-  Timestamp: <?php echo $cols ? wordwrap(gmdate(DATE_ISO8601), $cols-13, "\n             ", true) : gmdate(DATE_ISO8601); ?>
+  Timestamp: <?php echo $cols ? wordwrap(gmdate(\DateTime::ATOM), $cols-13, "\n             ", true) : gmdate(\DateTime::ATOM); ?>
 
 

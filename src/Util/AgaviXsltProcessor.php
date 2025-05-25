@@ -13,6 +13,9 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 namespace Agavi\Util;
+
+use XSLTProcessor;
+
 /**
  * Extended XSLTProcessor class that throws exceptions on errors.
  *
@@ -53,7 +56,7 @@ class AgaviXsltProcessor extends XSLTProcessor
 			}
 			libxml_clear_errors();
 			libxml_use_internal_errors($luie);
-			throw new Exception(
+			throw new \Exception(
 				sprintf(
 					'Error%s occurred while importing the stylesheet "%s": ' . "\n\n%s",
 					count($errors) > 1 ? 's' : '', 
@@ -93,7 +96,7 @@ class AgaviXsltProcessor extends XSLTProcessor
 			}
 			libxml_clear_errors();
 			libxml_use_internal_errors($luie);
-			throw new Exception(
+			throw new \Exception(
 				sprintf(
 					'Error%s occurred while transforming the document using an XSL stylesheet: ' . "\n\n%s", 
 					count($errors) > 1 ? 's' : '', 
@@ -105,7 +108,7 @@ class AgaviXsltProcessor extends XSLTProcessor
 		libxml_use_internal_errors($luie);
 		
 		// turn this into an instance of the class that was passed in, rather than a regular DOMDocument
-		$class = $doc instanceof DOMDocument ? $doc : ($doc->ownerDocument ?: 'DOMDocument');
+		$class = $doc instanceof \DOMDocument ? $doc : ($doc->ownerDocument ?: 'DOMDocument');
 		$document = new $class();
 		$document->loadXML($result->saveXML());
 		

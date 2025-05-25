@@ -28,6 +28,10 @@
  * @version    $Id$
  */
 
+use Agavi\Config\AgaviConfig;
+use Agavi\Exception\AgaviException;
+use Agavi\Request\AgaviIHeadersRequestDataHolder;
+
 // we're not supposed to display errors
 // let's throw the exception so it shows up in error logs
 if(!ini_get('display_errors')) {
@@ -93,6 +97,7 @@ if($svg) {
 				border:							1px solid #DDD;
 				-moz-border-radius:	0.2em;
 				-webkit-border-radius: 0.2em;
+				border-radius: 0.2em;
 				background-color:		#FFF;
 				font-family:				Verdana, Arial, sans-serif;
 				line-height:				1.5em;
@@ -126,6 +131,7 @@ if($svg) {
 				padding:						0.5em;
 				-moz-border-radius:	0.2em;
 				-webkit-border-radius: 0.2em;
+				border-radius: 0.2em;;
 				border:							1px solid #CCC;
 				background-color:		#FCFCFC;
 				position:						relative;
@@ -199,6 +205,7 @@ if($svg) {
 				border:							1px solid #DDD;
 				-moz-border-radius:	0.2em;
 				-webkit-border-radius: 0.2em;
+				border-radius: 0.2em;
 				font-family:				monospace;
 				font-size:					10pt;
 				line-height:				1em;
@@ -417,7 +424,7 @@ endforeach;
 					<dt>System:</dt>
 					<dd><?php echo htmlspecialchars(php_uname()); ?></dd>
 					<dt>Timestamp:</dt>
-					<dd><?php echo gmdate(DATE_ISO8601); ?></dd>
+					<dd><?php echo gmdate(\DateTime::ATOM); ?></dd>
 				</dl>
 			</div>
 		</section>
