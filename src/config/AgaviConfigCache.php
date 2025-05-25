@@ -377,47 +377,10 @@ class AgaviConfigCache
 		
 		$agaviDir = AgaviConfig::get('core.agavi_dir');
 		
-		// :NOTE: fgilcher, 2008-12-03
-		// we need this method reentry safe for unit testing
-		// sorry for the testing code in the class, but I don't have
-		// any other idea to solve the issue
-		if(!self::$filesIncluded) {
-			// since we only need the parser and handlers when the config is not cached
-			// it is sufficient to include them at this stage
-			require_once($agaviDir . '/config/AgaviILegacyConfigHandler.interface.php');
-			require_once($agaviDir . '/config/AgaviIXmlConfigHandler.interface.php');
-			require_once($agaviDir . '/config/AgaviBaseConfigHandler.class.php');
-			require_once($agaviDir . '/config/AgaviConfigHandler.class.php');
-			require_once($agaviDir . '/config/AgaviXmlConfigHandler.class.php');
-			require_once($agaviDir . '/config/AgaviAutoloadConfigHandler.class.php');
-			require_once($agaviDir . '/config/AgaviConfigHandlersConfigHandler.class.php');
-			require_once($agaviDir . '/config/AgaviConfigValueHolder.class.php');
-			require_once($agaviDir . '/config/AgaviConfigParser.class.php');
-			require_once($agaviDir . '/config/AgaviXmlConfigParser.class.php');
-			// extended DOM* classes
-			require_once($agaviDir . '/config/util/dom/AgaviXmlConfigDomAttr.class.php');
-			require_once($agaviDir . '/config/util/dom/AgaviXmlConfigDomCharacterData.class.php');
-			require_once($agaviDir . '/config/util/dom/AgaviXmlConfigDomComment.class.php');
-			require_once($agaviDir . '/config/util/dom/AgaviXmlConfigDomDocument.class.php');
-			require_once($agaviDir . '/config/util/dom/AgaviXmlConfigDomDocumentFragment.class.php');
-			require_once($agaviDir . '/config/util/dom/AgaviXmlConfigDomDocumentType.class.php');
-			require_once($agaviDir . '/config/util/dom/AgaviXmlConfigDomElement.class.php');
-			require_once($agaviDir . '/config/util/dom/AgaviXmlConfigDomEntity.class.php');
-			require_once($agaviDir . '/config/util/dom/AgaviXmlConfigDomEntityReference.class.php');
-			require_once($agaviDir . '/config/util/dom/AgaviXmlConfigDomNode.class.php');
-			require_once($agaviDir . '/config/util/dom/AgaviXmlConfigDomNotation.class.php');
-			require_once($agaviDir . '/config/util/dom/AgaviXmlConfigDomProcessingInstruction.class.php');
-			require_once($agaviDir . '/config/util/dom/AgaviXmlConfigDomText.class.php');
-			// schematron processor
-			require_once($agaviDir . '/util/AgaviSchematronProcessor.class.php');
-			// extended XSL* classes
-			if(!AgaviConfig::get('core.skip_config_transformations', false)) {
-				if(!extension_loaded('xsl')) {
-					throw new AgaviConfigurationException("You do not have the XSL extension for PHP (ext/xsl) installed or enabled. The extension is used by Agavi to perform XSL transformations in the configuration system to guarantee forwards compatibility of applications.\n\nIf you do not want to or can not install ext/xsl, you may disable all transformations by setting\nAgaviConfig::set('core.skip_config_transformations', true);\nbefore calling\nAgavi::bootstrap();\nin index.php (app/config.php is not the right place for this because this is a setting that's specific to your environment or machine).\n\nKeep in mind that disabling transformations mean you *have* to use the latest configuration file formats and namespace versions. Also, certain additional configuration file validations implemented via Schematron will not be performed.");
-				}
-				require($agaviDir . '/util/AgaviXsltProcessor.class.php');
+		if(!AgaviConfig::get('core.skip_config_transformations', false)) {
+			if(!extension_loaded('xsl')) {
+				throw new AgaviConfigurationException("You do not have the XSL extension for PHP (ext/xsl) installed or enabled. The extension is used by Agavi to perform XSL transformations in the configuration system to guarantee forwards compatibility of applications.\n\nIf you do not want to or can not install ext/xsl, you may disable all transformations by setting\nAgaviConfig::set('core.skip_config_transformations', true);\nbefore calling\nAgavi::bootstrap();\nin index.php (app/config.php is not the right place for this because this is a setting that's specific to your environment or machine).\n\nKeep in mind that disabling transformations mean you *have* to use the latest configuration file formats and namespace versions. Also, certain additional configuration file validations implemented via Schematron will not be performed.");
 			}
-			self::$filesIncluded = true;
 		}
 		
 		// manually create our config_handlers.xml handler
