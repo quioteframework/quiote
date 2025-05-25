@@ -2,29 +2,29 @@
 <ae:configurations xmlns:ae="http://agavi.org/agavi/config/global/envelope/1.1" xmlns="http://agavi.org/agavi/config/parts/compile/1.1">
 	<ae:configuration>
 		<compiles>
-			<compile>%core.agavi_dir%/util/AgaviAttributeHolder.class.php</compile>
-			<compile>%core.agavi_dir%/action/AgaviAction.class.php</compile>
-			<compile>%core.agavi_dir%/core/AgaviContext.class.php</compile>
-			<compile>%core.agavi_dir%/controller/AgaviController.class.php</compile>
-			<compile>%core.agavi_dir%/controller/AgaviExecutionContainer.class.php</compile>
-			<compile>%core.agavi_dir%/controller/AgaviOutputType.class.php</compile>
-			<compile>%core.agavi_dir%/filter/AgaviIFilter.interface.php</compile>
-			<compile>%core.agavi_dir%/filter/AgaviIGlobalFilter.interface.php</compile>
-			<compile>%core.agavi_dir%/filter/AgaviIActionFilter.interface.php</compile>
-			<compile>%core.agavi_dir%/filter/AgaviFilter.class.php</compile>
-			<compile>%core.agavi_dir%/filter/AgaviDispatchFilter.class.php</compile>
-			<compile>%core.agavi_dir%/filter/AgaviExecutionFilter.class.php</compile>
-			<compile>%core.agavi_dir%/filter/AgaviFilterChain.class.php</compile>
-			<compile>%core.agavi_dir%/renderer/AgaviRenderer.class.php</compile>
-			<compile>%core.agavi_dir%/request/AgaviIParametersRequestDataHolder.interface.php</compile>
-			<compile>%core.agavi_dir%/request/AgaviRequestDataHolder.class.php</compile>
-			<compile>%core.agavi_dir%/request/AgaviRequest.class.php</compile>
-			<compile>%core.agavi_dir%/response/AgaviResponse.class.php</compile>
-			<compile>%core.agavi_dir%/routing/AgaviRouting.class.php</compile>
-			<compile>%core.agavi_dir%/storage/AgaviStorage.class.php</compile>
-			<compile>%core.agavi_dir%/user/AgaviUser.class.php</compile>
-			<compile>%core.agavi_dir%/view/AgaviTemplateLayer.class.php</compile>
-			<compile>%core.agavi_dir%/view/AgaviView.class.php</compile>
+			<compile>%core.agavi_dir%/Util/AgaviAttributeHolder.php</compile>
+			<compile>%core.agavi_dir%/Action/AgaviAction.php</compile>
+			<compile>%core.agavi_dir%/Core/AgaviContext.php</compile>
+			<compile>%core.agavi_dir%/Controller/AgaviController.php</compile>
+			<compile>%core.agavi_dir%/Controller/AgaviExecutionContainer.php</compile>
+			<compile>%core.agavi_dir%/Controller/AgaviOutputType.php</compile>
+			<compile>%core.agavi_dir%/Filter/AgaviIFilter.interface.php</compile>
+			<compile>%core.agavi_dir%/Filter/AgaviIGlobalFilter.interface.php</compile>
+			<compile>%core.agavi_dir%/Filter/AgaviIActionFilter.interface.php</compile>
+			<compile>%core.agavi_dir%/Filter/AgaviFilter.php</compile>
+			<compile>%core.agavi_dir%/Filter/AgaviDispatchFilter.php</compile>
+			<compile>%core.agavi_dir%/Filter/AgaviExecutionFilter.php</compile>
+			<compile>%core.agavi_dir%/Filter/AgaviFilterChain.php</compile>
+			<compile>%core.agavi_dir%/Renderer/AgaviRenderer.php</compile>
+			<compile>%core.agavi_dir%/Request/AgaviIParametersRequestDataHolder.interface.php</compile>
+			<compile>%core.agavi_dir%/Request/AgaviRequestDataHolder.php</compile>
+			<compile>%core.agavi_dir%/Request/AgaviRequest.php</compile>
+			<compile>%core.agavi_dir%/Response/AgaviResponse.php</compile>
+			<compile>%core.agavi_dir%/Routing/AgaviRouting.php</compile>
+			<compile>%core.agavi_dir%/Storage/AgaviStorage.php</compile>
+			<compile>%core.agavi_dir%/User/AgaviUser.php</compile>
+			<compile>%core.agavi_dir%/View/AgaviTemplateLayer.php</compile>
+			<compile>%core.agavi_dir%/View/AgaviView.php</compile>
 		</compiles>
 	</ae:configuration>
 </ae:configurations>

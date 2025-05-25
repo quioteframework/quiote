@@ -28,7 +28,7 @@
 	<!-- we moved the default mappings ("string" => AgaviStringValidator with "min"=1 etc) from the config handler to that file -->
 	<xsl:template match="envelope_0_11:configurations[not(@parent)]">
 		<xsl:call-template name="_common-migrate-envelope-element">
-			<xsl:with-param name="attributes"><dummy parent="%core.agavi_dir%/config/defaults/validators.xml" /></xsl:with-param>
+			<xsl:with-param name="attributes"><dummy parent="%core.agavi_dir%/Config/defaults/validators.xml" /></xsl:with-param>
 		</xsl:call-template>
 	</xsl:template>
 	

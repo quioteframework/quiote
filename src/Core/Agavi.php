@@ -74,7 +74,7 @@ final class Agavi
 
 			AgaviConfig::set('core.config_dir', AgaviConfig::get('core.app_dir') . '/config', false, true);
 
-			AgaviConfig::set('core.system_config_dir', AgaviConfig::get('core.agavi_dir') . '/config/defaults', false, true);
+			AgaviConfig::set('core.system_config_dir', AgaviConfig::get('core.agavi_dir') . '/Config/defaults', false, true);
 
 			AgaviConfig::set('core.lib_dir', AgaviConfig::get('core.app_dir') . '/lib', false, true);
 
@@ -84,7 +84,7 @@ final class Agavi
 
 			AgaviConfig::set('core.template_dir', AgaviConfig::get('core.app_dir') . '/templates', false, true);
 
-			AgaviConfig::set('core.cldr_dir', AgaviConfig::get('core.agavi_dir') . '/translation/data', false, true);
+			AgaviConfig::set('core.cldr_dir', AgaviConfig::get('core.agavi_dir') . '/Translation/data', false, true);
 
 			// autoloads first (will trigger the compilation of config_handlers.xml)
 			$autoload = AgaviConfig::get('core.config_dir') . '/autoload.xml';

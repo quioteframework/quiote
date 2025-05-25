@@ -184,7 +184,7 @@ class AgaviController extends AgaviParameterHolder
 			}
 			
 			if(AgaviConfig::get('modules.' . $lowerModuleName . '.enabled')) {
-				$moduleConfigHandlers = AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/config/config_handlers.xml';
+				$moduleConfigHandlers = AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/Config/config_handlers.xml';
 				if(is_readable($moduleConfigHandlers)) {
 					AgaviConfigCache::addConfigHandlersFile($moduleConfigHandlers);
 				}

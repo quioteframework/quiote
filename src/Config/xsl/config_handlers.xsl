@@ -36,7 +36,7 @@
 	<xsl:template match="config_handlers_1_0:handler[@class = 'AgaviReturnArrayConfigHandler' and not(.//config_handlers_1_0:transformation)]">
 		<xsl:element name="{local-name()}" namespace="{$config_handlers_1_1}">
 			<xsl:copy-of select="@*" />
-			<config_handlers_1_1:transformation>%core.agavi_dir%/config/xsl/rach.xsl</config_handlers_1_1:transformation>
+			<config_handlers_1_1:transformation>%core.agavi_dir%/Config/xsl/rach.xsl</config_handlers_1_1:transformation>
 			<xsl:apply-templates />
 		</xsl:element>
 	</xsl:template>

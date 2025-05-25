@@ -53,9 +53,9 @@ class AgaviSchematronProcessor extends AgaviParameterHolder
 	 * @var        array The list of Schematron implementation paths to process.
 	 */
 	protected static $defaultChain = [
-		'%core.agavi_dir%/config/schematron/iso_dsdl_include.xsl',
-		'%core.agavi_dir%/config/schematron/iso_abstract_expand.xsl',
-		'%core.agavi_dir%/config/schematron/iso_svrl_for_xslt1.xsl'
+		'%core.agavi_dir%/Config/schematron/iso_dsdl_include.xsl',
+		'%core.agavi_dir%/Config/schematron/iso_abstract_expand.xsl',
+		'%core.agavi_dir%/Config/schematron/iso_svrl_for_xslt1.xsl'
 	];
 	
 	/**
