@@ -385,7 +385,7 @@ class AgaviConfigCache
 		
 		// manually create our config_handlers.xml handler
 		self::$handlers['config_handlers.xml'] = [
-			'class' => 'AgaviConfigHandlersConfigHandler',
+			'class' => 'Agavi\\Config\\AgaviConfigHandlersConfigHandler',
 			'parameters' => [
 			],
 			'transformations' => [
