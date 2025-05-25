@@ -14,6 +14,9 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 namespace Agavi\Filter;
+
+use Agavi\Controller\AgaviExecutionContainer;
+
 /**
  * AgaviDispatchFilter is the last in the chain of global filters and executes
  * the execution container, also re-setting the container's response to the

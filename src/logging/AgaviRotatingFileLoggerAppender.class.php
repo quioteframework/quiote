@@ -14,6 +14,8 @@
 namespace Agavi\Logging;
 
 use Agavi\AgaviContext;
+use Agavi\Config\AgaviConfig;
+use Agavi\Exception\AgaviLoggingException;
 
 /**
  * AgaviRotatingFileLoggerAppender extends AgaviFileLoggerAppender by enabling 

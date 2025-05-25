@@ -14,6 +14,11 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 namespace Agavi\Storage;
+
+use Agavi\AgaviContext;
+use Agavi\Exception\AgaviDatabaseException;
+use Agavi\Exception\AgaviInitializationException;
+
 /**
  * Provides support for session storage using a MySQL brand database.
  *

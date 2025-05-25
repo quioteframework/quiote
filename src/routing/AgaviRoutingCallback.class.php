@@ -14,6 +14,8 @@
 // +---------------------------------------------------------------------------+
 namespace Agavi\Routing;
 
+use Agavi\AgaviContext;
+use Agavi\Controller\AgaviExecutionContainer;
 use Agavi\Util\AgaviParameterHolder;
 
 /**
