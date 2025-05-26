@@ -14,6 +14,12 @@
 // +---------------------------------------------------------------------------+
 namespace Agavi\View;
 
+use Agavi\AgaviContext;
+use Agavi\Controller\AgaviExecutionContainer;
+use Agavi\Exception\AgaviException;
+use Agavi\Renderer\AgaviRenderer;
+use Agavi\Util\AgaviParameterHolder;
+
 /**
  * A template layer wraps information necessary to render a template.
  *
@@ -30,6 +36,9 @@ namespace Agavi\View;
  */
 abstract class AgaviTemplateLayer extends AgaviParameterHolder
 {
+
+	protected $contextName = null;
+	
 	/**
 	 * @var        AgaviContext The current Context.
 	 */
@@ -138,7 +147,7 @@ abstract class AgaviTemplateLayer extends AgaviParameterHolder
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function execute(AgaviRenderer $renderer = null, array &$attributes = [], array &$moreAssigns = [])
+	public function execute(?AgaviRenderer $renderer = null, array &$attributes = [], array &$moreAssigns = [])
 	{
 		$output = [];
 		
@@ -204,7 +213,7 @@ abstract class AgaviTemplateLayer extends AgaviParameterHolder
 	 * Set a slot that is rendered along with and available inside this layer.
 	 *
 	 * @param      string                  The name of the slot.
-	 * @param      AgaviExecutionContainer The slot's execution container.
+	 * @param      AgaviExecutionContainerr The slot's execution container.
 	 *
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0

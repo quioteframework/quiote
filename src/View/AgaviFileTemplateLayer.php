@@ -13,6 +13,11 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 namespace Agavi\View;
+
+use Agavi\AgaviContext;
+use Agavi\Config\AgaviConfig;
+use Agavi\Util\AgaviToolkit;
+
 /**
  * Template layer implementation for templates fetched using a PHP stream.
  *

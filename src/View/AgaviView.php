@@ -33,6 +33,10 @@ namespace Agavi\View;
  * @version    $Id$
  */
 use Agavi\Controller\AgaviExecutionContainer;
+use Agavi\Exception\AgaviViewException;
+use Agavi\Renderer\AgaviRenderer;
+use Agavi\Request\AgaviRequestDataHolder;
+
 abstract class AgaviView
 {
 	/**
@@ -168,7 +172,7 @@ abstract class AgaviView
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function appendLayer(AgaviTemplateLayer $layer, AgaviTemplateLayer $otherLayer = null)
+	public function appendLayer(AgaviTemplateLayer $layer, ?AgaviTemplateLayer $otherLayer = null)
 	{
 		if($otherLayer !== null && !in_array($otherLayer, $this->layers, true)) {
 			throw new AgaviViewException('Layer "' . $otherLayer->getName() . '" not in list');
@@ -205,7 +209,7 @@ abstract class AgaviView
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function prependLayer(AgaviTemplateLayer $layer, AgaviTemplateLayer $otherLayer = null)
+	public function prependLayer(AgaviTemplateLayer $layer, ?AgaviTemplateLayer $otherLayer = null)
 	{
 		if($otherLayer !== null && !in_array($otherLayer, $this->layers, true)) {
 			throw new AgaviViewException('Layer "' . $otherLayer->getName() . '" not in list');
