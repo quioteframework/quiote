@@ -15,7 +15,7 @@
 namespace Agavi\Config;
 
 use Agavi\Config\Util\DOM\AgaviXmlConfigDomDocument;
-use Agavi\DateTime\AgaviDateDefinitions;
+use Agavi\Date\AgaviDateDefinitions;
 use Agavi\Exception\AgaviException;
 
 /**
@@ -53,7 +53,7 @@ class AgaviLdmlSupplementalConfigHandler extends AgaviXmlConfigHandler
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      0.11.0
 	 */
-	public function execute(AgaviXmlConfigDomDocument $document) : bool
+	public function execute(AgaviXmlConfigDomDocument $document) : string
 	{
 		$dayMap = [
 			'sun' => AgaviDateDefinitions::SUNDAY,
@@ -65,6 +65,7 @@ class AgaviLdmlSupplementalConfigHandler extends AgaviXmlConfigHandler
 			'sat' => AgaviDateDefinitions::SATURDAY,
 		];
 
+		/** @var AgaviXmlConfigDomElement */
 		$dataTree = $document->documentElement;
 
 		$parsedData = [];

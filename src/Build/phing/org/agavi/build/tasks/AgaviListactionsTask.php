@@ -89,7 +89,7 @@ class AgaviListactionsTask extends AgaviTask
 		$actionPath = AgaviToolkit::expandVariables(
 			AgaviToolkit::expandDirectives(AgaviConfig::get(
 				sprintf('modules.%s.agavi.action.path', strtolower((string) $this->path->getName())),
-				'%core.module_dir%/${moduleName}/actions/${actionName}Action.class.php'
+				'%core.module_dir%/${moduleName}/Actions/${actionName}Action.php'
 			)),
 			[
 				'moduleName' => $this->path->getName()

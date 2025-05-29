@@ -12,7 +12,13 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-namespace Agavi\DateTime;
+namespace Agavi\Date;
+
+use Agavi\Exception\AgaviException;
+use Agavi\Translation\AgaviTranslationManager;
+use Agavi\Util\AgaviToolkit;
+use InvalidArgumentException;
+
 /**
  * A time zone based on the Olson database. Olson time zones change behavior 
  * over time. The raw offset, rules, presence or absence of daylight savings 
@@ -73,6 +79,7 @@ class AgaviOlsonTimeZone extends AgaviTimeZone
 	 */
 	protected $finalMillis;
 
+	protected $transitionCount = 0; // number of transitions, 0 if no transitions
 	/**
 	 * A SimpleTimeZone that governs the behavior for years > finalYear.
 	 * If and only if finalYear == INT32_MAX then finalZone == 0.

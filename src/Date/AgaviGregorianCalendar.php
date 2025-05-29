@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-namespace Agavi\DateTime;
+namespace Agavi\Date;
 
 use Agavi\Translation\AgaviLocale;
 use Agavi\Translation\AgaviTranslationManager;
@@ -128,7 +128,7 @@ class AgaviGregorianCalendar extends AgaviCalendar
 			$zone = $zoneOrLocale;
 			$locale = $this->translationManager->getCurrentLocale();
 		} elseif($zoneOrLocale instanceof AgaviLocale) {
-			// BUG, AgaviLocale doesn't have a getTranslationManager method
+			// BUG, AgaviLocale doesn't have a getTranslationManager method(?)
 			$this->translationManager = $zoneOrLocale->getTranslationManager();
 			$zone = $this->translationManager->getDefaultTimeZone();
 			$locale = $zoneOrLocale;

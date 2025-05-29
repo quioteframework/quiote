@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-namespace Agavi\DateTime;
+namespace Agavi\Date;
 
 use Agavi\Translation\AgaviLocale;
 use Agavi\Util\AgaviToolkit;

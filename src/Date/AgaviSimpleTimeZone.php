@@ -12,7 +12,13 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-namespace Agavi\DateTime;
+namespace Agavi\Date;
+
+use Agavi\Exception\AgaviException;
+use Agavi\Translation\AgaviTranslationManager;
+use Agavi\Util\AgaviToolkit;
+use InvalidArgumentException;
+
 /**
  * Ported from ICU:
  *  icu/trunk/source/i18n/simpletz.cpp        r21282

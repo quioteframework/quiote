@@ -53,7 +53,7 @@ class AgaviFactoryConfigHandler extends AgaviXmlConfigHandler
 	 * @author     Noah Fontes <noah.fontes@bitextender.com>
 	 * @since      0.11.0
 	 */
-	public function execute(AgaviXmlConfigDomDocument $document) : bool
+	public function execute(AgaviXmlConfigDomDocument $document) : string
 	{
 		// set up our default namespace
 		$document->setDefaultNamespace(self::XML_NAMESPACE, 'factories');

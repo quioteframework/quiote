@@ -54,7 +54,7 @@ class AgaviCompileConfigHandler extends AgaviXmlConfigHandler
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      0.9.0
 	 */
-	public function execute(AgaviXmlConfigDomDocument $document) : bool
+	public function execute(AgaviXmlConfigDomDocument $document) : string
 	{
 		// set up our default namespace
 		$document->setDefaultNamespace(self::XML_NAMESPACE, 'compile');

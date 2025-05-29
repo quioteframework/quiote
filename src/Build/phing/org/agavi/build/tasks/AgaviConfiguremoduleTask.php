@@ -93,7 +93,7 @@ class AgaviConfiguremoduleTask extends AgaviTask
 		
 		$values['action.path'] = AgaviConfig::get(
 			sprintf('modules.%s.agavi.action.path', $lowerModuleName),
-			'%core.module_dir%/${moduleName}/actions/${actionName}Action.class.php'
+			'%core.module_dir%/${moduleName}/Actions/${actionName}Action.php'
 		);
 		$values['action.path'] = AgaviToolkit::expandVariables(
 			$values['action.path'],
@@ -111,7 +111,7 @@ class AgaviConfiguremoduleTask extends AgaviTask
 		
 		$values['templates.directory'] = AgaviConfig::get(
 			sprintf('modules.%s.agavi.template.directory', $lowerModuleName),
-			'%core.module_dir%/${module}/templates'
+			'%core.module_dir%/${module}/Templates'
 		);
 		$values['templates.directory'] = AgaviToolkit::expandVariables(
 			$values['templates.directory'],
@@ -120,7 +120,7 @@ class AgaviConfiguremoduleTask extends AgaviTask
 		
 		$values['validate.path'] = AgaviConfig::get(
 			sprintf('modules.%s.agavi.validate.path', $lowerModuleName),
-			'%core.module_dir%/${moduleName}/validate/${actionName}.xml'
+			'%core.module_dir%/${moduleName}/Validate/${actionName}.xml'
 		);
 		$values['validate.path'] = AgaviToolkit::expandVariables(
 			$values['validate.path'],
@@ -129,7 +129,7 @@ class AgaviConfiguremoduleTask extends AgaviTask
 		
 		$values['view.path'] = AgaviConfig::get(
 			sprintf('modules.%s.agavi.view.path', $lowerModuleName),
-			'%core.module_dir%/${moduleName}/views/${viewName}View.class.php'
+			'%core.module_dir%/${moduleName}/Views/${viewName}View.php'
 		);
 		$values['view.path'] = AgaviToolkit::expandVariables(
 			$values['view.path'],

@@ -15,7 +15,7 @@
 namespace Agavi\Translation;
 
 use Agavi\AgaviContext;
-use Agavi\DateTime\AgaviCalendar;
+use Agavi\Date\AgaviCalendar;
 use Agavi\Exception\AgaviException;
 use Agavi\Util\AgaviParameterHolder;
 

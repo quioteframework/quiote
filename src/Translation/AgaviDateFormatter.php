@@ -13,6 +13,12 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 namespace Agavi\Translation;
+
+use Agavi\AgaviContext;
+use Agavi\Date\AgaviCalendar;
+use Agavi\Date\AgaviDateFormat;
+use Agavi\Util\AgaviToolkit;
+
 /**
  * The date formatter will dates numbers according to a given format
  *
@@ -87,7 +93,7 @@ class AgaviDateFormatter extends AgaviDateFormat implements AgaviITranslator
 	 *
 	 * @param      mixed       The message to be translated.
 	 * @param      string      The domain of the message.
-	 * @param      AgaviLocale The locale to which the message should be 
+	 * @param      ?AgaviLocale The locale to which the message should be 
 	 *                         translated.
 	 *
 	 * @return     string The translated message.
@@ -96,7 +102,7 @@ class AgaviDateFormatter extends AgaviDateFormat implements AgaviITranslator
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function translate($message, $domain, AgaviLocale $locale = null)
+	public function translate($message, $domain, ?AgaviLocale $locale = null)
 	{
 		if($locale) {
 			$fmt = clone $this;

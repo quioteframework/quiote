@@ -234,7 +234,7 @@ class AgaviWebRequest extends AgaviRequest
 	{
 		parent::__construct();
 		$this->setParameters([
-			'request_data_holder_class' => 'AgaviWebRequestDataHolder',
+			'request_data_holder_class' => 'Agavi\Request\AgaviWebRequestDataHolder',
 		]);
 	}
 

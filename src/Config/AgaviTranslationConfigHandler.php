@@ -13,6 +13,11 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 namespace Agavi\Config;
+
+use Agavi\Config\Util\DOM\AgaviXmlConfigDomDocument;
+use Agavi\Exception\AgaviConfigurationException;
+use Agavi\Translation\AgaviLocale;
+
 /**
  * AgaviTranslationConfigHandler allows you to define translator implementations
  * for different domains.
@@ -159,9 +164,9 @@ class AgaviTranslationConfigHandler extends AgaviXmlConfigHandler
 	{
 		static $defaultData = [
 			'msg'  => ['class' => null, 'filters' => [], 'params' => []],
-			'num'  => ['class' => 'AgaviNumberFormatter', 'filters' => [], 'params' => []],
-			'cur'  => ['class' => 'AgaviCurrencyFormatter', 'filters' => [], 'params' => []],
-			'date' => ['class' => 'AgaviDateFormatter', 'filters' => [], 'params' => []],
+			'num'  => ['class' => 'Agavi\Translation\AgaviNumberFormatter', 'filters' => [], 'params' => []],
+			'cur'  => ['class' => 'Agavi\Translation\AgaviCurrencyFormatter', 'filters' => [], 'params' => []],
+			'date' => ['class' => 'Agavi\Translation\AgaviDateFormatter', 'filters' => [], 'params' => []],
 		];
 
 		foreach($translators as $translator) {

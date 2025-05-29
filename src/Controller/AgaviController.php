@@ -163,22 +163,22 @@ class AgaviController extends AgaviParameterHolder
 		if(null === AgaviConfig::get('modules.' . $lowerModuleName . '.enabled')) {
 			// set some defaults first
 			AgaviConfig::fromArray([
-				'modules.' . $lowerModuleName . '.agavi.action.path' => '%core.module_dir%/${moduleName}/actions/${actionName}Action.class.php',
+				'modules.' . $lowerModuleName . '.agavi.action.path' => '%core.module_dir%/${moduleName}/Actions/${actionName}Action.php',
 				'modules.' . $lowerModuleName . '.agavi.cache.path' => '%core.module_dir%/${moduleName}/cache/${actionName}.xml',
-				'modules.' . $lowerModuleName . '.agavi.template.directory' => '%core.module_dir%/${module}/templates',
-				'modules.' . $lowerModuleName . '.agavi.validate.path' => '%core.module_dir%/${moduleName}/validate/${actionName}.xml',
-				'modules.' . $lowerModuleName . '.agavi.view.path' => '%core.module_dir%/${moduleName}/views/${viewName}View.class.php',
+				'modules.' . $lowerModuleName . '.agavi.template.directory' => '%core.module_dir%/${module}/Templates',
+				'modules.' . $lowerModuleName . '.agavi.validate.path' => '%core.module_dir%/${moduleName}/Validate/${actionName}.xml',
+				'modules.' . $lowerModuleName . '.agavi.view.path' => '%core.module_dir%/${moduleName}/Views/${viewName}View.php',
 				'modules.' . $lowerModuleName . '.agavi.view.name' => '${actionName}${viewName}',
 			]);
 			// include the module configuration
 			// loaded only once due to the way load() (former import()) works
-			if(is_readable(AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/config/module.xml')) {
-				include_once(AgaviConfigCache::checkConfig(AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/config/module.xml'));
+			if(is_readable(AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/Config/module.xml')) {
+				include_once(AgaviConfigCache::checkConfig(AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/Config/module.xml'));
 			} else {
 				AgaviConfig::set('modules.' . $lowerModuleName . '.enabled', true);
 			}
 			
-			$moduleAutoload = AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/config/autoload.xml';
+			$moduleAutoload = AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/Config/autoload.xml';
 			if(is_readable($moduleAutoload)) {
 				AgaviConfigCache::load($moduleAutoload);
 			}
@@ -196,7 +196,7 @@ class AgaviController extends AgaviParameterHolder
 		}
 		
 		// check for a module config.php
-		$moduleConfig = AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/config.php';
+		$moduleConfig = AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/Config.php';
 		if(is_readable($moduleConfig)) {
 			require_once($moduleConfig);
 		}
@@ -571,7 +571,7 @@ class AgaviController extends AgaviParameterHolder
 				$this->filters[$which][$module] = [];
 				$filters =& $this->filters[$which][$module];
 			}
-			$config = ($module == '*' ? AgaviConfig::get('core.config_dir') : AgaviConfig::get('core.module_dir') . '/' . $module . '/config') . '/' . $which . '_filters.xml';
+			$config = ($module == '*' ? AgaviConfig::get('core.config_dir') : AgaviConfig::get('core.module_dir') . '/' . $module . '/Config') . '/' . $which . '_filters.xml';
 			if(is_readable($config)) {
 				require(AgaviConfigCache::checkConfig($config, $this->context->getName()));
 			}
@@ -606,7 +606,7 @@ class AgaviController extends AgaviParameterHolder
 	public function modelExists($moduleName, $modelName)
 	{
 		$modelName = AgaviToolkit::canonicalName($modelName);
-		$file = AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/models/' . $modelName .	'Model.class.php';
+		$file = AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/Models/' . $modelName .	'Model.php';
 		return is_readable($file);
 	}
 
@@ -622,7 +622,7 @@ class AgaviController extends AgaviParameterHolder
 	 */
 	public function moduleExists($moduleName)
 	{
-		$file = AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/config/module.xml';
+		$file = AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/Config/module.xml';
 		return is_readable($file);
 	}
 

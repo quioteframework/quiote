@@ -57,7 +57,7 @@ class AgaviSettingConfigHandler extends AgaviXmlConfigHandler
 	 * @author     Sean Kerr <skerr@mojavi.org>
 	 * @since      0.9.0
 	 */
-	public function execute(AgaviXmlConfigDomDocument $document) : bool
+	public function execute(AgaviXmlConfigDomDocument $document) : string
 	{
 		// set up our default namespace
 		$document->setDefaultNamespace(self::XML_NAMESPACE, 'settings');
@@ -113,7 +113,7 @@ class AgaviSettingConfigHandler extends AgaviXmlConfigHandler
 			}
 		}
 
-		$code = 'AgaviConfig::fromArray(' . var_export($data, true) . ');';
+		$code = 'Agavi\\Config\\AgaviConfig::fromArray(' . var_export($data, true) . ');';
 
 		return $this->generate($code, $document->documentURI);
 	}

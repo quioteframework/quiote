@@ -52,7 +52,7 @@ class AgaviFileTemplateLayer extends AgaviStreamTemplateLayer
 		$targets[] = '${directory}/${template}${extension}';
 		
 		parent::__construct(array_merge([
-			'directory' => AgaviConfig::get('core.module_dir') . '/${module}/templates',
+			'directory' => AgaviConfig::get('core.module_dir') . '/${module}/Templates',
 			'scheme' => 'file',
 			'check' => true,
 			'targets' => $targets,

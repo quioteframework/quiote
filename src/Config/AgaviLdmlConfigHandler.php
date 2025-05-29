@@ -14,7 +14,7 @@
 // +---------------------------------------------------------------------------+
 namespace Agavi\Config;
 
-use Agavi\DateTime\AgaviDateDefinitions;
+use Agavi\Date\AgaviDateDefinitions;
 use Agavi\Exception\AgaviException;
 use Agavi\Translation\AgaviLocale;
 use Exception;

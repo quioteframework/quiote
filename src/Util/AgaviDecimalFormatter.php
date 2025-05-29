@@ -13,6 +13,11 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 namespace Agavi\Util;
+
+use Agavi\Exception\AgaviException;
+use Agavi\Translation\AgaviLocale;
+use InvalidArgumentException;
+
 /**
  * The decimal formatter will format numbers according to a given format.
  *
@@ -609,7 +614,7 @@ class AgaviDecimalFormatter
 		return $map[$mode];
 	}
 	
-	protected static function getDecimalParseRegex(AgaviLocale $locale = null)
+	protected static function getDecimalParseRegex(?AgaviLocale $locale = null)
 	{
 		static $patternCache = [];
 		

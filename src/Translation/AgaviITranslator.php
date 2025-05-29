@@ -13,6 +13,9 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 namespace Agavi\Translation;
+
+use Agavi\AgaviContext;
+
 /**
  * AgaviITranslator defines the interface for different translator 
  * implementations (like gettext, XLIFF, ...)
@@ -56,7 +59,7 @@ interface AgaviITranslator
 	 *
 	 * @param      mixed       The message to be translated.
 	 * @param      string      The domain of the message.
-	 * @param      AgaviLocale The locale to which the message should be 
+	 * @param      ?AgaviLocale The locale to which the message should be 
 	 *                         translated.
 	 *
 	 * @return     string The translated message.
@@ -64,7 +67,7 @@ interface AgaviITranslator
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function translate($message, $domain, AgaviLocale $locale = null);
+	public function translate($message, $domain, ?AgaviLocale $locale = null);
 
 	/**
 	 * This method gets called by the translation manager when the default locale

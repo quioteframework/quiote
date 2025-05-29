@@ -50,7 +50,7 @@ class AgaviReturnArrayConfigHandler extends AgaviXmlConfigHandler
 	 * @author     David Zülke <david.zuelke@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function execute(AgaviXmlConfigDomDocument $document) : bool
+	public function execute(AgaviXmlConfigDomDocument $document) : string
 	{
 		$document->setDefaultNamespace($this->getParameter('namespace_uri', ''));
 		

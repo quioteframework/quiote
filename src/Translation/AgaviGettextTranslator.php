@@ -13,6 +13,12 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 namespace Agavi\Translation;
+
+use Agavi\AgaviContext;
+use Agavi\Exception\AgaviException;
+use Agavi\Util\AgaviToolkit;
+use AgaviGettextMoReader;
+
 /**
  * AgaviGettextTranslator defines the translator interface for gettext.
  * 
@@ -45,7 +51,7 @@ class AgaviGettextTranslator extends AgaviBasicTranslator
 	protected $domainData = [];
 	
 	/**
-	 * @var        string The locale identifier of the current locale
+	 * @var        AgaviLocale The locale identifier of the current locale
 	 */
 	protected $locale = null;
 
@@ -101,7 +107,7 @@ class AgaviGettextTranslator extends AgaviBasicTranslator
 	 *
 	 * @param      mixed       The message to be translated.
 	 * @param      string      The domain of the message.
-	 * @param      AgaviLocale The locale to which the message should be 
+	 * @param      ?AgaviLocale The locale to which the message should be 
 	 *                         translated.
 	 *
 	 * @return     string The translated message.
@@ -109,7 +115,7 @@ class AgaviGettextTranslator extends AgaviBasicTranslator
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function translate($message, $domain, AgaviLocale $locale = null)
+	public function translate($message, $domain, ?AgaviLocale $locale = null)
 	{
 		if($locale) {
 			$oldDomainData = $this->domainData;

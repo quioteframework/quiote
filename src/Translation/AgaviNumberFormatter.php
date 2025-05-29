@@ -13,6 +13,11 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 namespace Agavi\Translation;
+
+use Agavi\AgaviContext;
+use Agavi\Util\AgaviDecimalFormatter;
+use Agavi\Util\AgaviToolkit;
+
 /**
  * The number formatter will format numbers according to a given format
  *
@@ -94,7 +99,7 @@ class AgaviNumberFormatter extends AgaviDecimalFormatter implements AgaviITransl
 	 *
 	 * @param      mixed       The message to be translated.
 	 * @param      string      The domain of the message.
-	 * @param      AgaviLocale The locale to which the message should be 
+	 * @param      ?AgaviLocale The locale to which the message should be 
 	 *                         translated.
 	 *
 	 * @return     string The translated message.
@@ -103,7 +108,7 @@ class AgaviNumberFormatter extends AgaviDecimalFormatter implements AgaviITransl
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function translate($message, $domain, AgaviLocale $locale = null)
+	public function translate($message, $domain, ?AgaviLocale $locale = null)
 	{
 		if($locale) {
 			$fn = clone $this;

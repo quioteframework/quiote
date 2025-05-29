@@ -17,12 +17,13 @@ namespace Agavi\Translation;
 use Agavi\AgaviContext;
 use Agavi\Config\AgaviConfig;
 use Agavi\Config\AgaviConfigCache;
-use Agavi\DateTime\AgaviCalendar;
-use Agavi\DateTime\AgaviDateDefinitions;
-use Agavi\DateTime\AgaviDateFormat;
-use Agavi\DateTime\AgaviGregorianCalendar;
-use Agavi\DateTime\AgaviOlsonTimeZone;
-use Agavi\DateTime\AgaviTimeZone;
+use Agavi\Date\AgaviTimeZone as DateAgaviTimeZone;
+use Agavi\Date\AgaviCalendar;
+use Agavi\Date\AgaviDateDefinitions;
+use Agavi\Date\AgaviDateFormat;
+use Agavi\Date\AgaviGregorianCalendar;
+use Agavi\Date\AgaviOlsonTimeZone;
+use Agavi\Date\AgaviTimeZone;
 use Agavi\Exception\AgaviException;
 use DateTime;
 
@@ -902,7 +903,7 @@ class AgaviTranslationManager
 	{
 		if(!isset($this->timeZoneList[$id])) {
 			try {
-				return AgaviTimeZone::createCustomTimeZone($this, $id);
+				return DateAgaviTimeZone::createCustomTimeZone($this, $id);
 			} catch(\Exception) {
 				return null;
 			}

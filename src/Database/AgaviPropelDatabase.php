@@ -50,7 +50,7 @@ use Agavi\Util\AgaviToolkit;
  * @version    $Id$
  */
 use Propel\Propel;
-use Propel\Configration\PropelConfiguration;
+use Propel\Config\PropelConfiguration;
 class AgaviPropelDatabase extends AgaviDatabase
 {
 	/**

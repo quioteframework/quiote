@@ -78,11 +78,11 @@ final class Agavi
 
 			AgaviConfig::set('core.lib_dir', AgaviConfig::get('core.app_dir') . '/lib', false, true);
 
-			AgaviConfig::set('core.model_dir', AgaviConfig::get('core.app_dir') . '/models', false, true);
+			AgaviConfig::set('core.model_dir', AgaviConfig::get('core.app_dir') . '/Models', false, true);
 
-			AgaviConfig::set('core.module_dir', AgaviConfig::get('core.app_dir') . '/modules', false, true);
+			AgaviConfig::set('core.module_dir', AgaviConfig::get('core.app_dir') . '/Modules', false, true);
 
-			AgaviConfig::set('core.template_dir', AgaviConfig::get('core.app_dir') . '/templates', false, true);
+			AgaviConfig::set('core.template_dir', AgaviConfig::get('core.app_dir') . '/Templates', false, true);
 
 			AgaviConfig::set('core.cldr_dir', AgaviConfig::get('core.agavi_dir') . '/Translation/data', false, true);
 

@@ -53,7 +53,7 @@ class AgaviFilterConfigHandler extends AgaviXmlConfigHandler
 	 * @author     Sean Kerr <skerr@mojavi.org>
 	 * @since      0.9.0
 	 */
-	public function execute(AgaviXmlConfigDomDocument $document) : bool
+	public function execute(AgaviXmlConfigDomDocument $document) : string
 	{
 		// set up our default namespace
 		$document->setDefaultNamespace(self::XML_NAMESPACE, 'filters');
@@ -93,7 +93,7 @@ class AgaviFilterConfigHandler extends AgaviXmlConfigHandler
 			}
 			if($filter['enabled']) {
 				$rc = new \ReflectionClass($filter['class']);
-				$if = 'AgaviI' . ucfirst(strtolower(substr(basename((string) $config), 0, strpos(basename((string) $config), '_filters')))) . 'Filter';
+				$if = 'Agavi\Filter\AgaviI' . ucfirst(strtolower(substr(basename((string) $config), 0, strpos(basename((string) $config), '_filters')))) . 'Filter';
 				if(!$rc->implementsInterface($if)) {
 					throw new AgaviFactoryException('Filter "' . $name . '" does not implement interface "' . $if . '"');
 				}

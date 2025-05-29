@@ -17,6 +17,7 @@ namespace Agavi;
 
 use Agavi\Config\AgaviConfig;
 use Agavi\Config\AgaviConfigCache;
+use Agavi\Controller\AgaviController;
 use Agavi\Exception\AgaviAutoloadException;
 use Agavi\Exception\AgaviDisabledModuleException;
 use Agavi\Exception\AgaviException;
@@ -50,7 +51,7 @@ use Agavi\Util\AgaviToolkit;
 class AgaviContext implements \Stringable
 {
 	/**
-	 * @var        AgaviController A Controller instance.
+	 * @var        ?AgaviController A Controller instance.
 	 */
 	protected $controller = null;
 	
@@ -396,7 +397,7 @@ class AgaviContext implements \Stringable
 			// let's try to autoload the baby
 			if(!class_exists($class)) {
 				// it's not there. the hunt is on
-				$file = AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/models/' . $modelName . 'Model.class.php';
+				$file = AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/Models/' . $modelName . 'Model.php';
 			}
 		}
 
@@ -413,7 +414,7 @@ class AgaviContext implements \Stringable
 		
 		$rc = new \ReflectionClass($class);
 		
-		if($rc->implementsInterface('AgaviISingletonModel')) {
+		if($rc->implementsInterface('Agavi\Model\AgaviISingletonModel')) {
 			// it's a singleton
 			if(!isset($this->singletonModelInstances[$class])) {
 				// no instance yet, so we create one

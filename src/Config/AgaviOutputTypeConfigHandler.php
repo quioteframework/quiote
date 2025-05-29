@@ -52,7 +52,7 @@ class AgaviOutputTypeConfigHandler extends AgaviXmlConfigHandler
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function execute(AgaviXmlConfigDomDocument $document) : bool
+	public function execute(AgaviXmlConfigDomDocument $document) : string
 	{
 		// set up our default namespace
 		$document->setDefaultNamespace(self::XML_NAMESPACE, 'output_types');
@@ -149,7 +149,7 @@ class AgaviOutputTypeConfigHandler extends AgaviXmlConfigHandler
 		
 		$code = [];
 		foreach($data as $outputTypeName => $outputType) {
-			$code[] = '$ot = new AgaviOutputType();';
+			$code[] = '$ot = new Agavi\Controller\AgaviOutputType();';
 			$code[] = sprintf(
 				'$ot->initialize($this->context, %s, %s, %s, %s, %s, %s, %s);',
 				var_export($outputType['parameters'], true),

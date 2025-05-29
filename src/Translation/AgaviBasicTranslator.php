@@ -13,6 +13,9 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 namespace Agavi\Translation;
+
+use Agavi\AgaviContext;
+
 /**
  * AgaviBasicTranslator defines some base functions for all translators.
  * 

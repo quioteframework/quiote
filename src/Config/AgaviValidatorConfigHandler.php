@@ -62,7 +62,7 @@ class AgaviValidatorConfigHandler extends AgaviXmlConfigHandler
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function execute(AgaviXmlConfigDomDocument $document) : bool
+	public function execute(AgaviXmlConfigDomDocument $document) : string
 	{
 		$document->setDefaultNamespace(self::XML_NAMESPACE, 'validators');
 		

@@ -45,7 +45,7 @@ class AgaviWsdlConfigHandler extends AgaviXmlConfigHandler
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function execute(AgaviXmlConfigDomDocument $doc) : bool
+	public function execute(AgaviXmlConfigDomDocument $document) : string
 	{
 		$ro = $this->context->getRouting();
 		

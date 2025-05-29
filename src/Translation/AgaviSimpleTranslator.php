@@ -13,6 +13,11 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 namespace Agavi\Translation;
+
+use Agavi\AgaviContext;
+use Agavi\Exception\AgaviException;
+use Agavi\Util\AgaviToolkit;
+
 /**
  * AgaviSimpleTranslator defines the translator which loads the data from its
  * parameters.
@@ -81,7 +86,7 @@ class AgaviSimpleTranslator extends AgaviBasicTranslator
 	 *
 	 * @param      mixed       The message to be translated.
 	 * @param      string      The domain of the message.
-	 * @param      AgaviLocale The locale to which the message should be 
+	 * @param      ?AgaviLocale The locale to which the message should be 
 	 *                         translated.
 	 *
 	 * @return     string The translated message.
@@ -89,7 +94,7 @@ class AgaviSimpleTranslator extends AgaviBasicTranslator
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function translate($message, $domain, AgaviLocale $locale = null)
+	public function translate($message, $domain, ?AgaviLocale $locale = null)
 	{
 		if($locale && $locale !== $this->locale) {
 			$oldCurrentData = $this->currentData;
