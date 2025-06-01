@@ -347,11 +347,29 @@ class AgaviExecutionContainer extends AgaviAttributeHolder
 		$log("Running full filter chain for: {$this->getModuleName()} / {$this->getActionName()}");
 		$filterChain = $this->getFilterChain();
 
+		// DEBUG: Write to debug.log file
+		$debugFile = '/code/log/debug.log';
+		$debugMsg = "[" . date('Y-m-d H:i:s') . "] AgaviExecutionContainer::execute() - Module: {$this->getModuleName()}, Action: {$this->getActionName()}\n";
+		file_put_contents($debugFile, $debugMsg, FILE_APPEND | LOCK_EX);
+
 		// Register filters (only once per execution)
 		if(!$actionInstance->isSimple()) {
 			if(AgaviConfig::get('core.use_security', false)) {
 				$log("Registering security filter");
-				$filterChain->register($controller->getFilter('security'), 'agavi_security_filter');
+				$debugMsg = "[" . date('Y-m-d H:i:s') . "] SECURITY ENABLED - Registering security filter for {$this->getModuleName()}/{$this->getActionName()}\n";
+				file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
+				
+				$securityFilter = $controller->getFilter('security');
+				$debugMsg = "[" . date('Y-m-d H:i:s') . "] Security filter instance: " . get_class($securityFilter) . "\n";
+				file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
+				
+				$filterChain->register($securityFilter, 'agavi_security_filter');
+				
+				$debugMsg = "[" . date('Y-m-d H:i:s') . "] Security filter registered successfully\n";
+				file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
+			} else {
+				$debugMsg = "[" . date('Y-m-d H:i:s') . "] SECURITY DISABLED - core.use_security=false for {$this->getModuleName()}/{$this->getActionName()}\n";
+				file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
 			}
 
 			// load filters
@@ -465,9 +483,16 @@ class AgaviExecutionContainer extends AgaviAttributeHolder
 	 */
 	protected function proceed()
 	{
+		$debugMsg = "[" . date('Y-m-d H:i:s') . "] AgaviExecutionContainer::proceed() called for {$this->getModuleName()}/{$this->getActionName()}\n";
+		file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
+		
 		if($this->next !== null) {
+			$debugMsg = "[" . date('Y-m-d H:i:s') . "] Forward container found: {$this->next->getModuleName()}/{$this->next->getActionName()}\n";
+			file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
 			return $this->next->execute();
 		} else {
+			$debugMsg = "[" . date('Y-m-d H:i:s') . "] No forward container, returning own response\n";
+			file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
 			return $this->getResponse();
 		}
 	}

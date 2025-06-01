@@ -37,12 +37,13 @@ interface AgaviIFilter
 	/**
 	 * Execute this filter.
 	 *
+	 * @param      AgaviFilterChain The filter chain.
 	 * @param      AgaviExecutionContainer The current execution container.
 	 *
 	 * @author     Sean Kerr <skerr@mojavi.org>
 	 * @since      0.11.0
 	 */
-	public function execute(AgaviExecutionContainer $container);
+	public function execute(AgaviFilterChain $filterChain, AgaviExecutionContainer $container);
 
 	/**
 	 * Retrieve the current application context.

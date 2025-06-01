@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ae:configurations xmlns:ae="http://agavi.org/agavi/config/global/envelope/1.1" xmlns="http://agavi.org/agavi/config/parts/config_handlers/1.1">
-	<ae:configuration>
+		<ae:configuration>
 		<handlers>
 			<!--
 				+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~+
@@ -128,12 +128,11 @@
 				<!-- 1.0 to 1.1 -->
 				<transformation>%core.agavi_dir%/Config/xsl/translation.xsl</transformation>
 			</handler>
-
-			<handler pattern="%core.testing_dir%/config/suites.xml" class="Agavi\Config\AgaviTestSuitesConfigHandler">
-				<!-- <validation>%core.agavi_dir%/config/xsd/module.xsd</validation>-->
-				<!-- 1.0 to 1.1 -->
-				<transformation>%core.agavi_dir%/Config/xsl/testing.suites.xsl</transformation> 
-			</handler>
+		<handler pattern="%core.testing_dir%/config/suites.xml" class="Agavi\Config\AgaviTestSuitesConfigHandler">
+			<!-- <validation>%core.agavi_dir%/Config/xsd/module.xsd</validation>-->
+			<!-- 1.0 to 1.1 -->
+			<transformation>%core.agavi_dir%/Config/xsl/testing.suites.xsl</transformation> 
+		</handler>
 
 			<!--
 				+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~+
@@ -146,43 +145,43 @@
 				+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~+
 			-->
 			<handler pattern="%core.module_dir%/*/config/autoload.xml" class="Agavi\Config\AgaviAutoloadConfigHandler">
-				<validation>%core.agavi_dir%/config/xsd/autoload.xsd</validation>
+				<validation>%core.agavi_dir%/Config/xsd/autoload.xsd</validation>
 				<!-- 0.11 to 1.0 -->
-				<transformation>%core.agavi_dir%/config/xsl/autoload.xsl</transformation>
+				<transformation>%core.agavi_dir%/Config/xsl/autoload.xsl</transformation>
 				<!-- 1.0 to 1.1 -->
-				<transformation>%core.agavi_dir%/config/xsl/autoload.xsl</transformation>
+				<transformation>%core.agavi_dir%/Config/xsl/autoload.xsl</transformation>
 			</handler>
 
 			<handler pattern="%core.module_dir%/*/config/action_filters.xml" class="Agavi\Config\AgaviFilterConfigHandler">
-				<validation>%core.agavi_dir%/config/xsd/filters.xsd</validation>
+				<validation>%core.agavi_dir%/Config/xsd/filters.xsd</validation>
 				<!-- 0.11 to 1.0 -->
-				<transformation>%core.agavi_dir%/config/xsl/filters.xsl</transformation>
+				<transformation>%core.agavi_dir%/Config/xsl/filters.xsl</transformation>
 				<!-- 1.0 to 1.1 -->
-				<transformation>%core.agavi_dir%/config/xsl/filters.xsl</transformation>
+				<transformation>%core.agavi_dir%/Config/xsl/filters.xsl</transformation>
 			</handler>
 
 			<handler pattern="%core.module_dir%/*/config/module.xml" class="Agavi\Config\AgaviModuleConfigHandler">
-				<validation>%core.agavi_dir%/config/xsd/module.xsd</validation>
+				<validation>%core.agavi_dir%/Config/xsd/module.xsd</validation>
 				<!-- 0.11 to 1.0 -->
-				<transformation>%core.agavi_dir%/config/xsl/module.xsl</transformation>
+				<transformation>%core.agavi_dir%/Config/xsl/module.xsl</transformation>
 				<!-- 1.0 to 1.1 -->
-				<transformation>%core.agavi_dir%/config/xsl/module.xsl</transformation>
+				<transformation>%core.agavi_dir%/Config/xsl/module.xsl</transformation>
 			</handler>
 
-			<handler pattern="%core.module_dir%/*/validate/*.xml" class="Agavi\Config\AgaviValidatorConfigHandler">
-				<validation>%core.agavi_dir%/config/xsd/validators.xsd</validation>
+			<handler pattern="%core.module_dir%/*/Validate/*.xml" class="Agavi\Config\AgaviValidatorConfigHandler">
+				<validation>%core.agavi_dir%/Config/xsd/validators.xsd</validation>
 				<!-- 0.11 to 1.0 -->
-				<transformation>%core.agavi_dir%/config/xsl/validators.xsl</transformation>
+				<transformation>%core.agavi_dir%/Config/xsl/validators.xsl</transformation>
 				<!-- 1.0 to 1.1 -->
-				<transformation>%core.agavi_dir%/config/xsl/validators.xsl</transformation>
+				<transformation>%core.agavi_dir%/Config/xsl/validators.xsl</transformation>
 			</handler>
 
 			<handler pattern="%core.module_dir%/*/cache/*.xml" class="Agavi\Config\AgaviCachingConfigHandler">
-				<validation>%core.agavi_dir%/config/xsd/caching.xsd</validation>
+				<validation>%core.agavi_dir%/Config/xsd/caching.xsd</validation>
 				<!-- 0.11 to 1.0 -->
-				<transformation>%core.agavi_dir%/config/xsl/caching.xsl</transformation>
+				<transformation>%core.agavi_dir%/Config/xsl/caching.xsl</transformation>
 				<!-- 1.0 to 1.1 -->
-				<transformation>%core.agavi_dir%/config/xsl/caching.xsl</transformation>
+				<transformation>%core.agavi_dir%/Config/xsl/caching.xsl</transformation>
 			</handler>
 
 			<handler pattern="%core.cldr_dir%/locales/*.xml" class="Agavi\Config\AgaviLdmlConfigHandler" />

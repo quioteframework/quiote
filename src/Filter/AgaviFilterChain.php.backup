@@ -46,15 +46,6 @@ class AgaviFilterChain
 		$this->type = $type;
 	}
 
-	public function register($filter, string $name)
-	{
-		if (method_exists($filter, 'isPostFilter') && $filter->isPostFilter()) {
-			$this->registerPost($filter, $name);
-		} else {
-			$this->registerPre($filter, $name);
-		}
-	}
-
 	public function registerPre($filter, string $name)
 	{
 		$this->preFilters[$name] = $filter;
@@ -67,7 +58,7 @@ class AgaviFilterChain
 
 	/**
 	 * Executes all pre-filters, then the action, then all post-filters.
-	 * This simplified version respects forward containers set by filters.
+	 * $actionCallback is a closure that runs the action.
 	 */
 	public function execute($container, ?callable $actionCallback = null)
 	{
@@ -106,57 +97,43 @@ class AgaviFilterChain
 
 		$log("AgaviFilterChain::execute() start for: " . $container->getModuleName() . " / " . $container->getActionName());
 
-		// Execute pre-filters, but stop if any sets a forward container
+		if ($actionCallback === null) {
+			// No-op: do not call $c->execute() after filters
+			$actionCallback = function($c): void {};
+		}
 		foreach($this->preFilters as $name => $filter) {
 			$log("Executing pre-filter: $name (" . $filter::class . ")");
-			$debugMsg = "[" . date('Y-m-d H:i:s') . "] EXECUTING FILTER: $name (" . get_class($filter) . ")\n";
-			file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
-			
-			// Check forward container status BEFORE filter execution
-			$nextBefore = $container->getNext();
-			$debugMsg = "[" . date('Y-m-d H:i:s') . "] BEFORE $name: forward container = " . ($nextBefore ? $nextBefore->getModuleName() . "/" . $nextBefore->getActionName() : "NULL") . "\n";
-			file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
-			
-			// Execute the filter (this simplified version doesn't pass the filter chain)
-			$filter->execute($this, $container);
-			
-			// Check forward container status AFTER filter execution
-			$nextAfter = $container->getNext();
-			$debugMsg = "[" . date('Y-m-d H:i:s') . "] AFTER $name: forward container = " . ($nextAfter ? $nextAfter->getModuleName() . "/" . $nextAfter->getActionName() : "NULL") . "\n";
-			file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
-			
-			// If a filter set a forward container, stop executing further filters
-			if ($container->getNext() !== null) {
-				$debugMsg = "[" . date('Y-m-d H:i:s') . "] Filter $name set forward container, stopping filter chain\n";
-				file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
-				$log("Forward container detected after $name, stopping filter execution");
-				return; // Don't execute action or post-filters
-			}
+			error_log("=== FILTER DEBUG: Executing pre-filter: $name (" . $filter::class . ") for " . $container->getModuleName() . "/" . $container->getActionName());
+			$filter->execute($container);
+			error_log("=== FILTER DEBUG: Completed pre-filter: $name");
 		}
 		
-		// Execute action only if no forward container was set
-		if ($container->getNext() === null && $actionCallback !== null) {
+		// Check if a forward container has been set by any pre-filter (e.g., security filter)
+		if ($container->getNext() === null) {
 			$log("Executing action callback");
-			$debugMsg = "[" . date('Y-m-d H:i:s') . "] EXECUTING ACTION: " . $container->getModuleName() . "/" . $container->getActionName() . "\n";
-			file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
 			$actionCallback($container);
-		} else if ($container->getNext() !== null) {
+		} else {
 			$log("Forward container detected, skipping action callback");
-			$debugMsg = "[" . date('Y-m-d H:i:s') . "] SKIPPING ACTION: forward to " . $container->getNext()->getModuleName() . "/" . $container->getNext()->getActionName() . "\n";
-			file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
+			error_log("=== FILTER DEBUG: Forward container detected, skipping action execution for " . $container->getModuleName() . "/" . $container->getActionName());
 		}
-		
-		// Execute post-filters
 		foreach($this->postFilters as $name => $filter) {
 			$log("Executing post-filter: $name (" . $filter::class . ")");
-			$filter->execute($this, $container);
+			$filter->execute($container);
 		}
 		$log("AgaviFilterChain::execute() end for: " . $container->getModuleName() . " / " . $container->getActionName());
+	}
+
+	public function register($filter, string $name)
+	{
+		if (method_exists($filter, 'isPostFilter') && $filter->isPostFilter()) {
+			$this->registerPost($filter, $name);
+		} else {
+			$this->registerPre($filter, $name);
+		}
 	}
 
 	public function initialize($context, $parameters = [])
 	{
 		// No-op for compatibility with factory system.
-		// Parameters are intentionally unused
 	}
 }

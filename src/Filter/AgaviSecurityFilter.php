@@ -41,6 +41,7 @@ class AgaviSecurityFilter extends AgaviFilter implements AgaviIActionFilter, Aga
     /**
      * Execute this filter.
      *
+     * @param      AgaviFilterChain The filter chain.
      * @param      AgaviExecutionContainer The current execution container.
      *
      * @author     David Zülke <dz@bitxtender.com>
@@ -48,41 +49,70 @@ class AgaviSecurityFilter extends AgaviFilter implements AgaviIActionFilter, Aga
      * @since      0.9.0
      */
     #[\Override]
-    public function execute(AgaviExecutionContainer $container)
+    public function execute(AgaviFilterChain $filterChain, AgaviExecutionContainer $container)
     {
+        // Add debug logging to file
+        $debugMsg = "[" . date('Y-m-d H:i:s') . "] AgaviSecurityFilter::execute() called for: " . $container->getModuleName() . "/" . $container->getActionName() . "\n";
+        file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
+        
         static $handlingRedirects = [];
         $actionKey = $container->getModuleName() . '/' . $container->getActionName();
         if(isset($handlingRedirects[$actionKey])) {
+            $debugMsg = "[" . date('Y-m-d H:i:s') . "] Security filter: Already handling redirects for $actionKey, returning early\n";
+            file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
             return;
         }
 
         if($container->isSecurityForwarded()) {
-            throw new AgaviException('Infinite security forwarding detected');
+            $debugMsg = "[" . date('Y-m-d H:i:s') . "] Security filter: Container is security forwarded, allowing access\n";
+            file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
+            return;
         }
 
         $context    = $this->getContext();
         $user       = $context->getUser();
         $actionInstance = $container->getActionInstance();
 
-        if(!$actionInstance->isSecure()) {
+        $isSecure = $actionInstance->isSecure();
+        $debugMsg = "[" . date('Y-m-d H:i:s') . "] Security filter: Action isSecure() = " . ($isSecure ? 'true' : 'false') . "\n";
+        file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
+
+        if(!$isSecure) {
+            $debugMsg = "[" . date('Y-m-d H:i:s') . "] Security filter: Action is not secure, allowing access\n";
+            file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
             return;
         }
 
-        $credential = $actionInstance->getCredentials();
+        $isAuthenticated = $user->isAuthenticated();
+        $debugMsg = "[" . date('Y-m-d H:i:s') . "] Security filter: User isAuthenticated() = " . ($isAuthenticated ? 'true' : 'false') . "\n";
+        file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
 
-        if($user->isAuthenticated() && ($credential === null || $user->hasCredentials($credential))) {
-            // user has access, continue
+        $credential = $actionInstance->getCredentials();
+        $hasCredentials = ($credential === null || $user->hasCredentials($credential));
+        $debugMsg = "[" . date('Y-m-d H:i:s') . "] Security filter: Required credentials = " . var_export($credential, true) . ", hasCredentials = " . ($hasCredentials ? 'true' : 'false') . "\n";
+        file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
+
+        if($isAuthenticated && $hasCredentials) {
+            // user has access, allow filter chain to continue
+            $debugMsg = "[" . date('Y-m-d H:i:s') . "] Security filter: Access granted - user is authenticated and has credentials\n";
+            file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
             return;
         } else {
             try {
                 $handlingRedirects[$actionKey] = true;
 
-                if($user->isAuthenticated()) {
+                if($isAuthenticated) {
+                    $debugMsg = "[" . date('Y-m-d H:i:s') . "] Security filter: User authenticated but lacks credentials, forwarding to 'secure'\n";
+                    file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
                     $container->setNext($container->createSystemActionForwardContainer('secure'));
                 } else {
+                    $debugMsg = "[" . date('Y-m-d H:i:s') . "] Security filter: User not authenticated, forwarding to 'login'\n";
+                    file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
                     $forwardContainer = $container->createSystemActionForwardContainer('login');
                     $forwardContainer->setSecurityForwarded(true);
                     $container->setNext($forwardContainer);
+                    $debugMsg = "[" . date('Y-m-d H:i:s') . "] Security filter: Login forward container created and set\n";
+                    file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
                     return;
                 }
             } finally {

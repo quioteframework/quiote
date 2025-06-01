@@ -58,7 +58,7 @@ class AgaviExecutionTimeFilter extends AgaviFilter implements AgaviIGlobalFilter
 	 * @since      0.9.0
 	 */
 	#[\Override]
-    public function execute(AgaviExecutionContainer $container)
+    public function execute(AgaviFilterChain $filterChain, AgaviExecutionContainer $container)
 	{
 		
 	}

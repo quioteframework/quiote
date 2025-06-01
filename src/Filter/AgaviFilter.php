@@ -76,15 +76,17 @@ abstract class AgaviFilter extends AgaviParameterHolder implements AgaviIFilter
 	
 	/**
 	 * The default "execute" method, which does nothing.
+	 * In the simplified version, filters just return to continue the chain.
 	 *
+	 * @param      AgaviFilterChain The filter chain.
 	 * @param      AgaviExecutionContainer The current execution container.
 	 *
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function execute(AgaviExecutionContainer $container)
+	public function execute(AgaviFilterChain $filterChain, AgaviExecutionContainer $container)
 	{
-		// Default: do nothing.
+		// Default: do nothing, the simplified filter chain will continue automatically
 	}
 }
 

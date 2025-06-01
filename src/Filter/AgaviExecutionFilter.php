@@ -338,6 +338,7 @@ class AgaviExecutionFilter extends AgaviFilter implements AgaviIActionFilter
 	/**
 	 * Execute this filter.
 	 *
+	 * @param      AgaviFilterChain The filter chain.
 	 * @param      AgaviExecutionContainer The current execution container.
 	 *
 	 * @throws     <b>AgaviInitializationException</b> If an error occurs during
@@ -351,7 +352,7 @@ class AgaviExecutionFilter extends AgaviFilter implements AgaviIActionFilter
 	 * @since      0.9.0
 	 */
 	#[\Override]
-    public function execute(AgaviExecutionContainer $container)
+    public function execute(AgaviFilterChain $filterChain, AgaviExecutionContainer $container)
 	{
 		$logger = null;
 		if ($this->context && method_exists($this->context, 'getLoggerManager') && $this->context->getLoggerManager()) {
