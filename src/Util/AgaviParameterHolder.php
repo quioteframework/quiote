@@ -14,6 +14,9 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 namespace Agavi\Util;
+
+use InvalidArgumentException;
+
 /**
  * AgaviParameterHolder provides a base class for managing parameters.
  *

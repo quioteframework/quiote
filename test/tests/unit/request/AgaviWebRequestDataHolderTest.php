@@ -1,4 +1,8 @@
 <?php
+
+use Agavi\Request\AgaviWebRequestDataHolder;
+use Agavi\Testing\AgaviUnitTestCase;
+
 abstract class AgaviWebRequestDataHolderTest extends AgaviUnitTestCase
 {
 	protected function getDefaultDataHolder()
@@ -42,7 +46,7 @@ abstract class AgaviWebRequestDataHolderTest extends AgaviUnitTestCase
 	 *   - key exists (returns 'true' on hasParameter/Cookie/...)
 	 *   - key considered empty (returns 'true' on isParameter/Cookie/...ValueEmpty)
 	 */
-	public function parameterData()
+	public static function parameterData()
 	{
 		
 	}
@@ -62,11 +66,11 @@ abstract class AgaviWebRequestDataHolderTest extends AgaviUnitTestCase
 	 *   - key considered empty (returns 'true' on isParameter/Cookie/...ValueEmpty)
 	 *   - whether the dataset expected the default value
 	 */
-	public function getParameterReadInformation()
+	public static function getParameterReadInformation()
 	{
 		$readInformation = array();
 		
-		foreach($this->parameterData() as $key => $parameterInfo) {
+		foreach(static::parameterData() as $key => $parameterInfo) {
 			$readInformation[$key] = $parameterInfo;
 			$readInformation[$key][4] = false;
 			$readInformation[$key.',default'] = $parameterInfo;
@@ -126,7 +130,7 @@ abstract class AgaviWebRequestDataHolderTest extends AgaviUnitTestCase
 	 *   - key exists
 	 *   - key considered empty
 	 */
-	public function getDefaultHeaderInformation()
+	public static function getDefaultHeaderInformation()
 	{
 		return array(
 			'FLAT_HEADER,caps,underscore' => array(
@@ -206,11 +210,11 @@ abstract class AgaviWebRequestDataHolderTest extends AgaviUnitTestCase
 		);
 	}
 	
-	public function getHeaderReadInformation()
+	public static function getHeaderReadInformation()
 	{
 		$readInformation = array();
 		
-		foreach($this->getDefaultHeaderInformation() as $key => $info) {
+		foreach(static::getDefaultHeaderInformation() as $key => $info) {
 			$readInformation[$key] = $info;
 			$readInformation[$key][4] = false;
 			$readInformation[$key.',default'] = $info;

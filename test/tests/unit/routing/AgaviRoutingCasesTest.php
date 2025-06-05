@@ -1,5 +1,14 @@
 <?php
 
+use Agavi\Config\AgaviConfig;
+use Agavi\Config\AgaviConfigCache;
+use Agavi\Controller\AgaviExecutionContainer;
+use Agavi\Exception\AgaviException;
+use Agavi\Testing\AgaviUnitTestCase;
+use Agavi\Routing\AgaviRouting;
+use Agavi\Routing\AgaviRoutingCallback;
+
+#[\PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses]
 class SampleRouting extends AgaviRouting
 {
 	public function setInput($input)
@@ -67,7 +76,7 @@ class AgaviRoutingCasesTest extends AgaviUnitTestCase
 	protected $_config = null;
 	protected $_context = null;
 
-	public function setUp()
+	public function setUp(): void
 	{
 		$this->_r = new SampleRouting();
 		$this->_r->initialize($this->getContext());
@@ -97,6 +106,7 @@ class AgaviRoutingCasesTest extends AgaviUnitTestCase
 		$r->setInput($input);
 		$r->execute();
 
+		$message = $message ?? '';
 		$this->assertEquals($routes, $rq->getAttribute('matched_routes', 'org.agavi.routing'), $message);
 		$this->assertEquals($parameters, $rd->getParameters(), $message);
 	}
@@ -104,6 +114,7 @@ class AgaviRoutingCasesTest extends AgaviUnitTestCase
 	public function doTestGen($url, $route, $params = array(), $options = array(), $message = null)
 	{
 		$result = $this->_r->gen($route, $params, $options);
+		$message = $message ?? '';
 		$this->assertEquals($url, $result[0], $message);
 	}
 
@@ -274,17 +285,19 @@ class AgaviRoutingCasesTest extends AgaviUnitTestCase
 		} catch(AgaviException $e) {
 		}
 
+		// If we got here, all the expected exceptions were thrown correctly
+		$this->assertTrue(true, 'All routing error tests completed successfully');
 	}
 
 	/**
-	 * @runInSeparateProcess
+	 * 
 	 */
 	public function testHttpRedirectCallback()
 	{
 		$this->setConfig('routing_callbacks.xml', 'test_callbacks');
 		$this->initConfig();
 		$r = $this->_r;
-		$rq = $r->getContext()->getRequest(); /** @var $rq TestWebRequest */
+		$rq = $r->getContext()->getRequest();
 		$rd = $rq->getRequestData();
 
 		$rd->clearParameters();

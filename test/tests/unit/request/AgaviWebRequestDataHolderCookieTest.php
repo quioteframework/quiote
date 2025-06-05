@@ -1,5 +1,11 @@
 <?php
 
+use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Request\AgaviWebRequestDataHolder;
+use PHPUnit\Framework\Attributes\DataProvider;
+
+require_once(dirname(__FILE__) . '/AgaviWebRequestDataHolderTest.php');
+
 class AgaviWebRequestDataHolderCookieTest extends AgaviWebRequestDataHolderTest
 {
 	/**
@@ -12,7 +18,7 @@ class AgaviWebRequestDataHolderCookieTest extends AgaviWebRequestDataHolderTest
 	 *   - key exists (returns 'true' on hasParameter/Cookie/...)
 	 *   - key considered empty (returns 'true' on isParameter/Cookie/...ValueEmpty)
 	 */
-	public function parameterData()
+	public static function parameterData()
 	{
 		return array(
 			'unsetkey' => array(
@@ -108,9 +114,7 @@ class AgaviWebRequestDataHolderCookieTest extends AgaviWebRequestDataHolderTest
 		$this->assertEquals('baz', $dh->getCookie('foo[bar]'));
 	}
 	
-	/**
-	 * @dataProvider getParameterReadInformation
-	 */
+	#[DataProvider('getParameterReadInformation')]
 	public function testGetCookie($key, $expected, $exists, $empty, $hasDefault)
 	{
 		$dh = $this->getDefaultDataHolder();
@@ -124,10 +128,7 @@ class AgaviWebRequestDataHolderCookieTest extends AgaviWebRequestDataHolderTest
 		$this->assertEquals($expected, $value);
 	}
 	
-	/**
-	 * @dataProvider parameterData
-	 * 
-	 */
+	#[DataProvider('parameterData')]
 	public function testRemoveCookie($key, $expected, $exists, $empty)
 	{
 		$dh = $this->getDefaultDataHolder();
@@ -143,10 +144,7 @@ class AgaviWebRequestDataHolderCookieTest extends AgaviWebRequestDataHolderTest
 		$this->assertFalse($dh->hasCookie($key), sprintf('Failed asserting that the key %1$s has been removed.', $key));
 	}
 	
-	/**
-	 * @dataProvider parameterData
-	 * 
-	 */
+	#[DataProvider('parameterData')]
 	public function testHasCookie($key, $expected, $exists, $empty)
 	{
 		$dh = $this->getDefaultDataHolder();
@@ -158,10 +156,7 @@ class AgaviWebRequestDataHolderCookieTest extends AgaviWebRequestDataHolderTest
 		}
 	}
 	
-	/**
-	 * @dataProvider parameterData
-	 * 
-	 */
+	#[DataProvider('parameterData')]
 	public function testIsCookieValueEmpty($key, $expected, $exists, $empty)
 	{
 		$dh = $this->getDefaultDataHolder();

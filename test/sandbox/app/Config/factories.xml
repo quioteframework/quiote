@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ae:configurations xmlns:ae="http://agavi.org/agavi/config/global/envelope/1.1" xmlns="http://agavi.org/agavi/config/parts/factories/1.1">
+	
+	<ae:configuration>
+		
+		<controller class="Agavi\Controller\AgaviController" />
+		
+		<database_manager class="Agavi\Database\AgaviDatabaseManager" />
+		
+		<dispatch_filter class="Agavi\Filter\AgaviDispatchFilter" />
+		
+		<execution_container class="Agavi\Controller\AgaviExecutionContainer" />
+		
+		<execution_filter class="Agavi\Filter\AgaviExecutionFilter" />
+		
+		<filter_chain class="Agavi\Filter\AgaviFilterChain" />
+		
+		<logger_manager class="Agavi\Logging\AgaviLoggerManager" />
+		
+		<request class="Agavi\Request\AgaviWebRequest" />
+		
+		<response class="Agavi\Response\AgaviWebResponse" />
+		
+		<routing class="Agavi\Routing\AgaviWebRouting" />
+		
+		<security_filter class="Agavi\Filter\AgaviSecurityFilter" />
+		
+		<storage class="Agavi\Storage\AgaviSessionStorage" />
+		
+		<translation_manager class="Agavi\Translation\AgaviTranslationManager" />
+		
+		<user class="Agavi\User\AgaviSecurityUser" />
+		
+		<validation_manager class="Agavi\Validator\AgaviValidationManager">
+			<ae:parameter name="mode">strict</ae:parameter>
+		</validation_manager>
+		
+	</ae:configuration>
+	
+	<ae:configuration environment="testing.*">
+		<storage class="Agavi\Storage\AgaviNullStorage" />
+		
+		<request class="TestWebRequest">
+			<ae:parameter name="sources">
+				<ae:parameter name="SERVER_NAME">localhost</ae:parameter>
+				<ae:parameter name="SERVER_PORT">80</ae:parameter>
+				<ae:parameter name="SERVER_PROTOCOL">http</ae:parameter>
+			</ae:parameter>
+		</request>
+		
+	</ae:configuration>
+	
+	<ae:configuration environment="testing.*" context="routing-server-cases">
+		<request class="TestWebRequest">
+			<ae:parameter name="sources">
+				<ae:parameter name="SERVER_NAME">SERVER_NAME</ae:parameter>
+				<ae:parameter name="SERVER_PORT">SERVER_PORT</ae:parameter>
+				<ae:parameter name="SERVER_PROTOCOL">SERVER_PROTOCOL</ae:parameter>
+			</ae:parameter>
+		</request>
+	</ae:configuration>
+	
+	<ae:configuration environment="testing-use_security_off">
+		<user class="Agavi\User\AgaviUser" />
+	</ae:configuration>
+	
+	<ae:configuration environment="testing.*" context="agavi-session-storage-test::tests-startup-sets-cookie-secure-flag">
+		<storage class="Agavi\Storage\AgaviSessionStorage">
+			<ae:parameter name="session_cookie_secure"></ae:parameter>
+		</storage>
+		
+		<request class="TestWebRequest">
+			<ae:parameter name="sources">
+				<ae:parameter name="HTTPS">on</ae:parameter>
+			</ae:parameter>
+		</request>
+		
+	</ae:configuration>
+
+	<ae:configuration environment="testing.*" context="agavi-session-storage-test::tests-static-session-id">
+		<storage class="Agavi\Storage\AgaviSessionStorage">
+			<ae:parameter name="session_id">foobar</ae:parameter>
+		</storage>
+	</ae:configuration>
+	
+	<ae:configuration environment="development.*">
+		<response class="Agavi\Response\AgaviWebResponse">
+			<ae:parameter name="send_content_length">false</ae:parameter>
+		</response>
+	
+		<validation_manager class="Agavi\Validation\AgaviValidationManager">
+			<ae:parameter name="mode">conditional</ae:parameter>
+		</validation_manager>
+		
+	</ae:configuration>
+	
+</ae:configurations>

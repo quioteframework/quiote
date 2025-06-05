@@ -1,4 +1,8 @@
 <?php
+
+use Agavi\Config\AgaviConfig;
+use Agavi\Config\AgaviReturnArrayConfigHandler;
+
 require_once(__DIR__ . '/ConfigHandlerTestBase.php');
 
 class AgaviXmlConfigHandlerTest extends ConfigHandlerTestBase

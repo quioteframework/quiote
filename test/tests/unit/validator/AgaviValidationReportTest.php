@@ -1,17 +1,20 @@
 <?php
 
+use Agavi\Testing\AgaviUnitTestCase;
+use Agavi\Validator\AgaviValidationReport;
+
 class AgaviValidationReportTest extends AgaviUnitTestCase
 {
 	private $_context = null;
 	private $_report = null;
 	
-	public function setUp()
+	public function setUp(): void
 	{
 		$this->_context = $this->getContext();
 		$this->_report = new AgaviValidationReport();
 	}
 
-	public function tearDown()
+	public function tearDown(): void
 	{
 		$this->_context = null;
 	}

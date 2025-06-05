@@ -413,7 +413,7 @@ class AgaviWebRequest extends AgaviRequest
 		unset($parts);
 
 		$files = [];
-		$ufc = $this->getParameter('uploaded_file_class', 'AgaviUploadedFile');
+		$ufc = $this->getParameter('uploaded_file_class', 'Agavi\Request\AgaviUploadedFile');
 
 		if($this->getMethod() == $methods['PUT']) {
 

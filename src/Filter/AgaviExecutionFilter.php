@@ -354,20 +354,7 @@ class AgaviExecutionFilter extends AgaviFilter implements AgaviIActionFilter
 	#[\Override]
     public function execute(AgaviFilterChain $filterChain, AgaviExecutionContainer $container)
 	{
-		$logger = null;
-		if ($this->context && method_exists($this->context, 'getLoggerManager') && $this->context->getLoggerManager()) {
-			$logger = $this->context->getLoggerManager();
-		}
-		$log = function($msg) use ($logger): void {
-			if ($logger) {
-				$logger->logDebug($msg);
-			} else {
-				error_log($msg);
-			}
-		};
-
-		$log("AgaviExecutionFilter::execute() called for: " . $container->getModuleName() . " / " . $container->getActionName() . " (is_slot: " . var_export($container->getParameter('is_slot', false), true) . ")");
-
+		
 		 // This filter is the end of the chain: just run the action and view.
 		// Do NOT call $container->execute() or the filter chain again!
 
@@ -666,7 +653,6 @@ class AgaviExecutionFilter extends AgaviFilter implements AgaviIActionFilter
 			break;
 		}
 
-		$log("AgaviExecutionFilter::execute() finished for: " . $container->getModuleName() . " / " . $container->getActionName());
 	}
 
 	public function isPostFilter(): bool

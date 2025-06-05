@@ -1,5 +1,7 @@
 <?php
 
+use Agavi\Routing\AgaviRoutingCallback;
+
 class GenChangeExtraParamRoutingCallback extends AgaviRoutingCallback
 {
 	/**

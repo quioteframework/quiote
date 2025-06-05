@@ -1,5 +1,11 @@
 <?php
 
+use Agavi\Testing\AgaviUnitTestCase;
+use Agavi\AgaviContext;
+use Agavi\Filter\AgaviFilterChain;
+use Agavi\Filter\AgaviFormPopulationFilter;
+use Agavi\Request\AgaviRequestDataHolder;
+
 class AgaviFormPopulationFilterTest extends AgaviUnitTestCase
 {
 	
@@ -9,12 +15,13 @@ class AgaviFormPopulationFilterTest extends AgaviUnitTestCase
 	private $_context;
 	
 	
-	public function setUp()
+	public function setUp(): void
 	{
+		parent::setUp();
 		$this->_context = AgaviContext::getInstance('test');
 	}
 	
-	public function tearDown()
+	public function tearDown(): void
 	{
 		$this->_context = null;
 	}
@@ -65,7 +72,7 @@ class AgaviFormPopulationFilterTest extends AgaviUnitTestCase
 			'foo' => 'bar',
 		);
 		
-		$vm = $this->_context->createInstanceFor('validation_manager'); /** @var $vm \AgaviValidationManager */
+		$vm = $this->_context->createInstanceFor('validation_manager');
 		$val1 = $vm->createValidator('DummyValidator', array('foo'), array('' => 'My error message'));
 		$val1->val_result = false;
 		
@@ -92,7 +99,7 @@ class AgaviFormPopulationFilterTest extends AgaviUnitTestCase
 			'foo' => 'bar',
 		);
 		
-		$vm = $this->_context->createInstanceFor('validation_manager'); /** @var $vm \AgaviValidationManager */
+		$vm = $this->_context->createInstanceFor('validation_manager');
 		$val1 = $vm->createValidator('DummyValidator', array('foo'), array('' => 'My error message'));
 		$val1->val_result = false;
 		
@@ -136,7 +143,7 @@ class AgaviFormPopulationFilterTest extends AgaviUnitTestCase
 			'foo' => 'bar',
 		);
 		
-		$vm = $this->_context->createInstanceFor('validation_manager'); /** @var $vm \AgaviValidationManager */
+		$vm = $this->_context->createInstanceFor('validation_manager');
 		$val1 = $vm->createValidator('DummyValidator', array('foo'), array('' => 'My error message'));
 		$val1->val_result = false;
 		
@@ -169,7 +176,7 @@ class AgaviFormPopulationFilterTest extends AgaviUnitTestCase
 			'foo' => 'bar',
 		);
 		
-		$vm = $this->_context->createInstanceFor('validation_manager'); /** @var $vm \AgaviValidationManager */
+		$vm = $this->_context->createInstanceFor('validation_manager');
 		$val1 = $vm->createValidator('DummyValidator', array('foo'), array('' => 'My error message'));
 		$val1->val_result = false;
 		

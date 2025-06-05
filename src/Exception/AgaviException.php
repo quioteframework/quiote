@@ -193,7 +193,7 @@ class AgaviException extends Exception
 		// first, drop all newlines (we'll explode by "<br />")
 		$code = str_replace(["\r\n", "\n", "\r"], ['', '', ''], $code);
 		// second, remove start and end wrappers and replace &nbsp; with numeric entity
-		$code = str_replace([sprintf('<code><span style="color: %s">', ini_get('highlight.html')), '</span></code>', '&nbsp;'], ['', '', '&#160;'], $code);
+		$code = str_replace([sprintf('<pre><code style="color: %s">', ini_get('highlight.html')), '</code></pre>', '&nbsp;'], ['', '', '&#160;'], $code);
 		// make an array of lines
 		$code = explode('<br />', $code);
 		// iterate and cleanup each line
@@ -246,10 +246,10 @@ class AgaviException extends Exception
 			// in case things still are not right...
 			// can happen for instance when the first line of the file is HTML and we drop the first span, since that is a wrapper for everything
 			if($openingSpanCount < $closingSpanCount) {
-				$line = sprintf('%1$s%2$s', str_repeat('<span color="%3s">', $closingSpanCount - $openingSpanCount), $line, ini_get('highlight.html'));
+				$line = sprintf('<span style="color: %s">%s%s', ini_get('highlight.html'), str_repeat('<span style="color: ' . ini_get('highlight.html') . '">', $closingSpanCount - $openingSpanCount - 1), $line);
 			}
 			if($closingSpanCount < $openingSpanCount) {
-				$line = sprintf('%s%s', $line, str_repeat('</span>', $openingSpanCount - $closingSpanCount), $line);
+				$line = sprintf('%s%s', $line, str_repeat('</span>', $openingSpanCount - $closingSpanCount));
 			}
 		}
 		
@@ -300,15 +300,28 @@ class AgaviException extends Exception
 				unset($e2);
 			}
 		}
-		
-		if($context !== null && AgaviConfig::get('exception.templates.' . $context->getName()) !== null) {
+			if($context !== null && AgaviConfig::get('exception.templates.' . $context->getName()) !== null) {
 			// a template was set for this context
 			include(AgaviConfig::get('exception.templates.' . $context->getName()));
 			exit($exitCode);
 		}
 		
-		// include default exception template
-		include(AgaviConfig::get('exception.default_template'));
+		// Check if the default template is set and the file exists
+		$defaultTemplate = AgaviConfig::get('exception.default_template');
+		if($defaultTemplate !== null && file_exists($defaultTemplate)) {
+			// include default exception template
+			include($defaultTemplate);
+		} else {
+			// Fallback to simple built-in error display
+			echo "<h1>Agavi Exception</h1>\n";
+			echo "<p>Message: " . htmlspecialchars($e->getMessage()) . "</p>\n";
+			echo "<p>File: " . htmlspecialchars($e->getFile()) . ":" . $e->getLine() . "</p>\n";
+			echo "<h2>Config Values:</h2>\n";
+			echo "<pre>exception.default_template = " . var_export(AgaviConfig::get('exception.default_template'), true) . "\n";
+			echo "core.agavi_dir = " . var_export(AgaviConfig::get('core.agavi_dir'), true) . "</pre>\n";
+			echo "<h2>Stack Trace:</h2>\n";
+			echo "<pre>" . htmlspecialchars($e->getTraceAsString()) . "</pre>\n";
+		}
 		
 		// bail out
 		exit($exitCode);

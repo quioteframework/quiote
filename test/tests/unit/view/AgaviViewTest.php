@@ -1,17 +1,21 @@
 <?php
 
+use Agavi\Testing\AgaviUnitTestCase;
+use Agavi\View\AgaviView;
+use Agavi\Request\AgaviRequestDataHolder;
+
 class SampleView extends AgaviView
 {
 	public function execute(AgaviRequestDataHolder $rd) {}
 }
 
-class ViewTest extends AgaviUnitTestCase
+class AgaviViewTest extends AgaviUnitTestCase
 {
 	private 
 		$_v = null, 
 		$_r = null;
 
-	public function setUp()
+	public function setUp(): void
 	{
 		$ctx = $this->getContext();
 		$ctx->initialize();

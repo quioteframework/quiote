@@ -14,6 +14,8 @@
 // +---------------------------------------------------------------------------+
 namespace Agavi\Validator;
 
+use Agavi\Exception\AgaviValidatorException;
+
 /**
  * AgaviNOTOperatorValidator succeeds if the sub-validator failed
  *

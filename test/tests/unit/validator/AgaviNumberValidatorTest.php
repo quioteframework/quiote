@@ -1,5 +1,10 @@
 <?php
 
+use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Testing\AgaviUnitTestCase;
+use Agavi\Validator\AgaviNumberValidator;
+use Agavi\Validator\AgaviValidator;
+
 class AgaviNumberValidatorTest extends AgaviUnitTestCase
 {
 
@@ -8,7 +13,7 @@ class AgaviNumberValidatorTest extends AgaviUnitTestCase
 	 */
 	protected $vm;
 
-	public function setUp()
+	public function setUp(): void
 	{
 		$this->vm = $this->getContext()->createInstanceFor('validation_manager');
 	}
@@ -16,7 +21,7 @@ class AgaviNumberValidatorTest extends AgaviUnitTestCase
 	public function testNoCastOnFail()
 	{
 		$number = '1.23';
-		$validator = $this->vm->createValidator('AgaviNumberValidator', array('number'), array('invalid argument'), $parameters = array('type' => 'int'));
+		$validator = $this->vm->createValidator(AgaviNumberValidator::class, array('number'), array('invalid argument'), $parameters = array('type' => 'int'));
 		$rd = new AgaviRequestDataHolder(array(AgaviRequestDataHolder::SOURCE_PARAMETERS => array('number' => $number)));
 		$result = $validator->execute($rd);
 		$this->assertEquals(AgaviValidator::ERROR, $result);
@@ -27,7 +32,7 @@ class AgaviNumberValidatorTest extends AgaviUnitTestCase
 	public function testImplicitCastToFloat()
 	{
 		$number = '1.23';
-		$validator = $this->vm->createValidator('AgaviNumberValidator', array('number'), array('invalid argument'), $parameters = array('type' => 'float'));
+		$validator = $this->vm->createValidator(AgaviNumberValidator::class, array('number'), array('invalid argument'), $parameters = array('type' => 'float'));
 		$rd = new AgaviRequestDataHolder(array(AgaviRequestDataHolder::SOURCE_PARAMETERS => array('number' => $number)));
 		$result = $validator->execute($rd);
 		$this->assertEquals(AgaviValidator::SUCCESS, $result);
@@ -38,7 +43,7 @@ class AgaviNumberValidatorTest extends AgaviUnitTestCase
 	public function testImplicitCastToInt()
 	{
 		$number = '1';
-		$validator = $this->vm->createValidator('AgaviNumberValidator', array('number'), array('invalid argument'), $parameters = array('type' => 'int'));
+		$validator = $this->vm->createValidator(AgaviNumberValidator::class, array('number'), array('invalid argument'), $parameters = array('type' => 'int'));
 		$rd = new AgaviRequestDataHolder(array(AgaviRequestDataHolder::SOURCE_PARAMETERS => array('number' => $number)));
 		$result = $validator->execute($rd);
 		$this->assertEquals(AgaviValidator::SUCCESS, $result);
@@ -49,7 +54,7 @@ class AgaviNumberValidatorTest extends AgaviUnitTestCase
 	public function testExplicitCastToInt()
 	{
 		$number = '1.23';
-		$validator = $this->vm->createValidator('AgaviNumberValidator', array('number'), array('invalid argument'), $parameters = array('type' => 'float', 'cast_to' => 'int'));
+		$validator = $this->vm->createValidator(AgaviNumberValidator::class, array('number'), array('invalid argument'), $parameters = array('type' => 'float', 'cast_to' => 'int'));
 		$rd = new AgaviRequestDataHolder(array(AgaviRequestDataHolder::SOURCE_PARAMETERS => array('number' => $number)));
 		$result = $validator->execute($rd);
 		$this->assertEquals(AgaviValidator::SUCCESS, $result);
@@ -60,7 +65,7 @@ class AgaviNumberValidatorTest extends AgaviUnitTestCase
 	public function testExplicitCastToFloat()
 	{
 		$number = '1';
-		$validator = $this->vm->createValidator('AgaviNumberValidator', array('number'), array('invalid argument'), $parameters = array('type' => 'float', 'cast_to' => 'float'));
+		$validator = $this->vm->createValidator(AgaviNumberValidator::class, array('number'), array('invalid argument'), $parameters = array('type' => 'float', 'cast_to' => 'float'));
 		$rd = new AgaviRequestDataHolder(array(AgaviRequestDataHolder::SOURCE_PARAMETERS => array('number' => $number)));
 		$result = $validator->execute($rd);
 		$this->assertEquals(AgaviValidator::SUCCESS, $result);
@@ -72,7 +77,7 @@ class AgaviNumberValidatorTest extends AgaviUnitTestCase
 	{
 		$minError = 'value too low';
 		$number = '1';
-		$validator = $this->vm->createValidator('AgaviNumberValidator', array('number'), array('min' => $minError), $parameters = array('type' => 'int', 'min' => 2));
+		$validator = $this->vm->createValidator(AgaviNumberValidator::class, array('number'), array('min' => $minError), $parameters = array('type' => 'int', 'min' => 2));
 		$rd = new AgaviRequestDataHolder(array(AgaviRequestDataHolder::SOURCE_PARAMETERS => array('number' => $number)));
 		$result = $validator->execute($rd);
 		$this->assertEquals(AgaviValidator::ERROR, $result);
@@ -84,7 +89,7 @@ class AgaviNumberValidatorTest extends AgaviUnitTestCase
 	{
 		$minError = 'value too low';
 		$number = '1';
-		$validator = $this->vm->createValidator('AgaviNumberValidator', array('number'), array('min' => $minError), $parameters = array('type' => 'int', 'min' => 1));
+		$validator = $this->vm->createValidator(AgaviNumberValidator::class, array('number'), array('min' => $minError), $parameters = array('type' => 'int', 'min' => 1));
 		$rd = new AgaviRequestDataHolder(array(AgaviRequestDataHolder::SOURCE_PARAMETERS => array('number' => $number)));
 		$result = $validator->execute($rd);
 		$this->assertEquals(AgaviValidator::SUCCESS, $result);
@@ -96,7 +101,7 @@ class AgaviNumberValidatorTest extends AgaviUnitTestCase
 	{
 		$maxError = 'value too high';
 		$number = '2';
-		$validator = $this->vm->createValidator('AgaviNumberValidator', array('number'), array('max' => $maxError), $parameters = array('type' => 'int', 'max' => 1));
+		$validator = $this->vm->createValidator(AgaviNumberValidator::class, array('number'), array('max' => $maxError), $parameters = array('type' => 'int', 'max' => 1));
 		$rd = new AgaviRequestDataHolder(array(AgaviRequestDataHolder::SOURCE_PARAMETERS => array('number' => $number)));
 		$result = $validator->execute($rd);
 		$this->assertEquals(AgaviValidator::ERROR, $result);
@@ -108,7 +113,7 @@ class AgaviNumberValidatorTest extends AgaviUnitTestCase
 	{
 		$maxError = 'value too high';
 		$number = '2';
-		$validator = $this->vm->createValidator('AgaviNumberValidator', array('number'), array('max' => $maxError), $parameters = array('type' => 'int', 'max' => 2));
+		$validator = $this->vm->createValidator(AgaviNumberValidator::class, array('number'), array('max' => $maxError), $parameters = array('type' => 'int', 'max' => 2));
 		$rd = new AgaviRequestDataHolder(array(AgaviRequestDataHolder::SOURCE_PARAMETERS => array('number' => $number)));
 		$result = $validator->execute($rd);
 		$this->assertEquals(AgaviValidator::SUCCESS, $result);

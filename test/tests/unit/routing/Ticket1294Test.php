@@ -1,5 +1,8 @@
 <?php
 
+use Agavi\Testing\AgaviPhpUnitTestCase;
+use Agavi\AgaviContext;
+
 class Ticket1294Test extends AgaviPhpUnitTestCase
 {
 	protected $routing;
@@ -12,12 +15,8 @@ class Ticket1294Test extends AgaviPhpUnitTestCase
 	 * @param  array  $data
 	 * @param  string $dataName
 	 */
-	public function __construct($name = NULL, array $data = array(), $dataName = '')
-	{
-		parent::__construct($name, $data, $dataName);
-	}
 	
-	public function setUp()
+	public function setUp(): void
 	{
 		// otherwise, the full URI wouldn't work
 		$_SERVER['REQUEST_URI'] = '/index.php';

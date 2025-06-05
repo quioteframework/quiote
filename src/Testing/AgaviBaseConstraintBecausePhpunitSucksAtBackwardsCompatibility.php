@@ -13,6 +13,10 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 
+namespace Agavi\Testing;
+
+use PHPUnit\Framework\Constraint\Constraint;
+
 /**
  * Base constraint that caters for breaking changes between PHPUnit 3.5 and 3.6.
  * Concrete constraints must implement match().
@@ -27,7 +31,7 @@
  *
  * @version    $Id$
  */
-abstract class AgaviBaseConstraintBecausePhpunitSucksAtBackwardsCompatibility extends PHPUnit_Framework_Constraint
+abstract class AgaviBaseConstraintBecausePhpunitSucksAtBackwardsCompatibility extends Constraint
 {
 	/**
 	 * Overridden function to cover differences between PHPUnit 3.5 and 3.6.

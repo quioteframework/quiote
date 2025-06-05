@@ -13,6 +13,10 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 
+namespace Agavi\Testing;
+
+use PHPUnit\TextUI\Command;
+
 
 /**
  * Main framework class used for running tests on the command line interface.
@@ -26,7 +30,7 @@
  *
  * @since      1.1.0
  */
-class AgaviPhpUnitCli extends PHPUnit_TextUI_Command
+class AgaviPhpUnitCli extends Command
 {
 	
 	/**

@@ -1,4 +1,9 @@
 <?php
+
+use Agavi\Testing\AgaviUnitTestCase;
+use Agavi\User\AgaviUser;
+use Agavi\AgaviContext;
+
 class SampleUser extends AgaviUser
 {
 }
@@ -7,7 +12,7 @@ class AgaviUserTest extends AgaviUnitTestCase
 {
 	private $_u = null;
 
-	public function setUp()
+	public function setUp(): void
 	{
 		$this->_u = new SampleUser();
 		$context = AgaviContext::getInstance('test');

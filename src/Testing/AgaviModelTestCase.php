@@ -13,6 +13,8 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 
+namespace Agavi\Testing;
+
 /**
  * AgaviModelTestCase is the base class for all model testcases and provides
  * the necessary assertions

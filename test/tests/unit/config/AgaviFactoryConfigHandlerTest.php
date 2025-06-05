@@ -1,4 +1,14 @@
 <?php
+
+use Agavi\Config\AgaviConfig;
+use Agavi\Config\AgaviFactoryConfigHandler;
+use Agavi\Filter\AgaviIGlobalFilter;
+use Agavi\Filter\AgaviIActionFilter;
+use Agavi\Filter\AgaviISecurityFilter;
+use Agavi\Filter\AgaviFilterChain;
+use Agavi\Controller\AgaviExecutionContainer;
+use Agavi\User\AgaviISecurityUser;
+use Agavi\AgaviContext;
 require_once(__DIR__ . '/ConfigHandlerTestBase.php');
 
 class FCHTestBase
@@ -80,13 +90,13 @@ class AgaviFactoryConfigHandlerTest extends ConfigHandlerTestBase
 							$routing,
 							$response;
 
-	public function setUp()
+	public function setUp(): void
 	{
 		$this->conf = AgaviConfig::toArray();
 		$this->factories = array();
 	}
 
-	public function tearDown()
+	public function tearDown(): void
 	{
 		AgaviConfig::clear();
 		AgaviConfig::fromArray($this->conf);
@@ -103,7 +113,7 @@ class AgaviFactoryConfigHandlerTest extends ConfigHandlerTestBase
 		AgaviConfig::set('core.use_security', true);
 		$document = $this->parseConfiguration(
 			AgaviConfig::get('core.config_dir') . '/tests/factories.xml',
-			AgaviConfig::get('core.agavi_dir') . '/config/xsl/factories.xsl'
+			AgaviConfig::get('core.agavi_dir') . '/Config/xsl/factories.xsl'
 		);
 		$this->includeCode($FCH->execute($document));
 

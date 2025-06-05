@@ -1,5 +1,7 @@
 <?php
 
+use Agavi\Routing\AgaviRoutingCallback;
+
 class TestTicket713RoutingCallback extends AgaviRoutingCallback
 {
 	/**

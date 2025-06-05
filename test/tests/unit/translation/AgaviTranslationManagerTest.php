@@ -1,10 +1,13 @@
 <?php
 
+use Agavi\AgaviContext;
+use Agavi\Date\AgaviDateFormat;
+use Agavi\Testing\AgaviUnitTestCase;
+use Agavi\Date\AgaviSimpleTimezone;
+
 class AgaviTranslationManagerTest extends AgaviUnitTestCase
 {
-	/**
-	 * @dataProvider dateStrings957
-	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('dateStrings957')]
 	public function testTicket957($dateString, $expectedId, $expectedOffset)
 	{
 		$tm = $this->getContext()->getTranslationManager();
@@ -18,7 +21,7 @@ class AgaviTranslationManagerTest extends AgaviUnitTestCase
 		$this->assertEquals($expectedOffset, $tz->getRawOffset(), 'Failed asserting that the timezone has the proper offset.');
 	}
 	
-	public function dateStrings957()
+	public static function dateStrings957()
 	{
 		return array(
 			array('2008-11-19 23:00:00+01:00', 'GMT+0100', 1 * 60 * 60 * 1000),

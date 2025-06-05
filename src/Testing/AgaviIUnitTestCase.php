@@ -13,6 +13,8 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 
+namespace Agavi\Testing;
+
 /**
  * AgaviIUnitTestCase is the interface that all unit tests must implement
  * 

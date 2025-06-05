@@ -13,6 +13,8 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 
+namespace Agavi\Testing;
+
 /**
  * AgaviFragmentTestCase is the base class for all fragment tests and provides
  * the necessary assertions

@@ -13,6 +13,10 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 
+namespace Agavi\Testing;
+
+use Agavi\AgaviContext;
+
 /**
  * AgaviUnitTestCase is the base class for all unit testcases and provides
  * the necessary assertions

@@ -1,11 +1,14 @@
 <?php
 
+use Agavi\Testing\AgaviUnitTestCase;
+use Agavi\Request\AgaviWebRequest;
+
 class AgaviWebRequestTest extends AgaviUnitTestCase
 {
 	private $_r = null;
 	private $_SERVER = array();
 
-	public function setUp()
+	public function setUp(): void
 	{
 		$this->_SERVER = $_SERVER;
 		
@@ -48,7 +51,7 @@ class AgaviWebRequestTest extends AgaviUnitTestCase
 		$this->assertEquals('https://example.agavi.org:123/foo/bar/baz?id=4815162342', $this->_r->getUrl());
 	}
 
-	public function tearDown()
+	public function tearDown(): void
 	{
 		$_SERVER = $this->_SERVER;
 	}

@@ -357,19 +357,35 @@ class AgaviController extends AgaviParameterHolder
 		$actionName = AgaviToolkit::canonicalName($actionName);
 		$longActionName = str_replace('/', '_', $actionName);
 		
-		$class = $moduleName . '_' . $longActionName . 'Action';
+		// Try new namespaced class name first
+		$namespacedClass = 'Jakamo\\Modules\\' . $moduleName . '\\Actions\\' . $moduleName . '_' . $longActionName . 'Action';
+		$oldClass = $moduleName . '_' . $longActionName . 'Action';
 		
-		if(!class_exists($class)) {
+		$class = null;
+		$file = null;
+		
+		// Try namespaced class first
+		if(class_exists($namespacedClass)) {
+			$class = $namespacedClass;
+		} elseif(class_exists($oldClass)) {
+			$class = $oldClass;
+		} else {
+			// Neither class exists, try to load the file
 			if(false !== ($file = $this->checkActionFile($moduleName, $actionName))) {
 				require($file);
+				
+				// Check again after loading the file
+				if(class_exists($namespacedClass, false)) {
+					$class = $namespacedClass;
+				} elseif(class_exists($oldClass, false)) {
+					$class = $oldClass;
+				} else {
+					throw new AgaviClassNotFoundException(sprintf('Failed to instantiate Action "%s" in Module "%s" because file "%s" does not contain class "%s" or "%s".', $actionName, $moduleName, $file, $namespacedClass, $oldClass));
+				}
 			} else {
 				throw new AgaviFileNotFoundException(sprintf('Could not find file for Action "%s" in Module "%s".', $actionName, $moduleName));
 			}
-			
-			if(!class_exists($class, false)) {
-				throw new AgaviClassNotFoundException(sprintf('Failed to instantiate Action "%s" in Module "%s" because file "%s" does not contain class "%s".', $actionName, $moduleName, $file, $class));
-			}
-		} 
+		}
 		
 		return new $class();
 	}
@@ -452,20 +468,35 @@ class AgaviController extends AgaviParameterHolder
 		$viewName = AgaviToolkit::canonicalName($viewName);
 		$longViewName = str_replace('/', '_', $viewName);
 		
-		$class = $moduleName . '_' . $longViewName . 'View';
+		// Try new namespaced class name first
+		$namespacedClass = 'Jakamo\\Modules\\' . $moduleName . '\\Views\\' . $longViewName . 'View';
+		$oldClass = $moduleName . '_' . $longViewName . 'View';
 		
-		if(!class_exists($class)) {
-			
+		$class = null;
+		$file = null;
+		
+		// Try namespaced class first
+		if(class_exists($namespacedClass)) {
+			$class = $namespacedClass;
+		} elseif(class_exists($oldClass)) {
+			$class = $oldClass;
+		} else {
+			// Neither class exists, try to load the file
 			if(false !== ($file = $this->checkViewFile($moduleName, $viewName))) {
 				require($file);
+				
+				// Check again after loading the file
+				if(class_exists($namespacedClass, false)) {
+					$class = $namespacedClass;
+				} elseif(class_exists($oldClass, false)) {
+					$class = $oldClass;
+				} else {
+					throw new AgaviClassNotFoundException(sprintf('Failed to instantiate View "%s" in Module "%s" because file "%s" does not contain class "%s" or "%s".', $viewName, $moduleName, $file, $namespacedClass, $oldClass));
+				}
 			} else {
 				throw new AgaviFileNotFoundException(sprintf('Could not find file for View "%s" in Module "%s".', $viewName, $moduleName));
 			}
-			
-			if(!class_exists($class, false)) {
-				throw new AgaviClassNotFoundException(sprintf('Failed to instantiate View "%s" in Module "%s" because file "%s" does not contain class "%s".', $viewName, $moduleName, $file, $class));
-			}
-		} 
+		}
 		
 		return new $class();
 	}

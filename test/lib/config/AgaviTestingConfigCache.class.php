@@ -13,6 +13,8 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 
+use Agavi\Config\AgaviConfigCache;
+
 /**
  * AgaviTestingConfigCache allows access to some internal config cache properties 
  *

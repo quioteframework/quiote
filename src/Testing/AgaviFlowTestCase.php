@@ -13,6 +13,8 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 
+namespace Agavi\Testing;
+
 /**
  * AgaviFlowTestCase is the base class for all flow tests and provides
  * the necessary assertions

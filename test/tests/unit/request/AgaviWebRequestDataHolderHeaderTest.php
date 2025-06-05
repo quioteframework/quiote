@@ -1,10 +1,12 @@
 <?php
 
+use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Request\AgaviWebRequestDataHolder;
+use PHPUnit\Framework\Attributes\DataProvider;
+
 class AgaviWebRequestDataHolderHeaderTest extends AgaviWebRequestDataHolderTest
 {
-	/**
-	 * @dataProvider getHeaderReadInformation
-	 */
+	#[DataProvider('getHeaderReadInformation')]
 	public function testGetHeader($key, $expected, $exists, $empty, $hasDefault)
 	{
 		$dh = $this->getDefaultDataHolder();
@@ -18,10 +20,7 @@ class AgaviWebRequestDataHolderHeaderTest extends AgaviWebRequestDataHolderTest
 		$this->assertEquals($expected, $value);
 	}
 	
-	/**
-	 * @dataProvider getDefaultHeaderInformation
-	 * 
-	 */
+	#[DataProvider('getDefaultHeaderInformation')]
 	public function testRemoveHeader($key, $expected, $exists, $empty)
 	{
 		$dh = $this->getDefaultDataHolder();
@@ -37,10 +36,7 @@ class AgaviWebRequestDataHolderHeaderTest extends AgaviWebRequestDataHolderTest
 		$this->assertFalse($dh->hasParameter($key), sprintf('Failed asserting that the key %1$s has been removed.', $key));
 	}
 	
-	/**
-	 * @dataProvider getDefaultHeaderInformation
-	 * 
-	 */
+	#[DataProvider('getDefaultHeaderInformation')]
 	public function testHasHeader($key, $expected, $exists, $empty)
 	{
 		$dh = $this->getDefaultDataHolder();
@@ -52,10 +48,7 @@ class AgaviWebRequestDataHolderHeaderTest extends AgaviWebRequestDataHolderTest
 		}
 	}
 	
-	/**
-	 * @dataProvider getDefaultHeaderInformation
-	 * 
-	 */
+	#[DataProvider('getDefaultHeaderInformation')]
 	public function testIsHeaderValueEmpty($key, $expected, $exists, $empty)
 	{
 		$dh = $this->getDefaultDataHolder();

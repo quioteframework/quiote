@@ -1,5 +1,9 @@
 <?php
 
+use Agavi\Controller\AgaviExecutionContainer;
+use Agavi\Exception\AgaviException;
+use Agavi\Routing\AgaviRoutingCallback;
+
 class OnNotMatchedRoutingCallback extends AgaviRoutingCallback
 {
 	/**

@@ -13,6 +13,8 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 
+namespace Agavi\Testing;
+
 /**
  * AgaviIRemoteTestCase is the interface that all remote tests must implement
  * 

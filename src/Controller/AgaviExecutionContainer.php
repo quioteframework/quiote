@@ -284,20 +284,7 @@ class AgaviExecutionContainer extends AgaviAttributeHolder
 	 */
 	public function execute()
 	{
-		$logger = null;
-		if ($this->context && method_exists($this->context, 'getLoggerManager') && $this->context->getLoggerManager()) {
-			$logger = $this->context->getLoggerManager();
-		}
-		$log = function($msg) use ($logger): void {
-			if ($logger) {
-				$logger->logDebug($msg);
-			} else {
-				error_log($msg);
-			}
-		};
-
-		$log("AgaviExecutionContainer::execute() called. Module: {$this->getModuleName()}, Action: {$this->getActionName()}, is_slot: " . var_export($this->getParameter('is_slot', false), true));
-
+		
 		// Slot recursion guard
 		static $slotStack = [];
 		$isSlot = $this->getParameter('is_slot', false);
@@ -322,11 +309,9 @@ class AgaviExecutionContainer extends AgaviAttributeHolder
 		try {
 			$actionInstance = $this->getActionInstance();
 		} catch(AgaviDisabledModuleException) {
-			$log("Module disabled: $moduleName");
 			$this->setNext($this->createSystemActionForwardContainer('module_disabled'));
 			return $this->proceed();
 		} catch(AgaviFileNotFoundException) {
-			$log("Action file not found: $moduleName / " . $this->getActionName());
 			$this->setNext($this->createSystemActionForwardContainer('error_404'));
 			return $this->proceed();
 		}
@@ -336,7 +321,6 @@ class AgaviExecutionContainer extends AgaviAttributeHolder
 
 		// If this is a slot execution, skip the filter chain and run only the execution filter logic.
 		if ($isSlot) {
-			$log("Slot execution detected. Running only execution filter for slot: {$this->getModuleName()} / {$this->getActionName()}");
 			$executionFilter = $this->context->getController()->getFilter('execution');
 			$executionFilter->execute($this);
 			$result = $this->proceed();
@@ -344,49 +328,25 @@ class AgaviExecutionContainer extends AgaviAttributeHolder
 			return $result;
 		}
 
-		$log("Running full filter chain for: {$this->getModuleName()} / {$this->getActionName()}");
 		$filterChain = $this->getFilterChain();
-
-		// DEBUG: Write to debug.log file
-		$debugFile = '/code/log/debug.log';
-		$debugMsg = "[" . date('Y-m-d H:i:s') . "] AgaviExecutionContainer::execute() - Module: {$this->getModuleName()}, Action: {$this->getActionName()}\n";
-		file_put_contents($debugFile, $debugMsg, FILE_APPEND | LOCK_EX);
 
 		// Register filters (only once per execution)
 		if(!$actionInstance->isSimple()) {
-			if(AgaviConfig::get('core.use_security', false)) {
-				$log("Registering security filter");
-				$debugMsg = "[" . date('Y-m-d H:i:s') . "] SECURITY ENABLED - Registering security filter for {$this->getModuleName()}/{$this->getActionName()}\n";
-				file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
-				
+			if(AgaviConfig::get('core.use_security', false)) {				
 				$securityFilter = $controller->getFilter('security');
-				$debugMsg = "[" . date('Y-m-d H:i:s') . "] Security filter instance: " . get_class($securityFilter) . "\n";
-				file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
-				
 				$filterChain->register($securityFilter, 'agavi_security_filter');
-				
-				$debugMsg = "[" . date('Y-m-d H:i:s') . "] Security filter registered successfully\n";
-				file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
-			} else {
-				$debugMsg = "[" . date('Y-m-d H:i:s') . "] SECURITY DISABLED - core.use_security=false for {$this->getModuleName()}/{$this->getActionName()}\n";
-				file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
 			}
-
 			// load filters
-			$log("Loading action filters");
 			$controller->loadFilters($filterChain, 'action');
 			$controller->loadFilters($filterChain, 'action', $moduleName);
 		}
 
 		// register the execution filter
-		$log("Registering execution filter");
 		$filterChain->register($controller->getFilter('execution'), 'agavi_execution_filter');
 
 		// process the filter chain
-		$log("Executing filter chain for: {$this->getModuleName()} / {$this->getActionName()}");
 		$filterChain->execute($this, null);
 
-		$log("Execution finished for: {$this->getModuleName()} / {$this->getActionName()}");
 		$result = $this->proceed();
 		return $result;
 	}
@@ -483,16 +443,9 @@ class AgaviExecutionContainer extends AgaviAttributeHolder
 	 */
 	protected function proceed()
 	{
-		$debugMsg = "[" . date('Y-m-d H:i:s') . "] AgaviExecutionContainer::proceed() called for {$this->getModuleName()}/{$this->getActionName()}\n";
-		file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
-		
 		if($this->next !== null) {
-			$debugMsg = "[" . date('Y-m-d H:i:s') . "] Forward container found: {$this->next->getModuleName()}/{$this->next->getActionName()}\n";
-			file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
 			return $this->next->execute();
 		} else {
-			$debugMsg = "[" . date('Y-m-d H:i:s') . "] No forward container, returning own response\n";
-			file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
 			return $this->getResponse();
 		}
 	}

@@ -175,14 +175,7 @@ class AgaviFactoryConfigHandler extends AgaviXmlConfigHandler
 			'user' => [
 				'required' => true,
 				'var' => 'user',
-				'must_implement' => (
-					AgaviConfig::get('core.use_security')
-					? [
-						'Agavi\\User\\AgaviISecurityUser',
-					]
-					: [
-					]
-				),
+				'must_implement' => [], // We'll do runtime checking for AgaviISecurityUser in initialize()
 			],
 			
 			'translation_manager', // startup()
@@ -213,9 +206,12 @@ class AgaviFactoryConfigHandler extends AgaviXmlConfigHandler
 		
 		foreach($factories as $factory => $info) {
 			if(is_array($info)) {
-				if(!$info['required']) {
+				$required = $info['required'];
+				
+				if(!$required) {
 					continue;
 				}
+				
 				if(!isset($data[$factory]) || $data[$factory]['class'] === null) {
 					$error = 'Configuration file "%s" has missing or incomplete entry "%s"';
 					$error = sprintf($error, $config, $factory);
@@ -256,15 +252,22 @@ class AgaviFactoryConfigHandler extends AgaviXmlConfigHandler
 						], true)
 					);
 				}
+				
+				// No close conditional block needed
 			} else {
-				if($factories[$info]['required']) {
-					$code[] = sprintf('$this->%s->startup();', $factories[$info]['var']);
-					array_unshift($shutdownSequence, sprintf('$this->%s', $factories[$info]['var']));
+				// Handle startup calls
+				$varName = $factories[$info]['var'];
+				$required = $factories[$info]['required'];
+				
+				if($required) {
+					$code[] = sprintf('$this->%s->startup();', $varName);
+					array_unshift($shutdownSequence, sprintf('$this->%s', $varName));
 				}
 			}
 		}
 		
-		$code[] = sprintf('$this->shutdownSequence = array(%s);', implode(",\n", $shutdownSequence));
+		// Set the shutdown sequence
+		$code[] = sprintf('$this->shutdownSequence = [%s];', implode(",\n", $shutdownSequence));
 		
 		return $this->generate($code, $config);
 	}

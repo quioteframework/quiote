@@ -1,5 +1,7 @@
 <?php
 
+use Agavi\Routing\AgaviRoutingCallback;
+
 class GenSetPrefixAndPostfixIntoRouteRoutingCallback extends AgaviRoutingCallback
 {
 	public function onGenerate(array $defaultParameters, array &$userParameters, array &$userOptions)

@@ -1,24 +1,12 @@
 <?php
-if(!class_exists('AgaviToolkit')) {
-	include(__DIR__ . '/../../../../src/util/AgaviToolkit.class.php');
-}
 
-if(!class_exists('AgaviConfig')) {
-	include(__DIR__ . '/../../../../src/config/AgaviConfig.class.php');
-}
-
-if(!class_exists('AgaviException')) {
-	include(__DIR__ . '/../../../../src/exception/AgaviException.class.php');
-}
+use Agavi\Testing\AgaviPhpUnitTestCase;
+use Agavi\Util\AgaviToolkit;
+use Agavi\Config\AgaviConfig;
+use Agavi\Exception\AgaviException;
 
 class AgaviToolkitTest extends AgaviPhpUnitTestCase
 {
-
-	public function __construct($name = NULL, $data = array(), $dataName = '')
-	{
-		parent::__construct($name, $data, $dataName);
-		// $this->setRunTestInSeparateProcess(true);
-	}
 
 	public function testNormalizePath()
 	{
@@ -73,20 +61,15 @@ class AgaviToolkitTest extends AgaviPhpUnitTestCase
 	}
 
 
-	/**
-	 * @expectedException
-	 */
 	public function testFloorDivideException()
 	{
-		$this->setExpectedException('AgaviException');
+		$this->expectException(AgaviException::class);
 		AgaviToolkit::floorDivide(6.9, 3.4, $rem);
 	}
 
-	 /**
-	 * @expectedException PHPUnit_Framework_Error
-	 */
 	public function testFloorDivideByZero()
 	{
+		$this->expectException(DivisionByZeroError::class);
 		AgaviToolkit::floorDivide(10, 0, $rem);
 	}
 
@@ -134,7 +117,7 @@ class AgaviToolkitTest extends AgaviPhpUnitTestCase
 		$id1 = AgaviToolkit::uniqid('001');
 		$id2 = AgaviToolkit::uniqid('001');
 		$this->assertNotEquals($id1, $id2);
-		$this->assertContains('001', $id1);
+		$this->assertStringContainsString('001', $id1);
 	}
 
 	public function testCanonicalName()
@@ -155,9 +138,7 @@ class AgaviToolkitTest extends AgaviPhpUnitTestCase
 		$this->assertEquals($retval, $actual);
 	}
 	
-	/**
-	 * @dataProvider literalizeData
-	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('literalizeData')]
 	public function testLiteralize($rawValue, $expectedResult, $settings)
 	{
 		foreach($settings as $key => $value) {
@@ -169,7 +150,7 @@ class AgaviToolkitTest extends AgaviPhpUnitTestCase
 		$this->assertEquals($expectedResult, $literalized);
 	}
 	
-	public function literalizeData()
+	public static function literalizeData()
 	{
 		return array(
 			'null' => array(null, null, array()),
@@ -191,9 +172,7 @@ class AgaviToolkitTest extends AgaviPhpUnitTestCase
 		);
 	}
 	
-	/**
-	 * @dataProvider pathData
-	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('pathData')]
 	public function testIsPathAbsolute($path, $expected)
 	{
 		if($expected) {
@@ -203,7 +182,7 @@ class AgaviToolkitTest extends AgaviPhpUnitTestCase
 		}
 	}
 	
-	public function pathData()
+	public static function pathData()
 	{
 		$data = array(
 			'c:/' => array('c:/', true),
@@ -237,15 +216,13 @@ class AgaviToolkitTest extends AgaviPhpUnitTestCase
 		return $data;
 	}
 	
-	/**
-	 * @dataProvider urlData
-	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('urlData')]
 	public function testBuildUrl($parts, $url)
 	{
 		$this->assertEquals($url, AgaviToolkit::buildUrl($parts));
 	}
 	
-	public function urlData()
+	public static function urlData()
 	{
 		return array(
 			array(

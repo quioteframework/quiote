@@ -13,6 +13,18 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 
+namespace Agavi\Testing;
+
+use Agavi\Config\AgaviConfig;
+use Agavi\Testing\Attributes\AgaviBootstrap;
+use Agavi\Testing\Attributes\AgaviClearIsolationCache;
+use Agavi\Testing\Attributes\AgaviIsolationDefaultContext;
+use Agavi\Testing\Attributes\AgaviIsolationEnvironment;
+use Agavi\Util\AgaviToolkit;
+use PHPUnit\Framework\TestCase;
+use ReflectionClass;
+use ReflectionMethod;
+
 /**
  * AgaviPhpUnitTestCase is the base class for all Agavi Testcases.
  * 
@@ -27,8 +39,9 @@
  *
  * @version    $Id$
  */
-abstract class AgaviPhpUnitTestCase extends PHPUnit_Framework_TestCase
+abstract class AgaviPhpUnitTestCase extends TestCase
 {
+    use AgaviPHPUnitTestCaseMethods;
 	/**
 	 * @var        string  the name of the environment to bootstrap in isolated tests.
 	 */
@@ -44,25 +57,7 @@ abstract class AgaviPhpUnitTestCase extends PHPUnit_Framework_TestCase
 	 */
 	protected $clearIsolationCache = false;
 	
-	/**
-	 * @var         string store the dataName since we can't access it from PHPUnit_Framework_TestCase.
-	 */
-	protected $myDataName;
-	
-	/**
-	 * Constructs a test case with the given name.
-	 *
-	 * @param        string
-	 * @param        array
-	 * @param        string
-	 * 
-	 * @since        1.1.0
-	 */
-	public function __construct($name = NULL, array $data = [], $dataName = '')
-	{
-		parent::__construct($name, $data, $dataName);
-		$this->myDataName = $dataName;
-	}
+
 	
 	
 	/**
@@ -93,14 +88,30 @@ abstract class AgaviPhpUnitTestCase extends PHPUnit_Framework_TestCase
 	{
 		$environmentName = null;
 		
-		$annotations = $this->getAnnotations();
-		
-		if(!empty($annotations['method']['agaviIsolationEnvironment'])) {
-			$environmentName = $annotations['method']['agaviIsolationEnvironment'][0];
-		} elseif(!empty($annotations['class']['agaviIsolationEnvironment'])) {
-			$environmentName = $annotations['class']['agaviIsolationEnvironment'][0];
-		} elseif(!empty($this->isolationEnvironment)) {
-			$environmentName = $this->isolationEnvironment;
+		// PHPUnit 12 compatibility: use PHP 8 attributes instead of deprecated getAnnotations()
+		try {
+			$methodName = $this->name();  // Changed from getName() to name() for PHPUnit 12
+			$reflectionMethod = new \ReflectionMethod($this, $methodName);
+			
+			// Check for method-level attribute
+			$attributes = $reflectionMethod->getAttributes(AgaviIsolationEnvironment::class);
+			if (!empty($attributes)) {
+				$environmentName = $attributes[0]->newInstance()->environment;
+			} else {
+				// Check for class-level attribute
+				$reflectionClass = new \ReflectionClass($this);
+				$classAttributes = $reflectionClass->getAttributes(AgaviIsolationEnvironment::class);
+				if (!empty($classAttributes)) {
+					$environmentName = $classAttributes[0]->newInstance()->environment;
+				} elseif (!empty($this->isolationEnvironment)) {
+					$environmentName = $this->isolationEnvironment;
+				}
+			}
+		} catch (\Exception $e) {
+			// Fallback to property if reflection fails
+			if (!empty($this->isolationEnvironment)) {
+				$environmentName = $this->isolationEnvironment;
+			}
 		}
 		
 		return $environmentName;
@@ -135,14 +146,29 @@ abstract class AgaviPhpUnitTestCase extends PHPUnit_Framework_TestCase
 	{
 		$ctxName = null;
 		
-		$annotations = $this->getAnnotations();
-		
-		if(!empty($annotations['method']['agaviIsolationDefaultContext'])) {
-			$ctxName = $annotations['method']['agaviIsolationDefaultContext'][0];
-		} elseif(!empty($annotations['class']['agaviIsolationDefaultContext'])) {
-			$ctxName = $annotations['class']['agaviIsolationDefaultContext'][0];
-		} elseif(!empty($this->isolationDefaultContext)) {
-			$ctxName = $this->isolationDefaultContext;
+		// PHPUnit 12 compatibility: use PHP 8 attributes instead of deprecated getAnnotations()
+		try {
+			$reflectionMethod = new \ReflectionMethod($this, $this->name());
+			
+			// Check for method-level attribute
+			$attributes = $reflectionMethod->getAttributes(AgaviIsolationDefaultContext::class);
+			if (!empty($attributes)) {
+				$ctxName = $attributes[0]->newInstance()->context;
+			} else {
+				// Check for class-level attribute
+				$reflectionClass = new \ReflectionClass($this);
+				$classAttributes = $reflectionClass->getAttributes(AgaviIsolationDefaultContext::class);
+				if (!empty($classAttributes)) {
+					$ctxName = $classAttributes[0]->newInstance()->context;
+				} elseif (!empty($this->isolationDefaultContext)) {
+					$ctxName = $this->isolationDefaultContext;
+				}
+			}
+		} catch (\Exception $e) {
+			// Fallback to property if reflection fails
+			if (!empty($this->isolationDefaultContext)) {
+				$ctxName = $this->isolationDefaultContext;
+			}
 		}
 		
 		return $ctxName;
@@ -175,16 +201,25 @@ abstract class AgaviPhpUnitTestCase extends PHPUnit_Framework_TestCase
 	 */
 	public function getClearCache()
 	{
-		$flag = null;
+		$flag = $this->clearIsolationCache;
 		
-		$annotations = $this->getAnnotations();
-		
-		if(!empty($annotations['method']['agaviClearIsolationCache'])) {
-			$flag = true;
-		} elseif(!empty($annotations['class']['agaviClearIsolationCache'])) {
-			$flag = true;
-		} else {
-			$flag = $this->clearIsolationCache;
+		try {
+			$reflectionMethod = new \ReflectionMethod($this, $this->name());
+			
+			// Check for PHP 8 attribute first
+			$attributes = $reflectionMethod->getAttributes(AgaviClearIsolationCache::class);
+			if (!empty($attributes)) {
+				$flag = true;
+			} else {
+				// Check class-level attribute
+				$reflectionClass = new \ReflectionClass($this);
+				$classAttributes = $reflectionClass->getAttributes(AgaviClearIsolationCache::class);
+				if (!empty($classAttributes)) {
+					$flag = true;
+				}
+			}
+		} catch (\Exception $e) {
+			// Fallback to property if reflection fails
 		}
 		
 		return $flag;
@@ -203,165 +238,87 @@ abstract class AgaviPhpUnitTestCase extends PHPUnit_Framework_TestCase
 	 * @author       Dominik del Bondio <dominik.del.bondio@bitextender.com>
 	 * @since        1.1.0
 	 */
-	private function getClassDependendFiles(ReflectionClass $reflectionClass, $isBlacklisted) {
-		$requires = [];
-		
-		while($reflectionClass) {
-			$file = $reflectionClass->getFileName();
-			// we don't care for duplicates since we're using require_once anyways
-			if(!$isBlacklisted($file) && is_file($file)) {
-				$requires[$reflectionClass->getName()] = $file;
-			}
-			foreach($reflectionClass->getInterfaces() as $interface) {
-				$file = $interface->getFileName();
-				$requires = array_merge($requires, $this->getClassDependendFiles($interface, $isBlacklisted));
-			}
-			if(is_callable($reflectionClass->getTraits(...))) {
-				// FIXME: remove check after bumping php requirement to 5.4
-				foreach($reflectionClass->getTraits() as $trait) {
-					$file = $trait->getFileName();
-					$requires = array_merge($requires, $this->getClassDependendFiles($trait, $isBlacklisted));
-				}
-			}
-			$reflectionClass = $reflectionClass->getParentClass();
-		}
-		return $requires;
-	}
-	
-	/**
-	 * Get the dependend classes of this test.
-	 *
-	 * @return       string[] An array containing class names as keys and path to the 
-	 *                        file's defining class as value.
-	 *
-	 * @author       Dominik del Bondio <dominik.del.bondio@bitextender.com>
-	 * @since        1.1.0
-	 */
-	private function getDependendClasses() {
-		// We need to collect the dependend classes in case there is a test which 
-		// has set @agaviBootstrap to off. That results in the Agavi autoloader not
-		// being started and if the test class depends on any files from Agavi (like
-		// AgaviPhpUnitTestCase) it would not be loaded when the test is instantiated
-		
-		$classesInTest = [];
-		$reflectionClass = new ReflectionClass(static::class);
-		$testFile = $reflectionClass->getFileName();
-		
-		$getDeclaredFuncs = ['get_declared_classes', 'get_declared_interfaces'];
-		if(version_compare(PHP_VERSION, '5.4', '>=')) {
-			$getDeclaredFuncs[] = 'get_declared_traits';
-		}
-		foreach($getDeclaredFuncs as $getDeclaredFunc) {
-			foreach($getDeclaredFunc() as $name) {
-				$reflectionClass = new ReflectionClass($name);
-				if($testFile === $reflectionClass->getFileName()) {
-					$classesInTest[] = $name;
-				}
-			}
-		}
-		
-		// FIXME: added by phpunit 4.x
-		if(class_exists('PHPUnit_Util_Blacklist')) {
-			$blacklist = new PHPUnit_Util_Blacklist;
-			$isBlacklisted = (fn($file) => $file === $testFile || $blacklist->isBlacklisted($file));
-		} elseif(is_callable(['PHPUnit_Util_GlobalState', 'phpunitFiles'])) {
-			$blacklist = PHPUnit_Util_GlobalState::phpunitFiles();
-			$isBlacklisted = (fn($file) => $file === $testFile || isset($blacklist[$file]));
-		} else {
-			$isBlacklisted = (fn($file) => $file === $testFile);
-		}
 
-		$classesToFile = ['AgaviTesting' => realpath(__DIR__ . '/AgaviTesting.class.php')];
-		foreach($classesInTest as $className) {
-			$classesToFile = array_merge(
-				$classesToFile,
-				$this->getClassDependendFiles(new ReflectionClass($className), $isBlacklisted)
-			);
-		}
-		
-		return $classesToFile;
-	}
 	
 	/**
-	 * Performs custom preparations on the process isolation template.
-	 *
-	 * @param        Text_Template $template
+	 * Set up the test environment. If running with isolation attributes,
+	 * bootstrap Agavi with the specified environment.
 	 *
 	 * @author       Felix Gilcher <felix.gilcher@bitextender.com>
 	 * @since        1.0.2
-	*/
-	protected function prepareTemplate(Text_Template $template)
+	 */
+	protected function setUp(): void
 	{
-		parent::prepareTemplate($template);
+		parent::setUp();
 		
-		// FIXME: workaround for php unit bug (https://github.com/sebastianbergmann/phpunit/pull/1338)
-		$template->setVar([
-			'dataName' => "'.(" . var_export($this->myDataName, true) . ").'"
-		]);
-
-		// FIXME: if we have full composer autoloading we can remove this
-		// we need to restore the included files even without global state, since otherwise
-		// the agavi test class files would be missing.
-		// We can't write include()s directly since Agavi possibly get's bootstrapped later
-		// in the process (but before the test instance is created) and if we'd load any
-		// files which are being loaded by the bootstrap process chaos would ensue since
-		// the bootstrap process uses plain include()s without _once
-		$fileAutoloader = sprintf('
-			spl_autoload_register(function($name) {
-				$classMap = %s;
-				if(isset($classMap[$name])) {
-					include($classMap[$name]);
-				}
-			});
-		', var_export($this->getDependendClasses(), true));
+		// Get isolation settings from attributes
+		$isolationEnvironment = $this->getIsolationEnvironment();
+		$isolationDefaultContext = $this->getIsolationDefaultContext();
+		$clearCache = $this->getClearCache();
 		
-		// these constants are either used by out bootstrap wrapper script 
-		// (AGAVI_TESTING_ORIGINAL_PHPUNIT_BOOTSTRAP) or can be used by the user's 
-		// bootstrap script (AGAVI_TESTING_IN_SEPERATE_PROCESS)
-		$constants = sprintf('
-			define("AGAVI_TESTING_IN_SEPERATE_PROCESS", true);
-			define("AGAVI_TESTING_ORIGINAL_PHPUNIT_BOOTSTRAP", %s);
-			',
-			var_export($GLOBALS["__PHPUNIT_BOOTSTRAP"] ?? null, true)
-		);
-		
-		
-		$isolatedTestSettings = [
-			'environment' => $this->getIsolationEnvironment(),
-			'defaultContext' => $this->getIsolationDefaultContext(),
-			'clearCache' => $this->getClearCache(),
-			'bootstrap' => $this->doBootstrap(),
-		];
-		$globals = sprintf('
-			$GLOBALS["AGAVI_TESTING_CONFIG"] = %s;
-			$GLOBALS["AGAVI_TESTING_ISOLATED_TEST_SETTINGS"] = %s;
-			$GLOBALS["__PHPUNIT_BOOTSTRAP"] = %s;
-			',
-			var_export(AgaviConfig::toArray(), true),
-			var_export($isolatedTestSettings, true),
-			var_export(__DIR__ . '/scripts/IsolatedBootstrap.php', true)
-		);
-
-		if(!$this->preserveGlobalState) {
-			$template->setVar([
-				'included_files' => $fileAutoloader,
-				'constants' => $constants,
-				'globals' => $globals,
-			]);
-		} else {
-			// HACK: oh great, text/template doesn't expose the already set variables, but we need to modify
-			// them instead of overwriting them. So let's use the reflection to the rescue here.
-			$reflected = new ReflectionObject($template);
-			$property = $reflected->getProperty('values');
-			$property->setAccessible(true);
-			$oldVars = $property->getValue($template);
-			$template->setVar([
-				'included_files' => $fileAutoloader,
-				'constants' => $oldVars['constants'] . PHP_EOL . $constants,
-				'globals' => $oldVars['globals'] . PHP_EOL . $globals,
-			]);
+		// If we have isolation settings and are running in a separate process,
+		// bootstrap Agavi with the specified environment
+		if ($isolationEnvironment && $this->isRunInSeparateProcess()) {
+			// Clear cache if requested
+			if ($clearCache) {
+				AgaviToolkit::clearCache();
+			}
 			
+			// Set the testing environment configuration before bootstrap
+			AgaviConfig::set('testing.environment', $isolationEnvironment, true, true);
+			
+			// Set default context if specified
+			if ($isolationDefaultContext) {
+				AgaviConfig::set('core.default_context', $isolationDefaultContext, true, true);
+			}
+			
+			// Bootstrap Agavi with the isolation environment
+			\Agavi\Agavi::bootstrap($isolationEnvironment);
+		} elseif (!AgaviConfig::get('core.environment')) {
+			// Non-isolated test and Agavi not yet bootstrapped - bootstrap with default testing environment
+			\Agavi\Agavi::bootstrap('testing');
 		}
+	}
+	
+	/**
+	 * Check if this test method should run in a separate process
+	 * by looking for the RunInSeparateProcess attribute on method or class
+	 *
+	 * @return bool
+	 */
+	private function isRunInSeparateProcess(): bool
+	{
+		try {
+			// Check method-level attribute first
+			$reflectionMethod = new \ReflectionMethod($this, $this->name());
+			$methodAttributes = $reflectionMethod->getAttributes(\PHPUnit\Framework\Attributes\RunInSeparateProcess::class);
+			if (!empty($methodAttributes)) {
+				return true;
+			}
+			
+			// Check class-level attributes
+			$reflectionClass = new \ReflectionClass($this);
+			$classAttributes = $reflectionClass->getAttributes(\PHPUnit\Framework\Attributes\RunInSeparateProcess::class);
+			if (!empty($classAttributes)) {
+				return true;
+			}
+			
+			// Also check for RunTestsInSeparateProcesses attribute on class
+			$runTestsAttributes = $reflectionClass->getAttributes(\PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses::class);
+			return !empty($runTestsAttributes);
+			
+		} catch (\Exception $e) {
+			return false;
+		}
+	}
+	
+	/**
+	 * Clean up after the test has run
+	 */
+	protected function tearDown(): void
+	{
+		parent::tearDown();
+		// Nothing special needed for cleanup in our simplified approach
 	}
 	
 	/**
@@ -376,13 +333,28 @@ abstract class AgaviPhpUnitTestCase extends PHPUnit_Framework_TestCase
 	protected function doBootstrap()
 	{
 		$flag = true;
+		
+		try {
+			$reflectionMethod = new \ReflectionMethod($this, $this->name());
 			
-		$annotations = $this->getAnnotations();
-		if(!empty($annotations['method']['agaviBootstrap'])) {
-			$flag = AgaviToolkit::literalize($annotations['method']['agaviBootstrap'][0]);
-		} elseif(!empty($annotations['class']['agaviBootstrap'])) {
-			$flag = AgaviToolkit::literalize($annotations['class']['agaviBootstrap'][0]);
+			// Check for PHP 8 attribute first
+			$attributes = $reflectionMethod->getAttributes(AgaviBootstrap::class);
+			if (!empty($attributes)) {
+				$attribute = $attributes[0]->newInstance();
+				$flag = $attribute->bootstrap;
+			} else {
+				// Check class-level attribute
+				$reflectionClass = new \ReflectionClass($this);
+				$classAttributes = $reflectionClass->getAttributes(AgaviBootstrap::class);
+				if (!empty($classAttributes)) {
+					$attribute = $classAttributes[0]->newInstance();
+					$flag = $attribute->bootstrap;
+				}
+			}
+		} catch (\Exception $e) {
+			// Keep default flag = true if reflection fails
 		}
+		
 		return $flag;
 	}
 	

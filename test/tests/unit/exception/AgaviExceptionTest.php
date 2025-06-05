@@ -1,8 +1,12 @@
 <?php
 
+use Agavi\Testing\AgaviUnitTestCase;
+use Agavi\Exception\AgaviException;
+use PHPUnit\Framework\Attributes\DataProvider;
+
 class AgaviExceptionTest extends AgaviUnitTestCase
 {
-	public function highlightSnippets()
+	public static function highlightSnippets()
 	{
 		return array(
 			'ticket1240' => array(
@@ -44,10 +48,8 @@ ob_end_clean();
 		);
 	}
 	
-	/**
-	 * @dataProvider highlightSnippets
-	 */
-	public function testFoo($code)
+	#[DataProvider('highlightSnippets')]
+	public function testHighlightStringProducesValidXml($code)
 	{
 		$highlighted = AgaviException::highlightString($code);
 		$highlighted = "<ol>\n<li><code>" . implode("</code></li>\n<li><code>", $highlighted) . "</code></li>\n</ol>";
@@ -58,6 +60,17 @@ ob_end_clean();
 		$doc->loadXML($highlighted);
 		$errors = libxml_get_errors();
 		libxml_use_internal_errors($luie);
+		
+		// Debug output
+		if (count($errors) > 0) {
+			echo "\n--- DEBUG: XML ERRORS ---\n";
+			echo "Highlighted content:\n" . $highlighted . "\n";
+			echo "Errors:\n";
+			foreach ($errors as $error) {
+				echo "- Line {$error->line}: {$error->message}";
+			}
+			echo "--- END DEBUG ---\n";
+		}
 		
 		$this->assertEquals(0, count($errors));
 	}

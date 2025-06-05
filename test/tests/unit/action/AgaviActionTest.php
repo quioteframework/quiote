@@ -1,22 +1,27 @@
 <?php
 
+use Agavi\Action\AgaviAction;
+use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Util\AgaviParameterHolder;
+use Agavi\Testing\AgaviUnitTestCase;
+
 class SampleAction extends AgaviAction {
 	public function execute(AgaviParameterHolder $parameters)
 	{
 	}
 }
 
-class ActionTest extends AgaviUnitTestCase
+class AgaviActionTest extends AgaviUnitTestCase
 {
 	private $_action = null;
 
-	public function setUp()
+	public function setUp(): void
 	{
 		$this->_action = new SampleAction();
 		$this->_action->initialize($this->getContext()->getController()->createExecutionContainer('Foo', 'Bar'));
 	}
 
-	public function tearDown()
+	public function tearDown(): void
 	{
 		$this->_action = null;
 	}

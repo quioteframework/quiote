@@ -1,4 +1,7 @@
 <?php
+
+use Agavi\Testing\AgaviUnitTestCase;
+use Agavi\Request\AgaviRequestDataHolder;
 	
 class BaseValidatorTest extends AgaviUnitTestCase
 {

@@ -14,6 +14,15 @@
 // +---------------------------------------------------------------------------+
 namespace Agavi\Validator;
 
+use Agavi\Config\AgaviConfig;
+use Agavi\Date\AgaviCalendar;
+use Agavi\Date\AgaviDateDefinitions;
+use Agavi\Date\AgaviDateFormat;
+use Agavi\Exception\AgaviConfigurationException;
+use Agavi\Exception\AgaviValidatorException;
+use Agavi\Translation\AgaviDateFormatter;
+use Exception;
+
 /**
  * AgaviDateTimeValidator verifies that a parameter is of a date and or time 
  * format.

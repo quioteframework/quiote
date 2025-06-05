@@ -1,4 +1,12 @@
 <?php
+
+use Agavi\Config\AgaviConfig;
+use Agavi\Config\AgaviFilterConfigHandler;
+use Agavi\Filter\AgaviIFilter;
+use Agavi\Filter\AgaviFilterChain;
+use Agavi\Controller\AgaviExecutionContainer;
+use Agavi\AgaviContext;
+
 require_once(__DIR__ . '/ConfigHandlerTestBase.php');
 
 class FCHTestFilter1 implements AgaviIFilter
@@ -25,7 +33,13 @@ class AgaviFilterConfigHandlerTest extends ConfigHandlerTestBase
 {
 	protected $context;
 
-	public function setUp()
+	protected function getContext()
+	{
+		$context = AgaviContext::getInstance('test');
+		return $context;
+	}
+
+	public function setUp(): void
 	{
 		$this->context = $this->getContext();
 	}
@@ -38,7 +52,7 @@ class AgaviFilterConfigHandlerTest extends ConfigHandlerTestBase
 		
 		$document = $this->parseConfiguration(
 			AgaviConfig::get('core.config_dir') . '/tests/filters.xml',
-			AgaviConfig::get('core.agavi_dir') . '/config/xsl/filters.xsl'
+			AgaviConfig::get('core.agavi_dir') . '/Config/xsl/filters.xsl'
 		);
 
 		$filters = array();

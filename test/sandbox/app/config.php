@@ -29,6 +29,9 @@
 // | You shouldn't have to change this usually since it's auto-determined.     |
 // | Agavi can't determine this automatically, so you always have to supply it.|
 // +---------------------------------------------------------------------------+
+
+use Agavi\Config\AgaviConfig;
+
 AgaviConfig::set('core.app_dir', __DIR__);
 
 // +---------------------------------------------------------------------------+

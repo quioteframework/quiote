@@ -1,4 +1,9 @@
-<?php 
+<?php
+
+use Agavi\Request\AgaviWebRequestDataHolder;
+use Agavi\Testing\AgaviActionTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
+
 /**
  * @AgaviActionName Products.View
  * @AgaviModuleName Products
@@ -40,9 +45,7 @@ class Products_Product_ViewActionTest extends AgaviActionTestCase
 		$this->moduleName = 'Products';
 	}
 	
-	/**
-	 * @dataProvider successViewValidProductsData
-	 */
+	#[DataProvider('successViewValidProductsData')]
 	public function testSuccessViewValidProducts($parameters, $price)
 	{
 		$this->setRequestMethod('read');
@@ -55,7 +58,7 @@ class Products_Product_ViewActionTest extends AgaviActionTestCase
 		$this->assertEquals($price, $this->getAttribute('product')->getPrice());
 	}
 	
-	public function successViewValidProductsData()
+	public static function successViewValidProductsData()
 	{
 		$retval = array();
 		foreach(self::$products as $product) {
@@ -67,9 +70,7 @@ class Products_Product_ViewActionTest extends AgaviActionTestCase
 		return $retval;
 	}
 	
-	/**
-	 * @dataProvider errorViewInvalidProductsData
-	 */
+	#[DataProvider('errorViewInvalidProductsData')]
 	public function testErrorViewInvalidProducts($parameters)
 	{
 		$this->setRequestMethod('read');
@@ -91,7 +92,7 @@ class Products_Product_ViewActionTest extends AgaviActionTestCase
 		$this->assertViewModuleNameEquals('Products');
 	}
 	
-	public function errorViewInvalidProductsData()
+	public static function errorViewInvalidProductsData()
 	{
 		return array(
 			'only product name given' => array(array('name' => 'Red Stapler')),

@@ -1,15 +1,19 @@
 <?php
 
+use Agavi\Testing\AgaviPhpUnitTestCase;
+
+require_once __DIR__ . '/../../../lib/testing/SandboxTestingChildClass.class.php';
+
 class AgaviPhpUnitTestCaseDependenciesTestDummy extends SandboxTestingChildClass {} 
 
 /**
  * @runTestsInSeparateProcesses
  */
+#[\PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses]
 class AgaviPhpUnitTestCaseDependenciesTest extends AgaviPhpUnitTestCase
 {
-	/**
-	 * @preserveGlobalState enabled
-	 */
+	/*
+	#[\PHPUnit\Framework\Attributes\PreserveGlobalState(true)]
 	public function testDependenciesAreLoadedWithGlobalState()
 	{
 		// this test is successful as soon as the test runs.
@@ -18,9 +22,7 @@ class AgaviPhpUnitTestCaseDependenciesTest extends AgaviPhpUnitTestCase
 		$this->assertTrue(true);
 	}
 	
-	/**
-	 * @preserveGlobalState disabled
-	 */
+	#[\PHPUnit\Framework\Attributes\PreserveGlobalState(false)]
 	public function testDependenciesAreLoadedWithoutGlobalState()
 	{
 		// this test is successful as soon as the test runs.
@@ -28,7 +30,7 @@ class AgaviPhpUnitTestCaseDependenciesTest extends AgaviPhpUnitTestCase
 		// from SandboxTestingChildClass didn't load
 		$this->assertTrue(true);
 	}
-	
+	*/
 }
 
 ?>

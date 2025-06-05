@@ -1,5 +1,11 @@
 <?php
 
+use Agavi\Date\AgaviCalendar;
+use Agavi\Testing\AgaviUnitTestCase;
+use Agavi\Date\AgaviDateFormat;
+use Agavi\Date\AgaviSimpleTimezone;
+use Agavi\Translation\AgaviLocale;
+
 class AgaviDateFormatTest extends AgaviUnitTestCase
 {
 

@@ -1,9 +1,18 @@
 <?php
 
+use Agavi\AgaviContext;
+use Agavi\Testing\AgaviPhpUnitTestCase;
+use Agavi\Translation\AgaviDateFormatter;
 
-class BaseCalendarTest extends AgaviPhpUnitTestCase 
+abstract class BaseCalendarTest extends AgaviPhpUnitTestCase 
 {
 	protected $tm;
+
+	public function setUp(): void
+	{
+		parent::setUp();
+		$this->tm = AgaviContext::getInstance('testing')->getTranslationManager();
+	}
 
 	protected function date($y, $m, $d, $hr = 0, $min = 0, $sec = 0)
 	{
@@ -27,8 +36,4 @@ class BaseCalendarTest extends AgaviPhpUnitTestCase
 		return $format->format($time, 'gregorian', $this->tm->getCurrentLocale());
 	}
 
-	public function setUp()
-	{
-		$this->tm = AgaviContext::getInstance()->getTranslationManager();
-	}
 }

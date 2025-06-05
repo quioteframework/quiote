@@ -1,5 +1,30 @@
 <?php
 
+use Agavi\Testing\AgaviPhpUnitTestCase;
+use Agavi\AgaviContext;
+use Agavi\Exception\AgaviException;
+
+require_once(__DIR__ . '/../../../lib/routing/AgaviTestingWebRouting.class.php');
+require_once(__DIR__ . '/../../../lib/routing/GenDecodeParameterCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/GenSetExtraParamRoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/GenChangeExtraParamRoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/GenChangeExtraParamRoutingValueRoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/GenObjectRoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/TestTicket713RoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/TestTicket695RoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/TestTicket698RoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/Ticket1051RoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/GenSetExtraParamRoutingValueRoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/GenUnsetRouteParamRoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/GenNullifyRouteParamRoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/GenWithParamRoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/GenUnsetExtraParamRoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/GenSetPrefixAndPostfixRoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/GenWithUnescapedParamRoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/GenSetPrefixAndPostfixIntoRouteRoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/GenNullifyExtraParamRoutingCallback.class.php');
+
+#[\PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses]
 class AgaviWebRoutingTest extends AgaviPhpUnitTestCase
 {
 	protected $routing;
@@ -12,14 +37,14 @@ class AgaviWebRoutingTest extends AgaviPhpUnitTestCase
 	 * @param  array  $data
 	 * @param  string $dataName
 	 */
-	public function __construct($name = NULL, array $data = array(), $dataName = '')
-	{
-		parent::__construct($name, $data, $dataName);
-	}
 	
-	public function setUp()
+	public function setUp(): void
 	{
+		parent::setUp();
 		$_SERVER['SCRIPT_NAME'] = ''; // takes care of php setting the commandline scriptname in $_SERVER, throwing the routing off guard
+		$_SERVER['SERVER_NAME'] = 'localhost';
+		$_SERVER['SERVER_PORT'] = '80';
+		$_SERVER['HTTPS'] = '';
 		$this->routing = new AgaviTestingWebRouting();
 		$this->routing->initialize(AgaviContext::getInstance(null), $this->parameters);
 		$this->routing->startup();
@@ -32,9 +57,6 @@ class AgaviWebRoutingTest extends AgaviPhpUnitTestCase
 		$this->assertEquals('foo?bar=%2Fshouldbeencoded', $url);
 	}
 	
-	/**
-	 * @runInSeparateProcess
-	 */
 	public function testGenNullDisabled()
 	{
 		$_SERVER['SCRIPT_NAME'] = 'lol.cats';
@@ -315,14 +337,14 @@ class AgaviWebRoutingTest extends AgaviPhpUnitTestCase
 	
 	public function testGenWithObject()
 	{
-		$fi = new SplFileInfo(__FILE__);
+		$fi = new \SplFileInfo(__FILE__);
 		$url = $this->routing->gen('with_param', array('number' => $fi));
 		$this->assertEquals('/withparam/' . rawurlencode(__FILE__), $url);
 	}
 	
 	public function testGenWithObjectRoutingValue()
 	{
-		$fi = new SplFileInfo(__FILE__);
+		$fi = new \SplFileInfo(__FILE__);
 		$url = $this->routing->gen('with_param', array('number' => $this->routing->createValue($fi)));
 		$this->assertEquals('/withparam/' . rawurlencode(__FILE__), $url);
 		$url = $this->routing->gen('with_param', array('number' => $this->routing->createValue($fi, false)));
@@ -331,7 +353,7 @@ class AgaviWebRoutingTest extends AgaviPhpUnitTestCase
 	
 	public function testGenWithObjectCallback()
 	{
-		$fi = new SplFileInfo(__FILE__);
+		$fi = new \SplFileInfo(__FILE__);
 		
 		$url = $this->routing->gen('callbacks.object', array('value' => $fi));
 		$this->assertEquals('/callbacks/foo/' . rawurlencode(__DIR__), $url);
@@ -385,16 +407,16 @@ class AgaviWebRoutingTest extends AgaviPhpUnitTestCase
 	}
 	
 	/**
-	 * @dataProvider dataTicket358
 	 * 
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('dataTicket358')]
 	public function testTicket358($expected, $data)
 	{
 		$url = $this->routing->gen('index', array(), $data);
 		$this->assertEquals($expected, $url);
 	}
 	
-	public function dataTicket358()
+	public static function dataTicket358()
 	{
 		return array(
 			'authority' => array(
@@ -429,15 +451,15 @@ class AgaviWebRoutingTest extends AgaviPhpUnitTestCase
 	
 	/**
 	 * 
-	 * @dataProvider dataTicket365
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('dataTicket365')]
 	public function testTicket365($expected, $data)
 	{
 		$url = $this->routing->gen('index', array('data' => $data));
 		$this->assertEquals($expected, $url);
 	}
 	
-	public function dataTicket365()
+	public static function dataTicket365()
 	{
 		return array(
 			'indexed' => array('/?data%5B0%5D=baz&amp;data%5B1%5D=bar', array('baz', 'bar')),
@@ -499,12 +521,15 @@ class AgaviWebRoutingTest extends AgaviPhpUnitTestCase
 	
 	public function testTicket695()
 	{
+		$exceptionThrown = false;
 		try {
 			$this->routing->gen('callbacks.ticket_695');
 			$this->fail('Failed asserting that onGenerate() is called');
 		} catch(AgaviException $e) {
+			$exceptionThrown = true;
 			// successfully called
 		}
+		$this->assertTrue($exceptionThrown, 'Expected AgaviException was not thrown by onGenerate()');
 	}
 	
 	public function testTicket698()

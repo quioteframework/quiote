@@ -1,23 +1,36 @@
 <?php
 
-require_once(__DIR__ . '/../../../../src/config/AgaviConfig.class.php');
+use Agavi\Testing\AgaviPhpUnitTestCase;
+use Agavi\Testing\Attributes\AgaviBootstrap;
+use Agavi\Config\AgaviConfig;
+
+require_once(__DIR__ . '/../../../../src/Config/AgaviConfig.php');
 
 /**
- * @agaviBootstrap off
- * @preserveGlobalState disabled
- * @runTestsInSeparateProcesses
+ * Test class for AgaviConfig with bootstrap disabled
  */
+#[\PHPUnit\Framework\Attributes\PreserveGlobalState(false)]
+#[\PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses]
+#[AgaviBootstrap(false)]
 class AgaviConfigTest extends AgaviPhpUnitTestCase
 {
+	public function setUp(): void
+	{
+		AgaviConfig::clear();
+	}
+
 	public function testInitiallyEmpty()
 	{
-		$this->assertEquals(array(), AgaviConfig::toArray());
+		$expected = array();
+		// core.agavi_dir is set as readonly when Agavi.php is loaded
+		if (AgaviConfig::has('core.agavi_dir')) {
+			$expected['core.agavi_dir'] = AgaviConfig::get('core.agavi_dir');
+		}
+		$this->assertEquals($expected, AgaviConfig::toArray());
 		$this->assertNull(AgaviConfig::get('something'));
 	}
 
-	/**
-	 * @dataProvider providerGetSet
-	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('providerGetSet')]
 	public function testGetSet($key, $value)
 	{
 		$this->assertTrue(AgaviConfig::set($key, $value));
@@ -26,7 +39,7 @@ class AgaviConfigTest extends AgaviPhpUnitTestCase
 		$this->assertFalse(AgaviConfig::isReadonly($key));
 		$this->assertTrue(AgaviConfig::remove($key));
 	}
-	public function providerGetSet()
+	public static function providerGetSet()
 	{
 		return array(
 			'string key'                => array('foobar', 'baz'),
@@ -46,7 +59,12 @@ class AgaviConfigTest extends AgaviPhpUnitTestCase
 	public function testClear()
 	{
 		AgaviConfig::clear();
-		$this->assertEquals(array(), AgaviConfig::toArray());
+		$expected = array();
+		// core.agavi_dir is set as readonly when Agavi.php is loaded and survives clear()
+		if (AgaviConfig::has('core.agavi_dir')) {
+			$expected['core.agavi_dir'] = AgaviConfig::get('core.agavi_dir');
+		}
+		$this->assertEquals($expected, AgaviConfig::toArray());
 	}
 
 	public function testRemove()
@@ -63,7 +81,12 @@ class AgaviConfigTest extends AgaviPhpUnitTestCase
 		$data = array('foo' => 'bar', 'bar' => 'baz');
 		AgaviConfig::clear();
 		AgaviConfig::fromArray($data);
-		$this->assertEquals($data, AgaviConfig::toArray());
+		$expected = $data;
+		// core.agavi_dir is set as readonly when Agavi.php is loaded
+		if (AgaviConfig::has('core.agavi_dir')) {
+			$expected['core.agavi_dir'] = AgaviConfig::get('core.agavi_dir');
+		}
+		$this->assertEquals($expected, AgaviConfig::toArray());
 	}
 
 	public function testFromArrayMerges()
@@ -72,7 +95,12 @@ class AgaviConfigTest extends AgaviPhpUnitTestCase
 		AgaviConfig::clear();
 		AgaviConfig::set('baz', 'lol');
 		AgaviConfig::fromArray($data);
-		$this->assertEquals(array('baz' => 'lol') + $data, AgaviConfig::toArray());
+		$expected = array('baz' => 'lol') + $data;
+		// core.agavi_dir is set as readonly when Agavi.php is loaded
+		if (AgaviConfig::has('core.agavi_dir')) {
+			$expected['core.agavi_dir'] = AgaviConfig::get('core.agavi_dir');
+		}
+		$this->assertEquals($expected, AgaviConfig::toArray());
 	}
 
 	public function testFromArrayMergesAndOverwrites()
@@ -81,7 +109,12 @@ class AgaviConfigTest extends AgaviPhpUnitTestCase
 		AgaviConfig::clear();
 		AgaviConfig::set('baz', 'lol');
 		AgaviConfig::fromArray($data);
-		$this->assertEquals(array('baz' => 'qux') + $data, AgaviConfig::toArray());
+		$expected = array('baz' => 'qux') + $data;
+		// core.agavi_dir is set as readonly when Agavi.php is loaded
+		if (AgaviConfig::has('core.agavi_dir')) {
+			$expected['core.agavi_dir'] = AgaviConfig::get('core.agavi_dir');
+		}
+		$this->assertEquals($expected, AgaviConfig::toArray());
 	}
 
 	public function testFromArrayMergesAndReindexes()
@@ -92,7 +125,12 @@ class AgaviConfigTest extends AgaviPhpUnitTestCase
 		AgaviConfig::set(1, 'aha');
 		AgaviConfig::set(0, 'omg', true, true);
 		AgaviConfig::fromArray($data);
-		$this->assertEquals(array(2 => 'yay', 0 => 'omg', 1 => 'lol'), AgaviConfig::toArray());
+		$expected = array(2 => 'yay', 0 => 'omg', 1 => 'lol');
+		// core.agavi_dir is set as readonly when Agavi.php is loaded
+		if (AgaviConfig::has('core.agavi_dir')) {
+			$expected['core.agavi_dir'] = AgaviConfig::get('core.agavi_dir');
+		}
+		$this->assertEquals($expected, AgaviConfig::toArray());
 	}
 
 	public function testHasNullValue()
@@ -157,7 +195,12 @@ class AgaviConfigTest extends AgaviPhpUnitTestCase
 		AgaviConfig::clear();
 		AgaviConfig::set('baz', 'lol', true, true);
 		AgaviConfig::fromArray($data);
-		$this->assertEquals(array('baz' => 'lol') + $data, AgaviConfig::toArray());
+		$expected = array('baz' => 'lol') + $data;
+		// core.agavi_dir is set as readonly when Agavi.php is loaded
+		if (AgaviConfig::has('core.agavi_dir')) {
+			$expected['core.agavi_dir'] = AgaviConfig::get('core.agavi_dir');
+		}
+		$this->assertEquals($expected, AgaviConfig::toArray());
 	}
 
 	public function testReadonlySurvivesRemove()

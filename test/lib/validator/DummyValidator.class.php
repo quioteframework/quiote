@@ -1,4 +1,7 @@
 <?php
+
+use Agavi\Validator\AgaviValidator;
+
 class DummyValidator extends AgaviValidator
 {
 	public $cleared = false;

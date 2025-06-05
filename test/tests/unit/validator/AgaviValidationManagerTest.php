@@ -1,5 +1,12 @@
 <?php
 
+use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Testing\AgaviUnitTestCase;
+use Agavi\Validator\AgaviValidationManager;
+use Agavi\Validator\AgaviDependencyManager;
+use Agavi\Util\AgaviVirtualArrayPath;
+use Agavi\Validator\AgaviValidator;
+
 class MyValidationManager extends AgaviValidationManager
 {
 	public function getChildren() { return $this->children; }
@@ -10,13 +17,13 @@ class AgaviValidationManagerTest extends AgaviUnitTestCase
 	private $_vm = null;
 	private $_context = null;
 	
-	public function setUp()
+	public function setUp(): void
 	{
 		$this->_context = $this->getContext();
 		$this->_vm = $this->_context->createInstanceFor('validation_manager');
 	}
 
-	public function tearDown()
+	public function tearDown(): void
 	{
 		$this->_vm = null;
 		$this->_context = null;

@@ -1,5 +1,8 @@
 <?php
 
+use Agavi\Testing\AgaviUnitTestCase;
+use Agavi\Request\AgaviRequest;
+
 class SampleRequest extends AgaviRequest
 {
 	public function shutdown() {}
@@ -9,7 +12,7 @@ class AgaviRequestTest extends AgaviUnitTestCase
 {
 	private $_r = null;
 
-	public function setUp()
+	public function setUp(): void
 	{
 		$this->_r = new SampleRequest();
 		$this->_r->initialize($this->getContext());

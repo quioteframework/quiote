@@ -13,6 +13,10 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 
+use Agavi\Routing\AgaviRouting;
+use Agavi\Routing\AgaviRoutingArraySource;
+use Agavi\Routing\AgaviWebRouting;
+
 /**
  * AgaviTestingRouting allows access to some internal routing properties and
  * extends the abtract base class to make it testable.
@@ -28,24 +32,43 @@
  *
  * @version    $Id$
  */
-class AgaviTestingRouting extends AgaviRouting
+class AgaviTestingRouting extends AgaviWebRouting
 {
-	public function setInput($input)
+	protected $forcedInput = null;
+	protected $errorActions = array();
+	
+	/**
+	 * Set the input to use for routing
+	 */
+	public function forceInput($input)
 	{
-		$this->input = $input;
+		$this->forcedInput = $input;
 	}
+	
+
 	
 	public function setRoutingSource($name, $data, $type = null)
 	{
 		if(null === $type) {
 			$type = 'AgaviRoutingArraySource';
 		}
-		$this->sources[$name] = new $type($data);
+		$this->sources[$name] = new AgaviRoutingArraySource($data);
 	}
 	
 	public function parseRouteString($str)
 	{
 		return parent::parseRouteString($str);
+	}
+	
+	/**
+	 * Override the input property for execution
+	 */
+	public function execute()
+	{
+		if ($this->forcedInput !== null) {
+			$this->input = $this->forcedInput;
+		}
+		return parent::execute();
 	}
 }
 

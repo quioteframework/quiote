@@ -28,7 +28,7 @@ namespace Agavi\Request;
  *
  * @version    $Id$
  */
-class AgaviWebServiceRequestDataHolder extends AgaviRequestDataHolder
+class AgaviWebserviceRequestDataHolder extends AgaviRequestDataHolder
 {
 }
 

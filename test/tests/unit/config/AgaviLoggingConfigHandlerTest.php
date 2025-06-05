@@ -1,4 +1,16 @@
 <?php
+
+use Agavi\AgaviContext;
+use Agavi\Config\AgaviConfig;
+use Agavi\Config\AgaviLoggingConfigHandler;
+use Agavi\Logging\AgaviILogger;
+use Agavi\Logging\AgaviLogger;
+use Agavi\Logging\AgaviLoggerAppender;
+use Agavi\Logging\AgaviLoggerLayout;
+use Agavi\Logging\AgaviLoggerMessage;
+use Agavi\Testing\AgaviTesting;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
+
 require_once(__DIR__ . '/ConfigHandlerTestBase.php');
 
 class TestLogger extends AgaviLogger
@@ -63,8 +75,10 @@ class AgaviLoggingConfigHandlerTest extends ConfigHandlerTestBase
 {
 	protected $context;
 
-	public function setUp()
+	public function setUp(): void
 	{
+		// For separate process tests, ensure Agavi is properly bootstrapped
+		\Agavi\Testing\AgaviTesting::bootstrap();
 		$this->context = AgaviContext::getInstance();
 	}
 
@@ -88,14 +102,12 @@ class AgaviLoggingConfigHandlerTest extends ConfigHandlerTestBase
 		return $this->context->getLoggerManager()->setDefaultLoggerName($name);
 	}
 	
-	/**
-	 * @runInSeparateProcess
-	 */
+	#[RunInSeparateProcess]
 	public function testLoggingConfigHandler()
 	{
 		$document = $this->parseConfiguration(
 			AgaviConfig::get('core.config_dir') . '/tests/logging.xml',
-			AgaviConfig::get('core.agavi_dir') . '/config/xsl/logging.xsl'
+			AgaviConfig::get('core.agavi_dir') . '/Config/xsl/logging.xsl'
 		);
 
 		$LCH = new AgaviLoggingConfigHandler();

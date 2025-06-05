@@ -1,31 +1,15 @@
 <?php
 
-if(!class_exists('AgaviArrayPathDefinition')) {
-	include(__DIR__ . '/../../../../src/util/AgaviArrayPathDefinition.class.php');
-}
-
-if(!class_exists('AgaviVirtualArrayPath')) {
-	include(__DIR__ . '/../../../../src/util/AgaviVirtualArrayPath.class.php');
-}
-
-if(!class_exists('AgaviParameterHolder')) {
-	include(__DIR__ . '/../../../../src/util/AgaviParameterHolder.class.php');
-}
-
-if(!class_exists('AgaviAttributeHolder')) {
-	include(__DIR__ . '/../../../../src/util/AgaviAttributeHolder.class.php');
-}
+use Agavi\Testing\AgaviPhpUnitTestCase;
+use Agavi\Util\AgaviArrayPathDefinition;
+use Agavi\Util\AgaviVirtualArrayPath;
+use Agavi\Util\AgaviParameterHolder;
+use Agavi\Util\AgaviAttributeHolder;
 
 class MyAgaviAttributeHolder extends AgaviAttributeHolder {}
 
 class AgaviAttributeHolderTest extends AgaviPhpUnitTestCase
 {
-
-	public function __construct($name = NULL, array $data = array(), $dataName = '')
-	{
-		parent::__construct($name, $data, $dataName);
-		// $this->setRunTestInSeparateProcess(true);
-	}
 	
 	public function testGetDefaultNamespace()
 	{

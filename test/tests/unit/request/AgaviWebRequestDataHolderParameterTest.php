@@ -1,5 +1,8 @@
 <?php
 
+use Agavi\Request\AgaviWebRequestDataHolder;
+use PHPUnit\Framework\Attributes\DataProvider;
+
 class AgaviWebRequestDataHolderParameterTest extends AgaviWebRequestDataHolderTest
 {	    
 	/**
@@ -12,7 +15,7 @@ class AgaviWebRequestDataHolderParameterTest extends AgaviWebRequestDataHolderTe
 	 *   - key exists (returns 'true' on hasParameter/Cookie/...)
 	 *   - key considered empty (returns 'true' on isParameter/Cookie/...ValueEmpty)
 	 */
-	public function parameterData()
+	public static function parameterData()
 	{
 		return array(
 			'unsetkey' => array(
@@ -104,8 +107,8 @@ class AgaviWebRequestDataHolderParameterTest extends AgaviWebRequestDataHolderTe
 	}
 	
 	/**
-	 * @dataProvider dataTestParameterSet
 	 */ 
+	#[DataProvider('dataTestParameterSet')]
 	public function testSetParameter($setKey, $setValue, $readKey, $readValue)
 	{
 		$dh = new AgaviWebRequestDataHolder(array());
@@ -113,7 +116,7 @@ class AgaviWebRequestDataHolderParameterTest extends AgaviWebRequestDataHolderTe
 		$this->assertEquals($readValue, $dh->getParameter($readKey));
 	}
 	
-	public function dataTestParameterSet()
+	public static function dataTestParameterSet()
 	{
 		return array(
 			array(
@@ -150,8 +153,8 @@ class AgaviWebRequestDataHolderParameterTest extends AgaviWebRequestDataHolderTe
 	}
 	
 	/**
-	 * @dataProvider getParameterReadInformation
 	 */
+	#[DataProvider('getParameterReadInformation')]
 	public function testGetParameter($key, $expected, $exists, $empty, $hasDefault)
 	{
 		$dh = $this->getDefaultDataHolder();
@@ -166,9 +169,9 @@ class AgaviWebRequestDataHolderParameterTest extends AgaviWebRequestDataHolderTe
 	}
 	
 	/**
-	 * @dataProvider parameterData
 	 * 
 	 */
+	#[DataProvider('parameterData')]
 	public function testRemoveParameter($key, $expected, $exists, $empty)
 	{
 		$dh = $this->getDefaultDataHolder();
@@ -185,9 +188,9 @@ class AgaviWebRequestDataHolderParameterTest extends AgaviWebRequestDataHolderTe
 	}
 	
 	/**
-	 * @dataProvider parameterData
 	 * 
 	 */
+	#[DataProvider('parameterData')]
 	public function testHasParameter($key, $expected, $exists, $empty)
 	{
 		$dh = $this->getDefaultDataHolder();
@@ -200,9 +203,9 @@ class AgaviWebRequestDataHolderParameterTest extends AgaviWebRequestDataHolderTe
 	}
 	
 	/**
-	 * @dataProvider parameterData
 	 * 
 	 */
+	#[DataProvider('parameterData')]
 	public function testIsParameterValueEmpty($key, $expected, $exists, $empty)
 	{
 		$dh = $this->getDefaultDataHolder();

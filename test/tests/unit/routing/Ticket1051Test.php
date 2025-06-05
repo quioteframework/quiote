@@ -1,23 +1,18 @@
 <?php
 
+use Agavi\Testing\AgaviPhpUnitTestCase;
+use Agavi\AgaviContext;
+
+require_once(__DIR__ . '/../../../lib/routing/AgaviTestingWebRouting.class.php');
+
 class Ticket1051Test extends AgaviPhpUnitTestCase
 {
 	protected $routing;
 	protected $parameters = array('enabled' => true);
 	
-	/**
-	 * Constructs a test case with the given name.
-	 *
-	 * @param  string $name
-	 * @param  array  $data
-	 * @param  string $dataName
-	 */
-	public function __construct($name = NULL, array $data = array(), $dataName = '')
-	{
-		parent::__construct($name, $data, $dataName);
-	}
+
 	
-	public function setUp()
+	public function setUp(): void
 	{
 		// otherwise, the full URI wouldn't work
 		$_SERVER['REQUEST_URI'] = '/index.php';

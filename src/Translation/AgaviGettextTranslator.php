@@ -16,8 +16,8 @@ namespace Agavi\Translation;
 
 use Agavi\AgaviContext;
 use Agavi\Exception\AgaviException;
+use Agavi\Translation\Gettext\AgaviGettextMoReader;
 use Agavi\Util\AgaviToolkit;
-use AgaviGettextMoReader;
 
 /**
  * AgaviGettextTranslator defines the translator interface for gettext.

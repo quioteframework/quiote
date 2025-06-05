@@ -4,7 +4,7 @@
 		<compiles>
 			<compile>%core.agavi_dir%/Util/AgaviAttributeHolder.php</compile>
 			<compile>%core.agavi_dir%/Action/AgaviAction.php</compile>
-			<compile>%core.agavi_dir%/Core/AgaviContext.php</compile>
+			<compile>%core.agavi_dir%/AgaviContext.php</compile>
 			<compile>%core.agavi_dir%/Controller/AgaviController.php</compile>
 			<compile>%core.agavi_dir%/Controller/AgaviExecutionContainer.php</compile>
 			<compile>%core.agavi_dir%/Controller/AgaviOutputType.php</compile>

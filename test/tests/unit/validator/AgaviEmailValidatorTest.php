@@ -1,5 +1,9 @@
 <?php
 
+use Agavi\AgaviContext;
+use Agavi\Testing\AgaviUnitTestCase;
+use Agavi\Validator\AgaviEmailValidator;
+
 class EmailValidatorWrapper extends AgaviEmailValidator
 {
 	protected $data;
@@ -26,13 +30,13 @@ class AgaviEmailValidatorTest extends AgaviUnitTestCase
 {
 	protected $_vm, $validator;
 	
-	public function setUp()
+	public function setUp(): void
 	{
 		$this->_vm = $this->getContext()->createInstanceFor('validation_manager');
 		$this->validator = $this->_vm->createValidator('EmailValidatorWrapper', array());
 	}
 
-	public function tearDown()
+	public function tearDown(): void
 	{
 		unset($this->validator);
 	}

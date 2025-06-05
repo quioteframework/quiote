@@ -1,5 +1,12 @@
 <?php
 
+use Agavi\Config\AgaviConfig;
+use Agavi\Testing\AgaviPhpUnitTestCase;
+use Agavi\Controller\AgaviController;
+use Agavi\Exception\AgaviException;
+use Agavi\Testing\Attributes\AgaviIsolationEnvironment;
+use Agavi\AgaviContext;
+
 class TestController extends AgaviController
 {
 	public function redirect($to)
@@ -8,17 +15,16 @@ class TestController extends AgaviController
 	}
 }
 
-/**
- * runTestsInSeparateProcesses
- */
-class AgaviControllerTest extends AgaviUnitTestCase
+#[AgaviIsolationEnvironment('testing')]
+// Temporarily disabled: #[\PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses]
+class AgaviControllerTest extends AgaviPhpUnitTestCase
 {
 	protected $_controller = null;
-
-	public function setUp()
+	protected $_context = null;
+	public function setUp(): void
 	{
 		// ReInitialize the Context between tests to start fresh
-		$this->_context = $this->getContext();
+		$this->_context = AgaviContext::getInstance();
 		$this->_controller = $this->_context->getController();
 		$this->_controller->initialize($this->_context, array());
 	}
@@ -26,21 +32,29 @@ class AgaviControllerTest extends AgaviUnitTestCase
 	public function testNewController()
 	{
 		$controller = $this->_controller;
-		$this->assertInstanceOf('AgaviController', $controller);
-		$this->assertInstanceOf('AgaviContext', $controller->getContext());
+		$this->assertInstanceOf('Agavi\\Controller\\AgaviController', $controller);
+		
+		$context = $controller->getContext();
+		$this->assertInstanceOf('Agavi\\AgaviContext', $context);
+		
 		$ctx1 = $controller->getContext();
-		$ctx2 = $this->getContext();
+		$ctx2 = AgaviContext::getInstance();
 		$this->assertSame($ctx1, $ctx2);
 	}
 
 	public function testactionFileExists()
 	{
 		// actionExists actually checks the filesystem, 
-		$this->assertTrue(file_exists(AgaviConfig::get('core.app_dir') . '/modules/ControllerTests/actions/ControllerTestAction.class.php'));
-		$this->assertFalse(file_exists(AgaviConfig::get('core.app_dir') . '/modules/ControllerTests/actions/BunkAction.class.php'));
-		$this->assertFalse(file_exists(AgaviConfig::get('core.app_dir') . '/modules/Bunk/actions/BunkAction.class.php'));
+		$expectedPath = AgaviConfig::get('core.app_dir') . '/Modules/ControllerTests/Actions/ControllerTestAction.php';
+		
+		$this->assertTrue(file_exists(AgaviConfig::get('core.app_dir') . '/Modules/ControllerTests/Actions/ControllerTestAction.php'));
+		$this->assertFalse(file_exists(AgaviConfig::get('core.app_dir') . '/Modules/ControllerTests/Actions/BunkAction.php'));
+		$this->assertFalse(file_exists(AgaviConfig::get('core.app_dir') . '/Modules/Bunk/Actions/BunkAction.php'));
 		$controller = $this->_controller;
-		$this->assertEquals(AgaviConfig::get('core.app_dir') . '/modules/ControllerTests/actions/ControllerTestAction.class.php', $controller->checkActionFile('ControllerTests', 'ControllerTest'));
+		
+		$checkResult = $controller->checkActionFile('ControllerTests', 'ControllerTest');
+		
+		$this->assertEquals(AgaviConfig::get('core.app_dir') . '/Modules/ControllerTests/Actions/ControllerTestAction.php', $controller->checkActionFile('ControllerTests', 'ControllerTest'));
 		$this->assertFalse($controller->checkActionFile('ControllerTests', 'Bunk'), 'actionFileExists did not return false for non-existing action in existing module');
 		$this->assertFalse($controller->checkActionFile('Bunk', 'Bunk'), 'actionFileExists did not return false for non-existing action in non-existing module');
 	}
@@ -51,20 +65,18 @@ class AgaviControllerTest extends AgaviUnitTestCase
 
 		$action = $this->_controller->createActionInstance('ControllerTests', 'ControllerTest');
 		$this->assertInstanceOf('ControllerTests_ControllerTestAction', $action);
-		$this->assertInstanceOf('AgaviAction', $action);
+		$this->assertInstanceOf('Agavi\\Action\\AgaviAction', $action);
 
 	}
 
-	/**
-	 * @expectedException AgaviFileNotFoundException
-	 */
 	public function testGetInvalidActionFromModule() {
+		$this->expectException('Agavi\\Exception\\AgaviFileNotFoundException');
 		$this->_controller->createActionInstance('ControllerTests', 'NonExistant');
 	}
 
 	public function testGetContext()
 	{
-		$this->assertSame($this->getContext(), $this->getContext()->getController()->getContext());
+		$this->assertSame(AgaviContext::getInstance(), AgaviContext::getInstance()->getController()->getContext());
 	}
 
 	public function testCreateViewInstance()

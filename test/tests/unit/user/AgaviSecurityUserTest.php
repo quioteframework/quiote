@@ -1,6 +1,29 @@
 <?php
+
+use Agavi\Testing\AgaviUnitTestCase;
+use Agavi\User\AgaviSecurityUser;
+use Agavi\AgaviContext;
+
 class SampleSecurityUser extends AgaviSecurityUser
 {
+	public function initialize(AgaviContext $context, array $parameters = array())
+	{
+		parent::initialize($context, $parameters);
+		$this->context = $context;
+		
+		if(count($parameters)) {
+			$this->attributes = $parameters;
+		}
+		$this->attributes = array();
+	}
+}
+
+
+class AgaviSecurityUserTest extends AgaviUnitTestCase
+{
+
+	protected $context;
+	
 	public function initialize(AgaviContext $context, array $parameters = array())
 	{
 		parent::initialize($context, $parameters);
@@ -11,13 +34,10 @@ class SampleSecurityUser extends AgaviSecurityUser
 		}
 		$this->attributes = array();
 	}
-}
-
-class SecurityUserTest extends AgaviUnitTestCase
-{
+	
 	private $_u = null;
 
-	public function setUp()
+	public function setUp(): void
 	{
 		$this->_u = new SampleSecurityUser();
 		$this->_u->initialize($this->getContext());

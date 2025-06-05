@@ -32,7 +32,7 @@ class AgaviConfig
 	/**
 	 * @var        array
 	 */
-	private static $config = [];
+	public static $config = [];
 
 	/**
 	 * @var        array

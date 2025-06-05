@@ -1,5 +1,12 @@
 <?php
 
+use Agavi\Date\AgaviCalendar;
+use Agavi\Date\AgaviDateDefinitions;
+use Agavi\Date\AgaviGregorianCalendar;
+use Agavi\Date\AgaviSimpleTimeZone;
+use Agavi\Date\AgaviTimeZone;
+use Agavi\Translation\AgaviLocale;
+
 require_once(__DIR__ . '/BaseCalendarTest.php');
 
 /**
@@ -179,7 +186,7 @@ class AgaviCalendarTest extends BaseCalendarTest
 					$this->assertFalse($cal->_isSet($i), 'AgaviCalendar::isSet = T, should be F  ' . $this->fieldName($i));
 			}
 			$cal->clear($i);
-			$this->assertFalse($cal->_isSet($i), 'AgaviCalendar::clear/isSet failed ' + $this->fieldName($i));
+			$this->assertFalse($cal->_isSet($i), 'AgaviCalendar::clear/isSet failed ' . $this->fieldName($i));
 		}
 
 		return;
@@ -444,7 +451,7 @@ class AgaviCalendarTest extends BaseCalendarTest
 							$cal->get(AgaviDateDefinitions::SECOND)) * 1000 +
 						$cal->get(AgaviDateDefinitions::MILLISECOND) - $offset;
 		$expected = (($hr * 60 + $mn) * 60 + $sc) * 1000;
-		$this->assertEquals((float) $expected, (float) $utc, 'Discrepancy of ' . ($utc - $expected) + ' millis = ' + (($utc - $expected) / 1000 / 60 / 60.0) . ' hr');
+		$this->assertEquals((float) $expected, (float) $utc, 'Discrepancy of ' . ($utc - $expected) . ' millis = ' . (($utc - $expected) / 1000 / 60 / 60.0) . ' hr');
 	}
 
 // -------------------------------------
@@ -715,6 +722,7 @@ class AgaviCalendarTest extends BaseCalendarTest
 	public function testDOW_LOCALandYEAR_WOY()
 	{
 		// TODO: enable this test;
+		$this->markTestSkipped('Test is disabled - TODO: enable this test');
 		return;
 
 		/* Note: I've commented out the loop_addroll tests for YEAR and

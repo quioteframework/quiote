@@ -13,6 +13,9 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 namespace Agavi\Renderer;
+
+use Agavi\View\AgaviTemplateLayer;
+
 /**
  * A renderer produces the output as defined by a View
  *

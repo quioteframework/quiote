@@ -13,6 +13,9 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 namespace Agavi\Util;
+
+use InvalidArgumentException;
+
 /**
  * AgaviPath implements handling of virtual paths
  * 
@@ -228,21 +231,22 @@ final class AgaviArrayPathDefinition
 	 */
 	public static function getPartsFromPath($path)
 	{
-		if(strlen((string) $path) == 0) {
+		$pathStr = (string) $path;
+		if(strlen($pathStr) == 0) {
 			return ['parts' => [], 'absolute' => true];
 		}
 
 		$parts = [];
-		$absolute = ($path[0] != '[');
-		if(($pos = strpos((string) $path, '[')) === false) {
-			if(str_contains((string) $path, ']')) {
+		$absolute = (strlen($pathStr) > 0 && $pathStr[0] != '[');
+		if(($pos = strpos($pathStr, '[')) === false) {
+			if(str_contains($pathStr, ']')) {
 				throw new InvalidArgumentException('Invalid "]" without opening "[" found');
 			}
 			$parts[] = $path;
 		} else {
 			$state = 0;
 			$cur = '';
-			foreach(str_split((string) $path) as $c) {
+			foreach(str_split($pathStr) as $c) {
 				// this is the fastest way to loop over an string
 				switch($state) {
 					// the order is significant for performance

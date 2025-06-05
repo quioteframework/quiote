@@ -92,7 +92,9 @@ class AgaviSessionStorage extends AgaviStorage
 			session_save_path($this->getParameter('session_save_path'));
 		}
 		
-		session_name($this->getParameter('session_name', 'Agavi'));
+		if(session_status() === PHP_SESSION_NONE) {
+			session_name($this->getParameter('session_name', 'Agavi'));
+		}
 		
 		$sessionId = session_id();
 		$staticSessionId = $this->getParameter('session_id');

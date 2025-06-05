@@ -1,5 +1,10 @@
 <?php
 
+use Agavi\Testing\AgaviUnitTestCase;
+use Agavi\Config\AgaviConfig;
+use Agavi\AgaviContext;
+use Agavi\Routing\AgaviWebRouting;
+
 class AgaviWebRoutingServerCasesTest extends AgaviUnitTestCase
 {
 	protected $_r = null;
@@ -15,7 +20,7 @@ class AgaviWebRoutingServerCasesTest extends AgaviUnitTestCase
 		$this->export = $export;
 	}
 
-	public function setUp()
+	public function setUp(): void
 	{
 		$this->_SERVER = $_SERVER;
 		$this->_ENV = $_ENV;
@@ -23,7 +28,7 @@ class AgaviWebRoutingServerCasesTest extends AgaviUnitTestCase
 		AgaviConfig::set('core.use_routing', true);
 	}
 
-	public function loadTestCases()
+	public static function loadTestCases()
 	{
 		$retval = array();
 		
@@ -42,9 +47,7 @@ class AgaviWebRoutingServerCasesTest extends AgaviUnitTestCase
 		return $retval;
 	}
 
-	/**
-	 * @dataProvider loadTestCases
-	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('loadTestCases')]
 	public function testCases($export)
 	{
 		// this has to be first, since the context could just be created and would reset
@@ -91,7 +94,7 @@ class AgaviWebRoutingServerCasesTest extends AgaviUnitTestCase
 	}
 
 
-	public function tearDown()
+	public function tearDown(): void
 	{
 		$_SERVER = $this->_SERVER;
 		$_ENV = $this->_ENV;

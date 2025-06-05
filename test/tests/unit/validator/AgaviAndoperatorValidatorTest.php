@@ -1,12 +1,17 @@
 <?php
 
+use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Testing\AgaviUnitTestCase;
+use Agavi\Validator\AgaviAndoperatorValidator;
+use Agavi\Validator\AgaviValidator;
+
 class AgaviAndoperatorValidatorTest extends AgaviUnitTestCase
 {
 	public function testExecute()
 	{
 		$vm = $this->getContext()->createInstanceFor('validation_manager');
 		$vm->clear();
-		$o = $vm->createValidator('AgaviAndoperatorValidator', array(), array(), array('severity' => 'error'));
+		$o = $vm->createValidator(AgaviAndoperatorValidator::class, array(), array(), array('severity' => 'error'));
 		
 		$val1 = $vm->createValidator('DummyValidator', array(), array(), array('severity' => 'error'));
 		$val1->val_result = true;

@@ -14,6 +14,10 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 namespace Agavi\Util;
+
+use RecursiveDirectoryIterator;
+use RecursiveFilterIterator;
+
 /**
  * AgaviRecursiveDirectoryFilterIterator filters a RecursiveDirectoryIterator
  * with a given set of include and exclude patterns.

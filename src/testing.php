@@ -61,7 +61,7 @@ if(!$isComposerInstall) {
 }
 
 // testing base classes
-require_once($here . '/testing/AgaviTesting.class.php');
-require_once($here . '/testing/AgaviPhpUnitCli.class.php');
+require_once($here . '/Testing/AgaviTesting.php');
+require_once($here . '/Testing/AgaviPhpUnitCli.php');
 
 ?>

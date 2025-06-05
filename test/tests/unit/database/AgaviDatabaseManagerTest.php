@@ -1,26 +1,35 @@
 <?php
 
+use Agavi\Testing\AgaviUnitTestCase;
+use Agavi\Testing\Attributes\AgaviIsolationEnvironment;
+use Agavi\Database\AgaviDatabaseManager;
+
 /**
  * @runTestsInSeparateProcesses
- * @agaviIsolationEnvironment testing-use_database_on
  */
+#[\PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses]
+#[AgaviIsolationEnvironment('testing-use_database_on')]
 class AgaviDatabaseManagerTest extends AgaviUnitTestCase
 {
 	private $_dbm = null;
 	
-	public function setUp()
+	public function setUp(): void
 	{
-		$this->_dbm = $this->getContext()->getDatabaseManager();
+		// Call parent setUp to handle bootstrapping
+		parent::setUp();
+		
+		$context = $this->getContext();
+		$this->_dbm = $context->getDatabaseManager();
 	}
 
-	public function tearDown()
+	public function tearDown(): void
 	{
 		$this->_dbm = null;
 	}
 
 	public function testInitialization()
 	{
-		$this->assertInstanceOf('AgaviDatabaseManager', $this->_dbm);
+		$this->assertInstanceOf(AgaviDatabaseManager::class, $this->_dbm);
 	}
 
 }

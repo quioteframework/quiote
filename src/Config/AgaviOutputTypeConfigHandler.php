@@ -115,7 +115,7 @@ class AgaviOutputTypeConfigHandler extends AgaviXmlConfigHandler
 								}
 								
 								$layers[$layer->getAttribute('name')] = [
-									'class' => $layer->getAttribute('class', $this->getParameter('default_layer_class', 'AgaviFileTemplateLayer')),
+									'class' => $layer->getAttribute('class', $this->getParameter('default_layer_class', 'Agavi\\View\\AgaviFileTemplateLayer')),
 									'parameters' => $layer->getAgaviParameters([]),
 									'renderer' => $layer->getAttribute('renderer'),
 									'slots' => $slots,

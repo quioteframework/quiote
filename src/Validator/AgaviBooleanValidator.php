@@ -14,6 +14,8 @@
 // +---------------------------------------------------------------------------+
 namespace Agavi\Validator;
 
+use Agavi\Util\AgaviToolkit;
+
 /**
  * AgaviBooleanValidator verifies a parameter is a valid boolean
  * 

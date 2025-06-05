@@ -1,9 +1,12 @@
 <?php
 
+use Agavi\Testing\AgaviUnitTestCase;
+use Agavi\Date\AgaviGregorianCalendar;
+
 class AgaviGregorianCalendarTest extends AgaviUnitTestCase
 {
 	private $cal;
-	public function setUp()
+	public function setUp(): void
 	{
 		$this->cal = new AgaviGregorianCalendar($this->getContext()->getTranslationManager()->createTimeZone('Europe/Berlin'));
 		// 2009-02-21 12:30:20

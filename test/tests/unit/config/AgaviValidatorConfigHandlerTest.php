@@ -1,13 +1,27 @@
 <?php
+
+use Agavi\AgaviContext;
+use Agavi\Config\AgaviConfig;
+use Agavi\Config\AgaviValidatorConfigHandler;
+
 require_once(__DIR__ . '/ConfigHandlerTestBase.php');
 
 class AgaviValidatorConfigHandlerTest extends ConfigHandlerTestBase
 {
+
+	protected function getContext()
+	{
+		if (AgaviConfig::get('core.default_context') === null) {
+			AgaviConfig::set('core.default_context', 'web', true, true);
+		}
+		
+		return AgaviContext::getInstance(AgaviConfig::get('core.default_context'));
+	}
 	protected function createValidationManager($environment) {
 		$VCH = new AgaviValidatorConfigHandler();
 		$document = $this->parseConfiguration(
 			AgaviConfig::get('core.config_dir') . '/tests/validators.xml',
-			AgaviConfig::get('core.agavi_dir') . '/config/xsl/validators.xsl',
+			AgaviConfig::get('core.agavi_dir') . '/Config/xsl/validators.xsl',
 			$environment
 		);
 		

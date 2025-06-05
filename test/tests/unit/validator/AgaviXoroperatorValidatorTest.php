@@ -1,12 +1,18 @@
 <?php
 
+use Agavi\Exception\AgaviValidatorException;
+use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Testing\AgaviUnitTestCase;
+use Agavi\Validator\AgaviValidator;
+use Agavi\Validator\AgaviXoroperatorValidator;
+
 class AgaviXoroperatorValidatorTest extends AgaviUnitTestCase
 {
 	public function testvalidate()
 	{
 		$vm = $this->getContext()->createInstanceFor('validation_manager');
 		$vm->clear();
-		$o = $vm->createValidator('AgaviXoroperatorValidator', array(), array(), array('severity' => 'error'));
+		$o = $vm->createValidator(AgaviXoroperatorValidator::class, array(), array(), array('severity' => 'error'));
 		
 		$val1 = $vm->createValidator('DummyValidator', array(), array(), array('severity' => 'error'));
 		$val2 = $vm->createValidator('DummyValidator', array(), array(), array('severity' => 'error'));
@@ -74,8 +80,8 @@ class AgaviXoroperatorValidatorTest extends AgaviUnitTestCase
 	{
 		$vm = $this->getContext()->createInstanceFor('validation_manager');
 		$vm->clear();
-		$o = $vm->createValidator('AgaviXoroperatorValidator', array(), array(), array('severity' => 'error'));
-		
+		$o = $vm->createValidator(AgaviXoroperatorValidator::class, array(), array(), array('severity' => 'error'));
+
 		$val1 = $vm->createValidator('DummyValidator', array(), array(), array('severity' => 'error'));
 		$val2 = $vm->createValidator('DummyValidator', array(), array(), array('severity' => 'error'));
 		$val3 = $vm->createValidator('DummyValidator', array(), array(), array('severity' => 'error'));

@@ -1,4 +1,7 @@
-<?php 
+<?php
+
+use Agavi\Testing\AgaviUnitTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class ProductFinderModelTest extends AgaviUnitTestCase
 {
@@ -30,16 +33,14 @@ class ProductFinderModelTest extends AgaviUnitTestCase
 		),
 	);
 	
-	/**
-	 * @dataProvider productNamePrices
-	 */
+	#[DataProvider('productNamePrices')]
 	public function testValidProductPricesByName($productName, $price)
 	{
 		$finder = $this->getContext()->getModel('ProductFinder');
 		$this->assertEquals($price, $finder->retrieveByName($productName)->getPrice());
 	}
 	
-	public function productNamePrices()
+	public static function productNamePrices()
 	{
 		$retval = array();
 		foreach(self::$products as $product) {
@@ -51,16 +52,14 @@ class ProductFinderModelTest extends AgaviUnitTestCase
 		return $retval;
 	}
 	
-	/**
-	 * @dataProvider productIdPrices
-	 */
+	#[DataProvider('productIdPrices')]
 	public function testValidProductPricesById($productId, $price)
 	{
 		$finder = $this->getContext()->getModel('ProductFinder');
 		$this->assertEquals($price, $finder->retrieveById($productId)->getPrice());
 	}
 	
-	public function productIdPrices()
+	public static function productIdPrices()
 	{
 		$retval = array();
 		foreach(self::$products as $product) {
@@ -72,16 +71,14 @@ class ProductFinderModelTest extends AgaviUnitTestCase
 		return $retval;
 	}
 	
-	/**
-	 * @dataProvider productInfoPrices
-	 */
+	#[DataProvider('productInfoPrices')]
 	public function testValidProductPricesByInfo($productId, $productName, $price)
 	{
 		$finder = $this->getContext()->getModel('ProductFinder');
 		$this->assertEquals($price, $finder->retrieveByIdAndName($productId, $productName)->getPrice());
 	}
 	
-	public function productInfoPrices()
+	public static function productInfoPrices()
 	{
 		$retval = array();
 		foreach(self::$products as $product) {

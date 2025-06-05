@@ -1,5 +1,8 @@
 <?php
 
+use Agavi\Testing\AgaviUnitTestCase;
+use Agavi\Model\AgaviModel;
+
 class SampleModel extends AgaviModel {}
 
 class AgaviModelTest extends AgaviUnitTestCase

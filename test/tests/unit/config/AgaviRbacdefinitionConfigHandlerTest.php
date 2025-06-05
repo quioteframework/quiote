@@ -1,4 +1,8 @@
 <?php
+
+use Agavi\Config\AgaviConfig;
+use Agavi\Config\AgaviRbacDefinitionConfigHandler;
+
 require_once(__DIR__ . '/ConfigHandlerTestBase.php');
 
 class AgaviRbacDefinitionConfigHandlerTest extends ConfigHandlerTestBase
@@ -7,7 +11,7 @@ class AgaviRbacDefinitionConfigHandlerTest extends ConfigHandlerTestBase
 	{
 		$document = $this->parseConfiguration(
 			AgaviConfig::get('core.config_dir') . '/tests/rbac_definitions.xml',
-			AgaviConfig::get('core.agavi_dir') . '/config/xsl/rbac_definitions.xsl'
+			AgaviConfig::get('core.agavi_dir') . '/Config/xsl/rbac_definitions.xsl'
 		);
 		
 		$handler = new AgaviRbacDefinitionConfigHandler();

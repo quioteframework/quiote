@@ -1,5 +1,9 @@
 <?php
 
+use Agavi\Testing\AgaviUnitTestCase;
+use Agavi\Util\AgaviVirtualArrayPath;
+use Agavi\Validator\AgaviDependencyManager;
+
 class MyDependencyManager extends AgaviDependencyManager
 {
 	public function setDepData($data) { $this->depData = $data; }

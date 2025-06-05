@@ -13,6 +13,10 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 
+namespace Agavi\Testing;
+
+use PHPUnit\Extensions\SeleniumTestCase;
+
 /**
  * AgaviSeleniumTestCase is the base class for all selenium testcases and provides
  * the necessary assertions
@@ -28,7 +32,7 @@
  *
  * @version    $Id$
  */
-abstract class AgaviSeleniumTestCase extends PHPUnit_Extensions_SeleniumTestCase implements AgaviIRemoteTestCase
+abstract class AgaviSeleniumTestCase extends SeleniumTestCase implements AgaviIRemoteTestCase
 {
 }
 

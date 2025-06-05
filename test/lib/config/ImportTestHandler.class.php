@@ -13,6 +13,8 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 
+use Agavi\Config\AgaviConfigHandler;
+
 class ImportTestHandler extends AgaviConfigHandler
 {
 	public function execute($config, $context = null)

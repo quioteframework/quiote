@@ -1,24 +1,23 @@
 <?php
 
+use Agavi\Testing\AgaviPhpUnitTestCase;
+use Agavi\Util\AgaviInflector;
+
 class AgaviInflectorTest extends AgaviPhpUnitTestCase
 {
-	/**
-	 * @dataProvider singularPluralTestData
-	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('singularPluralTestData')]
 	public function testSingularize($singular, $plural)
 	{
 		$this->assertEquals($singular, AgaviInflector::singularize($plural));
 	}
 	
-	/**
-	 * @dataProvider singularPluralTestData
-	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('singularPluralTestData')]
 	public function testPluralize($singular, $plural)
 	{
 		$this->assertEquals($plural, AgaviInflector::pluralize($singular));
 	}
 	
-	public function singularPluralTestData()
+	public static function singularPluralTestData()
 	{
 		return array(
 			array("person"      , "people"),

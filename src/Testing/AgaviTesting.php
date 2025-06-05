@@ -13,6 +13,18 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 
+namespace Agavi\Testing;
+
+use Agavi\Config\AgaviConfig;
+use Agavi\Config\AgaviConfigCache;
+use Agavi\Exception\AgaviException;
+use Agavi\Util\AgaviRecursiveDirectoryFilterIterator;
+use Agavi\Util\AgaviToolkit;
+use Exception;
+use InvalidArgumentException;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
+use RuntimeException;
 
 /**
  * Main framework class used for autoloading and initial bootstrapping of the 
@@ -69,7 +81,29 @@ class AgaviTesting
 	 */
 	public static function bootstrap($environment = null)
 	{
-		AgaviPhpUnitCli::bootstrap($environment);
+		// Simple bootstrap that bypasses AgaviPhpUnitCli for PHPUnit 12 compatibility
+		if($environment === null) {
+			// no env given? let's read one from testing.environment
+			$environment = AgaviConfig::get('testing.environment');
+		} elseif(AgaviConfig::has('testing.environment') && AgaviConfig::isReadonly('testing.environment')) {
+			// env given, but testing.environment is read-only? then we must use that instead and ignore the given setting
+			$environment = AgaviConfig::get('testing.environment');
+		}
+		
+		if($environment === null) {
+			// still no env? oh man...
+			throw new Exception('You must supply an environment name to AgaviTesting::bootstrap() or set the name of the default environment to be used for testing in the configuration directive "testing.environment".');
+		}
+		
+		// finally set the env to what we're really using now.
+		AgaviConfig::set('testing.environment', $environment, true, true);
+		
+		// bootstrap the framework for autoload, config handlers etc.
+		\Agavi\Agavi::bootstrap($environment);
+		
+		ini_set('include_path', get_include_path().PATH_SEPARATOR.dirname(__DIR__));
+		
+		$GLOBALS['AGAVI_CONFIG'] = AgaviConfig::toArray();
 	}
 
 	/**

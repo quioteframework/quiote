@@ -1,5 +1,8 @@
 <?php
 
+use Agavi\Testing\AgaviUnitTestCase;
+use Agavi\Config\AgaviConfigValueHolder;
+
 class AgaviConfigValueHolderTest extends AgaviUnitTestCase
 {
 	public function testInitialState()

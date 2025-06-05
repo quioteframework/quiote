@@ -14,6 +14,8 @@
 // +---------------------------------------------------------------------------+
 namespace Agavi\Validator;
 
+use Agavi\Request\AgaviRequestDataHolder;
+
 /**
  * AgaviValidationArgument is a tuple of argument name and source that specifies 
  * the argument to validate.

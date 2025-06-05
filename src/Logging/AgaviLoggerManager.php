@@ -54,7 +54,7 @@ class AgaviLoggerManager
 	/**
 	 * @var        string The name of the default LoggerMessage class to use.
 	 */
-	protected $defaultMessageClass = 'AgaviLoggerMessage';
+	protected $defaultMessageClass = AgaviLoggerMessage::class;
 
 	/**
 	 * Retrieve the current application context.

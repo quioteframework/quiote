@@ -1,26 +1,49 @@
 <?php
 
-class AgaviRoutingTest extends AgaviPhpUnitTestCase
+use Agavi\AgaviContext;
+use Agavi\Testing\AgaviUnitTestCase;
+use Agavi\Config\AgaviConfig;
+use Agavi\Exception\AgaviException;
+
+require_once(__DIR__ . '/../../../lib/routing/AgaviTestingRouting.class.php');
+require_once(__DIR__ . '/../../../lib/routing/TestTicket713RoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/TestTicket698RoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/TestTicket695RoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/Ticket1051RoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/GenSetExtraParamRoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/GenSetExtraParamRoutingValueRoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/MatchingRoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/NonMatchingRoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/OnNotMatchedRoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/GenWithParamRoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/GenWithUnescapedParamRoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/GenUnsetRouteParamRoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/GenUnsetExtraParamRoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/GenNullifyRouteParamRoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/GenNullifyExtraParamRoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/GenSetPrefixAndPostfixRoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/GenSetPrefixAndPostfixIntoRouteRoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/GenChangeExtraParamRoutingValueRoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/GenChangeExtraParamRoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/GenDecodeParameterCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/GenObjectRoutingCallback.class.php');
+require_once(__DIR__ . '/../../../lib/routing/GenChangeExtraParamRoutingCallback.class.php');
+// Load specific callback that throws exception (overrides the one from AgaviTestingRoutingCallbacks.class.php)
+require_once(__DIR__ . '/../../../lib/routing/OnNotMatchedRoutingCallback.class.php');
+
+class AgaviRoutingTest extends AgaviUnitTestCase
 {
 	protected $routing;
 	protected $parameters = array('enabled' => true);
 	
-	/**
-	 * Constructs a test case with the given name.
-	 *
-	 * @param  string $name
-	 * @param  array  $data
-	 * @param  string $dataName
-	 */
-	public function __construct($name = NULL, array $data = array(), $dataName = '')
-	{
-		parent::__construct($name, $data, $dataName);
-	}
+
 	
-	public function setUp()
+	public function setUp(): void
 	{
+		parent::setUp();
+		
 		$this->routing = new AgaviTestingRouting();
-		$this->routing->initialize(AgaviContext::getInstance(null), $this->parameters);
+		$this->routing->initialize($this->getContext(), $this->parameters);
 		$this->routing->startup();
 	}
 	
@@ -34,27 +57,27 @@ class AgaviRoutingTest extends AgaviPhpUnitTestCase
 	
 	public function testExecuteEmptyInput()
 	{
-		$this->routing->setInput('');
+		$this->routing->forceInput('');
 		$container = $this->routing->execute();
 		$this->assertEquals(AgaviConfig::get('actions.error_404_action'), $container->getActionName());
 		$this->assertEquals(AgaviConfig::get('actions.error_404_module'), $container->getModuleName());
-		$this->assertEquals(array(), AgaviContext::getInstance(null)->getRequest()->getAttribute('matched_routes', 'org.agavi.routing'));
+		$this->assertEquals(array(), $this->getContext()->getRequest()->getAttribute('matched_routes', 'org.agavi.routing'));
 	}
 	
 	public function testExecuteSimpleInput()
 	{
-		$this->routing->setInput('/');
+		$this->routing->forceInput('/');
 		$container = $this->routing->execute();
 		$this->assertEquals(AgaviConfig::get('actions.default_action'), $container->getActionName());
 		$this->assertEquals(AgaviConfig::get('actions.default_module'), $container->getModuleName());
-		$this->assertEquals(array('index'), AgaviContext::getInstance(null)->getRequest()->getAttribute('matched_routes', 'org.agavi.routing'));
+		$this->assertEquals(array('index'), $this->getContext()->getRequest()->getAttribute('matched_routes', 'org.agavi.routing'));
 	}
 	
 	public function testExecuteUserAuthenticated()
 	{
-		$ctx = AgaviContext::getInstance(null);
+		$ctx = $this->getContext();
 		$ctx->getUser()->setAuthenticated(true);
-		$this->routing->setInput('/');
+		$this->routing->forceInput('/');
 		$container = $this->routing->execute();
 		$this->assertEquals('LoggedIn', $container->getActionName());
 		$this->assertEquals('Auth', $container->getModuleName());
@@ -65,21 +88,22 @@ class AgaviRoutingTest extends AgaviPhpUnitTestCase
 	public function testExecuteServer()
 	{	
 		$_SERVER['routing_test'] = 'foo';
-		$ctx = AgaviContext::getInstance(null);
-		$this->routing->setInput('/');
+		$ctx = $this->getContext();
+		$this->routing->forceInput('/');
 		$this->routing->setRoutingSource('_SERVER', $_SERVER);
 		$container = $this->routing->execute();
 		$this->assertEquals('Matched', $container->getActionName());
 		$this->assertEquals('Server', $container->getModuleName());
 		$this->assertEquals(array('server'), $ctx->getRequest()->getAttribute('matched_routes', 'org.agavi.routing'));
+		// Clean up
+		unset($_SERVER['routing_test']);
 	}
-	
-	public function testExecuteRandomSource()
-	{	
+		public function testExecuteRandomSource()
+	{
 		$data = array();
 		$data['bar'] = 'foo';
-		$ctx = AgaviContext::getInstance(null);
-		$this->routing->setInput('/');
+		$ctx = $this->getContext();
+		$this->routing->forceInput('/');
 		$this->routing->setRoutingSource('testingsource', $data);
 		$container = $this->routing->execute();
 		$this->assertEquals('Matched', $container->getActionName());
@@ -90,8 +114,8 @@ class AgaviRoutingTest extends AgaviPhpUnitTestCase
 	/*
 	public function testExecuteNonexistantSource()
 	{	
-		$ctx = AgaviContext::getInstance(null);
-		$this->routing->setInput('/');
+		$ctx = $this->getContext();
+		$this->routing->forceInput('/');
 		$container = $this->routing->execute();
 		$this->assertEquals('Matched', $container->getActionName());
 		$this->assertEquals('TestingSource', $container->getModuleName());
@@ -100,10 +124,10 @@ class AgaviRoutingTest extends AgaviPhpUnitTestCase
 
 	public function testMatchWithParam()
 	{
-		$ctx = AgaviContext::getInstance(null);
-		$this->routing->setInput('/withparam/5');
+		$ctx = $this->getContext();
+		$this->routing->forceInput('/withparam/5');
 		$container = $this->routing->execute();
-		$this->assertEquals(array('with_param'), AgaviContext::getInstance(null)->getRequest()->getAttribute('matched_routes', 'org.agavi.routing'));
+		$this->assertEquals(array('with_param'), $this->getContext()->getRequest()->getAttribute('matched_routes', 'org.agavi.routing'));
 		$this->assertEquals(5, $ctx->getRequest()->getRequestData()->getParameter('number'));
 		$this->assertEquals('MatchedParam', $container->getActionName());
 		$this->assertEquals('TestWithParam', $container->getModuleName());
@@ -111,10 +135,10 @@ class AgaviRoutingTest extends AgaviPhpUnitTestCase
 	
 	public function testMatchWithMultipleParams()
 	{
-		$ctx = AgaviContext::getInstance(null);
-		$this->routing->setInput('/withmultipleparams/5/foo');
+		$ctx = $this->getContext();
+		$this->routing->forceInput('/withmultipleparams/5/foo');
 		$container = $this->routing->execute();
-		$this->assertEquals(array('with_two_params'), AgaviContext::getInstance(null)->getRequest()->getAttribute('matched_routes', 'org.agavi.routing'));
+		$this->assertEquals(array('with_two_params'), $this->getContext()->getRequest()->getAttribute('matched_routes', 'org.agavi.routing'));
 		$this->assertEquals(5, $ctx->getRequest()->getRequestData()->getParameter('number'));
 		$this->assertEquals('foo', $ctx->getRequest()->getRequestData()->getParameter('string'));
 		$this->assertEquals('MatchedMultipleParams', $container->getActionName());
@@ -123,27 +147,30 @@ class AgaviRoutingTest extends AgaviPhpUnitTestCase
 	
 	public function testOnNotMatched()
 	{
-		$this->routing->setInput('/callbacks/on_not_matched/callback_stopper');
+		$this->routing->forceInput('/callbacks/on_not_matched/callback_stopper');
+		$exceptionThrown = false;
 		try {
 			$container = $this->routing->execute();
 		} catch (AgaviException $e) {
+			$exceptionThrown = true;
 			$this->assertEquals('Not Matched', $e->getMessage());
 		}
+		$this->assertTrue($exceptionThrown, 'Expected AgaviException with "Not Matched" message was not thrown');
 	}
 	
 	public function testNonMatchingCallback()
 	{
-		$this->routing->setInput('/callbacks/nonmatching_callback');
+		$this->routing->forceInput('/callbacks/nonmatching_callback');
 		$container = $this->routing->execute();
-		$this->assertEquals(array('callbacks'), AgaviContext::getInstance(null)->getRequest()->getAttribute('matched_routes', 'org.agavi.routing'));
+		$this->assertEquals(array('callbacks'), $this->getContext()->getRequest()->getAttribute('matched_routes', 'org.agavi.routing'));
 		$this->assertEquals(AgaviConfig::get('actions.error_404_module'), $container->getModuleName());
 		$this->assertEquals(AgaviConfig::get('actions.error_404_action'), $container->getActionName());
 	}
 	
 	public function testMatchingCallback()
 	{
-		$ctx = AgaviContext::getInstance(null);
-		$this->routing->setInput('/callbacks/matching_callback');
+		$ctx = $this->getContext();
+		$this->routing->forceInput('/callbacks/matching_callback');
 		$container = $this->routing->execute();
 		$this->assertEquals(array('callbacks', 'callbacks.matching_callback'), $ctx->getRequest()->getAttribute('matched_routes', 'org.agavi.routing'));
 		$this->assertEquals('Callback', $container->getModuleName());
@@ -153,24 +180,28 @@ class AgaviRoutingTest extends AgaviPhpUnitTestCase
 	
 	public function testOnNotMatchedStopper()
 	{
-		$this->routing->setInput('/callbacks/stopper');
+		$this->routing->forceInput('/callbacks/stopper');
+		$exceptionThrown = false;
 		try {
 			$container = $this->routing->execute();
 		} catch (AgaviException $e) {
+			$exceptionThrown = true;
 			$this->fail('The onNotMatched callback of the childroute should not get called');
 		}
+		$this->assertFalse($exceptionThrown, 'No exception should have been thrown');
 	}
 	
 	/**
-	 * @dataProvider dataParseRouteString
+	 * 
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('dataParseRouteString')]
 	public function testParseRouteString($routeString, $expected)
 	{
 		$parsed = $this->routing->parseRouteString($routeString);
 		$this->assertEquals($expected, $parsed);
 	}
 	
-	public function dataParseRouteString()
+	public static function dataParseRouteString()
 	{
 		return array(
 			'escaped_balanced' => array(
@@ -213,16 +244,16 @@ class AgaviRoutingTest extends AgaviPhpUnitTestCase
 	
 	public function testTicket764()
 	{
-		$this->routing->setInput('/test_ticket_764/dummy/child');
+		$this->routing->forceInput('/test_ticket_764/dummy/child');
 		$container = $this->routing->execute();
 		$this->assertEquals('Default', $container->getModuleName());
 		$this->assertEquals('Foo/Bar', $container->getActionName());
 	}
 	
 	public function testEmptyDefaultValue() {
-		$this->routing->setInput('/empty_default_value');
+		$this->routing->forceInput('/empty_default_value');
 		$container = $this->routing->execute();
-		$rd = AgaviContext::getInstance(null)->getRequest()->getRequestData();
+		$rd = $this->getContext()->getRequest()->getRequestData();
 		$this->assertSame('0', $rd->getParameter('value'));
 	}
 }

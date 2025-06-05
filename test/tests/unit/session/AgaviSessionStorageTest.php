@@ -1,11 +1,14 @@
 <?php
 
+use Agavi\Testing\AgaviUnitTestCase;
+use Agavi\AgaviContext;
+use Agavi\Storage\AgaviSessionStorage;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
+
 class AgaviSessionStorageTest extends AgaviUnitTestCase
 {
 	
-	/**
-	 * @runInSeparateProcess
-	 */
+	#[RunInSeparateProcess]
 	public function testStartupSetsCookieSecureFlag()
 	{
 		// test for bug #1541
@@ -18,9 +21,7 @@ class AgaviSessionStorageTest extends AgaviUnitTestCase
 		$this->assertTrue($cookieParams['secure']);
 	}
 
-	/**
-	 * @runInSeparateProcess
-	 */
+	#[RunInSeparateProcess]
 	public function testStaticSessionId()
 	{
 		$context = AgaviContext::getInstance('agavi-session-storage-test::tests-static-session-id');

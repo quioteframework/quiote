@@ -1,0 +1,13 @@
+<?php
+
+use Agavi\Action\AgaviAction;
+
+/**
+ * The base action from which all project actions inherit.
+ */
+class SandboxBaseAction extends AgaviAction
+{
+
+}
+
+?>

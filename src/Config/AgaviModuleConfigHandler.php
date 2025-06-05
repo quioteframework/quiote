@@ -94,13 +94,13 @@ class AgaviModuleConfigHandler extends AgaviXmlConfigHandler
 		
 		$code = [];
 		$code[] = '$lcModuleName = strtolower($moduleName);';
-		$code[] = 'AgaviConfig::set(AgaviToolkit::expandVariables(' . var_export($prefix . 'enabled', true) . ', array(\'moduleName\' => $lcModuleName)), ' . var_export($enabled, true) . ', true, true);';
+		$code[] = 'Agavi\Config\AgaviConfig::set(Agavi\Util\AgaviToolkit::expandVariables(' . var_export($prefix . 'enabled', true) . ', array(\'moduleName\' => $lcModuleName)), ' . var_export($enabled, true) . ', true, true);';
 		if(count($data)) {
 			$code[] = '$moduleConfig = ' . var_export($data, true) . ';';
 			$code[] = '$moduleConfigKeys = array_keys($moduleConfig);';
-			$code[] = 'foreach($moduleConfigKeys as &$value) $value = AgaviToolkit::expandVariables($value, array(\'moduleName\' => $lcModuleName));';
+			$code[] = 'foreach($moduleConfigKeys as &$value) $value = Agavi\Util\AgaviToolkit::expandVariables($value, array(\'moduleName\' => $lcModuleName));';
 			$code[] = '$moduleConfig = array_combine($moduleConfigKeys, $moduleConfig);';
-			$code[] = 'AgaviConfig::fromArray($moduleConfig);';
+			$code[] = 'Agavi\Config\AgaviConfig::fromArray($moduleConfig);';
 		}
 		
 		return $this->generate($code, $config);

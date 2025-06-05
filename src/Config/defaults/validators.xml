@@ -4,59 +4,59 @@
 	<ae:configuration>
 		<validator_definitions>
 			
-			<validator_definition name="and" class="AgaviAndoperatorValidator">
+			<validator_definition name="and" class="Agavi\Validator\AgaviAndoperatorValidator">
 				<ae:parameter name="break">true</ae:parameter>
 			</validator_definition>
 			
-			<validator_definition name="arraylength" class="AgaviArraylengthValidator">
+			<validator_definition name="arraylength" class="Agavi\Validator\AgaviArraylengthValidator">
 				<ae:parameter name="min">1</ae:parameter>
 			</validator_definition>
 			
-			<validator_definition name="boolean" class="AgaviBooleanValidator" />
+			<validator_definition name="boolean" class="Agavi\Validator\AgaviBooleanValidator" />
 			
-			<validator_definition name="datetime" class="AgaviDateTimeValidator">
+			<validator_definition name="datetime" class="Agavi\Validator\AgaviDateTimeValidator">
 				<ae:parameter name="check">true</ae:parameter>
 			</validator_definition>
 			
-			<validator_definition name="email" class="AgaviEmailValidator" />
+			<validator_definition name="email" class="Agavi\Validator\AgaviEmailValidator" />
 			
-			<validator_definition name="equals" class="AgaviEqualsValidator" />
+			<validator_definition name="equals" class="Agavi\Validator\AgaviEqualsValidator" />
 			
-			<validator_definition name="file" class="AgaviFileValidator" />
+			<validator_definition name="file" class="Agavi\Validator\AgaviFileValidator" />
 			
-			<validator_definition name="imagefile" class="AgaviImageFileValidator" />
+			<validator_definition name="imagefile" class="Agavi\Validator\AgaviImageFileValidator" />
 			
-			<validator_definition name="inarray" class="AgaviInarrayValidator">
+			<validator_definition name="inarray" class="Agavi\Validator\AgaviInarrayValidator">
 				<ae:parameter name="sep">,</ae:parameter>
 			</validator_definition>
 			
-			<validator_definition name="isset" class="AgaviIssetValidator" />
+			<validator_definition name="isset" class="Agavi\Validator\AgaviIssetValidator" />
 			
-			<validator_definition name="isnotempty" class="AgaviIsNotEmptyValidator" />
+			<validator_definition name="isnotempty" class="Agavi\Validator\AgaviIsNotEmptyValidator" />
 
-			<validator_definition name="json" class="AgaviJsonValidator" />
+			<validator_definition name="json" class="Agavi\Validator\AgaviJsonValidator" />
 			
-			<validator_definition name="not" class="AgaviNotoperatorValidator" />
+			<validator_definition name="not" class="Agavi\Validator\AgaviNotoperatorValidator" />
 			
-			<validator_definition name="number" class="AgaviNumberValidator">
+			<validator_definition name="number" class="Agavi\Validator\AgaviNumberValidator">
 				<ae:parameter name="type">int</ae:parameter>
 			</validator_definition>
 			
-			<validator_definition name="or" class="AgaviOroperatorValidator">
+			<validator_definition name="or" class="Agavi\Validator\AgaviOroperatorValidator">
 				<ae:parameter name="break">true</ae:parameter>
 			</validator_definition>
 			
-			<validator_definition name="regex" class="AgaviRegexValidator">
+			<validator_definition name="regex" class="Agavi\Validator\AgaviRegexValidator">
 				<ae:parameter name="match">true</ae:parameter>
 			</validator_definition>
 			
-			<validator_definition name="set" class="AgaviSetValidator" />
+			<validator_definition name="set" class="Agavi\Validator\AgaviSetValidator" />
 			
-			<validator_definition name="string" class="AgaviStringValidator">
+			<validator_definition name="string" class="Agavi\Validator\AgaviStringValidator">
 				<ae:parameter name="min">1</ae:parameter>
 			</validator_definition>
 			
-			<validator_definition name="xor" class="AgaviXoroperatorValidator" />
+			<validator_definition name="xor" class="Agavi\Validator\AgaviXoroperatorValidator" />
 			
 		</validator_definitions>
 	</ae:configuration>

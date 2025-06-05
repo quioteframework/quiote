@@ -1,6 +1,10 @@
 <?php
 
-abstract class ConfigHandlerTestBase extends AgaviUnitTestCase
+use Agavi\Testing\AgaviPhpUnitTestCase;
+use Agavi\Config\AgaviConfig;
+use Agavi\Config\AgaviXmlConfigParser;
+
+abstract class ConfigHandlerTestBase extends AgaviPhpUnitTestCase
 {
 	protected function getIncludeFile($code)
 	{

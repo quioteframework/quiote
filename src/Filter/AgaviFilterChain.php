@@ -71,87 +71,40 @@ class AgaviFilterChain
 	 */
 	public function execute($container, ?callable $actionCallback = null)
 	{
-		// DEBUG: Log filter chain execution
-		$debugFile = '/code/log/debug.log';
-		$debugMsg = "[" . date('Y-m-d H:i:s') . "] AgaviFilterChain::execute() for: " . $container->getModuleName() . " / " . $container->getActionName() . "\n";
-		file_put_contents($debugFile, $debugMsg, FILE_APPEND | LOCK_EX);
 		
-		$debugMsg = "[" . date('Y-m-d H:i:s') . "] Pre-filters registered: " . count($this->preFilters) . "\n";
-		file_put_contents($debugFile, $debugMsg, FILE_APPEND | LOCK_EX);
-		
-		foreach($this->preFilters as $name => $filter) {
-			$debugMsg = "[" . date('Y-m-d H:i:s') . "] - Pre-filter: $name (" . get_class($filter) . ")\n";
-			file_put_contents($debugFile, $debugMsg, FILE_APPEND | LOCK_EX);
-		}
-		
-		$debugMsg = "[" . date('Y-m-d H:i:s') . "] Post-filters registered: " . count($this->postFilters) . "\n";
-		file_put_contents($debugFile, $debugMsg, FILE_APPEND | LOCK_EX);
-		
-		foreach($this->postFilters as $name => $filter) {
-			$debugMsg = "[" . date('Y-m-d H:i:s') . "] - Post-filter: $name (" . get_class($filter) . ")\n";
-			file_put_contents($debugFile, $debugMsg, FILE_APPEND | LOCK_EX);
-		}
-
 		$logger = null;
 		if (method_exists($container, 'getContext') && $container->getContext() && method_exists($container->getContext(), 'getLoggerManager') && $container->getContext()->getLoggerManager()) {
 			$logger = $container->getContext()->getLoggerManager();
 		}
-		$log = function($msg) use ($logger): void {
-			if ($logger) {
-				$logger->logDebug($msg);
-			} else {
-				error_log($msg);
-			}
-		};
-
-		$log("AgaviFilterChain::execute() start for: " . $container->getModuleName() . " / " . $container->getActionName());
-
+		
 		// Execute pre-filters, but stop if any sets a forward container
 		foreach($this->preFilters as $name => $filter) {
-			$log("Executing pre-filter: $name (" . $filter::class . ")");
-			$debugMsg = "[" . date('Y-m-d H:i:s') . "] EXECUTING FILTER: $name (" . get_class($filter) . ")\n";
-			file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
-			
 			// Check forward container status BEFORE filter execution
 			$nextBefore = $container->getNext();
 			$debugMsg = "[" . date('Y-m-d H:i:s') . "] BEFORE $name: forward container = " . ($nextBefore ? $nextBefore->getModuleName() . "/" . $nextBefore->getActionName() : "NULL") . "\n";
-			file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
 			
 			// Execute the filter (this simplified version doesn't pass the filter chain)
 			$filter->execute($this, $container);
 			
 			// Check forward container status AFTER filter execution
 			$nextAfter = $container->getNext();
-			$debugMsg = "[" . date('Y-m-d H:i:s') . "] AFTER $name: forward container = " . ($nextAfter ? $nextAfter->getModuleName() . "/" . $nextAfter->getActionName() : "NULL") . "\n";
-			file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
 			
 			// If a filter set a forward container, stop executing further filters
 			if ($container->getNext() !== null) {
-				$debugMsg = "[" . date('Y-m-d H:i:s') . "] Filter $name set forward container, stopping filter chain\n";
-				file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
-				$log("Forward container detected after $name, stopping filter execution");
 				return; // Don't execute action or post-filters
 			}
 		}
 		
 		// Execute action only if no forward container was set
 		if ($container->getNext() === null && $actionCallback !== null) {
-			$log("Executing action callback");
-			$debugMsg = "[" . date('Y-m-d H:i:s') . "] EXECUTING ACTION: " . $container->getModuleName() . "/" . $container->getActionName() . "\n";
-			file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
 			$actionCallback($container);
-		} else if ($container->getNext() !== null) {
-			$log("Forward container detected, skipping action callback");
-			$debugMsg = "[" . date('Y-m-d H:i:s') . "] SKIPPING ACTION: forward to " . $container->getNext()->getModuleName() . "/" . $container->getNext()->getActionName() . "\n";
-			file_put_contents('/code/log/debug.log', $debugMsg, FILE_APPEND | LOCK_EX);
-		}
+		} 
 		
 		// Execute post-filters
 		foreach($this->postFilters as $name => $filter) {
-			$log("Executing post-filter: $name (" . $filter::class . ")");
 			$filter->execute($this, $container);
 		}
-		$log("AgaviFilterChain::execute() end for: " . $container->getModuleName() . " / " . $container->getActionName());
+		
 	}
 
 	public function initialize($context, $parameters = [])

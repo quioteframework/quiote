@@ -13,6 +13,9 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 
+use Agavi\Routing\AgaviWebRouting;
+use Agavi\Routing\AgaviRoutingArraySource;
+
 /**
  * AgaviTestingRouting allows access to some internal routing properties and
  * extends the abtract base class to make it testable.
@@ -40,7 +43,7 @@ class AgaviTestingWebRouting extends AgaviWebRouting
 		if(null === $type) {
 			$type = 'AgaviRoutingArraySource';
 		}
-		$this->sources[$name] = new $type($data);
+		$this->sources[$name] = new AgaviRoutingArraySource($data);
 	}
 	
 	public function setInputParameters(array $parameters)

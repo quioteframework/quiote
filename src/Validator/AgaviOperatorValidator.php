@@ -14,6 +14,9 @@
 // +---------------------------------------------------------------------------+
 namespace Agavi\Validator;
 
+use Agavi\Request\AgaviRequestDataHolder;
+use InvalidArgumentException;
+
 /**
  * AgaviOperatorValidator
  * 

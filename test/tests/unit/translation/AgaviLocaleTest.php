@@ -1,5 +1,7 @@
 <?php
 
+use Agavi\Testing\AgaviUnitTestCase;
+
 class AgaviLocaleTest extends AgaviUnitTestCase
 {
 	

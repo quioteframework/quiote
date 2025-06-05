@@ -1,12 +1,16 @@
 <?php
 
+use Agavi\Controller\AgaviOutputType;
+use Agavi\Testing\AgaviUnitTestCase;
+use Agavi\Response\AgaviResponse;
+
 class SampleResponse extends AgaviResponse
 {
 	public function clear()
 	{
 	}
 
-	public function send(AgaviOutputType $ot = null)
+	public function send(?AgaviOutputType $ot = null)
 	{
 	}
 	
@@ -35,7 +39,7 @@ class AgaviResponseTest extends AgaviUnitTestCase
 {
 	private $_r = null;
 
-	public function setUp()
+	public function setUp(): void
 	{
 		$this->_r = new SampleResponse();
 		$this->_r->initialize($this->getContext());

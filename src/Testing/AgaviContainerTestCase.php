@@ -13,6 +13,8 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 
+namespace Agavi\Testing;
+
 /**
  * AgaviContainerTestCase is the base class for all tests that target a specific
  * container execution and provides the necessary assertions

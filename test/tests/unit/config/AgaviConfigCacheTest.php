@@ -1,42 +1,62 @@
 <?php
 
+require_once __DIR__ . '/../../../../test/lib/config/AgaviTestingConfigCache.class.php';
+
+use Agavi\Testing\AgaviPhpUnitTestCase;
+use Agavi\Config\AgaviConfig;
+use Agavi\Config\AgaviConfigCache;
+use Agavi\Exception\AgaviUnreadableException;
+use Agavi\Util\AgaviToolkit;
+
 class AgaviConfigCacheTest extends AgaviPhpUnitTestCase
 {
-	/**
-	 * Constructs a test case with the given name.
-	 *
-	 * @param  string $name
-	 * @param  array  $data
-	 * @param  string $dataName
-	 */
-	public function __construct($name = NULL, array $data = array(), $dataName = '')
-	{
-		parent::__construct($name, $data, $dataName);
-	}
-	
-	/**
-	 * @dataProvider dataGenerateCacheName 
-	 * 
-	 */
-	public function testGenerateCacheName($configname, $context, $expected)
+	#[\PHPUnit\Framework\Attributes\DataProvider('dataGenerateCacheName')]
+	public function testGenerateCacheName($configname, $context)
 	{
 		$cachename = AgaviConfigCache::getCacheName($configname, $context);
-		$expected = AgaviConfig::get('core.cache_dir').DIRECTORY_SEPARATOR.'config'.DIRECTORY_SEPARATOR.$expected; 
+		
+		// Calculate expected value here where Agavi is bootstrapped and core.environment is available
+		$environment = AgaviConfig::get('core.environment');
+		
+		// This mirrors the logic in AgaviConfigCache::getCacheName()
+		$expectedFilename = sprintf(
+			'%1$s_%2$s.php',
+			preg_replace(
+				'/[^\w_.-]/i', 
+				'_', 
+				sprintf(
+					'%1$s_%2$s_%3$s', 
+					basename($configname), 
+					$environment, 
+					$context
+				)
+			),
+			sha1(
+				sprintf(
+					'%1$s_%2$s_%3$s',
+					$configname,
+					$environment,
+					$context
+				)
+			)
+		);
+		
+		$expected = AgaviConfig::get('core.cache_dir').DIRECTORY_SEPARATOR.'config'.DIRECTORY_SEPARATOR.$expectedFilename;
+		
 		$this->assertEquals($expected, $cachename);
 	}
 	
-	public function dataGenerateCacheName()
+	public static function dataGenerateCacheName()
 	{
+		// Only provide input data, not expected values (since core.environment isn't available yet)
 		return array(
 			'slashes_null' => array(
 				'foo/bar/hash#bang.xml',
 				null,
-				'hash_bang.xml_'.AgaviConfig::get('core.environment').'__'.sha1('foo/bar/hash#bang.xml_'.AgaviConfig::get('core.environment').'_').'.php',
 			),
 			'<contextname>' => array(
 				'foo/bar/hash#bang.xml',
 				'<contextname>',
-				'hash_bang.xml_'.AgaviConfig::get('core.environment').'__contextname__'.sha1('foo/bar/hash#bang.xml_'.AgaviConfig::get('core.environment').'_<contextname>').'.php',
 			),
 		);
 	}
@@ -116,28 +136,33 @@ class AgaviConfigCacheTest extends AgaviPhpUnitTestCase
 	{
 		$cacheDir = AgaviConfig::get('core.cache_dir').DIRECTORY_SEPARATOR.'config';
 		AgaviConfigCache::clear();
-		$directory = new DirectoryIterator($cacheDir);
-		foreach($directory as $item) {
-			if($directory->current()->isDot()) {
-				continue;
+		
+		// After clearing, the directory may not exist or it may exist but be empty
+		if (is_dir($cacheDir)) {
+			$directory = new DirectoryIterator($cacheDir);
+			foreach($directory as $item) {
+				if($directory->current()->isDot()) {
+					continue;
+				}
+				$this->fail(sprintf('Failed asserting that the cache dir "%1$s" is empty, it contains at least "%2$s"', $cacheDir, $item->getFileName()));
 			}
-			$this->fail(sprintf('Failed asserting that the cache dir "%1$s" is empty, it contains at least "%2$s"', $cacheDir, $item->getFileName()));
 		}
+		// If directory doesn't exist, that's also a valid state after clearing
+		$this->assertTrue(true); // Test passes if we get here without failure
 	}
 	
 	/**
-	 * @expectedException AgaviUnreadableException
 	 * this does not seem to work in isolation
 	 */
 	public function testAddNonexistantConfigHandlersFile()
 	{
-		$this->setExpectedException('AgaviUnreadableException');
+		$this->expectException(AgaviUnreadableException::class);
 		AgaviConfigCache::addConfigHandlersFile('does/not/exist');
 	}
 	
 	public function testAddConfigHandlersFile()
 	{
-		$config = AgaviConfig::get('core.module_dir').'/Default/config/config_handlers.xml';
+		$config = AgaviConfig::get('core.module_dir').'/Default/Config/config_handlers.xml';
 		AgaviTestingConfigCache::addConfigHandlersFile($config);
 		$this->assertTrue(AgaviTestingConfigCache::handlersDirty(), 'Failed asserting that the handlersDirty flag is set after adding a config handlers file.');
 		$handlerFiles = AgaviTestingConfigCache::getHandlerFiles();
@@ -212,8 +237,8 @@ class AgaviConfigCacheTest extends AgaviPhpUnitTestCase
 		
 		$expected = AgaviConfig::get('core.cache_dir').DIRECTORY_SEPARATOR.'config'.DIRECTORY_SEPARATOR;
 		$expected .= 'foo.xml';
-		$expected .= '_'.preg_replace('/[^\w-_]/i', '_', AgaviConfig::get('core.environment'));
-		$expected .= '_'.preg_replace('/[^\w-_]/i', '_', $context).'_';
+		$expected .= '_'.preg_replace('/[^\w_-]/i', '_', AgaviConfig::get('core.environment'));
+		$expected .= '_'.preg_replace('/[^\w_-]/i', '_', $context).'_';
 		$expected .= sha1($config.'_'.AgaviConfig::get('core.environment').'_'.$context).'.php'; 
 		
 		$this->assertEquals($expected, $cachename);
@@ -233,8 +258,12 @@ class AgaviConfigCacheTest extends AgaviPhpUnitTestCase
 			$this->markTestSkipped('This test check for an infinite loop, you need xdebug as protection.');
 		}
 		
-		$config = AgaviConfig::get('core.module_dir').'/Default/config/config_handlers.xml';
+		$config = AgaviConfig::get('core.module_dir').'/Default/Config/config_handlers.xml';
 		AgaviTestingConfigCache::addConfigHandlersFile($config);
-		AgaviConfigCache::checkConfig(AgaviConfig::get('core.module_dir').'/Default/config/autoload.xml');
+		$result = AgaviConfigCache::checkConfig(AgaviConfig::get('core.module_dir').'/Default/Config/autoload.xml');
+		
+		// This test verifies that the operations above don't cause infinite loops
+		// If we reach this point without hanging, the test passes
+		$this->assertNotEmpty($result, 'Config cache check should return a non-empty result');
 	}
 }

@@ -13,6 +13,9 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 namespace Agavi\Util;
+
+use InvalidArgumentException;
+
 /**
  * AgaviAttributeHolder provides a base class for managing attributes with
  * namespaces. It contains all the functionality AgaviParameterHolder provides.

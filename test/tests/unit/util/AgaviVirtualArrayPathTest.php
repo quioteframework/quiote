@@ -1,20 +1,11 @@
 <?php
-if(!class_exists('AgaviVirtualArrayPath')) {
-	include(__DIR__ . '/../../../../src/util/AgaviVirtualArrayPath.class.php');
-}
 
-if(!class_exists('AgaviArrayPathDefinition')) {
-	include(__DIR__ . '/../../../../src/util/AgaviArrayPathDefinition.class.php');
-}
+use Agavi\Testing\AgaviPhpUnitTestCase;
+use Agavi\Util\AgaviVirtualArrayPath;
+use Agavi\Util\AgaviArrayPathDefinition;
 
 class AgaviVirtualArrayPathTest extends AgaviPhpUnitTestCase
 {
-
-	public function __construct($name = NULL, array $data = array(), $dataName = '')
-	{
-		parent::__construct($name, $data, $dataName);
-		// $this->setRunTestInSeparateProcess(true);
-	}
 
 	public function testIsAbsolute()
 	{

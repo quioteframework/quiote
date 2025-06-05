@@ -14,6 +14,9 @@
 // +---------------------------------------------------------------------------+
 namespace Agavi\Validator;
 
+use Agavi\Config\AgaviConfig;
+use Agavi\Util\AgaviDecimalFormatter;
+
 /**
  * AgaviNumberValidator verifies that a parameter is a number and allows you to
  * apply size constraints.

@@ -1,23 +1,13 @@
 <?php
 
-if(!class_exists('AgaviParameterHolder')) {
-	include(__DIR__ . '/../../../../src/util/AgaviParameterHolder.class.php');
-}
-
-if(!class_exists('AgaviArrayPathDefinition')) {
-	include(__DIR__ . '/../../../../src/util/AgaviArrayPathDefinition.class.php');
-}
+use Agavi\Testing\AgaviPhpUnitTestCase;
+use Agavi\Util\AgaviParameterHolder;
+use Agavi\Util\AgaviArrayPathDefinition;
 
 //class AgaviParameterHolderTest extends AgaviUnitTestCase
 class AgaviParameterHolderTest extends AgaviPhpUnitTestCase
 {
 	
-	public function __construct($name = NULL, array $data = array(), $dataName = '')
-	{
-		parent::__construct($name, $data, $dataName);
-		// $this->setRunTestInSeparateProcess(true);
-	}
-
 	public function testConstructAndGetParameters()
 	{
 		$data = array('foo' => 'bar', 'bar' => 'baz', 'baz' => 'qux');

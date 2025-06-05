@@ -146,7 +146,7 @@ abstract class AgaviView
 	public function createLayer($class, $name, $renderer = null)
 	{
 		$layer = new $class();
-		if(!is_subclass_of($layer, 'AgaviTemplateLayer')) {
+		if(!is_subclass_of($layer, 'Agavi\\View\\AgaviTemplateLayer')) {
 			throw new AgaviViewException('Class "$class" is not a subclass of AgaviTemplateLayer');
 		}
 		$layer->initialize($this->context, ['name' => $name, 'module' => $this->container->getViewModuleName(), 'template' => $this->container->getViewName(), 'output_type' => $this->container->getOutputType()->getName()]);

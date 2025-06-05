@@ -1,5 +1,9 @@
 <?php
 
+use Agavi\Testing\AgaviUnitTestCase;
+use Agavi\Logging\AgaviLoggerLayout;
+use Agavi\Logging\AgaviLoggerMessage;
+
 class SampleLayout extends AgaviLoggerLayout
 {
 	public function format(AgaviLoggerMessage $message)

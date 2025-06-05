@@ -1,4 +1,8 @@
-<?php 
+<?php
+
+use Agavi\Request\AgaviWebRequestDataHolder;
+use Agavi\Testing\AgaviViewTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class Products_Product_ViewSuccessViewTest extends AgaviViewTestCase
 {
@@ -12,15 +16,13 @@ class Products_Product_ViewSuccessViewTest extends AgaviViewTestCase
 		$this->viewName   = 'Success';
 	}
 	
-	/**
-	 * @dataProvider supportedOtProvider
-	 */
+	#[DataProvider('supportedOtProvider')]
 	public function testHandlesOutputType($ot_name)
 	{
 		$this->assertHandlesOutputType($ot_name);
 	}
 	
-	public function supportedOtProvider()
+	public static function supportedOtProvider()
 	{
 		return array(
 			'html'   => array('html'),

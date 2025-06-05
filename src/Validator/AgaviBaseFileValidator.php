@@ -14,6 +14,11 @@
 // +---------------------------------------------------------------------------+
 namespace Agavi\Validator;
 
+use Agavi\AgaviContext;
+use Agavi\Exception\AgaviValidatorException;
+use Agavi\Request\AgaviUploadedFile;
+use Agavi\Request\AgaviWebRequestDataHolder;
+
 /**
  * AgaviBaseFileValidator is the base validator when validating files. 
  * It provides checking of the size and extension of a file for implementing 

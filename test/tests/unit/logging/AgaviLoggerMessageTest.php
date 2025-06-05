@@ -1,5 +1,9 @@
 <?php
 
+use Agavi\Logging\AgaviLogger;
+use Agavi\Logging\AgaviLoggerMessage;
+use Agavi\Testing\AgaviUnitTestCase;
+
 class AgaviLoggerMessageTest extends AgaviUnitTestCase
 {
 	public function testConstructor()

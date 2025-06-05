@@ -1,9 +1,16 @@
 <?php
 
+use Agavi\Exception\AgaviValidatorException;
+use Agavi\Testing\AgaviPhpUnitTestCase;
+use Agavi\Validator\AgaviValidator;
+use Agavi\Util\AgaviVirtualArrayPath;
+use Agavi\Request\AgaviRequestDataHolder;
+
 class SampleValidator extends AgaviValidator
 {
 	public $bases = array();
 	public $val_result = true;
+	private $AffectedFieldNames;
 
 	protected function validate() { return $this->val_result; }
 	
@@ -41,12 +48,12 @@ class AgaviValidatorTest extends BaseValidatorTest
 {
 	private $_vm = null;
 					
-	public function setUp()
+	public function setUp(): void
 	{
 		$this->_vm = $this->getContext()->createInstanceFor('validation_manager');
 	}
 
-	public function tearDown()
+	public function tearDown(): void
 	{
 		$this->_vm = null;
 	}
@@ -108,10 +115,10 @@ class AgaviValidatorTest extends BaseValidatorTest
 
 		$res = $this->executeValidator('ExportingSampleValidator', 'test', array(), array(
 			'export'          => 'foo',
-			'export_severity' => 'AgaviValidator::NOT_PROCESSED',
+			'export_severity' => -1, // Use the actual value instead of a string
 		));
 		$ar = $res['vm']->getReport()->getArgumentResults();
-		$this->assertEquals($ar['parameters/foo'][0]['severity'], AgaviValidator::NOT_PROCESSED);
+		$this->assertEquals($ar['parameters/foo'][0]['severity'], -1);
 	}
 }
 

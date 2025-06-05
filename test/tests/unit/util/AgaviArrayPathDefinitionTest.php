@@ -1,20 +1,21 @@
 <?php
 
-class AgaviArrayPathDefintionTest extends AgaviPhpUnitTestCase
+use Agavi\Testing\AgaviPhpUnitTestCase;
+use Agavi\Util\AgaviArrayPathDefinition;
+
+class AgaviArrayPathDefinitionTest extends AgaviPhpUnitTestCase
 {
 	
-	/**
-	 * @dataProvider getPathPartData
-	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('getPathPartData')]
 	public function testGetPartsFromPath($path, $expected, $expectedException)
 	{
 		if(!empty($expectedException)) {
-			$this->setExpectedException($expectedException);
+			$this->expectException($expectedException);
 		}
 		$this->assertEquals($expected, AgaviArrayPathDefinition::getPartsFromPath($path));
 	}
 	
-	public function getPathPartData()
+	public static function getPathPartData()
 	{
 		return array(
 			'absolute,nopath' => array(
@@ -80,7 +81,7 @@ class AgaviArrayPathDefintionTest extends AgaviPhpUnitTestCase
 					),
 					'absolute' => true,
 				),
-				'InvalidArgumentException',
+				'\InvalidArgumentException',
 			),
 			'brokenpath-2' => array(
 				'absolute[broken]]',
@@ -91,7 +92,7 @@ class AgaviArrayPathDefintionTest extends AgaviPhpUnitTestCase
 					),
 					'absolute' => true,
 				),
-				'InvalidArgumentException',
+				'\InvalidArgumentException',
 			),
 			'brokenpath-3' => array(
 				'absolute[[broken]',
@@ -102,7 +103,7 @@ class AgaviArrayPathDefintionTest extends AgaviPhpUnitTestCase
 					),
 					'absolute' => true,
 				),
-				'InvalidArgumentException',
+				'\InvalidArgumentException',
 			),
 			'partStartsWithZero,ticket1189' => array(
 				'0[1]',

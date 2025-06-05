@@ -1,5 +1,8 @@
 <?php
 
+use Agavi\Routing\AgaviIRoutingValue;
+use Agavi\Routing\AgaviRoutingCallback;
+
 class GenObjectRoutingCallback extends AgaviRoutingCallback
 {
 	/**
