@@ -1,8 +1,9 @@
 <?php
+namespace Sandbox\Modules\ControllerTests\Models;
 
 use Agavi\Model\AgaviModel;
 
-class ControllerTests_ControllerTestModel extends AgaviModel extends AgaviModel
+class ControllerTestModel extends AgaviModel
 {
 }
 

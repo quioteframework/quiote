@@ -1,6 +1,10 @@
 <?php
+namespace Sandbox\Modules\Default\Views;
 
-class Default_IndexSuccessView extends SandboxDefaultBaseView
+use Agavi\Request\AgaviRequestDataHolder;
+use Sandbox\Modules\Default\Lib\View\SandboxDefaultBaseView;
+
+class IndexSuccessView extends SandboxDefaultBaseView
 {
 	public function executeHtml(AgaviRequestDataHolder $rd)
 	{

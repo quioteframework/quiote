@@ -1,9 +1,10 @@
 <?php
+namespace Sandbox\Modules\ControllerTests\Actions;
 
 use Agavi\Action\AgaviAction;
 use Agavi\Renderer\AgaviRenderer;
 
-class ControllerTests_ControllerTestAction extends AgaviAction
+class ControllerTestAction extends AgaviAction
 {
     public function execute(?AgaviRenderer $renderer = null)
     {

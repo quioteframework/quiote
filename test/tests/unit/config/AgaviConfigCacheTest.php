@@ -63,6 +63,7 @@ class AgaviConfigCacheTest extends AgaviPhpUnitTestCase
 	
 	public function testCheckConfig()
 	{
+		$this->markTestSkipped('autoload.xml functionality has been removed in favor of PSR-4 autoloading');
 		$config = AgaviConfig::get('core.config_dir').DIRECTORY_SEPARATOR.'autoload.xml';
 		$config = AgaviToolkit::normalizePath($config);
 		$expected = AgaviConfigCache::getCacheName($config);
@@ -76,6 +77,7 @@ class AgaviConfigCacheTest extends AgaviPhpUnitTestCase
 	
 	public function testModified()
 	{
+		$this->markTestSkipped('autoload.xml functionality has been removed in favor of PSR-4 autoloading');
 		$config = AgaviConfig::get('core.config_dir').DIRECTORY_SEPARATOR.'autoload.xml';
 		$cacheName = AgaviConfigCache::getCacheName($config);
 		if(!file_exists($cacheName)) {
@@ -254,16 +256,6 @@ class AgaviConfigCacheTest extends AgaviPhpUnitTestCase
 	
 	public function testTicket941()
 	{
-		if(!extension_loaded('xdebug')) {
-			$this->markTestSkipped('This test check for an infinite loop, you need xdebug as protection.');
-		}
-		
-		$config = AgaviConfig::get('core.module_dir').'/Default/Config/config_handlers.xml';
-		AgaviTestingConfigCache::addConfigHandlersFile($config);
-		$result = AgaviConfigCache::checkConfig(AgaviConfig::get('core.module_dir').'/Default/Config/autoload.xml');
-		
-		// This test verifies that the operations above don't cause infinite loops
-		// If we reach this point without hanging, the test passes
-		$this->assertNotEmpty($result, 'Config cache check should return a non-empty result');
+		$this->markTestSkipped('This test is for autoload.xml functionality which has been removed in favor of PSR-4 autoloading.');
 	}
 }

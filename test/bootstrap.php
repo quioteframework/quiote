@@ -16,6 +16,8 @@ $srcDir = realpath(__DIR__ . '/../src/');
 \Agavi\Config\AgaviConfig::set('core.system_config_dir', $srcDir . '/Config/defaults/');
 \Agavi\Config\AgaviConfig::set('core.default_context', 'testing');
 \Agavi\Config\AgaviConfig::set('testing.environment', 'testing');
+// Set the namespace prefix for the test environment before any bootstrapping
+\Agavi\Config\AgaviConfig::set('core.namespace_prefix', 'Sandbox');
 
 // Required for both autoloaded and non-autoloaded classes
 // Only load Agavi.php if we're not in an isolated test
@@ -30,14 +32,3 @@ if (!isset($_ENV['AGAVI_ISOLATED_TEST']) && !getenv('AGAVI_ISOLATED_TEST')) {
 // 2. Via their setUp() method for isolated tests with RunInSeparateProcess attributes
 
 // Do not bootstrap here as it interferes with isolation tests
-
-
-// Load non-autoloaded test classes
-require_once(__DIR__ . '/sandbox/app/Lib/Request/TestWebRequest.class.php');
-
-// Load routing test classes
-require_once(__DIR__ . '/lib/routing/AgaviTestingRouting.class.php');
-require_once(__DIR__ . '/lib/routing/AgaviTestingRoutingCallbacks.class.php');
-require_once(__DIR__ . '/lib/config/ImportTestHandler.class.php');
-require_once(__DIR__ . '/lib/config/ImportTestOnceHandler.class.php');
-require_once(__DIR__ . '/lib/validator/DummyValidator.class.php');

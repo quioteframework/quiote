@@ -1,5 +1,7 @@
 <?php
-require_once(dirname(__FILE__) . '/../../../../Lib/View/SandboxBaseView.class.php');
+namespace Sandbox\Modules\ControllerTests\Lib\View;
+
+use Sandbox\Lib\View\SandboxBaseView;
 /**
  * The base view from which all ControllerTests module views inherit.
  */

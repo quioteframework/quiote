@@ -44,5 +44,13 @@
 			"Agavi\\": ["src/"]
 		}
 	},
+	"autoload-dev": {
+		"psr-4": {
+			"Sandbox\\": ["test/sandbox/app/"]
+		},
+		"classmap": [
+			"test/lib/"
+		]
+	},
 	"bin": ["etc/composer/bin/agavi"]
 }

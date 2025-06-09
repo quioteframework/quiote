@@ -1,6 +1,9 @@
 <?php
+namespace Sandbox\Modules\FilterTests\Actions;
 
-class FilterTests_FormPopulationFilterAction extends SandboxFilterTestsBaseAction
+use Sandbox\Modules\FilterTests\Lib\Action\SandboxFilterTestsBaseAction;
+
+class FormPopulationFilterAction extends SandboxFilterTestsBaseAction
 {
 
 }

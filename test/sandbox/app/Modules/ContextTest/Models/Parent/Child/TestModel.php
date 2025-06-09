@@ -1,8 +1,10 @@
 <?php
 
+namespace Sandbox\Modules\ContextTest\Models\Parent\Child;
+
 use Agavi\Model\AgaviModel;
 
-class ContextTest_Parent_Child_TestModel extends AgaviModel
+class TestModel extends AgaviModel
 {
 	
 }

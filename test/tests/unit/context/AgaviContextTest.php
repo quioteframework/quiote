@@ -4,6 +4,12 @@ use Agavi\Testing\AgaviPhpUnitTestCase;
 use Agavi\Testing\Attributes\AgaviIsolationEnvironment;
 use Agavi\AgaviContext;
 use Agavi\Config\AgaviConfig;
+use Sandbox\Models\ContextTest\Child\TestModel as ChildTestModel;
+use Sandbox\Models\ContextTestModel;
+use Sandbox\Models\ContextTestSingletonModel;
+use Sandbox\Modules\ContextTest\Models\TestModel;
+use Sandbox\Modules\ContextTest\Models\TestSingletonModel;
+use Sandbox\Modules\ContextTest\Models\Parent\Child\TestModel as ModuleChildTestModel;
 
 #[AgaviIsolationEnvironment('testing')]
 class AgaviContextTest extends AgaviPhpUnitTestCase
@@ -58,12 +64,12 @@ class AgaviContextTest extends AgaviPhpUnitTestCase
 	
 	public static function dataGetModel() {
 		return array(
-			'global normal model' => array('ContextTest', 'ContextTestModel', false),
-			'global singleton model' => array('ContextTestSingleton', 'ContextTestSingletonModel', true),
-			'global model in child path' => array('ContextTest.Child.Test', 'ContextTest_Child_TestModel', false),
-			'module normal model' => array('Test', 'ContextTest_TestModel', false, 'ContextTest'),
-			'module singleton model' => array('TestSingleton', 'ContextTest_TestSingletonModel', true, 'ContextTest'),
-			'module model in child path' => array('Parent.Child.Test', 'ContextTest_Parent_Child_TestModel', false, 'ContextTest'),
+			'global normal model' => array('ContextTest', ContextTestModel::class, false),
+			'global singleton model' => array('ContextTestSingleton', ContextTestSingletonModel::class, true),
+			'global model in child path' => array('ContextTest.Child.Test', ChildTestModel::class, false),
+			'module normal model' => array('Test', TestModel::class, false, 'ContextTest'),
+			'module singleton model' => array('TestSingleton', TestSingletonModel::class, true, 'ContextTest'),
+			'module model in child path' => array('Parent.Child.Test', ModuleChildTestModel::class, false, 'ContextTest'),
 		);
 	}	
 

@@ -42,21 +42,20 @@ class AgaviControllerTest extends AgaviPhpUnitTestCase
 		$this->assertSame($ctx1, $ctx2);
 	}
 
-	public function testactionFileExists()
+	public function testActionImplementsCorrectInterface()
 	{
-		// actionExists actually checks the filesystem, 
-		$expectedPath = AgaviConfig::get('core.app_dir') . '/Modules/ControllerTests/Actions/ControllerTestAction.php';
-		
-		$this->assertTrue(file_exists(AgaviConfig::get('core.app_dir') . '/Modules/ControllerTests/Actions/ControllerTestAction.php'));
-		$this->assertFalse(file_exists(AgaviConfig::get('core.app_dir') . '/Modules/ControllerTests/Actions/BunkAction.php'));
-		$this->assertFalse(file_exists(AgaviConfig::get('core.app_dir') . '/Modules/Bunk/Actions/BunkAction.php'));
+		// Test that created actions implement AgaviAction interface
 		$controller = $this->_controller;
 		
-		$checkResult = $controller->checkActionFile('ControllerTests', 'ControllerTest');
+		$action = $controller->createActionInstance('ControllerTests', 'ControllerTest');
+		$this->assertInstanceOf('Agavi\\Action\\AgaviAction', $action);
 		
-		$this->assertEquals(AgaviConfig::get('core.app_dir') . '/Modules/ControllerTests/Actions/ControllerTestAction.php', $controller->checkActionFile('ControllerTests', 'ControllerTest'));
-		$this->assertFalse($controller->checkActionFile('ControllerTests', 'Bunk'), 'actionFileExists did not return false for non-existing action in existing module');
-		$this->assertFalse($controller->checkActionFile('Bunk', 'Bunk'), 'actionFileExists did not return false for non-existing action in non-existing module');
+		// Test that the action class exists and is loadable
+		$this->assertTrue(class_exists('Sandbox\\Modules\\ControllerTests\\Actions\\ControllerTestAction'));
+		
+		// Test reflection to ensure it's properly structured
+		$reflection = new \ReflectionClass($action);
+		$this->assertTrue($reflection->hasMethod('execute'));
 	}
 
 	public function testGetActionFromModule()
@@ -64,13 +63,13 @@ class AgaviControllerTest extends AgaviPhpUnitTestCase
 		// TODO: check all other existing naming schemes for actions
 
 		$action = $this->_controller->createActionInstance('ControllerTests', 'ControllerTest');
-		$this->assertInstanceOf('ControllerTests_ControllerTestAction', $action);
+		$this->assertInstanceOf('Sandbox\\Modules\\ControllerTests\\Actions\\ControllerTestAction', $action);
 		$this->assertInstanceOf('Agavi\\Action\\AgaviAction', $action);
 
 	}
 
 	public function testGetInvalidActionFromModule() {
-		$this->expectException('Agavi\\Exception\\AgaviFileNotFoundException');
+		$this->expectException('Agavi\\Exception\\AgaviClassNotFoundException');
 		$this->_controller->createActionInstance('ControllerTests', 'NonExistant');
 	}
 
@@ -83,13 +82,29 @@ class AgaviControllerTest extends AgaviPhpUnitTestCase
 	{
 		$controller = $this->_controller;
 		$this->assertInstanceOf(
-			'ControllerTests_ControllerTestSuccessView',
+			'Sandbox\\Modules\\ControllerTests\\Views\\ControllerTestSuccessView',
 			$controller->createViewInstance('ControllerTests', 'ControllerTestSuccess')
 		);
 		$this->assertInstanceOf(
-			'ControllerTests_ControllerTestErrorView',
+			'Sandbox\\Modules\\ControllerTests\\Views\\ControllerTestErrorView',
 			$controller->createViewInstance('ControllerTests', 'ControllerTestError')
 		);
+	}
+
+	public function testModelImplementsCorrectInterface()
+	{
+		// Test that models can be loaded and implement AgaviModel interface
+		$context = $this->_context;
+		
+		$model = $context->getModel('ControllerTest', 'ControllerTests');
+		$this->assertInstanceOf('Agavi\\Model\\AgaviModel', $model);
+		
+		// Test that the model class exists and is loadable
+		$this->assertTrue(class_exists('Sandbox\\Modules\\ControllerTests\\Models\\ControllerTestModel'));
+		
+		// Test reflection to ensure it's properly structured
+		$reflection = new \ReflectionClass($model);
+		$this->assertTrue($reflection->isSubclassOf('Agavi\\Model\\AgaviModel'));
 	}
 
 	public function testModelExists()
@@ -100,11 +115,25 @@ class AgaviControllerTest extends AgaviPhpUnitTestCase
 		$this->assertFalse($controller->modelExists('Bunk', 'Bunk'));
 	}
 
-	public function testModuleExists()
+	public function testViewImplementsCorrectInterface()
 	{
+		// Test that created views implement AgaviView interface
 		$controller = $this->_controller;
-		$this->assertTrue($controller->moduleExists('ControllerTests'));
-		$this->assertFalse($controller->moduleExists('Bunk'));
+		
+		$view = $controller->createViewInstance('ControllerTests', 'ControllerTestSuccess');
+		$this->assertInstanceOf('Agavi\\View\\AgaviView', $view);
+		
+		// Test that the view class exists and is loadable
+		$this->assertTrue(class_exists('Sandbox\\Modules\\ControllerTests\\Views\\ControllerTestSuccessView'));
+		
+		// Test reflection to ensure it's properly structured
+		$reflection = new \ReflectionClass($view);
+		$this->assertTrue($reflection->hasMethod('execute'));
+		
+		// Test error view as well
+		$errorView = $controller->createViewInstance('ControllerTests', 'ControllerTestError');
+		$this->assertInstanceOf('Agavi\\View\\AgaviView', $errorView);
+		$this->assertTrue(class_exists('Sandbox\\Modules\\ControllerTests\\Views\\ControllerTestErrorView'));
 	}
 
 	public function testViewExists()

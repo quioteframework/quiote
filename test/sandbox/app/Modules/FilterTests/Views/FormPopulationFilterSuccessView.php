@@ -1,6 +1,9 @@
 <?php
+namespace Sandbox\Modules\FilterTests\Views;
 
-class FilterTests_FormPopulationFilter_SimpleTestSuccessView extends SandboxFilterTestsBaseView
+use Sandbox\Modules\FilterTests\Lib\View\SandboxFilterTestsBaseView;
+
+class SimpleTestSuccessView extends SandboxFilterTestsBaseView
 {
 
 }

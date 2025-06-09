@@ -1,6 +1,11 @@
 <?php
+namespace Sandbox\Modules\Default\Views;
 
-class Default_WelcomeSuccessView extends AgaviView
+use Agavi\Renderer\AgaviPhpRenderer;
+use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\View\AgaviView;
+
+class WelcomeSuccessView extends AgaviView
 {
 	public function execute(AgaviRequestDataHolder $rd)
 	{

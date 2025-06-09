@@ -1,4 +1,5 @@
 <?php
+namespace Sandbox\Lib\Request;
 
 use Agavi\Request\AgaviWebRequest;
 

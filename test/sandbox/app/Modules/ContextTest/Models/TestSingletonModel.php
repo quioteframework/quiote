@@ -1,9 +1,11 @@
 <?php
 
-use Agavi\Model\AgaviISingletonModel;
-use Agavi\Model\AgaviModel;
+namespace Sandbox\Modules\ContextTest\Models;
 
-class ContextTest_TestSingletonModel extends AgaviModel implements AgaviISingletonModel
+use Agavi\Model\AgaviModel;
+use Agavi\Model\AgaviISingletonModel;
+
+class TestSingletonModel extends AgaviModel implements AgaviISingletonModel
 {
 }
 

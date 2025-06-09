@@ -1,9 +1,10 @@
 <?php
+namespace Sandbox\Modules\ControllerTests\Views;
 
 use Agavi\View\AgaviView;
 use Agavi\Request\AgaviRequestDataHolder;
 
-class ControllerTests_ControllerTestSuccessView extends AgaviView
+class ControllerTestSuccessView extends AgaviView
 {
     public function execute(AgaviRequestDataHolder $rd)
     {

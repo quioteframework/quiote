@@ -38,6 +38,7 @@
 
 		<settings>
 			<setting name="app_name">sandbox</setting>
+			<setting name="namespace_prefix">Sandbox</setting>
 
 			<setting name="available">true</setting>
 			<setting name="debug">false</setting>

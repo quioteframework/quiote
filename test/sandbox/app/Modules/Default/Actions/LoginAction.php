@@ -1,6 +1,11 @@
 <?php
+namespace Sandbox\Modules\Default\Actions;
 
-class Default_LoginAction extends SandboxDefaultBaseAction
+use Agavi\Request\AgaviRequestDataHolder;
+use Exception;
+use Sandbox\Modules\Default\Lib\Action\SandboxDefaultBaseAction;
+
+class LoginAction extends SandboxDefaultBaseAction
 {
 	public function execute(AgaviRequestDataHolder $rd)
 	{

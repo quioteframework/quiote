@@ -1,4 +1,5 @@
 <?php
+namespace Sandbox\Models;
 
 use Agavi\Model\AgaviModel;
 

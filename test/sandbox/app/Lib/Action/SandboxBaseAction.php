@@ -1,7 +1,7 @@
 <?php
+namespace Sandbox\Lib\Action;
 
 use Agavi\Action\AgaviAction;
-
 /**
  * The base action from which all project actions inherit.
  */

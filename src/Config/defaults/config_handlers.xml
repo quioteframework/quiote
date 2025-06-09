@@ -5,26 +5,8 @@
 			<!--
 				+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~+
 				| Core Agavi configuration handlers.                                         |
-				| ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ |
-				| Only 1 instance of AutoloadConfigHandler can be used in the application.   |
-				| If you need to add classes to be autoloaded, add them to the               |
-				| config/autoload.xml configuration file.                                    |
 				+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~+
 			-->
-			<handler pattern="%core.config_dir%/autoload.xml" class="Agavi\Config\AgaviAutoloadConfigHandler">
-				<validation>%core.agavi_dir%/Config/xsd/autoload.xsd</validation>
-				<!-- 0.11 to 1.0 -->
-				<transformation>%core.agavi_dir%/Config/xsl/autoload.xsl</transformation>
-				<!-- 1.0 to 1.1 -->
-				<transformation>%core.agavi_dir%/Config/xsl/autoload.xsl</transformation>
-			</handler>
-			<handler pattern="%core.system_config_dir%/autoload.xml" class="Agavi\Config\AgaviAutoloadConfigHandler">
-				<validation>%core.agavi_dir%/Config/xsd/autoload.xsd</validation>
-				<!-- 0.11 to 1.0 -->
-				<transformation>%core.agavi_dir%/Config/xsl/autoload.xsl</transformation>
-				<!-- 1.0 to 1.1 -->
-				<transformation>%core.agavi_dir%/Config/xsl/autoload.xsl</transformation>
-			</handler>
 
 			<handler pattern="%core.config_dir%/compile.xml" class="Agavi\Config\AgaviCompileConfigHandler">
 				<validation>%core.agavi_dir%/Config/xsd/compile.xsd</validation>
@@ -144,13 +126,6 @@
 				| names or the system may cease to function.                                 |
 				+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~+
 			-->
-			<handler pattern="%core.module_dir%/*/Config/autoload.xml" class="Agavi\Config\AgaviAutoloadConfigHandler">
-				<validation>%core.agavi_dir%/Config/xsd/autoload.xsd</validation>
-				<!-- 0.11 to 1.0 -->
-				<transformation>%core.agavi_dir%/Config/xsl/autoload.xsl</transformation>
-				<!-- 1.0 to 1.1 -->
-				<transformation>%core.agavi_dir%/Config/xsl/autoload.xsl</transformation>
-			</handler>
 
 			<handler pattern="%core.module_dir%/*/Config/action_filters.xml" class="Agavi\Config\AgaviFilterConfigHandler">
 				<validation>%core.agavi_dir%/Config/xsd/filters.xsd</validation>

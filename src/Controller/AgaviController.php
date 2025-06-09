@@ -173,17 +173,11 @@ class AgaviController extends AgaviParameterHolder
 			// include the module configuration
 			// loaded only once due to the way load() (former import()) works
 			if(is_readable(AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/Config/module.xml')) {
-				include_once(AgaviConfigCache::checkConfig(AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/Config/module.xml'));
-			} else {
-				AgaviConfig::set('modules.' . $lowerModuleName . '.enabled', true);
-			}
-			
-			$moduleAutoload = AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/Config/autoload.xml';
-			if(is_readable($moduleAutoload)) {
-				AgaviConfigCache::load($moduleAutoload);
-			}
-			
-			if(AgaviConfig::get('modules.' . $lowerModuleName . '.enabled')) {
+				include_once(AgaviConfigCache::checkConfig(AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/Config/module.xml'));		} else {
+			AgaviConfig::set('modules.' . $lowerModuleName . '.enabled', true);
+		}
+		
+		if(AgaviConfig::get('modules.' . $lowerModuleName . '.enabled')) {
 				$moduleConfigHandlers = AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/Config/config_handlers.xml';
 				if(is_readable($moduleConfigHandlers)) {
 					AgaviConfigCache::addConfigHandlersFile($moduleConfigHandlers);
@@ -357,37 +351,23 @@ class AgaviController extends AgaviParameterHolder
 		$actionName = AgaviToolkit::canonicalName($actionName);
 		$longActionName = str_replace('/', '_', $actionName);
 		
-		// Try new namespaced class name first
-		$namespacedClass = 'Jakamo\\Modules\\' . $moduleName . '\\Actions\\' . $moduleName . '_' . $longActionName . 'Action';
+		// Build class names with configurable namespace pattern
+		$baseNamespace = AgaviConfig::get('core.namespace_prefix', 'App');
+		$namespacedClass = $baseNamespace . '\\Modules\\' . $moduleName . '\\Actions\\' . $longActionName . 'Action';
 		$oldClass = $moduleName . '_' . $longActionName . 'Action';
 		
-		$class = null;
-		$file = null;
-		
-		// Try namespaced class first
+		// Try namespaced class first (autoloader will handle it)
 		if(class_exists($namespacedClass)) {
-			$class = $namespacedClass;
-		} elseif(class_exists($oldClass)) {
-			$class = $oldClass;
-		} else {
-			// Neither class exists, try to load the file
-			if(false !== ($file = $this->checkActionFile($moduleName, $actionName))) {
-				require($file);
-				
-				// Check again after loading the file
-				if(class_exists($namespacedClass, false)) {
-					$class = $namespacedClass;
-				} elseif(class_exists($oldClass, false)) {
-					$class = $oldClass;
-				} else {
-					throw new AgaviClassNotFoundException(sprintf('Failed to instantiate Action "%s" in Module "%s" because file "%s" does not contain class "%s" or "%s".', $actionName, $moduleName, $file, $namespacedClass, $oldClass));
-				}
-			} else {
-				throw new AgaviFileNotFoundException(sprintf('Could not find file for Action "%s" in Module "%s".', $actionName, $moduleName));
-			}
+			return new $namespacedClass();
 		}
 		
-		return new $class();
+		// Fall back to old naming convention
+		if(class_exists($oldClass)) {
+			return new $oldClass();
+		}
+		
+		// Neither class found
+		throw new AgaviClassNotFoundException(sprintf('Unable to find Action class "%s" or "%s" for Action "%s" in Module "%s".', $namespacedClass, $oldClass, $actionName, $moduleName));
 	}
 
 	/**
@@ -468,37 +448,23 @@ class AgaviController extends AgaviParameterHolder
 		$viewName = AgaviToolkit::canonicalName($viewName);
 		$longViewName = str_replace('/', '_', $viewName);
 		
-		// Try new namespaced class name first
-		$namespacedClass = 'Jakamo\\Modules\\' . $moduleName . '\\Views\\' . $longViewName . 'View';
+		// Build class names with configurable namespace pattern
+		$baseNamespace = AgaviConfig::get('core.namespace_prefix', 'App');
+		$namespacedClass = $baseNamespace . '\\Modules\\' . $moduleName . '\\Views\\' . $longViewName . 'View';
 		$oldClass = $moduleName . '_' . $longViewName . 'View';
 		
-		$class = null;
-		$file = null;
-		
-		// Try namespaced class first
+		// Try namespaced class first (autoloader will handle it)
 		if(class_exists($namespacedClass)) {
-			$class = $namespacedClass;
-		} elseif(class_exists($oldClass)) {
-			$class = $oldClass;
-		} else {
-			// Neither class exists, try to load the file
-			if(false !== ($file = $this->checkViewFile($moduleName, $viewName))) {
-				require($file);
-				
-				// Check again after loading the file
-				if(class_exists($namespacedClass, false)) {
-					$class = $namespacedClass;
-				} elseif(class_exists($oldClass, false)) {
-					$class = $oldClass;
-				} else {
-					throw new AgaviClassNotFoundException(sprintf('Failed to instantiate View "%s" in Module "%s" because file "%s" does not contain class "%s" or "%s".', $viewName, $moduleName, $file, $namespacedClass, $oldClass));
-				}
-			} else {
-				throw new AgaviFileNotFoundException(sprintf('Could not find file for View "%s" in Module "%s".', $viewName, $moduleName));
-			}
+			return new $namespacedClass();
 		}
 		
-		return new $class();
+		// Fall back to old naming convention
+		if(class_exists($oldClass)) {
+			return new $oldClass();
+		}
+		
+		// Neither class found
+		throw new AgaviClassNotFoundException(sprintf('Unable to find View class "%s" or "%s" for View "%s" in Module "%s".', $namespacedClass, $oldClass, $viewName, $moduleName));
 	}
 
 	/**
@@ -636,8 +602,18 @@ class AgaviController extends AgaviParameterHolder
 	 */
 	public function modelExists($moduleName, $modelName)
 	{
+		$baseNamespace = AgaviConfig::get('core.namespace_prefix', 'App');
 		$modelName = AgaviToolkit::canonicalName($modelName);
-		$file = AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/Models/' . $modelName .	'Model.php';
+		$namespacedModelName = str_replace('/', '\\', $modelName);
+		
+		// Try namespaced version first
+		$namespacedClass = $baseNamespace . '\\Modules\\' . $moduleName . '\\Models\\' . $namespacedModelName . 'Model';
+		if(class_exists($namespacedClass)) {
+			return true;
+		}
+		
+		// Fall back to old file-based check for backward compatibility
+		$file = AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/Models/' . $modelName . 'Model.php';
 		return is_readable($file);
 	}
 
@@ -710,6 +686,17 @@ class AgaviController extends AgaviParameterHolder
 	 */
 	public function viewExists($moduleName, $viewName)
 	{
+		$baseNamespace = AgaviConfig::get('core.namespace_prefix', 'App');
+		$viewName = AgaviToolkit::canonicalName($viewName);
+		$namespacedViewName = str_replace('/', '\\', $viewName);
+		
+		// Try namespaced version first
+		$namespacedClass = $baseNamespace . '\\Modules\\' . $moduleName . '\\Views\\' . $namespacedViewName . 'View';
+		if(class_exists($namespacedClass)) {
+			return true;
+		}
+		
+		// Fall back to old file-based check for backward compatibility
 		return $this->checkViewFile($moduleName, $viewName) !== false;
 	}
 	

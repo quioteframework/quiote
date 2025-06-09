@@ -1,6 +1,9 @@
 <?php
+namespace Sandbox\Modules\Default\Actions;
 
-class Default_SecureAction extends SandboxDefaultBaseAction
+use Sandbox\Modules\Default\Lib\Action\SandboxDefaultBaseAction;
+
+class SecureAction extends SandboxDefaultBaseAction
 {
 	/**
 	 * Returns the default view if the action does not serve the request

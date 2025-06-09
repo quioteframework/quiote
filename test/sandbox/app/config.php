@@ -35,6 +35,13 @@ use Agavi\Config\AgaviConfig;
 AgaviConfig::set('core.app_dir', __DIR__);
 
 // +---------------------------------------------------------------------------+
+// | Set the namespace prefix for the application                              |
+// | This determines how namespaced classes are looked up                      |
+// | Default value is 'App' if not set                                         |
+// +---------------------------------------------------------------------------+
+AgaviConfig::set('core.namespace_prefix', 'Sandbox');
+
+// +---------------------------------------------------------------------------+
 // | An absolute filesystem path to the directory where cache files will be    |
 // | stored.                                                                   |
 // |                                                                           |

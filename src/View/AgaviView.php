@@ -32,6 +32,8 @@ namespace Agavi\View;
  *
  * @version    $Id$
  */
+
+use Agavi\AgaviContext;
 use Agavi\Controller\AgaviExecutionContainer;
 use Agavi\Exception\AgaviViewException;
 use Agavi\Renderer\AgaviRenderer;

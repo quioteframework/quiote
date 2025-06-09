@@ -18,7 +18,6 @@ namespace Agavi;
 use Agavi\Config\AgaviConfig;
 use Agavi\Config\AgaviConfigCache;
 use Agavi\Controller\AgaviController;
-use Agavi\Exception\AgaviAutoloadException;
 use Agavi\Exception\AgaviDisabledModuleException;
 use Agavi\Exception\AgaviException;
 use Agavi\Routing\AgaviRouting;
@@ -395,43 +394,56 @@ class AgaviContext implements \Stringable
 				// Try without the 'Model' suffix
 				$class = $modelName;
 			}
-		} else {
-			// Legacy approach for non-namespaced classes
-			$modelName = AgaviToolkit::canonicalName($modelName);
-			$class = str_replace('/', '_', $modelName) . 'Model';
-			
-			if($moduleName === null) {
-				// global model
-				// let's try to autoload that baby
-				if(!class_exists($class)) {
-					// it's not there. the hunt is on
-					$file = AgaviConfig::get('core.model_dir') . '/' . $modelName . 'Model.php';
-				}
+		} else {		// Try namespaced approach first with configurable namespace prefix
+		$baseNamespace = AgaviConfig::get('core.namespace_prefix', 'App');
+		$modelName = AgaviToolkit::canonicalName($modelName);
+		$longModelName = str_replace('/', '_', $modelName);
+		$namespacedModelName = str_replace('/', '\\', $modelName);
+		
+		if($moduleName === null) {
+			// Global model - try namespaced version first
+			$namespacedClass = $baseNamespace . '\\Models\\' . $namespacedModelName . 'Model';
+			if(class_exists($namespacedClass)) {
+				$class = $namespacedClass;
 			} else {
-				try {
-					$this->controller->initializeModule($moduleName);
-				} catch(AgaviDisabledModuleException) {
-					// swallow, this will load the modules autoload but throw an exception 
-					// if the module is disabled.
-				}
-				// module model
-				// alternative name
-				$class = $moduleName . '_' . $class;
-				// let's try to autoload the baby
-				if(!class_exists($class)) {
-					// it's not there. the hunt is on
+				// Fall back to old naming convention
+				$class = $longModelName . 'Model';
+			}
+		} else {
+			try {
+				$this->controller->initializeModule($moduleName);
+			} catch(AgaviDisabledModuleException) {
+				// swallow, this will load the modules autoload but throw an exception 
+				// if the module is disabled.
+			}
+			
+			// Module model - try namespaced version first
+			$namespacedClass = $baseNamespace . '\\Modules\\' . $moduleName . '\\Models\\' . $namespacedModelName . 'Model';
+			if(class_exists($namespacedClass)) {
+				$class = $namespacedClass;
+			} else {
+				// Fall back to old naming convention
+				$class = $moduleName . '_' . $longModelName . 'Model';
+			}
+		}
+			
+			// If still no class found, try manual file loading (legacy approach)
+			if(!class_exists($class)) {
+				if($moduleName === null) {
+					$file = AgaviConfig::get('core.model_dir') . '/' . $modelName . 'Model.php';
+				} else {
 					$file = AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/Models/' . $modelName . 'Model.php';
 				}
-			}
-
-			if(null !== $file && is_readable($file)) {
-				require($file);
+				
+				if(null !== $file && is_readable($file)) {
+					require($file);
+				}
 			}
 		}
 
 		if(!class_exists($class)) {
 			// it's not there. 
-			throw new AgaviAutoloadException(sprintf("Couldn't find class for Model %s", $origModelName));
+			throw new AgaviException(sprintf("Couldn't find class for Model %s", $origModelName));
 		}
 		
 		// so if we're here, we found something, right? good.

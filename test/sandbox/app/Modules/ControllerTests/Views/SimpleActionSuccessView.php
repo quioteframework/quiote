@@ -1,10 +1,10 @@
 <?php
-
-require_once(__DIR__ . '/../Lib/View/SandboxControllerTestsBaseView.php');
+namespace Sandbox\Modules\ControllerTests\Views;
 
 use Agavi\Request\AgaviRequestDataHolder;
+use Sandbox\Modules\ControllerTests\Lib\View\SandboxControllerTestsBaseView;
 
-class ControllerTests_SimpleActionSuccessView extends SandboxControllerTestsBaseView
+class SimpleActionSuccessView extends SandboxControllerTestsBaseView
 {
 	public function executeHtml(AgaviRequestDataHolder $rd)
 	{

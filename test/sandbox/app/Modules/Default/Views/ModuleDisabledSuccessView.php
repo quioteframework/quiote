@@ -1,6 +1,11 @@
 <?php
+namespace Sandbox\Modules\Default\Views;
 
-class Default_ModuleDisabledSuccessView extends SandboxDefaultBaseView
+use Agavi\Request\AgaviRequestDataHolder;
+use Sandbox\Modules\Default\Lib\View\SandboxDefaultBaseView;
+
+
+class ModuleDisabledSuccessView extends SandboxDefaultBaseView
 {
 	public function executeHtml(AgaviRequestDataHolder $rd)
 	{

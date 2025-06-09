@@ -1,4 +1,5 @@
 <?php
+namespace Sandbox\Lib\View;
 
 use Agavi\Exception\AgaviViewException;
 use Agavi\Request\AgaviRequestDataHolder;
