@@ -15,6 +15,8 @@
 // +---------------------------------------------------------------------------+
 namespace Agavi\Filter;
 
+use Agavi\Controller\AgaviExecutionContainer;
+
 /**
  * AgaviFilterChain manages registered filters for a specific context.
  *
@@ -33,7 +35,9 @@ namespace Agavi\Filter;
  */
 class AgaviFilterChain
 {
+	/** @var AgaviFilter[] */
 	protected array $preFilters = [];
+	/** @var AgaviFilter[] */
 	protected array $postFilters = [];
 	protected array $names = [];
 	protected int $type;
@@ -69,19 +73,14 @@ class AgaviFilterChain
 	 * Executes all pre-filters, then the action, then all post-filters.
 	 * This simplified version respects forward containers set by filters.
 	 */
-	public function execute($container, ?callable $actionCallback = null)
+	public function execute(AgaviExecutionContainer $container, ?callable $actionCallback = null)
 	{
 		
-		$logger = null;
-		if (method_exists($container, 'getContext') && $container->getContext() && method_exists($container->getContext(), 'getLoggerManager') && $container->getContext()->getLoggerManager()) {
-			$logger = $container->getContext()->getLoggerManager();
-		}
-		
 		// Execute pre-filters, but stop if any sets a forward container
+		/** @var AgaviFilter $filter */
 		foreach($this->preFilters as $name => $filter) {
 			// Check forward container status BEFORE filter execution
 			$nextBefore = $container->getNext();
-			$debugMsg = "[" . date('Y-m-d H:i:s') . "] BEFORE $name: forward container = " . ($nextBefore ? $nextBefore->getModuleName() . "/" . $nextBefore->getActionName() : "NULL") . "\n";
 			
 			// Execute the filter (this simplified version doesn't pass the filter chain)
 			$filter->execute($this, $container);
