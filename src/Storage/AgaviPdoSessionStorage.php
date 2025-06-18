@@ -93,14 +93,7 @@ class AgaviPdoSessionStorage extends AgaviSessionStorage
 		}
 
 		// use this object as the session handler
-		session_set_save_handler(
-			$this->sessionOpen(...),
-			$this->sessionClose(...),
-			$this->sessionRead(...),
-			$this->sessionWrite(...),
-			$this->sessionDestroy(...),
-			$this->sessionGC(...)
-		);
+		session_set_save_handler($this);
 	}
 
 	/**
@@ -112,7 +105,7 @@ class AgaviPdoSessionStorage extends AgaviSessionStorage
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function sessionClose()
+	public function close() : bool
 	{
 		if($this->connection) {
 			return true;
@@ -137,7 +130,7 @@ class AgaviPdoSessionStorage extends AgaviSessionStorage
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function sessionDestroy($id)
+	public function destroy($id) : bool
 	{
 		if(!$this->connection) {
 			return false;
@@ -182,7 +175,7 @@ class AgaviPdoSessionStorage extends AgaviSessionStorage
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function sessionGC($lifetime)
+	public function gc(int$lifetime) : int|false
 	{
 		if(!$this->connection) {
 			return false;
@@ -241,7 +234,7 @@ class AgaviPdoSessionStorage extends AgaviSessionStorage
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function sessionOpen($path, $name)
+	public function open($path, $name) : bool
 	{
 		// what database are we using?
 		$database = $this->getParameter('database', null);
@@ -270,7 +263,7 @@ class AgaviPdoSessionStorage extends AgaviSessionStorage
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function sessionRead($id)
+	public function read($id): string|false
 	{
 		if(!$this->connection) {
 			return false;
@@ -328,7 +321,7 @@ class AgaviPdoSessionStorage extends AgaviSessionStorage
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function sessionWrite($id, $data)
+	public function write(string $id, string $data): bool
 	{
 		if(!$this->connection) {
 			return false;
@@ -421,6 +414,7 @@ class AgaviPdoSessionStorage extends AgaviSessionStorage
 		
 		return true;
 	}
+
 }
 
 ?>

@@ -168,8 +168,8 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser
 		// read data from storage
 		$storage = $this->getContext()->getStorage();
 
-		$this->authenticated = $storage->read(self::AUTH_NAMESPACE);
-		$this->credentials   = $storage->read(self::CREDENTIAL_NAMESPACE);
+		$this->authenticated = $storage->retrieve(self::AUTH_NAMESPACE);
+		$this->credentials   = $storage->retrieve(self::CREDENTIAL_NAMESPACE);
 
 		if($this->authenticated == null) {
 			// initialize our data
@@ -238,13 +238,13 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser
 	 * @since      0.9.0
 	 */
 	#[\Override]
-    public function shutdown()
+  	public function shutdown()
 	{
 		$storage = $this->getContext()->getStorage();
 
-		// write credentials to the storage
-		$storage->write(self::AUTH_NAMESPACE,       $this->authenticated);
-		$storage->write(self::CREDENTIAL_NAMESPACE, $this->credentials);
+		// store credentials to the storage
+		$storage->store(self::AUTH_NAMESPACE,       $this->authenticated);
+		$storage->store(self::CREDENTIAL_NAMESPACE, $this->credentials);
 
 		// call the parent shutdown method
 		parent::shutdown();

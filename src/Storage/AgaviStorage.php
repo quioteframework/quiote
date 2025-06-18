@@ -100,7 +100,7 @@ abstract class AgaviStorage extends AgaviParameterHolder
 	 * @author     Sean Kerr <skerr@mojavi.org>
 	 * @since      0.9.0
 	 */
-	abstract function read($key);
+	abstract function read(string $key) : string|false;
 
 	/**
 	 * Remove data from this storage.
@@ -146,7 +146,7 @@ abstract class AgaviStorage extends AgaviParameterHolder
 	 * @author     Sean Kerr <skerr@mojavi.org>
 	 * @since      0.9.0
 	 */
-	abstract function write($key, $data);
+	abstract function store(string $id, mixed $data): bool;
 }
 
 ?>

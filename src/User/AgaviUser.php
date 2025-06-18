@@ -101,7 +101,7 @@ class AgaviUser extends AgaviAttributeHolder
 		$this->setParameters($parameters);
 		
 		// read data from storage
-		$this->attributes = $context->getStorage()->read($this->storageNamespace);
+		$this->attributes = $context->getStorage()->retrieve($this->storageNamespace);
 
 		if($this->attributes == null) {
 			// initialize our attributes array
@@ -130,7 +130,7 @@ class AgaviUser extends AgaviAttributeHolder
 	public function shutdown()
 	{
 		// write attributes to the storage
-		$this->getContext()->getStorage()->write($this->storageNamespace, $this->attributes);
+		$this->getContext()->getStorage()->store($this->storageNamespace, $this->attributes);
 	}
 }
 

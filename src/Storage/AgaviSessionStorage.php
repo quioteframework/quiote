@@ -17,6 +17,8 @@ namespace Agavi\Storage;
 
 use Agavi\Request\AgaviWebRequest;
 use Agavi\Routing\AgaviWebRouting;
+use SessionHandler;
+use SessionHandlerInterface;
 
 /**
  * AgaviSessionStorage is the interface used by Agavi to store session data from
@@ -59,8 +61,14 @@ use Agavi\Routing\AgaviWebRouting;
  *
  * @version    $Id$
  */
-class AgaviSessionStorage extends AgaviStorage
+class AgaviSessionStorage extends AgaviStorage implements SessionHandlerInterface
 {
+
+	private $defaultHandler;
+
+	public function __construct() {
+		$this->defaultHandler = new SessionHandler();
+	}
 	/**
 	 * Starts the session.
 	 * The method must be called after initialize().
@@ -146,7 +154,7 @@ class AgaviSessionStorage extends AgaviStorage
 	}
 
 	/**
-	 * Read data from this storage.
+	 * Retrieve data from this storage.
 	 *
 	 * The preferred format for a key is directory style so naming conflicts can
 	 * be avoided.
@@ -158,7 +166,7 @@ class AgaviSessionStorage extends AgaviStorage
 	 * @author     Sean Kerr <skerr@mojavi.org>
 	 * @since      0.9.0
 	 */
-	public function read($key)
+	public function retrieve($key)
 	{
 		return $_SESSION[$key] ?? null;
 	}
@@ -200,7 +208,7 @@ class AgaviSessionStorage extends AgaviStorage
 	}
 
 	/**
-	 * Write data to this storage.
+	 * Store data in this storage.
 	 *
 	 * The preferred format for a key is directory style so naming conflicts can
 	 * be avoided.
@@ -211,9 +219,40 @@ class AgaviSessionStorage extends AgaviStorage
 	 * @author     Sean Kerr <skerr@mojavi.org>
 	 * @since      0.9.0
 	 */
-	public function write($key, $data)
+	public function store(string $id, mixed $data): bool
 	{
-		$_SESSION[$key] = $data;
+		$_SESSION[$id] = $data;
+		return true;
+	}
+
+	public function write(string $id, string $data): bool
+	{
+		return $this->defaultHandler->write($id, $data);
+	}
+
+	public function read(string $key) : string|false
+	{
+		return $this->defaultHandler->read($key);
+	}
+
+	public function close(): bool
+	{
+		return session_write_close();
+	}
+
+	public function destroy($sessionId): bool
+	{
+		return $this->defaultHandler->destroy($sessionId);
+	}
+
+	public function gc(int $maxlifetime): int|false
+	{
+		return $this->defaultHandler->gc($maxlifetime);
+	}
+
+	public function open($savePath, $sessionName): bool
+	{
+		return $this->defaultHandler->open($savePath, $sessionName);
 	}
 }
 

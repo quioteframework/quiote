@@ -171,7 +171,7 @@ class AgaviRbacSecurityUser extends AgaviSecurityUser implements AgaviISecurityU
 
 		$this->loadDefinitions();
 		
-		$this->roles = (array) $this->context->getStorage()->read(self::ROLES_NAMESPACE);
+		$this->roles = (array) $this->context->getStorage()->retrieve(self::ROLES_NAMESPACE);
 
 		if(!$this->authenticated) {
 			$this->roles = [];
@@ -203,7 +203,7 @@ class AgaviRbacSecurityUser extends AgaviSecurityUser implements AgaviISecurityU
 	#[\Override]
     public function shutdown()
 	{
-		$this->context->getStorage()->write(self::ROLES_NAMESPACE, $this->roles);
+		$this->context->getStorage()->store(self::ROLES_NAMESPACE, $this->roles);
 		
 		// call the parent shutdown method
 		parent::shutdown();
