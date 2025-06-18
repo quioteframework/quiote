@@ -353,7 +353,10 @@ class AgaviController extends AgaviParameterHolder
 		
 		// Build class names with configurable namespace pattern
 		$baseNamespace = AgaviConfig::get('core.namespace_prefix', 'App');
-		$namespacedClass = $baseNamespace . '\\Modules\\' . $moduleName . '\\Actions\\' . $longActionName . 'Action';
+		
+		// For namespaced classes, preserve directory structure as namespaces
+		$namespacedActionName = str_replace('/', '\\', $actionName);
+		$namespacedClass = $baseNamespace . '\\Modules\\' . $moduleName . '\\Actions\\' . $namespacedActionName . 'Action';
 		$oldClass = $moduleName . '_' . $longActionName . 'Action';
 		
 		// Try namespaced class first (autoloader will handle it)
@@ -450,7 +453,10 @@ class AgaviController extends AgaviParameterHolder
 		
 		// Build class names with configurable namespace pattern
 		$baseNamespace = AgaviConfig::get('core.namespace_prefix', 'App');
-		$namespacedClass = $baseNamespace . '\\Modules\\' . $moduleName . '\\Views\\' . $longViewName . 'View';
+		
+		// For namespaced classes, preserve directory structure as namespaces
+		$namespacedViewName = str_replace('/', '\\', $viewName);
+		$namespacedClass = $baseNamespace . '\\Modules\\' . $moduleName . '\\Views\\' . $namespacedViewName . 'View';
 		$oldClass = $moduleName . '_' . $longViewName . 'View';
 		
 		// Try namespaced class first (autoloader will handle it)

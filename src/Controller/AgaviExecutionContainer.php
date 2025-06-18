@@ -41,6 +41,7 @@ use Agavi\Config\AgaviConfig;
 use Agavi\View\AgaviView;
 use Agavi\Util\AgaviToolkit;
 use Agavi\Config\AgaviConfigCache;
+use Agavi\Filter\AgaviExecutionFilter;
 use Agavi\Response\AgaviResponse;
 
 use \Exception;
@@ -319,10 +320,13 @@ class AgaviExecutionContainer extends AgaviAttributeHolder
 		// copy and merge request data as required
 		$this->initRequestData();
 
-		// If this is a slot execution, skip the filter chain and run only the execution filter logic.
+		// If this is a slot execution, create a minimal filter chain with only the execution filter.
 		if ($isSlot) {
+			$filterChain = $this->getFilterChain();
+			/** @var AgaviExecutionFilter $executionFilter */
 			$executionFilter = $this->context->getController()->getFilter('execution');
-			$executionFilter->execute($this);
+			$filterChain->register($executionFilter, 'agavi_execution_filter');
+			$filterChain->execute($this);
 			$result = $this->proceed();
 			array_pop($slotStack);
 			return $result;
