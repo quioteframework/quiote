@@ -16,6 +16,8 @@ namespace Agavi\Database;
 
 use Agavi\Exception\AgaviDatabaseException;
 use Agavi\Util\AgaviToolkit;
+use Propel\Propel;
+use Propel\Config\PropelConfiguration;
 
 /**
  * An Agavi Database driver for Propel. Supports Propel 1.3 and later.
@@ -49,8 +51,7 @@ use Agavi\Util\AgaviToolkit;
  *
  * @version    $Id$
  */
-use Propel\Propel;
-use Propel\Config\PropelConfiguration;
+
 class AgaviPropelDatabase extends AgaviDatabase
 {
 	/**
@@ -95,9 +96,6 @@ class AgaviPropelDatabase extends AgaviDatabase
 			}
 		}
 		
-		if(!class_exists('Propel')) {
-			include('propel/Propel.php');
-		}
 		if(!Propel::isInit()) {
 			Propel::init($configPath);
 		}
