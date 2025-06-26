@@ -50,13 +50,8 @@ class AgaviEmailValidator extends AgaviValidator
 			return false;
 		}
 		
-		$extraChars = preg_quote('!#$%&\'*+-/=?^_`{|}~', '/');
-		if(!preg_match('/^[a-z0-9' . $extraChars . ']+(\.[a-z0-9' . $extraChars . ']+)*@[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,6}$/iD', $data)) {
-			$this->throwError();
-			return false;
-		}
+		return filter_var($data, FILTER_VALIDATE_EMAIL) !== false;
 		
-		return true;
 	}
 }
 
