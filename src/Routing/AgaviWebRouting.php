@@ -60,6 +60,11 @@ class AgaviWebRouting extends AgaviRouting
 	protected $argSeparatorOutput = '&amp;';
 
 	/**
+	 * @var        bool Whether modern URL rewriting was detected
+	 */
+	protected $modernRewriteDetected = false;
+
+	/**
 	 * Constructor.
 	 *
 	 * @author     David Zülke <dz@bitxtender.com>
@@ -119,13 +124,37 @@ class AgaviWebRouting extends AgaviRouting
 			$qs = '';
 		}
 
-		// when rewriting, apache strips one (not all) trailing ampersand from the end of QUERY_STRING... normalize:
-		$rewritten = (preg_replace('/&+$/D', '', (string) $qs) !== preg_replace('/&+$/D', '', (string) $ru['query']));
+		// Enhanced rewrite detection for modern web servers (Apache, Nginx, Caddy, FrankenPHP)
+		// Original logic: when rewriting, apache strips one (not all) trailing ampersand from the end of QUERY_STRING... normalize:
+		$apacheRewriteDetected = (preg_replace('/&+$/D', '', (string) $qs) !== preg_replace('/&+$/D', '', (string) $ru['query']));
+		
+		// Additional detection for FrankenPHP and modern servers:
+		// We check if the script name (e.g., 'index.php') is missing from the request URI path,
+		// which indicates that URL rewriting is stripping it out (clean URLs)
+		$this->modernRewriteDetected = false;
+		if(isset($_SERVER['SCRIPT_NAME']) && $_SERVER['SCRIPT_NAME'] !== '') {
+			$scriptName = $_SERVER['SCRIPT_NAME'];
+			$requestUri = $_SERVER['REQUEST_URI'] ?? '';
+			
+			// Remove query string from request URI for comparison
+			$requestPath = $requestUri;
+			if(($pos = strpos($requestPath, '?')) !== false) {
+				$requestPath = substr($requestPath, 0, $pos);
+			}
+			
+			// If the script name is NOT found in the request path, URL rewriting is active
+			// Example: SCRIPT_NAME="/app/index.php" but REQUEST_URI="/app/some/path" (no index.php)
+			$this->modernRewriteDetected = !str_contains($requestPath, $scriptName);
+		}
+		
+		$rewritten = $apacheRewriteDetected || $this->modernRewriteDetected;
 
 		if($this->isEnabled() && $rewritten) {
 			// strip the one trailing ampersand, see above
 			$queryWasEmptied = false;
-			if($ru['query'] !== '' && isset($_SERVER['SERVER_SOFTWARE']) && str_contains((string) $_SERVER['SERVER_SOFTWARE'], 'Apache')) {
+			$serverSoftware = $_SERVER['SERVER_SOFTWARE'] ?? '';
+			
+			if($ru['query'] !== '' && str_contains($serverSoftware, 'Apache')) {
 				$ru['query'] = preg_replace('/&$/D', '', (string) $ru['query']);
 				if($ru['query'] == '') {
 					$queryWasEmptied = true;
@@ -133,13 +162,14 @@ class AgaviWebRouting extends AgaviRouting
 			}
 
 			$stripFromQuery = '&' . $ru['query'];
-			if($ru['query'] == '' && !$queryWasEmptied && isset($_SERVER['SERVER_SOFTWARE']) && str_contains((string) $_SERVER['SERVER_SOFTWARE'], 'Apache')) {
+			if($ru['query'] == '' && !$queryWasEmptied && str_contains($serverSoftware, 'Apache')) {
 				// if the query is empty, simply give apache2 nothing instead of an "&", since that could kill a real trailing ampersand in the path, as Apache strips those from the query string (which has the rewritten path), but not the request uri
 				$stripFromQuery = '';
 			}
 			$this->input = preg_replace('/' . preg_quote($stripFromQuery, '/') . '$/D', '', (string) $qs);
 
-			if(isset($_SERVER['SERVER_SOFTWARE']) && str_contains((string) $_SERVER['SERVER_SOFTWARE'], 'Apache/2')) {
+			// Apache 2 specific handling
+			if(str_contains($serverSoftware, 'Apache/2')) {
 				$sru = $_SERVER['REQUEST_URI'];
 				
 				if(($fqmp = strpos((string) $sru, '?')) !== false && ($fqmp == strlen((string) $sru)-1)) {
@@ -160,9 +190,39 @@ class AgaviWebRouting extends AgaviRouting
 					$input = preg_replace('/' . preg_quote('?' . $ru['query'], '/') . '$/D', '', $input);
 				}
 				$this->input = $input;
+			} elseif($this->modernRewriteDetected) {
+				// For FrankenPHP and modern servers with clean URL rewriting
+				// Extract the input path by removing the base path from REQUEST_URI
+				$requestUri = $_SERVER['REQUEST_URI'] ?? '';
+				$requestPath = $requestUri;
+				
+				// Remove query string
+				if(($pos = strpos($requestPath, '?')) !== false) {
+					$requestPath = substr($requestPath, 0, $pos);
+				}
+				
+				// Get the directory of the script
+				$scriptDir = dirname($_SERVER['SCRIPT_NAME'] ?? '');
+				if($scriptDir === '.' || $scriptDir === '/') {
+					$scriptDir = '';
+				}
+				
+				// Remove the script directory to get the input path
+				if($scriptDir !== '' && str_starts_with($requestPath, $scriptDir)) {
+					$this->input = substr($requestPath, strlen($scriptDir));
+				} else {
+					$this->input = $requestPath;
+				}
+				
+				// Ensure input starts with /
+				if(!str_starts_with($this->input, '/')) {
+					$this->input = '/' . $this->input;
+				}
 			}
 
-			if(!(isset($_SERVER['SERVER_SOFTWARE']) && (str_contains((string) $_SERVER['SERVER_SOFTWARE'], 'Apache/1') || (str_contains((string) $_SERVER['SERVER_SOFTWARE'], 'Microsoft-IIS') && isset($_SERVER['UNENCODED_URL']))))) {
+			// URL decoding - avoid double decoding for servers that already handle it
+			if(!str_contains($serverSoftware, 'Apache/1') && 
+			   !(str_contains($serverSoftware, 'Microsoft-IIS') && isset($_SERVER['UNENCODED_URL']))) {
 				// don't do that for Apache 1 or IIS 7 with URL Rewrite Module, it's already rawurldecode()d there
 				$this->input = rawurldecode($this->input);
 			}
@@ -186,7 +246,8 @@ class AgaviWebRouting extends AgaviRouting
 				}
 			}
 		} else {
-			$sn = $_SERVER['SCRIPT_NAME'];
+			// Fallback logic when rewriting is not detected
+			$sn = $_SERVER['SCRIPT_NAME'] ?? '';
 			$path = rawurldecode((string) $ru['path']);
 
 			$appendFrom = 0;
@@ -194,7 +255,13 @@ class AgaviWebRouting extends AgaviRouting
 			$this->prefix .= substr((string) $sn, $appendFrom);
 
 			$this->input = substr($path, $appendFrom);
-			if(!isset($_SERVER['SERVER_SOFTWARE']) || !str_contains((string) $_SERVER['SERVER_SOFTWARE'], 'Microsoft-IIS') || isset($_SERVER['HTTP_X_REWRITE_URL']) || !isset($_SERVER['GATEWAY_INTERFACE']) || !str_contains($_SERVER['GATEWAY_INTERFACE'], 'CGI')) {
+			
+			$serverSoftware = $_SERVER['SERVER_SOFTWARE'] ?? '';
+			// Enhanced server detection for URL decoding
+			if(!str_contains($serverSoftware, 'Microsoft-IIS') || 
+			   isset($_SERVER['HTTP_X_REWRITE_URL']) || 
+			   !isset($_SERVER['GATEWAY_INTERFACE']) || 
+			   !str_contains($_SERVER['GATEWAY_INTERFACE'], 'CGI')) {
 				// don't do that for IIS-CGI, it's already rawurldecode()d there
 				$this->input = rawurldecode($this->input);
 			}
@@ -343,7 +410,18 @@ class AgaviWebRouting extends AgaviRouting
 			
 			if(!isset($path)) {
 				// the route does not exist. we generate a normal index.php?foo=bar URL.
-				$path = $_SERVER['SCRIPT_NAME'];
+				// However, for modern servers with URL rewriting, we might want to avoid index.php
+				$scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
+				
+				// If we detected modern rewriting earlier, try to use a clean path
+				if($this->modernRewriteDetected && $scriptName !== '') {
+					// Use the directory part of the script name without the script file itself
+					$scriptDir = dirname($scriptName);
+					$path = ($scriptDir === '/' || $scriptDir === '.') ? '/' : $scriptDir . '/';
+				} else {
+					// Traditional fallback with script name
+					$path = $scriptName;
+				}
 			}
 			
 			if(!isset($path)) {

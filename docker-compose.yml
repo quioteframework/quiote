@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  agavi-test:
+    build: .
+    ports:
+      - "8080:80"
+    volumes:
+      # Mount the source code for live editing during testing
+      - ./src:/app/src:ro
+      - ./debug_routing.php:/app/pub/debug_routing.php:ro
+    environment:
+      - CADDY_GLOBAL_OPTIONS=debug
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

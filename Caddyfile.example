@@ -1,0 +1,64 @@
+# Example Caddyfile for FrankenPHP with Agavi
+# This configuration should work with the updated AgaviWebRouting.php
+
+{
+    # Enable FrankenPHP
+    frankenphp
+    
+    # Optional: Enable debug mode for development
+    # debug
+}
+
+# Replace with your actual domain
+your-domain.local {
+    # Set the document root to your Agavi public directory
+    root * /path/to/your/agavi/pub
+    
+    # Enable PHP handling with FrankenPHP
+    php_server
+    
+    # Handle clean URLs - try files first, then fallback to index.php
+    try_files {path} {path}/ /index.php?{query}
+    
+    # Optional: Enable file serving for static assets
+    file_server
+    
+    # Optional: Add security headers
+    header {
+        # Prevent clickjacking
+        X-Frame-Options "SAMEORIGIN"
+        
+        # Prevent MIME type sniffing
+        X-Content-Type-Options "nosniff"
+        
+        # Enable XSS protection
+        X-XSS-Protection "1; mode=block"
+        
+        # Remove server signature
+        -Server
+    }
+    
+    # Optional: Enable gzip compression
+    encode gzip
+    
+    # Optional: Add access logging
+    log {
+        output file /var/log/caddy/agavi-access.log
+        format json
+    }
+}
+
+# Alternative configuration if you need more control over URL rewriting:
+# your-domain.local {
+#     root * /path/to/your/agavi/pub
+#     php_server
+#     
+#     # More explicit rewrite rules
+#     @notFile {
+#         not file
+#         path_regexp ^(.*)$
+#     }
+#     rewrite @notFile /index.php{uri}
+#     
+#     file_server
+# }
