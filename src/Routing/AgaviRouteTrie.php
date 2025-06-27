@@ -1,6 +1,8 @@
 <?php
 namespace Agavi\Routing;
 
+use Symfony\Contracts\Service\ResetInterface;
+
 /**
  * Agavi Route Trie - Fast route matching using prefix tree data structure
  * 
@@ -8,8 +10,13 @@ namespace Agavi\Routing;
  * Routes are organized by their first path segment to reduce the number
  * of regex tests needed for route resolution.
  */
-class AgaviRouteTrie
+class AgaviRouteTrie implements ResetInterface
 {
+    /**
+     * @var self|null Singleton instance for ResetInterface
+     */
+    private static $resetInstance = null;
+    
     /**
      * @var array|null The route trie structure
      */
@@ -28,6 +35,17 @@ class AgaviRouteTrie
         'lookups' => 0,
         'candidates_found' => 0
     ];
+    
+    /**
+     * Get reset instance for ResetInterface compliance
+     */
+    public static function getResetInstance(): self
+    {
+        if (self::$resetInstance === null) {
+            self::$resetInstance = new self();
+        }
+        return self::$resetInstance;
+    }
     
     /**
      * Build the route trie from route definitions
@@ -238,5 +256,23 @@ class AgaviRouteTrie
     public static function getTrieStructure()
     {
         return self::$trie;
+    }
+
+    /**
+     * Reset trie state for FrankenPHP worker mode.
+     * Called automatically by FrankenPHP between requests.
+     * In worker mode, we typically want to preserve the trie for performance,
+     * but reset statistics.
+     */
+    public function reset(): void
+    {
+        // By default, preserve trie but reset statistics for worker mode
+        self::$stats = [
+            'builds' => 0,
+            'lookups' => 0,
+            'candidates_found' => 0
+        ];
+        // Note: Trie is preserved for performance in worker mode
+        // Use clear() method if you need to clear the trie entirely
     }
 }

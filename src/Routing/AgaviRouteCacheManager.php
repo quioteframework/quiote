@@ -1,6 +1,8 @@
 <?php
 namespace Agavi\Routing;
 
+use Symfony\Contracts\Service\ResetInterface;
+
 /**
  * Agavi Route Cache Manager - Handles persistent route caching
  * 
@@ -8,27 +10,48 @@ namespace Agavi\Routing;
  * operations for previously matched URLs. Particularly effective in FrankenPHP
  * where static variables persist between requests.
  */
-class AgaviRouteCacheManager
+class AgaviRouteCacheManager implements ResetInterface
 {
+    /**
+     * @var self|null Singleton instance
+     */
+    private static $instance = null;
+    
     /**
      * @var array Route cache storage
      */
-    private static $cache = [];
+    private $cache = [];
     
     /**
      * @var int Maximum cache size before eviction
      */
-    private static $maxSize = 5000;
+    private $maxSize = 5000;
     
     /**
      * @var int Cache hit counter
      */
-    private static $hits = 0;
+    private $hits = 0;
     
     /**
      * @var int Cache miss counter
      */
-    private static $misses = 0;
+    private $misses = 0;
+    
+    /**
+     * Private constructor for singleton
+     */
+    private function __construct() {}
+    
+    /**
+     * Get singleton instance
+     */
+    public static function getInstance(): self
+    {
+        if (self::$instance === null) {
+            self::$instance = new self();
+        }
+        return self::$instance;
+    }
     
     /**
      * Get cached route result
@@ -38,12 +61,13 @@ class AgaviRouteCacheManager
      */
     public static function get($key)
     {
-        if (isset(self::$cache[$key])) {
-            self::$hits++;
-            return self::$cache[$key];
+        $instance = self::getInstance();
+        if (isset($instance->cache[$key])) {
+            $instance->hits++;
+            return $instance->cache[$key];
         }
         
-        self::$misses++;
+        $instance->misses++;
         return null;
     }
     
@@ -55,12 +79,13 @@ class AgaviRouteCacheManager
      */
     public static function set($key, $value)
     {
-        if (count(self::$cache) >= self::$maxSize) {
+        $instance = self::getInstance();
+        if (count($instance->cache) >= $instance->maxSize) {
             // Simple FIFO eviction
-            array_shift(self::$cache);
+            array_shift($instance->cache);
         }
         
-        self::$cache[$key] = $value;
+        $instance->cache[$key] = $value;
     }
     
     /**
@@ -70,11 +95,12 @@ class AgaviRouteCacheManager
      */
     public static function getStats()
     {
+        $instance = self::getInstance();
         return [
-            'size' => count(self::$cache),
-            'hits' => self::$hits,
-            'misses' => self::$misses,
-            'hit_ratio' => self::$hits / max(1, self::$hits + self::$misses)
+            'size' => count($instance->cache),
+            'hits' => $instance->hits,
+            'misses' => $instance->misses,
+            'hit_ratio' => $instance->hits / max(1, $instance->hits + $instance->misses)
         ];
     }
     
@@ -83,9 +109,10 @@ class AgaviRouteCacheManager
      */
     public static function clear()
     {
-        self::$cache = [];
-        self::$hits = 0;
-        self::$misses = 0;
+        $instance = self::getInstance();
+        $instance->cache = [];
+        $instance->hits = 0;
+        $instance->misses = 0;
     }
     
     /**
@@ -95,7 +122,8 @@ class AgaviRouteCacheManager
      */
     public static function setMaxSize($size)
     {
-        self::$maxSize = $size;
+        $instance = self::getInstance();
+        $instance->maxSize = $size;
     }
     
     /**
@@ -105,6 +133,22 @@ class AgaviRouteCacheManager
      */
     public static function getSize()
     {
-        return count(self::$cache);
+        $instance = self::getInstance();
+        return count($instance->cache);
+    }
+
+    /**
+     * Reset cache state for FrankenPHP worker mode.
+     * Called automatically by FrankenPHP between requests.
+     * In worker mode, we typically want to preserve the cache for performance,
+     * but reset statistics.
+     */
+    public function reset(): void
+    {
+        // By default, preserve cache but reset statistics for worker mode
+        $this->hits = 0;
+        $this->misses = 0;
+        // Note: Cache is preserved for performance in worker mode
+        // Use clear() method if you need to clear the cache entirely
     }
 }

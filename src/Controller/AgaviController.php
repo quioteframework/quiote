@@ -42,9 +42,10 @@ use Agavi\Exception\AgaviClassNotFoundException;
 use Agavi\Exception\AgaviFileNotFoundException;
 use Agavi\AgaviContext;
 use Agavi\Filter\AgaviFilterChain;
+use Symfony\Contracts\Service\ResetInterface;
 
 use \Exception;
-class AgaviController extends AgaviParameterHolder
+class AgaviController extends AgaviParameterHolder implements ResetInterface
 {
 	/**
 	 * @var        int The number of execution containers run so far.
@@ -661,6 +662,35 @@ class AgaviController extends AgaviParameterHolder
 	 */
 	public function shutdown()
 	{
+	}
+
+	/**
+	 * Reset the controller state for FrankenPHP worker mode.
+	 * This clears request-specific state that could leak between requests.
+	 * 
+	 * Called automatically by FrankenPHP between requests when using worker mode.
+	 *
+	 * @author     Auto-generated for FrankenPHP compatibility
+	 * @since      2.0.0
+	 */
+	public function reset(): void
+	{
+		// Reset execution counter
+		$this->numExecutions = 0;
+		
+		// Clear filter chain (will be recreated on next request)
+		$this->filterChain = null;
+		
+		// Reset action-specific filters (keep global ones as they're reusable)
+		$this->filters['action'] = ['*' => null];
+		
+		// Clear request data reference
+		$this->requestData = null;
+		
+		// Reset the global response to a fresh instance
+		if ($this->context) {
+			$this->response = $this->context->createInstanceFor('response');
+		}
 	}
 
 	/**

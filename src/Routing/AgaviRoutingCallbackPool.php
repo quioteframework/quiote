@@ -2,6 +2,7 @@
 namespace Agavi\Routing;
 
 use Agavi\Exception\AgaviException;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * Agavi Routing Callback Pool - Reuses callback instances for performance
@@ -10,8 +11,13 @@ use Agavi\Exception\AgaviException;
  * of creating new instances for each route match. Particularly beneficial
  * for complex routing configurations with many callbacks.
  */
-class AgaviRoutingCallbackPool
+class AgaviRoutingCallbackPool implements ResetInterface
 {
+    /**
+     * @var self|null Singleton instance for ResetInterface
+     */
+    private static $resetInstance = null;
+    
     /**
      * @var array Pool of callback instances
      */
@@ -26,6 +32,17 @@ class AgaviRoutingCallbackPool
      * @var int Pool access counter
      */
     private static $accessCount = 0;
+    
+    /**
+     * Get reset instance for ResetInterface compliance
+     */
+    public static function getResetInstance(): self
+    {
+        if (self::$resetInstance === null) {
+            self::$resetInstance = new self();
+        }
+        return self::$resetInstance;
+    }
     
     /**
      * Get or create callback instance from pool
@@ -118,5 +135,19 @@ class AgaviRoutingCallbackPool
     {
         $key = $className . '_' . md5(serialize($parameters));
         unset(self::$instances[$key]);
+    }
+
+    /**
+     * Reset callback pool state for FrankenPHP worker mode.
+     * Called automatically by FrankenPHP between requests.
+     * In worker mode, we typically want to preserve pooled instances for performance,
+     * but reset statistics.
+     */
+    public function reset(): void
+    {
+        // By default, preserve instances but reset statistics for worker mode
+        self::$accessCount = 0;
+        // Note: Instances are preserved for performance in worker mode
+        // Call removeInstance() or use manual cleanup if needed
     }
 }

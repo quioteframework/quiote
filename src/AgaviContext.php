@@ -27,6 +27,7 @@ use Agavi\Translation\AgaviTranslationManager;
 use Agavi\User\AgaviISecurityUser;
 use Agavi\User\AgaviUser;
 use Agavi\Util\AgaviToolkit;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * AgaviContext provides information about the current application context, 
@@ -48,7 +49,7 @@ use Agavi\Util\AgaviToolkit;
  *
  * @version    $Id$
  */
-class AgaviContext implements \Stringable
+class AgaviContext implements \Stringable, ResetInterface
 {
 	/**
 	 * @var        ?AgaviController A Controller instance.
@@ -117,6 +118,11 @@ class AgaviContext implements \Stringable
 	 * @var        array An array of SingletonModel instances.
 	 */
 	protected $singletonModelInstances = [];
+	
+	/**
+	 * @var        array Reset instances for FrankenPHP worker mode
+	 */
+	protected $resetInstances = [];
 
 	/**
 	 * Clone method, overridden to prevent cloning, there can be only one.
@@ -309,6 +315,66 @@ class AgaviContext implements \Stringable
 	}
 	
 	/**
+	 * Reset context state for FrankenPHP worker mode.
+	 * This method clears request-specific state while preserving the context configuration.
+	 * 
+	 * Called automatically by FrankenPHP between requests when using worker mode.
+	 *
+	 * @author     Auto-generated for FrankenPHP compatibility
+	 * @since      1.1.0
+	 */
+	public function reset(): void
+	{
+		// Reset singleton model instances
+		$this->singletonModelInstances = [];
+		
+		// Reset the controller state if it exists
+		if ($this->controller && $this->controller instanceof ResetInterface) {
+			$this->controller->reset();
+		}
+		
+		// Reset routing component instances
+		foreach ($this->resetInstances as $instance) {
+			if ($instance instanceof ResetInterface) {
+				$instance->reset();
+			}
+		}
+		
+		// Reset request object (it will be recreated)
+		$this->request = null;
+	}
+	
+	/**
+	 * Reset context state for FrankenPHP worker mode.
+	 * This method clears request-specific state while preserving the context configuration.
+	 *
+	 * @param      string The profile name to reset (if null, resets all contexts)
+	 *
+	 * @author     Auto-generated for FrankenPHP compatibility
+	 * @since      1.1.0
+	 */
+	public static function resetWorkerState($profile = null)
+	{
+		if ($profile !== null) {
+			$profile = strtolower($profile);
+			if (isset(self::$instances[$profile])) {
+				// Reset individual context state
+				$context = self::$instances[$profile];
+				if ($context instanceof ResetInterface) {
+					$context->reset();
+				}
+			}
+		} else {
+			// Reset all contexts
+			foreach (self::$instances as $context) {
+				if ($context instanceof ResetInterface) {
+					$context->reset();
+				}
+			}
+		}
+	}
+	
+	/**
 	 * Retrieve the LoggerManager
 	 *
 	 * @return     AgaviLoggerManager|null The current LoggerManager implementation 
@@ -342,7 +408,30 @@ class AgaviContext implements \Stringable
 			AgaviException::render($e, $this);
 		}
 		
+		// Register reset instances for FrankenPHP worker mode
+		$this->initializeResetInstances();
+		
 		register_shutdown_function([$this, 'shutdown']);
+	}
+	
+	/**
+	 * Initialize reset instances for FrankenPHP worker mode
+	 * These instances will be automatically reset by FrankenPHP between requests
+	 */
+	protected function initializeResetInstances()
+	{
+		// Register routing component reset instances
+		if (class_exists('Agavi\Routing\AgaviRouteCacheManager')) {
+			$this->resetInstances[] = \Agavi\Routing\AgaviRouteCacheManager::getInstance();
+		}
+		
+		if (class_exists('Agavi\Routing\AgaviRouteTrie')) {
+			$this->resetInstances[] = \Agavi\Routing\AgaviRouteTrie::getResetInstance();
+		}
+		
+		if (class_exists('Agavi\Routing\AgaviRoutingCallbackPool')) {
+			$this->resetInstances[] = \Agavi\Routing\AgaviRoutingCallbackPool::getResetInstance();
+		}
 	}
 	
 	/**

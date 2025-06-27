@@ -2,6 +2,7 @@
 namespace Agavi\Routing;
 
 use InvalidArgumentException;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * Agavi Routing Performance Monitor - Tracks routing performance metrics
@@ -9,8 +10,13 @@ use InvalidArgumentException;
  * This class collects and analyzes routing performance data to help
  * identify bottlenecks and measure the effectiveness of optimizations.
  */
-class AgaviRoutingPerformanceMonitor
+class AgaviRoutingPerformanceMonitor implements ResetInterface
 {
+    /**
+     * @var self|null Singleton instance for ResetInterface
+     */
+    private static $resetInstance = null;
+    
     /**
      * @var array Performance statistics
      */
@@ -39,6 +45,17 @@ class AgaviRoutingPerformanceMonitor
      * @var bool Whether detailed timing is enabled
      */
     private static $detailedTiming = false;
+    
+    /**
+     * Get reset instance for ResetInterface compliance
+     */
+    public static function getResetInstance(): self
+    {
+        if (self::$resetInstance === null) {
+            self::$resetInstance = new self();
+        }
+        return self::$resetInstance;
+    }
     
     /**
      * Start timing a routing operation
@@ -160,9 +177,10 @@ class AgaviRoutingPerformanceMonitor
     }
     
     /**
-     * Reset all statistics
+     * Reset all statistics for FrankenPHP worker mode
+     * Called automatically by FrankenPHP between requests.
      */
-    public static function reset()
+    public function reset(): void
     {
         self::$stats = [
             'total_requests' => 0,

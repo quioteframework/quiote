@@ -173,5 +173,37 @@ class AgaviConfig
 		$restore = array_intersect_assoc(self::$readonlies, self::$config);
 		self::$config = $restore;
 	}
+
+	/**
+	 * Reset configuration state for FrankenPHP worker mode.
+	 * This preserves readonly configuration while clearing request-specific config.
+	 * 
+	 * @param array $preserveKeys Configuration keys to preserve (in addition to readonly)
+	 *
+	 * @author     Auto-generated for FrankenPHP compatibility
+	 * @since      1.1.0
+	 */
+	public static function resetWorkerState(array $preserveKeys = [])
+	{
+		// Preserve readonly config and specified keys
+		$preserve = [];
+		
+		// Keep readonly config
+		foreach (self::$readonlies as $key => $dummy) {
+			if (isset(self::$config[$key])) {
+				$preserve[$key] = self::$config[$key];
+			}
+		}
+		
+		// Keep explicitly preserved keys
+		foreach ($preserveKeys as $key) {
+			if (isset(self::$config[$key])) {
+				$preserve[$key] = self::$config[$key];
+			}
+		}
+		
+		// Reset config to preserved values
+		self::$config = $preserve;
+	}
 }
 ?>
