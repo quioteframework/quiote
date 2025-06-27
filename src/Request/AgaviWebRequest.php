@@ -225,10 +225,58 @@ class AgaviWebRequest extends AgaviRequest
 	}
 
 	/**
+	 * Set the URL scheme for this request.
+	 *
+	 * @param      string The URL scheme (e.g., 'http', 'https').
+	 *
+	 * @since      2.0.0
+	 */
+	public function setUrlScheme($scheme)
+	{
+		$this->urlScheme = $scheme;
+	}
+
+	/**
+	 * Set the URL host for this request.
+	 *
+	 * @param      string The URL host (e.g., 'example.com').
+	 *
+	 * @since      2.0.0
+	 */
+	public function setUrlHost($host)
+	{
+		$this->urlHost = $host;
+	}
+
+	/**
+	 * Set the URL port for this request.
+	 *
+	 * @param      int The URL port (e.g., 80, 443, 8080).
+	 *
+	 * @since      2.0.0
+	 */
+	public function setUrlPort($port)
+	{
+		$this->urlPort = (int)$port;
+	}
+
+	/**
+	 * Set the request URI for this request.
+	 *
+	 * @param      string The request URI (e.g., '/path/to/resource?query=value').
+	 *
+	 * @since      2.0.0
+	 */
+	public function setRequestUri($uri)
+	{
+		$this->requestUri = $uri;
+	}
+
+	/**
 	 * Constructor.
 	 *
-	 * @author     David Zülke <dz@bitxtender.com>
-	 * @since      0.11.0
+     * @author     David Zülke <dz@bitxtender.com>
+     * @since      0.11.0
 	 */
 	public function __construct()
 	{
@@ -236,43 +284,6 @@ class AgaviWebRequest extends AgaviRequest
 		$this->setParameters([
 			'request_data_holder_class' => 'Agavi\Request\AgaviWebRequestDataHolder',
 		]);
-	}
-
-	/**
-	 * Clear magic quotes. Properly. That means keys are cleared, too.
-	 *
-	 * @param      array An array of data to be put out of it's misery.
-	 *
-	 * @return     array An array delivered from magic quotes.
-	 *
-	 * @author     David Zülke <dz@bitxtender.com>
-	 * @since      0.11.0
-	 */
-	public final static function clearMagicQuotes($input)
-	{
-		// this method only works with PHP 5.2.7+
-		// there used to be special code for versions < 5.2.2
-		// http://bugs.php.net/bug.php?id=41093
-		// but we now require 5.2.8 anyway in combination with magic_quotes_gpc, see initialize()
-		// http://trac.agavi.org/ticket/953
-		// http://trac.agavi.org/ticket/944
-		// http://bugs.php.net/bug.php?id=41093
-		
-		$retval = [];
-
-		foreach($input as $key => $value) {
-			$key = stripslashes((string) $key);
-
-			if(is_array($value)) {
-				$retval[$key] = self::clearMagicQuotes($value);
-			} elseif(is_string($value)) {
-				$retval[$key] = stripslashes($value);
-			} else {
-				$retval[$key] = $value;
-			}
-		}
-
-		return $retval;
 	}
 
 	/**

@@ -4,6 +4,7 @@ use Agavi\Testing\AgaviUnitTestCase;
 use Agavi\Config\AgaviConfig;
 use Agavi\AgaviContext;
 use Agavi\Routing\AgaviWebRouting;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 
 class AgaviWebRoutingServerCasesTest extends AgaviUnitTestCase
 {
@@ -47,6 +48,7 @@ class AgaviWebRoutingServerCasesTest extends AgaviUnitTestCase
 		return $retval;
 	}
 
+	#[RunInSeparateProcess]
 	#[\PHPUnit\Framework\Attributes\DataProvider('loadTestCases')]
 	public function testCases($export)
 	{

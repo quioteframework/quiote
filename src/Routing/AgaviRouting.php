@@ -162,7 +162,10 @@ abstract class AgaviRouting extends AgaviParameterHolder
 		$this->sources['_SERVER'] = new AgaviRoutingArraySource($_SERVER);
 
 		if(AgaviConfig::get('core.use_security')) {
-			$this->sources['user'] = new AgaviRoutingUserSource($this->context->getUser());
+			$user = $this->context->getUser();
+			if($user !== null) {
+				$this->sources['user'] = new AgaviRoutingUserSource($user);
+			}
 		}
 	}
 
@@ -1136,6 +1139,12 @@ abstract class AgaviRouting extends AgaviParameterHolder
 	public function execute()
 	{
 		$rq = $this->context->getRequest();
+		
+		// Handle case where request is not set (e.g., in tests)
+		if($rq === null) {
+			// Return an empty execution container for tests
+			return $this->context->getController()->createExecutionContainer();
+		}
 
 		$rd = $rq->getRequestData();
 

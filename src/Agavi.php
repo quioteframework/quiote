@@ -101,9 +101,9 @@ final class Agavi
 			AgaviConfig::set('core.module_dir', AgaviConfig::get('core.app_dir') . '/Modules', false, true);
 
 			AgaviConfig::set('core.template_dir', AgaviConfig::get('core.app_dir') . '/Templates', false, true);
-		AgaviConfig::set('core.cldr_dir', AgaviConfig::get('core.agavi_dir') . '/Translation/data', false, true);
+			AgaviConfig::set('core.cldr_dir', AgaviConfig::get('core.agavi_dir') . '/Translation/data', false, true);
 
-		// load base settings
+			// load base settings
 			AgaviConfigCache::load(AgaviConfig::get('core.config_dir') . '/settings.xml');
 
 			// clear our cache if the conditions are right

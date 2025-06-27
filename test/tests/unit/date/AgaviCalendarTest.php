@@ -192,7 +192,7 @@ class AgaviCalendarTest extends BaseCalendarTest
 		return;
 		// TODO: enable again
 		// TODO: there is no api for this currently
-		
+		/*
 		$cal = AgaviCalendar::createInstance(AgaviTimeZone::createDefault(), AgaviLocale::getEnglish());
 
 		$cal = AgaviCalendar::createInstance($zone, AgaviLocale::getEnglish());
@@ -217,6 +217,7 @@ class AgaviCalendarTest extends BaseCalendarTest
 
 		$gc2 = clone $gc;
 		$this->assertFalse($gc2->__is_not_equal($gc) || !($gc2->__is_equal($gc)), 'AgaviGregorianCalendar assignment/operator==/operator!= failed');
+		*/
 	}
 
 	/**
@@ -742,7 +743,7 @@ class AgaviCalendarTest extends BaseCalendarTest
 		$cal->set(1997, AgaviDateDefinitions::DECEMBER, 25);
 		$this->doYEAR_WOYLoop($cal, $sdf, $times);
 		//loop_addroll(cal, /*sdf,*/ times, UCAL_YEAR_WOY, UCAL_YEAR,  status);
-		$this->yearAddTest($cal); // aliu
+		$this->yearAddTest($cal); // ali	u
 		$this->loop_addroll($cal, /*sdf,*/ $times, AgaviDateDefinitions::DOW_LOCAL, AgaviDateDefinitions::DAY_OF_WEEK);
 
 		$cal->clear();
@@ -783,7 +784,7 @@ class AgaviCalendarTest extends BaseCalendarTest
 		$ywy = $cal->get(AgaviDateDefinitions::YEAR_WOY);
 		$woy = $cal->get(AgaviDateDefinitions::WEEK_OF_YEAR);
 		$dow = $cal->get(AgaviDateDefinitions::DOW_LOCAL);
-		$t = $cal.getTime();
+		$t = $cal->getTime();
 
 		$cal->add(AgaviDateDefinitions::YEAR, 1);
 		$y2   = $cal->get(AgaviDateDefinitions::YEAR);

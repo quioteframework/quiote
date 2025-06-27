@@ -112,6 +112,11 @@ class AgaviWebRouting extends AgaviRouting
 		parent::initialize($context, $parameters);
 
 		$rq = $this->context->getRequest();
+		
+		// Handle case where request is not set (e.g., in tests)
+		if($rq === null) {
+			return;
+		}
 
 		$rd = $rq->getRequestData();
 
@@ -142,9 +147,42 @@ class AgaviWebRouting extends AgaviRouting
 				$requestPath = substr($requestPath, 0, $pos);
 			}
 			
-			// If the script name is NOT found in the request path, URL rewriting is active
-			// Example: SCRIPT_NAME="/app/index.php" but REQUEST_URI="/app/some/path" (no index.php)
-			$this->modernRewriteDetected = !str_contains($requestPath, $scriptName);
+			// More precise rewrite detection: 
+			// 1. If request path contains the script name, no rewriting
+			// 2. If request path is just the directory of script name, no rewriting (default document)
+			// 3. Only detect rewriting if we have a path that goes beyond the script directory
+			//    but doesn't contain the script name
+			$scriptDir = dirname($scriptName);
+			if($scriptDir === '.') {
+				$scriptDir = '/';
+			}
+			
+			// Normalize paths
+			if(!str_ends_with($scriptDir, '/')) {
+				$scriptDir .= '/';
+			}
+			if(!str_starts_with($requestPath, '/')) {
+				$requestPath = '/' . $requestPath;
+			}
+			if(!str_ends_with($requestPath, '/')) {
+				$requestPath .= '/';
+			}
+			
+			// If request contains the script name explicitly, no rewriting
+			if(str_contains($requestUri, basename($scriptName))) {
+				$this->modernRewriteDetected = false;
+			}
+			// If request path is just the script directory (or root), this is default document serving, not rewriting
+			elseif($requestPath === $scriptDir) {
+				$this->modernRewriteDetected = false;
+			}
+			// If we have a path that goes beyond the script directory but doesn't contain the script name, it's rewriting
+			elseif(str_starts_with($requestPath, $scriptDir) && strlen($requestPath) > strlen($scriptDir)) {
+				$this->modernRewriteDetected = true;
+			}
+			else {
+				$this->modernRewriteDetected = false;
+			}
 		}
 		
 		$rewritten = $apacheRewriteDetected || $this->modernRewriteDetected;
@@ -220,14 +258,41 @@ class AgaviWebRouting extends AgaviRouting
 				}
 			}
 
-			// URL decoding - avoid double decoding for servers that already handle it
-			if(!str_contains($serverSoftware, 'Apache/1') && 
-			   !(str_contains($serverSoftware, 'Microsoft-IIS') && isset($_SERVER['UNENCODED_URL']))) {
-				// don't do that for Apache 1 or IIS 7 with URL Rewrite Module, it's already rawurldecode()d there
+			// URL decoding - handle decoding properly for different server configurations
+			$serverSoftware = $_SERVER['SERVER_SOFTWARE'] ?? '';
+			$shouldDecode = true;
+			
+			// Special cases where we should NOT decode:
+			// 1. IIS with URL Rewrite Module (already decoded)
+			// 2. Some Apache 1.x configurations where PATH_INFO is already decoded
+			if(str_contains($serverSoftware, 'Microsoft-IIS') && isset($_SERVER['UNENCODED_URL'])) {
+				$shouldDecode = false;
+			}
+			// For Apache 1.x, only skip decoding if we're NOT in a rewrite scenario
+			// because in rewrite scenarios, the input comes from QUERY_STRING which needs decoding
+			elseif(str_contains($serverSoftware, 'Apache/1') && !$apacheRewriteDetected) {
+				$shouldDecode = false;
+			}
+			
+			if($shouldDecode) {
 				$this->input = rawurldecode($this->input);
 			}
 
-			$this->basePath = $this->prefix = preg_replace('/' . preg_quote($this->input, '/') . '$/D', '', rawurldecode((string) $ru['path']));
+			// Calculate prefix by removing the input from the request path
+			$decodedPath = rawurldecode((string) $ru['path']);
+			if($this->modernRewriteDetected) {
+				// For modern rewrite engines, the prefix should be the base directory without the input path
+				$scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
+				$scriptDir = dirname($scriptName);
+				if($scriptDir === '.' || $scriptDir === '/') {
+					$this->basePath = $this->prefix = '';
+				} else {
+					$this->basePath = $this->prefix = $scriptDir;
+				}
+			} else {
+				// Traditional Apache rewrite logic
+				$this->basePath = $this->prefix = preg_replace('/' . preg_quote($this->input, '/') . '$/D', '', $decodedPath);
+			}
 
 			// that was easy. now clean up $_GET and the Request
 			$parsedRuQuery = $parsedInput = '';

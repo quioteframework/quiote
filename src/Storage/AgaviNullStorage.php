@@ -40,14 +40,14 @@ class AgaviNullStorage extends AgaviStorage
 	 *
 	 * @param      string A unique key identifying your data.
 	 *
-	 * @return     void Always null.
+	 * @return     false Always false.
 	 *
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function read($key)
+	public function read(string $key) : string|false
 	{
-		return null;
+		return false;
 	}
 
 	/**
@@ -92,6 +92,27 @@ class AgaviNullStorage extends AgaviStorage
 	 */
 	public function write($key, $data)
 	{
+	}
+
+	/**
+	 * Store data in this storage.
+	 *
+	 * The preferred format for a key is directory style so naming conflicts can
+	 * be avoided.
+	 *
+	 * @param      string A unique key identifying your data.
+	 * @param      mixed  Data associated with your key.
+	 *
+	 * @return     void
+	 */
+	public function store($key, $data) : bool
+	{
+		// Null storage does not store anything.
+		return false;
+	}
+
+	public function retrieve($key) {
+		return false;
 	}
 }
 

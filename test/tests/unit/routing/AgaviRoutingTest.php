@@ -4,6 +4,7 @@ use Agavi\AgaviContext;
 use Agavi\Testing\AgaviUnitTestCase;
 use Agavi\Config\AgaviConfig;
 use Agavi\Exception\AgaviException;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 
 require_once(__DIR__ . '/../../../lib/routing/AgaviTestingRouting.class.php');
 require_once(__DIR__ . '/../../../lib/routing/TestTicket713RoutingCallback.class.php');
@@ -47,6 +48,7 @@ class AgaviRoutingTest extends AgaviUnitTestCase
 		$this->routing->startup();
 	}
 	
+	#[RunInSeparateProcess]
 	public function testExecuteDisabled()
 	{
 		$this->routing->setParameter('enabled', false);
@@ -55,6 +57,7 @@ class AgaviRoutingTest extends AgaviUnitTestCase
 		$this->assertEquals(null, $container->getModuleName());
 	}
 	
+	#[RunInSeparateProcess]
 	public function testExecuteEmptyInput()
 	{
 		$this->routing->forceInput('');
@@ -64,6 +67,7 @@ class AgaviRoutingTest extends AgaviUnitTestCase
 		$this->assertEquals(array(), $this->getContext()->getRequest()->getAttribute('matched_routes', 'org.agavi.routing'));
 	}
 	
+	#[RunInSeparateProcess]
 	public function testExecuteSimpleInput()
 	{
 		$this->routing->forceInput('/');
@@ -73,6 +77,7 @@ class AgaviRoutingTest extends AgaviUnitTestCase
 		$this->assertEquals(array('index'), $this->getContext()->getRequest()->getAttribute('matched_routes', 'org.agavi.routing'));
 	}
 	
+	#[RunInSeparateProcess]
 	public function testExecuteUserAuthenticated()
 	{
 		$ctx = $this->getContext();
@@ -85,6 +90,7 @@ class AgaviRoutingTest extends AgaviUnitTestCase
 		$ctx->getUser()->setAuthenticated(false);
 	}
 	
+	#[RunInSeparateProcess]
 	public function testExecuteServer()
 	{	
 		$_SERVER['routing_test'] = 'foo';
@@ -98,7 +104,8 @@ class AgaviRoutingTest extends AgaviUnitTestCase
 		// Clean up
 		unset($_SERVER['routing_test']);
 	}
-		public function testExecuteRandomSource()
+		#[RunInSeparateProcess]
+	public function testExecuteRandomSource()
 	{
 		$data = array();
 		$data['bar'] = 'foo';
@@ -122,6 +129,7 @@ class AgaviRoutingTest extends AgaviUnitTestCase
 		$this->assertEquals(array('testingsource'), $ctx->getRequest()->getAttribute('matched_routes', 'org.agavi.routing'));
 	}*/
 
+	#[RunInSeparateProcess]
 	public function testMatchWithParam()
 	{
 		$ctx = $this->getContext();
@@ -133,6 +141,7 @@ class AgaviRoutingTest extends AgaviUnitTestCase
 		$this->assertEquals('TestWithParam', $container->getModuleName());
 	}
 	
+	#[RunInSeparateProcess]
 	public function testMatchWithMultipleParams()
 	{
 		$ctx = $this->getContext();
@@ -145,6 +154,7 @@ class AgaviRoutingTest extends AgaviUnitTestCase
 		$this->assertEquals('TestWithParam', $container->getModuleName());
 	}
 	
+	#[RunInSeparateProcess]
 	public function testOnNotMatched()
 	{
 		$this->routing->forceInput('/callbacks/on_not_matched/callback_stopper');
@@ -158,6 +168,7 @@ class AgaviRoutingTest extends AgaviUnitTestCase
 		$this->assertTrue($exceptionThrown, 'Expected AgaviException with "Not Matched" message was not thrown');
 	}
 	
+	#[RunInSeparateProcess]
 	public function testNonMatchingCallback()
 	{
 		$this->routing->forceInput('/callbacks/nonmatching_callback');
@@ -167,6 +178,7 @@ class AgaviRoutingTest extends AgaviUnitTestCase
 		$this->assertEquals(AgaviConfig::get('actions.error_404_action'), $container->getActionName());
 	}
 	
+	#[RunInSeparateProcess]
 	public function testMatchingCallback()
 	{
 		$ctx = $this->getContext();
@@ -178,6 +190,7 @@ class AgaviRoutingTest extends AgaviUnitTestCase
 		$this->assertEquals('set', $ctx->getRequest()->getRequestData()->getParameter('callback'));
 	}
 	
+	#[RunInSeparateProcess]
 	public function testOnNotMatchedStopper()
 	{
 		$this->routing->forceInput('/callbacks/stopper');
@@ -194,6 +207,7 @@ class AgaviRoutingTest extends AgaviUnitTestCase
 	/**
 	 * 
 	 */
+	#[RunInSeparateProcess]
 	#[\PHPUnit\Framework\Attributes\DataProvider('dataParseRouteString')]
 	public function testParseRouteString($routeString, $expected)
 	{
@@ -230,6 +244,7 @@ class AgaviRoutingTest extends AgaviUnitTestCase
 		);
 	}
 	
+	#[RunInSeparateProcess]
 	public function testTicket263()
 	{
 		try {
@@ -242,6 +257,7 @@ class AgaviRoutingTest extends AgaviUnitTestCase
 		
 	}
 	
+	#[RunInSeparateProcess]
 	public function testTicket764()
 	{
 		$this->routing->forceInput('/test_ticket_764/dummy/child');
@@ -250,6 +266,7 @@ class AgaviRoutingTest extends AgaviUnitTestCase
 		$this->assertEquals('Foo/Bar', $container->getActionName());
 	}
 	
+	#[RunInSeparateProcess]
 	public function testEmptyDefaultValue() {
 		$this->routing->forceInput('/empty_default_value');
 		$container = $this->routing->execute();
