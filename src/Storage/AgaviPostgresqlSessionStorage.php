@@ -18,6 +18,7 @@ namespace Agavi\Storage;
 use Agavi\AgaviContext;
 use Agavi\Exception\AgaviDatabaseException;
 use Agavi\Exception\AgaviInitializationException;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * Provides support for session storage using a PostgreSQL brand database.
@@ -52,7 +53,7 @@ use Agavi\Exception\AgaviInitializationException;
  *
  * @version    $Id$
  */
-class AgaviPostgresqlSessionStorage extends AgaviSessionStorage
+class AgaviPostgresqlSessionStorage extends AgaviSessionStorage implements ResetInterface
 {
 	/**
 	 * @var        \PgSql\Connection A postgresql database resource.
@@ -348,6 +349,16 @@ class AgaviPostgresqlSessionStorage extends AgaviSessionStorage
 		$error = sprintf($error, $id, pg_last_error($this->resource));
 		throw new AgaviDatabaseException($error);
 	}
-}
 
-?>
+	public function reset() : void
+	{
+		if($this->resource) {
+			$transaction_status = pg_transaction_status($this->resource);
+			if($transaction_status === PGSQL_TRANSACTION_INTRANS || $transaction_status === PGSQL_TRANSACTION_ACTIVE) {
+				// Rollback any open transaction
+				pg_query($this->resource, 'ROLLBACK');
+			}
+		}
+		parent::reset();
+	}
+}

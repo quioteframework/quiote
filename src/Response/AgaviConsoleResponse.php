@@ -212,6 +212,24 @@ class AgaviConsoleResponse extends AgaviResponse
 	{
 		exit($this->exitCode);
 	}
+
+	/**
+	 * Reset console response state for FrankenPHP worker compatibility.
+	 * Clears console-specific response properties that could leak between requests.
+	 *
+	 * @author     Generated for FrankenPHP worker compatibility
+	 * @since      1.1.0
+	 */
+	public function reset(): void
+	{
+		// Reset console-specific properties
+		$this->exitCode = 0;
+		
+		// Note: content is handled by parent reset
+		
+		// Call parent reset to clear base response properties
+		parent::reset();
+	}
 }
 
 ?>

@@ -14,6 +14,8 @@
 // +---------------------------------------------------------------------------+
 namespace Agavi\Validator;
 
+use Symfony\Contracts\Service\ResetInterface;
+
 /**
  * AgaviValidationError stores an error message and the fields of an error.
  *
@@ -28,7 +30,7 @@ namespace Agavi\Validator;
  *
  * @version    $Id$
  */
-class AgaviValidationError
+class AgaviValidationError implements ResetInterface
 {
 	/**
 	 * @var        array The fields this error affects.
@@ -239,6 +241,13 @@ class AgaviValidationError
 		return $this->hasArgument(new AgaviValidationArgument($fieldname));
 	}
 
+	public function reset() : void
+	{
+		$this->arguments = [];
+		$this->incident = null;
+		$this->message = '';
+		$this->name = '';
+	}
 }
 
 ?>

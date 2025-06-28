@@ -16,6 +16,7 @@
 namespace Agavi\Filter;
 
 use Agavi\Controller\AgaviExecutionContainer;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * AgaviFilterChain manages registered filters for a specific context.
@@ -33,7 +34,7 @@ use Agavi\Controller\AgaviExecutionContainer;
  *
  * @version    $Id$
  */
-class AgaviFilterChain
+class AgaviFilterChain implements ResetInterface
 {
 	/** @var AgaviFilter[] */
 	protected array $preFilters = [];
@@ -110,5 +111,21 @@ class AgaviFilterChain
 	{
 		// No-op for compatibility with factory system.
 		// Parameters are intentionally unused
+	}
+
+	/**
+	 * Reset filter chain state for FrankenPHP worker compatibility.
+	 * Clears filter chain properties that could leak between requests.
+	 *
+	 * @author     Generated for FrankenPHP worker compatibility
+	 * @since      1.1.0
+	 */
+	public function reset(): void
+	{
+		$this->preFilters = [];
+		$this->postFilters = [];
+		$this->names = [];
+
+		// Note: $this->type is typically set during initialization and doesn't need reset
 	}
 }

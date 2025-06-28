@@ -16,6 +16,7 @@
 namespace Agavi\Util;
 
 use InvalidArgumentException;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * AgaviParameterHolder provides a base class for managing parameters.
@@ -32,7 +33,7 @@ use InvalidArgumentException;
  *
  * @version    $Id$
  */
-class AgaviParameterHolder
+class AgaviParameterHolder implements ResetInterface
 {
 	/**
 	 * @var        array An array of parameters
@@ -286,6 +287,11 @@ class AgaviParameterHolder
 		foreach($parameters as $key => &$value) {
 			$this->parameters[$key] =& $value;
 		}
+	}
+
+	public function reset() : void
+	{
+		$this->clearParameters();
 	}
 
 }

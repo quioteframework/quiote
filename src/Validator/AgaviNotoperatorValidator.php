@@ -15,6 +15,7 @@
 namespace Agavi\Validator;
 
 use Agavi\Exception\AgaviValidatorException;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * AgaviNOTOperatorValidator succeeds if the sub-validator failed
@@ -36,7 +37,7 @@ use Agavi\Exception\AgaviValidatorException;
  *
  * @version    $Id$
  */
-class AgaviNotoperatorValidator extends AgaviOperatorValidator
+class AgaviNotoperatorValidator extends AgaviOperatorValidator implements ResetInterface
 {
 	/**
 	 * Checks if operator has more then one child validator.
@@ -132,6 +133,11 @@ class AgaviNotoperatorValidator extends AgaviOperatorValidator
 			return true;
 		}
 	}	
-}
 
-?>
+	public function reset() : void
+	{
+		parent::reset();
+		$this->children = [];
+		$this->result = AgaviValidator::SUCCESS;
+	} 
+}

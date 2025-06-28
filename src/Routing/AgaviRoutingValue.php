@@ -15,6 +15,7 @@
 namespace Agavi\Routing;
 
 use Agavi\AgaviContext;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * Routing values are used internally and, optionally, by users in gen() calls
@@ -32,7 +33,7 @@ use Agavi\AgaviContext;
  *
  * @version    $Id$
  */
-class AgaviRoutingValue implements AgaviIRoutingValue
+class AgaviRoutingValue implements AgaviIRoutingValue, ResetInterface
 {
 	protected $context;
 	protected $contextName;
@@ -397,6 +398,24 @@ class AgaviRoutingValue implements AgaviIRoutingValue
 	public function __toString(): string
 	{
 		return (string) $this->context->getRouting()->escapeOutputParameter($this->value);
+	}
+
+	public function reset(): void
+	{
+		$this->context = null;
+		$this->contextName = null;
+		$this->prefix = null;
+		$this->postfix = null;
+		$this->prefixNeedsEncoding = false;
+		$this->postfixNeedsEncoding = false;
+		$this->valueEncoded = false;
+		$this->postfixEncoded = false;
+		$this->prefixEncoded = false;
+		
+		unset($this->value);
+		unset($this->valueNeedsEncoding);
+		
+		unset(self::$arrayMap);
 	}
 }
 

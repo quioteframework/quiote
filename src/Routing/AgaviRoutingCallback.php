@@ -17,6 +17,7 @@ namespace Agavi\Routing;
 use Agavi\AgaviContext;
 use Agavi\Controller\AgaviExecutionContainer;
 use Agavi\Util\AgaviParameterHolder;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * AgaviRoutingCallback allows you to provide callbacks into the routing
@@ -32,7 +33,7 @@ use Agavi\Util\AgaviParameterHolder;
  *
  * @version    $Id$
  */
-abstract class AgaviRoutingCallback extends AgaviParameterHolder
+abstract class AgaviRoutingCallback extends AgaviParameterHolder implements ResetInterface
 {
 	/**
 	 * @var        AgaviContext An AgaviContext instance.
@@ -117,6 +118,13 @@ abstract class AgaviRoutingCallback extends AgaviParameterHolder
 	public function onGenerate(array $defaultParameters, array &$userParameters, array &$userOptions)
 	{
 		return true;
+	}
+
+	public function reset() : void
+	{
+		$this->context = null;
+		$this->route = null;
+		$this->clearParameters();
 	}
 }
 

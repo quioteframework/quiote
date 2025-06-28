@@ -18,6 +18,7 @@ use Agavi\AgaviContext;
 use Agavi\Date\AgaviCalendar;
 use Agavi\Exception\AgaviException;
 use Agavi\Util\AgaviParameterHolder;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * The locale saves all kind of info about a locale
@@ -33,7 +34,7 @@ use Agavi\Util\AgaviParameterHolder;
  *
  * @version    $Id$
  */
-class AgaviLocale extends AgaviParameterHolder
+class AgaviLocale extends AgaviParameterHolder implements ResetInterface
 {
 	/**
 	 * @var        AgaviContext An AgaviContext instance.
@@ -849,6 +850,12 @@ class AgaviLocale extends AgaviParameterHolder
 
 		return array_reverse($paths);
 	}
-}
 
-?>
+	public function reset() : void
+	{
+		$this->context = null;
+		$this->data = [];
+		$this->identifier = null;
+		$this->parameters = [];
+	}
+}

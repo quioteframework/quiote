@@ -14,6 +14,8 @@
 // +---------------------------------------------------------------------------+
 namespace Agavi\Validator;
 
+use Symfony\Contracts\Service\ResetInterface;
+
 /**
  * AgaviValidationReport stores the result of a validation run.
  *
@@ -28,7 +30,7 @@ namespace Agavi\Validator;
  *
  * @version    $Id$
  */
-class AgaviValidationReport implements AgaviIValidationReportQuery
+class AgaviValidationReport implements AgaviIValidationReportQuery, ResetInterface
 {
 	/**
 	 * @var        array A List of result severities for each argument which has been validated.
@@ -515,6 +517,13 @@ class AgaviValidationReport implements AgaviIValidationReportQuery
 	public function count()
 	{
 		return $this->createQuery()->count();
+	}
+
+	public function reset(): void {
+		$this->argumentResults = [];
+		$this->result = null;
+		$this->incidents = [];
+		$this->providedDependTokens = [];
 	}
 }
 

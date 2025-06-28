@@ -16,6 +16,7 @@ namespace Agavi\Validator;
 
 use Agavi\Request\AgaviRequestDataHolder;
 use InvalidArgumentException;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * AgaviOperatorValidator
@@ -34,7 +35,7 @@ use InvalidArgumentException;
  *
  * @version    $Id$
  */
-abstract class AgaviOperatorValidator extends AgaviValidator implements AgaviIValidatorContainer
+abstract class AgaviOperatorValidator extends AgaviValidator implements AgaviIValidatorContainer, ResetInterface
 {
 	/**
 	 * @var        array The child validators.
@@ -254,6 +255,14 @@ abstract class AgaviOperatorValidator extends AgaviValidator implements AgaviIVa
 		
 		return $result;
 	}
-}
 
-?>
+	public function reset() : void
+	{
+		$this->children = [];
+		$this->result = AgaviValidator::SUCCESS;
+		foreach($this->children as $child) {
+			$child->reset();
+		}
+		
+	}
+}

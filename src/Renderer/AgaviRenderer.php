@@ -18,6 +18,7 @@ use Agavi\AgaviContext;
 use Agavi\Exception\AgaviException;
 use Agavi\Util\AgaviParameterHolder;
 use Agavi\View\AgaviTemplateLayer;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * A renderer produces the output as defined by a View
@@ -33,7 +34,7 @@ use Agavi\View\AgaviTemplateLayer;
  *
  * @version    $Id$
  */
-abstract class AgaviRenderer extends AgaviParameterHolder
+abstract class AgaviRenderer extends AgaviParameterHolder implements ResetInterface
 {
 	protected $contextName = null;
 	/**
@@ -210,6 +211,23 @@ abstract class AgaviRenderer extends AgaviParameterHolder
 	 * @since      0.11.0
 	 */
 	abstract public function render(AgaviTemplateLayer $layer, array &$attributes = [], array &$slots = [], array &$moreAssigns = []);
+
+	public function reset() : void
+	{
+		$this->context = null;
+		$this->contextName = null;
+		$this->varName = 'template';
+		$this->slotsVarName = 'slots';
+		$this->extractVars = false;
+		$this->defaultExtension = '';
+		
+		$this->assigns = [];
+		$this->moreAssignNames = [];
+		
+		parent::reset();
+		
+		unset($this->layer, $this->attributes, $this->slots, $this->moreAssigns);
+	}
 }
 
 ?>

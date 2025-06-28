@@ -14,6 +14,8 @@
 // +---------------------------------------------------------------------------+
 namespace Agavi\Validator;
 
+use Symfony\Contracts\Service\ResetInterface;
+
 /**
  * AgaviValidationIncident is erroneous result of an validation run.
  *
@@ -28,7 +30,7 @@ namespace Agavi\Validator;
  *
  * @version    $Id$
  */
-class AgaviValidationIncident
+class AgaviValidationIncident implements ResetInterface
 {
 	/**
 	 * @var        array The errors of this incident.
@@ -251,6 +253,13 @@ class AgaviValidationIncident
 		}
 
 		return $errors;
+	}
+
+	public function reset() : void
+	{
+		$this->validator = null;
+		$this->severity = AgaviValidator::ERROR;
+		$this->errors = [];
 	}
 
 }

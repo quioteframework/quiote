@@ -15,6 +15,7 @@
 namespace Agavi\Translation;
 
 use Agavi\AgaviContext;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * AgaviBasicTranslator defines some base functions for all translators.
@@ -30,7 +31,7 @@ use Agavi\AgaviContext;
  *
  * @version    $Id$
  */
-abstract class AgaviBasicTranslator implements AgaviITranslator
+abstract class AgaviBasicTranslator implements AgaviITranslator, ResetInterface
 {
 	/**
 	 * @var        AgaviContext An AgaviContext instance.
@@ -75,6 +76,11 @@ abstract class AgaviBasicTranslator implements AgaviITranslator
 	 */
 	public function localeChanged($newLocale)
 	{
+	}
+
+	public function reset() : void
+	{
+		$this->context = null;
 	}
 }
 

@@ -30,7 +30,8 @@ namespace Agavi\Response;
 use Agavi\Controller\AgaviOutputType;
 use Agavi\Util\AgaviAttributeHolder;
 use Agavi\AgaviContext;
-abstract class AgaviResponse extends AgaviAttributeHolder
+use Symfony\Contracts\Service\ResetInterface;
+abstract class AgaviResponse extends AgaviAttributeHolder implements ResetInterface
 {
 
 	protected $contextName;
@@ -381,6 +382,26 @@ abstract class AgaviResponse extends AgaviAttributeHolder
 		} else {
 			echo $this->content;
 		}
+	}
+
+	/**
+	 * Reset response state for FrankenPHP worker compatibility.
+	 * Clears response-specific properties that could leak between requests.
+	 *
+	 * @author     Generated for FrankenPHP worker compatibility
+	 * @since      1.1.0
+	 */
+	public function reset(): void
+	{
+		$this->contextName = null;
+		$this->outputTypeName = null;
+		$this->contentStreamMeta = null;
+		$this->context = null;
+		$this->content = null;
+		$this->outputType = null;
+		
+		// Reset parent attribute holder state
+		parent::clearAttributes();
 	}
 }
 

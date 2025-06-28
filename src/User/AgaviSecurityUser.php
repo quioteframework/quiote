@@ -16,6 +16,7 @@
 namespace Agavi\User;
 
 use Agavi\AgaviContext;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * AgaviBasicSecurityUser will handle any type of data as a credential.
@@ -31,7 +32,7 @@ use Agavi\AgaviContext;
  *
  * @version    $Id$
  */
-class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser
+class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser, ResetInterface
 {
 	// +-----------------------------------------------------------------------+
 	// | CONSTANTS                                                             |
@@ -248,6 +249,16 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser
 
 		// call the parent shutdown method
 		parent::shutdown();
+	}
+
+	public function reset() : void
+	{
+		$this->authenticated = null;
+		$this->credentials = null;
+		$this->context = null;
+		$this->parameters = [];
+		// reset parent
+		parent::reset();
 	}
 }
 

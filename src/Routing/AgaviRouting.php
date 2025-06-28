@@ -22,6 +22,7 @@ use Agavi\Response\AgaviResponse;
 use Agavi\Util\AgaviArrayPathDefinition;
 use Agavi\Util\AgaviParameterHolder;
 use Agavi\Util\AgaviToolkit;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * AgaviRouting allows you to centralize your entry point urls in your web
@@ -39,7 +40,7 @@ use Agavi\Util\AgaviToolkit;
  *
  * @version    $Id$
  */
-abstract class AgaviRouting extends AgaviParameterHolder
+abstract class AgaviRouting extends AgaviParameterHolder implements ResetInterface
 {
 	const ANCHOR_NONE = 0;
 	const ANCHOR_START = 1;
@@ -1771,5 +1772,26 @@ abstract class AgaviRouting extends AgaviParameterHolder
 		$value->initialize($this->context);
 		return $value;
 	}
-	
+
+	/**
+	 * Reset routing state for FrankenPHP worker compatibility.
+	 * Clears routing-specific properties that could leak between requests.
+	 *
+	 * @author     Generated for FrankenPHP worker compatibility
+	 * @since      1.1.0
+	 */
+	public function reset(): void
+	{
+		// Reset routing-specific properties that hold request state
+		$this->context = null;
+		$this->input = null;
+		$this->sources = [];
+		$this->prefix = '';
+		
+		// Note: routes, defaultGenOptions, genOptionsPresets are config-based - may not need reset
+		// But if they contain request-specific state, they should be cleared
+		
+		// Reset parent parameter holder state
+		parent::clearParameters();
+	}
 }

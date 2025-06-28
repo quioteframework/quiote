@@ -19,6 +19,7 @@ use Agavi\Controller\AgaviExecutionContainer;
 use Agavi\Exception\AgaviException;
 use Agavi\Renderer\AgaviRenderer;
 use Agavi\Util\AgaviParameterHolder;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * A template layer wraps information necessary to render a template.
@@ -34,7 +35,7 @@ use Agavi\Util\AgaviParameterHolder;
  *
  * @version    $Id$
  */
-abstract class AgaviTemplateLayer extends AgaviParameterHolder
+abstract class AgaviTemplateLayer extends AgaviParameterHolder implements ResetInterface
 {
 
 	protected $contextName = null;
@@ -307,6 +308,18 @@ abstract class AgaviTemplateLayer extends AgaviParameterHolder
 	 * @since      0.11.0
 	 */
 	abstract public function getResourceStreamIdentifier();
+
+	public function reset() : void
+	{
+		$this->context = null;
+		$this->contextName = null;
+		$this->renderer = null;
+		$this->slots = [];
+		
+		parent::reset();
+		
+		unset($this->layer, $this->attributes, $this->moreAssigns);
+	}
 }
 
 ?>

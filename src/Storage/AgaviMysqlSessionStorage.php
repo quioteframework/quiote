@@ -18,6 +18,7 @@ namespace Agavi\Storage;
 use Agavi\AgaviContext;
 use Agavi\Exception\AgaviDatabaseException;
 use Agavi\Exception\AgaviInitializationException;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * Provides support for session storage using a MySQL brand database.
@@ -52,7 +53,7 @@ use Agavi\Exception\AgaviInitializationException;
  *
  * @version    $Id$
  */
-class AgaviMysqlSessionStorage extends AgaviSessionStorage
+class AgaviMysqlSessionStorage extends AgaviSessionStorage implements ResetInterface
 {
 	/**
 	 * @var        resource A mysql database resource.
@@ -223,6 +224,7 @@ class AgaviMysqlSessionStorage extends AgaviSessionStorage
 		$database = $this->getParameter('database', null);
 
 		// get the database resource
+		/** @phan-suppress-next-line UnusedSuppression */
 		$this->resource = $this->getContext()->getDatabaseManager()->getDatabase($database)->getResource();
 
 		return true;

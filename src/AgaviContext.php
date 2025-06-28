@@ -325,13 +325,37 @@ class AgaviContext implements \Stringable, ResetInterface
 	 */
 	public function reset(): void
 	{
+		error_log("AgaviContext::reset() - Starting context reset");
+		
 		// Reset singleton model instances
 		$this->singletonModelInstances = [];
+		error_log("AgaviContext::reset() - Reset singleton model instances");
+		
+		// Log user state before reset
+		if ($this->user) {
+			$userClass = get_class($this->user);
+			$isAuthenticated = method_exists($this->user, 'isAuthenticated') ? 
+				($this->user->isAuthenticated() ? 'YES' : 'NO') : 'UNKNOWN';
+			error_log("AgaviContext::reset() - User before reset: class=$userClass, authenticated=$isAuthenticated");
+		} else {
+			error_log("AgaviContext::reset() - No user object found");
+		}
 		
 		// Reset the controller state if it exists
 		if ($this->controller && $this->controller instanceof ResetInterface) {
 			$this->controller->reset();
+			error_log("AgaviContext::reset() - Reset controller");
 		}
+		
+		// Reset storage session state if it implements ResetInterface
+		if ($this->storage && $this->storage instanceof ResetInterface) {
+			$this->storage->reset();
+			error_log("AgaviContext::reset() - Reset storage");
+		}
+		
+		// Reset user object (it will be recreated with clean session state)
+		$this->user = null;
+		error_log("AgaviContext::reset() - Set user to null");
 		
 		// Reset routing component instances
 		foreach ($this->resetInstances as $instance) {
@@ -339,9 +363,13 @@ class AgaviContext implements \Stringable, ResetInterface
 				$instance->reset();
 			}
 		}
+		error_log("AgaviContext::reset() - Reset routing instances");
 		
 		// Reset request object (it will be recreated)
 		$this->request = null;
+		error_log("AgaviContext::reset() - Set request to null");
+		
+		error_log("AgaviContext::reset() - Context reset completed");
 	}
 	
 	/**

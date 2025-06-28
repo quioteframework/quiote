@@ -17,6 +17,7 @@ namespace Agavi\Request;
 use Agavi\Util\AgaviInflector;
 use Agavi\Util\AgaviParameterHolder;
 use InvalidArgumentException;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * AgaviRequestDataHolder provides methods for retrieving client request 
@@ -33,7 +34,7 @@ use InvalidArgumentException;
  *
  * @version    $Id$
  */
-class AgaviRequestDataHolder extends AgaviParameterHolder implements AgaviIParametersRequestDataHolder
+class AgaviRequestDataHolder extends AgaviParameterHolder implements AgaviIParametersRequestDataHolder, ResetInterface
 {
 	/**
 	 * @constant   Constant for source name of parameters.
@@ -313,6 +314,22 @@ class AgaviRequestDataHolder extends AgaviParameterHolder implements AgaviIParam
 		
 		// unset it to clean up references that otherwise would mess up cloning
 		unset($this->sources);
+	}
+
+	/**
+	 * Reset request data holder state for FrankenPHP worker compatibility.
+	 * Clears request-specific data that could leak between requests.
+	 *
+	 * @author     Generated for FrankenPHP worker compatibility
+	 * @since      1.1.0
+	 */
+	public function reset(): void
+	{
+		$this->sources = [];
+		$this->sourceNames = [];
+		
+		// Reset parent parameter holder state
+		parent::clearParameters();
 	}
 }
 

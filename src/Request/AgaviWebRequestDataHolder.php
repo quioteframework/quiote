@@ -16,6 +16,7 @@ namespace Agavi\Request;
 
 use Agavi\Util\AgaviArrayPathDefinition;
 use InvalidArgumentException;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * AgaviWebRequestDataHolder provides methods for retrieving client request 
@@ -33,7 +34,7 @@ use InvalidArgumentException;
  *
  * @version    $Id$
  */
-class AgaviWebRequestDataHolder extends AgaviRequestDataHolder implements AgaviICookiesRequestDataHolder, AgaviIFilesRequestDataHolder, AgaviIHeadersRequestDataHolder
+class AgaviWebRequestDataHolder extends AgaviRequestDataHolder implements AgaviICookiesRequestDataHolder, AgaviIFilesRequestDataHolder, AgaviIHeadersRequestDataHolder, ResetInterface
 {
 	/**
 	 * @constant   Constant for source name of cookies.
@@ -655,6 +656,24 @@ class AgaviWebRequestDataHolder extends AgaviRequestDataHolder implements AgaviI
 		if($other instanceof AgaviIHeadersRequestDataHolder) {
 			$this->setHeaders($other->getHeaders());
 		}
+	}
+
+	/**
+	 * Reset web request data holder state for FrankenPHP worker compatibility.
+	 * Clears web-specific request data that could leak between requests.
+	 *
+	 * @author     Generated for FrankenPHP worker compatibility
+	 * @since      1.1.0
+	 */
+	public function reset(): void
+	{
+		// Reset web-specific properties
+		$this->files = [];
+		$this->cookies = [];
+		$this->headers = [];
+		
+		// Call parent reset to clear base request data holder properties
+		parent::reset();
 	}
 }
 

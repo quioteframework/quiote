@@ -38,8 +38,9 @@ use Agavi\Controller\AgaviExecutionContainer;
 use Agavi\Exception\AgaviViewException;
 use Agavi\Renderer\AgaviRenderer;
 use Agavi\Request\AgaviRequestDataHolder;
+use Symfony\Contracts\Service\ResetInterface;
 
-abstract class AgaviView
+abstract class AgaviView implements ResetInterface
 {
 	/**
 	 * @since      0.9.0
@@ -528,6 +529,13 @@ abstract class AgaviView
 	public function setAttributesByRef(array &$attributes)
 	{
 		$this->container->setAttributesByRef($attributes);
+	}
+
+	public function reset() : void
+	{
+		$this->container = null;
+		$this->context = null;
+		$this->layers = [];
 	}
 }
 

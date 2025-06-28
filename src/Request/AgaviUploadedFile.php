@@ -19,6 +19,7 @@ use Agavi\Exception\AgaviFileException;
 use Agavi\Util\AgaviToolkit;
 use BadMethodCallException;
 use InvalidArgumentException;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * AgaviUploadedFile is a container with information for files that were
@@ -35,7 +36,7 @@ use InvalidArgumentException;
  *
  * @version    $Id$
  */
-class AgaviUploadedFile implements \ArrayAccess
+class AgaviUploadedFile implements \ArrayAccess, ResetInterface
 {
 	/**
 	 * @var        string The name of the file.
@@ -564,6 +565,23 @@ class AgaviUploadedFile implements \ArrayAccess
 		}
 		
 		return true;
+	}
+
+	public function reset(): void
+	{
+		// reset all properties to their defaults
+		$this->name = null;
+		$this->type = null;
+		$this->size = -1;
+		$this->tmpName = null;
+		$this->error = UPLOAD_ERR_OK;
+		$this->isUploadedFile = false;
+		$this->isMoved = false;
+		$this->contents = null;
+		if($this->hasOpenStream()) {
+			fclose($this->stream);
+			$this->stream = null;
+		}
 	}
 }
 

@@ -43,9 +43,10 @@ use Agavi\Util\AgaviToolkit;
 use Agavi\Config\AgaviConfigCache;
 use Agavi\Filter\AgaviExecutionFilter;
 use Agavi\Response\AgaviResponse;
+use Symfony\Contracts\Service\ResetInterface;
 
 use \Exception;
-class AgaviExecutionContainer extends AgaviAttributeHolder
+class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInterface
 {
 
 	/**
@@ -1101,6 +1102,41 @@ class AgaviExecutionContainer extends AgaviAttributeHolder
 	public function setSecurityForwarded($flag = true)
 	{
 		$this->securityForwarded = (bool)$flag;
+	}
+
+	/**
+	 * Reset execution container state for FrankenPHP worker compatibility.
+	 * Clears all request-specific properties that could leak between requests.
+	 *
+	 * @author     Generated for FrankenPHP worker compatibility
+	 * @since      1.1.0
+	 */
+	public function reset(): void
+	{
+		// Reset execution state
+		$this->contextName = null;
+		$this->outputTypeName = null;
+		$this->context = null;
+		$this->filterChain = null;
+		$this->validationManager = null;
+		$this->requestMethod = null;
+		$this->requestData = null;
+		$this->globalRequestData = null;
+		$this->arguments = null;
+		$this->response = null;
+		$this->outputType = null;
+		$this->microtime = null;
+		$this->actionInstance = null;
+		$this->viewInstance = null;
+		$this->moduleName = null;
+		$this->actionName = null;
+		$this->viewModuleName = null;
+		$this->viewName = null;
+		$this->next = null;
+		$this->securityForwarded = false;
+		
+		// Reset parent attribute holder state
+		parent::clearAttributes();
 	}
 }
 

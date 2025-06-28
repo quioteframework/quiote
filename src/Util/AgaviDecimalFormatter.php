@@ -17,6 +17,7 @@ namespace Agavi\Util;
 use Agavi\Exception\AgaviException;
 use Agavi\Translation\AgaviLocale;
 use InvalidArgumentException;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * The decimal formatter will format numbers according to a given format.
@@ -36,7 +37,7 @@ use InvalidArgumentException;
  *
  * @version    $Id$
  */
-class AgaviDecimalFormatter
+class AgaviDecimalFormatter implements ResetInterface
 {
 	/**
 	 * @var        string The format string given by the user
@@ -761,6 +762,22 @@ class AgaviDecimalFormatter
 		}
 	
 		return false;
+	}
+
+	public function reset() : void {
+		$this->originalFormatString = null;
+		$this->formatString = '';
+		$this->negativeFormatString = null;
+		$this->minShowedIntegrals = 0;
+		$this->minShowedFractionals = 0;
+		$this->maxShowedFractionals = 0;
+		$this->hasMinus = false;
+		$this->hasCurrency = false;
+		$this->currencyType = null;
+		$this->groupingDistances = [];
+		$this->groupingSeparator = ',';
+		$this->decimalSeparator = '.';
+		$this->roundingMode = self::ROUND_SCIENTIFIC;
 	}
 }
 

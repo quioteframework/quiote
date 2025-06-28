@@ -15,6 +15,7 @@
 namespace Agavi\Validator;
 
 use Agavi\Util\AgaviVirtualArrayPath;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * AgaviDependencyManager handles the dependencies in the validation process
@@ -30,7 +31,7 @@ use Agavi\Util\AgaviVirtualArrayPath;
  *
  * @version    $Id$
  */
-class AgaviDependencyManager
+class AgaviDependencyManager implements ResetInterface
 {
 	/**
 	 * @var array already provided tokens.
@@ -140,6 +141,11 @@ class AgaviDependencyManager
 	public function getDependTokens()
 	{
 		return $this->depData;
+	}
+
+	public function reset() : void
+	{
+		$this->clear();
 	}
 }
 

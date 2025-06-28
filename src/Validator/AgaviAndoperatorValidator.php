@@ -13,6 +13,9 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 namespace Agavi\Validator;
+
+use Symfony\Contracts\Service\ResetInterface;
+
 /**
  * AgaviANDOperatorValidator only succeeds if all sub-validators succeeded
  * 
@@ -32,7 +35,7 @@ namespace Agavi\Validator;
  *
  * @version    $Id$
  */
-class AgaviAndoperatorValidator extends AgaviOperatorValidator
+class AgaviAndoperatorValidator extends AgaviOperatorValidator implements ResetInterface
 {
 	/**
 	 * Validates the operator by executing the child validators.
@@ -61,7 +64,13 @@ class AgaviAndoperatorValidator extends AgaviOperatorValidator
 		}
 		
 		return $return;
-	}	
+	}
+
+	public function reset() : void
+	{
+		parent::reset();;
+		$this->result = AgaviValidator::SUCCESS;
+	}
 }
 
 ?>

@@ -16,6 +16,7 @@
 namespace Agavi\Database;
 
 use Agavi\Util\AgaviParameterHolder;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * AgaviDatabase is a base abstraction class that allows you to setup any type
@@ -33,7 +34,7 @@ use Agavi\Util\AgaviParameterHolder;
  *
  * @version    $Id$
  */
-abstract class AgaviDatabase extends AgaviParameterHolder
+abstract class AgaviDatabase extends AgaviParameterHolder implements ResetInterface
 {
 	/**
 	 * @var        AgaviDatabaseManager An AgaviDatabaseManager instance.
@@ -181,6 +182,25 @@ abstract class AgaviDatabase extends AgaviParameterHolder
 	 * @since      0.9.0
 	 */
 	abstract public function shutdown();
+
+	public function reset(): void
+	{
+		// Reset the database connection
+		if ($this->connection !== null) {
+			$this->shutdown();
+			$this->connection = null;
+			$this->resource = null;
+		}
+
+		// Reset parameters
+		$this->clearParameters();
+
+		// Reset the database manager reference
+		$this->databaseManager = null;
+
+		// Reset the name
+		$this->name = null;
+	}
 }
 
 ?>

@@ -27,6 +27,7 @@ use Agavi\Util\AgaviToolkit;
 use Agavi\Validator\AgaviValidationArgument;
 use Agavi\Validator\AgaviValidationReport;
 use Agavi\Validator\AgaviValidator;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * AgaviFormPopulationFilter automatically populates a form that is re-posted,
@@ -55,7 +56,7 @@ use Agavi\Validator\AgaviValidator;
  *
  * @version    $Id$
  */
-class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilter
+class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilter, ResetInterface
 {
 	const ENCODING_UTF_8 = 'utf-8';
 
@@ -1104,6 +1105,12 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 
 		// and now copy all that to the request namespace so it can all be modified at runtime, not just overwritten
 		$this->context->getRequest()->setAttributes($this->getParameters(), 'org.agavi.filter.FormPopulationFilter');
+	}
+
+	public function reset() : void {
+		$this->doc = null;
+		$this->xpath = null;
+		$this->xmlnsPrefix = null;
 	}
 }
 

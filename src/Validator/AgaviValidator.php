@@ -22,6 +22,7 @@ use Agavi\Util\AgaviArrayPathDefinition;
 use Agavi\Util\AgaviParameterHolder;
 use Agavi\Util\AgaviToolkit;
 use Agavi\Util\AgaviVirtualArrayPath;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * AgaviValidator allows you to validate input
@@ -51,7 +52,7 @@ use Agavi\Util\AgaviVirtualArrayPath;
  *
  * @version    $Id$
  */
-abstract class AgaviValidator extends AgaviParameterHolder
+abstract class AgaviValidator extends AgaviParameterHolder implements ResetInterface
 {
 	/**
 	 * validator field success flag
@@ -830,6 +831,21 @@ abstract class AgaviValidator extends AgaviParameterHolder
 			return $this->parentContainer->getDependencyManager();
 		}
 		return null;
+	}
+
+	public function reset(): void
+	{
+		$this->context = null;
+		$this->parentContainer = null;
+		$this->curBase = null;
+		$this->name = null;
+		$this->validationParameters = null;
+		$this->arguments = [];
+		$this->errorMessages = [];
+		$this->incident = null;
+		$this->affectedArguments = [];
+		
+		parent::reset();
 	}
 }
 

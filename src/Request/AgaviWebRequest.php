@@ -19,6 +19,7 @@ use Agavi\AgaviContext;
 use Agavi\Exception\AgaviException;
 use Agavi\Util\AgaviArrayPathDefinition;
 use Agavi\Util\AgaviToolkit;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * AgaviWebRequest provides additional support for web-only client requests
@@ -37,7 +38,7 @@ use Agavi\Util\AgaviToolkit;
  *
  * @version    $Id$
  */
-class AgaviWebRequest extends AgaviRequest
+class AgaviWebRequest extends AgaviRequest implements ResetInterface
 {
 	/**
 	 * @var        string The protocol information of this request.
@@ -570,6 +571,29 @@ class AgaviWebRequest extends AgaviRequest
 				}
 			}
 		}
+	}
+
+	/**
+	 * Reset web request state for FrankenPHP worker compatibility.
+	 * Clears web-specific request properties that could leak between requests.
+	 *
+	 * @author     Generated for FrankenPHP worker compatibility
+	 * @since      1.1.0
+	 */
+	public function reset(): void
+	{
+		// Reset web-specific properties
+		$this->protocol = null;
+		$this->urlScheme = '';
+		$this->urlHost = '';
+		$this->urlPort = 0;
+		$this->urlPath = '';
+		$this->urlQuery = '';
+		$this->requestUri = '';
+		$this->url = '';
+		
+		// Call parent reset to clear base request properties
+		parent::reset();
 	}
 }
 

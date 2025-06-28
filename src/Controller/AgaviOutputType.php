@@ -32,7 +32,8 @@ use Agavi\Util\AgaviParameterHolder;
 use Agavi\AgaviContext;
 use Agavi\Exception\AgaviException;
 use Agavi\Renderer\AgaviIReusableRenderer;
-class AgaviOutputType extends AgaviParameterHolder implements \Stringable
+use Symfony\Contracts\Service\ResetInterface;
+class AgaviOutputType extends AgaviParameterHolder implements \Stringable, ResetInterface
 {
 	/**
 	 * @var        AgaviContext The context instance.
@@ -219,6 +220,23 @@ class AgaviOutputType extends AgaviParameterHolder implements \Stringable
 	public function getExceptionTemplate()
 	{
 		return $this->exceptionTemplate;
+	}
+
+	/**
+	 * Reset output type state for FrankenPHP worker compatibility.
+	 * Clears output type properties that could leak between requests.
+	 *
+	 * @author     Generated for FrankenPHP worker compatibility
+	 * @since      1.1.0
+	 */
+	public function reset(): void
+	{
+		$this->context = null;
+		// Note: name, renderers, defaultRenderer, layouts, defaultLayout, exceptionTemplate
+		// are typically configuration-based and don't need to be reset
+		
+		// Reset parent parameter holder state
+		parent::clearParameters();
 	}
 }
 

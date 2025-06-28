@@ -16,6 +16,7 @@ namespace Agavi\Routing;
 
 use Agavi\AgaviContext;
 use Agavi\Util\AgaviToolkit;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * AgaviWebRouting sets the prefix and input with some magic from the request
@@ -32,7 +33,7 @@ use Agavi\Util\AgaviToolkit;
  *
  * @version    $Id$
  */
-class AgaviWebRouting extends AgaviRouting
+class AgaviWebRouting extends AgaviRouting implements ResetInterface
 {
 	/**
 	 * @var        string The path to the application's root with trailing slash.
@@ -147,42 +148,10 @@ class AgaviWebRouting extends AgaviRouting
 				$requestPath = substr($requestPath, 0, $pos);
 			}
 			
-			// More precise rewrite detection: 
-			// 1. If request path contains the script name, no rewriting
-			// 2. If request path is just the directory of script name, no rewriting (default document)
-			// 3. Only detect rewriting if we have a path that goes beyond the script directory
-			//    but doesn't contain the script name
-			$scriptDir = dirname($scriptName);
-			if($scriptDir === '.') {
-				$scriptDir = '/';
-			}
-			
-			// Normalize paths
-			if(!str_ends_with($scriptDir, '/')) {
-				$scriptDir .= '/';
-			}
-			if(!str_starts_with($requestPath, '/')) {
-				$requestPath = '/' . $requestPath;
-			}
-			if(!str_ends_with($requestPath, '/')) {
-				$requestPath .= '/';
-			}
-			
-			// If request contains the script name explicitly, no rewriting
-			if(str_contains($requestUri, basename($scriptName))) {
-				$this->modernRewriteDetected = false;
-			}
-			// If request path is just the script directory (or root), this is default document serving, not rewriting
-			elseif($requestPath === $scriptDir) {
-				$this->modernRewriteDetected = false;
-			}
-			// If we have a path that goes beyond the script directory but doesn't contain the script name, it's rewriting
-			elseif(str_starts_with($requestPath, $scriptDir) && strlen($requestPath) > strlen($scriptDir)) {
-				$this->modernRewriteDetected = true;
-			}
-			else {
-				$this->modernRewriteDetected = false;
-			}
+			// Simple and reliable detection: 
+			// If the script name is NOT found in the request path, URL rewriting is active
+			// Example: SCRIPT_NAME="/index.php" but REQUEST_URI="/login" (no index.php)
+			$this->modernRewriteDetected = !str_contains($requestPath, basename($scriptName));
 		}
 		
 		$rewritten = $apacheRewriteDetected || $this->modernRewriteDetected;
@@ -582,6 +551,26 @@ class AgaviWebRouting extends AgaviRouting
 			return '';
 		}
 		return rawurlencode($string);
+	}
+
+	/**
+	 * Reset web routing state for FrankenPHP worker compatibility.
+	 * Clears web-specific routing properties that could leak between requests.
+	 *
+	 * @author     Generated for FrankenPHP worker compatibility
+	 * @since      1.1.0
+	 */
+	public function reset(): void
+	{
+		// Reset web-specific routing properties
+		$this->inputParameters = [];
+		$this->modernRewriteDetected = false;
+		
+		// Note: basePath, baseHref, argSeparatorInput, argSeparatorOutput are config-based
+		// and typically don't change per request, so they may not need to be reset
+		
+		// Call parent reset to clear base routing properties
+		parent::reset();
 	}
 
 }

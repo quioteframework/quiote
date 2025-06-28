@@ -15,6 +15,7 @@
 namespace Agavi\Routing;
 
 use Agavi\AgaviContext;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * AgaviWebserviceRouting handles the routing for Web Service requests.
@@ -30,7 +31,7 @@ use Agavi\AgaviContext;
  *
  * @version    $Id$
  */
-class AgaviWebserviceRouting extends AgaviRouting
+class AgaviWebserviceRouting extends AgaviRouting implements ResetInterface
 {
 	/**
 	 * Initialize the routing instance.

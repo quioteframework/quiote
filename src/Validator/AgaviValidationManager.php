@@ -21,6 +21,7 @@ use Agavi\Util\AgaviArrayPathDefinition;
 use Agavi\Util\AgaviParameterHolder;
 use Agavi\Util\AgaviVirtualArrayPath;
 use InvalidArgumentException;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * AgaviValidationManager provides management for request parameters and their
@@ -37,7 +38,7 @@ use InvalidArgumentException;
  *
  * @version    $Id$
  */
-class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValidatorContainer
+class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValidatorContainer, ResetInterface
 {
 	/**
 	 * @var        AgaviDependencyManager The dependency manager.
@@ -910,6 +911,18 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 		}
 
 		$this->addIncident($incident);
+	}
+
+	public function reset(): void {
+		$this->clear();
+		$this->dependencyManager->reset();
+		$this->report = new AgaviValidationReport();
+		foreach($this->children as $child) {
+			if($child instanceof ResetInterface) {
+				$child->reset();
+			}
+		}
+		$this->children = [];
 	}
 }
 ?>

@@ -18,6 +18,7 @@ use Agavi\AgaviContext;
 use Agavi\Exception\AgaviException;
 use Agavi\Util\AgaviAttributeHolder;
 use Agavi\Util\AgaviToolkit;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * AgaviRequest provides methods for manipulating client request information
@@ -35,7 +36,7 @@ use Agavi\Util\AgaviToolkit;
  *
  * @version    $Id$
  */
-abstract class AgaviRequest extends AgaviAttributeHolder
+abstract class AgaviRequest extends AgaviAttributeHolder implements ResetInterface
 {
 	/**
 	 * @var        array An associative array of attributes
@@ -298,6 +299,26 @@ abstract class AgaviRequest extends AgaviAttributeHolder
 			}
 			return false;
 		}
+	}
+
+	/**
+	 * Reset request state for FrankenPHP worker compatibility.
+	 * Clears request-specific properties that could leak between requests.
+	 *
+	 * @author     Generated for FrankenPHP worker compatibility
+	 * @since      1.1.0
+	 */
+	public function reset(): void
+	{
+		$this->attributes = [];
+		$this->errors = [];
+		$this->method = null;
+		$this->context = null;
+		$this->requestData = null;
+		$this->key = null;
+		
+		// Reset parent attribute holder state
+		parent::clearAttributes();
 	}
 }
 

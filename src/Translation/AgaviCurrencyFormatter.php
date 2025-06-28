@@ -17,6 +17,7 @@ namespace Agavi\Translation;
 use Agavi\AgaviContext;
 use Agavi\Util\AgaviDecimalFormatter;
 use Agavi\Util\AgaviToolkit;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * The currency formatter will format numbers according to a given format and 
@@ -34,7 +35,7 @@ use Agavi\Util\AgaviToolkit;
  *
  * @version    $Id$
  */
-class AgaviCurrencyFormatter extends AgaviDecimalFormatter implements AgaviITranslator
+class AgaviCurrencyFormatter extends AgaviDecimalFormatter implements AgaviITranslator, ResetInterface
 {
 	/**
 	 * @var        AgaviContext An AgaviContext instance.

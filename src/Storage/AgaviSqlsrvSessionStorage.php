@@ -18,6 +18,8 @@ use Agavi\AgaviContext;
 use Agavi\Database\AgaviSqlsrvDatabase;
 use Agavi\Exception\AgaviInitializationException;
 use Agavi\Exception\AgaviStorageException;
+use Rector\Renaming\Contract\RenameClassConstFetchInterface;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * Provides support for session storage using an ext/sqlsrv connection.
@@ -53,7 +55,7 @@ use Agavi\Exception\AgaviStorageException;
  *
  * @version    $Id$
  */
-class AgaviSqlsrvSessionStorage extends AgaviSessionStorage
+class AgaviSqlsrvSessionStorage extends AgaviSessionStorage implements ResetInterface
 {
 	/**
 	 * @var        resource An ext/sqlsrv database resource.
@@ -211,6 +213,7 @@ class AgaviSqlsrvSessionStorage extends AgaviSessionStorage
 			throw new AgaviStorageException($error);
 		}
 		
+		/** @phan-suppress-next-line UnusedSuppression */
 		$this->connection = $database->getConnection();
 		
 		return true;
@@ -320,6 +323,7 @@ class AgaviSqlsrvSessionStorage extends AgaviSessionStorage
 			throw new AgaviStorageException($error);
 		}
 	}
+
 }
 
 ?>

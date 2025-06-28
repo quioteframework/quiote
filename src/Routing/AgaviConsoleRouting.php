@@ -15,6 +15,7 @@
 namespace Agavi\Routing;
 
 use Agavi\AgaviContext;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * AgaviConsoleRouting handles the routing for command line requests.
@@ -30,7 +31,7 @@ use Agavi\AgaviContext;
  *
  * @version    $Id$
  */
-class AgaviConsoleRouting extends AgaviRouting
+class AgaviConsoleRouting extends AgaviRouting implements ResetInterface
 {
 	/**
 	 * Initialize the routing instance.
@@ -63,6 +64,15 @@ class AgaviConsoleRouting extends AgaviRouting
 		parent::startup();
 		
 		$this->input = $this->context->getRequest()->getInput();
+	}
+
+	public function reset() : void
+	{
+		$this->context = null;
+		$this->input = '';
+		$this->invokedMethod = '';
+		
+		parent::reset();
 	}
 }
 

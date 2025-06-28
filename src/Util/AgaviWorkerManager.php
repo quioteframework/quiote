@@ -227,4 +227,46 @@ if (isset($context)) {
 }
 ';
     }
+    
+    /**
+     * Reset instance objects that implement ResetInterface
+     * 
+     * This method should be called to reset any long-lived objects that might
+     * hold request-specific state between FrankenPHP worker requests.
+     * 
+     * @param array $objects Array of objects to reset
+     * @param bool $skipErrors Whether to continue if reset fails for some objects
+     */
+    public static function resetObjects(array $objects, bool $skipErrors = true)
+    {
+        foreach ($objects as $key => $object) {
+            if (!is_object($object)) {
+                continue;
+            }
+            
+            if (!$object instanceof \Symfony\Contracts\Service\ResetInterface) {
+                if (!$skipErrors) {
+                    throw new \InvalidArgumentException(
+                        sprintf('Object at key "%s" does not implement ResetInterface', $key)
+                    );
+                }
+                continue;
+            }
+            
+            try {
+                $object->reset();
+            } catch (\Exception $e) {
+                if (!$skipErrors) {
+                    throw $e;
+                }
+                // Log the error but continue
+                error_log(sprintf(
+                    'Failed to reset object at key "%s" (%s): %s',
+                    $key,
+                    get_class($object),
+                    $e->getMessage()
+                ));
+            }
+        }
+    }
 }

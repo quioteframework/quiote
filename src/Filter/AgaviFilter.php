@@ -18,6 +18,7 @@ namespace Agavi\Filter;
 use Agavi\AgaviContext;
 use Agavi\Controller\AgaviExecutionContainer;
 use Agavi\Util\AgaviParameterHolder;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * AgaviFilter provides a way for you to intercept incoming requests or outgoing
@@ -35,7 +36,7 @@ use Agavi\Util\AgaviParameterHolder;
  *
  * @version    $Id$
  */
-abstract class AgaviFilter extends AgaviParameterHolder implements AgaviIFilter
+abstract class AgaviFilter extends AgaviParameterHolder implements AgaviIFilter, ResetInterface
 {
 	/**
 	 * @var        AgaviContext An AgaviContext instance.
@@ -87,6 +88,21 @@ abstract class AgaviFilter extends AgaviParameterHolder implements AgaviIFilter
 	public function execute(AgaviFilterChain $filterChain, AgaviExecutionContainer $container)
 	{
 		// Default: do nothing, the simplified filter chain will continue automatically
+	}
+
+	/**
+	 * Reset filter state for FrankenPHP worker compatibility.
+	 * Clears filter-specific properties that could leak between requests.
+	 *
+	 * @author     Generated for FrankenPHP worker compatibility
+	 * @since      1.1.0
+	 */
+	public function reset(): void
+	{
+		$this->context = null;
+		
+		// Reset parent parameter holder state
+		parent::clearParameters();
 	}
 }
 

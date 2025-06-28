@@ -19,6 +19,7 @@ use Agavi\Request\AgaviWebRequest;
 use Agavi\Routing\AgaviWebRouting;
 use SessionHandler;
 use SessionHandlerInterface;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * AgaviSessionStorage is the interface used by Agavi to store session data from
@@ -61,7 +62,7 @@ use SessionHandlerInterface;
  *
  * @version    $Id$
  */
-class AgaviSessionStorage extends AgaviStorage implements SessionHandlerInterface
+class AgaviSessionStorage extends AgaviStorage implements SessionHandlerInterface, ResetInterface
 {
 
 	private $defaultHandler;
@@ -253,6 +254,11 @@ class AgaviSessionStorage extends AgaviStorage implements SessionHandlerInterfac
 	public function open($savePath, $sessionName): bool
 	{
 		return $this->defaultHandler->open($savePath, $sessionName);
+	}
+
+	public function reset() : void {
+		$this->defaultHandler->close();
+		$this->defaultHandler = null;
 	}
 }
 

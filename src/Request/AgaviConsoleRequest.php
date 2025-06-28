@@ -147,7 +147,7 @@ class AgaviConsoleRequest extends AgaviRequest
 	 * @since      1.0.0
 	 */
 	#[\Override]
-    public function startup()
+  	public function startup()
 	{
 		parent::startup();
 		
@@ -155,6 +155,22 @@ class AgaviConsoleRequest extends AgaviRequest
 			$_SERVER['argv'] = $_ENV['argv'] = $GLOBALS['argv'] = [];
 			$_SERVER['argc'] = $_ENV['argc'] = $GLOBALS['argc'] = 0;
 		}
+	}
+
+	/**
+	 * Reset console request state for FrankenPHP worker compatibility.
+	 * Clears console-specific request properties that could leak between requests.
+	 *
+	 * @author     Generated for FrankenPHP worker compatibility
+	 * @since      1.1.0
+	 */
+	public function reset(): void
+	{
+		// Reset console-specific properties
+		$this->input = null;
+		
+		// Call parent reset to clear base request properties
+		parent::reset();
 	}
 }
 

@@ -15,6 +15,7 @@
 namespace Agavi\Renderer;
 
 use Agavi\View\AgaviTemplateLayer;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * A renderer produces the output as defined by a View
@@ -30,7 +31,7 @@ use Agavi\View\AgaviTemplateLayer;
  *
  * @version    $Id$
  */
-class AgaviPhpRenderer extends AgaviRenderer implements AgaviIReusableRenderer
+class AgaviPhpRenderer extends AgaviRenderer implements AgaviIReusableRenderer, ResetInterface
 {
 	/**
 	 * @var        string A string with the default template file extension,
@@ -109,6 +110,13 @@ class AgaviPhpRenderer extends AgaviRenderer implements AgaviIReusableRenderer
 		unset($this->layer, $this->attributes, $this->slots, $this->moreAssigns);
 		
 		return $retval;
+	}
+
+	public function reset() : void {
+		$this->layer = null;
+		$this->attributes = null;
+		$this->slots = null;
+		$this->moreAssigns = null;
 	}
 }
 

@@ -17,6 +17,7 @@ namespace Agavi\Storage;
 use Agavi\AgaviContext;
 use Agavi\Exception\AgaviDatabaseException;
 use Agavi\Exception\AgaviInitializationException;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * Provides support for session storage using a PDO database abstraction
@@ -59,7 +60,7 @@ use Agavi\Exception\AgaviInitializationException;
  *
  * @version    $Id$
  */
-class AgaviPdoSessionStorage extends AgaviSessionStorage
+class AgaviPdoSessionStorage extends AgaviSessionStorage implements ResetInterface
 {
 	/**
 	 * @var        PDO A Database Connection.
@@ -239,6 +240,7 @@ class AgaviPdoSessionStorage extends AgaviSessionStorage
 		// what database are we using?
 		$database = $this->getParameter('database', null);
 
+		/** @phan-suppress-next-line UnusedSuppression */
 		$this->connection = $this->getContext()->getDatabaseConnection($database);
 		if($this->connection === null || !$this->connection instanceof \PDO) {
 			$error = 'Database connection "' . $database . '" could not be found or is not a PDO database connection.';

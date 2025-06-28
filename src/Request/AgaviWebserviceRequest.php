@@ -15,6 +15,7 @@
 namespace Agavi\Request;
 
 use Agavi\AgaviContext;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * AgaviWebserviceRequest is the base class for Web Service requests
@@ -30,7 +31,7 @@ use Agavi\AgaviContext;
  *
  * @version    $Id$
  */
-abstract class AgaviWebserviceRequest extends AgaviRequest
+abstract class AgaviWebserviceRequest extends AgaviRequest implements ResetInterface
 {
 	/**
 	 * @var        string The Input Data.
@@ -133,6 +134,23 @@ abstract class AgaviWebserviceRequest extends AgaviRequest
 	public function getInvokedMethod()
 	{
 		return $this->invokedMethod;
+	}
+
+	/**
+	 * Reset webservice request state for FrankenPHP worker compatibility.
+	 * Clears webservice-specific request properties that could leak between requests.
+	 *
+	 * @author     Generated for FrankenPHP worker compatibility
+	 * @since      1.1.0
+	 */
+	public function reset(): void
+	{
+		// Reset webservice-specific properties
+		$this->input = '';
+		$this->invokedMethod = '';
+		
+		// Call parent reset to clear base request properties
+		parent::reset();
 	}
 }
 

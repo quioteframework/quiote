@@ -17,6 +17,7 @@ namespace Agavi\Translation;
 use Agavi\AgaviContext;
 use Agavi\Exception\AgaviException;
 use Agavi\Util\AgaviToolkit;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * AgaviSimpleTranslator defines the translator which loads the data from its
@@ -33,7 +34,7 @@ use Agavi\Util\AgaviToolkit;
  *
  * @version    $Id$
  */
-class AgaviSimpleTranslator extends AgaviBasicTranslator
+class AgaviSimpleTranslator extends AgaviBasicTranslator implements ResetInterface
 {
 	/**
 	 * @var        array The data for each domain
@@ -130,6 +131,14 @@ class AgaviSimpleTranslator extends AgaviBasicTranslator
 	{
 		$this->locale = $newLocale;
 		$this->currentData = AgaviToolkit::getValueByKeyList($this->domainData, AgaviLocale::getLookupPath($this->locale->getIdentifier()), []);
+	}
+
+	public function reset() : void
+	{
+		$this->context = null;
+		$this->domainData = [];
+		$this->currentData = [];
+		$this->locale = null;
 	}
 
 }

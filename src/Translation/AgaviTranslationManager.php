@@ -26,6 +26,7 @@ use Agavi\Date\AgaviOlsonTimeZone;
 use Agavi\Date\AgaviTimeZone;
 use Agavi\Exception\AgaviException;
 use DateTime;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * The translation manager manages the interface between the application and the
@@ -42,7 +43,7 @@ use DateTime;
  *
  * @version    $Id$
  */
-class AgaviTranslationManager
+class AgaviTranslationManager implements ResetInterface
 {
 	const MESSAGE = 'msg';
 	const NUMBER = 'num';
@@ -1067,6 +1068,14 @@ class AgaviTranslationManager
 		}
 		return $this->supplementalData['fractions'][$currency];
 	}
-}
 
-?>
+	public function reset(): void {
+		$this->localeDataCache = [];
+		$this->localeCache = [];
+		$this->localeIdentifierCache = [];
+		$this->currentLocale = null;
+		$this->currentLocaleIdentifier = null;
+		$this->givenLocaleIdentifier = null;
+
+	}
+}

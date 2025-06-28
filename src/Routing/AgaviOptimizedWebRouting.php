@@ -2,6 +2,7 @@
 namespace Agavi\Routing;
 
 use Agavi\AgaviContext;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * Agavi Optimized Web Routing - High-performance routing implementation
@@ -10,7 +11,7 @@ use Agavi\AgaviContext;
  * route matching, and performance monitoring for production environments.
  * Designed to work efficiently with FrankenPHP's persistent worker model.
  */
-class AgaviOptimizedWebRouting extends AgaviWebRouting
+class AgaviOptimizedWebRouting extends AgaviWebRouting implements ResetInterface
 {
     /**
      * @var AgaviRouteTrie Route trie instance
@@ -386,7 +387,7 @@ class AgaviOptimizedWebRouting extends AgaviWebRouting
         AgaviRouteCacheManager::clear();
         AgaviRouteTrie::clear();
         AgaviRoutingCallbackPool::clearPool();
-        AgaviRoutingPerformanceMonitor::reset();
+        AgaviRoutingPerformanceMonitor::getResetInstance()->reset();
         $this->routeTrie = null;
     }
     
@@ -422,5 +423,20 @@ class AgaviOptimizedWebRouting extends AgaviWebRouting
     public function getOptimizationConfig()
     {
         return $this->config;
+    }
+
+    public function reset() : void
+    {
+        $this->clearOptimizations();
+        $this->context = null;
+        $this->routeTrie = null;
+        $this->optimizationsEnabled = true;
+        $this->config = [
+            'enable_cache' => true,
+            'enable_trie' => true,
+            'enable_monitoring' => true,
+            'cache_key_prefix' => 'agavi_route_',
+            'detailed_timing' => false
+        ];
     }
 }

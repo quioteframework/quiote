@@ -33,7 +33,9 @@ namespace Agavi\Storage;
 
 use Agavi\AgaviContext;
 use Agavi\Util\AgaviParameterHolder;
-abstract class AgaviStorage extends AgaviParameterHolder
+use Symfony\Contracts\Service\ResetInterface;
+
+abstract class AgaviStorage extends AgaviParameterHolder implements ResetInterface
 {
 	/**
 	 * @var        AgaviContext An AgaviContext instance.
@@ -147,6 +149,12 @@ abstract class AgaviStorage extends AgaviParameterHolder
 	 * @since      0.9.0
 	 */
 	abstract function store(string $id, mixed $data): bool;
+
+	public function reset(): void
+	{
+		$this->context = null;
+		$this->parameters = [];
+	}
 }
 
 ?>

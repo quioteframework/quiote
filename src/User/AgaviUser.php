@@ -17,6 +17,7 @@ namespace Agavi\User;
 
 use Agavi\AgaviContext;
 use Agavi\Util\AgaviAttributeHolder;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * AgaviUser wraps a client session and provides accessor methods for user
@@ -35,7 +36,7 @@ use Agavi\Util\AgaviAttributeHolder;
  *
  * @version    $Id$
  */
-class AgaviUser extends AgaviAttributeHolder
+class AgaviUser extends AgaviAttributeHolder implements ResetInterface
 {
 	/**
 	 * @var        AgaviContext An AgaviContext instance.
@@ -131,6 +132,15 @@ class AgaviUser extends AgaviAttributeHolder
 	{
 		// write attributes to the storage
 		$this->getContext()->getStorage()->store($this->storageNamespace, $this->attributes);
+	}
+
+	public function reset() : void
+	{
+		$this->context = null;
+		$this->parameters = [];
+		$this->attributes = [];
+		$this->storageNamespace = 'org.agavi.user.User';
+		
 	}
 }
 

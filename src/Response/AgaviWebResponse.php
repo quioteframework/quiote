@@ -19,6 +19,7 @@ use Agavi\Config\AgaviConfig;
 use Agavi\Controller\AgaviOutputType;
 use Agavi\Exception\AgaviException;
 use Agavi\Routing\AgaviWebRouting;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * AgaviWebResponse handles HTTP responses.
@@ -34,7 +35,7 @@ use Agavi\Routing\AgaviWebRouting;
  *
  * @version    $Id$
  */
-class AgaviWebResponse extends AgaviResponse
+class AgaviWebResponse extends AgaviResponse implements ResetInterface
 {
 
 	protected $outputTypeName;
@@ -188,6 +189,7 @@ class AgaviWebResponse extends AgaviResponse
 		]);
 		
 		$this->httpStatusCodes = match ($request->getProtocol()) {
+			'HTTP/2' => $this->http11StatusCodes,
             'HTTP/1.1' => $this->http11StatusCodes,
             default => $this->http10StatusCodes,
         };
@@ -794,6 +796,28 @@ class AgaviWebResponse extends AgaviResponse
 	public function clearRedirect()
 	{
 		$this->redirect = null;
+	}
+
+	/**
+	 * Reset web response state for FrankenPHP worker compatibility.
+	 * Clears web-specific response properties that could leak between requests.
+	 *
+	 * @author     Generated for FrankenPHP worker compatibility
+	 * @since      2.0.0
+	 */
+	public function reset(): void
+	{
+		// Reset web-specific response properties
+		$this->httpStatusCode = '200';
+		$this->httpHeaders = [];
+		$this->cookies = [];
+		$this->redirect = null;
+		$this->httpStatusCodes = null;
+		
+		// Note: http10StatusCodes, http11StatusCodes, httpStatusCodes are static lookups - don't reset
+		
+		// Call parent reset to clear base response properties
+		parent::reset();
 	}
 }
 

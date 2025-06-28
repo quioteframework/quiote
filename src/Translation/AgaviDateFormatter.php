@@ -18,6 +18,7 @@ use Agavi\AgaviContext;
 use Agavi\Date\AgaviCalendar;
 use Agavi\Date\AgaviDateFormat;
 use Agavi\Util\AgaviToolkit;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * The date formatter will dates numbers according to a given format
@@ -34,7 +35,7 @@ use Agavi\Util\AgaviToolkit;
  *
  * @version    $Id$
  */
-class AgaviDateFormatter extends AgaviDateFormat implements AgaviITranslator
+class AgaviDateFormatter extends AgaviDateFormat implements AgaviITranslator, ResetInterface
 {
 	/**
 	 * @var        AgaviLocale An AgaviLocale instance.
@@ -246,6 +247,14 @@ class AgaviDateFormatter extends AgaviDateFormat implements AgaviITranslator
 		static $specifiers = ['full', 'long', 'medium', 'short'];
 
 		return in_array($format, $specifiers);
+	}
+
+	public function reset() : void
+	{
+		$this->locale = null;
+		$this->type = null;
+		$this->customFormat = null;
+		$this->translationDomain = null;
 	}
 }
 

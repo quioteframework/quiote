@@ -13,6 +13,10 @@
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
 namespace Agavi\Response;
+
+use Agavi\Controller\AgaviOutputType;
+use BadMethodCallException;
+
 /**
  * AgaviXmlrpcepiphpResponse handles XMLRPC Web Service responses using the
  * XMLRPC-EPI extension for PHP.
@@ -35,6 +39,10 @@ class AgaviXmlrpcepiphpResponse extends AgaviResponse
 	 */
 	protected $content = [];
 	
+
+	protected $httpHeaders = [];
+	protected $cookies = [];
+
 	/**
 	 * Check whether or not some content is set.
 	 *
@@ -204,7 +212,7 @@ class AgaviXmlrpcepiphpResponse extends AgaviResponse
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function send(AgaviOutputType $outputType = null)
+	public function send(?AgaviOutputType $outputType = null)
 	{
 		$encoding = ['encoding' => $this->getParameter('output_options[encoding]', 'utf-8')];
 		if($outputType) {
@@ -230,6 +238,7 @@ class AgaviXmlrpcepiphpResponse extends AgaviResponse
 	public function clear()
 	{
 		$this->clearContent();
+		$this->content = [];
 		$this->httpHeaders = [];
 		$this->cookies = [];
 	}

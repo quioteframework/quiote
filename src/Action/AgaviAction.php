@@ -33,7 +33,8 @@ namespace Agavi\Action;
  */
 use Agavi\Request\AgaviRequestDataHolder;
 use Agavi\Controller\AgaviExecutionContainer;
-abstract class AgaviAction
+use Symfony\Contracts\Service\ResetInterface;
+abstract class AgaviAction implements ResetInterface
 {
 	/**
 	 * @var AgaviExecutionContainer This action's execution container.
@@ -321,6 +322,19 @@ abstract class AgaviAction
 	public function setAttributesByRef(array &$attributes)
 	{
 		$this->container->setAttributesByRef($attributes);
+	}
+
+	/**
+	 * Reset action state for FrankenPHP worker compatibility.
+	 * Clears request-specific properties that could leak between requests.
+	 *
+	 * @author     Generated for FrankenPHP worker compatibility
+	 * @since      1.1.0
+	 */
+	public function reset(): void
+	{
+		$this->container = null;
+		$this->context = null;
 	}
 }
 

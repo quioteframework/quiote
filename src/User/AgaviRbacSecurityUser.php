@@ -17,6 +17,7 @@ namespace Agavi\User;
 use Agavi\AgaviContext;
 use Agavi\Config\AgaviConfig;
 use Agavi\Config\AgaviConfigCache;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * AgaviRbacUser will handle roles and permissions for users
@@ -32,7 +33,7 @@ use Agavi\Config\AgaviConfigCache;
  *
  * @version    $Id$
  */
-class AgaviRbacSecurityUser extends AgaviSecurityUser implements AgaviISecurityUser
+class AgaviRbacSecurityUser extends AgaviSecurityUser implements AgaviISecurityUser, ResetInterface
 {
 	/**
 	 * The namespace under which roles will be stored.
@@ -207,6 +208,17 @@ class AgaviRbacSecurityUser extends AgaviSecurityUser implements AgaviISecurityU
 		
 		// call the parent shutdown method
 		parent::shutdown();
+	}
+
+	public function reset() : void
+	{
+		$this->context = null;
+		$this->parameters = [];
+		$this->attributes = [];
+		$this->roles = [];
+		$this->definitions = null;
+		
+		parent::reset();
 	}
 }
 

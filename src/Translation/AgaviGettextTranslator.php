@@ -18,6 +18,7 @@ use Agavi\AgaviContext;
 use Agavi\Exception\AgaviException;
 use Agavi\Translation\Gettext\AgaviGettextMoReader;
 use Agavi\Util\AgaviToolkit;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * AgaviGettextTranslator defines the translator interface for gettext.
@@ -33,7 +34,7 @@ use Agavi\Util\AgaviToolkit;
  *
  * @version    $Id$
  */
-class AgaviGettextTranslator extends AgaviBasicTranslator
+class AgaviGettextTranslator extends AgaviBasicTranslator implements ResetInterface
 {
 	/**
 	 * @var        string A pattern for the path to the domain files.
@@ -305,6 +306,16 @@ class AgaviGettextTranslator extends AgaviBasicTranslator
 
 		$this->domainData[$domain] = ['headers' => $headers, 'msgs' => $data];
 	}
-}
 
-?>
+	public function reset() : void
+	{
+		$this->context = null;
+		$this->domainPathPattern = null;
+		$this->domainPaths = [];
+		$this->domainData = [];
+		$this->locale = null;
+		$this->pluralFormFunc = null;
+		$this->storeTranslationCalls = false;
+		$this->translationCallStoreDir = null;
+	}
+}
