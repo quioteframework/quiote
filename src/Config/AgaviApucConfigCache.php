@@ -23,8 +23,7 @@ use Agavi\Routing\AgaviRouting;
  * 
  * @package    agavi
  * @subpackage config
- * @author     Auto-generated for Kubernetes/FrankenPHP optimization
- * @since      1.1.0
+ * @since      2.0.0
  */
 class AgaviApucConfigCache
 {

@@ -48,6 +48,18 @@ class AgaviWorkerManager
     ];
     
     /**
+     * @var array Worker statistics
+     */
+    private static $statistics = [
+        'reset_count' => 0,
+        'initialization_time' => 0,
+        'db_connections_active' => false,
+        'apcu_acceleration' => false,
+        'start_time' => 0,
+        'last_reset_time' => 0
+    ];
+    
+    /**
      * Reset all framework state for the next request in worker mode
      * 
      * @param string|null $contextProfile Context profile to reset (null for all)
@@ -57,6 +69,8 @@ class AgaviWorkerManager
     {
         $config = array_merge(self::$config, $options);
         self::$requestCount++;
+        self::$statistics['reset_count']++;
+        self::$statistics['last_reset_time'] = microtime(true);
         
         // Reset context state using Symfony ResetInterface
         AgaviContext::resetWorkerState($contextProfile);
@@ -136,32 +150,58 @@ class AgaviWorkerManager
     }
     
     /**
+     * Initialize the worker manager with configuration options
+     * 
+     * @param array $options Configuration options
+     */
+    public static function initialize(array $options = []): void
+    {
+        $startTime = microtime(true);
+        
+        // Merge with default configuration
+        self::$config = array_merge(self::$config, $options);
+        
+        // Initialize statistics
+        self::$statistics['start_time'] = $startTime;
+        self::$statistics['db_connections_active'] = $options['preserve_database_connections'] ?? false;
+        self::$statistics['apcu_acceleration'] = $options['apcu_acceleration'] ?? false;
+        
+        self::$statistics['initialization_time'] = microtime(true) - $startTime;
+        
+        error_log("AgaviWorkerManager initialized with options: " . json_encode($options));
+    }
+    
+    /**
      * Get worker statistics
      * 
-     * @return array Statistics about worker state
+     * @return array Worker statistics
      */
-    public static function getStats()
+    public static function getStatistics(): array
     {
-        $stats = [
-            'request_count' => self::$requestCount,
-            'memory_usage' => memory_get_usage(true),
-            'memory_peak' => memory_get_peak_usage(true),
-        ];
-        
-        // Add routing stats if available
-        if (class_exists('Agavi\Routing\AgaviRouteCacheManager')) {
-            $stats['route_cache'] = AgaviRouteCacheManager::getStats();
-        }
-        
-        if (class_exists('Agavi\Routing\AgaviRouteTrie')) {
-            $stats['route_trie'] = AgaviRouteTrie::getStats();
-        }
-        
-        if (class_exists('Agavi\Routing\AgaviRoutingCallbackPool')) {
-            $stats['callback_pool'] = AgaviRoutingCallbackPool::getStats();
-        }
+        $stats = self::$statistics;
+        $stats['uptime'] = microtime(true) - self::$statistics['start_time'];
+        $stats['memory_usage'] = memory_get_usage(true);
+        $stats['memory_peak'] = memory_get_peak_usage(true);
         
         return $stats;
+    }
+    
+    /**
+     * Shutdown the worker manager and perform cleanup
+     */
+    public static function shutdown(): void
+    {
+        error_log("AgaviWorkerManager shutting down...");
+        
+        // Perform final cleanup
+        if (self::$statistics['db_connections_active']) {
+            self::manageDatabaseConnections('close');
+        }
+        
+        // Reset statistics
+        self::$statistics['reset_count'] = 0;
+        
+        error_log("AgaviWorkerManager shutdown complete");
     }
     
     /**
