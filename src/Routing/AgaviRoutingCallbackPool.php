@@ -150,4 +150,21 @@ class AgaviRoutingCallbackPool implements ResetInterface
         // Note: Instances are preserved for performance in worker mode
         // Call removeInstance() or use manual cleanup if needed
     }
+
+    /**
+     * Static method to reset worker state - called by AgaviWorkerManager
+     * 
+     * @param bool $preservePool Whether to preserve pooled instances (default: true)
+     * @param bool $resetStats Whether to reset access statistics (default: true)
+     */
+    public static function resetWorkerState(bool $preservePool = true, bool $resetStats = true): void
+    {
+        if ($resetStats) {
+            self::$accessCount = 0;
+        }
+        
+        if (!$preservePool) {
+            self::$instances = [];
+        }
+    }
 }

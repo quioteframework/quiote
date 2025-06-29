@@ -400,8 +400,13 @@ abstract class AgaviResponse extends AgaviAttributeHolder implements ResetInterf
 		$this->content = null;
 		$this->outputType = null;
 		
-		// Reset parent attribute holder state
+		// Reset parent attribute holder state (which includes parameters)
 		parent::clearAttributes();
+		
+		// Also clear parameters that might exist at the parameter holder level
+		if (method_exists($this, 'clearParameters')) {
+			$this->clearParameters();
+		}
 	}
 }
 

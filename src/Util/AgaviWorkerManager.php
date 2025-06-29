@@ -269,4 +269,45 @@ if (isset($context)) {
             }
         }
     }
+    
+    /**
+     * Helper method for database connection management in worker mode
+     * 
+     * @param string $strategy Connection management strategy: 'keep' (default), 'close', or 'reset'
+     */
+    public static function manageDatabaseConnections(string $strategy = 'keep')
+    {
+        switch ($strategy) {
+            case 'close':
+                // Close all database connections
+                if (class_exists('Propel')) {
+                    \Propel::close();
+                }
+                // Add other ORMs as needed
+                break;
+                
+            case 'reset':
+                // Reset connections without closing (clean transactions)
+                if (class_exists('Propel')) {
+                    try {
+                        $con = \Propel::getConnection();
+                        if ($con && $con->inTransaction()) {
+                            $con->rollback();
+                            error_log("Warning: Uncommitted transaction rolled back in worker");
+                        }
+                    } catch (\Exception $e) {
+                        error_log("Propel transaction cleanup failed: " . $e->getMessage());
+                        // If reset fails, close and let it reconnect
+                        \Propel::close();
+                    }
+                }
+                break;
+                
+            case 'keep':
+            default:
+                // Keep connections open (no action needed)
+                // This is the recommended approach for performance
+                break;
+        }
+    }
 }

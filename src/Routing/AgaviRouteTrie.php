@@ -227,7 +227,7 @@ class AgaviRouteTrie implements ResetInterface
      * 
      * @return array Trie performance stats
      */
-    public static function getStats()
+    public static function getStats(): array
     {
         $routeCount = 0;
         $segmentCount = 0;
@@ -243,6 +243,7 @@ class AgaviRouteTrie implements ResetInterface
             'route_count' => $routeCount,
             'segment_count' => $segmentCount,
             'optimized' => self::$optimized,
+            'trie_built' => self::$trie !== null,
             'avg_candidates' => self::$stats['lookups'] > 0 ? 
                 self::$stats['candidates_found'] / self::$stats['lookups'] : 0
         ]);
@@ -274,5 +275,56 @@ class AgaviRouteTrie implements ResetInterface
         ];
         // Note: Trie is preserved for performance in worker mode
         // Use clear() method if you need to clear the trie entirely
+    }
+
+    /**
+     * Static method to reset worker state - called by AgaviWorkerManager
+     * 
+     * @param bool $preserveTrie Whether to preserve the built trie (default: true)
+     * @param bool $resetStats Whether to reset statistics (default: true)
+     */
+    public static function resetWorkerState(bool $preserveTrie = true, bool $resetStats = true): void
+    {
+        if ($resetStats) {
+            self::$stats = [
+                'builds' => 0,
+                'lookups' => 0,
+                'candidates_found' => 0
+            ];
+        }
+        
+        if (!$preserveTrie) {
+            self::$trie = null;
+            self::$optimized = false;
+        }
+    }
+    
+    /**
+     * Import a pre-built trie structure
+     * 
+     * @param array $trieData The trie data to import
+     * @return bool True if import was successful
+     */
+    public static function importTrie(array $trieData): bool
+    {
+        if (!is_array($trieData) || !isset($trieData['routes'], $trieData['children'])) {
+            return false;
+        }
+        
+        self::$trie = $trieData;
+        self::$optimized = true; // Assume imported trie is already optimized
+        self::$stats['builds']++; // Count as a build operation
+        
+        return true;
+    }
+    
+    /**
+     * Export the current trie structure for caching
+     * 
+     * @return array|null The trie structure or null if not built
+     */
+    public static function exportTrie(): ?array
+    {
+        return self::$trie;
     }
 }

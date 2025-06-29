@@ -93,14 +93,15 @@ class AgaviRouteCacheManager implements ResetInterface
      * 
      * @return array Cache performance stats
      */
-    public static function getStats()
+    public static function getStats(): array
     {
         $instance = self::getInstance();
         return [
             'size' => count($instance->cache),
             'hits' => $instance->hits,
             'misses' => $instance->misses,
-            'hit_ratio' => $instance->hits / max(1, $instance->hits + $instance->misses)
+            'hit_ratio' => $instance->hits / max(1, $instance->hits + $instance->misses),
+            'max_size' => $instance->maxSize
         ];
     }
     
@@ -151,4 +152,25 @@ class AgaviRouteCacheManager implements ResetInterface
         // Note: Cache is preserved for performance in worker mode
         // Use clear() method if you need to clear the cache entirely
     }
+
+    /**
+     * Static method to reset worker state - called by AgaviWorkerManager
+     * 
+     * @param bool $preserveCache Whether to preserve cached routes (default: true)
+     * @param bool $resetStats Whether to reset hit/miss statistics (default: true)
+     */
+    public static function resetWorkerState(bool $preserveCache = true, bool $resetStats = true): void
+    {
+        if (self::$instance !== null) {
+            if ($resetStats) {
+                self::$instance->hits = 0;
+                self::$instance->misses = 0;
+            }
+            
+            if (!$preserveCache) {
+                self::$instance->cache = [];
+            }
+        }
+    }
+
 }
