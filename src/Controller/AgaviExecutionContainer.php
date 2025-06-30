@@ -41,6 +41,7 @@ use Agavi\Config\AgaviConfig;
 use Agavi\View\AgaviView;
 use Agavi\Util\AgaviToolkit;
 use Agavi\Config\AgaviConfigCache;
+use Agavi\Config\AgaviAPCuConfigCache;
 use Agavi\Filter\AgaviExecutionFilter;
 use Agavi\Response\AgaviResponse;
 use Symfony\Contracts\Service\ResetInterface;
@@ -681,7 +682,11 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 		if(is_readable($validationConfig)) {
 			// load validation configuration
 			// do NOT use require_once
-			require(AgaviConfigCache::checkConfig($validationConfig, $this->context->getName()));
+			if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
+				require(AgaviAPCuConfigCache::checkConfig($validationConfig, $this->context->getName()));
+			} else {
+				require(AgaviConfigCache::checkConfig($validationConfig, $this->context->getName()));
+			}
 		}
 
 		// manually load validators

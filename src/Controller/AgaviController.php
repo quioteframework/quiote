@@ -33,6 +33,7 @@ use Agavi\Util\AgaviParameterHolder;
 use Agavi\Exception\AgaviControllerException;
 use Agavi\Config\AgaviConfig;
 use Agavi\Config\AgaviConfigCache;
+use Agavi\Config\AgaviAPCuConfigCache;
 use Agavi\Request\AgaviRequestDataHolder;
 use Agavi\Exception\AgaviDisabledModuleException;
 use Agavi\Response\AgaviResponse;
@@ -170,11 +171,15 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 				'modules.' . $lowerModuleName . '.agavi.validate.path' => '%core.module_dir%/${moduleName}/Validate/${actionName}.xml',
 				'modules.' . $lowerModuleName . '.agavi.view.path' => '%core.module_dir%/${moduleName}/Views/${viewName}View.php',
 				'modules.' . $lowerModuleName . '.agavi.view.name' => '${actionName}${viewName}',
-			]);
-			// include the module configuration
-			// loaded only once due to the way load() (former import()) works
-			if(is_readable(AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/Config/module.xml')) {
-				include_once(AgaviConfigCache::checkConfig(AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/Config/module.xml'));		} else {
+			]);		// include the module configuration
+		// loaded only once due to the way load() (former import()) works
+		if(is_readable(AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/Config/module.xml')) {
+			if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
+				include_once(AgaviAPCuConfigCache::checkConfig(AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/Config/module.xml'));
+			} else {
+				include_once(AgaviConfigCache::checkConfig(AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/Config/module.xml'));
+			}
+		} else {
 			AgaviConfig::set('modules.' . $lowerModuleName . '.enabled', true);
 		}
 		
@@ -507,7 +512,11 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 		$this->response = $this->context->createInstanceFor('response');
 		
 		$cfg = AgaviConfig::get('core.config_dir') . '/output_types.xml';
-		require(AgaviConfigCache::checkConfig($cfg, $this->context->getName()));
+		if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
+			require(AgaviAPCuConfigCache::checkConfig($cfg, $this->context->getName()));
+		} else {
+			require(AgaviConfigCache::checkConfig($cfg, $this->context->getName()));
+		}
 		
 		if(AgaviConfig::get('core.use_security', false)) {
 			$this->filters['security'] = $this->context->createInstanceFor('security_filter');
@@ -577,7 +586,11 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 			}
 			$config = ($module == '*' ? AgaviConfig::get('core.config_dir') : AgaviConfig::get('core.module_dir') . '/' . $module . '/Config') . '/' . $which . '_filters.xml';
 			if(is_readable($config)) {
-				require(AgaviConfigCache::checkConfig($config, $this->context->getName()));
+				if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
+					require(AgaviAPCuConfigCache::checkConfig($config, $this->context->getName()));
+				} else {
+					require(AgaviConfigCache::checkConfig($config, $this->context->getName()));
+				}
 			}
 		} else {
 			if($which == 'global') {

@@ -17,6 +17,7 @@ namespace Agavi;
 
 use Agavi\Config\AgaviConfig;
 use Agavi\Config\AgaviConfigCache;
+use Agavi\Config\AgaviAPCuConfigCache;
 use Agavi\Controller\AgaviController;
 use Agavi\Exception\AgaviDisabledModuleException;
 use Agavi\Exception\AgaviException;
@@ -431,7 +432,11 @@ class AgaviContext implements \Stringable, ResetInterface
 	public function initialize()
 	{
 		try {
-			include(AgaviConfigCache::checkConfig(AgaviConfig::get('core.config_dir') . '/factories.xml', $this->name));
+			if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
+				include(AgaviAPCuConfigCache::checkConfig(AgaviConfig::get('core.config_dir') . '/factories.xml', $this->name));
+			} else {
+				include(AgaviConfigCache::checkConfig(AgaviConfig::get('core.config_dir') . '/factories.xml', $this->name));
+			}
 		} catch(\Exception $e) {
 			AgaviException::render($e, $this);
 		}

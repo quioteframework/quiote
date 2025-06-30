@@ -18,6 +18,7 @@ namespace Agavi\Database;
 use Agavi\AgaviContext;
 use Agavi\Config\AgaviConfig;
 use Agavi\Config\AgaviConfigCache;
+use Agavi\Config\AgaviAPCuConfigCache;
 use Agavi\Exception\AgaviDatabaseException;
 
 /**
@@ -145,7 +146,11 @@ class AgaviDatabaseManager
 		$this->context = $context;
 
 		// load database configuration
-		require(AgaviConfigCache::checkConfig(AgaviConfig::get('core.config_dir') . '/databases.xml'));
+		if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
+			require(AgaviAPCuConfigCache::checkConfig(AgaviConfig::get('core.config_dir') . '/databases.xml'));
+		} else {
+			require(AgaviConfigCache::checkConfig(AgaviConfig::get('core.config_dir') . '/databases.xml'));
+		}
 	}
 
 	/**

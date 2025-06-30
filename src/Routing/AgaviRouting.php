@@ -17,6 +17,7 @@ namespace Agavi\Routing;
 use Agavi\AgaviContext;
 use Agavi\Config\AgaviConfig;
 use Agavi\Config\AgaviConfigCache;
+use Agavi\Config\AgaviAPCuConfigCache;
 use Agavi\Exception\AgaviException;
 use Agavi\Response\AgaviResponse;
 use Agavi\Util\AgaviArrayPathDefinition;
@@ -141,7 +142,11 @@ abstract class AgaviRouting extends AgaviParameterHolder implements ResetInterfa
 		$cfg = AgaviConfig::get('core.config_dir') . '/routing.xml';
 		// allow missing routing.xml when routing is not enabled
 		if($this->isEnabled() || is_readable($cfg)) {
-			$routeData = unserialize(file_get_contents(AgaviConfigCache::checkConfig($cfg, $this->context->getName())));
+			if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
+				$routeData = unserialize(file_get_contents(AgaviAPCuConfigCache::checkConfig($cfg, $this->context->getName())));
+			} else {
+				$routeData = unserialize(file_get_contents(AgaviConfigCache::checkConfig($cfg, $this->context->getName())));
+			}
 			if($routeData !== false) {
 				$this->importRoutes($routeData);
 			}

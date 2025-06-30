@@ -320,17 +320,17 @@ if (isset($context)) {
         switch ($strategy) {
             case 'close':
                 // Close all database connections
-                if (class_exists('Propel')) {
-                    \Propel::close();
+                if (class_exists('Propel\Propel')) {
+                    Propel\Propel::close();
                 }
                 // Add other ORMs as needed
                 break;
                 
             case 'reset':
                 // Reset connections without closing (clean transactions)
-                if (class_exists('Propel')) {
+                if (class_exists('Propel\Propel')) {
                     try {
-                        $con = \Propel::getConnection();
+                        $con = Propel\Propel::getConnection();
                         if ($con && $con->inTransaction()) {
                             $con->rollback();
                             error_log("Warning: Uncommitted transaction rolled back in worker");
@@ -338,7 +338,7 @@ if (isset($context)) {
                     } catch (\Exception $e) {
                         error_log("Propel transaction cleanup failed: " . $e->getMessage());
                         // If reset fails, close and let it reconnect
-                        \Propel::close();
+                        Propel\Propel::close();
                     }
                 }
                 break;

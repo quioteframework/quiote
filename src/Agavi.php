@@ -16,6 +16,7 @@ namespace Agavi;
 
 use Agavi\Config\AgaviConfig;
 use Agavi\Config\AgaviConfigCache;
+use Agavi\Config\AgaviAPCuConfigCache;
 use Agavi\Exception\AgaviException;
 use Agavi\Util\AgaviToolkit;
 
@@ -104,14 +105,22 @@ final class Agavi
 			AgaviConfig::set('core.cldr_dir', AgaviConfig::get('core.agavi_dir') . '/Translation/data', false, true);
 
 			// load base settings
-			AgaviConfigCache::load(AgaviConfig::get('core.config_dir') . '/settings.xml');
+			if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
+				AgaviAPCuConfigCache::load(AgaviConfig::get('core.config_dir') . '/settings.xml');
+			} else {
+				AgaviConfigCache::load(AgaviConfig::get('core.config_dir') . '/settings.xml');
+			}
 
 			// clear our cache if the conditions are right
 			if(AgaviConfig::get('core.debug')) {
 				AgaviToolkit::clearCache();
 
 				// load base settings
-				AgaviConfigCache::load(AgaviConfig::get('core.config_dir') . '/settings.xml');
+				if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
+					AgaviAPCuConfigCache::load(AgaviConfig::get('core.config_dir') . '/settings.xml');
+				} else {
+					AgaviConfigCache::load(AgaviConfig::get('core.config_dir') . '/settings.xml');
+				}
 			}
 
 			$compile = AgaviConfig::get('core.config_dir') . '/compile.xml';
@@ -119,7 +128,11 @@ final class Agavi
 				$compile = AgaviConfig::get('core.system_config_dir') . '/compile.xml';
 			}
 			// required classes for the framework
-			AgaviConfigCache::load($compile);
+			if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
+				AgaviAPCuConfigCache::load($compile);
+			} else {
+				AgaviConfigCache::load($compile);
+			}
 
 		} catch(\Exception $e) {
 			AgaviException::render($e);
