@@ -197,7 +197,14 @@ class AgaviConfig
 		
 		// Keep explicitly preserved keys
 		foreach ($preserveKeys as $key) {
-			if (isset(self::$config[$key])) {
+			if ($key === 'modules') {
+				// Special handling for modules: preserve all module.* configurations
+				foreach (self::$config as $configKey => $configValue) {
+					if (strpos($configKey, 'modules.') === 0) {
+						$preserve[$configKey] = $configValue;
+					}
+				}
+			} elseif (isset(self::$config[$key])) {
 				$preserve[$key] = self::$config[$key];
 			}
 		}

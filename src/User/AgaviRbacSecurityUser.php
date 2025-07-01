@@ -204,6 +204,7 @@ class AgaviRbacSecurityUser extends AgaviSecurityUser implements AgaviISecurityU
 	#[\Override]
     public function shutdown()
 	{
+		error_log("DEBUG: storing roles for " . get_class($this) . " in " . self::ROLES_NAMESPACE);
 		$this->context->getStorage()->store(self::ROLES_NAMESPACE, $this->roles);
 		
 		// call the parent shutdown method

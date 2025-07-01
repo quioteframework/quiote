@@ -1158,8 +1158,20 @@ abstract class AgaviRouting extends AgaviParameterHolder implements ResetInterfa
 		
 		$container = $this->context->getController()->createExecutionContainer();
 
+		error_log("ROUTING_EXECUTE: Starting execution");
+		error_log("ROUTING_EXECUTE: Initial container output type: ".$container->getOutputType()->getName());
+		error_log("ROUTING_EXECUTE: Request method: ".$rq->getMethod());
+		error_log("ROUTING_EXECUTE: Request URI: ".$rq->getRequestUri());
+		if(isset($_SERVER['HTTP_ACCEPT'])) {
+			error_log("ROUTING_EXECUTE: HTTP_ACCEPT: ".$_SERVER['HTTP_ACCEPT']);
+		}
+		if(isset($_SERVER['CONTENT_TYPE'])) {
+			error_log("ROUTING_EXECUTE: CONTENT_TYPE: ".$_SERVER['CONTENT_TYPE']);
+		}
+
 		if(!$this->isEnabled()) {
 			// routing disabled, just bail out here
+			error_log("ROUTING_EXECUTE: Routing disabled, returning container with output type: ".$container->getOutputType()->getName());
 			return $container;
 		}
 
@@ -1205,7 +1217,10 @@ abstract class AgaviRouting extends AgaviParameterHolder implements ResetInterfa
 					}
 
 					$match = [];
+					error_log("ROUTING_EXECUTE: Checking route '".$opts['name']."' with pattern '".($route['opt']['pattern'] ?? "")."' against input: '$input'");
 					if($this->parseInput($route, $input, $match)) {
+						error_log("ROUTING_EXECUTE: Route matched: ".$opts['name']);
+						
 						$varsBackup = $vars;
 						
 						// backup the container, must be done here already
@@ -1274,11 +1289,16 @@ abstract class AgaviRouting extends AgaviParameterHolder implements ResetInterfa
 							// which can never be the result of expandVariables
 							$ot = AgaviToolkit::expandVariables($opts['output_type'], $matchvals);
 							
+							error_log("ROUTING_EXECUTE: Setting output type from route '".$opts['name']."' to: $ot");
+							error_log("ROUTING_EXECUTE: Container output type before: ".$container->getOutputType()->getName());
+							
 							// we need to wrap in try/catch here (but not further down after the callbacks have run) for BC
 							// and because it makes sense - maybe a callback checks or changes the output type name
 							try {
 								$container->setOutputType($this->context->getController()->getOutputType($ot));
-							} catch(AgaviException) {
+								error_log("ROUTING_EXECUTE: Container output type after: ".$container->getOutputType()->getName());
+							} catch(AgaviException $e) {
+								error_log("ROUTING_EXECUTE: Failed to set output type '$ot': ".$e->getMessage());
 							}
 						}
 
@@ -1413,7 +1433,9 @@ abstract class AgaviRouting extends AgaviParameterHolder implements ResetInterfa
 								}
 								if($opts['output_type'] && $oldOutputTypeName == ($container->getOutputType() ? $container->getOutputType()->getName() : null)) {
 									$ot = AgaviToolkit::expandVariables($opts['output_type'], $expandVars);
+									error_log("ROUTING_EXECUTE: Post-callback setting output type to: $ot");
 									$container->setOutputType($this->context->getController()->getOutputType($ot));
+									error_log("ROUTING_EXECUTE: Post-callback container output type: ".$container->getOutputType()->getName());
 								}
 								if($opts['locale'] && $oldLocale == $tm->getCurrentLocaleIdentifier()) {
 									if($locale = AgaviToolkit::expandVariables($opts['locale'], $expandVars)) {
@@ -1480,7 +1502,10 @@ abstract class AgaviRouting extends AgaviParameterHolder implements ResetInterfa
 								$ni = substr((string) $s, 0, $match[0][1]);
 							}
 							$ni .= substr((string) $s, $match[0][1] + strlen((string) $match[0][0]));
+							
+							error_log("ROUTING_EXECUTE: Route '".$opts['name']."' cutting input from '$s' to '$ni'");
 							$s = $ni;
+							error_log("ROUTING_EXECUTE: Input after cut: '$input'");
 						}
 
 						if(count($opts['childs'])) {
@@ -1526,6 +1551,9 @@ abstract class AgaviRouting extends AgaviParameterHolder implements ResetInterfa
 		// set the list of matched route names as a request attribute
 		$rq->setAttribute('matched_routes', $matchedRoutes, 'org.agavi.routing');
 
+		error_log("ROUTING_EXECUTE: Final output type being returned: ".$container->getOutputType()->getName());
+		error_log("ROUTING_EXECUTE: Matched routes: ".implode(', ', $matchedRoutes));
+
 		// return a list of matched route names
 		return $container;
 	}
@@ -1544,12 +1572,19 @@ abstract class AgaviRouting extends AgaviParameterHolder implements ResetInterfa
 	 */
 	protected function parseInput(array $route, $input, &$matches): bool|int
 	{
+		// FRANKENPHP WORKER FIX: Check if sources are empty and re-initialize them
+		// This can happen after context reset in worker mode
+		if (empty($this->sources)) {
+			$this->startup();
+		}
+		
 		if($route['opt']['source'] !== null) {
 			$parts = AgaviArrayPathDefinition::getPartsFromPath($route['opt']['source']);
 			$partArray = $parts['parts'];
 			$count = count($partArray);
 			if($count > 0 && isset($this->sources[$partArray[0]])) {
 				$input = $this->sources[$partArray[0]];
+				
 				if($count > 1) {
 					array_shift($partArray);
 					if(is_array($input)) {
@@ -1560,6 +1595,7 @@ abstract class AgaviRouting extends AgaviParameterHolder implements ResetInterfa
 				}
 			}
 		}
+		
 		return preg_match($route['rxp'], $input ?? "", $matches, PREG_OFFSET_CAPTURE);
 	}
 
@@ -1787,14 +1823,34 @@ abstract class AgaviRouting extends AgaviParameterHolder implements ResetInterfa
 	 */
 	public function reset(): void
 	{
+		error_log("AgaviRouting::reset() - Starting routing reset");
+		
 		// Reset routing-specific properties that hold request state
-		$this->context = null;
+		// DON'T null the context - it's needed for the next request!
+		// $this->context = null;
 		$this->input = null;
 		$this->sources = [];
 		$this->prefix = '';
 		
-		// Note: routes, defaultGenOptions, genOptionsPresets are config-based - may not need reset
-		// But if they contain request-specific state, they should be cleared
+		// CRITICAL: Reset routes array to prevent cache corruption
+		// In worker mode, route structures can get corrupted between requests
+		if (isset($this->routes) && is_array($this->routes)) {
+			error_log("AgaviRouting::reset() - Clearing routes array (had " . count($this->routes) . " routes)");
+			foreach ($this->routes as &$route) {
+				// Clear any callback instances that might hold state
+				if (isset($route['callback_instances'])) {
+					unset($route['callback_instances']);
+				}
+				// Clear any matches that might hold state
+				if (isset($route['matches'])) {
+					unset($route['matches']);
+				}
+			}
+			// Don't null the routes array completely as it's config-based
+			// But clear any request-specific state within routes
+		}
+		
+		error_log("AgaviRouting::reset() - Reset completed");
 		
 		// Reset parent parameter holder state
 		parent::clearParameters();

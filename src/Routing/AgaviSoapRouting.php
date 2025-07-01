@@ -17,6 +17,7 @@ namespace Agavi\Routing;
 use Agavi\AgaviContext;
 use Agavi\Config\AgaviConfig;
 use Agavi\Config\AgaviConfigCache;
+use Agavi\Config\AgaviAPCuConfigCache;
 
 /**
  * AgaviSoapRouting handles the routing for SOAP web service requests.
@@ -65,7 +66,11 @@ class AgaviSoapRouting extends AgaviWebserviceRouting
 	{
 		$path = $this->getParameter('wsdl', AgaviConfig::get('core.agavi_dir') . '/Routing/soap/wsdl.xml');
 		
-		return AgaviConfigCache::checkConfig($path, $this->context->getName());
+		if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
+			return AgaviAPCuConfigCache::checkConfig($path, $this->context->getName());
+		} else {
+			return AgaviConfigCache::checkConfig($path, $this->context->getName());
+		}
 	}
 }
 

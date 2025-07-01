@@ -321,7 +321,6 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 		}
 
 		if($mode == self::MODE_STRICT || ($executedValidators > 0 && $mode == self::MODE_CONDITIONAL)) {
-			
 			// first, we explicitly unset failed arguments
 			// the primary purpose of this is to make sure that arrays that failed validation themselves (e.g. due to array length validation, or due to use of operator validators with an argument base) are removed
 			// that's of course only necessary if validation failed
@@ -333,10 +332,13 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 			// next, we remove all arguments from the request data that are not in the list of succeeded arguments
 			// this will also remove any arguments that didn't have validation rules defined
 			$succeededArguments = $this->report->getSucceededArguments();
+			
 			foreach($parameters->getSourceNames() as $source) {
 				$sourceItems = $parameters->getAll($source);
 				foreach(AgaviArrayPathDefinition::getFlatKeyNames($sourceItems) as $name) {
-					if(!isset($succeededArguments[$source . '/' . $name]) && (!$umap || ($source != AgaviRequestDataHolder::SOURCE_PARAMETERS || ($name != $ma && $name != $aa)))) {
+					$key = $source . '/' . $name;
+					$shouldKeep = isset($succeededArguments[$key]) || ($umap && ($source == AgaviRequestDataHolder::SOURCE_PARAMETERS && ($name == $ma || $name == $aa)));
+					if(!$shouldKeep) {
 						$parameters->remove($source, $name);
 					}
 				}
@@ -914,15 +916,27 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 	}
 
 	public function reset(): void {
-		$this->clear();
-		$this->dependencyManager->reset();
-		$this->report = new AgaviValidationReport();
+		// Properly shutdown existing validators
 		foreach($this->children as $child) {
 			if($child instanceof ResetInterface) {
 				$child->reset();
+			} else {
+				$child->shutdown();
 			}
 		}
+		
+		// Clear children array for fresh registration
 		$this->children = [];
+		
+		// Reset dependency manager
+		if($this->dependencyManager instanceof ResetInterface) {
+			$this->dependencyManager->reset();
+		} else {
+			$this->dependencyManager->clear();
+		}
+		
+		// Reset validation report
+		$this->report = new AgaviValidationReport();
 	}
 }
 ?>

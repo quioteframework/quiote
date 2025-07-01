@@ -30,6 +30,7 @@ namespace Agavi\Controller;
  * @version    $Id$
  */
 use Agavi\Config\AgaviConfigCache;
+use Agavi\Config\AgaviAPCuConfigCache;
 use Agavi\Request\AgaviRequestDataHolder;
 class AgaviSoapController extends AgaviController
 {
@@ -158,9 +159,17 @@ class AgaviSoapController extends AgaviController
 		// build the special extension class to the handler that contains methods for each of the headers
 		if($this->getParameter('auto_headers', true)) {
 			// the cache filename we'll be using
-			$cache = AgaviConfigCache::getCacheName($soapHandlerClass, $this->context->getName());
+			if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
+				$cache = AgaviAPCuConfigCache::getCacheName($soapHandlerClass, $this->context->getName());
+			} else {
+				$cache = AgaviConfigCache::getCacheName($soapHandlerClass, $this->context->getName());
+			}
 			
-			if(AgaviConfigCache::isModified($wsdl, $cache)) {
+			$isModified = defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE 
+				? AgaviAPCuConfigCache::isModified($wsdl, $cache)
+				: AgaviConfigCache::isModified($wsdl, $cache);
+			
+			if($isModified) {
 				$doc = new \DOMDocument();
 				$doc->load($wsdl);
 				$xpath = new \DOMXPath($doc);
@@ -197,7 +206,11 @@ class AgaviSoapController extends AgaviController
 				
 				$code = implode("\n", $code);
 				
-				AgaviConfigCache::writeCacheFile($soapHandlerClass, $cache, $code);
+				if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
+					AgaviAPCuConfigCache::writeCacheFile($soapHandlerClass, $cache, $code);
+				} else {
+					AgaviConfigCache::writeCacheFile($soapHandlerClass, $cache, $code);
+				}
 			}
 			
 			include($cache);

@@ -17,6 +17,7 @@ namespace Agavi\Translation;
 use Agavi\AgaviContext;
 use Agavi\Config\AgaviConfig;
 use Agavi\Config\AgaviConfigCache;
+use Agavi\Config\AgaviAPCuConfigCache;
 use Agavi\Date\AgaviTimeZone as DateAgaviTimeZone;
 use Agavi\Date\AgaviCalendar;
 use Agavi\Date\AgaviDateDefinitions;
@@ -147,7 +148,11 @@ class AgaviTranslationManager implements ResetInterface
 	{
 		$this->context = $context;
 
-		include(AgaviConfigCache::checkConfig(AgaviConfig::get('core.config_dir') . '/translation.xml'));
+		if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
+			include(AgaviAPCuConfigCache::checkConfig(AgaviConfig::get('core.config_dir') . '/translation.xml'));
+		} else {
+			include(AgaviConfigCache::checkConfig(AgaviConfig::get('core.config_dir') . '/translation.xml'));
+		}
 		$this->loadSupplementalData();
 		$this->loadTimeZoneData();
 		$this->loadAvailableLocales();
@@ -603,7 +608,11 @@ class AgaviTranslationManager implements ResetInterface
 	 */
 	protected function loadSupplementalData()
 	{
-		$this->supplementalData = include(AgaviConfigCache::checkConfig(AgaviConfig::get('core.cldr_dir') . '/supplementalData.xml'));
+		if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
+			$this->supplementalData = include(AgaviAPCuConfigCache::checkConfig(AgaviConfig::get('core.cldr_dir') . '/supplementalData.xml'));
+		} else {
+			$this->supplementalData = include(AgaviConfigCache::checkConfig(AgaviConfig::get('core.cldr_dir') . '/supplementalData.xml'));
+		}
 	}
 
 	/**
@@ -751,7 +760,11 @@ class AgaviTranslationManager implements ResetInterface
 			foreach($lookupPath as $localeName) {
 				$fileName = $cldrDir . '/locales/' . $localeName . '.xml';
 				if(is_readable($fileName)) {
-					$data = include(AgaviConfigCache::checkConfig($fileName));
+					if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
+						$data = include(AgaviAPCuConfigCache::checkConfig($fileName));
+					} else {
+						$data = include(AgaviConfigCache::checkConfig($fileName));
+					}
 					break;
 				}
 			}

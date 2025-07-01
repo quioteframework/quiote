@@ -43,6 +43,7 @@ use Agavi\Exception\AgaviClassNotFoundException;
 use Agavi\Exception\AgaviFileNotFoundException;
 use Agavi\AgaviContext;
 use Agavi\Filter\AgaviFilterChain;
+use Agavi\Request\AgaviIHeadersRequestDataHolder;
 use Symfony\Contracts\Service\ResetInterface;
 
 use \Exception;
@@ -134,19 +135,36 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 	 */
 	public function createExecutionContainer($moduleName = null, $actionName = null, ?AgaviRequestDataHolder $arguments = null, $outputType = null, $requestMethod = null)
 	{
+		error_log("CONTROLLER_CREATE_CONTAINER: Starting - module=$moduleName, action=$actionName, outputType=".var_export($outputType, true));
+		
 		// create a new execution container
 		$container = $this->context->createInstanceFor('execution_container');
 		$container->setModuleName($moduleName);
 		$container->setActionName($actionName);
-		$container->setRequestData($this->requestData);
+		// Always get fresh request data from the request object to ensure we have current data
+		// This is especially important in FrankenPHP worker mode where request objects are recreated
+		$requestData = $this->context->getRequest()->getRequestData();
+		
+		$container->setRequestData($requestData);
 		if($arguments !== null) {
 			$container->setArguments($arguments);
 		}
-		$container->setOutputType($this->context->getController()->getOutputType($outputType));
+		
+		error_log("CONTROLLER_CREATE_CONTAINER: Getting output type with param: ".var_export($outputType, true));
+		error_log("CONTROLLER_CREATE_CONTAINER: Current defaultOutputType = ".var_export($this->defaultOutputType, true));
+		
+		$resolvedOutputType = $this->context->getController()->getOutputType($outputType);
+		error_log("CONTROLLER_CREATE_CONTAINER: Resolved output type: ".$resolvedOutputType->getName());
+		
+		$container->setOutputType($resolvedOutputType);
+		
 		if($requestMethod === null) {
 			$requestMethod = $this->context->getRequest()->getMethod();
 		}
 		$container->setRequestMethod($requestMethod);
+		
+		error_log("CONTROLLER_CREATE_CONTAINER: Final container output type: ".$container->getOutputType()->getName());
+		
 		return $container;
 	}
 	
@@ -218,13 +236,38 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 	 */
 	public function dispatch(?AgaviRequestDataHolder $arguments = null, ?AgaviExecutionContainer $container = null)
 	{
+		error_log("CONTROLLER_DISPATCH: Starting dispatch");
+		error_log("CONTROLLER_DISPATCH: Current defaultOutputType=".var_export($this->defaultOutputType, true));
+		
 		try {
 			
 			$rq = $this->context->getRequest();
 			$rd = $rq->getRequestData();
 			
 			if($container === null) {
-				$container = $this->context->getRouting()->execute();
+				error_log("CONTROLLER_DISPATCH: No container provided, executing routing");
+				
+				// DEBUG: Check routing object state before calling execute
+				$routing = $this->context->getRouting();
+				error_log("CONTROLLER_DISPATCH: Routing object class: " . get_class($routing));
+				error_log("CONTROLLER_DISPATCH: Routing object ID: " . spl_object_id($routing));
+				
+				// Use reflection to check the context property
+				$reflection = new \ReflectionClass($routing);
+				if ($reflection->hasProperty('context')) {
+					$contextProperty = $reflection->getProperty('context');
+					$contextProperty->setAccessible(true);
+					$routingContext = $contextProperty->getValue($routing);
+					error_log("CONTROLLER_DISPATCH: Routing context is: " . ($routingContext === null ? 'NULL' : 'VALID (' . get_class($routingContext) . ')'));
+					if ($routingContext === null) {
+						error_log("CONTROLLER_DISPATCH: CRITICAL - Routing context is null, this will cause the error!");
+					}
+				}
+				
+				$container = $routing->execute();
+				error_log("CONTROLLER_DISPATCH: Routing returned container with output type: ".$container->getOutputType()->getName());
+			} else {
+				error_log("CONTROLLER_DISPATCH: Container provided with output type: ".$container->getOutputType()->getName());
 			}
 			
 			if($container instanceof AgaviExecutionContainer) {
@@ -688,6 +731,9 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 	 */
 	public function reset(): void
 	{
+		error_log("CONTROLLER_RESET: Starting reset");
+		error_log("CONTROLLER_RESET: Before reset - defaultOutputType=".var_export($this->defaultOutputType, true));
+		
 		// Reset execution counter
 		$this->numExecutions = 0;
 		
@@ -704,6 +750,12 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 		if ($this->context) {
 			$this->response = $this->context->createInstanceFor('response');
 		}
+		
+		// Critical: Reset defaultOutputType to prevent it from sticking between requests in worker mode
+		// When defaultOutputType is not null, getOutputType(null) returns the previous request's output type
+		$this->defaultOutputType = null;
+		
+		error_log("CONTROLLER_RESET: After reset - defaultOutputType=".var_export($this->defaultOutputType, true));
 	}
 
 	/**
@@ -761,12 +813,27 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 	 */
 	public function getOutputType($name = null)
 	{
+		error_log("CONTROLLER_GET_OUTPUT_TYPE: Called with name=".var_export($name, true));
+		error_log("CONTROLLER_GET_OUTPUT_TYPE: Current defaultOutputType=".var_export($this->defaultOutputType, true));
+		
 		if($name === null) {
-			$name = $this->defaultOutputType;
+			if($this->defaultOutputType !== null) {
+				$name = $this->defaultOutputType;
+				error_log("CONTROLLER_GET_OUTPUT_TYPE: Using defaultOutputType: $name");
+			} else {
+				// Fall back to first available output type if no default is set
+				$name = array_key_first($this->outputTypes) ?: 'html';
+				error_log("CONTROLLER_GET_OUTPUT_TYPE: Using first available output type: $name");
+			}
+		} else {
+			error_log("CONTROLLER_GET_OUTPUT_TYPE: Using provided name: $name");
 		}
+		
 		if(isset($this->outputTypes[$name])) {
+			error_log("CONTROLLER_GET_OUTPUT_TYPE: Returning output type: $name");
 			return $this->outputTypes[$name];
 		} else {
+			error_log("CONTROLLER_GET_OUTPUT_TYPE: Output type $name not configured, throwing exception");
 			throw new AgaviException('Output Type "' . $name . '" has not been configured.');
 		}
 	}

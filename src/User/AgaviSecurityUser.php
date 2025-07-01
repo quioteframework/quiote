@@ -241,11 +241,21 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser, ResetIn
 	#[\Override]
   	public function shutdown()
 	{
+		error_log("DEBUG: AgaviSecurityUser::shutdown() - storing authenticated status for " . get_class($this) . " in " . self::AUTH_NAMESPACE);
+		error_log("DEBUG: AgaviSecurityUser::shutdown() - storing credentials for " . get_class($this) . " in " . self::CREDENTIAL_NAMESPACE);
 		$storage = $this->getContext()->getStorage();
 
 		// store credentials to the storage
 		$storage->store(self::AUTH_NAMESPACE,       $this->authenticated);
 		$storage->store(self::CREDENTIAL_NAMESPACE, $this->credentials);
+
+		// Debug: Check what's in the session after storing
+		error_log("DEBUG: AgaviSecurityUser::shutdown() - Session contents after store operations: " . json_encode($_SESSION));
+		error_log("DEBUG: AgaviSecurityUser::shutdown() - Session ID: " . session_id());
+		error_log("DEBUG: AgaviSecurityUser::shutdown() - Session status: " . session_status());
+
+		// Note: session_write_close() will be handled by the storage shutdown in the proper sequence
+		// This ensures the session is written at the right time without interference
 
 		// call the parent shutdown method
 		parent::shutdown();

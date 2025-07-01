@@ -254,17 +254,26 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 	 */
 	public function createExecutionContainer($moduleName = null, $actionName = null, ?AgaviRequestDataHolder $arguments = null, $outputType = null, $requestMethod = null)
 	{
-		if($outputType === null) {
-			$outputType = $this->getOutputType()->getName();
-		}
+		error_log("CONTAINER_CREATE_CONTAINER: Starting - module=$moduleName, action=$actionName, outputType=".var_export($outputType, true));
+		error_log("CONTAINER_CREATE_CONTAINER: Current container output type: ".$this->getOutputType()->getName());
+		
+		// Don't inherit output type from current container when null is passed
+		// Let the controller determine the appropriate output type freshly
+		// This prevents output type "sticking" between requests in worker mode
 		if($requestMethod === null) {
 			$requestMethod = $this->getRequestMethod();
 		}
 		
+		error_log("CONTAINER_CREATE_CONTAINER: Calling controller->createExecutionContainer with outputType=".var_export($outputType, true));
+		
 		$container = $this->context->getController()->createExecutionContainer($moduleName, $actionName, $arguments, $outputType, $requestMethod);
+		
+		error_log("CONTAINER_CREATE_CONTAINER: New container created with output type: ".$container->getOutputType()->getName());
 		
 		// copy over parameters (could be is_slot, is_forward etc)
 		$container->setParameters($this->getParameters());
+		
+		error_log("CONTAINER_CREATE_CONTAINER: Final container output type: ".$container->getOutputType()->getName());
 		
 		return $container;
 	}
@@ -559,6 +568,7 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 				$validationManager->execute($requestData);
 			}
 		} else {
+			// Debug: Log request data before validation
 			if($this->performValidation()) {
 				// execute the action
 				// prevent access to Request::getParameters()
@@ -624,6 +634,11 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 	public function performValidation()
 	{
 		$validationManager = $this->getValidationManager();
+		
+		// Ensure validation manager is properly reset for worker mode
+		if($validationManager instanceof ResetInterface) {
+			$validationManager->reset();
+		}
 
 		// get the current action instance
 		$actionInstance = $this->getActionInstance();
@@ -679,6 +694,7 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 				'actionName' => $actionName,
 			]
 		);
+		
 		if(is_readable($validationConfig)) {
 			// load validation configuration
 			// do NOT use require_once
@@ -694,6 +710,7 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 		if(!is_callable([$actionInstance, $registerValidatorsMethod])) {
 			$registerValidatorsMethod = 'registerValidators';
 		}
+		
 		$actionInstance->$registerValidatorsMethod();
 	}
 	
@@ -825,9 +842,12 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 	 */
 	public function setOutputType(AgaviOutputType $outputType)
 	{
+		error_log("CONTAINER_SET_OUTPUT_TYPE: Setting output type to: ".$outputType->getName());
+		
 		$this->outputType = $outputType;
 		if($this->response) {
 			$this->response->setOutputType($outputType);
+			error_log("CONTAINER_SET_OUTPUT_TYPE: Also set on response");
 		}
 	}
 

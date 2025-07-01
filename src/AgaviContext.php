@@ -52,6 +52,9 @@ use Symfony\Contracts\Service\ResetInterface;
  */
 class AgaviContext implements \Stringable, ResetInterface
 {
+	// Debug: Log when this class version is loaded
+	static $debugLoaded = true;
+	
 	/**
 	 * @var        ?AgaviController A Controller instance.
 	 */
@@ -124,6 +127,21 @@ class AgaviContext implements \Stringable, ResetInterface
 	 * @var        array Reset instances for FrankenPHP worker mode
 	 */
 	protected $resetInstances = [];
+	
+	/**
+	 * @var        array Request factory info for worker mode recreation
+	 */
+	protected $requestFactoryInfo = null;
+
+	/**
+	 * @var        array User factory info for worker mode recreation
+	 */
+	protected $userFactoryInfo = null;
+
+	/**
+	 * @var        array Storage factory info for worker mode recreation
+	 */
+	protected $storageFactoryInfo = null;
 
 	/**
 	 * Clone method, overridden to prevent cloning, there can be only one.
@@ -348,11 +366,31 @@ class AgaviContext implements \Stringable, ResetInterface
 			error_log("AgaviContext::reset() - Reset controller");
 		}
 		
-		// Reset storage session state if it implements ResetInterface
-		if ($this->storage && $this->storage instanceof ResetInterface) {
-			$this->storage->reset();
-			error_log("AgaviContext::reset() - Reset storage");
+		// CRITICAL: Manually execute the shutdown sequence in correct order for FrankenPHP
+		// This ensures session data is saved properly before clearing state
+		error_log("AgaviContext::reset() - Executing shutdown sequence manually for FrankenPHP");
+		
+		// Execute the shutdown sequence in the same order as would happen during normal shutdown
+		// But skip components that don't need shutdown or would interfere with worker mode
+		foreach($this->shutdownSequence as $component) {
+			if ($component === $this->user && $component !== null) {
+				error_log("AgaviContext::reset() - Shutting down user to save session data");
+				$component->shutdown();
+			} elseif ($component === $this->storage && $component !== null) {
+				error_log("AgaviContext::reset() - Shutting down storage to write session");
+				$component->shutdown(); // This calls session_write_close()
+			}
+			// Skip controller, request, routing, translationManager, databaseManager shutdowns
+			// as they're not needed for session persistence and might interfere with worker mode
 		}
+		
+		error_log("AgaviContext::reset() - Shutdown sequence completed");
+		
+		// Now reset object references for next request
+		// In worker mode, null the storage so it gets recreated with fresh startup() call
+		// This ensures session_start() is called properly on each request
+		$this->storage = null;
+		error_log("AgaviContext::reset() - Nulled storage for worker mode (will be recreated)");
 		
 		// Reset user object (it will be recreated with clean session state)
 		$this->user = null;
@@ -366,9 +404,15 @@ class AgaviContext implements \Stringable, ResetInterface
 		}
 		error_log("AgaviContext::reset() - Reset routing instances");
 		
-		// Reset request object (it will be recreated)
+		// CRITICAL: Reset routing object to prevent cache corruption in worker mode
+		if ($this->routing && $this->routing instanceof ResetInterface) {
+			$this->routing->reset();
+			error_log("AgaviContext::reset() - Reset routing object");
+		}
+		
+		// Reset request object (it will be recreated for the next request)
 		$this->request = null;
-		error_log("AgaviContext::reset() - Set request to null");
+		error_log("AgaviContext::reset() - Set request to null (will be recreated for next request)");
 		
 		error_log("AgaviContext::reset() - Context reset completed");
 	}
@@ -433,18 +477,75 @@ class AgaviContext implements \Stringable, ResetInterface
 	{
 		try {
 			if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
-				include(AgaviAPCuConfigCache::checkConfig(AgaviConfig::get('core.config_dir') . '/factories.xml', $this->name));
+				error_log("DEBUG: AgaviContext using APCu config cache for factories.xml");
+				$cacheFile = AgaviAPCuConfigCache::checkConfig(AgaviConfig::get('core.config_dir') . '/factories.xml', $this->name);
+				
+				// Check if we got an APCu marker
+				if (is_string($cacheFile) && strpos($cacheFile, 'APCU:') === 0) {
+					// Extract the APCu key and eval the content directly
+					$apcuKey = substr($cacheFile, 5); // Remove 'APCU:' prefix
+					$content = \apcu_fetch($apcuKey);
+					if ($content !== false) {
+						error_log("DEBUG: AgaviContext executing factories.xml directly from APCu (no file I/O)");
+						eval('?>' . $content);
+					} else {
+						error_log("ERROR: AgaviContext could not fetch factories.xml from APCu key: " . $apcuKey);
+					}
+				} else {
+					// Regular file include
+					include($cacheFile);
+				}
 			} else {
+				error_log("DEBUG: AgaviContext using regular config cache for factories.xml (constant defined: " . (defined('\AGAVI_USE_APCU_CONFIG_CACHE') ? 'yes' : 'no') . ", value: " . (defined('\AGAVI_USE_APCU_CONFIG_CACHE') ? (\AGAVI_USE_APCU_CONFIG_CACHE ? 'true' : 'false') : 'undefined') . ")");
 				include(AgaviConfigCache::checkConfig(AgaviConfig::get('core.config_dir') . '/factories.xml', $this->name));
 			}
 		} catch(\Exception $e) {
 			AgaviException::render($e, $this);
 		}
 		
+		// Capture request factory info for worker mode recreation
+		if ($this->request !== null) {
+			$this->requestFactoryInfo = [
+				'class' => get_class($this->request),
+				'parameters' => [] // Request typically uses empty parameters
+			];
+			error_log("DEBUG: AgaviContext captured request factory info: " . $this->requestFactoryInfo['class']);
+		}
+		
+		// Capture user factory info for worker mode recreation
+		if ($this->user !== null) {
+			$this->userFactoryInfo = [
+				'class' => get_class($this->user),
+				'parameters' => [] // User typically uses empty parameters
+			];
+			error_log("DEBUG: AgaviContext captured user factory info: " . $this->userFactoryInfo['class']);
+		}
+		
+		// Capture storage factory info for worker mode recreation
+		if ($this->storage !== null) {
+			$this->storageFactoryInfo = [
+				'class' => get_class($this->storage),
+				'parameters' => [] // Storage typically uses empty parameters
+			];
+			error_log("DEBUG: AgaviContext captured storage factory info: " . $this->storageFactoryInfo['class']);
+		}
+		
 		// Register reset instances for FrankenPHP worker mode
 		$this->initializeResetInstances();
 		
-		register_shutdown_function([$this, 'shutdown']);
+		// In FrankenPHP worker mode, we handle shutdown manually in reset()
+		// to avoid double shutdown calls that could clear session data
+		$isFrankenPHP = function_exists('\frankenphp_request_context') || 
+		                getenv('FRANKENPHP_VERSION') !== false ||
+		                (isset($_SERVER['SERVER_SOFTWARE']) && stripos($_SERVER['SERVER_SOFTWARE'], 'frankenphp') !== false) ||
+		                defined('FRANKENPHP_VERSION');
+		
+		if (!$isFrankenPHP) {
+			register_shutdown_function([$this, 'shutdown']);
+			error_log("DEBUG: AgaviContext registered shutdown function (not FrankenPHP)");
+		} else {
+			error_log("DEBUG: AgaviContext skipping shutdown function registration (FrankenPHP worker mode)");
+		}
 	}
 	
 	/**
@@ -628,6 +729,29 @@ class AgaviContext implements \Stringable, ResetInterface
 	 */
 	public function getRequest()
 	{
+		// Lazy initialization for worker mode - recreate request object if null after reset
+		if ($this->request === null) {
+			error_log("AgaviContext::getRequest() - Request object is null, recreating...");
+			
+			if ($this->requestFactoryInfo !== null) {
+				// Recreate the request object using captured factory info
+				$className = $this->requestFactoryInfo['class'];
+				$parameters = $this->requestFactoryInfo['parameters'];
+				
+				$this->request = new $className();
+				// IMPORTANT: Must call initialize() BEFORE startup() to populate request data from superglobals
+				// initialize() reads from $_GET, $_POST, etc. and populates the request data holder
+				// startup() clears the superglobals (when unset_input parameter is true)
+				$this->request->initialize($this, $parameters);
+				$this->request->startup();
+				
+				error_log("AgaviContext::getRequest() - Request object recreated successfully using factory info: $className");
+			} else {
+				error_log("AgaviContext::getRequest() - No request factory info available, cannot recreate request");
+				throw new AgaviException("Request object is null and no factory info available for recreation in worker mode");
+			}
+		}
+		
 		return $this->request;
 	}
 
@@ -654,6 +778,26 @@ class AgaviContext implements \Stringable, ResetInterface
 	 */
 	public function getStorage()
 	{
+		// Lazy initialization for worker mode - recreate storage object if null after reset
+		if ($this->storage === null) {
+			error_log("AgaviContext::getStorage() - Storage object is null, recreating...");
+			
+			if ($this->storageFactoryInfo !== null) {
+				// Recreate the storage object using captured factory info
+				$className = $this->storageFactoryInfo['class'];
+				$parameters = $this->storageFactoryInfo['parameters'];
+				
+				$this->storage = new $className();
+				$this->storage->initialize($this, $parameters);
+				$this->storage->startup();
+				
+				error_log("AgaviContext::getStorage() - Storage object recreated successfully using factory info: $className");
+			} else {
+				error_log("AgaviContext::getStorage() - No storage factory info available, cannot recreate storage");
+				throw new AgaviException("Storage object is null and no factory info available for recreation in worker mode");
+			}
+		}
+		
 		return $this->storage;
 	}
 
@@ -686,6 +830,32 @@ class AgaviContext implements \Stringable, ResetInterface
 	 */
 	public function getUser()
 	{
+		// Lazy initialization for worker mode - recreate user object if null after reset
+		if ($this->user === null) {
+			error_log("AgaviContext::getUser() - User object is null, recreating...");
+			
+			// Ensure storage is available before creating user (user initialization needs storage)
+			if ($this->storage === null) {
+				error_log("AgaviContext::getUser() - Storage is null, recreating storage first...");
+				$this->getStorage(); // This will recreate storage if needed
+			}
+			
+			if ($this->userFactoryInfo !== null) {
+				// Recreate the user object using captured factory info
+				$className = $this->userFactoryInfo['class'];
+				$parameters = $this->userFactoryInfo['parameters'];
+				
+				$this->user = new $className();
+				$this->user->initialize($this, $parameters);
+				$this->user->startup();
+				
+				error_log("AgaviContext::getUser() - User object recreated successfully using factory info: $className");
+			} else {
+				error_log("AgaviContext::getUser() - No user factory info available, cannot recreate user");
+				throw new AgaviException("User object is null and no factory info available for recreation in worker mode");
+			}
+		}
+		
 		return $this->user;
 	}
 }

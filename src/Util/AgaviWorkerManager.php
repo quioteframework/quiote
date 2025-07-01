@@ -36,6 +36,7 @@ class AgaviWorkerManager
         'preserve_route_trie' => true,
         'preserve_callback_pool' => true,
         'reset_stats' => true,
+        'reset_config' => false, // Config is static in worker mode - no need to reset
         'max_requests_before_cleanup' => 1000,
         'preserve_config_keys' => [
             'core.environment',
@@ -43,7 +44,29 @@ class AgaviWorkerManager
             'core.agavi_dir',
             'core.cache_dir',
             'core.config_dir',
-            'core.default_context'
+            'core.default_context',
+            // System action configurations
+            'actions.default_module',
+            'actions.default_action',
+            'actions.error_404_module',
+            'actions.error_404_action',
+            'actions.unavailable_module',
+            'actions.unavailable_action',
+            'actions.module_disabled_module',
+            'actions.module_disabled_action',
+            'actions.secure_module',
+            'actions.secure_action',
+            // Other essential configurations
+            'core.available',
+            'core.use_database',
+            'core.use_logging',
+            'core.use_security',
+            'core.use_translation',
+            'core.use_routing',
+            'core.namespace_prefix',
+            // Module configurations (essential for validation and other module directives)
+            'modules',
+            'exception.default_template'
         ]
     ];
     
@@ -72,11 +95,42 @@ class AgaviWorkerManager
         self::$statistics['reset_count']++;
         self::$statistics['last_reset_time'] = microtime(true);
         
-        // Reset context state using Symfony ResetInterface
-        AgaviContext::resetWorkerState($contextProfile);
+        // Reset context state using existing getInstance API and reset() method
+        error_log("AgaviWorkerManager: Resetting context using getInstance approach");
         
-        // Reset configuration (preserving core settings)
-        AgaviConfig::resetWorkerState($config['preserve_config_keys']);
+        try {
+            if ($contextProfile !== null) {
+                // Reset specific context profile
+                $context = AgaviContext::getInstance($contextProfile);
+                if ($context instanceof \Symfony\Contracts\Service\ResetInterface) {
+                    $context->reset();
+                    error_log("AgaviWorkerManager: Reset context profile: $contextProfile");
+                } else {
+                    error_log("AgaviWorkerManager: Context $contextProfile does not implement ResetInterface");
+                }
+            } else {
+                // Reset all available contexts - we'll need to get the default context
+                // Since we don't have access to all instances, reset the default context
+                try {
+                    $context = AgaviContext::getInstance();
+                    if ($context instanceof \Symfony\Contracts\Service\ResetInterface) {
+                        $context->reset();
+                        error_log("AgaviWorkerManager: Reset default context");
+                    } else {
+                        error_log("AgaviWorkerManager: Default context does not implement ResetInterface");
+                    }
+                } catch (\Exception $e) {
+                    error_log("AgaviWorkerManager: Failed to get default context: " . $e->getMessage());
+                }
+            }
+        } catch (\Exception $e) {
+            error_log("AgaviWorkerManager: Context reset failed: " . $e->getMessage());
+        }
+        
+        // Reset configuration only if explicitly enabled (disabled by default in worker mode)
+        if ($config['reset_config']) {
+            AgaviConfig::resetWorkerState($config['preserve_config_keys']);
+        }
         
         // Reset routing components with static reset methods
         if (class_exists('Agavi\Routing\AgaviRouteCacheManager')) {
