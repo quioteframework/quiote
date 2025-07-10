@@ -15,6 +15,9 @@
 
 namespace Agavi\Testing;
 
+use Agavi\AgaviContext;
+use Agavi\Request\AgaviRequestDataHolder;
+
 /**
  * AgaviFlowTestCase is the base class for all flow tests and provides
  * the necessary assertions

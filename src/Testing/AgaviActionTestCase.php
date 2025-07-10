@@ -15,6 +15,10 @@
 
 namespace Agavi\Testing;
 
+use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Validator\AgaviValidationArgument;
+use AgaviConstraintActionHandlesMethod;
+
 /**
  * AgaviActionTestCase is the base class for all action testcases and provides
  * the necessary assertions
