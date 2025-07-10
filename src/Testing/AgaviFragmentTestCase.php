@@ -233,22 +233,29 @@ class %1$s extends \\%2$s
 	
 	public function initRequestData()
 	{
-		// Override the parent method to ensure our test data is used
+		// PHP 8.4 compatible version: properly preserve test arguments while following Agavi original logic
 		if($this->getActionInstance()->isSimple()) {
 			if($this->arguments !== null) {
-				// clone it so mutating it has no effect on the "outside world"
+				// For simple actions, clone the arguments directly (this is the test data)
 				$this->requestData = clone $this->arguments;
 			} else {
+				// If no arguments, create empty request data holder
 				$rdhc = $this->getContext()->getRequest()->getParameter("request_data_holder_class");
 				$this->requestData = new $rdhc();
 			}
 		} else {
-			// For non-simple actions, use the arguments as the base instead of global request data
-			if($this->arguments !== null) {
-				$this->requestData = clone $this->arguments;
-			} else {
-				// Fall back to global request data if no arguments are set
+			// For non-simple actions, start with global request data if available, otherwise empty
+			if(isset($this->globalRequestData) && $this->globalRequestData !== null) {
 				$this->requestData = clone $this->globalRequestData;
+			} else {
+				// If no global request data is available in tests, create empty holder
+				$rdhc = $this->getContext()->getRequest()->getParameter("request_data_holder_class");
+				$this->requestData = new $rdhc();
+			}
+			
+			// Always merge in test arguments if provided (this is the key fix)
+			if($this->arguments !== null) {
+				$this->requestData->merge($this->arguments);
 			}
 		}
 	}

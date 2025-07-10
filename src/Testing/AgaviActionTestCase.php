@@ -59,7 +59,7 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 		$this->container->setActionInstance($this->createActionInstance());
 		//$executionFilter = $this->createExecutionFilter();
 		$this->container->initRequestData();
-		[$this->viewModuleName, $this->viewName] = $this->container->runAction();
+		list($this->viewModuleName, $this->viewName) = $this->container->runAction();
 	}
 	
 	/**
@@ -73,7 +73,7 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 	protected function performValidation()
 	{
 		$this->container->setActionInstance($this->createActionInstance());
-		$this->validationSuccess = $this->container->performValidation();
+		$this->validationSuccess = $this->container->performValidation($this->container);
 	}
 	
 	/**
