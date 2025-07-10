@@ -15,6 +15,14 @@
 
 namespace Agavi\Testing;
 
+use Agavi\Action\AgaviAction;
+use Agavi\AgaviContext;
+use Agavi\Controller\AgaviExecutionContainer;
+use Agavi\Controller\AgaviOutputType;
+use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Util\AgaviToolkit;
+use Agavi\View\AgaviView;
+
 /**
  * AgaviFragmentTestCase is the base class for all fragment tests and provides
  * the necessary assertions
@@ -59,20 +67,6 @@ abstract class AgaviFragmentTestCase extends AgaviPhpUnitTestCase implements Aga
 
 
 	/**
-	 * Constructs a test case with the given name.
-	 *
-	 * @param  string $name
-	 * @param  array  $data
-	 * @param  string $dataName
-	 */
-	public function __construct($name = NULL, array $data = [], $dataName = '')
-	{
-		parent::__construct($name, $data, $dataName);
-		$this->setRunTestInSeparateProcess(true);
-	}
-	
-	
-	/**
 	 * creates a new AgaviExecutionContainer for each test
 	 * 
 	 * @return void
@@ -80,8 +74,10 @@ abstract class AgaviFragmentTestCase extends AgaviPhpUnitTestCase implements Aga
 	 * @author     Felix Gilcher <felix.gilcher@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function setUp()
+	public function setUp(): void
 	{
+		parent::setUp();
+		$this->setRunTestInSeparateProcess(true);
 		$this->container = $this->createExecutionContainer();
 	}
 	
@@ -94,9 +90,10 @@ abstract class AgaviFragmentTestCase extends AgaviPhpUnitTestCase implements Aga
 	 * @author     Felix Gilcher <felix.gilcher@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function tearDown()
+	public function tearDown(): void
 	{
 		$this->container = null;
+		parent::tearDown();
 	}
 	
 	/**
@@ -157,24 +154,24 @@ abstract class AgaviFragmentTestCase extends AgaviPhpUnitTestCase implements Aga
 	protected function createExecutionFilter()
 	{
 		$effi = $this->getContext()->getFactoryInfo('execution_filter');
-
-		$wrapper_class = $effi['class'].'UnitTesting';
+		$baseClassName = $effi['class'];
+		$wrapper_class = str_replace('\\', '_', $baseClassName) . 'UnitTesting';
 
 		//extend the original class to overwrite runAction, so that the containers request data is cloned
 		if(!class_exists($wrapper_class)) {
 			$code = sprintf('
-class %1$s extends %2$s
+class %1$s extends \\%2$s
 {
 	protected $validationResult = null;
 	
-	public function executeView(AgaviExecutionContainer $container)
+	public function executeView(\\Agavi\\Controller\\AgaviExecutionContainer $container)
 	{
 		$container->initRequestData();
 		return parent::executeView($container);
 	}
 }',
 			$wrapper_class,
-			$effi['class']);
+			$baseClassName);
 
 			eval($code);
 		}
@@ -202,26 +199,85 @@ class %1$s extends %2$s
 		$context = $this->getContext();
 
 		$ecfi = $context->getFactoryInfo('execution_container');
-		$wrapper_class = $ecfi['class'].'UnitTesting';
+		$baseClassName = $ecfi['class'];
+		$wrapper_class = str_replace('\\', '_', $baseClassName) . 'UnitTesting';
 
 		//extend the original class to add a setter for the action instance
 		if(!class_exists($wrapper_class)) {
 			$code = sprintf('
-class %1$s extends %2$s
+class %1$s extends \\%2$s
 {
-
-	public function setActionInstance(AgaviAction $action)
+	public function setActionInstance(\\Agavi\\Action\\AgaviAction $action)
 	{
 		$this->actionInstance = $action;
+	}
+
+	public function getActionInstance()
+	{
+		return $this->actionInstance;
+	}
+
+	public function performValidation()
+	{
+		$this->initRequestData();
+		return $this->getValidationManager()->execute($this->getRequestData());
+	}
+
+	public function forceSessionWrite()
+	{
+		// Force the session to be written
+		if(method_exists($this->getStorage(), "forceSessionWrite")) {
+			$this->getStorage()->forceSessionWrite();
+		}
 	}
 	
 	public function initRequestData()
 	{
-		parent::initRequestData();
+		// Override the parent method to ensure our test data is used
+		if($this->getActionInstance()->isSimple()) {
+			if($this->arguments !== null) {
+				// clone it so mutating it has no effect on the "outside world"
+				$this->requestData = clone $this->arguments;
+			} else {
+				$rdhc = $this->getContext()->getRequest()->getParameter("request_data_holder_class");
+				$this->requestData = new $rdhc();
+			}
+		} else {
+			// For non-simple actions, use the arguments as the base instead of global request data
+			if($this->arguments !== null) {
+				$this->requestData = clone $this->arguments;
+			} else {
+				// Fall back to global request data if no arguments are set
+				$this->requestData = clone $this->globalRequestData;
+			}
+		}
+	}
+	
+	// Add the missing methods that the test framework expects
+	public function getController()
+	{
+		return $this->getContext()->getController();
+	}
+	
+	public function createRequestDataHolder($arguments = null)
+	{
+		return $this->getContext()->getRequest()->createRequestDataHolder($arguments);
+	}
+	
+	public function getStorage()
+	{
+		return $this->getContext()->getStorage();
+	}
+	
+	public function runAction()
+	{
+		// Use the parent runAction method without causing additional execution counts
+		// This is what the test framework expects
+		return parent::runAction();
 	}
 }',
 			$wrapper_class,
-			$ecfi['class']);
+			$baseClassName);
 
 			eval($code);
 		}
