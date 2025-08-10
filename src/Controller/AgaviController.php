@@ -697,16 +697,28 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 		$baseNamespace = AgaviConfig::get('core.namespace_prefix', 'App');
 		$modelName = AgaviToolkit::canonicalName($modelName);
 		$namespacedModelName = str_replace('/', '\\', $modelName);
-		
-		// Try namespaced version first
-		$namespacedClass = $baseNamespace . '\\Modules\\' . $moduleName . '\\Models\\' . $namespacedModelName . 'Model';
-		if(class_exists($namespacedClass)) {
-			return true;
+
+		// APCu key (only if enabled) – immutable deployments benefit most
+		$apcuKey = null;
+		if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE && function_exists('apcu_fetch')) {
+			$apcuKey = 'agavi_exists_model_' . md5($baseNamespace.'|'.$moduleName.'|'.$namespacedModelName);
+			$cached = apcu_fetch($apcuKey, $hit);
+			if($hit) {
+				return (bool)$cached;
+			}
 		}
-		
-		// Fall back to old file-based check for backward compatibility
-		$file = AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/Models/' . $modelName . 'Model.php';
-		return is_readable($file);
+
+		$namespacedClass = $baseNamespace . '\\Modules\\' . $moduleName . '\\Models\\' . $namespacedModelName . 'Model';
+		$exists = class_exists($namespacedClass);
+		if(!$exists) {
+			$file = AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/Models/' . $modelName . 'Model.php';
+			$exists = is_readable($file);
+		}
+
+		if($apcuKey) {
+			apcu_store($apcuKey, $exists, 0);
+		}
+		return $exists;
 	}
 
 	/**
@@ -721,8 +733,20 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 	 */
 	public function moduleExists($moduleName)
 	{
+		$apcuKey = null;
+		if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE && function_exists('apcu_fetch')) {
+			$apcuKey = 'agavi_exists_module_' . md5($moduleName);
+			$cached = apcu_fetch($apcuKey, $hit);
+			if($hit) {
+				return (bool)$cached;
+			}
+		}
 		$file = AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/Config/module.xml';
-		return is_readable($file);
+		$exists = is_readable($file);
+		if($apcuKey) {
+			apcu_store($apcuKey, $exists, 0);
+		}
+		return $exists;
 	}
 
 	/**
@@ -835,15 +859,25 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 		$baseNamespace = AgaviConfig::get('core.namespace_prefix', 'App');
 		$viewName = AgaviToolkit::canonicalName($viewName);
 		$namespacedViewName = str_replace('/', '\\', $viewName);
-		
-		// Try namespaced version first
-		$namespacedClass = $baseNamespace . '\\Modules\\' . $moduleName . '\\Views\\' . $namespacedViewName . 'View';
-		if(class_exists($namespacedClass)) {
-			return true;
+
+		$apcuKey = null;
+		if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE && function_exists('apcu_fetch')) {
+			$apcuKey = 'agavi_exists_view_' . md5($moduleName.'|'.$namespacedViewName);
+			$cached = apcu_fetch($apcuKey, $hit);
+			if($hit) {
+				return (bool)$cached;
+			}
 		}
-		
-		// Fall back to old file-based check for backward compatibility
-		return $this->checkViewFile($moduleName, $viewName) !== false;
+
+		$namespacedClass = $baseNamespace . '\\Modules\\' . $moduleName . '\\Views\\' . $namespacedViewName . 'View';
+		$exists = class_exists($namespacedClass);
+		if(!$exists) {
+			$exists = ($this->checkViewFile($moduleName, $viewName) !== false);
+		}
+		if($apcuKey) {
+			apcu_store($apcuKey, $exists, 0);
+		}
+		return $exists;
 	}
 	
 	/**

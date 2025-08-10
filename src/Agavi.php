@@ -62,7 +62,19 @@ final class Agavi
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public static function bootstrap($environment = null)
+	/**
+	 * Bootstrap the Agavi core (environment + optional context pre-initialization).
+	 *
+	 * Backward compatible signature extension:
+	 *  - Previous: bootstrap('env')
+	 *  - New:      bootstrap('env', 'web') or bootstrap('env', ['web','api'], ['prewarm' => true])
+	 *
+	 * @param string|null               $environment Environment name (core.environment)
+	 * @param string|array|null         $contexts    One or multiple context names to pre-create
+	 * @param array                     $options     ['prewarm' => bool] force prewarm
+	 * @return array{contexts: array<string,\Agavi\AgaviContext>} Context map (may be empty)
+	 */
+	public static function bootstrap($environment = null, $contexts = null, array $options = [])
 	{
 
 		try {
@@ -134,9 +146,135 @@ final class Agavi
 				AgaviConfigCache::load($compile);
 			}
 
+
+			// Normalize contexts argument
+			$contextList = [];
+			if($contexts !== null) {
+				if(is_string($contexts)) {
+					$contextList = [$contexts];
+				} elseif(is_array($contexts)) {
+					$contextList = $contexts;
+				}
+			}
+			// If no contexts explicitly provided, we can still prewarm default if requested.
+			$createdContexts = [];
+			foreach($contextList as $ctxName) {
+				$ctxName = strtolower($ctxName);
+				$ctx = \Agavi\AgaviContext::getInstance($ctxName);
+				$createdContexts[$ctxName] = $ctx;
+				// Prime controller & output types (forces factories + output_types.xml load)
+				try {
+					$controller = $ctx->getController();
+					if(method_exists($controller, 'startup')) {
+						$controller->startup();
+					}
+					// Touch default output type to ensure it's in-memory
+					$controller->getOutputType();
+				} catch(\Throwable $e) {
+					if(function_exists('error_log')) { error_log('Agavi bootstrap controller prime failed for context ' . $ctxName . ': ' . $e->getMessage()); }
+				}
+			}
+
+			// Decide prewarm
+			$doPrewarm = $options['prewarm'] ?? false;
+			if(!$doPrewarm) {
+				if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
+					$envPrewarm = getenv('AGAVI_APCU_PREWARM');
+					if($envPrewarm !== false && in_array(strtolower($envPrewarm), ['1','true','yes','on'], true)) {
+						$doPrewarm = true;
+					}
+					if(AgaviConfig::has('core.apcu_prewarm') && AgaviConfig::get('core.apcu_prewarm')) {
+						$doPrewarm = true;
+					}
+				}
+			}
+			if($doPrewarm && defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
+				// Prewarm for each explicit context, or default context if none provided
+				if($createdContexts) {
+					foreach(array_keys($createdContexts) as $c) {
+						self::prewarm($c);
+					}
+				} else {
+					self::prewarm(AgaviConfig::get('core.default_context'));
+				}
+			}
+
+			return ['contexts' => $createdContexts];
+
 		} catch(\Exception $e) {
 			AgaviException::render($e);
 		}
+	}
+
+	/**
+	 * Prewarm APCu configuration and translation caches to avoid first-request latency.
+	 * Safe to call multiple times (idempotent-ish). Only active when APCu config cache is enabled.
+	 *
+	 * @param string|null $context Context name for context-specific caches (routing, factories)
+	 */
+	public static function prewarm(?string $context = null): void
+	{
+		if(!(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE)) {
+			return; // feature disabled
+		}
+		if(!class_exists(AgaviAPCuConfigCache::class)) {
+			return;
+		}
+		if(!AgaviAPCuConfigCache::isAvailable()) {
+			return;
+		}
+		try {
+			// Warm core config/routing/databases/logging/etc.
+			AgaviAPCuConfigCache::warmup([], $context);
+			// Translation supplemental + timezone data (lightweight, no context)
+			if(AgaviConfig::get('core.use_translation', false)) {
+				$cldrDir = AgaviConfig::get('core.cldr_dir');
+				if($cldrDir && is_dir($cldrDir)) {
+					$suppFile = $cldrDir . '/supplementalData.xml';
+					if(is_readable($suppFile)) {
+						$suppData = include(AgaviAPCuConfigCache::checkConfig($suppFile));
+						if(function_exists('apcu_store')) { apcu_store('agavi_i18n_supplemental', $suppData, 0); }
+					}
+					$tzFile = $cldrDir . '/timezones/zonelist.php';
+					if(is_readable($tzFile)) {
+						$tzList = include($tzFile);
+						if(function_exists('apcu_store')) { apcu_store('agavi_i18n_tzlist', $tzList, 0); }
+					}
+				}
+			}
+			// Record status metadata fetch (optional touch)
+			AgaviAPCuConfigCache::getStatus();
+		} catch(\Throwable $e) {
+			// Swallow errors; prewarm is opportunistic
+			if(function_exists('error_log')) { error_log('Agavi prewarm failed: '.$e->getMessage()); }
+		}
+	}
+
+	/**
+	 * Retrieve (and optionally prime) a context instance.
+	 * Convenience wrapper so worker front controllers can call
+	 *   $ctx = Agavi::context('web', true);
+	 * instead of manual AgaviContext::getInstance + priming logic.
+	 *
+	 * @param string|null $name   Context name (defaults to core.default_context)
+	 * @param bool        $prime  Prime controller/output types immediately
+	 * @return AgaviContext
+	 */
+	public static function context(?string $name = null, bool $prime = false): AgaviContext
+	{
+		$ctx = AgaviContext::getInstance($name);
+		if($prime) {
+			try {
+				$controller = $ctx->getController();
+				if(method_exists($controller, 'startup')) {
+					$controller->startup();
+				}
+				$controller->getOutputType();
+			} catch(\Throwable $e) {
+				if(function_exists('error_log')) { error_log('Agavi::context prime failed: '.$e->getMessage()); }
+			}
+		}
+		return $ctx;
 	}
 }
 

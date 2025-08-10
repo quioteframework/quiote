@@ -608,10 +608,21 @@ class AgaviTranslationManager implements ResetInterface
 	 */
 	protected function loadSupplementalData()
 	{
-		if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
-			$this->supplementalData = include(AgaviAPCuConfigCache::checkConfig(AgaviConfig::get('core.cldr_dir') . '/supplementalData.xml'));
+		$useApcu = (defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE && function_exists('apcu_fetch'));
+		$apcuKey = $useApcu ? 'agavi_i18n_supplemental' : null;
+		if($apcuKey) {
+			$data = apcu_fetch($apcuKey, $hit);
+			if($hit) {
+				$this->supplementalData = $data;
+				return;
+			}
+		}
+		$path = AgaviConfig::get('core.cldr_dir') . '/supplementalData.xml';
+		if($useApcu) {
+			$this->supplementalData = include(AgaviAPCuConfigCache::checkConfig($path));
+			apcu_store($apcuKey, $this->supplementalData, 0);
 		} else {
-			$this->supplementalData = include(AgaviConfigCache::checkConfig(AgaviConfig::get('core.cldr_dir') . '/supplementalData.xml'));
+			$this->supplementalData = include(AgaviConfigCache::checkConfig($path));
 		}
 	}
 
@@ -623,7 +634,19 @@ class AgaviTranslationManager implements ResetInterface
 	 */
 	protected function loadTimeZoneData()
 	{
+		$useApcu = (defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE && function_exists('apcu_fetch'));
+		if($useApcu) {
+			$apcuKey = 'agavi_i18n_tzlist';
+			$list = apcu_fetch($apcuKey, $hit);
+			if($hit) {
+				$this->timeZoneList = $list;
+				return;
+			}
+		}
 		$this->timeZoneList = include(AgaviConfig::get('core.cldr_dir') . '/timezones/zonelist.php');
+		if(!empty($apcuKey)) {
+			apcu_store($apcuKey, $this->timeZoneList, 0);
+		}
 	}
 
 	/**
@@ -781,7 +804,20 @@ class AgaviTranslationManager implements ResetInterface
 				}
 			}
 
+			$useApcu = (defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE && function_exists('apcu_fetch'));
+			$apcuDataKey = $useApcu ? 'agavi_i18n_locale_data_' . md5($idData['locale_str']) : null;
+			if($apcuDataKey) {
+				$locData = apcu_fetch($apcuDataKey, $hit);
+				if($hit) {
+					$this->localeDataCache[$idData['locale_str']] = $locData;
+					goto locale_data_ready;
+				}
+			}
 			$this->localeDataCache[$idData['locale_str']] = $data;
+			if($apcuDataKey) {
+				apcu_store($apcuDataKey, $data, 0);
+			}
+			locale_data_ready:
 		}
 
 		$data = $this->localeDataCache[$idData['locale_str']];
