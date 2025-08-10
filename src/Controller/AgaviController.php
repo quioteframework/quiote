@@ -141,9 +141,33 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 		$container = $this->context->createInstanceFor('execution_container');
 		$container->setModuleName($moduleName);
 		$container->setActionName($actionName);
-		// Always get fresh request data from the request object to ensure we have current data
-		// This is especially important in FrankenPHP worker mode where request objects are recreated
-		$requestData = $this->context->getRequest()->getRequestData();
+		// IMPORTANT:
+		// We MUST NOT call $this->context->getRequest()->getRequestData() here unconditionally.
+		// During action or view execution the global request is deliberately locked to enforce
+		// usage of the local (cloned) AgaviRequestDataHolder. Nested execution containers (forwards,
+		// slots, layers, fragments) may be created while the request is locked. The previous
+		// FrankenPHP changes introduced an unconditional call which now triggers the
+		// "Access to request data is locked" exception the user reports.
+		//
+		// Original Agavi relied on a cached pointer ($this->requestData) grabbed during controller
+		// startup BEFORE any locking occurs. We restore that behaviour with a lazy fallback:
+		//  - If we already have a cached pointer, reuse it (safe inside locked section).
+		//  - If we don't (first container after a reset), we capture it now while the request should
+		//    still be unlocked.
+		if($this->requestData === null) {
+			$rq = $this->context->getRequest();
+			if($rq->isLocked()) {
+				// This should normally not happen for the very first container of a request lifecycle.
+				// Log and fall back to creating a safe clone via the execution container logic later.
+				error_log('CONTROLLER_CREATE_CONTAINER: WARNING request is locked while priming requestData cache');
+				// We intentionally DO NOT call getRequestData() to avoid exception. We'll let
+				// the container clone the global data later via initRequestData().
+			} else {
+				// Safe to capture pointer now.
+				$this->requestData = $rq->getRequestData();
+			}
+		}
+		$requestData = $this->requestData;
 		
 		$container->setRequestData($requestData);
 		if($arguments !== null) {

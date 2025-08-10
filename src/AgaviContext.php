@@ -353,8 +353,11 @@ class AgaviContext implements \Stringable, ResetInterface
 		// Log user state before reset
 		if ($this->user) {
 			$userClass = get_class($this->user);
-			$isAuthenticated = method_exists($this->user, 'isAuthenticated') ? 
-				($this->user->isAuthenticated() ? 'YES' : 'NO') : 'UNKNOWN';
+			if($this->user instanceof \Agavi\User\AgaviISecurityUser) {
+				$isAuthenticated = $this->user->isAuthenticated() ? 'YES' : 'NO';
+			} else {
+				$isAuthenticated = 'N/A';
+			}
 			error_log("AgaviContext::reset() - User before reset: class=$userClass, authenticated=$isAuthenticated");
 		} else {
 			error_log("AgaviContext::reset() - No user object found");
@@ -744,6 +747,16 @@ class AgaviContext implements \Stringable, ResetInterface
 				// startup() clears the superglobals (when unset_input parameter is true)
 				$this->request->initialize($this, $parameters);
 				$this->request->startup();
+				
+				// Re-run controller startup so it re-caches the (new) global request data pointer
+				if ($this->controller && method_exists($this->controller, 'startup')) {
+					try {
+						$this->controller->startup();
+						error_log("AgaviContext::getRequest() - Controller startup re-run after request recreation");
+					} catch(\Throwable $e) {
+						error_log("AgaviContext::getRequest() - Controller startup failed: ".$e->getMessage());
+					}
+				}
 				
 				error_log("AgaviContext::getRequest() - Request object recreated successfully using factory info: $className");
 			} else {
