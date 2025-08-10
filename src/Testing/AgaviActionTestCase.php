@@ -16,8 +16,8 @@
 namespace Agavi\Testing;
 
 use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Testing\PHPUnit\Constraint\AgaviConstraintActionHandlesMethod;
 use Agavi\Validator\AgaviValidationArgument;
-use AgaviConstraintActionHandlesMethod;
 
 /**
  * AgaviActionTestCase is the base class for all action testcases and provides

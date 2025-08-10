@@ -22,6 +22,7 @@ use Agavi\Controller\AgaviOutputType;
 use Agavi\Request\AgaviRequestDataHolder;
 use Agavi\Util\AgaviToolkit;
 use Agavi\View\AgaviView;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * AgaviFragmentTestCase is the base class for all fragment tests and provides
@@ -38,6 +39,7 @@ use Agavi\View\AgaviView;
  *
  * @version    $Id$
  */
+#[RunTestsInSeparateProcesses]
 abstract class AgaviFragmentTestCase extends AgaviPhpUnitTestCase implements AgaviIFragmentTestCase
 {
 	/**
@@ -77,7 +79,6 @@ abstract class AgaviFragmentTestCase extends AgaviPhpUnitTestCase implements Aga
 	public function setUp(): void
 	{
 		parent::setUp();
-		$this->setRunTestInSeparateProcess(true);
 		$this->container = $this->createExecutionContainer();
 	}
 	
@@ -166,7 +167,11 @@ class %1$s extends \\%2$s
 	
 	public function executeView(\\Agavi\\Controller\\AgaviExecutionContainer $container)
 	{
-		$container->initRequestData();
+		// FIXED: Only call initRequestData if requestData is empty (preserves validator exports)
+		$existingParams = $container->getRequestData() ? $container->getRequestData()->getParameters() : [];
+		if(empty($existingParams)) {
+			$container->initRequestData();
+		}
 		return parent::executeView($container);
 	}
 }',
@@ -220,67 +225,33 @@ class %1$s extends \\%2$s
 	public function performValidation()
 	{
 		$this->initRequestData();
-		return $this->getValidationManager()->execute($this->getRequestData());
+		return parent::performValidation();
 	}
 
-	public function forceSessionWrite()
+	public function clearValidators()
 	{
-		// Force the session to be written
-		if(method_exists($this->getStorage(), "forceSessionWrite")) {
-			$this->getStorage()->forceSessionWrite();
+		// Clear validation manager to prevent validator name conflicts between tests
+		$validationManager = $this->getValidationManager();
+		if ($validationManager) {
+			// Clear the children array directly to remove all validators
+			$reflection = new ReflectionClass($validationManager);
+			if ($reflection->hasProperty(\'children\')) {
+				$childrenProperty = $reflection->getProperty(\'children\');
+				$childrenProperty->setAccessible(true);
+				$childrenProperty->setValue($validationManager, []);
+			}
+			// Also clear the parent reference to completely reset the manager
+			if ($reflection->hasProperty(\'parent\')) {
+				$parentProperty = $reflection->getProperty(\'parent\');
+				$parentProperty->setAccessible(true);
+				$parentProperty->setValue($validationManager, null);
+			}
 		}
 	}
-	
+
 	public function initRequestData()
 	{
-		// PHP 8.4 compatible version: properly preserve test arguments while following Agavi original logic
-		if($this->getActionInstance()->isSimple()) {
-			if($this->arguments !== null) {
-				// For simple actions, clone the arguments directly (this is the test data)
-				$this->requestData = clone $this->arguments;
-			} else {
-				// If no arguments, create empty request data holder
-				$rdhc = $this->getContext()->getRequest()->getParameter("request_data_holder_class");
-				$this->requestData = new $rdhc();
-			}
-		} else {
-			// For non-simple actions, start with global request data if available, otherwise empty
-			if(isset($this->globalRequestData) && $this->globalRequestData !== null) {
-				$this->requestData = clone $this->globalRequestData;
-			} else {
-				// If no global request data is available in tests, create empty holder
-				$rdhc = $this->getContext()->getRequest()->getParameter("request_data_holder_class");
-				$this->requestData = new $rdhc();
-			}
-			
-			// Always merge in test arguments if provided (this is the key fix)
-			if($this->arguments !== null) {
-				$this->requestData->merge($this->arguments);
-			}
-		}
-	}
-	
-	// Add the missing methods that the test framework expects
-	public function getController()
-	{
-		return $this->getContext()->getController();
-	}
-	
-	public function createRequestDataHolder($arguments = null)
-	{
-		return $this->getContext()->getRequest()->createRequestDataHolder($arguments);
-	}
-	
-	public function getStorage()
-	{
-		return $this->getContext()->getStorage();
-	}
-	
-	public function runAction()
-	{
-		// Use the parent runAction method without causing additional execution counts
-		// This is what the test framework expects
-		return parent::runAction();
+		parent::initRequestData();
 	}
 }',
 			$wrapper_class,
@@ -288,7 +259,8 @@ class %1$s extends \\%2$s
 
 			eval($code);
 		}
-		
+
+		/** @var array<string> $ecfi */
 		$ecfi['class'] = $wrapper_class;
 		$context->setFactoryInfo('execution_container', $ecfi);
 		
@@ -557,6 +529,28 @@ class %1$s extends \\%2$s
 	protected function setAttributesByRef(array &$attributes)
 	{
 		$this->container->setAttributesByRef($attributes);
+	}
+
+	/**
+	 * Clear all singleton model instances from the context to prevent
+	 * class redeclaration errors in subsequent tests.
+	 * 
+	 * This method uses reflection to clear the singletonModelInstances array
+	 * in the AgaviContext, which prevents "Cannot redeclare class" errors
+	 * when models are loaded multiple times across different test methods.
+	 *
+	 * @author     Markus Winkler <markus@jakamo.com>
+	 * @since      1.1.0
+	 */
+	protected function clearSingletonModels()
+	{
+		$context = $this->getContext();
+		if ($context) {
+			$reflection = new \ReflectionClass($context);
+			$property = $reflection->getProperty('singletonModelInstances');
+			$property->setAccessible(true);
+			$property->setValue($context, []);
+		}
 	}
 }
 

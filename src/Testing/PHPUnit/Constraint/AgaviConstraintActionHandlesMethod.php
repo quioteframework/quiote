@@ -1,4 +1,9 @@
-<?php 
+<?php
+namespace Agavi\Testing\PHPUnit\Constraint;
+
+use Agavi\Action\AgaviAction;
+use Agavi\Testing\AgaviBaseConstraintBecausePhpunitSucksAtBackwardsCompatibility;
+
 /**
  * Constraint that checks if an Action handles an expected request method.
  * 
@@ -20,6 +25,11 @@ class AgaviConstraintActionHandlesMethod extends AgaviBaseConstraintBecausePhpun
 	 * @var        AgaviAction The Action instance.
 	 */
 	protected $actionInstance;
+
+	/**
+     * @var        bool Whether generic 'execute' methods should be accepted.
+     */
+	protected $acceptGeneric;
 	
 	/**
      * Class constructor.
@@ -31,12 +41,10 @@ class AgaviConstraintActionHandlesMethod extends AgaviBaseConstraintBecausePhpun
      * @since      1.0.0
      * @param bool $acceptGeneric
      */
-    public function __construct(AgaviAction $actionInstance, /**
-     * @var        bool Whether generic 'execute' methods should be accepted.
-     */
-    protected $acceptGeneric = true)
+    public function __construct(AgaviAction $actionInstance, $acceptGeneric = true)
 	{
 		$this->actionInstance = $actionInstance;
+		$this->acceptGeneric = $acceptGeneric;
 	}
 	
 	/**
@@ -51,7 +59,7 @@ class AgaviConstraintActionHandlesMethod extends AgaviBaseConstraintBecausePhpun
 	 * @since      1.0.7
 	 */
 	#[\Override]
-    public function matches($other)
+    public function matches($other): bool
 	{
 		$executeMethod = 'execute' . $other;
 		if(is_callable([$this->actionInstance, $executeMethod]) || ($this->acceptGeneric && is_callable([$this->actionInstance, 'execute']))) {
@@ -69,7 +77,7 @@ class AgaviConstraintActionHandlesMethod extends AgaviBaseConstraintBecausePhpun
 	 * @author     Felix Gilcher <felix.gilcher@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function toString()
+	public function toString(): string
 	{
 		return sprintf(
 			'%1$s handles method',
