@@ -263,9 +263,7 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 		}
 
 		if(($encoding = $cfg['force_encoding']) === false) {
-			if($this->doc->actualEncoding) {
-				$encoding = $this->doc->actualEncoding;
-			} elseif($this->doc->encoding) {
+			if($this->doc->encoding) { // doc->actualEncoding is deprecated in PHP 8.4
 				$encoding = $this->doc->encoding;
 			} else {
 				$encoding = $this->doc->encoding = self::ENCODING_UTF_8;
@@ -725,7 +723,7 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 
 	public function isPostFilter(): bool
 	{
-		return false;
+		return true;
 	}
 
 	/**

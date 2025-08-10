@@ -46,13 +46,11 @@ abstract class AgaviBaseConstraintBecausePhpunitSucksAtBackwardsCompatibility ex
 	 * @since      1.0.7
 	 */
 	#[\Override]
-    public function evaluate($other, $description = '', $returnResult = false)
+    public function evaluate($other, $description = '', $returnResult = false): ?bool
 	{
-		if(version_compare(PHPUnit_Runner_Version::id(), '3.6', '<')) {
-			return $this->matches($other);
-		} else {
+
 			return parent::evaluate($other, $description, $returnResult);
-		}
+		
 	}
 }
 

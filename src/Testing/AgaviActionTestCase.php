@@ -15,6 +15,10 @@
 
 namespace Agavi\Testing;
 
+use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Testing\PHPUnit\Constraint\AgaviConstraintActionHandlesMethod;
+use Agavi\Validator\AgaviValidationArgument;
+
 /**
  * AgaviActionTestCase is the base class for all action testcases and provides
  * the necessary assertions
@@ -55,7 +59,7 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 		$this->container->setActionInstance($this->createActionInstance());
 		//$executionFilter = $this->createExecutionFilter();
 		$this->container->initRequestData();
-		[$this->viewModuleName, $this->viewName] = $this->container->runAction();
+		list($this->viewModuleName, $this->viewName) = $this->container->runAction();
 	}
 	
 	/**
@@ -69,7 +73,7 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 	protected function performValidation()
 	{
 		$this->container->setActionInstance($this->createActionInstance());
-		$this->validationSuccess = $this->container->performValidation();
+		$this->validationSuccess = $this->container->performValidation($this->container);
 	}
 	
 	/**

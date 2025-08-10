@@ -1,4 +1,8 @@
-<?php 
+<?php
+
+use Agavi\Testing\AgaviBaseConstraintBecausePhpunitSucksAtBackwardsCompatibility;
+use Agavi\View\AgaviView;
+
 /**
  * Constraint that checks if a View handles an expected Output Type.
  * 
@@ -51,7 +55,7 @@ class AgaviConstraintViewHandlesOutputType extends AgaviBaseConstraintBecausePhp
 	 * @since      1.0.7
 	 */
 	#[\Override]
-    public function matches($other)
+    public function matches($other): bool
 	{
 		$executeMethod = 'execute' . $other;
 		if(is_callable([$this->viewInstance, $executeMethod]) || ($this->acceptGeneric && is_callable($this->viewInstance->execute(...)))) {
@@ -69,7 +73,7 @@ class AgaviConstraintViewHandlesOutputType extends AgaviBaseConstraintBecausePhp
 	 * @author     Felix Gilcher <felix.gilcher@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function toString()
+	public function toString(): string
 	{
 		return sprintf(
 			'%1$s handles output type',

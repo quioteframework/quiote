@@ -180,7 +180,7 @@ class AgaviCachingConfigHandler extends AgaviXmlConfigHandler
 			'				} else {',
 			'					$view = array(',
 			'						"module" => $moduleName,',
-			'						"name" => AgaviToolkit::evaluateModuleDirective(',
+			'						"name" => Agavi\\Util\\AgaviToolkit::evaluateModuleDirective(',
 			'							$moduleName,',
 			'							"agavi.view.name",',
 			'							array(',

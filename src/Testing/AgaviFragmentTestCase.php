@@ -15,6 +15,15 @@
 
 namespace Agavi\Testing;
 
+use Agavi\Action\AgaviAction;
+use Agavi\AgaviContext;
+use Agavi\Controller\AgaviExecutionContainer;
+use Agavi\Controller\AgaviOutputType;
+use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Util\AgaviToolkit;
+use Agavi\View\AgaviView;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
+
 /**
  * AgaviFragmentTestCase is the base class for all fragment tests and provides
  * the necessary assertions
@@ -30,6 +39,7 @@ namespace Agavi\Testing;
  *
  * @version    $Id$
  */
+#[RunTestsInSeparateProcesses]
 abstract class AgaviFragmentTestCase extends AgaviPhpUnitTestCase implements AgaviIFragmentTestCase
 {
 	/**
@@ -59,20 +69,6 @@ abstract class AgaviFragmentTestCase extends AgaviPhpUnitTestCase implements Aga
 
 
 	/**
-	 * Constructs a test case with the given name.
-	 *
-	 * @param  string $name
-	 * @param  array  $data
-	 * @param  string $dataName
-	 */
-	public function __construct($name = NULL, array $data = [], $dataName = '')
-	{
-		parent::__construct($name, $data, $dataName);
-		$this->setRunTestInSeparateProcess(true);
-	}
-	
-	
-	/**
 	 * creates a new AgaviExecutionContainer for each test
 	 * 
 	 * @return void
@@ -80,8 +76,9 @@ abstract class AgaviFragmentTestCase extends AgaviPhpUnitTestCase implements Aga
 	 * @author     Felix Gilcher <felix.gilcher@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function setUp()
+	public function setUp(): void
 	{
+		parent::setUp();
 		$this->container = $this->createExecutionContainer();
 	}
 	
@@ -94,9 +91,10 @@ abstract class AgaviFragmentTestCase extends AgaviPhpUnitTestCase implements Aga
 	 * @author     Felix Gilcher <felix.gilcher@bitextender.com>
 	 * @since      1.0.0
 	 */
-	public function tearDown()
+	public function tearDown(): void
 	{
 		$this->container = null;
+		parent::tearDown();
 	}
 	
 	/**
@@ -157,24 +155,28 @@ abstract class AgaviFragmentTestCase extends AgaviPhpUnitTestCase implements Aga
 	protected function createExecutionFilter()
 	{
 		$effi = $this->getContext()->getFactoryInfo('execution_filter');
-
-		$wrapper_class = $effi['class'].'UnitTesting';
+		$baseClassName = $effi['class'];
+		$wrapper_class = str_replace('\\', '_', $baseClassName) . 'UnitTesting';
 
 		//extend the original class to overwrite runAction, so that the containers request data is cloned
 		if(!class_exists($wrapper_class)) {
 			$code = sprintf('
-class %1$s extends %2$s
+class %1$s extends \\%2$s
 {
 	protected $validationResult = null;
 	
-	public function executeView(AgaviExecutionContainer $container)
+	public function executeView(\\Agavi\\Controller\\AgaviExecutionContainer $container)
 	{
-		$container->initRequestData();
+		// FIXED: Only call initRequestData if requestData is empty (preserves validator exports)
+		$existingParams = $container->getRequestData() ? $container->getRequestData()->getParameters() : [];
+		if(empty($existingParams)) {
+			$container->initRequestData();
+		}
 		return parent::executeView($container);
 	}
 }',
 			$wrapper_class,
-			$effi['class']);
+			$baseClassName);
 
 			eval($code);
 		}
@@ -202,30 +204,63 @@ class %1$s extends %2$s
 		$context = $this->getContext();
 
 		$ecfi = $context->getFactoryInfo('execution_container');
-		$wrapper_class = $ecfi['class'].'UnitTesting';
+		$baseClassName = $ecfi['class'];
+		$wrapper_class = str_replace('\\', '_', $baseClassName) . 'UnitTesting';
 
 		//extend the original class to add a setter for the action instance
 		if(!class_exists($wrapper_class)) {
 			$code = sprintf('
-class %1$s extends %2$s
+class %1$s extends \\%2$s
 {
-
-	public function setActionInstance(AgaviAction $action)
+	public function setActionInstance(\\Agavi\\Action\\AgaviAction $action)
 	{
 		$this->actionInstance = $action;
 	}
-	
+
+	public function getActionInstance()
+	{
+		return $this->actionInstance;
+	}
+
+	public function performValidation()
+	{
+		$this->initRequestData();
+		return parent::performValidation();
+	}
+
+	public function clearValidators()
+	{
+		// Clear validation manager to prevent validator name conflicts between tests
+		$validationManager = $this->getValidationManager();
+		if ($validationManager) {
+			// Clear the children array directly to remove all validators
+			$reflection = new ReflectionClass($validationManager);
+			if ($reflection->hasProperty(\'children\')) {
+				$childrenProperty = $reflection->getProperty(\'children\');
+				$childrenProperty->setAccessible(true);
+				$childrenProperty->setValue($validationManager, []);
+			}
+			// Also clear the parent reference to completely reset the manager
+			if ($reflection->hasProperty(\'parent\')) {
+				$parentProperty = $reflection->getProperty(\'parent\');
+				$parentProperty->setAccessible(true);
+				$parentProperty->setValue($validationManager, null);
+			}
+		}
+	}
+
 	public function initRequestData()
 	{
 		parent::initRequestData();
 	}
 }',
 			$wrapper_class,
-			$ecfi['class']);
+			$baseClassName);
 
 			eval($code);
 		}
-		
+
+		/** @var array<string> $ecfi */
 		$ecfi['class'] = $wrapper_class;
 		$context->setFactoryInfo('execution_container', $ecfi);
 		
@@ -494,6 +529,28 @@ class %1$s extends %2$s
 	protected function setAttributesByRef(array &$attributes)
 	{
 		$this->container->setAttributesByRef($attributes);
+	}
+
+	/**
+	 * Clear all singleton model instances from the context to prevent
+	 * class redeclaration errors in subsequent tests.
+	 * 
+	 * This method uses reflection to clear the singletonModelInstances array
+	 * in the AgaviContext, which prevents "Cannot redeclare class" errors
+	 * when models are loaded multiple times across different test methods.
+	 *
+	 * @author     Markus Winkler <markus@jakamo.com>
+	 * @since      1.1.0
+	 */
+	protected function clearSingletonModels()
+	{
+		$context = $this->getContext();
+		if ($context) {
+			$reflection = new \ReflectionClass($context);
+			$property = $reflection->getProperty('singletonModelInstances');
+			$property->setAccessible(true);
+			$property->setValue($context, []);
+		}
 	}
 }
 

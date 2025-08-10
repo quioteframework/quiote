@@ -15,6 +15,9 @@
 
 namespace Agavi\Testing;
 
+use Agavi\AgaviContext;
+use Agavi\Request\AgaviRequestDataHolder;
+
 /**
  * AgaviContainerTestCase is the base class for all tests that target a specific
  * container execution and provides the necessary assertions

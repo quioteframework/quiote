@@ -15,6 +15,13 @@
 
 namespace Agavi\Testing;
 
+use Agavi\Controller\AgaviExecutionContainer;
+use Agavi\Exception\AgaviException;
+use Agavi\Response\AgaviWebResponse;
+use Agavi\Util\AgaviToolkit;
+use Agavi\View\AgaviView;
+use AgaviConstraintViewHandlesOutputType;
+
 /**
  * AgaviViewTestCase is the base class for all view testcases and provides
  * the necessary assertions
