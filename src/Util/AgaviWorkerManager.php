@@ -90,6 +90,11 @@ class AgaviWorkerManager
      */
     public static function resetForNextRequest($contextProfile = null, array $options = [])
     {
+        // Backwards/defensive: allow calling resetForNextRequest($optionsArray) where first param was options
+        if(is_array($contextProfile) && empty($options)) {
+            $options = $contextProfile;
+            $contextProfile = null; // treat as default context
+        }
         $config = array_merge(self::$config, $options);
         self::$requestCount++;
         self::$statistics['reset_count']++;
@@ -101,6 +106,10 @@ class AgaviWorkerManager
         try {
             if ($contextProfile !== null) {
                 // Reset specific context profile
+                // Ensure contextProfile is string; if not, treat as default
+                if(!is_string($contextProfile) || $contextProfile === '') {
+                    $contextProfile = AgaviConfig::get('core.default_context', 'web');
+                }
                 $context = AgaviContext::getInstance($contextProfile);
                 if ($context instanceof \Symfony\Contracts\Service\ResetInterface) {
                     $context->reset();
@@ -374,17 +383,20 @@ if (isset($context)) {
         switch ($strategy) {
             case 'close':
                 // Close all database connections
-                if (class_exists('Propel\Propel')) {
-                    Propel\Propel::close();
+                if (class_exists('Propel\\Runtime\\Propel')) {
+                    $propelClass = 'Propel\\Runtime\\Propel';
+                    // dynamic to avoid hard dependency during static analysis
+                    \call_user_func([$propelClass, 'close']);
                 }
                 // Add other ORMs as needed
                 break;
                 
             case 'reset':
                 // Reset connections without closing (clean transactions)
-                if (class_exists('Propel\Propel')) {
+                if (class_exists('Propel\\Runtime\\Propel')) {
+                    $propelClass = 'Propel\\Runtime\\Propel';
                     try {
-                        $con = Propel\Propel::getConnection();
+                        $con = \call_user_func([$propelClass, 'getConnection']);
                         if ($con && $con->inTransaction()) {
                             $con->rollback();
                             error_log("Warning: Uncommitted transaction rolled back in worker");
@@ -392,7 +404,7 @@ if (isset($context)) {
                     } catch (\Exception $e) {
                         error_log("Propel transaction cleanup failed: " . $e->getMessage());
                         // If reset fails, close and let it reconnect
-                        Propel\Propel::close();
+                        \call_user_func([$propelClass, 'close']);
                     }
                 }
                 break;
