@@ -1145,6 +1145,7 @@ abstract class AgaviRouting extends AgaviParameterHolder implements ResetInterfa
 	public function execute()
 	{
 		$rq = $this->context->getRequest();
+		$logger = $this->context?->getLoggerManager()?->getLogger();
 		
 		// Handle case where request is not set (e.g., in tests)
 		if($rq === null) {
@@ -1158,20 +1159,19 @@ abstract class AgaviRouting extends AgaviParameterHolder implements ResetInterfa
 		
 		$container = $this->context->getController()->createExecutionContainer();
 
-		error_log("ROUTING_EXECUTE: Starting execution");
-		error_log("ROUTING_EXECUTE: Initial container output type: ".$container->getOutputType()->getName());
-		error_log("ROUTING_EXECUTE: Request method: ".$rq->getMethod());
-		error_log("ROUTING_EXECUTE: Request URI: ".$rq->getRequestUri());
+			$logger?->debug('routing.execute start');
+			$logger?->debug('routing.execute container.output_type=' . $container->getOutputType()->getName());
+			$logger?->debug('routing.execute request.method=' . $rq->getMethod());
+			$logger?->debug('routing.execute request.uri=' . $rq->getRequestUri());
 		if(isset($_SERVER['HTTP_ACCEPT'])) {
-			error_log("ROUTING_EXECUTE: HTTP_ACCEPT: ".$_SERVER['HTTP_ACCEPT']);
+			$logger?->debug('routing.execute http_accept=' . $_SERVER['HTTP_ACCEPT']);
 		}
 		if(isset($_SERVER['CONTENT_TYPE'])) {
-			error_log("ROUTING_EXECUTE: CONTENT_TYPE: ".$_SERVER['CONTENT_TYPE']);
+			$logger?->debug('routing.execute content_type=' . $_SERVER['CONTENT_TYPE']);
 		}
 
 		if(!$this->isEnabled()) {
-			// routing disabled, just bail out here
-			error_log("ROUTING_EXECUTE: Routing disabled, returning container with output type: ".$container->getOutputType()->getName());
+			$logger?->debug('routing.execute disabled; using existing container output_type=' . $container->getOutputType()->getName());
 			return $container;
 		}
 
@@ -1217,9 +1217,9 @@ abstract class AgaviRouting extends AgaviParameterHolder implements ResetInterfa
 					}
 
 					$match = [];
-					error_log("ROUTING_EXECUTE: Checking route '".$opts['name']."' with pattern '".($route['opt']['pattern'] ?? "")."' against input: '$input'");
+					$logger?->debug("routing.execute checking route='".$opts['name']."' pattern='".($route['opt']['pattern'] ?? "")."' input='$input'");
 					if($this->parseInput($route, $input, $match)) {
-						error_log("ROUTING_EXECUTE: Route matched: ".$opts['name']);
+						$logger?->debug('routing.execute route_matched=' . $opts['name']);
 						
 						$varsBackup = $vars;
 						
@@ -1288,17 +1288,15 @@ abstract class AgaviRouting extends AgaviParameterHolder implements ResetInterfa
 							// here no explicit check is done, since in 0.11 this is compared against null
 							// which can never be the result of expandVariables
 							$ot = AgaviToolkit::expandVariables($opts['output_type'], $matchvals);
-							
-							error_log("ROUTING_EXECUTE: Setting output type from route '".$opts['name']."' to: $ot");
-							error_log("ROUTING_EXECUTE: Container output type before: ".$container->getOutputType()->getName());
+							$logger?->debug('routing.execute set_output_type route=' . $opts['name'] . ' value=' . $ot . ' before=' . $container->getOutputType()->getName());
 							
 							// we need to wrap in try/catch here (but not further down after the callbacks have run) for BC
 							// and because it makes sense - maybe a callback checks or changes the output type name
 							try {
 								$container->setOutputType($this->context->getController()->getOutputType($ot));
-								error_log("ROUTING_EXECUTE: Container output type after: ".$container->getOutputType()->getName());
+								$logger?->debug('routing.execute output_type_after=' . $container->getOutputType()->getName());
 							} catch(AgaviException $e) {
-								error_log("ROUTING_EXECUTE: Failed to set output type '$ot': ".$e->getMessage());
+								$logger?->error("routing.execute failed_set_output_type value='$ot' error=".$e->getMessage());
 							}
 						}
 
@@ -1433,9 +1431,9 @@ abstract class AgaviRouting extends AgaviParameterHolder implements ResetInterfa
 								}
 								if($opts['output_type'] && $oldOutputTypeName == ($container->getOutputType() ? $container->getOutputType()->getName() : null)) {
 									$ot = AgaviToolkit::expandVariables($opts['output_type'], $expandVars);
-									error_log("ROUTING_EXECUTE: Post-callback setting output type to: $ot");
+									$logger?->debug('routing.execute post_callback set_output_type=' . $ot);
 									$container->setOutputType($this->context->getController()->getOutputType($ot));
-									error_log("ROUTING_EXECUTE: Post-callback container output type: ".$container->getOutputType()->getName());
+									$logger?->debug('routing.execute post_callback container_output_type=' . $container->getOutputType()->getName());
 								}
 								if($opts['locale'] && $oldLocale == $tm->getCurrentLocaleIdentifier()) {
 									if($locale = AgaviToolkit::expandVariables($opts['locale'], $expandVars)) {
@@ -1503,9 +1501,9 @@ abstract class AgaviRouting extends AgaviParameterHolder implements ResetInterfa
 							}
 							$ni .= substr((string) $s, $match[0][1] + strlen((string) $match[0][0]));
 							
-							error_log("ROUTING_EXECUTE: Route '".$opts['name']."' cutting input from '$s' to '$ni'");
+							$logger?->debug("routing.execute cut route='".$opts['name']."' from='".$s."' to='".$ni."'");
 							$s = $ni;
-							error_log("ROUTING_EXECUTE: Input after cut: '$input'");
+							$logger?->debug("routing.execute cut new_input='".$input."'");
 						}
 
 						if(count($opts['childs'])) {
@@ -1551,8 +1549,8 @@ abstract class AgaviRouting extends AgaviParameterHolder implements ResetInterfa
 		// set the list of matched route names as a request attribute
 		$rq->setAttribute('matched_routes', $matchedRoutes, 'org.agavi.routing');
 
-		error_log("ROUTING_EXECUTE: Final output type being returned: ".$container->getOutputType()->getName());
-		error_log("ROUTING_EXECUTE: Matched routes: ".implode(', ', $matchedRoutes));
+		$logger?->debug('routing.execute final_output_type=' . $container->getOutputType()->getName());
+		$logger?->debug('routing.execute matched_routes=' . implode(',', $matchedRoutes));
 
 		// return a list of matched route names
 		return $container;
@@ -1823,7 +1821,8 @@ abstract class AgaviRouting extends AgaviParameterHolder implements ResetInterfa
 	 */
 	public function reset(): void
 	{
-		error_log("AgaviRouting::reset() - Starting routing reset");
+		$logger = $this->context?->getLoggerManager()?->getLogger();
+		$logger?->debug('routing.reset start');
 		
 		// Reset routing-specific properties that hold request state
 		// DON'T null the context - it's needed for the next request!
@@ -1834,8 +1833,8 @@ abstract class AgaviRouting extends AgaviParameterHolder implements ResetInterfa
 		
 		// CRITICAL: Reset routes array to prevent cache corruption
 		// In worker mode, route structures can get corrupted between requests
-		if (isset($this->routes) && is_array($this->routes)) {
-			error_log("AgaviRouting::reset() - Clearing routes array (had " . count($this->routes) . " routes)");
+			if (isset($this->routes) && is_array($this->routes)) {
+				$logger?->debug('routing.reset clearing_routes count=' . count($this->routes));
 			foreach ($this->routes as &$route) {
 				// Clear any callback instances that might hold state
 				if (isset($route['callback_instances'])) {
@@ -1850,7 +1849,7 @@ abstract class AgaviRouting extends AgaviParameterHolder implements ResetInterfa
 			// But clear any request-specific state within routes
 		}
 		
-		error_log("AgaviRouting::reset() - Reset completed");
+		$logger?->debug('routing.reset complete');
 		
 		// Reset parent parameter holder state
 		parent::clearParameters();

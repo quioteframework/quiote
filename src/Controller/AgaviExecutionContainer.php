@@ -254,8 +254,9 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 	 */
 	public function createExecutionContainer($moduleName = null, $actionName = null, ?AgaviRequestDataHolder $arguments = null, $outputType = null, $requestMethod = null)
 	{
-		error_log("CONTAINER_CREATE_CONTAINER: Starting - module=$moduleName, action=$actionName, outputType=".var_export($outputType, true));
-		error_log("CONTAINER_CREATE_CONTAINER: Current container output type: ".$this->getOutputType()->getName());
+		$logger = $this->context?->getLoggerManager()?->getLogger();
+		$logger?->debug('container.create start module=' . ($moduleName ?? 'null') . ' action=' . ($actionName ?? 'null') . ' outputType=' . var_export($outputType, true));
+		$logger?->debug('container.create current_output_type=' . $this->getOutputType()->getName());
 		
 		// Don't inherit output type from current container when null is passed
 		// Let the controller determine the appropriate output type freshly
@@ -264,16 +265,15 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 			$requestMethod = $this->getRequestMethod();
 		}
 		
-		error_log("CONTAINER_CREATE_CONTAINER: Calling controller->createExecutionContainer with outputType=".var_export($outputType, true));
+		$logger?->debug('container.create invoking_controller outputType=' . var_export($outputType, true));
 		
 		$container = $this->context->getController()->createExecutionContainer($moduleName, $actionName, $arguments, $outputType, $requestMethod);
-		
-		error_log("CONTAINER_CREATE_CONTAINER: New container created with output type: ".$container->getOutputType()->getName());
+		$logger?->debug('container.create new_output_type=' . $container->getOutputType()->getName());
 		
 		// copy over parameters (could be is_slot, is_forward etc)
 		$container->setParameters($this->getParameters());
 		
-		error_log("CONTAINER_CREATE_CONTAINER: Final container output type: ".$container->getOutputType()->getName());
+		$logger?->debug('container.create final_output_type=' . $container->getOutputType()->getName());
 		
 		return $container;
 	}
@@ -842,12 +842,13 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 	 */
 	public function setOutputType(AgaviOutputType $outputType)
 	{
-		error_log("CONTAINER_SET_OUTPUT_TYPE: Setting output type to: ".$outputType->getName());
+		$logger = $this->context?->getLoggerManager()?->getLogger();
+		$logger?->debug('container.set_output_type value=' . $outputType->getName());
 		
 		$this->outputType = $outputType;
 		if($this->response) {
 			$this->response->setOutputType($outputType);
-			error_log("CONTAINER_SET_OUTPUT_TYPE: Also set on response");
+			$logger?->debug('container.set_output_type applied_to_response');
 		}
 	}
 

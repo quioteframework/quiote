@@ -144,7 +144,8 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 	 */
 	public function createExecutionContainer($moduleName = null, $actionName = null, ?AgaviRequestDataHolder $arguments = null, $outputType = null, $requestMethod = null)
 	{
-		if(self::DEBUG) error_log("CONTROLLER_CREATE_CONTAINER: module=$moduleName action=$actionName incomingOT=".var_export($outputType, true));
+		$logger = $this->context?->getLoggerManager()?->getLogger();
+		if(self::DEBUG && $logger) { $logger->debug("controller.create_container start module=$moduleName action=$actionName incomingOT=".var_export($outputType, true)); }
 		
 		// create a new execution container
 		$container = $this->context->createInstanceFor('execution_container');
@@ -168,7 +169,7 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 			if($rq->isLocked()) {
 				// This should normally not happen for the very first container of a request lifecycle.
 				// Log and fall back to creating a safe clone via the execution container logic later.
-				error_log('CONTROLLER_CREATE_CONTAINER: WARNING request is locked while priming requestData cache');
+				if($logger) { $logger->warning('controller.create_container request locked while priming requestData cache'); }
 				// We intentionally DO NOT call getRequestData() to avoid exception. We'll let
 				// the container clone the global data later via initRequestData().
 			} else {
@@ -183,10 +184,10 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 			$container->setArguments($arguments);
 		}
 		
-		if(self::DEBUG) error_log("CONTROLLER_CREATE_CONTAINER: resolveOT param=".var_export($outputType, true)." default=".var_export($this->defaultOutputType, true));
+		if(self::DEBUG && $logger) { $logger->debug("controller.create_container resolveOT param=".var_export($outputType, true)." default=".var_export($this->defaultOutputType, true)); }
 		
 		$resolvedOutputType = $this->context->getController()->getOutputType($outputType);
-		if(self::DEBUG) error_log("CONTROLLER_CREATE_CONTAINER: resolvedOT=".$resolvedOutputType->getName());
+		if(self::DEBUG && $logger) { $logger->debug("controller.create_container resolvedOT=".$resolvedOutputType->getName()); }
 		
 		$container->setOutputType($resolvedOutputType);
 		
@@ -195,7 +196,7 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 		}
 		$container->setRequestMethod($requestMethod);
 		
-		if(self::DEBUG) error_log("CONTROLLER_CREATE_CONTAINER: finalOT=".$container->getOutputType()->getName());
+		if(self::DEBUG && $logger) { $logger->debug("controller.create_container finalOT=".$container->getOutputType()->getName()); }
 		
 		return $container;
 	}
@@ -268,7 +269,8 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 	 */
 	public function dispatch(?AgaviRequestDataHolder $arguments = null, ?AgaviExecutionContainer $container = null)
 	{
-		if(self::DEBUG) error_log("CONTROLLER_DISPATCH: start defaultOT=".var_export($this->defaultOutputType, true));
+		$logger = $this->context?->getLoggerManager()?->getLogger();
+		if(self::DEBUG && $logger) { $logger->debug("controller.dispatch start defaultOT=".var_export($this->defaultOutputType, true)); }
 		
 		try {
 			
@@ -276,11 +278,11 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 			$rd = $rq->getRequestData();
 			
 			if($container === null) {
-				if(self::DEBUG) error_log("CONTROLLER_DISPATCH: running routing");
+				if(self::DEBUG && $logger) { $logger->debug("controller.dispatch running routing"); }
 				
 				// DEBUG: Check routing object state before calling execute
 				$routing = $this->context->getRouting();
-				if(self::DEBUG) error_log("CONTROLLER_DISPATCH: routing class=" . get_class($routing) . " id=" . spl_object_id($routing));
+				if(self::DEBUG && $logger) { $logger->debug("controller.dispatch routing class=" . get_class($routing) . " id=" . spl_object_id($routing)); }
 				
 				// Use reflection to check the context property
 				$reflection = new \ReflectionClass($routing);
@@ -289,14 +291,14 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 					$contextProperty->setAccessible(true);
 					$routingContext = $contextProperty->getValue($routing);
 						if(self::DEBUG) {
-							error_log("CONTROLLER_DISPATCH: routing context=" . ($routingContext === null ? 'NULL' : 'OK(' . get_class($routingContext) . ')'));
+							if($logger) { $logger->debug("controller.dispatch routing context=" . ($routingContext === null ? 'NULL' : 'OK(' . get_class($routingContext) . ')')); }
 						}
 				}
 				
 				$container = $routing->execute();
-				if(self::DEBUG) error_log("CONTROLLER_DISPATCH: routedOT=".$container->getOutputType()->getName());
+				if(self::DEBUG && $logger) { $logger->debug("controller.dispatch routedOT=".$container->getOutputType()->getName()); }
 			} else {
-				if(self::DEBUG) error_log("CONTROLLER_DISPATCH: providedOT=".$container->getOutputType()->getName());
+				if(self::DEBUG && $logger) { $logger->debug("controller.dispatch providedOT=".$container->getOutputType()->getName()); }
 			}
 			
 			if($container instanceof AgaviExecutionContainer) {
@@ -759,6 +761,7 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 	 */
 	public function startup()
 	{
+		$logger = $this->context?->getLoggerManager()?->getLogger();
 		// grab a pointer to the request data
 		$this->requestData = $this->context->getRequest()->getRequestData();
 
@@ -768,7 +771,7 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 		// attempt to mutate $defaultOutputType (it normally should not mutate).
 		if($this->configuredDefaultOutputType === null && $this->defaultOutputType !== null) {
 			$this->configuredDefaultOutputType = $this->defaultOutputType;
-			if(self::DEBUG) error_log("CONTROLLER_STARTUP: capture configuredDefaultOT=".var_export($this->configuredDefaultOutputType, true));
+			if(self::DEBUG && $logger) { $logger->debug("controller.startup capture configuredDefaultOT=".var_export($this->configuredDefaultOutputType, true)); }
 		}
 	}
 
@@ -793,7 +796,8 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 	 */
 	public function reset(): void
 	{
-		if(self::DEBUG) error_log("CONTROLLER_RESET: begin defaultOT=".var_export($this->defaultOutputType, true));
+		$logger = $this->context?->getLoggerManager()?->getLogger();
+		if(self::DEBUG && $logger) { $logger->debug("controller.reset begin defaultOT=".var_export($this->defaultOutputType, true)); }
 		
 		// Reset execution counter
 		$this->numExecutions = 0;
@@ -824,7 +828,7 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 			// Fallback safety: leave as-is (likely null only during very early init)
 		}
 		
-		if(self::DEBUG) error_log("CONTROLLER_RESET: end defaultOT=".var_export($this->defaultOutputType, true));
+		if(self::DEBUG && $logger) { $logger->debug("controller.reset end defaultOT=".var_export($this->defaultOutputType, true)); }
 	}
 
 	/**
@@ -892,23 +896,24 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 	 */
 	public function getOutputType($name = null)
 	{
-		if(self::DEBUG) error_log("CONTROLLER_GET_OUTPUT_TYPE: in name=".var_export($name, true)." default=".var_export($this->defaultOutputType, true));
+		$logger = $this->context?->getLoggerManager()?->getLogger();
+		if(self::DEBUG && $logger) { $logger->debug("controller.get_output_type in name=".var_export($name, true)." default=".var_export($this->defaultOutputType, true)); }
 		
 		if($name === null) {
 			if($this->defaultOutputType !== null) {
 				$name = $this->defaultOutputType;
-				if(self::DEBUG) error_log("CONTROLLER_GET_OUTPUT_TYPE: use defaultOT $name");
+				if(self::DEBUG && $logger) { $logger->debug("controller.get_output_type use defaultOT $name"); }
 			} else {
 				// Fall back to first available output type if no default is set
 				$name = array_key_first($this->outputTypes) ?: 'html';
-				if(self::DEBUG) error_log("CONTROLLER_GET_OUTPUT_TYPE: fallback firstOT $name");
+				if(self::DEBUG && $logger) { $logger->debug("controller.get_output_type fallback firstOT $name"); }
 			}
 		} else {
-			if(self::DEBUG) error_log("CONTROLLER_GET_OUTPUT_TYPE: provided $name");
+			if(self::DEBUG && $logger) { $logger->debug("controller.get_output_type provided $name"); }
 		}
 		
 		if(isset($this->outputTypes[$name])) {
-			if(self::DEBUG) error_log("CONTROLLER_GET_OUTPUT_TYPE: return $name");
+			if(self::DEBUG && $logger) { $logger->debug("controller.get_output_type return $name"); }
 			return $this->outputTypes[$name];
 		}
 		throw new AgaviException('Output Type "' . $name . '" has not been configured.');

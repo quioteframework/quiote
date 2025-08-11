@@ -136,6 +136,21 @@ class AgaviLogger implements AgaviILogger
 	public function shutdown()
 	{
 	}
+
+	/**
+	 * Convenience logging helpers. These wrap log() with a freshly constructed
+	 * AgaviLoggerMessage to avoid boilerplate at call sites.
+	 */
+	public function debug($message): void { $this->log(new AgaviLoggerMessage($message, self::DEBUG)); }
+	public function info($message): void { $this->log(new AgaviLoggerMessage($message, self::INFO)); }
+	public function warn($message): void { $this->log(new AgaviLoggerMessage($message, self::WARN)); }
+	public function error($message): void { $this->log(new AgaviLoggerMessage($message, self::ERROR)); }
+	public function fatal($message): void { $this->log(new AgaviLoggerMessage($message, self::FATAL)); }
+
+	/**
+	 * Generic helper when level is computed dynamically.
+	 */
+	public function logLevel($message, int $level): void { $this->log(new AgaviLoggerMessage($message, $level)); }
 }
 
 ?>
