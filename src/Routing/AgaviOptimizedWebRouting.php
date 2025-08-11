@@ -2,6 +2,7 @@
 namespace Agavi\Routing;
 
 use Agavi\AgaviContext;
+use Agavi\Config\AgaviConfig;
 use Symfony\Contracts\Service\ResetInterface;
 
 /**
@@ -101,8 +102,12 @@ class AgaviOptimizedWebRouting extends AgaviWebRouting implements ResetInterface
      */
     private function executeOptimized()
     {
-        $request = $this->context->getRequest();
-        $path = $request->getRequestUri();
+    $request = $this->context->getRequest();
+    // Normalize path: strip query string, ensure leading slash, convert empty to '/'
+    $rawUri = $request->getRequestUri();
+    $path = parse_url($rawUri, PHP_URL_PATH) ?? '/';
+    if($path === '') { $path = '/'; }
+    if($path[0] !== '/') { $path = '/' . $path; }
         $method = $request->getMethod();
         
         // Try cache first
@@ -221,8 +226,8 @@ class AgaviOptimizedWebRouting extends AgaviWebRouting implements ResetInterface
             }
         }
         
-        // No match found - return 404 container
-        return $this->build404Container();
+    // No match found - return 404 container (do not cache this later)
+    return $this->build404Container();
     }
     
     /**
@@ -319,8 +324,10 @@ class AgaviOptimizedWebRouting extends AgaviWebRouting implements ResetInterface
     private function build404Container()
     {
         $container = $this->context->getController()->createExecutionContainer();
-        $container->setModuleName('Default');
-        $container->setActionName('Error404');
+        $errMod = AgaviConfig::get('actions.error_404_module', 'Default');
+        $errAct = AgaviConfig::get('actions.error_404_action', 'Error404');
+        $container->setModuleName($errMod);
+        $container->setActionName($errAct);
         return $container;
     }
     
@@ -335,6 +342,13 @@ class AgaviOptimizedWebRouting extends AgaviWebRouting implements ResetInterface
     {
         $cacheKey = $this->generateCacheKey($path, $method);
         
+        // Skip caching 404 container so new routes become visible without worker restart
+        $errMod = AgaviConfig::get('actions.error_404_module', 'Default');
+        $errAct = AgaviConfig::get('actions.error_404_action', 'Error404');
+        if($container->getModuleName() === $errMod && $container->getActionName() === $errAct) {
+            return; // don't cache 404
+        }
+
         $cacheData = [
             'module' => $container->getModuleName(),
             'action' => $container->getActionName(),
