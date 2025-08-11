@@ -128,22 +128,33 @@ final class Agavi
 				AgaviToolkit::clearCache();
 
 				// load base settings
-				if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
+				if(defined('AGAVI_USE_APCU_CONFIG_CACHE') && AGAVI_USE_APCU_CONFIG_CACHE) {
 					AgaviAPCuConfigCache::load(AgaviConfig::get('core.config_dir') . '/settings.xml');
 				} else {
 					AgaviConfigCache::load(AgaviConfig::get('core.config_dir') . '/settings.xml');
 				}
 			}
 
-			$compile = AgaviConfig::get('core.config_dir') . '/compile.xml';
-			if(!is_readable($compile)) {
-				$compile = AgaviConfig::get('core.system_config_dir') . '/compile.xml';
+			$skipCompile = false;
+			// Allow disabling legacy compile cache aggregation (modern SSD + opcache/frankenphp often make it unnecessary)
+			if(getenv('AGAVI_SKIP_COMPILE') || getenv('AGAVI_DISABLE_COMPILE') || AgaviConfig::get('core.skip_compile', false)) {
+				$skipCompile = true;
 			}
-			// required classes for the framework
-			if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
-				AgaviAPCuConfigCache::load($compile);
-			} else {
-				AgaviConfigCache::load($compile);
+			// Auto-skip in worker environments with opcache (heuristic)
+			if(!$skipCompile && function_exists('frankenphp_handle_request') && ini_get('opcache.enable')) {
+				$skipCompile = true;
+			}
+			if(!$skipCompile) {
+				$compile = AgaviConfig::get('core.config_dir') . '/compile.xml';
+				if(!is_readable($compile)) {
+					$compile = AgaviConfig::get('core.system_config_dir') . '/compile.xml';
+				}
+				// required classes for the framework
+				if(defined('AGAVI_USE_APCU_CONFIG_CACHE') && AGAVI_USE_APCU_CONFIG_CACHE) {
+					AgaviAPCuConfigCache::load($compile);
+				} else {
+					AgaviConfigCache::load($compile);
+				}
 			}
 
 
@@ -179,7 +190,7 @@ final class Agavi
 			// Decide prewarm
 			$doPrewarm = $options['prewarm'] ?? false;
 			if(!$doPrewarm) {
-				if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
+				if(defined('AGAVI_USE_APCU_CONFIG_CACHE') && AGAVI_USE_APCU_CONFIG_CACHE) {
 					$envPrewarm = getenv('AGAVI_APCU_PREWARM');
 					if($envPrewarm !== false && in_array(strtolower($envPrewarm), ['1','true','yes','on'], true)) {
 						$doPrewarm = true;
@@ -189,7 +200,7 @@ final class Agavi
 					}
 				}
 			}
-			if($doPrewarm && defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
+			if($doPrewarm && defined('AGAVI_USE_APCU_CONFIG_CACHE') && AGAVI_USE_APCU_CONFIG_CACHE) {
 				// Prewarm for each explicit context, or default context if none provided
 				if($createdContexts) {
 					foreach(array_keys($createdContexts) as $c) {

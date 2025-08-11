@@ -68,13 +68,12 @@ class AgaviKernel
 
         $vendorAutoload = $this->rootDir . '/vendor/autoload.php';
         if(is_readable($vendorAutoload)) { require_once $vendorAutoload; }
-        require_once $this->rootDir . '/src/Agavi.php';
 
         if(!defined('AGAVI_USE_APCU_CONFIG_CACHE')) {
             define('AGAVI_USE_APCU_CONFIG_CACHE', function_exists('apcu_fetch'));
         }
 
-        Agavi::bootstrap($this->env, $this->contextName, ['prewarm' => false]);
+        Agavi::bootstrap($this->env, $this->contextName, ['prewarm' => true]);
     }
 
     private function selectWorkerAdapter(): WorkerAdapterInterface
