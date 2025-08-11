@@ -200,6 +200,29 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 		
 		return $container;
 	}
+
+	/**
+	 * Phase 1 PSR pipeline helper: create an execution container from the current
+	 * request (module/action already resolved OR will fall back to defaults).
+	 * Intentionally minimal – routing integration will replace this later.
+	 */
+	public function createExecutionContainerFromRequest($legacyRequest): AgaviExecutionContainer
+	{
+		// Determine module/action parameters if present
+		$module = null; $action = null; $outputType = null;
+		if($legacyRequest) {
+			$rd = $legacyRequest->getRequestData();
+			$ma = $legacyRequest->getParameter('module_accessor');
+			$aa = $legacyRequest->getParameter('action_accessor');
+			if($ma && $aa && $rd->hasParameter($ma) && $rd->hasParameter($aa)) {
+				$module = $rd->getParameter($ma);
+				$action = $rd->getParameter($aa);
+			}
+		}
+		if(!$module) { $module = \Agavi\Config\AgaviConfig::get('actions.default_module'); }
+		if(!$action) { $action = \Agavi\Config\AgaviConfig::get('actions.default_action'); }
+		return $this->createExecutionContainer($module, $action, null, $outputType, null);
+	}
 	
 	/**
 	 * Initialize a module and load its autoload, module config etc.
