@@ -22,16 +22,16 @@ class PsrPipelineBuilder
 
     public function buildRequestFromGlobals(): ServerRequestInterface
     {
-    $legacyReq = $this->context->getRequest();
-    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-    $authority = $_SERVER['HTTP_HOST'] ?? 'localhost';
-    $pathQuery = $_SERVER['REQUEST_URI'] ?? '/';
+        $legacyReq = $this->context->getRequest();
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $authority = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        $pathQuery = $_SERVER['REQUEST_URI'] ?? '/';
         $uri = new SimpleUri($scheme . '://' . $authority . $pathQuery);
         $body = SimpleStream::fromString(@file_get_contents('php://input') ?: '');
         $headers = function_exists('getallheaders') ? (getallheaders() ?: []) : [];
-    /** @var \Agavi\Request\AgaviRequest $legacyReqTyped */
-    $legacyReqTyped = $legacyReq; // help static analysis
-    return new PsrServerRequestAdapter($legacyReqTyped, $uri, $_SERVER['REQUEST_METHOD'] ?? 'GET', $body, $_SERVER, $headers, $_COOKIE, $_GET, $_POST, []);
+        /** @var \Agavi\Request\AgaviRequest $legacyReqTyped */
+        $legacyReqTyped = $legacyReq; // help static analysis
+        return new PsrServerRequestAdapter($legacyReqTyped, $uri, $_SERVER['REQUEST_METHOD'] ?? 'GET', $body, $_SERVER, $headers, $_COOKIE, $_GET, $_POST, []);
     }
 
     public function buildDispatcher(RequestHandlerInterface $finalHandler): MiddlewareDispatcher
