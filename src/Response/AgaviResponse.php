@@ -63,26 +63,24 @@ abstract class AgaviResponse extends AgaviAttributeHolder implements ResetInterf
 	 */
 	public function __sleep()
 	{
+		// Collect all current object vars first.
 		$vars = get_object_vars($this);
-		$also = [];
-		
+		// Replace heavy object references with lightweight identifiers.
 		$this->contextName = $this->context->getName();
-		unset($vars['context']);
-		$also[] = 'contextName';
+		unset($vars['context']); // remove context instance so it won't be serialized
 		
 		if($this->outputType) {
 			$this->outputTypeName = $this->outputType->getName();
 			unset($vars['outputType']);
-			$also[] = 'outputTypeName';
 		}
 		
 		if(is_resource($this->content)) {
 			$this->contentStreamMeta = stream_get_meta_data($this->content);
 			unset($vars['content']);
-			$also[] = 'contentStreamMeta';
 		}
-		
-		return array_merge(array_keys($vars), $also);
+		// Returning just the keys of $vars now includes contextName/outputTypeName/contentStreamMeta
+		// exactly once (they remain part of $vars as properties on $this) avoiding duplicates.
+		return array_keys($vars);
 	}
 	
 	/**
