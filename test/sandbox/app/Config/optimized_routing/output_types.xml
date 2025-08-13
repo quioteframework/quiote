@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configurations xmlns="http://agavi.org/agavi/1.0/config">
+  <configuration>
+    <output_types default="html">
+      <output_type name="html">
+        <renderers default="php">
+          <renderer name="php" class="Agavi\Renderer\AgaviPhpRenderer" />
+        </renderers>
+        <layouts default="default">
+          <layout name="default">
+            <layer name="content" />
+          </layout>
+        </layouts>
+      </output_type>
+    </output_types>
+  </configuration>
+</configurations>

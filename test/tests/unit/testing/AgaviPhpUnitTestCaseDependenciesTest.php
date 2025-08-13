@@ -1,6 +1,7 @@
 <?php
 
 use Agavi\Testing\AgaviPhpUnitTestCase;
+use PHPUnit\Framework\Attributes\DoesNotPerformAssertions;
 
 require_once __DIR__ . '/../../../lib/testing/SandboxTestingChildClass.class.php';
 
@@ -10,6 +11,7 @@ class AgaviPhpUnitTestCaseDependenciesTestDummy extends SandboxTestingChildClass
  * @runTestsInSeparateProcesses
  */
 #[\PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses]
+#[DoesNotPerformAssertions]
 class AgaviPhpUnitTestCaseDependenciesTest extends AgaviPhpUnitTestCase
 {
 	/*

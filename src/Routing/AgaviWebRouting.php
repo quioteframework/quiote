@@ -134,24 +134,47 @@ class AgaviWebRouting extends AgaviRouting implements ResetInterface
 		// Original logic: when rewriting, apache strips one (not all) trailing ampersand from the end of QUERY_STRING... normalize:
 		$apacheRewriteDetected = (preg_replace('/&+$/D', '', (string) $qs) !== preg_replace('/&+$/D', '', (string) $ru['query']));
 		
-		// Additional detection for FrankenPHP and modern servers:
-		// We check if the script name (e.g., 'index.php') is missing from the request URI path,
-		// which indicates that URL rewriting is stripping it out (clean URLs)
+		// Additional detection for FrankenPHP and modern servers with *clean* URLs.
+		// Original simplistic heuristic (script name missing from REQUEST_URI) caused false
+		// positives for a plain directory index access ("/app/" mapping to "/app/index.php")
+		// which must be treated as *non-rewritten* for legacy expectations, because tests
+		// (e.g. Apache22ModuleSubdir.case.php: "Sub-directory, no rewrite, called directory")
+		// expect the prefix to include the script ( .../index.php ).
 		$this->modernRewriteDetected = false;
 		if(isset($_SERVER['SCRIPT_NAME']) && $_SERVER['SCRIPT_NAME'] !== '') {
 			$scriptName = $_SERVER['SCRIPT_NAME'];
 			$requestUri = $_SERVER['REQUEST_URI'] ?? '';
-			
-			// Remove query string from request URI for comparison
+			// Strip query string
 			$requestPath = $requestUri;
 			if(($pos = strpos($requestPath, '?')) !== false) {
 				$requestPath = substr($requestPath, 0, $pos);
 			}
-			
-			// Simple and reliable detection: 
-			// If the script name is NOT found in the request path, URL rewriting is active
-			// Example: SCRIPT_NAME="/index.php" but REQUEST_URI="/login" (no index.php)
-			$this->modernRewriteDetected = !str_contains($requestPath, basename($scriptName));
+			$scriptBaseName = basename($scriptName);
+			$scriptDir = rtrim(str_replace('\\', '/', dirname($scriptName)), '/');
+			if($scriptDir === '.' ) {
+				$scriptDir = '';
+			}
+			// Detect plain directory index access ("/dir/" -> "/dir/index.php")
+			// Detect a direct directory access that maps to the script's directory index.
+			// Need to consider that REQUEST_URI may contain percent-encoded spaces ("re%20write/")
+			// while SCRIPT_NAME exposes them decoded ("re write/index.php").
+			$normalizedRequestPath = rtrim($requestPath, '/') . '/';
+			$rawDirPath = ($scriptDir === '' ? '/' : $scriptDir . '/');
+			$encodedDirPath = ($scriptDir === '' ? '/' : preg_replace_callback('/[^A-Za-z0-9\-._~\/]/', function($m){ return rawurlencode($m[0]); }, $scriptDir) . '/');
+			$directoryIndexAccess = ($requestPath !== '' && ($normalizedRequestPath === $rawDirPath || $normalizedRequestPath === $encodedDirPath));
+			// Apache style rewrite sets REDIRECT_URL or manipulates QUERY_STRING; FrankenPHP / modern
+			// clean URLs omit the script *and* are not just a directory index access.
+			$hasRewriteIndicators = (
+				isset($_SERVER['REDIRECT_URL']) || isset($_SERVER['REDIRECT_QUERY_STRING'])
+			);
+			if(!$directoryIndexAccess && !str_contains($requestPath, $scriptBaseName)) {
+				// Only treat as modern rewrite if either rewrite indicators are present OR
+				// server software hints at modern stack (Caddy, nginx, FrankenPHP) and it's not a directory index.
+				$serverSoftware = $_SERVER['SERVER_SOFTWARE'] ?? '';
+				if($hasRewriteIndicators || preg_match('/(caddy|nginx|frankenphp)/i', $serverSoftware)) {
+					$this->modernRewriteDetected = true;
+				}
+			}
 		}
 		
 		$rewritten = $apacheRewriteDetected || $this->modernRewriteDetected;

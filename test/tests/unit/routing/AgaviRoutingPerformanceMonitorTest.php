@@ -166,7 +166,7 @@ class AgaviRoutingPerformanceMonitorTest extends TestCase
     public function testCacheHitRateCalculation()
     {
         // Clear stats first
-        AgaviRoutingPerformanceMonitor::reset();
+        AgaviRoutingPerformanceMonitor::getResetInstance()->reset();    
         
         // Record 7 hits and 3 misses
         for ($i = 0; $i < 7; $i++) {
@@ -186,7 +186,7 @@ class AgaviRoutingPerformanceMonitorTest extends TestCase
     public function testRouteSuccessRateCalculation()
     {
         // Clear stats first
-        AgaviRoutingPerformanceMonitor::reset();
+        AgaviRoutingPerformanceMonitor::getResetInstance()->reset();
         
         // Record 8 matches and 2 failures
         for ($i = 0; $i < 8; $i++) {
@@ -271,7 +271,7 @@ class AgaviRoutingPerformanceMonitorTest extends TestCase
     public function testEdgeCases()
     {
         // Test with zero requests
-        AgaviRoutingPerformanceMonitor::reset();
+        AgaviRoutingPerformanceMonitor::getResetInstance()->reset();
         $stats = AgaviRoutingPerformanceMonitor::getStats();
         
         $this->assertEquals(0, $stats['total_requests']);

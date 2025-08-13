@@ -5,6 +5,7 @@ use Agavi\Routing\AgaviRouteCacheManager;
 use Agavi\Routing\AgaviRouteTrie;
 use Agavi\Routing\AgaviRoutingCallbackPool;
 use Agavi\Routing\AgaviRoutingPerformanceMonitor;
+use Agavi\Testing\AgaviUnitTestCase;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -12,7 +13,7 @@ use PHPUnit\Framework\TestCase;
  *
  * Tests the high-performance routing logic, cache, trie, and monitoring integration.
  */
-class AgaviOptimizedWebRoutingTest extends TestCase
+class AgaviOptimizedWebRoutingTest extends AgaviUnitTestCase
 {
     public function testOptimizationConfigurationMethods()
     {
@@ -91,7 +92,7 @@ class AgaviOptimizedWebRoutingTest extends TestCase
         $this->assertTrue(true);
         
         // Test performance monitor integration
-        AgaviRoutingPerformanceMonitor::reset();
+        AgaviRoutingPerformanceMonitor::getResetInstance()->reset();
         $this->assertTrue(true);
         
         // Test callback pool integration
