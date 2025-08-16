@@ -15,7 +15,6 @@
 
 namespace Agavi\Testing;
 
-use Agavi\Controller\AgaviExecutionContainer;
 use Agavi\Exception\AgaviException;
 use Agavi\Response\AgaviWebResponse;
 use Agavi\Util\AgaviToolkit;
@@ -77,11 +76,12 @@ abstract class AgaviViewTestCase extends AgaviFragmentTestCase
 	 */
 	protected function runView($otName = null)
 	{
-		$this->container->setActionInstance($this->createActionInstance());
-		$this->container->setOutputType($this->getContext()->getController()->getOutputType($otName));
-		$this->container->setViewInstance($this->createViewInstance());
-		$executionFilter = $this->createExecutionFilter();
-		$this->viewResult = $executionFilter->executeView($this->container);
+		// Container-based execution removed; directly instantiate view and invoke execute method.
+		$view = $this->createViewInstance();
+		$rd = $this->requestData ?? $this->getContext()->getRequest()->getRequestData();
+		$method = 'execute' . ucfirst($otName ?? $this->getContext()->getController()->getOutputType()->getName());
+		if(!is_callable([$view,$method])) { $method = 'execute'; }
+		$this->viewResult = $view->$method($rd);
 	}
 	
 	/**
@@ -302,11 +302,13 @@ abstract class AgaviViewTestCase extends AgaviFragmentTestCase
 	 */
 	protected function assertViewForwards($expectedModule, $expectedAction, $message = 'Failed asserting that the view forwards to "%1$s" "%2$s".')
 	{
-		if(!($this->viewResult instanceof AgaviExecutionContainer)) {
-			$this->fail(sprintf($message, $expectedModule, $expectedAction));
+		if(!is_object($this->viewResult)) {
+			$this->fail('View result not an object; cannot assert forward.');
 		}
-		$this->assertEquals($expectedModule, $this->viewResult->getModuleName());
-		$this->assertEquals(AgaviToolkit::canonicalName($expectedAction), $this->viewResult->getActionName());
+		$mod = method_exists($this->viewResult,'getModuleName') ? $this->viewResult->getModuleName() : null;
+		$act = method_exists($this->viewResult,'getActionName') ? $this->viewResult->getActionName() : null;
+		$this->assertEquals($expectedModule, $mod, sprintf($message, $expectedModule, $expectedAction));
+		$this->assertEquals(AgaviToolkit::canonicalName($expectedAction), $act, sprintf($message, $expectedModule, $expectedAction));
 	}
 	
 	/**
@@ -320,7 +322,7 @@ abstract class AgaviViewTestCase extends AgaviFragmentTestCase
 	 */
 	protected function assertHasLayer($expectedLayer, $message = 'Failed asserting that the view contains the layer "%1$s".')
 	{
-		$viewInstance = $this->container->getViewInstance();
+		$viewInstance = $this->container?->getViewInstance();
 		$layer = $viewInstance->getLayer($expectedLayer);
 		
 		if(null === $layer) {
@@ -339,7 +341,7 @@ abstract class AgaviViewTestCase extends AgaviFragmentTestCase
 	 */
 	protected function assertNotHasLayer($expectedLayer, $message = '')
 	{
-		$viewInstance = $this->container->getViewInstance();
+		$viewInstance = $this->container?->getViewInstance();
 		$layer = $viewInstance->getLayer($expectedLayer);
 		
 		if(null !== $layer) {

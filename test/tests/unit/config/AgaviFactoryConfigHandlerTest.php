@@ -6,7 +6,6 @@ use Agavi\Filter\AgaviIGlobalFilter;
 use Agavi\Filter\AgaviIActionFilter;
 use Agavi\Filter\AgaviISecurityFilter;
 use Agavi\Filter\AgaviFilterChain;
-use Agavi\Controller\AgaviExecutionContainer;
 use Agavi\User\AgaviISecurityUser;
 use Agavi\AgaviContext;
 require_once(__DIR__ . '/ConfigHandlerTestBase.php');
@@ -35,15 +34,15 @@ class FCHTestExecutionContainer extends FCHTestBase {}
 class FCHTestController         extends FCHTestBase {}
 	
 class FCHTestDispatchFilter     implements AgaviIGlobalFilter {
-	public function executeOnce(AgaviFilterChain $filterChain, AgaviExecutionContainer $container) {}
-	public function execute(AgaviFilterChain $filterChain, AgaviExecutionContainer $container) {}
+	public function executeOnce(AgaviFilterChain $filterChain, $container) {}
+	public function execute(AgaviFilterChain $filterChain, $container) {}
 	public final function getContext() {}
 	public function initialize(AgaviContext $context, array $parameters = array()) {}
 }
 
 class FCHTestExecutionFilter    implements AgaviIActionFilter {
-	public function executeOnce(AgaviFilterChain $filterChain, AgaviExecutionContainer $container) {}
-	public function execute(AgaviFilterChain $filterChain, AgaviExecutionContainer $container) {}
+	public function executeOnce(AgaviFilterChain $filterChain, $container) {}
+	public function execute(AgaviFilterChain $filterChain, $container) {}
 	public final function getContext() {}
 	public function initialize(AgaviContext $context, array $parameters = array()) {}
 }
@@ -59,8 +58,8 @@ class FCHTestValidationManager  extends FCHTestBase {}
 class FCHTestDBManager          extends FCHTestBase {}
 
 class FCHTestSecurityFilter     implements AgaviIActionFilter, AgaviISecurityFilter {
-	public function executeOnce(AgaviFilterChain $filterChain, AgaviExecutionContainer $container) {}
-	public function execute(AgaviFilterChain $filterChain, AgaviExecutionContainer $container) {}
+	public function executeOnce(AgaviFilterChain $filterChain, $container) {}
+	public function execute(AgaviFilterChain $filterChain, $container) {}
 	public final function getContext() {}
 	public function initialize(AgaviContext $context, array $parameters = array()) {}
 }
@@ -76,6 +75,8 @@ class FCHTestUser               extends FCHTestBase implements AgaviISecurityUse
 
 class AgaviFactoryConfigHandlerTest extends ConfigHandlerTestBase
 {
+	// Prevent dynamic property deprecation when generated factory code assigns $this->shutdownSequence
+	public array $shutdownSequence = [];
 	protected		$conf;
 
 	protected		$factories;
@@ -92,6 +93,7 @@ class AgaviFactoryConfigHandlerTest extends ConfigHandlerTestBase
 
 	public function setUp(): void
 	{
+		parent::setUp();
 		$this->conf = AgaviConfig::toArray();
 		$this->factories = array();
 	}

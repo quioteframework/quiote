@@ -32,14 +32,14 @@ namespace Agavi\Action;
  * @version    $Id$
  */
 use Agavi\Request\AgaviRequestDataHolder;
-use Agavi\Controller\AgaviExecutionContainer;
+use Agavi\Execution\ActionInitContext;
 use Symfony\Contracts\Service\ResetInterface;
 abstract class AgaviAction implements ResetInterface
 {
 	/**
-	 * @var AgaviExecutionContainer This action's execution container.
+	 * @var ActionInitContext|null Lightweight initialization context (replaces legacy execution container).
 	 */
-	protected $container = null;
+	protected $initContext = null;
 
 	/**
 	 * @var        AgaviContext An AgaviContext instance.
@@ -60,16 +60,21 @@ abstract class AgaviAction implements ResetInterface
 	}
 
 	/**
-	 * Retrieve the execution container for this action.
+	 * Backward compatible accessor (legacy name) for the init context.
 	 *
-	 * @return     AgaviExecutionContainer This action's execution container.
-	 *
-	 * @author     David Zülke <dz@bitxtender.com>
-	 * @since      0.11.0
+	 * @deprecated Will be removed once all userland code migrates to getInitContext().
 	 */
 	public final function getContainer()
 	{
-		return $this->container;
+		return $this->initContext;
+	}
+
+	/**
+	 * Retrieve the initialization context for this action.
+	 */
+	public final function getInitContext(): ?ActionInitContext
+	{
+		return $this->initContext;
 	}
 
 	/**
@@ -108,18 +113,12 @@ abstract class AgaviAction implements ResetInterface
 	}
 
 	/**
-	 * Initialize this action.
-	 *
-	 * @param      AgaviExecutionContainer This Action's execution container.
-	 *
-	 * @author     David Zülke <dz@bitxtender.com>
-	 * @since      0.9.0
+	 * Initialize this action with a lightweight initialization context.
 	 */
-	public function initialize(AgaviExecutionContainer $container)
+	public function initialize(ActionInitContext $context)
 	{
-		$this->container = $container;
-
-		$this->context = $container->getContext();
+		$this->initContext = $context;
+		$this->context = $context->getContext();
 	}
 
 	/**
@@ -146,6 +145,23 @@ abstract class AgaviAction implements ResetInterface
 	public function isSimple()
 	{
 		return false;
+	}
+
+	/**
+	 * Indicates whether this action's output may be cached. Default false.
+	 * Framework middleware will call this unconditionally (no method_exists guard).
+	 */
+	public function isCacheable(?string $outputType = null): bool
+	{
+		return false;
+	}
+
+	/**
+	 * TTL (seconds) for cached content when isCacheable() returns true. Default null (framework default handling).
+	 */
+	public function cacheTtlSeconds(?string $outputType = null): ?int
+	{
+		return null;
 	}
 
 	/**
@@ -200,7 +216,9 @@ abstract class AgaviAction implements ResetInterface
 	 */
 	public function clearAttributes()
 	{
-		$this->container->clearAttributes();
+		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) {
+			$this->initContext->clearAttributes();
+		}
 	}
 
 	/**
@@ -211,7 +229,10 @@ abstract class AgaviAction implements ResetInterface
 	 */
 	public function &getAttribute($name, $default = null)
 	{
-		return $this->container->getAttribute($name, null, $default);
+		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) {
+			return $this->initContext->getAttribute($name, null, $default);
+		}
+		return $default;
 	}
 
 	/**
@@ -222,7 +243,10 @@ abstract class AgaviAction implements ResetInterface
 	 */
 	public function getAttributeNames()
 	{
-		return $this->container->getAttributeNames();
+		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) {
+			return $this->initContext->getAttributeNames();
+		}
+		return [];
 	}
 
 	/**
@@ -233,7 +257,11 @@ abstract class AgaviAction implements ResetInterface
 	 */
 	public function &getAttributes()
 	{
-		return $this->container->getAttributes();
+		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) {
+			return $this->initContext->getAttributes();
+		}
+		$empty = [];
+		return $empty;
 	}
 
 	/**
@@ -244,7 +272,10 @@ abstract class AgaviAction implements ResetInterface
 	 */
 	public function hasAttribute($name)
 	{
-		return $this->container->hasAttribute($name);
+		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) {
+			return $this->initContext->hasAttribute($name);
+		}
+		return false;
 	}
 
 	/**
@@ -255,7 +286,10 @@ abstract class AgaviAction implements ResetInterface
 	 */
 	public function &removeAttribute($name)
 	{
-		return $this->container->removeAttribute($name);
+		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) {
+			return $this->initContext->removeAttribute($name);
+		}
+		$null = null; return $null;
 	}
 
 	/**
@@ -266,7 +300,9 @@ abstract class AgaviAction implements ResetInterface
 	 */
 	public function setAttribute($name, $value)
 	{
-		$this->container->setAttribute($name, $value);
+		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) {
+			$this->initContext->setAttribute($name, $value);
+		}
 	}
 
 	/**
@@ -277,7 +313,9 @@ abstract class AgaviAction implements ResetInterface
 	 */
 	public function appendAttribute($name, $value)
 	{
-		$this->container->appendAttribute($name, $value);
+		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) {
+			$this->initContext->appendAttribute($name, $value);
+		}
 	}
 
 	/**
@@ -288,7 +326,9 @@ abstract class AgaviAction implements ResetInterface
 	 */
 	public function setAttributeByRef($name, &$value)
 	{
-		$this->container->setAttributeByRef($name, $value);
+		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) {
+			$this->initContext->setAttributeByRef($name, $value);
+		}
 	}
 
 	/**
@@ -299,7 +339,9 @@ abstract class AgaviAction implements ResetInterface
 	 */
 	public function appendAttributeByRef($name, &$value)
 	{
-		$this->container->appendAttributeByRef($name, $value);
+		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) {
+			$this->initContext->appendAttributeByRef($name, $value);
+		}
 	}
 
 	/**
@@ -310,7 +352,9 @@ abstract class AgaviAction implements ResetInterface
 	 */
 	public function setAttributes(array $attributes)
 	{
-		$this->container->setAttributes($attributes);
+		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) {
+			$this->initContext->setAttributes($attributes);
+		}
 	}
 
 	/**
@@ -321,7 +365,9 @@ abstract class AgaviAction implements ResetInterface
 	 */
 	public function setAttributesByRef(array &$attributes)
 	{
-		$this->container->setAttributesByRef($attributes);
+		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) {
+			$this->initContext->setAttributesByRef($attributes);
+		}
 	}
 
 	/**
@@ -333,7 +379,7 @@ abstract class AgaviAction implements ResetInterface
 	 */
 	public function reset(): void
 	{
-		$this->container = null;
+		$this->initContext = null;
 		$this->context = null;
 	}
 }

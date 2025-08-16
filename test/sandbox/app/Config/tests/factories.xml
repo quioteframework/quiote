@@ -15,12 +15,6 @@
 			</ae:parameters>
 		</dispatch_filter>
 
-		<execution_container class="FCHTestExecutionContainer">
-			<ae:parameters>
-				<ae:parameter name="p1">v1</ae:parameter>
-				<ae:parameter name="p2">v2</ae:parameter>
-			</ae:parameters>
-		</execution_container>
 
 		<execution_filter class="FCHTestExecutionFilter">
 			<ae:parameters>

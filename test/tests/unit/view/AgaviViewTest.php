@@ -22,8 +22,19 @@ class AgaviViewTest extends AgaviUnitTestCase
 		$request = $ctx->getRequest();
 
 		$this->_v = new SampleView();
-		$this->_v->initialize($ct = $ctx->getController()->createExecutionContainer('Test', 'Test'));
-		$this->_r = $ct->getResponse();
+		$controller = $ctx->getController();
+		$descriptor = new \Agavi\Execution\ActionDescriptor('Test','Test','GET','html', false);
+		$init = new \Agavi\Execution\LightweightActionInitContext(
+			$ctx,
+			$descriptor->module,
+			$descriptor->action,
+			$descriptor->method,
+			$descriptor->outputType,
+			new AgaviRequestDataHolder(),
+			$controller->getGlobalResponse()
+		);
+		$this->_v->initialize($init);
+		$this->_r = $controller->getGlobalResponse();
 	}
 
 	public function testInitialize()

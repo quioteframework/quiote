@@ -28,7 +28,6 @@
 			     these factories once contexts have been matched by the parser. -->
 			<xs:element type="factory" minOccurs="0" name="controller" />
 			<xs:element type="factory" minOccurs="0" name="dispatch_filter" />
-			<xs:element type="factory" minOccurs="0" name="execution_container" />
 			<xs:element type="factory" minOccurs="0" name="execution_filter" />
 			<xs:element type="factory" minOccurs="0" name="filter_chain" />
 			<xs:element type="factory" minOccurs="0" name="request" />

@@ -15,7 +15,7 @@ class AgaviOptimizedRoutingCacheTest extends AgaviUnitTestCase
         AgaviRouteCacheManager::clear();
         AgaviRoutingPerformanceMonitor::getResetInstance()->reset();
         $this->routing = new AgaviOptimizedWebRouting();
-        $this->routing->initialize($this->getContext(), ['enabled' => true]);
+        $this->routing->initialize($this->getContext(), ['enabled' => true, 'optimizations' => ['force_optimized' => true]]);
         $this->routing->startup();
         // Minimal route set
         $this->routing->importRoutes([]);
@@ -30,6 +30,7 @@ class AgaviOptimizedRoutingCacheTest extends AgaviUnitTestCase
 
     public function testCacheHitAndMiss()
     {
+        /** @var \Agavi\Request\AgaviWebRequest $rq */
         $rq = $this->getContext()->getRequest();
         $rq->setRequestUri('/');
         $c1 = $this->routing->execute();
@@ -47,6 +48,7 @@ class AgaviOptimizedRoutingCacheTest extends AgaviUnitTestCase
 
     public function test404NotCached()
     {
+        /** @var \Agavi\Request\AgaviWebRequest $rq */
         $rq = $this->getContext()->getRequest();
         $rq->setRequestUri('/does-not-exist');
         $c1 = $this->routing->execute();
@@ -72,6 +74,7 @@ class AgaviOptimizedRoutingCacheTest extends AgaviUnitTestCase
         $m = $ref->getMethod('analyzeRouteComplexity');
         $m->setAccessible(true);
         $m->invoke($this->routing);
+        /** @var \Agavi\Request\AgaviWebRequest $rq */
         $rq = $this->getContext()->getRequest();
         $rq->setRequestUri('/id/77');
         $this->routing->execute(); // populate cache

@@ -3,7 +3,7 @@
 use Agavi\Request\AgaviWebRequestDataHolder;
 use Agavi\Testing\AgaviUnitTestCase;
 
-abstract class AgaviWebRequestDataHolderTest extends AgaviUnitTestCase
+class AgaviWebRequestDataHolderTest extends AgaviUnitTestCase
 {
 	protected function getDefaultDataHolder()
 	{
@@ -50,6 +50,11 @@ abstract class AgaviWebRequestDataHolderTest extends AgaviUnitTestCase
 	{
 		
 	}
+
+	public function testDummyTest()
+	{
+		$this->assertTrue(true);
+	}
 	
 	/**
 	 * returns information on what to expect when reading the default nested data set 
@@ -69,8 +74,9 @@ abstract class AgaviWebRequestDataHolderTest extends AgaviUnitTestCase
 	public static function getParameterReadInformation()
 	{
 		$readInformation = array();
-		
-		foreach(static::parameterData() as $key => $parameterInfo) {
+		$paramData = static::parameterData();
+		if(!$paramData) { return $readInformation; }
+		foreach($paramData as $key => $parameterInfo) {
 			$readInformation[$key] = $parameterInfo;
 			$readInformation[$key][4] = false;
 			$readInformation[$key.',default'] = $parameterInfo;

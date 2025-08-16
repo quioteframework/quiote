@@ -5,7 +5,8 @@ use Agavi\Config\AgaviConfig;
 use Agavi\Http\SimpleUri;
 use Agavi\Http\SimpleStream;
 use Agavi\Http\PsrServerRequestAdapter;
-use Agavi\Middleware\MiddlewareDispatcher;
+use Agavi\Middleware\MiddlewarePipeline;
+use Agavi\Middleware\ErrorHandlingMiddleware;
 use Agavi\Middleware\RoutingMiddleware;
 use Agavi\Middleware\SecurityMiddleware;
 use Agavi\Middleware\DispatchMiddleware;
@@ -33,15 +34,19 @@ final class BasicPipelineTest extends TestCase
     $this->assertInstanceOf(AgaviRequest::class, $legacyReq, 'Legacy request must be AgaviRequest derived');
         $uri = new SimpleUri('http://localhost/');
         $body = SimpleStream::fromString('');
-        $psrReq = new PsrServerRequestAdapter($legacyReq, $uri, 'GET', $body, $_SERVER, [], [], [], [], []);
+    $psrReq = new PsrServerRequestAdapter($legacyReq, $uri, 'GET', $body, $_SERVER, [], [], [], [], []);
+    $psrReq = $psrReq->withAttribute('module', AgaviConfig::get('actions.default_module'))
+             ->withAttribute('action', AgaviConfig::get('actions.default_action'));
     $finalHandler = new class($context) implements Psr\Http\Server\RequestHandlerInterface { public function __construct(private $ctx){} public function handle(Psr\Http\Message\ServerRequestInterface $r): Psr\Http\Message\ResponseInterface { $resp = $this->ctx->getController()->getGlobalResponse(); return new PsrResponseAdapter($resp); } };
-        $dispatcher = new MiddlewareDispatcher($finalHandler);
-        $dispatcher->add(new ExecutionTimeMiddleware());
-        $dispatcher->add(new RoutingMiddleware($context->getRouting(), $context->getController()));
-        $dispatcher->add(new SecurityMiddleware($context->getController()));
-        $dispatcher->add(new DispatchMiddleware($context->getController()));
-        $dispatcher->add(new AssetAggregationMiddleware());
-        $response = $dispatcher->handle($psrReq);
+    $pipeline = new MiddlewarePipeline($finalHandler);
+    $pipeline->add('RoutingMiddleware', new RoutingMiddleware($context->getRouting(), $context->getController()), 'routing');
+    $pipeline->add('SecurityMiddleware', new SecurityMiddleware($context->getController()), 'before_action');
+    $pipeline->add('DispatchMiddleware', new DispatchMiddleware($context->getController()), 'action');
+    $pipeline->add('AssetAggregationMiddleware', new AssetAggregationMiddleware(), 'post');
+    $pipeline->add('ExecutionTimeMiddleware', new ExecutionTimeMiddleware(), 'finalize');
+    $handler = $pipeline->build();
+    $handler = new class(new ErrorHandlingMiddleware(), $handler) implements Psr\Http\Server\RequestHandlerInterface { public function __construct(private ErrorHandlingMiddleware $err, private Psr\Http\Server\RequestHandlerInterface $next) {} public function handle(Psr\Http\Message\ServerRequestInterface $r): Psr\Http\Message\ResponseInterface { return $this->err->process($r, $this->next); } };
+    $response = $handler->handle($psrReq);
         $this->assertNotNull($response->getBody());
         $this->assertGreaterThanOrEqual(200, $response->getStatusCode());
     }

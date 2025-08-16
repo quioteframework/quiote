@@ -34,10 +34,12 @@ namespace Agavi\View;
  */
 
 use Agavi\AgaviContext;
-use Agavi\Controller\AgaviExecutionContainer;
+use Agavi\Execution\ActionInitContext;
+use Agavi\Execution\ViewInitContext;
 use Agavi\Exception\AgaviViewException;
 use Agavi\Renderer\AgaviRenderer;
 use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Execution\ForwardService;
 use Symfony\Contracts\Service\ResetInterface;
 
 abstract class AgaviView implements ResetInterface
@@ -48,9 +50,9 @@ abstract class AgaviView implements ResetInterface
 	const NONE = null;
 
 	/**
-	 * @var        AgaviExecutionContainer This view's execution container.
+	 * @var ActionInitContext|ViewInitContext|null Initialization context (container-less pipeline).
 	 */
-	protected $container = null;
+	protected $initContext = null;
 
 	/**
 	 * @var        AgaviContext The AgaviContext instance this View belongs to.
@@ -67,14 +69,36 @@ abstract class AgaviView implements ResetInterface
 	 *
 	 * @param      AgaviRequestDataHolder The action's request data holder.
 	 *
-	 * @return     AgaviExecutionContainer An array of forwarding information in
-	 *                                     case a forward should occur, or null.
+	 * @return     mixed Array forward descriptor (legacy) or null.
 	 *
 	 * @author     Sean Kerr <skerr@mojavi.org>
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.9.0
 	 */
 	abstract function execute(AgaviRequestDataHolder $rd);
+
+	/**
+	 * Render all configured template layers (in order) and return concatenated output.
+	 * Legacy compatibility: classic views called setupHtml()/loadLayout() and returned null;
+	 * older pipeline later rendered layers implicitly. New middleware/dispatch paths invoke
+	 * this on-demand when execute* returns null and layers are present.
+	 */
+	public function renderLayers(): string
+	{
+		if(empty($this->layers)) {
+			return '';
+		}
+		$out = '';
+		foreach($this->layers as $layer) {
+			try {
+				$out .= (string)$layer->execute();
+			} catch(\Throwable $e) {
+				// Fail soft: append diagnostic marker to aid debugging but keep rendering going
+				$out .= '<!-- layer render error: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . ' -->';
+			}
+		}
+		return $out;
+	}
 
 	/**
 	 * Retrieve the current application context.
@@ -90,17 +114,15 @@ abstract class AgaviView implements ResetInterface
 	}
 
 	/**
-	 * Retrieve the execution container for this action.
-	 *
-	 * @return     AgaviExecutionContainer This action's execution container.
-	 *
-	 * @author     David Zülke <dz@bitxtender.com>
-	 * @since      0.11.0
+	 * Backward compatibility accessor for legacy getContainer() usage.
+	 * @deprecated Use getInitContext().
 	 */
 	public final function getContainer()
 	{
-		return $this->container;
+		return $this->initContext;
 	}
+
+	public final function getInitContext(): ActionInitContext|ViewInitContext|null { return $this->initContext; }
 
 	/**
 	 * Retrieve the Response instance for this View.
@@ -112,22 +134,48 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public final function getResponse()
 	{
-		return $this->container->getResponse();
+		return $this->initContext->getResponse();
 	}
 
 	/**
 	 * Initialize this view.
 	 *
-	 * @param      AgaviExecutionContainer This View's execution container.
+	 * @param      ActionInitContext Initialization context.
 	 *
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.9.0
 	 */
-	public function initialize(AgaviExecutionContainer $container)
+	public function initialize(ActionInitContext|ViewInitContext $context)
 	{
-		$this->container = $container;
+		$this->initContext = $context;
+		$this->context = $context->getContext();
+	}
 
-		$this->context = $container->getContext();
+	/**
+	 * Resolve current AgaviOutputType regardless of whether container is legacy execution container
+	 * or a lightweight ActionInitContext lacking getOutputType().
+	 */
+	protected function getCurrentOutputType(): \Agavi\Controller\AgaviOutputType
+	{
+		// Legacy execution container exposes getOutputType() returning AgaviOutputType directly.
+		$name = $this->initContext instanceof ActionInitContext ? $this->initContext->getOutputTypeName() : null;
+		return $this->context->getController()->getOutputType($name);
+	}
+
+	/**
+	 * Convenience: unify access to resolved view module via ActionInitContext interface.
+	 */
+	protected function getResolvedViewModule(): ?string
+	{
+		return $this->initContext instanceof ActionInitContext ? $this->initContext->getViewModuleName() : null;
+	}
+
+	/**
+	 * Convenience: unify access to resolved view name via ActionInitContext interface.
+	 */
+	protected function getResolvedViewName(): ?string
+	{
+		return $this->initContext instanceof ActionInitContext ? $this->initContext->getViewName() : null;
 	}
 
 	/**
@@ -152,11 +200,11 @@ abstract class AgaviView implements ResetInterface
 		if(!is_subclass_of($layer, 'Agavi\\View\\AgaviTemplateLayer')) {
 			throw new AgaviViewException('Class "$class" is not a subclass of AgaviTemplateLayer');
 		}
-		$layer->initialize($this->context, ['name' => $name, 'module' => $this->container->getViewModuleName(), 'template' => $this->container->getViewName(), 'output_type' => $this->container->getOutputType()->getName()]);
+		$layer->initialize($this->context, ['name' => $name, 'module' => $this->initContext->getViewModuleName(), 'template' => $this->initContext->getViewName(), 'output_type' => $this->getCurrentOutputType()->getName()]);
 		if($renderer instanceof AgaviRenderer) {
 			$layer->setRenderer($renderer);
 		} else {
-			$layer->setRenderer($this->container->getOutputType()->getRenderer($renderer));
+			$layer->setRenderer($this->getCurrentOutputType()->getRenderer($renderer));
 		}
 		return $layer;
 	}
@@ -310,7 +358,7 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public function loadLayout($layoutName = null)
 	{
-		$layout = $this->container->getOutputType()->getLayout($layoutName);
+		$layout = $this->getCurrentOutputType()->getLayout($layoutName);
 
 		$this->clearLayers();
 
@@ -318,7 +366,9 @@ abstract class AgaviView implements ResetInterface
 			$l = $this->createLayer($layer['class'], $name, $layer['renderer']);
 			$l->setParameters($layer['parameters']);
 			foreach($layer['slots'] as $slotName => $slot) {
-				$l->setSlot($slotName, $this->createSlotContainer($slot['module'], $slot['action'], $slot['parameters'], $slot['output_type'], $slot['request_method']));
+				// Use new slot content API (container-less). Legacy createSlotContainer() is deprecated.
+				// request_method currently ignored in fast path; legacy path handled it for HTTP verb overrides.
+				$l->setSlot($slotName, $this->createSlotContent($slot['module'], $slot['action'], $slot['parameters'], $slot['output_type']));
 			}
 			$this->appendLayer($l);
 		}
@@ -340,25 +390,49 @@ abstract class AgaviView implements ResetInterface
 	 * @param      string Optional name of the request method to be used in this
 	 *                    container.
 	 *
-	 * @return     AgaviExecutionContainer A new execution container instance,
-	 *                                     fully initialized.
-	 *
-	 * @see        AgaviExecutionContainer::createExecutionContainer()
+	 * @return     \Agavi\Execution\SlotContent Slot content value object.
+	 * @deprecated Legacy container API removed; returns SlotContent.
 	 *
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
 	public function createSlotContainer($moduleName, $actionName, $arguments = null, $outputType = null, $requestMethod = null)
 	{
-		if($arguments !== null && !($arguments instanceof AgaviRequestDataHolder)) {
-			$rdhc = $this->context->getRequest()->getParameter('request_data_holder_class');
-			$arguments = new $rdhc([AgaviRequestDataHolder::SOURCE_PARAMETERS => $arguments]);
+		\Agavi\Util\DeprecationSilencer::triggerOnce(__METHOD__ . ' is removed: returning SlotContent value object.');
+		return $this->createSlotContent($moduleName, $actionName, $arguments, $outputType);
+	}
+
+	/**
+	 * Convenience helper: directly render a slot and return its string content.
+	 *
+	 * This bypasses legacy container creation and uses the SlotDispatcher fast path.
+	 * Arguments may be array or AgaviRequestDataHolder (array preferred).
+	 */
+	public function renderSlot(string $moduleName, string $actionName, $arguments = null, ?string $outputType = null): string
+	{
+		// Reuse createSlotContent (new API) to avoid duplication.
+		$slotContent = $this->createSlotContent($moduleName, $actionName, $arguments, $outputType);
+		return $slotContent->getContent();
+	}
+
+	/**
+	 * New API returning SlotContent value object explicitly, bypassing container wrapper regardless of flag.
+	 */
+	public function createSlotContent(string $moduleName, string $actionName, $arguments = null, $outputType = null): \Agavi\Execution\SlotContent
+	{
+		$parameters = [];
+		if ($arguments instanceof AgaviRequestDataHolder) {
+			$parameters = $arguments->getParameters();
+		} elseif (is_array($arguments)) {
+			$parameters = $arguments;
+		} elseif ($arguments !== null) {
+			throw new \RuntimeException('Unsupported slot argument type');
 		}
-		$container = $this->container->createExecutionContainer($moduleName, $actionName, $arguments, $outputType, $requestMethod);
-		$container->setParameter('is_slot', true);
-		// just in case it was carried over by AgaviContainer::createExecutionContainer()
-		$container->removeParameter('is_forward');
-		return $container;
+		$dispatcher = $this->context->getSlotDispatcher();
+		$parentRequest = $this->context->getCurrentPsrRequest();
+		if(!$parentRequest) { throw new \RuntimeException('No current PSR request available for slot dispatch'); }
+		$slotRequest = \Agavi\Execution\SlotRequestFactory::create($parentRequest, $moduleName, $actionName, $parameters, $outputType);
+		return $dispatcher->dispatchSlotContent($slotRequest, $moduleName, $actionName, $parameters, $outputType);
 	}
 
 	/**
@@ -375,28 +449,44 @@ abstract class AgaviView implements ResetInterface
 	 * @param      string Optional name of the request method to be used in this
 	 *                    container.
 	 *
-	 * @return     AgaviExecutionContainer A new execution container instance,
-	 *                                     fully initialized.
-	 *
-	 * @see        AgaviExecutionContainer::createExecutionContainer()
+	 * @return     mixed Forward descriptor or content (string) depending on usage.
 	 *
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
 	public function createForwardContainer($moduleName, $actionName, $arguments = null, $outputType = null, $requestMethod = null)
 	{
-		if($arguments !== null) {
-			if(!($arguments instanceof AgaviRequestDataHolder)) {
-				$rdhc = $this->context->getRequest()->getParameter('request_data_holder_class');
-				$arguments = new $rdhc([AgaviRequestDataHolder::SOURCE_PARAMETERS => $arguments]);
-			}
-		} else {
-			// we carry over our container's arguments
-			$arguments = $this->container->getArguments();
+		\Agavi\Util\DeprecationSilencer::triggerOnce(__METHOD__ . ' removed under container-less pipeline; returning SlotContent.');
+		return $this->createSlotContent($moduleName, $actionName, $arguments, $outputType);
+	}
+
+	/**
+	 * Render a system forward (login or secure) using ForwardService without creating a forward container.
+	 * Falls back to legacy createForwardContainer if ForwardService fails.
+	 */
+	public function renderSystemForward(string $name, ?AgaviRequestDataHolder $arguments = null, ?string $outputType = null): string
+	{
+		$name = strtolower($name);
+		if(!in_array($name, ['login','secure'], true)) {
+			throw new \InvalidArgumentException('Unsupported system forward name: ' . $name);
 		}
-		$container = $this->container->createExecutionContainer($moduleName, $actionName, $arguments, $outputType, $requestMethod);
-		$container->setParameter('is_forward', true);
-		return $container;
+		try {
+			$fs = new ForwardService($this->context->getController());
+			[$view,$vm,$vn,$content] = $fs->createSystemForwardView($name, $outputType ?? $this->context->getController()->getOutputType()->getName(), $arguments ?? new AgaviRequestDataHolder());
+			return (string)$content;
+		} catch(\Throwable $e) {
+			// Fallback: legacy forward container path (will be removed)
+			@trigger_error('ForwardService failed, falling back to legacy forward container: ' . $e->getMessage(), E_USER_DEPRECATED);
+			$fc = $this->createForwardContainer(ucfirst($name), 'Success', $arguments, $outputType);
+			$view = $fc->getViewInstance();
+			$rd = $fc->getRequestData() ?? new AgaviRequestDataHolder();
+			$method = 'execute' . ucfirst($fc->getOutputType()->getName());
+			if(!is_callable([$view,$method])) { $method = 'execute'; }
+			$res = $view->$method($rd);
+			if($res !== null) { return (string)$res; }
+			if(method_exists($view,'getLayers') && $view->getLayers()) { return $view->renderLayers(); }
+			return '';
+		}
 	}
 
 	/**
@@ -407,7 +497,7 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public function clearAttributes()
 	{
-		$this->container->clearAttributes();
+		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) { $this->initContext->clearAttributes(); }
 	}
 
 	/**
@@ -418,7 +508,8 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public function &getAttribute($name, $default = null)
 	{
-		return $this->container->getAttribute($name, null, $default);
+		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) { return $this->initContext->getAttribute($name, null, $default); }
+		$null = null; return $null;
 	}
 
 	/**
@@ -429,7 +520,8 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public function getAttributeNames()
 	{
-		return $this->container->getAttributeNames();
+		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) { return $this->initContext->getAttributeNames(); }
+		return [];
 	}
 
 	/**
@@ -440,7 +532,8 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public function &getAttributes()
 	{
-		return $this->container->getAttributes();
+		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) { return $this->initContext->getAttributes(); }
+		$empty = []; return $empty;
 	}
 
 	/**
@@ -451,7 +544,8 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public function hasAttribute($name)
 	{
-		return $this->container->hasAttribute($name);
+		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) { return $this->initContext->hasAttribute($name); }
+		return false;
 	}
 
 	/**
@@ -462,7 +556,8 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public function &removeAttribute($name)
 	{
-		return $this->container->removeAttribute($name);
+		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) { return $this->initContext->removeAttribute($name); }
+		$null = null; return $null;
 	}
 
 	/**
@@ -473,7 +568,8 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public function setAttribute($name, $value)
 	{
-		$this->container->setAttribute($name, $value);
+		if($this->initContext instanceof \Agavi\Execution\ViewInitContext) {\Agavi\Util\DeprecationSilencer::triggerOnce('setAttribute() ignored: immutable ViewInitContext snapshot'); return; }
+		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) { $this->initContext->setAttribute($name,$value); }
 	}
 
 	/**
@@ -484,7 +580,8 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public function appendAttribute($name, $value)
 	{
-		$this->container->appendAttribute($name, $value);
+		if($this->initContext instanceof \Agavi\Execution\ViewInitContext) { \Agavi\Util\DeprecationSilencer::triggerOnce('appendAttribute() ignored under immutable snapshot'); return; }
+		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) { $this->initContext->appendAttribute($name,$value); }
 	}
 
 	/**
@@ -495,7 +592,8 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public function setAttributeByRef($name, &$value)
 	{
-		$this->container->setAttributeByRef($name, $value);
+		if($this->initContext instanceof \Agavi\Execution\ViewInitContext) { \Agavi\Util\DeprecationSilencer::triggerOnce('setAttributeByRef() ignored under immutable snapshot'); return; }
+		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) { $this->initContext->setAttributeByRef($name,$value); }
 	}
 
 	/**
@@ -506,7 +604,8 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public function appendAttributeByRef($name, &$value)
 	{
-		$this->container->appendAttributeByRef($name, $value);
+		if($this->initContext instanceof \Agavi\Execution\ViewInitContext) { \Agavi\Util\DeprecationSilencer::triggerOnce('appendAttributeByRef() ignored under immutable snapshot'); return; }
+		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) { $this->initContext->appendAttributeByRef($name,$value); }
 	}
 
 	/**
@@ -517,7 +616,8 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public function setAttributes(array $attributes)
 	{
-		$this->container->setAttributes($attributes);
+		if($this->initContext instanceof \Agavi\Execution\ViewInitContext) { \Agavi\Util\DeprecationSilencer::triggerOnce('setAttributes() ignored under immutable snapshot'); return; }
+		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) { $this->initContext->setAttributes($attributes); }
 	}
 
 	/**
@@ -528,12 +628,13 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public function setAttributesByRef(array &$attributes)
 	{
-		$this->container->setAttributesByRef($attributes);
+		if($this->initContext instanceof \Agavi\Execution\ViewInitContext) { \Agavi\Util\DeprecationSilencer::triggerOnce('setAttributesByRef() ignored under immutable snapshot'); return; }
+		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) { $this->initContext->setAttributesByRef($attributes); }
 	}
 
 	public function reset() : void
 	{
-		$this->container = null;
+		$this->initContext = null;
 		$this->context = null;
 		$this->layers = [];
 	}

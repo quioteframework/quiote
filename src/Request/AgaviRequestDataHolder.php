@@ -37,6 +37,15 @@ use Symfony\Contracts\Service\ResetInterface;
 class AgaviRequestDataHolder extends AgaviParameterHolder implements AgaviIParametersRequestDataHolder, ResetInterface
 {
 	/**
+	 * When true, only parameters whitelisted in $validatedKeys may be accessed.
+	 */
+	protected bool $enforceValidated = false;
+
+	/**
+	 * Whitelisted validated parameter names.
+	 */
+	protected array $validatedKeys = [];
+	/**
 	 * @constant   Constant for source name of parameters.
 	 */
 	const SOURCE_PARAMETERS = 'parameters';
@@ -277,6 +286,53 @@ class AgaviRequestDataHolder extends AgaviParameterHolder implements AgaviIParam
 			$this->$fn($other);
 		}
 	}
+
+	/**
+	 * Activate strict validated-parameter enforcement with the given whitelist.
+	 * Subsequent attempts to access a non-validated parameter via getParameter()/hasParameter()
+	 * will return default (for has: false) and log an error in debug mode, or throw if hard enforcement enabled.
+	 *
+	 * @param array $keys Allowed parameter names (validated)
+	 * @param bool $hardThrow If true, throw an exception on illegal access; otherwise silently deny.
+	 */
+	public function enforceValidatedParameters(array $keys, bool $hardThrow = true): void
+	{
+		$this->enforceValidated = true;
+		$this->validatedKeys = array_fill_keys($keys, true);
+		$this->hardThrowOnInvalid = $hardThrow;
+	}
+
+	/** @var bool */
+	protected bool $hardThrowOnInvalid = true;
+
+	private function handleUnvalidatedAccess(string $name)
+	{
+		if($this->hardThrowOnInvalid) {
+			throw new \Agavi\Exception\AgaviUnvalidatedParameterAccessException('Access to unvalidated parameter "' . $name . '" denied under strict validation.');
+		}
+		if(getenv('AGAVI_VALIDATION_DEBUG')) {
+			@trigger_error('Unvalidated parameter access denied: ' . $name, E_USER_WARNING);
+		}
+	}
+
+	public function &getParameter($name, $default = null)
+	{
+		if($this->enforceValidated) {
+			if(!isset($this->validatedKeys[$name])) {
+				$this->handleUnvalidatedAccess($name);
+				return $default; // not validated
+			}
+		}
+		return parent::getParameter($name, $default);
+	}
+
+	public function hasParameter($name)
+	{
+		if($this->enforceValidated && !isset($this->validatedKeys[$name])) {
+			return false;
+		}
+		return parent::hasParameter($name);
+	}
 	
 	/**
 	 * Returns all the registered source names.
@@ -327,6 +383,9 @@ class AgaviRequestDataHolder extends AgaviParameterHolder implements AgaviIParam
 	{
 		$this->sources = [];
 		$this->sourceNames = [];
+		$this->enforceValidated = false;
+		$this->validatedKeys = [];
+		$this->hardThrowOnInvalid = true;
 		
 		// Reset parent parameter holder state
 		parent::clearParameters();

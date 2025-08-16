@@ -13,12 +13,7 @@
 			</attribute>
 		</optional>
 		<interleave>
-			<!-- Required factories, but may be defined elsewhere -->
-			<optional>
-				<element name="execution_container">
-					<ref name="content-factory" />
-				</element>
-			</optional>
+			<!-- Required factories (execution_container removed) -->
 			<optional>
 				<element name="validation_manager">
 					<ref name="content-factory" />

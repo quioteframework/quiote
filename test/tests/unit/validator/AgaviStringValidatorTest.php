@@ -3,7 +3,7 @@
 use Agavi\Validator\AgaviStringValidator;
 use Agavi\Validator\AgaviValidator;
 
-require_once(__DIR__ . '/BaseValidatorTest.php');
+require_once(__DIR__ . '/BaseValidatorTest.base.php');
 
 class AgaviStringValidatorTest extends BaseValidatorTest
 {

@@ -37,6 +37,34 @@
 					<renderer name="php" class="Agavi\Renderer\AgaviPhpRenderer" />
 				</renderers>
 			</output_type>
+
+			<output_type name="json">
+				<renderers default="php">
+					<renderer name="php" class="Agavi\Renderer\AgaviPhpRenderer" />
+				</renderers>
+				<parameter name="http_headers">
+					<parameter name="Content-Type">application/json; charset=UTF-8</parameter>
+				</parameter>
+			</output_type>
+
+			<output_type name="xml">
+				<renderers default="php">
+					<renderer name="php" class="Agavi\Renderer\AgaviPhpRenderer" />
+				</renderers>
+				<parameter name="http_headers">
+					<parameter name="Content-Type">application/xml; charset=UTF-8</parameter>
+				</parameter>
+			</output_type>
+
+			<!-- Added for testUnsupportedOutputTypeFallsBackToGenericExecute: no executeXls() method exists -->
+			<output_type name="xls">
+				<renderers default="php">
+					<renderer name="php" class="Agavi\Renderer\AgaviPhpRenderer" />
+				</renderers>
+				<parameter name="http_headers">
+					<parameter name="Content-Type">application/vnd.ms-excel; charset=UTF-8</parameter>
+				</parameter>
+			</output_type>
 			
 
 		</output_types>

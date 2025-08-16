@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ae:configurations xmlns="http://agavi.org/agavi/config/parts/module/1.1" xmlns:ae="http://agavi.org/agavi/config/global/envelope/1.1">
+  <ae:configuration>
+    <module enabled="true">
+      <settings>
+        <setting name="title">Snapshot Module</setting>
+        <setting name="version">1.0</setting>
+        <!-- Additional optional metadata placeholders (uncomment/edit as needed)
+        <setting name="authors">
+          <ae:parameter name="dev@example.com">Your Name</ae:parameter>
+        </setting>
+        <setting name="description">Sandbox module for attribute snapshot immutability tests.</setting>
+        -->
+      </settings>
+    </module>
+  </ae:configuration>
+</ae:configurations>

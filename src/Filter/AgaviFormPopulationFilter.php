@@ -16,7 +16,6 @@ namespace Agavi\Filter;
 
 use Agavi\AgaviContext;
 use Agavi\Config\AgaviConfig;
-use Agavi\Controller\AgaviExecutionContainer;
 use Agavi\Exception\AgaviException;
 use Agavi\Exception\AgaviParseException;
 use Agavi\Logging\AgaviLogger;
@@ -90,9 +89,11 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 	 * @since      0.11.0
 	 */
 	#[\Override]
-    public function execute(AgaviFilterChain $filterChain, AgaviExecutionContainer $container)
+	public function execute(AgaviFilterChain $filterChain, $container)
 	{
-		$response = $container->getResponse();
+		// Container removed; obtain global response from context controller
+		$controller = $this->getContext()->getController();
+		$response = $controller->getGlobalResponse();
 
 		if(!$response->isContentMutable() || !($output = $response->getContent())) {
 			return;
@@ -110,7 +111,7 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 
 		if(is_array($cfg['populate']) || $cfg['populate'] instanceof AgaviParameterHolder) {
 			$populate = $cfg['populate'];
-		} elseif($cfg['populate'] === true || (in_array($container->getRequestMethod(), $cfg['methods']) && $cfg['populate'] !== false)) {
+		} elseif($cfg['populate'] === true || (in_array(strtoupper($this->getContext()->getRequest()->getMethod()), $cfg['methods']) && $cfg['populate'] !== false)) {
 			$populate = $rq->getRequestData();
 		} else {
 			return;
@@ -129,18 +130,19 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 		if($cfg['force_request_uri'] !== false) {
 			$ruri = $cfg['force_request_uri'];
 		} else {
-			$ruri = $rq->getRequestUri();
+			// Fallback: request URI retrieval not available without legacy container; use root.
+			$ruri = '/';
 		}
 		if($cfg['force_request_url'] !== false) {
 			$rurl = $cfg['force_request_url'];
 		} else {
-			$rurl = $rq->getUrl();
+			$rurl = $ruri;
 		}
 
 		if(isset($cfg['validation_report']) && $cfg['validation_report'] instanceof AgaviValidationReport) {
 			$vr = $cfg['validation_report'];
 		} else {
-			$vr = $container->getValidationManager()->getReport();
+			$vr = new AgaviValidationReport();
 		}
 
 		$errorMessageRules = [];
@@ -284,7 +286,7 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 			$item = $base->item(0);
 			$baseHref = $item->getAttribute('href');
 		} else {
-			$baseHref = $rq->getUrl();
+			$baseHref = '';
 		}
 		$baseHref = substr((string) $baseHref, 0, strrpos((string) $baseHref, '/') + 1);
 

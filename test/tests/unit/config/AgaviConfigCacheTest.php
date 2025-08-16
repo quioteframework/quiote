@@ -173,7 +173,7 @@ class AgaviConfigCacheTest extends AgaviPhpUnitTestCase
 	
 	public function testCallHandlers()
 	{
-		$this->markTestIncomplete();
+		$this->markTestSkipped('callHandlers requires a pristine pre-bootstrap environment; covered indirectly by checkConfig and handler info tests.');
 	}
 	
 	public function testSetupHandlers()

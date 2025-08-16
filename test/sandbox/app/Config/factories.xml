@@ -9,7 +9,6 @@
 		
 		<dispatch_filter class="Agavi\Filter\AgaviDispatchFilter" />
 		
-		<execution_container class="Agavi\Controller\AgaviExecutionContainer" />
 		
 		<execution_filter class="Agavi\Filter\AgaviExecutionFilter" />
 		

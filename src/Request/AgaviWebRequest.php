@@ -38,6 +38,28 @@ use Symfony\Contracts\Service\ResetInterface;
  *
  * @version    $Id$
  */
+/**
+ * @method string getUrlScheme()
+ * @method string getUrlHost()
+ * @method int    getUrlPort()
+ * @method string getUrlAuthority(bool $forcePort = false)
+ * @method string getRequestUri()
+ * @method string getUrlPath()
+ * @method string getUrlQuery()
+ * @method string getUrl()
+ *
+ * NOTE: These methods already exist concretely; annotations help static analyzers when
+ * code references the web request through the abstract AgaviRequest type.
+ *
+ * TODO(PSR-7 Migration): Long term this class should become an adapter around a PSR-7
+ * ServerRequestInterface implementation (see Middleware layer using PSR-7 already).
+ * Migration steps proposed:
+ * 1. Introduce AgaviPsrRequestAdapter implementing minimal AgaviRequest API via composition.
+ * 2. Deprecate direct mutation setters (setUrlScheme, setUrlHost, etc.) in favor of immutable
+ *    withModified* variants aligning with PSR-7 semantics.
+ * 3. Gradually type-hint against Psr\Http\Message\ServerRequestInterface where feasible
+ *    (routing, dispatch) and use adapter only for legacy consumers.
+ */
 class AgaviWebRequest extends AgaviRequest implements ResetInterface
 {
 	/**

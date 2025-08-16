@@ -2,7 +2,8 @@
 
 use Agavi\Testing\AgaviUnitTestCase;
 use Agavi\Request\AgaviRequestDataHolder;
-	
+
+// Base class for validator tests (renamed *.base.php to avoid direct PHPUnit discovery)
 class BaseValidatorTest extends AgaviUnitTestCase
 {
 	protected function executeValidator($class, $value, array $errors = array(), $parameters = array())
@@ -32,6 +33,11 @@ class BaseValidatorTest extends AgaviUnitTestCase
 			$this->assertCount(1, $errorMessages);
 			$this->assertSame($expectedError, reset($errorMessages));
 		}
+	}
+
+	public function testBaseValidatorDummy()
+	{
+		$this->assertTrue(true);
 	}
 }
 

@@ -3,7 +3,7 @@
 use Agavi\Validator\AgaviJsonValidator;
 use Agavi\Validator\AgaviValidator;
 
-require_once(__DIR__ . '/BaseValidatorTest.php');
+require_once(__DIR__ . '/BaseValidatorTest.base.php');
 
 class AgaviJsonValidatorTest extends BaseValidatorTest
 {

@@ -2,7 +2,8 @@
 namespace Agavi\Runtime;
 
 use Agavi\AgaviContext;
-use Agavi\Middleware\MiddlewareDispatcher;
+use Agavi\Middleware\MiddlewarePipeline;
+use Agavi\Middleware\ErrorHandlingMiddleware;
 use Agavi\Middleware\ExecutionTimeMiddleware;
 use Agavi\Middleware\RoutingMiddleware;
 use Agavi\Middleware\SecurityMiddleware;
@@ -34,15 +35,20 @@ class PsrPipelineBuilder
         return new PsrServerRequestAdapter($legacyReqTyped, $uri, $_SERVER['REQUEST_METHOD'] ?? 'GET', $body, $_SERVER, $headers, $_COOKIE, $_GET, $_POST, []);
     }
 
-    public function buildDispatcher(RequestHandlerInterface $finalHandler): MiddlewareDispatcher
+    public function buildDispatcher(RequestHandlerInterface $finalHandler): RequestHandlerInterface
     {
-        $dispatcher = new MiddlewareDispatcher($finalHandler);
-        $dispatcher->add(new ExecutionTimeMiddleware());
-        $dispatcher->add(new RoutingMiddleware($this->context->getRouting(), $this->context->getController()));
-        $dispatcher->add(new SecurityMiddleware($this->context->getController()));
-        $dispatcher->add(new DispatchMiddleware($this->context->getController()));
-        $dispatcher->add(new AssetAggregationMiddleware());
-        return $dispatcher;
+        $pipeline = new MiddlewarePipeline($finalHandler);
+        // Ordering: routing -> security -> dispatch -> assets -> timing (finalize)
+        $pipeline->add('RoutingMiddleware', new RoutingMiddleware($this->context->getRouting(), $this->context->getController()), 'routing');
+        $pipeline->add('SecurityMiddleware', new SecurityMiddleware($this->context->getController()), 'before_action');
+        $pipeline->add('DispatchMiddleware', new DispatchMiddleware($this->context->getController()), 'action');
+        $pipeline->add('AssetAggregationMiddleware', new AssetAggregationMiddleware(), 'post');
+        $pipeline->add('ExecutionTimeMiddleware', new ExecutionTimeMiddleware(), 'finalize', -10);
+        $handler = $pipeline->build();
+        return new class(new ErrorHandlingMiddleware(), $handler) implements RequestHandlerInterface {
+            public function __construct(private ErrorHandlingMiddleware $err, private RequestHandlerInterface $next) {}
+            public function handle(ServerRequestInterface $request): ResponseInterface { return $this->err->process($request, $this->next); }
+        };
     }
 
     public function defaultFinalHandler(): RequestHandlerInterface

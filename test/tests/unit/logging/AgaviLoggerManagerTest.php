@@ -21,12 +21,19 @@ class AgaviLoggerManagerTest extends AgaviUnitTestCase
 
 	public function setUp(): void
 	{
+		// Ensure framework bootstrap occurs when running this test in isolation.
+		parent::setUp();
 		$this->_context = $this->getContext();
 		$this->_lm = $this->_context->getLoggerManager();
-		$this->_logfile = tempnam('','logtest');
+		// Use tempnam to obtain unique paths, then remove if present to start with a clean slate.
+		$this->_logfile = tempnam('', 'logtest');
 		$this->_logfile2 = tempnam('', 'logtest2');
-		@unlink($this->_logfile);
-		@unlink($this->_logfile2);
+		if (is_file($this->_logfile)) {
+			unlink($this->_logfile);
+		}
+		if (is_file($this->_logfile2)) {
+			unlink($this->_logfile2);
+		}
 		$this->_pl = new AgaviPassthruLoggerLayout;
 		$this->_fa = new AgaviFileLoggerAppender;
 		$this->_fa->initialize($this->_context, array('file' => $this->_logfile));
@@ -45,10 +52,15 @@ class AgaviLoggerManagerTest extends AgaviUnitTestCase
 	public function tearDown(): void
 	{
 		$this->_lm->shutdown();
-		@unlink($this->_logfile);
-		@unlink($this->_logfile2);
+		if (is_file($this->_logfile)) {
+			unlink($this->_logfile);
+		}
+		if (is_file($this->_logfile2)) {
+			unlink($this->_logfile2);
+		}
 		$this->_lm = null;
 		$this->_context = null;
+		parent::tearDown();
 	}
 
 	public function testGetLoggerNames()

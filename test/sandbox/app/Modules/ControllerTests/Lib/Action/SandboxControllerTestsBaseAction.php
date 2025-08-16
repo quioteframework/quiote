@@ -1,5 +1,5 @@
 <?php
-namespace Sandbox\Modules\ControllerTests\Lib\Actions;
+namespace Sandbox\Modules\ControllerTests\Lib\Action;
 
 use Sandbox\Lib\Action\SandboxBaseAction;
 

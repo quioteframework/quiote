@@ -8,9 +8,9 @@ class LoginSuccessView extends SandboxDefaultBaseView
 {
 	public function executeHtml(AgaviRequestDataHolder $rd)
 	{
-		$this->setupHtml($rd);
-
+		// Skip layout for container-less system forward path: inline marker content only.
 		$this->setAttribute('title', 'Login');
+		return '<div>LOGIN_REQUIRED</div>';
 	}
 }
 

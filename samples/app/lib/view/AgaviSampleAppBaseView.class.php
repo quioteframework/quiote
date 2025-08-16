@@ -1,5 +1,10 @@
 <?php
 
+use Agavi\View\AgaviView;
+use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Exception\AgaviViewException;
+use Agavi\Execution\ActionInitContext;
+
 class AgaviSampleAppBaseView extends AgaviView
 {
 	/*
@@ -46,7 +51,8 @@ class AgaviSampleAppBaseView extends AgaviView
 	 */
 	protected $us;
 	
-	public function initialize(AgaviExecutionContainer $container)
+	// Updated signature to match parent AgaviView which now expects ActionInitContext
+	public function initialize(ActionInitContext $container)
 	{
 		parent::initialize($container);
 		

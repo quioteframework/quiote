@@ -18,7 +18,20 @@ class AgaviActionTest extends AgaviUnitTestCase
 	public function setUp(): void
 	{
 		$this->_action = new SampleAction();
-		$this->_action->initialize($this->getContext()->getController()->createExecutionContainer('Foo', 'Bar'));
+		// Initialize action with lightweight initialization context (descriptor-less)
+		$controller = $this->getContext()->getController();
+		// Use synthetic descriptor (module/action need not exist for initialization tests)
+		$descriptor = new \Agavi\Execution\ActionDescriptor('Foo','Bar','GET','html', false);
+		$lw = new \Agavi\Execution\LightweightActionInitContext(
+			$this->getContext(),
+			$descriptor->module,
+			$descriptor->action,
+			$descriptor->method,
+			$descriptor->outputType,
+			new AgaviRequestDataHolder(),
+			$controller->getGlobalResponse()
+		);
+		$this->_action->initialize($lw);
 	}
 
 	public function tearDown(): void

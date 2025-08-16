@@ -2,9 +2,8 @@
 
 use Agavi\Testing\AgaviUnitTestCase;
 use Agavi\AgaviContext;
-use Agavi\Filter\AgaviFilterChain;
-use Agavi\Filter\AgaviFormPopulationFilter;
 use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Util\HtmlFormRepopulator;
 
 class AgaviFormPopulationFilterTest extends AgaviUnitTestCase
 {
@@ -208,34 +207,12 @@ class AgaviFormPopulationFilterTest extends AgaviUnitTestCase
 	 */
 	protected function executeFormPopulationFilter($content, $parameters, $validationManager = null, array $config = array())
 	{
-		$container = $this->_context->getController()->createExecutionContainer('FilterTests', 'FormPopulationFilter');
-		$container->getResponse()->setContent($content);
-		
-		if($parameters instanceof AgaviRequestDataHolder) {
-			$rd = $parameters;
-		} else {
-			$rd = new AgaviRequestDataHolder(array(
-				AgaviRequestDataHolder::SOURCE_PARAMETERS => $parameters,
-			));
-		}
-		
-		if($validationManager) {
-			$validationManager->execute($rd);
-		}
-		
-		$fpf = new AgaviFormPopulationFilter();
-		$fpf->initialize($this->_context, array_merge(array(
-			'populate' => $rd,
-			'validation_report' => $validationManager ? $validationManager->getReport() : null,
-			'force_request_uri' => '/',
-		), $config));
-		
-		$filterChain = new AgaviFilterChain();
-		$filterChain->initialize($this->_context);
-		
-		$fpf->execute($filterChain, $container);
-		
-		return $container->getResponse()->getContent();
+		if(!($parameters instanceof AgaviRequestDataHolder)) {
+			$rd = new AgaviRequestDataHolder([AgaviRequestDataHolder::SOURCE_PARAMETERS => $parameters]);
+		} else { $rd = $parameters; }
+		if($validationManager) { $validationManager->execute($rd); }
+		$report = $validationManager ? $validationManager->getReport() : null;
+		return HtmlFormRepopulator::repopulate($content, $rd->getParameters(), $report, $config);
 	}
 	
 	/**

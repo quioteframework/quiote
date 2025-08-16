@@ -4,7 +4,6 @@ use Agavi\Config\AgaviConfig;
 use Agavi\Config\AgaviFilterConfigHandler;
 use Agavi\Filter\AgaviIFilter;
 use Agavi\Filter\AgaviFilterChain;
-use Agavi\Controller\AgaviExecutionContainer;
 use Agavi\AgaviContext;
 
 require_once(__DIR__ . '/ConfigHandlerTestBase.php');
@@ -20,8 +19,8 @@ class FCHTestFilter1 implements AgaviIFilter
 		$this->params = $params;
 	}
 
-	public function executeOnce(AgaviFilterChain $filterChain, AgaviExecutionContainer $container) {}
-	public function execute(AgaviFilterChain $filterChain, AgaviExecutionContainer $container) {}
+	public function executeOnce(AgaviFilterChain $filterChain, $container) {}
+	public function execute(AgaviFilterChain $filterChain, $container) {}
 	public final function getContext() {}
 }
 

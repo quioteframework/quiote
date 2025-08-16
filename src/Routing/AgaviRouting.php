@@ -20,6 +20,7 @@ use Agavi\Config\AgaviConfigCache;
 use Agavi\Config\AgaviAPCuConfigCache;
 use Agavi\Exception\AgaviException;
 use Agavi\Response\AgaviResponse;
+use Agavi\Routing\RoutingResult;
 use Agavi\Util\AgaviArrayPathDefinition;
 use Agavi\Util\AgaviParameterHolder;
 use Agavi\Util\AgaviToolkit;
@@ -1133,74 +1134,30 @@ abstract class AgaviRouting extends AgaviParameterHolder implements ResetInterfa
 	}
 
 	/**
-	 * Matches the input against the routing info and sets the info as request
-	 * parameter.
-	 *
-	 * @return     mixed An AgaviExecutionContainer as a result of this execution,
-	 *                   or an AgaviResponse if a callback returned one.
-	 *
-	 * @author     Dominik del Bondio <ddb@bitxtender.com>
-	 * @since      0.11.0
+	 * Container-less execute: resolve matching route -> attach ActionDescriptor info.
+	 * Returns array [module, action, output_type, method, vars, matched_routes] or AgaviResponse for callback shortcuts.
 	 */
 	public function execute()
 	{
 		$rq = $this->context->getRequest();
 		$logger = $this->context?->getLoggerManager()?->getLogger();
-		
-		// Handle case where request is not set (e.g., in tests)
-		if($rq === null) {
-			// Return an empty execution container for tests
-			return $this->context->getController()->createExecutionContainer();
-		}
-
+		if($rq === null) { return null; }
 		$rd = $rq->getRequestData();
-
 		$tm = $this->context->getTranslationManager();
-		
-		$container = $this->context->getController()->createExecutionContainer();
-
-			$logger?->debug('routing.execute start');
-			$logger?->debug('routing.execute container.output_type=' . $container->getOutputType()->getName());
-			$logger?->debug('routing.execute request.method=' . $rq->getMethod());
-			$logger?->debug('routing.execute request.uri=' . $rq->getRequestUri());
-		if(isset($_SERVER['HTTP_ACCEPT'])) {
-			$logger?->debug('routing.execute http_accept=' . $_SERVER['HTTP_ACCEPT']);
-		}
-		if(isset($_SERVER['CONTENT_TYPE'])) {
-			$logger?->debug('routing.execute content_type=' . $_SERVER['CONTENT_TYPE']);
-		}
-
-		if(!$this->isEnabled()) {
-			$logger?->debug('routing.execute disabled; using existing container output_type=' . $container->getOutputType()->getName());
-			return $container;
-		}
-
+		$uri = $_SERVER['REQUEST_URI'] ?? ($rq->getParameter('request_uri_raw') ?? '');
+		$logger?->debug('routing.execute start (no-container) method=' . $rq->getMethod() . ' uri=' . $uri);
+		if(!$this->isEnabled()) { return null; }
 		$matchedRoutes = [];
-
 		$input = $this->input;
-
 		$vars = [];
-		$ot = null;
-		$locale = null;
-		$method = null;
-		
 		$umap = $rq->getParameter('use_module_action_parameters');
 		$ma = $rq->getParameter('module_accessor');
 		$aa = $rq->getParameter('action_accessor');
-		
 		$requestMethod = $rq->getMethod();
-
 		$routes = [];
-		// get all top level routes
-		foreach($this->routes as $name => $route) {
-			if(!$route['opt']['parent']) {
-				$routes[] = $name;
-			}
-		}
-
-		// prepare the working stack with the root routes
+		foreach($this->routes as $name => $route) { if(!$route['opt']['parent']) { $routes[] = $name; } }
 		$routeStack = [$routes];
-
+		$module = null; $action = null; $outputType = null; $foundMethod = null;
 		do {
 			$routes = array_pop($routeStack);
 			foreach($routes as $key) {
@@ -1208,352 +1165,74 @@ abstract class AgaviRouting extends AgaviParameterHolder implements ResetInterfa
 				$opts =& $route['opt'];
 				if(count($opts['constraint']) == 0 || in_array($requestMethod, $opts['constraint'])) {
 					if(count($opts['callbacks']) > 0 && !isset($route['callback_instances'])) {
-						foreach($opts['callbacks'] as $key => $callback) {
+						foreach($opts['callbacks'] as $ck => $callback) {
 							$instance = new $callback['class']();
 							$instance->initialize($this->context, $route);
 							$instance->setParameters($callback['parameters']);
-							$route['callback_instances'][$key] = $instance;
+							$route['callback_instances'][$ck] = $instance;
 						}
 					}
-
 					$match = [];
-					$logger?->debug("routing.execute checking route='".$opts['name']."' pattern='".($route['opt']['pattern'] ?? "")."' input='$input'");
 					if($this->parseInput($route, $input, $match)) {
-						$logger?->debug('routing.execute route_matched=' . $opts['name']);
-						
-						$varsBackup = $vars;
-						
-						// backup the container, must be done here already
-						if(count($opts['callbacks']) > 0) {
-							$containerBackup = $container;
-							$container = clone $container;
-						}
-						
-						$ign = [];
-						if(count($opts['ignores']) > 0) {
-							$ign = array_flip($opts['ignores']);
-						}
-
-						foreach($opts['defaults'] as $key => $value) {
-							if(!isset($ign[$key]) && $value->getValue() !== null) {
-								$vars[$key] = $value->getValue();
-							}
-						}
-
-						foreach($route['par'] as $param) {
-							if(isset($match[$param]) && $match[$param][1] != -1) {
-								$vars[$param] = $match[$param][0];
-							}
-						}
-
-						foreach($match as $name => $m) {
-							if(is_string($name) && $m[1] != -1) {
-								$route['matches'][$name] = $m[0];
-							}
-						}
-
-						// /* ! Only use the parameters from this route for expandVariables !
-						// matches are arrays with value and offset due to PREG_OFFSET_CAPTURE, and we want index 0, the value, which reset() will give us. Long story short, this removes the offset from the individual match
-						//$matchvals = array_map('reset', $match);
-						$matchvals = array_column($match, 0);
-						// */
-						/* ! Use the parameters from ALL routes for expandVariables !
-						$matchvals = $vars;
-						// ignores need of the current route need to be added
-						$foreach($opts['ignores'] as $ignore) {
-							if(isset($match[$ignore]) && $match[$ignore][1] != -1) {
-								$matchvals[$ignore] = $match[$ignore][0];
-							}
-						}
-						// */
-
-						if($opts['module']) {
-							$module = AgaviToolkit::expandVariables($opts['module'], $matchvals);
-							$container->setModuleName($module);
-							if($umap) {
-								$vars[$ma] = $module;
-							}
-						}
-
-						if($opts['action']) {
-							$action = AgaviToolkit::expandVariables($opts['action'], $matchvals);
-							$container->setActionName($action);
-							if($umap) {
-								$vars[$aa] = $action;
-							}
-						}
-
-						if($opts['output_type']) {
-							// set the output type if necessary
-							// here no explicit check is done, since in 0.11 this is compared against null
-							// which can never be the result of expandVariables
-							$ot = AgaviToolkit::expandVariables($opts['output_type'], $matchvals);
-							$logger?->debug('routing.execute set_output_type route=' . $opts['name'] . ' value=' . $ot . ' before=' . $container->getOutputType()->getName());
-							
-							// we need to wrap in try/catch here (but not further down after the callbacks have run) for BC
-							// and because it makes sense - maybe a callback checks or changes the output type name
-							try {
-								$container->setOutputType($this->context->getController()->getOutputType($ot));
-								$logger?->debug('routing.execute output_type_after=' . $container->getOutputType()->getName());
-							} catch(AgaviException $e) {
-								$logger?->error("routing.execute failed_set_output_type value='$ot' error=".$e->getMessage());
-							}
-						}
-
-						if($opts['locale']) {
-							$localeBackup = $tm->getCurrentLocaleIdentifier();
-							
-							// set the locale if necessary
-							if($locale = AgaviToolkit::expandVariables($opts['locale'], $matchvals)) {
-								// the if is here for bc reasons, since if $opts['locale'] only contains variable parts
-								// expandVariables could possibly return an empty string in which case the pre 1.0 routing
-								// didn't set the variable
-								
-								// we need to wrap in try/catch here (but not further down after the callbacks have run) for BC
-								// and because it makes sense - maybe a callback checks or changes the locale name
-								try {
-									$tm->setLocale($locale);
-								} catch(AgaviException) {
-								}
-							}
-						} else {
-							// unset it explicitly, so that further down, the isset() check doesn't set back a value from a previous iteration!
-							$localeBackup = null;
-						}
-
-						if($opts['method']) {
-							// set the request method if necessary
-							if($method = AgaviToolkit::expandVariables($opts['method'], $matchvals)) {
-								// the if is here for bc reasons, since if $opts['method'] only contains variable parts
-								// expandVariables could possibly return an empty string in which case the pre 1.0 routing
-								// didn't set the variable
-								$rq->setMethod($method);
-								// and on the already created container, too!
-								$container->setRequestMethod($method);
-							}
-						}
-
-						if(count($opts['callbacks']) > 0) {
-							if(count($opts['ignores']) > 0) {
-								// add ignored variables to the callback vars
-								foreach($vars as $name => &$var) {
-									$vars[$name] =& $var;
-								}
-								foreach($opts['ignores'] as $ignore) {
-									if(isset($match[$ignore]) && $match[$ignore][1] != -1) {
-										$vars[$ignore] = $match[$ignore][0];
-									}
-								}
-							}
-							$callbackSuccess = true;
-							foreach($route['callback_instances'] as $callbackInstance) {
-								// call onMatched on all callbacks until one of them returns false
-								// then restore state and call onNotMatched on that same callback
-								// after that, call onNotMatched for all remaining callbacks of that route
-								if($callbackSuccess) {
-									// backup stuff which could be changed in the callback so we are 
-									// able to determine which values were changed in the callback
-									$oldModule = $container->getModuleName();
-									$oldAction = $container->getActionName();
-									$oldOutputTypeName = $container->getOutputType() ? $container->getOutputType()->getName() : null;
-									if(null === $tm) {
-										$oldLocale = null;
-									} else {
-										$oldLocale = $tm->getCurrentLocaleIdentifier();
-									}
-									$oldRequestMethod = $rq->getMethod();
-									$oldContainerMethod = $container->getRequestMethod();
-
-									$onMatched = $callbackInstance->onMatched($vars, $container);
-									if($onMatched instanceof AgaviResponse) {
-										return $onMatched;
-									}
-									if(!$onMatched) {
-										$callbackSuccess = false;
-										
-										// reset the matches array. it must be populated by the time onMatched() is called so matches can be modified in a callback
-										$route['matches'] = [];
-										// restore the variables from the variables which were set before this route matched
-										$vars = $varsBackup;
-										// reset all relevant container data we already set in the container for this (now non matching) route
-										$container = $containerBackup;
-										// restore locale
-										if(isset($localeBackup)) {
-											$tm->setLocale($localeBackup);
-										}
-										// restore request method
-										$rq->setMethod($container->getRequestMethod());
-									}
-								}
-								
-								// always call onNotMatched if $callbackSuccess == false, even if we just called onMatched() on the same instance. this is expected behavior
-								if(!$callbackSuccess) {
-									$onNotMatched = $callbackInstance->onNotMatched($container);
-									if($onNotMatched instanceof AgaviResponse) {
-										return $onNotMatched;
-									}
-									
-									// continue with the next callback
-									continue;
-								}
-								
-								// /* ! Only use the parameters from this route for expandVariables !
-								$expandVars = $vars;
-								$routeParamsAsKey = array_flip($route['par']);
-								// only use parameters which are defined in this route or are new
-								foreach($expandVars as $name => $value) {
-									if(!isset($routeParamsAsKey[$name]) && array_key_exists($name, $varsBackup)) {
-										unset($expandVars[$name]);
-									}
-								} 
-								// */
-								/* ! Use the parameters from ALL routes for expandVariables !
-								$expandVars = $vars;
-								// */
-								
-								
-								// if the callback didn't change the value, execute expandVariables again since 
-								// the callback could have changed one of the values which expandVariables uses
-								// to evaluate the contents of the attribute in question (e.g. module="${zomg}")
-								if($opts['module'] && $oldModule == $container->getModuleName() && (!$umap || !array_key_exists($ma, $vars) || $oldModule == $vars[$ma])) {
-									$module = AgaviToolkit::expandVariables($opts['module'], $expandVars);
-									$container->setModuleName($module);
-									if($umap) {
-										$vars[$ma] = $module;
-									}
-								}
-								if($opts['action'] && $oldAction == $container->getActionName() && (!$umap || !array_key_exists($aa, $vars) || $oldAction == $vars[$aa])) {
-									$action = AgaviToolkit::expandVariables($opts['action'], $expandVars);
-									$container->setActionName($action);
-									if($umap) {
-										$vars[$aa] = $action;
-									}
-								}
-								if($opts['output_type'] && $oldOutputTypeName == ($container->getOutputType() ? $container->getOutputType()->getName() : null)) {
-									$ot = AgaviToolkit::expandVariables($opts['output_type'], $expandVars);
-									$logger?->debug('routing.execute post_callback set_output_type=' . $ot);
-									$container->setOutputType($this->context->getController()->getOutputType($ot));
-									$logger?->debug('routing.execute post_callback container_output_type=' . $container->getOutputType()->getName());
-								}
-								if($opts['locale'] && $oldLocale == $tm->getCurrentLocaleIdentifier()) {
-									if($locale = AgaviToolkit::expandVariables($opts['locale'], $expandVars)) {
-										// see above for the reason of the if
-										$tm->setLocale($locale);
-									}
-								}
-								if($opts['method']) {
-									if($oldRequestMethod == $rq->getMethod() && $oldContainerMethod == $container->getRequestMethod()) {
-										if($method = AgaviToolkit::expandVariables($opts['method'], $expandVars)) {
-											// see above for the reason of the if
-											$rq->setMethod($method);
-											$container->setRequestMethod($method);
-										}
-									} elseif($oldContainerMethod != $container->getRequestMethod()) {
-										// copy the request method to the request (a method set on the container 
-										// in a callback always has precedence over request methods set on the request)
-										$rq->setMethod($container->getRequestMethod());
-									} elseif($oldRequestMethod != $rq->getMethod()) {
-										// copy the request method to the container
-										$container->setRequestMethod($rq->getMethod());
-									}
-								}
-								
-								// one last thing we need to do: see if one of the callbacks modified the 'action' or 'module' vars inside $vars if $umap is on
-								// we then need to write those back to the container, unless they changed THERE, too, in which case the container values take precedence
-								if($umap && $oldModule == $container->getModuleName() && array_key_exists($ma, $vars) && $vars[$ma] != $oldModule) {
-									$container->setModuleName($vars[$ma]);
-								}
-								if($umap && $oldAction == $container->getActionName() && array_key_exists($aa, $vars) && $vars[$aa] != $oldAction) {
-									$container->setActionName($vars[$aa]);
-								}
-							}
-							if(!$callbackSuccess) {
-								// jump straight to the next route
-								continue;
-							} else {
-								// We added the ignores to the route variables so the callback receives them, so restore them from vars backup.
-								// Restoring them from the backup is necessary since otherwise a value which has been set before this route
-								// and which was ignored in this route would take the ignored value instead of keeping the old one.
-								// And variables which have not been set in an earlier routes need to be removed again
-								foreach($opts['ignores'] as $ignore) {
-									if(array_key_exists($ignore, $varsBackup)) {
-										$vars[$ignore] = $varsBackup[$ignore];
-									} else {
-										unset($vars[$ignore]);
-									}
-								}
-							}
-						}
-
 						$matchedRoutes[] = $opts['name'];
-
-						if($opts['cut'] || (count($opts['childs']) && $opts['cut'] === null)) {
-							if($route['opt']['source'] !== null) {
-								$s =& $this->sources[$route['opt']['source']];
-							} else {
-								$s =& $input;
-							}
-
-							$ni = '';
-							// if the route didn't match from the start of the input preserve the 'prefix'
-							if($match[0][1] > 0) {
-								$ni = substr((string) $s, 0, $match[0][1]);
-							}
-							$ni .= substr((string) $s, $match[0][1] + strlen((string) $match[0][0]));
-							
-							$logger?->debug("routing.execute cut route='".$opts['name']."' from='".$s."' to='".$ni."'");
-							$s = $ni;
-							$logger?->debug("routing.execute cut new_input='".$input."'");
-						}
-
-						if(count($opts['childs'])) {
-							// our childs need to be processed next and stop processing 'afterwards'
-							$routeStack[] = $opts['childs'];
-							break;
-						}
-
-						if($opts['stop']) {
-							break;
-						}
-
-					} else {
+						$ign = count($opts['ignores']) ? array_flip($opts['ignores']) : [];
+						foreach($opts['defaults'] as $dk => $dv) { if(!isset($ign[$dk]) && $dv->getValue() !== null) { $vars[$dk] = $dv->getValue(); } }
+						foreach($route['par'] as $param) { if(isset($match[$param]) && $match[$param][1] != -1) { $vars[$param] = $match[$param][0]; } }
+						// Build both positional and named variable maps for expansion
+						$matchvals = [];
+						foreach($match as $mk => $mv) { $matchvals[$mk] = $mv[0]; $matchvals[] = $mv[0]; }
+						if($opts['module']) { $module = AgaviToolkit::expandVariables($opts['module'], $matchvals); if($umap) { $vars[$ma] = $module; } }
+						if($opts['action']) { $action = AgaviToolkit::expandVariables($opts['action'], $matchvals); if($umap) { $vars[$aa] = $action; } }
+						if($opts['output_type']) { try { $outputType = AgaviToolkit::expandVariables($opts['output_type'], $matchvals); } catch(\Throwable) {} }
+						if($opts['locale']) { try { $loc = AgaviToolkit::expandVariables($opts['locale'], $matchvals); if($loc) { $tm->setLocale($loc); } } catch(\Throwable) {} }
+						if($opts['method']) { try { $m = AgaviToolkit::expandVariables($opts['method'], $matchvals); if($m) { $rq->setMethod($m); $foundMethod = $m; } } catch(\Throwable) {} }
 						if(count($opts['callbacks']) > 0) {
-							foreach($route['callback_instances'] as $callbackInstance) {
-								$onNotMatched = $callbackInstance->onNotMatched($container);
-								if($onNotMatched instanceof AgaviResponse) {
-									return $onNotMatched;
+							$callbackSuccess = true;
+							foreach($route['callback_instances'] as $cbInst) {
+								if($callbackSuccess) {
+									$onMatched = $cbInst->onMatched($vars, null); // container removed
+									if($onMatched instanceof \Agavi\Response\AgaviResponse) { return $onMatched; }
+									if(!$onMatched) { $callbackSuccess = false; continue; }
+								} else {
+									$onNotMatched = $cbInst->onNotMatched(null);
+									if($onNotMatched instanceof \Agavi\Response\AgaviResponse) { return $onNotMatched; }
 								}
 							}
+							if(!$callbackSuccess) { continue; }
 						}
+						if(count($opts['childs'])) { $routeStack[] = $opts['childs']; }
+						if($opts['stop']) { break 2; }
 					}
 				}
 			}
-		} while(count($routeStack) > 0);
-
-		// put the vars into the request
-		$rd->setParameters($vars);
-
-		if($container->getModuleName() === null || $container->getActionName() === null) {
-			// no route which supplied the required parameters matched, use 404 action
-			$container->setModuleName(AgaviConfig::get('actions.error_404_module'));
-			$container->setActionName(AgaviConfig::get('actions.error_404_action'));
-			
-			if($umap) {
-				$rd->setParameters([
-					$ma => $container->getModuleName(),
-					$aa => $container->getActionName(),
-				]);
+		} while(count($routeStack));
+		// Append implied non-stopping routes of last matched route (legacy implied semantics)
+		if($matchedRoutes) {
+			$last = end($matchedRoutes);
+			if(isset($this->routes[$last])) {
+				$nostops = $this->routes[$last]['opt']['nostops'] ?? [];
+				foreach($nostops as $ns) {
+					if(isset($this->routes[$ns]) && $this->routes[$ns]['opt']['imply'] && !in_array($ns,$matchedRoutes,true)) {
+						$matchedRoutes[] = $ns;
+					}
+				}
 			}
 		}
-
-		// set the list of matched route names as a request attribute
-		$rq->setAttribute('matched_routes', $matchedRoutes, 'org.agavi.routing');
-
-		$logger?->debug('routing.execute final_output_type=' . $container->getOutputType()->getName());
-		$logger?->debug('routing.execute matched_routes=' . implode(',', $matchedRoutes));
-
-		// return a list of matched route names
-		return $container;
+		foreach($vars as $k=>$v) { $rd->setParameter($k,$v); }
+		if($matchedRoutes) { $rq->setAttribute('matched_routes',$matchedRoutes,'org.agavi.routing'); }
+		if(!$module || !$action) {
+			// If nothing matched treat as 404 rather than default action when routing enabled
+			if(!$matchedRoutes) {
+				$module = AgaviConfig::get('actions.error_404_module', AgaviConfig::get('actions.default_module'));
+				$action = AgaviConfig::get('actions.error_404_action', AgaviConfig::get('actions.default_action'));
+			} else {
+				$module = $module ?? AgaviConfig::get('actions.default_module');
+				$action = $action ?? AgaviConfig::get('actions.default_action');
+			}
+		}
+		if(!$outputType) { $outputType = $this->context->getController()->getOutputType()->getName(); }
+		$method = $foundMethod ?? $rq->getMethod();
+		return new RoutingResult($module, $action, $outputType, $method, $vars, $matchedRoutes);
 	}
 
 	/**

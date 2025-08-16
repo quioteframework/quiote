@@ -18,15 +18,20 @@ namespace Agavi\Controller;
  * A container used for each action execution that holds necessary information,
  * such as the output type, the response etc.
  *
+ * DEPRECATION: This class is being phased out in favor of the container-less
+ * execution pipeline (ActionExecutionContext + ExecutionState). See
+ * TODO_CONTAINER_REMOVAL.md for the multi-phase removal plan. Instantiation
+ * under consolidated no-container flags emits a deprecation warning.
+ *
+ * @deprecated Will be removed after the AGAVI_NO_CONTAINER_ALL flag graduates
+ *             (target: next minor release after full parity & cache refactor).
+ *
  * @package    agavi
  * @subpackage controller
- *
  * @author     David Zülke <dz@bitxtender.com>
  * @copyright  Authors
  * @copyright  The Agavi Project
- *
  * @since      0.11.0
- *
  * @version    $Id$
  */
 use Agavi\Util\AgaviAttributeHolder;
@@ -49,6 +54,32 @@ use Symfony\Contracts\Service\ResetInterface;
 use \Exception;
 class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInterface
 {
+	/**
+	 * Emit a deprecation warning when instantiated while the global no-container
+	 * execution mode is effectively enabled. This occurs when either:
+	 *  - AGAVI_NO_CONTAINER_ALL=1 (explicit global bypass), or
+	 *  - Both dispatch context flags (simple + non-simple) AND all slot no-container
+	 *    flags are enabled, making the container unnecessary for runtime execution.
+	 *
+	 * The warning is suppressed in test processes unless the env
+	 * AGAVI_CONTAINER_DEPRECATION_STRICT=1 is set to reduce noise; tests can enable
+	 * strict mode to assert the warning via expectDeprecation().
+	 */
+	public function __construct()
+	{
+		$noContainerAll = getenv('AGAVI_NO_CONTAINER_ALL');
+		$dcSimple = getenv('AGAVI_DISPATCH_CONTEXT_SIMPLE');
+		$dcNonSimple = getenv('AGAVI_DISPATCH_CONTEXT_NONSIMPLE');
+		$slotSimple = getenv('AGAVI_SLOT_SIMPLE_NO_CONTAINER');
+		$slotAll = getenv('AGAVI_SLOT_NO_CONTAINER_ALL');
+		$strict = getenv('AGAVI_CONTAINER_DEPRECATION_STRICT');
+		$effectiveBypass = ($noContainerAll)
+			|| (($dcSimple && $dcNonSimple) && ($slotSimple || $slotAll));
+		if($effectiveBypass && ($strict || PHP_SAPI !== 'cli')) { // default suppress in CLI tests unless strict
+			\Agavi\Util\DeprecationSilencer::triggerOnce('AgaviExecutionContainer is deprecated under no-container execution mode and will be removed in a future release.');
+		}
+		parent::__construct();
+	}
 
 	/**
 	 * @var string The context name
@@ -120,6 +151,16 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 	 * @var        AgaviView The View instance that belongs to this container.
 	 */
 	protected $viewInstance = null;
+
+	/**
+	 * Whether validation has already been performed for this container (early validation middleware).
+	 */
+	protected bool $validationPerformed = false;
+
+	/**
+	 * Result of validation when performed.
+	 */
+	protected bool $validationSucceeded = true;
 
 	/**
 	 * @var        string The name of the Action's Module.
@@ -372,8 +413,12 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 	 * @author       Felix Gilcher <felix.gilcher@bitextender.com>
 	 * @since        1.1.0
 	 */
-	protected function initRequestData()
+	public function initRequestData()
 	{
+		// Idempotent: only initialize once
+		if($this->requestData !== null) {
+			return;
+		}
 		if($this->getActionInstance()->isSimple()) {
 			if($this->arguments !== null) {
 				// clone it so mutating it has no effect on the "outside world"
@@ -391,6 +436,18 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 			}
 		}
 	}
+
+	/**
+	 * Backwards compatible alias.
+	 */
+	public function ensureRequestDataInitialized(): void
+	{
+		$this->initRequestData();
+	}
+
+	public function hasValidationPerformed(): bool { return $this->validationPerformed; }
+	public function wasValidationSuccessful(): bool { return $this->validationSucceeded; }
+	public function setValidationState(bool $performed, bool $succeeded): void { $this->validationPerformed = $performed; $this->validationSucceeded = $succeeded; }
 	
 	/**
 	 * Create a system forward container
@@ -524,14 +581,15 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 	 */
 	public function runAction()
 	{
-		$viewName = null;
+	$viewName = null;
 
 		$controller = $this->context->getController();
 		$request = $this->context->getRequest();
 		$validationManager = $this->getValidationManager();
 
 		// get the current action instance
-		$actionInstance = $this->getActionInstance();
+	/** @var \Agavi\Action\AgaviAction $actionInstance */
+	$actionInstance = $this->getActionInstance();
 
 		// get the current action information
 		$moduleName = $this->getModuleName();
@@ -542,12 +600,10 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 
 		$requestData = $this->getRequestData();
 
-		$useGenericMethods = false;
-		$executeMethod = 'execute' . $method;
-		if(!is_callable([$actionInstance, $executeMethod])) {
-			$executeMethod = 'execute';
-			$useGenericMethods = true;
-		}
+	// Use centralized ActionResolver for method selection (preserves legacy semantics)
+	$resolver = $this->context->getActionResolver();
+	$executeMethod = 'execute' . $method;
+	$useGenericMethods = !is_callable([$actionInstance, $executeMethod]);
 
 		if($actionInstance->isSimple() || ($useGenericMethods && !is_callable([$actionInstance, $executeMethod]))) {
 			// this action will skip validation/execution for this method
@@ -562,19 +618,21 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 			}
 			$request->toggleLock($key);
 			
-			// run the validation manager - it's going to take care of cleaning up the request data, and retain "conditional" mode behavior etc.
-			// but only if the action is not simple; otherwise, the (safe) arguments in the request data holder will all be removed
-			if(!$actionInstance->isSimple()) {
-				$validationManager->execute($requestData);
+			// run the validation manager for non-simple actions if not already performed (early middleware may have done it)
+			if(!$actionInstance->isSimple() && !$this->hasValidationPerformed()) {
+				$success = $validationManager->execute($requestData);
+				$this->setValidationState(true, $success);
 			}
 		} else {
-			// Debug: Log request data before validation
-			if($this->performValidation()) {
+			// perform validation unless already done by early middleware
+			$validationOk = $this->hasValidationPerformed() ? $this->wasValidationSuccessful() : $this->performValidation();
+			if($validationOk) {
 				// execute the action
 				// prevent access to Request::getParameters()
 				$key = $request->toggleLock();
 				try {
-					$viewName = $actionInstance->$executeMethod($requestData);
+							/** @var \Agavi\Action\AgaviAction $actionInstance */
+							$viewName = $resolver->execute($actionInstance, $method, $requestData);
 				} catch(Exception $e) {
 					// we caught an exception... unlock the request and rethrow!
 					$request->toggleLock($key);
@@ -589,7 +647,8 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 				}
 				$key = $request->toggleLock();
 				try {
-					$viewName = $actionInstance->$handleErrorMethod($requestData);
+							/** @var \Agavi\Action\AgaviAction $actionInstance */
+							$viewName = $resolver->execute($actionInstance, $handleErrorMethod === 'handleError' ? '' : $method . 'Error', $requestData); // falls back internally
 				} catch(Exception $e) {
 					// we caught an exception... unlock the request and rethrow!
 					$request->toggleLock($key);
@@ -599,27 +658,10 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 			}
 		}
 
-		if(is_array($viewName)) {
-			// we're going to use an entirely different action for this view
-			$viewModule = $viewName[0];
-			$viewName   = $viewName[1];
-		} elseif($viewName !== AgaviView::NONE) {
-			// use a view related to this action
-			$viewName = AgaviToolkit::evaluateModuleDirective(
-				$moduleName,
-				'agavi.view.name',
-				[
-					'actionName' => $actionName,
-					'viewName' => $viewName,
-				]
-			);
-			$viewModule = $moduleName;
-		} else {
-			$viewName = AgaviView::NONE;
-			$viewModule = AgaviView::NONE;
-		}
-
-		return [$viewModule, $viewName === AgaviView::NONE ? AgaviView::NONE : AgaviToolkit::canonicalName($viewName)];
+	// Delegate view resolution to pure ViewNameResolver (legacy facade removed)
+	$viewNameResolver = new \Agavi\Execution\ViewNameResolver();
+	[$viewModule, $canonical] = $viewNameResolver->resolve($moduleName, $actionName, $viewName);
+	return [$viewModule, $canonical];
 	}
 	
 	/**
@@ -654,6 +696,7 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 
 		// process validators
 		$validated = $validationManager->execute($requestData);
+		$this->setValidationState(true, $validated);
 
 		$validateMethod = 'validate' . $method;
 		if(!is_callable([$actionInstance, $validateMethod])) {
@@ -661,7 +704,9 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 		}
 
 		// process manual validation
-		return $actionInstance->$validateMethod($requestData) && $validated;
+		$manual = $actionInstance->$validateMethod($requestData);
+		$this->validationSucceeded = $this->validationSucceeded && $manual;
+		return $this->validationSucceeded;
 	}
 
 	/**

@@ -2,7 +2,6 @@
 
 use Agavi\Config\AgaviConfig;
 use Agavi\Config\AgaviConfigCache;
-use Agavi\Controller\AgaviExecutionContainer;
 use Agavi\Exception\AgaviException;
 use Agavi\Testing\AgaviUnitTestCase;
 use Agavi\Routing\AgaviRouting;
@@ -51,7 +50,7 @@ class TestCallbackLAN extends AgaviRoutingCallback
 }
 class TestCallbackRAN extends AgaviRoutingCallback
 {
-	public function onMatched(array &$parameters, AgaviExecutionContainer $container)
+	public function onMatched(array &$parameters, $legacyContainer = null)
 	{
 		return false;
 	}

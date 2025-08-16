@@ -17,7 +17,6 @@ namespace Agavi\Testing;
 
 use Agavi\Action\AgaviAction;
 use Agavi\AgaviContext;
-use Agavi\Controller\AgaviExecutionContainer;
 use Agavi\Controller\AgaviOutputType;
 use Agavi\Request\AgaviRequestDataHolder;
 use Agavi\Util\AgaviToolkit;
@@ -63,13 +62,13 @@ abstract class AgaviFragmentTestCase extends AgaviPhpUnitTestCase implements Aga
 	protected $validationSuccess;
 	
 	/**
-	 * @var        AgaviExecutionContainer the container to run the action in
+	 * @var        mixed legacy execution container (removed) no longer used
 	 */
 	protected $container;
 
 
 	/**
-	 * creates a new AgaviExecutionContainer for each test
+	 * previously created an execution container per test; now no-op
 	 * 
 	 * @return void
 	 * 
@@ -79,12 +78,13 @@ abstract class AgaviFragmentTestCase extends AgaviPhpUnitTestCase implements Aga
 	public function setUp(): void
 	{
 		parent::setUp();
-		$this->container = $this->createExecutionContainer();
+		// Container removed; keep placeholder for legacy initialization expectations.
+		$this->container = null;
 	}
 	
 	
 	/**
-	 * unsets the AgaviExecutionContainer after each test
+	 * unsets legacy container (no longer applicable)
 	 * 
 	 * @return void
 	 * 
@@ -165,7 +165,7 @@ class %1$s extends \\%2$s
 {
 	protected $validationResult = null;
 	
-	public function executeView(\\Agavi\\Controller\\AgaviExecutionContainer $container)
+	public function executeView($container)
 	{
 		// FIXED: Only call initRequestData if requestData is empty (preserves validator exports)
 		$existingParams = $container->getRequestData() ? $container->getRequestData()->getParameters() : [];
@@ -188,90 +188,18 @@ class %1$s extends \\%2$s
 	}
 
 	/**
-	 * create an AgaviExecutionContainer for the test
+	 * legacy: create a container for the test (removed)
 	 * 
-	 * the configured AgaviExecutionContainer class will be wrapped in a testing
+	 * legacy container class reference removed
 	 * extension to provide advanced capabilities required for testing 
 	 * only
 	 * 
-	 * @return     AgaviExecutionContainer 
+	 * @return     mixed
 	 * 
 	 * @author     Felix Gilcher <felix.gilcher@bitextender.com>
 	 * @since      1.0.0
 	 */
-	protected function createExecutionContainer($arguments = null, $outputType = null, $requestMethod = null)
-	{
-		$context = $this->getContext();
-
-		$ecfi = $context->getFactoryInfo('execution_container');
-		$baseClassName = $ecfi['class'];
-		$wrapper_class = str_replace('\\', '_', $baseClassName) . 'UnitTesting';
-
-		//extend the original class to add a setter for the action instance
-		if(!class_exists($wrapper_class)) {
-			$code = sprintf('
-class %1$s extends \\%2$s
-{
-	public function setActionInstance(\\Agavi\\Action\\AgaviAction $action)
-	{
-		$this->actionInstance = $action;
-	}
-
-	public function getActionInstance()
-	{
-		return $this->actionInstance;
-	}
-
-	public function performValidation()
-	{
-		$this->initRequestData();
-		return parent::performValidation();
-	}
-
-	public function clearValidators()
-	{
-		// Clear validation manager to prevent validator name conflicts between tests
-		$validationManager = $this->getValidationManager();
-		if ($validationManager) {
-			// Clear the children array directly to remove all validators
-			$reflection = new ReflectionClass($validationManager);
-			if ($reflection->hasProperty(\'children\')) {
-				$childrenProperty = $reflection->getProperty(\'children\');
-				$childrenProperty->setAccessible(true);
-				$childrenProperty->setValue($validationManager, []);
-			}
-			// Also clear the parent reference to completely reset the manager
-			if ($reflection->hasProperty(\'parent\')) {
-				$parentProperty = $reflection->getProperty(\'parent\');
-				$parentProperty->setAccessible(true);
-				$parentProperty->setValue($validationManager, null);
-			}
-		}
-	}
-
-	public function initRequestData()
-	{
-		parent::initRequestData();
-	}
-}',
-			$wrapper_class,
-			$baseClassName);
-
-			eval($code);
-		}
-
-		/** @var array<string> $ecfi */
-		$ecfi['class'] = $wrapper_class;
-		$context->setFactoryInfo('execution_container', $ecfi);
-		
-		if(!($arguments instanceof AgaviRequestDataHolder)) {
-			$arguments = $this->createRequestDataHolder([AgaviRequestDataHolder::SOURCE_PARAMETERS => $arguments]);
-		}
-		// create a new execution container with the wrapped class
-		$container = $context->getController()->createExecutionContainer($this->moduleName, $this->actionName, $arguments, $outputType, $requestMethod);
-		
-		return $container;
-	}
+	protected function createExecutionContainer($arguments = null, $outputType = null, $requestMethod = null) { return null; }
 
 	/**
 	 * creates an Action instance and initializes it with this testcases
@@ -285,7 +213,10 @@ class %1$s extends \\%2$s
 	protected function createActionInstance()
 	{
 		$actionInstance = $this->getContext()->getController()->createActionInstance($this->moduleName, $this->actionName);
-		$actionInstance->initialize($this->container);
+		// Initialize with lightweight init context instead of container
+		$rd = $this->createRequestDataHolder([AgaviRequestDataHolder::SOURCE_PARAMETERS => []]);
+		$lw = new \Agavi\Execution\LightweightActionInitContext($this->getContext(), $this->moduleName, $this->actionName, strtoupper($requestMethod ?? 'GET'), strtolower($outputType ?? 'html'), $rd, $this->getContext()->getController()->getGlobalResponse());
+		$actionInstance->initialize($lw);
 		return $actionInstance;
 	}
 	

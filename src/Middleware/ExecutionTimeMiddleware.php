@@ -10,6 +10,7 @@ use Agavi\Http\PsrResponseAdapter;
 /**
  * Basic execution timing middleware replacing AgaviExecutionTimeFilter.
  */
+#[\Agavi\Middleware\Attribute\AgaviMiddleware(phase: 'finalize', priority: -10)]
 class ExecutionTimeMiddleware implements MiddlewareInterface
 {
     public function __construct(private bool $appendHtmlComment = true) {}

@@ -13,6 +13,9 @@ class PsrResponseAdapter implements ResponseInterface
 {
     public function __construct(private AgaviWebResponse $legacy, private ?StreamInterface $body = null, private string $protocolVersion = '1.1') {}
 
+    /**
+     * Expose underlying legacy response for bridge/testing.
+     */
     public function getLegacy(): AgaviWebResponse { return $this->legacy; }
 
     // Status

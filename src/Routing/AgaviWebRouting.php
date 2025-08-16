@@ -400,12 +400,42 @@ class AgaviWebRouting extends AgaviRouting implements ResetInterface
 		}
 
 		if($route === null && empty($params)) {
-			$retval = $req->getRequestUri();
+			$scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
+			$inputPath = $this->input ?? '';
+			$basePath = $scriptName;
+			if($inputPath && $inputPath !== '/') {
+				$basePath = rtrim($basePath, '/') . $inputPath;
+			}
+			$retval = $basePath;
 			$retval = str_replace(['[', ']', '\''], ['%5B', '%5D', '%27'], $retval);
 			// much quicker than str_replace($this->argSeparatorInput, array_fill(0, count($this->argSeparatorInput), $aso), $retval)
 			foreach($this->argSeparatorInput as $char) {
 				$retval = str_replace($char, $aso, $retval);
 			}
+		} elseif($route === null) {
+			// Legacy self-URL with parameter modifications: start from current path + current query then apply mutations
+			$scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
+			$inputPath = $this->input ?? '';
+			$path = $scriptName;
+			if($inputPath && $inputPath !== '/') {
+				$path = rtrim($path, '/') . $inputPath;
+			}
+			// If path resolves to empty (unlikely) or just scriptName without directory (e.g. /index.php) and modern rewriting hides it, normalize root slash.
+			if($path === '' || $path === 'index.php') { $path = '/'; }
+			$current = $this->inputParameters ?? [];
+			foreach($params as $k => $v) {
+				if($v === null) {
+					unset($current[$k]);
+				} else {
+					$current[$k] = $v;
+				}
+			}
+			$query = http_build_query($current, '', $aso);
+			$retval = $path . ($query !== '' ? ($path === '/' ? '' : '') . '?' . $query : '');
+			// Guarantee leading slash before '?' when path is root
+			if(str_starts_with($retval, '?')) { $retval = '/' . $retval; }
+			// Continue to scheme/host decoration below skipping normal route generation.
+			$route = '__agavi_null_skip__';
 		} else {
 			if($this->isEnabled()) {
 				// the route exists and routing is enabled, the parent method handles it

@@ -59,16 +59,22 @@ class AgaviRouteCacheManager implements ResetInterface
      * @param string $key Cache key
      * @return array|null Cached route data or null if not found
      */
-    public static function get($key)
+    public static function get($key, bool $countMiss = true)
     {
         $instance = self::getInstance();
         if (isset($instance->cache[$key])) {
             $instance->hits++;
             return $instance->cache[$key];
         }
-        
-        $instance->misses++;
+        if($countMiss) { $instance->misses++; }
         return null;
+    }
+
+    /** Increment miss counter explicitly (used by optimized routing when using peek). */
+    public static function recordMiss(): void
+    {
+        $instance = self::getInstance();
+        $instance->misses++;
     }
     
     /**

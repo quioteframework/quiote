@@ -1,7 +1,7 @@
 <?php
 namespace Sandbox\Modules\ControllerTests\Actions;
 
-use Sandbox\Modules\ControllerTests\Lib\Actions\SandboxControllerTestsBaseAction;
+use Sandbox\Modules\ControllerTests\Lib\Action\SandboxControllerTestsBaseAction;
 
 require_once(__DIR__ . '/../Lib/Action/SandboxControllerTestsBaseAction.php');
 class SimpleActionAction extends SandboxControllerTestsBaseAction

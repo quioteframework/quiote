@@ -29,6 +29,8 @@ namespace Agavi\Controller;
  *
  * @version    $Id$
  */
+
+use Agavi\Action\AgaviAction;
 use Agavi\Util\AgaviParameterHolder;
 use Agavi\Exception\AgaviControllerException;
 use Agavi\Config\AgaviConfig;
@@ -45,6 +47,7 @@ use Agavi\AgaviContext;
 use Agavi\Filter\AgaviFilterChain;
 use Agavi\Request\AgaviIHeadersRequestDataHolder;
 use Symfony\Contracts\Service\ResetInterface;
+use Psr\Http\Message\ServerRequestInterface;
 
 use \Exception;
 class AgaviController extends AgaviParameterHolder implements ResetInterface
@@ -124,105 +127,9 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 		}
 	}
 	
-	/**
-	 * Create and initialize new execution container instance.
-	 *
-	 * @param      string                 The name of the module.
-	 * @param      string                 The name of the action.
-	 * @param      AgaviRequestDataHolder A RequestDataHolder with additional
-	 *                                    request arguments.
-	 * @param      string                 Optional name of an initial output type
-	 *                                    to set.
-	 * @param      string                 Optional name of the request method to
-	 *                                    be used in this container.
-	 *
-	 * @return     AgaviExecutionContainer A new execution container instance,
-	 *                                     fully initialized.
-	 *
-	 * @author     David Zülke <dz@bitxtender.com>
-	 * @since      0.11.0
-	 */
-	public function createExecutionContainer($moduleName = null, $actionName = null, ?AgaviRequestDataHolder $arguments = null, $outputType = null, $requestMethod = null)
-	{
-		$logger = $this->context?->getLoggerManager()?->getLogger();
-		if(self::DEBUG && $logger) { $logger->debug("controller.create_container start module=$moduleName action=$actionName incomingOT=".var_export($outputType, true)); }
-		
-		// create a new execution container
-		$container = $this->context->createInstanceFor('execution_container');
-		$container->setModuleName($moduleName);
-		$container->setActionName($actionName);
-		// IMPORTANT:
-		// We MUST NOT call $this->context->getRequest()->getRequestData() here unconditionally.
-		// During action or view execution the global request is deliberately locked to enforce
-		// usage of the local (cloned) AgaviRequestDataHolder. Nested execution containers (forwards,
-		// slots, layers, fragments) may be created while the request is locked. The previous
-		// FrankenPHP changes introduced an unconditional call which now triggers the
-		// "Access to request data is locked" exception the user reports.
-		//
-		// Original Agavi relied on a cached pointer ($this->requestData) grabbed during controller
-		// startup BEFORE any locking occurs. We restore that behaviour with a lazy fallback:
-		//  - If we already have a cached pointer, reuse it (safe inside locked section).
-		//  - If we don't (first container after a reset), we capture it now while the request should
-		//    still be unlocked.
-		if($this->requestData === null) {
-			$rq = $this->context->getRequest();
-			if($rq->isLocked()) {
-				// This should normally not happen for the very first container of a request lifecycle.
-				// Log and fall back to creating a safe clone via the execution container logic later.
-				if($logger) { $logger->warning('controller.create_container request locked while priming requestData cache'); }
-				// We intentionally DO NOT call getRequestData() to avoid exception. We'll let
-				// the container clone the global data later via initRequestData().
-			} else {
-				// Safe to capture pointer now.
-				$this->requestData = $rq->getRequestData();
-			}
-		}
-		$requestData = $this->requestData;
-		
-		$container->setRequestData($requestData);
-		if($arguments !== null) {
-			$container->setArguments($arguments);
-		}
-		
-		if(self::DEBUG && $logger) { $logger->debug("controller.create_container resolveOT param=".var_export($outputType, true)." default=".var_export($this->defaultOutputType, true)); }
-		
-		$resolvedOutputType = $this->context->getController()->getOutputType($outputType);
-		if(self::DEBUG && $logger) { $logger->debug("controller.create_container resolvedOT=".$resolvedOutputType->getName()); }
-		
-		$container->setOutputType($resolvedOutputType);
-		
-		if($requestMethod === null) {
-			$requestMethod = $this->context->getRequest()->getMethod();
-		}
-		$container->setRequestMethod($requestMethod);
-		
-		if(self::DEBUG && $logger) { $logger->debug("controller.create_container finalOT=".$container->getOutputType()->getName()); }
-		
-		return $container;
-	}
-
-	/**
-	 * Phase 1 PSR pipeline helper: create an execution container from the current
-	 * request (module/action already resolved OR will fall back to defaults).
-	 * Intentionally minimal – routing integration will replace this later.
-	 */
-	public function createExecutionContainerFromRequest($legacyRequest): AgaviExecutionContainer
-	{
-		// Determine module/action parameters if present
-		$module = null; $action = null; $outputType = null;
-		if($legacyRequest) {
-			$rd = $legacyRequest->getRequestData();
-			$ma = $legacyRequest->getParameter('module_accessor');
-			$aa = $legacyRequest->getParameter('action_accessor');
-			if($ma && $aa && $rd->hasParameter($ma) && $rd->hasParameter($aa)) {
-				$module = $rd->getParameter($ma);
-				$action = $rd->getParameter($aa);
-			}
-		}
-		if(!$module) { $module = \Agavi\Config\AgaviConfig::get('actions.default_module'); }
-		if(!$action) { $action = \Agavi\Config\AgaviConfig::get('actions.default_action'); }
-		return $this->createExecutionContainer($module, $action, null, $outputType, null);
-	}
+	// Legacy createExecutionContainer* helpers removed – the PSR-15 middleware
+	// pipeline now resolves and executes actions directly using descriptors &
+	// ExecutionState without allocating AgaviExecutionContainer instances.
 	
 	/**
 	 * Initialize a module and load its autoload, module config etc.
@@ -281,106 +188,16 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 	 *
 	 * @param      AgaviRequestDataHolder  An optional request data holder object
 	 *                                     with additional request data.
-	 * @param      AgaviExecutionContainer An optional execution container that,
-	 *                                     if given, will be executed right away,
-	 *                                     skipping routing execution.
+	 * Legacy note: previous signature accepted an optional AgaviExecutionContainer
+	 * to short-circuit routing. Under the PSR middleware pipeline this method is
+	 * removed and callers must use the middleware stack directly.
 	 *
 	 * @return     AgaviResponse The response produced during this dispatch call.
 	 *
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.9.0
 	 */
-	public function dispatch(?AgaviRequestDataHolder $arguments = null, ?AgaviExecutionContainer $container = null)
-	{
-		$logger = $this->context?->getLoggerManager()?->getLogger();
-		if(self::DEBUG && $logger) { $logger->debug("controller.dispatch start defaultOT=".var_export($this->defaultOutputType, true)); }
-		
-		try {
-			
-			$rq = $this->context->getRequest();
-			$rd = $rq->getRequestData();
-			
-			if($container === null) {
-				if(self::DEBUG && $logger) { $logger->debug("controller.dispatch running routing"); }
-				
-				// DEBUG: Check routing object state before calling execute
-				$routing = $this->context->getRouting();
-				if(self::DEBUG && $logger) { $logger->debug("controller.dispatch routing class=" . get_class($routing) . " id=" . spl_object_id($routing)); }
-				
-				// Use reflection to check the context property
-				$reflection = new \ReflectionClass($routing);
-				if ($reflection->hasProperty('context')) {
-					$contextProperty = $reflection->getProperty('context');
-					$contextProperty->setAccessible(true);
-					$routingContext = $contextProperty->getValue($routing);
-						if(self::DEBUG) {
-							if($logger) { $logger->debug("controller.dispatch routing context=" . ($routingContext === null ? 'NULL' : 'OK(' . get_class($routingContext) . ')')); }
-						}
-				}
-				
-				$container = $routing->execute();
-				if(self::DEBUG && $logger) { $logger->debug("controller.dispatch routedOT=".$container->getOutputType()->getName()); }
-			} else {
-				if(self::DEBUG && $logger) { $logger->debug("controller.dispatch providedOT=".$container->getOutputType()->getName()); }
-			}
-			
-			if($container instanceof AgaviExecutionContainer) {
-				if($arguments !== null) {
-					$rd->merge($arguments);
-				}
-				
-				$moduleName = $container->getModuleName();
-				$actionName = $container->getActionName();
-				if(!$moduleName) {
-					$ma = $rq->getParameter('module_accessor');
-					$aa = $rq->getParameter('action_accessor');
-					if($rd->hasParameter($ma) && $rd->hasParameter($aa)) {
-						$moduleName = $rd->getParameter($ma);
-						$actionName = $rd->getParameter($aa);
-					} else {
-						$moduleName = AgaviConfig::get('actions.default_module');
-						$actionName = AgaviConfig::get('actions.default_action');
-					}
-					$container->setModuleName($moduleName);
-					$container->setActionName($actionName);
-				}
-				
-				if(!AgaviConfig::get('core.available', false)) {
-					$container = $container->createSystemActionForwardContainer('unavailable');
-				}
-				
-				// create a new filter chain
-				$filterChain = $this->getFilterChain();
-				
-				$this->loadFilters($filterChain, 'global');
-				
-				// register the dispatch filter as a pre-filter
-				$filterChain->registerPre($this->filters['dispatch'], 'agavi_dispatch_filter');
-				
-				// execute pre-filters, action, post-filters
-				$filterChain->execute($container, function($container): void {
-						// No-op: action execution is handled by the execution filter in the action filter chain.
-				});
-				
-				$response = $container->getResponse();
-			} elseif($container instanceof AgaviResponse) {
-				$response = $container;
-				$container = null;
-			} else {
-				throw new AgaviException('AgaviRouting::execute() returned neither AgaviExecutionContainer nor AgaviResponse object.');
-			}
-			$response->merge($this->response);
-			
-			if($this->getParameter('send_response')) {
-				$response->send();
-			}
-			
-			return $response;
-			
-		} catch(Exception $e) {
-			AgaviException::render($e, $this->context, $container);
-		}
-	}
+	public function dispatch() { throw new \RuntimeException('Controller::dispatch() removed under PSR middleware pipeline.'); }
 	
 	/**
 	 * Get the global response instance.
@@ -459,8 +276,11 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 		
 		// For namespaced classes, preserve directory structure as namespaces
 		$namespacedActionName = str_replace('/', '\\', $actionName);
-		$namespacedClass = $baseNamespace . '\\Modules\\' . $moduleName . '\\Actions\\' . $namespacedActionName . 'Action';
+		// Avoid double suffix if developer already named class *Action
+		$actionSuffix = str_ends_with($namespacedActionName, 'Action') ? '' : 'Action';
+		$namespacedClass = $baseNamespace . '\\Modules\\' . $moduleName . '\\Actions\\' . $namespacedActionName . $actionSuffix;
 		$oldClass = $moduleName . '_' . $longActionName . 'Action';
+		// optional debug logging removed
 		
 		// Try namespaced class first (autoloader will handle it)
 		if(class_exists($namespacedClass)) {
@@ -468,6 +288,13 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 		}
 		
 		// Fall back to old naming convention
+		if(!class_exists($oldClass)) {
+			// Attempt to include the legacy action file manually for old-style class names
+			$file = $this->checkActionFile($moduleName, $actionName);
+			if($file && is_readable($file)) {
+				include_once $file;
+			}
+		}
 		if(class_exists($oldClass)) {
 			return new $oldClass();
 		}

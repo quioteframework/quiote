@@ -1,11 +1,10 @@
 <?php
 
-use Agavi\Controller\AgaviExecutionContainer;
 use Agavi\Routing\AgaviRoutingCallback;
 
 class NonMatchingRoutingCallback extends AgaviRoutingCallback
 {
-	public function onMatched(array &$parameters, AgaviExecutionContainer $container)
+	public function onMatched(array &$parameters, $legacyContainer = null)
 	{
 		return false;
 	}

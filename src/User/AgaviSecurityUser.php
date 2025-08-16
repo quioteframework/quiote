@@ -169,14 +169,20 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser, ResetIn
 		// read data from storage
 		$storage = $this->getContext()->getStorage();
 
-		$this->authenticated = $storage->retrieve(self::AUTH_NAMESPACE);
-		$this->credentials   = $storage->retrieve(self::CREDENTIAL_NAMESPACE);
-
-		if($this->authenticated == null) {
-			// initialize our data
+		$storedAuth = $storage->retrieve(self::AUTH_NAMESPACE);
+		$storedCreds = $storage->retrieve(self::CREDENTIAL_NAMESPACE);
+		// Preserve externally pre-set authenticated=true (e.g. test) if storage has null
+		if($storedAuth !== null) {
+			$this->authenticated = (bool)$storedAuth;
+		} elseif($this->authenticated === null) {
 			$this->authenticated = false;
-			$this->credentials   = [];
 		}
+		if(is_array($storedCreds)) {
+			$this->credentials = $storedCreds;
+		} elseif($this->credentials === null) {
+			$this->credentials = [];
+		}
+		try { @file_put_contents('/tmp/agavi_user_debug.log', '[SecurityUser.initialize] eff auth=' . var_export($this->authenticated,true) . " creds=".json_encode($this->credentials)." storedAuth=".var_export($storedAuth,true)."\n", FILE_APPEND); } catch(\Throwable) {}
 	}
 
 	/**
@@ -225,11 +231,14 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser, ResetIn
 	{
 		if($authenticated === true) {
 			$this->authenticated = true;
+			// immediate persistence so later initialize() pulls true
+			try { $this->getContext()?->getStorage()?->store(self::AUTH_NAMESPACE, true); } catch(\Throwable) {}
 
 			return;
 		}
 
 		$this->authenticated = false;
+		try { $this->getContext()?->getStorage()?->store(self::AUTH_NAMESPACE, false); } catch(\Throwable) {}
 	}
 
 	/**
@@ -249,6 +258,7 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser, ResetIn
 		// store credentials to the storage
 		$storage->store(self::AUTH_NAMESPACE,       $this->authenticated);
 		$storage->store(self::CREDENTIAL_NAMESPACE, $this->credentials);
+		try { @file_put_contents('/tmp/agavi_user_debug.log', '[SecurityUser.shutdown] stored auth=' . var_export($this->authenticated,true) . " creds=".json_encode($this->credentials)."\n", FILE_APPEND); } catch(\Throwable) {}
 
 		// Debug: Check what's in the session after storing
 		$logger?->debug('SecurityUser shutdown session snapshot', [

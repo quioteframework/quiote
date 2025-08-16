@@ -1,0 +1,24 @@
+<?php
+namespace Sandbox\Modules\Cache\Actions;
+
+use Agavi\Action\AgaviAction;
+use Agavi\Request\AgaviRequestDataHolder;
+
+class CacheAction extends AgaviAction
+{
+    /**
+     * Legacy compatibility: some legacy code paths expected an injected $container.
+     * Under container-less execution this will remain null.
+     */
+    protected $container = null;
+    public static int $execCount = 0;
+    public function isSimple(){ return true; }
+    public function isCacheable(?string $outputType = null): bool { return true; }
+    public function getDefaultViewName(){ return 'Success'; }
+    public function execute(AgaviRequestDataHolder $rd){
+        self::$execCount++;
+        // In container-less slot execution the action's $container may be null; skip attribute mutation.
+        if($this->container) { $this->setAttribute('foo','bar'); }
+        return 'Success';
+    }
+}

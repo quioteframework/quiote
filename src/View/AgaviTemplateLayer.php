@@ -15,7 +15,6 @@
 namespace Agavi\View;
 
 use Agavi\AgaviContext;
-use Agavi\Controller\AgaviExecutionContainer;
 use Agavi\Exception\AgaviException;
 use Agavi\Renderer\AgaviRenderer;
 use Agavi\Util\AgaviParameterHolder;
@@ -153,6 +152,10 @@ abstract class AgaviTemplateLayer extends AgaviParameterHolder implements ResetI
 		$output = [];
 		
 		foreach($this->getSlots() as $slotName => $slotContainer) {
+			if($slotContainer instanceof \Agavi\Execution\SlotRenderable) {
+				$output[$slotName] = $slotContainer->getContent();
+				continue;
+			}
 			$slotResponse = $slotContainer->execute();
 			$output[$slotName] = $slotResponse->getContent();
 		}
@@ -214,13 +217,17 @@ abstract class AgaviTemplateLayer extends AgaviParameterHolder implements ResetI
 	 * Set a slot that is rendered along with and available inside this layer.
 	 *
 	 * @param      string                  The name of the slot.
-	 * @param      AgaviExecutionContainerr The slot's execution container.
+	 * @param      \Agavi\Execution\SlotRenderable|string Deprecated legacy container parameter now supports SlotRenderable only.
 	 *
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function setSlot($name, AgaviExecutionContainer $c)
+	public function setSlot($name, $c)
 	{
+		// Accept only SlotRenderable (container removed). Legacy containers eliminated.
+		if(!$c instanceof \Agavi\Execution\SlotRenderable) {
+			throw new \InvalidArgumentException('Slot must implement SlotRenderable');
+		}
 		$this->slots[$name] = $c;
 	}
 	
@@ -229,7 +236,7 @@ abstract class AgaviTemplateLayer extends AgaviParameterHolder implements ResetI
 	 *
 	 * @param      string The name of the slot.
 	 *
-	 * @return     AgaviExecutionContainer The slot's execution container.
+	 * @return     AgaviExecutionContainer|\Agavi\Execution\SlotRenderable The slot's container or renderable surrogate.
 	 *
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0

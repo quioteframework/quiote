@@ -5,7 +5,7 @@ use Agavi\Date\AgaviSimpleTimeZone;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use Agavi\Testing\Attributes\AgaviIsolationEnvironment;
 
-require_once(__DIR__ . '/BaseCalendarTest.php');
+require_once(__DIR__ . '/BaseCalendarTest.base.php');
 
 /**
  * Ported from ICU:

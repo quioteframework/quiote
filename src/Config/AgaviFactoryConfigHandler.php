@@ -64,13 +64,6 @@ class AgaviFactoryConfigHandler extends AgaviXmlConfigHandler
 		// The order of this initialization code is fixed, to not change
 		// name => required?
 		$factories = [
-			'execution_container' => [
-				'required' => true,
-				'var' => null,
-				'must_implement' => [
-				],
-			],
-			
 			'validation_manager' => [
 				'required' => true,
 				'var' => null,

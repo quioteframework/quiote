@@ -32,25 +32,22 @@ use Agavi\Routing\AgaviRoutingCallback;
  */
 class TestMatchingRoutingCallback extends AgaviRoutingCallback
 {
-    public function onMatched(array &$parameters, \Agavi\Controller\AgaviExecutionContainer $container)
-    {
-        return true;
-    }
+    public function onMatched(array &$parameters, $legacyContainer = null) { return true; }
 }
 
 class TestNonMatchingRoutingCallback extends AgaviRoutingCallback
 {
-    public function onMatched(array &$parameters, \Agavi\Controller\AgaviExecutionContainer $container)
-    {
-        return false;
-    }
+    public function onMatched(array &$parameters, $legacyContainer = null) { return false; }
 }
 
 class TestOnNotMatchedRoutingCallback extends AgaviRoutingCallback
 {
-    public function onNotMatched(\Agavi\Controller\AgaviExecutionContainer $container)
+    public function onNotMatched($legacyContainer = null)
     {
-        $container->getContext()->getRequest()->setAttribute('agavi.routing.callbacks.on_not_matched', true, 'org.agavi.routing');
+        // Mark attribute directly via context routing callbacks pool if needed
+        if($this->getContext() && $this->getContext()->getRequest()) {
+            $this->getContext()->getRequest()->setAttribute('agavi.routing.callbacks.on_not_matched', true, 'org.agavi.routing');
+        }
         return true;
     }
 }

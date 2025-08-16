@@ -135,27 +135,7 @@ final class Agavi
 				}
 			}
 
-			$skipCompile = false;
-			// Allow disabling legacy compile cache aggregation (modern SSD + opcache/frankenphp often make it unnecessary)
-			if(getenv('AGAVI_SKIP_COMPILE') || getenv('AGAVI_DISABLE_COMPILE') || AgaviConfig::get('core.skip_compile', false)) {
-				$skipCompile = true;
-			}
-			// Auto-skip in worker environments with opcache (heuristic)
-			if(!$skipCompile && function_exists('frankenphp_handle_request') && ini_get('opcache.enable')) {
-				$skipCompile = true;
-			}
-			if(!$skipCompile) {
-				$compile = AgaviConfig::get('core.config_dir') . '/compile.xml';
-				if(!is_readable($compile)) {
-					$compile = AgaviConfig::get('core.system_config_dir') . '/compile.xml';
-				}
-				// required classes for the framework
-				if(defined('AGAVI_USE_APCU_CONFIG_CACHE') && AGAVI_USE_APCU_CONFIG_CACHE) {
-					AgaviAPCuConfigCache::load($compile);
-				} else {
-					AgaviConfigCache::load($compile);
-				}
-			}
+			// compile.xml aggregation removed; rely on autoload + opcache.
 
 
 			// Normalize contexts argument

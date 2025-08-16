@@ -21,6 +21,7 @@ use Agavi\Config\AgaviAPCuConfigCache;
 use Agavi\Controller\AgaviController;
 use Agavi\Exception\AgaviDisabledModuleException;
 use Agavi\Exception\AgaviException;
+use Agavi\Request\AgaviRequest;
 use Agavi\Routing\AgaviRouting;
 use Agavi\Routing\AgaviSoapRouting;
 use Agavi\Routing\AgaviWebRouting;
@@ -29,6 +30,7 @@ use Agavi\User\AgaviISecurityUser;
 use Agavi\User\AgaviUser;
 use Agavi\Util\AgaviToolkit;
 use Symfony\Contracts\Service\ResetInterface;
+use Psr\Http\Message\ServerRequestInterface; use Psr\Http\Message\ResponseInterface;
 
 /**
  * AgaviContext provides information about the current application context, 
@@ -65,7 +67,6 @@ class AgaviContext implements \Stringable, ResetInterface
 	 */
 	protected $factories = [
 		'dispatch_filter' => null,
-		'execution_container' => null,
 		'execution_filter' => null,
 		'filter_chain' => null,
 		'response' => null,
@@ -137,6 +138,18 @@ class AgaviContext implements \Stringable, ResetInterface
 	 * @var        array User factory info for worker mode recreation
 	 */
 	protected $userFactoryInfo = null;
+	/** @var \Agavi\Middleware\MiddlewareKernel|null */
+	protected static $psrKernel = null;
+
+	/** @var \Agavi\Execution\SlotDispatcher|null */
+	protected $slotDispatcher = null;
+
+
+	/** @var \Agavi\Execution\ActionResolver|null */
+	protected $actionResolver = null;
+
+	/** @var ServerRequestInterface|null The current PSR-7 request being processed */
+	protected ?ServerRequestInterface $currentPsrRequest = null;
 
 	/**
 	 * @var        array Storage factory info for worker mode recreation
@@ -349,6 +362,7 @@ class AgaviContext implements \Stringable, ResetInterface
 		
 		// Reset singleton model instances
 		$this->singletonModelInstances = [];
+		$this->slotDispatcher = null; // rebuild per request
 		if($logger) { $logger->debug('context.reset cleared singleton models'); }
 		
 		// Log user state before reset
@@ -416,6 +430,8 @@ class AgaviContext implements \Stringable, ResetInterface
 		
 		// Reset request object (it will be recreated for the next request)
 		$this->request = null;
+		// Reset PSR middleware kernel for worker mode safety
+		self::$psrKernel?->reset();
 		if($logger) { $logger->debug('context.reset request nulled'); }
 		
 		if($logger) { $logger->debug('context.reset completed'); }
@@ -449,6 +465,41 @@ class AgaviContext implements \Stringable, ResetInterface
 				}
 			}
 		}
+	}
+
+	public function handlePsr(ServerRequestInterface $request): ResponseInterface
+	{
+		if(self::$psrKernel === null) { self::$psrKernel = new \Agavi\Middleware\MiddlewareKernel($this); }
+		// Store the current request so subsystems (e.g. views/slots) can derive child requests
+		$this->currentPsrRequest = $request;
+		return self::$psrKernel->handle($request);
+	}
+
+	/**
+	 * Retrieve (lazily create) SlotDispatcher for sub-action (slot) execution.
+	 */
+	public function getSlotDispatcher(): \Agavi\Execution\SlotDispatcher
+	{
+		if($this->slotDispatcher === null) {
+			// New signature: (controller, actionResolver?, executionGuard?, viewNameResolver?)
+			$this->slotDispatcher = new \Agavi\Execution\SlotDispatcher($this->getController(), $this->getActionResolver());
+		}
+		return $this->slotDispatcher;
+	}
+
+	public function getActionResolver(): \Agavi\Execution\ActionResolver
+	{
+		if($this->actionResolver === null) { $this->actionResolver = new \Agavi\Execution\ActionResolver(); }
+		return $this->actionResolver;
+	}
+
+	/**
+	 * Retrieve the current PSR-7 ServerRequest (if inside a PSR pipeline execution).
+	 * May return null for legacy/CLI execution paths.
+	 */
+	public function getCurrentPsrRequest(): ?ServerRequestInterface
+	{
+		return $this->currentPsrRequest;
 	}
 	
 	/**
@@ -849,6 +900,7 @@ class AgaviContext implements \Stringable, ResetInterface
 	{
 		// Lazy initialization for worker mode - recreate user object if null after reset
 		if ($this->user === null) {
+			try { @file_put_contents('/tmp/agavi_user_debug.log', "[getUser] user null, recreating\n", FILE_APPEND); } catch(\Throwable) {}
 			$logger = $this->getLoggerManager()?->getLogger();
 			$logger?->debug('AgaviContext::getUser() - User object is null, recreating...');
 			
@@ -874,6 +926,7 @@ class AgaviContext implements \Stringable, ResetInterface
 			}
 		}
 		
+		try { @file_put_contents('/tmp/agavi_user_debug.log', "[getUser] returning instance=".spl_object_hash($this->user)." auth=".((method_exists($this->user,'isAuthenticated') && $this->user->isAuthenticated())?'1':'0')."\n", FILE_APPEND); } catch(\Throwable) {}
 		return $this->user;
 	}
 }
