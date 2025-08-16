@@ -27,15 +27,18 @@
 		"psr/http-message": "^2.0",
 		"psr/http-factory": "^1.1",
 		"psr/http-server-middleware": "^1.0",
-		"psr/http-server-handler": "^1.0"
+		"psr/http-server-handler": "^1.0",
+		"nyholm/psr7": "^1.8",
+		"psr/simple-cache": "^3.0",
+		"symfony/cache": "^7.1"
 	},
 	"require-dev": {
 		"phpunit/phpunit": "^12.0",
-		"ext-xdebug": ">=2.1",
 		"rector/rector": "^2.0"
 	},
 	"suggest": {
 		"phpunit/phpunit": "Install phpunit if you want to run your tests",
+		"ext-xdebug": "Optional for coverage and debugging",
 		"ext-xsl": "Required only for transformation of pre 1.0 style configuration files",
 		"ext-tokenizer": "Enable the tokenizer extension allows Agavi to generate more efficient config-caches",
 		"ext-session": "If the session extension is disabled you'll have to build your own session storage system and hook it into agavi",
@@ -46,7 +49,8 @@
 	},
 	"autoload": {
 		"psr-4": {
-			"Agavi\\": ["src/"]
+			"Agavi\\": ["src/"],
+			"Sandbox\\App\\": ["test/sandbox/app/"]
 		}
 	},
 	"autoload-dev": {
