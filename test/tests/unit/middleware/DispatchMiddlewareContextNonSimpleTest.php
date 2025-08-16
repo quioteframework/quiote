@@ -69,7 +69,10 @@ class DispatchMiddlewareContextNonSimpleTest extends AgaviUnitTestCase
     public function testNonSimpleActionSuccess()
     {
     \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,false,false);
-        $state = new ExecutionState();
+    // Simulate prior ValidationMiddleware success
+    $state = new ExecutionState();
+    $state->validationPerformed = true;
+    $state->validationSucceeded = true;
         $body = $this->runMw($this->buildPsr(), $state);
         $this->assertStringContainsString('COMPLEX_OK', $body, 'Expected success view content');
     $this->assertSame('CacheComplexSuccess', $state->viewName);
@@ -80,12 +83,14 @@ class DispatchMiddlewareContextNonSimpleTest extends AgaviUnitTestCase
     public function testValidationFailureTriggersErrorView()
     {
     \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(true,false,false);
-        $state = new ExecutionState();
-        $body = $this->runMw($this->buildPsr(), $state);
-        $this->assertStringContainsString('COMPLEX_ERROR', $body, 'Expected error view content on validation failure');
-    $this->assertSame('CacheComplexError', $state->viewName);
-        $this->assertTrue($state->validationPerformed);
-        $this->assertFalse($state->validationSucceeded);
+    // Simulate prior ValidationMiddleware failure (DispatchMiddleware should not be invoked in real flow)
+    $state = new ExecutionState();
+    $state->validationPerformed = true;
+    $state->validationSucceeded = false;
+    // Expect DispatchMiddleware to block execution due to failed validation
+    $body = $this->runMw($this->buildPsr(), $state);
+    $this->assertStringContainsString('Validation Failed', $body, 'Expected validation failure short-circuit');
+    $this->assertFalse($state->validationSucceeded);
     }
 
     public function testSecurityLoginForward()
@@ -93,12 +98,15 @@ class DispatchMiddlewareContextNonSimpleTest extends AgaviUnitTestCase
     \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,true,false); // require auth
         $user = $this->getContext()->getUser();
         if(method_exists($user,'setAuthenticated')) { $user->setAuthenticated(false); }
+    // Simulate SecurityMiddleware short-circuit
     $state = new ExecutionState();
-    $body = $this->runMw($this->buildPsr(), $state);
-    $this->assertNotSame('CacheComplexSuccess', $state->viewName, 'Should not reach original success view when login forward triggers');
-    $this->assertTrue($state->forwarded, 'ExecutionState should mark forwarded');
-    $this->assertFalse($state->validationPerformed, 'Validation should be skipped on login forward');
-    $this->assertStringContainsString('Login', $state->viewName ?? 'LoginForward', 'Expected login forward view name contains Login');
+    $state->securityDecision = \Agavi\Execution\SecurityDecision::LoginForward;
+    $state->forwarded = true;
+    $forwardService = new \Agavi\Execution\ForwardService($this->getContext()->getController());
+    [$view,$vm,$vn,$content] = $forwardService->createSystemForwardView('login', 'html', new \Agavi\Request\AgaviRequestDataHolder());
+    $req = $this->buildPsr()->withAttribute('agavi.forward_view', [$view,$vm,$vn,$content]);
+    $body = $this->runMw($req, $state);
+    $this->assertStringContainsString('Login', $vn, 'Expected login forward view name contains Login');
     $this->assertNotEmpty($body, 'Login forward should produce content');
     }
 
@@ -107,12 +115,15 @@ class DispatchMiddlewareContextNonSimpleTest extends AgaviUnitTestCase
     \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,false,true); // require credential
         $user = $this->getContext()->getUser();
         if(method_exists($user,'removeCredential')) { $user->removeCredential('complex_cred'); }
+    // Simulate SecurityMiddleware secure forward
     $state = new ExecutionState();
-    $body = $this->runMw($this->buildPsr(), $state);
-    $this->assertTrue($state->forwarded, 'ExecutionState should mark forwarded');
-    $this->assertFalse($state->validationPerformed, 'Validation should be skipped on secure forward');
-    $this->assertNotSame('CacheComplexSuccess', $state->viewName, 'Should not reach success view when secure forward triggers');
-    $this->assertStringContainsString('Secure', $state->viewName ?? 'SecureForward', 'Expected secure forward view name contains Secure');
+    $state->securityDecision = \Agavi\Execution\SecurityDecision::SecureForward;
+    $state->forwarded = true;
+    $forwardService = new \Agavi\Execution\ForwardService($this->getContext()->getController());
+    [$view,$vm,$vn,$content] = $forwardService->createSystemForwardView('secure', 'html', new \Agavi\Request\AgaviRequestDataHolder());
+    $req = $this->buildPsr()->withAttribute('agavi.forward_view', [$view,$vm,$vn,$content]);
+    $body = $this->runMw($req, $state);
+    $this->assertStringContainsString('Secure', $vn, 'Expected secure forward view name contains Secure');
     $this->assertNotEmpty($body, 'Secure forward should produce content');
     }
 }

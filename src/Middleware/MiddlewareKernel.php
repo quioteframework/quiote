@@ -31,6 +31,7 @@ class MiddlewareKernel implements RequestHandlerInterface
         // Proposed ordering mapped to phases
     $pipeline->add('TimingMiddleware', new TimingMiddleware(false), 'bootstrap', 100);
     $pipeline->add('TraceMiddleware', new TraceMiddleware(false), 'bootstrap', 90);
+    $pipeline->add('JsonBodyParsingMiddleware', new JsonBodyParsingMiddleware(), 'bootstrap', 80);
         $pipeline->add('RoutingMiddleware', new RoutingMiddleware($routing, $controller), 'routing');
         $pipeline->add('FormPopulationMiddleware', new FormPopulationMiddleware(), 'before_action', 10);
         $pipeline->add('SecurityMiddleware', new SecurityMiddleware($controller), 'before_action', 0);

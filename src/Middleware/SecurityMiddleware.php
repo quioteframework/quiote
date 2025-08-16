@@ -110,6 +110,8 @@ class SecurityMiddleware implements MiddlewareInterface
                 try {
                     [$view, $vm, $vn, $content] = $fwdService->createSystemForwardView($key, $this->controller->getOutputType()->getName(), $rd);
                     $request = $request->withAttribute('agavi.forward_view', [$view, $vm, $vn, $content]);
+                    // Mark forwarded on execution state
+                    if($execState instanceof ExecutionState) { $execState->forwarded = true; $request = $request->withAttribute(ExecutionState::class, $execState); }
                 } catch (\Throwable) {
                 }
             }

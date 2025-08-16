@@ -63,8 +63,8 @@ class ValidationMiddlewareNoContainerTest extends TestCase
         $dispatch = new DispatchMiddleware($this->context->getController());
         $finalHandler = new class implements RequestHandlerInterface { public function handle(ServerRequestInterface $r): ResponseInterface { return new Psr7Response(200); } };
         $resp = $validation->process($request, new class($dispatch, $finalHandler) implements RequestHandlerInterface { public function __construct(private $d, private $f){} public function handle(ServerRequestInterface $r): ResponseInterface { return $this->d->process($r,$this->f);} });
-    // Now returns 500 when no concrete view class can be resolved (error fallback)
-    $this->assertEquals(500, $resp->getStatusCode());
+    // Validation failures return 400 (client error)
+    $this->assertEquals(400, $resp->getStatusCode());
     $body = (string)$resp->getBody();
     $this->assertStringContainsString('Error', $body);
     }

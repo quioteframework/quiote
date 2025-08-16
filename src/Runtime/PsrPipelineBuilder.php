@@ -30,9 +30,23 @@ class PsrPipelineBuilder
         $uri = new SimpleUri($scheme . '://' . $authority . $pathQuery);
         $body = SimpleStream::fromString(@file_get_contents('php://input') ?: '');
         $headers = function_exists('getallheaders') ? (getallheaders() ?: []) : [];
+            // Derive parsed body: prefer JSON decode when content type indicates JSON; fallback to $_POST superglobal otherwise.
+            $parsedBody = $_POST;
+            try {
+                $ctHeader = '';
+                foreach($headers as $hk=>$hv) { if(strtolower($hk)==='content-type') { $ctHeader = is_array($hv)?implode(',',$hv):$hv; break; } }
+                if($ctHeader && stripos($ctHeader,'json') !== false) {
+                    $raw = (string)$body; // SimpleStream implements __toString() rewinding stream
+                    if($raw !== '') {
+                        if(str_starts_with($raw, "\xEF\xBB\xBF")) { $raw = substr($raw,3); }
+                        $decoded = json_decode($raw, true);
+                        if(json_last_error() === JSON_ERROR_NONE && is_array($decoded)) { $parsedBody = $decoded; }
+                    }
+                }
+            } catch(\Throwable) { /* ignore parse issues at this stage; middleware may handle strict errors */ }
         /** @var \Agavi\Request\AgaviRequest $legacyReqTyped */
         $legacyReqTyped = $legacyReq; // help static analysis
-        return new PsrServerRequestAdapter($legacyReqTyped, $uri, $_SERVER['REQUEST_METHOD'] ?? 'GET', $body, $_SERVER, $headers, $_COOKIE, $_GET, $_POST, []);
+        return new PsrServerRequestAdapter($legacyReqTyped, $uri, $_SERVER['REQUEST_METHOD'] ?? 'GET', $body, $_SERVER, $headers, $_COOKIE, $_GET, $parsedBody, []);
     }
 
     public function buildDispatcher(RequestHandlerInterface $finalHandler): RequestHandlerInterface

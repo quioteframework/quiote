@@ -47,8 +47,7 @@ class DispatchMiddlewareNoContainerSimpleTest extends AgaviUnitTestCase
         $req = $this->buildRequest()->withAttribute(ExecutionState::class,new ExecutionState(false,true,null,null,[],false));
         $resp = $mw->process($req,$handler);
         $this->assertFalse($resp->hasHeader('X-Agavi-Cache-Hit'), 'First request should not be a cache hit');
-        $this->assertSame('0', $resp->getHeaderLine('X-Agavi-Container-Used'));
-        $this->assertNull($req->getAttribute('_agavi_execution_container'));
+    $this->assertNull($req->getAttribute('_agavi_execution_container'));
         $this->assertStringContainsString('CACHE_HTML', (string)$resp->getBody());
     }
 }

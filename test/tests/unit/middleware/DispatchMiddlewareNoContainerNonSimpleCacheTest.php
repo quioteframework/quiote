@@ -76,13 +76,13 @@ class DispatchMiddlewareNoContainerNonSimpleCacheTest extends AgaviUnitTestCase
         $resp1 = $this->runMw($this->buildPsr(), $state1);
         $this->assertStringContainsString('COMPLEX_OK', (string)$resp1->getBody());
         $this->assertFalse($state1->cacheHit, 'First run should not be a cache hit');
-        $this->assertSame('0', $resp1->getHeaderLine('X-Agavi-Container-Used'), 'No container expected on first execution');
+    $this->assertFalse($resp1->hasHeader('X-Agavi-Container-Used'), 'Legacy container-used header removed');
 
         $state2 = new ExecutionState();
         $resp2 = $this->runMw($this->buildPsr(), $state2);
         $this->assertStringContainsString('COMPLEX_OK', (string)$resp2->getBody());
         $this->assertTrue($state2->cacheHit, 'Second run should be served from cache');
         $this->assertSame('1', $resp2->getHeaderLine('X-Agavi-Cache-Hit'));
-        $this->assertSame('0', $resp2->getHeaderLine('X-Agavi-Container-Used'), 'Cache replay should remain container-less');
+    $this->assertFalse($resp2->hasHeader('X-Agavi-Container-Used'), 'Legacy container-used header removed');
     }
 }

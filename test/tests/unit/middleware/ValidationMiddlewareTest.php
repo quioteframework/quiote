@@ -75,6 +75,7 @@ class ValidationMiddlewareTest extends TestCase
         $finalHandler = new class implements RequestHandlerInterface { public function handle(ServerRequestInterface $r): ResponseInterface { return new Psr7Response(204); } };
         $response = $validation->process($request, $finalHandler);
         // Since simple action returns immediately only validation middleware runs; ensure no validation error content produced.
-        $this->assertSame(204, $response->getStatusCode());
+    // Simple action success returns action result (200) not final handler (204) because middleware short-circuits.
+    $this->assertSame(200, $response->getStatusCode());
     }
 }

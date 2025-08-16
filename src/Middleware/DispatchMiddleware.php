@@ -86,9 +86,7 @@ class DispatchMiddleware implements MiddlewareInterface
         $disableHeaders = (bool)AgaviConfig::get('core.disable-framework-headers', false);
         if (!$disableHeaders) {
             $cacheHitHeader = AgaviConfig::get('core.cache-hit-header', 'X-Agavi-Cache-Hit');
-            $containerUsedHeader = AgaviConfig::get('core.container-used-header', 'X-Agavi-Container-Used');
             if ($cacheHit && $cacheHitHeader) { $resp = $resp->withHeader($cacheHitHeader, '1'); }
-            if ($containerUsedHeader) { $resp = $resp->withHeader($containerUsedHeader, $containerUsed ? '1' : '0'); }
         }
         return $resp;
     }
