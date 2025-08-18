@@ -8,6 +8,7 @@
 			</ae:parameters>
 		</controller>
 
+
 		<dispatch_filter class="FCHTestDispatchFilter">
 			<ae:parameters>
 				<ae:parameter name="p1">v1</ae:parameter>

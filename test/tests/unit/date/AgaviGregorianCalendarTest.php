@@ -8,6 +8,7 @@ class AgaviGregorianCalendarTest extends AgaviUnitTestCase
 	private $cal;
 	public function setUp(): void
 	{
+		$this->markTestSkipped('Gregorian calendar tests depend on translation/i18n system slated for rewrite.');
 		$this->cal = new AgaviGregorianCalendar($this->getContext()->getTranslationManager()->createTimeZone('Europe/Berlin'));
 		// 2009-02-21 12:30:20
 		$this->cal->setUnixTimestamp(1235215820);

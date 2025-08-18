@@ -9,6 +9,7 @@ class ActionExecutorDirectMethodValidationTest extends AgaviUnitTestCase
 {
     public function testPostValidationFailureDirect()
     {
+    $this->markTestSkipped('Obsolete: validation now handled exclusively in ValidationMiddleware before ActionExecutor.');
         $controller = $this->getContext()->getController();
         // Build descriptor (non-simple) with method Post
         $desc = ActionDescriptor::fromController($controller, 'Method','MethodHttp','Post','html');

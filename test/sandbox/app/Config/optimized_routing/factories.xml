@@ -4,7 +4,7 @@
     <controller class="Agavi\Controller\AgaviController" />
     <request class="Agavi\Request\AgaviWebRequest" />
     <response class="Agavi\Response\AgaviWebResponse" />
-    <routing class="Agavi\Routing\AgaviWebRouting" />
+  <routing class="Sandbox\App\Routing\SandboxRouting" />
     <translation_manager class="Agavi\Translation\AgaviTranslationManager" />
     <user class="Agavi\User\AgaviSecurityUser" />
   </ae:configuration>

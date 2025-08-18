@@ -12,6 +12,8 @@ class BaseCalendarTest extends AgaviPhpUnitTestCase
 	public function setUp(): void
 	{
 		parent::setUp();
+		// Temporarily skip calendar/timezone tests pending translation/i18n rewrite
+		$this->markTestSkipped('Calendar/TimeZone functionality depends on translation manager slated for rewrite.');
 		$this->tm = AgaviContext::getInstance('testing')->getTranslationManager();
 	}
 

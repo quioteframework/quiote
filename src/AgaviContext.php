@@ -23,8 +23,6 @@ use Agavi\Exception\AgaviDisabledModuleException;
 use Agavi\Exception\AgaviException;
 use Agavi\Request\AgaviRequest;
 use Agavi\Routing\AgaviRouting;
-use Agavi\Routing\AgaviSoapRouting;
-use Agavi\Routing\AgaviWebRouting;
 use Agavi\Translation\AgaviTranslationManager;
 use Agavi\User\AgaviISecurityUser;
 use Agavi\User\AgaviUser;
@@ -138,6 +136,10 @@ class AgaviContext implements \Stringable, ResetInterface
 	 * @var        array User factory info for worker mode recreation
 	 */
 	protected $userFactoryInfo = null;
+	/**
+	 * @var        array Routing factory info for worker mode recreation
+	 */
+	protected $routingFactoryInfo = null;
 	/** @var \Agavi\Middleware\MiddlewareKernel|null */
 	protected static $psrKernel = null;
 
@@ -825,13 +827,27 @@ class AgaviContext implements \Stringable, ResetInterface
 	/**
 	 * Retrieve the routing.
 	 *
-	 * @return     AgaviRouting|AgaviWebRouting|AgaviSoapRouting The current Routing implementation instance.
+	 * @return     Routing The current Routing implementation instance.
 	 *
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
 	public function getRouting()
 	{
+		// Lazy initialization for worker mode - recreate routing object if null after reset
+		if ($this->routing === null) {
+			$logger = $this->getLoggerManager()?->getLogger();
+			$logger?->debug('AgaviContext::getRouting() - Routing object is null, recreating...');
+			// Recreate from factory info if available
+			if ($this->routingFactoryInfo !== null) {
+				$className = $this->routingFactoryInfo['class'];
+				$this->routing = new $className();
+				$logger?->debug('AgaviContext::getRouting() - Routing (compat) object recreated via factory info: '.$className);
+			} else {
+				$logger?->error('AgaviContext::getRouting() - No routing factory info available, cannot recreate routing');
+				throw new AgaviException('Routing object is null and no factory info available for recreation in worker mode');
+			}
+		}
 		return $this->routing;
 	}
 
@@ -926,7 +942,6 @@ class AgaviContext implements \Stringable, ResetInterface
 			}
 		}
 		
-		try { @file_put_contents('/tmp/agavi_user_debug.log', "[getUser] returning instance=".spl_object_hash($this->user)." auth=".((method_exists($this->user,'isAuthenticated') && $this->user->isAuthenticated())?'1':'0')."\n", FILE_APPEND); } catch(\Throwable) {}
 		return $this->user;
 	}
 }

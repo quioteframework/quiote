@@ -5,6 +5,7 @@ use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
+use Relay\Relay; // external runner
 
 /**
  * Flexible middleware pipeline with phase + relative (before/after) ordering.
@@ -71,16 +72,18 @@ class MiddlewarePipeline implements RequestHandlerInterface
     public function build(): RequestHandlerInterface
     {
         $ordered = $this->resolveOrder();
-        // Reduce into single handler
-        $handler = array_reduce(
-            array_reverse($ordered),
-            fn(RequestHandlerInterface $next, MiddlewareInterface $mw) => new class($mw,$next) implements RequestHandlerInterface {
-                public function __construct(private MiddlewareInterface $mw, private RequestHandlerInterface $next) {}
-                public function handle(ServerRequestInterface $request): ResponseInterface { return $this->mw->process($request, $this->next); }
-            },
-            $this->finalHandler
-        );
-        return $handler;
+        // Append terminal handler as final middleware via small adapter
+        $stack = [];
+        foreach($ordered as $mw) { $stack[] = $mw; }
+        $stack[] = new class($this->finalHandler) implements MiddlewareInterface {
+            public function __construct(private RequestHandlerInterface $final) {}
+            public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface { return $this->final->handle($request); }
+        };
+        $relay = new Relay($stack);
+        return new class($relay) implements RequestHandlerInterface {
+            public function __construct(private Relay $relay) {}
+            public function handle(ServerRequestInterface $request): ResponseInterface { return $this->relay->handle($request); }
+        };
     }
 
     public function handle(ServerRequestInterface $request): ResponseInterface

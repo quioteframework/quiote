@@ -10,14 +10,14 @@ use Agavi\Action\AgaviAction;
 
 class ViewAndActionResolverTest extends AgaviUnitTestCase
 {
-    private ViewResolver $viewResolver; // using deprecated stub to keep behavior parity
+    private ViewNameResolver $viewResolver;
     private ActionResolver $actionResolver;
 
     protected function setUp(): void
     {
         parent::setUp();
     // Legacy getViewResolver() removed; instantiate stub directly (delegates to ViewNameResolver)
-    $this->viewResolver = new ViewResolver(new ViewNameResolver());
+        $this->viewResolver = new ViewNameResolver();
         $this->actionResolver = $this->getContext()->getActionResolver();
     }
 

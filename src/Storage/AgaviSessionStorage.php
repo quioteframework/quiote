@@ -16,7 +16,6 @@
 namespace Agavi\Storage;
 
 use Agavi\Request\AgaviWebRequest;
-use Agavi\Routing\AgaviWebRouting;
 use SessionHandler;
 use SessionHandlerInterface;
 use Symfony\Contracts\Service\ResetInterface;
@@ -115,12 +114,8 @@ class AgaviSessionStorage extends AgaviStorage implements SessionHandlerInterfac
 			$cookieDefaults = session_get_cookie_params();
 			
 			$routing = $this->context->getRouting();
-			if($routing instanceof AgaviWebRouting) {
-				// set path to true if the default path from php.ini is "/". this will, in startup(), trigger the base href as the path.
-				if($cookieDefaults['path'] == '/') {
-					$cookieDefaults['path'] = true;
-				}
-			}
+			// set path to true if the default path from php.ini is "/". this will, in startup(), trigger the base href as the path.
+			if($cookieDefaults['path'] == '/') { $cookieDefaults['path'] = true; }
 			
 			$lifetime = $this->getParameter('session_cookie_lifetime', $cookieDefaults['lifetime']);
 			if(is_numeric($lifetime)) {

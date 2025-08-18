@@ -30,7 +30,6 @@ class FCHTestBase
 	}
 }
 
-class FCHTestExecutionContainer extends FCHTestBase {}
 class FCHTestController         extends FCHTestBase {}
 	
 class FCHTestDispatchFilter     implements AgaviIGlobalFilter {
@@ -120,14 +119,6 @@ class AgaviFactoryConfigHandlerTest extends ConfigHandlerTestBase
 		$this->includeCode($FCH->execute($document));
 
 
-		// Execution container
-		$this->assertSame(
-			array(
-				'class' => 'FCHTestExecutionContainer',
-				'parameters' => $paramsExpected,
-			),
-			$this->factories['execution_container']
-		);
 
 		// Dispatch filter
 		$this->assertSame(

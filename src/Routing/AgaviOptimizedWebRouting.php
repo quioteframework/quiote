@@ -13,8 +13,10 @@ use Symfony\Contracts\Service\ResetInterface;
  * route matching, and performance monitoring for production environments.
  * Designed to work efficiently with FrankenPHP's persistent worker model.
  */
-class AgaviOptimizedWebRouting extends AgaviWebRouting implements ResetInterface
+class AgaviOptimizedWebRouting extends AgaviRouting implements ResetInterface
 {
+    /** @deprecated Legacy optimized routing disabled in Symfony migration */
+    protected function build(): array { return [new \Symfony\Component\Routing\RouteCollection(), []]; }
     /** Re-entrancy depth guard to avoid double miss counting. */
     private static int $executionDepth = 0;
     /** First-pass descriptor cache keyed by path|method for current worker lifecycle */
@@ -59,7 +61,7 @@ class AgaviOptimizedWebRouting extends AgaviWebRouting implements ResetInterface
      * @param AgaviContext $context
      * @param array $parameters
      */
-    public function initialize(AgaviContext $context, array $parameters = [])
+    public function initialize(?AgaviContext $context = null, array $parameters = [])
     {
         parent::initialize($context, $parameters);
         

@@ -20,7 +20,7 @@
 		
 		<response class="Agavi\Response\AgaviWebResponse" />
 		
-		<routing class="Agavi\Routing\AgaviWebRouting" />
+		<routing class="Sandbox\App\Routing\SandboxRouting" />
 		
 		<security_filter class="Agavi\Filter\AgaviSecurityFilter" />
 		

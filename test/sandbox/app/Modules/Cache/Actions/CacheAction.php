@@ -17,8 +17,8 @@ class CacheAction extends AgaviAction
     public function getDefaultViewName(){ return 'Success'; }
     public function execute(AgaviRequestDataHolder $rd){
         self::$execCount++;
-        // In container-less slot execution the action's $container may be null; skip attribute mutation.
-        if($this->container) { $this->setAttribute('foo','bar'); }
+    // Always set attribute now that ViewFactoryTest expects snapshot to include 'foo'.
+    $this->setAttribute('foo','bar');
         return 'Success';
     }
 }

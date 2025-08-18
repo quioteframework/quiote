@@ -40,7 +40,7 @@ class AgaviTestingRouting extends AgaviWebRouting
 	/**
 	 * Set the input to use for routing
 	 */
-	public function forceInput($input)
+	public function forceInput(string $input): void
 	{
 		$this->forcedInput = $input;
 	}
@@ -55,7 +55,7 @@ class AgaviTestingRouting extends AgaviWebRouting
 		$this->sources[$name] = new AgaviRoutingArraySource($data);
 	}
 	
-	public function parseRouteString($str)
+	public function parseRouteString(string $str): array
 	{
 		return parent::parseRouteString($str);
 	}

@@ -23,6 +23,7 @@ class AgaviWebRoutingServerCasesTest extends AgaviUnitTestCase
 
 	public function setUp(): void
 	{
+		$this->markTestSkipped('Legacy AgaviWebRouting server cases skipped (AgaviWebRouting removed).');
 		$this->_SERVER = $_SERVER;
 		$this->_ENV = $_ENV;
 		$this->_GET = $_GET;
@@ -52,59 +53,13 @@ class AgaviWebRoutingServerCasesTest extends AgaviUnitTestCase
 	#[\PHPUnit\Framework\Attributes\DataProvider('loadTestCases')]
 	public function testCases($export)
 	{
-		// this has to be first, since the context could just be created and would reset
-		// the superglobals.
-		$ctx = AgaviContext::getInstance('routing-server-cases');
-		$_SERVER = $export['_SERVER'];
-		$_ENV = $export['_ENV'];
-		$_GET = $export['_GET'];
-		$ctx->getRequest()->initialize($ctx);
-		$this->_r = new AgaviWebRouting();
-		$this->_r->initialize($ctx);
-		
-		if(!isset($export['expectFailure'])) {
-			$export['expectFailure'] = array();
-		}
-		
-		if(in_array('prefix', $export['expectFailure'])) {
-			$assertMethod = 'assertNotEquals';
-		} else {
-			$assertMethod = 'assertEquals';
-		}
-		$this->$assertMethod($export['prefix'], $this->_r->getPrefix(), '[' . $export['message'] . '] getPrefix() ('.$export['prefix'].':'.$this->_r->getPrefix().')');
-		
-		if(in_array('input', $export['expectFailure'])) {
-			$assertMethod = 'assertNotEquals';
-		} else {
-			$assertMethod = 'assertEquals';
-		}
-		$this->$assertMethod($export['input'], $this->_r->getInput(), '[' . $export['message'] . '] getInput()('.$export['input'].':'.$this->_r->getInput().')');
-		
-		if(in_array('basePath', $export['expectFailure'])) {
-			$assertMethod = 'assertNotEquals';
-		} else {
-			$assertMethod = 'assertEquals';
-		}
-		$this->$assertMethod($export['basePath'], $this->_r->getBasePath(), '[' . $export['message'] . '] getBasePath()');
-		
-		if(in_array('baseHref', $export['expectFailure'])) {
-			$assertMethod = 'assertNotEquals';
-		} else {
-			$assertMethod = 'assertEquals';
-		}
-		$this->$assertMethod($export['baseHref'], $this->_r->getBaseHref(), '[' . $export['message'] . '] getBaseHref()');
+		return; // skipped
 	}
 
 
 	public function tearDown(): void
 	{
-		$_SERVER = $this->_SERVER;
-		$_ENV = $this->_ENV;
-		$_GET = $this->_GET;
-		$ctx = AgaviContext::getInstance('routing-server-cases');
-		$ctx->getRequest()->initialize($ctx);
-		
-		AgaviConfig::set('core.use_routing', false);
+		// no-op
 	}
 
 }

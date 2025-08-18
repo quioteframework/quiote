@@ -24,7 +24,7 @@ use Psr\Http\Message\ServerRequestInterface;
  * - Security + validation (optional) via services when enabled.
  * - Simple actions: execute() method.
  * - Non-simple actions: use ActionResolver for method dispatch.
- * - View resolution via ViewNameResolver (pure) (legacy ViewResolver accepted for BC).
+ * - View resolution via ViewNameResolver (pure).
  * - View initialization via legacy container (temporary) if needed until ViewFactory extracted.
  *
  * Future phases will remove any dependency on containers entirely.

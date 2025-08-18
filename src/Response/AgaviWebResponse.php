@@ -18,7 +18,8 @@ use Agavi\AgaviContext;
 use Agavi\Config\AgaviConfig;
 use Agavi\Controller\AgaviOutputType;
 use Agavi\Exception\AgaviException;
-use Agavi\Routing\AgaviWebRouting;
+use Agavi\Request\AgaviWebRequest;
+// AgaviCompatRouter removed; unified AgaviRouting used via DI elsewhere.
 use Symfony\Contracts\Service\ResetInterface;
 
 /**
@@ -166,6 +167,7 @@ class AgaviWebResponse extends AgaviResponse implements ResetInterface
 	{
 		parent::initialize($context, $parameters);
 		
+		/** @var AgaviWebRequest */
 		$request = $context->getRequest();
 		
 		// if 'cookie_secure' is set, and null, then we need to set whatever AgaviWebRequest::isHttps() returns
@@ -211,6 +213,7 @@ class AgaviWebResponse extends AgaviResponse implements ResetInterface
 			$location = $this->redirect['location'];
 			if(!preg_match('#^[^:]+://#', (string) $location)) {
 				if(isset($location[0]) && $location[0] == '/') {
+					/** @var AgaviWebRequest */
 					$rq = $this->context->getRequest();
 					$location = $rq->getUrlScheme() . '://' . $rq->getUrlAuthority() . $location;
 				} else {
@@ -700,12 +703,8 @@ class AgaviWebResponse extends AgaviResponse implements ResetInterface
 			$this->setHttpHeader('X-Powered-By', $xpbh);
 		}
 		
-		$routing = $this->context->getRouting(); 
-		if($routing instanceof AgaviWebRouting) {
-			$basePath = $routing->getBasePath();
-		} else {
-			$basePath = '/';
-		}
+		$routing = $this->context->getRouting();
+		$basePath = method_exists($routing,'getBasePath') ? $routing->getBasePath() : '/';
 		
 		// send cookies
 		foreach($this->cookies as $name => $values) {

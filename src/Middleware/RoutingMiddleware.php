@@ -20,20 +20,40 @@ class RoutingMiddleware implements MiddlewareInterface
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        $result = $this->routing->execute();
-        if(is_array($result) && isset($result['module'],$result['action'],$result['output_type'])) {
-            $module = $result['module'];
-            $action = $result['action'];
-            $outputType = strtolower($result['output_type']);
-            $method = $result['method'] ?? $request->getMethod();
-            // Build descriptor (isSimple determined later by ActionExecutor via introspection): default false
-            $descriptor = new ActionDescriptor($module, $action, $method, $outputType, false);
-            $request = $request
-                ->withAttribute('module', $module)
-                ->withAttribute('action', $action)
-                ->withAttribute('output_type', $outputType)
-                ->withAttribute(ActionDescriptor::class, $descriptor)
-                ->withAttribute('matched_routes', $result['matched_routes'] ?? []);
+        $path = $request->getUri()->getPath();
+        $dbg = getenv('AGAVI_DEBUG_ROUTING');
+        try {
+            $attributes = $this->routing->match($path);
+            $module = $attributes['_module'] ?? null;
+            $action = $attributes['_action'] ?? null;
+            $outputType = strtolower($attributes['_output_type'] ?? 'html');
+            if($module && $action) {
+                $httpMethod = $request->getMethod();
+                // Map HTTP verbs to Agavi semantic methods (GET -> READ, POST -> WRITE, etc.)
+                $method = match(strtoupper($httpMethod)) {
+                    'GET','HEAD','OPTIONS','TRACE' => 'READ',
+                    'POST','PUT','PATCH' => 'WRITE',
+                    'DELETE' => 'REMOVE',
+                    default => strtoupper($httpMethod)
+                };
+                // Build descriptor via controller so isSimple flag reflects actual action implementation
+                try {
+                    $descriptor = ActionDescriptor::fromController($this->controller, $module, $action, $method, $outputType);
+                } catch(\Throwable) {
+                    // Fallback to non-simple if instantiation fails
+                    $descriptor = new ActionDescriptor($module, $action, $method, $outputType, false);
+                }
+                $request = $request
+                    ->withAttribute('module', $module)
+                    ->withAttribute('action', $action)
+                    ->withAttribute('output_type', $outputType)
+                    ->withAttribute(ActionDescriptor::class, $descriptor)
+                    ->withAttribute('route_name', $attributes['_route'] ?? null)
+                    ->withAttribute('route_params', $attributes);
+            }
+        } catch(\Symfony\Component\Routing\Exception\ResourceNotFoundException $e) {
+            // Leave attributes unset; downstream could handle 404
+            // optional debug removed
         }
         return $handler->handle($request);
     }

@@ -23,7 +23,8 @@
 			<ae:parameter name="cookie_encode_callback">rawurlencode</ae:parameter>
 		</response>
 		
-		<routing class="AgaviWebRouting" />
+		<!-- Replace with YourApp\\Routing\\YourAppRouting implementation extending Agavi\\Routing\\Routing -->
+		<routing class="Agavi\\Routing\\Routing" />
 		
 		<security_filter class="AgaviSecurityFilter" />
 		

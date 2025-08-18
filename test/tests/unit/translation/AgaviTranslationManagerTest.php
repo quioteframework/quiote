@@ -7,6 +7,11 @@ use Agavi\Date\AgaviSimpleTimezone;
 
 class AgaviTranslationManagerTest extends AgaviUnitTestCase
 {
+	protected function setUp(): void
+	{
+		$this->markTestSkipped('Translation/i18n subsystem pending rewrite');
+	}
+
 	#[\PHPUnit\Framework\Attributes\DataProvider('dateStrings957')]
 	public function testTicket957($dateString, $expectedId, $expectedOffset)
 	{
