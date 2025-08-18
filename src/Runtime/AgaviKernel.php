@@ -18,7 +18,6 @@ class AgaviKernel
     private function __construct(
         private string $env,
         private string $contextName,
-        private bool $usePsr,
         private string $rootDir,
     ) {}
 
@@ -38,15 +37,7 @@ class AgaviKernel
         $root = dirname(__DIR__, 2);
         $env = $options['env'] ?? getenv('AGAVI_ENV') ?: 'prod';
         $context = $options['context'] ?? getenv('AGAVI_CONTEXT') ?: 'web';
-        $usePsr = (bool) ($options['psr'] ?? getenv('AGAVI_PSR_HTTP'));
-        $kernel = new self($env, $context, $usePsr, $root);
-        if(isset($options['autoload_paths'])) {
-            $kernel->autoloadPaths = is_array($options['autoload_paths']) ? $options['autoload_paths'] : [$options['autoload_paths']];
-        } else {
-            // ENV variable colon separated list
-            $envExtra = getenv('AGAVI_EXTRA_AUTOLOAD');
-            if($envExtra) { $kernel->autoloadPaths = array_filter(explode(':', $envExtra)); }
-        }
+        $kernel = new self($env, $context, $root);
         if(isset($options['app_dir'])) { $kernel->appDir = $options['app_dir']; }
         if(isset($options['prewarm'])) { $kernel->prewarm = (bool)$options['prewarm']; }
         if(isset($options['contexts']) && is_array($options['contexts'])) { $kernel->extraContexts = $options['contexts']; }
@@ -62,15 +53,11 @@ class AgaviKernel
 
         $handle = function() use ($context, $emitter) {
             try {
-                if($this->usePsr) {
-                    $pipeline = new PsrPipelineBuilder($context);
-                    $request = $pipeline->buildRequestFromGlobals();
-                    $dispatcher = $pipeline->buildDispatcher($pipeline->defaultFinalHandler());
-                    $response = $dispatcher->handle($request);
-                    $emitter->emit($response);
-                } else {
-                    $context->getController()->dispatch();
-                }
+                $pipeline = new PsrPipelineBuilder($context);
+                $request = $pipeline->buildRequestFromGlobals();
+                $dispatcher = $pipeline->buildDispatcher($pipeline->defaultFinalHandler());
+                $response = $dispatcher->handle($request);
+                $emitter->emit($response);
             } catch (\Throwable $e) {
                 error_log('Agavi request error: '.$e->getMessage());
                 if(headers_sent() === false) { http_response_code(500); }
@@ -90,13 +77,6 @@ class AgaviKernel
 
     private function bootstrap(): void
     {
-        // 1. Load user-specified autoloaders (application) first
-        foreach($this->autoloadPaths as $autoload) {
-            if(is_string($autoload) && is_readable($autoload)) {
-                require_once $autoload;
-            }
-        }
-
         // 2. Load library (framework) vendor autoload if not already loaded (Composer class missing) and not explicitly provided
         if(!class_exists('Composer\\Autoload\\ClassLoader')) {
             $frameworkAutoload = $this->rootDir . '/vendor/autoload.php';
