@@ -127,11 +127,12 @@ class DispatchMiddleware implements MiddlewareInterface
                         return $factory->createResponse(500)->withBody($factory->createStream('Security forward failed'));
                     }
                 }
-                // For non-simple actions we now REQUIRE prior validation (performed by ValidationMiddleware).
-                // If validation missing, let ActionExecutor raise logic exception (caught by ErrorHandlingMiddleware).
+                // For non-simple actions require a validation decision BEFORE execution.
                 if(!$execState instanceof ExecutionState || !$execState->validationPerformed) {
-                    // Intentionally proceed; executor will throw.
-                } elseif(!$execState->validationSucceeded) {
+                    $factory = new Psr17Factory();
+                    return $factory->createResponse(500)->withBody($factory->createStream('Validation decision missing'));
+                }
+                if(!$execState->validationSucceeded) {
                     $factory = new Psr17Factory();
                     return $factory->createResponse(400)->withBody($factory->createStream('<div>Validation Failed</div>'));
                 }

@@ -135,6 +135,11 @@ class SecurityMiddleware implements MiddlewareInterface
                     $execState->securityDecision = \Agavi\Execution\SecurityDecision::Allow;
                     $request = $request->withAttribute(ExecutionState::class, $execState);
                 }
+                // Invalidate prior validation decision so ValidationMiddleware will re-run for forwarded target.
+                if($execState instanceof \Agavi\Execution\ExecutionState) {
+                    $execState->validationPerformed = false;
+                    $execState->validationSucceeded = false;
+                }
                 if (getenv('AGAVI_DEBUG_SECURITY')) {
                     error_log('[SecurityMiddleware] forwarded decision=' . $decision->name . ' -> system action ' . $newDesc->module . ':' . $newDesc->action . ':' . $newDesc->method);
                 }

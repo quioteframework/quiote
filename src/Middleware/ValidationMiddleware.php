@@ -85,7 +85,8 @@ class ValidationMiddleware implements MiddlewareInterface
         }
 
         // Skip if already validated
-    if ($execState instanceof ExecutionState && $execState->validationPerformed) {
+        // Re-run only if not yet decided; SecurityMiddleware may reset validationPerformed on forward.
+        if ($execState->validationPerformed) {
             return $handler->handle($request);
         }
 
@@ -139,11 +140,9 @@ class ValidationMiddleware implements MiddlewareInterface
             }
         // no xml => params cleared
         }
-        if ($execState instanceof ExecutionState) {
-            $execState->validationPerformed = true;
-            $execState->validationSucceeded = $ok;
-            $request = $request->withAttribute(ExecutionState::class, $execState);
-        }
+    $execState->validationPerformed = true;
+    $execState->validationSucceeded = $ok;
+    $request = $request->withAttribute(ExecutionState::class, $execState);
         if ($ok) {
             // Enforce validated-only access when XML existed; otherwise empty set already enforced.
             if ($hasXml) {

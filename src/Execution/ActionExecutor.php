@@ -123,11 +123,8 @@ final class ActionExecutor
             throw new \LogicException('Non-allow securityDecision reached ActionExecutor (expected short-circuit).');
         }
 
-        // Validation is performed by ValidationMiddleware earlier. If validation failed that middleware returns a response
-        // and this executor is never reached. We only assert consistency here.
-        if (!$desc->isSimple && !$state->validationPerformed) {
-            throw new \LogicException('Non-simple action executed without prior validation: ' . $desc->module . ':' . $desc->action);
-        }
+    // Validation decision (performed + succeeded flag) must be set by ValidationMiddleware only.
+    // Executor no longer performs or enforces validation beyond trusting provided state.
 
         // ACTION EXECUTION
     $rawView = $this->actionResolver->execute($action, $desc->method, $requestData);
