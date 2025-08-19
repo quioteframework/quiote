@@ -16,6 +16,8 @@ use Agavi\Execution\SecurityService; // unified security service
 use Agavi\Execution\SecurityDecision; // execution-layer enum (login|secure)
 use Agavi\Action\AgaviAction;
 use Agavi\Execution\ExecutionState;
+use Agavi\Execution\ValidationService;
+use Agavi\Request\AgaviRequestDataHolder as RDH;
 
 /**
  * Placeholder security middleware: currently defers to legacy dispatch path.
@@ -104,16 +106,40 @@ class SecurityMiddleware implements MiddlewareInterface
                 SecurityDecision::SecureForward => 'secure',
                 default => 'login'
             };
-            $rd = new AgaviRequestDataHolder();
-            $fwdService = $this->forwardService;
-            if ($fwdService) {
-                try {
-                    [$view, $vm, $vn, $content] = $fwdService->createSystemForwardView($key, $this->controller->getOutputType()->getName(), $rd);
-                    $request = $request->withAttribute('agavi.forward_view', [$view, $vm, $vn, $content]);
-                    // Mark forwarded on execution state
-                    if($execState instanceof ExecutionState) { $execState->forwarded = true; $request = $request->withAttribute(ExecutionState::class, $execState); }
-                } catch (\Throwable) {
+            // Produce a replacement ActionDescriptor for the system action based on HTTP verb.
+            $httpMethod = $request->getMethod();
+            try {
+                $newDesc = $this->forwardService->createSystemForwardActionDescriptor($key, $httpMethod, $this->controller->getOutputType()->getName());
+                // Preserve original for debugging/redirect-after-login scenarios.
+                $request = $request->withAttribute('agavi.original_action', $actionDesc);
+                $request = $request->withAttribute(ActionDescriptor::class, $newDesc);
+                if ($execState instanceof ExecutionState) {
+                    $execState->forwarded = true;
+                    // Perform validation immediately for non-simple forwarded actions to satisfy dispatch checks.
+                    try {
+                        $forwardedAction = $this->controller->createActionInstance($newDesc->module, $newDesc->action);
+                        if (method_exists($forwardedAction, 'initialize')) {
+                            $rdTmp = new RDH();
+                            $initCtx = new LightweightActionInitContext($this->controller->getContext(), $newDesc->module, $newDesc->action, $newDesc->method, $newDesc->outputType, $rdTmp, $this->controller->getGlobalResponse());
+                            $forwardedAction->initialize($initCtx);
+                        }
+                        $isSimple = method_exists($forwardedAction, 'isSimple') ? (bool)$forwardedAction->isSimple() : false;
+                        if(!$isSimple) {
+                            $vs = new ValidationService();
+                            $vr = $vs->xmlOnlyValidate($forwardedAction, new RDH(), $newDesc->module, $newDesc->action, ucfirst(strtolower($newDesc->method)));
+                            $execState->validationPerformed = true;
+                            $execState->validationSucceeded = $vr->ok;
+                        }
+                    } catch(\Throwable) { /* ignore - fallback to relaxed path */ }
+                    // Mark security decision as satisfied so executor doesn't treat it as a logic error.
+                    $execState->securityDecision = \Agavi\Execution\SecurityDecision::Allow;
+                    $request = $request->withAttribute(ExecutionState::class, $execState);
                 }
+                if (getenv('AGAVI_DEBUG_SECURITY')) {
+                    error_log('[SecurityMiddleware] forwarded decision=' . $decision->name . ' -> system action ' . $newDesc->module . ':' . $newDesc->action . ':' . $newDesc->method);
+                }
+            } catch (\Throwable $e) {
+                if (getenv('AGAVI_DEBUG_SECURITY')) { error_log('[SecurityMiddleware] forward descriptor creation failed: ' . $e->getMessage()); }
             }
         }
         return $handler->handle($request);

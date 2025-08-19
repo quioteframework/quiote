@@ -6,6 +6,8 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Agavi\AgaviContext;
 use Nyholm\Psr7\Response;
+// import negotiation middleware (added)
+use Agavi\Middleware\ContentNegotiationMiddleware;
 
 /**
  * Builds and caches the PSR-15 middleware chain; safe for FrankenPHP worker reuse.
@@ -32,7 +34,10 @@ class MiddlewareKernel implements RequestHandlerInterface
     $pipeline->add('TimingMiddleware', new TimingMiddleware(false), 'bootstrap', 100);
     $pipeline->add('TraceMiddleware', new TraceMiddleware(false), 'bootstrap', 90);
     $pipeline->add('JsonBodyParsingMiddleware', new JsonBodyParsingMiddleware(), 'bootstrap', 80);
-        $pipeline->add('RoutingMiddleware', new RoutingMiddleware($routing, $controller), 'routing');
+    $pipeline->add('RoutingMiddleware', new RoutingMiddleware($routing, $controller), 'routing');
+    // Content negotiation should run after routing (route may set _output_type) but before other before_action middlewares.
+    // We keep it in the 'routing' phase with lower priority so it executes after RoutingMiddleware.
+    $pipeline->add('ContentNegotiationMiddleware', new ContentNegotiationMiddleware($controller), 'routing', -5);
         $pipeline->add('FormPopulationMiddleware', new FormPopulationMiddleware(), 'before_action', 10);
         $pipeline->add('SecurityMiddleware', new SecurityMiddleware($controller), 'before_action', 0);
         $pipeline->add('ValidationMiddleware', new ValidationMiddleware(), 'before_action', 0);

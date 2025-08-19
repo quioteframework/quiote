@@ -2,10 +2,6 @@
 
 use Agavi\Config\AgaviConfig;
 use Agavi\Config\AgaviFactoryConfigHandler;
-use Agavi\Filter\AgaviIGlobalFilter;
-use Agavi\Filter\AgaviIActionFilter;
-use Agavi\Filter\AgaviISecurityFilter;
-use Agavi\Filter\AgaviFilterChain;
 use Agavi\User\AgaviISecurityUser;
 use Agavi\AgaviContext;
 require_once(__DIR__ . '/ConfigHandlerTestBase.php');
@@ -32,21 +28,7 @@ class FCHTestBase
 
 class FCHTestController         extends FCHTestBase {}
 	
-class FCHTestDispatchFilter     implements AgaviIGlobalFilter {
-	public function executeOnce(AgaviFilterChain $filterChain, $container) {}
-	public function execute(AgaviFilterChain $filterChain, $container) {}
-	public final function getContext() {}
-	public function initialize(AgaviContext $context, array $parameters = array()) {}
-}
 
-class FCHTestExecutionFilter    implements AgaviIActionFilter {
-	public function executeOnce(AgaviFilterChain $filterChain, $container) {}
-	public function execute(AgaviFilterChain $filterChain, $container) {}
-	public final function getContext() {}
-	public function initialize(AgaviContext $context, array $parameters = array()) {}
-}
-
-class FCHTestFilterChain        extends FCHTestBase {}
 class FCHTestLoggerManager      extends FCHTestBase {}
 class FCHTestRequest            extends FCHTestBase {}
 class FCHTestResponse           extends FCHTestBase {}
@@ -56,12 +38,7 @@ class FCHTestTranslationManager extends FCHTestBase {}
 class FCHTestValidationManager  extends FCHTestBase {}
 class FCHTestDBManager          extends FCHTestBase {}
 
-class FCHTestSecurityFilter     implements AgaviIActionFilter, AgaviISecurityFilter {
-	public function executeOnce(AgaviFilterChain $filterChain, $container) {}
-	public function execute(AgaviFilterChain $filterChain, $container) {}
-	public final function getContext() {}
-	public function initialize(AgaviContext $context, array $parameters = array()) {}
-}
+// Legacy security filter removed
 class FCHTestUser               extends FCHTestBase implements AgaviISecurityUser
 {
 	public function addCredential($credential) {}
@@ -76,6 +53,15 @@ class AgaviFactoryConfigHandlerTest extends ConfigHandlerTestBase
 {
 	// Prevent dynamic property deprecation when generated factory code assigns $this->shutdownSequence
 	public array $shutdownSequence = [];
+	// Added to silence dynamic property creation deprecations from generated factories code
+	public ?array $databaseManagerFactoryInfo = null;
+	public ?array $loggerManagerFactoryInfo = null;
+	public ?array $translationManagerFactoryInfo = null;
+	public ?array $requestFactoryInfo = null;
+	public ?array $routingFactoryInfo = null;
+	public ?array $controllerFactoryInfo = null;
+	public ?array $storageFactoryInfo = null;
+	public ?array $userFactoryInfo = null;
 	protected		$conf;
 
 	protected		$factories;
@@ -120,57 +106,31 @@ class AgaviFactoryConfigHandlerTest extends ConfigHandlerTestBase
 
 
 
-		// Dispatch filter
-		$this->assertSame(
-			array(
-				'class' => 'FCHTestDispatchFilter',
-				'parameters' => $paramsExpected,
-			),
-			$this->factories['dispatch_filter']
-		);
+	// Legacy filters removed – no assertions
 
-		// Execution filter
-		$this->assertSame(
-			array(
-				'class' => 'FCHTestExecutionFilter',
-				'parameters' => $paramsExpected,
-			),
-			$this->factories['execution_filter']
-		);
-
-		// Filter chain
-		$this->assertSame(
-			array(
-				'class' => 'FCHTestFilterChain',
-				'parameters' => $paramsExpected,
-			),
-			$this->factories['filter_chain']
-		);
-
-		// Security filter
-		$this->assertSame(
-			array(
-				'class' => 'FCHTestSecurityFilter',
-				'parameters' => $paramsExpected,
-			),
-			$this->factories['security_filter']
-		);
-
-		// Response
+		// Response (now includes factory_info metadata)
 		$this->assertSame(
 			array(
 				'class' => 'FCHTestResponse',
 				'parameters' => $paramsExpected,
+				'factory_info' => array(
+					'class' => 'FCHTestResponse',
+					'parameters' => $paramsExpected,
+				),
 			),
 			$this->factories['response']
 		);
 		
 
-		// Validation Manager
+		// Validation Manager (includes factory_info)
 		$this->assertSame(
 			array(
 				'class' => 'FCHTestValidationManager',
 				'parameters' => $paramsExpected,
+				'factory_info' => array(
+					'class' => 'FCHTestValidationManager',
+					'parameters' => $paramsExpected,
+				),
 			),
 			$this->factories['validation_manager']
 		);

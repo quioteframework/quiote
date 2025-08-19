@@ -44,7 +44,6 @@ use Agavi\Util\AgaviToolkit;
 use Agavi\Exception\AgaviClassNotFoundException;
 use Agavi\Exception\AgaviFileNotFoundException;
 use Agavi\AgaviContext;
-use Agavi\Filter\AgaviFilterChain;
 use Agavi\Request\AgaviIHeadersRequestDataHolder;
 use Symfony\Contracts\Service\ResetInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -69,23 +68,7 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 	 */
 	protected $response = null;
 	
-	/**
-	 * @var        AgaviFilterChain The global filter chain.
-	 */
-	protected $filterChain = null;
-	
-	/**
-	 * @var        array An array of filter instances for reuse.
-	 */
-	protected $filters = [
-		'global' => [],
-		'action' => [
-			'*' => null
-		],
-		'dispatch' => null,
-		'execution' => null,
-		'security' => null
-	];
+	// Legacy filter chain and filters removed (replaced by middleware pipeline)
 	
 	/**
 	 * @var        string The default Output Type.
@@ -442,96 +425,9 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 			require(AgaviConfigCache::checkConfig($cfg, $this->context->getName()));
 		}
 		
-		if(AgaviConfig::get('core.use_security', false)) {
-			$this->filters['security'] = $this->context->createInstanceFor('security_filter');
-		}
-		
-		$this->filters['dispatch'] = $this->context->createInstanceFor('dispatch_filter');
-		
-		$this->filters['execution'] = $this->context->createInstanceFor('execution_filter');
+		// Legacy security/dispatch/execution filters removed
 	}
 	
-	/**
-	 * Get a filter.
-	 *
-	 * @param      string The name of the filter list section.
-	 *
-	 * @return     AgaviFilter A filter instance, or null.
-	 *
-	 * @author     David Zülke <dz@bitxtender.com>
-	 * @since      0.11.0
-	 */
-	public function getFilter($which)
-	{
-		return ($this->filters[$which] ?? null);
-	}
-	
-	/**
-	 * Get the global filter chain.
-	 *
-	 * @return     AgaviFilterChain The global filter chain.
-	 *
-	 * @author     David Zülke <david.zuelke@bitextender.com>
-	 * @since      1.1.0
-	 */
-	public function getFilterChain()
-	{
-		if($this->filterChain === null) {
-			$this->filterChain = $this->context->createInstanceFor('filter_chain');
-			$this->filterChain->setType(AgaviFilterChain::TYPE_GLOBAL);
-		}
-		
-		return $this->filterChain;
-	}
-	
-	/**
-	 * Load filters.
-	 *
-	 * @param      AgaviFilterChain A FilterChain instance.
-	 * @param      string           "global" or "action".
-	 * @param      string           A module name, or "*" for the generic config.
-	 *
-	 * @author     David Zülke <dz@bitxtender.com>
-	 * @since      0.11.0
-	 */
-	public function loadFilters(AgaviFilterChain $filterChain, $which = 'global', $module = null)
-	{
-		if($module === null) {
-			$module = '*';
-		}
-		
-		if(($which != 'global' && !isset($this->filters[$which][$module])) || $which == 'global' && $this->filters[$which] == null) {
-			if($which == 'global') {
-				$this->filters[$which] = [];
-				$filters =& $this->filters[$which];
-			} else {
-				$this->filters[$which][$module] = [];
-				$filters =& $this->filters[$which][$module];
-			}
-			$config = ($module == '*' ? AgaviConfig::get('core.config_dir') : AgaviConfig::get('core.module_dir') . '/' . $module . '/Config') . '/' . $which . '_filters.xml';
-			if(is_readable($config)) {
-				if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
-					require(AgaviAPCuConfigCache::checkConfig($config, $this->context->getName()));
-				} else {
-					require(AgaviConfigCache::checkConfig($config, $this->context->getName()));
-				}
-			}
-		} else {
-			if($which == 'global') {
-				$filters =& $this->filters[$which];
-			} else {
-				$filters =& $this->filters[$which][$module];
-			}
-		}
-		
-		foreach($filters as $name => $filter) {
-			if(method_exists($filter, 'isPostFilter') && $filter->isPostFilter()) {
-				$filterChain->registerPost($filter, $name);
-			} else {
-				$filterChain->registerPre($filter, $name);
-			}
-		}
-	}
 
 	/**
 	 * Indicates whether or not a module has a specific model.
@@ -652,11 +548,7 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 		// Reset execution counter
 		$this->numExecutions = 0;
 		
-		// Clear filter chain (will be recreated on next request)
-		$this->filterChain = null;
-		
-		// Reset action-specific filters (keep global ones as they're reusable)
-		$this->filters['action'] = ['*' => null];
+		// Legacy filter chain/filters removed – nothing to reset here
 		
 		// Clear request data reference
 		$this->requestData = null;

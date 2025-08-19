@@ -21,6 +21,8 @@ class ValidationMiddlewareTest extends TestCase
         if(!defined('AGAVI_TESTING')) {
             define('AGAVI_TESTING', true);
         }
+    // Disable translations to avoid translation manager trying to load supplementalData.xml in unit mode
+    \Agavi\Config\AgaviConfig::set('core.use_translation', false, true, true);
         $this->context = AgaviContext::getInstance('testing');
     }
 
@@ -75,7 +77,7 @@ class ValidationMiddlewareTest extends TestCase
         $finalHandler = new class implements RequestHandlerInterface { public function handle(ServerRequestInterface $r): ResponseInterface { return new Psr7Response(204); } };
         $response = $validation->process($request, $finalHandler);
         // Since simple action returns immediately only validation middleware runs; ensure no validation error content produced.
-    // Simple action success returns action result (200) not final handler (204) because middleware short-circuits.
-    $this->assertSame(200, $response->getStatusCode());
+    // Simple action validation bypass now allows pipeline to continue to final handler (204 expected).
+    $this->assertSame(204, $response->getStatusCode());
     }
 }

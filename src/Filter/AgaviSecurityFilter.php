@@ -15,9 +15,6 @@
 // +---------------------------------------------------------------------------+
 namespace Agavi\Filter;
 
-use Agavi\Controller\AgaviExecutionContainer;
-use Agavi\Exception\AgaviException;
-
 /**
  * AgaviBasicSecurityFilter checks security by calling the getCredentials() 
  * method of the action. Once the credential has been acquired, 
@@ -36,70 +33,5 @@ use Agavi\Exception\AgaviException;
  *
  * @version    $Id$
  */
-class AgaviSecurityFilter extends AgaviFilter implements AgaviIActionFilter, AgaviISecurityFilter
-{
-    /**
-     * Execute this filter.
-     *
-     * @param      AgaviFilterChain The filter chain.
-     * @param      AgaviExecutionContainer The current execution container.
-     *
-     * @author     David Zülke <dz@bitxtender.com>
-     * @author     Sean Kerr <skerr@mojavi.org>
-     * @since      0.9.0
-     */
-    #[\Override]
-    public function execute(AgaviFilterChain $filterChain, AgaviExecutionContainer $container)
-    {
-        
-        static $handlingRedirects = [];
-        $actionKey = $container->getModuleName() . '/' . $container->getActionName();
-        if(isset($handlingRedirects[$actionKey])) {
-            return;
-        }
-
-        if($container->isSecurityForwarded()) {
-            return;
-        }
-
-        $context    = $this->getContext();
-        $user       = $context->getUser();
-        $actionInstance = $container->getActionInstance();
-
-        $isSecure = $actionInstance->isSecure();
-       
-        if(!$isSecure) {
-            return;
-        }
-
-        $isAuthenticated = $user->isAuthenticated();
-       
-        $credential = $actionInstance->getCredentials();
-        $hasCredentials = ($credential === null || $user->hasCredentials($credential));
-       
-        if($isAuthenticated && $hasCredentials) {
-            // user has access, allow filter chain to continue
-            return;
-        } else {
-            try {
-                $handlingRedirects[$actionKey] = true;
-
-                if($isAuthenticated) {
-                    $container->setNext($container->createSystemActionForwardContainer('secure'));
-                } else {
-                    $forwardContainer = $container->createSystemActionForwardContainer('login');
-                    $forwardContainer->setSecurityForwarded(true);
-                    $container->setNext($forwardContainer);
-                    return;
-                }
-            } finally {
-                unset($handlingRedirects[$actionKey]);
-            }
-        }
-    }
-
-    public function isPostFilter(): bool
-    {
-        return false;
-    }
-}
+// Legacy security filter removed (middleware handles auth/authorization). Left as empty stub for BC.
+final class AgaviSecurityFilter {}

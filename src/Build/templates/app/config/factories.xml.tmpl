@@ -7,12 +7,7 @@
 		
 		<database_manager class="AgaviDatabaseManager" />
 		
-		<dispatch_filter class="AgaviDispatchFilter" />
-		
-		
-		<execution_filter class="AgaviExecutionFilter" />
-		
-		<filter_chain class="AgaviFilterChain" />
+		<!-- legacy dispatch_filter, execution_filter, filter_chain removed (replaced by middleware pipeline) -->
 		
 		<logger_manager class="AgaviLoggerManager" />
 		
@@ -26,7 +21,7 @@
 		<!-- Replace with YourApp\\Routing\\YourAppRouting implementation extending Agavi\\Routing\\Routing -->
 		<routing class="Agavi\\Routing\\Routing" />
 		
-		<security_filter class="AgaviSecurityFilter" />
+		<!-- legacy security_filter removed (use middleware for security) -->
 		
 		<storage class="AgaviSessionStorage" />
 		

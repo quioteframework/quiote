@@ -34,7 +34,8 @@ use Agavi\Controller\AgaviExecutionContainer;
  *
  * @version    $Id$
  */
-class AgaviDispatchFilter extends AgaviFilter implements AgaviIGlobalFilter
+// Legacy no-op stub retained for BC; will be removed in a future major version.
+final class AgaviDispatchFilter
 {
 	/**
 	 * Execute this filter.
@@ -49,17 +50,7 @@ class AgaviDispatchFilter extends AgaviFilter implements AgaviIGlobalFilter
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	#[\Override]
-    public function execute(AgaviFilterChain $filterChain, AgaviExecutionContainer $container)
-	{
-		$container->setResponse($container->execute());
-	}
-
-	// This filter should always be a pre-filter
-	public function isPostFilter(): bool
-	{
-		return false;
-	}
+	// Intentionally empty
 }
 
 ?>

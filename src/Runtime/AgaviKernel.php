@@ -10,7 +10,6 @@ use Agavi\Runtime\Worker\WorkerAdapterInterface;
 
 class AgaviKernel
 {
-    private array $autoloadPaths = [];
     private ?string $appDir = null;
     private bool $prewarm = false;
     private array $extraContexts = [];
@@ -18,7 +17,6 @@ class AgaviKernel
     private function __construct(
         private string $env,
         private string $contextName,
-        private string $rootDir,
     ) {}
 
     /**
@@ -34,10 +32,10 @@ class AgaviKernel
      */
     public static function create(array $options = []): self
     {
-        $root = dirname(__DIR__, 2);
+
         $env = $options['env'] ?? getenv('AGAVI_ENV') ?: 'prod';
         $context = $options['context'] ?? getenv('AGAVI_CONTEXT') ?: 'web';
-        $kernel = new self($env, $context, $root);
+        $kernel = new self($env, $context);
         if(isset($options['app_dir'])) { $kernel->appDir = $options['app_dir']; }
         if(isset($options['prewarm'])) { $kernel->prewarm = (bool)$options['prewarm']; }
         if(isset($options['contexts']) && is_array($options['contexts'])) { $kernel->extraContexts = $options['contexts']; }
@@ -59,9 +57,16 @@ class AgaviKernel
                 $response = $dispatcher->handle($request);
                 $emitter->emit($response);
             } catch (\Throwable $e) {
-                error_log('Agavi request error: '.$e->getMessage());
+                $details = $e->getMessage();
+                $ctxName = $context->getName();
+                $reqClass = 'null';
+                try { $req = (new \ReflectionClass($context))->getProperty('request'); $req->setAccessible(true); $rVal = $req->getValue($context); $reqClass = $rVal ? get_class($rVal) : 'null'; } catch(\Throwable) {}
+                $factoryInfo = method_exists($context,'getFactoryInfo') ? $context->getFactoryInfo('request') : null;
+                $debugLine = 'Agavi request error ['.$ctxName.'] requestClass='.$reqClass.' captured='.($context->getController() ? 'yes':'no').' msg='.$details;
+                error_log($debugLine."\nStack: ".$e->getTraceAsString());
                 if(headers_sent() === false) { http_response_code(500); }
-                echo 'Internal Server Error';
+                // Emit minimal plaintext so Caddy log still shows size 21 but browser displays clue
+                echo 'Internal Server Error: '.$e->getMessage();
             }
             return true; // continue loop
         };
@@ -77,22 +82,10 @@ class AgaviKernel
 
     private function bootstrap(): void
     {
-        // 2. Load library (framework) vendor autoload if not already loaded (Composer class missing) and not explicitly provided
-        if(!class_exists('Composer\\Autoload\\ClassLoader')) {
-            $frameworkAutoload = $this->rootDir . '/vendor/autoload.php';
-            if(is_readable($frameworkAutoload)) { require_once $frameworkAutoload; }
-        }
+        AgaviConfig::set('core.app_dir', $this->appDir, true, true);
 
-        // 3. Determine application directory
-        $appDir = $this->appDir
-            ?? getenv('AGAVI_APP_DIR')
-            ?: ($this->rootDir . '/app');
-        AgaviConfig::set('core.app_dir', $appDir, true, true);
-
-        // 4. Default context early (if caller provided via env/option)
-        $defaultContext = getenv('AGAVI_DEFAULT_CONTEXT') ?: $this->contextName;
         if(!\Agavi\Config\AgaviConfig::has('core.default_context')) {
-            AgaviConfig::set('core.default_context', $defaultContext, true, true);
+            AgaviConfig::set('core.default_context', $this->contextName, true, true);
         }
 
         // 5. APCu config cache flag
@@ -101,9 +94,8 @@ class AgaviKernel
         }
 
         // 6. Bootstrap (prewarm only if requested or option set)
-        $prewarmOpt = $this->prewarm || in_array(strtolower((string)getenv('AGAVI_APCU_PREWARM')), ['1','true','yes','on'], true);
         $contextsToPreCreate = array_unique(array_filter(array_merge([$this->contextName], $this->extraContexts)));
-        Agavi::bootstrap($this->env, $contextsToPreCreate, ['prewarm' => $prewarmOpt]);
+        Agavi::bootstrap($this->env, $contextsToPreCreate, ['prewarm' => $this->prewarm]);
     }
 
     private function selectWorkerAdapter(): WorkerAdapterInterface

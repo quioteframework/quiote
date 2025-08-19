@@ -189,9 +189,9 @@ abstract class AgaviRouting
 	public function match(string $path): array { return $this->matcher->match($path); }
 
 	/**
-	 * Legacy-compatible URL generation (subset) merged into base routing.
-	 * Returns the URL string (legacy tests only assert first element when array form used previously).
-	 * For now we keep signature simple but emulate omit_defaults trimming and parameter substitution.
+	 * URL generation.
+	 * Always returns a string path. Legacy array return has been removed.
+	 * Any previously passed ['legacy_array'=>true] / ['return_array'=>true] flags are ignored.
 	 */
 	public function gen($route, array $params = [], $options = [])
 	{
@@ -225,15 +225,18 @@ abstract class AgaviRouting
 			if($v === 'null') $params[$k]=null; elseif($v === 'remove') unset($params[$k]);
 		}
 		// Fill placeholders
-		if(preg_match_all('#\{([a-zA-Z_][a-zA-Z0-9_-]*)\}#',$genPath,$m)){
-			foreach($m[1] as $p){
-				if(array_key_exists($p,$params)) { $val = $params[$p]; }
-				elseif(array_key_exists($p,$defaults)) { $val = $defaults[$p]; }
-				else { throw new \InvalidArgumentException("Missing required parameter '$p' for route '$route'"); }
-				if($val === null || $val === '') { $genPath = preg_replace('#/?\{'.$p.'}#','',$genPath); }
-				else { $genPath = str_replace('{'.$p.'}', rawurlencode((string)$val), $genPath); }
+		$genPath = preg_replace_callback('#\{([a-zA-Z_][a-zA-Z0-9_-]*)(?::[^}]*)?\}#', function($m) use ($params,$defaults,$route){
+			$p = $m[1];
+			$hasParam = array_key_exists($p,$params);
+			$hasDefault = array_key_exists($p,$defaults);
+			if(!$hasParam && !$hasDefault) {
+				// Treat as optional if no value (common for trailing placeholders like /login/{type:regex})
+				return '';
 			}
-		}
+			$val = $hasParam ? $params[$p] : $defaults[$p];
+			if($val === null || $val === '') { return ''; }
+			return rawurlencode((string)$val);
+		}, $genPath);
 		// Collapse duplicate slashes and trim
 		$genPath = preg_replace('#//+#','/',$genPath) ?? $genPath; $genPath = rtrim($genPath,'/'); if($genPath==='') $genPath='/'; if($genPath[0] !== '/') $genPath='/'.$genPath;
 		// Omit defaults (right-to-left) if requested
@@ -248,7 +251,8 @@ abstract class AgaviRouting
 			}
 			$genPath = '/' . implode('/', array_filter($segments, fn($s)=>$s!=='')); if($genPath==='') $genPath='/';
 		}
-		return [$genPath, array_keys($params), $options, [], false];
+		// Legacy array output deprecated: always return string
+		return $genPath;
 	}
 
 	public function genSelf(?string $routeName, array $params = [], array $currentQuery = []): string
@@ -269,7 +273,32 @@ abstract class AgaviRouting
 	public function getRouteCollection(): RouteCollection { return $this->routes; }
 	public function getMeta(): array { return $this->meta; }
 	public function getBasePath(): string { return '/'; }
-	public function getBaseHref(): string { return '/'; }
+	/**
+	 * Return the absolute origin (scheme://host[:port]) without trailing slash.
+	 * Historically this returned just '/', but modern usage (templates, redirects)
+	 * expects a fully qualified origin for constructing absolute URLs.
+	 */
+	public function getBaseHref(): string {
+		// Prefer data from the Agavi web request if available
+		if($this->appContext && method_exists($this->appContext,'getRequest')) {
+			try {
+				$rq = $this->appContext->getRequest();
+				if($rq instanceof \Agavi\Request\AgaviWebRequest) {
+					$scheme = $rq->getUrlScheme();
+					$auth = $rq->getUrlAuthority();
+					if($auth) { return rtrim($scheme . '://' . $auth,'/'); }
+				}
+			} catch(\Throwable $e) { /* fall back to server vars */ }
+		}
+		$scheme = $_SERVER['HTTP_X_FORWARDED_PROTO']
+			?? $_SERVER['REQUEST_SCHEME']
+			?? ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== '' && strtolower((string)$_SERVER['HTTPS']) !== 'off') ? 'https' : 'http');
+		// Support X-Forwarded-Host (may contain multiple, use first) before Host
+		$xfh = $_SERVER['HTTP_X_FORWARDED_HOST'] ?? null;
+		if($xfh) { $xfh = explode(',', $xfh)[0]; $xfh = trim($xfh); }
+		$host = $xfh ?: ($_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost');
+		return rtrim($scheme . '://' . $host,'/');
+	}
 	public function getRequestContext(): RequestContext { return $this->context; }
 
 	// Placeholder for removed legacy features used in some tests; provide no-op minimal parser

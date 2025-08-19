@@ -64,121 +64,66 @@ class AgaviFactoryConfigHandler extends AgaviXmlConfigHandler
 		// The order of this initialization code is fixed, to not change
 		// name => required?
 		$factories = [
+			// Validation manager remains a required factory (middleware replaces filters)
 			'validation_manager' => [
 				'required' => true,
 				'var' => null,
-				'must_implement' => [
-				],
+				'must_implement' => [],
 			],
-			
-			'dispatch_filter' => [
-				'required' => true,
-				'var' => null,
-				'must_implement' => [
-					'Agavi\\Filter\\AgaviIGlobalFilter',
-				],
-			],
-			
-			'execution_filter' => [
-				'required' => true,
-				'var' => null,
-				'must_implement' => [
-					'Agavi\\Filter\\AgaviIActionFilter',
-				],
-			],
-			
-			'security_filter' => [
-				'required' => AgaviConfig::get('core.use_security', false),
-				'var' => null,
-				'must_implement' => [
-					'Agavi\\Filter\\AgaviIActionFilter',
-					'Agavi\\Filter\\AgaviISecurityFilter',
-				],
-			],
-			
-			'filter_chain' => [
-				'required' => true,
-				'var' => null,
-				'must_implement' => [
-				],
-			],
-			
+			// Response factory info (global response instance)
 			'response' => [
 				'required' => true,
 				'var' => null,
-				'must_implement' => [
-				],
+				'must_implement' => [],
 			],
-			
+			// Order: database manager must be instantiated (and startup run) BEFORE storage & user.
 			'database_manager' => [
-				'required' => AgaviConfig::get('core.use_database', false),
+				'required' => true,
 				'var' => 'databaseManager',
-				'must_implement' => [
-				],
+				'must_implement' => [],
 			],
-			
 			'database_manager', // startup()
-			
 			'logger_manager' => [
 				'required' => AgaviConfig::get('core.use_logging', false),
 				'var' => 'loggerManager',
-				'must_implement' => [
-				],
+				'must_implement' => [],
 			],
-			
 			'logger_manager', // startup()
-			
 			'translation_manager' => [
 				'required' => AgaviConfig::get('core.use_translation', false),
 				'var' => 'translationManager',
-				'must_implement' => [
-				],
+				'must_implement' => [],
 			],
-			
 			'request' => [
 				'required' => true,
 				'var' => 'request',
-				'must_implement' => [
-				],
+				'must_implement' => [],
 			],
-			
 			'routing' => [
 				'required' => true,
 				'var' => 'routing',
-				'must_implement' => [
-				],
+				'must_implement' => [],
 			],
-			
 			'controller' => [
 				'required' => true,
 				'var' => 'controller',
-				'must_implement' => [
-				],
+				'must_implement' => [],
 			],
-			
 			'storage' => [
 				'required' => true,
 				'var' => 'storage',
-				'must_implement' => [
-				],
+				'must_implement' => [],
 			],
-			
 			'storage', // startup()
-			
 			'user' => [
 				'required' => true,
 				'var' => 'user',
-				'must_implement' => [], // We'll do runtime checking for AgaviISecurityUser in initialize()
+				'must_implement' => [],
 			],
-			
 			'translation_manager', // startup()
-			
 			'user', // startup()
-			
 			'routing', // startup()
-			
 			'request', // startup()
-			
 			'controller', // startup()
 		];
 		
@@ -234,10 +179,26 @@ class AgaviFactoryConfigHandler extends AgaviXmlConfigHandler
 						$data[$factory]['class'],
 						var_export($data[$factory]['params'], true)
 					);
+					// Capture factory info immediately for worker-mode lazy recreation safety (now for all var-based factories)
+					$code[] = sprintf(
+						'$this->%1$sFactoryInfo = [\'class\' => %2$s, \'parameters\' => %3$s];',
+						$info['var'],
+						var_export($data[$factory]['class'], true),
+						var_export($data[$factory]['params'], true)
+					);
 				} else {
 					// it's a factory info
 					$code[] = sprintf(
 						'$this->factories[%1$s] = %2$s;',
+						var_export($factory, true),
+						var_export([
+							'class' => $data[$factory]['class'],
+							'parameters' => $data[$factory]['params'],
+						], true)
+					);
+					// Provide explicit factory info array for compatibility with createInstanceFor() callers
+					$code[] = sprintf(
+						'$this->factories[%1$s][\'factory_info\'] = %2$s;',
 						var_export($factory, true),
 						var_export([
 							'class' => $data[$factory]['class'],

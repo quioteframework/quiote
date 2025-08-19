@@ -27,10 +27,17 @@ class ValidationMiddleware implements MiddlewareInterface
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $execState = $request->getAttribute(ExecutionState::class);
+        // Always ensure we have an ExecutionState so downstream code can rely on it
+        if(!$execState instanceof ExecutionState) {
+            $execState = new ExecutionState();
+            $request = $request->withAttribute(ExecutionState::class, $execState);
+        }
         $actionDesc = $request->getAttribute(\Agavi\Execution\ActionDescriptor::class);
         if(!$actionDesc) { return $handler->handle($request); }
         $vd = getenv('AGAVI_DEBUG_VALIDATION');
-        $moduleName = $actionDesc->module; $actionName = $actionDesc->action; $method = $actionDesc->method;
+    $moduleName = $actionDesc->module; $actionName = $actionDesc->action; $method = $actionDesc->method;
+    // Normalize method name to legacy expected case (READ->Read, WRITE->Write, etc.)
+    $normalizedMethod = ucfirst(strtolower($method));
         // Create the action instance (descriptor holds metadata only).
         $action = $request->getAttribute('agavi.preinstantiated_action');
         if (!$action) {
@@ -92,7 +99,7 @@ class ValidationMiddleware implements MiddlewareInterface
                 // simple action bypass
             } else {
                 // Attempt XML-only validation first
-                $xmlRes = $vs->xmlOnlyValidate($action, $requestData, $moduleName, $actionName, $method);
+                $xmlRes = $vs->xmlOnlyValidate($action, $requestData, $moduleName, $actionName, $normalizedMethod);
                 $trace = $xmlRes->getTrace();
                 $hasXml = $trace && property_exists($trace, 'configFile') && $trace->configFile !== null && $trace->configFile !== '';
                 $ok = $xmlRes->ok;
@@ -102,8 +109,7 @@ class ValidationMiddleware implements MiddlewareInterface
                 // xml validation phase complete
                 if ($ok) {
                     // Manual action validation phase
-                    $methodCap = ucfirst(strtolower($actionDesc->method));
-                    $validateMethod = 'validate' . $methodCap;
+                    $validateMethod = 'validate' . $normalizedMethod;
                     if (is_callable([$action, $validateMethod])) {
                         $ok = (bool)$action->$validateMethod($requestData);
                     }
@@ -156,8 +162,8 @@ class ValidationMiddleware implements MiddlewareInterface
     // failure path
         // Validation failed => 400 with errors and stash for form population
         $request = $request->withAttribute('agavi.validation.errors', $errors);
-        $method = $method ?: 'Default';
-        $handleErrorMethod = 'handle' . $method . 'Error';
+    $method = $normalizedMethod ?: 'Default';
+    $handleErrorMethod = 'handle' . $method . 'Error';
         if (!is_callable([$action, $handleErrorMethod])) {
             $handleErrorMethod = 'handleError';
         }

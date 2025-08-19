@@ -7,12 +7,7 @@
 		
 		<database_manager class="Agavi\Database\AgaviDatabaseManager" />
 		
-		<dispatch_filter class="Agavi\Filter\AgaviDispatchFilter" />
-		
-		
-		<execution_filter class="Agavi\Filter\AgaviExecutionFilter" />
-		
-		<filter_chain class="Agavi\Filter\AgaviFilterChain" />
+		<!-- legacy dispatch_filter, execution_filter, filter_chain removed -->
 		
 		<logger_manager class="Agavi\Logging\AgaviLoggerManager" />
 		
@@ -22,7 +17,7 @@
 		
 		<routing class="Sandbox\App\Routing\SandboxRouting" />
 		
-		<security_filter class="Agavi\Filter\AgaviSecurityFilter" />
+		<!-- legacy security_filter removed -->
 		
 		<storage class="Agavi\Storage\AgaviSessionStorage" />
 		

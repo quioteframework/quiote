@@ -152,40 +152,7 @@ abstract class AgaviFragmentTestCase extends AgaviPhpUnitTestCase implements Aga
 	 * @author     Felix Gilcher <felix.gilcher@bitextender.com>
 	 * @since      1.0.0
 	 */
-	protected function createExecutionFilter()
-	{
-		$effi = $this->getContext()->getFactoryInfo('execution_filter');
-		$baseClassName = $effi['class'];
-		$wrapper_class = str_replace('\\', '_', $baseClassName) . 'UnitTesting';
-
-		//extend the original class to overwrite runAction, so that the containers request data is cloned
-		if(!class_exists($wrapper_class)) {
-			$code = sprintf('
-class %1$s extends \\%2$s
-{
-	protected $validationResult = null;
-	
-	public function executeView($container)
-	{
-		// FIXED: Only call initRequestData if requestData is empty (preserves validator exports)
-		$existingParams = $container->getRequestData() ? $container->getRequestData()->getParameters() : [];
-		if(empty($existingParams)) {
-			$container->initRequestData();
-		}
-		return parent::executeView($container);
-	}
-}',
-			$wrapper_class,
-			$baseClassName);
-
-			eval($code);
-		}
-
-		// create a new execution container with the wrapped class
-		$filter = new $wrapper_class();
-		$filter->initialize($this->getContext(), $effi['parameters']);
-		return $filter;
-	}
+	protected function createExecutionFilter() { throw new \RuntimeException('Legacy execution filter removed – tests should use middleware pipeline.'); }
 
 	/**
 	 * legacy: create a container for the test (removed)

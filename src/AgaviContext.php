@@ -64,11 +64,8 @@ class AgaviContext implements \Stringable, ResetInterface
 	 * @var        array An array of class names for frequently used factories.
 	 */
 	protected $factories = [
-		'dispatch_filter' => null,
-		'execution_filter' => null,
-		'filter_chain' => null,
+		// Legacy filters removed; only remaining non-var factories listed here
 		'response' => null,
-		'security_filter' => null,
 		'validation_manager' => null,
 	];
 	
@@ -140,6 +137,21 @@ class AgaviContext implements \Stringable, ResetInterface
 	 * @var        array Routing factory info for worker mode recreation
 	 */
 	protected $routingFactoryInfo = null;
+
+	/**
+	 * @var        array Controller factory info for worker mode recreation (prevent dynamic property creation)
+	 */
+	protected $controllerFactoryInfo = null;
+
+	/**
+	 * @var        array LoggerManager factory info for worker mode recreation (prevent dynamic property creation)
+	 */
+	protected $loggerManagerFactoryInfo = null;
+
+	/**
+	 * @var        array TranslationManager factory info for worker mode recreation (prevent dynamic property creation)
+	 */
+	protected $translationManagerFactoryInfo = null;
 	/** @var \Agavi\Middleware\MiddlewareKernel|null */
 	protected static $psrKernel = null;
 
@@ -157,6 +169,11 @@ class AgaviContext implements \Stringable, ResetInterface
 	 * @var        array Storage factory info for worker mode recreation
 	 */
 	protected $storageFactoryInfo = null;
+
+	/**
+	 * @var        array Database manager factory info for worker mode recreation
+	 */
+	protected $databaseManagerFactoryInfo = null;
 
 	/**
 	 * Clone method, overridden to prevent cloning, there can be only one.
@@ -442,8 +459,8 @@ class AgaviContext implements \Stringable, ResetInterface
 	/**
 	 * Reset context state for FrankenPHP worker mode.
 	 * This method clears request-specific state while preserving the context configuration.
-	 *
-	 * @param      string The profile name to reset (if null, resets all contexts)
+	// We intentionally DO NOT reset *FactoryInfo properties as these are immutable across
+	// requests and used for lazy recreation (request/user/routing/storage/databaseManager).
 	 *
 	 * @author     Auto-generated for FrankenPHP compatibility
 	 * @since      1.1.0
@@ -560,32 +577,22 @@ class AgaviContext implements \Stringable, ResetInterface
 		} catch(\Exception $e) {
 			AgaviException::render($e, $this);
 		}
-		
-		// Capture request factory info for worker mode recreation
-		if ($this->request !== null) {
-			$this->requestFactoryInfo = [
-				'class' => get_class($this->request),
-				'parameters' => [] // Request typically uses empty parameters
-			];
-			$logger?->debug('AgaviContext captured request factory info: ' . $this->requestFactoryInfo['class']);
+
+		// Invariants: factory info for core components must be present now (set by generated factories cache)
+		$invariantList = [
+			'requestFactoryInfo' => 'request',
+			'userFactoryInfo' => 'user',
+			'routingFactoryInfo' => 'routing',
+			'storageFactoryInfo' => 'storage',
+		];
+		if(AgaviConfig::get('core.use_database', false)) {
+			$invariantList['databaseManagerFactoryInfo'] = 'databaseManager';
 		}
-		
-		// Capture user factory info for worker mode recreation
-		if ($this->user !== null) {
-			$this->userFactoryInfo = [
-				'class' => get_class($this->user),
-				'parameters' => [] // User typically uses empty parameters
-			];
-			$logger?->debug('AgaviContext captured user factory info: ' . $this->userFactoryInfo['class']);
-		}
-		
-		// Capture storage factory info for worker mode recreation
-		if ($this->storage !== null) {
-			$this->storageFactoryInfo = [
-				'class' => get_class($this->storage),
-				'parameters' => [] // Storage typically uses empty parameters
-			];
-			$logger?->debug('AgaviContext captured storage factory info: ' . $this->storageFactoryInfo['class']);
+		foreach ($invariantList as $prop => $label) {
+			if($this->$prop === null) {
+				$logger?->error("AgaviContext invariant failed: missing $prop after initialize() (component '$label')");
+				throw new AgaviException("Context initialization failed: missing factory metadata for '$label'");
+			}
 		}
 		
 		// Register reset instances for FrankenPHP worker mode
@@ -839,6 +846,16 @@ class AgaviContext implements \Stringable, ResetInterface
 			$logger = $this->getLoggerManager()?->getLogger();
 			$logger?->debug('AgaviContext::getRouting() - Routing object is null, recreating...');
 			// Recreate from factory info if available
+			if ($this->routingFactoryInfo === null) {
+				// Heuristic reconstruction (in case factory info wasn't captured due to legacy cache)
+				$candidate = null;
+				if(class_exists('Jakamo\\Routing\\JakamoRouting')) { $candidate = 'Jakamo\\Routing\\JakamoRouting'; }
+				elseif(class_exists('Agavi\\Routing\\AgaviRouting')) { $candidate = 'Agavi\\Routing\\AgaviRouting'; }
+				if($candidate) {
+					$this->routingFactoryInfo = ['class' => $candidate, 'parameters' => []];
+					$logger?->notice('AgaviContext::getRouting() synthesized missing routingFactoryInfo using class '.$candidate);
+				}
+			}
 			if ($this->routingFactoryInfo !== null) {
 				$className = $this->routingFactoryInfo['class'];
 				$this->routing = new $className();
@@ -865,7 +882,36 @@ class AgaviContext implements \Stringable, ResetInterface
 		if ($this->storage === null) {
 			$logger = $this->getLoggerManager()?->getLogger();
 			$logger?->debug('AgaviContext::getStorage() - Storage object is null, recreating...');
+			// Ensure database manager is available if database use is enabled BEFORE creating storage (storage may need DB)
+			if(AgaviConfig::get('core.use_database', false) && $this->databaseManager === null) {
+				$logger?->debug('AgaviContext::getStorage() - Database manager is null, attempting recreation...');
+				if($this->databaseManagerFactoryInfo !== null) {
+					$className = $this->databaseManagerFactoryInfo['class'];
+					$parameters = $this->databaseManagerFactoryInfo['parameters'];
+					try {
+						$this->databaseManager = new $className();
+						$this->databaseManager->initialize($this, $parameters);
+						$this->databaseManager->startup();
+						$logger?->debug('AgaviContext::getStorage() - Database manager recreated successfully using factory info: '.$className);
+					} catch(\Throwable $e) {
+						$logger?->error('AgaviContext::getStorage() - Failed to recreate database manager: '.$e->getMessage());
+					}
+				} else {
+					$logger?->warning('AgaviContext::getStorage() - Database manager factory info missing, cannot recreate (may affect storage)');
+				}
+			}
 			
+			if ($this->storageFactoryInfo === null) {
+				// Heuristic reconstruction (class name detection) if capture missing
+				$candidate = null;
+				if(class_exists('Jakamo\\Lib\\Storage\\PDO\\JakamoPdoSessionStorage')) { $candidate = 'Jakamo\\Lib\\Storage\\PDO\\JakamoPdoSessionStorage'; }
+				elseif(class_exists('Jakamo\\Lib\\Storage\\JakamoSessionStorage')) { $candidate = 'Jakamo\\Lib\\Storage\\JakamoSessionStorage'; }
+				elseif(class_exists('Agavi\\Storage\\AgaviSessionStorage')) { $candidate = 'Agavi\\Storage\\AgaviSessionStorage'; }
+				if($candidate) {
+					$this->storageFactoryInfo = ['class' => $candidate, 'parameters' => []];
+					$logger?->notice('AgaviContext::getStorage() synthesized missing storageFactoryInfo using class '.$candidate);
+				}
+			}
 			if ($this->storageFactoryInfo !== null) {
 				// Recreate the storage object using captured factory info
 				$className = $this->storageFactoryInfo['class'];
@@ -919,12 +965,31 @@ class AgaviContext implements \Stringable, ResetInterface
 			try { @file_put_contents('/tmp/agavi_user_debug.log', "[getUser] user null, recreating\n", FILE_APPEND); } catch(\Throwable) {}
 			$logger = $this->getLoggerManager()?->getLogger();
 			$logger?->debug('AgaviContext::getUser() - User object is null, recreating...');
+			// Ensure database manager is available if database use is enabled BEFORE creating user (user may need storage->db)
+			if(AgaviConfig::get('core.use_database', false) && $this->databaseManager === null) {
+				$logger?->debug('AgaviContext::getUser() - Database manager is null, attempting recreation before user...');
+				if($this->databaseManagerFactoryInfo !== null) {
+					$className = $this->databaseManagerFactoryInfo['class'];
+					$parameters = $this->databaseManagerFactoryInfo['parameters'];
+					try {
+						$this->databaseManager = new $className();
+						$this->databaseManager->initialize($this, $parameters);
+						$this->databaseManager->startup();
+						$logger?->debug('AgaviContext::getUser() - Database manager recreated successfully using factory info: '.$className);
+					} catch(\Throwable $e) {
+						$logger?->error('AgaviContext::getUser() - Failed to recreate database manager: '.$e->getMessage());
+					}
+				} else {
+					$logger?->warning('AgaviContext::getUser() - Database manager factory info missing, cannot recreate');
+				}
+			}
 			
 			// Ensure storage is available before creating user (user initialization needs storage)
 			if ($this->storage === null) {
 				$logger?->debug('AgaviContext::getUser() - Storage is null, recreating storage first...');
 				$this->getStorage(); // This will recreate storage if needed
 			}
+
 			
 			if ($this->userFactoryInfo !== null) {
 				// Recreate the user object using captured factory info

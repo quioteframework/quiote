@@ -89,6 +89,8 @@ final class ActionExecutor
      */
     public function execute(ActionDescriptor $desc, AgaviRequestDataHolder $requestData, ExecutionState $state, array $parameters = [], ?AgaviAction $preInstantiatedAction = null): ActionExecutionContext
     {
+    $dbg = getenv('AGAVI_DEBUG_EXEC');
+    if($dbg) { error_log('[ActionExecutor] start ' . $desc->module . ':' . $desc->action . ' method=' . $desc->method . ' output=' . $desc->outputType); }
         // Use provided action instance if supplied to avoid double instantiation (enables external pre-initialization & test counters)
         $action = $preInstantiatedAction ?? $this->controller->createActionInstance($desc->module, $desc->action);
         if (!($action instanceof AgaviAction)) {
@@ -128,7 +130,8 @@ final class ActionExecutor
         }
 
         // ACTION EXECUTION
-        $rawView = $this->actionResolver->execute($action, $desc->method, $requestData);
+    $rawView = $this->actionResolver->execute($action, $desc->method, $requestData);
+    if($dbg) { error_log('[ActionExecutor] rawView=' . var_export($rawView,true)); }
         // Snapshot attributes immediately after action code runs (pre-view)
         $attributeSnapshot = [];
         if (method_exists($action, 'getAttributes')) {
@@ -163,13 +166,18 @@ final class ActionExecutor
                     $content = $layerContent;
                 }
             }
+            if($dbg) { error_log('[ActionExecutor] view=' . get_class($view) . ' method=' . $method . ' contentLen=' . strlen($content)); }
+        } else {
+            if($dbg) { error_log('[ActionExecutor] vn is NONE (no view)'); }
         }
         $state->securityDecision = SecurityDecision::Allow;
         $state->viewModule = $vm;
         $state->viewName = $vn;
         $bag = new AttributeBag($attributeSnapshot);
         $respHandle = new ResponseHandle($this->controller->getGlobalResponse());
-        return new ActionExecutionContext($action, $view, $desc->module, $desc->action, $desc->outputType, $requestData, $content, $vm, $vn, $attributeSnapshot, $bag, $respHandle);
+    $ctx = new ActionExecutionContext($action, $view, $desc->module, $desc->action, $desc->outputType, $requestData, $content, $vm, $vn, $attributeSnapshot, $bag, $respHandle);
+    if($dbg) { error_log('[ActionExecutor] done contentLen=' . strlen($content)); }
+    return $ctx;
     }
 
     private function createAndInitView(string $vm, string $vn, string $module, string $action, AgaviRequestDataHolder $rd, array $attributeSnapshot = []): ?AgaviView

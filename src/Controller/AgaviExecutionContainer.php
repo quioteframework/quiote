@@ -40,14 +40,12 @@ use Agavi\Request\AgaviRequestDataHolder;
 use Agavi\Exception\AgaviDisabledModuleException;
 use Agavi\Exception\AgaviFileNotFoundException;
 use Agavi\Exception\AgaviConfigurationException;
-use Agavi\Filter\AgaviFilterChain;
 use Agavi\AgaviContext;
 use Agavi\Config\AgaviConfig;
 use Agavi\View\AgaviView;
 use Agavi\Util\AgaviToolkit;
 use Agavi\Config\AgaviConfigCache;
 use Agavi\Config\AgaviAPCuConfigCache;
-use Agavi\Filter\AgaviExecutionFilter;
 use Agavi\Response\AgaviResponse;
 use Symfony\Contracts\Service\ResetInterface;
 
@@ -96,10 +94,7 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 	 */
 	protected $context = null;
 
-	/**
-	 * @var        AgaviFilterChain The container's filter chain.
-	 */
-	protected $filterChain = null;
+	// Legacy filter chain removed; container now invokes action/view directly.
 
 	/**
 	 * @var        AgaviValidationManager The validation manager instance.
@@ -295,27 +290,18 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 	 */
 	public function createExecutionContainer($moduleName = null, $actionName = null, ?AgaviRequestDataHolder $arguments = null, $outputType = null, $requestMethod = null)
 	{
+		// DEPRECATED: Container spawning retained only for legacy forward paths.
 		$logger = $this->context?->getLoggerManager()?->getLogger();
-		$logger?->debug('container.create start module=' . ($moduleName ?? 'null') . ' action=' . ($actionName ?? 'null') . ' outputType=' . var_export($outputType, true));
-		$logger?->debug('container.create current_output_type=' . $this->getOutputType()->getName());
-		
-		// Don't inherit output type from current container when null is passed
-		// Let the controller determine the appropriate output type freshly
-		// This prevents output type "sticking" between requests in worker mode
-		if($requestMethod === null) {
-			$requestMethod = $this->getRequestMethod();
-		}
-		
-		$logger?->debug('container.create invoking_controller outputType=' . var_export($outputType, true));
-		
-		$container = $this->context->getController()->createExecutionContainer($moduleName, $actionName, $arguments, $outputType, $requestMethod);
-		$logger?->debug('container.create new_output_type=' . $container->getOutputType()->getName());
-		
-		// copy over parameters (could be is_slot, is_forward etc)
+		$logger?->debug('container.create (legacy) module=' . ($moduleName ?? 'null') . ' action=' . ($actionName ?? 'null'));
+		$container = new self();
+		$container->initialize($this->context, []);
+		if($moduleName !== null) { $container->setModuleName($moduleName); }
+		if($actionName !== null) { $container->setActionName($actionName); }
+		if($arguments !== null) { $container->setArguments($arguments); }
+		if($outputType !== null) { $container->setOutputType($this->context->getController()->getOutputType($outputType)); }
+		if($requestMethod !== null) { $container->setRequestMethod($requestMethod); }
+		// propagate selected parameters (slot/forward flags)
 		$container->setParameters($this->getParameters());
-		
-		$logger?->debug('container.create final_output_type=' . $container->getOutputType()->getName());
-		
 		return $container;
 	}
 
@@ -372,39 +358,11 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 		// copy and merge request data as required
 		$this->initRequestData();
 
-		// If this is a slot execution, create a minimal filter chain with only the execution filter.
-		if ($isSlot) {
-			$filterChain = $this->getFilterChain();
-			/** @var AgaviExecutionFilter $executionFilter */
-			$executionFilter = $this->context->getController()->getFilter('execution');
-			$filterChain->register($executionFilter, 'agavi_execution_filter');
-			$filterChain->execute($this);
-			$result = $this->proceed();
-			array_pop($slotStack);
-			return $result;
-		}
+	// Legacy filter chain + security/validation filters removed. Execution proceeds directly.
 
-		$filterChain = $this->getFilterChain();
-
-		// Register filters (only once per execution)
-		if(!$actionInstance->isSimple()) {
-			if(AgaviConfig::get('core.use_security', false)) {				
-				$securityFilter = $controller->getFilter('security');
-				$filterChain->register($securityFilter, 'agavi_security_filter');
-			}
-			// load filters
-			$controller->loadFilters($filterChain, 'action');
-			$controller->loadFilters($filterChain, 'action', $moduleName);
-		}
-
-		// register the execution filter
-		$filterChain->register($controller->getFilter('execution'), 'agavi_execution_filter');
-
-		// process the filter chain
-		$filterChain->execute($this, null);
-
-		$result = $this->proceed();
-		return $result;
+		// Directly run action + view since legacy filter chain removed.
+		$this->runAction();
+		return $this->proceed();
 	}
 	
 	/**
@@ -552,23 +510,7 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 		return $this->validationManager;
 	}
 	
-	/**
-	 * Get the container's filter chain.
-	 *
-	 * @return     AgaviFilterChain The container's filter chain.
-	 *
-	 * @author     David Zülke <david.zuelke@bitxtender.com>
-	 * @since      1.1.0
-	 */
-	public function getFilterChain()
-	{
-		if($this->filterChain === null) {
-			$this->filterChain = $this->context->createInstanceFor('filter_chain');
-			$this->filterChain->setType(AgaviFilterChain::TYPE_ACTION);
-		}
-		
-		return $this->filterChain;
-	}
+	// getFilterChain() removed with legacy filter system.
 	
 	/**
 	 * Execute the Action.
@@ -1188,7 +1130,6 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 		$this->contextName = null;
 		$this->outputTypeName = null;
 		$this->context = null;
-		$this->filterChain = null;
 		$this->validationManager = null;
 		$this->requestMethod = null;
 		$this->requestData = null;

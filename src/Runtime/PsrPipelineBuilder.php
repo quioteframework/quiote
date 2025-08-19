@@ -59,7 +59,14 @@ class PsrPipelineBuilder
         $pipeline->add('AssetAggregationMiddleware', new AssetAggregationMiddleware(), 'post');
         $pipeline->add('ExecutionTimeMiddleware', new ExecutionTimeMiddleware(), 'finalize', -10);
         $handler = $pipeline->build();
-        return new class(new ErrorHandlingMiddleware(), $handler) implements RequestHandlerInterface {
+        // Provide logger to ErrorHandlingMiddleware so underlying exception becomes visible in logs
+        $loggerFn = function(\Throwable $e, ServerRequestInterface $r) {
+            // Prefer error_log (FrankenPHP captures); include type, message, top trace frame
+            $first = $e->getFile().':'.$e->getLine();
+            $snippet = substr(str_replace("\n", ' | ', $e->getTraceAsString()), 0, 400);
+            error_log('[AgaviPipeline] '.get_class($e).': '.$e->getMessage().' @ '.$first.' trace='.$snippet);
+        };
+        return new class(new ErrorHandlingMiddleware($loggerFn), $handler) implements RequestHandlerInterface {
             public function __construct(private ErrorHandlingMiddleware $err, private RequestHandlerInterface $next) {}
             public function handle(ServerRequestInterface $request): ResponseInterface { return $this->err->process($request, $this->next); }
         };

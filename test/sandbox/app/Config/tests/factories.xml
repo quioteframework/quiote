@@ -9,27 +9,6 @@
 		</controller>
 
 
-		<dispatch_filter class="FCHTestDispatchFilter">
-			<ae:parameters>
-				<ae:parameter name="p1">v1</ae:parameter>
-				<ae:parameter name="p2">v2</ae:parameter>
-			</ae:parameters>
-		</dispatch_filter>
-
-
-		<execution_filter class="FCHTestExecutionFilter">
-			<ae:parameters>
-				<ae:parameter name="p1">v1</ae:parameter>
-				<ae:parameter name="p2">v2</ae:parameter>
-			</ae:parameters>
-		</execution_filter>
-
-		<filter_chain class="FCHTestFilterChain">
-			<ae:parameters>
-				<ae:parameter name="p1">v1</ae:parameter>
-				<ae:parameter name="p2">v2</ae:parameter>
-			</ae:parameters>
-		</filter_chain>
 
 		<logger_manager class="FCHTestLoggerManager">
 			<ae:parameters>
@@ -87,12 +66,6 @@
 			</ae:parameters>
 		</database_manager>
 
-		<security_filter class="FCHTestSecurityFilter">
-			<ae:parameters>
-				<ae:parameter name="p1">v1</ae:parameter>
-				<ae:parameter name="p2">v2</ae:parameter>
-			</ae:parameters>
-		</security_filter>
 
 		<user class="FCHTestUser">
 			<ae:parameters>

@@ -97,6 +97,8 @@ class SlotDispatcher
                 try { $cached = CacheManager::getCache()->get($cacheKey); if(is_string($cached)) { $cacheHit = true; return $cached; } } catch(\Throwable) {}
             }
             if ($actionInstance->isSimple()) {
+                // Mark action as slot for downstream views/layout selection (container-less compatibility)
+                if(method_exists($actionInstance,'setAttribute')) { try { $actionInstance->setAttribute('is_slot', true); } catch(\Throwable) {} }
                 // Early experimental path: execute simple action without full container
                 $rd = $rdh ?? new AgaviRequestDataHolder();
                 // Execute action via resolver for method-based verbs (execute|executeXxx)
@@ -140,6 +142,7 @@ class SlotDispatcher
                 $this->lastContext = $ctx;
                 return $ctx->content;
             } else { // non-simple
+                if(method_exists($actionInstance,'setAttribute')) { try { $actionInstance->setAttribute('is_slot', true); } catch(\Throwable) {} }
                 // Container-less path for non-simple actions (security + validation + view)
                 $rd = $rdh ?? new AgaviRequestDataHolder();
                 // Initialize action with lightweight context (mirrors ActionExecutor)

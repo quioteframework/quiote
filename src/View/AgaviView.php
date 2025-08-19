@@ -86,15 +86,19 @@ abstract class AgaviView implements ResetInterface
 	public function renderLayers(): string
 	{
 		if(empty($this->layers)) {
+			if(getenv('AGAVI_DEBUG_VIEW')) { error_log('[AgaviView] renderLayers no layers for ' . get_class($this)); }
 			return '';
 		}
 		$out = '';
+		if(getenv('AGAVI_DEBUG_VIEW')) { error_log('[AgaviView] renderLayers count=' . count($this->layers) . ' view=' . get_class($this)); }
 		foreach($this->layers as $layer) {
 			try {
 				$out .= (string)$layer->execute();
+				if(getenv('AGAVI_DEBUG_VIEW')) { error_log('[AgaviView] layer executed name=' . $layer->getName() . ' len=' . strlen((string)$out)); }
 			} catch(\Throwable $e) {
 				// Fail soft: append diagnostic marker to aid debugging but keep rendering going
 				$out .= '<!-- layer render error: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . ' -->';
+				if(getenv('AGAVI_DEBUG_VIEW')) { error_log('[AgaviView] layer error name=' . $layer->getName() . ' msg=' . $e->getMessage()); }
 			}
 		}
 		return $out;

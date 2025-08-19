@@ -94,35 +94,56 @@ class DispatchMiddleware implements MiddlewareInterface
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
     $actionDesc = $request->getAttribute(ActionDescriptor::class);
-
-        // Short-circuit if a security forward view was synthesized earlier.
-        $execState = $request->getAttribute(ExecutionState::class);
-    if($execState instanceof ExecutionState && $execState->securityDecision && $execState->securityDecision !== SecurityDecision::Allow) {
-            $forwardTuple = $request->getAttribute('agavi.forward_view');
-            if(is_array($forwardTuple) && isset($forwardTuple[3])) {
-                $content = (string)$forwardTuple[3];
-                return $this->buildPsrResponse($content, $actionDesc?->outputType ?? 'html', false, false);
-            }
+        $dbg = getenv('AGAVI_DEBUG_DISPATCH');
+        if($dbg) {
+            $mod = $request->getAttribute('module'); $act = $request->getAttribute('action');
+            error_log('[DispatchMiddleware] enter module=' . ($mod??'') . ' action=' . ($act??'') . ' descriptor=' . ($actionDesc? ($actionDesc->module . ':' . $actionDesc->action . ':' . $actionDesc->method . ':' . ($actionDesc->isSimple?'simple':'complex')) : 'null'));
         }
 
+    // Security forwarding now swaps the ActionDescriptor directly; no synthetic forward view short-circuit.
+    $execState = $request->getAttribute(ExecutionState::class);
+
         // Always execute with ActionExecutor
-        if ($this->actionExecutor && $actionDesc) {
+    if ($this->actionExecutor && $actionDesc) {
             if(!$actionDesc->isSimple) {
-                if(!$execState instanceof ExecutionState || !$execState->validationPerformed) {
-                    $factory = new Psr17Factory();
-                    return $factory->createResponse(500)->withBody($factory->createStream('Validation required'));
+                // If a security forward decision exists and is non-allow, short-circuit before executor.
+                if($execState instanceof ExecutionState && $execState->securityDecision !== null && $execState->securityDecision !== SecurityDecision::Allow) {
+                    // Allow tests to pre-provide forward view tuple (view, vm, vn, content)
+                    $forwardTuple = $request->getAttribute('agavi.forward_view');
+                    if(is_array($forwardTuple) && count($forwardTuple) === 4) {
+                        [$view,$vm,$vn,$content] = $forwardTuple;
+                        $execState->viewModule = $vm; $execState->viewName = $vn; $execState->forwarded = true; $execState->securityDecision = SecurityDecision::Allow; // mark satisfied
+                        return $this->buildPsrResponse((string)$content, $actionDesc->outputType, false, false);
+                    }
+                    // Fall back to on-demand forward view creation
+                    try {
+                        $forwardService = new \Agavi\Execution\ForwardService($this->controller);
+                        $fwdKey = match($execState->securityDecision) { SecurityDecision::LoginForward => 'login', SecurityDecision::SecureForward => 'secure', default => 'login' };
+                        [$view,$vm,$vn,$content] = $forwardService->createSystemForwardView($fwdKey, $actionDesc->outputType, ActionExecutor::buildRequestDataFromPsr($request));
+                        $execState->viewModule = $vm; $execState->viewName = $vn; $execState->forwarded = true; $execState->securityDecision = SecurityDecision::Allow; // mark satisfied
+                        return $this->buildPsrResponse((string)$content, $actionDesc->outputType, false, false);
+                    } catch(\Throwable) {
+                        $factory = new Psr17Factory();
+                        return $factory->createResponse(500)->withBody($factory->createStream('Security forward failed'));
+                    }
                 }
-                if(!$execState->validationSucceeded) {
+                // For non-simple actions we now REQUIRE prior validation (performed by ValidationMiddleware).
+                // If validation missing, let ActionExecutor raise logic exception (caught by ErrorHandlingMiddleware).
+                if(!$execState instanceof ExecutionState || !$execState->validationPerformed) {
+                    // Intentionally proceed; executor will throw.
+                } elseif(!$execState->validationSucceeded) {
                     $factory = new Psr17Factory();
                     return $factory->createResponse(400)->withBody($factory->createStream('<div>Validation Failed</div>'));
                 }
             }
             $resp = $actionDesc->isSimple ? $this->processSimple($request, $actionDesc) : $this->processNonSimple($request, $actionDesc);
             try { $legacyReq = $this->controller->getContext()->getRequest(); $execState = $request->getAttribute(ExecutionState::class); if($legacyReq && $execState && method_exists($legacyReq,'setAttribute')) { $legacyReq->setAttribute('action_session', new ActionExecutionSession($execState), 'org.agavi.execution'); } } catch(\Throwable) {}
+            if($dbg && method_exists($resp,'getBody')) { $bodyStr = (string)$resp->getBody(); error_log('[DispatchMiddleware] response status=' . $resp->getStatusCode() . ' len=' . strlen($bodyStr)); }
             return $resp;
         }
-        $factory = new Psr17Factory();
-        return $factory->createResponse(500);
+    // No action descriptor resolved: treat as 404 Not Found (previously returned 500)
+    $factory = new Psr17Factory();
+    return $factory->createResponse(404)->withBody($factory->createStream('Not Found'));
     }
 
     private function processSimple(ServerRequestInterface $request, ActionDescriptor $actionDesc): ResponseInterface

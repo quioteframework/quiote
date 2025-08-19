@@ -19,21 +19,7 @@
 					<ref name="content-factory" />
 				</element>
 			</optional>
-			<optional>
-				<element name="dispatch_filter">
-					<ref name="content-factory" />
-				</element>
-			</optional>
-			<optional>
-				<element name="execution_filter">
-					<ref name="content-factory" />
-				</element>
-			</optional>
-			<optional>
-				<element name="filter_chain">
-					<ref name="content-factory" />
-				</element>
-			</optional>
+			<!-- legacy filter factories removed: dispatch_filter, execution_filter, filter_chain -->
 			<optional>
 				<element name="response">
 					<ref name="content-factory" />
@@ -76,11 +62,7 @@
 					<ref name="content-factory" />
 				</element>
 			</optional>
-			<optional>
-				<element name="security_filter">
-					<ref name="content-factory" />
-				</element>
-			</optional>
+			<!-- legacy security_filter removed (middleware handles auth) -->
 			<optional>
 				<element name="translation_manager">
 					<ref name="content-factory" />

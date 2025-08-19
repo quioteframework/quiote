@@ -22,38 +22,45 @@ final class ForwardService
      * Create a view for a system forward (login or secure) returning tuple [AgaviView|null, viewModule, viewName, content].
      * Content is produced immediately (execute* run) so caller can short-circuit dispatch.
      */
+    /**
+     * Legacy temporary method (now deprecated) that tried to short-circuit by rendering a view.
+     * Left in place for transitional callers; now simply delegates to descriptor path and returns empty content.
+     * @deprecated Use createSystemForwardActionDescriptor instead and dispatch normally.
+     */
     public function createSystemForwardView(string $forwardName, string $outputType, AgaviRequestDataHolder $rd): array
     {
-        // Resolve module/action from settings (matches AgaviExecutionContainer::createSystemActionForwardContainer logic)
+        [$module,$action] = $this->resolveSystemAction($forwardName);
+        if(getenv('AGAVI_DEBUG_FORWARD')) { error_log("[ForwardService] DEPRECATED createSystemForwardView forward=$forwardName -> $module/$action (no direct view render)"); }
+        return [null,$module,'', ''];
+    }
+
+    /**
+     * Return an ActionDescriptor for a system forward (login / secure) honoring settings.xml mappings.
+     */
+    public function createSystemForwardActionDescriptor(string $forwardName, string $httpMethod, string $outputType): ActionDescriptor
+    {
+        [$module,$action] = $this->resolveSystemAction($forwardName);
+        $method = $this->mapHttpMethodToActionMethod($httpMethod);
+        return ActionDescriptor::fromController($this->controller, $module, $action, $method, strtolower($outputType));
+    }
+
+    private function resolveSystemAction(string $forwardName): array
+    {
         $confKeyModule = 'actions.' . strtolower($forwardName) . '_module';
         $confKeyAction = 'actions.' . strtolower($forwardName) . '_action';
         $module = \Agavi\Config\AgaviConfig::get($confKeyModule, 'Default');
         $action = \Agavi\Config\AgaviConfig::get($confKeyAction, ucfirst($forwardName));
-    // Try canonical pattern first: <ActionName><ViewSuffix> (e.g. SecureSuccess, LoginSuccess)
-    $baseSuffix = 'Success';
-    $candidateRaw = $action . $baseSuffix;
-    [$vm,$vn] = $this->resolver->resolve($module, $action, $candidateRaw);
-    $view = $this->viewFactory->create($vm, $vn, $module, $action, strtolower($outputType), $rd, []);
-    if(!$view) {
-        // Fallback: plain Success
-        [$vm,$vn] = $this->resolver->resolve($module, $action, $baseSuffix);
-        $view = $this->viewFactory->create($vm, $vn, $module, $action, strtolower($outputType), $rd, []);
+        return [$module,$action];
     }
-        $content = '';
-        if($view) {
-            $method = 'execute' . ucfirst(strtolower($outputType));
-            if(!is_callable([$view,$method])) { $method = 'execute'; }
-            try {
-                $res = $view->$method($rd);
-                if($res !== null) { $content = (string)$res; }
-                elseif(method_exists($view,'getLayers') && method_exists($view,'renderLayers') && $view->getLayers()) {
-                    // Attempt layer rendering for classic layout-driven system views
-                    try { $layerOut = $view->renderLayers(); if($layerOut !== '') { $content = $layerOut; } } catch(\Throwable) {}
-                }
-            } catch(\Throwable) {}
-        }
-        // No synthetic fallback: return empty string if view produced no content so callers can decide.
-        return [$view,$vm,$vn,$content];
+
+    private function mapHttpMethodToActionMethod(string $verb): string
+    {
+        $v = strtoupper($verb);
+        return match($v) {
+            'GET','HEAD','OPTIONS' => 'read',
+            'POST','PUT','PATCH','DELETE' => 'write',
+            default => 'read'
+        };
     }
 }
 ?>

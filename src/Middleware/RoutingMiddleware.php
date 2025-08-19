@@ -43,6 +43,7 @@ class RoutingMiddleware implements MiddlewareInterface
                     // Fallback to non-simple if instantiation fails
                     $descriptor = new ActionDescriptor($module, $action, $method, $outputType, false);
                 }
+                if($dbg) { error_log('[RoutingMiddleware] matched path=' . $path . ' module=' . $module . ' action=' . $action . ' outputType=' . $outputType . ' routeName=' . ($attributes['_route'] ?? '')); }
                 $request = $request
                     ->withAttribute('module', $module)
                     ->withAttribute('action', $action)
@@ -50,10 +51,13 @@ class RoutingMiddleware implements MiddlewareInterface
                     ->withAttribute(ActionDescriptor::class, $descriptor)
                     ->withAttribute('route_name', $attributes['_route'] ?? null)
                     ->withAttribute('route_params', $attributes);
+            } else {
+                if($dbg) { error_log('[RoutingMiddleware] no module/action resolved for path=' . $path); }
             }
         } catch(\Symfony\Component\Routing\Exception\ResourceNotFoundException $e) {
             // Leave attributes unset; downstream could handle 404
             // optional debug removed
+            if($dbg) { error_log('[RoutingMiddleware] resource not found path=' . $path); }
         }
         return $handler->handle($request);
     }

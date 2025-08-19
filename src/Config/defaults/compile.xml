@@ -8,13 +8,7 @@
 			<compile>%core.agavi_dir%/Controller/AgaviController.php</compile>
 			<compile>%core.agavi_dir%/Controller/AgaviExecutionContainer.php</compile>
 			<compile>%core.agavi_dir%/Controller/AgaviOutputType.php</compile>
-			<compile>%core.agavi_dir%/Filter/AgaviIFilter.php</compile>
-			<compile>%core.agavi_dir%/Filter/AgaviIGlobalFilter.php</compile>
-			<compile>%core.agavi_dir%/Filter/AgaviIActionFilter.php</compile>
-			<compile>%core.agavi_dir%/Filter/AgaviFilter.php</compile>
-			<compile>%core.agavi_dir%/Filter/AgaviDispatchFilter.php</compile>
-			<compile>%core.agavi_dir%/Filter/AgaviExecutionFilter.php</compile>
-			<compile>%core.agavi_dir%/Filter/AgaviFilterChain.php</compile>
+			<!-- Legacy filter system removed: AgaviIFilter, AgaviIGlobalFilter, AgaviIActionFilter, AgaviFilter, AgaviDispatchFilter, AgaviExecutionFilter, AgaviFilterChain -->
 			<compile>%core.agavi_dir%/Renderer/AgaviRenderer.php</compile>
 			<compile>%core.agavi_dir%/Request/AgaviIParametersRequestDataHolder.php</compile>
 			<compile>%core.agavi_dir%/Request/AgaviRequestDataHolder.php</compile>

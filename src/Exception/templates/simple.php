@@ -1,4 +1,6 @@
 <?php 
+use Agavi\Config\AgaviConfig;
+
 echo "Exception details: " . $e->getMessage() . "\n"; 
 echo "File: " . $e->getFile() . ":" . $e->getLine() . "\n";
 echo "Trace:\n" . $e->getTraceAsString() . "\n";
