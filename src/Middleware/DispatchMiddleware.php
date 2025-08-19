@@ -53,29 +53,44 @@ class DispatchMiddleware implements MiddlewareInterface
     private function computeUserFingerprint($actionInstance): ?string
     {
         try {
-            if (!$actionInstance || !method_exists($actionInstance, 'isSecure') || !$actionInstance->isSecure()) { return null; }
+            if (!$actionInstance || !method_exists($actionInstance, 'isSecure') || !$actionInstance->isSecure()) {
+                return null;
+            }
             $user = $this->controller->getContext()->getUser();
-            if (!$user) { return 'guest'; }
+            if (!$user) {
+                return 'guest';
+            }
             $bits = [];
-            if (method_exists($user, 'isAuthenticated')) { $bits[] = $user->isAuthenticated() ? 'auth:1' : 'auth:0'; }
+            if (method_exists($user, 'isAuthenticated')) {
+                $bits[] = $user->isAuthenticated() ? 'auth:1' : 'auth:0';
+            }
             // Removed credential fingerprinting due to container elimination and interface variability.
-            if (!$bits) { return 'anon'; }
+            if (!$bits) {
+                return 'anon';
+            }
             return sha1(implode('|', $bits));
-        } catch (\Throwable) { return null; }
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     private function dynamicFlagsActive($actionInstance): bool
     {
         try {
-            if (!$actionInstance) { return false; }
+            if (!$actionInstance) {
+                return false;
+            }
             $cls = get_class($actionInstance);
             foreach (['failValidation', 'requireAuth', 'requireCred'] as $p) {
                 if (property_exists($cls, $p)) {
                     $rp = new \ReflectionProperty($cls, $p);
-                    if ($rp->isStatic() && $rp->getValue() === true) { return true; }
+                    if ($rp->isStatic() && $rp->getValue() === true) {
+                        return true;
+                    }
                 }
             }
-        } catch (\Throwable) {}
+        } catch (\Throwable) {
+        }
         return false;
     }
 
@@ -83,59 +98,74 @@ class DispatchMiddleware implements MiddlewareInterface
     {
         $factory = new Psr17Factory();
         $resp = $factory->createResponse(200)->withBody($factory->createStream($content));
-        if (isset(self::$contentTypes[$outputType])) { $resp = $resp->withHeader('Content-Type', self::$contentTypes[$outputType]); }
+        if (isset(self::$contentTypes[$outputType])) {
+            $resp = $resp->withHeader('Content-Type', self::$contentTypes[$outputType]);
+        }
         $disableHeaders = (bool)AgaviConfig::get('core.disable-framework-headers', false);
         if (!$disableHeaders) {
             $cacheHitHeader = AgaviConfig::get('core.cache-hit-header', 'X-Agavi-Cache-Hit');
-            if ($cacheHit && $cacheHitHeader) { $resp = $resp->withHeader($cacheHitHeader, '1'); }
+            if ($cacheHit && $cacheHitHeader) {
+                $resp = $resp->withHeader($cacheHitHeader, '1');
+            }
         }
         return $resp;
     }
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-    $actionDesc = $request->getAttribute(ActionDescriptor::class);
+        $actionDesc = $request->getAttribute(ActionDescriptor::class);
         $dbg = getenv('AGAVI_DEBUG_DISPATCH');
-        if($dbg) {
-            $mod = $request->getAttribute('module'); $act = $request->getAttribute('action');
-            error_log('[DispatchMiddleware] enter module=' . ($mod??'') . ' action=' . ($act??'') . ' descriptor=' . ($actionDesc? ($actionDesc->module . ':' . $actionDesc->action . ':' . $actionDesc->method . ':' . ($actionDesc->isSimple?'simple':'complex')) : 'null'));
+        if ($dbg) {
+            $mod = $request->getAttribute('module');
+            $act = $request->getAttribute('action');
+            error_log('[DispatchMiddleware] enter module=' . ($mod ?? '') . ' action=' . ($act ?? '') . ' descriptor=' . ($actionDesc ? ($actionDesc->module . ':' . $actionDesc->action . ':' . $actionDesc->method . ':' . ($actionDesc->isSimple ? 'simple' : 'complex')) : 'null'));
         }
 
-    // Security forwarding now swaps the ActionDescriptor directly; no synthetic forward view short-circuit.
-    $execState = $request->getAttribute(ExecutionState::class);
+        // Security forwarding now swaps the ActionDescriptor directly; no synthetic forward view short-circuit.
+        $execState = $request->getAttribute(ExecutionState::class);
 
         // Always execute with ActionExecutor
-    if ($this->actionExecutor && $actionDesc) {
-            if(!$actionDesc->isSimple) {
+        if ($this->actionExecutor && $actionDesc) {
+            if (!$actionDesc->isSimple) {
                 // If a security forward decision exists and is non-allow, short-circuit before executor.
-                if($execState instanceof ExecutionState && $execState->securityDecision !== null && $execState->securityDecision !== SecurityDecision::Allow) {
+                if ($execState instanceof ExecutionState && $execState->securityDecision !== null && $execState->securityDecision !== SecurityDecision::Allow) {
                     // Allow tests to pre-provide forward view tuple (view, vm, vn, content)
                     $forwardTuple = $request->getAttribute('agavi.forward_view');
-                    if(is_array($forwardTuple) && count($forwardTuple) === 4) {
-                        [$view,$vm,$vn,$content] = $forwardTuple;
-                        $execState->viewModule = $vm; $execState->viewName = $vn; $execState->forwarded = true; $execState->securityDecision = SecurityDecision::Allow; // mark satisfied
+                    if (is_array($forwardTuple) && count($forwardTuple) === 4) {
+                        [$view, $vm, $vn, $content] = $forwardTuple;
+                        $execState->viewModule = $vm;
+                        $execState->viewName = $vn;
+                        $execState->forwarded = true;
+                        $execState->securityDecision = SecurityDecision::Allow; // mark satisfied
                         $execState->validationDecision = $execState->validationDecision ?? ValidationDecision::pending();
                         return $this->buildPsrResponse((string)$content, $actionDesc->outputType, false, false);
                     }
                     // Fall back to on-demand forward view creation
                     try {
                         $forwardService = new \Agavi\Execution\ForwardService($this->controller);
-                        $fwdKey = match($execState->securityDecision) { SecurityDecision::LoginForward => 'login', SecurityDecision::SecureForward => 'secure', default => 'login' };
-                        [$view,$vm,$vn,$content] = $forwardService->createSystemForwardView($fwdKey, $actionDesc->outputType, ActionExecutor::buildRequestDataFromPsr($request));
-                        $execState->viewModule = $vm; $execState->viewName = $vn; $execState->forwarded = true; $execState->securityDecision = SecurityDecision::Allow; // mark satisfied
+                        $fwdKey = match ($execState->securityDecision) {
+                            SecurityDecision::LoginForward => 'login',
+                            SecurityDecision::SecureForward => 'secure',
+                            default => 'login'
+                        };
+                        [$view, $vm, $vn, $content] = $forwardService->createSystemForwardView($fwdKey, $actionDesc->outputType, ActionExecutor::buildRequestDataFromPsr($request));
+                        $execState->viewModule = $vm;
+                        $execState->viewName = $vn;
+                        $execState->forwarded = true;
+                        $execState->securityDecision = SecurityDecision::Allow; // mark satisfied
                         $execState->validationDecision = $execState->validationDecision ?? ValidationDecision::pending();
                         return $this->buildPsrResponse((string)$content, $actionDesc->outputType, false, false);
-                    } catch(\Throwable) {
+                    } catch (\Throwable) {
                         $factory = new Psr17Factory();
                         return $factory->createResponse(500)->withBody($factory->createStream('Security forward failed'));
                     }
                 }
                 // For non-simple actions require a validation decision BEFORE execution.
-                if(!$execState instanceof ExecutionState || !$execState->validationDecision || $execState->validationDecision->isPending()) {
+                if (!$execState instanceof ExecutionState || !$execState->validationDecision || $execState->validationDecision->isPending()) {
                     $factory = new Psr17Factory();
                     return $factory->createResponse(412)->withBody($factory->createStream('Validation decision missing'));
                 }
-                if($execState->validationDecision->isFailed()) {
+                if ($execState->validationDecision->isFailed()) {
                     $factory = new Psr17Factory();
                     $errs = $execState->validationDecision->errors;
                     $body = '<div>Validation Failed</div>';
@@ -143,63 +173,102 @@ class DispatchMiddleware implements MiddlewareInterface
                 }
             }
             $resp = $actionDesc->isSimple ? $this->processSimple($request, $actionDesc) : $this->processNonSimple($request, $actionDesc);
-            try { $legacyReq = $this->controller->getContext()->getRequest(); $execState = $request->getAttribute(ExecutionState::class); if($legacyReq && $execState && method_exists($legacyReq,'setAttribute')) { $legacyReq->setAttribute('action_session', new ActionExecutionSession($execState), 'org.agavi.execution'); } } catch(\Throwable) {}
-            if($dbg && method_exists($resp,'getBody')) { $bodyStr = (string)$resp->getBody(); error_log('[DispatchMiddleware] response status=' . $resp->getStatusCode() . ' len=' . strlen($bodyStr)); }
+            try {
+                $legacyReq = $this->controller->getContext()->getRequest();
+                $execState = $request->getAttribute(ExecutionState::class);
+                if ($legacyReq && $execState && method_exists($legacyReq, 'setAttribute')) {
+                    $legacyReq->setAttribute('action_session', new ActionExecutionSession($execState), 'org.agavi.execution');
+                }
+            } catch (\Throwable) {
+            }
+            if ($dbg && method_exists($resp, 'getBody')) {
+                $bodyStr = (string)$resp->getBody();
+                error_log('[DispatchMiddleware] response status=' . $resp->getStatusCode() . ' len=' . strlen($bodyStr));
+            }
             return $resp;
         }
-    // No action descriptor resolved: treat as 404 Not Found (previously returned 500)
-    $factory = new Psr17Factory();
-    return $factory->createResponse(404)->withBody($factory->createStream('Not Found'));
+        // No action descriptor resolved: treat as 404 Not Found (previously returned 500)
+        $factory = new Psr17Factory();
+        return $factory->createResponse(404)->withBody($factory->createStream('Not Found'));
     }
 
     private function processSimple(ServerRequestInterface $request, ActionDescriptor $actionDesc): ResponseInterface
     {
-        
+
         $rd = ActionExecutor::buildRequestDataFromPsr($request);
-    // Reuse existing ExecutionState if provided so prior middleware decisions (e.g., security) persist.
-    $execState = $request->getAttribute(ExecutionState::class);
-    if(!$execState) { $execState = new ExecutionState(false, true, null, null, [], false); $request = $request->withAttribute(ExecutionState::class, $execState); }
-    if(!$execState->validationDecision) { $execState->validationDecision = ValidationDecision::passed(); }
-    // Legacy container removed; ensure tracking key reset is unnecessary now.
-    unset(self::$executedSimpleActions[$actionDesc->module . ':' . $actionDesc->action . ':' . $actionDesc->outputType]);
-    $cacheEnabled = (bool)AgaviConfig::get('core.cache_enabled', false);
-    $useCache = $cacheEnabled && \Agavi\Config\AgaviConfig::get('core.use_cache', false);
-    $avCache = ($cacheEnabled && $useCache) ? new ActionViewCache(CacheManager::getCache()) : null;
-        $cacheHitPayload = null; $isCacheable = false; $actionInstance = null; $userFp = null;
+        // Reuse existing ExecutionState if provided so prior middleware decisions (e.g., security) persist.
+        $execState = $request->getAttribute(ExecutionState::class);
+        if (!$execState) {
+            $execState = new ExecutionState();
+            $request = $request->withAttribute(ExecutionState::class, $execState);
+        }
+        if (!$execState->validationDecision) {
+            $execState->validationDecision = ValidationDecision::passed();
+        }
+        // Legacy container removed; ensure tracking key reset is unnecessary now.
+        unset(self::$executedSimpleActions[$actionDesc->module . ':' . $actionDesc->action . ':' . $actionDesc->outputType]);
+        $cacheEnabled = (bool)AgaviConfig::get('core.cache_enabled', false);
+        $useCache = $cacheEnabled && \Agavi\Config\AgaviConfig::get('core.use_cache', false);
+        $avCache = ($cacheEnabled && $useCache) ? new ActionViewCache(CacheManager::getCache()) : null;
+        $cacheHitPayload = null;
+        $isCacheable = false;
+        $actionInstance = null;
+        $userFp = null;
         try {
             $actionInstance = $this->controller->createActionInstance($actionDesc->module, $actionDesc->action);
             if (method_exists($actionInstance, 'initialize')) {
                 $actionInstance->initialize(new LightweightActionInitContext(
-                    $this->controller->getContext(), $actionDesc->module, $actionDesc->action, $actionDesc->method, $actionDesc->outputType, $rd, $this->controller->getGlobalResponse()
+                    $this->controller->getContext(),
+                    $actionDesc->module,
+                    $actionDesc->action,
+                    $actionDesc->method,
+                    $actionDesc->outputType,
+                    $rd,
+                    $this->controller->getGlobalResponse()
                 ));
             }
             $isCacheable = (bool)$actionInstance->isCacheable($actionDesc->outputType);
             $userFp = $this->computeUserFingerprint($actionInstance);
-        } catch (\Throwable) {}
-    if ($cacheEnabled && $isCacheable && !$request->getAttribute('agavi.cache.bypass')) {
+        } catch (\Throwable) {
+        }
+        if ($cacheEnabled && $isCacheable && !$request->getAttribute('agavi.cache.bypass')) {
             $cacheHitPayload = $avCache ? ActionCacheHelper::read($avCache, $actionDesc, $userFp) : null;
             if ($cacheHitPayload) {
                 $key = $actionDesc->module . ':' . $actionDesc->action . ':' . $actionDesc->outputType;
-                if (!isset(self::$executedSimpleActions[$key])) { $cacheHitPayload = null; }
-                if ($this->dynamicFlagsActive($actionInstance)) { $cacheHitPayload = null; }
+                if (!isset(self::$executedSimpleActions[$key])) {
+                    $cacheHitPayload = null;
+                }
+                if ($this->dynamicFlagsActive($actionInstance)) {
+                    $cacheHitPayload = null;
+                }
             }
         }
-    if ($cacheHitPayload) {
-            if($cacheHitPayload) { $ctx = ActionCacheHelper::buildContextFromPayload($cacheHitPayload, $actionDesc, $execState, $actionInstance, $rd); }
+        if ($cacheHitPayload) {
+            if ($cacheHitPayload) {
+                $ctx = ActionCacheHelper::buildContextFromPayload($cacheHitPayload, $actionDesc, $execState, $actionInstance, $rd);
+            }
             $execState->cacheHit = true;
             return $this->buildPsrResponse($ctx->content, $actionDesc->outputType, true, false);
         }
         // If prior SecurityMiddleware allowed, mark state so ActionExecutor skips its own security decision.
-    if($execState->securityDecision === null) {
+        if ($execState->securityDecision === null) {
             // Heuristic: presence of AGAVI_SECURITY_DEBUG log decision=allow earlier isn't directly accessible; rely on user auth + secure action.
-            try { $usr=$this->controller->getContext()->getUser(); if($actionInstance && method_exists($actionInstance,'isSecure') && $actionInstance->isSecure() && $usr && method_exists($usr,'isAuthenticated') && $usr->isAuthenticated()) { $execState->securityDecision = SecurityDecision::Allow; } } catch(\Throwable) {}
+            try {
+                $usr = $this->controller->getContext()->getUser();
+                if ($actionInstance && method_exists($actionInstance, 'isSecure') && $actionInstance->isSecure() && $usr && method_exists($usr, 'isAuthenticated') && $usr->isAuthenticated()) {
+                    $execState->securityDecision = SecurityDecision::Allow;
+                }
+            } catch (\Throwable) {
+            }
         }
         $ctx = $this->actionExecutor->execute($actionDesc, $rd, $execState, [], $actionInstance);
-        
+
         self::$executedSimpleActions[$actionDesc->module . ':' . $actionDesc->action . ':' . $actionDesc->outputType] = true;
-    if ($cacheEnabled && $isCacheable && !$execState->cacheHit) {
+        if ($cacheEnabled && $isCacheable && !$execState->cacheHit) {
             $ttl = method_exists($actionInstance, 'cacheTtlSeconds') ? $actionInstance->cacheTtlSeconds($actionDesc->outputType) : null;
-            if($avCache) { ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, ($actionInstance && method_exists($actionInstance, 'getAttributes')) ? $actionInstance->getAttributes() : [], true, $ttl, $userFp); }
+            if ($avCache) {
+                ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, ($actionInstance && method_exists($actionInstance, 'getAttributes')) ? $actionInstance->getAttributes() : [], true, $ttl, $userFp);
+            }
         }
         return $this->buildPsrResponse($ctx->content, $actionDesc->outputType, false, false);
     }
@@ -207,66 +276,101 @@ class DispatchMiddleware implements MiddlewareInterface
     private function processNonSimple(ServerRequestInterface $request, ActionDescriptor $actionDesc): ResponseInterface
     {
         $rd = ActionExecutor::buildRequestDataFromPsr($request);
-    $execState = $request->getAttribute(ExecutionState::class) ?? new ExecutionState(false, true, null, null, [], false);
-    if(!$execState->validationDecision) { $execState->validationDecision = ValidationDecision::pending(); }
+        $execState = $request->getAttribute(ExecutionState::class) ?? new ExecutionState();
+        if (!$execState->validationDecision) {
+            $execState->validationDecision = ValidationDecision::pending();
+        }
         // If security decision not yet made, perform it now (non-simple ensures validation/security path).
-    if($execState->securityDecision === null) {
+        if ($execState->securityDecision === null) {
             try {
                 $actionProbe = $this->controller->createActionInstance($actionDesc->module, $actionDesc->action);
-                if(method_exists($actionProbe,'initialize')) {
+                if (method_exists($actionProbe, 'initialize')) {
                     $actionProbe->initialize(new LightweightActionInitContext(
-                        $this->controller->getContext(), $actionDesc->module, $actionDesc->action, $actionDesc->method, $actionDesc->outputType, $rd, $this->controller->getGlobalResponse()
+                        $this->controller->getContext(),
+                        $actionDesc->module,
+                        $actionDesc->action,
+                        $actionDesc->method,
+                        $actionDesc->outputType,
+                        $rd,
+                        $this->controller->getGlobalResponse()
                     ));
                 }
                 $sec = new \Agavi\Execution\SecurityService($this->controller);
                 $decision = $sec->decide($actionProbe);
                 $execState->securityDecision = $decision;
-                if($execState->securityDecision !== SecurityDecision::Allow) {
+                if ($execState->securityDecision !== SecurityDecision::Allow) {
                     // Produce forward view immediately and return response
                     $forwardService = new \Agavi\Execution\ForwardService($this->controller);
-                    $fwdKey = match($execState->securityDecision) { SecurityDecision::LoginForward => 'login', SecurityDecision::SecureForward => 'secure', default => 'login' };
-                    [$view,$vm,$vn,$content] = $forwardService->createSystemForwardView($fwdKey, $actionDesc->outputType, $rd);
-                    $execState->viewModule = $vm; $execState->viewName = $vn; $execState->forwarded = true; $execState->validationDecision = ValidationDecision::pending();
+                    $fwdKey = match ($execState->securityDecision) {
+                        SecurityDecision::LoginForward => 'login',
+                        SecurityDecision::SecureForward => 'secure',
+                        default => 'login'
+                    };
+                    [$view, $vm, $vn, $content] = $forwardService->createSystemForwardView($fwdKey, $actionDesc->outputType, $rd);
+                    $execState->viewModule = $vm;
+                    $execState->viewName = $vn;
+                    $execState->forwarded = true;
+                    $execState->validationDecision = ValidationDecision::pending();
                     return $this->buildPsrResponse($content, $actionDesc->outputType, false, false);
                 }
-            } catch(\Throwable) { /* fall through; executor will handle */ }
+            } catch (\Throwable) { /* fall through; executor will handle */
+            }
         }
-    if ($execState->validationDecision && $execState->validationDecision->isFailed() && $execState->viewName) {
+        if ($execState->validationDecision && $execState->validationDecision->isFailed() && $execState->viewName) {
             $content = (string)($request->getAttribute('validation.error.content') ?? '<div>Validation Failed</div>');
             $factory = new Psr17Factory();
             return $factory->createResponse(400)->withBody($factory->createStream($content));
         }
-        $avCache = null; $cacheHitPayload = null; $isCacheable = false; $actionInstance = null; $userFp = null;
+        $avCache = null;
+        $cacheHitPayload = null;
+        $isCacheable = false;
+        $actionInstance = null;
+        $userFp = null;
         try {
             $actionInstance = $this->controller->createActionInstance($actionDesc->module, $actionDesc->action);
             if (method_exists($actionInstance, 'initialize')) {
                 $actionInstance->initialize(new LightweightActionInitContext(
-                    $this->controller->getContext(), $actionDesc->module, $actionDesc->action, $actionDesc->method, $actionDesc->outputType, $rd, $this->controller->getGlobalResponse()
+                    $this->controller->getContext(),
+                    $actionDesc->module,
+                    $actionDesc->action,
+                    $actionDesc->method,
+                    $actionDesc->outputType,
+                    $rd,
+                    $this->controller->getGlobalResponse()
                 ));
             }
             $isCacheable = (bool)$actionInstance->isCacheable($actionDesc->outputType);
             $userFp = $this->computeUserFingerprint($actionInstance);
-        } catch (\Throwable) {}
-    $cacheEnabled = (bool)AgaviConfig::get('core.cache_enabled', false);
-    if ($cacheEnabled && $isCacheable && !$request->getAttribute('agavi.cache.bypass')) {
+        } catch (\Throwable) {
+        }
+        $cacheEnabled = (bool)AgaviConfig::get('core.cache_enabled', false);
+        if ($cacheEnabled && $isCacheable && !$request->getAttribute('agavi.cache.bypass')) {
             $useCache = \Agavi\Config\AgaviConfig::get('core.use_cache', false);
             $avCache = $useCache ? new ActionViewCache(CacheManager::getCache()) : null;
             $cacheHitPayload = $avCache ? ActionCacheHelper::read($avCache, $actionDesc, $userFp) : null;
             if ($cacheHitPayload) {
                 $key = $actionDesc->module . ':' . $actionDesc->action . ':' . $actionDesc->outputType;
-                if (!isset(self::$executedNonSimpleActions[$key])) { $cacheHitPayload = null; }
-                if ($this->dynamicFlagsActive($actionInstance)) { $cacheHitPayload = null; }
+                if (!isset(self::$executedNonSimpleActions[$key])) {
+                    $cacheHitPayload = null;
+                }
+                if ($this->dynamicFlagsActive($actionInstance)) {
+                    $cacheHitPayload = null;
+                }
             }
         }
         if ($cacheHitPayload) {
-            if($cacheHitPayload) { $ctx = ActionCacheHelper::buildContextFromPayload($cacheHitPayload, $actionDesc, $execState, $actionInstance, $rd); }
+            if ($cacheHitPayload) {
+                $ctx = ActionCacheHelper::buildContextFromPayload($cacheHitPayload, $actionDesc, $execState, $actionInstance, $rd);
+            }
         } else {
             $ctx = $this->actionExecutor->execute($actionDesc, $rd, $execState);
         }
         self::$executedNonSimpleActions[$actionDesc->module . ':' . $actionDesc->action . ':' . $actionDesc->outputType] = true;
-    if ($cacheEnabled && $isCacheable && !$execState->cacheHit && $avCache) {
+        if ($cacheEnabled && $isCacheable && !$execState->cacheHit && $avCache) {
             $ttl = method_exists($actionInstance, 'cacheTtlSeconds') ? $actionInstance->cacheTtlSeconds($actionDesc->outputType) : null;
-            if($avCache) { ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, ($actionInstance && method_exists($actionInstance, 'getAttributes')) ? $actionInstance->getAttributes() : [], false, $ttl, $userFp); }
+            if ($avCache) {
+                ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, ($actionInstance && method_exists($actionInstance, 'getAttributes')) ? $actionInstance->getAttributes() : [], false, $ttl, $userFp);
+            }
         }
         return $this->buildPsrResponse($ctx->content, $actionDesc->outputType, $execState->cacheHit, false);
     }
@@ -274,10 +378,14 @@ class DispatchMiddleware implements MiddlewareInterface
 
     private function dbg($msg): void
     {
-        if (!getenv('DM_DEBUG')) { return; }
+        if (!getenv('DM_DEBUG')) {
+            return;
+        }
         if (!getenv('DM_DEBUG_VERBOSE')) {
-            foreach (['normalized single caching element','normalized cachings list','normalized views canonical','post-include config keys=','determined groups=','actionGroups=','view cacheability check','loaded action cache keys=','set view from action cache'] as $needle) {
-                if (str_contains($msg, $needle)) { return; }
+            foreach (['normalized single caching element', 'normalized cachings list', 'normalized views canonical', 'post-include config keys=', 'determined groups=', 'actionGroups=', 'view cacheability check', 'loaded action cache keys=', 'set view from action cache'] as $needle) {
+                if (str_contains($msg, $needle)) {
+                    return;
+                }
             }
         }
         @file_put_contents('/tmp/dispatch_mw_debug.log', '[' . getmypid() . '] ' . $msg . "\n", FILE_APPEND);
