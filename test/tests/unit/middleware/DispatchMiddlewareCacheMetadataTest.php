@@ -72,8 +72,8 @@ class DispatchMiddlewareCacheMetadataTest extends AgaviUnitTestCase
         $this->assertArrayHasKey('method', $payload['descriptor']);
         $this->assertArrayHasKey('outputType', $payload['descriptor']);
         $this->assertArrayHasKey('isSimple', $payload['descriptor']);
-        $this->assertArrayHasKey('validationPerformed', $payload['state']);
-        $this->assertArrayHasKey('validationSucceeded', $payload['state']);
+    $this->assertArrayHasKey('validationDecision', $payload['state']);
+    $this->assertArrayHasKey('validationErrors', $payload['state']);
         $this->assertArrayHasKey('viewModule', $payload['state']);
         $this->assertArrayHasKey('viewName', $payload['state']);
 

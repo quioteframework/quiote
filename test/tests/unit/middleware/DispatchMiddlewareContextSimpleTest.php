@@ -47,7 +47,7 @@ class DispatchMiddlewareContextSimpleTest extends AgaviUnitTestCase
     $controller = $this->getContext()->getController();
     $controller->createActionInstance('Cache','Cache'); // ensure module loaded
         $mw = new DispatchMiddleware($controller);
-        $state = new ExecutionState(false,false,null,null,[],false);
+    $state = new ExecutionState();
         $handler = new class(new Psr17Factory) implements \Psr\Http\Server\RequestHandlerInterface { public function __construct(private $f){} public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface { return $this->f->createResponse(200);} };
     $resp = $mw->process($this->buildPsr()->withAttribute(ExecutionState::class,$state), $handler);
     $body = (string)$resp->getBody();

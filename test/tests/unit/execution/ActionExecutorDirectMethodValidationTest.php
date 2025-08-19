@@ -25,8 +25,8 @@ class ActionExecutorDirectMethodValidationTest extends AgaviUnitTestCase
     $action = $ctx->action;
     $dbg = [];
     if(is_callable([$action,'getAttributes'])) { try { $dbg = $action->getAttributes(); } catch(\Throwable) { $dbg = []; } }
-    $this->assertTrue($state->validationPerformed, 'Validation should have run. Debug=' . json_encode($dbg));
-    $this->assertFalse($state->validationSucceeded, 'Validation should fail with fail=1. Debug=' . json_encode($dbg));
+    $this->assertNotNull($state->validationDecision);
+    $this->assertTrue($state->validationDecision->isFailed(), 'Validation should fail with fail=1. Debug=' . json_encode($dbg));
         $this->assertSame('MethodHttpPostError', $state->viewName, 'Error view should be selected');
         $this->assertStringContainsString('POST_ERROR', $ctx->content, 'Expected POST_ERROR content');
         $this->assertSame('handlePostError', \Sandbox\Modules\Method\Actions\MethodHttpAction::$last);

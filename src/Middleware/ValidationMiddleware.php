@@ -11,6 +11,7 @@ use Agavi\Request\AgaviRequestDataHolder;
 use Agavi\Http\PsrResponseAdapter;
 use Agavi\View\AgaviView;
 use Agavi\Execution\ValidationService;
+use Agavi\Execution\ValidationDecision;
 use Agavi\Execution\ExecutionState;
 use Agavi\Execution\ViewNameResolver;
 use Agavi\Execution\ViewFactory;
@@ -86,7 +87,7 @@ class ValidationMiddleware implements MiddlewareInterface
 
         // Skip if already validated
         // Re-run only if not yet decided; SecurityMiddleware may reset validationPerformed on forward.
-        if ($execState->validationPerformed) {
+    if ($execState->validationDecision && !$execState->validationDecision->isPending()) {
             return $handler->handle($request);
         }
 
@@ -140,10 +141,9 @@ class ValidationMiddleware implements MiddlewareInterface
             }
         // no xml => params cleared
         }
-    $execState->validationPerformed = true;
-    $execState->validationSucceeded = $ok;
+    $execState->validationDecision = $ok ? ValidationDecision::passed() : ValidationDecision::failed($errors);
     $request = $request->withAttribute(ExecutionState::class, $execState);
-        if ($ok) {
+    if ($ok) {
             // Enforce validated-only access when XML existed; otherwise empty set already enforced.
             if ($hasXml) {
                 try {

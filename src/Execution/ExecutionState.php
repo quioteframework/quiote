@@ -7,21 +7,26 @@ namespace Agavi\Execution;
 final class ExecutionState
 {
     public function __construct(
-        public bool $validationPerformed = false,
-        public bool $validationSucceeded = true,
+    // Removed legacy validation booleans; rely solely on ValidationDecision.
         public ?string $viewModule = null,
         public ?string $viewName = null,
         public array $actionAttributes = [],
         public bool $cacheHit = false,
-            // Security decision placeholder: null (not evaluated), enum SecurityDecision
-            public ?SecurityDecision $securityDecision = null,
+        // Security decision placeholder: null (not evaluated), enum SecurityDecision
+        public ?SecurityDecision $securityDecision = null,
         // Indicates a forward (login/secure) short-circuited execution before validation
-    public bool $forwarded = false,
-    // Routed module/action/outputType (duplicated from request attributes for convenience / caching keys)
-    public ?string $module = null,
-    public ?string $action = null,
-    public ?string $outputType = null,
-    // Optional metrics (TimingMiddleware)
-    public ?array $metrics = null
-    ) {}
+        public bool $forwarded = false,
+        // New unified validation decision (pending|passed|failed)
+        public ?ValidationDecision $validationDecision = null,
+        // Routed module/action/outputType (duplicated from request attributes for convenience / caching keys)
+        public ?string $module = null,
+        public ?string $action = null,
+        public ?string $outputType = null,
+        // Optional metrics (TimingMiddleware)
+        public ?array $metrics = null
+    ) {
+    if ($this->validationDecision === null) {
+            $this->validationDecision = ValidationDecision::pending();
+        }
+    }
 }

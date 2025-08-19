@@ -45,8 +45,8 @@ class DispatchMiddlewareContextSimpleStaleCacheInvalidationTest extends AgaviUni
                 'isSimple' => true,
             ],
             'state' => [
-                'validationPerformed' => false,
-                'validationSucceeded' => true,
+                'validationDecision' => 'passed',
+                'validationErrors' => [],
                 'viewModule' => 'Cache',
                 'viewName' => 'Success',
             ],

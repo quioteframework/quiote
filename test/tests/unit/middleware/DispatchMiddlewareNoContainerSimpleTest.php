@@ -44,7 +44,7 @@ class DispatchMiddlewareNoContainerSimpleTest extends AgaviUnitTestCase
         $controller = $this->getContext()->getController();
         $mw = new DispatchMiddleware($controller);
         $handler = new class(new Psr17Factory) implements \Psr\Http\Server\RequestHandlerInterface { public function __construct(private $f){} public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface { return $this->f->createResponse(200);} };
-        $req = $this->buildRequest()->withAttribute(ExecutionState::class,new ExecutionState(false,true,null,null,[],false));
+    $req = $this->buildRequest()->withAttribute(ExecutionState::class,new ExecutionState());
         $resp = $mw->process($req,$handler);
         $this->assertFalse($resp->hasHeader('X-Agavi-Cache-Hit'), 'First request should not be a cache hit');
     $this->assertNull($req->getAttribute('_agavi_execution_container'));

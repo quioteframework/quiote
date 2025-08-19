@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <validators xmlns="http://agavi.org/agavi/1.1/config">
-  <!-- Minimal validators file to allow ValidationMiddleware to mark validationPerformed+Succeeded -->
+  <!-- Minimal validators file to allow ValidationMiddleware to produce a passed ValidationDecision -->
   <validator name="noop" class="Agavi\\Validator\\AgaviBooleanValidator">
     <argument>1</argument>
     <error type="">noop failed</error>

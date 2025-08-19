@@ -71,13 +71,13 @@ class DispatchMiddlewareContextNonSimpleTest extends AgaviUnitTestCase
     \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,false,false);
     // Simulate prior ValidationMiddleware success
     $state = new ExecutionState();
-    $state->validationPerformed = true;
-    $state->validationSucceeded = true;
+    $state->validationDecision = \Agavi\Execution\ValidationDecision::passed();
         $body = $this->runMw($this->buildPsr(), $state);
         $this->assertStringContainsString('COMPLEX_OK', $body, 'Expected success view content');
     $this->assertSame('CacheComplexSuccess', $state->viewName);
-        $this->assertTrue($state->validationPerformed, 'Validation should run for non-simple actions');
-        $this->assertTrue($state->validationSucceeded, 'Validation should succeed');
+    $this->assertTrue($state->validationDecision->isPassed(), 'Validation should succeed');
+    $this->assertNotNull($state->validationDecision);
+    $this->assertTrue($state->validationDecision->isPassed());
     }
 
     public function testValidationFailureTriggersErrorView()
@@ -85,12 +85,13 @@ class DispatchMiddlewareContextNonSimpleTest extends AgaviUnitTestCase
     \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(true,false,false);
     // Simulate prior ValidationMiddleware failure (DispatchMiddleware should not be invoked in real flow)
     $state = new ExecutionState();
-    $state->validationPerformed = true;
-    $state->validationSucceeded = false;
+    $state->validationDecision = \Agavi\Execution\ValidationDecision::failed(['forced']);
     // Expect DispatchMiddleware to block execution due to failed validation
     $body = $this->runMw($this->buildPsr(), $state);
     $this->assertStringContainsString('Validation Failed', $body, 'Expected validation failure short-circuit');
-    $this->assertFalse($state->validationSucceeded);
+    $this->assertTrue($state->validationDecision->isFailed());
+    $this->assertNotNull($state->validationDecision);
+    $this->assertTrue($state->validationDecision->isFailed());
     }
 
     public function testSecurityLoginForward()

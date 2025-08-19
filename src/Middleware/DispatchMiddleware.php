@@ -23,6 +23,7 @@ use Agavi\Execution\ActionCacheHelper;
 use Agavi\Exception\AgaviException;
 // AgaviUncacheableException no longer referenced here after container removal.
 use Nyholm\Psr7\Factory\Psr17Factory;
+use Agavi\Execution\ValidationDecision;
 
 /**
  * DispatchMiddleware replaces the legacy global filter chain + dispatch filter.
@@ -113,6 +114,7 @@ class DispatchMiddleware implements MiddlewareInterface
                     if(is_array($forwardTuple) && count($forwardTuple) === 4) {
                         [$view,$vm,$vn,$content] = $forwardTuple;
                         $execState->viewModule = $vm; $execState->viewName = $vn; $execState->forwarded = true; $execState->securityDecision = SecurityDecision::Allow; // mark satisfied
+                        $execState->validationDecision = $execState->validationDecision ?? ValidationDecision::pending();
                         return $this->buildPsrResponse((string)$content, $actionDesc->outputType, false, false);
                     }
                     // Fall back to on-demand forward view creation
@@ -121,6 +123,7 @@ class DispatchMiddleware implements MiddlewareInterface
                         $fwdKey = match($execState->securityDecision) { SecurityDecision::LoginForward => 'login', SecurityDecision::SecureForward => 'secure', default => 'login' };
                         [$view,$vm,$vn,$content] = $forwardService->createSystemForwardView($fwdKey, $actionDesc->outputType, ActionExecutor::buildRequestDataFromPsr($request));
                         $execState->viewModule = $vm; $execState->viewName = $vn; $execState->forwarded = true; $execState->securityDecision = SecurityDecision::Allow; // mark satisfied
+                        $execState->validationDecision = $execState->validationDecision ?? ValidationDecision::pending();
                         return $this->buildPsrResponse((string)$content, $actionDesc->outputType, false, false);
                     } catch(\Throwable) {
                         $factory = new Psr17Factory();
@@ -128,13 +131,15 @@ class DispatchMiddleware implements MiddlewareInterface
                     }
                 }
                 // For non-simple actions require a validation decision BEFORE execution.
-                if(!$execState instanceof ExecutionState || !$execState->validationPerformed) {
+                if(!$execState instanceof ExecutionState || !$execState->validationDecision || $execState->validationDecision->isPending()) {
                     $factory = new Psr17Factory();
-                    return $factory->createResponse(500)->withBody($factory->createStream('Validation decision missing'));
+                    return $factory->createResponse(412)->withBody($factory->createStream('Validation decision missing'));
                 }
-                if(!$execState->validationSucceeded) {
+                if($execState->validationDecision->isFailed()) {
                     $factory = new Psr17Factory();
-                    return $factory->createResponse(400)->withBody($factory->createStream('<div>Validation Failed</div>'));
+                    $errs = $execState->validationDecision->errors;
+                    $body = '<div>Validation Failed</div>';
+                    return $factory->createResponse(400)->withBody($factory->createStream($body));
                 }
             }
             $resp = $actionDesc->isSimple ? $this->processSimple($request, $actionDesc) : $this->processNonSimple($request, $actionDesc);
@@ -154,6 +159,7 @@ class DispatchMiddleware implements MiddlewareInterface
     // Reuse existing ExecutionState if provided so prior middleware decisions (e.g., security) persist.
     $execState = $request->getAttribute(ExecutionState::class);
     if(!$execState) { $execState = new ExecutionState(false, true, null, null, [], false); $request = $request->withAttribute(ExecutionState::class, $execState); }
+    if(!$execState->validationDecision) { $execState->validationDecision = ValidationDecision::passed(); }
     // Legacy container removed; ensure tracking key reset is unnecessary now.
     unset(self::$executedSimpleActions[$actionDesc->module . ':' . $actionDesc->action . ':' . $actionDesc->outputType]);
     $cacheEnabled = (bool)AgaviConfig::get('core.cache_enabled', false);
@@ -201,7 +207,8 @@ class DispatchMiddleware implements MiddlewareInterface
     private function processNonSimple(ServerRequestInterface $request, ActionDescriptor $actionDesc): ResponseInterface
     {
         $rd = ActionExecutor::buildRequestDataFromPsr($request);
-        $execState = $request->getAttribute(ExecutionState::class) ?? new ExecutionState(false, true, null, null, [], false);
+    $execState = $request->getAttribute(ExecutionState::class) ?? new ExecutionState(false, true, null, null, [], false);
+    if(!$execState->validationDecision) { $execState->validationDecision = ValidationDecision::pending(); }
         // If security decision not yet made, perform it now (non-simple ensures validation/security path).
     if($execState->securityDecision === null) {
             try {
@@ -219,12 +226,12 @@ class DispatchMiddleware implements MiddlewareInterface
                     $forwardService = new \Agavi\Execution\ForwardService($this->controller);
                     $fwdKey = match($execState->securityDecision) { SecurityDecision::LoginForward => 'login', SecurityDecision::SecureForward => 'secure', default => 'login' };
                     [$view,$vm,$vn,$content] = $forwardService->createSystemForwardView($fwdKey, $actionDesc->outputType, $rd);
-                    $execState->viewModule = $vm; $execState->viewName = $vn; $execState->forwarded = true; $execState->validationPerformed = false; $execState->validationSucceeded = false;
+                    $execState->viewModule = $vm; $execState->viewName = $vn; $execState->forwarded = true; $execState->validationDecision = ValidationDecision::pending();
                     return $this->buildPsrResponse($content, $actionDesc->outputType, false, false);
                 }
             } catch(\Throwable) { /* fall through; executor will handle */ }
         }
-    if ($execState->validationPerformed && !$execState->validationSucceeded && $execState->viewName) {
+    if ($execState->validationDecision && $execState->validationDecision->isFailed() && $execState->viewName) {
             $content = (string)($request->getAttribute('validation.error.content') ?? '<div>Validation Failed</div>');
             $factory = new Psr17Factory();
             return $factory->createResponse(400)->withBody($factory->createStream($content));

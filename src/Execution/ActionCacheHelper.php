@@ -27,8 +27,8 @@ final class ActionCacheHelper
                     'isSimple' => $isSimple,
                 ],
                 'state' => [
-                    'validationPerformed' => $state->validationPerformed,
-                    'validationSucceeded' => $state->validationSucceeded,
+                    'validationDecision' => $state->validationDecision?->state,
+                    'validationErrors' => $state->validationDecision?->errors,
                     'viewModule' => $state->viewModule,
                     'viewName' => $state->viewName,
                     'securityDecision' => $state->securityDecision,
@@ -64,8 +64,13 @@ final class ActionCacheHelper
         $state->viewName = $payload['view_name'] ?? $state->viewName;
         $state->cacheHit = true;
         if(isset($payload['state']) && is_array($payload['state'])) {
-            $state->validationPerformed = $payload['state']['validationPerformed'] ?? $state->validationPerformed;
-            $state->validationSucceeded = $payload['state']['validationSucceeded'] ?? $state->validationSucceeded;
+            if(isset($payload['state']['validationDecision'])) {
+                $state->validationDecision = match($payload['state']['validationDecision']) {
+                    'passed' => ValidationDecision::passed(),
+                    'failed' => ValidationDecision::failed($payload['state']['validationErrors'] ?? []),
+                    default => ValidationDecision::pending(),
+                };
+            }
             $state->securityDecision = $payload['state']['securityDecision'] ?? $state->securityDecision;
         }
         $content = $contentOverride ?? ($payload['response_content'] ?? '');

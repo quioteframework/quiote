@@ -18,6 +18,7 @@ use Agavi\Action\AgaviAction;
 use Agavi\Execution\ExecutionState;
 use Agavi\Execution\ValidationService;
 use Agavi\Request\AgaviRequestDataHolder as RDH;
+use Agavi\Execution\ValidationDecision;
 
 /**
  * Placeholder security middleware: currently defers to legacy dispatch path.
@@ -127,8 +128,7 @@ class SecurityMiddleware implements MiddlewareInterface
                         if(!$isSimple) {
                             $vs = new ValidationService();
                             $vr = $vs->xmlOnlyValidate($forwardedAction, new RDH(), $newDesc->module, $newDesc->action, ucfirst(strtolower($newDesc->method)));
-                            $execState->validationPerformed = true;
-                            $execState->validationSucceeded = $vr->ok;
+                            $execState->validationDecision = $vr->ok ? \Agavi\Execution\ValidationDecision::passed() : \Agavi\Execution\ValidationDecision::failed($vr->getErrors());
                         }
                     } catch(\Throwable) { /* ignore - fallback to relaxed path */ }
                     // Mark security decision as satisfied so executor doesn't treat it as a logic error.
@@ -137,8 +137,7 @@ class SecurityMiddleware implements MiddlewareInterface
                 }
                 // Invalidate prior validation decision so ValidationMiddleware will re-run for forwarded target.
                 if($execState instanceof \Agavi\Execution\ExecutionState) {
-                    $execState->validationPerformed = false;
-                    $execState->validationSucceeded = false;
+                    $execState->validationDecision = ValidationDecision::pending();
                 }
                 if (getenv('AGAVI_DEBUG_SECURITY')) {
                     error_log('[SecurityMiddleware] forwarded decision=' . $decision->name . ' -> system action ' . $newDesc->module . ':' . $newDesc->action . ':' . $newDesc->method);
