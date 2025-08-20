@@ -52,6 +52,7 @@ class MiddlewareKernel implements RequestHandlerInterface
     // Content negotiation BEFORE routing so routing may override output_type.
     $pipeline->add('ContentNegotiationMiddleware', new ContentNegotiationMiddleware($controller), 'routing', 200);
     $pipeline->add('RoutingMiddleware', new RoutingMiddleware($routing, $controller), 'routing', 100);
+    $pipeline->add('OutputTypeSyncMiddleware', new OutputTypeSyncMiddleware($controller), 'routing', 50);
         $pipeline->add('FormPopulationMiddleware', new FormPopulationMiddleware(), 'before_action', 10);
         $pipeline->add('SecurityMiddleware', new SecurityMiddleware($controller), 'before_action', 0);
         $pipeline->add('ValidationMiddleware', new ValidationMiddleware(), 'before_action', 0);
