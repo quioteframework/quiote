@@ -60,9 +60,14 @@ class DispatchMiddlewareContextNonSimpleTest extends AgaviUnitTestCase
     private function runMw(\Psr\Http\Message\ServerRequestInterface $psr, ExecutionState $state): string
     {
         $controller = $this->getContext()->getController();
-        $mw = new DispatchMiddleware($controller);
-        $handler = new class(new Psr17Factory) implements \Psr\Http\Server\RequestHandlerInterface { public function __construct(private $f){} public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface { return $this->f->createResponse(200);} };
-        $resp = $mw->process($psr->withAttribute(ExecutionState::class,$state), $handler);
+        $security = new \Agavi\Middleware\SecurityMiddleware($controller);
+        $dispatch = new DispatchMiddleware($controller);
+        $handler = new class($dispatch) implements \Psr\Http\Server\RequestHandlerInterface {
+            public function __construct(private DispatchMiddleware $dispatch) {}
+            public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface { return $this->dispatch->process($r, new class implements \Psr\Http\Server\RequestHandlerInterface { public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface { return (new Psr17Factory())->createResponse(500); } }); }
+        };
+        // First run security, then dispatch
+        $resp = $security->process($psr->withAttribute(ExecutionState::class,$state), $handler);
         return (string)$resp->getBody();
     }
 
@@ -96,36 +101,23 @@ class DispatchMiddlewareContextNonSimpleTest extends AgaviUnitTestCase
 
     public function testSecurityLoginForward()
     {
-    \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,true,false); // require auth
+        \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,true,false); // require auth
         $user = $this->getContext()->getUser();
         if(method_exists($user,'setAuthenticated')) { $user->setAuthenticated(false); }
-    // Simulate SecurityMiddleware short-circuit
-    $state = new ExecutionState();
-    $state->securityDecision = \Agavi\Execution\SecurityDecision::LoginForward;
-    $state->forwarded = true;
-    $forwardService = new \Agavi\Execution\ForwardService($this->getContext()->getController());
-    [$view,$vm,$vn,$content] = $forwardService->createSystemForwardView('login', 'html', new \Agavi\Request\AgaviRequestDataHolder());
-    $req = $this->buildPsr()->withAttribute('agavi.forward_view', [$view,$vm,$vn,$content]);
-    $body = $this->runMw($req, $state);
-    // ForwardService now returns empty tuple (no direct view rendering); ensure middleware short-circuited with empty body allowed.
-    $this->assertSame('', $vn, 'Login forward now yields empty view name');
-    $this->assertSame('', $body, 'Login forward produces empty content placeholder');
+        $state = new ExecutionState();
+        $body = $this->runMw($this->buildPsr(), $state);
+        $this->assertStringContainsString('LOGIN_REQUIRED', $body, 'Login forward should render login required content');
+        $this->assertTrue($state->forwarded, 'ExecutionState should be marked forwarded');
     }
 
     public function testSecurityCredentialForward()
     {
-    \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,false,true); // require credential
+        \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,false,true); // require credential
         $user = $this->getContext()->getUser();
         if(method_exists($user,'removeCredential')) { $user->removeCredential('complex_cred'); }
-    // Simulate SecurityMiddleware secure forward
-    $state = new ExecutionState();
-    $state->securityDecision = \Agavi\Execution\SecurityDecision::SecureForward;
-    $state->forwarded = true;
-    $forwardService = new \Agavi\Execution\ForwardService($this->getContext()->getController());
-    [$view,$vm,$vn,$content] = $forwardService->createSystemForwardView('secure', 'html', new \Agavi\Request\AgaviRequestDataHolder());
-    $req = $this->buildPsr()->withAttribute('agavi.forward_view', [$view,$vm,$vn,$content]);
-    $body = $this->runMw($req, $state);
-    $this->assertSame('', $vn, 'Secure forward now yields empty view name');
-    $this->assertSame('', $body, 'Secure forward produces empty content placeholder');
+        $state = new ExecutionState();
+        $body = $this->runMw($this->buildPsr(), $state);
+        $this->assertStringContainsString('SECURE_REQUIRED', $body, 'Secure forward should render secure required content');
+        $this->assertTrue($state->forwarded, 'ExecutionState should be marked forwarded');
     }
 }
