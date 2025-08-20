@@ -834,7 +834,7 @@ class AgaviContext implements \Stringable, ResetInterface
 	/**
 	 * Retrieve the routing.
 	 *
-	 * @return     Routing The current Routing implementation instance.
+	 * @return     AgaviRouting The current Routing implementation instance.
 	 *
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0

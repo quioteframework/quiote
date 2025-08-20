@@ -86,6 +86,17 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 	 * @var        array An array of registered Output Types.
 	 */
 	protected $outputTypes = [];
+
+	/**
+	 * Return the registered output type names (lowercased keys as configured).
+	 * Lightweight helper for middleware that needs the list for negotiation.
+	 *
+	 * @return string[]
+	 */
+	public function getOutputTypeNames(): array
+	{
+		return array_map('strtolower', array_keys($this->outputTypes));
+	}
 	
 	/**
 	 * @var        array Ref to the request data object from the request.
