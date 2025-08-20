@@ -27,7 +27,10 @@ class RoutingMiddleware implements MiddlewareInterface
             $attributes = $this->routing->match($path);
             $module = $attributes['_module'] ?? null;
             $action = $attributes['_action'] ?? null;
-            $outputType = strtolower($attributes['_output_type'] ?? 'html');
+            // Preserve pre-routing negotiation if route does not specify an output_type
+            $preNegotiated = $request->getAttribute('output_type');
+            $outputType = $attributes['_output_type'] ?? $preNegotiated ?? 'html';
+            $outputType = is_string($outputType) ? strtolower($outputType) : 'html';
             if($module && $action) {
                 $httpMethod = $request->getMethod();
                 // Centralized mapping
@@ -39,7 +42,7 @@ class RoutingMiddleware implements MiddlewareInterface
                     // Fallback to non-simple if instantiation fails
                     $descriptor = new ActionDescriptor($module, $action, $method, $outputType, false);
                 }
-                if($dbg) { error_log('[RoutingMiddleware] matched path=' . $path . ' module=' . $module . ' action=' . $action . ' outputType=' . $outputType . ' routeName=' . ($attributes['_route'] ?? '')); }
+                if($dbg) { error_log('[RoutingMiddleware] matched path=' . $path . ' module=' . $module . ' action=' . $action . ' outputType=' . $outputType . ' preNegotiated=' . var_export($preNegotiated, true) . ' routeName=' . ($attributes['_route'] ?? '')); }
                 $request = $request
                     ->withAttribute('module', $module)
                     ->withAttribute('action', $action)

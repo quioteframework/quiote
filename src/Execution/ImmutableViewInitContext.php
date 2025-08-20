@@ -1,10 +1,12 @@
 <?php
+
 namespace Agavi\Execution;
 
 use Agavi\AgaviContext;
 use Agavi\Response\AgaviResponse;
+use Agavi\Util\AgaviAttributeHolder; // to expose action attributes via standard view API
 
-final class ImmutableViewInitContext implements ViewInitContext
+final class ImmutableViewInitContext extends AgaviAttributeHolder implements ViewInitContext
 {
     public function __construct(
         private AgaviContext $context,
@@ -15,16 +17,47 @@ final class ImmutableViewInitContext implements ViewInitContext
         private ?string $actionName,
         private array $actionAttributes,
         private AgaviResponse $response
-    ) {}
+    ) {
+        // Populate attribute holder with snapshot so AgaviView::getAttribute()/getAttributes() work.
+        // Immutable semantics: later setAttribute() calls are ignored by AgaviView because initContext instanceof ViewInitContext.
+        if (!empty($actionAttributes)) {
+            // Use setAttributes so existing keys preserved if already set (should not be at construction time).
+            $this->setAttributes($actionAttributes);
+        }
+    }
 
-    public function getContext(): AgaviContext { return $this->context; }
-    public function getViewModuleName(): string { return $this->viewModule; }
-    public function getViewName(): string { return $this->viewName; }
-    public function getOutputTypeName(): string { return $this->outputType; }
-    public function getActionModuleName(): ?string { return $this->actionModule; }
-    public function getActionName(): ?string { return $this->actionName; }
-    public function getActionAttributes(): array { return $this->actionAttributes; }
-    public function getResponse(): AgaviResponse { return $this->response; }
+    public function getContext(): AgaviContext
+    {
+        return $this->context;
+    }
+    public function getViewModuleName(): string
+    {
+        return $this->viewModule;
+    }
+    public function getViewName(): string
+    {
+        return $this->viewName;
+    }
+    public function getOutputTypeName(): string
+    {
+        return $this->outputType;
+    }
+    public function getActionModuleName(): ?string
+    {
+        return $this->actionModule;
+    }
+    public function getActionName(): ?string
+    {
+        return $this->actionName;
+    }
+    public function getActionAttributes(): array
+    {
+        return $this->actionAttributes;
+    }
+    public function getResponse(): AgaviResponse
+    {
+        return $this->response;
+    }
 
     // ---------------------------------------------------------------------
     // Legacy view compatibility layer
@@ -41,7 +74,10 @@ final class ImmutableViewInitContext implements ViewInitContext
     /**
      * Return action module name for legacy code that called getModuleName().
      */
-    public function getModuleName(): ?string { return $this->actionModule ?? $this->viewModule; }
+    public function getModuleName(): ?string
+    {
+        return $this->actionModule ?? $this->viewModule;
+    }
 
     /**
      * Return legacy-style output type object proxy requirement: legacy code
@@ -49,9 +85,16 @@ final class ImmutableViewInitContext implements ViewInitContext
      * can't cheaply recreate the output type object here without a controller
      * reference, so omit for now; views should use AgaviView::getCurrentOutputType().
      */
-    public function getOutputType() {
+    public function getOutputType()
+    {
         // Provide a tiny proxy object exposing getName() only.
-        return new class($this->outputType) { public function __construct(private string $n){} public function getName(){ return $this->n; } };
+        return new class($this->outputType) {
+            public function __construct(private string $n) {}
+            public function getName()
+            {
+                return $this->n;
+            }
+        };
     }
 
     /** Legacy accessor used by setupHtml() for action name (already defined above). */
@@ -61,10 +104,33 @@ final class ImmutableViewInitContext implements ViewInitContext
      * stored in immutable context). Slot/layout code that checks flags like
      * 'is_slot' will simply see the default (false) and continue.
      */
-    public function getParameter(string $name, $default = null) { return $default; }
+    #[\Override]
+    public function &getParameter($name, $default = null)
+    {
+        return $default;
+    }
 
     /**
      * Expose an empty parameter array for completeness.
      */
-    public function getParameters(): array { return []; }
+    public function &getParameters(): array
+    {
+        return [];
+    }
+
+    /**
+     * Legacy shim: many legacy views call $this->getContainer()->getValidationManager().
+     * Provide a minimal accessor so that code using getValidationManager() on the init context
+     * (mis-assuming it is a full execution container) does not fatal. Returns a fresh validation
+     * manager instance from the context each call (stateful error data is already baked into
+     * rendered error views at this stage in the new pipeline).
+     */
+    public function getValidationManager()
+    {
+        try {
+            return $this->context->createInstanceFor('validation_manager');
+        } catch (\Throwable) {
+            return null;
+        }
+    }
 }

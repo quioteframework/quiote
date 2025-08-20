@@ -57,6 +57,36 @@ final class ActionExecutor
         $rd = new AgaviRequestDataHolder();
         $query = $psr->getQueryParams();
         $body = $psr->getParsedBody();
+        // Fallback chain for typical HTML form posts (x-www-form-urlencoded) when no parser ran before:
+        if(!is_array($body)) {
+            $ct = strtolower($psr->getHeaderLine('Content-Type'));
+            $isForm = str_contains($ct, 'application/x-www-form-urlencoded');
+            if($isForm) {
+                $raw = '';
+                try {
+                    $stream = $psr->getBody();
+                    if($stream->isSeekable()) { $stream->rewind(); }
+                    // Prefer getContents() so we read from current pointer to end.
+                    $raw = method_exists($stream,'getContents') ? $stream->getContents() : (string)$stream;
+                    // If still empty and seekable, attempt one more rewind/string cast.
+                    if($raw === '' && $stream->isSeekable()) { $stream->rewind(); $raw = (string)$stream; }
+                } catch(\Throwable) { /* ignore */ }
+                // Superglobal fallback (SAPI may have populated $_POST already)
+                if($raw === '' && isset($_POST) && is_array($_POST) && $_POST) {
+                    $body = $_POST;
+                } else {
+                    $tmp = [];
+                    if($raw !== '') { parse_str($raw, $tmp); }
+                    if(is_array($tmp) && $tmp) { $body = $tmp; }
+                }
+                if(getenv('AGAVI_DEBUG_EXEC')) {
+                    $keys = is_array($body) ? implode(',', array_slice(array_keys($body),0,6)) : 'n/a';
+                    error_log('[ActionExecutor] formParse ct=' . $ct . ' rawLen=' . strlen($raw) . ' keys=' . $keys);
+                }
+            }
+        }
+        // Final defensive fallback: if still not array and POST superglobal has data, use it.
+        if(!is_array($body) && isset($_POST) && is_array($_POST) && $_POST) { $body = $_POST; }
         if (!is_array($query)) {
             $query = [];
         }
@@ -127,7 +157,7 @@ final class ActionExecutor
     // Executor no longer performs or enforces validation beyond trusting provided state.
 
         // ACTION EXECUTION
-    $rawView = $this->actionResolver->execute($action, $desc->method, $requestData);
+        $rawView = $this->actionResolver->execute($action, $desc->method, $requestData);
     if($dbg) { error_log('[ActionExecutor] rawView=' . var_export($rawView,true)); }
         // Snapshot attributes immediately after action code runs (pre-view)
         $attributeSnapshot = [];
@@ -163,7 +193,10 @@ final class ActionExecutor
                     $content = $layerContent;
                 }
             }
-            if($dbg) { error_log('[ActionExecutor] view=' . get_class($view) . ' method=' . $method . ' contentLen=' . strlen($content)); }
+            if($dbg) {
+                $prefix = substr($content,0,120);
+                error_log('[ActionExecutor] view=' . get_class($view) . ' method=' . $method . ' contentLen=' . strlen($content) . ' prefix=' . $prefix);
+            }
         } else {
             if($dbg) { error_log('[ActionExecutor] vn is NONE (no view)'); }
         }

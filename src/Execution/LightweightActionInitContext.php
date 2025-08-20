@@ -32,4 +32,13 @@ class LightweightActionInitContext extends AgaviAttributeHolder implements Actio
     public function setViewName(?string $name): void { $this->viewName = $name; }
     public function getViewModuleName(): ?string { return $this->viewModuleName; }
     public function getViewName(): ?string { return $this->viewName; }
+
+    // Legacy shim: some legacy actions call $this->getValidationManager() on the container.
+    public function getValidationManager() {
+        try {
+            return $this->context->createInstanceFor('validation_manager');
+        } catch(\Throwable) {
+            return null;
+        }
+    }
 }

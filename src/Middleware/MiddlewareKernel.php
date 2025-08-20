@@ -50,7 +50,8 @@ class MiddlewareKernel implements RequestHandlerInterface
         // bootstrap
         $stack[] = new TimingMiddleware(false);
         $stack[] = new TraceMiddleware(false);
-        $stack[] = new JsonBodyParsingMiddleware();
+    // Unified body parsing (form + json)
+    $stack[] = new PayloadParsingMiddleware();
         // routing
         $stack[] = new ContentNegotiationMiddleware($controller); // before routing; routing may override output_type
         $stack[] = new RoutingMiddleware($routing, $controller);

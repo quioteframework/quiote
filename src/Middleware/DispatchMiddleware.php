@@ -98,7 +98,9 @@ class DispatchMiddleware implements MiddlewareInterface
     private function buildPsrResponse(string $content, string $outputType, bool $cacheHit, bool $containerUsed): ResponseInterface
     {
         $factory = new Psr17Factory();
-        $resp = $factory->createResponse(200)->withBody($factory->createStream($content));
+        $status = 200;
+    // TODO: propagate status from global response once unified interface available
+        $resp = $factory->createResponse($status)->withBody($factory->createStream($content));
         if (isset(self::$contentTypes[$outputType])) {
             $resp = $resp->withHeader('Content-Type', self::$contentTypes[$outputType]);
         }
@@ -115,6 +117,11 @@ class DispatchMiddleware implements MiddlewareInterface
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $dbg = getenv('AGAVI_DEBUG_DISPATCH');
+        // Correlation ID (per-request) for tracing multi-request races
+        if(!$request->getAttribute('agavi.rid')) {
+            try { $rid = bin2hex(random_bytes(4)); } catch(\Throwable) { $rid = uniqid(); }
+            $request = $request->withAttribute('agavi.rid', $rid);
+        } else { $rid = $request->getAttribute('agavi.rid'); }
         $execState = $request->getAttribute(ExecutionState::class) ?? new ExecutionState();
         $request = $request->withAttribute(ExecutionState::class, $execState);
         $actionDesc = $request->getAttribute(ActionDescriptor::class);
@@ -123,7 +130,7 @@ class DispatchMiddleware implements MiddlewareInterface
             return $factory->createResponse(404)->withBody($factory->createStream('Not Found'));
         }
         if ($dbg) {
-            error_log('[DispatchMiddleware] action=' . $actionDesc->module . ':' . $actionDesc->action . ' method=' . $actionDesc->method . ' simple=' . ($actionDesc->isSimple ? '1':'0') . ' vd=' . ($execState->validationDecision?->state ?? 'null') . ' sec=' . ($execState->securityDecision?->name ?? 'null'));
+            error_log('[DispatchMiddleware]['.$rid.'] action=' . $actionDesc->module . ':' . $actionDesc->action . ' method=' . $actionDesc->method . ' simple=' . ($actionDesc->isSimple ? '1':'0') . ' vd=' . ($execState->validationDecision?->state ?? 'null') . ' sec=' . ($execState->securityDecision?->name ?? 'null'));
         }
         // Non-simple actions require validation; allow pending if this is a forwarded target (ValidationMiddleware should run earlier in pipeline).
         if(!$actionDesc->isSimple) {
@@ -147,7 +154,7 @@ class DispatchMiddleware implements MiddlewareInterface
                 $legacyReq->setAttribute('action_session', new ActionExecutionSession($execState), 'org.agavi.execution');
             }
         } catch (\Throwable) {}
-        if ($dbg && method_exists($resp, 'getBody')) { error_log('[DispatchMiddleware] response status=' . $resp->getStatusCode() . ' len=' . strlen((string)$resp->getBody())); }
+    if ($dbg && method_exists($resp, 'getBody')) { error_log('[DispatchMiddleware]['.$rid.'] response status=' . $resp->getStatusCode() . ' len=' . strlen((string)$resp->getBody())); }
         return $resp;
     }
 
@@ -225,7 +232,8 @@ class DispatchMiddleware implements MiddlewareInterface
                 ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, ($actionInstance && method_exists($actionInstance, 'getAttributes')) ? $actionInstance->getAttributes() : [], true, $ttl, $userFp);
             }
         }
-        return $this->buildPsrResponse($ctx->content, $actionDesc->outputType, false, false);
+    if(getenv('AGAVI_DEBUG_DISPATCH')) { $rid = $request->getAttribute('agavi.rid'); error_log('[DispatchMiddleware]['.$rid.'] simple contentType=' . $actionDesc->outputType . ' contentLen=' . strlen($ctx->content) . ' prefix=' . substr($ctx->content,0,80)); }
+    return $this->buildPsrResponse($ctx->content, $actionDesc->outputType, false, false);
     }
 
     private function processNonSimple(ServerRequestInterface $request, ActionDescriptor $actionDesc): ResponseInterface
@@ -292,7 +300,8 @@ class DispatchMiddleware implements MiddlewareInterface
                 ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, ($actionInstance && method_exists($actionInstance, 'getAttributes')) ? $actionInstance->getAttributes() : [], false, $ttl, $userFp);
             }
         }
-        return $this->buildPsrResponse($ctx->content, $actionDesc->outputType, $execState->cacheHit, false);
+    if(getenv('AGAVI_DEBUG_DISPATCH')) { $rid = $request->getAttribute('agavi.rid'); error_log('[DispatchMiddleware]['.$rid.'] nonSimple contentType=' . $actionDesc->outputType . ' contentLen=' . strlen($ctx->content) . ' prefix=' . substr($ctx->content,0,80)); }
+    return $this->buildPsrResponse($ctx->content, $actionDesc->outputType, $execState->cacheHit, false);
     }
     // runWithCaching & executeView removed with container elimination.
 

@@ -15,6 +15,7 @@ use Agavi\Execution\ValidationDecision;
 use Agavi\Execution\ExecutionState;
 use Agavi\Execution\ViewNameResolver;
 use Agavi\Execution\ViewFactory;
+use Agavi\Execution\HttpMethodMapper;
 
 /**
  * Executes validation early (before action execution) and enforces strict access to validated params only.
@@ -36,18 +37,15 @@ class ValidationMiddleware implements MiddlewareInterface
         $actionDesc = $request->getAttribute(\Agavi\Execution\ActionDescriptor::class);
         if(!$actionDesc) { return $handler->handle($request); }
         $vd = getenv('AGAVI_DEBUG_VALIDATION');
-    $moduleName = $actionDesc->module; $actionName = $actionDesc->action; $method = $actionDesc->method;
-    // Map HTTP verbs or custom indicators to legacy semantic method names (Read|Write)
-    $upper = strtoupper((string)$method);
-    if ($upper === 'READ' || $upper === 'WRITE') {
-        $normalizedMethod = ucfirst(strtolower($upper));
-    } else {
-        $normalizedMethod = match($upper) {
-            'GET','HEAD' => 'Read',
-            'POST','PUT','PATCH','DELETE','OPTIONS' => 'Write',
-            default => (ctype_alpha($upper) ? ucfirst(strtolower($upper)) : 'Default'),
-        };
-    }
+        $moduleName = $actionDesc->module; $actionName = $actionDesc->action; $method = $actionDesc->method;
+        // Map HTTP verbs or custom indicators to legacy semantic method names (Read|Write).
+        // IMPORTANT: The compiled validator config files compare against lowercase tokens 'read' / 'write'.
+        // We keep a normalized (capitalized) variant for naming validate* / handle*Error methods, but
+        // pass the lowercase token to xmlOnlyValidate so <if($method == 'read')> blocks fire.
+    // Derive canonical action method via central mapper then build normalized token for legacy method names
+    $mapped = HttpMethodMapper::toActionMethod($method ?: 'GET'); // returns lowercase token like 'read'
+    $normalizedMethod = ucfirst(strtolower($mapped));
+        $lowerMethodToken = strtolower($normalizedMethod); // used for XML config inclusion conditions
         // Create the action instance (descriptor holds metadata only).
         $action = $request->getAttribute('agavi.preinstantiated_action');
         if (!$action) {
@@ -109,8 +107,11 @@ class ValidationMiddleware implements MiddlewareInterface
                 $ok = true; // simple actions bypass validation
                 // simple action bypass
             } else {
-                // Attempt XML-only validation first
-                $xmlRes = $vs->xmlOnlyValidate($action, $requestData, $moduleName, $actionName, $normalizedMethod);
+                // Attempt XML-only validation first (must use lowercase token so compiled config matches)
+                $xmlRes = $vs->xmlOnlyValidate($action, $requestData, $moduleName, $actionName, $lowerMethodToken);
+                if($vd && method_exists($xmlRes,'getTrace')) {
+                    try { $t = $xmlRes->getTrace(); if($t){ error_log('[ValidationMiddleware] trace configFile=' . ($t->configFile ?? 'null') . ' validators=' . implode(',', $t->validatorsLoaded ?? [])); } } catch(\Throwable) {}
+                }
                 $trace = $xmlRes->getTrace();
                 $hasXml = $trace && property_exists($trace, 'configFile') && $trace->configFile !== null && $trace->configFile !== '';
                 $ok = $xmlRes->ok;
@@ -153,7 +154,8 @@ class ValidationMiddleware implements MiddlewareInterface
     $execState->validationDecision = $ok ? ValidationDecision::passed() : ValidationDecision::failed($errors);
     $request = $request->withAttribute(ExecutionState::class, $execState);
         if($vd) {
-            error_log('[ValidationMiddleware] decision=' . $execState->validationDecision->state . ' module=' . $moduleName . ' action=' . $actionName . ' simple=' . (($action && method_exists($action,'isSimple') && $action->isSimple()) ? '1':'0'));
+            $errStr = !$ok ? (' errors=' . json_encode($errors)) : '';
+            error_log('[ValidationMiddleware] decision=' . $execState->validationDecision->state . ' module=' . $moduleName . ' action=' . $actionName . ' simple=' . (($action && method_exists($action,'isSimple') && $action->isSimple()) ? '1':'0') . $errStr);
         }
     if ($ok) {
             // Enforce validated-only access when XML existed; otherwise empty set already enforced.
