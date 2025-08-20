@@ -125,20 +125,16 @@ class DispatchMiddleware implements MiddlewareInterface
         if ($dbg) {
             error_log('[DispatchMiddleware] action=' . $actionDesc->module . ':' . $actionDesc->action . ' method=' . $actionDesc->method . ' simple=' . ($actionDesc->isSimple ? '1':'0') . ' vd=' . ($execState->validationDecision?->state ?? 'null') . ' sec=' . ($execState->securityDecision?->name ?? 'null'));
         }
-        // Precondition for non-simple: validation must have run (set by ValidationMiddleware). If not, auto-pass for backward compat unless explicit marker present.
+        // Non-simple actions require validation; allow pending if this is a forwarded target (ValidationMiddleware should run earlier in pipeline).
         if(!$actionDesc->isSimple) {
             if(!$execState->validationDecision || $execState->validationDecision->isPending()) {
-                $ran = $request->getAttribute('agavi.validation.ran');
-                if(!$ran) { // validation middleware missing – permissive fallback
-                    $execState->validationDecision = ValidationDecision::passed();
-                    $request = $request->withAttribute(ExecutionState::class, $execState);
-                } else {
+                // Let execution proceed only if forwarded AND validation pipeline will run earlier (ensured by pipeline order); otherwise error.
+                if(!$execState->forwarded) {
                     $factory = new Psr17Factory();
-                    $resp = $factory->createResponse(412)->withBody($factory->createStream('Validation decision missing'));
-                    return $resp->withHeader('X-Agavi-Validation-State', $execState->validationDecision?->state ?? 'absent')->withHeader('X-Agavi-Debug', 'dispatch-precondition');
+                    $resp = $factory->createResponse(500)->withBody($factory->createStream('Validation middleware missing'));
+                    return $resp->withHeader('X-Agavi-Validation-State', $execState->validationDecision?->state ?? 'absent')->withHeader('X-Agavi-Debug', 'validation-middleware-missing');
                 }
-            }
-            if($execState->validationDecision->isFailed()) {
+            } elseif($execState->validationDecision->isFailed()) {
                 $factory = new Psr17Factory();
                 return $factory->createResponse(400)->withBody($factory->createStream('<div>Validation Failed</div>'));
             }

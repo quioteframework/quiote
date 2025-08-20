@@ -49,12 +49,10 @@ class AgaviKernel
         $adapter = $this->selectWorkerAdapter();
         $emitter = new HttpEmitter();
 
-        $handle = function() use ($context, $emitter) {
+    $handle = function() use ($context, $emitter) {
             try {
-                $pipeline = new PsrPipelineBuilder($context);
-                $request = $pipeline->buildRequestFromGlobals();
-                $dispatcher = $pipeline->buildDispatcher($pipeline->defaultFinalHandler());
-                $response = $dispatcher->handle($request);
+        $request = $this->buildRequestFromGlobals($context);
+        $response = $context->handlePsr($request);
                 $emitter->emit($response);
             } catch (\Throwable $e) {
                 $details = $e->getMessage();
@@ -111,5 +109,33 @@ class AgaviKernel
             return new FrankenPhpWorkerAdapter($this->contextName);
         }
         return new SingleRequestAdapter();
+    }
+
+    private function buildRequestFromGlobals(\Agavi\AgaviContext $context): \Psr\Http\Message\ServerRequestInterface
+    {
+        // Adapted from removed PsrPipelineBuilder::buildRequestFromGlobals (no behavior change)
+        $legacyReq = $context->getRequest();
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $authority = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        $pathQuery = $_SERVER['REQUEST_URI'] ?? '/';
+        $uri = new \Agavi\Http\SimpleUri($scheme . '://' . $authority . $pathQuery);
+        $body = \Agavi\Http\SimpleStream::fromString(@file_get_contents('php://input') ?: '');
+        $headers = function_exists('getallheaders') ? (getallheaders() ?: []) : [];
+        $parsedBody = $_POST;
+        try {
+            $ctHeader = '';
+            foreach($headers as $hk=>$hv) { if(strtolower($hk)==='content-type') { $ctHeader = is_array($hv)?implode(',',$hv):$hv; break; } }
+            if($ctHeader && stripos($ctHeader,'json') !== false) {
+                $raw = (string)$body;
+                if($raw !== '') {
+                    if(str_starts_with($raw, "\xEF\xBB\xBF")) { $raw = substr($raw,3); }
+                    $decoded = json_decode($raw, true);
+                    if(json_last_error() === JSON_ERROR_NONE && is_array($decoded)) { $parsedBody = $decoded; }
+                }
+            }
+        } catch(\Throwable) {}
+        /** @var \Agavi\Request\AgaviRequest $legacyReqTyped */
+        $legacyReqTyped = $legacyReq;
+        return new \Agavi\Http\PsrServerRequestAdapter($legacyReqTyped, $uri, $_SERVER['REQUEST_METHOD'] ?? 'GET', $body, $_SERVER, $headers, $_COOKIE, $_GET, $parsedBody, []);
     }
 }

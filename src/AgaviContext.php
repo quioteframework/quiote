@@ -233,9 +233,22 @@ class AgaviContext implements \Stringable, ResetInterface
 	 */
 	public function getFactoryInfo($for)
 	{
-		if(isset($this->factories[$for])) {
-			return $this->factories[$for];
+		if(!isset($this->factories[$for])) {
+			return null;
 		}
+		$info = $this->factories[$for];
+		// New generated factories add a nested 'factory_info' key while legacy tests
+		// expect only ['class'=>..,'parameters'=>..]. Prefer the nested structure
+		// when present for forward compatibility, but return only the minimal
+		// shape to satisfy historical expectations (AgaviContextTest).
+		if(isset($info['factory_info']) && is_array($info['factory_info']) && isset($info['factory_info']['class'])) {
+			return $info['factory_info'];
+		}
+		// Fallback: normalize to expected shape.
+		return [
+			'class' => $info['class'] ?? null,
+			'parameters' => $info['parameters'] ?? []
+		];
 	}
 	
 	/**

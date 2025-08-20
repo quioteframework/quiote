@@ -143,8 +143,6 @@ class ValidationMiddleware implements MiddlewareInterface
         }
     $execState->validationDecision = $ok ? ValidationDecision::passed() : ValidationDecision::failed($errors);
     $request = $request->withAttribute(ExecutionState::class, $execState);
-        // Mark that validation ran so DispatchMiddleware can detect misordered/missing middleware cases
-        $request = $request->withAttribute('agavi.validation.ran', true);
         if($vd) {
             error_log('[ValidationMiddleware] decision=' . $execState->validationDecision->state . ' module=' . $moduleName . ' action=' . $actionName . ' simple=' . (($action && method_exists($action,'isSimple') && $action->isSimple()) ? '1':'0'));
         }

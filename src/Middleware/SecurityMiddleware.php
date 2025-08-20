@@ -101,7 +101,7 @@ class SecurityMiddleware implements MiddlewareInterface
             $execState->securityDecision = $decision;
             $request = $request->withAttribute(ExecutionState::class, $execState);
         }
-        if ($decision !== SecurityDecision::Allow) {
+    if ($decision !== SecurityDecision::Allow) {
             $key = match ($decision) {
                 SecurityDecision::LoginForward => 'login',
                 SecurityDecision::SecureForward => 'secure',
@@ -122,27 +122,18 @@ class SecurityMiddleware implements MiddlewareInterface
                         $factory = new \Nyholm\Psr7\Factory\Psr17Factory();
                         return $factory->createResponse(508)->withBody($factory->createStream('Too many forwards'));
                     }
-                    // Perform validation immediately for non-simple forwarded actions to satisfy dispatch checks.
-                    try {
-                        $forwardedAction = $this->controller->createActionInstance($newDesc->module, $newDesc->action);
-                        if (method_exists($forwardedAction, 'initialize')) {
-                            $rdTmp = new RDH();
-                            $initCtx = new LightweightActionInitContext($this->controller->getContext(), $newDesc->module, $newDesc->action, $newDesc->method, $newDesc->outputType, $rdTmp, $this->controller->getGlobalResponse());
-                            $forwardedAction->initialize($initCtx);
-                        }
-                        $isSimple = method_exists($forwardedAction, 'isSimple') ? (bool)$forwardedAction->isSimple() : false;
-                        if(!$isSimple) {
-                            $vs = new ValidationService();
-                            $vr = $vs->xmlOnlyValidate($forwardedAction, new RDH(), $newDesc->module, $newDesc->action, ucfirst(strtolower($newDesc->method)));
-                            $execState->validationDecision = $vr->ok ? \Agavi\Execution\ValidationDecision::passed() : \Agavi\Execution\ValidationDecision::failed($vr->getErrors());
-                        }
-                    } catch(\Throwable) { /* ignore - fallback to relaxed path */ }
-                    // Mark security decision as satisfied so executor doesn't treat it as a logic error.
-                    $execState->securityDecision = \Agavi\Execution\SecurityDecision::Allow;
-                    $request = $request->withAttribute(ExecutionState::class, $execState);
+            // Forward resets execution target – clear view related state and validation decision.
+            $execState->viewName = null;
+            $execState->viewModule = null;
+            $execState->actionAttributes = [];
+            $execState->module = $newDesc->module;
+            $execState->action = $newDesc->action;
+            $execState->outputType = $newDesc->outputType;
+            $execState->validationDecision = ValidationDecision::pending();
+            // Mark security decision as satisfied so downstream executor doesn't re-run security.
+            $execState->securityDecision = SecurityDecision::Allow;
+            $request = $request->withAttribute(ExecutionState::class, $execState);
                 }
-                // Invalidate prior validation decision so ValidationMiddleware will re-run for forwarded target.
-                if($execState instanceof \Agavi\Execution\ExecutionState) { $execState->validationDecision = ValidationDecision::pending(); }
                 if (getenv('AGAVI_DEBUG_SECURITY')) {
                     error_log('[SecurityMiddleware] forwarded decision=' . $decision->name . ' -> system action ' . $newDesc->module . ':' . $newDesc->action . ':' . $newDesc->method);
                 }

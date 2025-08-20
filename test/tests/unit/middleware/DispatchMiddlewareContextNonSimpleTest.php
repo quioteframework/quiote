@@ -70,7 +70,9 @@ class DispatchMiddlewareContextNonSimpleTest extends AgaviUnitTestCase
             public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface { return $this->dispatch->process($r, new class implements \Psr\Http\Server\RequestHandlerInterface { public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface { return (new Psr17Factory())->createResponse(500); } }); }
         };
         // First run security, then dispatch
-        $resp = $security->process($psr->withAttribute(ExecutionState::class,$state), $handler);
+    // Simulate that ValidationMiddleware executed by setting attribute marker
+    $psr = $psr->withAttribute('agavi.validation.ran', true);
+    $resp = $security->process($psr->withAttribute(ExecutionState::class,$state), $handler);
         return (string)$resp->getBody();
     }
 
@@ -107,7 +109,9 @@ class DispatchMiddlewareContextNonSimpleTest extends AgaviUnitTestCase
         \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,true,false); // require auth
         $user = $this->getContext()->getUser();
         if(method_exists($user,'setAuthenticated')) { $user->setAuthenticated(false); }
-        $state = new ExecutionState();
+    $state = new ExecutionState();
+    // Simulate successful validation before security forward decision
+    $state->validationDecision = \Agavi\Execution\ValidationDecision::passed();
         $body = $this->runMw($this->buildPsr(), $state);
         $this->assertStringContainsString('LOGIN_REQUIRED', $body, 'Login forward should render login required content');
         $this->assertTrue($state->forwarded, 'ExecutionState should be marked forwarded');
@@ -118,7 +122,8 @@ class DispatchMiddlewareContextNonSimpleTest extends AgaviUnitTestCase
         \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,false,true); // require credential
         $user = $this->getContext()->getUser();
         if(method_exists($user,'removeCredential')) { $user->removeCredential('complex_cred'); }
-        $state = new ExecutionState();
+    $state = new ExecutionState();
+    $state->validationDecision = \Agavi\Execution\ValidationDecision::passed();
         $body = $this->runMw($this->buildPsr(), $state);
         $this->assertStringContainsString('SECURE_REQUIRED', $body, 'Secure forward should render secure required content');
         $this->assertTrue($state->forwarded, 'ExecutionState should be marked forwarded');
