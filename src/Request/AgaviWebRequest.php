@@ -349,12 +349,13 @@ class AgaviWebRequest extends AgaviRequest implements ResetInterface
 			'SERVER_SOFTWARE' => null,
 		];
 
-		$methods = array_merge([
-			'GET' => 'read',
-			'POST' => 'write',
-			'PUT' => 'create',
-			'DELETE' => 'remove',
-		], (array)$this->getParameter('method_names'));
+		// Centralized HTTP verb -> action method mapping
+		$defaultVerbs = ['GET','POST','PUT','PATCH','DELETE','HEAD','OPTIONS','TRACE']; // PUT => create preserved
+		$mapped = [];
+		foreach($defaultVerbs as $verb) {
+			$mapped[$verb] = \Agavi\Execution\HttpMethodMapper::toActionMethod($verb);
+		}
+		$methods = array_merge($mapped, (array)$this->getParameter('method_names'));
 		$this->setParameter('method_names', $methods);
 
 		$REQUEST_METHOD = self::getSourceValue($sources['REQUEST_METHOD'], $sourceDefaults['REQUEST_METHOD']);

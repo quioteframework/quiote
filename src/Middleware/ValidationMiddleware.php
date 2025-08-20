@@ -37,8 +37,17 @@ class ValidationMiddleware implements MiddlewareInterface
         if(!$actionDesc) { return $handler->handle($request); }
         $vd = getenv('AGAVI_DEBUG_VALIDATION');
     $moduleName = $actionDesc->module; $actionName = $actionDesc->action; $method = $actionDesc->method;
-    // Normalize method name to legacy expected case (READ->Read, WRITE->Write, etc.)
-    $normalizedMethod = ucfirst(strtolower($method));
+    // Map HTTP verbs or custom indicators to legacy semantic method names (Read|Write)
+    $upper = strtoupper((string)$method);
+    if ($upper === 'READ' || $upper === 'WRITE') {
+        $normalizedMethod = ucfirst(strtolower($upper));
+    } else {
+        $normalizedMethod = match($upper) {
+            'GET','HEAD' => 'Read',
+            'POST','PUT','PATCH','DELETE','OPTIONS' => 'Write',
+            default => (ctype_alpha($upper) ? ucfirst(strtolower($upper)) : 'Default'),
+        };
+    }
         // Create the action instance (descriptor holds metadata only).
         $action = $request->getAttribute('agavi.preinstantiated_action');
         if (!$action) {
@@ -196,7 +205,8 @@ class ValidationMiddleware implements MiddlewareInterface
             $view = $vf->create($viewModule, $viewName, $moduleName, $actionName, $ot, $requestData, []);
             if (!$view) {
                 $factory = new \Nyholm\Psr7\Factory\Psr17Factory();
-                $resp = $factory->createResponse(400);
+                if(getenv('AGAVI_DEBUG_VALIDATION')) { error_log('[ValidationMiddleware] view creation returned null for ' . $viewModule . ':' . $viewName); }
+                $resp = $factory->createResponse(400)->withHeader('X-Agavi-Validation', 'failed')->withHeader('X-Agavi-Validation-Reason','view_not_created');
                 return $resp->withBody($factory->createStream(is_string($viewName) ? $viewName : 'Error'));
             }
             $methodName = 'execute' . $controller->getOutputType()->getName();
@@ -218,9 +228,10 @@ class ValidationMiddleware implements MiddlewareInterface
                 $resp = $resp->withBody($factory->createStream((string)$content));
             }
             return $resp;
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            if(getenv('AGAVI_DEBUG_VALIDATION')) { error_log('[ValidationMiddleware] exception during view creation: ' . $e->getMessage()); }
             $factory = new \Nyholm\Psr7\Factory\Psr17Factory();
-            $resp = $factory->createResponse(400)->withHeader('X-Agavi-Validation', 'failed');
+            $resp = $factory->createResponse(400)->withHeader('X-Agavi-Validation', 'failed')->withHeader('X-Agavi-Validation-Reason','view_creation_exception');
             if (!empty($errors)) {
                 $resp = $resp->withHeader('X-Agavi-Validation-Errors', base64_encode(json_encode($errors)));
             }

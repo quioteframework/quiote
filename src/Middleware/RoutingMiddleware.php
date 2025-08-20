@@ -9,6 +9,7 @@ use Agavi\Routing\AgaviRouting;
 use Agavi\Http\PsrServerRequestAdapter;
 use Agavi\Controller\AgaviController;
 use Agavi\Execution\ActionDescriptor;
+use Agavi\Execution\HttpMethodMapper;
 
 /**
  * Executes Agavi routing and attaches module/action/outputType to PSR request attributes.
@@ -29,13 +30,8 @@ class RoutingMiddleware implements MiddlewareInterface
             $outputType = strtolower($attributes['_output_type'] ?? 'html');
             if($module && $action) {
                 $httpMethod = $request->getMethod();
-                // Map HTTP verbs to Agavi semantic methods (GET -> READ, POST -> WRITE, etc.)
-                $method = match(strtoupper($httpMethod)) {
-                    'GET','HEAD','OPTIONS','TRACE' => 'READ',
-                    'POST','PUT','PATCH' => 'WRITE',
-                    'DELETE' => 'REMOVE',
-                    default => strtoupper($httpMethod)
-                };
+                // Centralized mapping
+                $method = HttpMethodMapper::toActionMethod($httpMethod);
                 // Build descriptor via controller so isSimple flag reflects actual action implementation
                 try {
                     $descriptor = ActionDescriptor::fromController($this->controller, $module, $action, $method, $outputType);

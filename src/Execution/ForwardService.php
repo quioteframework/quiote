@@ -40,7 +40,8 @@ final class ForwardService
     public function createSystemForwardActionDescriptor(string $forwardName, string $httpMethod, string $outputType): ActionDescriptor
     {
         [$module,$action] = $this->resolveSystemAction($forwardName);
-        $method = $this->mapHttpMethodToActionMethod($httpMethod);
+    // Honor legacy semantics (PUT => create) via centralized mapper
+    $method = HttpMethodMapper::toActionMethod($httpMethod);
         return ActionDescriptor::fromController($this->controller, $module, $action, $method, strtolower($outputType));
     }
 
@@ -53,14 +54,5 @@ final class ForwardService
         return [$module,$action];
     }
 
-    private function mapHttpMethodToActionMethod(string $verb): string
-    {
-        $v = strtoupper($verb);
-        return match($v) {
-            'GET','HEAD','OPTIONS' => 'read',
-            'POST','PUT','PATCH','DELETE' => 'write',
-            default => 'read'
-        };
-    }
 }
 ?>
