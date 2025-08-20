@@ -160,9 +160,42 @@ class SlotDispatcher
                 $decision = $securityService->decide($actionInstance);
                 if($decision !== SecurityDecision::Allow) {
                     $key = $decision === SecurityDecision::LoginForward ? 'login' : 'secure';
-                    [$viewInstance,$vm,$vn,$content] = $this->forwardService->createSystemForwardView($key, $outputType ?? $this->controller->getOutputType()->getName(), $rd);
-                    $ctx = new ActionExecutionContext($actionInstance,$viewInstance,$module,$action,$outputType ?? $this->controller->getOutputType()->getName(),$rd,(string)$content,$vm,$vn,method_exists($actionInstance,'getAttributes')?(array)$actionInstance->getAttributes():[]);
-                    $this->lastContext = $ctx; return $ctx->content;
+                    // Build descriptor for system forward and execute like a fresh (simple) action
+                    $httpMethod = strtoupper($parentRequest->getMethod() ?? 'GET');
+                    $fwdDesc = $this->forwardService->createSystemForwardActionDescriptor($key, $httpMethod, $outputType ?? $this->controller->getOutputType()->getName());
+                    try {
+                        $fwdAction = $this->controller->createActionInstance($fwdDesc->module, $fwdDesc->action);
+                        if(method_exists($fwdAction,'initialize')) {
+                            $initCtx = new LightweightActionInitContext(
+                                $this->controller->getContext(),
+                                $fwdDesc->module,
+                                $fwdDesc->action,
+                                $fwdDesc->method,
+                                $fwdDesc->outputType,
+                                $rd,
+                                $this->controller->getGlobalResponse()
+                            );
+                            $fwdAction->initialize($initCtx);
+                        }
+                        $rawViewName = $this->actionResolver->execute($fwdAction, $fwdDesc->method, $rd);
+                        [$vm,$vn] = $this->viewNameResolver->resolve($fwdDesc->module, $fwdDesc->action, $rawViewName);
+                        $viewInstance = null; $content = '';
+                        if($vn !== AgaviView::NONE) {
+                            $attrs = method_exists($fwdAction,'getAttributes')?(array)$fwdAction->getAttributes():[];
+                            $viewInstance = $this->viewFactory->create($vm,$vn,$fwdDesc->module,$fwdDesc->action,$fwdDesc->outputType,$rd,$attrs);
+                            if(!$viewInstance) { try { $viewInstance = $this->controller->createViewInstance($vm,$vn); } catch(\Throwable) {} }
+                            if($viewInstance) { try { $vic = new \Agavi\Execution\ImmutableViewInitContext($this->controller->getContext(),$vm,$vn,$fwdDesc->outputType,$fwdDesc->module,$fwdDesc->action,$attrs,$this->controller->getGlobalResponse()); $viewInstance->initialize($vic);} catch(\Throwable) {} }
+                            $methodExec = 'execute' . ucfirst($fwdDesc->outputType);
+                            if(!$viewInstance || !is_callable([$viewInstance,$methodExec])) { $methodExec = 'execute'; }
+                            $res = $viewInstance?->$methodExec($rd); if($res !== null) { $content = (string)$res; } elseif($viewInstance && method_exists($viewInstance,'getLayers') && method_exists($viewInstance,'renderLayers') && $viewInstance->getLayers()) { $layerContent = $viewInstance->renderLayers(); if($layerContent !== '') { $content = $layerContent; } }
+                        }
+                        $ctx = new ActionExecutionContext($fwdAction,$viewInstance,$fwdDesc->module,$fwdDesc->action,$fwdDesc->outputType,$rd,(string)$content,$vm ?? null,$vn ?? null,method_exists($fwdAction,'getAttributes')?(array)$fwdAction->getAttributes():[]);
+                        $this->lastContext = $ctx; return $ctx->content;
+                    } catch(\Throwable $fwdErr) {
+                        // Fail closed: return empty string to avoid masking original security failure silently
+                        $ctx = new ActionExecutionContext($actionInstance,null,$module,$action,$outputType ?? $this->controller->getOutputType()->getName(),$rd,'');
+                        $this->lastContext = $ctx; return '';
+                    }
                 }
                 // Validation
                 $validationService = new ValidationService();

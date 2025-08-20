@@ -43,8 +43,7 @@ class DispatchMiddleware implements MiddlewareInterface
         'xml'  => 'application/xml; charset=UTF-8',
         'txt'  => 'text/plain; charset=UTF-8',
     ];
-    // Hard limit of forwards to avoid infinite loops
-    private const MAX_FORWARDS = 5;
+    // Forward loop protection moved to SecurityMiddleware (forwardCount in ExecutionState)
 
     public function __construct(private AgaviController $controller)
     {
@@ -116,75 +115,44 @@ class DispatchMiddleware implements MiddlewareInterface
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $dbg = getenv('AGAVI_DEBUG_DISPATCH');
-        $loopCount = 0;
         $execState = $request->getAttribute(ExecutionState::class) ?? new ExecutionState();
         $request = $request->withAttribute(ExecutionState::class, $execState);
-        while (true) {
-            $actionDesc = $request->getAttribute(ActionDescriptor::class);
-            if(!$actionDesc) {
-                $factory = new Psr17Factory();
-                return $factory->createResponse(404)->withBody($factory->createStream('Not Found'));
-            }
-            if ($dbg) {
-                error_log('[DispatchMiddleware] loop=' . $loopCount . ' action=' . $actionDesc->module . ':' . $actionDesc->action . ' method=' . $actionDesc->method . ' simple=' . ($actionDesc->isSimple ? '1':'0') . ' vd=' . ($execState->validationDecision?->state ?? 'null') . ' sec=' . ($execState->securityDecision?->name ?? 'null'));
-            }
-            if ($loopCount++ > self::MAX_FORWARDS) {
-                $factory = new Psr17Factory();
-                return $factory->createResponse(508)->withBody($factory->createStream('Too many forwards'));
-            }
-            // If a finalized forward view is already rendered (flag), break out and build response
-            if(property_exists($execState, 'finalized') && $execState->finalized === true) {
-                break; // Response already encoded downstream (e.g., validation failure view) - just continue to build below
-            }
-            // Precondition enforcement only right before executing a non-simple action (not immediately after forward mutation)
-            if(!$actionDesc->isSimple) {
-                if(!$execState->validationDecision || $execState->validationDecision->isPending()) {
-                    // Fallback: if validation middleware never ran (no marker attribute), auto-pass to preserve legacy behavior for tests
-                    $ran = $request->getAttribute('agavi.validation.ran');
-                    if(!$ran) {
-                        $execState->validationDecision = ValidationDecision::passed();
-                        $request = $request->withAttribute(ExecutionState::class, $execState);
-                    } else {
-                        $factory = new Psr17Factory();
-                        $resp = $factory->createResponse(412)->withBody($factory->createStream('Validation decision missing'));
-                        $resp = $resp->withHeader('X-Agavi-Validation-State', $execState->validationDecision?->state ?? 'absent');
-                        return $resp->withHeader('X-Agavi-Debug', 'dispatch-precondition');
-                    }
-                }
-                if($execState->validationDecision->isFailed()) {
-                    $factory = new Psr17Factory();
-                    $errs = $execState->validationDecision->errors;
-                    $body = '<div>Validation Failed</div>';
-                    return $factory->createResponse(400)->withBody($factory->createStream($body));
-                }
-            }
-            // Execute action
-            $resp = $actionDesc->isSimple ? $this->processSimple($request, $actionDesc) : $this->processNonSimple($request, $actionDesc);
-            // No internal action-level forwards currently implemented in executor; if future action sets forward descriptor attribute, loop.
-            $newForwardDesc = $request->getAttribute('agavi.forward_action_descriptor');
-            if($newForwardDesc instanceof ActionDescriptor && ($newForwardDesc->module !== $actionDesc->module || $newForwardDesc->action !== $actionDesc->action)) {
-                // Reset validation and view state for new target
-                $execState->validationDecision = ValidationDecision::pending();
-                $execState->viewModule = null; $execState->viewName = null;
-                $execState->forwarded = true;
-                $request = $request->withAttribute(ActionDescriptor::class, $newForwardDesc);
-                continue; // re-loop with new descriptor
-            }
-            // Normal completion
-            if(!$actionDesc->isSimple && $execState->validationDecision) { $resp = $resp->withHeader('X-Agavi-Validation-State', $execState->validationDecision->state); }
-            try {
-                $legacyReq = $this->controller->getContext()->getRequest();
-                if ($legacyReq && $execState && method_exists($legacyReq, 'setAttribute')) {
-                    $legacyReq->setAttribute('action_session', new ActionExecutionSession($execState), 'org.agavi.execution');
-                }
-            } catch (\Throwable) {}
-            if ($dbg && method_exists($resp, 'getBody')) { error_log('[DispatchMiddleware] response status=' . $resp->getStatusCode() . ' len=' . strlen((string)$resp->getBody())); }
-            return $resp;
+        $actionDesc = $request->getAttribute(ActionDescriptor::class);
+        if(!$actionDesc) {
+            $factory = new Psr17Factory();
+            return $factory->createResponse(404)->withBody($factory->createStream('Not Found'));
         }
-        // Finalized view path (should have view info in state)
-        $factory = new Psr17Factory();
-        $content = '[finalized]';
-        return $factory->createResponse(200)->withBody($factory->createStream($content));
+        if ($dbg) {
+            error_log('[DispatchMiddleware] action=' . $actionDesc->module . ':' . $actionDesc->action . ' method=' . $actionDesc->method . ' simple=' . ($actionDesc->isSimple ? '1':'0') . ' vd=' . ($execState->validationDecision?->state ?? 'null') . ' sec=' . ($execState->securityDecision?->name ?? 'null'));
+        }
+        // Precondition for non-simple: validation must have run (set by ValidationMiddleware). If not, auto-pass for backward compat unless explicit marker present.
+        if(!$actionDesc->isSimple) {
+            if(!$execState->validationDecision || $execState->validationDecision->isPending()) {
+                $ran = $request->getAttribute('agavi.validation.ran');
+                if(!$ran) { // validation middleware missing – permissive fallback
+                    $execState->validationDecision = ValidationDecision::passed();
+                    $request = $request->withAttribute(ExecutionState::class, $execState);
+                } else {
+                    $factory = new Psr17Factory();
+                    $resp = $factory->createResponse(412)->withBody($factory->createStream('Validation decision missing'));
+                    return $resp->withHeader('X-Agavi-Validation-State', $execState->validationDecision?->state ?? 'absent')->withHeader('X-Agavi-Debug', 'dispatch-precondition');
+                }
+            }
+            if($execState->validationDecision->isFailed()) {
+                $factory = new Psr17Factory();
+                return $factory->createResponse(400)->withBody($factory->createStream('<div>Validation Failed</div>'));
+            }
+        }
+        $resp = $actionDesc->isSimple ? $this->processSimple($request, $actionDesc) : $this->processNonSimple($request, $actionDesc);
+        if(!$actionDesc->isSimple && $execState->validationDecision) { $resp = $resp->withHeader('X-Agavi-Validation-State', $execState->validationDecision->state); }
+        try {
+            $legacyReq = $this->controller->getContext()->getRequest();
+            if ($legacyReq && $execState && method_exists($legacyReq, 'setAttribute')) {
+                $legacyReq->setAttribute('action_session', new ActionExecutionSession($execState), 'org.agavi.execution');
+            }
+        } catch (\Throwable) {}
+        if ($dbg && method_exists($resp, 'getBody')) { error_log('[DispatchMiddleware] response status=' . $resp->getStatusCode() . ' len=' . strlen((string)$resp->getBody())); }
+        return $resp;
     }
 
     private function processSimple(ServerRequestInterface $request, ActionDescriptor $actionDesc): ResponseInterface
@@ -230,12 +198,8 @@ class DispatchMiddleware implements MiddlewareInterface
             $cacheHitPayload = $avCache ? ActionCacheHelper::read($avCache, $actionDesc, $userFp) : null;
             if ($cacheHitPayload) {
                 $key = $actionDesc->module . ':' . $actionDesc->action . ':' . $actionDesc->outputType;
-                if (!isset(self::$executedSimpleActions[$key])) {
-                    $cacheHitPayload = null;
-                }
-                if ($this->dynamicFlagsActive($actionInstance)) {
-                    $cacheHitPayload = null;
-                }
+                if (!isset(self::$executedSimpleActions[$key])) { $cacheHitPayload = null; }
+                if ($this->dynamicFlagsActive($actionInstance)) { $cacheHitPayload = null; }
             }
         }
         if ($cacheHitPayload) {
@@ -275,42 +239,7 @@ class DispatchMiddleware implements MiddlewareInterface
         if (!$execState->validationDecision) {
             $execState->validationDecision = ValidationDecision::pending();
         }
-        // If security decision not yet made, perform it now (non-simple ensures validation/security path).
-        if ($execState->securityDecision === null) {
-            try {
-                $actionProbe = $this->controller->createActionInstance($actionDesc->module, $actionDesc->action);
-                if (method_exists($actionProbe, 'initialize')) {
-                    $actionProbe->initialize(new LightweightActionInitContext(
-                        $this->controller->getContext(),
-                        $actionDesc->module,
-                        $actionDesc->action,
-                        $actionDesc->method,
-                        $actionDesc->outputType,
-                        $rd,
-                        $this->controller->getGlobalResponse()
-                    ));
-                }
-                $sec = new \Agavi\Execution\SecurityService($this->controller);
-                $decision = $sec->decide($actionProbe);
-                $execState->securityDecision = $decision;
-                if ($execState->securityDecision !== SecurityDecision::Allow) {
-                    // Produce forward view immediately and return response
-                    $forwardService = new \Agavi\Execution\ForwardService($this->controller);
-                    $fwdKey = match ($execState->securityDecision) {
-                        SecurityDecision::LoginForward => 'login',
-                        SecurityDecision::SecureForward => 'secure',
-                        default => 'login'
-                    };
-                    [$view, $vm, $vn, $content] = $forwardService->createSystemForwardView($fwdKey, $actionDesc->outputType, $rd);
-                    $execState->viewModule = $vm;
-                    $execState->viewName = $vn;
-                    $execState->forwarded = true;
-                    $execState->validationDecision = ValidationDecision::pending();
-                    return $this->buildPsrResponse($content, $actionDesc->outputType, false, false);
-                }
-            } catch (\Throwable) { /* fall through; executor will handle */
-            }
-        }
+    // Security decision must have been established by SecurityMiddleware. If missing and security disabled, executor will allow; otherwise treat as logic gap.
         if ($execState->validationDecision && $execState->validationDecision->isFailed() && $execState->viewName) {
             $content = (string)($request->getAttribute('validation.error.content') ?? '<div>Validation Failed</div>');
             $factory = new Psr17Factory();

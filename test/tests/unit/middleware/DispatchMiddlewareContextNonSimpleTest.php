@@ -19,6 +19,9 @@ class DispatchMiddlewareContextNonSimpleTest extends AgaviUnitTestCase
     protected function setUp(): void
     {
         parent::setUp();
+    // Ensure minimal required configuration directives for context access
+    if(!AgaviConfig::has('core.app_dir')) { AgaviConfig::set('core.app_dir', getcwd()); }
+    if(!AgaviConfig::has('core.default_context')) { AgaviConfig::set('core.default_context', 'web'); }
         AgaviConfig::set('core.cache_dir', sys_get_temp_dir() . '/agavi_ctx_nonsimple_cache_test');
         $dir = AgaviConfig::get('core.cache_dir');
         if(!is_dir($dir)) { @mkdir($dir, 0777, true); }

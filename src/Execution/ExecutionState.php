@@ -17,7 +17,9 @@ final class ExecutionState
         // Indicates a forward (login/secure) short-circuited execution before validation
         public bool $forwarded = false,
         // New unified validation decision (pending|passed|failed)
-        public ?ValidationDecision $validationDecision = null,
+    public ?ValidationDecision $validationDecision = null,
+    // Forward count (security/login/secure forwards) to guard against infinite loops
+    public int $forwardCount = 0,
         // Routed module/action/outputType (duplicated from request attributes for convenience / caching keys)
         public ?string $module = null,
         public ?string $action = null,

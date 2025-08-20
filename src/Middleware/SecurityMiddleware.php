@@ -116,6 +116,12 @@ class SecurityMiddleware implements MiddlewareInterface
                 $request = $request->withAttribute(ActionDescriptor::class, $newDesc);
                 if ($execState instanceof ExecutionState) {
                     $execState->forwarded = true;
+                    $execState->forwardCount++;
+                    if($execState->forwardCount > 5) {
+                        // Exceeded forward limit: return 508 response immediately.
+                        $factory = new \Nyholm\Psr7\Factory\Psr17Factory();
+                        return $factory->createResponse(508)->withBody($factory->createStream('Too many forwards'));
+                    }
                     // Perform validation immediately for non-simple forwarded actions to satisfy dispatch checks.
                     try {
                         $forwardedAction = $this->controller->createActionInstance($newDesc->module, $newDesc->action);
@@ -136,9 +142,7 @@ class SecurityMiddleware implements MiddlewareInterface
                     $request = $request->withAttribute(ExecutionState::class, $execState);
                 }
                 // Invalidate prior validation decision so ValidationMiddleware will re-run for forwarded target.
-                if($execState instanceof \Agavi\Execution\ExecutionState) {
-                    $execState->validationDecision = ValidationDecision::pending();
-                }
+                if($execState instanceof \Agavi\Execution\ExecutionState) { $execState->validationDecision = ValidationDecision::pending(); }
                 if (getenv('AGAVI_DEBUG_SECURITY')) {
                     error_log('[SecurityMiddleware] forwarded decision=' . $decision->name . ' -> system action ' . $newDesc->module . ':' . $newDesc->action . ':' . $newDesc->method);
                 }
