@@ -2,7 +2,7 @@
 namespace Sandbox\Modules\Cache\Actions;
 
 use Agavi\Action\AgaviAction;
-use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Request\AgaviWebRequest ;
 
 class CacheAction extends AgaviAction
 {
@@ -15,7 +15,7 @@ class CacheAction extends AgaviAction
     public function isSimple(){ return true; }
     public function isCacheable(?string $outputType = null): bool { return true; }
     public function getDefaultViewName(){ return 'Success'; }
-    public function execute(AgaviRequestDataHolder $rd){
+    public function execute(AgaviWebRequest $rd){
         self::$execCount++;
     // Always set attribute now that ViewFactoryTest expects snapshot to include 'foo'.
     $this->setAttribute('foo','bar');

@@ -94,14 +94,15 @@ class AgaviFactoryConfigHandler extends AgaviXmlConfigHandler
 				'var' => 'translationManager',
 				'must_implement' => [],
 			],
-			'request' => [
-				'required' => true,
-				'var' => 'request',
-				'must_implement' => [],
-			],
 			'routing' => [
 				'required' => true,
 				'var' => 'routing',
+				'must_implement' => [],
+			],
+			// Ensure a legacy request object exists for templates/views and worker-mode recreation
+			'request' => [
+				'required' => true,
+				'var' => 'request',
 				'must_implement' => [],
 			],
 			'controller' => [
@@ -123,7 +124,6 @@ class AgaviFactoryConfigHandler extends AgaviXmlConfigHandler
 			'translation_manager', // startup()
 			'user', // startup()
 			'routing', // startup()
-			'request', // startup()
 			'controller', // startup()
 		];
 		

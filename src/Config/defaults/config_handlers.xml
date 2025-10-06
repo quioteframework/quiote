@@ -138,8 +138,9 @@
 			</handler>
 
 
-			<handler pattern="%core.cldr_dir%/locales/*.xml" class="Agavi\Config\AgaviLdmlConfigHandler" />
-			<handler pattern="%core.cldr_dir%/supplementalData.xml" class="Agavi\Config\AgaviLdmlSupplementalConfigHandler" />
+			<!-- Removed legacy CLDR LDML handlers (locales & supplementalData) after migration to PHP intl -->
+			<!-- <handler pattern="%core.cldr_dir%/locales/*.xml" class="Agavi\Config\AgaviLdmlConfigHandler" /> -->
+			<!-- <handler pattern="%core.cldr_dir%/supplementalData.xml" class="Agavi\Config\AgaviLdmlSupplementalConfigHandler" /> -->
 		</handlers>
 	</ae:configuration>
 </ae:configurations>

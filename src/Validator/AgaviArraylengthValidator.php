@@ -63,8 +63,8 @@ class AgaviArraylengthValidator extends AgaviValidator
 			// if($this->validationParameters->isValueEmpty($paramType, $pName)) {
 			// as for example AgaviWebRequestDataHolder::isFileValueEmpty() returns false if the element is not an instance of AgaviUploadedFile
 			// as this may happen in the future with other parameter types etc, it's safer to manually check if the value exists and is an array
-			if(!$this->validationParameters->has($paramType, $pName) || !is_array($this->validationParameters->get($paramType, $pName))) {
-				if($throwError && $isRequired) {
+				if(!$this->validationParameters->hasParameter($pName) || !is_array($this->validationParameters->getParameter($pName))) {
+					if($throwError && $isRequired) {
 					$this->throwError('required', $pName);
 				}
 				$result = false;

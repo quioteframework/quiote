@@ -2,11 +2,11 @@
 namespace Sandbox\Modules\ControllerTests\Views;
 
 use Agavi\View\AgaviView;
-use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Request\AgaviWebRequest ;
 
 class ControllerTestErrorView extends AgaviView
 {
-    public function execute(AgaviRequestDataHolder $rd)
+    public function execute(AgaviWebRequest $rd)
     {
         return 'Error';
     }

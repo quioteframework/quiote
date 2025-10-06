@@ -2,9 +2,9 @@
 namespace Sandbox\Modules\Method\Views;
 
 use Agavi\View\AgaviView;
-use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Request\AgaviWebRequest ;
 
 class MethodHttpPostErrorView extends AgaviView
 {
-    public function execute(AgaviRequestDataHolder $rd){ return '<v>POST_ERROR</v>'; }
+    public function execute(AgaviWebRequest $rd){ return '<v>POST_ERROR</v>'; }
 }

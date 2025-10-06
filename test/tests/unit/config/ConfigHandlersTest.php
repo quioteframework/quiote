@@ -1,0 +1,107 @@
+<?php
+
+use PHPUnit\Framework\TestCase;
+use Agavi\Config\AgaviFactoryConfigHandler;
+use Agavi\Config\AgaviFilterConfigHandler;
+use Agavi\Config\AgaviLoggingConfigHandler;
+use Agavi\Config\Util\DOM\AgaviXmlConfigDomDocument;
+use Agavi\Config\AgaviConfig;
+use Agavi\Exception\AgaviConfigurationException;
+
+class ConfigHandlersTest extends TestCase
+{
+    private function makeEnvelope(string $innerXml, string $uriBasename): AgaviXmlConfigDomDocument
+    {
+        $xml = <<<XML
+<?xml version="1.0"?>
+<configurations xmlns="http://agavi.org/agavi/config/global/envelope/1.1">
+  <configuration>
+    $innerXml
+  </configuration>
+</configurations>
+XML;
+        $doc = new AgaviXmlConfigDomDocument();
+        $doc->loadXml($xml);
+        $r = new ReflectionProperty(AgaviXmlConfigDomDocument::class, 'documentURI');
+        $r->setAccessible(true);
+        $r->setValue($doc, sys_get_temp_dir() . '/' . $uriBasename);
+        return $doc;
+    }
+
+    public function testFactoryConfigHandlerGeneratesInitializationCode()
+    {
+        eval('namespace App\\Factory; class ValidationManager { function initialize(){} }');
+        eval('namespace App\\Factory; class Response { function initialize(){} }');
+        eval('namespace App\\Factory; class DatabaseManager { function initialize(){} function startup(){} }');
+        eval('namespace App\\Factory; class Routing { function initialize(){} function startup(){} }');
+        eval('namespace App\\Factory; class Request { function initialize(){} }');
+        eval('namespace App\\Factory; class Controller { function initialize(){} function startup(){} }');
+        eval('namespace App\\Factory; class Storage { function initialize(){} function startup(){} }');
+        eval('namespace App\\Factory; class User { function initialize(){} function startup(){} }');
+        AgaviConfig::set('core.use_logging', false);
+        AgaviConfig::set('core.use_translation', false);
+        $ns = 'http://agavi.org/agavi/config/parts/factories/1.1';
+        $inner = <<<XML
+<validation_manager xmlns="$ns" class="App\\Factory\\ValidationManager" />
+<response xmlns="$ns" class="App\\Factory\\Response" />
+<database_manager xmlns="$ns" class="App\\Factory\\DatabaseManager" />
+<routing xmlns="$ns" class="App\\Factory\\Routing" />
+<request xmlns="$ns" class="App\\Factory\\Request" />
+<controller xmlns="$ns" class="App\\Factory\\Controller" />
+<storage xmlns="$ns" class="App\\Factory\\Storage" />
+<user xmlns="$ns" class="App\\Factory\\User" />
+XML;
+        $doc = $this->makeEnvelope($inner, 'factories.xml');
+        $handler = new AgaviFactoryConfigHandler();
+        $handler->initialize(null, []);
+        $code = $handler->execute($doc);
+        $this->assertStringContainsString('ValidationManager', $code);
+        $this->assertStringContainsString('$this->controller->startup();', $code);
+        $this->assertStringContainsString('$this->shutdownSequence', $code);
+    }
+
+    public function testFilterConfigHandlerThrowsOnReservedName()
+    {
+        $ns = 'http://agavi.org/agavi/config/parts/filters/1.1';
+        $inner = <<<XML
+<filters xmlns="$ns">
+  <filter name="agaviFoo" class="FooFilter" />
+</filters>
+XML;
+        $doc = $this->makeEnvelope($inner, 'app_filters.xml');
+        $handler = new AgaviFilterConfigHandler();
+        $handler->initialize(null, []);
+        $this->expectException(AgaviConfigurationException::class);
+        $handler->execute($doc);
+    }
+
+    public function testLoggingConfigHandlerGeneratesLoggerSetup()
+    {
+        eval('namespace App\\Logging; class SimpleLayout { function initialize($c,$p=[]){} }');
+        eval('namespace App\\Logging; class SimpleAppender { private $layout; function initialize($c,$p=[]){} function setLayout($l){$this->layout=$l;} }');
+        eval('namespace App\\Logging; class SimpleLogger { private $appenders=[]; private $lvl=null; function initialize($c,$p=[]){} function setAppender($n,$a){$this->appenders[$n]=$a;} function setLevel($l){$this->lvl=$l;} }');
+        $ns = 'http://agavi.org/agavi/config/parts/logging/1.1';
+        $inner = <<<XML
+<layouts xmlns="$ns">
+  <layout name="main" class="App\\Logging\\SimpleLayout" />
+</layouts>
+<appenders xmlns="$ns">
+  <appender name="stdout" class="App\\Logging\\SimpleAppender" layout="main" />
+</appenders>
+<loggers xmlns="$ns" default="core">
+  <logger name="core" class="App\\Logging\\SimpleLogger" level="100">
+    <appenders>
+      <appender>stdout</appender>
+    </appenders>
+  </logger>
+</loggers>
+XML;
+        $doc = $this->makeEnvelope($inner, 'logging.xml');
+        $handler = new AgaviLoggingConfigHandler();
+        $handler->initialize(null, []);
+        $code = $handler->execute($doc);
+        $this->assertStringContainsString('setDefaultLoggerName', $code);
+        $this->assertStringContainsString('SimpleAppender', $code);
+        $this->assertStringContainsString('SimpleLogger', $code);
+    }
+}

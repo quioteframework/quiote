@@ -1,6 +1,5 @@
 <?php
 
-use Agavi\Request\AgaviRequestDataHolder;
 use Agavi\Testing\AgaviUnitTestCase;
 use Agavi\Validator\AgaviOperatorValidator;
 use Agavi\Validator\AgaviValidator;
@@ -67,7 +66,7 @@ class AgaviOperatorValidatorTest extends AgaviUnitTestCase
 	{
 		$v = $this->vm->createValidator('MyOperatorValidator', array());
 		$this->assertFalse($v->checked);
-		$this->assertEquals($v->execute(new AgaviRequestDataHolder()), AgaviValidator::SUCCESS);
+		$this->assertEquals($v->execute($this->newWebRequest()), AgaviValidator::SUCCESS);
 		$this->assertTrue($v->checked);
 	}
 }

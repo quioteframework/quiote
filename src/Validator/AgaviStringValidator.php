@@ -51,7 +51,7 @@ class AgaviStringValidator extends AgaviValidator
 	{
 		$utf8 = $this->getParameter('utf8', true);
 		
-		$originalValue =& $this->getData($this->getArgument());
+		$originalValue = $this->getData($this->getArgument());
 		
 		if(!is_scalar($originalValue)) {
 			// non scalar values would cause notices

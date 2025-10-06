@@ -2,11 +2,11 @@
 
 use Agavi\Testing\AgaviUnitTestCase;
 use Agavi\View\AgaviView;
-use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Request\AgaviWebRequest;
 
 class SampleView extends AgaviView
 {
-	public function execute(AgaviRequestDataHolder $rd) {}
+	public function execute(AgaviWebRequest $rd) {}
 }
 
 class AgaviViewTest extends AgaviUnitTestCase
@@ -30,7 +30,7 @@ class AgaviViewTest extends AgaviUnitTestCase
 			$descriptor->action,
 			$descriptor->method,
 			$descriptor->outputType,
-			new AgaviRequestDataHolder(),
+			new AgaviWebRequest(),
 			$controller->getGlobalResponse()
 		);
 		$this->_v->initialize($init);

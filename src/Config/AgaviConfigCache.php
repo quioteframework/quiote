@@ -437,7 +437,12 @@ class AgaviConfigCache
 	 */
 	protected static function loadConfigHandlersFile($cfg)
 	{
-		self::$handlers = (array)self::$handlers + include(AgaviConfigCache::checkConfig($cfg));
+		$loaded = include(AgaviConfigCache::checkConfig($cfg));
+		if(is_array($loaded) && isset($loaded['__middleware_config'])) {
+			\Agavi\Middleware\MiddlewareCatalog::initialize($loaded['__middleware_config']);
+			unset($loaded['__middleware_config']);
+		}
+		self::$handlers = (array)self::$handlers + (array)$loaded;
 	}
 
 	/**

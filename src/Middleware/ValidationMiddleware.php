@@ -7,7 +7,6 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Agavi\Validator\AgaviValidationManager;
-use Agavi\Request\AgaviRequestDataHolder;
 use Agavi\Http\PsrResponseAdapter;
 use Agavi\View\AgaviView;
 use Agavi\Execution\ValidationService;
@@ -16,6 +15,8 @@ use Agavi\Execution\ExecutionState;
 use Agavi\Execution\ViewNameResolver;
 use Agavi\Execution\ViewFactory;
 use Agavi\Execution\HttpMethodMapper;
+use Agavi\Request\AgaviWebRequest;
+use Agavi\Logging\AgaviDebugLogger;
 
 /**
  * Executes validation early (before action execution) and enforces strict access to validated params only.
@@ -30,29 +31,45 @@ class ValidationMiddleware implements MiddlewareInterface
     {
         $execState = $request->getAttribute(ExecutionState::class);
         // Always ensure we have an ExecutionState so downstream code can rely on it
-        if(!$execState instanceof ExecutionState) {
+        if (!$execState instanceof ExecutionState) {
             $execState = new ExecutionState();
             $request = $request->withAttribute(ExecutionState::class, $execState);
         }
         $actionDesc = $request->getAttribute(\Agavi\Execution\ActionDescriptor::class);
-        if(!$actionDesc) { return $handler->handle($request); }
+        if (!$actionDesc) {
+            return $handler->handle($request);
+        }
         $vd = getenv('AGAVI_DEBUG_VALIDATION');
-        $moduleName = $actionDesc->module; $actionName = $actionDesc->action; $method = $actionDesc->method;
+        $moduleName = $actionDesc->module;
+        $actionName = $actionDesc->action;
+        $method = $actionDesc->method;
         // Map HTTP verbs or custom indicators to legacy semantic method names (Read|Write).
         // IMPORTANT: The compiled validator config files compare against lowercase tokens 'read' / 'write'.
         // We keep a normalized (capitalized) variant for naming validate* / handle*Error methods, but
         // pass the lowercase token to xmlOnlyValidate so <if($method == 'read')> blocks fire.
-    // Derive canonical action method via central mapper then build normalized token for legacy method names
-    $mapped = HttpMethodMapper::toActionMethod($method ?: 'GET'); // returns lowercase token like 'read'
-    $normalizedMethod = ucfirst(strtolower($mapped));
+        // Derive canonical action method via central mapper then build normalized token for legacy method names
+        $mapped = HttpMethodMapper::toActionMethod($method ?: 'GET'); // returns lowercase token like 'read'
+        $normalizedMethod = ucfirst(strtolower($mapped));
         $lowerMethodToken = strtolower($normalizedMethod); // used for XML config inclusion conditions
         // Create the action instance (descriptor holds metadata only).
         $action = $request->getAttribute('agavi.preinstantiated_action');
+        /* 
+        We should always have a preinstantiated action
+        *
+        */
+        if ($vd) {
+            AgaviDebugLogger::debug('[ValidationMiddleware] preinstantiated_action=' . gettype($action), $this->controller?->getContext());
+        }
         if (!$action) {
-            try {
-                $controller = $this->controller ?? $GLOBALS['agavi_controller'] ?? null;
-            } catch (\Throwable) {
-                $controller = null;
+            if ($vd) {
+                AgaviDebugLogger::debug('[ValidationMiddleware]: pre-instantiated action not found', $this->controller?->getContext());
+            }
+            $controller = $this->controller;
+            if (!$controller) {
+                try {
+                    $controller = \Agavi\Agavi::context('web', true)?->getController();
+                } catch (\Throwable) {
+                }
             }
             if (!$controller && method_exists(\Agavi\Agavi::class, 'context')) {
                 try {
@@ -63,39 +80,96 @@ class ValidationMiddleware implements MiddlewareInterface
             if ($controller && $actionDesc) {
                 // Let exceptions bubble to ErrorHandlingMiddleware – failure is a hard error.
                 $action = $controller->createActionInstance($moduleName, $actionName);
-                if ($action && method_exists($action, 'initialize')) {
-                    $rdInit = new \Agavi\Request\AgaviRequestDataHolder();
-                    $initCtx = new \Agavi\Execution\LightweightActionInitContext($controller->getContext(), $moduleName, $actionName, $actionDesc->method, $actionDesc->outputType, $rdInit, $controller->getGlobalResponse());
+                if ($action) {
+                    // Use the PSR request for type compatibility; action methods still receive AgaviWebRequest param from dispatcher later.
+                    $initCtx = new \Agavi\Execution\LightweightActionInitContext(
+                        $controller->getContext(),
+                        $moduleName,
+                        $actionName,
+                        $actionDesc->method,
+                        $actionDesc->outputType,
+                        $request,
+                        $controller->getGlobalResponse()
+                    );
                     $action->initialize($initCtx);
                 }
             }
         }
-        // If the container lacks a request data holder (goal: no legacy AgaviWebRequest), synthesize one from PSR-7 request.
-        $requestData = $request->getAttribute('agavi.request_data') ?? new AgaviRequestDataHolder();
-        $query = $request->getQueryParams();
-        foreach ($query as $k => $v) {
-            $requestData->setParameter($k, $v);
-        }
-        $body = $request->getParsedBody();
-        if (is_array($body)) {
-            foreach ($body as $k => $v) {
-                $requestData->setParameter($k, $v);
+
+        // Reuse the context's AgaviWebRequest so that validator exports (which write into runtime parameters)
+        // are later visible to the action and views. Creating a fresh instance would isolate exports.
+        // Always obtain (and thus materialize if needed) the context request so we mutate the
+        // exact instance actions/views will later read. Creating an ad-hoc AgaviWebRequest would
+        // isolate validator exports from downstream code because AgaviContext::getRequest() would
+        // lazily create a different instance afterwards.
+        $webRequest = null;
+        // Ensure we resolve a controller reference early so context reuse works even if constructor passed null
+        if ($this->controller === null && method_exists(\Agavi\Agavi::class, 'context')) {
+            try {
+                $this->controller = \Agavi\Agavi::context('web', true)?->getController();
+            } catch (\Throwable) {
             }
         }
-        $routeParams = $request->getAttribute('route_params');
-        if (is_array($routeParams)) {
-            foreach ($routeParams as $k => $v) {
-                $requestData->setParameter($k, $v);
-            }
+        try {
+            $webRequest = $this->controller?->getContext()?->getRequest();
+        } catch (\Throwable) {
         }
-        if (!$requestData) {
-            $requestData = new AgaviRequestDataHolder();
+        if (!($webRequest instanceof AgaviWebRequest)) {
+            throw new \RuntimeException('Canonical AgaviWebRequest missing in ValidationMiddleware (must be initialized earlier).');
+        }
+        $webRequest->attachPsrRequest($request);
+        if (getenv('AGAVI_DEBUG_ROUTING')) {
+            AgaviDebugLogger::debug('[ValidationMiddleware][debug] using context AgaviWebRequest (shared)', $this->controller?->getContext());
+        }
+        // Promote route params (excluding internal underscore-prefixed keys) into runtime parameters
+        // BEFORE validation so validators treat them like any other input (GET/POST/etc.).
+        try {
+            $routeParams = $request->getAttribute('route_params');
+            if (getenv('AGAVI_DEBUG_ROUTING')) {
+                try {
+                    AgaviDebugLogger::debug('[ValidationMiddleware][debug] route_params=' . json_encode($routeParams, JSON_UNESCAPED_SLASHES), $this->controller?->getContext());
+                } catch (\Throwable) {
+                }
+            }
+            if (is_array($routeParams) && $routeParams) {
+                $injected = [];
+                foreach ($routeParams as $k => $v) {
+                    if ($k !== '' && $k[0] !== '_' && !is_array($v)) {
+                        $current = $webRequest->getParameter($k);
+                        if ($current === null) {
+                            $webRequest->setParameter($k, $v);
+                            $injected[$k] = $v;
+                        }
+                    }
+                }
+                if ($injected) {
+                    // Also merge into raw query params so validators reading query directly see them.
+                    if (getenv('AGAVI_DEBUG_ROUTING')) {
+                        try {
+                            AgaviDebugLogger::debug('[ValidationMiddleware][debug] injected_route_params_runtime=' . json_encode($injected, JSON_UNESCAPED_SLASHES), $this->controller?->getContext());
+                        } catch (\Throwable) {
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable) {
+            // ignore promotion errors – validation will proceed without route params if something unexpected happens
         }
 
+        if ($vd) {
+            AgaviDebugLogger::debug('[ValidationMiddleare] Already validated?', $this->controller?->getContext());
+        }
         // Skip if already validated
         // Re-run only if not yet decided; SecurityMiddleware may reset validationPerformed on forward.
-    if ($execState->validationDecision && !$execState->validationDecision->isPending()) {
+        if ($execState->validationDecision && !$execState->validationDecision->isPending()) {
+            if ($vd) {
+                AgaviDebugLogger::debug('[ValidationMiddleware] YES', $this->controller?->getContext());
+            }
             return $handler->handle($request);
+        }
+
+        if ($vd) {
+            AgaviDebugLogger::debug('[ValidationMiddlware] NO', $this->controller?->getContext());
         }
 
         $ok = true;
@@ -108,9 +182,21 @@ class ValidationMiddleware implements MiddlewareInterface
                 // simple action bypass
             } else {
                 // Attempt XML-only validation first (must use lowercase token so compiled config matches)
-                $xmlRes = $vs->xmlOnlyValidate($action, $requestData, $moduleName, $actionName, $lowerMethodToken);
-                if($vd && method_exists($xmlRes,'getTrace')) {
-                    try { $t = $xmlRes->getTrace(); if($t){ error_log('[ValidationMiddleware] trace configFile=' . ($t->configFile ?? 'null') . ' validators=' . implode(',', $t->validatorsLoaded ?? [])); } } catch(\Throwable) {}
+                $xmlRes = $vs->xmlOnlyValidate($action, $webRequest, $moduleName, $actionName, $lowerMethodToken);
+                if ($vd && method_exists($xmlRes, 'getTrace')) {
+                    try {
+                        $t = $xmlRes->getTrace();
+                        if ($t) {
+                            AgaviDebugLogger::debug('[ValidationMiddleware] trace configFile=' . ($t->configFile ?? 'null') . ' validators=' . implode(',', $t->validatorsLoaded ?? []), $this->controller?->getContext());
+                        }
+                    } catch (\Throwable) {
+                    }
+                }
+                if (getenv('AGAVI_DEBUG_ROUTING')) {
+                    try {
+                        AgaviDebugLogger::debug('[ValidationMiddleware][debug] mid-validation bulletin_id=' . var_export($webRequest->getParameter('bulletin_id'), true), $this->controller?->getContext());
+                    } catch (\Throwable) {
+                    }
                 }
                 $trace = $xmlRes->getTrace();
                 $hasXml = $trace && property_exists($trace, 'configFile') && $trace->configFile !== null && $trace->configFile !== '';
@@ -123,10 +209,10 @@ class ValidationMiddleware implements MiddlewareInterface
                     // Manual action validation phase
                     $validateMethod = 'validate' . $normalizedMethod;
                     if (is_callable([$action, $validateMethod])) {
-                        $ok = (bool)$action->$validateMethod($requestData);
+                        $ok = (bool)$action->$validateMethod($webRequest);
                     }
                     if ($ok && is_callable([$action, 'validate'])) {
-                        $ok = (bool)$action->validate($requestData);
+                        $ok = (bool)$action->validate($webRequest);
                     }
                     if (!$ok && empty($errors)) {
                         $errors[] = 'manual_validation_failed';
@@ -142,45 +228,97 @@ class ValidationMiddleware implements MiddlewareInterface
         }
         // If no XML present treat as success but expose ZERO parameters to action (strict empty set)
         if (!$hasXml && !$action?->isSimple()) {
-            // Clear requestData parameters and lock down
+            // Clear webRequest parameters and lock down
             try {
-                if (method_exists($requestData, 'clearParameters')) {
-                    $requestData->clearParameters();
+                if (method_exists($webRequest, 'clearParameters')) {
+                    $webRequest->clearParameters();
                 }
             } catch (\Throwable) {
             }
-        // no xml => params cleared
+            // no xml => params cleared
         }
-    $execState->validationDecision = $ok ? ValidationDecision::passed() : ValidationDecision::failed($errors);
-    $request = $request->withAttribute(ExecutionState::class, $execState);
-        if($vd) {
+        $execState->validationDecision = $ok ? ValidationDecision::passed() : ValidationDecision::failed($errors);
+        $request = $request->withAttribute(ExecutionState::class, $execState);
+        if ($vd) {
             $errStr = !$ok ? (' errors=' . json_encode($errors)) : '';
-            error_log('[ValidationMiddleware] decision=' . $execState->validationDecision->state . ' module=' . $moduleName . ' action=' . $actionName . ' simple=' . (($action && method_exists($action,'isSimple') && $action->isSimple()) ? '1':'0') . $errStr);
-        }
-    if ($ok) {
-            // Enforce validated-only access when XML existed; otherwise empty set already enforced.
-            if ($hasXml) {
-                try {
-                    $validatedParams = $requestData->getParameters();
-                    if (is_array($validatedParams) && method_exists($requestData, 'enforceValidatedParameters')) {
-                        $requestData->enforceValidatedParameters(array_keys($validatedParams), true);
+            $sessId = 'no-sid';
+            try {
+                $storage = $this->controller?->getContext()?->getStorage();
+                if ($storage && method_exists($storage, 'getId')) {
+                    $sidTmp = $storage->getId();
+                    if (is_string($sidTmp) && $sidTmp !== '') {
+                        $sessId = $sidTmp;
                     }
-                    $request = $request->withAttribute('agavi.validated_params', $validatedParams);
-            // success with xml
+                }
+            } catch (\Throwable) {
+                // swallow
+            }
+            if ($sessId === 'no-sid' && function_exists('session_id')) {
+                try {
+                    $sidNative = session_id();
+                    if (is_string($sidNative) && $sidNative !== '') {
+                        $sessId = $sidNative;
+                    }
+                } catch (\Throwable) {
+                }
+            }
+            $auth = 'na';
+            try {
+                $user = $this->controller?->getContext()?->getUser();
+                if ($user && method_exists($user, 'isAuthenticated')) {
+                    $auth = $user->isAuthenticated() ? '1' : '0';
+                }
+            } catch (\Throwable) {
+            }
+            AgaviDebugLogger::debug('[ValidationMiddleware] decision=' . $execState->validationDecision->state . ' module=' . $moduleName . ' action=' . $actionName . ' method=' . $method . ' simple=' . (($action && method_exists($action, 'isSimple') && $action->isSimple()) ? '1' : '0') . ' sessId=' . $sessId . ' auth=' . $auth . $errStr, $this->controller?->getContext());
+        }
+        if ($vd) {
+            try {
+                $ctxReq = $this->controller?->getContext()?->getRequest();
+                if ($ctxReq) {
+                    $same = ($ctxReq === $webRequest) ? 'SAME' : 'DIFF';
+                    $exportProbe = null;
+                    try {
+                        $exportProbe = $ctxReq->getParameter('bulletin');
+                    } catch (\Throwable) {
+                    }
+                    $u = null;
+                    $hasCompany = 'n/a';
+                    try {
+                        $u = $this->controller?->getContext()?->getUser();
+                        $uType = is_object($u) ? get_class($u) : gettype($u);
+                    } catch (\Throwable) {
+                        $uType = 'err';
+                    }
+                    AgaviDebugLogger::debug('[ValidationMiddleware][debug] request_identity=' . $same . ' webReqId=' . spl_object_id($webRequest) . ' ctxReqId=' . spl_object_id($ctxReq) . ' exportedBulletinType=' . (is_object($exportProbe) ? get_class($exportProbe) : gettype($exportProbe)) . ' userType=' . $uType, $this->controller?->getContext());
+                }
+            } catch (\Throwable) {
+            }
+        }
+        if ($ok) {
+            if (getenv('AGAVI_DEBUG_ROUTING')) {
+                try {
+                    AgaviDebugLogger::debug('[ValidationMiddleware][debug] post-validation SUCCESS bulletin_id=' . var_export($webRequest->getParameter('bulletin_id'), true), $this->controller?->getContext());
                 } catch (\Throwable) {
                 }
             }
             return $handler->handle($request);
         }
-    // failure path
+        if (getenv('AGAVI_DEBUG_ROUTING')) {
+            try {
+                AgaviDebugLogger::debug('[ValidationMiddleware][debug] post-validation FAILURE bulletin_id=' . var_export($webRequest->getParameter('bulletin_id'), true), $this->controller?->getContext());
+            } catch (\Throwable) {
+            }
+        }
+        // failure path
         // Validation failed => 400 with errors and stash for form population
         $request = $request->withAttribute('agavi.validation.errors', $errors);
-    $method = $normalizedMethod ?: 'Default';
-    $handleErrorMethod = 'handle' . $method . 'Error';
+        $method = $normalizedMethod ?: 'Default';
+        $handleErrorMethod = 'handle' . $method . 'Error';
         if (!is_callable([$action, $handleErrorMethod])) {
             $handleErrorMethod = 'handleError';
         }
-        $viewName = $action ? $action->$handleErrorMethod($requestData) : 'Error';
+        $viewName = $action ? $action->$handleErrorMethod($webRequest) : 'Error';
         if (is_array($viewName)) {
             $viewModule = $viewName[0];
             $viewName = $viewName[1];
@@ -204,18 +342,20 @@ class ValidationMiddleware implements MiddlewareInterface
             $controller = $action->getContext()->getController();
             $vf = new ViewFactory($controller);
             $ot = strtolower($controller->getOutputType()->getName());
-            $view = $vf->create($viewModule, $viewName, $moduleName, $actionName, $ot, $requestData, []);
+            $view = $vf->create($viewModule, $viewName, $moduleName, $actionName, $ot, $webRequest, []);
             if (!$view) {
                 $factory = new \Nyholm\Psr7\Factory\Psr17Factory();
-                if(getenv('AGAVI_DEBUG_VALIDATION')) { error_log('[ValidationMiddleware] view creation returned null for ' . $viewModule . ':' . $viewName); }
-                $resp = $factory->createResponse(400)->withHeader('X-Agavi-Validation', 'failed')->withHeader('X-Agavi-Validation-Reason','view_not_created');
+                if (getenv('AGAVI_DEBUG_VALIDATION')) {
+                    AgaviDebugLogger::debug('[ValidationMiddleware] view creation returned null for ' . $viewModule . ':' . $viewName, $this->controller?->getContext());
+                }
+                $resp = $factory->createResponse(400)->withHeader('X-Agavi-Validation', 'failed')->withHeader('X-Agavi-Validation-Reason', 'view_not_created');
                 return $resp->withBody($factory->createStream(is_string($viewName) ? $viewName : 'Error'));
             }
             $methodName = 'execute' . $controller->getOutputType()->getName();
             if (!is_callable([$view, $methodName])) {
                 $methodName = 'execute';
             }
-            $content = $view->$methodName($requestData);
+            $content = $view->$methodName($webRequest);
             // Stash content for DispatchMiddleware early short-circuit (non-simple container-less path)
             try {
                 $request = $request->withAttribute('validation.error.content', (string)$content);
@@ -231,9 +371,11 @@ class ValidationMiddleware implements MiddlewareInterface
             }
             return $resp;
         } catch (\Throwable $e) {
-            if(getenv('AGAVI_DEBUG_VALIDATION')) { error_log('[ValidationMiddleware] exception during view creation: ' . $e->getMessage()); }
+            if (getenv('AGAVI_DEBUG_VALIDATION')) {
+                AgaviDebugLogger::debug('[ValidationMiddleware] exception during view creation: ' . $e->getMessage(), $this->controller?->getContext());
+            }
             $factory = new \Nyholm\Psr7\Factory\Psr17Factory();
-            $resp = $factory->createResponse(400)->withHeader('X-Agavi-Validation', 'failed')->withHeader('X-Agavi-Validation-Reason','view_creation_exception');
+            $resp = $factory->createResponse(400)->withHeader('X-Agavi-Validation', 'failed')->withHeader('X-Agavi-Validation-Reason', 'view_creation_exception');
             if (!empty($errors)) {
                 $resp = $resp->withHeader('X-Agavi-Validation-Errors', base64_encode(json_encode($errors)));
             }

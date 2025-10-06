@@ -73,6 +73,8 @@
 		<xs:simpleContent>
 			<xs:extension base="xs:string">
 				<xs:attribute name="context" type="xs:string" />
+				<!-- Added optional 'name' attribute for keyed templates (html/json prod/dev, correlation id header) -->
+				<xs:attribute name="name" type="xs:string" />
 			</xs:extension>
 		</xs:simpleContent>
 	</xs:complexType>

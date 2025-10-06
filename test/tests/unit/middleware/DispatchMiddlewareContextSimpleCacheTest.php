@@ -1,24 +1,22 @@
 <?php
 
+require_once __DIR__ . '/CacheMiddlewareTestTrait.php';
+
 use Agavi\Testing\AgaviUnitTestCase;
-use Agavi\Config\AgaviConfig;
-use Agavi\Cache\CacheManager;
 use Agavi\Middleware\DispatchMiddleware;
-use Agavi\Http\PsrServerRequestAdapter;
 use Nyholm\Psr7\Factory\Psr17Factory;
-use Nyholm\Psr7\Stream;
+use Nyholm\Psr7\ServerRequest;
 use Agavi\Execution\ExecutionState;
 use Agavi\Execution\ActionDescriptor;
 
 class DispatchMiddlewareContextSimpleCacheTest extends AgaviUnitTestCase
 {
+    use CacheMiddlewareTestTrait;
+
     protected function setUp(): void
     {
         parent::setUp();
-        AgaviConfig::set('core.cache_dir', sys_get_temp_dir() . '/agavi_ctx_simple_cache_cache_test');
-        $dir = AgaviConfig::get('core.cache_dir');
-        if(!is_dir($dir)) { @mkdir($dir, 0777, true); }
-        CacheManager::reset();
+        $this->bootstrapCache('agavi_ctx_simple_cache_cache_test');
         putenv('AGAVI_DISPATCH_CONTEXT=1');
         putenv('AGAVI_DISPATCH_CONTEXT_SIMPLE=1');
         $this->getContext()->getController()->initializeModule('Cache');
@@ -26,18 +24,19 @@ class DispatchMiddlewareContextSimpleCacheTest extends AgaviUnitTestCase
         \Sandbox\Modules\Cache\Actions\CacheAction::$execCount = 0;
     }
 
+    protected function tearDown(): void
+    {
+        putenv('AGAVI_DISPATCH_CONTEXT');
+        putenv('AGAVI_DISPATCH_CONTEXT_SIMPLE');
+        $this->restoreCache();
+        parent::tearDown();
+    }
+
     private function buildPsr(): \Psr\Http\Message\ServerRequestInterface
     {
         $factory = new Psr17Factory();
-        $legacyReq = $this->getContext()->getRequest();
-        $psr = new PsrServerRequestAdapter(
-            $legacyReq,
-            $factory->createUri('http://localhost/cache'),
-            'GET',
-            Stream::create(''),
-            [], [], [], [], [], []
-        );
-        return $psr
+        return (new ServerRequest('GET', 'http://localhost/cache'))
+            ->withBody($factory->createStream(''))
             ->withAttribute('module','Cache')
             ->withAttribute('action','Cache')
             ->withAttribute('output_type','html')
@@ -54,7 +53,6 @@ class DispatchMiddlewareContextSimpleCacheTest extends AgaviUnitTestCase
 
     public function testCacheHitOnSecondRequest()
     {
-    if(!AgaviConfig::get('core.cache_enabled', false)) { $this->markTestSkipped('Global cache disabled'); }
         $state1 = new ExecutionState();
     $resp1 = $this->runMw($this->buildPsr(), $state1);
         $body1 = (string)$resp1->getBody();

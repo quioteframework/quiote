@@ -267,6 +267,7 @@ class AgaviException extends Exception
 	 */
 	public static function render(Exception $e, ?AgaviContext $context = null)
 	{
+		$baseBefore = ob_get_level();
 		// exit code is 70, EX_SOFTWARE, according to /usr/include/sysexits.h: http://cvs.opensolaris.org/source/xref/on/usr/src/head/sysexits.h
 		// nice touch: an exception template can change this value :)
 		$exitCode = 70;
@@ -279,8 +280,10 @@ class AgaviException extends Exception
 			$ce = $ce->getPrevious();
 		}
 		
-		// discard any previous output waiting in the buffer
-		while(@ob_end_clean());
+		// discard any previous output waiting in the buffer (legacy aggressive drain)
+		$drainCount = 0;
+		while(@ob_end_clean()) { $drainCount++; }
+
 		
 		if($context !== null && $context->getController() !== null) {
 			try {
@@ -317,6 +320,7 @@ class AgaviException extends Exception
 		}
 		
 		// bail out
+
 		exit($exitCode);
 	}
 }

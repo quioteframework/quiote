@@ -32,59 +32,83 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
         try {
             return $handler->handle($request);
         } catch (Throwable $e) {
-            if ($this->logger) {
-                try {
-                    ($this->logger)($e, $request);
-                } catch (Throwable) { /* ignore */
-                }
-            }
-            // Build exception chain array (outer -> root cause)
-            $exceptions = [];
-            $cur = $e;
-            while ($cur) {
-                $exceptions[] = $cur;
-                $cur = $cur->getPrevious();
-            }
-
-            // Persist chain as request attribute for later diagnostics or tests
-            $request = $request->withAttribute('exceptions', $exceptions)->withAttribute('exception', $e);
-
-            $status = 500;
-            $map = [\InvalidArgumentException::class => 400, \DomainException::class => 422];
-            foreach ($map as $cls => $code) {
-                if ($e instanceof $cls) {
-                    $status = $code;
-                    break;
-                }
-            }
-
-            // Select template: explicit config override or default; fallback precedence shiny > simple > plaintext
-            $tplFile = $this->resolveTemplateFile($request);
-            // Variables expected by legacy templates: $e (root), $exceptions, $context, $container (null now)
-            $context = $this->extractContext($request);
-            ob_start();
-            try {
-                $container = null;
-                /** @noinspection PhpUnusedLocalVariableInspection */ include $tplFile;
-            } catch (Throwable $renderErr) {
-                // Fallback simple plaintext if template fails
-                if (getenv('AGAVI_DEBUG')) {
-                    $msg = "Template render failed: " . $renderErr->getMessage();
-                } else {
-                    $msg = 'Internal Server Error';
-                }
-                ob_end_clean();
-                return new Response($status, ['Content-Type' => 'text/plain; charset=utf-8', 'X-Agavi-Error-Type' => $e::class], $msg);
-            }
-            $body = ob_get_clean();
-            // Ensure content-type header present (templates echo headers themselves; if they did not, set one)
-            $headers = [];
-            if (!headers_sent()) {
-                $headers['Content-Type'] = (str_contains($tplFile, 'plaintext') ? 'text/plain' : 'text/html') . '; charset=utf-8';
-            }
-            $headers['X-Agavi-Error-Type'] = $e::class;
-            return new Response($status, $headers, $body);
+            return $this->renderExceptionResponse($request, $e);
         }
+    }
+
+    /**
+     * Public helper so AgaviKernel (or other bootstrap code) can render a unified exception response.
+     */
+    public function renderExceptionResponse(ServerRequestInterface $request, Throwable $e): ResponseInterface
+    {
+        if ($this->logger) {
+            try { ($this->logger)($e, $request); } catch (Throwable) { /* ignore */ }
+        }
+        // Build exception chain
+        $exceptions = [];
+        for ($cur = $e; $cur; $cur = $cur->getPrevious()) { $exceptions[] = $cur; }
+        $request = $request->withAttribute('exceptions', $exceptions)->withAttribute('exception', $e);
+
+        $status = 500;
+        $map = [\InvalidArgumentException::class => 400, \DomainException::class => 422];
+        foreach ($map as $cls => $code) { if ($e instanceof $cls) { $status = $code; break; } }
+
+        // JSON negotiation (basic): Accept header or explicit output_type=json
+        $accept = strtolower($request->getHeaderLine('Accept'));
+        $outputType = strtolower((string)($request->getAttribute('output_type') ?? ''));
+        $wantsJson = str_contains($accept, 'application/json') || $outputType === 'json';
+
+        $env = AgaviConfig::get('core.environment');
+        $isProd = $env && preg_match('/^(prod|production)/i', (string)$env);
+        $mode = $isProd ? 'production' : 'development';
+        // Correlation id: adopt standard 'Correlation-Id' primary, fallback legacy 'X-Correlation-ID'
+        $cid = $request->getHeaderLine('Correlation-Id');
+        if (!$cid) { $cid = $request->getHeaderLine('X-Correlation-ID'); }
+        if (!$cid && function_exists('apache_request_headers')) {
+            $h = apache_request_headers();
+            if (!$cid && $h) {
+                if (isset($h['Correlation-Id'])) { $cid = $h['Correlation-Id']; }
+                elseif (isset($h['X-Correlation-ID'])) { $cid = $h['X-Correlation-ID']; }
+            }
+        }
+        $request = $request->withAttribute('correlationId', $cid ?: null);
+
+        if ($wantsJson) {
+            // Resolve json template file if configured
+            $jsonTemplate = $this->resolveStructuredTemplate('json', $mode);
+            if ($jsonTemplate) {
+                return $this->includeTemplateToResponse($jsonTemplate, $status, $request, $e, 'application/json');
+            }
+            // fallback legacy minimal payload
+            $payload = ['error' => $status >= 500 ? 'Internal Server Error' : 'Request Error', 'type' => $e::class];
+            if (getenv('AGAVI_DEBUG')) { $payload['message'] = $e->getMessage(); }
+            if ($cid) { $payload['correlation_id'] = $cid; }
+            return new Response($status, ['Content-Type' => 'application/json; charset=utf-8', 'X-Agavi-Error-Type' => $e::class], json_encode($payload, JSON_UNESCAPED_SLASHES));
+        }
+
+        // HTML template resolution extended with new keys
+        $tplFile = $this->resolveStructuredTemplate('html', $mode) ?? self::resolveTemplateFileStatic($request);
+        $context = $this->extractContext($request);
+    $baseLevel = ob_get_level();
+    ob_start();
+    $startedLevel = ob_get_level();
+        try {
+            $container = null; // legacy variable
+            /** @noinspection PhpUnusedLocalVariableInspection */ $exceptionsChain = $exceptions; $rootException = $e;
+            $correlationId = $cid ?? null;
+            include $tplFile;
+            $body = ob_get_clean();
+        } catch (Throwable $renderErr) {
+            // Only unwind buffers we started (>= startedLevel) without touching buffers below baseLevel
+            while (ob_get_level() >= $startedLevel && ob_get_level() > $baseLevel) { @ob_end_clean(); }
+            $msg = getenv('AGAVI_DEBUG') ? 'Template render failed: '.$renderErr->getMessage() : 'Internal Server Error';
+            return new Response($status, ['Content-Type' => 'text/plain; charset=utf-8', 'X-Agavi-Error-Type' => $e::class], $msg);
+        }
+        if ($body === '' || $body === false) { $body = getenv('AGAVI_DEBUG') ? 'Empty error template output' : 'Internal Server Error'; }
+        $headers = [];
+        if (!headers_sent()) { $headers['Content-Type'] = (str_contains($tplFile, 'plaintext') ? 'text/plain' : 'text/html').'; charset=utf-8'; }
+        $headers['X-Agavi-Error-Type'] = $e::class;
+        return new Response($status, $headers, $body);
     }
 
     private function extractContext(ServerRequestInterface $request): ?\Agavi\AgaviContext
@@ -98,7 +122,7 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
         }
     }
 
-    private function resolveTemplateFile(ServerRequestInterface $request): string
+    public static function resolveTemplateFileStatic(ServerRequestInterface $request): string
     {
         $accept = $request->getHeaderLine('Accept');
         $outputType = $request->getAttribute('output_type') ?? 'html';
@@ -141,6 +165,47 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
                 return $p;
             }
         }
-        return $baseDir . '/plaintext.php';
+    return $baseDir . '/plaintext.php';
+    }
+
+    private function resolveStructuredTemplate(string $format, string $mode): ?string
+    {
+        // format: html|json, mode: production|development
+        $agaviDir = AgaviConfig::get('core.agavi_dir') ?: (__DIR__ . '/../..');
+        $baseDir = rtrim($agaviDir, '/') . '/Exception/templates';
+        $candidates = [];
+        if ($format === 'html') {
+            // new application-level templates stored under core.template_dir/exception
+            if (AgaviConfig::has("exception.templates.html.$mode")) {
+                $candidates[] = AgaviConfig::get("exception.templates.html.$mode");
+            }
+        } elseif ($format === 'json') {
+            if (AgaviConfig::has("exception.templates.json.$mode")) {
+                $candidates[] = AgaviConfig::get("exception.templates.json.$mode");
+            }
+        }
+        foreach ($candidates as $p) {
+            if (is_string($p) && is_file($p) && is_readable($p)) { return $p; }
+        }
+        return null;
+    }
+
+    private function includeTemplateToResponse(string $file, int $status, ServerRequestInterface $request, Throwable $e, string $contentType): ResponseInterface
+    {
+        $exceptions = [];
+        for ($cur = $e; $cur; $cur = $cur->getPrevious()) { $exceptions[] = $cur; }
+    $baseLevel = ob_get_level();
+    ob_start();
+    $startedLevel = ob_get_level();
+        try {
+            $exceptionsChain = $exceptions; $rootException = $e; $correlationId = $request->getAttribute('correlationId');
+            include $file;
+            $body = ob_get_clean();
+        } catch (Throwable $renderErr) {
+            while (ob_get_level() >= $startedLevel && ob_get_level() > $baseLevel) { @ob_end_clean(); }
+            $msg = getenv('AGAVI_DEBUG') ? 'Template render failed: '.$renderErr->getMessage() : 'Internal Server Error';
+            return new Response($status, ['Content-Type' => 'text/plain; charset=utf-8', 'X-Agavi-Error-Type' => $e::class], $msg);
+        }
+        return new Response($status, ['Content-Type' => $contentType.'; charset=utf-8', 'X-Agavi-Error-Type' => $e::class], $body ?: '');
     }
 }

@@ -1,6 +1,5 @@
 <?php
 
-use Agavi\Request\AgaviRequestDataHolder;
 use Agavi\Testing\AgaviUnitTestCase;
 use Agavi\Validator\AgaviValidationManager;
 use Agavi\Validator\AgaviValidator;
@@ -23,7 +22,7 @@ class AgaviBooleanValidatorTest extends AgaviUnitTestCase
 	public function testAccept($value, $expectedResult)
 	{
 		$validator = $this->vm->createValidator('Agavi\Validator\AgaviBooleanValidator', array('bool'), array('invalid argument'), array());
-		$rd = new AgaviRequestDataHolder(array(AgaviRequestDataHolder::SOURCE_PARAMETERS => array('bool' => $value)));
+		$rd = $this->newWebRequest(['bool' => $value]);
 		$result = $validator->execute($rd);
 		$this->assertEquals(AgaviValidator::SUCCESS, $result, 'Failed asserting that the validation succeeded.');
 		$this->assertEquals($expectedResult, $rd->getParameter('bool'), 'Failed asserting that the validated value is the expected value');
@@ -52,7 +51,7 @@ class AgaviBooleanValidatorTest extends AgaviUnitTestCase
 	public function testNotAccept($value)
 	{
 		$validator = $this->vm->createValidator('Agavi\Validator\AgaviBooleanValidator', array('bool'), array('invalid argument'), array('export' => 'exported'));
-		$rd = new AgaviRequestDataHolder(array(AgaviRequestDataHolder::SOURCE_PARAMETERS => array('bool' => $value)));
+		$rd = $this->newWebRequest(['bool' => $value]);
 		$result = $validator->execute($rd);
 		$this->assertEquals(AgaviValidator::ERROR, $result, 'Failed asserting that the validation failed.');
 		$this->assertNull($rd->getParameter('exported'), 'Failed asserting that the value is not exported');
@@ -78,7 +77,7 @@ class AgaviBooleanValidatorTest extends AgaviUnitTestCase
 		
 		foreach($testValues as $value) {
 			$validator = $this->vm->createValidator('Agavi\Validator\AgaviBooleanValidator', array('bool'), array('invalid argument'), array('export' => 'exported'));
-			$rd = new AgaviRequestDataHolder(array(AgaviRequestDataHolder::SOURCE_PARAMETERS => array('bool' => $value['original'])));
+			$rd = $this->newWebRequest(['bool' => $value['original']]);
 			$result = $validator->execute($rd);
 			$this->assertEquals(AgaviValidator::SUCCESS, $result, 'Failed asserting that the validation succeeded.');
 			$this->assertSame($value['casted'], $rd->getParameter('exported'), 'Failed asserting that the exported value is casted');
@@ -94,7 +93,7 @@ class AgaviBooleanValidatorTest extends AgaviUnitTestCase
 		
 		foreach($testValues as $value) {
 			$validator = $this->vm->createValidator('Agavi\Validator\AgaviBooleanValidator', array('bool'), array('invalid argument'));
-			$rd = new AgaviRequestDataHolder(array(AgaviRequestDataHolder::SOURCE_PARAMETERS => array('bool' => $value['original'])));
+			$rd = $this->newWebRequest(['bool' => $value['original']]);
 			$result = $validator->execute($rd);
 			$this->assertEquals(AgaviValidator::SUCCESS, $result, 'Failed asserting that the validation succeeded.');
 			$this->assertSame($value['casted'], $rd->getParameter('bool'), 'Failed asserting that the validated value is casted');

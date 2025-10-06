@@ -3,6 +3,10 @@
 namespace Agavi\Runtime;
 
 use Agavi\Agavi;
+use Nyholm\Psr7\Response;
+use Agavi\Middleware\ErrorHandlingMiddleware;
+use Agavi\Request\AgaviWebRequest;
+use Agavi\Logging\AgaviDebugLogger;
 use Agavi\Config\AgaviConfig;
 use Agavi\Util\AgaviWorkerManager;
 use Agavi\Runtime\Worker\FrankenPhpWorkerAdapter;
@@ -58,28 +62,28 @@ class AgaviKernel
 
         $handle = function () use ($context, $emitter) {
             try {
-                $request = $this->buildRequestFromGlobals($context);
-                $response = $context->handlePsr($request);
+                $request = $this->buildRequestFromGlobals();
+                $response = $context->handle($request);
                 $emitter->emit($response);
             } catch (\Throwable $e) {
-                $details = $e->getMessage();
-                $ctxName = $context->getName();
-                $reqClass = 'null';
+                // Log basic diagnostics
+                AgaviDebugLogger::debug('[AgaviKernel] Uncaught during handle bootstrap: '.get_class($e).': '.$e->getMessage().' @ '.$e->getFile().':'.$e->getLine(), $context);
+                // Attempt unified error rendering via ErrorHandlingMiddleware helper.
                 try {
-                    $req = (new \ReflectionClass($context))->getProperty('request');
-                    $req->setAccessible(true);
-                    $rVal = $req->getValue($context);
-                    $reqClass = $rVal ? get_class($rVal) : 'null';
-                } catch (\Throwable) {
+                    $err = new ErrorHandlingMiddleware(function(\Throwable $ex, \Psr\Http\Message\ServerRequestInterface $r) use ($context) {
+                        AgaviDebugLogger::debug('[AgaviKernel][late] '.get_class($ex).': '.$ex->getMessage(), $context);
+                    });
+                    // If original PSR request not built (rare), synthesize minimal one.
+                    if(!isset($request) || !$request) {
+                        $psr17 = new \Nyholm\Psr7\Factory\Psr17Factory();
+                        $request = $psr17->createServerRequest('GET', '/error');
+                    }
+                    $resp = $err->renderExceptionResponse($request, $e);
+                    $emitter->emit($resp);
+                } catch(\Throwable $renderFail) {
+                    if (!headers_sent()) { header('Content-Type: text/plain; charset=utf-8', true, 500); }
+                    echo 'Internal Server Error';
                 }
-                $factoryInfo = method_exists($context, 'getFactoryInfo') ? $context->getFactoryInfo('request') : null;
-                $debugLine = 'Agavi request error [' . $ctxName . '] requestClass=' . $reqClass . ' captured=' . ($context->getController() ? 'yes' : 'no') . ' msg=' . $details;
-                error_log($debugLine . "\nStack: " . $e->getTraceAsString());
-                if (headers_sent() === false) {
-                    http_response_code(500);
-                }
-                // Emit minimal plaintext so Caddy log still shows size 21 but browser displays clue
-                echo 'Internal Server Error: ' . $e->getMessage();
             }
             return true; // continue loop
         };
@@ -97,16 +101,17 @@ class AgaviKernel
     {
         AgaviConfig::set('core.app_dir', $this->appDir, true, true);
 
-        if (!\Agavi\Config\AgaviConfig::has('core.default_context')) {
+        if (!AgaviConfig::has('core.default_context')) {
             AgaviConfig::set('core.default_context', $this->contextName, true, true);
         }
 
-        // 5. APCu config cache flag
+        // If APCu exists but has not been explicitly disabled
+        // enable APCu
         if (!defined('AGAVI_USE_APCU_CONFIG_CACHE')) {
             define('AGAVI_USE_APCU_CONFIG_CACHE', function_exists('apcu_fetch'));
         }
 
-        // 6. Bootstrap (prewarm only if requested or option set)
+        // Bootstrap (prewarm only if requested or option set)
         $contextsToPreCreate = array_unique(array_filter(array_merge([$this->contextName], $this->extraContexts)));
         Agavi::bootstrap($this->env, $contextsToPreCreate, ['prewarm' => $this->prewarm]);
     }
@@ -126,36 +131,17 @@ class AgaviKernel
         return new SingleRequestAdapter();
     }
 
-    private function buildRequestFromGlobals(\Agavi\AgaviContext $context): \Psr\Http\Message\ServerRequestInterface
+    private function buildRequestFromGlobals(): \Psr\Http\Message\ServerRequestInterface
     {
-        // New implementation: build a spec-compliant ServerRequest via PSR-17/ServerRequestCreator
-        // Rationale: remove ad-hoc parsing (JSON, headers, etc.) from kernel; delegate body parsing to middleware.
-        // Transitional phase: still wrap data in legacy adapter so existing middleware (e.g. AssetAggregation) functions.
-        $legacyReq = $context->getRequest();
-        // Use Nyholm server request creator (installed via nyholm/psr7-server)
+        // Build a spec-compliant ServerRequest via Nyholm factories, then wrap directly in AgaviWebRequest.
         static $creator = null;
         if ($creator === null) {
             $psr17 = new \Nyholm\Psr7\Factory\Psr17Factory();
             $creator = new \Nyholm\Psr7Server\ServerRequestCreator($psr17, $psr17, $psr17, $psr17);
         }
-        $base = $creator->fromGlobals(); // Does NOT parse JSON/form bodies; that's middleware's job.
-
-        // Bridge direction (Phase 1): adapt spec request -> legacy adapter for downstream code.
-        /** @var \Agavi\Request\AgaviRequest $legacyReqTyped */
-        $legacyReqTyped = $legacyReq;
-        $parsed = $base->getParsedBody();
-        $parsedArray = is_array($parsed) ? $parsed : [];
-        return new \Agavi\Http\PsrServerRequestAdapter(
-            $legacyReqTyped,
-            $base->getUri(),
-            $base->getMethod(),
-            $base->getBody(),
-            $base->getServerParams(),
-            $base->getHeaders(),
-            $base->getCookieParams(),
-            $base->getQueryParams(),
-            $parsedArray,
-            $base->getUploadedFiles()
-        );
+        $base = $creator->fromGlobals(); // Body parsing/JSON handled later by middleware.
+        $agaviReq = new AgaviWebRequest();
+        $agaviReq->attachPsrRequest($base);
+        return $agaviReq;
     }
 }

@@ -2,9 +2,9 @@
 namespace Sandbox\Modules\Fingerprint\Views;
 
 use Agavi\View\AgaviView;
-use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Request\AgaviWebRequest ;
 
 class FingerprintSecureSuccessView extends AgaviView
 {
-    public function execute(AgaviRequestDataHolder $rd){ return '<div>SecureContentView</div>'; }
+    public function execute(AgaviWebRequest $rd){ return '<div>SecureContentView</div>'; }
 }

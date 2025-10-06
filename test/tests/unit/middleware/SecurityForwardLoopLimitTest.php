@@ -8,8 +8,7 @@ use Agavi\Middleware\SecurityMiddleware;
 use Agavi\Middleware\ValidationMiddleware;
 use Agavi\Middleware\DispatchMiddleware;
 use Nyholm\Psr7\Factory\Psr17Factory;
-use Nyholm\Psr7\Stream;
-use Agavi\Http\PsrServerRequestAdapter;
+use Nyholm\Psr7\ServerRequest;
 
 /**
  * Verifies forwardCount limit (508) is enforced after >5 forwards to prevent loops.
@@ -30,16 +29,13 @@ final class SecurityForwardLoopLimitTest extends AgaviUnitTestCase
 
     private function buildPsr(): \Psr\Http\Message\ServerRequestInterface
     {
-        $factory = new Psr17Factory();
-        $legacyReq = $this->getContext()->getRequest();
-        return (new PsrServerRequestAdapter(
-            $legacyReq,
-            $factory->createUri('http://localhost/cache/complex'),
-            'GET',
-            Stream::create(''),
-            [], [], [], [], [], []
-        ))->withAttribute(ActionDescriptor::class, ActionDescriptor::fromController($this->getContext()->getController(),'Cache','CacheComplex','GET','html'))
-          ->withAttribute('module','Cache')->withAttribute('action','CacheComplex')->withAttribute('output_type','html');
+        $controller = $this->getContext()->getController();
+        $descriptor = ActionDescriptor::fromController($controller,'Cache','CacheComplex','GET','html');
+        return (new ServerRequest('GET', 'http://localhost/cache/complex'))
+            ->withAttribute(ActionDescriptor::class, $descriptor)
+            ->withAttribute('module','Cache')
+            ->withAttribute('action','CacheComplex')
+            ->withAttribute('output_type','html');
     }
 
     public function testForwardLimitProduces508(): void

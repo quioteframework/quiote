@@ -167,12 +167,22 @@ class AgaviWebResponse extends AgaviResponse implements ResetInterface
 	{
 		parent::initialize($context, $parameters);
 		
-		/** @var AgaviWebRequest */
-		$request = $context->getRequest();
-		
+		/** @var AgaviWebRequest|null */
+		$request = null;
+		try {
+			$request = $context->getRequest();
+		} catch (\Exception $e) {
+			// During bootstrap in worker mode the request may not yet be available
+			// (and AgaviContext::getRequest would attempt to recreate it but lacks factory info).
+			// Log and continue with sensible defaults; initialization will run again per-request.
+			$logger = $context->getLoggerManager()?->getLogger();
+			$logger?->debug('AgaviWebResponse::initialize - request not available during bootstrap: ' . $e->getMessage());
+			$request = null;
+		}
+
 		// if 'cookie_secure' is set, and null, then we need to set whatever AgaviWebRequest::isHttps() returns
-		if(array_key_exists('cookie_secure', $parameters) && $parameters['cookie_secure'] === null) {
-			$parameters['cookie_secure'] = $request->isHttps();
+		if (array_key_exists('cookie_secure', $parameters) && $parameters['cookie_secure'] === null) {
+			$parameters['cookie_secure'] = $request ? $request->isHttps() : false;
 		}
 		
 		$this->setParameters([
@@ -190,11 +200,12 @@ class AgaviWebResponse extends AgaviResponse implements ResetInterface
 			'cookie_encode_callback' => $parameters['cookie_encode_callback'] ?? 'urlencode',
 		]);
 		
-		$this->httpStatusCodes = match ($request->getProtocol()) {
+		$protocol = $request ? $request->getProtocol() : 'HTTP/1.1';
+		$this->httpStatusCodes = match ($protocol) {
 			'HTTP/2' => $this->http11StatusCodes,
-            'HTTP/1.1' => $this->http11StatusCodes,
-            default => $this->http10StatusCodes,
-        };
+			'HTTP/1.1' => $this->http11StatusCodes,
+			default => $this->http10StatusCodes,
+		};
 	}
 	
 	/**

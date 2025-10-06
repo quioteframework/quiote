@@ -20,8 +20,11 @@ final class ViewNameResolver
     public function resolve(string $actionModule, string $actionName, mixed $rawViewName): array
     {
         if(is_array($rawViewName)) {
-            $viewModule = $rawViewName[0];
-            $raw = $rawViewName[1];
+            // Accept legacy array forms: [module, viewName] or [viewName] (implying current module)
+            // Provide defensive defaults to avoid E_WARNING: Undefined array key X.
+            $viewModule = $rawViewName[0] ?? $actionModule;
+            $raw = $rawViewName[1] ?? ($rawViewName[0] ?? AgaviView::NONE);
+            if($raw === null || $raw === '') { $raw = AgaviView::NONE; }
         } elseif($rawViewName !== AgaviView::NONE) {
             $evaluated = AgaviToolkit::evaluateModuleDirective(
                 $actionModule,

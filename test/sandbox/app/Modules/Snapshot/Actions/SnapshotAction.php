@@ -2,7 +2,7 @@
 namespace Sandbox\Modules\Snapshot\Actions;
 
 use Agavi\Action\AgaviAction;
-use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Request\AgaviWebRequest ;
 
 class SnapshotAction extends AgaviAction
 {
@@ -11,7 +11,7 @@ class SnapshotAction extends AgaviAction
 
     public function isSimple(): bool { return true; }
 
-    public function execute(AgaviRequestDataHolder $rd)
+    public function execute(AgaviWebRequest $rd)
     {
         $this->setAttribute('alpha', 'A');
         $this->setAttribute('beta', ['nested' => 1]);

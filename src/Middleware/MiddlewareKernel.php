@@ -7,8 +7,8 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Agavi\AgaviContext;
 use Nyholm\Psr7\Response;
-// import negotiation middleware (added)
 use Agavi\Middleware\ContentNegotiationMiddleware;
+use Agavi\Logging\AgaviDebugLogger;
 use Relay\Relay;
 
 /**
@@ -46,37 +46,49 @@ class MiddlewareKernel implements RequestHandlerInterface
         $stack = [];
 
         // Outermost error handler
-        $stack[] = new ErrorHandlingMiddleware();
+        $context = $this->context;
+        $stack[] = new ErrorHandlingMiddleware(function(\Throwable $e, ServerRequestInterface $r) use ($context) {
+            $first = $e->getFile().':'.$e->getLine();
+            $snippet = substr(str_replace("\n", ' | ', $e->getTraceAsString()), 0, 500);
+            AgaviDebugLogger::debug('[AgaviKernel] '.get_class($e).': '.$e->getMessage().' @ '.$first.' trace='.$snippet, $context);
+        });
+        // session
+        $stack[] = new SessionMiddleware($controller);
         // bootstrap
         $stack[] = new TimingMiddleware(false);
         $stack[] = new TraceMiddleware(false);
-    // Unified body parsing (form + json)
-    $stack[] = new PayloadParsingMiddleware();
+        // Unified body parsing (form + json)
+        $stack[] = new PayloadParsingMiddleware();
         // routing
         $stack[] = new ContentNegotiationMiddleware($controller); // before routing; routing may override output_type
         $stack[] = new RoutingMiddleware($routing, $controller);
         $stack[] = new OutputTypeSyncMiddleware($controller);
         // before_action
-        $stack[] = new FormPopulationMiddleware();
+        //$stack[] = new FormPopulationMiddleware();
         $stack[] = new SecurityMiddleware($controller);
         $stack[] = new ValidationMiddleware();
+        // Ensure SlotMiddleware runs before Dispatch so SlotStack is available to views
+        $stack[] = new SlotMiddleware($this->context);
         // action
         $stack[] = new DispatchMiddleware($controller);
-        // post
-        $stack[] = new SlotMiddleware();
         $stack[] = new AssetAggregationMiddleware();
         // finalize
         $stack[] = new ExecutionTimeMiddleware();
         // terminal (safety) middleware
         $stack[] = new class implements \Psr\Http\Server\MiddlewareInterface {
             public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
-            { return new Response(500); }
+            {
+                throw new \RuntimeException('Terminal pipeline reached without response');
+            }
         };
 
         $relay = new Relay($stack);
         $this->handler = new class($relay) implements RequestHandlerInterface {
             public function __construct(private Relay $relay) {}
-            public function handle(ServerRequestInterface $r): ResponseInterface { return $this->relay->handle($r); }
+            public function handle(ServerRequestInterface $r): ResponseInterface
+            {
+                return $this->relay->handle($r);
+            }
         };
 
         $this->built = true;

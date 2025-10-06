@@ -23,8 +23,22 @@ class AgaviLoggerManagerTest extends AgaviUnitTestCase
 	{
 		// Ensure framework bootstrap occurs when running this test in isolation.
 		parent::setUp();
+		// Force-enable logging in case a prior test disabled it globally.
+		\Agavi\Config\AgaviConfig::set('core.use_logging', true);
 		$this->_context = $this->getContext();
 		$this->_lm = $this->_context->getLoggerManager();
+		// If still null (context created earlier while logging disabled), lazily create and inject a logger manager.
+		if ($this->_lm === null) {
+			$lm = new \Agavi\Logging\AgaviLoggerManager();
+			$lm->initialize($this->_context, []);
+			$rc = new ReflectionClass($this->_context);
+			if ($rc->hasProperty('loggerManager')) {
+				$prop = $rc->getProperty('loggerManager');
+				$prop->setAccessible(true);
+				$prop->setValue($this->_context, $lm);
+			}
+			$this->_lm = $lm;
+		}
 		// Use tempnam to obtain unique paths, then remove if present to start with a clean slate.
 		$this->_logfile = tempnam('', 'logtest');
 		$this->_logfile2 = tempnam('', 'logtest2');

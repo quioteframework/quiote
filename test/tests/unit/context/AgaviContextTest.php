@@ -94,7 +94,9 @@ class AgaviContextTest extends AgaviPhpUnitTestCase
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
 	public function testGetDatabaseManagerOff()
 	{
-		//$this->assertNull(AgaviContext::getInstance()->getDatabaseManager());
+		$ctx = AgaviContext::getInstance();
+		$this->assertFalse(AgaviConfig::get('core.use_database'));
+		$this->assertInstanceOf('Agavi\Database\AgaviDatabaseManager', $ctx->getDatabaseManager());
 	}
 
 	#[AgaviIsolationEnvironment('testing-use_database_on')]
@@ -143,7 +145,8 @@ class AgaviContextTest extends AgaviPhpUnitTestCase
 	public function testGetRequest()
 	{
 		$ctx = AgaviContext::getInstance();
-		$this->assertInstanceOf('Agavi\Request\AgaviRequest', $ctx->getRequest());
+		$this->assertInstanceOf('Agavi\Request\AgaviWebRequest', $ctx->getRequest());
+		$this->assertInstanceOf(\Psr\Http\Message\ServerRequestInterface::class, $ctx->getRequest());
 	}
 
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]

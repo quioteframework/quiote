@@ -6,6 +6,7 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Agavi\Execution\SlotStack;
+use Agavi\Logging\AgaviDebugLogger;
 
 /**
  * SlotMiddleware: establishes a SlotStack in request attributes for nested slot/sub-action rendering.
@@ -15,10 +16,26 @@ use Agavi\Execution\SlotStack;
 class SlotMiddleware implements MiddlewareInterface
 {
     public const ATTR = SlotStack::class;
+    public function __construct(private ?\Agavi\AgaviContext $context = null) {}
+
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         if(!$request->getAttribute(self::ATTR)) {
             $request = $request->withAttribute(self::ATTR, new SlotStack());
+            // Log request identity and presence of SlotStack for debugging in FrankenPHP
+            try {
+                $id = spl_object_id($request);
+                $has = $request->getAttribute(self::ATTR) ? '1' : '0';
+                AgaviDebugLogger::debug(sprintf('[SlotMW] SlotStack set on request id=%d has=%s', $id, $has), $this->context);
+            } catch (\Throwable $_e) {
+                AgaviDebugLogger::debug('[SlotMW] SlotStack set (unable to introspect request id)', $this->context);
+            }
+            // Inform context about the request instance change so it stays in sync
+            if($this->context !== null) {
+                try { $this->context->setCurrentPsrRequest($request); } catch(\Throwable) {}
+            }
+        } else {
+            try { AgaviDebugLogger::debug(sprintf('[SlotMW] SlotStack already present on request id=%d', spl_object_id($request)), $this->context); } catch(\Throwable) {}
         }
         return $handler->handle($request);
     }

@@ -3,7 +3,7 @@
 namespace Sandbox;
 
 use Agavi\Action\AgaviAction;
-use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Request\AgaviWebRequest ;
 
 /**
  * Index Action - simplified namespace demo
@@ -15,7 +15,7 @@ class IndexAction extends AgaviAction
      *
      * @return     string The view to execute.
      */
-    public function execute(AgaviRequestDataHolder $rd)
+    public function execute(AgaviWebRequest $rd)
     {
         // Return "Success" view
         return 'Success';

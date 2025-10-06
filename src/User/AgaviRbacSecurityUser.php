@@ -176,6 +176,24 @@ class AgaviRbacSecurityUser extends AgaviSecurityUser implements AgaviISecurityU
 
 		if(!$this->authenticated) {
 			$this->roles = [];
+		} else if (is_array($this->roles) && count($this->roles) > 0) {
+			// We have stored roles. To (re)derive credentials we must NOT skip grantRole() just
+			// because the role already appears in $this->roles. The original implementation
+			// populated $this->roles first, then called grantRole() which bails when the role
+			// already exists, resulting in zero credentials. Fix: capture stored roles, reset
+			// roles & credentials, then re-grant so permissions are added.
+			$storedRoles = $this->roles;
+			$this->roles = [];
+			$this->clearCredentials();
+			foreach ($storedRoles as $role) {
+				$this->grantRole($role);
+			}
+			try {
+				if (getenv('AGAVI_DEBUG_SECURITY')) {
+					if(!is_dir('/app/log')) { @mkdir('/app/log',0777,true); }
+					@file_put_contents('/app/log/agavi_user_debug.log', '[RbacSecurityUser.initialize] rebuilt creds rolesIn=' . count($storedRoles) . ' rolesNow=' . count($this->roles) . ' credsNow=' . count($this->credentials ?? []) . "\n", FILE_APPEND);
+				}
+			} catch (\Throwable) {}
 		}
 	}
 
@@ -207,6 +225,8 @@ class AgaviRbacSecurityUser extends AgaviSecurityUser implements AgaviISecurityU
 		$logger = $this->context?->getLoggerManager()?->getLogger();
 		$logger?->debug('RbacSecurityUser storing roles', ['class' => get_class($this), 'namespace' => self::ROLES_NAMESPACE, 'roles_count' => is_array($this->roles) ? count($this->roles) : 0]);
 		$this->context->getStorage()->store(self::ROLES_NAMESPACE, $this->roles);
+	// Note: credentials are stored by parent AgaviSecurityUser::shutdown(). If they were
+	// rebuilt during initialize, they will be persisted here.
 		
 		// call the parent shutdown method
 		parent::shutdown();

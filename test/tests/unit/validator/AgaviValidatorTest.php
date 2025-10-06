@@ -4,7 +4,6 @@ use Agavi\Exception\AgaviValidatorException;
 use Agavi\Testing\AgaviPhpUnitTestCase;
 use Agavi\Validator\AgaviValidator;
 use Agavi\Util\AgaviVirtualArrayPath;
-use Agavi\Request\AgaviRequestDataHolder;
 
 class SampleValidator extends AgaviValidator
 {
@@ -17,7 +16,7 @@ class SampleValidator extends AgaviValidator
 	public function getBase() { return $this->curBase->__toString(); }
 	public function getParent() {return $this->parentContainer; }
 	public function getData2($parameter) { return $this->getData($parameter); }
-	public function getData3() { return $this->getData(); }
+	public function getData3() { return $this->getData(null); }
 	public function getArgument($name = null) { return parent::getArgument(); }
 	public function throwError2($index = 'error', $ignoreAsMessage = false, $affectedFields = null, $backupError = null)
 	{

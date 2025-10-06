@@ -3,10 +3,8 @@ namespace Agavi\Execution;
 
 use Psr\Http\Message\ServerRequestInterface;
 use Agavi\Controller\AgaviController;
-use Agavi\Request\AgaviRequestDataHolder;
 use Agavi\Exception\AgaviException;
 use Agavi\View\AgaviView;
-use Agavi\Util\AgaviToolkit;
 use Agavi\Execution\ActionExecutionContext;
 use Agavi\Execution\SecurityService;
 use Agavi\Execution\SecurityDecision;
@@ -20,6 +18,8 @@ use Agavi\Action\AgaviAction;
 use Agavi\Execution\SlotContent;
 use Agavi\Cache\CacheManager;
 use Agavi\Config\AgaviConfig;
+use Agavi\Request\AgaviWebRequest;
+use Agavi\Logging\AgaviDebugLogger;
 
 /**
  * SlotDispatcher executes sub-actions ("slots") via container-less execution only.
@@ -55,20 +55,56 @@ class SlotDispatcher
     {
         /** @var SlotStack|null $stack */
         $stack = $parentRequest->getAttribute(SlotStack::class);
+        // Build canonical key for this slot early so diagnostics and guards can reference it
+        $key = $module . '/' . $action;
+        $dbg = getenv('AGAVI_DEBUG_SLOT_DISPATCH');
+        if ($dbg) {
+            try {
+                $pid = spl_object_id($parentRequest);
+                $has = $stack ? '1' : '0';
+                AgaviDebugLogger::debug(sprintf('[SlotDisp] dispatch parentRequest id=%d slotstack=%s key=%s', $pid, $has, $key), $this->controller->getContext());
+            } catch (\Throwable $_e) {
+                AgaviDebugLogger::debug('[SlotDisp] dispatch (no request id available)', $this->controller->getContext());
+            }
+        }
         if(!$stack) {
             throw new AgaviException('SlotStack missing from request; ensure SlotMiddleware is registered.');
         }
-    $key = $module . '/' . $action;
+        // Soft-guard: if the next push would exceed the configured limit, fail soft
+        // to prevent runaway rendering loops; emit a single log per key per request.
+        try {
+            if ($this->executionGuard->wouldExceed($stack, $key)) {
+                if (!$stack->hasWarned($key)) {
+                    $stack->markWarned($key);
+                    if ($dbg) {
+                        try {
+                            AgaviDebugLogger::debug(sprintf('[SlotDisp] recursion guard triggered for key=%s parentRequest id=%d', $key, spl_object_id($parentRequest)), $this->controller->getContext());
+                        } catch(\Throwable) {
+                            AgaviDebugLogger::debug('[SlotDisp] recursion guard triggered for key=' . $key, $this->controller->getContext());
+                        }
+                    }
+                }
+                // Fail closed: return empty content instead of throwing to keep rendering going.
+                return '';
+            }
+        } catch (\Throwable $_e) {
+            // If guard check fails for any reason, continue and let enter() enforce the hard limit.
+        }
     $this->executionGuard->enter($stack, $key);
     try {
             $start = microtime(true);
             $cacheEnabled = AgaviConfig::get('core.use_cache', false) && (bool)getenv('AGAVI_SLOT_CACHE');
             $cacheKey = null; $cacheHit = false;
-            // Build request data holder
-            $rdh = null;
+            // Build request data holder: apply slot parameters via overlay (save originals, restore after dispatch).
+            $rdh = null; $overlayApplied = false; $originals = [];
             if($parameters) {
-                $rdh = new AgaviRequestDataHolder();
-                foreach($parameters as $k=>$v) { $rdh->setParameter($k,$v); }
+                try { $rdh = $this->controller->getContext()->getRequest(); } catch(\Throwable) { $rdh = null; }
+                if(!($rdh instanceof AgaviWebRequest)) { throw new \RuntimeException('Canonical AgaviWebRequest missing when applying slot parameters'); }
+                foreach($parameters as $k=>$v) {
+                    if(!array_key_exists($k, $originals)) { $originals[$k] = $rdh->getParameter($k); }
+                    $rdh->setParameter($k, $v);
+                }
+                $overlayApplied = true;
             }
             // Normalize output type to lowercase as configuration keys are lowercase
             $normalizedOutputType = $outputType !== null ? strtolower($outputType) : null;
@@ -76,7 +112,10 @@ class SlotDispatcher
             $actionInstance = $this->controller->createActionInstance($module, $action);
             if(!($actionInstance instanceof AgaviAction)) { throw new AgaviException('Slot action did not resolve to AgaviAction'); }
             // Hard break: container path removed. Always container-less execution.
-            if(!$rdh) { $rdh = new AgaviRequestDataHolder(); }
+            if(!$rdh) {
+                try { $rdh = $this->controller->getContext()->getRequest(); } catch(\Throwable) { $rdh = null; }
+                if(!($rdh instanceof AgaviWebRequest)) { throw new \RuntimeException('Canonical AgaviWebRequest missing in SlotDispatcher::dispatch (simple)'); }
+            }
             if($cacheEnabled) {
                 $normalizedOutputType = $outputType !== null ? strtolower($outputType) : $this->controller->getOutputType()->getName();
                 // Tag/version support: actions may expose slotCacheTags(array $params): array
@@ -98,9 +137,18 @@ class SlotDispatcher
             }
             if ($actionInstance->isSimple()) {
                 // Mark action as slot for downstream views/layout selection (container-less compatibility)
-                if(method_exists($actionInstance,'setAttribute')) { try { $actionInstance->setAttribute('is_slot', true); } catch(\Throwable) {} }
+                if(method_exists($actionInstance,'setAttribute')) { 
+                    try { 
+                        AgaviDebugLogger::debug('[SlotDispatcher] Setting is_slot=true on simple action ' . get_class($actionInstance), $this->controller->getContext());
+                        $actionInstance->setAttribute('is_slot', true);
+                        AgaviDebugLogger::debug('[SlotDispatcher] is_slot set, checking: ' . ($actionInstance->hasAttribute('is_slot') ? 'found' : 'not found'), $this->controller->getContext());
+                    } catch(\Throwable $e) { 
+                        AgaviDebugLogger::debug('[SlotDispatcher] Failed to set is_slot attribute: ' . $e->getMessage(), $this->controller->getContext());
+                    } 
+                }
                 // Early experimental path: execute simple action without full container
-                $rd = $rdh ?? new AgaviRequestDataHolder();
+                $rd = $rdh ?? (function($self){ try { return $self->controller->getContext()->getRequest(); } catch(\Throwable) { return null; } })($this);
+                if(!($rd instanceof AgaviWebRequest)) { throw new \RuntimeException('Canonical AgaviWebRequest missing in SlotDispatcher simple action path'); }
                 // Execute action via resolver for method-based verbs (execute|executeXxx)
                 $rawViewName = $this->actionResolver->execute($actionInstance, strtoupper($parentRequest->getMethod() ?? 'GET'), $rd);
                 $attributeSnapshot = [];
@@ -136,15 +184,15 @@ class SlotDispatcher
                     module: $module,
                     actionName: $action,
                     outputType: $viewOutputType,
-                    requestData: $rd,
+                    request: $rd,
                     content: (string)$result,
                 );
                 $this->lastContext = $ctx;
                 return $ctx->content;
             } else { // non-simple
-                if(method_exists($actionInstance,'setAttribute')) { try { $actionInstance->setAttribute('is_slot', true); } catch(\Throwable) {} }
                 // Container-less path for non-simple actions (security + validation + view)
-                $rd = $rdh ?? new AgaviRequestDataHolder();
+                $rd = $rdh ?? (function($self){ try { return $self->controller->getContext()->getRequest(); } catch(\Throwable) { return null; } })($this);
+                if(!($rd instanceof AgaviWebRequest)) { throw new \RuntimeException('Canonical AgaviWebRequest missing in SlotDispatcher non-simple action path'); }
                 // Initialize action with lightweight context (mirrors ActionExecutor)
                 $lwCtx = new LightweightActionInitContext(
                     $this->controller->getContext(),
@@ -156,46 +204,29 @@ class SlotDispatcher
                     $this->controller->getGlobalResponse()
                 );
                 $actionInstance->initialize($lwCtx);
+                
+                // Mark action as slot AFTER initialization (when initContext exists)
+                if(method_exists($actionInstance,'setAttribute')) { 
+                    try { 
+                        $actionInstance->setAttribute('is_slot', true);
+                    } catch(\Throwable $e) { 
+                        AgaviDebugLogger::debug('[SlotDispatcher] Failed to set is_slot attribute: ' . $e->getMessage(), $this->controller->getContext());
+                    } 
+                }
                 $securityService = new SecurityService($this->controller);
                 $decision = $securityService->decide($actionInstance);
                 if($decision !== SecurityDecision::Allow) {
-                    $key = $decision === SecurityDecision::LoginForward ? 'login' : 'secure';
-                    // Build descriptor for system forward and execute like a fresh (simple) action
-                    $httpMethod = strtoupper($parentRequest->getMethod() ?? 'GET');
-                    $fwdDesc = $this->forwardService->createSystemForwardActionDescriptor($key, $httpMethod, $outputType ?? $this->controller->getOutputType()->getName());
-                    try {
-                        $fwdAction = $this->controller->createActionInstance($fwdDesc->module, $fwdDesc->action);
-                        if(method_exists($fwdAction,'initialize')) {
-                            $initCtx = new LightweightActionInitContext(
-                                $this->controller->getContext(),
-                                $fwdDesc->module,
-                                $fwdDesc->action,
-                                $fwdDesc->method,
-                                $fwdDesc->outputType,
-                                $rd,
-                                $this->controller->getGlobalResponse()
-                            );
-                            $fwdAction->initialize($initCtx);
-                        }
-                        $rawViewName = $this->actionResolver->execute($fwdAction, $fwdDesc->method, $rd);
-                        [$vm,$vn] = $this->viewNameResolver->resolve($fwdDesc->module, $fwdDesc->action, $rawViewName);
-                        $viewInstance = null; $content = '';
-                        if($vn !== AgaviView::NONE) {
-                            $attrs = method_exists($fwdAction,'getAttributes')?(array)$fwdAction->getAttributes():[];
-                            $viewInstance = $this->viewFactory->create($vm,$vn,$fwdDesc->module,$fwdDesc->action,$fwdDesc->outputType,$rd,$attrs);
-                            if(!$viewInstance) { try { $viewInstance = $this->controller->createViewInstance($vm,$vn); } catch(\Throwable) {} }
-                            if($viewInstance) { try { $vic = new \Agavi\Execution\ImmutableViewInitContext($this->controller->getContext(),$vm,$vn,$fwdDesc->outputType,$fwdDesc->module,$fwdDesc->action,$attrs,$this->controller->getGlobalResponse()); $viewInstance->initialize($vic);} catch(\Throwable) {} }
-                            $methodExec = 'execute' . ucfirst($fwdDesc->outputType);
-                            if(!$viewInstance || !is_callable([$viewInstance,$methodExec])) { $methodExec = 'execute'; }
-                            $res = $viewInstance?->$methodExec($rd); if($res !== null) { $content = (string)$res; } elseif($viewInstance && method_exists($viewInstance,'getLayers') && method_exists($viewInstance,'renderLayers') && $viewInstance->getLayers()) { $layerContent = $viewInstance->renderLayers(); if($layerContent !== '') { $content = $layerContent; } }
-                        }
-                        $ctx = new ActionExecutionContext($fwdAction,$viewInstance,$fwdDesc->module,$fwdDesc->action,$fwdDesc->outputType,$rd,(string)$content,$vm ?? null,$vn ?? null,method_exists($fwdAction,'getAttributes')?(array)$fwdAction->getAttributes():[]);
-                        $this->lastContext = $ctx; return $ctx->content;
-                    } catch(\Throwable $fwdErr) {
-                        // Fail closed: return empty string to avoid masking original security failure silently
-                        $ctx = new ActionExecutionContext($actionInstance,null,$module,$action,$outputType ?? $this->controller->getOutputType()->getName(),$rd,'');
-                        $this->lastContext = $ctx; return '';
-                    }
+                    // Security denied for slot execution. Rendering the full system
+                    // forward (login/secure) would produce a full page layout which
+                    // itself renders slots (including the current one) and can
+                    // therefore cause unbounded recursion during slot dispatch.
+                    // For slot dispatches we fail closed: return empty content and
+                    // record a small diagnostic context so callers can inspect the
+                    // lastContext if needed.
+                    try { AgaviDebugLogger::debug(sprintf('[SlotDisp] security denied for slot %s/%s during slot dispatch - returning empty content', $module, $action), $this->controller->getContext()); } catch(\Throwable) {}
+                    $ctx = new ActionExecutionContext($actionInstance, null, $module, $action, $outputType ?? $this->controller->getOutputType()->getName(), $rd, '');
+                    $this->lastContext = $ctx;
+                    return $ctx->content;
                 }
                 // Validation
                 $validationService = new ValidationService();
@@ -236,6 +267,19 @@ class SlotDispatcher
                 $this->lastContext = $ctx; return $ctx->content;
             }
         } finally {
+            // Restore original parameters if overlay applied
+            if(isset($overlayApplied) && $overlayApplied && isset($rdh) && $rdh instanceof AgaviWebRequest) {
+                foreach($originals as $k=>$v) {
+                    if($v === null) {
+                        // Parameter didn't exist before overlay; remove if current matches overlay value.
+                        // We can't know overlay value without storing; accept leaving value as is if mismatch risk.
+                        // Safer: remove unconditionally when original null and key exists.
+                        try { $rdh->removeParameter($k); } catch(\Throwable) {}
+                    } else {
+                        try { $rdh->setParameter($k, $v); } catch(\Throwable) {}
+                    }
+                }
+            }
             $this->executionGuard->leave($stack);
         }
     }
@@ -248,13 +292,16 @@ class SlotDispatcher
         $content = $this->dispatch($parentRequest, $module, $action, $parameters, $outputType);
     if($this->lastContext) { return $this->lastContext; }
         // Fallback: synthesize minimal context when container path used
+        $sharedRequest = null;
+        try { $sharedRequest = $this->controller->getContext()->getRequest(); } catch(\Throwable) { $sharedRequest = null; }
+        if(!($sharedRequest instanceof AgaviWebRequest)) { throw new \RuntimeException('Canonical AgaviWebRequest missing in SlotDispatcher::dispatchWithContext fallback'); }
         return new ActionExecutionContext(
             action: $this->controller->createActionInstance($module,$action),
             view: null,
             module: $module,
             actionName: $action,
             outputType: $outputType ?? $this->controller->getOutputType()->getName(),
-            requestData: new AgaviRequestDataHolder(),
+            request: $sharedRequest,
             content: $content,
         );
     }
@@ -280,7 +327,7 @@ class SlotDispatcher
             module: $ctx->module,
             actionName: $ctx->actionName,
             outputType: $ctx->outputType,
-            requestData: $ctx->requestData,
+            request: $ctx->request,
             content: $ctx->content,
             viewModuleName: $ctx->viewModuleName,
             viewName: $ctx->viewName,

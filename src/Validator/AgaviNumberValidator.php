@@ -53,7 +53,7 @@ class AgaviNumberValidator extends AgaviValidator
 	 */
 	protected function validate()
 	{
-		$value =& $this->getData($this->getArgument());
+		$value = $this->getData($this->getArgument());
 
 		if(!is_scalar($value)) {
 			// non scalar values would cause notices
@@ -128,7 +128,12 @@ class AgaviNumberValidator extends AgaviValidator
 		if($this->hasParameter('export')) {
 			$this->export($parsedValue);
 		} else {
-			$value = $parsedValue;
+			// Persist casted numeric value back into request runtime parameters so subsequent validators/actions see normalized type.
+			try {
+				if(method_exists($this->validationParameters, 'setParameter')) {
+					$this->validationParameters->setParameter($this->getArgument(), $parsedValue);
+				}
+			} catch(\Throwable) {}
 		}
 		
 		return true;

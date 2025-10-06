@@ -1,47 +1,37 @@
 <?php
 
+require_once __DIR__ . '/CacheMiddlewareTestTrait.php';
+
 use Agavi\Testing\AgaviUnitTestCase;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
+use Agavi\Cache\CacheManager;
 use Agavi\Middleware\DispatchMiddleware;
-use Agavi\Controller\AgaviController;
-use Agavi\Http\PsrServerRequestAdapter;
 use Agavi\Execution\ActionDescriptor;
 use Nyholm\Psr7\Factory\Psr17Factory;
-use Nyholm\Psr7\Stream;
-use Agavi\Config\AgaviConfig;
-use Agavi\Cache\CacheManager;
+use Nyholm\Psr7\ServerRequest;
 
 #[RunTestsInSeparateProcesses]
 class DispatchMiddlewareCacheInvalidationTest extends AgaviUnitTestCase
 {
+    use CacheMiddlewareTestTrait;
+
     protected function setUp(): void
     {
         parent::setUp();
-        if(!AgaviConfig::get('core.cache_enabled', false)) {
-            $this->markTestSkipped('Global cache disabled via core.cache_enabled');
-        }
-    AgaviConfig::set('core.cache_dir', sys_get_temp_dir() . '/agavi_cache_test');
-    $dir = AgaviConfig::get('core.cache_dir'); if(!is_dir($dir)) { @mkdir($dir, 0775, true); }
-        \Agavi\Cache\CacheManager::reset();
-        $psrDir = AgaviConfig::get('core.cache_dir') . '/psr-cache';
-        if (is_dir($psrDir)) {
-            $rii = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($psrDir, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::CHILD_FIRST);
-            foreach ($rii as $file) { $file->isDir() ? @rmdir($file->getPathname()) : @unlink($file->getPathname()); }
-            @rmdir($psrDir);
-        }
+        $this->bootstrapCache('agavi_cache_invalidation');
         $this->getContext()->getController()->initializeModule('Cache');
+    }
+
+    protected function tearDown(): void
+    {
+        $this->restoreCache();
+        parent::tearDown();
     }
 
     private function newRequest(ActionDescriptor $descriptor) {
         $factory = new Psr17Factory();
-        $legacyReq = $this->getContext()->getRequest();
-        $psr = new PsrServerRequestAdapter(
-            $legacyReq,
-            $factory->createUri('http://localhost/cache'),
-            'GET',
-            Stream::create(''),
-            [], [], [], [], [], []
-        );
+        $psr = (new ServerRequest('GET', 'http://localhost/cache'))
+            ->withBody($factory->createStream(''));
         return $psr
             ->withAttribute(ActionDescriptor::class, $descriptor)
             ->withAttribute('module', 'Cache')

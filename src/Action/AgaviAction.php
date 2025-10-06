@@ -31,8 +31,9 @@ namespace Agavi\Action;
  *
  * @version    $Id$
  */
-use Agavi\Request\AgaviRequestDataHolder;
+
 use Agavi\Execution\ActionInitContext;
+use Agavi\Request\AgaviWebRequest;
 use Symfony\Contracts\Service\ResetInterface;
 abstract class AgaviAction implements ResetInterface
 {
@@ -95,7 +96,7 @@ abstract class AgaviAction implements ResetInterface
 	/**
 	 * Execute any post-validation error application logic.
 	 *
-	 * @param      AgaviRequestDataHolder The action's request data holder.
+	 * @param      AgaviWebRequest The action's request data holder.
 	 *
 	 * @return     mixed A string containing the view name associated with this
 	 *                   action.
@@ -107,7 +108,7 @@ abstract class AgaviAction implements ResetInterface
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.9.0
 	 */
-	public function handleError(AgaviRequestDataHolder $rd)
+	public function handleError(AgaviWebRequest $rd)
 	{
 		return 'Error';
 	}
@@ -177,7 +178,7 @@ abstract class AgaviAction implements ResetInterface
 	/**
 	 * Manually validate files and parameters.
 	 *
-	 * @param      AgaviRequestDataHolder The action's request data holder.
+	 * @param      AgaviWebRequest The action's request data holder.
 	 *
 	 * @return     bool true, if validation completed successfully, otherwise
 	 *                  false.
@@ -186,7 +187,7 @@ abstract class AgaviAction implements ResetInterface
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.9.0
 	 */
-	public function validate(AgaviRequestDataHolder $rd)
+	public function validate(AgaviWebRequest $request)
 	{
 		return true;
 	}

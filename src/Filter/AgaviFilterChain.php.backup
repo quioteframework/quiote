@@ -15,6 +15,8 @@
 // +---------------------------------------------------------------------------+
 namespace Agavi\Filter;
 
+use Agavi\Logging\AgaviDebugLogger;
+
 /**
  * AgaviFilterChain manages registered filters for a specific context.
  *
@@ -87,11 +89,11 @@ class AgaviFilterChain
 		if (method_exists($container, 'getContext') && $container->getContext() && method_exists($container->getContext(), 'getLoggerManager') && $container->getContext()->getLoggerManager()) {
 			$logger = $container->getContext()->getLoggerManager();
 		}
-		$log = function($msg) use ($logger): void {
+		$log = function($msg) use ($logger, $container): void {
 			if ($logger) {
 				$logger->logDebug($msg);
 			} else {
-				error_log($msg);
+				AgaviDebugLogger::debug($msg, method_exists($container, 'getContext') ? $container->getContext() : null);
 			}
 		};
 
@@ -103,9 +105,9 @@ class AgaviFilterChain
 		}
 		foreach($this->preFilters as $name => $filter) {
 			$log("Executing pre-filter: $name (" . $filter::class . ")");
-			error_log("=== FILTER DEBUG: Executing pre-filter: $name (" . $filter::class . ") for " . $container->getModuleName() . "/" . $container->getActionName());
+			AgaviDebugLogger::debug("=== FILTER DEBUG: Executing pre-filter: $name (" . $filter::class . ") for " . $container->getModuleName() . "/" . $container->getActionName(), method_exists($container, 'getContext') ? $container->getContext() : null);
 			$filter->execute($container);
-			error_log("=== FILTER DEBUG: Completed pre-filter: $name");
+			AgaviDebugLogger::debug("=== FILTER DEBUG: Completed pre-filter: $name", method_exists($container, 'getContext') ? $container->getContext() : null);
 		}
 		
 		// Check if a forward container has been set by any pre-filter (e.g., security filter)
@@ -114,7 +116,7 @@ class AgaviFilterChain
 			$actionCallback($container);
 		} else {
 			$log("Forward container detected, skipping action callback");
-			error_log("=== FILTER DEBUG: Forward container detected, skipping action execution for " . $container->getModuleName() . "/" . $container->getActionName());
+			AgaviDebugLogger::debug("=== FILTER DEBUG: Forward container detected, skipping action execution for " . $container->getModuleName() . "/" . $container->getActionName(), method_exists($container, 'getContext') ? $container->getContext() : null);
 		}
 		foreach($this->postFilters as $name => $filter) {
 			$log("Executing post-filter: $name (" . $filter::class . ")");

@@ -38,9 +38,10 @@ use Agavi\Execution\ActionInitContext;
 use Agavi\Execution\ViewInitContext;
 use Agavi\Exception\AgaviViewException;
 use Agavi\Renderer\AgaviRenderer;
-use Agavi\Request\AgaviRequestDataHolder;
 use Agavi\Execution\ForwardService;
+use Agavi\Request\AgaviWebRequest;
 use Symfony\Contracts\Service\ResetInterface;
+use Agavi\Logging\AgaviDebugLogger;
 
 abstract class AgaviView implements ResetInterface
 {
@@ -55,6 +56,14 @@ abstract class AgaviView implements ResetInterface
 	protected $initContext = null;
 
 	/**
+	 * @var array|null Mutable attribute store for this view. Populated from
+	 *                action attribute snapshot (ImmutableViewInitContext) or
+	 *                from an attribute holder. Ensures view-set attributes
+	 *                are visible to the renderer via getAttributes().
+	 */
+	protected $localAttributes = null;
+
+	/**
 	 * @var        AgaviContext The AgaviContext instance this View belongs to.
 	 */
 	protected $context = null;
@@ -67,7 +76,7 @@ abstract class AgaviView implements ResetInterface
 	/**
 	 * Execute any presentation logic and set template attributes.
 	 *
-	 * @param      AgaviRequestDataHolder The action's request data holder.
+	 * @param      AgaviWebRequest The action's request data holder.
 	 *
 	 * @return     mixed Array forward descriptor (legacy) or null.
 	 *
@@ -75,7 +84,7 @@ abstract class AgaviView implements ResetInterface
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.9.0
 	 */
-	abstract function execute(AgaviRequestDataHolder $rd);
+	abstract function execute(AgaviWebRequest $rd);
 
 	/**
 	 * Render all configured template layers (in order) and return concatenated output.
@@ -86,19 +95,61 @@ abstract class AgaviView implements ResetInterface
 	public function renderLayers(): string
 	{
 		if(empty($this->layers)) {
-			if(getenv('AGAVI_DEBUG_VIEW')) { error_log('[AgaviView] renderLayers no layers for ' . get_class($this)); }
+			if(getenv('AGAVI_DEBUG_VIEW')) { AgaviDebugLogger::debug('[AgaviView] renderLayers no layers for ' . get_class($this), $this->getContext()); }
 			return '';
 		}
 		$out = '';
-		if(getenv('AGAVI_DEBUG_VIEW')) { error_log('[AgaviView] renderLayers count=' . count($this->layers) . ' view=' . get_class($this)); }
+		if(getenv('AGAVI_DEBUG_VIEW')) { AgaviDebugLogger::debug('[AgaviView] renderLayers count=' . count($this->layers) . ' view=' . get_class($this), $this->getContext()); }
 		foreach($this->layers as $layer) {
 			try {
-				$out .= (string)$layer->execute();
-				if(getenv('AGAVI_DEBUG_VIEW')) { error_log('[AgaviView] layer executed name=' . $layer->getName() . ' len=' . strlen((string)$out)); }
+				// Provide the view's attributes to the layer so templates
+				// receive expected variables (e.g. $t['moduleName'], $t['actionName']).
+				// Also pass the already-rendered content via an "inner" key so
+				// decorator templates can access the accumulated inner HTML.
+				$attrsSnapshot = $this->getAttributes();
+				// Make a local copy and inject the inner content accumulated so far.
+				$attrsForLayer = is_array($attrsSnapshot) ? $attrsSnapshot : (array)$attrsSnapshot;
+				$attrsForLayer['inner'] = $out;
+				// Each layer now wraps the previously accumulated output and becomes
+				// the new accumulated output. This prevents duplicating inner
+				// content when a decorator layer renders the earlier output again.
+				$out = (string)$layer->execute(null, $attrsForLayer);
+				if(getenv('AGAVI_DEBUG_VIEW')) { AgaviDebugLogger::debug('[AgaviView] layer executed name=' . $layer->getName() . ' len=' . strlen($out), $this->getContext()); }
 			} catch(\Throwable $e) {
-				// Fail soft: append diagnostic marker to aid debugging but keep rendering going
-				$out .= '<!-- layer render error: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . ' -->';
-				if(getenv('AGAVI_DEBUG_VIEW')) { error_log('[AgaviView] layer error name=' . $layer->getName() . ' msg=' . $e->getMessage()); }
+				// Short-circuit on layer render errors: discard partial output,
+				// set HTTP 500 and render the canonical exception page, stopping
+				// any further layer or slot rendering. Prefer the framework
+				// renderer (AgaviException::render) so configured output-type
+				// exception templates are honored. Fall back to the app-level
+				// ExceptionHandler if that path fails.
+				try {
+					// Try to set response status to 500 when available.
+					$resp = null;
+					try {
+						$resp = $this->getResponse();
+					} catch (\Throwable $__r) {
+						// ignore
+					}
+					if ($resp !== null && method_exists($resp, 'setHttpStatusCode')) {
+						try { $resp->setHttpStatusCode(500); } catch (\Throwable $__s) { /* ignore */ }
+					} else {
+						// Best-effort header fallback if response object not usable.
+						if (!headers_sent()) { @header('HTTP/1.1 500 Internal Server Error'); }
+					}
+
+					// Prefer framework-level rendering which will clear buffers and exit.
+					if (class_exists('Agavi\\Exception\\AgaviException') && method_exists('Agavi\\Exception\\AgaviException', 'render')) {
+						\Agavi\Exception\AgaviException::render($e, $this->context);
+					}
+				} catch (\Throwable $inner) {
+					// Fallback to application-level handler if framework render fails.
+					if (class_exists('Jakamo\\Lib\\Helpers\\ExceptionHandler') && method_exists('Jakamo\\Lib\\Helpers\\ExceptionHandler', 'handleException')) {
+						try { \Jakamo\Lib\Helpers\ExceptionHandler::handleException($e); } catch (\Throwable $__h) { /* ignore */ }
+					}
+				}
+
+				// If the render paths above didn't exit, stop processing further layers.
+				return '';
 			}
 		}
 		return $out;
@@ -153,6 +204,24 @@ abstract class AgaviView implements ResetInterface
 	{
 		$this->initContext = $context;
 		$this->context = $context->getContext();
+
+		// Prepare a mutable attributes store for the view. If the init context
+		// carries an action attribute snapshot (ImmutableViewInitContext), use
+		// that as the starting point so action-set attributes are visible to
+		// templates via renderer's $t. View-set attributes will overwrite those
+		// values in this local store.
+		try {
+			if ($context instanceof \Agavi\Execution\ImmutableViewInitContext) {
+				$attrs = $context->getActionAttributes();
+				$this->localAttributes = is_array($attrs) ? array_merge([], $attrs) : [];
+			} elseif ($context instanceof \Agavi\Util\AgaviAttributeHolder) {
+				$this->localAttributes = $context->getAttributes();
+			} else {
+				$this->localAttributes = [];
+			}
+		} catch (\Throwable $e) {
+			$this->localAttributes = [];
+		}
 	}
 
 	/**
@@ -204,7 +273,48 @@ abstract class AgaviView implements ResetInterface
 		if(!is_subclass_of($layer, 'Agavi\\View\\AgaviTemplateLayer')) {
 			throw new AgaviViewException('Class "$class" is not a subclass of AgaviTemplateLayer');
 		}
-		$layer->initialize($this->context, ['name' => $name, 'module' => $this->initContext->getViewModuleName(), 'template' => $this->initContext->getViewName(), 'output_type' => $this->getCurrentOutputType()->getName()]);
+		// Try to resolve module/template names from the init context. Some
+		// container-less paths don't expose these, so fall back to view-local
+		// attributes (JakamoBaseView populates them in setupHtml) when
+		// available.
+		$moduleParam = null;
+		$templateParam = null;
+		if ($this->initContext instanceof ActionInitContext) {
+			// Full action init context: use canonical view names
+			$moduleParam = $this->initContext->getViewModuleName();
+			$templateParam = $this->initContext->getViewName();
+		} elseif ($this->initContext !== null) {
+			// Container-less immutable init context (ViewInitContext or similar)
+			// may still provide action/module names via a different API.
+			// Prefer explicit view identifiers when available on the init context
+			if (method_exists($this->initContext, 'getViewName')) {
+				$templateParam = $this->initContext->getViewName();
+			} elseif (method_exists($this->initContext, 'getActionName')) {
+				$templateParam = $this->initContext->getActionName();
+			}
+			if (method_exists($this->initContext, 'getViewModuleName')) {
+				$moduleParam = $this->initContext->getViewModuleName();
+			} elseif (method_exists($this->initContext, 'getActionModuleName')) {
+				$moduleParam = $this->initContext->getActionModuleName();
+			}
+			// If still not resolved, fall back to view attributes (JakamoBaseView stores them there)
+			if (($moduleParam === null || $templateParam === null) && method_exists($this, 'getAttribute')) {
+				$am = $this->getAttribute('moduleName', null);
+				$aa = $this->getAttribute('actionName', null);
+				if ($am !== null) { $moduleParam = $am; }
+				if ($aa !== null) { $templateParam = $aa; }
+			}
+		} else {
+			if (method_exists($this, 'getAttribute')) {
+				$moduleParam = $this->getAttribute('moduleName', null);
+				$templateParam = $this->getAttribute('actionName', null);
+			}
+		}
+		// If templateParam is not set, prefer the resolved view name (container-less paths)
+		if (empty($templateParam)) {
+			$templateParam = $this->getResolvedViewName();
+		}
+		$layer->initialize($this->context, ['name' => $name, 'module' => $moduleParam, 'template' => $templateParam, 'output_type' => $this->getCurrentOutputType()->getName()]);
 		if($renderer instanceof AgaviRenderer) {
 			$layer->setRenderer($renderer);
 		} else {
@@ -388,8 +498,7 @@ abstract class AgaviView implements ResetInterface
 	 *
 	 * @param      string The name of the module.
 	 * @param      string The name of the action.
-	 * @param      mixed  An AgaviRequestDataHolder instance with additional
-	 *                    request arguments or an array of request parameters.
+	 * @param      mixed  Array of request parameters.
 	 * @param      string Optional name of an initial output type to set.
 	 * @param      string Optional name of the request method to be used in this
 	 *                    container.
@@ -410,9 +519,9 @@ abstract class AgaviView implements ResetInterface
 	 * Convenience helper: directly render a slot and return its string content.
 	 *
 	 * This bypasses legacy container creation and uses the SlotDispatcher fast path.
-	 * Arguments may be array or AgaviRequestDataHolder (array preferred).
+	 * Arguments is array
 	 */
-	public function renderSlot(string $moduleName, string $actionName, $arguments = null, ?string $outputType = null): string
+	public function renderSlot(string $moduleName, string $actionName, ?array $arguments = null, ?string $outputType = null): string
 	{
 		// Reuse createSlotContent (new API) to avoid duplication.
 		$slotContent = $this->createSlotContent($moduleName, $actionName, $arguments, $outputType);
@@ -422,21 +531,54 @@ abstract class AgaviView implements ResetInterface
 	/**
 	 * New API returning SlotContent value object explicitly, bypassing container wrapper regardless of flag.
 	 */
-	public function createSlotContent(string $moduleName, string $actionName, $arguments = null, $outputType = null): \Agavi\Execution\SlotContent
+	public function createSlotContent(string $moduleName, string $actionName, $arguments = null, $outputType = null): \Agavi\Execution\SlotRenderable
 	{
 		$parameters = [];
-		if ($arguments instanceof AgaviRequestDataHolder) {
+		if ($arguments instanceof AgaviWebRequest) {
 			$parameters = $arguments->getParameters();
 		} elseif (is_array($arguments)) {
 			$parameters = $arguments;
 		} elseif ($arguments !== null) {
 			throw new \RuntimeException('Unsupported slot argument type');
 		}
-		$dispatcher = $this->context->getSlotDispatcher();
-		$parentRequest = $this->context->getCurrentPsrRequest();
-		if(!$parentRequest) { throw new \RuntimeException('No current PSR request available for slot dispatch'); }
-		$slotRequest = \Agavi\Execution\SlotRequestFactory::create($parentRequest, $moduleName, $actionName, $parameters, $outputType);
-		return $dispatcher->dispatchSlotContent($slotRequest, $moduleName, $actionName, $parameters, $outputType);
+		// Defensive short-circuit: if a layout slot points to the same module/action
+		// as the current view, rendering it would reload the same layout and
+		// potentially cause unbounded recursion. Return an empty SlotContent
+		// immediately to avoid self-referential slot loops. This preserves the
+		// slot metadata but produces no content.
+		$currentModule = $this->getResolvedViewModule();
+		$currentAction = $this->getResolvedViewName();
+		// Some codepaths (legacy/container-less) populate the module/action as
+		// attributes on the view (see JakamoBaseView::setupHtml). Try those as
+		// fallback so the short-circuit works even when initContext doesn't
+		// expose resolved names yet.
+		if (($currentModule === null || $currentAction === null) && method_exists($this, 'getAttribute')) {
+			try {
+				$am = $this->getAttribute('moduleName', null);
+				$aa = $this->getAttribute('actionName', null);
+				if ($am !== null && $aa !== null) {
+					$currentModule = $am;
+					$currentAction = $aa;
+				}
+			} catch (\Throwable $e) {
+				// ignore attribute lookup failures and fall back to resolved names
+			}
+		}
+		if ($currentModule !== null && $currentAction !== null &&
+			strtolower((string)$currentModule) === strtolower($moduleName) &&
+			strtolower((string)$currentAction) === strtolower($actionName)) {
+			return new \Agavi\Execution\SlotContent($moduleName, $actionName, $outputType, '', is_array($arguments) ? $arguments : []);
+		}
+
+	// Defer execution: return a SlotRenderable that will dispatch the slot
+	// only when the renderer actually requests the content. This avoids
+	// eager dispatch during layout construction and prevents recursion.
+	$dispatcher = $this->context->getSlotDispatcher();
+	$parentRequest = $this->context->getCurrentPsrRequest();
+	if(!$parentRequest) { throw new \RuntimeException('No current PSR request available for slot dispatch'); }
+	// Instead of dispatching now, return a deferred renderable that will
+	// dispatch during template rendering.
+	return new \Agavi\Execution\DeferredSlotRenderable($this->context, $moduleName, $actionName, $parameters, $outputType);
 	}
 
 	/**
@@ -447,8 +589,7 @@ abstract class AgaviView implements ResetInterface
 	 *
 	 * @param      string The name of the module.
 	 * @param      string The name of the action.
-	 * @param      mixed  An AgaviRequestDataHolder instance with additional
-	 *                    request arguments or an array of request parameters.
+	 * @param      mixed  An array of request parameters.
 	 * @param      string Optional name of an initial output type to set.
 	 * @param      string Optional name of the request method to be used in this
 	 *                    container.
@@ -468,22 +609,31 @@ abstract class AgaviView implements ResetInterface
 	 * Render a system forward (login or secure) using ForwardService without creating a forward container.
 	 * Falls back to legacy createForwardContainer if ForwardService fails.
 	 */
-	public function renderSystemForward(string $name, ?AgaviRequestDataHolder $arguments = null, ?string $outputType = null): string
+	public function renderSystemForward(string $name, ?AgaviWebRequest $arguments = null, ?string $outputType = null): string
 	{
 		$name = strtolower($name);
 		if(!in_array($name, ['login','secure'], true)) {
 			throw new \InvalidArgumentException('Unsupported system forward name: ' . $name);
 		}
+		// Reuse canonical request instance when no explicit arguments provided.
+		if($arguments === null) {
+			try { $arguments = $this->context->getRequest(); } catch(\Throwable) { $arguments = null; }
+			if(!($arguments instanceof AgaviWebRequest)) { throw new \RuntimeException('Canonical AgaviWebRequest missing for system forward'); }
+		}
 		try {
 			$fs = new ForwardService($this->context->getController());
-			[$view,$vm,$vn,$content] = $fs->createSystemForwardView($name, $outputType ?? $this->context->getController()->getOutputType()->getName(), $arguments ?? new AgaviRequestDataHolder());
+			[$view,$vm,$vn,$content] = $fs->createSystemForwardView($name, $outputType ?? $this->context->getController()->getOutputType()->getName(), $arguments);
 			return (string)$content;
 		} catch(\Throwable $e) {
-			// Fallback: legacy forward container path (will be removed)
+			// Fallback: legacy forward container path (will be removed). Ensure we also reuse canonical request.
 			@trigger_error('ForwardService failed, falling back to legacy forward container: ' . $e->getMessage(), E_USER_DEPRECATED);
 			$fc = $this->createForwardContainer(ucfirst($name), 'Success', $arguments, $outputType);
 			$view = $fc->getViewInstance();
-			$rd = $fc->getRequestData() ?? new AgaviRequestDataHolder();
+			$rd = $fc->getRequestData();
+			if(!($rd instanceof AgaviWebRequest)) {
+				try { $rd = $this->context->getRequest(); } catch(\Throwable) { $rd = null; }
+				if(!($rd instanceof AgaviWebRequest)) { throw new \RuntimeException('Canonical AgaviWebRequest missing in system forward fallback'); }
+			}
 			$method = 'execute' . ucfirst($fc->getOutputType()->getName());
 			if(!is_callable([$view,$method])) { $method = 'execute'; }
 			$res = $view->$method($rd);
@@ -536,6 +686,9 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public function &getAttributes()
 	{
+		// Prefer the local mutable store if prepared; otherwise fall back to
+		// the initContext attribute holder for legacy containers.
+		if ($this->localAttributes !== null) { return $this->localAttributes; }
 		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) { return $this->initContext->getAttributes(); }
 		$empty = []; return $empty;
 	}
@@ -572,6 +725,13 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public function setAttribute($name, $value)
 	{
+		// If we have a local mutable attribute store (typical in container-less
+		// pipeline), write into it so templates see the updated value. If the
+		// initContext is a mutable AgaviAttributeHolder (legacy), forward to it.
+		if ($this->localAttributes !== null) {
+			$this->localAttributes[$name] = $value;
+			return;
+		}
 		if($this->initContext instanceof \Agavi\Execution\ViewInitContext) {\Agavi\Util\DeprecationSilencer::triggerOnce('setAttribute() ignored: immutable ViewInitContext snapshot'); return; }
 		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) { $this->initContext->setAttribute($name,$value); }
 	}

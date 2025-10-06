@@ -2,6 +2,7 @@
 namespace Agavi\Runtime;
 
 use Agavi\AgaviContext;
+use Agavi\Logging\AgaviDebugLogger;
 use Agavi\Middleware\MiddlewarePipeline;
 use Agavi\Middleware\ErrorHandlingMiddleware;
 use Agavi\Middleware\ExecutionTimeMiddleware;
@@ -9,7 +10,7 @@ use Agavi\Middleware\RoutingMiddleware;
 use Agavi\Middleware\SecurityMiddleware;
 use Agavi\Middleware\DispatchMiddleware;
 use Agavi\Middleware\AssetAggregationMiddleware;
-use Agavi\Http\PsrServerRequestAdapter;
+use Agavi\Request\AgaviWebRequest;
 use Agavi\Http\SimpleUri;
 use Agavi\Http\SimpleStream;
 use Psr\Http\Server\RequestHandlerInterface;
@@ -46,7 +47,16 @@ class PsrPipelineBuilder
             } catch(\Throwable) { /* ignore parse issues at this stage; middleware may handle strict errors */ }
         /** @var \Agavi\Request\AgaviRequest $legacyReqTyped */
         $legacyReqTyped = $legacyReq; // help static analysis
-        return new PsrServerRequestAdapter($legacyReqTyped, $uri, $_SERVER['REQUEST_METHOD'] ?? 'GET', $body, $_SERVER, $headers, $_COOKIE, $_GET, $parsedBody, []);
+        // Directly wrap into AgaviWebRequest (already ServerRequestInterface compliant)
+        $base = new \Nyholm\Psr7\ServerRequest($_SERVER['REQUEST_METHOD'] ?? 'GET', $uri, $headers, $body, '1.1', $_SERVER);
+        // Populate standard params (Nyholm ServerRequest ctor sets headers & body only)
+        $base = $base
+            ->withQueryParams($_GET)
+            ->withCookieParams($_COOKIE)
+            ->withParsedBody($parsedBody);
+        $agavi = new AgaviWebRequest();
+        $agavi->attachPsrRequest($base);
+        return $agavi;
     }
 
     public function buildDispatcher(RequestHandlerInterface $finalHandler): RequestHandlerInterface
@@ -60,11 +70,12 @@ class PsrPipelineBuilder
         $pipeline->add('ExecutionTimeMiddleware', new ExecutionTimeMiddleware(), 'finalize', -10);
         $handler = $pipeline->build();
         // Provide logger to ErrorHandlingMiddleware so underlying exception becomes visible in logs
-        $loggerFn = function(\Throwable $e, ServerRequestInterface $r) {
-            // Prefer error_log (FrankenPHP captures); include type, message, top trace frame
+        $context = $this->context;
+        $loggerFn = function(\Throwable $e, ServerRequestInterface $r) use ($context) {
+            // Emit diagnostic via Agavi logger if available
             $first = $e->getFile().':'.$e->getLine();
             $snippet = substr(str_replace("\n", ' | ', $e->getTraceAsString()), 0, 400);
-            error_log('[AgaviPipeline] '.get_class($e).': '.$e->getMessage().' @ '.$first.' trace='.$snippet);
+            AgaviDebugLogger::debug('[AgaviPipeline] '.get_class($e).': '.$e->getMessage().' @ '.$first.' trace='.$snippet, $context);
         };
         return new class(new ErrorHandlingMiddleware($loggerFn), $handler) implements RequestHandlerInterface {
             public function __construct(private ErrorHandlingMiddleware $err, private RequestHandlerInterface $next) {}

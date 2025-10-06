@@ -18,15 +18,7 @@ use Agavi\AgaviContext;
 use Agavi\Config\AgaviConfig;
 use Agavi\Config\AgaviConfigCache;
 use Agavi\Config\AgaviAPCuConfigCache;
-use Agavi\Date\AgaviTimeZone as DateAgaviTimeZone;
-use Agavi\Date\AgaviCalendar;
-use Agavi\Date\AgaviDateDefinitions;
-use Agavi\Date\AgaviDateFormat;
-use Agavi\Date\AgaviGregorianCalendar;
-use Agavi\Date\AgaviOlsonTimeZone;
-use Agavi\Date\AgaviTimeZone;
 use Agavi\Exception\AgaviException;
-use DateTime;
 use Symfony\Contracts\Service\ResetInterface;
 
 /**
@@ -109,25 +101,22 @@ class AgaviTranslationManager implements ResetInterface
 	 */
 	protected $localeIdentifierCache = [];
 
-	/**
-	 * @var        array A cache for the data of the available locales.
-	 */
-	protected $localeDataCache = [];
+    /**
+     * @var        array A cache for the time zone instances.
+     */
+    protected $timeZoneCache = [];
 
-	/**
-	 * @var        array The supplemental data from the cldr
-	 */
-	protected $supplementalData = [];
+    /** @var array<string,array{territory:?string,hasMultiple:bool}> */
+    protected $timeZoneTerritoryCache = [];
 
-	/**
-	 * @var        array The list of available time zones.
-	 */
-	protected $timeZoneList = [];
+    /** @var array<string,string> Canonical TZ IDs */
+    protected $canonicalTimeZoneCache = [];
 
-	/**
-	 * @var        array A cache for the time zone instances.
-	 */
-	protected $timeZoneCache = [];
+    /** @var array<string,array{digits:int,rounding:int}> */
+    protected $currencyFractionCache = [];
+
+    /** @var array<string,array> */
+    protected $territoryDataCache = [];
 
 	/**
 	 * @var        string The default time zone. If not set the timezone php 
@@ -153,8 +142,7 @@ class AgaviTranslationManager implements ResetInterface
 		} else {
 			include(AgaviConfigCache::checkConfig(AgaviConfig::get('core.config_dir') . '/translation.xml'));
 		}
-		$this->loadSupplementalData();
-		$this->loadTimeZoneData();
+		// CLDR XML loading removed; rely on ext/intl for locale, timezone, currency metadata
 		$this->loadAvailableLocales();
 		if($this->defaultLocaleIdentifier === null) {
 			throw new AgaviException('Tried to use the translation system without a default locale and without a locale set');
@@ -539,6 +527,45 @@ class AgaviTranslationManager implements ResetInterface
 	}
 
 	/**
+	 * Loads the available locales into the instance variable (from config only).
+	 */
+	protected function loadAvailableLocales(): void
+	{
+		$this->availableLocales = $this->availableConfigLocales;
+	}
+
+	/**
+	 * Lazy initialize current locale and notify translators.
+	 */
+	protected function loadCurrentLocale(): void
+	{
+		// If no locale requested yet, derive a base: prefer defaultLocaleIdentifier, else first available.
+		if(!$this->givenLocaleIdentifier || $this->givenLocaleIdentifier === '') {
+			$base = $this->defaultLocaleIdentifier;
+			if(!$base && !empty($this->availableLocales)) {
+				$keys = array_keys($this->availableLocales);
+				$base = $keys[0];
+			}
+			if($base) {
+				$this->givenLocaleIdentifier = $base; // option-less
+				$this->currentLocaleIdentifier = $this->getLocaleIdentifier($base);
+			}
+		}
+		if(!$this->currentLocale || $this->currentLocale->getIdentifier() !== $this->givenLocaleIdentifier) {
+			if(!$this->givenLocaleIdentifier || $this->givenLocaleIdentifier === '') {
+				// Still nothing resolvable: defer without throwing; callers using getLocale directly will error explicitly.
+				return;
+			}
+			$this->currentLocale = $this->getLocale($this->givenLocaleIdentifier);
+			foreach($this->translators as $translatorList) {
+				foreach($translatorList as $type => $translator) {
+					$translator->localeChanged($this->currentLocale);
+				}
+			}
+		}
+	}
+
+	/**
 	 * Returns the translator filters for a given domain.
 	 *
 	 * @param      string The message.
@@ -557,96 +584,7 @@ class AgaviTranslationManager implements ResetInterface
 				$message = call_user_func($filter, $message);
 			}
 		}
-		
 		return $message;
-	}
-
-	/**
-	 * Loads the available locales into the instance variable
-	 *
-	 * @author     Dominik del Bondio <ddb@bitxtender.com>
-	 * @since      0.11.0
-	 */
-	protected function loadAvailableLocales()
-	{
-		$this->availableLocales = $this->availableConfigLocales;
-	}
-
-	/**
-	 * Lazy loads the current locale if necessary.
-	 *
-	 * @author     Dominik del Bondio <ddb@bitxtender.com>
-	 * @since      0.11.0
-	 */
-	protected function loadCurrentLocale()
-	{
-		if(!$this->currentLocale || $this->currentLocale->getIdentifier() != $this->givenLocaleIdentifier) {
-			$this->currentLocale = $this->getLocale($this->givenLocaleIdentifier);
-			// we first need to initialize all message translators before the number formatters
-			foreach($this->translators as $translatorList) {
-				foreach($translatorList as $type => $translator) {
-					if($type == self::MESSAGE) {
-						$translator->localeChanged($this->currentLocale);
-					}
-				}
-			}
-			foreach($this->translators as $translatorList) {
-				foreach($translatorList as $type => $translator) {
-					if($type != self::MESSAGE) {
-						$translator->localeChanged($this->currentLocale);
-					}
-				}
-			}
-		}
-	}
-
-	/**
-	 * Loads the supplemental data into the instance variable
-	 *
-	 * @author     Dominik del Bondio <ddb@bitxtender.com>
-	 * @since      0.11.0
-	 */
-	protected function loadSupplementalData()
-	{
-		$useApcu = (defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE && function_exists('apcu_fetch'));
-		$apcuKey = $useApcu ? 'agavi_i18n_supplemental' : null;
-		if($apcuKey) {
-			$data = apcu_fetch($apcuKey, $hit);
-			if($hit) {
-				$this->supplementalData = $data;
-				return;
-			}
-		}
-		$path = AgaviConfig::get('core.cldr_dir') . '/supplementalData.xml';
-		if($useApcu) {
-			$this->supplementalData = include(AgaviAPCuConfigCache::checkConfig($path));
-			apcu_store($apcuKey, $this->supplementalData, 0);
-		} else {
-			$this->supplementalData = include(AgaviConfigCache::checkConfig($path));
-		}
-	}
-
-	/**
-	 * Loads the time zone data.
-	 *
-	 * @author     Dominik del Bondio <ddb@bitxtender.com>
-	 * @since      0.11.0
-	 */
-	protected function loadTimeZoneData()
-	{
-		$useApcu = (defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE && function_exists('apcu_fetch'));
-		if($useApcu) {
-			$apcuKey = 'agavi_i18n_tzlist';
-			$list = apcu_fetch($apcuKey, $hit);
-			if($hit) {
-				$this->timeZoneList = $list;
-				return;
-			}
-		}
-		$this->timeZoneList = include(AgaviConfig::get('core.cldr_dir') . '/timezones/zonelist.php');
-		if(!empty($apcuKey)) {
-			apcu_store($apcuKey, $this->timeZoneList, 0);
-		}
 	}
 
 	/**
@@ -745,20 +683,35 @@ class AgaviTranslationManager implements ResetInterface
 	 */
 	public function getLocale($identifier, $forceNew = false)
 	{
-		// enable shortcut notation to only set options to the current locale
-		if($identifier[0] == '@' && $this->currentLocaleIdentifier) {
-			$idData = AgaviLocale::parseLocaleIdentifier($this->currentLocaleIdentifier);
-			$identifier = $idData['locale_str'] . $identifier;
+		if(!is_string($identifier) || $identifier === '') {
+			throw new AgaviException('Invalid locale identifier specified');
+		}
 
+		// Support option-only shortcut syntax starting with '@'.
+		// Historical behavior required a current locale. For improved ergonomics,
+		// if no current locale exists yet we fall back to the default locale identifier
+		// (if defined) so calls like getLocale('@timezone=America/New_York') work
+		// early during bootstrap and in isolated tests.
+		if($identifier[0] === '@') {
+			if($this->currentLocaleIdentifier) {
+				$baseIdentifier = $this->currentLocaleIdentifier;
+			} else {
+				$baseIdentifier = $this->defaultLocaleIdentifier ?? null;
+				if(!$baseIdentifier) {
+					throw new AgaviException('Invalid locale identifier (' . $identifier . ') specified');
+				}
+			}
+			$idData = AgaviLocale::parseLocaleIdentifier($baseIdentifier);
+			$identifier = $idData['locale_str'] . $identifier; // append options
 			$newIdData = AgaviLocale::parseLocaleIdentifier($identifier);
 			$idData['options'] = array_merge($idData['options'], $newIdData['options']);
 		} else {
 			$idData = AgaviLocale::parseLocaleIdentifier($identifier);
 		}
-		// this doesn't care about the options
-		$availableLocale = $this->availableLocales[$this->getLocaleIdentifier($identifier)];
 
-		// if the user wants all options reset he supplies an 'empty' option set (identifier ends with @)
+		$availableLocaleIdentifier = $this->getLocaleIdentifier($identifier);
+		$availableLocale = $this->availableLocales[$availableLocaleIdentifier];
+
 		if(str_ends_with((string) $identifier, '@')) {
 			$idData['options'] = [];
 		} else {
@@ -775,72 +728,26 @@ class AgaviTranslationManager implements ResetInterface
 			return $this->localeCache[$identifier];
 		}
 
-		if(!isset($this->localeDataCache[$idData['locale_str']])) {
-			$lookupPath = AgaviLocale::getLookupPath($availableLocale['identifierData']);
-			$cldrDir = AgaviConfig::get('core.cldr_dir');
-			$data = null;
-
-			foreach($lookupPath as $localeName) {
-				$fileName = $cldrDir . '/locales/' . $localeName . '.xml';
-				if(is_readable($fileName)) {
-					if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
-						$data = include(AgaviAPCuConfigCache::checkConfig($fileName));
-					} else {
-						$data = include(AgaviConfigCache::checkConfig($fileName));
-					}
-					break;
-				}
+		$data = ['locale' => []];
+		foreach(['language','script','territory','variant'] as $k) {
+			if(isset($availableLocale['identifierData'][$k]) && $availableLocale['identifierData'][$k] !== '') {
+				$data['locale'][$k] = $availableLocale['identifierData'][$k];
 			}
-			if($data === null) {
-				throw new AgaviException('No data available for locale ' . $identifier);
-			}
-
-			if($availableLocale['identifierData']['territory']) {
-				$territory = $availableLocale['identifierData']['territory'];
-				if(isset($this->supplementalData['territories'][$territory]['currencies'])) {
-					$slice = array_slice($this->supplementalData['territories'][$territory]['currencies'], 0, 1);
-					$currency = current($slice);
-					$data['locale']['currency'] = $currency['currency'];
-				}
-			}
-
-			$useApcu = (defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE && function_exists('apcu_fetch'));
-			$apcuDataKey = $useApcu ? 'agavi_i18n_locale_data_' . md5($idData['locale_str']) : null;
-			if($apcuDataKey) {
-				$locData = apcu_fetch($apcuDataKey, $hit);
-				if($hit) {
-					$this->localeDataCache[$idData['locale_str']] = $locData;
-					goto locale_data_ready;
-				}
-			}
-			$this->localeDataCache[$idData['locale_str']] = $data;
-			if($apcuDataKey) {
-				apcu_store($apcuDataKey, $data, 0);
-			}
-			locale_data_ready:
 		}
-
-		$data = $this->localeDataCache[$idData['locale_str']];
-
-		if(isset($idData['options']['calendar'])) {
-			$data['locale']['calendar'] = $idData['options']['calendar'];
-		}
-
-		if(isset($idData['options']['currency'])) {
-			$data['locale']['currency'] = $idData['options']['currency'];
-		}
-
-		if(isset($idData['options']['timezone'])) {
-			$data['locale']['timezone'] = $idData['options']['timezone'];
+		foreach(['calendar','currency','timezone'] as $opt) {
+			if(isset($idData['options'][$opt]) && $idData['options'][$opt] !== '') {
+				$data['locale'][$opt] = $idData['options'][$opt];
+			}
 		}
 
 		$locale = new AgaviLocale();
 		$locale->initialize($this->context, $availableLocale['parameters'], $identifier, $data);
-
+		// Remember the last fully resolved locale identifier (including options)
+		// so subsequent '@timezone=...' shortcut calls have a base.
+		$this->currentLocaleIdentifier = $availableLocale['identifierData']['locale_str'];
 		if(!$forceNew) {
 			$this->localeCache[$identifier] = $locale;
 		}
-
 		return $locale;
 	}
 
@@ -854,7 +761,11 @@ class AgaviTranslationManager implements ResetInterface
 	 */
 	public function setDefaultTimeZone($id)
 	{
-		$this->defaultTimeZone = $id;
+		if($id instanceof \DateTimeZone) {
+			$this->defaultTimeZone = $id->getName();
+		} else {
+			$this->defaultTimeZone = $id;
+		}
 	}
 
 	/**
@@ -899,13 +810,38 @@ class AgaviTranslationManager implements ResetInterface
 	 */
 	public function getTimeZoneTerritory($id, &$hasMultipleZones = false)
 	{
-		if(isset($this->supplementalData['timezones']['territories'][$id])) {
-			$territory = $this->supplementalData['timezones']['territories'][$id];
-			$hasMultipleZones = isset($this->supplementalData['timezones']['multiZones'][$territory]);
-			return $territory;
+		$hasMultipleZones = false;
+		if(!is_string($id) || $id === '') {
+			return null;
 		}
-
-		return null;
+		$resolved = $this->resolveTimeZoneId($id);
+		if($resolved === null) {
+			return null;
+		}
+		if(isset($this->timeZoneTerritoryCache[$resolved])) {
+			$cached = $this->timeZoneTerritoryCache[$resolved];
+			$hasMultipleZones = $cached['hasMultiple'];
+			return $cached['territory'];
+		}
+		$territory = null;
+		try {
+			$territory = \IntlTimeZone::getRegion($resolved);
+			if(!is_string($territory) || $territory === '') {
+				$territory = null;
+			}
+		} catch(\Throwable) {
+			$territory = null;
+		}
+		if($territory !== null) {
+			try {
+				$zones = \DateTimeZone::listIdentifiers(\DateTimeZone::PER_COUNTRY, $territory);
+				if(is_array($zones) && count($zones) > 1) {
+					$hasMultipleZones = true;
+				}
+			} catch(\Throwable) {}
+		}
+		$this->timeZoneTerritoryCache[$resolved] = ['territory' => $territory, 'hasMultiple' => $hasMultipleZones];
+		return $territory;
 	}
 	
 	/**
@@ -925,13 +861,24 @@ class AgaviTranslationManager implements ResetInterface
 	 */
 	public function resolveTimeZoneId($id)
 	{
-		if(isset($this->timeZoneList[$id])) {
-			while($this->timeZoneList[$id]['type'] == 'link') {
-				$id = $this->timeZoneList[$id]['to'];
-			}
+		if($id instanceof \DateTimeZone) {
+			$id = $id->getName();
 		}
-		
-		return $id;
+		if(!is_string($id) || $id === '') {
+			return null;
+		}
+		if(isset($this->canonicalTimeZoneCache[$id])) {
+			return $this->canonicalTimeZoneCache[$id];
+		}
+		$normalized = $this->normalizeOffsetTimeZoneId($id);
+		$candidate = $normalized ?: $id;
+		try {
+			$canonical = \IntlTimeZone::getCanonicalID($candidate, $isSystemId);
+			if(is_string($canonical) && $canonical !== '') {
+				return $this->canonicalTimeZoneCache[$id] = $canonical;
+			}
+		} catch(\Throwable) {}
+		return $this->canonicalTimeZoneCache[$id] = $candidate;
 	}
 	
 
@@ -951,134 +898,41 @@ class AgaviTranslationManager implements ResetInterface
 	 */
 	public function createTimeZone($id, $cache = true)
 	{
-		if(!isset($this->timeZoneList[$id])) {
+		if($id instanceof \DateTimeZone) {
+			return $id;
+		}
+		if(!is_string($id) || $id === '') {
+			return null;
+		}
+		if($cache && isset($this->timeZoneCache[$id])) {
+			return $this->timeZoneCache[$id];
+		}
+		$candidates = [];
+		$resolved = $this->resolveTimeZoneId($id);
+		if($resolved) { $candidates[] = $resolved; }
+		$normalized = $this->normalizeOffsetTimeZoneId($id);
+		if($normalized) { $candidates[] = $normalized; }
+		$candidates[] = $id;
+		foreach(array_unique($candidates) as $candidate) {
 			try {
-				return DateAgaviTimeZone::createCustomTimeZone($this, $id);
-			} catch(\Exception) {
-				return null;
-			}
+				$tz = new \DateTimeZone($candidate);
+				if($cache) { $this->timeZoneCache[$id] = $tz; }
+				return $tz;
+			} catch(\Throwable) {}
 		}
-
-		if(!isset($this->timeZoneCache[$id]) || !$cache) {
-			$currId = $id;
-
-			// resolve links
-			while($this->timeZoneList[$currId]['type'] == 'link') {
-				$currId = $this->timeZoneList[$currId]['to'];
-			}
-
-			$zoneData = include(AgaviConfig::get('core.cldr_dir') . '/timezones/' . $this->timeZoneList[$currId]['filename']);
-
-			$zone = new AgaviOlsonTimeZone($this, $id, $zoneData);
-			$zone->setResolvedId($currId);
-			if($cache) {
-				$this->timeZoneCache[$id] = $zone;
-			}
-		} else {
-			$zone = $this->timeZoneCache[$id];
-		}
-
-		return $zone; 
+		return null;
 	}
 
-	/**
-	 * Creates a new calendar instance with the current time set.
-	 *
-	 * @param      mixed This can be either an AgaviLocale, an AgaviTimeZone or
-	 *                   a string specifying the calendar type.
-	 *
-	 * @return     AgaviCalendar The current timezone instance.
-	 *
-	 * @author     Dominik del Bondio <ddb@bitxtender.com>
-	 * @since      0.11.0
-	 */
-	public function createCalendar($type = null)
+	private function normalizeOffsetTimeZoneId(string $id): ?string
 	{
-		$locale = $this->getCurrentLocale();
-		$calendarType = null;
-		$zone = null;
-		$time = null;
-		if($type instanceof AgaviLocale) {
-			$locale = $type;
-		} elseif($type instanceof AgaviTimeZone) {
-			$zone = $type;
-		} elseif($type instanceof \DateTime) {
-			$time = $type;
-		} elseif(is_int($type)) {
-			$time = $type * AgaviDateDefinitions::MILLIS_PER_SECOND;
-		} elseif($type !== null) {
-			$calendarType = $type;
+		if(preg_match('/^(?:GMT|UTC)?([+-])(\d{1,2})(?::?(\d{2}))?$/i', $id, $m)) {
+			$h = str_pad($m[2], 2, '0', STR_PAD_LEFT);
+			$min = str_pad($m[3] ?? '00', 2, '0', STR_PAD_LEFT);
+			return 'GMT' . $m[1] . $h . ':' . $min;
 		}
-		if($time === null) {
-			$time = AgaviCalendar::getNow();
-		}
-
-		if(!$zone) {
-			if($locale->getLocaleTimeZone()) {
-				$zone = $this->createTimeZone($locale->getLocaleTimeZone());
-			}
-		}
-
-		if(!$calendarType) {
-			$calendarType = $locale->getLocaleCalendar();
-			if(!$calendarType) {
-				$calendarType = AgaviCalendar::GREGORIAN;
-			}
-		}
-
-		$c = match ($calendarType) {
-            AgaviCalendar::GREGORIAN => new AgaviGregorianCalendar($this /* $locale */),
-            default => throw new AgaviException('Calendar type ' . $calendarType . ' not supported'),
-        };
-
-		// Now, reset calendar to default state:
-		if($zone) {
-			$c->setTimeZone($zone);
-		}
-
-		if($time instanceof DateTime) {
-			// FIXME: we can't use $time->getTimezone()->getName() here since that triggers
-			// https://github.com/facebook/hhvm/issues/1777 but luckily using format('e')
-			// works for both php and hhvm
-			$tzName = $time->format('e');
-
-			if(preg_match('/^[+-0-9]/', $tzName)) {
-				$tzName = 'GMT' . $tzName;
-			}
-			$c->setTimeZone($this->createTimeZone($tzName));
-			$dateStr = $time->format('Y z G i s');
-			[$year, $doy, $hour, $minute, $second] = explode(' ', $dateStr);
-			$c->set(AgaviDateDefinitions::YEAR, $year);
-			$c->set(AgaviDateDefinitions::DAY_OF_YEAR, $doy + 1);
-			$c->set(AgaviDateDefinitions::HOUR_OF_DAY, $hour);
-			$c->set(AgaviDateDefinitions::MINUTE, $minute);
-			$c->set(AgaviDateDefinitions::SECOND, $second);
-
-			// complete the calendar
-			$c->getAll();
-		} else {
-			$c->setTime($time); // let the new calendar have the current time.
-		}
-
-		return $c;
+		return null;
 	}
-	
-	/**
-	 * Creates a new date format instance with the given format.
-	 *
-	 * @param      string The date format.
-	 *
-	 * @return     AgaviDateFormat The dateformat instance.
-	 *
-	 * @author     Dominik del Bondio <dominik.del.bondio@bitextender.com>
-	 * @since      0.11.0
-	 */
-	public function createDateFormat($format)
-	{
-		$dateFormat = new AgaviDateFormat($format);
-		$dateFormat->initialize($this->getContext());
-		return $dateFormat;
-	}
+
 	
 
 	/**
@@ -1094,10 +948,20 @@ class AgaviTranslationManager implements ResetInterface
 	 */
 	public function getTerritoryData($country)
 	{
-		if(!isset($this->supplementalData['territories'][$country])) {
-			return [];
-		}
-		return $this->supplementalData['territories'][$country];
+		if(!is_string($country) || $country === '') { return []; }
+		$country = strtoupper($country);
+		if(isset($this->territoryDataCache[$country])) { return $this->territoryDataCache[$country]; }
+		$data = [];
+		try {
+			$cal = \IntlCalendar::createInstance(null, 'und_' . $country);
+			if($cal instanceof \IntlCalendar) {
+				$fd = $cal->getFirstDayOfWeek();
+				$md = $cal->getMinimalDaysInFirstWeek();
+				if(is_int($fd) && $fd > 0) { $data['week']['firstDay'] = $fd; }
+				if(is_int($md) && $md > 0) { $data['week']['minDays'] = $md; }
+			}
+		} catch(\Throwable) {}
+		return $this->territoryDataCache[$country] = $data;
 	}
 
 	/**
@@ -1112,19 +976,32 @@ class AgaviTranslationManager implements ResetInterface
 	 */
 	public function getCurrencyFraction($currency)
 	{
-		if(!isset($this->supplementalData['fractions'][$currency])) {
-			return $this->supplementalData['fractions']['DEFAULT'];
-		}
-		return $this->supplementalData['fractions'][$currency];
+		$currency = strtoupper((string) $currency);
+		if($currency === '') { return ['digits' => 2, 'rounding' => 0]; }
+		if(isset($this->currencyFractionCache[$currency])) { return $this->currencyFractionCache[$currency]; }
+		$digits = 2; $rounding = 0;
+		$localeIdentifier = $this->currentLocaleIdentifier ?? $this->defaultLocaleIdentifier ?? 'en_US';
+		try {
+			$fmt = new \NumberFormatter($localeIdentifier, \NumberFormatter::CURRENCY);
+			$fmt->setTextAttribute(\NumberFormatter::CURRENCY_CODE, $currency);
+			$fd = $fmt->getAttribute(\NumberFormatter::FRACTION_DIGITS);
+			if(is_numeric($fd) && $fd >= 0) { $digits = (int) $fd; }
+			$ri = $fmt->getAttribute(\NumberFormatter::ROUNDING_INCREMENT);
+			if(is_numeric($ri) && $ri > 0) { $rounding = (int) round($ri * pow(10, $digits)); }
+		} catch(\Throwable) {}
+		return $this->currencyFractionCache[$currency] = ['digits' => $digits, 'rounding' => $rounding];
 	}
 
 	public function reset(): void {
-		$this->localeDataCache = [];
 		$this->localeCache = [];
 		$this->localeIdentifierCache = [];
 		$this->currentLocale = null;
 		$this->currentLocaleIdentifier = null;
 		$this->givenLocaleIdentifier = null;
-
+		$this->timeZoneCache = [];
+		$this->timeZoneTerritoryCache = [];
+		$this->canonicalTimeZoneCache = [];
+		$this->currencyFractionCache = [];
+		$this->territoryDataCache = [];
 	}
 }

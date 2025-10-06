@@ -15,9 +15,10 @@
 namespace Agavi\Translation;
 
 use Agavi\AgaviContext;
-use Agavi\Date\AgaviCalendar;
 use Agavi\Exception\AgaviException;
 use Agavi\Util\AgaviParameterHolder;
+use Locale;
+use NumberFormatter;
 use Symfony\Contracts\Service\ResetInterface;
 
 /**
@@ -55,7 +56,7 @@ class AgaviLocale extends AgaviParameterHolder implements ResetInterface
 	 * Returns the locale option string containing the timezone option set 
 	 * to the timezone of this calendar.
 	 * 
-	 * @param      AgaviCalendar|DateTime|int The item to determine the timezone
+	* @param      \DateTimeInterface|\DateTimeZone|string|int The item to determine the timezone
 	 *                                        from
 	 * @param      string The prefix which will be applied to the timezone option
 	 *                    string. Use ';' here if you intend to use several 
@@ -71,17 +72,20 @@ class AgaviLocale extends AgaviParameterHolder implements ResetInterface
 	public static function getTimeZoneOptionString($item, $prefix = '@')
 	{
 		$tzId = '';
-		if($item instanceof AgaviCalendar) {
-			$tzId = $item->getTimeZone()->getResolvedId();
-		} elseif($item instanceof \DateTime) {
+		if($item instanceof \DateTimeInterface) {
 			$tzId = $item->getTimezone()->getName();
-			if(preg_match('/^[+-][0-9]+/', $tzId)) {
-				$tzId = 'GMT' . $tzId;
-			}
+		} elseif($item instanceof \DateTimeZone) {
+			$tzId = $item->getName();
+		} elseif(is_string($item) && $item !== '') {
+			$tzId = $item;
 		} elseif(is_int($item)) {
 			$tzId = 'UTC';
 		}
 		
+		if($tzId && preg_match('/^[+-][0-9:]+$/', $tzId)) {
+			$tzId = 'GMT' . $tzId;
+		}
+
 		if($tzId) {
 			return $prefix . 'timezone=' . $tzId;
 		} else {
@@ -140,37 +144,154 @@ class AgaviLocale extends AgaviParameterHolder implements ResetInterface
 
 	public function getLocaleLanguage()
 	{
-		return $this->data['locale']['language'] ?? null;
+		if(isset($this->data['locale']['language'])) {
+			return $this->data['locale']['language'];
+		}
+
+		if(class_exists(Locale::class)) {
+			try {
+				return Locale::getPrimaryLanguage($this->getBaseLocaleIdentifier()) ?: null;
+			} catch(\Throwable) {
+			}
+		}
+
+		return null;
 	}
 
 	public function getLocaleTerritory()
 	{
-		return $this->data['locale']['territory'] ?? null;
+		if(isset($this->data['locale']['territory'])) {
+			return $this->data['locale']['territory'];
+		}
+
+		if(class_exists(Locale::class)) {
+			try {
+				$region = Locale::getRegion($this->getBaseLocaleIdentifier());
+				return $region !== '' ? $region : null;
+			} catch(\Throwable) {
+			}
+		}
+
+		return null;
 	}
 
 	public function getLocaleScript()
 	{
-		return $this->data['locale']['script'] ?? null;
+		if(isset($this->data['locale']['script'])) {
+			return $this->data['locale']['script'];
+		}
+
+		if(class_exists(Locale::class)) {
+			try {
+				$script = Locale::getScript($this->getBaseLocaleIdentifier());
+				if($script === '') {
+					$parts = $this->getParsedLocaleParts();
+					$script = $parts['script'] ?? '';
+				}
+				return $script !== '' ? $script : null;
+			} catch(\Throwable) {
+			}
+		}
+
+		return null;
 	}
 
 	public function getLocaleVariant()
 	{
-		return $this->data['locale']['variant'] ?? null;
+		if(isset($this->data['locale']['variant'])) {
+			return $this->data['locale']['variant'];
+		}
+
+		if(class_exists(Locale::class)) {
+			try {
+				$parts = $this->getParsedLocaleParts();
+				$variants = [];
+				foreach($parts as $key => $value) {
+					if(str_starts_with((string) $key, 'variant') && is_string($value) && $value !== '') {
+						$variants[] = $value;
+					}
+				}
+				if($variants) {
+					return implode('_', $variants);
+				}
+			} catch(\Throwable) {
+			}
+		}
+
+		return null;
 	}
 
 	public function getLocaleCurrency()
 	{
-		return $this->data['locale']['currency'] ?? null;
+		if(isset($this->data['locale']['currency'])) {
+			return $this->data['locale']['currency'];
+		}
+		if(isset($this->data['locale']['currencyOverride'])) {
+			return $this->data['locale']['currencyOverride'];
+		}
+		if(isset($this->parameters['currency'])) {
+			return $this->parameters['currency'];
+		}
+
+		if(class_exists(NumberFormatter::class)) {
+			try {
+				$formatter = new NumberFormatter($this->getBaseLocaleIdentifier(), NumberFormatter::CURRENCY);
+				$code = $formatter->getTextAttribute(NumberFormatter::CURRENCY_CODE);
+				if(is_string($code) && $code !== '') {
+					return $code;
+				}
+			} catch(\Throwable) {
+			}
+		}
+
+		return null;
 	}
 
 	public function getLocaleCalendar()
 	{
-		return $this->data['locale']['calendar'] ?? $this->getDefaultCalendar();
+		if(isset($this->data['locale']['calendar'])) {
+			return $this->data['locale']['calendar'];
+		}
+		if(isset($this->parameters['calendar'])) {
+			return $this->parameters['calendar'];
+		}
+		return $this->getDefaultCalendar();
 	}
 
 	public function getLocaleTimeZone()
 	{
-		return $this->data['locale']['timezone'] ?? null;
+		if(isset($this->data['locale']['timezone'])) {
+			return $this->data['locale']['timezone'];
+		}
+		if(isset($this->parameters['timezone'])) {
+			return $this->parameters['timezone'];
+		}
+		return null;
+	}
+
+	private function getBaseLocaleIdentifier(): string
+	{
+		$identifier = (string) $this->identifier;
+		$pos = strpos($identifier, '@');
+		return $pos === false ? $identifier : substr($identifier, 0, $pos);
+	}
+
+	private function getParsedLocaleParts(): array
+	{
+		static $cache = [];
+		$key = $this->getBaseLocaleIdentifier();
+		if(!isset($cache[$key])) {
+			if(class_exists(Locale::class)) {
+				try {
+					$cache[$key] = Locale::parseLocale($key) ?: [];
+				} catch(\Throwable) {
+					$cache[$key] = [];
+				}
+			} else {
+				$cache[$key] = [];
+			}
+		}
+		return $cache[$key];
 	}
 
 	///////////////////////////// locale names //////////////////////////////////
@@ -690,36 +811,6 @@ class AgaviLocale extends AgaviParameterHolder implements ResetInterface
 		return $this->data['numbers']['currencyFormats'] ?? null;
 	}
 
-	public function getCurrencySpacingBeforeCurrencyCurrencyMatch()
-	{
-		return $this->data['numbers']['currencySpacing']['beforeCurrency']['currencyMatch'] ?? null;
-	}
-
-	public function getCurrencySpacingBeforeCurrencySurroundingMatch()
-	{
-		return $this->data['numbers']['currencySpacing']['beforeCurrency']['surroundingMatch'] ?? null;
-	}
-
-	public function getCurrencySpacingBeforeCurrencyInsertBetween()
-	{
-		return $this->data['numbers']['currencySpacing']['beforeCurrency']['insertBetween'] ?? null;
-	}
-
-	public function getCurrencySpacingAfterCurrencyCurrencyMatch()
-	{
-		return $this->data['numbers']['currencySpacing']['afterCurrency']['currencyMatch'] ?? null;
-	}
-
-	public function getCurrencySpacingAfterCurrencySurroundingMatch()
-	{
-		return $this->data['numbers']['currencySpacing']['afterCurrency']['surroundingMatch'] ?? null;
-	}
-
-	public function getCurrencySpacingAfterCurrencyInsertBetween()
-	{
-		return $this->data['numbers']['currencySpacing']['afterCurrency']['insertBetween'] ?? null;
-	}
-
 	public function getCurrencies()
 	{
 		return $this->data['numbers']['currencies'] ?? null;
@@ -784,10 +875,22 @@ class AgaviLocale extends AgaviParameterHolder implements ResetInterface
 			if(!empty($match['options'])) {
 				$localeData['option_str'] = '@' . $match['options'];
 
-				$options = explode(',', $match['options']);
+				// Historically Agavi locale option lists have appeared with either ',' or ';' as separators.
+				// The legacy regex+explode only supported commas, which caused values like
+				//   de_DE@timezone=Europe/Berlin;currency=EUR
+				// to be interpreted as a single option timezone=Europe/Berlin;currency=EUR.
+				// Accept both separators now for robustness and backward compatibility.
+				$options = preg_split('/[;,]/', $match['options']);
 				foreach($options as $option) {
+					$option = trim($option);
+					if($option === '') { continue; }
 					$optData = explode('=', $option, 2);
-					$localeData['options'][$optData[0]] = $optData[1];
+					if(count($optData) === 2) {
+						$localeData['options'][$optData[0]] = $optData[1];
+					} else {
+						// Flag option without value; treat as empty string
+						$localeData['options'][$optData[0]] = '';
+					}
 				}
 			}
 

@@ -35,7 +35,7 @@ class AgaviFilterConfigHandlerTest extends ConfigHandlerTestBase
 	protected function getContext()
 	{
 		// Disable translation system for this test suite while translation/i18n rewrite pending
-		AgaviConfig::set('core.use_translation', false, true, true);
+		AgaviConfig::set('core.use_translation', false, true);
 		$context = AgaviContext::getInstance('test');
 		return $context;
 	}

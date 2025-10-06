@@ -3,7 +3,8 @@ use Agavi\Testing\AgaviUnitTestCase;
 use Agavi\Execution\ViewResolver; // deprecated stub
 use Agavi\Execution\ViewNameResolver;
 use Agavi\Execution\ActionResolver;
-use Agavi\Request\AgaviRequestDataHolder;
+use Nyholm\Psr7\ServerRequest;
+use Psr\Http\Message\ServerRequestInterface;
 use Agavi\View\AgaviView;
 use Agavi\Util\AgaviToolkit;
 use Agavi\Action\AgaviAction;
@@ -47,23 +48,23 @@ class ViewAndActionResolverTest extends AgaviUnitTestCase
 
     public function testActionResolverSelectsSpecificMethod()
     {
-        $rd = new AgaviRequestDataHolder();
         $action = new class extends AgaviAction {
-            public function executePost(AgaviRequestDataHolder $rd){ return 'PostView'; }
-            public function execute(AgaviRequestDataHolder $rd){ return 'GenericView'; }
+            public function executePost(ServerRequestInterface $req){ return 'PostView'; }
+            public function execute(ServerRequestInterface $req){ return 'GenericView'; }
         };
+        $req = new ServerRequest('POST', '/');
         // need to initialize action with dummy container? Not required for method dispatch here.
-        $raw = $this->actionResolver->execute($action, 'Post', $rd);
+        $raw = $this->actionResolver->execute($action, 'Post', $req);
         $this->assertSame('PostView', $raw);
     }
 
     public function testActionResolverFallsBackToGeneric()
     {
-        $rd = new AgaviRequestDataHolder();
         $action = new class extends AgaviAction {
-            public function execute(AgaviRequestDataHolder $rd){ return 'GenericView'; }
+            public function execute(ServerRequestInterface $req){ return 'GenericView'; }
         };
-        $raw = $this->actionResolver->execute($action, 'Put', $rd);
+        $req = new ServerRequest('PUT', '/');
+        $raw = $this->actionResolver->execute($action, 'Put', $req);
         $this->assertSame('GenericView', $raw);
     }
 }

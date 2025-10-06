@@ -61,43 +61,6 @@ class AgaviConfigCacheTest extends AgaviPhpUnitTestCase
 		);
 	}
 	
-	public function testCheckConfig()
-	{
-		$this->markTestSkipped('autoload.xml functionality has been removed in favor of PSR-4 autoloading');
-		$config = AgaviConfig::get('core.config_dir').DIRECTORY_SEPARATOR.'autoload.xml';
-		$config = AgaviToolkit::normalizePath($config);
-		$expected = AgaviConfigCache::getCacheName($config);
-		if(file_exists($expected)) {
-			unlink($expected);
-		}
-		$cacheName = AgaviConfigCache::checkConfig($config);
-		$this->assertEquals($expected, $cacheName);
-		$this->assertFileExists($cacheName);
-	}
-	
-	public function testModified()
-	{
-		$this->markTestSkipped('autoload.xml functionality has been removed in favor of PSR-4 autoloading');
-		$config = AgaviConfig::get('core.config_dir').DIRECTORY_SEPARATOR.'autoload.xml';
-		$cacheName = AgaviConfigCache::getCacheName($config);
-		if(!file_exists($cacheName)) {
-			$cacheName = AgaviConfigCache::checkConfig($config);
-		}	
-		sleep(1);
-		touch($config);
-		clearstatcache(); // make shure we don't get fooled by the stat cache
-		$this->assertTrue(AgaviConfigCache::isModified($config, $cacheName), 'Failed asserting that the config file has been modified.');
-	}
-
-	public function testModifiedNonexistantFile()
-	{
-		$config = AgaviConfig::get('core.config_dir').DIRECTORY_SEPARATOR.'autoload.xml';
-		$cacheName = AgaviConfigCache::getCacheName($config);
-		if(file_exists($cacheName)) {
-			unlink($cacheName);
-		}	
-		$this->assertTrue(AgaviConfigCache::isModified($config, $cacheName), 'Failed asserting that the config file has been modified.');
-	}
 	
 	public function testWriteCacheFile()
 	{
@@ -171,10 +134,6 @@ class AgaviConfigCacheTest extends AgaviPhpUnitTestCase
 		$this->assertFalse($handlerFiles[$config], sprintf('Failed asserting that the config file "%1$s" has not been loaded.', $config));
 	}
 	
-	public function testCallHandlers()
-	{
-		$this->markTestSkipped('callHandlers requires a pristine pre-bootstrap environment; covered indirectly by checkConfig and handler info tests.');
-	}
 	
 	public function testSetupHandlers()
 	{	
@@ -254,8 +213,5 @@ class AgaviConfigCacheTest extends AgaviPhpUnitTestCase
 		$this->assertNotEquals(AgaviConfigCache::getCacheName($config1), AgaviConfigCache::getCacheName($config2));
 	}
 	
-	public function testTicket941()
-	{
-		$this->markTestSkipped('This test is for autoload.xml functionality which has been removed in favor of PSR-4 autoloading.');
-	}
+    // Removed obsolete autoload.xml and pre-bootstrap handler tests (PSR-4 migration)
 }

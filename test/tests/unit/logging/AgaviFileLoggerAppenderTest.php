@@ -5,7 +5,9 @@ use Agavi\Config\AgaviConfig;
 use Agavi\Logging\AgaviFileLoggerAppender;
 use Agavi\Logging\AgaviLoggerMessage;
 use Agavi\Logging\AgaviPassthruLoggerLayout;
+use PHPUnit\Framework\Attributes\RunClassInSeparateProcess;
 
+#[RunClassInSeparateProcess]
 class AgaviFileLoggerAppenderTest extends AgaviUnitTestCase
 {
 	private $_file, $_fa;

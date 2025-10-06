@@ -1,9 +1,10 @@
 <?php
 namespace Agavi\Execution;
+;
 
-use Agavi\Action\AgaviAction;
+use Agavi\Request\AgaviWebRequest;
 use Agavi\View\AgaviView;
-use Agavi\Request\AgaviRequestDataHolder;
+use Psr\Http\Message\ServerRequestInterface;
 
 /**
  * Lightweight DTO for container-less slot execution path.
@@ -16,7 +17,7 @@ class ActionExecutionContext
         public readonly string $module,
         public readonly string $actionName,
         public readonly string $outputType,
-        public readonly AgaviRequestDataHolder $requestData,
+        public readonly AgaviWebRequest $request,
     public readonly string $content,
     public readonly ?string $viewModuleName = null,
     public readonly ?string $viewName = null,

@@ -2,9 +2,9 @@
 namespace Sandbox\Modules\Method\Views;
 
 use Agavi\View\AgaviView;
-use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Request\AgaviWebRequest ;
 
 class NoValHttpGenericView extends AgaviView
 {
-    public function execute(AgaviRequestDataHolder $rd){ return '<v>NOVAL_GENERIC</v>'; }
+    public function execute(AgaviWebRequest $rd){ return '<v>NOVAL_GENERIC</v>'; }
 }

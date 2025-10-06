@@ -1,13 +1,13 @@
 <?php
 
+require_once __DIR__ . '/CacheMiddlewareTestTrait.php';
+
 use Agavi\Testing\AgaviUnitTestCase;
-use Agavi\Config\AgaviConfig;
-use Agavi\Cache\CacheManager;
 use Agavi\Cache\ActionViewCache;
+use Agavi\Cache\CacheManager;
 use Agavi\Middleware\DispatchMiddleware;
-use Agavi\Http\PsrServerRequestAdapter;
 use Nyholm\Psr7\Factory\Psr17Factory;
-use Nyholm\Psr7\Stream;
+use Nyholm\Psr7\ServerRequest;
 use Agavi\Execution\ExecutionState;
 use Agavi\Execution\ActionDescriptor;
 
@@ -17,16 +17,12 @@ use Agavi\Execution\ActionDescriptor;
  */
 class DispatchMiddlewareContextSimpleStaleCacheInvalidationTest extends AgaviUnitTestCase
 {
+    use CacheMiddlewareTestTrait;
+
     protected function setUp(): void
     {
         parent::setUp();
-        if(!AgaviConfig::get('core.cache_enabled', false)) {
-            $this->markTestSkipped('Global cache disabled via core.cache_enabled');
-        }
-        AgaviConfig::set('core.cache_dir', sys_get_temp_dir() . '/agavi_ctx_simple_cache_cache_test');
-        $dir = AgaviConfig::get('core.cache_dir');
-        if(!is_dir($dir)) { @mkdir($dir, 0777, true); }
-        CacheManager::reset();
+        $this->bootstrapCache('agavi_ctx_simple_cache_cache_test');
         putenv('AGAVI_DISPATCH_CONTEXT=1');
         putenv('AGAVI_DISPATCH_CONTEXT_SIMPLE=1');
         $this->getContext()->getController()->initializeModule('Cache');
@@ -51,22 +47,25 @@ class DispatchMiddlewareContextSimpleStaleCacheInvalidationTest extends AgaviUni
                 'viewName' => 'Success',
             ],
         ], null);
+        // Invalidate the action namespace to simulate the stale payload belonging to the prior generation.
+        CacheManager::invalidateAction('Cache', 'Cache');
         // Reset execCount to 0 (mimicking test suite fresh expectation)
         \Sandbox\Modules\Cache\Actions\CacheAction::$execCount = 0;
+    }
+
+    protected function tearDown(): void
+    {
+        putenv('AGAVI_DISPATCH_CONTEXT');
+        putenv('AGAVI_DISPATCH_CONTEXT_SIMPLE');
+        $this->restoreCache();
+        parent::tearDown();
     }
 
     private function buildPsr(): \Psr\Http\Message\ServerRequestInterface
     {
         $factory = new Psr17Factory();
-        $legacyReq = $this->getContext()->getRequest();
-        $psr = new PsrServerRequestAdapter(
-            $legacyReq,
-            $factory->createUri('http://localhost/cache'),
-            'GET',
-            Stream::create(''),
-            [], [], [], [], [], []
-        );
-        return $psr
+        return (new ServerRequest('GET', 'http://localhost/cache'))
+            ->withBody($factory->createStream(''))
             ->withAttribute('module','Cache')
             ->withAttribute('action','Cache')
             ->withAttribute('output_type','html')

@@ -2,7 +2,9 @@
 
 use Agavi\Testing\AgaviUnitTestCase;
 use Agavi\Execution\SlotRenderable;
-use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Execution\SlotStack;
+use Agavi\Request\AgaviWebRequest;
+use Nyholm\Psr7\ServerRequest;
 
 /**
  * Ensures layout slot population uses SlotRenderable (value object) when no-container flags enabled.
@@ -29,13 +31,15 @@ class LayoutSlotNoContainerTest extends AgaviUnitTestCase
     // Ensure Cache module/action available
     $controller->initializeModule('Cache');
     $controller->createActionInstance('Cache','CacheComplex');
-    $view = new class extends \Agavi\View\AgaviView { public function execute(AgaviRequestDataHolder $rd) { return null; } };
+    \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,false,false);
+    $view = new class extends \Agavi\View\AgaviView { public function execute(AgaviWebRequest $rd) { return null; } };
     $descriptor = \Agavi\Execution\ActionDescriptor::fromController($controller,'Cache','CacheComplex','GET', strtolower($controller->getOutputType()->getName()));
     $vic = new \Agavi\Execution\ImmutableViewInitContext($this->getContext(),'Cache','CacheComplexSuccess', strtolower($controller->getOutputType()->getName()), 'Cache','CacheComplex', [], $controller->getGlobalResponse());
     $view->initialize($vic);
     // Ensure context has a current PSR request
     if(!method_exists($this->getContext(), 'getCurrentPsrRequest') || !$this->getContext()->getCurrentPsrRequest()) {
-        $req = new \Nyholm\Psr7\ServerRequest('GET','http://localhost/layout-test');
+        $req = new ServerRequest('GET','http://localhost/layout-test');
+        $req = $req->withAttribute(SlotStack::class, new SlotStack());
         $refCtx = new \ReflectionClass($this->getContext());
         if($refCtx->hasProperty('currentPsrRequest')) {
             $p = $refCtx->getProperty('currentPsrRequest');

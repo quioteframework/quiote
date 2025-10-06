@@ -87,9 +87,19 @@ class AgaviPhpRenderer extends AgaviRenderer implements AgaviIReusableRenderer, 
 		
 		if($this->extractVars) {
 			extract($this->attributes, EXTR_REFS | EXTR_PREFIX_INVALID, '_');
-		} else {
-			${$this->varName} =& $this->attributes;
 		}
+
+		// Expose template attributes under $t (or configured varName).
+		// To avoid PHP 8 undefined array key warnings in legacy templates when
+		// accessing missing keys (e.g. $t['embeddedReports']), present $t
+		// as an ArrayAccess/Iterator wrapper that returns null for missing
+		// keys but still allows reads/writes to the underlying array.
+	// Expose the attributes array directly under the configured varName so
+	// templates access the real array and PHP will emit notices for
+	// undefined keys (crucial debugging info). Action and view
+	// attributes must already be merged into $this->attributes by the
+	// layer/view code; use a reference so writes in templates propagate.
+	${$this->varName} =& $this->attributes;
 		
 		${$this->slotsVarName} =& $this->slots; 
 		
@@ -99,13 +109,48 @@ class AgaviPhpRenderer extends AgaviRenderer implements AgaviIReusableRenderer, 
 		unset($name, $getter);
 		
 		extract($this->moreAssigns, EXTR_REFS | EXTR_PREFIX_INVALID, '_');
+		// Provide backwards-compatible template variables: ensure moduleName
+		// and actionName are present in the attributes array. These keys are
+		// expected by many Jakamo templates (available as $t['moduleName'] etc).
+		$layerParams = $this->layer ? $this->layer->getParameters() : [];
+		if (!isset($this->attributes['moduleName']) && isset($layerParams['module'])) {
+			$this->attributes['moduleName'] = $layerParams['module'];
+		}
+		if (!isset($this->attributes['actionName']) && isset($layerParams['template'])) {
+			$this->attributes['actionName'] = $layerParams['template'];
+		}
 		
+		$baseLevel = ob_get_level();
 		ob_start();
-		
-		require($this->layer->getResourceStreamIdentifier());
-		
-		$retval = ob_get_contents();
-		ob_end_clean();
+		$startedLevel = ob_get_level();
+
+		// Some layer implementations may return null to indicate "no template".
+		// Requiring an empty path causes a PHP warning/fatal: normalize that
+		// case to an empty render result to keep rendering soft-failure safe.
+		$resource = $this->layer->getResourceStreamIdentifier();
+		if ($resource === null || $resource === '') {
+			// nothing to render for this layer
+			$retval = '';
+			ob_end_clean();
+			unset($this->layer, $this->attributes, $this->slots, $this->moreAssigns);
+			return $retval;
+		}
+
+		// Make $inner available to legacy templates: templates expect $inner to
+		// contain the main content (combined layers/slots). Populate $inner from
+		// the attributes array if present to preserve backward compatibility.
+		$inner = null;
+		if (is_array($this->attributes) && array_key_exists('inner', $this->attributes)) {
+			$inner = $this->attributes['inner'];
+		}
+		try {
+			require($resource);
+			$retval = ob_get_clean();
+		} catch(\Throwable $e) {
+			// Unwind only buffers we opened
+			while(ob_get_level() >= $startedLevel && ob_get_level() > $baseLevel) { @ob_end_clean(); }
+			throw $e; // bubble up; ErrorHandlingMiddleware will format response
+		}
 		
 		unset($this->layer, $this->attributes, $this->slots, $this->moreAssigns);
 		

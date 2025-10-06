@@ -4,9 +4,8 @@ use Agavi\Testing\AgaviUnitTestCase;
 use Agavi\Config\AgaviConfig;
 use Agavi\Cache\CacheManager;
 use Agavi\Middleware\DispatchMiddleware;
-use Agavi\Http\PsrServerRequestAdapter;
 use Nyholm\Psr7\Factory\Psr17Factory;
-use Nyholm\Psr7\Stream;
+use Nyholm\Psr7\ServerRequest;
 use Agavi\Execution\ExecutionState;
 use Agavi\Execution\ActionDescriptor;
 use Agavi\View\AgaviView;
@@ -44,20 +43,14 @@ class DispatchMiddlewareContextNonSimpleTest extends AgaviUnitTestCase
 
     private function buildPsr(array $query = []): \Psr\Http\Message\ServerRequestInterface
     {
-        $factory = new Psr17Factory();
-        $legacyReq = $this->getContext()->getRequest();
-        $psr = new PsrServerRequestAdapter(
-            $legacyReq,
-            $factory->createUri('http://localhost/cache/complex'),
-            'GET',
-            Stream::create(''),
-            [], [], [], $query, [], []
-        );
-        return $psr
+        $controller = $this->getContext()->getController();
+        $descriptor = ActionDescriptor::fromController($controller,'Cache','CacheComplex','GET','html');
+        $req = (new ServerRequest('GET', 'http://localhost/cache/complex'))->withQueryParams($query);
+        return $req
             ->withAttribute('module','Cache')
             ->withAttribute('action','CacheComplex')
             ->withAttribute('output_type','html')
-            ->withAttribute(ActionDescriptor::class, ActionDescriptor::fromController($this->getContext()->getController(),'Cache','CacheComplex','GET','html'));
+            ->withAttribute(ActionDescriptor::class, $descriptor);
     }
 
     private function runMw(\Psr\Http\Message\ServerRequestInterface $psr, ExecutionState $state): string

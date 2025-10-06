@@ -17,7 +17,8 @@ namespace Agavi\Validator;
 use Agavi\AgaviContext;
 use Agavi\Exception\AgaviConfigurationException;
 use Agavi\Exception\AgaviValidatorException;
-use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Logging\AgaviDebugLogger;
+use Agavi\Request\AgaviWebRequest;
 use Agavi\Util\AgaviArrayPathDefinition;
 use Agavi\Util\AgaviParameterHolder;
 use Agavi\Util\AgaviToolkit;
@@ -120,7 +121,7 @@ abstract class AgaviValidator extends AgaviParameterHolder implements ResetInter
 	protected $name = null;
 
 	/**
-	 * @var        AgaviRequestDataHolder The parameters which should be validated
+	 * @var        AgaviWebRequest The parameters which should be validated
 	 *                                  in the current validation run.
 	 */
 	protected $validationParameters = null;
@@ -234,7 +235,7 @@ abstract class AgaviValidator extends AgaviParameterHolder implements ResetInter
 		}
 
 		if(!isset($parameters['source'])) {
-			$parameters['source'] = AgaviRequestDataHolder::SOURCE_PARAMETERS;
+			$parameters['source'] = "parameters";
 		}
 
 		$this->setParameters($parameters);
@@ -329,11 +330,31 @@ abstract class AgaviValidator extends AgaviParameterHolder implements ResetInter
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	protected function &getData($paramName)
+	protected function getData(?string $paramName)
 	{
 		$paramType = $this->getParameter('source');
-		$array =& $this->validationParameters->getAll($paramType);
-		return $this->curBase->getValueByChildPath($paramName, $array);
+		// NOTE: Parameters are fetched by value from PSR-7 request; mutation will not write back.
+		$array = $this->validationParameters->getParameters($paramType);
+		if ($paramName === '' || $paramName === null) {
+			// Empty argument: treat the current base path itself as the value (legacy Agavi semantics for <argument></argument> with base="Foo[]")
+			$value = $this->curBase->getValue($array, null);
+		} else {
+			$value = $this->curBase->getValueByChildPath($paramName, $array);
+		}
+		// Fallback: if source==parameters and value is still null, attempt direct runtime lookup
+		if ($value === null && $paramType === 'parameters') {
+			try {
+				// getParameters(null) returns runtime overlay + intrinsic; runtime wins.
+				$merged = $this->validationParameters->getParameters(null);
+				if (array_key_exists($paramName, $merged)) {
+					$value = $merged[$paramName];
+				}
+			} catch (\Throwable) {}
+		}
+		if (getenv('AGAVI_DEBUG_VALIDATION')) {
+			AgaviDebugLogger::debug('[AgaviValidator][getData][debug] name=' . $paramName . ' source=' . $paramType . ' resolved=' . var_export($value, true), $this->getContext());
+		}
+		return $value;
 	}
 
 	/**
@@ -424,8 +445,20 @@ abstract class AgaviValidator extends AgaviParameterHolder implements ResetInter
 		$result = true;
 
 		foreach($this->getArguments() as $argument) {
-			$pName = $this->curBase->pushRetNew($argument)->__toString();
-			if($this->validationParameters->isValueEmpty($paramType, $pName)) {
+			// Empty argument means current base element when using base paths (e.g. base="User[]" + <argument></argument>)
+			$pName = ($argument === '' ? $this->curBase->__toString() : $this->curBase->pushRetNew($argument)->__toString());
+			if (getenv('AGAVI_DEBUG_VALIDATION')) { AgaviDebugLogger::debug('[AgaviValidator][debug][checkAllArgumentsSet] validator=' . $this->getName() . ' argumentRaw=' . ($argument===''?'<empty>':$argument) . ' resolvedName=' . $pName, $this->getContext()); }
+			$empty = null;
+			if ($argument === '') {
+				// Directly inspect current base value out of the parameter tree because isValueEmpty() cannot resolve nested bracket paths for dynamic indices.
+				$array = $this->validationParameters->getParameters($paramType);
+				$baseValue = $this->curBase->getValue($array, null);
+				$empty = ($baseValue === null || $baseValue === '' || (is_array($baseValue) && count($baseValue) === 0));
+				if (getenv('AGAVI_DEBUG_VALIDATION')) { AgaviDebugLogger::debug('[AgaviValidator][debug][checkAllArgumentsSet] emptyArgBaseInspect base=' . $this->curBase->__toString() . ' empty=' . ($empty?'1':'0') . ' baseValueType=' . gettype($baseValue), $this->getContext()); }
+			} else {
+				$empty = $this->validationParameters->isValueEmpty($paramType, $pName);
+			}
+			if($empty) {
 				if($throwError && $isRequired) {
 					$this->throwError('required', $pName);
 				}
@@ -566,7 +599,7 @@ abstract class AgaviValidator extends AgaviParameterHolder implements ResetInter
 			$name = $argument;
 		}
 
-		$array =& $this->validationParameters->getAll($source);
+		$array = $this->validationParameters->getParameters($source);
 		$currentParts = $this->curBase->getParts();
 		
 		if(count($currentParts) > 0 && str_contains($name, '%')) {
@@ -581,6 +614,45 @@ abstract class AgaviValidator extends AgaviParameterHolder implements ResetInter
 		// that's why we decided to remove this again
 		$cp = new AgaviVirtualArrayPath($name);
 		$cp->setValue($array, $value);
+
+		// Persist export into request runtime parameters (post-migration fix):
+		// Extend: also materialize bracketed exports into a nested runtime structure so actions accessing $request->getParameter('User') receive array of exported values.
+		try {
+			if(method_exists($this->validationParameters, 'setParameter')) {
+				$flatName = $cp->__toString();
+				if(strpos($flatName, '[') === false) {
+					$this->validationParameters->setParameter($flatName, $value);
+					if (getenv('AGAVI_DEBUG_VALIDATION')) { AgaviDebugLogger::debug('[AgaviValidator][export][debug] stored simple name=' . $flatName . ' type=' . (is_object($value)?get_class($value):gettype($value)), $this->getContext()); }
+				} else {
+					// Parse root and indices: e.g. User[0] => root=User, indices=[0]
+					$root = substr($flatName, 0, strpos($flatName, '['));
+					$indicesPart = substr($flatName, strlen($root));
+					if($root !== '') {
+						$indices = [];
+						if(preg_match_all('/\[(.*?)\]/', $indicesPart, $m)) {
+							foreach($m[1] as $seg) { $indices[] = $seg; }
+						}
+						// Build nested array reference in runtime parameters
+						$runtime = $this->validationParameters->getParameters('runtime');
+						if(!isset($runtime[$root]) || !is_array($runtime[$root])) { $runtime[$root] = []; }
+						$ref =& $runtime[$root];
+						if(count($indices) > 0) {
+							$lastIndex = array_pop($indices);
+							foreach($indices as $idx) {
+								if($idx === '') { $ref[] = []; end($ref); $idx = key($ref); }
+								if(!isset($ref[$idx]) || !is_array($ref[$idx])) { $ref[$idx] = []; }
+								$ref =& $ref[$idx];
+							}
+							if($lastIndex === '') { $ref[] = $value; }
+							else { $ref[$lastIndex] = $value; }
+						}
+						// Write back updated root array into runtime parameters
+						$this->validationParameters->setParameter($root, $runtime[$root]);
+						if (getenv('AGAVI_DEBUG_VALIDATION')) { AgaviDebugLogger::debug('[AgaviValidator][export][debug] stored bracketed root=' . $root . ' flat=' . $flatName, $this->getContext()); }
+					}
+				}
+			}
+		} catch(\Throwable) {}
 		if($this->parentContainer !== null) {
 			// make sure the parameter doesn't get removed by the validation manager
 			if(is_array($value)) {
@@ -611,6 +683,12 @@ abstract class AgaviValidator extends AgaviParameterHolder implements ResetInter
 		$base = clone $base;
 		if($base->length() == 0) {
 			// we have an empty base so we do the actual validation
+			if (getenv('AGAVI_DEBUG_VALIDATION')) {
+				$argList = $this->getArguments();
+				$argExport = [];
+				foreach($argList as $a){ $argExport[] = $a === '' ? "<empty>" : $a; }
+				AgaviDebugLogger::debug('[AgaviValidator][debug][pre-validate] name=' . $this->getName() . ' curBase=' . ($this->curBase?->__toString() ?? '') . ' args=' . implode(',', $argExport), $this->getContext());
+			}
 			if($this->getDependencyManager() && (count($this->getParameter('depends')) > 0 && !$this->getDependencyManager()->checkDependencies($this->getParameter('depends'), $this->curBase))) {
 				// dependencies not met, exit with success
 				return self::NOT_PROCESSED;
@@ -721,16 +799,16 @@ abstract class AgaviValidator extends AgaviParameterHolder implements ResetInter
 	/**
 	 * Executes the validator.
 	 *
-	 * @param      AgaviRequestDataHolder The data which should be validated.
+	 * @param      AgaviWebRequest The data which should be validated.
 	 *
 	 * @return     int The validation result (see severity constants).
 	 *
 	 * @author     Uwe Mesecke <uwe@mesecke.net>
 	 * @since      0.11.0
 	 */
-	public function execute(AgaviRequestDataHolder $parameters)
+	public function execute(AgaviWebRequest $parameters)
 	{
-		if($this->getParameter('source') != AgaviRequestDataHolder::SOURCE_PARAMETERS && !in_array($this->getParameter('source'), $parameters->getSourceNames())) {
+		if($this->getParameter('source') != "parameters" && !in_array($this->getParameter('source'), ["parameters", "files", "headers", "cookies"])) {
 			throw new AgaviConfigurationException('Unknown source "' . $this->getParameter('source') . '" specified in validator ' . $this->getName());
 		}
 
@@ -789,8 +867,11 @@ abstract class AgaviValidator extends AgaviParameterHolder implements ResetInter
 	{
 		$paramType = $this->getParameter('source');
 
-		$array = $this->validationParameters->getAll($paramType);
+		$array = $this->validationParameters->getParameters($paramType);
 		$names = $this->curBase->getValue($array, []);
+		if (getenv('AGAVI_DEBUG_VALIDATION')) {
+			AgaviDebugLogger::debug('[AgaviValidator][debug][getKeysInCurrentBase] base=' . $this->curBase->__toString() . ' keys=' . (is_array($names)?implode(',', array_keys($names)):'<non-array>'), $this->getContext());
+		}
 
 		return is_array($names) ? array_keys($names) : [];
 	}

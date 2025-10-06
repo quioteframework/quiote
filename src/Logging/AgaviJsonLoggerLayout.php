@@ -30,7 +30,6 @@ namespace Agavi\Logging;
  * @package    agavi
  * @subpackage logging
  *
- * @author     David Zülke <david.zuelke@bitextender.com>
  * @copyright  Authors
  * @copyright  The Agavi Project
  *
@@ -47,7 +46,6 @@ class AgaviJsonLoggerLayout extends AgaviLoggerLayout
 	 *
 	 * @return     string The AgaviLoggerMessage object as a JSON-encoded string.
 	 *
-	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.4
 	 */
 	public function format(AgaviLoggerMessage $message)

@@ -45,6 +45,14 @@ abstract class AgaviFragmentTestCase extends AgaviPhpUnitTestCase implements Aga
 	 * @var        string the name of the context to use, null for default context
 	 */
 	protected $contextName = null;
+
+	/**
+	 * @var string cached request method set by tests (read/write etc). Defaults to 'read'.
+	 * Legacy tests previously stored this on the execution container. Since the container
+	 * has been removed for the canonical-request refactor we keep the value here and feed
+	 * it into the lightweight init context used for action initialization.
+	 */
+	protected $requestMethod = 'read';
 	
 	/**
 	 * @var        string the name of the action to test
@@ -78,8 +86,8 @@ abstract class AgaviFragmentTestCase extends AgaviPhpUnitTestCase implements Aga
 	public function setUp(): void
 	{
 		parent::setUp();
-		// Container removed; keep placeholder for legacy initialization expectations.
-		$this->container = null;
+		// Provide lightweight shim container to satisfy legacy attribute & validation assertions.
+		$this->container = new LightweightTestContainer();
 	}
 	
 	
@@ -93,7 +101,7 @@ abstract class AgaviFragmentTestCase extends AgaviPhpUnitTestCase implements Aga
 	 */
 	public function tearDown(): void
 	{
-		$this->container = null;
+		$this->container = null; // allow GC
 		parent::tearDown();
 	}
 	
@@ -180,9 +188,31 @@ abstract class AgaviFragmentTestCase extends AgaviPhpUnitTestCase implements Aga
 	protected function createActionInstance()
 	{
 		$actionInstance = $this->getContext()->getController()->createActionInstance($this->moduleName, $this->actionName);
-		// Initialize with lightweight init context instead of container
-		$rd = $this->createRequestDataHolder([AgaviRequestDataHolder::SOURCE_PARAMETERS => []]);
-		$lw = new \Agavi\Execution\LightweightActionInitContext($this->getContext(), $this->moduleName, $this->actionName, strtoupper($requestMethod ?? 'GET'), strtolower($outputType ?? 'html'), $rd, $this->getContext()->getController()->getGlobalResponse());
+		// Initialize with lightweight init context instead of legacy execution container.
+		// Use the request method captured via setRequestMethod (default 'read'). Map Agavi style
+		// semantic verbs (read/write/delete) onto HTTP verbs heuristically so downstream code
+		// expecting HTTP-like method strings keeps functioning.
+		$methodMap = [
+			'read' => 'GET',
+			'write' => 'POST',
+			'delete' => 'DELETE',
+			'update' => 'PUT',
+		];
+		$semantic = strtolower($this->requestMethod ?? 'read');
+		$httpMethod = $methodMap[$semantic] ?? strtoupper($semantic);
+		// Use the canonical AgaviWebRequest (PSR-7) rather than a RequestDataHolder – the init context
+		// now expects a ServerRequestInterface. This preserves single-request invariant for tests.
+		/** @var \Psr\Http\Message\ServerRequestInterface $canonicalRequest */
+		$canonicalRequest = $this->getContext()->getRequest();
+		$lw = new \Agavi\Execution\LightweightActionInitContext(
+			$this->getContext(),
+			$this->moduleName,
+			$this->actionName,
+			$httpMethod,
+			'html',
+			$canonicalRequest,
+			$this->getContext()->getController()->getGlobalResponse()
+		);
 		$actionInstance->initialize($lw);
 		return $actionInstance;
 	}
@@ -294,7 +324,11 @@ abstract class AgaviFragmentTestCase extends AgaviPhpUnitTestCase implements Aga
 	 */
 	protected function setRequestMethod($method)
 	{
-		$this->container->setRequestMethod($method);
+		// Container has been removed in refactor; keep value locally for createActionInstance().
+		$this->requestMethod = $method;
+		if($this->container) { // backward compatibility: if a test later introduces a shim container
+			try { $this->container->setRequestMethod($method); } catch(\Throwable) { /* ignore */ }
+		}
 	}
 
 	/**
@@ -448,6 +482,21 @@ abstract class AgaviFragmentTestCase extends AgaviPhpUnitTestCase implements Aga
 			$property = $reflection->getProperty('singletonModelInstances');
 			$property->setAccessible(true);
 			$property->setValue($context, []);
+		}
+	}
+
+	/**
+	 * Helper: apply runtime parameters directly to canonical AgaviWebRequest (replaces deprecated DataHolder usage).
+	 */
+	protected function applyRequestParameters(array $parameters, bool $clearFirst = false): void
+	{
+		try { $req = $this->getContext()->getRequest(); } catch(\Throwable) { $req = null; }
+		if (!$req) { return; }
+		if ($clearFirst && method_exists($req, 'clearParameters')) {
+			$req->clearParameters();
+		}
+		foreach ($parameters as $k => $v) {
+			if (method_exists($req, 'setParameter')) { $req->setParameter($k, $v); }
 		}
 	}
 }

@@ -19,7 +19,6 @@ use Agavi\Config\AgaviConfig;
 use Agavi\Exception\AgaviException;
 use Agavi\Exception\AgaviParseException;
 use Agavi\Logging\AgaviLogger;
-use Agavi\Request\AgaviRequestDataHolder;
 use Agavi\Request\AgaviWebRequestDataHolder;
 use Agavi\Util\AgaviParameterHolder;
 use Agavi\Util\AgaviToolkit;
@@ -449,8 +448,7 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 				$argument = new AgaviValidationArgument(
 					$pname,
 					($element->nodeName == 'input' && $element->getAttribute('type') == 'file')
-						? AgaviWebRequestDataHolder::SOURCE_FILES
-						: AgaviRequestDataHolder::SOURCE_PARAMETERS
+						? "files" : "parameters"
 				);
 				
 				// there's an error with the element's name in the request? good. let's give the baby a class!
@@ -501,7 +499,7 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 							$incidentArgumentCount = 0;
 							$incidentArguments = $incident->getArguments();
 							foreach($incidentArguments as $incidentArgument) {
-								if(in_array($incidentArgument->getSource(), [AgaviWebRequestDataHolder::SOURCE_FILES, AgaviRequestDataHolder::SOURCE_PARAMETERS])) {
+								if(in_array($incidentArgument->getSource(), ["files", "parameters"])) {
 									$incidentArgumentCount++;
 								}
 							}

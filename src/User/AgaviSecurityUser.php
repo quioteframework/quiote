@@ -16,6 +16,7 @@
 namespace Agavi\User;
 
 use Agavi\AgaviContext;
+use Agavi\Logging\AgaviDebugLogger;
 use Symfony\Contracts\Service\ResetInterface;
 
 /**
@@ -57,6 +58,13 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser, ResetIn
 	 * @var        array An array of user credentials.
 	 */
 	protected $credentials   = null;
+
+	/**
+	 * Indicates an explicit downgrade to unauthenticated was requested (logout or forced).
+	 * Used to distinguish between a stale/recreated instance that never loaded credentials
+	 * and an intentional logout so we don't clobber a persisted TRUE with null/false.
+	 */
+	protected bool $logoutIntent = false;
 
 	/**
 	 * Add a credential to this user.
@@ -145,6 +153,7 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser, ResetIn
 	 */
 	public function getCredentials()
 	{
+		// Reverted: do not perform storage reads here; return in-memory credentials only.
 		return $this->credentials;
 	}
 
@@ -182,7 +191,12 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser, ResetIn
 		} elseif($this->credentials === null) {
 			$this->credentials = [];
 		}
-		try { @file_put_contents('/tmp/agavi_user_debug.log', '[SecurityUser.initialize] eff auth=' . var_export($this->authenticated,true) . " creds=".json_encode($this->credentials)." storedAuth=".var_export($storedAuth,true)."\n", FILE_APPEND); } catch(\Throwable) {}
+		if(getenv('AGAVI_DEBUG_SECURITY')) {
+			try {
+				$cid = method_exists($this->getContext(), 'getCorrelationId') ? ($this->getContext()->getCorrelationId() ?? 'n/a') : 'n/a';
+				AgaviDebugLogger::debug('[SecurityUser.initialize] cid=' . $cid . ' eff auth=' . var_export($this->authenticated,true) . ' num creds=' . (is_array($this->credentials) ? count($this->credentials) : 0) . ' storedAuth=' . var_export($storedAuth,true), $this->getContext());
+			} catch(\Throwable) {}
+		}
 	}
 
 	/**
@@ -195,6 +209,25 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser, ResetIn
 	 */
 	public function isAuthenticated()
 	{
+		// Lazy rehydrate: If currently unauthenticated (false) but no explicit logout, re-check storage.
+		if ($this->authenticated === false && $this->logoutIntent === false) {
+			try {
+				$storage = $this->getContext()?->getStorage();
+				if ($storage) {
+					$storedAuth = $storage->retrieve(self::AUTH_NAMESPACE);
+					if ($storedAuth === true) {
+						$this->authenticated = true;
+						if (!is_array($this->credentials) || count($this->credentials) === 0) {
+							$storedCreds = $storage->retrieve(self::CREDENTIAL_NAMESPACE);
+							if (is_array($storedCreds)) { $this->credentials = $storedCreds; }
+						}
+						if (getenv('AGAVI_DEBUG_SECURITY')) {
+							AgaviDebugLogger::debug('[SecurityUser.lazyRehydrate] promoted auth=true credsCount=' . (is_array($this->credentials) ? count($this->credentials) : 0), $this->getContext());
+						}
+					}
+				}
+			} catch (\Throwable) {}
+		}
 		return $this->authenticated;
 	}
 
@@ -231,13 +264,47 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser, ResetIn
 	{
 		if($authenticated === true) {
 			$this->authenticated = true;
+			$this->logoutIntent = false; // clear any previous logout marker
 			// immediate persistence so later initialize() pulls true
-			try { $this->getContext()?->getStorage()?->store(self::AUTH_NAMESPACE, true); } catch(\Throwable) {}
+			try {
+				$storage = $this->getContext()?->getStorage();
+				if($storage) {
+					$storage->store(self::AUTH_NAMESPACE, true);
+					if (method_exists($storage, 'flush')) { $storage->flush(); }
+				}
+			} catch(\Throwable) {}
 
 			return;
 		}
 
+		// Transition to unauthenticated – capture diagnostic context if enabled
+		$debug = getenv('AGAVI_DEBUG_SECURITY') || getenv('AGAVI_DEBUG_AUTH');
+		if($debug) {
+			$bt = [];
+			try {
+				$raw = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 15);
+				foreach($raw as $f) {
+					$fn = ($f['class'] ?? '') . ($f['type'] ?? '') . ($f['function'] ?? '');
+					$bt[] = ($f['file'] ?? 'nofile') . ':' . ($f['line'] ?? 0) . ' ' . $fn;
+				}
+			} catch(\Throwable) { $bt[] = 'backtrace_failed'; }
+			$reqUri = $_SERVER['REQUEST_URI'] ?? 'unknown';
+			$sid = 'no-sid';
+			try { $storage = $this->getContext()?->getStorage(); if($storage && method_exists($storage,'getId')) { $tmp=$storage->getId(); if(is_string($tmp)&&$tmp!==''){ $sid=$tmp; } } } catch(\Throwable) {}
+			$pid = getmypid();
+			$worker = getenv('FRANKENPHP_WORKER') ?: getenv('FRANKENPHP_WORKER_ID') ?: 'n/a';
+			$tracePayload = [
+				'event' => 'setAuthenticated(false)',
+				'sid' => $sid,
+				'pid' => $pid,
+				'worker' => $worker,
+				'req' => $reqUri,
+				'backtrace' => $bt,
+			];
+			AgaviDebugLogger::debug('[SecurityUser.authFalse] ' . json_encode($tracePayload), $this->getContext());
+		}
 		$this->authenticated = false;
+		$this->logoutIntent = true; // mark explicit downgrade
 		try { $this->getContext()?->getStorage()?->store(self::AUTH_NAMESPACE, false); } catch(\Throwable) {}
 	}
 
@@ -255,10 +322,44 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser, ResetIn
 		$logger?->debug('SecurityUser shutdown storing credentials', ['class' => get_class($this), 'namespace' => self::CREDENTIAL_NAMESPACE]);
 		$storage = $this->getContext()->getStorage();
 
-		// store credentials to the storage
-		$storage->store(self::AUTH_NAMESPACE,       $this->authenticated);
-		$storage->store(self::CREDENTIAL_NAMESPACE, $this->credentials);
-		try { @file_put_contents('/tmp/agavi_user_debug.log', '[SecurityUser.shutdown] stored auth=' . var_export($this->authenticated,true) . " creds=".json_encode($this->credentials)."\n", FILE_APPEND); } catch(\Throwable) {}
+		// If this instance is unauthenticated but storage already has AUTH=true, avoid clobbering (stale recreated user)
+		try {
+			$existingAuth = $storage->retrieve(self::AUTH_NAMESPACE);
+			$curr = $this->authenticated;
+			$shouldSkip = ($existingAuth === true && $curr !== true && $this->logoutIntent === false);
+			if($shouldSkip) {
+				if (getenv('AGAVI_DEBUG_SECURITY')) {
+					AgaviDebugLogger::debug('[SecurityUser.shutdown] skip auth downgrade existing=true curr=' . var_export($curr,true) . ' logoutIntent=0', $this->getContext());
+				}
+			} else {
+				$storage->store(self::AUTH_NAMESPACE, $curr);
+			}
+		} catch (\Throwable) {
+			// fallback
+			try { $storage->store(self::AUTH_NAMESPACE, $this->authenticated); } catch (\Throwable) {}
+		}
+		// Avoid clobbering non-empty stored credentials with empty ones from a fresh, not-yet-populated instance
+		try {
+			$existingCreds = $storage->retrieve(self::CREDENTIAL_NAMESPACE);
+			$currEmpty = !is_array($this->credentials) || count($this->credentials) === 0;
+			$existingNonEmpty = is_array($existingCreds) && count($existingCreds) > 0;
+			if ($this->authenticated === true && $currEmpty && $existingNonEmpty) {
+				if (getenv('AGAVI_DEBUG_SECURITY')) {
+					AgaviDebugLogger::debug('[SecurityUser.shutdown] skip creds overwrite empty over non-empty', $this->getContext());
+				}
+			} else {
+				$storage->store(self::CREDENTIAL_NAMESPACE, $this->credentials);
+			}
+		} catch (\Throwable) {
+			// fallback
+			try { $storage->store(self::CREDENTIAL_NAMESPACE, $this->credentials); } catch (\Throwable) {}
+		}
+		if (getenv('AGAVI_DEBUG_SECURITY')) {
+			try {
+				$cid = method_exists($this->getContext(), 'getCorrelationId') ? ($this->getContext()->getCorrelationId() ?? 'n/a') : 'n/a';
+				AgaviDebugLogger::debug('[SecurityUser.shutdown] cid=' . $cid . ' stored auth=' . var_export($this->authenticated,true) . ' creds count=' . count($this->credentials), $this->getContext());
+			} catch(\Throwable) {}
+		}
 
 		// Debug: Check what's in the session after storing
 		$logger?->debug('SecurityUser shutdown session snapshot', [

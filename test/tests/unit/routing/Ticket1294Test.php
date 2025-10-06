@@ -31,7 +31,6 @@ class Ticket1294Test extends AgaviPhpUnitTestCase
 	{
 		$this->routing->setInput('/ticket_1294');
 		$this->routing->setInputParameters(array('foo' => 'bar'));
-		$this->routing->execute();
 		$url = $this->routing->gen(null, array('foo' => null));
 		$this->assertEquals('/index.php/ticket_1294', $url);
 	}

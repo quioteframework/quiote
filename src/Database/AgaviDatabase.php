@@ -15,6 +15,7 @@
 // +---------------------------------------------------------------------------+
 namespace Agavi\Database;
 
+use Agavi\Logging\AgaviDebugLogger;
 use Agavi\Util\AgaviParameterHolder;
 use Symfony\Contracts\Service\ResetInterface;
 
@@ -110,10 +111,21 @@ abstract class AgaviDatabase extends AgaviParameterHolder implements ResetInterf
 	 */
 	public function getConnection()
 	{
+		if (getenv('AGAVI_DEBUG_DATABASE')) {
+			AgaviDebugLogger::debug('[AgaviDatabase] getConnection() called - database_id=' . spl_object_id($this) . ' connection_exists=' . ($this->connection ? 'YES' : 'NO'));
+		}
+		
 		if($this->connection === null) {
+			if (getenv('AGAVI_DEBUG_DATABASE')) {
+				AgaviDebugLogger::debug('[AgaviDatabase] connection is null, calling connect()');
+			}
 			$this->connect();
 		}
 
+		if (getenv('AGAVI_DEBUG_DATABASE')) {
+			AgaviDebugLogger::debug('[AgaviDatabase] getConnection() returning connection_id=' . spl_object_id($this->connection) . ' type=' . get_class($this->connection));
+		}
+		
 		return $this->connection;
 	}
 

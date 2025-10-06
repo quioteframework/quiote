@@ -50,7 +50,7 @@ class AgaviBooleanValidator extends AgaviValidator
 	 */
 	protected function validate()
 	{
-		$value = & $this->getData($this->getArgument());
+		$value = $this->getData($this->getArgument());
 		$castValue = $value;
 		
 		if(is_bool($castValue)) {
@@ -67,9 +67,13 @@ class AgaviBooleanValidator extends AgaviValidator
 			if($this->hasParameter('export')) {
 				$this->export($castValue);
 			} else {
-				$value = $castValue;
+				// Persist casted value back into request runtime parameters so subsequent validators/actions see normalized boolean.
+				try {
+					if(method_exists($this->validationParameters, 'setParameter')) {
+						$this->validationParameters->setParameter($this->getArgument(), $castValue);
+					}
+				} catch(\Throwable) {}
 			}
-			
 			return true;
 		}
 		

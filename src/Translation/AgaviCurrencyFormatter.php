@@ -166,11 +166,24 @@ class AgaviCurrencyFormatter extends AgaviDecimalFormatter implements AgaviITran
 	public function localeChanged($newLocale)
 	{
 		$this->locale = $newLocale;
-		
-		$this->groupingSeparator = $this->locale->getNumberSymbolGroup();
-		$this->decimalSeparator = $this->locale->getNumberSymbolDecimal();
-		
-		$format = $this->locale->getCurrencyFormat('__default');
+
+		$format = null;
+		if(class_exists(\NumberFormatter::class)) {
+			try {
+				$nf = new \NumberFormatter($this->locale->getIdentifier(), \NumberFormatter::CURRENCY);
+				$this->groupingSeparator = $nf->getSymbol(\NumberFormatter::GROUPING_SEPARATOR_SYMBOL) ?? $this->groupingSeparator;
+				$this->decimalSeparator = $nf->getSymbol(\NumberFormatter::DECIMAL_SEPARATOR_SYMBOL) ?? $this->decimalSeparator;
+				$pattern = $nf->getPattern();
+				if(is_string($pattern) && $pattern !== '') {
+					$format = $pattern;
+				}
+			} catch(\Throwable) {
+			}
+		}
+
+		if($format === null) {
+			$format = '¤#,##0.00';
+		}
 		
 		if(is_array($this->customFormat)) {
 			$format = AgaviToolkit::getValueByKeyList($this->customFormat, AgaviLocale::getLookupPath($this->locale->getIdentifier()), $format);
@@ -214,20 +227,54 @@ class AgaviCurrencyFormatter extends AgaviDecimalFormatter implements AgaviITran
 			return $code;
 		}
 
-		$symbol = $this->locale->getCurrencySymbol($code);
-		$name = $this->locale->getCurrencyDisplayName($code);
-		if($symbol === null) {
-			$symbol = $code;
+		$symbol = $code;
+		$name = $code;
+
+		if(class_exists(\NumberFormatter::class)) {
+			try {
+				$nf = new \NumberFormatter($this->locale->getIdentifier(), \NumberFormatter::CURRENCY);
+				$nf->setTextAttribute(\NumberFormatter::CURRENCY_CODE, $code);
+				$sym = $nf->getSymbol(\NumberFormatter::CURRENCY_SYMBOL);
+				if(is_string($sym) && $sym !== '') {
+					$symbol = $sym;
+				}
+				$display = self::resolveCurrencyDisplayName($this->locale->getIdentifier(), $code);
+				if($display !== null) {
+					$name = $display;
+				}
+			} catch(\Throwable) {
+			}
 		}
-		if($name === null) {
-			$name = $code;
+
+		return match ($this->currencyType) {
+			AgaviDecimalFormatter::CURRENCY_SYMBOL => $symbol,
+			AgaviDecimalFormatter::CURRENCY_CODE => $code,
+			AgaviDecimalFormatter::CURRENCY_NAME => $name,
+			default => null,
+		};
+	}
+
+	private static function resolveCurrencyDisplayName(string $localeId, string $code): ?string
+	{
+		if(!class_exists(\ResourceBundle::class)) {
+			return null;
 		}
-        return match ($this->currencyType) {
-            AgaviDecimalFormatter::CURRENCY_SYMBOL => $symbol,
-            AgaviDecimalFormatter::CURRENCY_CODE => $code,
-            AgaviDecimalFormatter::CURRENCY_NAME => $name,
-            default => null,
-        };
+
+		try {
+			$bundle = \ResourceBundle::create($localeId, 'ICUDATA-curr');
+			if($bundle instanceof \ResourceBundle) {
+				$currencies = $bundle['Currencies'] ?? null;
+				if($currencies instanceof \ResourceBundle && isset($currencies[$code])) {
+					$entry = $currencies[$code];
+					if(is_array($entry) && isset($entry[1]) && is_string($entry[1])) {
+						return $entry[1];
+					}
+				}
+			}
+		} catch(\Throwable) {
+		}
+
+		return null;
 	}
 
 	/**

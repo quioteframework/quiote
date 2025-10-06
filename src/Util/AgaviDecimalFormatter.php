@@ -615,6 +615,39 @@ class AgaviDecimalFormatter implements ResetInterface
 		return $map[$mode];
 	}
 	
+	protected static function getNumberFormatterInstance($locale)
+	{
+		static $formatterCache = [];
+
+		if(!class_exists('NumberFormatter')) {
+			return null;
+		}
+
+		$cacheKey = '';
+		if($locale instanceof AgaviLocale) {
+			$cacheKey = (string) $locale->getIdentifier();
+		} elseif(is_string($locale) && $locale !== '') {
+			$cacheKey = (string) $locale;
+		}
+
+		if(array_key_exists($cacheKey, $formatterCache)) {
+			return $formatterCache[$cacheKey];
+		}
+
+		$formatterLocale = $cacheKey !== '' ? $cacheKey : 'en_US';
+
+		try {
+			$formatter = new \NumberFormatter($formatterLocale, \NumberFormatter::DECIMAL);
+		} catch(\Throwable $e) {
+			return $formatterCache[$cacheKey] = null;
+		}
+
+		$formatter->setAttribute(\NumberFormatter::LENIENT_PARSE, true);
+
+
+		return $formatterCache[$cacheKey] = $formatter;
+	}
+
 	protected static function getDecimalParseRegex(?AgaviLocale $locale = null)
 	{
 		static $patternCache = [];
@@ -630,10 +663,27 @@ class AgaviDecimalFormatter implements ResetInterface
 		}
 		
 		if($locale) {
-			$decimalFormats = $locale->getDecimalFormats();
-			$groupingSeparator = $locale->getNumberSymbolGroup();
-			$decimalSeparator = $locale->getNumberSymbolDecimal();
-			$minusSign = $locale->getNumberSymbolMinusSign();
+			$decimalFormats = null;
+			$groupingSeparator = null;
+			$decimalSeparator = null;
+			$minusSign = null;
+			if(class_exists('NumberFormatter')) {
+				try {
+					$nf = new \NumberFormatter($locale->getIdentifier(), \NumberFormatter::DECIMAL);
+					$pattern = $nf->getPattern();
+					if(is_string($pattern) && $pattern !== '') {
+						$decimalFormats = [$pattern];
+					}
+					$groupingSeparator = $nf->getSymbol(\NumberFormatter::GROUPING_SEPARATOR_SYMBOL);
+					$decimalSeparator = $nf->getSymbol(\NumberFormatter::DECIMAL_SEPARATOR_SYMBOL);
+					$minusSign = $nf->getSymbol(\NumberFormatter::MINUS_SIGN_SYMBOL);
+				} catch(\Throwable) {
+				}
+			}
+			$decimalFormats ??= ['#,##0.###'];
+			$groupingSeparator ??= ',';
+			$decimalSeparator ??= '.';
+			$minusSign ??= '-';
 		} else {
 			$decimalFormats = ['#,##0.###'];
 			$groupingSeparator = ',';
@@ -711,10 +761,55 @@ class AgaviDecimalFormatter implements ResetInterface
 	{
 		$string = trim((string) $string);
 
+		$formatter = self::getNumberFormatterInstance($locale);
+
+		if($formatter) {
+			$position = 0;
+			$parsed = $formatter->parse($string, \NumberFormatter::TYPE_DOUBLE, $position);
+
+			if($parsed !== false) {
+				if($position < strlen($string)) {
+					$hasExtraChars = true;
+				}
+
+				if(is_float($parsed)) {
+					$rounded = round($parsed);
+					$groupingSymbol = $formatter->getSymbol(\NumberFormatter::GROUPING_SEPARATOR_SYMBOL);
+					$decimalSymbol = $formatter->getSymbol(\NumberFormatter::DECIMAL_SEPARATOR_SYMBOL);
+					$consumed = substr($string, 0, $position);
+					$hasFractionDigits = false;
+					if($decimalSymbol !== null && $decimalSymbol !== '') {
+						$decimalPos = strpos($consumed, $decimalSymbol);
+						if($decimalPos !== false) {
+							$fractionPart = substr($consumed, $decimalPos + strlen($decimalSymbol));
+							if($groupingSymbol !== null && $groupingSymbol !== '') {
+								$fractionPart = str_replace($groupingSymbol, '', $fractionPart);
+							}
+							if(preg_match('/\d/', $fractionPart)) {
+								$hasFractionDigits = true;
+							}
+						}
+					}
+
+					if(!$hasFractionDigits && $rounded == $parsed && $rounded <= PHP_INT_MAX && $rounded >= -PHP_INT_MAX) {
+						$parsed = (int) $rounded;
+					}
+				}
+
+				return $parsed;
+			}
+
+		}
+
 		$pattern = self::getDecimalParseRegex($locale);
 
-		if($locale) {
-			$groupingSeparator = $locale->getNumberSymbolGroup();
+		if($locale && class_exists('NumberFormatter')) {
+			try {
+				$nf = new \NumberFormatter($locale->getIdentifier(), \NumberFormatter::DECIMAL);
+				$groupingSeparator = $nf->getSymbol(\NumberFormatter::GROUPING_SEPARATOR_SYMBOL) ?? ',';
+			} catch(\Throwable) {
+				$groupingSeparator = ',';
+			}
 		} else {
 			$groupingSeparator = ',';
 		}

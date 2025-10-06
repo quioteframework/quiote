@@ -16,6 +16,7 @@
 namespace Agavi\Testing;
 
 use Agavi\AgaviContext;
+use Agavi\Request\AgaviWebRequest;
 
 /**
  * AgaviUnitTestCase is the base class for all unit testcases and provides
@@ -50,5 +51,20 @@ abstract class AgaviUnitTestCase extends AgaviPhpUnitTestCase implements AgaviIU
 	public function getContext()
 	{
 		return AgaviContext::getInstance($this->contextName);
+	}
+
+	/**
+	 * Convenience factory for PSR-compatible AgaviWebRequest instances in tests.
+	 *
+	 * @param array<string,mixed> $parameters runtime parameters to seed.
+	 */
+	protected function newWebRequest(array $parameters = []): AgaviWebRequest
+	{
+		$request = new AgaviWebRequest();
+		$request->initialize($this->getContext());
+		foreach ($parameters as $key => $value) {
+			$request->setParameter($key, $value);
+		}
+		return $request;
 	}
 }

@@ -1,10 +1,11 @@
 <?php
+
 namespace Agavi\Execution;
 
 use Agavi\AgaviContext;
-use Agavi\Request\AgaviRequestDataHolder;
 use Agavi\Response\AgaviResponse;
 use Agavi\Util\AgaviAttributeHolder;
+use Psr\Http\Message\ServerRequestInterface;
 
 class LightweightActionInitContext extends AgaviAttributeHolder implements ActionInitContext
 {
@@ -17,27 +18,64 @@ class LightweightActionInitContext extends AgaviAttributeHolder implements Actio
         private string $action,
         private string $method,
         private string $outputType,
-        private ?AgaviRequestDataHolder $requestData,
+        /**
+         * Accept AgaviWebRequest (implements ServerRequestInterface) or any PSR-7 ServerRequest.
+         */
+        private ServerRequestInterface|null $requestData,
         private AgaviResponse $response
     ) {}
 
-    public function getContext(): AgaviContext { return $this->context; }
-    public function getModuleName(): string { return $this->module; }
-    public function getActionName(): string { return $this->action; }
-    public function getRequestMethod(): string { return $this->method; }
-    public function getOutputTypeName(): string { return $this->outputType; }
-    public function getRequestData(): ?AgaviRequestDataHolder { return $this->requestData; }
-    public function getResponse(): AgaviResponse { return $this->response; }
-    public function setViewModuleName(?string $module): void { $this->viewModuleName = $module; }
-    public function setViewName(?string $name): void { $this->viewName = $name; }
-    public function getViewModuleName(): ?string { return $this->viewModuleName; }
-    public function getViewName(): ?string { return $this->viewName; }
+    public function getContext(): AgaviContext
+    {
+        return $this->context;
+    }
+    public function getModuleName(): string
+    {
+        return $this->module;
+    }
+    public function getActionName(): string
+    {
+        return $this->action;
+    }
+    public function getRequestMethod(): string
+    {
+        return $this->method;
+    }
+    public function getOutputTypeName(): string
+    {
+        return $this->outputType;
+    }
+    public function getRequestData(): ?ServerRequestInterface
+    {
+        return $this->requestData;
+    }
+    public function getResponse(): AgaviResponse
+    {
+        return $this->response;
+    }
+    public function setViewModuleName(?string $module): void
+    {
+        $this->viewModuleName = $module;
+    }
+    public function setViewName(?string $name): void
+    {
+        $this->viewName = $name;
+    }
+    public function getViewModuleName(): ?string
+    {
+        return $this->viewModuleName;
+    }
+    public function getViewName(): ?string
+    {
+        return $this->viewName;
+    }
 
     // Legacy shim: some legacy actions call $this->getValidationManager() on the container.
-    public function getValidationManager() {
+    public function getValidationManager()
+    {
         try {
             return $this->context->createInstanceFor('validation_manager');
-        } catch(\Throwable) {
+        } catch (\Throwable) {
             return null;
         }
     }

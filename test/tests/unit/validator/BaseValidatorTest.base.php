@@ -1,7 +1,6 @@
 <?php
 
 use Agavi\Testing\AgaviUnitTestCase;
-use Agavi\Request\AgaviRequestDataHolder;
 
 // Base class for validator tests (renamed *.base.php to avoid direct PHPUnit discovery)
 class BaseValidatorTest extends AgaviUnitTestCase
@@ -10,9 +9,7 @@ class BaseValidatorTest extends AgaviUnitTestCase
 	{
 		$vm = $this->getContext()->createInstanceFor('validation_manager');
 		$validator = $vm->createValidator($class, array('value'), $errors, $parameters);
-		$rd = new AgaviRequestDataHolder(array(
-			AgaviRequestDataHolder::SOURCE_PARAMETERS => array('value' => $value)
-		));
+		$rd = $this->newWebRequest(['value' => $value]);
 		$result = $validator->execute($rd);
 		
 		return array(

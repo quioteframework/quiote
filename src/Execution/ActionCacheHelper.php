@@ -3,6 +3,7 @@ namespace Agavi\Execution;
 
 use Agavi\Cache\ActionViewCache;
 use Agavi\Execution\ActionExecutionContext;
+use Agavi\Request\AgaviWebRequest;
 
 final class ActionCacheHelper
 {
@@ -58,7 +59,7 @@ final class ActionCacheHelper
      * Hydrate ExecutionState and build an ActionExecutionContext from a payload.
      * Mutates $state (sets viewModule/viewName/cacheHit and validation flags if present).
      */
-    public static function buildContextFromPayload(array $payload, ActionDescriptor $desc, ExecutionState $state, $actionInstance, \Agavi\Request\AgaviRequestDataHolder $requestData, ?string $contentOverride = null): ActionExecutionContext
+    public static function buildContextFromPayload(array $payload, ActionDescriptor $desc, ExecutionState $state, $actionInstance, AgaviWebRequest $request, ?string $contentOverride = null): ActionExecutionContext
     {
         $state->viewModule = $payload['view_module'] ?? $state->viewModule;
         $state->viewName = $payload['view_name'] ?? $state->viewName;
@@ -80,7 +81,7 @@ final class ActionCacheHelper
             $desc->module,
             $desc->action,
             $desc->outputType,
-            $requestData,
+            $request,
             (string)$content,
             $state->viewModule,
             $state->viewName,

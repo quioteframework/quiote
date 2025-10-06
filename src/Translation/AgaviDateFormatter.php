@@ -15,9 +15,13 @@
 namespace Agavi\Translation;
 
 use Agavi\AgaviContext;
-use Agavi\Date\AgaviCalendar;
-use Agavi\Date\AgaviDateFormat;
+use Agavi\Exception\AgaviException;
+use Agavi\I18n\DateTimeFacade;
 use Agavi\Util\AgaviToolkit;
+use DateTimeImmutable;
+use DateTimeInterface;
+use DateTimeZone;
+use IntlDateFormatter;
 use Symfony\Contracts\Service\ResetInterface;
 
 /**
@@ -35,227 +39,243 @@ use Symfony\Contracts\Service\ResetInterface;
  *
  * @version    $Id$
  */
-class AgaviDateFormatter extends AgaviDateFormat implements AgaviITranslator, ResetInterface
+class AgaviDateFormatter implements AgaviITranslator, ResetInterface
 {
-	/**
-	 * @var        AgaviLocale An AgaviLocale instance.
-	 */
+    private const DEFAULT_CALENDAR = 'gregorian';
+
+	/** @var AgaviContext */
+	protected $context;
+
+	/** @var AgaviLocale|null */
 	protected $locale = null;
 
-	/**
-	 * @var        string The type of the formatter (date|time|datetime).
-	 */
-	protected $type = null;
+	/** @var string */
+	protected $type = 'datetime';
 
-	/**
-	 * @var        string The custom format string (if any).
-	 */
+	/** @var mixed */
 	protected $customFormat = null;
 
-	/**
-	 * @var        string The translation domain to translate the format (if any).
-	 */
+	/** @var string|null */
 	protected $translationDomain = null;
 
-	/**
-	 * Initialize this Translator.
-	 *
-	 * @param      AgaviContext The current application context.
-	 * @param      array        An associative array of initialization parameters
-	 *
-	 * @author     Dominik del Bondio <ddb@bitxtender.com>
-	 * @author     David Zülke <dz@bitxtender.com>
-	 * @since      0.11.0
-	 */
-	#[\Override]
-    public function initialize(AgaviContext $context, array $parameters = [])
+	/** @var string|null */
+	protected $resolvedPattern = null;
+
+	public function initialize(AgaviContext $context, array $parameters = [])
 	{
-		parent::initialize($context, $parameters);
-		$type = 'datetime';
+		$this->context = $context;
+		$this->type = 'datetime';
 
 		if(isset($parameters['translation_domain'])) {
 			$this->translationDomain = $parameters['translation_domain'];
 		}
-		if(isset($parameters['type']) && in_array($parameters['type'], ['date', 'time'])) {
-			$type = $parameters['type'];
+
+		if(isset($parameters['type']) && in_array($parameters['type'], ['date', 'time', 'datetime'], true)) {
+			$this->type = $parameters['type'];
 		}
-		if(isset($parameters['format'])) {
+
+		if(array_key_exists('format', $parameters)) {
 			$this->customFormat = $parameters['format'];
 			if(is_array($this->customFormat)) {
-				// it's an array, so it contains the translations already, DOMAIN MUST NOT BE SET
+				// Pre-translated map, don't allow translation domain override.
 				$this->translationDomain = null;
 			}
 		}
-		$this->type = $type;
 	}
 
-	/**
-	 * Translates a message into the defined language.
-	 *
-	 * @param      mixed       The message to be translated.
-	 * @param      string      The domain of the message.
-	 * @param      ?AgaviLocale The locale to which the message should be 
-	 *                         translated.
-	 *
-	 * @return     string The translated message.
-	 *
-	 * @author     Dominik del Bondio <ddb@bitxtender.com>
-	 * @author     David Zülke <dz@bitxtender.com>
-	 * @since      0.11.0
-	 */
+	public function getContext()
+	{
+		return $this->context;
+	}
+
 	public function translate($message, $domain, ?AgaviLocale $locale = null)
 	{
+		if(!$this->locale && !$locale) {
+			throw new AgaviException('AgaviDateFormatter has not been prepared with a locale yet.');
+		}
+
+		$formatter = $this;
 		if($locale) {
-			$fmt = clone $this;
-			$fmt->localeChanged($locale);
+			$formatter = clone $this;
+			$formatter->localeChanged($locale);
 		} else {
-			$fmt = $this;
 			$locale = $this->locale;
 		}
 
-		if($this->customFormat && $this->translationDomain) {
-			if($fmt === $this) {
-				$fmt = clone $this;
-			}
-			
-			$td = $this->translationDomain . ($domain ? '.' . $domain : '');
-			$format = $this->getContext()->getTranslationManager()->_($this->customFormat, $td, $locale);
-			
-			if($fmt->isDateSpecifier($format)) {
-				$format = $fmt->resolveSpecifier($locale, $format, $this->type);
-			}
-			
-			$fmt->setFormat($format);
+		$pattern = $formatter->resolvedPattern;
+		if($formatter->customFormat && $formatter->translationDomain) {
+			$td = $formatter->translationDomain . ($domain ? '.' . $domain : '');
+			$format = $formatter->context->getTranslationManager()->_($formatter->customFormat, $td, $locale);
+			$pattern = $formatter->resolvePattern($locale, $format);
 		}
 
-		return $fmt->format($message, AgaviCalendar::GREGORIAN, $locale);
+		if($pattern === null) {
+			throw new AgaviException('No date format pattern resolved for AgaviDateFormatter.');
+		}
+
+		$dt = $formatter->coerceToDateTime($message, $locale);
+		return $formatter->formatWithPattern($dt, $pattern, $locale);
 	}
 
-	/**
-	 * This method gets called by the translation manager when the default locale
-	 * has been changed.
-	 *
-	 * @param      string The new default locale.
-	 *
-	 * @author     Dominik del Bondio <ddb@bitxtender.com>
-	 * @author     David Zülke <dz@bitxtender.com>
-	 * @since      0.11.0
-	 */
 	public function localeChanged($newLocale)
 	{
 		$this->locale = $newLocale;
-		
-		$format = null; // ze default
-		
+
+		$format = null;
 		if(is_array($this->customFormat)) {
-			$format = AgaviToolkit::getValueByKeyList($this->customFormat, AgaviLocale::getLookupPath($this->locale->getIdentifier()));
+			$format = AgaviToolkit::getValueByKeyList($this->customFormat, AgaviLocale::getLookupPath($newLocale->getIdentifier()));
 		} elseif($this->customFormat && !$this->translationDomain) {
 			$format = $this->customFormat;
 		}
-		
-		if($format === null || static::isDateSpecifier($format)) {
-			$format = static::resolveSpecifier($this->locale, $format, $this->type);
-		}
-		
-		$this->setFormat($format);
+
+		$this->resolvedPattern = $this->resolvePattern($newLocale, $format);
 	}
 
-	/**
-	 * Resolves a given format (translates it to the given string of one of 
-	 * 'full', 'long', 'medium', 'short' or returns the format unmodified 
-	 * otherwise.
-	 *
-	 * @param      string The format string.
-	 * @param      AgaviLocale The locale to use for resolving.
-	 * @param      string The type (date, time or datetime).
-	 *
-	 * @return     string The resolved format.
-	 *
-	 * @author     Dominik del Bondio <ddb@bitxtender.com>
-	 * @since      0.11.0
-	 */
 	public static function resolveFormat($format, $locale, $type = 'datetime')
 	{
 		if(self::isDateSpecifier($format)) {
-			return self::resolveSpecifier($locale, $format, $type);
+			return self::resolveSpecifierPattern($locale, $format, $type);
 		}
 
 		return $format;
 	}
 
-	/**
-	 * Resolves a given specifier ('full', 'long', 'medium', 'short' or null which
-	 * will use the default format).
-	 *
-	 * @param      AgaviLocale The locale to use for resolving.
-	 * @param      string The specifier.
-	 * @param      string The type (date, time or datetime).
-	 *
-	 * @return     string The format.
-	 *
-	 * @author     Dominik del Bondio <ddb@bitxtender.com>
-	 * @since      0.11.0
-	 */
-	protected static function resolveSpecifier($locale, $spec, $type)
-	{
-		$calendarType = AgaviCalendar::GREGORIAN;
-		if(!$type) {
-			$type = 'datetime';
-		}
-
-		if($type == 'datetime' || $type == 'time') {
-			if($spec === null) {
-				$formatName = $locale->getCalendarTimeFormatDefaultName($calendarType);
-			} else {
-				$formatName = $spec;
-			}
-			$format = $timeFormat = $locale->getCalendarTimeFormatPattern($calendarType, $formatName);
-		}
-
-		if($type == 'datetime' || $type == 'date') {
-			if($spec === null) {
-				$formatName = $locale->getCalendarDateFormatDefaultName($calendarType);
-			} else {
-				$formatName = $spec;
-			}
-
-			$format = $dateFormat = $locale->getCalendarDateFormatPattern($calendarType, $formatName);
-		}
-
-		if($type == 'datetime') {
-			$formatName = $locale->getCalendarDateTimeFormatDefaultName($calendarType);
-			$formatStr = $locale->getCalendarDateTimeFormat($calendarType, $formatName);
-			$format = str_replace(['{0}', '{1}'], [$timeFormat, $dateFormat], $formatStr);
-		}
-
-		return $format;
-	}
-
-	/**
-	 * Checks whether a given string is a date specifier. (One of 'full', 'long',
-	 * 'medium', 'short')
-	 *
-	 * @param      string The specifier.
-	 *
-	 * @return     bool The result.
-	 *
-	 * @author     Dominik del Bondio <ddb@bitxtender.com>
-	 * @since      0.11.0
-	 */
 	protected static function isDateSpecifier($format)
 	{
 		static $specifiers = ['full', 'long', 'medium', 'short'];
-
-		return in_array($format, $specifiers);
+		return in_array($format, $specifiers, true);
 	}
 
 	public function reset() : void
 	{
 		$this->locale = null;
-		$this->type = null;
+		$this->type = 'datetime';
 		$this->customFormat = null;
 		$this->translationDomain = null;
+		$this->resolvedPattern = null;
+	}
+
+	protected function resolvePattern(AgaviLocale $locale, $format): ?string
+	{
+		if($format === null || self::isDateSpecifier($format)) {
+			return self::resolveSpecifierPattern($locale, $format, $this->type);
+		}
+
+		return (string) $format;
+	}
+
+	protected static function resolveSpecifierPattern(AgaviLocale $locale, $spec, $type): ?string
+	{
+		$type = $type ?: 'datetime';
+		$specifier = $spec ?? 'medium';
+
+		$dateStyle = $type !== 'time' ? self::mapStyleToIntlConstant($specifier) : IntlDateFormatter::NONE;
+		$timeStyle = $type !== 'date' ? self::mapStyleToIntlConstant($specifier) : IntlDateFormatter::NONE;
+
+		$calendarId = $locale->getLocaleCalendar() ?? self::DEFAULT_CALENDAR;
+		$localeId = self::localeWithCalendar($locale->getIdentifier(), $calendarId);
+		$timezone = $locale->getLocaleTimeZone() ?? date_default_timezone_get();
+		$calendarConst = (strcasecmp($calendarId, self::DEFAULT_CALENDAR) === 0) ? IntlDateFormatter::GREGORIAN : IntlDateFormatter::TRADITIONAL;
+
+		try {
+			$formatter = new IntlDateFormatter($localeId, $dateStyle, $timeStyle, $timezone, $calendarConst);
+			$pattern = $formatter->getPattern();
+			return $pattern !== false ? $pattern : null;
+		} catch(\Throwable) {
+			return null;
+		}
+	}
+
+	private static function mapStyleToIntlConstant(?string $specifier): int
+	{
+		return match(strtolower((string) $specifier)) {
+			'full' => IntlDateFormatter::FULL,
+			'long' => IntlDateFormatter::LONG,
+			'short' => IntlDateFormatter::SHORT,
+			default => IntlDateFormatter::MEDIUM,
+		};
+	}
+
+	private static function localeWithCalendar(string $localeId, ?string $calendar): string
+	{
+		if(!$calendar || strcasecmp($calendar, self::DEFAULT_CALENDAR) === 0) {
+			return $localeId;
+		}
+
+		$normalized = $localeId . '@calendar=' . $calendar;
+		if(class_exists(\Locale::class)) {
+			try {
+				$canon = \Locale::canonicalize($normalized);
+				if(is_string($canon) && $canon !== '') {
+					return $canon;
+				}
+			} catch(\Throwable) {
+			}
+		}
+
+		return $normalized;
+	}
+
+	protected function coerceToDateTime($value, AgaviLocale $locale): DateTimeImmutable
+	{
+		$timezone = $this->resolveTimezone($locale);
+
+		if($value instanceof DateTimeInterface) {
+			return DateTimeImmutable::createFromInterface($value)->setTimezone($timezone);
+		}
+
+		if(is_int($value) || (is_string($value) && ctype_digit($value))) {
+			return (new DateTimeImmutable('@' . $value))->setTimezone($timezone);
+		}
+
+		if(is_string($value)) {
+			try {
+				return new DateTimeImmutable($value, $timezone);
+			} catch(\Throwable $e) {
+				throw new AgaviException('Unable to parse date string "' . $value . '".', 0, $e);
+			}
+		}
+
+		throw new AgaviException('Unsupported datetime value supplied to AgaviDateFormatter.');
+	}
+
+	protected function resolveTimezone(AgaviLocale $locale): DateTimeZone
+	{
+		$tzId = $locale->getLocaleTimeZone();
+		if(!$tzId) {
+			$defaultTz = $this->context->getTranslationManager()->getDefaultTimeZone();
+			$tzId = $defaultTz ? $defaultTz->getName() : date_default_timezone_get();
+		}
+
+		return new DateTimeZone($tzId);
+	}
+
+	protected function formatWithPattern(DateTimeInterface $dt, string $pattern, AgaviLocale $locale): string
+	{
+		$timezone = $this->resolveTimezone($locale);
+		$immutable = DateTimeImmutable::createFromInterface($dt)->setTimezone($timezone);
+
+		if(class_exists(IntlDateFormatter::class)) {
+			$formatter = new IntlDateFormatter(
+				$locale->getIdentifier(),
+				IntlDateFormatter::NONE,
+				IntlDateFormatter::NONE,
+				$timezone->getName(),
+				IntlDateFormatter::GREGORIAN,
+				$pattern
+			);
+			$formatter->setTimeZone($timezone);
+			$result = $formatter->format($immutable);
+			if($result !== false) {
+				return $result;
+			}
+		}
+
+		// Fallback to limited subset formatting via DateTimeFacade.
+		try {
+			return DateTimeFacade::format($immutable, $pattern, $locale->getIdentifier());
+		} catch(\Throwable $e) {
+			throw new AgaviException('Failed to format date using pattern "' . $pattern . '".', 0, $e);
+		}
 	}
 }
-
-?>

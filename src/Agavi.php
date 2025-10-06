@@ -218,22 +218,7 @@ final class Agavi
 		try {
 			// Warm core config/routing/databases/logging/etc.
 			AgaviAPCuConfigCache::warmup([], $context);
-			// Translation supplemental + timezone data (lightweight, no context)
-			if(AgaviConfig::get('core.use_translation', false)) {
-				$cldrDir = AgaviConfig::get('core.cldr_dir');
-				if($cldrDir && is_dir($cldrDir)) {
-					$suppFile = $cldrDir . '/supplementalData.xml';
-					if(is_readable($suppFile)) {
-						$suppData = include(AgaviAPCuConfigCache::checkConfig($suppFile));
-						if(function_exists('apcu_store')) { apcu_store('agavi_i18n_supplemental', $suppData, 0); }
-					}
-					$tzFile = $cldrDir . '/timezones/zonelist.php';
-					if(is_readable($tzFile)) {
-						$tzList = include($tzFile);
-						if(function_exists('apcu_store')) { apcu_store('agavi_i18n_tzlist', $tzList, 0); }
-					}
-				}
-			}
+			// Legacy CLDR supplemental + timezone prewarm removed (intl extension now authoritative)
 			// Record status metadata fetch (optional touch)
 			AgaviAPCuConfigCache::getStatus();
 		} catch(\Throwable $e) {

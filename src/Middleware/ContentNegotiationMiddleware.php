@@ -1,4 +1,5 @@
 <?php
+
 namespace Agavi\Middleware;
 
 use Psr\Http\Server\MiddlewareInterface;
@@ -8,6 +9,7 @@ use Psr\Http\Message\ResponseInterface;
 use Agavi\Controller\AgaviController;
 use Middlewares\ContentType; // external negotiation middleware
 use Negotiation\BaseAccept;
+use Agavi\Logging\AgaviDebugLogger;
 use Negotiation\Negotiator;
 
 /**
@@ -217,48 +219,80 @@ class ContentNegotiationMiddleware implements MiddlewareInterface
         ],
     ];
 
-    private ?string $defaultFormat = null;
+    private ?string $defaultFormat = 'html';
 
 
     public function __construct(private AgaviController $controller) {}
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
+        $existing = $request->getAttribute('output_type');
+        if ($existing !== null) {
+            return $handler->handle($request);
+        }
 
-        $value = $this->detectFromHeader($request);
-        $request = $request->withAttribute('output_type', $value);
+        $value = $this->detectFromExtension($request);
+        if ($value === null) {
+            $value = $this->detectFromHeader($request);
+        }
+        if ($value === null) {
+            $value = $this->defaultFormat;
+        }
+        if ($value !== null) {
+            $request = $request->withAttribute('output_type', $value);
+        }
 
         return $handler->handle($request);
+    }
 
+    private function detectFromExtension(ServerRequestInterface $request): ?string
+    {
+        $path = $request->getUri()->getPath();
+        $extension = strtolower((string) pathinfo($path, PATHINFO_EXTENSION));
+        if ($extension === '') {
+            return null;
+        }
+        foreach ($this->formats as $format => $data) {
+            $extensions = $data['extension'] ?? [];
+            if (is_array($extensions) && in_array($extension, $extensions, true)) {
+                return $format;
+            }
+        }
+        return null;
     }
 
     private function detectFromHeader(ServerRequestInterface $request): ?string
     {
+    AgaviDebugLogger::debug('[ContentNegotiationMiddlware] detecting content type from headers', $this->controller->getContext());
         if (!$request->hasHeader('Accept')) {
-            return $this->defaultFormat;
+            return null;
         }
         $headers = call_user_func_array('array_merge', array_column($this->formats, 'mime-type'));
         $accept = $request->getHeaderLine('Accept');
 
         $mime = $this->negotiateHeader($accept, new Negotiator(), $headers);
 
-        if ($mime !== null) {
-            foreach ($this->formats as $format => $data) {
-                /** @var string[] $formtMimeType */
-                $formtMimeType = $data['mime-type'];
-
-                if (in_array($mime, $formtMimeType, true)) {
-                    return $format;
-                }
-            }
-        }
-
-        return null;
+    AgaviDebugLogger::debug('[ContentNegotiationMiddleware] got ' . ($mime ?? 'null'), $this->controller->getContext());
+        return $this->mapMimeToFormat($mime);
     }
 
     private function negotiateHeader(string $accept, Negotiator $negotiator, array $headers): ?string
     {
         $best = $negotiator->getBest($accept, $headers);
         return $best instanceof BaseAccept ? $best->getValue() : null;
+    }
+
+    private function mapMimeToFormat(?string $mime): ?string
+    {
+        if ($mime === null) {
+            return null;
+        }
+        foreach ($this->formats as $format => $data) {
+            $formtMimeType = $data['mime-type'];
+            if (is_array($formtMimeType) && in_array($mime, $formtMimeType, true)) {
+                return $format;
+            }
+        }
+        return null;
     }
 }

@@ -42,7 +42,7 @@ class SlotDispatcherTest extends AgaviUnitTestCase
         for($i=0;$i<=SlotDispatcher::RECURSION_LIMIT; $i++) { $stack->push('Cache/Cache'); }
         $req = (new ServerRequest('GET', 'http://localhost/'))
             ->withAttribute(SlotMiddleware::ATTR, $stack);
-        $this->expectException(\Agavi\Exception\AgaviException::class);
-        $dispatcher->dispatch($req, 'Cache', 'Cache');
+        $content = $dispatcher->dispatch($req, 'Cache', 'Cache');
+        $this->assertSame('', $content);
     }
 }

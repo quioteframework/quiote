@@ -1,7 +1,7 @@
 <?php
 use Agavi\Testing\AgaviUnitTestCase;
 use Agavi\View\AgaviView;
-use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Request\AgaviWebRequest;
 use Nyholm\Psr7\ServerRequest as NyholmServerRequest;
 
 class RenderSlotHelperTest extends AgaviUnitTestCase
@@ -17,15 +17,16 @@ class RenderSlotHelperTest extends AgaviUnitTestCase
 
     private function makeView(): AgaviView
     {
-    $view = new class extends AgaviView { public function execute(AgaviRequestDataHolder $rd) { return null; } };
+    $view = new class extends AgaviView { public function execute(AgaviWebRequest $request) { return null; } };
         $controller = $this->getContext()->getController();
     $descriptor = new \Agavi\Execution\ActionDescriptor('Cache','Cache','GET', strtolower($controller->getOutputType()->getName()), true);
-        $view = new class extends AgaviView { public function execute(AgaviRequestDataHolder $rd) { return null; } };
+        $view = new class extends AgaviView { public function execute(AgaviWebRequest $request) { return null; } };
         $vic = new \Agavi\Execution\ImmutableViewInitContext($this->getContext(), 'Cache','CacheSuccess', strtolower($controller->getOutputType()->getName()), 'Cache','Cache', [], $controller->getGlobalResponse());
         $view->initialize($vic);
         // Ensure context has a current PSR request so createSlotContent fast path works
         if(!method_exists($this->getContext(), 'getCurrentPsrRequest') || !$this->getContext()->getCurrentPsrRequest()) {
             $req = new NyholmServerRequest('GET','http://localhost/test');
+            $req = $req->withAttribute(\Agavi\Execution\SlotStack::class, new \Agavi\Execution\SlotStack());
             // Hack: set via reflection (Context doesn't expose public setter)
             $ref = new ReflectionClass($this->getContext());
             if($ref->hasProperty('currentPsrRequest')) {

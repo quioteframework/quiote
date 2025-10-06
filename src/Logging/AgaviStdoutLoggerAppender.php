@@ -45,9 +45,6 @@ class AgaviStdoutLoggerAppender extends AgaviStreamLoggerAppender
     public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		$parameters['destination'] = 'php://stdout';
-		// 'a' doesn't work on Linux
-		// http://bugs.php.net/bug.php?id=45303
-		$parameters['mode'] = 'w';
 		
 		parent::initialize($context, $parameters);
 	}

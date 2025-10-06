@@ -89,7 +89,14 @@ class AgaviDatabaseManager
 			$name = $this->defaultDatabaseName;
 		}
 		
+		if (getenv('AGAVI_DEBUG_DATABASE')) {
+			$logger?->debug('[AgaviDatabaseManager] getDatabase(' . $name . ') - manager_id=' . spl_object_id($this));
+		}
+		
 		if(isset($this->databases[$name])) {
+			if (getenv('AGAVI_DEBUG_DATABASE')) {
+				$logger?->debug('[AgaviDatabaseManager] returning existing database: ' . $name . ' id=' . spl_object_id($this->databases[$name]));
+			}
 			return $this->databases[$name];
 		}
 
@@ -143,6 +150,12 @@ class AgaviDatabaseManager
 	 */
 	public function initialize(AgaviContext $context, array $parameters = [])
 	{
+        $logger = $this->getContext()?->getLoggerManager()?->getlogger();
+
+		if (getenv('AGAVI_DEBUG_DATABASE')) {
+			$logger?->debug('[AgaviDatabaseManager] initialize() called - id=' . spl_object_id($this));
+		}
+		
 		$this->context = $context;
 
 		// load database configuration
@@ -150,6 +163,10 @@ class AgaviDatabaseManager
 			require(AgaviAPCuConfigCache::checkConfig(AgaviConfig::get('core.config_dir') . '/databases.xml'));
 		} else {
 			require(AgaviConfigCache::checkConfig(AgaviConfig::get('core.config_dir') . '/databases.xml'));
+		}
+		
+		if (getenv('AGAVI_DEBUG_DATABASE')) {
+			$logger?->debug('[AgaviDatabaseManager] initialize() completed - databases loaded: ' . implode(', ', array_keys($this->databases)));
 		}
 	}
 
@@ -163,8 +180,21 @@ class AgaviDatabaseManager
 	 */
 	public function startup()
 	{
-		foreach($this->databases as $database) {
+        $logger = $this->getContext()?->getLoggerManager()?->getlogger();
+
+		if (getenv('AGAVI_DEBUG_DATABASE')) {
+			$logger?->debug('[AgaviDatabaseManager] startup() called - id=' . spl_object_id($this) . ' databases=' . count($this->databases));
+		}
+		
+		foreach($this->databases as $name => $database) {
+			if (getenv('AGAVI_DEBUG_DATABASE')) {
+				$logger?->debug('[AgaviDatabaseManager] starting up database: ' . $name . ' id=' . spl_object_id($database));
+			}
 			$database->startup();
+		}
+		
+		if (getenv('AGAVI_DEBUG_DATABASE')) {
+			$logger?->debug('[AgaviDatabaseManager] startup() completed');
 		}
 	}
 
@@ -179,9 +209,30 @@ class AgaviDatabaseManager
 	 */
 	public function shutdown()
 	{
+        $logger = $this->getContext()?->getLoggerManager()?->getlogger();
+
+		if (getenv('AGAVI_DEBUG_DATABASE')) {
+			$logger?->debug('[AgaviDatabaseManager] shutdown() called - id=' . spl_object_id($this) . ' databases=' . count($this->databases));
+		}
+		
 		// loop through databases and shutdown connections
-		foreach($this->databases as $database) {
+		foreach($this->databases as $name => $database) {
+			if (getenv('AGAVI_DEBUG_DATABASE')) {
+				$logger?->debug('[AgaviDatabaseManager] shutting down database: ' . $name . ' id=' . spl_object_id($database));
+			}
 			$database->shutdown();
+		}
+		
+		// Close Propel static connections to prevent stale connection reuse in worker mode
+		if (class_exists('\Propel\Propel', false)) {
+			if (getenv('AGAVI_DEBUG_DATABASE')) {
+				$logger?->debug('[AgaviDatabaseManager] closing Propel static connections');
+			}
+			\Propel\Propel::close();
+		}
+		
+		if (getenv('AGAVI_DEBUG_DATABASE')) {
+			$logger?->debug('[AgaviDatabaseManager] shutdown() completed');
 		}
 	}
 }

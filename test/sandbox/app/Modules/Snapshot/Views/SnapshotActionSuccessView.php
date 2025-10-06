@@ -2,11 +2,11 @@
 namespace Sandbox\Modules\Snapshot\Views;
 
 use Agavi\View\AgaviView;
-use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Request\AgaviWebRequest ;
 
 class SnapshotActionSuccessView extends AgaviView
 {
-    public function execute(AgaviRequestDataHolder $rd)
+    public function execute(AgaviWebRequest $rd)
     {
         return 'SNAPSHOT_OK';
     }

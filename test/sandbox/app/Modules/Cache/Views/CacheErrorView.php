@@ -2,10 +2,10 @@
 namespace Sandbox\Modules\Cache\Views;
 
 use Agavi\View\AgaviView;
-use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Request\AgaviWebRequest ;
 
 class CacheErrorView extends AgaviView
 {
-    public function execute(AgaviRequestDataHolder $rd){ return '<div>COMPLEX_ERROR</div>'; }
+    public function execute(AgaviWebRequest $rd){ return '<div>COMPLEX_ERROR</div>'; }
 }
 

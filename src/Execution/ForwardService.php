@@ -2,8 +2,8 @@
 namespace Agavi\Execution;
 
 use Agavi\Controller\AgaviController;
-use Agavi\View\AgaviView;
-use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Request\AgaviWebRequest;
+use Agavi\Logging\AgaviDebugLogger;
 
 /**
  * ForwardService: resolves forward targets (login / secure / custom) without creating a full execution container.
@@ -27,10 +27,10 @@ final class ForwardService
      * Left in place for transitional callers; now simply delegates to descriptor path and returns empty content.
      * @deprecated Use createSystemForwardActionDescriptor instead and dispatch normally.
      */
-    public function createSystemForwardView(string $forwardName, string $outputType, AgaviRequestDataHolder $rd): array
+    public function createSystemForwardView(string $forwardName, string $outputType, AgaviWebRequest $rd): array
     {
         [$module,$action] = $this->resolveSystemAction($forwardName);
-        if(getenv('AGAVI_DEBUG_FORWARD')) { error_log("[ForwardService] DEPRECATED createSystemForwardView forward=$forwardName -> $module/$action (no direct view render)"); }
+        if(getenv('AGAVI_DEBUG_FORWARD')) { AgaviDebugLogger::debug("[ForwardService] DEPRECATED createSystemForwardView forward=$forwardName -> $module/$action (no direct view render)", $this->controller->getContext()); }
         return [null,$module,'', ''];
     }
 

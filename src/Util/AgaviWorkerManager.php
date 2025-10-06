@@ -318,8 +318,7 @@ $handler = static function () use (&$context) {
     return true;
     } catch (Exception $e) {
         // Log error and return error response
-    // Using plain error_log in generated script is acceptable if framework not yet bootstrapped
-    if (function_exists("error_log")) { error_log("Worker error: " . $e->getMessage()); }
+    \\Agavi\\Logging\\AgaviDebugLogger::debug(\'Worker error: \' . $e->getMessage());
         http_response_code(500);
         echo "Internal Server Error";
         return true;

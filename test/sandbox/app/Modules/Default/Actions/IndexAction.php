@@ -5,7 +5,7 @@ use Sandbox\Modules\Default\Lib\Action\SandboxDefaultBaseAction;
 
 class IndexAction extends SandboxDefaultBaseAction
 {
-	public function executeRead(\Agavi\Request\AgaviRequestDataHolder $rd)
+	public function executeRead(\Agavi\Request\AgaviWebRequest $rd)
 	{
 		return 'Success';
 	}

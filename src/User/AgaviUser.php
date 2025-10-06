@@ -16,6 +16,7 @@
 namespace Agavi\User;
 
 use Agavi\AgaviContext;
+use Agavi\Logging\AgaviDebugLogger;
 use Agavi\Util\AgaviAttributeHolder;
 use Symfony\Contracts\Service\ResetInterface;
 
@@ -104,6 +105,11 @@ class AgaviUser extends AgaviAttributeHolder implements ResetInterface
 		// read data from storage
 		$this->attributes = $context->getStorage()->retrieve($this->storageNamespace);
 
+		// Normalize legacy/malformed payloads: ensure attributes are keyed by default namespace
+		if (is_array($this->attributes) && !array_key_exists($this->defaultNamespace, $this->attributes)) {
+			$this->attributes = [ $this->defaultNamespace => $this->attributes ];
+		}
+
 		if($this->attributes == null) {
 			// initialize our attributes array
 			$this->attributes = [];
@@ -130,8 +136,86 @@ class AgaviUser extends AgaviAttributeHolder implements ResetInterface
 	 */
 	public function shutdown()
 	{
-		// write attributes to the storage
+		// write attributes to the storage, but do not clobber with an empty map
+		$ns = $this->getDefaultNamespace();
+		$hasNsData = is_array($this->attributes)
+			&& array_key_exists($ns, $this->attributes)
+			&& is_array($this->attributes[$ns])
+			&& count($this->attributes[$ns]) > 0;
+		try {
+			$keys = [];
+			if (is_array($this->attributes) && isset($this->attributes[$ns]) && is_array($this->attributes[$ns])) {
+				$keys = array_keys($this->attributes[$ns]);
+			}
+			AgaviDebugLogger::debug('[AgaviUser.shutdown.debug] oid=' . spl_object_id($this) . ' ns=' . $ns . ' hasNsData=' . ($hasNsData?1:0) . ' keyCount=' . count($keys) . ' keysSample=' . json_encode(array_slice($keys,0,12)));
+		} catch (\Throwable) {}
+		if(!$hasNsData) {
+			try { AgaviDebugLogger::debug('[AgaviUser.shutdown] skip store (empty attributes) for '.$this->storageNamespace); } catch(\Throwable) {}
+			return;
+		}
 		$this->getContext()->getStorage()->store($this->storageNamespace, $this->attributes);
+	}
+
+	/**
+	 * Immediately persist current user attributes (or a filtered subset) to storage.
+	 * This reduces the window where a FrankenPHP worker could recreate a fresh
+	 * user object (due to lazy getUser() calls) before shutdown() runs, which would
+	 * otherwise lose in-memory identity attributes (userId/companyId etc.).
+	 *
+	 * @param array|null $onlyKeys Optional whitelist of attribute keys to persist.
+	 */
+	public function persistAttributesImmediate(?array $onlyKeys = null): void
+	{
+		try {
+			$storage = $this->getContext()->getStorage();
+			// Start from existing persisted structure (namespaced attributes map)
+			$data = $storage->retrieve($this->storageNamespace);
+			if (!is_array($data)) { $data = []; }
+
+			$ns = $this->getDefaultNamespace();
+			if (!isset($data[$ns]) || !is_array($data[$ns])) { $data[$ns] = []; }
+
+			if ($onlyKeys !== null) {
+				// Update only the selected keys within the default namespace
+				foreach ($onlyKeys as $k) {
+					if ($this->hasAttribute($k, $ns)) {
+						$data[$ns][$k] = $this->getAttribute($k, $ns);
+					}
+				}
+			} else {
+				// Full replace with our current attributes map
+				$data = $this->attributes;
+			}
+
+			$storage->store($this->storageNamespace, $data);
+			if (method_exists($storage, 'flush')) { $storage->flush(); }
+			try { AgaviDebugLogger::debug('[AgaviUser.persistAttributesImmediate] persisted ns='.$ns.' keys='.( $onlyKeys ? json_encode($onlyKeys) : 'ALL' )); } catch(\Throwable) {}
+		} catch (\Throwable $e) {
+			try { AgaviDebugLogger::debug('[AgaviUser.persistAttributesImmediate] ERROR '. $e->getMessage()); } catch(\Throwable) {}
+		}
+	}
+
+	/**
+	 * Control serialization: omit context (huge object graph) and derived caches.
+	 * JakamoRbacUser shutdown stores a serialized snapshot for fast cold restore.
+	 */
+	public function __sleep(): array
+	{
+		return [ 'attributes', 'storageNamespace', 'defaultNamespace', 'parameters' ];
+	}
+
+	/**
+	 * Re-bind context after unserialization without re-running full initialize logic.
+	 * Called by AgaviContext::getUser() fast-restore path when available.
+	 */
+	public function restoreContext(AgaviContext $context): void
+	{
+		$this->context = $context;
+		// Ensure attribute array shape (it may already be fine)
+		if(!is_array($this->attributes)) { $this->attributes = []; }
+		if(!array_key_exists($this->defaultNamespace, $this->attributes)) {
+			$this->attributes = [ $this->defaultNamespace => $this->attributes ];
+		}
 	}
 
 	public function reset() : void

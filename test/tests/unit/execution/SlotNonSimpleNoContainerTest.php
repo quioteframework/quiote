@@ -2,6 +2,7 @@
 use Agavi\Testing\AgaviUnitTestCase;
 use Nyholm\Psr7\ServerRequest;
 use Agavi\Execution\SlotRequestFactory;
+use Agavi\Execution\SlotExecutionContext;
 use Agavi\Execution\SlotStack;
 use Agavi\Middleware\SlotMiddleware;
 
@@ -28,27 +29,27 @@ class SlotNonSimpleNoContainerTest extends AgaviUnitTestCase
         parent::tearDown();
     }
 
-    private function dispatchComplex(array $params=[], ?string $outputType=null): string
+    private function dispatchComplex(array $params = [], ?string $outputType = null): SlotExecutionContext
     {
-        $parent = (new ServerRequest('GET','http://localhost/'))
+        $parent = (new ServerRequest('GET', 'http://localhost/'))
             ->withAttribute(SlotMiddleware::ATTR, new SlotStack());
         $dispatcher = $this->getContext()->getSlotDispatcher();
-        $slotReq = SlotRequestFactory::create($parent, 'Cache','CacheComplex', $params, $outputType);
-        return $dispatcher->dispatch($slotReq, 'Cache','CacheComplex', $params, $outputType);
+        $slotReq = SlotRequestFactory::create($parent, 'Cache', 'CacheComplex', $params, $outputType);
+        return $dispatcher->dispatchSlotContext($slotReq, 'Cache', 'CacheComplex', $params, $outputType);
     }
 
     public function testSuccessPath()
     {
     \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,false,false);
-        $content = $this->dispatchComplex();
-        $this->assertSame('<div>COMPLEX_OK</div>', $content);
+    $ctx = $this->dispatchComplex();
+    $this->assertSame('<div>COMPLEX_OK</div>', $ctx->content);
     }
 
     public function testValidationFailureTriggersErrorView()
     {
     \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(true,false,false);
-        $content = $this->dispatchComplex();
-    $this->assertSame('<div>COMPLEX_ERROR</div>', $content);
+        $ctx = $this->dispatchComplex();
+    $this->assertSame('<div>COMPLEX_ERROR</div>', $ctx->content);
     }
 
     public function testRequiresAuthRedirectsLogin()
@@ -57,8 +58,9 @@ class SlotNonSimpleNoContainerTest extends AgaviUnitTestCase
         // ensure user logged out
         $user = $this->getContext()->getUser();
         if(method_exists($user,'setAuthenticated')) { $user->setAuthenticated(false); }
-        $content = $this->dispatchComplex();
-        $this->assertSame('<div>LOGIN_REQUIRED</div>', $content, 'Expected login forward view content not produced');
+    $ctx = $this->dispatchComplex();
+    $this->assertSame('', $ctx->content, 'Security denial should suppress slot content');
+    $this->assertNull($ctx->view, 'No view should be rendered for security-denied slot');
     }
 
     public function testRequiresCredentialTriggersSecureForward()
@@ -67,7 +69,8 @@ class SlotNonSimpleNoContainerTest extends AgaviUnitTestCase
         // remove credential
         $user = $this->getContext()->getUser();
         if(method_exists($user,'removeCredential')) { $user->removeCredential('complex_cred'); }
-        $content = $this->dispatchComplex();
-        $this->assertSame('<div>SECURE_REQUIRED</div>', $content, 'Expected secure forward view content not produced');
+    $ctx = $this->dispatchComplex();
+    $this->assertSame('', $ctx->content, 'Security denial should suppress slot content');
+    $this->assertNull($ctx->view, 'No view should be rendered for security-denied slot');
     }
 }

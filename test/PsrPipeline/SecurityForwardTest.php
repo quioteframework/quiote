@@ -19,6 +19,23 @@ use Agavi\Execution\ActionDescriptor;
 
 final class SecurityForwardTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        // Establish deterministic security-related config each run to eliminate ordering flakiness.
+        AgaviConfig::set('core.use_security', true, true, true);
+        AgaviConfig::set('actions.login_module', 'Default', true, true);
+        AgaviConfig::set('actions.login_action', 'Login', true, true);
+        AgaviConfig::set('actions.secure_module', 'Default', true, true);
+        AgaviConfig::set('actions.secure_action', 'Secure', true, true);
+        // Clear forced auth env that might be set by other tests.
+        putenv('AGAVI_TEST_FORCE_AUTH=');
+        // If a previous test authenticated the user, explicitly log them out so we exercise forward path reliably.
+        try {
+            $ctx = \Agavi\Agavi::context('web', true);
+            $user = $ctx->getUser();
+            if($user && method_exists($user, 'setAuthenticated')) { $user->setAuthenticated(false); }
+        } catch(\Throwable) {}
+    }
     public static function setUpBeforeClass(): void
     {
         $root = dirname(__DIR__,2);

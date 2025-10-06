@@ -143,7 +143,8 @@ class AgaviFactoryConfigHandlerTest extends ConfigHandlerTestBase
 		$this->assertInstanceOf('FCHTestRequest', $this->request);
 		$this->assertSame($this, $this->request->context);
 		$this->assertSame($paramsExpected, $this->request->params);
-		$this->assertTrue($this->request->suCalled);
+		// Request startup is no longer executed automatically; PSR-7 bootstrap handles initialization lazily.
+		$this->assertNull($this->request->suCalled);
 
 		$this->assertInstanceOf('FCHTestStorage', $this->storage);
 		$this->assertSame($this, $this->storage->context);

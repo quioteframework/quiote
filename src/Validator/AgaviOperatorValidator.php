@@ -14,7 +14,7 @@
 // +---------------------------------------------------------------------------+
 namespace Agavi\Validator;
 
-use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Request\AgaviWebRequest;
 use InvalidArgumentException;
 use Symfony\Contracts\Service\ResetInterface;
 
@@ -229,7 +229,7 @@ abstract class AgaviOperatorValidator extends AgaviValidator implements AgaviIVa
 	 * Executes the operators validate()-Method after checking the quantity
 	 * of child validators with checkValidSetup().
 	 * 
-	 * @param      AgaviParameterHolder The parameters which should be validated.
+	 * @param      AgaviWebRequest The parameters which should be validated.
 	 *
 	 * @return     int The result of validation (SUCCESS, NONE, NOTICE, ERROR, CRITICAL).
 	 *
@@ -237,7 +237,7 @@ abstract class AgaviOperatorValidator extends AgaviValidator implements AgaviIVa
 	 * @since      0.11.0
 	 */
 	#[\Override]
-    public function execute(AgaviRequestDataHolder $parameters)
+    public function execute(AgaviWebRequest $parameters)
 	{
 		// check if we have a valid setup of validators
 		$this->checkValidSetup();

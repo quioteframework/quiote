@@ -2,7 +2,7 @@
 namespace Sandbox\Modules\Cache\Actions;
 
 use Agavi\Action\AgaviAction;
-use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Request\AgaviWebRequest ;
 
 class CacheComplexAction extends AgaviAction
 {
@@ -18,14 +18,14 @@ class CacheComplexAction extends AgaviAction
     public function isSecure(){ return self::$requireAuth || self::$requireCred; }
     public function getCredentials(){ return self::$requireCred ? 'complex_cred' : null; }
 
-    public function validate(AgaviRequestDataHolder $rd) {
+    public function validate(AgaviWebRequest $rd) {
         if($rd->hasParameter('fail') && $rd->getParameter('fail')) { return false; }
         return !self::$failValidation; }
 
-    public function handleError(AgaviRequestDataHolder $rd) { return 'Error'; }
+    public function handleError(AgaviWebRequest $rd) { return 'Error'; }
 
     public function getDefaultViewName(){ return 'Success'; }
-    public function execute(AgaviRequestDataHolder $rd){ self::$execCount++; return 'Success'; }
+    public function execute(AgaviWebRequest $rd){ self::$execCount++; return 'Success'; }
     public function isCacheable(?string $ot = null): bool { return true; }
     public function cacheTtlSeconds(?string $ot = null): ?int { return 60; }
 }

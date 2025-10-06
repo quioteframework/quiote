@@ -15,18 +15,7 @@ class AssetAggregationMiddleware implements MiddlewareInterface
 {
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        // If legacy adapter used, copy css/js arrays into unified assets.* attributes for later template usage.
-        if($request instanceof \Agavi\Http\PsrServerRequestAdapter) {
-            $legacy = $request->getLegacyRequest();
-            if($legacy) {
-                $rqData = $legacy; // legacy request has attribute holder methods
-                foreach(['css','js'] as $key) {
-                    if($legacy->hasAttribute($key)) {
-                        $request = $request->withAttribute('assets.'.$key, $legacy->getAttribute($key));
-                    }
-                }
-            }
-        }
+    // Adapter removed: assets should now be set directly as request attributes upstream.
         $response = $handler->handle($request);
         return $response;
     }

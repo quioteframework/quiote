@@ -1,6 +1,5 @@
 <?php
 
-use Agavi\Request\AgaviRequestDataHolder;
 use Agavi\Testing\AgaviUnitTestCase;
 use Agavi\Validator\AgaviOroperatorValidator;
 use Agavi\Validator\AgaviValidator;
@@ -20,7 +19,7 @@ class AgaviOroperatorValidatorTest extends AgaviUnitTestCase
 		// 1st test: both successful
 		$val1->val_result = true;
 		$val2->val_result = true;
-		$this->assertEquals($o->execute(new AgaviRequestDataHolder()), AgaviValidator::SUCCESS);
+		$this->assertEquals($o->execute($this->newWebRequest()), AgaviValidator::SUCCESS);
 		$this->assertTrue($val1->validated);
 		$this->assertTrue($val2->validated);
 		$val1->clear();
@@ -29,7 +28,7 @@ class AgaviOroperatorValidatorTest extends AgaviUnitTestCase
 		// 2nd test: first successful
 		$val1->val_result = true;
 		$val2->val_result = false;
-		$this->assertEquals($o->execute(new AgaviRequestDataHolder()), AgaviValidator::SUCCESS);
+		$this->assertEquals($o->execute($this->newWebRequest()), AgaviValidator::SUCCESS);
 		$this->assertTrue($val1->validated);
 		$this->assertTrue($val2->validated);
 		$val1->clear();
@@ -38,7 +37,7 @@ class AgaviOroperatorValidatorTest extends AgaviUnitTestCase
 		// 3rd test: last successful
 		$val1->val_result = false;
 		$val2->val_result = true;
-		$this->assertEquals($o->execute(new AgaviRequestDataHolder()), AgaviValidator::SUCCESS);
+		$this->assertEquals($o->execute($this->newWebRequest()), AgaviValidator::SUCCESS);
 		$this->assertTrue($val1->validated);
 		$this->assertTrue($val2->validated);
 		$val1->clear();
@@ -47,7 +46,7 @@ class AgaviOroperatorValidatorTest extends AgaviUnitTestCase
 		// 4th test: none successful
 		$val1->val_result = false;
 		$val2->val_result = false;
-		$this->assertEquals($o->execute(new AgaviRequestDataHolder()), AgaviValidator::ERROR);
+		$this->assertEquals($o->execute($this->newWebRequest()), AgaviValidator::ERROR);
 		$this->assertTrue($val1->validated);
 		$this->assertTrue($val2->validated);
 		$val1->clear();
@@ -57,7 +56,7 @@ class AgaviOroperatorValidatorTest extends AgaviUnitTestCase
 		$o->setParameter('break', true);
 		$val1->val_result = true;
 		$val2->val_result = false;
-		$this->assertEquals($o->execute(new AgaviRequestDataHolder()), AgaviValidator::SUCCESS);
+		$this->assertEquals($o->execute($this->newWebRequest()), AgaviValidator::SUCCESS);
 		$this->assertTrue($val1->validated);
 		$this->assertFalse($val2->validated);
 		$val1->clear();
@@ -68,7 +67,7 @@ class AgaviOroperatorValidatorTest extends AgaviUnitTestCase
 		$val1->val_result = false;
 		$val1->setParameter('severity', 'critical');
 		$val2->val_result = true;
-		$this->assertEquals($o->execute(new AgaviRequestDataHolder()), AgaviValidator::CRITICAL);
+		$this->assertEquals($o->execute($this->newWebRequest()), AgaviValidator::CRITICAL);
 		$this->assertTrue($val1->validated);
 		$this->assertFalse($val2->validated);
 		$this->assertEquals($vm->getResult(), AgaviValidator::CRITICAL);

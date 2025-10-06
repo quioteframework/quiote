@@ -65,8 +65,20 @@ class AgaviConfigHandlersConfigHandler extends AgaviXmlConfigHandler
 		
 		// init our data arrays
 		$handlers = [];
+		$middlewareEnabledMap = [];
 		
 		foreach($document->getConfigurationElements() as $configuration) {
+			// Capture middleware_config irrespective of handlers presence
+			if($configuration->has('middleware_config')) {
+				foreach($configuration->get('middleware_config') as $mwConfig) {
+					foreach($mwConfig->get('middleware') as $mw) {
+						$class = $mw->getAttribute('class');
+						$enabledAttr = strtolower((string)$mw->getAttribute('enabled', 'true'));
+						$enabled = !in_array($enabledAttr, ['0','false','off','no'], true);
+						$middlewareEnabledMap[$class] = $enabled;
+					}
+				}
+			}
 			if(!$configuration->has('handlers')) {
 				continue;
 			}
@@ -154,11 +166,14 @@ class AgaviConfigHandlersConfigHandler extends AgaviXmlConfigHandler
 					'validations' => $validations,
 				];
 			}
+			// also re-process middleware_config inside same configuration (already handled above)
 		}
 		
-		$data = [
-			'return ' . var_export($handlers, true),
-		];
+		// Expose middleware enable map under reserved key so bootstrap can import it
+		if($middlewareEnabledMap) {
+			$handlers['__middleware_config'] = $middlewareEnabledMap;
+		}
+		$data = [ 'return ' . var_export($handlers, true), ];
 		
 		return $this->generate($data, $document->documentURI);
 	}

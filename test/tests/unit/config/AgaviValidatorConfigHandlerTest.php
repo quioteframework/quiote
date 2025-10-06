@@ -35,7 +35,8 @@ class AgaviValidatorConfigHandlerTest extends ConfigHandlerTestBase
 	
 	public function testTranslationDomainInheritance1_0Behaviour()
 	{
-		$this->markTestSkipped('Translation / locale system slated for rewrite; skipping until new implementation.');
+		// Enable translation for test (new intl-based manager)
+		\Agavi\Config\AgaviConfig::set('core.use_translation', true, true);
 		$vm = $this->createValidationManager('test-translation-domain-1.0-behaviour');
 		
 		$this->assertSame('__NULL__', $vm->getChild('toplevel_simple')->getParameter('translation_domain', '__NULL__'));
@@ -48,7 +49,7 @@ class AgaviValidatorConfigHandlerTest extends ConfigHandlerTestBase
 	
 	public function testTranslationDomainInheritance()
 	{
-		$this->markTestSkipped('Translation / locale system slated for rewrite; skipping until new implementation.');
+		\Agavi\Config\AgaviConfig::set('core.use_translation', true, true);
 		$vm = $this->createValidationManager('test-translation-domain');
 		
 		$this->assertSame('test-domain-toplevel', $vm->getChild('toplevel_simple')->getParameter('translation_domain'));
@@ -66,7 +67,7 @@ class AgaviValidatorConfigHandlerTest extends ConfigHandlerTestBase
 	}
 	
 	public function testErrorsDefinedByValidationDefinition() {
-		$this->markTestSkipped('Translation / locale system slated for rewrite; skipping until new implementation.');
+		\Agavi\Config\AgaviConfig::set('core.use_translation', true, true);
 		$vm = $this->createValidationManager('test-validator-definition-error-definition');
 		$this->assertSame(array('' => 'error-generic', 'min' => 'error-min'), $vm->getChild('standalone-empty')->getErrorMessages());
 		$this->assertSame(array('' => 'error-generic-validator1', 'min' => 'error-min'), $vm->getChild('standalone-with-errors-single')->getErrorMessages());

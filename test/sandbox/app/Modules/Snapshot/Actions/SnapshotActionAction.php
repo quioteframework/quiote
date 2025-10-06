@@ -2,7 +2,7 @@
 namespace Sandbox\Modules\Snapshot\Actions;
 
 use Agavi\Action\AgaviAction;
-use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Request\AgaviWebRequest ;
 
 class SnapshotActionAction extends AgaviAction
 {
@@ -11,7 +11,7 @@ class SnapshotActionAction extends AgaviAction
 
     public function isSimple(): bool { return true; }
 
-    public function execute(AgaviRequestDataHolder $rd)
+    public function execute(AgaviWebRequest $rd)
     {
         // set attributes before snapshot
         $this->setAttribute('alpha', 'A');

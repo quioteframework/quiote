@@ -14,7 +14,6 @@
 // +---------------------------------------------------------------------------+
 namespace Agavi\Config;
 
-use Agavi\Date\AgaviDateDefinitions;
 use Agavi\Exception\AgaviException;
 use Agavi\Translation\AgaviLocale;
 use Exception;
@@ -75,13 +74,13 @@ class AgaviLdmlConfigHandler extends AgaviConfigHandler
 		}
 
 		$dayMap = [
-										'sun' => AgaviDateDefinitions::SUNDAY,
-										'mon' => AgaviDateDefinitions::MONDAY,
-										'tue' => AgaviDateDefinitions::TUESDAY,
-										'wed' => AgaviDateDefinitions::WEDNESDAY,
-										'thu' => AgaviDateDefinitions::THURSDAY,
-										'fri' => AgaviDateDefinitions::FRIDAY,
-										'sat' => AgaviDateDefinitions::SATURDAY,
+								'sun' => 1,
+								'mon' => 2,
+								'tue' => 3,
+								'wed' => 4,
+								'thu' => 5,
+								'fri' => 6,
+								'sat' => 7,
 		];
 
 		// fix the day indices for all day fields
@@ -317,15 +316,6 @@ array data format
      [pfId]              = pattern
    currencyFormats       =
      [cfId]              = pattern
-   currencySpacing       =
-     beforeCurrency      =
-       currencyMatch     = 
-       surroundingMatch  = 
-       insertBetween     = 
-     afterCurrency       =
-       currencyMatch     = 
-       surroundingMatch  = 
-       insertBetween     = 
    currencies            =
      [cId]               =
        displayName       = The locale display name
@@ -667,26 +657,8 @@ array data format
 
 						}
 					} elseif($itemLength->getName() == 'currencySpacing') {
-
-						if(isset($itemLength->beforeCurrency->currencyMatch)) {
-							$data['numbers']['currencySpacing']['beforeCurrency']['currencyMatch'] = $this->unescape($itemLength->beforeCurrency->currencyMatch->getValue());
-						}
-						if(isset($itemLength->beforeCurrency->surroundingMatch)) {
-							$data['numbers']['currencySpacing']['beforeCurrency']['surroundingMatch'] = $this->unescape($itemLength->beforeCurrency->surroundingMatch->getValue());
-						}
-						if(isset($itemLength->beforeCurrency->insertBetween)) {
-							$data['numbers']['currencySpacing']['beforeCurrency']['insertBetween'] = $this->unescape($itemLength->beforeCurrency->insertBetween->getValue());
-						}
-						if(isset($itemLength->afterCurrency->currencyMatch)) {
-							$data['numbers']['currencySpacing']['afterCurrency']['currencyMatch'] = $this->unescape($itemLength->afterCurrency->currencyMatch->getValue());
-						}
-						if(isset($itemLength->afterCurrency->surroundingMatch)) {
-							$data['numbers']['currencySpacing']['afterCurrency']['surroundingMatch'] = $this->unescape($itemLength->afterCurrency->surroundingMatch->getValue());
-						}
-						if(isset($itemLength->afterCurrency->insertBetween)) {
-							$data['numbers']['currencySpacing']['afterCurrency']['insertBetween'] = $this->unescape($itemLength->afterCurrency->insertBetween->getValue());
-						}
-
+						// Ignored: legacy currency spacing data no longer parsed.
+						continue;
 					} else {
 						throw new Exception('unknown childtag "' . $itemLength->getName() . '" in currencyFormats tag');
 					}

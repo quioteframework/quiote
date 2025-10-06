@@ -17,8 +17,15 @@ namespace Agavi\Request;
 
 use Agavi\AgaviContext;
 use Agavi\Exception\AgaviException;
+use Agavi\Logging\AgaviDebugLogger;
 use Agavi\Util\AgaviArrayPathDefinition;
 use Agavi\Util\AgaviToolkit;
+use InvalidArgumentException;
+use Negotiation\Exception\InvalidArgument;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Message\StreamInterface;
+use Psr\Http\Message\UploadedFileInterface;
+use Psr\Http\Message\UriInterface;
 use Symfony\Contracts\Service\ResetInterface;
 
 /**
@@ -60,13 +67,17 @@ use Symfony\Contracts\Service\ResetInterface;
  * 3. Gradually type-hint against Psr\Http\Message\ServerRequestInterface where feasible
  *    (routing, dispatch) and use adapter only for legacy consumers.
  */
-class AgaviWebRequest extends AgaviRequest implements ResetInterface
+class AgaviWebRequest implements ServerRequestInterface, ResetInterface
 {
+
+	// Trait 
+	use Psr7RequestTrait;
+
 	/**
 	 * @var        string The protocol information of this request.
-	 */ 
+	 */
 	protected $protocol = null;
-	
+
 	/**
 	 * @var        string The current URL scheme.
 	 */
@@ -101,6 +112,157 @@ class AgaviWebRequest extends AgaviRequest implements ResetInterface
 	 * @var        string The current URL.
 	 */
 	protected $url = '';
+
+	// Wrapped PSR-7 request; all interface methods delegate here
+	private ?ServerRequestInterface $request = null;
+
+	/**
+	 * Runtime (internal) parameters set via setParameter/appendParameter.
+	 * These are distinct from HTTP input (query/body/cookies/headers/files) and
+	 * from PSR-7 attributes. Historically these were stored in an
+	 * AgaviRequestDataHolder. We keep them separate to enforce explicitness
+	 * between user-supplied data and framework-injected context.
+	 * @var array<string,mixed>
+	 */
+	private array $runtimeParameters = [];
+
+
+	private array $sourceNames = ["parameters" => "parameter", "cookies" => "cookie", "files" => "file", "headers" => "header"];
+	/**
+	 * Checks if a field has no value (In web context this would only return true
+	 * when the strings length is 0 or the field is not set.
+	 *
+	 * @param      string The name of the source to operate on.
+	 * @param      string A field name.
+	 *
+	 * @return     bool The result.
+	 *
+	 * @author     Dominik del Bondio <ddb@bitxtender.com>
+	 * @author     David Zülke <dz@bitxtender.com>
+	 * @since      0.11.0
+	 */
+	public function isValueEmpty($source, $field)
+	{
+		$funcname = 'is' . $this->sourceNames[$source] . 'ValueEmpty';
+		if (is_callable([$this, $funcname])) {
+			return $this->$funcname($field);
+		} else {
+			throw new InvalidArgumentException("Invalid source name '$source'");
+		}
+	}
+
+	/**
+	 * Checks if there is a value of a parameter is empty or not set.
+	 *
+	 * @param      string The field name.
+	 *
+	 * @return     bool The result.
+	 *
+	 * @author     David Zülke <david.zuelke@bitextender.com>
+	 * @author     Dominik del Bondio <ddb@bitxtender.com>
+	 * @since      0.11.0
+	 */
+	public function isParameterValueEmpty($field)
+	{
+		$value = $this->getParameter($field);
+		$empty = ($value === null || $value === '');
+		if (getenv('AGAVI_DEBUG_VALIDATION')) {
+			try {
+				AgaviDebugLogger::debug('[AgaviWebRequest][debug][isParameterValueEmpty] field=' . $field . ' empty=' . ($empty ? '1' : '0') . ' valueType=' . gettype($value));
+			} catch (\Throwable) {
+			}
+		}
+		return $empty;
+	}
+
+
+	/**
+	 * Indicates whether or not a Cookie exists.
+	 *
+	 * @param      string A cookie name.
+	 *
+	 * @return     bool True, if a cookie with that name exists, otherwise false.
+	 *
+	 * @author     David Zülke <dz@bitxtender.com>
+	 * @since      0.11.0
+	 */
+	public function hasCookie($name)
+	{
+		if (isset($this->cookies[$name]) || array_key_exists($name, $this->getCookieParams())) {
+			return true;
+		}
+		try {
+			return AgaviArrayPathDefinition::hasValue($name, $this->getCookieParams());
+		} catch (InvalidArgumentException) {
+			return false;
+		}
+	}
+
+	/**
+	 * Checks if there is a value of a cookie is empty or not set.
+	 *
+	 * @param      string The cookie name.
+	 *
+	 * @return     bool The result.
+	 *
+	 * @author     David Zülke <david.zuelke@bitextender.com>
+	 * @author     Dominik del Bondio <ddb@bitxtender.com>
+	 * @since      0.11.0
+	 */
+	public function isCookieValueEmpty($name)
+	{
+		// Explicitly inspect cookie params to avoid indirect parameter precedence side-effects.
+		$cookies = $this->getCookieParams();
+		if(array_key_exists($name, $cookies)) {
+			$val = $cookies[$name];
+			return $val === null || $val === '';
+		}
+		return true;
+	}
+
+
+	/**
+	 * Checks if there is a value of a header is empty or not set.
+	 *
+	 * @param      string The header name.
+	 *
+	 * @return     bool The result.
+	 *
+	 * @author     David Zülke <david.zuelke@bitextender.com>
+	 * @author     Dominik del Bondio <ddb@bitxtender.com>
+	 * @since      0.11.0
+	 */
+	public function isHeaderValueEmpty($name)
+	{
+		// PSR-7 getHeader() returns an array; empty array means header absent.
+		// We consider a header "empty" if it is not present OR if all values are
+		// empty strings once concatenated (getHeaderLine == '').
+		if(!$this->hasHeader($name)) {
+			return true;
+		}
+		$line = $this->getHeaderLine($name);
+		return ($line === '');
+	}
+
+	/**
+	 * Checks if a file is empty, i.e. not set or set, but not actually uploaded.
+	 *
+	 * @param      string The file name.
+	 *
+	 * @return     bool The result.
+	 *
+	 * @author     David Zülke <david.zuelke@bitextender.com>
+	 * @author     Dominik del Bondio <ddb@bitxtender.com>
+	 * @since      0.11.0
+	 */
+	/*public function isFileValueEmpty($name)
+	{
+		$file = $this->getFile($name);
+		if(!($file instanceof AgaviUploadedFile)) {
+			return true;
+		}
+		return ($file->getError() == UPLOAD_ERR_NO_FILE);
+	}*/
 
 	/**
 	 * Get the request protocol information, e.g. "HTTP/1.1".
@@ -152,6 +314,15 @@ class AgaviWebRequest extends AgaviRequest implements ResetInterface
 	 */
 	public function getUrlPort()
 	{
+		// Late fallback to defaults if not yet inferred so we never expose :0
+		if ($this->urlPort === 0) {
+			if ($this->urlScheme === 'https') {
+				return 443;
+			}
+			if ($this->urlScheme === 'http') {
+				return 80;
+			}
+		}
 		return $this->urlPort;
 	}
 
@@ -205,7 +376,7 @@ class AgaviWebRequest extends AgaviRequest implements ResetInterface
 	/**
 	 * Retrieve the query part of the URL.
 	 * Example: "id=4815162342".
-	 *
+	 
 	 * @return     string The query part of the URL, or an empty string.
 	 *
 	 * @author     David Zülke <dz@bitxtender.com>
@@ -298,213 +469,792 @@ class AgaviWebRequest extends AgaviRequest implements ResetInterface
 	/**
 	 * Constructor.
 	 *
-     * @author     David Zülke <dz@bitxtender.com>
-     * @since      0.11.0
+	 * @author     David Zülke <dz@bitxtender.com>
+	 * @since      0.11.0
 	 */
-	public function __construct()
+	/**
+	 * Initialize this Request (compat stub for factories.xml flow).
+	 * We don't use Agavi's parameter holder anymore here.
+	 */
+	public function initialize(AgaviContext $context, array $parameters = [])
 	{
-		parent::__construct();
-		$this->setParameters([
-			'request_data_holder_class' => 'Agavi\Request\AgaviWebRequestDataHolder',
-		]);
+		// Fallback for legacy flows: when no PSR-7 request is attached yet we still
+		// need URL metadata derived from superglobals for helpers/tests.
+		$this->bootstrapFromServerParams($_SERVER);
 	}
 
 	/**
-	 * Initialize this Request.
-	 *
-	 * @param      AgaviContext An AgaviContext instance.
-	 * @param      array        An associative array of initialization parameters.
-	 *
-	 * @throws     <b>AgaviInitializationException</b> If an error occurs while
-	 *                                                 initializing this Request.
-	 *
-	 * @author     Veikko Mäkinen <mail@veikkomakinen.com>
-	 * @author     David Zülke <dz@bitxtender.com>
-	 * @since      0.9.0
+	 * Attach a PSR-7 request and sync derived fields for BC helpers.
 	 */
-	#[\Override]
-    public function initialize(AgaviContext $context, array $parameters = [])
+	public function attachPsrRequest(ServerRequestInterface $request): void
 	{
-		parent::initialize($context, $parameters);
-
-		$rla = ini_get('register_long_arrays');
-
-		$sources = array_merge([
-			'HTTPS' => 'HTTPS',
-			'REQUEST_METHOD' => 'REQUEST_METHOD',
-			'SERVER_NAME' => 'SERVER_NAME',
-			'SERVER_PORT' => 'SERVER_PORT',
-			'SERVER_PROTOCOL' => 'SERVER_PROTOCOL',
-			'SERVER_SOFTWARE' => 'SERVER_SOFTWARE',
-		], (array)$this->getParameter('sources'));
-		$this->setParameter('sources', $sources);
-
-		// this is correct: if a user-supplied parameter was set, then null is used as the default return value, which means getSourceValue() returns the user-supplied parameter as a last resort if a key of the same name could not be found. allows setting of static values for any of those below
-		$sourceDefaults = [
-			'HTTPS' => isset($parameters['sources']['HTTPS']) ? null : 'off',
-			'REQUEST_METHOD' => isset($parameters['sources']['REQUEST_METHOD']) ? null : 'GET',
-			'SERVER_NAME' => null,
-			'SERVER_PORT' => isset($parameters['sources']['SERVER_PORT']) ? null : $this->urlPort,
-			'SERVER_PROTOCOL' => isset($parameters['sources']['SERVER_PROTOCOL']) ? null : 'HTTP/1.0',
-			'SERVER_SOFTWARE' => null,
-		];
-
-		// Centralized HTTP verb -> action method mapping
-		$defaultVerbs = ['GET','POST','PUT','PATCH','DELETE','HEAD','OPTIONS','TRACE']; // PUT => create preserved
-		$mapped = [];
-		foreach($defaultVerbs as $verb) {
-			$mapped[$verb] = \Agavi\Execution\HttpMethodMapper::toActionMethod($verb);
+		$this->request = $request;
+		$uri = $request->getUri();
+		$this->url = $uri->__toString();
+		$this->urlScheme = (string) $uri->getScheme();
+		$this->urlHost = (string) $uri->getHost();
+		// Derive port robustly so we never leave it at 0 (which breaks URL generation):
+		// Priority:
+		//  1. Explicit port on URI
+		//  2. SERVER_PORT from server params
+		//  3. Default per scheme (http=80, https=443)
+		$rawPort = $uri->getPort();
+		if ($rawPort === null) {
+			$sp = $request->getServerParams();
+			if (isset($sp['SERVER_PORT']) && is_numeric($sp['SERVER_PORT'])) {
+				$rawPort = (int) $sp['SERVER_PORT'];
+			}
 		}
-		$methods = array_merge($mapped, (array)$this->getParameter('method_names'));
-		$this->setParameter('method_names', $methods);
+		if ($rawPort === null || $rawPort === 0) {
+			if ($this->urlScheme === 'https') {
+				$rawPort = 443;
+			} elseif ($this->urlScheme === 'http') {
+				$rawPort = 80;
+			}
+		}
+		$this->urlPort = (int) ($rawPort ?? 0); // Left as 0 only for unknown schemes
+		$this->urlQuery = (string) $uri->getQuery();
+		$this->urlPath = (string) $uri->getPath();
+		$this->requestUri = $this->urlPath . ($this->urlQuery !== '' ? '?' . $this->urlQuery : '');
+		$pv = $request->getProtocolVersion();
+		$this->protocol = $pv !== '' ? 'HTTP/' . $pv : null;
+	}
 
-		$REQUEST_METHOD = self::getSourceValue($sources['REQUEST_METHOD'], $sourceDefaults['REQUEST_METHOD']);
-
-		// map REQUEST_METHOD value to a method name, or fall back to the default in $sourceDefaults.
-		// if someone set a static value as default for a source that does not have a mapping, then he's really asking for it, and thus out of luck
-		$this->setMethod($this->getParameter(sprintf('method_names[%s]', $REQUEST_METHOD), $this->getParameter(sprintf('method_names[%s]', $sourceDefaults['REQUEST_METHOD']))));
-		
-		$this->protocol = self::getSourceValue($sources['SERVER_PROTOCOL'], $sourceDefaults['SERVER_PROTOCOL']);
-		
-		// "on" (e.g. Apache or IIS) or "https" (e.g. Amazon EC2 Elastic Load Balancer) or "1" or integer 1 or true (e.g. statically set from a config file)
-		$HTTPS = (bool)preg_match('/^(on|https|1)$/i', (string) self::getSourceValue($sources['HTTPS'], $sourceDefaults['HTTPS']));
-
-		$this->urlScheme = 'http' . ($HTTPS ? 's' : '');
-
-		$this->urlPort = (int)self::getSourceValue($sources['SERVER_PORT'], $sourceDefaults['SERVER_PORT']);
-
-		$SERVER_NAME = self::getSourceValue($sources['SERVER_NAME'], $sourceDefaults['SERVER_NAME']);
-		$port = $this->getUrlPort();
-		if(preg_match_all('/\:/', (string) $SERVER_NAME, $m) > 1) {
-			$this->urlHost = preg_replace('/\]\:' . preg_quote($port, '/') . '$/', '', (string) $SERVER_NAME);
-		} else {
-			$this->urlHost = preg_replace('/\:' . preg_quote($port, '/') . '$/', '', (string) $SERVER_NAME);
+	/**
+	 * Derive legacy URL metadata from PHP's server parameters when no PSR-7
+	 * request is available (e.g. unit tests, early bootstrap flows).
+	 */
+	private function bootstrapFromServerParams(array $server): void
+	{
+		if ($this->request !== null) {
+			return;
 		}
 
-		$_SERVER['SERVER_SOFTWARE'] = self::getSourceValue($sources['SERVER_SOFTWARE'], $sourceDefaults['SERVER_SOFTWARE']);
-		
-		if(isset($_SERVER['SERVER_SOFTWARE']) && preg_match('#^Apache(/\d+(\.\d+)?)?\.?$#', $_SERVER['SERVER_SOFTWARE'])) {
-			throw new AgaviException(
-				"You are running the Apache HTTP Server with a 'ServerTokens' configuration directive value of 'Minor' or lower.\n" .
-				"This directive controls the amount of version information Apache exposes about itself.\n" .
-				"Agavi needs detailed Apache version information to apply URL decoding and parsing workarounds specific to certain versions of Apache that exhibit buggy behavior.\n\n" .
-				"Please take one of the following measures to fix this problem:\n" .
-				"- raise your 'ServerTokens' level to 'Min' or higher in httpd.conf\n" .
-				"- set a static value for the request source 'SERVER_SOFTWARE' in factories.xml (for your environment)\n" .
-				"- set a value for \$_SERVER['SERVER_SOFTWARE'], e.g. in your pub/index.php\n\n" .
-				"For detailed instructions and examples on fixing this problem, especially for the factories.xml method which is recommended in case you do not have control over your server's httpd.conf, please refer to:\n" .
-				"http://trac.agavi.org/ticket/1029\n\n" .
-				"For more information on the 'ServerTokens' directive, please refer to:\n" .
-				"http://httpd.apache.org/docs/2.2/en/mod/core.html#servertokens\n\n" .
-			"For your reference, your SERVER_SOFTWARE string is currently '$_SERVER[SERVER_SOFTWARE]'."
-			);
+		// Determine scheme with priority: explicit forwarded proto -> request scheme -> HTTPS flag.
+		$scheme = '';
+		if (!empty($server['HTTP_X_FORWARDED_PROTO'])) {
+			$forwarded = explode(',', (string)$server['HTTP_X_FORWARDED_PROTO']);
+			$scheme = strtolower(trim($forwarded[0]));
+		}
+		if ($scheme === '' && !empty($server['REQUEST_SCHEME'])) {
+			$scheme = strtolower((string)$server['REQUEST_SCHEME']);
+		}
+		if ($scheme === '') {
+			$https = $server['HTTPS'] ?? null;
+			if (is_string($https)) {
+				$flag = strtolower($https);
+				if ($flag === 'on' || $flag === '1' || $flag === 'https') {
+					$scheme = 'https';
+				} elseif ($flag === 'off' || $flag === '0') {
+					$scheme = 'http';
+				}
+			} elseif ($https === true) {
+				$scheme = 'https';
+			}
+		}
+		if ($scheme === '') {
+			$scheme = 'http';
 		}
 
-		if(isset($_SERVER['UNENCODED_URL']) && isset($_SERVER['SERVER_SOFTWARE']) && str_contains($_SERVER['SERVER_SOFTWARE'], 'Microsoft-IIS')) {
-			// Microsoft IIS 7 with URL Rewrite Module
-			$this->requestUri = $_SERVER['UNENCODED_URL'];
-		} elseif(isset($_SERVER['HTTP_X_REWRITE_URL']) && isset($_SERVER['SERVER_SOFTWARE']) && str_contains($_SERVER['SERVER_SOFTWARE'], 'Microsoft-IIS')) {
-			// Microsoft IIS with ISAPI_Rewrite
-			$this->requestUri = $_SERVER['HTTP_X_REWRITE_URL'];
-		} elseif(!isset($_SERVER['REQUEST_URI']) && isset($_SERVER['SERVER_SOFTWARE']) && str_contains($_SERVER['SERVER_SOFTWARE'], 'Microsoft-IIS')) {
-			// Microsoft IIS with PHP in CGI mode
-			$this->requestUri = $_SERVER['ORIG_PATH_INFO'] . (isset($_SERVER['QUERY_STRING']) && $_SERVER['QUERY_STRING'] != '' ? '?' . $_SERVER['QUERY_STRING'] : '');
-		} elseif(isset($_SERVER['REQUEST_URI'])) {
-			$this->requestUri = $_SERVER['REQUEST_URI'];
+		// Resolve host (and potential port) from Host header first, then server name/address.
+		$hostHeader = $server['HTTP_HOST'] ?? '';
+		if ($hostHeader === '') {
+			$hostHeader = $server['SERVER_NAME'] ?? ($server['SERVER_ADDR'] ?? '');
+		}
+		$authority = '//' . ltrim((string)$hostHeader, '/');
+		$parsedHost = parse_url($authority, PHP_URL_HOST);
+		$parsedPort = parse_url($authority, PHP_URL_PORT);
+		$host = is_string($parsedHost) ? $parsedHost : '';
+		$port = ($parsedPort !== null && $parsedPort !== false) ? (int)$parsedPort : null;
+		if ($host === '' && !empty($server['SERVER_NAME'])) {
+			$host = (string)$server['SERVER_NAME'];
+		}
+		if ($port === null && isset($server['SERVER_PORT']) && is_numeric($server['SERVER_PORT'])) {
+			$port = (int)$server['SERVER_PORT'];
+		}
+		if ($port === null) {
+			$port = $scheme === 'https' ? 443 : 80;
 		}
 
-		// Microsoft IIS with PHP in CGI mode
-		if(!isset($_SERVER['QUERY_STRING'])) {
-			$_SERVER['QUERY_STRING'] = '';
+		// Build request URI, path, and query pieces.
+		$requestUri = (string)($server['REQUEST_URI'] ?? '');
+		if ($requestUri === '' && isset($server['ORIG_PATH_INFO'])) {
+			$requestUri = (string)$server['ORIG_PATH_INFO'];
+			if (!empty($server['QUERY_STRING'])) {
+				$requestUri .= '?' . $server['QUERY_STRING'];
+			}
 		}
-		if(!isset($_SERVER['REQUEST_URI'])) {
-			$_SERVER['REQUEST_URI'] = $this->getRequestUri();
+		if ($requestUri === '') {
+			$requestUri = '/';
+		}
+		$path = parse_url($requestUri, PHP_URL_PATH);
+		if (!is_string($path) || $path === '') {
+			$path = '/';
+		}
+		$query = parse_url($requestUri, PHP_URL_QUERY);
+		if ($query === null || $query === false) {
+			$query = '';
 		}
 
-		// okay, this is really bad
-		// Internet Explorer (many versions, many OSes) seem to be sending improperly urlencoded URLs to the server, in violation of the HTTP RFC
-		// this can cause a number of problems, most notably html special chars not being escaped and potentially ending up this way in the output
-		// the result is an XSS attack vector, e.g. on AgaviWebRouting::gen(null)
-		// so we escape those. but not the ampersand, or the query string gets messed up
-		// we also encode the backtick (Suhosin does this, too), and the space character
-		// in theory, we shouldn't encode the single quote either, since it's a reserved sub-delimiter as per RFC 3986 - however, that would allow injection again in documents that use single quotes as attribute delimiters, and it's up to implementations to encode sub-delimiters if they deem it necessary
-		// great, huh?
-		// more details:
-		// http://trac.agavi.org/ticket/1019
-		// http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2009-0417
-		[$this->requestUri, $_SERVER['REQUEST_URI']] = str_replace(
-			[' ',   '"',   '\'',  '<',   '>',   '`',   /*'&'*/],
-			['%20', '%22', '%27', '%3C', '%3E', '%60', /*'%26'*/],
-			[$this->requestUri, $_SERVER['REQUEST_URI']]
-		);
-		if($rla) {
-			$GLOBALS['HTTP_SERVER_VARS']['REQUEST_URI'] = $this->getRequestUri();
+		$this->urlScheme = $scheme;
+		$this->urlHost = $host;
+		$this->urlPort = (int)$port;
+		$this->urlPath = $path;
+		$this->urlQuery = $query;
+		$this->requestUri = $path . ($query !== '' ? '?' . $query : '');
+		$this->protocol = $server['SERVER_PROTOCOL'] ?? $this->protocol;
+		$this->url = $this->getUrlScheme() . '://' . $this->getUrlAuthority() . $this->requestUri;
+	}
+
+	public function getParameter(string $name, $default = null)
+	{
+		// 1. Direct runtime override
+		if (array_key_exists($name, $this->runtimeParameters)) {
+			return $this->runtimeParameters[$name];
 		}
-		
-		// 'scheme://authority' is necessary so parse_url doesn't stumble over '://' in the request URI
-		$parts = array_merge(['path' => '', 'query' => ''], parse_url('scheme://authority' . $this->getRequestUri()));
-		$this->urlPath = $parts['path'];
-		$this->urlQuery = $parts['query'];
-		unset($parts);
+		if ($this->request === null) {
+			return $default;
+		}
+		// 2. Direct intrinsic (flat) lookup through helper
+		$value = $this->getRequestParam($this->request, $name, null);
+		if ($value !== null) {
+			return $value;
+		}
+		// 3. Bracket strip fallback: if caller used trailing [] treat as base array request
+		if (str_ends_with($name, '[]')) {
+			$base = substr($name, 0, -2);
+			if (array_key_exists($base, $this->runtimeParameters)) {
+				return $this->runtimeParameters[$base];
+			}
+			$baseVal = $this->getRequestParam($this->request, $base, null);
+			if ($baseVal !== null) {
+				return $baseVal;
+			}
+		}
+		// 4. Legacy path resolution (nested/bracket syntax) over merged parameters (runtime wins)
+		$merged = null; $ref = null; $lookupException = null;
+		try {
+			$merged = $this->runtimeParameters + $this->getRequestParams($this->request, 'parameters');
+			$ref = AgaviArrayPathDefinition::getValue($name, $merged, null);
+		} catch (\Throwable $e) { $lookupException = $e; }
+		if ($ref !== null) {
+			return $ref;
+		}
+		// 4b. Manual bracket path fallback when legacy resolver fails (e.g. data[0][Application])
+		if ($merged !== null && str_contains($name, '[')) {
+			$manual = $this->resolveBracketPath($name, $merged);
+			if ($manual !== null) {
+				return $manual;
+			}
+		}
+		return $default;
+	}
 
-		$files = [];
-		$ufc = $this->getParameter('uploaded_file_class', 'Agavi\Request\AgaviUploadedFile');
+	// --- PSR-7 MessageInterface required methods (delegating when trait not providing concrete ones) ---
+	public function getProtocolVersion(): string
+	{
+		return $this->request?->getProtocolVersion() ?? '1.1';
+	}
 
-		if($this->getMethod() == $methods['PUT']) {
+	public function withProtocolVersion($version): self
+	{
+		if ($this->request === null) { throw new \RuntimeException('PSR-7 request not attached'); }
+		$next = clone $this; $next->attachPsrRequest($this->request->withProtocolVersion($version)); return $next;
+	}
 
-			if(isset($_SERVER['CONTENT_TYPE']) && $this->getParameter('http_put_decode_urlencoded', true) && preg_match('#^application/x-www-form-urlencoded(;[^;]+)*?$#', $_SERVER['CONTENT_TYPE'])) {
-				// urlencoded data was sent, we can decode that
-				parse_str(file_get_contents('php://input'), $_POST);
+	public function getHeaders(): array
+	{
+		return $this->request?->getHeaders() ?? [];
+	}
+
+	public function hasHeader($name): bool
+	{
+		return $this->request?->hasHeader($name) ?? false;
+	}
+
+	public function hasParameter(string $name): bool
+	{
+		if (array_key_exists($name, $this->runtimeParameters)) {
+			return true;
+		}
+		if ($this->request === null) {
+			return false;
+		}
+		if ($this->getRequestParam($this->request, $name, null) !== null) {
+			return true;
+		}
+		if (str_ends_with($name, '[]')) {
+			$base = substr($name, 0, -2);
+			if (array_key_exists($base, $this->runtimeParameters)) {
+				return true;
+			}
+			if ($this->getRequestParam($this->request, $base, null) !== null) {
+				return true;
+			}
+		}
+		$merged = null; $has = false; $ex = null;
+		try { $merged = $this->runtimeParameters + $this->getRequestParams($this->request, 'parameters'); $has = AgaviArrayPathDefinition::hasValue($name, $merged); } catch (\Throwable $e) { $ex = $e; }
+		if ($has) { return true; }
+		if ($merged !== null && str_contains($name, '[') && $this->resolveBracketPath($name, $merged) !== null) { return true; }
+		if ($ex !== null) { return false; }
+		return false;
+	}
+
+	/**
+	 * Manual, conservative bracket path resolution for nested parameters like foo[0][bar].
+	 * Returns null if any segment is missing. Does not support empty brackets [] append semantics for safety.
+	 */
+	private function resolveBracketPath(string $path, array $rootArray)
+	{
+		$firstBracket = strpos($path, '[');
+		if ($firstBracket === false) {
+			return $rootArray[$path] ?? null;
+		}
+		$rootKey = substr($path, 0, $firstBracket);
+		if ($rootKey === '' || !array_key_exists($rootKey, $rootArray)) {
+			return null;
+		}
+		$current = $rootArray[$rootKey];
+		if (!is_array($current)) {
+			return null;
+		}
+		if (!preg_match_all('/\[([^\]]*)\]/', $path, $matches)) {
+			return null;
+		}
+		foreach ($matches[1] as $seg) {
+			if ($seg === '' || !is_array($current) || !array_key_exists($seg, $current)) {
+				return null;
+			}
+			$current = $current[$seg];
+		}
+		return $current;
+	}
+
+	/**
+	 * Retrieve parameters. When $source is null we merge runtime parameters
+	 * over intrinsic HTTP parameters. Specific sources bypass runtime store.
+	 * Allowed $source values mirror legacy API: parameters|cookies|files|headers|attributes|runtime
+	 */
+	public function getParameters(?string $source = null)
+	{
+		if ($source === 'runtime') {
+			return $this->runtimeParameters;
+		}
+		if ($this->request === null) {
+			// In test or pre-attachment scenarios, expose runtime parameters also for explicit 'parameters' source
+			if ($source === null || $source === 'parameters') {
+				return $this->runtimeParameters;
+			}
+			return [];
+		}
+		if ($source === null) {
+			// Merge intrinsic HTTP param sources (query+body) then overlay runtime
+			$base = $this->getRequestParams($this->request, 'parameters');
+			return $this->runtimeParameters + $base; // runtime wins
+		}
+		if ($source === 'parameters') {
+			$base = $this->getRequestParams($this->request, 'parameters');
+			// Ensure runtime parameters are also visible through explicit 'parameters' source for legacy validators
+			$merged = $this->runtimeParameters + $base;
+			/*if (getenv('DEBUG_TESTS') || (defined('DEBUG_TESTS') && DEBUG_TESTS)) {
+				try { AgaviDebugLogger::debug('[TestDebug][getParameters.parameters] runtimeKeys=' . implode(',', array_keys($this->runtimeParameters)) . ' baseKeys=' . implode(',', array_keys($base)) . ' mergedKeys=' . implode(',', array_keys($merged))); } catch(\Throwable) {}
+			}*/
+			return $merged;
+		}
+		return $this->getRequestParams($this->request, $source);
+	}
+
+	/**
+	 * Remove a parameter from runtime store or intrinsic sources.
+	 * If $source is null or 'runtime' we only affect runtime store.
+	 */
+	public function removeParameter(string $name, string $source = 'runtime')
+	{
+		if ($source === 'runtime' || $source === null) {
+			// Support nested path removal for runtime parameters (best-effort)
+			if (array_key_exists($name, $this->runtimeParameters)) {
+				unset($this->runtimeParameters[$name]);
+				return $this;
+			}
+			try {
+				$dummy = &$this->runtimeParameters; // alias for path removal
+				AgaviArrayPathDefinition::unsetValue($name, $dummy);
+			} catch (\Throwable) {
+			}
+			return $this;
+		}
+		if ($this->request !== null) {
+			$this->request = $this->withoutParameter($this->request, $name, $source) ?? $this->request;
+		}
+		return $this;
+	}
+
+	/**
+	 * Legacy write API: set a runtime parameter (not an attribute, not HTTP input).
+	 */
+	public function setParameter(string $name, $value): void
+	{
+		// Support legacy bracket notation when tests or legacy code call setParameter
+		if (strpos($name, '[') !== false) {
+			$root = substr($name, 0, strpos($name, '['));
+			if ($root !== '') {
+				if (!array_key_exists($root, $this->runtimeParameters) || !is_array($this->runtimeParameters[$root])) {
+					$this->runtimeParameters[$root] = [];
+				}
+				if (preg_match_all('/\\[([^\\]]*)\\]/', $name, $matches)) {
+					$segments = $matches[1];
+					$current =& $this->runtimeParameters[$root];
+					$last = count($segments) - 1;
+					foreach ($segments as $i => $seg) {
+						if ($seg === '') { // append semantics
+							$seg = (string)count($current);
+						}
+						if ($i === $last) {
+							$current[$seg] = $value;
+						} else {
+							if (!isset($current[$seg]) || !is_array($current[$seg])) {
+								$current[$seg] = [];
+							}
+							$current =& $current[$seg];
+						}
+					}
+					// Do not additionally store the fully qualified bracket path to avoid duplication
+					return;
+				}
+			}
+		}
+		$this->runtimeParameters[$name] = $value;
+		// NEW: If setting a root array (e.g. data => [[...]]), synthesize bracket keys (data[0][Field])
+		if (is_array($value) && $this->shouldMaterializeBracketPaths($name, $value)) {
+			$this->materializeBracketPaths($name, $value);
+		}
+	}
+
+	/**
+	 * Decide whether to materialize bracket paths for a root key; avoid huge structures (>200 elements) for performance.
+	 */
+	private function shouldMaterializeBracketPaths(string $root, array $value): bool
+	{
+		if ($root === '') { return false; }
+		// Basic heuristic: array of arrays (first element is array) and size reasonable
+		$first = reset($value);
+		return is_array($first) && count($value) <= 200;
+	}
+
+	/**
+	 * For a structure like ['data' => [ ['Application' => 'orders', 'Enabled' => true] ] ]
+	 * create flattened bracketed entries: data[0][Application], data[0][Enabled].
+	 * Stored as scalar runtimeParameters so legacy validator key enumeration that scans flat names picks them up.
+	 */
+	private function materializeBracketPaths(string $root, array $list): void
+	{
+		foreach ($list as $idx => $row) {
+			if (!is_array($row)) { continue; }
+			foreach ($row as $k => $v) {
+				$flatKey = $root . '[' . $idx . '][' . $k . ']';
+				// Do not overwrite if explicitly set already
+				if (!array_key_exists($flatKey, $this->runtimeParameters)) {
+					$this->runtimeParameters[$flatKey] = $v;
+				}
+			}
+		}
+	}
+
+	/**
+	 * Legacy append API mirrors AgaviParameterHolder::appendParameter semantics.
+	 */
+	public function appendParameter(string $name, $value): void
+	{
+		if (!array_key_exists($name, $this->runtimeParameters) || !is_array($this->runtimeParameters[$name])) {
+			if (!array_key_exists($name, $this->runtimeParameters)) {
+				$this->runtimeParameters[$name] = [];
 			} else {
-				// some other data via PUT. we need to populate $_FILES manually
-				$httpBody = file_get_contents('php://input');
-
-				$files = [
-					$this->getParameter('http_put_file_name', 'put_file') => new $ufc([
-						'name' => $this->getMethod(),
-						'type' => $_SERVER['CONTENT_TYPE'] ?? 'application/octet-stream',
-						'size' => strlen($httpBody),
-						'contents' => $httpBody,
-						'error' => UPLOAD_ERR_OK,
-						'is_uploaded_file' => false,
-					])
-				];
-			}
-		} elseif($this->getMethod() == $methods['POST'] && (!isset($_SERVER['CONTENT_TYPE']) || (isset($_SERVER['CONTENT_TYPE']) && !preg_match('#^(application/x-www-form-urlencoded|multipart/form-data)(;[^;]+)*?$#', $_SERVER['CONTENT_TYPE'])))) {
-			// POST, but no regular urlencoded data or file upload. lets put the request payload into a file
-			$httpBody = file_get_contents('php://input');
-
-			$files = [
-				$this->getParameter('http_post_file_name', 'post_file') => new $ufc([
-					'name' => $this->getMethod(),
-					'type' => $_SERVER['CONTENT_TYPE'] ?? 'application/octet-stream',
-					'size' => strlen($httpBody),
-					'contents' => $httpBody,
-					'error' => UPLOAD_ERR_OK,
-					'is_uploaded_file' => false,
-				])
-			];
-		} elseif($this->getMethod() == $methods['POST'] && isset($_SERVER['CONTENT_TYPE']) && preg_match('#^multipart/form-data(;[^;]+)*?$#', $_SERVER['CONTENT_TYPE'])) {
-			$files = static::fixFilesArray($_FILES, $ufc);
-		}
-
-		$headers = [];
-		foreach($_SERVER as $key => $value) {
-			if(str_starts_with($key, 'HTTP_')) {
-				$headers[substr($key, 5)] = $value;
-			} elseif($key == 'CONTENT_TYPE' || $key == 'CONTENT_LENGTH') {
-				// yeah, whatever, PHP...
-				$headers[$key] = $value;
+				$this->runtimeParameters[$name] = (array)$this->runtimeParameters[$name];
 			}
 		}
+		$this->runtimeParameters[$name][] = $value;
+	}
 
-		$rdhc = $this->getParameter('request_data_holder_class');
-		$this->setRequestData(new $rdhc([
-			constant("$rdhc::SOURCE_PARAMETERS") => array_merge($_GET, $_POST),
-			constant("$rdhc::SOURCE_COOKIES") => $_COOKIE,
-			constant("$rdhc::SOURCE_FILES") => $files,
-			constant("$rdhc::SOURCE_HEADERS") => $headers,
-		]));
+	public function enforceValidatedParameters(bool $enforce)
+	{
+		$clone = clone $this;
+		if ($this->request !== null) {
+			$clone->request = $this->request->withAttribute('throw_on_missing_access', (bool) $enforce);
+		}
+		return $clone;
+	}
+
+	public function clearParameters()
+	{
+		$this->runtimeParameters = [];
+		/*if (getenv('DEBUG_TESTS') || (defined('DEBUG_TESTS') && DEBUG_TESTS)) {
+			try {
+				AgaviDebugLogger::debug('[TestDebug][clearParameters] runtime cleared');
+			} catch (\Throwable) {
+			}
+		}*/
+		if ($this->request !== null) {
+			$this->request = $this->request->withParsedBody(null)->withQueryParams([])->withCookieParams([]);
+			$headers = $this->request->getHeaders();
+			foreach ($headers as $headerName => $headerValue) {
+				$this->request = $this->request->withoutHeader($headerName);
+			}
+		}
+	}
+
+	/**
+	 * Prune request parameters after validation in strict/conditional modes.
+	 *
+	 * $keep contains names of successfully validated arguments. $failed contains
+	 * names of arguments that explicitly failed validation. Everything else in
+	 * intrinsic (query+body merged) and runtime parameters is considered
+	 * unvalidated and will be removed. Module/action parameters may optionally
+	 * be preserved if $preserveModuleAction is true.
+	 *
+	 * This operates only on the "parameters" source (query+body merged) plus
+	 * runtime parameters, matching validator argument semantics. Cookies, files
+	 * and headers are left untouched here because validator arguments typically
+	 * target parameters; if needed we can later extend with additional source
+	 * pruning rules.
+	 */
+	public function pruneParametersToValidated(array $keep, array $failed, bool $preserveModuleAction, ?string $moduleKey, ?string $actionKey): void
+	{
+		/*
+		 * Security hardening: remove any user-supplied data that was not explicitly validated.
+		 * Sources affected: parameters (query/body), cookies, headers, files, and runtime parameters.
+		 * Rationale: Prevent injection vectors (SQL, header manipulation, log forgery) from unvalidated input
+		 * lingering in the request object after validation passes control to later layers.
+		 */
+		$keepSet = [];
+		foreach($keep as $k) { $keepSet[$k] = true; }
+		$failedSet = [];
+		foreach($failed as $k) { $failedSet[$k] = true; }
+		$preserve = [];
+		if($preserveModuleAction) {
+			if($moduleKey) { $preserve[$moduleKey] = true; }
+			if($actionKey) { $preserve[$actionKey] = true; }
+		}
+
+		if($this->request !== null) {
+			// Parameters (query + body)
+			$query = $this->request->getQueryParams();
+			$body = $this->request->getParsedBody();
+			if(!is_array($body)) { $body = []; }
+			$intrinsic = $body + $query;
+			foreach(array_keys($intrinsic) as $name) {
+				$remove = true;
+				if(isset($keepSet[$name])) { $remove = false; }
+				if(isset($failedSet[$name])) { $remove = true; }
+				if(isset($preserve[$name])) { $remove = false; }
+				if($remove) {
+					if(array_key_exists($name, $query)) { unset($query[$name]); }
+					if(array_key_exists($name, $body)) { unset($body[$name]); }
+				}
+			}
+			$this->request = $this->request->withQueryParams($query)->withParsedBody($body);
+
+			// (Headers, cookies, files handled in pruneExtendedSources to allow full keep/fail maps per source)
+		}
+
+		// Runtime parameters
+		foreach(array_keys($this->runtimeParameters) as $rName) {
+			$remove = true;
+			if(isset($keepSet[$rName])) { $remove = false; }
+			if(isset($failedSet[$rName])) { $remove = true; }
+			if(isset($preserve[$rName])) { $remove = false; }
+			if($remove) { unset($this->runtimeParameters[$rName]); }
+		}
+	}
+
+	/**
+	 * Extended pruning invoked by ValidationManager for non-parameter sources when available.
+	 * Each keep/failed array is an associative map of name => true.
+	 */
+	public function pruneExtendedSources(array $headerKeep, array $headerFail, array $cookieKeep, array $cookieFail, array $fileKeep, array $fileFail): void
+	{
+		if($this->request === null) { return; }
+		// Headers
+		foreach(array_keys($this->request->getHeaders()) as $h) {
+			$l = strtolower($h);
+			$remove = true;
+			if(isset($headerKeep[$h]) || isset($headerKeep[$l])) { $remove = false; }
+			if(isset($headerFail[$h]) || isset($headerFail[$l])) { $remove = true; }
+			if($remove) { $this->request = $this->request->withoutHeader($h); }
+		}
+		// Cookies
+		$cookies = $this->request->getCookieParams();
+		foreach(array_keys($cookies) as $c) {
+			$remove = true;
+			if(isset($cookieKeep[$c])) { $remove = false; }
+			if(isset($cookieFail[$c])) { $remove = true; }
+			if($remove) { unset($cookies[$c]); }
+		}
+		$this->request = $this->request->withCookieParams($cookies);
+		// Files
+		$files = $this->request->getUploadedFiles();
+		$changed = false;
+		foreach(array_keys($files) as $f) {
+			$remove = true;
+			if(isset($fileKeep[$f])) { $remove = false; }
+			if(isset($fileFail[$f])) { $remove = true; }
+			if($remove) { unset($files[$f]); $changed = true; }
+		}
+		if($changed) { $this->request = $this->request->withUploadedFiles($files); }
+	}
+
+	// -----------------------
+	// Legacy attribute helpers
+	// -----------------------
+
+	/**
+	 * Append a value to a list-style attribute (legacy API used by views to add css/js).
+	 * Values are stored as array under attribute name. Idempotent for identical consecutive adds.
+	 */
+	public function appendAttribute(string $name, $value): void
+	{
+		$current = $this->request?->getAttribute($name);
+		if ($current === null) {
+			$current = [];
+		} elseif (!is_array($current)) {
+			$current = [$current];
+		}
+		$current[] = $value;
+		if ($this->request !== null) {
+			$this->request = $this->request->withAttribute($name, $current);
+		}
+	}
+
+	/**
+	 * Backwards compat: alias for appendAttribute when code used singular.
+	 */
+	public function appendListAttribute(string $name, $value): void
+	{
+		$this->appendAttribute($name, $value);
+	}
+
+	/**
+	 * Legacy API: check if attribute exists (non-null) on underlying PSR request.
+	 */
+	public function hasAttribute(string $name): bool
+	{
+		if ($this->request === null) {
+			return false;
+		}
+		return $this->request->getAttribute($name) !== null;
+	}
+
+	/**
+	 * Legacy mutator: set attribute (overwrites any existing value).
+	 */
+	public function setAttribute(string $name, $value): void
+	{
+		if ($this->request !== null) {
+			$this->request = $this->request->withAttribute($name, $value);
+		}
+	}
+
+	public function getHeader($name): array
+	{
+		return $this->request?->getHeader($name) ?? [];
+	}
+
+	public function getHeaderLine($name): string
+	{
+		return $this->request?->getHeaderLine($name) ?? '';
+	}
+
+	public function withHeader($name, $value): self
+	{
+		if ($this->request === null) {
+			throw new \RuntimeException('PSR-7 request not attached');
+		}
+		$next = clone $this;
+		$next->attachPsrRequest($this->request->withHeader($name, $value));
+		return $next;
+	}
+
+	public function withAddedHeader($name, $value): self
+	{
+		if ($this->request === null) {
+			throw new \RuntimeException('PSR-7 request not attached');
+		}
+		$next = clone $this;
+		$next->attachPsrRequest($this->request->withAddedHeader($name, $value));
+		return $next;
+	}
+
+	public function withoutHeader($name): self
+	{
+		if ($this->request === null) {
+			throw new \RuntimeException('PSR-7 request not attached');
+		}
+		$next = clone $this;
+		$next->attachPsrRequest($this->request->withoutHeader($name));
+		return $next;
+	}
+
+	public function getBody(): StreamInterface
+	{
+		if ($this->request === null) {
+			throw new \RuntimeException('PSR-7 request not attached');
+		}
+		return $this->request->getBody();
+	}
+
+	public function withBody(StreamInterface $body): self
+	{
+		if ($this->request === null) {
+			throw new \RuntimeException('PSR-7 request not attached');
+		}
+		$next = clone $this;
+		$next->attachPsrRequest($this->request->withBody($body));
+		return $next;
+	}
+
+	public function getRequestTarget(): string
+	{
+		return $this->request?->getRequestTarget() ?? '';
+	}
+
+	public function withRequestTarget($requestTarget): self
+	{
+		if ($this->request === null) {
+			throw new \RuntimeException('PSR-7 request not attached');
+		}
+		$next = clone $this;
+		$next->attachPsrRequest($this->request->withRequestTarget($requestTarget));
+		return $next;
+	}
+
+	public function getMethod(): string
+	{
+		return $this->request?->getMethod() ?? ($this->method ?? 'GET');
+	}
+
+	public function withMethod($method): self
+	{
+		if ($this->request === null) {
+			throw new \RuntimeException('PSR-7 request not attached');
+		}
+		$next = clone $this;
+		$next->attachPsrRequest($this->request->withMethod($method));
+		return $next;
+	}
+
+	public function getUri(): UriInterface
+	{
+		if ($this->request === null) {
+			throw new \RuntimeException('PSR-7 request not attached');
+		}
+		return $this->request->getUri();
+	}
+
+	public function withUri(UriInterface $uri, $preserveHost = false): self
+	{
+		if ($this->request === null) {
+			throw new \RuntimeException('PSR-7 request not attached');
+		}
+		$next = clone $this;
+		$next->attachPsrRequest($this->request->withUri($uri, $preserveHost));
+		return $next;
+	}
+
+	public function getServerParams(): array
+	{
+		return $this->request?->getServerParams() ?? [];
+	}
+
+	public function getCookieParams(): array
+	{
+		return $this->request?->getCookieParams() ?? [];
+	}
+
+	public function withCookieParams(array $cookies): self
+	{
+		if ($this->request === null) {
+			throw new \RuntimeException('PSR-7 request not attached');
+		}
+		$next = clone $this;
+		$next->attachPsrRequest($this->request->withCookieParams($cookies));
+		return $next;
+	}
+
+	public function getQueryParams(): array
+	{
+		return $this->request?->getQueryParams() ?? [];
+	}
+
+	public function withQueryParams(array $query): self
+	{
+		if ($this->request === null) {
+			throw new \RuntimeException('PSR-7 request not attached');
+		}
+		$next = clone $this;
+		$next->attachPsrRequest($this->request->withQueryParams($query));
+		return $next;
+	}
+
+	/**
+	 * @return array<string, UploadedFileInterface|array>
+	 */
+	public function getUploadedFiles(): array
+	{
+		return $this->request?->getUploadedFiles() ?? [];
+	}
+
+	public function withUploadedFiles(array $uploadedFiles): self
+	{
+		if ($this->request === null) {
+			throw new \RuntimeException('PSR-7 request not attached');
+		}
+		$next = clone $this;
+		$next->attachPsrRequest($this->request->withUploadedFiles($uploadedFiles));
+		return $next;
+	}
+
+	public function getParsedBody(): mixed
+	{
+		return $this->request?->getParsedBody();
+	}
+
+	public function withParsedBody($data): self
+	{
+		if ($this->request === null) {
+			throw new \RuntimeException('PSR-7 request not attached');
+		}
+		$next = clone $this;
+		$next->attachPsrRequest($this->request->withParsedBody($data));
+		return $next;
+	}
+
+	public function getAttributes(): array
+	{
+		return $this->request?->getAttributes() ?? [];
+	}
+
+	public function getAttribute($name, $default = null): mixed
+	{
+		return $this->request?->getAttribute($name, $default);
+	}
+
+	public function withAttribute($name, $value): self
+	{
+		if ($this->request === null) {
+			throw new \RuntimeException('PSR-7 request not attached');
+		}
+		$next = clone $this;
+		$next->attachPsrRequest($this->request->withAttribute($name, $value));
+		return $next;
+	}
+
+	public function withoutAttribute($name): self
+	{
+		if ($this->request === null) {
+			throw new \RuntimeException('PSR-7 request not attached');
+		}
+		$next = clone $this;
+		$next->attachPsrRequest($this->request->withoutAttribute($name));
+		return $next;
 	}
 
 	/**
@@ -522,27 +1272,27 @@ class AgaviWebRequest extends AgaviRequest implements ResetInterface
 	protected static function fixFilesArray($input, $uploadedFileClass = 'AgaviUploadedFile', $index = [], &$output = [])
 	{
 		$fromIndex = $index;
-		if(count($fromIndex) > 0) {
+		if (count($fromIndex) > 0) {
 			$first = array_shift($fromIndex);
 			array_unshift($fromIndex, $first, 'error');
 		}
 		$sub = AgaviArrayPathDefinition::getValue($fromIndex, $input);
 		$theIndices = [];
-		foreach(['name', 'type', 'size', 'tmp_name', 'error', 'is_uploaded_file'] as $name) {
+		foreach (['name', 'type', 'size', 'tmp_name', 'error', 'is_uploaded_file'] as $name) {
 			$theIndex = $fromIndex;
 			$first = array_shift($theIndex);
 			array_shift($theIndex);
 			array_unshift($theIndex, $first, $name);
 			$theIndices[$name] = $theIndex;
 		}
-		if(is_array($sub)) {
-			foreach($sub as $key => $value) {
+		if (is_array($sub)) {
+			foreach ($sub as $key => $value) {
 				$toIndex = array_merge($index, [$key]);
-				if(is_array($value)) {
+				if (is_array($value)) {
 					static::fixFilesArray($input, $uploadedFileClass, $toIndex, $output);
 				} else {
 					$data = [];
-					foreach($theIndices as $name => $theIndex) {
+					foreach ($theIndices as $name => $theIndex) {
 						$data[$name] = AgaviArrayPathDefinition::getValue(array_merge($theIndex, [$key]), $input, $name == 'is_uploaded_file' ? true : null);
 					}
 					$data = new $uploadedFileClass($data);
@@ -551,13 +1301,13 @@ class AgaviWebRequest extends AgaviRequest implements ResetInterface
 			}
 		} else {
 			$data = [];
-			foreach($theIndices as $name => $theIndex) {
+			foreach ($theIndices as $name => $theIndex) {
 				$data[$name] = AgaviArrayPathDefinition::getValue($theIndex, $input, $name == 'is_uploaded_file' ? true : null);
 			}
 			$data = new $uploadedFileClass($data);
 			AgaviArrayPathDefinition::setValue($index, $output, $data);
 		}
-		
+
 		return $output;
 	}
 
@@ -569,25 +1319,23 @@ class AgaviWebRequest extends AgaviRequest implements ResetInterface
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	#[\Override]
-    public function startup()
+	public function startup()
 	{
-		parent::startup();
-		
-		if($this->getParameter('unset_input', true)) {
+		// If no PSR-7 request is attached yet, skip legacy superglobal clearing
+		if ($this->request === null) {
+			return;
+		}
+
+		if ($this->request->getAttribute('unset_input', true)) {
 			$rla = ini_get('register_long_arrays');
-			
+
 			$_GET = $_POST = $_COOKIE = $_REQUEST = $_FILES = [];
-			if($rla) {
-				// clean long arrays, too!
-				$GLOBALS['HTTP_GET_VARS'] = $GLOBALS['HTTP_POST_VARS'] = $GLOBALS['HTTP_COOKIE_VARS'] = $GLOBALS['HTTP_POST_FILES'] = [];
-			}
-			
-			foreach($_SERVER as $key => $value) {
-				if(str_starts_with($key, 'HTTP_') || $key == 'CONTENT_TYPE' || $key == 'CONTENT_LENGTH') {
+
+			foreach ($_SERVER as $key => $value) {
+				if (str_starts_with($key, 'HTTP_') || $key == 'CONTENT_TYPE' || $key == 'CONTENT_LENGTH') {
 					unset($_SERVER[$key]);
 					unset($_ENV[$key]);
-					if($rla) {
+					if ($rla) {
 						unset($GLOBALS['HTTP_SERVER_VARS'][$key]);
 						unset($GLOBALS['HTTP_ENV_VARS'][$key]);
 					}
@@ -605,19 +1353,10 @@ class AgaviWebRequest extends AgaviRequest implements ResetInterface
 	 */
 	public function reset(): void
 	{
-		// Reset web-specific properties
+		$this->request = null;
+		$this->runtimeParameters = [];
 		$this->protocol = null;
-		$this->urlScheme = '';
-		$this->urlHost = '';
+		$this->urlScheme = $this->urlHost = $this->urlPath = $this->urlQuery = $this->requestUri = $this->url = '';
 		$this->urlPort = 0;
-		$this->urlPath = '';
-		$this->urlQuery = '';
-		$this->requestUri = '';
-		$this->url = '';
-		
-		// Call parent reset to clear base request properties
-		parent::reset();
 	}
 }
-
-?>

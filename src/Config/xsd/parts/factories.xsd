@@ -28,8 +28,9 @@
 			     these factories once contexts have been matched by the parser. -->
 			<xs:element type="factory" minOccurs="0" name="controller" />
 			<!-- legacy filter factories removed: dispatch_filter, execution_filter, filter_chain -->
-			<xs:element type="factory" minOccurs="0" name="request" />
 			<xs:element type="factory" minOccurs="0" name="response" />
+			<!-- New optional request factory (legacy request wrapper / worker-mode recreation) -->
+			<xs:element type="factory" minOccurs="0" name="request" />
 			<xs:element type="factory" minOccurs="0" name="routing" />
 			<xs:element type="factory" minOccurs="0" name="storage" />
 			<xs:element type="factory" minOccurs="0" name="user" />

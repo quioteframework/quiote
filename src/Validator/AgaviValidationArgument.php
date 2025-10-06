@@ -14,7 +14,6 @@
 // +---------------------------------------------------------------------------+
 namespace Agavi\Validator;
 
-use Agavi\Request\AgaviRequestDataHolder;
 
 /**
  * AgaviValidationArgument is a tuple of argument name and source that specifies 
@@ -42,7 +41,7 @@ class AgaviValidationArgument
      * Create a new AgaviValidationArgument instance.
      *
      * @param      string the name of the argument.
-     * @param      string the name of the source, if null, AgaviRequestDataHolder::SOURCE_PARAMETERS is used.
+     * @param      string the name of the source, if null, "parameters" is used.
      *
      * @author     Dominik del Bondio <dominik.del.bondio@bitextender.com>
      * @since      1.0.0
@@ -54,7 +53,7 @@ class AgaviValidationArgument
     protected $name, $source = null)
 	{
 		if($source === null) {
-			$source = AgaviRequestDataHolder::SOURCE_PARAMETERS;
+			$source = "parameters";
 		}
 		$this->source = $source;
 	}

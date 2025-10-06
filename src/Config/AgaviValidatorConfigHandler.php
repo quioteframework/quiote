@@ -1,253 +1,151 @@
 <?php
-
-// +---------------------------------------------------------------------------+
-// | This file is part of the Agavi package.                                   |
-// | Copyright (c) 2005-2011 the Agavi Project.                                |
-// |                                                                           |
-// | For the full copyright and license information, please view the LICENSE   |
-// | file that was distributed with this source code. You can also view the    |
-// | LICENSE file online at http://www.agavi.org/LICENSE.txt                   |
-// |   vi: set noexpandtab:                                                    |
-// |   Local Variables:                                                        |
-// |   indent-tabs-mode: t                                                     |
-// |   End:                                                                    |
-// +---------------------------------------------------------------------------+
+// Minimal, instrumentation-free validator config handler (restored simplified semantics)
 namespace Agavi\Config;
 
 use Agavi\Config\Util\DOM\AgaviXmlConfigDomDocument;
 use Agavi\Config\Util\DOM\AgaviXmlConfigDomElement;
-use Agavi\Exception\AgaviValidatorException;
 use Agavi\Util\AgaviToolkit;
 
-/**
- * AgaviValidatorConfigHandler allows you to register validators with the
- * system.
- *
- * @package    agavi
- * @subpackage config
- *
- * @author     Uwe Mesecke <uwe@mesecke.net>
- * @author     Dominik del Bondio <ddb@bitxtender.com>
- * @copyright  Authors
- * @copyright  The Agavi Project
- *
- * @since      0.11.0
- *
- * @version    $Id$
- */
 class AgaviValidatorConfigHandler extends AgaviXmlConfigHandler
 {
 	const XML_NAMESPACE = 'http://agavi.org/agavi/config/parts/validators/1.1';
-	
-	/**
-	 * @var        array operator => validator mapping
-	 */
-	protected $classMap = [];
 
 	/**
-	 * Execute this configuration handler.
-	 *
-	 * @param      string An absolute filesystem path to a configuration file.
-	 * @param      string An optional context in which we are currently running.
-	 *
-	 * @return     string Data to be written to a cache file.
-	 *
-	 * @throws     <b>AgaviUnreadableException</b> If a requested configuration
-	 *                                             file does not exist or is not
-	 *                                             readable.
-	 * @throws     <b>AgaviParseException</b> If a requested configuration file is
-	 *                                        improperly formatted.
-	 *
-	 * @author     Uwe Mesecke <uwe@mesecke.net>
-	 * @author     Dominik del Bondio <ddb@bitxtender.com>
-	 * @since      0.11.0
+	 * name => [class, parameters, errors]
+	 * (definition name, not necessarily the real PHP class)
 	 */
-	public function execute(AgaviXmlConfigDomDocument $document) : string
+	protected array $classMap = [];
+
+	public function execute(AgaviXmlConfigDomDocument $document): string
 	{
 		$document->setDefaultNamespace(self::XML_NAMESPACE, 'validators');
-		
 		$config = $document->documentURI;
-		
-		$code = [];//array('lines' => array(), 'order' => array());
-		
-		foreach($document->getConfigurationElements() as $cfg) {
-			if($cfg->has('validator_definitions')) {
-				foreach($cfg->get('validator_definitions') as $def) {
+		$code = [];
+
+		foreach ($document->getConfigurationElements() as $cfg) {
+			if ($cfg->has('validator_definitions')) {
+				foreach ($cfg->get('validator_definitions') as $def) {
 					$name = $def->getAttribute('name');
-					if(!isset($this->classMap[$name])) {
-						$this->classMap[$name] = ['class' => $def->getAttribute('class'), 'parameters' => [], 'errors' => []];
+					if (!isset($this->classMap[$name])) {
+						$this->classMap[$name] = [
+							'class' => $def->getAttribute('class'),
+							'parameters' => [],
+							'errors' => [],
+						];
 					}
-					$this->classMap[$name]['class'] = $def->getAttribute('class',$this->classMap[$name]['class']);
+					// merge / override
+					$this->classMap[$name]['class'] = $def->getAttribute('class', $this->classMap[$name]['class']);
 					$this->classMap[$name]['parameters'] = $def->getAgaviParameters($this->classMap[$name]['parameters']);
 					$this->classMap[$name]['errors'] = $this->getAgaviErrors($def, $this->classMap[$name]['errors']);
 				}
 			}
-			
 			$code = $this->processValidatorElements($cfg, $code, 'validationManager');
 		}
 
-		$newCode = [];
-		if(isset($code[''])) {
-			$newCode = $code[''];
+		$final = [];
+		if (isset($code[''])) {
+			$final = $code[''];
 			unset($code['']);
 		}
-
-		foreach($code as $method => $codes) {
-			$newCode[] = 'if($method == ' . var_export($method, true) . ') {';
-			foreach($codes as $line) {
-				$newCode[] = $line;
-			}
-			$newCode[] = '}';
+		foreach ($code as $method => $snippets) {
+			$final[] = 'if($method == ' . var_export($method, true) . '){';
+			foreach ($snippets as $snippet) { $final[] = $snippet; }
+			$final[] = '}';
 		}
-
-		return $this->generate($newCode, $config);
+		return $this->generate($final, $config);
 	}
 
-	/**
-	 * Builds an array of php code strings, each of them creating a validator
-	 *
-	 * @param      AgaviXmlConfigDomElement The value holder of this validator.
-	 * @param      array                    The code of old validators (we simply
-	 *                                      overwrite "old" validators here).
-	 * @param      string                   The name of the parent container.
-	 * @param      string                   The severity of the parent container.
-	 * @param      string                   The method of the parent container.
-	 * @param      bool                     Whether parent container is required.
-	 * @param      string                   The default translation domain of the parent container.
-	 *
-	 * @return     array PHP code blocks that register the validators
-	 *
-	 * @author     Uwe Mesecke <uwe@mesecke.net>
-	 * @author     Dominik del Bondio <ddb@bitxtender.com>
-	 * @author     David Zülke <david.zuelke@bitextender.com>
-	 * @author     Steffen Gransow <agavi@mivesto.de>
-	 * @since      0.11.0
-	 */
-	protected function getValidatorArray($validator, $code, $parent, $stdSeverity, $stdMethod, $stdRequired = true, $stdTranslationDomain = null)
+	protected function resolveClass(string $declared): array
 	{
-		if(!isset($this->classMap[$validator->getAttribute('class')])) {
-			$class = $validator->getAttribute('class');
-			if(!class_exists($class)) {
-				throw new AgaviValidatorException('unknown validator found: ' . $class);
-			}
-			$this->classMap[$class] = ['class' => $class, 'parameters' => [], 'errors' => []];
-		} else {
-			$class = $this->classMap[$validator->getAttribute('class')]['class'];
+		// If declared token is a definition name, return mapped; else treat as direct class
+		if (isset($this->classMap[$declared]) && $this->classMap[$declared]['class'] !== $declared) {
+			$def = $this->classMap[$declared];
+			return [
+				$def['class'],
+				$def['parameters'],
+				$def['errors']
+			];
 		}
-		
-		// setting up parameters
-		$parameters = [
+		if (isset($this->classMap[$declared])) {
+			$def = $this->classMap[$declared];
+			return [
+				$def['class'],
+				$def['parameters'],
+				$def['errors']
+			];
+		}
+		// Not defined: treat as direct class (backwards-compatible)
+		return [$declared, [], []];
+	}
+
+	protected function getValidatorArray(AgaviXmlConfigDomElement $validator, array $code, string $parent = 'validationManager', string $stdSeverity = 'error', ?string $stdMethod = null, bool $stdRequired = true, ?string $stdTranslationDomain = null): array
+	{
+		[$class, $defParams, $defErrors] = $this->resolveClass($validator->getAttribute('class'));
+
+		$parameters = array_merge($defParams, [
 			'severity' => $validator->getAttribute('severity', $stdSeverity),
 			'required' => $stdRequired,
-		];
-		
-		$arguments = [];
-		
-		$stdMethod = $validator->getAttribute('method', $stdMethod);
-		$stdSeverity = $parameters['severity'];
-		if($validator->hasAttribute('name')) {
-			$name = $validator->getAttribute('name');
-		} else {
-			$name = AgaviToolkit::uniqid();
-			$validator->setAttribute('name', $name);
-		}
-		
-		$parameters = array_merge($this->classMap[$validator->getAttribute('class')]['parameters'], $parameters);
-		$parameters = array_merge($parameters, $validator->getAttributes());
+		], $validator->getAttributes());
+
 		$parameters = $validator->getAgaviParameters($parameters);
-		if(!array_key_exists('translation_domain', $parameters) && $stdTranslationDomain !== null) {
+		if (!array_key_exists('translation_domain', $parameters) && $stdTranslationDomain !== null) {
 			$parameters['translation_domain'] = $stdTranslationDomain;
-		} elseif(isset($parameters['translation_domain']) && $parameters['translation_domain'] === '') {
-			// empty translation domains are forbidden, treat as if translation_domain was not set
+		} elseif (($parameters['translation_domain'] ?? '') === '') {
 			unset($parameters['translation_domain']);
 		}
-		
-		foreach($validator->get('arguments') as $argument) {
-			if($argument->hasAttribute('name')) {
+
+		$arguments = [];
+		foreach ($validator->get('arguments') as $argument) {
+			if ($argument->hasAttribute('name')) {
 				$arguments[$argument->getAttribute('name')] = $argument->getValue();
 			} else {
 				$arguments[] = $argument->getValue();
 			}
 		}
-		
-		if($validator->hasChild('arguments')) {
+		if ($validator->hasChild('arguments')) {
 			$parameters['base'] = $validator->getChild('arguments')->getAttribute('base');
-			
-			if(!$arguments) {
-				// no arguments defined, but there is an <arguments /> element, so we're validating an array there
-				// lets add an empty fake argument for validation to work
-				// must be an empty string, not null
-				$arguments[] = '';
-			}
+			if (!$arguments) { $arguments[] = ''; }
 		}
-		
-		$errors = $this->getAgaviErrors($validator, $this->classMap[$validator->getAttribute('class')]['errors']);
-		
-		if($validator->hasAttribute('required')) {
+
+		$errors = $this->getAgaviErrors($validator, $defErrors);
+		if ($validator->hasAttribute('required')) {
 			$stdRequired = $parameters['required'] = AgaviToolkit::literalize($validator->getAttribute('required'));
 		}
-		
+
+		$stdMethod = $validator->getAttribute('method', $stdMethod);
 		$methods = [''];
-		if(trim((string) $stdMethod)) {
-			$methods = preg_split('/[\s]+/', (string) $stdMethod);
+		if (trim((string)$stdMethod)) { $methods = preg_split('/[\s]+/', (string)$stdMethod); }
+
+		if ($validator->hasAttribute('name')) {
+			$name = $validator->getAttribute('name');
+		} else {
+			$name = AgaviToolkit::uniqid();
+			$validator->setAttribute('name', $name);
 		}
-		
-		foreach($methods as $method) {
-			$code[$method][$name] = implode("\n", [
-				sprintf(
-					'${%s} = new %s();',
-					var_export('_validator_' . $name, true),
-					$class
-				),
-				sprintf(
-					'${%s}->initialize($this->getContext(), %s, %s, %s);',
-					var_export('_validator_' . $name, true),
-					var_export($parameters, true),
-					var_export($arguments, true),
-					var_export($errors, true)
-				),
-				sprintf(
-					'${%s}->addChild(${%s});',
-					var_export($parent, true),
-					var_export('_validator_' . $name, true)
-				),
-			]);
+
+		foreach ($methods as $method) {
+			$lines = [];
+			// Instantiate & initialize
+			$validatorVar = '_validator_' . $name;
+			$lines[] = sprintf('${%s} = new %s();', var_export($validatorVar, true), $class);
+			$lines[] = sprintf('${%s}->initialize($this->getContext(), %s, %s, %s);', var_export($validatorVar, true), var_export($parameters, true), var_export($arguments, true), var_export($errors, true));
+			// Add to parent
+			if ($parent === 'validationManager') {
+				$lines[] = sprintf('$validationManager->addChild(${%s});', var_export($validatorVar, true));
+			} else {
+				$parentVarToken = '${' . var_export($parent, true) . '}';
+				$lines[] = sprintf('${%s}->addChild(${%s});', var_export($parent, true), var_export($validatorVar, true));
+			}
+			$code[$method][$name . '_' . AgaviToolkit::uniqid()] = implode("\n", $lines);
 		}
-		
-		// more <validator> or <validators> children
-		$code = $this->processValidatorElements($validator, $code, '_validator_' . $name, $stdSeverity, $stdMethod, $stdRequired, $parameters['translation_domain'] ?? null);
-		
-		return $code;
+
+		return $this->processValidatorElements($validator, $code, '_validator_' . $name, $parameters['severity'], $stdMethod, $stdRequired, $parameters['translation_domain'] ?? null);
 	}
-	
-	/**
-	 * Grabs generated code from the given element.
-	 *
-	 * @see        AgaviValidatorConfigHandler::getValidatorArray()
-	 *
-	 * @param      AgaviXmlConfigDomElement The value holder of this validator.
-	 * @param      array                    The code of old validators (we simply
-	 *                                      overwrite "old" validators here).
-	 * @param      string                   The severity of the parent container.
-	 * @param      string                   The name of the parent container.
-	 * @param      string                   The method of the parent container.
-	 * @param      bool                     Whether parent container is required.
-	 * @param      string                   The default translation domain of the parent container.
-	 *
-	 * @return     array PHP code blocks that register the validators
-	 *
-	 * @author     Uwe Mesecke <uwe@mesecke.net>
-	 * @author     Dominik del Bondio <ddb@bitxtender.com>
-	 * @author     David Zülke <david.zuelke@bitextender.com>
-	 * @author     Steffen Gransow <agavi@mivesto.de>
-	 * @since      0.11.0
-	 */
-	protected function processValidatorElements($node, $code, $name, $defaultSeverity = 'error', $defaultMethod = null, $defaultRequired = true, $defaultTranslationDomain = null)
+
+	protected function processValidatorElements($node, array $code, string $name, string $defaultSeverity = 'error', ?string $defaultMethod = null, bool $defaultRequired = true, ?string $defaultTranslationDomain = null): array
 	{
-		// the problem here is that the <validators> parent is not just optional, but can also occur more than once
-		foreach($node->get('validators') as $validator) {
-			// let's see if this buddy has a <validators> parent with valuable information
-			if($validator->parentNode->localName == 'validators') {
+		foreach ($node->get('validators') as $validator) {
+			if ($validator->parentNode->localName == 'validators') {
 				$severity = $validator->parentNode->getAttribute('severity', $defaultSeverity);
 				$method = $validator->parentNode->getAttribute('method', $defaultMethod);
 				$translationDomain = $validator->parentNode->getAttribute('translation_domain', $defaultTranslationDomain);
@@ -257,45 +155,46 @@ class AgaviValidatorConfigHandler extends AgaviXmlConfigHandler
 				$translationDomain = $defaultTranslationDomain;
 			}
 			$required = $defaultRequired;
-			
-			// append the code to generate
 			$code = $this->getValidatorArray($validator, $code, $name, $severity, $method, $required, $translationDomain);
 		}
-		
 		return $code;
 	}
-	
-	/**
-	 * Retrieve all of the Agavi error elements associated with this
-	 * element.
-	 *
-	 * @param      AgaviXmlConfigDomElement The value holder of this validator.
-	 * @param      array                    An array of existing errors.
-	 *
-	 * @return     array The complete array of errors.
-	 *
-	 * @author     Jan Schütze <JanS@DracoBlue.de>
-	 * @author     Steffen Gransow <agavi@mivesto.de>
-	 *
-	 * @since      1.0.8
-	 */
-	public function getAgaviErrors(AgaviXmlConfigDomElement $node, array $existing = [])
+
+	public function getAgaviErrors(AgaviXmlConfigDomElement $node, array $existing = []): array
 	{
 		$result = $existing;
-		
 		$elements = $node->get('errors', self::XML_NAMESPACE);
-		
-		foreach($elements as $element) {
-			$key = '';
-			if($element->hasAttribute('for')) {
-				$key = $element->getAttribute('for');
+		foreach ($elements as $element) {
+			// New simplified semantics:
+			// <error>foo</error>            => ['' => 'foo']
+			// <error for="min">bar</error> => ['min' => 'bar']
+			// <error name=...> (namespaced multi-domain form) => legacy structured branch
+			if ($element->hasAttribute('name')) {
+				$name = $element->getAttribute('name');
+				$domains = [];
+				foreach ($element->get('domain') as $domainElement) {
+					$domains[$domainElement->getAttribute('name')] = $domainElement->getValue();
+				}
+				$result[$name] = [
+					'parameters' => $element->getAgaviParameters(isset($result[$name]) ? $result[$name]['parameters'] : []),
+					'domains' => $domains,
+				];
+				continue;
 			}
-			
-			$result[$key] = $element->getValue();
+			$val = $element->getValue();
+			if ($val === null || $val === '') { continue; }
+			if ($element->hasAttribute('for')) {
+				$result[$element->getAttribute('for')] = $val;
+			} else {
+				$result[''] = $val;
+			}
 		}
-		
 		return $result;
 	}
 }
 
+// Backwards compatibility: global class name
+if (!\class_exists('AgaviValidatorConfigHandler', false)) {
+	\class_alias(__NAMESPACE__ . '\\AgaviValidatorConfigHandler', 'AgaviValidatorConfigHandler');
+}
 ?>

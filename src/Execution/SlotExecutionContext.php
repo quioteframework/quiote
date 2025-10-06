@@ -3,7 +3,7 @@ namespace Agavi\Execution;
 
 use Agavi\Action\AgaviAction;
 use Agavi\View\AgaviView;
-use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Request\AgaviWebRequest;
 
 /**
  * Immutable context returned by SlotDispatcher for container-less execution.
@@ -17,7 +17,7 @@ final class SlotExecutionContext
         public readonly string $module,
         public readonly string $actionName,
         public readonly string $outputType,
-        public readonly AgaviRequestDataHolder $requestData,
+        public readonly AgaviWebRequest $request,
         public readonly string $content,
         public readonly ?string $viewModuleName = null,
         public readonly ?string $viewName = null,

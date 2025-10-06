@@ -36,7 +36,6 @@ use Agavi\Exception\AgaviControllerException;
 use Agavi\Config\AgaviConfig;
 use Agavi\Config\AgaviConfigCache;
 use Agavi\Config\AgaviAPCuConfigCache;
-use Agavi\Request\AgaviRequestDataHolder;
 use Agavi\Exception\AgaviDisabledModuleException;
 use Agavi\Response\AgaviResponse;
 use Agavi\Exception\AgaviException;
@@ -49,6 +48,8 @@ use Symfony\Contracts\Service\ResetInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
 use \Exception;
+use Psr\Http\Message\ResponseInterface;
+
 class AgaviController extends AgaviParameterHolder implements ResetInterface
 {
 	/** Enable verbose controller lifecycle logging (worker diagnostics). */
@@ -99,9 +100,9 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 	}
 	
 	/**
-	 * @var        array Ref to the request data object from the request.
+	 * Legacy request data reference removed (PSR-7 migration). Retained as null for BC where code checks property existence.
 	 */
-	private $requestData = null;
+	private $requestData = null; // no longer populated; use AgaviWebRequest parameter helpers instead
 	
 	/**
 	 * Increment the execution counter.
@@ -177,22 +178,7 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 		}
 	}
 	
-	/**
-	 * Dispatch a request
-	 *
-	 * @param      AgaviRequestDataHolder  An optional request data holder object
-	 *                                     with additional request data.
-	 * Legacy note: previous signature accepted an optional AgaviExecutionContainer
-	 * to short-circuit routing. Under the PSR middleware pipeline this method is
-	 * removed and callers must use the middleware stack directly.
-	 *
-	 * @return     AgaviResponse The response produced during this dispatch call.
-	 *
-	 * @author     David Zülke <dz@bitxtender.com>
-	 * @since      0.9.0
-	 */
-	public function dispatch() { throw new \RuntimeException('Controller::dispatch() removed under PSR middleware pipeline.'); }
-	
+
 	/**
 	 * Get the global response instance.
 	 *
@@ -519,8 +505,7 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 	public function startup()
 	{
 		$logger = $this->context?->getLoggerManager()?->getLogger();
-		// grab a pointer to the request data
-		$this->requestData = $this->context->getRequest()->getRequestData();
+		// RequestData holder deprecated; no action needed. Left intentionally blank.
 
 		// Capture the configured default output type exactly once so we can
 		// restore it after each worker reset. We must do this here (after all
@@ -561,7 +546,7 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 		
 		// Legacy filter chain/filters removed – nothing to reset here
 		
-		// Clear request data reference
+		// Clear legacy request data reference (unused in PSR-7 mode)
 		$this->requestData = null;
 		
 		// Reset the global response to a fresh instance

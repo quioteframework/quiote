@@ -1,7 +1,7 @@
 <?php
 use Agavi\Testing\AgaviUnitTestCase;
 use Nyholm\Psr7\Factory\Psr17Factory;
-use Agavi\Http\PsrServerRequestAdapter;
+use Nyholm\Psr7\ServerRequest;
 use Agavi\Execution\ActionDescriptor;
 use Agavi\Middleware\DispatchMiddleware;
 use Agavi\Execution\ExecutionState;
@@ -21,20 +21,13 @@ class ActionAttributeSnapshotTest extends AgaviUnitTestCase
 
     private function req(): \Psr\Http\Message\ServerRequestInterface
     {
-        $f = new Psr17Factory();
-        $legacyReq = $this->getContext()->getRequest();
-        $psr = new PsrServerRequestAdapter(
-            $legacyReq,
-            $f->createUri('http://localhost/snapshot'),
-            'GET',
-            $f->createStream(''),
-            [],[],[],[],[],[]
-        );
-        return $psr
+        $controller = $this->getContext()->getController();
+        $descriptor = ActionDescriptor::fromController($controller,'Snapshot','SnapshotAction','GET','html');
+        return (new ServerRequest('GET', 'http://localhost/snapshot'))
             ->withAttribute('module','Snapshot')
             ->withAttribute('action','SnapshotAction')
             ->withAttribute('output_type','html')
-            ->withAttribute(ActionDescriptor::class, ActionDescriptor::fromController($this->getContext()->getController(),'Snapshot','SnapshotAction','GET','html'))
+            ->withAttribute(ActionDescriptor::class, $descriptor)
             ->withAttribute(ExecutionState::class, new ExecutionState());
     }
 

@@ -1,12 +1,12 @@
 <?php
 namespace Sandbox\Modules\Default\Views;
 
-use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Request\AgaviWebRequest ;
 use Sandbox\Modules\Default\Lib\View\SandboxDefaultBaseView;
 
 class LoginErrorView extends SandboxDefaultBaseView
 {
-	public function executeHtml(AgaviRequestDataHolder $rd)
+	public function executeHtml(AgaviWebRequest $rd)
 	{
 		$this->setupHtml($rd);
 

@@ -29,6 +29,8 @@ use Symfony\Contracts\Service\ResetInterface;
  * @author     Dominik del Bondio <ddb@bitxtender.com>
  * @copyright  Authors
  * @copyright  The Agavi Project
+ * 
+ * @deprecated Use PSR-7 compatible AgaviWebRequest instead
  *
  * @since      0.11.0
  *

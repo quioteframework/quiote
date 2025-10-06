@@ -2,6 +2,7 @@
 
 use Agavi\Action\AgaviAction;
 use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Request\AgaviWebRequest;
 use Agavi\Util\AgaviParameterHolder;
 use Agavi\Testing\AgaviUnitTestCase;
 
@@ -28,7 +29,7 @@ class AgaviActionTest extends AgaviUnitTestCase
 			$descriptor->action,
 			$descriptor->method,
 			$descriptor->outputType,
-			new AgaviRequestDataHolder(),
+			new AgaviWebRequest(),
 			$controller->getGlobalResponse()
 		);
 		$this->_action->initialize($lw);
@@ -58,7 +59,7 @@ class AgaviActionTest extends AgaviUnitTestCase
 
 	public function testhandleError()
 	{
-		$this->assertEquals('Error', $this->_action->handleError(new AgaviRequestDataHolder()));
+		$this->assertEquals('Error', $this->_action->handleError(new AgaviWebRequest()));
 	}
 
 	public function testisSecure()
@@ -68,7 +69,7 @@ class AgaviActionTest extends AgaviUnitTestCase
 
 	public function testvalidate()
 	{
-		$this->assertTrue($this->_action->validate(new AgaviRequestDataHolder()));
+		$this->assertTrue($this->_action->validate(new AgaviWebRequest()));
 	}
 }
 ?>

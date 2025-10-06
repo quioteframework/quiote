@@ -2,7 +2,7 @@
 namespace Sandbox\Lib\View;
 
 use Agavi\Exception\AgaviViewException;
-use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Request\AgaviWebRequest ;
 use Agavi\View\AgaviView;
 
 /**
@@ -14,12 +14,12 @@ class SandboxBaseView extends AgaviView
 	 * Handles output types that are not handled elsewhere in the view. The
 	 * default behavior is to simply throw an exception.
 	 *
-	 * @param      AgaviRequestDataHolder The request data associated with
+	 * @param      AgaviWebRequest  The request data associated with
 	 *                                    this execution.
 	 *
 	 * @throws     AgaviViewException if the output type is not handled.
 	 */
-	public final function execute(AgaviRequestDataHolder $rd)
+	public final function execute(AgaviWebRequest $rd)
 	{
 		throw new AgaviViewException(sprintf(
 			'The view "%1$s" does not implement an "execute%3$s()" method to serve '.
@@ -35,11 +35,11 @@ class SandboxBaseView extends AgaviView
 	/**
 	 * Prepares the HTML output type.
 	 *
-	 * @param      AgaviRequestDataHolder The request data associated with
+	 * @param      AgaviWebRequest  The request data associated with
 	 *                                    this execution.
 	 * @param      string The layout to load.
 	 */
-	public function setupHtml(AgaviRequestDataHolder $rd, $layoutName = null)
+	public function setupHtml(AgaviWebRequest $rd, $layoutName = null)
 	{
 		$this->loadLayout($layoutName);
 	}

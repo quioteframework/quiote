@@ -96,5 +96,12 @@ interface AgaviIValidatorContainer
 	 */
 	public function getDependencyManager();
 
+	/**
+	 * Return the current base path used for relative argument resolution.
+	 * Implementations like AgaviValidationManager provide this; validators rely on it.
+	 * @return AgaviVirtualArrayPath
+	 */
+	public function getBase();
+
 }
 ?>

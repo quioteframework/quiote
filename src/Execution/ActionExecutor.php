@@ -5,7 +5,7 @@ namespace Agavi\Execution;
 use Agavi\Controller\AgaviController;
 use Agavi\Action\AgaviAction;
 use Agavi\View\AgaviView;
-use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Request\AgaviRequestDataHolder; // legacy (deprecated)
 use Agavi\Execution\ValidationService;
 use Agavi\Execution\SecurityService; // still injected to keep signature stable (may be removed later)
 use Agavi\Execution\SecurityDecision;
@@ -16,6 +16,8 @@ use Agavi\Response\AgaviResponse;
 use Agavi\Execution\ViewNameResolver;
 use Agavi\Execution\ActionResolver;
 use Psr\Http\Message\ServerRequestInterface;
+use Agavi\Request\AgaviWebRequest;
+use Agavi\Logging\AgaviDebugLogger;
 
 /**
  * ActionExecutor: container-less execution of an action+view producing ActionExecutionContext.
@@ -49,67 +51,73 @@ final class ActionExecutor
     }
 
     /**
-     * Build an AgaviRequestDataHolder from a PSR-7 ServerRequest without touching the legacy global request.
-     * Query params + parsed body are merged (body wins on key collision). Selected scalar route attributes are added.
+     * Build an AgaviWebRequest (preferred) from a PSR-7 ServerRequest.
+     * Merges query + parsed body (body wins) into runtime parameters and carries over route attributes.
+     * (Deprecated) Older call sites expecting AgaviRequestDataHolder should be updated to use the returned AgaviWebRequest directly.
      */
-    public static function buildRequestDataFromPsr(ServerRequestInterface $psr): AgaviRequestDataHolder
+    public static function buildRequestDataFromPsr(ServerRequestInterface $psr): AgaviWebRequest
     {
-        $rd = new AgaviRequestDataHolder();
+    // Reuse context request; treat absence as fatal (pipeline must initialize earlier).
+    $web = null;
+    try { $web = \Agavi\Agavi::context('web', true)?->getRequest(); } catch(\Throwable) { $web = null; }
+    if(!($web instanceof AgaviWebRequest)) { throw new \RuntimeException('Canonical AgaviWebRequest not initialized before buildRequestDataFromPsr'); }
+    $web->attachPsrRequest($psr);
         $query = $psr->getQueryParams();
         $body = $psr->getParsedBody();
-        // Fallback chain for typical HTML form posts (x-www-form-urlencoded) when no parser ran before:
-        if(!is_array($body)) {
+        if (!is_array($body)) {
             $ct = strtolower($psr->getHeaderLine('Content-Type'));
             $isForm = str_contains($ct, 'application/x-www-form-urlencoded');
-            if($isForm) {
+            if ($isForm) {
                 $raw = '';
                 try {
                     $stream = $psr->getBody();
-                    if($stream->isSeekable()) { $stream->rewind(); }
-                    // Prefer getContents() so we read from current pointer to end.
-                    $raw = method_exists($stream,'getContents') ? $stream->getContents() : (string)$stream;
-                    // If still empty and seekable, attempt one more rewind/string cast.
-                    if($raw === '' && $stream->isSeekable()) { $stream->rewind(); $raw = (string)$stream; }
-                } catch(\Throwable) { /* ignore */ }
-                // Superglobal fallback (SAPI may have populated $_POST already)
-                if($raw === '' && isset($_POST) && is_array($_POST) && $_POST) {
+                    if ($stream->isSeekable()) {
+                        $stream->rewind();
+                    }
+                    $raw = method_exists($stream, 'getContents') ? $stream->getContents() : (string)$stream;
+                    if ($raw === '' && $stream->isSeekable()) {
+                        $stream->rewind();
+                        $raw = (string)$stream;
+                    }
+                } catch (\Throwable) {
+                }
+                if ($raw === '' && isset($_POST) && is_array($_POST) && $_POST) {
                     $body = $_POST;
                 } else {
                     $tmp = [];
-                    if($raw !== '') { parse_str($raw, $tmp); }
-                    if(is_array($tmp) && $tmp) { $body = $tmp; }
+                    if ($raw !== '') {
+                        parse_str($raw, $tmp);
+                    }
+                    if ($tmp) {
+                        $body = $tmp;
+                    }
                 }
-                if(getenv('AGAVI_DEBUG_EXEC')) {
-                    $keys = is_array($body) ? implode(',', array_slice(array_keys($body),0,6)) : 'n/a';
-                    error_log('[ActionExecutor] formParse ct=' . $ct . ' rawLen=' . strlen($raw) . ' keys=' . $keys);
+                if (getenv('AGAVI_DEBUG_EXEC')) {
+                    $keys = is_array($body) ? implode(',', array_slice(array_keys($body), 0, 6)) : 'n/a';
+                    AgaviDebugLogger::debug('[ActionExecutor] formParse(webReq) ct=' . $ct . ' rawLen=' . strlen($raw) . ' keys=' . $keys);
                 }
             }
         }
-        // Final defensive fallback: if still not array and POST superglobal has data, use it.
-        if(!is_array($body) && isset($_POST) && is_array($_POST) && $_POST) { $body = $_POST; }
         if (!is_array($query)) {
             $query = [];
         }
         if (!is_array($body)) {
             $body = [];
         }
-        // body wins
-        $params = $query + $body;
-        // include common routing attributes (non-arrays only to avoid complex objects)
+        $params = $query + $body; // body wins
         foreach (['module', 'action', 'output_type'] as $attr) {
             $val = $psr->getAttribute($attr);
-            if (is_scalar($val) && !isset($params[$attr])) {
+            if (is_scalar($val) && !array_key_exists($attr, $params)) {
                 $params[$attr] = $val;
             }
         }
-        // RD API: set each parameter individually (AgaviRequestDataHolder inherits parameter holder with setParameter)
         foreach ($params as $k => $v) {
             try {
-                $rd->setParameter($k, $v);
-            } catch (\Throwable) { /* ignore invalid */
+                $web->setParameter($k, $v);
+            } catch (\Throwable) {
             }
         }
-        return $rd;
+        return $web;
     }
 
     /**
@@ -117,15 +125,27 @@ final class ActionExecutor
      * NOTE: For now we still create a lightweight execution container only to satisfy legacy view->initialize expectations.
      * In a later phase a ViewFactory + ViewInitContext will replace this.
      */
-    public function execute(ActionDescriptor $desc, AgaviRequestDataHolder $requestData, ExecutionState $state, array $parameters = [], ?AgaviAction $preInstantiatedAction = null): ActionExecutionContext
+    public function execute(ActionDescriptor $desc, ServerRequestInterface $request, ExecutionState $state, array $parameters = [], ?AgaviAction $preInstantiatedAction = null): ActionExecutionContext
     {
-    $dbg = getenv('AGAVI_DEBUG_EXEC');
-    if($dbg) { error_log('[ActionExecutor] start ' . $desc->module . ':' . $desc->action . ' method=' . $desc->method . ' output=' . $desc->outputType); }
+        $dbg = getenv('AGAVI_DEBUG_EXEC');
+        if ($dbg) {
+            AgaviDebugLogger::debug('[ActionExecutor] start ' . $desc->module . ':' . $desc->action . ' method=' . $desc->method . ' output=' . $desc->outputType, $this->controller->getContext());
+        }
         // Use provided action instance if supplied to avoid double instantiation (enables external pre-initialization & test counters)
         $action = $preInstantiatedAction ?? $this->controller->createActionInstance($desc->module, $desc->action);
         if (!($action instanceof AgaviAction)) {
             throw new \RuntimeException('Created action is not instance of AgaviAction');
         }
+        // Reuse the context's canonical AgaviWebRequest (created earlier by ValidationMiddleware) so
+        // validator exports are visible to action and later to the view without copying.
+        $actionRequest = null;
+        try {
+            $actionRequest = $this->controller->getContext()->getRequest();
+        } catch (\Throwable) {
+        }
+        if (!($actionRequest instanceof AgaviWebRequest)) { throw new \RuntimeException('Canonical AgaviWebRequest missing in ActionExecutor::execute'); }
+        try { $actionRequest->attachPsrRequest($request); } catch (\Throwable) {}
+
         // Initialize action with lightweight context
         $lwCtx = new LightweightActionInitContext(
             $this->controller->getContext(),
@@ -133,7 +153,7 @@ final class ActionExecutor
             $desc->action,
             $desc->method,
             $desc->outputType,
-            $requestData,
+            $actionRequest,
             $this->controller->getGlobalResponse()
         );
         $action->initialize($lwCtx);
@@ -153,12 +173,14 @@ final class ActionExecutor
             throw new \LogicException('Non-allow securityDecision reached ActionExecutor (expected short-circuit).');
         }
 
-    // Validation decision (performed + succeeded flag) must be set by ValidationMiddleware only.
-    // Executor no longer performs or enforces validation beyond trusting provided state.
+        // Validation decision (performed + succeeded flag) must be set by ValidationMiddleware only.
+        // Executor no longer performs or enforces validation beyond trusting provided state.
 
         // ACTION EXECUTION
-        $rawView = $this->actionResolver->execute($action, $desc->method, $requestData);
-    if($dbg) { error_log('[ActionExecutor] rawView=' . var_export($rawView,true)); }
+        $rawView = $this->actionResolver->execute($action, $desc->method, $actionRequest);
+        if ($dbg) {
+            AgaviDebugLogger::debug('[ActionExecutor] rawView=' . var_export($rawView, true), $this->controller->getContext());
+        }
         // Snapshot attributes immediately after action code runs (pre-view)
         $attributeSnapshot = [];
         if (method_exists($action, 'getAttributes')) {
@@ -179,12 +201,12 @@ final class ActionExecutor
         $view = null;
         $content = '';
         if ($vn !== AgaviView::NONE) {
-            $view = $this->viewFactory?->create($vm, $vn, $desc->module, $desc->action, strtolower($this->controller->getOutputType()->getName()), $requestData, $attributeSnapshot);
+            $view = $this->viewFactory?->create($vm, $vn, $desc->module, $desc->action, strtolower($this->controller->getOutputType()->getName()), $actionRequest, $attributeSnapshot);
             if (!$view) {
-                $view = $this->createAndInitView($vm, $vn, $desc->module, $desc->action, $requestData, $attributeSnapshot);
+                $view = $this->createAndInitView($vm, $vn, $desc->module, $desc->action, $actionRequest, $attributeSnapshot);
             }
             $method = $this->selectViewMethod($view, $desc->outputType);
-            $res = $view->$method($requestData);
+            $res = $view->$method($actionRequest);
             if ($res !== null) {
                 $content = (string)$res;
             } elseif (method_exists($view, 'getLayers') && method_exists($view, 'renderLayers') && $view->getLayers()) {
@@ -193,24 +215,28 @@ final class ActionExecutor
                     $content = $layerContent;
                 }
             }
-            if($dbg) {
-                $prefix = substr($content,0,120);
-                error_log('[ActionExecutor] view=' . get_class($view) . ' method=' . $method . ' contentLen=' . strlen($content) . ' prefix=' . $prefix);
+            if ($dbg) {
+                $prefix = substr($content, 0, 120);
+                AgaviDebugLogger::debug('[ActionExecutor] view=' . get_class($view) . ' method=' . $method . ' contentLen=' . strlen($content) . ' prefix=' . $prefix, $this->controller->getContext());
             }
         } else {
-            if($dbg) { error_log('[ActionExecutor] vn is NONE (no view)'); }
+            if ($dbg) {
+                AgaviDebugLogger::debug('[ActionExecutor] vn is NONE (no view)', $this->controller->getContext());
+            }
         }
         $state->securityDecision = SecurityDecision::Allow;
         $state->viewModule = $vm;
         $state->viewName = $vn;
         $bag = new AttributeBag($attributeSnapshot);
         $respHandle = new ResponseHandle($this->controller->getGlobalResponse());
-    $ctx = new ActionExecutionContext($action, $view, $desc->module, $desc->action, $desc->outputType, $requestData, $content, $vm, $vn, $attributeSnapshot, $bag, $respHandle);
-    if($dbg) { error_log('[ActionExecutor] done contentLen=' . strlen($content)); }
-    return $ctx;
+        $ctx = new ActionExecutionContext($action, $view, $desc->module, $desc->action, $desc->outputType, $actionRequest, $content, $vm, $vn, $attributeSnapshot, $bag, $respHandle);
+        if ($dbg) {
+            AgaviDebugLogger::debug('[ActionExecutor] done contentLen=' . strlen($content), $this->controller->getContext());
+        }
+        return $ctx;
     }
 
-    private function createAndInitView(string $vm, string $vn, string $module, string $action, AgaviRequestDataHolder $rd, array $attributeSnapshot = []): ?AgaviView
+    private function createAndInitView(string $vm, string $vn, string $module, string $action, ServerRequestInterface $rd, array $attributeSnapshot = []): ?AgaviView
     {
         try {
             /** @var AgaviView $view */

@@ -160,6 +160,24 @@ abstract class AgaviTemplateLayer extends AgaviParameterHolder implements ResetI
 			$output[$slotName] = $slotResponse->getContent();
 		}
 		
+		// Merge this layer's configured parameters into the template attributes
+		// so templates (which expect $t) receive the values defined on the
+		// layer. Also provide backwards-compatible aliases used by Jakamo
+		// templates: moduleName/actionName.
+		$layerParams = $this->getParameters();
+		if (isset($layerParams['module']) && !isset($layerParams['moduleName'])) {
+			$layerParams['moduleName'] = $layerParams['module'];
+		}
+		if (isset($layerParams['template']) && !isset($layerParams['actionName'])) {
+			$layerParams['actionName'] = $layerParams['template'];
+		}
+	// Merge: layer parameters provide defaults which can be overridden by
+	// the caller via the $attributes argument. Use in-place addition to
+	// preserve the reference of the $attributes array passed in so that
+	// templates (which receive $t by reference) continue to mutate the
+	// same underlying array instead of getting a copy.
+	$attributes += $layerParams;
+
 		if($renderer === null) {
 			$renderer = $this->getRenderer();
 		}

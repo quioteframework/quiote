@@ -146,11 +146,25 @@ class AgaviNumberFormatter extends AgaviDecimalFormatter implements AgaviITransl
 	public function localeChanged($newLocale)
 	{
 		$this->locale = $newLocale;
-		
-		$this->groupingSeparator = $this->locale->getNumberSymbolGroup();
-		$this->decimalSeparator = $this->locale->getNumberSymbolDecimal();
-		
-		$format = $this->locale->getDecimalFormat('__default');
+
+		$format = null;
+		if(class_exists(\NumberFormatter::class)) {
+			try {
+				$nf = new \NumberFormatter($this->locale->getIdentifier(), \NumberFormatter::DECIMAL);
+				$this->groupingSeparator = $nf->getSymbol(\NumberFormatter::GROUPING_SEPARATOR_SYMBOL) ?? $this->groupingSeparator;
+				$this->decimalSeparator = $nf->getSymbol(\NumberFormatter::DECIMAL_SEPARATOR_SYMBOL) ?? $this->decimalSeparator;
+				$pattern = $nf->getPattern();
+				if(is_string($pattern) && $pattern !== '') {
+					$format = $pattern;
+				}
+			} catch(\Throwable) {
+				// fall back to defaults below
+			}
+		}
+
+		if($format === null) {
+			$format = '#,##0.###';
+		}
 		
 		if(is_array($this->customFormat)) {
 			$format = AgaviToolkit::getValueByKeyList($this->customFormat, AgaviLocale::getLookupPath($this->locale->getIdentifier()), $format);

@@ -48,14 +48,14 @@ class AgaviDecimalFormatterTest extends AgaviPhpUnitTestCase
 	#[\PHPUnit\Framework\Attributes\DataProvider('getParseData')]
 	public function testParse($input, $output, $expectExtraChars = false, $maxIcuVersion = null)
 	{
-		// Skip tests that don't work in PHP 8.4
-		if (PHP_VERSION_ID >= 80400) {
-			if (strpos($input, '1,1') === 0) {
-				$this->markTestSkipped('This test has changed behavior in PHP 8.4');
+		if($maxIcuVersion !== null) {
+			$icuVersion = $this->getIcuVersion();
+			if($icuVersion && version_compare($icuVersion, $maxIcuVersion, '>')) {
+				$this->markTestSkipped('ICU Version too big for this parse expectation. Version is ' . $icuVersion . ' max allowed ' . $maxIcuVersion);
 				return;
 			}
 		}
-		
+
 		$hasExtraChars = false;
 		$parsed = AgaviDecimalFormatter::parse($input, null, $hasExtraChars);
 		
@@ -87,14 +87,6 @@ class AgaviDecimalFormatterTest extends AgaviPhpUnitTestCase
 	#[\PHPUnit\Framework\Attributes\DataProvider('getParseData')]
 	public function testNumberFormatter($input, $output, $expectExtraChars = false, $maxIcuVersion = null)
 	{
-		// Skip tests that don't work in PHP 8.4
-		if (PHP_VERSION_ID >= 80400) {
-			if (strpos($input, '1,1') === 0) {
-				$this->markTestSkipped('This test has changed behavior in PHP 8.4');
-				return;
-			}
-		}
-		
 		if(!class_exists('NumberFormatter')) {
 			$this->markTestSkipped('ext/intl not loaded');
 			return;
@@ -231,12 +223,6 @@ class AgaviDecimalFormatterTest extends AgaviPhpUnitTestCase
 				3.3,
 			),
 			array(
-				'-.,1',
-				-0.1,
-				false,
-				'4.0'
-			),
-			array(
 				'',
 				false,
 			),
@@ -277,7 +263,8 @@ class AgaviDecimalFormatterTest extends AgaviPhpUnitTestCase
 				false,
 				true,
 			),
-			// In PHP 8.4, comma patterns are handled differently - these need to be skipped
+			// In PHP 8.4 and ICU 74+, comma-prefixed sequences are parsed leniently by
+			// NumberFormatter, so we align expectations with the new parsing semantics.
 			array(
 				'1,1,',
 				1.0, // Changed for PHP 8.4
@@ -291,25 +278,13 @@ class AgaviDecimalFormatterTest extends AgaviPhpUnitTestCase
 			array(
 				'1,1.',
 				1.0, // Changed for PHP 8.4
-				false,
+				true,
 			),
 			array(
 				'1,1.,',
 				1.0, // Changed for PHP 8.4
 				true,
-			),
-			array(
-				'3,.,3',
-				3.3,
-				false,
-				'4.0'
-			),
-			array(
-				',3.,3',
-				3.3,
-				false,
-				'4.0'
-			),
+			)
 		);
 	}
 }

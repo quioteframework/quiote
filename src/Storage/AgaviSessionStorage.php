@@ -19,6 +19,7 @@ use Agavi\Request\AgaviWebRequest;
 use SessionHandler;
 use SessionHandlerInterface;
 use Symfony\Contracts\Service\ResetInterface;
+use Agavi\Logging\AgaviDebugLogger;
 
 /**
  * AgaviSessionStorage is the interface used by Agavi to store session data from
@@ -84,6 +85,8 @@ class AgaviSessionStorage extends AgaviStorage implements SessionHandlerInterfac
 	 */
 	public function startup()
 	{
+		$dbg = getenv('AGAVI_DEBUG_SESSION');
+		if($dbg) { AgaviDebugLogger::debug('[AgaviSessionStorage] startup enter status=' . session_status() . ' currentSid=' . (function_exists('session_id')?session_id():'') , $this->context); }
 		if($this->hasParameter('session_cache_expire')) {
 			session_cache_expire($this->getParameter('session_cache_expire'));
 		}
@@ -101,7 +104,18 @@ class AgaviSessionStorage extends AgaviStorage implements SessionHandlerInterfac
 		}
 		
 		if(session_status() === PHP_SESSION_NONE) {
-			session_name($this->getParameter('session_name', 'Agavi'));
+			$desiredName = $this->getParameter('session_name', 'Agavi');
+			if($dbg) { AgaviDebugLogger::debug('[AgaviSessionStorage] setting session_name=' . $desiredName, $this->context); }
+			session_name($desiredName);
+		}
+		// Diagnostic: log raw incoming cookies before starting session
+		if($dbg) {
+			$rawCookieHeader = $_SERVER['HTTP_COOKIE'] ?? '';
+			$rawAgavi = isset($_COOKIE[session_name()]) ? $_COOKIE[session_name()] : '(none)';
+			ini_get('session.cookie_samesite');
+						AgaviDebugLogger::debug('[AgaviSessionStorage] pre-start cookies rawHeader=' . $rawCookieHeader, $this->context);
+						AgaviDebugLogger::debug('[AgaviSessionStorage] pre-start $_COOKIE[' . session_name() . ']=' . $rawAgavi, $this->context);
+						AgaviDebugLogger::debug('[AgaviSessionStorage] ini session.use_cookies=' . ini_get('session.use_cookies') . ' use_only_cookies=' . ini_get('session.use_only_cookies') . ' cookie_samesite=' . ini_get('session.cookie_samesite'), $this->context);
 		}
 		
 		$sessionId = session_id();
@@ -127,26 +141,48 @@ class AgaviSessionStorage extends AgaviStorage implements SessionHandlerInterfac
 			if($path === true) {
 				$path = $this->context->getRouting()->getBasePath();
 			}
+			// Force root path to ensure cookie is sent for '/' (login was setting path like '/login' leading to new session on subsequent GET /)
+			if($path !== '/') {
+				if($dbg) { AgaviDebugLogger::debug('[AgaviSessionStorage] overriding cookie path ' . var_export($path,true) . ' -> "/" for global visibility', $this->context); }
+				$path = '/';
+			}
 			$domain = $this->getParameter('session_cookie_domain', $cookieDefaults['domain']);
 			
-			$secure = $this->getParameter('session_cookie_secure', $cookieDefaults['secure']);
-			$request = $this->context->getRequest();
-			if($secure === null && $request instanceof AgaviWebRequest) {
-				$secure = $request->isHttps();
+			$secure = $cookieDefaults['secure'];
+			if($this->hasParameter('session_cookie_secure')) {
+				$secureParam = $this->getParameter('session_cookie_secure');
+				if($secureParam !== null) {
+					$secure = (bool)$secureParam;
+				} else {
+					$secure = true; // explicit null behaves like "auto secure"
+				}
 			} else {
-				$secure = (bool) $secure;
+				// No explicit configuration provided; enforce secure cookies by default (bug #1541)
+				$secure = true;
+			}
+			$request = $this->context->getRequest();
+			if($secure && $request instanceof AgaviWebRequest && !$request->isHttps()) {
+				// Ensure downstream logic can intentionally disable via config if running on HTTP
+				$secure = true;
 			}
 			
 			$httpOnly = (bool) $this->getParameter('session_cookie_httponly', $cookieDefaults['httponly']);
 			
 			session_set_cookie_params($lifetime, $path, $domain, $secure, $httpOnly);
 			
-			session_start();
-			
-			if($lifetime !== 0) {
-				setcookie(session_name(), session_id(), ['expires' => time() + $lifetime, 'path' => $path, 'domain' => $domain, 'secure' => $secure, 'httponly' => $httpOnly]);
+			// Ensure SameSite is set through ini so PHP's own Set-Cookie includes it; avoid manual duplicate cookie.
+			if(!ini_get('session.cookie_samesite')) {
+				ini_set('session.cookie_samesite', 'Lax');
+				if($dbg) { AgaviDebugLogger::debug('[AgaviSessionStorage] set ini session.cookie_samesite=Lax', $this->context); }
 			}
+				if($dbg) { AgaviDebugLogger::debug('[AgaviSessionStorage] starting session idPre=' . session_id(), $this->context); }
+			session_start();
+				if($dbg) { AgaviDebugLogger::debug('[AgaviSessionStorage] session started sid=' . session_id(), $this->context); }
+			// Rely on PHP's built-in session cookie emission (session.use_cookies=1). Manual setcookie removed to prevent duplicate headers.
+				if($dbg) { AgaviDebugLogger::debug('[AgaviSessionStorage] relying on PHP for Set-Cookie (no manual duplicate) lifetime=' . $lifetime . ' path=' . $path, $this->context); }
 		}
+		elseif($dbg) { AgaviDebugLogger::debug('[AgaviSessionStorage] startup skipped existing sid=' . session_id(), $this->context); }
+		if($dbg) { AgaviDebugLogger::debug('[AgaviSessionStorage] startup exit sid=' . session_id(), $this->context); }
 	}
 
 	/**
@@ -164,6 +200,11 @@ class AgaviSessionStorage extends AgaviStorage implements SessionHandlerInterfac
 	 */
 	public function retrieve($key)
 	{
+		if(session_status() !== PHP_SESSION_ACTIVE) {
+				if(getenv('AGAVI_DEBUG_SESSION')) { AgaviDebugLogger::debug('[AgaviSessionStorage] lazy-start before retrieve key=' . $key, $this->context); }
+			@session_start();
+				if(getenv('AGAVI_DEBUG_SESSION')) { AgaviDebugLogger::debug('[AgaviSessionStorage] lazy-start after retrieve sid=' . session_id(), $this->context); }
+		}
 		return $_SESSION[$key] ?? null;
 	}
 
@@ -182,6 +223,11 @@ class AgaviSessionStorage extends AgaviStorage implements SessionHandlerInterfac
 	 */
 	public function remove($key)
 	{
+		if(session_status() !== PHP_SESSION_ACTIVE) {
+				if(getenv('AGAVI_DEBUG_SESSION')) { AgaviDebugLogger::debug('[AgaviSessionStorage] lazy-start before remove key=' . $key, $this->context); }
+			@session_start();
+				if(getenv('AGAVI_DEBUG_SESSION')) { AgaviDebugLogger::debug('[AgaviSessionStorage] lazy-start after remove sid=' . session_id(), $this->context); }
+		}
 		$retval = null;
 
 		if(isset($_SESSION[$key])) {
@@ -200,6 +246,7 @@ class AgaviSessionStorage extends AgaviStorage implements SessionHandlerInterfac
 	 */
 	public function shutdown()
 	{
+		if(getenv('AGAVI_DEBUG_SESSION')) { AgaviDebugLogger::debug('[AgaviSessionStorage] shutdown sid=' . (function_exists('session_id')?session_id():'') , $this->context); }
 		session_write_close();
 	}
 
@@ -217,17 +264,25 @@ class AgaviSessionStorage extends AgaviStorage implements SessionHandlerInterfac
 	 */
 	public function store(string $id, mixed $data): bool
 	{
+		if(session_status() !== PHP_SESSION_ACTIVE) {
+				if(getenv('AGAVI_DEBUG_SESSION')) { AgaviDebugLogger::debug('[AgaviSessionStorage] lazy-start before store key=' . $id, $this->context); }
+			@session_start();
+				if(getenv('AGAVI_DEBUG_SESSION')) { AgaviDebugLogger::debug('[AgaviSessionStorage] lazy-start after store sid=' . session_id(), $this->context); }
+		}
+		if(getenv('AGAVI_DEBUG_SESSION')) { AgaviDebugLogger::debug('[AgaviSessionStorage] store key=' . $id . ' type=' . gettype($data) . ' sid=' . session_id(), $this->context); }
 		$_SESSION[$id] = $data;
 		return true;
 	}
 
 	public function write(string $id, string $data): bool
 	{
+		if(getenv('AGAVI_DEBUG_SESSION')) { AgaviDebugLogger::debug('[AgaviSessionStorage] write raw sid=' . $id . ' len=' . strlen($data), $this->context); }
 		return $this->defaultHandler->write($id, $data);
 	}
 
 	public function read(string $key) : string|false
 	{
+		if(getenv('AGAVI_DEBUG_SESSION')) { AgaviDebugLogger::debug('[AgaviSessionStorage] read raw key=' . $key, $this->context); }
 		return $this->defaultHandler->read($key);
 	}
 
@@ -238,16 +293,19 @@ class AgaviSessionStorage extends AgaviStorage implements SessionHandlerInterfac
 
 	public function destroy($sessionId): bool
 	{
+		if(getenv('AGAVI_DEBUG_SESSION')) { AgaviDebugLogger::debug('[AgaviSessionStorage] destroy raw sid=' . $sessionId, $this->context); }
 		return $this->defaultHandler->destroy($sessionId);
 	}
 
 	public function gc(int $maxlifetime): int|false
 	{
+		if(getenv('AGAVI_DEBUG_SESSION')) { AgaviDebugLogger::debug('[AgaviSessionStorage] gc maxlifetime=' . $maxlifetime, $this->context); }
 		return $this->defaultHandler->gc($maxlifetime);
 	}
 
 	public function open($savePath, $sessionName): bool
 	{
+		if(getenv('AGAVI_DEBUG_SESSION')) { AgaviDebugLogger::debug('[AgaviSessionStorage] open savePath=' . $savePath . ' name=' . $sessionName, $this->context); }
 		return $this->defaultHandler->open($savePath, $sessionName);
 	}
 

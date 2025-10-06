@@ -16,7 +16,8 @@ namespace Agavi\Validator;
 
 use Agavi\AgaviContext;
 use Agavi\Exception\AgaviConfigurationException;
-use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Request\AgaviWebRequest;
+use Agavi\Logging\AgaviDebugLogger;
 use Agavi\Util\AgaviArrayPathDefinition;
 use Agavi\Util\AgaviParameterHolder;
 use Agavi\Util\AgaviVirtualArrayPath;
@@ -261,26 +262,29 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 	/**
 	 * Starts the validation process.
 	 *
-	 * @param      AgaviRequestDataHolder The data which should be validated.
+	 * @param      AgaviWebRequest The data which should be validated.
 	 *
 	 * @return     bool true, if validation succeeded.
 	 *
 	 * @author     Uwe Mesecke <uwe@mesecke.net>
 	 * @since      0.11.0
 	 */
-	public function execute(AgaviRequestDataHolder $parameters)
+	public function execute(AgaviWebRequest $request): bool
 	{
+		$vd = getenv("AGAVI_DEBUG_VALIDATION");
+
 		$success = true;
 		$this->report = new AgaviValidationReport();
 		$result = AgaviValidator::SUCCESS;
 		
-		$req = $this->context->getRequest();
-
 		$executedValidators = 0;
 		foreach($this->children as $validator) {
 			++$executedValidators;
 
-			$validatorResult = $validator->execute($parameters);
+			$validatorResult = $validator->execute($request);
+			if ($vd) {
+				AgaviDebugLogger::debug('[ValidationManager] Result from ' . $validator->getName() . ': ' . $validatorResult, $this->context ?? null);
+			}
 			$result = max($result, $validatorResult);
 
 			switch($validatorResult) {
@@ -303,25 +307,25 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 		$this->report->setResult($result);
 		$this->report->setDependTokens($this->getDependencyManager()->getDependTokens());
 
-		$ma = $req->getParameter('module_accessor');
-		$aa = $req->getParameter('action_accessor');
-		$umap = $req->getParameter('use_module_action_parameters');
+		$ma = $request->getAttribute('module_accessor');
+		$aa = $request->getAttribute('action_accessor');
+		$umap = $request->getAttribute('use_module_action_parameters');
 
 		$mode = $this->getParameter('mode');
 
 		if($executedValidators == 0 && $mode == self::MODE_STRICT) {
 			// strict mode and no validators executed -> clear the parameters
 			if($umap) {
-				$maParam = $parameters->getParameter($ma);
-				$aaParam = $parameters->getParameter($aa);
+				$maParam = $request->getAttribute($ma);
+				$aaParam = $request->getParameter($aa);
 			}
-			$parameters->clearAll();
+			$request->clearParameters();
 			if($umap) {
 				if($maParam) {
-					$parameters->setParameter($ma, $maParam);
+					$request = $request->withAttribute($ma, $maParam);
 				}
 				if($aaParam) {
-					$parameters->setParameter($aa, $aaParam);
+					$request = $request->withAttribute($aa, $aaParam);
 				}
 			}
 		}
@@ -331,26 +335,81 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 			// the primary purpose of this is to make sure that arrays that failed validation themselves (e.g. due to array length validation, or due to use of operator validators with an argument base) are removed
 			// that's of course only necessary if validation failed
 			$failedArguments = $this->report->getFailedArguments();
-			foreach($failedArguments as $argument) {
-				$parameters->remove($argument->getSource(), $argument->getName());
-			}
-			
-			// next, we remove all arguments from the request data that are not in the list of succeeded arguments
-			// this will also remove any arguments that didn't have validation rules defined
 			$succeededArguments = $this->report->getSucceededArguments();
 			
-			foreach($parameters->getSourceNames() as $source) {
-				$sourceItems = $parameters->getAll($source);
-				foreach(AgaviArrayPathDefinition::getFlatKeyNames($sourceItems) as $name) {
-					$key = $source . '/' . $name;
-					$shouldKeep = isset($succeededArguments[$key]) || ($umap && ($source == AgaviRequestDataHolder::SOURCE_PARAMETERS && ($name == $ma || $name == $aa)));
-					if(!$shouldKeep) {
-						$parameters->remove($source, $name);
+			// Collect keep/failed sets per source (parameters, headers, cookies, files)
+			$keepNames = [];
+			$failedNames = [];
+			foreach($succeededArguments as $hash => $argument) {
+				$src = $argument->getSource();
+				if(!isset($keepNames[$src])) { $keepNames[$src] = []; }
+				$name = $argument->getName();
+				if($src === 'headers') { $name = strtolower($name); }
+				$keepNames[$src][$name] = true;
+			}
+			foreach($failedArguments as $hash => $argument) {
+				$src = $argument->getSource();
+				if(!isset($failedNames[$src])) { $failedNames[$src] = []; }
+				$name = $argument->getName();
+				if($src === 'headers') { $name = strtolower($name); }
+				$failedNames[$src][$name] = true;
+			}
+			
+			// Delegate actual pruning to the request implementation (so it can update both
+			// intrinsic PSR-7 query/body params and runtime parameters consistently).
+			if(method_exists($request, 'pruneParametersToValidated')) {
+				// Flatten only parameter names for legacy method signature compatibility (will accept arrays soon if extended)
+				$paramKeeps = array_keys($keepNames['parameters'] ?? []);
+				$paramFails = array_keys($failedNames['parameters'] ?? []);
+				// Pass merged (all-source) keys via temporary attributes for request method to use
+				$request->pruneParametersToValidated(
+					$paramKeeps,
+					$paramFails,
+					(bool)$umap,
+					$ma,
+					$aa
+				);
+				// Provide extended pruning hints for other sources (headers/cookies/files)
+				if(method_exists($request, 'pruneExtendedSources')) {
+					$request->pruneExtendedSources(
+						$keepNames['headers'] ?? [],
+						$failedNames['headers'] ?? [],
+						$keepNames['cookies'] ?? [],
+						$failedNames['cookies'] ?? [],
+						$keepNames['files'] ?? [],
+						$failedNames['files'] ?? []
+					);
+				}
+			} else {
+				// Fallback: original per-parameter removal (may be incomplete for intrinsic sources)
+				foreach($failedArguments as $argument) {
+					$request = $request->removeParameter($argument->getName(), $argument->getSource());
+				}
+				foreach(['parameters', 'cookies', 'headers', 'files'] as $source) {
+					$sourceItems = $request->getParameters($source);
+					foreach(AgaviArrayPathDefinition::getFlatKeyNames($sourceItems) as $name) {
+						$key = $source . '/' . $name;
+						$shouldKeep = isset($succeededArguments[$key]) || ($umap && ($source == "parameters" && ($name == $ma || $name == $aa)));
+						if(!$shouldKeep) {
+							$request = $request->removeParameter($name, $source);
+						}
 					}
 				}
 			}
 		}
 
+		if ($vd) {
+			AgaviDebugLogger::debug('[AgaviValidationManager] finalSuccess=' . ($success? '1':'0') . ' highestResult=' . $result . ' executedValidators=' . $executedValidators, $this->context ?? null);
+		}
+		// Also emit a short, unconditional trace of the final outcome and severity when validation fails
+		/*if (!$success) {
+			try {
+				$sev = $this->report?->getResult();
+				$names = [];
+				foreach ($this->children as $c) { $names[] = method_exists($c, 'getName') ? $c->getName() : 'unknown'; }
+				AgaviDebugLogger::debug('[AgaviValidationManager] FAIL sev=' . (is_null($sev) ? 'null' : $sev) . ' validators=' . implode(',', $names), $this->context ?? null);
+			} catch (\Throwable) {}
+		}*/
 		return $success;
 	}
 

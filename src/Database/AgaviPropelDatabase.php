@@ -15,6 +15,7 @@
 namespace Agavi\Database;
 
 use Agavi\Exception\AgaviDatabaseException;
+use Agavi\Logging\AgaviDebugLogger;
 use Agavi\Util\AgaviToolkit;
 use Propel\Propel;
 use Propel\Config\PropelConfiguration;
@@ -65,7 +66,15 @@ class AgaviPropelDatabase extends AgaviDatabase
 	 */
 	protected function connect()
 	{
+		if (getenv('AGAVI_DEBUG_DATABASE')) {
+			AgaviDebugLogger::debug('[AgaviPropelDatabase] connect() called - database_id=' . spl_object_id($this) . ' datasource=' . $this->getParameter('datasource'));
+		}
+		
 		$this->connection = Propel::getConnection($this->getParameter('datasource'));
+		
+		if (getenv('AGAVI_DEBUG_DATABASE')) {
+			AgaviDebugLogger::debug('[AgaviPropelDatabase] connect() completed - connection_id=' . spl_object_id($this->connection) . ' type=' . get_class($this->connection));
+		}
 	}
 
 	/**
@@ -80,11 +89,19 @@ class AgaviPropelDatabase extends AgaviDatabase
 	#[\Override]
     public function initialize(AgaviDatabaseManager $databaseManager, array $parameters = [])
 	{
+		if (getenv('AGAVI_DEBUG_DATABASE')) {
+			AgaviDebugLogger::debug('[AgaviPropelDatabase] initialize() called - database_id=' . spl_object_id($this));
+		}
+		
 		parent::initialize($databaseManager, $parameters);
 		$configPath = AgaviToolkit::expandDirectives($this->getParameter('config'));
 		$datasource = $this->getParameter('datasource', null);
 		$use_as_default = $this->getParameter('use_as_default', false);
 		$config = require($configPath);
+		
+		if (getenv('AGAVI_DEBUG_DATABASE')) {
+			AgaviDebugLogger::debug('[AgaviPropelDatabase] loading config from: ' . $configPath . ' datasource=' . $datasource);
+		}
 		
 		if($datasource === null || $datasource == 'default') {
 			if(isset($config['propel']['datasources']['default'])) {
@@ -97,51 +114,40 @@ class AgaviPropelDatabase extends AgaviDatabase
 		}
 		
 		if(!Propel::isInit()) {
+			if (getenv('AGAVI_DEBUG_DATABASE')) {
+				AgaviDebugLogger::debug('[AgaviPropelDatabase] Propel not initialized, calling Propel::init()');
+			}
 			Propel::init($configPath);
-		}
-		
-		$is13 = version_compare(Propel::VERSION, '1.4', '<');
-		
-		// grab the configuration values and inject possibly defined overrides for this data source
-		if($is13) {
-			// old-style config array; PropelConfiguration was added after 1.3.0, http://trac.agavi.org/ticket/1195
-			$config = Propel::getConfiguration();
-			$config['datasources'][$datasource]['adapter'] = $this->getParameter('overrides[adapter]', $config['datasources'][$datasource]['adapter']);
-			$config['datasources'][$datasource]['connection'] = array_merge($config['datasources'][$datasource]['connection'], $this->getParameter('overrides[connection]', []));
-			
-			// also the autoload classes 
-			$config['datasources'][$datasource]['classes'] = array_merge($config['datasources'][$datasource]['classes'], $this->getParameter('overrides[classes]', []));
-			
-			// and init queries
-			if(!isset($config['datasources'][$datasource]['connection']['settings']['queries']['query'])) {
-				$config['datasources'][$datasource]['connection']['settings']['queries']['query'] = [];
-			}
-			// array cast because "query" might be a string if just one init query was given, http://trac.agavi.org/ticket/1194
-			$config['datasources'][$datasource]['connection']['settings']['queries']['query'] = array_merge((array)$config['datasources'][$datasource]['connection']['settings']['queries']['query'], (array)$this->getParameter('init_queries'));
-			
-			// set the new config
-			Propel::setConfiguration($config);
 		} else {
-			$config = Propel::getConfiguration(PropelConfiguration::TYPE_OBJECT);
-			
-			$overrides = (array)$this->getParameter('overrides');
-			
-			// set override values
-			foreach($overrides as $key => $value) {
-				$config->setParameter($key, $value);
+			if (getenv('AGAVI_DEBUG_DATABASE')) {
+				AgaviDebugLogger::debug('[AgaviPropelDatabase] Propel already initialized');
 			}
-			
-			// handle init queries in a cross-adapter fashion (they all support the "init_queries" param)
-			$queries = (array)$config->getParameter('datasources.' . $datasource . '.connection.settings.queries.query', []);
-			// yes... it's one array, [connection][settings][queries][query], with all the init queries from the config, so we append to that
-			$queries = array_merge($queries, (array)$this->getParameter('init_queries'));
-			$config->setParameter('datasources.' . $datasource . '.connection.settings.queries.query', $queries);
 		}
+		
+		
+		$config = Propel::getConfiguration(PropelConfiguration::TYPE_OBJECT);
+		
+		$overrides = (array)$this->getParameter('overrides');
+		
+		// set override values
+		foreach($overrides as $key => $value) {
+			$config->setParameter($key, $value);
+		}
+		
+		// handle init queries in a cross-adapter fashion (they all support the "init_queries" param)
+		$queries = (array)$config->getParameter('datasources.' . $datasource . '.connection.settings.queries.query', []);
+		// yes... it's one array, [connection][settings][queries][query], with all the init queries from the config, so we append to that
+		$queries = array_merge($queries, (array)$this->getParameter('init_queries'));
+		$config->setParameter('datasources.' . $datasource . '.connection.settings.queries.query', $queries);
 		
 		if(true === $this->getParameter('enable_instance_pooling')) {
 			Propel::enableInstancePooling();
 		} elseif(false === $this->getParameter('enable_instance_pooling')) {
 			Propel::disableInstancePooling();
+		}
+		
+		if (getenv('AGAVI_DEBUG_DATABASE')) {
+			AgaviDebugLogger::debug('[AgaviPropelDatabase] initialize() completed - datasource=' . $datasource);
 		}
 	}
 
@@ -170,7 +176,15 @@ class AgaviPropelDatabase extends AgaviDatabase
 	 */
 	public function shutdown()
 	{
+		if (getenv('AGAVI_DEBUG_DATABASE')) {
+			AgaviDebugLogger::debug('[AgaviPropelDatabase] shutdown() called - database_id=' . spl_object_id($this) . ' connection_id=' . ($this->connection ? spl_object_id($this->connection) : 'NULL'));
+		}
+		
 		$this->connection = $this->resource = null;
+		
+		if (getenv('AGAVI_DEBUG_DATABASE')) {
+			AgaviDebugLogger::debug('[AgaviPropelDatabase] shutdown() completed - connection cleared');
+		}
 	}
 }
 
