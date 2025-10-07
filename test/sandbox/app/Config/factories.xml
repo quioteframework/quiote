@@ -82,7 +82,7 @@
 			<ae:parameter name="send_content_length">false</ae:parameter>
 		</response>
 	
-		<validation_manager class="Agavi\Validation\AgaviValidationManager">
+		<validation_manager class="Agavi\Validator\AgaviValidationManager">
 			<ae:parameter name="mode">conditional</ae:parameter>
 		</validation_manager>
 		

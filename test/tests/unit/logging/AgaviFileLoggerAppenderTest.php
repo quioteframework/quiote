@@ -5,9 +5,7 @@ use Agavi\Config\AgaviConfig;
 use Agavi\Logging\AgaviFileLoggerAppender;
 use Agavi\Logging\AgaviLoggerMessage;
 use Agavi\Logging\AgaviPassthruLoggerLayout;
-use PHPUnit\Framework\Attributes\RunClassInSeparateProcess;
-
-#[RunClassInSeparateProcess]
+// Removed deprecated #[RunClassInSeparateProcess] (PHPUnit 13 migration)
 class AgaviFileLoggerAppenderTest extends AgaviUnitTestCase
 {
 	private $_file, $_fa;

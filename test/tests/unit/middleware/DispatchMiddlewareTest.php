@@ -306,6 +306,14 @@ class DispatchMiddlewareTest extends TestCase
 
     public function testNonSimpleCacheHitRequiresPriorExecution()
     {
+        // Ensure no prior executions or cached payloads interfere (statically tracked across tests)
+        try {
+            $ref = new \ReflectionClass(Agavi\Middleware\DispatchMiddleware::class);
+            // PHP 8.4+: Calling ReflectionProperty::setValue() with a single argument is deprecated.
+            // These are static properties, so pass null as the object per new signature requirements.
+            if($ref->hasProperty('executedNonSimpleActions')) { $p=$ref->getProperty('executedNonSimpleActions'); $p->setAccessible(true); $p->setValue(null, []); }
+            if($ref->hasProperty('executedSimpleActions')) { $p=$ref->getProperty('executedSimpleActions'); $p->setAccessible(true); $p->setValue(null, []); }
+        } catch(\Throwable $e) { /* ignore */ }
         \Agavi\Config\AgaviConfig::set('core.cache_enabled', true);
         \Agavi\Config\AgaviConfig::set('core.use_cache', true);
         require_once __DIR__ . '/../../../fixtures/App/Modules/Foo/Views/BarView.php';

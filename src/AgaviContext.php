@@ -160,7 +160,7 @@ class AgaviContext implements \Stringable, ResetInterface
 	 * @var        array TranslationManager factory info for worker mode recreation (prevent dynamic property creation)
 	 */
 	protected $translationManagerFactoryInfo = null;
-	/** @var \Agavi\Middleware\FrameworkMiddlewarePipeline|null */
+	/** @var \Agavi\Middleware\MiddlewarePipeline|null */
 	protected static $psrKernel = null;
 
 	/** @var \Agavi\Execution\SlotDispatcher|null */
@@ -559,7 +559,7 @@ class AgaviContext implements \Stringable, ResetInterface
 	public function handle(ServerRequestInterface $request): ResponseInterface
 	{
 		if (self::$psrKernel === null) {
-			self::$psrKernel = new \Agavi\Middleware\FrameworkMiddlewarePipeline($this);
+			self::$psrKernel = new \Agavi\Middleware\MiddlewarePipeline($this);
 		}
 		// Generate a new correlation ID for this inbound request (simple high-entropy base32 fragment)
 		try {
@@ -785,16 +785,8 @@ class AgaviContext implements \Stringable, ResetInterface
 	 */
 	protected function initializeResetInstances()
 	{
-		// Register routing component reset instances
-		if (class_exists('Agavi\Routing\AgaviRouteCacheManager')) {
-			$this->resetInstances[] = \Agavi\Routing\AgaviRouteCacheManager::getInstance();
-		}
-
-		if (class_exists('Agavi\Routing\AgaviRouteTrie')) {
-			$this->resetInstances[] = \Agavi\Routing\AgaviRouteTrie::getResetInstance();
-		}
-
-		if (class_exists('Agavi\Routing\AgaviRoutingCallbackPool')) {
+		// Only the callback pool remains relevant; legacy route cache/trie removed.
+		if (class_exists('Agavi\\Routing\\AgaviRoutingCallbackPool')) {
 			$this->resetInstances[] = \Agavi\Routing\AgaviRoutingCallbackPool::getResetInstance();
 		}
 	}

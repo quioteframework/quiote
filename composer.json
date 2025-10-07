@@ -19,6 +19,7 @@
 	"require": {
 		"php": ">=8.4.0",
 		"ext-dom": "*",
+		"ext-intl": "*",
 		"lib-libxml": "*",
 		"ext-spl": "*",
 		"ext-reflection": "*",

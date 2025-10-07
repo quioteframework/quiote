@@ -195,44 +195,6 @@ class AgaviRoutingTest extends TestCase
         $routing->addRoute('child', ['name' => 'child', 'module' => 'M', 'action' => 'A'], 'p2');
     }
 
-    // Trie & Priority -----------------------------------------------------
-    public function testRouteTrieBuildAndCandidateSelection()
-    {
-        \Agavi\Routing\AgaviRouteTrie::clear();
-        $routes = [
-            'home' => ['pattern' => '/'],
-            'article_specific' => ['pattern' => '/article/123'],
-            'article_generic' => ['pattern' => '/article/([0-9]+)'],
-        ];
-        \Agavi\Routing\AgaviRouteTrie::build($routes);
-        $candidates = \Agavi\Routing\AgaviRouteTrie::findCandidates('/article/123');
-        $this->assertArrayHasKey('article_specific', $candidates);
-        $stats = \Agavi\Routing\AgaviRouteTrie::getStats();
-        $this->assertTrue($stats['trie_built']);
-        $this->assertGreaterThan(0, $stats['route_count']);
-    }
-    public function testRouteTriePriorityHigherPriorityFirst()
-    {
-        \Agavi\Routing\AgaviRouteTrie::clear();
-        $routes = [
-            'low' => ['pattern' => '/p/alpha', 'priority' => 1],
-            'high' => ['pattern' => '/p/alpha', 'priority' => 10],
-        ];
-        \Agavi\Routing\AgaviRouteTrie::build($routes);
-        $candidates = \Agavi\Routing\AgaviRouteTrie::findCandidates('/p/alpha');
-        $this->assertSame('high', array_key_first($candidates));
-    }
-    public function testRouteTrieSpecificityFewerWildcardsFirst()
-    {
-        \Agavi\Routing\AgaviRouteTrie::clear();
-        $routes = [
-            'generic' => ['pattern' => '/x/(.*)'],
-            'specific' => ['pattern' => '/x/static'],
-        ];
-        \Agavi\Routing\AgaviRouteTrie::build($routes);
-        $candidates = \Agavi\Routing\AgaviRouteTrie::findCandidates('/x/static');
-        $this->assertSame('specific', array_key_first($candidates));
-    }
 
     // Negative Cases ------------------------------------------------------
     public function testGenerateUnknownRouteThrows()

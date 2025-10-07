@@ -12,12 +12,12 @@ class OutputBufferGuard
             try {
                 ob_end_clean();
                 $after = ob_get_level();
-                if($trace) { \Agavi\Middleware\FrameworkMiddlewarePipeline::addExternalTrace(['guard:close', $before.'->'.$after]); }
+                if($trace) { /* tracing disabled: was FrameworkMiddlewarePipeline::addExternalTrace */ }
             } catch(\Throwable $e) {
-                if($trace) { \Agavi\Middleware\FrameworkMiddlewarePipeline::addExternalTrace(['guard:error', ob_get_level(), $e->getMessage()]); }
+                if($trace) { /* tracing disabled */ }
                 break;
             }
         }
-        if($trace) { \Agavi\Middleware\FrameworkMiddlewarePipeline::addExternalTrace(['guard:final', ob_get_level()]); }
+    if($trace) { /* tracing disabled */ }
     }
 }

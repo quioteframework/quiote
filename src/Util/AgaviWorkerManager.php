@@ -4,10 +4,7 @@ namespace Agavi\Util;
 
 use Agavi\AgaviContext;
 use Agavi\Config\AgaviConfig;
-use Agavi\Routing\AgaviRouteCacheManager;
-use Agavi\Routing\AgaviRouteTrie;
 use Agavi\Routing\AgaviRoutingCallbackPool;
-use Agavi\Routing\AgaviRoutingPerformanceMonitor;
 
 /**
  * AgaviWorkerManager - Utilities for FrankenPHP worker mode compatibility
@@ -32,8 +29,7 @@ class AgaviWorkerManager
      * @var array Configuration for worker reset behavior
      */
     private static $config = [
-        'preserve_route_cache' => true,
-        'preserve_route_trie' => true,
+    // Removed: route cache + trie preservation (legacy stack removed)
         'preserve_callback_pool' => true,
         'reset_stats' => true,
         'reset_config' => false, // Config is static in worker mode - no need to reset
@@ -156,20 +152,6 @@ class AgaviWorkerManager
         }
         
         // Reset routing components with static reset methods
-        if (class_exists('Agavi\Routing\AgaviRouteCacheManager')) {
-            AgaviRouteCacheManager::resetWorkerState(
-                $config['preserve_route_cache'],
-                $config['reset_stats']
-            );
-        }
-        
-        if (class_exists('Agavi\Routing\AgaviRouteTrie')) {
-            AgaviRouteTrie::resetWorkerState(
-                $config['preserve_route_trie'],
-                $config['reset_stats']
-            );
-        }
-        
         if (class_exists('Agavi\Routing\AgaviRoutingCallbackPool')) {
             AgaviRoutingCallbackPool::resetWorkerState(
                 $config['preserve_callback_pool'],
@@ -194,9 +176,9 @@ class AgaviWorkerManager
     private static function performDeepCleanup()
     {
         // Clear all caches
-        AgaviRouteCacheManager::resetWorkerState(false, true);
-        AgaviRouteTrie::resetWorkerState(false, true);
-        AgaviRoutingCallbackPool::resetWorkerState(false, true);
+        if (class_exists('Agavi\\Routing\\AgaviRoutingCallbackPool')) {
+            AgaviRoutingCallbackPool::resetWorkerState(false, true);
+        }
         
         // Force multiple garbage collection cycles
         if (function_exists('gc_collect_cycles')) {

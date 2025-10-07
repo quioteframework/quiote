@@ -57,19 +57,7 @@ class MiddlewareEasyCoverageTest extends TestCase
         $this->assertStringContainsString('<html>ok', $body);
     }
 
-    public function testMiddlewarePipelineBuilderFromClasses()
-    {
-        $handler = new TerminalHandler();
-        $pipeline = MiddlewarePipelineBuilder::fromClasses([
-            DummyCoreMiddleware::class,
-            DummyFinalizeMiddleware::class,
-        ], $handler);
-        $this->assertInstanceOf(MiddlewarePipeline::class, $pipeline);
-        // Execute pipeline to ensure ordering resolution runs without error
-        $req = new ServerRequest('GET', 'https://example.org/');
-        $resp = $pipeline->handle($req);
-        $this->assertInstanceOf(PsrResponseAdapter::class, $resp);
-    }
+    // Removed builder-based pipeline construction test after refactor to context-only pipeline.
 
     public function testHttpMethodMapperMappings()
     {

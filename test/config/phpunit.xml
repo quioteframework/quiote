@@ -20,9 +20,6 @@
         <testsuite name="fragment">
             <directory>../tests/fragment</directory>
         </testsuite>
-        <testsuite name="psr-pipeline">
-            <directory>../PsrPipeline</directory>
-        </testsuite>
     </testsuites>
     <php>
         <env name="AGAVI_ISOLATION_ENVIRONMENT" value="testing"/>
