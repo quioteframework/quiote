@@ -85,6 +85,7 @@ class AgaviDatabaseManager
 	 */
 	public function getDatabase($name = null)
 	{
+        $logger = $this->getContext()?->getLoggerManager()?->getlogger();
 		if($name === null) {
 			$name = $this->defaultDatabaseName;
 		}
