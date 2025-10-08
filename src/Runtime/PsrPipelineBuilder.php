@@ -72,10 +72,38 @@ class PsrPipelineBuilder
         // Provide logger to ErrorHandlingMiddleware so underlying exception becomes visible in logs
         $context = $this->context;
         $loggerFn = function(\Throwable $e, ServerRequestInterface $r) use ($context) {
-            // Emit diagnostic via Agavi logger if available
             $first = $e->getFile().':'.$e->getLine();
-            $snippet = substr(str_replace("\n", ' | ', $e->getTraceAsString()), 0, 400);
-            AgaviDebugLogger::debug('[AgaviPipeline] '.get_class($e).': '.$e->getMessage().' @ '.$first.' trace='.$snippet, $context);
+            $trace = $e->getTraceAsString();
+            $snippet = substr(str_replace("\n", ' | ', $trace), 0, 1200);
+            // Attempt last SQL + query count
+            $lastSql = null; $queryCount = null;
+            try {
+                if (class_exists(\Propel\Propel::class)) {
+                    $pdo = \Propel\Propel::getConnection('mdi');
+                    if ($pdo && method_exists($pdo, 'getLastExecutedQuery')) { $lastSql = $pdo->getLastExecutedQuery(); }
+                    if ($pdo && method_exists($pdo, 'getQueryCount')) { try { $queryCount = $pdo->getQueryCount(); } catch (\Throwable) {} }
+                }
+            } catch (\Throwable) {}
+            // Route / module / action extraction
+            $route = $r->getAttribute('_route') ?? null;
+            $module = $r->getAttribute('_module') ?? null;
+            $action = $r->getAttribute('_action') ?? null;
+            $uri = (string)($r->getUri() ?? '');
+            $mem = round(memory_get_usage(true)/1048576,2);
+            $peak = round(memory_get_peak_usage(true)/1048576,2);
+            $pieces = [
+                '[AgaviPipeline]', get_class($e), $e->getMessage(), '@', $first,
+                'uri='.$uri,
+                $module?"module=$module":null,
+                $action?"action=$action":null,
+                $route?"route=$route":null,
+                $lastSql?('lastSql='.preg_replace('/\s+/', ' ', substr($lastSql,0,300))):null,
+                $queryCount!==null?"qCount=$queryCount":null,
+                "mem={$mem}MB peak={$peak}MB",
+                'trace='.$snippet
+            ];
+            $msg = implode(' ', array_filter($pieces, fn($p)=>$p!==null && $p!==''));
+            AgaviDebugLogger::debug($msg, $context);
         };
         return new class(new ErrorHandlingMiddleware($loggerFn), $handler) implements RequestHandlerInterface {
             public function __construct(private ErrorHandlingMiddleware $err, private RequestHandlerInterface $next) {}

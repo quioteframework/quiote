@@ -26,6 +26,7 @@ class DeferredSlotRenderable implements SlotRenderable
     public function getContent(): string
     {
         $dsr = getenv('AGAVI_DEBUG_SLOT_RENDERER') ?? false;
+        $logExceptions = getenv('AGAVI_DEBUG_SLOT_EXCEPTIONS');
 
         if ($this->rendered !== null) {
             return $this->rendered;
@@ -44,9 +45,36 @@ class DeferredSlotRenderable implements SlotRenderable
         }
 
         $dispatcher = $this->context->getSlotDispatcher();
-        $slotContent = $dispatcher->dispatchSlotContent($parentRequest, $this->module, $this->action, $this->parameters, $this->outputType);
-        $this->rendered = $slotContent->getContent();
-        return $this->rendered;
+        try {
+            $slotContent = $dispatcher->dispatchSlotContent($parentRequest, $this->module, $this->action, $this->parameters, $this->outputType);
+            $this->rendered = $slotContent->getContent();
+            return $this->rendered;
+        } catch(\Throwable $e) {
+            if($logExceptions) {
+                try {
+                    $payload = json_encode([
+                        'phase' => 'deferred',
+                        'module' => $this->module,
+                        'action' => $this->action,
+                        'parameters' => $this->parameters,
+                        'class' => get_class($e),
+                        'message' => $e->getMessage(),
+                        'trace' => $this->truncateTrace($e->getTraceAsString()),
+                        'time' => date('c'),
+                    ]);
+                    \error_log('SLOT_EXCEPTION ' . $payload);
+                } catch(\Throwable $_el) {
+                    // swallow logging errors to not mask original exception
+                }
+            }
+            throw $e; // rethrow so global middleware handles it
+        }
+    }
+
+    private function truncateTrace(string $trace, int $max = 8000): string
+    {
+        if(strlen($trace) <= $max) { return $trace; }
+        return substr($trace, 0, $max) . '... [truncated]';
     }
 
     // Compatibility getters so code expecting SlotContent-like API continues to work

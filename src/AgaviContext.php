@@ -562,6 +562,7 @@ class AgaviContext implements \Stringable, ResetInterface
 			self::$psrKernel = new \Agavi\Middleware\MiddlewarePipeline($this);
 		}
 		// Generate a new correlation ID for this inbound request (simple high-entropy base32 fragment)
+		// TODO: Support configurable header name for e.g. Azure Application Gateway correlation ID
 		try {
 			$bytes = random_bytes(10);
 			$this->correlationId = rtrim(strtr(base64_encode($bytes), '+/=', 'ABC'), '=');
@@ -571,9 +572,9 @@ class AgaviContext implements \Stringable, ResetInterface
 		// Store the current request so subsystems (e.g. views/slots) can derive child requests
 		$this->currentPsrRequest = $request;
 		try {
-			$message = sprintf('[AgaviContext] currentPsrRequest id=%d cid=%s', spl_object_id($request), $this->correlationId);
+			$message = sprintf('[AgaviContext] currentPsrRequest id=%d correlation id=%s', spl_object_id($request), $this->correlationId);
 		} catch (\Throwable $_e) {
-			$message = '[AgaviContext] stored currentPsrRequest (no id) cid=' . $this->correlationId;
+			$message = '[AgaviContext] stored currentPsrRequest (no id) correlation id=' . $this->correlationId;
 		}
 		AgaviDebugLogger::debug($message, $this);
 		// Bridge: ensure a legacy AgaviWebRequest exists and attach the current PSR request for BC helpers

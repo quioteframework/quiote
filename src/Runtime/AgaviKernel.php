@@ -3,7 +3,6 @@
 namespace Agavi\Runtime;
 
 use Agavi\Agavi;
-use Nyholm\Psr7\Response;
 use Agavi\Middleware\ErrorHandlingMiddleware;
 use Agavi\Request\AgaviWebRequest;
 use Agavi\Logging\AgaviDebugLogger;
@@ -81,7 +80,17 @@ class AgaviKernel
                     $resp = $err->renderExceptionResponse($request, $e);
                     $emitter->emit($resp);
                 } catch(\Throwable $renderFail) {
-                    if (!headers_sent()) { header('Content-Type: text/plain; charset=utf-8', true, 500); }
+                    // Only emit a raw fallback header if no Content-Type header has been sent/queued.
+                    // Duplicate Content-Type headers were observed; guard against re-emission.
+                    if (!headers_sent()) {
+                        // Attempt to detect if any output buffering already contains an HTTP header by scanning headers_list()
+                        $existing = function_exists('headers_list') ? headers_list() : [];
+                        $hasCt = false;
+                        foreach ($existing as $h) { if (stripos($h, 'Content-Type:') === 0) { $hasCt = true; break; } }
+                        if (!$hasCt) {
+                            header('Content-Type: text/plain; charset=utf-8', true, 500);
+                        }
+                    }
                     echo 'Internal Server Error';
                 }
             }

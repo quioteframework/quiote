@@ -57,6 +57,7 @@ class SlotDispatcher
         $stack = $parentRequest->getAttribute(SlotStack::class);
         // Build canonical key for this slot early so diagnostics and guards can reference it
         $key = $module . '/' . $action;
+        $logExceptions = getenv('AGAVI_DEBUG_SLOT_EXCEPTIONS');
         $dbg = getenv('AGAVI_DEBUG_SLOT_DISPATCH');
         if ($dbg) {
             try {
@@ -105,6 +106,9 @@ class SlotDispatcher
                     $rdh->setParameter($k, $v);
                 }
                 $overlayApplied = true;
+                if(getenv('AGAVI_DEBUG_SLOT_DISPATCH')) {
+                    try { \Agavi\Logging\AgaviDebugLogger::debug('[SlotDisp] overlay_applied key=' . $key . ' params=' . json_encode($parameters, JSON_UNESCAPED_SLASHES), $this->controller->getContext()); } catch(\Throwable) {}
+                }
             }
             // Normalize output type to lowercase as configuration keys are lowercase
             $normalizedOutputType = $outputType !== null ? strtolower($outputType) : null;
@@ -150,13 +154,23 @@ class SlotDispatcher
                 $rd = $rdh ?? (function($self){ try { return $self->controller->getContext()->getRequest(); } catch(\Throwable) { return null; } })($this);
                 if(!($rd instanceof AgaviWebRequest)) { throw new \RuntimeException('Canonical AgaviWebRequest missing in SlotDispatcher simple action path'); }
                 // Execute action via resolver for method-based verbs (execute|executeXxx)
-                $rawViewName = $this->actionResolver->execute($actionInstance, strtoupper($parentRequest->getMethod() ?? 'GET'), $rd);
+                try {
+                    $rawViewName = $this->actionResolver->execute($actionInstance, strtoupper($parentRequest->getMethod() ?? 'GET'), $rd);
+                } catch(\Throwable $e) {
+                    if($logExceptions) { $this->logSlotException($e, $module, $action, $parameters, 'simple_action_execute'); }
+                    throw $e;
+                }
                 $attributeSnapshot = [];
                 if(method_exists($actionInstance,'getAttributes')) { try { $attributeSnapshot = $actionInstance->getAttributes(); } catch(\Throwable) { $attributeSnapshot = []; } }
                 [$viewModule, $viewCanonical] = $this->viewNameResolver->resolve($module, $action, $rawViewName);
                 $viewInstance = null; $result = '';
                 if($viewCanonical !== AgaviView::NONE) {
-                    $viewInstance = $this->viewFactory->create($viewModule,$viewCanonical,$module,$action,strtolower(($outputType ?? $this->controller->getOutputType()->getName())),$rd,$attributeSnapshot);
+                    try {
+                        $viewInstance = $this->viewFactory->create($viewModule,$viewCanonical,$module,$action,strtolower(($outputType ?? $this->controller->getOutputType()->getName())),$rd,$attributeSnapshot);
+                    } catch(\Throwable $e) {
+                        if($logExceptions) { $this->logSlotException($e, $module, $action, $parameters, 'simple_view_factory_create'); }
+                        throw $e;
+                    }
                     if(!$viewInstance) {
                         try { $viewInstance = $this->controller->createViewInstance($viewModule,$viewCanonical); } catch(\Throwable) {}
                         if($viewInstance) {
@@ -165,7 +179,12 @@ class SlotDispatcher
                     }
                     $method = 'execute' . ($outputType ?? $this->controller->getOutputType()->getName());
                     if(!$viewInstance || !is_callable([$viewInstance,$method])) { $method = 'execute'; }
-                    $res = $viewInstance?->$method($rd);
+                    try {
+                        $res = $viewInstance?->$method($rd);
+                    } catch(\Throwable $e) {
+                        if($logExceptions) { $this->logSlotException($e, $module, $action, $parameters, 'simple_view_execute'); }
+                        throw $e;
+                    }
                     if($res !== null) { $result = (string)$res; }
                     elseif($viewInstance && method_exists($viewInstance,'getLayers') && method_exists($viewInstance,'renderLayers') && $viewInstance->getLayers()) {
                         $layerContent = $viewInstance->renderLayers(); if($layerContent !== '') { $result = $layerContent; }
@@ -194,16 +213,21 @@ class SlotDispatcher
                 $rd = $rdh ?? (function($self){ try { return $self->controller->getContext()->getRequest(); } catch(\Throwable) { return null; } })($this);
                 if(!($rd instanceof AgaviWebRequest)) { throw new \RuntimeException('Canonical AgaviWebRequest missing in SlotDispatcher non-simple action path'); }
                 // Initialize action with lightweight context (mirrors ActionExecutor)
-                $lwCtx = new LightweightActionInitContext(
-                    $this->controller->getContext(),
-                    $module,
-                    $action,
-                    strtoupper($parentRequest->getMethod() ?? 'GET'),
-                    strtolower(($outputType ?? $this->controller->getOutputType()->getName())),
-                    $rd,
-                    $this->controller->getGlobalResponse()
-                );
-                $actionInstance->initialize($lwCtx);
+                try {
+                    $lwCtx = new LightweightActionInitContext(
+                        $this->controller->getContext(),
+                        $module,
+                        $action,
+                        strtoupper($parentRequest->getMethod() ?? 'GET'),
+                        strtolower(($outputType ?? $this->controller->getOutputType()->getName())),
+                        $rd,
+                        $this->controller->getGlobalResponse()
+                    );
+                    $actionInstance->initialize($lwCtx);
+                } catch(\Throwable $e) {
+                    if($logExceptions) { $this->logSlotException($e, $module, $action, $parameters, 'nonsimple_action_initialize'); }
+                    throw $e;
+                }
                 
                 // Mark action as slot AFTER initialization (when initContext exists)
                 if(method_exists($actionInstance,'setAttribute')) { 
@@ -230,33 +254,70 @@ class SlotDispatcher
                 }
                 // Validation
                 $validationService = new ValidationService();
-                $vres = $validationService->validate($actionInstance, $rd, $module, $action, 'Default');
+                try {
+                    $vres = $validationService->validate($actionInstance, $rd, $module, $action, 'Default');
+                } catch(\Throwable $e) {
+                    if($logExceptions) { $this->logSlotException($e, $module, $action, $parameters, 'nonsimple_validation'); }
+                    throw $e;
+                }
                 if(!$vres->ok) {
-                    $rawViewName = $actionInstance->handleError($rd);
+                    try {
+                        $rawViewName = $actionInstance->handleError($rd);
+                    } catch(\Throwable $e) {
+                        if($logExceptions) { $this->logSlotException($e, $module, $action, $parameters, 'nonsimple_handle_error'); }
+                        throw $e;
+                    }
                     [$vm,$vn] = $this->viewNameResolver->resolve($module,$action,$rawViewName);
                     $viewInstance = null; $content = '';
                     if($vn !== AgaviView::NONE) {
-                        $viewInstance = $this->viewFactory->create($vm,$vn,$module,$action,strtolower(($outputType ?? $this->controller->getOutputType()->getName())),$rd,method_exists($actionInstance,'getAttributes')?(array)$actionInstance->getAttributes():[]);
+                        try {
+                            $viewInstance = $this->viewFactory->create($vm,$vn,$module,$action,strtolower(($outputType ?? $this->controller->getOutputType()->getName())),$rd,method_exists($actionInstance,'getAttributes')?(array)$actionInstance->getAttributes():[]);
+                        } catch(\Throwable $e) {
+                            if($logExceptions) { $this->logSlotException($e, $module, $action, $parameters, 'nonsimple_error_view_factory_create'); }
+                            throw $e;
+                        }
                         if(!$viewInstance) { try { $viewInstance = $this->controller->createViewInstance($vm,$vn); } catch(\Throwable) {} }
                         if($viewInstance) { try { $vic = new \Agavi\Execution\ImmutableViewInitContext($this->controller->getContext(),$vm,$vn,strtolower(($outputType ?? $this->controller->getOutputType()->getName())),$module,$action,method_exists($actionInstance,'getAttributes')?(array)$actionInstance->getAttributes():[],$this->controller->getGlobalResponse()); $viewInstance->initialize($vic);} catch(\Throwable) {} }
                         $methodExec = 'execute' . ($outputType ?? $this->controller->getOutputType()->getName()); if(!$viewInstance || !is_callable([$viewInstance,$methodExec])) { $methodExec = 'execute'; }
-                        $res = $viewInstance?->$methodExec($rd); if($res !== null) { $content = (string)$res; } elseif($viewInstance && method_exists($viewInstance,'getLayers') && method_exists($viewInstance,'renderLayers') && $viewInstance->getLayers()) { $layerContent = $viewInstance->renderLayers(); if($layerContent !== '') { $content = $layerContent; } }
+                        try {
+                            $res = $viewInstance?->$methodExec($rd);
+                        } catch(\Throwable $e) {
+                            if($logExceptions) { $this->logSlotException($e, $module, $action, $parameters, 'nonsimple_error_view_execute'); }
+                            throw $e;
+                        }
+                        if($res !== null) { $content = (string)$res; } elseif($viewInstance && method_exists($viewInstance,'getLayers') && method_exists($viewInstance,'renderLayers') && $viewInstance->getLayers()) { $layerContent = $viewInstance->renderLayers(); if($layerContent !== '') { $content = $layerContent; } }
                     }
                     $ctx = new ActionExecutionContext($actionInstance,$viewInstance,$module,$action,$outputType ?? $this->controller->getOutputType()->getName(),$rd,(string)$content,$vm,$vn);
                     $this->lastContext = $ctx; return $ctx->content;
                 }
                 // Execute action method
                 $requestMethod = strtoupper($parentRequest->getMethod() ?? 'GET');
-                $rawViewName = $this->actionResolver->execute($actionInstance, $requestMethod, $rd);
+                try {
+                    $rawViewName = $this->actionResolver->execute($actionInstance, $requestMethod, $rd);
+                } catch(\Throwable $e) {
+                    if($logExceptions) { $this->logSlotException($e, $module, $action, $parameters, 'nonsimple_action_execute'); }
+                    throw $e;
+                }
                 [$vm,$vn] = $this->viewNameResolver->resolve($module,$action,$rawViewName);
                 $viewInstance = null; $result = '';
                 if($vn !== AgaviView::NONE) {
                     $attrs = method_exists($actionInstance,'getAttributes')?(array)$actionInstance->getAttributes():[];
-                    $viewInstance = $this->viewFactory->create($vm,$vn,$module,$action,strtolower(($outputType ?? $this->controller->getOutputType()->getName())),$rd,$attrs);
+                    try {
+                        $viewInstance = $this->viewFactory->create($vm,$vn,$module,$action,strtolower(($outputType ?? $this->controller->getOutputType()->getName())),$rd,$attrs);
+                    } catch(\Throwable $e) {
+                        if($logExceptions) { $this->logSlotException($e, $module, $action, $parameters, 'nonsimple_view_factory_create'); }
+                        throw $e;
+                    }
                     if(!$viewInstance) { try { $viewInstance = $this->controller->createViewInstance($vm,$vn); } catch(\Throwable) {} }
                     if($viewInstance) { try { $vic = new \Agavi\Execution\ImmutableViewInitContext($this->controller->getContext(),$vm,$vn,strtolower(($outputType ?? $this->controller->getOutputType()->getName())),$module,$action,$attrs,$this->controller->getGlobalResponse()); $viewInstance->initialize($vic);} catch(\Throwable) {} }
                     $methodExec = 'execute' . ($outputType ?? $this->controller->getOutputType()->getName()); if(!$viewInstance || !is_callable([$viewInstance,$methodExec])) { $methodExec = 'execute'; }
-                    $res = $viewInstance?->$methodExec($rd); if($res !== null) { $result = (string)$res; } elseif($viewInstance && method_exists($viewInstance,'getLayers') && method_exists($viewInstance,'renderLayers') && $viewInstance->getLayers()) { $layerContent = $viewInstance->renderLayers(); if($layerContent !== '') { $result = $layerContent; } }
+                    try {
+                        $res = $viewInstance?->$methodExec($rd);
+                    } catch(\Throwable $e) {
+                        if($logExceptions) { $this->logSlotException($e, $module, $action, $parameters, 'nonsimple_view_execute'); }
+                        throw $e;
+                    }
+                    if($res !== null) { $result = (string)$res; } elseif($viewInstance && method_exists($viewInstance,'getLayers') && method_exists($viewInstance,'renderLayers') && $viewInstance->getLayers()) { $layerContent = $viewInstance->renderLayers(); if($layerContent !== '') { $result = $layerContent; } }
                 }
                 if($cacheEnabled && !$cacheHit) {
                     $ttl = null; if(method_exists($actionInstance,'slotCacheTtlSeconds')) { try { $ttl = (int)call_user_func([$actionInstance,'slotCacheTtlSeconds']); } catch(\Throwable) { $ttl = null; } }
@@ -282,6 +343,31 @@ class SlotDispatcher
             }
             $this->executionGuard->leave($stack);
         }
+    }
+
+    private function logSlotException(\Throwable $e, string $module, string $action, array $parameters, string $phase): void
+    {
+        try {
+            $payload = json_encode([
+                'phase' => $phase,
+                'module' => $module,
+                'action' => $action,
+                'parameters' => $parameters,
+                'class' => get_class($e),
+                'message' => $e->getMessage(),
+                'trace' => $this->truncateTrace($e->getTraceAsString()),
+                'time' => date('c'),
+            ]);
+            \error_log('SLOT_EXCEPTION ' . $payload);
+        } catch(\Throwable) {
+            // Never mask original exception
+        }
+    }
+
+    private function truncateTrace(string $trace, int $max = 8000): string
+    {
+        if(strlen($trace) <= $max) { return $trace; }
+        return substr($trace, 0, $max) . '... [truncated]';
     }
 
     /**

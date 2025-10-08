@@ -94,62 +94,23 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public function renderLayers(): string
 	{
-		if(empty($this->layers)) {
-			if(getenv('AGAVI_DEBUG_VIEW')) { AgaviDebugLogger::debug('[AgaviView] renderLayers no layers for ' . get_class($this), $this->getContext()); }
+		if (empty($this->layers)) {
+			if (getenv('AGAVI_DEBUG_VIEW')) {
+				AgaviDebugLogger::debug('[AgaviView] renderLayers no layers for ' . get_class($this), $this->getContext());
+			}
 			return '';
 		}
 		$out = '';
-		if(getenv('AGAVI_DEBUG_VIEW')) { AgaviDebugLogger::debug('[AgaviView] renderLayers count=' . count($this->layers) . ' view=' . get_class($this), $this->getContext()); }
-		foreach($this->layers as $layer) {
-			try {
-				// Provide the view's attributes to the layer so templates
-				// receive expected variables (e.g. $t['moduleName'], $t['actionName']).
-				// Also pass the already-rendered content via an "inner" key so
-				// decorator templates can access the accumulated inner HTML.
-				$attrsSnapshot = $this->getAttributes();
-				// Make a local copy and inject the inner content accumulated so far.
-				$attrsForLayer = is_array($attrsSnapshot) ? $attrsSnapshot : (array)$attrsSnapshot;
-				$attrsForLayer['inner'] = $out;
-				// Each layer now wraps the previously accumulated output and becomes
-				// the new accumulated output. This prevents duplicating inner
-				// content when a decorator layer renders the earlier output again.
-				$out = (string)$layer->execute(null, $attrsForLayer);
-				if(getenv('AGAVI_DEBUG_VIEW')) { AgaviDebugLogger::debug('[AgaviView] layer executed name=' . $layer->getName() . ' len=' . strlen($out), $this->getContext()); }
-			} catch(\Throwable $e) {
-				// Short-circuit on layer render errors: discard partial output,
-				// set HTTP 500 and render the canonical exception page, stopping
-				// any further layer or slot rendering. Prefer the framework
-				// renderer (AgaviException::render) so configured output-type
-				// exception templates are honored. Fall back to the app-level
-				// ExceptionHandler if that path fails.
-				try {
-					// Try to set response status to 500 when available.
-					$resp = null;
-					try {
-						$resp = $this->getResponse();
-					} catch (\Throwable $__r) {
-						// ignore
-					}
-					if ($resp !== null && method_exists($resp, 'setHttpStatusCode')) {
-						try { $resp->setHttpStatusCode(500); } catch (\Throwable $__s) { /* ignore */ }
-					} else {
-						// Best-effort header fallback if response object not usable.
-						if (!headers_sent()) { @header('HTTP/1.1 500 Internal Server Error'); }
-					}
-
-					// Prefer framework-level rendering which will clear buffers and exit.
-					if (class_exists('Agavi\\Exception\\AgaviException') && method_exists('Agavi\\Exception\\AgaviException', 'render')) {
-						\Agavi\Exception\AgaviException::render($e, $this->context);
-					}
-				} catch (\Throwable $inner) {
-					// Fallback to application-level handler if framework render fails.
-					if (class_exists('Jakamo\\Lib\\Helpers\\ExceptionHandler') && method_exists('Jakamo\\Lib\\Helpers\\ExceptionHandler', 'handleException')) {
-						try { \Jakamo\Lib\Helpers\ExceptionHandler::handleException($e); } catch (\Throwable $__h) { /* ignore */ }
-					}
-				}
-
-				// If the render paths above didn't exit, stop processing further layers.
-				return '';
+		if (getenv('AGAVI_DEBUG_VIEW')) {
+			AgaviDebugLogger::debug('[AgaviView] renderLayers count=' . count($this->layers) . ' view=' . get_class($this), $this->getContext());
+		}
+		foreach ($this->layers as $layer) {
+			$attrsSnapshot = $this->getAttributes();
+			$attrsForLayer = is_array($attrsSnapshot) ? $attrsSnapshot : (array)$attrsSnapshot;
+			$attrsForLayer['inner'] = $out;
+			$out = (string)$layer->execute(null, $attrsForLayer); // exceptions bubble naturally now
+			if (getenv('AGAVI_DEBUG_VIEW')) {
+				AgaviDebugLogger::debug('[AgaviView] layer executed name=' . $layer->getName() . ' len=' . strlen($out), $this->getContext());
 			}
 		}
 		return $out;
@@ -177,7 +138,10 @@ abstract class AgaviView implements ResetInterface
 		return $this->initContext;
 	}
 
-	public final function getInitContext(): ActionInitContext|ViewInitContext|null { return $this->initContext; }
+	public final function getInitContext(): ActionInitContext|ViewInitContext|null
+	{
+		return $this->initContext;
+	}
 
 	/**
 	 * Retrieve the Response instance for this View.
@@ -270,7 +234,7 @@ abstract class AgaviView implements ResetInterface
 	public function createLayer($class, $name, $renderer = null)
 	{
 		$layer = new $class();
-		if(!is_subclass_of($layer, 'Agavi\\View\\AgaviTemplateLayer')) {
+		if (!is_subclass_of($layer, 'Agavi\\View\\AgaviTemplateLayer')) {
 			throw new AgaviViewException('Class "$class" is not a subclass of AgaviTemplateLayer');
 		}
 		// Try to resolve module/template names from the init context. Some
@@ -301,8 +265,12 @@ abstract class AgaviView implements ResetInterface
 			if (($moduleParam === null || $templateParam === null) && method_exists($this, 'getAttribute')) {
 				$am = $this->getAttribute('moduleName', null);
 				$aa = $this->getAttribute('actionName', null);
-				if ($am !== null) { $moduleParam = $am; }
-				if ($aa !== null) { $templateParam = $aa; }
+				if ($am !== null) {
+					$moduleParam = $am;
+				}
+				if ($aa !== null) {
+					$templateParam = $aa;
+				}
 			}
 		} else {
 			if (method_exists($this, 'getAttribute')) {
@@ -315,7 +283,7 @@ abstract class AgaviView implements ResetInterface
 			$templateParam = $this->getResolvedViewName();
 		}
 		$layer->initialize($this->context, ['name' => $name, 'module' => $moduleParam, 'template' => $templateParam, 'output_type' => $this->getCurrentOutputType()->getName()]);
-		if($renderer instanceof AgaviRenderer) {
+		if ($renderer instanceof AgaviRenderer) {
 			$layer->setRenderer($renderer);
 		} else {
 			$layer->setRenderer($this->getCurrentOutputType()->getRenderer($renderer));
@@ -339,18 +307,18 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public function appendLayer(AgaviTemplateLayer $layer, ?AgaviTemplateLayer $otherLayer = null)
 	{
-		if($otherLayer !== null && !in_array($otherLayer, $this->layers, true)) {
+		if ($otherLayer !== null && !in_array($otherLayer, $this->layers, true)) {
 			throw new AgaviViewException('Layer "' . $otherLayer->getName() . '" not in list');
 		}
 
-		if(($pos = array_search($layer, $this->layers, true)) !== false) {
+		if (($pos = array_search($layer, $this->layers, true)) !== false) {
 			// given layer is already in the list, so we remove it first
 			array_splice($this->layers, $pos, 1);
 		}
 
-		if($otherLayer === null) {
+		if ($otherLayer === null) {
 			$dest = count($this->layers);
-		} elseif($otherLayer === $layer) {
+		} elseif ($otherLayer === $layer) {
 			$dest = $pos;
 		} else {
 			$dest = array_search($otherLayer, $this->layers, true) + 1;
@@ -376,18 +344,18 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public function prependLayer(AgaviTemplateLayer $layer, ?AgaviTemplateLayer $otherLayer = null)
 	{
-		if($otherLayer !== null && !in_array($otherLayer, $this->layers, true)) {
+		if ($otherLayer !== null && !in_array($otherLayer, $this->layers, true)) {
 			throw new AgaviViewException('Layer "' . $otherLayer->getName() . '" not in list');
 		}
 
-		if(($pos = array_search($layer, $this->layers, true)) !== false) {
+		if (($pos = array_search($layer, $this->layers, true)) !== false) {
 			// given layer is already in the list, so we remove it first
 			array_splice($this->layers, $pos, 1);
 		}
 
-		if($otherLayer === null) {
+		if ($otherLayer === null) {
 			$dest = 0;
-		} elseif($otherLayer === $layer) {
+		} elseif ($otherLayer === $layer) {
 			$dest = $pos;
 		} else {
 			$dest = array_search($otherLayer, $this->layers, true);
@@ -407,7 +375,7 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public function removeLayer(AgaviTemplateLayer $layer)
 	{
-		if(($pos = array_search($layer, $this->layers, true)) === false) {
+		if (($pos = array_search($layer, $this->layers, true)) === false) {
 			throw new AgaviViewException('Layer "' . $layer->getName() . '" not in list');
 		}
 		array_splice($this->layers, $pos, 1);
@@ -436,8 +404,8 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public function getLayer($name)
 	{
-		foreach($this->layers as $layer) {
-			if($name == $layer->getName()) {
+		foreach ($this->layers as $layer) {
+			if ($name == $layer->getName()) {
 				return $layer;
 			}
 		}
@@ -476,17 +444,17 @@ abstract class AgaviView implements ResetInterface
 
 		$this->clearLayers();
 
-		foreach($layout['layers'] as $name => $layer) {
+		foreach ($layout['layers'] as $name => $layer) {
 			$l = $this->createLayer($layer['class'], $name, $layer['renderer']);
 			$l->setParameters($layer['parameters']);
-			foreach($layer['slots'] as $slotName => $slot) {
+			foreach ($layer['slots'] as $slotName => $slot) {
 				// Use new slot content API (container-less). Legacy createSlotContainer() is deprecated.
 				// request_method currently ignored in fast path; legacy path handled it for HTTP verb overrides.
 				$l->setSlot($slotName, $this->createSlotContent($slot['module'], $slot['action'], $slot['parameters'], $slot['output_type']));
 			}
 			$this->appendLayer($l);
 		}
-		
+
 		return $layout['parameters'];
 	}
 
@@ -564,21 +532,25 @@ abstract class AgaviView implements ResetInterface
 				// ignore attribute lookup failures and fall back to resolved names
 			}
 		}
-		if ($currentModule !== null && $currentAction !== null &&
+		if (
+			$currentModule !== null && $currentAction !== null &&
 			strtolower((string)$currentModule) === strtolower($moduleName) &&
-			strtolower((string)$currentAction) === strtolower($actionName)) {
+			strtolower((string)$currentAction) === strtolower($actionName)
+		) {
 			return new \Agavi\Execution\SlotContent($moduleName, $actionName, $outputType, '', is_array($arguments) ? $arguments : []);
 		}
 
-	// Defer execution: return a SlotRenderable that will dispatch the slot
-	// only when the renderer actually requests the content. This avoids
-	// eager dispatch during layout construction and prevents recursion.
-	$dispatcher = $this->context->getSlotDispatcher();
-	$parentRequest = $this->context->getCurrentPsrRequest();
-	if(!$parentRequest) { throw new \RuntimeException('No current PSR request available for slot dispatch'); }
-	// Instead of dispatching now, return a deferred renderable that will
-	// dispatch during template rendering.
-	return new \Agavi\Execution\DeferredSlotRenderable($this->context, $moduleName, $actionName, $parameters, $outputType);
+		// Defer execution: return a SlotRenderable that will dispatch the slot
+		// only when the renderer actually requests the content. This avoids
+		// eager dispatch during layout construction and prevents recursion.
+		$dispatcher = $this->context->getSlotDispatcher();
+		$parentRequest = $this->context->getCurrentPsrRequest();
+		if (!$parentRequest) {
+			throw new \RuntimeException('No current PSR request available for slot dispatch');
+		}
+		// Instead of dispatching now, return a deferred renderable that will
+		// dispatch during template rendering.
+		return new \Agavi\Execution\DeferredSlotRenderable($this->context, $moduleName, $actionName, $parameters, $outputType);
 	}
 
 	/**
@@ -612,33 +584,51 @@ abstract class AgaviView implements ResetInterface
 	public function renderSystemForward(string $name, ?AgaviWebRequest $arguments = null, ?string $outputType = null): string
 	{
 		$name = strtolower($name);
-		if(!in_array($name, ['login','secure'], true)) {
+		if (!in_array($name, ['login', 'secure'], true)) {
 			throw new \InvalidArgumentException('Unsupported system forward name: ' . $name);
 		}
 		// Reuse canonical request instance when no explicit arguments provided.
-		if($arguments === null) {
-			try { $arguments = $this->context->getRequest(); } catch(\Throwable) { $arguments = null; }
-			if(!($arguments instanceof AgaviWebRequest)) { throw new \RuntimeException('Canonical AgaviWebRequest missing for system forward'); }
+		if ($arguments === null) {
+			try {
+				$arguments = $this->context->getRequest();
+			} catch (\Throwable) {
+				$arguments = null;
+			}
+			if (!($arguments instanceof AgaviWebRequest)) {
+				throw new \RuntimeException('Canonical AgaviWebRequest missing for system forward');
+			}
 		}
 		try {
 			$fs = new ForwardService($this->context->getController());
-			[$view,$vm,$vn,$content] = $fs->createSystemForwardView($name, $outputType ?? $this->context->getController()->getOutputType()->getName(), $arguments);
+			[$view, $vm, $vn, $content] = $fs->createSystemForwardView($name, $outputType ?? $this->context->getController()->getOutputType()->getName(), $arguments);
 			return (string)$content;
-		} catch(\Throwable $e) {
+		} catch (\Throwable $e) {
 			// Fallback: legacy forward container path (will be removed). Ensure we also reuse canonical request.
 			@trigger_error('ForwardService failed, falling back to legacy forward container: ' . $e->getMessage(), E_USER_DEPRECATED);
 			$fc = $this->createForwardContainer(ucfirst($name), 'Success', $arguments, $outputType);
 			$view = $fc->getViewInstance();
 			$rd = $fc->getRequestData();
-			if(!($rd instanceof AgaviWebRequest)) {
-				try { $rd = $this->context->getRequest(); } catch(\Throwable) { $rd = null; }
-				if(!($rd instanceof AgaviWebRequest)) { throw new \RuntimeException('Canonical AgaviWebRequest missing in system forward fallback'); }
+			if (!($rd instanceof AgaviWebRequest)) {
+				try {
+					$rd = $this->context->getRequest();
+				} catch (\Throwable) {
+					$rd = null;
+				}
+				if (!($rd instanceof AgaviWebRequest)) {
+					throw new \RuntimeException('Canonical AgaviWebRequest missing in system forward fallback');
+				}
 			}
 			$method = 'execute' . ucfirst($fc->getOutputType()->getName());
-			if(!is_callable([$view,$method])) { $method = 'execute'; }
+			if (!is_callable([$view, $method])) {
+				$method = 'execute';
+			}
 			$res = $view->$method($rd);
-			if($res !== null) { return (string)$res; }
-			if(method_exists($view,'getLayers') && $view->getLayers()) { return $view->renderLayers(); }
+			if ($res !== null) {
+				return (string)$res;
+			}
+			if (method_exists($view, 'getLayers') && $view->getLayers()) {
+				return $view->renderLayers();
+			}
 			return '';
 		}
 	}
@@ -651,7 +641,9 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public function clearAttributes()
 	{
-		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) { $this->initContext->clearAttributes(); }
+		if ($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) {
+			$this->initContext->clearAttributes();
+		}
 	}
 
 	/**
@@ -662,8 +654,11 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public function &getAttribute($name, $default = null)
 	{
-		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) { return $this->initContext->getAttribute($name, null, $default); }
-		$null = null; return $null;
+		if ($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) {
+			return $this->initContext->getAttribute($name, null, $default);
+		}
+		$null = null;
+		return $null;
 	}
 
 	/**
@@ -674,7 +669,9 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public function getAttributeNames()
 	{
-		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) { return $this->initContext->getAttributeNames(); }
+		if ($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) {
+			return $this->initContext->getAttributeNames();
+		}
 		return [];
 	}
 
@@ -688,9 +685,14 @@ abstract class AgaviView implements ResetInterface
 	{
 		// Prefer the local mutable store if prepared; otherwise fall back to
 		// the initContext attribute holder for legacy containers.
-		if ($this->localAttributes !== null) { return $this->localAttributes; }
-		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) { return $this->initContext->getAttributes(); }
-		$empty = []; return $empty;
+		if ($this->localAttributes !== null) {
+			return $this->localAttributes;
+		}
+		if ($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) {
+			return $this->initContext->getAttributes();
+		}
+		$empty = [];
+		return $empty;
 	}
 
 	/**
@@ -701,7 +703,9 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public function hasAttribute($name)
 	{
-		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) { return $this->initContext->hasAttribute($name); }
+		if ($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) {
+			return $this->initContext->hasAttribute($name);
+		}
 		return false;
 	}
 
@@ -713,8 +717,11 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public function &removeAttribute($name)
 	{
-		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) { return $this->initContext->removeAttribute($name); }
-		$null = null; return $null;
+		if ($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) {
+			return $this->initContext->removeAttribute($name);
+		}
+		$null = null;
+		return $null;
 	}
 
 	/**
@@ -732,8 +739,13 @@ abstract class AgaviView implements ResetInterface
 			$this->localAttributes[$name] = $value;
 			return;
 		}
-		if($this->initContext instanceof \Agavi\Execution\ViewInitContext) {\Agavi\Util\DeprecationSilencer::triggerOnce('setAttribute() ignored: immutable ViewInitContext snapshot'); return; }
-		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) { $this->initContext->setAttribute($name,$value); }
+		if ($this->initContext instanceof \Agavi\Execution\ViewInitContext) {
+			\Agavi\Util\DeprecationSilencer::triggerOnce('setAttribute() ignored: immutable ViewInitContext snapshot');
+			return;
+		}
+		if ($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) {
+			$this->initContext->setAttribute($name, $value);
+		}
 	}
 
 	/**
@@ -744,8 +756,13 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public function appendAttribute($name, $value)
 	{
-		if($this->initContext instanceof \Agavi\Execution\ViewInitContext) { \Agavi\Util\DeprecationSilencer::triggerOnce('appendAttribute() ignored under immutable snapshot'); return; }
-		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) { $this->initContext->appendAttribute($name,$value); }
+		if ($this->initContext instanceof \Agavi\Execution\ViewInitContext) {
+			\Agavi\Util\DeprecationSilencer::triggerOnce('appendAttribute() ignored under immutable snapshot');
+			return;
+		}
+		if ($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) {
+			$this->initContext->appendAttribute($name, $value);
+		}
 	}
 
 	/**
@@ -756,8 +773,13 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public function setAttributeByRef($name, &$value)
 	{
-		if($this->initContext instanceof \Agavi\Execution\ViewInitContext) { \Agavi\Util\DeprecationSilencer::triggerOnce('setAttributeByRef() ignored under immutable snapshot'); return; }
-		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) { $this->initContext->setAttributeByRef($name,$value); }
+		if ($this->initContext instanceof \Agavi\Execution\ViewInitContext) {
+			\Agavi\Util\DeprecationSilencer::triggerOnce('setAttributeByRef() ignored under immutable snapshot');
+			return;
+		}
+		if ($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) {
+			$this->initContext->setAttributeByRef($name, $value);
+		}
 	}
 
 	/**
@@ -768,8 +790,13 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public function appendAttributeByRef($name, &$value)
 	{
-		if($this->initContext instanceof \Agavi\Execution\ViewInitContext) { \Agavi\Util\DeprecationSilencer::triggerOnce('appendAttributeByRef() ignored under immutable snapshot'); return; }
-		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) { $this->initContext->appendAttributeByRef($name,$value); }
+		if ($this->initContext instanceof \Agavi\Execution\ViewInitContext) {
+			\Agavi\Util\DeprecationSilencer::triggerOnce('appendAttributeByRef() ignored under immutable snapshot');
+			return;
+		}
+		if ($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) {
+			$this->initContext->appendAttributeByRef($name, $value);
+		}
 	}
 
 	/**
@@ -780,8 +807,13 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public function setAttributes(array $attributes)
 	{
-		if($this->initContext instanceof \Agavi\Execution\ViewInitContext) { \Agavi\Util\DeprecationSilencer::triggerOnce('setAttributes() ignored under immutable snapshot'); return; }
-		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) { $this->initContext->setAttributes($attributes); }
+		if ($this->initContext instanceof \Agavi\Execution\ViewInitContext) {
+			\Agavi\Util\DeprecationSilencer::triggerOnce('setAttributes() ignored under immutable snapshot');
+			return;
+		}
+		if ($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) {
+			$this->initContext->setAttributes($attributes);
+		}
 	}
 
 	/**
@@ -792,16 +824,19 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public function setAttributesByRef(array &$attributes)
 	{
-		if($this->initContext instanceof \Agavi\Execution\ViewInitContext) { \Agavi\Util\DeprecationSilencer::triggerOnce('setAttributesByRef() ignored under immutable snapshot'); return; }
-		if($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) { $this->initContext->setAttributesByRef($attributes); }
+		if ($this->initContext instanceof \Agavi\Execution\ViewInitContext) {
+			\Agavi\Util\DeprecationSilencer::triggerOnce('setAttributesByRef() ignored under immutable snapshot');
+			return;
+		}
+		if ($this->initContext instanceof \Agavi\Util\AgaviAttributeHolder) {
+			$this->initContext->setAttributesByRef($attributes);
+		}
 	}
 
-	public function reset() : void
+	public function reset(): void
 	{
 		$this->initContext = null;
 		$this->context = null;
 		$this->layers = [];
 	}
 }
-
-?>
