@@ -1,28 +1,20 @@
 <?php
 use PHPUnit\Framework\TestCase;
-use Agavi\Request\AgaviRequestDataHolder;
+use Agavi\Request\AgaviWebRequest;
 use Agavi\Exception\AgaviUnvalidatedParameterAccessException;
 
 class RequestDataEnforcementTest extends TestCase
 {
-    public function testThrowsOnUnvalidatedAccess(): void
+    public function testAlwaysThrowsOnUnvalidatedAccess(): void
     {
-        $rd = new AgaviRequestDataHolder();
+        $rd = new AgaviWebRequest();
         $rd->setParameter('foo', 'bar');
         $rd->setParameter('baz', 'qux');
-        $rd->enforceValidatedParameters(['foo'], true);
+        $rd->enforceValidatedParameters(['foo']);
+        $this->assertTrue($rd->hasParameter('foo'));
         $this->assertSame('bar', $rd->getParameter('foo'));
+        $this->assertFalse($rd->hasParameter('baz'), 'Unvalidated parameter should report absent');
         $this->expectException(AgaviUnvalidatedParameterAccessException::class);
         $rd->getParameter('baz');
-    }
-
-    public function testSilentModeReturnsDefault(): void
-    {
-        $rd = new AgaviRequestDataHolder();
-        $rd->setParameter('a', 1);
-        $rd->enforceValidatedParameters(['a'], false);
-        $this->assertSame(1, $rd->getParameter('a'));
-        $this->assertNull($rd->getParameter('b'));
-        $this->assertFalse($rd->hasParameter('b'));
     }
 }

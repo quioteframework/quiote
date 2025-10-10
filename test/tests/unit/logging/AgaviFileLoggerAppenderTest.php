@@ -12,7 +12,7 @@ class AgaviFileLoggerAppenderTest extends AgaviUnitTestCase
 
 	public function setUp(): void
 	{
-		$this->_file = tempnam(AgaviConfig::get('core.cache_dir'), 'AgaviFileLoggerAppenderTest');
+		$this->_file = tempnam(AgaviConfig::get('core.cache_dir', sys_get_temp_dir()), 'AgaviFileLoggerAppenderTest');
 		unlink($this->_file);
 		$this->_fa = new AgaviFileLoggerAppender();
 		$this->_fa->initialize($this->getContext(), array('file'=>$this->_file));

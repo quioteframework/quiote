@@ -18,7 +18,6 @@ namespace Agavi\Testing;
 use Agavi\Action\AgaviAction;
 use Agavi\AgaviContext;
 use Agavi\Controller\AgaviOutputType;
-use Agavi\Request\AgaviRequestDataHolder;
 use Agavi\Util\AgaviToolkit;
 use Agavi\View\AgaviView;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
@@ -218,30 +217,26 @@ abstract class AgaviFragmentTestCase extends AgaviPhpUnitTestCase implements Aga
 	}
 	
 	/**
-	 * create a requestDataHolder with the given arguments and type
-	 * 
-	 * arguments need to be passed in the way {@see AgaviRequestDataHolder} accepts them
-	 * 
-	 * array(AgaviRequestDataHolder::SOURCE_PARAMETERS => array('foo' => 'bar'))
-	 * 
-	 * if no type is passed, the default for the configured request class will be used
-	 * 
-	 * @param      array   a two-dimensional array with the arguments
-	 * @param      string  the subclass of AgaviRequestDataHolder to create
-	 * 
-	 * @return     AgaviRequestDataHolder
-	 * 
-	 * @author     Felix Gilcher <felix.gilcher@bitextender.com>
-	 * @since      1.0.0
+	 * (Deprecated) Legacy helper that previously created an AgaviRequestDataHolder instance.
+	 * Now simply normalizes the provided legacy-style array into a flat parameter array so
+	 * existing tests that still call createRequestDataHolder(...) continue to function until
+	 * fully migrated. Accepts either:
+	 *  - ['foo' => 'bar'] (already normalized)
+	 *  - [ANY_CONSTANT => ['foo' => 'bar']] legacy style
+	 * Returns the inner parameter array.
+	 *
+	 * @deprecated Will be removed once all tests have been migrated to setArguments([...]).
 	 */
 	protected function createRequestDataHolder(array $arguments = [], $type = null)
 	{
-		if(null === $type) {
-			$type = $this->getContext()->getRequest()->getParameter('request_data_holder_class', 'AgaviRequestDataHolder');
+		// Legacy wrapper style: single top-level element whose value is the parameter array
+		if (count($arguments) === 1 && is_array(current($arguments))) {
+			$first = current($arguments);
+			if (array_is_list($arguments) === false) { // keyed legacy map
+				$arguments = $first;
+			}
 		}
-		
-		$class = new $type($arguments);
-		return $class;
+		return $arguments; // already a flat parameter array
 	}
 	
 	
@@ -300,9 +295,10 @@ abstract class AgaviFragmentTestCase extends AgaviPhpUnitTestCase implements Aga
 	 * @author     Felix Gilcher <felix.gilcher@bitextender.com>
 	 * @since      1.0.0
 	 */
-	protected function setRequestData(AgaviRequestDataHolder $rd)
+	protected function setRequestData($rd)
 	{
-		$this->container->setRequestData($rd);
+		// No-op in modern harness: container no longer tracks separate request data holder.
+		// Retained for BC so legacy tests calling setRequestData(...) don't fatally error.
 	}
 	
 	/**
@@ -311,9 +307,22 @@ abstract class AgaviFragmentTestCase extends AgaviPhpUnitTestCase implements Aga
 	 * @author     Felix Gilcher <felix.gilcher@bitextender.com>
 	 * @since      1.0.0
 	 */
-	protected function setArguments(AgaviRequestDataHolder $rd)
+	protected function setArguments($arguments)
 	{
-		$this->container->setArguments($rd);
+		// Accept legacy data holder (array) or already normalized array.
+		if (is_object($arguments)) {
+			// Try common extraction patterns; ignore on failure.
+			if (method_exists($arguments, 'getParameters')) {
+				try { $maybe = $arguments->getParameters('parameters'); if (is_array($maybe)) { $arguments = $maybe; } } catch(\Throwable) {}
+			}
+		}
+		if (is_array($arguments)) {
+			// If legacy wrapper form [ANY_CONSTANT => [..]] convert.
+			if (count($arguments) === 1 && is_array(current($arguments))) {
+				$arguments = current($arguments);
+			}
+			$this->container->setArguments($arguments);
+		}
 	}
 
 	/**

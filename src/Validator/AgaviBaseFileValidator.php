@@ -16,8 +16,7 @@ namespace Agavi\Validator;
 
 use Agavi\AgaviContext;
 use Agavi\Exception\AgaviValidatorException;
-use Agavi\Request\AgaviUploadedFile;
-use Agavi\Request\AgaviWebRequestDataHolder;
+use Psr\Http\Message\UploadedFileInterface;
 
 /**
  * AgaviBaseFileValidator is the base validator when validating files. 
@@ -66,7 +65,8 @@ abstract class AgaviBaseFileValidator extends AgaviValidator
     public function initialize(AgaviContext $context, array $parameters = [], array $arguments = [], array $errors = [])
 	{
 		if(!isset($parameters['source'])) {
-			$parameters['source'] = AgaviWebRequestDataHolder::SOURCE_FILES;
+			// Default to 'files' source (PSR-7 uploaded files) now that legacy data holders are removed
+			$parameters['source'] = 'files';
 		}
 
 		parent::initialize($context, $parameters, $arguments, $errors);
@@ -88,18 +88,18 @@ abstract class AgaviBaseFileValidator extends AgaviValidator
 	{
 		foreach($this->getArguments() as $argument) {
 			$file = $this->getData($argument);
-			
-			if(!$file instanceof AgaviUploadedFile) {
+
+			if(!($file instanceof UploadedFileInterface)) {
 				$this->throwError('argument_wrong_type');
 				return false;
 			}
-			
-			if($file->hasError()) {
+
+			if($file->getError() !== UPLOAD_ERR_OK) {
 				$this->throwError('upload_failed');
 				return false;
 			}
-			
-			$size = $file->getSize();
+
+			$size = (int)($file->getSize() ?? 0);
 			if($size < $this->getParameter('min_size', 1)) {
 				$this->throwError('min_size');
 				return false;
@@ -108,28 +108,41 @@ abstract class AgaviBaseFileValidator extends AgaviValidator
 				$this->throwError('max_size');
 				return false;
 			}
-			
+
 			if($this->hasParameter('extension')) {
-				$fileinfo = pathinfo($file->getName()) + ['extension' => ''];
-				
+				$name = $file->getClientFilename() ?? '';
+				$fileinfo = pathinfo($name) + ['extension' => ''];
 				$extensions = $this->getParameter('extension', []);
 				if(!is_array($extensions)) {
 					$extensions = explode(' ', (string) $this->getParameter('extension'));
 				}
-				
+				$extOk = false;
 				foreach($extensions as $extension) {
-					if(strtolower((string) $extension) == strtolower($fileinfo['extension'])) {
-						return true;
-					}
+					if(strtolower((string)$extension) === strtolower($fileinfo['extension'])) { $extOk = true; break; }
 				}
-				
-				$this->throwError('extension');
-				return false;
+				if(!$extOk) {
+					$this->throwError('extension');
+					return false;
+				}
 			}
-			
-			if($this->hasParameter('mime_type') && !preg_match($this->getParameter('mime_type'), $file->getMimeType($this->getParameter('mime_type_include_charset', false)), $matches)) {
-				$this->throwError('mime_type');
-				return false;
+
+			if($this->hasParameter('mime_type')) {
+				$includeCharset = $this->getParameter('mime_type_include_charset', false);
+				$target = '';
+				try {
+					$stream = $file->getStream();
+					$pos = $stream->tell();
+					$buf = $stream->read(65535);
+					$stream->seek($pos);
+					$finfo = new \finfo($includeCharset ? FILEINFO_MIME : FILEINFO_MIME_TYPE);
+					$target = $finfo->buffer($buf) ?: '';
+				} catch (\Throwable) {
+					$target = '';
+				}
+				if(!preg_match($this->getParameter('mime_type'), $target)) {
+					$this->throwError('mime_type');
+					return false;
+				}
 			}
 		}
 		

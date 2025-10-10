@@ -35,6 +35,13 @@ class RenderSlotHelperTest extends AgaviUnitTestCase
                 $p->setValue($this->getContext(), $req);
             }
         }
+        // Strict validation: pre-whitelist potential slot argument names used in tests
+        try {
+            $ctxReq = $this->getContext()->getRequest();
+            if($ctxReq instanceof AgaviWebRequest) {
+                $ctxReq->enforceValidatedParameters(['foo','alpha','x','fail']);
+            }
+        } catch(\Throwable) {}
         return $view;
     }
 

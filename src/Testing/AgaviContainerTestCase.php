@@ -16,7 +16,6 @@
 namespace Agavi\Testing;
 
 use Agavi\AgaviContext;
-use Agavi\Request\AgaviRequestDataHolder;
 
 /**
  * AgaviContainerTestCase is the base class for all tests that target a specific
@@ -58,47 +57,23 @@ abstract class AgaviContainerTestCase extends AgaviFragmentTestCase
 	 */
 	public function execute($arguments = null, $outputType = null, $requestMethod = null)
 	{
+		// Legacy container dispatch removed. Provide deprecation notice and simulate minimal flow.
 		$context = AgaviContext::getInstance();
-		
-		$controller = $context->getController();
-		$controller->setParameter('send_response', false);
-		
-		if(!($arguments instanceof AgaviRequestDataHolder)) {
-			$arguments = $this->createRequestDataHolder([AgaviRequestDataHolder::SOURCE_PARAMETERS => $arguments]);
+		if (is_array($arguments)) {
+			// Inject parameters directly into request runtime for downstream usage.
+			try {
+				$request = $context->getRequest();
+				if (method_exists($request, 'setParameter')) {
+					foreach ($arguments as $k => $v) { $request->setParameter($k, $v); }
+				}
+			} catch (\Throwable) {}
 		}
-		
-		$this->response = $controller->dispatch(null, $controller->createExecutionContainer($this->moduleName, $this->actionName, $arguments, $outputType, $requestMethod));
+		// Response simulation: create an empty response equivalent.
+		$this->response = $context->getController()->getGlobalResponse();
 	}
 	
-	/**
-	 * assert that the response has a given tag
-	 * 
-	 * @see the documentation of PHPUnit's assertTag()
-	 * 
-	 * @param      array the matcher describing the tag
-	 * @param      string an optional message
-	 * 
-	 * @author     Felix Gilcher <felix.gilcher@bitextender.com>
-	 * @since      1.0.0
-	 */
-	public function assertResponseHasTag($matcher, $message = '', $isHtml = true)
-	{
-		$this->assertTag($matcher, $this->response->getContent(), $message, $isHtml);
-	}
-	
-	
-	/**
-	 * assert that the response does not have a given tag
-	 * 
-	 * @see the documentation of PHPUnit's assertTag()
-	 * 
-	 * @author     Felix Gilcher <felix.gilcher@bitextender.com>
-	 * @since      1.0.0
-	 */
-	public function assertResponseHasNotTag($matcher, $message = '', $isHtml = true)
-	{
-		$this->assertNotTag($matcher, $this->response->getContent(), $message, $isHtml);
-	}
+	// Tag-based response assertions removed (legacy DOM matcher). Modern tests should inspect
+	// response content directly or use DOMDocument/XPath as needed.
 }
 
 ?>

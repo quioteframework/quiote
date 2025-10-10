@@ -78,7 +78,9 @@ abstract class AgaviViewTestCase extends AgaviFragmentTestCase
 	{
 		// Container-based execution removed; directly instantiate view and invoke execute method.
 		$view = $this->createViewInstance();
-		$rd = $this->requestData ?? $this->getContext()->getRequest()->getRequestData();
+		// Modern request no longer exposes a separate requestData holder; pass parameter array for legacy execute signatures if needed.
+		$req = $this->getContext()->getRequest();
+		$rd = method_exists($req, 'getParameters') ? $req->getParameters('parameters') : [];
 		$method = 'execute' . ucfirst($otName ?? $this->getContext()->getController()->getOutputType()->getName());
 		if(!is_callable([$view,$method])) { $method = 'execute'; }
 		$this->viewResult = $view->$method($rd);

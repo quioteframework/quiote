@@ -19,6 +19,9 @@ class SlotDispatcherSlotContentTest extends AgaviUnitTestCase
     {
         $req = (new ServerRequest('GET','http://localhost/'))
             ->withAttribute(SlotMiddleware::ATTR, new SlotStack());
+        // Strict validation: whitelist slot parameters that will be set
+        $ctxReq = $this->getContext()->getRequest();
+        if($ctxReq instanceof \Agavi\Request\AgaviWebRequest) { $ctxReq->enforceValidatedParameters(['x']); }
         $dispatcher = $this->getContext()->getSlotDispatcher();
         $sc = $dispatcher->dispatchSlotContent($req, 'Cache','Cache', ['x'=>1], 'html');
         $this->assertInstanceOf(\Agavi\Execution\SlotContent::class, $sc);

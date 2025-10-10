@@ -116,6 +116,8 @@ class AgaviWebRequest implements ServerRequestInterface, ResetInterface
 	// Wrapped PSR-7 request; all interface methods delegate here
 	private ?ServerRequestInterface $request = null;
 
+	// (Removed adaptedFiles cache – we now expose PSR-7 UploadedFileInterface instances directly.)
+
 	/**
 	 * Runtime (internal) parameters set via setParameter/appendParameter.
 	 * These are distinct from HTTP input (query/body/cookies/headers/files) and
@@ -125,6 +127,13 @@ class AgaviWebRequest implements ServerRequestInterface, ResetInterface
 	 * @var array<string,mixed>
 	 */
 	private array $runtimeParameters = [];
+
+	/**
+	 * Strict validated parameter enforcement is ALWAYS active.
+	 * Only parameters whitelisted in $validatedKeys may be accessed via
+	 * getParameter()/hasParameter(). Unvalidated access ALWAYS throws.
+	 */
+	private array $validatedKeys = [];
 
 
 	private array $sourceNames = ["parameters" => "parameter", "cookies" => "cookie", "files" => "file", "headers" => "header"];
@@ -255,14 +264,8 @@ class AgaviWebRequest implements ServerRequestInterface, ResetInterface
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	/*public function isFileValueEmpty($name)
-	{
-		$file = $this->getFile($name);
-		if(!($file instanceof AgaviUploadedFile)) {
-			return true;
-		}
-		return ($file->getError() == UPLOAD_ERR_NO_FILE);
-	}*/
+	/* Legacy stub removed; real implementation below uses UploadedFileInterface */
+
 
 	/**
 	 * Get the request protocol information, e.g. "HTTP/1.1".
@@ -608,6 +611,10 @@ class AgaviWebRequest implements ServerRequestInterface, ResetInterface
 
 	public function getParameter(string $name, $default = null)
 	{
+		// Always-on whitelist enforcement
+		if(!isset($this->validatedKeys[$name])) {
+			throw new \Agavi\Exception\AgaviUnvalidatedParameterAccessException('Access to unvalidated parameter "' . $name . '" denied under strict validation.');
+		}
 		// 1. Direct runtime override
 		if (array_key_exists($name, $this->runtimeParameters)) {
 			return $this->runtimeParameters[$name];
@@ -674,6 +681,7 @@ class AgaviWebRequest implements ServerRequestInterface, ResetInterface
 
 	public function hasParameter(string $name): bool
 	{
+		if(!isset($this->validatedKeys[$name])) { return false; }
 		if (array_key_exists($name, $this->runtimeParameters)) {
 			return true;
 		}
@@ -745,6 +753,7 @@ class AgaviWebRequest implements ServerRequestInterface, ResetInterface
 			if ($source === null || $source === 'parameters') {
 				return $this->runtimeParameters;
 			}
+			if ($source === 'files') { return []; }
 			return [];
 		}
 		if ($source === null) {
@@ -761,6 +770,7 @@ class AgaviWebRequest implements ServerRequestInterface, ResetInterface
 			}*/
 			return $merged;
 		}
+		if ($source === 'files') { return $this->request?->getUploadedFiles() ?? []; }
 		return $this->getRequestParams($this->request, $source);
 	}
 
@@ -891,24 +901,19 @@ class AgaviWebRequest implements ServerRequestInterface, ResetInterface
 		$this->runtimeParameters[$name][] = $value;
 	}
 
-	public function enforceValidatedParameters(bool $enforce)
+	/**
+	 * Define the set of validated parameter names. Always-on enforcement.
+	 * Calling this replaces the whitelist completely.
+	 */
+	public function enforceValidatedParameters(array $keys): void
 	{
-		$clone = clone $this;
-		if ($this->request !== null) {
-			$clone->request = $this->request->withAttribute('throw_on_missing_access', (bool) $enforce);
-		}
-		return $clone;
+		foreach($keys as $k) { if($k !== '') { $this->validatedKeys[$k] = true; } }
 	}
 
 	public function clearParameters()
 	{
 		$this->runtimeParameters = [];
-		/*if (getenv('DEBUG_TESTS') || (defined('DEBUG_TESTS') && DEBUG_TESTS)) {
-			try {
-				AgaviDebugLogger::debug('[TestDebug][clearParameters] runtime cleared');
-			} catch (\Throwable) {
-			}
-		}*/
+
 		if ($this->request !== null) {
 			$this->request = $this->request->withParsedBody(null)->withQueryParams([])->withCookieParams([]);
 			$headers = $this->request->getHeaders();
@@ -1225,6 +1230,7 @@ class AgaviWebRequest implements ServerRequestInterface, ResetInterface
 		}
 		$next = clone $this;
 		$next->attachPsrRequest($this->request->withUploadedFiles($uploadedFiles));
+		// legacy adaptedFiles cache removed; nothing to invalidate
 		return $next;
 	}
 
@@ -1273,59 +1279,6 @@ class AgaviWebRequest implements ServerRequestInterface, ResetInterface
 		return $next;
 	}
 
-	/**
-	 * Corrects the order of $_FILES for arrays of files.
-	 * The cleaned up array of AgaviUploadedFile objects is returned.
-	 *
-	 * @param      array  The array to work on.
-	 * @param      string Name of the wrapper uploaded file class to instantiate.
-	 * @param      array  Array of indices used during recursion, initially empty.
-	 * @param      array  Output buffer used during recursion, initially empty.
-	 *
-	 * @author     David Zülke <dz@bitxtender.com>
-	 * @since      1.1.0
-	 */
-	protected static function fixFilesArray($input, $uploadedFileClass = 'AgaviUploadedFile', $index = [], &$output = [])
-	{
-		$fromIndex = $index;
-		if (count($fromIndex) > 0) {
-			$first = array_shift($fromIndex);
-			array_unshift($fromIndex, $first, 'error');
-		}
-		$sub = AgaviArrayPathDefinition::getValue($fromIndex, $input);
-		$theIndices = [];
-		foreach (['name', 'type', 'size', 'tmp_name', 'error', 'is_uploaded_file'] as $name) {
-			$theIndex = $fromIndex;
-			$first = array_shift($theIndex);
-			array_shift($theIndex);
-			array_unshift($theIndex, $first, $name);
-			$theIndices[$name] = $theIndex;
-		}
-		if (is_array($sub)) {
-			foreach ($sub as $key => $value) {
-				$toIndex = array_merge($index, [$key]);
-				if (is_array($value)) {
-					static::fixFilesArray($input, $uploadedFileClass, $toIndex, $output);
-				} else {
-					$data = [];
-					foreach ($theIndices as $name => $theIndex) {
-						$data[$name] = AgaviArrayPathDefinition::getValue(array_merge($theIndex, [$key]), $input, $name == 'is_uploaded_file' ? true : null);
-					}
-					$data = new $uploadedFileClass($data);
-					AgaviArrayPathDefinition::setValue($toIndex, $output, $data);
-				}
-			}
-		} else {
-			$data = [];
-			foreach ($theIndices as $name => $theIndex) {
-				$data[$name] = AgaviArrayPathDefinition::getValue($theIndex, $input, $name == 'is_uploaded_file' ? true : null);
-			}
-			$data = new $uploadedFileClass($data);
-			AgaviArrayPathDefinition::setValue($index, $output, $data);
-		}
-
-		return $output;
-	}
 
 	/**
 	 * Do any necessary startup work after initialization.

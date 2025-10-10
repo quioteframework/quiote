@@ -15,7 +15,6 @@
 
 namespace Agavi\Testing;
 
-use Agavi\Request\AgaviRequestDataHolder;
 use Agavi\Request\AgaviWebRequest;
 use Agavi\Execution\ValidationService;
 use Agavi\Testing\PHPUnit\Constraint\AgaviConstraintActionHandlesMethod;
@@ -166,7 +165,7 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 		$methodToken = strtolower($this->requestMethod ?? 'read');
 		// Acquire canonical AgaviWebRequest (it already holds parameters injected via helpers)
 		$request = $this->getContext()->getRequest();
-		$dbg = (getenv('AGAVI_DEBUG_VALIDATION') || getenv('DEBUG_TESTS') || (defined('DEBUG_TESTS') && DEBUG_TESTS));
+		$dbg = (getenv('AGAVI_DEBUG_VALIDATION') || getenv('DEBUG_TESTS'));
 		if ($dbg) {
 			try {
 				AgaviDebugLogger::debug('[TestDebug][performValidation] methodToken=' . $methodToken . ' reqId=' . spl_object_id($request), $this->getContext());
@@ -431,7 +430,7 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 	 * @author     Felix Gilcher <felix.gilcher@bitextender.com>
 	 * @since      1.0.0
 	 */
-	protected function assertValidatedArgument($argumentName, $source = AgaviRequestDataHolder::SOURCE_PARAMETERS, $message = 'Failed asserting that the argument <%1$s> is validated.')
+	protected function assertValidatedArgument($argumentName, $source = 'parameters', $message = 'Failed asserting that the argument <%1$s> is validated.')
 	{
 		$report = $this->container->getValidationManager()->getReport();
 		$this->assertTrue($report->isArgumentValidated(new AgaviValidationArgument($argumentName, $source)), sprintf($message, $argumentName));
@@ -447,7 +446,7 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 	 * @author     Felix Gilcher <felix.gilcher@bitextender.com>
 	 * @since      1.0.0
 	 */
-	protected function assertFailedArgument($argumentName, $source = AgaviRequestDataHolder::SOURCE_PARAMETERS, $message = 'Failed asserting that the argument <%1$s> is failed.')
+	protected function assertFailedArgument($argumentName, $source = 'parameters', $message = 'Failed asserting that the argument <%1$s> is failed.')
 	{
 		$report = $this->container->getValidationManager()->getReport();
 		$this->assertTrue($report->isArgumentFailed(new AgaviValidationArgument($argumentName, $source)), sprintf($message, $argumentName));
@@ -463,7 +462,7 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 	 * @author     Felix Gilcher <felix.gilcher@bitextender.com>
 	 * @since      1.0.0
 	 */
-	protected function assertSucceededArgument($argumentName, $source = AgaviRequestDataHolder::SOURCE_PARAMETERS, $message = 'Failed asserting that the argument <%1$s> is succeeded.')
+	protected function assertSucceededArgument($argumentName, $source = 'parameters', $message = 'Failed asserting that the argument <%1$s> is succeeded.')
 	{
 		$report = $this->container->getValidationManager()->getReport();
 		$success = $report->isArgumentValidated(new AgaviValidationArgument($argumentName, $source)) && ! $report->isArgumentFailed(new AgaviValidationArgument($argumentName, $source));

@@ -51,7 +51,8 @@ class AgaviBooleanValidatorTest extends AgaviUnitTestCase
 	public function testNotAccept($value)
 	{
 		$validator = $this->vm->createValidator('Agavi\Validator\AgaviBooleanValidator', array('bool'), array('invalid argument'), array('export' => 'exported'));
-		$rd = $this->newWebRequest(['bool' => $value]);
+		// Pre-whitelist export target so reading it after failed validation returns null instead of throwing.
+		$rd = $this->newWebRequest(['bool' => $value], ['exported']);
 		$result = $validator->execute($rd);
 		$this->assertEquals(AgaviValidator::ERROR, $result, 'Failed asserting that the validation failed.');
 		$this->assertNull($rd->getParameter('exported'), 'Failed asserting that the value is not exported');

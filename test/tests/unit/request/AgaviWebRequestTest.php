@@ -21,6 +21,8 @@ class AgaviWebRequestTest extends AgaviUnitTestCase
 		
 		$this->_r = new AgaviWebRequest();
 		$this->_r->initialize($this->getContext());
+		// Strict validation: pre-whitelist parameter names referenced in tests
+		$this->_r->enforceValidatedParameters(['x','y','z','a','b','k','missing']);
 	}
 	
 	public function testGetUrlScheme()
@@ -59,6 +61,8 @@ class AgaviWebRequestTest extends AgaviUnitTestCase
 		$psr = (new ServerRequest('POST', '/x?x=1&y=2'))
 			->withParsedBody(['y' => 'body', 'z' => '3']);
 		$this->_r->attachPsrRequest($psr);
+		// Ensure whitelist includes merged params (already added in setUp but safe to repeat)
+		$this->_r->enforceValidatedParameters(['x','y','z']);
 		$this->assertSame('1', $this->_r->getParameter('x'));
 		$this->assertSame('body', $this->_r->getParameter('y'));
 		$this->assertSame('3', $this->_r->getParameter('z'));
@@ -72,6 +76,7 @@ class AgaviWebRequestTest extends AgaviUnitTestCase
 			->withHeader('Content-Type', 'application/x-www-form-urlencoded')
 			->withBody($stream);
 		$this->_r->attachPsrRequest($psr);
+		$this->_r->enforceValidatedParameters(['a','b']);
 		// Current implementation does not parse raw form body unless parsedBody already array.
 		$this->assertNull($this->_r->getParameter('a'));
 		$this->assertNull($this->_r->getParameter('b'));
@@ -79,6 +84,7 @@ class AgaviWebRequestTest extends AgaviUnitTestCase
 
 	public function testIsParameterValueEmptyAndRuntimeMutation()
 	{
+		$this->_r->enforceValidatedParameters(['missing','k']);
 		$this->assertTrue($this->_r->isParameterValueEmpty('missing'));
 		$this->_r->setParameter('k', '');
 		$this->assertTrue($this->_r->isParameterValueEmpty('k'));

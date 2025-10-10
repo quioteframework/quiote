@@ -14,6 +14,10 @@ class ActionAttributeSnapshotTest extends AgaviUnitTestCase
         parent::setUp();
         putenv('AGAVI_DISPATCH_CONTEXT=1');
         putenv('AGAVI_DISPATCH_CONTEXT_SIMPLE=1');
+        // Ensure writable cache directory for config cache generation
+        $tmpCache = sys_get_temp_dir() . '/agavi_test_cache';
+        if(!is_dir($tmpCache)) { @mkdir($tmpCache, 0777, true); }
+        \Agavi\Config\AgaviConfig::set('core.cache_dir', $tmpCache);
         $this->getContext()->getController()->initializeModule('Snapshot');
     SnapshotAction::$initialAttributes = [];
     SnapshotAction::$postMutationAttributes = [];

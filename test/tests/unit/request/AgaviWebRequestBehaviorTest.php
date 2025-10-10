@@ -49,10 +49,14 @@ class AgaviWebRequestBehaviorTest extends AgaviUnitTestCase
     public function testRuntimeParameterOverridesIntrinsic(): void
     {
         $wr = $this->newRequest([], ['foo' => 'queryVal']);
+        $vm = $this->getContext()->createInstanceFor('validation_manager');
+        // Register validator BEFORE any access
+        $vm->createValidator(Agavi\Validator\AgaviEqualsValidator::class, ['foo'], [], ['value' => 'queryVal']);
+        $vm->execute($wr);
         $this->assertSame('queryVal', $wr->getParameter('foo'));
+        // Mutate runtime parameter AFTER validation; this should still be accessible because foo already validated
         $wr->setParameter('foo', 'runtimeVal');
         $this->assertSame('runtimeVal', $wr->getParameter('foo'));
-        // Ensure merged parameter list shows override
         $all = $wr->getParameters();
         $this->assertSame('runtimeVal', $all['foo']);
     }
@@ -60,9 +64,13 @@ class AgaviWebRequestBehaviorTest extends AgaviUnitTestCase
     public function testBracketPathMaterializationAndRetrieval(): void
     {
         $wr = $this->newRequest();
-        $wr->setParameter('data', [ ['Application' => 'orders', 'Enabled' => true] ]);
-        // Should retrieve flattened synthetic keys
-        $this->assertTrue($wr->hasParameter('data[0][Application]'));
+        $dataVal = [ ['Application' => 'orders', 'Enabled' => true] ];
+        $wr->setParameter('data', $dataVal);
+        // Explicitly whitelist the flattened bracket keys produced by materialization
+        $wr->enforceValidatedParameters(['data','data[0][Application]','data[0][Enabled]']);
+        $vm = $this->getContext()->createInstanceFor('validation_manager');
+        $vm->createValidator(Agavi\Validator\AgaviEqualsValidator::class, ['data'], [], ['value' => $dataVal]);
+        $vm->execute($wr);
         $this->assertSame('orders', $wr->getParameter('data[0][Application]'));
         $this->assertSame(true, $wr->getParameter('data[0][Enabled]'));
     }
@@ -71,6 +79,9 @@ class AgaviWebRequestBehaviorTest extends AgaviUnitTestCase
     {
         $wr = $this->newRequest();
         $wr->setParameter('alpha', 'one');
+        $vm = $this->getContext()->createInstanceFor('validation_manager');
+        $vm->createValidator(Agavi\Validator\AgaviEqualsValidator::class, ['alpha'], [], ['value' => 'one']);
+        $vm->execute($wr);
         $this->assertTrue($wr->hasParameter('alpha'));
         $wr->removeParameter('alpha');
         $this->assertFalse($wr->hasParameter('alpha'));
@@ -91,6 +102,10 @@ class AgaviWebRequestBehaviorTest extends AgaviUnitTestCase
     public function testParameterRemovalCascadesToQueryAndBody(): void
     {
         $wr = $this->newRequest([], ['q' => 'query'], ['p' => 'body']);
+        $vm = $this->getContext()->createInstanceFor('validation_manager');
+        $vm->createValidator(Agavi\Validator\AgaviEqualsValidator::class, ['q'], [], ['value' => 'query']);
+        $vm->createValidator(Agavi\Validator\AgaviEqualsValidator::class, ['p'], [], ['value' => 'body']);
+        $vm->execute($wr);
         $this->assertSame('query', $wr->getParameter('q'));
         $this->assertSame('body', $wr->getParameter('p'));
         $wr->removeParameter('q', 'parameters');

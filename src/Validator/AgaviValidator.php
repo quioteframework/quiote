@@ -674,6 +674,15 @@ abstract class AgaviValidator extends AgaviParameterHolder implements ResetInter
 				if (getenv('AGAVI_DEBUG_VALIDATION')) { AgaviDebugLogger::debug('[AgaviValidator][export][debug] registered root argument=' . $rootParameterName . ' to prevent pruning', $this->getContext()); }
 			}
 		}
+
+		// Always-on whitelist: ensure exported parameter key is whitelisted immediately
+		try {
+			if(method_exists($this->validationParameters, 'enforceValidatedParameters')) {
+				$names = [$cp->__toString()];
+				if($rootParameterName) { $names[] = $rootParameterName; }
+				$this->validationParameters->enforceValidatedParameters($names);
+			}
+		} catch(\Throwable) { }
 	}
 
 	/**

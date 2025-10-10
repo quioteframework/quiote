@@ -273,6 +273,37 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 	{
 		$vd = getenv("AGAVI_DEBUG_VALIDATION");
 
+		// Pre-populate request validated parameters whitelist with the union of all validator argument names.
+		// This allows validators themselves to read the raw input for their declared arguments under always-on enforcement.
+		if(method_exists($request, 'enforceValidatedParameters')) {
+			$allArgumentNames = [];
+			$allExportNames = [];
+			foreach($this->children as $validator) {
+				// Protected getArguments() cannot be called here; use reflection to access property
+				try {
+					$ref = new \ReflectionObject($validator);
+					if($ref->hasProperty('arguments')) {
+						$prop = $ref->getProperty('arguments');
+						$prop->setAccessible(true);
+						$args = (array)$prop->getValue($validator);
+						foreach($args as $arg) {
+							if(is_string($arg) && $arg !== '') { $allArgumentNames[$arg] = true; }
+						}
+					}
+				} catch(\Throwable) { }
+				// Also include explicit export target if configured (string parameter 'export')
+				try {
+					if($validator->hasParameter('export')) {
+						$exp = $validator->getParameter('export');
+						if(is_string($exp) && $exp !== '') { $allArgumentNames[$exp] = true; }
+					}
+				} catch(\Throwable) { }
+			}
+			if($allArgumentNames) { $request->enforceValidatedParameters(array_keys($allArgumentNames)); }
+			// Persist export names list for later re-whitelisting post-prune (if validation fails, no export() call happens)
+			$this->setParameter('_predeclared_exports', array_keys($allExportNames));
+		}
+
 		$success = true;
 		$this->report = new AgaviValidationReport();
 		$result = AgaviValidator::SUCCESS;
@@ -395,6 +426,20 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 						}
 					}
 				}
+			}
+			// After pruning, merge whitelist with all succeeded parameter names and any exported roots (already tracked as succeeded via export())
+			if(method_exists($request, 'enforceValidatedParameters')) {
+				$finalWhitelist = array_keys($keepNames['parameters'] ?? []);
+				// include predeclared export names even if validation failed (they may be accessed to assert null)
+				$predeclaredExports = (array)$this->getParameter('_predeclared_exports', []);
+				foreach($predeclaredExports as $exp) { $finalWhitelist[] = $exp; }
+				// include module/action if present
+				if($umap) {
+					if($ma) { $finalWhitelist[] = $ma; }
+					if($aa) { $finalWhitelist[] = $aa; }
+				}
+				$finalWhitelist = array_values(array_unique($finalWhitelist));
+				if($finalWhitelist) { $request->enforceValidatedParameters($finalWhitelist); }
 			}
 		}
 

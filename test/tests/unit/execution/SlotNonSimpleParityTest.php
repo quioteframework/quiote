@@ -41,6 +41,9 @@ class SlotNonSimpleParityTest extends AgaviUnitTestCase
     public function testValidationErrorParity()
     {
     \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,false,false); // ensure baseline
+    // Strict validation: whitelist parameter used in validation failure scenario
+    $ctxReq = $this->getContext()->getRequest();
+    if($ctxReq instanceof \Agavi\Request\AgaviWebRequest) { $ctxReq->enforceValidatedParameters(['fail']); }
     $legacy = $this->dispatchWithFlag(false, function(){ \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(true,false,false); }, ['fail'=>1]);
     $noContainer = $this->dispatchWithFlag(true, function(){ \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(true,false,false); }, ['fail'=>1]);
     $this->assertSame('<div>COMPLEX_ERROR</div>', $legacy);

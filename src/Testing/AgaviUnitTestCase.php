@@ -58,13 +58,18 @@ abstract class AgaviUnitTestCase extends AgaviPhpUnitTestCase implements AgaviIU
 	 *
 	 * @param array<string,mixed> $parameters runtime parameters to seed.
 	 */
-	protected function newWebRequest(array $parameters = []): AgaviWebRequest
+	protected function newWebRequest(array $parameters = [], array $additionalWhitelist = []): AgaviWebRequest
 	{
 		$request = new AgaviWebRequest();
 		$request->initialize($this->getContext());
 		foreach ($parameters as $key => $value) {
 			$request->setParameter($key, $value);
 		}
+		// In unit tests we often bypass the validation manager; whitelist seeded keys and any explicitly provided additional whitelist keys (e.g. export targets for failure scenarios).
+		$wl = [];
+		if($parameters) { $wl = array_keys($parameters); }
+		if($additionalWhitelist) { $wl = array_merge($wl, $additionalWhitelist); }
+		if($wl) { $request->enforceValidatedParameters(array_values(array_unique($wl))); }
 		return $request;
 	}
 }
