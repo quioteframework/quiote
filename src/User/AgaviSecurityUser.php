@@ -318,8 +318,10 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser, ResetIn
   	public function shutdown()
 	{
 		$logger = $this->getContext()?->getLoggerManager()?->getLogger();
-		$logger?->debug('SecurityUser shutdown storing authenticated status', ['class' => get_class($this), 'namespace' => self::AUTH_NAMESPACE]);
-		$logger?->debug('SecurityUser shutdown storing credentials', ['class' => get_class($this), 'namespace' => self::CREDENTIAL_NAMESPACE]);
+		if (getenv('AGAVI_DEBUG_SECURITY')) {
+			$logger?->debug('[AgaviSecurityUser] Shutdown storing authenticated status', ['class' => get_class($this), 'namespace' => self::AUTH_NAMESPACE]);
+			$logger?->debug('[AgaviSecurityUser] Shutdown storing credentials', ['class' => get_class($this), 'namespace' => self::CREDENTIAL_NAMESPACE]);
+		}
 		$storage = $this->getContext()->getStorage();
 
 		// If this instance is unauthenticated but storage already has AUTH=true, avoid clobbering (stale recreated user)
@@ -329,7 +331,7 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser, ResetIn
 			$shouldSkip = ($existingAuth === true && $curr !== true && $this->logoutIntent === false);
 			if($shouldSkip) {
 				if (getenv('AGAVI_DEBUG_SECURITY')) {
-					AgaviDebugLogger::debug('[SecurityUser.shutdown] skip auth downgrade existing=true curr=' . var_export($curr,true) . ' logoutIntent=0', $this->getContext());
+					AgaviDebugLogger::debug('[AgaviSecurityUser] Shutdown skip auth downgrade existing=true curr=' . var_export($curr,true) . ' logoutIntent=0', $this->getContext());
 				}
 			} else {
 				$storage->store(self::AUTH_NAMESPACE, $curr);
@@ -345,7 +347,7 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser, ResetIn
 			$existingNonEmpty = is_array($existingCreds) && count($existingCreds) > 0;
 			if ($this->authenticated === true && $currEmpty && $existingNonEmpty) {
 				if (getenv('AGAVI_DEBUG_SECURITY')) {
-					AgaviDebugLogger::debug('[SecurityUser.shutdown] skip creds overwrite empty over non-empty', $this->getContext());
+					AgaviDebugLogger::debug('[AgaviSecurityUser] Shutdown skip creds overwrite empty over non-empty', $this->getContext());
 				}
 			} else {
 				$storage->store(self::CREDENTIAL_NAMESPACE, $this->credentials);
@@ -357,16 +359,17 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser, ResetIn
 		if (getenv('AGAVI_DEBUG_SECURITY')) {
 			try {
 				$cid = method_exists($this->getContext(), 'getCorrelationId') ? ($this->getContext()->getCorrelationId() ?? 'n/a') : 'n/a';
-				AgaviDebugLogger::debug('[SecurityUser.shutdown] cid=' . $cid . ' stored auth=' . var_export($this->authenticated,true) . ' creds count=' . count($this->credentials), $this->getContext());
+				AgaviDebugLogger::debug('[AgaviSecurityUser] Shutdown correlation id=' . $cid . ' stored auth=' . var_export($this->authenticated,true) . ' creds count=' . count($this->credentials), $this->getContext());
+				$logger?->debug('[AgaviSecurityUser] Shutdown session snapshot', [
+					'session' => isset($_SESSION) ? array_keys($_SESSION) : [],
+					'session_id' => function_exists('session_id') ? session_id() : null,
+					'session_status' => function_exists('session_status') ? session_status() : null,
+				]);	
+
 			} catch(\Throwable) {}
 		}
 
 		// Debug: Check what's in the session after storing
-		$logger?->debug('SecurityUser shutdown session snapshot', [
-			'session' => isset($_SESSION) ? array_keys($_SESSION) : [],
-			'session_id' => function_exists('session_id') ? session_id() : null,
-			'session_status' => function_exists('session_status') ? session_status() : null,
-		]);
 
 		// Note: session_write_close() will be handled by the storage shutdown in the proper sequence
 		// This ensures the session is written at the right time without interference

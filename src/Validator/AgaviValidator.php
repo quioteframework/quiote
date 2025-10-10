@@ -617,6 +617,7 @@ abstract class AgaviValidator extends AgaviParameterHolder implements ResetInter
 
 		// Persist export into request runtime parameters (post-migration fix):
 		// Extend: also materialize bracketed exports into a nested runtime structure so actions accessing $request->getParameter('User') receive array of exported values.
+		$rootParameterName = null;
 		try {
 			if(method_exists($this->validationParameters, 'setParameter')) {
 				$flatName = $cp->__toString();
@@ -648,6 +649,8 @@ abstract class AgaviValidator extends AgaviParameterHolder implements ResetInter
 						}
 						// Write back updated root array into runtime parameters
 						$this->validationParameters->setParameter($root, $runtime[$root]);
+						// PHASE 3 FIX: Remember root parameter name so we can register it as succeeded argument
+						$rootParameterName = $root;
 						if (getenv('AGAVI_DEBUG_VALIDATION')) { AgaviDebugLogger::debug('[AgaviValidator][export][debug] stored bracketed root=' . $root . ' flat=' . $flatName, $this->getContext()); }
 					}
 				}
@@ -662,6 +665,14 @@ abstract class AgaviValidator extends AgaviParameterHolder implements ResetInter
 				}
 			}
 			$this->parentContainer->addArgumentResult(new AgaviValidationArgument($cp->__toString(), $source), $result, $this);
+			
+			// PHASE 3 FIX: Also register the root parameter (e.g. 'User') as a succeeded argument
+			// when we export to bracketed names (e.g. 'User[0]'). This prevents the pruning logic
+			// from removing the root array parameter that we just created.
+			if($rootParameterName !== null && $rootParameterName !== '') {
+				$this->parentContainer->addArgumentResult(new AgaviValidationArgument($rootParameterName, $source), $result, $this);
+				if (getenv('AGAVI_DEBUG_VALIDATION')) { AgaviDebugLogger::debug('[AgaviValidator][export][debug] registered root argument=' . $rootParameterName . ' to prevent pruning', $this->getContext()); }
+			}
 		}
 	}
 
@@ -699,8 +710,26 @@ abstract class AgaviValidator extends AgaviParameterHolder implements ResetInter
 			$result = self::SUCCESS;
 			$errorCode = self::mapErrorCode($this->getParameter('severity', 'error'));
 
-			if($this->checkAllArgumentsSet(false)) {
-				if(!$this->validate()) {
+			$allArgsSet = $this->checkAllArgumentsSet(false);
+			if (getenv('AGAVI_DEBUG_VALIDATION')) {
+				AgaviDebugLogger::debug('[AgaviValidator][debug][postCheckAllArgs] validator=' . $this->getName() . ' allArgsSet=' . ($allArgsSet ? 'true' : 'false'), $this->getContext());
+			}
+			if($allArgsSet) {
+				if (getenv('AGAVI_DEBUG_VALIDATION')) {
+					AgaviDebugLogger::debug('[AgaviValidator][debug][callingValidate] validator=' . $this->getName(), $this->getContext());
+				}
+				try {
+					$validateResult = $this->validate();
+					if (getenv('AGAVI_DEBUG_VALIDATION')) {
+						AgaviDebugLogger::debug('[AgaviValidator][debug][postValidate] validator=' . $this->getName() . ' result=' . ($validateResult ? 'true' : 'false'), $this->getContext());
+					}
+				} catch (\Throwable $e) {
+					if (getenv('AGAVI_DEBUG_VALIDATION')) {
+						AgaviDebugLogger::debug('[AgaviValidator][debug][validateException] validator=' . $this->getName() . ' exception=' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine(), $this->getContext());
+					}
+					throw $e;
+				}
+				if(!$validateResult) {
 					// validation failed, exit with configured error code
 					$result = $errorCode;
 				}

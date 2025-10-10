@@ -765,6 +765,22 @@ class AgaviWebRequest implements ServerRequestInterface, ResetInterface
 	}
 
 	/**
+	 * Retrieves all fields of a stored data type (legacy AgaviRequestDataHolder compatibility).
+	 *
+	 * @param      string The name of the source to operate on.
+	 *
+	 * @return     array The values.
+	 *
+	 * @author     Dominik del Bondio <ddb@bitxtender.com>
+	 * @author     David Zülke <dz@bitxtender.com>
+	 * @since      0.11.0
+	 */
+	public function getAll($source)
+	{
+		return $this->getParameters($source);
+	}
+
+	/**
 	 * Remove a parameter from runtime store or intrinsic sources.
 	 * If $source is null or 'runtime' we only affect runtime store.
 	 */

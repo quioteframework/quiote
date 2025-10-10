@@ -190,9 +190,8 @@ class AgaviDateTimeValidatorTest extends AgaviUnitTestCase
         // malformed date (month=13)
         $request = $this->newWebRequest(['date' => '2025-13-10 08:15:00']);
         $result = $validator->execute($request);
-        // Current implementation defers to DateTimeImmutable which normalizes month overflow (13 -> next year + 1 month).
-        // Assert SUCCESS to document behavior rather than expecting an error.
-        $this->assertSame(AgaviValidator::SUCCESS, $result);
+        
+        $this->assertSame(AgaviValidator::ERROR, $result);
     }
 
     public function testInvalidTimezoneOption(): void

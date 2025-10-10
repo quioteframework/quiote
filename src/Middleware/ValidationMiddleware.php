@@ -192,12 +192,6 @@ class ValidationMiddleware implements MiddlewareInterface
                     } catch (\Throwable) {
                     }
                 }
-                if (getenv('AGAVI_DEBUG_ROUTING')) {
-                    try {
-                        AgaviDebugLogger::debug('[ValidationMiddleware][debug] mid-validation bulletin_id=' . var_export($webRequest->getParameter('bulletin_id'), true), $this->controller?->getContext());
-                    } catch (\Throwable) {
-                    }
-                }
                 $trace = $xmlRes->getTrace();
                 $hasXml = $trace && property_exists($trace, 'configFile') && $trace->configFile !== null && $trace->configFile !== '';
                 $ok = $xmlRes->ok;
@@ -272,33 +266,10 @@ class ValidationMiddleware implements MiddlewareInterface
             }
             AgaviDebugLogger::debug('[ValidationMiddleware] decision=' . $execState->validationDecision->state . ' module=' . $moduleName . ' action=' . $actionName . ' method=' . $method . ' simple=' . (($action && method_exists($action, 'isSimple') && $action->isSimple()) ? '1' : '0') . ' sessId=' . $sessId . ' auth=' . $auth . $errStr, $this->controller?->getContext());
         }
-        if ($vd) {
-            try {
-                $ctxReq = $this->controller?->getContext()?->getRequest();
-                if ($ctxReq) {
-                    $same = ($ctxReq === $webRequest) ? 'SAME' : 'DIFF';
-                    $exportProbe = null;
-                    try {
-                        $exportProbe = $ctxReq->getParameter('bulletin');
-                    } catch (\Throwable) {
-                    }
-                    $u = null;
-                    $hasCompany = 'n/a';
-                    try {
-                        $u = $this->controller?->getContext()?->getUser();
-                        $uType = is_object($u) ? get_class($u) : gettype($u);
-                    } catch (\Throwable) {
-                        $uType = 'err';
-                    }
-                    AgaviDebugLogger::debug('[ValidationMiddleware][debug] request_identity=' . $same . ' webReqId=' . spl_object_id($webRequest) . ' ctxReqId=' . spl_object_id($ctxReq) . ' exportedBulletinType=' . (is_object($exportProbe) ? get_class($exportProbe) : gettype($exportProbe)) . ' userType=' . $uType, $this->controller?->getContext());
-                }
-            } catch (\Throwable) {
-            }
-        }
         if ($ok) {
             if (getenv('AGAVI_DEBUG_ROUTING')) {
                 try {
-                    AgaviDebugLogger::debug('[ValidationMiddleware][debug] post-validation SUCCESS bulletin_id=' . var_export($webRequest->getParameter('bulletin_id'), true), $this->controller?->getContext());
+                    AgaviDebugLogger::debug('[ValidationMiddleware][debug] post-validation SUCCESS', $this->controller?->getContext());
                 } catch (\Throwable) {
                 }
             }
@@ -306,7 +277,7 @@ class ValidationMiddleware implements MiddlewareInterface
         }
         if (getenv('AGAVI_DEBUG_ROUTING')) {
             try {
-                AgaviDebugLogger::debug('[ValidationMiddleware][debug] post-validation FAILURE bulletin_id=' . var_export($webRequest->getParameter('bulletin_id'), true), $this->controller?->getContext());
+                AgaviDebugLogger::debug('[ValidationMiddleware][debug] post-validation FAILURE', $this->controller?->getContext());
             } catch (\Throwable) {
             }
         }

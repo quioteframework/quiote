@@ -223,7 +223,9 @@ class AgaviRbacSecurityUser extends AgaviSecurityUser implements AgaviISecurityU
     public function shutdown()
 	{
 		$logger = $this->context?->getLoggerManager()?->getLogger();
-		$logger?->debug('RbacSecurityUser storing roles', ['class' => get_class($this), 'namespace' => self::ROLES_NAMESPACE, 'roles_count' => is_array($this->roles) ? count($this->roles) : 0]);
+		if (getenv('AGAVI_DEBUG_SECURITY')) {
+			$logger?->debug('RbacSecurityUser storing roles', ['class' => get_class($this), 'namespace' => self::ROLES_NAMESPACE, 'roles_count' => is_array($this->roles) ? count($this->roles) : 0]);
+		}
 		$this->context->getStorage()->store(self::ROLES_NAMESPACE, $this->roles);
 	// Note: credentials are stored by parent AgaviSecurityUser::shutdown(). If they were
 	// rebuilt during initialize, they will be persisted here.

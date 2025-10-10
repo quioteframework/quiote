@@ -82,6 +82,7 @@ final class DateTimeFacade
                 IntlDateFormatter::GREGORIAN,
                 $icuPattern
             );
+            $formatter->setLenient(false); // Enforce strict parsing
             $pos = 0;
             $ts = $formatter->parse($value, $pos);
             if ($ts === false || $pos !== strlen($value)) {

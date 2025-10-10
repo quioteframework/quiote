@@ -92,25 +92,25 @@ class AgaviUser extends AgaviAttributeHolder implements ResetInterface
 	{
 		$this->context = $context;
 
-		if(isset($parameters['default_namespace'])) {
+		if (isset($parameters['default_namespace'])) {
 			$this->defaultNamespace = $parameters['default_namespace'];
 		}
-		
-		if(isset($parameters['storage_namespace'])) {
+
+		if (isset($parameters['storage_namespace'])) {
 			$this->storageNamespace = $parameters['storage_namespace'];
 		}
 
 		$this->setParameters($parameters);
-		
+
 		// read data from storage
 		$this->attributes = $context->getStorage()->retrieve($this->storageNamespace);
 
 		// Normalize legacy/malformed payloads: ensure attributes are keyed by default namespace
 		if (is_array($this->attributes) && !array_key_exists($this->defaultNamespace, $this->attributes)) {
-			$this->attributes = [ $this->defaultNamespace => $this->attributes ];
+			$this->attributes = [$this->defaultNamespace => $this->attributes];
 		}
 
-		if($this->attributes == null) {
+		if ($this->attributes == null) {
 			// initialize our attributes array
 			$this->attributes = [];
 		}
@@ -124,9 +124,7 @@ class AgaviUser extends AgaviAttributeHolder implements ResetInterface
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function startup()
-	{
-	}
+	public function startup() {}
 
 	/**
 	 * Execute the shutdown procedure.
@@ -147,10 +145,18 @@ class AgaviUser extends AgaviAttributeHolder implements ResetInterface
 			if (is_array($this->attributes) && isset($this->attributes[$ns]) && is_array($this->attributes[$ns])) {
 				$keys = array_keys($this->attributes[$ns]);
 			}
-			AgaviDebugLogger::debug('[AgaviUser.shutdown.debug] oid=' . spl_object_id($this) . ' ns=' . $ns . ' hasNsData=' . ($hasNsData?1:0) . ' keyCount=' . count($keys) . ' keysSample=' . json_encode(array_slice($keys,0,12)));
-		} catch (\Throwable) {}
-		if(!$hasNsData) {
-			try { AgaviDebugLogger::debug('[AgaviUser.shutdown] skip store (empty attributes) for '.$this->storageNamespace); } catch(\Throwable) {}
+			if (getenv('AGAVI_DEBUG_USER')) {
+				AgaviDebugLogger::debug('[AgaviUser.shutdown.debug] oid=' . spl_object_id($this) . ' ns=' . $ns . ' hasNsData=' . ($hasNsData ? 1 : 0) . ' keyCount=' . count($keys) . ' keysSample=' . json_encode(array_slice($keys, 0, 12)));
+			}
+		} catch (\Throwable) {
+		}
+		if (!$hasNsData) {
+			try {
+				if (getenv('AGAVI_DEBUG_USER')) {
+					AgaviDebugLogger::debug('[AgaviUser.shutdown] skip store (no data) for ' . $this->storageNamespace);
+				}
+			} catch (\Throwable) {
+			}
 			return;
 		}
 		$this->getContext()->getStorage()->store($this->storageNamespace, $this->attributes);
@@ -170,10 +176,14 @@ class AgaviUser extends AgaviAttributeHolder implements ResetInterface
 			$storage = $this->getContext()->getStorage();
 			// Start from existing persisted structure (namespaced attributes map)
 			$data = $storage->retrieve($this->storageNamespace);
-			if (!is_array($data)) { $data = []; }
+			if (!is_array($data)) {
+				$data = [];
+			}
 
 			$ns = $this->getDefaultNamespace();
-			if (!isset($data[$ns]) || !is_array($data[$ns])) { $data[$ns] = []; }
+			if (!isset($data[$ns]) || !is_array($data[$ns])) {
+				$data[$ns] = [];
+			}
 
 			if ($onlyKeys !== null) {
 				// Update only the selected keys within the default namespace
@@ -188,10 +198,22 @@ class AgaviUser extends AgaviAttributeHolder implements ResetInterface
 			}
 
 			$storage->store($this->storageNamespace, $data);
-			if (method_exists($storage, 'flush')) { $storage->flush(); }
-			try { AgaviDebugLogger::debug('[AgaviUser.persistAttributesImmediate] persisted ns='.$ns.' keys='.( $onlyKeys ? json_encode($onlyKeys) : 'ALL' )); } catch(\Throwable) {}
+			if (method_exists($storage, 'flush')) {
+				$storage->flush();
+			}
+			try {
+				if (getenv('AGAVI_DEBUG_USER')) {
+					AgaviDebugLogger::debug('[AgaviUser.persistAttributesImmediate] persisted ns=' . $ns . ' keys=' . ($onlyKeys ? json_encode($onlyKeys) : 'ALL'));
+				}
+			} catch (\Throwable) {
+			}
 		} catch (\Throwable $e) {
-			try { AgaviDebugLogger::debug('[AgaviUser.persistAttributesImmediate] ERROR '. $e->getMessage()); } catch(\Throwable) {}
+			try {
+				if (getenv('AGAVI_DEBUG_USER')) {
+					AgaviDebugLogger::debug('[AgaviUser.persistAttributesImmediate] ERROR ' . $e->getMessage());
+				}
+			} catch (\Throwable) {
+			}				
 		}
 	}
 
@@ -201,7 +223,7 @@ class AgaviUser extends AgaviAttributeHolder implements ResetInterface
 	 */
 	public function __sleep(): array
 	{
-		return [ 'attributes', 'storageNamespace', 'defaultNamespace', 'parameters' ];
+		return ['attributes', 'storageNamespace', 'defaultNamespace', 'parameters'];
 	}
 
 	/**
@@ -212,20 +234,19 @@ class AgaviUser extends AgaviAttributeHolder implements ResetInterface
 	{
 		$this->context = $context;
 		// Ensure attribute array shape (it may already be fine)
-		if(!is_array($this->attributes)) { $this->attributes = []; }
-		if(!array_key_exists($this->defaultNamespace, $this->attributes)) {
-			$this->attributes = [ $this->defaultNamespace => $this->attributes ];
+		if (!is_array($this->attributes)) {
+			$this->attributes = [];
+		}
+		if (!array_key_exists($this->defaultNamespace, $this->attributes)) {
+			$this->attributes = [$this->defaultNamespace => $this->attributes];
 		}
 	}
 
-	public function reset() : void
+	public function reset(): void
 	{
 		$this->context = null;
 		$this->parameters = [];
 		$this->attributes = [];
 		$this->storageNamespace = 'org.agavi.user.User';
-		
 	}
 }
-
-?>

@@ -112,7 +112,10 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 				}
 			} catch (\Throwable $e) {
 				if (getenv('AGAVI_DEBUG_VALIDATION') || getenv('DEBUG_TESTS')) {
-					try { AgaviDebugLogger::debug('[TestDebug][runAction][Exception] ' . get_class($e) . ': ' . $e->getMessage(), $this->getContext()); } catch (\Throwable) {}
+					try {
+						AgaviDebugLogger::debug('[TestDebug][runAction][Exception] ' . get_class($e) . ': ' . $e->getMessage(), $this->getContext());
+					} catch (\Throwable) {
+					}
 				}
 				$resultView = 'Error';
 			}
@@ -245,32 +248,44 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 			if ($dbg) {
 				try {
 					AgaviDebugLogger::debug('[TestDebug][PostValidation] success=' . ($this->validationSuccess ? '1' : '0') . ' loadedValidators=' . implode(',', $loaded), $this->getContext());
-					if(!$this->validationSuccess) {
+					if (!$this->validationSuccess) {
 						// EXTRA DEBUG: dump validator names + argument results
 						try {
 							$childs = $vm->getChilds();
 							$names = [];
-							foreach ($childs as $cv) { $names[] = method_exists($cv,'getName') ? $cv->getName() : 'unknown'; }
+							foreach ($childs as $cv) {
+								$names[] = method_exists($cv, 'getName') ? $cv->getName() : 'unknown';
+							}
 							AgaviDebugLogger::debug('[TestDebug][ValidatorsRegistered] ' . implode(',', $names), $this->getContext());
 							$report = $vm->getReport();
 							if ($report) {
 								$argsFailed = [];
-								try { foreach($report->getFailedArguments() as $fa) { $argsFailed[] = $fa->getName(); } } catch(\Throwable){}
-								AgaviDebugLogger::debug('[TestDebug][FailedArguments] ' . (empty($argsFailed)?'none':implode(',', $argsFailed)), $this->getContext());
+								try {
+									foreach ($report->getFailedArguments() as $fa) {
+										$argsFailed[] = $fa->getName();
+									}
+								} catch (\Throwable) {
+								}
+								AgaviDebugLogger::debug('[TestDebug][FailedArguments] ' . (empty($argsFailed) ? 'none' : implode(',', $argsFailed)), $this->getContext());
 								$errs = $report->getErrorMessages();
-								if (!empty($errs)) { AgaviDebugLogger::debug('[TestDebug][ErrorMessages] ' . json_encode($errs), $this->getContext()); }
+								if (!empty($errs)) {
+									AgaviDebugLogger::debug('[TestDebug][ErrorMessages] ' . json_encode($errs), $this->getContext());
+								}
 							}
-						} catch(\Throwable $ie) { AgaviDebugLogger::debug('[TestDebug][ValidatorDumpException] ' . $ie->getMessage(), $this->getContext()); }
+						} catch (\Throwable $ie) {
+							AgaviDebugLogger::debug('[TestDebug][ValidatorDumpException] ' . $ie->getMessage(), $this->getContext());
+						}
 					}
-					if(!$this->validationSuccess && method_exists($vm, 'getReport') && $vm->getReport()) {
+					if (!$this->validationSuccess && method_exists($vm, 'getReport') && $vm->getReport()) {
 						$errs = $vm->getReport()->getErrors();
 						$lines = [];
 						foreach ($errs as $err) {
 							try {
 								$lines[] = ($err->getName() ? $err->getName() . ': ' : '') . $err->getMessage();
-							} catch (\Throwable) {}
+							} catch (\Throwable) {
+							}
 						}
-						if(!empty($lines)) {
+						if (!empty($lines)) {
 							AgaviDebugLogger::debug('[TestDebug][ValidationErrors] ' . implode(' | ', $lines), $this->getContext());
 						}
 					}
