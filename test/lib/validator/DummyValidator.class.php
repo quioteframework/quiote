@@ -8,9 +8,13 @@ class DummyValidator extends AgaviValidator
 	public $val_result = true;
 	public $validated = false;
 	public $shutdown = false;
+	public $throw_on_execute = false;
 	
 	protected function validate()
 	{
+		if($this->throw_on_execute) {
+			throw new \RuntimeException('validator boom');
+		}
 		$this->validated = true;
 		if($this->val_result == false) {
 			$this->throwError();

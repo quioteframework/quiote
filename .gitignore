@@ -2,4 +2,4 @@
 /composer.lock
 /test/sandbox/app/cache
 /test/config/.phpunit.cache
-/code-coverage
+/coverage

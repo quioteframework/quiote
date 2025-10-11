@@ -1,6 +1,5 @@
 <?php
 
-use Agavi\Request\AgaviWebRequestDataHolder;
 use Agavi\Testing\AgaviActionTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 
@@ -49,7 +48,7 @@ class Products_Product_ViewActionTest extends AgaviActionTestCase
 	public function testSuccessViewValidProducts($parameters, $price)
 	{
 		$this->setRequestMethod('read');
-		$this->setRequestData($this->createRequestDataHolder(array(AgaviWebRequestDataHolder::SOURCE_PARAMETERS => $parameters)));
+		$this->setRequestData($parameters); // no-op retained for BC
 		$this->runAction();
 		$this->assertValidatedArgument('id');
 		$this->assertViewNameEquals('Success');
@@ -74,7 +73,7 @@ class Products_Product_ViewActionTest extends AgaviActionTestCase
 	public function testErrorViewInvalidProducts($parameters)
 	{
 		$this->setRequestMethod('read');
-		$this->setArguments($this->createRequestDataHolder(array(AgaviWebRequestDataHolder::SOURCE_PARAMETERS => $parameters)));
+		$this->setArguments($parameters);
 		$this->runAction();
 		$this->assertValidatedArgument('id');
 		$this->assertViewNameEquals('Error');
@@ -84,7 +83,7 @@ class Products_Product_ViewActionTest extends AgaviActionTestCase
 	public function testErrorViewFailedProductValidation()
 	{
 		$this->setRequestMethod('read');
-		$this->setArguments($this->createRequestDataHolder(array(AgaviWebRequestDataHolder::SOURCE_PARAMETERS => array('id' => ''))));
+		$this->setArguments(['id' => '']);
 		$this->runAction();
 		$this->assertValidatedArgument('id');
 		$this->assertFailedArgument('id');

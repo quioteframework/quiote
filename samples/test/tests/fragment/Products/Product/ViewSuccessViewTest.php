@@ -1,6 +1,5 @@
 <?php
 
-use Agavi\Request\AgaviWebRequestDataHolder;
 use Agavi\Testing\AgaviViewTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 
@@ -41,7 +40,7 @@ class Products_Product_ViewSuccessViewTest extends AgaviViewTestCase
 	// FIXME: needs to be updated
 	public function testResponseHtml()
 	{		
-		$this->setArguments($this->createRequestDataHolder(array(AgaviWebRequestDataHolder::SOURCE_PARAMETERS => array('product_name' => 'spam'))));
+		$this->setArguments(['product_name' => 'spam']);
 
 		$this->setAttribute('product_id', 1234);
 		$this->setAttribute('product_name', 'spam');
@@ -57,7 +56,7 @@ class Products_Product_ViewSuccessViewTest extends AgaviViewTestCase
 	
 	// public function testResponseJson()
 	// {		
-	// 	$this->setArguments($this->createRequestDataHolder(array(AgaviWebRequestDataHolder::SOURCE_PARAMETERS => array('product_name' => 'spam'))));
+	// Legacy form removed; using direct array above.
 	// 
 	// 	$this->setAttribute('product_id', 1234);
 	// 	$this->setAttribute('product_name', 'spam');
