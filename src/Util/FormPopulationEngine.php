@@ -12,7 +12,7 @@
 // |   indent-tabs-mode: t                                                     |
 // |   End:                                                                    |
 // +---------------------------------------------------------------------------+
-namespace Agavi\Filter;
+namespace Agavi\Util;
 
 use Agavi\AgaviContext;
 use Agavi\Config\AgaviConfig;
@@ -20,13 +20,13 @@ use Agavi\Exception\AgaviException;
 use Agavi\Exception\AgaviParseException;
 use Agavi\Logging\AgaviLogger;
 use Agavi\Request\AgaviWebRequest;
+use Agavi\Response\AgaviResponse;
 use Agavi\Util\AgaviParameterHolder;
 use Agavi\Util\AgaviToolkit;
 use Agavi\Util\FormPopulationConfig;
 use Agavi\Validator\AgaviValidationArgument;
 use Agavi\Validator\AgaviValidationReport;
 use Agavi\Validator\AgaviValidator;
-use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * AgaviFormPopulationFilter automatically populates a form that is re-posted,
@@ -55,53 +55,47 @@ use Symfony\Contracts\Service\ResetInterface;
  *
  * @version    $Id$
  */
-class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilter, ResetInterface
+final class FormPopulationEngine
 {
-	const ENCODING_UTF_8 = 'utf-8';
+	public const ENCODING_UTF_8 = 'utf-8';
 
-	const ENCODING_ISO_8859_1 = 'iso-8859-1';
+	public const ENCODING_ISO_8859_1 = 'iso-8859-1';
 
-	/**
-	 * @var        \DOMDocument Our (X)HTML document.
-	 */
-	protected $doc;
+	private AgaviContext $context;
 
 	/**
-	 * @var        \DOMXPath Our XPath instance for the document.
+	 * @var array<string, mixed>
 	 */
-	protected $xpath;
+	private array $parameters = [];
 
 	/**
-	 * @var        string The XML NS prefix we're working on with XPath, including
-	 *                    a colon (or empty string if document has no NS).
+	 * Our (X)HTML document.
 	 */
-	protected $xmlnsPrefix = '';
+	protected ?\DOMDocument $doc = null;
 
 	/**
-	 * Execute this filter.
-	 *
-	 * @param      AgaviFilterChain The filter chain.
-	 * @param      AgaviExecutionContainer The current execution container.
-	 *
-	 * @throws     <b>AgaviFilterException</b> If an error occurs during execution.
-	 *
-	 * @author     David Zülke <dz@bitxtender.com>
-	 * @since      0.11.0
+	 * Our XPath instance for the document.
 	 */
-	#[\Override]
-	public function execute(AgaviFilterChain $filterChain, $container)
+	protected ?\DOMXPath $xpath = null;
+
+	/**
+	 * The XML NS prefix we're working on with XPath, including a colon.
+	 */
+	protected string $xmlnsPrefix = '';
+
+	/**
+	 * Populate the provided response content with request data and validation errors.
+	 */
+	public function populate(AgaviResponse $response, AgaviWebRequest $request, array $overrides = []): void
 	{
-		// Container removed; obtain global response from context controller
-		$controller = $this->getContext()->getController();
-		$response = $controller->getGlobalResponse();
-
+		if(!isset($this->context)) {
+			throw new \LogicException('FormPopulationEngine must be initialized before use.');
+		}
 		if(!$response->isContentMutable() || !($output = $response->getContent())) {
 			return;
 		}
 
-		$rq = $this->getContext()->getRequest();
-
-	$cfg = FormPopulationConfig::get($rq);
+		$cfg = $this->buildConfiguration($request, $overrides);
 
 		$ot = $response->getOutputType();
 
@@ -109,7 +103,7 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 			return;
 		}
 
-		$populate = $this->resolvePopulateSource($rq, $cfg);
+		$populate = $this->resolvePopulateSource($request, $cfg);
 		if($populate === null) {
 			return;
 		}
@@ -127,12 +121,12 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 		if($cfg['force_request_uri'] !== false) {
 			$ruri = $cfg['force_request_uri'];
 		} else {
-			$ruri = $this->resolveRequestUri($rq);
+			$ruri = $this->resolveRequestUri($request);
 		}
 		if($cfg['force_request_url'] !== false) {
 			$rurl = $cfg['force_request_url'];
 		} else {
-			$rurl = $this->resolveRequestUrl($rq, $ruri);
+			$rurl = $this->resolveRequestUrl($request, $ruri);
 		}
 
 		if(isset($cfg['validation_report']) && $cfg['validation_report'] instanceof AgaviValidationReport) {
@@ -344,12 +338,12 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 				if($populate instanceof AgaviParameterHolder) {
 					$p = $populate;
 				} elseif(is_array($populate)) {
-					$p = $this->createParameterHolderFromRequest($rq);
+					$p = $this->createParameterHolderFromRequest($request);
 					if(!($p instanceof AgaviParameterHolder)) {
 						continue;
 					}
 				} else {
-					$p = $this->createParameterHolderFromRequest($rq);
+					$p = $this->createParameterHolderFromRequest($request);
 					if(!($p instanceof AgaviParameterHolder)) {
 						continue;
 					}
@@ -617,7 +611,7 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 			}
 		}
 
-		FormPopulationConfig::setScopedValue($rq, 'orphaned_errors', $allIncidents);
+		FormPopulationConfig::setScopedValue($request, 'orphaned_errors', $allIncidents);
 
 		if($xhtml) {
 			$firstError = null;
@@ -1018,20 +1012,40 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	#[\Override]
-    public function initialize(AgaviContext $context, array $parameters = [])
+    public function initialize(AgaviContext $context, array $parameters = []): void
 	{
-		// set defaults
-		$this->setParameters([
+		$this->context = $context;
+		$this->parameters = $this->defaultParameters();
+		if($parameters) {
+			$this->parameters = array_replace($this->parameters, $parameters);
+		}
+		$this->parameters = $this->normalizeParameters($this->parameters);
+
+		FormPopulationConfig::seed($context->getRequest(), $this->parameters);
+	}
+
+	public function reset(): void
+	{
+		$this->doc = null;
+		$this->xpath = null;
+		$this->xmlnsPrefix = '';
+	}
+
+	public function getDefaults(): array
+	{
+		return $this->parameters;
+	}
+
+	private function defaultParameters(): array
+	{
+		return [
 			'methods'                    => [],
 			'output_types'               => null,
-
 			'forms_xpath'                => '//${htmlnsPrefix}form[@action]',
 			'populate'                   => null,
 			'skip'                       => null,
 			'include_hidden_inputs'      => true,
 			'include_password_inputs'    => false,
-
 			'force_output_mode'          => false,
 			'force_encoding'             => false,
 			'force_request_uri'          => false,
@@ -1045,72 +1059,80 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 			'dom_preserve_white_space'   => true,
 			'dom_format_output'          => false,
 			'savexml_options'            => [],
-
 			'error_class'                => 'error',
 			'error_class_map'            => [],
 			'error_messages'             => [],
 			'field_error_messages'       => [],
 			'multi_field_error_messages' => [],
-
 			'ignore_parse_errors'        => LIBXML_ERR_ERROR,
 			'log_parse_errors'           => LIBXML_ERR_WARNING,
 			'logging_logger'             => null,
-		]);
+		];
+	}
 
-		// initialize parent
-		parent::initialize($context, $parameters);
+	private function normalizeParameters(array $parameters): array
+	{
+		$errorClassMap = (array) ($parameters['error_class_map'] ?? []);
+		$errorClassMap['self::${htmlnsPrefix}*'] = $parameters['error_class'] ?? 'error';
+		$parameters['error_class_map'] = $errorClassMap;
 
-		// and "clean up" some of the params just in case the user messed up
+		$parameters['methods'] = (array) ($parameters['methods'] ?? []);
 
-		$errorClassMap = (array) $this->getParameter('error_class_map');
-		// append a match-all expression to the map, which assigns the default error class
-		$errorClassMap['self::${htmlnsPrefix}*'] = $this->getParameter('error_class');
-		$this->setParameter('error_class_map', $errorClassMap);
-
-		$this->setParameter('methods', (array) $this->getParameter('methods'));
-
-		if($ot = $this->getParameter('output_types')) {
-			$this->setParameter('output_types', (array) $ot);
+		if(isset($parameters['output_types']) && $parameters['output_types']) {
+			$parameters['output_types'] = (array) $parameters['output_types'];
+		} else {
+			$parameters['output_types'] = null;
 		}
-		
+
 		$savexmlOptions = 0;
-		foreach((array)$this->getParameter('savexml_options', []) as $option) {
+		foreach((array) ($parameters['savexml_options'] ?? []) as $option) {
 			if(is_numeric($option)) {
-				$savexmlOptions |= (int)$option;
-			} elseif(defined($option)) {
+				$savexmlOptions |= (int) $option;
+			} elseif(is_string($option) && defined($option)) {
 				$savexmlOptions |= constant($option);
 			}
 		}
-		$this->setParameter('savexml_options', $savexmlOptions);
+		$parameters['savexml_options'] = $savexmlOptions;
 
-		$ignoreParseErrors =& $this->getParameter('ignore_parse_errors');
-		if(is_string($ignoreParseErrors) && defined($ignoreParseErrors)) {
-			$ignoreParseErrors = constant($ignoreParseErrors);
-		}
-		// BC
-		if($ignoreParseErrors === true) {
-			$ignoreParseErrors = LIBXML_ERR_FATAL;
-		} elseif($ignoreParseErrors === false) {
-			$ignoreParseErrors = LIBXML_ERR_NONE;
-		}
-		
-		$logParseErrors =& $this->getParameter('log_parse_errors');
-		if(is_string($logParseErrors) && defined($logParseErrors)) {
-			$logParseErrors = constant($logParseErrors);
-		}
-		// BC
-		if($logParseErrors === true) {
-			$logParseErrors = LIBXML_ERR_WARNING;
-		}
+		$parameters['ignore_parse_errors'] = $this->normalizeLibxmlLevel($parameters['ignore_parse_errors'] ?? LIBXML_ERR_ERROR, true);
+		$parameters['log_parse_errors'] = $this->normalizeLibxmlLevel($parameters['log_parse_errors'] ?? LIBXML_ERR_WARNING, false);
 
-		// and now copy all that to the request namespace so it can all be modified at runtime, not just overwritten
-		FormPopulationConfig::seed($this->context->getRequest(), $this->getParameters());
+		return $parameters;
 	}
 
-	public function reset() : void {
-		$this->doc = null;
-		$this->xpath = null;
-		$this->xmlnsPrefix = null;
+	private function normalizeLibxmlLevel(mixed $value, bool $isIgnoreSetting): int|false
+	{
+		if(is_string($value) && defined($value)) {
+			$value = constant($value);
+		}
+		if($isIgnoreSetting) {
+			if($value === true) {
+				return LIBXML_ERR_FATAL;
+			}
+			if($value === false) {
+				return LIBXML_ERR_NONE;
+			}
+		} else {
+			if($value === true) {
+				return LIBXML_ERR_WARNING;
+			}
+			if($value === false) {
+				return false;
+			}
+		}
+		if(is_int($value)) {
+			return $value;
+		}
+		return $isIgnoreSetting ? LIBXML_ERR_ERROR : LIBXML_ERR_WARNING;
+	}
+
+	private function buildConfiguration(AgaviWebRequest $request, array $overrides): array
+	{
+		$config = array_replace($this->parameters, FormPopulationConfig::get($request));
+		if($overrides) {
+			$config = array_replace($config, $overrides);
+		}
+		return $this->normalizeParameters($config);
 	}
 
 	/**
@@ -1142,12 +1164,32 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 		}
 
 		$methods = [];
-		if(isset($cfg['methods']) && is_array($cfg['methods'])) {
+		$allowAllMethods = true;
+		if(isset($cfg['methods']) && is_array($cfg['methods']) && count($cfg['methods'])) {
+			$allowAllMethods = false;
 			foreach($cfg['methods'] as $method) {
-				if(is_string($method) && $method !== '') {
-					$methods[] = strtoupper($method);
+				if(!is_string($method) || $method === '') {
+					continue;
 				}
+				$upper = strtoupper($method);
+				if($upper === 'ANY' || $upper === '*') {
+					$methods = [];
+					$allowAllMethods = true;
+					break;
+				}
+				if($upper === 'WRITE') {
+					$methods = array_merge($methods, ['WRITE', 'POST', 'PUT', 'PATCH', 'DELETE']);
+					continue;
+				}
+				if($upper === 'READ') {
+					$methods = array_merge($methods, ['READ', 'GET', 'HEAD', 'OPTIONS']);
+					continue;
+				}
+				$methods[] = $upper;
 			}
+		}
+		if(!$allowAllMethods) {
+			$methods = array_values(array_unique($methods));
 		}
 
 		$requestMethod = null;
@@ -1157,7 +1199,7 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 			} catch(\Throwable) {
 			}
 		}
-		$methodAllowed = $requestMethod !== null && in_array($requestMethod, $methods, true);
+		$methodAllowed = $allowAllMethods ? true : ($requestMethod !== null && in_array($requestMethod, $methods, true));
 
 		if($populateConfig === true || ($methodAllowed && $populateConfig !== false)) {
 			$holder = $this->createParameterHolderFromRequest($request);

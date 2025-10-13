@@ -81,6 +81,7 @@ class MiddlewarePipeline implements RequestHandlerInterface
         $construct(SlotMiddleware::class, fn() => new SlotMiddleware($this->context));
         $construct(DispatchMiddleware::class, fn() => new DispatchMiddleware($controller));
         $construct(AssetAggregationMiddleware::class, fn() => new AssetAggregationMiddleware());
+            $construct(FormPopulationMiddleware::class, fn() => new FormPopulationMiddleware($controller));
         if (MiddlewareCatalog::isEnabled(ExecutionTimeMiddleware::class)) {
             $construct(ExecutionTimeMiddleware::class, fn() => new ExecutionTimeMiddleware());
         }

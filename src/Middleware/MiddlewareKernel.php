@@ -7,7 +7,6 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Agavi\AgaviContext;
 use Nyholm\Psr7\Response;
-use Agavi\Middleware\ContentNegotiationMiddleware;
 use Agavi\Logging\AgaviDebugLogger;
 use Relay\Relay;
 
@@ -47,33 +46,34 @@ class MiddlewareKernel implements RequestHandlerInterface
 
         // Outermost error handler
         $context = $this->context;
-        $stack[] = new ErrorHandlingMiddleware(function(\Throwable $e, ServerRequestInterface $r) use ($context) {
+    $stack[] = new \Agavi\Middleware\ErrorHandlingMiddleware(function(\Throwable $e, ServerRequestInterface $r) use ($context) {
             $first = $e->getFile().':'.$e->getLine();
             $snippet = substr(str_replace("\n", ' | ', $e->getTraceAsString()), 0, 500);
             AgaviDebugLogger::debug('[AgaviKernel] '.get_class($e).': '.$e->getMessage().' @ '.$first.' trace='.$snippet, $context);
         });
         // session
-        $stack[] = new SessionMiddleware($controller);
+    $stack[] = new \Agavi\Middleware\SessionMiddleware($controller);
         // bootstrap
-        $stack[] = new TimingMiddleware(false);
-        $stack[] = new TraceMiddleware(false);
+    $stack[] = new \Agavi\Middleware\TimingMiddleware(false);
+    $stack[] = new \Agavi\Middleware\TraceMiddleware(false);
         // Unified body parsing (form + json)
-        $stack[] = new PayloadParsingMiddleware();
+    $stack[] = new \Agavi\Middleware\PayloadParsingMiddleware();
         // routing
-        $stack[] = new ContentNegotiationMiddleware($controller); // before routing; routing may override output_type
-        $stack[] = new RoutingMiddleware($routing, $controller);
-        $stack[] = new OutputTypeSyncMiddleware($controller);
+    $stack[] = new \Agavi\Middleware\ContentNegotiationMiddleware($controller); // before routing; routing may override output_type
+    $stack[] = new \Agavi\Middleware\RoutingMiddleware($routing, $controller);
+    $stack[] = new \Agavi\Middleware\OutputTypeSyncMiddleware($controller);
         // before_action
         //$stack[] = new FormPopulationMiddleware();
-        $stack[] = new SecurityMiddleware($controller);
-        $stack[] = new ValidationMiddleware();
+    $stack[] = new \Agavi\Middleware\SecurityMiddleware($controller);
+    $stack[] = new \Agavi\Middleware\ValidationMiddleware();
         // Ensure SlotMiddleware runs before Dispatch so SlotStack is available to views
-        $stack[] = new SlotMiddleware($this->context);
+    $stack[] = new \Agavi\Middleware\SlotMiddleware($this->context);
         // action
-        $stack[] = new DispatchMiddleware($controller);
-        $stack[] = new AssetAggregationMiddleware();
+    $stack[] = new \Agavi\Middleware\DispatchMiddleware($controller);
+    $stack[] = new \Agavi\Middleware\AssetAggregationMiddleware();
+    $stack[] = new \Agavi\Middleware\FormPopulationMiddleware($controller);
         // finalize
-        $stack[] = new ExecutionTimeMiddleware();
+    $stack[] = new \Agavi\Middleware\ExecutionTimeMiddleware();
         // terminal (safety) middleware
         $stack[] = new class implements \Psr\Http\Server\MiddlewareInterface {
             public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface

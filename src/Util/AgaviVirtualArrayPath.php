@@ -285,13 +285,13 @@ class AgaviVirtualArrayPath implements \Stringable
 	/**
 	 * Returns the value at the path of this instance in the given array.
 	 * 
-	 * @param      array The array to get the data from.
-	 * @param      mixed The default value to be used if the path doesn't exist.
+	 * @param array $array The array to get the data from.
+	 * @param mixed $default The default value to be used if the path doesn't exist.
 	 * 
-	 * @return     mixed The value at the path.
+	 * @return mixed The value at the path.
 	 * 
-	 * @author     Dominik del Bondio <ddb@bitxtender.com>
-	 * @since      0.11.0
+	 * @author Dominik del Bondio <ddb@bitxtender.com>
+	 * @since 0.11.0
 	 */
 	public function &getValue(array &$array, $default = null)
 	{
@@ -301,11 +301,11 @@ class AgaviVirtualArrayPath implements \Stringable
 	/**
 	 * Sets the value at the path of this instance in the given array.
 	 * 
-	 * @param      array The array to set the data in.
-	 * @param      mixed The value to be set.
+	 * @param array $array The array to set the data in.
+	 * @param mixed $value The value to be set.
 	 * 
-	 * @author     Dominik del Bondio <ddb@bitxtender.com>
-	 * @since      0.11.0
+	 * @author Dominik del Bondio <ddb@bitxtender.com>
+	 * @since 0.11.0
 	 */
 	public function setValue(array &$array, $value)
 	{
@@ -316,14 +316,14 @@ class AgaviVirtualArrayPath implements \Stringable
 	 * Returns the value at the given child path of this instance in the given 
 	 * array.
 	 * 
-	 * @param      string The child path appended to the path in this instance.
-	 * @param      array The array to get the data from.
-	 * @param      mixed The default value to be used if the path doesn't exist.
+	 * @param string $path The child path appended to the path in this instance.
+	 * @param array $array The array to get the data from.
+	 * @param mixed $default The default value to be used if the path doesn't exist.
 	 * 
-	 * @return     mixed The value at the path.
+	 * @return mixed The value at the path.
 	 * 
-	 * @author     Dominik del Bondio <ddb@bitxtender.com>
-	 * @since      0.11.0
+	 * @author Dominik del Bondio <ddb@bitxtender.com>
+	 * @since 0.11.0
 	 */
 	public function &getValueByChildPath($path, array &$array, $default = null)
 	{

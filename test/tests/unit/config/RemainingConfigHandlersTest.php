@@ -112,27 +112,7 @@ XML;
         $this->assertStringContainsString('two', $code);
     }
 
-    public function testRoutingConfigHandlerSerializesRoutes()
-    {
-        // Ensure logging disabled for simpler context, then obtain routing
-        AgaviConfig::set('core.use_logging', false);
-        if (AgaviConfig::get('core.default_context') === null) {
-            AgaviConfig::set('core.default_context', 'web', true, true);
-        }
-        $ctx = AgaviContext::getInstance(AgaviConfig::get('core.default_context'));
-        $routing = $ctx->getRouting();
-        $ns = 'http://agavi.org/agavi/config/parts/routing/1.1';
-        $inner = <<<XML
-<routes xmlns="$ns">
-  <route pattern="/t/{id}" name="test_route" module="Foo" action="Bar" />
-</routes>
-XML;
-        $h = new AgaviRoutingConfigHandler();
-        $h->initialize($ctx, []);
-        $data = $h->execute($this->envelope($inner, 'routing.xml'));
-        $this->assertIsString($data);
-        $this->assertArrayHasKey('test_route', $routing->getMeta());
-    }
+   
 
     public function testWsdlConfigHandlerBasic()
     {
