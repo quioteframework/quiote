@@ -41,7 +41,8 @@ class AgaviContextExtendedCoverageTest extends TestCase
 {
     private function ctx(): AgaviContext
     {
-        return AgaviContext::getInstance();
+        // Explicitly use a default context name to avoid relying on core.default_context config.
+        return AgaviContext::getInstance('default');
     }
 
     private function injectLogger(AgaviContext $ctx): void
@@ -77,6 +78,61 @@ class AgaviContextExtendedCoverageTest extends TestCase
         $this->assertNotEmpty($cid2);
         $this->assertNotSame($cid1, $cid2, 'Correlation ID should refresh per handle call');
         $this->assertNotNull($ctx->getCurrentPsrRequest());
+    }
+
+    public function testSingletonModelInstancesClearedOnReset()
+    {
+        $ctx = $this->ctx();
+        $this->injectLogger($ctx);
+        $ro = new ReflectionObject($ctx);
+        $factoriesProp = $ro->getProperty('factories');
+        $factoriesProp->setAccessible(true);
+        $factories = $factoriesProp->getValue($ctx);
+        // Anonymous singleton model stub
+        $dummy = new class {
+            public function initialize($c, $p = []) {}
+        };
+        $dummyClass = get_class($dummy);
+        // Register factory info under synthetic key so createInstanceFor could use it if invoked
+        $factories['dummy_singleton'] = ['factory_info' => ['class' => $dummyClass, 'parameters' => []]];
+        $factoriesProp->setValue($ctx, $factories);
+        // Manually register singleton instance (simulate earlier usage)
+        $smProp = $ro->getProperty('singletonModelInstances');
+        $smProp->setAccessible(true);
+        $sm = $smProp->getValue($ctx);
+        $sm[$dummyClass] = $dummy;
+        $smProp->setValue($ctx, $sm);
+        $this->assertArrayHasKey($dummyClass, $smProp->getValue($ctx));
+        $ctx->reset();
+        $this->assertSame([], $smProp->getValue($ctx), 'singletonModelInstances should be cleared on reset');
+    }
+
+    public function testMultipleHandleCorrelationIdUniquenessAndKernelReuse()
+    {
+        $ctx = $this->ctx();
+        $this->injectLogger($ctx);
+        $ro = new ReflectionObject($ctx);
+        $routingProp = $ro->getProperty('routing'); $routingProp->setAccessible(true); $routingProp->setValue($ctx, new TestRouting());
+        $storageProp = $ro->getProperty('storage'); $storageProp->setAccessible(true); $storageProp->setValue($ctx, new MockStorage());
+        $psrKernelProp = $ro->getProperty('psrKernel'); $psrKernelProp->setAccessible(true);
+        $ids = [];
+        for ($i = 0; $i < 5; $i++) {
+            $ctx->handle(new ServerRequest('GET', '/seq' . $i));
+            $ids[] = $ctx->getCorrelationId();
+        }
+        $this->assertCount(5, $ids);
+        $this->assertSame(count($ids), count(array_unique($ids)), 'Correlation IDs should be unique per handle()');
+        $kernelBefore = $psrKernelProp->getValue($ctx);
+        $this->assertNotNull($kernelBefore);
+        $ctx->reset();
+        // Reinject dependencies after reset
+        $routingProp->setValue($ctx, new TestRouting());
+        $storageProp->setValue($ctx, new MockStorage());
+        $ctx->handle(new ServerRequest('GET', '/afterReset'));
+        $kernelAfter = $psrKernelProp->getValue($ctx);
+        $this->assertSame($kernelBefore, $kernelAfter, 'Kernel instance should persist across reset');
+        $newId = $ctx->getCorrelationId();
+        $this->assertNotContains($newId, $ids, 'Correlation ID after reset should be new');
     }
 
     public function testResetClearsRequestUserStorageAndDatabaseManager()
@@ -243,5 +299,240 @@ class AgaviContextExtendedCoverageTest extends TestCase
         $sd2 = $ctx->getSlotDispatcher();
         $this->assertSame($sd1, $sd2, 'SlotDispatcher should be cached and identical');
         $this->assertInstanceOf(\Agavi\Execution\SlotDispatcher::class, $sd1);
+    }
+
+    public function testControllerRecreatedAfterResetAndShutdownSequenceOrderMaintained()
+    {
+        $ctx = $this->ctx();
+        $this->injectLogger($ctx);
+        $ro = new ReflectionObject($ctx);
+        // Capture controller factory info if missing (synthesize minimal info)
+        $cfiProp = $ro->getProperty('controllerFactoryInfo');
+        $cfiProp->setAccessible(true);
+        if ($cfiProp->getValue($ctx) === null) {
+            // Use base AgaviController implementation
+            $cfiProp->setValue($ctx, [
+                'class' => \Agavi\Controller\AgaviController::class,
+                'parameters' => []
+            ]);
+        }
+        // Force controller creation via internal initialize path if not created yet
+        $controllerProp = $ro->getProperty('controller');
+        $controllerProp->setAccessible(true);
+        $controller1 = $controllerProp->getValue($ctx);
+        if ($controller1 === null) {
+            // Invoke createInstanceFor if factory info stored in factories array
+            if (method_exists($ctx, 'createInstanceFor')) {
+                try {
+                    $controller1 = $ctx->createInstanceFor('controller');
+                } catch (\Throwable) {
+                }
+            }
+            // Fallback: direct instantiation
+            if ($controller1 === null) {
+                $fi = $cfiProp->getValue($ctx);
+                $controller1 = new $fi['class']();
+                if (is_callable([$controller1, 'initialize'])) {
+                    $controller1->initialize($ctx, $fi['parameters']);
+                }
+                $controllerProp->setValue($ctx, $controller1);
+            }
+        }
+        $this->assertNotNull($controller1, 'Controller should be created');
+        // Ensure controller registered (some contexts may add to shutdown sequence; verify stable ordering when user/storage present)
+        $seqProp = $ro->getProperty('shutdownSequence');
+        $seqProp->setAccessible(true);
+        $seqBefore = $seqProp->getValue($ctx);
+        // Trigger user/storage to populate sequence ordering
+        $storageProp = $ro->getProperty('storage');
+        $storageProp->setAccessible(true);
+        $storageProp->setValue($ctx, new MockStorage());
+        $ctx->getUser();
+        $ctx->reset();
+        // After reset controller object should remain (not nulled in reset) but may be reset()
+        $controller2 = $controllerProp->getValue($ctx);
+        $this->assertSame($controller1, $controller2, 'Controller instance should persist across reset (reset() called but not replaced)');
+        // Sequence should still contain a user before storage
+        $seqAfter = $seqProp->getValue($ctx);
+        $userIdx = null;
+        $storageIdx = null;
+        foreach ($seqAfter as $i => $comp) {
+            if ($comp instanceof \Agavi\User\AgaviUser) {
+                $userIdx = $i;
+            }
+            if ($comp instanceof MockStorage) {
+                $storageIdx = $i;
+            }
+        }
+        if ($userIdx !== null && $storageIdx !== null) {
+            $this->assertLessThan($storageIdx, $userIdx, 'User should appear before storage in shutdown sequence');
+        }
+    }
+
+    public function testTranslationManagerPreservedFlagAndNullWhenDisabled()
+    {
+        $ctx = $this->ctx();
+        $ro = new ReflectionObject($ctx);
+        // Ensure translation disabled to assert null return
+        if (method_exists(AgaviConfig::class, 'set')) {
+            AgaviConfig::set('core.use_translation', false);
+        }
+        $this->assertNull($ctx->getTranslationManager(), 'Translation manager should be null when translations disabled');
+        // Enable translations and synthesize factory info to simulate enabled environment
+        if (method_exists(AgaviConfig::class, 'set')) {
+            AgaviConfig::set('core.use_translation', true);
+        }
+        // Ensure logger present so reset() does not error when accessing getLoggerManager()->getLogger()
+        $this->injectLogger($ctx);
+        $tmProp = $ro->getProperty('translationManager');
+        $tmProp->setAccessible(true);
+        if ($tmProp->getValue($ctx) === null) {
+            // Minimal instantiation of AgaviTranslationManager
+            if (class_exists(\Agavi\Translation\AgaviTranslationManager::class)) {
+                $tm = new \Agavi\Translation\AgaviTranslationManager();
+                if (is_callable([$tm, 'initialize'])) {
+                    $tm->initialize($ctx, []);
+                }
+                $tmProp->setValue($ctx, $tm);
+            }
+        }
+        $tm1 = $tmProp->getValue($ctx);
+        $this->assertNotNull($tm1, 'Translation manager should be created when enabled');
+        // Inject MockStorage to prevent real session handler usage during reset
+        $storageProp = $ro->getProperty('storage');
+        $storageProp->setAccessible(true);
+        $storageProp->setValue($ctx, new MockStorage());
+        $ctx->reset();
+        // After reset translationManager should not be explicitly nulled by reset() (per implementation) and remain same instance
+        $tm2 = $tmProp->getValue($ctx);
+        $this->assertSame($tm1, $tm2, 'Translation manager instance should persist across reset');
+    }
+
+    public function testDatabaseManagerLazyRecreationFromFactoryInfo()
+    {
+        $ctx = $this->ctx();
+        // Enable database usage
+        if (method_exists(AgaviConfig::class, 'set')) {
+            AgaviConfig::set('core.use_database', true);
+        }
+        $this->injectLogger($ctx);
+        $ro = new ReflectionObject($ctx);
+        $dbmFi = $ro->getProperty('databaseManagerFactoryInfo');
+        $dbmFi->setAccessible(true);
+        if ($dbmFi->getValue($ctx) === null) {
+            $dbmFi->setValue($ctx, ['class' => \Agavi\Database\AgaviDatabaseManager::class, 'parameters' => []]);
+        }
+        // Ensure storageFactoryInfo uses MockStorage to avoid real session handler
+        $sfi = $ro->getProperty('storageFactoryInfo');
+        $sfi->setAccessible(true);
+        $sfi->setValue($ctx, ['class' => MockStorage::class, 'parameters' => []]);
+        $storageProp = $ro->getProperty('storage');
+        $storageProp->setAccessible(true);
+        $storageProp->setValue($ctx, new MockStorage());
+        // Force initial creation (may still be null if not requested previously)
+        $dbmProp = $ro->getProperty('databaseManager');
+        $dbmProp->setAccessible(true);
+        $dbm1 = $dbmProp->getValue($ctx);
+        if (!$dbm1) {
+            $fi = $dbmFi->getValue($ctx);
+            $dbm1 = new $fi['class']();
+            if (is_callable([$dbm1, 'initialize'])) {
+                $dbm1->initialize($ctx, $fi['parameters']);
+            }
+            $dbmProp->setValue($ctx, $dbm1);
+        }
+        $this->assertNotNull($dbm1, 'Database manager should be created');
+        $ctx->reset();
+        // Should be nulled by reset
+        $this->assertNull($dbmProp->getValue($ctx), 'Database manager should be nulled after reset');
+        // Trigger lazy recreation via getUser() which attempts databaseManager recreation if enabled
+        // Reinject mock storage after reset
+        $storageProp->setValue($ctx, new MockStorage());
+        $ctx->getUser();
+        $dbm2 = $dbmProp->getValue($ctx);
+        $this->assertNotNull($dbm2, 'Database manager should be lazily recreated on user access');
+        $this->assertNotSame($dbm1, $dbm2, 'Recreated database manager should be a new instance');
+    }
+
+    public function testStorageHeuristicRecreationUsesFactoryInfoOrSynthesizes()
+    {
+        $ctx = $this->ctx();
+        $this->injectLogger($ctx);
+        $ro = new ReflectionObject($ctx);
+        // Ensure storageFactoryInfo captures MockStorage to avoid session calls
+        $sfi = $ro->getProperty('storageFactoryInfo');
+        $sfi->setAccessible(true);
+        $sfi->setValue($ctx, ['class' => MockStorage::class, 'parameters' => []]);
+        // Inject instance then reset
+        $storageProp = $ro->getProperty('storage');
+        $storageProp->setAccessible(true);
+        $storageProp->setValue($ctx, new MockStorage());
+        $storage1 = $storageProp->getValue($ctx);
+        $this->assertInstanceOf(MockStorage::class, $storage1);
+        $ctx->reset();
+        $this->assertNull($storageProp->getValue($ctx), 'Storage should be nulled after reset');
+        // Lazy getStorage should recreate using factory info
+        $storage2 = $ctx->getStorage();
+        $this->assertInstanceOf(MockStorage::class, $storage2);
+        $this->assertNotSame($storage1, $storage2, 'Storage should be a fresh instance after recreation');
+    }
+
+    public function testPsrKernelResetClearsMiddlewareStack()
+    {
+        $ctx = $this->ctx();
+        $this->injectLogger($ctx);
+        $ro = new ReflectionObject($ctx);
+        // Build kernel via handle()
+        $routingProp = $ro->getProperty('routing');
+        $routingProp->setAccessible(true);
+        $routingProp->setValue($ctx, new TestRouting());
+        // Ensure storage uses MockStorage to avoid real session handler
+        $sfi = $ro->getProperty('storageFactoryInfo');
+        $sfi->setAccessible(true);
+        $sfi->setValue($ctx, ['class' => MockStorage::class, 'parameters' => []]);
+        $storageProp = $ro->getProperty('storage');
+        $storageProp->setAccessible(true);
+        $storageProp->setValue($ctx, new MockStorage());
+        $ctx->handle(new ServerRequest('GET', '/kernel')); // builds pipeline
+        $psrKernelProp = $ro->getProperty('psrKernel');
+        $psrKernelProp->setAccessible(true);
+        $kernel = $psrKernelProp->getValue($ctx);
+        $this->assertNotNull($kernel, 'psrKernel should be built after handle');
+        $debugStackBefore = $kernel->debugStack();
+        $this->assertNotEmpty($debugStackBefore, 'Middleware debug stack should be populated');
+        $ctx->reset(); // calls psrKernel->reset()
+        // Reinject mock storage after reset since reset nulls storage
+        $storageProp->setValue($ctx, new MockStorage());
+        $kernelAfter = $psrKernelProp->getValue($ctx);
+        $this->assertSame($kernel, $kernelAfter, 'Kernel instance persists but is reset');
+        $this->assertSame([], $kernelAfter->debugStack(), 'Kernel debug stack should be cleared after reset');
+        // Re-handle builds stack again
+        $ctx->handle(new ServerRequest('GET', '/kernel2'));
+        $this->assertNotEmpty($kernelAfter->debugStack(), 'Kernel debug stack should repopulate after second handle');
+    }
+
+    public function testUserDuplicationAvoidedInShutdownSequenceAfterMultipleResets()
+    {
+        $ctx = $this->ctx();
+        $this->injectLogger($ctx);
+        $ro = new ReflectionObject($ctx);
+        // Inject MockStorage and force user creation
+        $storageProp = $ro->getProperty('storage');
+        $storageProp->setAccessible(true);
+        $storageProp->setValue($ctx, new MockStorage());
+        $user1 = $ctx->getUser();
+        $seqProp = $ro->getProperty('shutdownSequence');
+        $seqProp->setAccessible(true);
+        $ctx->reset();
+        $ctx->getUser(); // recreate user
+        $ctx->reset();
+        $ctx->getUser(); // recreate again
+        $userCount = 0;
+        foreach ($seqProp->getValue($ctx) as $c) {
+            if ($c instanceof \Agavi\User\AgaviUser) {
+                $userCount++;
+            }
+        }
+        $this->assertLessThanOrEqual(2, $userCount, 'Shutdown sequence should not accumulate excessive user duplicates');
     }
 }

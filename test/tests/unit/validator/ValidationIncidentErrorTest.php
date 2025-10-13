@@ -31,16 +31,18 @@ class ValidationIncidentErrorTest extends AgaviUnitTestCase
         $incident->setErrors([$err1, $err2]);
         $errs = $incident->getErrors();
         $this->assertCount(2, $errs);
-        foreach ($errs as $e) { $this->assertSame($incident, $e->getIncident()); }
-    // Deprecated/legacy hasFieldError internally relies on hasArgumentError (removed); instead assert via getFields
-    $this->assertContains('f1', $incident->getFields());
-    $this->assertContains('f2', $incident->getFields());
-        $this->assertSame(['f1','f2'], $incident->getFields());
+        foreach ($errs as $e) {
+            $this->assertSame($incident, $e->getIncident());
+        }
+        // Deprecated/legacy hasFieldError internally relies on hasArgumentError (removed); instead assert via getFields
+        $this->assertContains('f1', $incident->getFields());
+        $this->assertContains('f2', $incident->getFields());
+        $this->assertSame(['f1', 'f2'], $incident->getFields());
     }
 
     public function testValidationErrorArgumentNormalizationAndLookup(): void
     {
-        $err = new AgaviValidationError('m', 'codeX', ['x','y']);
+        $err = new AgaviValidationError('m', 'codeX', ['x', 'y']);
         $this->assertTrue($err->hasField('x'));
         $this->assertFalse($err->hasField('z'));
         $args = $err->getArguments();
@@ -50,7 +52,7 @@ class ValidationIncidentErrorTest extends AgaviUnitTestCase
     public function testResetClearsState(): void
     {
         $incident = new AgaviValidationIncident(null, AgaviValidator::CRITICAL);
-        $err = new AgaviValidationError('boom','critical_err',['a']);
+        $err = new AgaviValidationError('boom', 'critical_err', ['a']);
         $incident->addError($err);
         $incident->reset();
         $this->assertSame([], $incident->getErrors());
