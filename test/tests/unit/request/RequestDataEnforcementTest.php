@@ -17,4 +17,22 @@ class RequestDataEnforcementTest extends TestCase
         $this->expectException(AgaviUnvalidatedParameterAccessException::class);
         $rd->getParameter('baz');
     }
+
+    public function testValidatorBaseWhitelistsRootAlias(): void
+    {
+        $req = new AgaviWebRequest();
+        $req->enforceValidatedParameters(['items[]']);
+        $this->assertNull($req->getParameter('items'));
+        $this->assertNull($req->getParameter('items[]'));
+        $this->expectException(AgaviUnvalidatedParameterAccessException::class);
+        $req->getParameter('missing');
+    }
+
+    public function testNestedValidatorPathWhitelistsArrayAlias(): void
+    {
+        $req = new AgaviWebRequest();
+        $req->enforceValidatedParameters(['cart[][amount]']);
+        $this->assertNull($req->getParameter('cart'));
+        $this->assertNull($req->getParameter('cart[]'));
+    }
 }

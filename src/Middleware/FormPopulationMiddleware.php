@@ -36,12 +36,12 @@ class FormPopulationMiddleware implements MiddlewareInterface
         $response = $handler->handle($request);
 
         $content = $this->extractBody($response);
-        if($content === '') {
+        if ($content === '') {
             return $response;
         }
 
         $globalResponse = $this->controller->getGlobalResponse();
-        if(!is_object($globalResponse) || !method_exists($globalResponse, 'isContentMutable') || !$globalResponse->isContentMutable()) {
+        if (!is_object($globalResponse) || !method_exists($globalResponse, 'isContentMutable') || !$globalResponse->isContentMutable()) {
             return $response;
         }
 
@@ -56,13 +56,13 @@ class FormPopulationMiddleware implements MiddlewareInterface
         }
 
         $updated = $globalResponse->getContent();
-        if(!is_string($updated) || $updated === $content) {
+        if (!is_string($updated) || $updated === $content) {
             return $response;
         }
 
         $factory = new Psr17Factory();
         $response = $response->withBody($factory->createStream($updated));
-        if($response->hasHeader('Content-Length')) {
+        if ($response->hasHeader('Content-Length')) {
             $response = $response->withoutHeader('Content-Length');
         }
 
@@ -72,35 +72,35 @@ class FormPopulationMiddleware implements MiddlewareInterface
     private function resolveWebRequest(ServerRequestInterface $request): AgaviWebRequest
     {
         $rd = $request->getAttribute('agavi.request_data');
-        if(!$rd instanceof AgaviWebRequest) {
+        if (!$rd instanceof AgaviWebRequest) {
             try {
                 $rd = \Agavi\Agavi::context('web', true)?->getRequest();
-            } catch(\Throwable) {
+            } catch (\Throwable) {
                 $rd = null;
             }
         }
-        if(!$rd instanceof AgaviWebRequest) {
+        if (!$rd instanceof AgaviWebRequest) {
             throw new \RuntimeException('Canonical AgaviWebRequest not initialized before FormPopulationMiddleware (unexpected).');
         }
         try {
             $rd->attachPsrRequest($request);
-        } catch(\Throwable) {
+        } catch (\Throwable) {
         }
         $query = $request->getQueryParams();
-        if(is_array($query)) {
-            foreach($query as $k => $v) {
+        if (is_array($query)) {
+            foreach ($query as $k => $v) {
                 $rd->setParameter($k, $v);
             }
         }
         $body = $request->getParsedBody();
-        if(is_array($body)) {
-            foreach($body as $k => $v) {
+        if (is_array($body)) {
+            foreach ($body as $k => $v) {
                 $rd->setParameter($k, $v);
             }
         }
         $routeParams = $request->getAttribute('route_params');
-        if(is_array($routeParams)) {
-            foreach($routeParams as $k => $v) {
+        if (is_array($routeParams)) {
+            foreach ($routeParams as $k => $v) {
                 $rd->setParameter($k, $v);
             }
         }
@@ -115,16 +115,16 @@ class FormPopulationMiddleware implements MiddlewareInterface
     private function applyRuntimeConfig(AgaviWebRequest $webRequest, ServerRequestInterface $psrRequest): void
     {
         $config = FormPopulationConfig::get($webRequest);
-        if(($config['force_request_uri'] ?? false) === false) {
+        if (($config['force_request_uri'] ?? false) === false) {
             $path = $psrRequest->getUri()->getPath();
-            if($path === '') {
+            if ($path === '') {
                 $path = '/';
             }
             FormPopulationConfig::merge($webRequest, ['force_request_uri' => $path]);
         }
-        if(($config['force_request_url'] ?? false) === false) {
+        if (($config['force_request_url'] ?? false) === false) {
             $url = (string) $psrRequest->getUri();
-            if($url === '') {
+            if ($url === '') {
                 $url = '/';
             }
             FormPopulationConfig::merge($webRequest, ['force_request_url' => $url]);
@@ -134,20 +134,20 @@ class FormPopulationMiddleware implements MiddlewareInterface
     private function extractBody(ResponseInterface $response): string
     {
         $body = $response->getBody();
-        if(!is_object($body)) {
+        if (!is_object($body)) {
             return '';
         }
         try {
-            if(method_exists($body, 'isSeekable') && $body->isSeekable()) {
+            if (method_exists($body, 'isSeekable') && $body->isSeekable()) {
                 $body->rewind();
             }
             $contents = method_exists($body, 'getContents') ? $body->getContents() : (string) $body;
-            if($contents === '' && method_exists($body, 'isSeekable') && $body->isSeekable()) {
+            if ($contents === '' && method_exists($body, 'isSeekable') && $body->isSeekable()) {
                 $body->rewind();
                 $contents = (string) $body;
             }
             return (string) $contents;
-        } catch(\Throwable) {
+        } catch (\Throwable) {
             return '';
         }
     }

@@ -907,7 +907,41 @@ class AgaviWebRequest implements ServerRequestInterface, ResetInterface
 	 */
 	public function enforceValidatedParameters(array $keys): void
 	{
-		foreach($keys as $k) { if($k !== '') { $this->validatedKeys[$k] = true; } }
+		foreach($keys as $key) {
+			if($key === '') {
+				continue;
+			}
+			foreach($this->expandValidatedKeyVariants($key) as $variant) {
+				$this->validatedKeys[$variant] = true;
+			}
+		}
+	}
+
+	/**
+	 * Expand a validated parameter name to include relevant base aliases.
+	 * For example "foo[]" will add both "foo[]" and "foo" to the whitelist.
+	 */
+	private function expandValidatedKeyVariants(string $key): array
+	{
+		$variants = [$key => true];
+		if(str_contains($key, '[')) {
+			try {
+				$partsInfo = AgaviArrayPathDefinition::getPartsFromPath($key);
+			} catch(\Throwable) {
+				return array_keys($variants);
+			}
+			if(!empty($partsInfo['absolute']) && !empty($partsInfo['parts'])) {
+				$root = $partsInfo['parts'][0];
+				if($root !== '') {
+					$variants[$root] = true;
+					$remainder = array_slice($partsInfo['parts'], 1);
+					if(isset($remainder[0]) && $remainder[0] === '') {
+						$variants[$root . '[]'] = true;
+					}
+				}
+			}
+		}
+		return array_keys($variants);
 	}
 
 	public function clearParameters()
