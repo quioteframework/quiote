@@ -32,6 +32,7 @@ namespace Agavi\Action;
  * @version    $Id$
  */
 
+use Agavi\AgaviContext;
 use Agavi\Execution\ActionInitContext;
 use Agavi\Request\AgaviWebRequest;
 use Symfony\Contracts\Service\ResetInterface;

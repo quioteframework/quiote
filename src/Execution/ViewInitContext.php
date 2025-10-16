@@ -3,6 +3,7 @@ namespace Agavi\Execution;
 
 use Agavi\AgaviContext;
 use Agavi\Response\AgaviResponse;
+use Agavi\Response\AgaviWebResponse;
 
 /**
  * ViewInitContext: minimal, presentation-focused initialization contract for views.
@@ -17,5 +18,5 @@ interface ViewInitContext
     public function getActionModuleName(): ?string; // originating action module (for slots/forwards)
     public function getActionName(): ?string;       // originating action name
     public function getActionAttributes(): array;   // snapshot of action attributes (read-only for templates)
-    public function getResponse(): AgaviResponse;   // legacy response handle (will be abstracted later)
+    public function getResponse(): AgaviWebResponse;   // legacy response handle (will be abstracted later)
 }

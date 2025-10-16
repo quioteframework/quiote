@@ -278,27 +278,76 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 		if(method_exists($request, 'enforceValidatedParameters')) {
 			$allArgumentNames = [];
 			$allExportNames = [];
-			foreach($this->children as $validator) {
-				// Protected getArguments() cannot be called here; use reflection to access property
+			
+			// Helper function to recursively collect arguments from validators and their children
+			$collectArguments = function($validator) use (&$collectArguments, &$allArgumentNames, &$allExportNames) {
+				// Collect arguments from this validator
 				try {
 					$ref = new \ReflectionObject($validator);
 					if($ref->hasProperty('arguments')) {
 						$prop = $ref->getProperty('arguments');
 						$prop->setAccessible(true);
 						$args = (array)$prop->getValue($validator);
+						// Determine declared base for the validator (if any)
+						$basePath = '';
+						try {
+							if(method_exists($validator, 'getParameter') && $validator->hasParameter('base')) {
+								$basePath = (string)$validator->getParameter('base');
+							}
+						} catch(\Throwable) { }
 						foreach($args as $arg) {
-							if(is_string($arg) && $arg !== '') { $allArgumentNames[$arg] = true; }
+							if(!is_string($arg)) {
+								continue;
+							}
+							$argName = (string)$arg;
+							if($argName !== '') {
+								$allArgumentNames[$argName] = true;
+								if($basePath !== '') {
+									try {
+										$base = new AgaviVirtualArrayPath($basePath);
+										$fullPath = $base->pushRetNew($argName)->__toString();
+										if($fullPath !== '') {
+											$allArgumentNames[$fullPath] = true;
+										}
+									} catch(\Throwable) { }
+								}
+							} else {
+								if($basePath !== '') {
+									$allArgumentNames[$basePath] = true;
+								}
+							}
 						}
 					}
 				} catch(\Throwable) { }
-				// Also include explicit export target if configured (string parameter 'export')
+				
+				// Also include explicit export target if configured
 				try {
 					if($validator->hasParameter('export')) {
 						$exp = $validator->getParameter('export');
 						if(is_string($exp) && $exp !== '') { $allArgumentNames[$exp] = true; }
 					}
 				} catch(\Throwable) { }
+				
+				// Recursively collect from child validators (for OR, AND, etc.)
+				try {
+					$ref = new \ReflectionObject($validator);
+					if($ref->hasProperty('children')) {
+						$prop = $ref->getProperty('children');
+						$prop->setAccessible(true);
+						$children = $prop->getValue($validator);
+						if(is_array($children)) {
+							foreach($children as $child) {
+								$collectArguments($child);
+							}
+						}
+					}
+				} catch(\Throwable) { }
+			};
+			
+			foreach($this->children as $validator) {
+				$collectArguments($validator);
 			}
+			
 			if($allArgumentNames) { $request->enforceValidatedParameters(array_keys($allArgumentNames)); }
 			// Persist export names list for later re-whitelisting post-prune (if validation fails, no export() call happens)
 			$this->setParameter('_predeclared_exports', array_keys($allExportNames));

@@ -4,6 +4,7 @@ namespace Agavi\Execution;
 
 use Agavi\AgaviContext;
 use Agavi\Response\AgaviResponse;
+use Agavi\Response\AgaviWebResponse;
 use Agavi\Util\AgaviAttributeHolder;
 use Psr\Http\Message\ServerRequestInterface;
 
@@ -22,7 +23,7 @@ class LightweightActionInitContext extends AgaviAttributeHolder implements Actio
          * Accept AgaviWebRequest (implements ServerRequestInterface) or any PSR-7 ServerRequest.
          */
         private ServerRequestInterface|null $requestData,
-        private AgaviResponse $response
+        private AgaviWebResponse $response
     ) {}
 
     public function getContext(): AgaviContext
@@ -49,7 +50,7 @@ class LightweightActionInitContext extends AgaviAttributeHolder implements Actio
     {
         return $this->requestData;
     }
-    public function getResponse(): AgaviResponse
+    public function getResponse(): AgaviWebResponse
     {
         return $this->response;
     }

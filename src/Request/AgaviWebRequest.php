@@ -612,8 +612,30 @@ class AgaviWebRequest implements ServerRequestInterface, ResetInterface
 	public function getParameter(string $name, $default = null)
 	{
 		// Always-on whitelist enforcement
-		if(!isset($this->validatedKeys[$name])) {
-			throw new \Agavi\Exception\AgaviUnvalidatedParameterAccessException('Access to unvalidated parameter "' . $name . '" denied under strict validation.');
+		// BUT: If parameter doesn't exist in request AND a default is provided, allow it
+		if(!$this->isParameterWhitelisted($name)) {
+			// Check if parameter exists in actual request
+			$exists = false;
+			if ($this->request !== null) {
+				$exists = $this->getRequestParam($this->request, $name, null) !== null;
+				// Also check runtime parameters
+				if (!$exists && array_key_exists($name, $this->runtimeParameters)) {
+					$exists = true;
+				}
+				// Check bracket notation
+				if (!$exists && str_ends_with($name, '[]')) {
+					$base = substr($name, 0, -2);
+					$exists = $this->getRequestParam($this->request, $base, null) !== null || array_key_exists($base, $this->runtimeParameters);
+				}
+			}
+			
+			// Only throw if parameter exists in request but is not validated
+			// If it doesn't exist in request, allow with default
+			if ($exists) {
+				throw new \Agavi\Exception\AgaviUnvalidatedParameterAccessException('Access to unvalidated parameter "' . $name . '" denied under strict validation.');
+			}
+			// Parameter doesn't exist in request, return default
+			return $default;
 		}
 		// 1. Direct runtime override
 		if (array_key_exists($name, $this->runtimeParameters)) {
@@ -681,7 +703,7 @@ class AgaviWebRequest implements ServerRequestInterface, ResetInterface
 
 	public function hasParameter(string $name): bool
 	{
-		if(!isset($this->validatedKeys[$name])) { return false; }
+		if(!$this->isParameterWhitelisted($name)) { return false; }
 		if (array_key_exists($name, $this->runtimeParameters)) {
 			return true;
 		}
@@ -942,6 +964,65 @@ class AgaviWebRequest implements ServerRequestInterface, ResetInterface
 			}
 		}
 		return array_keys($variants);
+	}
+
+	private function isParameterWhitelisted(string $name): bool
+	{
+		if(isset($this->validatedKeys[$name])) {
+			return true;
+		}
+		$alias = $this->normalizeNumericIndexKey($name);
+		if($alias !== null && isset($this->validatedKeys[$alias])) {
+			// Memoize alias for faster subsequent checks
+			$this->validatedKeys[$name] = true;
+			return true;
+		}
+		return false;
+	}
+
+	private function normalizeNumericIndexKey(string $name): ?string
+	{
+		if(!str_contains($name, '[')) {
+			return null;
+		}
+		try {
+			$info = AgaviArrayPathDefinition::getPartsFromPath($name);
+		} catch(\Throwable) {
+			return null;
+		}
+		$parts = $info['parts'];
+		if(empty($parts)) {
+			return null;
+		}
+		$updated = false;
+		$normalizedParts = $parts;
+		foreach($normalizedParts as $idx => $segment) {
+			if($info['absolute'] && $idx === 0) {
+				continue;
+			}
+			if($segment === '') {
+				continue;
+			}
+			$segmentStr = (string)$segment;
+			if($segmentStr !== '' && ctype_digit($segmentStr)) {
+				$normalizedParts[$idx] = '';
+				$updated = true;
+			}
+		}
+		if(!$updated) {
+			return null;
+		}
+		$root = '';
+		$tail = $normalizedParts;
+		if($info['absolute']) {
+			$root = (string)$normalizedParts[0];
+			$tail = array_slice($normalizedParts, 1);
+		}
+		$result = $root;
+		if(!empty($tail)) {
+			$result .= '[' . implode('][', $tail) . ']';
+		}
+		return $result;
 	}
 
 	public function clearParameters()

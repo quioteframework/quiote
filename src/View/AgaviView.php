@@ -42,6 +42,7 @@ use Agavi\Execution\ForwardService;
 use Agavi\Request\AgaviWebRequest;
 use Symfony\Contracts\Service\ResetInterface;
 use Agavi\Logging\AgaviDebugLogger;
+use Agavi\Response\AgaviWebResponse;
 
 abstract class AgaviView implements ResetInterface
 {
@@ -146,7 +147,7 @@ abstract class AgaviView implements ResetInterface
 	/**
 	 * Retrieve the Response instance for this View.
 	 *
-	 * @return     AgaviResponse The Response instance.
+	 * @return     AgaviWebResponse The Response instance.
 	 *
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
@@ -397,7 +398,7 @@ abstract class AgaviView implements ResetInterface
 	 *
 	 * @param      string The name of the layer.
 	 *
-	 * @return     AgaviTemplateLayer The layer instance, or null if not found.
+	 * @return     ?AgaviFileTemplateLayer|?AgaviTemplateLayer The layer instance, or null if not found.
 	 *
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
@@ -409,6 +410,7 @@ abstract class AgaviView implements ResetInterface
 				return $layer;
 			}
 		}
+		return null;
 	}
 
 	/**
