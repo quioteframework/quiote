@@ -48,14 +48,14 @@ class MiddlewarePipeline implements RequestHandlerInterface
 
         $context = $this->context;
         $controller = $context->getController();
-        $routing = $context->getRouting();                
+        $routing = $context->getRouting();
 
         $construct = function (string $label, callable $factory) use (&$stack) {
             $mw = $factory();
             $stack[] = $mw;
             $this->debugStack[] = $label;
         };
-                    
+
         $construct(ErrorHandlingMiddleware::class, function () use ($context) {
             return new ErrorHandlingMiddleware(function (\Throwable $e, ServerRequestInterface $r) use ($context) {
                 $first = $e->getFile() . ':' . $e->getLine();
@@ -63,7 +63,7 @@ class MiddlewarePipeline implements RequestHandlerInterface
                 AgaviDebugLogger::error('[MiddlewarePipeline] ' . get_class($e) . ': ' . $e->getMessage() . ' @ ' . $first . ' trace=' . $snippet, $context);
             });
         });
-        
+
         $construct(SessionMiddleware::class, fn() => new SessionMiddleware($controller));
 
         if (MiddlewareCatalog::isEnabled(TimingMiddleware::class)) {
@@ -81,7 +81,7 @@ class MiddlewarePipeline implements RequestHandlerInterface
         $construct(SlotMiddleware::class, fn() => new SlotMiddleware($this->context));
         $construct(DispatchMiddleware::class, fn() => new DispatchMiddleware($controller));
         $construct(AssetAggregationMiddleware::class, fn() => new AssetAggregationMiddleware());
-            $construct(FormPopulationMiddleware::class, fn() => new FormPopulationMiddleware($controller));
+        $construct(FormPopulationMiddleware::class, fn() => new FormPopulationMiddleware($controller));
         if (MiddlewareCatalog::isEnabled(ExecutionTimeMiddleware::class)) {
             $construct(ExecutionTimeMiddleware::class, fn() => new ExecutionTimeMiddleware());
         }
