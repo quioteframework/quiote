@@ -47,7 +47,7 @@ abstract class AgaviRoutingCallback extends AgaviParameterHolder implements Rese
 	/**
 	 * Initialize the callback instance.
 	 *
-	 * @param      AgaviResponse An AgaviResponse instance.
+	 * @param      \Agavi\Response\AgaviWebResponse An AgaviWebResponse instance.
 	 * @param      array         An array with information about the route.
 	 *
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>

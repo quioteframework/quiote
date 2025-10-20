@@ -1,19 +1,13 @@
 <?php
 
-use Agavi\Response\AgaviResponse;
+use Agavi\Response\AgaviWebResponse;
 use Agavi\Controller\AgaviOutputType;
 
-class TestConcreteResponse extends AgaviResponse
+class TestConcreteResponse extends AgaviWebResponse
 {
-    protected $content = '';
-    private $redirect = null;
-    public function initialize($context = null, array $parameters = []) {}
-    public function setRedirect($to) { $this->redirect = ['to' => $to]; }
-    public function getRedirect() { return $this->redirect; }
-    public function hasRedirect() { return $this->redirect !== null; }
-    public function clearRedirect() { $this->redirect = null; }
-    public function clear() { $this->clearContent(); $this->clearAttributes(); }
-    public function send(?AgaviOutputType $outputType = null) {}
+    // Use AgaviWebResponse default implementation; provide minimal overrides where tests expect no-op initialization/send
+    public function initialize($context = null, array $parameters = []) { /* no-op for test */ }
+    public function send(?AgaviOutputType $outputType = null) { /* no-op for test */ }
 }
 
 ?>

@@ -3,7 +3,10 @@
 namespace Agavi\Execution;
 
 use Agavi\AgaviContext;
-use Agavi\Response\AgaviResponse;
+use Agavi\Response\AgaviWebResponse;
+// note: keep runtime checks against AgaviWebResponse but avoid importing it here
+use Psr\Http\Message\ResponseInterface;
+use Agavi\Http\PsrResponseAdapter;
 use Agavi\Util\AgaviAttributeHolder; // to expose action attributes via standard view API
 
 final class ImmutableViewInitContext extends AgaviAttributeHolder implements ViewInitContext
@@ -16,7 +19,8 @@ final class ImmutableViewInitContext extends AgaviAttributeHolder implements Vie
         private ?string $actionModule,
         private ?string $actionName,
         private array $actionAttributes,
-        private AgaviResponse $response
+    private AgaviWebResponse $response,
+        private ?ResponseInterface $psrResponse = null
     ) {
         // Populate attribute holder with snapshot so AgaviView::getAttribute()/getAttributes() work.
         // Immutable semantics: later setAttribute() calls are ignored by AgaviView because initContext instanceof ViewInitContext.
@@ -54,9 +58,23 @@ final class ImmutableViewInitContext extends AgaviAttributeHolder implements Vie
     {
         return $this->actionAttributes;
     }
-    public function getResponse(): AgaviResponse
+    public function getResponse(): AgaviWebResponse
     {
         return $this->response;
+    }
+
+    public function getPsrResponse(): ?ResponseInterface
+    {
+        // If an explicit PSR response was provided use it; otherwise, if the
+        // legacy response is an AgaviWebResponse wrap it lazily in the adapter
+        if ($this->psrResponse !== null) {
+            return $this->psrResponse;
+        }
+        if ($this->response instanceof \Agavi\Response\AgaviWebResponse) {
+            $this->psrResponse = new PsrResponseAdapter($this->response);
+            return $this->psrResponse;
+        }
+        return null;
     }
 
     // ---------------------------------------------------------------------
@@ -104,10 +122,14 @@ final class ImmutableViewInitContext extends AgaviAttributeHolder implements Vie
      * stored in immutable context). Slot/layout code that checks flags like
      * 'is_slot' will simply see the default (false) and continue.
      */
-    #[\Override]
     public function &getParameter($name, $default = null)
     {
-        return $default;
+        // Return a reference to a static variable to avoid PHP notice about
+        // returning non-variable references while preserving legacy by-ref
+        // signature. Different callers should not rely on mutating this value.
+        static $ref;
+        $ref = $default;
+        return $ref;
     }
 
     /**
@@ -115,7 +137,11 @@ final class ImmutableViewInitContext extends AgaviAttributeHolder implements Vie
      */
     public function &getParameters(): array
     {
-        return [];
+        // Return reference to a static empty array to satisfy callers expecting
+        // a by-reference return without triggering a notice.
+        static $empty = [];
+        $empty = [];
+        return $empty;
     }
 
     /**

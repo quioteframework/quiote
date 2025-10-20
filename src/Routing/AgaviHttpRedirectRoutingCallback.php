@@ -57,7 +57,7 @@ class AgaviHttpRedirectRoutingCallback extends AgaviRoutingCallback
 	/**
 	 * Initialize the callback instance.
 	 *
-	 * @param      AgaviResponse An AgaviResponse instance.
+	 * @param      \Agavi\Response\AgaviWebResponse An AgaviWebResponse instance.
 	 * @param      array         An array with information about the route.
 	 *
 	 * @author     David Zülke <david.zuelke@bitextender.com>

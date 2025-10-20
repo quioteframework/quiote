@@ -37,7 +37,7 @@ use Agavi\Config\AgaviConfig;
 use Agavi\Config\AgaviConfigCache;
 use Agavi\Config\AgaviAPCuConfigCache;
 use Agavi\Exception\AgaviDisabledModuleException;
-use Agavi\Response\AgaviResponse;
+use Agavi\Response\AgaviWebResponse;
 use Agavi\Exception\AgaviException;
 use Agavi\Util\AgaviToolkit;
 use Agavi\Exception\AgaviClassNotFoundException;
@@ -65,7 +65,7 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 	protected $context = null;
 	
 	/**
-	 * @var        AgaviResponse The global response.
+	 * @var        AgaviWebResponse The global response.
 	 */
 	protected $response = null;
 	
@@ -182,7 +182,7 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 	/**
 	 * Get the global response instance.
 	 *
-	 * @return     AgaviResponse The global response.
+	 * @return     \Agavi\Response\AgaviWebResponse The global response.
 	 *
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0

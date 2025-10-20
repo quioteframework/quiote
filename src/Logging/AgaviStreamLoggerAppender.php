@@ -28,7 +28,6 @@ use Agavi\Exception\AgaviLoggingException;
  * @author     Bob Zoller <bob@agavi.org>
  * @copyright  Authors
  * @copyright  The Agavi Project
- *
  * @since      0.11.2
  *
  * @version    $Id$
@@ -50,7 +49,7 @@ class AgaviStreamLoggerAppender extends AgaviLoggerAppender
 	 * @since      0.10.0
 	 */
 	#[\Override]
-    public function initialize(AgaviContext $context, array $parameters = [])
+	public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		parent::initialize($context, $parameters);
 

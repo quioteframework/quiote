@@ -37,8 +37,8 @@ class DispatchMiddlewareTest extends TestCase
         $routing = new class { public function getBasePath(){ return '/'; } };
         $ctx->method('getRouting')->willReturn($routing);
         // Minimal concrete response implementing abstract contract
-        $globalResp = new class($cookies) extends \Agavi\Response\AgaviResponse {
-            private array $cookiesData; private $redirect = null; private $hasRedirect = false; private $sent = false; private $headers = [];
+        $globalResp = new class($cookies) extends \Agavi\Response\AgaviWebResponse {
+            private array $cookiesData; protected $redirect = null; private $hasRedirect = false; private $sent = false; private $headers = [];
             public function __construct(array $cookies){ $this->cookiesData = $cookies; }
             public function getCookies(): array { return $this->cookiesData; }
             public function setRedirect($url, $statusCode = 302) { $this->redirect = [$url,$statusCode]; $this->hasRedirect = true; }

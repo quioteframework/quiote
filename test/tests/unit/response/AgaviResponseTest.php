@@ -2,9 +2,9 @@
 
 use Agavi\Controller\AgaviOutputType;
 use Agavi\Testing\AgaviUnitTestCase;
-use Agavi\Response\AgaviResponse;
+use Agavi\Response\AgaviWebResponse;
 
-class SampleResponse extends AgaviResponse
+class SampleResponse extends AgaviWebResponse
 {
 	public function clear()
 	{
@@ -14,7 +14,7 @@ class SampleResponse extends AgaviResponse
 	{
 	}
 	
-	public function setRedirect($to)
+	public function setRedirect($location, $code = 302)
 	{
 	}
 	
@@ -30,7 +30,7 @@ class SampleResponse extends AgaviResponse
 	{
 	}
 	
-	public function merge(AgaviResponse $other)
+	public function merge($other)
 	{
 	}
 }

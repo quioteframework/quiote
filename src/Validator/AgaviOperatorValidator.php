@@ -204,7 +204,6 @@ abstract class AgaviOperatorValidator extends AgaviValidator implements AgaviIVa
 	 * @author     Uwe Mesecke <uwe@mesecke.net>
 	 * @since      0.11.0
 	 */
-	#[\Override]
     public function getDependencyManager()
 	{
 		return $this->parentContainer->getDependencyManager();
@@ -236,7 +235,6 @@ abstract class AgaviOperatorValidator extends AgaviValidator implements AgaviIVa
 	 * @author     Uwe Mesecke <uwe@mesecke.net>
 	 * @since      0.11.0
 	 */
-	#[\Override]
     public function execute(AgaviWebRequest $parameters)
 	{
 		// check if we have a valid setup of validators

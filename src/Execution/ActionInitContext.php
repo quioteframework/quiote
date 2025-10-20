@@ -3,7 +3,6 @@
 namespace Agavi\Execution;
 
 use Agavi\AgaviContext;
-use Agavi\Response\AgaviResponse;
 use Agavi\Response\AgaviWebResponse;
 use Agavi\Validator\AgaviValidationManager;
 use Psr\Http\Message\ResponseInterface;

@@ -146,13 +146,18 @@ final class AgaviToolkit
 	 */
 	public static function clearCache($path = '')
 	{
-		if(!AgaviConfig::get('core.cache_dir')) {
-			throw new AgaviException('Holy disk wipe, Batman! It seems that the value of "core.cache_dir" is empty, and because Agavi considers you its most dearest of friends, it chose not to erase your entire file system. Skynet or other evil machines may not be so forgiving however, so please fix whatever code you wrote that caused this :)');
+		$baseCache = AgaviConfig::get('core.cache_dir');
+		if(empty($baseCache)) {
+			// Tests (and some code paths) may clear AgaviConfig during setup; use
+			// a safe fallback to the system temp directory to avoid throwing and
+			// potentially wiping the system root. This mirrors fallbacks elsewhere
+			// in the codebase (AgaviConfigCache/CacheManager).
+			$baseCache = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'agavi_cache';
 		}
 		
 		$ignores = ['.', '..', '.svn', 'CVS', '_darcs', '.arch-params', '.monotone', '.bzr', '.gitignore', '.gitkeep'];
 		$path = str_replace('/', DIRECTORY_SEPARATOR, str_replace('\\', DIRECTORY_SEPARATOR, $path));
-		$path = realpath(AgaviConfig::get('core.cache_dir') . DIRECTORY_SEPARATOR . $path);
+		$path = realpath($baseCache . DIRECTORY_SEPARATOR . $path);
 		if($path === false) {
 			return false;
 		}

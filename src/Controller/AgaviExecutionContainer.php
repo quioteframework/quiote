@@ -46,7 +46,7 @@ use Agavi\View\AgaviView;
 use Agavi\Util\AgaviToolkit;
 use Agavi\Config\AgaviConfigCache;
 use Agavi\Config\AgaviAPCuConfigCache;
-use Agavi\Response\AgaviResponse;
+use Agavi\Response\AgaviWebResponse;
 use Symfony\Contracts\Service\ResetInterface;
 
 use \Exception;
@@ -123,7 +123,7 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 	protected $arguments = null;
 
 	/**
-	 * @var        AgaviResponse A response instance holding the Action's output.
+	* @var        AgaviWebResponse A response instance holding the Action's output.
 	 */
 	protected $response = null;
 
@@ -316,7 +316,7 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 	 * response might be empty or invalid due to a "next" container that has been
 	 * set and executed.
 	 *
-	 * @return     AgaviResponse The "real" response.
+	* @return     AgaviWebResponse The "real" response.
 	 *
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
@@ -466,7 +466,7 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 	 * Proceed to the "next" container by running it and returning its response,
 	 * or return our response if there is no "next" container.
 	 *
-	 * @return     AgaviResponse The "real" response.
+	 * @return     \Agavi\Response\AgaviWebResponse The "real" response.
 	 *
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      1.0.0
@@ -795,12 +795,12 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 	/**
 	 * Set a new response.
 	 *
-	 * @param      AgaviResponse A new Response instance.
+	* @param      AgaviWebResponse A new Response instance.
 	 *
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function setResponse(AgaviResponse $response)
+	public function setResponse(AgaviWebResponse $response)
 	{
 		$this->response = $response;
 		// do not set the output type on the response here!

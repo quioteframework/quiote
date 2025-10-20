@@ -19,8 +19,11 @@ use Agavi\Config\AgaviConfig;
 use Agavi\Controller\AgaviOutputType;
 use Agavi\Exception\AgaviException;
 use Agavi\Request\AgaviWebRequest;
-// AgaviCompatRouter removed; unified AgaviRouting used via DI elsewhere.
+use Agavi\Response\AgaviResponse;
+use Agavi\Util\AgaviAttributeHolder;
 use Symfony\Contracts\Service\ResetInterface;
+use Psr\Http\Message\ResponseInterface;
+use Agavi\Http\SimpleStream;
 
 /**
  * AgaviWebResponse handles HTTP responses.
@@ -36,12 +39,10 @@ use Symfony\Contracts\Service\ResetInterface;
  *
  * @version    $Id$
  */
-class AgaviWebResponse extends AgaviResponse implements ResetInterface
+class AgaviWebResponse extends AgaviResponse
 {
 
-	protected $outputTypeName;
-	protected $outpuTypeName;
-	protected $contextName;
+
 	/**
 	 * @var        array An array of all HTTP 1.0 status codes and their message.
 	 */
@@ -152,6 +153,111 @@ class AgaviWebResponse extends AgaviResponse implements ResetInterface
 	 * @var        array An array of redirect information, or null if no redirect.
 	 */
 	protected $redirect = null;
+
+	// --- Begin merged AgaviResponse properties ---
+	protected $contentStreamMeta;
+	/** @var AgaviContext|null */
+	protected $context = null;
+	/** @var mixed */
+	protected $content = null;
+	/** @var AgaviOutputType|null */
+	protected $outputType = null;
+
+	/** @var ResponseInterface|null PSR-7 response attached for forwarding */
+	protected ?ResponseInterface $psrResponse = null;
+	// --- End merged AgaviResponse properties ---
+
+	// --- Begin AgaviResponse methods merged ---
+	public function getContent()
+	{
+		return $this->content;
+	}
+
+	/**
+	 * Attach a PSR-7 response instance for forwarding.
+	 */
+	public function setPsrResponse(?ResponseInterface $psr): void
+	{
+		$this->psrResponse = $psr;
+		if($psr !== null) {
+			try {
+				$body = (string) $psr->getBody();
+				if($body !== '') {
+					$this->setContent($body);
+				}
+			} catch(\Throwable) {}
+		}
+	}
+
+	public function getPsrResponse(): ?ResponseInterface
+	{
+		return $this->psrResponse;
+	}
+
+	public function getContentSize()
+	{
+		if (is_resource($this->content)) {
+			if (($stat = fstat($this->content)) !== false) {
+				return $stat['size'];
+			} else {
+				return false;
+			}
+		} else {
+			return strlen((string) $this->content);
+		}
+	}
+
+	public function setContent($content)
+	{
+		$this->content = $content;
+	}
+
+	public function prependContent($content)
+	{
+		$this->setContent($content . $this->getContent());
+	}
+
+	public function appendContent($content)
+	{
+		$this->setContent($this->getContent() . $content);
+	}
+
+	public function clearContent()
+	{
+		$this->content = null;
+	}
+
+	public function getOutputType()
+	{
+		return $this->outputType;
+	}
+
+	public function setOutputType(AgaviOutputType $outputType)
+	{
+		$this->outputType = $outputType;
+	}
+
+	public function clearOutputType()
+	{
+		$this->outputType = null;
+	}
+
+	public function reset(): void
+	{
+		// Reset web-specific response properties
+		$this->httpStatusCode = '200';
+		$this->httpHeaders = [];
+		$this->cookies = [];
+		$this->redirect = null;
+		$this->httpStatusCodes = null;
+
+		// Clear attribute holder state
+		$this->clearAttributes();
+		if (method_exists($this, 'clearParameters')) {
+			$this->clearParameters();
+		}
+	}
+	// --- End AgaviResponse methods merged ---
 	
 	/**
 	 * Initialize this Response.
@@ -162,44 +268,35 @@ class AgaviWebResponse extends AgaviResponse implements ResetInterface
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	#[\Override]
-    public function initialize(AgaviContext $context, array $parameters = [])
+	public function initialize(AgaviContext $context, array $parameters = [])
 	{
-		parent::initialize($context, $parameters);
-		
+		// Merge legacy AgaviResponse::initialize behaviour
+		$this->context = $context;
+		$this->setParameters($parameters);
+
 		/** @var AgaviWebRequest|null */
 		$request = null;
 		try {
 			$request = $context->getRequest();
 		} catch (\Exception $e) {
-			// During bootstrap in worker mode the request may not yet be available
-			// (and AgaviContext::getRequest would attempt to recreate it but lacks factory info).
-			// Log and continue with sensible defaults; initialization will run again per-request.
 			$logger = $context->getLoggerManager()?->getLogger();
 			$logger?->debug('AgaviWebResponse::initialize - request not available during bootstrap: ' . $e->getMessage());
 			$request = null;
 		}
 
-		// if 'cookie_secure' is set, and null, then we need to set whatever AgaviWebRequest::isHttps() returns
 		if (array_key_exists('cookie_secure', $parameters) && $parameters['cookie_secure'] === null) {
 			$parameters['cookie_secure'] = $request ? $request->isHttps() : false;
 		}
-		
+
 		$this->setParameters([
 			'cookie_lifetime' => $parameters['cookie_lifetime'] ?? 0,
 			'cookie_path'     => $parameters['cookie_path'] ?? null,
 			'cookie_domain'   => $parameters['cookie_domain'] ?? "",
 			'cookie_secure'   => $parameters['cookie_secure'] ?? false,
 			'cookie_httponly' => $parameters['cookie_httponly'] ?? false,
-			// For historical reasons, PHP's setcookie() encodes cookies with urlencode(), which
-			// is not compliant with RFC 6265 as it encodes spaces as a "+" sign instead of "%20".
-			// This makes most client-side Javascript cookie libraries decode it not as a space
-			// but as an actual plus sign. We sadly cannot change the default encoding of cookies
-			// as it would be a breaking change, but introduced a setting instead, which we
-			// recommend to set to "rawurlencode" for new projects.
 			'cookie_encode_callback' => $parameters['cookie_encode_callback'] ?? 'urlencode',
 		]);
-		
+
 		$protocol = $request ? $request->getProtocol() : 'HTTP/1.1';
 		$this->httpStatusCodes = match ($protocol) {
 			'HTTP/2' => $this->http11StatusCodes,
@@ -249,8 +346,7 @@ class AgaviWebResponse extends AgaviResponse implements ResetInterface
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	#[\Override]
-    public function sendContent()
+	public function sendContent()
 	{
 		if(is_resource($this->content) && $this->getParameter('use_sendfile_header', false)) {
 			$info = stream_get_meta_data($this->content);
@@ -259,7 +355,18 @@ class AgaviWebResponse extends AgaviResponse implements ResetInterface
 				return;
 			}
 		}
-		return parent::sendContent();
+		// Inline AgaviResponse::sendContent behaviour
+		if(is_resource($this->content)) {
+			fpassthru($this->content);
+			fclose($this->content);
+		} else {
+			echo $this->content;
+			if($this->psrResponse !== null) {
+				try {
+					$this->psrResponse = $this->psrResponse->withBody(SimpleStream::fromString((string)$this->content));
+				} catch(\Throwable) {}
+			}
+		}
 	}
 	
 	/**
@@ -285,7 +392,6 @@ class AgaviWebResponse extends AgaviResponse implements ResetInterface
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      0.11.6
 	 */
-	#[\Override]
     public function hasContent()
 	{
 		return $this->content !== null && $this->content !== '';
@@ -330,11 +436,23 @@ class AgaviWebResponse extends AgaviResponse implements ResetInterface
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	#[\Override]
-    public function merge(AgaviResponse $otherResponse)
+	public function merge($otherResponse)
 	{
-		parent::merge($otherResponse);
-		
+		// Merge attribute holder state (behaviour from AgaviResponse::merge)
+		foreach($otherResponse->getAttributeNamespaces() as $namespace) {
+			foreach($otherResponse->getAttributes($namespace) as $name => $value) {
+				if(!$this->hasAttribute($name, $namespace)) {
+					$this->setAttribute($name, $value, $namespace);
+				} elseif(is_array($value)) {
+					$thisAttribute =& $this->getAttribute($name, $namespace);
+					if(is_array($thisAttribute)) {
+						$thisAttribute = array_merge($value, $thisAttribute);
+					}
+
+				}
+			}
+		}
+
 		if($otherResponse instanceof AgaviWebResponse) {
 			foreach($otherResponse->getHttpHeaders() as $name => $value) {
 				if(!$this->hasHttpHeader($name)) {
@@ -353,11 +471,22 @@ class AgaviWebResponse extends AgaviResponse implements ResetInterface
 		}
 	}
 	
+		/**
+		 * Determine whether the content in the response may be modified by appending
+		 * or prepending data using string operations. Typically false for streams, 
+		 * and for responses like XMLRPC where the content is an array.
+		 *
+		 * @return     bool If the content can be treated as / changed like a string.
+		 */
+		public function isContentMutable()
+		{
+			return !$this->hasRedirect() && !is_resource($this->content);
+		}
+	
 	/**
 	 * Check if the given HTTP status code is valid.
 	 *
-	 * @param      string A numeric HTTP status code.
-	 *
+	public function hasContent()
 	 * @return     bool True, if the code is valid, or false otherwise.
 	 *
 	 * @author     David Zülke <david.zuelke@bitextender.com>
@@ -366,7 +495,8 @@ class AgaviWebResponse extends AgaviResponse implements ResetInterface
 	public function validateHttpStatusCode($code)
 	{
 		$code = (string)$code;
-		return isset($this->httpStatusCodes[$code]);
+		$codes = $this->httpStatusCodes ?? $this->http11StatusCodes;
+		return isset($codes[$code]);
 	}
 	
 	/**
@@ -382,8 +512,14 @@ class AgaviWebResponse extends AgaviResponse implements ResetInterface
 		$code = (string)$code;
 		if($this->validateHttpStatusCode($code)) {
 			$this->httpStatusCode = $code;
+			if($this->psrResponse !== null) {
+				try {
+					$this->psrResponse = $this->psrResponse->withStatus((int)$code);
+				} catch(\Throwable) {}
+			}
 		} else {
-			throw new AgaviException(sprintf('Invalid %s Status code: %s', $this->context->getRequest()->getProtocol(), $code));
+			$protocol = $this->context?->getRequest()?->getProtocol() ?? 'HTTP/1.1';
+			throw new AgaviException(sprintf('Invalid %s Status code: %s', $protocol, $code));
 		}
 	}
 	
@@ -497,6 +633,17 @@ class AgaviWebResponse extends AgaviResponse implements ResetInterface
 		} else {
 			$this->httpHeaders[$name][] = $value;
 		}
+		if($this->psrResponse !== null) {
+			try {
+				if($replace) {
+					$this->psrResponse = $this->psrResponse->withHeader($name, $this->httpHeaders[$name]);
+				} else {
+					foreach($this->httpHeaders[$name] as $v) {
+						$this->psrResponse = $this->psrResponse->withAddedHeader($name, $v);
+					}
+				}
+			} catch(\Throwable) {}
+		}
 	}
 
 	/**
@@ -545,6 +692,13 @@ class AgaviWebResponse extends AgaviResponse implements ResetInterface
 			'httponly' => $httponly,
 			'encode_callback' => $encodeCallback
 		];
+		if($this->psrResponse !== null) {
+			try {
+				$val = $value === false || $value === null ? '' : ($encodeCallback ? call_user_func($encodeCallback, $value) : $value);
+				$header = $name . '=' . $val;
+				$this->psrResponse = $this->psrResponse->withAddedHeader('Set-Cookie', $header);
+			} catch(\Throwable) {}
+		}
 	}
 	
 	/**
@@ -654,6 +808,9 @@ class AgaviWebResponse extends AgaviResponse implements ResetInterface
 		if(isset($this->httpHeaders[$name])) {
 			$retval = $this->httpHeaders[$name];
 			unset($this->httpHeaders[$name]);
+		}
+		if($this->psrResponse !== null) {
+			try { $this->psrResponse = $this->psrResponse->withoutHeader($name); } catch(\Throwable) {}
 		}
 		return $retval;
 	}
@@ -815,20 +972,7 @@ class AgaviWebResponse extends AgaviResponse implements ResetInterface
 	 * @author     Generated for FrankenPHP worker compatibility
 	 * @since      2.0.0
 	 */
-	public function reset(): void
-	{
-		// Reset web-specific response properties
-		$this->httpStatusCode = '200';
-		$this->httpHeaders = [];
-		$this->cookies = [];
-		$this->redirect = null;
-		$this->httpStatusCodes = null;
-		
-		// Note: http10StatusCodes, http11StatusCodes, httpStatusCodes are static lookups - don't reset
-		
-		// Call parent reset to clear base response properties
-		parent::reset();
-	}
+	// duplicate reset removed (merged earlier)
 }
 
 ?>

@@ -325,7 +325,13 @@ class AgaviConfigCache
 			)
 		);
 		
-		return AgaviConfig::get('core.cache_dir') . DIRECTORY_SEPARATOR . self::CACHE_SUBDIR . DIRECTORY_SEPARATOR . $cacheName;
+		$baseCacheDir = AgaviConfig::get('core.cache_dir');
+		if(empty($baseCacheDir)) {
+			// Fallback to system temp dir when core.cache_dir is not available.
+			$baseCacheDir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'agavi_cache';
+		}
+
+		return $baseCacheDir . DIRECTORY_SEPARATOR . self::CACHE_SUBDIR . DIRECTORY_SEPARATOR . $cacheName;
 	}
 
 	/**
@@ -481,9 +487,20 @@ class AgaviConfigCache
 	 */
 	public static function writeCacheFile($config, $cache, $data, $append = false)
 	{
-		$perms = fileperms(AgaviConfig::get('core.cache_dir')) ^ 0x4000;
+		$baseCacheDir = AgaviConfig::get('core.cache_dir');
+		if(empty($baseCacheDir)) {
+			$baseCacheDir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'agavi_cache';
+		}
 
-		$cacheDir = AgaviConfig::get('core.cache_dir') . DIRECTORY_SEPARATOR . self::CACHE_SUBDIR;
+		$cacheDir = $baseCacheDir . DIRECTORY_SEPARATOR . self::CACHE_SUBDIR;
+
+		// Derive sensible perms; if fileperms() fails, fall back to a reasonable default.
+		$detectedPerms = @fileperms($baseCacheDir);
+		if($detectedPerms === false) {
+			$perms = 0777 & ~umask();
+		} else {
+			$perms = $detectedPerms ^ 0x4000;
+		}
 
 		AgaviToolkit::mkdir($cacheDir, $perms);
 

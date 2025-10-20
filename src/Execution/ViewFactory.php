@@ -28,6 +28,11 @@ class ViewFactory
         try {
             /** @var AgaviView $view */
             $view = $this->controller->createViewInstance($viewModule, $viewName);
+            $global = $this->controller->getGlobalResponse();
+            $psr = null;
+            if ($global instanceof \Agavi\Response\AgaviWebResponse) {
+                $psr = new \Agavi\Http\PsrResponseAdapter($global);
+            }
             $vic = new ImmutableViewInitContext(
                 context: $this->controller->getContext(),
                 viewModule: $viewModule,
@@ -36,7 +41,8 @@ class ViewFactory
                 actionModule: $actionModule,
                 actionName: $actionName,
                 actionAttributes: $actionAttributeSnapshot,
-                response: $this->controller->getGlobalResponse()
+                response: $global,
+                psrResponse: $psr
             );
             $view->initialize($vic);
             return $view;

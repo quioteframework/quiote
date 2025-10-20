@@ -81,7 +81,6 @@ class AgaviPdoSessionStorage extends AgaviSessionStorage implements ResetInterfa
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.10.0
 	 */
-	#[\Override]
     public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		// initialize the parent

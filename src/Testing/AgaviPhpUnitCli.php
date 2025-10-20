@@ -130,7 +130,6 @@ class AgaviPhpUnitCli extends Command
 	 * @author     Dominik del Bondio <dominik.del.bondio@bitextender.com>
 	 * @since      1.1.0
 	 */
-	#[\Override]
     protected function showHelp()
 	{
 		parent::showHelp();

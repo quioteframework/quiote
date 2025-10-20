@@ -3,10 +3,10 @@ use PHPUnit\Framework\TestCase;
 use Agavi\Execution\ImmutableViewInitContext;
 use Agavi\AgaviContext;
 // Provide a concrete minimal response stub implementing abstract methods
-class TestImmutableInitContextResponse extends \Agavi\Response\AgaviResponse {
-    private $redirect = null;
+class TestImmutableInitContextResponse extends \Agavi\Response\AgaviWebResponse {
+    protected $redirect = null;
     public function initialize($c,$p=[]) { parent::initialize($c,$p); }
-    public function setRedirect($to) { $this->redirect = $to; }
+    public function setRedirect($location, $code = 302) { $this->redirect = $location; }
     public function getRedirect() { return $this->redirect ? ['to'=>$this->redirect] : null; }
     public function hasRedirect() { return $this->redirect !== null; }
     public function clearRedirect() { $this->redirect = null; }

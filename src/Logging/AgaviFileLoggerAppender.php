@@ -44,7 +44,7 @@ class AgaviFileLoggerAppender extends AgaviStreamLoggerAppender
 	 * @since      0.10.0
 	 */
 	#[\Override]
-    public function initialize(AgaviContext $context, array $parameters = [])
+	public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		// for < 0.11.2 BC
 		if(isset($parameters['file'])) {
@@ -68,7 +68,7 @@ class AgaviFileLoggerAppender extends AgaviStreamLoggerAppender
 	 * @since      0.10.0
 	 */
 	#[\Override]
-    protected function getHandle()
+	protected function getHandle()
 	{
 		$destination = $this->getParameter('destination');
 		if(is_null($this->handle) && (!is_writable(dirname((string) $destination)) || (file_exists($destination) && !is_writable($destination)))) {

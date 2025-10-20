@@ -2,21 +2,21 @@
 
 use Agavi\Testing\AgaviUnitTestCase;
 use Agavi\Execution\ResponseHandle;
-use Agavi\Response\AgaviResponse;
+use Agavi\Response\AgaviWebResponse;
 
 /**
  * Tests for ResponseHandle facade behavior.
  */
 // Minimal response implementation without optional methods for negative path testing
 if(!class_exists('TestMinimalResponse')) {
-    class TestMinimalResponse extends AgaviResponse {
+    class TestMinimalResponse extends \Agavi\Response\AgaviWebResponse {
         protected $content = '';
-        private $redirect = null;
+        protected $redirect = null;
         public function initialize($context, array $parameters = []) {}
         public function appendContent($content) { $this->content .= $content; }
         public function setContent($content) { $this->content = $content; }
         public function getContent() { return $this->content; }
-        public function setRedirect($to) { $this->redirect = ['to'=>$to]; }
+        public function setRedirect($location, $code = 302) { $this->redirect = ['location'=>$location,'code'=>$code]; }
         public function getRedirect() { return $this->redirect; }
         public function hasRedirect() { return $this->redirect !== null; }
         public function clearRedirect() { $this->redirect = null; }
@@ -28,7 +28,7 @@ if(!class_exists('TestMinimalResponse')) {
 class ResponseHandleTest extends AgaviUnitTestCase
 {
     /** Simple concrete test response implementing needed methods */
-    private static function buildConcrete(): AgaviResponse
+    private static function buildConcrete(): AgaviWebResponse
     {
         require_once __DIR__ . '/TestConcreteResponse.php';
         return new TestConcreteResponse();

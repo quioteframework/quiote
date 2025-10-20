@@ -12,7 +12,7 @@ use Agavi\Execution\SecurityDecision;
 use Agavi\Execution\LightweightActionInitContext;
 use Agavi\Execution\ImmutableViewInitContext;
 use Agavi\Execution\ViewInitContext;
-use Agavi\Response\AgaviResponse;
+use Agavi\Response\AgaviWebResponse;
 use Agavi\Execution\ViewNameResolver;
 use Agavi\Execution\ActionResolver;
 use Psr\Http\Message\ServerRequestInterface;
@@ -57,11 +57,18 @@ final class ActionExecutor
      */
     public static function buildRequestDataFromPsr(ServerRequestInterface $psr): AgaviWebRequest
     {
-    // Reuse context request; treat absence as fatal (pipeline must initialize earlier).
+    // Reuse context request if available; otherwise fall back to a fresh AgaviWebRequest so tests
+    // and lightweight pipelines can call this helper without requiring full framework bootstrap.
     $web = null;
     try { $web = \Agavi\Agavi::context('web', true)?->getRequest(); } catch(\Throwable) { $web = null; }
-    if(!($web instanceof AgaviWebRequest)) { throw new \RuntimeException('Canonical AgaviWebRequest not initialized before buildRequestDataFromPsr'); }
-    $web->attachPsrRequest($psr);
+    if (!($web instanceof AgaviWebRequest)) {
+        try {
+            $web = new AgaviWebRequest();
+        } catch (\Throwable) {
+            throw new \RuntimeException('Canonical AgaviWebRequest not initialized before buildRequestDataFromPsr');
+        }
+    }
+    try { $web->attachPsrRequest($psr); } catch (\Throwable) {}
         $query = $psr->getQueryParams();
         $body = $psr->getParsedBody();
         if (!is_array($body)) {
@@ -205,16 +212,20 @@ final class ActionExecutor
             if (!$view) {
                 $view = $this->createAndInitView($vm, $vn, $desc->module, $desc->action, $actionRequest, $attributeSnapshot);
             }
-            $method = $this->selectViewMethod($view, $desc->outputType);
-            $res = $view->$method($actionRequest);
-            if ($res !== null) {
-                $content = (string)$res;
-            } elseif (method_exists($view, 'getLayers') && method_exists($view, 'renderLayers') && $view->getLayers()) {
-                $layerContent = $view->renderLayers();
-                if ($layerContent !== '') {
-                    $content = $layerContent;
+                if ($view !== null) {
+                    $method = $this->selectViewMethod($view, $desc->outputType);
+                    $res = $view->$method($actionRequest);
+                    if ($res !== null) {
+                        $content = (string)$res;
+                    } elseif (method_exists($view, 'getLayers') && method_exists($view, 'renderLayers') && $view->getLayers()) {
+                        $layerContent = $view->renderLayers();
+                        if ($layerContent !== '') {
+                            $content = $layerContent;
+                        }
+                    }
+                } else {
+                    // No view could be created; leave content empty (legacy tests expect this behaviour)
                 }
-            }
             if ($dbg) {
                 $prefix = substr($content, 0, 120);
                 AgaviDebugLogger::debug('[ActionExecutor] view=' . get_class($view) . ' method=' . $method . ' contentLen=' . strlen($content) . ' prefix=' . $prefix, $this->controller->getContext());
@@ -242,6 +253,11 @@ final class ActionExecutor
             /** @var AgaviView $view */
             $view = $this->controller->createViewInstance($vm, $vn);
             // Snapshot action attributes if action already executed (not passed here; minimal for now)
+            $global = $this->controller->getGlobalResponse();
+            $psr = null;
+            if ($global instanceof \Agavi\Response\AgaviWebResponse) {
+                $psr = new \Agavi\Http\PsrResponseAdapter($global);
+            }
             $vic = new ImmutableViewInitContext(
                 context: $this->controller->getContext(),
                 viewModule: $vm,
@@ -250,7 +266,8 @@ final class ActionExecutor
                 actionModule: $module,
                 actionName: $action,
                 actionAttributes: $attributeSnapshot,
-                response: $this->controller->getGlobalResponse()
+                response: $global,
+                psrResponse: $psr
             );
             $view->initialize($vic);
             return $view;

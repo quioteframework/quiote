@@ -613,29 +613,33 @@ class AgaviWebRequest implements ServerRequestInterface, ResetInterface
 	{
 		// Always-on whitelist enforcement
 		// BUT: If parameter doesn't exist in request AND a default is provided, allow it
-		if(!$this->isParameterWhitelisted($name)) {
-			// Check if parameter exists in actual request
-			$exists = false;
-			if ($this->request !== null) {
+		if (!$this->isParameterWhitelisted($name)) {
+			// Determine whether the parameter exists in either runtime store or the
+			// attached PSR-7 request. Runtime parameters must count as existing even
+			// when no PSR request is attached (legacy setParameter usage).
+			$exists = array_key_exists($name, $this->runtimeParameters);
+			if (!$exists && $this->request !== null) {
 				$exists = $this->getRequestParam($this->request, $name, null) !== null;
-				// Also check runtime parameters
-				if (!$exists && array_key_exists($name, $this->runtimeParameters)) {
-					$exists = true;
-				}
-				// Check bracket notation
+				// Check bracket [] alias against base name as well
 				if (!$exists && str_ends_with($name, '[]')) {
 					$base = substr($name, 0, -2);
 					$exists = $this->getRequestParam($this->request, $base, null) !== null || array_key_exists($base, $this->runtimeParameters);
 				}
 			}
-			
-			// Only throw if parameter exists in request but is not validated
-			// If it doesn't exist in request, allow with default
+
+			// If the parameter exists (in runtime or request) it's an unvalidated
+			// access and must throw. If it doesn't exist, we only allow returning
+			// the default when the caller explicitly provided one. We detect that
+			// via func_num_args(): callers that omitted the default should get an
+			// exception to avoid accidental silent masking of missing/unvalidated
+			// inputs.
 			if ($exists) {
 				throw new \Agavi\Exception\AgaviUnvalidatedParameterAccessException('Access to unvalidated parameter "' . $name . '" denied under strict validation.');
 			}
-			// Parameter doesn't exist in request, return default
-			return $default;
+			if (func_num_args() > 1) {
+				return $default;
+			}
+			throw new \Agavi\Exception\AgaviUnvalidatedParameterAccessException('Access to unvalidated parameter "' . $name . '" denied under strict validation.');
 		}
 		// 1. Direct runtime override
 		if (array_key_exists($name, $this->runtimeParameters)) {

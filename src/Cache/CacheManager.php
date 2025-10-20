@@ -24,7 +24,11 @@ class CacheManager
                 $pool = new ApcuAdapter();
                 self::$backend = 'apcu';
             } else {
-                $dir = AgaviConfig::get('core.cache_dir') . '/psr-cache';
+                $baseDir = AgaviConfig::get('core.cache_dir');
+                if(empty($baseDir)) {
+                    $baseDir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'agavi_cache';
+                }
+                $dir = $baseDir . DIRECTORY_SEPARATOR . 'psr-cache';
                 $pool = new FilesystemAdapter('', 0, $dir);
                 self::$backend = 'filesystem';
             }
@@ -40,18 +44,19 @@ class CacheManager
     {
         self::$instance = null; self::$namespaceVersions = []; self::$backend = 'filesystem';
         // Best-effort purge of filesystem cache directory to isolate test runs (slot/action caches)
-        try {
-            $dir = \Agavi\Config\AgaviConfig::get('core.cache_dir');
-            if($dir) {
-                $psrDir = $dir . '/psr-cache';
+            try {
+                $dir = \Agavi\Config\AgaviConfig::get('core.cache_dir');
+                if(empty($dir)) {
+                    $dir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'agavi_cache';
+                }
+                $psrDir = $dir . DIRECTORY_SEPARATOR . 'psr-cache';
                 if(is_dir($psrDir)) {
                     $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($psrDir, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::CHILD_FIRST);
                     foreach($it as $f) {
                         try { $f->isDir() ? @rmdir($f->getPathname()) : @unlink($f->getPathname()); } catch(\Throwable) {}
                     }
                 }
-            }
-        } catch(\Throwable) { /* ignore purge errors */ }
+            } catch(\Throwable) { /* ignore purge errors */ }
     }
 
     public static function getBackend(): string { return self::$backend; }

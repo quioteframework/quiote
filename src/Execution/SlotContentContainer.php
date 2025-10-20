@@ -2,7 +2,7 @@
 namespace Agavi\Execution;
 
 use Agavi\Controller\AgaviExecutionContainer; // extend for compatibility (methods overridden minimally)
-use Agavi\Response\AgaviResponse;
+use Agavi\Response\AgaviWebResponse;
 
 /**
  * Minimal surrogate container holding pre-rendered slot content.
@@ -10,12 +10,12 @@ use Agavi\Response\AgaviResponse;
  */
 class SlotContentContainer extends AgaviExecutionContainer implements SlotRenderable
 {
-    private AgaviResponse $syntheticResponse;
+    private AgaviWebResponse $syntheticResponse;
 
     public function __construct(string $content)
     {
         // We intentionally do not call parent constructor (heavy setup); just fake response.
-        $this->syntheticResponse = new class($content) extends AgaviResponse { public function __construct(private string $c){ $this->content = $c; } }; // AgaviResponse sets content property
+    $this->syntheticResponse = new class($content) extends AgaviWebResponse { public function __construct(private string $c){ $this->content = $c; } }; // AgaviWebResponse sets content property
     }
 
     public function execute()

@@ -14,7 +14,7 @@ class AgaviContextFactoryInfoTest extends AgaviUnitTestCase
         $ctx = $this->getContext();
         // Synthesize a legacy style info
     // Use existing web response implementation class name (simplest stub present in factories normally)
-    $responseClass = \Agavi\Response\AgaviResponse::class; // base class acceptable for initialization
+    $responseClass = \Agavi\Response\AgaviWebResponse::class; // base class acceptable for initialization
     $ctx->setFactoryInfo('response', ['class' => $responseClass, 'parameters' => ['x' => 1]]);
         $info = $ctx->getFactoryInfo('response');
         $this->assertArrayHasKey('class', $info);

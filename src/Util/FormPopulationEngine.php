@@ -20,7 +20,7 @@ use Agavi\Exception\AgaviException;
 use Agavi\Exception\AgaviParseException;
 use Agavi\Logging\AgaviLogger;
 use Agavi\Request\AgaviWebRequest;
-use Agavi\Response\AgaviResponse;
+use Agavi\Response\AgaviWebResponse;
 use Agavi\Util\AgaviParameterHolder;
 use Agavi\Util\AgaviToolkit;
 use Agavi\Util\FormPopulationConfig;
@@ -86,7 +86,7 @@ final class FormPopulationEngine
 	/**
 	 * Populate the provided response content with request data and validation errors.
 	 */
-	public function populate(AgaviResponse $response, AgaviWebRequest $request, array $overrides = []): void
+	public function populate(AgaviWebResponse $response, AgaviWebRequest $request, array $overrides = []): void
 	{
 		if(!isset($this->context)) {
 			throw new \LogicException('FormPopulationEngine must be initialized before use.');

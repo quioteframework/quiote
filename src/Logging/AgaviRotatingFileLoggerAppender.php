@@ -54,7 +54,7 @@ class AgaviRotatingFileLoggerAppender extends AgaviFileLoggerAppender
 	 * @since      0.11.0
 	 */
 	#[\Override]
-    public function initialize(AgaviContext $context, array $parameters = [])
+	public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		$cycle = 7;
 		$prefix = str_replace(' ', '_', AgaviConfig::get('core.app_name')) . '-';
