@@ -264,7 +264,39 @@ class AgaviWebRequest implements ServerRequestInterface, ResetInterface
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	/* Legacy stub removed; real implementation below uses UploadedFileInterface */
+	public function isFileValueEmpty($field)
+	{
+		$files = $this->getUploadedFiles();
+		
+		// Try to get the file value - could be nested in array structure
+		try {
+			$value = \Agavi\Util\AgaviArrayPathDefinition::getValue($field, $files, null);
+		} catch (\Throwable) {
+			$value = null;
+		}
+		
+		if (getenv('AGAVI_DEBUG_VALIDATION')) {
+			\Agavi\Logging\AgaviDebugLogger::debug(
+				'[AgaviWebRequest][debug][isFileValueEmpty] field=' . $field . 
+				' empty=' . ($value === null ? '1' : '0') . 
+				' valueType=' . gettype($value),
+				null
+			);
+		}
+		
+		// File is empty if not present or if it's not an UploadedFileInterface
+		if ($value === null) {
+			return true;
+		}
+		
+		if ($value instanceof \Psr\Http\Message\UploadedFileInterface) {
+			// File exists - not empty
+			return false;
+		}
+		
+		// Invalid type - treat as empty
+		return true;
+	}
 
 
 	/**

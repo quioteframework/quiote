@@ -138,9 +138,24 @@ class ValidationService
 
         // 3. Execute validators
         $ok = true;
+        if (getenv('AGAVI_DEBUG_VALIDATION')) {
+            try {
+                $logger?->debug('[ValidationService][validate] About to execute validators, childCount=' . count($validationManager->getChilds()));
+            } catch(\Throwable) {}
+        }
         try {
             $ok = (bool)$validationManager->execute($request);
+            if (getenv('AGAVI_DEBUG_VALIDATION')) {
+                try {
+                    $logger?->debug('[ValidationService][validate] Validators execute() returned: ' . ($ok ? 'true' : 'false'));
+                } catch(\Throwable) {}
+            }
         } catch (\Throwable $e) {
+            if (getenv('AGAVI_DEBUG_VALIDATION')) {
+                try {
+                    $logger?->debug('[ValidationService][validate] Validators execute() threw exception: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
+                } catch(\Throwable) {}
+            }
             return ValidationResult::failure(['exception' => $e->getMessage()]);
         }
         if (getenv('AGAVI_DEBUG_VALIDATION')) {
@@ -156,9 +171,25 @@ class ValidationService
         if (!is_callable([$action, $validateMethod])) {
             $validateMethod = 'validate';
         }
+        if (getenv('AGAVI_DEBUG_VALIDATION')) {
+            try {
+                $logger?->debug('[ValidationService][validate] About to call action->' . $validateMethod . '() on ' . get_class($action));
+            } catch(\Throwable) {}
+        }
         try {
             $manualOk = (bool)$action->$validateMethod($request);
+            if (getenv('AGAVI_DEBUG_VALIDATION')) {
+                try {
+                    $logger?->debug('[ValidationService][validate] action->' . $validateMethod . '() returned ' . ($manualOk ? 'true' : 'false'));
+                } catch(\Throwable) {}
+            }
         } catch (\Throwable $e) {
+            if (getenv('AGAVI_DEBUG_VALIDATION')) {
+                try {
+                    $logger?->debug('[ValidationService][validate] action->' . $validateMethod . '() threw exception: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
+                    $logger?->debug('[ValidationService][validate] Stack trace: ' . $e->getTraceAsString());
+                } catch(\Throwable) {}
+            }
             return ValidationResult::failure(['exception' => $e->getMessage()]);
         }
         $final = $ok && $manualOk;

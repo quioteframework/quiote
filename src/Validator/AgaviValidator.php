@@ -456,7 +456,12 @@ abstract class AgaviValidator extends AgaviParameterHolder implements ResetInter
 				$empty = ($baseValue === null || $baseValue === '' || (is_array($baseValue) && count($baseValue) === 0));
 				if (getenv('AGAVI_DEBUG_VALIDATION')) { AgaviDebugLogger::debug('[AgaviValidator][debug][checkAllArgumentsSet] emptyArgBaseInspect base=' . $this->curBase->__toString() . ' empty=' . ($empty?'1':'0') . ' baseValueType=' . gettype($baseValue), $this->getContext()); }
 			} else {
-				$empty = $this->validationParameters->isValueEmpty($paramType, $pName);
+				try {
+					$empty = $this->validationParameters->isValueEmpty($paramType, $pName);
+				} catch (\Throwable $e) {
+					if (getenv('AGAVI_DEBUG_VALIDATION')) { AgaviDebugLogger::debug('[AgaviValidator][debug][checkAllArgumentsSet] EXCEPTION in isValueEmpty: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine(), $this->getContext()); }
+					throw $e;
+				}
 			}
 			if($empty) {
 				if($throwError && $isRequired) {

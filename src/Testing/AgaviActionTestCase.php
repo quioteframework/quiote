@@ -218,7 +218,21 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 				$primaryName = $slashFirst;
 				$alternativeName = $actionName; // dotted fallback
 			}
-			$result = $service->validate($action, $request, $module, $primaryName, $methodToken);
+			if ($dbg) {
+				AgaviDebugLogger::debug('[TestDebug][BeforeValidate] module=' . $module . ' primaryName=' . $primaryName . ' alternativeName=' . ($alternativeName ?? 'null') . ' method=' . $methodToken, $this->getContext());
+			}
+			try {
+				$result = $service->validate($action, $request, $module, $primaryName, $methodToken);
+				if ($dbg) {
+					AgaviDebugLogger::debug('[TestDebug][AfterValidate] result->ok=' . ($result->ok ? '1' : '0'), $this->getContext());
+				}
+			} catch (\Throwable $e) {
+				if ($dbg) {
+					AgaviDebugLogger::debug('[TestDebug][ValidateException] ' . get_class($e) . ': ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine(), $this->getContext());
+				}
+				// Create a failed result
+				$result = (object)['ok' => false, 'data' => []];
+			}
 			$this->validationSuccess = (bool)$result->ok;
 			try {
 				$trace = $result->data['trace'] ?? null;
