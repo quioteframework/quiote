@@ -48,9 +48,15 @@ class ValidationMiddleware implements MiddlewareInterface
         // We keep a normalized (capitalized) variant for naming validate* / handle*Error methods, but
         // pass the lowercase token to xmlOnlyValidate so <if($method == 'read')> blocks fire.
         // Derive canonical action method via central mapper then build normalized token for legacy method names
-        $mapped = HttpMethodMapper::toActionMethod($method ?: 'GET'); // returns lowercase token like 'read'
-        $normalizedMethod = ucfirst(strtolower($mapped));
-        $lowerMethodToken = strtolower($normalizedMethod); // used for XML config inclusion conditions
+        $providedMethod = is_string($method) ? strtolower($method) : '';
+        if ($providedMethod !== '' && in_array($providedMethod, ['read', 'write', 'create', 'remove'], true)) {
+            // Action descriptors already use legacy semantic tokens – use as-is.
+            $mapped = $providedMethod;
+        } else {
+            $mapped = HttpMethodMapper::toActionMethod($method ?: 'GET'); // normalize HTTP verbs to legacy tokens
+        }
+        $normalizedMethod = ucfirst($mapped);
+        $lowerMethodToken = $mapped; // used for XML config inclusion conditions
         // Create the action instance (descriptor holds metadata only).
         $action = $request->getAttribute('agavi.preinstantiated_action');
         /* 
