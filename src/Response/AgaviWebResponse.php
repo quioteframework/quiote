@@ -295,6 +295,7 @@ class AgaviWebResponse extends AgaviResponse
 			'cookie_secure'   => $parameters['cookie_secure'] ?? false,
 			'cookie_httponly' => $parameters['cookie_httponly'] ?? false,
 			'cookie_encode_callback' => $parameters['cookie_encode_callback'] ?? 'urlencode',
+			'cookie_samesite' => $parameters['cookie_samesite'] ?? null,
 		]);
 
 		$protocol = $request ? $request->getProtocol() : 'HTTP/1.1';
@@ -625,25 +626,167 @@ class AgaviWebResponse extends AgaviResponse
 	public function setHttpHeader($name, $value, $replace = true)
 	{
 		$name = $this->normalizeHttpHeaderName($name);
+		$newValues = is_array($value) ? array_values($value) : [$value];
 		if(!isset($this->httpHeaders[$name]) || $replace) {
-			$this->httpHeaders[$name] = [];
-		}
-		if(is_array($value)) {
-			$this->httpHeaders[$name] = array_merge($this->httpHeaders[$name], $value);
+			$this->httpHeaders[$name] = $newValues;
 		} else {
-			$this->httpHeaders[$name][] = $value;
+			foreach($newValues as $nv) {
+				$this->httpHeaders[$name][] = $nv;
+			}
 		}
 		if($this->psrResponse !== null) {
 			try {
 				if($replace) {
 					$this->psrResponse = $this->psrResponse->withHeader($name, $this->httpHeaders[$name]);
 				} else {
-					foreach($this->httpHeaders[$name] as $v) {
+					foreach($newValues as $v) {
 						$this->psrResponse = $this->psrResponse->withAddedHeader($name, $v);
 					}
 				}
 			} catch(\Throwable) {}
 		}
+	}
+
+	public function addHttpHeader($name, $value)
+	{
+		$this->setHttpHeader($name, $value, false);
+	}
+
+	/**
+	 * @return array{
+	 *   value: string,
+	 *   expires: ?int,
+	 *   max_age: ?int,
+	 *   path: string,
+	 *   domain: ?string,
+	 *   secure: bool,
+	 *   httponly: bool,
+	 *   samesite: ?string
+	 * }|null
+	 */
+	private function normalizeCookieForSend(string $name, array $cookie): ?array
+	{
+		$now = time();
+		$value = $cookie['value'];
+		$encodeCallback = $cookie['encode_callback'];
+		$shouldDelete = ($value === false || $value === null || $value === '');
+		if(!$shouldDelete && $encodeCallback) {
+			try {
+				$value = call_user_func($encodeCallback, $value);
+			} catch(\Throwable) {
+				// Fall back to raw value on encoding failure
+			}
+		}
+		if($shouldDelete) {
+			$value = '';
+			$expires = $now - 86400;
+			$maxAge = 0;
+		} else {
+			$expires = null;
+			$lifetime = $cookie['lifetime'];
+			if(is_string($lifetime) && $lifetime !== '') {
+				$parsed = strtotime($lifetime);
+				if($parsed !== false) {
+					$expires = $parsed;
+				}
+			} elseif(is_numeric($lifetime)) {
+				$lifetime = (int)$lifetime;
+				if($lifetime > 0) {
+					$expires = $now + $lifetime;
+				}
+			}
+			$maxAge = $expires !== null ? max(0, $expires - $now) : null;
+		}
+		$path = $cookie['path'];
+		if($path === null) {
+			$path = '/';
+			try {
+				$routing = $this->context?->getRouting();
+				if($routing && method_exists($routing, 'getBasePath')) {
+					$base = (string)$routing->getBasePath();
+					if($base !== '') {
+						$path = $base;
+					}
+				}
+			} catch(\Throwable) {
+				// ignore routing lookup failures
+			}
+		}
+		if($path === '') {
+			$path = '/';
+		}
+		$domain = $cookie['domain'] ?? null;
+		$secure = !empty($cookie['secure']);
+		$httponly = !empty($cookie['httponly']);
+		$samesite = $cookie['samesite'] ?? null;
+		if(is_string($samesite) && $samesite !== '') {
+			$samesite = ucfirst(strtolower($samesite));
+		} else {
+			$samesite = null;
+		}
+		return [
+			'value' => (string)$value,
+			'expires' => $expires,
+			'max_age' => $maxAge,
+			'path' => $path,
+			'domain' => $domain !== '' ? $domain : null,
+			'secure' => $secure,
+			'httponly' => $httponly,
+			'samesite' => $samesite,
+		];
+	}
+
+	private function buildSetCookieHeader(string $name, array $normalized): string
+	{
+		$parts = [];
+		$parts[] = $name . '=' . $normalized['value'];
+		if($normalized['expires'] !== null) {
+			$parts[] = 'Expires=' . gmdate('D, d-M-Y H:i:s T', $normalized['expires']);
+			$maxAge = $normalized['max_age'];
+			if($maxAge !== null) {
+				$parts[] = 'Max-Age=' . $maxAge;
+			}
+		} elseif($normalized['max_age'] === 0) {
+			$parts[] = 'Max-Age=0';
+		}
+		if($normalized['path'] !== '') {
+			$parts[] = 'Path=' . $normalized['path'];
+		}
+		if($normalized['domain']) {
+			$parts[] = 'Domain=' . $normalized['domain'];
+		}
+		if($normalized['secure']) {
+			$parts[] = 'Secure';
+		}
+		if($normalized['httponly']) {
+			$parts[] = 'HttpOnly';
+		}
+		if($normalized['samesite']) {
+			$parts[] = 'SameSite=' . $normalized['samesite'];
+		}
+		return implode('; ', $parts);
+	}
+
+	private function isCookieDebugEnabled(): bool
+	{
+		static $enabled = null;
+		if($enabled === null) {
+			$enabled = (getenv('AGAVI_DEBUG_RESPONSE') !== false) || (getenv('AGAVI_DEBUG_COOKIE') !== false);
+		}
+		return $enabled;
+	}
+
+	private function logCookieDebug(string $stage, array $context = []): void
+	{
+		if(!$this->isCookieDebugEnabled()) {
+			return;
+		}
+		try {
+			$payload = json_encode($context, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+		} catch(\Throwable) {
+			$payload = '[unserializable context]';
+		}
+		error_log('[AgaviWebResponse][' . $stage . '] ' . $payload);
 	}
 
 	/**
@@ -670,7 +813,7 @@ class AgaviWebResponse extends AgaviResponse
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function setCookie($name, $value, $lifetime = null, $path = null, $domain = null, $secure = null, $httponly = null, $encodeCallback = null)
+	public function setCookie($name, $value, $lifetime = null, $path = null, $domain = null, $secure = null, $httponly = null, $encodeCallback = null, $samesite = null)
 	{
 		$lifetime ??= $this->getParameter('cookie_lifetime');
 		$path ??= $this->getParameter('cookie_path');
@@ -678,6 +821,7 @@ class AgaviWebResponse extends AgaviResponse
 		$secure         = (bool) ($secure ?? $this->getParameter('cookie_secure'));
 		$httponly       = (bool) ($httponly ?? $this->getParameter('cookie_httponly'));
 		$encodeCallback ??= $this->getParameter('cookie_encode_callback');
+		$samesite ??= $this->getParameter('cookie_samesite');
 		
 		if($encodeCallback !== false && !is_callable($encodeCallback)) {
 			throw new AgaviException(sprintf('setCookie() $encodeCallback argument is not callable: %s', $encodeCallback));
@@ -690,13 +834,25 @@ class AgaviWebResponse extends AgaviResponse
 			'domain' => $domain,
 			'secure' => $secure,
 			'httponly' => $httponly,
-			'encode_callback' => $encodeCallback
+			'encode_callback' => $encodeCallback,
+			'samesite' => $samesite
 		];
+		$this->logCookieDebug('setCookie', [
+			'name' => $name,
+			'raw' => $this->cookies[$name],
+		]);
 		if($this->psrResponse !== null) {
 			try {
-				$val = $value === false || $value === null ? '' : ($encodeCallback ? call_user_func($encodeCallback, $value) : $value);
-				$header = $name . '=' . $val;
-				$this->psrResponse = $this->psrResponse->withAddedHeader('Set-Cookie', $header);
+				$normalized = $this->normalizeCookieForSend($name, $this->cookies[$name]);
+				if ($normalized !== null) {
+					$header = $this->buildSetCookieHeader($name, $normalized);
+					$this->psrResponse = $this->psrResponse->withAddedHeader('Set-Cookie', $header);
+					$this->logCookieDebug('psrResponseSetCookie', [
+						'name' => $name,
+						'normalized' => $normalized,
+						'header' => $header,
+					]);
+				}
 			} catch(\Throwable) {}
 		}
 	}
@@ -871,33 +1027,22 @@ class AgaviWebResponse extends AgaviResponse
 			$this->setHttpHeader('X-Powered-By', $xpbh);
 		}
 		
-		$routing = $this->context->getRouting();
-		$basePath = method_exists($routing,'getBasePath') ? $routing->getBasePath() : '/';
-		
 		// send cookies
 		foreach($this->cookies as $name => $values) {
-			if(is_string($values['lifetime'])) {
-				// a string, so we pass it to strtotime()
-				$expire = strtotime($values['lifetime']);
-			} else {
-				// do we want to set expiration time or not?
-				$expire = ($values['lifetime'] != 0) ? time() + $values['lifetime'] : 0;
+			$normalized = $this->normalizeCookieForSend($name, $values);
+			if($normalized === null) {
+				$this->logCookieDebug('sendCookieSkipped', [
+					'name' => $name,
+				]);
+				continue;
 			}
-
-			if($values['value'] === false || $values['value'] === null || $values['value'] === '') {
-				$expire = time() - 3600 * 24;
-			}
-
-			if($values['encode_callback']) {
-				if ($values['value'] !== null)
-					$values['value'] = call_user_func($values['encode_callback'], $values['value']);
-			}
-			
-			if($values['path'] === null) {
-				$values['path'] = $basePath;
-			}
-			if ($values['value'] !== null)
-				setrawcookie($name, $values['value'], ['expires' => $expire, 'path' => $values['path'], 'domain' => $values['domain'], 'secure' => $values['secure'], 'httponly' => $values['httponly']]);
+			$headerValue = $this->buildSetCookieHeader($name, $normalized);
+			header('Set-Cookie: ' . $headerValue, false);
+			$this->logCookieDebug('sendCookieHeader', [
+				'name' => $name,
+				'normalized' => $normalized,
+				'header' => $headerValue,
+			]);
 		}
 		
 		// send headers

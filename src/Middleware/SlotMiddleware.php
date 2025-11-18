@@ -1,4 +1,5 @@
 <?php
+
 namespace Agavi\Middleware;
 
 use Psr\Http\Server\MiddlewareInterface;
@@ -20,22 +21,32 @@ class SlotMiddleware implements MiddlewareInterface
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        if(!$request->getAttribute(self::ATTR)) {
+        if (!$request->getAttribute(self::ATTR)) {
             $request = $request->withAttribute(self::ATTR, new SlotStack());
             // Log request identity and presence of SlotStack for debugging in FrankenPHP
-            try {
-                $id = spl_object_id($request);
-                $has = $request->getAttribute(self::ATTR) ? '1' : '0';
-                AgaviDebugLogger::debug(sprintf('[SlotMW] SlotStack set on request id=%d has=%s', $id, $has), $this->context);
-            } catch (\Throwable $_e) {
-                AgaviDebugLogger::debug('[SlotMW] SlotStack set (unable to introspect request id)', $this->context);
+            if (getenv('AGAVI_DEBUG_SLOT_DISPATCH')) {
+                try {
+                    $id = spl_object_id($request);
+                    $has = $request->getAttribute(self::ATTR) ? '1' : '0';
+                    AgaviDebugLogger::debug(sprintf('[Slot SlotStack set on request id=%d has=%s', $id, $has), $this->context);
+                } catch (\Throwable $_e) {
+                    AgaviDebugLogger::debug('[SlotMW] SlotStack set (unable to introspect request id)', $this->context);
+                }
             }
             // Inform context about the request instance change so it stays in sync
-            if($this->context !== null) {
-                try { $this->context->setCurrentPsrRequest($request); } catch(\Throwable) {}
+            if ($this->context !== null) {
+                try {
+                    $this->context->setCurrentPsrRequest($request);
+                } catch (\Throwable) {
+                }
             }
         } else {
-            try { AgaviDebugLogger::debug(sprintf('[SlotMW] SlotStack already present on request id=%d', spl_object_id($request)), $this->context); } catch(\Throwable) {}
+            if (getenv('AGAVI_DEBUG_SLOT_DISPATCH')) {
+                try {
+                    AgaviDebugLogger::debug(sprintf('[SlotMW] SlotStack already present on request id=%d', spl_object_id($request)), $this->context);
+                } catch (\Throwable) {
+                }
+            }
         }
         return $handler->handle($request);
     }

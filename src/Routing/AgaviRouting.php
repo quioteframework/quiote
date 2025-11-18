@@ -6,6 +6,7 @@ namespace Agavi\Routing;
 
 use Agavi\AgaviContext;
 use Agavi\Exception\AgaviException;
+use Agavi\Util\AgaviToolkit;
 use Symfony\Component\Routing\Matcher\UrlMatcher;
 use Symfony\Component\Routing\RequestContext;
 use Symfony\Component\Routing\RouteCollection;
@@ -259,17 +260,46 @@ abstract class AgaviRouting
 			} catch (\Throwable $e) { /* fall back to server vars */
 			}
 		}
-		$scheme = $_SERVER['HTTP_X_FORWARDED_PROTO']
-			?? $_SERVER['REQUEST_SCHEME']
-			?? ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== '' && strtolower((string)$_SERVER['HTTPS']) !== 'off') ? 'https' : 'http');
-		// Support X-Forwarded-Host (may contain multiple, use first) before Host
-		$xfh = $_SERVER['HTTP_X_FORWARDED_HOST'] ?? null;
-		if ($xfh) {
-			$xfh = explode(',', $xfh)[0];
-			$xfh = trim($xfh);
+		$server = $_SERVER;
+		$scheme = $this->normaliseScheme($this->firstHeaderToken($this->resolveForwardedServerValue($server, ['HTTP_X_FORWARDED_PROTO'], 'proto')));
+		[$host, $port, $explicitPort] = $this->parseHostAndPortHeader($this->resolveForwardedServerValue($server, ['HTTP_X_ORIGINAL_HOST', 'HTTP_X_FORWARDED_HOST'], 'host'));
+		$forwardedPortRaw = $this->resolveForwardedServerValue($server, ['HTTP_X_FORWARDED_PORT'], 'port');
+		if ($port === null && $forwardedPortRaw !== null) {
+			$token = $this->firstHeaderToken($forwardedPortRaw);
+			if ($token !== null && $token !== '' && is_numeric($token)) {
+				$port = (int) $token;
+				$explicitPort = true;
+			}
 		}
-		$host = $xfh ?: ($_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost');
-		return rtrim($scheme . '://' . $host, '/');
+
+		if ($scheme === null || $scheme === '') {
+			$scheme = $this->detectSchemeFromServer($server);
+		}
+
+		if ($host === null || $host === '') {
+			[$fallbackHost, $fallbackPort, $fallbackExplicit] = $this->parseHostAndPortHeader($server['HTTP_HOST'] ?? null);
+			if ($fallbackHost !== null && $fallbackHost !== '') {
+				$host = $fallbackHost;
+				if ($port === null && $fallbackPort !== null) {
+					$port = $fallbackPort;
+					$explicitPort = $explicitPort || $fallbackExplicit;
+				}
+			} elseif (!empty($server['SERVER_NAME'])) {
+				$host = (string) $server['SERVER_NAME'];
+			} elseif (!empty($server['SERVER_ADDR'])) {
+				$host = (string) $server['SERVER_ADDR'];
+			} else {
+				$host = 'localhost';
+			}
+		}
+
+		if ($port === null && !empty($server['SERVER_PORT']) && is_numeric((string) $server['SERVER_PORT'])) {
+			$port = (int) $server['SERVER_PORT'];
+		}
+
+		$scheme = $scheme ?: 'http';
+		$authority = $this->buildAuthority($host, $port, $scheme, $explicitPort);
+		return rtrim($scheme . '://' . $authority, '/');
 	}
     public function getRequestContext(): RequestContext
     {
@@ -331,6 +361,132 @@ abstract class AgaviRouting
 		}
 		if ($remove) { $new=[]; foreach($segments as $k=>$s){ if(!isset($remove[$k])) $new[]=$s; } $segments=$new; $genPath='/' . implode('/', array_filter($segments, fn($s)=>$s!=='')); if($genPath==='') $genPath='/'; }
 		return $genPath;
+	}
+
+	/**
+	 * @param array<string,mixed> $server
+	 * @param string[] $headerKeys
+	 */
+	private function resolveForwardedServerValue(array $server, array $headerKeys, string $forwardedParam): ?string
+	{
+		foreach ($headerKeys as $key) {
+			if (!empty($server[$key])) {
+				return (string) $server[$key];
+			}
+		}
+		if (empty($server['HTTP_FORWARDED'])) {
+			return null;
+		}
+		return $this->extractFromForwardedHeader((string) $server['HTTP_FORWARDED'], $forwardedParam);
+	}
+
+	private function extractFromForwardedHeader(string $header, string $field): ?string
+	{
+		$entries = explode(',', $header);
+		foreach ($entries as $entry) {
+			$pairs = preg_split('/\s*;\s*/', trim($entry)) ?: [];
+			foreach ($pairs as $pair) {
+				if ($pair === '') {
+					continue;
+				}
+				$kv = explode('=', $pair, 2);
+				if (count($kv) !== 2) {
+					continue;
+				}
+				if (strcasecmp(trim($kv[0]), $field) === 0) {
+					return trim($kv[1], "\" \t");
+				}
+			}
+		}
+		return null;
+	}
+
+	private function firstHeaderToken(?string $value): ?string
+	{
+		if ($value === null) {
+			return null;
+		}
+		$parts = explode(',', $value);
+		foreach ($parts as $part) {
+			$trimmed = trim($part);
+			if ($trimmed !== '') {
+				return $trimmed;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * @return array{0: ?string, 1: ?int, 2: bool}
+	 */
+	private function parseHostAndPortHeader(?string $raw): array
+	{
+		$token = $this->firstHeaderToken($raw);
+		if ($token === null || $token === '') {
+			return [null, null, false];
+		}
+		$authority = '//' . ltrim($token, '/');
+		$host = parse_url($authority, PHP_URL_HOST);
+		$port = parse_url($authority, PHP_URL_PORT);
+		if (!is_string($host) || $host === '') {
+			return [null, null, false];
+		}
+		$explicit = $port !== null && $port !== false;
+		return [$host, $explicit ? (int) $port : null, $explicit];
+	}
+
+	private function normaliseScheme(?string $scheme): ?string
+	{
+		if ($scheme === null || $scheme === '') {
+			return null;
+		}
+		return strtolower($scheme);
+	}
+
+	/**
+	 * @param array<string,mixed> $server
+	 */
+	private function detectSchemeFromServer(array $server): string
+	{
+		if (!empty($server['REQUEST_SCHEME'])) {
+			return strtolower((string) $server['REQUEST_SCHEME']);
+		}
+		$https = $server['HTTPS'] ?? null;
+		if (is_string($https)) {
+			$flag = strtolower($https);
+			if ($flag === 'on' || $flag === '1' || $flag === 'https') {
+				return 'https';
+			}
+			if ($flag === 'off' || $flag === '0') {
+				return 'http';
+			}
+		} elseif ($https === true) {
+			return 'https';
+		}
+		if (!empty($server['SERVER_PORT']) && (int) $server['SERVER_PORT'] === 443) {
+			return 'https';
+		}
+		return 'http';
+	}
+
+	private function buildAuthority(string $host, ?int $port, string $scheme, bool $forcePort): string
+	{
+		$authorityHost = $this->formatAuthorityHost($host);
+		if ($port === null) {
+			return $authorityHost;
+		}
+		if ($forcePort || AgaviToolkit::isPortNecessary($scheme, $port)) {
+			return $authorityHost . ':' . $port;
+		}
+		return $authorityHost;
+	}
+
+	private function formatAuthorityHost(string $host): string
+	{
+		if (str_contains($host, ':') && !str_starts_with($host, '[')) {
+			return '[' . $host . ']';
+		}
+		return $host;
 	}
 
 	/* ================= Legacy lifecycle API (compatibility layer) ================= */

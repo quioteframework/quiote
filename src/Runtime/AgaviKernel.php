@@ -149,8 +149,192 @@ class AgaviKernel
             $creator = new \Nyholm\Psr7Server\ServerRequestCreator($psr17, $psr17, $psr17, $psr17);
         }
         $base = $creator->fromGlobals(); // Body parsing/JSON handled later by middleware.
+        $base = $this->applyReverseProxyAdjustments($base);
         $agaviReq = new AgaviWebRequest();
         $agaviReq->attachPsrRequest($base);
         return $agaviReq;
+    }
+
+    private function applyReverseProxyAdjustments(\Psr\Http\Message\ServerRequestInterface $request): \Psr\Http\Message\ServerRequestInterface
+    {
+        $server = $request->getServerParams();
+        $forwardedHostRaw = $this->resolveForwardedValue($server, ['HTTP_X_ORIGINAL_HOST', 'HTTP_X_FORWARDED_HOST'], 'host');
+        $forwardedProtoRaw = $this->resolveForwardedValue($server, ['HTTP_X_FORWARDED_PROTO'], 'proto');
+        $forwardedPortRaw = $this->resolveForwardedValue($server, ['HTTP_X_FORWARDED_PORT'], 'port');
+
+        if ($forwardedHostRaw === null && $forwardedProtoRaw === null && $forwardedPortRaw === null) {
+            return $request;
+        }
+
+        [$hostOverride, $portFromHost, $hostPortExplicit] = $this->parseHostAndPort($forwardedHostRaw);
+        $schemeOverride = $this->normaliseScheme($this->firstHeaderToken($forwardedProtoRaw));
+        $portOverride = $portFromHost;
+        $portExplicit = $hostPortExplicit;
+
+        if ($portOverride === null && $forwardedPortRaw !== null) {
+            $token = $this->firstHeaderToken($forwardedPortRaw);
+            if ($token !== null && $token !== '' && is_numeric($token)) {
+                $portOverride = (int) $token;
+                $portExplicit = true;
+            }
+        }
+
+        $uri = $request->getUri();
+        $modified = false;
+
+        if ($schemeOverride !== null && $schemeOverride !== '' && $schemeOverride !== $uri->getScheme()) {
+            $uri = $uri->withScheme($schemeOverride);
+            $modified = true;
+        } else {
+            $schemeOverride = $uri->getScheme();
+        }
+
+        if ($hostOverride !== null && $hostOverride !== '' && $hostOverride !== $uri->getHost()) {
+            $uri = $uri->withHost($hostOverride);
+            $modified = true;
+        } else {
+            $hostOverride = $uri->getHost();
+        }
+
+        if ($portOverride !== null && $portOverride !== $uri->getPort()) {
+            $uri = $uri->withPort($portOverride);
+            $modified = true;
+        } else {
+            $portOverride = $uri->getPort();
+        }
+
+        if ($modified) {
+            $request = $request->withUri($uri, false);
+            $this->updateServerGlobalsForProxy($uri, $portExplicit);
+        }
+
+        return $request;
+    }
+
+    /**
+     * Prefer explicit reverse-proxy headers for scheme/host/port while still respecting RFC 7239 Forwarded.
+     * @param array<string,mixed> $server
+     * @param string[] $headerKeys
+     */
+    private function resolveForwardedValue(array $server, array $headerKeys, string $forwardedParam): ?string
+    {
+        foreach ($headerKeys as $key) {
+            if (!empty($server[$key])) {
+                return (string) $server[$key];
+            }
+        }
+
+        if (empty($server['HTTP_FORWARDED'])) {
+            return null;
+        }
+
+        return $this->extractFromForwardedHeader((string) $server['HTTP_FORWARDED'], $forwardedParam);
+    }
+
+    private function extractFromForwardedHeader(string $header, string $field): ?string
+    {
+        $entries = explode(',', $header);
+        foreach ($entries as $entry) {
+            $pairs = preg_split('/\s*;\s*/', trim($entry)) ?: [];
+            foreach ($pairs as $pair) {
+                if ($pair === '') {
+                    continue;
+                }
+                $kv = explode('=', $pair, 2);
+                if (count($kv) !== 2) {
+                    continue;
+                }
+                if (strcasecmp(trim($kv[0]), $field) === 0) {
+                    return trim($kv[1], "\" \t");
+                }
+            }
+        }
+        return null;
+    }
+
+    private function firstHeaderToken(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+        $parts = explode(',', $value);
+        foreach ($parts as $part) {
+            $trimmed = trim($part);
+            if ($trimmed !== '') {
+                return $trimmed;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * @return array{0: ?string, 1: ?int, 2: bool}
+     */
+    private function parseHostAndPort(?string $raw): array
+    {
+        $token = $this->firstHeaderToken($raw);
+        if ($token === null || $token === '') {
+            return [null, null, false];
+        }
+        $authority = '//' . ltrim($token, '/');
+        $host = parse_url($authority, PHP_URL_HOST);
+        $port = parse_url($authority, PHP_URL_PORT);
+        if (!is_string($host) || $host === '') {
+            return [null, null, false];
+        }
+        $explicit = $port !== null && $port !== false;
+        return [$host, $explicit ? (int) $port : null, $explicit];
+    }
+
+    private function normaliseScheme(?string $scheme): ?string
+    {
+        if ($scheme === null || $scheme === '') {
+            return null;
+        }
+        return strtolower($scheme);
+    }
+
+    private function updateServerGlobalsForProxy(\Psr\Http\Message\UriInterface $uri, bool $forcePort): void
+    {
+        $host = $uri->getHost();
+        if ($host === '') {
+            return;
+        }
+
+        $port = $uri->getPort();
+        $scheme = $uri->getScheme();
+        $authorityHost = $this->formatAuthorityHost($host);
+        if ($port !== null && ($forcePort || $this->isPortNonDefault($scheme, $port))) {
+            $authorityHost .= ':' . $port;
+        }
+
+        $_SERVER['HTTP_HOST'] = $authorityHost;
+        $_SERVER['SERVER_NAME'] = $host;
+        if ($port !== null) {
+            $_SERVER['SERVER_PORT'] = (string) $port;
+        }
+        if ($scheme !== '') {
+            $_SERVER['REQUEST_SCHEME'] = $scheme;
+        }
+    }
+
+    private function formatAuthorityHost(string $host): string
+    {
+        if (str_contains($host, ':') && !str_starts_with($host, '[')) {
+            return '[' . $host . ']';
+        }
+        return $host;
+    }
+
+    private function isPortNonDefault(?string $scheme, int $port): bool
+    {
+        $scheme = strtolower((string) $scheme);
+        if ($scheme === 'http' && $port === 80) {
+            return false;
+        }
+        if ($scheme === 'https' && $port === 443) {
+            return false;
+        }
+        return true;
     }
 }

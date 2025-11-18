@@ -965,7 +965,9 @@ class AgaviContext implements \Stringable, ResetInterface
 		// Lazy initialization for worker mode - recreate request object if null after reset
 		if ($this->request === null) {
 			$logger = $this->getLoggerManager()?->getLogger();
-			$logger?->debug('AgaviContext::getRequest() - Request object is null, recreating...');
+			if (getenv('AGAVI_DEBUG_REQUEST')) {
+				AgaviDebugLogger::debug('[AgaviContext] getRequest() Request object is null, recreating...', $this);
+			}			
 
 			if ($this->requestFactoryInfo !== null) {
 				// Recreate the request object using captured factory info
@@ -992,15 +994,23 @@ class AgaviContext implements \Stringable, ResetInterface
 				if ($this->controller && method_exists($this->controller, 'startup')) {
 					try {
 						$this->controller->startup();
-						$logger?->debug('AgaviContext::getRequest() - Controller startup re-run after request recreation');
+						if (getenv('AGAVI_DEBUG_REQUEST')) {
+							AgaviDebugLogger::debug('[AgaviContext] getRequest() Controller startup re-run after request recreation', $this);
+						}
 					} catch (\Throwable $e) {
-						$logger?->error('AgaviContext::getRequest() - Controller startup failed: ' . $e->getMessage());
+						if (getenv('AGAVI_DEBUG_REQUEST')) {
+							AgaviDebugLogger::debug('[AgaviContext] getRequest() Controller startup failed after request recreation: ' . $e->getMessage(), $this);
+						}
 					}
 				}
-
-				$logger?->debug('AgaviContext::getRequest() - Request object recreated successfully using factory info: ' . $className);
+				if (getenv('AGAVI_DEBUG_REQUEST')) {
+					AgaviDebugLogger::debug('[AgaviContext] getRequest() Request object recreated successfully using factory info: ' . $className, $this);
+				}
+				
 			} else {
-				$logger?->error('AgaviContext::getRequest() - No request factory info available, cannot recreate request');
+				if (getenv('AGAVI_DEBUG_REQUEST')) {
+					AgaviDebugLogger::debug('[AgaviContext] getRequest() No request factory info available, cannot recreate request', $this);
+				}			
 				throw new AgaviException("Request object is null and no factory info available for recreation in worker mode");
 			}
 		}

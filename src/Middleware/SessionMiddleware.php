@@ -113,7 +113,13 @@ class SessionMiddleware implements MiddlewareInterface
                                 if (!empty($values['domain'])) { $cookieStr .= '; Domain=' . $values['domain']; }
                                 if (!empty($values['secure'])) { $cookieStr .= '; Secure'; }
                                 if (!empty($values['httponly'])) { $cookieStr .= '; HttpOnly'; }
-                                $response = $response->withAddedHeader('Set-Cookie', $cookieStr);
+                                if (!empty($values['samesite'])) {
+                                    $cookieStr .= '; SameSite=' . ucfirst(strtolower((string)$values['samesite']));
+                                }
+                                $existing = method_exists($response, 'getHeader') ? $response->getHeader('Set-Cookie') : [];
+                                if (!in_array($cookieStr, $existing, true)) {
+                                    $response = $response->withAddedHeader('Set-Cookie', $cookieStr);
+                                }
                             }
                         } catch (\Throwable) {
                             // ignore per-cookie errors

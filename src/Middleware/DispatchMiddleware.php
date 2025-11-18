@@ -93,14 +93,37 @@ class DispatchMiddleware implements MiddlewareInterface
 
     private function buildPsrResponse(string $content, string $outputType, bool $cacheHit, bool $containerUsed): ResponseInterface
     {
+        
         $factory = new Psr17Factory();
         $status = 200;
 
         // TODO: propagate status from global response once unified interface available
         $resp = $factory->createResponse($status)->withBody($factory->createStream($content));
-        /*if (isset(self::$contentTypes[$outputType])) {
-            $resp = $resp->withHeader('Content-Type', self::$contentTypes[$outputType]);
-        }*/
+        
+        // Set Content-Type and other headers from the AgaviOutputType configuration
+        try {
+            $ot = $this->controller->getOutputType($outputType);
+            if ($ot) {
+                $httpHeaders = $ot->getParameter('http_headers', []);
+                if (is_array($httpHeaders)) {
+                    foreach ($httpHeaders as $name => $value) {
+                        $resp = $resp->withHeader($name, $value);
+                    }
+                }
+                if (getenv('AGAVI_DEBUG_RESPONSE') || getenv('AGAVI_DEBUG_DISPATCH')) {
+                    AgaviDebugLogger::debug('[DispatchMiddleware.buildPsrResponse] set headers from output type ' . $outputType . ': ' . json_encode($httpHeaders), $this->controller->getContext());
+                }
+            } else {
+                if (getenv('AGAVI_DEBUG_RESPONSE') || getenv('AGAVI_DEBUG_DISPATCH')) {
+                    AgaviDebugLogger::debug('[DispatchMiddleware.buildPsrResponse] getOutputType(' . $outputType . ') returned null', $this->controller->getContext());
+                }             
+            }
+        } catch (\Throwable $e) {
+            if (getenv('AGAVI_DEBUG_RESPONSE') || getenv('AGAVI_DEBUG_DISPATCH')) {
+                AgaviDebugLogger::debug('[DispatchMiddleware.buildPsrResponse] exception getting output type: ' . $e->getMessage(), $this->controller->getContext());
+            }            
+        }
+        
         $disableHeaders = (bool)AgaviConfig::get('core.disable-framework-headers', false);
         if (!$disableHeaders) {
             $cacheHitHeader = AgaviConfig::get('core.cache-hit-header', 'X-Agavi-Cache-Hit');
@@ -149,7 +172,13 @@ class DispatchMiddleware implements MiddlewareInterface
                             if (!empty($values['httponly'])) {
                                 $cookieStr .= '; HttpOnly';
                             }
-                            $resp = $resp->withAddedHeader('Set-Cookie', $cookieStr);
+                            if (!empty($values['samesite'])) {
+                                $cookieStr .= '; SameSite=' . ucfirst(strtolower((string)$values['samesite']));
+                            }
+                            $existing = method_exists($resp, 'getHeader') ? $resp->getHeader('Set-Cookie') : [];
+                            if (!in_array($cookieStr, $existing, true)) {
+                                $resp = $resp->withAddedHeader('Set-Cookie', $cookieStr);
+                            }
                         }
                     } catch (\Throwable) {
                         // ignore cookie formatting errors per-request
