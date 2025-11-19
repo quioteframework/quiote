@@ -472,17 +472,6 @@ abstract class AgaviFragmentTestCase extends AgaviPhpUnitTestCase implements Aga
 		$this->container->setAttributesByRef($attributes);
 	}
 
-	/**
-	 * Clear all singleton model instances from the context to prevent
-	 * class redeclaration errors in subsequent tests.
-	 * 
-	 * This method uses reflection to clear the singletonModelInstances array
-	 * in the AgaviContext, which prevents "Cannot redeclare class" errors
-	 * when models are loaded multiple times across different test methods.
-	 *
-	 * @author     Markus Winkler <markus@jakamo.com>
-	 * @since      1.1.0
-	 */
 	protected function clearSingletonModels()
 	{
 		$context = $this->getContext();

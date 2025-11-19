@@ -143,9 +143,6 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 			} catch (\Throwable) {
 			}
 		}
-
-
-		// Credential normalization now occurs in JakamoBaseAction::getCredentials().
 	}
 
 	/**

@@ -217,10 +217,6 @@ class AgaviUser extends AgaviAttributeHolder implements ResetInterface
 		}
 	}
 
-	/**
-	 * Control serialization: omit context (huge object graph) and derived caches.
-	 * JakamoRbacUser shutdown stores a serialized snapshot for fast cold restore.
-	 */
 	public function __sleep(): array
 	{
 		return ['attributes', 'storageNamespace', 'defaultNamespace', 'parameters'];

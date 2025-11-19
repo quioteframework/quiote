@@ -1033,19 +1033,6 @@ class AgaviContext implements \Stringable, ResetInterface
 			$logger = $this->getLoggerManager()?->getLogger();
 			$logger?->debug('AgaviContext::getRouting() - Routing object is null, recreating...');
 			// Recreate from factory info if available
-			if ($this->routingFactoryInfo === null) {
-				// Heuristic reconstruction (in case factory info wasn't captured due to legacy cache)
-				$candidate = null;
-				if (class_exists('Jakamo\\Routing\\JakamoRouting')) {
-					$candidate = 'Jakamo\\Routing\\JakamoRouting';
-				} elseif (class_exists('Agavi\\Routing\\AgaviRouting')) {
-					$candidate = 'Agavi\\Routing\\AgaviRouting';
-				}
-				if ($candidate) {
-					$this->routingFactoryInfo = ['class' => $candidate, 'parameters' => []];
-					$logger?->notice('AgaviContext::getRouting() synthesized missing routingFactoryInfo using class ' . $candidate);
-				}
-			}
 			if ($this->routingFactoryInfo !== null) {
 				$className = $this->routingFactoryInfo['class'];
 				$this->routing = new $className();
@@ -1091,23 +1078,6 @@ class AgaviContext implements \Stringable, ResetInterface
 				}
 			}
 
-			if ($this->storageFactoryInfo === null) {
-				// Heuristic reconstruction (class name detection) if capture missing
-				$candidate = null;
-				if (class_exists('Jakamo\\Lib\\Storage\\JakamoAttributeStorage')) {
-					$candidate = 'Jakamo\\Lib\\Storage\\JakamoAttributeStorage';
-				} elseif (class_exists('Jakamo\\Lib\\Storage\\PDO\\JakamoPdoSessionStorage')) {
-					$candidate = 'Jakamo\\Lib\\Storage\\PDO\\JakamoPdoSessionStorage';
-				} elseif (class_exists('Jakamo\\Lib\\Storage\\JakamoSessionStorage')) {
-					$candidate = 'Jakamo\\Lib\\Storage\\JakamoSessionStorage';
-				} elseif (class_exists('Agavi\\Storage\\AgaviSessionStorage')) {
-					$candidate = 'Agavi\\Storage\\AgaviSessionStorage';
-				}
-				if ($candidate) {
-					$this->storageFactoryInfo = ['class' => $candidate, 'parameters' => []];
-					$logger?->notice('AgaviContext::getStorage() synthesized missing storageFactoryInfo using class ' . $candidate);
-				}
-			}
 			if ($this->storageFactoryInfo !== null) {
 				// Recreate the storage object using captured factory info
 				$className = $this->storageFactoryInfo['class'];

@@ -240,8 +240,7 @@ abstract class AgaviView implements ResetInterface
 		}
 		// Try to resolve module/template names from the init context. Some
 		// container-less paths don't expose these, so fall back to view-local
-		// attributes (JakamoBaseView populates them in setupHtml) when
-		// available.
+		// attributes when available.
 		$moduleParam = null;
 		$templateParam = null;
 		if ($this->initContext instanceof ActionInitContext) {
@@ -262,7 +261,7 @@ abstract class AgaviView implements ResetInterface
 			} elseif (method_exists($this->initContext, 'getActionModuleName')) {
 				$moduleParam = $this->initContext->getActionModuleName();
 			}
-			// If still not resolved, fall back to view attributes (JakamoBaseView stores them there)
+			// If still not resolved, fall back to view attributes
 			if (($moduleParam === null || $templateParam === null) && method_exists($this, 'getAttribute')) {
 				$am = $this->getAttribute('moduleName', null);
 				$aa = $this->getAttribute('actionName', null);
@@ -519,7 +518,7 @@ abstract class AgaviView implements ResetInterface
 		$currentModule = $this->getResolvedViewModule();
 		$currentAction = $this->getResolvedViewName();
 		// Some codepaths (legacy/container-less) populate the module/action as
-		// attributes on the view (see JakamoBaseView::setupHtml). Try those as
+		// attributes on the view. Try those as
 		// fallback so the short-circuit works even when initContext doesn't
 		// expose resolved names yet.
 		if (($currentModule === null || $currentAction === null) && method_exists($this, 'getAttribute')) {

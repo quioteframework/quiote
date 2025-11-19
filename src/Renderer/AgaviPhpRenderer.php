@@ -111,7 +111,7 @@ class AgaviPhpRenderer extends AgaviRenderer implements AgaviIReusableRenderer, 
 		extract($this->moreAssigns, EXTR_REFS | EXTR_PREFIX_INVALID, '_');
 		// Provide backwards-compatible template variables: ensure moduleName
 		// and actionName are present in the attributes array. These keys are
-		// expected by many Jakamo templates (available as $t['moduleName'] etc).
+		// expected by many templates (available as $t['moduleName'] etc).
 		$layerParams = $this->layer ? $this->layer->getParameters() : [];
 		if (!isset($this->attributes['moduleName']) && isset($layerParams['module'])) {
 			$this->attributes['moduleName'] = $layerParams['module'];
