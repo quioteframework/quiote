@@ -142,6 +142,10 @@ class AgaviKernel
 
     private function buildRequestFromGlobals(): \Psr\Http\Message\ServerRequestInterface
     {
+        // Apply reverse proxy adjustments to $_SERVER BEFORE creating PSR-7 request
+        // so that the server params snapshot includes the corrected values
+        $this->preAdjustServerGlobalsForProxy($_SERVER);
+        
         // Build a spec-compliant ServerRequest via Nyholm factories, then wrap directly in AgaviWebRequest.
         static $creator = null;
         if ($creator === null) {
@@ -149,21 +153,23 @@ class AgaviKernel
             $creator = new \Nyholm\Psr7Server\ServerRequestCreator($psr17, $psr17, $psr17, $psr17);
         }
         $base = $creator->fromGlobals(); // Body parsing/JSON handled later by middleware.
-        $base = $this->applyReverseProxyAdjustments($base);
+        
         $agaviReq = new AgaviWebRequest();
         $agaviReq->attachPsrRequest($base);
         return $agaviReq;
     }
-
-    private function applyReverseProxyAdjustments(\Psr\Http\Message\ServerRequestInterface $request): \Psr\Http\Message\ServerRequestInterface
+    
+    /**
+     * Pre-adjust $_SERVER globals based on X-Forwarded-* headers before PSR-7 request creation
+     */
+    private function preAdjustServerGlobalsForProxy(array $server): void
     {
-        $server = $request->getServerParams();
         $forwardedHostRaw = $this->resolveForwardedValue($server, ['HTTP_X_ORIGINAL_HOST', 'HTTP_X_FORWARDED_HOST'], 'host');
         $forwardedProtoRaw = $this->resolveForwardedValue($server, ['HTTP_X_FORWARDED_PROTO'], 'proto');
         $forwardedPortRaw = $this->resolveForwardedValue($server, ['HTTP_X_FORWARDED_PORT'], 'port');
 
         if ($forwardedHostRaw === null && $forwardedProtoRaw === null && $forwardedPortRaw === null) {
-            return $request;
+            return;
         }
 
         [$hostOverride, $portFromHost, $hostPortExplicit] = $this->parseHostAndPort($forwardedHostRaw);
@@ -179,36 +185,27 @@ class AgaviKernel
             }
         }
 
-        $uri = $request->getUri();
-        $modified = false;
-
-        if ($schemeOverride !== null && $schemeOverride !== '' && $schemeOverride !== $uri->getScheme()) {
-            $uri = $uri->withScheme($schemeOverride);
-            $modified = true;
-        } else {
-            $schemeOverride = $uri->getScheme();
+        // Update $_SERVER globals directly
+        if ($schemeOverride !== null && $schemeOverride !== '') {
+            $_SERVER['REQUEST_SCHEME'] = $schemeOverride;
+            if ($schemeOverride === 'https') {
+                $_SERVER['HTTPS'] = 'on';
+            }
         }
 
-        if ($hostOverride !== null && $hostOverride !== '' && $hostOverride !== $uri->getHost()) {
-            $uri = $uri->withHost($hostOverride);
-            $modified = true;
-        } else {
-            $hostOverride = $uri->getHost();
+        if ($hostOverride !== null && $hostOverride !== '') {
+            $authorityHost = $this->formatAuthorityHost($hostOverride);
+            // Only include port in HTTP_HOST if it's non-default
+            if ($portOverride !== null && $this->isPortNonDefault($schemeOverride ?? 'http', $portOverride)) {
+                $authorityHost .= ':' . $portOverride;
+            }
+            $_SERVER['HTTP_HOST'] = $authorityHost;
+            $_SERVER['SERVER_NAME'] = $hostOverride;
         }
 
-        if ($portOverride !== null && $portOverride !== $uri->getPort()) {
-            $uri = $uri->withPort($portOverride);
-            $modified = true;
-        } else {
-            $portOverride = $uri->getPort();
+        if ($portOverride !== null) {
+            $_SERVER['SERVER_PORT'] = (string) $portOverride;
         }
-
-        if ($modified) {
-            $request = $request->withUri($uri, false);
-            $this->updateServerGlobalsForProxy($uri, $portExplicit);
-        }
-
-        return $request;
     }
 
     /**
@@ -292,30 +289,6 @@ class AgaviKernel
             return null;
         }
         return strtolower($scheme);
-    }
-
-    private function updateServerGlobalsForProxy(\Psr\Http\Message\UriInterface $uri, bool $forcePort): void
-    {
-        $host = $uri->getHost();
-        if ($host === '') {
-            return;
-        }
-
-        $port = $uri->getPort();
-        $scheme = $uri->getScheme();
-        $authorityHost = $this->formatAuthorityHost($host);
-        if ($port !== null && ($forcePort || $this->isPortNonDefault($scheme, $port))) {
-            $authorityHost .= ':' . $port;
-        }
-
-        $_SERVER['HTTP_HOST'] = $authorityHost;
-        $_SERVER['SERVER_NAME'] = $host;
-        if ($port !== null) {
-            $_SERVER['SERVER_PORT'] = (string) $port;
-        }
-        if ($scheme !== '') {
-            $_SERVER['REQUEST_SCHEME'] = $scheme;
-        }
     }
 
     private function formatAuthorityHost(string $host): string
