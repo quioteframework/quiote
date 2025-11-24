@@ -97,6 +97,15 @@ class AgaviLoggerManager
 		} else {
 			require(AgaviConfigCache::checkConfig(AgaviConfig::get('core.config_dir') . '/logging.xml', $context->getName()));
 		}
+		
+		// Allow runtime override of default logger via parameter or environment variable
+		if(isset($parameters['default_logger'])) {
+			$this->setDefaultLoggerName($parameters['default_logger']);
+		} elseif(($envLogger = getenv('AGAVI_DEFAULT_LOGGER')) !== false && $envLogger !== '') {
+			if($this->hasLogger($envLogger)) {
+				$this->setDefaultLoggerName($envLogger);
+			}
+		}
 	}
 
 	/**
