@@ -24,6 +24,7 @@ use Agavi\Util\AgaviAttributeHolder;
 use Symfony\Contracts\Service\ResetInterface;
 use Psr\Http\Message\ResponseInterface;
 use Agavi\Http\SimpleStream;
+use Agavi\Logging\AgaviDebugLogger;
 
 /**
  * AgaviWebResponse handles HTTP responses.
@@ -786,7 +787,7 @@ class AgaviWebResponse extends AgaviResponse
 		} catch(\Throwable) {
 			$payload = '[unserializable context]';
 		}
-		error_log('[AgaviWebResponse][' . $stage . '] ' . $payload);
+		AgaviDebugLogger::debug('[AgaviWebResponse][' . $stage . '] ' . $payload);
 	}
 
 	/**
