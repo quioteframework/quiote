@@ -36,7 +36,7 @@ final class AgaviDebugLogger
                 'debug' => 'debug',
                 'info' => 'info',
                 'error' => 'error',
-                'warn', 'warn',
+                'warn' => 'warn',
                 'fatal' => 'fatal',
                 default => 'warn',
             };
