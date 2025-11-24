@@ -123,9 +123,9 @@ class AgaviWorkerManager
                 $context = AgaviContext::getInstance($contextProfile);
                 if ($context instanceof \Symfony\Contracts\Service\ResetInterface) {
                     $context->reset();
-                    $logger?->debug("AgaviWorkerManager: Reset context profile: $contextProfile");
+                    $logger?->debug("[AgaviWorkerManager] Reset context profile: $contextProfile");
                 } else {
-                    $logger?->warning("AgaviWorkerManager: Context $contextProfile does not implement ResetInterface");
+                    $logger?->warning("[AgaviWorkerManager] Context $contextProfile does not implement ResetInterface");
                 }
             } else {
                 // Reset all available contexts - we'll need to get the default context
@@ -134,16 +134,16 @@ class AgaviWorkerManager
                     $context = AgaviContext::getInstance();
                     if ($context instanceof \Symfony\Contracts\Service\ResetInterface) {
                         $context->reset();
-                        $logger?->debug('AgaviWorkerManager: Reset default context');
+                        $logger?->debug('[AgaviWorkerManager] Reset default context');
                     } else {
-                        $logger?->warning('AgaviWorkerManager: Default context does not implement ResetInterface');
+                        $logger?->warning('[AgaviWorkerManager] Default context does not implement ResetInterface');
                     }
                 } catch (\Exception $e) {
-                    $logger?->error('AgaviWorkerManager: Failed to get default context: ' . $e->getMessage());
+                    $logger?->error('[AgaviWorkerManager] Failed to get default context: ' . $e->getMessage());
                 }
             }
         } catch (\Exception $e) {
-            $logger?->error('AgaviWorkerManager: Context reset failed: ' . $e->getMessage());
+            $logger?->error('[AgaviWorkerManager] Context reset failed: ' . $e->getMessage());
         }
         
         // Reset configuration only if explicitly enabled (disabled by default in worker mode)
