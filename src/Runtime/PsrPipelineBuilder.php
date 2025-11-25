@@ -47,15 +47,20 @@ class PsrPipelineBuilder
             } catch(\Throwable) { /* ignore parse issues at this stage; middleware may handle strict errors */ }
         /** @var \Agavi\Request\AgaviRequest $legacyReqTyped */
         $legacyReqTyped = $legacyReq; // help static analysis
-        // Directly wrap into AgaviWebRequest (already ServerRequestInterface compliant)
-        $base = new \Nyholm\Psr7\ServerRequest($_SERVER['REQUEST_METHOD'] ?? 'GET', $uri, $headers, $body, '1.1', $_SERVER);
-        // Populate standard params (Nyholm ServerRequest ctor sets headers & body only)
-        $base = $base
+        // Construct AgaviWebRequest directly (it extends Nyholm\Psr7\ServerRequest)
+        $agavi = new AgaviWebRequest(
+            $_SERVER['REQUEST_METHOD'] ?? 'GET',
+            $uri,
+            $headers,
+            $body,
+            '1.1',
+            $_SERVER
+        );
+        // Populate with PSR-7 params (withX methods return new immutable instances)
+        $agavi = $agavi
             ->withQueryParams($_GET)
             ->withCookieParams($_COOKIE)
             ->withParsedBody($parsedBody);
-        $agavi = new AgaviWebRequest();
-        $agavi->attachPsrRequest($base);
         return $agavi;
     }
 

@@ -123,7 +123,28 @@ class ValidationMiddleware implements MiddlewareInterface
         if (!($webRequest instanceof AgaviWebRequest)) {
             throw new \RuntimeException('Canonical AgaviWebRequest missing in ValidationMiddleware (must be initialized earlier).');
         }
-        $webRequest->attachPsrRequest($request);
+        
+        // If the request changed in the pipeline, sync it back to context
+        if ($request !== $webRequest) {
+            if ($request instanceof AgaviWebRequest) {
+                // PSR-7 immutability created a new AgaviWebRequest, use it directly
+                $this->controller->getContext()->setRequest($request);
+                $webRequest = $request;
+            } else {
+                // Generic PSR-7 request - update our AgaviWebRequest using ->with*()
+                $webRequest = $webRequest
+                    ->withMethod($request->getMethod())
+                    ->withUri($request->getUri())
+                    ->withQueryParams($request->getQueryParams())
+                    ->withParsedBody($request->getParsedBody());
+                // Copy attributes
+                foreach ($request->getAttributes() as $name => $value) {
+                    $webRequest = $webRequest->withAttribute($name, $value);
+                }
+                $this->controller->getContext()->setRequest($webRequest);
+            }
+        }
+        
         if (getenv('AGAVI_DEBUG_ROUTING')) {
             AgaviDebugLogger::debug('[ValidationMiddleware][debug] using context AgaviWebRequest (shared)', $this->controller?->getContext());
         }
@@ -141,8 +162,13 @@ class ValidationMiddleware implements MiddlewareInterface
                 $injected = [];
                 foreach ($routeParams as $k => $v) {
                     if ($k !== '' && $k[0] !== '_' && !is_array($v)) {
-                        $current = $webRequest->getParameter($k);
-                        if ($current === null) {
+                        // Check if param already exists in query/body (don't overwrite)
+                        $queryParams = $webRequest->getQueryParams();
+                        $bodyParams = $webRequest->getParsedBody();
+                        $exists = array_key_exists($k, $queryParams) || 
+                                  (is_array($bodyParams) && array_key_exists($k, $bodyParams));
+                        
+                        if (!$exists) {
                             $webRequest->setParameter($k, $v);
                             $injected[$k] = $v;
                         }
@@ -156,6 +182,8 @@ class ValidationMiddleware implements MiddlewareInterface
                         } catch (\Throwable) {
                         }
                     }
+                    // Update context with the modified request (has route params in runtime parameters)
+                    $this->controller->getContext()->setRequest($webRequest);
                 }
             }
         } catch (\Throwable) {
@@ -226,12 +254,25 @@ class ValidationMiddleware implements MiddlewareInterface
                 $errors[] = $e->getMessage();
             }
         }
+        
+        // CRITICAL: Re-fetch request from context after validation
+        // ValidationManager may have replaced it with a pruned immutable instance
+        try {
+            $updatedRequest = $this->controller?->getContext()?->getRequest();
+            if ($updatedRequest instanceof AgaviWebRequest) {
+                $webRequest = $updatedRequest;
+            }
+        } catch (\Throwable) {
+            // Keep existing reference if fetch fails
+        }
+        
         // If no XML present treat as success but expose ZERO parameters to action (strict empty set)
         if (!$hasXml && !$action?->isSimple()) {
             // Clear webRequest parameters and lock down
             try {
                 if (method_exists($webRequest, 'clearParameters')) {
-                    $webRequest->clearParameters();
+                    $webRequest = $webRequest->clearParameters();
+                    $this->controller->getContext()->setRequest($webRequest);
                 }
             } catch (\Throwable) {
             }

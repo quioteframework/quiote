@@ -11,6 +11,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
+#[\PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses]
 class FormPopulationMiddlewareTest extends AgaviUnitTestCase
 {
     private ?AgaviContext $context = null;

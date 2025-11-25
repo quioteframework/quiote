@@ -57,18 +57,32 @@ final class ActionExecutor
      */
     public static function buildRequestDataFromPsr(ServerRequestInterface $psr): AgaviWebRequest
     {
-    // Reuse context request if available; otherwise fall back to a fresh AgaviWebRequest so tests
-    // and lightweight pipelines can call this helper without requiring full framework bootstrap.
+    // Reuse context request if available; otherwise create AgaviWebRequest from the PSR-7 request
     $web = null;
     try { $web = \Agavi\Agavi::context('web', true)?->getRequest(); } catch(\Throwable) { $web = null; }
     if (!($web instanceof AgaviWebRequest)) {
+        // Create AgaviWebRequest from PSR-7 request (AgaviWebRequest extends ServerRequest)
         try {
-            $web = new AgaviWebRequest();
-        } catch (\Throwable) {
-            throw new \RuntimeException('Canonical AgaviWebRequest not initialized before buildRequestDataFromPsr');
+            $web = new AgaviWebRequest(
+                $psr->getMethod(),
+                $psr->getUri(),
+                $psr->getHeaders(),
+                $psr->getBody(),
+                $psr->getProtocolVersion(),
+                $psr->getServerParams()
+            );
+            $web = $web
+                ->withQueryParams($psr->getQueryParams())
+                ->withCookieParams($psr->getCookieParams())
+                ->withParsedBody($psr->getParsedBody())
+                ->withUploadedFiles($psr->getUploadedFiles());
+            foreach ($psr->getAttributes() as $name => $value) {
+                $web = $web->withAttribute($name, $value);
+            }
+        } catch (\Throwable $e) {
+            throw new \RuntimeException('Cannot create AgaviWebRequest from PSR-7 request: ' . $e->getMessage(), 0, $e);
         }
     }
-    try { $web->attachPsrRequest($psr); } catch (\Throwable) {}
         $query = $psr->getQueryParams();
         $body = $psr->getParsedBody();
         if (!is_array($body)) {
@@ -151,7 +165,7 @@ final class ActionExecutor
         } catch (\Throwable) {
         }
         if (!($actionRequest instanceof AgaviWebRequest)) { throw new \RuntimeException('Canonical AgaviWebRequest missing in ActionExecutor::execute'); }
-        try { $actionRequest->attachPsrRequest($request); } catch (\Throwable) {}
+        // No need to attachPsrRequest - AgaviWebRequest IS the PSR-7 request
 
         // Initialize action with lightweight context
         $lwCtx = new LightweightActionInitContext(

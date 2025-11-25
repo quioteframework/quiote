@@ -15,11 +15,9 @@ class AgaviWebRequestUploadedFilesTest extends AgaviUnitTestCase
 {
     private function newRequest(array $files): AgaviWebRequest
     {
-        $psr = new ServerRequest('POST', 'http://example.test/upload');
-        $psr = $psr->withUploadedFiles($files);
-        $wr = new AgaviWebRequest();
+        $wr = new AgaviWebRequest('POST', 'http://example.test/upload');
         $wr->initialize($this->getContext());
-        $wr->attachPsrRequest($psr);
+        $wr = $wr->withUploadedFiles($files);
         return $wr;
     }
 

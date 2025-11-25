@@ -58,9 +58,10 @@ class AgaviWebRequestTest extends AgaviUnitTestCase
 	// --- New tests for PSR-7 bridging & precedence ---
 	public function testAttachPsrRequestMergesQueryAndBodyBodyWins()
 	{
-		$psr = (new ServerRequest('POST', '/x?x=1&y=2'))
+		$this->_r = $this->_r
+			->withUri(new \Agavi\Http\SimpleUri('/x?x=1&y=2'))
+			->withQueryParams(['x' => '1', 'y' => '2'])
 			->withParsedBody(['y' => 'body', 'z' => '3']);
-		$this->_r->attachPsrRequest($psr);
 		// Ensure whitelist includes merged params (already added in setUp but safe to repeat)
 		$this->_r->enforceValidatedParameters(['x','y','z']);
 		$this->assertSame('1', $this->_r->getParameter('x'));
@@ -72,10 +73,10 @@ class AgaviWebRequestTest extends AgaviUnitTestCase
 	{
 		$raw = 'a=1&b=2&b=3';
 		$stream = Stream::create($raw);
-		$psr = (new ServerRequest('POST', '/submit'))
+		$this->_r = $this->_r
+			->withMethod('POST')
 			->withHeader('Content-Type', 'application/x-www-form-urlencoded')
 			->withBody($stream);
-		$this->_r->attachPsrRequest($psr);
 		$this->_r->enforceValidatedParameters(['a','b']);
 		// Current implementation does not parse raw form body unless parsedBody already array.
 		$this->assertNull($this->_r->getParameter('a'));
@@ -90,15 +91,15 @@ class AgaviWebRequestTest extends AgaviUnitTestCase
 		$this->assertTrue($this->_r->isParameterValueEmpty('k'));
 		$this->_r->setParameter('k', 'v');
 		$this->assertFalse($this->_r->isParameterValueEmpty('k'));
-		$this->_r->removeParameter('k');
+		$this->_r = $this->_r->removeParameter('k');
 		$this->assertTrue($this->_r->isParameterValueEmpty('k'));
 	}
 
 	public function testCookieAndHeaderEmptinessChecks()
 	{
-		$psr = (new ServerRequest('GET', '/'))->withCookieParams(['sid' => 'abc']);
-		$psr = $psr->withHeader('X-Test', 'ok');
-		$this->_r->attachPsrRequest($psr);
+		$this->_r = $this->_r
+			->withCookieParams(['sid' => 'abc'])
+			->withHeader('X-Test', 'ok');
 		$this->assertTrue($this->_r->hasCookie('sid'));
 		$this->assertFalse($this->_r->isCookieValueEmpty('sid'));
 		$this->assertTrue($this->_r->isHeaderValueEmpty('x-missing'));
@@ -109,11 +110,11 @@ class AgaviWebRequestTest extends AgaviUnitTestCase
 	{
 		$raw = 'm=1';
 		$stream = Stream::create($raw);
-		$psr = (new ServerRequest('POST', '/r'))
+		$this->_r = $this->_r
+			->withMethod('POST')
 			->withHeader('Content-Type', 'application/x-www-form-urlencoded')
 			->withBody($stream);
-		$this->_r->attachPsrRequest($psr);
-		$bodyStream = $psr->getBody();
+		$bodyStream = $this->_r->getBody();
 		if($bodyStream->isSeekable()) { $bodyStream->rewind(); }
 		$this->assertSame($raw, $bodyStream->getContents());
 	}

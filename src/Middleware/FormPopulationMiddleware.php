@@ -82,10 +82,7 @@ class FormPopulationMiddleware implements MiddlewareInterface
         if (!$rd instanceof AgaviWebRequest) {
             throw new \RuntimeException('Canonical AgaviWebRequest not initialized before FormPopulationMiddleware (unexpected).');
         }
-        try {
-            $rd->attachPsrRequest($request);
-        } catch (\Throwable) {
-        }
+        // No need to attachPsrRequest - AgaviWebRequest IS the PSR-7 request
         $query = $request->getQueryParams();
         if (is_array($query)) {
             foreach ($query as $k => $v) {

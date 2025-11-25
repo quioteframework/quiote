@@ -125,25 +125,6 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 	 */
 	private array $validatedKeys = [];
 
-	/**
-	 * Mutable attributes for backward compatibility with legacy code that expects
-	 * to mutate request attributes in place. These are merged with PSR-7 attributes
-	 * on read operations (getAttribute/getAttributes).
-	 * @var array<string,mixed>
-	 */
-	private array $mutableAttributes = [];
-
-	/**
-	 * Helper to copy mutable state (runtime parameters and mutable attributes) to a cloned request.
-	 * Call this after every parent::with*() method that returns a new instance.
-	 */
-	private function copyMutableStateTo(self $new): self
-	{
-		$new->runtimeParameters = $this->runtimeParameters;
-		$new->mutableAttributes = $this->mutableAttributes;
-		$new->validatedKeys = $this->validatedKeys;
-		return $new;
-	}
 
 	private array $sourceNames = ["parameters" => "parameter", "cookies" => "cookie", "files" => "file", "headers" => "header"];
 	/**
@@ -600,7 +581,9 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 	 */
 	private function bootstrapFromServerParams(array $server): void
 	{
-		// No longer needed - AgaviWebRequest IS the request
+		if ($this->request !== null) {
+			return;
+		}
 
 		// Determine scheme with priority: explicit forwarded proto -> request scheme -> HTTPS flag.
 		$scheme = '';
@@ -687,12 +670,12 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 			// attached PSR-7 request. Runtime parameters must count as existing even
 			// when no PSR request is attached (legacy setParameter usage).
 			$exists = array_key_exists($name, $this->runtimeParameters);
-			if (!$exists) {
-				$exists = $this->getRequestParam($this, $name, null) !== null;
+			if (!$exists && $this->request !== null) {
+				$exists = $this->getRequestParam($this->request, $name, null) !== null;
 				// Check bracket [] alias against base name as well
 				if (!$exists && str_ends_with($name, '[]')) {
 					$base = substr($name, 0, -2);
-					$exists = $this->getRequestParam($this, $base, null) !== null || array_key_exists($base, $this->runtimeParameters);
+					$exists = $this->getRequestParam($this->request, $base, null) !== null || array_key_exists($base, $this->runtimeParameters);
 				}
 			}
 
@@ -714,8 +697,11 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 		if (array_key_exists($name, $this->runtimeParameters)) {
 			return $this->runtimeParameters[$name];
 		}
+		if ($this->request === null) {
+			return $default;
+		}
 		// 2. Direct intrinsic (flat) lookup through helper
-		$value = $this->getRequestParam($this, $name, null);
+		$value = $this->getRequestParam($this->request, $name, null);
 		if ($value !== null) {
 			return $value;
 		}
@@ -752,22 +738,23 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 	// --- PSR-7 MessageInterface required methods (delegating when trait not providing concrete ones) ---
 	public function getProtocolVersion(): string
 	{
-		return parent::getProtocolVersion();
+		return $this->request?->getProtocolVersion() ?? '1.1';
 	}
 
 	public function withProtocolVersion($version): self
 	{
-		return $this->copyMutableStateTo(parent::withProtocolVersion($version));
+		if ($this->request === null) { throw new \RuntimeException('PSR-7 request not attached'); }
+		$next = clone $this; $next->attachPsrRequest($this->request->withProtocolVersion($version)); return $next;
 	}
 
 	public function getHeaders(): array
 	{
-		return parent::getHeaders();
+		return $this->request?->getHeaders() ?? [];
 	}
 
 	public function hasHeader($name): bool
 	{
-		return parent::hasHeader($name);
+		return $this->request?->hasHeader($name) ?? false;
 	}
 
 	public function hasParameter(string $name): bool
@@ -776,7 +763,10 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 		if (array_key_exists($name, $this->runtimeParameters)) {
 			return true;
 		}
-		if ($this->getRequestParam($this, $name, null) !== null) {
+		if ($this->request === null) {
+			return false;
+		}
+		if ($this->getRequestParam($this->request, $name, null) !== null) {
 			return true;
 		}
 		if (str_ends_with($name, '[]')) {
@@ -784,12 +774,12 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 			if (array_key_exists($base, $this->runtimeParameters)) {
 				return true;
 			}
-			if ($this->getRequestParam($this, $base, null) !== null) {
+			if ($this->getRequestParam($this->request, $base, null) !== null) {
 				return true;
 			}
 		}
 		$merged = null; $has = false; $ex = null;
-		try { $merged = $this->runtimeParameters + $this->getRequestParams($this, 'parameters'); $has = AgaviArrayPathDefinition::hasValue($name, $merged); } catch (\Throwable $e) { $ex = $e; }
+		try { $merged = $this->runtimeParameters + $this->getRequestParams($this->request, 'parameters'); $has = AgaviArrayPathDefinition::hasValue($name, $merged); } catch (\Throwable $e) { $ex = $e; }
 		if ($has) { return true; }
 		if ($merged !== null && str_contains($name, '[') && $this->resolveBracketPath($name, $merged) !== null) { return true; }
 		if ($ex !== null) { return false; }
@@ -836,11 +826,8 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 		if ($source === 'runtime') {
 			return $this->runtimeParameters;
 		}
-		// AgaviWebRequest IS the request now
-
-		if (false) {
-
-		// In test or pre-attachment scenarios, expose runtime parameters also for explicit 'parameters' source
+		if ($this->request === null) {
+			// In test or pre-attachment scenarios, expose runtime parameters also for explicit 'parameters' source
 			if ($source === null || $source === 'parameters') {
 				return $this->runtimeParameters;
 			}
@@ -849,11 +836,11 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 		}
 		if ($source === null) {
 			// Merge intrinsic HTTP param sources (query+body) then overlay runtime
-			$base = $this->getRequestParams($this, 'parameters');
+			$base = $this->getRequestParams($this->request, 'parameters');
 			return $this->runtimeParameters + $base; // runtime wins
 		}
 		if ($source === 'parameters') {
-			$base = $this->getRequestParams($this, 'parameters');
+			$base = $this->getRequestParams($this->request, 'parameters');
 			// Ensure runtime parameters are also visible through explicit 'parameters' source for legacy validators
 			$merged = $this->runtimeParameters + $base;
 			/*if (getenv('DEBUG_TESTS') || (defined('DEBUG_TESTS') && DEBUG_TESTS)) {
@@ -861,8 +848,8 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 			}*/
 			return $merged;
 		}
-		if ($source === 'files') { return parent::getUploadedFiles() ?? []; }
-		return $this->getRequestParams($this, $source);
+		if ($source === 'files') { return $this->request?->getUploadedFiles() ?? []; }
+		return $this->getRequestParams($this->request, $source);
 	}
 
 	/**
@@ -885,34 +872,24 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 	 * Remove a parameter from runtime store or intrinsic sources.
 	 * If $source is null or 'runtime' we only affect runtime store.
 	 */
-	public function removeParameter(string $name, string $source = 'runtime'): self
+	public function removeParameter(string $name, string $source = 'runtime')
 	{
 		if ($source === 'runtime' || $source === null) {
 			// Support nested path removal for runtime parameters (best-effort)
-			$new = clone $this;
-			if (array_key_exists($name, $new->runtimeParameters)) {
-				unset($new->runtimeParameters[$name]);
-				return $new;
+			if (array_key_exists($name, $this->runtimeParameters)) {
+				unset($this->runtimeParameters[$name]);
+				return $this;
 			}
 			try {
-				$dummy = &$new->runtimeParameters; // alias for path removal
+				$dummy = &$this->runtimeParameters; // alias for path removal
 				AgaviArrayPathDefinition::unsetValue($name, $dummy);
 			} catch (\Throwable) {
 			}
-			return $new;
+			return $this;
 		}
-		
-		// Remove from query and body using PSR-7 immutability
-		if ($source === 'parameters') {
-			$query = $this->getQueryParams();
-			$body = $this->getParsedBody();
-			unset($query[$name]);
-			if (is_array($body)) {
-				unset($body[$name]);
-			}
-			return $this->withQueryParams($query)->withParsedBody($body);
+		if ($this->request !== null) {
+			$this->request = $this->withoutParameter($this->request, $name, $source) ?? $this->request;
 		}
-		
 		return $this;
 	}
 
@@ -1104,23 +1081,17 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 		return $result;
 	}
 
-	public function clearParameters(): self
+	public function clearParameters()
 	{
-		// Return new immutable instance with cleared parameters
-		return $this
-			->withQueryParams([])
-			->withParsedBody([])
-			->withRuntimeParameters([]);
-	}
-	
-	/**
-	 * Create new instance with runtime parameters replaced.
-	 */
-	private function withRuntimeParameters(array $params): self
-	{
-		$new = clone $this;
-		$new->runtimeParameters = $params;
-		return $new;
+		$this->runtimeParameters = [];
+
+		if ($this->request !== null) {
+			$this->request = $this->request->withParsedBody(null)->withQueryParams([])->withCookieParams([]);
+			$headers = $this->request->getHeaders();
+			foreach ($headers as $headerName => $headerValue) {
+				$this->request = $this->request->withoutHeader($headerName);
+			}
+		}
 	}
 
 	/**
@@ -1137,10 +1108,8 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 	 * and headers are left untouched here because validator arguments typically
 	 * target parameters; if needed we can later extend with additional source
 	 * pruning rules.
-	 *
-	 * @return self New immutable instance with pruned parameters
 	 */
-	public function pruneParametersToValidated(array $keep, array $failed, bool $preserveModuleAction, ?string $moduleKey, ?string $actionKey): self
+	public function pruneParametersToValidated(array $keep, array $failed, bool $preserveModuleAction, ?string $moduleKey, ?string $actionKey): void
 	{
 		/*
 		 * Security hardening: remove any user-supplied data that was not explicitly validated.
@@ -1158,126 +1127,71 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 			if($actionKey) { $preserve[$actionKey] = true; }
 		}
 
-		// Prune query and body params
-		$query = parent::getQueryParams();
-		$body = parent::getParsedBody();
-		if (!is_array($body)) $body = [];
-		
-		$intrinsic = $body + $query;
-		foreach (array_keys($intrinsic) as $name) {
-			$remove = true;
-			if (isset($keepSet[$name])) $remove = false;
-			if (isset($failedSet[$name])) $remove = true;
-			if (isset($preserve[$name])) $remove = false;
-			
-			if ($remove) {
-				unset($query[$name], $body[$name]);
+		if($this->request !== null) {
+			// Parameters (query + body)
+			$query = $this->request->getQueryParams();
+			$body = $this->request->getParsedBody();
+			if(!is_array($body)) { $body = []; }
+			$intrinsic = $body + $query;
+			foreach(array_keys($intrinsic) as $name) {
+				$remove = true;
+				if(isset($keepSet[$name])) { $remove = false; }
+				if(isset($failedSet[$name])) { $remove = true; }
+				if(isset($preserve[$name])) { $remove = false; }
+				if($remove) {
+					if(array_key_exists($name, $query)) { unset($query[$name]); }
+					if(array_key_exists($name, $body)) { unset($body[$name]); }
+				}
 			}
+			$this->request = $this->request->withQueryParams($query)->withParsedBody($body);
+
+			// (Headers, cookies, files handled in pruneExtendedSources to allow full keep/fail maps per source)
 		}
 
-		// Prune runtime parameters
-		$prunedRuntime = $this->runtimeParameters;
-		foreach(array_keys($prunedRuntime) as $rName) {
+		// Runtime parameters
+		foreach(array_keys($this->runtimeParameters) as $rName) {
 			$remove = true;
 			if(isset($keepSet[$rName])) { $remove = false; }
 			if(isset($failedSet[$rName])) { $remove = true; }
 			if(isset($preserve[$rName])) { $remove = false; }
-			if($remove) { unset($prunedRuntime[$rName]); }
+			if($remove) { unset($this->runtimeParameters[$rName]); }
 		}
-
-		// Create a new AgaviWebRequest with all current state but pruned params
-		$pruned = new self(
-			$this->getMethod(),
-			$this->getUri(),
-			$this->getHeaders(),
-			$this->getBody(),
-			$this->getProtocolVersion(),
-			$this->getServerParams()
-		);
-		
-		// Apply pruned params (these return Nyholm instances, but we handle it)
-		$psr7Pruned = $pruned
-			->withQueryParams($query)
-			->withParsedBody($body)
-			->withCookieParams($this->getCookieParams())
-			->withUploadedFiles($this->getUploadedFiles());
-		
-		// Copy attributes from PSR-7 parent
-		foreach ($this->getAttributes() as $name => $value) {
-			$psr7Pruned = $psr7Pruned->withAttribute($name, $value);
-		}
-		
-		// Since with* methods return Nyholm instance, we need to reconstruct one more time
-		// to get back to AgaviWebRequest with all state
-		$final = new self(
-			$psr7Pruned->getMethod(),
-			$psr7Pruned->getUri(),
-			$psr7Pruned->getHeaders(),
-			$psr7Pruned->getBody(),
-			$psr7Pruned->getProtocolVersion(),
-			$psr7Pruned->getServerParams()
-		);
-		
-		// Apply all the PSR-7 params from pruned version
-		$final = $final
-			->withQueryParams($psr7Pruned->getQueryParams())
-			->withParsedBody($psr7Pruned->getParsedBody())
-			->withCookieParams($psr7Pruned->getCookieParams())
-			->withUploadedFiles($psr7Pruned->getUploadedFiles());
-		
-		// Copy attributes again
-		foreach ($psr7Pruned->getAttributes() as $name => $value) {
-			$final = $final->withAttribute($name, $value);
-		}
-		
-		// Copy Agavi-specific fields directly (they're private, need direct assignment)
-		$final->runtimeParameters = $prunedRuntime;
-		$final->validatedKeys = $this->validatedKeys;
-		
-		return $final;
 	}
 
 	/**
 	 * Extended pruning invoked by ValidationManager for non-parameter sources when available.
 	 * Each keep/failed array is an associative map of name => true.
 	 */
-	public function pruneExtendedSources(array $headerKeep, array $headerFail, array $cookieKeep, array $cookieFail, array $fileKeep, array $fileFail): self
+	public function pruneExtendedSources(array $headerKeep, array $headerFail, array $cookieKeep, array $cookieFail, array $fileKeep, array $fileFail): void
 	{
-		$new = clone $this;
-		
-		// Prune Headers
-		$headers = $new->getHeaders();
-		foreach(array_keys($headers) as $h) {
+		if($this->request === null) { return; }
+		// Headers
+		foreach(array_keys($this->request->getHeaders()) as $h) {
 			$l = strtolower($h);
 			$remove = true;
 			if(isset($headerKeep[$h]) || isset($headerKeep[$l])) { $remove = false; }
 			if(isset($headerFail[$h]) || isset($headerFail[$l])) { $remove = true; }
-			if($remove) {
-				$new = $new->withoutHeader($h);
-			}
+			if($remove) { $this->request = $this->request->withoutHeader($h); }
 		}
-		
-		// Prune Cookies
-		$cookies = $new->getCookieParams();
+		// Cookies
+		$cookies = $this->request->getCookieParams();
 		foreach(array_keys($cookies) as $c) {
 			$remove = true;
 			if(isset($cookieKeep[$c])) { $remove = false; }
 			if(isset($cookieFail[$c])) { $remove = true; }
 			if($remove) { unset($cookies[$c]); }
 		}
-		$new = $new->withCookieParams($cookies);
-		
-		// Prune Files
-		$files = $new->getUploadedFiles();
+		$this->request = $this->request->withCookieParams($cookies);
+		// Files
+		$files = $this->request->getUploadedFiles();
+		$changed = false;
 		foreach(array_keys($files) as $f) {
 			$remove = true;
 			if(isset($fileKeep[$f])) { $remove = false; }
 			if(isset($fileFail[$f])) { $remove = true; }
-			if($remove) { unset($files[$f]); }
+			if($remove) { unset($files[$f]); $changed = true; }
 		}
-		$new = $new->withUploadedFiles($files);
-		
-		return $new;
+		if($changed) { $this->request = $this->request->withUploadedFiles($files); }
 	}
 
 	// -----------------------
@@ -1288,24 +1202,26 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 	 * Append a value to a list-style attribute (legacy API used by views to add css/js).
 	 * Values are stored as array under attribute name. Idempotent for identical consecutive adds.
 	 */
-	public function appendAttribute(string $name, $value): self
+	public function appendAttribute(string $name, $value): void
 	{
-		$current = parent::getAttribute($name);
+		$current = $this->request?->getAttribute($name);
 		if ($current === null) {
 			$current = [];
 		} elseif (!is_array($current)) {
 			$current = [$current];
 		}
 		$current[] = $value;
-		return $this->withAttribute($name, $current);
+		if ($this->request !== null) {
+			$this->request = $this->request->withAttribute($name, $current);
+		}
 	}
 
 	/**
 	 * Backwards compat: alias for appendAttribute when code used singular.
 	 */
-	public function appendListAttribute(string $name, $value): self
+	public function appendListAttribute(string $name, $value): void
 	{
-		return $this->appendAttribute($name, $value);
+		$this->appendAttribute($name, $value);
 	}
 
 	/**
@@ -1313,113 +1229,161 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 	 */
 	public function hasAttribute(string $name): bool
 	{
-		return array_key_exists($name, $this->mutableAttributes) || parent::getAttribute($name) !== null;
+		if ($this->request === null) {
+			return false;
+		}
+		return $this->request->getAttribute($name) !== null;
 	}
 
 	/**
 	 * Legacy mutator: set attribute (overwrites any existing value).
-	 * NOTE: This uses a mutable internal storage for backward compatibility with
-	 * code that expects to mutate attributes. For new code, prefer withAttribute().
 	 */
 	public function setAttribute(string $name, $value): void
 	{
-		// Store in mutable internal map, will be merged with PSR-7 attributes on read
-		if (!isset($this->mutableAttributes)) {
-			$this->mutableAttributes = [];
+		if ($this->request !== null) {
+			$this->request = $this->request->withAttribute($name, $value);
 		}
-		$this->mutableAttributes[$name] = $value;
 	}
 
 	public function getHeader($name): array
 	{
-		return parent::getHeader($name) ?? [];
+		return $this->request?->getHeader($name) ?? [];
 	}
 
 	public function getHeaderLine($name): string
 	{
-		return parent::getHeaderLine($name) ?? '';
+		return $this->request?->getHeaderLine($name) ?? '';
 	}
 
 	public function withHeader($name, $value): self
 	{
-		return $this->copyMutableStateTo(parent::withHeader($name, $value));
+		if ($this->request === null) {
+			throw new \RuntimeException('PSR-7 request not attached');
+		}
+		$next = clone $this;
+		$next->attachPsrRequest($this->request->withHeader($name, $value));
+		return $next;
 	}
 
 	public function withAddedHeader($name, $value): self
 	{
-		return $this->copyMutableStateTo(parent::withAddedHeader($name, $value));
+		if ($this->request === null) {
+			throw new \RuntimeException('PSR-7 request not attached');
+		}
+		$next = clone $this;
+		$next->attachPsrRequest($this->request->withAddedHeader($name, $value));
+		return $next;
 	}
 
 	public function withoutHeader($name): self
 	{
-		return $this->copyMutableStateTo(parent::withoutHeader($name));
+		if ($this->request === null) {
+			throw new \RuntimeException('PSR-7 request not attached');
+		}
+		$next = clone $this;
+		$next->attachPsrRequest($this->request->withoutHeader($name));
+		return $next;
 	}
 
 	public function getBody(): StreamInterface
 	{
-		return parent::getBody();
+		if ($this->request === null) {
+			throw new \RuntimeException('PSR-7 request not attached');
+		}
+		return $this->request->getBody();
 	}
 
 	public function withBody(StreamInterface $body): self
 	{
-		return $this->copyMutableStateTo(parent::withBody($body));
+		if ($this->request === null) {
+			throw new \RuntimeException('PSR-7 request not attached');
+		}
+		$next = clone $this;
+		$next->attachPsrRequest($this->request->withBody($body));
+		return $next;
 	}
 
 	public function getRequestTarget(): string
 	{
-		return parent::getRequestTarget() ?? '';
+		return $this->request?->getRequestTarget() ?? '';
 	}
 
 	public function withRequestTarget($requestTarget): self
 	{
-		return $this->copyMutableStateTo(parent::withRequestTarget($requestTarget));
+		if ($this->request === null) {
+			throw new \RuntimeException('PSR-7 request not attached');
+		}
+		$next = clone $this;
+		$next->attachPsrRequest($this->request->withRequestTarget($requestTarget));
+		return $next;
 	}
 
 	public function getMethod(): string
 	{
-		return parent::getMethod() ?? ($this->method ?? 'GET');
+		return $this->request?->getMethod() ?? ($this->method ?? 'GET');
 	}
 
 	public function withMethod($method): self
 	{
-		return $this->copyMutableStateTo(parent::withMethod($method));
+		if ($this->request === null) {
+			throw new \RuntimeException('PSR-7 request not attached');
+		}
+		$next = clone $this;
+		$next->attachPsrRequest($this->request->withMethod($method));
+		return $next;
 	}
 
 	public function getUri(): UriInterface
 	{
-		return parent::getUri();
+		if ($this->request === null) {
+			throw new \RuntimeException('PSR-7 request not attached');
+		}
+		return $this->request->getUri();
 	}
 
 	public function withUri(UriInterface $uri, $preserveHost = false): self
 	{
-		$new = $this->copyMutableStateTo(parent::withUri($uri, $preserveHost));
-		$new->syncUrlMetadata();
-		return $new;
+		if ($this->request === null) {
+			throw new \RuntimeException('PSR-7 request not attached');
+		}
+		$next = clone $this;
+		$next->attachPsrRequest($this->request->withUri($uri, $preserveHost));
+		return $next;
 	}
 
 	public function getServerParams(): array
 	{
-		return parent::getServerParams() ?? [];
+		return $this->request?->getServerParams() ?? [];
 	}
 
 	public function getCookieParams(): array
 	{
-		return parent::getCookieParams() ?? [];
+		return $this->request?->getCookieParams() ?? [];
 	}
 
 	public function withCookieParams(array $cookies): self
 	{
-		return $this->copyMutableStateTo(parent::withCookieParams($cookies));
+		if ($this->request === null) {
+			throw new \RuntimeException('PSR-7 request not attached');
+		}
+		$next = clone $this;
+		$next->attachPsrRequest($this->request->withCookieParams($cookies));
+		return $next;
 	}
 
 	public function getQueryParams(): array
 	{
-		return parent::getQueryParams() ?? [];
+		return $this->request?->getQueryParams() ?? [];
 	}
 
 	public function withQueryParams(array $query): self
 	{
-		return $this->copyMutableStateTo(parent::withQueryParams($query));
+		if ($this->request === null) {
+			throw new \RuntimeException('PSR-7 request not attached');
+		}
+		$next = clone $this;
+		$next->attachPsrRequest($this->request->withQueryParams($query));
+		return $next;
 	}
 
 	/**
@@ -1427,53 +1391,63 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 	 */
 	public function getUploadedFiles(): array
 	{
-		return parent::getUploadedFiles() ?? [];
+		return $this->request?->getUploadedFiles() ?? [];
 	}
 
 	public function withUploadedFiles(array $uploadedFiles): self
 	{
-		return $this->copyMutableStateTo(parent::withUploadedFiles($uploadedFiles));
+		if ($this->request === null) {
+			throw new \RuntimeException('PSR-7 request not attached');
+		}
+		$next = clone $this;
+		$next->attachPsrRequest($this->request->withUploadedFiles($uploadedFiles));
+		// legacy adaptedFiles cache removed; nothing to invalidate
+		return $next;
 	}
 
 	public function getParsedBody(): mixed
 	{
-		return parent::getParsedBody();
+		return $this->request?->getParsedBody();
 	}
 
 	public function withParsedBody($data): self
 	{
-		return $this->copyMutableStateTo(parent::withParsedBody($data));
+		if ($this->request === null) {
+			throw new \RuntimeException('PSR-7 request not attached');
+		}
+		$next = clone $this;
+		$next->attachPsrRequest($this->request->withParsedBody($data));
+		return $next;
 	}
 
 	public function getAttributes(): array
 	{
-		// Merge PSR-7 attributes with mutable attributes (mutable takes precedence)
-		return array_merge(parent::getAttributes() ?? [], $this->mutableAttributes);
+		return $this->request?->getAttributes() ?? [];
 	}
 
 	public function getAttribute($name, $default = null): mixed
 	{
-		// Check mutable attributes first, fall back to PSR-7 attributes
-		if (array_key_exists($name, $this->mutableAttributes)) {
-			return $this->mutableAttributes[$name];
-		}
-		return parent::getAttribute($name, $default);
+		return $this->request?->getAttribute($name, $default);
 	}
 
 	public function withAttribute($name, $value): self
 	{
-		$new = $this->copyMutableStateTo(parent::withAttribute($name, $value));
-		// Override the specific attribute in mutable store
-		$new->mutableAttributes[$name] = $value;
-		return $new;
+		if ($this->request === null) {
+			throw new \RuntimeException('PSR-7 request not attached');
+		}
+		$next = clone $this;
+		$next->attachPsrRequest($this->request->withAttribute($name, $value));
+		return $next;
 	}
 
 	public function withoutAttribute($name): self
 	{
-		$new = $this->copyMutableStateTo(parent::withoutAttribute($name));
-		// Remove the specific attribute from mutable store
-		unset($new->mutableAttributes[$name]);
-		return $new;
+		if ($this->request === null) {
+			throw new \RuntimeException('PSR-7 request not attached');
+		}
+		$next = clone $this;
+		$next->attachPsrRequest($this->request->withoutAttribute($name));
+		return $next;
 	}
 
 
@@ -1487,8 +1461,12 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 	 */
 	public function startup()
 	{
-		// AgaviWebRequest IS the PSR-7 request now
-		if (parent::getAttribute('unset_input', true)) {
+		// If no PSR-7 request is attached yet, skip legacy superglobal clearing
+		if ($this->request === null) {
+			return;
+		}
+
+		if ($this->request->getAttribute('unset_input', true)) {
 			$rla = ini_get('register_long_arrays');
 
 			$_GET = $_POST = $_COOKIE = $_REQUEST = $_FILES = [];
@@ -1515,9 +1493,8 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 	 */
 	public function reset(): void
 	{
-		// AgaviWebRequest IS the PSR-7 request now, parent handles state
+		$this->request = null;
 		$this->runtimeParameters = [];
-		$this->mutableAttributes = [];
 		$this->protocol = null;
 		$this->urlScheme = $this->urlHost = $this->urlPath = $this->urlQuery = $this->requestUri = $this->url = '';
 		$this->urlPort = 0;

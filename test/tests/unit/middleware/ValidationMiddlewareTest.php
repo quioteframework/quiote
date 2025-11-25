@@ -239,7 +239,7 @@ class ValidationMiddlewareTest extends TestCase
         };
         $routeParams = [ 'slug' => 'abc', '_internal' => 'skip', 'existing' => 'rv' ];
         // Provide existing query param so route param of same name not injected
-        $request = (new ServerRequest('GET','/routes/show?existing=keep'))
+        $request = (new \Agavi\Request\AgaviWebRequest('GET','/routes/show?existing=keep'))
             ->withAttribute(\Agavi\Execution\ActionDescriptor::class, $actionDesc)
             ->withAttribute('route_params', $routeParams)
             ->withAttribute('agavi.preinstantiated_action',$action)

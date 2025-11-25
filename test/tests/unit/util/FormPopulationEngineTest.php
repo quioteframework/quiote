@@ -15,6 +15,7 @@ use Nyholm\Psr7\ServerRequest;
 
 require_once __DIR__ . '/../../../lib/validator/DummyValidator.class.php';
 
+#[\PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses]
 class FormPopulationEngineTest extends AgaviUnitTestCase
 {
 	private ?AgaviContext $context = null;
@@ -164,10 +165,16 @@ class FormPopulationEngineTest extends AgaviUnitTestCase
 		$engine = new FormPopulationEngine();
 		$engine->initialize($this->context);
 
-		$request = new AgaviWebRequest();
-		$request->initialize($this->context);
 		$psr = $psrRequest ?? new ServerRequest('POST', 'https://example.test/');
-		$request->attachPsrRequest($psr);
+		$request = new AgaviWebRequest(
+			$psr->getMethod(),
+			$psr->getUri(),
+			$psr->getHeaders(),
+			$psr->getBody(),
+			$psr->getProtocolVersion(),
+			$psr->getServerParams()
+		);
+		$request->initialize($this->context);
 
 		foreach($parameters as $key => $value) {
 			$request->setParameter($key, $value);

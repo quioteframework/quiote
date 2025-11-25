@@ -192,6 +192,7 @@ class AgaviWebResponseTest extends AgaviUnitTestCase
 			'secure' => false,
 			'httponly' => false,
 			'encode_callback' => 'urlencode',
+			'samesite' => null,
 		);
 		$r->setCookie('cookieName', 'value');
 		$this->assertEquals($info_ex, $r->getCookie('cookieName'));
@@ -211,6 +212,7 @@ class AgaviWebResponseTest extends AgaviUnitTestCase
 			'secure' => true,
 			'httponly' => false,
 			'encode_callback' => 'urlencode',
+			'samesite' => null,
 		);
 		$this->assertEquals($info_ex, $r->getCookie('cookieName2'));
 	}

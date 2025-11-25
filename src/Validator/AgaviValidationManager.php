@@ -441,8 +441,8 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 				// Flatten only parameter names for legacy method signature compatibility (will accept arrays soon if extended)
 				$paramKeeps = array_keys($keepNames['parameters'] ?? []);
 				$paramFails = array_keys($failedNames['parameters'] ?? []);
-				// Pass merged (all-source) keys via temporary attributes for request method to use
-				$request->pruneParametersToValidated(
+				// CRITICAL: Capture returned request since PSR-7 requests are immutable
+				$request = $request->pruneParametersToValidated(
 					$paramKeeps,
 					$paramFails,
 					(bool)$umap,
@@ -451,7 +451,7 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 				);
 				// Provide extended pruning hints for other sources (headers/cookies/files)
 				if(method_exists($request, 'pruneExtendedSources')) {
-					$request->pruneExtendedSources(
+					$request = $request->pruneExtendedSources(
 						$keepNames['headers'] ?? [],
 						$failedNames['headers'] ?? [],
 						$keepNames['cookies'] ?? [],
@@ -460,6 +460,9 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 						$failedNames['files'] ?? []
 					);
 				}
+				
+				// Update context with the pruned request so actions get the clean version
+				$this->getContext()->setRequest($request);
 			} else {
 				// Fallback: original per-parameter removal (may be incomplete for intrinsic sources)
 				foreach($failedArguments as $argument) {

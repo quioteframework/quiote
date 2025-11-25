@@ -95,6 +95,9 @@ final class FormPopulationEngine
 			return;
 		}
 
+		// Ensure the request has been seeded with default config (only runs once per request)
+		$this->ensureSeedInitialized($request);
+
 		$cfg = $this->buildConfiguration($request, $overrides);
 
 		$ot = $response->getOutputType();
@@ -1021,7 +1024,21 @@ final class FormPopulationEngine
 		}
 		$this->parameters = $this->normalizeParameters($this->parameters);
 
-		FormPopulationConfig::seed($context->getRequest(), $this->parameters);
+		// Note: FormPopulationConfig::seed() is called in ensureSeedInitialized()
+		// rather than here, since the request may not exist yet when middleware is initialized
+	}
+
+	/**
+	 * Ensure the request has been seeded with default form population config.
+	 * This is called lazily during populate() rather than during initialize()
+	 * because the request may not exist when middleware is being set up.
+	 * Note: seed() is idempotent - it only fills missing keys, doesn't overwrite.
+	 */
+	private function ensureSeedInitialized(AgaviWebRequest $request): void
+	{
+		// Always seed - the seed() method itself is idempotent and won't overwrite
+		// existing values, only fill in defaults for missing keys
+		FormPopulationConfig::seed($request, $this->parameters);
 	}
 
 	public function reset(): void

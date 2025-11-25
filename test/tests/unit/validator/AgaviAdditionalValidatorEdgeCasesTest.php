@@ -235,6 +235,8 @@ class AgaviAdditionalValidatorEdgeCasesTest extends AgaviUnitTestCase
         $val->val_result = true;
         $req = $this->newWebRequest(['file_keep'=>'keep.txt','file_drop'=>'drop.txt']);
         $this->assertTrue($vm->execute($req));
+        // Get the pruned request from context after validation
+        $req = $this->getContext()->getRequest();
         // After pruning only validated key should remain (plus whitelist enforced automatically)
         $this->assertNotNull($req->getParameter('file_keep'));
         // Accessing pruned unvalidated parameter should now be null

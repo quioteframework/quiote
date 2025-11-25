@@ -33,6 +33,8 @@ class ValidationManagerConditionalModeTest extends AgaviUnitTestCase
         $v = $vm->createValidator('DummyValidator', ['alpha'], [], ['name' => 'alphaV']);
         $req = $this->newWebRequest(['alpha' => 'A', 'beta' => 'B']);
         $this->assertTrue($vm->execute($req));
+        // Get the pruned request from context after validation
+        $req = $this->getContext()->getRequest();
         $this->assertTrue($req->hasParameter('alpha'));
         $this->assertFalse($req->hasParameter('beta'), 'Unvalidated parameter pruned when at least one validator present in conditional mode');
     }

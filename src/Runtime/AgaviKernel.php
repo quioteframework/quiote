@@ -154,8 +154,23 @@ class AgaviKernel
         }
         $base = $creator->fromGlobals(); // Body parsing/JSON handled later by middleware.
         
-        $agaviReq = new AgaviWebRequest();
-        $agaviReq->attachPsrRequest($base);
+        // Create AgaviWebRequest from PSR-7 request (AgaviWebRequest extends ServerRequest)
+        $agaviReq = new AgaviWebRequest(
+            $base->getMethod(),
+            $base->getUri(),
+            $base->getHeaders(),
+            $base->getBody(),
+            $base->getProtocolVersion(),
+            $base->getServerParams()
+        );
+        $agaviReq = $agaviReq
+            ->withQueryParams($base->getQueryParams())
+            ->withCookieParams($base->getCookieParams())
+            ->withParsedBody($base->getParsedBody())
+            ->withUploadedFiles($base->getUploadedFiles());
+        foreach ($base->getAttributes() as $name => $value) {
+            $agaviReq = $agaviReq->withAttribute($name, $value);
+        }
         return $agaviReq;
     }
     

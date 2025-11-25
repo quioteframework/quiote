@@ -15,18 +15,19 @@ class AgaviWebRequestBehaviorTest extends AgaviUnitTestCase
 {
     private function newRequest(array $server = [], array $query = [], array $body = [], array $cookies = [], array $files = [], array $headers = []): AgaviWebRequest
     {
-        $psr = new ServerRequest(
+        $url = ($server['REQUEST_SCHEME'] ?? 'http') . '://' . ($server['HTTP_HOST'] ?? ($server['SERVER_NAME'] ?? 'example.test')) . ($server['REQUEST_URI'] ?? '/');
+        $wr = new AgaviWebRequest(
             $server['REQUEST_METHOD'] ?? 'GET',
-            ($server['REQUEST_SCHEME'] ?? 'http') . '://' . ($server['HTTP_HOST'] ?? ($server['SERVER_NAME'] ?? 'example.test')) . ($server['REQUEST_URI'] ?? '/'),
+            $url,
             $headers,
             $body ? http_build_query($body) : null,
             '1.1',
             $server
         );
-        $psr = $psr->withQueryParams($query)->withParsedBody($body)->withCookieParams($cookies)->withUploadedFiles($files);
-        $wr = new AgaviWebRequest();
         $wr->initialize($this->getContext());
-        $wr->attachPsrRequest($psr);
+        // Ensure URI scheme is correct (constructor might override from server params)
+        $wr = $wr->withUri(new \Agavi\Http\SimpleUri($url));
+        $wr = $wr->withQueryParams($query)->withParsedBody($body)->withCookieParams($cookies)->withUploadedFiles($files);
         return $wr;
     }
 
@@ -83,7 +84,7 @@ class AgaviWebRequestBehaviorTest extends AgaviUnitTestCase
         $vm->createValidator(Agavi\Validator\AgaviEqualsValidator::class, ['alpha'], [], ['value' => 'one']);
         $vm->execute($wr);
         $this->assertTrue($wr->hasParameter('alpha'));
-        $wr->removeParameter('alpha');
+        $wr = $wr->removeParameter('alpha');
         $this->assertFalse($wr->hasParameter('alpha'));
     }
 
@@ -108,8 +109,8 @@ class AgaviWebRequestBehaviorTest extends AgaviUnitTestCase
         $vm->execute($wr);
         $this->assertSame('query', $wr->getParameter('q'));
         $this->assertSame('body', $wr->getParameter('p'));
-        $wr->removeParameter('q', 'parameters');
-        $wr->removeParameter('p', 'parameters');
+        $wr = $wr->removeParameter('q', 'parameters');
+        $wr = $wr->removeParameter('p', 'parameters');
         $this->assertNull($wr->getParameter('q'));
         $this->assertNull($wr->getParameter('p'));
     }

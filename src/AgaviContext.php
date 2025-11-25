@@ -587,9 +587,8 @@ class AgaviContext implements \Stringable, ResetInterface
 					$this->request->startup();
 				}
 			}
-			if ($this->request instanceof \Agavi\Request\AgaviWebRequest) {
-				$this->request->attachPsrRequest($request);
-			}
+			// No need to attachPsrRequest - AgaviWebRequest IS the PSR-7 request
+			// If needed, ensure context's request is same instance as pipeline request
 		} catch (\Throwable $_e) {
 			// ignore
 		}
@@ -610,6 +609,25 @@ class AgaviContext implements \Stringable, ResetInterface
 			$message = sprintf('[AgaviContext] setCurrentPsrRequest id=%d cid=%s', spl_object_id($request), $this->correlationId);
 		} catch (\Throwable $_e) {
 			$message = '[AgaviContext] setCurrentPsrRequest (no id) cid=' . $this->correlationId;
+		}
+		AgaviDebugLogger::debug($message, $this);
+	}
+
+	/**
+	 * Set the request object explicitly (used for PSR-7 request synchronization).
+	 * Since AgaviWebRequest now extends ServerRequest, this updates both the main
+	 * request and currentPsrRequest to keep them synchronized.
+	 */
+	public function setRequest($request): void
+	{
+		$this->request = $request;
+		if ($request instanceof ServerRequestInterface) {
+			$this->currentPsrRequest = $request;
+		}
+		try {
+			$message = sprintf('[AgaviContext] setRequest id=%d cid=%s', spl_object_id($request), $this->correlationId);
+		} catch (\Throwable $_e) {
+			$message = '[AgaviContext] setRequest (no id) cid=' . $this->correlationId;
 		}
 		AgaviDebugLogger::debug($message, $this);
 	}
@@ -979,14 +997,7 @@ class AgaviContext implements \Stringable, ResetInterface
 				$this->request->initialize($this, $parameters);
 				$this->request->startup();
 
-				// If a current PSR request exists (middleware pipeline), attach it for BC helpers
-				try {
-					if ($this->request instanceof \Agavi\Request\AgaviWebRequest && $this->currentPsrRequest) {
-						$this->request->attachPsrRequest($this->currentPsrRequest);
-					}
-				} catch (\Throwable) {
-					// ignore
-				}
+				// No need to attachPsrRequest - AgaviWebRequest IS the PSR-7 request
 
 				// Re-run controller startup so it re-caches the (new) global request data pointer
 				if ($this->controller && method_exists($this->controller, 'startup')) {

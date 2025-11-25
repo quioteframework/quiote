@@ -15,7 +15,7 @@ class AgaviWebRequestAdditionalCoverageTest extends AgaviUnitTestCase
 {
     private function newRequest(array $server = [], array $query = [], array $body = [], array $headers = []): AgaviWebRequest
     {
-        $psr = new ServerRequest(
+        $wr = new AgaviWebRequest(
             $server['REQUEST_METHOD'] ?? 'GET',
             ($server['REQUEST_SCHEME'] ?? 'http') . '://' . ($server['HTTP_HOST'] ?? 'example.test') . ($server['REQUEST_URI'] ?? '/'),
             $headers,
@@ -23,10 +23,8 @@ class AgaviWebRequestAdditionalCoverageTest extends AgaviUnitTestCase
             '1.1',
             $server
         );
-        $psr = $psr->withQueryParams($query)->withParsedBody($body);
-        $wr = new AgaviWebRequest();
         $wr->initialize($this->getContext());
-        $wr->attachPsrRequest($psr);
+        $wr = $wr->withQueryParams($query)->withParsedBody($body);
         return $wr;
     }
 
@@ -57,8 +55,8 @@ class AgaviWebRequestAdditionalCoverageTest extends AgaviUnitTestCase
     public function testAppendListAttributeAndRemoval(): void
     {
         $wr = $this->newRequest();
-        $wr->appendListAttribute('assets', 'a.css');
-        $wr->appendListAttribute('assets', 'b.css');
+        $wr = $wr->appendListAttribute('assets', 'a.css');
+        $wr = $wr->appendListAttribute('assets', 'b.css');
         $this->assertTrue($wr->hasAttribute('assets'));
         $attrs = $wr->getAttributes();
         $this->assertSame(['a.css','b.css'], $attrs['assets']);

@@ -36,17 +36,14 @@ class LayoutSlotNoContainerTest extends AgaviUnitTestCase
     $descriptor = \Agavi\Execution\ActionDescriptor::fromController($controller,'Cache','CacheComplex','GET', strtolower($controller->getOutputType()->getName()));
     $vic = new \Agavi\Execution\ImmutableViewInitContext($this->getContext(),'Cache','CacheComplexSuccess', strtolower($controller->getOutputType()->getName()), 'Cache','CacheComplex', [], $controller->getGlobalResponse());
     $view->initialize($vic);
-    // Ensure context has a current PSR request
-    if(!method_exists($this->getContext(), 'getCurrentPsrRequest') || !$this->getContext()->getCurrentPsrRequest()) {
-        $req = new ServerRequest('GET','http://localhost/layout-test');
-        $req = $req->withAttribute(SlotStack::class, new SlotStack());
-        $refCtx = new \ReflectionClass($this->getContext());
-        if($refCtx->hasProperty('currentPsrRequest')) {
-            $p = $refCtx->getProperty('currentPsrRequest');
-            $p->setAccessible(true);
-            $p->setValue($this->getContext(), $req);
-        }
+    // Ensure context has a request with SlotStack
+    $req = $this->getContext()->getRequest();
+    if (!$req) {
+        $req = new \Agavi\Request\AgaviWebRequest('GET', 'http://localhost/layout-test');
+        $req->initialize($this->getContext());
     }
+    $req = $req->withAttribute(SlotStack::class, new SlotStack());
+    $this->getContext()->setRequest($req);
     // Inject synthetic layout with a slot via reflection on output type
     $ot = $controller->getOutputType();
     $r = new ReflectionObject($ot);

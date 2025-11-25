@@ -50,13 +50,15 @@ class AgaviValidationManagerBehaviorTest extends AgaviUnitTestCase
         $this->assertFalse($after->validated, 'Subsequent validator should not execute');
     }
 
-    public function testStrictModePrunesUnvalidatedParameters(): void
+    public function testStrictModeEmptyValidatorSetClearsAllParameters(): void
     {
         $vm = $this->newVm(['mode' => AgaviValidationManager::MODE_STRICT]);
         $req = $this->newWebRequest();
         $req->setParameter('unvalidated', 'val');
         // No validators registered -> strict mode should clear parameters
         $this->assertTrue($vm->execute($req));
+        // Get the pruned request from context after validation
+        $req = $this->getContext()->getRequest();
         $this->assertFalse($req->hasParameter('unvalidated'));
     }
 
@@ -69,6 +71,8 @@ class AgaviValidationManagerBehaviorTest extends AgaviUnitTestCase
         // Provide intrinsic (query) parameters so removal logic operates on underlying PSR-7 sources
         $req = $this->newWebRequest(['field' => 'abc', 'other' => 'keep?']);
         $this->assertFalse($vm->execute($req));
+        // Get the pruned request from context after validation
+        $req = $this->getContext()->getRequest();
         // After pruning logic: failed argument 'field' removed, unvalidated 'other' also pruned in strict mode.
         $this->assertFalse($req->hasParameter('field'), 'Failed argument should be pruned');
         $this->assertFalse($req->hasParameter('other'), 'Unvalidated argument should be pruned');
@@ -128,6 +132,8 @@ class AgaviValidationManagerBehaviorTest extends AgaviUnitTestCase
         $req = $this->newWebRequest(['alpha' => 'A', 'beta' => 'B']);
         // Only 'alpha' is validated; since validation overall succeeds, 'beta' (unvalidated) should be pruned in strict mode.
         $this->assertTrue($vm->execute($req));
+        // Get the pruned request from context after validation
+        $req = $this->getContext()->getRequest();
         $this->assertTrue($req->hasParameter('alpha'));
         $this->assertFalse($req->hasParameter('beta'), 'Unvalidated parameter pruned on success in strict mode');
     }
@@ -152,11 +158,15 @@ class AgaviValidationManagerBehaviorTest extends AgaviUnitTestCase
     $stream->write('content');
     $file = new \Nyholm\Psr7\UploadedFile($stream, $stream->getSize() ?? 7, UPLOAD_ERR_OK, 'x.txt', 'text/plain');
     $psrReq = $psrReq->withUploadedFiles(['keptFile' => $file, 'tmpFile' => $file]);
-    $req->attachPsrRequest($psrReq);
+        $req = $req->withHeader('x-auth', 'ok')->withHeader('x-unvalidated', 'remove-me');
+        $req = $req->withCookieParams(['sessionid' => 'abc', 'junk' => 'zzz']);
+        $req = $req->withUploadedFiles(['keptFile' => $file, 'tmpFile' => $file]);
         $this->assertTrue($vm->execute($req));
-    // Validated header retained; unvalidated header removed.
-    $this->assertTrue($req->hasHeader('x-auth'));
-    $this->assertFalse($req->hasHeader('x-unvalidated'));
+        // Get the pruned request from context after validation
+        $req = $this->getContext()->getRequest();
+        // Validated header retained; unvalidated header removed.
+        $this->assertTrue($req->hasHeader('x-auth'));
+        $this->assertFalse($req->hasHeader('x-unvalidated'));
         $this->assertSame(['sessionid' => 'abc'], $req->getCookieParams());
         $files = $req->getUploadedFiles();
         // No files validated, so both should be pruned
@@ -177,10 +187,14 @@ class AgaviValidationManagerBehaviorTest extends AgaviUnitTestCase
     $stream2->write('data');
     $file = new \Nyholm\Psr7\UploadedFile($stream2, $stream2->getSize() ?? 4, UPLOAD_ERR_OK, 'f.bin', 'application/octet-stream');
     $psrReq = $psrReq->withUploadedFiles(['f1' => $file]);
-    $req->attachPsrRequest($psrReq);
+        $req = $req->withHeader('x-auth', 'should-remove')->withHeader('another', 'remove');
+        $req = $req->withCookieParams(['keep' => 'n/a', 'lose' => 'x']);
+        $req = $req->withUploadedFiles(['f1' => $file]);
         $this->assertFalse($vm->execute($req));
-    $this->assertFalse($req->hasHeader('x-auth'));
-    $this->assertFalse($req->hasHeader('another'));
+        // Get the pruned request from context after validation
+        $req = $this->getContext()->getRequest();
+        $this->assertFalse($req->hasHeader('x-auth'));
+        $this->assertFalse($req->hasHeader('another'));
         $this->assertSame([], $req->getCookieParams());
         $this->assertSame([], $req->getUploadedFiles());
     }
