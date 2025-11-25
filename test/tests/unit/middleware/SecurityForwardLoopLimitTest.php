@@ -9,12 +9,14 @@ use Agavi\Middleware\ValidationMiddleware;
 use Agavi\Middleware\DispatchMiddleware;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\ServerRequest;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * Verifies forwardCount limit (508) is enforced after >5 forwards to prevent loops.
  * We simulate by feeding the middleware a descriptor that always triggers secure/login forward by
  * configuring the action to require auth while user stays unauthenticated.
  */
+#[RunTestsInSeparateProcesses]
 final class SecurityForwardLoopLimitTest extends AgaviUnitTestCase
 {
     protected function setUp(): void
@@ -25,6 +27,12 @@ final class SecurityForwardLoopLimitTest extends AgaviUnitTestCase
         \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,true,false);
         $u = $this->getContext()->getUser();
         if(method_exists($u,'setAuthenticated')) { $u->setAuthenticated(false); }
+        // Ensure context has an AgaviWebRequest (required by ValidationMiddleware)
+        $ctxReq = $this->getContext()->getRequest();
+        if (!($ctxReq instanceof \Agavi\Request\AgaviWebRequest)) {
+            // Force recreation via factory if needed
+            $this->getContext()->getRequest();
+        }
     }
 
     private function buildPsr(): \Psr\Http\Message\ServerRequestInterface

@@ -42,7 +42,7 @@ class SlotMiddleware implements MiddlewareInterface
             // Inform context about the request instance change so it stays in sync
             if ($this->context !== null) {
                 try {
-                    $this->context->setCurrentPsrRequest($request);
+                    $this->context->setRequest($request);
                 } catch (\Throwable) {
                 }
             }

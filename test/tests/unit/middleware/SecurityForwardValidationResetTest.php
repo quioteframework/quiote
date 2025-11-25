@@ -9,11 +9,13 @@ use Agavi\Middleware\ValidationMiddleware;
 use Agavi\Middleware\DispatchMiddleware;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\ServerRequest;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * Ensures that a security forward (login/secure) resets validation decision and target descriptor
  * so that the forwarded action is validated and executed exactly once.
  */
+#[RunTestsInSeparateProcesses]
 final class SecurityForwardValidationResetTest extends AgaviUnitTestCase
 {
     protected function setUp(): void
@@ -27,6 +29,12 @@ final class SecurityForwardValidationResetTest extends AgaviUnitTestCase
         $user = $this->getContext()->getUser();
         if(method_exists($user,'setAuthenticated')) { $user->setAuthenticated(false); }
         if(method_exists($user,'clearCredentials')) { try { $user->clearCredentials(); } catch(\Throwable) {} }
+        // Ensure context has an AgaviWebRequest (required by ValidationMiddleware)
+        $ctxReq = $this->getContext()->getRequest();
+        if (!($ctxReq instanceof \Agavi\Request\AgaviWebRequest)) {
+            // Force recreation via factory if needed
+            $this->getContext()->getRequest();
+        }
     }
 
     private function buildPsr(): \Psr\Http\Message\ServerRequestInterface

@@ -8,6 +8,7 @@ use Agavi\Middleware\ErrorHandlingMiddleware;
 use Agavi\Middleware\ExecutionTimeMiddleware;
 use Agavi\Middleware\RoutingMiddleware;
 use Agavi\Middleware\SecurityMiddleware;
+use Agavi\Middleware\SlotMiddleware;
 use Agavi\Middleware\DispatchMiddleware;
 use Agavi\Middleware\AssetAggregationMiddleware;
 use Agavi\Request\AgaviWebRequest;
@@ -67,8 +68,9 @@ class PsrPipelineBuilder
     public function buildDispatcher(RequestHandlerInterface $finalHandler): RequestHandlerInterface
     {
         $pipeline = new MiddlewarePipeline($finalHandler);
-        // Ordering: routing -> security -> dispatch -> assets -> timing (finalize)
+        // Ordering: routing -> slot -> security -> dispatch -> assets -> timing (finalize)
         $pipeline->add('RoutingMiddleware', new RoutingMiddleware($this->context->getRouting(), $this->context->getController()), 'routing');
+        $pipeline->add('SlotMiddleware', new SlotMiddleware($this->context), 'routing');
         $pipeline->add('SecurityMiddleware', new SecurityMiddleware($this->context->getController()), 'before_action');
         $pipeline->add('DispatchMiddleware', new DispatchMiddleware($this->context->getController()), 'action');
         $pipeline->add('AssetAggregationMiddleware', new AssetAggregationMiddleware(), 'post');

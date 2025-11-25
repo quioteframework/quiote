@@ -170,9 +170,6 @@ class AgaviContext implements \Stringable, ResetInterface
 	/** @var \Agavi\Execution\ActionResolver|null */
 	protected $actionResolver = null;
 
-	/** @var ServerRequestInterface|null The current PSR-7 request being processed */
-	protected ?ServerRequestInterface $currentPsrRequest = null;
-
 	/**
 	 * @var        array Storage factory info for worker mode recreation
 	 */
@@ -512,7 +509,6 @@ class AgaviContext implements \Stringable, ResetInterface
 
 		// Reset request object (it will be recreated for the next request)
 		$this->request = null;
-		$this->currentPsrRequest = null;
 		// Reset PSR middleware kernel for worker mode safety
 		self::$psrKernel?->reset();
 		if ($logger) {
@@ -567,14 +563,7 @@ class AgaviContext implements \Stringable, ResetInterface
 		} catch (\Throwable) {
 			$this->correlationId = uniqid('req', true);
 		}
-		// Store the current request so subsystems (e.g. views/slots) can derive child requests
-		$this->currentPsrRequest = $request;
-		try {
-			$message = sprintf('[AgaviContext] currentPsrRequest id=%d correlation id=%s', spl_object_id($request), $this->correlationId);
-		} catch (\Throwable $_e) {
-			$message = '[AgaviContext] stored currentPsrRequest (no id) correlation id=' . $this->correlationId;
-		}
-		AgaviDebugLogger::debug($message, $this);
+
 		// Bridge: ensure a legacy AgaviWebRequest exists and attach the current PSR request for BC helpers
 		try {
 			if (!$this->request) {
@@ -598,32 +587,12 @@ class AgaviContext implements \Stringable, ResetInterface
 	}
 
 	/**
-	 * Update the stored current PSR request instance.
-	 * Middleware that replace the request (withAttribute/withParsedBody etc.) can call
-	 * this so AgaviContext always returns the most up-to-date request.
-	 */
-	public function setCurrentPsrRequest(ServerRequestInterface $request): void
-	{
-		$this->currentPsrRequest = $request;
-		try {
-			$message = sprintf('[AgaviContext] setCurrentPsrRequest id=%d cid=%s', spl_object_id($request), $this->correlationId);
-		} catch (\Throwable $_e) {
-			$message = '[AgaviContext] setCurrentPsrRequest (no id) cid=' . $this->correlationId;
-		}
-		AgaviDebugLogger::debug($message, $this);
-	}
-
-	/**
-	 * Set the request object explicitly (used for PSR-7 request synchronization).
-	 * Since AgaviWebRequest now extends ServerRequest, this updates both the main
-	 * request and currentPsrRequest to keep them synchronized.
+	 * Set the request object explicitly.
+	 * AgaviWebRequest extends ServerRequest, so this is the single source of truth.
 	 */
 	public function setRequest($request): void
 	{
 		$this->request = $request;
-		if ($request instanceof ServerRequestInterface) {
-			$this->currentPsrRequest = $request;
-		}
 		try {
 			$message = sprintf('[AgaviContext] setRequest id=%d cid=%s', spl_object_id($request), $this->correlationId);
 		} catch (\Throwable $_e) {
@@ -661,12 +630,13 @@ class AgaviContext implements \Stringable, ResetInterface
 	}
 
 	/**
-	 * Retrieve the current PSR-7 ServerRequest (if inside a PSR pipeline execution).
+	 * Retrieve the current PSR-7 ServerRequest.
+	 * Since AgaviWebRequest extends ServerRequest, this returns the same object as getRequest().
 	 * May return null for legacy/CLI execution paths.
 	 */
 	public function getCurrentPsrRequest(): ?ServerRequestInterface
 	{
-		return $this->currentPsrRequest;
+		return $this->request;
 	}
 
 	/**
@@ -1094,7 +1064,8 @@ class AgaviContext implements \Stringable, ResetInterface
 
 				$this->storage = new $className();
 				$this->storage->initialize($this, $parameters);
-				$this->storage->startup();
+				// Do NOT call startup() here - SessionMiddleware will call it after mirroring PSR-7 cookies to $_COOKIE
+				// Calling it here causes session loss because $_COOKIE is empty before SessionMiddleware runs
 
 				$logger?->debug('[AgaviContext.getStorage] - Storage object recreated successfully using factory info: ' . $className);
 			} else {

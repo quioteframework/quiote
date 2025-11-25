@@ -23,17 +23,16 @@ class RenderSlotHelperTest extends AgaviUnitTestCase
         $view = new class extends AgaviView { public function execute(AgaviWebRequest $request) { return null; } };
         $vic = new \Agavi\Execution\ImmutableViewInitContext($this->getContext(), 'Cache','CacheSuccess', strtolower($controller->getOutputType()->getName()), 'Cache','Cache', [], $controller->getGlobalResponse());
         $view->initialize($vic);
-        // Ensure context has a current PSR request so createSlotContent fast path works
-        if(!method_exists($this->getContext(), 'getCurrentPsrRequest') || !$this->getContext()->getCurrentPsrRequest()) {
+        // Ensure context request has the SlotStack attribute for slot execution
+        // Since AgaviWebRequest extends ServerRequest, we can add attributes to it
+        $ctxReq = $this->getContext()->getRequest();
+        if ($ctxReq && !$ctxReq->getAttribute(\Agavi\Execution\SlotStack::class)) {
+            $ctxReq = $ctxReq->withAttribute(\Agavi\Execution\SlotStack::class, new \Agavi\Execution\SlotStack());
+            $this->getContext()->setRequest($ctxReq);
+        } elseif (!$ctxReq) {
             $req = new NyholmServerRequest('GET','http://localhost/test');
             $req = $req->withAttribute(\Agavi\Execution\SlotStack::class, new \Agavi\Execution\SlotStack());
-            // Hack: set via reflection (Context doesn't expose public setter)
-            $ref = new ReflectionClass($this->getContext());
-            if($ref->hasProperty('currentPsrRequest')) {
-                $p = $ref->getProperty('currentPsrRequest');
-                $p->setAccessible(true);
-                $p->setValue($this->getContext(), $req);
-            }
+            $this->getContext()->setRequest($req);
         }
         // Strict validation: pre-whitelist potential slot argument names used in tests
         try {

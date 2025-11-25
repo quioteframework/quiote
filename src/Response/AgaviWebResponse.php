@@ -299,12 +299,37 @@ class AgaviWebResponse extends AgaviResponse
 			'cookie_samesite' => $parameters['cookie_samesite'] ?? null,
 		]);
 
-		$protocol = $request ? $request->getProtocol() : 'HTTP/1.1';
+		// Support both AgaviWebRequest::getProtocol() and PSR-7 getProtocolVersion()
+		if ($request && method_exists($request, 'getProtocol')) {
+			$protocol = $request->getProtocol();
+		} elseif ($request) {
+			// Convert PSR-7 protocol version (e.g., "1.1") to HTTP protocol (e.g., "HTTP/1.1")
+			$protocol = 'HTTP/' . $request->getProtocolVersion();
+		} else {
+			$protocol = 'HTTP/1.1';
+		}
 		$this->httpStatusCodes = match ($protocol) {
 			'HTTP/2' => $this->http11StatusCodes,
 			'HTTP/1.1' => $this->http11StatusCodes,
 			default => $this->http10StatusCodes,
 		};
+	}
+
+	/**
+	 * Get the HTTP protocol string from a request object.
+	 * Supports both AgaviWebRequest::getProtocol() and PSR-7 getProtocolVersion().
+	 *
+	 * @param      mixed $request A request object or null.
+	 * @return     string The HTTP protocol (e.g., "HTTP/1.1").
+	 */
+	protected function getRequestProtocol($request): string
+	{
+		if ($request && method_exists($request, 'getProtocol')) {
+			return $request->getProtocol();
+		} elseif ($request && method_exists($request, 'getProtocolVersion')) {
+			return 'HTTP/' . $request->getProtocolVersion();
+		}
+		return 'HTTP/1.1';
 	}
 	
 	/**
@@ -520,7 +545,8 @@ class AgaviWebResponse extends AgaviResponse
 				} catch(\Throwable) {}
 			}
 		} else {
-			$protocol = $this->context?->getRequest()?->getProtocol() ?? 'HTTP/1.1';
+			$request = $this->context?->getRequest();
+			$protocol = $this->getRequestProtocol($request);
 			throw new AgaviException(sprintf('Invalid %s Status code: %s', $protocol, $code));
 		}
 	}
@@ -1069,7 +1095,9 @@ class AgaviWebResponse extends AgaviResponse
 	public function setRedirect($location, $code = 302)
 	{
 		if(!$this->validateHttpStatusCode($code)) {
-			throw new AgaviException(sprintf('Invalid %s Redirect Status code: %s', $this->context->getRequest()->getProtocol(), $code));
+			$request = $this->context->getRequest();
+			$protocol = $this->getRequestProtocol($request);
+			throw new AgaviException(sprintf('Invalid %s Redirect Status code: %s', $protocol, $code));
 		}
 		$this->redirect = ['location' => $location, 'code' => $code];
 	}

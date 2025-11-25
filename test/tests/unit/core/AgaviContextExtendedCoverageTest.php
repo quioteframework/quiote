@@ -250,7 +250,7 @@ class AgaviContextExtendedCoverageTest extends TestCase
         $this->assertTrue($found, 'New user should be registered in shutdown sequence');
     }
 
-    public function testSetCurrentPsrRequestUpdatesReferenceButKeepsCorrelationId()
+    public function testSetRequestUpdatesReferenceButKeepsCorrelationId()
     {
         $ctx = $this->ctx();
         // Establish a correlation id via handle() first
@@ -263,16 +263,17 @@ class AgaviContextExtendedCoverageTest extends TestCase
         $cid1 = $ctx->getCorrelationId();
         $this->assertNotEmpty($cid1);
         // Current PSR request should be the one passed to handle (identity may be same instance)
+        // Since AgaviWebRequest extends ServerRequest, getCurrentPsrRequest() returns the request
         $current1 = $ctx->getCurrentPsrRequest();
         // Allow frameworks/middleware to wrap the request; verify semantic consistency
         if ($current1 !== $req1) {
             $this->assertSame((string)$req1->getUri(), (string)$current1->getUri(), 'Current PSR request URI should match original even if instance was replaced');
         } else {
-            $this->assertSame($req1, $current1, 'Expected currentPsrRequest to reference req1 immediately after handle');
+            $this->assertSame($req1, $current1, 'Expected request to reference req1 immediately after handle');
         }
         // Simulate middleware replacing request (e.g., adding attribute)
         $req2 = $req1->withAttribute('x', 'y');
-        $ctx->setCurrentPsrRequest($req2);
+        $ctx->setRequest($req2);
         $this->assertNotSame($req1, $req2, 'Middleware modifications should produce a new immutable request instance');
         $current2 = $ctx->getCurrentPsrRequest();
         if ($current2 !== $req2) {
@@ -281,7 +282,7 @@ class AgaviContextExtendedCoverageTest extends TestCase
             $this->assertSame($req2, $current2, 'Context should now reference the replaced PSR request');
         }
         // Correlation id remains the same for the same pipeline execution
-        $this->assertSame($cid1, $ctx->getCorrelationId(), 'Correlation id should not change on setCurrentPsrRequest');
+        $this->assertSame($cid1, $ctx->getCorrelationId(), 'Correlation id should not change on setRequest');
         // A new handle() should regenerate correlation id
         $req3 = new ServerRequest('GET', '/next');
         $ctx->handle($req3);
