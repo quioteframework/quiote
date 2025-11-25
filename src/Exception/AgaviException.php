@@ -59,8 +59,8 @@ class AgaviException extends Exception
 	 * does not contain the origin as the first entry in the trace array, which
 	 * appears to happen from time to time or with certain PHP/XDebug versions.
 	 *
-	 * @param      Exception The exception to pull the trace from.
-	 * @param      Exception Optionally, the next exception to display (pulled
+	 * @param      \Throwable The exception to pull the trace from.
+	 * @param      \Throwable Optionally, the next exception to display (pulled
 	 *                       from Exception::getPrevious() and displayed in
 	 *                       reverse order), which will then result in identical
 	 *                       parts of the stack trace not being returned.
@@ -70,7 +70,7 @@ class AgaviException extends Exception
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.3
 	 */
-	public static function getFixedTrace(Exception $e, ?Exception $next = null)
+	public static function getFixedTrace(\Throwable $e, ?\Throwable $next = null)
 	{
 		// fix stack trace in case it doesn't contain the exception origin as the first entry
 		$fixedTrace = $e->getTrace();
