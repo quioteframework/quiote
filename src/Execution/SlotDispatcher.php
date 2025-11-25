@@ -112,9 +112,24 @@ class SlotDispatcher
                 if (!($rdh instanceof AgaviWebRequest)) {
                     throw new \RuntimeException('Canonical AgaviWebRequest missing when applying slot parameters');
                 }
+                // Get original PSR-7 request from SlotStack (saved before validation pruning)
+                $originalRequest = $stack?->getOriginalRequest();
                 foreach ($parameters as $k => $v) {
                     if (!array_key_exists($k, $originals)) {
-                        $originals[$k] = $rdh->getParameter($k);
+                        // Check original request for parameters pruned during parent validation
+                        $originalValue = null;
+                        if ($originalRequest) {
+                            $query = $originalRequest->getQueryParams();
+                            if (array_key_exists($k, $query)) {
+                                $originalValue = $query[$k];
+                            } else {
+                                $body = $originalRequest->getParsedBody();
+                                if (is_array($body) && array_key_exists($k, $body)) {
+                                    $originalValue = $body[$k];
+                                }
+                            }
+                        }
+                        $originals[$k] = $originalValue;
                     }
                     $rdh->setParameter($k, $v);
                 }

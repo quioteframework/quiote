@@ -69,9 +69,11 @@ class ValidationService
         $configFile = null;
         // 1. Load XML validation config if we have module/action names
         if ($moduleName && $actionName) {
+            // Convert dots to slashes for file system paths (e.g., Resources.Data -> Resources/Data)
+            $actionNamePath = str_replace('.', '/', $actionName);
             $configFile = AgaviToolkit::evaluateModuleDirective($moduleName, 'agavi.validate.path', [
                 'moduleName' => $moduleName,
-                'actionName' => $actionName,
+                'actionName' => $actionNamePath,
             ]);
             if (getenv('AGAVI_DEBUG_VALIDATION')) {
                 try { $logger?->debug('[ValidationService][probe] resolve configFile=' . $configFile . ' readable=' . (is_readable($configFile)?'1':'0') . ' methodToken=' . $method . ' module=' . $moduleName . ' action=' . $actionName); } catch(\Throwable) {}
@@ -118,6 +120,10 @@ class ValidationService
                     try {
                         $logger?->debug('[ValidationService][validate] loadedValidators=' . (empty($validatorsLoaded) ? 'none' : implode(',', $validatorsLoaded)) . ' file=' . $configFile . ' method=' . $method);
                     } catch(\Throwable $e) {}
+                }
+            } else {
+                if (getenv('AGAVI_DEBUG_VALIDATION')) {
+                    try { $logger?->debug('[ValidationService][validate] no readable config file at ' . $configFile); } catch(\Throwable) {}
                 }
             }
         }
@@ -238,7 +244,9 @@ class ValidationService
         $validatorsLoaded = [];
         $configFile = null;
         if ($moduleName && $actionName) {
-            $configFile = \Agavi\Util\AgaviToolkit::evaluateModuleDirective($moduleName, 'agavi.validate.path', ['moduleName' => $moduleName, 'actionName' => $actionName]);
+            // Convert dots to slashes for file system paths (e.g., Resources.Data -> Resources/Data)
+            $actionNamePath = str_replace('.', '/', $actionName);
+            $configFile = \Agavi\Util\AgaviToolkit::evaluateModuleDirective($moduleName, 'agavi.validate.path', ['moduleName' => $moduleName, 'actionName' => $actionNamePath]);
             if ($vd) {
                 $logger?->debug("[ValidationService] Validation config file = " . $configFile . ", is_readable=" . (is_readable($configFile) ? "1":"0"));
             }

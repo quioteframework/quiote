@@ -31,6 +31,9 @@ class MiddlewarePipeline implements RequestHandlerInterface
         if (!$this->built) {
             $this->doBuild();
         }
+        // Save original request before validation pruning for slot parameter access
+        // Pass it through as an attribute so SlotMiddleware can inject it into SlotDispatcher
+        $request = $request->withAttribute('_original_psr_request', $request);
         return $this->handler->handle($request);
     }
 

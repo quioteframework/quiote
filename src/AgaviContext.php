@@ -445,15 +445,18 @@ class AgaviContext implements \Stringable, ResetInterface
 					$logger->debug('context.reset shutdown storage');
 				}
 				
-				// Reset storage connections before shutdown if it implements ResetInterface
+				// CRITICAL: Must call shutdown() BEFORE reset() to ensure session data is persisted
+				// shutdown() persists dirty session data to database/storage
+				// reset() clears in-memory state for next request
+				$component->shutdown(); // This persists session data
+				
+				// Reset storage connections after shutdown if it implements ResetInterface
 				if ($component instanceof ResetInterface) {
 					if (getenv('AGAVI_DEBUG_DATABASE')) {
 						AgaviDebugLogger::debug('[AgaviContext] calling storage reset()', $this);
 					}
 					$component->reset();
 				}
-				
-				$component->shutdown(); // This calls session_write_close()
 			} elseif ($component === $this->databaseManager && $component !== null) {
 				if ($logger) {
 					$logger->debug('context.reset shutdown databaseManager - id=' . spl_object_id($component));
@@ -509,6 +512,7 @@ class AgaviContext implements \Stringable, ResetInterface
 
 		// Reset request object (it will be recreated for the next request)
 		$this->request = null;
+		$this->currentPsrRequest = null;
 		// Reset PSR middleware kernel for worker mode safety
 		self::$psrKernel?->reset();
 		if ($logger) {

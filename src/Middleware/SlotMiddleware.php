@@ -22,7 +22,13 @@ class SlotMiddleware implements MiddlewareInterface
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         if (!$request->getAttribute(self::ATTR)) {
-            $request = $request->withAttribute(self::ATTR, new SlotStack());
+            $slotStack = new SlotStack();
+            // Save original request from MiddlewarePipeline for slot parameter access
+            $originalRequest = $request->getAttribute('_original_psr_request');
+            if ($originalRequest instanceof ServerRequestInterface) {
+                $slotStack->setOriginalRequest($originalRequest);
+            }
+            $request = $request->withAttribute(self::ATTR, $slotStack);
             // Log request identity and presence of SlotStack for debugging in FrankenPHP
             if (getenv('AGAVI_DEBUG_SLOT_DISPATCH')) {
                 try {
