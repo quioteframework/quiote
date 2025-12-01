@@ -151,9 +151,6 @@ class ValidationService
         }
         try {
             $ok = (bool)$validationManager->execute($request);
-            if (getenv('DEBUG_TESTS')) {
-                error_log('[TestDebug][ValidationService] execute() returned ' . ($ok ? 'true' : 'false') . ' module=' . $moduleName . ' action=' . $actionName . ' method=' . $xmlMethod);
-            }
             if (getenv('AGAVI_DEBUG_VALIDATION')) {
                 try {
                     $logger?->debug('[ValidationService][validate] Validators execute() returned: ' . ($ok ? 'true' : 'false'));
@@ -186,16 +183,12 @@ class ValidationService
             } catch(\Throwable) {}
         }
         try {
-            if (getenv('DEBUG_TESTS')) {
-                error_log('[TestDebug][ValidationService] calling action->' . $validateMethod . ' module=' . $moduleName . ' action=' . $actionName . ' method=' . $xmlMethod);
-            }
             $manualOk = (bool)$action->$validateMethod($request);
             $debugEnv = getenv('DEBUG_TESTS');
             if ($debugEnv) {
                 error_log('[TestDebug][ValidationService] envAfterCall=' . $debugEnv);
                 error_log('[TestDebug][ValidationService] action->' . $validateMethod . ' returned ' . ($manualOk ? 'true' : 'false') . ' module=' . $moduleName . ' action=' . $actionName . ' method=' . $xmlMethod);
             }
-            error_log('[TestDebug][ValidationService] post-call sentinel');
             if (getenv('AGAVI_DEBUG_VALIDATION')) {
                 try {
                     $logger?->debug('[ValidationService][validate] action->' . $validateMethod . '() returned ' . ($manualOk ? 'true' : 'false'));
