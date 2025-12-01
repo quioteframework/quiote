@@ -348,15 +348,9 @@ class ValidationMiddleware implements MiddlewareInterface
         if (!is_callable([$action, $handleErrorMethod])) {
             $handleErrorMethod = 'handleError';
         }
-        $viewName = $action ? $action->$handleErrorMethod($webRequest) : 'Error';
-        if (is_array($viewName)) {
-            $viewModule = $viewName[0];
-            $viewName = $viewName[1];
-        } elseif ($viewName !== AgaviView::NONE) {
-            $viewModule = $moduleName;
-        } else {
-            $viewModule = AgaviView::NONE;
-        }
+        $rawViewName = $action ? $action->$handleErrorMethod($webRequest) : 'Error';
+        $resolver = new ViewNameResolver();
+        [$viewModule, $viewName] = $resolver->resolve($moduleName, $actionName, $rawViewName);
         if ($execState instanceof ExecutionState) {
             $execState->viewModule = $viewModule;
             $execState->viewName = $viewName;

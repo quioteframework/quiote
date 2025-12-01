@@ -123,6 +123,34 @@ class DispatchMiddleware implements MiddlewareInterface
                 AgaviDebugLogger::debug('[DispatchMiddleware.buildPsrResponse] exception getting output type: ' . $e->getMessage(), $this->controller->getContext());
             }            
         }
+
+        $globalResp = null;
+        try {
+            $globalResp = $this->controller->getGlobalResponse();
+        } catch (\Throwable) {
+        }
+        if (is_object($globalResp)) {
+            try {
+                if (method_exists($globalResp, 'getHttpStatusCode')) {
+                    $statusCode = (int)$globalResp->getHttpStatusCode();
+                    if ($statusCode >= 100) {
+                        $resp = $resp->withStatus($statusCode);
+                    }
+                }
+            } catch (\Throwable) {
+            }
+            try {
+                if (method_exists($globalResp, 'getHttpHeaders')) {
+                    foreach ((array)$globalResp->getHttpHeaders() as $name => $value) {
+                        if ($value === null) {
+                            continue;
+                        }
+                        $resp = $resp->withHeader($name, $value);
+                    }
+                }
+            } catch (\Throwable) {
+            }
+        }
         
         $disableHeaders = (bool)AgaviConfig::get('core.disable-framework-headers', false);
         if (!$disableHeaders) {
@@ -134,7 +162,6 @@ class DispatchMiddleware implements MiddlewareInterface
 
         // Bridge any cookies scheduled on the legacy Agavi WebResponse into PSR response headers
         try {
-            $globalResp = $this->controller->getGlobalResponse();
             if (is_object($globalResp) && method_exists($globalResp, 'getCookies')) {
                 $cookies = is_callable([$globalResp, 'getCookies']) ? $globalResp->{'getCookies'}() : [];
                 $routing = $this->controller->getContext()->getRouting();
