@@ -86,18 +86,30 @@ abstract class AgaviBaseFileValidator extends AgaviValidator
 	 */
 	protected function validate()
 	{
+		$hasUpload = false;
+		$required = (bool) $this->getParameter('required', true);
+
 		foreach($this->getArguments() as $argument) {
 			$file = $this->getData($argument);
 
 			if(!($file instanceof UploadedFileInterface)) {
+				if($file === null) {
+					continue;
+				}
 				$this->throwError('argument_wrong_type');
 				return false;
+			}
+
+			if($file->getError() === UPLOAD_ERR_NO_FILE) {
+				continue;
 			}
 
 			if($file->getError() !== UPLOAD_ERR_OK) {
 				$this->throwError('upload_failed');
 				return false;
 			}
+
+			$hasUpload = true;
 
 			$size = (int)($file->getSize() ?? 0);
 			if($size < $this->getParameter('min_size', 1)) {
@@ -144,6 +156,14 @@ abstract class AgaviBaseFileValidator extends AgaviValidator
 					return false;
 				}
 			}
+		}
+
+		if(!$hasUpload) {
+			if($required) {
+				$this->throwError('required');
+				return false;
+			}
+			return true;
 		}
 		
 		return true;

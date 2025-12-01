@@ -307,6 +307,57 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 		return true;
 	}
 
+	/**
+	 * Convenience accessor returning a flat array of UploadedFileInterface objects.
+	 *
+	 * Calling code no longer needs to worry about Agavi returning null for
+	 * getUploadedFiles() when no payload exists or about nested PSR-7 structures.
+	 */
+	public function getUploadedFileArray(string $name): array
+	{
+		$uploadedFiles = $this->getUploadedFiles();
+		if (!is_array($uploadedFiles) || $uploadedFiles === []) {
+			return [];
+		}
+
+		return $this->flattenUploadedFiles($uploadedFiles[$name] ?? null);
+	}
+
+	/**
+	 * Return the first uploaded file for a given field name or null if none exist.
+	 */
+	public function getUploadedFile(string $name): ?UploadedFileInterface
+	{
+		$files = $this->getUploadedFileArray($name);
+		return $files[0] ?? null;
+	}
+
+	/**
+	 * Recursively flatten nested PSR-7 upload structures into a simple list.
+	 *
+	 * @param mixed $value
+	 * @return UploadedFileInterface[]
+	 */
+	private function flattenUploadedFiles(mixed $value): array
+	{
+		if ($value instanceof UploadedFileInterface) {
+			return [$value];
+		}
+
+		if (!is_array($value) || $value === []) {
+			return [];
+		}
+
+		$normalized = [];
+		foreach ($value as $entry) {
+			foreach ($this->flattenUploadedFiles($entry) as $file) {
+				$normalized[] = $file;
+			}
+		}
+
+		return $normalized;
+	}
+
 
 	/**
 	 * Get the request protocol information, e.g. "HTTP/1.1".
@@ -551,6 +602,7 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 		// Fallback for legacy flows: when not constructed with proper params
 		// need URL metadata derived from superglobals for helpers/tests.
 		$this->bootstrapFromServerParams($_SERVER);
+		$this->ingestJsonBodyParameters();
 	}
 
 	/**
@@ -676,6 +728,63 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 		$this->requestUri = $path . ($query !== '' ? '?' . $query : '');
 		$this->protocol = $server['SERVER_PROTOCOL'] ?? $this->protocol;
 		$this->url = $this->getUrlScheme() . '://' . $this->getUrlAuthority() . $this->requestUri;
+	}
+
+	/**
+	 * Detect application/json payloads sent through Agavi write/update requests
+	 * and mirror their fields into runtime parameters for classic validators.
+	 */
+	private function ingestJsonBodyParameters(): void
+	{
+		$method = strtolower((string)$this->getMethod());
+		if ($method !== 'write' && $method !== 'update') {
+			return;
+		}
+
+		$contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+		if (!is_string($contentType) || $contentType === '') {
+			return;
+		}
+
+		if (!preg_match('#^application/json(;[^;]+)*?$#i', $contentType)) {
+			return;
+		}
+
+		$jsonString = '';
+		if ($method === 'update') {
+			$file = $this->getUploadedFile('put_file');
+			if ($file === null) {
+				throw new AgaviException('Missing PUT payload upload');
+			}
+			$jsonString = (string)$file->getStream()->getContents();
+		} else {
+			$jsonString = (string)file_get_contents('php://input');
+		}
+
+		if ($jsonString === '') {
+			throw new AgaviException('Empty request body');
+		}
+
+		$data = json_decode($jsonString, true);
+		if (json_last_error() !== JSON_ERROR_NONE) {
+			throw new AgaviException('Invalid JSON payload: ' . json_last_error_msg());
+		}
+
+		if (is_array($data) && $data !== []) {
+			$this->importJsonParameters($data);
+		}
+	}
+
+	/**
+	 * Copy decoded JSON fields into the runtime parameter store so validators/actions
+	 * can consume them just like classic form inputs.
+	 */
+	private function importJsonParameters(array $json): void
+	{
+		foreach ($json as $key => $value) {
+			$param = is_string($key) ? $key : (string)$key;
+			$this->setParameter($param, $value);
+		}
 	}
 
 	public function getParameter(string $name, $default = null)
@@ -1290,14 +1399,19 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 	 */
 	public function appendAttribute(string $name, $value): self
 	{
-		$current = parent::getAttribute($name);
+		// Legacy callers expect in-place mutation; emulate by updating the mutable store directly.
+		if (!isset($this->mutableAttributes)) {
+			$this->mutableAttributes = [];
+		}
+		$current = $this->mutableAttributes[$name] ?? parent::getAttribute($name);
 		if ($current === null) {
 			$current = [];
 		} elseif (!is_array($current)) {
 			$current = [$current];
 		}
 		$current[] = $value;
-		return $this->withAttribute($name, $current);
+		$this->mutableAttributes[$name] = $current;
+		return $this;
 	}
 
 	/**

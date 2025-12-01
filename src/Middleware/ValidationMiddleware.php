@@ -265,6 +265,16 @@ class ValidationMiddleware implements MiddlewareInterface
         } catch (\Throwable) {
             // Keep existing reference if fetch fails
         }
+
+        // Keep the PSR request in sync with the canonical AgaviWebRequest so downstream
+        // middleware (e.g. FormPopulation) continue working on the pruned/whitelisted payload.
+        if ($webRequest instanceof ServerRequestInterface) {
+            $originalPsr = $request->getAttribute('_original_psr_request');
+            $request = $webRequest;
+            if ($originalPsr instanceof ServerRequestInterface) {
+                $request = $request->withAttribute('_original_psr_request', $originalPsr);
+            }
+        }
         
         // If no XML present treat as success but expose ZERO parameters to action (strict empty set)
         if (!$hasXml && !$action?->isSimple()) {
@@ -279,7 +289,9 @@ class ValidationMiddleware implements MiddlewareInterface
             // no xml => params cleared
         }
         $execState->validationDecision = $ok ? ValidationDecision::passed() : ValidationDecision::failed($errors);
-        $request = $request->withAttribute(ExecutionState::class, $execState);
+        $request = $request
+            ->withAttribute(ExecutionState::class, $execState)
+            ->withAttribute('agavi.request_data', $webRequest);
         if ($vd) {
             $errStr = !$ok ? (' errors=' . json_encode($errors)) : '';
             $sessId = 'no-sid';

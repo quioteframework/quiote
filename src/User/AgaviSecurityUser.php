@@ -52,7 +52,7 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser, ResetIn
 	/**
 	 * @var        bool True if the user is authenticated, otherwise false.
 	 */
-	protected $authenticated = null;
+	protected $authenticated = false;
 	
 	/**
 	 * @var        array An array of user credentials.
