@@ -478,7 +478,7 @@ abstract class AgaviFragmentTestCase extends AgaviPhpUnitTestCase implements Aga
 		if ($context) {
 			$reflection = new \ReflectionClass($context);
 			$property = $reflection->getProperty('singletonModelInstances');
-			$property->setAccessible(true);
+			// $property->setAccessible(true); // Deprecated, not needed in PHP 8.1+
 			$property->setValue($context, []);
 		}
 	}

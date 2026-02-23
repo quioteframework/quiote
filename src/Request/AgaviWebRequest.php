@@ -1584,7 +1584,14 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 
 	public function withoutAttribute($name): self
 	{
-		$new = $this->copyMutableStateTo(parent::withoutAttribute($name));
+		// Nyholm's withoutAttribute() returns $this (no-op) when the attribute isn't in
+		// its internal PSR-7 store. Since we may have the attribute only in mutableAttributes,
+		// we must force a clone to maintain immutability.
+		$psrNew = parent::withoutAttribute($name);
+		if ($psrNew === $this) {
+			$psrNew = clone $this;
+		}
+		$new = $this->copyMutableStateTo($psrNew);
 		// Remove the specific attribute from mutable store
 		unset($new->mutableAttributes[$name]);
 		return $new;

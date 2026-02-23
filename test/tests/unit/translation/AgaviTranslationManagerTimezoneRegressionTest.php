@@ -32,10 +32,10 @@ class AgaviTranslationManagerTimezoneRegressionTest extends AgaviUnitTestCase
             $tm = $ctx->createInstanceFor('translation_manager');
             $ro = new \ReflectionObject($ctx);
             $prop = $ro->getProperty('translationManager');
-            $prop->setAccessible(true);
+            
             $prop->setValue($ctx, $tm);
             $seqProp = $ro->getProperty('shutdownSequence');
-            $seqProp->setAccessible(true);
+            
             $seq = $seqProp->getValue($ctx);
             if(!in_array($tm, $seq, true)) { $seq[] = $tm; $seqProp->setValue($ctx, $seq); }
             $tm->startup();

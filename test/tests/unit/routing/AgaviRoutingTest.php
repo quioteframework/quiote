@@ -150,7 +150,7 @@ class AgaviRoutingTest extends TestCase
         // Reflectively set input path
         $ref = new ReflectionClass($routing);
         $prop = $ref->getProperty('input');
-        $prop->setAccessible(true);
+        // $prop->setAccessible(true); // Deprecated, not needed in PHP 8.1+
         $prop->setValue($routing, '/current/path');
         $url = $routing->gen(null, ['q' => 'value']);
         $this->assertSame('/index.php/current/path?q=value', $url);

@@ -39,11 +39,11 @@ class AgaviTranslationManagerIntlTest extends AgaviUnitTestCase
             $tm = $ctx->createInstanceFor('translation_manager');
             $ro = new \ReflectionObject($ctx);
             $prop = $ro->getProperty('translationManager');
-            $prop->setAccessible(true);
+
             $prop->setValue($ctx, $tm);
             // Ensure added to shutdown sequence
             $seqProp = $ro->getProperty('shutdownSequence');
-            $seqProp->setAccessible(true);
+
             $seq = $seqProp->getValue($ctx);
             if (!in_array($tm, $seq, true)) {
                 $seq[] = $tm;

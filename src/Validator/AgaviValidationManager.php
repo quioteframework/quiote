@@ -286,7 +286,7 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 					$ref = new \ReflectionObject($validator);
 					if($ref->hasProperty('arguments')) {
 						$prop = $ref->getProperty('arguments');
-						$prop->setAccessible(true);
+						// $prop->setAccessible(true); // Deprecated, not needed in PHP 8.1+
 						$args = (array)$prop->getValue($validator);
 						// Determine declared base for the validator (if any)
 						$basePath = '';
@@ -333,7 +333,7 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 					$ref = new \ReflectionObject($validator);
 					if($ref->hasProperty('children')) {
 						$prop = $ref->getProperty('children');
-						$prop->setAccessible(true);
+						// $prop->setAccessible(true); // Deprecated, not needed in PHP 8.1+
 						$children = $prop->getValue($validator);
 						if(is_array($children)) {
 							foreach($children as $child) {

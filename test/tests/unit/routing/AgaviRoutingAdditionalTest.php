@@ -85,7 +85,7 @@ class AgaviRoutingAdditionalTest extends TestCase
         $_SERVER['SCRIPT_NAME'] = '/index.php';
         $ref = new ReflectionClass($routing);
         $prop = $ref->getProperty('input');
-        $prop->setAccessible(true);
+        // $prop->setAccessible(true); // Deprecated, not needed in PHP 8.1+
         $prop->setValue($routing, '/path');
         $url = $routing->genSelf(null, ['a' => '1'], ['b' => '2']);
         $this->assertStringStartsWith('/index.php/path?', $url);

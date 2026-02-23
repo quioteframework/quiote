@@ -34,7 +34,7 @@ class AgaviLoggerManagerTest extends AgaviUnitTestCase
 			$rc = new ReflectionClass($this->_context);
 			if ($rc->hasProperty('loggerManager')) {
 				$prop = $rc->getProperty('loggerManager');
-				$prop->setAccessible(true);
+				
 				$prop->setValue($this->_context, $lm);
 			}
 			$this->_lm = $lm;

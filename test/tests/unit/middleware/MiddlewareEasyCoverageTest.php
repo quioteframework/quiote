@@ -37,7 +37,7 @@ class TerminalHandler implements RequestHandlerInterface {
         $refLegacy = new ReflectionClass($legacy);
         if($refLegacy->hasProperty('content')) {
             $prop = $refLegacy->getProperty('content');
-            $prop->setAccessible(true);
+            // $prop->setAccessible(true); // Deprecated, not needed in PHP 8.1+
             $prop->setValue($legacy, '<html>ok');
         }
         return new PsrResponseAdapter($legacy);

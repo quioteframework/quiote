@@ -49,7 +49,7 @@ class AgaviContextExtendedCoverageTest extends TestCase
     {
         $ro = new ReflectionObject($ctx);
         $prop = $ro->getProperty('loggerManager');
-        $prop->setAccessible(true);
+
         if ($prop->getValue($ctx) === null) {
             $prop->setValue($ctx, new TestNoOpLoggerManager());
         }
@@ -65,7 +65,7 @@ class AgaviContextExtendedCoverageTest extends TestCase
         // Inject routing fixture ensuring concrete implementation
         $ro = new ReflectionObject($ctx);
         $routingProp = $ro->getProperty('routing');
-        $routingProp->setAccessible(true);
+
         $routingProp->setValue($ctx, new TestRouting());
         $res1 = $ctx->handle($req); // first handle
         $cid1 = $ctx->getCorrelationId();
@@ -86,7 +86,7 @@ class AgaviContextExtendedCoverageTest extends TestCase
         $this->injectLogger($ctx);
         $ro = new ReflectionObject($ctx);
         $factoriesProp = $ro->getProperty('factories');
-        $factoriesProp->setAccessible(true);
+
         $factories = $factoriesProp->getValue($ctx);
         // Anonymous singleton model stub
         $dummy = new class {
@@ -98,7 +98,7 @@ class AgaviContextExtendedCoverageTest extends TestCase
         $factoriesProp->setValue($ctx, $factories);
         // Manually register singleton instance (simulate earlier usage)
         $smProp = $ro->getProperty('singletonModelInstances');
-        $smProp->setAccessible(true);
+
         $sm = $smProp->getValue($ctx);
         $sm[$dummyClass] = $dummy;
         $smProp->setValue($ctx, $sm);
@@ -112,9 +112,9 @@ class AgaviContextExtendedCoverageTest extends TestCase
         $ctx = $this->ctx();
         $this->injectLogger($ctx);
         $ro = new ReflectionObject($ctx);
-        $routingProp = $ro->getProperty('routing'); $routingProp->setAccessible(true); $routingProp->setValue($ctx, new TestRouting());
-        $storageProp = $ro->getProperty('storage'); $storageProp->setAccessible(true); $storageProp->setValue($ctx, new MockStorage());
-        $psrKernelProp = $ro->getProperty('psrKernel'); $psrKernelProp->setAccessible(true);
+        $routingProp = $ro->getProperty('routing');$routingProp->setValue($ctx, new TestRouting());
+        $storageProp = $ro->getProperty('storage');$storageProp->setValue($ctx, new MockStorage());
+        $psrKernelProp = $ro->getProperty('psrKernel');
         $ids = [];
         for ($i = 0; $i < 5; $i++) {
             $ctx->handle(new ServerRequest('GET', '/seq' . $i));
@@ -142,11 +142,11 @@ class AgaviContextExtendedCoverageTest extends TestCase
         // Inject mock storage to avoid native session interaction
         $ro = new ReflectionObject($ctx);
         $storageProp = $ro->getProperty('storage');
-        $storageProp->setAccessible(true);
+
         $storageProp->setValue($ctx, new MockStorage());
         // Ensure requestFactoryInfo is captured so post-reset lazy recreation works.
         $rfiProp = $ro->getProperty('requestFactoryInfo');
-        $rfiProp->setAccessible(true);
+
         if ($rfiProp->getValue($ctx) === null) {
             // Synthesize factory info using default AgaviWebRequest implementation
             $rfiProp->setValue($ctx, [
@@ -165,19 +165,19 @@ class AgaviContextExtendedCoverageTest extends TestCase
         // If requestFactoryInfo missing (unlikely in initialized context) skip rather than inject fake info
         $ro = new ReflectionObject($ctx);
         $rfi = $ro->getProperty('requestFactoryInfo');
-        $rfi->setAccessible(true);
+
         $this->assertNotNull($rfi->getValue($ctx), 'requestFactoryInfo should be present');
         $ctx->reset();
         // After reset, request and user should be null until lazy accessed; storage & db manager nulled
         $ro = new ReflectionObject($ctx);
         foreach (['request', 'user', 'storage'] as $prop) {
             $p = $ro->getProperty($prop);
-            $p->setAccessible(true);
+
             $this->assertNull($p->getValue($ctx), $prop . ' should be nulled by reset');
         }
         if ($dbm) {
             $p = $ro->getProperty('databaseManager');
-            $p->setAccessible(true);
+
             $this->assertNull($p->getValue($ctx), 'databaseManager should be nulled by reset');
         }
         // Lazy recreation works
@@ -191,10 +191,10 @@ class AgaviContextExtendedCoverageTest extends TestCase
         // Inject a null requestFactoryInfo then null the request to force failure path
         $ro = new ReflectionObject($ctx);
         $rfi = $ro->getProperty('requestFactoryInfo');
-        $rfi->setAccessible(true);
+
         $rfi->setValue($ctx, null);
         $reqProp = $ro->getProperty('request');
-        $reqProp->setAccessible(true);
+
         $reqProp->setValue($ctx, null);
         $this->expectException(AgaviException::class);
         $ctx->getRequest();
@@ -207,7 +207,7 @@ class AgaviContextExtendedCoverageTest extends TestCase
         // Inject fixture
         $ro = new ReflectionObject($ctx);
         $routingProp = $ro->getProperty('routing');
-        $routingProp->setAccessible(true);
+
         $routingProp->setValue($ctx, new TestRouting());
         $routing = $ctx->getRouting();
         $this->assertInstanceOf(TestRouting::class, $routing);
@@ -223,16 +223,16 @@ class AgaviContextExtendedCoverageTest extends TestCase
         // Inject mock storage before user creation
         $ro = new ReflectionObject($ctx);
         $storageProp = $ro->getProperty('storage');
-        $storageProp->setAccessible(true);
+
         $storageProp->setValue($ctx, new MockStorage());
         $user1 = $ctx->getUser();
         $ctx->reset();
         $ro = new ReflectionObject($ctx);
         $userProp = $ro->getProperty('user');
-        $userProp->setAccessible(true);
+
         $userProp->setValue($ctx, null);
         $seqProp = $ro->getProperty('shutdownSequence');
-        $seqProp->setAccessible(true);
+
         // Remove any user entries from sequence
         $seq = array_values(array_filter($seqProp->getValue($ctx), fn($c) => !($c instanceof \Agavi\User\AgaviUser)));
         $seqProp->setValue($ctx, $seq);
@@ -256,7 +256,7 @@ class AgaviContextExtendedCoverageTest extends TestCase
         // Establish a correlation id via handle() first
         $ro = new ReflectionObject($ctx);
         $routingProp = $ro->getProperty('routing');
-        $routingProp->setAccessible(true);
+
         $routingProp->setValue($ctx, new TestRouting());
         $req1 = new ServerRequest('GET', '/initial');
         $ctx->handle($req1);
@@ -309,7 +309,7 @@ class AgaviContextExtendedCoverageTest extends TestCase
         $ro = new ReflectionObject($ctx);
         // Capture controller factory info if missing (synthesize minimal info)
         $cfiProp = $ro->getProperty('controllerFactoryInfo');
-        $cfiProp->setAccessible(true);
+
         if ($cfiProp->getValue($ctx) === null) {
             // Use base AgaviController implementation
             $cfiProp->setValue($ctx, [
@@ -319,7 +319,7 @@ class AgaviContextExtendedCoverageTest extends TestCase
         }
         // Force controller creation via internal initialize path if not created yet
         $controllerProp = $ro->getProperty('controller');
-        $controllerProp->setAccessible(true);
+
         $controller1 = $controllerProp->getValue($ctx);
         if ($controller1 === null) {
             // Invoke createInstanceFor if factory info stored in factories array
@@ -342,11 +342,11 @@ class AgaviContextExtendedCoverageTest extends TestCase
         $this->assertNotNull($controller1, 'Controller should be created');
         // Ensure controller registered (some contexts may add to shutdown sequence; verify stable ordering when user/storage present)
         $seqProp = $ro->getProperty('shutdownSequence');
-        $seqProp->setAccessible(true);
+
         $seqBefore = $seqProp->getValue($ctx);
         // Trigger user/storage to populate sequence ordering
         $storageProp = $ro->getProperty('storage');
-        $storageProp->setAccessible(true);
+
         $storageProp->setValue($ctx, new MockStorage());
         $ctx->getUser();
         $ctx->reset();
@@ -386,7 +386,7 @@ class AgaviContextExtendedCoverageTest extends TestCase
         // Ensure logger present so reset() does not error when accessing getLoggerManager()->getLogger()
         $this->injectLogger($ctx);
         $tmProp = $ro->getProperty('translationManager');
-        $tmProp->setAccessible(true);
+
         if ($tmProp->getValue($ctx) === null) {
             // Minimal instantiation of AgaviTranslationManager
             if (class_exists(\Agavi\Translation\AgaviTranslationManager::class)) {
@@ -401,7 +401,7 @@ class AgaviContextExtendedCoverageTest extends TestCase
         $this->assertNotNull($tm1, 'Translation manager should be created when enabled');
         // Inject MockStorage to prevent real session handler usage during reset
         $storageProp = $ro->getProperty('storage');
-        $storageProp->setAccessible(true);
+
         $storageProp->setValue($ctx, new MockStorage());
         $ctx->reset();
         // After reset translationManager should not be explicitly nulled by reset() (per implementation) and remain same instance
@@ -419,20 +419,20 @@ class AgaviContextExtendedCoverageTest extends TestCase
         $this->injectLogger($ctx);
         $ro = new ReflectionObject($ctx);
         $dbmFi = $ro->getProperty('databaseManagerFactoryInfo');
-        $dbmFi->setAccessible(true);
+
         if ($dbmFi->getValue($ctx) === null) {
             $dbmFi->setValue($ctx, ['class' => \Agavi\Database\AgaviDatabaseManager::class, 'parameters' => []]);
         }
         // Ensure storageFactoryInfo uses MockStorage to avoid real session handler
         $sfi = $ro->getProperty('storageFactoryInfo');
-        $sfi->setAccessible(true);
+
         $sfi->setValue($ctx, ['class' => MockStorage::class, 'parameters' => []]);
         $storageProp = $ro->getProperty('storage');
-        $storageProp->setAccessible(true);
+
         $storageProp->setValue($ctx, new MockStorage());
         // Force initial creation (may still be null if not requested previously)
         $dbmProp = $ro->getProperty('databaseManager');
-        $dbmProp->setAccessible(true);
+
         $dbm1 = $dbmProp->getValue($ctx);
         if (!$dbm1) {
             $fi = $dbmFi->getValue($ctx);
@@ -462,11 +462,11 @@ class AgaviContextExtendedCoverageTest extends TestCase
         $ro = new ReflectionObject($ctx);
         // Ensure storageFactoryInfo captures MockStorage to avoid session calls
         $sfi = $ro->getProperty('storageFactoryInfo');
-        $sfi->setAccessible(true);
+
         $sfi->setValue($ctx, ['class' => MockStorage::class, 'parameters' => []]);
         // Inject instance then reset
         $storageProp = $ro->getProperty('storage');
-        $storageProp->setAccessible(true);
+
         $storageProp->setValue($ctx, new MockStorage());
         $storage1 = $storageProp->getValue($ctx);
         $this->assertInstanceOf(MockStorage::class, $storage1);
@@ -485,18 +485,18 @@ class AgaviContextExtendedCoverageTest extends TestCase
         $ro = new ReflectionObject($ctx);
         // Build kernel via handle()
         $routingProp = $ro->getProperty('routing');
-        $routingProp->setAccessible(true);
+
         $routingProp->setValue($ctx, new TestRouting());
         // Ensure storage uses MockStorage to avoid real session handler
         $sfi = $ro->getProperty('storageFactoryInfo');
-        $sfi->setAccessible(true);
+
         $sfi->setValue($ctx, ['class' => MockStorage::class, 'parameters' => []]);
         $storageProp = $ro->getProperty('storage');
-        $storageProp->setAccessible(true);
+
         $storageProp->setValue($ctx, new MockStorage());
         $ctx->handle(new ServerRequest('GET', '/kernel')); // builds pipeline
         $psrKernelProp = $ro->getProperty('psrKernel');
-        $psrKernelProp->setAccessible(true);
+
         $kernel = $psrKernelProp->getValue($ctx);
         $this->assertNotNull($kernel, 'psrKernel should be built after handle');
         $debugStackBefore = $kernel->debugStack();
@@ -519,11 +519,11 @@ class AgaviContextExtendedCoverageTest extends TestCase
         $ro = new ReflectionObject($ctx);
         // Inject MockStorage and force user creation
         $storageProp = $ro->getProperty('storage');
-        $storageProp->setAccessible(true);
+
         $storageProp->setValue($ctx, new MockStorage());
         $user1 = $ctx->getUser();
         $seqProp = $ro->getProperty('shutdownSequence');
-        $seqProp->setAccessible(true);
+
         $ctx->reset();
         $ctx->getUser(); // recreate user
         $ctx->reset();

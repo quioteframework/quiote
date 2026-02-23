@@ -26,7 +26,7 @@ XML;
         $doc = new AgaviXmlConfigDomDocument();
         $doc->loadXml($xml);
         $r = new ReflectionProperty(AgaviXmlConfigDomDocument::class, 'documentURI');
-        $r->setAccessible(true);
+        
         $r->setValue($doc, sys_get_temp_dir() . '/' . $uri);
         return $doc;
     }

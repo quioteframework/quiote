@@ -20,7 +20,7 @@ class DispatchMiddlewareTest extends TestCase
         $ot->initialize($controller->getContext(), [], 'html', [], null, [], null, null);
         $ref = new ReflectionClass($controller);
         foreach(['outputTypes'=>'outputTypes','defaultOutputType'=>'defaultOutputType','configuredDefaultOutputType'=>'configuredDefaultOutputType'] as $prop=>$name){
-            if($ref->hasProperty($prop)) { $p=$ref->getProperty($prop); $p->setAccessible(true); if($prop==='outputTypes'){ $p->setValue($controller, ['html'=>$ot]); } else { $p->setValue($controller, 'html'); } }
+            if($ref->hasProperty($prop)) { $p=$ref->getProperty($prop); /*  */ if($prop==='outputTypes'){ $p->setValue($controller, ['html'=>$ot]); } else { $p->setValue($controller, 'html'); } }
         }
         // Ensure context->getController() returns controller for downstream resolver usage
         $ctx = $controller->getContext();
@@ -30,7 +30,7 @@ class DispatchMiddlewareTest extends TestCase
     }
     private function makeController(callable $actionFactory, array $cookies = []): AgaviController
     {
-        $ctx = $this->createMock(Agavi\AgaviContext::class);
+        $ctx = $this->createStub(Agavi\AgaviContext::class);
         $webReq = new \Agavi\Request\AgaviWebRequest();
         $ctx->method('getRequest')->willReturn($webReq);
         // Provide routing/basePath stub for cookie path logic
@@ -68,7 +68,7 @@ class DispatchMiddlewareTest extends TestCase
         $ref = new ReflectionClass($controller);
         if($ref->hasProperty('context')) {
             $p = $ref->getProperty('context');
-            $p->setAccessible(true);
+            //  // Deprecated, not needed in PHP 8.1+
             $p->setValue($controller, $ctx);
         }
         return $controller;
@@ -92,7 +92,7 @@ class DispatchMiddlewareTest extends TestCase
             ] as $prop => $val) {
                 if ($ref->hasProperty($prop)) {
                     $p = $ref->getProperty($prop);
-                    $p->setAccessible(true);
+                    
                     $p->setValue($ad, $val);
                 }
             }
@@ -105,7 +105,7 @@ class DispatchMiddlewareTest extends TestCase
         $controller = $this->makeController(fn()=>null);
         $mw = new DispatchMiddleware($controller);
         $req = new ServerRequest('GET', '/');
-        $handler = $this->createMock(RequestHandlerInterface::class);
+        $handler = $this->createStub(RequestHandlerInterface::class);
         $resp = $mw->process($req, $handler);
         $this->assertSame(404, $resp->getStatusCode());
     }
@@ -127,7 +127,7 @@ class DispatchMiddlewareTest extends TestCase
         $mw = new DispatchMiddleware($controller);
     $ad = new ActionDescriptor('Foo','Bar','execute','html', true);
         $req = (new ServerRequest('GET', '/'))->withAttribute(ActionDescriptor::class, $ad);
-        $resp = $mw->process($req, $this->createMock(RequestHandlerInterface::class));
+        $resp = $mw->process($req, $this->createStub(RequestHandlerInterface::class));
         $this->assertSame(200, $resp->getStatusCode());
     $this->assertSame('CONTENT', (string)$resp->getBody());
     }
@@ -150,7 +150,7 @@ class DispatchMiddlewareTest extends TestCase
         $req = (new ServerRequest('GET', '/'))
             ->withAttribute(ActionDescriptor::class, $ad)
             ->withAttribute(ExecutionState::class, $es);
-        $resp = $mw->process($req, $this->createMock(RequestHandlerInterface::class));
+        $resp = $mw->process($req, $this->createStub(RequestHandlerInterface::class));
         $this->assertSame(200, $resp->getStatusCode());
         $this->assertSame('CONTENT', (string)$resp->getBody());
     }
@@ -173,7 +173,7 @@ class DispatchMiddlewareTest extends TestCase
         $ad = new ActionDescriptor('Foo','Bar','execute','html', true);
         $req = (new ServerRequest('GET', '/'))->withAttribute(ActionDescriptor::class, $ad);
         // No ExecutionState with securityDecision attached -> should throw
-        $mw->process($req, $this->createMock(RequestHandlerInterface::class));
+        $mw->process($req, $this->createStub(RequestHandlerInterface::class));
     }
 
     public function testSimpleReturnsNoneProducesEmptyBody()
@@ -189,7 +189,7 @@ class DispatchMiddlewareTest extends TestCase
         $mw = new DispatchMiddleware($controller);
         $ad = new ActionDescriptor('Foo','Bar','execute','html', true);
         $req = (new ServerRequest('GET', '/'))->withAttribute(ActionDescriptor::class, $ad);
-        $resp = $mw->process($req, $this->createMock(RequestHandlerInterface::class));
+        $resp = $mw->process($req, $this->createStub(RequestHandlerInterface::class));
         $this->assertSame(200, $resp->getStatusCode());
         $this->assertSame('', (string)$resp->getBody());
     }
@@ -210,7 +210,7 @@ class DispatchMiddlewareTest extends TestCase
         $es = new ExecutionState();
         $es->validationDecision = ValidationDecision::failed();
         $req = $req->withAttribute(ExecutionState::class, $es);
-        $resp = $mw->process($req, $this->createMock(RequestHandlerInterface::class));
+        $resp = $mw->process($req, $this->createStub(RequestHandlerInterface::class));
         $this->assertSame(400, $resp->getStatusCode());
         $this->assertStringContainsString('Validation Failed', (string)$resp->getBody());
     }
@@ -227,7 +227,7 @@ class DispatchMiddlewareTest extends TestCase
         $mw = new DispatchMiddleware($controller);
         $ad = $this->makeActionDescriptor(false);
         $req = (new ServerRequest('GET', '/'))->withAttribute(ActionDescriptor::class, $ad);
-        $resp = $mw->process($req, $this->createMock(RequestHandlerInterface::class));
+        $resp = $mw->process($req, $this->createStub(RequestHandlerInterface::class));
         $this->assertSame(500, $resp->getStatusCode());
         $this->assertSame('validation-middleware-missing', $resp->getHeaderLine('X-Agavi-Debug'));
     }
@@ -267,7 +267,7 @@ class DispatchMiddlewareTest extends TestCase
         $mw = new DispatchMiddleware($controller);
         $ad = new ActionDescriptor('Foo','Bar','execute','html', true);
         $req = (new ServerRequest('GET', '/'))->withAttribute(ActionDescriptor::class, $ad);
-        $resp = $mw->process($req, $this->createMock(RequestHandlerInterface::class));
+        $resp = $mw->process($req, $this->createStub(RequestHandlerInterface::class));
         $setCookies = $resp->getHeader('Set-Cookie');
         $this->assertNotEmpty($setCookies, 'Expected Set-Cookie headers to be present');
         $this->assertTrue((bool)array_filter($setCookies, fn($h)=>str_contains($h, 'sid=abc123')));
@@ -288,11 +288,11 @@ class DispatchMiddlewareTest extends TestCase
         $ad = new ActionDescriptor('Foo','Bar','execute','html', true);
         $req = (new ServerRequest('GET','/'))->withAttribute(ActionDescriptor::class,$ad);
         try {
-            $resp1 = $mw->process($req, $this->createMock(RequestHandlerInterface::class));
+            $resp1 = $mw->process($req, $this->createStub(RequestHandlerInterface::class));
             $this->assertSame(200, $resp1->getStatusCode());
             $this->assertGreaterThanOrEqual(1, $executed, 'Action should execute at least once');
             $before = $executed;
-            $resp2 = $mw->process($req, $this->createMock(RequestHandlerInterface::class));
+            $resp2 = $mw->process($req, $this->createStub(RequestHandlerInterface::class));
             $this->assertSame((string)$resp1->getBody(), (string)$resp2->getBody());
             if($before === $executed) {
                 $this->assertSame('1', $resp2->getHeaderLine(\Agavi\Config\AgaviConfig::get('core.cache-hit-header','X-Agavi-Cache-Hit')));
@@ -311,8 +311,8 @@ class DispatchMiddlewareTest extends TestCase
             $ref = new \ReflectionClass(Agavi\Middleware\DispatchMiddleware::class);
             // PHP 8.4+: Calling ReflectionProperty::setValue() with a single argument is deprecated.
             // These are static properties, so pass null as the object per new signature requirements.
-            if($ref->hasProperty('executedNonSimpleActions')) { $p=$ref->getProperty('executedNonSimpleActions'); $p->setAccessible(true); $p->setValue(null, []); }
-            if($ref->hasProperty('executedSimpleActions')) { $p=$ref->getProperty('executedSimpleActions'); $p->setAccessible(true); $p->setValue(null, []); }
+            if($ref->hasProperty('executedNonSimpleActions')) { $p=$ref->getProperty('executedNonSimpleActions'); /*  */ $p->setValue(null, []); }
+            if($ref->hasProperty('executedSimpleActions')) { $p=$ref->getProperty('executedSimpleActions'); /*  */ $p->setValue(null, []); }
         } catch(\Throwable $e) { /* ignore */ }
         \Agavi\Config\AgaviConfig::set('core.cache_enabled', true);
         \Agavi\Config\AgaviConfig::set('core.use_cache', true);
@@ -327,14 +327,14 @@ class DispatchMiddlewareTest extends TestCase
         $es->validationDecision = ValidationDecision::passed();
         $baseReq = new ServerRequest('GET','/');
         $req = $baseReq->withAttribute(ActionDescriptor::class,$ad)->withAttribute(ExecutionState::class,$es);
-        $resp1 = $mw->process($req, $this->createMock(RequestHandlerInterface::class));
+        $resp1 = $mw->process($req, $this->createStub(RequestHandlerInterface::class));
         $this->assertSame(1, $executed);
         $this->assertSame('CONTENT', (string)$resp1->getBody());
         $es2 = new ExecutionState();
         $es2->validationDecision = ValidationDecision::passed();
         $req2 = $baseReq->withAttribute(ActionDescriptor::class,$ad)->withAttribute(ExecutionState::class,$es2);
         try {
-            $resp2 = $mw->process($req2, $this->createMock(RequestHandlerInterface::class));
+            $resp2 = $mw->process($req2, $this->createStub(RequestHandlerInterface::class));
             $this->assertSame(1, $executed, 'Non-simple action should not execute on cache hit');
             $this->assertSame((string)$resp1->getBody(), (string)$resp2->getBody());
         } catch (TypeError $e) {
@@ -352,7 +352,7 @@ class DispatchMiddlewareTest extends TestCase
         $ad = new ActionDescriptor('Foo','Bar','execute','html', true);
         $req = (new ServerRequest('GET','/'))->withAttribute(ActionDescriptor::class,$ad);
         try {
-            $resp = $mw->process($req, $this->createMock(RequestHandlerInterface::class));
+            $resp = $mw->process($req, $this->createStub(RequestHandlerInterface::class));
             $this->assertSame(200, $resp->getStatusCode());
             // If it reached here without exception, body may be empty due to missing view.
             $this->assertIsString((string)$resp->getBody());
@@ -373,7 +373,7 @@ class DispatchMiddlewareTest extends TestCase
         $es->validationDecision = ValidationDecision::passed();
         $es->securityDecision = SecurityDecision::Allow;
         $req = (new ServerRequest('GET','/'))->withAttribute(ActionDescriptor::class,$ad)->withAttribute(ExecutionState::class,$es);
-        $resp = $mw->process($req, $this->createMock(RequestHandlerInterface::class));
+        $resp = $mw->process($req, $this->createStub(RequestHandlerInterface::class));
         $this->assertSame(200, $resp->getStatusCode());
         $this->assertSame('CONTENT', (string)$resp->getBody());
         $this->assertTrue($es->validationDecision->isPassed());

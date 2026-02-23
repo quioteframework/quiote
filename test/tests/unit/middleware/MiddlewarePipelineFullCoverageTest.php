@@ -211,11 +211,11 @@ class MiddlewarePipelineFullCoverageTest extends TestCase
             {
                 $ref = new \ReflectionClass(MiddlewarePipeline::class);
                 $builtProp = $ref->getProperty('built');
-                $builtProp->setAccessible(true);
+                // $builtProp->setAccessible(true); // Deprecated, not needed in PHP 8.1+
                 $handlerProp = $ref->getProperty('handler');
-                $handlerProp->setAccessible(true);
+                // $handlerProp->setAccessible(true); // Deprecated, not needed in PHP 8.1+
                 $debugProp = $ref->getProperty('debugStack');
-                $debugProp->setAccessible(true);
+                // $debugProp->setAccessible(true); // Deprecated, not needed in PHP 8.1+
                 // Manually craft a handler that is just the sentinel middleware chain
                 $sentinel = new class implements \Psr\Http\Server\MiddlewareInterface {
                     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface

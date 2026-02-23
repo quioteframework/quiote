@@ -13,7 +13,7 @@ class AgaviLocaleAdvancedTest extends TestCase
         // context not needed for these tests; pass a stub via reflection if required later
         $r = new ReflectionClass($loc);
         $init = $r->getMethod('initialize');
-        $ctx = $this->createMock(Agavi\AgaviContext::class);
+        $ctx = $this->createStub(Agavi\AgaviContext::class);
         $init->invoke($loc, $ctx, $params, $identifier, $data);
         return $loc;
     }

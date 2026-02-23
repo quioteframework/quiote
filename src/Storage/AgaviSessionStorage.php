@@ -310,7 +310,11 @@ class AgaviSessionStorage extends AgaviStorage implements SessionHandlerInterfac
 	}
 
 	public function reset() : void {
-		$this->defaultHandler->close();
+		// Only call close() if the session is still active; PHP 8.5 throws "Session is not
+		// active" if session_write_close() (called by shutdown()) already ended the session.
+		if ($this->defaultHandler !== null && session_status() === PHP_SESSION_ACTIVE) {
+			$this->defaultHandler->close();
+		}
 		$this->defaultHandler = null;
 	}
 }

@@ -48,7 +48,7 @@ class LayoutSlotNoContainerTest extends AgaviUnitTestCase
     $ot = $controller->getOutputType();
     $r = new ReflectionObject($ot);
     $prop = $r->getProperty('layouts');
-    $prop->setAccessible(true);
+    // $prop->setAccessible(true); // Deprecated, not needed in PHP 8.1+
     $layouts = $prop->getValue($ot);
     $layouts['testlayout'] = [
         'layers' => [

@@ -35,11 +35,11 @@ class AgaviDateTimeValidatorTest extends AgaviUnitTestCase
             $translationManager = $context->createInstanceFor('translation_manager');
             $reflection = new ReflectionObject($context);
             $property = $reflection->getProperty('translationManager');
-            $property->setAccessible(true);
+            
             $property->setValue($context, $translationManager);
 
             $sequenceProperty = $reflection->getProperty('shutdownSequence');
-            $sequenceProperty->setAccessible(true);
+            
             $sequence = $sequenceProperty->getValue($context);
             if (!in_array($translationManager, $sequence, true)) {
                 $sequence[] = $translationManager;

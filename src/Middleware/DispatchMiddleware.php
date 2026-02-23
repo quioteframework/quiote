@@ -220,6 +220,16 @@ class DispatchMiddleware implements MiddlewareInterface
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $dbg = getenv('AGAVI_DEBUG_DISPATCH');
+        // Clear stale state from previous request on the shared global response so that
+        // any HTTP status code we read back in buildPsrResponse() reflects only what the
+        // current action/view cycle actually set.
+        try {
+            $globalResp = $this->controller->getGlobalResponse();
+            if (is_object($globalResp) && method_exists($globalResp, 'clear')) {
+                $globalResp->clear();
+            }
+        } catch (\Throwable) {
+        }
         // Correlation ID (per-request) for tracing multi-request races
         if (!$request->getAttribute('agavi.rid')) {
             try {
