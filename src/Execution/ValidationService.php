@@ -88,7 +88,9 @@ class ValidationService
                 if (defined('AGAVI_USE_APCU_CONFIG_CACHE') && AGAVI_USE_APCU_CONFIG_CACHE) {
                     $incFile = AgaviAPCuConfigCache::checkConfig($configFile, $this->currentContext->getName());
                     if (\Agavi\Util\DebugFlags::$validation) { $logger?->debug('[ValidationService][probe] APCu checkConfig returned ' . $incFile); }
-                    require($incFile);
+                    if (!str_starts_with($incFile, 'APCU:')) {
+                        require($incFile);
+                    }
                     if (\Agavi\Util\DebugFlags::$validation) { 
                         try { 
                             $statLine = '[ValidationService][probe] post-require APCu childCount=' . (is_array($validationManager->getChilds())?count($validationManager->getChilds()):'na');
@@ -269,7 +271,10 @@ class ValidationService
                 
                 if (defined('AGAVI_USE_APCU_CONFIG_CACHE') && AGAVI_USE_APCU_CONFIG_CACHE) {
                     $logger?->debug("[ValidationService] Loading " . $method . " validators from APCu");
-                    require(\Agavi\Config\AgaviAPCuConfigCache::checkConfig($configFile, $this->currentContext->getName()));
+                    $cacheResult = \Agavi\Config\AgaviAPCuConfigCache::checkConfig($configFile, $this->currentContext->getName());
+                    if (!str_starts_with($cacheResult, 'APCU:')) {
+                        require($cacheResult);
+                    }
                 } else {
                     if ($vd) {
                         $logger?->debug("[ValidationService] Loading " . $method . " validators from disk");

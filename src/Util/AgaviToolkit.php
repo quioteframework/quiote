@@ -124,14 +124,14 @@ final class AgaviToolkit
 	 */
 	public static function stringBase($baseString, $compString, &$equalAmount = 0)
 	{
+		$baseString = (string) $baseString;
+		$compString = (string) $compString;
 		$equalAmount = 0;
-		$base = '';
-		$maxEqualAmount = min(strlen((string) $baseString), strlen((string) $compString));
-		for($i = 0; ($i < $maxEqualAmount) && $baseString[$i] == $compString[$i]; ++$i) {
-			$base .= $baseString[$i];
-			$equalAmount = $i + 1;
+		$maxEqualAmount = min(strlen($baseString), strlen($compString));
+		while ($equalAmount < $maxEqualAmount && $baseString[$equalAmount] === $compString[$equalAmount]) {
+			$equalAmount++;
 		}
-		return $base;
+		return substr($baseString, 0, $equalAmount);
 	}
 
 	/**
@@ -287,31 +287,33 @@ final class AgaviToolkit
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
+	private static array $boolLiterals = [
+		'on' => true, 'yes' => true, 'true' => true,
+		'off' => false, 'no' => false, 'false' => false,
+	];
+
 	public static function literalize($value)
 	{
 		if(!is_string($value)) {
 			return $value;
 		}
-		
+
 		// trim!
 		$value = trim($value);
-		if($value == '') {
+		if($value === '') {
 			return null;
 		}
-		
-		// lowercase our value for comparison
+
+		// lookup table instead of chained comparisons
 		$lvalue = strtolower($value);
-		
-		if($lvalue == 'on' || $lvalue == 'yes' || $lvalue == 'true') {
-			// replace values 'on' and 'yes' with a boolean true value
-			return true;
-		} elseif($lvalue == 'off' || $lvalue == 'no' || $lvalue == 'false') {
-			// replace values 'off' and 'no' with a boolean false value
-			return false;
-		} elseif(!is_numeric($value)) {
+		if(isset(self::$boolLiterals[$lvalue])) {
+			return self::$boolLiterals[$lvalue];
+		}
+
+		if(!is_numeric($value)) {
 			return self::expandDirectives($value);
 		}
-		
+
 		// numeric value, remains a string on purpose (for BC)
 		return $value;
 	}
@@ -331,6 +333,10 @@ final class AgaviToolkit
 		if ($value === null) {
 			return null;
 		}
+		// Fast path: skip regex entirely when there are no directives to expand
+		if (!str_contains((string) $value, '%')) {
+			return $value;
+		}
 		do {
 			$oldvalue = $value;
 			$value = preg_replace_callback(
@@ -338,8 +344,8 @@ final class AgaviToolkit
 				fn($matches) => AgaviConfig::get($matches[1], '%' . $matches[1] . '%'),
 				(string) $value
 			);
-		} while($oldvalue != $value);
-		
+		} while($oldvalue !== $value);
+
 		return $value;
 	}
 	
@@ -478,10 +484,17 @@ final class AgaviToolkit
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      1.0.0
 	 */
+	/**
+	 * @var array<string,string> Cache for expanded module directives (without variables).
+	 * The config value + expandDirectives result is constant for the process lifetime.
+	 */
+	private static array $moduleDirectiveCache = [];
+
 	public static function evaluateModuleDirective($moduleName, $directiveNameFragment, $variables = [])
 	{
-		return AgaviToolkit::expandVariables(
-			AgaviToolkit::expandDirectives(
+		$cacheKey = strtolower((string) $moduleName) . '|' . $directiveNameFragment;
+		if (!isset(self::$moduleDirectiveCache[$cacheKey])) {
+			self::$moduleDirectiveCache[$cacheKey] = AgaviToolkit::expandDirectives(
 				AgaviConfig::get(
 					sprintf(
 						'modules.%s.%s',
@@ -489,10 +502,12 @@ final class AgaviToolkit
 						$directiveNameFragment
 					)
 				)
-			),
+			);
+		}
+		return AgaviToolkit::expandVariables(
+			self::$moduleDirectiveCache[$cacheKey],
 			$variables
 		);
-		
 	}
 	
 	/**

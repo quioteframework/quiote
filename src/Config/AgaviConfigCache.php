@@ -58,7 +58,12 @@ class AgaviConfigCache
 	 *                  needs processing.
 	 */
 	protected static $handlersDirty = true;
-	
+
+	/**
+	 * @var        array<string,string> Pre-compiled regex patterns for wildcard config handlers.
+	 */
+	protected static array $compiledHandlerPatterns = [];
+
 	/**
 	 * @var        bool Whether the config handler files have been required.
 	 */
@@ -109,7 +114,7 @@ class AgaviConfigCache
 		}
 		
 		$data = self::executeHandler($config, $context, $handlerInfo);
-		self::writeCacheFile($config, $cache, $data, false);
+		static::writeCacheFile($config, $cache, $data, false);
 	}
 
 	/**
@@ -165,10 +170,12 @@ class AgaviConfigCache
 			// let's see if we have any wildcard handlers registered that match
 			// this basename
 			foreach(self::$handlers as $key => $value)	{
-				// replace wildcard chars in the configuration and create the pattern
-				$pattern = sprintf('#%s#', str_replace('\*', '.*?', preg_quote($key, '#')));
+				// Use pre-compiled pattern if available, otherwise compile and cache
+				if (!isset(self::$compiledHandlerPatterns[$key])) {
+					self::$compiledHandlerPatterns[$key] = sprintf('#%s#', str_replace('\*', '.*?', preg_quote($key, '#')));
+				}
 
-				if(preg_match($pattern, (string) $name)) {
+				if(preg_match(self::$compiledHandlerPatterns[$key], (string) $name)) {
 					$handlerInfo = $value;
 					break;
 				}
@@ -274,9 +281,33 @@ class AgaviConfigCache
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
+	/**
+	 * @var array<string,bool> Per-process cache of modification check results.
+	 * In persistent workers (FrankenPHP), avoids repeated stat() syscalls for
+	 * configs that have already been verified as fresh.
+	 */
+	protected static array $modifiedCache = [];
+
 	public static function isModified($filename, $cachename)
 	{
-		return (!is_readable($cachename) || filemtime($filename) > filemtime($cachename));
+		$cacheKey = $filename . '|' . $cachename;
+		if (isset(self::$modifiedCache[$cacheKey])) {
+			// Verify cache file still exists — it may have been deleted
+			// externally (e.g. AgaviToolkit::clearCache() in debug mode,
+			// or between test runs). Still cheaper than the full check
+			// (1 stat vs 3).
+			if (file_exists($cachename)) {
+				return false;
+			}
+			unset(self::$modifiedCache[$cacheKey]);
+		}
+		$result = (!is_readable($cachename) || filemtime($filename) > filemtime($cachename));
+		if (!$result) {
+			// Only memoize 'not modified' — a 'modified' result triggers
+			// recompilation, after which the next call should see the new file.
+			self::$modifiedCache[$cacheKey] = true;
+		}
+		return $result;
 	}
 
 	/**
@@ -288,6 +319,7 @@ class AgaviConfigCache
 	public static function clear()
 	{
 		AgaviToolkit::clearCache(self::CACHE_SUBDIR);
+		self::$modifiedCache = [];
 	}
 
 	/**

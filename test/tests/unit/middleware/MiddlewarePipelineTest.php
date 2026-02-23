@@ -14,9 +14,7 @@ use Nyholm\Psr7\Response;
 
 require_once __DIR__ . '/OutputBufferNormalizer.php';
 
-/**
- * @runTestsInSeparateProcesses
- */
+#[\PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses]
 class MiddlewarePipelineTest extends TestCase
 {
     private int $initialObLevel;

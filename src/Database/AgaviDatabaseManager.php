@@ -161,7 +161,10 @@ class AgaviDatabaseManager
 
 		// load database configuration
 		if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
-			require(AgaviAPCuConfigCache::checkConfig(AgaviConfig::get('core.config_dir') . '/databases.xml'));
+			$cacheResult = AgaviAPCuConfigCache::checkConfig(AgaviConfig::get('core.config_dir') . '/databases.xml');
+			if (!str_starts_with($cacheResult, 'APCU:')) {
+				require($cacheResult);
+			}
 		} else {
 			require(AgaviConfigCache::checkConfig(AgaviConfig::get('core.config_dir') . '/databases.xml'));
 		}

@@ -12,8 +12,8 @@ use Nyholm\Psr7\ServerRequest;
 
 /**
  * Tests the slimmed context-only MiddlewarePipeline ordering & enable flags.
- * @runTestsInSeparateProcesses
  */
+#[\PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses]
 class MiddlewarePipelineContextTest extends TestCase
 {
     protected function setUp(): void

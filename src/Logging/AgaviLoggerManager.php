@@ -93,7 +93,10 @@ class AgaviLoggerManager
 		
 		// load logging configuration
 		if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
-			require(AgaviAPCuConfigCache::checkConfig(AgaviConfig::get('core.config_dir') . '/logging.xml', $context->getName()));
+			$cacheResult = AgaviAPCuConfigCache::checkConfig(AgaviConfig::get('core.config_dir') . '/logging.xml', $context->getName());
+			if (!str_starts_with($cacheResult, 'APCU:')) {
+				require($cacheResult);
+			}
 		} else {
 			require(AgaviConfigCache::checkConfig(AgaviConfig::get('core.config_dir') . '/logging.xml', $context->getName()));
 		}

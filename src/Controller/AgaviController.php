@@ -137,7 +137,17 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 	public function initializeModule($moduleName)
 	{
 		$lowerModuleName = strtolower((string) $moduleName);
-		
+
+		// Fast path: skip entirely if this module was already fully initialized
+		// in this process (avoids repeated is_readable/AgaviConfig calls).
+		static $initializedModules = [];
+		if (isset($initializedModules[$lowerModuleName])) {
+			if (!AgaviConfig::get('modules.' . $lowerModuleName . '.enabled')) {
+				throw new AgaviDisabledModuleException(sprintf('The module "%1$s" is disabled.', $moduleName));
+			}
+			return;
+		}
+
 		if(null === AgaviConfig::get('modules.' . $lowerModuleName . '.enabled')) {
 			// set some defaults first
 			AgaviConfig::fromArray([
@@ -151,7 +161,11 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 		// loaded only once due to the way load() (former import()) works
 		if(is_readable(AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/Config/module.xml')) {
 			if(defined('AGAVI_USE_APCU_CONFIG_CACHE') && AGAVI_USE_APCU_CONFIG_CACHE) {
-				include_once(AgaviAPCuConfigCache::checkConfig(AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/Config/module.xml'));
+				$cacheResult = AgaviAPCuConfigCache::checkConfig(AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/Config/module.xml');
+				// checkConfig() returns 'APCU:...' marker when content was eval'd from APCu
+				if (!str_starts_with($cacheResult, 'APCU:')) {
+					include_once($cacheResult);
+				}
 			} else {
 				include_once(AgaviConfigCache::checkConfig(AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/Config/module.xml'));
 			}
@@ -176,6 +190,9 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 		if(is_readable($moduleConfig)) {
 			require_once($moduleConfig);
 		}
+
+		// Mark as initialized so subsequent calls skip all the work above
+		$initializedModules[$lowerModuleName] = true;
 	}
 	
 
@@ -417,7 +434,10 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 		
 		$cfg = AgaviConfig::get('core.config_dir') . '/output_types.xml';
 		if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
-			require(AgaviAPCuConfigCache::checkConfig($cfg, $this->context->getName()));
+			$cacheResult = AgaviAPCuConfigCache::checkConfig($cfg, $this->context->getName());
+			if (!str_starts_with($cacheResult, 'APCU:')) {
+				require($cacheResult);
+			}
 		} else {
 			require(AgaviConfigCache::checkConfig($cfg, $this->context->getName()));
 		}

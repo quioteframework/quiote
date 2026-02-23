@@ -1,5 +1,6 @@
 <?php
 
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use PHPUnit\Framework\TestCase;
 use Agavi\AgaviContext;
 use Nyholm\Psr7\ServerRequest;
@@ -8,10 +9,6 @@ use Agavi\Exception\AgaviException;
 use Agavi\Test\Routing\TestRouting;
 // MockStorage loaded from test/lib classmap (global namespace)
 
-/**
- * Additional focused coverage for AgaviContext worker-mode helpers & lazy recreation paths.
- * @runTestsInSeparateProcesses
- */
 // Helper stubs outside test class to avoid nested class fatal
 if (!class_exists('TestNoOpLogger')) {
     class TestNoOpLogger
@@ -37,6 +34,10 @@ if (!class_exists('TestNoOpLoggerManager')) {
     }
 }
 
+/**
+ * Additional focused coverage for AgaviContext worker-mode helpers & lazy recreation paths.
+ */
+#[RunTestsInSeparateProcesses]
 class AgaviContextExtendedCoverageTest extends TestCase
 {
     private function ctx(): AgaviContext
@@ -177,8 +178,11 @@ class AgaviContextExtendedCoverageTest extends TestCase
         }
         if ($dbm) {
             $p = $ro->getProperty('databaseManager');
-
-            $this->assertNull($p->getValue($ctx), 'databaseManager should be nulled by reset');
+            // reset() intentionally keeps the databaseManager alive (calls
+            // recycleConnections() instead of nulling) to avoid costly
+            // re-initialization in persistent worker mode.
+            $this->assertNotNull($p->getValue($ctx), 'databaseManager should survive reset (recycleConnections strategy)');
+            $this->assertSame($dbm, $p->getValue($ctx), 'Same databaseManager instance should persist across reset');
         }
         // Lazy recreation works
         $req2 = $ctx->getRequest();

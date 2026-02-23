@@ -66,6 +66,13 @@ class AgaviAPCuConfigCache extends AgaviConfigCache
      * @var array Track loaded configs to prevent double loading
      */
     private static $loadedConfigs = [];
+
+    /**
+     * @var string|null Tracks the context for the currently active checkConfig()
+     * call so that writeCacheFile() (which has no context parameter) can store
+     * the compiled data under the correct APCu key.
+     */
+    private static ?string $pendingContext = null;
     
     
     
@@ -74,63 +81,60 @@ class AgaviAPCuConfigCache extends AgaviConfigCache
      */
     public static function writeCacheFile($config, $cache, $data, $append = false)
     {
-        $logger = self::getLoggerFor(null);
-        $logger?->debug('APCuConfigCache writeCacheFile called', ['config' => basename($config)]);
-        
         // If APCu is available, store ONLY in APCu (no filesystem writes)
         if (self::isAvailable()) {
-            $logger?->debug('APCuConfigCache storing in APCu only', ['config' => basename($config)]);
-            $key = self::getConfigKey($config, null); // Use config path as key
-            
+            // Use the pending context set by checkConfig() so the key matches
+            $key = self::getConfigKey($config, self::$pendingContext);
+
             if ($append && \apcu_exists($key)) {
                 $existingData = \apcu_fetch($key);
                 $data = $existingData . $data;
             }
-            
-            // Store compiled PHP in APCu ONLY - no filesystem writes
+
             \apcu_store($key, $data, self::$ttl);
-            $logger?->debug('APCuConfigCache stored config in APCu', ['config' => basename($config)]);
             return; // Don't write to filesystem
         } else {
-            $logger?->debug('APCuConfigCache APCu not available, falling back to filesystem', ['config' => basename($config)]);
             // Fallback to normal file-based cache only when APCu is not available
             parent::writeCacheFile($config, $cache, $data, $append);
         }
     }
     
     /**
-     * Override checkConfig to return a valid file path, creating temp files for APCu content when necessary
+     * Override checkConfig to use APCu directly without temp files.
+     * When APCu has the content, we eval() it directly instead of writing
+     * a temp file (which would negate the benefit of caching in shared memory).
+     *
+     * Returns a special 'APCU:key' marker when content was found and executed
+     * from APCu, or falls back to the parent file-based cache.
      */
     public static function checkConfig($config, $context = null)
     {
         // If APCu is available, try to load from cache first
         if (self::isAvailable()) {
+            // getConfigKey() normalizes the path internally so the key
+            // matches what writeCacheFile() will use (it receives the full
+            // $filename from callHandler via late static binding).
             $key = self::getConfigKey($config, $context);
             $content = \apcu_fetch($key);
-            
+
             if ($content !== false) {
-                $logger = self::getLoggerFor($context);
-                $logger?->debug('APCuConfigCache loading config from APCu', ['config' => basename($config)]);
-                
-                // Create a temporary file that will be cleaned up quickly
-                $tempFile = tempnam(sys_get_temp_dir(), 'apcu_' . basename($config, '.xml') . '_');
-                file_put_contents($tempFile, $content);
-                
-                // Register cleanup to happen very soon (not just on shutdown)
-                register_shutdown_function(function() use ($tempFile) {
-                    if (file_exists($tempFile)) {
-                        unlink($tempFile);
-                    }
-                });
-                
-                return $tempFile;
+                // Execute directly from memory — no temp file I/O
+                eval('?>' . $content);
+                // Return a marker so callers that use include() on the result
+                // don't fail; load() handles this marker specially.
+                return 'APCU:' . $key;
             }
         }
-        
-    $logger = self::getLoggerFor($context);
-    $logger?->debug('APCuConfigCache config not found in APCu, using filesystem', ['config' => basename($config)]);
-        // Fallback to normal file-based cache (will compile and call writeCacheFile)
-        return parent::checkConfig($config, $context);
+
+        // Track context so writeCacheFile() stores under the correct APCu key
+        self::$pendingContext = $context;
+        try {
+            // Fallback to normal file-based cache (will compile and call writeCacheFile
+            // via late static binding — static::writeCacheFile in parent's callHandler)
+            return parent::checkConfig($config, $context);
+        } finally {
+            self::$pendingContext = null;
+        }
     }
     
     /**
@@ -154,23 +158,20 @@ class AgaviAPCuConfigCache extends AgaviConfigCache
             return;
         }
         
-        // Fallback to normal file-based loading
+        // Fallback: checkConfig() will either eval() from APCu (returning
+        // an 'APCU:' marker) or compile to a cache file and return its path.
         $cacheFile = self::checkConfig($config, $context);
-        
-        // Handle APCu marker if returned
-        if (is_string($cacheFile) && strpos($cacheFile, 'APCU:') === 0) {
-            // Extract the APCu key and eval the content directly
-            $apcuKey = substr($cacheFile, 5); // Remove 'APCU:' prefix
-            $content = \apcu_fetch($apcuKey);
-            if ($content !== false) {
-                eval('?>' . $content);
-                if ($once) {
-                    self::$loadedConfigs[$configKey] = true;
-                }
-                return;
+
+        // If checkConfig() already eval'd from APCu, it returns a marker —
+        // no further include needed.
+        if (is_string($cacheFile) && str_starts_with($cacheFile, 'APCU:')) {
+            // Content was already eval'd inside checkConfig()
+            if ($once) {
+                self::$loadedConfigs[$configKey] = true;
             }
+            return;
         }
-        
+
         // Regular file loading
         if (is_readable($cacheFile)) {
             if ($once) {
@@ -179,7 +180,7 @@ class AgaviAPCuConfigCache extends AgaviConfigCache
                 include($cacheFile);
             }
         }
-        
+
         if ($once) {
             self::$loadedConfigs[$configKey] = true;
         }
@@ -439,14 +440,23 @@ class AgaviAPCuConfigCache extends AgaviConfigCache
     }
 
     /**
-     * Generate APCu key for config file
+     * Generate APCu key for config file.
+     * Normalizes the config path to a full absolute path so that the key is
+     * consistent regardless of whether the caller passes a relative or
+     * absolute path (writeCacheFile receives $filename from callHandler which
+     * is always the full absolute path).
+     * Memoized to avoid repeated normalization and md5() hashing on the hot path.
      */
+    private static array $keyCache = [];
     private static function getConfigKey(string $config, ?string $context): string
     {
-        $key = self::$configPrefix . md5($config . ($context ?? ''));
-    $logger = self::getLoggerFor($context);
-    $logger?->debug('APCuConfigCache generated key', ['config' => basename($config), 'context' => $context, 'key' => $key]);
-        return $key;
+        // Normalize to full absolute path — mirrors the logic in AgaviConfigCache::checkConfig()
+        $normalized = \Agavi\Util\AgaviToolkit::normalizePath($config);
+        if (!\Agavi\Util\AgaviToolkit::isPathAbsolute($normalized)) {
+            $normalized = \Agavi\Util\AgaviToolkit::normalizePath(AgaviConfig::get('core.app_dir')) . '/' . $normalized;
+        }
+        $cacheKey = $normalized . '|' . ($context ?? '');
+        return self::$keyCache[$cacheKey] ??= self::$configPrefix . md5($cacheKey);
     }
     
     /**

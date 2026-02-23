@@ -187,20 +187,20 @@ class AgaviConfig
 	{
 		// Preserve readonly config and specified keys
 		$preserve = [];
-		
+
 		// Keep readonly config
 		foreach (self::$readonlies as $key => $dummy) {
 			if (isset(self::$config[$key])) {
 				$preserve[$key] = self::$config[$key];
 			}
 		}
-		
+
 		// Keep explicitly preserved keys
 		foreach ($preserveKeys as $key) {
 			if ($key === 'modules') {
 				// Special handling for modules: preserve all module.* configurations
 				foreach (self::$config as $configKey => $configValue) {
-					if (strpos($configKey, 'modules.') === 0) {
+					if (str_starts_with($configKey, 'modules.')) {
 						$preserve[$configKey] = $configValue;
 					}
 				}
@@ -208,7 +208,7 @@ class AgaviConfig
 				$preserve[$key] = self::$config[$key];
 			}
 		}
-		
+
 		// Reset config to preserved values
 		self::$config = $preserve;
 	}

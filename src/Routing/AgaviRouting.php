@@ -17,7 +17,7 @@ abstract class AgaviRouting
 	private RouteCollection $routes;
 	/** @var array<string,array{gen_path:string,cut:bool,path:string,opt:array}> */
 	private array $meta = [];
-	private UrlMatcher $matcher;
+	private ?UrlMatcher $matcher;
 	// Symfony routing request context (renamed to avoid collision with AgaviContext)
 	private RequestContext $requestContext;
 	// Application context (Agavi framework) – exposed to subclasses as $this->context for legacy compatibility
@@ -44,6 +44,9 @@ abstract class AgaviRouting
 
     public function match(string $path): array
     {
+        if ($this->matcher === null) {
+            $this->matcher = new UrlMatcher($this->routes, $this->requestContext);
+        }
         return $this->matcher->match($path);
     }
 
@@ -136,8 +139,8 @@ abstract class AgaviRouting
 			],
 		];
 
-		// Rebuild matcher incrementally (cheap relative to test scale)
-		$this->matcher = new UrlMatcher($this->routes, $this->requestContext);
+		// Invalidate matcher — it will be lazily rebuilt on next match()
+		$this->matcher = null;
 		return $name;
 	}
 
