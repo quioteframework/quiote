@@ -65,6 +65,15 @@ class AgaviConfigCache
 	protected static $filesIncluded = false;
 
 	/**
+	 * Memoized results of getCacheName() — keyed by "$config|$context".
+	 * The cache filename depends only on the source file path, environment and
+	 * context — all of which are constant for the lifetime of a worker process.
+	 *
+	 * @var array<string,string>
+	 */
+	private static array $cacheNameMemo = [];
+
+	/**
 	 * Load a configuration handler.
 	 *
 	 * @param      string The path of the originally requested configuration file.
@@ -294,6 +303,11 @@ class AgaviConfigCache
 	 */
 	public static function getCacheName($config, $context = null)
 	{
+		$memoKey = $config . '|' . $context;
+		if (isset(self::$cacheNameMemo[$memoKey])) {
+			return self::$cacheNameMemo[$memoKey];
+		}
+
 		$environment = AgaviConfig::get('core.environment');
 
 		if(strlen((string) $config) > 3 && ctype_alpha((string) $config[0]) && $config[1] == ':' && ($config[2] == '\\' || $config[2] == '/')) {
@@ -331,7 +345,7 @@ class AgaviConfigCache
 			$baseCacheDir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'agavi_cache';
 		}
 
-		return $baseCacheDir . DIRECTORY_SEPARATOR . self::CACHE_SUBDIR . DIRECTORY_SEPARATOR . $cacheName;
+		return self::$cacheNameMemo[$memoKey] = $baseCacheDir . DIRECTORY_SEPARATOR . self::CACHE_SUBDIR . DIRECTORY_SEPARATOR . $cacheName;
 	}
 
 	/**

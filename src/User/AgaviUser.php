@@ -145,14 +145,14 @@ class AgaviUser extends AgaviAttributeHolder implements ResetInterface
 			if (is_array($this->attributes) && isset($this->attributes[$ns]) && is_array($this->attributes[$ns])) {
 				$keys = array_keys($this->attributes[$ns]);
 			}
-			if (getenv('AGAVI_DEBUG_USER')) {
+			if (\Agavi\Util\DebugFlags::$user) {
 				AgaviDebugLogger::debug('[AgaviUser.shutdown.debug] oid=' . spl_object_id($this) . ' ns=' . $ns . ' hasNsData=' . ($hasNsData ? 1 : 0) . ' keyCount=' . count($keys) . ' keysSample=' . json_encode(array_slice($keys, 0, 12)));
 			}
 		} catch (\Throwable) {
 		}
 		if (!$hasNsData) {
 			try {
-				if (getenv('AGAVI_DEBUG_USER')) {
+				if (\Agavi\Util\DebugFlags::$user) {
 					AgaviDebugLogger::debug('[AgaviUser.shutdown] skip store (no data) for ' . $this->storageNamespace);
 				}
 			} catch (\Throwable) {
@@ -202,14 +202,14 @@ class AgaviUser extends AgaviAttributeHolder implements ResetInterface
 				$storage->flush();
 			}
 			try {
-				if (getenv('AGAVI_DEBUG_USER')) {
+				if (\Agavi\Util\DebugFlags::$user) {
 					AgaviDebugLogger::debug('[AgaviUser.persistAttributesImmediate] persisted ns=' . $ns . ' keys=' . ($onlyKeys ? json_encode($onlyKeys) : 'ALL'));
 				}
 			} catch (\Throwable) {
 			}
 		} catch (\Throwable $e) {
 			try {
-				if (getenv('AGAVI_DEBUG_USER')) {
+				if (\Agavi\Util\DebugFlags::$user) {
 					AgaviDebugLogger::debug('[AgaviUser.persistAttributesImmediate] ERROR ' . $e->getMessage());
 				}
 			} catch (\Throwable) {

@@ -113,7 +113,7 @@ final class ActionExecutor
                         $body = $tmp;
                     }
                 }
-                if (getenv('AGAVI_DEBUG_EXEC')) {
+                if (\Agavi\Util\DebugFlags::$exec) {
                     $keys = is_array($body) ? implode(',', array_slice(array_keys($body), 0, 6)) : 'n/a';
                     AgaviDebugLogger::debug('[ActionExecutor] formParse(webReq) ct=' . $ct . ' rawLen=' . strlen($raw) . ' keys=' . $keys);
                 }
@@ -148,7 +148,7 @@ final class ActionExecutor
      */
     public function execute(ActionDescriptor $desc, ServerRequestInterface $request, ExecutionState $state, array $parameters = [], ?AgaviAction $preInstantiatedAction = null): ActionExecutionContext
     {
-        $dbg = getenv('AGAVI_DEBUG_EXEC');
+        $dbg = \Agavi\Util\DebugFlags::$exec;
         if ($dbg) {
             AgaviDebugLogger::debug('[ActionExecutor] start ' . $desc->module . ':' . $desc->action . ' method=' . $desc->method . ' output=' . $desc->outputType, $this->controller->getContext());
         }

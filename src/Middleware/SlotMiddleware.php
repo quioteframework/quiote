@@ -30,7 +30,7 @@ class SlotMiddleware implements MiddlewareInterface
             }
             $request = $request->withAttribute(self::ATTR, $slotStack);
             // Log request identity and presence of SlotStack for debugging in FrankenPHP
-            if (getenv('AGAVI_DEBUG_SLOT_DISPATCH')) {
+            if (\Agavi\Util\DebugFlags::$slotDispatch) {
                 try {
                     $id = spl_object_id($request);
                     $has = $request->getAttribute(self::ATTR) ? '1' : '0';
@@ -47,7 +47,7 @@ class SlotMiddleware implements MiddlewareInterface
                 }
             }
         } else {
-            if (getenv('AGAVI_DEBUG_SLOT_DISPATCH')) {
+            if (\Agavi\Util\DebugFlags::$slotDispatch) {
                 try {
                     AgaviDebugLogger::debug(sprintf('[SlotMW] SlotStack already present on request id=%d', spl_object_id($request)), $this->context);
                 } catch (\Throwable) {

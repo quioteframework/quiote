@@ -23,7 +23,7 @@ class RoutingMiddleware implements MiddlewareInterface
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $path = $request->getUri()->getPath();
-        $dbg = getenv('AGAVI_DEBUG_ROUTING');
+        $dbg = \Agavi\Util\DebugFlags::$routing;
         try {
             $attributes = $this->routing->match($path);
             $module = $attributes['_module'] ?? null;

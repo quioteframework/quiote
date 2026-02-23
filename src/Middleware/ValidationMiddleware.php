@@ -39,7 +39,7 @@ class ValidationMiddleware implements MiddlewareInterface
         if (!$actionDesc) {
             return $handler->handle($request);
         }
-        $vd = getenv('AGAVI_DEBUG_VALIDATION');
+        $vd = \Agavi\Util\DebugFlags::$validation;
         $moduleName = $actionDesc->module;
         $actionName = $actionDesc->action;
         $method = $actionDesc->method;
@@ -145,14 +145,14 @@ class ValidationMiddleware implements MiddlewareInterface
             }
         }
         
-        if (getenv('AGAVI_DEBUG_ROUTING')) {
+        if (\Agavi\Util\DebugFlags::$routing) {
             AgaviDebugLogger::debug('[ValidationMiddleware][debug] using context AgaviWebRequest (shared)', $this->controller?->getContext());
         }
         // Promote route params (excluding internal underscore-prefixed keys) into runtime parameters
         // BEFORE validation so validators treat them like any other input (GET/POST/etc.).
         try {
             $routeParams = $request->getAttribute('route_params');
-            if (getenv('AGAVI_DEBUG_ROUTING')) {
+            if (\Agavi\Util\DebugFlags::$routing) {
                 try {
                     AgaviDebugLogger::debug('[ValidationMiddleware][debug] route_params=' . json_encode($routeParams, JSON_UNESCAPED_SLASHES), $this->controller?->getContext());
                 } catch (\Throwable) {
@@ -176,7 +176,7 @@ class ValidationMiddleware implements MiddlewareInterface
                 }
                 if ($injected) {
                     // Also merge into raw query params so validators reading query directly see them.
-                    if (getenv('AGAVI_DEBUG_ROUTING')) {
+                    if (\Agavi\Util\DebugFlags::$routing) {
                         try {
                             AgaviDebugLogger::debug('[ValidationMiddleware][debug] injected_route_params_runtime=' . json_encode($injected, JSON_UNESCAPED_SLASHES), $this->controller?->getContext());
                         } catch (\Throwable) {
@@ -326,7 +326,7 @@ class ValidationMiddleware implements MiddlewareInterface
             AgaviDebugLogger::debug('[ValidationMiddleware] decision=' . $execState->validationDecision->state . ' module=' . $moduleName . ' action=' . $actionName . ' method=' . $method . ' simple=' . (($action && method_exists($action, 'isSimple') && $action->isSimple()) ? '1' : '0') . ' sessId=' . $sessId . ' auth=' . $auth . $errStr, $this->controller?->getContext());
         }
         if ($ok) {
-            if (getenv('AGAVI_DEBUG_ROUTING')) {
+            if (\Agavi\Util\DebugFlags::$routing) {
                 try {
                     AgaviDebugLogger::debug('[ValidationMiddleware][debug] post-validation SUCCESS', $this->controller?->getContext());
                 } catch (\Throwable) {
@@ -334,7 +334,7 @@ class ValidationMiddleware implements MiddlewareInterface
             }
             return $handler->handle($request);
         }
-        if (getenv('AGAVI_DEBUG_ROUTING')) {
+        if (\Agavi\Util\DebugFlags::$routing) {
             try {
                 AgaviDebugLogger::debug('[ValidationMiddleware][debug] post-validation FAILURE', $this->controller?->getContext());
             } catch (\Throwable) {
@@ -369,7 +369,7 @@ class ValidationMiddleware implements MiddlewareInterface
             $view = $vf->create($viewModule, $viewName, $moduleName, $actionName, $ot, $webRequest, []);
             if (!$view) {
                 $factory = new \Nyholm\Psr7\Factory\Psr17Factory();
-                if (getenv('AGAVI_DEBUG_VALIDATION')) {
+                if (\Agavi\Util\DebugFlags::$validation) {
                     AgaviDebugLogger::debug('[ValidationMiddleware] view creation returned null for ' . $viewModule . ':' . $viewName, $this->controller?->getContext());
                 }
                 $resp = $factory->createResponse(400)->withHeader('X-Agavi-Validation', 'failed')->withHeader('X-Agavi-Validation-Reason', 'view_not_created');
@@ -395,7 +395,7 @@ class ValidationMiddleware implements MiddlewareInterface
             }
             return $resp;
         } catch (\Throwable $e) {
-            if (getenv('AGAVI_DEBUG_VALIDATION')) {
+            if (\Agavi\Util\DebugFlags::$validation) {
                 AgaviDebugLogger::debug('[ValidationMiddleware] exception during view creation: ' . $e->getMessage(), $this->controller?->getContext());
             }
             $factory = new \Nyholm\Psr7\Factory\Psr17Factory();

@@ -59,8 +59,8 @@ class SlotDispatcher
         $stack = $parentRequest->getAttribute(SlotStack::class);
         // Build canonical key for this slot early so diagnostics and guards can reference it
         $key = $module . '/' . $action;
-        $logExceptions = getenv('AGAVI_DEBUG_SLOT_EXCEPTIONS');
-        $dbg = getenv('AGAVI_DEBUG_SLOT_DISPATCH');
+        $logExceptions = \Agavi\Util\DebugFlags::$slotExceptions;
+        $dbg = \Agavi\Util\DebugFlags::$slotDispatch;
         if ($dbg) {
             try {
                 $pid = spl_object_id($parentRequest);
@@ -135,7 +135,7 @@ class SlotDispatcher
                 }
                 // (former temporary GuidanceSection instrumentation removed)
                 $overlayApplied = true;
-                if (getenv('AGAVI_DEBUG_SLOT_DISPATCH')) {
+                if (\Agavi\Util\DebugFlags::$slotDispatch) {
                     try {
                         \Agavi\Logging\AgaviDebugLogger::debug('[SlotDisp] overlay_applied key=' . $key . ' params=' . json_encode($parameters, JSON_UNESCAPED_SLASHES), $this->controller->getContext());
                     } catch (\Throwable) {

@@ -150,6 +150,34 @@ class AgaviPdoDatabase extends AgaviDatabase
 		// assigning null to a previously open connection object causes a disconnect
 		$this->connection = $this->resource = null;
 	}
+
+	/**
+	 * Probe whether the PDO connection is still alive by running a lightweight query.
+	 *
+	 * On failure (e.g. the MySQL server went away because the laptop slept while
+	 * Docker was running) the stale connection is nulled so that the next call to
+	 * getConnection() will reconnect transparently.
+	 */
+	public function ping(): bool
+	{
+		if ($this->connection === null) {
+			return true; // will connect lazily on first getConnection()
+		}
+		try {
+			$this->connection->query('SELECT 1');
+			return true;
+		} catch (\PDOException) {
+			// Connection lost — null it so getConnection() reconnects lazily.
+			if (\Agavi\Util\DebugFlags::$database) {
+				AgaviDebugLogger::debug(
+					'[AgaviPdoDatabase] ping() failed — nulling stale connection for lazy reconnect',
+					$this->databaseManager?->getContext()
+				);
+			}
+			$this->connection = $this->resource = null;
+			return false;
+		}
+	}
 }
 
 ?>

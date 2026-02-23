@@ -30,7 +30,7 @@ final class ForwardService
     public function createSystemForwardView(string $forwardName, string $outputType, AgaviWebRequest $rd): array
     {
         [$module,$action] = $this->resolveSystemAction($forwardName);
-        if(getenv('AGAVI_DEBUG_FORWARD')) { AgaviDebugLogger::debug("[ForwardService] DEPRECATED createSystemForwardView forward=$forwardName -> $module/$action (no direct view render)", $this->controller->getContext()); }
+        if(\Agavi\Util\DebugFlags::$forward) { AgaviDebugLogger::debug("[ForwardService] DEPRECATED createSystemForwardView forward=$forwardName -> $module/$action (no direct view render)", $this->controller->getContext()); }
         return [null,$module,'', ''];
     }
 

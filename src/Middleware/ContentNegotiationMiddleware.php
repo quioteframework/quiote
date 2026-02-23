@@ -228,7 +228,7 @@ class ContentNegotiationMiddleware implements MiddlewareInterface
     {
         $existing = $request->getAttribute('output_type');
         if ($existing !== null) {
-            if (getenv('AGAVI_DEBUG_RESPONSE') || getenv('AGAVI_DEBUG_COOKIE')) {
+            if (\Agavi\Util\DebugFlags::$response || \Agavi\Util\DebugFlags::$cookie) {
                 AgaviDebugLogger::debug('[ContentNegotiationMiddleware] output_type already set to ' . $existing . ', skipping', $this->controller->getContext());
             }
             return $handler->handle($request);
@@ -244,7 +244,7 @@ class ContentNegotiationMiddleware implements MiddlewareInterface
         if ($value !== null) {
             $request = $request->withAttribute('output_type', $value);
         }
-        if (getenv('AGAVI_DEBUG_RESPONSE') || getenv('AGAVI_DEBUG_COOKIE')) {
+        if (\Agavi\Util\DebugFlags::$response || \Agavi\Util\DebugFlags::$cookie) {
             AgaviDebugLogger::debug('[ContentNegotiationMiddleware] set output_type=' . ($value ?? 'null') . ' uri=' . $request->getUri()->getPath() . ' accept=' . $request->getHeaderLine('Accept'), $this->controller->getContext());
         }
 

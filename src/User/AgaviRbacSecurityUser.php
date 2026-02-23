@@ -189,7 +189,7 @@ class AgaviRbacSecurityUser extends AgaviSecurityUser implements AgaviISecurityU
 				$this->grantRole($role);
 			}
 			try {
-				if (getenv('AGAVI_DEBUG_SECURITY')) {
+				if (\Agavi\Util\DebugFlags::$security) {
 					if(!is_dir('/app/log')) { @mkdir('/app/log',0777,true); }
 					@file_put_contents('/app/log/agavi_user_debug.log', '[RbacSecurityUser.initialize] rebuilt creds rolesIn=' . count($storedRoles) . ' rolesNow=' . count($this->roles) . ' credsNow=' . count($this->credentials ?? []) . "\n", FILE_APPEND);
 				}
@@ -223,7 +223,7 @@ class AgaviRbacSecurityUser extends AgaviSecurityUser implements AgaviISecurityU
     public function shutdown()
 	{
 		$logger = $this->context?->getLoggerManager()?->getLogger();
-		if (getenv('AGAVI_DEBUG_SECURITY')) {
+		if (\Agavi\Util\DebugFlags::$security) {
 			$logger?->debug('RbacSecurityUser storing roles', ['class' => get_class($this), 'namespace' => self::ROLES_NAMESPACE, 'roles_count' => is_array($this->roles) ? count($this->roles) : 0]);
 		}
 		$this->context->getStorage()->store(self::ROLES_NAMESPACE, $this->roles);

@@ -110,7 +110,7 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 					$resultView = $action->getDefaultViewName();
 				}
 			} catch (\Throwable $e) {
-				if (getenv('AGAVI_DEBUG_VALIDATION') || getenv('DEBUG_TESTS')) {
+				if (\Agavi\Util\DebugFlags::$validation || getenv('DEBUG_TESTS')) {
 					try {
 						AgaviDebugLogger::debug('[TestDebug][runAction][Exception] ' . get_class($e) . ': ' . $e->getMessage(), $this->getContext());
 					} catch (\Throwable) {
@@ -119,7 +119,7 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 				$resultView = 'Error';
 			}
 		}
-		if (getenv('AGAVI_DEBUG_VALIDATION') || getenv('DEBUG_TESTS')) {
+		if (\Agavi\Util\DebugFlags::$validation || getenv('DEBUG_TESTS')) {
 			try {
 				AgaviDebugLogger::debug('[TestDebug][runAction] rawResult=' . var_export($resultView, true) . ' method=' . $execMethod . ' validationSuccess=' . ($this->validationSuccess ? '1' : '0'), $this->getContext());
 			} catch (\Throwable) {
@@ -128,7 +128,7 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 		$this->viewModuleName = $this->moduleName;
 		// Store raw result (short view name as returned by action). If null assume Success.
 		$raw = $resultView ?? 'Success';
-		if (getenv('AGAVI_DEBUG_VALIDATION') || getenv('DEBUG_TESTS')) {
+		if (\Agavi\Util\DebugFlags::$validation || getenv('DEBUG_TESTS')) {
 			try {
 				AgaviDebugLogger::debug('[TestDebug][runAction] preNormalizeRaw=' . $raw, $this->getContext());
 			} catch (\Throwable) {
@@ -137,7 +137,7 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 		// Normalize using shared logic (applies module directive + canonicalization) so that
 		// legacy semantics <ActionName><ShortViewName> are preserved without ad-hoc prefixing.
 		$this->viewName = $this->normalizeViewName($raw);
-		if (getenv('AGAVI_DEBUG_VALIDATION') || getenv('DEBUG_TESTS')) {
+		if (\Agavi\Util\DebugFlags::$validation || getenv('DEBUG_TESTS')) {
 			try {
 				AgaviDebugLogger::debug('[TestDebug][runAction] normalizedView=' . $this->viewName, $this->getContext());
 			} catch (\Throwable) {
@@ -162,7 +162,7 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 		$methodToken = strtolower($this->requestMethod ?? 'read');
 		// Acquire canonical AgaviWebRequest (it already holds parameters injected via helpers)
 		$request = $this->getContext()->getRequest();
-		$dbg = (getenv('AGAVI_DEBUG_VALIDATION') || getenv('DEBUG_TESTS'));
+		$dbg = (\Agavi\Util\DebugFlags::$validation || getenv('DEBUG_TESTS'));
 		if ($dbg) {
 			try {
 				AgaviDebugLogger::debug('[TestDebug][performValidation] methodToken=' . $methodToken . ' reqId=' . spl_object_id($request), $this->getContext());
@@ -170,7 +170,7 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 			}
 		}
 		// Controlled debug: only emit pre-validation parameter dump when explicitly enabled
-		if (getenv('AGAVI_DEBUG_VALIDATION') || getenv('DEBUG_TESTS')) {
+		if (\Agavi\Util\DebugFlags::$validation || getenv('DEBUG_TESTS')) {
 			try {
 				$rawParams = method_exists($request, 'getParameters') ? $request->getParameters('parameters') : [];
 				$flat = [];

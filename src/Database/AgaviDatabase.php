@@ -111,18 +111,18 @@ abstract class AgaviDatabase extends AgaviParameterHolder implements ResetInterf
 	 */
 	public function getConnection()
 	{
-		if (getenv('AGAVI_DEBUG_DATABASE')) {
+		if (\Agavi\Util\DebugFlags::$database) {
 			AgaviDebugLogger::debug('[AgaviDatabase] getConnection() called - database_id=' . spl_object_id($this) . ' connection_exists=' . ($this->connection ? 'YES' : 'NO'));
 		}
 		
 		if($this->connection === null) {
-			if (getenv('AGAVI_DEBUG_DATABASE')) {
+			if (\Agavi\Util\DebugFlags::$database) {
 				AgaviDebugLogger::debug('[AgaviDatabase] connection is null, calling connect()');
 			}
 			$this->connect();
 		}
 
-		if (getenv('AGAVI_DEBUG_DATABASE')) {
+		if (\Agavi\Util\DebugFlags::$database) {
 			AgaviDebugLogger::debug('[AgaviDatabase] getConnection() returning connection_id=' . spl_object_id($this->connection) . ' type=' . get_class($this->connection));
 		}
 		
@@ -212,6 +212,27 @@ abstract class AgaviDatabase extends AgaviParameterHolder implements ResetInterf
 
 		// Reset the name
 		$this->name = null;
+	}
+
+	/**
+	 * Probe whether the connection is still alive.
+	 *
+	 * Returns true if healthy or no connection has been established yet
+	 * (lazy connect will handle it on first getConnection()). Returns false
+	 * if the connection appears dead, signalling recycleConnections() to null
+	 * it so getConnection() reconnects lazily on the next use.
+	 *
+	 * Subclasses SHOULD override with a driver-specific probe (e.g. SELECT 1).
+	 */
+	public function ping(): bool
+	{
+		if ($this->connection === null) {
+			// No connection yet — lazy connect will create it on first use.
+			return true;
+		}
+		// Unknown driver — conservatively treat as potentially dead so we force
+		// a reconnect rather than silently using a broken connection.
+		return false;
 	}
 }
 

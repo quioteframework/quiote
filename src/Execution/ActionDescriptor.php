@@ -15,12 +15,26 @@ final class ActionDescriptor
     ) {}
 
     /**
-     * Build a descriptor by inspecting the action instance (authoritative isSimple flag).
+     * Per-worker cache: class name → isSimple bool.
+     * Safe to cache statically because isSimple() is a pure function of the class.
+     *
+     * @var array<string,bool>
+     */
+    private static array $isSimpleCache = [];
+
+    /**
+     * Build a descriptor by inspecting the action class (authoritative isSimple flag).
+     *
+     * The class is instantiated once per unique class name per worker lifetime;
+     * subsequent calls for the same module:action pair read from the static cache.
      */
     public static function fromController(\Agavi\Controller\AgaviController $controller, string $module, string $action, string $method, string $outputType): self
     {
-        $instance = $controller->createActionInstance($module, $action);
-        $isSimple = method_exists($instance, 'isSimple') ? (bool)$instance->isSimple() : false;
-        return new self($module, $action, $method, $outputType, $isSimple);
+        $cacheKey = $module . ':' . $action;
+        if (!isset(self::$isSimpleCache[$cacheKey])) {
+            $instance = $controller->createActionInstance($module, $action);
+            self::$isSimpleCache[$cacheKey] = method_exists($instance, 'isSimple') ? (bool)$instance->isSimple() : false;
+        }
+        return new self($module, $action, $method, $outputType, self::$isSimpleCache[$cacheKey]);
     }
 }

@@ -24,7 +24,7 @@ class SessionMiddleware implements MiddlewareInterface
         try {
             $storage = $this->controller->getContext()->getStorage();
             // Debug: show PSR cookie params and raw Cookie header
-            if (getenv('AGAVI_DEBUG_SESSION')) {
+            if (\Agavi\Util\DebugFlags::$session) {
                 try {
                     AgaviDebugLogger::debug('[SessionMiddleware] PSR cookie params=' . var_export($request->getCookieParams(), true), $this->controller->getContext());
                     AgaviDebugLogger::debug('[SessionMiddleware] Cookie header=' . var_export($request->getHeader('Cookie'), true), $this->controller->getContext());
@@ -51,16 +51,16 @@ class SessionMiddleware implements MiddlewareInterface
                     }
                 }
             } catch (\Throwable) {}
-            if (getenv('AGAVI_DEBUG_SESSION')) {
+            if (\Agavi\Util\DebugFlags::$session) {
                 try { AgaviDebugLogger::debug('[SessionMiddleware] mirrored $_COOKIE=' . var_export($_COOKIE, true), $this->controller->getContext()); } catch (\Throwable) {}
             }
             if (method_exists($storage, 'startup') && session_status() !== PHP_SESSION_ACTIVE) {
-                if (getenv('AGAVI_DEBUG_SESSION')) { AgaviDebugLogger::debug('[SessionMiddleware] calling storage->startup()', $this->controller->getContext()); }
+                if (\Agavi\Util\DebugFlags::$session) { AgaviDebugLogger::debug('[SessionMiddleware] calling storage->startup()', $this->controller->getContext()); }
                 $storage->startup();
-                if (getenv('AGAVI_DEBUG_SESSION')) { AgaviDebugLogger::debug('[SessionMiddleware] storage->startup() returned; session id=' . var_export(method_exists($storage,'getId') ? $storage->getId() : null, true), $this->controller->getContext()); }
+                if (\Agavi\Util\DebugFlags::$session) { AgaviDebugLogger::debug('[SessionMiddleware] storage->startup() returned; session id=' . var_export(method_exists($storage,'getId') ? $storage->getId() : null, true), $this->controller->getContext()); }
             }
         } catch (\Throwable $t) {
-            if (getenv('AGAVI_DEBUG_SESSION')) {
+            if (\Agavi\Util\DebugFlags::$session) {
                 AgaviDebugLogger::debug('[SessionMiddleware] startup error: ' . $t->getMessage(), $this->controller->getContext());
             }
         }
@@ -81,56 +81,15 @@ class SessionMiddleware implements MiddlewareInterface
             // Bridge queued cookies from AgaviWebResponse to PSR response if present
             $globalResp = null;
             try { $globalResp = $this->controller->getGlobalResponse(); } catch (\Throwable) { $globalResp = null; }
-            if (is_object($globalResp) && method_exists($globalResp, 'getCookies')) {
+            if (is_object($globalResp)) {
                 try {
-                    $cookies = is_callable([$globalResp, 'getCookies']) ? $globalResp->{'getCookies'}() : [];
-                    // Determine base path for cookie default
                     $routing = $this->controller->getContext()->getRouting();
                     $basePath = method_exists($routing, 'getBasePath') ? $routing->getBasePath() : '/';
-                    foreach ($cookies as $name => $values) {
-                        try {
-                            // Determine expiration
-                            if (is_string($values['lifetime'])) {
-                                $expire = strtotime($values['lifetime']);
-                            } else {
-                                $expire = ($values['lifetime'] != 0) ? time() + (int)$values['lifetime'] : 0;
-                            }
-                            if ($values['value'] === false || $values['value'] === null || $values['value'] === '') {
-                                $expire = time() - 3600 * 24;
-                            }
-                            // Apply encode callback if present and value non-null
-                            $val = $values['value'];
-                            if ($val !== null && !empty($values['encode_callback']) && $values['encode_callback'] !== false && is_callable($values['encode_callback'])) {
-                                $val = call_user_func($values['encode_callback'], $val);
-                            }
-                            $path = $values['path'] === null ? $basePath : $values['path'];
-                            if ($val !== null) {
-                                $cookieStr = $name . '=' . (string)$val;
-                                if ($expire > 0) {
-                                    $cookieStr .= '; Expires=' . gmdate('D, d-M-Y H:i:s T', $expire) . '; Max-Age=' . max(0, $expire - time());
-                                }
-                                $cookieStr .= '; Path=' . ($path ?: '/');
-                                if (!empty($values['domain'])) { $cookieStr .= '; Domain=' . $values['domain']; }
-                                if (!empty($values['secure'])) { $cookieStr .= '; Secure'; }
-                                if (!empty($values['httponly'])) { $cookieStr .= '; HttpOnly'; }
-                                if (!empty($values['samesite'])) {
-                                    $cookieStr .= '; SameSite=' . ucfirst(strtolower((string)$values['samesite']));
-                                }
-                                $existing = method_exists($response, 'getHeader') ? $response->getHeader('Set-Cookie') : [];
-                                if (!in_array($cookieStr, $existing, true)) {
-                                    $response = $response->withAddedHeader('Set-Cookie', $cookieStr);
-                                }
-                            }
-                        } catch (\Throwable) {
-                            // ignore per-cookie errors
-                        }
-                    }
-                } catch (\Throwable) {
-                    // ignore cookie bridging errors
-                }
+                    $response = \Agavi\Http\CookieSerializer::bridge($globalResp, $response, $basePath);
+                } catch (\Throwable) {}
             }
         } catch (\Throwable $t) {
-            if (getenv('AGAVI_DEBUG_SESSION')) { AgaviDebugLogger::debug('[SessionMiddleware] shutdown error: ' . $t->getMessage(), $this->controller->getContext()); }
+            if (\Agavi\Util\DebugFlags::$session) { AgaviDebugLogger::debug('[SessionMiddleware] shutdown error: ' . $t->getMessage(), $this->controller->getContext()); }
         }
 
         return $response;

@@ -96,13 +96,13 @@ abstract class AgaviView implements ResetInterface
 	public function renderLayers(): string
 	{
 		if (empty($this->layers)) {
-			if (getenv('AGAVI_DEBUG_VIEW')) {
+			if (\Agavi\Util\DebugFlags::$view) {
 				AgaviDebugLogger::debug('[AgaviView] renderLayers no layers for ' . get_class($this), $this->getContext());
 			}
 			return '';
 		}
 		$out = '';
-		if (getenv('AGAVI_DEBUG_VIEW')) {
+		if (\Agavi\Util\DebugFlags::$view) {
 			AgaviDebugLogger::debug('[AgaviView] renderLayers count=' . count($this->layers) . ' view=' . get_class($this), $this->getContext());
 		}
 		foreach ($this->layers as $layer) {
@@ -110,7 +110,7 @@ abstract class AgaviView implements ResetInterface
 			$attrsForLayer = is_array($attrsSnapshot) ? $attrsSnapshot : (array)$attrsSnapshot;
 			$attrsForLayer['inner'] = $out;
 			$out = (string)$layer->execute(null, $attrsForLayer); // exceptions bubble naturally now
-			if (getenv('AGAVI_DEBUG_VIEW')) {
+			if (\Agavi\Util\DebugFlags::$view) {
 				AgaviDebugLogger::debug('[AgaviView] layer executed name=' . $layer->getName() . ' len=' . strlen($out), $this->getContext());
 			}
 		}

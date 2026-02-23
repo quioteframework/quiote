@@ -25,8 +25,8 @@ class DeferredSlotRenderable implements SlotRenderable
 
     public function getContent(): string
     {
-        $dsr = getenv('AGAVI_DEBUG_SLOT_RENDERER') ?? false;
-        $logExceptions = getenv('AGAVI_DEBUG_SLOT_EXCEPTIONS');
+        $dsr = \Agavi\Util\DebugFlags::$slotRenderer;
+        $logExceptions = \Agavi\Util\DebugFlags::$slotExceptions;
 
         if ($this->rendered !== null) {
             return $this->rendered;

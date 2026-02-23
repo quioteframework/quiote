@@ -184,7 +184,7 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 	{
 		$value = $this->getParameter($field);
 		$empty = ($value === null || $value === '');
-		if (getenv('AGAVI_DEBUG_VALIDATION')) {
+		if (\Agavi\Util\DebugFlags::$validation) {
 			try {
 				AgaviDebugLogger::debug('[AgaviWebRequest][debug][isParameterValueEmpty] field=' . $field . ' empty=' . ($empty ? '1' : '0') . ' valueType=' . gettype($value));
 			} catch (\Throwable) {
@@ -284,7 +284,7 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 			$value = null;
 		}
 		
-		if (getenv('AGAVI_DEBUG_VALIDATION')) {
+		if (\Agavi\Util\DebugFlags::$validation) {
 			\Agavi\Logging\AgaviDebugLogger::debug(
 				'[AgaviWebRequest][debug][isFileValueEmpty] field=' . $field . 
 				' empty=' . ($value === null ? '1' : '0') . 

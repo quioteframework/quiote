@@ -39,6 +39,14 @@ class DispatchMiddleware implements MiddlewareInterface
     private static array $executedSimpleActions = [];
     private static array $executedNonSimpleActions = [];
 
+    /**
+     * Per-worker cache: class name → result of dynamicFlagsActive property scan.
+     * Reflection is expensive; scan each class once and cache the boolean.
+     *
+     * @var array<string,bool>
+     */
+    private static array $dynamicFlagsCache = [];
+
     // Forward loop protection moved to SecurityMiddleware (forwardCount in ExecutionState)
 
     public function __construct(private AgaviController $controller)
@@ -73,22 +81,25 @@ class DispatchMiddleware implements MiddlewareInterface
 
     private function dynamicFlagsActive($actionInstance): bool
     {
+        if (!$actionInstance) {
+            return false;
+        }
+        $cls = get_class($actionInstance);
+        if (array_key_exists($cls, self::$dynamicFlagsCache)) {
+            return self::$dynamicFlagsCache[$cls];
+        }
         try {
-            if (!$actionInstance) {
-                return false;
-            }
-            $cls = get_class($actionInstance);
             foreach (['failValidation', 'requireAuth', 'requireCred'] as $p) {
                 if (property_exists($cls, $p)) {
                     $rp = new \ReflectionProperty($cls, $p);
                     if ($rp->isStatic() && $rp->getValue() === true) {
-                        return true;
+                        return self::$dynamicFlagsCache[$cls] = true;
                     }
                 }
             }
         } catch (\Throwable) {
         }
-        return false;
+        return self::$dynamicFlagsCache[$cls] = false;
     }
 
     private function buildPsrResponse(string $content, string $outputType, bool $cacheHit, bool $containerUsed): ResponseInterface
@@ -110,16 +121,16 @@ class DispatchMiddleware implements MiddlewareInterface
                         $resp = $resp->withHeader($name, $value);
                     }
                 }
-                if (getenv('AGAVI_DEBUG_RESPONSE') || getenv('AGAVI_DEBUG_DISPATCH')) {
+                if (\Agavi\Util\DebugFlags::$response || \Agavi\Util\DebugFlags::$dispatch) {
                     AgaviDebugLogger::debug('[DispatchMiddleware.buildPsrResponse] set headers from output type ' . $outputType . ': ' . json_encode($httpHeaders), $this->controller->getContext());
                 }
             } else {
-                if (getenv('AGAVI_DEBUG_RESPONSE') || getenv('AGAVI_DEBUG_DISPATCH')) {
+                if (\Agavi\Util\DebugFlags::$response || \Agavi\Util\DebugFlags::$dispatch) {
                     AgaviDebugLogger::debug('[DispatchMiddleware.buildPsrResponse] getOutputType(' . $outputType . ') returned null', $this->controller->getContext());
                 }             
             }
         } catch (\Throwable $e) {
-            if (getenv('AGAVI_DEBUG_RESPONSE') || getenv('AGAVI_DEBUG_DISPATCH')) {
+            if (\Agavi\Util\DebugFlags::$response || \Agavi\Util\DebugFlags::$dispatch) {
                 AgaviDebugLogger::debug('[DispatchMiddleware.buildPsrResponse] exception getting output type: ' . $e->getMessage(), $this->controller->getContext());
             }            
         }
@@ -161,65 +172,19 @@ class DispatchMiddleware implements MiddlewareInterface
         }
 
         // Bridge any cookies scheduled on the legacy Agavi WebResponse into PSR response headers
-        try {
-            if (is_object($globalResp) && method_exists($globalResp, 'getCookies')) {
-                $cookies = is_callable([$globalResp, 'getCookies']) ? $globalResp->{'getCookies'}() : [];
+        if (is_object($globalResp)) {
+            try {
                 $routing = $this->controller->getContext()->getRouting();
                 $basePath = method_exists($routing, 'getBasePath') ? $routing->getBasePath() : '/';
-                foreach ($cookies as $name => $values) {
-                    try {
-                        // Determine expiration
-                        if (is_string($values['lifetime'])) {
-                            $expire = strtotime($values['lifetime']);
-                        } else {
-                            $expire = ($values['lifetime'] != 0) ? time() + (int)$values['lifetime'] : 0;
-                        }
-                        if ($values['value'] === false || $values['value'] === null || $values['value'] === '') {
-                            $expire = time() - 3600 * 24;
-                        }
-                        // Apply encode callback if present and value is not null
-                        $val = $values['value'];
-                        if ($val !== null && !empty($values['encode_callback']) && $values['encode_callback'] !== false && is_callable($values['encode_callback'])) {
-                            $val = call_user_func($values['encode_callback'], $val);
-                        }
-                        $path = $values['path'] === null ? $basePath : $values['path'];
-                        // Build Set-Cookie string
-                        if ($val !== null) {
-                            $cookieStr = $name . '=' . (string)$val;
-                            if ($expire > 0) {
-                                $cookieStr .= '; Expires=' . gmdate('D, d-M-Y H:i:s T', $expire) . '; Max-Age=' . max(0, $expire - time());
-                            }
-                            $cookieStr .= '; Path=' . ($path ?: '/');
-                            if (!empty($values['domain'])) {
-                                $cookieStr .= '; Domain=' . $values['domain'];
-                            }
-                            if (!empty($values['secure'])) {
-                                $cookieStr .= '; Secure';
-                            }
-                            if (!empty($values['httponly'])) {
-                                $cookieStr .= '; HttpOnly';
-                            }
-                            if (!empty($values['samesite'])) {
-                                $cookieStr .= '; SameSite=' . ucfirst(strtolower((string)$values['samesite']));
-                            }
-                            $existing = method_exists($resp, 'getHeader') ? $resp->getHeader('Set-Cookie') : [];
-                            if (!in_array($cookieStr, $existing, true)) {
-                                $resp = $resp->withAddedHeader('Set-Cookie', $cookieStr);
-                            }
-                        }
-                    } catch (\Throwable) {
-                        // ignore cookie formatting errors per-request
-                    }
-                }
-            }
-        } catch (\Throwable) {
+                $resp = \Agavi\Http\CookieSerializer::bridge($globalResp, $resp, $basePath);
+            } catch (\Throwable) {}
         }
         return $resp;
     }
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        $dbg = getenv('AGAVI_DEBUG_DISPATCH');
+        $dbg = \Agavi\Util\DebugFlags::$dispatch;
         // Clear stale state from previous request on the shared global response so that
         // any HTTP status code we read back in buildPsrResponse() reflects only what the
         // current action/view cycle actually set.
@@ -329,17 +294,23 @@ class DispatchMiddleware implements MiddlewareInterface
         $actionInstance = null;
         $userFp = null;
         try {
-            $actionInstance = $this->controller->createActionInstance($actionDesc->module, $actionDesc->action);
-            if (method_exists($actionInstance, 'initialize')) {
-                $actionInstance->initialize(new LightweightActionInitContext(
-                    $this->controller->getContext(),
-                    $actionDesc->module,
-                    $actionDesc->action,
-                    $actionDesc->method,
-                    $actionDesc->outputType,
-                    $request,
-                    $this->controller->getGlobalResponse()
-                ));
+            // Reuse the action instance already created and initialized by SecurityMiddleware to
+            // avoid a redundant instantiation per request.
+            $actionInstance = $request->getAttribute('agavi.preinstantiated_action');
+            if (!($actionInstance instanceof \Agavi\Action\AgaviAction)) {
+                // SecurityMiddleware didn't set one (e.g. security disabled); create it now.
+                $actionInstance = $this->controller->createActionInstance($actionDesc->module, $actionDesc->action);
+                if (method_exists($actionInstance, 'initialize')) {
+                    $actionInstance->initialize(new LightweightActionInitContext(
+                        $this->controller->getContext(),
+                        $actionDesc->module,
+                        $actionDesc->action,
+                        $actionDesc->method,
+                        $actionDesc->outputType,
+                        $request,
+                        $this->controller->getGlobalResponse()
+                    ));
+                }
             }
             $isCacheable = (bool)$actionInstance->isCacheable($actionDesc->outputType);
             $userFp = $this->computeUserFingerprint($actionInstance);
@@ -380,7 +351,7 @@ class DispatchMiddleware implements MiddlewareInterface
                 ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, ($actionInstance && method_exists($actionInstance, 'getAttributes')) ? $actionInstance->getAttributes() : [], true, $ttl, $userFp);
             }
         }
-        if (getenv('AGAVI_DEBUG_DISPATCH')) {
+        if (\Agavi\Util\DebugFlags::$dispatch) {
             $rid = $request->getAttribute('agavi.rid');
             AgaviDebugLogger::debug('[DispatchMiddleware][' . $rid . '] simple contentType=' . $actionDesc->outputType . ' contentLen=' . strlen($ctx->content) . ' prefix=' . substr($ctx->content, 0, 80), $this->controller->getContext());
         }
@@ -406,17 +377,21 @@ class DispatchMiddleware implements MiddlewareInterface
         $actionInstance = null;
         $userFp = null;
         try {
-            $actionInstance = $this->controller->createActionInstance($actionDesc->module, $actionDesc->action);
-            if (method_exists($actionInstance, 'initialize')) {
-                $actionInstance->initialize(new LightweightActionInitContext(
-                    $this->controller->getContext(),
-                    $actionDesc->module,
-                    $actionDesc->action,
-                    $actionDesc->method,
-                    $actionDesc->outputType,
-                    $request,
-                    $this->controller->getGlobalResponse()
-                ));
+            // Reuse the action instance already created and initialized by SecurityMiddleware.
+            $actionInstance = $request->getAttribute('agavi.preinstantiated_action');
+            if (!($actionInstance instanceof \Agavi\Action\AgaviAction)) {
+                $actionInstance = $this->controller->createActionInstance($actionDesc->module, $actionDesc->action);
+                if (method_exists($actionInstance, 'initialize')) {
+                    $actionInstance->initialize(new LightweightActionInitContext(
+                        $this->controller->getContext(),
+                        $actionDesc->module,
+                        $actionDesc->action,
+                        $actionDesc->method,
+                        $actionDesc->outputType,
+                        $request,
+                        $this->controller->getGlobalResponse()
+                    ));
+                }
             }
             $isCacheable = (bool)$actionInstance->isCacheable($actionDesc->outputType);
             $userFp = $this->computeUserFingerprint($actionInstance);
@@ -452,7 +427,7 @@ class DispatchMiddleware implements MiddlewareInterface
                 $ctx = ActionCacheHelper::buildContextFromPayload($cacheHitPayload, $actionDesc, $execState, $actionInstance, $webReq);
             }
         } else {
-            $ctx = $this->actionExecutor->execute($actionDesc, $request, $execState);
+            $ctx = $this->actionExecutor->execute($actionDesc, $request, $execState, [], $actionInstance);
         }
         self::$executedNonSimpleActions[$actionDesc->module . ':' . $actionDesc->action . ':' . $actionDesc->outputType] = true;
         if ($cacheEnabled && $isCacheable && !$execState->cacheHit && $avCache) {
@@ -461,7 +436,7 @@ class DispatchMiddleware implements MiddlewareInterface
                 ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, ($actionInstance && method_exists($actionInstance, 'getAttributes')) ? $actionInstance->getAttributes() : [], false, $ttl, $userFp);
             }
         }
-        if (getenv('AGAVI_DEBUG_DISPATCH')) {
+        if (\Agavi\Util\DebugFlags::$dispatch) {
             $rid = $request->getAttribute('agavi.rid');
             AgaviDebugLogger::debug('[DispatchMiddleware][' . $rid . '] nonSimple contentType=' . $actionDesc->outputType . ' contentLen=' . strlen($ctx->content) . ' prefix=' . substr($ctx->content, 0, 80), $this->controller->getContext());
         }

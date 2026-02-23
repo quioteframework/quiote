@@ -75,21 +75,21 @@ class ValidationService
                 'moduleName' => $moduleName,
                 'actionName' => $actionNamePath,
             ]);
-            if (getenv('AGAVI_DEBUG_VALIDATION')) {
+            if (\Agavi\Util\DebugFlags::$validation) {
                 try { $logger?->debug('[ValidationService][probe] resolve configFile=' . $configFile . ' readable=' . (is_readable($configFile)?'1':'0') . ' methodToken=' . $method . ' module=' . $moduleName . ' action=' . $actionName); } catch(\Throwable) {}
             }
             if (is_readable($configFile)) {
                 // Provide expected variables & context for compiled config file
                 $this->currentContext = $action->getContext();
-                if (getenv('AGAVI_DEBUG_VALIDATION')) { $logger?->debug('[ValidationService][probe] including compiled validators (pre-checkCache)'); }
-                if (getenv('AGAVI_DEBUG_VALIDATION')) {
+                if (\Agavi\Util\DebugFlags::$validation) { $logger?->debug('[ValidationService][probe] including compiled validators (pre-checkCache)'); }
+                if (\Agavi\Util\DebugFlags::$validation) {
                     try { $logger?->debug('[ValidationService][probe] pre-checkCache methodHex=' . bin2hex((string)$method) . ' type=' . gettype($method)); } catch(\Throwable) {}
                 }
                 if (defined('AGAVI_USE_APCU_CONFIG_CACHE') && AGAVI_USE_APCU_CONFIG_CACHE) {
                     $incFile = AgaviAPCuConfigCache::checkConfig($configFile, $this->currentContext->getName());
-                    if (getenv('AGAVI_DEBUG_VALIDATION')) { $logger?->debug('[ValidationService][probe] APCu checkConfig returned ' . $incFile); }
+                    if (\Agavi\Util\DebugFlags::$validation) { $logger?->debug('[ValidationService][probe] APCu checkConfig returned ' . $incFile); }
                     require($incFile);
-                    if (getenv('AGAVI_DEBUG_VALIDATION')) { 
+                    if (\Agavi\Util\DebugFlags::$validation) { 
                         try { 
                             $statLine = '[ValidationService][probe] post-require APCu childCount=' . (is_array($validationManager->getChilds())?count($validationManager->getChilds()):'na');
                             if (file_exists($incFile)) { $statLine .= ' real=' . realpath($incFile) . ' mtime=' . filemtime($incFile) . ' size=' . filesize($incFile); }
@@ -98,9 +98,9 @@ class ValidationService
                     }
                 } else {
                     $incFile = AgaviConfigCache::checkConfig($configFile, $this->currentContext->getName());
-                    if (getenv('AGAVI_DEBUG_VALIDATION')) { $logger?->debug('[ValidationService][probe] disk checkConfig returned ' . $incFile . ' exists=' . (file_exists($incFile)?'1':'0')); }
+                    if (\Agavi\Util\DebugFlags::$validation) { $logger?->debug('[ValidationService][probe] disk checkConfig returned ' . $incFile . ' exists=' . (file_exists($incFile)?'1':'0')); }
                     require($incFile);
-                    if (getenv('AGAVI_DEBUG_VALIDATION')) { 
+                    if (\Agavi\Util\DebugFlags::$validation) { 
                         try { 
                             $statLine = '[ValidationService][probe] post-require disk childCount=' . (is_array($validationManager->getChilds())?count($validationManager->getChilds()):'na');
                             if (file_exists($incFile)) { 
@@ -116,13 +116,13 @@ class ValidationService
                     }
                 }
                 $validatorsLoaded = array_map(fn($v) => $v->getName(), $validationManager->getChilds());
-                if (getenv('AGAVI_DEBUG_VALIDATION')) {
+                if (\Agavi\Util\DebugFlags::$validation) {
                     try {
                         $logger?->debug('[ValidationService][validate] loadedValidators=' . (empty($validatorsLoaded) ? 'none' : implode(',', $validatorsLoaded)) . ' file=' . $configFile . ' method=' . $method);
                     } catch(\Throwable $e) {}
                 }
             } else {
-                if (getenv('AGAVI_DEBUG_VALIDATION')) {
+                if (\Agavi\Util\DebugFlags::$validation) {
                     try { $logger?->debug('[ValidationService][validate] no readable config file at ' . $configFile); } catch(\Throwable) {}
                 }
             }
@@ -144,7 +144,7 @@ class ValidationService
 
         // 3. Execute validators
         $ok = true;
-        if (getenv('AGAVI_DEBUG_VALIDATION')) {
+        if (\Agavi\Util\DebugFlags::$validation) {
             try {
                 $logger?->debug('[ValidationService][validate] About to execute validators, childCount=' . count($validationManager->getChilds()));
             } catch(\Throwable) {}
@@ -154,20 +154,20 @@ class ValidationService
             if (getenv('DEBUG_TESTS')) {
                 error_log('[TestDebug][ValidationService] execute() returned ' . ($ok ? 'true' : 'false') . ' module=' . $moduleName . ' action=' . $actionName . ' method=' . $xmlMethod);
             }
-            if (getenv('AGAVI_DEBUG_VALIDATION')) {
+            if (\Agavi\Util\DebugFlags::$validation) {
                 try {
                     $logger?->debug('[ValidationService][validate] Validators execute() returned: ' . ($ok ? 'true' : 'false'));
                 } catch(\Throwable) {}
             }
         } catch (\Throwable $e) {
-            if (getenv('AGAVI_DEBUG_VALIDATION')) {
+            if (\Agavi\Util\DebugFlags::$validation) {
                 try {
                     $logger?->debug('[ValidationService][validate] Validators execute() threw exception: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
                 } catch(\Throwable) {}
             }
             return ValidationResult::failure(['exception' => $e->getMessage()]);
         }
-        if (getenv('AGAVI_DEBUG_VALIDATION')) {
+        if (\Agavi\Util\DebugFlags::$validation) {
             try {
                 $childs = $validationManager->getChilds();
                 $names = [];
@@ -180,7 +180,7 @@ class ValidationService
         if (!is_callable([$action, $validateMethod])) {
             $validateMethod = 'validate';
         }
-        if (getenv('AGAVI_DEBUG_VALIDATION')) {
+        if (\Agavi\Util\DebugFlags::$validation) {
             try {
                 $logger?->debug('[ValidationService][validate] About to call action->' . $validateMethod . '() on ' . get_class($action));
             } catch(\Throwable) {}
@@ -195,13 +195,13 @@ class ValidationService
                 error_log('[TestDebug][ValidationService] envAfterCall=' . $debugEnv);
                 error_log('[TestDebug][ValidationService] action->' . $validateMethod . ' returned ' . ($manualOk ? 'true' : 'false') . ' module=' . $moduleName . ' action=' . $actionName . ' method=' . $xmlMethod);
             }
-            if (getenv('AGAVI_DEBUG_VALIDATION')) {
+            if (\Agavi\Util\DebugFlags::$validation) {
                 try {
                     $logger?->debug('[ValidationService][validate] action->' . $validateMethod . '() returned ' . ($manualOk ? 'true' : 'false'));
                 } catch(\Throwable) {}
             }
         } catch (\Throwable $e) {
-            if (getenv('AGAVI_DEBUG_VALIDATION')) {
+            if (\Agavi\Util\DebugFlags::$validation) {
                 try {
                     $logger?->debug('[ValidationService][validate] action->' . $validateMethod . '() threw exception: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
                     $logger?->debug('[ValidationService][validate] Stack trace: ' . $e->getTraceAsString());
@@ -244,7 +244,7 @@ class ValidationService
         $xmlMethod = strtolower($method ?: 'read');
         $method = $xmlMethod; // expose lowercase token to included compiled config scope
 
-        $vd = getenv('AGAVI_DEBUG_VALIDATION');
+        $vd = \Agavi\Util\DebugFlags::$validation;
         if ($vd) {
             $logger?->debug("[ValidationService] xmlOnlyValidate for " . ($moduleName ?: 'no_module') . "/" . ($actionName ?: 'no_action') . " method=" . ($method ?: 'no_method'));
         }

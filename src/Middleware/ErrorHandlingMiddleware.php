@@ -46,7 +46,7 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
      */
     public function renderExceptionResponse(ServerRequestInterface $request, Throwable $e): ResponseInterface
     {    
-        if ($this->logger && getenv('AGAVI_DEBUG_EXCEPTION_TEMPLATE')) {
+        if ($this->logger && \Agavi\Util\DebugFlags::$exceptionTemplate) {
             try {
                 ($this->logger)($e, $request);
             } catch (Throwable) { /* ignore */
@@ -101,12 +101,12 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
             // Resolve json template file if configured
             $jsonTemplate = $this->resolveStructuredTemplate('json', $mode);
             if ($jsonTemplate) {
-                if (getenv('AGAVI_DEBUG_EXCEPTION_TEMPLATE')) {
+                if (\Agavi\Util\DebugFlags::$exceptionTemplate) {
                     AgaviDebugLogger::debug(sprintf('[ErrorHandlingMiddleware] JSON template selected, template=%s mode=%s', $jsonTemplate, $mode));
                 }
                 return $this->includeTemplateToResponse($jsonTemplate, $status, $request, $e, 'application/json');
             }
-            if (getenv('AGAVI_DEBUG_EXCEPTION_TEMPLATE')) {
+            if (\Agavi\Util\DebugFlags::$exceptionTemplate) {
                 AgaviDebugLogger::debug(sprintf('[ErrorHandlingMiddleware] JSON template missing, falling back to minimal payload'));
             }
             // fallback legacy minimal payload
@@ -131,7 +131,7 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
 
         // HTML template resolution extended with new keys
         $htmlStructured = $this->resolveStructuredTemplate('html', $mode);
-        if ($htmlStructured && getenv('AGAVI_DEBUG_EXCEPTION_TEMPLATE')) {
+        if ($htmlStructured && \Agavi\Util\DebugFlags::$exceptionTemplate) {
             AgaviDebugLogger::debug(sprintf('[ErrorHandlingMiddleware] HTML template selected, template=%s mode=%s', $htmlStructured, $mode));
         } else {
             AgaviDebugLogger::debug(sprintf('[ErrorHandlingMiddleware] HTML template missing, attempting legacy'));
@@ -162,12 +162,12 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
             while (ob_get_level() >= $startedLevel && ob_get_level() > $baseLevel) {
                 @ob_end_clean();
             }
-            $msg = getenv('AGAVI_DEBUG_EXCEPTION_TEMPLATE') ? 'Template render failed: ' . $renderErr->getMessage() : 'Internal Server Error';
+            $msg = \Agavi\Util\DebugFlags::$exceptionTemplate ? 'Template render failed: ' . $renderErr->getMessage() : 'Internal Server Error';
             AgaviDebugLogger::error(sprintf('[ErrorHandlingMiddleware] Template render failed: %s template=%s', $renderErr->getMessage(), $tplFile));            
             return new Response($status, ['Content-Type' => 'text/plain; charset=utf-8', 'X-Agavi-Error-Type' => $e::class], $msg);
         }
         if ($body === '' || $body === false) {
-            $body = getenv('AGAVI_DEBUG_EXCEPTION_TEMPLATE') ? 'Empty error template output' : 'Internal Server Error';
+            $body = \Agavi\Util\DebugFlags::$exceptionTemplate ? 'Empty error template output' : 'Internal Server Error';
         }
         // Development visibility: if in dev mode with AGAVI_DEBUG and 4xx/5xx, ensure exception message present for easier debugging
         $env = AgaviConfig::get('core.environment');
@@ -189,7 +189,7 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
 
         AgaviDebugLogger::debug(sprintf('[ErrorHandlingMiddleware] HTML response complete, status=%d length=%d', $status, strlen($body)));
 
-        if ($status >= 500 && (getenv('AGAVI_DEBUG_EXCEPTION_TEMPLATE'))) {
+        if ($status >= 500 && (\Agavi\Util\DebugFlags::$exceptionTemplate)) {
             $snippet = substr($body, 0, 400);
             $snippetEsc = json_encode($snippet, JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR);
             AgaviDebugLogger::debug(sprintf('[ErrorHandlingMiddleware] HTML response snippet: body_snippet=%s', $snippetEsc));

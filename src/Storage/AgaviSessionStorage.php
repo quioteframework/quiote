@@ -85,7 +85,7 @@ class AgaviSessionStorage extends AgaviStorage implements SessionHandlerInterfac
 	 */
 	public function startup()
 	{
-		$dbg = getenv('AGAVI_DEBUG_SESSION');
+		$dbg = \Agavi\Util\DebugFlags::$session;
 		if($dbg) { AgaviDebugLogger::debug('[AgaviSessionStorage] startup enter status=' . session_status() . ' currentSid=' . (function_exists('session_id')?session_id():'') , $this->context); }
 		if($this->hasParameter('session_cache_expire')) {
 			session_cache_expire($this->getParameter('session_cache_expire'));
@@ -201,9 +201,9 @@ class AgaviSessionStorage extends AgaviStorage implements SessionHandlerInterfac
 	public function retrieve($key)
 	{
 		if(session_status() !== PHP_SESSION_ACTIVE) {
-				if(getenv('AGAVI_DEBUG_SESSION')) { AgaviDebugLogger::debug('[AgaviSessionStorage] lazy-start before retrieve key=' . $key, $this->context); }
+				if(\Agavi\Util\DebugFlags::$session) { AgaviDebugLogger::debug('[AgaviSessionStorage] lazy-start before retrieve key=' . $key, $this->context); }
 			@session_start();
-				if(getenv('AGAVI_DEBUG_SESSION')) { AgaviDebugLogger::debug('[AgaviSessionStorage] lazy-start after retrieve sid=' . session_id(), $this->context); }
+				if(\Agavi\Util\DebugFlags::$session) { AgaviDebugLogger::debug('[AgaviSessionStorage] lazy-start after retrieve sid=' . session_id(), $this->context); }
 		}
 		return $_SESSION[$key] ?? null;
 	}
@@ -224,9 +224,9 @@ class AgaviSessionStorage extends AgaviStorage implements SessionHandlerInterfac
 	public function remove($key)
 	{
 		if(session_status() !== PHP_SESSION_ACTIVE) {
-				if(getenv('AGAVI_DEBUG_SESSION')) { AgaviDebugLogger::debug('[AgaviSessionStorage] lazy-start before remove key=' . $key, $this->context); }
+				if(\Agavi\Util\DebugFlags::$session) { AgaviDebugLogger::debug('[AgaviSessionStorage] lazy-start before remove key=' . $key, $this->context); }
 			@session_start();
-				if(getenv('AGAVI_DEBUG_SESSION')) { AgaviDebugLogger::debug('[AgaviSessionStorage] lazy-start after remove sid=' . session_id(), $this->context); }
+				if(\Agavi\Util\DebugFlags::$session) { AgaviDebugLogger::debug('[AgaviSessionStorage] lazy-start after remove sid=' . session_id(), $this->context); }
 		}
 		$retval = null;
 
@@ -246,7 +246,7 @@ class AgaviSessionStorage extends AgaviStorage implements SessionHandlerInterfac
 	 */
 	public function shutdown()
 	{
-		if(getenv('AGAVI_DEBUG_SESSION')) { AgaviDebugLogger::debug('[AgaviSessionStorage] shutdown sid=' . (function_exists('session_id')?session_id():'') , $this->context); }
+		if(\Agavi\Util\DebugFlags::$session) { AgaviDebugLogger::debug('[AgaviSessionStorage] shutdown sid=' . (function_exists('session_id')?session_id():'') , $this->context); }
 		session_write_close();
 	}
 
@@ -265,24 +265,24 @@ class AgaviSessionStorage extends AgaviStorage implements SessionHandlerInterfac
 	public function store(string $id, mixed $data): bool
 	{
 		if(session_status() !== PHP_SESSION_ACTIVE) {
-				if(getenv('AGAVI_DEBUG_SESSION')) { AgaviDebugLogger::debug('[AgaviSessionStorage] lazy-start before store key=' . $id, $this->context); }
+				if(\Agavi\Util\DebugFlags::$session) { AgaviDebugLogger::debug('[AgaviSessionStorage] lazy-start before store key=' . $id, $this->context); }
 			@session_start();
-				if(getenv('AGAVI_DEBUG_SESSION')) { AgaviDebugLogger::debug('[AgaviSessionStorage] lazy-start after store sid=' . session_id(), $this->context); }
+				if(\Agavi\Util\DebugFlags::$session) { AgaviDebugLogger::debug('[AgaviSessionStorage] lazy-start after store sid=' . session_id(), $this->context); }
 		}
-		if(getenv('AGAVI_DEBUG_SESSION')) { AgaviDebugLogger::debug('[AgaviSessionStorage] store key=' . $id . ' type=' . gettype($data) . ' sid=' . session_id(), $this->context); }
+		if(\Agavi\Util\DebugFlags::$session) { AgaviDebugLogger::debug('[AgaviSessionStorage] store key=' . $id . ' type=' . gettype($data) . ' sid=' . session_id(), $this->context); }
 		$_SESSION[$id] = $data;
 		return true;
 	}
 
 	public function write(string $id, string $data): bool
 	{
-		if(getenv('AGAVI_DEBUG_SESSION')) { AgaviDebugLogger::debug('[AgaviSessionStorage] write raw sid=' . $id . ' len=' . strlen($data), $this->context); }
+		if(\Agavi\Util\DebugFlags::$session) { AgaviDebugLogger::debug('[AgaviSessionStorage] write raw sid=' . $id . ' len=' . strlen($data), $this->context); }
 		return $this->defaultHandler->write($id, $data);
 	}
 
 	public function read(string $key) : string|false
 	{
-		if(getenv('AGAVI_DEBUG_SESSION')) { AgaviDebugLogger::debug('[AgaviSessionStorage] read raw key=' . $key, $this->context); }
+		if(\Agavi\Util\DebugFlags::$session) { AgaviDebugLogger::debug('[AgaviSessionStorage] read raw key=' . $key, $this->context); }
 		return $this->defaultHandler->read($key);
 	}
 
@@ -293,19 +293,19 @@ class AgaviSessionStorage extends AgaviStorage implements SessionHandlerInterfac
 
 	public function destroy($sessionId): bool
 	{
-		if(getenv('AGAVI_DEBUG_SESSION')) { AgaviDebugLogger::debug('[AgaviSessionStorage] destroy raw sid=' . $sessionId, $this->context); }
+		if(\Agavi\Util\DebugFlags::$session) { AgaviDebugLogger::debug('[AgaviSessionStorage] destroy raw sid=' . $sessionId, $this->context); }
 		return $this->defaultHandler->destroy($sessionId);
 	}
 
 	public function gc(int $maxlifetime): int|false
 	{
-		if(getenv('AGAVI_DEBUG_SESSION')) { AgaviDebugLogger::debug('[AgaviSessionStorage] gc maxlifetime=' . $maxlifetime, $this->context); }
+		if(\Agavi\Util\DebugFlags::$session) { AgaviDebugLogger::debug('[AgaviSessionStorage] gc maxlifetime=' . $maxlifetime, $this->context); }
 		return $this->defaultHandler->gc($maxlifetime);
 	}
 
 	public function open($savePath, $sessionName): bool
 	{
-		if(getenv('AGAVI_DEBUG_SESSION')) { AgaviDebugLogger::debug('[AgaviSessionStorage] open savePath=' . $savePath . ' name=' . $sessionName, $this->context); }
+		if(\Agavi\Util\DebugFlags::$session) { AgaviDebugLogger::debug('[AgaviSessionStorage] open savePath=' . $savePath . ' name=' . $sessionName, $this->context); }
 		return $this->defaultHandler->open($savePath, $sessionName);
 	}
 

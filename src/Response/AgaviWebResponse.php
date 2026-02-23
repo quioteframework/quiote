@@ -798,7 +798,7 @@ class AgaviWebResponse extends AgaviResponse
 	{
 		static $enabled = null;
 		if($enabled === null) {
-			$enabled = (getenv('AGAVI_DEBUG_RESPONSE') !== false) || (getenv('AGAVI_DEBUG_COOKIE') !== false);
+			$enabled = \Agavi\Util\DebugFlags::$response || \Agavi\Util\DebugFlags::$cookie;
 		}
 		return $enabled;
 	}

@@ -444,15 +444,11 @@ class AgaviContextExtendedCoverageTest extends TestCase
         }
         $this->assertNotNull($dbm1, 'Database manager should be created');
         $ctx->reset();
-        // Should be nulled by reset
-        $this->assertNull($dbmProp->getValue($ctx), 'Database manager should be nulled after reset');
-        // Trigger lazy recreation via getUser() which attempts databaseManager recreation if enabled
-        // Reinject mock storage after reset
-        $storageProp->setValue($ctx, new MockStorage());
-        $ctx->getUser();
+        // Since PHP84 performance work: reset() now calls recycleConnections() instead of
+        // nulling the manager, so the same instance should stay alive across requests.
         $dbm2 = $dbmProp->getValue($ctx);
-        $this->assertNotNull($dbm2, 'Database manager should be lazily recreated on user access');
-        $this->assertNotSame($dbm1, $dbm2, 'Recreated database manager should be a new instance');
+        $this->assertNotNull($dbm2, 'Database manager should remain alive after reset (recycleConnections strategy)');
+        $this->assertSame($dbm1, $dbm2, 'Same database manager instance should persist across reset — avoids re-initialization cost');
     }
 
     public function testStorageHeuristicRecreationUsesFactoryInfoOrSynthesizes()
@@ -501,15 +497,17 @@ class AgaviContextExtendedCoverageTest extends TestCase
         $this->assertNotNull($kernel, 'psrKernel should be built after handle');
         $debugStackBefore = $kernel->debugStack();
         $this->assertNotEmpty($debugStackBefore, 'Middleware debug stack should be populated');
-        $ctx->reset(); // calls psrKernel->reset()
+        $ctx->reset(); // kernel is kept alive; reset() no longer calls psrKernel->reset() (avoids pipeline rebuild)
         // Reinject mock storage after reset since reset nulls storage
         $storageProp->setValue($ctx, new MockStorage());
         $kernelAfter = $psrKernelProp->getValue($ctx);
-        $this->assertSame($kernel, $kernelAfter, 'Kernel instance persists but is reset');
-        $this->assertSame([], $kernelAfter->debugStack(), 'Kernel debug stack should be cleared after reset');
-        // Re-handle builds stack again
+        $this->assertSame($kernel, $kernelAfter, 'Kernel instance persists across reset');
+        // Since PHP84 performance work: psrKernel->reset() is no longer called, so the
+        // middleware stack stays built and the debug stack retains its previous entries.
+        $this->assertNotEmpty($kernelAfter->debugStack(), 'Kernel debug stack persists across reset (no rebuild needed)');
+        // Re-handle reuses the same already-built stack
         $ctx->handle(new ServerRequest('GET', '/kernel2'));
-        $this->assertNotEmpty($kernelAfter->debugStack(), 'Kernel debug stack should repopulate after second handle');
+        $this->assertNotEmpty($kernelAfter->debugStack(), 'Kernel debug stack populated after second handle');
     }
 
     public function testUserDuplicationAvoidedInShutdownSequenceAfterMultipleResets()

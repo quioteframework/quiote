@@ -90,12 +90,12 @@ class AgaviDatabaseManager
 			$name = $this->defaultDatabaseName;
 		}
 		
-		if (getenv('AGAVI_DEBUG_DATABASE')) {
+		if (\Agavi\Util\DebugFlags::$database) {
 			$logger?->debug('[AgaviDatabaseManager] getDatabase(' . $name . ') - manager_id=' . spl_object_id($this));
 		}
 		
 		if(isset($this->databases[$name])) {
-			if (getenv('AGAVI_DEBUG_DATABASE')) {
+			if (\Agavi\Util\DebugFlags::$database) {
 				$logger?->debug('[AgaviDatabaseManager] returning existing database: ' . $name . ' id=' . spl_object_id($this->databases[$name]));
 			}
 			return $this->databases[$name];
@@ -153,7 +153,7 @@ class AgaviDatabaseManager
 	{
         $logger = $this->getContext()?->getLoggerManager()?->getlogger();
 
-		if (getenv('AGAVI_DEBUG_DATABASE')) {
+		if (\Agavi\Util\DebugFlags::$database) {
 			$logger?->debug('[AgaviDatabaseManager] initialize() called - id=' . spl_object_id($this));
 		}
 		
@@ -166,7 +166,7 @@ class AgaviDatabaseManager
 			require(AgaviConfigCache::checkConfig(AgaviConfig::get('core.config_dir') . '/databases.xml'));
 		}
 		
-		if (getenv('AGAVI_DEBUG_DATABASE')) {
+		if (\Agavi\Util\DebugFlags::$database) {
 			$logger?->debug('[AgaviDatabaseManager] initialize() completed - databases loaded: ' . implode(', ', array_keys($this->databases)));
 		}
 	}
@@ -183,18 +183,18 @@ class AgaviDatabaseManager
 	{
         $logger = $this->getContext()?->getLoggerManager()?->getlogger();
 
-		if (getenv('AGAVI_DEBUG_DATABASE')) {
+		if (\Agavi\Util\DebugFlags::$database) {
 			$logger?->debug('[AgaviDatabaseManager] startup() called - id=' . spl_object_id($this) . ' databases=' . count($this->databases));
 		}
 		
 		foreach($this->databases as $name => $database) {
-			if (getenv('AGAVI_DEBUG_DATABASE')) {
+			if (\Agavi\Util\DebugFlags::$database) {
 				$logger?->debug('[AgaviDatabaseManager] starting up database: ' . $name . ' id=' . spl_object_id($database));
 			}
 			$database->startup();
 		}
 		
-		if (getenv('AGAVI_DEBUG_DATABASE')) {
+		if (\Agavi\Util\DebugFlags::$database) {
 			$logger?->debug('[AgaviDatabaseManager] startup() completed');
 		}
 	}
@@ -212,13 +212,13 @@ class AgaviDatabaseManager
 	{
         $logger = $this->getContext()?->getLoggerManager()?->getlogger();
 
-		if (getenv('AGAVI_DEBUG_DATABASE')) {
+		if (\Agavi\Util\DebugFlags::$database) {
 			$logger?->debug('[AgaviDatabaseManager] shutdown() called - id=' . spl_object_id($this) . ' databases=' . count($this->databases));
 		}
 		
 		// loop through databases and shutdown connections
 		foreach($this->databases as $name => $database) {
-			if (getenv('AGAVI_DEBUG_DATABASE')) {
+			if (\Agavi\Util\DebugFlags::$database) {
 				$logger?->debug('[AgaviDatabaseManager] shutting down database: ' . $name . ' id=' . spl_object_id($database));
 			}
 			$database->shutdown();
@@ -226,14 +226,48 @@ class AgaviDatabaseManager
 		
 		// Close Propel static connections to prevent stale connection reuse in worker mode
 		if (class_exists('\Propel\Propel', false)) {
-			if (getenv('AGAVI_DEBUG_DATABASE')) {
+			if (\Agavi\Util\DebugFlags::$database) {
 				$logger?->debug('[AgaviDatabaseManager] closing Propel static connections');
 			}
 			\Propel\Propel::close();
 		}
 		
-		if (getenv('AGAVI_DEBUG_DATABASE')) {
+		if (\Agavi\Util\DebugFlags::$database) {
 			$logger?->debug('[AgaviDatabaseManager] shutdown() completed');
+		}
+	}
+
+	/**
+	 * Probe all managed database connections and null any that are stale.
+	 *
+	 * Called from AgaviContext::reset() instead of shutdown() so that this
+	 * manager object stays alive across requests, avoiding the re-initialization
+	 * cost on every request. Any connection that fails its ping() is nulled
+	 * inside the database object; getConnection() will then reconnect lazily on
+	 * the next use — which fixes "connection lost after laptop sleep" without a
+	 * full restart.
+	 */
+	public function recycleConnections(): void
+	{
+		$logger = $this->getContext()?->getLoggerManager()?->getLogger();
+
+		foreach ($this->databases as $name => $database) {
+			$alive = $database->ping();
+			if (\Agavi\Util\DebugFlags::$database) {
+				$logger?->debug(
+					'[AgaviDatabaseManager] recycle ' . $name
+					. ' alive=' . ($alive ? 'yes' : 'no — will reconnect lazily')
+				);
+			}
+		}
+
+		// Close Propel static connections — Propel maintains its own pool
+		// which does not go through our ping() path.
+		if (class_exists('\Propel\Propel', false)) {
+			if (\Agavi\Util\DebugFlags::$database) {
+				$logger?->debug('[AgaviDatabaseManager] recycleConnections: closing Propel static connections');
+			}
+			\Propel\Propel::close();
 		}
 	}
 }

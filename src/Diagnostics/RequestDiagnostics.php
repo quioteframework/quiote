@@ -16,7 +16,7 @@ final class RequestDiagnostics
 
     public static function note(string $stage, ?AgaviWebRequest $req): void
     {
-        if(!getenv('AGAVI_DEBUG_REQUEST_DIAG')) { return; }
+        if(!\Agavi\Util\DebugFlags::$requestDiag) { return; }
         try {
             $id = $req instanceof AgaviWebRequest ? spl_object_id($req) : 0;
             if(self::$canonicalId === null && $req instanceof AgaviWebRequest) {

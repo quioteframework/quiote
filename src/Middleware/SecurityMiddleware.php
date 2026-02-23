@@ -34,7 +34,7 @@ class SecurityMiddleware implements MiddlewareInterface
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        $dbg = getenv('AGAVI_DEBUG_SECURITY');
+        $dbg = \Agavi\Util\DebugFlags::$security;
         $rid = $request->getAttribute('agavi.rid');
         if (!$rid) {
             try {
@@ -180,11 +180,11 @@ class SecurityMiddleware implements MiddlewareInterface
                     $execState->securityDecision = SecurityDecision::Allow;
                     $request = $request->withAttribute(ExecutionState::class, $execState);
                 }
-                if (getenv('AGAVI_DEBUG_SECURITY')) {
+                if (\Agavi\Util\DebugFlags::$security) {
                     AgaviDebugLogger::debug('[SecurityMiddleware] forwarded decision=' . $decision->name . ' -> system action ' . $newDesc->module . ':' . $newDesc->action . ':' . $newDesc->method, $this->controller->getContext());
                 }
             } catch (\Throwable $e) {
-                if (getenv('AGAVI_DEBUG_SECURITY')) {
+                if (\Agavi\Util\DebugFlags::$security) {
                     AgaviDebugLogger::debug('[SecurityMiddleware] forward descriptor creation failed: ' . $e->getMessage(), $this->controller->getContext());
                 }
             }
