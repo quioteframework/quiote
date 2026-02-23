@@ -19,7 +19,7 @@ class ImportTestHandler extends AgaviConfigHandler
 {
 	public function execute($config, $context = null)
 	{
-		$code = 'define("ConfigCacheImportTest_included", true);';
+		$code = 'if (!defined("ConfigCacheImportTest_included")) { define("ConfigCacheImportTest_included", true); }';
 
 		// compile data
 		$retval = "<?php\n" .

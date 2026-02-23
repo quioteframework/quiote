@@ -6,7 +6,6 @@ use Agavi\Config\AgaviCompileConfigHandler;
 use Agavi\Config\AgaviConfigHandlersConfigHandler;
 use Agavi\Config\AgaviReturnArrayConfigHandler;
 use Agavi\Config\AgaviRoutingConfigHandler;
-use Agavi\Config\AgaviWsdlConfigHandler;
 use Agavi\Config\Util\DOM\AgaviXmlConfigDomDocument;
 use Agavi\Config\AgaviConfig;
 use Agavi\AgaviContext;
@@ -110,12 +109,5 @@ XML;
         $code = $h->execute($this->envelope($inner, 'return_array.xml'));
         $this->assertStringContainsString('simple', $code, $code);
         $this->assertStringContainsString('two', $code);
-    }
-
-   
-
-    public function testWsdlConfigHandlerBasic()
-    {
-        $this->markTestSkipped('WSDL handler requires full definitions structure and routing parameters; skipped in basic coverage sweep.');
     }
 }

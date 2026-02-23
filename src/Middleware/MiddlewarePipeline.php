@@ -88,6 +88,10 @@ class MiddlewarePipeline implements RequestHandlerInterface
         if (MiddlewareCatalog::isEnabled(ExecutionTimeMiddleware::class)) {
             $construct(ExecutionTimeMiddleware::class, fn() => new ExecutionTimeMiddleware());
         }
+
+        // Insert externally registered middleware
+        $this->insertRegistered($stack);
+
         // Terminal sentinel - framework must always produce a response
         $stack[] = new class implements \Psr\Http\Server\MiddlewareInterface {
             public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
@@ -110,5 +114,63 @@ class MiddlewarePipeline implements RequestHandlerInterface
     public function debugStack(): array
     {
         return $this->debugStack;
+    }
+
+    /**
+     * Insert externally registered middleware into the stack at their requested positions.
+     *
+     * @param list<\Psr\Http\Server\MiddlewareInterface> &$stack
+     */
+    private function insertRegistered(array &$stack): void
+    {
+        $entries = MiddlewareCatalog::getRegistered();
+        if (empty($entries)) {
+            return;
+        }
+
+        // Sort by priority descending so splice-based insertion yields lower-priority-first order
+        uasort($entries, fn($a, $b) => $b['priority'] <=> $a['priority']);
+
+        foreach ($entries as $entry) {
+            if (!MiddlewareCatalog::isEnabled($entry['fqcn'])) {
+                continue;
+            }
+
+            $pos = $this->findInsertPosition($entry['after'], $entry['before']);
+            $mw = ($entry['factory'])();
+
+            array_splice($stack, $pos, 0, [$mw]);
+            array_splice($this->debugStack, $pos, 0, [$entry['fqcn']]);
+        }
+    }
+
+    /**
+     * Find the insertion index in debugStack based on after/before hints.
+     * Falls back to just before SecurityMiddleware if no hints match.
+     */
+    private function findInsertPosition(?string $after, ?string $before): int
+    {
+        if ($after !== null) {
+            $idx = array_search($after, $this->debugStack, true);
+            if ($idx !== false) {
+                return $idx + 1;
+            }
+        }
+
+        if ($before !== null) {
+            $idx = array_search($before, $this->debugStack, true);
+            if ($idx !== false) {
+                return $idx;
+            }
+        }
+
+        // Default: before SecurityMiddleware
+        $idx = array_search(SecurityMiddleware::class, $this->debugStack, true);
+        if ($idx !== false) {
+            return $idx;
+        }
+
+        // Last resort: append at end
+        return count($this->debugStack);
     }
 }

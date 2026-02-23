@@ -234,14 +234,4 @@ class AgaviRoutingTest extends TestCase
         $this->assertSame('', $r->getHost());
         $this->assertSame([], $r->getSchemes());
     }
-
-    // Callbacks -----------------------------------------------------------
-    public function testGenerateRoutingCallbackParamMutation()
-    {
-        $this->markTestSkipped('Routing callbacks not integrated in simplified AgaviRouting implementation.');
-    }
-    public function testGenerateRoutingCallbackUnsetParam()
-    {
-        $this->markTestSkipped('Routing callbacks not integrated in simplified AgaviRouting implementation.');
-    }
 }

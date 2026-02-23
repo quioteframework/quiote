@@ -11,7 +11,7 @@ class SlotCacheTest extends AgaviUnitTestCase
     protected function setUp(): void
     {
         parent::setUp();
-    if(!Agavi\Config\AgaviConfig::get('core.cache_enabled', false)) { $this->markTestSkipped('Global cache disabled via core.cache_enabled'); }
+        Agavi\Config\AgaviConfig::set('core.use_cache', true);
         // Enable slot cache for these tests
         putenv('AGAVI_SLOT_CACHE=1');
         // Reset PSR cache (memory + backend) so exec counts predictable
