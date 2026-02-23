@@ -1258,7 +1258,17 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 		 * lingering in the request object after validation passes control to later layers.
 		 */
 		$keepSet = [];
-		foreach($keep as $k) { $keepSet[$k] = true; }
+		foreach($keep as $k) {
+			$keepSet[$k] = true;
+			// When a bracket-path like "Foo[Bar]" is validated, the root key "Foo"
+			// must also be kept so nested arrays survive pruning.
+			if(str_contains($k, '[')) {
+				$root = substr($k, 0, strpos($k, '['));
+				if($root !== '') {
+					$keepSet[$root] = true;
+				}
+			}
+		}
 		$failedSet = [];
 		foreach($failed as $k) { $failedSet[$k] = true; }
 		$preserve = [];
