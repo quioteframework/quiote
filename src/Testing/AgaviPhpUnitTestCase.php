@@ -250,6 +250,13 @@ abstract class AgaviPhpUnitTestCase extends TestCase
 	protected function setUp(): void
 	{
 		parent::setUp();
+
+		// Always clear the APCu config cache between tests so compiled configs
+		// from one test (e.g. a different locale or environment) don't bleed
+		// into the next one running in the same PHP process.
+		if (defined('AGAVI_USE_APCU_CONFIG_CACHE') && AGAVI_USE_APCU_CONFIG_CACHE) {
+			\Agavi\Config\AgaviAPCuConfigCache::clear();
+		}
 		
 		// Get isolation settings from attributes
 		$isolationEnvironment = $this->getIsolationEnvironment();

@@ -162,8 +162,9 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 		if(is_readable(AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/Config/module.xml')) {
 			if(defined('AGAVI_USE_APCU_CONFIG_CACHE') && AGAVI_USE_APCU_CONFIG_CACHE) {
 				$cacheResult = AgaviAPCuConfigCache::checkConfig(AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/Config/module.xml');
-				// checkConfig() returns 'APCU:...' marker when content was eval'd from APCu
-				if (!str_starts_with($cacheResult, 'APCU:')) {
+				if (str_starts_with($cacheResult, 'APCU:')) {
+					eval('?>' . substr($cacheResult, 5));
+				} else {
 					include_once($cacheResult);
 				}
 			} else {
@@ -435,7 +436,9 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 		$cfg = AgaviConfig::get('core.config_dir') . '/output_types.xml';
 		if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
 			$cacheResult = AgaviAPCuConfigCache::checkConfig($cfg, $this->context->getName());
-			if (!str_starts_with($cacheResult, 'APCU:')) {
+			if (str_starts_with($cacheResult, 'APCU:')) {
+				eval('?>' . substr($cacheResult, 5));
+			} else {
 				require($cacheResult);
 			}
 		} else {

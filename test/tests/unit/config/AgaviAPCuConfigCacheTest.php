@@ -115,11 +115,13 @@ class AgaviAPCuConfigCacheTest extends AgaviPhpUnitTestCase
 		$phpContent = "<?php\ndefine('{$uniqueConst}', true);\n?>";
 		apcu_store($key, $phpContent);
 
-		// checkConfig should eval the content and return an 'APCU:' marker
+		// checkConfig returns the 'APCU:' marker but does NOT eval — callers do that.
 		$result = AgaviAPCuConfigCache::checkConfig($config);
 
 		$this->assertStringStartsWith('APCU:', $result, 'checkConfig should return APCU: marker on hit');
-		$this->assertTrue(defined($uniqueConst), 'checkConfig should have eval\'d the PHP content from APCu');
+		// Simulate what load() / ValidationService etc. do: eval in caller scope.
+		eval('?>' . substr($result, 5));
+		$this->assertTrue(defined($uniqueConst), 'caller-eval\'d PHP content from APCu should define the constant');
 	}
 
 	public function testCheckConfigFallsBackToParentOnMiss(): void
@@ -132,17 +134,13 @@ class AgaviAPCuConfigCacheTest extends AgaviPhpUnitTestCase
 		$key = $method->invoke(null, $config, null);
 		apcu_delete($key);
 
-		// checkConfig should fall through to parent, which compiles and writes
-		// Through late static binding, writeCacheFile will store in APCu
+		// Cold path: parent compiles the config, writeCacheFile() stores it in APCu
+		// (no filesystem write), then checkConfig re-fetches and returns the marker.
 		$result = AgaviAPCuConfigCache::checkConfig($config);
 
-		// Result should be the APCU: marker (because writeCacheFile stored it,
-		// but checkConfig's own APCu lookup was before the store happened)
-		// Actually — parent::checkConfig compiles and calls writeCacheFile (stored in APCu),
-		// then returns the filesystem cache path. So result is a file path.
-		$this->assertStringStartsNotWith('APCU:', $result, 'First call should fall through to parent and return cache file path');
+		$this->assertStringStartsWith('APCU:', $result, 'First call should compile, store in APCu, and return APCU: marker');
 
-		// But now the data IS in APCu, so a second call should hit
+		// Second call is a straightforward APCu hit — also returns the marker.
 		$result2 = AgaviAPCuConfigCache::checkConfig($config);
 		$this->assertStringStartsWith('APCU:', $result2, 'Second call should hit APCu and return marker');
 	}

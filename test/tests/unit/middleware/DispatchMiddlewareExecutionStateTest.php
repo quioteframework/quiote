@@ -5,10 +5,8 @@ use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use Agavi\Config\AgaviConfig;
 use Agavi\Cache\CacheManager;
 use Agavi\Middleware\DispatchMiddleware;
-use Agavi\Http\PsrServerRequestAdapter;
 use Agavi\Execution\ActionDescriptor;
 use Nyholm\Psr7\Factory\Psr17Factory;
-use Nyholm\Psr7\Stream;
 use Agavi\Execution\ExecutionState;
 
 #[RunTestsInSeparateProcesses]
@@ -33,14 +31,11 @@ class DispatchMiddlewareExecutionStateTest extends AgaviUnitTestCase
 
     private function req(ActionDescriptor $descriptor, ExecutionState $state) {
         $factory = new Psr17Factory();
+        /** @var \Agavi\Request\AgaviWebRequest $legacyReq */
         $legacyReq = $this->getContext()->getRequest();
-        $psr = new PsrServerRequestAdapter(
-            $legacyReq,
-            $factory->createUri('http://localhost/cache'),
-            'GET',
-            Stream::create(''),
-            [], [], [], [], [], []
-        );
+        $psr = $legacyReq
+            ->withUri($factory->createUri('http://localhost/cache'))
+            ->withMethod('GET');
         return $psr
             ->withAttribute(ActionDescriptor::class, $descriptor)
             ->withAttribute('module','Cache')

@@ -87,8 +87,10 @@ class ValidationService
                 }
                 if (defined('AGAVI_USE_APCU_CONFIG_CACHE') && AGAVI_USE_APCU_CONFIG_CACHE) {
                     $incFile = AgaviAPCuConfigCache::checkConfig($configFile, $this->currentContext->getName());
-                    if (\Agavi\Util\DebugFlags::$validation) { $logger?->debug('[ValidationService][probe] APCu checkConfig returned ' . $incFile); }
-                    if (!str_starts_with($incFile, 'APCU:')) {
+                    if (\Agavi\Util\DebugFlags::$validation) { $logger?->debug('[ValidationService][probe] APCu checkConfig returned ' . (str_starts_with($incFile, 'APCU:') ? 'APCU:...' : $incFile)); }
+                    if (str_starts_with($incFile, 'APCU:')) {
+                        eval('?>' . substr($incFile, 5));
+                    } else {
                         require($incFile);
                     }
                     if (\Agavi\Util\DebugFlags::$validation) { 
@@ -272,7 +274,9 @@ class ValidationService
                 if (defined('AGAVI_USE_APCU_CONFIG_CACHE') && AGAVI_USE_APCU_CONFIG_CACHE) {
                     $logger?->debug("[ValidationService] Loading " . $method . " validators from APCu");
                     $cacheResult = \Agavi\Config\AgaviAPCuConfigCache::checkConfig($configFile, $this->currentContext->getName());
-                    if (!str_starts_with($cacheResult, 'APCU:')) {
+                    if (str_starts_with($cacheResult, 'APCU:')) {
+                        eval('?>' . substr($cacheResult, 5));
+                    } else {
                         require($cacheResult);
                     }
                 } else {

@@ -687,7 +687,9 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 			// do NOT use require_once
 			if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
 				$cacheResult = AgaviAPCuConfigCache::checkConfig($validationConfig, $this->context->getName());
-				if (!str_starts_with($cacheResult, 'APCU:')) {
+				if (str_starts_with($cacheResult, 'APCU:')) {
+					eval('?>' . substr($cacheResult, 5));
+				} else {
 					require($cacheResult);
 				}
 			} else {

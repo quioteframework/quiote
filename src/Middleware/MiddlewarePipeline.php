@@ -100,6 +100,8 @@ class MiddlewarePipeline implements RequestHandlerInterface
             }
         };
         $this->debugStack[] = '__TERMINAL__';
+        AgaviDebugLogger::debug('[MiddlewarePipeline] built stack: ' . implode(' → ', $this->debugStack), $this->context);
+
         $relay = new Relay($stack);
         $this->handler = new class($relay) implements RequestHandlerInterface {
             public function __construct(private Relay $relay) {}

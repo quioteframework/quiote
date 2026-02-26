@@ -20,6 +20,14 @@ class SessionMiddleware implements MiddlewareInterface
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
+        // Skip session handling entirely for JWT-authenticated requests
+        if ($request->getAttribute('jwt.skip_session')) {
+            if (!$request->getAttribute(ExecutionState::class)) {
+                $request = $request->withAttribute(ExecutionState::class, new ExecutionState());
+            }
+            return $handler->handle($request);
+        }
+
         // Start session storage if not yet started for this request lifecycle.
         try {
             $storage = $this->controller->getContext()->getStorage();

@@ -668,22 +668,13 @@ class AgaviContext implements \Stringable, ResetInterface
 			$logger = $this->getLoggerManager()?->getLogger();
 			if (defined('AGAVI_USE_APCU_CONFIG_CACHE') && AGAVI_USE_APCU_CONFIG_CACHE) {
 				$logger?->debug('AgaviContext using APCu config cache for factories.xml');
-				$cacheFile = AgaviAPCuConfigCache::checkConfig(AgaviConfig::get('core.config_dir') . '/factories.xml', $this->name);
+				$cacheResult = AgaviAPCuConfigCache::checkConfig(AgaviConfig::get('core.config_dir') . '/factories.xml', $this->name);
 
-				// Check if we got an APCu marker
-				if (is_string($cacheFile) && strpos($cacheFile, 'APCU:') === 0) {
-					// Extract the APCu key and eval the content directly
-					$apcuKey = substr($cacheFile, 5); // Remove 'APCU:' prefix
-					$content = \apcu_fetch($apcuKey);
-					if ($content !== false) {
-						$logger?->debug('AgaviContext executing factories.xml directly from APCu (no file I/O)');
-						eval('?>' . $content);
-					} else {
-						$logger?->error('AgaviContext could not fetch factories.xml from APCu key: ' . $apcuKey);
-					}
+				if (str_starts_with($cacheResult, 'APCU:')) {
+					$logger?->debug('AgaviContext executing factories.xml directly from APCu (no file I/O)');
+					eval('?>' . substr($cacheResult, 5));
 				} else {
-					// Regular file include
-					include($cacheFile);
+					include($cacheResult);
 				}
 			} else {
 				$logger?->debug('AgaviContext using regular config cache for factories.xml (constant defined: ' . (defined('AGAVI_USE_APCU_CONFIG_CACHE') ? 'yes' : 'no') . ', value: ' . (defined('AGAVI_USE_APCU_CONFIG_CACHE') ? (AGAVI_USE_APCU_CONFIG_CACHE ? 'true' : 'false') : 'undefined') . ')');

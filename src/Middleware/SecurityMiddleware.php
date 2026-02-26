@@ -8,19 +8,18 @@ use Agavi\Execution\ForwardService;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Agavi\Controller\AgaviController;
-// Removed legacy AgaviExecutionContainer path.
 use Agavi\Execution\ActionDescriptor;
 use Agavi\Execution\LightweightActionInitContext;
-use Agavi\Execution\SecurityService; // unified security service
-use Agavi\Execution\SecurityDecision; // execution-layer enum (login|secure)
+use Agavi\Execution\SecurityService;
+use Agavi\Execution\SecurityDecision;
 use Agavi\Action\AgaviAction;
 use Agavi\Execution\ExecutionState;
 use Agavi\Execution\ValidationDecision;
 use Agavi\Logging\AgaviDebugLogger;
 
 /**
- * Placeholder security middleware: currently defers to legacy dispatch path.
- * Future: Inspect request attributes for module/action and run security logic prior to execution.
+ * Security middleware: evaluates action security requirements and forwards
+ * unauthenticated/unauthorized requests to login/secure system actions.
  */
 #[\Agavi\Middleware\Attribute\AgaviMiddleware(phase: 'before_action', after: 'RoutingMiddleware')]
 class SecurityMiddleware implements MiddlewareInterface
@@ -28,7 +27,7 @@ class SecurityMiddleware implements MiddlewareInterface
     private ?ForwardService $forwardService = null;
     public function __construct(private AgaviController $controller, private ?SecurityService $securityService = null)
     {
-        $this->securityService ??= new SecurityService($controller); // interim wire-up until DI container
+        $this->securityService ??= new SecurityService($controller);
         $this->forwardService ??= new ForwardService($controller);
     }
 
@@ -44,9 +43,7 @@ class SecurityMiddleware implements MiddlewareInterface
             }
             $request = $request->withAttribute('agavi.rid', $rid);
         }
-        // Removed __auth attribute override. Tests should set user auth state explicitly or use TestAuthInjectionMiddleware.
-        $override = null;
-        // Test hook: if env AGAVI_TEST_FORCE_AUTH=1, set user authenticated early (avoids race with user initialization order in tests)
+        // Test hook: if env AGAVI_TEST_FORCE_AUTH=1, set user authenticated early
         if (getenv('AGAVI_TEST_FORCE_AUTH')) {
             try {
                 $u = $this->controller->getContext()->getUser();
@@ -93,10 +90,12 @@ class SecurityMiddleware implements MiddlewareInterface
         if ($dbg) {
             AgaviDebugLogger::debug('[SecurityMiddleware][' . $rid . '] pre module=' . $actionDesc->module . ' action=' . $actionDesc->action . ' method=' . $actionDesc->method . ' sessId=' . $sessId . ' auth=' . $authState, $this->controller->getContext());
         }
+
+        // Try to create and initialize the action instance
+        $action = null;
         try {
             $action = $this->controller->createActionInstance($actionDesc->module, $actionDesc->action);
             if (method_exists($action, 'initialize')) {
-
                 $lwCtx = new LightweightActionInitContext(
                     $this->controller->getContext(),
                     $actionDesc->module,
@@ -107,27 +106,37 @@ class SecurityMiddleware implements MiddlewareInterface
                     $this->controller->getGlobalResponse()
                 );
                 $action->initialize($lwCtx);
-                // Expose the pre-instantiated, initialized action to downstream middleware (ValidationMiddleware expects it)
                 try {
                     $request = $request->withAttribute('agavi.preinstantiated_action', $action);
                 } catch (\Throwable) {
-                    // non-fatal: continue without preinstantiated attribute if request immutability fails
                 }
             }
-        } catch (\Throwable) {
-            return $handler->handle($request);
+        } catch (\Throwable $initEx) {
+            AgaviDebugLogger::error('[SecurityMiddleware][' . $rid . '] action init FAILED: ' . get_class($initEx) . ': ' . $initEx->getMessage() . ' @ ' . $initEx->getFile() . ':' . $initEx->getLine(), $this->controller->getContext());
+            $action = null;
         }
-        if (!$action) {
-            return $handler->handle($request);
-        }
-        /** @var AgaviAction $action */
-        // Instrumentation: only if env flag set
+
+        // Determine security decision
         $useSecurity = (bool)\Agavi\Config\AgaviConfig::get('core.use_security', true);
         if (!$useSecurity) {
-            $decision = \Agavi\Execution\SecurityDecision::Allow;
-        } else {
+            $decision = SecurityDecision::Allow;
+        } elseif ($action) {
             $decision = $this->securityService->decide($action);
+        } else {
+            // Fail-closed: action couldn't be created. If user is authenticated, allow through.
+            // If not, forward to login.
+            $isAuth = false;
+            try {
+                $user = $this->controller->getContext()->getUser();
+                $isAuth = $user && method_exists($user, 'isAuthenticated') && $user->isAuthenticated();
+            } catch (\Throwable) {
+            }
+            $decision = $isAuth ? SecurityDecision::Allow : SecurityDecision::LoginForward;
+            if (!$isAuth) {
+                AgaviDebugLogger::error('[SecurityMiddleware][' . $rid . '] fail-closed: action creation failed, user not authenticated → LoginForward', $this->controller->getContext());
+            }
         }
+
         if ($dbg) {
             AgaviDebugLogger::debug('[SecurityMiddleware][' . $rid . '] decision=' . $decision->name . ' authAfter=' . ($userObj && method_exists($userObj, 'isAuthenticated') && $userObj->isAuthenticated() ? '1' : '0'), $this->controller->getContext());
         }
@@ -148,27 +157,39 @@ class SecurityMiddleware implements MiddlewareInterface
             };
             if($dbg) {
                 try {
-                    $orig = $actionDesc; // original descriptor
+                    $orig = $actionDesc;
                     $sidLog = $sessId ?? 'n/a';
                     AgaviDebugLogger::debug('[SecurityMiddleware]['.$rid.'] non-allow decision='.$decision->name.' orig='.$orig->module.':'.$orig->action.':'.$orig->method.' sid='.$sidLog.' auth='.$authState, $this->controller->getContext());
                 } catch(\Throwable) {}
             }
             // Produce a replacement ActionDescriptor for the system action based on HTTP verb.
             $httpMethod = $request->getMethod();
+            // Safely resolve output type name — fall back to 'html' if not yet configured
+            $outputTypeName = 'html';
             try {
-                $newDesc = $this->forwardService->createSystemForwardActionDescriptor($key, $httpMethod, $this->controller->getOutputType()->getName());
+                $ot = $this->controller->getOutputType();
+                if ($ot) {
+                    $outputTypeName = $ot->getName();
+                }
+            } catch (\Throwable) {
+                // Output types not yet loaded; use default
+            }
+            try {
+                $newDesc = $this->forwardService->createSystemForwardActionDescriptor($key, $httpMethod, $outputTypeName);
                 // Preserve original for debugging/redirect-after-login scenarios.
                 $request = $request->withAttribute('agavi.original_action', $actionDesc);
                 $request = $request->withAttribute(ActionDescriptor::class, $newDesc);
+                // Clear the preinstantiated action — it was created for the original
+                // action descriptor, not the forwarded one. DispatchMiddleware must
+                // create a fresh instance for the login/secure action.
+                $request = $request->withAttribute('agavi.preinstantiated_action', null);
                 if ($execState instanceof ExecutionState) {
                     $execState->forwarded = true;
                     $execState->forwardCount++;
                     if ($execState->forwardCount > 5) {
-                        // Exceeded forward limit: return 508 response immediately.
                         $factory = new \Nyholm\Psr7\Factory\Psr17Factory();
                         return $factory->createResponse(508)->withBody($factory->createStream('Too many forwards'));
                     }
-                    // Forward resets execution target – clear view related state and validation decision.
                     $execState->viewName = null;
                     $execState->viewModule = null;
                     $execState->actionAttributes = [];
@@ -176,17 +197,18 @@ class SecurityMiddleware implements MiddlewareInterface
                     $execState->action = $newDesc->action;
                     $execState->outputType = $newDesc->outputType;
                     $execState->validationDecision = ValidationDecision::pending();
-                    // Mark security decision as satisfied so downstream executor doesn't re-run security.
                     $execState->securityDecision = SecurityDecision::Allow;
                     $request = $request->withAttribute(ExecutionState::class, $execState);
                 }
-                if (\Agavi\Util\DebugFlags::$security) {
+                if ($dbg) {
                     AgaviDebugLogger::debug('[SecurityMiddleware] forwarded decision=' . $decision->name . ' -> system action ' . $newDesc->module . ':' . $newDesc->action . ':' . $newDesc->method, $this->controller->getContext());
                 }
             } catch (\Throwable $e) {
-                if (\Agavi\Util\DebugFlags::$security) {
-                    AgaviDebugLogger::debug('[SecurityMiddleware] forward descriptor creation failed: ' . $e->getMessage(), $this->controller->getContext());
-                }
+                // CRITICAL: If we cannot create a forward descriptor, we MUST NOT pass through
+                // with the original action — that would bypass security entirely.
+                AgaviDebugLogger::error('[SecurityMiddleware][' . $rid . '] forward descriptor creation FAILED (returning 403): ' . get_class($e) . ': ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine(), $this->controller->getContext());
+                $factory = new \Nyholm\Psr7\Factory\Psr17Factory();
+                return $factory->createResponse(403)->withBody($factory->createStream('Access Denied'));
             }
         }
         if ($dbg) {

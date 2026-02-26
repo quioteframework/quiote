@@ -341,6 +341,24 @@ abstract class AgaviValidator extends AgaviParameterHolder implements ResetInter
 		} else {
 			$value = $this->curBase->getValueByChildPath($paramName, $array);
 		}
+		// PSR-7 header handling: getHeaders() returns original casing and array values.
+		// 1. Case-insensitive lookup when the exact key didn't match.
+		// 2. Unwrap single-element arrays to scalar (matching getHeaderLine() semantics)
+		//    so that string validators work naturally with header values.
+		if ($paramType === 'headers') {
+			if ($value === null && $paramName !== null) {
+				$lowerName = strtolower($paramName);
+				foreach ($array as $key => $val) {
+					if (strtolower($key) === $lowerName) {
+						$value = $val;
+						break;
+					}
+				}
+			}
+			if (is_array($value)) {
+				$value = implode(', ', $value);
+			}
+		}
 		// Fallback: if source==parameters and value is still null, attempt direct runtime lookup
 		if ($value === null && $paramType === 'parameters') {
 			try {

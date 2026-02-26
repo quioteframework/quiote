@@ -139,7 +139,9 @@ class AgaviTranslationManager implements ResetInterface
 
 		if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
 			$cacheResult = AgaviAPCuConfigCache::checkConfig(AgaviConfig::get('core.config_dir') . '/translation.xml');
-			if (!str_starts_with($cacheResult, 'APCU:')) {
+			if (str_starts_with($cacheResult, 'APCU:')) {
+				eval('?>' . substr($cacheResult, 5));
+			} else {
 				include($cacheResult);
 			}
 		} else {
