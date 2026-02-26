@@ -1301,6 +1301,8 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 			if(isset($keepSet[$rName])) { $remove = false; }
 			if(isset($failedSet[$rName])) { $remove = true; }
 			if(isset($preserve[$rName])) { $remove = false; }
+			// Keep parameters that were explicitly whitelisted by validator exports
+			if(isset($this->validatedKeys[$rName])) { $remove = false; }
 			if($remove) { unset($prunedRuntime[$rName]); }
 		}
 
