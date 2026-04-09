@@ -49,7 +49,7 @@ class ValidationMiddleware implements MiddlewareInterface
         // pass the lowercase token to xmlOnlyValidate so <if($method == 'read')> blocks fire.
         // Derive canonical action method via central mapper then build normalized token for legacy method names
         $providedMethod = is_string($method) ? strtolower($method) : '';
-        if ($providedMethod !== '' && in_array($providedMethod, ['read', 'write', 'create', 'remove'], true)) {
+        if ($providedMethod !== '' && in_array($providedMethod, ['read', 'write', 'create', 'update', 'remove'], true)) {
             // Action descriptors already use legacy semantic tokens – use as-is.
             $mapped = $providedMethod;
         } else {

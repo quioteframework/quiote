@@ -63,7 +63,7 @@ class MiddlewareEasyCoverageTest extends TestCase
     {
         $this->assertSame('read', HttpMethodMapper::toActionMethod('GET'));
         $this->assertSame('write', HttpMethodMapper::toActionMethod('post'));
-        $this->assertSame('create', HttpMethodMapper::toActionMethod('PUT'));
+        $this->assertSame('update', HttpMethodMapper::toActionMethod('PUT'));
         $this->assertSame('remove', HttpMethodMapper::toActionMethod('DELETE'));
         $this->assertSame('read', HttpMethodMapper::toActionMethod('UNKNOWN')); // default fallback
     }

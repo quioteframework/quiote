@@ -11,6 +11,7 @@ class LightweightActionInitContext extends AgaviAttributeHolder implements Actio
 {
     private ?string $viewModuleName = null;
     private ?string $viewName = null;
+    private mixed $validationManager = null;
 
     public function __construct(
         private AgaviContext $context,
@@ -77,12 +78,30 @@ class LightweightActionInitContext extends AgaviAttributeHolder implements Actio
     }
 
     // Legacy shim: some legacy actions call $this->getValidationManager() on the container.
+    // Cached so that the same instance is returned every time — XML validators, action
+    // validate*() methods, and error-handler code all need to share a single VM.
     public function getValidationManager()
     {
+        if ($this->validationManager !== null) {
+            return $this->validationManager;
+        }
         try {
-            return $this->context->createInstanceFor('validation_manager');
+            $this->validationManager = $this->context->createInstanceFor('validation_manager');
+            return $this->validationManager;
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    /**
+     * Replace the cached validation manager.
+     *
+     * Called by ValidationService / AgaviActionTestCase to inject the VM that
+     * XML validators were executed against, so that the action's manual
+     * validate*() methods see the same errors and exports.
+     */
+    public function setValidationManager(mixed $vm): void
+    {
+        $this->validationManager = $vm;
     }
 }

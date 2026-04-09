@@ -62,8 +62,11 @@ abstract class AgaviUnitTestCase extends AgaviPhpUnitTestCase implements AgaviIU
 	{
 		$request = new AgaviWebRequest();
 		$request->initialize($this->getContext());
-		foreach ($parameters as $key => $value) {
-			$request->setParameter($key, $value);
+		// Use withQueryParams() to put params in intrinsic (query) storage rather than
+		// runtimeParameters. This ensures that pruneParametersToValidated() can correctly
+		// remove unvalidated parameters (runtimeParameters with validatedKeys bypass pruning).
+		if($parameters) {
+			$request = $request->withQueryParams($parameters);
 		}
 		// In unit tests we often bypass the validation manager; whitelist seeded keys and any explicitly provided additional whitelist keys (e.g. export targets for failure scenarios).
 		$wl = [];

@@ -25,5 +25,8 @@ class ActionExecutionContext
     // New shims (nullable until fully wired)
     public readonly ?AttributeBag $attributeBag = null,
     public readonly ?ResponseHandle $responseHandle = null,
+    // Snapshot of any redirect set by the view, captured immediately after view execution
+    // to avoid a fiber/concurrency race where another request clears the shared global response.
+    public readonly ?array $redirect = null,
     ) {}
 }

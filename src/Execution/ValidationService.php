@@ -32,6 +32,11 @@ class ValidationService
     private $currentContext = null; // holds AgaviContext for compiled validator config
     public function __construct(private ?AgaviValidationManager $manager = null) {}
 
+    public function getValidationManager(): ?AgaviValidationManager
+    {
+        return $this->manager;
+    }
+
     // Expose context to compiled validator config (expects $this->getContext())
     public function getContext()
     {
@@ -64,6 +69,13 @@ class ValidationService
             $validationManager = $ctx->createInstanceFor('validation_manager');
         } else {
             $validationManager->clear();
+        }
+        // Inject the VM into the action's init context so that manual validate*()
+        // methods (which call $this->getInitContext()->getValidationManager()) see
+        // the same errors and exports that XML validators produce.
+        $initCtx = $action->getInitContext();
+        if ($initCtx !== null && method_exists($initCtx, 'setValidationManager')) {
+            $initCtx->setValidationManager($validationManager);
         }
         $validatorsLoaded = [];
         $configFile = null;
@@ -155,9 +167,6 @@ class ValidationService
         }
         try {
             $ok = (bool)$validationManager->execute($request);
-            if (getenv('DEBUG_TESTS')) {
-                error_log('[TestDebug][ValidationService] execute() returned ' . ($ok ? 'true' : 'false') . ' module=' . $moduleName . ' action=' . $actionName . ' method=' . $xmlMethod);
-            }
             if (\Agavi\Util\DebugFlags::$validation) {
                 try {
                     $logger?->debug('[ValidationService][validate] Validators execute() returned: ' . ($ok ? 'true' : 'false'));
@@ -180,6 +189,10 @@ class ValidationService
             } catch(\Throwable $e) {}
         }
         // 4. Manual action validation (validate[Method])
+        // Use the context's request which may have been updated by pruneParametersToValidated()
+        // during VM execute(). This ensures the action's validate method sees the post-prune
+        // request and any parameters it sets via setParameter() propagate correctly.
+        $currentRequest = $action->getContext()->getRequest();
         $validateMethod = 'validate' . $normalizedMethod;
         if (!is_callable([$action, $validateMethod])) {
             $validateMethod = 'validate';
@@ -190,15 +203,7 @@ class ValidationService
             } catch(\Throwable) {}
         }
         try {
-            if (getenv('DEBUG_TESTS')) {
-                error_log('[TestDebug][ValidationService] calling action->' . $validateMethod . ' module=' . $moduleName . ' action=' . $actionName . ' method=' . $xmlMethod);
-            }
-            $manualOk = (bool)$action->$validateMethod($request);
-            $debugEnv = getenv('DEBUG_TESTS');
-            if ($debugEnv) {
-                error_log('[TestDebug][ValidationService] envAfterCall=' . $debugEnv);
-                error_log('[TestDebug][ValidationService] action->' . $validateMethod . ' returned ' . ($manualOk ? 'true' : 'false') . ' module=' . $moduleName . ' action=' . $actionName . ' method=' . $xmlMethod);
-            }
+            $manualOk = (bool)$action->$validateMethod($currentRequest);
             if (\Agavi\Util\DebugFlags::$validation) {
                 try {
                     $logger?->debug('[ValidationService][validate] action->' . $validateMethod . '() returned ' . ($manualOk ? 'true' : 'false'));

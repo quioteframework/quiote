@@ -11,6 +11,8 @@ use Agavi\Util\AgaviAttributeHolder; // to expose action attributes via standard
 
 final class ImmutableViewInitContext extends AgaviAttributeHolder implements ViewInitContext
 {
+    private ?object $validationManager;
+
     public function __construct(
         private AgaviContext $context,
         private string $viewModule,
@@ -20,8 +22,10 @@ final class ImmutableViewInitContext extends AgaviAttributeHolder implements Vie
         private ?string $actionName,
         private array $actionAttributes,
     private AgaviWebResponse $response,
-        private ?ResponseInterface $psrResponse = null
+        private ?ResponseInterface $psrResponse = null,
+        ?object $validationManager = null
     ) {
+        $this->validationManager = $validationManager;
         // Populate attribute holder with snapshot so AgaviView::getAttribute()/getAttributes() work.
         // Immutable semantics: later setAttribute() calls are ignored by AgaviView because initContext instanceof ViewInitContext.
         if (!empty($actionAttributes)) {
@@ -153,6 +157,9 @@ final class ImmutableViewInitContext extends AgaviAttributeHolder implements Vie
      */
     public function getValidationManager()
     {
+        if ($this->validationManager !== null) {
+            return $this->validationManager;
+        }
         try {
             return $this->context->createInstanceFor('validation_manager');
         } catch (\Throwable) {

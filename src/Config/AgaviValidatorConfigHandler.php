@@ -57,15 +57,7 @@ class AgaviValidatorConfigHandler extends AgaviXmlConfigHandler
 
 	protected function resolveClass(string $declared): array
 	{
-		// If declared token is a definition name, return mapped; else treat as direct class
-		if (isset($this->classMap[$declared]) && $this->classMap[$declared]['class'] !== $declared) {
-			$def = $this->classMap[$declared];
-			return [
-				$def['class'],
-				$def['parameters'],
-				$def['errors']
-			];
-		}
+		// If declared token is a definition name, return mapped class + defaults
 		if (isset($this->classMap[$declared])) {
 			$def = $this->classMap[$declared];
 			return [
@@ -74,7 +66,10 @@ class AgaviValidatorConfigHandler extends AgaviXmlConfigHandler
 				$def['errors']
 			];
 		}
-		// Not defined: treat as direct class (backwards-compatible)
+		// Not defined: treat as direct class (backwards-compatible).
+		// If $declared is a short name (no backslash), the compiled config will emit
+		// "new ShortName()" which requires the class to be autoloadable under that
+		// exact token. If it's not, add a <validator_definition> mapping in validators.xml.
 		return [$declared, [], []];
 	}
 

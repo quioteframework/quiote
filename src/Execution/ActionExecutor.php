@@ -253,8 +253,15 @@ final class ActionExecutor
         $state->viewModule = $vm;
         $state->viewName = $vn;
         $bag = new AttributeBag($attributeSnapshot);
-        $respHandle = new ResponseHandle($this->controller->getGlobalResponse());
-        $ctx = new ActionExecutionContext($action, $view, $desc->module, $desc->action, $desc->outputType, $actionRequest, $content, $vm, $vn, $attributeSnapshot, $bag, $respHandle);
+        $globalResp = $this->controller->getGlobalResponse();
+        $respHandle = new ResponseHandle($globalResp);
+        // Snapshot redirect immediately - before any fiber context switch could cause another
+        // request to call clear() on the shared global response object.
+        $redirectSnapshot = null;
+        if (method_exists($globalResp, 'getRedirect') && $globalResp->getRedirect() !== null) {
+            $redirectSnapshot = $globalResp->getRedirect();
+        }
+        $ctx = new ActionExecutionContext($action, $view, $desc->module, $desc->action, $desc->outputType, $actionRequest, $content, $vm, $vn, $attributeSnapshot, $bag, $respHandle, $redirectSnapshot);
         if ($dbg) {
             AgaviDebugLogger::debug('[ActionExecutor] done contentLen=' . strlen($content), $this->controller->getContext());
         }
@@ -281,7 +288,8 @@ final class ActionExecutor
                 actionName: $action,
                 actionAttributes: $attributeSnapshot,
                 response: $global,
-                psrResponse: $psr
+                psrResponse: $psr,
+                validationManager: $this->validationService?->getValidationManager()
             );
             $view->initialize($vic);
             return $view;

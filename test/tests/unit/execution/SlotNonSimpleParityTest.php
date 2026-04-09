@@ -15,6 +15,10 @@ class SlotNonSimpleParityTest extends AgaviUnitTestCase
         parent::setUp();
         // Preload action class to ensure legacy naming alias is registered
         $this->getContext()->getController()->createActionInstance('Cache','CacheComplex');
+        // Reset context request to avoid state pollution from prior tests
+        $fresh = new \Agavi\Request\AgaviWebRequest();
+        $fresh->initialize($this->getContext());
+        $this->getContext()->setRequest($fresh);
     }
     private function dispatchWithFlag(bool $noContainer, callable $configure, array $params=[]): string
     {

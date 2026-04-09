@@ -240,7 +240,7 @@ class AgaviAdditionalValidatorEdgeCasesTest extends AgaviUnitTestCase
         // After pruning only validated key should remain (plus whitelist enforced automatically)
         $this->assertNotNull($req->getParameter('file_keep'));
         // Accessing pruned unvalidated parameter should now be null
-        $this->assertNull($req->getParameter('file_drop'));
+        $this->assertFalse($req->hasParameter('file_drop'));
     }
 
     // Composite operator tests removed temporarily (TODO reintroduce with stable child setup helper)

@@ -102,7 +102,7 @@ class DispatchMiddleware implements MiddlewareInterface
         return self::$dynamicFlagsCache[$cls] = false;
     }
 
-    private function buildPsrResponse(string $content, string $outputType, bool $cacheHit, bool $containerUsed): ResponseInterface
+    private function buildPsrResponse(string $content, string $outputType, bool $cacheHit, bool $containerUsed, ?array $redirectSnapshot = null): ResponseInterface
     {
         
         $factory = new Psr17Factory();
@@ -168,6 +168,49 @@ class DispatchMiddleware implements MiddlewareInterface
             $cacheHitHeader = AgaviConfig::get('core.cache-hit-header', 'X-Agavi-Cache-Hit');
             if ($cacheHit && $cacheHitHeader) {
                 $resp = $resp->withHeader($cacheHitHeader, '1');
+            }
+        }
+
+        // Bridge redirect set via AgaviWebResponse::setRedirect() into the PSR response.
+        // We use the snapshot captured in ActionExecutor immediately after the view ran,
+        // avoiding a fiber/concurrency race where another request's clear() on the shared
+        // global response would wipe the redirect before we read it here.
+        $redirectData = $redirectSnapshot;
+        if ($redirectData === null && is_object($globalResp)) {
+            // Fallback: covers cache-hit and simple paths where no per-execution snapshot exists.
+            try {
+                if (method_exists($globalResp, 'getRedirect') && $globalResp->getRedirect() !== null) {
+                    $redirectData = $globalResp->getRedirect();
+                }
+            } catch (\Throwable) {}
+        }
+        if (\Agavi\Util\DebugFlags::$response || \Agavi\Util\DebugFlags::$dispatch) {
+            AgaviDebugLogger::debug('[DispatchMiddleware.buildPsrResponse] isRedirect=' . ($redirectData !== null ? 'true' : 'false'), $this->controller->getContext());
+        }
+        if ($redirectData !== null) {
+            try {
+                $location = (string)$redirectData['location'];
+                $code = (int)($redirectData['code'] ?? 302);
+                // Resolve relative URLs the same way AgaviWebResponse::send() does
+                if (!preg_match('#^[^:]+://#', $location)) {
+                    $agaviCtx = $this->controller->getContext();
+                    if (isset($location[0]) && $location[0] === '/') {
+                        $rq = $agaviCtx->getRequest();
+                        if (method_exists($rq, 'getUrlScheme') && method_exists($rq, 'getUrlAuthority')) {
+                            $location = $rq->getUrlScheme() . '://' . $rq->getUrlAuthority() . $location;
+                        }
+                    } else {
+                        $location = $agaviCtx->getRouting()->getBaseHref() . $location;
+                    }
+                }
+                if (\Agavi\Util\DebugFlags::$response || \Agavi\Util\DebugFlags::$dispatch) {
+                    AgaviDebugLogger::debug('[DispatchMiddleware.buildPsrResponse] redirect location=' . $location . ' code=' . $code, $this->controller->getContext());
+                }
+                $resp = $resp->withStatus($code)->withHeader('Location', $location);
+            } catch (\Throwable $e) {
+                if (\Agavi\Util\DebugFlags::$response || \Agavi\Util\DebugFlags::$dispatch) {
+                    AgaviDebugLogger::debug('[DispatchMiddleware.buildPsrResponse] redirect exception: ' . $e->getMessage(), $this->controller->getContext());
+                }
             }
         }
 
@@ -355,7 +398,7 @@ class DispatchMiddleware implements MiddlewareInterface
             $rid = $request->getAttribute('agavi.rid');
             AgaviDebugLogger::debug('[DispatchMiddleware][' . $rid . '] simple contentType=' . $actionDesc->outputType . ' contentLen=' . strlen($ctx->content) . ' prefix=' . substr($ctx->content, 0, 80), $this->controller->getContext());
         }
-        return $this->buildPsrResponse($ctx->content, $actionDesc->outputType, false, false);
+        return $this->buildPsrResponse($ctx->content, $actionDesc->outputType, false, false, $ctx->redirect ?? null);
     }
 
     private function processNonSimple(ServerRequestInterface $request, ActionDescriptor $actionDesc): ResponseInterface
@@ -440,7 +483,7 @@ class DispatchMiddleware implements MiddlewareInterface
             $rid = $request->getAttribute('agavi.rid');
             AgaviDebugLogger::debug('[DispatchMiddleware][' . $rid . '] nonSimple contentType=' . $actionDesc->outputType . ' contentLen=' . strlen($ctx->content) . ' prefix=' . substr($ctx->content, 0, 80), $this->controller->getContext());
         }
-        return $this->buildPsrResponse($ctx->content, $actionDesc->outputType, $execState->cacheHit, false);
+        return $this->buildPsrResponse($ctx->content, $actionDesc->outputType, $execState->cacheHit, false, $ctx->redirect ?? null);
     }
     // runWithCaching & executeView removed with container elimination.
 

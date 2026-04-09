@@ -8,8 +8,9 @@ class RequestDataEnforcementTest extends TestCase
     public function testAlwaysThrowsOnUnvalidatedAccess(): void
     {
         $rd = new AgaviWebRequest();
-        $rd->setParameter('foo', 'bar');
-        $rd->setParameter('baz', 'qux');
+        // Use withQueryParams (intrinsic/query storage) rather than setParameter (which goes to
+        // runtimeParameters and auto-whitelists — bypassing enforcement intentionally for action code).
+        $rd = $rd->withQueryParams(['foo' => 'bar', 'baz' => 'qux']);
         $rd->enforceValidatedParameters(['foo']);
         $this->assertTrue($rd->hasParameter('foo'));
         $this->assertSame('bar', $rd->getParameter('foo'));

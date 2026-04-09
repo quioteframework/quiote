@@ -370,7 +370,14 @@ abstract class AgaviValidator extends AgaviParameterHolder implements ResetInter
 			} catch (\Throwable) {}
 		}
 		if (\Agavi\Util\DebugFlags::$validation) {
-			AgaviDebugLogger::debug('[AgaviValidator][getData][debug] name=' . $paramName . ' source=' . $paramType . ' resolved=' . var_export($value, true), $this->getContext());
+			$resolvedStr = match(true) {
+				is_object($value) => get_class($value),
+				is_null($value) => 'NULL',
+				is_scalar($value) => gettype($value) . ':' . (string)$value,
+				is_array($value) => 'array(' . count($value) . ')',
+				default => gettype($value),
+			};
+			AgaviDebugLogger::debug('[AgaviValidator][getData][debug] name=' . $paramName . ' source=' . $paramType . ' resolved=' . $resolvedStr, $this->getContext());
 		}
 		return $value;
 	}

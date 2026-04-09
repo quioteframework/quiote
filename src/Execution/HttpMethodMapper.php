@@ -3,8 +3,9 @@ namespace Agavi\Execution;
 
 /**
  * Central mapping from HTTP verbs to Agavi action method tokens.
- * Canonical values are lowercase: read, write, create, remove.
- * Historical semantics: PUT => create (distinct from POST => write).
+ * Canonical values are lowercase: read, write, update, remove.
+ * PUT maps to 'update' to match legacy Agavi routing conventions —
+ * all validation XMLs use method="update" for PUT endpoints.
  */
 final class HttpMethodMapper
 {
@@ -14,7 +15,7 @@ final class HttpMethodMapper
         return match($v) {
             'GET','HEAD','OPTIONS','TRACE' => 'read',
             'POST','PATCH' => 'write',
-            'PUT' => 'create',
+            'PUT' => 'update',
             'DELETE' => 'remove',
             default => 'read',
         };

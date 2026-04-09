@@ -1055,11 +1055,18 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 						}
 					}
 					// Do not additionally store the fully qualified bracket path to avoid duplication
+					$this->validatedKeys[$root] = true;
+					$this->validatedKeys[$name] = true;
 					return;
 				}
 			}
 		}
 		$this->runtimeParameters[$name] = $value;
+		// Auto-whitelist: parameters set via setParameter() are explicitly provided by
+		// application code (action validate methods, test helpers, etc.) and should be
+		// accessible under strict validation. Without this, action validate() methods
+		// that pass data to execute*() via setParameter() would be blocked.
+		$this->validatedKeys[$name] = true;
 		// NEW: If setting a root array (e.g. data => [[...]]), synthesize bracket keys (data[0][Field])
 		if (is_array($value) && $this->shouldMaterializeBracketPaths($name, $value)) {
 			$this->materializeBracketPaths($name, $value);
@@ -1115,6 +1122,11 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 	 * Define the set of validated parameter names. Always-on enforcement.
 	 * Calling this replaces the whitelist completely.
 	 */
+	public function getRuntimeParameterKeys(): array
+	{
+		return array_keys($this->runtimeParameters);
+	}
+
 	public function enforceValidatedParameters(array $keys): void
 	{
 		foreach($keys as $key) {

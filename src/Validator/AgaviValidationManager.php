@@ -89,7 +89,13 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 	public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		if(isset($parameters['mode'])) {
-			if(!in_array($parameters['mode'], [self::MODE_RELAXED, self::MODE_CONDITIONAL, self::MODE_STRICT])) {
+			// MODE_RELAXED is no longer accepted — it silently disables parameter
+			// whitelisting which leads to unvalidated parameter access exceptions
+			// when actions read exported validator parameters.
+			if($parameters['mode'] === self::MODE_RELAXED) {
+				$parameters['mode'] = self::MODE_STRICT;
+			}
+			if(!in_array($parameters['mode'], [self::MODE_CONDITIONAL, self::MODE_STRICT])) {
 				throw new AgaviConfigurationException('Invalid validation mode "' . $parameters['mode'] . '" specified');
 			}
 		} else {
@@ -410,7 +416,7 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 			}
 		}
 
-		if($mode == self::MODE_STRICT || ($executedValidators > 0 && $mode == self::MODE_CONDITIONAL)) {
+		if($executedValidators > 0) {
 			// first, we explicitly unset failed arguments
 			// the primary purpose of this is to make sure that arrays that failed validation themselves (e.g. due to array length validation, or due to use of operator validators with an argument base) are removed
 			// that's of course only necessary if validation failed
@@ -435,6 +441,10 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 				$failedNames[$src][$name] = true;
 			}
 			
+			// Capture runtime parameter keys before pruning — these include validator exports
+			// that must remain accessible to actions after validation.
+			$preValidationRuntimeKeys = $request->getRuntimeParameterKeys();
+
 			// Delegate actual pruning to the request implementation (so it can update both
 			// intrinsic PSR-7 query/body params and runtime parameters consistently).
 			if(method_exists($request, 'pruneParametersToValidated')) {
@@ -479,12 +489,15 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 					}
 				}
 			}
-			// After pruning, merge whitelist with all succeeded parameter names and any exported roots (already tracked as succeeded via export())
+			// After pruning, merge whitelist with all succeeded parameter names and any exported roots
 			if(method_exists($request, 'enforceValidatedParameters')) {
 				$finalWhitelist = array_keys($keepNames['parameters'] ?? []);
 				// include predeclared export names even if validation failed (they may be accessed to assert null)
 				$predeclaredExports = (array)$this->getParameter('_predeclared_exports', []);
 				foreach($predeclaredExports as $exp) { $finalWhitelist[] = $exp; }
+				// include all runtime parameter keys captured before pruning — these were set
+				// by validator exports via setParameter() and must remain accessible to actions
+				foreach($preValidationRuntimeKeys as $rk) { $finalWhitelist[] = $rk; }
 				// include module/action if present
 				if($umap) {
 					if($ma) { $finalWhitelist[] = $ma; }

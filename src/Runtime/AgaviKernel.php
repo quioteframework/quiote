@@ -60,6 +60,12 @@ class AgaviKernel
         $emitter = new HttpEmitter();
 
         $handle = function () use ($context, $emitter) {
+            // Start per-request code coverage collection if enabled
+            if (class_exists(\Jakamo\Coverage\RequestCoverageCollector::class, false)
+                || (getenv('COVERAGE_ENABLED') === '1' && is_file('/app/bin/coverage-collect.php'))) {
+                require_once '/app/bin/coverage-collect.php';
+                \Jakamo\Coverage\RequestCoverageCollector::start();
+            }
             try {
                 $request = $this->buildRequestFromGlobals();
                 $response = $context->handle($request);
@@ -98,6 +104,10 @@ class AgaviKernel
         };
 
         $reset = function () use ($context) {
+            // Stop per-request code coverage collection and save data
+            if (class_exists(\Jakamo\Coverage\RequestCoverageCollector::class, false)) {
+                \Jakamo\Coverage\RequestCoverageCollector::stop();
+            }
             if (class_exists(AgaviWorkerManager::class)) {
                 AgaviWorkerManager::resetForNextRequest($context->getName());
             }
