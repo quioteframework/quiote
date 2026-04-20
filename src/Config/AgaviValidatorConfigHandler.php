@@ -16,11 +16,24 @@ class AgaviValidatorConfigHandler extends AgaviXmlConfigHandler
 	 */
 	protected array $classMap = [];
 
+	/**
+	 * Map of HTTP method => list of request parameter names declared by
+	 * validators in the current config. Populated during processing and
+	 * consumed in execute() to emit a declareParameters() seed call into
+	 * the compiled artifact, so the request's strict-validation whitelist
+	 * is populated before any validator runs (and remains valid in error
+	 * views where validation aborts).
+	 *
+	 * The empty-string key holds methodless (always-on) declarations.
+	 */
+	protected array $declaredParams = [];
+
 	public function execute(AgaviXmlConfigDomDocument $document): string
 	{
 		$document->setDefaultNamespace(self::XML_NAMESPACE, 'validators');
 		$config = $document->documentURI;
 		$code = [];
+		$this->declaredParams = [];
 
 		foreach ($document->getConfigurationElements() as $cfg) {
 			if ($cfg->has('validator_definitions')) {
@@ -43,16 +56,130 @@ class AgaviValidatorConfigHandler extends AgaviXmlConfigHandler
 		}
 
 		$final = [];
+
+		// Emit unconditional whitelist seed: declarations that apply regardless
+		// of request method. Runs before any conditional method block so the
+		// whitelist is populated whether or not a method branch matches.
+		$unconditionalNames = $this->uniqueDeclaredNames('');
+		if (!empty($unconditionalNames)) {
+			$final[] = $this->buildDeclareParametersSnippet($unconditionalNames);
+		}
+
 		if (isset($code[''])) {
-			$final = $code[''];
+			foreach ($code[''] as $snippet) { $final[] = $snippet; }
 			unset($code['']);
 		}
 		foreach ($code as $method => $snippets) {
 			$final[] = 'if($method == ' . var_export($method, true) . '){';
+			// Per-method whitelist seed. Emitted inside the conditional so
+			// that params declared only for (e.g.) 'write' aren't whitelisted
+			// on a 'read' request.
+			$methodNames = $this->uniqueDeclaredNames($method);
+			if (!empty($methodNames)) {
+				$final[] = $this->buildDeclareParametersSnippet($methodNames);
+			}
 			foreach ($snippets as $snippet) { $final[] = $snippet; }
 			$final[] = '}';
 		}
 		return $this->generate($final, $config);
+	}
+
+	/**
+	 * Return the deduped list of parameter names declared for a given
+	 * method key. The empty string represents methodless declarations.
+	 */
+	private function uniqueDeclaredNames(string $method): array
+	{
+		$names = $this->declaredParams[$method] ?? [];
+		if (empty($names)) {
+			return [];
+		}
+		// array_values(array_unique(...)) gives a clean, deterministic order
+		$unique = array_values(array_unique($names));
+		sort($unique);
+		return $unique;
+	}
+
+	/**
+	 * Build the generated PHP line that declares a batch of parameter names
+	 * on the request's strict-validation whitelist.
+	 */
+	private function buildDeclareParametersSnippet(array $names): string
+	{
+		return sprintf(
+			'$validationManager->getContext()->getRequest()->declareParameters(%s);',
+			var_export(array_values($names), true)
+		);
+	}
+
+	/**
+	 * Expand an export name specifier into whitelist entries.
+	 *
+	 * Plain names (e.g. "bulletin") are whitelisted as-is. Bracketed names
+	 * (e.g. "responsibleUsers[%2$s]" or "Tag[%2$s]") have the root extracted
+	 * — the request's bracket-alias machinery matches child lookups against
+	 * the whitelisted root.
+	 *
+	 * @return string[] One or more whitelist entries.
+	 */
+	private function expandExportName(string $exportName): array
+	{
+		$exportName = trim($exportName);
+		if ($exportName === '') {
+			return [];
+		}
+		$bracketAt = strpos($exportName, '[');
+		if ($bracketAt === false) {
+			return [$exportName];
+		}
+		$root = substr($exportName, 0, $bracketAt);
+		if ($root === '') {
+			return [];
+		}
+		return [$root];
+	}
+
+	/**
+	 * Collect the effective request parameter names a validator reads.
+	 * Honors <arguments base="..."> by prepending the base path.
+	 *
+	 * @param array $arguments Flat list of argument values (the request
+	 *                         parameter name or sub-path the validator reads).
+	 * @param string $base Optional base path from <arguments base="...">.
+	 * @return string[] Effective parameter names to whitelist.
+	 */
+	private function computeDeclaredNamesForValidator(array $arguments, string $base): array
+	{
+		$names = [];
+		if ($base === '') {
+			foreach ($arguments as $arg) {
+				if (is_string($arg) && $arg !== '') {
+					$names[] = $arg;
+				}
+			}
+			return $names;
+		}
+		// Base present. Whitelist the full base path (e.g. "UserReference[][]")
+		// AND the bare root name (e.g. "UserReference") so that action code
+		// reading `getParameter('UserReference')` for the whole array is also
+		// allowed under strict validation.
+		$names[] = $base;
+		$bracketPos = strpos($base, '[');
+		if ($bracketPos !== false) {
+			$bareRoot = substr($base, 0, $bracketPos);
+			if ($bareRoot !== '') {
+				$names[] = $bareRoot;
+			}
+		}
+		foreach ($arguments as $arg) {
+			if (!is_string($arg)) { continue; }
+			if ($arg === '') {
+				// Validator targets the base directly.
+				continue;
+			}
+			$names[] = $base . '[' . $arg . ']';
+		}
+		return $names;
 	}
 
 	protected function resolveClass(string $declared): array
@@ -118,6 +245,24 @@ class AgaviValidatorConfigHandler extends AgaviXmlConfigHandler
 			$validator->setAttribute('name', $name);
 		}
 
+		// Compute the request parameter names this validator operates on so
+		// they can be seeded into the request's strict-validation whitelist.
+		$declaredNames = $this->computeDeclaredNamesForValidator(
+			$arguments,
+			(string)($parameters['base'] ?? '')
+		);
+
+		// A validator's <ae:parameter name="export">X</ae:parameter> tells the
+		// runtime that the validator may publish a request parameter named X.
+		// Whitelist it unconditionally — it's a legitimate output of this
+		// action's validation pipeline, whether or not the export actually
+		// fires in a given request.
+		if (array_key_exists('export', $parameters) && is_string($parameters['export']) && $parameters['export'] !== '') {
+			foreach ($this->expandExportName((string)$parameters['export']) as $exported) {
+				$declaredNames[] = $exported;
+			}
+		}
+
 		foreach ($methods as $method) {
 			$lines = [];
 			// Instantiate & initialize
@@ -132,6 +277,16 @@ class AgaviValidatorConfigHandler extends AgaviXmlConfigHandler
 				$lines[] = sprintf('${%s}->addChild(${%s});', var_export($parent, true), var_export($validatorVar, true));
 			}
 			$code[$method][$name . '_' . AgaviToolkit::uniqid()] = implode("\n", $lines);
+
+			// Record declared parameter names for this method's whitelist seed.
+			if (!empty($declaredNames)) {
+				if (!isset($this->declaredParams[$method])) {
+					$this->declaredParams[$method] = [];
+				}
+				foreach ($declaredNames as $declaredName) {
+					$this->declaredParams[$method][] = $declaredName;
+				}
+			}
 		}
 
 		return $this->processValidatorElements($validator, $code, '_validator_' . $name, $parameters['severity'], $stdMethod, $stdRequired, $parameters['translation_domain'] ?? null);

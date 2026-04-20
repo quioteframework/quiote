@@ -787,36 +787,15 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 		}
 	}
 
-	public function getParameter(string $name, $default = null)
+	public function getParameter(string $name, mixed $default = null): mixed
 	{
-		// Always-on whitelist enforcement
-		// BUT: If parameter doesn't exist in request AND a default is provided, allow it
+		// Strict whitelist enforcement. A parameter is whitelisted iff it was
+		// declared by a validator in validators.xml (seeded via
+		// declareParameters() at config parse time) or explicitly set via
+		// setParameter() from application code. Anything else is an
+		// unvalidated access and is refused with no escape hatch — passing
+		// an explicit default does not bypass the check.
 		if (!$this->isParameterWhitelisted($name)) {
-			// Determine whether the parameter exists in either runtime store or the
-			// attached PSR-7 request. Runtime parameters must count as existing even
-			// when no PSR request is attached (legacy setParameter usage).
-			$exists = array_key_exists($name, $this->runtimeParameters);
-			if (!$exists) {
-				$exists = $this->getRequestParam($this, $name, null) !== null;
-				// Check bracket [] alias against base name as well
-				if (!$exists && str_ends_with($name, '[]')) {
-					$base = substr($name, 0, -2);
-					$exists = $this->getRequestParam($this, $base, null) !== null || array_key_exists($base, $this->runtimeParameters);
-				}
-			}
-
-			// If the parameter exists (in runtime or request) it's an unvalidated
-			// access and must throw. If it doesn't exist, we only allow returning
-			// the default when the caller explicitly provided one. We detect that
-			// via func_num_args(): callers that omitted the default should get an
-			// exception to avoid accidental silent masking of missing/unvalidated
-			// inputs.
-			if ($exists) {
-				throw new \Agavi\Exception\AgaviUnvalidatedParameterAccessException('Access to unvalidated parameter "' . $name . '" denied under strict validation.');
-			}
-			if (func_num_args() > 1) {
-				return $default;
-			}
 			throw new \Agavi\Exception\AgaviUnvalidatedParameterAccessException('Access to unvalidated parameter "' . $name . '" denied under strict validation.');
 		}
 		// 1. Direct runtime override
@@ -1070,6 +1049,41 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 		// NEW: If setting a root array (e.g. data => [[...]]), synthesize bracket keys (data[0][Field])
 		if (is_array($value) && $this->shouldMaterializeBracketPaths($name, $value)) {
 			$this->materializeBracketPaths($name, $value);
+		}
+	}
+
+	/**
+	 * Mark the given request parameter names as declared (whitelisted for
+	 * strict-validation access). Called by the compiled validators.xml config
+	 * artifact before any validator is instantiated, so that declared
+	 * parameters are accessible even in error views where validation aborts
+	 * or never fires.
+	 *
+	 * Idempotent. Safe to call multiple times. Method-aware dispatch is the
+	 * caller's responsibility — the generated config emits only the names
+	 * relevant to the active request method.
+	 *
+	 * @param string[] $names Flat list of parameter names (bracket paths
+	 *                       allowed, e.g. 'data[0][Title]').
+	 */
+	public function declareParameters(array $names): void
+	{
+		foreach ($names as $name) {
+			if (is_string($name) && $name !== '') {
+				$this->validatedKeys[$name] = true;
+			}
+		}
+	}
+
+	/**
+	 * Declare a single parameter name at runtime. Intended for code that adds
+	 * validators dynamically via AgaviValidationManager::addChild() outside
+	 * the compiled validators.xml path.
+	 */
+	public function declareParameter(string $name): void
+	{
+		if ($name !== '') {
+			$this->validatedKeys[$name] = true;
 		}
 	}
 

@@ -946,7 +946,6 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 	public function getErrors($name = null)
 	{
 		$errors = [];
-
 		foreach($this->getIncidents(AgaviValidator::NOTICE) as $incident) {
 			$validator = $incident->getValidator();
 			foreach($incident->getErrors() as $error) {

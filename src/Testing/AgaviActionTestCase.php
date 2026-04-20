@@ -110,6 +110,9 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 					$resultView = $action->getDefaultViewName();
 				}
 			} catch (\Throwable $e) {
+				if (getenv('DEBUG_TESTS')) {
+					error_log('[runAction] EXCEPTION in ' . $execMethod . ': ' . get_class($e) . ': ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
+				}
 				if (\Agavi\Util\DebugFlags::$validation || getenv('DEBUG_TESTS')) {
 					try {
 						AgaviDebugLogger::debug('[TestDebug][runAction][Exception] ' . get_class($e) . ': ' . $e->getMessage(), $this->getContext());
