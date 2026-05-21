@@ -324,6 +324,15 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 	}
 
 	/**
+	 * Convenience alias for getUploadedFileArray — returns PSR-7 UploadedFileInterface array.
+	 */
+	public function getFile(string $name, mixed $default = null): mixed
+	{
+		$files = $this->getUploadedFileArray($name);
+		return $files ?: $default;
+	}
+
+	/**
 	 * Return the first uploaded file for a given field name or null if none exist.
 	 */
 	public function getUploadedFile(string $name): ?UploadedFileInterface

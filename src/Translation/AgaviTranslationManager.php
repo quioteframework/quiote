@@ -418,7 +418,7 @@ class AgaviTranslationManager implements ResetInterface
 	 *
 	 * @param      mixed       The message.
 	 * @param      string      The domain in which the translation should be done.
-	 * @param      AgaviLocale The locale which should be used for formatting.
+	 * @param      ?AgaviLocale The locale which should be used for formatting.
 	 *                         Defaults to the currently active locale.
 	 * @param      array       The parameters which should be used for sprintf on
 	 *                         the translated string.
