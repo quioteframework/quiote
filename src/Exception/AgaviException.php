@@ -45,8 +45,8 @@ class AgaviException extends Exception
 		parent::__construct($message, is_int($code) ? $code : 0, $previous);
 	}
 
-	#[\Override]
-	public function getCode(): int|string
+	/** Returns the original code, which may be a string (e.g. a PDO SQLSTATE like "42P01"). */
+	public function getOriginalCode(): int|string
 	{
 		return $this->mixedCode;
 	}
