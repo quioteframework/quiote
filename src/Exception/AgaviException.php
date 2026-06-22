@@ -37,6 +37,20 @@ use Agavi\Config\AgaviConfig;
 use \Exception;
 class AgaviException extends Exception
 {
+	private int|string $mixedCode = 0;
+
+	public function __construct(string $message = '', int|string $code = 0, ?\Throwable $previous = null)
+	{
+		$this->mixedCode = $code;
+		parent::__construct($message, is_int($code) ? $code : 0, $previous);
+	}
+
+	#[\Override]
+	public function getCode(): int|string
+	{
+		return $this->mixedCode;
+	}
+
 	/**
 	 * Print the stack trace for this exception.
 	 *
