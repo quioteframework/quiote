@@ -186,6 +186,28 @@ class AgaviPropelDatabase extends AgaviDatabase
 			AgaviDebugLogger::debug('[AgaviPropelDatabase] shutdown() completed - connection cleared');
 		}
 	}
+
+	/**
+	 * Probe whether the shared Propel connection is still alive.
+	 *
+	 * Agavi's worker reset closes Propel's static connection pool, but this wrapper
+	 * can still retain the old PDO object. If that handle is dead, clear it here so
+	 * the next getConnection() call reconnects cleanly.
+	 */
+	public function ping(): bool
+	{
+		if ($this->connection === null) {
+			return true;
+		}
+
+		try {
+			$this->connection->query('SELECT 1');
+			return true;
+		} catch (\Throwable) {
+			$this->connection = $this->resource = null;
+			return false;
+		}
+	}
 }
 
 ?>
