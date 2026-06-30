@@ -52,6 +52,7 @@ final class ValidationFailureTest extends TestCase
         $resp = $handler->handle($req);
     // Validation failure should return 400 Bad Request (handleError view executed by ValidationMiddleware)
     $this->assertSame(400, $resp->getStatusCode(), 'Expected validation failure to short-circuit with 400');
-        $this->assertStringContainsString('Error', (string)$resp->getBody());
+        // CacheComplex::handleError renders the "<div>COMPLEX_ERROR</div>" view.
+        $this->assertStringContainsStringIgnoringCase('error', (string)$resp->getBody());
     }
 }

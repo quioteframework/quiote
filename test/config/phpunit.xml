@@ -20,6 +20,9 @@
         <testsuite name="fragment">
             <directory>../tests/fragment</directory>
         </testsuite>
+        <testsuite name="psr">
+            <directory>../PsrPipeline</directory>
+        </testsuite>
     </testsuites>
     <!--
         APCu is disabled by default for the test run. The APCu config cache is

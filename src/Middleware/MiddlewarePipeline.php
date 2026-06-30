@@ -75,6 +75,12 @@ class MiddlewarePipeline implements RequestHandlerInterface
         $construct(ContentNegotiationMiddleware::class, fn() => new ContentNegotiationMiddleware($controller));
         $construct(RoutingMiddleware::class, fn() => new RoutingMiddleware($routing, $controller));
         $construct(OutputTypeSyncMiddleware::class, fn() => new OutputTypeSyncMiddleware($controller));
+        // CSRF: injection wraps the response (placed first so it post-processes the
+        // final HTML), validation short-circuits unsafe requests with a bad/missing
+        // token before the action runs. Both sit before DispatchMiddleware (which is
+        // terminal). Behavior is gated at runtime by core.csrf.enabled.
+        $construct(CsrfInjectionMiddleware::class, fn() => new CsrfInjectionMiddleware($controller));
+        $construct(CsrfValidationMiddleware::class, fn() => new CsrfValidationMiddleware($controller));
         $construct(SecurityMiddleware::class, fn() => new SecurityMiddleware($controller));
         $construct(ValidationMiddleware::class, fn() => new ValidationMiddleware());
         $construct(SlotMiddleware::class, fn() => new SlotMiddleware($this->context));

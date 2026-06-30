@@ -29,6 +29,10 @@ $srcDir = realpath(__DIR__ . '/../src/');
 \Agavi\Config\AgaviConfig::set('core.template_dir', $appDir . '/Templates');
 \Agavi\Config\AgaviConfig::set('core.default_context', 'testing');
 \Agavi\Config\AgaviConfig::set('testing.environment', 'testing');
+// Disable CSRF enforcement in the test environment (as Symfony and others do):
+// otherwise every POST/PUT/DELETE functional test would need to carry a valid
+// token. The dedicated CsrfTest re-enables it per test to exercise the feature.
+\Agavi\Config\AgaviConfig::set('core.csrf.enabled', false);
 // Set the namespace prefix for the test environment before any bootstrapping
 \Agavi\Config\AgaviConfig::set('core.namespace_prefix', 'Sandbox');
 
