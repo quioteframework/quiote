@@ -410,4 +410,32 @@ class AgaviAPCuConfigCacheTest extends AgaviPhpUnitTestCase
 			}
 		}
 	}
+
+	// ---------------------------------------------------------------
+	// Regression: cold compile must not leak config_handlers to disk
+	// (loadConfigHandlersFile() previously reset late static binding to
+	//  AgaviConfigCache, forcing a filesystem write even with APCu enabled)
+	// ---------------------------------------------------------------
+
+	public function testColdCompileUnderApcuWritesNoConfigHandlersToFilesystem(): void
+	{
+		$cacheConfigDir = AgaviConfig::get('core.cache_dir') . DIRECTORY_SEPARATOR . 'config';
+
+		// Start fully cold: clear APCu + filesystem cache, and forget the loaded
+		// handlers so the next compile runs loadConfigHandlers()/loadConfigHandlersFile()
+		// as a side effect (this is the path the public-API tests never exercise).
+		AgaviAPCuConfigCache::clear();
+		\AgaviTestingConfigCache::resetHandlers();
+
+		// Trigger a cold compile through the APCu entrypoint so late static binding
+		// is AgaviAPCuConfigCache for the whole chain.
+		$result = AgaviAPCuConfigCache::checkConfig(AgaviConfig::get('core.config_dir') . '/settings.xml');
+		$this->assertStringStartsWith('APCU:', $result, 'settings.xml should be served from APCu, not the filesystem');
+
+		// The bug: config_handlers.xml used to be written to the filesystem here.
+		// With LSB preserved it stays in APCu, so no config_handlers cache file
+		// should exist on disk.
+		$handlerFiles = is_dir($cacheConfigDir) ? glob($cacheConfigDir . DIRECTORY_SEPARATOR . 'config_handlers*') : [];
+		$this->assertSame([], $handlerFiles, 'config_handlers must not be written to the filesystem when APCu is enabled');
+	}
 }

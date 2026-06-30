@@ -489,7 +489,23 @@ class AgaviConfigCache
 	 */
 	protected static function loadConfigHandlersFile($cfg)
 	{
-		$loaded = include(AgaviConfigCache::checkConfig($cfg));
+		// Use static::checkConfig() (a forwarding call) rather than the explicit
+		// AgaviConfigCache::checkConfig(). The explicit class name is NON-forwarding
+		// and resets late static binding to AgaviConfigCache, so when this runs as a
+		// side effect of a cold compile under AgaviAPCuConfigCache, the subsequent
+		// writeCacheFile() would resolve to the base (filesystem) implementation and
+		// leak a config_handlers cache file to disk even though APCu is enabled.
+		// Preserving LSB keeps the whole chain on the APCu store.
+		$result = static::checkConfig($cfg);
+		if (is_string($result) && str_starts_with($result, 'APCU:')) {
+			// APCu hit/cold-store: the marker carries the compiled PHP directly.
+			// eval()ing it (after a close-tag prefix) returns the compiled file's
+			// return value, i.e. the handlers array, exactly as include() of the
+			// equivalent cache file would.
+			$loaded = eval('?>' . substr($result, 5));
+		} else {
+			$loaded = include($result);
+		}
 		if(is_array($loaded) && isset($loaded['__middleware_config'])) {
 			\Agavi\Middleware\MiddlewareCatalog::initialize($loaded['__middleware_config']);
 			unset($loaded['__middleware_config']);
