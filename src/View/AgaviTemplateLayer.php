@@ -334,7 +334,8 @@ abstract class AgaviTemplateLayer extends AgaviParameterHolder implements ResetI
 	 */
 	abstract public function getResourceStreamIdentifier();
 
-	public function reset() : void
+	#[\Override]
+    public function reset() : void
 	{
 		$this->context = null;
 		$this->contextName = null;

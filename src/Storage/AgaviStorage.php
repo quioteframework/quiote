@@ -150,7 +150,8 @@ abstract class AgaviStorage extends AgaviParameterHolder implements ResetInterfa
 	 */
 	abstract function store(string $id, mixed $data): bool;
 
-	public function reset(): void
+	#[\Override]
+    public function reset(): void
 	{
 		$this->context = null;
 		$this->parameters = [];

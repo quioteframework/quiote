@@ -6,7 +6,8 @@ use Agavi\AgaviContext;
 
 class SampleSecurityUser extends AgaviSecurityUser
 {
-	public function initialize(AgaviContext $context, array $parameters = array())
+	#[\Override]
+    public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		parent::initialize($context, $parameters);
 		$this->context = $context;
@@ -14,7 +15,7 @@ class SampleSecurityUser extends AgaviSecurityUser
 		if(count($parameters)) {
 			$this->attributes = $parameters;
 		}
-		$this->attributes = array();
+		$this->attributes = [];
 	}
 }
 
@@ -24,20 +25,20 @@ class AgaviSecurityUserTest extends AgaviUnitTestCase
 
 	protected $context;
 	
-	public function initialize(AgaviContext $context, array $parameters = array())
+	public function initialize(AgaviContext $context, array $parameters = [])
 	{
-		parent::initialize($context, $parameters);
 		$this->context = $context;
 		
 		if(count($parameters)) {
 			$this->setParameters($parameters);
 		}
-		$this->attributes = array();
+		$this->attributes = [];
 	}
 	
 	private $_u = null;
 
-	public function setUp(): void
+	#[\Override]
+    public function setUp(): void
 	{
 		$this->_u = new SampleSecurityUser();
 		$this->_u->initialize($this->getContext());
@@ -66,13 +67,13 @@ class AgaviSecurityUserTest extends AgaviUnitTestCase
 		$this->_u->addCredential('test3');
 		$this->_u->addCredential('test4');
 		$this->assertTrue($this->_u->hasCredentials('test1'));
-		$this->assertTrue($this->_u->hasCredentials(array('test2', 'test3')));
-		$this->assertTrue($this->_u->hasCredentials(array('test1', array('test2', 'test3'))));
-		$this->assertTrue($this->_u->hasCredentials(array('test1', array('test2', 'test5'))));
+		$this->assertTrue($this->_u->hasCredentials(['test2', 'test3']));
+		$this->assertTrue($this->_u->hasCredentials(['test1', ['test2', 'test3']]));
+		$this->assertTrue($this->_u->hasCredentials(['test1', ['test2', 'test5']]));
 		$this->assertFalse($this->_u->hasCredentials('test5'));
-		$this->assertFalse($this->_u->hasCredentials(array('test2', 'test5')));
-		$this->assertFalse($this->_u->hasCredentials(array('test5', array('test2', 'test3'))));
-		$this->assertFalse($this->_u->hasCredentials(array('test1', array('test5', 'test6'))));
+		$this->assertFalse($this->_u->hasCredentials(['test2', 'test5']));
+		$this->assertFalse($this->_u->hasCredentials(['test5', ['test2', 'test3']]));
+		$this->assertFalse($this->_u->hasCredentials(['test1', ['test5', 'test6']]));
 	}
 	
 	public function teststrictCredentialComparison()
@@ -90,16 +91,16 @@ class AgaviSecurityUserTest extends AgaviUnitTestCase
 		$this->_u->addCredential('test1');
 		$this->_u->addCredential('test2');
 		$this->_u->addCredential('test3');
-		$this->assertTrue($this->_u->hasCredentials(array('test1', 'test2', 'test3')));
+		$this->assertTrue($this->_u->hasCredentials(['test1', 'test2', 'test3']));
 		$this->_u->removeCredential('test2');
-		$this->assertTrue($this->_u->hasCredentials(array('test3', 'test1')));
-		$this->assertFalse($this->_u->hasCredentials(array('test1', 'test2', 'test3')));
-		$this->assertFalse($this->_u->hasCredentials(array('test2')));
+		$this->assertTrue($this->_u->hasCredentials(['test3', 'test1']));
+		$this->assertFalse($this->_u->hasCredentials(['test1', 'test2', 'test3']));
+		$this->assertFalse($this->_u->hasCredentials(['test2']));
 		$this->_u->removeCredential('test1');
-		$this->assertTrue($this->_u->hasCredentials(array('test3')));
-		$this->assertFalse($this->_u->hasCredentials(array('test1')));
+		$this->assertTrue($this->_u->hasCredentials(['test3']));
+		$this->assertFalse($this->_u->hasCredentials(['test1']));
 		$this->_u->removeCredential('test3');
-		$this->assertFalse($this->_u->hasCredentials(array('test3')));
+		$this->assertFalse($this->_u->hasCredentials(['test3']));
 	}
 
 	public function testSetIsAuthenticated()

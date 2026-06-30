@@ -13,12 +13,12 @@ use Agavi\Execution\ExecutionState;
 #[\Agavi\Middleware\Attribute\AgaviMiddleware(phase: 'bootstrap', priority: 90)]
 class TraceMiddleware implements MiddlewareInterface
 {
-    public function __construct(private bool $emitHeader = false, private ?string $headerName = 'X-Agavi-Trace') {}
+    public function __construct(private readonly bool $emitHeader = false, private readonly ?string $headerName = 'X-Agavi-Trace') {}
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $exec = $request->getAttribute(ExecutionState::class) ?? new ExecutionState();
-        $exec->metrics = $exec->metrics ?? [];
+        $exec->metrics ??= [];
         $trace = $exec->metrics['trace'] ?? [];
         $trace[] = static::class;
         $exec->metrics['trace'] = $trace;

@@ -14,14 +14,15 @@ require_once(__DIR__ . '/../../../../src/Config/AgaviConfig.php');
 #[AgaviBootstrap(false)]
 class AgaviConfigTest extends AgaviPhpUnitTestCase
 {
-	public function setUp(): void
+	#[\Override]
+    public function setUp(): void
 	{
 		AgaviConfig::clear();
 	}
 
 	public function testInitiallyEmpty()
 	{
-		$expected = array();
+		$expected = [];
 		// core.agavi_dir is set as readonly when Agavi.php is loaded
 		if (AgaviConfig::has('core.agavi_dir')) {
 			$expected['core.agavi_dir'] = AgaviConfig::get('core.agavi_dir');
@@ -41,13 +42,13 @@ class AgaviConfigTest extends AgaviPhpUnitTestCase
 	}
 	public static function providerGetSet()
 	{
-		return array(
-			'string key'                => array('foobar', 'baz'),
-			'string key with period'    => array('some.thing', 'ohai'),
+		return [
+			'string key'                => ['foobar', 'baz'],
+			'string key with period'    => ['some.thing', 'ohai'],
 			// 'string key with null byte' => array("f\0oo", 'nullbyte'), // can't do this because PHPUnit doesn't do var_export(serialize(...)), so the null byte fucks everything up
-			'integer key'               => array(123, 'qwe'),
-			'octal number key'          => array(0123, 'yay'),
-		);
+			'integer key'               => [123, 'qwe'],
+			'octal number key'          => [0123, 'yay'],
+		];
 	}
 
 	public function testHas()
@@ -59,7 +60,7 @@ class AgaviConfigTest extends AgaviPhpUnitTestCase
 	public function testClear()
 	{
 		AgaviConfig::clear();
-		$expected = array();
+		$expected = [];
 		// core.agavi_dir is set as readonly when Agavi.php is loaded and survives clear()
 		if (AgaviConfig::has('core.agavi_dir')) {
 			$expected['core.agavi_dir'] = AgaviConfig::get('core.agavi_dir');
@@ -78,7 +79,7 @@ class AgaviConfigTest extends AgaviPhpUnitTestCase
 
 	public function testFromArray()
 	{
-		$data = array('foo' => 'bar', 'bar' => 'baz');
+		$data = ['foo' => 'bar', 'bar' => 'baz'];
 		AgaviConfig::clear();
 		AgaviConfig::fromArray($data);
 		$expected = $data;
@@ -91,11 +92,11 @@ class AgaviConfigTest extends AgaviPhpUnitTestCase
 
 	public function testFromArrayMerges()
 	{
-		$data = array('foo' => 'bar', 'bar' => 'baz');
+		$data = ['foo' => 'bar', 'bar' => 'baz'];
 		AgaviConfig::clear();
 		AgaviConfig::set('baz', 'lol');
 		AgaviConfig::fromArray($data);
-		$expected = array('baz' => 'lol') + $data;
+		$expected = ['baz' => 'lol'] + $data;
 		// core.agavi_dir is set as readonly when Agavi.php is loaded
 		if (AgaviConfig::has('core.agavi_dir')) {
 			$expected['core.agavi_dir'] = AgaviConfig::get('core.agavi_dir');
@@ -105,11 +106,11 @@ class AgaviConfigTest extends AgaviPhpUnitTestCase
 
 	public function testFromArrayMergesAndOverwrites()
 	{
-		$data = array('foo' => 'bar', 'bar' => 'baz', 'baz' => 'qux');
+		$data = ['foo' => 'bar', 'bar' => 'baz', 'baz' => 'qux'];
 		AgaviConfig::clear();
 		AgaviConfig::set('baz', 'lol');
 		AgaviConfig::fromArray($data);
-		$expected = array('baz' => 'qux') + $data;
+		$expected = ['baz' => 'qux'] + $data;
 		// core.agavi_dir is set as readonly when Agavi.php is loaded
 		if (AgaviConfig::has('core.agavi_dir')) {
 			$expected['core.agavi_dir'] = AgaviConfig::get('core.agavi_dir');
@@ -119,13 +120,13 @@ class AgaviConfigTest extends AgaviPhpUnitTestCase
 
 	public function testFromArrayMergesAndReindexes()
 	{
-		$data = array('zomg', 'lol');
+		$data = ['zomg', 'lol'];
 		AgaviConfig::clear();
 		AgaviConfig::set(2, 'yay');
 		AgaviConfig::set(1, 'aha');
 		AgaviConfig::set(0, 'omg', true, true);
 		AgaviConfig::fromArray($data);
-		$expected = array(2 => 'yay', 0 => 'omg', 1 => 'lol');
+		$expected = [2 => 'yay', 0 => 'omg', 1 => 'lol'];
 		// core.agavi_dir is set as readonly when Agavi.php is loaded
 		if (AgaviConfig::has('core.agavi_dir')) {
 			$expected['core.agavi_dir'] = AgaviConfig::get('core.agavi_dir');
@@ -191,11 +192,11 @@ class AgaviConfigTest extends AgaviPhpUnitTestCase
 
 	public function testFromArrayMergesButDoesNotOverwriteReadonlies()
 	{
-		$data = array('foo' => 'bar', 'bar' => 'baz', 'baz' => 'qux');
+		$data = ['foo' => 'bar', 'bar' => 'baz', 'baz' => 'qux'];
 		AgaviConfig::clear();
 		AgaviConfig::set('baz', 'lol', true, true);
 		AgaviConfig::fromArray($data);
-		$expected = array('baz' => 'lol') + $data;
+		$expected = ['baz' => 'lol'] + $data;
 		// core.agavi_dir is set as readonly when Agavi.php is loaded
 		if (AgaviConfig::has('core.agavi_dir')) {
 			$expected['core.agavi_dir'] = AgaviConfig::get('core.agavi_dir');

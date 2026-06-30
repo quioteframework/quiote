@@ -11,10 +11,10 @@
 ini_set('soap.wsdl_cache_enabled', 0);
 
 // this test.wsdl contains the URL to the service. You have to edit it to match your setup.
-$client = new SoapClient('http://localhost/~dzuelke/Code/oss/agavi/branches/1.0/samples/pub/products.wsdl', array(
+$client = new SoapClient('http://localhost/~dzuelke/Code/oss/agavi/branches/1.0/samples/pub/products.wsdl', [
 	/* so we can get last request and response */
 	'trace' => true,
-));
+]);
 ?>
 		<h2>getProduct()</h2>
 <?php
@@ -33,11 +33,11 @@ try {
 		</pre>
 		<h3>SOAP Request</h3>
 		<pre>
-<?php echo htmlspecialchars($client->__getLastRequest()); ?>
+<?php echo htmlspecialchars((string) $client->__getLastRequest()); ?>
 		</pre>
 		<h3>SOAP Response</h3>
 		<pre>
-<?php echo htmlspecialchars($client->__getLastResponse()); ?>
+<?php echo htmlspecialchars((string) $client->__getLastResponse()); ?>
 		</pre>
 		<hr />
 		<h2>listProducts()</h2>
@@ -54,11 +54,11 @@ try {
 		</pre>
 		<h3>SOAP Request</h3>
 		<pre>
-<?php echo htmlspecialchars($client->__getLastRequest()); ?>
+<?php echo htmlspecialchars((string) $client->__getLastRequest()); ?>
 		</pre>
 		<h3>SOAP Response</h3>
 		<pre>
-<?php echo htmlspecialchars($client->__getLastResponse()); ?>
+<?php echo htmlspecialchars((string) $client->__getLastResponse()); ?>
 		</pre>
 	</body>
 </html>

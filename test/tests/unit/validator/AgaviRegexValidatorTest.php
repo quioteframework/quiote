@@ -10,18 +10,18 @@ class AgaviRegexValidatorTest extends BaseValidatorTest
 
 	public function testExecute()
 	{
-		$good = array(
+		$good = [
 			'nnbb',
 			'nbb',
 			'nnnbb'
-		);
-		$bad = array(
+		];
+		$bad = [
 			'bb',
 			'nnnnbb',
 			'jdsakl'
-		);
-		$parameters = array('pattern' => '/^[n]{1,3}bb$/', 'match' => true);
-		$errors = array('' => $errorMsg = 'Some other error');
+		];
+		$parameters = ['pattern' => '/^[n]{1,3}bb$/', 'match' => true];
+		$errors = ['' => $errorMsg = 'Some other error'];
 		foreach($good as $value) {
 			$this->doTestExecute(AgaviRegexValidator::class, $value, AgaviValidator::SUCCESS, null, $errors, $parameters);
 		}

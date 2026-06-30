@@ -20,9 +20,10 @@ class AgaviDatabaseConfigHandlerTest extends ConfigHandlerTestBase
 	protected $databases;
 	protected $defaultDatabaseName;
 
-	public function setUp(): void
+	#[\Override]
+    public function setUp(): void
 	{
-		$this->databases = array();
+		$this->databases = [];
 	}
 	
 	protected function loadTestConfig($env = null) {
@@ -43,11 +44,11 @@ class AgaviDatabaseConfigHandlerTest extends ConfigHandlerTestBase
 		$this->loadTestConfig();
 
 		$this->assertInstanceOf('DCHTestDatabase', $this->databases['test1']);
-		$paramsExpected = array(
+		$paramsExpected = [
 			'host' => 'localhost1',
 			'user' => 'username1',
 			'config' => AgaviConfig::get('core.app_dir') . '/Config/project-conf.php',
-		);
+		];
 		$this->assertSame($paramsExpected, $this->databases['test1']->params);
 
 		$this->assertSame($this->databases['test1'], $this->databases[$this->defaultDatabaseName]);
@@ -58,11 +59,11 @@ class AgaviDatabaseConfigHandlerTest extends ConfigHandlerTestBase
 		$this->loadTestConfig('env2');
 
 		$this->assertInstanceOf('DCHTestDatabase', $this->databases['test1']);
-		$paramsExpected = array(
+		$paramsExpected = [
 			'host' => 'localhost1',
 			'user' => 'testuser1',
 			'config' => AgaviConfig::get('core.app_dir') . '/Config/project-conf.php',
-		);
+		];
 		$this->assertSame($paramsExpected, $this->databases['test1']->params);
 
 		$this->assertSame($this->databases['test2'], $this->databases[$this->defaultDatabaseName]);

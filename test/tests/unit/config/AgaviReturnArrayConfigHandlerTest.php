@@ -12,11 +12,11 @@ class AgaviReturnArrayConfigHandlerTest extends ConfigHandlerTestBase
 		$RACH = new AgaviReturnArrayConfigHandler();
 		$document = $this->parseConfiguration(AgaviConfig::get('core.config_dir') . '/tests/rach_mixed.xml');
 		$actual = $this->includeCode($RACH->execute($document));
-		$expected = array(
-			'section1' => array('One' => 'A', 'Two' => 'B', 'Three' => 'C'), 
-			'section2' => array('Three' => 'Z', 'Two' => 'Y', 'One' => 'X', 'value' => ''),
-			'section3' => array('One' => '1', 'Three' => '3', 'Two' => '2')
-		);
+		$expected = [
+			'section1' => ['One' => 'A', 'Two' => 'B', 'Three' => 'C'], 
+			'section2' => ['Three' => 'Z', 'Two' => 'Y', 'One' => 'X', 'value' => ''],
+			'section3' => ['One' => '1', 'Three' => '3', 'Two' => '2']
+		];
 		$this->assertSame($expected, $actual);
 	}
 
@@ -26,10 +26,10 @@ class AgaviReturnArrayConfigHandlerTest extends ConfigHandlerTestBase
 		$RACH = new AgaviReturnArrayConfigHandler();
 		$document = $this->parseConfiguration(AgaviConfig::get('core.config_dir') . '/tests/rach_attributes.xml');
 		$actual = $this->includeCode($RACH->execute($document));
-		$expected = array(
-			'section1' => array('One' => 'A', 'Two' => 'B', 'Three' => 'C', 'value' => ''), 
-			'section2' => array('Three' => AgaviConfig::get('core.config_dir'), 'Two' => false, 'One' => true, 'value' => ''),
-		);
+		$expected = [
+			'section1' => ['One' => 'A', 'Two' => 'B', 'Three' => 'C', 'value' => ''], 
+			'section2' => ['Three' => AgaviConfig::get('core.config_dir'), 'Two' => false, 'One' => true, 'value' => ''],
+		];
 		$this->assertSame($expected, $actual);
 	}
 
@@ -39,10 +39,10 @@ class AgaviReturnArrayConfigHandlerTest extends ConfigHandlerTestBase
 		$RACH = new AgaviReturnArrayConfigHandler();
 		$document = $this->parseConfiguration(AgaviConfig::get('core.config_dir') . '/tests/rach_tags.xml');
 		$actual = $this->includeCode($RACH->execute($document));
-		$expected = array(
-			'section1' => array('One' => 'A', 'Two' => 'B', 'Three' => 'C'), 
-			'section2' => array('Three' => 'Z', 'Two' => 'Y', 'One' => 'X'),
-		);
+		$expected = [
+			'section1' => ['One' => 'A', 'Two' => 'B', 'Three' => 'C'], 
+			'section2' => ['Three' => 'Z', 'Two' => 'Y', 'One' => 'X'],
+		];
 		$this->assertSame($expected, $actual);
 	}
 
@@ -52,51 +52,51 @@ class AgaviReturnArrayConfigHandlerTest extends ConfigHandlerTestBase
 		$document = $this->parseConfiguration(AgaviConfig::get('core.config_dir') . '/tests/rach_complex.xml');
 		$actual = $this->includeCode($RACH->execute($document));
 
-		$expected = array(
-			'cachings' => array(
-				'Browse' => array(
+		$expected = [
+			'cachings' => [
+				'Browse' => [
 					'enabled' => true,
 					'action' => AgaviConfig::get('core.app_dir'),
-					'groups' => array(
+					'groups' => [
 						'foo' => 'bar',
 						'categories' => '',
-						'id' => array(
+						'id' => [
 							'source' => 'request.parameter',
 							'value' => '',
-						),
-						'LANG' => array(
+						],
+						'LANG' => [
 							'source' => 'constant',
 							'value' => '',
-						),
-						'admin' => array(
+						],
+						'admin' => [
 							'source' => 'user.credential',
 							'value' => '',
-						),
-					),
-					'decorator' => array(
+						],
+					],
+					'decorator' => [
 						'include' => false,
-						'slots' => array(
+						'slots' => [
 							'breadcrumb',
-						),
-						'variables' => array(
+						],
+						'variables' => [
 							'bar' => 'baz',
 							'_title',
 							'_section',
-						),
-					),
-					'variables' => array(
-						'categoryId' => array(
+						],
+					],
+					'variables' => [
+						'categoryId' => [
 							'source' => 'request.attribute',
 							'value' => '',
-						),
-						'isRootCat' => array(
+						],
+						'isRootCat' => [
 							'source' => 'request.attribute',
 							'value' => '',
-						),
-					),
-				),
-			),
-		);
+						],
+					],
+				],
+			],
+		];
 		$this->assertEquals($expected, $actual);
 	}
 }

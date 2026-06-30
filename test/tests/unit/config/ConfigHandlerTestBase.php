@@ -13,7 +13,7 @@ abstract class ConfigHandlerTestBase extends AgaviPhpUnitTestCase
 		return $file;
 	}
 
-	protected function includeCode($code, $env = array())
+	protected function includeCode($code, $env = [])
 	{
 		extract($env);
 		$file = $this->getIncludeFile($code);
@@ -25,22 +25,22 @@ abstract class ConfigHandlerTestBase extends AgaviPhpUnitTestCase
 	protected function parseConfiguration($configFile, $xslFile = null, $environment = null) {
 		return AgaviXmlConfigParser::run(
 			$configFile,
-			$environment ? $environment : AgaviConfig::get('core.environment'),
+			$environment ?: AgaviConfig::get('core.environment'),
 			'',
-			array(
-				AgaviXmlConfigParser::STAGE_SINGLE => $xslFile ? array($xslFile) : array(),
-				AgaviXmlConfigParser::STAGE_COMPILATION => array(),
-			),
-			array(
-				AgaviXmlConfigParser::STAGE_SINGLE => array(
-					AgaviXmlConfigParser::STEP_TRANSFORMATIONS_BEFORE => array(),
-					AgaviXmlConfigParser::STEP_TRANSFORMATIONS_AFTER => array(),
-				),
-				AgaviXmlConfigParser::STAGE_COMPILATION => array(
-					AgaviXmlConfigParser::STEP_TRANSFORMATIONS_BEFORE => array(),
-					AgaviXmlConfigParser::STEP_TRANSFORMATIONS_AFTER => array()
-				),
-			)
+			[
+				AgaviXmlConfigParser::STAGE_SINGLE => $xslFile ? [$xslFile] : [],
+				AgaviXmlConfigParser::STAGE_COMPILATION => [],
+			],
+			[
+				AgaviXmlConfigParser::STAGE_SINGLE => [
+					AgaviXmlConfigParser::STEP_TRANSFORMATIONS_BEFORE => [],
+					AgaviXmlConfigParser::STEP_TRANSFORMATIONS_AFTER => [],
+				],
+				AgaviXmlConfigParser::STAGE_COMPILATION => [
+					AgaviXmlConfigParser::STEP_TRANSFORMATIONS_BEFORE => [],
+					AgaviXmlConfigParser::STEP_TRANSFORMATIONS_AFTER => []
+				],
+			]
 		);
 		
 	}

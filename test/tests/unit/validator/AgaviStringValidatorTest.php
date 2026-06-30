@@ -9,7 +9,7 @@ class AgaviStringValidatorTest extends BaseValidatorTest
 {
 	public function testExecute()
 	{
-		$good = array(
+		$good = [
 			'1',
 			'1.0',
 			'2222222222',
@@ -19,7 +19,7 @@ class AgaviStringValidatorTest extends BaseValidatorTest
 			'BOB',
 			'1.5B',
 			'%%!@#$%#'
-		);
+		];
 		$error = '';
 		foreach ($good as &$value) {
 			$this->doTestExecute(AgaviStringValidator::class, $value, AgaviValidator::SUCCESS);
@@ -28,23 +28,23 @@ class AgaviStringValidatorTest extends BaseValidatorTest
 
 	public function testExecuteMax()
 	{
-		$bad = array(
+		$bad = [
 			'12345',
 			'bbbbbbbb',
 			'12bb34bb56bb  z',
 			'      '
-		);
-		$good = array(
+		];
+		$good = [
 			'3',
 			'3.99',
 			'    '
-		);
-		$parameters = array(
+		];
+		$parameters = [
 			'max' => 4,
-		);
-		$errors = array(
+		];
+		$errors = [
 			'max' => $errorMsg = 'Some other error',
-		);
+		];
 		foreach ($good as &$value) {
 			$this->doTestExecute(AgaviStringValidator::class, $value, AgaviValidator::SUCCESS, null, $errors, $parameters);
 		}
@@ -55,22 +55,22 @@ class AgaviStringValidatorTest extends BaseValidatorTest
 
 	public function testExecuteMin()
 	{
-		$bad = array(
+		$bad = [
 			'5',
 			'4.',
 			'  '
-		);
-		$good = array(
+		];
+		$good = [
 			'333',
 			'3.9',
 			'     '
-		);
-		$parameters = array(
+		];
+		$parameters = [
 			'min' => 3,
-		);
-		$errors = array(
+		];
+		$errors = [
 			'min' => $errorMsg = 'Some other error',
-		);
+		];
 		foreach ($good as &$value) {
 			$this->doTestExecute(AgaviStringValidator::class, $value, AgaviValidator::SUCCESS, null, $errors, $parameters);
 		}

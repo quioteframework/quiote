@@ -97,7 +97,8 @@ abstract class AgaviFilter extends AgaviParameterHolder implements AgaviIFilter,
 	 * @author     Generated for FrankenPHP worker compatibility
 	 * @since      1.1.0
 	 */
-	public function reset(): void
+	#[\Override]
+    public function reset(): void
 	{
 		$this->context = null;
 		

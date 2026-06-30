@@ -7,7 +7,8 @@ require_once(__DIR__ . '/../Lib/Action/SandboxControllerTestsBaseAction.php');
 class SimpleActionAction extends SandboxControllerTestsBaseAction
 {
 	
-	public function isSimple()
+	#[\Override]
+    public function isSimple()
 	{
 		return true;
 	}
@@ -24,7 +25,8 @@ class SimpleActionAction extends SandboxControllerTestsBaseAction
 	 *                     executed.</li>
 	 *                   </ul>
 	 */
-	public function getDefaultViewName()
+	#[\Override]
+    public function getDefaultViewName()
 	{
 		return 'Success';
 	}

@@ -99,13 +99,13 @@ class AgaviFileTemplateLayer extends AgaviStreamTemplateLayer
 			return null;
 		} elseif(AgaviToolkit::isPathAbsolute($template)) {
 			// the template is an absolute path, ignore the dir
-			$directory = dirname($template);
-			$template = basename($template);
+			$directory = dirname((string) $template);
+			$template = basename((string) $template);
 		} else {
 			$directory = $this->getParameter('directory');
 		}
 		// treat the directory as sprintf format string and inject module name
-		$directory = AgaviToolkit::expandVariables($directory, array_merge(array_filter($this->getParameters(), 'is_scalar'), array_filter($this->getParameters(), 'is_null')));
+		$directory = AgaviToolkit::expandVariables($directory, array_merge(array_filter($this->getParameters(), is_scalar(...)), array_filter($this->getParameters(), is_null(...))));
 		
 		$this->setParameter('directory', $directory);
 		$this->setParameter('template', $template);

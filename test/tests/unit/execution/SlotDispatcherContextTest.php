@@ -13,7 +13,7 @@ class SlotDispatcherContextTest extends AgaviUnitTestCase
             fwrite(STDERR, "ERR[$errno] $errstr at $errfile:$errline\n");
             return false; // allow normal handling too
         });
-        register_shutdown_function(function(){
+        register_shutdown_function(function(): void{
             $e = error_get_last();
             if($e) { fwrite(STDERR, "SHUTDOWN: ".json_encode($e)."\n"); }
         });

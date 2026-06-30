@@ -56,18 +56,17 @@ class AgaviNotoperatorValidator extends AgaviOperatorValidator implements ResetI
 	}
 
 	/**
-	 * Adds a validation result for a given field.
-	 *
-	 * @param      AgaviValidator The validator.
-	 * @param      string The name of the field which has been validated.
-	 * @param      int    The result of the validation.
-	 *
-	 * @author     Dominik del Bondio <ddb@bitxtender.com>
-	 * @since      0.11.0
-	 *
-	 * @deprecated 1.0.0
-	 */
-	#[\Override]
+     * Adds a validation result for a given field.
+     *
+     * @param      AgaviValidator The validator.
+     * @param      string The name of the field which has been validated.
+     * @param      int    The result of the validation.
+     *
+     * @author     Dominik del Bondio <ddb@bitxtender.com>
+     * @since      0.11.0
+     */
+    #[\Override]
+    #[\Deprecated(message: '1.0.0')]
     public function addFieldResult($validator, $fieldname, $result)
 	{
 		// prevent reporting of any child validators
@@ -134,7 +133,8 @@ class AgaviNotoperatorValidator extends AgaviOperatorValidator implements ResetI
 		}
 	}	
 
-	public function reset() : void
+	#[\Override]
+    public function reset() : void
 	{
 		parent::reset();
 		$this->children = [];

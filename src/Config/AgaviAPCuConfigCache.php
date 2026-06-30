@@ -79,6 +79,7 @@ class AgaviAPCuConfigCache extends AgaviConfigCache
     /**
      * Override writeCacheFile to store compiled PHP in APCu instead of filesystem
      */
+    #[\Override]
     public static function writeCacheFile($config, $cache, $data, $append = false)
     {
         // If APCu is available, store ONLY in APCu (no filesystem writes)
@@ -115,6 +116,7 @@ class AgaviAPCuConfigCache extends AgaviConfigCache
      *  - 'APCU:' followed by raw PHP content — caller must eval('?>' . substr($result, 5))
      *    in its own scope so compiled code can reference caller-local variables.
      */
+    #[\Override]
     public static function checkConfig($config, $context = null)
     {
         if (self::isAvailable()) {
@@ -155,6 +157,7 @@ class AgaviAPCuConfigCache extends AgaviConfigCache
      * Drop-in replacement for AgaviConfigCache::load
      * Loads directly from APCu if available, otherwise falls back to normal loading
      */
+    #[\Override]
     public static function load($config, $context = null, $once = true)
     {
         $configKey = self::getConfigKey($config, $context);
@@ -328,7 +331,7 @@ class AgaviAPCuConfigCache extends AgaviConfigCache
                 
                 return true;
             }
-        } catch (\Exception $e) {
+        } catch (\Exception) {
             // Continue even if routing warmup fails
             return false;
         }
@@ -349,7 +352,7 @@ class AgaviAPCuConfigCache extends AgaviConfigCache
         if (class_exists('APCUIterator')) {
             $iterator = new \APCUIterator('/^agavi_/');
             
-            foreach ($iterator as $key => $value) {
+            foreach ($iterator as $value) {
                 $totalSize += $value['mem_size'] ?? 0;
             }
         }
@@ -504,6 +507,7 @@ class AgaviAPCuConfigCache extends AgaviConfigCache
     /**
      * Clear all APCu cached data
      */
+    #[\Override]
     public static function clear()
     {
         // Clear APCu cache
@@ -583,7 +587,7 @@ class AgaviAPCuConfigCache extends AgaviConfigCache
             }
             $ctx = AgaviContext::getInstance($context);
             return $ctx?->getLoggerManager()?->getLogger();
-        } catch (\Throwable $e) {
+        } catch (\Throwable) {
             return null; // Never let logging break cache behavior
         }
     }

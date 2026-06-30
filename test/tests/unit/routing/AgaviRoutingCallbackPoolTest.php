@@ -13,7 +13,7 @@ class AgaviRoutingCallbackPoolTest extends TestCase
     protected function setUp(): void
     {
         // Reset pool state before each test
-        $reflection = new ReflectionClass('Agavi\\Routing\\AgaviRoutingCallbackPool');
+        $reflection = new ReflectionClass(\Agavi\Routing\AgaviRoutingCallbackPool::class);
         $instancesProperty = $reflection->getStaticPropertyValue('instances');
         $reflection->setStaticPropertyValue('instances', []);
         $reflection->setStaticPropertyValue('accessCount', 0);
@@ -83,14 +83,14 @@ class AgaviRoutingCallbackPoolTest extends TestCase
     {
         // Clear pool first
         AgaviRoutingCallbackPool::clearPool();
-        
+
         // Make some requests
         $instance1 = AgaviRoutingCallbackPool::getInstance('stdClass', ['test' => 1]);
         $instance2 = AgaviRoutingCallbackPool::getInstance('stdClass', ['test' => 1]); // Should be cache hit
         $instance3 = AgaviRoutingCallbackPool::getInstance('stdClass', ['test' => 2]); // Should be cache miss
-        
+
         $stats = AgaviRoutingCallbackPool::getStats();
-        
+
         $this->assertGreaterThan(0, $stats['access_count']);
         $this->assertEquals(2, $stats['pool_size']); // Should have 2 different instances
     }
@@ -149,12 +149,12 @@ class AgaviRoutingCallbackPoolTest extends TestCase
             }
         };
         
-        $className = get_class($mockClass);
+        $className = $mockClass::class;
         $parameters = ['key' => 'value', 'number' => 42];
         
         // We can't directly test with mock classes in getInstance,
         // but we can verify the method exists and handles parameters
-        $reflection = new ReflectionClass('Agavi\\Routing\\AgaviRoutingCallbackPool');
+        $reflection = new ReflectionClass(\Agavi\Routing\AgaviRoutingCallbackPool::class);
         $method = $reflection->getMethod('getInstance');
         
         $this->assertTrue($method->isStatic());
@@ -200,19 +200,19 @@ class AgaviRoutingCallbackPoolTest extends TestCase
     public function testMemoryOptimization()
     {
         $initialMemory = memory_get_usage();
-        
+
         // Create many instances
         for ($i = 0; $i < 200; $i++) {
             AgaviRoutingCallbackPool::getInstance('stdClass', ['id' => $i]);
         }
-        
+
         $afterCreationMemory = memory_get_usage();
-        
+
         // Clear pool
         AgaviRoutingCallbackPool::clearPool();
-        
+
         $afterClearMemory = memory_get_usage();
-        
+
         // Memory should be managed efficiently
         $this->assertGreaterThan($initialMemory, $afterCreationMemory);
         // Note: Memory might not return to exactly initial due to PHP's memory management

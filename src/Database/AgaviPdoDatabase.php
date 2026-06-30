@@ -158,7 +158,8 @@ class AgaviPdoDatabase extends AgaviDatabase
 	 * Docker was running) the stale connection is nulled so that the next call to
 	 * getConnection() will reconnect transparently.
 	 */
-	public function ping(): bool
+	#[\Override]
+    public function ping(): bool
 	{
 		if ($this->connection === null) {
 			return true; // will connect lazily on first getConnection()

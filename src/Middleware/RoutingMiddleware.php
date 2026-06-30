@@ -18,7 +18,7 @@ use Agavi\Execution\HttpMethodMapper;
 #[\Agavi\Middleware\Attribute\AgaviMiddleware(phase: 'routing', priority: 0)]
 class RoutingMiddleware implements MiddlewareInterface
 {
-    public function __construct(private AgaviRouting $routing, private AgaviController $controller) {}
+    public function __construct(private readonly AgaviRouting $routing, private readonly AgaviController $controller) {}
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
@@ -58,7 +58,7 @@ class RoutingMiddleware implements MiddlewareInterface
                     AgaviDebugLogger::debug('[RoutingMiddleware] no module/action resolved for path=' . $path, $this->controller->getContext());
                 }
             }
-        } catch (\Symfony\Component\Routing\Exception\ResourceNotFoundException $e) {
+        } catch (\Symfony\Component\Routing\Exception\ResourceNotFoundException) {
             // Leave attributes unset; downstream could handle 404
             // optional debug removed
             if ($dbg) {

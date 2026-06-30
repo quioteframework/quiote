@@ -220,7 +220,8 @@ class AgaviConsoleResponse extends AgaviResponse
 	 * @author     Generated for FrankenPHP worker compatibility
 	 * @since      1.1.0
 	 */
-	public function reset(): void
+	#[\Override]
+    public function reset(): void
 	{
 		// Reset console-specific properties
 		$this->exitCode = 0;

@@ -66,7 +66,7 @@ class DispatchMiddlewareContextNonSimpleTest extends AgaviUnitTestCase
         $controller = $this->getContext()->getController();
         $security = new \Agavi\Middleware\SecurityMiddleware($controller);
         $dispatch = new DispatchMiddleware($controller);
-        $handler = new class($dispatch) implements \Psr\Http\Server\RequestHandlerInterface {
+        $handler = new readonly class($dispatch) implements \Psr\Http\Server\RequestHandlerInterface {
             public function __construct(private DispatchMiddleware $dispatch) {}
             public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface { return $this->dispatch->process($r, new class implements \Psr\Http\Server\RequestHandlerInterface { public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface { return (new Psr17Factory())->createResponse(500); } }); }
         };

@@ -38,8 +38,10 @@ class DispatchMiddlewareTest extends TestCase
         $ctx->method('getRouting')->willReturn($routing);
         // Minimal concrete response implementing abstract contract
         $globalResp = new class($cookies) extends \Agavi\Response\AgaviWebResponse {
-            private array $cookiesData; protected $redirect = null; private $hasRedirect = false; private $sent = false; private $headers = [];
-            public function __construct(array $cookies){ $this->cookiesData = $cookies; }
+            protected $redirect = null; private $hasRedirect = false; private $sent = false; private $headers = [];
+            public function __construct(private readonly array $cookiesData)
+            {
+            }
             public function getCookies(): array { return $this->cookiesData; }
             public function setRedirect($url, $statusCode = 302) { $this->redirect = [$url,$statusCode]; $this->hasRedirect = true; }
             public function getRedirect() { return $this->redirect; }
@@ -80,7 +82,7 @@ class DispatchMiddlewareTest extends TestCase
         // If signature differs, adjust via reflection fallback.
         try {
             return new ActionDescriptor('Foo', 'Bar', 'execute', 'html', $simple);
-        } catch (\ArgumentCountError $e) {
+        } catch (\ArgumentCountError) {
             $ref = new \ReflectionClass(ActionDescriptor::class);
             $ad = $ref->newInstanceWithoutConstructor();
             foreach ([
@@ -270,8 +272,8 @@ class DispatchMiddlewareTest extends TestCase
         $resp = $mw->process($req, $this->createStub(RequestHandlerInterface::class));
         $setCookies = $resp->getHeader('Set-Cookie');
         $this->assertNotEmpty($setCookies, 'Expected Set-Cookie headers to be present');
-        $this->assertTrue((bool)array_filter($setCookies, fn($h)=>str_contains($h, 'sid=abc123')));
-        $this->assertTrue((bool)array_filter($setCookies, fn($h)=>str_contains($h, 'prefs=light')));
+        $this->assertTrue((bool)array_filter($setCookies, fn($h)=>str_contains((string) $h, 'sid=abc123')));
+        $this->assertTrue((bool)array_filter($setCookies, fn($h)=>str_contains((string) $h, 'prefs=light')));
     }
 
     public function testSimpleCacheHitSkipsExecution()

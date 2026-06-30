@@ -14,12 +14,10 @@ class GeneratedTestRouting extends AgaviRouting
 {
     /** Map context => callable returning [RouteCollection, meta] */
     private static array $contextLoaders = [];
-    private string $activeContext;
 
-    public function __construct(string $context)
+    public function __construct(private readonly string $activeContext)
     {
-        $this->activeContext = $context;
-    // Ensure contexts are registered before parent constructor triggers build()
+        // Ensure contexts are registered before parent constructor triggers build()
     self::bootstrapDefaultContexts();
         parent::__construct();
     }
@@ -34,8 +32,8 @@ class GeneratedTestRouting extends AgaviRouting
         if(isset(self::$contextLoaders['test1'])) return; // already bootstrapped
         // Dynamically include generated route aggregators if present
         $map = [
-            'test1' => 'AgaviTestGeneratedTest1\\Routes',
-            'test2' => 'AgaviTestGeneratedTest2\\Routes',
+            'test1' => \AgaviTestGeneratedTest1\Routes::class,
+            'test2' => \AgaviTestGeneratedTest2\Routes::class,
         ];
         foreach($map as $ctx=>$cls){
             if(!class_exists($cls)) {
@@ -47,7 +45,7 @@ class GeneratedTestRouting extends AgaviRouting
                 if(is_file($candidate)) { require_once $candidate; }
             }
             if(class_exists($cls)) {
-                self::registerContext($ctx, static function() use ($cls){ return $cls::build(); });
+                self::registerContext($ctx, static fn() => $cls::build());
             }
         }
     }

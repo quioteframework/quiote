@@ -553,7 +553,7 @@ class AgaviDateTimeValidator extends AgaviValidator
 		return ($seconds * 1000.0) + (int)$local->format('v');
 	}
 
-	private const FIELD_KEY_ALIASES = [
+	private const array FIELD_KEY_ALIASES = [
 		'AGAVIDATEDEFINITIONS::YEAR' => ['field' => 'year'],
 		'YEAR' => ['field' => 'year'],
 		'Y' => ['field' => 'year'],
@@ -576,7 +576,7 @@ class AgaviDateTimeValidator extends AgaviValidator
 		'MILLISECONDS_IN_DAY' => ['field' => 'milliseconds_in_day'],
 	];
 
-	private const FIELD_KEY_NUMERIC = [
+	private const array FIELD_KEY_NUMERIC = [
 		1 => ['field' => 'year'],
 		2 => ['field' => 'month', 'zero_based' => true],
 		5 => ['field' => 'day'],

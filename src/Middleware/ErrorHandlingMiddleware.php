@@ -36,7 +36,7 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
             AgaviDebugLogger::debug('[ErrorHandlingMiddleware] processing request ' . (string)$request->getUri());
             return $handler->handle($request);
         } catch (Throwable $e) {
-            AgaviDebugLogger::error('[ErrorHandlingMiddleware] Caught exception ' . get_class($e) . ': ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
+            AgaviDebugLogger::error('[ErrorHandlingMiddleware] Caught exception ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
             return $this->renderExceptionResponse($request, $e);
         }
     }
@@ -215,7 +215,7 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
         $outputType = $request->getAttribute('output_type') ?? 'html';
         $forcePlain = str_contains($accept, 'text/plain') || $outputType === 'txt';
         $agaviDir = AgaviConfig::get('core.agavi_dir') ?: (__DIR__ . '/../..');
-        $baseDir = rtrim($agaviDir, '/') . '/Exception/templates';
+        $baseDir = rtrim((string) $agaviDir, '/') . '/Exception/templates';
         $candidates = [];
         if ($forcePlain) {
             $candidates[] = $baseDir . '/plaintext.php';
@@ -260,7 +260,7 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
     {
         // format: html|json, mode: production|development
         $agaviDir = AgaviConfig::get('core.agavi_dir') ?: (__DIR__ . '/../..');
-        $baseDir = rtrim($agaviDir, '/') . '/Exception/templates';
+        $baseDir = rtrim((string) $agaviDir, '/') . '/Exception/templates';
         $candidates = [];
         if ($format === 'html') {
             // new application-level templates stored under core.template_dir/exception

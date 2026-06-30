@@ -19,7 +19,7 @@ abstract class AgaviRouting
 	private array $meta = [];
 	private ?UrlMatcher $matcher;
 	// Symfony routing request context (renamed to avoid collision with AgaviContext)
-	private RequestContext $requestContext;
+	private readonly RequestContext $requestContext;
 	// Application context (Agavi framework) – exposed to subclasses as $this->context for legacy compatibility
 	protected ?AgaviContext $context = null;
 	// Compatibility shims / state
@@ -166,8 +166,8 @@ abstract class AgaviRouting
 			if ($script && $script[0] !== '/') { $script = '/' . $script; }
 			$inputPath = $this->input ?: ($this->requestContext->getPathInfo() ?: '/');
 			if ($inputPath === '') { $inputPath = '/'; }
-			if ($script && str_starts_with($inputPath, $script)) { $path = $inputPath; }
-			else { $path = rtrim($script, '/') . ($inputPath === '/' ? '' : $inputPath); if ($path === '') { $path = '/'; } }
+			if ($script && str_starts_with($inputPath, (string) $script)) { $path = $inputPath; }
+			else { $path = rtrim((string) $script, '/') . ($inputPath === '/' ? '' : $inputPath); if ($path === '') { $path = '/'; } }
 			$current = [];
 			foreach ($params as $k => $v) { if ($v !== null) { $current[$k] = $v; } }
 			$qs = http_build_query($current, '', '&');
@@ -188,8 +188,8 @@ abstract class AgaviRouting
 			$enc = rawurlencode((string)$val);
 			return str_replace('%21', '!', $enc);
 		}, $genPath);
-		$genPath = preg_replace('#//+#', '/', $genPath) ?? $genPath;
-		$genPath = rtrim($genPath, '/');
+		$genPath = preg_replace('#//+#', '/', (string) $genPath) ?? $genPath;
+		$genPath = rtrim((string) $genPath, '/');
 		if ($genPath === '') $genPath = '/';
 		if ($genPath[0] !== '/') $genPath = '/' . $genPath;
 		if (($options['omit_defaults'] ?? false) && $symRoute) {
@@ -213,10 +213,10 @@ abstract class AgaviRouting
 		if ($inputPath === '') {
 			$inputPath = '/';
 		}
-		if ($script && str_starts_with($inputPath, $script)) {
+		if ($script && str_starts_with($inputPath, (string) $script)) {
 			$path = $inputPath;
 		} else {
-			$path = rtrim($script, '/') . ($inputPath === '/' ? '' : $inputPath);
+			$path = rtrim((string) $script, '/') . ($inputPath === '/' ? '' : $inputPath);
 			if ($path === '') {
 				$path = '/';
 			}
@@ -260,7 +260,7 @@ abstract class AgaviRouting
 						return rtrim($scheme . '://' . $auth, '/');
 					}
 				}
-			} catch (\Throwable $e) { /* fall back to server vars */
+			} catch (\Throwable) { /* fall back to server vars */
 			}
 		}
 		$server = $_SERVER;
@@ -510,7 +510,7 @@ abstract class AgaviRouting
 				$pi = $this->requestContext->getPathInfo();
 				if ($pi !== '') { $this->input = $pi; }
 			}
-		} catch (\Throwable $e) { /* ignore */ }
+		} catch (\Throwable) { /* ignore */ }
 	}
 
 	/** Legacy startup() hook. Marks started, no heavy logic needed. */

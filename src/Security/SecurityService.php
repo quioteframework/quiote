@@ -10,7 +10,7 @@ use Agavi\Execution\ExecutionState;
  * middleware can set ExecutionState->securityDecision without requiring the
  * full execution container mutation path.
  */
-final class SecurityService
+final readonly class SecurityService
 {
     public function __construct(private AgaviController $controller) {}
 

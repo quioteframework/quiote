@@ -82,15 +82,15 @@ class AgaviConfigHandlersConfigHandler extends AgaviXmlConfigHandler
 			if(!$configuration->has('handlers')) {
 				continue;
 			}
-			
+
 			// let's do our fancy work
 			foreach($configuration->get('handlers') as $handler) {
 				$pattern = $handler->getAttribute('pattern');
-				
+
 				$category = AgaviToolkit::normalizePath(AgaviToolkit::expandDirectives($pattern));
-				
+
 				$class = $handler->getAttribute('class');
-				
+
 				$transformations = [
 					AgaviXmlConfigParser::STAGE_SINGLE => [],
 					AgaviXmlConfigParser::STAGE_COMPILATION => [],
@@ -102,7 +102,7 @@ class AgaviConfigHandlersConfigHandler extends AgaviXmlConfigHandler
 						$transformations[$for][] = $path;
 					}
 				}
-				
+
 				$validations = [
 					AgaviXmlConfigParser::STAGE_SINGLE => [
 						AgaviXmlConfigParser::STEP_TRANSFORMATIONS_BEFORE => [
@@ -155,7 +155,7 @@ class AgaviConfigHandlersConfigHandler extends AgaviXmlConfigHandler
 						$validations[$for][$step][$type][] = $path;
 					}
 				}
-				
+
 				$handlers[$category] ??= [
 						'parameters' => [],
 						];

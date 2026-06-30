@@ -49,7 +49,7 @@ class DispatchMiddleware implements MiddlewareInterface
 
     // Forward loop protection moved to SecurityMiddleware (forwardCount in ExecutionState)
 
-    public function __construct(private AgaviController $controller)
+    public function __construct(private readonly AgaviController $controller)
     {
         // Always use ActionExecutor; legacy container path removed unconditionally.
         $this->actionExecutor = new ActionExecutor($controller);
@@ -84,7 +84,7 @@ class DispatchMiddleware implements MiddlewareInterface
         if (!$actionInstance) {
             return false;
         }
-        $cls = get_class($actionInstance);
+        $cls = $actionInstance::class;
         if (array_key_exists($cls, self::$dynamicFlagsCache)) {
             return self::$dynamicFlagsCache[$cls];
         }
@@ -494,7 +494,7 @@ class DispatchMiddleware implements MiddlewareInterface
         }
         if (!getenv('DM_DEBUG_VERBOSE')) {
             foreach (['normalized single caching element', 'normalized cachings list', 'normalized views canonical', 'post-include config keys=', 'determined groups=', 'actionGroups=', 'view cacheability check', 'loaded action cache keys=', 'set view from action cache'] as $needle) {
-                if (str_contains($msg, $needle)) {
+                if (str_contains((string) $msg, $needle)) {
                     return;
                 }
             }

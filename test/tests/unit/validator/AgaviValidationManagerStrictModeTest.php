@@ -14,11 +14,13 @@ class AgaviValidationManagerStrictModeTest extends AgaviUnitTestCase
 {
     private $_context = null;
 
+    #[\Override]
     public function setUp(): void
     {
         $this->_context = $this->getContext();
     }
 
+    #[\Override]
     public function tearDown(): void
     {
         $this->_context = null;
@@ -27,49 +29,49 @@ class AgaviValidationManagerStrictModeTest extends AgaviUnitTestCase
     public function testModeRelaxedConvertedToStrict()
     {
         $vm = $this->_context->createInstanceFor('validation_manager');
-        
+
         // Initialize with MODE_RELAXED
         $vm->initialize($this->_context, ['mode' => AgaviValidationManager::MODE_RELAXED]);
-        
+
         // Should be converted to MODE_STRICT internally
         // Verify by checking that parameter whitelisting is enforced
         $request = $this->_context->getRequest();
         if ($request instanceof AgaviWebRequest) {
             $request->enforceValidatedParameters([]);
-            
+
             // With strict mode, unvalidated parameters should not be accessible
             $hasException = false;
             try {
                 $request->getParameter('unvalidated_param');
-            } catch (\Exception $e) {
+            } catch (\Exception) {
                 $hasException = true;
             }
-            
+
             // In strict mode, accessing unvalidated parameter should throw or return null
             $value = $request->getParameter('unvalidated_param', null);
             $this->assertNull($value, 'Unvalidated parameter should not be accessible in strict mode');
         }
-        
+
         $this->assertTrue(true); // Test passed initialization
     }
 
     public function testModeConditionalStillAccepted()
     {
         $vm = $this->_context->createInstanceFor('validation_manager');
-        
+
         // MODE_CONDITIONAL should still work
         $vm->initialize($this->_context, ['mode' => AgaviValidationManager::MODE_CONDITIONAL]);
-        
+
         $this->assertTrue(true); // No exception thrown
     }
 
     public function testModeStrictStillAccepted()
     {
         $vm = $this->_context->createInstanceFor('validation_manager');
-        
+
         // MODE_STRICT should still work
         $vm->initialize($this->_context, ['mode' => AgaviValidationManager::MODE_STRICT]);
-        
+
         $this->assertTrue(true); // No exception thrown
     }
 

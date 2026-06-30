@@ -14,7 +14,7 @@ class Products_IndexSuccessView extends AgaviSampleAppProductsBaseView
 	{
 		$products = $this->getAttribute('products');
 		
-		$ret = array();
+		$ret = [];
 		$ret[] = sprintf('+%\'-12s+%\'-32s+%\'-12s+', '', '', '');
 		$ret[] = sprintf('| %-10s | %-30s | %-10s |', 'ID:', 'Name:', 'Price:');
 		$ret[] = sprintf('+%\'-12s+%\'-32s+%\'-12s+', '', '', '');

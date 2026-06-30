@@ -26,7 +26,8 @@ class FormPopulationEngineTest extends AgaviUnitTestCase
 		$this->context = $this->getContext();
 	}
 
-	public function tearDown(): void
+	#[\Override]
+    public function tearDown(): void
 	{
 		$this->context = null;
 	}
@@ -112,7 +113,7 @@ class FormPopulationEngineTest extends AgaviUnitTestCase
 					'container' => function($element, array $errorStrings, array $errors) {
 						$html = '<ul>';
 						foreach($errors as $error) {
-							$html .= '<li>' . htmlspecialchars($error->getMessage()) . '</li>';
+							$html .= '<li>' . htmlspecialchars((string) $error->getMessage()) . '</li>';
 						}
 						$html .= '</ul>';
 						return $html;
@@ -133,7 +134,7 @@ class FormPopulationEngineTest extends AgaviUnitTestCase
 			'error_messages' => [
 				'self::*' => [
 					'location'  => 'before',
-					'container' => __CLASS__ . '::_errorCallback',
+					'container' => self::class . '::_errorCallback',
 				],
 			],
 			'validation_report' => $this->createValidationReport(['foo'], 'My error message'),

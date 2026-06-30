@@ -6,7 +6,7 @@ use Agavi\Exception\AgaviException;
 /**
  * SlotExecutionGuard centralizes recursion limit enforcement for slot dispatches.
  */
-final class SlotExecutionGuard
+final readonly class SlotExecutionGuard
 {
     public function __construct(private int $limit) {}
 

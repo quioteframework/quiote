@@ -34,10 +34,12 @@ class ValidationIncidentErrorTest extends AgaviUnitTestCase
         foreach ($errs as $e) {
             $this->assertSame($incident, $e->getIncident());
         }
-        // Deprecated/legacy hasFieldError internally relies on hasArgumentError (removed); instead assert via getFields
-        $this->assertContains('f1', $incident->getFields());
-        $this->assertContains('f2', $incident->getFields());
-        $this->assertSame(['f1', 'f2'], $incident->getFields());
+        // getArguments() is the modern replacement for the deprecated getFields();
+        // derive the field names from the argument objects.
+        $fieldNames = array_values(array_map(static fn($a) => $a->getName(), $incident->getArguments()));
+        $this->assertContains('f1', $fieldNames);
+        $this->assertContains('f2', $fieldNames);
+        $this->assertSame(['f1', 'f2'], $fieldNames);
     }
 
     public function testValidationErrorArgumentNormalizationAndLookup(): void

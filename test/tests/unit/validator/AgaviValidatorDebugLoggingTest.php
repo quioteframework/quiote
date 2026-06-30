@@ -12,6 +12,7 @@ use Agavi\Validator\AgaviValidator;
  */
 class AgaviValidatorDebugLoggingTest extends AgaviUnitTestCase
 {
+    #[\Override]
     public function tearDown(): void
     {
         DebugFlags::$validation = false;

@@ -5,34 +5,36 @@ use Agavi\User\AgaviRbacSecurityUser;
 
 class SimpleRbacSecurityUser extends AgaviRbacSecurityUser
 {
-	protected function loadDefinitions()
+	#[\Override]
+    protected function loadDefinitions()
 	{
-		$this->definitions = array(
-			'guest' => array(
-				'permissions' => array(
+		$this->definitions = [
+			'guest' => [
+				'permissions' => [
 					'products.list',
 					'products.view'
-				)
-			),
-			'member' => array(
+				]
+			],
+			'member' => [
 				'parent' => 'guest',
-				'permissions' => array(
+				'permissions' => [
 					'products.rate',
 					'products.comment'
-				)
-			),
-			'admin' => array(
+				]
+			],
+			'admin' => [
 				'parent' => 'member',
-				'permissions' => array(
+				'permissions' => [
 					'products.add',
 					'products.edit',
 					'products.remove'
-				)
-			)
-		);
+				]
+			]
+		];
 	}
 	
-	public function getCredentials()
+	#[\Override]
+    public function getCredentials()
 	{
 		return $this->credentials;
 	}
@@ -42,7 +44,8 @@ class AgaviRbacSecurityUserTest extends AgaviUnitTestCase
 {
 	private $_u = null;
 
-	public function setUp(): void
+	#[\Override]
+    public function setUp(): void
 	{
 		$this->_u = new SimpleRbacSecurityUser();
 		$this->_u->initialize($this->getContext());
@@ -50,33 +53,33 @@ class AgaviRbacSecurityUserTest extends AgaviUnitTestCase
 	
 	public function testRoles()
 	{
-		$this->assertEquals($this->_u->getRoles(), array());
+		$this->assertEquals($this->_u->getRoles(), []);
 		
 		$this->_u->grantRole('admin');
-		$this->assertEquals($this->_u->getRoles(), array('admin'));
-		$this->assertTrue($this->_u->hasCredentials(array('products.add', 'products.rate', 'products.view')));
+		$this->assertEquals($this->_u->getRoles(), ['admin']);
+		$this->assertTrue($this->_u->hasCredentials(['products.add', 'products.rate', 'products.view']));
 		
 		$this->_u->revokeRole('admin');
-		$this->assertEquals($this->_u->getRoles(), array());
+		$this->assertEquals($this->_u->getRoles(), []);
 		
 		$this->_u->grantRole('member');
-		$this->assertEquals($this->_u->getRoles(), array(1 => 'member'));
+		$this->assertEquals($this->_u->getRoles(), [1 => 'member']);
 		
-		$this->assertTrue($this->_u->hasCredentials(array('products.rate', 'products.view')));
+		$this->assertTrue($this->_u->hasCredentials(['products.rate', 'products.view']));
 		$this->assertFalse($this->_u->hasCredentials('products.edit'));
 		
 		$this->_u->grantRole('guest');
-		$this->assertEquals($this->_u->getRoles(), array(1 => 'member', 'guest'));
+		$this->assertEquals($this->_u->getRoles(), [1 => 'member', 'guest']);
 		$this->assertTrue($this->_u->hasCredentials('products.list'));
 		$this->assertFalse($this->_u->hasCredentials('products.add'));
 
 		$this->_u->revokeRole('member');
-		$this->assertEquals($this->_u->getRoles(), array(2 => 'guest'));
+		$this->assertEquals($this->_u->getRoles(), [2 => 'guest']);
 		$this->assertFalse($this->_u->hasCredentials('products.rate'));
 		
 		$this->_u->revokeAllRoles();
-		$this->assertEquals($this->_u->getRoles(), array());
-		$this->assertEquals($this->_u->getCredentials(), array());
+		$this->assertEquals($this->_u->getRoles(), []);
+		$this->assertEquals($this->_u->getCredentials(), []);
 	}
 }
 ?>

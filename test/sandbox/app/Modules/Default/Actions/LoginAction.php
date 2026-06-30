@@ -13,7 +13,8 @@ class LoginAction extends SandboxDefaultBaseAction
 		return 'Success';
 	}
 
-	public function getDefaultViewName()
+	#[\Override]
+    public function getDefaultViewName()
 	{
 		return 'Success';
 	}

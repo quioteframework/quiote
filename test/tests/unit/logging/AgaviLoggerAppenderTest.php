@@ -15,7 +15,8 @@ class Sample2Layout extends AgaviLoggerLayout
 
 class SampleAppender extends AgaviLoggerAppender
 {
-	public function initialize(AgaviContext $context, array $params = array()) {}
+	#[\Override]
+    public function initialize(AgaviContext $context, array $params = []) {}
 	public function shutdown() {}
 	public function write(AgaviLoggerMessage $message) {}
 }

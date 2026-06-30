@@ -10,7 +10,7 @@ use Psr\SimpleCache\InvalidArgumentException;
  */
 class FileCache implements AgaviCacheInterface
 {
-    public function __construct(private string $directory)
+    public function __construct(private readonly string $directory)
     {
         if (!is_dir($directory)) {
             @mkdir($directory, 0777, true);
@@ -38,7 +38,7 @@ class FileCache implements AgaviCacheInterface
         $f = $this->path($key);
         if (!is_file($f)) return $default;
         $val = $this->unserialize(@file_get_contents($f) ?: '0\nN;');
-        return $val === null ? $default : $val;
+        return $val ?? $default;
     }
     public function set(string $key, mixed $value, null|int|\DateInterval $ttl = null): bool
     {

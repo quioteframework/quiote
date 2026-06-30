@@ -57,9 +57,9 @@ use Agavi\Validator\AgaviValidator;
  */
 final class FormPopulationEngine
 {
-	public const ENCODING_UTF_8 = 'utf-8';
+	public const string ENCODING_UTF_8 = 'utf-8';
 
-	public const ENCODING_ISO_8859_1 = 'iso-8859-1';
+	public const string ENCODING_ISO_8859_1 = 'iso-8859-1';
 
 	private AgaviContext $context;
 
@@ -118,7 +118,7 @@ final class FormPopulationEngine
 			$cfg['skip'] = null;
 		}
 		if($cfg['skip'] !== null && count($cfg['skip'])) {
-			$skip = '/(\A' . str_replace('\[\]', '\[[^\]]*\]', implode('|\A', array_map('preg_quote', $cfg['skip'], array_fill(0, count($cfg['skip']), '/')))) . ')/';
+			$skip = '/(\A' . str_replace('\[\]', '\[[^\]]*\]', implode('|\A', array_map(preg_quote(...), $cfg['skip'], array_fill(0, count($cfg['skip']), '/')))) . ')/';
 		}
 
 		if($cfg['force_request_uri'] !== false) {
@@ -535,7 +535,7 @@ final class FormPopulationEngine
 					$value = $this->toUtf8($value, $encoding);
 				} else {
 					if(is_array($value)) {
-						$value = array_map('strval', $value);
+						$value = array_map(strval(...), $value);
 					} else {
 						$value = (string) $value;
 					}

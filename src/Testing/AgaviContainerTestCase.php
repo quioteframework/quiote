@@ -38,17 +38,17 @@ abstract class AgaviContainerTestCase extends AgaviFragmentTestCase
 	 * @var        string the name of the action to use
 	 */
 	protected $acionName;
-	
+
 	/**
 	 * @var        string the name of the module the action resides in
 	 */
 	protected $moduleName;
-	
+
 	/**
 	 * @var        AgaviResponse the response after the dispatch call
 	 */
 	protected $response;
-	
+
 	/**
 	 * dispatch the request
 	 *
@@ -71,7 +71,7 @@ abstract class AgaviContainerTestCase extends AgaviFragmentTestCase
 		// Response simulation: create an empty response equivalent.
 		$this->response = $context->getController()->getGlobalResponse();
 	}
-	
+
 	// Tag-based response assertions removed (legacy DOM matcher). Modern tests should inspect
 	// response content directly or use DOMDocument/XPath as needed.
 }

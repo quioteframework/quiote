@@ -181,24 +181,21 @@ class AgaviValidationIncident implements ResetInterface
 	
 	
 	/////////////////////////////////////////////////////////////////////////////
-	////////////////////////////// Deprecated Parts /////////////////////////////
-	/////////////////////////////////////////////////////////////////////////////
-	
-	
-	/**
-	 * Checks if any of the errors of this incident were thrown for the given 
-	 * field name.
-	 *
-	 * @param      string The field name.
-	 *
-	 * @return     bool The result.
-	 *
-	 * @author     Dominik del Bondio <ddb@bitxtender.com>
-	 * @since      0.11.0
-	 *
-	 * @deprecated 1.0.0
-	 */
-	public function hasFieldError($fieldname)
+    ////////////////////////////// Deprecated Parts /////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////
+    /**
+     * Checks if any of the errors of this incident were thrown for the given
+     * field name.
+     *
+     * @param      string The field name.
+     *
+     * @return     bool The result.
+     *
+     * @author     Dominik del Bondio <ddb@bitxtender.com>
+     * @since      0.11.0
+     */
+    #[\Deprecated(message: '1.0.0')]
+    public function hasFieldError($fieldname)
 	{
 		$argument = $this->hasArgumentError(new AgaviValidationArgument($fieldname));
 		foreach($this->errors as $error) {
@@ -211,16 +208,15 @@ class AgaviValidationIncident implements ResetInterface
 	}
 
 	/**
-	 * Retrieves a list of all fields of all the containing errors.
-	 *
-	 * @return     array An array of field names.
-	 *
-	 * @author     Dominik del Bondio <ddb@bitxtender.com>
-	 * @since      0.11.0
-	 *
-	 * @deprecated 1.0.0
-	 */
-	public function getFields()
+     * Retrieves a list of all fields of all the containing errors.
+     *
+     * @return     array An array of field names.
+     *
+     * @author     Dominik del Bondio <ddb@bitxtender.com>
+     * @since      0.11.0
+     */
+    #[\Deprecated(message: '1.0.0')]
+    public function getFields()
 	{
 		$fields = [];
 		foreach($this->errors as $error) {
@@ -231,18 +227,17 @@ class AgaviValidationIncident implements ResetInterface
 	}
 
 	/**
-	 * Retrieves the errors which were thrown for the given field.
-	 *
-	 * @param      string The field name.
-	 *
-	 * @return     array An array of AgaviValidationError.
-	 *
-	 * @author     Dominik del Bondio <ddb@bitxtender.com>
-	 * @since      0.11.0
-	 *
-	 * @deprecated 1.0.0
-	 */
-	public function getFieldErrors($fieldname)
+     * Retrieves the errors which were thrown for the given field.
+     *
+     * @param      string The field name.
+     *
+     * @return     array An array of AgaviValidationError.
+     *
+     * @author     Dominik del Bondio <ddb@bitxtender.com>
+     * @since      0.11.0
+     */
+    #[\Deprecated(message: '1.0.0')]
+    public function getFieldErrors($fieldname)
 	{
 		$argument = new AgaviValidationArgument($fieldname);
 		$errors = [];

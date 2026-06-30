@@ -14,13 +14,15 @@ class MyTestConfigHandler extends AgaviConfigHandler
 class AgaviConfigHandlerTest extends AgaviPhpUnitTestCase
 {
 	protected $ch = null;
-	public function setUp(): void
+	#[\Override]
+    public function setUp(): void
 	{
 		$this->ch = new MyTestConfigHandler();
 		$this->ch->initialize('MyValidationFile.mvf');
 	}
 
-	public function tearDown(): void
+	#[\Override]
+    public function tearDown(): void
 	{
 		$this->ch = null;
 	}

@@ -35,7 +35,7 @@ use Agavi\Routing\AgaviWebRouting;
 class AgaviTestingRouting extends AgaviWebRouting
 {
 	protected $forcedInput = null;
-	protected $errorActions = array();
+	protected $errorActions = [];
 	
 	/**
 	 * Set the input to use for routing
@@ -55,7 +55,8 @@ class AgaviTestingRouting extends AgaviWebRouting
 		$this->sources[$name] = new AgaviRoutingArraySource($data);
 	}
 	
-	public function parseRouteString(string $str): array
+	#[\Override]
+    public function parseRouteString(string $str): array
 	{
 		return parent::parseRouteString($str);
 	}

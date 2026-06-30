@@ -10,4 +10,4 @@ use Symfony\Component\Routing\Route;
  * by AgaviRouting.
  * Supported legacy keys: name, pattern, module, action, defaults (assoc), routes (children)
  */
-final class LegacyRouteTranslator { public static function translate(): void { throw new \RuntimeException('Legacy route translation removed'); } }
+final class LegacyRouteTranslator { public static function translate(): never { throw new \RuntimeException('Legacy route translation removed'); } }

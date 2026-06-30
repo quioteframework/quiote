@@ -133,7 +133,8 @@ class AgaviSimpleTranslator extends AgaviBasicTranslator implements ResetInterfa
 		$this->currentData = AgaviToolkit::getValueByKeyList($this->domainData, AgaviLocale::getLookupPath($this->locale->getIdentifier()), []);
 	}
 
-	public function reset() : void
+	#[\Override]
+    public function reset() : void
 	{
 		$this->context = null;
 		$this->domainData = [];

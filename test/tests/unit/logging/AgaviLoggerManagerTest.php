@@ -50,10 +50,10 @@ class AgaviLoggerManagerTest extends AgaviUnitTestCase
 		}
 		$this->_pl = new AgaviPassthruLoggerLayout;
 		$this->_fa = new AgaviFileLoggerAppender;
-		$this->_fa->initialize($this->_context, array('file' => $this->_logfile));
+		$this->_fa->initialize($this->_context, ['file' => $this->_logfile]);
 		$this->_fa->setLayout($this->_pl);
 		$this->_fa2 = new AgaviFileLoggerAppender;
-		$this->_fa2->initialize($this->_context, array('file' => $this->_logfile2));
+		$this->_fa2->initialize($this->_context, ['file' => $this->_logfile2]);
 		$this->_fa2->setLayout($this->_pl);
 		$this->_l = new AgaviLogger;
 		$this->_l->setLevel(AgaviLogger::INFO);
@@ -79,11 +79,11 @@ class AgaviLoggerManagerTest extends AgaviUnitTestCase
 
 	public function testGetLoggerNames()
 	{
-		$this->assertEquals(array(), $this->_lm->getLoggerNames());
+		$this->assertEquals([], $this->_lm->getLoggerNames());
 		$this->_lm->setLogger('logfile', $this->_l);
-		$this->assertEquals(array('logfile'), $this->_lm->getLoggerNames());
+		$this->assertEquals(['logfile'], $this->_lm->getLoggerNames());
 		$this->_lm->setLogger('logfile2', $this->_l2);
-		$this->assertEquals(array('logfile', 'logfile2'), $this->_lm->getLoggerNames());
+		$this->assertEquals(['logfile', 'logfile2'], $this->_lm->getLoggerNames());
 	}
 
 	public function testGetLogger()

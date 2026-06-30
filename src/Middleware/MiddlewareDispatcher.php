@@ -13,10 +13,10 @@ class MiddlewareDispatcher implements RequestHandlerInterface
 {
     /** @var MiddlewareInterface[] */
     private array $stack = [];
-    private RequestHandlerInterface $finalHandler;
 
-    public function __construct(RequestHandlerInterface $finalHandler)
-    { $this->finalHandler = $finalHandler; }
+    public function __construct(private readonly RequestHandlerInterface $finalHandler)
+    {
+    }
 
     public function add(MiddlewareInterface $mw): void { $this->stack[] = $mw; }
 
@@ -24,7 +24,7 @@ class MiddlewareDispatcher implements RequestHandlerInterface
     {
         $handler = array_reduce(
             array_reverse($this->stack),
-            fn(RequestHandlerInterface $next, MiddlewareInterface $mw) => new class($mw,$next) implements RequestHandlerInterface {
+            fn(RequestHandlerInterface $next, MiddlewareInterface $mw) => new readonly class($mw,$next) implements RequestHandlerInterface {
                 public function __construct(private MiddlewareInterface $mw, private RequestHandlerInterface $next) {}
                 public function handle(ServerRequestInterface $request): ResponseInterface { return $this->mw->process($request, $this->next); }
             },

@@ -23,8 +23,8 @@ use Agavi\Logging\AgaviDebugLogger;
 #[\Agavi\Middleware\Attribute\AgaviMiddleware(phase: 'bootstrap', after: 'TraceMiddleware', before: 'RoutingMiddleware', priority: 70)]
 class PayloadParsingMiddleware implements MiddlewareInterface
 {
-    private bool $strict;
-    private JsonPayload $json;
+    private readonly bool $strict;
+    private readonly JsonPayload $json;
 
     public function __construct(?bool $strict = null)
     {
@@ -39,7 +39,7 @@ class PayloadParsingMiddleware implements MiddlewareInterface
         // Debug: log basic request info to help trace unexpected payload parse errors
         try {
             $ct = $request->getHeaderLine('Content-Type');
-        } catch (\Throwable $_e) {
+        } catch (\Throwable) {
             $ct = '';
         }
     AgaviDebugLogger::debug(sprintf('[PayloadParsingMiddleware] start method=%s ct=%s parsedBody=%s', $request->getMethod(), $ct, $request->getParsedBody() ? '1' : '0'));

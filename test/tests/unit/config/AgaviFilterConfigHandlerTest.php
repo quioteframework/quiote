@@ -13,7 +13,7 @@ class FCHTestFilter1 implements AgaviIFilter
 	public $context;
 	public $params;
 
-	public function initialize(AgaviContext $ctx, array $params = array())
+	public function initialize(AgaviContext $ctx, array $params = [])
 	{
 		$this->context = $ctx;
 		$this->params = $params;
@@ -40,7 +40,8 @@ class AgaviFilterConfigHandlerTest extends ConfigHandlerTestBase
 		return $context;
 	}
 
-	public function setUp(): void
+	#[\Override]
+    public function setUp(): void
 	{
 		$this->context = $this->getContext();
 	}
@@ -56,7 +57,7 @@ class AgaviFilterConfigHandlerTest extends ConfigHandlerTestBase
 			AgaviConfig::get('core.agavi_dir') . '/Config/xsl/filters.xsl'
 		);
 
-		$filters = array();
+		$filters = [];
 
 		$file = $this->getIncludeFile($FCH->execute($document));
 		include($file);
@@ -65,11 +66,11 @@ class AgaviFilterConfigHandlerTest extends ConfigHandlerTestBase
 		$this->assertCount(2, $filters);
 
 		$this->assertInstanceOf('FCHTestFilter1', $filters['filter1']);
-		$this->assertSame(array('comment' => true), $filters['filter1']->params);
+		$this->assertSame(['comment' => true], $filters['filter1']->params);
 		$this->assertSame($ctx, $filters['filter1']->context);
 
 		$this->assertInstanceOf('FCHTestFilter2', $filters['filter2']);
-		$this->assertSame(array(), $filters['filter2']->params);
+		$this->assertSame([], $filters['filter2']->params);
 		$this->assertSame($ctx, $filters['filter2']->context);
 	}
 }

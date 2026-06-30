@@ -34,7 +34,7 @@ use Agavi\Logging\AgaviDebugLogger;
 final class ActionExecutor
 {
     public function __construct(
-        private AgaviController $controller,
+        private readonly AgaviController $controller,
         private ?ActionResolver $actionResolver = null,
         private ?ValidationService $validationService = null,
         private ?SecurityService $securityService = null,
@@ -242,7 +242,7 @@ final class ActionExecutor
                 }
             if ($dbg) {
                 $prefix = substr($content, 0, 120);
-                AgaviDebugLogger::debug('[ActionExecutor] view=' . get_class($view) . ' method=' . $method . ' contentLen=' . strlen($content) . ' prefix=' . $prefix, $this->controller->getContext());
+                AgaviDebugLogger::debug('[ActionExecutor] view=' . $view::class . ' method=' . $method . ' contentLen=' . strlen($content) . ' prefix=' . $prefix, $this->controller->getContext());
             }
         } else {
             if ($dbg) {
@@ -293,7 +293,7 @@ final class ActionExecutor
             );
             $view->initialize($vic);
             return $view;
-        } catch (\Throwable $e) {
+        } catch (\Throwable) {
             return null;
         }
     }

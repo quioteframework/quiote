@@ -26,7 +26,7 @@ final class RequestDiagnostics
                 AgaviDebugLogger::debug($msg);
             }
             self::$stages[] = [$stage, $id, microtime(true)];
-        } catch(\Throwable $e) {
+        } catch(\Throwable) {
             // swallow diagnostics errors
         }
     }

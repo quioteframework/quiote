@@ -24,7 +24,7 @@ class SlotCacheTest extends AgaviUnitTestCase
         $controller = $this->getContext()->getController();
         $controller->initializeModule('Cache');
         $controller->createActionInstance('Cache','Cache');
-    if(class_exists('Sandbox\\Modules\\Cache\\Actions\\CacheAction')) { \Sandbox\Modules\Cache\Actions\CacheAction::$execCount = 0; }
+    if(class_exists(\Sandbox\Modules\Cache\Actions\CacheAction::class)) { \Sandbox\Modules\Cache\Actions\CacheAction::$execCount = 0; }
     }
 
     protected function tearDown(): void
@@ -49,7 +49,7 @@ class SlotCacheTest extends AgaviUnitTestCase
         $dispatcher = $this->getContext()->getSlotDispatcher();
         $parent = (new ServerRequest('GET','http://localhost/'))
             ->withAttribute(SlotMiddleware::ATTR, new SlotStack());
-    if(class_exists('Sandbox\\Modules\\Cache\\Actions\\CacheAction')) { \Sandbox\Modules\Cache\Actions\CacheAction::$execCount = 0; }
+    if(class_exists(\Sandbox\Modules\Cache\Actions\CacheAction::class)) { \Sandbox\Modules\Cache\Actions\CacheAction::$execCount = 0; }
         $first = $dispatcher->dispatch($parent, 'Cache','Cache', ['k'=>'v']);
         $this->assertNotSame('', $first);
         $this->assertStringContainsString('CACHE_', $first);
@@ -65,7 +65,7 @@ class SlotCacheTest extends AgaviUnitTestCase
         $dispatcher = $this->getContext()->getSlotDispatcher();
         $parent = (new ServerRequest('GET','http://localhost/'))
             ->withAttribute(SlotMiddleware::ATTR, new SlotStack());
-    if(class_exists('Sandbox\\Modules\\Cache\\Actions\\CacheAction')) { \Sandbox\Modules\Cache\Actions\CacheAction::$execCount = 0; }
+    if(class_exists(\Sandbox\Modules\Cache\Actions\CacheAction::class)) { \Sandbox\Modules\Cache\Actions\CacheAction::$execCount = 0; }
     $dispatcher->dispatch($parent, 'Cache','Cache', ['p'=>'A']);
     $dispatcher->dispatch($parent, 'Cache','Cache', ['p'=>'B']);
     $this->assertSame(2, \Sandbox\Modules\Cache\Actions\CacheAction::$execCount, 'Distinct parameter sets should bypass cache and execute again');
@@ -78,7 +78,7 @@ class SlotCacheTest extends AgaviUnitTestCase
         $dispatcher = $this->getContext()->getSlotDispatcher();
         $parent = (new ServerRequest('GET','http://localhost/'))
             ->withAttribute(SlotMiddleware::ATTR, new SlotStack());
-    if(class_exists('Sandbox\\Modules\\Cache\\Actions\\CacheAction')) { \Sandbox\Modules\Cache\Actions\CacheAction::$execCount = 0; }
+    if(class_exists(\Sandbox\Modules\Cache\Actions\CacheAction::class)) { \Sandbox\Modules\Cache\Actions\CacheAction::$execCount = 0; }
         $dispatcher->dispatch($parent, 'Cache','Cache');
         $dispatcher->dispatch($parent, 'Cache','Cache');
     $this->assertSame(2, \Sandbox\Modules\Cache\Actions\CacheAction::$execCount, 'Without cache flag executions should not be short-circuited');

@@ -5,7 +5,9 @@ use Agavi\View\AgaviView;
 if(!class_exists('sample_SecureNonSimpleAction')) {
     class sample_SecureNonSimpleAction extends AgaviAction
     {
+        #[\Override]
         public function isSimple(): bool { return false; }
+        #[\Override]
         public function isSecure(): bool { return true; }
         public function executeRead() { return AgaviView::NONE; }
     }

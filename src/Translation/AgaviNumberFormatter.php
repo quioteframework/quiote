@@ -175,7 +175,8 @@ class AgaviNumberFormatter extends AgaviDecimalFormatter implements AgaviITransl
 		$this->setFormat($format);
 	}
 
-	public function reset() : void
+	#[\Override]
+    public function reset() : void
 	{
 		$this->context = null;
 		$this->locale = null;

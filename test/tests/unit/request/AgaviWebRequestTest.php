@@ -8,9 +8,10 @@ use Nyholm\Psr7\Stream;
 class AgaviWebRequestTest extends AgaviUnitTestCase
 {
 	private $_r = null;
-	private $_SERVER = array();
+	private $_SERVER = [];
 
-	public function setUp(): void
+	#[\Override]
+    public function setUp(): void
 	{
 		$this->_SERVER = $_SERVER;
 		
@@ -119,7 +120,8 @@ class AgaviWebRequestTest extends AgaviUnitTestCase
 		$this->assertSame($raw, $bodyStream->getContents());
 	}
 
-	public function tearDown(): void
+	#[\Override]
+    public function tearDown(): void
 	{
 		$_SERVER = $this->_SERVER;
 	}

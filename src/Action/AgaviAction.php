@@ -62,11 +62,10 @@ abstract class AgaviAction implements ResetInterface
 	}
 
 	/**
-	 * Backward compatible accessor (legacy name) for the init context.
-	 *
-	 * @deprecated Will be removed once all userland code migrates to getInitContext().
-	 */
-	public final function getContainer()
+     * Backward compatible accessor (legacy name) for the init context.
+     */
+    #[\Deprecated(message: 'Will be removed once all userland code migrates to getInitContext().')]
+    public final function getContainer()
 	{
 		return $this->initContext;
 	}

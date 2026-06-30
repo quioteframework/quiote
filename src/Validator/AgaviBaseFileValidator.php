@@ -128,10 +128,7 @@ abstract class AgaviBaseFileValidator extends AgaviValidator
 				if(!is_array($extensions)) {
 					$extensions = explode(' ', (string) $this->getParameter('extension'));
 				}
-				$extOk = false;
-				foreach($extensions as $extension) {
-					if(strtolower((string)$extension) === strtolower($fileinfo['extension'])) { $extOk = true; break; }
-				}
+                $extOk = array_any($extensions, fn($extension) => strtolower((string)$extension) === strtolower($fileinfo['extension']));
 				if(!$extOk) {
 					$this->throwError('extension');
 					return false;

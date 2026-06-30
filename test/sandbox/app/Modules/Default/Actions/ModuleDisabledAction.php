@@ -17,7 +17,8 @@ class ModuleDisabledAction extends SandboxDefaultBaseAction
 	 *                     executed.</li>
 	 *                   </ul>
 	 */
-	public function getDefaultViewName()
+	#[\Override]
+    public function getDefaultViewName()
 	{
 		return 'Success';
 	}

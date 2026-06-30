@@ -9,11 +9,11 @@ namespace Agavi\Execution;
  *  - passed: validation executed successfully
  *  - failed: validation executed and failed (errors available)
  */
-final class ValidationDecision
+final readonly class ValidationDecision
 {
     private function __construct(
-        public readonly string $state, // 'pending' | 'passed' | 'failed'
-        public readonly array $errors = []
+        public string $state, // 'pending' | 'passed' | 'failed'
+        public array $errors = []
     ) {}
 
     public static function pending(): self { return new self('pending'); }

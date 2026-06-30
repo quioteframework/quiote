@@ -121,7 +121,7 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 			$cfg['skip'] = null;
 		}
 		if($cfg['skip'] !== null && count($cfg['skip'])) {
-			$skip = '/(\A' . str_replace('\[\]', '\[[^\]]*\]', implode('|\A', array_map('preg_quote', $cfg['skip'], array_fill(0, count($cfg['skip']), '/')))) . ')/';
+			$skip = '/(\A' . str_replace('\[\]', '\[[^\]]*\]', implode('|\A', array_map(preg_quote(...), $cfg['skip'], array_fill(0, count($cfg['skip']), '/')))) . ')/';
 		}
 
 		if($cfg['force_request_uri'] !== false) {
@@ -538,7 +538,7 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 					$value = $this->toUtf8($value, $encoding);
 				} else {
 					if(is_array($value)) {
-						$value = array_map('strval', $value);
+						$value = array_map(strval(...), $value);
 					} else {
 						$value = (string) $value;
 					}
@@ -1107,7 +1107,8 @@ class AgaviFormPopulationFilter extends AgaviFilter implements AgaviIGlobalFilte
 		FormPopulationConfig::seed($this->context->getRequest(), $this->getParameters());
 	}
 
-	public function reset() : void {
+	#[\Override]
+    public function reset() : void {
 		$this->doc = null;
 		$this->xpath = null;
 		$this->xmlnsPrefix = null;

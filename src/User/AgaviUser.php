@@ -238,7 +238,8 @@ class AgaviUser extends AgaviAttributeHolder implements ResetInterface
 		}
 	}
 
-	public function reset(): void
+	#[\Override]
+    public function reset(): void
 	{
 		$this->context = null;
 		$this->parameters = [];

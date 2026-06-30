@@ -54,15 +54,15 @@ class AgaviOlsonCompileTask extends Task
 
 		$this->log("Building compiling olson files in {$this->olsonDir} to {$this->outputDir}", PROJECT_MSG_INFO);
 
-		$links = array();
-		$zones = array();
+		$links = [];
+		$zones = [];
 
 		$di = new DirectoryIterator($this->olsonDir);
 		foreach($di as $file) {
 			if($file->isFile()) {
 				// the file doesn't contain an extension so we parse it
 				// and we don't want the factory time zone
-				if(strpos($file->getFilename(), '.') === false && $file->getFilename() != 'factory') {
+				if(!str_contains($file->getFilename(), '.') && $file->getFilename() != 'factory') {
 					$this->log(sprintf('compiling %s', $file->getPathname()), PROJECT_MSG_INFO);
 					$parser = new AgaviTimeZoneDataParser();
 					$parser->initialize(AgaviContext::getInstance($context));
@@ -94,7 +94,7 @@ return %s;
 
 ?>';
 
-		$zoneList = array();
+		$zoneList = [];
 
 
 		foreach($zones as $name => $zone) {
@@ -106,7 +106,7 @@ return %s;
 			$pathname = $this->outputDir . '/' . $fname;
 			$zone['name'] = $name;
 
-			$zoneList[$name] = array('type' => 'zone', 'filename' => $fname);
+			$zoneList[$name] = ['type' => 'zone', 'filename' => $fname];
 			$this->log('Writing zone ' . $name . ' to: ' . $pathname);
 			file_put_contents(
 				$pathname,
@@ -128,7 +128,7 @@ return %s;
 
 		foreach($links as $from => $to) {
 			echo "LINK FROM $from TO $to\n";
-			$zoneList[$from] = array('type' => 'link', 'to' => $to);
+			$zoneList[$from] = ['type' => 'link', 'to' => $to];
 		}
 
 		$this->log('Writing zone listing to: ' . $this->outputDir . '/zonelist.php');

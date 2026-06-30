@@ -5,33 +5,33 @@ use PHPUnit\Framework\Attributes\DataProvider;
 
 class ProductFinderModelTest extends AgaviUnitTestCase
 {
-	protected static $products = array(
-		array(
+	protected static $products = [
+		[
 			'id'    => 8172401,
 			'name'  => 'TPS Report Cover Sheet',
 			'price' => 0.89,
-		),
-		array(
+		],
+		[
 			'id'    => 917246,
 			'name'  => 'Weighted Companion Cube',
 			'price' => 129.99,
-		),
-		array(
+		],
+		[
 			'id'    => 7856122,
 			'name'  => 'Longcat',
 			'price' => 14599,
-		),
-		array(
+		],
+		[
 			'id'    => 123456,
 			'name'  => 'Red Stapler',
 			'price' => 3.14,
-		),
-		array(
+		],
+		[
 			'id'    => 3165463,
 			'name'  => 'Sildenafil Citrate',
 			'price' => 14.69,
-		),
-	);
+		],
+	];
 	
 	#[DataProvider('productNamePrices')]
 	public function testValidProductPricesByName($productName, $price)
@@ -42,12 +42,12 @@ class ProductFinderModelTest extends AgaviUnitTestCase
 	
 	public static function productNamePrices()
 	{
-		$retval = array();
+		$retval = [];
 		foreach(self::$products as $product) {
-			$retval[$product['name']] = array(
+			$retval[$product['name']] = [
 				$product['name'],
 				$product['price'],
-			);
+			];
 		}
 		return $retval;
 	}
@@ -61,12 +61,12 @@ class ProductFinderModelTest extends AgaviUnitTestCase
 	
 	public static function productIdPrices()
 	{
-		$retval = array();
+		$retval = [];
 		foreach(self::$products as $product) {
-			$retval[$product['name']] = array(
+			$retval[$product['name']] = [
 				$product['id'],
 				$product['price'],
-			);
+			];
 		}
 		return $retval;
 	}
@@ -80,13 +80,13 @@ class ProductFinderModelTest extends AgaviUnitTestCase
 	
 	public static function productInfoPrices()
 	{
-		$retval = array();
+		$retval = [];
 		foreach(self::$products as $product) {
-			$retval[$product['name']] = array(
+			$retval[$product['name']] = [
 				$product['id'],
 				$product['name'],
 				$product['price'],
-			);
+			];
 		}
 		return $retval;
 	}

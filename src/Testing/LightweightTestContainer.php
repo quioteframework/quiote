@@ -93,7 +93,7 @@ class LightweightTestContainer
     public function getValidationManager(): object {
         if ($this->validationManager === null) {
             // Build a stub manager lazily (same shape: has getReport() returning object with required methods)
-            $this->validationManager = new class {
+            $this->validationManager = new readonly class {
                 private object $report;
                 public function __construct()
                 {

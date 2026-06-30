@@ -17,9 +17,9 @@ class Products_Product_ViewErrorView extends AgaviSampleAppProductsBaseView
 	public function executeJson(AgaviRequestDataHolder $rd)
 	{
 		return json_encode(
-			array(
+			[
 				'_error' => 404,
-			)
+			]
 		);
 	}
 	
@@ -45,7 +45,7 @@ class Products_Product_ViewErrorView extends AgaviSampleAppProductsBaseView
 	 */
 	public function executeXmlrpc(AgaviRequestDataHolder $rd)
 	{
-		return array('faultCode' => 101, 'faultString' => 'Unknown Product ' . $rd->getParameter('id'));
+		return ['faultCode' => 101, 'faultString' => 'Unknown Product ' . $rd->getParameter('id')];
 	}
 }
 

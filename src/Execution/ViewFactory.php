@@ -11,7 +11,7 @@ use Agavi\Request\AgaviWebRequest;
  */
 class ViewFactory
 {
-    public function __construct(private AgaviController $controller) {}
+    public function __construct(private readonly AgaviController $controller) {}
 
     /**
      * Create and initialize a view.

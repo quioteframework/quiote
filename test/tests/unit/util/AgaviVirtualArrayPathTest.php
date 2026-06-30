@@ -82,34 +82,34 @@ class AgaviVirtualArrayPathTest extends AgaviPhpUnitTestCase
 		$obj->push("baz");
 		$this->assertEquals('path', $obj->get(0));
 		$this->assertEquals('baz', $obj->get(1));
-		$this->assertEquals(array('path', 'baz'), $obj->getParts());
+		$this->assertEquals(['path', 'baz'], $obj->getParts());
 		$obj->push('boo');
 		$this->assertEquals('path', $obj->get(0));
 		$this->assertEquals(3, $obj->length());
 		$this->assertEquals('path', $obj->get(0));
 		$this->assertEquals('baz', $obj->get(1));
 		$this->assertEquals('boo', $obj->get(2));
-		$this->assertEquals(array('path', 'baz', 'boo'), $obj->getParts());
+		$this->assertEquals(['path', 'baz', 'boo'], $obj->getParts());
 	}
 
 	public function testGetParts2()
 	{
 		$obj = new AgaviVirtualArrayPath("path[jump]");
-		$this->assertEquals(array('path', 'jump'), $obj->getParts());
+		$this->assertEquals(['path', 'jump'], $obj->getParts());
 		$obj->push("baz");
-		$this->assertEquals(array('path', 'jump', 'baz'), $obj->getParts());
+		$this->assertEquals(['path', 'jump', 'baz'], $obj->getParts());
 		$obj->push('boo');
-		$this->assertEquals(array('path', 'jump', 'baz', 'boo'), $obj->getParts());
+		$this->assertEquals(['path', 'jump', 'baz', 'boo'], $obj->getParts());
 		$obj->push(3);
-		$this->assertEquals(array('path', 'jump', 'baz', 'boo', '3'), $obj->getParts());
+		$this->assertEquals(['path', 'jump', 'baz', 'boo', '3'], $obj->getParts());
 	}
 
 	public function testPushRetNew()
 	{
 		$obj = new AgaviVirtualArrayPath("path");
 		$newobj = $obj->pushRetNew("baz[boo]");
-		$this->assertEquals(array('path', 'baz', 'boo'), $newobj->getParts());
-		$this->assertEquals(array('path'), $obj->getParts());
+		$this->assertEquals(['path', 'baz', 'boo'], $newobj->getParts());
+		$this->assertEquals(['path'], $obj->getParts());
 		$this->assertEquals('path', $newobj->get(0));
 		$this->assertEquals('baz', $newobj->get(1));
 		$this->assertEquals('boo', $newobj->get(2));
@@ -145,13 +145,13 @@ class AgaviVirtualArrayPathTest extends AgaviPhpUnitTestCase
 	public function testHasValue()
 	{
 		$obj = new AgaviVirtualArrayPath("path[jump][sip]");
-		$array = array(
-			"path" => array(
-				"jump" => array (
+		$array = [
+			"path" => [
+				"jump" =>  [
 					"sip" => "whatever"
-				)
-			)
-		);
+				]
+			]
+		];
 		$this->assertTrue($obj->hasValue($array));
 
 		$obj2 = new AgaviVirtualArrayPath("path");
@@ -201,34 +201,34 @@ class AgaviVirtualArrayPathTest extends AgaviPhpUnitTestCase
 		$this->assertEquals('front', $obj->get(0));
 		$this->assertEquals('path', $obj->get(1));
 		$this->assertEquals('front', $obj->left(true));
-		$this->assertEquals(array('front', 'path', 'jump'), $obj->getParts());
+		$this->assertEquals(['front', 'path', 'jump'], $obj->getParts());
 		$obj->unshift('again');
 		$this->assertEquals(4, $obj->length());
 		$this->assertEquals('again', $obj->get(0));
 		$this->assertEquals('front', $obj->get(1));
 		$this->assertEquals('path', $obj->get(2));
 		$this->assertEquals('jump', $obj->get(3));
-		$this->assertEquals(array('again', 'front', 'path', 'jump'), $obj->getParts());
+		$this->assertEquals(['again', 'front', 'path', 'jump'], $obj->getParts());
 		$obj->shift();
 		$this->assertEquals('front', $obj->left());
-		$this->assertEquals(array('front', 'path', 'jump'), $obj->getParts());
+		$this->assertEquals(['front', 'path', 'jump'], $obj->getParts());
 	}
 
 	public function testGetValue()
 	{
-		$array = array(
-			"path" => array(
-				"jump" => array (
+		$array = [
+			"path" => [
+				"jump" =>  [
 					"sip" => "whatever"
-				)
-			)
-		);
-		$default = array('more' => 'less');
+				]
+			]
+		];
+		$default = ['more' => 'less'];
 		$obj = new AgaviVirtualArrayPath("path[jump]");
-		$this->assertEquals(array('sip' => 'whatever'), $obj->getValue($array));
+		$this->assertEquals(['sip' => 'whatever'], $obj->getValue($array));
 		$obj2 = new AgaviVirtualArrayPath("path");
-		$this->assertEquals(array('jump' => array('sip' => 'whatever')), $obj2->getValue($array));
-		$this->assertEquals(array('jump' => array('sip' => 'whatever')), $obj2->getValue($array, $default));
+		$this->assertEquals(['jump' => ['sip' => 'whatever']], $obj2->getValue($array));
+		$this->assertEquals(['jump' => ['sip' => 'whatever']], $obj2->getValue($array, $default));
 		$obj3 = new AgaviVirtualArrayPath("");
 		$this->assertEquals($array, $obj3->getValue($array));
 		$obj4 = new AgaviVirtualArrayPath("notthere");
@@ -240,19 +240,19 @@ class AgaviVirtualArrayPathTest extends AgaviPhpUnitTestCase
 
 	public function testSetValue()
 	{
-		$array = array(
-			"path" => array(
-				"jump" => array (
+		$array = [
+			"path" => [
+				"jump" =>  [
 					"sip" => "whatever"
-				)
-			)
-		);
-		$array2 = array(
-			"path" => array(
+				]
+			]
+		];
+		$array2 = [
+			"path" => [
 				"jump" => 'nothing'
-			)
-		);
-		$value = array('az' => 'ti');
+			]
+		];
+		$value = ['az' => 'ti'];
 		$obj = new AgaviVirtualArrayPath("path[jump]");
 		$obj->setValue($array, $value);
 		$this->assertEquals($value, $obj->getValue($array));
@@ -261,48 +261,48 @@ class AgaviVirtualArrayPathTest extends AgaviPhpUnitTestCase
 
 	public function testGetValueByChildPath()
 	{
-		$array = array(
-			"path" => array(
-				"jump" => array (
+		$array = [
+			"path" => [
+				"jump" =>  [
 					"sip" => "whatever"
-				)
-			)
-		);
-		$default = array('more' => 'less');
+				]
+			]
+		];
+		$default = ['more' => 'less'];
 		$path = 'sip';
 		$obj = new AgaviVirtualArrayPath("path[jump]");
 		$this->assertEquals('whatever', $obj->getValueByChildPath($path, $array));
 		$obj2 = new AgaviVirtualArrayPath("path");
 		$path2 = "jump";
-		$this->assertEquals(array("sip" => "whatever"), $obj2->getValueByChildPath($path2, $array));
+		$this->assertEquals(["sip" => "whatever"], $obj2->getValueByChildPath($path2, $array));
 	}
 
 	public function testSetValueByChildPath()
 	{
-		$array = array(
-			"path" => array(
-				"jump" => array (
+		$array = [
+			"path" => [
+				"jump" =>  [
 					"sip" => "whatever"
-				)
-			)
-		);
-		$default = array('more' => 'less');
+				]
+			]
+		];
+		$default = ['more' => 'less'];
 		$path = 'sip';
 		$value = 'sup';
 		$obj = new AgaviVirtualArrayPath("path[jump]");
 		$obj->setValueByChildPath($path, $array, $value);
-		$this->assertEquals(array('sip' => 'sup'), $obj->getValue($array));
+		$this->assertEquals(['sip' => 'sup'], $obj->getValue($array));
 	}
 
 	public function testHasValueByChildPath()
 	{
-		$array = array(
-			"path" => array(
-				"jump" => array (
+		$array = [
+			"path" => [
+				"jump" =>  [
 					"sip" => "whatever"
-				)
-			)
-		);
+				]
+			]
+		];
 		$obj = new AgaviVirtualArrayPath("path[jump]");
 		$this->assertTrue($obj->hasValueByChildPath('[sip]', $array));
 

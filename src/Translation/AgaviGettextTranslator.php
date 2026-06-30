@@ -307,7 +307,8 @@ class AgaviGettextTranslator extends AgaviBasicTranslator implements ResetInterf
 		$this->domainData[$domain] = ['headers' => $headers, 'msgs' => $data];
 	}
 
-	public function reset() : void
+	#[\Override]
+    public function reset() : void
 	{
 		$this->context = null;
 		$this->domainPathPattern = null;

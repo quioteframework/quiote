@@ -172,7 +172,7 @@ class AgaviConfigCache
 			foreach(self::$handlers as $key => $value)	{
 				// Use pre-compiled pattern if available, otherwise compile and cache
 				if (!isset(self::$compiledHandlerPatterns[$key])) {
-					self::$compiledHandlerPatterns[$key] = sprintf('#%s#', str_replace('\*', '.*?', preg_quote($key, '#')));
+					self::$compiledHandlerPatterns[$key] = sprintf('#%s#', str_replace('\*', '.*?', preg_quote((string) $key, '#')));
 				}
 
 				if(preg_match(self::$compiledHandlerPatterns[$key], (string) $name)) {
@@ -437,7 +437,7 @@ class AgaviConfigCache
 		
 		// manually create our config_handlers.xml handler
 		self::$handlers['config_handlers.xml'] = [
-			'class' => 'Agavi\\Config\\AgaviConfigHandlersConfigHandler',
+			'class' => \Agavi\Config\AgaviConfigHandlersConfigHandler::class,
 			'parameters' => [
 			],
 			'transformations' => [
@@ -578,29 +578,30 @@ class AgaviConfigCache
 	}
 
 	/**
-	 * Parses a config file with the ConfigParser for the extension of the given
-	 * file.
-	 *
-	 * @param      string An absolute filesystem path to a configuration file.
-	 * @param      bool   Whether the config parser class should be autoloaded if
-	 *                    the class doesn't exist.
-	 * @param      string A path to a validation file for this config file.
-	 * @param      string A class name which specifies an parser to be used.
-	 *
-	 * @return     AgaviConfigValueHolder An abstract representation of the
-	 *                                    config file.
-	 *
-	 * @throws     <b>AgaviConfigurationException</b> If the parser for the
-	 *             extension couldn't be found.
-	 *
-	 * @author     Dominik del Bondio <ddb@bitxtender.com>
-	 * @author     David Zülke <dz@bitxtender.com>
-	 * @since      0.11.0
-	 *
-	 * @deprecated New-style config handlers don't call this method anymore. To be
-	 *             removed in Agavi 1.1
-	 */
-	public static function parseConfig($config, $autoloadParser = true, $validationFile = null, $parserClass = null)
+     * Parses a config file with the ConfigParser for the extension of the given
+     * file.
+     *
+     * @param      string An absolute filesystem path to a configuration file.
+     * @param      bool   Whether the config parser class should be autoloaded if
+     *                    the class doesn't exist.
+     * @param      string A path to a validation file for this config file.
+     * @param      string A class name which specifies an parser to be used.
+     *
+     * @return     AgaviConfigValueHolder An abstract representation of the
+     *                                    config file.
+     *
+     * @throws     <b>AgaviConfigurationException</b> If the parser for the
+     *             extension couldn't be found.
+     *
+     * @author     Dominik del Bondio <ddb@bitxtender.com>
+     * @author     David Zülke <dz@bitxtender.com>
+     * @since      0.11.0
+     */
+    #[\Deprecated(message: <<<'TXT'
+    New-style config handlers don't call this method anymore. To be
+                 removed in Agavi 1.1
+    TXT)]
+    public static function parseConfig($config, $autoloadParser = true, $validationFile = null, $parserClass = null)
 	{
 		$parser = new AgaviConfigParser();
 

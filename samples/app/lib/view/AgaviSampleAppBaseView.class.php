@@ -52,7 +52,8 @@ class AgaviSampleAppBaseView extends AgaviView
 	protected $us;
 	
 	// Updated signature to match parent AgaviView which now expects ActionInitContext
-	public function initialize(ActionInitContext $container)
+	#[\Override]
+    public function initialize(ActionInitContext $container)
 	{
 		parent::initialize($container);
 		
@@ -62,20 +63,20 @@ class AgaviSampleAppBaseView extends AgaviView
 		$this->us = $this->getContext()->getUser();
 	}
 	
-	public final function execute(AgaviRequestDataHolder $rd)
+	public final function execute(AgaviRequestDataHolder $rd): never
 	{
 		throw new AgaviViewException(sprintf(
 			'The View "%1$s" does not implement an "execute%3$s()" method to serve '.
 			'the Output Type "%2$s", and the base View "%4$s" does not implement an '.
 			'"execute%3$s()" method to handle this situation.',
-			get_class($this),
+			static::class,
 			$this->container->getOutputType()->getName(),
-			ucfirst(strtolower($this->container->getOutputType()->getName())),
-			get_class()
+			ucfirst(strtolower((string) $this->container->getOutputType()->getName())),
+			self::class
 		));
 	}
 	
-	public function executeHtml(AgaviRequestDataHolder $rd)
+	public function executeHtml(AgaviRequestDataHolder $rd): never
 	{
 		throw new AgaviViewException(sprintf(
 			'The View "%1$s" does not implement an "execute%3$s()" method to serve '.
@@ -86,14 +87,14 @@ class AgaviSampleAppBaseView extends AgaviView
 			'showing some other meaningful error message to the user which explains '.
 			'that the operation was unsuccessful beacuse the desired Output Type is '.
 			'not implemented.',
-			get_class($this),
+			static::class,
 			$this->container->getOutputType()->getName(),
-			ucfirst(strtolower($this->container->getOutputType()->getName())),
-			get_class()
+			ucfirst(strtolower((string) $this->container->getOutputType()->getName())),
+			self::class
 		));
 	}
 	
-	public function executeJson(AgaviRequestDataHolder $rd)
+	public function executeJson(AgaviRequestDataHolder $rd): never
 	{
 		throw new AgaviViewException(sprintf(
 			'The View "%1$s" does not implement an "execute%3$s()" method to serve '.
@@ -104,10 +105,10 @@ class AgaviSampleAppBaseView extends AgaviView
 			'showing some other meaningful error message to the user which explains '.
 			'that the operation was unsuccessful beacuse the desired Output Type is '.
 			'not implemented.',
-			get_class($this),
+			static::class,
 			$this->container->getOutputType()->getName(),
-			ucfirst(strtolower($this->container->getOutputType()->getName())),
-			get_class()
+			ucfirst(strtolower((string) $this->container->getOutputType()->getName())),
+			self::class
 		));
 	}
 	

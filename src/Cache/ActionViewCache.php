@@ -10,7 +10,7 @@ use Psr\SimpleCache\CacheInterface;
  */
 class ActionViewCache
 {
-    public function __construct(private CacheInterface $cache, private ?int $defaultTtlSeconds = 300) {}
+    public function __construct(private readonly CacheInterface $cache, private readonly ?int $defaultTtlSeconds = 300) {}
 
     private function key(string $module, string $action, string $outputType, ?string $fingerprint = null): string
     {

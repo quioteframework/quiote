@@ -37,12 +37,9 @@ use Agavi\Config\AgaviConfig;
 use \Exception;
 class AgaviException extends Exception
 {
-	private int|string $mixedCode = 0;
-
-	public function __construct(string $message = '', int|string $code = 0, ?\Throwable $previous = null)
+	public function __construct(string $message = '', private readonly int|string $mixedCode = 0, ?\Throwable $previous = null)
 	{
-		$this->mixedCode = $code;
-		parent::__construct($message, is_int($code) ? $code : 0, $previous);
+		parent::__construct($message, is_int($this->mixedCode) ? $this->mixedCode : 0, $previous);
 	}
 
 	/** Returns the original code, which may be a string (e.g. a PDO SQLSTATE like "42P01"). */
@@ -52,18 +49,17 @@ class AgaviException extends Exception
 	}
 
 	/**
-	 * Print the stack trace for this exception.
-	 *
-	 * @param      Exception     The original exception.
-	 * @param      AgaviContext  The context instance.
-	 * @param      AgaviResponse The response instance.
-	 *
-	 * @author     David Zülke <dz@bitxtender.com>
-	 * @since      0.9.0
-	 *
-	 * @deprecated Superseded by AgaviException::render()
-	 */
-	public static function printStackTrace(Exception $e, ?AgaviContext $context = null)
+     * Print the stack trace for this exception.
+     *
+     * @param      Exception     The original exception.
+     * @param      AgaviContext  The context instance.
+     * @param      AgaviResponse The response instance.
+     *
+     * @author     David Zülke <dz@bitxtender.com>
+     * @since      0.9.0
+     */
+    #[\Deprecated(message: 'Superseded by AgaviException::render()')]
+    public static function printStackTrace(Exception $e, ?AgaviContext $context = null)
 	{
 		return self::render($e, $context);
 	}

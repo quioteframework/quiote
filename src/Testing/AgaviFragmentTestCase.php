@@ -217,17 +217,16 @@ abstract class AgaviFragmentTestCase extends AgaviPhpUnitTestCase implements Aga
 	}
 	
 	/**
-	 * (Deprecated) Legacy helper that previously created an AgaviRequestDataHolder instance.
-	 * Now simply normalizes the provided legacy-style array into a flat parameter array so
-	 * existing tests that still call createRequestDataHolder(...) continue to function until
-	 * fully migrated. Accepts either:
-	 *  - ['foo' => 'bar'] (already normalized)
-	 *  - [ANY_CONSTANT => ['foo' => 'bar']] legacy style
-	 * Returns the inner parameter array.
-	 *
-	 * @deprecated Will be removed once all tests have been migrated to setArguments([...]).
-	 */
-	protected function createRequestDataHolder(array $arguments = [], $type = null)
+     * (Deprecated) Legacy helper that previously created an AgaviRequestDataHolder instance.
+     * Now simply normalizes the provided legacy-style array into a flat parameter array so
+     * existing tests that still call createRequestDataHolder(...) continue to function until
+     * fully migrated. Accepts either:
+     *  - ['foo' => 'bar'] (already normalized)
+     *  - [ANY_CONSTANT => ['foo' => 'bar']] legacy style
+     * Returns the inner parameter array.
+     */
+    #[\Deprecated(message: 'Will be removed once all tests have been migrated to setArguments([...]).')]
+    protected function createRequestDataHolder(array $arguments = [], $type = null)
 	{
 		// Legacy wrapper style: single top-level element whose value is the parameter array
 		if (count($arguments) === 1 && is_array(current($arguments))) {
@@ -258,7 +257,7 @@ abstract class AgaviFragmentTestCase extends AgaviPhpUnitTestCase implements Aga
 	 */
 	protected function assertContainerAttributeEquals($expected, $attributeName, $namespace = null, $message = 'Failed asserting that the attribute <%1$s/%2$s> has the value <%3$s>', $delta = 0, $maxDepth = 10, $canonicalizeEol = false)
 	{
-		$this->assertEquals($expected, $this->container->getAttribute($attributeName, $namespace), sprintf($message, $namespace, $attributeName, $expected), $delta, $maxDepth, $canonicalizeEol);
+		$this->assertEquals($expected, $this->container->getAttribute($attributeName, $namespace), sprintf($message, $namespace, $attributeName, $expected));
 	}
 	
 	/**

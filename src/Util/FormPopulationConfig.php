@@ -8,8 +8,8 @@ namespace Agavi\Util;
  */
 final class FormPopulationConfig
 {
-    private const LEGACY_NAMESPACE = 'org.agavi.filter.FormPopulationFilter';
-    private const ATTRIBUTE_KEY = 'org.agavi.filter.FormPopulationFilter';
+    private const string LEGACY_NAMESPACE = 'org.agavi.filter.FormPopulationFilter';
+    private const string ATTRIBUTE_KEY = 'org.agavi.filter.FormPopulationFilter';
 
     /**
      * Retrieve the current configuration map.

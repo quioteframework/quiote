@@ -35,7 +35,7 @@ class AgaviToolkitTest extends AgaviPhpUnitTestCase
 	public function testExpandVariables()
 	{
 		$string = "{bbq}";
-		$arguments = array('hehe' => 'hihi', '{bbq}' => 'soon');
+		$arguments = ['hehe' => 'hihi', '{bbq}' => 'soon'];
 		$this->assertEquals('{bbq}', AgaviToolkit::expandVariables($string));
 		$this->assertEquals('${foo}', AgaviToolkit::expandVariables('$foo'));
 		$this->assertEquals('${foo}', AgaviToolkit::expandVariables('{$foo}'));
@@ -84,19 +84,19 @@ class AgaviToolkitTest extends AgaviPhpUnitTestCase
 
 	public function testGetValueByKeyList()
 	{
-		$array = array('one' => 'edno', 'two' => 'dve', 'three' => 'tri', 'four' => 'chetiri');
-		$keys = array('one', 'two', 'three');
+		$array = ['one' => 'edno', 'two' => 'dve', 'three' => 'tri', 'four' => 'chetiri'];
+		$keys = ['one', 'two', 'three'];
 		$this->assertEquals('edno', AgaviToolkit::getValueByKeyList($array, $keys));
-		$this->assertEquals('dve', AgaviToolkit::getValueByKeyList($array, array('two')));
-		$this->assertEquals('dve', AgaviToolkit::getValueByKeyList($array, array('two'), 'default'));
-		$this->assertEquals(NULL, AgaviToolkit::getValueByKeyList($array, array('five')));
-		$this->assertEquals('pet', AgaviToolkit::getValueByKeyList($array, array('five'), 'pet'));
+		$this->assertEquals('dve', AgaviToolkit::getValueByKeyList($array, ['two']));
+		$this->assertEquals('dve', AgaviToolkit::getValueByKeyList($array, ['two'], 'default'));
+		$this->assertEquals(NULL, AgaviToolkit::getValueByKeyList($array, ['five']));
+		$this->assertEquals('pet', AgaviToolkit::getValueByKeyList($array, ['five'], 'pet'));
 	}
 
 	public function testIsNotArray()
 	{
-		$value1 = array('baz' => 'boo');
-		$value2 = array('baz', 'boo');
+		$value1 = ['baz' => 'boo'];
+		$value2 = ['baz', 'boo'];
 		$this->assertTrue(AgaviToolkit::isNotArray("path"));
 		$this->assertFalse(AgaviToolkit::isNotArray($value1));
 		$this->assertFalse(AgaviToolkit::isNotArray($value2));
@@ -132,7 +132,7 @@ class AgaviToolkitTest extends AgaviPhpUnitTestCase
 	{
 		AgaviConfig::set('replace.me', 'replaced value $foo $bar $baz');
 		AgaviConfig::set('modules.foo.bar', 'value $foo %replace.me% %nonexistant%');
-		$array = array('foo' => 'replaced_foo', 'bar' => 'replaced_bar');
+		$array = ['foo' => 'replaced_foo', 'bar' => 'replaced_bar'];
 		$retval = 'value replaced_foo replaced value replaced_foo replaced_bar ${baz} %nonexistant%';
 		$actual = AgaviToolkit::evaluateModuleDirective('foo', 'bar', $array);
 		$this->assertEquals($retval, $actual);
@@ -152,24 +152,24 @@ class AgaviToolkitTest extends AgaviPhpUnitTestCase
 	
 	public static function literalizeData()
 	{
-		return array(
-			'null' => array(null, null, array()),
-			'empty string' => array('', null, array()),
-			'array("foo" => "bar")' => array(array('foo' => 'bar'), array('foo' => 'bar'), array()),
-			'(string)true' => array('true', true, array()),
-			'(string)false' => array('false', false, array()),
-			'(string)yes' => array('yes', true, array()),
-			'(string)no' => array('no', false, array()),
-			'(string)on' => array('on', true, array()),
-			'(string)off' => array('off', false, array()),
-			'(string)single space' => array(' ', null, array()),
-			'(string)multiple spaces' => array('    ', null, array()),
-			'(string)newline' => array("\n", null, array()),
-			'(string)newline and space' => array(" \n ", null, array()),
-			'(string)space true space' => array(' true ', true, array()),
-			'(string)%test.replace%' => array('%test.replace%', 'fooo', array('test.replace' => 'fooo')),
-			'(int)5' => array(5, 5, array())
-		);
+		return [
+			'null' => [null, null, []],
+			'empty string' => ['', null, []],
+			'array("foo" => "bar")' => [['foo' => 'bar'], ['foo' => 'bar'], []],
+			'(string)true' => ['true', true, []],
+			'(string)false' => ['false', false, []],
+			'(string)yes' => ['yes', true, []],
+			'(string)no' => ['no', false, []],
+			'(string)on' => ['on', true, []],
+			'(string)off' => ['off', false, []],
+			'(string)single space' => [' ', null, []],
+			'(string)multiple spaces' => ['    ', null, []],
+			'(string)newline' => ["\n", null, []],
+			'(string)newline and space' => [" \n ", null, []],
+			'(string)space true space' => [' true ', true, []],
+			'(string)%test.replace%' => ['%test.replace%', 'fooo', ['test.replace' => 'fooo']],
+			'(int)5' => [5, 5, []]
+		];
 	}
 	
 	#[\PHPUnit\Framework\Attributes\DataProvider('pathData')]
@@ -184,34 +184,34 @@ class AgaviToolkitTest extends AgaviPhpUnitTestCase
 	
 	public static function pathData()
 	{
-		$data = array(
-			'c:/' => array('c:/', true),
-			'c:\\' => array('c:\\', true),
-			'c:/Windows' => array('c:/Windows', true),
-			'g:/Windows/bar' => array('g:/Windows/bar', true),
-			'c:\\windows\\foo' => array('c:\\windows\\foo', true),
-			':/foo' => array(':/foo', false),
+		$data = [
+			'c:/' => ['c:/', true],
+			'c:\\' => ['c:\\', true],
+			'c:/Windows' => ['c:/Windows', true],
+			'g:/Windows/bar' => ['g:/Windows/bar', true],
+			'c:\\windows\\foo' => ['c:\\windows\\foo', true],
+			':/foo' => [':/foo', false],
 			// UNC paths are absolute too
-			'(unc)\\\\some.host' => array('\\\\some.host', true),
-			'(unc)\\\\some.host\\foo' => array('\\\\some.host\\foo', true),
-			'(unc)\\some.host\\foo' => array('\\some.host\\foo', false),
+			'(unc)\\\\some.host' => ['\\\\some.host', true],
+			'(unc)\\\\some.host\\foo' => ['\\\\some.host\\foo', true],
+			'(unc)\\some.host\\foo' => ['\\some.host\\foo', false],
 			
-			'/' => array('/', true),
-			'/root' => array('/root', true),
-			'/FoO/bAR' => array('/FoO/bAR', true),
-			'./FoO/bAR' => array('./FoO/bAR', false),
-			'../FoO/bAR' => array('../FoO/bAR', false),
+			'/' => ['/', true],
+			'/root' => ['/root', true],
+			'/FoO/bAR' => ['/FoO/bAR', true],
+			'./FoO/bAR' => ['./FoO/bAR', false],
+			'../FoO/bAR' => ['../FoO/bAR', false],
 			
 			// (php does not support backslashes on *nix)
-			'\\foo' => array('\\foo', false),
-			'\\foo\\bar' => array('\\foo\\bar', false),
+			'\\foo' => ['\\foo', false],
+			'\\foo\\bar' => ['\\foo\\bar', false],
 			
-			'c:' => array('c:', false),
-			's/foo/bar' => array('s/foo/bar', false),
-			'c:foo' => array('c:foo', false)
-		);
+			'c:' => ['c:', false],
+			's/foo/bar' => ['s/foo/bar', false],
+			'c:foo' => ['c:foo', false]
+		];
 		foreach($data as $key => $value) {
-			$data['file://' . $key] = array('file://' . $value[0], $value[1]);
+			$data['file://' . $key] = ['file://' . $value[0], $value[1]];
 		}
 		return $data;
 	}
@@ -224,56 +224,56 @@ class AgaviToolkitTest extends AgaviPhpUnitTestCase
 	
 	public static function urlData()
 	{
-		return array(
-			array(
-				array('host' => 'example.com'),
+		return [
+			[
+				['host' => 'example.com'],
 				'//example.com/',
-			),
-			array(
-				array('scheme' => 'http', 'host' => 'example.com'),
+			],
+			[
+				['scheme' => 'http', 'host' => 'example.com'],
 				'http://example.com/',
-			),
-			array(
-				array('scheme' => 'http', 'host' => 'example.com', 'port' => '80'),
+			],
+			[
+				['scheme' => 'http', 'host' => 'example.com', 'port' => '80'],
 				'http://example.com:80/',
-			),
-			array(
-				array('scheme' => 'http', 'host' => 'example.com', 'user' => 'user', 'pass' => 'pass'),
+			],
+			[
+				['scheme' => 'http', 'host' => 'example.com', 'user' => 'user', 'pass' => 'pass'],
 				'http://user:pass@example.com/',
-			),
-			array(
-				array('scheme' => 'http', 'host' => 'example.com', 'path' => '/path'),
+			],
+			[
+				['scheme' => 'http', 'host' => 'example.com', 'path' => '/path'],
 				'http://example.com/path',
-			),
-			array(
-				array('scheme' => 'http', 'host' => 'example.com', 'query' => 'param1=foo&param2=bar'),
+			],
+			[
+				['scheme' => 'http', 'host' => 'example.com', 'query' => 'param1=foo&param2=bar'],
 				'http://example.com/?param1=foo&param2=bar',
-			),
-			array(
-				array('scheme' => 'http', 'host' => 'example.com', 'fragment' => 'fragment'),
+			],
+			[
+				['scheme' => 'http', 'host' => 'example.com', 'fragment' => 'fragment'],
 				'http://example.com/#fragment',
-			),
-			array(
-				array('scheme' => 'http', 'host' => 'example.com', 'port' => '80', 'user' => 'user', 'pass' => 'pass', 'path' => '/path', 'query' => 'param1=foo&param2=bar', 'fragment' => 'fragment'),
+			],
+			[
+				['scheme' => 'http', 'host' => 'example.com', 'port' => '80', 'user' => 'user', 'pass' => 'pass', 'path' => '/path', 'query' => 'param1=foo&param2=bar', 'fragment' => 'fragment'],
 				'http://user:pass@example.com:80/path?param1=foo&param2=bar#fragment',
-			),
-			array(
+			],
+			[
 				parse_url('//example.com/'),
 				'//example.com/',
-			),
-			array(
+			],
+			[
 				parse_url('http://example.com/?'),
 				'http://example.com/',
-			),
-			array(
+			],
+			[
 				parse_url('http://example.com/#'),
 				'http://example.com/',
-			),
-			array(
+			],
+			[
 				parse_url('http://user:pass@example.com:80/path?param1=foo&param2=bar#fragment'),
 				'http://user:pass@example.com:80/path?param1=foo&param2=bar#fragment',
-			),
-		);
+			],
+		];
 	}
 	
 }

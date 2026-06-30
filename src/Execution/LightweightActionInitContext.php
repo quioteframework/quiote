@@ -14,22 +14,22 @@ class LightweightActionInitContext extends AgaviAttributeHolder implements Actio
     private mixed $validationManager = null;
 
     public function __construct(
-        private AgaviContext $context,
-        private string $module,
-        private string $action,
-        private string $method,
-        private string $outputType,
+        private readonly AgaviContext $context,
+        private readonly string $module,
+        private readonly string $action,
+        private readonly string $method,
+        private readonly string $outputType,
         /**
          * Accept AgaviWebRequest (implements ServerRequestInterface) or any PSR-7 ServerRequest.
          */
-    private ServerRequestInterface|null $requestData,
+    private readonly ServerRequestInterface|null $requestData,
         /**
          * Use the legacy AgaviResponse type here so tests and legacy code that pass
          * AgaviResponse-based shims (including TestLightweightResponse) do not
          * trigger a TypeError. AgaviWebResponse extends AgaviResponse so this
          * remains compatible with the PSR adapter and web response code paths.
          */
-    private AgaviWebResponse $response
+    private readonly AgaviWebResponse $response
     ) {}
 
     public function getContext(): AgaviContext

@@ -111,7 +111,7 @@ class AgaviSessionStorage extends AgaviStorage implements SessionHandlerInterfac
 		// Diagnostic: log raw incoming cookies before starting session
 		if($dbg) {
 			$rawCookieHeader = $_SERVER['HTTP_COOKIE'] ?? '';
-			$rawAgavi = isset($_COOKIE[session_name()]) ? $_COOKIE[session_name()] : '(none)';
+			$rawAgavi = $_COOKIE[session_name()] ?? '(none)';
 			ini_get('session.cookie_samesite');
 						AgaviDebugLogger::debug('[AgaviSessionStorage] pre-start cookies rawHeader=' . $rawCookieHeader, $this->context);
 						AgaviDebugLogger::debug('[AgaviSessionStorage] pre-start $_COOKIE[' . session_name() . ']=' . $rawAgavi, $this->context);
@@ -309,7 +309,8 @@ class AgaviSessionStorage extends AgaviStorage implements SessionHandlerInterfac
 		return $this->defaultHandler->open($savePath, $sessionName);
 	}
 
-	public function reset() : void {
+	#[\Override]
+    public function reset() : void {
 		// Only call close() if the session is still active; PHP 8.5 throws "Session is not
 		// active" if session_write_close() (called by shutdown()) already ended the session.
 		if ($this->defaultHandler !== null && session_status() === PHP_SESSION_ACTIVE) {

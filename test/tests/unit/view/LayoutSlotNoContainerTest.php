@@ -53,7 +53,7 @@ class LayoutSlotNoContainerTest extends AgaviUnitTestCase
     $layouts['testlayout'] = [
         'layers' => [
             'decorator' => [
-                'class' => 'Agavi\\View\\AgaviFileTemplateLayer',
+                'class' => \Agavi\View\AgaviFileTemplateLayer::class,
                 'renderer' => null,
                 'parameters' => [],
                 'slots' => [
@@ -75,7 +75,7 @@ class LayoutSlotNoContainerTest extends AgaviUnitTestCase
     $this->assertNotEmpty($layers, 'Expected at least one layer loaded');
     $foundSlots = 0;
     foreach($layers as $layer) {
-        foreach($layer->getSlots() as $name => $slotObj) {
+        foreach($layer->getSlots() as $slotObj) {
             $foundSlots++;
             $this->assertInstanceOf(SlotRenderable::class, $slotObj, 'Slot should be SlotRenderable (value object path)');
             $this->assertTrue(is_object($slotObj), 'Slot object should be instantiated');

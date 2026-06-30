@@ -318,7 +318,7 @@ final class AgaviArrayPathDefinition
 		foreach($array as $key => $value) {
 			if($prefix === null) {
 				// create the top node when no prefix was given
-				if(strlen($key) == 0) {
+				if(strlen((string) $key) == 0) {
 					// when an empty key was used at top level, create a "relative" path, so the empty string doesn't get lost
 					$name = '[' . $key . ']';
 				} else {

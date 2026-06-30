@@ -319,8 +319,8 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser, ResetIn
 	{
 		$logger = $this->getContext()?->getLoggerManager()?->getLogger();
 		if (\Agavi\Util\DebugFlags::$security) {
-			$logger?->debug('[AgaviSecurityUser] Shutdown storing authenticated status', ['class' => get_class($this), 'namespace' => self::AUTH_NAMESPACE]);
-			$logger?->debug('[AgaviSecurityUser] Shutdown storing credentials', ['class' => get_class($this), 'namespace' => self::CREDENTIAL_NAMESPACE]);
+			$logger?->debug('[AgaviSecurityUser] Shutdown storing authenticated status', ['class' => static::class, 'namespace' => self::AUTH_NAMESPACE]);
+			$logger?->debug('[AgaviSecurityUser] Shutdown storing credentials', ['class' => static::class, 'namespace' => self::CREDENTIAL_NAMESPACE]);
 		}
 		$storage = $this->getContext()->getStorage();
 
@@ -378,7 +378,8 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser, ResetIn
 		parent::shutdown();
 	}
 
-	public function reset() : void
+	#[\Override]
+    public function reset() : void
 	{
 		$this->authenticated = null;
 		$this->credentials = null;

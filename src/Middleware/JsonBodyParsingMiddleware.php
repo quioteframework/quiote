@@ -15,7 +15,7 @@ use Nyholm\Psr7\Factory\Psr17Factory;
 #[\Agavi\Middleware\Attribute\AgaviMiddleware(phase: 'bootstrap', after: 'TraceMiddleware', before: 'RoutingMiddleware', priority: 80)]
 class JsonBodyParsingMiddleware implements MiddlewareInterface
 {
-    private bool $strict;
+    private readonly bool $strict;
 
     public function __construct(?bool $strict = null)
     {
@@ -51,7 +51,7 @@ class JsonBodyParsingMiddleware implements MiddlewareInterface
             if(is_array($decoded)) {
                 $request = $request->withParsedBody($decoded);
             }
-        } catch(\Throwable $e) {
+        } catch(\Throwable) {
             if($this->strict) {
                 $factory = new Psr17Factory();
                 $resp = $factory->createResponse(400);

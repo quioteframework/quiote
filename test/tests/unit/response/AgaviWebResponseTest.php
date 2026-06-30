@@ -8,12 +8,11 @@ use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 
 class TestAgaviWebResponse extends AgaviWebResponse
 {
-	protected function sendHttpResponseHeaders(?AgaviOutputType $outputType = null)
+	#[\Override]
+    protected function sendHttpResponseHeaders(?AgaviOutputType $outputType = null)
 	{
 		// suppress errors when headers cannot be sent
-		set_error_handler(function($errNo, $errStr) {
-			return (stripos($errStr, 'headers already sent') !== false);
-		}, E_WARNING);
+		set_error_handler(fn($errNo, $errStr) => stripos((string) $errStr, 'headers already sent') !== false, E_WARNING);
 		
 		parent::sendHttpResponseHeaders($outputType);
 		
@@ -29,7 +28,8 @@ class AgaviWebResponseTest extends AgaviUnitTestCase
 	 */
 	private $_r = null;
 
-	public function setUp(): void
+	#[\Override]
+    public function setUp(): void
 	{
 		$this->_r = new TestAgaviWebResponse();
 		$this->_r->initialize($this->getContext());
@@ -43,7 +43,7 @@ class AgaviWebResponseTest extends AgaviUnitTestCase
 		ob_start();
 		try {
 			$r->send();
-		} catch(AgaviException $e) {
+		} catch(AgaviException) {
 			// discard exception about headers already sent
 		}
 		$content = ob_get_contents();
@@ -63,8 +63,8 @@ class AgaviWebResponseTest extends AgaviUnitTestCase
 		$this->assertEquals('content', $r->getContent());
 		$r->clear();
 		$this->assertEquals('', $r->getContent());
-		$this->assertEquals(array(), $r->getHttpHeaders());
-		$this->assertEquals(array(), $r->getCookies());
+		$this->assertEquals([], $r->getHttpHeaders());
+		$this->assertEquals([], $r->getCookies());
 	}
 
 	public function testSetGetContentType()
@@ -99,7 +99,7 @@ class AgaviWebResponseTest extends AgaviUnitTestCase
 		try {
 			$r->setHttpStatusCode('507');
 			$this->fail('Expected AgaviException was not thrown!');
-		} catch(AgaviException $e) {
+		} catch(AgaviException) {
 			$this->assertEquals('400', $r->getHttpStatusCode());
 		}
 	}
@@ -129,13 +129,13 @@ class AgaviWebResponseTest extends AgaviUnitTestCase
 		$this->assertTrue($r->hasHttpHeader('lOCAtion'));
 		$this->assertTrue($r->hasHttpHeader('Location'));
 
-		$this->assertEquals(array('test1'), $r->getHttpHeader('Location'));
+		$this->assertEquals(['test1'], $r->getHttpHeader('Location'));
 
 		$r->setHttpHeader('location', 'test2');
-		$this->assertEquals(array('test2'), $r->getHttpHeader('location'));
+		$this->assertEquals(['test2'], $r->getHttpHeader('location'));
 
 		$r->setHttpHeader('Location', 'test3', false);
-		$this->assertEquals(array('test2', 'test3'), $r->getHttpHeader('location'));
+		$this->assertEquals(['test2', 'test3'], $r->getHttpHeader('location'));
 	}
 
 	public function testRemoveHttpHeader()
@@ -152,19 +152,19 @@ class AgaviWebResponseTest extends AgaviUnitTestCase
 		$ret = $r->removeHttpHeader('lOcaTiON');
 		$this->assertFalse($r->hasHttpHeader('Location'));
 		$this->assertTrue($r->hasHttpHeader('Location2'));
-		$this->assertEquals(array('test1'), $ret);
+		$this->assertEquals(['test1'], $ret);
 
 		$ret = $r->removeHttpHeader('Location2');
 		$this->assertFalse($r->hasHttpHeader('Location'));
 		$this->assertFalse($r->hasHttpHeader('Location2'));
-		$this->assertEquals(array('test2'), $ret);
+		$this->assertEquals(['test2'], $ret);
 	}
 
 	public function testClearHttpHeaders()
 	{
 		$r = $this->_r;
 
-		$this->assertEquals(array(), $r->getHttpHeaders());
+		$this->assertEquals([], $r->getHttpHeaders());
 
 		$r->setHttpHeader('test 1', 'value 1');
 		$r->setHttpHeader('test 2', 'value 2');
@@ -177,14 +177,14 @@ class AgaviWebResponseTest extends AgaviUnitTestCase
 
 		$r->clearHttpHeaders();
 
-		$this->assertEquals(array(), $r->getHttpHeaders());
+		$this->assertEquals([], $r->getHttpHeaders());
 	}
 
 	public function testSetCookie()
 	{
 		$r = $this->_r;
 
-		$info_ex = array(
+		$info_ex = [
 			'value' => 'value',
 			'lifetime' => 0,
 			'path' => null,
@@ -193,7 +193,7 @@ class AgaviWebResponseTest extends AgaviUnitTestCase
 			'httponly' => false,
 			'encode_callback' => 'urlencode',
 			'samesite' => null,
-		);
+		];
 		$r->setCookie('cookieName', 'value');
 		$this->assertEquals($info_ex, $r->getCookie('cookieName'));
 
@@ -204,7 +204,7 @@ class AgaviWebResponseTest extends AgaviUnitTestCase
 		$this->assertEquals($info_ex, $r->getCookie('cookieName'));
 
 		$r->setCookie('cookieName2', 'value 3', 1000, '', 'foo.bar', 1);
-		$info_ex = array(
+		$info_ex = [
 			'value' => 'value 3',
 			'lifetime' => 1000,
 			'path' => '',
@@ -213,7 +213,7 @@ class AgaviWebResponseTest extends AgaviUnitTestCase
 			'httponly' => false,
 			'encode_callback' => 'urlencode',
 			'samesite' => null,
-		);
+		];
 		$this->assertEquals($info_ex, $r->getCookie('cookieName2'));
 	}
 	

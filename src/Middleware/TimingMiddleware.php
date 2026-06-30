@@ -13,13 +13,13 @@ use Agavi\Execution\ExecutionState;
 #[\Agavi\Middleware\Attribute\AgaviMiddleware(phase: 'bootstrap', priority: 100)]
 class TimingMiddleware implements MiddlewareInterface
 {
-    public function __construct(private bool $emitHeader = false) {}
+    public function __construct(private readonly bool $emitHeader = false) {}
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $start = microtime(true);
         $exec = $request->getAttribute(ExecutionState::class) ?? new ExecutionState();
-        $exec->metrics = $exec->metrics ?? [];
+        $exec->metrics ??= [];
         $request = $request->withAttribute(ExecutionState::class, $exec);
         $response = $handler->handle($request);
         $exec->metrics['total_ms'] = (microtime(true) - $start) * 1000;

@@ -5,22 +5,12 @@ namespace Agavi\Execution;
 use Agavi\AgaviContext;
 use Agavi\Logging\AgaviDebugLogger;
 
-class DeferredSlotRenderable implements SlotRenderable
+class DeferredSlotRenderable implements SlotRenderable, \Stringable
 {
-    private \Agavi\AgaviContext $context;
-    private string $module;
-    private string $action;
-    private ?string $outputType;
-    private array $parameters;
     private ?string $rendered = null;
 
-    public function __construct(AgaviContext $context, string $module, string $action, array $parameters = [], ?string $outputType = null)
+    public function __construct(private readonly \Agavi\AgaviContext $context, private readonly string $module, private readonly string $action, private readonly array $parameters = [], private readonly ?string $outputType = null)
     {
-        $this->context = $context;
-        $this->module = $module;
-        $this->action = $action;
-        $this->parameters = $parameters;
-        $this->outputType = $outputType;
     }
 
     public function getContent(): string
@@ -40,7 +30,7 @@ class DeferredSlotRenderable implements SlotRenderable
             $pid = spl_object_id($parentRequest);
             $has = $parentRequest->getAttribute(\Agavi\Execution\SlotStack::class) ? '1' : '0';
             if ($dsr) AgaviDebugLogger::debug(sprintf('[DeferredSlotRenderable] DeferredSlotRenderable parentRequest id=%d slotstack=%s module=%s action=%s', $pid, $has, $this->module, $this->action), $this->context);
-        } catch (\Throwable $_e) {
+        } catch (\Throwable) {
             AgaviDebugLogger::debug('[DeferredSlotRenderable] DeferredSlotRenderable parentRequest (no id available)', $this->context);
         }
 
@@ -57,13 +47,13 @@ class DeferredSlotRenderable implements SlotRenderable
                         'module' => $this->module,
                         'action' => $this->action,
                         'parameters' => $this->parameters,
-                        'class' => get_class($e),
+                        'class' => $e::class,
                         'message' => $e->getMessage(),
                         'trace' => $this->truncateTrace($e->getTraceAsString()),
                         'time' => date('c'),
                     ]);
                     \error_log('SLOT_EXCEPTION ' . $payload);
-                } catch(\Throwable $_el) {
+                } catch(\Throwable) {
                     // swallow logging errors to not mask original exception
                 }
             }

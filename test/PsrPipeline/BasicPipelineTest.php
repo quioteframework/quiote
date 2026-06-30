@@ -56,7 +56,7 @@ final class BasicPipelineTest extends TestCase
     $pipeline->add('AssetAggregationMiddleware', new AssetAggregationMiddleware(), 'post');
     $pipeline->add('ExecutionTimeMiddleware', new ExecutionTimeMiddleware(), 'finalize');
     $handler = $pipeline->build();
-    $handler = new class(new ErrorHandlingMiddleware(), $handler) implements Psr\Http\Server\RequestHandlerInterface { public function __construct(private ErrorHandlingMiddleware $err, private Psr\Http\Server\RequestHandlerInterface $next) {} public function handle(Psr\Http\Message\ServerRequestInterface $r): Psr\Http\Message\ResponseInterface { return $this->err->process($r, $this->next); } };
+    $handler = new readonly class(new ErrorHandlingMiddleware(), $handler) implements Psr\Http\Server\RequestHandlerInterface { public function __construct(private ErrorHandlingMiddleware $err, private Psr\Http\Server\RequestHandlerInterface $next) {} public function handle(Psr\Http\Message\ServerRequestInterface $r): Psr\Http\Message\ResponseInterface { return $this->err->process($r, $this->next); } };
     $response = $handler->handle($psrReq);
         $this->assertNotNull($response->getBody());
         $this->assertGreaterThanOrEqual(200, $response->getStatusCode());

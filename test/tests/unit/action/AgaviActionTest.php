@@ -16,7 +16,8 @@ class AgaviActionTest extends AgaviUnitTestCase
 {
 	private $_action = null;
 
-	public function setUp(): void
+	#[\Override]
+    public function setUp(): void
 	{
 		$this->_action = new SampleAction();
 		// Initialize action with lightweight initialization context (descriptor-less)
@@ -35,7 +36,8 @@ class AgaviActionTest extends AgaviUnitTestCase
 		$this->_action->initialize($lw);
 	}
 
-	public function tearDown(): void
+	#[\Override]
+    public function tearDown(): void
 	{
 		$this->_action = null;
 	}

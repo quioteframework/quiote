@@ -52,14 +52,12 @@ class DispatchMiddlewareRedirectSnapshotTest extends TestCase
         $ctx->method('getRouting')->willReturn($routing);
         
         $globalResp = new class($cookies, $redirectData) extends \Agavi\Response\AgaviWebResponse {
-            private array $cookiesData; 
             protected $redirect = null; 
             private $hasRedirect = false; 
             private $sent = false; 
             private $headers = [];
             
-            public function __construct(array $cookies, ?array $redirectData = null){ 
-                $this->cookiesData = $cookies; 
+            public function __construct(private readonly array $cookiesData, ?array $redirectData = null){ 
                 if ($redirectData) {
                     $this->redirect = $redirectData;
                     $this->hasRedirect = true;

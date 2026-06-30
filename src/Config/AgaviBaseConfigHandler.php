@@ -61,7 +61,7 @@ abstract class AgaviBaseConfigHandler extends AgaviParameterHolder
 		// provided code already ended with a semicolon (common, e.g. 'return array(...);').
 		// Only append a semicolon if the last non-whitespace character is not one that
 		// normally terminates a PHP statement or block.
-		$trimmed = rtrim($code);
+		$trimmed = rtrim((string) $code);
 		if($trimmed !== '' && !preg_match('/[;}\]]$/', $trimmed)) {
 			$code = $trimmed . ';';
 		} else {
@@ -77,39 +77,37 @@ abstract class AgaviBaseConfigHandler extends AgaviParameterHolder
 	}
 	
 	/**
-	 * Literalize a string value.
-	 *
-	 * @param      string The value to literalize.
-	 *
-	 * @return     string A literalized value.
-	 *
-	 * @author     Sean Kerr <skerr@mojavi.org>
-	 * @author     Dominik del Bondio <ddb@bitxtender.com>
-	 * @author     David Zülke <dz@bitxtender.com>
-	 * @since      0.9.0
-	 *
-	 * @deprecated Use AgaviToolkit::expandDirectives() instead.
-	 */
-	public static function literalize($value)
+     * Literalize a string value.
+     *
+     * @param      string The value to literalize.
+     *
+     * @return     string A literalized value.
+     *
+     * @author     Sean Kerr <skerr@mojavi.org>
+     * @author     Dominik del Bondio <ddb@bitxtender.com>
+     * @author     David Zülke <dz@bitxtender.com>
+     * @since      0.9.0
+     */
+    #[\Deprecated(message: 'Use AgaviToolkit::expandDirectives() instead.')]
+    public static function literalize($value)
 	{
 		return AgaviToolkit::literalize($value);
 	}
 
 	/**
-	 * Replace configuration directive identifiers in a string.
-	 *
-	 * @param      string The value on which to run the replacement procedure.
-	 *
-	 * @return     string The new value.
-	 *
-	 * @author     Sean Kerr <skerr@mojavi.org>
-	 * @author     Johan Mjones <johan.mjones@ongame.com>
-	 * @author     David Zülke <dz@bitxtender.com>
-	 * @since      0.9.0
-	 *
-	 * @deprecated Use AgaviToolkit::expandDirectives() instead.
-	 */
-	public static function replaceConstants($value)
+     * Replace configuration directive identifiers in a string.
+     *
+     * @param      string The value on which to run the replacement procedure.
+     *
+     * @return     string The new value.
+     *
+     * @author     Sean Kerr <skerr@mojavi.org>
+     * @author     Johan Mjones <johan.mjones@ongame.com>
+     * @author     David Zülke <dz@bitxtender.com>
+     * @since      0.9.0
+     */
+    #[\Deprecated(message: 'Use AgaviToolkit::expandDirectives() instead.')]
+    public static function replaceConstants($value)
 	{
 		return AgaviToolkit::expandDirectives($value);
 	}

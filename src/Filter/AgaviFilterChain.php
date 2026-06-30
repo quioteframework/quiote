@@ -101,7 +101,7 @@ class AgaviFilterChain implements ResetInterface
 		} 
 		
 		// Execute post-filters
-		foreach($this->postFilters as $name => $filter) {
+		foreach($this->postFilters as $filter) {
 			$filter->execute($this, $container);
 		}
 		

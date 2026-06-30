@@ -9,6 +9,7 @@ class NoValHttpAction extends AgaviAction
     public static string $last = '';
     // Helper for tests to clear static tracking state
     public static function ensureReset(): void { self::$last = ''; }
+    #[\Override]
     public function isSimple(){ return false; }
     public function validatePost(AgaviWebRequest $rd){
         $present = $rd->hasParameter('fail');
@@ -18,10 +19,13 @@ class NoValHttpAction extends AgaviAction
         // If present (unexpected under strict mode with zero validators), return false to highlight leak.
         return !$present; 
     }
+    #[\Override]
     public function validate(AgaviWebRequest $rd){ if(self::$last==='') self::$last = 'validate'; return true; }
     public function handlePostError(AgaviWebRequest $rd){ self::$last = 'handlePostError'; return 'PostError'; }
+    #[\Override]
     public function handleError(AgaviWebRequest $rd){ self::$last = 'handleError'; return 'GenericError'; }
     public function executePost(AgaviWebRequest $rd){ self::$last = 'executePost'; return 'Post'; }
     public function execute(AgaviWebRequest $rd){ self::$last = 'execute'; return 'Generic'; }
+    #[\Override]
     public function getDefaultViewName(){ return 'Generic'; }
 }

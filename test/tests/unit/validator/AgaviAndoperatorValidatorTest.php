@@ -10,14 +10,14 @@ class AgaviAndoperatorValidatorTest extends AgaviUnitTestCase
 	{
 		$vm = $this->getContext()->createInstanceFor('validation_manager');
 		$vm->clear();
-		$o = $vm->createValidator(AgaviAndoperatorValidator::class, array(), array(), array('severity' => 'error'));
+		$o = $vm->createValidator(AgaviAndoperatorValidator::class, [], [], ['severity' => 'error']);
 		
-		$val1 = $vm->createValidator('DummyValidator', array(), array(), array('severity' => 'error'));
+		$val1 = $vm->createValidator('DummyValidator', [], [], ['severity' => 'error']);
 		$val1->val_result = true;
-		$val2 = $vm->createValidator('DummyValidator', array(), array(), array('severity' => 'error'));
+		$val2 = $vm->createValidator('DummyValidator', [], [], ['severity' => 'error']);
 		$val2->val_result = true;
 		
-		$o->registerValidators(array($val1, $val2));
+		$o->registerValidators([$val1, $val2]);
 		
 		$this->assertEquals($o->execute($this->newWebRequest()), AgaviValidator::SUCCESS);
 		$this->assertTrue($val1->validated);
@@ -48,7 +48,7 @@ class AgaviAndoperatorValidatorTest extends AgaviUnitTestCase
 		$val1->setParameter('severity', 'critical');
 		
 		$this->assertEquals($o->execute($this->newWebRequest()), AgaviValidator::CRITICAL);
-		$this->assertEquals($vm->getResult(), AgaviValidator::CRITICAL);
+		$this->assertEquals($vm->getReport()->getResult(), AgaviValidator::CRITICAL);
 		$this->assertTrue($val1->validated);
 		$this->assertFalse($val2->validated);
 	}

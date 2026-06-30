@@ -22,6 +22,7 @@ final class SandboxRouting extends AgaviRouting
      * Export current routes + meta structure for legacy config handler compatibility.
      * AgaviRoutingConfigHandler expects exportRoutes() returning a spec suitable for importRoutes().
      */
+    #[\Override]
     public function exportRoutes(): array
     {
         return [$this->getRouteCollection(), $this->getMeta()];

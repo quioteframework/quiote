@@ -49,18 +49,18 @@ class AgaviTesting
 	public static $codeCoverageFilter = null;
 	
 	/**
-	 * Get the code coverage filter instance we will use for tests.
-	 * When running PHPUnit 3.5, this will return the singleton instance.
-	 * When running PHPUnit 3.6, this will return the instance we hold internally;
-	 * this same instance will be passed to PHPUnit in AgaviTesting::dispatch().
-	 *
-	 * @return     PHP_CodeCoverage_Filter The code coverage filter for our tests.
-	 *
-	 * @author     David Zülke <david.zuelke@bitextender.com>
-	 * @since      1.0.7
-	 * @deprecated 1.1.0 Use AgaviPhpUnitCli
-	 */
-	public static function getCodeCoverageFilter()
+     * Get the code coverage filter instance we will use for tests.
+     * When running PHPUnit 3.5, this will return the singleton instance.
+     * When running PHPUnit 3.6, this will return the instance we hold internally;
+     * this same instance will be passed to PHPUnit in AgaviTesting::dispatch().
+     *
+     * @return     PHP_CodeCoverage_Filter The code coverage filter for our tests.
+     *
+     * @author     David Zülke <david.zuelke@bitextender.com>
+     * @since      1.0.7
+     */
+    #[\Deprecated(message: 'Use AgaviPhpUnitCli', since: '1.1.0')]
+    public static function getCodeCoverageFilter()
 	{
 		if(self::$codeCoverageFilter === null) {
 			// PHP_CodeCoverage doesn't expose any version info, we'll have to check if there is a static getInstance method
@@ -71,15 +71,15 @@ class AgaviTesting
 	}
 
 	/**
-	 * Startup the Agavi core
-	 *
-	 * @param      string environment the environment to use for this session.
-	 *
-	 * @author     Felix Gilcher <felix.gilcher@exozet.com>
-	 * @since      1.0.0
-	 * @deprecated 1.1.0 Use AgaviPhpUnitCli
-	 */
-	public static function bootstrap($environment = null)
+     * Startup the Agavi core
+     *
+     * @param      string environment the environment to use for this session.
+     *
+     * @author     Felix Gilcher <felix.gilcher@exozet.com>
+     * @since      1.0.0
+     */
+    #[\Deprecated(message: 'Use AgaviPhpUnitCli', since: '1.1.0')]
+    public static function bootstrap($environment = null)
 	{
 		// Simple bootstrap that bypasses AgaviPhpUnitCli for PHPUnit 12 compatibility
 		if($environment === null) {
@@ -107,20 +107,20 @@ class AgaviTesting
 	}
 
 	/**
-	 * Dispatch the test run.
-	 *
-	 * @param      array An array of arguments configuring PHPUnit behavior.
-	 * @param      bool  Whether exit() should be called with an appropriate shell
-	 *                   exit status to indicate success or failures/errors.
-	 *
-	 * @return     PHPUnit_Framework_TestResult The PHPUnit result object.
-	 *
-	 * @author     Felix Gilcher <felix.gilcher@bitextender.com>
-	 * @author     David Zülke <david.zuelke@bitextender.com>
-	 * @since      1.0.0
-	 * @deprecated 1.1.0 Use AgaviPhpUnitCli
-	 */
-	public static function dispatch($arguments = [], $exit = true)
+     * Dispatch the test run.
+     *
+     * @param      array An array of arguments configuring PHPUnit behavior.
+     * @param      bool  Whether exit() should be called with an appropriate shell
+     *                   exit status to indicate success or failures/errors.
+     *
+     * @return     PHPUnit_Framework_TestResult The PHPUnit result object.
+     *
+     * @author     Felix Gilcher <felix.gilcher@bitextender.com>
+     * @author     David Zülke <david.zuelke@bitextender.com>
+     * @since      1.0.0
+     */
+    #[\Deprecated(message: 'Use AgaviPhpUnitCli', since: '1.1.0')]
+    public static function dispatch($arguments = [], $exit = true)
 	{
 		
 		$suites = include AgaviConfigCache::checkConfig(AgaviConfig::get('core.testing_dir').'/config/suites.xml');
@@ -170,15 +170,15 @@ class AgaviTesting
 	}
 	
 	/**
-	 * Compute a shell exit status for the given result.
-	 * Behaves like PHPUnit_TextUI_Command.
-	 *
-	 * @param      PHPUnit_Framework_TestResult The test result object.
-	 *
-	 * @return     int The shell exit code.
-	 * @deprecated 1.1.0 Use AgaviPhpUnitCli
-	 */
-	public static function getExitStatus(PHPUnit_Framework_TestResult $result)
+     * Compute a shell exit status for the given result.
+     * Behaves like PHPUnit_TextUI_Command.
+     *
+     * @param      PHPUnit_Framework_TestResult The test result object.
+     *
+     * @return     int The shell exit code.
+     */
+    #[\Deprecated(message: 'Use AgaviPhpUnitCli', since: '1.1.0')]
+    public static function getExitStatus(PHPUnit_Framework_TestResult $result)
 	{
 		if($result->wasSuccessful()) {
 			return PHPUnit_TextUI_TestRunner::SUCCESS_EXIT;
@@ -190,18 +190,18 @@ class AgaviTesting
 	}
 	
 	/**
-	 * Initialize a suite from the given instructions and add registered tests.
-	 *
-	 * @param      string Name of the suite
-	 * @param      array  An array containing information about the suite
-	 *
-	 * @return     AgaviTestSuite The initialized test suite object.
-	 *
-	 * @author     Felix Gilcher <felix.gilcher@bitextender.com>
-	 * @since      1.0.0
-	 * @deprecated 1.1.0 Use AgaviPhpUnitCli
-	 */
-	protected static function createSuite($name, array $suite) 
+     * Initialize a suite from the given instructions and add registered tests.
+     *
+     * @param      string Name of the suite
+     * @param      array  An array containing information about the suite
+     *
+     * @return     AgaviTestSuite The initialized test suite object.
+     *
+     * @author     Felix Gilcher <felix.gilcher@bitextender.com>
+     * @since      1.0.0
+     */
+    #[\Deprecated(message: 'Use AgaviPhpUnitCli', since: '1.1.0')]
+    protected static function createSuite($name, array $suite) 
 	{
 		$base = (null == $suite['base']) ? 'tests' : $suite['base'];
 		if(!AgaviToolkit::isPathAbsolute($base)) {
@@ -234,15 +234,15 @@ class AgaviTesting
 	}
 	
 	/**
-	 * Handles the commandline arguments passed.
-	 * 
-	 * @return     array the commandline arguments
-	 * 
-	 * @author     Felix Gilcher <felix.gilcher@bitextender.com>
-	 * @since      1.0.0
-	 * @deprecated 1.1.0 Use AgaviPhpUnitCli
-	 */
-	public static function processCommandlineOptions()
+     * Handles the commandline arguments passed.
+     *
+     * @return     array the commandline arguments
+     *
+     * @author     Felix Gilcher <felix.gilcher@bitextender.com>
+     * @since      1.0.0
+     */
+    #[\Deprecated(message: 'Use AgaviPhpUnitCli', since: '1.1.0')]
+    public static function processCommandlineOptions()
 	{
 		$longOptions = [
 			'configuration=',
@@ -356,17 +356,17 @@ class AgaviTesting
 	}
 	
 	/**
-	 * Checks whether all dependencies for writing code coverage information
-	 * are met. 
-	 * 
-	 * @return     true if all deps are met
-	 * @throws     AgaviExecption if a dependency is missing
-	 * 
-	 * @author     Felix Gilcher <felix.gilcher@bitextender.com>
-	 * @since      1.0.0
-	 * @deprecated 1.1.0 Use AgaviPhpUnitCli
-	 */
-	protected static function checkCodeCoverageDeps()
+     * Checks whether all dependencies for writing code coverage information
+     * are met.
+     *
+     * @return     true if all deps are met
+     * @throws     AgaviExecption if a dependency is missing
+     *
+     * @author     Felix Gilcher <felix.gilcher@bitextender.com>
+     * @since      1.0.0
+     */
+    #[\Deprecated(message: 'Use AgaviPhpUnitCli', since: '1.1.0')]
+    protected static function checkCodeCoverageDeps()
 	{
 		if(extension_loaded('tokenizer') && extension_loaded('xdebug')) {
 			return true;
@@ -382,13 +382,13 @@ class AgaviTesting
 	}
 	
 	/**
-	 * shows the help for the commandline call
-	 * 
-	 * @author     Felix Gilcher <felix.gilcher@bitextender.com>
-	 * @since      1.0.0
-	 * @deprecated 1.1.0 Use AgaviPhpUnitCli
-	 */
-	protected static function showHelp()
+     * shows the help for the commandline call
+     *
+     * @author     Felix Gilcher <felix.gilcher@bitextender.com>
+     * @since      1.0.0
+     */
+    #[\Deprecated(message: 'Use AgaviPhpUnitCli', since: '1.1.0')]
+    protected static function showHelp()
 	{
 		PHPUnit_TextUI_TestRunner::printVersionString();
 

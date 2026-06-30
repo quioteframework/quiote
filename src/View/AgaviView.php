@@ -97,13 +97,13 @@ abstract class AgaviView implements ResetInterface
 	{
 		if (empty($this->layers)) {
 			if (\Agavi\Util\DebugFlags::$view) {
-				AgaviDebugLogger::debug('[AgaviView] renderLayers no layers for ' . get_class($this), $this->getContext());
+				AgaviDebugLogger::debug('[AgaviView] renderLayers no layers for ' . static::class, $this->getContext());
 			}
 			return '';
 		}
 		$out = '';
 		if (\Agavi\Util\DebugFlags::$view) {
-			AgaviDebugLogger::debug('[AgaviView] renderLayers count=' . count($this->layers) . ' view=' . get_class($this), $this->getContext());
+			AgaviDebugLogger::debug('[AgaviView] renderLayers count=' . count($this->layers) . ' view=' . static::class, $this->getContext());
 		}
 		foreach ($this->layers as $layer) {
 			$attrsSnapshot = $this->getAttributes();
@@ -131,10 +131,10 @@ abstract class AgaviView implements ResetInterface
 	}
 
 	/**
-	 * Backward compatibility accessor for legacy getContainer() usage.
-	 * @deprecated Use getInitContext().
-	 */
-	public final function getContainer()
+     * Backward compatibility accessor for legacy getContainer() usage.
+     */
+    #[\Deprecated(message: 'Use getInitContext().')]
+    public final function getContainer()
 	{
 		return $this->initContext;
 	}
@@ -184,7 +184,7 @@ abstract class AgaviView implements ResetInterface
 			} else {
 				$this->localAttributes = [];
 			}
-		} catch (\Throwable $e) {
+		} catch (\Throwable) {
 			$this->localAttributes = [];
 		}
 	}
@@ -235,7 +235,7 @@ abstract class AgaviView implements ResetInterface
 	public function createLayer($class, $name, $renderer = null)
 	{
 		$layer = new $class();
-		if (!is_subclass_of($layer, 'Agavi\\View\\AgaviTemplateLayer')) {
+		if (!is_subclass_of($layer, \Agavi\View\AgaviTemplateLayer::class)) {
 			throw new AgaviViewException('Class "$class" is not a subclass of AgaviTemplateLayer');
 		}
 		// Try to resolve module/template names from the init context. Some
@@ -460,25 +460,25 @@ abstract class AgaviView implements ResetInterface
 	}
 
 	/**
-	 * Creates a new container with the same output type and request method as
-	 * this view's container.
-	 *
-	 * This container will have a parameter called 'is_slot' set to true.
-	 *
-	 * @param      string The name of the module.
-	 * @param      string The name of the action.
-	 * @param      mixed  Array of request parameters.
-	 * @param      string Optional name of an initial output type to set.
-	 * @param      string Optional name of the request method to be used in this
-	 *                    container.
-	 *
-	 * @return     \Agavi\Execution\SlotContent Slot content value object.
-	 * @deprecated Legacy container API removed; returns SlotContent.
-	 *
-	 * @author     David Zülke <dz@bitxtender.com>
-	 * @since      0.11.0
-	 */
-	public function createSlotContainer($moduleName, $actionName, $arguments = null, $outputType = null, $requestMethod = null)
+     * Creates a new container with the same output type and request method as
+     * this view's container.
+     *
+     * This container will have a parameter called 'is_slot' set to true.
+     *
+     * @param      string The name of the module.
+     * @param      string The name of the action.
+     * @param      mixed  Array of request parameters.
+     * @param      string Optional name of an initial output type to set.
+     * @param      string Optional name of the request method to be used in this
+     *                    container.
+     *
+     * @return     \Agavi\Execution\SlotContent Slot content value object.
+     *
+     * @author     David Zülke <dz@bitxtender.com>
+     * @since      0.11.0
+     */
+    #[\Deprecated(message: 'Legacy container API removed; returns SlotContent.')]
+    public function createSlotContainer($moduleName, $actionName, $arguments = null, $outputType = null, $requestMethod = null)
 	{
 		\Agavi\Util\DeprecationSilencer::triggerOnce(__METHOD__ . ' is removed: returning SlotContent value object.');
 		return $this->createSlotContent($moduleName, $actionName, $arguments, $outputType);
@@ -529,7 +529,7 @@ abstract class AgaviView implements ResetInterface
 					$currentModule = $am;
 					$currentAction = $aa;
 				}
-			} catch (\Throwable $e) {
+			} catch (\Throwable) {
 				// ignore attribute lookup failures and fall back to resolved names
 			}
 		}
@@ -619,7 +619,7 @@ abstract class AgaviView implements ResetInterface
 					throw new \RuntimeException('Canonical AgaviWebRequest missing in system forward fallback');
 				}
 			}
-			$method = 'execute' . ucfirst($fc->getOutputType()->getName());
+			$method = 'execute' . ucfirst((string) $fc->getOutputType()->getName());
 			if (!is_callable([$view, $method])) {
 				$method = 'execute';
 			}

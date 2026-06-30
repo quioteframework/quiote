@@ -64,7 +64,7 @@ final class CookieSerializer
                     $val = call_user_func($values['encode_callback'], $val);
                 }
 
-                $path = ($values['path'] === null) ? $basePath : $values['path'];
+                $path = $values['path'] ?? $basePath;
 
                 if ($val === null) {
                     continue;

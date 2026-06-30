@@ -96,7 +96,7 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 	 */
 	public function getOutputTypeNames(): array
 	{
-		return array_map('strtolower', array_keys($this->outputTypes));
+		return array_map(strtolower(...), array_keys($this->outputTypes));
 	}
 	
 	/**
@@ -401,7 +401,7 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 	{
 		try {
 			$this->initializeModule($moduleName);
-		} catch(AgaviDisabledModuleException $e) {
+		} catch(AgaviDisabledModuleException) {
 			// views from disabled modules should be usable by definition
 			// swallow
 		}
@@ -458,11 +458,11 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 	public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		$this->context = $context;
-		
+
 		$this->setParameters($parameters);
-		
+
 		$this->response = $this->context->createInstanceFor('response');
-		
+
 		$cfg = AgaviConfig::get('core.config_dir') . '/output_types.xml';
 		if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE) {
 			$cacheResult = AgaviAPCuConfigCache::checkConfig($cfg, $this->context->getName());
@@ -474,7 +474,7 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 		} else {
 			require(AgaviConfigCache::checkConfig($cfg, $this->context->getName()));
 		}
-		
+
 		// Legacy security/dispatch/execution filters removed
 	}
 	
@@ -533,7 +533,7 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 	{
 		$apcuKey = null;
 		if(defined('\AGAVI_USE_APCU_CONFIG_CACHE') && \AGAVI_USE_APCU_CONFIG_CACHE && function_exists('apcu_fetch')) {
-			$apcuKey = 'agavi_exists_module_' . md5($moduleName);
+			$apcuKey = 'agavi_exists_module_' . md5((string) $moduleName);
 			$cached = apcu_fetch($apcuKey, $hit);
 			if($hit) {
 				return (bool)$cached;
@@ -589,7 +589,8 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 	 * @author     Auto-generated for FrankenPHP compatibility
 	 * @since      2.0.0
 	 */
-	public function reset(): void
+	#[\Override]
+    public function reset(): void
 	{
 		$logger = $this->context?->getLoggerManager()?->getLogger();
 		if(self::DEBUG && $logger) { $logger->debug("controller.reset begin defaultOT=".var_export($this->defaultOutputType, true)); }

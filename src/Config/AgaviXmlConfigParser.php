@@ -355,7 +355,7 @@ class AgaviXmlConfigParser
 	{
 		// four backslashes mean one literal backslash
 		$pattern = preg_replace('/\\\\+#/', '\\#', (string) $pattern);
-		return (preg_match('#^(' . implode('|', array_map('trim', explode(' ', $pattern))) . ')$#', (string) $subject) > 0);
+		return (preg_match('#^(' . implode('|', array_map(trim(...), explode(' ', (string) $pattern))) . ')$#', (string) $subject) > 0);
 	}
 	
 	/**

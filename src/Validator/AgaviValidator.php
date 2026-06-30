@@ -349,7 +349,7 @@ abstract class AgaviValidator extends AgaviParameterHolder implements ResetInter
 			if ($value === null && $paramName !== null) {
 				$lowerName = strtolower($paramName);
 				foreach ($array as $key => $val) {
-					if (strtolower($key) === $lowerName) {
+					if (strtolower((string) $key) === $lowerName) {
 						$value = $val;
 						break;
 					}
@@ -371,7 +371,7 @@ abstract class AgaviValidator extends AgaviParameterHolder implements ResetInter
 		}
 		if (\Agavi\Util\DebugFlags::$validation) {
 			$resolvedStr = match(true) {
-				is_object($value) => get_class($value),
+				is_object($value) => $value::class,
 				is_null($value) => 'NULL',
 				is_scalar($value) => gettype($value) . ':' . (string)$value,
 				is_array($value) => 'array(' . count($value) . ')',
@@ -651,9 +651,9 @@ abstract class AgaviValidator extends AgaviParameterHolder implements ResetInter
 		try {
 			if(method_exists($this->validationParameters, 'setParameter')) {
 				$flatName = $cp->__toString();
-				if(strpos($flatName, '[') === false) {
+				if(!str_contains($flatName, '[')) {
 					$this->validationParameters->setParameter($flatName, $value);
-					if (\Agavi\Util\DebugFlags::$validation) { AgaviDebugLogger::debug('[AgaviValidator][export][debug] stored simple name=' . $flatName . ' type=' . (is_object($value)?get_class($value):gettype($value)), $this->getContext()); }
+					if (\Agavi\Util\DebugFlags::$validation) { AgaviDebugLogger::debug('[AgaviValidator][export][debug] stored simple name=' . $flatName . ' type=' . (get_debug_type($value)), $this->getContext()); }
 				} else {
 					// Parse root and indices: e.g. User[0] => root=User, indices=[0]
 					$root = substr($flatName, 0, strpos($flatName, '['));
@@ -670,7 +670,7 @@ abstract class AgaviValidator extends AgaviParameterHolder implements ResetInter
 						if(count($indices) > 0) {
 							$lastIndex = array_pop($indices);
 							foreach($indices as $idx) {
-								if($idx === '') { $ref[] = []; end($ref); $idx = key($ref); }
+								if($idx === '') { $ref[] = []; $idx = array_key_last($ref); }
 								if(!isset($ref[$idx]) || !is_array($ref[$idx])) { $ref[$idx] = []; }
 								$ref =& $ref[$idx];
 							}
@@ -982,7 +982,8 @@ abstract class AgaviValidator extends AgaviParameterHolder implements ResetInter
 		return null;
 	}
 
-	public function reset(): void
+	#[\Override]
+    public function reset(): void
 	{
 		$this->context = null;
 		$this->parentContainer = null;

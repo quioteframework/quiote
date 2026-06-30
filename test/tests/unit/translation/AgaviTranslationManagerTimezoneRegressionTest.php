@@ -14,6 +14,7 @@ class AgaviTranslationManagerTimezoneRegressionTest extends AgaviUnitTestCase
 {
     private AgaviTranslationManager $tm;
 
+    #[\Override]
     protected function setUp(): void
     {
         AgaviConfigCache::clear();

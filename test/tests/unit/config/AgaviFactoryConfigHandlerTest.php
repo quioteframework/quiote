@@ -11,7 +11,7 @@ class FCHTestBase
 	public $context,
 	       $params,
 	       $suCalled;
-	public function initialize($ctx, array $params = array())
+	public function initialize($ctx, array $params = [])
 	{
 		$this->context = $ctx;
 		$this->params = $params;
@@ -80,10 +80,11 @@ class AgaviFactoryConfigHandlerTest extends ConfigHandlerTestBase
 	{
 		parent::setUp();
 		$this->conf = AgaviConfig::toArray();
-		$this->factories = array();
+		$this->factories = [];
 	}
 
-	public function tearDown(): void
+	#[\Override]
+    public function tearDown(): void
 	{
 		AgaviConfig::clear();
 		AgaviConfig::fromArray($this->conf);
@@ -93,7 +94,7 @@ class AgaviFactoryConfigHandlerTest extends ConfigHandlerTestBase
 	{
 		$FCH = new AgaviFactoryConfigHandler();
 
-		$paramsExpected = array('p1' => 'v1', 'p2' => 'v2');
+		$paramsExpected = ['p1' => 'v1', 'p2' => 'v2'];
 
 		AgaviConfig::set('core.use_database', true);
 		AgaviConfig::set('core.use_logging', true);
@@ -114,28 +115,28 @@ class AgaviFactoryConfigHandlerTest extends ConfigHandlerTestBase
 
 		// Response (now includes factory_info metadata)
 		$this->assertSame(
-			array(
+			[
 				'class' => 'FCHTestResponse',
 				'parameters' => $paramsExpected,
-				'factory_info' => array(
+				'factory_info' => [
 					'class' => 'FCHTestResponse',
 					'parameters' => $paramsExpected,
-				),
-			),
+				],
+			],
 			$this->factories['response']
 		);
 		
 
 		// Validation Manager (includes factory_info)
 		$this->assertSame(
-			array(
+			[
 				'class' => 'FCHTestValidationManager',
 				'parameters' => $paramsExpected,
-				'factory_info' => array(
+				'factory_info' => [
 					'class' => 'FCHTestValidationManager',
 					'parameters' => $paramsExpected,
-				),
-			),
+				],
+			],
 			$this->factories['validation_manager']
 		);
 

@@ -8,8 +8,8 @@ class AgaviExceptionTest extends AgaviUnitTestCase
 {
 	public static function highlightSnippets()
 	{
-		return array(
-			'ticket1240' => array(
+		return [
+			'ticket1240' => [
 				'<?php
 class Default_Admin_Widgets_MenuSuccessView extends AdsDefaultBaseView
 {
@@ -24,28 +24,28 @@ ob_end_clean();
 	}
 }
 ?>'
-			),
-			'empty' => array(
+			],
+			'empty' => [
 				'',
-			),
-			'empty with newline' => array(
+			],
+			'empty with newline' => [
 				'
 ',
-			),
-			'template starting with PHP code' => array(
+			],
+			'template starting with PHP code' => [
 				'
 				<?php echo $tm->_("Ohai", "default"); ?>
 				<div />
 				<?php echo $tm->_("Ohai", "default"); ?>
 				'
-			),
-			'template starting with HTML code' => array(
+			],
+			'template starting with HTML code' => [
 				'
 				<div />
 				<?php echo $tm->_("Ohai", "default"); ?>
 				'
-			),
-		);
+			],
+		];
 	}
 	
 	#[DataProvider('highlightSnippets')]

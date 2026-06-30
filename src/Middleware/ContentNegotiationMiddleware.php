@@ -23,7 +23,7 @@ class ContentNegotiationMiddleware implements MiddlewareInterface
 {
     private ?string $defaultFormat = 'html';
 
-    public function __construct(private AgaviController $controller) {}
+    public function __construct(private readonly AgaviController $controller) {}
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {

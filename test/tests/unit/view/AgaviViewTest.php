@@ -15,7 +15,8 @@ class AgaviViewTest extends AgaviUnitTestCase
 		$_v = null, 
 		$_r = null;
 
-	public function setUp(): void
+	#[\Override]
+    public function setUp(): void
 	{
 		$ctx = $this->getContext();
 		$ctx->initialize();

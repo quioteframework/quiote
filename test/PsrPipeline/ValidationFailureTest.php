@@ -43,7 +43,7 @@ final class ValidationFailureTest extends TestCase
             new ValidationMiddleware($controller), // inject controller so action instantiation works reliably
             new DispatchMiddleware($controller),
         ];
-        $handler = new class(new Relay($stack)) implements RequestHandlerInterface { public function __construct(private Relay $relay){} public function handle(ServerRequestInterface $r): ResponseInterface { return $this->relay->handle($r); } };
+        $handler = new readonly class(new Relay($stack)) implements RequestHandlerInterface { public function __construct(private Relay $relay){} public function handle(ServerRequestInterface $r): ResponseInterface { return $this->relay->handle($r); } };
     $req = (new ServerRequest('GET', 'http://localhost/?fail=1'))
             ->withAttribute('module', $module)
             ->withAttribute('action', $action)

@@ -25,7 +25,7 @@ use Agavi\Logging\AgaviDebugLogger;
 class SecurityMiddleware implements MiddlewareInterface
 {
     private ?ForwardService $forwardService = null;
-    public function __construct(private AgaviController $controller, private ?SecurityService $securityService = null)
+    public function __construct(private readonly AgaviController $controller, private ?SecurityService $securityService = null)
     {
         $this->securityService ??= new SecurityService($controller);
         $this->forwardService ??= new ForwardService($controller);
@@ -112,7 +112,7 @@ class SecurityMiddleware implements MiddlewareInterface
                 }
             }
         } catch (\Throwable $initEx) {
-            AgaviDebugLogger::error('[SecurityMiddleware][' . $rid . '] action init FAILED: ' . get_class($initEx) . ': ' . $initEx->getMessage() . ' @ ' . $initEx->getFile() . ':' . $initEx->getLine(), $this->controller->getContext());
+            AgaviDebugLogger::error('[SecurityMiddleware][' . $rid . '] action init FAILED: ' . $initEx::class . ': ' . $initEx->getMessage() . ' @ ' . $initEx->getFile() . ':' . $initEx->getLine(), $this->controller->getContext());
             $action = null;
         }
 
@@ -206,7 +206,7 @@ class SecurityMiddleware implements MiddlewareInterface
             } catch (\Throwable $e) {
                 // CRITICAL: If we cannot create a forward descriptor, we MUST NOT pass through
                 // with the original action — that would bypass security entirely.
-                AgaviDebugLogger::error('[SecurityMiddleware][' . $rid . '] forward descriptor creation FAILED (returning 403): ' . get_class($e) . ': ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine(), $this->controller->getContext());
+                AgaviDebugLogger::error('[SecurityMiddleware][' . $rid . '] forward descriptor creation FAILED (returning 403): ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine(), $this->controller->getContext());
                 $factory = new \Nyholm\Psr7\Factory\Psr17Factory();
                 return $factory->createResponse(403)->withBody($factory->createStream('Access Denied'));
             }

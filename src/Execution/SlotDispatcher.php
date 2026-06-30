@@ -35,7 +35,7 @@ class SlotDispatcher
     public const RECURSION_LIMIT = 10; // mirrors previous static guard
     private ?ActionExecutionContext $lastContext = null;
 
-    public function __construct(private AgaviController $controller, private ?ActionResolver $actionResolver = null, private ?SlotExecutionGuard $executionGuard = null, private ?ViewNameResolver $viewNameResolver = null, private ?ForwardService $forwardService = null, private ?ViewFactory $viewFactory = null)
+    public function __construct(private readonly AgaviController $controller, private ?ActionResolver $actionResolver = null, private ?SlotExecutionGuard $executionGuard = null, private ?ViewNameResolver $viewNameResolver = null, private ?ForwardService $forwardService = null, private ?ViewFactory $viewFactory = null)
     {
         // Initialize pure resolver
         $this->viewNameResolver ??= new ViewNameResolver();
@@ -66,7 +66,7 @@ class SlotDispatcher
                 $pid = spl_object_id($parentRequest);
                 $has = $stack ? '1' : '0';
                 AgaviDebugLogger::debug(sprintf('[SlotDisp] dispatch parentRequest id=%d slotstack=%s key=%s', $pid, $has, $key), $this->controller->getContext());
-            } catch (\Throwable $_e) {
+            } catch (\Throwable) {
                 AgaviDebugLogger::debug('[SlotDisp] dispatch (no request id available)', $this->controller->getContext());
             }
         }
@@ -90,7 +90,7 @@ class SlotDispatcher
                 // Fail closed: return empty content instead of throwing to keep rendering going.
                 return '';
             }
-        } catch (\Throwable $_e) {
+        } catch (\Throwable) {
             // If guard check fails for any reason, continue and let enter() enforce the hard limit.
         }
         $this->executionGuard->enter($stack, $key);
@@ -198,7 +198,7 @@ class SlotDispatcher
                 // Mark action as slot for downstream views/layout selection (container-less compatibility)
                 if (method_exists($actionInstance, 'setAttribute')) {
                     try {
-                        AgaviDebugLogger::debug('[SlotDispatcher] Setting is_slot=true on simple action ' . get_class($actionInstance), $this->controller->getContext());
+                        AgaviDebugLogger::debug('[SlotDispatcher] Setting is_slot=true on simple action ' . $actionInstance::class, $this->controller->getContext());
                         $actionInstance->setAttribute('is_slot', true);
                         AgaviDebugLogger::debug('[SlotDispatcher] is_slot set, checking: ' . ($actionInstance->hasAttribute('is_slot') ? 'found' : 'not found'), $this->controller->getContext());
                     } catch (\Throwable $e) {
@@ -553,7 +553,7 @@ class SlotDispatcher
                 'module' => $module,
                 'action' => $action,
                 'parameters' => $parameters,
-                'class' => get_class($e),
+                'class' => $e::class,
                 'message' => $e->getMessage(),
                 'trace' => $this->truncateTrace($e->getTraceAsString()),
                 'time' => date('c'),

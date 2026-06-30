@@ -17,7 +17,8 @@ class GenUnsetExtraParamRoutingCallback extends AgaviRoutingCallback
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function onGenerate(array $defaultParameters, array &$userParameters, array &$userOptions)
+	#[\Override]
+    public function onGenerate(array $defaultParameters, array &$userParameters, array &$userOptions)
 	{
 		// unsetting a value in callback is supposed to have no impact
 		unset($userParameters['extra']);

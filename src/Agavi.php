@@ -150,7 +150,7 @@ final class Agavi
 			// If no contexts explicitly provided, we can still prewarm default if requested.
 			$createdContexts = [];
 			foreach($contextList as $ctxName) {
-				$ctxName = strtolower($ctxName);
+				$ctxName = strtolower((string) $ctxName);
 				$ctx = \Agavi\AgaviContext::getInstance($ctxName);
 				$createdContexts[$ctxName] = $ctx;
 				// Prime controller & output types (forces factories + output_types.xml load)

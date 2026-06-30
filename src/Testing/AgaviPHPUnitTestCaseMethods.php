@@ -82,7 +82,7 @@ trait AgaviPHPUnitTestCaseMethods
                         $annotations['method'][$agaviName] = $annotations['method'][$shortName];
                     }
                 }
-            } catch (\ReflectionException $e) {
+            } catch (\ReflectionException) {
                 // Method not found, ignore
             }
         }
@@ -94,7 +94,7 @@ trait AgaviPHPUnitTestCaseMethods
             try {
                 $method = $reflector->getMethod($methodName);
                 $this->parseDocBlockAnnotations($method, $annotations['method']);
-            } catch (\ReflectionException $e) {
+            } catch (\ReflectionException) {
                 // Method not found, ignore
             }
         }
@@ -117,7 +117,7 @@ trait AgaviPHPUnitTestCaseMethods
         
         // Parse Agavi-specific annotations
         $agaviPattern = '/@agavi([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)\s+(.+?)(?=\s*@|\s*\*\/|\s*$)/s';
-        if (preg_match_all($agaviPattern, $docComment, $matches, PREG_SET_ORDER)) {
+        if (preg_match_all($agaviPattern, (string) $docComment, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
                 $annotationName = lcfirst($match[1]); // Convert IsolationEnvironment -> isolationEnvironment
                 $annotationValue = trim($match[2]);
@@ -139,7 +139,7 @@ trait AgaviPHPUnitTestCaseMethods
         
         // Parse general PHPUnit annotations
         $pattern = '/@([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)\s+(.+?)(?=\s*@|\s*\*\/|\s*$)/s';
-        if (preg_match_all($pattern, $docComment, $matches, PREG_SET_ORDER)) {
+        if (preg_match_all($pattern, (string) $docComment, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
                 $annotationName = $match[1];
                 $annotationValue = trim($match[2]);

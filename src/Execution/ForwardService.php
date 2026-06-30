@@ -12,7 +12,7 @@ use Agavi\Logging\AgaviDebugLogger;
  */
 final class ForwardService
 {
-    public function __construct(private AgaviController $controller, private ?ViewNameResolver $resolver = null, private ?ViewFactory $viewFactory = null)
+    public function __construct(private readonly AgaviController $controller, private ?ViewNameResolver $resolver = null, private ?ViewFactory $viewFactory = null)
     {
         $this->resolver ??= new ViewNameResolver();
         $this->viewFactory ??= new ViewFactory($controller);
@@ -25,8 +25,8 @@ final class ForwardService
     /**
      * Legacy temporary method (now deprecated) that tried to short-circuit by rendering a view.
      * Left in place for transitional callers; now simply delegates to descriptor path and returns empty content.
-     * @deprecated Use createSystemForwardActionDescriptor instead and dispatch normally.
      */
+    #[\Deprecated(message: 'Use createSystemForwardActionDescriptor instead and dispatch normally.')]
     public function createSystemForwardView(string $forwardName, string $outputType, AgaviWebRequest $rd): array
     {
         [$module,$action] = $this->resolveSystemAction($forwardName);

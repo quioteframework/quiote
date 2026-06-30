@@ -4,7 +4,8 @@ use Agavi\Routing\AgaviRoutingCallback;
 
 class Ticket1051RoutingCallback extends AgaviRoutingCallback
 {
-	public function onGenerate(array $defaultParameters, array &$userParameters, array &$userOptions)
+	#[\Override]
+    public function onGenerate(array $defaultParameters, array &$userParameters, array &$userOptions)
 	{
 		$userOptions['authority'] = 'www.agavi.org';
 		

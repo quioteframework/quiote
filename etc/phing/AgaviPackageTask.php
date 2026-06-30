@@ -48,7 +48,7 @@ class AgaviPackageTask extends Task
 		foreach(new RecursiveIteratorIterator(new RecursiveDirectoryIterator(realpath('samples')), RecursiveIteratorIterator::CHILD_FIRST) as $dir) {
 			if($dir->isDir()) {
 				foreach(new DirectoryIterator($dir->getPathname()) as $d) {
-					if(!in_array($d->getFilename(), array('.', '..'))) {
+					if(!in_array($d->getFilename(), ['.', '..'])) {
 						continue 2;
 					}
 				}
@@ -72,25 +72,25 @@ Agavi is a full-featured MVC-style framework for PHP5 with a strong focus on str
 EOD;
 
 		$p2 = new PEAR_PackageFileManager2;
-		$p2->setOptions(array(
+		$p2->setOptions([
 			'filelistgenerator' => 'file',
 			'outputdirectory' => $this->baseDir,
 			'packagedirectory' => $this->buildDir,
 			'baseinstalldir' => 'agavi',
-			'ignore' => array(
+			'ignore' => [
 				'.svn/',
-			),
+			],
 			'addhiddenfiles' => true,
-			'dir_roles' => array(
+			'dir_roles' => [
 				'/' => 'php',
 				'bin' => 'script',
 				'samples' => 'data',
-			),
-			'installexceptions' => array(
+			],
+			'installexceptions' => [
 				'bin/agavi-dist' => '/',
 				'bin/agavi.bat-dist' => '/',
-			),
-			'exceptions' => array(
+			],
+			'exceptions' => [
 				'API_CHANGELOG' => 'doc',
 				'CHANGELOG' => 'doc',
 				'COPYRIGHT' => 'doc',
@@ -102,8 +102,8 @@ EOD;
 				'LICENSE-UNICODE_CLDR' => 'doc',
 				'RELEASE_NOTES' => 'doc',
 				'UPGRADING' => 'doc',
-			),
-		));
+			],
+		]);
 		$p2->setPackageType('php');
 		$p2->setPackage('agavi');
 		$p2->addMaintainer('lead', 'david', 'David Zülke', 'david.zuelke@bitextender.com');

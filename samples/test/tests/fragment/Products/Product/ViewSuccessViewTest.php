@@ -6,7 +6,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 class Products_Product_ViewSuccessViewTest extends AgaviViewTestCase
 {
 
-	public function __construct($name = NULL, array $data = array(), $dataName = '')
+	public function __construct($name = NULL, array $data = [], $dataName = '')
 	{
 		parent::__construct($name, $data, $dataName);
 		// FIXME: the underlying issue must be solved
@@ -14,29 +14,29 @@ class Products_Product_ViewSuccessViewTest extends AgaviViewTestCase
 		$this->moduleName = 'Products';
 		$this->viewName   = 'Success';
 	}
-	
+
 	#[DataProvider('supportedOtProvider')]
 	public function testHandlesOutputType($ot_name)
 	{
 		$this->assertHandlesOutputType($ot_name);
 	}
-	
+
 	public static function supportedOtProvider()
 	{
-		return array(
-			'html'   => array('html'),
-			'html'   => array('text'),
+		return [
+			'html'   => ['html'],
+			'html'   => ['text'],
 			// 'json'   => array('json'),
-			'soap'   => array('soap'),
-			'xmlrpc' => array('xmlrpc'),
-		);
+			'soap'   => ['soap'],
+			'xmlrpc' => ['xmlrpc'],
+		];
 	}
-	
+
 	public function testNotHandlesXmlOutputType()
 	{
 		$this->assertNotHandlesOutputType('xml');
 	}
-	
+
 	// FIXME: needs to be updated
 	public function testResponseHtml()
 	{		
@@ -53,7 +53,7 @@ class Products_Product_ViewSuccessViewTest extends AgaviViewTestCase
 		$this->assertViewRedirectsNot();
 		$this->assertContainerAttributeExists('_title');
 	}
-	
+
 	// public function testResponseJson()
 	// {		
 	// Legacy form removed; using direct array above.

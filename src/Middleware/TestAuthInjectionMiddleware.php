@@ -13,7 +13,7 @@ use Agavi\Controller\AgaviController;
  */
 class TestAuthInjectionMiddleware implements MiddlewareInterface
 {
-    public function __construct(private AgaviController $controller) {}
+    public function __construct(private readonly AgaviController $controller) {}
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {

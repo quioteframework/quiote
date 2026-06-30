@@ -78,7 +78,7 @@ class AgaviZendclouddocumentserviceDatabase extends AgaviDatabase
 		$factoryOptions = [];
 		foreach((array)$this->getParameter('factory_options', []) as $name => $value) {
 			// resolve constants like "Zend_Cloud_DocumentService_Factory::DOCUMENT_ADAPTER_KEY"
-			if(strpos($name, '::') && defined($name)) {
+			if(strpos((string) $name, '::') && defined($name)) {
 				$name = constant($name);
 			}
 			

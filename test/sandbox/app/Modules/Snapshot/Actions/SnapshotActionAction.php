@@ -9,6 +9,7 @@ class SnapshotActionAction extends AgaviAction
     public static array $initialAttributes = [];
     public static array $postMutationAttributes = [];
 
+    #[\Override]
     public function isSimple(): bool { return true; }
 
     public function execute(AgaviWebRequest $rd)

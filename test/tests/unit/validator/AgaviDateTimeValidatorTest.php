@@ -13,13 +13,14 @@ class AgaviDateTimeValidatorTest extends AgaviUnitTestCase
 {
     private $vm;
 
+    #[\Override]
     public function setUp(): void
     {
         AgaviConfigCache::clear(); // Clear caches to ensure translation config handlers recompile
         AgaviConfig::set('core.use_translation', true, true);
         if (!AgaviConfig::has('core.cldr_dir')) {
             $agaviDir = AgaviConfig::get('core.agavi_dir') ?: dirname(__DIR__, 4) . '/src';
-            $cldrDir = rtrim($agaviDir, '/') . '/Translation/data';
+            $cldrDir = rtrim((string) $agaviDir, '/') . '/Translation/data';
             AgaviConfig::set('core.cldr_dir', $cldrDir, true, true);
         }
         $context = $this->getContext();

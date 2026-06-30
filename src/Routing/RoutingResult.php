@@ -4,7 +4,7 @@ namespace Agavi\Routing;
 /**
  * Immutable routing result facade providing legacy-like getters.
  */
-final class RoutingResult
+final readonly class RoutingResult
 {
     public function __construct(
     private ?string $module,

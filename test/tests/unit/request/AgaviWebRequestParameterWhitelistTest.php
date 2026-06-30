@@ -12,6 +12,7 @@ class AgaviWebRequestParameterWhitelistTest extends AgaviUnitTestCase
 {
     private AgaviWebRequest $request;
 
+    #[\Override]
     public function setUp(): void
     {
         $this->request = new AgaviWebRequest();

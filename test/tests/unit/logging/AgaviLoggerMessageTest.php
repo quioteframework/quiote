@@ -27,7 +27,7 @@ class AgaviLoggerMessageTest extends AgaviUnitTestCase
 		$message->setMessage('my message 2');
 		$this->assertEquals('my message 2', $message->getMessage());
 		$message->appendMessage('my message 3');
-		$this->assertEquals(array('my message 2', 'my message 3'), $message->getMessage());
+		$this->assertEquals(['my message 2', 'my message 3'], $message->getMessage());
 	}
 
 	public function test__toString()

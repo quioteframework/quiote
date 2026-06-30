@@ -5,21 +5,21 @@ use Agavi\Testing\AgaviUnitTestCase;
 // Base class for validator tests (renamed *.base.php to avoid direct PHPUnit discovery)
 class BaseValidatorTest extends AgaviUnitTestCase
 {
-	protected function executeValidator($class, $value, array $errors = array(), $parameters = array())
+	protected function executeValidator($class, $value, array $errors = [], $parameters = [])
 	{
 		$vm = $this->getContext()->createInstanceFor('validation_manager');
-		$validator = $vm->createValidator($class, array('value'), $errors, $parameters);
+		$validator = $vm->createValidator($class, ['value'], $errors, $parameters);
 		$rd = $this->newWebRequest(['value' => $value]);
 		$result = $validator->execute($rd);
 		
-		return array(
+		return [
 			'result' => $result,
 			'vm' => $vm,
 			'rd' => $rd
-		);
+		];
 	}
 	
-	protected function doTestExecute($class, $value, $expectedResult, $expectedError = null, array $errors = array(), array $parameters = array())
+	protected function doTestExecute($class, $value, $expectedResult, $expectedError = null, array $errors = [], array $parameters = [])
 	{
 		$res = $this->executeValidator($class, $value, $errors, $parameters);
 		$this->assertSame($expectedResult, $res['result']);

@@ -157,7 +157,8 @@ class AgaviPhpRenderer extends AgaviRenderer implements AgaviIReusableRenderer, 
 		return $retval;
 	}
 
-	public function reset() : void {
+	#[\Override]
+    public function reset() : void {
 		$this->layer = null;
 		$this->attributes = null;
 		$this->slots = null;

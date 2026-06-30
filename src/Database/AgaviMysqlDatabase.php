@@ -128,9 +128,9 @@ class AgaviMysqlDatabase extends AgaviDatabase
 		}
 		
 		if($persistent) {
-			$this->connection = call_user_func_array('mysql_pconnect', $args);
+			$this->connection = call_user_func_array(mysql_pconnect(...), $args);
 		} else {
-			$this->connection = call_user_func_array('mysql_connect', $args + [true]);
+			$this->connection = call_user_func_array(mysql_connect(...), $args + [true]);
 		}
 		
 		// make sure the connection went through

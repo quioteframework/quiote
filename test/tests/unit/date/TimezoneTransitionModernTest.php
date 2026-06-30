@@ -21,8 +21,7 @@ class TimezoneTransitionModernTest extends TestCase
         $this->assertGreaterThanOrEqual(1, count($dstEnds));
         // Find the first DST start after March 1 1997
         $march = strtotime('1997-03-01 00:00:00 UTC');
-        $start = null;
-        foreach ($dstStarts as $t) { if ($t['ts'] >= $march) { $start = $t; break; } }
+        $start = array_find($dstStarts, fn($t) => $t['ts'] >= $march);
         $this->assertNotNull($start, 'DST start not found for 1997');
         // Assert offset shift from -28800 (UTC-8) to -25200 (UTC-7)
         $this->assertEquals(-25200, $start['offset']);

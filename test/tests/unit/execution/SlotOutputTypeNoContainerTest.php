@@ -30,7 +30,7 @@ class SlotOutputTypeNoContainerTest extends AgaviUnitTestCase
     {
         return [
             ['Html','<div>CACHE_HTML</div>'],
-            ['Json', function($content){
+            ['Json', function($content): void{
                 \PHPUnit\Framework\Assert::assertJson($content);
                 $d = json_decode($content,true);
                 \PHPUnit\Framework\Assert::assertSame('json',$d['type']);

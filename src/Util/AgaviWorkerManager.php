@@ -86,7 +86,7 @@ class AgaviWorkerManager
         try {
             $ctx = AgaviContext::getInstance(AgaviConfig::get('core.default_context', 'web'));
             return $ctx?->getLoggerManager()?->getLogger();
-        } catch (\Throwable $e) {
+        } catch (\Throwable) {
             return null;
         }
     }
@@ -152,7 +152,7 @@ class AgaviWorkerManager
         }
         
         // Reset routing components with static reset methods
-        if (class_exists('Agavi\Routing\AgaviRoutingCallbackPool')) {
+        if (class_exists(\Agavi\Routing\AgaviRoutingCallbackPool::class)) {
             AgaviRoutingCallbackPool::resetWorkerState(
                 $config['preserve_callback_pool'],
                 $config['reset_stats']
@@ -176,7 +176,7 @@ class AgaviWorkerManager
     private static function performDeepCleanup()
     {
         // Clear all caches
-        if (class_exists('Agavi\\Routing\\AgaviRoutingCallbackPool')) {
+        if (class_exists(\Agavi\Routing\AgaviRoutingCallbackPool::class)) {
             AgaviRoutingCallbackPool::resetWorkerState(false, true);
         }
         
@@ -359,7 +359,7 @@ if (isset($context)) {
                 self::getLogger()?->error(sprintf(
                     'Failed to reset object at key "%s" (%s): %s',
                     $key,
-                    get_class($object),
+                    $object::class,
                     $e->getMessage()
                 ));
             }

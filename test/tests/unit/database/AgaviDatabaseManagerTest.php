@@ -22,7 +22,8 @@ class AgaviDatabaseManagerTest extends AgaviUnitTestCase
 		$this->_dbm = $context->getDatabaseManager();
 	}
 
-	public function tearDown(): void
+	#[\Override]
+    public function tearDown(): void
 	{
 		$this->_dbm = null;
 	}

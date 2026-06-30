@@ -6,7 +6,7 @@ use Agavi\AgaviContext;
 class Ticket1294Test extends AgaviPhpUnitTestCase
 {
 	protected $routing;
-	protected $parameters = array('enabled' => true);
+	protected $parameters = ['enabled' => true];
 	
 	/**
 	 * Constructs a test case with the given name.
@@ -16,7 +16,8 @@ class Ticket1294Test extends AgaviPhpUnitTestCase
 	 * @param  string $dataName
 	 */
 	
-	public function setUp(): void
+	#[\Override]
+    public function setUp(): void
 	{
 		// otherwise, the full URI wouldn't work
 		$_SERVER['REQUEST_URI'] = '/index.php';
@@ -30,8 +31,8 @@ class Ticket1294Test extends AgaviPhpUnitTestCase
 	public function testQueryStringParametersCanBeUnsetUsingNull()
 	{
 		$this->routing->setInput('/ticket_1294');
-		$this->routing->setInputParameters(array('foo' => 'bar'));
-		$url = $this->routing->gen(null, array('foo' => null));
+		$this->routing->setInputParameters(['foo' => 'bar']);
+		$url = $this->routing->gen(null, ['foo' => null]);
 		$this->assertEquals('/index.php/ticket_1294', $url);
 	}
 }

@@ -9,19 +9,19 @@ use Agavi\Request\AgaviWebRequest;
  * Immutable context returned by SlotDispatcher for container-less execution.
  * Mirrors ActionExecutionContext but focused on slot semantics.
  */
-final class SlotExecutionContext
+final readonly class SlotExecutionContext
 {
     public function __construct(
-        public readonly AgaviAction $action,
-        public readonly ?AgaviView $view,
-        public readonly string $module,
-        public readonly string $actionName,
-        public readonly string $outputType,
-        public readonly AgaviWebRequest $request,
-        public readonly string $content,
-        public readonly ?string $viewModuleName = null,
-        public readonly ?string $viewName = null,
-        public readonly array $actionAttributes = [],
-        public readonly array $parameters = []
+        public AgaviAction $action,
+        public ?AgaviView $view,
+        public string $module,
+        public string $actionName,
+        public string $outputType,
+        public AgaviWebRequest $request,
+        public string $content,
+        public ?string $viewModuleName = null,
+        public ?string $viewName = null,
+        public array $actionAttributes = [],
+        public array $parameters = []
     ) {}
 }

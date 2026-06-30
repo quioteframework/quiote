@@ -252,10 +252,7 @@ class AgaviLocale extends AgaviParameterHolder implements ResetInterface
 		if(isset($this->data['locale']['calendar'])) {
 			return $this->data['locale']['calendar'];
 		}
-		if(isset($this->parameters['calendar'])) {
-			return $this->parameters['calendar'];
-		}
-		return $this->getDefaultCalendar();
+		return $this->parameters['calendar'] ?? $this->getDefaultCalendar();
 	}
 
 	public function getLocaleTimeZone()
@@ -263,10 +260,7 @@ class AgaviLocale extends AgaviParameterHolder implements ResetInterface
 		if(isset($this->data['locale']['timezone'])) {
 			return $this->data['locale']['timezone'];
 		}
-		if(isset($this->parameters['timezone'])) {
-			return $this->parameters['timezone'];
-		}
-		return null;
+		return $this->parameters['timezone'] ?? null;
 	}
 
 	private function getBaseLocaleIdentifier(): string
@@ -954,7 +948,8 @@ class AgaviLocale extends AgaviParameterHolder implements ResetInterface
 		return array_reverse($paths);
 	}
 
-	public function reset() : void
+	#[\Override]
+    public function reset() : void
 	{
 		$this->context = null;
 		$this->data = [];

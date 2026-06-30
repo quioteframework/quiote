@@ -145,17 +145,17 @@ class AgaviFactoryConfigHandler extends AgaviXmlConfigHandler
 		foreach($factories as $factory => $info) {
 			if(is_array($info)) {
 				$required = $info['required'];
-				
+
 				if(!$required) {
 					continue;
 				}
-				
+
 				if(!isset($data[$factory]) || $data[$factory]['class'] === null) {
 					$error = 'Configuration file "%s" has missing or incomplete entry "%s"';
 					$error = sprintf($error, $config, $factory);
 					throw new AgaviConfigurationException($error);
 				}
-				
+
 				try {
 					$rc = new \ReflectionClass($data[$factory]['class']);
 				} catch(\ReflectionException $e) {
@@ -170,7 +170,7 @@ class AgaviFactoryConfigHandler extends AgaviXmlConfigHandler
 						throw new AgaviConfigurationException($error);
 					}
 				}
-				
+
 				if($info['var'] !== null) {
 					// we have to make an instance
 					$code[] = sprintf(
@@ -206,7 +206,7 @@ class AgaviFactoryConfigHandler extends AgaviXmlConfigHandler
 						], true)
 					);
 				}
-				
+
 				// No close conditional block needed
 			} else {
 				// Handle startup calls

@@ -224,7 +224,7 @@ class AgaviRbacSecurityUser extends AgaviSecurityUser implements AgaviISecurityU
 	{
 		$logger = $this->context?->getLoggerManager()?->getLogger();
 		if (\Agavi\Util\DebugFlags::$security) {
-			$logger?->debug('RbacSecurityUser storing roles', ['class' => get_class($this), 'namespace' => self::ROLES_NAMESPACE, 'roles_count' => is_array($this->roles) ? count($this->roles) : 0]);
+			$logger?->debug('RbacSecurityUser storing roles', ['class' => static::class, 'namespace' => self::ROLES_NAMESPACE, 'roles_count' => is_array($this->roles) ? count($this->roles) : 0]);
 		}
 		$this->context->getStorage()->store(self::ROLES_NAMESPACE, $this->roles);
 	// Note: credentials are stored by parent AgaviSecurityUser::shutdown(). If they were
@@ -234,7 +234,8 @@ class AgaviRbacSecurityUser extends AgaviSecurityUser implements AgaviISecurityU
 		parent::shutdown();
 	}
 
-	public function reset() : void
+	#[\Override]
+    public function reset() : void
 	{
 		$this->context = null;
 		$this->parameters = [];

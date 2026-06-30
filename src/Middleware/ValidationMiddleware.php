@@ -365,7 +365,7 @@ class ValidationMiddleware implements MiddlewareInterface
         try {
             $controller = $action->getContext()->getController();
             $vf = new ViewFactory($controller);
-            $ot = strtolower($controller->getOutputType()->getName());
+            $ot = strtolower((string) $controller->getOutputType()->getName());
             $view = $vf->create($viewModule, $viewName, $moduleName, $actionName, $ot, $webRequest, [], $vs->getValidationManager());
             if (!$view) {
                 $factory = new \Nyholm\Psr7\Factory\Psr17Factory();

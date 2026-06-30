@@ -134,7 +134,7 @@ class AgaviCachingConfigHandler extends AgaviXmlConfigHandler
 							}
 						}
 						
-						$otnames = array_map('trim', explode(' ', (string) $outputType->getAttribute('name', '*')));
+						$otnames = array_map(trim(...), explode(' ', (string) $outputType->getAttribute('name', '*')));
 						foreach($otnames as $otname) {
 							$outputTypes[$otname] = [
 								'layers' => $layers,
@@ -146,7 +146,7 @@ class AgaviCachingConfigHandler extends AgaviXmlConfigHandler
 					}
 				}
 				
-				$methods = array_map('trim', explode(' ', (string) $caching->getAttribute('method', '*')));
+				$methods = array_map(trim(...), explode(' ', (string) $caching->getAttribute('method', '*')));
 				foreach($methods as $method) {
 					if(!AgaviToolkit::literalize($caching->getAttribute('enabled', true))) {
 						unset($cachings[$method]);

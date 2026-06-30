@@ -15,7 +15,7 @@ class Default_SendWsdlAction extends AgaviSampleAppDefaultBaseAction
 				$this->setAttribute('wsdl', $wsdl);
 				return 'Success';
 			}
-		} catch(AgaviException $e) {
+		} catch(AgaviException) {
 		}
 		return 'Error';
 	}

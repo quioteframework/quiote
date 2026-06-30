@@ -61,7 +61,7 @@ final class PipelineOrderingTest extends TestCase
         $pipeline->add('AssetAggregationMiddleware', new AssetAggregationMiddleware(), 'post');
         $pipeline->add('ExecutionTimeMiddleware', new ExecutionTimeMiddleware(), 'finalize');
         $handler = $pipeline->build();
-        $handler = new class(new ErrorHandlingMiddleware(), $handler) implements RequestHandlerInterface {
+        $handler = new readonly class(new ErrorHandlingMiddleware(), $handler) implements RequestHandlerInterface {
             public function __construct(private ErrorHandlingMiddleware $err, private RequestHandlerInterface $next) {}
             public function handle(ServerRequestInterface $r): ResponseInterface
             {

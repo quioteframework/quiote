@@ -86,16 +86,15 @@ class AgaviValidationError implements ResetInterface
 	}
 
 	/**
-	 * Sets the message index of this error.
-	 *
-	 * @param      string The message index.
-	 *
-	 * @author     Dominik del Bondio <ddb@bitxtender.com>
-	 * @since      0.11.0
-	 *
-	 * @deprecated Superseded by setName()
-	 */
-	public function setMessageIndex($messageIndex)
+     * Sets the message index of this error.
+     *
+     * @param      string The message index.
+     *
+     * @author     Dominik del Bondio <ddb@bitxtender.com>
+     * @since      0.11.0
+     */
+    #[\Deprecated(message: 'Superseded by setName()')]
+    public function setMessageIndex($messageIndex)
 	{
 		$this->setName($messageIndex);
 	}
@@ -115,16 +114,15 @@ class AgaviValidationError implements ResetInterface
 	}
 
 	/**
-	 * Retrieves the message index of this error.
-	 *
-	 * @return     string The message index.
-	 *
-	 * @author     Dominik del Bondio <ddb@bitxtender.com>
-	 * @since      0.11.0
-	 *
-	 * @deprecated Superseded by getName()
-	 */
-	public function getMessageIndex()
+     * Retrieves the message index of this error.
+     *
+     * @return     string The message index.
+     *
+     * @author     Dominik del Bondio <ddb@bitxtender.com>
+     * @since      0.11.0
+     */
+    #[\Deprecated(message: 'Superseded by getName()')]
+    public function getMessageIndex()
 	{
 		return $this->getName();
 	}

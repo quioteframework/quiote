@@ -8,8 +8,11 @@ class FingerprintSecureAction extends AgaviAction
 {
     public static int $execCount = 0;
     public static array $executions = [];
+    #[\Override]
     public function isSimple(){ return true; }
+    #[\Override]
     public function isSecure(){ return true; }
+    #[\Override]
     public function isCacheable(?string $ot = null): bool { return true; }
     public function cacheTtlSeconds(?string $ot = null): ?int { return 120; }
     public function execute(AgaviWebRequest $rd){

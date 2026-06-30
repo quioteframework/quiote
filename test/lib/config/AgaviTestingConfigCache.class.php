@@ -66,17 +66,20 @@ class AgaviTestingConfigCache extends AgaviConfigCache
 		unset(self::$handlerFiles[$filename]);
 	}
 
-	public static function setupHandlers()
+	#[\Override]
+    public static function setupHandlers()
 	{
 		parent::setupHandlers();
 	}
 
-	public static function getHandlerInfo($name)
+	#[\Override]
+    public static function getHandlerInfo($name)
 	{
 		return parent::getHandlerInfo($name);
 	}
 
-	public static function callHandler($name, $config, $cache, $context, ?array $handlerInfo = null)
+	#[\Override]
+    public static function callHandler($name, $config, $cache, $context, ?array $handlerInfo = null)
 	{
 		parent::callHandler($name, $config, $cache, $context, $handlerInfo);
 	}

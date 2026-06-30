@@ -83,7 +83,7 @@ class AgaviWebResponse extends AgaviResponse
 		'504' => "HTTP/1.0 504 Gateway Timeout",
 		'505' => "HTTP/1.0 505 HTTP Version Not Supported",
 	];
-	
+
 	/**
 	 * @var        array An array of all HTTP 1.1 status codes and their message.
 	 */
@@ -129,27 +129,27 @@ class AgaviWebResponse extends AgaviResponse
 		'504' => "HTTP/1.1 504 Gateway Timeout",
 		'505' => "HTTP/1.1 505 HTTP Version Not Supported",
 	];
-	
+
 	/**
 		* @var        array The array with the HTTP status codes to be used here.
 		*/
 	protected $httpStatusCodes = null;
-	
+
 	/**
 	 * @var        string The HTTP status code to send for the response.
 	 */
 	protected $httpStatusCode = '200';
-	
+
 	/**
 	 * @var        array The HTTP headers scheduled to be sent with the response.
 	 */
 	protected $httpHeaders = [];
-	
+
 	/**
 	 * @var        array The Cookies scheduled to be sent with the response.
 	 */
 	protected $cookies = [];
-	
+
 	/**
 	 * @var        array An array of redirect information, or null if no redirect.
 	 */
@@ -169,7 +169,8 @@ class AgaviWebResponse extends AgaviResponse
 	// --- End merged AgaviResponse properties ---
 
 	// --- Begin AgaviResponse methods merged ---
-	public function getContent()
+	#[\Override]
+    public function getContent()
 	{
 		return $this->content;
 	}
@@ -195,7 +196,8 @@ class AgaviWebResponse extends AgaviResponse
 		return $this->psrResponse;
 	}
 
-	public function getContentSize()
+	#[\Override]
+    public function getContentSize()
 	{
 		if (is_resource($this->content)) {
 			if (($stat = fstat($this->content)) !== false) {
@@ -208,42 +210,50 @@ class AgaviWebResponse extends AgaviResponse
 		}
 	}
 
-	public function setContent($content)
+	#[\Override]
+    public function setContent($content)
 	{
 		$this->content = $content;
 	}
 
-	public function prependContent($content)
+	#[\Override]
+    public function prependContent($content)
 	{
 		$this->setContent($content . $this->getContent());
 	}
 
-	public function appendContent($content)
+	#[\Override]
+    public function appendContent($content)
 	{
 		$this->setContent($this->getContent() . $content);
 	}
 
-	public function clearContent()
+	#[\Override]
+    public function clearContent()
 	{
 		$this->content = null;
 	}
 
-	public function getOutputType()
+	#[\Override]
+    public function getOutputType()
 	{
 		return $this->outputType;
 	}
 
-	public function setOutputType(AgaviOutputType $outputType)
+	#[\Override]
+    public function setOutputType(AgaviOutputType $outputType)
 	{
 		$this->outputType = $outputType;
 	}
 
-	public function clearOutputType()
+	#[\Override]
+    public function clearOutputType()
 	{
 		$this->outputType = null;
 	}
 
-	public function reset(): void
+	#[\Override]
+    public function reset(): void
 	{
 		// Reset web-specific response properties
 		$this->httpStatusCode = '200';
@@ -259,7 +269,7 @@ class AgaviWebResponse extends AgaviResponse
 		}
 	}
 	// --- End AgaviResponse methods merged ---
-	
+
 	/**
 	 * Initialize this Response.
 	 *
@@ -269,7 +279,8 @@ class AgaviWebResponse extends AgaviResponse
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function initialize(AgaviContext $context, array $parameters = [])
+	#[\Override]
+    public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		// Merge legacy AgaviResponse::initialize behaviour
 		$this->context = $context;
@@ -331,7 +342,7 @@ class AgaviWebResponse extends AgaviResponse
 		}
 		return 'HTTP/1.1';
 	}
-	
+
 	/**
 	 * Send all response data to the client.
 	 *
@@ -366,14 +377,15 @@ class AgaviWebResponse extends AgaviResponse
 			$this->sendContent();
 		}
 	}
-	
+
 	/**
 	 * Send the content for this response
 	 *
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function sendContent()
+	#[\Override]
+    public function sendContent()
 	{
 		if(is_resource($this->content) && $this->getParameter('use_sendfile_header', false)) {
 			$info = stream_get_meta_data($this->content);
@@ -395,7 +407,7 @@ class AgaviWebResponse extends AgaviResponse
 			}
 		}
 	}
-	
+
 	/**
 	 * Clear all response data.
 	 *
@@ -410,7 +422,7 @@ class AgaviWebResponse extends AgaviResponse
 		$this->cookies = [];
 		$this->redirect = null;
 	}
-	
+
 	/**
 	 * Check whether or not some content is set.
 	 *
@@ -419,11 +431,12 @@ class AgaviWebResponse extends AgaviResponse
 	 * @author     David Zülke <david.zuelke@bitextender.com>
 	 * @since      0.11.6
 	 */
+    #[\Override]
     public function hasContent()
 	{
 		return $this->content !== null && $this->content !== '';
 	}
-	
+
 	/**
 	 * Set the content type for the response.
 	 *
@@ -436,7 +449,7 @@ class AgaviWebResponse extends AgaviResponse
 	{
 		$this->setHttpHeader('Content-Type', $type);
 	}
-	
+
 	/**
 	 * Retrieve the content type set for the response.
 	 *
@@ -454,7 +467,7 @@ class AgaviWebResponse extends AgaviResponse
 			return null;
 		}
 	}
-	
+
 	/**
 	 * Import response metadata (headers, cookies) from another response.
 	 *
@@ -463,7 +476,8 @@ class AgaviWebResponse extends AgaviResponse
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function merge($otherResponse)
+	#[\Override]
+    public function merge($otherResponse)
 	{
 		// Merge attribute holder state (behaviour from AgaviResponse::merge)
 		foreach($otherResponse->getAttributeNamespaces() as $namespace) {
@@ -497,7 +511,7 @@ class AgaviWebResponse extends AgaviResponse
 			}
 		}
 	}
-	
+
 		/**
 		 * Determine whether the content in the response may be modified by appending
 		 * or prepending data using string operations. Typically false for streams, 
@@ -505,11 +519,12 @@ class AgaviWebResponse extends AgaviResponse
 		 *
 		 * @return     bool If the content can be treated as / changed like a string.
 		 */
-		public function isContentMutable()
+		#[\Override]
+        public function isContentMutable()
 		{
 			return !$this->hasRedirect() && !is_resource($this->content);
 		}
-	
+
 	/**
 	 * Check if the given HTTP status code is valid.
 	 *
@@ -525,7 +540,7 @@ class AgaviWebResponse extends AgaviResponse
 		$codes = $this->httpStatusCodes ?? $this->http11StatusCodes;
 		return isset($codes[$code]);
 	}
-	
+
 	/**
 	 * Sets a HTTP status code for the response.
 	 *
@@ -550,7 +565,7 @@ class AgaviWebResponse extends AgaviResponse
 			throw new AgaviException(sprintf('Invalid %s Status code: %s', $protocol, $code));
 		}
 	}
-	
+
 	/**
 	 * Gets the HTTP status code set for the response.
 	 *
@@ -849,11 +864,11 @@ class AgaviWebResponse extends AgaviResponse
 		$httponly       = (bool) ($httponly ?? $this->getParameter('cookie_httponly'));
 		$encodeCallback ??= $this->getParameter('cookie_encode_callback');
 		$samesite ??= $this->getParameter('cookie_samesite');
-		
+
 		if($encodeCallback !== false && !is_callable($encodeCallback)) {
 			throw new AgaviException(sprintf('setCookie() $encodeCallback argument is not callable: %s', $encodeCallback));
 		}
-		
+
 		$this->cookies[$name] = [
 			'value' => $value,
 			'lifetime' => $lifetime,
@@ -883,7 +898,7 @@ class AgaviWebResponse extends AgaviResponse
 			} catch(\Throwable) {}
 		}
 	}
-	
+
 	/**
 	 * Unset an existing cookie.
 	 * All arguments must reflect the values of the cookie that is already set.
@@ -906,7 +921,7 @@ class AgaviWebResponse extends AgaviResponse
 		// null for the lifetime, since Agavi automatically sets that when the value is false or null
 		$this->setCookie($name, false, null, $path, $domain, $secure, $httponly);
 	}
-	
+
 	/**
 	 * Get a cookie set for later sending.
 	 *
@@ -924,7 +939,7 @@ class AgaviWebResponse extends AgaviResponse
 			return $this->cookies[$name];
 		}
 	}
-	
+
 	/**
 	 * Check if a cookie has been set for later sending.
 	 *
@@ -939,7 +954,7 @@ class AgaviWebResponse extends AgaviResponse
 	{
 		return isset($this->cookies[$name]);
 	}
-	
+
 	/**
 	 * Remove a cookie previously set for later sending.
 	 *
@@ -959,7 +974,7 @@ class AgaviWebResponse extends AgaviResponse
 			unset($this->cookies[$name]);
 		}
 	}
-	
+
 	/**
 	 * Get a list of cookies set for later sending.
 	 *
@@ -973,7 +988,7 @@ class AgaviWebResponse extends AgaviResponse
 	{
 		return $this->cookies;
 	}
-	
+
 	/**
 	 * Remove the HTTP header set for the response
 	 *
@@ -1008,7 +1023,7 @@ class AgaviWebResponse extends AgaviResponse
 	{
 		$this->httpHeaders = [];
 	}
-	
+
 	/**
 	 * Sends HTTP Status code, headers and cookies
 	 *
@@ -1020,12 +1035,12 @@ class AgaviWebResponse extends AgaviResponse
 		if($outputType === null) {
 			$outputType = $this->getOutputType();
 		}
-		
+
 		// send HTTP status code
 		if(isset($this->httpStatusCode) && isset($this->httpStatusCodes[$this->httpStatusCode])) {
 			header($this->httpStatusCodes[$this->httpStatusCode]);
 		}
-		
+
 		if($outputType !== null) {
 			$httpHeaders = $outputType->getParameter('http_headers');
 			if(!is_array($httpHeaders)) {
@@ -1037,11 +1052,11 @@ class AgaviWebResponse extends AgaviResponse
 				}
 			}
 		}
-		
+
 		if($this->getParameter('send_content_length', true) && !$this->hasHttpHeader('Content-Length') && ($contentSize = $this->getContentSize()) !== false) {
 			$this->setHttpHeader('Content-Length', $contentSize);
 		}
-		
+
 		if($this->getParameter('expose_agavi', true) && !$this->hasHttpHeader('X-Powered-By')) {
 			if(AgaviConfig::get('expose_agavi_version', $expose_php = ini_get('expose_php'))) {
 				$xpbh = AgaviConfig::get('agavi.release');
@@ -1053,7 +1068,7 @@ class AgaviWebResponse extends AgaviResponse
 			}
 			$this->setHttpHeader('X-Powered-By', $xpbh);
 		}
-		
+
 		// send cookies
 		foreach($this->cookies as $name => $values) {
 			$normalized = $this->normalizeCookieForSend($name, $values);
@@ -1071,7 +1086,7 @@ class AgaviWebResponse extends AgaviResponse
 				'header' => $headerValue,
 			]);
 		}
-		
+
 		// send headers
 		foreach($this->httpHeaders as $name => $values) {
 			foreach($values as $key => $value) {

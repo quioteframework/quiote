@@ -40,11 +40,11 @@ class Products_Product_ViewSuccessView extends AgaviSampleAppProductsBaseView
 	{
 		$product = $this->getAttribute('product');
 		
-		return array(
+		return [
 			'id'    => $product->getId(),
 			'name'  => $product->getName(),
 			'price' => $product->getPrice(),
-		);
+		];
 	}
 }
 

@@ -97,7 +97,8 @@ class AgaviXoroperatorValidator extends AgaviOperatorValidator implements ResetI
 		}
 	}	
 
-	public function reset() : void
+	#[\Override]
+    public function reset() : void
 	{
 		parent::reset();
 		$this->children = [];

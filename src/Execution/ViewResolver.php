@@ -7,7 +7,7 @@ namespace Agavi\Execution;
  */
 class ViewResolver
 {
-    private ViewNameResolver $delegate;
+    private readonly ViewNameResolver $delegate;
     public function __construct(?ViewNameResolver $delegate = null)
     {
         @trigger_error('ViewResolver is deprecated; use ViewNameResolver directly', E_USER_DEPRECATED);

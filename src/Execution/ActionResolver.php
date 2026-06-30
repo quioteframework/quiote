@@ -47,12 +47,12 @@ class ActionResolver
         if(is_callable([$action, 'execute'])) {
             return $action->{'execute'}($request);
         }
-        if(is_callable([$action, 'getDefaultViewName'])) {
+        if(is_callable($action->getDefaultViewName(...))) {
             $view = $action->getDefaultViewName();
             if($view !== null && $view !== '') { 
                 return $view; 
             }
         }
-        throw new AgaviException('ActionResolver: no executable method variants ('.implode(',', $candidates).' or execute()) and no non-empty getDefaultViewName() on action '.get_class($action));
+        throw new AgaviException('ActionResolver: no executable method variants ('.implode(',', $candidates).' or execute()) and no non-empty getDefaultViewName() on action '.$action::class);
     }
 }

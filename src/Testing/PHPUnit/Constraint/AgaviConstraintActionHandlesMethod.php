@@ -25,11 +25,6 @@ class AgaviConstraintActionHandlesMethod extends AgaviBaseConstraintBecausePhpun
 	 * @var        AgaviAction The Action instance.
 	 */
 	protected $actionInstance;
-
-	/**
-     * @var        bool Whether generic 'execute' methods should be accepted.
-     */
-	protected $acceptGeneric;
 	
 	/**
      * Class constructor.
@@ -41,10 +36,9 @@ class AgaviConstraintActionHandlesMethod extends AgaviBaseConstraintBecausePhpun
      * @since      1.0.0
      * @param bool $acceptGeneric
      */
-    public function __construct(AgaviAction $actionInstance, $acceptGeneric = true)
+    public function __construct(AgaviAction $actionInstance, protected $acceptGeneric = true)
 	{
 		$this->actionInstance = $actionInstance;
-		$this->acceptGeneric = $acceptGeneric;
 	}
 	
 	/**

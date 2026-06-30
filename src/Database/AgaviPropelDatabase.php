@@ -73,7 +73,7 @@ class AgaviPropelDatabase extends AgaviDatabase
 		$this->connection = Propel::getConnection($this->getParameter('datasource'));
 		
 		if (\Agavi\Util\DebugFlags::$database) {
-			AgaviDebugLogger::debug('[AgaviPropelDatabase] connect() completed - connection_id=' . spl_object_id($this->connection) . ' type=' . get_class($this->connection));
+			AgaviDebugLogger::debug('[AgaviPropelDatabase] connect() completed - connection_id=' . spl_object_id($this->connection) . ' type=' . $this->connection::class);
 		}
 	}
 
@@ -194,7 +194,8 @@ class AgaviPropelDatabase extends AgaviDatabase
 	 * can still retain the old PDO object. If that handle is dead, clear it here so
 	 * the next getConnection() call reconnects cleanly.
 	 */
-	public function ping(): bool
+	#[\Override]
+    public function ping(): bool
 	{
 		if ($this->connection === null) {
 			return true;

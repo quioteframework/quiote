@@ -646,10 +646,8 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 		$this->protocol = $pv !== '' ? 'HTTP/' . $pv : null;
 	}
 
-	/**
-	 * @deprecated No longer needed - AgaviWebRequest IS the PSR-7 request
-	 */
-	public function attachPsrRequest(ServerRequestInterface $request): void
+	#[\Deprecated(message: 'No longer needed - AgaviWebRequest IS the PSR-7 request')]
+    public function attachPsrRequest(ServerRequestInterface $request): void
 	{
 		// No-op for backward compatibility
 		trigger_error('attachPsrRequest() is deprecated - AgaviWebRequest now extends ServerRequest directly', E_USER_DEPRECATED);
@@ -856,22 +854,26 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 	}
 
 	// --- PSR-7 MessageInterface required methods (delegating when trait not providing concrete ones) ---
-	public function getProtocolVersion(): string
+	#[\Override]
+    public function getProtocolVersion(): string
 	{
 		return parent::getProtocolVersion();
 	}
 
-	public function withProtocolVersion($version): self
+	#[\Override]
+    public function withProtocolVersion($version): self
 	{
 		return $this->copyMutableStateTo(parent::withProtocolVersion($version));
 	}
 
-	public function getHeaders(): array
+	#[\Override]
+    public function getHeaders(): array
 	{
 		return parent::getHeaders();
 	}
 
-	public function hasHeader($name): bool
+	#[\Override]
+    public function hasHeader($name): bool
 	{
 		return parent::hasHeader($name);
 	}
@@ -1028,7 +1030,7 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 	public function setParameter(string $name, $value): void
 	{
 		// Support legacy bracket notation when tests or legacy code call setParameter
-		if (strpos($name, '[') !== false) {
+		if (str_contains($name, '[')) {
 			$root = substr($name, 0, strpos($name, '['));
 			if ($root !== '') {
 				if (!array_key_exists($root, $this->runtimeParameters) || !is_array($this->runtimeParameters[$root])) {
@@ -1306,8 +1308,8 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 			$keepSet[$k] = true;
 			// When a bracket-path like "Foo[Bar]" is validated, the root key "Foo"
 			// must also be kept so nested arrays survive pruning.
-			if(str_contains($k, '[')) {
-				$root = substr($k, 0, strpos($k, '['));
+			if(str_contains((string) $k, '[')) {
+				$root = substr((string) $k, 0, strpos((string) $k, '['));
 				if($root !== '') {
 					$keepSet[$root] = true;
 				}
@@ -1413,7 +1415,7 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 		// Prune Headers
 		$headers = $new->getHeaders();
 		foreach(array_keys($headers) as $h) {
-			$l = strtolower($h);
+			$l = strtolower((string) $h);
 			$remove = true;
 			if(isset($headerKeep[$h]) || isset($headerKeep[$l])) { $remove = false; }
 			if(isset($headerFail[$h]) || isset($headerFail[$l])) { $remove = true; }
@@ -1500,94 +1502,112 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 		$this->mutableAttributes[$name] = $value;
 	}
 
-	public function getHeader($name): array
+	#[\Override]
+    public function getHeader($name): array
 	{
 		return parent::getHeader($name) ?? [];
 	}
 
-	public function getHeaderLine($name): string
+	#[\Override]
+    public function getHeaderLine($name): string
 	{
 		return parent::getHeaderLine($name) ?? '';
 	}
 
-	public function withHeader($name, $value): self
+	#[\Override]
+    public function withHeader($name, $value): self
 	{
 		return $this->copyMutableStateTo(parent::withHeader($name, $value));
 	}
 
-	public function withAddedHeader($name, $value): self
+	#[\Override]
+    public function withAddedHeader($name, $value): self
 	{
 		return $this->copyMutableStateTo(parent::withAddedHeader($name, $value));
 	}
 
-	public function withoutHeader($name): self
+	#[\Override]
+    public function withoutHeader($name): self
 	{
 		return $this->copyMutableStateTo(parent::withoutHeader($name));
 	}
 
-	public function getBody(): StreamInterface
+	#[\Override]
+    public function getBody(): StreamInterface
 	{
 		return parent::getBody();
 	}
 
-	public function withBody(StreamInterface $body): self
+	#[\Override]
+    public function withBody(StreamInterface $body): self
 	{
 		return $this->copyMutableStateTo(parent::withBody($body));
 	}
 
-	public function getRequestTarget(): string
+	#[\Override]
+    public function getRequestTarget(): string
 	{
 		return parent::getRequestTarget() ?? '';
 	}
 
-	public function withRequestTarget($requestTarget): self
+	#[\Override]
+    public function withRequestTarget($requestTarget): self
 	{
 		return $this->copyMutableStateTo(parent::withRequestTarget($requestTarget));
 	}
 
-	public function getMethod(): string
+	#[\Override]
+    public function getMethod(): string
 	{
 		return parent::getMethod() ?? ($this->method ?? 'GET');
 	}
 
-	public function withMethod($method): self
+	#[\Override]
+    public function withMethod($method): self
 	{
 		return $this->copyMutableStateTo(parent::withMethod($method));
 	}
 
-	public function getUri(): UriInterface
+	#[\Override]
+    public function getUri(): UriInterface
 	{
 		return parent::getUri();
 	}
 
-	public function withUri(UriInterface $uri, $preserveHost = false): self
+	#[\Override]
+    public function withUri(UriInterface $uri, $preserveHost = false): self
 	{
 		$new = $this->copyMutableStateTo(parent::withUri($uri, $preserveHost));
 		$new->syncUrlMetadata();
 		return $new;
 	}
 
-	public function getServerParams(): array
+	#[\Override]
+    public function getServerParams(): array
 	{
 		return parent::getServerParams() ?? [];
 	}
 
-	public function getCookieParams(): array
+	#[\Override]
+    public function getCookieParams(): array
 	{
 		return parent::getCookieParams() ?? [];
 	}
 
-	public function withCookieParams(array $cookies): self
+	#[\Override]
+    public function withCookieParams(array $cookies): self
 	{
 		return $this->copyMutableStateTo(parent::withCookieParams($cookies));
 	}
 
-	public function getQueryParams(): array
+	#[\Override]
+    public function getQueryParams(): array
 	{
 		return parent::getQueryParams() ?? [];
 	}
 
-	public function withQueryParams(array $query): self
+	#[\Override]
+    public function withQueryParams(array $query): self
 	{
 		return $this->copyMutableStateTo(parent::withQueryParams($query));
 	}
@@ -1595,33 +1615,39 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 	/**
 	 * @return array<string, UploadedFileInterface|array>
 	 */
-	public function getUploadedFiles(): array
+	#[\Override]
+    public function getUploadedFiles(): array
 	{
 		return parent::getUploadedFiles() ?? [];
 	}
 
-	public function withUploadedFiles(array $uploadedFiles): self
+	#[\Override]
+    public function withUploadedFiles(array $uploadedFiles): self
 	{
 		return $this->copyMutableStateTo(parent::withUploadedFiles($uploadedFiles));
 	}
 
-	public function getParsedBody(): mixed
+	#[\Override]
+    public function getParsedBody(): mixed
 	{
 		return parent::getParsedBody();
 	}
 
-	public function withParsedBody($data): self
+	#[\Override]
+    public function withParsedBody($data): self
 	{
 		return $this->copyMutableStateTo(parent::withParsedBody($data));
 	}
 
-	public function getAttributes(): array
+	#[\Override]
+    public function getAttributes(): array
 	{
 		// Merge PSR-7 attributes with mutable attributes (mutable takes precedence)
 		return array_merge(parent::getAttributes() ?? [], $this->mutableAttributes);
 	}
 
-	public function getAttribute($name, $default = null): mixed
+	#[\Override]
+    public function getAttribute($name, $default = null): mixed
 	{
 		// Check mutable attributes first, fall back to PSR-7 attributes
 		if (array_key_exists($name, $this->mutableAttributes)) {
@@ -1630,7 +1656,8 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 		return parent::getAttribute($name, $default);
 	}
 
-	public function withAttribute($name, $value): self
+	#[\Override]
+    public function withAttribute($name, $value): self
 	{
 		$new = $this->copyMutableStateTo(parent::withAttribute($name, $value));
 		// Override the specific attribute in mutable store
@@ -1638,7 +1665,8 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 		return $new;
 	}
 
-	public function withoutAttribute($name): self
+	#[\Override]
+    public function withoutAttribute($name): self
 	{
 		// Nyholm's withoutAttribute() returns $this (no-op) when the attribute isn't in
 		// its internal PSR-7 store. Since we may have the attribute only in mutableAttributes,
@@ -1671,7 +1699,7 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 			$_GET = $_POST = $_COOKIE = $_REQUEST = $_FILES = [];
 
 			foreach ($_SERVER as $key => $value) {
-				if (str_starts_with($key, 'HTTP_') || $key == 'CONTENT_TYPE' || $key == 'CONTENT_LENGTH') {
+				if (str_starts_with((string) $key, 'HTTP_') || $key == 'CONTENT_TYPE' || $key == 'CONTENT_LENGTH') {
 					unset($_SERVER[$key]);
 					unset($_ENV[$key]);
 					if ($rla) {

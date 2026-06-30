@@ -19,14 +19,14 @@ class AgaviSampleAppUser extends AgaviRbacSecurityUser
 	/**
 	 * Let's pretend this is our database. For the sake of example ;)
 	 */
-	static $users = array(
-		'Chuck Norris' => array(
+	static $users = [
+		'Chuck Norris' => [
 			'password' => '$2a$10$2/Gmc4XpwAytFgy3wfrW9OUnkzd6ahgcMqrm4cEc4zD3IFD1GB6IG', // bcrypt, 10 rounds, "kick"
-			'roles' => array(
+			'roles' => [
 				'photographer',
-			)
-		),
-	);
+			]
+		],
+	];
 	
 	public function startup()
 	{
@@ -38,7 +38,7 @@ class AgaviSampleAppUser extends AgaviRbacSecurityUser
 			$login = $reqData->getCookie('autologon');
 			try {
 				$this->login($login['username'], $login['password'], true);
-			} catch(AgaviSecurityException $e) {
+			} catch(AgaviSecurityException) {
 				$response = $this->getContext()->getController()->getGlobalResponse();
 				// login didn't work. that cookie sucks, delete it.
 				$response->setCookie('autologon[username]', false);
@@ -68,7 +68,7 @@ class AgaviSampleAppUser extends AgaviRbacSecurityUser
 	
 	public static function computeSaltedHash($secret, $salt)
 	{
-		return crypt($secret, $salt);
+		return crypt((string) $secret, (string) $salt);
 	}
 	
 	public static function getPassword($username)

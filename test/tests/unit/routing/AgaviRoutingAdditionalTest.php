@@ -10,7 +10,7 @@ class AgaviRoutingAdditionalTest extends TestCase
     private function routing(array $spec): AgaviRouting
     {
         return new class($spec) extends AgaviRouting {
-            public function __construct(private array $spec) { parent::__construct(); }
+            public function __construct(private readonly array $spec) { parent::__construct(); }
             protected function build(): array {
                 $rc = new RouteCollection();
                 $meta = [];
@@ -22,8 +22,8 @@ class AgaviRoutingAdditionalTest extends TestCase
                         'gen_path' => $pattern,
                         'cut' => false,
                         'path' => $pattern,
-                        'match_full' => '#^' . trim($pattern,'^') . '$#',
-                        'match_partial' => '#^' . trim($pattern,'^') . '#',
+                        'match_full' => '#^' . trim((string) $pattern,'^') . '$#',
+                        'match_partial' => '#^' . trim((string) $pattern,'^') . '#',
                         'opt' => [
                             'parent' => null,
                             'action' => $defaults['action'] ?? null,

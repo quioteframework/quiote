@@ -89,7 +89,7 @@ class ParityRouting extends AgaviRouting
         $rc = new RouteCollection();
         $meta = [];
 
-        $add = function(string $name, string $pattern, array $defaults = []) use ($rc, &$meta) {
+        $add = function(string $name, string $pattern, array $defaults = []) use ($rc, &$meta): void {
             $rc->add($name, new Route($pattern, $defaults));
             $meta[$name] = [
                 'gen_path' => $pattern,

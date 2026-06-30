@@ -65,7 +65,7 @@ class AgaviStringtoarrayTransform extends AgaviTransform
 			$delimiter, $delimiter);
 		
 		$matches = [];
-		preg_match_all($pattern, $input, $matches, PREG_SET_ORDER);
+		preg_match_all($pattern, (string) $input, $matches, PREG_SET_ORDER);
 		
 		$result = [];
 		foreach($matches as $match) {

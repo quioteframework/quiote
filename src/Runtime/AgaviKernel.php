@@ -19,8 +19,8 @@ class AgaviKernel
     private array $extraContexts = [];
 
     private function __construct(
-        private string $env,
-        private string $contextName,
+        private readonly string $env,
+        private readonly string $contextName,
     ) {}
 
     /**
@@ -72,11 +72,11 @@ class AgaviKernel
                 $emitter->emit($response);
             } catch (\Throwable $e) {
                 // Log basic diagnostics
-                AgaviDebugLogger::debug('[AgaviKernel] Uncaught during handle bootstrap: '.get_class($e).': '.$e->getMessage().' @ '.$e->getFile().':'.$e->getLine(), $context);
+                AgaviDebugLogger::debug('[AgaviKernel] Uncaught during handle bootstrap: '.$e::class.': '.$e->getMessage().' @ '.$e->getFile().':'.$e->getLine(), $context);
                 // Attempt unified error rendering via ErrorHandlingMiddleware helper.
                 try {
-                    $err = new ErrorHandlingMiddleware(function(\Throwable $ex, \Psr\Http\Message\ServerRequestInterface $r) use ($context) {
-                        AgaviDebugLogger::debug('[AgaviKernel][late] '.get_class($ex).': '.$ex->getMessage(), $context);
+                    $err = new ErrorHandlingMiddleware(function(\Throwable $ex, \Psr\Http\Message\ServerRequestInterface $r) use ($context): void {
+                        AgaviDebugLogger::debug('[AgaviKernel][late] '.$ex::class.': '.$ex->getMessage(), $context);
                     });
                     // If original PSR request not built (rare), synthesize minimal one.
                     if(!isset($request) || !$request) {
@@ -85,14 +85,13 @@ class AgaviKernel
                     }
                     $resp = $err->renderExceptionResponse($request, $e);
                     $emitter->emit($resp);
-                } catch(\Throwable $renderFail) {
+                } catch(\Throwable) {
                     // Only emit a raw fallback header if no Content-Type header has been sent/queued.
                     // Duplicate Content-Type headers were observed; guard against re-emission.
                     if (!headers_sent()) {
                         // Attempt to detect if any output buffering already contains an HTTP header by scanning headers_list()
                         $existing = function_exists('headers_list') ? headers_list() : [];
-                        $hasCt = false;
-                        foreach ($existing as $h) { if (stripos($h, 'Content-Type:') === 0) { $hasCt = true; break; } }
+                        $hasCt = array_any($existing, fn($h) => stripos($h, 'Content-Type:') === 0);
                         if (!$hasCt) {
                             header('Content-Type: text/plain; charset=utf-8', true, 500);
                         }
@@ -103,7 +102,7 @@ class AgaviKernel
             return true; // continue loop
         };
 
-        $reset = function () use ($context) {
+        $reset = function () use ($context): void {
             // Stop per-request code coverage collection and save data
             if (class_exists(\Jakamo\Coverage\RequestCoverageCollector::class, false)) {
                 \Jakamo\Coverage\RequestCoverageCollector::stop();

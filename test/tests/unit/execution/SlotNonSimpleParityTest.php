@@ -48,8 +48,8 @@ class SlotNonSimpleParityTest extends AgaviUnitTestCase
     // Strict validation: whitelist parameter used in validation failure scenario
     $ctxReq = $this->getContext()->getRequest();
     if($ctxReq instanceof \Agavi\Request\AgaviWebRequest) { $ctxReq->enforceValidatedParameters(['fail']); }
-    $legacy = $this->dispatchWithFlag(false, function(){ \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(true,false,false); }, ['fail'=>1]);
-    $noContainer = $this->dispatchWithFlag(true, function(){ \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(true,false,false); }, ['fail'=>1]);
+    $legacy = $this->dispatchWithFlag(false, function(): void{ \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(true,false,false); }, ['fail'=>1]);
+    $noContainer = $this->dispatchWithFlag(true, function(): void{ \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(true,false,false); }, ['fail'=>1]);
     $this->assertSame('<div>COMPLEX_ERROR</div>', $legacy);
     $this->assertSame($legacy, $noContainer, 'Validation error content mismatch between paths');
     }
@@ -59,7 +59,7 @@ class SlotNonSimpleParityTest extends AgaviUnitTestCase
         // Ensure user is logged out to trigger login forward in both paths
         $user = $this->getContext()->getUser();
         if(method_exists($user,'setAuthenticated')) { $user->setAuthenticated(false); }
-    $configure = function(){ \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,true,false); };
+    $configure = function(): void{ \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,true,false); };
         $legacy = $this->dispatchWithFlag(false, $configure);
         // reset user again for second dispatch to avoid state carry-over from potential forward handling
         if(method_exists($user,'setAuthenticated')) { $user->setAuthenticated(false); }
@@ -76,7 +76,7 @@ class SlotNonSimpleParityTest extends AgaviUnitTestCase
         $user = $this->getContext()->getUser();
         if(method_exists($user,'setAuthenticated')) { $user->setAuthenticated(true); }
         if(method_exists($user,'removeCredential')) { $user->removeCredential('complex_cred'); }
-    $configure = function(){ \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,false,true); };
+    $configure = function(): void{ \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,false,true); };
         $legacy = $this->dispatchWithFlag(false, $configure);
         // Reset auth/credentials before second dispatch
         if(method_exists($user,'setAuthenticated')) { $user->setAuthenticated(true); }

@@ -32,8 +32,8 @@ class ViewFactoryTest extends AgaviUnitTestCase
         $factory = $this->makeFactory();
     $view = $factory->create($ctx->viewModuleName, $ctx->viewName, $descriptor->module, $descriptor->action, $descriptor->outputType, $this->getContext()->getRequest(), $ctx->actionAttributes);
         $this->assertNotNull($view, 'ViewFactory should create view instance');
-        $this->assertSame($ctx->viewModuleName, $view->getContainer()->getViewModuleName());
-    $this->assertSame($ctx->viewName, $view->getContainer()->getViewName());
+        $this->assertSame($ctx->viewModuleName, $view->getInitContext()->getViewModuleName());
+    $this->assertSame($ctx->viewName, $view->getInitContext()->getViewName());
     }
 
     public function testCreateMissingViewReturnsNull()

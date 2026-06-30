@@ -15,36 +15,36 @@ class AgaviDependencyManagerTest extends AgaviUnitTestCase
 	{
 		$m = new MyDependencyManager;
 		
-		$m->setDepData(array(1));
+		$m->setDepData([1]);
 		$m->clear();
-		$this->assertEquals($m->getDependTokens(), array());
+		$this->assertEquals($m->getDependTokens(), []);
 	}
 	
 	public function testcheckDependencies()
 	{
 		$m = new MyDependencyManager;
-		$m->setDepData(array('foo' => true, 'bar' => true));
+		$m->setDepData(['foo' => true, 'bar' => true]);
 		
-		$this->assertEquals($m->checkDependencies(array('foo', 'bar'), new AgaviVirtualArrayPath('')), true);
-		$this->assertEquals($m->checkDependencies(array('foo'), new AgaviVirtualArrayPath('')), true);
-		$this->assertEquals($m->checkDependencies(array('foo', 'bar', 'foobar'), new AgaviVirtualArrayPath('')), false);
-		$this->assertEquals($m->checkDependencies(array('foo'), new AgaviVirtualArrayPath('')), true);
-		$this->assertEquals($m->checkDependencies(array('%s[foo]'), new AgaviVirtualArrayPath('bar')), false);
+		$this->assertEquals($m->checkDependencies(['foo', 'bar'], new AgaviVirtualArrayPath('')), true);
+		$this->assertEquals($m->checkDependencies(['foo'], new AgaviVirtualArrayPath('')), true);
+		$this->assertEquals($m->checkDependencies(['foo', 'bar', 'foobar'], new AgaviVirtualArrayPath('')), false);
+		$this->assertEquals($m->checkDependencies(['foo'], new AgaviVirtualArrayPath('')), true);
+		$this->assertEquals($m->checkDependencies(['%s[foo]'], new AgaviVirtualArrayPath('bar')), false);
 		
-		$m->setDepData(array('foo' => array('bar' => true)));
-		$this->assertEquals($m->checkDependencies(array('foo'), new AgaviVirtualArrayPath('')), true);
-		$this->assertEquals($m->checkDependencies(array('%s[bar]'), new AgaviVirtualArrayPath('foo')), true);
-		$this->assertEquals($m->checkDependencies(array(), new AgaviVirtualArrayPath('')), true);
+		$m->setDepData(['foo' => ['bar' => true]]);
+		$this->assertEquals($m->checkDependencies(['foo'], new AgaviVirtualArrayPath('')), true);
+		$this->assertEquals($m->checkDependencies(['%s[bar]'], new AgaviVirtualArrayPath('foo')), true);
+		$this->assertEquals($m->checkDependencies([], new AgaviVirtualArrayPath('')), true);
 	}
 	
 	public function testaddDependTokens()
 	{
 		$m = new MyDependencyManager;
 		
-		$m->addDependTokens(array('foo', 'bar'), new AgaviVirtualArrayPath(''));
-		$this->assertEquals($m->getDependTokens(), array('foo' => true, 'bar' => true));
-		$m->addDependTokens(array('%s[test]', '%s[test2]'), new AgaviVirtualArrayPath('foobar'));
-		$this->assertEquals($m->getDependTokens(), array('foo' => true, 'bar' => true, 'foobar' => array('test' => true, 'test2' => true)));
+		$m->addDependTokens(['foo', 'bar'], new AgaviVirtualArrayPath(''));
+		$this->assertEquals($m->getDependTokens(), ['foo' => true, 'bar' => true]);
+		$m->addDependTokens(['%s[test]', '%s[test2]'], new AgaviVirtualArrayPath('foobar'));
+		$this->assertEquals($m->getDependTokens(), ['foo' => true, 'bar' => true, 'foobar' => ['test' => true, 'test2' => true]]);
 	}
 }
 ?>

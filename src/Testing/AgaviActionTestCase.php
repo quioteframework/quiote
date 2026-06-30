@@ -86,7 +86,7 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 			try {
 				if (is_callable([$action, $errorHandler])) {
 					$resultView = $action->$errorHandler($request);
-				} elseif (is_callable([$action, 'handleError'])) {
+				} elseif (is_callable($action->handleError(...))) {
 					$resultView = $action->handleError($request);
 				} else {
 					$resultView = 'Error';
@@ -111,11 +111,11 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 				}
 			} catch (\Throwable $e) {
 				if (getenv('DEBUG_TESTS')) {
-					error_log('[runAction] EXCEPTION in ' . $execMethod . ': ' . get_class($e) . ': ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
+					error_log('[runAction] EXCEPTION in ' . $execMethod . ': ' . $e::class . ': ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
 				}
 				if (\Agavi\Util\DebugFlags::$validation || getenv('DEBUG_TESTS')) {
 					try {
-						AgaviDebugLogger::debug('[TestDebug][runAction][Exception] ' . get_class($e) . ': ' . $e->getMessage(), $this->getContext());
+						AgaviDebugLogger::debug('[TestDebug][runAction][Exception] ' . $e::class . ': ' . $e->getMessage(), $this->getContext());
 					} catch (\Throwable) {
 					}
 				}
@@ -177,7 +177,7 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 			try {
 				$rawParams = method_exists($request, 'getParameters') ? $request->getParameters('parameters') : [];
 				$flat = [];
-				if (class_exists('Agavi\\Util\\AgaviArrayPathDefinition')) {
+				if (class_exists(\Agavi\Util\AgaviArrayPathDefinition::class)) {
 					$flat = \Agavi\Util\AgaviArrayPathDefinition::getFlatKeyNames($rawParams);
 				}
 				AgaviDebugLogger::debug('[TestDebug][PreValidation] action=' . ($this->actionName ?? '') . ' method=' . $methodToken . ' keys=' . implode(',', $flat) . ' raw=' . json_encode($rawParams), $this->getContext());
@@ -228,7 +228,7 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 				}
 			} catch (\Throwable $e) {
 				if ($dbg) {
-					AgaviDebugLogger::debug('[TestDebug][ValidateException] ' . get_class($e) . ': ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine(), $this->getContext());
+					AgaviDebugLogger::debug('[TestDebug][ValidateException] ' . $e::class . ': ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine(), $this->getContext());
 				}
 				// Create a failed result
 				$result = (object)['ok' => false, 'data' => []];
@@ -305,7 +305,7 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 				} catch (\Throwable) {
 				}
 			}
-		} catch (\Throwable $e) {
+		} catch (\Throwable) {
 			$this->validationSuccess = false;
 		}
 	}

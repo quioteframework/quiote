@@ -8,32 +8,34 @@ class AgaviValidationReportTest extends AgaviUnitTestCase
 	private $_context = null;
 	private $_report = null;
 	
-	public function setUp(): void
+	#[\Override]
+    public function setUp(): void
 	{
 		$this->_context = $this->getContext();
 		$this->_report = new AgaviValidationReport();
 	}
 
-	public function tearDown(): void
+	#[\Override]
+    public function tearDown(): void
 	{
 		$this->_context = null;
 	}
 	
 	public function testDependTokensInitiallyEmpty()
 	{
-		$this->assertEquals(array(), $this->_report->getDependTokens());
+		$this->assertEquals([], $this->_report->getDependTokens());
 	}
 	
 	public function testSetGetDependTokens()
 	{
-		$tokens = array('token1' => true, 'token2' => true);
+		$tokens = ['token1' => true, 'token2' => true];
 		$this->_report->setDependTokens($tokens);
 		$this->assertEquals($tokens, $this->_report->getDependTokens());
 	}
 	
 	public function testHasDependToken()
 	{
-		$tokens = array('token1' => true, 'token2' => true);
+		$tokens = ['token1' => true, 'token2' => true];
 		$this->_report->setDependTokens($tokens);
 		$this->assertTrue($this->_report->hasDependToken('token1'));
 		$this->assertTrue($this->_report->hasDependToken('token2'));

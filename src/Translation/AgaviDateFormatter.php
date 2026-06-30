@@ -41,7 +41,7 @@ use Symfony\Contracts\Service\ResetInterface;
  */
 class AgaviDateFormatter implements AgaviITranslator, ResetInterface
 {
-    private const DEFAULT_CALENDAR = 'gregorian';
+    private const string DEFAULT_CALENDAR = 'gregorian';
 
 	/** @var AgaviContext */
 	protected $context;

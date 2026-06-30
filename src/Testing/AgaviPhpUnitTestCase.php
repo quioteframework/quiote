@@ -107,7 +107,7 @@ abstract class AgaviPhpUnitTestCase extends TestCase
 					$environmentName = $this->isolationEnvironment;
 				}
 			}
-		} catch (\Exception $e) {
+		} catch (\Exception) {
 			// Fallback to property if reflection fails
 			if (!empty($this->isolationEnvironment)) {
 				$environmentName = $this->isolationEnvironment;
@@ -164,7 +164,7 @@ abstract class AgaviPhpUnitTestCase extends TestCase
 					$ctxName = $this->isolationDefaultContext;
 				}
 			}
-		} catch (\Exception $e) {
+		} catch (\Exception) {
 			// Fallback to property if reflection fails
 			if (!empty($this->isolationDefaultContext)) {
 				$ctxName = $this->isolationDefaultContext;
@@ -218,7 +218,7 @@ abstract class AgaviPhpUnitTestCase extends TestCase
 					$flag = true;
 				}
 			}
-		} catch (\Exception $e) {
+		} catch (\Exception) {
 			// Fallback to property if reflection fails
 		}
 		
@@ -314,7 +314,7 @@ abstract class AgaviPhpUnitTestCase extends TestCase
 			$runTestsAttributes = $reflectionClass->getAttributes(\PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses::class);
 			return !empty($runTestsAttributes);
 			
-		} catch (\Exception $e) {
+		} catch (\Exception) {
 			return false;
 		}
 	}
@@ -358,7 +358,7 @@ abstract class AgaviPhpUnitTestCase extends TestCase
 					$flag = $attribute->bootstrap;
 				}
 			}
-		} catch (\Exception $e) {
+		} catch (\Exception) {
 			// Keep default flag = true if reflection fails
 		}
 		

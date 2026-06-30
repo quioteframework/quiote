@@ -18,12 +18,14 @@ class TestLogger extends AgaviLogger
 	public $appenders;
 	public $level;
 
-	public function setAppender($name, AgaviLoggerAppender $appender)
+	#[\Override]
+    public function setAppender($name, AgaviLoggerAppender $appender)
 	{
 		$this->appenders[$name] = $appender;
 	}
 
-	public function setLevel($level)
+	#[\Override]
+    public function setLevel($level)
 	{
 		$this->level = $level;
 	}
@@ -38,12 +40,14 @@ class TestAppender extends AgaviLoggerAppender
 	public $params = null;
 	public $layout = null;
 
-	public function initialize(AgaviContext $context, array $params = array())
+	#[\Override]
+    public function initialize(AgaviContext $context, array $params = [])
 	{
 		$this->params = $params;
 	}
 
-	public function setLayout(AgaviLoggerLayout $layout)
+	#[\Override]
+    public function setLayout(AgaviLoggerLayout $layout)
 	{
 		$this->layout = $layout;
 	}
@@ -60,7 +64,8 @@ class TestLayout extends AgaviLoggerLayout
 {
 	public $params = null;
 
-	public function initialize(AgaviContext $context, array $params = array())
+	#[\Override]
+    public function initialize(AgaviContext $context, array $params = [])
 	{
 		$this->params = $params;
 	}
@@ -75,10 +80,12 @@ class AgaviLoggingConfigHandlerTest extends ConfigHandlerTestBase
 {
 	protected $context;
 
-	public function setUp(): void
+	#[\Override]
+    public function setUp(): void
 	{
-		// For separate process tests, ensure Agavi is properly bootstrapped
-		\Agavi\Testing\AgaviTesting::bootstrap();
+		// AgaviPhpUnitTestCase::setUp() bootstraps Agavi in the testing environment
+		// (the deprecated AgaviTesting::bootstrap() did the same thing).
+		parent::setUp();
 		$this->context = AgaviContext::getInstance();
 	}
 
@@ -139,22 +146,22 @@ class AgaviLoggingConfigHandlerTest extends ConfigHandlerTestBase
 		$a3 = $test2->appenders['appender3'];
 
 		$this->assertInstanceOf('TestLayout1', $a1->layout);
-		$this->assertSame(array(
+		$this->assertSame([
 			'param1' => 'value1',
 			'param2' => 'value2',
-			),
+			],
 			$a1->params
 		);
 
 
 		$this->assertInstanceOf('TestLayout1', $a2->layout);
-		$this->assertEquals(array(), $a2->params);
+		$this->assertEquals([], $a2->params);
 
 
 		$this->assertInstanceOf('TestLayout2', $a3->layout);
-		$this->assertSame(array(
+		$this->assertSame([
 			'file' => AgaviConfig::get('core.app_dir') . '/log/myapp.log',
-			),
+			],
 			$a3->params
 		);
 
@@ -164,14 +171,14 @@ class AgaviLoggingConfigHandlerTest extends ConfigHandlerTestBase
 		$l1 = $a1->layout;
 		$l2 = $a3->layout;
 
-		$this->assertSame(array(
+		$this->assertSame([
 			'param1' => 'value1',
 			'param2' => 'value2',
-			),
+			],
 			$l1->params
 		);
 
-		$this->assertSame(array(), $l2->params);
+		$this->assertSame([], $l2->params);
 
 	}
 }

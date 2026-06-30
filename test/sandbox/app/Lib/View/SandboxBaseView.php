@@ -19,16 +19,16 @@ class SandboxBaseView extends AgaviView
 	 *
 	 * @throws     AgaviViewException if the output type is not handled.
 	 */
-	public final function execute(AgaviWebRequest $rd)
+	public final function execute(AgaviWebRequest $rd): never
 	{
 		throw new AgaviViewException(sprintf(
 			'The view "%1$s" does not implement an "execute%3$s()" method to serve '.
 			'the output type "%2$s", and the base view "%4$s" does not implement an '.
 			'"execute%3$s()" method to handle this situation.',
-			get_class($this),
+			static::class,
 			$this->container->getOutputType()->getName(),
-			ucfirst(strtolower($this->container->getOutputType()->getName())),
-			get_class()
+			ucfirst(strtolower((string) $this->container->getOutputType()->getName())),
+			self::class
 		));
 	}
 

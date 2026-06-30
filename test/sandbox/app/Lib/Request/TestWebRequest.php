@@ -17,7 +17,8 @@ class TestWebRequest extends AgaviWebRequest
 	/**
 	 * @param      string The request URL scheme.
 	 */
-	public function setUrlScheme($urlScheme)
+	#[\Override]
+    public function setUrlScheme($urlScheme)
 	{
 		$this->urlScheme = $urlScheme;
 	}
@@ -25,7 +26,8 @@ class TestWebRequest extends AgaviWebRequest
 	/**
 	 * @param      string The request URL hostname.
 	 */
-	public function setUrlHost($urlHost)
+	#[\Override]
+    public function setUrlHost($urlHost)
 	{
 		$this->urlHost = $urlHost;
 	}
@@ -33,7 +35,8 @@ class TestWebRequest extends AgaviWebRequest
 	/**
 	 * @param      string The request URL port.
 	 */
-	public function setUrlPort($urlPort)
+	#[\Override]
+    public function setUrlPort($urlPort)
 	{
 		$this->urlPort = $urlPort;
 	}
@@ -41,7 +44,8 @@ class TestWebRequest extends AgaviWebRequest
 	/**
 	 * @param      string The relative URL of the current request.
 	 */
-	public function setRequestUri($requestUri)
+	#[\Override]
+    public function setRequestUri($requestUri)
 	{
 		$this->requestUri = $requestUri;
 	}

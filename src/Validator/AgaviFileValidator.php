@@ -40,6 +40,7 @@ class AgaviFileValidator extends AgaviBaseFileValidator
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
+    #[\Override]
     protected function validate()
 	{
 		return parent::validate();

@@ -17,7 +17,7 @@ use Agavi\Logging\AgaviDebugLogger;
 class SlotMiddleware implements MiddlewareInterface
 {
     public const ATTR = SlotStack::class;
-    public function __construct(private ?\Agavi\AgaviContext $context = null) {}
+    public function __construct(private readonly ?\Agavi\AgaviContext $context = null) {}
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
@@ -35,7 +35,7 @@ class SlotMiddleware implements MiddlewareInterface
                     $id = spl_object_id($request);
                     $has = $request->getAttribute(self::ATTR) ? '1' : '0';
                     AgaviDebugLogger::debug(sprintf('[Slot SlotStack set on request id=%d has=%s', $id, $has), $this->context);
-                } catch (\Throwable $_e) {
+                } catch (\Throwable) {
                     AgaviDebugLogger::debug('[SlotMW] SlotStack set (unable to introspect request id)', $this->context);
                 }
             }

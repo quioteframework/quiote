@@ -6,7 +6,7 @@ use Agavi\Execution\SlotRenderable;
 
 // Stub SlotRenderable that would fail if legacy execute() path were used (no execute method)
 class StubSlotRenderable implements SlotRenderable {
-    public function __construct(private string $content) {}
+    public function __construct(private readonly string $content) {}
     public function getContent(): string { return $this->content; }
 }
 

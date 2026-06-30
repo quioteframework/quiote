@@ -409,7 +409,7 @@ class AgaviContext implements \Stringable, ResetInterface
 
     // Log user state before reset
     if ($this->user) {
-      $userClass = get_class($this->user);
+      $userClass = $this->user::class;
       if ($this->user instanceof \Agavi\User\AgaviISecurityUser) {
         $isAuthenticated = $this->user->isAuthenticated() ? "YES" : "NO";
       } else {
@@ -592,7 +592,7 @@ class AgaviContext implements \Stringable, ResetInterface
       }
       // No need to attachPsrRequest - AgaviWebRequest IS the PSR-7 request
       // If needed, ensure context's request is same instance as pipeline request
-    } catch (\Throwable $_e) {
+    } catch (\Throwable) {
       // ignore
     }
 
@@ -615,7 +615,7 @@ class AgaviContext implements \Stringable, ResetInterface
         spl_object_id($request),
         $this->correlationId,
       );
-    } catch (\Throwable $_e) {
+    } catch (\Throwable) {
       $message =
         "[AgaviContext] setRequest (no id) cid=" . $this->correlationId;
     }
@@ -765,7 +765,7 @@ class AgaviContext implements \Stringable, ResetInterface
       function_exists('\frankenphp_request_context') ||
       getenv("FRANKENPHP_VERSION") !== false ||
       (isset($_SERVER["SERVER_SOFTWARE"]) &&
-        stripos($_SERVER["SERVER_SOFTWARE"], "frankenphp") !== false) ||
+        stripos((string) $_SERVER["SERVER_SOFTWARE"], "frankenphp") !== false) ||
       defined("FRANKENPHP_VERSION");
 
     if (!$isFrankenPHP) {
@@ -815,7 +815,7 @@ class AgaviContext implements \Stringable, ResetInterface
         }
         $this->shutdownSequence = array_values($this->shutdownSequence);
         $this->user = null; // force lazy recreation in getUser()
-      } catch (\Throwable $_e) {
+      } catch (\Throwable) {
         // swallow – failing to defer is a soft failure
       }
     }
@@ -828,7 +828,7 @@ class AgaviContext implements \Stringable, ResetInterface
   protected function initializeResetInstances()
   {
     // Only the callback pool remains relevant; legacy route cache/trie removed.
-    if (class_exists("Agavi\\Routing\\AgaviRoutingCallbackPool")) {
+    if (class_exists(\Agavi\Routing\AgaviRoutingCallbackPool::class)) {
       $this->resetInstances[] = \Agavi\Routing\AgaviRoutingCallbackPool::getResetInstance();
     }
   }
@@ -851,7 +851,7 @@ class AgaviContext implements \Stringable, ResetInterface
         if (\Agavi\Util\DebugFlags::$shutdown) {
           AgaviDebugLogger::debug(
             "[AgaviContext] shutdown component error " .
-              get_class($object) .
+              $object::class .
               " msg=" .
               $e->getMessage(),
             $this,
@@ -888,7 +888,7 @@ class AgaviContext implements \Stringable, ResetInterface
     $rc = null;
 
     // Check if this is a fully qualified namespaced class name
-    if (strpos($modelName, "\\") !== false) {
+    if (str_contains((string) $modelName, "\\")) {
       // This is a namespaced class, try it directly first
       $class = $modelName;
       // Also try with 'Model' suffix if it doesn't already end with 'Model'
@@ -973,7 +973,7 @@ class AgaviContext implements \Stringable, ResetInterface
 
     $rc = new \ReflectionClass($class);
 
-    if ($rc->implementsInterface("Agavi\Model\AgaviISingletonModel")) {
+    if ($rc->implementsInterface(\Agavi\Model\AgaviISingletonModel::class)) {
       // it's a singleton
       if (!isset($this->singletonModelInstances[$class])) {
         // no instance yet, so we create one
@@ -1317,7 +1317,7 @@ class AgaviContext implements \Stringable, ResetInterface
         if (\Agavi\Util\DebugFlags::$security) {
           AgaviDebugLogger::debug(
             "[AgaviContext.getUser] newUser=" .
-              get_class($this->user) .
+              $this->user::class .
               " oid=" .
               spl_object_id($this->user),
             $this,
@@ -1348,14 +1348,7 @@ class AgaviContext implements \Stringable, ResetInterface
           }
           $this->shutdownSequence = array_values($this->shutdownSequence);
           if ($firstUserIndex === null) {
-            // Find storage position to keep user before it.
-            $storagePos = null;
-            foreach ($this->shutdownSequence as $i => $component) {
-              if ($component === $this->storage) {
-                $storagePos = $i;
-                break;
-              }
-            }
+            $storagePos = array_find_key($this->shutdownSequence, fn($component) => $component === $this->storage);
             if ($storagePos === null) {
               $firstUserIndex = 0;
             } else {

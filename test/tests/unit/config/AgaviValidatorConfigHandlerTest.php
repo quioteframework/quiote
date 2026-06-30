@@ -26,9 +26,9 @@ class AgaviValidatorConfigHandlerTest extends ConfigHandlerTestBase
 		);
 		
 		$vm = $this->getContext()->createInstanceFor('validation_manager');
-		$this->includeCode($VCH->execute($document), array(
+		$this->includeCode($VCH->execute($document), [
 			'validationManager' => $vm
-		));
+		]);
 		
 		return $vm;
 	}
@@ -69,13 +69,13 @@ class AgaviValidatorConfigHandlerTest extends ConfigHandlerTestBase
 	public function testErrorsDefinedByValidationDefinition() {
 		\Agavi\Config\AgaviConfig::set('core.use_translation', true, true);
 		$vm = $this->createValidationManager('test-validator-definition-error-definition');
-		$this->assertSame(array('' => 'error-generic', 'min' => 'error-min'), $vm->getChild('standalone-empty')->getErrorMessages());
-		$this->assertSame(array('' => 'error-generic-validator1', 'min' => 'error-min'), $vm->getChild('standalone-with-errors-single')->getErrorMessages());
-		$this->assertSame(array('' => 'error-generic-validator2', 'min' => 'error-min-validator2'), $vm->getChild('standalone-with-errors-multi')->getErrorMessages());
+		$this->assertSame(['' => 'error-generic', 'min' => 'error-min'], $vm->getChild('standalone-empty')->getErrorMessages());
+		$this->assertSame(['' => 'error-generic-validator1', 'min' => 'error-min'], $vm->getChild('standalone-with-errors-single')->getErrorMessages());
+		$this->assertSame(['' => 'error-generic-validator2', 'min' => 'error-min-validator2'], $vm->getChild('standalone-with-errors-multi')->getErrorMessages());
 
-		$this->assertSame(array('' => 'error-generic-overwritten', 'min' => 'error-min-overwritten'), $vm->getChild('overwritten-empty')->getErrorMessages());
-		$this->assertSame(array('' => 'error-generic-validator3', 'min' => 'error-min-overwritten'), $vm->getChild('overwritten-with-errors-single')->getErrorMessages());
-		$this->assertSame(array('' => 'error-generic-validator4', 'min' => 'error-min-validator4'), $vm->getChild('overwritten-with-errors-multi')->getErrorMessages());
+		$this->assertSame(['' => 'error-generic-overwritten', 'min' => 'error-min-overwritten'], $vm->getChild('overwritten-empty')->getErrorMessages());
+		$this->assertSame(['' => 'error-generic-validator3', 'min' => 'error-min-overwritten'], $vm->getChild('overwritten-with-errors-single')->getErrorMessages());
+		$this->assertSame(['' => 'error-generic-validator4', 'min' => 'error-min-validator4'], $vm->getChild('overwritten-with-errors-multi')->getErrorMessages());
 	}
 	
 }

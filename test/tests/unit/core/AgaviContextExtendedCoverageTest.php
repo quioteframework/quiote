@@ -93,7 +93,7 @@ class AgaviContextExtendedCoverageTest extends TestCase
         $dummy = new class {
             public function initialize($c, $p = []) {}
         };
-        $dummyClass = get_class($dummy);
+        $dummyClass = $dummy::class;
         // Register factory info under synthetic key so createInstanceFor could use it if invoked
         $factories['dummy_singleton'] = ['factory_info' => ['class' => $dummyClass, 'parameters' => []]];
         $factoriesProp->setValue($ctx, $factories);
@@ -241,7 +241,7 @@ class AgaviContextExtendedCoverageTest extends TestCase
         $seq = array_values(array_filter($seqProp->getValue($ctx), fn($c) => !($c instanceof \Agavi\User\AgaviUser)));
         $seqProp->setValue($ctx, $seq);
         $user2 = $ctx->getUser();
-        $this->assertInstanceOf(get_class($user1), $user2);
+        $this->assertInstanceOf($user1::class, $user2);
         $this->assertNotSame($user1, $user2);
         // Ensure new user present in shutdownSequence
         $found = false;
@@ -395,7 +395,7 @@ class AgaviContextExtendedCoverageTest extends TestCase
             // Minimal instantiation of AgaviTranslationManager
             if (class_exists(\Agavi\Translation\AgaviTranslationManager::class)) {
                 $tm = new \Agavi\Translation\AgaviTranslationManager();
-                if (is_callable([$tm, 'initialize'])) {
+                if (is_callable($tm->initialize(...))) {
                     $tm->initialize($ctx, []);
                 }
                 $tmProp->setValue($ctx, $tm);

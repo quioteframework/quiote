@@ -81,6 +81,7 @@ class AgaviPdoSessionStorage extends AgaviSessionStorage implements ResetInterfa
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.10.0
 	 */
+    #[\Override]
     public function initialize(AgaviContext $context, array $parameters = [])
 	{
 		// initialize the parent
@@ -105,7 +106,8 @@ class AgaviPdoSessionStorage extends AgaviSessionStorage implements ResetInterfa
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function close() : bool
+	#[\Override]
+    public function close() : bool
 	{
 		if($this->connection) {
 			return true;
@@ -130,7 +132,8 @@ class AgaviPdoSessionStorage extends AgaviSessionStorage implements ResetInterfa
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function destroy($id) : bool
+	#[\Override]
+    public function destroy($id) : bool
 	{
 		if(!$this->connection) {
 			return false;
@@ -175,7 +178,8 @@ class AgaviPdoSessionStorage extends AgaviSessionStorage implements ResetInterfa
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function gc(int$lifetime) : int|false
+	#[\Override]
+    public function gc(int$lifetime) : int|false
 	{
 		if(!$this->connection) {
 			return false;
@@ -234,7 +238,8 @@ class AgaviPdoSessionStorage extends AgaviSessionStorage implements ResetInterfa
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function open($path, $name) : bool
+	#[\Override]
+    public function open($path, $name) : bool
 	{
 		// what database are we using?
 		$database = $this->getParameter('database', null);
@@ -264,7 +269,8 @@ class AgaviPdoSessionStorage extends AgaviSessionStorage implements ResetInterfa
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function read($id): string|false
+	#[\Override]
+    public function read($id): string|false
 	{
 		if(!$this->connection) {
 			return false;
@@ -322,7 +328,8 @@ class AgaviPdoSessionStorage extends AgaviSessionStorage implements ResetInterfa
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function write(string $id, string $data): bool
+	#[\Override]
+    public function write(string $id, string $data): bool
 	{
 		if(!$this->connection) {
 			return false;

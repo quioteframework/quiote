@@ -6,7 +6,7 @@ use PHPUnit\Framework\Assert;
 class LoginSuccessViewTest extends AgaviViewTestCase
 {
 
-	public function __construct($name = NULL, array $data = array(), $dataName = '')
+	public function __construct($name = NULL, array $data = [], $dataName = '')
 	{
 		parent::__construct($name, $data, $dataName);
 		$this->actionName = 'Login';
@@ -27,7 +27,7 @@ class LoginSuccessViewTest extends AgaviViewTestCase
 		$this->getContext()->getUser()->setAttribute('redirect', 'http://www.example.com/', 'org.agavi.SampleApp.login');
 		$this->runView();
 		if (method_exists($this, 'assertViewResultEquals')) { $this->assertViewResultEquals(''); }
-		if (method_exists($this, 'assertViewRedirectsTo')) { $this->assertViewRedirectsTo(array('code' => '302', 'location' => 'http://www.example.com/')); }
+		if (method_exists($this, 'assertViewRedirectsTo')) { $this->assertViewRedirectsTo(['code' => '302', 'location' => 'http://www.example.com/']); }
 	}
 	
 	public function testResponseHtml()

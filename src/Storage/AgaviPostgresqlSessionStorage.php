@@ -350,7 +350,8 @@ class AgaviPostgresqlSessionStorage extends AgaviSessionStorage implements Reset
 		throw new AgaviDatabaseException($error);
 	}
 
-	public function reset() : void
+	#[\Override]
+    public function reset() : void
 	{
 		if($this->resource) {
 			$transaction_status = pg_transaction_status($this->resource);

@@ -11,21 +11,18 @@ use Agavi\Util\AgaviAttributeHolder; // to expose action attributes via standard
 
 final class ImmutableViewInitContext extends AgaviAttributeHolder implements ViewInitContext
 {
-    private ?object $validationManager;
-
     public function __construct(
-        private AgaviContext $context,
-        private string $viewModule,
-        private string $viewName,
-        private string $outputType,
-        private ?string $actionModule,
-        private ?string $actionName,
-        private array $actionAttributes,
-    private AgaviWebResponse $response,
+        private readonly AgaviContext $context,
+        private readonly string $viewModule,
+        private readonly string $viewName,
+        private readonly string $outputType,
+        private readonly ?string $actionModule,
+        private readonly ?string $actionName,
+        private readonly array $actionAttributes,
+    private readonly AgaviWebResponse $response,
         private ?ResponseInterface $psrResponse = null,
-        ?object $validationManager = null
+        private readonly ?object $validationManager = null
     ) {
-        $this->validationManager = $validationManager;
         // Populate attribute holder with snapshot so AgaviView::getAttribute()/getAttributes() work.
         // Immutable semantics: later setAttribute() calls are ignored by AgaviView because initContext instanceof ViewInitContext.
         if (!empty($actionAttributes)) {
@@ -110,7 +107,7 @@ final class ImmutableViewInitContext extends AgaviAttributeHolder implements Vie
     public function getOutputType()
     {
         // Provide a tiny proxy object exposing getName() only.
-        return new class($this->outputType) {
+        return new readonly class($this->outputType) {
             public function __construct(private string $n) {}
             public function getName()
             {
@@ -126,6 +123,7 @@ final class ImmutableViewInitContext extends AgaviAttributeHolder implements Vie
      * stored in immutable context). Slot/layout code that checks flags like
      * 'is_slot' will simply see the default (false) and continue.
      */
+    #[\Override]
     public function &getParameter($name, $default = null)
     {
         // Return a reference to a static variable to avoid PHP notice about
@@ -139,6 +137,7 @@ final class ImmutableViewInitContext extends AgaviAttributeHolder implements Vie
     /**
      * Expose an empty parameter array for completeness.
      */
+    #[\Override]
     public function &getParameters(): array
     {
         // Return reference to a static empty array to satisfy callers expecting

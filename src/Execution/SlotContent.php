@@ -9,21 +9,12 @@ namespace Agavi\Execution;
  * layers and renderers; heavy lifecycle & parameter APIs stay with the legacy
  * container path until fully removed.
  */
-final class SlotContent implements SlotRenderable
+final readonly class SlotContent implements SlotRenderable, \Stringable
 {
-    private string $module;
-    private string $action;
-    private ?string $outputType; // null means inherit
-    private string $content;
-    private array $arguments; // original argument hash (already merged / sanitized)
+    // original argument hash (already merged / sanitized)
 
-    public function __construct(string $module, string $action, ?string $outputType, string $content, array $arguments = [])
+    public function __construct(private string $module, private string $action, private ?string $outputType, private string $content, private array $arguments = [])
     {
-        $this->module = $module;
-        $this->action = $action;
-        $this->outputType = $outputType;
-        $this->content = $content;
-        $this->arguments = $arguments;
     }
 
     public function getModule(): string { return $this->module; }

@@ -12,8 +12,11 @@ class CacheAction extends AgaviAction
      */
     protected $container = null;
     public static int $execCount = 0;
+    #[\Override]
     public function isSimple(){ return true; }
+    #[\Override]
     public function isCacheable(?string $outputType = null): bool { return true; }
+    #[\Override]
     public function getDefaultViewName(){ return 'Success'; }
     public function execute(AgaviWebRequest $rd){
         self::$execCount++;

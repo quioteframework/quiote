@@ -13,7 +13,7 @@ use Agavi\Http\PsrResponseAdapter;
 #[\Agavi\Middleware\Attribute\AgaviMiddleware(phase: 'finalize', priority: -10)]
 class ExecutionTimeMiddleware implements MiddlewareInterface
 {
-    public function __construct(private bool $appendHtmlComment = true) {}
+    public function __construct(private readonly bool $appendHtmlComment = true) {}
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {

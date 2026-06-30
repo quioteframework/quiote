@@ -80,7 +80,7 @@ class AgaviSchematronProcessor extends AgaviParameterHolder
 			throw new AgaviException('Schematron processor chain must contain at least one path name.');
 		}
 		
-		$this->chain = array_map(['Agavi\\Util\\AgaviToolkit', 'expandDirectives'], $chain);
+		$this->chain = array_map(\Agavi\Util\AgaviToolkit::expandDirectives(...), $chain);
 	}
 	
 	/**
@@ -146,7 +146,7 @@ class AgaviSchematronProcessor extends AgaviParameterHolder
 	protected function prepareProcessor($processor)
 	{
 		// ensure everything is a string to make hhvm happy
-		$processor->setParameter('', array_map('strval', $this->getParameters()));
+		$processor->setParameter('', array_map(strval(...), $this->getParameters()));
 	}
 	
 	/**

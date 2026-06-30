@@ -60,7 +60,7 @@ final class SecurityForwardTest extends TestCase
         $pipeline->add('SecurityMiddleware', new SecurityMiddleware($controller), 'before_action');
         $pipeline->add('DispatchMiddleware', new DispatchMiddleware($controller), 'action');
         $handler = $pipeline->build();
-        $handler = new class(new ErrorHandlingMiddleware(), $handler) implements RequestHandlerInterface { public function __construct(private ErrorHandlingMiddleware $err, private RequestHandlerInterface $next) {} public function handle(ServerRequestInterface $r): ResponseInterface { return $this->err->process($r, $this->next); } };
+        $handler = new readonly class(new ErrorHandlingMiddleware(), $handler) implements RequestHandlerInterface { public function __construct(private ErrorHandlingMiddleware $err, private RequestHandlerInterface $next) {} public function handle(ServerRequestInterface $r): ResponseInterface { return $this->err->process($r, $this->next); } };
         $req = (new ServerRequest('GET', 'http://localhost/'))
             ->withAttribute('module', $module)
             ->withAttribute('action', $action)

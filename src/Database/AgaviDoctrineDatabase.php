@@ -146,7 +146,7 @@ class AgaviDoctrineDatabase extends AgaviDatabase
 			] as $attributesKey => $attributesDestination) {
 				foreach((array)$this->getParameter($attributesKey, []) as $attributeName => $attributeValue) {
 					if($is12) {
-						if(!strpos($attributeName, '::')) {
+						if(!strpos((string) $attributeName, '::')) {
 							throw new AgaviDatabaseException(sprintf('For Doctrine 1.2 and newer, attribute names (and, if desired to be resolved against a constant, values) must be fully qualified, e.g. "Doctrine_Core::ATTR_VALIDATE" and "Doctrine_Core::VALIDATE_NONE". Given attribute with name "%s" in collection "%s" does not match this condition.', $attributeName, $attributesKey));
 						}
 						if(!defined($attributeName)) {
@@ -155,7 +155,7 @@ class AgaviDoctrineDatabase extends AgaviDatabase
 					}
 					
 					// resolve from constant if possible
-					if(strpos($attributeName, '::') && defined($attributeName)) {
+					if(strpos((string) $attributeName, '::') && defined($attributeName)) {
 						$attributeName = constant($attributeName);
 					}
 					

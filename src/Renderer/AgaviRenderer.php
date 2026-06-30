@@ -212,7 +212,8 @@ abstract class AgaviRenderer extends AgaviParameterHolder implements ResetInterf
 	 */
 	abstract public function render(AgaviTemplateLayer $layer, array &$attributes = [], array &$slots = [], array &$moreAssigns = []);
 
-	public function reset() : void
+	#[\Override]
+    public function reset() : void
 	{
 		$this->context = null;
 		$this->contextName = null;

@@ -5,12 +5,19 @@ use Nyholm\Psr7\ServerRequest;
 // Concrete response stub implementing abstract methods
 class TestLightweightResponse extends \Agavi\Response\AgaviWebResponse {
     protected $redirect = null;
+    #[\Override]
     public function initialize($c,$p=[]) { parent::initialize($c,$p); }
+    #[\Override]
     public function setRedirect($location, $code = 302) { $this->redirect = $location; }
+    #[\Override]
     public function getRedirect() { return $this->redirect ? ['to'=>$this->redirect] : null; }
+    #[\Override]
     public function hasRedirect() { return $this->redirect !== null; }
+    #[\Override]
     public function clearRedirect() { $this->redirect = null; }
+    #[\Override]
     public function clear() { $this->clearContent(); $this->clearRedirect(); $this->clearAttributes(); }
+    #[\Override]
     public function send(?\Agavi\Controller\AgaviOutputType $outputType = null) { /* no-op */ }
 }
 use Agavi\AgaviContext;

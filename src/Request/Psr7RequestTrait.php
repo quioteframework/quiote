@@ -64,9 +64,7 @@ trait Psr7RequestTrait
 
     protected function getRequestParams(ServerRequestInterface $request, ?string $source = null)
     {
-        $merge = static function (?array $a, ?array $b): array {
-            return array_merge($a ?? [], $b ?? []);
-        };
+        $merge = (static fn(?array $a, ?array $b): array => array_merge($a ?? [], $b ?? []));
 
         if ($source === null) {
             $all = [];

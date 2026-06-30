@@ -31,9 +31,9 @@ Agavi::bootstrap('development-yourname');
 
 $em = AgaviContext::getInstance('doctrine-cli')->getDatabaseConnection(); // fetches default connection; pass a connection name if necessary
 
-$helperSet = new \Symfony\Component\Console\Helper\HelperSet(array(
+$helperSet = new \Symfony\Component\Console\Helper\HelperSet([
 	'db' => new \Doctrine\DBAL\Tools\Console\Helper\ConnectionHelper($em->getConnection()),
 	'em' => new \Doctrine\ORM\Tools\Console\Helper\EntityManagerHelper($em)
-));
+]);
 
 ?>

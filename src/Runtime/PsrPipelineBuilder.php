@@ -21,7 +21,7 @@ use Agavi\Http\PsrResponseAdapter;
 
 class PsrPipelineBuilder
 {
-    public function __construct(private AgaviContext $context) {}
+    public function __construct(private readonly AgaviContext $context) {}
 
     public function buildRequestFromGlobals(): ServerRequestInterface
     {
@@ -36,8 +36,8 @@ class PsrPipelineBuilder
             $parsedBody = $_POST;
             try {
                 $ctHeader = '';
-                foreach($headers as $hk=>$hv) { if(strtolower($hk)==='content-type') { $ctHeader = is_array($hv)?implode(',',$hv):$hv; break; } }
-                if($ctHeader && stripos($ctHeader,'json') !== false) {
+                foreach($headers as $hk=>$hv) { if(strtolower((string) $hk)==='content-type') { $ctHeader = is_array($hv)?implode(',',$hv):$hv; break; } }
+                if($ctHeader && stripos((string) $ctHeader,'json') !== false) {
                     $raw = (string)$body; // SimpleStream implements __toString() rewinding stream
                     if($raw !== '') {
                         if(str_starts_with($raw, "\xEF\xBB\xBF")) { $raw = substr($raw,3); }
@@ -78,7 +78,7 @@ class PsrPipelineBuilder
         $handler = $pipeline->build();
         // Provide logger to ErrorHandlingMiddleware so underlying exception becomes visible in logs
         $context = $this->context;
-        $loggerFn = function(\Throwable $e, ServerRequestInterface $r) use ($context) {
+        $loggerFn = function(\Throwable $e, ServerRequestInterface $r) use ($context): void {
             $first = $e->getFile().':'.$e->getLine();
             $trace = $e->getTraceAsString();
             $snippet = substr(str_replace("\n", ' | ', $trace), 0, 1200);
@@ -99,7 +99,7 @@ class PsrPipelineBuilder
             $mem = round(memory_get_usage(true)/1048576,2);
             $peak = round(memory_get_peak_usage(true)/1048576,2);
             $pieces = [
-                '[AgaviPipeline]', get_class($e), $e->getMessage(), '@', $first,
+                '[AgaviPipeline]', $e::class, $e->getMessage(), '@', $first,
                 'uri='.$uri,
                 $module?"module=$module":null,
                 $action?"action=$action":null,
@@ -112,7 +112,7 @@ class PsrPipelineBuilder
             $msg = implode(' ', array_filter($pieces, fn($p)=>$p!==null && $p!==''));
             AgaviDebugLogger::debug($msg, $context);
         };
-        return new class(new ErrorHandlingMiddleware($loggerFn), $handler) implements RequestHandlerInterface {
+        return new readonly class(new ErrorHandlingMiddleware($loggerFn), $handler) implements RequestHandlerInterface {
             public function __construct(private ErrorHandlingMiddleware $err, private RequestHandlerInterface $next) {}
             public function handle(ServerRequestInterface $request): ResponseInterface { return $this->err->process($request, $this->next); }
         };
@@ -120,7 +120,7 @@ class PsrPipelineBuilder
 
     public function defaultFinalHandler(): RequestHandlerInterface
     {
-        return new class($this->context) implements RequestHandlerInterface {
+        return new readonly class($this->context) implements RequestHandlerInterface {
             public function __construct(private AgaviContext $ctx) {}
             public function handle(ServerRequestInterface $request): ResponseInterface
             {

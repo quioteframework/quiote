@@ -19,9 +19,9 @@ use Psr\Http\Server\RequestHandlerInterface;
 #[\Agavi\Middleware\Attribute\AgaviMiddleware(phase: 'after_action', after: 'AssetAggregationMiddleware', before: 'ExecutionTimeMiddleware')]
 class FormPopulationMiddleware implements MiddlewareInterface
 {
-    private FormPopulationEngine $engine;
+    private readonly FormPopulationEngine $engine;
 
-    public function __construct(private AgaviController $controller, ?FormPopulationEngine $engine = null)
+    public function __construct(private readonly AgaviController $controller, ?FormPopulationEngine $engine = null)
     {
         $this->engine = $engine ?? new FormPopulationEngine();
         $this->engine->initialize($this->controller->getContext());

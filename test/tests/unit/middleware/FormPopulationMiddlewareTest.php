@@ -53,7 +53,7 @@ class FormPopulationMiddlewareTest extends AgaviUnitTestCase
             ->withParsedBody(['foo' => 'bar']);
 
         $factory = new Psr17Factory();
-        $handler = new class($factory) implements RequestHandlerInterface {
+        $handler = new readonly class($factory) implements RequestHandlerInterface {
             public function __construct(private Psr17Factory $factory) {}
             public function handle(ServerRequestInterface $request): ResponseInterface
             {
@@ -80,7 +80,7 @@ class FormPopulationMiddlewareTest extends AgaviUnitTestCase
             ->withAttribute('agavi.request_data', $webRequest);
 
         $factory = new Psr17Factory();
-        $handler = new class($factory) implements RequestHandlerInterface {
+        $handler = new readonly class($factory) implements RequestHandlerInterface {
             public function __construct(private Psr17Factory $factory) {}
             public function handle(ServerRequestInterface $request): ResponseInterface
             {

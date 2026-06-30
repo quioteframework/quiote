@@ -563,7 +563,7 @@ class AgaviTranslationManager implements ResetInterface
 			}
 			$this->currentLocale = $this->getLocale($this->givenLocaleIdentifier);
 			foreach($this->translators as $translatorList) {
-				foreach($translatorList as $type => $translator) {
+				foreach($translatorList as $translator) {
 					$translator->localeChanged($this->currentLocale);
 				}
 			}
@@ -781,16 +781,15 @@ class AgaviTranslationManager implements ResetInterface
 	}
 
 	/**
-	 * Gets the instance of the current timezone.
-	 *
-	 * @return     AgaviTimeZone The current timezone instance.
-	 *
-	 * @author     Dominik del Bondio <ddb@bitxtender.com>
-	 * @since      0.11.0
-	 *
-	 * @deprecated Superseded by AgaviTranslationManager::getDefaultTimeZone()
-	 */
-	public function getCurrentTimeZone()
+     * Gets the instance of the current timezone.
+     *
+     * @return     AgaviTimeZone The current timezone instance.
+     *
+     * @author     Dominik del Bondio <ddb@bitxtender.com>
+     * @since      0.11.0
+     */
+    #[\Deprecated(message: 'Superseded by AgaviTranslationManager::getDefaultTimeZone()')]
+    public function getCurrentTimeZone()
 	{
 		return $this->getDefaultTimeZone();
 	}
@@ -999,7 +998,7 @@ class AgaviTranslationManager implements ResetInterface
 			$fd = $fmt->getAttribute(\NumberFormatter::FRACTION_DIGITS);
 			if(is_numeric($fd) && $fd >= 0) { $digits = (int) $fd; }
 			$ri = $fmt->getAttribute(\NumberFormatter::ROUNDING_INCREMENT);
-			if(is_numeric($ri) && $ri > 0) { $rounding = (int) round($ri * pow(10, $digits)); }
+			if(is_numeric($ri) && $ri > 0) { $rounding = (int) round($ri * 10 ** $digits); }
 		} catch(\Throwable) {}
 		return $this->currencyFractionCache[$currency] = ['digits' => $digits, 'rounding' => $rounding];
 	}

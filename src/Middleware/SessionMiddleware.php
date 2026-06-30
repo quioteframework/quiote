@@ -16,7 +16,7 @@ use Agavi\Logging\AgaviDebugLogger;
 #[\Agavi\Middleware\Attribute\AgaviMiddleware(phase: 'before_action', after: 'RoutingMiddleware', before: 'SecurityMiddleware')]
 class SessionMiddleware implements MiddlewareInterface
 {
-    public function __construct(private AgaviController $controller) {}
+    public function __construct(private readonly AgaviController $controller) {}
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {

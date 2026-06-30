@@ -20,6 +20,7 @@ class AgaviTranslationManagerIntlTest extends AgaviUnitTestCase
     /** @var string|null Locale active before this test, restored in tearDown(). */
     private ?string $originalLocaleIdentifier = null;
 
+    #[\Override]
     protected function setUp(): void
     {
         // Ensure translation system is enabled for these tests regardless of environment mapping quirks

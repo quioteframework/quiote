@@ -81,18 +81,17 @@ abstract class AgaviOperatorValidator extends AgaviValidator implements AgaviIVa
 	
 
 	/**
-	 * Adds a validation result for a given field.
-	 *
-	 * @param      AgaviValidator The validator.
-	 * @param      string The name of the field which has been validated.
-	 * @param      int    The result of the validation.
-	 *
-	 * @author     Dominik del Bondio <ddb@bitxtender.com>
-	 * @since      0.11.0
-	 *
-	 * @deprecated 1.0.0
-	 */
-	public function addFieldResult($validator, $fieldname, $result)
+     * Adds a validation result for a given field.
+     *
+     * @param      AgaviValidator The validator.
+     * @param      string The name of the field which has been validated.
+     * @param      int    The result of the validation.
+     *
+     * @author     Dominik del Bondio <ddb@bitxtender.com>
+     * @since      0.11.0
+     */
+    #[\Deprecated(message: '1.0.0')]
+    public function addFieldResult($validator, $fieldname, $result)
 	{
 		if($this->parentContainer !== null) {
 			return $this->parentContainer->addFieldResult($validator, $fieldname, $result);
@@ -204,6 +203,7 @@ abstract class AgaviOperatorValidator extends AgaviValidator implements AgaviIVa
 	 * @author     Uwe Mesecke <uwe@mesecke.net>
 	 * @since      0.11.0
 	 */
+    #[\Override]
     public function getDependencyManager()
 	{
 		return $this->parentContainer->getDependencyManager();
@@ -235,6 +235,7 @@ abstract class AgaviOperatorValidator extends AgaviValidator implements AgaviIVa
 	 * @author     Uwe Mesecke <uwe@mesecke.net>
 	 * @since      0.11.0
 	 */
+    #[\Override]
     public function execute(AgaviWebRequest $parameters)
 	{
 		// check if we have a valid setup of validators
@@ -254,7 +255,8 @@ abstract class AgaviOperatorValidator extends AgaviValidator implements AgaviIVa
 		return $result;
 	}
 
-	public function reset() : void
+	#[\Override]
+    public function reset() : void
 	{
 		$this->children = [];
 		$this->result = AgaviValidator::SUCCESS;

@@ -200,7 +200,7 @@ class AgaviConfig
 			if ($key === 'modules') {
 				// Special handling for modules: preserve all module.* configurations
 				foreach (self::$config as $configKey => $configValue) {
-					if (str_starts_with($configKey, 'modules.')) {
+					if (str_starts_with((string) $configKey, 'modules.')) {
 						$preserve[$configKey] = $configValue;
 					}
 				}

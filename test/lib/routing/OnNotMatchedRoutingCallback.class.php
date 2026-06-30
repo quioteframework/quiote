@@ -13,7 +13,8 @@ class OnNotMatchedRoutingCallback extends AgaviRoutingCallback
 	 * @author     Dominik del Bondio <ddb@bitxtender.com>
 	 * @since      0.11.0
 	 */
-	public function onNotMatched($legacyContainer = null)
+	#[\Override]
+    public function onNotMatched($legacyContainer = null)
 	{
 		throw new AgaviException('Not Matched');
 		return;

@@ -638,7 +638,7 @@ class AgaviDecimalFormatter implements ResetInterface
 
 		try {
 			$formatter = new \NumberFormatter($formatterLocale, \NumberFormatter::DECIMAL);
-		} catch(\Throwable $e) {
+		} catch(\Throwable) {
 			return $formatterCache[$cacheKey] = null;
 		}
 
@@ -779,9 +779,9 @@ class AgaviDecimalFormatter implements ResetInterface
 					$consumed = substr($string, 0, $position);
 					$hasFractionDigits = false;
 					if($decimalSymbol !== null && $decimalSymbol !== '') {
-						$decimalPos = strpos($consumed, $decimalSymbol);
+						$decimalPos = strpos($consumed, (string) $decimalSymbol);
 						if($decimalPos !== false) {
-							$fractionPart = substr($consumed, $decimalPos + strlen($decimalSymbol));
+							$fractionPart = substr($consumed, $decimalPos + strlen((string) $decimalSymbol));
 							if($groupingSymbol !== null && $groupingSymbol !== '') {
 								$fractionPart = str_replace($groupingSymbol, '', $fractionPart);
 							}

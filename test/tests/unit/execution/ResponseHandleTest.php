@@ -12,15 +12,25 @@ if(!class_exists('TestMinimalResponse')) {
     class TestMinimalResponse extends \Agavi\Response\AgaviWebResponse {
         protected $content = '';
         protected $redirect = null;
+        #[\Override]
         public function initialize($context, array $parameters = []) {}
+        #[\Override]
         public function appendContent($content) { $this->content .= $content; }
+        #[\Override]
         public function setContent($content) { $this->content = $content; }
+        #[\Override]
         public function getContent() { return $this->content; }
+        #[\Override]
         public function setRedirect($location, $code = 302) { $this->redirect = ['location'=>$location,'code'=>$code]; }
+        #[\Override]
         public function getRedirect() { return $this->redirect; }
+        #[\Override]
         public function hasRedirect() { return $this->redirect !== null; }
+        #[\Override]
         public function clearRedirect() { $this->redirect = null; }
+        #[\Override]
         public function clear() { $this->clearContent(); }
+        #[\Override]
         public function send(?\Agavi\Controller\AgaviOutputType $outputType = null) {}
     }
 }

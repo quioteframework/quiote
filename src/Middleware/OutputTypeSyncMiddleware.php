@@ -15,7 +15,7 @@ use Agavi\Controller\AgaviController;
 #[\Agavi\Middleware\Attribute\AgaviMiddleware(phase: 'routing', after: 'RoutingMiddleware', before: 'SecurityMiddleware', priority: -50)]
 class OutputTypeSyncMiddleware implements MiddlewareInterface
 {
-    public function __construct(private AgaviController $controller) {}
+    public function __construct(private readonly AgaviController $controller) {}
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {

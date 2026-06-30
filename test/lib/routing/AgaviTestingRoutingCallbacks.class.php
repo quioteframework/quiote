@@ -32,21 +32,24 @@ use Agavi\Routing\AgaviRoutingCallback;
  */
 class TestMatchingRoutingCallback extends AgaviRoutingCallback
 {
+    #[\Override]
     public function onMatched(array &$parameters, $legacyContainer = null) { return true; }
 }
 
 class TestNonMatchingRoutingCallback extends AgaviRoutingCallback
 {
+    #[\Override]
     public function onMatched(array &$parameters, $legacyContainer = null) { return false; }
 }
 
 class TestOnNotMatchedRoutingCallback extends AgaviRoutingCallback
 {
+    #[\Override]
     public function onNotMatched($legacyContainer = null)
     {
         // Mark attribute directly via context routing callbacks pool if needed
         if($this->getContext() && $this->getContext()->getRequest()) {
-            $this->getContext()->getRequest()->setAttribute('agavi.routing.callbacks.on_not_matched', true, 'org.agavi.routing');
+            $this->getContext()->getRequest()->setAttribute('agavi.routing.callbacks.on_not_matched', true);
         }
         return true;
     }
@@ -54,6 +57,7 @@ class TestOnNotMatchedRoutingCallback extends AgaviRoutingCallback
 
 class TestGenWithParamRoutingCallback extends AgaviRoutingCallback
 {
+    #[\Override]
     public function onGenerate(array $defaultParameters, array &$userParameters, array &$userOptions)
     {
         $userParameters['callback_param'] = 'added_by_callback';
@@ -63,6 +67,7 @@ class TestGenWithParamRoutingCallback extends AgaviRoutingCallback
 
 class TestGenWithUnescapedParamRoutingCallback extends AgaviRoutingCallback
 {
+    #[\Override]
     public function onGenerate(array $defaultParameters, array &$userParameters, array &$userOptions)
     {
         $userParameters['callback_param'] = 'added/by/callback';
@@ -73,6 +78,7 @@ class TestGenWithUnescapedParamRoutingCallback extends AgaviRoutingCallback
 
 class TestGenUnsetRouteParamRoutingCallback extends AgaviRoutingCallback
 {
+    #[\Override]
     public function onGenerate(array $defaultParameters, array &$userParameters, array &$userOptions)
     {
         unset($userParameters['number']);
@@ -82,6 +88,7 @@ class TestGenUnsetRouteParamRoutingCallback extends AgaviRoutingCallback
 
 class TestGenUnsetExtraParamRoutingCallback extends AgaviRoutingCallback
 {
+    #[\Override]
     public function onGenerate(array $defaultParameters, array &$userParameters, array &$userOptions)
     {
         unset($userParameters['extra']);
@@ -91,6 +98,7 @@ class TestGenUnsetExtraParamRoutingCallback extends AgaviRoutingCallback
 
 class TestGenNullifyRouteParamRoutingCallback extends AgaviRoutingCallback
 {
+    #[\Override]
     public function onGenerate(array $defaultParameters, array &$userParameters, array &$userOptions)
     {
         $userParameters['number'] = null;
@@ -100,6 +108,7 @@ class TestGenNullifyRouteParamRoutingCallback extends AgaviRoutingCallback
 
 class TestGenNullifyExtraParamRoutingCallback extends AgaviRoutingCallback
 {
+    #[\Override]
     public function onGenerate(array $defaultParameters, array &$userParameters, array &$userOptions)
     {
         $userParameters['extra'] = null;
@@ -109,6 +118,7 @@ class TestGenNullifyExtraParamRoutingCallback extends AgaviRoutingCallback
 
 class TestGenSetPrefixAndPostfixRoutingCallback extends AgaviRoutingCallback
 {
+    #[\Override]
     public function onGenerate(array $defaultParameters, array &$userParameters, array &$userOptions)
     {
         $userOptions['prefix'] = 'prefix/';
@@ -119,6 +129,7 @@ class TestGenSetPrefixAndPostfixRoutingCallback extends AgaviRoutingCallback
 
 class TestGenSetPrefixAndPostfixIntoRouteRoutingCallback extends AgaviRoutingCallback
 {
+    #[\Override]
     public function onGenerate(array $defaultParameters, array &$userParameters, array &$userOptions)
     {
         if (isset($userParameters['number'])) {

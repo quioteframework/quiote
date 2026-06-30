@@ -19,11 +19,9 @@ class MiddlewarePipeline implements RequestHandlerInterface
     private bool $built = false;
     /** @var list<class-string|string> */
     private array $debugStack = [];
-    private AgaviContext $context;
 
-    public function __construct(AgaviContext $context)
+    public function __construct(private readonly AgaviContext $context)
     {
-        $this->context = $context;
     }
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -53,19 +51,17 @@ class MiddlewarePipeline implements RequestHandlerInterface
         $controller = $context->getController();
         $routing = $context->getRouting();                
 
-        $construct = function (string $label, callable $factory) use (&$stack) {
+        $construct = function (string $label, callable $factory) use (&$stack): void {
             $mw = $factory();
             $stack[] = $mw;
             $this->debugStack[] = $label;
         };
                     
-        $construct(ErrorHandlingMiddleware::class, function () use ($context) {
-            return new ErrorHandlingMiddleware(function (\Throwable $e, ServerRequestInterface $r) use ($context) {
-                $first = $e->getFile() . ':' . $e->getLine();
-                $snippet = substr(str_replace("\n", ' | ', $e->getTraceAsString()), 0, 500);
-                AgaviDebugLogger::error('[MiddlewarePipeline] ' . get_class($e) . ': ' . $e->getMessage() . ' @ ' . $first . ' trace=' . $snippet, $context);
-            });
-        });
+        $construct(ErrorHandlingMiddleware::class, fn() => new ErrorHandlingMiddleware(function (\Throwable $e, ServerRequestInterface $r) use ($context): void {
+            $first = $e->getFile() . ':' . $e->getLine();
+            $snippet = substr(str_replace("\n", ' | ', $e->getTraceAsString()), 0, 500);
+            AgaviDebugLogger::error('[MiddlewarePipeline] ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $first . ' trace=' . $snippet, $context);
+        }));
         
         $construct(SessionMiddleware::class, fn() => new SessionMiddleware($controller));
 
@@ -103,7 +99,7 @@ class MiddlewarePipeline implements RequestHandlerInterface
         AgaviDebugLogger::debug('[MiddlewarePipeline] built stack: ' . implode(' → ', $this->debugStack), $this->context);
 
         $relay = new Relay($stack);
-        $this->handler = new class($relay) implements RequestHandlerInterface {
+        $this->handler = new readonly class($relay) implements RequestHandlerInterface {
             public function __construct(private Relay $relay) {}
             public function handle(ServerRequestInterface $r): ResponseInterface
             {

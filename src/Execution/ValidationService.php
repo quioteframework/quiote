@@ -13,13 +13,13 @@ use Agavi\Logging\AgaviDebugLogger;
 /**
  * Tiny immutable description of what we validated (for debugging/parity tests).
  */
-final class ValidationTrace
+final readonly class ValidationTrace
 {
     public function __construct(
-        public readonly string $module,
-        public readonly string $action,
-        public readonly array $validatorsLoaded = [],
-        public readonly ?string $configFile = null,
+        public string $module,
+        public string $action,
+        public array $validatorsLoaded = [],
+        public ?string $configFile = null,
     ) {}
 }
 
@@ -30,7 +30,7 @@ final class ValidationTrace
 class ValidationService
 {
     private $currentContext = null; // holds AgaviContext for compiled validator config
-    public function __construct(private ?AgaviValidationManager $manager = null) {}
+    public function __construct(private readonly ?AgaviValidationManager $manager = null) {}
 
     public function getValidationManager(): ?AgaviValidationManager
     {
@@ -110,7 +110,7 @@ class ValidationService
                             $statLine = '[ValidationService][probe] post-require APCu childCount=' . (is_array($validationManager->getChilds())?count($validationManager->getChilds()):'na');
                             if (file_exists($incFile)) { $statLine .= ' real=' . realpath($incFile) . ' mtime=' . filemtime($incFile) . ' size=' . filesize($incFile); }
                             $logger?->debug($statLine);
-                        } catch(\Throwable $e) {}
+                        } catch(\Throwable) {}
                     }
                 } else {
                     $incFile = AgaviConfigCache::checkConfig($configFile, $this->currentContext->getName());
@@ -128,14 +128,14 @@ class ValidationService
                                 $statLine .= ' real=' . $real . ' mtime=' . $mtime . ' size=' . $size . ' sha1=' . $hash . ' head=' . $snippet;
                             }
                             $logger?->debug($statLine);
-                        } catch(\Throwable $e) {}
+                        } catch(\Throwable) {}
                     }
                 }
                 $validatorsLoaded = array_map(fn($v) => $v->getName(), $validationManager->getChilds());
                 if (\Agavi\Util\DebugFlags::$validation) {
                     try {
                         $logger?->debug('[ValidationService][validate] loadedValidators=' . (empty($validatorsLoaded) ? 'none' : implode(',', $validatorsLoaded)) . ' file=' . $configFile . ' method=' . $method);
-                    } catch(\Throwable $e) {}
+                    } catch(\Throwable) {}
                 }
             } else {
                 if (\Agavi\Util\DebugFlags::$validation) {
@@ -186,7 +186,7 @@ class ValidationService
                 $names = [];
                 foreach ($childs as $cv) { $names[] = method_exists($cv,'getName') ? $cv->getName() : 'unknown'; }
                 $logger?->debug('[ValidationService][validate] executeResult=' . ($ok?'1':'0') . ' childCount=' . count($names) . ' names=' . implode(',', $names));
-            } catch(\Throwable $e) {}
+            } catch(\Throwable) {}
         }
         // 4. Manual action validation (validate[Method])
         // Use the context's request which may have been updated by pruneParametersToValidated()
@@ -199,7 +199,7 @@ class ValidationService
         }
         if (\Agavi\Util\DebugFlags::$validation) {
             try {
-                $logger?->debug('[ValidationService][validate] About to call action->' . $validateMethod . '() on ' . get_class($action));
+                $logger?->debug('[ValidationService][validate] About to call action->' . $validateMethod . '() on ' . $action::class);
             } catch(\Throwable) {}
         }
         try {
@@ -321,7 +321,7 @@ class ValidationService
                 $incidents = $report?->getIncidents() ?? [];
                 $childCount = is_array($validationManager->getChilds()) ? count($validationManager->getChilds()) : 0;
                 $mode = method_exists($validationManager, 'getParameter') ? $validationManager->getParameter('mode') : 'n/a';
-                $logger?->debug('[ValidationService] summary ok=' . ($ok ? '1' : '0') . ' childValidators=' . $childCount . ' mode=' . $mode . ' reportSeverity=' . (is_null($resultSev) ? 'null' : $resultSev) . ' incidents=' . count($incidents));
+                $logger?->debug('[ValidationService] summary ok=' . ($ok ? '1' : '0') . ' childValidators=' . $childCount . ' mode=' . $mode . ' reportSeverity=' . ($resultSev ?? 'null') . ' incidents=' . count($incidents));
                 foreach ($incidents as $i => $incident) {
                     try {
                         $vName = method_exists($incident->getValidator(), 'getName') ? $incident->getValidator()->getName() : 'null';
@@ -396,13 +396,13 @@ class ValidationService
             }
             // Always emit a concise failure summary for tracing
             try {
-                $report = $report ?? $validationManager->getReport();
+                $report ??= $validationManager->getReport();
                 $sev = $report?->getResult();
                 $failedArgs = [];
                 try { foreach(($report?->getFailedArguments() ?? []) as $arg) { $failedArgs[] = $arg->getName(); } } catch (\Throwable) {}
                 $vNames = [];
                 try { foreach($validationManager->getChilds() as $v) { $vNames[] = method_exists($v, 'getName') ? $v->getName() : 'unknown'; } } catch (\Throwable) {}
-                $logger?->debug('[ValidationService] FAIL module=' . $moduleName . ' action=' . $actionName . ' method=' . ($method ?: 'n/a') . ' severity=' . (is_null($sev) ? 'null' : $sev) . ' failedArgs=' . implode(',', $failedArgs) . ' validators=' . implode(',', $vNames) . ' errors=' . json_encode($errors));
+                $logger?->debug('[ValidationService] FAIL module=' . $moduleName . ' action=' . $actionName . ' method=' . ($method ?: 'n/a') . ' severity=' . ($sev ?? 'null') . ' failedArgs=' . implode(',', $failedArgs) . ' validators=' . implode(',', $vNames) . ' errors=' . json_encode($errors));
             } catch (\Throwable) { /* ignore */ }
             if ($vd) {
                 try {

@@ -115,7 +115,8 @@ abstract class AgaviRoutingCallback extends AgaviParameterHolder implements Rese
 		return true;
 	}
 
-	public function reset() : void
+	#[\Override]
+    public function reset() : void
 	{
 		$this->context = null;
 		$this->route = null;

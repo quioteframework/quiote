@@ -9,7 +9,7 @@ use Agavi\AgaviContext;
 
 class TestController extends AgaviController
 {
-	public function redirect($to)
+	public function redirect($to): never
 	{
 		throw new AgaviException('N/A');
 	}
@@ -21,22 +21,23 @@ class AgaviControllerTest extends AgaviPhpUnitTestCase
 {
 	protected $_controller = null;
 	protected $_context = null;
-	public function setUp(): void
+	#[\Override]
+    public function setUp(): void
 	{
 		// ReInitialize the Context between tests to start fresh
 		$this->_context = AgaviContext::getInstance();
 		$this->_controller = $this->_context->getController();
-		$this->_controller->initialize($this->_context, array());
+		$this->_controller->initialize($this->_context, []);
 	}
 
 	public function testNewController()
 	{
 		$controller = $this->_controller;
-		$this->assertInstanceOf('Agavi\\Controller\\AgaviController', $controller);
-		
+		$this->assertInstanceOf(\Agavi\Controller\AgaviController::class, $controller);
+
 		$context = $controller->getContext();
-		$this->assertInstanceOf('Agavi\\AgaviContext', $context);
-		
+		$this->assertInstanceOf(\Agavi\AgaviContext::class, $context);
+
 		$ctx1 = $controller->getContext();
 		$ctx2 = AgaviContext::getInstance();
 		$this->assertSame($ctx1, $ctx2);
@@ -46,13 +47,13 @@ class AgaviControllerTest extends AgaviPhpUnitTestCase
 	{
 		// Test that created actions implement AgaviAction interface
 		$controller = $this->_controller;
-		
+
 		$action = $controller->createActionInstance('ControllerTests', 'ControllerTest');
-		$this->assertInstanceOf('Agavi\\Action\\AgaviAction', $action);
-		
+		$this->assertInstanceOf(\Agavi\Action\AgaviAction::class, $action);
+
 		// Test that the action class exists and is loadable
-		$this->assertTrue(class_exists('Sandbox\\Modules\\ControllerTests\\Actions\\ControllerTestAction'));
-		
+		$this->assertTrue(class_exists(\Sandbox\Modules\ControllerTests\Actions\ControllerTestAction::class));
+
 		// Test reflection to ensure it's properly structured
 		$reflection = new \ReflectionClass($action);
 		$this->assertTrue($reflection->hasMethod('execute'));
@@ -63,13 +64,13 @@ class AgaviControllerTest extends AgaviPhpUnitTestCase
 		// TODO: check all other existing naming schemes for actions
 
 		$action = $this->_controller->createActionInstance('ControllerTests', 'ControllerTest');
-		$this->assertInstanceOf('Sandbox\\Modules\\ControllerTests\\Actions\\ControllerTestAction', $action);
-		$this->assertInstanceOf('Agavi\\Action\\AgaviAction', $action);
+		$this->assertInstanceOf(\Sandbox\Modules\ControllerTests\Actions\ControllerTestAction::class, $action);
+		$this->assertInstanceOf(\Agavi\Action\AgaviAction::class, $action);
 
 	}
 
 	public function testGetInvalidActionFromModule() {
-		$this->expectException('Agavi\\Exception\\AgaviClassNotFoundException');
+		$this->expectException(\Agavi\Exception\AgaviClassNotFoundException::class);
 		$this->_controller->createActionInstance('ControllerTests', 'NonExistant');
 	}
 
@@ -82,11 +83,11 @@ class AgaviControllerTest extends AgaviPhpUnitTestCase
 	{
 		$controller = $this->_controller;
 		$this->assertInstanceOf(
-			'Sandbox\\Modules\\ControllerTests\\Views\\ControllerTestSuccessView',
+			\Sandbox\Modules\ControllerTests\Views\ControllerTestSuccessView::class,
 			$controller->createViewInstance('ControllerTests', 'ControllerTestSuccess')
 		);
 		$this->assertInstanceOf(
-			'Sandbox\\Modules\\ControllerTests\\Views\\ControllerTestErrorView',
+			\Sandbox\Modules\ControllerTests\Views\ControllerTestErrorView::class,
 			$controller->createViewInstance('ControllerTests', 'ControllerTestError')
 		);
 	}
@@ -95,16 +96,16 @@ class AgaviControllerTest extends AgaviPhpUnitTestCase
 	{
 		// Test that models can be loaded and implement AgaviModel interface
 		$context = $this->_context;
-		
+
 		$model = $context->getModel('ControllerTest', 'ControllerTests');
-		$this->assertInstanceOf('Agavi\\Model\\AgaviModel', $model);
-		
+		$this->assertInstanceOf(\Agavi\Model\AgaviModel::class, $model);
+
 		// Test that the model class exists and is loadable
-		$this->assertTrue(class_exists('Sandbox\\Modules\\ControllerTests\\Models\\ControllerTestModel'));
-		
+		$this->assertTrue(class_exists(\Sandbox\Modules\ControllerTests\Models\ControllerTestModel::class));
+
 		// Test reflection to ensure it's properly structured
 		$reflection = new \ReflectionClass($model);
-		$this->assertTrue($reflection->isSubclassOf('Agavi\\Model\\AgaviModel'));
+		$this->assertTrue($reflection->isSubclassOf(\Agavi\Model\AgaviModel::class));
 	}
 
 	public function testModelExists()
@@ -119,21 +120,21 @@ class AgaviControllerTest extends AgaviPhpUnitTestCase
 	{
 		// Test that created views implement AgaviView interface
 		$controller = $this->_controller;
-		
+
 		$view = $controller->createViewInstance('ControllerTests', 'ControllerTestSuccess');
-		$this->assertInstanceOf('Agavi\\View\\AgaviView', $view);
-		
+		$this->assertInstanceOf(\Agavi\View\AgaviView::class, $view);
+
 		// Test that the view class exists and is loadable
-		$this->assertTrue(class_exists('Sandbox\\Modules\\ControllerTests\\Views\\ControllerTestSuccessView'));
-		
+		$this->assertTrue(class_exists(\Sandbox\Modules\ControllerTests\Views\ControllerTestSuccessView::class));
+
 		// Test reflection to ensure it's properly structured
 		$reflection = new \ReflectionClass($view);
 		$this->assertTrue($reflection->hasMethod('execute'));
-		
+
 		// Test error view as well
 		$errorView = $controller->createViewInstance('ControllerTests', 'ControllerTestError');
-		$this->assertInstanceOf('Agavi\\View\\AgaviView', $errorView);
-		$this->assertTrue(class_exists('Sandbox\\Modules\\ControllerTests\\Views\\ControllerTestErrorView'));
+		$this->assertInstanceOf(\Agavi\View\AgaviView::class, $errorView);
+		$this->assertTrue(class_exists(\Sandbox\Modules\ControllerTests\Views\ControllerTestErrorView::class));
 	}
 
 	public function testViewExists()
@@ -150,24 +151,24 @@ class AgaviControllerTest extends AgaviPhpUnitTestCase
 	{
 		$controller = $this->_controller;
 
-		$info_ex = array(
-			'http_headers' => array(
+		$info_ex = [
+			'http_headers' => [
 				'Content-Type' => 'text/html; charset=UTF-8',
-			),
-		);
+			],
+		];
 
 		$info = $controller->getOutputType();
 		$this->assertSame($info_ex, $info->getParameters());
 
-		$info_ex = array(
-		);
+		$info_ex = [
+		];
 		$info = $controller->getOutputType('controllerTest');
 		$this->assertSame($info_ex, $info->getParameters());
 
 		try {
 			$controller->getOutputType('nonexistant');
 			$this->fail('Expected AgaviException not thrown!');
-		} catch(AgaviException $e) {
+		} catch(AgaviException) {
 		}
 	}
 
@@ -182,14 +183,14 @@ class AgaviControllerTest extends AgaviPhpUnitTestCase
 		$this->assertEquals($controller->getContentType(), 'image/jpeg');
 		$controller->setContentType($ctype);
 	}
-	
+
 	public function testclearHTTPHeaders()
 	{
 		$controller = AgaviContext::getInstance('test')->getController();
 		$controller->clearHTTPHeaders();
 		$this->assertEquals($controller->getHTTPHeaders(), array());
 	}
-	
+
 	public function testgetHTTPHeader()
 	{
 		$controller = AgaviContext::getInstance('test')->getController();
@@ -204,7 +205,7 @@ class AgaviControllerTest extends AgaviPhpUnitTestCase
 		$this->assertTrue($controller->hasHTTPHeader('testme'));
 		$this->assertFalse($controller->hasHTTPHeader('iamnotset'));
 	}
-	
+
 	public function testsetHTTPHeader()
 	{
 		$controller = AgaviContext::getInstance('test')->getController();
@@ -217,13 +218,13 @@ class AgaviControllerTest extends AgaviPhpUnitTestCase
 		$controller->setHTTPHeader('multiple', array('first', 'second'));
 		$this->assertEquals($controller->getHTTPHeader('multiple'), array('first', 'second'));
 	}
-	
+
 	public function testgetHTTPStatusCode()
 	{
 		$controller = AgaviContext::getInstance('test')->getController();
 		$this->assertEquals($controller->getHTTPStatusCode(), null);
 	}
-	
+
 	public function testsetHTTPStatusCode()
 	{
 		$controller = AgaviContext::getInstance('test')->getController();
@@ -236,7 +237,7 @@ class AgaviControllerTest extends AgaviPhpUnitTestCase
 		$controller->setHTTPStatusCode(123);
 		$this->assertEquals($controller->getHTTPStatusCode(), '403');
 	}
-	
+
 	// TODO: moved to routing
 	function testgenURL()
 	{

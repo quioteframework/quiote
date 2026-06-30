@@ -12,9 +12,9 @@ class LoginFlowTest extends AgaviFlowTestCase
 	 */
 	public function testValidWriteRequest()
 	{
-		$this->dispatch(array('username' => 'Chuck Norris', 'password' => 'kick'));
-		$this->assertResponseHasTag(array('tag' => 'body'));
-		$this->assertResponseHasTag(array('tag' => 'h2', 'content' => 'Login Successful'));
+		$this->dispatch(['username' => 'Chuck Norris', 'password' => 'kick']);
+		$this->assertResponseHasTag(['tag' => 'body']);
+		$this->assertResponseHasTag(['tag' => 'h2', 'content' => 'Login Successful']);
 	}
 	
 	/**
@@ -22,10 +22,10 @@ class LoginFlowTest extends AgaviFlowTestCase
 	 */
 	public function testInvalidWriteRequest()
 	{
-		$this->dispatch(array('username' => 'Chuck Norris', 'password' => 'foo'));
-		$this->assertResponseHasTag(array('tag' => 'body'));
-		$this->assertResponseHasNotTag(array('tag' => 'h2', 'content' => 'Login Successful'));
-		$this->assertResponseHasTag(array('tag' => 'p', 'content' => 'Wrong Password'));
+		$this->dispatch(['username' => 'Chuck Norris', 'password' => 'foo']);
+		$this->assertResponseHasTag(['tag' => 'body']);
+		$this->assertResponseHasNotTag(['tag' => 'h2', 'content' => 'Login Successful']);
+		$this->assertResponseHasTag(['tag' => 'p', 'content' => 'Wrong Password']);
 	}
 }
 

@@ -12,7 +12,7 @@ class SlotDispatcherSlotContentTest extends AgaviUnitTestCase
         $controller = $this->getContext()->getController();
         $controller->initializeModule('Cache');
         $controller->createActionInstance('Cache','Cache');
-    if(class_exists('Sandbox\\Modules\\Cache\\Actions\\CacheAction')) { \Sandbox\Modules\Cache\Actions\CacheAction::$execCount = 0; }
+    if(class_exists(\Sandbox\Modules\Cache\Actions\CacheAction::class)) { \Sandbox\Modules\Cache\Actions\CacheAction::$execCount = 0; }
     }
 
     public function testDispatchSlotContentReturnsValueObject()

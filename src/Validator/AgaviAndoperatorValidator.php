@@ -66,7 +66,8 @@ class AgaviAndoperatorValidator extends AgaviOperatorValidator implements ResetI
 		return $return;
 	}
 
-	public function reset() : void
+	#[\Override]
+    public function reset() : void
 	{
 		parent::reset();;
 		$this->result = AgaviValidator::SUCCESS;

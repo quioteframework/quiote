@@ -123,7 +123,7 @@ abstract class AgaviDatabase extends AgaviParameterHolder implements ResetInterf
 		}
 
 		if (\Agavi\Util\DebugFlags::$database) {
-			AgaviDebugLogger::debug('[AgaviDatabase] getConnection() returning connection_id=' . spl_object_id($this->connection) . ' type=' . get_class($this->connection));
+			AgaviDebugLogger::debug('[AgaviDatabase] getConnection() returning connection_id=' . spl_object_id($this->connection) . ' type=' . $this->connection::class);
 		}
 		
 		return $this->connection;
@@ -195,7 +195,8 @@ abstract class AgaviDatabase extends AgaviParameterHolder implements ResetInterf
 	 */
 	abstract public function shutdown();
 
-	public function reset(): void
+	#[\Override]
+    public function reset(): void
 	{
 		// Reset the database connection
 		if ($this->connection !== null) {

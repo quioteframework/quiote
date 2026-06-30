@@ -8,5 +8,6 @@ use Symfony\Contracts\Service\ResetInterface;
 class AgaviWebRouting extends AgaviRouting implements ResetInterface
 {
 	protected function build(): array { return [new \Symfony\Component\Routing\RouteCollection(), []]; }
-	public function reset(): void {}
+	#[\Override]
+    public function reset(): void {}
 }

@@ -14,7 +14,7 @@ class ValidationServiceTest extends AgaviUnitTestCase
     {
         $ctx = $this->getContext();
         return new class($ctx, $manualOk, $registerValidator, $regManager) extends AgaviAction {
-            public function __construct($ctx, private bool $manualOk, private bool $doRegister, private ?AgaviValidationManager $regManager) { $this->context = $ctx; }
+            public function __construct($ctx, private readonly bool $manualOk, private readonly bool $doRegister, private readonly ?AgaviValidationManager $regManager) { $this->context = $ctx; }
             public function getDefaultViewName() { return 'Success'; }
             public function executeWrite(AgaviWebRequest $req) { return 'Success'; }
             public function handleError(AgaviWebRequest $req) { return 'Error'; }
@@ -79,7 +79,7 @@ class ValidationServiceTest extends AgaviUnitTestCase
         $manager = $ctx->createInstanceFor('validation_manager');
         $svc = new ValidationService($manager);
         $action = new class($ctx, $manager) extends AgaviAction {
-            public function __construct($ctx, private AgaviValidationManager $vm) { $this->context = $ctx; }
+            public function __construct($ctx, private readonly AgaviValidationManager $vm) { $this->context = $ctx; }
             public function getDefaultViewName() { return 'Success'; }
             public function executeWrite(AgaviWebRequest $req) { return 'Success'; }
             public function handleError(AgaviWebRequest $req) { return 'Error'; }

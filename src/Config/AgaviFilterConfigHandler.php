@@ -85,7 +85,7 @@ class AgaviFilterConfigHandler extends AgaviXmlConfigHandler
 		$data = [];
 
 		foreach($filters as $name => $filter) {
-			if(stripos($name, 'agavi') === 0) {
+			if(stripos((string) $name, 'agavi') === 0) {
 				throw new AgaviConfigurationException('Filter names must not start with "agavi".');
 			}
 			if(!isset($filter['class'])) {

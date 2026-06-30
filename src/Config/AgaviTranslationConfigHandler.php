@@ -164,9 +164,9 @@ class AgaviTranslationConfigHandler extends AgaviXmlConfigHandler
 	{
 		static $defaultData = [
 			'msg'  => ['class' => null, 'filters' => [], 'params' => []],
-			'num'  => ['class' => 'Agavi\Translation\AgaviNumberFormatter', 'filters' => [], 'params' => []],
-			'cur'  => ['class' => 'Agavi\Translation\AgaviCurrencyFormatter', 'filters' => [], 'params' => []],
-			'date' => ['class' => 'Agavi\Translation\AgaviDateFormatter', 'filters' => [], 'params' => []],
+			'num'  => ['class' => \Agavi\Translation\AgaviNumberFormatter::class, 'filters' => [], 'params' => []],
+			'cur'  => ['class' => \Agavi\Translation\AgaviCurrencyFormatter::class, 'filters' => [], 'params' => []],
+			'date' => ['class' => \Agavi\Translation\AgaviDateFormatter::class, 'filters' => [], 'params' => []],
 		];
 
 		foreach($translators as $translator) {

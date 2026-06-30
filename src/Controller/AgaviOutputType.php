@@ -229,7 +229,8 @@ class AgaviOutputType extends AgaviParameterHolder implements \Stringable, Reset
 	 * @author     Generated for FrankenPHP worker compatibility
 	 * @since      1.1.0
 	 */
-	public function reset(): void
+	#[\Override]
+    public function reset(): void
 	{
 		$this->context = null;
 		// Note: name, renderers, defaultRenderer, layouts, defaultLayout, exceptionTemplate

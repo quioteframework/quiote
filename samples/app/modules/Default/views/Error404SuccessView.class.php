@@ -28,10 +28,10 @@ class Default_Error404SuccessView extends AgaviSampleAppDefaultBaseView
 
 	public function executeXmlrpc(AgaviRequestDataHolder $rd)
 	{
-		return array(
+		return [
 			'faultCode' => -32601, // as per http://xmlrpc-epi.sourceforge.net/specs/rfc.fault_codes.php
 			'faultString' => 'requested method not found',
-		);
+		];
 	}
 	
 	public function executeText(AgaviRequestDataHolder $rd)

@@ -15,7 +15,7 @@ use Agavi\Execution\ExecutionState;
 #[\Agavi\Middleware\Attribute\AgaviMiddleware(phase: 'after_action', after: 'DispatchMiddleware')]
 class FinalizeMiddleware implements MiddlewareInterface
 {
-    public function __construct(private AgaviController $controller) {}
+    public function __construct(private readonly AgaviController $controller) {}
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {

@@ -6,7 +6,7 @@ use Agavi\View\AgaviTemplateLayer;
 
 class TRTestSampleRenderer extends AgaviRenderer
 {
-	public function render(AgaviTemplateLayer $layer, array &$attributes = array(), array &$slots = array(), array &$moreAssigns = array())
+	public function render(AgaviTemplateLayer $layer, array &$attributes = [], array &$slots = [], array &$moreAssigns = [])
 	{
 	}
 }
@@ -15,7 +15,8 @@ class AgaviRendererTest extends AgaviUnitTestCase
 {
 	protected $_r = null, $_v = null;
 
-	public function setUp(): void
+	#[\Override]
+    public function setUp(): void
 	{
 		$this->_r = new TRTestSampleRenderer();
 		$this->_r->initialize($this->getContext());

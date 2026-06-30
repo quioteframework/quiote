@@ -155,8 +155,8 @@ class AgaviOptionParser
 			$handler = null;
 			$arguments = [];
 			foreach($options as $optionName => $option) {
-				if(in_array($source[$i], array_map([$this, 'getSourceNameForShortName'], $option['short_names'])) ||
-					in_array($source[$i], array_map([$this, 'getSourceNameForLongName'], $option['long_names']))) {
+				if(in_array($source[$i], array_map($this->getSourceNameForShortName(...), $option['short_names'])) ||
+					in_array($source[$i], array_map($this->getSourceNameForLongName(...), $option['long_names']))) {
 					$arguments = array_slice($source, $i + 1, $option['arguments']);
 					if(count($arguments) !== $option['arguments']) {
 						throw new AgaviOptionException(

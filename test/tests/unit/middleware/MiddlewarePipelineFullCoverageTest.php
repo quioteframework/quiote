@@ -55,7 +55,7 @@ class MiddlewarePipelineFullCoverageTest extends TestCase
         // First call builds
         try {
             $pipeline->handle($req);
-        } catch (\Throwable $e) { /* ignore terminal if reached */
+        } catch (\Throwable) { /* ignore terminal if reached */
         }
         $firstOrder = $pipeline->debugStack();
         $this->assertNotEmpty($firstOrder);
@@ -224,7 +224,7 @@ class MiddlewarePipelineFullCoverageTest extends TestCase
                     }
                 };
                 $relay = new Relay\Relay([$sentinel]);
-                $handlerProp->setValue($this, new class($relay) implements RequestHandlerInterface {
+                $handlerProp->setValue($this, new readonly class($relay) implements RequestHandlerInterface {
                     public function __construct(private Relay\Relay $relay) {}
                     public function handle(ServerRequestInterface $r): ResponseInterface
                     {

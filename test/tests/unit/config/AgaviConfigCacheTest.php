@@ -14,10 +14,10 @@ class AgaviConfigCacheTest extends AgaviPhpUnitTestCase
 	public function testGenerateCacheName($configname, $context)
 	{
 		$cachename = AgaviConfigCache::getCacheName($configname, $context);
-		
+
 		// Calculate expected value here where Agavi is bootstrapped and core.environment is available
 		$environment = AgaviConfig::get('core.environment');
-		
+
 		// This mirrors the logic in AgaviConfigCache::getCacheName()
 		$expectedFilename = sprintf(
 			'%1$s_%2$s.php',
@@ -26,7 +26,7 @@ class AgaviConfigCacheTest extends AgaviPhpUnitTestCase
 				'_', 
 				sprintf(
 					'%1$s_%2$s_%3$s', 
-					basename($configname), 
+					basename((string) $configname), 
 					$environment, 
 					$context
 				)
@@ -40,28 +40,28 @@ class AgaviConfigCacheTest extends AgaviPhpUnitTestCase
 				)
 			)
 		);
-		
+
 		$expected = AgaviConfig::get('core.cache_dir').DIRECTORY_SEPARATOR.'config'.DIRECTORY_SEPARATOR.$expectedFilename;
-		
+
 		$this->assertEquals($expected, $cachename);
 	}
-	
+
 	public static function dataGenerateCacheName()
 	{
 		// Only provide input data, not expected values (since core.environment isn't available yet)
-		return array(
-			'slashes_null' => array(
+		return [
+			'slashes_null' => [
 				'foo/bar/hash#bang.xml',
 				null,
-			),
-			'<contextname>' => array(
+			],
+			'<contextname>' => [
 				'foo/bar/hash#bang.xml',
 				'<contextname>',
-			),
-		);
+			],
+		];
 	}
-	
-	
+
+
 	public function testWriteCacheFile()
 	{
 		$expected = 'This is a config cache test.';
@@ -74,13 +74,13 @@ class AgaviConfigCacheTest extends AgaviPhpUnitTestCase
 		$this->assertFileExists($cacheName);
 		$content = file_get_contents($cacheName);
 		$this->assertEquals($expected, $content);
-		
+
 		$append = "\nAnd a second line appended.";
 		AgaviConfigCache::writeCacheFile($config, $cacheName, $append, true);
 		$content = file_get_contents($cacheName);
 		$this->assertEquals($expected.$append, $content);
 	}
-	
+
 	public function testload()
 	{
 		$this->assertFalse( defined('ConfigCacheImportTest_included') );
@@ -96,12 +96,12 @@ class AgaviConfigCacheTest extends AgaviPhpUnitTestCase
 		$this->assertFalse( $GLOBALS["ConfigCacheImportTestOnce_included"] );
 	}
 
-	
+
 	public function testClear()
 	{
 		$cacheDir = AgaviConfig::get('core.cache_dir').DIRECTORY_SEPARATOR.'config';
 		AgaviConfigCache::clear();
-		
+
 		// After clearing, the directory may not exist or it may exist but be empty
 		if (is_dir($cacheDir)) {
 			$directory = new DirectoryIterator($cacheDir);
@@ -115,7 +115,7 @@ class AgaviConfigCacheTest extends AgaviPhpUnitTestCase
 		// If directory doesn't exist, that's also a valid state after clearing
 		$this->assertTrue(true); // Test passes if we get here without failure
 	}
-	
+
 	/**
 	 * this does not seem to work in isolation
 	 */
@@ -124,7 +124,7 @@ class AgaviConfigCacheTest extends AgaviPhpUnitTestCase
 		$this->expectException(AgaviUnreadableException::class);
 		AgaviConfigCache::addConfigHandlersFile('does/not/exist');
 	}
-	
+
 	public function testAddConfigHandlersFile()
 	{
 		$config = AgaviConfig::get('core.module_dir').'/Default/Config/config_handlers.xml';
@@ -137,8 +137,8 @@ class AgaviConfigCacheTest extends AgaviPhpUnitTestCase
 		$handlerFiles = AgaviTestingConfigCache::getHandlerFiles();
 		$this->assertFalse($handlerFiles[$config], sprintf('Failed asserting that the config file "%1$s" has not been loaded.', $config));
 	}
-	
-	
+
+
 	public function testSetupHandlers()
 	{	
 		// this is not possible to test with the agavi unit tests as this needs
@@ -150,72 +150,72 @@ class AgaviConfigCacheTest extends AgaviPhpUnitTestCase
 		$handlers = AgaviTestingConfigCache::getHandlers();
 		$this->assertNotEquals(null, $handlers);
 	}
-	
+
 	public function testGetHandlerInfo()
 	{
 		$handlerInfo = AgaviTestingConfigCache::getHandlerInfo('notregistered');
 		$this->assertEquals(null, $handlerInfo);
-		
-		$expected = array(
+
+		$expected = [
 			'class' => 'AgaviReturnArrayConfigHandler',
-			'parameters' => array(),
-			'transformations' => array(
-				'single' => array('confighandler-testing.xsl',),
-				'compilation' => array(),
-			),
-			'validations' => array(
-				'single' => array(
-					'transformations_before' => array(
-						'relax_ng' => array(),
-						'schematron' => array(),
-						'xml_schema' => array(),
-					),
-					'transformations_after' => array(
-						'relax_ng' => array('confighandler-testing.rng'),
-						'schematron' => array(),
-						'xml_schema' => array(),
-					),
-				),
-				'compilation' => array(
-					'transformations_before' => array(
-						'relax_ng' => array(),
-						'schematron' => array(),
-						'xml_schema' => array(),
-					),
-					'transformations_after' => array(
-						'relax_ng' => array(),
-						'schematron' => array(),
-						'xml_schema' => array(),
-					),
-				),
-			),
-		);
+			'parameters' => [],
+			'transformations' => [
+				'single' => ['confighandler-testing.xsl',],
+				'compilation' => [],
+			],
+			'validations' => [
+				'single' => [
+					'transformations_before' => [
+						'relax_ng' => [],
+						'schematron' => [],
+						'xml_schema' => [],
+					],
+					'transformations_after' => [
+						'relax_ng' => ['confighandler-testing.rng'],
+						'schematron' => [],
+						'xml_schema' => [],
+					],
+				],
+				'compilation' => [
+					'transformations_before' => [
+						'relax_ng' => [],
+						'schematron' => [],
+						'xml_schema' => [],
+					],
+					'transformations_after' => [
+						'relax_ng' => [],
+						'schematron' => [],
+						'xml_schema' => [],
+					],
+				],
+			],
+		];
 		$handlerInfo = AgaviTestingConfigCache::getHandlerInfo('confighandler-testing');
 		$this->assertEquals($expected, $handlerInfo);
 	}
-	
+
 	public function testTicket931()
 	{
 		$config = 'project/foo.xml';
 		$context = 'with/slash';
 		$cachename = AgaviConfigCache::getCacheName($config, $context);
-		
+
 		$expected = AgaviConfig::get('core.cache_dir').DIRECTORY_SEPARATOR.'config'.DIRECTORY_SEPARATOR;
 		$expected .= 'foo.xml';
-		$expected .= '_'.preg_replace('/[^\w_-]/i', '_', AgaviConfig::get('core.environment'));
+		$expected .= '_'.preg_replace('/[^\w_-]/i', '_', (string) AgaviConfig::get('core.environment'));
 		$expected .= '_'.preg_replace('/[^\w_-]/i', '_', $context).'_';
 		$expected .= sha1($config.'_'.AgaviConfig::get('core.environment').'_'.$context).'.php'; 
-		
+
 		$this->assertEquals($expected, $cachename);
 	}
-	
+
 	public function testTicket932()
 	{
 		$config1 = 'project/foo.xml';
 		$config2 = 'project_foo.xml';
-		
+
 		$this->assertNotEquals(AgaviConfigCache::getCacheName($config1), AgaviConfigCache::getCacheName($config2));
 	}
-	
+
     // Removed obsolete autoload.xml and pre-bootstrap handler tests (PSR-4 migration)
 }

@@ -103,7 +103,7 @@ class AgaviSettingConfigHandler extends AgaviXmlConfigHandler
 						throw new AgaviConfigurationException('Exception template "' . $tpl . '" does not exist or is unreadable');
 					}
 					if($exception_template->hasAttribute('context')) {
-						foreach(array_map('trim', explode(' ', (string) $exception_template->getAttribute('context'))) as $ctx) {
+						foreach(array_map(trim(...), explode(' ', (string) $exception_template->getAttribute('context'))) as $ctx) {
 							$data['exception.templates.' . $ctx] = $tpl;
 						}
 					} else {

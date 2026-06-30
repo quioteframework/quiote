@@ -17,7 +17,7 @@ class MiddlewareKernel implements RequestHandlerInterface
 {
     private ?RequestHandlerInterface $handler = null;
     private bool $built = false;
-    public function __construct(private AgaviContext $context) {}
+    public function __construct(private readonly AgaviContext $context) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
@@ -46,10 +46,10 @@ class MiddlewareKernel implements RequestHandlerInterface
 
         // Outermost error handler
         $context = $this->context;
-    $stack[] = new \Agavi\Middleware\ErrorHandlingMiddleware(function(\Throwable $e, ServerRequestInterface $r) use ($context) {
+    $stack[] = new \Agavi\Middleware\ErrorHandlingMiddleware(function(\Throwable $e, ServerRequestInterface $r) use ($context): void {
             $first = $e->getFile().':'.$e->getLine();
             $snippet = substr(str_replace("\n", ' | ', $e->getTraceAsString()), 0, 500);
-            AgaviDebugLogger::debug('[AgaviKernel] '.get_class($e).': '.$e->getMessage().' @ '.$first.' trace='.$snippet, $context);
+            AgaviDebugLogger::debug('[AgaviKernel] '.$e::class.': '.$e->getMessage().' @ '.$first.' trace='.$snippet, $context);
         });
         // session
     $stack[] = new \Agavi\Middleware\SessionMiddleware($controller);
@@ -83,7 +83,7 @@ class MiddlewareKernel implements RequestHandlerInterface
         };
 
         $relay = new Relay($stack);
-        $this->handler = new class($relay) implements RequestHandlerInterface {
+        $this->handler = new readonly class($relay) implements RequestHandlerInterface {
             public function __construct(private Relay $relay) {}
             public function handle(ServerRequestInterface $r): ResponseInterface
             {

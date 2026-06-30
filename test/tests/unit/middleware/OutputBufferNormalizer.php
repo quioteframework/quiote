@@ -1,7 +1,7 @@
 <?php
 class OutputBufferNormalizer
 {
-    private int $start;
+    private readonly int $start;
     public function __construct()
     {
         $this->start = ob_get_level();

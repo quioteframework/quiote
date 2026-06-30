@@ -60,9 +60,9 @@ class Confidential_TopSecretAction extends AgaviSampleAppConfidentialBaseAction
 
 	public function getCredentials()
 	{
-		return array(
+		return [
 			'photos.edit'
-		);
+		];
 	}
 }
 

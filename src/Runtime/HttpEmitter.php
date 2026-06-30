@@ -16,7 +16,7 @@ class HttpEmitter
             header('Content-Type:');
         }
         foreach ($response->getHeaders() as $name => $values) {
-            $replace = (strtolower($name) === 'content-type');
+            $replace = (strtolower((string) $name) === 'content-type');
             foreach ($values as $v) {
                 header($name . ': ' . $v, $replace);
                 // After first Content-Type, ensure subsequent same-named headers (if any) append if intentional

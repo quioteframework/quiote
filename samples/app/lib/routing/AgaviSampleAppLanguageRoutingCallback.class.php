@@ -2,7 +2,7 @@
 
 class AgaviSampleAppLanguageRoutingCallback extends AgaviRoutingCallback
 {
-	protected $availableLocales = array();
+	protected $availableLocales = [];
 	
 	public function initialize(AgaviContext $context, array &$route)
 	{
@@ -23,7 +23,7 @@ class AgaviSampleAppLanguageRoutingCallback extends AgaviRoutingCallback
 			// yup, worked. now lets set that as a cookie
 			$this->context->getController()->getGlobalResponse()->setCookie('locale', $parameters['locale'], '+1 month');
 			return true;
-		} catch(AgaviException $e) {
+		} catch(AgaviException) {
 			// uregistered or ambigious locale... uncool!
 			// onNotMatched will be called for us next
 			return false;
@@ -41,7 +41,7 @@ class AgaviSampleAppLanguageRoutingCallback extends AgaviRoutingCallback
 			try {
 				$this->translationManager->setLocale($cookie);
 				return;
-			} catch(AgaviException $e) {
+			} catch(AgaviException) {
 				// bad cookie :<
 				$this->context->getController()->getGlobalResponse()->unsetCookie('locale');
 			}
@@ -56,11 +56,11 @@ class AgaviSampleAppLanguageRoutingCallback extends AgaviRoutingCallback
 					if($hasIntl) {
 						// we don't use this directly on Accept-Language because we might not have the preferred locale, but another one
 						// in any case, it might help clean up the value a bit further
-						$locale = locale_accept_from_http($locale);
+						$locale = locale_accept_from_http((string) $locale);
 					}
 					$this->translationManager->setLocale($locale);
 					return;
-				} catch(AgaviException $e) {
+				} catch(AgaviException) {
 				}
 			}
 		}
@@ -84,7 +84,7 @@ class AgaviSampleAppLanguageRoutingCallback extends AgaviRoutingCallback
 				$localeMap[$locale['identifierData']['language']][] = $locale['identifierData']['territory'];
 			}
 		}
-		if(count($localeMap[$short = substr($localeIdentifier, 0, 2)]) > 1) {
+		if(count($localeMap[$short = substr((string) $localeIdentifier, 0, 2)]) > 1) {
 			return $localeIdentifier;
 		} else {
 			return $short;
@@ -93,9 +93,9 @@ class AgaviSampleAppLanguageRoutingCallback extends AgaviRoutingCallback
 	
 	protected static function parseAcceptLanguage($acceptLanguage)
 	{
-		$locales = array();
+		$locales = [];
 		
-		if(preg_match_all('/(^|\s*,\s*)([a-zA-Z]{1,8}(-[a-zA-Z]{1,8})*)\s*(;\s*q\s*=\s*(1(\.0{0,3})?|0(\.[0-9]{0,3})))?/i', $acceptLanguage, $matches)) {
+		if(preg_match_all('/(^|\s*,\s*)([a-zA-Z]{1,8}(-[a-zA-Z]{1,8})*)\s*(;\s*q\s*=\s*(1(\.0{0,3})?|0(\.[0-9]{0,3})))?/i', (string) $acceptLanguage, $matches)) {
 			foreach($matches[2] as &$language) {
 				$language = str_replace('-', '_', $language);
 			}

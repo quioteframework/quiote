@@ -21,7 +21,7 @@ class Default_Widgets_MenuSuccessView extends AgaviSampleAppDefaultBaseView
 		// will automatically load "slot" layout for us
 		$this->setupHtml($rd);
 		
-		$items = array();
+		$items = [];
 		$items[$this->ro->gen('index')] = $this->tm->_('Home', 'default.menu');
 		if(!$this->us->isAuthenticated()) {
 			$items[$this->ro->gen('login')] = $this->tm->_('Login', 'default.menu');
