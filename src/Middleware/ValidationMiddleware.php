@@ -366,7 +366,7 @@ class ValidationMiddleware implements MiddlewareInterface
             $controller = $action->getContext()->getController();
             $vf = new ViewFactory($controller);
             $ot = strtolower($controller->getOutputType()->getName());
-            $view = $vf->create($viewModule, $viewName, $moduleName, $actionName, $ot, $webRequest, []);
+            $view = $vf->create($viewModule, $viewName, $moduleName, $actionName, $ot, $webRequest, [], $vs->getValidationManager());
             if (!$view) {
                 $factory = new \Nyholm\Psr7\Factory\Psr17Factory();
                 if (\Agavi\Util\DebugFlags::$validation) {
@@ -375,7 +375,7 @@ class ValidationMiddleware implements MiddlewareInterface
                 $resp = $factory->createResponse(400)->withHeader('X-Agavi-Validation', 'failed')->withHeader('X-Agavi-Validation-Reason', 'view_not_created');
                 return $resp->withBody($factory->createStream(is_string($viewName) ? $viewName : 'Error'));
             }
-            $methodName = 'execute' . $controller->getOutputType()->getName();
+            $methodName = 'execute' . ucfirst($ot);
             if (!is_callable([$view, $methodName])) {
                 $methodName = 'execute';
             }
@@ -387,6 +387,16 @@ class ValidationMiddleware implements MiddlewareInterface
             }
             $factory = new \Nyholm\Psr7\Factory\Psr17Factory();
             $resp = $factory->createResponse(400)->withHeader('X-Agavi-Validation', 'failed');
+            // Prefer Content-Type from output_types.xml; fall back to MimeTypeRegistry autodetection.
+            $primaryMime = null;
+            try {
+                $primaryMime = $controller->getOutputType($ot)->getParameter('http_headers[Content-Type]') ?: null;
+            } catch (\Throwable) {
+            }
+            $primaryMime ??= \Agavi\Http\MimeTypeRegistry::primaryMimeType($ot);
+            if ($primaryMime !== null) {
+                $resp = $resp->withHeader('Content-Type', (string) $primaryMime);
+            }
             if (!empty($errors)) {
                 $resp = $resp->withHeader('X-Agavi-Validation-Errors', base64_encode(json_encode($errors)));
             }
