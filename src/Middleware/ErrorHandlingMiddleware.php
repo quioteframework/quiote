@@ -12,6 +12,7 @@ use Agavi\Execution\ExecutionState;
 use Throwable;
 use Agavi\Config\AgaviConfig;
 use Agavi\Logging\AgaviDebugLogger;
+use Symfony\Component\Routing\Exception\MethodNotAllowedException;
 
 /**
  * Catches unhandled throwables from downstream middleware/action dispatch and
@@ -36,22 +37,54 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
             AgaviDebugLogger::debug('[ErrorHandlingMiddleware] processing request ' . (string)$request->getUri());
             return $handler->handle($request);
         } catch (Throwable $e) {
-            AgaviDebugLogger::error('[ErrorHandlingMiddleware] Caught exception ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
+            AgaviDebugLogger::error($this->buildDiagnosticLogLine($e, $request));
             return $this->renderExceptionResponse($request, $e);
         }
+    }
+
+    /**
+     * Builds a single, information-dense log line for an uncaught exception: class, message,
+     * throw site, the request that triggered it, exception-specific context (e.g. allowed HTTP
+     * methods for routing failures), the full exception chain, and a full stack trace.
+     *
+     * The previous version of this log line only included class/message/file:line, which is
+     * useless for exceptions like MethodNotAllowedException whose message is often empty —
+     * there was no way to tell which request or call path caused it.
+     */
+    private function buildDiagnosticLogLine(Throwable $e, ServerRequestInterface $request): string
+    {
+        $lines = [];
+        $lines[] = '[ErrorHandlingMiddleware] Caught exception ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine();
+        $lines[] = 'request: ' . $request->getMethod() . ' ' . (string)$request->getUri();
+
+        if ($e instanceof MethodNotAllowedException) {
+            $lines[] = 'allowedMethods: ' . implode(', ', $e->getAllowedMethods());
+        }
+
+        $chain = [];
+        for ($cur = $e->getPrevious(); $cur; $cur = $cur->getPrevious()) {
+            $chain[] = $cur::class . ': ' . $cur->getMessage() . ' @ ' . $cur->getFile() . ':' . $cur->getLine();
+        }
+        if ($chain) {
+            $lines[] = 'causedBy: ' . implode(' <- ', $chain);
+        }
+
+        $lines[] = 'trace: ' . $e->getTraceAsString();
+
+        return implode(' | ', $lines);
     }
 
     /**
      * Public helper so AgaviKernel (or other bootstrap code) can render a unified exception response.
      */
     public function renderExceptionResponse(ServerRequestInterface $request, Throwable $e): ResponseInterface
-    {    
+    {
         if ($this->logger && \Agavi\Util\DebugFlags::$exceptionTemplate) {
             try {
                 ($this->logger)($e, $request);
             } catch (Throwable) { /* ignore */
             }
-        } 
+        }
 
         // Build exception chain
         $exceptions = [];
@@ -117,7 +150,7 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
             if ($cid) {
                 $payload['correlation_id'] = $cid;
             }
-            $bodyJson = json_encode($payload, JSON_UNESCAPED_SLASHES);            
+            $bodyJson = json_encode($payload, JSON_UNESCAPED_SLASHES);
             return new Response($status, ['Content-Type' => 'application/json; charset=utf-8', 'X-Agavi-Error-Type' => $e::class], $bodyJson);
         }
 
@@ -163,7 +196,7 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
                 @ob_end_clean();
             }
             $msg = \Agavi\Util\DebugFlags::$exceptionTemplate ? 'Template render failed: ' . $renderErr->getMessage() : 'Internal Server Error';
-            AgaviDebugLogger::error(sprintf('[ErrorHandlingMiddleware] Template render failed: %s template=%s', $renderErr->getMessage(), $tplFile));            
+            AgaviDebugLogger::error(sprintf('[ErrorHandlingMiddleware] Template render failed: %s template=%s', $renderErr->getMessage(), $tplFile));
             return new Response($status, ['Content-Type' => 'text/plain; charset=utf-8', 'X-Agavi-Error-Type' => $e::class], $msg);
         }
         if ($body === '' || $body === false) {
@@ -194,7 +227,7 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
             $snippetEsc = json_encode($snippet, JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR);
             AgaviDebugLogger::debug(sprintf('[ErrorHandlingMiddleware] HTML response snippet: body_snippet=%s', $snippetEsc));
         }
-        
+
         return new Response($status, $headers, $body);
     }
 
