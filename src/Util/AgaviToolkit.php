@@ -494,15 +494,28 @@ final class AgaviToolkit
 	{
 		$cacheKey = strtolower((string) $moduleName) . '|' . $directiveNameFragment;
 		if (!isset(self::$moduleDirectiveCache[$cacheKey])) {
-			self::$moduleDirectiveCache[$cacheKey] = AgaviToolkit::expandDirectives(
-				AgaviConfig::get(
-					sprintf(
-						'modules.%s.%s',
-						strtolower((string) $moduleName),
-						$directiveNameFragment
-					)
+			$rawDirective = AgaviConfig::get(
+				sprintf(
+					'modules.%s.%s',
+					strtolower((string) $moduleName),
+					$directiveNameFragment
 				)
 			);
+			// Do NOT cache an unresolved directive. The module's config (which
+			// populates modules.<module>.<directive>) may not have been loaded yet
+			// when this is first called — e.g. a view-name lookup for a forwarded
+			// system action before that module was initialized. Caching the null
+			// would poison every later lookup for the lifetime of the process
+			// (the cache is static), making callers fall back to the raw,
+			// unqualified view name and resolve the wrong (empty) view. Resolve
+			// on the fly until a non-null value is available, then memoize that.
+			if ($rawDirective === null) {
+				return AgaviToolkit::expandVariables(
+					AgaviToolkit::expandDirectives($rawDirective),
+					$variables
+				);
+			}
+			self::$moduleDirectiveCache[$cacheKey] = AgaviToolkit::expandDirectives($rawDirective);
 		}
 		return AgaviToolkit::expandVariables(
 			self::$moduleDirectiveCache[$cacheKey],

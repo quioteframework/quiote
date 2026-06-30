@@ -21,6 +21,18 @@
             <directory>../tests/fragment</directory>
         </testsuite>
     </testsuites>
+    <!--
+        APCu is disabled by default for the test run. The APCu config cache is
+        backed by a process-wide store that is not reset between tests and can
+        leak compiled config between unrelated test classes. The tests covering
+        AgaviAPCuConfigCache are tagged @group apcu and excluded here; run them
+        explicitly with `composer test:apcu` (which enables apc.enable_cli).
+    -->
+    <groups>
+        <exclude>
+            <group>apcu</group>
+        </exclude>
+    </groups>
     <php>
         <env name="AGAVI_ISOLATION_ENVIRONMENT" value="testing"/>
         <env name="AGAVI_ISOLATION_DEFAULT_CONTEXT" value="web"/>

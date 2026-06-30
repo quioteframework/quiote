@@ -124,10 +124,14 @@ class AgaviKernel
             AgaviConfig::set('core.default_context', $this->contextName, true, true);
         }
 
-        // If APCu exists but has not been explicitly disabled
-        // enable APCu
+        // If APCu exists AND is actually enabled for this SAPI, use it for the
+        // config cache. function_exists() alone is not enough: the extension can
+        // be loaded but disabled (e.g. apc.enable_cli=0 on the CLI), in which case
+        // apcu_store()/apcu_fetch() silently no-op and the APCu cache path would
+        // store nothing yet still report itself active. apcu_enabled() reflects the
+        // real runtime state, matching the check AgaviAPCuConfigCache uses.
         if (!defined('AGAVI_USE_APCU_CONFIG_CACHE')) {
-            define('AGAVI_USE_APCU_CONFIG_CACHE', function_exists('apcu_fetch'));
+            define('AGAVI_USE_APCU_CONFIG_CACHE', function_exists('apcu_enabled') && apcu_enabled());
         }
 
         // Bootstrap (prewarm only if requested or option set)

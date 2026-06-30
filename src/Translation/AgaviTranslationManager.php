@@ -747,9 +747,16 @@ class AgaviTranslationManager implements ResetInterface
 
 		$locale = new AgaviLocale();
 		$locale->initialize($this->context, $availableLocale['parameters'], $identifier, $data);
-		// Remember the last fully resolved locale identifier (including options)
-		// so subsequent '@timezone=...' shortcut calls have a base.
-		$this->currentLocaleIdentifier = $availableLocale['identifierData']['locale_str'];
+		// NOTE: getLocale() is a pure resolver and must NOT mutate the manager's
+		// current locale. It previously assigned $this->currentLocaleIdentifier here
+		// "to provide a base for '@…' shortcut calls", but that made every
+		// getLocale('xx_YY') / _n($n, null, 'xx_YY') / _c(...) call silently switch
+		// the shared manager's active locale — leaking e.g. de_DE into later code
+		// that expects the default locale's number formatting. The mutation was also
+		// inconsistent (skipped entirely on the cache-hit fast path above). The '@'
+		// shortcut base is taken from the locale last chosen via setLocale() (or the
+		// default locale), which is the documented behavior, so nothing here needs to
+		// write currentLocaleIdentifier.
 		if(!$forceNew) {
 			$this->localeCache[$identifier] = $locale;
 		}

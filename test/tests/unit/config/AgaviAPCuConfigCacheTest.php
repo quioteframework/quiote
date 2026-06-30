@@ -6,11 +6,19 @@ use Agavi\Config\AgaviConfigCache;
 use Agavi\Config\AgaviAPCuConfigCache;
 
 /**
- * Tests for AgaviAPCuConfigCache — exercises the APCu code path that was
- * previously unreachable in CLI tests because apc.enable_cli was Off.
+ * Tests for AgaviAPCuConfigCache — exercises the APCu code path.
  *
- * These tests require the APCu extension with apc.enable_cli=1 (set in phpunit.xml).
+ * These tests require the APCu extension with apc.enable_cli=1. APCu is disabled
+ * in the default test run for determinism (the shared APCu store is process-wide
+ * state that otherwise bleeds between tests), so this class is tagged with the
+ * "apcu" group, which the default phpunit config excludes. Run it explicitly with:
+ *
+ *     composer test:apcu
+ *
+ * (which sets apc.enable_cli=1 and selects --group apcu). When run without APCu
+ * enabled, every test self-skips.
  */
+#[\PHPUnit\Framework\Attributes\Group('apcu')]
 class AgaviAPCuConfigCacheTest extends AgaviPhpUnitTestCase
 {
 	private bool $apcuAvailable;

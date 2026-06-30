@@ -17,6 +17,9 @@ class AgaviTranslationManagerIntlTest extends AgaviUnitTestCase
 {
     private AgaviTranslationManager $tm;
 
+    /** @var string|null Locale active before this test, restored in tearDown(). */
+    private ?string $originalLocaleIdentifier = null;
+
     protected function setUp(): void
     {
         // Ensure translation system is enabled for these tests regardless of environment mapping quirks
@@ -51,7 +54,27 @@ class AgaviTranslationManagerIntlTest extends AgaviUnitTestCase
             }
             $tm->startup();
         }
-        $this->tm = $tm;        
+        $this->tm = $tm;
+        // The translation manager is a shared context singleton. Some tests here
+        // call setLocale() (e.g. de_DE); without restoring it, later tests that
+        // depend on the default locale's number formatting (e.g. parsing "1.23"
+        // with "." as the decimal separator) break. Capture the active locale so
+        // tearDown() can put it back.
+        $this->originalLocaleIdentifier = $this->tm->getCurrentLocaleIdentifier();
+    }
+
+    protected function tearDown(): void
+    {
+        // Restore whatever locale was active before this test. If none was set yet
+        // (the manager had just been created), fall back to its default locale so a
+        // test that called setLocale('de_DE') cannot leave the shared singleton on a
+        // locale whose number format ("." as a thousands separator) breaks later
+        // tests such as AgaviNumberValidatorTest.
+        $restore = $this->originalLocaleIdentifier ?? $this->tm->getDefaultLocaleIdentifier();
+        if ($restore !== null) {
+            $this->tm->setLocale($restore);
+        }
+        parent::tearDown();
     }
 
     public function testLocaleBasicConstruction(): void

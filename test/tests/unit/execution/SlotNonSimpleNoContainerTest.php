@@ -14,6 +14,20 @@ class SlotNonSimpleNoContainerTest extends AgaviUnitTestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // These tests assert the freshly-rendered output of each dispatch and must
+        // not see a cached payload. CacheComplexAction is cacheable, so if another
+        // test left the action/slot cache enabled (core.use_cache), the error-path
+        // method would cache COMPLEX_ERROR and the success-path method would replay
+        // it. Force caching off and clear the shared cache for determinism.
+        \Agavi\Config\AgaviConfig::set('core.use_cache', false);
+        \Agavi\Config\AgaviConfig::set('core.cache_enabled', false);
+        \Agavi\Cache\CacheManager::reset();
+        // Start from a fresh request so parameters injected by a prior test (e.g.
+        // SlotNonSimpleParityTest dispatches CacheComplex with fail=1) cannot leak
+        // in via the shared context request and trip CacheComplexAction::validate().
+        $fresh = new \Agavi\Request\AgaviWebRequest();
+        $fresh->initialize($this->getContext());
+        $this->getContext()->setRequest($fresh);
         putenv('AGAVI_SLOT_NO_CONTAINER_ALL=1');
         // Ensure user has credential for baseline success
         $user = $this->getContext()->getUser();

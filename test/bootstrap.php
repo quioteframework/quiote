@@ -14,6 +14,19 @@ $srcDir = realpath(__DIR__ . '/../src/');
 \Agavi\Config\AgaviConfig::set('core.config_dir', $appDir . '/Config/');
 \Agavi\Config\AgaviConfig::set('core.cache_dir', $appDir . '/cache');
 \Agavi\Config\AgaviConfig::set('core.system_config_dir', $srcDir . '/Config/defaults/');
+// Mirror the filesystem directives Agavi::bootstrap() sets. Some tests extend
+// plain PHPUnit\Framework\TestCase (not AgaviPhpUnitTestCase) and never call
+// Agavi::bootstrap(), yet still touch AgaviContext (e.g. via the debug logger),
+// which lazily compiles config_handlers.xml. The handler patterns there contain
+// %core.module_dir% etc.; if those directives are unset at compile time the
+// placeholders are baked literally into the shared static handler map and never
+// match, poisoning every later test in the process. Defining them up-front (and
+// not read-only, so a later Agavi::bootstrap() can still set its own) guarantees
+// the placeholders always resolve regardless of test execution order.
+\Agavi\Config\AgaviConfig::set('core.module_dir', $appDir . '/Modules');
+\Agavi\Config\AgaviConfig::set('core.model_dir', $appDir . '/Models');
+\Agavi\Config\AgaviConfig::set('core.lib_dir', $appDir . '/Lib');
+\Agavi\Config\AgaviConfig::set('core.template_dir', $appDir . '/Templates');
 \Agavi\Config\AgaviConfig::set('core.default_context', 'testing');
 \Agavi\Config\AgaviConfig::set('testing.environment', 'testing');
 // Set the namespace prefix for the test environment before any bootstrapping

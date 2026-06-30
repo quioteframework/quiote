@@ -51,6 +51,21 @@ class AgaviTestingConfigCache extends AgaviConfigCache
 		self::$handlers = null;
 	}
 
+	/**
+	 * Forget a previously-registered config handlers file so that a subsequent
+	 * addConfigHandlersFile() for the same path is treated as new again.
+	 *
+	 * The handler-file registry ($handlerFiles) is process-wide static state.
+	 * In a full test run other code (e.g. AgaviController loading a module's
+	 * config_handlers.xml) may already have registered the same file, which would
+	 * make addConfigHandlersFile() a no-op and leave the dirty flag unset. Tests
+	 * that assert on that behaviour call this first to restore a known precondition.
+	 */
+	public static function forgetHandlerFile($filename)
+	{
+		unset(self::$handlerFiles[$filename]);
+	}
+
 	public static function setupHandlers()
 	{
 		parent::setupHandlers();

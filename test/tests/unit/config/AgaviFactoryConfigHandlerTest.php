@@ -98,6 +98,10 @@ class AgaviFactoryConfigHandlerTest extends ConfigHandlerTestBase
 		AgaviConfig::set('core.use_database', true);
 		AgaviConfig::set('core.use_logging', true);
 		AgaviConfig::set('core.use_security', true);
+		// factories.xsl gates the translation_manager block on core.use_translation;
+		// set it explicitly so this test does not depend on the ambient value, which
+		// other tests may have toggled off.
+		AgaviConfig::set('core.use_translation', true);
 		$document = $this->parseConfiguration(
 			AgaviConfig::get('core.config_dir') . '/tests/factories.xml',
 			AgaviConfig::get('core.agavi_dir') . '/Config/xsl/factories.xsl'

@@ -65,10 +65,17 @@ class AgaviNumberValidator extends AgaviValidator
 		if(!is_int($value) && !is_float($value)) {
 			$locale = null;
 			if(AgaviConfig::get('core.use_translation') && !$this->getParameter('no_locale', false)) {
-				if($locale = $this->getParameter('in_locale')) {
-					$locale = $this->getContext()->getTranslationManager()->getLocale($locale);
-				} else {
-					$locale = $this->getContext()->getTranslationManager()->getCurrentLocale();
+				// core.use_translation can be enabled without a translation manager
+				// actually being wired into the context (e.g. it was switched on
+				// after bootstrap). Guard against a null manager so we degrade to
+				// locale-less parsing instead of fataling on a null method call.
+				$tm = $this->getContext()->getTranslationManager();
+				if($tm !== null) {
+					if($locale = $this->getParameter('in_locale')) {
+						$locale = $tm->getLocale($locale);
+					} else {
+						$locale = $tm->getCurrentLocale();
+					}
 				}
 			}
 			

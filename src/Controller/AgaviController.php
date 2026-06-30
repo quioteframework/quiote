@@ -127,6 +127,33 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 	// ExecutionState without allocating AgaviExecutionContainer instances.
 	
 	/**
+	 * Ensure the deterministic per-module directive defaults are present.
+	 *
+	 * These describe the conventional filesystem/naming layout for a module and
+	 * do not depend on the module's own configuration. Each key is only set when
+	 * absent so a value supplied by the module's config is never overwritten, and
+	 * so the call is safe (and cheap) to make on every initializeModule().
+	 *
+	 * @param      string The lower-cased module name.
+	 */
+	private function ensureModuleDirectiveDefaults($lowerModuleName)
+	{
+		$defaults = [
+			'modules.' . $lowerModuleName . '.agavi.action.path' => '%core.module_dir%/${moduleName}/Actions/${actionName}Action.php',
+			'modules.' . $lowerModuleName . '.agavi.cache.path' => '%core.module_dir%/${moduleName}/cache/${actionName}.xml',
+			'modules.' . $lowerModuleName . '.agavi.template.directory' => '%core.module_dir%/${module}/Templates',
+			'modules.' . $lowerModuleName . '.agavi.validate.path' => '%core.module_dir%/${moduleName}/Validate/${actionName}.xml',
+			'modules.' . $lowerModuleName . '.agavi.view.path' => '%core.module_dir%/${moduleName}/Views/${viewName}View.php',
+			'modules.' . $lowerModuleName . '.agavi.view.name' => '${actionName}${viewName}',
+		];
+		foreach ($defaults as $key => $value) {
+			if (AgaviConfig::get($key) === null) {
+				AgaviConfig::set($key, $value);
+			}
+		}
+	}
+
+	/**
 	 * Initialize a module and load its autoload, module config etc.
 	 *
 	 * @param      string The name of the module to initialize.
@@ -137,6 +164,17 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 	public function initializeModule($moduleName)
 	{
 		$lowerModuleName = strtolower((string) $moduleName);
+
+		// Always ensure the deterministic per-module path/name directives exist.
+		// These are pure conventions (independent of module.xml) consumed later by
+		// e.g. ViewNameResolver. They are normally set once on first init, but the
+		// static $initializedModules guard below would otherwise skip re-creating
+		// them if AgaviConfig was cleared in the meantime (some tests clear and
+		// restore config; a persistent worker could conceivably reset it too),
+		// leaving view-name resolution to fall back to the wrong, unqualified name.
+		// Setting only the missing keys keeps this cheap and never clobbers a value
+		// a module's own config provided.
+		$this->ensureModuleDirectiveDefaults($lowerModuleName);
 
 		// Fast path: skip entirely if this module was already fully initialized
 		// in this process (avoids repeated is_readable/AgaviConfig calls).
@@ -149,15 +187,7 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 		}
 
 		if(null === AgaviConfig::get('modules.' . $lowerModuleName . '.enabled')) {
-			// set some defaults first
-			AgaviConfig::fromArray([
-				'modules.' . $lowerModuleName . '.agavi.action.path' => '%core.module_dir%/${moduleName}/Actions/${actionName}Action.php',
-				'modules.' . $lowerModuleName . '.agavi.cache.path' => '%core.module_dir%/${moduleName}/cache/${actionName}.xml',
-				'modules.' . $lowerModuleName . '.agavi.template.directory' => '%core.module_dir%/${module}/Templates',
-				'modules.' . $lowerModuleName . '.agavi.validate.path' => '%core.module_dir%/${moduleName}/Validate/${actionName}.xml',
-				'modules.' . $lowerModuleName . '.agavi.view.path' => '%core.module_dir%/${moduleName}/Views/${viewName}View.php',
-				'modules.' . $lowerModuleName . '.agavi.view.name' => '${actionName}${viewName}',
-			]);		// include the module configuration
+			// include the module configuration
 		// loaded only once due to the way load() (former import()) works
 		if(is_readable(AgaviConfig::get('core.module_dir') . '/' . $moduleName . '/Config/module.xml')) {
 			if(defined('AGAVI_USE_APCU_CONFIG_CACHE') && AGAVI_USE_APCU_CONFIG_CACHE) {

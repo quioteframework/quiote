@@ -8,9 +8,13 @@ use Agavi\Cache\CacheManager;
 
 class SlotCacheTest extends AgaviUnitTestCase
 {
+    /** @var mixed Original core.use_cache value, restored in tearDown(). */
+    private $origUseCache;
+
     protected function setUp(): void
     {
         parent::setUp();
+        $this->origUseCache = Agavi\Config\AgaviConfig::get('core.use_cache');
         Agavi\Config\AgaviConfig::set('core.use_cache', true);
         // Enable slot cache for these tests
         putenv('AGAVI_SLOT_CACHE=1');
@@ -26,6 +30,17 @@ class SlotCacheTest extends AgaviUnitTestCase
     protected function tearDown(): void
     {
         putenv('AGAVI_SLOT_CACHE'); // unset
+        // Restore the cache directive so the slot/action cache stays off for tests
+        // that expect uncached execution; leaving it enabled lets a stale cached
+        // slot payload replay into later tests (e.g. a COMPLEX_ERROR body where
+        // COMPLEX_OK is expected).
+        if ($this->origUseCache === null) {
+            Agavi\Config\AgaviConfig::set('core.use_cache', false);
+        } else {
+            Agavi\Config\AgaviConfig::set('core.use_cache', $this->origUseCache);
+        }
+        // Clear the shared cache so no cached slot/action payload survives.
+        CacheManager::reset();
         parent::tearDown();
     }
 

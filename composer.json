@@ -54,6 +54,14 @@
 		"ext-pdo": "PDO is required for database connectors that use PDO as base",
 		"ext-iconv": "Enable iconv if you need to convert between other charset than iso-8859-1 and utf-8"
 	},
+	"scripts": {
+		"test": "php -d apc.enable_cli=0 vendor/bin/phpunit --no-coverage -c test/config/phpunit.xml",
+		"test:apcu": "php -d apc.enable_cli=1 vendor/bin/phpunit --no-coverage -c test/config/phpunit.xml --group apcu"
+	},
+	"scripts-descriptions": {
+		"test": "Run the full test suite with APCu disabled (default, deterministic).",
+		"test:apcu": "Run only the APCu config-cache tests with apc.enable_cli=1."
+	},
 	"autoload": {
 		"psr-4": {
 			"Agavi\\": ["src/"],

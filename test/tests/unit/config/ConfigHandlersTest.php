@@ -10,6 +10,27 @@ use Agavi\Exception\AgaviConfigurationException;
 
 class ConfigHandlersTest extends TestCase
 {
+    /** @var array Snapshot of AgaviConfig taken in setUp() and restored in tearDown(). */
+    private array $configSnapshot = [];
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // These tests flip global directives such as core.use_translation /
+        // core.use_logging to drive the factory config handler's code generation.
+        // AgaviConfig is process-wide; snapshot it here and restore in tearDown()
+        // so the toggles don't bleed into unrelated tests (e.g. ones that compile
+        // factories.xml and expect the translation manager to be present).
+        $this->configSnapshot = AgaviConfig::toArray();
+    }
+
+    protected function tearDown(): void
+    {
+        AgaviConfig::clear();
+        AgaviConfig::fromArray($this->configSnapshot);
+        parent::tearDown();
+    }
+
     private function makeEnvelope(string $innerXml, string $uriBasename): AgaviXmlConfigDomDocument
     {
         $xml = <<<XML

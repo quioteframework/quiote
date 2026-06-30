@@ -128,6 +128,10 @@ class AgaviConfigCacheTest extends AgaviPhpUnitTestCase
 	public function testAddConfigHandlersFile()
 	{
 		$config = AgaviConfig::get('core.module_dir').'/Default/Config/config_handlers.xml';
+		// Other tests (or module loading) may already have registered this file in
+		// the process-wide handler-file registry; forget it so addConfigHandlersFile()
+		// is exercised from a known-clean precondition regardless of execution order.
+		AgaviTestingConfigCache::forgetHandlerFile($config);
 		AgaviTestingConfigCache::addConfigHandlersFile($config);
 		$this->assertTrue(AgaviTestingConfigCache::handlersDirty(), 'Failed asserting that the handlersDirty flag is set after adding a config handlers file.');
 		$handlerFiles = AgaviTestingConfigCache::getHandlerFiles();

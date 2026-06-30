@@ -340,7 +340,8 @@ class AgaviDateTimeValidator extends AgaviValidator
 		if($tzId) {
 			return $tzId;
 		}
-		$defaultTz = $this->getContext()->getTranslationManager()->getDefaultTimeZone();
+		$tm = $this->getContext()->getTranslationManager();
+		$defaultTz = $tm !== null ? $tm->getDefaultTimeZone() : null;
 		if($defaultTz) {
 			return $defaultTz->getName();
 		}

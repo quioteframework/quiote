@@ -41,6 +41,12 @@ class AgaviSecurityUserTest extends AgaviUnitTestCase
 	{
 		$this->_u = new SampleSecurityUser();
 		$this->_u->initialize($this->getContext());
+		// The authenticated flag and credentials live in the shared storage/session,
+		// so a prior test that authenticated a user (e.g. setAuthenticated(true) in
+		// the dispatch/slot middleware tests) would otherwise leak in and make this
+		// fresh user report isAuthenticated()===true. Establish a clean baseline.
+		$this->_u->setAuthenticated(false);
+		$this->_u->clearCredentials();
 	}
 
 	public function testaddCredential()

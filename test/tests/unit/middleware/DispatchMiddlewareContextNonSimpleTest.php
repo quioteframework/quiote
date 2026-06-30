@@ -24,6 +24,14 @@ class DispatchMiddlewareContextNonSimpleTest extends AgaviUnitTestCase
         AgaviConfig::set('core.cache_dir', sys_get_temp_dir() . '/agavi_ctx_nonsimple_cache_test');
         $dir = AgaviConfig::get('core.cache_dir');
         if(!is_dir($dir)) { @mkdir($dir, 0777, true); }
+        // These tests exercise the plain (uncached) dispatch path. Other tests
+        // (e.g. SlotCacheTest, DispatchMiddlewareExecutionStateTest) enable the
+        // action/view cache via these process-wide directives and may not restore
+        // them; if they leak in, the forwarded system action replays an empty
+        // cached payload and the body comes back blank. Force caching off here so
+        // the test is deterministic regardless of execution order.
+        AgaviConfig::set('core.cache_enabled', false);
+        AgaviConfig::set('core.use_cache', false);
         CacheManager::reset();
         putenv('AGAVI_DISPATCH_CONTEXT=1');
         putenv('AGAVI_DISPATCH_CONTEXT_NONSIMPLE=1');
