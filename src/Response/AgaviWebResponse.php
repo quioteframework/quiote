@@ -296,8 +296,16 @@ class AgaviWebResponse extends AgaviResponse
 			$request = null;
 		}
 
-		if (array_key_exists('cookie_secure', $parameters) && $parameters['cookie_secure'] === null) {
-			$parameters['cookie_secure'] = $request ? $request->isHttps() : false;
+		// Secure-by-default cookie attributes. Unless an application explicitly
+		// overrides them, cookies set through this response are:
+		//   - Secure   when the request is HTTPS (so they are never sent in clear),
+		//   - HttpOnly (not readable by client-side script — mitigates XSS theft),
+		//   - SameSite=Lax (not sent on cross-site subrequests — CSRF defense-in-depth),
+		//   - URL-encoded (cookie_encode_callback) so values cannot inject attributes.
+		// An app that genuinely needs a JS-readable or cross-site cookie must opt out
+		// explicitly per call (e.g. setCookie(..., $httponly = false)).
+		if (!array_key_exists('cookie_secure', $parameters) || $parameters['cookie_secure'] === null) {
+			$parameters['cookie_secure'] = $request !== null && self::requestIsHttps($request);
 		}
 
 		$this->setParameters([
@@ -305,9 +313,9 @@ class AgaviWebResponse extends AgaviResponse
 			'cookie_path'     => $parameters['cookie_path'] ?? null,
 			'cookie_domain'   => $parameters['cookie_domain'] ?? "",
 			'cookie_secure'   => $parameters['cookie_secure'] ?? false,
-			'cookie_httponly' => $parameters['cookie_httponly'] ?? false,
+			'cookie_httponly' => $parameters['cookie_httponly'] ?? true,
 			'cookie_encode_callback' => $parameters['cookie_encode_callback'] ?? 'urlencode',
-			'cookie_samesite' => $parameters['cookie_samesite'] ?? null,
+			'cookie_samesite' => $parameters['cookie_samesite'] ?? 'Lax',
 		]);
 
 		// Support both AgaviWebRequest::getProtocol() and PSR-7 getProtocolVersion()
@@ -855,6 +863,60 @@ class AgaviWebResponse extends AgaviResponse
 	 * @author     David Zülke <dz@bitxtender.com>
 	 * @since      0.11.0
 	 */
+	/**
+	 * Determine whether the given request arrived over HTTPS, working for both an
+	 * AgaviWebRequest and a raw PSR-7 ServerRequestInterface.
+	 *
+	 * method_exists('isHttps') only tells us the request *type*, not the scheme, so
+	 * for PSR-7 requests (which never define isHttps()) we read the actual scheme
+	 * from the URI / server params / forwarded headers instead of assuming plain HTTP.
+	 *
+	 * @param      object The request (AgaviWebRequest or PSR-7 ServerRequestInterface).
+	 *
+	 * @return     bool
+	 */
+	private static function requestIsHttps(object $request): bool
+	{
+		// Native Agavi request knows its own scheme (and honors proxy config).
+		if (method_exists($request, 'isHttps')) {
+			return (bool) $request->isHttps();
+		}
+
+		// PSR-7: trust the URI scheme first.
+		if (method_exists($request, 'getUri')) {
+			try {
+				if (strtolower((string) $request->getUri()->getScheme()) === 'https') {
+					return true;
+				}
+			} catch (\Throwable) {
+			}
+		}
+
+		// PSR-7 behind a TLS-terminating proxy, or built from globals: fall back to
+		// server params / forwarded headers.
+		$server = [];
+		if (method_exists($request, 'getServerParams')) {
+			try { $server = (array) $request->getServerParams(); } catch (\Throwable) { $server = []; }
+		}
+		if (isset($server['HTTPS']) && $server['HTTPS'] !== '' && strtolower((string) $server['HTTPS']) !== 'off') {
+			return true;
+		}
+		if (isset($server['REQUEST_SCHEME']) && strtolower((string) $server['REQUEST_SCHEME']) === 'https') {
+			return true;
+		}
+		if (method_exists($request, 'getHeaderLine')) {
+			try {
+				$xfp = strtolower(trim((string) $request->getHeaderLine('X-Forwarded-Proto')));
+				if ($xfp !== '' && str_starts_with($xfp, 'https')) {
+					return true;
+				}
+			} catch (\Throwable) {
+			}
+		}
+
+		return false;
+	}
+
 	public function setCookie($name, $value, $lifetime = null, $path = null, $domain = null, $secure = null, $httponly = null, $encodeCallback = null, $samesite = null)
 	{
 		$lifetime ??= $this->getParameter('cookie_lifetime');

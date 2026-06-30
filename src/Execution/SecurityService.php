@@ -17,7 +17,6 @@ class SecurityService
         if(!$action->isSecure()) { return SecurityDecision::Allow; }
         $user = $this->controller->getContext()->getUser();
         if(!$user->isAuthenticated()) {
-            try { @file_put_contents(sys_get_temp_dir().'/agavi_sec_debug.log', 'Unauth '.$user::class."\n", FILE_APPEND); } catch(\Throwable) {}
             return SecurityDecision::LoginForward; }
         $cred = $action->getCredentials();
         if($cred !== null && !$user->hasCredentials($cred)) { return SecurityDecision::SecureForward; }

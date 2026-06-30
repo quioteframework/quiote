@@ -291,6 +291,35 @@ class AgaviSessionStorage extends AgaviStorage implements SessionHandlerInterfac
 		return session_write_close();
 	}
 
+	/**
+	 * Regenerate the session ID, preserving the session's data.
+	 *
+	 * Called at privilege transitions (e.g. login) to defeat session fixation.
+	 * Uses PHP's native session_regenerate_id(); $_SESSION contents are kept and
+	 * moved to the new ID.
+	 *
+	 * @param      bool Whether to delete the old session file/record.
+	 *
+	 * @return     bool True on success (or no-op when no session is active).
+	 *
+	 * @since      1.1.0
+	 */
+	public function regenerate(bool $deleteOldSession = true): bool
+	{
+		if(session_status() !== PHP_SESSION_ACTIVE) {
+			@session_start();
+		}
+		if(session_status() !== PHP_SESSION_ACTIVE) {
+			return false;
+		}
+		$old = function_exists('session_id') ? session_id() : '';
+		$result = session_regenerate_id($deleteOldSession);
+		if(\Agavi\Util\DebugFlags::$session) {
+			AgaviDebugLogger::debug('[AgaviSessionStorage] regenerate old=' . $old . ' new=' . session_id() . ' deleteOld=' . (int)$deleteOldSession, $this->context);
+		}
+		return $result;
+	}
+
 	public function destroy($sessionId): bool
 	{
 		if(\Agavi\Util\DebugFlags::$session) { AgaviDebugLogger::debug('[AgaviSessionStorage] destroy raw sid=' . $sessionId, $this->context); }

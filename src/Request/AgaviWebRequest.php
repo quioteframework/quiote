@@ -603,6 +603,54 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 	}
 
 	/**
+	 * Build an AgaviWebRequest carrying the state of an arbitrary PSR-7 request.
+	 *
+	 * AgaviWebRequest extends Nyholm's ServerRequest, but a plain
+	 * Nyholm\Psr7\ServerRequest can still flow through the pipeline (it lacks the
+	 * Agavi helpers such as isHttps()/getParameter()). This adapter produces an
+	 * AgaviWebRequest with the same method, URI, headers, body, protocol, server
+	 * params, cookies, query params, uploaded files, parsed body and attributes,
+	 * so the framework can always rely on getRequest() returning an AgaviWebRequest.
+	 *
+	 * @param      ServerRequestInterface $request The source request.
+	 *
+	 * @return     self The same instance if it is already an AgaviWebRequest, else a copy.
+	 *
+	 * @since      1.1.0
+	 */
+	public static function fromPsr(ServerRequestInterface $request): self
+	{
+		if ($request instanceof self) {
+			return $request;
+		}
+
+		$new = new self(
+			$request->getMethod(),
+			$request->getUri(),
+			$request->getHeaders(),
+			$request->getBody(),
+			$request->getProtocolVersion(),
+			$request->getServerParams()
+		);
+
+		$new = $new
+			->withCookieParams($request->getCookieParams())
+			->withQueryParams($request->getQueryParams())
+			->withUploadedFiles($request->getUploadedFiles());
+
+		$parsedBody = $request->getParsedBody();
+		if ($parsedBody !== null) {
+			$new = $new->withParsedBody($parsedBody);
+		}
+
+		foreach ($request->getAttributes() as $name => $value) {
+			$new = $new->withAttribute($name, $value);
+		}
+
+		return $new;
+	}
+
+	/**
 	 * Initialize this Request (compat stub for factories.xml flow).
 	 * We don't use Agavi's parameter holder anymore here.
 	 */
@@ -705,6 +753,36 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 		}
 		if ($port === null) {
 			$port = $scheme === 'https' ? 443 : 80;
+		}
+
+		// Trusted-host validation. The Host header is attacker-controlled and feeds
+		// generated absolute URLs (base href, redirect Location for "/"-relative
+		// targets, password-reset links, ...), so an unvalidated value enables
+		// host-header poisoning / cache poisoning. When core.trusted_hosts is set
+		// (array of exact hostnames and/or "/regex/" patterns), a Host matching none
+		// of them is replaced with the first literal trusted host (safe
+		// canonicalization). Empty/unset preserves the previous behavior (no
+		// restriction) for backwards compatibility — set it in production.
+		$trustedHosts = \Agavi\Config\AgaviConfig::get('core.trusted_hosts', []);
+		if (is_array($trustedHosts) && $trustedHosts !== [] && $host !== '') {
+			$matched = false;
+			$firstLiteral = null;
+			foreach ($trustedHosts as $th) {
+				if (!is_string($th) || $th === '') {
+					continue;
+				}
+				$isRegex = (strlen($th) > 1 && $th[0] === '/' && str_ends_with($th, '/'));
+				if ($firstLiteral === null && !$isRegex) {
+					$firstLiteral = $th;
+				}
+				if ($isRegex ? (bool)@preg_match($th, $host) : (strcasecmp($th, $host) === 0)) {
+					$matched = true;
+					break;
+				}
+			}
+			if (!$matched && $firstLiteral !== null) {
+				$host = $firstLiteral;
+			}
 		}
 
 		// Build request URI, path, and query pieces.

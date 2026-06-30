@@ -124,20 +124,24 @@ class ValidationMiddleware implements MiddlewareInterface
             throw new \RuntimeException('Canonical AgaviWebRequest missing in ValidationMiddleware (must be initialized earlier).');
         }
         
-        // If the request changed in the pipeline, sync it back to context
+        // If the request changed in the pipeline, sync it back to context.
         if ($request !== $webRequest) {
             if ($request instanceof AgaviWebRequest) {
-                // PSR-7 immutability created a new AgaviWebRequest, use it directly
+                // Already an AgaviWebRequest (e.g. a with*() clone) — use it directly.
                 $this->controller->getContext()->setRequest($request);
                 $webRequest = $request;
             } else {
-                // Generic PSR-7 request - update our AgaviWebRequest using ->with*()
+                // Generic PSR-7 request: overlay its pipeline state onto the canonical
+                // AgaviWebRequest rather than replacing it, so the request's
+                // Agavi-specific validation state (validatedKeys whitelist, runtime
+                // parameters) is preserved. A fresh AgaviWebRequest::fromPsr($request)
+                // would reset that state — the pipeline request doesn't carry it —
+                // and break strict unvalidated-parameter access.
                 $webRequest = $webRequest
                     ->withMethod($request->getMethod())
                     ->withUri($request->getUri())
                     ->withQueryParams($request->getQueryParams())
                     ->withParsedBody($request->getParsedBody());
-                // Copy attributes
                 foreach ($request->getAttributes() as $name => $value) {
                     $webRequest = $webRequest->withAttribute($name, $value);
                 }
@@ -397,7 +401,11 @@ class ValidationMiddleware implements MiddlewareInterface
             if ($primaryMime !== null) {
                 $resp = $resp->withHeader('Content-Type', (string) $primaryMime);
             }
-            if (!empty($errors)) {
+            // The X-Agavi-Validation-Errors header leaks internal field/validator
+            // structure to the client, so it is opt-in and OFF by default. Enable it
+            // (e.g. for a trusted dev/test front-end) via:
+            //   AgaviConfig::set('core.expose_validation_errors_header', true)
+            if (!empty($errors) && \Agavi\Config\AgaviConfig::get('core.expose_validation_errors_header', false)) {
                 $resp = $resp->withHeader('X-Agavi-Validation-Errors', base64_encode(json_encode($errors)));
             }
             if ($content !== null) {
@@ -410,7 +418,11 @@ class ValidationMiddleware implements MiddlewareInterface
             }
             $factory = new \Nyholm\Psr7\Factory\Psr17Factory();
             $resp = $factory->createResponse(400)->withHeader('X-Agavi-Validation', 'failed')->withHeader('X-Agavi-Validation-Reason', 'view_creation_exception');
-            if (!empty($errors)) {
+            // The X-Agavi-Validation-Errors header leaks internal field/validator
+            // structure to the client, so it is opt-in and OFF by default. Enable it
+            // (e.g. for a trusted dev/test front-end) via:
+            //   AgaviConfig::set('core.expose_validation_errors_header', true)
+            if (!empty($errors) && \Agavi\Config\AgaviConfig::get('core.expose_validation_errors_header', false)) {
                 $resp = $resp->withHeader('X-Agavi-Validation-Errors', base64_encode(json_encode($errors)));
             }
             return $resp->withBody($factory->createStream('Error'));

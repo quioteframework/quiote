@@ -184,15 +184,18 @@ class AgaviWebResponseTest extends AgaviUnitTestCase
 	{
 		$r = $this->_r;
 
+		// Secure-by-default cookie attributes: HttpOnly and SameSite=Lax are on
+		// unless explicitly overridden (secure is false here because the test request
+		// is not HTTPS).
 		$info_ex = [
 			'value' => 'value',
 			'lifetime' => 0,
 			'path' => null,
 			'domain' => '',
 			'secure' => false,
-			'httponly' => false,
+			'httponly' => true,
 			'encode_callback' => 'urlencode',
-			'samesite' => null,
+			'samesite' => 'Lax',
 		];
 		$r->setCookie('cookieName', 'value');
 		$this->assertEquals($info_ex, $r->getCookie('cookieName'));
@@ -210,9 +213,9 @@ class AgaviWebResponseTest extends AgaviUnitTestCase
 			'path' => '',
 			'domain' => 'foo.bar',
 			'secure' => true,
-			'httponly' => false,
+			'httponly' => true, // secure-by-default (not explicitly overridden)
 			'encode_callback' => 'urlencode',
-			'samesite' => null,
+			'samesite' => 'Lax', // secure-by-default (not explicitly overridden)
 		];
 		$this->assertEquals($info_ex, $r->getCookie('cookieName2'));
 	}

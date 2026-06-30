@@ -608,6 +608,18 @@ class AgaviContext implements \Stringable, ResetInterface
    */
   public function setRequest($request): void
   {
+    // Normalize any foreign PSR-7 request into an AgaviWebRequest so getRequest()
+    // ALWAYS returns an AgaviWebRequest (with the Agavi helpers like isHttps()).
+    // A plain Nyholm\Psr7\ServerRequest can otherwise flow in via middleware
+    // (SlotMiddleware, ValidationMiddleware) or tests. Non-PSR requests (e.g. a
+    // console request) and existing AgaviWebRequests pass through unchanged.
+    if (
+      $request !== null
+      && !($request instanceof \Agavi\Request\AgaviWebRequest)
+      && $request instanceof \Psr\Http\Message\ServerRequestInterface
+    ) {
+      $request = \Agavi\Request\AgaviWebRequest::fromPsr($request);
+    }
     $this->request = $request;
     try {
       $message = sprintf(

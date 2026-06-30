@@ -540,15 +540,25 @@ class AgaviConfigCache
 
 		$cacheDir = $baseCacheDir . DIRECTORY_SEPARATOR . self::CACHE_SUBDIR;
 
-		// Derive sensible perms; if fileperms() fails, fall back to a reasonable default.
+		// Directory mode: derive from the existing cache dir (or a umask-respecting
+		// default). The directory may legitimately be group/other accessible.
 		$detectedPerms = @fileperms($baseCacheDir);
 		if($detectedPerms === false) {
-			$perms = 0777 & ~umask();
+			$dirPerms = 0777 & ~umask();
 		} else {
-			$perms = $detectedPerms ^ 0x4000;
+			$dirPerms = $detectedPerms ^ 0x4000; // strip S_IFDIR, keep the dir's permission bits
 		}
 
-		AgaviToolkit::mkdir($cacheDir, $perms);
+		// File mode: cache files are PHP that gets include()'d (and eval()'d on the
+		// APCu path), so they must NEVER be group/other-writable — otherwise any
+		// local user able to write the cache dir could inject code the web process
+		// executes — and need not be executable. Derive an owner-focused mode
+		// INDEPENDENT of the (possibly 0777) directory mode. Previously the file
+		// inherited the directory's bits via `fileperms ^ 0x4000`, which produced
+		// world-writable executable PHP on a 0777 cache dir.
+		$filePerms = (0644 & ~umask()) | 0600; // owner can always read/write; never group/other write
+
+		AgaviToolkit::mkdir($cacheDir, $dirPerms);
 
 		if($append && is_readable($cache)) {
 			$data = file_get_contents($cache) . $data;
@@ -556,6 +566,9 @@ class AgaviConfigCache
 
 		$tmpName = tempnam($cacheDir, basename((string) $cache));
 		if(@file_put_contents($tmpName, $data) !== false) {
+			// Set the final, safe mode on the temp file BEFORE publishing it, so the
+			// destination never briefly exists with surprising permissions.
+			@chmod($tmpName, $filePerms);
 			// that worked, but that doesn't mean we're safe yet
 			// first, we cannot know if the destination directory really was writeable, as tempnam() falls back to the system temp dir
 			// second, with php < 5.2.6 on win32 renaming to an already existing file doesn't work, but copy does
@@ -563,7 +576,7 @@ class AgaviConfigCache
 			// if that also fails, we know something's odd
 			if(@rename($tmpName, $cache) || (@copy($tmpName, $cache) && unlink($tmpName))) {
 				// alright, it did work after all. chmod() and bail out.
-				chmod($cache, $perms);
+				chmod($cache, $filePerms);
 				return;
 			}
 		}

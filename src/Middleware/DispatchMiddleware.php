@@ -169,6 +169,15 @@ class DispatchMiddleware implements MiddlewareInterface
             if ($cacheHit && $cacheHitHeader) {
                 $resp = $resp->withHeader($cacheHitHeader, '1');
             }
+            // Send X-Content-Type-Options: nosniff by default so browsers honor the
+            // declared Content-Type and don't MIME-sniff responses into executable
+            // types (an XSS/defense-in-depth measure). Only set it when the app/output
+            // type hasn't already specified it, and allow opt-out via config.
+            // NOTE: deliberately NOT setting X-Frame-Options — framing by external
+            // sites must remain allowed.
+            if (AgaviConfig::get('core.send-nosniff-header', true) && !$resp->hasHeader('X-Content-Type-Options')) {
+                $resp = $resp->withHeader('X-Content-Type-Options', 'nosniff');
+            }
         }
 
         // Bridge redirect set via AgaviWebResponse::setRedirect() into the PSR response.

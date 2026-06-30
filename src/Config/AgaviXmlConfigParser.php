@@ -616,7 +616,23 @@ class AgaviXmlConfigParser
 			// load the stylesheet document into an XSLTProcessor instance
 			try {
 				$proc = new AgaviXsltProcessor();
-				$proc->registerPHPFunctions();
+				// SECURITY: Calling registerPHPFunctions() with no argument exposes
+				// EVERY PHP function to config stylesheets via php:function(...), which
+				// is RCE-grade if a stylesheet is ever attacker-influenceable. We only
+				// register an explicit ALLOW-LIST, configured via
+				// core.config_xsl_allowed_php_functions (a function-name string or an
+				// array of them). The default is null/empty => register NOTHING. If you
+				// ship config stylesheets that legitimately need a PHP callback, set
+				// this directive to the fully-qualified callable(s) they use, e.g.
+				//   AgaviConfig::set('core.config_xsl_allowed_php_functions',
+				//       ['Agavi\\Validator\\AgaviDependencyManager::populateArgumentBaseKeyRefs']);
+				$allowedPHPFunctions = \Agavi\Config\AgaviConfig::get('core.config_xsl_allowed_php_functions', null);
+				if (is_string($allowedPHPFunctions) && $allowedPHPFunctions !== '') {
+					$allowedPHPFunctions = [$allowedPHPFunctions];
+				}
+				if (is_array($allowedPHPFunctions) && $allowedPHPFunctions !== []) {
+					$proc->registerPHPFunctions($allowedPHPFunctions);
+				}
 				$proc->importStylesheet($xsl);
 			} catch(\Exception $e) {
 				throw new AgaviParseException(sprintf('Configuration file "%s" could not be parsed: Could not import XSL stylesheet "%s": %s', $document->documentURI, $xsl->documentURI, $e->getMessage()), 0, $e);

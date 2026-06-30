@@ -54,14 +54,20 @@ final class CookieSerializer
                     $expire = time() - 3600 * 24;
                 }
 
-                // Apply encode callback when value is non-null
+                // Apply encode callback when value is non-null. When no callback is
+                // provided we URL-encode by default so a value cannot inject extra
+                // cookie attributes (e.g. "; Domain=evil.com") or control characters.
+                // An explicit `encode_callback === false` opts out (value pre-encoded).
                 $val = $values['value'];
-                if ($val !== null
-                    && !empty($values['encode_callback'])
-                    && $values['encode_callback'] !== false
-                    && is_callable($values['encode_callback'])
-                ) {
-                    $val = call_user_func($values['encode_callback'], $val);
+                if ($val !== null) {
+                    $cb = $values['encode_callback'] ?? 'rawurlencode';
+                    if ($cb === false) {
+                        // Caller asserts the value is already encoded; leave as-is.
+                    } elseif (is_callable($cb)) {
+                        $val = call_user_func($cb, $val);
+                    } else {
+                        $val = rawurlencode((string) $val);
+                    }
                 }
 
                 $path = $values['path'] ?? $basePath;

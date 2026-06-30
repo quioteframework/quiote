@@ -209,26 +209,14 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser, ResetIn
 	 */
 	public function isAuthenticated()
 	{
-		// Lazy rehydrate: If currently unauthenticated (false) but no explicit logout, re-check storage.
-		if ($this->authenticated === false && $this->logoutIntent === false) {
-			try {
-				$storage = $this->getContext()?->getStorage();
-				if ($storage) {
-					$storedAuth = $storage->retrieve(self::AUTH_NAMESPACE);
-					if ($storedAuth === true) {
-						$this->authenticated = true;
-						if (!is_array($this->credentials) || count($this->credentials) === 0) {
-							$storedCreds = $storage->retrieve(self::CREDENTIAL_NAMESPACE);
-							if (is_array($storedCreds)) { $this->credentials = $storedCreds; }
-						}
-						if (\Agavi\Util\DebugFlags::$security) {
-							AgaviDebugLogger::debug('[SecurityUser.lazyRehydrate] promoted auth=true credsCount=' . (is_array($this->credentials) ? count($this->credentials) : 0), $this->getContext());
-						}
-					}
-				}
-			} catch (\Throwable) {}
-		}
-		return $this->authenticated;
+		// The authenticated state is loaded once from storage in initialize() and
+		// updated in-memory by setAuthenticated(); it is the canonical value for the
+		// request. We deliberately do NOT re-read storage here. The previous lazy
+		// "rehydrate" promoted a not-yet-authenticated in-memory user back to
+		// authenticated whenever storage still held true, which (combined with the
+		// absence of session-ID regeneration) biased the system fail-open and made a
+		// stale/fixated session value able to resurrect authentication on a mere read.
+		return (bool)$this->authenticated;
 	}
 
 	/**
@@ -263,12 +251,21 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser, ResetIn
 	public function setAuthenticated($authenticated)
 	{
 		if($authenticated === true) {
+			$wasAuthenticated = ($this->authenticated === true);
 			$this->authenticated = true;
 			$this->logoutIntent = false; // clear any previous logout marker
 			// immediate persistence so later initialize() pulls true
 			try {
 				$storage = $this->getContext()?->getStorage();
 				if($storage) {
+					// Regenerate the session ID on the unauthenticated -> authenticated
+					// transition to defeat session fixation: any ID an attacker may have
+					// fixed in the victim's browser before login is invalidated. Only do
+					// it on the actual privilege transition (not on every re-affirmation)
+					// to avoid needless churn. $_SESSION data is preserved.
+					if(!$wasAuthenticated && method_exists($storage, 'regenerate')) {
+						$storage->regenerate(true);
+					}
 					$storage->store(self::AUTH_NAMESPACE, true);
 					if (method_exists($storage, 'flush')) { $storage->flush(); }
 				}

@@ -105,9 +105,15 @@ class AgaviXmlConfigDomDocument extends \DOMDocument
 	 */
 	public function load($filename, $options = 0) : bool
 	{
+		// Force-disable network access during parsing (external DTDs/entities,
+		// XInclude). Defense-in-depth: config files are trusted, but this guarantees
+		// no SSRF/remote fetch even if a flag like resolveExternals is ever enabled.
+		// NB: we deliberately do NOT add LIBXML_NOENT (that would ENABLE dangerous
+		// entity substitution / XXE).
+		$options |= LIBXML_NONET;
 		$luie = libxml_use_internal_errors(true);
 		libxml_clear_errors();
-		
+
 		$result = parent::load($filename, $options);
 		
 		if(libxml_get_last_error() !== false) {
@@ -150,9 +156,11 @@ class AgaviXmlConfigDomDocument extends \DOMDocument
 	 */
 	public function loadXml($source, $options = 0) : bool
 	{
+		// See load(): force LIBXML_NONET, never LIBXML_NOENT.
+		$options |= LIBXML_NONET;
 		$luie = libxml_use_internal_errors(true);
 		libxml_clear_errors();
-		
+
 		$result = parent::loadXML($source, $options);
 		
 		if(libxml_get_last_error() !== false) {
@@ -194,9 +202,11 @@ class AgaviXmlConfigDomDocument extends \DOMDocument
 	 */
 	public function xinclude($options = 0): false|int
 	{
+		// Block network-sourced XIncludes (xi:include href="http://...").
+		$options |= LIBXML_NONET;
 		$luie = libxml_use_internal_errors(true);
 		libxml_clear_errors();
-		
+
 		$result = parent::xinclude($options);
 		
 		if(libxml_get_last_error() !== false) {

@@ -43,16 +43,6 @@ class SecurityMiddleware implements MiddlewareInterface
             }
             $request = $request->withAttribute('agavi.rid', $rid);
         }
-        // Test hook: if env AGAVI_TEST_FORCE_AUTH=1, set user authenticated early
-        if (getenv('AGAVI_TEST_FORCE_AUTH')) {
-            try {
-                $u = $this->controller->getContext()->getUser();
-                if (method_exists($u, 'setAuthenticated')) {
-                    $u->setAuthenticated(true);
-                }
-            } catch (\Throwable) {
-            }
-        }
         // Build/initialize action for security evaluation in container-less world.
         $actionDesc = $request->getAttribute(ActionDescriptor::class);
         if (!$actionDesc) {
