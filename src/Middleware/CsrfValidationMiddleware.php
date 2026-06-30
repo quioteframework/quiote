@@ -20,8 +20,21 @@ use Psr\Http\Server\RequestHandlerInterface;
  * session-stored token via {@see CsrfManager}. On failure the request is
  * short-circuited with HTTP 403 and the action never runs.
  *
- * Opt out per route by adding an `_csrf => false` default to the route, e.g.
- * for stateless API endpoints authenticated by token/signature.
+ * CSRF exists to stop an attacker site from riding a victim's ambient,
+ * automatically-attached session cookie. Two classes of request fall outside
+ * that threat model and are exempted automatically, without needing a
+ * per-route opt-out:
+ *
+ *   - Requests carrying an Authorization header. A cross-site attacker page
+ *     cannot read or attach the caller's bearer/basic credential the way a
+ *     browser auto-attaches a session cookie, so token/signature-authenticated
+ *     callers (JWT, API keys, OAuth2 bearer tokens) are never forgeable.
+ *   - Requests with no session cookie at all. With no ambient session-backed
+ *     credential present, there is nothing for an attacker to ride.
+ *
+ * Routes that still need protecting despite one of the above (rare) can force
+ * the check by adding an `_csrf => true` default; routes that need to opt out
+ * for any other reason can add `_csrf => false`.
  *
  * Runs after PayloadParsingMiddleware (so the body is parsed) and
  * RoutingMiddleware (so route opt-out is known), before DispatchMiddleware.
@@ -49,9 +62,18 @@ class CsrfValidationMiddleware implements MiddlewareInterface
             return $handler->handle($request);
         }
 
-        // Per-route opt-out: a route default of `_csrf => false`.
         $routeParams = $request->getAttribute('route_params');
-        if (is_array($routeParams) && array_key_exists('_csrf', $routeParams) && $routeParams['_csrf'] === false) {
+        $forced = is_array($routeParams) && array_key_exists('_csrf', $routeParams) && $routeParams['_csrf'] === true;
+
+        // Per-route opt-out: a route default of `_csrf => false`.
+        if (!$forced && is_array($routeParams) && array_key_exists('_csrf', $routeParams) && $routeParams['_csrf'] === false) {
+            return $handler->handle($request);
+        }
+
+        if (!$forced && $this->isExemptFromCsrf($request)) {
+            if (\Agavi\Util\DebugFlags::$security) {
+                AgaviDebugLogger::debug('[CsrfValidationMiddleware] exempt ' . $request->getMethod() . ' ' . $request->getUri()->getPath() . ' (no ambient session credential)', $this->controller->getContext());
+            }
             return $handler->handle($request);
         }
 
@@ -68,6 +90,34 @@ class CsrfValidationMiddleware implements MiddlewareInterface
         }
 
         return $handler->handle($request);
+    }
+
+    /**
+     * Whether this request falls outside the CSRF threat model: either it carries its own
+     * credential (Authorization header) rather than relying on an ambient session cookie, or
+     * it has no session cookie at all so there is no ambient credential to ride.
+     */
+    private function isExemptFromCsrf(ServerRequestInterface $request): bool
+    {
+        if ($request->hasHeader('Authorization')) {
+            return true;
+        }
+
+        return !$this->hasSessionCookie($request);
+    }
+
+    /**
+     * Whether the request carries the configured session cookie (set via session_name()
+     * once SessionMiddleware has started storage for this request).
+     */
+    private function hasSessionCookie(ServerRequestInterface $request): bool
+    {
+        $cookies = $request->getCookieParams();
+        if (!is_array($cookies) || empty($cookies)) {
+            return false;
+        }
+        $name = session_name();
+        return isset($cookies[$name]) && $cookies[$name] !== '';
     }
 
     /**

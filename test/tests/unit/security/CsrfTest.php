@@ -111,11 +111,17 @@ class CsrfTest extends AgaviUnitTestCase
         $this->assertTrue($handler->called);
     }
 
+    /** A request bearing the configured session cookie, simulating a real browser session. */
+    private function sessionCookieRequest(string $method, string $uri): ServerRequest
+    {
+        return (new ServerRequest($method, $uri))->withCookieParams([session_name() => 'fake-session-id']);
+    }
+
     public function testUnsafeMethodWithoutTokenRejected(): void
     {
         $mw = new CsrfValidationMiddleware($this->controller());
         $handler = $this->okHandler();
-        $resp = $mw->process(new ServerRequest('POST', 'http://localhost/x'), $handler);
+        $resp = $mw->process($this->sessionCookieRequest('POST', 'http://localhost/x'), $handler);
         $this->assertSame(403, $resp->getStatusCode());
         $this->assertSame('failed', $resp->getHeaderLine('X-Agavi-Csrf'));
         $this->assertFalse($handler->called, 'Action handler must not run on CSRF failure');
@@ -126,7 +132,7 @@ class CsrfTest extends AgaviUnitTestCase
         $token = $this->manager()->getTokenValue();
         $mw = new CsrfValidationMiddleware($this->controller());
         $handler = $this->okHandler();
-        $req = (new ServerRequest('POST', 'http://localhost/x'))
+        $req = $this->sessionCookieRequest('POST', 'http://localhost/x')
             ->withParsedBody(['_csrf_token' => $token]);
         $resp = $mw->process($req, $handler);
         $this->assertSame(200, $resp->getStatusCode());
@@ -138,7 +144,7 @@ class CsrfTest extends AgaviUnitTestCase
         $token = $this->manager()->getTokenValue();
         $mw = new CsrfValidationMiddleware($this->controller());
         $handler = $this->okHandler();
-        $req = (new ServerRequest('POST', 'http://localhost/x'))
+        $req = $this->sessionCookieRequest('POST', 'http://localhost/x')
             ->withHeader('X-CSRF-Token', $token);
         $resp = $mw->process($req, $handler);
         $this->assertSame(200, $resp->getStatusCode());
@@ -149,11 +155,50 @@ class CsrfTest extends AgaviUnitTestCase
     {
         $mw = new CsrfValidationMiddleware($this->controller());
         $handler = $this->okHandler();
-        $req = (new ServerRequest('POST', 'http://localhost/webhook'))
+        $req = $this->sessionCookieRequest('POST', 'http://localhost/webhook')
             ->withAttribute('route_params', ['_module' => 'X', '_action' => 'Y', '_csrf' => false]);
         $resp = $mw->process($req, $handler);
         $this->assertSame(200, $resp->getStatusCode());
         $this->assertTrue($handler->called);
+    }
+
+    // --- Automatic exemptions: no ambient session credential to forge ---
+
+    public function testRequestWithoutSessionCookieBypassesValidation(): void
+    {
+        // No cookies at all -> no ambient session-authenticated state for an attacker to ride.
+        $mw = new CsrfValidationMiddleware($this->controller());
+        $handler = $this->okHandler();
+        $resp = $mw->process(new ServerRequest('POST', 'http://localhost/x'), $handler);
+        $this->assertSame(200, $resp->getStatusCode());
+        $this->assertTrue($handler->called);
+    }
+
+    public function testRequestWithAuthorizationHeaderBypassesValidationEvenWithSessionCookie(): void
+    {
+        // A caller presenting its own credential (Bearer/Basic/JWT) cannot be forged by a
+        // cross-site attacker the way an ambient session cookie can, regardless of whether a
+        // session cookie also happens to be present.
+        $mw = new CsrfValidationMiddleware($this->controller());
+        $handler = $this->okHandler();
+        $req = $this->sessionCookieRequest('POST', 'http://localhost/x')
+            ->withHeader('Authorization', 'Bearer some.jwt.token');
+        $resp = $mw->process($req, $handler);
+        $this->assertSame(200, $resp->getStatusCode());
+        $this->assertTrue($handler->called);
+    }
+
+    public function testForcedCsrfRouteStillValidatesDespiteAuthorizationHeader(): void
+    {
+        // `_csrf => true` overrides the automatic exemption for routes that need it anyway.
+        $mw = new CsrfValidationMiddleware($this->controller());
+        $handler = $this->okHandler();
+        $req = $this->sessionCookieRequest('POST', 'http://localhost/x')
+            ->withHeader('Authorization', 'Bearer some.jwt.token')
+            ->withAttribute('route_params', ['_module' => 'X', '_action' => 'Y', '_csrf' => true]);
+        $resp = $mw->process($req, $handler);
+        $this->assertSame(403, $resp->getStatusCode());
+        $this->assertFalse($handler->called);
     }
 
     public function testDisabledConfigBypassesValidation(): void
