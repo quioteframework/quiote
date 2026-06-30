@@ -23,7 +23,7 @@ class ViewFactory
      * @param AgaviWebRequest|null $requestData Request data snapshot
      * @param array $actionAttributeSnapshot Attributes snapshot from action exec
      */
-    public function create(string $viewModule, string $viewName, string $actionModule, string $actionName, string $outputType, ?AgaviWebRequest $request, array $actionAttributeSnapshot): ?AgaviView
+    public function create(string $viewModule, string $viewName, string $actionModule, string $actionName, string $outputType, ?AgaviWebRequest $request, array $actionAttributeSnapshot, ?object $validationManager = null): ?AgaviView
     {
         try {
             /** @var AgaviView $view */
@@ -42,7 +42,8 @@ class ViewFactory
                 actionName: $actionName,
                 actionAttributes: $actionAttributeSnapshot,
                 response: $global,
-                psrResponse: $psr
+                psrResponse: $psr,
+                validationManager: $validationManager
             );
             $view->initialize($vic);
             return $view;

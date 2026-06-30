@@ -796,16 +796,25 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 		}
 	}
 
-	public function getParameter(string $name, mixed $default = null): mixed
+	public function getParameter(string $name, mixed ...$args): mixed
 	{
 		// Strict whitelist enforcement. A parameter is whitelisted iff it was
 		// declared by a validator in validators.xml (seeded via
 		// declareParameters() at config parse time) or explicitly set via
-		// setParameter() from application code. Anything else is an
-		// unvalidated access and is refused with no escape hatch — passing
-		// an explicit default does not bypass the check.
+		// setParameter() from application code.
+		//
+		// When called WITHOUT a default (getParameter('foo')): accessing an
+		// unvalidated parameter throws — no escape hatch, catches dev errors.
+		// When called WITH a default (getParameter('foo', null)): the default
+		// is returned silently. The caller has signalled they expect the
+		// parameter may be absent; raw unvalidated HTTP input is never leaked.
+		$hasDefault = !empty($args);
+		$default = $hasDefault ? $args[0] : null;
 		if (!$this->isParameterWhitelisted($name)) {
-			throw new \Agavi\Exception\AgaviUnvalidatedParameterAccessException('Access to unvalidated parameter "' . $name . '" denied under strict validation.');
+			if (!$hasDefault) {
+				throw new \Agavi\Exception\AgaviUnvalidatedParameterAccessException('Access to unvalidated parameter "' . $name . '" denied under strict validation.');
+			}
+			return $default;
 		}
 		// 1. Direct runtime override
 		if (array_key_exists($name, $this->runtimeParameters)) {

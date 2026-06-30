@@ -158,16 +158,44 @@ class AgaviValidationManagerStrictModeTest extends AgaviUnitTestCase
     {
         $vm = $this->_context->createInstanceFor('validation_manager');
         $vm->initialize($this->_context, ['mode' => AgaviValidationManager::MODE_STRICT]);
-        
+
         $request = $this->_context->getRequest();
-        
+
         if ($request instanceof AgaviWebRequest) {
             // Enforce empty whitelist
             $request->enforceValidatedParameters([]);
-            
-            // Accessing non-whitelisted parameter should not work
+
+            // With explicit default: returns the default (caller acknowledged absence)
             $value = $request->getParameter('non_whitelisted', null);
             $this->assertNull($value);
         }
+    }
+
+    public function testGetParameterWithoutDefaultThrowsForUnvalidated()
+    {
+        $request = $this->_context->getRequest();
+
+        if (!($request instanceof AgaviWebRequest)) {
+            $this->markTestSkipped('Requires AgaviWebRequest');
+        }
+
+        $request->enforceValidatedParameters([]);
+
+        $this->expectException(\Agavi\Exception\AgaviUnvalidatedParameterAccessException::class);
+        $request->getParameter('no_default_unvalidated');
+    }
+
+    public function testGetParameterWithDefaultReturnsDefaultForUnvalidated()
+    {
+        $request = $this->_context->getRequest();
+
+        if (!($request instanceof AgaviWebRequest)) {
+            $this->markTestSkipped('Requires AgaviWebRequest');
+        }
+
+        $request->enforceValidatedParameters([]);
+
+        $this->assertNull($request->getParameter('unvalidated', null));
+        $this->assertSame('fallback', $request->getParameter('unvalidated', 'fallback'));
     }
 }

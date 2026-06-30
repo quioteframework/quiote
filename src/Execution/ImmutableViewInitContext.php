@@ -149,11 +149,10 @@ final class ImmutableViewInitContext extends AgaviAttributeHolder implements Vie
     }
 
     /**
-     * Legacy shim: many legacy views call $this->getContainer()->getValidationManager().
-     * Provide a minimal accessor so that code using getValidationManager() on the init context
-     * (mis-assuming it is a full execution container) does not fatal. Returns a fresh validation
-     * manager instance from the context each call (stateful error data is already baked into
-     * rendered error views at this stage in the new pipeline).
+     * Return the validation manager, preferring the one injected at construction time (which
+     * carries the live error state from the current request). Falls back to creating a fresh
+     * instance only when none was supplied — callers that need error messages (e.g. JSON error
+     * views) must pass the validation manager explicitly via the constructor.
      */
     public function getValidationManager()
     {
