@@ -11,6 +11,7 @@ use Agavi\Controller\AgaviController;
 use Agavi\Execution\ActionDescriptor;
 use Agavi\Logging\AgaviDebugLogger;
 use Agavi\Execution\HttpMethodMapper;
+use Nyholm\Psr7\Response;
 
 /**
  * Executes Agavi routing and attaches module/action/outputType to PSR request attributes.
@@ -24,6 +25,10 @@ class RoutingMiddleware implements MiddlewareInterface
     {
         $path = $request->getUri()->getPath();
         $dbg = \Agavi\Util\DebugFlags::$routing;
+        // The routing's RequestContext is never updated elsewhere in the framework and otherwise
+        // defaults to 'GET', which would make UrlMatcher reject every legitimate non-GET request
+        // against a method-constrained route. Sync it to the incoming request before matching.
+        $this->routing->getRequestContext()->setMethod($request->getMethod());
         try {
             $attributes = $this->routing->match($path);
             $module = $attributes['_module'] ?? null;
@@ -64,6 +69,21 @@ class RoutingMiddleware implements MiddlewareInterface
             if ($dbg) {
                 AgaviDebugLogger::debug('[RoutingMiddleware] resource not found path=' . $path, $this->controller->getContext());
             }
+        } catch (\Symfony\Component\Routing\Exception\MethodNotAllowedException $e) {
+            // A route matched the path but not this HTTP method.
+            // OPTIONS requests are left unrouted (attributes unset) so downstream middleware
+            // (e.g. CORS preflight handlers) still gets a chance to respond, matching the
+            // behaviour routes had before per-route method constraints were introduced.
+            if (strtoupper($request->getMethod()) === 'OPTIONS') {
+                if ($dbg) {
+                    AgaviDebugLogger::debug('[RoutingMiddleware] method not allowed for OPTIONS, leaving unrouted path=' . $path, $this->controller->getContext());
+                }
+                return $handler->handle($request);
+            }
+            if ($dbg) {
+                AgaviDebugLogger::debug('[RoutingMiddleware] method not allowed path=' . $path . ' allowed=' . implode(',', $e->getAllowedMethods()), $this->controller->getContext());
+            }
+            return new Response(405, ['Allow' => implode(', ', $e->getAllowedMethods())]);
         }
         return $handler->handle($request);
     }
