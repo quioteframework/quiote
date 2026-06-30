@@ -222,7 +222,7 @@ final class ActionExecutor
         $view = null;
         $content = '';
         if ($vn !== AgaviView::NONE) {
-            $view = $this->viewFactory?->create($vm, $vn, $desc->module, $desc->action, strtolower($this->controller->getOutputType()->getName()), $actionRequest, $attributeSnapshot);
+            $view = $this->viewFactory?->create($vm, $vn, $desc->module, $desc->action, strtolower($this->controller->getOutputType()->getName()), $actionRequest, $attributeSnapshot, $this->validationService?->getValidationManager());
             if (!$view) {
                 $view = $this->createAndInitView($vm, $vn, $desc->module, $desc->action, $actionRequest, $attributeSnapshot);
             }
