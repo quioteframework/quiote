@@ -1,8 +1,8 @@
-# Agavi Framework PHPUnit 12 & PHP 8.4 Compatibility Migration
+# Quiote Framework PHPUnit 12 & PHP 8.4 Compatibility Migration
 
 ## Project Overview
 
-This document summarizes the successful migration of the Agavi PHP framework to be compatible with PHPUnit 12 and PHP 8.4. The primary challenge was updating deprecated PHPUnit methods and replacing removed functionality while maintaining backward compatibility.
+This document summarizes the successful migration of the Quiote PHP framework to be compatible with PHPUnit 12 and PHP 8.4. The primary challenge was updating deprecated PHPUnit methods and replacing removed functionality while maintaining backward compatibility.
 
 ## Key Issues Addressed
 
@@ -21,21 +21,21 @@ This document summarizes the successful migration of the Agavi PHP framework to 
 
 ### New Modernized Test Infrastructure
 
-**Main Test Base Class**: `/home/markus/Projects/agavi/src/Testing/AgaviPhpUnitTestCase.php`
-- Namespace: `Agavi\Testing`
+**Main Test Base Class**: `/home/markus/Projects/quiote/src/Testing/QuiotePhpUnitTestCase.php`
+- Namespace: `Quiote\Testing`
 - Extends: `PHPUnit\Framework\TestCase` (modern)
 - Uses PHP 8 attributes instead of annotations
 - Environment variable-based process isolation
 
 **Supporting Files**:
-- `/home/markus/Projects/agavi/src/Testing/AgaviPHPUnitTestCaseMethods.php` - Compatibility trait
-- `/home/markus/Projects/agavi/src/Testing/Attributes/AgaviBootstrap.php`
-- `/home/markus/Projects/agavi/src/Testing/Attributes/AgaviClearIsolationCache.php`
-- `/home/markus/Projects/agavi/src/Testing/Attributes/AgaviIsolationDefaultContext.php`
-- `/home/markus/Projects/agavi/src/Testing/Attributes/AgaviIsolationEnvironment.php`
+- `/home/markus/Projects/quiote/src/Testing/QuiotePHPUnitTestCaseMethods.php` - Compatibility trait
+- `/home/markus/Projects/quiote/src/Testing/Attributes/QuioteBootstrap.php`
+- `/home/markus/Projects/quiote/src/Testing/Attributes/QuioteClearIsolationCache.php`
+- `/home/markus/Projects/quiote/src/Testing/Attributes/QuioteIsolationDefaultContext.php`
+- `/home/markus/Projects/quiote/src/Testing/Attributes/QuioteIsolationEnvironment.php`
 
 ### Legacy System (Preserved)
-**Original Test Base Class**: `/home/markus/Projects/agavi/src/testing/AgaviPhpUnitTestCase.class.php`
+**Original Test Base Class**: `/home/markus/Projects/quiote/src/testing/QuiotePhpUnitTestCase.class.php`
 - Kept for backward compatibility
 - Contains deprecated `getName()` method calls (⚠️ **STILL NEEDS FIXING**)
 
@@ -65,10 +65,10 @@ $this->name()
 **New System** (environment variables):
 ```php
 // Environment variables for process isolation
-$_ENV['AGAVI_ISOLATION_ENVIRONMENT'] = $isolationEnvironment;
-$_ENV['AGAVI_ISOLATION_DEFAULT_CONTEXT'] = $isolationDefaultContext;
-$_ENV['AGAVI_ISOLATION_CLEAR_CACHE'] = '1';
-$_ENV['AGAVI_ISOLATION_NO_BOOTSTRAP'] = '1';
+$_ENV['QUIOTE_ISOLATION_ENVIRONMENT'] = $isolationEnvironment;
+$_ENV['QUIOTE_ISOLATION_DEFAULT_CONTEXT'] = $isolationDefaultContext;
+$_ENV['QUIOTE_ISOLATION_CLEAR_CACHE'] = '1';
+$_ENV['QUIOTE_ISOLATION_NO_BOOTSTRAP'] = '1';
 ```
 
 ### 3. Attribute System Migration
@@ -79,12 +79,12 @@ $this->getAnnotations()
 
 **New System** (PHP 8 attributes):
 ```php
-$reflectionMethod->getAttributes(AgaviIsolationEnvironment::class)
+$reflectionMethod->getAttributes(QuioteIsolationEnvironment::class)
 ```
 
-### 4. **MAJOR BREAKTHROUGH**: AgaviIsolationEnvironment System Complete Rewrite
+### 4. **MAJOR BREAKTHROUGH**: QuioteIsolationEnvironment System Complete Rewrite
 
-**Problem**: The legacy AgaviIsolationEnvironment system was overly complex, using temp files, environment variables, and process isolation mechanisms that were incompatible with PHPUnit 12. Tests with `#[AgaviIsolationEnvironment]` attributes weren't starting fresh Agavi instances with the specified environments.
+**Problem**: The legacy QuioteIsolationEnvironment system was overly complex, using temp files, environment variables, and process isolation mechanisms that were incompatible with PHPUnit 12. Tests with `#[QuioteIsolationEnvironment]` attributes weren't starting fresh Quiote instances with the specified environments.
 
 **Legacy System Issues**:
 - Complex temp file creation and management
@@ -108,31 +108,31 @@ protected function setUp(): void
     if ($this->isRunInSeparateProcess() && $isolationEnvironment) {
         // Set configuration before bootstrap
         if ($isolationDefaultContext) {
-            AgaviConfig::set('core.default_context', $isolationDefaultContext, true, true);
+            QuioteConfig::set('core.default_context', $isolationDefaultContext, true, true);
         }
-        AgaviConfig::set('core.environment', 'testing', true, true);
+        QuioteConfig::set('core.environment', 'testing', true, true);
         
-        // Bootstrap with isolation environment - COMPLETELY FRESH AGAVI INSTANCE
-        \Agavi\Agavi::bootstrap($isolationEnvironment);
+        // Bootstrap with isolation environment - COMPLETELY FRESH QUIOTE INSTANCE
+        \Quiote\Quiote::bootstrap($isolationEnvironment);
         
         // Clear cache if requested
         if ($clearCache) {
-            AgaviToolkit::clearCache();
+            QuioteToolkit::clearCache();
         }
-    } elseif (!AgaviConfig::get('core.app_dir')) {
+    } elseif (!QuioteConfig::get('core.app_dir')) {
         // Non-isolated tests: bootstrap with default testing environment
-        \Agavi\Agavi::bootstrap('testing');
+        \Quiote\Quiote::bootstrap('testing');
     }
 }
 ```
 
 **Key Improvements**:
-1. **Direct Bootstrap**: Instead of complex temp file system, directly call `\Agavi\Agavi::bootstrap($isolationEnvironment)`
-2. **Modern Attributes**: Use PHP 8 reflection API to detect `AgaviIsolationEnvironment`, `AgaviIsolationDefaultContext`, `AgaviClearIsolationCache`
-3. **Clean Configuration**: Set `AgaviConfig` values before bootstrap for testing environment
-4. **Bootstrap Conflict Fix**: Modified `/home/markus/Projects/agavi/test/bootstrap.php` to NOT bootstrap Agavi automatically
+1. **Direct Bootstrap**: Instead of complex temp file system, directly call `\Quiote\Quiote::bootstrap($isolationEnvironment)`
+2. **Modern Attributes**: Use PHP 8 reflection API to detect `QuioteIsolationEnvironment`, `QuioteIsolationDefaultContext`, `QuioteClearIsolationCache`
+3. **Clean Configuration**: Set `QuioteConfig` values before bootstrap for testing environment
+4. **Bootstrap Conflict Fix**: Modified `/home/markus/Projects/quiote/test/bootstrap.php` to NOT bootstrap Quiote automatically
 5. **Legacy Code Removal**: Deleted complex dependency tracking methods with outdated PHPUnit references
-6. **Namespace Corrections**: Fixed `Agavi\Core\Agavi` to `\Agavi\Agavi` and other namespace issues
+6. **Namespace Corrections**: Fixed `Quiote\Core\Quiote` to `\Quiote\Quiote` and other namespace issues
 
 **Environment Configuration**: Tests now properly load environments from `sandbox/Config/settings.xml`:
 - `testing-use_translation_off` → `core.use_translation = false`
@@ -145,13 +145,13 @@ protected function setUp(): void
 - `testGetTranslationManagerOff` ✅ (was failing with ERROR before)
 - `testGetDatabaseManagerOff` ✅
 - `testGetUserSecurityOff` ✅  
-- Tests with both `#[RunInSeparateProcess]` and `#[AgaviIsolationEnvironment]` start completely fresh Agavi instances
+- Tests with both `#[RunInSeparateProcess]` and `#[QuioteIsolationEnvironment]` start completely fresh Quiote instances
 - Code reduced from 200+ lines to 20 lines in `setUp()` method
 - Clean, maintainable, modern PHP 8 implementation
 
 ### 5. **CRITICAL FIX**: PHPUnit 12 Child Process Bootstrap Issue
 
-**Problem**: Tests using `#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]` were failing with "Test was run in child process and ended unexpectedly" because the child process couldn't properly bootstrap Agavi.
+**Problem**: Tests using `#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]` were failing with "Test was run in child process and ended unexpectedly" because the child process couldn't properly bootstrap Quiote.
 
 **Root Cause Analysis**:
 1. **Missing Configuration File Usage**: PHPUnit was being run without the `-c test/config/phpunit.xml` flag, so environment variables defined in the XML configuration weren't being set
@@ -163,19 +163,19 @@ protected function setUp(): void
 **Step 1: Use PHPUnit Configuration File**
 ```bash
 # WRONG: Environment variables not loaded
-./vendor/bin/phpunit test/tests/unit/context/AgaviContextTest.php
+./vendor/bin/phpunit test/tests/unit/context/QuioteContextTest.php
 
 # CORRECT: Uses phpunit.xml configuration
-./vendor/bin/phpunit -c test/config/phpunit.xml test/tests/unit/context/AgaviContextTest.php
+./vendor/bin/phpunit -c test/config/phpunit.xml test/tests/unit/context/QuioteContextTest.php
 ```
 
 **Step 2: Fix PHPUnit XML Environment Variables**
 ```xml
 <!-- In test/config/phpunit.xml -->
 <php>
-    <env name="AGAVI_ISOLATION_ENVIRONMENT" value="testing"/>
-    <env name="AGAVI_ISOLATION_DEFAULT_CONTEXT" value="web"/>
-    <env name="AGAVI_ISOLATION_CLEAR_CACHE" value="1"/>
+    <env name="QUIOTE_ISOLATION_ENVIRONMENT" value="testing"/>
+    <env name="QUIOTE_ISOLATION_DEFAULT_CONTEXT" value="web"/>
+    <env name="QUIOTE_ISOLATION_CLEAR_CACHE" value="1"/>
 </php>
 ```
 
@@ -184,10 +184,10 @@ protected function setUp(): void
 // REMOVED: Incompatible PHPUnit class loading
 // require(__DIR__ . '/../../testing.php');
 
-// ADDED: Direct Agavi bootstrap without PHPUnit dependencies
-if($agaviTestSettings['bootstrap']) {
-    // Bootstrap Agavi directly without loading testing.php
-    \Agavi\Agavi::bootstrap($agaviTestSettings['environment']);
+// ADDED: Direct Quiote bootstrap without PHPUnit dependencies
+if($quioteTestSettings['bootstrap']) {
+    // Bootstrap Quiote directly without loading testing.php
+    \Quiote\Quiote::bootstrap($quioteTestSettings['environment']);
     // ... rest of bootstrap logic
 }
 ```
@@ -195,48 +195,48 @@ if($agaviTestSettings['bootstrap']) {
 **Step 4: Clean Bootstrap Process**
 ```php
 // In test/bootstrap.php - detect isolated processes
-if (defined('AGAVI_TESTING_IN_SEPERATE_PROCESS') || 
-    isset($_ENV['AGAVI_ISOLATION_ENVIRONMENT']) || 
-    getenv('AGAVI_ISOLATION_ENVIRONMENT')) {
+if (defined('QUIOTE_TESTING_IN_SEPERATE_PROCESS') || 
+    isset($_ENV['QUIOTE_ISOLATION_ENVIRONMENT']) || 
+    getenv('QUIOTE_ISOLATION_ENVIRONMENT')) {
     
     require_once(__DIR__ . '/../src/Testing/scripts/IsolatedBootstrap.php');
 } else {
-    \Agavi\Agavi::bootstrap('testing');
+    \Quiote\Quiote::bootstrap('testing');
 }
 ```
 
 **Final Result**: ✅ **Complete Success**
-- **AgaviContextTest**: All 22 tests now run in separate processes successfully
+- **QuioteContextTest**: All 22 tests now run in separate processes successfully
 - **Process Isolation**: Fully functional with PHPUnit 12
 - **Child Process Bootstrap**: No more "ended unexpectedly" errors
 - **Environment Variables**: Properly passed from PHPUnit XML to child processes
 
 **Key Files Modified**:
-- `/home/markus/Projects/agavi/test/bootstrap.php` - Added isolation detection
-- `/home/markus/Projects/agavi/src/Testing/scripts/IsolatedBootstrap.php` - Removed PHPUnit class dependencies
-- `/home/markus/Projects/agavi/test/config/phpunit.xml` - Environment variable configuration
+- `/home/markus/Projects/quiote/test/bootstrap.php` - Added isolation detection
+- `/home/markus/Projects/quiote/src/Testing/scripts/IsolatedBootstrap.php` - Removed PHPUnit class dependencies
+- `/home/markus/Projects/quiote/test/config/phpunit.xml` - Environment variable configuration
 
 **Critical Learning**: Always use `-c test/config/phpunit.xml` when running PHPUnit to ensure proper configuration loading!
 
 ## Test Results Status
 
-### ✅ Major Success: AgaviIsolationEnvironment System Completely Rewritten
-- **AgaviIsolationEnvironment System**: ✅ **COMPLETELY REWRITTEN** for PHP 8.4 and PHPUnit 12
-- **Process Isolation**: ✅ Working correctly - tests start completely fresh Agavi instances
-- **Attribute System**: ✅ All `AgaviIsolationEnvironment`, `AgaviIsolationDefaultContext`, `AgaviClearIsolationCache` attributes functional
+### ✅ Major Success: QuioteIsolationEnvironment System Completely Rewritten
+- **QuioteIsolationEnvironment System**: ✅ **COMPLETELY REWRITTEN** for PHP 8.4 and PHPUnit 12
+- **Process Isolation**: ✅ Working correctly - tests start completely fresh Quiote instances
+- **Attribute System**: ✅ All `QuioteIsolationEnvironment`, `QuioteIsolationDefaultContext`, `QuioteClearIsolationCache` attributes functional
 - **Configuration Loading**: ✅ Isolation environments properly load from `sandbox/Config/settings.xml`
-- **Bootstrap System**: ✅ Clean, simple direct Agavi bootstrapping with specified environments
+- **Bootstrap System**: ✅ Clean, simple direct Quiote bootstrapping with specified environments
 
 ### 🎯 **NEW ISOLATION SYSTEM ACHIEVEMENTS**
 - **Simplified Implementation**: Replaced overly complex legacy temp file and environment variable system
-- **Modern PHP 8 Attributes**: Full support for `#[AgaviIsolationEnvironment('environment-name')]`
-- **Clean Bootstrap Logic**: Direct `\Agavi\Agavi::bootstrap($isolationEnvironment)` when running in separate processes
-- **Cache Management**: Optional cache clearing via `#[AgaviClearIsolationCache]` attribute
+- **Modern PHP 8 Attributes**: Full support for `#[QuioteIsolationEnvironment('environment-name')]`
+- **Clean Bootstrap Logic**: Direct `\Quiote\Quiote::bootstrap($isolationEnvironment)` when running in separate processes
+- **Cache Management**: Optional cache clearing via `#[QuioteClearIsolationCache]` attribute
 - **Configuration Flexibility**: Tests can specify custom environments like `testing-use_translation_off`
 
 ### ✅ **VERIFIED WORKING TEST CASES**
-- **AgaviPhpUnitTestCaseTest**: ✅ All 6 isolation tests passing (environment detection, attribute processing)
-- **AgaviContextTest isolation tests**: ✅ All isolation-specific tests now working:
+- **QuiotePhpUnitTestCaseTest**: ✅ All 6 isolation tests passing (environment detection, attribute processing)
+- **QuioteContextTest isolation tests**: ✅ All isolation-specific tests now working:
   - `testGetTranslationManagerOff` ✅ (was failing before rewrite)
   - `testGetTranslationManagerOn` ✅
   - `testGetDatabaseManagerOff` ✅
@@ -247,7 +247,7 @@ if (defined('AGAVI_TESTING_IN_SEPERATE_PROCESS') ||
 
 ### 📋 Current Framework Status
 - **Core Test Infrastructure**: ✅ Fully functional with PHPUnit 12
-- **AgaviIsolationEnvironment System**: ✅ **COMPLETE REWRITE SUCCESSFUL**
+- **QuioteIsolationEnvironment System**: ✅ **COMPLETE REWRITE SUCCESSFUL**
 - **Process Isolation**: ✅ Clean, reliable separate process testing
 - **Bootstrap Conflict Resolution**: ✅ Fixed conflicts between test bootstrap and isolation environments
 - **Legacy Code Cleanup**: ✅ Removed outdated PHPUnit class references and complex dependency tracking
@@ -255,13 +255,13 @@ if (defined('AGAVI_TESTING_IN_SEPERATE_PROCESS') ||
 ### ⚠️ **REMAINING WORK (NOT ISOLATION-RELATED)**
 **Approximately 140 tests still have errors/failures** - these are **NOT related to the isolation system**, but rather:
 - Individual test assertion failures
-- Missing database configurations (e.g., `AgaviPdoDatabase` class not found)
+- Missing database configurations (e.g., `QuiotePdoDatabase` class not found)
 - Other PHPUnit 12 compatibility issues in specific test cases
 - Legacy `getName()` method calls in some test files
 
 ## Next Steps: Systematic Test Failure Resolution
 
-With the AgaviIsolationEnvironment system now complete, the next phase involves systematically addressing the remaining ~140 test failures. These are **individual test issues** rather than infrastructure problems.
+With the QuioteIsolationEnvironment system now complete, the next phase involves systematically addressing the remaining ~140 test failures. These are **individual test issues** rather than infrastructure problems.
 
 ### Recommended Approach
 
@@ -275,7 +275,7 @@ vendor/bin/phpunit -c test/config/phpunit.xml --filter SpecificTestName
 ```
 
 **Step 2: Common Categories of Remaining Failures**
-1. **Database Issues**: Missing `AgaviPdoDatabase` class and database configuration
+1. **Database Issues**: Missing `QuiotePdoDatabase` class and database configuration
 2. **Legacy Method Calls**: Remaining `getName()` calls that need to be updated to `name()`
 3. **Missing Test Classes**: Some test files reference classes that don't exist
 4. **Assertion Failures**: Individual test logic that needs updating for PHPUnit 12
@@ -294,7 +294,7 @@ vendor/bin/phpunit -c test/config/phpunit.xml --filter SpecificTestName
 ### 1. Immediate Priorities
 - [ ] **Systematic Test Fixing**: Use `vendor/bin/phpunit -c test/config/phpunit.xml --stop-on-error` to fix ~140 remaining test failures one by one
 - [ ] **Fix remaining `getName()` calls** in legacy test classes (search: `grep -r "getName()" src/ test/ --include="*.php"`) 
-- [ ] **Address Missing Classes**: Fix database-related test failures (e.g., `AgaviPdoDatabase` class not found)
+- [ ] **Address Missing Classes**: Fix database-related test failures (e.g., `QuiotePdoDatabase` class not found)
 - [ ] **Individual Test Assertions**: Review and fix failing assertions in specific test cases
 
 ### 2. Framework Compatibility Issues
@@ -313,35 +313,35 @@ vendor/bin/phpunit -c test/config/phpunit.xml --filter SpecificTestName
 - [ ] Clean up any remaining unused legacy isolation code
 
 ### 5. Documentation Updates
-- [x] **COMPLETED**: Document AgaviIsolationEnvironment system rewrite in migration summary
+- [x] **COMPLETED**: Document QuioteIsolationEnvironment system rewrite in migration summary
 - [ ] Update developer documentation for new testing patterns
 - [ ] Create migration guide for existing test suites using the new isolation system
 
 ## File Structure
 
 ```
-/home/markus/Projects/agavi/
+/home/markus/Projects/quiote/
 ├── src/
 │   ├── Testing/                          # NEW: Modern test infrastructure
-│   │   ├── AgaviPhpUnitTestCase.php     # Main modernized base class
-│   │   ├── AgaviPHPUnitTestCaseMethods.php  # Compatibility trait
+│   │   ├── QuiotePhpUnitTestCase.php     # Main modernized base class
+│   │   ├── QuiotePHPUnitTestCaseMethods.php  # Compatibility trait
 │   │   └── Attributes/                   # PHP 8 attributes
-│   │       ├── AgaviBootstrap.php
-│   │       ├── AgaviClearIsolationCache.php
-│   │       ├── AgaviIsolationDefaultContext.php
-│   │       └── AgaviIsolationEnvironment.php
+│   │       ├── QuioteBootstrap.php
+│   │       ├── QuioteClearIsolationCache.php
+│   │       ├── QuioteIsolationDefaultContext.php
+│   │       └── QuioteIsolationEnvironment.php
 │   └── testing/                          # LEGACY: Original test classes
-│       └── AgaviPhpUnitTestCase.class.php  # ⚠️ Still has getName() calls
+│       └── QuiotePhpUnitTestCase.class.php  # ⚠️ Still has getName() calls
 ```
 
 ## Environment Variables for Testing
 
 The new system uses these environment variables for process isolation:
 
-- `AGAVI_ISOLATION_ENVIRONMENT` - Environment name for isolated tests
-- `AGAVI_ISOLATION_DEFAULT_CONTEXT` - Default context for isolated tests  
-- `AGAVI_ISOLATION_CLEAR_CACHE` - Whether to clear cache in isolated process
-- `AGAVI_ISOLATION_NO_BOOTSTRAP` - Whether to skip Agavi bootstrap
+- `QUIOTE_ISOLATION_ENVIRONMENT` - Environment name for isolated tests
+- `QUIOTE_ISOLATION_DEFAULT_CONTEXT` - Default context for isolated tests  
+- `QUIOTE_ISOLATION_CLEAR_CACHE` - Whether to clear cache in isolated process
+- `QUIOTE_ISOLATION_NO_BOOTSTRAP` - Whether to skip Quiote bootstrap
 
 ## Next Steps for Continuation
 
@@ -368,13 +368,13 @@ The new system uses these environment variables for process isolation:
 
 ## Migration Success
 
-The **AgaviIsolationEnvironment system has been completely rewritten** and is now fully functional with PHP 8.4 and PHPUnit 12. This was a major breakthrough that replaced an overly complex legacy system with a clean, modern implementation.
+The **QuioteIsolationEnvironment system has been completely rewritten** and is now fully functional with PHP 8.4 and PHPUnit 12. This was a major breakthrough that replaced an overly complex legacy system with a clean, modern implementation.
 
-**Core PHPUnit 12 compatibility has been achieved** for the testing infrastructure. The framework can now run tests with modern PHPUnit, and the isolation system works correctly for tests requiring separate Agavi environments.
+**Core PHPUnit 12 compatibility has been achieved** for the testing infrastructure. The framework can now run tests with modern PHPUnit, and the isolation system works correctly for tests requiring separate Quiote environments.
 
 **Major Accomplishments**:
-- ✅ **AgaviIsolationEnvironment System**: Complete rewrite successful  
-- ✅ **Process Isolation**: Tests start completely fresh Agavi instances
+- ✅ **QuioteIsolationEnvironment System**: Complete rewrite successful  
+- ✅ **Process Isolation**: Tests start completely fresh Quiote instances
 - ✅ **Modern PHP 8 Attributes**: Full attribute system implementation
 - ✅ **Configuration Loading**: Proper environment loading from `sandbox/Config/settings.xml`
 - ✅ **Code Simplification**: Reduced complex `setUp()` method from 200+ lines to 20 lines

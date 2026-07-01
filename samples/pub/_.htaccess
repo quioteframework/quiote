@@ -12,7 +12,7 @@ DirectorySlash Off
 <IfModule mod_rewrite.c>
 	RewriteEngine On
 	# ********** THIS IS THE ONLY SETTING YOU SHOULD HAVE TO CHANGE **********
-	# e.g. RewriteBase /~dzuelke/Code/oss/agavi/branches/1.0/samples/pub/
+	# e.g. RewriteBase /~dzuelke/Code/oss/quiote/branches/1.0/samples/pub/
 	# usually just "/" if your application's pub dir is the document root
 	RewriteBase /PATH/IN/URL/TO/samples/pub/
 	
@@ -22,7 +22,7 @@ DirectorySlash Off
 	# "NC" flag is for case insensitivity on OS X and Windows.
 	RewriteCond %{ENV:REDIRECT_STATUS} ^$
 	RewriteRule ^index.php.*$ ./index.php?/$0 [NC,QSA,L]
-	# If the requested URL doesn't exist, let Agavi handle it
+	# If the requested URL doesn't exist, let Quiote handle it
 	RewriteCond %{REQUEST_FILENAME} !-f
 	RewriteRule (.*) index.php?/$1 [QSA,L]
 </IfModule>

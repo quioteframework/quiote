@@ -2,13 +2,13 @@
 
 
 /**
- * @agaviRoutingInput /en/auth/login
+ * @quioteRoutingInput /en/auth/login
  */
-class LoginFlowTest extends AgaviFlowTestCase
+class LoginFlowTest extends FlowTestCase
 {
 	
 	/**
-	 * @agaviRequestMethod write
+	 * @quioteRequestMethod write
 	 */
 	public function testValidWriteRequest()
 	{
@@ -18,7 +18,7 @@ class LoginFlowTest extends AgaviFlowTestCase
 	}
 	
 	/**
-	 * @agaviRequestMethod write
+	 * @quioteRequestMethod write
 	 */
 	public function testInvalidWriteRequest()
 	{

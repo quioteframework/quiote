@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema
+	xmlns:xs="http://www.w3.org/2001/XMLSchema"
+	xmlns:envelope_1_1="http://quiote.dev/quiote/config/global/envelope/1.1"
+	xmlns:types_1_0="http://quiote.dev/quiote/config/global/types/1.0"
+	xmlns="http://quiote.dev/quiote/config/parts/factories/1.1"
+	targetNamespace="http://quiote.dev/quiote/config/parts/factories/1.1"
+	elementFormDefault="qualified"
+	version="$Id$">
+
+	<xs:import namespace="http://quiote.dev/quiote/config/global/types/1.0"
+	           schemaLocation="../_types.xsd" />
+	<xs:import namespace="http://quiote.dev/quiote/config/global/envelope/1.1"
+	           schemaLocation="../_envelope.xsd" />
+
+	<xs:complexType name="factory">
+		<xs:sequence maxOccurs="unbounded">
+			<xs:group ref="envelope_1_1:parameters" />
+		</xs:sequence>
+		<xs:attribute name="class" type="types_1_0:php_class" use="required" />
+	</xs:complexType>
+
+	<xs:group name="configuration">
+		<xs:all>
+			<!-- These factories are required, but they may be defined in another
+			     environment/context so we're quite lax about validating them. A
+			     Schematron document could potentially test absolute validity of
+			     these factories once contexts have been matched by the parser. -->
+			<xs:element type="factory" minOccurs="0" name="controller" />
+			<!-- legacy filter factories removed: dispatch_filter, execution_filter, filter_chain -->
+			<xs:element type="factory" minOccurs="0" name="response" />
+			<!-- New optional request factory (legacy request wrapper / worker-mode recreation) -->
+			<xs:element type="factory" minOccurs="0" name="request" />
+			<xs:element type="factory" minOccurs="0" name="routing" />
+			<xs:element type="factory" minOccurs="0" name="storage" />
+			<xs:element type="factory" minOccurs="0" name="user" />
+			<xs:element type="factory" minOccurs="0" name="validation_manager" />
+
+			<!-- Optional factories -->
+			<xs:element type="factory" minOccurs="0" name="database_manager" />
+			<!-- legacy security_filter removed (replaced by middleware) -->
+			<xs:element type="factory" minOccurs="0" name="translation_manager" />
+		</xs:all>
+	</xs:group>
+
+</xs:schema>

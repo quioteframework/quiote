@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<ae:configurations xmlns:ae="http://agavi.org/agavi/config/global/envelope/1.1" xmlns="http://agavi.org/agavi/config/parts/databases/1.1">
+<ae:configurations xmlns:ae="http://quiote.dev/quiote/config/global/envelope/1.1" xmlns="http://quiote.dev/quiote/config/parts/databases/1.1">
 	
 	<ae:configuration>
 		<databases default="pdo_mysql_main">
 			
-			<database name="pdo_mysql_main" class="AgaviPdoDatabase">
+			<database name="pdo_mysql_main" class="QuiotePdoDatabase">
 				<ae:parameter name="dsn">mysql:host=localhost;dbname=agsmplapp</ae:parameter>
 				<ae:parameter name="username">root</ae:parameter>
 				<ae:parameter name="password"></ae:parameter>
 			</database>
 			
-			<database name="propelom" class="AgaviPropelDatabase">
+			<database name="propelom" class="QuiotePropelDatabase">
 				<ae:parameter name="config">%core.app_dir%/config/project-conf.php</ae:parameter>
 			</database>
 
@@ -21,8 +21,8 @@
 		<databases default="pdo_mysql_main">
 			
 			<database name="pdo_mysql_main">
-				<ae:parameter name="dsn">mysql:host=localhost;dbname=agavisample</ae:parameter>
-				<ae:parameter name="username">agavisample</ae:parameter>
+				<ae:parameter name="dsn">mysql:host=localhost;dbname=quiotesample</ae:parameter>
+				<ae:parameter name="username">quiotesample</ae:parameter>
 				<ae:parameter name="password">123qwe</ae:parameter>
 			</database>
 			

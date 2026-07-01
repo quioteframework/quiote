@@ -1,30 +1,30 @@
 # PHPUnit 12 Migration - COMPLETED
 
 ## Summary
-Successfully modernized the Agavi framework's test suite to be compatible with PHPUnit 12 and PHP 8.4.
+Successfully modernized the Quiote framework's test suite to be compatible with PHPUnit 12 and PHP 8.4.
 
 ## Key Changes Made
 
 ### 1. Bootstrap Configuration
 - **File**: `/test/bootstrap.php`
-- **Changes**: Added comprehensive Agavi configuration including system config directory and default context
+- **Changes**: Added comprehensive Quiote configuration including system config directory and default context
 - **Impact**: Fixed "ended unexpectedly" errors and enabled proper test isolation
 
 ### 2. Namespace Corrections
 - **File**: `/test/sandbox/app/Config/factories.xml`
-- **Change**: Fixed incorrect namespace `Agavi\Session\AgaviSessionStorage` → `Agavi\Storage\AgaviSessionStorage`
+- **Change**: Fixed incorrect namespace `Quiote\Session\QuioteSessionStorage` → `Quiote\Storage\QuioteSessionStorage`
 - **Impact**: Resolved autoloading issues
 
 ### 3. Test Class Inheritance Updates
-- **File**: `/test/tests/unit/controller/AgaviControllerTest.php`
-- **Change**: Updated to extend `AgaviPhpUnitTestCase` instead of `AgaviUnitTestCase`
-- **Added**: `AgaviIsolationEnvironment('testing')` attribute
+- **File**: `/test/tests/unit/controller/QuioteControllerTest.php`
+- **Change**: Updated to extend `QuiotePhpUnitTestCase` instead of `QuioteUnitTestCase`
+- **Added**: `QuioteIsolationEnvironment('testing')` attribute
 - **Impact**: Fixed context initialization and test isolation issues
 
 ### 4. PHPUnit Annotation Modernization
 
 #### A. Removed Deprecated `@expectedException`
-- **File**: `/test/tests/unit/config/AgaviConfigCacheTest.php`
+- **File**: `/test/tests/unit/config/QuioteConfigCacheTest.php`
 - **Change**: Converted `@expectedException` annotation to `$this->expectException()` method calls
 - **Impact**: Compatible with PHPUnit 12 which removed support for these annotations
 
@@ -32,10 +32,10 @@ Successfully modernized the Agavi framework's test suite to be compatible with P
 Converted **17 instances** across multiple files:
 
 **Core Test Files:**
-- `/test/tests/unit/exception/AgaviExceptionTest.php` - 1 conversion
-- `/test/tests/unit/request/AgaviWebRequestDataHolderHeaderTest.php` - 4 conversions  
-- `/test/tests/unit/request/AgaviWebRequestDataHolderCookieTest.php` - 3 conversions
-- `/test/tests/unit/validator/AgaviBooleanValidatorTest.php` - 2 conversions
+- `/test/tests/unit/exception/QuioteExceptionTest.php` - 1 conversion
+- `/test/tests/unit/request/QuioteWebRequestDataHolderHeaderTest.php` - 4 conversions  
+- `/test/tests/unit/request/QuioteWebRequestDataHolderCookieTest.php` - 3 conversions
+- `/test/tests/unit/validator/QuioteBooleanValidatorTest.php` - 2 conversions
 
 **Sample Test Files:**
 - `/samples/test/tests/unit/ProductFinderModelTest.php` - 3 conversions
@@ -46,10 +46,10 @@ Converted **17 instances** across multiple files:
 
 #### C. Converted `@runInSeparateProcess` to Attributes
 Converted **4 instances**:
-- `/test/tests/unit/session/AgaviDatabaseSessionStorageTest.php`
-- `/test/tests/unit/session/AgaviSessionStorageTest.php` 
-- `/test/tests/unit/date/AgaviTimezoneBoundaryTest.php`
-- `/test/tests/unit/response/AgaviWebResponseTest.php`
+- `/test/tests/unit/session/QuioteDatabaseSessionStorageTest.php`
+- `/test/tests/unit/session/QuioteSessionStorageTest.php` 
+- `/test/tests/unit/date/QuioteTimezoneBoundaryTest.php`
+- `/test/tests/unit/response/QuioteWebResponseTest.php`
 
 **Pattern**: `@runInSeparateProcess` → `#[RunInSeparateProcess]`
 
@@ -90,8 +90,8 @@ use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 - `/test/sandbox/app/Config/factories.xml` - Namespace fix
 
 **Test Infrastructure:**
-- `/test/tests/unit/controller/AgaviControllerTest.php` - Test class modernization
-- `/test/tests/unit/request/AgaviWebRequestDataHolderTest.php` - Static data providers
+- `/test/tests/unit/controller/QuioteControllerTest.php` - Test class modernization
+- `/test/tests/unit/request/QuioteWebRequestDataHolderTest.php` - Static data providers
 
 **PHPUnit Modernization (21 files total):**
 - 1 file with `@expectedException` removal
@@ -111,4 +111,4 @@ The modernized test suite maintains backward compatibility while adopting PHPUni
 5. **Optional**: Consider modernizing other PHPUnit patterns (e.g., setUp/tearDown naming)
 
 ## Status: ✅ MIGRATION COMPLETE
-The Agavi framework test suite is now fully compatible with PHPUnit 12 and PHP 8.4.
+The Quiote framework test suite is now fully compatible with PHPUnit 12 and PHP 8.4.

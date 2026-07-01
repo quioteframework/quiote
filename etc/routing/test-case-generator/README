@@ -1,7 +1,7 @@
-Agavi Routing Input Test Case Generator
+Quiote Routing Input Test Case Generator
 =======================================
 This script can be used to make test cases for web servers, rewrite engines etc. and various combinations of request paths, query strings and so forth.
-These test cases can then be used in Agavi to make sure the routing is compatible with the web server in question.
+These test cases can then be used in Quiote to make sure the routing is compatible with the web server in question.
 
 To use it, put testcase.php into a directory on your web server, call it index.php, set up index.php as a directory index script, and run it once with, and once without rewrites enabled.
 You need to click the appropriate button, of course, and you need to switch off rewrites in the server for the "norewrite" run - clicking the button is not enough.
@@ -26,7 +26,7 @@ AcceptPathInfo On
 <IfModule mod_rewrite.c>
 	RewriteEngine On
 	# ********** THIS IS THE ONLY SETTING YOU SHOULD HAVE TO CHANGE **********
-	# e.g. RewriteBase /~dzuelke/Code/oss/agavi/branches/1.0/etc/routing/test-case-generator/
+	# e.g. RewriteBase /~dzuelke/Code/oss/quiote/branches/1.0/etc/routing/test-case-generator/
 	RewriteBase /PATH/IN/URL/TO/etc/routing/test-case-generator/
 	
 	# Special rule for calls to index.php so it can't be called directly, also prevents an infinite loop.
@@ -35,7 +35,7 @@ AcceptPathInfo On
 	# "NC" flag is for case insensitivity on OS X and Windows.
 	RewriteCond %{ENV:REDIRECT_STATUS} ^$
 	RewriteRule ^index.php.*$ ./index.php?/$0 [NC,QSA,L]
-	# If the requested URL doesn't exist, let Agavi handle it
+	# If the requested URL doesn't exist, let Quiote handle it
 	RewriteCond %{REQUEST_FILENAME} !-f
 	RewriteRule (.*) index.php?/$1 [QSA,L]
 </IfModule>
@@ -43,7 +43,7 @@ AcceptPathInfo On
 
 Apache Rewrite Rules (vhost config)
 -----------------------------------
-# if requested url does not exist (i.e. it's likely an agavi route), pass it as path info to index.php
+# if requested url does not exist (i.e. it's likely an quiote route), pass it as path info to index.php
 RewriteRule ^/$ /URL/PATH/TO/index.php?/ [QSA,L]
 RewriteCond %{DOCUMENT_ROOT}%{REQUEST_FILENAME} !-f
 RewriteCond %{DOCUMENT_ROOT}%{REQUEST_FILENAME} !-d
@@ -54,7 +54,7 @@ RewriteRule ^/(.*)$ /URL/PATH/TO/index.php?/$1 [QSA,L]
 lighttpd Rewrite Rules
 ----------------------
 url.rewrite-once = ( 
-  "^/~dzuelke/Code/oss/agavi/branches/1.0/etc/routing/([^?]*)(?:\?(.*))?$" => "/~dzuelke/Code/oss/agavi/branches/1.0/etc/routing/index.php?/$1&$2"
+  "^/~dzuelke/Code/oss/quiote/branches/1.0/etc/routing/([^?]*)(?:\?(.*))?$" => "/~dzuelke/Code/oss/quiote/branches/1.0/etc/routing/index.php?/$1&$2"
 )
 
 
@@ -72,11 +72,11 @@ Microsoft IIS7 Rewrite Rules (URL Rewrite Module 2.0)
     </security>
     <rewrite>
       <rules>
-        <rule name="Agavi Dispatcher for /" stopProcessing="true">
+        <rule name="Quiote Dispatcher for /" stopProcessing="true">
           <match url="^$" />
           <action type="Rewrite" url="index.php?/" />
         </rule>
-        <rule name="Agavi Dispatcher" stopProcessing="true">
+        <rule name="Quiote Dispatcher" stopProcessing="true">
           <match url="^(.*)$" />
           <conditions logicalGrouping="MatchAll">
                 <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="true" />

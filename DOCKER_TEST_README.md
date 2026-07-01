@@ -1,6 +1,6 @@
-# Agavi FrankenPHP Routing Test
+# Quiote FrankenPHP Routing Test
 
-This Docker setup provides a minimal test environment to verify that the Agavi routing fixes work correctly with FrankenPHP and Caddy.
+This Docker setup provides a minimal test environment to verify that the Quiote routing fixes work correctly with FrankenPHP and Caddy.
 
 ## Quick Start
 
@@ -62,7 +62,7 @@ This setup:
 ### Container won't start
 ```bash
 # Check logs
-docker-compose logs agavi-test
+docker-compose logs quiote-test
 
 # Rebuild completely
 docker-compose down
@@ -83,7 +83,7 @@ docker-compose up --build --force-recreate
 
 Once the test shows routing detection is working:
 
-1. **Replace the test files** with your actual Agavi application
+1. **Replace the test files** with your actual Quiote application
 2. **Update the Caddyfile** to match your app structure
 3. **Test your routes** to ensure they work with clean URLs
 4. **Verify URL generation** produces clean URLs without `index.php`
@@ -92,7 +92,7 @@ Once the test shows routing detection is working:
 
 ```
 /app/
-├── src/                    # Agavi source code
+├── src/                    # Quiote source code
 ├── pub/                    # Public web directory
 │   ├── index.php          # Test entry point
 │   ├── debug_routing.php  # Debug script
@@ -105,7 +105,7 @@ Once the test shows routing detection is working:
 
 After confirming the routing detection works:
 
-1. Integrate your full Agavi application
+1. Integrate your full Quiote application
 2. Test all your routes with clean URLs
 3. Verify that generated URLs are clean
 4. Deploy to your production environment

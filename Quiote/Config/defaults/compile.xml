@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ae:configurations xmlns:ae="http://quiote.dev/quiote/config/global/envelope/1.1" xmlns="http://quiote.dev/quiote/config/parts/compile/1.1">
+	<ae:configuration>
+		<compiles>
+			<compile>%core.quiote_dir%/Util/QuioteAttributeHolder.php</compile>
+			<compile>%core.quiote_dir%/Action/QuioteAction.php</compile>
+			<compile>%core.quiote_dir%/QuioteContext.php</compile>
+			<compile>%core.quiote_dir%/Controller/QuioteController.php</compile>
+			<compile>%core.quiote_dir%/Controller/QuioteExecutionContainer.php</compile>
+			<compile>%core.quiote_dir%/Controller/QuioteOutputType.php</compile>
+			<!-- Legacy filter system removed: QuioteIFilter, QuioteIGlobalFilter, QuioteIActionFilter, QuioteFilter, QuioteDispatchFilter, QuioteExecutionFilter, QuioteFilterChain -->
+			<compile>%core.quiote_dir%/Renderer/QuioteRenderer.php</compile>
+			<compile>%core.quiote_dir%/Request/QuioteIParametersRequestDataHolder.php</compile>
+			<compile>%core.quiote_dir%/Request/QuioteRequestDataHolder.php</compile>
+			<compile>%core.quiote_dir%/Request/QuioteRequest.php</compile>
+			<compile>%core.quiote_dir%/Response/QuioteResponse.php</compile>
+			<compile>%core.quiote_dir%/Routing/QuioteRouting.php</compile>
+			<compile>%core.quiote_dir%/Storage/QuioteStorage.php</compile>
+			<compile>%core.quiote_dir%/User/QuioteUser.php</compile>
+			<compile>%core.quiote_dir%/View/QuioteTemplateLayer.php</compile>
+			<compile>%core.quiote_dir%/View/QuioteView.php</compile>
+		</compiles>
+	</ae:configuration>
+</ae:configurations>

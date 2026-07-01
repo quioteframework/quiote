@@ -1,9 +1,9 @@
 <?php
 
-use Agavi\Testing\AgaviUnitTestCase;
+use Quiote\Testing\UnitTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 
-class ProductFinderModelTest extends AgaviUnitTestCase
+class ProductFinderModelTest extends UnitTestCase
 {
 	protected static $products = [
 		[

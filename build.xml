@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 
-<project name="agavi" basedir="." default="main">
+<project name="quiote" basedir="." default="main">
 
 	<!-- set up some stuff -->
 	<property environment="env"/>
@@ -8,9 +8,9 @@
 	<property name="package"  value="${phing.project.name}" override="true" />
 	<property name="srcdir"   value="${project.basedir}" override="true" />
 	
-	<taskdef classname="etc.phing.AgaviVersionTask" name="agaviversion" />
-	<taskdef classname="etc.phing.AgaviPackageTask" name="agavipackage" />
-	<taskdef classname="etc.phing.AgaviOlsonCompileTask" name="agaviolsoncompile" />
+	<taskdef classname="etc.phing.VersionTask" name="quioteversion" />
+	<taskdef classname="etc.phing.PackageTask" name="quiotepackage" />
+	<taskdef classname="etc.phing.OlsonCompileTask" name="quioteolsoncompile" />
 
 	<!-- fileset for -dist files -->
 	<fileset dir="." id="distfiles">
@@ -36,7 +36,7 @@
 	</target>
 
 	<target name="apidocs" description="API docs">
-		<phpdoc title="Agavi Documentation" destdir="apidocs" output="HTML:frames:DOM/earthli">
+		<phpdoc title="Quiote Documentation" destdir="apidocs" output="HTML:frames:DOM/earthli">
 			<fileset dir="./src">
 				<include name="**/*.php" />
 				<exclude name="vendor/**" />
@@ -64,15 +64,15 @@
 		<phingcall target="guide-${output}" />
 	</target-->
 
-	<!-- Agavi Cookbook -->
+	<!-- Quiote Cookbook -->
 	<target name="cookbook-html" >
 		<mkdir dir="manuals/cookbook/html/multipage" />
-		<copy file="docs/lib/agavi-manual.css" todir="manuals/cookbook/html/multipage" overwrite="true" />
-		<xslt file="docs/docbook/cookbook.xml" todir="manuals/cookbook/html/multipage" style="docs/lib/agavi-manual-html.xsl">
+		<copy file="docs/lib/quiote-manual.css" todir="manuals/cookbook/html/multipage" overwrite="true" />
+		<xslt file="docs/docbook/cookbook.xml" todir="manuals/cookbook/html/multipage" style="docs/lib/quiote-manual-html.xsl">
 			<param name="onechunk" expression="0" />
 			<param name="base.dir" expression="manuals/cookbook/html/multipage/" /><!-- end slash required -->
 			<param name="root.filename" expression="index" />
-			<param name="html.stylesheet" expression="agavi-manual.css" />
+			<param name="html.stylesheet" expression="quiote-manual.css" />
 			<param name="chunker.output.encoding" expression="UTF-8" />
 			<param name="id.warnings" expression="0" />
 			<param name="header.rule" expression="0" />
@@ -83,12 +83,12 @@
 
 	<target name="cookbook-html-onepage" >
 		<mkdir dir="manuals/cookbook/html/onepage" />
-		<copy file="docs/lib/agavi-manual.css" todir="manuals/cookbook/html/onepage" overwrite="true" />
-		<xslt file="docs/docbook/cookbook.xml" todir="manuals/cookbook/html/onepage" style="docs/lib/agavi-manual-html-onepage.xsl">
+		<copy file="docs/lib/quiote-manual.css" todir="manuals/cookbook/html/onepage" overwrite="true" />
+		<xslt file="docs/docbook/cookbook.xml" todir="manuals/cookbook/html/onepage" style="docs/lib/quiote-manual-html-onepage.xsl">
 			<param name="onechunk" expression="1" />
 			<param name="base.dir" expression="manuals/cookbook/html/onepage/" /><!-- end slash required -->
 			<param name="root.filename" expression="index" />
-			<param name="html.stylesheet" expression="agavi-manual.css" />
+			<param name="html.stylesheet" expression="quiote-manual.css" />
 			<param name="chunker.output.encoding" expression="UTF-8" />
 			<param name="id.warnings" expression="0" />
 			<param name="header.rule" expression="0" />
@@ -97,15 +97,15 @@
 		</xslt>
 	</target>
 
-	<!-- Introduction to Agavi -->
+	<!-- Introduction to Quiote -->
 	<target name="introduction-html" >
 		<mkdir dir="manuals/introduction/html/multipage" />
-		<copy file="docs/lib/agavi-manual.css" todir="manuals/introduction/html/multipage" overwrite="true" />
-		<xslt file="docs/docbook/introduction.xml" todir="manuals/introduction/html/multipage" style="docs/lib/agavi-manual-html.xsl">
+		<copy file="docs/lib/quiote-manual.css" todir="manuals/introduction/html/multipage" overwrite="true" />
+		<xslt file="docs/docbook/introduction.xml" todir="manuals/introduction/html/multipage" style="docs/lib/quiote-manual-html.xsl">
 			<param name="onechunk" expression="0" />
 			<param name="base.dir" expression="manuals/introduction/html/multipage/" /><!-- end slash required -->
 			<param name="root.filename" expression="index" />
-			<param name="html.stylesheet" expression="agavi-manual.css" />
+			<param name="html.stylesheet" expression="quiote-manual.css" />
 			<param name="chunker.output.encoding" expression="UTF-8" />
 			<param name="id.warnings" expression="0" />
 			<param name="header.rule" expression="0" />
@@ -116,12 +116,12 @@
 
 	<target name="introduction-html-onepage" >
 		<mkdir dir="manuals/introduction/html/onepage" />
-		<copy file="docs/lib/agavi-manual.css" todir="manuals/introduction/html/onepage" overwrite="true" />
-		<xslt file="docs/docbook/introduction.xml" todir="manuals/introduction/html/onepage" style="docs/lib/agavi-manual-html-onepage.xsl">
+		<copy file="docs/lib/quiote-manual.css" todir="manuals/introduction/html/onepage" overwrite="true" />
+		<xslt file="docs/docbook/introduction.xml" todir="manuals/introduction/html/onepage" style="docs/lib/quiote-manual-html-onepage.xsl">
 			<param name="onechunk" expression="1" />
 			<param name="base.dir" expression="manuals/introduction/html/onepage/" /><!-- end slash required -->
 			<param name="root.filename" expression="index" />
-			<param name="html.stylesheet" expression="agavi-manual.css" />
+			<param name="html.stylesheet" expression="quiote-manual.css" />
 			<param name="chunker.output.encoding" expression="UTF-8" />
 			<param name="id.warnings" expression="0" />
 			<param name="header.rule" expression="0" />
@@ -133,12 +133,12 @@
 	<!-- Definitive Guide -->
 	<target name="guide-html" >
 		<mkdir dir="manuals/guide/html/multipage" />
-		<copy file="docs/lib/agavi-manual.css" todir="manuals/guide/html/multipage" overwrite="true" />
-		<xslt file="docs/docbook/manual.xml" todir="manuals/guide/html/multipage" style="docs/lib/agavi-manual-html.xsl">
+		<copy file="docs/lib/quiote-manual.css" todir="manuals/guide/html/multipage" overwrite="true" />
+		<xslt file="docs/docbook/manual.xml" todir="manuals/guide/html/multipage" style="docs/lib/quiote-manual-html.xsl">
 			<param name="onechunk" expression="0" />
 			<param name="base.dir" expression="manuals/guide/html/multipage/" /><!-- end slash required -->
 			<param name="root.filename" expression="index" />
-			<param name="html.stylesheet" expression="agavi-manual.css" />
+			<param name="html.stylesheet" expression="quiote-manual.css" />
 			<param name="chunker.output.encoding" expression="UTF-8" />
 			<param name="id.warnings" expression="0" />
 			<param name="header.rule" expression="0" />
@@ -149,12 +149,12 @@
 
 	<target name="guide-html-onepage" >
 		<mkdir dir="manuals/guide/html/onepage" />
-		<copy file="docs/lib/agavi-manual.css" todir="manuals/guide/html/onepage" overwrite="true" />
-		<xslt file="docs/docbook/manual.xml" todir="manuals/guide/html/onepage" style="docs/lib/agavi-manual-html-onepage.xsl">
+		<copy file="docs/lib/quiote-manual.css" todir="manuals/guide/html/onepage" overwrite="true" />
+		<xslt file="docs/docbook/manual.xml" todir="manuals/guide/html/onepage" style="docs/lib/quiote-manual-html-onepage.xsl">
 			<param name="onechunk" expression="1" />
 			<param name="base.dir" expression="manuals/guide/html/onepage/" /><!-- end slash required -->
 			<param name="root.filename" expression="index" />
-			<param name="html.stylesheet" expression="agavi-manual.css" />
+			<param name="html.stylesheet" expression="quiote-manual.css" />
 			<param name="chunker.output.encoding" expression="UTF-8" />
 			<param name="id.warnings" expression="0" />
 			<param name="header.rule" expression="0" />
@@ -167,7 +167,7 @@
 
 	<target name="cookbook-fo" >
 		<mkdir dir="manuals/guide/fo" />
-		<xslt file="docs/docbook/manual.xml" tofile="manuals/guide/fo/cookbook.fo" style="docs/lib/agavi-manual-fo.xsl" >
+		<xslt file="docs/docbook/manual.xml" tofile="manuals/guide/fo/cookbook.fo" style="docs/lib/quiote-manual-fo.xsl" >
 			<param name="base.dir" expression="manuals/guide/fo/" />
 			<param name="paper.type" expression="A4" />
 		</xslt>
@@ -175,7 +175,7 @@
 
 	<target name="introduction-fo" >
 		<mkdir dir="manuals/guide/fo" />
-		<xslt file="docs/docbook/manual.xml" tofile="manuals/guide/fo/introduction.fo" style="docs/lib/agavi-manual-fo.xsl" >
+		<xslt file="docs/docbook/manual.xml" tofile="manuals/guide/fo/introduction.fo" style="docs/lib/quiote-manual-fo.xsl" >
 			<param name="base.dir" expression="manuals/guide/fo/" />
 			<param name="paper.type" expression="A4" />
 		</xslt>
@@ -183,14 +183,14 @@
 
 	<target name="guide-fo" >
 		<mkdir dir="manuals/guide/fo" />
-		<xslt file="docs/docbook/manual.xml" tofile="manuals/guide/fo/guide.fo" style="docs/lib/agavi-manual-fo.xsl" >
+		<xslt file="docs/docbook/manual.xml" tofile="manuals/guide/fo/guide.fo" style="docs/lib/quiote-manual-fo.xsl" >
 			<param name="base.dir" expression="manuals/guide/fo/" />
 			<param name="paper.type" expression="A4" />
 		</xslt>
 	</target>
 	
 	<target name="generate-properties">
-		<agaviversion /> 
+		<quioteversion /> 
 	</target>
 
 	<target name="package-zip">
@@ -210,10 +210,10 @@
 	<target name="package-pear" depends="generate-properties" description="build pear package">
 		<!-- prepare -->
 		<property name="basedir" value="pear-build" override="true" />
-		<property name="builddir" value="${basedir}/agavi-${agavi.pear.version}" override="true" />
+		<property name="builddir" value="${basedir}/quiote-${quiote.pear.version}" override="true" />
 		
 		<delete dir="${builddir}" includeemptydirs="true" verbose="false" failonerror="false" />
-		<delete file="agavi-${agavi.pear.version}.tgz" verbose="false" failonerror="false" />
+		<delete file="quiote-${quiote.pear.version}.tgz" verbose="false" failonerror="false" />
 		
 		<mkdir dir="${builddir}" />
 		
@@ -227,7 +227,7 @@
 		<copy file="COPYRIGHT" todir="${builddir}" />
 		<copy file="INSTALL" todir="${builddir}" />
 		<copy file="LICENSE" todir="${builddir}" />
-		<copy file="LICENSE-AGAVI" todir="${builddir}" />
+		<copy file="LICENSE-QUIOTE" todir="${builddir}" />
 		<copy file="LICENSE-ICU" todir="${builddir}" />
 		<copy file="LICENSE-SCHEMATRON" todir="${builddir}" />
 		<copy file="LICENSE-UNICODE_CLDR" todir="${builddir}" />
@@ -247,21 +247,21 @@
 		</copy>
 
 		<!-- generate package.xml -->
-		<agavipackage baseDir="${basedir}" buildDir="${builddir}" />
+		<quiotepackage baseDir="${basedir}" buildDir="${builddir}" />
 		
 		<!-- create .tgz file -->
 		<echo msg="Creating gzip file for PEAR." />
-		<tar destfile="agavi-${agavi.pear.version}.tgz" basedir="${basedir}" compression="gzip" />
+		<tar destfile="quiote-${quiote.pear.version}.tgz" basedir="${basedir}" compression="gzip" />
 	</target>
 	
 	<target name="package-release" depends="generate-properties">
 		<delete dir="./package-build" includeemptydirs="true" verbose="false" failonerror="false" />
-		<delete file="${agavi.pear.version}.tgz" verbose="false" failonerror="false" />
-		<delete file="${agavi.pear.version}.zip" verbose="false" failonerror="false" />
+		<delete file="${quiote.pear.version}.tgz" verbose="false" failonerror="false" />
+		<delete file="${quiote.pear.version}.zip" verbose="false" failonerror="false" />
 		
-		<mkdir dir="./package-build/agavi-${agavi.pear.version}" />
+		<mkdir dir="./package-build/quiote-${quiote.pear.version}" />
 		
-		<copy todir="./package-build/agavi-${agavi.pear.version}">
+		<copy todir="./package-build/quiote-${quiote.pear.version}">
 			<fileset dir=".">
 				<exclude name="*-build/**" />
 				<exclude name="*.tgz*" />
@@ -272,11 +272,11 @@
 			</fileset>
 		</copy>
 		
-		<tar destfile="${agavi.pear.version}.tgz" compression="gzip">
+		<tar destfile="${quiote.pear.version}.tgz" compression="gzip">
 			<fileset dir="./package-build" />
 		</tar>
 		
-		<zip destfile="${agavi.pear.version}.zip">
+		<zip destfile="${quiote.pear.version}.zip">
 			<fileset dir="./package-build" />
 		</zip>
 	</target>
@@ -291,7 +291,7 @@
 	</target>
 
 	<target name="olson" description="build timezone datebase">
-		<agaviolsoncompile olsonDir="${srcdir}/etc/olson/tzdata" outputDir="${srcdir}/src/translation/data/timezones" />
+		<quioteolsoncompile olsonDir="${srcdir}/etc/olson/tzdata" outputDir="${srcdir}/src/translation/data/timezones" />
 	</target>
 
 </project>

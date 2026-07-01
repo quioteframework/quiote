@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ae:configurations xmlns:ae="http://quiote.dev/quiote/config/global/envelope/1.1" xmlns="http://quiote.dev/quiote/config/parts/config_handlers/1.1">
+	<ae:configuration>
+		<handlers>
+			<handler pattern="%core.module_dir%/*/Validate/*.xml" class="Quiote\Config\ValidatorConfigHandler">
+				<validation>%core.quiote_dir%/Config/xsd/validators.xsd</validation>
+				<transformation>%core.quiote_dir%/Config/xsl/validators.xsl</transformation>
+			</handler>
+			<handler pattern="%core.module_dir%/*/Cache/*.xml" class="Quiote\Config\CachingConfigHandler">
+				<validation>%core.quiote_dir%/Config/xsd/caching.xsd</validation>
+				<transformation>%core.quiote_dir%/Config/xsl/caching.xsl</transformation>
+			</handler>
+		</handlers>
+	</ae:configuration>
+</ae:configurations>

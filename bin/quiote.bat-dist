@@ -1,0 +1,16 @@
+@ECHO OFF
+:: This file is part of the Quiote package.
+:: Copyright (c) 2005-2011 the Quiote Project.
+::
+:: For the full copyright and license information, please view the LICENSE file
+:: that was distributed with this source code. You can also view the LICENSE
+:: file online at https://github.com/jakamoltd/quiote/LICENSE
+
+:: Set this to the path to the Quiote installation's source directory. This is
+:: the directory that contains the `quiote.php' file.
+SET QUIOTE_SOURCE_DIRECTORY="@PEAR-DIR@/quiote"
+
+:: Set this to the path to a PHP binary.
+SET PHP_EXECUTABLE="@PHP-BIN@"
+
+"%PHP_EXECUTABLE%" -d memory_limit=4294967295 -f "%QUIOTE_SOURCE_DIRECTORY%/build/quiote/script/quiote.php" -- --quiote-source-directory "%QUIOTE_SOURCE_DIRECTORY%" %*

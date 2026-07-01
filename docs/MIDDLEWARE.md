@@ -1,14 +1,14 @@
 # Injecting custom middleware into the pipeline
 
-Agavi builds a single PSR-15 middleware pipeline
-(`Agavi\Middleware\MiddlewarePipeline`) once per worker and reuses it across
+Quiote builds a single PSR-15 middleware pipeline
+(`Quiote\Middleware\MiddlewarePipeline`) once per worker and reuses it across
 requests. Applications inject their own middleware at a **predefined position**
-via `Agavi\Middleware\MiddlewareCatalog::register()`.
+via `Quiote\Middleware\MiddlewareCatalog::register()`.
 
 ## API
 
 ```php
-use Agavi\Middleware\MiddlewareCatalog;
+use Quiote\Middleware\MiddlewareCatalog;
 
 MiddlewareCatalog::register(
     string   $fqcn,      // identity + label shown in the debug stack (use the class name)
@@ -30,7 +30,7 @@ MiddlewareCatalog::register(
 ## Where to register — at bootstrap, before `run()`
 
 The pipeline is built lazily on the first request and cached for the worker's
-lifetime, so **all registrations must happen before `AgaviKernel::run()`**.
+lifetime, so **all registrations must happen before `QuioteKernel::run()`**.
 Do it in a bootstrap class invoked from `index.php`:
 
 ```php
@@ -42,12 +42,12 @@ final class MiddlewareBootstrap
         MiddlewareCatalog::register(
             HealthzMiddleware::class,
             fn() => new HealthzMiddleware(),
-            before: \Agavi\Middleware\SessionMiddleware::class,   // answer /healthz before touching the session
+            before: \Quiote\Middleware\SessionMiddleware::class,   // answer /healthz before touching the session
         );
         MiddlewareCatalog::register(
             JwtAuthMiddleware::class,
             fn() => new JwtAuthMiddleware(),
-            after: \Agavi\Middleware\RoutingMiddleware::class,    // needs the matched route
+            after: \Quiote\Middleware\RoutingMiddleware::class,    // needs the matched route
         );
         MiddlewareCatalog::register(
             ApiAuthMiddleware::class,
@@ -61,7 +61,7 @@ final class MiddlewareBootstrap
 ```php
 // index.php — before the kernel runs
 App\Bootstrap\MiddlewareBootstrap::register();
-Agavi\Runtime\AgaviKernel::create([...])->run();
+Quiote\Runtime\QuioteKernel::create([...])->run();
 ```
 
 ## Built-in anchor points (execution order, outermost first)
@@ -105,9 +105,9 @@ before the internal terminal sentinel.
   via `MiddlewareCatalog::initialize([Fqcn::class => false])` (populated from
   `<middleware_config>`). A disabled registered middleware is skipped entirely.
 
-## Note: the `#[AgaviMiddleware]` attribute is NOT auto-registration
+## Note: the `#[QuioteMiddleware]` attribute is NOT auto-registration
 
-Framework middleware classes carry a `#[AgaviMiddleware(phase:, after:, before:)]`
+Framework middleware classes carry a `#[QuioteMiddleware(phase:, after:, before:)]`
 attribute, but it is **descriptive only** — the pipeline builder does not scan
 it. The built-in order is hard-coded in `MiddlewarePipeline::doBuild()`, and the
 **only** way to inject application middleware is `MiddlewareCatalog::register()`.

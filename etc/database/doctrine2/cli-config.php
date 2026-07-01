@@ -9,27 +9,27 @@ As always with files that require modifications for each developer (like index.p
 
 factories.xml needs a configuration section similar to this:
 <ae:configuration context="doctrine-cli">
-	<request class="AgaviConsoleRequest">
+	<request class="QuioteConsoleRequest">
 		<!-- the important bit: don't clear argc and argv -->
 		<ae:parameter name="unset_input">false</ae:parameter>
 	</request>
-	<response class="AgaviConsoleResponse" />
-	<routing class="AgaviConsoleRouting" />
-	<storage class="AgaviNullStorage" />
-	<user class="AgaviSecurityUser" />
+	<response class="QuioteConsoleResponse" />
+	<routing class="QuioteConsoleRouting" />
+	<storage class="QuioteNullStorage" />
+	<user class="QuioteSecurityUser" />
 </ae:configuration>
 
 output_types.xml also needs an output type declared for this context, of course ("text" with no further settings will do).
 
 */
 
-require('path/to/src/agavi.php');
+require('path/to/src/quiote.php');
 
 require('path/to/app/config.php');
 
-Agavi::bootstrap('development-yourname');
+Quiote::bootstrap('development-yourname');
 
-$em = AgaviContext::getInstance('doctrine-cli')->getDatabaseConnection(); // fetches default connection; pass a connection name if necessary
+$em = QuioteContext::getInstance('doctrine-cli')->getDatabaseConnection(); // fetches default connection; pass a connection name if necessary
 
 $helperSet = new \Symfony\Component\Console\Helper\HelperSet([
 	'db' => new \Doctrine\DBAL\Tools\Console\Helper\ConnectionHelper($em->getConnection()),

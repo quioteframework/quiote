@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ae:configurations xmlns:ae="http://quiote.dev/quiote/config/global/envelope/1.1" xmlns="http://quiote.dev/quiote/config/parts/factories/1.1">
+	
+	<ae:configuration>
+		
+		<controller class="Quiote\Controller\Controller" />
+		
+		<database_manager class="Quiote\Database\DatabaseManager" />
+		
+		<!-- legacy dispatch_filter, execution_filter, filter_chain removed -->
+		
+		
+		<request class="Quiote\Request\WebRequest" />
+		
+		<response class="Quiote\Response\WebResponse" />
+		
+		<routing class="Sandbox\App\Routing\SandboxRouting" />
+		
+		<!-- legacy security_filter removed -->
+		
+		<storage class="Quiote\Storage\SessionStorage" />
+		
+		<translation_manager class="Quiote\Translation\TranslationManager" />
+		
+		<user class="Quiote\User\SecurityUser" />
+		
+		<validation_manager class="Quiote\Validator\ValidationManager">
+			<ae:parameter name="mode">strict</ae:parameter>
+		</validation_manager>
+		
+	</ae:configuration>
+	
+	<ae:configuration environment="testing.*">
+		<storage class="Quiote\Storage\NullStorage" />
+		
+		<request class="Sandbox\Lib\Request\TestWebRequest">
+			<ae:parameter name="sources">
+				<ae:parameter name="SERVER_NAME">localhost</ae:parameter>
+				<ae:parameter name="SERVER_PORT">80</ae:parameter>
+				<ae:parameter name="SERVER_PROTOCOL">http</ae:parameter>
+			</ae:parameter>
+		</request>
+		
+	</ae:configuration>
+	
+	<ae:configuration environment="testing.*" context="routing-server-cases">
+		<request class="Sandbox\Lib\Request\TestWebRequest">
+			<ae:parameter name="sources">
+				<ae:parameter name="SERVER_NAME">SERVER_NAME</ae:parameter>
+				<ae:parameter name="SERVER_PORT">SERVER_PORT</ae:parameter>
+				<ae:parameter name="SERVER_PROTOCOL">SERVER_PROTOCOL</ae:parameter>
+			</ae:parameter>
+		</request>
+	</ae:configuration>
+	
+	<ae:configuration environment="testing-use_security_off">
+		<user class="Quiote\User\User" />
+	</ae:configuration>
+	
+	<ae:configuration environment="testing.*" context="quiote-session-storage-test::tests-startup-sets-cookie-secure-flag">
+		<storage class="Quiote\Storage\SessionStorage">
+			<ae:parameter name="session_cookie_secure"></ae:parameter>
+		</storage>
+		
+		<request class="Sandbox\Lib\Request\TestWebRequest">
+			<ae:parameter name="sources">
+				<ae:parameter name="HTTPS">on</ae:parameter>
+			</ae:parameter>
+		</request>
+		
+	</ae:configuration>
+
+	<ae:configuration environment="testing.*" context="quiote-session-storage-test::tests-static-session-id">
+		<storage class="Quiote\Storage\SessionStorage">
+			<ae:parameter name="session_id">foobar</ae:parameter>
+		</storage>
+	</ae:configuration>
+
+	<ae:configuration environment="testing.*" context="quiote-session-storage-test::tests-worker-reset-clears-session">
+		<storage class="Quiote\Storage\SessionStorage" />
+	</ae:configuration>
+
+	<ae:configuration environment="development.*">
+		<response class="Quiote\Response\WebResponse">
+			<ae:parameter name="send_content_length">false</ae:parameter>
+		</response>
+	
+		<validation_manager class="Quiote\Validator\ValidationManager">
+			<ae:parameter name="mode">conditional</ae:parameter>
+		</validation_manager>
+		
+	</ae:configuration>
+	
+</ae:configurations>

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ae:configurations xmlns:ae="http://quiote.dev/quiote/config/global/envelope/1.1" xmlns="http://quiote.dev/quiote/config/parts/autoload/1.1">
+	<ae:configuration>
+		<autoloads>
+			<autoload class="QuioteConfigAutoloadClass1">Lib/Config/autoload/QuioteConfigAutoloadClass1.class.php</autoload>
+			<autoload class="QuioteConfigAutoloadClass2">%core.app_dir%/Lib/Config/autoload/QuioteConfigAutoloadClass2.class.php</autoload>
+			<autoload class="QuioteConfigAutoloadClass3">%core.app_dir%/Lib/Config/autoload/QuioteConfigAutoloadClass3.class.php</autoload>
+			
+			<autoload namespace="Quiote\TestAbsolute">%core.app_dir%/Lib/Config/autoload/</autoload>
+			<autoload namespace="Quiote\TestRelative">Lib/Config/autoload/</autoload>
+
+		</autoloads>
+	</ae:configuration>
+	<ae:configuration environment="test-overwrite">
+		<autoloads>
+			<autoload class="QuioteConfigAutoloadClass2">%core.app_dir%/Lib/Config/autoload/QuioteConfigAutoloadClass3.class.php</autoload>
+
+			<autoload namespace="Quiote\TestAbsolute">%core.app_dir%/Lib/Config/</autoload>
+		</autoloads>
+	</ae:configuration>
+	<ae:configuration environment="test-class-missing">
+		<autoloads>
+			<autoload class="ClassMissing">%core.app_dir%/Lib/Config/autoload/missing</autoload>
+		</autoloads>
+	</ae:configuration>
+	<ae:configuration environment="test-namespace-missing">
+		<autoloads>
+			<autoload namespace="Missing">%core.app_dir%/Lib/Config/autoload/missing</autoload>
+		</autoloads>
+	</ae:configuration>
+	
+</ae:configurations>

@@ -1,6 +1,6 @@
 # translation of zh.po to chinese
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the Agavi package.
+# This file is distributed under the same license as the Quiote package.
 #
 # epaulin <epaulin@gmail.com>, 2006.
 msgid ""
@@ -47,12 +47,12 @@ msgid "Thank you for logging out!"
 msgstr "感謝您登出！"
 
 #: ../app/modules/Default/templates/Master.php:5
-msgid "Default Agavi Module"
-msgstr "默認 Agavi 模塊"
+msgid "Default Quiote Module"
+msgstr "默認 Quiote 模塊"
 
 #: ../app/modules/Default/templates/Master.php:124
-msgid "Agavi Sample Application"
-msgstr "Agavi 范例程式"
+msgid "Quiote Sample Application"
+msgstr "Quiote 范例程式"
 
 #: ../app/modules/Default/templates/Master.php:136
 msgid "Current language:"
@@ -137,8 +137,8 @@ msgid "404 Not Found"
 msgstr "404 未找到"
 
 #: ../app/modules/Default/views/IndexSuccessView.class.php:33
-msgid "Welcome to the Agavi Sample Application"
-msgstr "歡迎來到 Agavi 范例程式"
+msgid "Welcome to the Quiote Sample Application"
+msgstr "歡迎來到 Quiote 范例程式"
 
 #: ../app/modules/Default/views/LoginSuccessView.class.php:63
 msgid "Login Successful"

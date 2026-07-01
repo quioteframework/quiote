@@ -1,9 +1,9 @@
 <?php 
 
-use Agavi\Testing\AgaviViewTestCase;
+use Quiote\Testing\ViewTestCase;
 use PHPUnit\Framework\Assert;
 
-class LoginSuccessViewTest extends AgaviViewTestCase
+class LoginSuccessViewTest extends ViewTestCase
 {
 
 	public function __construct($name = NULL, array $data = [], $dataName = '')
@@ -24,7 +24,7 @@ class LoginSuccessViewTest extends AgaviViewTestCase
 	{
 		if (!method_exists($this, 'runView')) { $this->markTestSkipped('View test harness not fully migrated'); }
 		$this->setArguments(['username' => 'Chuck Norris', 'password' => 'kick']);
-		$this->getContext()->getUser()->setAttribute('redirect', 'http://www.example.com/', 'org.agavi.SampleApp.login');
+		$this->getContext()->getUser()->setAttribute('redirect', 'http://www.example.com/', 'org.quiote.SampleApp.login');
 		$this->runView();
 		if (method_exists($this, 'assertViewResultEquals')) { $this->assertViewResultEquals(''); }
 		if (method_exists($this, 'assertViewRedirectsTo')) { $this->assertViewRedirectsTo(['code' => '302', 'location' => 'http://www.example.com/']); }

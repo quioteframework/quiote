@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Agavi Sample App, ja\n"
+"Project-Id-Version: Quiote Sample App, ja\n"
 "POT-Creation-Date: 2006-10-13 16:20+0200\n"
 "PO-Revision-Date: 2007-05-14 09:25+0900\n"
 "Last-Translator: MugeSo <mugeso@mugeso.com>\n"
@@ -42,12 +42,12 @@ msgid "Thank you for logging out!"
 msgstr "ログアウトありがとう！"
 
 #: ../app/modules/Default/templates/Master.php:5
-msgid "Default Agavi Module"
-msgstr "デフォルトAgaviモジュール"
+msgid "Default Quiote Module"
+msgstr "デフォルトQuioteモジュール"
 
 #: ../app/modules/Default/templates/Master.php:124
-msgid "Agavi Sample Application"
-msgstr "Agavi サンプルアプリケーション"
+msgid "Quiote Sample Application"
+msgstr "Quiote サンプルアプリケーション"
 
 #: ../app/modules/Default/templates/Master.php:136
 msgid "Current language:"
@@ -132,8 +132,8 @@ msgid "404 Not Found"
 msgstr "404 Not Found"
 
 #: ../app/modules/Default/views/IndexSuccessView.class.php:33
-msgid "Welcome to the Agavi Sample Application"
-msgstr "Agaviサンプルアプリケーションへようこそ"
+msgid "Welcome to the Quiote Sample Application"
+msgstr "Quioteサンプルアプリケーションへようこそ"
 
 #: ../app/modules/Default/views/LoginSuccessView.class.php:63
 msgid "Login Successful"
@@ -170,9 +170,9 @@ msgid ""
 "place, this means you will see a standard 404 page of your web server, "
 "unless you configured an ErrorDocument 404 or some similar setting. If "
 "rewrite rules are in place (i.e. no index.php part in the URL), you will be "
-"shown the Agavi 404 document. This is correct and expected behavior."
+"shown the Quiote 404 document. This is correct and expected behavior."
 msgstr ""
 "不正なURLにリダイレクトされようとしています。(mod_rewriteなどの)書き換えルールがない場合"
 "ウェブサーバの標準404ページが表示されます。ErrorDocument 404設定をしている場合などはそれに従います。"
-"書き換えルールがある場合(この時 index.php がURLに含まれません)、Agaviの404ドキュメントが表示されます。"
+"書き換えルールがある場合(この時 index.php がURLに含まれません)、Quioteの404ドキュメントが表示されます。"
 "これは正しく予想された動作です。"

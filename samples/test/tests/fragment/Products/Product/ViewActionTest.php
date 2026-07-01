@@ -1,13 +1,13 @@
 <?php
 
-use Agavi\Testing\AgaviActionTestCase;
+use Quiote\Testing\ActionTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
- * @AgaviActionName Products.View
- * @AgaviModuleName Products
+ * @ActionName Products.View
+ * @ModuleName Products
  */
-class Products_Product_ViewActionTest extends AgaviActionTestCase
+class Products_Product_ViewActionTest extends ActionTestCase
 {
 	protected static $products = [
 		[

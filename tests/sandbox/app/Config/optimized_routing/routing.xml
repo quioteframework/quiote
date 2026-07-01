@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configurations xmlns="http://quiote.org/quiote/1.0/config">
+  <configuration>
+    <routes>
+      <!-- Minimal, callback/source-free route set to exercise optimized router features -->
+      <route name="index" pattern="^/$" module="Default" action="Index" />
+      <route name="with_param" pattern="^/withparam/(number:\\d+)$" module="Test" action="Param" />
+      <route name="with_two_params" pattern="^/withmultipleparams/(number:\\d+)/(string:\\w+)$" module="Test" action="ParamMulti" />
+      <!-- Hierarchy with parent + child -->
+      <route name="parent" pattern="^/parent" module="Default" action="Parent">
+        <route name=".child" pattern="^/child$" action=".Child" />
+      </route>
+      <!-- Implied route test: implied non-stopping route preceding main trigger route -->
+      <route name="implied" pattern="^/implytest$" module="Default" action="Implied" stop="false" imply="true" />
+      <route name="trigger" pattern="^/trigger$" module="Default" action="Trigger" />
+      <!-- Output type + locale + param expansion -->
+      <route name="locale_route" pattern="^/locale/(lang:\\w+)$" module="Default" action="Locale" locale="{lang}" output_type="html" />
+      <!-- Method constraint (only write i.e. POST) -->
+      <route name="post_only" pattern="^/submit$" module="Default" action="Submit" constraint="write" />
+      <!-- Method transformation: sets request method dynamically -->
+      <route name="method_transform" pattern="^/transform/(newmethod:\\w+)$" module="Default" action="Method" method="{newmethod}" />
+    </routes>
+  </configuration>
+</configurations>

@@ -208,7 +208,7 @@ if($_POST['step'] == count($steps)-1) {
 	// we're done
 	// let's assemble the output file and send it to the browser!
 	header('Content-Type: application/x-httpd-php');
-	header('Content-Disposition: attachment; filename=agavi-routing-testcase-' . $_POST['mode'] . '-' . gmdate('Ymd') . '.php');
+	header('Content-Disposition: attachment; filename=quiote-routing-testcase-' . $_POST['mode'] . '-' . gmdate('Ymd') . '.php');
 	$data = [];
 	foreach($steps as $step => $info) {
 		if(!isset($_POST['data'][$step])) {
@@ -228,7 +228,7 @@ if($_POST['step'] == count($steps)-1) {
 ?>
 <html>
 <head>
-<title>Agavi Routing Test<?php if($_POST['step'] > 0): ?>, step <?php echo $_POST['step']; ?> of <?php echo (count($steps)-2); endif; ?></title>
+<title>Quiote Routing Test<?php if($_POST['step'] > 0): ?>, step <?php echo $_POST['step']; ?> of <?php echo (count($steps)-2); endif; ?></title>
 </head>
 <body>
 <form id="zeform" action="<?php echo htmlspecialchars($_POST['prefix'] . $steps[$_POST['step']+1]['uri']); ?>" method="post">

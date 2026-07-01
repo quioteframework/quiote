@@ -1,0 +1,310 @@
+<?php
+namespace Quiote\Testing;
+
+use Quiote\Config\Config;
+use Quiote\Testing\Attributes\Bootstrap;
+use Quiote\Testing\Attributes\ClearIsolationCache;
+use Quiote\Testing\Attributes\IsolationDefaultContext;
+use Quiote\Testing\Attributes\IsolationEnvironment;
+use Quiote\Util\Toolkit;
+use PHPUnit\Framework\TestCase;
+use ReflectionClass;
+use ReflectionMethod;
+
+/**
+ * PhpUnitTestCase is the base class for all Quiote Testcases.
+ * @since      1.0.0
+ * @version    1.0.0
+ */
+abstract class PhpUnitTestCase extends TestCase
+{
+    use PHPUnitTestCaseMethods;
+	/**
+	 * @var        string  the name of the environment to bootstrap in isolated tests.
+	 */
+	protected $isolationEnvironment;
+	
+	/**
+	 * @var        string  the name of the default context to use in isolated tests.
+	 */
+	protected $isolationDefaultContext;
+	
+	/**
+	 * @var         bool if the cache in the isolated process should be cleared
+	 */
+	protected $clearIsolationCache = false;
+	
+
+	
+	
+	/**
+	 * set the environment to bootstrap in isolated tests
+	 * @param        string the name of the environment
+	 * @since        1.0.0
+	 */
+	public function setIsolationEnvironment($environmentName)
+	{
+		$this->isolationEnvironment = $environmentName;
+	}
+	
+	
+	/**
+	 * get the environment to bootstrap in isolated tests
+	 * @return       string the name of the isolation environment
+	 * @since        1.0.0
+	 */
+	public function getIsolationEnvironment()
+	{
+		$environmentName = null;
+		
+		// PHPUnit 12 compatibility: use PHP 8 attributes instead of deprecated getAnnotations()
+		try {
+			$methodName = $this->name();  // Changed from getName() to name() for PHPUnit 12
+			$reflectionMethod = new \ReflectionMethod($this, $methodName);
+			
+			// Check for method-level attribute
+			$attributes = $reflectionMethod->getAttributes(IsolationEnvironment::class);
+			if (!empty($attributes)) {
+				$environmentName = $attributes[0]->newInstance()->environment;
+			} else {
+				// Check for class-level attribute
+				$reflectionClass = new \ReflectionClass($this);
+				$classAttributes = $reflectionClass->getAttributes(IsolationEnvironment::class);
+				if (!empty($classAttributes)) {
+					$environmentName = $classAttributes[0]->newInstance()->environment;
+				} elseif (!empty($this->isolationEnvironment)) {
+					$environmentName = $this->isolationEnvironment;
+				}
+			}
+		} catch (\Exception) {
+			// Fallback to property if reflection fails
+			if (!empty($this->isolationEnvironment)) {
+				$environmentName = $this->isolationEnvironment;
+			}
+		}
+		
+		return $environmentName;
+	}
+	
+	
+	/**
+	 * set the default context to use in isolated tests
+	 * @param        string the name of the context
+	 * @since        1.0.0
+	 */
+	public function setIsolationDefaultContext($contextName)
+	{
+		$this->isolationDefaultContext = $contextName;
+	}
+	
+	
+	/**
+	 * get the default context to use in isolated tests
+	 * @return       string the default context to use in isolated tests
+	 * @since        1.0.0
+	 */
+	public function getIsolationDefaultContext()
+	{
+		$ctxName = null;
+		
+		// PHPUnit 12 compatibility: use PHP 8 attributes instead of deprecated getAnnotations()
+		try {
+			$reflectionMethod = new \ReflectionMethod($this, $this->name());
+			
+			// Check for method-level attribute
+			$attributes = $reflectionMethod->getAttributes(IsolationDefaultContext::class);
+			if (!empty($attributes)) {
+				$ctxName = $attributes[0]->newInstance()->context;
+			} else {
+				// Check for class-level attribute
+				$reflectionClass = new \ReflectionClass($this);
+				$classAttributes = $reflectionClass->getAttributes(IsolationDefaultContext::class);
+				if (!empty($classAttributes)) {
+					$ctxName = $classAttributes[0]->newInstance()->context;
+				} elseif (!empty($this->isolationDefaultContext)) {
+					$ctxName = $this->isolationDefaultContext;
+				}
+			}
+		} catch (\Exception) {
+			// Fallback to property if reflection fails
+			if (!empty($this->isolationDefaultContext)) {
+				$ctxName = $this->isolationDefaultContext;
+			}
+		}
+		
+		return $ctxName;
+	}
+	
+	
+	/**
+	 * set whether the cache should be cleared for the isolated subprocess
+	 * @param        bool true if the cache should be cleared
+	 * @since        1.0.0
+	 */
+	public function setClearCache($flag)
+	{
+		$this->clearIsolationCache = (bool)$flag;
+	}
+	
+	
+	/**
+	 * check whether to clear the cache in isolated tests
+	 * @return       bool true if the cache is cleared in isolated tests
+	 * @since        1.0.0
+	 */
+	public function getClearCache()
+	{
+		$flag = $this->clearIsolationCache;
+		
+		try {
+			$reflectionMethod = new \ReflectionMethod($this, $this->name());
+			
+			// Check for PHP 8 attribute first
+			$attributes = $reflectionMethod->getAttributes(ClearIsolationCache::class);
+			if (!empty($attributes)) {
+				$flag = true;
+			} else {
+				// Check class-level attribute
+				$reflectionClass = new \ReflectionClass($this);
+				$classAttributes = $reflectionClass->getAttributes(ClearIsolationCache::class);
+				if (!empty($classAttributes)) {
+					$flag = true;
+				}
+			}
+		} catch (\Exception) {
+			// Fallback to property if reflection fails
+		}
+		
+		return $flag;
+	}
+	
+	/**
+	 * Retrieve the classes and defining files the given class depends on (including the given class)
+	 * @param        ReflectionClass The class to get the dependend classes for.
+	 * @param        callable A callback function which takes a file name as argument
+	 *                        and returns whether the file is blacklisted.
+	 * @return       string[] An array containing class names as keys and path to the 
+	 *                        file's defining class as value.
+	 * @since        1.0.0
+	 */
+
+	
+	/**
+	 * Set up the test environment. If running with isolation attributes,
+	 * bootstrap Quiote with the specified environment.
+	 * @since        1.0.0
+	 */
+	protected function setUp(): void
+	{
+		parent::setUp();
+
+		// Always clear the APCu config cache between tests so compiled configs
+		// from one test (e.g. a different locale or environment) don't bleed
+		// into the next one running in the same PHP process.
+		if (defined('QUIOTE_USE_APCU_CONFIG_CACHE') && QUIOTE_USE_APCU_CONFIG_CACHE) {
+			\Quiote\Config\APCuConfigCache::clear();
+		}
+		
+		// Get isolation settings from attributes
+		$isolationEnvironment = $this->getIsolationEnvironment();
+		$isolationDefaultContext = $this->getIsolationDefaultContext();
+		$clearCache = $this->getClearCache();
+		
+		// If we have isolation settings and are running in a separate process,
+		// bootstrap Quiote with the specified environment
+		if ($isolationEnvironment && $this->isRunInSeparateProcess()) {
+			// Clear cache if requested
+			if ($clearCache) {
+				Toolkit::clearCache();
+			}
+			
+			// Set the testing environment configuration before bootstrap
+			Config::set('testing.environment', $isolationEnvironment, true, true);
+			
+			// Set default context if specified
+			if ($isolationDefaultContext) {
+				Config::set('core.default_context', $isolationDefaultContext, true, true);
+			}
+			
+			// Bootstrap Quiote with the isolation environment
+			\Quiote\Quiote::bootstrap($isolationEnvironment);
+		} elseif (!Config::get('core.environment')) {
+			// Non-isolated test and Quiote not yet bootstrapped - bootstrap with default testing environment
+			\Quiote\Quiote::bootstrap('testing');
+		}
+	}
+	
+	/**
+	 * Check if this test method should run in a separate process
+	 * by looking for the RunInSeparateProcess attribute on method or class
+	 * @return bool
+	 */
+	private function isRunInSeparateProcess(): bool
+	{
+		try {
+			// Check method-level attribute first
+			$reflectionMethod = new \ReflectionMethod($this, $this->name());
+			$methodAttributes = $reflectionMethod->getAttributes(\PHPUnit\Framework\Attributes\RunInSeparateProcess::class);
+			if (!empty($methodAttributes)) {
+				return true;
+			}
+			
+			// Check class-level attributes
+			$reflectionClass = new \ReflectionClass($this);
+			$classAttributes = $reflectionClass->getAttributes(\PHPUnit\Framework\Attributes\RunInSeparateProcess::class);
+			if (!empty($classAttributes)) {
+				return true;
+			}
+			
+			// Also check for RunTestsInSeparateProcesses attribute on class
+			$runTestsAttributes = $reflectionClass->getAttributes(\PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses::class);
+			return !empty($runTestsAttributes);
+			
+		} catch (\Exception) {
+			return false;
+		}
+	}
+	
+	/**
+	 * Clean up after the test has run
+	 */
+	protected function tearDown(): void
+	{
+		parent::tearDown();
+		// Nothing special needed for cleanup in our simplified approach
+	}
+	
+	/**
+	 * Whether or not an quiote bootstrap should be done in isolation.
+	 * @return       boolean true if quiote should be bootstrapped
+	 * @since        1.0.0
+	 */
+	protected function doBootstrap()
+	{
+		$flag = true;
+		
+		try {
+			$reflectionMethod = new \ReflectionMethod($this, $this->name());
+			
+			// Check for PHP 8 attribute first
+			$attributes = $reflectionMethod->getAttributes(Bootstrap::class);
+			if (!empty($attributes)) {
+				$attribute = $attributes[0]->newInstance();
+				$flag = $attribute->bootstrap;
+			} else {
+				// Check class-level attribute
+				$reflectionClass = new \ReflectionClass($this);
+				$classAttributes = $reflectionClass->getAttributes(Bootstrap::class);
+				if (!empty($classAttributes)) {
+					$attribute = $classAttributes[0]->newInstance();
+					$flag = $attribute->bootstrap;
+				}
+			}
+		} catch (\Exception) {
+			// Keep default flag = true if reflection fails
+		}
+		
+		return $flag;
+	}
+	
+}

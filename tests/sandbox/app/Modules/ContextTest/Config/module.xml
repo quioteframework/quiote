@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ae:configurations xmlns="http://quiote.dev/quiote/config/parts/module/1.1" xmlns:ae="http://quiote.dev/quiote/config/global/envelope/1.1">
+	<ae:configuration>
+		
+		<module enabled="true">
+			<settings>
+				<setting name="title">ContextTest Module</setting>
+				<setting name="version">1.0</setting>
+				<setting name="quiote.action.path">%core.module_dir%/${moduleName}/Actions/${actionName}Action.php</setting>
+				<setting name="quiote.view.path">%core.module_dir%/${moduleName}/Views/${viewName}View.php</setting>
+				<setting name="quiote.view.name">${actionName}${viewName}</setting>
+				<setting name="quiote.cache.path">%core.module_dir%/${moduleName}/Cache/${actionName}.xml</setting>
+				<setting name="quiote.validate.path">%core.module_dir%/${moduleName}/Validate/${actionName}.xml</setting>
+				<setting name="quiote.template.directory">%core.module_dir%/${module}/Templates</setting>
+			</settings>
+		</module>
+		
+	</ae:configuration>
+</ae:configurations>

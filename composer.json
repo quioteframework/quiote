@@ -1,20 +1,23 @@
 {
-	"name": "agavi/agavi-php84",
-	"description": "Agavi is a full-featured MVC-style framework for PHP5 with a strong focus on structure, code reusability and flexibility.",
+	"name": "quioteframework/quiote",
+	"description": "Quiote is a full-featured MVC-style framework for PHP 8.5+ with a strong focus on structure, code reusability and flexibility.",
 	"keywords": ["framework", "mvc"],
-	"homepage": "http://agavi.org",
+	"homepage": "https://github.com/quioteframework/quiote",
 	"type": "library",
 	"license": "LGPL-2.1+",
 	"authors": [
 		{
-			"name": "Agavi Contributors",
-			"homepage": "https://github.com/agavi/agavi/graphs/contributors"
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quiote/quiote/graphs/contributors"
+		},
+		{
+		  "name": "Markus Lervik <markus@saake.li>"
 		}
 	],
 	"support": {
-		"issues": "https://github.com/agavi/agavi/issues",
-		"wiki": "https://github.com/agavi/agavi/wiki",
-		"irc": "irc://irc.freenode.org/agavi"
+		"issues": "https://github.com/quiote/quiote/issues",
+		"wiki": "https://github.com/quiote/quiote/wiki",
+		"irc": "irc://irc.freenode.org/quiote"
 	},
 	"require": {
 		"php": ">=8.5.0",
@@ -51,16 +54,16 @@
 		"phpunit/phpunit": "Install phpunit if you want to run your tests",
 		"ext-xdebug": "Optional for coverage and debugging",
 		"ext-xsl": "Required only for transformation of pre 1.0 style configuration files",
-		"ext-tokenizer": "Enable the tokenizer extension allows Agavi to generate more efficient config-caches",
-		"ext-session": "If the session extension is disabled you'll have to build your own session storage system and hook it into agavi",
+		"ext-tokenizer": "Enable the tokenizer extension allows Quiote to generate more efficient config-caches",
+		"ext-session": "If the session extension is disabled you'll have to build your own session storage system and hook it into quiote",
 		"ext-xmlrpc": "Enable the xmlrpc extension if you want to use XML-RPC features",
-		"ext-soap": "Enable the xmlrpc extension if you want to use Agavi's SOAP features",
+		"ext-soap": "Enable the xmlrpc extension if you want to use Quiote's SOAP features",
 		"ext-pdo": "PDO is required for database connectors that use PDO as base",
 		"ext-iconv": "Enable iconv if you need to convert between other charset than iso-8859-1 and utf-8"
 	},
 	"scripts": {
-		"test": "php -d apc.enable_cli=0 vendor/bin/phpunit --no-coverage -c test/config/phpunit.xml",
-		"test:apcu": "php -d apc.enable_cli=1 vendor/bin/phpunit --no-coverage -c test/config/phpunit.xml --group apcu"
+		"test": "php -d apc.enable_cli=0 vendor/bin/phpunit --no-coverage -c tests/config/phpunit.xml",
+		"test:apcu": "php -d apc.enable_cli=1 vendor/bin/phpunit --no-coverage -c tests/config/phpunit.xml --group apcu"
 	},
 	"scripts-descriptions": {
 		"test": "Run the full test suite with APCu disabled (default, deterministic).",
@@ -68,21 +71,21 @@
 	},
 	"autoload": {
 		"psr-4": {
-			"Agavi\\": ["src/"],
-			"Sandbox\\App\\": ["test/sandbox/app/"],
-			"SandboxAppRoutingGenerated\\": ["test/sandbox/app/Routing/Generated/"]
+			"Quiote\\": ["Quiote/"],
+			"Sandbox\\App\\": ["tests/sandbox/app/"],
+			"SandboxAppRoutingGenerated\\": ["tests/sandbox/app/Routing/Generated/"]
 		}
 	},
 	"autoload-dev": {
 		"psr-4": {
-			"Sandbox\\": ["test/sandbox/app/"],
-			"Agavi\\Test\\Routing\\": ["test/lib/routing/"],
-			"AgaviTestGeneratedTest1\\": ["test/GeneratedRoutes/test1/"],
-			"AgaviTestGeneratedTest2\\": ["test/GeneratedRoutes/test2/"]
+			"Sandbox\\": ["tests/sandbox/app/"],
+			"Quiote\\Test\\Routing\\": ["tests/lib/routing/"],
+			"QuioteTestGeneratedTest1\\": ["tests/GeneratedRoutes/test1/"],
+			"QuioteTestGeneratedTest2\\": ["tests/GeneratedRoutes/test2/"]
 		},
 		"classmap": [
-			"test/lib/"
+			"tests/lib/"
 		]
 	},
-	"bin": ["etc/composer/bin/agavi"]
+	"bin": ["etc/composer/bin/quiote"]
 }

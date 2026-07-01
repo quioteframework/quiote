@@ -1,9 +1,9 @@
 <?php
 
-use Agavi\Testing\AgaviViewTestCase;
+use Quiote\Testing\ViewTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 
-class Products_Product_ViewSuccessViewTest extends AgaviViewTestCase
+class Products_Product_ViewSuccessViewTest extends ViewTestCase
 {
 
 	public function __construct($name = NULL, array $data = [], $dataName = '')

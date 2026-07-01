@@ -1,0 +1,41 @@
+<?php
+
+use Quiote\Testing\UnitTestCase;
+
+// Base class for validator tests (renamed *.base.php to avoid direct PHPUnit discovery)
+class BaseValidatorTest extends UnitTestCase
+{
+	protected function executeValidator($class, $value, array $errors = [], $parameters = [])
+	{
+		$vm = $this->getContext()->createInstanceFor('validation_manager');
+		$validator = $vm->createValidator($class, ['value'], $errors, $parameters);
+		$rd = $this->newWebRequest(['value' => $value]);
+		$result = $validator->execute($rd);
+		
+		return [
+			'result' => $result,
+			'vm' => $vm,
+			'rd' => $rd
+		];
+	}
+	
+	protected function doTestExecute($class, $value, $expectedResult, $expectedError = null, array $errors = [], array $parameters = [])
+	{
+		$res = $this->executeValidator($class, $value, $errors, $parameters);
+		$this->assertSame($expectedResult, $res['result']);
+		$errorMessages = $res['vm']->getReport()->getErrorMessages();
+		if($expectedError === null) {
+			$this->assertCount(0, $errorMessages);
+		} else {
+			$this->assertCount(1, $errorMessages);
+			$this->assertSame($expectedError, reset($errorMessages));
+		}
+	}
+
+	public function testBaseValidatorDummy()
+	{
+		$this->assertTrue(true);
+	}
+}
+
+?>

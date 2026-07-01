@@ -1,0 +1,228 @@
+<?php
+namespace Quiote;
+
+use Quiote\Config\Config;
+use Quiote\Config\ConfigCache;
+use Quiote\Config\APCuConfigCache;
+use Quiote\Exception\QuioteException;
+use Quiote\Util\Toolkit;
+
+// check minimum PHP version
+Config::set('core.minimum_php_version', '8.5.0');
+if(version_compare(PHP_VERSION, Config::get('core.minimum_php_version'), '<') ) {
+	trigger_error('Quiote requires PHP version ' . Config::get('core.minimum_php_version') . ' or greater', E_USER_ERROR);
+}
+
+// define a few filesystem paths
+Config::set('core.quiote_dir', $quiote_config_directive_core_quiote_dir = __DIR__, true, true);
+
+// default exception template
+Config::set('exception.default_template', $quiote_config_directive_core_quiote_dir . '/Exception/templates/plaintext.php');
+
+// required files
+require_once($quiote_config_directive_core_quiote_dir . '/version.php');
+// clean up (we don't want collisions with whatever file included us, in case you were wondering about the ugly name of that var)
+unset($quiote_config_directive_core_quiote_dir);
+
+
+/**
+ * Main framework class used for autoloading and initial bootstrapping of Quiote.
+ * @since      1.0.0
+ * @version    1.0.0
+ */
+final class Quiote
+{
+	/**
+     * Startup the Quiote core
+     * @param      string environment the environment to use for this session.
+     * @since      1.0.0
+     */
+    /**
+     * Bootstrap the Quiote core (environment + optional context pre-initialization).
+     * Backward compatible signature extension:
+     *  - Previous: bootstrap('env')
+     *  - New:      bootstrap('env', 'web') or bootstrap('env', ['web','api'], ['prewarm' => true])
+     * @param string|null               $environment Environment name (core.environment)
+     * @param string|array|null         $contexts    One or multiple context names to pre-create
+     * @param array                     $options     ['prewarm' => bool] force prewarm
+     * @return array{contexts: array<string, \Quiote\Context>} Context map (may be empty)
+     */
+    public static function bootstrap($environment = null, $contexts = null, array $options = [])
+	{
+
+		try {
+			if($environment === null) {
+				// no env given? let's read one from core.environment
+				$environment = Config::get('core.environment');
+			} elseif(Config::has('core.environment') && Config::isReadonly('core.environment')) {
+				// env given, but core.environment is read-only? then we must use that instead and ignore the given setting
+				$environment = Config::get('core.environment');
+			}
+
+			if($environment === null) {
+				// still no env? oh man...
+				throw new QuioteException('You must supply an environment name to Quiote::bootstrap() or set the name of the default environment to be used in the configuration directive "core.environment".');
+			}
+
+			// finally set the env to what we're really using now.
+			Config::set('core.environment', $environment, true, true);
+
+			Config::set('core.debug', false, false);
+
+			if(!Config::has('core.app_dir')) {
+				throw new QuioteException('Configuration directive "core.app_dir" not defined, terminating...');
+			}
+
+			// define a few filesystem paths
+			Config::set('core.cache_dir', Config::get('core.app_dir') . '/cache', false, true);
+
+			Config::set('core.config_dir', Config::get('core.app_dir') . '/Config', false, true);
+
+			Config::set('core.system_config_dir', Config::get('core.quiote_dir') . '/Config/defaults', false, true);
+
+			Config::set('core.lib_dir', Config::get('core.app_dir') . '/Lib', false, true);
+
+			Config::set('core.model_dir', Config::get('core.app_dir') . '/Models', false, true);
+
+			Config::set('core.module_dir', Config::get('core.app_dir') . '/Modules', false, true);
+
+			Config::set('core.template_dir', Config::get('core.app_dir') . '/Templates', false, true);
+			Config::set('core.cldr_dir', Config::get('core.quiote_dir') . '/Translation/data', false, true);
+
+			// load base settings
+			if(defined('\QUIOTE_USE_APCU_CONFIG_CACHE') && \QUIOTE_USE_APCU_CONFIG_CACHE) {
+				APCuConfigCache::load(Config::get('core.config_dir') . '/settings.xml');
+			} else {
+				ConfigCache::load(Config::get('core.config_dir') . '/settings.xml');
+			}
+
+			// clear our cache if the conditions are right
+			if(Config::get('core.debug')) {
+				Toolkit::clearCache();
+
+				// load base settings
+				if(defined('QUIOTE_USE_APCU_CONFIG_CACHE') && QUIOTE_USE_APCU_CONFIG_CACHE) {
+					APCuConfigCache::load(Config::get('core.config_dir') . '/settings.xml');
+				} else {
+					ConfigCache::load(Config::get('core.config_dir') . '/settings.xml');
+				}
+			}
+
+			// compile.xml aggregation removed; rely on autoload + opcache.
+
+
+			// Normalize contexts argument
+			$contextList = [];
+			if($contexts !== null) {
+				if(is_string($contexts)) {
+					$contextList = [$contexts];
+				} elseif(is_array($contexts)) {
+					$contextList = $contexts;
+				}
+			}
+			// If no contexts explicitly provided, we can still prewarm default if requested.
+			$createdContexts = [];
+			foreach($contextList as $ctxName) {
+				$ctxName = strtolower((string) $ctxName);
+				$ctx = \Quiote\Context::getInstance($ctxName);
+				$createdContexts[$ctxName] = $ctx;
+				// Prime controller & output types (forces factories + output_types.xml load)
+				try {
+					$controller = $ctx->getController();
+					if(method_exists($controller, 'startup')) {
+						$controller->startup();
+					}
+					// Touch default output type to ensure it's in-memory
+					$controller->getOutputType();
+				} catch(\Throwable $e) {
+					\Quiote\Logging\Log::create('Quiote.Quiote')->debug('bootstrap controller prime failed for context ' . $ctxName . ': ' . $e->getMessage());
+				}
+			}
+
+			// Decide prewarm
+			$doPrewarm = $options['prewarm'] ?? false;
+			if(!$doPrewarm) {
+				if(defined('QUIOTE_USE_APCU_CONFIG_CACHE') && QUIOTE_USE_APCU_CONFIG_CACHE) {
+					$envPrewarm = getenv('QUIOTE_APCU_PREWARM');
+					if($envPrewarm !== false && in_array(strtolower($envPrewarm), ['1','true','yes','on'], true)) {
+						$doPrewarm = true;
+					}
+					if(Config::has('core.apcu_prewarm') && Config::get('core.apcu_prewarm')) {
+						$doPrewarm = true;
+					}
+				}
+			}
+			if($doPrewarm && defined('QUIOTE_USE_APCU_CONFIG_CACHE') && QUIOTE_USE_APCU_CONFIG_CACHE) {
+				// Prewarm for each explicit context, or default context if none provided
+				if($createdContexts) {
+					foreach(array_keys($createdContexts) as $c) {
+						self::prewarm($c);
+					}
+				} else {
+					self::prewarm(Config::get('core.default_context'));
+				}
+			}
+
+			return ['contexts' => $createdContexts];
+
+		} catch(\Exception $e) {
+			QuioteException::render($e);
+		}
+	}
+
+	/**
+	 * Prewarm APCu configuration and translation caches to avoid first-request latency.
+	 * Safe to call multiple times (idempotent-ish). Only active when APCu config cache is enabled.
+	 * @param string|null $context Context name for context-specific caches (routing, factories)
+	 */
+	public static function prewarm(?string $context = null): void
+	{
+		if(!(defined('\QUIOTE_USE_APCU_CONFIG_CACHE') && \QUIOTE_USE_APCU_CONFIG_CACHE)) {
+			return; // feature disabled
+		}
+		if(!class_exists(APCuConfigCache::class)) {
+			return;
+		}
+		if(!APCuConfigCache::isAvailable()) {
+			return;
+		}
+		try {
+			// Warm core config/routing/databases/logging/etc.
+			APCuConfigCache::warmup([], $context);
+			// Legacy CLDR supplemental + timezone prewarm removed (intl extension now authoritative)
+			// Record status metadata fetch (optional touch)
+			APCuConfigCache::getStatus();
+		} catch(\Throwable $e) {
+			// Swallow errors; prewarm is opportunistic
+			\Quiote\Logging\Log::create('Quiote.Quiote')->warning('prewarm failed: '.$e->getMessage());
+		}
+	}
+
+	/**
+	 * Retrieve (and optionally prime) a context instance.
+	 * Convenience wrapper so worker front controllers can call
+	 *   $ctx = Quiote::context('web', true);
+	 * instead of manual Context::getInstance + priming logic.
+	 * @param string|null $name   Context name (defaults to core.default_context)
+	 * @param bool        $prime  Prime controller/output types immediately
+	 * @return Context
+	 */
+	public static function context(?string $name = null, bool $prime = false): Context
+	{
+		$ctx = Context::getInstance($name);
+		if($prime) {
+			try {
+				$controller = $ctx->getController();
+				if(method_exists($controller, 'startup')) {
+					$controller->startup();
+				}
+				$controller->getOutputType();
+			} catch(\Throwable $e) {
+				\Quiote\Logging\Log::create('Quiote.Quiote')->debug('context prime failed: '.$e->getMessage());
+			}
+		}
+		return $ctx;
+	}
+}
+
+?>

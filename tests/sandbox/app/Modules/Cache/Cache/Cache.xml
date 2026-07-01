@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ae:configurations xmlns:ae="http://quiote.dev/quiote/config/global/envelope/1.1" xmlns="http://quiote.dev/quiote/config/parts/caching/1.1">
+  <ae:configuration>
+    <caching lifetime="5 minutes" enabled="true">
+      <group source="locale">locale</group>
+      <view module="Cache">Success</view>
+      <action_attribute>foo</action_attribute>
+      <output_type name="html">
+        <layer name="*" />
+        <template_variable>*</template_variable>
+        <request_attribute>*</request_attribute>
+        <request_attribute_namespace>*</request_attribute_namespace>
+      </output_type>
+    </caching>
+  </ae:configuration>
+</ae:configurations>

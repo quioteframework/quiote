@@ -1,17 +1,17 @@
 <?php header('Content-Type: text/html; charset=utf-8'); ?>
 <html>
 	<head>
-		<title>Agavi SOAP Test</title>
+		<title>Quiote SOAP Test</title>
 		<meta http-equiv="Content-Type" value="text/html; charset=utf-8" />
 	</head>
 	<body>
-		<h1>Agavi SOAP Test</h1>
+		<h1>Quiote SOAP Test</h1>
 <?php
 
 ini_set('soap.wsdl_cache_enabled', 0);
 
 // this test.wsdl contains the URL to the service. You have to edit it to match your setup.
-$client = new SoapClient('http://localhost/~dzuelke/Code/oss/agavi/branches/1.0/samples/pub/products.wsdl', [
+$client = new SoapClient('http://localhost/~dzuelke/Code/oss/quiote/branches/1.0/samples/pub/products.wsdl', [
 	/* so we can get last request and response */
 	'trace' => true,
 ]);

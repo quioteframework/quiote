@@ -1,21 +1,21 @@
 <?php
 
-class Default_SendWsdlAction extends AgaviSampleAppDefaultBaseAction
+class Default_SendWsdlAction extends SampleAppDefaultBaseAction
 {
-	public function execute(AgaviRequestDataHolder $rd)
+	public function execute(RequestDataHolder $rd)
 	{
-		if(AgaviConfig::get('core.debug')) {
+		if(Config::get('core.debug')) {
 			ini_set('soap.wsdl_cache_enabled', 0);
 		}
 		
 		try {
-			$sc = AgaviContext::getInstance('soap');
+			$sc = Context::getInstance('soap');
 			$wsdl = $sc->getRouting()->getWsdlPath();
 			if($wsdl && is_readable($wsdl)) {
 				$this->setAttribute('wsdl', $wsdl);
 				return 'Success';
 			}
-		} catch(AgaviException) {
+		} catch(Exception) {
 		}
 		return 'Error';
 	}

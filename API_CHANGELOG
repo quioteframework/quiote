@@ -1,4 +1,4 @@
-AGAVI API CHANGELOG
+QUIOTE API CHANGELOG
 ===================
 
 0.11.0 (November 3, 2007)
@@ -7,9 +7,9 @@ API Changes:
  action/
 
   CHG:
-   AgaviAction:
+   QuioteAction:
     CHG:
-!    execute* & validate* & handleError: They now take the parameters (in form of an AgaviRequestDataHolder) as parameter and shouldn't access the request parameters directly anymore
+!    execute* & validate* & handleError: They now take the parameters (in form of an QuioteRequestDataHolder) as parameter and shouldn't access the request parameters directly anymore
      execute & validate: its not required to define (execute|validate) anymore, but instead you can define execute(Read|Write|...) for each input method you want to handle
 !    getCredential: renamed to getCredentials()
 !    getDefaultView: renamed to getDefaultViewName()
@@ -19,35 +19,35 @@ API Changes:
 !    getRequestMethods: gone, this is now handled by the existance of (execute|validate)(Read|Write|...) methods
 
   REM:
-   AgaviActionStack & AgaviActionStackEntry:
-!    superseded by AgaviExecutionContainer
+   QuioteActionStack & QuioteActionStackEntry:
+!    superseded by QuioteExecutionContainer
 
 
  config/
   The entire config management has been adjusted to support different 
-  configuration formats. The new AgaviConfigValueHolder class represenets a
+  configuration formats. The new QuioteConfigValueHolder class represenets a
   tree like data structure which gets created by the parsers for the specific
   configuration formats.
 
   ADD:
-   AgaviConfig:
+   QuioteConfig:
      a new class for storing the configuration entries for the framework in a "registry"
 
-   AgaviConfigParser
+   QuioteConfigParser
      a new class representing an abstract configuration parser
 
-   AgaviConfigValueHolder
+   QuioteConfigValueHolder
      a new class representing a configuration value (with attributes and childs or a value)
 
   REM:
    IniConfigHandler:
-!    is completely replaced by AgaviConfigHandler (which is independant of the config format)
+!    is completely replaced by QuioteConfigHandler (which is independant of the config format)
 
-   AgaviParameterParser:
+   QuioteParameterParser:
 !    removed, not needed anymore
 
   CHG:
-   AgaviConfigCache:
+   QuioteConfigCache:
     ADD:
      parseConfig: a new method to parse a configuration file with the parser defined for its extension
     CHG:
@@ -56,7 +56,7 @@ API Changes:
      getCacheName: a new optional string parameter for specifying the context
 !    import: a string parameter specifying the the context as been inserted at position 2 (so once is now the 3. parameter)
 
-   AgaviConfigHandler:
+   QuioteConfigHandler:
     ADD:
      getValidationFile: a new method to retrieve the validation file path
      getItemParameters: a new method to get the parameters entries of a configuration node
@@ -65,7 +65,7 @@ API Changes:
      execute: has the context name as a new string parameter (defaults to null)
 !    initialize: now takes the new validation file path as the first parameter and the parameters as the second
 !    literalize: returns the php value now instead of a php "code" representation
-!    replaceConstants: doesn't return any constants anymore but instead values from the AgaviConfig registry
+!    replaceConstants: doesn't return any constants anymore but instead values from the QuioteConfig registry
     REM:
 !    addReplacement: removed
 
@@ -73,10 +73,10 @@ API Changes:
  controller/
 
   ADD:
-   AgaviExecutionContainer:
+   QuioteExecutionContainer:
      Replace action stacks, fully encapsulate action executions
 
-   AgaviOutputType:
+   QuioteOutputType:
      Holds all information about an Output Type.
 
   REM:
@@ -84,11 +84,11 @@ API Changes:
 !    removed, these cases are now handled by the general controller and the routing
 
   CHG:
-   AgaviController:
+   QuioteController:
     ADD:
      loadFilters: new method to load the filters into a filterchain
      getGlobalResponse: new method
-     getOutputType: retrieves an AgaviOutputType instance
+     getOutputType: retrieves an QuioteOutputType instance
     CHG:
      dispatch: now already implemented here and takes parameters as parameter
      actionExists: renamed to resolveAction, the action name is now optional and there is 'auto resolving' in place
@@ -96,37 +96,37 @@ API Changes:
      getAction / getView: now named createActionInstance / createViewInstance
     REM:
      forward: removed
-!    getGlobalModel & getModel: this is now handled by AgaviContext::getModel
-!    getInstance: removed, now handled via the AgaviContext instance
-!    newInstance: removed now handled via the AgaviContext instance
+!    getGlobalModel & getModel: this is now handled by QuioteContext::getModel
+!    getInstance: removed, now handled via the QuioteContext instance
+!    newInstance: removed now handled via the QuioteContext instance
 !    registerShutdownListener: removed
 !    setExecutionFilterClassName: removed, this is now handled via the configuration
 !    inCLI: removed
-!    redirect: moved to AgaviResponse
+!    redirect: moved to QuioteResponse
 
-   AgaviWebController:
+   QuioteWebController:
     CHG:
      initalize: now takes parameters as second parameter
     REM:
-!    genUrl: removed, this is now done via AgaviRouting::gen()
+!    genUrl: removed, this is now done via QuioteRouting::gen()
      getContentType: removed
      setContentType: removed
 
 
  core/
   ADD:
-   Agavi:
-     new class for bootstrapping agavi
+   Quiote:
+     new class for bootstrapping quiote
 
   REM:
-   AgaviObject:
+   QuioteObject:
 !    removed, not needed anymore
 
   CHG:
-   AgaviContext:
+   QuioteContext:
     ADD:
      getName: new method
-     getModel: moved from AgaviController
+     getModel: moved from QuioteController
      getLoggerManager: new method
      getRouting: new method
      getTranslationManager: new method
@@ -146,11 +146,11 @@ API Changes:
  database/
   All the database class names have been renamed to be proper camelcased (no more ...MySQL...)
 
-  AgaviDatabase:
+  QuioteDatabase:
     getDatabaseManager: new method
 !   initialize: now takes the databasemanager as first parameter and the parameters as second (they were the only params)
 
-  AgaviDatabaseManager:
+  QuioteDatabaseManager:
 !   initiliaze: now takes the context and optional parameters as parameter
 
 
@@ -159,7 +159,7 @@ API Changes:
 
 
  exception/
-  AgaviException:
+  QuioteException:
 !   getName: removed
 !   setName: removed
 !   printStackTrace: format parameter gone and 3 new parameters now
@@ -169,31 +169,31 @@ API Changes:
   The filter handling has changed a little (there are different types of filters and interfaces for them)
 
   BasicSecurityFilter:
-!   renamed to AgaviSecurityFilter
+!   renamed to QuioteSecurityFilter
 
-  AgaviFilter:
-!   execute: now takes an AgaviResponse as additional parameter
+  QuioteFilter:
+!   execute: now takes an QuioteResponse as additional parameter
 
   SecurityFilter:
-!   is now an interface (AgaviISecurityFilter)
+!   is now an interface (QuioteISecurityFilter)
 
 
  logging/
   The logging levels are now bitmasks so they can be combined using binary or.
-  AgaviAppender:
-!   initialize: now takes an AgaviContext as first parameter and the parameters are now optional
+  QuioteAppender:
+!   initialize: now takes an QuioteContext as first parameter and the parameters are now optional
     getContext: new method
 
-  AgaviFileAppender:
-!   initialize: now takes an AgaviContext as first parameter and the parameters are now optional
+  QuioteFileAppender:
+!   initialize: now takes an QuioteContext as first parameter and the parameters are now optional
 !   _getHandle: renamed to getHandle
 
-  AgaviLogger:
+  QuioteLogger:
     ALL: new class constant specifying all log levels
 !   setPriority: renamed to setLevel
 
-  AgaviLoggerManager:
-!   initialize: not static anymore, now takes an AgaviContext as first parameter and optional parameters as second parameter
+  QuioteLoggerManager:
+!   initialize: not static anymore, now takes an QuioteContext as first parameter and optional parameters as second parameter
     getContext: new method
 !   getLogger: not static anymore
 !   getLoggerNames: not static anymore
@@ -203,27 +203,27 @@ API Changes:
 !   log: not static anymore
 !   shutdown: not static anymore
 
-  AgaviMailAppender:
+  QuioteMailAppender:
 !   removed
 
-  AgaviMessage:
+  QuioteMessage:
     __construct: priority renamed to level
 !   setPriority: renamed to setLevel
 !   getPriority: renamed to getLevel
 
-  AgaviStderrAppender:
-!   initialize: now takes an AgaviContext as first parameter and the parameters are now optional
+  QuioteStderrAppender:
+!   initialize: now takes an QuioteContext as first parameter and the parameters are now optional
 
-  AgaviStdoutAppender:
-!   initialize: now takes an AgaviContext as first parameter and the parameters are now optional
+  QuioteStdoutAppender:
+!   initialize: now takes an QuioteContext as first parameter and the parameters are now optional
 
 
  model/
-  AgaviModel:
+  QuioteModel:
     initialize: now takes parameters as optional second parameter
 
   SingletonModel:
-!   removed, now handled by simply implementing AgaviISingletonModel
+!   removed, now handled by simply implementing QuioteISingletonModel
 
 
  renderer/
@@ -232,16 +232,16 @@ API Changes:
 
  request/
   ADD:
-   AgaviRequestDataHolder & AgaviWebRequestDataHolder:
+   QuioteRequestDataHolder & QuioteWebRequestDataHolder:
      Hold all request data - parameters, files, cookies, headers and so on
-   AgaviUploadedFile:
+   QuioteUploadedFile:
      Represents an uploaded file
 
   CHG:
    HTTPSRequest:
-!    renamed to AgaviSecureWebRequest
+!    renamed to QuioteSecureWebRequest
 
-   AgaviRequest:
+   QuioteRequest:
 !    all constants have been removed, these are now simply strings (read, write, ...), the error handling has been changed slightly
 !    does not contain any request data directly anymore, has a 
     ADD:
@@ -255,11 +255,11 @@ API Changes:
 !    setMethod: takes a string instead of an int as parameter
     REM:
 !    extractParameters: removed
-!    newInstance: removed now handled via the AgaviContext instance
-!    All error methods (getErrors(), hasError() and so on) moved into AgaviValidationManager
+!    newInstance: removed now handled via the QuioteContext instance
+!    All error methods (getErrors(), hasError() and so on) moved into QuioteValidationManager
 !    All parameter/file/cookie accessors gone, now handled by request data holders
 
-   AgaviWebRequest:
+   QuioteWebRequest:
     ADD:
      getUrlScheme: new method
      getUrlHost: new method
@@ -271,7 +271,7 @@ API Changes:
      getUrl: new method
      hasCookie: new method
     REM:
-!    setCookie: moved to AgaviWebResponse
+!    setCookie: moved to QuioteWebResponse
 
 
  response/
@@ -284,43 +284,43 @@ API Changes:
 
  user/
   ADD:
-   AgaviISecurityUser: new interface for security user
-   AgaviRbacSecurityUser: new class
+   QuioteISecurityUser: new interface for security user
+   QuioteRbacSecurityUser: new class
 
   REM:
-   BasicSecurityUser: merged into AgaviSecurityUser
+   BasicSecurityUser: merged into QuioteSecurityUser
 
   CHG:
-   AgaviUser:
+   QuioteUser:
     ADD:
      getStorageNamespace: new method
-!    newInstance: removed now handled via the AgaviContext instance
+!    newInstance: removed now handled via the QuioteContext instance
 
-   AgaviSecurityUser:
+   QuioteSecurityUser:
     CHG:
 !    hasCredential: renamed to hasCredentials
 
 
  util/
   ADD:
-   AgaviArrayPathDefinition:
+   QuioteArrayPathDefinition:
      new class
-   AgaviAttributeHolder:
+   QuioteAttributeHolder:
      new class
-   AgaviDecimalFormatter:
+   QuioteDecimalFormatter:
      new class
-   AgaviInflector:
+   QuioteInflector:
      new class
-   AgaviVirtualArrayPath:
+   QuioteVirtualArrayPath:
      new class
 
   CHG:
-   AgaviParameterHolder:
+   QuioteParameterHolder:
     CHG:
      getParameter: now supports array syntax in the name
      hasParameter: now supports array syntax in the name
 
-   AgaviToolkit:
+   QuioteToolkit:
     ADD:
      mkdir: new method
      stringBase: new method
@@ -342,11 +342,11 @@ API Changes:
 
  view/
   ADD:
-   AgaviTemplateLayer, AgaviStreamTemplateLayer & AgaviFileTemplateLayer
+   QuioteTemplateLayer, QuioteStreamTemplateLayer & QuioteFileTemplateLayer
      These handle template layering
 
   CHG:
-   AgaviView:
+   QuioteView:
 !    all constants have been removed, simply use the strings now
     ADD:
      getResponse: new method
@@ -359,14 +359,14 @@ API Changes:
 !    setTemplate: the template parameter shouldn't contain the file extension, added second parameter to reenable that behaviour
 
     REM:
-!    decorate: moved to AgaviRenderer
-!    getEngine: moved to AgaviRenderer
+!    decorate: moved to QuioteRenderer
+!    getEngine: moved to QuioteRenderer
 !    importAttributes: removed
-!    preRenderCheck: moved to AgaviRenderer
-!    render: moved to AgaviRenderer
+!    preRenderCheck: moved to QuioteRenderer
+!    render: moved to QuioteRenderer
 
   REM:
    FormPHPView: removed
-   PHPView: moved to AgaviPhpRenderer
-   SmartyView: moved to AgaviSmartyRenderer
-   XSLView: moved to AgaviXslRenderer
+   PHPView: moved to QuiotePhpRenderer
+   SmartyView: moved to QuioteSmartyRenderer
+   XSLView: moved to QuioteXslRenderer

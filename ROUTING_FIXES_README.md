@@ -1,8 +1,8 @@
-# Agavi Routing Fixes for FrankenPHP and Modern Web Servers
+# Quiote Routing Fixes for FrankenPHP and Modern Web Servers
 
 ## Problem Description
 
-The original `AgaviWebRouting.php` had Apache-specific logic for detecting URL rewriting and handling clean URLs. This caused issues when switching from Apache+PHP-FPM to FrankenPHP (or other modern web servers like Nginx/Caddy) because:
+The original `QuioteWebRouting.php` had Apache-specific logic for detecting URL rewriting and handling clean URLs. This caused issues when switching from Apache+PHP-FPM to FrankenPHP (or other modern web servers like Nginx/Caddy) because:
 
 1. The rewrite detection logic only looked for Apache-specific behavior
 2. URL path extraction assumed Apache's specific handling of `$_SERVER` variables
@@ -10,7 +10,7 @@ The original `AgaviWebRouting.php` had Apache-specific logic for detecting URL r
 
 ## Changes Made
 
-### 1. Enhanced Rewrite Detection (`src/Routing/AgaviWebRouting.php`)
+### 1. Enhanced Rewrite Detection (`src/Routing/QuioteWebRouting.php`)
 
 **Before:**
 ```php
@@ -116,7 +116,7 @@ Use the provided `Caddyfile.example` as a starting point for your FrankenPHP con
 
 ```caddy
 your-domain.local {
-    root * /path/to/your/agavi/pub
+    root * /path/to/your/quiote/pub
     php_server
     try_files {path} {path}/ /index.php?{query}
     file_server
@@ -148,7 +148,7 @@ With the changes:
 
 ## Migration from Apache to FrankenPHP
 
-1. Update your `AgaviWebRouting.php` with the provided changes
+1. Update your `QuioteWebRouting.php` with the provided changes
 2. Configure your Caddyfile with proper URL rewriting (use the example)
 3. Test with the debug script to verify detection is working
 4. Deploy and test your application

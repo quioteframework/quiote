@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ae:configurations
+	xmlns="http://quiote.dev/quiote/config/parts/validators/1.1"
+	xmlns:ae="http://quiote.dev/quiote/config/global/envelope/1.1"
+	parent="%core.module_dir%/ControllerTests/config/validators.xml"
+>
+	<ae:configuration>
+		
+		<validators>
+		</validators>
+		
+	</ae:configuration>
+</ae:configurations>

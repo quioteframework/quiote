@@ -1,15 +1,15 @@
 <?php header('Content-Type: text/html; charset=utf-8'); ?>
 <html>
 	<head>
-		<title>Agavi XML-RPC Test</title>
+		<title>Quiote XML-RPC Test</title>
 		<meta http-equiv="Content-Type" value="text/html; charset=utf-8" />
 	</head>
 	<body>
-		<h1>Agavi XML-RPC Test</h1>
+		<h1>Quiote XML-RPC Test</h1>
 <?php
 $request = xmlrpc_encode_request('getProduct', ['id' => 123456], ['encoding' => 'utf-8', 'escaping' => 'markup']);
 
-$url = "http://localhost/~dzuelke/Code/oss/agavi/branches/1.0/samples/pub/xmlrpc.php";
+$url = "http://localhost/~dzuelke/Code/oss/quiote/branches/1.0/samples/pub/xmlrpc.php";
 
 $header[] = "Content-type: text/xml; charset=utf-8";
 $header[] = "Content-length: ".strlen($request);

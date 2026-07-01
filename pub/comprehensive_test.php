@@ -1,19 +1,18 @@
 <?php
 /**
- * Comprehensive Agavi Routing Test with FrankenPHP
- * 
+ * Comprehensive Quiote Routing Test with FrankenPHP
  * This test script validates that the routing detection logic works correctly
  * with FrankenPHP and modern web servers.
  */
 
-// Try to load Agavi classes if available
-$agaviAvailable = false;
-if (file_exists(__DIR__ . '/../src/Util/AgaviToolkit.php')) {
-    require_once __DIR__ . '/../src/Util/AgaviToolkit.php';
-    $agaviAvailable = true;
+// Try to load Quiote classes if available
+$quioteAvailable = false;
+if (file_exists(__DIR__ . '/../src/Util/QuioteToolkit.php')) {
+    require_once __DIR__ . '/../src/Util/QuioteToolkit.php';
+    $quioteAvailable = true;
 }
 
-echo "<h1>Agavi + FrankenPHP Routing Test</h1>\n";
+echo "<h1>Quiote + FrankenPHP Routing Test</h1>\n";
 
 echo "<h2>Environment Information</h2>\n";
 echo "<table border='1' style='border-collapse: collapse; margin-bottom: 20px;'>\n";
@@ -39,7 +38,7 @@ echo "</table>\n";
 
 echo "<h2>Routing Detection Analysis</h2>\n";
 
-// Simulate the exact logic from AgaviWebRouting.php
+// Simulate the exact logic from QuioteWebRouting.php
 $requestUri = $_SERVER['REQUEST_URI'] ?? '';
 $ru = array_merge(['path' => '', 'query' => ''], parse_url('scheme://authority' . $requestUri));
 
@@ -114,7 +113,7 @@ if($rewritten) {
     echo "<p>This means:</p>\n";
     echo "<ul>\n";
     echo "<li>URLs like <code>/some/path</code> will work without <code>index.php</code></li>\n";
-    echo "<li>Agavi routing will generate clean URLs</li>\n";
+    echo "<li>Quiote routing will generate clean URLs</li>\n";
     echo "<li>The updated routing code is functioning as expected</li>\n";
     echo "</ul>\n";
 } else {
@@ -149,15 +148,15 @@ echo "<li><a href='" . htmlspecialchars($basePath . '/debug_routing') . "' targe
 echo "</ul>\n";
 echo "</div>\n";
 
-if($agaviAvailable) {
-    echo "<h2>Agavi Integration Status</h2>\n";
+if($quioteAvailable) {
+    echo "<h2>Quiote Integration Status</h2>\n";
     echo "<div style='background-color: #e8f5e8; padding: 15px; border-radius: 5px; border: 2px solid #4caf50;'>\n";
-    echo "<p><strong>✓ Agavi classes are available!</strong> The routing fixes can be tested with your actual Agavi application.</p>\n";
+    echo "<p><strong>✓ Quiote classes are available!</strong> The routing fixes can be tested with your actual Quiote application.</p>\n";
     echo "</div>\n";
 } else {
-    echo "<h2>Agavi Integration Status</h2>\n";
+    echo "<h2>Quiote Integration Status</h2>\n";
     echo "<div style='background-color: #fff3cd; padding: 15px; border-radius: 5px; border: 2px solid #ffc107;'>\n";
-    echo "<p><strong>⚠ Agavi classes not loaded.</strong> This is a standalone test. To test with your full Agavi application, ensure the framework is properly bootstrapped.</p>\n";
+    echo "<p><strong>⚠ Quiote classes not loaded.</strong> This is a standalone test. To test with your full Quiote application, ensure the framework is properly bootstrapped.</p>\n";
     echo "</div>\n";
 }
 
@@ -165,14 +164,14 @@ echo "<h2>Next Steps</h2>\n";
 echo "<div style='background-color: #e3f2fd; padding: 15px; border-radius: 5px; border: 2px solid #2196f3;'>\n";
 echo "<ol>\n";
 echo "<li><strong>Verify the test results above</strong> - If rewriting is detected, your setup is working</li>\n";
-echo "<li><strong>Test with your actual Agavi application</strong> - Replace this test with your real app</li>\n";
-echo "<li><strong>Check generated URLs</strong> - Ensure Agavi generates clean URLs without index.php</li>\n";
+echo "<li><strong>Test with your actual Quiote application</strong> - Replace this test with your real app</li>\n";
+echo "<li><strong>Check generated URLs</strong> - Ensure Quiote generates clean URLs without index.php</li>\n";
 echo "<li><strong>Test routing functionality</strong> - Verify that your routes work with clean URLs</li>\n";
 echo "</ol>\n";
 echo "</div>\n";
 
 echo "<footer style='margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 0.9em;'>\n";
-echo "<p>Generated at " . date('Y-m-d H:i:s') . " | FrankenPHP + Caddy + Agavi Routing Test</p>\n";
+echo "<p>Generated at " . date('Y-m-d H:i:s') . " | FrankenPHP + Caddy + Quiote Routing Test</p>\n";
 echo "</footer>\n";
 
 ?>

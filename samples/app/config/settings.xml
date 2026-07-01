@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<ae:configurations xmlns:ae="http://agavi.org/agavi/config/global/envelope/1.1" xmlns="http://agavi.org/agavi/config/parts/settings/1.1">
+<ae:configurations xmlns:ae="http://quiote.dev/quiote/config/global/envelope/1.1" xmlns="http://quiote.dev/quiote/config/parts/settings/1.1">
 	<ae:configuration>
 		
 		<system_actions>
@@ -37,7 +37,7 @@
 		</system_actions>
 		
 		<settings>
-			<setting name="app_name">Agavi Sample Application</setting>
+			<setting name="app_name">Quiote Sample Application</setting>
 			
 			<setting name="available">true</setting>
 			<setting name="debug">false</setting>
@@ -49,8 +49,8 @@
 		</settings>
 
 		<exception_templates>
-			<exception_template>%core.agavi_dir%/exception/templates/shiny.php</exception_template>
-			<exception_template context="console">%core.agavi_dir%/exception/templates/plaintext.php</exception_template>
+			<exception_template>%core.quiote_dir%/exception/templates/shiny.php</exception_template>
+			<exception_template context="console">%core.quiote_dir%/exception/templates/plaintext.php</exception_template>
 		</exception_templates>
 
 	</ae:configuration>

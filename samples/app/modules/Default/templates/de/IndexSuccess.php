@@ -1,8 +1,8 @@
-Agavi läuft standardmäßig im Debug-Modus, was bedeutet, dass bei jedem Seitenaufruf alle Konfigurationsdateien neu geparst werden. Deshalb sind die Seitenladezeiten unter Umständen sehr hoch. Der Debug-Modus sollte solange aktiviert bleiben, wie mit dieser Installation entwickelt wird. Andernfalls kann er abgeschaltet werden.
+Quiote läuft standardmäßig im Debug-Modus, was bedeutet, dass bei jedem Seitenaufruf alle Konfigurationsdateien neu geparst werden. Deshalb sind die Seitenladezeiten unter Umständen sehr hoch. Der Debug-Modus sollte solange aktiviert bleiben, wie mit dieser Installation entwickelt wird. Andernfalls kann er abgeschaltet werden.
 
 <br/><br/>
 
-<strong>Hinweis:</strong> Alle Dateien und Unterverzeichnisse im Agavi-Cache-Verzeichnis können gefahrlos gelöscht werden.
+<strong>Hinweis:</strong> Alle Dateien und Unterverzeichnisse im Quiote-Cache-Verzeichnis können gefahrlos gelöscht werden.
 
 <br/><br/>
 

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ae:configurations xmlns:ae="http://quiote.dev/quiote/config/global/envelope/1.1" xmlns="http://quiote.dev/quiote/config/parts/config_handlers/1.1" parent="%core.system_config_dir%/config_handlers.xml">
+	<ae:configuration>
+		<handlers>
+			<handler pattern="confighandler-testing" class="ReturnArrayConfigHandler">
+				<validation>confighandler-testing.rng</validation>
+				<transformation>confighandler-testing.xsl</transformation>
+			</handler>
+			<handler pattern="%core.config_dir%/tests/importtest.xml" class="ImportTestHandler" />
+			<handler pattern="%core.config_dir%/tests/importtest_once.xml" class="ImportTestOnceHandler" />
+			<handler pattern="%core.config_dir%/tests/routing_*.xml" class="Quiote\Config\RoutingConfigHandler">
+				<validation>%core.quiote_dir%/Config/xsd/routing.xsd</validation>
+				<transformation>%core.quiote_dir%/Config/xsl/routing.xsl</transformation>
+			</handler>
+		</handlers>
+	</ae:configuration>
+</ae:configurations>

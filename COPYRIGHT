@@ -1,18 +1,18 @@
-AGAVI COPYRIGHT INFORMATION
+QUIOTE COPYRIGHT INFORMATION
 ===========================
 
 
-Agavi
+Quiote
 -----
 
-Agavi is originally based on Mojavi3 r775 by Sean Kerr.
+Quiote is originally based on Mojavi3 r775 by Sean Kerr.
 
-For more information about Agavi, visit the homepage:
-http://www.agavi.org/ 
+For more information about Quiote, visit the homepage:
+http://www.quiote.org/ 
 
 Authors
  Sean Kerr (skerr@mojavi.org)
- Agavi Project (info@agavi.org)
+ Quiote Project (info@quiote.org)
 
 Copyright (c) Authors.
 
@@ -22,7 +22,7 @@ Copyright (c) Authors.
 PHPUnit
 -------
 
-Agavi bundles PHPUnit in a development version to facilitate software testing.
+Quiote bundles PHPUnit in a development version to facilitate software testing.
 
 For more information about PHPUnit, visit the homepage:
 http://phpunit.de/

@@ -1,4 +1,4 @@
-AGAVI RELEASE NOTES (0.10.x)
+QUIOTE RELEASE NOTES (0.10.x)
 ============================
 
 Version 0.10.0 - December 20, 2005
@@ -12,7 +12,7 @@ Several changes to the system core and its structure have been made since 0.9.0.
 
 Controllers may now notify registered listener classes on system shutdown. Use Controller::addShutdownListener() to add a listener that implements the ShutdownListener interface to the list of callbacks.
 
-Action and View class names now support more naming schemes for maximum efficency when using Sub-Actions. The class name for webapp/modules/Default/Yellow/Sub/MarineAction.class.php can now be any of the following: MarineAction, Default_MarineAction, Yellow_Sub_MarineAction, Default_YellowSubMarineAction. The code templates used by the "agavi" helper script now use the last naming scheme. The Agavi team recommends to use this scheme for maximum flexibility and avoiding class name collisions when using Slots or forwarding to other actions. View classes can be named accordingly (MarineInputView, Default_YellowSubMarineSuccessView etc).
+Action and View class names now support more naming schemes for maximum efficency when using Sub-Actions. The class name for webapp/modules/Default/Yellow/Sub/MarineAction.class.php can now be any of the following: MarineAction, Default_MarineAction, Yellow_Sub_MarineAction, Default_YellowSubMarineAction. The code templates used by the "quiote" helper script now use the last naming scheme. The Quiote team recommends to use this scheme for maximum flexibility and avoiding class name collisions when using Slots or forwarding to other actions. View classes can be named accordingly (MarineInputView, Default_YellowSubMarineSuccessView etc).
 
 ExecutionFilters are now user-definable in contexts.ini. This allows developers to build and use their own execution filters and integrate caching mechanisms and other features into the system core.
 
@@ -54,9 +54,9 @@ As usual, you have to register the configuration file in config_handlers.ini. Us
 
 Database
 --------
-As of Agavi 0.10.0, all database drivers will use "username" as the parameter name for storing the database user name. You might have to adapt your databases.ini settings accordingly if you are using a driver that previously used "user" as the parameter name.
+As of Quiote 0.10.0, all database drivers will use "username" as the parameter name for storing the database user name. You might have to adapt your databases.ini settings accordingly if you are using a driver that previously used "user" as the parameter name.
 
-Agavi 0.10.0 ships with new drivers for AdoDB and PDO. For detailed usage information, refer to the sample databases.ini and to the documentation comments inside the database driver class files.
+Quiote 0.10.0 ships with new drivers for AdoDB and PDO. For detailed usage information, refer to the sample databases.ini and to the documentation comments inside the database driver class files.
 
 Also, Propel is now tightly integrated with the framework. The new PropelDatabase driver allows you to benefit from on-demand loading and initialization of Propel, as well as transparent access via Creole using the same configuration file.
 After enabling the autoloading mechanism in autoload.ini and registering a propel runtime configuration file in database.ini, including and initializing Propel by hand is no longer necessary; a call to getConnection() will retrieve a Creole connection instance which uses the same connection as Propel.
@@ -65,7 +65,7 @@ Please note that this new feature requires  Propel 1.2.0 or later and Creole 1.0
 
 Logging
 -------
-Agavi 0.10.0 features a brand-new logging infrastructure. All aspects of logging are configurable via the logging.ini configuration file. Loggers handle all the logging operations and use Layouts to format messages and output them to the desired destination using Appenders. 
+Quiote 0.10.0 features a brand-new logging infrastructure. All aspects of logging are configurable via the logging.ini configuration file. Loggers handle all the logging operations and use Layouts to format messages and output them to the desired destination using Appenders. 
 
 Request
 -------

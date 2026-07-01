@@ -1,0 +1,79 @@
+<?php
+
+use Quiote\Testing\UnitTestCase;
+use Quiote\Exception\QuioteException;
+use PHPUnit\Framework\Attributes\DataProvider;
+
+class ExceptionTest extends UnitTestCase
+{
+	public static function highlightSnippets()
+	{
+		return [
+			'ticket1240' => [
+				'<?php
+class Default_Admin_Widgets_MenuSuccessView extends AdsDefaultBaseView
+{
+	public function executeHtml(RequestDataHolder $rd)
+	{
+		$this->setupHtml($rd);
+		ob_start();?>duda
+ <?php
+throw new Exception();
+ob_end_clean();
+
+	}
+}
+?>'
+			],
+			'empty' => [
+				'',
+			],
+			'empty with newline' => [
+				'
+',
+			],
+			'template starting with PHP code' => [
+				'
+				<?php echo $tm->_("Ohai", "default"); ?>
+				<div />
+				<?php echo $tm->_("Ohai", "default"); ?>
+				'
+			],
+			'template starting with HTML code' => [
+				'
+				<div />
+				<?php echo $tm->_("Ohai", "default"); ?>
+				'
+			],
+		];
+	}
+	
+	#[DataProvider('highlightSnippets')]
+	public function testHighlightStringProducesValidXml($code)
+	{
+		$highlighted = QuioteException::highlightString($code);
+		$highlighted = "<ol>\n<li><code>" . implode("</code></li>\n<li><code>", $highlighted) . "</code></li>\n</ol>";
+
+		$doc = new DOMDocument();
+
+		$luie = libxml_use_internal_errors(true);
+		$doc->loadXML($highlighted);
+		$errors = libxml_get_errors();
+		libxml_use_internal_errors($luie);
+		
+		// Debug output
+		if (count($errors) > 0) {
+			echo "\n--- DEBUG: XML ERRORS ---\n";
+			echo "Highlighted content:\n" . $highlighted . "\n";
+			echo "Errors:\n";
+			foreach ($errors as $error) {
+				echo "- Line {$error->line}: {$error->message}";
+			}
+			echo "--- END DEBUG ---\n";
+		}
+		
+		$this->assertEquals(0, count($errors));
+	}
+}
+
+?>

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ae:configurations
-	xmlns="http://agavi.org/agavi/config/parts/validators/1.1"
-	xmlns:ae="http://agavi.org/agavi/config/global/envelope/1.1"
+	xmlns="http://quiote.dev/quiote/config/parts/validators/1.1"
+	xmlns:ae="http://quiote.dev/quiote/config/global/envelope/1.1"
 	parent="%core.module_dir%/Products/config/validators.xml"
 >
 	<ae:configuration>
@@ -23,13 +23,13 @@
 				</validator>
 			</validator>
 
-			<validator name="product_id_name" class="AgaviSampleAppProductValidator" depends="name_given">
+			<validator name="product_id_name" class="SampleAppProductValidator" depends="name_given">
 				<argument name="id">id</argument>
 				<argument name="name">name</argument>
 				<ae:parameter name="export">product</ae:parameter>
 			</validator>
 
-			<validator name="product_id" class="AgaviSampleAppProductValidator" depends="name_not_given">
+			<validator name="product_id" class="SampleAppProductValidator" depends="name_not_given">
 				<argument>id</argument>
 				<ae:parameter name="export">product</ae:parameter>
 			</validator>

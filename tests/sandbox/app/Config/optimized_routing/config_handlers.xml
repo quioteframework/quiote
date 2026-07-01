@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ae:configurations xmlns:ae="http://quiote.dev/quiote/config/global/envelope/1.1" xmlns="http://quiote.dev/quiote/config/parts/config_handlers/1.1" parent="%core.system_config_dir%/config_handlers.xml">
+  <ae:configuration>
+    <handlers>
+      <handler pattern="%core.config_dir%/routing.xml" class="Quiote\Config\RoutingConfigHandler">
+        <validation>%core.quiote_dir%/Config/xsd/routing.xsd</validation>
+        <transformation>%core.quiote_dir%/Config/xsl/routing.xsl</transformation>
+      </handler>
+      <handler pattern="%core.config_dir%/output_types.xml" class="Quiote\Config\OutputTypesConfigHandler">
+        <validation>%core.quiote_dir%/Config/xsd/output_types.xsd</validation>
+        <transformation>%core.quiote_dir%/Config/xsl/output_types.xsl</transformation>
+      </handler>
+      <handler pattern="%core.config_dir%/factories.xml" class="Quiote\Config\FactoriesConfigHandler">
+        <validation>%core.quiote_dir%/Config/xsd/factories.xsd</validation>
+        <transformation>%core.quiote_dir%/Config/xsl/factories.xsl</transformation>
+      </handler>
+    </handlers>
+  </ae:configuration>
+</ae:configurations>

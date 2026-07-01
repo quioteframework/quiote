@@ -1,48 +1,48 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<ae:configurations xmlns:ae="http://agavi.org/agavi/config/global/envelope/1.1" xmlns="http://agavi.org/agavi/config/parts/factories/1.1">
+<ae:configurations xmlns:ae="http://quiote.dev/quiote/config/global/envelope/1.1" xmlns="http://quiote.dev/quiote/config/parts/factories/1.1">
 	
 	<ae:configuration>
 		
-		<controller class="AgaviController" />
+		<controller class="QuioteController" />
 		
-		<database_manager class="AgaviDatabaseManager" />
+		<database_manager class="QuioteDatabaseManager" />
 		
-		<dispatch_filter class="AgaviDispatchFilter" />
+		<dispatch_filter class="QuioteDispatchFilter" />
 		
 		
-		<execution_filter class="AgaviExecutionFilter" />
+		<execution_filter class="QuioteExecutionFilter" />
 		
-		<filter_chain class="AgaviFilterChain" />
+		<filter_chain class="QuioteFilterChain" />
 		
-		<!-- legacy logger_manager removed (replaced by the PSR-3 Log stack; configure levels/sinks in index.php via Agavi\Logging\Log) -->
+		<!-- legacy logger_manager removed (replaced by the PSR-3 Log stack; configure levels/sinks in index.php via Quiote\Logging\Log) -->
 
-		<request class="AgaviWebRequest" />
+		<request class="QuioteWebRequest" />
 		
-		<response class="AgaviWebResponse">
+		<response class="QuioteWebResponse">
 			<!-- Encode cookies with rawurlencode() instead of urlencode() to make them compliant with RFC 6265. -->
 			<!-- We sadly cannot change the default encoding of cookies as it would be a breaking change for -->
-			<!-- existing Agavi projects, but recommend to set this setting to "rawurlencode" for new projects. -->
+			<!-- existing Quiote projects, but recommend to set this setting to "rawurlencode" for new projects. -->
 			<ae:parameter name="cookie_encode_callback">rawurlencode</ae:parameter>
 		</response>
 		
-		<routing class="AgaviWebRouting" />
+		<routing class="QuioteWebRouting" />
 		
-		<security_filter class="AgaviSecurityFilter" />
+		<security_filter class="QuioteSecurityFilter" />
 		
-		<storage class="AgaviSessionStorage" />
+		<storage class="QuioteSessionStorage" />
 		
-		<user class="AgaviSampleAppUser" />
+		<user class="SampleAppUser" />
 		
-		<translation_manager class="AgaviTranslationManager" />
+		<translation_manager class="QuioteTranslationManager" />
 		
-		<validation_manager class="AgaviValidationManager" />
+		<validation_manager class="QuioteValidationManager" />
 		
 	</ae:configuration>
 	
 	
 	<ae:configuration environment="development.*">
 		
-		<validation_manager class="AgaviValidationManager">
+		<validation_manager class="QuioteValidationManager">
 			<!-- "conditional" mode would allow your actions to work without validation as long as no validators are defined at all -->
 			<!-- this is disabled by default so you don't run into surprises when deploying to production envs (which have "strict" mode enabled) without testing on a staging machine first -->
 			<!-- also, it's not recommended to use any mode other than "strict" -->
@@ -54,7 +54,7 @@
 	
 	<ae:configuration context="web" environment="development.*">
 		
-		<response class="AgaviWebResponse">
+		<response class="QuioteWebResponse">
 			<ae:parameter name="send_content_length">false</ae:parameter>
 		</response>
 	
@@ -62,44 +62,44 @@
 	
 	<ae:configuration context="web" environment="testing.*">
 		
-		<request class="AgaviWebRequest">
+		<request class="QuioteWebRequest">
 			<!-- static values for unit tests -->
 			<ae:parameter name="sources">
 				<ae:parameter name="HTTPS" />
 				<ae:parameter name="REQUEST_METHOD">GET</ae:parameter>
-				<ae:parameter name="SERVER_NAME">samples.agavi.dev</ae:parameter>
+				<ae:parameter name="SERVER_NAME">samples.quiote.dev</ae:parameter>
 				<ae:parameter name="SERVER_PORT">80</ae:parameter>
 				<ae:parameter name="SERVER_PROTOCOL">HTTP/1.1</ae:parameter>
 			</ae:parameter>
 		</request>
 		
-		<storage class="AgaviNullStorage" />
+		<storage class="QuioteNullStorage" />
 		
 	</ae:configuration>
 	
 	
 	<ae:configuration context="console">
 		
-		<request class="AgaviConsoleRequest" />
+		<request class="QuioteConsoleRequest" />
 		
-		<response class="AgaviConsoleResponse" />
+		<response class="QuioteConsoleResponse" />
 		
-		<routing class="AgaviConsoleRouting" />
+		<routing class="QuioteConsoleRouting" />
 		
-		<user class="AgaviSecurityUser" />
+		<user class="QuioteSecurityUser" />
 	
 	</ae:configuration>
 	
 	
 	<ae:configuration context="soap">
 		
-		<controller class="AgaviSoapController" />
+		<controller class="QuioteSoapController" />
 		
-		<request class="AgaviSoapRequest" />
+		<request class="QuioteSoapRequest" />
 		
-		<response class="AgaviSoapResponse" />
+		<response class="QuioteSoapResponse" />
 		
-		<routing class="AgaviSoapRouting">
+		<routing class="QuioteSoapRouting">
 			<ae:parameter name="wsdl_generator">
 				<ae:parameter name="soap">
 					<ae:parameter name="address">
@@ -109,7 +109,7 @@
 			</ae:parameter>
 		</routing>
 		
-		<user class="AgaviSecurityUser" />
+		<user class="QuioteSecurityUser" />
 		
 	</ae:configuration>
 	
@@ -117,11 +117,11 @@
 	<!-- example of Context- and Environment-specific configuration: this is the correct SOAP endpoint URL for David's computer -->
 	<ae:configuration context="soap" environment="development-david">
 		
-		<routing class="AgaviSoapRouting">
+		<routing class="QuioteSoapRouting">
 			<ae:parameter name="wsdl_generator">
 				<ae:parameter name="soap">
 					<ae:parameter name="address">
-						<ae:parameter name="location">http://localhost/~dzuelke/Code/oss/agavi/branches/1.0/samples/pub/soap.php</ae:parameter>
+						<ae:parameter name="location">http://localhost/~dzuelke/Code/oss/quiote/branches/1.0/samples/pub/soap.php</ae:parameter>
 					</ae:parameter>
 				</ae:parameter>
 			</ae:parameter>
@@ -132,13 +132,13 @@
 	
 	<ae:configuration context="xmlrpc">
 		
-		<request class="AgaviXmlrpcepiphpRequest" />
+		<request class="QuioteXmlrpcepiphpRequest" />
 		
-		<response class="AgaviXmlrpcepiphpResponse" />
+		<response class="QuioteXmlrpcepiphpResponse" />
 		
-		<routing class="AgaviXmlrpcepiphpRouting" />
+		<routing class="QuioteXmlrpcepiphpRouting" />
 		
-		<user class="AgaviSecurityUser" />
+		<user class="QuioteSecurityUser" />
 		
 	</ae:configuration>
 	

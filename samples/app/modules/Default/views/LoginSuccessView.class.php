@@ -1,22 +1,8 @@
 <?php
-
-// +---------------------------------------------------------------------------+
-// | This file is part of the Agavi package.                                   |
-// | Copyright (c) 2005-2011 the Agavi Project.                                |
-// |                                                                           |
-// | For the full copyright and license information, please view the LICENSE   |
-// | file that was distributed with this source code. You can also view the    |
-// | LICENSE file online at http://www.agavi.org/LICENSE.txt                   |
-// |   vi: set noexpandtab:                                                    |
-// |   Local Variables:                                                        |
-// |   indent-tabs-mode: t                                                     |
-// |   End:                                                                    |
-// +---------------------------------------------------------------------------+
-
-class Default_LoginSuccessView extends AgaviSampleAppDefaultBaseView
+class Default_LoginSuccessView extends SampleAppDefaultBaseView
 {
 
-	public function executeHtml(AgaviRequestDataHolder $rd)
+	public function executeHtml(RequestDataHolder $rd)
 	{
 		$res = $this->getResponse();
 
@@ -26,8 +12,8 @@ class Default_LoginSuccessView extends AgaviSampleAppDefaultBaseView
 			$res->setCookie('autologon[password]', $this->us->getPassword($rd->getParameter('username')), '+14 days');
 		}
 
-		if($this->us->hasAttribute('redirect', 'org.agavi.SampleApp.login')) {
-			$this->getResponse()->setRedirect($this->us->removeAttribute('redirect', 'org.agavi.SampleApp.login'));
+		if($this->us->hasAttribute('redirect', 'org.quiote.SampleApp.login')) {
+			$this->getResponse()->setRedirect($this->us->removeAttribute('redirect', 'org.quiote.SampleApp.login'));
 			return;
 		}
 

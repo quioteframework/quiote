@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ae:configurations xmlns="http://quiote.dev/quiote/config/parts/validators/1.1" xmlns:ae="http://quiote.dev/quiote/config/global/envelope/1.1">
+	
+	<ae:configuration>
+		<validator_definitions>
+			
+			<validator_definition name="and" class="Quiote\Validator\AndoperatorValidator">
+				<ae:parameter name="break">true</ae:parameter>
+			</validator_definition>
+			
+			<validator_definition name="arraylength" class="Quiote\Validator\ArraylengthValidator">
+				<ae:parameter name="min">1</ae:parameter>
+			</validator_definition>
+			
+			<validator_definition name="boolean" class="Quiote\Validator\BooleanValidator" />
+			
+			<validator_definition name="datetime" class="Quiote\Validator\DateTimeValidator">
+				<ae:parameter name="check">true</ae:parameter>
+			</validator_definition>
+			
+			<validator_definition name="email" class="Quiote\Validator\EmailValidator" />
+			
+			<validator_definition name="equals" class="Quiote\Validator\EqualsValidator" />
+			
+			<validator_definition name="file" class="Quiote\Validator\FileValidator" />
+			
+			<validator_definition name="imagefile" class="Quiote\Validator\ImageFileValidator" />
+			
+			<validator_definition name="inarray" class="Quiote\Validator\InarrayValidator">
+				<ae:parameter name="sep">,</ae:parameter>
+			</validator_definition>
+			
+			<validator_definition name="isset" class="Quiote\Validator\IssetValidator" />
+			
+			<validator_definition name="isnotempty" class="Quiote\Validator\IsNotEmptyValidator" />
+
+			<validator_definition name="json" class="Quiote\Validator\JsonValidator" />
+			
+			<validator_definition name="not" class="Quiote\Validator\NotoperatorValidator" />
+			
+			<validator_definition name="number" class="Quiote\Validator\NumberValidator">
+				<ae:parameter name="type">int</ae:parameter>
+			</validator_definition>
+			
+			<validator_definition name="or" class="Quiote\Validator\OroperatorValidator">
+				<ae:parameter name="break">true</ae:parameter>
+			</validator_definition>
+			
+			<validator_definition name="regex" class="Quiote\Validator\RegexValidator">
+				<ae:parameter name="match">true</ae:parameter>
+			</validator_definition>
+			
+			<validator_definition name="set" class="Quiote\Validator\SetValidator" />
+			
+			<validator_definition name="string" class="Quiote\Validator\StringValidator">
+				<ae:parameter name="min">1</ae:parameter>
+			</validator_definition>
+			
+			<validator_definition name="xor" class="Quiote\Validator\XoroperatorValidator" />
+			
+		</validator_definitions>
+	</ae:configuration>
+	
+</ae:configurations>

@@ -1,0 +1,94 @@
+<?php
+namespace Quiote\Util;
+
+use XSLTProcessor;
+
+/**
+ * Extended XSLTProcessor class that throws exceptions on errors.
+ * @since      1.0.0
+ * @version    1.0.0
+ */
+class QuioteXsltProcessor extends \XSLTProcessor
+{
+	/**
+	 * Import a stylesheet.
+	 * @param      DOMDocument The stylesheet to import.
+	 * @since      1.0.0
+	 */
+	public function importStylesheet($stylesheet): bool
+	{
+		$luie = libxml_use_internal_errors(true);
+		libxml_clear_errors();
+		
+		$retVal = parent::importStylesheet($stylesheet);
+		
+		// libxml_get_last_error() returns false if importStylesheet failed, libxml_get_errors() works nontheless. zomfg libxml.
+		// also, if we catch the errors here and throw an exception, we don't need an @ further down at transformToDoc().
+		if(libxml_get_last_error() !== false || count(libxml_get_errors())) {
+			$errors = [];
+			foreach(libxml_get_errors() as $error) {
+				$errors[] = sprintf('[%s #%d] Line %d: %s', $error->level == LIBXML_ERR_WARNING ? 'Warning' : ($error->level == LIBXML_ERR_ERROR ? 'Error' : 'Fatal'), $error->code, $error->line, $error->message);
+			}
+			libxml_clear_errors();
+			libxml_use_internal_errors($luie);
+			throw new \Exception(
+				sprintf(
+					'Error%s occurred while importing the stylesheet "%s": ' . "\n\n%s",
+					count($errors) > 1 ? 's' : '', 
+					$stylesheet->documentURI,
+					implode("\n", $errors)
+				)
+			);
+		}
+		
+		libxml_use_internal_errors($luie);
+		return $retVal;
+	}
+	
+	/**
+	 * Transform a node with a stylesheet.
+	 * @param      DOMNode The node to transform.
+	 * @return     DOMDocument The resulting DOMDocument.
+	 * @since      1.0.0
+	 */
+	public function transformToDoc($doc, $returnClass = null): false|object
+	{
+		$luie = libxml_use_internal_errors(true);
+		libxml_clear_errors();
+		
+		$result = parent::transformToDoc($doc, $returnClass);
+		
+		// check if result is false, too, as that means the transformation failed for reasons like infinite template recursion
+		if($result === false || libxml_get_last_error() !== false || count(libxml_get_errors())) {
+			$errors = [];
+			foreach(libxml_get_errors() as $error) {
+				$errors[] = sprintf('[%s #%d] Line %d: %s', $error->level == LIBXML_ERR_WARNING ? 'Warning' : ($error->level == LIBXML_ERR_ERROR ? 'Error' : 'Fatal'), $error->code, $error->line, $error->message);
+			}
+			libxml_clear_errors();
+			libxml_use_internal_errors($luie);
+			throw new \Exception(
+				sprintf(
+					'Error%s occurred while transforming the document using an XSL stylesheet: ' . "\n\n%s", 
+					count($errors) > 1 ? 's' : '', 
+					implode("\n", $errors)
+				)
+			);
+		}
+		
+		libxml_use_internal_errors($luie);
+		
+		// turn this into an instance of the class that was passed in, rather than a regular DOMDocument
+		$class = $doc instanceof \DOMDocument ? $doc : ($doc->ownerDocument ?: 'DOMDocument');
+		$document = new $class();
+		$document->loadXML($result->saveXML());
+		
+		// save the URI just in case
+		$document->documentURI = $result->documentURI;
+		
+		unset($result);
+		
+		return $document;
+	}
+}
+
+?>

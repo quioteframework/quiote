@@ -1,4 +1,4 @@
-AGAVI UPGRADING INSTRUCTIONS
+QUIOTE UPGRADING INSTRUCTIONS
 ============================
 
 Upgrading to 1.1 Series from 1.0 Series
@@ -6,27 +6,27 @@ Upgrading to 1.1 Series from 1.0 Series
 
 Configuration
 -------------
-All configuration namespaces got bumped to version 1.1. For example, the envelope namespace is now "http://agavi.org/agavi/config/global/envelope/1.1", and the factories.xml namespace is "http://agavi.org/agavi/config/parts/factories/1.1". XSL transformations will automatically port your existing configuration files to new versions and apply backwards compatibility modifications where necessary. If you do not have the XSL extension installed or if you would like to port the configuration files to the new namespace, adjust the namespace declarations accordingly. Occasionally, you will have to add, change or remove elements; new namespace versions may also affect system behavior. All changes that might affect your application are outlined in this file.
+All configuration namespaces got bumped to version 1.1. For example, the envelope namespace is now "http://quiote.org/quiote/config/global/envelope/1.1", and the factories.xml namespace is "http://quiote.org/quiote/config/parts/factories/1.1". XSL transformations will automatically port your existing configuration files to new versions and apply backwards compatibility modifications where necessary. If you do not have the XSL extension installed or if you would like to port the configuration files to the new namespace, adjust the namespace declarations accordingly. Occasionally, you will have to add, change or remove elements; new namespace versions may also affect system behavior. All changes that might affect your application are outlined in this file.
 
 The substitution of XML entities in configuration files was fixed. This may break your code in very rare cases, as entities were stripped previously.
 
 Filters
 -------
-AgaviIFilter::executeOnce() has been deprecated. The method was a leftover from an early development version of Agavi 0.11 that did not distinguish between global and action filters yet. In almost all cases, if your filter is using this method, you can simply rename it to execute(). If your filter is supposed to be usable both as a global and as an action filter (i.e. by implementing both AgaviIGlobalFilter and AgaviIActionFilter), you can now detect the type of the filter chain the filter is running in by calling AgaviFilterChain::getType().
+QuioteIFilter::executeOnce() has been deprecated. The method was a leftover from an early development version of Quiote 0.11 that did not distinguish between global and action filters yet. In almost all cases, if your filter is using this method, you can simply rename it to execute(). If your filter is supposed to be usable both as a global and as an action filter (i.e. by implementing both QuioteIGlobalFilter and QuioteIActionFilter), you can now detect the type of the filter chain the filter is running in by calling QuioteFilterChain::getType().
 
 Response
 --------
-If you are using custom implementations of AgaviResponse, please make sure to update the merge() method to call parent::merge(). This method was previously declared abstract, but since Agavi 1.1 it contains the necessary code to perform merging of response attributes.
+If you are using custom implementations of QuioteResponse, please make sure to update the merge() method to call parent::merge(). This method was previously declared abstract, but since Quiote 1.1 it contains the necessary code to perform merging of response attributes.
 
 Autoloading
 -----------
-AgaviAutoloader now performs autoloads; class maps or namespaces prefixes may be registered. Namespace autoloading is compliant with the PSR-0 specification.  The <autoload> element in namespace http://agavi.org/agavi/config/parts/autoload/1.1 now allows either a "class" attribute specifying a class name (in which case the element value is the path to the file containing that class) or a "namespace" attribute specifying a namespace prefix (in which case the element value is the path containing the files for that namespace). XSL transformations will transparently convert <autoload> elements with a "name" attribute from older namespaces to the latest version.
+QuioteAutoloader now performs autoloads; class maps or namespaces prefixes may be registered. Namespace autoloading is compliant with the PSR-0 specification.  The <autoload> element in namespace http://quiote.org/quiote/config/parts/autoload/1.1 now allows either a "class" attribute specifying a class name (in which case the element value is the path to the file containing that class) or a "namespace" attribute specifying a namespace prefix (in which case the element value is the path containing the files for that namespace). XSL transformations will transparently convert <autoload> elements with a "name" attribute from older namespaces to the latest version.
 
-AgaviReturnArrayConfigHandler
+QuioteReturnArrayConfigHandler
 -----------------------------
-RACH has been ported to the new-style configuration handler system introduced in Agavi 1.0, and expects your configuration contents to be wrapped in <ae:configurations>/<ae:configuration> elements, like all other Agavi configuration files. The actual content elements must be in no namespace, unless configured otherwise.
-To preserve backward compatibility for existing XML files handled by AgaviReturnArrayConfigHandler, Agavi will insert the necessary transformation rules for <handler class="AgaviReturnArrayConfigHandler"> declarations in config_handlers.xml that have no <transformation> children. If you have already <transformation> rules defined for a <handler class="AgaviReturnArrayConfigHandler"> whose configuration files need transforming from old versions, please add
-  <transformation>%core.agavi_dir%/config/xsl/rach.xsl</transformation>
+RACH has been ported to the new-style configuration handler system introduced in Quiote 1.0, and expects your configuration contents to be wrapped in <ae:configurations>/<ae:configuration> elements, like all other Quiote configuration files. The actual content elements must be in no namespace, unless configured otherwise.
+To preserve backward compatibility for existing XML files handled by QuioteReturnArrayConfigHandler, Quiote will insert the necessary transformation rules for <handler class="QuioteReturnArrayConfigHandler"> declarations in config_handlers.xml that have no <transformation> children. If you have already <transformation> rules defined for a <handler class="QuioteReturnArrayConfigHandler"> whose configuration files need transforming from old versions, please add
+  <transformation>%core.quiote_dir%/config/xsl/rach.xsl</transformation>
 to these elements yourself.
 The handler is also namespace-aware. By default, it will assume your configuration file's actual contents will be in no XML namespace. If you wish to use an XML namespace for those elements, define the corresponding namespace URI using
   <ae:parameter name="namespace_uri">urn:com.acme.rockets</ae:parameter>
@@ -34,7 +34,7 @@ on the affected <handler> elements.
 
 Logging
 -------
-We added a getLevel() method to AgaviLogger and the AgaviILogger interface. This may break your code if you're using the AgaviILogger interface or have added a custom getLevel() method to classes inheriting from AgaviLogger.
+We added a getLevel() method to QuioteLogger and the QuioteILogger interface. This may break your code if you're using the QuioteILogger interface or have added a custom getLevel() method to classes inheriting from QuioteLogger.
 
 Routing
 -------
@@ -46,11 +46,11 @@ Testing
 The PHPUnit minimum requirement has been updated to 3.7.
 This has allowed us to update the test runner infrastructure to remove the custom handling of command line arguments. So  now you pass all command line switches supported by PHPUnit. Additionally bootstrap files are now properly supported. 
 For phpunit.xml configuration files we allow usage of configuration directives in all attributes and texts (disableable with the --no-expand-configuration switch).
-You have to update your run-tests.php files to take advantage of the new features. See test/run-tests.php and test/config/phpunit.xml as examples. This will now check if %core.testing_dir%/config/phpunit.xml exists automatically and use that as configuration file (except you supplied a custom configuration on the command line of course). Also when using the new AgaviPhpUnitCli, your tests will now run in a defined order (see #1532)
+You have to update your run-tests.php files to take advantage of the new features. See test/run-tests.php and test/config/phpunit.xml as examples. This will now check if %core.testing_dir%/config/phpunit.xml exists automatically and use that as configuration file (except you supplied a custom configuration on the command line of course). Also when using the new QuiotePhpUnitCli, your tests will now run in a defined order (see #1532)
 
 Translation
 -----------
-Appending of <filter> elements now works as expected. If you defined multiple <filters> for the same <translator> (e.g. by overwriting a previously defined <translator>) you need to check your translation.xml for occurences triggering the buggy behaviour. Since Agavi 1.0 was not behaving as specified and buggy there is no way to replicate it Agavi 1.1.
+Appending of <filter> elements now works as expected. If you defined multiple <filters> for the same <translator> (e.g. by overwriting a previously defined <translator>) you need to check your translation.xml for occurences triggering the buggy behaviour. Since Quiote 1.0 was not behaving as specified and buggy there is no way to replicate it Quiote 1.1.
 
 Validation
 ----------

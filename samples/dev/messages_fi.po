@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Agavi Sample App, fi\n"
+"Project-Id-Version: Quiote Sample App, fi\n"
 "POT-Creation-Date: 2006-10-13 16:20+0200\n"
 "PO-Revision-Date: 2006-10-13 16:20+0200\n"
 "Last-Translator: Veikko Mäkinen\n"
@@ -42,12 +42,12 @@ msgid "Thank you for logging out!"
 msgstr "Kiitos, kun kirjauduit ulos!"
 
 #: ../app/modules/Default/templates/Master.php:5
-msgid "Default Agavi Module"
-msgstr "Agavin oletusmoduuli"
+msgid "Default Quiote Module"
+msgstr "Quioten oletusmoduuli"
 
 #: ../app/modules/Default/templates/Master.php:124
-msgid "Agavi Sample Application"
-msgstr "Agavi "
+msgid "Quiote Sample Application"
+msgstr "Quiote "
 
 #: ../app/modules/Default/templates/Master.php:136
 msgid "Current language:"
@@ -133,8 +133,8 @@ msgid "404 Not Found"
 msgstr "404, Ei löytynyt"
 
 #: ../app/modules/Default/views/IndexSuccessView.class.php:33
-msgid "Welcome to the Agavi Sample Application"
-msgstr "Tervetuloa Agavin kokeiluohjelmaan"
+msgid "Welcome to the Quiote Sample Application"
+msgstr "Tervetuloa Quioten kokeiluohjelmaan"
 
 #: ../app/modules/Default/views/LoginSuccessView.class.php:63
 msgid "Login Successful"

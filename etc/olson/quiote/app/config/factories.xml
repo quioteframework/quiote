@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configurations xmlns="http://quiote.org/quiote/1.0/config">
+	
+	<configuration>
+		
+		<controller class="QuioteController">
+			<parameter name="send_response">false</parameter>
+		</controller>
+		
+		<dispatch_filter class="QuioteDispatchFilter" />
+		
+		<execution_container class="QuioteExecutionContainer" />
+		
+		<execution_filter class="QuioteExecutionFilter" />
+		
+		<filter_chain class="QuioteFilterChain" />
+		
+		<request class="QuioteWebRequest" />
+		
+		<response class="QuioteWebResponse" />
+		
+		<routing class="QuioteWebserviceRouting">
+			<parameter name="enabled">false</parameter>
+		</routing>
+		
+		<security_filter class="QuioteSecurityFilter" />
+		
+		<storage class="QuioteNullStorage" />
+		
+		<translation_manager class="QuioteTranslationManager" />
+		
+		<user class="QuioteUser" />
+		
+		<validation_manager class="QuioteValidationManager" />
+		
+	</configuration>
+	
+</configurations>

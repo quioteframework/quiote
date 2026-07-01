@@ -1,5 +1,5 @@
-# Example Caddyfile for FrankenPHP with Agavi
-# This configuration should work with the updated AgaviWebRouting.php
+# Example Caddyfile for FrankenPHP with Quiote
+# This configuration should work with the updated QuioteWebRouting.php
 
 {
     # Enable FrankenPHP
@@ -11,8 +11,8 @@
 
 # Replace with your actual domain
 your-domain.local {
-    # Set the document root to your Agavi public directory
-    root * /path/to/your/agavi/pub
+    # Set the document root to your Quiote public directory
+    root * /path/to/your/quiote/pub
     
     # Enable PHP handling with FrankenPHP
     php_server
@@ -43,14 +43,14 @@ your-domain.local {
     
     # Optional: Add access logging
     log {
-        output file /var/log/caddy/agavi-access.log
+        output file /var/log/caddy/quiote-access.log
         format json
     }
 }
 
 # Alternative configuration if you need more control over URL rewriting:
 # your-domain.local {
-#     root * /path/to/your/agavi/pub
+#     root * /path/to/your/quiote/pub
 #     php_server
 #     
 #     # More explicit rewrite rules

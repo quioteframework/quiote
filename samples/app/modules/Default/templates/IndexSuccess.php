@@ -1,4 +1,4 @@
-Agavi has debugging mode on by default, which means it's reparsing every
+Quiote has debugging mode on by default, which means it's reparsing every
 single configuration file on each request. You may experience a slow loading
 page while this is happening. Debugging mode should stay on if you plan on
 developing for this installation. Otherwise you can turn it off.
@@ -6,7 +6,7 @@ developing for this installation. Otherwise you can turn it off.
 <br/><br/>
 
 <strong>NOTE:</strong> It's ok to manually delete all files and sub directories
-in your Agavi cache directory.
+in your Quiote cache directory.
 
 <br/><br/>
 

@@ -48,11 +48,11 @@ msgid "Thank you for logging out!"
 msgstr ""
 
 #: ../app/modules/Default/templates/Master.php:5
-msgid "Default Agavi Module"
+msgid "Default Quiote Module"
 msgstr ""
 
 #: ../app/modules/Default/templates/Master.php:124
-msgid "Agavi Sample Application"
+msgid "Quiote Sample Application"
 msgstr ""
 
 #: ../app/modules/Default/templates/Master.php:136
@@ -139,7 +139,7 @@ msgid "404 Not Found"
 msgstr ""
 
 #: ../app/modules/Default/views/IndexSuccessView.class.php:33
-msgid "Welcome to the Agavi Sample Application"
+msgid "Welcome to the Quiote Sample Application"
 msgstr ""
 
 #: ../app/modules/Default/views/LoginSuccessView.class.php:63

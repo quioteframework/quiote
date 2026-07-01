@@ -6,7 +6,7 @@
 		<whitelist>
 			<directory>%core.app_dir%</directory>
 			<exclude>
-				<directory>%core.agavi_dir%</directory>
+				<directory>%core.quiote_dir%</directory>
 				<directory>%core.cache_dir%</directory>
 			</exclude>
 		</whitelist>

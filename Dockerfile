@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /app
 
-# Copy the Agavi source
+# Copy the Quiote source
 COPY . /app/
 
 # Create a simple test structure
@@ -21,8 +21,8 @@ COPY Caddyfile.test /app/Caddyfile
 
 # Create a minimal index.php for testing
 RUN echo '<?php\n\
-// Minimal Agavi bootstrap for testing routing\n\
-echo "<h1>Agavi Routing Test</h1>";\n\
+// Minimal Quiote bootstrap for testing routing\n\
+echo "<h1>Quiote Routing Test</h1>";\n\
 echo "<p>If you see this via a clean URL (without index.php), routing is working!</p>";\n\
 echo "<p><a href=\"/debug_routing\">Debug Routing Info</a></p>";\n\
 echo "<hr>";\n\
@@ -40,7 +40,7 @@ echo "</table>";\n\
 # Create a test routing configuration (simplified)
 RUN echo '<?php\n\
 // Simple test to verify the routing detection logic works\n\
-require_once __DIR__ . "/../src/Util/AgaviToolkit.php";\n\
+require_once __DIR__ . "/../src/Util/QuioteToolkit.php";\n\
 \n\
 // Simulate the routing detection logic\n\
 $requestUri = $_SERVER["REQUEST_URI"] ?? "";\n\
@@ -63,7 +63,7 @@ if(isset($_SERVER["SCRIPT_NAME"]) && $_SERVER["SCRIPT_NAME"] !== "") {\n\
 \n\
 $rewritten = $apacheRewriteDetected || $modernRewriteDetected;\n\
 \n\
-echo "<h1>Agavi Routing Detection Test</h1>";\n\
+echo "<h1>Quiote Routing Detection Test</h1>";\n\
 echo "<h2>Detection Results</h2>";\n\
 echo "<ul>";\n\
 echo "<li>Apache Rewrite Detected: " . ($apacheRewriteDetected ? "YES" : "NO") . "</li>";\n\

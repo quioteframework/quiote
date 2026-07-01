@@ -12,7 +12,7 @@ DirectorySlash Off
 <IfModule mod_rewrite.c>
 	RewriteEngine On
 	# ********** THIS IS THE ONLY SETTING YOU SHOULD HAVE TO CHANGE **********
-	# e.g. RewriteBase /~dzuelke/Code/oss/agavi/branches/1.0/etc/routing/test-case-generator/
+	# e.g. RewriteBase /~dzuelke/Code/oss/quiote/branches/1.0/etc/routing/test-case-generator/
 	RewriteBase /PATH/IN/URL/TO/etc/routing/test-case-generator/
 	
 	# Special rule for calls to index.php so it can't be called directly, also prevents an infinite loop.
@@ -21,7 +21,7 @@ DirectorySlash Off
 	# "NC" flag is for case insensitivity on OS X and Windows.
 	RewriteCond %{ENV:REDIRECT_STATUS} ^$
 	RewriteRule ^index.php.*$ ./index.php?/$0 [NC,QSA,L]
-	# If the requested URL doesn't exist, let Agavi handle it
+	# If the requested URL doesn't exist, let Quiote handle it
 	RewriteCond %{REQUEST_FILENAME} !-f
 	RewriteRule (.*) index.php?/$1 [QSA,L]
 </IfModule>
