@@ -130,6 +130,16 @@ class AgaviAPCuConfigCache extends AgaviConfigCache
 
         // Cold path: compile and store in APCu for next time.
         // Track context so writeCacheFile() stores under the correct APCu key.
+        //
+        // SAVE/RESTORE (not reset-to-null): compiling a config can trigger nested
+        // checkConfig() calls (module.xml initialization, loadConfigHandlersFile(),
+        // etc.). Each level must restore the *previous* pending context on exit, or
+        // the inner call's finally would clobber the outer context to null — the
+        // outer config would then be stored under context null while its re-fetch
+        // uses the real context, missing, and falling back to a filesystem path that
+        // was never written (APCu stores in shared memory), causing
+        // "require(...): No such file or directory".
+        $previousPendingContext = self::$pendingContext;
         self::$pendingContext = $context;
         try {
             // parent::checkConfig() compiles the config and calls writeCacheFile()
@@ -149,7 +159,7 @@ class AgaviAPCuConfigCache extends AgaviConfigCache
             // APCu not available — return the file path from parent
             return $result;
         } finally {
-            self::$pendingContext = null;
+            self::$pendingContext = $previousPendingContext;
         }
     }
     

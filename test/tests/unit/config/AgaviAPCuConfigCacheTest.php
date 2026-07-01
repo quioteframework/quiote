@@ -438,4 +438,38 @@ class AgaviAPCuConfigCacheTest extends AgaviPhpUnitTestCase
 		$handlerFiles = is_dir($cacheConfigDir) ? glob($cacheConfigDir . DIRECTORY_SEPARATOR . 'config_handlers*') : [];
 		$this->assertSame([], $handlerFiles, 'config_handlers must not be written to the filesystem when APCu is enabled');
 	}
+
+	// ---------------------------------------------------------------
+	// Regression: a nested compile must not clobber the pending context,
+	// which would store the outer config under the wrong (null) key and
+	// then fall back to a non-existent filesystem path
+	// ("require(...): No such file or directory").
+	// ---------------------------------------------------------------
+
+	public function testNestedCompileDoesNotClobberContextKey(): void
+	{
+		$config = AgaviConfig::get('core.config_dir') . '/tests/importtest.xml';
+		$context = 'web';
+
+		// Start cold and forget handlers so compiling $config also runs
+		// loadConfigHandlers() -> a NESTED checkConfig() for config_handlers.xml
+		// (with a null context). That nested call must restore, not null out, the
+		// outer pending context.
+		AgaviAPCuConfigCache::clear();
+		\AgaviTestingConfigCache::resetHandlers();
+
+		// Cold compile WITH a context. The compiled config must end up stored under
+		// that context in APCu, so checkConfig returns the marker (not a filesystem
+		// path that was never written).
+		$result = AgaviAPCuConfigCache::checkConfig($config, $context);
+		$this->assertStringStartsWith(
+			'APCU:',
+			$result,
+			'cold compile with a nested handler load must still store/fetch under the correct context'
+		);
+
+		// A second lookup under the same context must be a straight APCu hit.
+		$again = AgaviAPCuConfigCache::checkConfig($config, $context);
+		$this->assertStringStartsWith('APCU:', $again);
+	}
 }
