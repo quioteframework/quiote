@@ -274,4 +274,110 @@ class CsrfTest extends AgaviUnitTestCase
         $resp = $mw->process(new ServerRequest('GET', 'http://localhost/'), $handler);
         $this->assertStringNotContainsString('_csrf_token', (string) $resp->getBody());
     }
+
+    public function testInjectsIntoXhtmlAndStaysWellFormed(): void
+    {
+        $mw = new CsrfInjectionMiddleware($this->controller());
+        $xhtml = '<?xml version="1.0" encoding="UTF-8"?>'
+            . '<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head>'
+            . '<body><form method="post" action="/save"><input name="a" /></form></body></html>';
+        $handler = new class($xhtml) implements RequestHandlerInterface {
+            public function __construct(private string $xhtml) {}
+            public function handle(ServerRequestInterface $r): ResponseInterface
+            {
+                $factory = new Psr17Factory();
+                return (new Psr7Response(200))
+                    ->withHeader('Content-Type', 'application/xhtml+xml; charset=UTF-8')
+                    ->withBody($factory->createStream($this->xhtml));
+            }
+        };
+        $resp = $mw->process(new ServerRequest('GET', 'http://localhost/'), $handler);
+        $body = (string) $resp->getBody();
+
+        // The token was injected despite the non-text/html content type...
+        $this->assertStringContainsString('name="_csrf_token"', $body);
+        // ...as a self-closing tag...
+        $this->assertMatchesRegularExpression('/name="_csrf_token"[^>]*\/>/', $body);
+        // ...and the document is still well-formed XML.
+        $prev = libxml_use_internal_errors(true);
+        $doc = simplexml_load_string($body);
+        libxml_use_internal_errors($prev);
+        $this->assertNotFalse($doc, 'injected XHTML must remain well-formed XML');
+    }
+
+    // --- XSRF-TOKEN cookie delivery (decoupled same-origin SPA path) ---
+
+    private function jsonHandler(): RequestHandlerInterface
+    {
+        return new class implements RequestHandlerInterface {
+            public function handle(ServerRequestInterface $r): ResponseInterface
+            {
+                $factory = new Psr17Factory();
+                return (new Psr7Response(200))
+                    ->withHeader('Content-Type', 'application/json')
+                    ->withBody($factory->createStream('{"ok":true}'));
+            }
+        };
+    }
+
+    /** Extract the (url-decoded) XSRF-TOKEN value from a response's Set-Cookie headers. */
+    private function xsrfCookie(ResponseInterface $response): ?string
+    {
+        foreach ($response->getHeader('Set-Cookie') as $line) {
+            if (preg_match('/^XSRF-TOKEN=([^;]*)/', $line, $m)) {
+                return rawurldecode($m[1]);
+            }
+        }
+        return null;
+    }
+
+    public function testSetsReadableXsrfCookieForSessionRequest(): void
+    {
+        $mw = new CsrfInjectionMiddleware($this->controller());
+        $resp = $mw->process($this->sessionCookieRequest('GET', 'http://localhost/api/data'), $this->jsonHandler());
+
+        $setCookie = $resp->getHeader('Set-Cookie');
+        $line = null;
+        foreach ($setCookie as $c) {
+            if (str_starts_with($c, 'XSRF-TOKEN=')) {
+                $line = $c;
+            }
+        }
+        $this->assertNotNull($line, 'a session-bearing request must receive an XSRF-TOKEN cookie');
+        $this->assertStringContainsString('SameSite=Lax', $line);
+        $this->assertStringContainsString('Path=/', $line);
+        $this->assertStringNotContainsStringIgnoringCase('HttpOnly', $line, 'the SPA must be able to read this cookie from JS');
+
+        // The delivered token must validate.
+        $token = $this->xsrfCookie($resp);
+        $this->assertNotNull($token);
+        $this->assertTrue($this->manager()->isValid($token));
+    }
+
+    public function testDoesNotSetXsrfCookieWithoutSession(): void
+    {
+        // No session cookie => no ambient credential => CSRF doesn't apply, no token cookie.
+        $mw = new CsrfInjectionMiddleware($this->controller());
+        $resp = $mw->process(new ServerRequest('GET', 'http://localhost/api/data'), $this->jsonHandler());
+        $this->assertNull($this->xsrfCookie($resp));
+    }
+
+    public function testSpaCookieHeaderRoundTrip(): void
+    {
+        // 1. A cookie-authenticated SPA does a GET; it receives the XSRF-TOKEN cookie
+        //    even though the response is JSON (no server-rendered HTML/meta tag).
+        $inject = new CsrfInjectionMiddleware($this->controller());
+        $getResp = $inject->process($this->sessionCookieRequest('GET', 'http://localhost/api/data'), $this->jsonHandler());
+        $token = $this->xsrfCookie($getResp);
+        $this->assertNotNull($token, 'SPA must obtain a token from the cookie');
+
+        // 2. It echoes the cookie value back in the header on a mutation; validation passes.
+        $validate = new CsrfValidationMiddleware($this->controller());
+        $handler = $this->okHandler();
+        $postReq = $this->sessionCookieRequest('POST', 'http://localhost/api/data')
+            ->withHeader('X-CSRF-Token', $token);
+        $postResp = $validate->process($postReq, $handler);
+        $this->assertSame(200, $postResp->getStatusCode());
+        $this->assertTrue($handler->called);
+    }
 }

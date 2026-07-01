@@ -53,6 +53,15 @@ final class CsrfManager
     }
 
     /**
+     * Name of the readable (non-HttpOnly) cookie used to deliver the token to
+     * same-origin SPA/JS clients that don't get a server-rendered meta tag.
+     */
+    public function cookieName(): string
+    {
+        return (string) AgaviConfig::get('core.csrf.cookie_name', 'XSRF-TOKEN');
+    }
+
+    /**
      * HTTP methods that are NOT CSRF-checked (safe / idempotent by convention).
      *
      * @return string[] Upper-cased method names.
