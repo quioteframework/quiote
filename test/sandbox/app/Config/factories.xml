@@ -76,7 +76,11 @@
 			<ae:parameter name="session_id">foobar</ae:parameter>
 		</storage>
 	</ae:configuration>
-	
+
+	<ae:configuration environment="testing.*" context="agavi-session-storage-test::tests-worker-reset-clears-session">
+		<storage class="Agavi\Storage\AgaviSessionStorage" />
+	</ae:configuration>
+
 	<ae:configuration environment="development.*">
 		<response class="Agavi\Response\AgaviWebResponse">
 			<ae:parameter name="send_content_length">false</ae:parameter>

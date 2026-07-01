@@ -76,13 +76,14 @@ class ContentNegotiationMiddleware implements MiddlewareInterface
     /** @return string[] */
     private function detectFromHeader(ServerRequestInterface $request): array
     {
-        AgaviDebugLogger::debug('[ContentNegotiationMiddleware] detecting content type from headers', $this->controller->getContext());
+        $dbg = \Agavi\Util\DebugFlags::$response || \Agavi\Util\DebugFlags::$cookie;
+        if ($dbg) { AgaviDebugLogger::debug('[ContentNegotiationMiddleware] detecting content type from headers', $this->controller->getContext()); }
         if (!$request->hasHeader('Accept')) {
             return [];
         }
         $accept = $request->getHeaderLine('Accept');
         $mime = $this->negotiateHeader($accept, new Negotiator(), MimeTypeRegistry::allMimeTypes());
-        AgaviDebugLogger::debug('[ContentNegotiationMiddleware] got ' . ($mime ?? 'null'), $this->controller->getContext());
+        if ($dbg) { AgaviDebugLogger::debug('[ContentNegotiationMiddleware] got ' . ($mime ?? 'null'), $this->controller->getContext()); }
         return $mime !== null ? MimeTypeRegistry::formatsForMime($mime) : [];
     }
 

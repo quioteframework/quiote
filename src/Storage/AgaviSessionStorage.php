@@ -346,6 +346,25 @@ class AgaviSessionStorage extends AgaviStorage implements SessionHandlerInterfac
 			$this->defaultHandler->close();
 		}
 		$this->defaultHandler = null;
+
+		// FrankenPHP worker mode: the PHP process is long-lived, so PHP's session
+		// module keeps the previous request's session id and $_SESSION contents
+		// even after session_write_close() (called by shutdown() just before this).
+		// If left in place, the next request's startup() sees a non-empty
+		// session_id() and SKIPS session_start() (see startup() guard), silently
+		// inheriting the previous user's session — a cross-user auth/data leak.
+		// Clear both so the next startup() re-reads the incoming request's cookie.
+		// Only touch these when no session is active (the normal post-shutdown
+		// state); never stomp an active, unpersisted session.
+		if (session_status() !== PHP_SESSION_ACTIVE) {
+			$_SESSION = [];
+			if (session_id() !== '') {
+				session_id('');
+			}
+			if(\Agavi\Util\DebugFlags::$session) {
+				AgaviDebugLogger::debug('[AgaviSessionStorage] reset cleared $_SESSION and session id for next worker request', $this->context);
+			}
+		}
 	}
 }
 

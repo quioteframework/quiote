@@ -324,45 +324,59 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 	public function execute()
 	{
 		
-		// Slot recursion guard
+		// Slot recursion guard. $slotStack is static so it survives across
+		// FrankenPHP worker requests; it MUST be popped on every exit (including
+		// exceptions) or it would grow unbounded and eventually mis-fire the
+		// recursion check for a slot merely rendered on many requests. The stack
+		// mirrors the current (properly nested) slot call stack: the count of
+		// $key in it is the live recursion depth of that specific slot.
 		static $slotStack = [];
+		$slotPushed = false;
 		$isSlot = $this->getParameter('is_slot', false);
 		if ($isSlot) {
 			$key = $this->getModuleName() . '/' . $this->getActionName();
 			$slotStack[] = $key;
+			$slotPushed = true;
 			$count = 0;
 			foreach ($slotStack as $slot) {
 				if ($slot === $key) $count++;
 			}
 			if ($count > 10) { // Arbitrary limit, adjust as needed
+				array_pop($slotStack); // undo our push before bailing out
 				throw new AgaviException("Infinite slot recursion detected for slot: $key");
 			}
 		}
 
-		$controller = $this->context->getController();
-
-		$controller->countExecution();
-
-		$moduleName = $this->getModuleName();
-
 		try {
-			$actionInstance = $this->getActionInstance();
-		} catch(AgaviDisabledModuleException) {
-			$this->setNext($this->createSystemActionForwardContainer('module_disabled'));
+			$controller = $this->context->getController();
+
+			$controller->countExecution();
+
+			$moduleName = $this->getModuleName();
+
+			try {
+				$actionInstance = $this->getActionInstance();
+			} catch(AgaviDisabledModuleException) {
+				$this->setNext($this->createSystemActionForwardContainer('module_disabled'));
+				return $this->proceed();
+			} catch(AgaviFileNotFoundException) {
+				$this->setNext($this->createSystemActionForwardContainer('error_404'));
+				return $this->proceed();
+			}
+
+			// copy and merge request data as required
+			$this->initRequestData();
+
+		// Legacy filter chain + security/validation filters removed. Execution proceeds directly.
+
+			// Directly run action + view since legacy filter chain removed.
+			$this->runAction();
 			return $this->proceed();
-		} catch(AgaviFileNotFoundException) {
-			$this->setNext($this->createSystemActionForwardContainer('error_404'));
-			return $this->proceed();
+		} finally {
+			if ($slotPushed) {
+				array_pop($slotStack);
+			}
 		}
-
-		// copy and merge request data as required
-		$this->initRequestData();
-
-	// Legacy filter chain + security/validation filters removed. Execution proceeds directly.
-
-		// Directly run action + view since legacy filter chain removed.
-		$this->runAction();
-		return $this->proceed();
 	}
 	
 	/**

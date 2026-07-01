@@ -30,5 +30,41 @@ class AgaviSessionStorageTest extends AgaviUnitTestCase
 		$storage->startup();
 		$this->assertEquals(session_id(), 'foobar');
 	}
-	
+
+	/**
+	 * Regression test for the FrankenPHP worker-mode cross-user session leak.
+	 *
+	 * In worker mode the PHP process is long-lived, so PHP's session module
+	 * retains the previous request's session id and $_SESSION contents even
+	 * after session_write_close(). AgaviContext::reset() calls storage->reset()
+	 * between requests; that MUST clear both, otherwise the next request's
+	 * startup() sees a non-empty session_id() and skips session_start(),
+	 * silently inheriting the previous user's authenticated session.
+	 */
+	#[RunInSeparateProcess]
+	public function testResetClearsSessionStateForWorkerReuse()
+	{
+		$context = AgaviContext::getInstance('agavi-session-storage-test::tests-worker-reset-clears-session');
+		$storage = new AgaviSessionStorage();
+		$storage->initialize($context);
+
+		// Reproduce the worker-retained state of a prior request (user A) that has
+		// already been session_write_close()'d: status is NONE, but PHP's session
+		// module keeps the id and $_SESSION superglobal alive in the long-lived
+		// process. (In the real flow AgaviContext::reset() calls storage->shutdown()
+		// — which write-closes — immediately before storage->reset().)
+		if (session_status() === PHP_SESSION_ACTIVE) {
+			session_write_close();
+		}
+		session_id('alice-leftover-session-id');
+		$_SESSION = ['authenticated' => true, 'user' => 'alice'];
+		$this->assertNotSame(PHP_SESSION_ACTIVE, session_status(), 'precondition: no active session, mirroring post-shutdown worker state');
+		$this->assertSame('alice-leftover-session-id', session_id(), 'precondition: prior request id lingers in the worker');
+
+		$storage->reset();
+
+		$this->assertSame([], $_SESSION, 'reset() must clear $_SESSION so the next worker request cannot inherit it');
+		$this->assertSame('', session_id(), 'reset() must clear the session id so startup() re-reads the incoming request cookie');
+	}
+
 }
