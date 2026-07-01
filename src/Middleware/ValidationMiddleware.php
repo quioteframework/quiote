@@ -398,7 +398,10 @@ class ValidationMiddleware implements MiddlewareInterface
             // Problem Details document from the validation report. We only do this
             // when the content is NULL — i.e. the error view had no executeJson (or
             // returned null). An explicit empty string is a deliberate "no body"
-            // choice by the view and is respected (blank 400).
+            // choice by the view and is respected (blank 400). A view that DOES
+            // render a JSON body (e.g. json_encode($report->getErrorMessages()))
+            // is left untouched — its output shape is an API contract we must not
+            // silently rewrite.
             $problemJson = false;
             if ($ot === 'json' && $content === null) {
                 $content = $this->buildValidationProblemDetails($vs->getValidationManager(), $errors, $request);

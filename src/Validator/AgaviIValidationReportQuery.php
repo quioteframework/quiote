@@ -129,7 +129,22 @@ interface AgaviIValidationReportQuery
 	 * @since      1.0.0
 	 */
 	public function getErrorMessages();
-	
+
+	/**
+	 * Retrieves all error messages together with the fields that caused them,
+	 * matching the currently defined filter rules.
+	 *
+	 * Each entry has the form array('message' => string, 'errors' => string[]),
+	 * i.e. the same structure the (deprecated) AgaviValidationManager::getErrorMessages()
+	 * returns — provided here as a non-deprecated report-query accessor so callers
+	 * that need the field annotation don't have to reach for the deprecated method.
+	 *
+	 * @return     array An array of array('message' => string, 'errors' => array).
+	 *
+	 * @since      1.1.0
+	 */
+	public function getErrorMessagesWithFields();
+
 	/**
 	 * Retrieves all AgaviValidationArgument objects which match the currently
 	 * defined filter rules.

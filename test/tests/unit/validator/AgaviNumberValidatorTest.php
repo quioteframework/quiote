@@ -106,7 +106,32 @@ class AgaviNumberValidatorTest extends AgaviUnitTestCase
 		$this->assertEquals(1, $this->vm->getReport()->byErrorName('min')->count(), 'Failes asserting that there is one min error.');
 		$this->assertEquals([$minError], $this->vm->getReport()->getErrorMessages(), 'Failed asserting that the min error message is emittet.');
 	}
-	
+
+	public function testGetErrorMessagesWithFieldsAnnotatesTheField()
+	{
+		$minError = 'value too low';
+		$validator = $this->vm->createValidator(AgaviNumberValidator::class, ['number'], ['min' => $minError], $parameters = ['type' => 'int', 'min' => 2]);
+		$rd = $this->newWebRequest(['number' => '1']);
+		$this->assertEquals(AgaviValidator::ERROR, $validator->execute($rd));
+
+		// getErrorMessagesWithFields() must return the field-annotated structure
+		// (the same shape the deprecated AgaviValidationManager::getErrorMessages()
+		// produced), while getErrorMessages() stays a flat list of strings.
+		$this->assertEquals([$minError], $this->vm->getReport()->getErrorMessages());
+		$this->assertEquals(
+			[['message' => $minError, 'errors' => ['number']]],
+			$this->vm->getReport()->getErrorMessagesWithFields()
+		);
+	}
+
+	public function testGetErrorMessagesWithFieldsEmptyOnSuccess()
+	{
+		$validator = $this->vm->createValidator(AgaviNumberValidator::class, ['number'], ['min' => 'value too low'], $parameters = ['type' => 'int', 'min' => 1]);
+		$rd = $this->newWebRequest(['number' => '1']);
+		$this->assertEquals(AgaviValidator::SUCCESS, $validator->execute($rd));
+		$this->assertEquals([], $this->vm->getReport()->getErrorMessagesWithFields());
+	}
+
 	public function testMinSuccess()
 	{
 		$minError = 'value too low';

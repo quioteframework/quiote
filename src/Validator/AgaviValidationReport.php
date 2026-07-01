@@ -478,6 +478,23 @@ class AgaviValidationReport implements AgaviIValidationReportQuery, ResetInterfa
 	{
 		return $this->createQuery()->getErrorMessages();
 	}
+
+	/**
+	 * Retrieves all error messages together with the fields that caused them.
+	 *
+	 * Returns the same array('message' => string, 'errors' => array) structure as
+	 * the deprecated AgaviValidationManager::getErrorMessages(), but as a
+	 * non-deprecated accessor. Callers migrating off the deprecated method can use
+	 * getReport()->getErrorMessagesWithFields() to keep the field-annotated shape.
+	 *
+	 * @return     array An array of array('message' => string, 'errors' => array).
+	 *
+	 * @since      1.1.0
+	 */
+	public function getErrorMessagesWithFields()
+	{
+		return $this->createQuery()->getErrorMessagesWithFields();
+	}
 	
 	/**
 	 * Retrieves all AgaviValidationArgument objects in this report.
