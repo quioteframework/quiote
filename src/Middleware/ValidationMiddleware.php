@@ -369,7 +369,13 @@ class ValidationMiddleware implements MiddlewareInterface
         try {
             $controller = $action->getContext()->getController();
             $vf = new ViewFactory($controller);
-            $ot = strtolower((string) $controller->getOutputType()->getName());
+            // Render the error view in the NEGOTIATED output type — the same one the
+            // successful dispatch would use (ActionDescriptor->outputType, which
+            // RoutingMiddleware derives from the route or the content-negotiated
+            // type), NOT the controller's default. Otherwise an Accept:
+            // application/json request that fails validation would run executeHtml
+            // and return an HTML/blank body.
+            $ot = $this->resolveErrorOutputType($request, $controller);
             $view = $vf->create($viewModule, $viewName, $moduleName, $actionName, $ot, $webRequest, [], $vs->getValidationManager());
             if (!$view) {
                 $factory = new \Nyholm\Psr7\Factory\Psr17Factory();
@@ -379,11 +385,26 @@ class ValidationMiddleware implements MiddlewareInterface
                 $resp = $factory->createResponse(400)->withHeader('X-Agavi-Validation', 'failed')->withHeader('X-Agavi-Validation-Reason', 'view_not_created');
                 return $resp->withBody($factory->createStream(is_string($viewName) ? $viewName : 'Error'));
             }
-            $methodName = 'execute' . ucfirst($ot);
-            if (!is_callable([$view, $methodName])) {
-                $methodName = 'execute';
+            $otMethod = 'execute' . ucfirst($ot);
+            $hasOtMethod = is_callable([$view, $otMethod]);
+            if ($hasOtMethod) {
+                $content = $view->$otMethod($webRequest);
+            } elseif ($ot !== 'json' && is_callable([$view, 'execute'])) {
+                // Legacy fallback for non-JSON output types.
+                $content = $view->execute($webRequest);
+            } else {
+                $content = null;
             }
-            $content = $view->$methodName($webRequest);
+            // For a JSON response with no rendered body, synthesize an RFC 9457
+            // Problem Details document from the validation report. We only do this
+            // when the content is NULL — i.e. the error view had no executeJson (or
+            // returned null). An explicit empty string is a deliberate "no body"
+            // choice by the view and is respected (blank 400).
+            $problemJson = false;
+            if ($ot === 'json' && $content === null) {
+                $content = $this->buildValidationProblemDetails($vs->getValidationManager(), $errors, $request);
+                $problemJson = true;
+            }
             // Stash content for DispatchMiddleware early short-circuit (non-simple container-less path)
             try {
                 $request = $request->withAttribute('validation.error.content', (string)$content);
@@ -391,15 +412,35 @@ class ValidationMiddleware implements MiddlewareInterface
             }
             $factory = new \Nyholm\Psr7\Factory\Psr17Factory();
             $resp = $factory->createResponse(400)->withHeader('X-Agavi-Validation', 'failed');
-            // Prefer Content-Type from output_types.xml; fall back to MimeTypeRegistry autodetection.
-            $primaryMime = null;
-            try {
-                $primaryMime = $controller->getOutputType($ot)->getParameter('http_headers[Content-Type]') ?: null;
-            } catch (\Throwable) {
-            }
-            $primaryMime ??= \Agavi\Http\MimeTypeRegistry::primaryMimeType($ot);
-            if ($primaryMime !== null) {
-                $resp = $resp->withHeader('Content-Type', (string) $primaryMime);
+            if ($problemJson) {
+                // RFC 9457 media type for the synthesized Problem Details body.
+                $resp = $resp->withHeader('Content-Type', 'application/problem+json; charset=UTF-8');
+            } else {
+                // Respect a Content-Type the view explicitly set — notably
+                // application/problem+json when the view used
+                // returnProblemDetailsFromValidationIncidents().
+                $viewContentType = null;
+                try {
+                    $ct = $controller->getGlobalResponse()->getContentType();
+                    if (is_string($ct) && $ct !== '') {
+                        $viewContentType = $ct;
+                    }
+                } catch (\Throwable) {
+                }
+                if ($viewContentType !== null) {
+                    $resp = $resp->withHeader('Content-Type', $viewContentType);
+                } else {
+                    // Prefer Content-Type from output_types.xml; fall back to MimeTypeRegistry autodetection.
+                    $primaryMime = null;
+                    try {
+                        $primaryMime = $controller->getOutputType($ot)->getParameter('http_headers[Content-Type]') ?: null;
+                    } catch (\Throwable) {
+                    }
+                    $primaryMime ??= \Agavi\Http\MimeTypeRegistry::primaryMimeType($ot);
+                    if ($primaryMime !== null) {
+                        $resp = $resp->withHeader('Content-Type', (string) $primaryMime);
+                    }
+                }
             }
             // The X-Agavi-Validation-Errors header leaks internal field/validator
             // structure to the client, so it is opt-in and OFF by default. Enable it
@@ -427,5 +468,73 @@ class ValidationMiddleware implements MiddlewareInterface
             }
             return $resp->withBody($factory->createStream('Error'));
         }
+    }
+
+    /**
+     * Determine the output type to render the validation-error view in: the
+     * negotiated type used by dispatch (ActionDescriptor->outputType, then the
+     * request's 'output_type' attribute), falling back to the controller default.
+     */
+    private function resolveErrorOutputType(\Psr\Http\Message\ServerRequestInterface $request, $controller): string
+    {
+        $descriptor = $request->getAttribute(\Agavi\Execution\ActionDescriptor::class);
+        if ($descriptor instanceof \Agavi\Execution\ActionDescriptor
+            && is_string($descriptor->outputType) && $descriptor->outputType !== '') {
+            return strtolower($descriptor->outputType);
+        }
+        $attrOt = $request->getAttribute('output_type');
+        if (is_string($attrOt) && $attrOt !== '') {
+            return strtolower($attrOt);
+        }
+        try {
+            return strtolower((string) $controller->getOutputType()->getName());
+        } catch (\Throwable) {
+            return 'html';
+        }
+    }
+
+    /**
+     * Build an RFC 9457 (Problem Details) document describing the validation
+     * failures, so API clients that requested application/json receive the actual
+     * field errors even when the action's error view only renders HTML.
+     *
+     * The body is `application/problem+json`:
+     *   {
+     *     "type": "about:blank",           // or core.problem_details.validation_type
+     *     "title": "Bad Request",          // status phrase for about:blank, else the configured title
+     *     "status": 400,
+     *     "instance": "/orders/offers/new",
+     *     "errors": { "field": ["message", ...], ... }   // extension member; "" = non-field errors
+     *   }
+     *
+     * The `errors` map (field -> messages) follows the widely-recognised
+     * validation-problem convention. Falls back to the flat message list under
+     * the "" key when the report cannot be introspected.
+     *
+     * @param object|null $vm       The validation manager (may be null).
+     * @param array        $fallback Flat list of error messages.
+     */
+    private function buildValidationProblemDetails($vm, array $fallback, \Psr\Http\Message\ServerRequestInterface $request): string
+    {
+        $errors = \Agavi\Http\ProblemDetails::extractErrors($vm);
+        if ($errors === [] && $fallback !== []) {
+            // The report had no field-scoped incidents (e.g. a manual validate()
+            // returning false); surface the flat messages as non-field errors.
+            $messages = array_values(array_unique(array_filter(
+                array_map(static fn($m) => (string) $m, $fallback),
+                static fn(string $m) => $m !== ''
+            )));
+            if ($messages !== []) {
+                $errors = ['' => $messages];
+            }
+        }
+
+        $instance = null;
+        try {
+            $instance = $request->getUri()->getPath();
+        } catch (\Throwable) {
+        }
+
+        return \Agavi\Http\ProblemDetails::create(status: 400, instance: $instance, errors: $errors)->toJson();
     }
 }

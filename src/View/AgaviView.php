@@ -158,6 +158,68 @@ abstract class AgaviView implements ResetInterface
 	}
 
 	/**
+	 * Build an RFC 9457 Problem Details body from the current request's validation
+	 * errors, set the response status and `application/problem+json` content type,
+	 * and return the JSON string — designed to be returned directly from an
+	 * executeJson() (or any execute*()) method:
+	 *
+	 *   public function executeJson(AgaviWebRequest $rd)
+	 *   {
+	 *       return $this->returnProblemDetailsFromValidationIncidents(title: 'Invalid order');
+	 *   }
+	 *
+	 * The `errors` map (field => messages) is taken from the live validation
+	 * manager. Pass overrides for title/type/detail/status or extra top-level
+	 * members via $extensions.
+	 *
+	 * @param array<string, mixed> $extensions Extra top-level Problem Details members.
+	 */
+	protected function returnProblemDetailsFromValidationIncidents(
+		?string $title = null,
+		int $status = 400,
+		?string $type = null,
+		?string $detail = null,
+		array $extensions = []
+	): string {
+		$ic = $this->getInitContext();
+		$vm = ($ic !== null && method_exists($ic, 'getValidationManager')) ? $ic->getValidationManager() : null;
+
+		$instance = null;
+		try {
+			$request = $this->getContext()?->getRequest();
+			if ($request !== null && method_exists($request, 'getRequestUri')) {
+				$instance = $request->getRequestUri();
+			}
+		} catch (\Throwable) {
+		}
+
+		$problem = \Agavi\Http\ProblemDetails::fromValidationManager(
+			$vm,
+			status: $status,
+			title: $title,
+			type: $type,
+			detail: $detail,
+			instance: is_string($instance) ? $instance : null,
+			extensions: $extensions
+		);
+
+		try {
+			$response = $this->getResponse();
+			if ($response !== null) {
+				if (method_exists($response, 'setHttpStatusCode')) {
+					$response->setHttpStatusCode($status);
+				}
+				if (method_exists($response, 'setContentType')) {
+					$response->setContentType(\Agavi\Http\ProblemDetails::MEDIA_TYPE);
+				}
+			}
+		} catch (\Throwable) {
+		}
+
+		return $problem->toJson();
+	}
+
+	/**
 	 * Initialize this view.
 	 *
 	 * @param      ActionInitContext Initialization context.
