@@ -295,7 +295,7 @@ $handler = static function () use (&$context) {
     return true;
     } catch (Exception $e) {
         // Log error and return error response
-    \\Agavi\\Logging\\AgaviDebugLogger::debug(\'Worker error: \' . $e->getMessage());
+    \\Agavi\\Logging\\Log::create(\'Agavi.Worker\')->error(\'Worker error: \' . $e->getMessage());
         http_response_code(500);
         echo "Internal Server Error";
         return true;

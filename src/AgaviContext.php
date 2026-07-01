@@ -20,7 +20,6 @@ use Agavi\Config\AgaviConfigCache;
 use Agavi\Config\AgaviAPCuConfigCache;
 use Agavi\Controller\AgaviController;
 use Agavi\Exception\AgaviDisabledModuleException;
-use Agavi\Logging\AgaviLoggerManager;
 use Agavi\Exception\AgaviException;
 use Agavi\Request\AgaviWebRequest;
 use Agavi\Routing\AgaviRouting;
@@ -81,11 +80,6 @@ class AgaviContext implements \Stringable, ResetInterface
    * @var        AgaviDatabaseManager A DatabaseManager instance.
    */
   protected $databaseManager = null;
-
-  /**
-   * @var        AgaviLoggerManager A LoggerManager instance.
-   */
-  protected $loggerManager = null;
 
   /**
    * @var        AgaviWebRequest A Request instance.
@@ -150,11 +144,6 @@ class AgaviContext implements \Stringable, ResetInterface
    * @var        array Controller factory info for worker mode recreation (prevent dynamic property creation)
    */
   protected $controllerFactoryInfo = null;
-
-  /**
-   * @var        array LoggerManager factory info for worker mode recreation (prevent dynamic property creation)
-   */
-  protected $loggerManagerFactoryInfo = null;
 
   /**
    * @var        array TranslationManager factory info for worker mode recreation (prevent dynamic property creation)
@@ -683,23 +672,6 @@ class AgaviContext implements \Stringable, ResetInterface
     return $this->request;
   }
 
-  /**
-   * Retrieve the LoggerManager
-   *
-   * @return     AgaviLoggerManager|null The current LoggerManager implementation
-   *                                     instance or null if logging is disabled.
-   *
-   * @author     David Zülke <dz@bitxtender.com>
-   * @since      0.11.0
-   */
-  public function getLoggerManager()
-  {
-    // Check if logging is enabled at runtime
-    if (!AgaviConfig::get("core.use_logging", false)) {
-      return null;
-    }
-    return $this->loggerManager;
-  }
 
   /**
    * (re)Initialize the AgaviContext instance.
@@ -711,7 +683,6 @@ class AgaviContext implements \Stringable, ResetInterface
    */
   public function initialize()
   {
-    \Agavi\Util\DebugFlags::init();
     try {
       $logger = \Agavi\Logging\Log::for($this);
       if (

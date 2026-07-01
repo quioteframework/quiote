@@ -276,8 +276,8 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 	 */
 	public function execute(AgaviWebRequest $request): bool
 	{
-		$vd = getenv("AGAVI_DEBUG_VALIDATION");
 		$logger = \Agavi\Logging\Log::for($this);
+		$vd = $logger->isEnabled(\Agavi\Logging\Level::Debug);
 
 		// Pre-populate request validated parameters whitelist with the union of all validator argument names.
 		// This allows validators themselves to read the raw input for their declared arguments under always-on enforcement.

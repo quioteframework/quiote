@@ -3,7 +3,6 @@
 use PHPUnit\Framework\TestCase;
 use Agavi\Config\AgaviFactoryConfigHandler;
 use Agavi\Config\AgaviFilterConfigHandler;
-use Agavi\Config\AgaviLoggingConfigHandler;
 use Agavi\Config\Util\DOM\AgaviXmlConfigDomDocument;
 use Agavi\Config\AgaviConfig;
 use Agavi\Exception\AgaviConfigurationException;
@@ -96,33 +95,4 @@ XML;
         $handler->execute($doc);
     }
 
-    public function testLoggingConfigHandlerGeneratesLoggerSetup()
-    {
-        eval('namespace App\\Logging; class SimpleLayout { function initialize($c,$p=[]){} }');
-        eval('namespace App\\Logging; class SimpleAppender { private $layout; function initialize($c,$p=[]){} function setLayout($l){$this->layout=$l;} }');
-        eval('namespace App\\Logging; class SimpleLogger { private $appenders=[]; private $lvl=null; function initialize($c,$p=[]){} function setAppender($n,$a){$this->appenders[$n]=$a;} function setLevel($l){$this->lvl=$l;} }');
-        $ns = 'http://agavi.org/agavi/config/parts/logging/1.1';
-        $inner = <<<XML
-<layouts xmlns="$ns">
-  <layout name="main" class="App\\Logging\\SimpleLayout" />
-</layouts>
-<appenders xmlns="$ns">
-  <appender name="stdout" class="App\\Logging\\SimpleAppender" layout="main" />
-</appenders>
-<loggers xmlns="$ns" default="core">
-  <logger name="core" class="App\\Logging\\SimpleLogger" level="100">
-    <appenders>
-      <appender>stdout</appender>
-    </appenders>
-  </logger>
-</loggers>
-XML;
-        $doc = $this->makeEnvelope($inner, 'logging.xml');
-        $handler = new AgaviLoggingConfigHandler();
-        $handler->initialize(null, []);
-        $code = $handler->execute($doc);
-        $this->assertStringContainsString('setDefaultLoggerName', $code);
-        $this->assertStringContainsString('SimpleAppender', $code);
-        $this->assertStringContainsString('SimpleLogger', $code);
-    }
 }

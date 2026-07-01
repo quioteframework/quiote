@@ -48,12 +48,8 @@ class AgaviContextExtendedCoverageTest extends TestCase
 
     private function injectLogger(AgaviContext $ctx): void
     {
-        $ro = new ReflectionObject($ctx);
-        $prop = $ro->getProperty('loggerManager');
-
-        if ($prop->getValue($ctx) === null) {
-            $prop->setValue($ctx, new TestNoOpLoggerManager());
-        }
+        // Logging now goes through the PSR-3 Log facade; there is no per-context
+        // loggerManager to inject. Keep use_logging on for any gated paths.
         if (method_exists(AgaviConfig::class, 'set')) {
             AgaviConfig::set('core.use_logging', true);
         }
@@ -414,7 +410,7 @@ class AgaviContextExtendedCoverageTest extends TestCase
         if (method_exists(AgaviConfig::class, 'set')) {
             AgaviConfig::set('core.use_translation', true);
         }
-        // Ensure logger present so reset() does not error when accessing getLoggerManager()->getLogger()
+        // Enable logging-gated paths for this reset coverage test.
         $this->injectLogger($ctx);
         $tmProp = $ro->getProperty('translationManager');
 

@@ -9,7 +9,6 @@
 		
 		<!-- legacy dispatch_filter, execution_filter, filter_chain removed -->
 		
-		<logger_manager class="Agavi\Logging\AgaviLoggerManager" />
 		
 		<request class="Agavi\Request\AgaviWebRequest" />
 		

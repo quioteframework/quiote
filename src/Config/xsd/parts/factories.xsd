@@ -38,7 +38,6 @@
 
 			<!-- Optional factories -->
 			<xs:element type="factory" minOccurs="0" name="database_manager" />
-			<xs:element type="factory" minOccurs="0" name="logger_manager" />
 			<!-- legacy security_filter removed (replaced by middleware) -->
 			<xs:element type="factory" minOccurs="0" name="translation_manager" />
 		</xs:all>

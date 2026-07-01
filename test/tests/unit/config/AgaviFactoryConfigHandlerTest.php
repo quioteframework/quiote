@@ -29,7 +29,6 @@ class FCHTestBase
 class FCHTestController         extends FCHTestBase {}
 	
 
-class FCHTestLoggerManager      extends FCHTestBase {}
 class FCHTestRequest            extends FCHTestBase {}
 class FCHTestResponse           extends FCHTestBase {}
 class FCHTestRouting            extends FCHTestBase {}
@@ -55,7 +54,6 @@ class AgaviFactoryConfigHandlerTest extends ConfigHandlerTestBase
 	public array $shutdownSequence = [];
 	// Added to silence dynamic property creation deprecations from generated factories code
 	public ?array $databaseManagerFactoryInfo = null;
-	public ?array $loggerManagerFactoryInfo = null;
 	public ?array $translationManagerFactoryInfo = null;
 	public ?array $requestFactoryInfo = null;
 	public ?array $routingFactoryInfo = null;
@@ -71,7 +69,6 @@ class AgaviFactoryConfigHandlerTest extends ConfigHandlerTestBase
 							$storage,
 							$translationManager,
 							$user,
-							$loggerManager,
 							$controller,
 							$routing,
 							$response;
@@ -165,11 +162,6 @@ class AgaviFactoryConfigHandlerTest extends ConfigHandlerTestBase
 		$this->assertSame($this, $this->user->context);
 		$this->assertSame($paramsExpected, $this->user->params);
 		$this->assertTrue($this->user->suCalled);
-
-		$this->assertInstanceOf('FCHTestLoggerManager', $this->loggerManager);
-		$this->assertSame($this, $this->loggerManager->context);
-		$this->assertSame($paramsExpected, $this->loggerManager->params);
-		$this->assertTrue($this->loggerManager->suCalled);
 
 		$this->assertInstanceOf('FCHTestController', $this->controller);
 		$this->assertSame($this, $this->controller->context);

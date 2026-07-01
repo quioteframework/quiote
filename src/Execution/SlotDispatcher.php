@@ -59,7 +59,7 @@ class SlotDispatcher
         // Build canonical key for this slot early so diagnostics and guards can reference it
         $key = $module . '/' . $action;
         $logger = \Agavi\Logging\Log::for($this);
-        $logExceptions = \Agavi\Util\DebugFlags::$slotExceptions;
+        $logExceptions = $logger->isEnabled(\Agavi\Logging\Level::Debug);
         $dbg = $logger->isEnabled(\Agavi\Logging\Level::Debug);
         if ($dbg) {
             try {

@@ -5,7 +5,7 @@ use Agavi\Request\AgaviWebRequest;
 
 /**
  * Lightweight static helper to record canonical AgaviWebRequest identity and lifecycle stages.
- * Enabled when AGAVI_DEBUG_REQUEST_DIAG env var is truthy.
+ * Enabled when the 'Agavi.Diagnostics.RequestDiagnostics' log category is at DEBUG level.
  */
 final class RequestDiagnostics
 {
@@ -15,7 +15,7 @@ final class RequestDiagnostics
 
     public static function note(string $stage, ?AgaviWebRequest $req): void
     {
-        if(!\Agavi\Util\DebugFlags::$requestDiag) { return; }
+        if(!\Agavi\Logging\Log::create('Agavi.Diagnostics.RequestDiagnostics')->isEnabled(\Agavi\Logging\Level::Debug)) { return; }
         try {
             $id = $req instanceof AgaviWebRequest ? spl_object_id($req) : 0;
             if(self::$canonicalId === null && $req instanceof AgaviWebRequest) {

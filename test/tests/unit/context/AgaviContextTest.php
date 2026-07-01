@@ -135,11 +135,6 @@ class AgaviContextTest extends AgaviPhpUnitTestCase
 		$this->assertInstanceOf(\Agavi\Translation\AgaviTranslationManager::class, AgaviContext::getInstance()->getTranslationManager());
 	}
 
-	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
-	public function testGetLoggerManager()
-	{
-		$this->assertInstanceOf(\Agavi\Logging\AgaviLoggerManager::class, AgaviContext::getInstance()->getLoggerManager());
-	}
 
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
 	public function testGetRequest()

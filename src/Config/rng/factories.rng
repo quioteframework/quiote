@@ -57,11 +57,6 @@
 					<ref name="content-factory" />
 				</element>
 			</optional>
-			<optional>
-				<element name="logger_manager">
-					<ref name="content-factory" />
-				</element>
-			</optional>
 			<!-- legacy security_filter removed (middleware handles auth) -->
 			<optional>
 				<element name="translation_manager">

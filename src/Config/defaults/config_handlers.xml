@@ -57,14 +57,6 @@
 				<transformation>%core.agavi_dir%/Config/xsl/output_types.xsl</transformation>
 			</handler>
 
-			<handler pattern="%core.config_dir%/logging.xml" class="Agavi\Config\AgaviLoggingConfigHandler">
-				<validation>%core.agavi_dir%/Config/xsd/logging.xsd</validation>
-				<!-- 0.11 to 1.0 -->
-				<transformation>%core.agavi_dir%/Config/xsl/logging.xsl</transformation>
-				<!-- 1.0 to 1.1 -->
-				<transformation>%core.agavi_dir%/Config/xsl/logging.xsl</transformation>
-			</handler>
-
 			<handler pattern="%core.config_dir%/rbac_definitions.xml" class="Agavi\Config\AgaviRbacDefinitionConfigHandler">
 				<validation>%core.agavi_dir%/Config/xsd/rbac_definitions.xsd</validation>
 				<!-- 0.11 to 1.0 -->

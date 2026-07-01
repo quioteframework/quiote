@@ -83,12 +83,6 @@ class AgaviFactoryConfigHandler extends AgaviXmlConfigHandler
 				'must_implement' => [],
 			],
 			'database_manager', // startup()
-			'logger_manager' => [
-				'required' => AgaviConfig::get('core.use_logging', false),
-				'var' => 'loggerManager',
-				'must_implement' => [],
-			],
-			'logger_manager', // startup()
 			'translation_manager' => [
 				'required' => AgaviConfig::get('core.use_translation', false),
 				'var' => 'translationManager',

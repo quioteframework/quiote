@@ -194,17 +194,18 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
             while (ob_get_level() >= $startedLevel && ob_get_level() > $baseLevel) {
                 @ob_end_clean();
             }
-            $msg = \Agavi\Util\DebugFlags::$exceptionTemplate ? 'Template render failed: ' . $renderErr->getMessage() : 'Internal Server Error';
+            $msg = AgaviConfig::get('core.use_verbose_exception_template', false) ? 'Template render failed: ' . $renderErr->getMessage() : 'Internal Server Error';
             \Agavi\Logging\Log::for($this)->error(sprintf('[ErrorHandlingMiddleware] Template render failed: %s template=%s', $renderErr->getMessage(), $tplFile));
             return new Response($status, ['Content-Type' => 'text/plain; charset=utf-8', 'X-Agavi-Error-Type' => $e::class], $msg);
         }
         if ($body === '' || $body === false) {
-            $body = \Agavi\Util\DebugFlags::$exceptionTemplate ? 'Empty error template output' : 'Internal Server Error';
+            $body = AgaviConfig::get('core.use_verbose_exception_template', false) ? 'Empty error template output' : 'Internal Server Error';
         }
-        // Development visibility: if in dev mode with AGAVI_DEBUG and 4xx/5xx, ensure exception message present for easier debugging
-        $env = AgaviConfig::get('core.environment');
-        $isProd = $env && preg_match('/^(prod|production)/i', (string)$env);
-        if (!$isProd && getenv('AGAVI_DEBUG') && ($status >= 400) && !str_contains($body, $e->getMessage())) {
+        // Development visibility: when core.use_verbose_exception_template is enabled and
+        // the response is 4xx/5xx, ensure the exception message is present for easier debugging.
+        // Opt-in (default off) so production container logs/responses stay clean; the setting is
+        // the single source of truth for verbose exception output (no env/environment heuristics).
+        if (AgaviConfig::get('core.use_verbose_exception_template', false) && ($status >= 400) && !str_contains($body, $e->getMessage())) {
             // Append message safely (HTML escape unless plaintext template heuristics)
             $isPlain = str_contains($tplFile, 'plaintext') || str_contains($body, '<!-- PLAINTEXT -->');
             $msgOut = $e->getMessage();
