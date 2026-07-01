@@ -30,11 +30,24 @@ final readonly class ValidationTrace
 class ValidationService
 {
     private $currentContext = null; // holds AgaviContext for compiled validator config
+
+    /**
+     * The validation manager actually used by the most recent validate() /
+     * xmlOnlyValidate() call. When the service is constructed without a manager
+     * (the common pipeline case — ValidationMiddleware does `new ValidationService()`),
+     * the real manager is created lazily inside those methods via
+     * createInstanceFor('validation_manager') and holds all the incidents/errors.
+     * We capture it here so getValidationManager() can hand that populated instance
+     * to the JSON error view; otherwise the view receives null and serializes an
+     * empty error set. The promoted $manager is readonly and cannot be reassigned.
+     */
+    private ?AgaviValidationManager $activeManager = null;
+
     public function __construct(private readonly ?AgaviValidationManager $manager = null) {}
 
     public function getValidationManager(): ?AgaviValidationManager
     {
-        return $this->manager;
+        return $this->activeManager ?? $this->manager;
     }
 
     // Expose context to compiled validator config (expects $this->getContext())
@@ -70,6 +83,8 @@ class ValidationService
         } else {
             $validationManager->clear();
         }
+        // Expose the manager actually used so the error view can read its incidents.
+        $this->activeManager = $validationManager;
         // Inject the VM into the action's init context so that manual validate*()
         // methods (which call $this->getInitContext()->getValidationManager()) see
         // the same errors and exports that XML validators produce.
@@ -264,6 +279,8 @@ class ValidationService
         } else {
             $validationManager->clear();
         }
+        // Expose the manager actually used so the error view can read its incidents.
+        $this->activeManager = $validationManager;
         $validatorsLoaded = [];
         $configFile = null;
         if ($moduleName && $actionName) {
