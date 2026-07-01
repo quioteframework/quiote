@@ -19,6 +19,7 @@ use Agavi\Config\AgaviConfig;
 use Agavi\Config\AgaviConfigCache;
 use Agavi\Config\AgaviAPCuConfigCache;
 use Agavi\Controller\AgaviController;
+use Agavi\DI\Container;
 use Agavi\Exception\AgaviDisabledModuleException;
 use Agavi\Exception\AgaviException;
 use Agavi\Request\AgaviWebRequest;
@@ -169,6 +170,13 @@ class AgaviContext implements \Stringable, ResetInterface
   protected $databaseManagerFactoryInfo = null;
 
   /**
+   * @var        Container|null DI container (docs/DI_MIGRATION_PLAN.md, Phase 1).
+   *             Additive/observational for now: factories.xml remains the single
+   *             source of truth for construction of the core services below.
+   */
+  protected ?Container $container = null;
+
+  /**
    * Clone method, overridden to prevent cloning, there can be only one.
    *
    * @author     Mike Vincent <mike@agavi.org>
@@ -298,6 +306,55 @@ class AgaviContext implements \Stringable, ResetInterface
   public function getController()
   {
     return $this->controller;
+  }
+
+  /**
+   * Retrieve (lazily create) the DI container.
+   *
+   * Phase 1 of docs/DI_MIGRATION_PLAN.md: the core services created by factories.xml
+   * are registered here under their role name and concrete class name, so both
+   * `getContainer()->get('user')` and `getContainer()->get(JakamoRbacUser::class)`
+   * resolve to the same instance. factories.xml remains the sole construction path;
+   * nothing in the framework resolves services *through* the container yet.
+   */
+  public function getContainer(): Container
+  {
+    if ($this->container === null) {
+      $this->container = new Container();
+    }
+    return $this->container;
+  }
+
+  /**
+   * Register an already-constructed core service instance into the container
+   * under its role name and concrete class name. No-op if $instance is null
+   * (e.g. databaseManager/translationManager when disabled by config).
+   */
+  private function registerCoreService(string $role, ?object $instance, string $scope = Container::SCOPE_SINGLETON): void
+  {
+    if ($instance === null) {
+      return;
+    }
+    $container = $this->getContainer();
+    $container->set($role, $instance, $scope);
+    $container->set($instance::class, $instance, $scope);
+  }
+
+  /**
+   * Register the full set of core services (as they currently stand) into the container.
+   * Called once after factories.xml runs, and again whenever a request/user/storage/routing
+   * instance is lazily recreated in worker mode, so the container never holds a stale
+   * reference to an object AgaviContext has already discarded.
+   */
+  private function registerCoreServicesInContainer(): void
+  {
+    $this->registerCoreService('controller', $this->controller);
+    $this->registerCoreService('databaseManager', $this->databaseManager);
+    $this->registerCoreService('translationManager', $this->translationManager);
+    $this->registerCoreService('routing', $this->routing);
+    $this->registerCoreService('request', $this->request, Container::SCOPE_REQUEST);
+    $this->registerCoreService('storage', $this->storage, Container::SCOPE_REQUEST);
+    $this->registerCoreService('user', $this->user, Container::SCOPE_REQUEST);
   }
 
   /**
@@ -510,6 +567,11 @@ class AgaviContext implements \Stringable, ResetInterface
     if ($logger && $logger->isEnabled(\Agavi\Logging\Level::Debug)) {
       $logger->debug("[AgaviContext.reset] request nulled");
     }
+
+    // Drop request-scoped container entries in lockstep with the request/storage/user
+    // nulling above (docs/DI_MIGRATION_PLAN.md, Phase 1) — otherwise the container would
+    // keep serving a discarded per-request instance until the next lazy recreation re-registers it.
+    $this->container?->reset();
 
     // Drop all ambient logging scopes so this request's rid/user/etc. cannot leak
     // into the next request's log lines in a long-lived worker (same cross-request
@@ -810,6 +872,11 @@ class AgaviContext implements \Stringable, ResetInterface
         // swallow – failing to defer is a soft failure
       }
     }
+
+    // DI migration Phase 1 (docs/DI_MIGRATION_PLAN.md): register the core services
+    // factories.xml just built (post user-deferral) into the container. Additive only —
+    // nothing resolves services through the container yet.
+    $this->registerCoreServicesInContainer();
   }
 
   /**
@@ -1069,6 +1136,7 @@ class AgaviContext implements \Stringable, ResetInterface
               $className,
           );
         }
+        $this->registerCoreService('request', $this->request, Container::SCOPE_REQUEST);
       } else {
         if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
           $logger->debug(
@@ -1108,6 +1176,7 @@ class AgaviContext implements \Stringable, ResetInterface
           "AgaviContext::getRouting() - Routing (compat) object recreated via factory info: " .
             $className,
         );
+        $this->registerCoreService('routing', $this->routing);
       } else {
         $logger?->error(
           "AgaviContext::getRouting() - No routing factory info available, cannot recreate routing",
@@ -1155,6 +1224,7 @@ class AgaviContext implements \Stringable, ResetInterface
               "[AgaviContext.getStorage] - Database manager recreated successfully using factory info: " .
                 $className,
             );
+            $this->registerCoreService('databaseManager', $this->databaseManager);
           } catch (\Throwable $e) {
             $logger?->error(
               "[AgaviContext.getStorage] - Failed to recreate database manager: " .
@@ -1182,6 +1252,7 @@ class AgaviContext implements \Stringable, ResetInterface
           "[AgaviContext.getStorage] - Storage object recreated successfully using factory info: " .
             $className,
         );
+        $this->registerCoreService('storage', $this->storage, Container::SCOPE_REQUEST);
       } else {
         $logger?->error(
           "[AgaviContext.getStorage] - No storage factory info available, cannot recreate storage",
@@ -1270,6 +1341,7 @@ class AgaviContext implements \Stringable, ResetInterface
               "[AgaviContext.getUser] - Database manager recreated successfully using factory info: " .
                 $className,
             );
+            $this->registerCoreService('databaseManager', $this->databaseManager);
           } catch (\Throwable $e) {
             $logger?->error(
               "[AgaviContext.getUser] - Failed to recreate database manager: " .
@@ -1360,6 +1432,7 @@ class AgaviContext implements \Stringable, ResetInterface
           "[AgaviContext.getUser] - User object recreated successfully using factory info: " .
             $className,
         );
+        $this->registerCoreService('user', $this->user, Container::SCOPE_REQUEST);
       } else {
         $logger?->error(
           "[AgaviContext.getUser] - No user factory info available, cannot recreate user",

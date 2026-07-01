@@ -157,6 +157,50 @@ class AgaviContextTest extends AgaviPhpUnitTestCase
 		$ctx = AgaviContext::getInstance();
 		$this->assertInstanceOf(\Agavi\Storage\AgaviStorage::class, $ctx->getStorage());
 	}
+
+	/**
+	 * DI migration Phase 1 (docs/DI_MIGRATION_PLAN.md): core services built by
+	 * factories.xml must also be resolvable through the container, by role name
+	 * and by concrete class name, resolving to the exact same instances.
+	 */
+	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+	public function testContainerResolvesCoreServicesByRoleAndClass()
+	{
+		$ctx = AgaviContext::getInstance();
+		$container = $ctx->getContainer();
+
+		$this->assertSame($ctx->getController(), $container->get('controller'));
+		$this->assertSame($ctx->getController(), $container->get($ctx->getController()::class));
+
+		$this->assertSame($ctx->getRouting(), $container->get('routing'));
+		$this->assertSame($ctx->getStorage(), $container->get('storage'));
+		$this->assertSame($ctx->getUser(), $container->get('user'));
+		$this->assertSame($ctx->getRequest(), $container->get('request'));
+	}
+
+	/**
+	 * reset() must drop request-scoped container entries in lockstep with the
+	 * request/storage/user nulling it already does, so the container never
+	 * serves a discarded per-request instance.
+	 */
+	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+	public function testContainerResetDropsRequestScopedEntriesButKeepsSingletons()
+	{
+		$ctx = AgaviContext::getInstance();
+		$container = $ctx->getContainer();
+
+		$controllerBefore = $container->get('controller');
+		$storageBefore = $ctx->getStorage();
+		$this->assertSame($storageBefore, $container->get('storage'));
+
+		$ctx->reset();
+
+		$this->assertSame($controllerBefore, $container->get('controller'), 'singleton-scoped services must survive reset()');
+
+		$storageAfter = $ctx->getStorage();
+		$this->assertNotSame($storageBefore, $storageAfter, 'storage must be recreated after reset()');
+		$this->assertSame($storageAfter, $container->get('storage'), 'container must reflect the recreated storage instance');
+	}
 }
 
 ?>
