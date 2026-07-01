@@ -1,6 +1,10 @@
 <?php
 use PHPUnit\Framework\TestCase;
 use Agavi\DI\Container;
+use Agavi\DI\Attribute\Autowire;
+use Agavi\DI\Attribute\Inject;
+use Agavi\DI\Attribute\Service;
+use Symfony\Contracts\Service\Attribute\Required;
 
 class ContainerTest extends TestCase
 {
@@ -106,6 +110,54 @@ class ContainerTest extends TestCase
         $obj = $c->get(ContainerNoDepsFixture::class);
         $this->assertInstanceOf(ContainerNoDepsFixture::class, $obj);
     }
+
+    public function testRequiredMethodIsInvokedWithAutowiredArgs()
+    {
+        $c = new Container();
+        $c->set('clock', fn() => new DateTimeImmutable('2025-01-02T00:00:00Z'));
+        $c->alias(DateTimeImmutable::class, 'clock');
+        $obj = $c->get(ContainerRequiredSetterFixture::class);
+        $this->assertInstanceOf(DateTimeImmutable::class, $obj->clock);
+    }
+
+    public function testRequiredMethodNamedInitializeIsRejected()
+    {
+        $c = new Container();
+        $this->expectException(\Agavi\DI\ContainerException::class);
+        $this->expectExceptionMessageMatches("/'initialize\(\)' is a framework lifecycle hook/");
+        $c->get(ContainerRequiredInitializeFixture::class);
+    }
+
+    public function testRequiredMethodTypeHintingActionInitContextIsRejectedRegardlessOfName()
+    {
+        $c = new Container();
+        $this->expectException(\Agavi\DI\ContainerException::class);
+        $this->expectExceptionMessageMatches('/ActionInitContext/');
+        $c->get(ContainerRequiredWrongNameButForbiddenTypeFixture::class);
+    }
+
+    public function testServiceAttributeSetsDefaultScopeForUnregisteredClass()
+    {
+        $c = new Container();
+        $v1 = $c->get(ContainerTransientServiceFixture::class);
+        $v2 = $c->get(ContainerTransientServiceFixture::class);
+        $this->assertNotSame($v1, $v2, '#[Service(scope: transient)] must be honored for an unregistered, autowired class');
+    }
+
+    public function testInjectAttributeOverridesAutowiringByType()
+    {
+        $c = new Container();
+        $c->set('primary.clock', fn() => new DateTimeImmutable('2025-01-02T00:00:00Z'));
+        $obj = $c->get(ContainerInjectFixture::class);
+        $this->assertSame('2025-01-02T00:00:00+00:00', $obj->clock->format('c'));
+    }
+
+    public function testAutowireAttributeInjectsLiteralValue()
+    {
+        $c = new Container();
+        $obj = $c->get(ContainerAutowireAttributeFixture::class);
+        $this->assertSame('cookie_name', $obj->name);
+    }
 }
 
 class ContainerParamFixture
@@ -130,4 +182,50 @@ class ContainerCycleB
 class ContainerAutowireFixture
 {
     public function __construct(public ?SplFileInfo $dep = null) {}
+}
+
+class ContainerRequiredSetterFixture
+{
+    public ?DateTimeImmutable $clock = null;
+
+    #[Required]
+    public function setClock(DateTimeImmutable $clock): void
+    {
+        $this->clock = $clock;
+    }
+}
+
+class ContainerRequiredInitializeFixture
+{
+    #[Required]
+    public function initialize(): void
+    {
+    }
+}
+
+class ContainerRequiredWrongNameButForbiddenTypeFixture
+{
+    #[Required]
+    public function setUp(\Agavi\Execution\ActionInitContext $ctx): void
+    {
+    }
+}
+
+#[Service(scope: Container::SCOPE_TRANSIENT)]
+class ContainerTransientServiceFixture
+{
+}
+
+class ContainerInjectFixture
+{
+    public function __construct(
+        #[Inject('primary.clock')] public DateTimeImmutable $clock,
+    ) {}
+}
+
+class ContainerAutowireAttributeFixture
+{
+    public function __construct(
+        #[Autowire('cookie_name')] public string $name,
+    ) {}
 }

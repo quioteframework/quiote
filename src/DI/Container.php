@@ -2,9 +2,12 @@
 
 namespace Agavi\DI;
 
+use Agavi\DI\Attribute\Autowire;
+use Agavi\DI\Attribute\Inject;
 use Psr\Container\ContainerInterface;
 use Psr\Container\NotFoundExceptionInterface;
 use Psr\Container\ContainerExceptionInterface;
+use Symfony\Contracts\Service\Attribute\Required;
 
 class NotFoundException extends \RuntimeException implements NotFoundExceptionInterface {}
 class ContainerException extends \RuntimeException implements ContainerExceptionInterface {}
@@ -17,6 +20,15 @@ class Container implements ContainerInterface
     public const SCOPE_SINGLETON = 'singleton';
     public const SCOPE_TRANSIENT = 'transient';
     public const SCOPE_REQUEST = 'request';
+
+    /**
+     * Per-execution context types that #[Required] methods must never type-hint — they
+     * belong to the executor, not the container (see guardRequiredMethod()).
+     */
+    private const FORBIDDEN_REQUIRED_CONTEXT_TYPES = [
+        \Agavi\Execution\ActionInitContext::class,
+        \Agavi\Execution\ViewInitContext::class,
+    ];
 
     private array $definitions = [];
     private array $aliases = [];
@@ -130,47 +142,124 @@ class Container implements ContainerInterface
         }
 
         if ($this->canAutowire($lookupId)) {
-            return [$this->autoWire($lookupId, [], $requestedId), self::SCOPE_SINGLETON];
+            $rc = new \ReflectionClass($lookupId);
+            $serviceAttr = $rc->getAttributes(\Agavi\DI\Attribute\Service::class);
+            $scope = $serviceAttr ? $serviceAttr[0]->newInstance()->scope : self::SCOPE_SINGLETON;
+            return [$this->autoWire($lookupId, [], $requestedId, $rc), $scope];
         }
 
         throw new NotFoundException("Service '$requestedId' not found and no autowireable class/alias exists");
     }
 
-    private function autoWire(string $class, array $params, ?string $requestedId = null): object
+    private function autoWire(string $class, array $params, ?string $requestedId = null, ?\ReflectionClass $rc = null): object
     {
-        $rc = new \ReflectionClass($class);
+        $rc ??= new \ReflectionClass($class);
         $ctor = $rc->getConstructor();
         if (!$ctor) {
-            return new $class();
+            $obj = new $class();
+        } else {
+            $args = [];
+            foreach ($ctor->getParameters() as $p) {
+                $args[] = $this->resolveParamValue($p, $params, $class, $requestedId);
+            }
+            try {
+                $obj = $rc->newInstanceArgs($args);
+            } catch (\Throwable $e) {
+                throw new ContainerException("Failed constructing '$class': " . $e->getMessage(), 0, $e);
+            }
         }
-        $args = [];
-        foreach ($ctor->getParameters() as $p) {
-            if (array_key_exists($p->getName(), $params)) {
-                $args[] = $params[$p->getName()];
+        $this->invokeRequiredMethods($rc, $obj, $class);
+        return $obj;
+    }
+
+    /**
+     * Resolves a single constructor/#[Required]-method parameter, in priority order:
+     * explicit registration-time param binding, #[Inject]/#[Autowire] attribute override,
+     * type-hinted autowiring, constructor default, or a loud ContainerException.
+     */
+    private function resolveParamValue(\ReflectionParameter $p, array $params, string $class, ?string $requestedId): mixed
+    {
+        $name = $p->getName();
+        if (array_key_exists($name, $params)) {
+            return $params[$name];
+        }
+
+        $injectAttrs = $p->getAttributes(Inject::class);
+        if ($injectAttrs) {
+            return $this->get($injectAttrs[0]->newInstance()->id);
+        }
+
+        $autowireAttrs = $p->getAttributes(Autowire::class);
+        if ($autowireAttrs) {
+            return $autowireAttrs[0]->newInstance()->value;
+        }
+
+        $type = $p->getType();
+        if ($type && !$type->isBuiltin()) {
+            $dep = $type->getName();
+            if ($this->canAutowire($dep)) {
+                return $this->get($dep);
+            }
+            if ($p->isDefaultValueAvailable()) {
+                return $p->getDefaultValue();
+            }
+            throw new ContainerException("Cannot autowire '$class': unsatisfied dependency '" . $dep . "' for parameter $" . $name . " (requested as '$requestedId')");
+        }
+
+        if ($p->isDefaultValueAvailable()) {
+            return $p->getDefaultValue();
+        }
+        throw new ContainerException("Cannot autowire '$class': untyped parameter $" . $name . " without default (requested as '$requestedId')");
+    }
+
+    /**
+     * After construction, calls every #[Required]-marked method with container-autowired
+     * args — optional setter/method injection for cross-cutting deps (e.g. a logger) that
+     * shouldn't clutter every constructor (same mechanism Symfony uses for
+     * AbstractController::setContainer()).
+     */
+    private function invokeRequiredMethods(\ReflectionClass $rc, object $obj, string $class): void
+    {
+        foreach ($rc->getMethods(\ReflectionMethod::IS_PUBLIC) as $method) {
+            if ($method->isStatic() || !$method->getAttributes(Required::class)) {
                 continue;
             }
-            $type = $p->getType();
-            if ($type && !$type->isBuiltin()) {
-                $dep = $type->getName();
-                if ($this->canAutowire($dep)) {
-                    $args[] = $this->get($dep);
-                } elseif ($p->isDefaultValueAvailable()) {
-                    $args[] = $p->getDefaultValue();
-                } else {
-                    throw new ContainerException("Cannot autowire '$class': unsatisfied dependency '" . $dep . "' for parameter $" . $p->getName() . " (requested as '$requestedId')");
-                }
-            } else {
-                if ($p->isDefaultValueAvailable()) {
-                    $args[] = $p->getDefaultValue();
-                } else {
-                    throw new ContainerException("Cannot autowire '$class': untyped parameter $" . $p->getName() . " without default (requested as '$requestedId')");
-                }
+            $this->guardRequiredMethod($method, $class);
+            $args = [];
+            foreach ($method->getParameters() as $p) {
+                $args[] = $this->resolveParamValue($p, [], $class, null);
             }
+            $method->invoke($obj, ...$args);
         }
-        try {
-            return $rc->newInstanceArgs($args);
-        } catch (\Throwable $e) {
-            throw new ContainerException("Failed constructing '$class': " . $e->getMessage(), 0, $e);
+    }
+
+    /**
+     * #[Required] methods are for container-owned deps only. initialize() is a framework
+     * lifecycle hook invoked by the *executor* with a per-execution context the container
+     * does not own; letting the container also call it (and try to autowire
+     * ActionInitContext/ViewInitContext) is a category error. Reject on either signal —
+     * the method name (the common case) or a type-hint on a forbidden context type (the
+     * robust case: a differently-named #[Required] setter taking ActionInitContext is
+     * still always wrong, regardless of what it's called).
+     */
+    private function guardRequiredMethod(\ReflectionMethod $method, string $class): void
+    {
+        if ($method->getName() === 'initialize') {
+            throw new ContainerException(
+                "Cannot autowire '$class': #[Required] method 'initialize()' is a framework lifecycle hook " .
+                "invoked by the executor with a per-execution context the container does not own. " .
+                "Use constructor injection or a differently named #[Required] setter instead.",
+            );
+        }
+        foreach ($method->getParameters() as $p) {
+            $type = $p->getType();
+            if ($type && !$type->isBuiltin() && in_array($type->getName(), self::FORBIDDEN_REQUIRED_CONTEXT_TYPES, true)) {
+                throw new ContainerException(
+                    "Cannot autowire '$class': #[Required] method '" . $method->getName() . "()' type-hints '" . $type->getName() . "', " .
+                    "a per-execution context the container does not own. " .
+                    "Use constructor injection or a differently named #[Required] setter instead.",
+                );
+            }
         }
     }
 }
