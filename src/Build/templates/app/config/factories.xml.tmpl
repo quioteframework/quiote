@@ -9,8 +9,8 @@
 		
 		<!-- legacy dispatch_filter, execution_filter, filter_chain removed (replaced by middleware pipeline) -->
 		
-		<logger_manager class="AgaviLoggerManager" />
-		
+		<!-- legacy logger_manager removed (replaced by the PSR-3 Log stack; configure levels/sinks in index.php via Agavi\Logging\Log) -->
+
 		<request class="AgaviWebRequest" />
 		
 		<response class="AgaviWebResponse">

@@ -386,26 +386,30 @@ class ValidationMiddleware implements MiddlewareInterface
             }
             $otMethod = 'execute' . ucfirst($ot);
             $hasOtMethod = is_callable([$view, $otMethod]);
-            if ($hasOtMethod) {
+            $problemJson = false;
+            if ($ot === 'json') {
+                // JSON validation-error response. Decision tree:
+                //   - error view has NO executeJson()        -> Problem Details
+                //   - executeJson() returns null             -> Problem Details
+                //   - executeJson() returns a value          -> use it verbatim
+                // An RFC 9457 Problem Details document is synthesized from the
+                // validation report in the first two cases. A view that DOES render
+                // a JSON body is left untouched — its shape is an API contract we
+                // must not silently rewrite. An explicit empty string from
+                // executeJson() is a deliberate "no body" choice and is respected
+                // (blank 400), since only a NULL return triggers the fallback.
+                $content = $hasOtMethod ? $view->$otMethod($webRequest) : null;
+                if ($content === null) {
+                    $content = $this->buildValidationProblemDetails($vs->getValidationManager(), $errors, $request);
+                    $problemJson = true;
+                }
+            } elseif ($hasOtMethod) {
                 $content = $view->$otMethod($webRequest);
-            } elseif ($ot !== 'json' && is_callable([$view, 'execute'])) {
+            } elseif (is_callable([$view, 'execute'])) {
                 // Legacy fallback for non-JSON output types.
                 $content = $view->execute($webRequest);
             } else {
                 $content = null;
-            }
-            // For a JSON response with no rendered body, synthesize an RFC 9457
-            // Problem Details document from the validation report. We only do this
-            // when the content is NULL — i.e. the error view had no executeJson (or
-            // returned null). An explicit empty string is a deliberate "no body"
-            // choice by the view and is respected (blank 400). A view that DOES
-            // render a JSON body (e.g. json_encode($report->getErrorMessages()))
-            // is left untouched — its output shape is an API contract we must not
-            // silently rewrite.
-            $problemJson = false;
-            if ($ot === 'json' && $content === null) {
-                $content = $this->buildValidationProblemDetails($vs->getValidationManager(), $errors, $request);
-                $problemJson = true;
             }
             // Stash content for DispatchMiddleware early short-circuit (non-simple container-less path)
             try {

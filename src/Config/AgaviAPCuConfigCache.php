@@ -500,7 +500,6 @@ class AgaviAPCuConfigCache extends AgaviConfigCache
             // Runtime phase (loaded during execution as needed)
             'routing.xml',       // Routing configuration
             'databases.xml',     // Database configuration (loaded by DatabaseManager)
-            'logging.xml',       // Logging configuration (loaded by LoggerManager)
             'translation.xml',   // Translation configuration
             'config_handlers.xml' // Config handlers
         ];
