@@ -10,17 +10,24 @@ class NotFoundException extends \RuntimeException implements NotFoundExceptionIn
 class ContainerException extends \RuntimeException implements ContainerExceptionInterface {}
 
 /**
- * Extremely small DI container: supports definitions as closures, class names, or instances.
+ * Small scope-aware DI container: supports definitions as closures, class names, or instances.
  */
 class Container implements ContainerInterface
 {
-    private array $definitions = [];
-    private array $resolved = [];
-    private array $aliases = [];
+    public const SCOPE_SINGLETON = 'singleton';
+    public const SCOPE_TRANSIENT = 'transient';
+    public const SCOPE_REQUEST = 'request';
 
-    public function set(string $id, mixed $concrete): void
+    private array $definitions = [];
+    private array $aliases = [];
+    private array $singletonResolved = [];
+    private array $requestResolved = [];
+    private array $resolvingStack = [];
+
+    public function set(string $id, mixed $concrete, string $scope = self::SCOPE_SINGLETON, array $params = []): void
     {
-        $this->definitions[$id] = $concrete;
+        $this->definitions[$id] = ['concrete' => $concrete, 'scope' => $scope, 'params' => $params];
+        unset($this->singletonResolved[$id], $this->requestResolved[$id]);
     }
 
     public function alias(string $abstract, string $concrete): void
@@ -28,53 +35,124 @@ class Container implements ContainerInterface
         $this->aliases[$abstract] = $concrete;
     }
 
-    public function setFactory(string $id, callable $factory): void
+    public function setFactory(string $id, callable $factory, string $scope = self::SCOPE_SINGLETON): void
     {
-        $this->definitions[$id] = $factory;
+        $this->set($id, $factory, $scope);
     }
 
     public function get(string $id): mixed
     {
-        if (isset($this->resolved[$id])) return $this->resolved[$id];
         $lookupId = $this->aliases[$id] ?? $id;
-        if (!array_key_exists($lookupId, $this->definitions)) {
-            if (class_exists($lookupId)) { // auto-wire
-                $obj = $this->autoWire($lookupId, $id);
-                return $this->resolved[$id] = $obj;
-            }
-            throw new NotFoundException("Service '$id' not found and no autowireable class/alias exists");
+
+        if (array_key_exists($lookupId, $this->singletonResolved)) {
+            return $this->singletonResolved[$lookupId];
         }
-        $def = $this->definitions[$lookupId];
-        if (is_callable($def)) {
-            try {
-                $obj = $def($this);
-            } catch (\Throwable $e) {
-                throw new ContainerException("Error while invoking factory for '$id': " . $e->getMessage(), 0, $e);
-            }
-        } elseif (is_string($def) && class_exists($def)) {
-            $obj = $this->autoWire($def, $id);
-        } else {
-            $obj = $def; // instance or scalar
+        if (array_key_exists($lookupId, $this->requestResolved)) {
+            return $this->requestResolved[$lookupId];
         }
-        return $this->resolved[$id] = $obj;
+
+        if (isset($this->resolvingStack[$lookupId])) {
+            $path = implode(' -> ', [...array_keys($this->resolvingStack), $lookupId]);
+            throw new ContainerException("Circular dependency detected while resolving '$lookupId': $path");
+        }
+
+        $this->resolvingStack[$lookupId] = true;
+        try {
+            [$obj, $scope] = $this->build($lookupId, $id);
+        } finally {
+            unset($this->resolvingStack[$lookupId]);
+        }
+
+        switch ($scope) {
+            case self::SCOPE_TRANSIENT:
+                break;
+            case self::SCOPE_REQUEST:
+                $this->requestResolved[$lookupId] = $obj;
+                break;
+            default:
+                $this->singletonResolved[$lookupId] = $obj;
+        }
+
+        return $obj;
     }
 
+    /**
+     * PSR-11 has(): reflects only explicitly registered entries (definitions/aliases),
+     * not autowireable classes. Use canAutowire() for the internal autowiring path.
+     */
     public function has(string $id): bool
     {
-        return isset($this->definitions[$id]) || isset($this->resolved[$id]) || isset($this->aliases[$id]) || class_exists($id) || (isset($this->aliases[$id]) && class_exists($this->aliases[$id]));
+        return array_key_exists($id, $this->definitions) || isset($this->aliases[$id]);
     }
 
-    private function autoWire(string $class, ?string $requestedId = null): object
+    /**
+     * Drops request-scoped resolved instances (called on worker-mode request boundaries).
+     * Singletons and definitions are untouched.
+     */
+    public function reset(): void
+    {
+        $this->requestResolved = [];
+        $this->resolvingStack = [];
+    }
+
+    private function canAutowire(string $id): bool
+    {
+        if ($this->has($id)) {
+            return true;
+        }
+        return class_exists($id) && (new \ReflectionClass($id))->isInstantiable();
+    }
+
+    /**
+     * @return array{0: mixed, 1: string} [instance, scope]
+     */
+    private function build(string $lookupId, string $requestedId): array
+    {
+        if (array_key_exists($lookupId, $this->definitions)) {
+            $def = $this->definitions[$lookupId];
+            $concrete = $def['concrete'];
+            $scope = $def['scope'];
+            $params = $def['params'];
+
+            if ($concrete instanceof \Closure || (is_callable($concrete) && !is_string($concrete))) {
+                try {
+                    $obj = $concrete($this);
+                } catch (\Throwable $e) {
+                    throw new ContainerException("Error while invoking factory for '$requestedId': " . $e->getMessage(), 0, $e);
+                }
+            } elseif (is_string($concrete) && class_exists($concrete)) {
+                $obj = $this->autoWire($concrete, $params, $requestedId);
+            } else {
+                $obj = $concrete; // instance or scalar
+            }
+
+            return [$obj, $scope];
+        }
+
+        if ($this->canAutowire($lookupId)) {
+            return [$this->autoWire($lookupId, [], $requestedId), self::SCOPE_SINGLETON];
+        }
+
+        throw new NotFoundException("Service '$requestedId' not found and no autowireable class/alias exists");
+    }
+
+    private function autoWire(string $class, array $params, ?string $requestedId = null): object
     {
         $rc = new \ReflectionClass($class);
         $ctor = $rc->getConstructor();
-        if (!$ctor) return new $class();
+        if (!$ctor) {
+            return new $class();
+        }
         $args = [];
         foreach ($ctor->getParameters() as $p) {
+            if (array_key_exists($p->getName(), $params)) {
+                $args[] = $params[$p->getName()];
+                continue;
+            }
             $type = $p->getType();
             if ($type && !$type->isBuiltin()) {
                 $dep = $type->getName();
-                if ($this->has($dep)) {
+                if ($this->canAutowire($dep)) {
                     $args[] = $this->get($dep);
                 } elseif ($p->isDefaultValueAvailable()) {
                     $args[] = $p->getDefaultValue();
