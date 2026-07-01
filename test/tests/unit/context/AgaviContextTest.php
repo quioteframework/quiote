@@ -201,6 +201,35 @@ class AgaviContextTest extends AgaviPhpUnitTestCase
 		$this->assertNotSame($storageBefore, $storageAfter, 'storage must be recreated after reset()');
 		$this->assertSame($storageAfter, $container->get('storage'), 'container must reflect the recreated storage instance');
 	}
+
+	/**
+	 * DI migration Phase 3 (docs/DI_MIGRATION_PLAN.md): getService() is a thin wrapper
+	 * over the container, and the context itself must be autowireable so the transitional
+	 * AgaviService base (constructor-injecting AgaviContext) resolves correctly.
+	 */
+	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+	public function testGetServiceResolvesCoreServiceAndArbitraryClass()
+	{
+		$ctx = AgaviContext::getInstance();
+		$this->assertSame($ctx->getController(), $ctx->getService('controller'));
+
+		$service = $ctx->getService(AgaviContextTestServiceFixture::class);
+		$this->assertInstanceOf(AgaviContextTestServiceFixture::class, $service);
+		$this->assertSame($ctx, $service->getContext());
+	}
+
+	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+	public function testGetServiceDefaultsToTransientForAgaviServiceInterface()
+	{
+		$ctx = AgaviContext::getInstance();
+		$s1 = $ctx->getService(AgaviContextTestServiceFixture::class);
+		$s2 = $ctx->getService(AgaviContextTestServiceFixture::class);
+		$this->assertNotSame($s1, $s2);
+	}
+}
+
+class AgaviContextTestServiceFixture extends \Agavi\Service\AgaviService
+{
 }
 
 ?>

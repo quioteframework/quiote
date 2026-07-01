@@ -158,6 +158,22 @@ class ContainerTest extends TestCase
         $obj = $c->get(ContainerAutowireAttributeFixture::class);
         $this->assertSame('cookie_name', $obj->name);
     }
+
+    public function testAgaviServiceInterfaceDefaultsToTransientWithoutServiceAttribute()
+    {
+        $c = new Container();
+        $v1 = $c->get(ContainerPlainServiceFixture::class);
+        $v2 = $c->get(ContainerPlainServiceFixture::class);
+        $this->assertNotSame($v1, $v2, 'AgaviServiceInterface implementors must default to transient scope, not singleton');
+    }
+
+    public function testServiceAttributeOverridesAgaviServiceInterfaceDefault()
+    {
+        $c = new Container();
+        $v1 = $c->get(ContainerSingletonServiceFixture::class);
+        $v2 = $c->get(ContainerSingletonServiceFixture::class);
+        $this->assertSame($v1, $v2, '#[Service(scope: singleton)] must override the AgaviServiceInterface transient default');
+    }
 }
 
 class ContainerParamFixture
@@ -228,4 +244,13 @@ class ContainerAutowireAttributeFixture
     public function __construct(
         #[Autowire('cookie_name')] public string $name,
     ) {}
+}
+
+class ContainerPlainServiceFixture implements \Agavi\Service\AgaviServiceInterface
+{
+}
+
+#[Service(scope: Container::SCOPE_SINGLETON)]
+class ContainerSingletonServiceFixture implements \Agavi\Service\AgaviServiceInterface
+{
 }

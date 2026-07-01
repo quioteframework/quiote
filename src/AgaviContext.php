@@ -326,6 +326,22 @@ class AgaviContext implements \Stringable, ResetInterface
   }
 
   /**
+   * Retrieve a service from the container.
+   *
+   * Phase 3 of docs/DI_MIGRATION_PLAN.md: the locator escape hatch for legacy call sites
+   * and lazy/conditional access (the `IServiceProvider`-injection equivalent from .NET).
+   * The preferred path for new code is constructor injection; both resolve through the
+   * same container. Thin wrapper — exceptions from the container propagate as-is.
+   *
+   * Deliberately does not touch getModel(): services and models remain separate
+   * conventions (see docs/DI_MIGRATION_PLAN.md §2.5).
+   */
+  public function getService(string $id): mixed
+  {
+    return $this->getContainer()->get($id);
+  }
+
+  /**
    * Register an already-constructed core service instance into the container
    * under its role name and concrete class name. No-op if $instance is null
    * (e.g. databaseManager/translationManager when disabled by config).
@@ -348,6 +364,16 @@ class AgaviContext implements \Stringable, ResetInterface
    */
   private function registerCoreServicesInContainer(): void
   {
+    // Register this context itself, so a service's constructor can type-hint AgaviContext
+    // (or the app's context subclass) and have it autowired — needed for the transitional
+    // Agavi\Service\AgaviService base (docs/DI_MIGRATION_PLAN.md, Phase 3).
+    $container = $this->getContainer();
+    $container->set('context', $this);
+    $container->set(static::class, $this);
+    if (static::class !== self::class) {
+      $container->alias(self::class, static::class);
+    }
+
     $this->registerCoreService('controller', $this->controller);
     $this->registerCoreService('databaseManager', $this->databaseManager);
     $this->registerCoreService('translationManager', $this->translationManager);

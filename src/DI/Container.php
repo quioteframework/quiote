@@ -143,12 +143,30 @@ class Container implements ContainerInterface
 
         if ($this->canAutowire($lookupId)) {
             $rc = new \ReflectionClass($lookupId);
-            $serviceAttr = $rc->getAttributes(\Agavi\DI\Attribute\Service::class);
-            $scope = $serviceAttr ? $serviceAttr[0]->newInstance()->scope : self::SCOPE_SINGLETON;
-            return [$this->autoWire($lookupId, [], $requestedId, $rc), $scope];
+            return [$this->autoWire($lookupId, [], $requestedId, $rc), $this->resolveDefaultScope($rc)];
         }
 
         throw new NotFoundException("Service '$requestedId' not found and no autowireable class/alias exists");
+    }
+
+    /**
+     * Default scope for an unregistered, autowired class: #[Service(scope: ...)] wins if
+     * present; otherwise a class implementing AgaviServiceInterface (docs/DI_MIGRATION_PLAN.md,
+     * Phase 3) defaults to transient — services are transient today (as models, none are
+     * AgaviISingletonModel), and silently promoting one to a process singleton under
+     * FrankenPHP is a latent cross-request bug. Anything else defaults to singleton, matching
+     * this container's pre-Phase-3 autowire-fallback behavior.
+     */
+    private function resolveDefaultScope(\ReflectionClass $rc): string
+    {
+        $serviceAttr = $rc->getAttributes(\Agavi\DI\Attribute\Service::class);
+        if ($serviceAttr) {
+            return $serviceAttr[0]->newInstance()->scope;
+        }
+        if ($rc->implementsInterface(\Agavi\Service\AgaviServiceInterface::class)) {
+            return self::SCOPE_TRANSIENT;
+        }
+        return self::SCOPE_SINGLETON;
     }
 
     private function autoWire(string $class, array $params, ?string $requestedId = null, ?\ReflectionClass $rc = null): object
