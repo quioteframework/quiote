@@ -16,7 +16,6 @@
 namespace Agavi\User;
 
 use Agavi\AgaviContext;
-use Agavi\Logging\AgaviDebugLogger;
 use Agavi\Util\AgaviAttributeHolder;
 use Symfony\Contracts\Service\ResetInterface;
 
@@ -145,15 +144,17 @@ class AgaviUser extends AgaviAttributeHolder implements ResetInterface
 			if (is_array($this->attributes) && isset($this->attributes[$ns]) && is_array($this->attributes[$ns])) {
 				$keys = array_keys($this->attributes[$ns]);
 			}
-			if (\Agavi\Util\DebugFlags::$user) {
-				AgaviDebugLogger::debug('[AgaviUser.shutdown.debug] oid=' . spl_object_id($this) . ' ns=' . $ns . ' hasNsData=' . ($hasNsData ? 1 : 0) . ' keyCount=' . count($keys) . ' keysSample=' . json_encode(array_slice($keys, 0, 12)));
+			$logger = \Agavi\Logging\Log::for($this);
+			if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+				$logger->debug('[AgaviUser.shutdown.debug] oid=' . spl_object_id($this) . ' ns=' . $ns . ' hasNsData=' . ($hasNsData ? 1 : 0) . ' keyCount=' . count($keys) . ' keysSample=' . json_encode(array_slice($keys, 0, 12)));
 			}
 		} catch (\Throwable) {
 		}
 		if (!$hasNsData) {
 			try {
-				if (\Agavi\Util\DebugFlags::$user) {
-					AgaviDebugLogger::debug('[AgaviUser.shutdown] skip store (no data) for ' . $this->storageNamespace);
+				$logger = \Agavi\Logging\Log::for($this);
+				if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+					$logger->debug('[AgaviUser.shutdown] skip store (no data) for ' . $this->storageNamespace);
 				}
 			} catch (\Throwable) {
 			}
@@ -202,18 +203,20 @@ class AgaviUser extends AgaviAttributeHolder implements ResetInterface
 				$storage->flush();
 			}
 			try {
-				if (\Agavi\Util\DebugFlags::$user) {
-					AgaviDebugLogger::debug('[AgaviUser.persistAttributesImmediate] persisted ns=' . $ns . ' keys=' . ($onlyKeys ? json_encode($onlyKeys) : 'ALL'));
+				$logger = \Agavi\Logging\Log::for($this);
+				if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+					$logger->debug('[AgaviUser.persistAttributesImmediate] persisted ns=' . $ns . ' keys=' . ($onlyKeys ? json_encode($onlyKeys) : 'ALL'));
 				}
 			} catch (\Throwable) {
 			}
 		} catch (\Throwable $e) {
 			try {
-				if (\Agavi\Util\DebugFlags::$user) {
-					AgaviDebugLogger::debug('[AgaviUser.persistAttributesImmediate] ERROR ' . $e->getMessage());
+				$logger = \Agavi\Logging\Log::for($this);
+				if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+					$logger->debug('[AgaviUser.persistAttributesImmediate] ERROR ' . $e->getMessage());
 				}
 			} catch (\Throwable) {
-			}				
+			}
 		}
 	}
 

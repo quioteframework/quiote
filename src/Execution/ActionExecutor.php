@@ -17,7 +17,6 @@ use Agavi\Execution\ViewNameResolver;
 use Agavi\Execution\ActionResolver;
 use Psr\Http\Message\ServerRequestInterface;
 use Agavi\Request\AgaviWebRequest;
-use Agavi\Logging\AgaviDebugLogger;
 
 /**
  * ActionExecutor: container-less execution of an action+view producing ActionExecutionContext.
@@ -113,9 +112,10 @@ final class ActionExecutor
                         $body = $tmp;
                     }
                 }
-                if (\Agavi\Util\DebugFlags::$exec) {
+                $logger = \Agavi\Logging\Log::create('Agavi.Execution.ActionExecutor');
+                if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
                     $keys = is_array($body) ? implode(',', array_slice(array_keys($body), 0, 6)) : 'n/a';
-                    AgaviDebugLogger::debug('[ActionExecutor] formParse(webReq) ct=' . $ct . ' rawLen=' . strlen($raw) . ' keys=' . $keys);
+                    $logger->debug('[ActionExecutor] formParse(webReq) ct=' . $ct . ' rawLen=' . strlen($raw) . ' keys=' . $keys);
                 }
             }
         }
@@ -148,9 +148,10 @@ final class ActionExecutor
      */
     public function execute(ActionDescriptor $desc, ServerRequestInterface $request, ExecutionState $state, array $parameters = [], ?AgaviAction $preInstantiatedAction = null): ActionExecutionContext
     {
-        $dbg = \Agavi\Util\DebugFlags::$exec;
+        $logger = \Agavi\Logging\Log::for($this);
+        $dbg = $logger->isEnabled(\Agavi\Logging\Level::Debug);
         if ($dbg) {
-            AgaviDebugLogger::debug('[ActionExecutor] start ' . $desc->module . ':' . $desc->action . ' method=' . $desc->method . ' output=' . $desc->outputType, $this->controller->getContext());
+            $logger->debug('[ActionExecutor] start ' . $desc->module . ':' . $desc->action . ' method=' . $desc->method . ' output=' . $desc->outputType);
         }
         // Use provided action instance if supplied to avoid double instantiation (enables external pre-initialization & test counters)
         $action = $preInstantiatedAction ?? $this->controller->createActionInstance($desc->module, $desc->action);
@@ -200,7 +201,7 @@ final class ActionExecutor
         // ACTION EXECUTION
         $rawView = $this->actionResolver->execute($action, $desc->method, $actionRequest);
         if ($dbg) {
-            AgaviDebugLogger::debug('[ActionExecutor] rawView=' . var_export($rawView, true), $this->controller->getContext());
+            $logger->debug('[ActionExecutor] rawView=' . var_export($rawView, true));
         }
         // Snapshot attributes immediately after action code runs (pre-view)
         $attributeSnapshot = [];
@@ -242,11 +243,11 @@ final class ActionExecutor
                 }
             if ($dbg) {
                 $prefix = substr($content, 0, 120);
-                AgaviDebugLogger::debug('[ActionExecutor] view=' . $view::class . ' method=' . $method . ' contentLen=' . strlen($content) . ' prefix=' . $prefix, $this->controller->getContext());
+                $logger->debug('[ActionExecutor] view=' . $view::class . ' method=' . $method . ' contentLen=' . strlen($content) . ' prefix=' . $prefix);
             }
         } else {
             if ($dbg) {
-                AgaviDebugLogger::debug('[ActionExecutor] vn is NONE (no view)', $this->controller->getContext());
+                $logger->debug('[ActionExecutor] vn is NONE (no view)');
             }
         }
         $state->securityDecision = SecurityDecision::Allow;
@@ -263,7 +264,7 @@ final class ActionExecutor
         }
         $ctx = new ActionExecutionContext($action, $view, $desc->module, $desc->action, $desc->outputType, $actionRequest, $content, $vm, $vn, $attributeSnapshot, $bag, $respHandle, $redirectSnapshot);
         if ($dbg) {
-            AgaviDebugLogger::debug('[ActionExecutor] done contentLen=' . strlen($content), $this->controller->getContext());
+            $logger->debug('[ActionExecutor] done contentLen=' . strlen($content));
         }
         return $ctx;
     }

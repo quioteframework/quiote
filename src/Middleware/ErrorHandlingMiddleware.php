@@ -11,7 +11,6 @@ use Nyholm\Psr7\Response;
 use Agavi\Execution\ExecutionState;
 use Throwable;
 use Agavi\Config\AgaviConfig;
-use Agavi\Logging\AgaviDebugLogger;
 use Symfony\Component\Routing\Exception\MethodNotAllowedException;
 
 /**
@@ -28,16 +27,16 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
     public function __construct(?callable $logger = null)
     {
         $this->logger = $logger;
-        AgaviDebugLogger::debug('[ErrorHandlingMiddleware] initialized');
+        \Agavi\Logging\Log::for($this)->debug('[ErrorHandlingMiddleware] initialized');
     }
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         try {
-            AgaviDebugLogger::debug('[ErrorHandlingMiddleware] processing request ' . (string)$request->getUri());
+            \Agavi\Logging\Log::for($this)->debug('[ErrorHandlingMiddleware] processing request ' . (string)$request->getUri());
             return $handler->handle($request);
         } catch (Throwable $e) {
-            AgaviDebugLogger::error($this->buildDiagnosticLogLine($e, $request));
+            \Agavi\Logging\Log::for($this)->error($this->buildDiagnosticLogLine($e, $request));
             return $this->renderExceptionResponse($request, $e);
         }
     }
@@ -79,7 +78,7 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
      */
     public function renderExceptionResponse(ServerRequestInterface $request, Throwable $e): ResponseInterface
     {
-        if ($this->logger && \Agavi\Util\DebugFlags::$exceptionTemplate) {
+        if ($this->logger && \Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug)) {
             try {
                 ($this->logger)($e, $request);
             } catch (Throwable) { /* ignore */
@@ -108,7 +107,7 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
         $accept = strtolower($request->getHeaderLine('Accept'));
         $outputType = strtolower((string)($request->getAttribute('output_type') ?? ''));
         $wantsJson = str_contains($accept, 'application/json') || $outputType === 'json';
-        AgaviDebugLogger::debug(sprintf('[ErrorHandlingMiddleware] content negotiation: accept=%s output_type=%s wants_json=%s', $accept, $outputType, $wantsJson ? '1' : '0'));
+        \Agavi\Logging\Log::for($this)->debug(sprintf('[ErrorHandlingMiddleware] content negotiation: accept=%s output_type=%s wants_json=%s', $accept, $outputType, $wantsJson ? '1' : '0'));
 
         $env = AgaviConfig::get('core.environment');
         $isProd = $env && preg_match('/^(prod|production)/i', (string)$env);
@@ -134,13 +133,13 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
             // Resolve json template file if configured
             $jsonTemplate = $this->resolveStructuredTemplate('json', $mode);
             if ($jsonTemplate) {
-                if (\Agavi\Util\DebugFlags::$exceptionTemplate) {
-                    AgaviDebugLogger::debug(sprintf('[ErrorHandlingMiddleware] JSON template selected, template=%s mode=%s', $jsonTemplate, $mode));
+                if (\Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug)) {
+                    \Agavi\Logging\Log::for($this)->debug(sprintf('[ErrorHandlingMiddleware] JSON template selected, template=%s mode=%s', $jsonTemplate, $mode));
                 }
                 return $this->includeTemplateToResponse($jsonTemplate, $status, $request, $e, 'application/json');
             }
-            if (\Agavi\Util\DebugFlags::$exceptionTemplate) {
-                AgaviDebugLogger::debug(sprintf('[ErrorHandlingMiddleware] JSON template missing, falling back to minimal payload'));
+            if (\Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug)) {
+                \Agavi\Logging\Log::for($this)->debug(sprintf('[ErrorHandlingMiddleware] JSON template missing, falling back to minimal payload'));
             }
             // fallback legacy minimal payload
             $payload = ['error' => $status >= 500 ? 'Internal Server Error' : 'Request Error', 'type' => $e::class];
@@ -164,19 +163,19 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
 
         // HTML template resolution extended with new keys
         $htmlStructured = $this->resolveStructuredTemplate('html', $mode);
-        if ($htmlStructured && \Agavi\Util\DebugFlags::$exceptionTemplate) {
-            AgaviDebugLogger::debug(sprintf('[ErrorHandlingMiddleware] HTML template selected, template=%s mode=%s', $htmlStructured, $mode));
+        if ($htmlStructured && \Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug)) {
+            \Agavi\Logging\Log::for($this)->debug(sprintf('[ErrorHandlingMiddleware] HTML template selected, template=%s mode=%s', $htmlStructured, $mode));
         } else {
-            AgaviDebugLogger::debug(sprintf('[ErrorHandlingMiddleware] HTML template missing, attempting legacy'));
+            \Agavi\Logging\Log::for($this)->debug(sprintf('[ErrorHandlingMiddleware] HTML template missing, attempting legacy'));
         }
         // Guard: if misconfiguration points HTML path at a JSON template, force fallback to real HTML
         if ($tplFile && preg_match('/json_(development|production)\.php$/', $tplFile)) {
-            AgaviDebugLogger::debug(sprintf('[ErrorHandlingMiddleware] HTML guard: JSON misconfiguration detected, forcing fallback to HTML'));
+            \Agavi\Logging\Log::for($this)->debug(sprintf('[ErrorHandlingMiddleware] HTML guard: JSON misconfiguration detected, forcing fallback to HTML'));
             // Force fallback list ignoring configured default
             $tplFile = self::resolveTemplateFileStatic($request->withAttribute('__force_html_fallback', true));
         }
         if ($tplFile && $htmlStructured !== $tplFile) {
-            AgaviDebugLogger::debug(sprintf('[ErrorHandlingMiddleware] HTML legacy template selected, template=%s', $tplFile));
+            \Agavi\Logging\Log::for($this)->debug(sprintf('[ErrorHandlingMiddleware] HTML legacy template selected, template=%s', $tplFile));
         }
         $context = $this->extractContext($request);
         $baseLevel = ob_get_level();
@@ -187,7 +186,7 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
             /** @noinspection PhpUnusedLocalVariableInspection */ $exceptionsChain = $exceptions;
             $rootException = $e;
             $correlationId = $cid ?? null;
-            AgaviDebugLogger::debug(sprintf('[ErrorHandlingMiddleware] including template %s', $tplFile));
+            \Agavi\Logging\Log::for($this)->debug(sprintf('[ErrorHandlingMiddleware] including template %s', $tplFile));
             include $tplFile;
             $body = ob_get_clean();
         } catch (Throwable $renderErr) {
@@ -196,7 +195,7 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
                 @ob_end_clean();
             }
             $msg = \Agavi\Util\DebugFlags::$exceptionTemplate ? 'Template render failed: ' . $renderErr->getMessage() : 'Internal Server Error';
-            AgaviDebugLogger::error(sprintf('[ErrorHandlingMiddleware] Template render failed: %s template=%s', $renderErr->getMessage(), $tplFile));
+            \Agavi\Logging\Log::for($this)->error(sprintf('[ErrorHandlingMiddleware] Template render failed: %s template=%s', $renderErr->getMessage(), $tplFile));
             return new Response($status, ['Content-Type' => 'text/plain; charset=utf-8', 'X-Agavi-Error-Type' => $e::class], $msg);
         }
         if ($body === '' || $body === false) {
@@ -220,12 +219,12 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
         }
         $headers['X-Agavi-Error-Type'] = $e::class;
 
-        AgaviDebugLogger::debug(sprintf('[ErrorHandlingMiddleware] HTML response complete, status=%d length=%d', $status, strlen($body)));
+        \Agavi\Logging\Log::for($this)->debug(sprintf('[ErrorHandlingMiddleware] HTML response complete, status=%d length=%d', $status, strlen($body)));
 
-        if ($status >= 500 && (\Agavi\Util\DebugFlags::$exceptionTemplate)) {
+        if ($status >= 500 && (\Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug))) {
             $snippet = substr($body, 0, 400);
             $snippetEsc = json_encode($snippet, JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR);
-            AgaviDebugLogger::debug(sprintf('[ErrorHandlingMiddleware] HTML response snippet: body_snippet=%s', $snippetEsc));
+            \Agavi\Logging\Log::for($this)->debug(sprintf('[ErrorHandlingMiddleware] HTML response snippet: body_snippet=%s', $snippetEsc));
         }
 
         return new Response($status, $headers, $body);

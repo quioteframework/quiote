@@ -3,7 +3,6 @@
 namespace Agavi\Middleware;
 
 use Agavi\Controller\AgaviController;
-use Agavi\Logging\AgaviDebugLogger;
 use Agavi\Security\Csrf\CsrfManager;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Http\Message\ResponseInterface;
@@ -71,8 +70,8 @@ class CsrfValidationMiddleware implements MiddlewareInterface
         }
 
         if (!$forced && $this->isExemptFromCsrf($request)) {
-            if (\Agavi\Util\DebugFlags::$security) {
-                AgaviDebugLogger::debug('[CsrfValidationMiddleware] exempt ' . $request->getMethod() . ' ' . $request->getUri()->getPath() . ' (no ambient session credential)', $this->controller->getContext());
+            if (\Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug)) {
+                \Agavi\Logging\Log::for($this)->debug('[CsrfValidationMiddleware] exempt ' . $request->getMethod() . ' ' . $request->getUri()->getPath() . ' (no ambient session credential)');
             }
             return $handler->handle($request);
         }
@@ -80,8 +79,8 @@ class CsrfValidationMiddleware implements MiddlewareInterface
         $submitted = $this->extractToken($request, $csrf);
 
         if ($submitted === null || !$csrf->isValid($submitted)) {
-            if (\Agavi\Util\DebugFlags::$security) {
-                AgaviDebugLogger::debug('[CsrfValidationMiddleware] rejected ' . $request->getMethod() . ' ' . $request->getUri()->getPath() . ' (token ' . ($submitted === null ? 'missing' : 'invalid') . ')', $this->controller->getContext());
+            if (\Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug)) {
+                \Agavi\Logging\Log::for($this)->debug('[CsrfValidationMiddleware] rejected ' . $request->getMethod() . ' ' . $request->getUri()->getPath() . ' (token ' . ($submitted === null ? 'missing' : 'invalid') . ')');
             }
             $factory = new Psr17Factory();
             return $factory->createResponse(403)

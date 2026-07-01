@@ -15,7 +15,6 @@
 // +---------------------------------------------------------------------------+
 namespace Agavi\Database;
 
-use Agavi\Logging\AgaviDebugLogger;
 use Agavi\Util\AgaviParameterHolder;
 use Symfony\Contracts\Service\ResetInterface;
 
@@ -111,19 +110,20 @@ abstract class AgaviDatabase extends AgaviParameterHolder implements ResetInterf
 	 */
 	public function getConnection()
 	{
-		if (\Agavi\Util\DebugFlags::$database) {
-			AgaviDebugLogger::debug('[AgaviDatabase] getConnection() called - database_id=' . spl_object_id($this) . ' connection_exists=' . ($this->connection ? 'YES' : 'NO'));
+		$logger = \Agavi\Logging\Log::for($this);
+		if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+			$logger->debug('[AgaviDatabase] getConnection() called - database_id=' . spl_object_id($this) . ' connection_exists=' . ($this->connection ? 'YES' : 'NO'));
 		}
-		
+
 		if($this->connection === null) {
-			if (\Agavi\Util\DebugFlags::$database) {
-				AgaviDebugLogger::debug('[AgaviDatabase] connection is null, calling connect()');
+			if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+				$logger->debug('[AgaviDatabase] connection is null, calling connect()');
 			}
 			$this->connect();
 		}
 
-		if (\Agavi\Util\DebugFlags::$database) {
-			AgaviDebugLogger::debug('[AgaviDatabase] getConnection() returning connection_id=' . spl_object_id($this->connection) . ' type=' . $this->connection::class);
+		if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+			$logger->debug('[AgaviDatabase] getConnection() returning connection_id=' . spl_object_id($this->connection) . ' type=' . $this->connection::class);
 		}
 		
 		return $this->connection;

@@ -15,7 +15,6 @@ use Agavi\Execution\SecurityDecision;
 use Agavi\Action\AgaviAction;
 use Agavi\Execution\ExecutionState;
 use Agavi\Execution\ValidationDecision;
-use Agavi\Logging\AgaviDebugLogger;
 
 /**
  * Security middleware: evaluates action security requirements and forwards
@@ -33,7 +32,7 @@ class SecurityMiddleware implements MiddlewareInterface
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        $dbg = \Agavi\Util\DebugFlags::$security;
+        $dbg = \Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug);
         $rid = $request->getAttribute('agavi.rid');
         if (!$rid) {
             try {
@@ -78,7 +77,7 @@ class SecurityMiddleware implements MiddlewareInterface
         } catch (\Throwable) {
         }
         if ($dbg) {
-            AgaviDebugLogger::debug('[SecurityMiddleware][' . $rid . '] pre module=' . $actionDesc->module . ' action=' . $actionDesc->action . ' method=' . $actionDesc->method . ' sessId=' . $sessId . ' auth=' . $authState, $this->controller->getContext());
+            \Agavi\Logging\Log::for($this)->debug('[SecurityMiddleware][' . $rid . '] pre module=' . $actionDesc->module . ' action=' . $actionDesc->action . ' method=' . $actionDesc->method . ' sessId=' . $sessId . ' auth=' . $authState);
         }
 
         // Try to create and initialize the action instance
@@ -102,7 +101,7 @@ class SecurityMiddleware implements MiddlewareInterface
                 }
             }
         } catch (\Throwable $initEx) {
-            AgaviDebugLogger::error('[SecurityMiddleware][' . $rid . '] action init FAILED: ' . $initEx::class . ': ' . $initEx->getMessage() . ' @ ' . $initEx->getFile() . ':' . $initEx->getLine(), $this->controller->getContext());
+            \Agavi\Logging\Log::for($this)->error('[SecurityMiddleware][' . $rid . '] action init FAILED: ' . $initEx::class . ': ' . $initEx->getMessage() . ' @ ' . $initEx->getFile() . ':' . $initEx->getLine());
             $action = null;
         }
 
@@ -123,12 +122,12 @@ class SecurityMiddleware implements MiddlewareInterface
             }
             $decision = $isAuth ? SecurityDecision::Allow : SecurityDecision::LoginForward;
             if (!$isAuth) {
-                AgaviDebugLogger::error('[SecurityMiddleware][' . $rid . '] fail-closed: action creation failed, user not authenticated → LoginForward', $this->controller->getContext());
+                \Agavi\Logging\Log::for($this)->error('[SecurityMiddleware][' . $rid . '] fail-closed: action creation failed, user not authenticated → LoginForward');
             }
         }
 
         if ($dbg) {
-            AgaviDebugLogger::debug('[SecurityMiddleware][' . $rid . '] decision=' . $decision->name . ' authAfter=' . ($userObj && method_exists($userObj, 'isAuthenticated') && $userObj->isAuthenticated() ? '1' : '0'), $this->controller->getContext());
+            \Agavi\Logging\Log::for($this)->debug('[SecurityMiddleware][' . $rid . '] decision=' . $decision->name . ' authAfter=' . ($userObj && method_exists($userObj, 'isAuthenticated') && $userObj->isAuthenticated() ? '1' : '0'));
         }
         $execState = $request->getAttribute(ExecutionState::class);
         if ($execState instanceof ExecutionState) {
@@ -149,7 +148,7 @@ class SecurityMiddleware implements MiddlewareInterface
                 try {
                     $orig = $actionDesc;
                     $sidLog = $sessId ?? 'n/a';
-                    AgaviDebugLogger::debug('[SecurityMiddleware]['.$rid.'] non-allow decision='.$decision->name.' orig='.$orig->module.':'.$orig->action.':'.$orig->method.' sid='.$sidLog.' auth='.$authState, $this->controller->getContext());
+                    \Agavi\Logging\Log::for($this)->debug('[SecurityMiddleware]['.$rid.'] non-allow decision='.$decision->name.' orig='.$orig->module.':'.$orig->action.':'.$orig->method.' sid='.$sidLog.' auth='.$authState);
                 } catch(\Throwable) {}
             }
             // Produce a replacement ActionDescriptor for the system action based on HTTP verb.
@@ -191,12 +190,12 @@ class SecurityMiddleware implements MiddlewareInterface
                     $request = $request->withAttribute(ExecutionState::class, $execState);
                 }
                 if ($dbg) {
-                    AgaviDebugLogger::debug('[SecurityMiddleware] forwarded decision=' . $decision->name . ' -> system action ' . $newDesc->module . ':' . $newDesc->action . ':' . $newDesc->method, $this->controller->getContext());
+                    \Agavi\Logging\Log::for($this)->debug('[SecurityMiddleware] forwarded decision=' . $decision->name . ' -> system action ' . $newDesc->module . ':' . $newDesc->action . ':' . $newDesc->method);
                 }
             } catch (\Throwable $e) {
                 // CRITICAL: If we cannot create a forward descriptor, we MUST NOT pass through
                 // with the original action — that would bypass security entirely.
-                AgaviDebugLogger::error('[SecurityMiddleware][' . $rid . '] forward descriptor creation FAILED (returning 403): ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine(), $this->controller->getContext());
+                \Agavi\Logging\Log::for($this)->error('[SecurityMiddleware][' . $rid . '] forward descriptor creation FAILED (returning 403): ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
                 $factory = new \Nyholm\Psr7\Factory\Psr17Factory();
                 return $factory->createResponse(403)->withBody($factory->createStream('Access Denied'));
             }
@@ -204,7 +203,7 @@ class SecurityMiddleware implements MiddlewareInterface
         if ($dbg) {
             $finalDesc = $request->getAttribute(ActionDescriptor::class);
             if ($finalDesc) {
-                AgaviDebugLogger::debug('[SecurityMiddleware][' . $rid . '] post module=' . $finalDesc->module . ' action=' . $finalDesc->action . ' method=' . $finalDesc->method . ' forwarded=' . ($execState ? ($execState->forwarded ? '1' : '0') : '0'), $this->controller->getContext());
+                \Agavi\Logging\Log::for($this)->debug('[SecurityMiddleware][' . $rid . '] post module=' . $finalDesc->module . ' action=' . $finalDesc->action . ' method=' . $finalDesc->method . ' forwarded=' . ($execState ? ($execState->forwarded ? '1' : '0') : '0'));
             }
         }
         return $handler->handle($request);

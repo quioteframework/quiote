@@ -8,7 +8,6 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Agavi\Controller\AgaviController;
 use Negotiation\BaseAccept;
-use Agavi\Logging\AgaviDebugLogger;
 use Agavi\Http\MimeTypeRegistry;
 use Negotiation\Negotiator;
 
@@ -29,8 +28,8 @@ class ContentNegotiationMiddleware implements MiddlewareInterface
     {
         $existing = $request->getAttribute('output_type');
         if ($existing !== null) {
-            if (\Agavi\Util\DebugFlags::$response || \Agavi\Util\DebugFlags::$cookie) {
-                AgaviDebugLogger::debug('[ContentNegotiationMiddleware] output_type already set to ' . $existing . ', skipping', $this->controller->getContext());
+            if (\Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug)) {
+                \Agavi\Logging\Log::for($this)->debug('[ContentNegotiationMiddleware] output_type already set to ' . $existing . ', skipping');
             }
             return $handler->handle($request);
         }
@@ -46,8 +45,8 @@ class ContentNegotiationMiddleware implements MiddlewareInterface
                                ->withAttribute('output_formats', $formats);
         }
 
-        if (\Agavi\Util\DebugFlags::$response || \Agavi\Util\DebugFlags::$cookie) {
-            AgaviDebugLogger::debug('[ContentNegotiationMiddleware] set output_type=' . ($primary ?? 'null') . ' output_formats=' . implode(',', $formats) . ' uri=' . $request->getUri()->getPath() . ' accept=' . $request->getHeaderLine('Accept'), $this->controller->getContext());
+        if (\Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug)) {
+            \Agavi\Logging\Log::for($this)->debug('[ContentNegotiationMiddleware] set output_type=' . ($primary ?? 'null') . ' output_formats=' . implode(',', $formats) . ' uri=' . $request->getUri()->getPath() . ' accept=' . $request->getHeaderLine('Accept'));
         }
 
         return $handler->handle($request);
@@ -76,14 +75,14 @@ class ContentNegotiationMiddleware implements MiddlewareInterface
     /** @return string[] */
     private function detectFromHeader(ServerRequestInterface $request): array
     {
-        $dbg = \Agavi\Util\DebugFlags::$response || \Agavi\Util\DebugFlags::$cookie;
-        if ($dbg) { AgaviDebugLogger::debug('[ContentNegotiationMiddleware] detecting content type from headers', $this->controller->getContext()); }
+        $dbg = \Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug);
+        if ($dbg) { \Agavi\Logging\Log::for($this)->debug('[ContentNegotiationMiddleware] detecting content type from headers'); }
         if (!$request->hasHeader('Accept')) {
             return [];
         }
         $accept = $request->getHeaderLine('Accept');
         $mime = $this->negotiateHeader($accept, new Negotiator(), MimeTypeRegistry::allMimeTypes());
-        if ($dbg) { AgaviDebugLogger::debug('[ContentNegotiationMiddleware] got ' . ($mime ?? 'null'), $this->controller->getContext()); }
+        if ($dbg) { \Agavi\Logging\Log::for($this)->debug('[ContentNegotiationMiddleware] got ' . ($mime ?? 'null')); }
         return $mime !== null ? MimeTypeRegistry::formatsForMime($mime) : [];
     }
 

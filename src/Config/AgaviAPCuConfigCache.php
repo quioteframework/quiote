@@ -273,7 +273,7 @@ class AgaviAPCuConfigCache extends AgaviConfigCache
     private static function warmupConfig(string $config, ?string $context): bool
     {
         $logger = self::getLoggerFor($context);
-        $logger?->debug('APCuConfigCache warmupConfig start', ['config' => basename($config), 'context' => $context]);
+        $logger->debug('APCuConfigCache warmupConfig start', ['config' => basename($config), 'context' => $context]);
         
         // Temporarily disable APCu to force compilation without storing in APCu yet
         $apcuWasAvailable = self::$apcuAvailable;
@@ -284,27 +284,27 @@ class AgaviAPCuConfigCache extends AgaviConfigCache
             $cacheFile = parent::checkConfig($config, $context);
             
             if (!is_readable($cacheFile)) {
-                $logger?->warning('APCuConfigCache warmupConfig cache file not readable', ['config' => basename($config)]);
+                $logger->warning('APCuConfigCache warmupConfig cache file not readable', ['config' => basename($config)]);
                 return false;
             }
             
             // Read the compiled content
             $content = file_get_contents($cacheFile);
-            $logger?->debug('APCuConfigCache warmupConfig read bytes', ['config' => basename($config), 'bytes' => strlen($content)]);
+            $logger->debug('APCuConfigCache warmupConfig read bytes', ['config' => basename($config), 'bytes' => strlen($content)]);
             
             // Store in APCu
             $key = self::getConfigKey($config, $context);
             $result = \apcu_store($key, $content, self::$ttl);
             if ($result) {
-                $logger?->debug('APCuConfigCache warmupConfig stored in APCu', ['config' => basename($config)]);
+                $logger->debug('APCuConfigCache warmupConfig stored in APCu', ['config' => basename($config)]);
             } else {
-                $logger?->warning('APCuConfigCache warmupConfig failed storing in APCu', ['config' => basename($config)]);
+                $logger->warning('APCuConfigCache warmupConfig failed storing in APCu', ['config' => basename($config)]);
             }
             
             // Clean up the temporary file since we only need APCu storage
             if (file_exists($cacheFile)) {
                 unlink($cacheFile);
-                $logger?->debug('APCuConfigCache warmupConfig cleaned temp file', ['config' => basename($config)]);
+                $logger->debug('APCuConfigCache warmupConfig cleaned temp file', ['config' => basename($config)]);
             }
             
             return $result;
@@ -591,14 +591,6 @@ class AgaviAPCuConfigCache extends AgaviConfigCache
      */
     private static function getLoggerFor(?string $context)
     {
-        try {
-            if (!class_exists(AgaviContext::class)) {
-                return null;
-            }
-            $ctx = AgaviContext::getInstance($context);
-            return $ctx?->getLoggerManager()?->getLogger();
-        } catch (\Throwable) {
-            return null; // Never let logging break cache behavior
-        }
+        return \Agavi\Logging\Log::create('Agavi.Config.AgaviAPCuConfigCache');
     }
 }

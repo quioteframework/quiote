@@ -81,6 +81,33 @@ class AgaviContextExtendedCoverageTest extends TestCase
         $this->assertNotNull($ctx->getCurrentPsrRequest());
     }
 
+    public function testResetClearsLogContextScope()
+    {
+        $ctx = $this->ctx();
+        $this->injectLogger($ctx);
+        // Simulate a request that left ambient scope on the stack.
+        \Agavi\Logging\LogContext::enrich(['rid' => 'req-A', 'userId' => 99]);
+        $this->assertFalse(\Agavi\Logging\LogContext::isEmpty());
+        $ctx->reset();
+        $this->assertTrue(
+            \Agavi\Logging\LogContext::isEmpty(),
+            'reset() must clear ambient log scope so it cannot leak into the next worker request'
+        );
+    }
+
+    public function testHandleEnrichesLogScopeWithCorrelationId()
+    {
+        $ctx = $this->ctx();
+        $ro = new ReflectionObject($ctx);
+        $ro->getProperty('routing')->setValue($ctx, new TestRouting());
+        // Leftover scope from a prior request must not survive into this one.
+        \Agavi\Logging\LogContext::enrich(['stale' => 'from-prior-request']);
+        $ctx->handle(new ServerRequest('GET', '/foo'));
+        $scope = \Agavi\Logging\LogContext::current();
+        $this->assertArrayNotHasKey('stale', $scope, 'handle() must start a fresh scope');
+        $this->assertSame($ctx->getCorrelationId(), $scope['rid'] ?? null, 'handle() must enrich scope with rid');
+    }
+
     public function testSingletonModelInstancesClearedOnReset()
     {
         $ctx = $this->ctx();

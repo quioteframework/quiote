@@ -6,7 +6,6 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Agavi\AgaviContext;
-use Agavi\Logging\AgaviDebugLogger;
 use Relay\Relay;
 
 /**
@@ -53,7 +52,7 @@ class MiddlewarePipeline implements RequestHandlerInterface
         $construct(ErrorHandlingMiddleware::class, fn() => new ErrorHandlingMiddleware(function (\Throwable $e, ServerRequestInterface $r) use ($context): void {
             $first = $e->getFile() . ':' . $e->getLine();
             $snippet = substr(str_replace("\n", ' | ', $e->getTraceAsString()), 0, 500);
-            AgaviDebugLogger::debug('[MiddlewarePipeline] ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $first . ' trace=' . $snippet, $context);
+            \Agavi\Logging\Log::for($this)->debug('[MiddlewarePipeline] ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $first . ' trace=' . $snippet);
         }));
         $construct(SessionMiddleware::class, fn()=> new SessionMiddleware($controller));
         $construct(TimingMiddleware::class, fn()=> new TimingMiddleware(false));

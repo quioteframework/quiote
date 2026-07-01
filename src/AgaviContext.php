@@ -20,7 +20,6 @@ use Agavi\Config\AgaviConfigCache;
 use Agavi\Config\AgaviAPCuConfigCache;
 use Agavi\Controller\AgaviController;
 use Agavi\Exception\AgaviDisabledModuleException;
-use Agavi\Logging\AgaviDebugLogger;
 use Agavi\Logging\AgaviLoggerManager;
 use Agavi\Exception\AgaviException;
 use Agavi\Request\AgaviWebRequest;
@@ -401,7 +400,7 @@ class AgaviContext implements \Stringable, ResetInterface
    */
   public function reset(): void
   {
-    $logger = $this->getLoggerManager()->getLogger();
+    $logger = \Agavi\Logging\Log::for($this);
 
     // Reset singleton model instances
     $this->singletonModelInstances = [];
@@ -436,7 +435,7 @@ class AgaviContext implements \Stringable, ResetInterface
 
     // CRITICAL: Manually execute the shutdown sequence in correct order for FrankenPHP
     // This ensures session data is saved properly before clearing state
-    if (\Agavi\Util\DebugFlags::$reset && $logger) {
+    if ($logger && $logger->isEnabled(\Agavi\Logging\Level::Debug)) {
       $logger->debug("context.reset manual shutdown sequence");
     }
 
@@ -460,18 +459,15 @@ class AgaviContext implements \Stringable, ResetInterface
 
         // Reset storage connections after shutdown if it implements ResetInterface
         if ($component instanceof ResetInterface) {
-          if (\Agavi\Util\DebugFlags::$database) {
-            AgaviDebugLogger::debug(
-              "[AgaviContext] calling storage reset()",
-              $this,
-            );
+          if ($logger && $logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+            $logger->debug("[AgaviContext] calling storage reset()");
           }
           $component->reset();
         }
       } elseif ($component === $this->databaseManager && $component !== null) {
         // Recycle (ping + null dead connections) instead of full shutdown so the manager
         // stays alive across requests, avoiding re-initialization cost.
-        if (\Agavi\Util\DebugFlags::$reset && $logger) {
+        if ($logger && $logger->isEnabled(\Agavi\Logging\Level::Debug)) {
           $logger->debug(
             "context.reset recycleConnections databaseManager - id=" .
               spl_object_id($component),
@@ -483,7 +479,7 @@ class AgaviContext implements \Stringable, ResetInterface
       // as they're not needed for session persistence and might interfere with worker mode
     }
 
-    if (\Agavi\Util\DebugFlags::$reset && $logger) {
+    if ($logger && $logger->isEnabled(\Agavi\Logging\Level::Debug)) {
       $logger->debug("context.reset shutdown complete");
     }
 
@@ -491,13 +487,13 @@ class AgaviContext implements \Stringable, ResetInterface
     // In worker mode, null the storage so it gets recreated with fresh startup() call
     // This ensures session_start() is called properly on each request
     $this->storage = null;
-    if (\Agavi\Util\DebugFlags::$reset && $logger) {
+    if ($logger && $logger->isEnabled(\Agavi\Logging\Level::Debug)) {
       $logger->debug("context.reset storage nulled");
     }
 
     // Reset user object (it will be recreated with clean session state)
     $this->user = null;
-    if (\Agavi\Util\DebugFlags::$reset && $logger) {
+    if ($logger && $logger->isEnabled(\Agavi\Logging\Level::Debug)) {
       $logger->debug("[AgaviContext.reset] user cleared");
     }
 
@@ -507,7 +503,7 @@ class AgaviContext implements \Stringable, ResetInterface
         $instance->reset();
       }
     }
-    if (\Agavi\Util\DebugFlags::$reset && $logger) {
+    if ($logger && $logger->isEnabled(\Agavi\Logging\Level::Debug)) {
       $logger->debug("[AgaviContext.reset] routing reset instances");
     }
 
@@ -522,11 +518,16 @@ class AgaviContext implements \Stringable, ResetInterface
     // Reset request object (it will be recreated for the next request)
     $this->request = null;
     // Reset PSR middleware kernel for worker mode safety
-    if (\Agavi\Util\DebugFlags::$reset && $logger) {
+    if ($logger && $logger->isEnabled(\Agavi\Logging\Level::Debug)) {
       $logger->debug("[AgaviContext.reset] request nulled");
     }
 
-    if (\Agavi\Util\DebugFlags::$reset && $logger) {
+    // Drop all ambient logging scopes so this request's rid/user/etc. cannot leak
+    // into the next request's log lines in a long-lived worker (same cross-request
+    // leak class as the session state cleared elsewhere in this reset).
+    \Agavi\Logging\LogContext::clear();
+
+    if ($logger && $logger->isEnabled(\Agavi\Logging\Level::Debug)) {
       $logger->debug("[AgaviContext.reset] completed");
     }
   }
@@ -577,6 +578,13 @@ class AgaviContext implements \Stringable, ResetInterface
     } catch (\Throwable) {
       $this->correlationId = uniqid("req", true);
     }
+
+    // Start a fresh ambient logging scope for this request so every log line is
+    // correlatable by rid. clear() first is defensive: it guards against a scope
+    // left behind by a prior worker request whose reset() did not run. The
+    // authoritative between-request clear lives in reset().
+    \Agavi\Logging\LogContext::clear();
+    \Agavi\Logging\LogContext::enrich(["rid" => $this->correlationId]);
 
     // Bridge: ensure a legacy AgaviWebRequest exists and attach the current PSR request for BC helpers
     try {
@@ -631,7 +639,7 @@ class AgaviContext implements \Stringable, ResetInterface
       $message =
         "[AgaviContext] setRequest (no id) cid=" . $this->correlationId;
     }
-    AgaviDebugLogger::debug($message, $this);
+    \Agavi\Logging\Log::for($this)->debug($message);
   }
 
   /**
@@ -705,7 +713,7 @@ class AgaviContext implements \Stringable, ResetInterface
   {
     \Agavi\Util\DebugFlags::init();
     try {
-      $logger = $this->getLoggerManager()?->getLogger();
+      $logger = \Agavi\Logging\Log::for($this);
       if (
         defined("AGAVI_USE_APCU_CONFIG_CACHE") &&
         AGAVI_USE_APCU_CONFIG_CACHE
@@ -860,13 +868,13 @@ class AgaviContext implements \Stringable, ResetInterface
         }
       } catch (\Throwable $e) {
         // swallow shutdown errors to avoid masking original execution context
-        if (\Agavi\Util\DebugFlags::$shutdown) {
-          AgaviDebugLogger::debug(
+        $logger = \Agavi\Logging\Log::for($this);
+        if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+          $logger->debug(
             "[AgaviContext] shutdown component error " .
               $object::class .
               " msg=" .
               $e->getMessage(),
-            $this,
           );
         }
       }
@@ -1045,11 +1053,10 @@ class AgaviContext implements \Stringable, ResetInterface
   {
     // Lazy initialization for worker mode - recreate request object if null after reset
     if ($this->request === null) {
-      $logger = $this->getLoggerManager()?->getLogger();
-      if (\Agavi\Util\DebugFlags::$request) {
-        AgaviDebugLogger::debug(
+      $logger = \Agavi\Logging\Log::for($this);
+      if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+        $logger->debug(
           "[AgaviContext] getRequest() Request object is null, recreating...",
-          $this,
         );
       }
 
@@ -1071,34 +1078,30 @@ class AgaviContext implements \Stringable, ResetInterface
         if ($this->controller && method_exists($this->controller, "startup")) {
           try {
             $this->controller->startup();
-            if (\Agavi\Util\DebugFlags::$request) {
-              AgaviDebugLogger::debug(
+            if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+              $logger->debug(
                 "[AgaviContext] getRequest() Controller startup re-run after request recreation",
-                $this,
               );
             }
           } catch (\Throwable $e) {
-            if (\Agavi\Util\DebugFlags::$request) {
-              AgaviDebugLogger::debug(
+            if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+              $logger->debug(
                 "[AgaviContext] getRequest() Controller startup failed after request recreation: " .
                   $e->getMessage(),
-                $this,
               );
             }
           }
         }
-        if (\Agavi\Util\DebugFlags::$request) {
-          AgaviDebugLogger::debug(
+        if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+          $logger->debug(
             "[AgaviContext] getRequest() Request object recreated successfully using factory info: " .
               $className,
-            $this,
           );
         }
       } else {
-        if (\Agavi\Util\DebugFlags::$request) {
-          AgaviDebugLogger::debug(
+        if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+          $logger->debug(
             "[AgaviContext] getRequest() No request factory info available, cannot recreate request",
-            $this,
           );
         }
         throw new AgaviException(
@@ -1122,7 +1125,7 @@ class AgaviContext implements \Stringable, ResetInterface
   {
     // Lazy initialization for worker mode - recreate routing object if null after reset
     if ($this->routing === null) {
-      $logger = $this->getLoggerManager()?->getLogger();
+      $logger = \Agavi\Logging\Log::for($this);
       $logger?->debug(
         "AgaviContext::getRouting() - Routing object is null, recreating...",
       );
@@ -1158,7 +1161,7 @@ class AgaviContext implements \Stringable, ResetInterface
   {
     // Lazy initialization for worker mode - recreate storage object if null after reset
     if ($this->storage === null) {
-      $logger = $this->getLoggerManager()?->getLogger();
+      $logger = \Agavi\Logging\Log::for($this);
       $logger?->debug(
         "[AgaviContext.getStorage] - Storage object is null, recreating...",
       );
@@ -1253,7 +1256,8 @@ class AgaviContext implements \Stringable, ResetInterface
     // Lazy initialization for worker mode - recreate user object if null after reset
     if ($this->user === null) {
       // (Simplified) No serialized snapshot restore; always build fresh user below.
-      if (\Agavi\Util\DebugFlags::$security) {
+      $logger = \Agavi\Logging\Log::for($this);
+      if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
         try {
           $bt = [];
           $rawBt = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 12);
@@ -1267,14 +1271,12 @@ class AgaviContext implements \Stringable, ResetInterface
                 ($f["type"] ?? "") .
                 ($f["function"] ?? ""));
           }
-          AgaviDebugLogger::debug(
+          $logger->debug(
             "[getUser] user null, recreating trace=" . json_encode($bt),
-            $this,
           );
         } catch (\Throwable) {
         }
       }
-      $logger = $this->getLoggerManager()?->getLogger();
       $logger?->debug(
         "[AgaviContext.getUser] - User object is null, recreating...",
       );
@@ -1326,13 +1328,12 @@ class AgaviContext implements \Stringable, ResetInterface
         $this->user = new $className();
         $this->user->initialize($this, $parameters);
         $this->user->startup();
-        if (\Agavi\Util\DebugFlags::$security) {
-          AgaviDebugLogger::debug(
+        if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+          $logger->debug(
             "[AgaviContext.getUser] newUser=" .
               $this->user::class .
               " oid=" .
               spl_object_id($this->user),
-            $this,
           );
         }
 
@@ -1371,15 +1372,14 @@ class AgaviContext implements \Stringable, ResetInterface
           array_splice($this->shutdownSequence, $firstUserIndex, 0, [
             $this->user,
           ]);
-          if (\Agavi\Util\DebugFlags::$security) {
-            AgaviDebugLogger::debug(
+          if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+            $logger->debug(
               "[AgaviContext.getUser] registered user in shutdownSequence replaced=" .
                 ($removedAny ? 1 : 0) .
                 " idx=" .
                 $firstUserIndex .
                 " oid=" .
                 spl_object_id($this->user),
-              $this,
             );
           }
         } catch (\Throwable) {

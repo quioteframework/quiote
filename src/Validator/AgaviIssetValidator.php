@@ -45,18 +45,19 @@ class AgaviIssetValidator extends AgaviValidator
 	#[\Override]
     protected function checkAllArgumentsSet($throwError = true)
 	{
-		if (\Agavi\Util\DebugFlags::$validation) {
-			\Agavi\Logging\AgaviDebugLogger::debug('[AgaviIssetValidator][checkAllArgumentsSet] required=' . var_export($this->getParameter('required', true), true), $this->getContext());
+		$logger = \Agavi\Logging\Log::for($this);
+		if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+			$logger->debug('[AgaviIssetValidator][checkAllArgumentsSet] required=' . var_export($this->getParameter('required', true), true));
 		}
 		if($this->getParameter('required', true)) {
-			if (\Agavi\Util\DebugFlags::$validation) {
-				\Agavi\Logging\AgaviDebugLogger::debug('[AgaviIssetValidator][checkAllArgumentsSet] returning TRUE (required)', $this->getContext());
+			if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+				$logger->debug('[AgaviIssetValidator][checkAllArgumentsSet] returning TRUE (required)');
 			}
 			return true;
 		} else {
 			$result = parent::checkAllArgumentsSet($throwError);
-			if (\Agavi\Util\DebugFlags::$validation) {
-				\Agavi\Logging\AgaviDebugLogger::debug('[AgaviIssetValidator][checkAllArgumentsSet] parent returned ' . var_export($result, true), $this->getContext());
+			if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+				$logger->debug('[AgaviIssetValidator][checkAllArgumentsSet] parent returned ' . var_export($result, true));
 			}
 			return $result;
 		}
@@ -74,19 +75,20 @@ class AgaviIssetValidator extends AgaviValidator
 	{
 		$params = $this->validationParameters->getAll($this->getParameter('source'));
 
+		$logger = \Agavi\Logging\Log::for($this);
 		foreach($this->getArguments() as $argument) {
-			if (\Agavi\Util\DebugFlags::$validation) {
-				\Agavi\Logging\AgaviDebugLogger::debug('[AgaviIssetValidator][validate] argument=' . ($argument===''?'<empty>':$argument) . ' curBase=' . $this->curBase->__toString(), $this->getContext());
+			if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+				$logger->debug('[AgaviIssetValidator][validate] argument=' . ($argument===''?'<empty>':$argument) . ' curBase=' . $this->curBase->__toString());
 			}
 			if(!$this->curBase->hasValueByChildPath($argument, $params)) {
-				if (\Agavi\Util\DebugFlags::$validation) {
-					\Agavi\Logging\AgaviDebugLogger::debug('[AgaviIssetValidator][validate] hasValueByChildPath returned FALSE', $this->getContext());
+				if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+					$logger->debug('[AgaviIssetValidator][validate] hasValueByChildPath returned FALSE');
 				}
 				$this->throwError();
 				return false;
 			}
-			if (\Agavi\Util\DebugFlags::$validation) {
-				\Agavi\Logging\AgaviDebugLogger::debug('[AgaviIssetValidator][validate] hasValueByChildPath returned TRUE', $this->getContext());
+			if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+				$logger->debug('[AgaviIssetValidator][validate] hasValueByChildPath returned TRUE');
 			}
 		}
 

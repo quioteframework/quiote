@@ -6,7 +6,6 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Agavi\AgaviContext;
-use Agavi\Logging\AgaviDebugLogger;
 use Relay\Relay;
 
 /**
@@ -60,7 +59,7 @@ class MiddlewarePipeline implements RequestHandlerInterface
         $construct(ErrorHandlingMiddleware::class, fn() => new ErrorHandlingMiddleware(function (\Throwable $e, ServerRequestInterface $r) use ($context): void {
             $first = $e->getFile() . ':' . $e->getLine();
             $snippet = substr(str_replace("\n", ' | ', $e->getTraceAsString()), 0, 500);
-            AgaviDebugLogger::error('[MiddlewarePipeline] ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $first . ' trace=' . $snippet, $context);
+            \Agavi\Logging\Log::for($this)->error('[MiddlewarePipeline] ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $first . ' trace=' . $snippet);
         }));
         
         $construct(SessionMiddleware::class, fn() => new SessionMiddleware($controller));
@@ -102,7 +101,7 @@ class MiddlewarePipeline implements RequestHandlerInterface
             }
         };
         $this->debugStack[] = '__TERMINAL__';
-        AgaviDebugLogger::debug('[MiddlewarePipeline] built stack: ' . implode(' → ', $this->debugStack), $this->context);
+        \Agavi\Logging\Log::for($this)->debug('[MiddlewarePipeline] built stack: ' . implode(' → ', $this->debugStack));
 
         $relay = new Relay($stack);
         $this->handler = new readonly class($relay) implements RequestHandlerInterface {

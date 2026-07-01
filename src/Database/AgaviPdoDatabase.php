@@ -169,10 +169,10 @@ class AgaviPdoDatabase extends AgaviDatabase
 			return true;
 		} catch (\PDOException) {
 			// Connection lost — null it so getConnection() reconnects lazily.
-			if (\Agavi\Util\DebugFlags::$database) {
-				AgaviDebugLogger::debug(
-					'[AgaviPdoDatabase] ping() failed — nulling stale connection for lazy reconnect',
-					$this->databaseManager?->getContext()
+			$logger = \Agavi\Logging\Log::for($this);
+			if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+				$logger->debug(
+					'[AgaviPdoDatabase] ping() failed — nulling stale connection for lazy reconnect'
 				);
 			}
 			$this->connection = $this->resource = null;

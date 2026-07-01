@@ -162,8 +162,7 @@ final class Agavi
 					// Touch default output type to ensure it's in-memory
 					$controller->getOutputType();
 				} catch(\Throwable $e) {
-					$ctxLogger = $ctx->getLoggerManager()?->getLogger();
-					if($ctxLogger) { $ctxLogger->debug('bootstrap controller prime failed for context ' . $ctxName . ': ' . $e->getMessage()); }
+					\Agavi\Logging\Log::create('Agavi.Agavi')->debug('bootstrap controller prime failed for context ' . $ctxName . ': ' . $e->getMessage());
 				}
 			}
 
@@ -223,8 +222,7 @@ final class Agavi
 			AgaviAPCuConfigCache::getStatus();
 		} catch(\Throwable $e) {
 			// Swallow errors; prewarm is opportunistic
-			$logger = \Agavi\AgaviContext::getInstance(AgaviConfig::get('core.default_context'))?->getLoggerManager()?->getLogger();
-			if($logger) { $logger->warning('prewarm failed: '.$e->getMessage()); }
+			\Agavi\Logging\Log::create('Agavi.Agavi')->warning('prewarm failed: '.$e->getMessage());
 		}
 	}
 
@@ -249,8 +247,7 @@ final class Agavi
 				}
 				$controller->getOutputType();
 			} catch(\Throwable $e) {
-				$ctxLogger = $ctx->getLoggerManager()?->getLogger();
-				if($ctxLogger) { $ctxLogger->debug('context prime failed: '.$e->getMessage()); }
+				\Agavi\Logging\Log::create('Agavi.Agavi')->debug('context prime failed: '.$e->getMessage());
 			}
 		}
 		return $ctx;

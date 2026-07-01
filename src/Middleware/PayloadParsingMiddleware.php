@@ -9,7 +9,6 @@ use Psr\Http\Message\ResponseInterface;
 use Middlewares\JsonPayload; // JSON parsing
 use Middlewares\Utils\Dispatcher; // utility to run stack manually
 use Nyholm\Psr7\Factory\Psr17Factory;
-use Agavi\Logging\AgaviDebugLogger;
 
 /**
  * Unified body parsing leveraging middlewares/payload.
@@ -42,8 +41,8 @@ class PayloadParsingMiddleware implements MiddlewareInterface
         } catch (\Throwable) {
             $ct = '';
         }
-        if (AgaviDebugLogger::isDebugEnabled()) {
-            AgaviDebugLogger::debug(sprintf('[PayloadParsingMiddleware] start method=%s ct=%s parsedBody=%s', $request->getMethod(), $ct, $request->getParsedBody() ? '1' : '0'));
+        if (\Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug)) {
+            \Agavi\Logging\Log::for($this)->debug(sprintf('[PayloadParsingMiddleware] start method=%s ct=%s parsedBody=%s', $request->getMethod(), $ct, $request->getParsedBody() ? '1' : '0'));
         }
 
         if ($request->getParsedBody()) { // already parsed by earlier adapter or test
@@ -57,20 +56,20 @@ class PayloadParsingMiddleware implements MiddlewareInterface
                 $raw = (string)$request->getBody();
                 parse_str($raw, $data);
                 if (is_array($data) && $data) {
-                    if (AgaviDebugLogger::isDebugEnabled()) {
-                        AgaviDebugLogger::debug('[PayloadParsingMiddleware] parsed body: '. $raw);
+                    if (\Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug)) {
+                        \Agavi\Logging\Log::for($this)->debug('[PayloadParsingMiddleware] parsed body: '. $raw);
                     }
                     $request = $request->withParsedBody($data);
                 }
                 return $handler->handle($request);
             }
-            if (AgaviDebugLogger::isDebugEnabled()) {
+            if (\Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug)) {
                 // Avoid materializing/rewinding the whole body just to log it when debug is off.
-                AgaviDebugLogger::debug("[PayloadParsingMiddleware] parsing body: " . $request->getBody());
+                \Agavi\Logging\Log::for($this)->debug("[PayloadParsingMiddleware] parsing body: " . $request->getBody());
             }
             return $this->json->process($request, $handler);
         } catch (\JsonException | \Middlewares\Utils\HttpErrorException $je) {
-            AgaviDebugLogger::debug('[PPM] PayloadParsingMiddleware invalid_json: ' . $je->getMessage());
+            \Agavi\Logging\Log::for($this)->debug('[PPM] PayloadParsingMiddleware invalid_json: ' . $je->getMessage());
             if ($this->strict) {
                 $factory = new Psr17Factory();
                 $resp = $factory->createResponse(400);

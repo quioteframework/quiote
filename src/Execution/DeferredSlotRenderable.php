@@ -3,7 +3,6 @@
 namespace Agavi\Execution;
 
 use Agavi\AgaviContext;
-use Agavi\Logging\AgaviDebugLogger;
 
 class DeferredSlotRenderable implements SlotRenderable, \Stringable
 {
@@ -15,7 +14,7 @@ class DeferredSlotRenderable implements SlotRenderable, \Stringable
 
     public function getContent(): string
     {
-        $dsr = \Agavi\Util\DebugFlags::$slotRenderer;
+        $logger = \Agavi\Logging\Log::for($this);
         $logExceptions = \Agavi\Util\DebugFlags::$slotExceptions;
 
         if ($this->rendered !== null) {
@@ -29,9 +28,9 @@ class DeferredSlotRenderable implements SlotRenderable, \Stringable
         try {
             $pid = spl_object_id($parentRequest);
             $has = $parentRequest->getAttribute(\Agavi\Execution\SlotStack::class) ? '1' : '0';
-            if ($dsr) AgaviDebugLogger::debug(sprintf('[DeferredSlotRenderable] DeferredSlotRenderable parentRequest id=%d slotstack=%s module=%s action=%s', $pid, $has, $this->module, $this->action), $this->context);
+            if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) { $logger->debug(sprintf('[DeferredSlotRenderable] DeferredSlotRenderable parentRequest id=%d slotstack=%s module=%s action=%s', $pid, $has, $this->module, $this->action)); }
         } catch (\Throwable) {
-            AgaviDebugLogger::debug('[DeferredSlotRenderable] DeferredSlotRenderable parentRequest (no id available)', $this->context);
+            $logger->debug('[DeferredSlotRenderable] DeferredSlotRenderable parentRequest (no id available)');
         }
 
         $dispatcher = $this->context->getSlotDispatcher();

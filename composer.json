@@ -29,6 +29,7 @@
 		"psr/http-factory": "^1.1",
 		"psr/http-server-middleware": "^1.0",
 		"psr/http-server-handler": "^1.0",
+		"psr/log": "^3.0",
 		"nyholm/psr7": "^1.8",
 		"nyholm/psr7-server": "^1.0",
 		"psr/simple-cache": "^3.0",

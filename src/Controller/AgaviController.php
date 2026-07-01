@@ -557,7 +557,7 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 	 */
 	public function startup()
 	{
-		$logger = $this->context?->getLoggerManager()?->getLogger();
+		$logger = \Agavi\Logging\Log::for($this);
 		// RequestData holder deprecated; no action needed. Left intentionally blank.
 
 		// Capture the configured default output type exactly once so we can
@@ -566,7 +566,7 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 		// attempt to mutate $defaultOutputType (it normally should not mutate).
 		if($this->configuredDefaultOutputType === null && $this->defaultOutputType !== null) {
 			$this->configuredDefaultOutputType = $this->defaultOutputType;
-			if(self::DEBUG && $logger) { $logger->debug("controller.startup capture configuredDefaultOT=".var_export($this->configuredDefaultOutputType, true)); }
+			if(self::DEBUG) { $logger->debug("controller.startup capture configuredDefaultOT=".var_export($this->configuredDefaultOutputType, true)); }
 		}
 	}
 
@@ -592,8 +592,8 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 	#[\Override]
     public function reset(): void
 	{
-		$logger = $this->context?->getLoggerManager()?->getLogger();
-		if(self::DEBUG && $logger) { $logger->debug("controller.reset begin defaultOT=".var_export($this->defaultOutputType, true)); }
+		$logger = \Agavi\Logging\Log::for($this);
+		if(self::DEBUG) { $logger->debug("controller.reset begin defaultOT=".var_export($this->defaultOutputType, true)); }
 		
 		// Reset execution counter
 		$this->numExecutions = 0;
@@ -620,7 +620,7 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 			// Fallback safety: leave as-is (likely null only during very early init)
 		}
 		
-		if(self::DEBUG && $logger) { $logger->debug("controller.reset end defaultOT=".var_export($this->defaultOutputType, true)); }
+		if(self::DEBUG) { $logger->debug("controller.reset end defaultOT=".var_export($this->defaultOutputType, true)); }
 	}
 
 	/**
@@ -688,24 +688,24 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 	 */
 	public function getOutputType($name = null)
 	{
-		$logger = $this->context?->getLoggerManager()?->getLogger();
-		if(self::DEBUG && $logger) { $logger->debug("controller.get_output_type in name=".var_export($name, true)." default=".var_export($this->defaultOutputType, true)); }
+		$logger = \Agavi\Logging\Log::for($this);
+		if(self::DEBUG) { $logger->debug("controller.get_output_type in name=".var_export($name, true)." default=".var_export($this->defaultOutputType, true)); }
 		
 		if($name === null) {
 			if($this->defaultOutputType !== null) {
 				$name = $this->defaultOutputType;
-				if(self::DEBUG && $logger) { $logger->debug("controller.get_output_type use defaultOT $name"); }
+				if(self::DEBUG) { $logger->debug("controller.get_output_type use defaultOT $name"); }
 			} else {
 				// Fall back to first available output type if no default is set
 				$name = array_key_first($this->outputTypes) ?: 'html';
-				if(self::DEBUG && $logger) { $logger->debug("controller.get_output_type fallback firstOT $name"); }
+				if(self::DEBUG) { $logger->debug("controller.get_output_type fallback firstOT $name"); }
 			}
 		} else {
-			if(self::DEBUG && $logger) { $logger->debug("controller.get_output_type provided $name"); }
+			if(self::DEBUG) { $logger->debug("controller.get_output_type provided $name"); }
 		}
 		
 		if(isset($this->outputTypes[$name])) {
-			if(self::DEBUG && $logger) { $logger->debug("controller.get_output_type return $name"); }
+			if(self::DEBUG) { $logger->debug("controller.get_output_type return $name"); }
 			return $this->outputTypes[$name];
 		}
 		throw new AgaviException('Output Type "' . $name . '" has not been configured.');

@@ -24,7 +24,6 @@ use Agavi\Util\AgaviAttributeHolder;
 use Symfony\Contracts\Service\ResetInterface;
 use Psr\Http\Message\ResponseInterface;
 use Agavi\Http\SimpleStream;
-use Agavi\Logging\AgaviDebugLogger;
 
 /**
  * AgaviWebResponse handles HTTP responses.
@@ -291,8 +290,7 @@ class AgaviWebResponse extends AgaviResponse
 		try {
 			$request = $context->getRequest();
 		} catch (\Exception $e) {
-			$logger = $context->getLoggerManager()?->getLogger();
-			$logger?->debug('AgaviWebResponse::initialize - request not available during bootstrap: ' . $e->getMessage());
+			\Agavi\Logging\Log::for($this)->debug('AgaviWebResponse::initialize - request not available during bootstrap: ' . $e->getMessage());
 			$request = null;
 		}
 
@@ -819,16 +817,13 @@ class AgaviWebResponse extends AgaviResponse
 
 	private function isCookieDebugEnabled(): bool
 	{
-		static $enabled = null;
-		if($enabled === null) {
-			$enabled = \Agavi\Util\DebugFlags::$response || \Agavi\Util\DebugFlags::$cookie;
-		}
-		return $enabled;
+		return \Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug);
 	}
 
 	private function logCookieDebug(string $stage, array $context = []): void
 	{
-		if(!$this->isCookieDebugEnabled()) {
+		$logger = \Agavi\Logging\Log::for($this);
+		if(!$logger->isEnabled(\Agavi\Logging\Level::Debug)) {
 			return;
 		}
 		try {
@@ -836,7 +831,7 @@ class AgaviWebResponse extends AgaviResponse
 		} catch(\Throwable) {
 			$payload = '[unserializable context]';
 		}
-		AgaviDebugLogger::debug('[AgaviWebResponse][' . $stage . '] ' . $payload);
+		$logger->debug('[AgaviWebResponse][' . $stage . '] ' . $payload);
 	}
 
 	/**

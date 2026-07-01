@@ -17,7 +17,6 @@ namespace Agavi\Validator;
 use Agavi\AgaviContext;
 use Agavi\Exception\AgaviConfigurationException;
 use Agavi\Exception\AgaviValidatorException;
-use Agavi\Logging\AgaviDebugLogger;
 use Agavi\Request\AgaviWebRequest;
 use Agavi\Util\AgaviArrayPathDefinition;
 use Agavi\Util\AgaviParameterHolder;
@@ -369,7 +368,8 @@ abstract class AgaviValidator extends AgaviParameterHolder implements ResetInter
 				}
 			} catch (\Throwable) {}
 		}
-		if (\Agavi\Util\DebugFlags::$validation) {
+		$logger = \Agavi\Logging\Log::for($this);
+		if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
 			$resolvedStr = match(true) {
 				is_object($value) => $value::class,
 				is_null($value) => 'NULL',
@@ -377,7 +377,7 @@ abstract class AgaviValidator extends AgaviParameterHolder implements ResetInter
 				is_array($value) => 'array(' . count($value) . ')',
 				default => gettype($value),
 			};
-			AgaviDebugLogger::debug('[AgaviValidator][getData][debug] name=' . $paramName . ' source=' . $paramType . ' resolved=' . $resolvedStr, $this->getContext());
+			$logger->debug('[AgaviValidator][getData][debug] name=' . $paramName . ' source=' . $paramType . ' resolved=' . $resolvedStr);
 		}
 		return $value;
 	}
@@ -472,19 +472,20 @@ abstract class AgaviValidator extends AgaviParameterHolder implements ResetInter
 		foreach($this->getArguments() as $argument) {
 			// Empty argument means current base element when using base paths (e.g. base="User[]" + <argument></argument>)
 			$pName = ($argument === '' ? $this->curBase->__toString() : $this->curBase->pushRetNew($argument)->__toString());
-			if (\Agavi\Util\DebugFlags::$validation) { AgaviDebugLogger::debug('[AgaviValidator][debug][checkAllArgumentsSet] validator=' . $this->getName() . ' argumentRaw=' . ($argument===''?'<empty>':$argument) . ' resolvedName=' . $pName, $this->getContext()); }
+			$logger = \Agavi\Logging\Log::for($this);
+			if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) { $logger->debug('[AgaviValidator][debug][checkAllArgumentsSet] validator=' . $this->getName() . ' argumentRaw=' . ($argument===''?'<empty>':$argument) . ' resolvedName=' . $pName); }
 			$empty = null;
 			if ($argument === '') {
 				// Directly inspect current base value out of the parameter tree because isValueEmpty() cannot resolve nested bracket paths for dynamic indices.
 				$array = $this->validationParameters->getParameters($paramType);
 				$baseValue = $this->curBase->getValue($array, null);
 				$empty = ($baseValue === null || $baseValue === '' || (is_array($baseValue) && count($baseValue) === 0));
-				if (\Agavi\Util\DebugFlags::$validation) { AgaviDebugLogger::debug('[AgaviValidator][debug][checkAllArgumentsSet] emptyArgBaseInspect base=' . $this->curBase->__toString() . ' empty=' . ($empty?'1':'0') . ' baseValueType=' . gettype($baseValue), $this->getContext()); }
+				if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) { $logger->debug('[AgaviValidator][debug][checkAllArgumentsSet] emptyArgBaseInspect base=' . $this->curBase->__toString() . ' empty=' . ($empty?'1':'0') . ' baseValueType=' . gettype($baseValue)); }
 			} else {
 				try {
 					$empty = $this->validationParameters->isValueEmpty($paramType, $pName);
 				} catch (\Throwable $e) {
-					if (\Agavi\Util\DebugFlags::$validation) { AgaviDebugLogger::debug('[AgaviValidator][debug][checkAllArgumentsSet] EXCEPTION in isValueEmpty: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine(), $this->getContext()); }
+					if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) { $logger->debug('[AgaviValidator][debug][checkAllArgumentsSet] EXCEPTION in isValueEmpty: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine()); }
 					throw $e;
 				}
 			}
@@ -653,7 +654,7 @@ abstract class AgaviValidator extends AgaviParameterHolder implements ResetInter
 				$flatName = $cp->__toString();
 				if(!str_contains($flatName, '[')) {
 					$this->validationParameters->setParameter($flatName, $value);
-					if (\Agavi\Util\DebugFlags::$validation) { AgaviDebugLogger::debug('[AgaviValidator][export][debug] stored simple name=' . $flatName . ' type=' . (get_debug_type($value)), $this->getContext()); }
+					if (($logger = \Agavi\Logging\Log::for($this))->isEnabled(\Agavi\Logging\Level::Debug)) { $logger->debug('[AgaviValidator][export][debug] stored simple name=' . $flatName . ' type=' . (get_debug_type($value))); }
 				} else {
 					// Parse root and indices: e.g. User[0] => root=User, indices=[0]
 					$root = substr($flatName, 0, strpos($flatName, '['));
@@ -681,7 +682,7 @@ abstract class AgaviValidator extends AgaviParameterHolder implements ResetInter
 						$this->validationParameters->setParameter($root, $runtime[$root]);
 						// PHASE 3 FIX: Remember root parameter name so we can register it as succeeded argument
 						$rootParameterName = $root;
-						if (\Agavi\Util\DebugFlags::$validation) { AgaviDebugLogger::debug('[AgaviValidator][export][debug] stored bracketed root=' . $root . ' flat=' . $flatName, $this->getContext()); }
+						if (($logger = \Agavi\Logging\Log::for($this))->isEnabled(\Agavi\Logging\Level::Debug)) { $logger->debug('[AgaviValidator][export][debug] stored bracketed root=' . $root . ' flat=' . $flatName); }
 					}
 				}
 			}
@@ -701,7 +702,7 @@ abstract class AgaviValidator extends AgaviParameterHolder implements ResetInter
 			// from removing the root array parameter that we just created.
 			if($rootParameterName !== null && $rootParameterName !== '') {
 				$this->parentContainer->addArgumentResult(new AgaviValidationArgument($rootParameterName, $source), $result, $this);
-				if (\Agavi\Util\DebugFlags::$validation) { AgaviDebugLogger::debug('[AgaviValidator][export][debug] registered root argument=' . $rootParameterName . ' to prevent pruning', $this->getContext()); }
+				if (($logger = \Agavi\Logging\Log::for($this))->isEnabled(\Agavi\Logging\Level::Debug)) { $logger->debug('[AgaviValidator][export][debug] registered root argument=' . $rootParameterName . ' to prevent pruning'); }
 			}
 		}
 
@@ -731,13 +732,14 @@ abstract class AgaviValidator extends AgaviParameterHolder implements ResetInter
 	protected function validateInBase(AgaviVirtualArrayPath $base)
 	{
 		$base = clone $base;
+		$logger = \Agavi\Logging\Log::for($this);
 		if($base->length() == 0) {
 			// we have an empty base so we do the actual validation
-			if (\Agavi\Util\DebugFlags::$validation) {
+			if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
 				$argList = $this->getArguments();
 				$argExport = [];
 				foreach($argList as $a){ $argExport[] = $a === '' ? "<empty>" : $a; }
-				AgaviDebugLogger::debug('[AgaviValidator][debug][pre-validate] name=' . $this->getName() . ' curBase=' . ($this->curBase?->__toString() ?? '') . ' args=' . implode(',', $argExport), $this->getContext());
+				$logger->debug('[AgaviValidator][debug][pre-validate] name=' . $this->getName() . ' curBase=' . ($this->curBase?->__toString() ?? '') . ' args=' . implode(',', $argExport));
 			}
 			if($this->getDependencyManager() && (count($this->getParameter('depends')) > 0 && !$this->getDependencyManager()->checkDependencies($this->getParameter('depends'), $this->curBase))) {
 				// dependencies not met, exit with success
@@ -750,21 +752,21 @@ abstract class AgaviValidator extends AgaviParameterHolder implements ResetInter
 			$errorCode = self::mapErrorCode($this->getParameter('severity', 'error'));
 
 			$allArgsSet = $this->checkAllArgumentsSet(false);
-			if (\Agavi\Util\DebugFlags::$validation) {
-				AgaviDebugLogger::debug('[AgaviValidator][debug][postCheckAllArgs] validator=' . $this->getName() . ' allArgsSet=' . ($allArgsSet ? 'true' : 'false'), $this->getContext());
+			if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+				$logger->debug('[AgaviValidator][debug][postCheckAllArgs] validator=' . $this->getName() . ' allArgsSet=' . ($allArgsSet ? 'true' : 'false'));
 			}
 			if($allArgsSet) {
-				if (\Agavi\Util\DebugFlags::$validation) {
-					AgaviDebugLogger::debug('[AgaviValidator][debug][callingValidate] validator=' . $this->getName(), $this->getContext());
+				if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+					$logger->debug('[AgaviValidator][debug][callingValidate] validator=' . $this->getName());
 				}
 				try {
 					$validateResult = $this->validate();
-					if (\Agavi\Util\DebugFlags::$validation) {
-						AgaviDebugLogger::debug('[AgaviValidator][debug][postValidate] validator=' . $this->getName() . ' result=' . ($validateResult ? 'true' : 'false'), $this->getContext());
+					if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+						$logger->debug('[AgaviValidator][debug][postValidate] validator=' . $this->getName() . ' result=' . ($validateResult ? 'true' : 'false'));
 					}
 				} catch (\Throwable $e) {
-					if (\Agavi\Util\DebugFlags::$validation) {
-						AgaviDebugLogger::debug('[AgaviValidator][debug][validateException] validator=' . $this->getName() . ' exception=' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine(), $this->getContext());
+					if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+						$logger->debug('[AgaviValidator][debug][validateException] validator=' . $this->getName() . ' exception=' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
 					}
 					throw $e;
 				}
@@ -937,8 +939,9 @@ abstract class AgaviValidator extends AgaviParameterHolder implements ResetInter
 
 		$array = $this->validationParameters->getParameters($paramType);
 		$names = $this->curBase->getValue($array, []);
-		if (\Agavi\Util\DebugFlags::$validation) {
-			AgaviDebugLogger::debug('[AgaviValidator][debug][getKeysInCurrentBase] base=' . $this->curBase->__toString() . ' keys=' . (is_array($names)?implode(',', array_keys($names)):'<non-array>'), $this->getContext());
+		$logger = \Agavi\Logging\Log::for($this);
+		if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+			$logger->debug('[AgaviValidator][debug][getKeysInCurrentBase] base=' . $this->curBase->__toString() . ' keys=' . (is_array($names)?implode(',', array_keys($names)):'<non-array>'));
 		}
 
 		return is_array($names) ? array_keys($names) : [];

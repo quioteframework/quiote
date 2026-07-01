@@ -17,7 +17,6 @@ namespace Agavi\Request;
 
 use Agavi\AgaviContext;
 use Agavi\Exception\AgaviException;
-use Agavi\Logging\AgaviDebugLogger;
 use Agavi\Util\AgaviArrayPathDefinition;
 use Agavi\Util\AgaviToolkit;
 use InvalidArgumentException;
@@ -184,11 +183,9 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 	{
 		$value = $this->getParameter($field);
 		$empty = ($value === null || $value === '');
-		if (\Agavi\Util\DebugFlags::$validation) {
-			try {
-				AgaviDebugLogger::debug('[AgaviWebRequest][debug][isParameterValueEmpty] field=' . $field . ' empty=' . ($empty ? '1' : '0') . ' valueType=' . gettype($value));
-			} catch (\Throwable) {
-			}
+		$logger = \Agavi\Logging\Log::for($this);
+		if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+			$logger->debug('[AgaviWebRequest][debug][isParameterValueEmpty] field=' . $field . ' empty=' . ($empty ? '1' : '0') . ' valueType=' . gettype($value));
 		}
 		return $empty;
 	}
@@ -284,12 +281,12 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 			$value = null;
 		}
 		
-		if (\Agavi\Util\DebugFlags::$validation) {
-			\Agavi\Logging\AgaviDebugLogger::debug(
-				'[AgaviWebRequest][debug][isFileValueEmpty] field=' . $field . 
-				' empty=' . ($value === null ? '1' : '0') . 
-				' valueType=' . gettype($value),
-				null
+		$logger = \Agavi\Logging\Log::for($this);
+		if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+			$logger->debug(
+				'[AgaviWebRequest][debug][isFileValueEmpty] field=' . $field .
+				' empty=' . ($value === null ? '1' : '0') .
+				' valueType=' . gettype($value)
 			);
 		}
 		
@@ -1042,9 +1039,6 @@ class AgaviWebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterfa
 			$base = $this->getRequestParams($this, 'parameters');
 			// Ensure runtime parameters are also visible through explicit 'parameters' source for legacy validators
 			$merged = $this->runtimeParameters + $base;
-			/*if (getenv('DEBUG_TESTS') || (defined('DEBUG_TESTS') && DEBUG_TESTS)) {
-				try { AgaviDebugLogger::debug('[TestDebug][getParameters.parameters] runtimeKeys=' . implode(',', array_keys($this->runtimeParameters)) . ' baseKeys=' . implode(',', array_keys($base)) . ' mergedKeys=' . implode(',', array_keys($merged))); } catch(\Throwable) {}
-			}*/
 			return $merged;
 		}
 		if ($source === 'files') { return parent::getUploadedFiles() ?? []; }

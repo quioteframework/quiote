@@ -9,7 +9,6 @@ use Psr\Http\Message\ResponseInterface;
 use Agavi\Routing\AgaviRouting;
 use Agavi\Controller\AgaviController;
 use Agavi\Execution\ActionDescriptor;
-use Agavi\Logging\AgaviDebugLogger;
 use Agavi\Execution\HttpMethodMapper;
 use Nyholm\Psr7\Response;
 
@@ -24,7 +23,7 @@ class RoutingMiddleware implements MiddlewareInterface
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $path = $request->getUri()->getPath();
-        $dbg = \Agavi\Util\DebugFlags::$routing;
+        $dbg = \Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug);
         // The routing's RequestContext is never updated elsewhere in the framework and otherwise
         // defaults to 'GET', which would make UrlMatcher reject every legitimate non-GET request
         // against a method-constrained route. Sync it to the incoming request before matching.
@@ -49,7 +48,7 @@ class RoutingMiddleware implements MiddlewareInterface
                     $descriptor = new ActionDescriptor($module, $action, $method, $outputType, false);
                 }
                 if ($dbg) {
-                    AgaviDebugLogger::debug('[RoutingMiddleware] matched path=' . $path . ' module=' . $module . ' action=' . $action . ' outputType=' . $outputType . ' preNegotiated=' . var_export($preNegotiated, true) . ' routeName=' . ($attributes['_route'] ?? ''), $this->controller->getContext());
+                    \Agavi\Logging\Log::for($this)->debug('[RoutingMiddleware] matched path=' . $path . ' module=' . $module . ' action=' . $action . ' outputType=' . $outputType . ' preNegotiated=' . var_export($preNegotiated, true) . ' routeName=' . ($attributes['_route'] ?? ''));
                 }
                 $request = $request
                     ->withAttribute('module', $module)
@@ -60,14 +59,14 @@ class RoutingMiddleware implements MiddlewareInterface
                     ->withAttribute('route_params', $attributes);
             } else {
                 if ($dbg) {
-                    AgaviDebugLogger::debug('[RoutingMiddleware] no module/action resolved for path=' . $path, $this->controller->getContext());
+                    \Agavi\Logging\Log::for($this)->debug('[RoutingMiddleware] no module/action resolved for path=' . $path);
                 }
             }
         } catch (\Symfony\Component\Routing\Exception\ResourceNotFoundException) {
             // Leave attributes unset; downstream could handle 404
             // optional debug removed
             if ($dbg) {
-                AgaviDebugLogger::debug('[RoutingMiddleware] resource not found path=' . $path, $this->controller->getContext());
+                \Agavi\Logging\Log::for($this)->debug('[RoutingMiddleware] resource not found path=' . $path);
             }
         } catch (\Symfony\Component\Routing\Exception\MethodNotAllowedException $e) {
             // A route matched the path but not this HTTP method.
@@ -76,12 +75,12 @@ class RoutingMiddleware implements MiddlewareInterface
             // behaviour routes had before per-route method constraints were introduced.
             if (strtoupper($request->getMethod()) === 'OPTIONS') {
                 if ($dbg) {
-                    AgaviDebugLogger::debug('[RoutingMiddleware] method not allowed for OPTIONS, leaving unrouted path=' . $path, $this->controller->getContext());
+                    \Agavi\Logging\Log::for($this)->debug('[RoutingMiddleware] method not allowed for OPTIONS, leaving unrouted path=' . $path);
                 }
                 return $handler->handle($request);
             }
             if ($dbg) {
-                AgaviDebugLogger::debug('[RoutingMiddleware] method not allowed path=' . $path . ' allowed=' . implode(',', $e->getAllowedMethods()), $this->controller->getContext());
+                \Agavi\Logging\Log::for($this)->debug('[RoutingMiddleware] method not allowed path=' . $path . ' allowed=' . implode(',', $e->getAllowedMethods()));
             }
             return new Response(405, ['Allow' => implode(', ', $e->getAllowedMethods())]);
         }

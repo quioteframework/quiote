@@ -17,7 +17,6 @@ namespace Agavi\Validator;
 use Agavi\AgaviContext;
 use Agavi\Exception\AgaviConfigurationException;
 use Agavi\Request\AgaviWebRequest;
-use Agavi\Logging\AgaviDebugLogger;
 use Agavi\Util\AgaviArrayPathDefinition;
 use Agavi\Util\AgaviParameterHolder;
 use Agavi\Util\AgaviVirtualArrayPath;
@@ -278,6 +277,7 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 	public function execute(AgaviWebRequest $request): bool
 	{
 		$vd = getenv("AGAVI_DEBUG_VALIDATION");
+		$logger = \Agavi\Logging\Log::for($this);
 
 		// Pre-populate request validated parameters whitelist with the union of all validator argument names.
 		// This allows validators themselves to read the raw input for their declared arguments under always-on enforcement.
@@ -369,7 +369,7 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 
 			$validatorResult = $validator->execute($request);
 			if ($vd) {
-				AgaviDebugLogger::debug('[ValidationManager] Result from ' . $validator->getName() . ': ' . $validatorResult, $this->context ?? null);
+				$logger->debug('[ValidationManager] Result from ' . $validator->getName() . ': ' . $validatorResult);
 			}
 			$result = max($result, $validatorResult);
 
@@ -509,7 +509,7 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 		}
 
 		if ($vd) {
-			AgaviDebugLogger::debug('[AgaviValidationManager] finalSuccess=' . ($success? '1':'0') . ' highestResult=' . $result . ' executedValidators=' . $executedValidators, $this->context ?? null);
+			$logger->debug('[AgaviValidationManager] finalSuccess=' . ($success? '1':'0') . ' highestResult=' . $result . ' executedValidators=' . $executedValidators);
 		}
 		// Also emit a short, unconditional trace of the final outcome and severity when validation fails
 		/*if (!$success) {
@@ -517,7 +517,7 @@ class AgaviValidationManager extends AgaviParameterHolder implements AgaviIValid
 				$sev = $this->report?->getResult();
 				$names = [];
 				foreach ($this->children as $c) { $names[] = method_exists($c, 'getName') ? $c->getName() : 'unknown'; }
-				AgaviDebugLogger::debug('[AgaviValidationManager] FAIL sev=' . (is_null($sev) ? 'null' : $sev) . ' validators=' . implode(',', $names), $this->context ?? null);
+				$logger->debug('[AgaviValidationManager] FAIL sev=' . (is_null($sev) ? 'null' : $sev) . ' validators=' . implode(',', $names));
 			} catch (\Throwable) {}
 		}*/
 		return $success;

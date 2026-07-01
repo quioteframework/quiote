@@ -18,7 +18,6 @@ use Agavi\AgaviContext;
 use Agavi\Config\AgaviConfig;
 use Agavi\Exception\AgaviException;
 use Agavi\Exception\AgaviParseException;
-use Agavi\Logging\AgaviLogger;
 use Agavi\Request\AgaviWebRequest;
 use Agavi\Response\AgaviWebResponse;
 use Agavi\Util\AgaviParameterHolder;
@@ -207,23 +206,22 @@ final class FormPopulationEngine
 				implode("\n", $errors)
 			);
 			if(AgaviConfig::get('core.use_logging') && $cfg['log_parse_errors'] !== false && $maxError >= $cfg['log_parse_errors']) {
-				$severity = AgaviLogger::INFO;
+				$lmsg = $emsg . "\n\nResponse content:\n\n" . $response->getContent();
+				$logger = \Agavi\Logging\Log::for($this);
 				switch($maxError) {
 					case LIBXML_ERR_WARNING:
-						$severity = AgaviLogger::WARN;
+						$logger->warning($lmsg);
 						break;
 					case LIBXML_ERR_ERROR:
-						$severity = AgaviLogger::ERROR;
+						$logger->error($lmsg);
 						break;
 					case LIBXML_ERR_FATAL:
-						$severity = AgaviLogger::FATAL;
+						$logger->critical($lmsg);
+						break;
+					default:
+						$logger->info($lmsg);
 						break;
 				}
-				$lmsg = $emsg . "\n\nResponse content:\n\n" . $response->getContent();
-				$lm = $this->context->getLoggerManager();
-				$mc = $lm->getDefaultMessageClass();
-				$m = new $mc($lmsg, $severity);
-				$lm->log($m, $cfg['logging_logger']);
 			}
 			
 			// should we throw an exception, or carry on?

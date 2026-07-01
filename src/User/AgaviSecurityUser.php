@@ -16,7 +16,6 @@
 namespace Agavi\User;
 
 use Agavi\AgaviContext;
-use Agavi\Logging\AgaviDebugLogger;
 use Symfony\Contracts\Service\ResetInterface;
 
 /**
@@ -191,10 +190,11 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser, ResetIn
 		} elseif($this->credentials === null) {
 			$this->credentials = [];
 		}
-		if(\Agavi\Util\DebugFlags::$security) {
+		$logger = \Agavi\Logging\Log::for($this);
+		if($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
 			try {
 				$cid = method_exists($this->getContext(), 'getCorrelationId') ? ($this->getContext()->getCorrelationId() ?? 'n/a') : 'n/a';
-				AgaviDebugLogger::debug('[SecurityUser.initialize] cid=' . $cid . ' eff auth=' . var_export($this->authenticated,true) . ' num creds=' . (is_array($this->credentials) ? count($this->credentials) : 0) . ' storedAuth=' . var_export($storedAuth,true), $this->getContext());
+				$logger->debug('[SecurityUser.initialize] cid=' . $cid . ' eff auth=' . var_export($this->authenticated,true) . ' num creds=' . (is_array($this->credentials) ? count($this->credentials) : 0) . ' storedAuth=' . var_export($storedAuth,true));
 			} catch(\Throwable) {}
 		}
 	}
@@ -275,7 +275,8 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser, ResetIn
 		}
 
 		// Transition to unauthenticated – capture diagnostic context if enabled
-		$debug = \Agavi\Util\DebugFlags::$security || \Agavi\Util\DebugFlags::$auth;
+		$logger = \Agavi\Logging\Log::for($this);
+		$debug = $logger->isEnabled(\Agavi\Logging\Level::Debug);
 		if($debug) {
 			$bt = [];
 			try {
@@ -298,7 +299,7 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser, ResetIn
 				'req' => $reqUri,
 				'backtrace' => $bt,
 			];
-			AgaviDebugLogger::debug('[SecurityUser.authFalse] ' . json_encode($tracePayload), $this->getContext());
+			$logger->debug('[SecurityUser.authFalse] ' . json_encode($tracePayload));
 		}
 		$this->authenticated = false;
 		$this->logoutIntent = true; // mark explicit downgrade
@@ -314,10 +315,10 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser, ResetIn
 	#[\Override]
   	public function shutdown()
 	{
-		$logger = $this->getContext()?->getLoggerManager()?->getLogger();
-		if (\Agavi\Util\DebugFlags::$security) {
-			$logger?->debug('[AgaviSecurityUser] Shutdown storing authenticated status', ['class' => static::class, 'namespace' => self::AUTH_NAMESPACE]);
-			$logger?->debug('[AgaviSecurityUser] Shutdown storing credentials', ['class' => static::class, 'namespace' => self::CREDENTIAL_NAMESPACE]);
+		$logger = \Agavi\Logging\Log::for($this);
+		if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+			$logger->debug('[AgaviSecurityUser] Shutdown storing authenticated status', ['class' => static::class, 'namespace' => self::AUTH_NAMESPACE]);
+			$logger->debug('[AgaviSecurityUser] Shutdown storing credentials', ['class' => static::class, 'namespace' => self::CREDENTIAL_NAMESPACE]);
 		}
 		$storage = $this->getContext()->getStorage();
 
@@ -327,8 +328,8 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser, ResetIn
 			$curr = $this->authenticated;
 			$shouldSkip = ($existingAuth === true && $curr !== true && $this->logoutIntent === false);
 			if($shouldSkip) {
-				if (\Agavi\Util\DebugFlags::$security) {
-					AgaviDebugLogger::debug('[AgaviSecurityUser] Shutdown skip auth downgrade existing=true curr=' . var_export($curr,true) . ' logoutIntent=0', $this->getContext());
+				if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+					$logger->debug('[AgaviSecurityUser] Shutdown skip auth downgrade existing=true curr=' . var_export($curr,true) . ' logoutIntent=0');
 				}
 			} else {
 				$storage->store(self::AUTH_NAMESPACE, $curr);
@@ -343,8 +344,8 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser, ResetIn
 			$currEmpty = !is_array($this->credentials) || count($this->credentials) === 0;
 			$existingNonEmpty = is_array($existingCreds) && count($existingCreds) > 0;
 			if ($this->authenticated === true && $currEmpty && $existingNonEmpty) {
-				if (\Agavi\Util\DebugFlags::$security) {
-					AgaviDebugLogger::debug('[AgaviSecurityUser] Shutdown skip creds overwrite empty over non-empty', $this->getContext());
+				if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+					$logger->debug('[AgaviSecurityUser] Shutdown skip creds overwrite empty over non-empty');
 				}
 			} else {
 				$storage->store(self::CREDENTIAL_NAMESPACE, $this->credentials);
@@ -353,11 +354,11 @@ class AgaviSecurityUser extends AgaviUser implements AgaviISecurityUser, ResetIn
 			// fallback
 			try { $storage->store(self::CREDENTIAL_NAMESPACE, $this->credentials); } catch (\Throwable) {}
 		}
-		if (\Agavi\Util\DebugFlags::$security) {
+		if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
 			try {
 				$cid = method_exists($this->getContext(), 'getCorrelationId') ? ($this->getContext()->getCorrelationId() ?? 'n/a') : 'n/a';
-				AgaviDebugLogger::debug('[AgaviSecurityUser] Shutdown correlation id=' . $cid . ' stored auth=' . var_export($this->authenticated,true) . ' creds count=' . count($this->credentials), $this->getContext());
-				$logger?->debug('[AgaviSecurityUser] Shutdown session snapshot', [
+				$logger->debug('[AgaviSecurityUser] Shutdown correlation id=' . $cid . ' stored auth=' . var_export($this->authenticated,true) . ' creds count=' . count($this->credentials));
+				$logger->debug('[AgaviSecurityUser] Shutdown session snapshot', [
 					'session' => isset($_SESSION) ? array_keys($_SESSION) : [],
 					'session_id' => function_exists('session_id') ? session_id() : null,
 					'session_status' => function_exists('session_status') ? session_status() : null,

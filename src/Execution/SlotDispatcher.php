@@ -20,7 +20,6 @@ use Agavi\Execution\SlotContent;
 use Agavi\Cache\CacheManager;
 use Agavi\Config\AgaviConfig;
 use Agavi\Request\AgaviWebRequest;
-use Agavi\Logging\AgaviDebugLogger;
 
 /**
  * SlotDispatcher executes sub-actions ("slots") via container-less execution only.
@@ -59,15 +58,16 @@ class SlotDispatcher
         $stack = $parentRequest->getAttribute(SlotStack::class);
         // Build canonical key for this slot early so diagnostics and guards can reference it
         $key = $module . '/' . $action;
+        $logger = \Agavi\Logging\Log::for($this);
         $logExceptions = \Agavi\Util\DebugFlags::$slotExceptions;
-        $dbg = \Agavi\Util\DebugFlags::$slotDispatch;
+        $dbg = $logger->isEnabled(\Agavi\Logging\Level::Debug);
         if ($dbg) {
             try {
                 $pid = spl_object_id($parentRequest);
                 $has = $stack ? '1' : '0';
-                AgaviDebugLogger::debug(sprintf('[SlotDisp] dispatch parentRequest id=%d slotstack=%s key=%s', $pid, $has, $key), $this->controller->getContext());
+                $logger->debug(sprintf('[SlotDisp] dispatch parentRequest id=%d slotstack=%s key=%s', $pid, $has, $key));
             } catch (\Throwable) {
-                AgaviDebugLogger::debug('[SlotDisp] dispatch (no request id available)', $this->controller->getContext());
+                $logger->debug('[SlotDisp] dispatch (no request id available)');
             }
         }
         if (!$stack) {
@@ -81,9 +81,9 @@ class SlotDispatcher
                     $stack->markWarned($key);
                     if ($dbg) {
                         try {
-                            AgaviDebugLogger::debug(sprintf('[SlotDisp] recursion guard triggered for key=%s parentRequest id=%d', $key, spl_object_id($parentRequest)), $this->controller->getContext());
+                            $logger->debug(sprintf('[SlotDisp] recursion guard triggered for key=%s parentRequest id=%d', $key, spl_object_id($parentRequest)));
                         } catch (\Throwable) {
-                            AgaviDebugLogger::debug('[SlotDisp] recursion guard triggered for key=' . $key, $this->controller->getContext());
+                            $logger->debug('[SlotDisp] recursion guard triggered for key=' . $key);
                         }
                     }
                 }
@@ -135,9 +135,9 @@ class SlotDispatcher
                 }
                 // (former temporary GuidanceSection instrumentation removed)
                 $overlayApplied = true;
-                if (\Agavi\Util\DebugFlags::$slotDispatch) {
+                if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
                     try {
-                        \Agavi\Logging\AgaviDebugLogger::debug('[SlotDisp] overlay_applied key=' . $key . ' params=' . json_encode($parameters, JSON_UNESCAPED_SLASHES), $this->controller->getContext());
+                        $logger->debug('[SlotDisp] overlay_applied key=' . $key . ' params=' . json_encode($parameters, JSON_UNESCAPED_SLASHES));
                     } catch (\Throwable) {
                     }
                 }
@@ -198,11 +198,11 @@ class SlotDispatcher
                 // Mark action as slot for downstream views/layout selection (container-less compatibility)
                 if (method_exists($actionInstance, 'setAttribute')) {
                     try {
-                        AgaviDebugLogger::debug('[SlotDispatcher] Setting is_slot=true on simple action ' . $actionInstance::class, $this->controller->getContext());
+                        $logger->debug('[SlotDispatcher] Setting is_slot=true on simple action ' . $actionInstance::class);
                         $actionInstance->setAttribute('is_slot', true);
-                        AgaviDebugLogger::debug('[SlotDispatcher] is_slot set, checking: ' . ($actionInstance->hasAttribute('is_slot') ? 'found' : 'not found'), $this->controller->getContext());
+                        $logger->debug('[SlotDispatcher] is_slot set, checking: ' . ($actionInstance->hasAttribute('is_slot') ? 'found' : 'not found'));
                     } catch (\Throwable $e) {
-                        AgaviDebugLogger::debug('[SlotDispatcher] Failed to set is_slot attribute: ' . $e->getMessage(), $this->controller->getContext());
+                        $logger->debug('[SlotDispatcher] Failed to set is_slot attribute: ' . $e->getMessage());
                     }
                 }
                 // Early experimental path: execute simple action without full container
@@ -343,7 +343,7 @@ class SlotDispatcher
                     try {
                         $actionInstance->setAttribute('is_slot', true);
                     } catch (\Throwable $e) {
-                        AgaviDebugLogger::debug('[SlotDispatcher] Failed to set is_slot attribute: ' . $e->getMessage(), $this->controller->getContext());
+                        $logger->debug('[SlotDispatcher] Failed to set is_slot attribute: ' . $e->getMessage());
                     }
                 }
                 $securityService = new SecurityService($this->controller);
@@ -357,7 +357,7 @@ class SlotDispatcher
                     // record a small diagnostic context so callers can inspect the
                     // lastContext if needed.
                     try {
-                        AgaviDebugLogger::debug(sprintf('[SlotDisp] security denied for slot %s/%s during slot dispatch - returning empty content', $module, $action), $this->controller->getContext());
+                        $logger->debug(sprintf('[SlotDisp] security denied for slot %s/%s during slot dispatch - returning empty content', $module, $action));
                     } catch (\Throwable) {
                     }
                     $ctx = new ActionExecutionContext($actionInstance, null, $module, $action, $outputType ?? $this->controller->getOutputType()->getName(), $rd, '');

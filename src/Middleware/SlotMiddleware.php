@@ -7,7 +7,6 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Agavi\Execution\SlotStack;
-use Agavi\Logging\AgaviDebugLogger;
 
 /**
  * SlotMiddleware: establishes a SlotStack in request attributes for nested slot/sub-action rendering.
@@ -30,13 +29,13 @@ class SlotMiddleware implements MiddlewareInterface
             }
             $request = $request->withAttribute(self::ATTR, $slotStack);
             // Log request identity and presence of SlotStack for debugging in FrankenPHP
-            if (\Agavi\Util\DebugFlags::$slotDispatch) {
+            if (\Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug)) {
                 try {
                     $id = spl_object_id($request);
                     $has = $request->getAttribute(self::ATTR) ? '1' : '0';
-                    AgaviDebugLogger::debug(sprintf('[Slot SlotStack set on request id=%d has=%s', $id, $has), $this->context);
+                    \Agavi\Logging\Log::for($this)->debug(sprintf('[Slot SlotStack set on request id=%d has=%s', $id, $has));
                 } catch (\Throwable) {
-                    AgaviDebugLogger::debug('[SlotMW] SlotStack set (unable to introspect request id)', $this->context);
+                    \Agavi\Logging\Log::for($this)->debug('[SlotMW] SlotStack set (unable to introspect request id)');
                 }
             }
             // Inform context about the request instance change so it stays in sync
@@ -47,9 +46,9 @@ class SlotMiddleware implements MiddlewareInterface
                 }
             }
         } else {
-            if (\Agavi\Util\DebugFlags::$slotDispatch) {
+            if (\Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug)) {
                 try {
-                    AgaviDebugLogger::debug(sprintf('[SlotMW] SlotStack already present on request id=%d', spl_object_id($request)), $this->context);
+                    \Agavi\Logging\Log::for($this)->debug(sprintf('[SlotMW] SlotStack already present on request id=%d', spl_object_id($request)));
                 } catch (\Throwable) {
                 }
             }

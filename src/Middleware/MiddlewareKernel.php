@@ -7,7 +7,6 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Agavi\AgaviContext;
 use Nyholm\Psr7\Response;
-use Agavi\Logging\AgaviDebugLogger;
 use Relay\Relay;
 
 /**
@@ -49,7 +48,7 @@ class MiddlewareKernel implements RequestHandlerInterface
     $stack[] = new \Agavi\Middleware\ErrorHandlingMiddleware(function(\Throwable $e, ServerRequestInterface $r) use ($context): void {
             $first = $e->getFile().':'.$e->getLine();
             $snippet = substr(str_replace("\n", ' | ', $e->getTraceAsString()), 0, 500);
-            AgaviDebugLogger::debug('[AgaviKernel] '.$e::class.': '.$e->getMessage().' @ '.$first.' trace='.$snippet, $context);
+            \Agavi\Logging\Log::for($this)->debug('[AgaviKernel] '.$e::class.': '.$e->getMessage().' @ '.$first.' trace='.$snippet);
         });
         // session
     $stack[] = new \Agavi\Middleware\SessionMiddleware($controller);

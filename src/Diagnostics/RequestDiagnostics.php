@@ -1,7 +1,6 @@
 <?php
 namespace Agavi\Diagnostics;
 
-use Agavi\Logging\AgaviDebugLogger;
 use Agavi\Request\AgaviWebRequest;
 
 /**
@@ -23,7 +22,7 @@ final class RequestDiagnostics
                 self::$canonicalId = $id;
             } elseif($id !== 0 && self::$canonicalId !== null && $id !== self::$canonicalId) {
                 $msg = '[RequestDiagnostics] MISMATCH stage=' . $stage . ' canonical=' . self::$canonicalId . ' got=' . $id;
-                AgaviDebugLogger::debug($msg);
+                \Agavi\Logging\Log::create('Agavi.Diagnostics.RequestDiagnostics')->debug($msg);
             }
             self::$stages[] = [$stage, $id, microtime(true)];
         } catch(\Throwable) {

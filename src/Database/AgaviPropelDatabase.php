@@ -15,7 +15,6 @@
 namespace Agavi\Database;
 
 use Agavi\Exception\AgaviDatabaseException;
-use Agavi\Logging\AgaviDebugLogger;
 use Agavi\Util\AgaviToolkit;
 use Propel\Propel;
 use Propel\Config\PropelConfiguration;
@@ -66,14 +65,15 @@ class AgaviPropelDatabase extends AgaviDatabase
 	 */
 	protected function connect()
 	{
-		if (\Agavi\Util\DebugFlags::$database) {
-			AgaviDebugLogger::debug('[AgaviPropelDatabase] connect() called - database_id=' . spl_object_id($this) . ' datasource=' . $this->getParameter('datasource'));
+		$logger = \Agavi\Logging\Log::for($this);
+		if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+			$logger->debug('[AgaviPropelDatabase] connect() called - database_id=' . spl_object_id($this) . ' datasource=' . $this->getParameter('datasource'));
 		}
-		
+
 		$this->connection = Propel::getConnection($this->getParameter('datasource'));
-		
-		if (\Agavi\Util\DebugFlags::$database) {
-			AgaviDebugLogger::debug('[AgaviPropelDatabase] connect() completed - connection_id=' . spl_object_id($this->connection) . ' type=' . $this->connection::class);
+
+		if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+			$logger->debug('[AgaviPropelDatabase] connect() completed - connection_id=' . spl_object_id($this->connection) . ' type=' . $this->connection::class);
 		}
 	}
 
@@ -89,18 +89,19 @@ class AgaviPropelDatabase extends AgaviDatabase
 	#[\Override]
     public function initialize(AgaviDatabaseManager $databaseManager, array $parameters = [])
 	{
-		if (\Agavi\Util\DebugFlags::$database) {
-			AgaviDebugLogger::debug('[AgaviPropelDatabase] initialize() called - database_id=' . spl_object_id($this));
+		$logger = \Agavi\Logging\Log::for($this);
+		if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+			$logger->debug('[AgaviPropelDatabase] initialize() called - database_id=' . spl_object_id($this));
 		}
-		
+
 		parent::initialize($databaseManager, $parameters);
 		$configPath = AgaviToolkit::expandDirectives($this->getParameter('config'));
 		$datasource = $this->getParameter('datasource', null);
 		$use_as_default = $this->getParameter('use_as_default', false);
 		$config = require($configPath);
 		
-		if (\Agavi\Util\DebugFlags::$database) {
-			AgaviDebugLogger::debug('[AgaviPropelDatabase] loading config from: ' . $configPath . ' datasource=' . $datasource);
+		if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+			$logger->debug('[AgaviPropelDatabase] loading config from: ' . $configPath . ' datasource=' . $datasource);
 		}
 		
 		if($datasource === null || $datasource == 'default') {
@@ -114,13 +115,13 @@ class AgaviPropelDatabase extends AgaviDatabase
 		}
 		
 		if(!Propel::isInit()) {
-			if (\Agavi\Util\DebugFlags::$database) {
-				AgaviDebugLogger::debug('[AgaviPropelDatabase] Propel not initialized, calling Propel::init()');
+			if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+				$logger->debug('[AgaviPropelDatabase] Propel not initialized, calling Propel::init()');
 			}
 			Propel::init($configPath);
 		} else {
-			if (\Agavi\Util\DebugFlags::$database) {
-				AgaviDebugLogger::debug('[AgaviPropelDatabase] Propel already initialized');
+			if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+				$logger->debug('[AgaviPropelDatabase] Propel already initialized');
 			}
 		}
 		
@@ -146,8 +147,8 @@ class AgaviPropelDatabase extends AgaviDatabase
 			Propel::disableInstancePooling();
 		}
 		
-		if (\Agavi\Util\DebugFlags::$database) {
-			AgaviDebugLogger::debug('[AgaviPropelDatabase] initialize() completed - datasource=' . $datasource);
+		if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+			$logger->debug('[AgaviPropelDatabase] initialize() completed - datasource=' . $datasource);
 		}
 	}
 
@@ -176,14 +177,15 @@ class AgaviPropelDatabase extends AgaviDatabase
 	 */
 	public function shutdown()
 	{
-		if (\Agavi\Util\DebugFlags::$database) {
-			AgaviDebugLogger::debug('[AgaviPropelDatabase] shutdown() called - database_id=' . spl_object_id($this) . ' connection_id=' . ($this->connection ? spl_object_id($this->connection) : 'NULL'));
+		$logger = \Agavi\Logging\Log::for($this);
+		if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+			$logger->debug('[AgaviPropelDatabase] shutdown() called - database_id=' . spl_object_id($this) . ' connection_id=' . ($this->connection ? spl_object_id($this->connection) : 'NULL'));
 		}
-		
+
 		$this->connection = $this->resource = null;
-		
-		if (\Agavi\Util\DebugFlags::$database) {
-			AgaviDebugLogger::debug('[AgaviPropelDatabase] shutdown() completed - connection cleared');
+
+		if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+			$logger->debug('[AgaviPropelDatabase] shutdown() completed - connection cleared');
 		}
 	}
 

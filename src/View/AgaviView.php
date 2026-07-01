@@ -41,7 +41,6 @@ use Agavi\Renderer\AgaviRenderer;
 use Agavi\Execution\ForwardService;
 use Agavi\Request\AgaviWebRequest;
 use Symfony\Contracts\Service\ResetInterface;
-use Agavi\Logging\AgaviDebugLogger;
 use Agavi\Response\AgaviWebResponse;
 
 abstract class AgaviView implements ResetInterface
@@ -95,23 +94,24 @@ abstract class AgaviView implements ResetInterface
 	 */
 	public function renderLayers(): string
 	{
+		$logger = \Agavi\Logging\Log::for($this);
 		if (empty($this->layers)) {
-			if (\Agavi\Util\DebugFlags::$view) {
-				AgaviDebugLogger::debug('[AgaviView] renderLayers no layers for ' . static::class, $this->getContext());
+			if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+				$logger->debug('[AgaviView] renderLayers no layers for ' . static::class);
 			}
 			return '';
 		}
 		$out = '';
-		if (\Agavi\Util\DebugFlags::$view) {
-			AgaviDebugLogger::debug('[AgaviView] renderLayers count=' . count($this->layers) . ' view=' . static::class, $this->getContext());
+		if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+			$logger->debug('[AgaviView] renderLayers count=' . count($this->layers) . ' view=' . static::class);
 		}
 		foreach ($this->layers as $layer) {
 			$attrsSnapshot = $this->getAttributes();
 			$attrsForLayer = is_array($attrsSnapshot) ? $attrsSnapshot : (array)$attrsSnapshot;
 			$attrsForLayer['inner'] = $out;
 			$out = (string)$layer->execute(null, $attrsForLayer); // exceptions bubble naturally now
-			if (\Agavi\Util\DebugFlags::$view) {
-				AgaviDebugLogger::debug('[AgaviView] layer executed name=' . $layer->getName() . ' len=' . strlen($out), $this->getContext());
+			if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+				$logger->debug('[AgaviView] layer executed name=' . $layer->getName() . ' len=' . strlen($out));
 			}
 		}
 		return $out;

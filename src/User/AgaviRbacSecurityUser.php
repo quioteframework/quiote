@@ -189,9 +189,9 @@ class AgaviRbacSecurityUser extends AgaviSecurityUser implements AgaviISecurityU
 				$this->grantRole($role);
 			}
 			try {
-				if (\Agavi\Util\DebugFlags::$security) {
-					if(!is_dir('/app/log')) { @mkdir('/app/log',0777,true); }
-					@file_put_contents('/app/log/agavi_user_debug.log', '[RbacSecurityUser.initialize] rebuilt creds rolesIn=' . count($storedRoles) . ' rolesNow=' . count($this->roles) . ' credsNow=' . count($this->credentials ?? []) . "\n", FILE_APPEND);
+				$logger = \Agavi\Logging\Log::for($this);
+				if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+					$logger->debug('[RbacSecurityUser.initialize] rebuilt creds rolesIn=' . count($storedRoles) . ' rolesNow=' . count($this->roles) . ' credsNow=' . count($this->credentials ?? []));
 				}
 			} catch (\Throwable) {}
 		}
@@ -222,9 +222,9 @@ class AgaviRbacSecurityUser extends AgaviSecurityUser implements AgaviISecurityU
 	#[\Override]
     public function shutdown()
 	{
-		$logger = $this->context?->getLoggerManager()?->getLogger();
-		if (\Agavi\Util\DebugFlags::$security) {
-			$logger?->debug('RbacSecurityUser storing roles', ['class' => static::class, 'namespace' => self::ROLES_NAMESPACE, 'roles_count' => is_array($this->roles) ? count($this->roles) : 0]);
+		$logger = \Agavi\Logging\Log::for($this);
+		if ($logger->isEnabled(\Agavi\Logging\Level::Debug)) {
+			$logger->debug('RbacSecurityUser storing roles', ['class' => static::class, 'namespace' => self::ROLES_NAMESPACE, 'roles_count' => is_array($this->roles) ? count($this->roles) : 0]);
 		}
 		$this->context->getStorage()->store(self::ROLES_NAMESPACE, $this->roles);
 	// Note: credentials are stored by parent AgaviSecurityUser::shutdown(). If they were

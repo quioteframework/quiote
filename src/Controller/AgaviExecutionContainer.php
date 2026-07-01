@@ -291,8 +291,8 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 	public function createExecutionContainer($moduleName = null, $actionName = null, ?AgaviRequestDataHolder $arguments = null, $outputType = null, $requestMethod = null)
 	{
 		// DEPRECATED: Container spawning retained only for legacy forward paths.
-		$logger = $this->context?->getLoggerManager()?->getLogger();
-		$logger?->debug('container.create (legacy) module=' . ($moduleName ?? 'null') . ' action=' . ($actionName ?? 'null'));
+		$logger = \Agavi\Logging\Log::for($this);
+		$logger->debug('container.create (legacy) module=' . ($moduleName ?? 'null') . ' action=' . ($actionName ?? 'null'));
 		$container = new self();
 		$container->initialize($this->context, []);
 		if($moduleName !== null) { $container->setModuleName($moduleName); }
@@ -848,13 +848,13 @@ class AgaviExecutionContainer extends AgaviAttributeHolder implements ResetInter
 	 */
 	public function setOutputType(AgaviOutputType $outputType)
 	{
-		$logger = $this->context?->getLoggerManager()?->getLogger();
-		$logger?->debug('container.set_output_type value=' . $outputType->getName());
+		$logger = \Agavi\Logging\Log::for($this);
+		$logger->debug('container.set_output_type value=' . $outputType->getName());
 		
 		$this->outputType = $outputType;
 		if($this->response) {
 			$this->response->setOutputType($outputType);
-			$logger?->debug('container.set_output_type applied_to_response');
+			$logger->debug('container.set_output_type applied_to_response');
 		}
 	}
 

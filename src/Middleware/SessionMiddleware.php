@@ -8,7 +8,6 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Agavi\Controller\AgaviController;
 use Agavi\Execution\ExecutionState;
-use Agavi\Logging\AgaviDebugLogger;
 
 /**
  * SessionMiddleware: ensures session storage is started and ExecutionState present before security.
@@ -32,10 +31,10 @@ class SessionMiddleware implements MiddlewareInterface
         try {
             $storage = $this->controller->getContext()->getStorage();
             // Debug: show PSR cookie params and raw Cookie header
-            if (\Agavi\Util\DebugFlags::$session) {
+            if (\Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug)) {
                 try {
-                    AgaviDebugLogger::debug('[SessionMiddleware] PSR cookie params=' . var_export($request->getCookieParams(), true), $this->controller->getContext());
-                    AgaviDebugLogger::debug('[SessionMiddleware] Cookie header=' . var_export($request->getHeader('Cookie'), true), $this->controller->getContext());
+                    \Agavi\Logging\Log::for($this)->debug('[SessionMiddleware] PSR cookie params=' . var_export($request->getCookieParams(), true));
+                    \Agavi\Logging\Log::for($this)->debug('[SessionMiddleware] Cookie header=' . var_export($request->getHeader('Cookie'), true));
                 } catch (\Throwable) {}
             }
             // If PSR cookie params are available, mirror them into $_COOKIE so legacy adapter fallback can read them.
@@ -59,17 +58,17 @@ class SessionMiddleware implements MiddlewareInterface
                     }
                 }
             } catch (\Throwable) {}
-            if (\Agavi\Util\DebugFlags::$session) {
-                try { AgaviDebugLogger::debug('[SessionMiddleware] mirrored $_COOKIE=' . var_export($_COOKIE, true), $this->controller->getContext()); } catch (\Throwable) {}
+            if (\Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug)) {
+                try { \Agavi\Logging\Log::for($this)->debug('[SessionMiddleware] mirrored $_COOKIE=' . var_export($_COOKIE, true)); } catch (\Throwable) {}
             }
             if (method_exists($storage, 'startup') && session_status() !== PHP_SESSION_ACTIVE) {
-                if (\Agavi\Util\DebugFlags::$session) { AgaviDebugLogger::debug('[SessionMiddleware] calling storage->startup()', $this->controller->getContext()); }
+                if (\Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug)) { \Agavi\Logging\Log::for($this)->debug('[SessionMiddleware] calling storage->startup()'); }
                 $storage->startup();
-                if (\Agavi\Util\DebugFlags::$session) { AgaviDebugLogger::debug('[SessionMiddleware] storage->startup() returned; session id=' . var_export(method_exists($storage,'getId') ? $storage->getId() : null, true), $this->controller->getContext()); }
+                if (\Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug)) { \Agavi\Logging\Log::for($this)->debug('[SessionMiddleware] storage->startup() returned; session id=' . var_export(method_exists($storage,'getId') ? $storage->getId() : null, true)); }
             }
         } catch (\Throwable $t) {
-            if (\Agavi\Util\DebugFlags::$session) {
-                AgaviDebugLogger::debug('[SessionMiddleware] startup error: ' . $t->getMessage(), $this->controller->getContext());
+            if (\Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug)) {
+                \Agavi\Logging\Log::for($this)->debug('[SessionMiddleware] startup error: ' . $t->getMessage());
             }
         }
         // Ensure ExecutionState exists.
@@ -97,7 +96,7 @@ class SessionMiddleware implements MiddlewareInterface
                 } catch (\Throwable) {}
             }
         } catch (\Throwable $t) {
-            if (\Agavi\Util\DebugFlags::$session) { AgaviDebugLogger::debug('[SessionMiddleware] shutdown error: ' . $t->getMessage(), $this->controller->getContext()); }
+            if (\Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug)) { \Agavi\Logging\Log::for($this)->debug('[SessionMiddleware] shutdown error: ' . $t->getMessage()); }
         }
 
         return $response;

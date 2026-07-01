@@ -81,14 +81,9 @@ class AgaviWorkerManager
     /**
      * Internal helper to obtain a logger (if logging enabled and context available)
      */
-    private static function getLogger()
+    private static function getLogger(): \Agavi\Logging\CategoryLogger
     {
-        try {
-            $ctx = AgaviContext::getInstance(AgaviConfig::get('core.default_context', 'web'));
-            return $ctx?->getLoggerManager()?->getLogger();
-        } catch (\Throwable) {
-            return null;
-        }
+        return \Agavi\Logging\Log::create('Agavi.Util.AgaviWorkerManager');
     }
     
     /**

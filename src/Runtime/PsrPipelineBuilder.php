@@ -2,7 +2,6 @@
 namespace Agavi\Runtime;
 
 use Agavi\AgaviContext;
-use Agavi\Logging\AgaviDebugLogger;
 use Agavi\Middleware\MiddlewarePipeline;
 use Agavi\Middleware\ErrorHandlingMiddleware;
 use Agavi\Middleware\ExecutionTimeMiddleware;
@@ -110,7 +109,7 @@ class PsrPipelineBuilder
                 'trace='.$snippet
             ];
             $msg = implode(' ', array_filter($pieces, fn($p)=>$p!==null && $p!==''));
-            AgaviDebugLogger::debug($msg, $context);
+            \Agavi\Logging\Log::for($this)->debug($msg);
         };
         return new readonly class(new ErrorHandlingMiddleware($loggerFn), $handler) implements RequestHandlerInterface {
             public function __construct(private ErrorHandlingMiddleware $err, private RequestHandlerInterface $next) {}

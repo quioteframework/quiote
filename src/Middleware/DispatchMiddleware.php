@@ -9,7 +9,6 @@ use Psr\Http\Message\ResponseInterface;
 use Agavi\Controller\AgaviController;
 // Removed legacy container & request adapter usage.
 use Agavi\Execution\ActionDescriptor;
-use Agavi\Logging\AgaviDebugLogger;
 use Agavi\Execution\ExecutionState;
 use Agavi\Execution\SecurityDecision;
 use Agavi\Execution\ActionExecutor; // new container-less executor
@@ -121,18 +120,18 @@ class DispatchMiddleware implements MiddlewareInterface
                         $resp = $resp->withHeader($name, $value);
                     }
                 }
-                if (\Agavi\Util\DebugFlags::$response || \Agavi\Util\DebugFlags::$dispatch) {
-                    AgaviDebugLogger::debug('[DispatchMiddleware.buildPsrResponse] set headers from output type ' . $outputType . ': ' . json_encode($httpHeaders), $this->controller->getContext());
+                if (\Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug)) {
+                    \Agavi\Logging\Log::for($this)->debug('[DispatchMiddleware.buildPsrResponse] set headers from output type ' . $outputType . ': ' . json_encode($httpHeaders));
                 }
             } else {
-                if (\Agavi\Util\DebugFlags::$response || \Agavi\Util\DebugFlags::$dispatch) {
-                    AgaviDebugLogger::debug('[DispatchMiddleware.buildPsrResponse] getOutputType(' . $outputType . ') returned null', $this->controller->getContext());
-                }             
+                if (\Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug)) {
+                    \Agavi\Logging\Log::for($this)->debug('[DispatchMiddleware.buildPsrResponse] getOutputType(' . $outputType . ') returned null');
+                }
             }
         } catch (\Throwable $e) {
-            if (\Agavi\Util\DebugFlags::$response || \Agavi\Util\DebugFlags::$dispatch) {
-                AgaviDebugLogger::debug('[DispatchMiddleware.buildPsrResponse] exception getting output type: ' . $e->getMessage(), $this->controller->getContext());
-            }            
+            if (\Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug)) {
+                \Agavi\Logging\Log::for($this)->debug('[DispatchMiddleware.buildPsrResponse] exception getting output type: ' . $e->getMessage());
+            }
         }
 
         $globalResp = null;
@@ -193,8 +192,8 @@ class DispatchMiddleware implements MiddlewareInterface
                 }
             } catch (\Throwable) {}
         }
-        if (\Agavi\Util\DebugFlags::$response || \Agavi\Util\DebugFlags::$dispatch) {
-            AgaviDebugLogger::debug('[DispatchMiddleware.buildPsrResponse] isRedirect=' . ($redirectData !== null ? 'true' : 'false'), $this->controller->getContext());
+        if (\Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug)) {
+            \Agavi\Logging\Log::for($this)->debug('[DispatchMiddleware.buildPsrResponse] isRedirect=' . ($redirectData !== null ? 'true' : 'false'));
         }
         if ($redirectData !== null) {
             try {
@@ -212,13 +211,13 @@ class DispatchMiddleware implements MiddlewareInterface
                         $location = $agaviCtx->getRouting()->getBaseHref() . $location;
                     }
                 }
-                if (\Agavi\Util\DebugFlags::$response || \Agavi\Util\DebugFlags::$dispatch) {
-                    AgaviDebugLogger::debug('[DispatchMiddleware.buildPsrResponse] redirect location=' . $location . ' code=' . $code, $this->controller->getContext());
+                if (\Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug)) {
+                    \Agavi\Logging\Log::for($this)->debug('[DispatchMiddleware.buildPsrResponse] redirect location=' . $location . ' code=' . $code);
                 }
                 $resp = $resp->withStatus($code)->withHeader('Location', $location);
             } catch (\Throwable $e) {
-                if (\Agavi\Util\DebugFlags::$response || \Agavi\Util\DebugFlags::$dispatch) {
-                    AgaviDebugLogger::debug('[DispatchMiddleware.buildPsrResponse] redirect exception: ' . $e->getMessage(), $this->controller->getContext());
+                if (\Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug)) {
+                    \Agavi\Logging\Log::for($this)->debug('[DispatchMiddleware.buildPsrResponse] redirect exception: ' . $e->getMessage());
                 }
             }
         }
@@ -236,7 +235,7 @@ class DispatchMiddleware implements MiddlewareInterface
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        $dbg = \Agavi\Util\DebugFlags::$dispatch;
+        $dbg = \Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug);
         // Clear stale state from previous request on the shared global response so that
         // any HTTP status code we read back in buildPsrResponse() reflects only what the
         // current action/view cycle actually set.
@@ -296,7 +295,7 @@ class DispatchMiddleware implements MiddlewareInterface
                 }
             } catch (\Throwable) {
             }
-            AgaviDebugLogger::debug('[DispatchMiddleware][' . $rid . '] action=' . $actionDesc->module . ':' . $actionDesc->action . ' method=' . $actionDesc->method . ' simple=' . ($actionDesc->isSimple ? '1' : '0') . ' vd=' . ($execState->validationDecision?->state ?? 'null') . ' sec=' . ($execState->securityDecision?->name ?? 'null') . ' sessId=' . $sessId . ' auth=' . $auth, $this->controller->getContext());
+            \Agavi\Logging\Log::for($this)->debug('[DispatchMiddleware][' . $rid . '] action=' . $actionDesc->module . ':' . $actionDesc->action . ' method=' . $actionDesc->method . ' simple=' . ($actionDesc->isSimple ? '1' : '0') . ' vd=' . ($execState->validationDecision?->state ?? 'null') . ' sec=' . ($execState->securityDecision?->name ?? 'null') . ' sessId=' . $sessId . ' auth=' . $auth);
         }
         // Non-simple actions require validation; allow pending if this is a forwarded target (ValidationMiddleware should run earlier in pipeline).
         if (!$actionDesc->isSimple) {
@@ -318,7 +317,7 @@ class DispatchMiddleware implements MiddlewareInterface
         }
 
         if ($dbg && method_exists($resp, 'getBody')) {
-            AgaviDebugLogger::debug('[DispatchMiddleware][' . $rid . '] response status=' . $resp->getStatusCode() . ' len=' . strlen((string)$resp->getBody()), $this->controller->getContext());
+            \Agavi\Logging\Log::for($this)->debug('[DispatchMiddleware][' . $rid . '] response status=' . $resp->getStatusCode() . ' len=' . strlen((string)$resp->getBody()));
         }
         return $resp;
     }
@@ -403,9 +402,9 @@ class DispatchMiddleware implements MiddlewareInterface
                 ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, ($actionInstance && method_exists($actionInstance, 'getAttributes')) ? $actionInstance->getAttributes() : [], true, $ttl, $userFp);
             }
         }
-        if (\Agavi\Util\DebugFlags::$dispatch) {
+        if (\Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug)) {
             $rid = $request->getAttribute('agavi.rid');
-            AgaviDebugLogger::debug('[DispatchMiddleware][' . $rid . '] simple contentType=' . $actionDesc->outputType . ' contentLen=' . strlen($ctx->content) . ' prefix=' . substr($ctx->content, 0, 80), $this->controller->getContext());
+            \Agavi\Logging\Log::for($this)->debug('[DispatchMiddleware][' . $rid . '] simple contentType=' . $actionDesc->outputType . ' contentLen=' . strlen($ctx->content) . ' prefix=' . substr($ctx->content, 0, 80));
         }
         return $this->buildPsrResponse($ctx->content, $actionDesc->outputType, false, false, $ctx->redirect ?? null);
     }
@@ -488,9 +487,9 @@ class DispatchMiddleware implements MiddlewareInterface
                 ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, ($actionInstance && method_exists($actionInstance, 'getAttributes')) ? $actionInstance->getAttributes() : [], false, $ttl, $userFp);
             }
         }
-        if (\Agavi\Util\DebugFlags::$dispatch) {
+        if (\Agavi\Logging\Log::for($this)->isEnabled(\Agavi\Logging\Level::Debug)) {
             $rid = $request->getAttribute('agavi.rid');
-            AgaviDebugLogger::debug('[DispatchMiddleware][' . $rid . '] nonSimple contentType=' . $actionDesc->outputType . ' contentLen=' . strlen($ctx->content) . ' prefix=' . substr($ctx->content, 0, 80), $this->controller->getContext());
+            \Agavi\Logging\Log::for($this)->debug('[DispatchMiddleware][' . $rid . '] nonSimple contentType=' . $actionDesc->outputType . ' contentLen=' . strlen($ctx->content) . ' prefix=' . substr($ctx->content, 0, 80));
         }
         return $this->buildPsrResponse($ctx->content, $actionDesc->outputType, $execState->cacheHit, false, $ctx->redirect ?? null);
     }

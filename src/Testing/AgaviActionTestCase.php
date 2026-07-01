@@ -19,7 +19,6 @@ use Agavi\Request\AgaviWebRequest;
 use Agavi\Execution\ValidationService;
 use Agavi\Testing\PHPUnit\Constraint\AgaviConstraintActionHandlesMethod;
 use Agavi\Validator\AgaviValidationArgument;
-use Agavi\Logging\AgaviDebugLogger;
 
 /**
  * AgaviActionTestCase is the base class for all action testcases and provides
@@ -113,36 +112,38 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 				if (getenv('DEBUG_TESTS')) {
 					error_log('[runAction] EXCEPTION in ' . $execMethod . ': ' . $e::class . ': ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
 				}
-				if (\Agavi\Util\DebugFlags::$validation || getenv('DEBUG_TESTS')) {
+				$logger = \Agavi\Logging\Log::for($this);
+				if ($logger->isEnabled(\Agavi\Logging\Level::Debug) || getenv('DEBUG_TESTS')) {
 					try {
-						AgaviDebugLogger::debug('[TestDebug][runAction][Exception] ' . $e::class . ': ' . $e->getMessage(), $this->getContext());
+						$logger->debug('[TestDebug][runAction][Exception] ' . $e::class . ': ' . $e->getMessage());
 					} catch (\Throwable) {
 					}
 				}
 				$resultView = 'Error';
 			}
 		}
-		if (\Agavi\Util\DebugFlags::$validation || getenv('DEBUG_TESTS')) {
+		$logger = \Agavi\Logging\Log::for($this);
+		if ($logger->isEnabled(\Agavi\Logging\Level::Debug) || getenv('DEBUG_TESTS')) {
 			try {
-				AgaviDebugLogger::debug('[TestDebug][runAction] rawResult=' . var_export($resultView, true) . ' method=' . $execMethod . ' validationSuccess=' . ($this->validationSuccess ? '1' : '0'), $this->getContext());
+				$logger->debug('[TestDebug][runAction] rawResult=' . var_export($resultView, true) . ' method=' . $execMethod . ' validationSuccess=' . ($this->validationSuccess ? '1' : '0'));
 			} catch (\Throwable) {
 			}
 		}
 		$this->viewModuleName = $this->moduleName;
 		// Store raw result (short view name as returned by action). If null assume Success.
 		$raw = $resultView ?? 'Success';
-		if (\Agavi\Util\DebugFlags::$validation || getenv('DEBUG_TESTS')) {
+		if ($logger->isEnabled(\Agavi\Logging\Level::Debug) || getenv('DEBUG_TESTS')) {
 			try {
-				AgaviDebugLogger::debug('[TestDebug][runAction] preNormalizeRaw=' . $raw, $this->getContext());
+				$logger->debug('[TestDebug][runAction] preNormalizeRaw=' . $raw);
 			} catch (\Throwable) {
 			}
 		}
 		// Normalize using shared logic (applies module directive + canonicalization) so that
 		// legacy semantics <ActionName><ShortViewName> are preserved without ad-hoc prefixing.
 		$this->viewName = $this->normalizeViewName($raw);
-		if (\Agavi\Util\DebugFlags::$validation || getenv('DEBUG_TESTS')) {
+		if ($logger->isEnabled(\Agavi\Logging\Level::Debug) || getenv('DEBUG_TESTS')) {
 			try {
-				AgaviDebugLogger::debug('[TestDebug][runAction] normalizedView=' . $this->viewName, $this->getContext());
+				$logger->debug('[TestDebug][runAction] normalizedView=' . $this->viewName);
 			} catch (\Throwable) {
 			}
 		}
@@ -165,25 +166,26 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 		$methodToken = strtolower($this->requestMethod ?? 'read');
 		// Acquire canonical AgaviWebRequest (it already holds parameters injected via helpers)
 		$request = $this->getContext()->getRequest();
-		$dbg = (\Agavi\Util\DebugFlags::$validation || getenv('DEBUG_TESTS'));
+		$logger = \Agavi\Logging\Log::for($this);
+		$dbg = ($logger->isEnabled(\Agavi\Logging\Level::Debug) || getenv('DEBUG_TESTS'));
 		if ($dbg) {
 			try {
-				AgaviDebugLogger::debug('[TestDebug][performValidation] methodToken=' . $methodToken . ' reqId=' . spl_object_id($request), $this->getContext());
+				$logger->debug('[TestDebug][performValidation] methodToken=' . $methodToken . ' reqId=' . spl_object_id($request));
 			} catch (\Throwable) {
 			}
 		}
 		// Controlled debug: only emit pre-validation parameter dump when explicitly enabled
-		if (\Agavi\Util\DebugFlags::$validation || getenv('DEBUG_TESTS')) {
+		if ($dbg) {
 			try {
 				$rawParams = method_exists($request, 'getParameters') ? $request->getParameters('parameters') : [];
 				$flat = [];
 				if (class_exists(\Agavi\Util\AgaviArrayPathDefinition::class)) {
 					$flat = \Agavi\Util\AgaviArrayPathDefinition::getFlatKeyNames($rawParams);
 				}
-				AgaviDebugLogger::debug('[TestDebug][PreValidation] action=' . ($this->actionName ?? '') . ' method=' . $methodToken . ' keys=' . implode(',', $flat) . ' raw=' . json_encode($rawParams), $this->getContext());
+				$logger->debug('[TestDebug][PreValidation] action=' . ($this->actionName ?? '') . ' method=' . $methodToken . ' keys=' . implode(',', $flat) . ' raw=' . json_encode($rawParams));
 			} catch (\Throwable $e) {
 				try {
-					AgaviDebugLogger::debug('[TestDebug][PreValidation] exception dumping params: ' . $e->getMessage(), $this->getContext());
+					$logger->debug('[TestDebug][PreValidation] exception dumping params: ' . $e->getMessage());
 				} catch (\Throwable) {
 				}
 			}
@@ -204,7 +206,7 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 			if ($dbg) {
 				try {
 					$rp = method_exists($request, 'getParameters') ? $request->getParameters('runtime') : [];
-					AgaviDebugLogger::debug('[TestDebug][RuntimeBeforeValidation] keys=' . implode(',', array_keys($rp)), $this->getContext());
+					$logger->debug('[TestDebug][RuntimeBeforeValidation] keys=' . implode(',', array_keys($rp)));
 				} catch (\Throwable) {
 				}
 			}
@@ -219,16 +221,16 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 				$alternativeName = $actionName; // dotted fallback
 			}
 			if ($dbg) {
-				AgaviDebugLogger::debug('[TestDebug][BeforeValidate] module=' . $module . ' primaryName=' . $primaryName . ' alternativeName=' . ($alternativeName ?? 'null') . ' method=' . $methodToken, $this->getContext());
+				$logger->debug('[TestDebug][BeforeValidate] module=' . $module . ' primaryName=' . $primaryName . ' alternativeName=' . ($alternativeName ?? 'null') . ' method=' . $methodToken);
 			}
 			try {
 				$result = $service->validate($action, $request, $module, $primaryName, $methodToken);
 				if ($dbg) {
-					AgaviDebugLogger::debug('[TestDebug][AfterValidate] result->ok=' . ($result->ok ? '1' : '0'), $this->getContext());
+					$logger->debug('[TestDebug][AfterValidate] result->ok=' . ($result->ok ? '1' : '0'));
 				}
 			} catch (\Throwable $e) {
 				if ($dbg) {
-					AgaviDebugLogger::debug('[TestDebug][ValidateException] ' . $e::class . ': ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine(), $this->getContext());
+					$logger->debug('[TestDebug][ValidateException] ' . $e::class . ': ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
 				}
 				// Create a failed result
 				$result = (object)['ok' => false, 'data' => []];
@@ -244,7 +246,7 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 			if (empty($loaded) && $alternativeName) {
 				try {
 					if ($dbg) {
-						AgaviDebugLogger::debug('[TestDebug][ValidationFallback] retry dotted=' . $alternativeName, $this->getContext());
+						$logger->debug('[TestDebug][ValidationFallback] retry dotted=' . $alternativeName);
 					}
 					$result = $service->validate($action, $request, $module, $alternativeName, $methodToken);
 					$this->validationSuccess = (bool)$result->ok;
@@ -260,7 +262,7 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 			}
 			if ($dbg) {
 				try {
-					AgaviDebugLogger::debug('[TestDebug][PostValidation] success=' . ($this->validationSuccess ? '1' : '0') . ' loadedValidators=' . implode(',', $loaded), $this->getContext());
+					$logger->debug('[TestDebug][PostValidation] success=' . ($this->validationSuccess ? '1' : '0') . ' loadedValidators=' . implode(',', $loaded));
 					if (!$this->validationSuccess) {
 						// EXTRA DEBUG: dump validator names + argument results
 						try {
@@ -269,7 +271,7 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 							foreach ($childs as $cv) {
 								$names[] = method_exists($cv, 'getName') ? $cv->getName() : 'unknown';
 							}
-							AgaviDebugLogger::debug('[TestDebug][ValidatorsRegistered] ' . implode(',', $names), $this->getContext());
+							$logger->debug('[TestDebug][ValidatorsRegistered] ' . implode(',', $names));
 							$report = $vm->getReport();
 							if ($report) {
 								$argsFailed = [];
@@ -279,14 +281,14 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 									}
 								} catch (\Throwable) {
 								}
-								AgaviDebugLogger::debug('[TestDebug][FailedArguments] ' . (empty($argsFailed) ? 'none' : implode(',', $argsFailed)), $this->getContext());
+								$logger->debug('[TestDebug][FailedArguments] ' . (empty($argsFailed) ? 'none' : implode(',', $argsFailed)));
 								$errs = $report->getErrorMessages();
 								if (!empty($errs)) {
-									AgaviDebugLogger::debug('[TestDebug][ErrorMessages] ' . json_encode($errs), $this->getContext());
+									$logger->debug('[TestDebug][ErrorMessages] ' . json_encode($errs));
 								}
 							}
 						} catch (\Throwable $ie) {
-							AgaviDebugLogger::debug('[TestDebug][ValidatorDumpException] ' . $ie->getMessage(), $this->getContext());
+							$logger->debug('[TestDebug][ValidatorDumpException] ' . $ie->getMessage());
 						}
 					}
 					if (!$this->validationSuccess && method_exists($vm, 'getReport') && $vm->getReport()) {
@@ -299,7 +301,7 @@ abstract class AgaviActionTestCase extends AgaviFragmentTestCase
 							}
 						}
 						if (!empty($lines)) {
-							AgaviDebugLogger::debug('[TestDebug][ValidationErrors] ' . implode(' | ', $lines), $this->getContext());
+							$logger->debug('[TestDebug][ValidationErrors] ' . implode(' | ', $lines));
 						}
 					}
 				} catch (\Throwable) {

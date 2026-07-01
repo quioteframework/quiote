@@ -5,7 +5,6 @@ namespace Agavi\Runtime;
 use Agavi\Agavi;
 use Agavi\Middleware\ErrorHandlingMiddleware;
 use Agavi\Request\AgaviWebRequest;
-use Agavi\Logging\AgaviDebugLogger;
 use Agavi\Config\AgaviConfig;
 use Agavi\Util\AgaviWorkerManager;
 use Agavi\Runtime\Worker\FrankenPhpWorkerAdapter;
@@ -66,11 +65,11 @@ class AgaviKernel
                 $emitter->emit($response);
             } catch (\Throwable $e) {
                 // Log basic diagnostics
-                AgaviDebugLogger::debug('[AgaviKernel] Uncaught during handle bootstrap: '.$e::class.': '.$e->getMessage().' @ '.$e->getFile().':'.$e->getLine(), $context);
+                \Agavi\Logging\Log::for($this)->debug('[AgaviKernel] Uncaught during handle bootstrap: '.$e::class.': '.$e->getMessage().' @ '.$e->getFile().':'.$e->getLine());
                 // Attempt unified error rendering via ErrorHandlingMiddleware helper.
                 try {
                     $err = new ErrorHandlingMiddleware(function(\Throwable $ex, \Psr\Http\Message\ServerRequestInterface $r) use ($context): void {
-                        AgaviDebugLogger::debug('[AgaviKernel][late] '.$ex::class.': '.$ex->getMessage(), $context);
+                        \Agavi\Logging\Log::for($this)->debug('[AgaviKernel][late] '.$ex::class.': '.$ex->getMessage());
                     });
                     // If original PSR request not built (rare), synthesize minimal one.
                     if(!isset($request) || !$request) {
