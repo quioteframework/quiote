@@ -312,9 +312,9 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 		
 		// Try namespaced class first (autoloader will handle it)
 		if(class_exists($namespacedClass)) {
-			return new $namespacedClass();
+			return $this->makeInstance($namespacedClass);
 		}
-		
+
 		// Fall back to old naming convention
 		if(!class_exists($oldClass)) {
 			// Attempt to include the legacy action file manually for old-style class names
@@ -324,7 +324,7 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 			}
 		}
 		if(class_exists($oldClass)) {
-			return new $oldClass();
+			return $this->makeInstance($oldClass);
 		}
 		
 		// Neither class found
@@ -342,6 +342,24 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 	public final function getContext()
 	{
 		return $this->context;
+	}
+
+	/**
+	 * Build an Action/View instance through the container (docs/DI_MIGRATION_PLAN.md,
+	 * Phase 3b) — the single choke point both createActionInstance() and
+	 * createViewInstance() route through. Uses Container::make(): a non-caching autowire,
+	 * so every dispatch gets its own fresh instance, same as the plain `new $class()` this
+	 * replaces. A class with no constructor is unaffected — zero migration burden.
+	 *
+	 * initialize($initContext) is still called by the executor after this returns, unchanged.
+	 *
+	 * @param      string A fully qualified class name.
+	 *
+	 * @return     object A new instance, with any constructor dependencies autowired.
+	 */
+	private function makeInstance($class)
+	{
+		return $this->getContext()->getContainer()->make($class);
 	}
 
 
@@ -419,12 +437,12 @@ class AgaviController extends AgaviParameterHolder implements ResetInterface
 		
 		// Try namespaced class first (autoloader will handle it)
 		if(class_exists($namespacedClass)) {
-			return new $namespacedClass();
+			return $this->makeInstance($namespacedClass);
 		}
-		
+
 		// Fall back to old naming convention
 		if(class_exists($oldClass)) {
-			return new $oldClass();
+			return $this->makeInstance($oldClass);
 		}
 		
 		// Neither class found

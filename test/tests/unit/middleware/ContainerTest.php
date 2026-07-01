@@ -174,6 +174,45 @@ class ContainerTest extends TestCase
         $v2 = $c->get(ContainerSingletonServiceFixture::class);
         $this->assertSame($v1, $v2, '#[Service(scope: singleton)] must override the AgaviServiceInterface transient default');
     }
+
+    public function testMakeNeverCachesEvenForOtherwiseSingletonClass()
+    {
+        $c = new Container();
+        $v1 = $c->make(ContainerNoDepsFixture::class);
+        $v2 = $c->make(ContainerNoDepsFixture::class);
+        $this->assertNotSame($v1, $v2, 'make() must build a fresh instance every call, regardless of scope policy');
+    }
+
+    public function testMakeWithNoConstructorBehavesLikePlainNew()
+    {
+        $c = new Container();
+        $obj = $c->make(ContainerNoDepsFixture::class);
+        $this->assertInstanceOf(ContainerNoDepsFixture::class, $obj);
+    }
+
+    public function testMakeAutowiresConstructorDependencies()
+    {
+        $c = new Container();
+        $c->set('clock', fn() => new DateTimeImmutable('2025-01-02T00:00:00Z'));
+        $c->alias(DateTimeImmutable::class, 'clock');
+        $obj = $c->make(ContainerMakeFixture::class);
+        $this->assertInstanceOf(DateTimeImmutable::class, $obj->clock);
+    }
+
+    public function testMakeExtraParamsOverrideByParameterName()
+    {
+        $c = new Container();
+        $obj = $c->make(ContainerParamFixture::class, ['name' => 'override_name']);
+        $this->assertSame('override_name', $obj->name);
+    }
+
+    public function testMakeExtraParamsOverrideByType()
+    {
+        $c = new Container();
+        $override = new DateTimeImmutable('2030-01-01T00:00:00Z');
+        $obj = $c->make(ContainerMakeFixture::class, [DateTimeImmutable::class => $override]);
+        $this->assertSame($override, $obj->clock);
+    }
 }
 
 class ContainerParamFixture
@@ -253,4 +292,9 @@ class ContainerPlainServiceFixture implements \Agavi\Service\AgaviServiceInterfa
 #[Service(scope: Container::SCOPE_SINGLETON)]
 class ContainerSingletonServiceFixture implements \Agavi\Service\AgaviServiceInterface
 {
+}
+
+class ContainerMakeFixture
+{
+    public function __construct(public DateTimeImmutable $clock) {}
 }

@@ -145,6 +145,51 @@ class AgaviControllerTest extends AgaviPhpUnitTestCase
 		$this->assertFalse($controller->viewExists('Bunk', 'Bunk'));
 	}
 
+	/**
+	 * DI migration Phase 3b (docs/DI_MIGRATION_PLAN.md): createActionInstance() routes
+	 * through Container::make(), so an action's constructor-typed dependency must be
+	 * autowired, and every call must build a fresh instance (never cached like get()).
+	 */
+	public function testCreateActionInstanceAutowiresConstructorDependency()
+	{
+		$controller = $this->_controller;
+
+		$action1 = $controller->createActionInstance('ControllerTests', 'ControllerTestDi');
+		$this->assertInstanceOf(\Sandbox\Modules\ControllerTests\Actions\ControllerTestDiAction::class, $action1);
+		$this->assertInstanceOf(\Sandbox\Services\ControllerTestDiService::class, $action1->service);
+
+		$action2 = $controller->createActionInstance('ControllerTests', 'ControllerTestDi');
+		$this->assertNotSame($action1, $action2, 'each dispatch must get its own action instance');
+		$this->assertNotSame($action1->service, $action2->service, 'ControllerTestDiService implements AgaviServiceInterface, so it defaults to transient scope');
+	}
+
+	/**
+	 * Same as above for createViewInstance() — the second Phase 3b choke point.
+	 */
+	public function testCreateViewInstanceAutowiresConstructorDependency()
+	{
+		$controller = $this->_controller;
+
+		$view1 = $controller->createViewInstance('ControllerTests', 'ControllerTestDiSuccess');
+		$this->assertInstanceOf(\Sandbox\Modules\ControllerTests\Views\ControllerTestDiSuccessView::class, $view1);
+		$this->assertInstanceOf(\Sandbox\Services\ControllerTestDiService::class, $view1->service);
+
+		$view2 = $controller->createViewInstance('ControllerTests', 'ControllerTestDiSuccess');
+		$this->assertNotSame($view1, $view2, 'each dispatch must get its own view instance');
+	}
+
+	/**
+	 * Actions/views with no constructor are unaffected by the Container::make() switch —
+	 * they still hit the plain `new $class()` branch and behave identically to before.
+	 */
+	public function testCreateActionInstanceStillWorksForActionsWithNoConstructor()
+	{
+		$action1 = $this->_controller->createActionInstance('ControllerTests', 'ControllerTest');
+		$action2 = $this->_controller->createActionInstance('ControllerTests', 'ControllerTest');
+		$this->assertInstanceOf(\Sandbox\Modules\ControllerTests\Actions\ControllerTestAction::class, $action1);
+		$this->assertNotSame($action1, $action2);
+	}
+
 
 
 	public function testGetOutputTypeInfo()

@@ -36,6 +36,14 @@ class Container implements ContainerInterface
     private array $requestResolved = [];
     private array $resolvingStack = [];
 
+    /**
+     * Per-class reflection cache. Class metadata (constructor params, attributes) is
+     * immutable for the process lifetime, so this is safe to keep across requests under
+     * a FrankenPHP worker — it just saves re-reflecting the same action/view/service
+     * constructor on every request.
+     */
+    private array $reflectionCache = [];
+
     public function set(string $id, mixed $concrete, string $scope = self::SCOPE_SINGLETON, array $params = []): void
     {
         $this->definitions[$id] = ['concrete' => $concrete, 'scope' => $scope, 'params' => $params];
@@ -107,12 +115,36 @@ class Container implements ContainerInterface
         $this->resolvingStack = [];
     }
 
+    /**
+     * Build a fresh, never-cached instance of $class (docs/DI_MIGRATION_PLAN.md, Phase 3b).
+     * The public entry point for per-execution objects — actions and views — which must
+     * never be memoized the way get() memoizes services: each dispatch needs its own
+     * instance regardless of scope.
+     *
+     * $extraParams is an explicit construction-time override, matched by constructor
+     * parameter name OR by parameter type (the .NET `ActivatorUtilities.CreateInstance`
+     * pattern: `make($class, [SomeType::class => $value])`), and takes priority over
+     * #[Inject]/#[Autowire] attributes and type-hinted autowiring.
+     *
+     * A class with no constructor is `new`'d directly — zero behavior change and zero
+     * migration burden for the untouched majority of actions/views.
+     */
+    public function make(string $class, array $extraParams = []): object
+    {
+        return $this->autoWire($class, $extraParams, null, $this->getReflectionClass($class));
+    }
+
+    private function getReflectionClass(string $class): \ReflectionClass
+    {
+        return $this->reflectionCache[$class] ??= new \ReflectionClass($class);
+    }
+
     private function canAutowire(string $id): bool
     {
         if ($this->has($id)) {
             return true;
         }
-        return class_exists($id) && (new \ReflectionClass($id))->isInstantiable();
+        return class_exists($id) && $this->getReflectionClass($id)->isInstantiable();
     }
 
     /**
@@ -142,7 +174,7 @@ class Container implements ContainerInterface
         }
 
         if ($this->canAutowire($lookupId)) {
-            $rc = new \ReflectionClass($lookupId);
+            $rc = $this->getReflectionClass($lookupId);
             return [$this->autoWire($lookupId, [], $requestedId, $rc), $this->resolveDefaultScope($rc)];
         }
 
@@ -171,7 +203,7 @@ class Container implements ContainerInterface
 
     private function autoWire(string $class, array $params, ?string $requestedId = null, ?\ReflectionClass $rc = null): object
     {
-        $rc ??= new \ReflectionClass($class);
+        $rc ??= $this->getReflectionClass($class);
         $ctor = $rc->getConstructor();
         if (!$ctor) {
             $obj = new $class();
@@ -202,6 +234,11 @@ class Container implements ContainerInterface
             return $params[$name];
         }
 
+        $type = $p->getType();
+        if ($type && !$type->isBuiltin() && array_key_exists($type->getName(), $params)) {
+            return $params[$type->getName()];
+        }
+
         $injectAttrs = $p->getAttributes(Inject::class);
         if ($injectAttrs) {
             return $this->get($injectAttrs[0]->newInstance()->id);
@@ -212,7 +249,6 @@ class Container implements ContainerInterface
             return $autowireAttrs[0]->newInstance()->value;
         }
 
-        $type = $p->getType();
         if ($type && !$type->isBuiltin()) {
             $dep = $type->getName();
             if ($this->canAutowire($dep)) {
