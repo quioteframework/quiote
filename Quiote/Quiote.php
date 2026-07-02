@@ -16,9 +16,6 @@ if(version_compare(PHP_VERSION, Config::get('core.minimum_php_version'), '<') ) 
 // define a few filesystem paths
 Config::set('core.quiote_dir', $quiote_config_directive_core_quiote_dir = __DIR__, true, true);
 
-// default exception template
-Config::set('exception.default_template', $quiote_config_directive_core_quiote_dir . '/Exception/templates/plaintext.php');
-
 // required files
 require_once($quiote_config_directive_core_quiote_dir . '/version.php');
 // clean up (we don't want collisions with whatever file included us, in case you were wondering about the ugly name of that var)
@@ -68,6 +65,13 @@ final class Quiote
 			Config::set('core.environment', $environment, true, true);
 
 			Config::set('core.debug', false, false);
+
+			// Standalone from core.debug: no shared "production mode", no
+			// implicit derivation. Off by default -- see
+			// docs/WHOOPS_ERROR_HANDLING_PLAN.md for why these are separate
+			// switches (core.debug carries unrelated, heavy per-request
+			// behavior; this only controls exception response detail).
+			Config::set('core.developer_exceptions', false, false);
 
 			if(!Config::has('core.app_dir')) {
 				throw new QuioteException('Configuration directive "core.app_dir" not defined, terminating...');
@@ -165,7 +169,15 @@ final class Quiote
 			return ['contexts' => $createdContexts];
 
 		} catch(\Exception $e) {
-			QuioteException::render($e);
+			// Same reasoning as Context::getInstance()/initialize(): bootstrap
+			// failures happen before any PSR-15 pipeline exists, so there is no
+			// ErrorHandlingMiddleware to hand off to yet. Log and propagate
+			// instead of rendering a template and exit()ing, which would kill a
+			// persistent worker process outright.
+			\Quiote\Logging\Log::for(self::class)->error(
+				'Quiote::bootstrap() failed: ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine()
+			);
+			throw $e;
 		}
 	}
 

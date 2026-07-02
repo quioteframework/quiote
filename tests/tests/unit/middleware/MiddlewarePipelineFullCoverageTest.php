@@ -41,9 +41,8 @@ class MiddlewarePipelineFullCoverageTest extends TestCase
     public function setUp(): void
     {
         MiddlewareCatalog::initialize([]); // default: all enabled
-        putenv('QUIOTE_DEBUG=1');
-        // Make sure environment oscillates explicitly in tests that need prod
         \Quiote\Config\Config::set('core.environment', 'development');
+        \Quiote\Config\Config::set('core.developer_exceptions', false);
     }
 
     public function testPipelineBuildAndReuseAndReset()
@@ -113,7 +112,8 @@ class MiddlewarePipelineFullCoverageTest extends TestCase
     public function testErrorHandlingStatusMappingsAndCorrelationHeaders()
     {
         $eh = new ErrorHandlingMiddleware();
-        // 400 mapping
+        // 400 mapping; SafeRenderer is in effect (core.developer_exceptions is off by
+        // default), so the message never reaches the client -- only the correlation id does.
         $r400 = $eh->process($this->makeReq(['Accept' => 'text/plain', 'Correlation-Id' => 'abc123']), new class implements RequestHandlerInterface {
             public function handle(ServerRequestInterface $r): ResponseInterface
             {
@@ -121,7 +121,9 @@ class MiddlewarePipelineFullCoverageTest extends TestCase
             }
         });
         $this->assertSame(400, $r400->getStatusCode());
-        $this->assertTrue(str_contains((string)$r400->getBody(), 'bad arg')); // dev mode
+        $body400 = (string)$r400->getBody();
+        $this->assertStringNotContainsString('bad arg', $body400);
+        $this->assertStringContainsString('abc123', $body400);
         // 422 mapping with fallback correlation header
         $r422 = $eh->process($this->makeReq(['X-Correlation-ID' => 'legacy-id']), new class implements RequestHandlerInterface {
             public function handle(ServerRequestInterface $r): ResponseInterface
@@ -140,33 +142,29 @@ class MiddlewarePipelineFullCoverageTest extends TestCase
         $this->assertSame(500, $r500->getStatusCode());
     }
 
-    public function testErrorHandlingJsonNegotiationViaAcceptAndOutputType()
+    public function testErrorHandlingJsonNegotiationViaAccept()
     {
         $eh = new ErrorHandlingMiddleware();
-        // Accept header
-        $jsonResp1 = $eh->process($this->makeReq(['Accept' => 'application/json']), new class implements RequestHandlerInterface {
+        $jsonResp = $eh->process($this->makeReq(['Accept' => 'application/json']), new class implements RequestHandlerInterface {
             public function handle(ServerRequestInterface $r): ResponseInterface
             {
                 throw new RuntimeException('jsonfail');
             }
         });
-        $this->assertSame('application/json; charset=utf-8', $jsonResp1->getHeaderLine('Content-Type'));
-        $this->assertStringContainsString('jsonfail', (string)$jsonResp1->getBody());
-        // output_type attribute
-        $jsonResp2 = $eh->process($this->makeReq([], ['output_type' => 'json']), new class implements RequestHandlerInterface {
-            public function handle(ServerRequestInterface $r): ResponseInterface
-            {
-                throw new RuntimeException('ot-json');
-            }
-        });
-        $this->assertSame('application/json; charset=utf-8', $jsonResp2->getHeaderLine('Content-Type'));
-        $this->assertStringContainsString('ot-json', (string)$jsonResp2->getBody());
+        $this->assertSame('application/json; charset=utf-8', $jsonResp->getHeaderLine('Content-Type'));
+        // SafeRenderer never leaks the raw exception message into the JSON body.
+        $this->assertStringNotContainsString('jsonfail', (string)$jsonResp->getBody());
+        $payload = json_decode((string)$jsonResp->getBody(), true);
+        $this->assertSame(['error' => 'Internal Server Error', 'status' => 500], $payload);
     }
 
-    public function testErrorHandlingProductionModeMasksMessage()
+    public function testDeveloperExceptionsOffMasksMessageRegardlessOfEnvironmentName()
     {
+        // core.developer_exceptions -- not the environment name -- is the sole signal
+        // (see docs/WHOOPS_ERROR_HANDLING_PLAN.md); assert this holds under an
+        // environment named "production" as well as any other name.
         \Quiote\Config\Config::set('core.environment', 'production');
-        putenv('QUIOTE_DEBUG'); // unset debug
+        \Quiote\Config\Config::set('core.developer_exceptions', false);
         $eh = new ErrorHandlingMiddleware();
         $resp = $eh->process($this->makeReq(['Accept' => 'application/json']), new class implements RequestHandlerInterface {
             public function handle(ServerRequestInterface $r): ResponseInterface
@@ -176,23 +174,43 @@ class MiddlewarePipelineFullCoverageTest extends TestCase
         });
         $body = (string)$resp->getBody();
         $this->assertSame(500, $resp->getStatusCode());
-        $this->assertStringNotContainsString('sensitive', $body, 'Production mode should not leak raw message');
+        $this->assertStringNotContainsString('sensitive', $body, 'core.developer_exceptions off should never leak the raw message');
     }
 
-    public function testErrorTemplateFallbackOnIncludeFailure()
+    public function testCoreDebugOnDoesNotImplyDeveloperExceptions()
     {
-        // Point config to non-existent template; include will fail and fallback should render plain text
-        \Quiote\Config\Config::set('core.environment', 'development');
-        \Quiote\Config\Config::set('exception.templates.html.development', sys_get_temp_dir() . '/does_not_exist_template.php');
+        // core.debug carries unrelated, heavy behavior (historically: reparsing every
+        // config file per request) and must never be conflated with developer_exceptions.
+        \Quiote\Config\Config::set('core.debug', true);
+        \Quiote\Config\Config::set('core.developer_exceptions', false);
         $eh = new ErrorHandlingMiddleware();
-        $resp = $eh->process($this->makeReq(), new class implements RequestHandlerInterface {
+        $resp = $eh->process($this->makeReq(['Accept' => 'application/json']), new class implements RequestHandlerInterface {
             public function handle(ServerRequestInterface $r): ResponseInterface
             {
-                throw new RuntimeException('tmpl');
+                throw new RuntimeException('sensitive');
             }
         });
+        $body = (string)$resp->getBody();
+        \Quiote\Config\Config::set('core.debug', false);
+        $this->assertStringNotContainsString('sensitive', $body, 'core.debug=true must not enable developer exception detail on its own');
+    }
+
+    public function testDeveloperExceptionsOnRevealsMessageRegardlessOfEnvironmentName()
+    {
+        // Same environment name as the test above ("production") but with the switch
+        // flipped -- proves the environment name has zero bearing on the outcome.
+        \Quiote\Config\Config::set('core.environment', 'production');
+        \Quiote\Config\Config::set('core.developer_exceptions', true);
+        $eh = new ErrorHandlingMiddleware();
+        $resp = $eh->process($this->makeReq(['Accept' => 'application/json']), new class implements RequestHandlerInterface {
+            public function handle(ServerRequestInterface $r): ResponseInterface
+            {
+                throw new RuntimeException('sensitive');
+            }
+        });
+        $body = (string)$resp->getBody();
         $this->assertSame(500, $resp->getStatusCode());
-        $this->assertTrue(in_array('text/plain; charset=utf-8', $resp->getHeader('Content-Type')) || str_contains($resp->getHeaderLine('Content-Type'), 'text/html'), 'Should still produce a content-type header');
+        $this->assertStringContainsString('sensitive', $body, 'core.developer_exceptions on should reveal the raw message via WhoopsRenderer');
     }
 
     public function testTerminalSentinelThrowsWhenNoResponse()

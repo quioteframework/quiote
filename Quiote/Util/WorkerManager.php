@@ -57,7 +57,6 @@ class WorkerManager
             'core.namespace_prefix',
             // Module configurations (essential for validation and other module directives)
             'modules',
-            'exception.default_template'
         ]
     ];
     

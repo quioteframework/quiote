@@ -48,17 +48,13 @@
 			<setting name="use_translation">true</setting>
 		</settings>
 
-		<exception_templates>
-			<exception_template>%core.quiote_dir%/exception/templates/shiny.php</exception_template>
-			<exception_template context="console">%core.quiote_dir%/exception/templates/plaintext.php</exception_template>
-		</exception_templates>
-
 	</ae:configuration>
-	
+
 	<ae:configuration environment="development.*">
 		<settings>
 			<setting name="debug">true</setting>
 			<setting name="use_logging">true</setting>
+			<setting name="developer_exceptions">true</setting>
 		</settings>
 	</ae:configuration>
 	

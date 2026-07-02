@@ -2,8 +2,6 @@
 namespace Quiote\Config;
 
 use Quiote\Config\Util\DOM\XmlConfigDomDocument;
-use Quiote\Exception\ConfigurationException;
-use Quiote\Util\Toolkit;
 
 /**
  * SettingConfigHandler handles the settings.xml file.
@@ -22,9 +20,6 @@ use Quiote\Util\Toolkit;
  *                                                  wrapper overrides it for its children; the value is
  *                                                  either a scalar/nested array from <ae:parameters>, or
  *                                                  the setting's literal text value)
- *   'exception.default_template'     => string   (from a <exception_template> with no context attribute)
- *   'exception.templates.{context}'  => string   (from <exception_template context="a b c">, one entry
- *                                                  per space-separated context name)
  *
  * A PHP-array or YAML settings file is simply this map written directly,
  * e.g. `return ['core.app_name' => 'Demo', 'core.debug' => true];` --
@@ -86,22 +81,6 @@ class SettingConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 					$data[$settingName] = $setting->getQuioteParameters();
 				} else {
 					$data[$settingName] = $setting->getLiteralValue();
-				}
-			}
-
-			if ($cfg->has('exception_templates')) {
-				foreach ($cfg->get('exception_templates') as $exception_template) {
-					$tpl = Toolkit::expandDirectives($exception_template->getValue());
-					if (!is_readable($tpl)) {
-						throw new ConfigurationException('Exception template "' . $tpl . '" does not exist or is unreadable');
-					}
-					if ($exception_template->hasAttribute('context')) {
-						foreach (array_map(trim(...), explode(' ', (string) $exception_template->getAttribute('context'))) as $ctx) {
-							$data['exception.templates.' . $ctx] = $tpl;
-						}
-					} else {
-						$data['exception.default_template'] = Toolkit::expandDirectives($tpl);
-					}
 				}
 			}
 		}
