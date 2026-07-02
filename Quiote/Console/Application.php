@@ -1,16 +1,17 @@
 <?php
 namespace Quiote\Console;
 
+use Quiote\Console\Command\AboutCommand;
 use Quiote\Console\Command\NewCommand;
+use Quiote\Console\Command\RoutesListCommand;
 use Symfony\Component\Console\Application as SymfonyApplication;
 
 /**
- * The `quiote` CLI. Deliberately thin for now: `new` is the only command and
- * it is pre-bootstrap (it scaffolds an app from nothing, so there is no
- * Quiote\Context to build yet). Commands that need to inspect an existing
- * app's config (routes:list, routes:compile, ...) belong to a later phase
- * and will need the app-dir/env resolution + Quiote::bootstrap('console')
- * wiring described in docs/ROUTING_AND_CLI_PLAN.md -- not needed here.
+ * The `quiote` CLI. `new` is pre-bootstrap (it scaffolds an app from
+ * nothing, so there is no Quiote\Context to build yet); `about` and
+ * `routes:list` bootstrap an existing app via AbstractAppCommand's app-dir
+ * resolution + Quiote::bootstrap() wiring -- see
+ * docs/ROUTING_AND_CLI_PLAN.md (B1-B3).
  * @since      1.0.0
  */
 final class Application extends SymfonyApplication
@@ -19,6 +20,8 @@ final class Application extends SymfonyApplication
 	{
 		parent::__construct('quiote', self::version());
 		$this->addCommand(new NewCommand());
+		$this->addCommand(new AboutCommand());
+		$this->addCommand(new RoutesListCommand());
 	}
 
 	private static function version(): string
