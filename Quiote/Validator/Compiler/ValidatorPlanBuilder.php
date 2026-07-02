@@ -6,6 +6,7 @@ use Quiote\Config\Util\DOM\XmlConfigDomDocument;
 use Quiote\Config\Util\DOM\XmlConfigDomElement;
 use Quiote\Exception\ConfigurationException;
 use Quiote\Logging\Log;
+use Quiote\Support\Compiler\Diagnostic;
 use Quiote\Util\Toolkit;
 use Quiote\Validator\Compiler\Ir\ValidatorNode;
 use Quiote\Validator\Compiler\Ir\ValidatorPlan;

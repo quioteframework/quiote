@@ -2,7 +2,7 @@
 
 use Quiote\Testing\UnitTestCase;
 use Quiote\Config\Config;
-use Quiote\Validator\Compiler\Diagnostic;
+use Quiote\Support\Compiler\Diagnostic;
 use Quiote\Validator\Compiler\FluentSourceEmitter;
 use Quiote\Validator\Compiler\Ir\ValidatorNode;
 use Quiote\Validator\Compiler\Ir\ValidatorPlan;

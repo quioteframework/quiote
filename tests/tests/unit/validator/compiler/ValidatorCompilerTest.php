@@ -2,9 +2,9 @@
 
 use Quiote\Testing\PhpUnitTestCase;
 use Quiote\Config\Config;
+use Quiote\Support\Compiler\Diagnostic;
+use Quiote\Support\Compiler\EmittedArtifact;
 use Quiote\Validator\Compiler\CompilationResult;
-use Quiote\Validator\Compiler\Diagnostic;
-use Quiote\Validator\Compiler\EmittedArtifact;
 use Quiote\Validator\Compiler\EmitterInterface;
 use Quiote\Validator\Compiler\Ir\ValidatorPlan;
 use Quiote\Validator\Compiler\ValidatorCompiler;

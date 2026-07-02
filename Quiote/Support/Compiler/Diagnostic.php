@@ -1,5 +1,5 @@
 <?php
-namespace Quiote\Validator\Compiler;
+namespace Quiote\Support\Compiler;
 
 /**
  * A single problem or note surfaced while building a ValidatorPlan or

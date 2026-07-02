@@ -1,6 +1,9 @@
 <?php
 namespace Quiote\Validator\Compiler;
 
+use Quiote\Support\Compiler\Diagnostic;
+use Quiote\Support\Compiler\EmittedArtifact;
+
 /**
  * The outcome of compiling one ValidatorSource through an emitter: the
  * artifact (null if a fatal diagnostic prevented emission) plus every

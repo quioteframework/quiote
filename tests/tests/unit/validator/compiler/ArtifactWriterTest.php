@@ -1,9 +1,9 @@
 <?php
 
 use Quiote\Testing\PhpUnitTestCase;
-use Quiote\Validator\Compiler\ArtifactDriftChecker;
-use Quiote\Validator\Compiler\EmittedArtifact;
-use Quiote\Validator\Compiler\FilesystemArtifactWriter;
+use Quiote\Support\Compiler\ArtifactDriftChecker;
+use Quiote\Support\Compiler\EmittedArtifact;
+use Quiote\Support\Compiler\FilesystemArtifactWriter;
 
 class ArtifactWriterTest extends PhpUnitTestCase
 {

@@ -1,5 +1,5 @@
 <?php
-namespace Quiote\Validator\Compiler;
+namespace Quiote\Support\Compiler;
 
 /**
  * The result of comparing a freshly emitted artifact against whatever is

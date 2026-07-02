@@ -1,5 +1,5 @@
 <?php
-namespace Quiote\Validator\Compiler;
+namespace Quiote\Support\Compiler;
 
 use RuntimeException;
 

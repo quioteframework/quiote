@@ -1,5 +1,5 @@
 <?php
-namespace Quiote\Validator\Compiler;
+namespace Quiote\Support\Compiler;
 
 /**
  * gofmt-style drift check: does the committed file at $target already

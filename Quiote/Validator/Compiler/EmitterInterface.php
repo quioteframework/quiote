@@ -1,6 +1,7 @@
 <?php
 namespace Quiote\Validator\Compiler;
 
+use Quiote\Support\Compiler\EmittedArtifact;
 use Quiote\Validator\Compiler\Ir\ValidatorPlan;
 
 /**

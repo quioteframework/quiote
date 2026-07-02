@@ -1,5 +1,5 @@
 <?php
-namespace Quiote\Validator\Compiler;
+namespace Quiote\Support\Compiler;
 
 /**
  * The result of emitting a ValidatorPlan through a back-end: the PHP source

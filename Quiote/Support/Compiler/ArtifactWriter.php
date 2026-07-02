@@ -1,5 +1,5 @@
 <?php
-namespace Quiote\Validator\Compiler;
+namespace Quiote\Support\Compiler;
 
 /**
  * Writes an EmittedArtifact to disk. Emitters never write files themselves

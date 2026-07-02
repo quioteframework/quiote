@@ -1,6 +1,8 @@
 <?php
 namespace Quiote\Validator\Compiler;
 
+use Quiote\Support\Compiler\Diagnostic;
+use Quiote\Support\Compiler\EmittedArtifact;
 use Quiote\Validator\AndoperatorValidator;
 use Quiote\Validator\BooleanValidator;
 use Quiote\Validator\Compiler\Ir\ValidatorNode;
