@@ -10,7 +10,6 @@
 	
 	<taskdef classname="etc.phing.VersionTask" name="quioteversion" />
 	<taskdef classname="etc.phing.PackageTask" name="quiotepackage" />
-	<taskdef classname="etc.phing.OlsonCompileTask" name="quioteolsoncompile" />
 
 	<!-- fileset for -dist files -->
 	<fileset dir="." id="distfiles">
@@ -290,8 +289,5 @@
 		<delete file="tests.html" includeemptydirs="true" quiet="true" failonerror="false" />
 	</target>
 
-	<target name="olson" description="build timezone datebase">
-		<quioteolsoncompile olsonDir="${srcdir}/etc/olson/tzdata" outputDir="${srcdir}/src/translation/data/timezones" />
-	</target>
 
 </project>

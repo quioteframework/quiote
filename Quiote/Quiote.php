@@ -87,7 +87,6 @@ final class Quiote
 			Config::set('core.module_dir', Config::get('core.app_dir') . '/Modules', false, true);
 
 			Config::set('core.template_dir', Config::get('core.app_dir') . '/Templates', false, true);
-			Config::set('core.cldr_dir', Config::get('core.quiote_dir') . '/Translation/data', false, true);
 
 			// load base settings
 			if(defined('\QUIOTE_USE_APCU_CONFIG_CACHE') && \QUIOTE_USE_APCU_CONFIG_CACHE) {

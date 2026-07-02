@@ -96,11 +96,6 @@
 				<!-- 1.0 to 1.1 -->
 				<transformation>%core.quiote_dir%/Config/xsl/validators.xsl</transformation>
 			</handler>
-
-
-			<!-- Removed legacy CLDR LDML handlers (locales & supplementalData) after migration to PHP intl -->
-			<!-- <handler pattern="%core.cldr_dir%/locales/*.xml" class="Quiote\Config\LdmlConfigHandler" /> -->
-			<!-- <handler pattern="%core.cldr_dir%/supplementalData.xml" class="Quiote\Config\LdmlSupplementalConfigHandler" /> -->
 		</handlers>
 	</ae:configuration>
 </ae:configurations>
