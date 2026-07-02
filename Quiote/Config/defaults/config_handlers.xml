@@ -33,22 +33,6 @@
 				<transformation>%core.quiote_dir%/Config/xsl/databases.xsl</transformation>
 			</handler>
 
-			<handler pattern="%core.config_dir%/action_filters.xml" class="Quiote\Config\FilterConfigHandler">
-				<validation>%core.quiote_dir%/Config/xsd/filters.xsd</validation>
-				<!-- 0.11 to 1.0 -->
-				<transformation>%core.quiote_dir%/Config/xsl/filters.xsl</transformation>
-				<!-- 1.0 to 1.1 -->
-				<transformation>%core.quiote_dir%/Config/xsl/filters.xsl</transformation>
-			</handler>
-
-			<handler pattern="%core.config_dir%/global_filters.xml" class="Quiote\Config\FilterConfigHandler">
-				<validation>%core.quiote_dir%/Config/xsd/filters.xsd</validation>
-				<!-- 0.11 to 1.0 -->
-				<transformation>%core.quiote_dir%/Config/xsl/filters.xsl</transformation>
-				<!-- 1.0 to 1.1 -->
-				<transformation>%core.quiote_dir%/Config/xsl/filters.xsl</transformation>
-			</handler>
-
 			<handler pattern="%core.config_dir%/output_types.xml" class="Quiote\Config\OutputTypeConfigHandler">
 				<validation>%core.quiote_dir%/Config/xsd/output_types.xsd</validation>
 				<!-- 0.11 to 1.0 -->
@@ -104,14 +88,6 @@
 				| names or the system may cease to function.                                 |
 				+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~+
 			-->
-
-			<handler pattern="%core.module_dir%/*/Config/action_filters.xml" class="Quiote\Config\FilterConfigHandler">
-				<validation>%core.quiote_dir%/Config/xsd/filters.xsd</validation>
-				<!-- 0.11 to 1.0 -->
-				<transformation>%core.quiote_dir%/Config/xsl/filters.xsl</transformation>
-				<!-- 1.0 to 1.1 -->
-				<transformation>%core.quiote_dir%/Config/xsl/filters.xsl</transformation>
-			</handler>
 
 			<handler pattern="%core.module_dir%/*/Config/module.xml" class="Quiote\Config\ModuleConfigHandler">
 				<validation>%core.quiote_dir%/Config/xsd/module.xsd</validation>

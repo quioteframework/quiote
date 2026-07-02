@@ -2,10 +2,8 @@
 
 use PHPUnit\Framework\TestCase;
 use Quiote\Config\FactoryConfigHandler;
-use Quiote\Config\FilterConfigHandler;
 use Quiote\Config\Util\DOM\XmlConfigDomDocument;
 use Quiote\Config\Config;
-use Quiote\Exception\ConfigurationException;
 
 class ConfigHandlersTest extends TestCase
 {
@@ -78,21 +76,6 @@ XML;
         $this->assertStringContainsString('ValidationManager', $code);
         $this->assertStringContainsString('$this->controller->startup();', $code);
         $this->assertStringContainsString('$this->shutdownSequence', $code);
-    }
-
-    public function testFilterConfigHandlerThrowsOnReservedName()
-    {
-        $ns = 'http://quiote.dev/quiote/config/parts/filters/1.1';
-        $inner = <<<XML
-<filters xmlns="$ns">
-  <filter name="quioteFoo" class="FooFilter" />
-</filters>
-XML;
-        $doc = $this->makeEnvelope($inner, 'app_filters.xml');
-        $handler = new FilterConfigHandler();
-        $handler->initialize(null, []);
-        $this->expectException(ConfigurationException::class);
-        $handler->execute($doc);
     }
 
 }

@@ -960,11 +960,9 @@ final class FormPopulationEngine
 	}
 
 	/**
-	 * Initialize this filter.
+	 * Initialize this engine.
 	 * @param      Context The current application context.
 	 * @param      array        An associative array of initialization parameters.
-	 * @throws     <b>FilterException</b> If an error occurs during
-	 *                                         initialization
 	 * @since      1.0.0
 	 */
     public function initialize(Context $context, array $parameters = []): void
