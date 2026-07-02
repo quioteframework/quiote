@@ -1,5 +1,5 @@
 /vendor/
 /composer.lock
-/test/sandbox/app/cache
-/test/config/.phpunit.cache
+/tests/sandbox/app/cache
+/tests/config/.phpunit.cache
 /coverage
