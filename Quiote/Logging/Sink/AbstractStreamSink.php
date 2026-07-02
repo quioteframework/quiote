@@ -83,7 +83,7 @@ abstract class AbstractStreamSink implements SinkInterface
     }
 
     /** @return resource|null */
-    private function handle()
+    protected function handle()
     {
         if ($this->handle === null && $this->path !== null) {
             $this->handle = @fopen($this->path, 'a');
@@ -96,6 +96,42 @@ abstract class AbstractStreamSink implements SinkInterface
         if (is_resource($this->handle)) {
             @fflush($this->handle);
         }
+    }
+
+    /**
+     * Shared human-readable single-line rendering used by {@see TextStreamSink}
+     * and {@see FileSink} (and, via TextStreamSink, {@see AnsiTextStreamSink}):
+     *   2026-07-01T08:02:55.123Z WARNING Quiote.Routing: no route matched /foo {rid=abc}
+     */
+    protected static function formatPlainLine(\Quiote\Logging\LogEvent $event): string
+    {
+        $line = sprintf(
+            '%s %s %s: %s',
+            self::formatTimestamp($event->timestamp),
+            strtoupper($event->level->label()),
+            $event->category,
+            $event->renderMessage(),
+        );
+
+        $context = [...$event->scope, ...$event->properties];
+        if ($context !== []) {
+            $pairs = [];
+            foreach ($context as $k => $v) {
+                if ($v === null || is_scalar($v) || $v instanceof \Stringable) {
+                    $pairs[] = $k . '=' . (string) $v;
+                } else {
+                    $pairs[] = $k . '=' . json_encode($v, JSON_UNESCAPED_SLASHES);
+                }
+            }
+            $line .= ' {' . implode(', ', $pairs) . '}';
+        }
+
+        if ($event->exception !== null) {
+            $e = $event->exception;
+            $line .= sprintf(' | %s: %s @ %s:%d', $e::class, $e->getMessage(), $e->getFile(), $e->getLine());
+        }
+
+        return $line;
     }
 
     /**

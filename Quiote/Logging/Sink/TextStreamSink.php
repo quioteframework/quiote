@@ -11,7 +11,7 @@ use Quiote\Logging\LogEvent;
  * {@see JsonStdoutSink} in containers.
  *   2026-07-01T08:02:55.123Z WARNING Quiote.Routing: no route matched /foo {rid=abc}
  */
-final class TextStreamSink extends AbstractStreamSink
+class TextStreamSink extends AbstractStreamSink
 {
     /**
      * @param array<string,Level> $categoryOverrides
@@ -27,32 +27,6 @@ final class TextStreamSink extends AbstractStreamSink
 
     protected function format(LogEvent $event): string
     {
-        $line = sprintf(
-            '%s %s %s: %s',
-            self::formatTimestamp($event->timestamp),
-            strtoupper($event->level->label()),
-            $event->category,
-            $event->renderMessage(),
-        );
-
-        $context = [...$event->scope, ...$event->properties];
-        if ($context !== []) {
-            $pairs = [];
-            foreach ($context as $k => $v) {
-                if ($v === null || is_scalar($v) || $v instanceof \Stringable) {
-                    $pairs[] = $k . '=' . (string) $v;
-                } else {
-                    $pairs[] = $k . '=' . json_encode($v, JSON_UNESCAPED_SLASHES);
-                }
-            }
-            $line .= ' {' . implode(', ', $pairs) . '}';
-        }
-
-        if ($event->exception !== null) {
-            $e = $event->exception;
-            $line .= sprintf(' | %s: %s @ %s:%d', $e::class, $e->getMessage(), $e->getFile(), $e->getLine());
-        }
-
-        return $line;
+        return self::formatPlainLine($event);
     }
 }
