@@ -8,8 +8,7 @@ require_once(__DIR__ . '/ConfigHandlerTestBase.php');
 /**
  * Locks in the compiled output of SettingConfigHandler against the real
  * tests/sandbox/app/Config/settings.xml fixture (system_actions, plain
- * settings, an environment override, and exception templates -- both with
- * and without a context attribute). SettingConfigHandler::execute() is now
+ * settings, and an environment override). SettingConfigHandler::execute() is now
  * a two-line adapter over toCanonicalArray() + executeArray() (see
  * docs/CONFIG_SYSTEM_REWRITE_PLAN.md phase 2); this is the parity
  * guarantee that refactor promised, generated from the pre-refactor

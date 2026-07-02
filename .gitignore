@@ -3,3 +3,5 @@
 /tests/sandbox/app/cache
 /tests/config/.phpunit.cache
 /coverage
+/samples/app/cache/*
+!/samples/app/cache/.gitkeep

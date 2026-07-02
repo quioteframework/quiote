@@ -26,7 +26,5 @@ Quiote\Config\Config::fromArray(array (
   'core.use_logging' => true,
   'core.use_security' => true,
   'core.use_translation' => true,
-  'exception.default_template' => '/home/markus/Projects/agavi/Quiote/Exception/templates/plaintext.php',
-  'exception.templates.console' => '/home/markus/Projects/agavi/Quiote/Exception/templates/plaintext.php',
   'core.default_context' => 'web',
 ));

@@ -1,0 +1,27 @@
+# Factories in YAML -- see docs/CONFIG_SYSTEM_REWRITE_PLAN.md. Settings are in
+# php, this is YAML, databases/output_types are XML: one
+# generated app, all three FormatDrivers.
+controller:
+  class: Quiote\Controller\Controller
+  params: []
+response:
+  class: Quiote\Response\WebResponse
+  params: []
+database_manager:
+  class: Quiote\Database\DatabaseManager
+  params: []
+routing:
+  class: SampleApp\Routing\AppRouting
+  params: []
+request:
+  class: Quiote\Request\WebRequest
+  params: []
+storage:
+  class: Quiote\Storage\NullStorage
+  params: []
+user:
+  class: Quiote\User\User
+  params: []
+validation_manager:
+  class: Quiote\Validator\ValidationManager
+  params: []

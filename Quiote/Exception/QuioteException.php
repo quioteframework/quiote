@@ -7,9 +7,6 @@ namespace Quiote\Exception;
  * @since      1.0.0
  * @version    1.0.0
  */
-use Quiote\Context;
-use Quiote\Config\Config;
-use \Exception;
 class QuioteException extends \Exception
 {
 	public function __construct(string $message = '', private readonly int|string $mixedCode = 0, ?\Throwable $previous = null)
@@ -23,19 +20,6 @@ class QuioteException extends \Exception
 		return $this->mixedCode;
 	}
 
-	/**
-     * Print the stack trace for this exception.
-     * @param      Exception     The original exception.
-     * @param      Context  The context instance.
-     * @param      Response The response instance.
-     * @since      1.0.0
-     */
-    #[\Deprecated(message: 'Superseded by Exception::render()')]
-    public static function printStackTrace(Exception $e, ?Context $context = null)
-	{
-		return self::render($e, $context);
-	}
-	
 	/**
 	 * Returns a fixed stack trace in case the original one from the exception
 	 * does not contain the origin as the first entry in the trace array, which
@@ -221,71 +205,6 @@ class QuioteException extends \Exception
 		return $code;
 	}
 	
-	/**
-	 * Pretty-print this exception using a template.
-	 * @param      Exception     The original exception.
-	 * @param      Context  The context instance.
-	 * @param      Response The response instance.
-	 * @since      1.0.0
-	 */
-	public static function render(Exception $e, ?Context $context = null)
-	{
-		$baseBefore = ob_get_level();
-		// exit code is 70, EX_SOFTWARE, according to /usr/include/sysexits.h: http://cvs.opensolaris.org/source/xref/on/usr/src/head/sysexits.h
-		// nice touch: an exception template can change this value :)
-		$exitCode = 70;
-		
-		$exceptions = [];
-		// reverse order of exceptions for linking
-		$ce = $e;
-		while($ce) {
-			array_unshift($exceptions, $ce);
-			$ce = $ce->getPrevious();
-		}
-		
-		// discard any previous output waiting in the buffer (legacy aggressive drain)
-		$drainCount = 0;
-		while(@ob_end_clean()) { $drainCount++; }
-
-		
-		if($context !== null && $context->getController() !== null) {
-			try {
-				// check if an exception template was defined for the default output type
-				if($context->getController()->getOutputType()->getExceptionTemplate() !== null) {
-					include($context->getController()->getOutputType()->getExceptionTemplate());
-					exit($exitCode);
-				}
-			} catch (\Exception $e2) {
-				unset($e2);
-			}
-		}
-			if($context !== null && Config::get('exception.templates.' . $context->getName()) !== null) {
-			// a template was set for this context
-			include(Config::get('exception.templates.' . $context->getName()));
-			exit($exitCode);
-		}
-		
-		// Check if the default template is set and the file exists
-		$defaultTemplate = Config::get('exception.default_template');
-		if($defaultTemplate !== null && file_exists($defaultTemplate)) {
-			// include default exception template
-			include($defaultTemplate);
-		} else {
-			// Fallback to simple built-in error display
-			echo "<h1>Quiote Exception</h1>\n";
-			echo "<p>Message: " . htmlspecialchars($e->getMessage()) . "</p>\n";
-			echo "<p>File: " . htmlspecialchars($e->getFile()) . ":" . $e->getLine() . "</p>\n";
-			echo "<h2>Config Values:</h2>\n";
-			echo "<pre>exception.default_template = " . var_export(Config::get('exception.default_template'), true) . "\n";
-			echo "core.quiote_dir = " . var_export(Config::get('core.quiote_dir'), true) . "</pre>\n";
-			echo "<h2>Stack Trace:</h2>\n";
-			echo "<pre>" . htmlspecialchars($e->getTraceAsString()) . "</pre>\n";
-		}
-		
-		// bail out
-
-		exit($exitCode);
-	}
 }
 
 ?>

@@ -1,12 +1,12 @@
 services:
-  quiote-test:
+  quiote-sample-app:
     build: .
     ports:
       - "8080:80"
     volumes:
-      # Mount the source code for live editing during testing
-      - ./src:/app/src:ro
-      - ./debug_routing.php:/app/pub/debug_routing.php:ro
+      # Live-edit the sample app and framework source without rebuilding.
+      - ./samples/app:/app/samples/app
+      - ./Quiote:/app/Quiote:ro
     environment:
       - CADDY_GLOBAL_OPTIONS=debug
     healthcheck:

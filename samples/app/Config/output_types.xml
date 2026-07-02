@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configurations xmlns="http://quiote.org/quiote/1.0/config">
+	<configuration>
+		<output_types default="html">
+			<output_type name="html">
+				<renderers default="php">
+					<renderer name="php" class="Quiote\Renderer\PhpRenderer" />
+				</renderers>
+				<layouts default="default">
+					<layout name="default">
+						<layer name="content" />
+					</layout>
+				</layouts>
+				<parameter name="http_headers">
+					<parameter name="Content-Type">text/html; charset=UTF-8</parameter>
+				</parameter>
+			</output_type>
+		</output_types>
+	</configuration>
+</configurations>

@@ -10,12 +10,12 @@ final class ErrorHandlingMiddlewareTest extends TestCase
 {
     public function testExceptionConvertedTo500(): void
     {
-        putenv('QUIOTE_DEBUG=1');
+        \Quiote\Config\Config::set('core.developer_exceptions', false);
         $mw = new ErrorHandlingMiddleware();
         $handler = new class implements RequestHandlerInterface { public function handle(ServerRequestInterface $r): ResponseInterface { throw new InvalidArgumentException('bad'); } };
         $req = new ServerRequest('GET', 'http://localhost/');
         $resp = $mw->process($req, $handler);
         $this->assertSame(400, $resp->getStatusCode(), 'InvalidArgumentException should map to 400');
-        $this->assertTrue($resp->hasHeader('X-Quiote-Error-Type'));
+        $this->assertFalse($resp->hasHeader('X-Quiote-Error-Type'), 'SafeRenderer must not leak the exception class via headers');
     }
 }
