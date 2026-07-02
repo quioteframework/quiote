@@ -22,28 +22,6 @@ class Products_Product_ViewSuccessView extends SampleAppProductsBaseView
 			'Name:  ' . $product->getName() . PHP_EOL .
 			'Price: ' . sprintf('%01.2f', $product->getPrice());
 	}
-
-	/**
-	 * Execute any presentation logic for SOAP requests.
-	 */
-	public function executeSoap(RequestDataHolder $rd)
-	{
-		return $this->getAttribute('product');
-	}
-
-	/**
-	 * Execute any presentation logic for XMLRPC requests.
-	 */
-	public function executeXmlrpc(RequestDataHolder $rd)
-	{
-		$product = $this->getAttribute('product');
-		
-		return [
-			'id'    => $product->getId(),
-			'name'  => $product->getName(),
-			'price' => $product->getPrice(),
-		];
-	}
 }
 
 ?>

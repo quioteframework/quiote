@@ -475,8 +475,8 @@ class WebResponse extends Response
 
 		/**
 		 * Determine whether the content in the response may be modified by appending
-		 * or prepending data using string operations. Typically false for streams, 
-		 * and for responses like XMLRPC where the content is an array.
+		 * or prepending data using string operations. Typically false for streams
+		 * or responses where the content is not a string (e.g. an array).
 		 * @return     bool If the content can be treated as / changed like a string.
 		 */
 		#[\Override]

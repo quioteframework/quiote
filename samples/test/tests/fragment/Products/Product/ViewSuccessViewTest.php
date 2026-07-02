@@ -27,8 +27,6 @@ class Products_Product_ViewSuccessViewTest extends ViewTestCase
 			'html'   => ['html'],
 			'html'   => ['text'],
 			// 'json'   => array('json'),
-			'soap'   => ['soap'],
-			'xmlrpc' => ['xmlrpc'],
 		];
 	}
 

@@ -45,9 +45,9 @@ special situations.
 
 ## Requirements and installation
 
-- PHP 8.5
-- required: `libxml`, `dom`, `SPL`, `Reflection` and `PCRE`
-- optional: `xsl`, `tokenizer`, `session`, `xmlrpc`,  `PDO`, `iconv`, `gettext`
+- PHP 8.5+
+- required extensions: `dom`, `intl`, `SPL`, `Reflection`, `PCRE` (and `libxml`, which `dom` depends on)
+- optional extensions: `xsl` (only needed to transform pre-1.0 style configuration files), `tokenizer` (enables more efficient config caches), `session`, `PDO` (for PDO-based database connectors), `iconv`
 
 No releases or packagist packages yet, as we are pre-alpha.
 

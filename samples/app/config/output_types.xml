@@ -63,12 +63,6 @@
 				</ae:parameter>
 			</output_type>
 
-			<output_type name="wsdl">
-				<ae:parameter name="http_headers">
-					<ae:parameter name="Content-Type">application/xml; charset=UTF-8</ae:parameter>
-				</ae:parameter>
-			</output_type>
-
 		</output_types>
 	</ae:configuration>
 
@@ -80,22 +74,5 @@
 		</output_types>
 	</ae:configuration>
 
-	<ae:configuration context="xmlrpc">
-		<output_types default="xmlrpc">
-
-			<output_type name="xmlrpc">
-				<ae:parameter name="encoding">UTF-8</ae:parameter>
-			</output_type>
-
-		</output_types>
-	</ae:configuration>
-
-	<ae:configuration context="soap">
-		<output_types default="soap">
-
-			<output_type name="soap" />
-
-		</output_types>
-	</ae:configuration>
 
 </ae:configurations>

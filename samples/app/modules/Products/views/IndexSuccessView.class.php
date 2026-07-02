@@ -26,11 +26,6 @@ class Products_IndexSuccessView extends SampleAppProductsBaseView
 		
 		return implode(PHP_EOL, $ret);
 	}
-	
-	public function executeSoap(RequestDataHolder $rd)
-	{
-		return $this->getAttribute('products');
-	}
 }
 
 ?>

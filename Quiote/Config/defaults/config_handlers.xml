@@ -57,14 +57,6 @@
 				<transformation>%core.quiote_dir%/Config/xsl/routing.xsl</transformation>
 			</handler>
 
-			<handler pattern="%core.quiote_dir%/routing/soap/wsdl.xml" class="Quiote\Config\WsdlConfigHandler">
-				<!-- 0.11 to 1.0 -->
-				<transformation>%core.quiote_dir%/Config/xsl/routing.xsl</transformation>
-				<!-- 1.0 to 1.1 -->
-				<transformation>%core.quiote_dir%/Config/xsl/routing.xsl</transformation>
-				<transformation for="compilation">%core.quiote_dir%/Routing/soap/wsdl.xsl</transformation>
-			</handler>
-
 			<handler pattern="%core.config_dir%/translation.xml" class="Quiote\Config\TranslationConfigHandler">
 				<validation>%core.quiote_dir%/Config/xsd/translation.xsd</validation>
 				<!-- 0.11 to 1.0 -->

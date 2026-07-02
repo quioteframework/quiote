@@ -57,8 +57,6 @@
 		"ext-xsl": "Required only for transformation of pre 1.0 style configuration files",
 		"ext-tokenizer": "Enable the tokenizer extension allows Quiote to generate more efficient config-caches",
 		"ext-session": "If the session extension is disabled you'll have to build your own session storage system and hook it into quiote",
-		"ext-xmlrpc": "Enable the xmlrpc extension if you want to use XML-RPC features",
-		"ext-soap": "Enable the xmlrpc extension if you want to use Quiote's SOAP features",
 		"ext-pdo": "PDO is required for database connectors that use PDO as base",
 		"ext-iconv": "Enable iconv if you need to convert between other charset than iso-8859-1 and utf-8"
 	},

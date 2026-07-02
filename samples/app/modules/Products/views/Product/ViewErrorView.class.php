@@ -27,24 +27,6 @@ class Products_Product_ViewErrorView extends SampleAppProductsBaseView
 		
 		return 'No such product';
 	}
-
-	/**
-	 * Execute any presentation logic for SOAP requests.
-	 */
-	public function executeSoap(RequestDataHolder $rd)
-	{
-		// fault code must be "Server", check the SOAP spec
-		// do not throw the exception please. it can be done with some fiddling, but returning it is a much better idea
-		return new SoapFault('Server', 'Unknown Product ' . $rd->getParameter('id'));
-	}
-
-	/**
-	 * Execute any presentation logic for XMLRPC requests.
-	 */
-	public function executeXmlrpc(RequestDataHolder $rd)
-	{
-		return ['faultCode' => 101, 'faultString' => 'Unknown Product ' . $rd->getParameter('id')];
-	}
 }
 
 ?>

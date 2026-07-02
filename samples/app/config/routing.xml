@@ -47,9 +47,6 @@
 				
 				<!-- if the URL is exactly "/products", we run the Index action -->
 				<route name=".index" pattern="^$" action="Index" />
-				
-				<!-- send the WSDL file for the products service -->
-				<route pattern="^.wsdl$" module="Default" action="SendWsdl" output_type="wsdl" />
 			</route>
 			
 			<!-- The last route in case the input URL is just "/". -->
@@ -66,48 +63,5 @@
 		</routes>
 	</ae:configuration>
 	
-	<ae:configuration context="xmlrpc">
-		<routes>
-			<!-- XMLRPC calls include the name of a remote method to call. The WebserviceRouting applies patterns to this method name, not to the URL of the request. We set the request method to "read" here so executeRead() is run in the Action. -->
-			<route pattern="^getProduct$" module="Products" action="Product.View" method="read" />
-		</routes>
-	</ae:configuration>
-	
-	<ae:configuration context="soap" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:asa="http://quiote.org/sampleapp" xmlns:tns="http://quiote.org/sampleapp/types" targetNamespace="http://quiote.org/sampleapp">
-		<wsdl:types>
-			<xsd:schema xmlns:soap-enc="http://schemas.xmlsoap.org/soap/encoding/" targetNamespace="http://quiote.org/sampleapp/types">
-				<xsd:complexType name="Product">
-					<xsd:sequence>
-						<xsd:element name="id" type="xsd:int" />
-						<xsd:element name="name" type="xsd:string" />
-						<xsd:element name="price" type="xsd:float" />
-					</xsd:sequence>
-				</xsd:complexType>
-				<xsd:complexType name="ArrayOfProducts">
-					<xsd:complexContent>
-						<xsd:extension base="soap-enc:Array">
-							<xsd:attribute ref="soap-enc:arrayType" wsdl:arrayType="tns:Product[]" />
-						</xsd:extension>
-					</xsd:complexContent>
-				</xsd:complexType>
-			</xsd:schema>
-		</wsdl:types>
-		<routes>
-			<!-- SOAP calls include the name of a remote method to call. The WebserviceRouting compares patterns to this method name, not to the URL of the request. We set the request method to "read" here so executeRead() is run in the Action. -->
-			<route pattern="getProduct" module="Products" action="Product.View" method="read">
-				<wsdl:input>
-					<wsdl:part name="id" type="xsd:int" />
-				</wsdl:input>
-				<wsdl:output>
-					<wsdl:part name="product" type="tns:Product" />
-				</wsdl:output>
-			</route>
-			<route pattern="listProducts" module="Products" action="Index" method="read">
-				<wsdl:output>
-					<wsdl:part name="products" type="tns:ArrayOfProducts" />
-				</wsdl:output>
-			</route>
-		</routes>
-	</ae:configuration>
-	
+
 </ae:configurations>
