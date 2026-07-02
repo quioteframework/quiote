@@ -61,6 +61,29 @@ final class AppWriter
 		$this->put('pub/index.php', $this->frontControllerPhp());
 	}
 
+	/**
+	 * Skip baking in the absolute autoload path (dev-machine-specific, ugly
+	 * to commit) when the target app already lives inside the same
+	 * vendor/autoload.php's own directory tree -- the portable relative
+	 * `dirname(__DIR__, N)` candidates in pub/index.php already reach it in
+	 * that case (e.g. scaffolding samples/app inside this very monorepo).
+	 */
+	private function needsAbsoluteAutoloadFallback(): bool
+	{
+		if ($this->activeAutoloadPath === null) {
+			return false;
+		}
+		$pubDir = realpath($this->path) ?: rtrim($this->path, '/');
+		$pubDir .= '/pub';
+		for ($levels = 1; $levels <= 5; $levels++) {
+			$candidate = dirname($pubDir, $levels) . '/vendor/autoload.php';
+			if (realpath($candidate) === $this->activeAutoloadPath) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	private function settingsExtension(): string
 	{
 		return match ($this->format) {
@@ -431,7 +454,7 @@ final class AppWriter
 	private function frontControllerPhp(): string
 	{
 		$namespace = $this->namespace;
-		$activeAutoloadLiteral = $this->activeAutoloadPath !== null
+		$activeAutoloadLiteral = $this->needsAbsoluteAutoloadFallback()
 			? var_export($this->activeAutoloadPath, true) . ",\n\t\t\t"
 			: '';
 		return <<<PHP
