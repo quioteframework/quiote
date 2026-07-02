@@ -1,0 +1,22 @@
+#!/usr/bin/env php
+<?php
+
+$autoloadCandidates = [
+	__DIR__ . '/../vendor/autoload.php',   // running from a checkout of quioteframework/quiote itself
+	__DIR__ . '/../../../autoload.php',    // installed as a dependency under vendor/quioteframework/quiote/bin
+];
+
+foreach ($autoloadCandidates as $candidate) {
+	if (is_file($candidate)) {
+		require $candidate;
+		break;
+	}
+}
+
+if (!class_exists(Quiote\Console\Application::class)) {
+	fwrite(STDERR, "Could not locate the Composer autoloader for Quiote. Run \"composer install\" first.\n");
+	exit(1);
+}
+
+$application = new Quiote\Console\Application();
+exit($application->run());
