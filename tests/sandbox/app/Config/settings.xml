@@ -49,11 +49,6 @@
 			<setting name="use_translation">true</setting>
 		</settings>
 
-		<exception_templates>
-			<exception_template>%core.quiote_dir%/Exception/templates/plaintext.php</exception_template>
-			<exception_template context="console">%core.quiote_dir%/Exception/templates/plaintext.php</exception_template>
-		</exception_templates>
-
 	</ae:configuration>
 
 	<ae:configuration environment="testing.*">

@@ -387,7 +387,14 @@ class Context implements \Stringable, ResetInterface
       }
       return self::$instances[$profile];
     } catch (\Exception $e) {
-      QuioteException::render($e);
+      // Bootstrap-time failure (no PSR-15 pipeline exists yet to catch this via
+      // ErrorHandlingMiddleware): log and propagate rather than rendering an
+      // ad-hoc template and exit()ing, which would kill a persistent worker
+      // process outright instead of just failing the request that triggered it.
+      \Quiote\Logging\Log::for(self::class)->error(
+        'Context::getInstance() failed: ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine()
+      );
+      throw $e;
     }
   }
 
@@ -732,7 +739,13 @@ class Context implements \Stringable, ResetInterface
         );
       }
     } catch (\Exception $e) {
-      QuioteException::render($e, $this);
+      // Same reasoning as Context::getInstance(): this runs before any PSR-15
+      // pipeline exists, so there is no ErrorHandlingMiddleware to hand off to
+      // yet. Log and propagate instead of rendering a template and exit()ing.
+      $logger?->error(
+        'Context::initialize() failed for context "' . $this->name . '": ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine()
+      );
+      throw $e;
     }
 
     // Invariants: factory info for core components must be present now (set by generated factories cache)
