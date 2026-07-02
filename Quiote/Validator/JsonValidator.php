@@ -9,6 +9,12 @@ namespace Quiote\Validator;
  */
 class JsonValidator extends Validator
 {
+	#[\Override]
+	public static function getAcceptedParameters(): array
+	{
+		return array_merge(parent::getAcceptedParameters(), ['assoc']);
+	}
+
 	protected $jsonErrors = [
 		'depth',
 		'state_mismatch',

@@ -16,6 +16,12 @@ namespace Quiote\Validator;
  */
 class EqualsValidator extends Validator
 {
+	#[\Override]
+	public static function getAcceptedParameters(): array
+	{
+		return array_merge(parent::getAcceptedParameters(), ['value', 'asparam', 'strict']);
+	}
+
 	/**
 	 * Validates the input.
 	 * @return     bool The input equals to given value.

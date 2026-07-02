@@ -19,6 +19,14 @@ use Quiote\Util\DecimalFormatter;
  */
 class NumberValidator extends Validator
 {
+	#[\Override]
+	public static function getAcceptedParameters(): array
+	{
+		return array_merge(parent::getAcceptedParameters(), [
+			'no_locale', 'in_locale', 'type', 'cast_to', 'min', 'max',
+		]);
+	}
+
 	/**
 	 * Validates the input
 	 * @return     bool The input is valid number according to given parameters.

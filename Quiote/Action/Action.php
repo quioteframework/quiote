@@ -8,9 +8,12 @@ namespace Quiote\Action;
  * @version    1.0.0
  */
 
+use Quiote\Config\Config;
 use Quiote\Context;
 use Quiote\Execution\ActionInitContext;
 use Quiote\Request\WebRequest;
+use Quiote\Validator\Compiler\Runtime\CompiledValidatorRegistry;
+use Quiote\Validator\IValidatorContainer;
 use Symfony\Contracts\Service\ResetInterface;
 abstract class Action implements ResetInterface
 {
@@ -125,10 +128,42 @@ abstract class Action implements ResetInterface
 
 	/**
 	 * Manually register validators for this action.
+	 *
+	 * The default implementation loads a compiled/hand-written PHP
+	 * validator-builder file for this module/action, if one exists at
+	 * %core.module_dir%/{Module}/Validate/{Action}.generated.php (or
+	 * the hand-written .php variant of the same name) -- see
+	 * CompiledValidatorRegistry and docs/VALIDATOR_COMPILER_PLAN.md. This
+	 * runs alongside (not instead of) any XML validators.xml for the same
+	 * action; both add to the same ValidationManager instance.
+	 *
+	 * Override this (or register[Method]Validators(), e.g.
+	 * registerWriteValidators()) to register validators directly in PHP
+	 * via Quiote\Validator\Compiler\Runtime\ValidatorBuilder without a
+	 * generated file at all -- call parent::registerValidators() first if
+	 * you still want the file-based ones loaded too.
 	 * @since      1.0.0
 	 */
 	public function registerValidators()
 	{
+		$initContext = $this->initContext;
+		if ($initContext === null) {
+			return;
+		}
+
+		$validationManager = $initContext->getValidationManager();
+		if (!$validationManager instanceof IValidatorContainer) {
+			return;
+		}
+
+		(new CompiledValidatorRegistry())->apply(
+			Config::get('core.module_dir'),
+			$initContext->getModuleName(),
+			$initContext->getActionName(),
+			$validationManager,
+			$this->context,
+			$initContext->getRequestMethod()
+		);
 	}
 
 	/**

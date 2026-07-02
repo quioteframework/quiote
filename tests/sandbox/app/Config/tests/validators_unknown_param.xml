@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ae:configurations
+	xmlns="http://quiote.dev/quiote/config/parts/validators/1.1"
+	xmlns:ae="http://quiote.dev/quiote/config/global/envelope/1.1"
+	parent="%core.quiote_dir%/Config/defaults/validators.xml"
+>
+	<!-- Reproduces the incident: a `values` allowlist attribute on a
+	     validator class that never reads it. Must be rejected at compile
+	     time, not silently absorbed. -->
+	<ae:configuration environment="test-unknown-parameter">
+		<validators>
+			<validator name="bad" class="string" values="pending,approved,rejected">
+				<arguments>
+					<argument>status</argument>
+				</arguments>
+			</validator>
+		</validators>
+	</ae:configuration>
+
+	<!-- Plausible typo of a real parameter name; should surface a "did you mean" hint. -->
+	<ae:configuration environment="test-typo-parameter">
+		<validators>
+			<validator name="bad_typo" class="string" minn="3">
+				<arguments>
+					<argument>username</argument>
+				</arguments>
+			</validator>
+		</validators>
+	</ae:configuration>
+
+	<!-- Only parameters the validator actually declares; must compile cleanly. -->
+	<ae:configuration environment="test-known-parameter">
+		<validators>
+			<validator name="ok" class="string" min="3" max="10">
+				<arguments>
+					<argument>username</argument>
+				</arguments>
+			</validator>
+		</validators>
+	</ae:configuration>
+
+	<!-- A concrete, autoloadable, non-overriding Validator subclass with an
+	     unknown attribute: must still be checked against the inherited base
+	     parameter set. -->
+	<ae:configuration environment="test-unknown-parameter-custom-class">
+		<validators>
+			<validator name="bad_custom" class="Sandbox\Testing\DummyValidator" totally_bogus="1">
+				<arguments>
+					<argument>foo</argument>
+				</arguments>
+			</validator>
+		</validators>
+	</ae:configuration>
+
+	<!-- A class name that cannot be resolved/autoloaded at compile time:
+	     the check must degrade to a notice, not throw, since it cannot
+	     introspect getAcceptedParameters(). -->
+	<ae:configuration environment="test-unresolvable-class">
+		<validators>
+			<validator name="bad_unresolvable" class="NoSuchValidatorClassAtAll" bogus="1">
+				<arguments>
+					<argument>foo</argument>
+				</arguments>
+			</validator>
+		</validators>
+	</ae:configuration>
+</ae:configurations>

@@ -65,6 +65,14 @@ use Throwable;
  */
 class DateTimeValidator extends Validator
 {
+	#[\Override]
+	public static function getAcceptedParameters(): array
+	{
+		return array_merge(parent::getAcceptedParameters(), [
+			'check', 'formats', 'cast_to', 'arguments_format', 'min', 'max', 'locale',
+		]);
+	}
+
 	/**
 	 * Validates the input.
 	 * @return     bool True if the input was a valid date.

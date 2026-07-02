@@ -10,6 +10,12 @@ namespace Quiote\Validator;
  */
 class SetValidator extends Validator
 {
+	#[\Override]
+	public static function getAcceptedParameters(): array
+	{
+		return array_merge(parent::getAcceptedParameters(), ['value']);
+	}
+
 	/**
 	 * Exports the value and returns true.
 	 * @return     bool Always returns true.

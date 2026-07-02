@@ -173,6 +173,43 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	}
 
 	/**
+	 * Returns the set of parameter names this validator understands.
+	 * ValidatorConfigHandler uses this to reject unknown/misspelled
+	 * attributes and <ae:parameter> names at config-compile time instead of
+	 * silently absorbing and ignoring them (see the SecureStringValidator
+	 * `values` incident: a nonexistent allowlist attribute was silently
+	 * stored and never enforced).
+	 *
+	 * This base set covers every parameter the base Validator class itself
+	 * reads (directly or via getAttributes() picking up structural XML
+	 * attributes like 'class'/'name'/'method'). Subclasses that accept
+	 * additional parameters MUST override this and merge onto the parent
+	 * set — never replace it outright.
+	 * @return     array<int, string> The accepted parameter names.
+	 * @since      1.0.0
+	 */
+	public static function getAcceptedParameters(): array
+	{
+		return [
+			// structural XML attributes that land in the parameter bag via
+			// XmlConfigDomElement::getAttributes() even though they're
+			// consumed elsewhere in the compile pipeline, not by the
+			// validator instance itself
+			'name', 'class', 'method',
+			// input source / path
+			'base', 'source',
+			// dependency graph
+			'depends', 'provides',
+			// outcome / severity
+			'severity', 'required',
+			// export
+			'export', 'export_severity', 'export_to_source',
+			// i18n
+			'translation_domain',
+		];
+	}
+
+	/**
 	 * Initialize this validator.
 	 * @param      Context The Context.
 	 * @param      array        An array of validator parameters.
@@ -420,7 +457,21 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	}
 
 	/**
-	 * Retrieves the error message for the given index with fallback. 
+	 * Sets an error message override for the given index (the empty string
+	 * is the default/generic message). Exists for programmatic validator
+	 * registration (see Quiote\Validator\Compiler\Runtime\ValidatorSpec)
+	 * where errors aren't known until after initialize() has already run.
+	 * @param      string The error index ('' for the default message).
+	 * @param      string The error message.
+	 * @since      1.0.0
+	 */
+	public function setErrorMessage(string $index, string $message): void
+	{
+		$this->errorMessages[$index] = $message;
+	}
+
+	/**
+	 * Retrieves the error message for the given index with fallback.
 	 * If the given index does not exist in the error messages array, it first 
 	 * checks if an unnamed error message exists and returns it or falls back the
 	 * the backup message.

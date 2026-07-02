@@ -31,6 +31,14 @@ use Psr\Http\Message\UploadedFileInterface;
  */
 abstract class BaseFileValidator extends Validator
 {
+	#[\Override]
+	public static function getAcceptedParameters(): array
+	{
+		return array_merge(parent::getAcceptedParameters(), [
+			'min_size', 'max_size', 'extension', 'mime_type', 'mime_type_include_charset',
+		]);
+	}
+
 	/**
 	 * @see        Validator::initialize
 	 * @since      1.0.0

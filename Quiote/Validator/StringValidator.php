@@ -14,6 +14,12 @@ namespace Quiote\Validator;
  */
 class StringValidator extends Validator
 {
+	#[\Override]
+	public static function getAcceptedParameters(): array
+	{
+		return array_merge(parent::getAcceptedParameters(), ['min', 'max', 'trim', 'utf8']);
+	}
+
 	/**
 	 * Validates the input.
 	 * @return     bool True if the string is valid according to the given 

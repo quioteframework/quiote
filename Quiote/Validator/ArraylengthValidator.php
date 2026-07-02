@@ -11,6 +11,12 @@ namespace Quiote\Validator;
  */
 class ArraylengthValidator extends Validator
 {
+	#[\Override]
+	public static function getAcceptedParameters(): array
+	{
+		return array_merge(parent::getAcceptedParameters(), ['min', 'max']);
+	}
+
 	/**
 	 * Returns whether all arguments are set in the validation input parameters.
 	 * Set means anything but empty string.

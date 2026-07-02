@@ -13,6 +13,12 @@ use Symfony\Contracts\Service\ResetInterface;
  */
 abstract class OperatorValidator extends Validator implements IValidatorContainer, ResetInterface
 {
+	#[\Override]
+	public static function getAcceptedParameters(): array
+	{
+		return array_merge(parent::getAcceptedParameters(), ['skip_errors']);
+	}
+
 	/**
 	 * @var        array The child validators.
 	 */

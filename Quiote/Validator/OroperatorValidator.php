@@ -13,6 +13,12 @@ use Symfony\Contracts\Service\ResetInterface;
  */
 class OroperatorValidator extends OperatorValidator implements ResetInterface
 {
+	#[\Override]
+	public static function getAcceptedParameters(): array
+	{
+		return array_merge(parent::getAcceptedParameters(), ['break']);
+	}
+
 	/**
 	 * Executes the child validators.
 	 * @return     bool True if at least one child validator succeeded.

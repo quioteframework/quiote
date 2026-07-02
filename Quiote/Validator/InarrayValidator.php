@@ -13,6 +13,12 @@ namespace Quiote\Validator;
  */
 class InarrayValidator extends Validator
 {
+	#[\Override]
+	public static function getAcceptedParameters(): array
+	{
+		return array_merge(parent::getAcceptedParameters(), ['values', 'sep', 'case', 'strict']);
+	}
+
 	/**
 	 * Validates the input.
 	 * @return     bool The value is in the array.

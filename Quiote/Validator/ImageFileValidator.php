@@ -22,6 +22,14 @@ namespace Quiote\Validator;
  */
 class ImageFileValidator  extends BaseFileValidator
 {
+	#[\Override]
+	public static function getAcceptedParameters(): array
+	{
+		return array_merge(parent::getAcceptedParameters(), [
+			'min_width', 'max_width', 'min_height', 'max_height', 'format',
+		]);
+	}
+
 	/**
 	 * Validates the input.
 	 * @return     bool File is valid image according to given parameters.

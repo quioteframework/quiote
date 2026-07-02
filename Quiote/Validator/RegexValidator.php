@@ -15,6 +15,12 @@ namespace Quiote\Validator;
  */
 class RegexValidator extends Validator
 {
+	#[\Override]
+	public static function getAcceptedParameters(): array
+	{
+		return array_merge(parent::getAcceptedParameters(), ['pattern', 'match']);
+	}
+
 	/**
 	 * Validates the input.
 	 * @return     bool True if input matches the pattern in 'match'.
