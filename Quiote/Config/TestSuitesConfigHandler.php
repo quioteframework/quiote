@@ -4,62 +4,72 @@ namespace Quiote\Config;
 use Quiote\Config\Util\DOM\XmlConfigDomDocument;
 
 /**
- * TestSuitesConfigHandler reads the testsuites configuration files to determine 
+ * TestSuitesConfigHandler reads the testsuites configuration files to determine
  * the available suites and their tests.
+ *
+ * Migrated to IArrayConfigHandler (docs/CONFIG_SYSTEM_REWRITE_PLAN.md
+ * phase 2). Canonical schema, already exactly what execute() built inline:
+ *   ['suite_name' => ['class' => ..., 'base' => ..., 'includes' => [...],
+ *                      'excludes' => [...], 'testfiles' => [...]]]
  * @since      1.0.0
  * @version    1.0.0
  */
-class TestSuitesConfigHandler extends XmlConfigHandler
+class TestSuitesConfigHandler extends XmlConfigHandler implements IArrayConfigHandler
 {
 	const XML_NAMESPACE = 'http://quiote.dev/quiote/config/parts/testing/suites/1.1';
-	
+
 	/**
-	 * Execute this configuration handler.
-	 * @param      XmlConfigDomDocument The document to parse.
-	 * @return     string Data to be written to a cache file.
 	 * @throws     <b>ParseException</b> If a requested configuration file is
 	 *                                        improperly formatted.
 	 * @since      1.0.0
 	 */
-	public function execute(XmlConfigDomDocument $document) : string
+	public function execute(XmlConfigDomDocument $document): string
+	{
+		return $this->executeArray($this->toCanonicalArray($document), $document->documentURI);
+	}
+
+	public function toCanonicalArray(XmlConfigDomDocument $document): array
 	{
 		// set up our default namespace
 		$document->setDefaultNamespace(self::XML_NAMESPACE, 'suite');
-		
-		// remember the config file path
-		$config = $document->documentURI;
-		
+
 		$data = [];
 		// loop over <configuration> elements
-		foreach($document->getConfigurationElements() as $configuration) {
-			foreach($configuration->get('suites') as $current) {
+		foreach ($document->getConfigurationElements() as $configuration) {
+			foreach ($configuration->get('suites') as $current) {
 				$includes = [];
-				foreach($current->get('includes') as $include) {
+				foreach ($current->get('includes') as $include) {
 					$includes[] = $include->textContent;
 				}
-				
+
 				$excludes = [];
-				foreach($current->get('excludes') as $exclude) {
+				foreach ($current->get('excludes') as $exclude) {
 					$excludes[] = $exclude->textContent;
 				}
-				
-				$suite =  [
+
+				$suite = [
 					'class' => $current->getAttribute('class', 'TestSuite'),
 					'base' => $current->getAttribute('base', 'tests/'),
 					'includes' => $includes,
 					'excludes' => $excludes
 				];
-				
+
 				$suite['testfiles'] = [];
-				foreach($current->get('testfiles') as $file) {
+				foreach ($current->get('testfiles') as $file) {
 					$suite['testfiles'][] = $file->textContent;
 				}
-				
+
 				$data[$current->getAttribute('name')] = $suite;
 			}
 		}
-		$code = 'return '.var_export($data, true);
-		return $this->generate($code, $config);
+
+		return $data;
+	}
+
+	public function executeArray(array $config, ?string $sourceRef = null): string
+	{
+		$code = 'return ' . var_export($config, true);
+		return $this->generate($code, $sourceRef);
 	}
 }
 

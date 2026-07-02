@@ -440,6 +440,15 @@ class APCuConfigCache extends ConfigCache
         if (!\Quiote\Util\Toolkit::isPathAbsolute($normalized)) {
             $normalized = \Quiote\Util\Toolkit::normalizePath(Config::get('core.app_dir')) . '/' . $normalized;
         }
+        // Resolve to the actual physical source file (core.config_format /
+        // autodetect, see ConfigCache::resolveConfigFormat()) before hashing,
+        // the same way ConfigCache::checkConfig() derives its own cache
+        // filename from the resolved path rather than the logical one. Without
+        // this, switching which format supplies a config (or a new sibling
+        // file appearing) would keep serving whatever was first warmed into
+        // APCu under this key until TTL expiry, since the APCu-hit fast path
+        // never re-checks the filesystem at all.
+        $normalized = self::resolveConfigFormat($normalized);
         $cacheKey = $normalized . '|' . ($context ?? '');
         return self::$keyCache[$cacheKey] ??= self::$configPrefix . md5($cacheKey);
     }

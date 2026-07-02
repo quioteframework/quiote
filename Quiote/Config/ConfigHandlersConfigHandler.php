@@ -8,17 +8,24 @@ use Quiote\Util\Toolkit;
 /**
  * ConfigHandlersConfigHandler allows you to specify configuration handlers
  * for the application or on a module level.
+ *
+ * Migrated to IArrayConfigHandler (docs/CONFIG_SYSTEM_REWRITE_PLAN.md
+ * phase 2). Canonical schema is exactly the `$handlers` map (plus the
+ * reserved `__middleware_config` key) execute() used to build inline:
+ *   ['pattern' => ['class' => ..., 'parameters' => [...], 'transformations' => [...], 'validations' => [...]],
+ *    '__middleware_config' => ['Middleware\Class' => bool]]
+ * Note this handler is what config_handlers.xml itself compiles through
+ * -- it is NOT what Phase 3's extension-agnostic discovery reads (that
+ * would be circular); it stays the framework's own bootstrap-time handler
+ * registry regardless of what format future handler configs adopt.
  * @since      1.0.0
  * @version    1.0.0
  */
-class ConfigHandlersConfigHandler extends XmlConfigHandler
+class ConfigHandlersConfigHandler extends XmlConfigHandler implements IArrayConfigHandler
 {
 	const XML_NAMESPACE = 'http://quiote.dev/quiote/config/parts/config_handlers/1.1';
-	
+
 	/**
-	 * Execute this configuration handler.
-	 * @param      XmlConfigDomDocument The document to handle.
-	 * @return     string Data to be written to a cache file.
 	 * @throws     <b>UnreadableException</b> If a requested configuration
 	 *                                             file does not exist or is not
 	 *                                             readable.
@@ -26,33 +33,38 @@ class ConfigHandlersConfigHandler extends XmlConfigHandler
 	 *                                        improperly formatted.
 	 * @since      1.0.0
 	 */
-	public function execute(XmlConfigDomDocument $document) : string
+	public function execute(XmlConfigDomDocument $document): string
+	{
+		return $this->executeArray($this->toCanonicalArray($document), $document->documentURI);
+	}
+
+	public function toCanonicalArray(XmlConfigDomDocument $document): array
 	{
 		// set up our default namespace
 		$document->setDefaultNamespace(self::XML_NAMESPACE, 'config_handlers');
-		
+
 		// init our data arrays
 		$handlers = [];
 		$middlewareEnabledMap = [];
-		
-		foreach($document->getConfigurationElements() as $configuration) {
+
+		foreach ($document->getConfigurationElements() as $configuration) {
 			// Capture middleware_config irrespective of handlers presence
-			if($configuration->has('middleware_config')) {
-				foreach($configuration->get('middleware_config') as $mwConfig) {
-					foreach($mwConfig->get('middleware') as $mw) {
+			if ($configuration->has('middleware_config')) {
+				foreach ($configuration->get('middleware_config') as $mwConfig) {
+					foreach ($mwConfig->get('middleware') as $mw) {
 						$class = $mw->getAttribute('class');
 						$enabledAttr = strtolower((string)$mw->getAttribute('enabled', 'true'));
-						$enabled = !in_array($enabledAttr, ['0','false','off','no'], true);
+						$enabled = !in_array($enabledAttr, ['0', 'false', 'off', 'no'], true);
 						$middlewareEnabledMap[$class] = $enabled;
 					}
 				}
 			}
-			if(!$configuration->has('handlers')) {
+			if (!$configuration->has('handlers')) {
 				continue;
 			}
 
 			// let's do our fancy work
-			foreach($configuration->get('handlers') as $handler) {
+			foreach ($configuration->get('handlers') as $handler) {
 				$pattern = $handler->getAttribute('pattern');
 
 				$category = Toolkit::normalizePath(Toolkit::expandDirectives($pattern));
@@ -63,8 +75,8 @@ class ConfigHandlersConfigHandler extends XmlConfigHandler
 					XmlConfigParser::STAGE_SINGLE => [],
 					XmlConfigParser::STAGE_COMPILATION => [],
 				];
-				if($handler->has('transformations')) {
-					foreach($handler->get('transformations') as $transformation) {
+				if ($handler->has('transformations')) {
+					foreach ($handler->get('transformations') as $transformation) {
 						$path = Toolkit::literalize($transformation->getValue());
 						$for = $transformation->getAttribute('for', XmlConfigParser::STAGE_SINGLE);
 						$transformations[$for][] = $path;
@@ -109,11 +121,11 @@ class ConfigHandlersConfigHandler extends XmlConfigHandler
 						],
 					],
 				];
-				if($handler->has('validations')) {
-					foreach($handler->get('validations') as $validation) {
+				if ($handler->has('validations')) {
+					foreach ($handler->get('validations') as $validation) {
 						$path = Toolkit::literalize($validation->getValue());
 						$type = null;
-						if(!$validation->hasAttribute('type')) {
+						if (!$validation->hasAttribute('type')) {
 							$type = $this->guessValidationType($path);
 						} else {
 							$type = $validation->getAttribute('type');
@@ -136,16 +148,22 @@ class ConfigHandlersConfigHandler extends XmlConfigHandler
 			}
 			// also re-process middleware_config inside same configuration (already handled above)
 		}
-		
+
 		// Expose middleware enable map under reserved key so bootstrap can import it
-		if($middlewareEnabledMap) {
+		if ($middlewareEnabledMap) {
 			$handlers['__middleware_config'] = $middlewareEnabledMap;
 		}
-		$data = [ 'return ' . var_export($handlers, true), ];
-		
-		return $this->generate($data, $document->documentURI);
+
+		return $handlers;
 	}
-	
+
+	public function executeArray(array $config, ?string $sourceRef = null): string
+	{
+		$data = ['return ' . var_export($config, true)];
+
+		return $this->generate($data, $sourceRef);
+	}
+
 	/**
 	 * Convenience method to quickly guess the type of a validation file using its
 	 * file extension.

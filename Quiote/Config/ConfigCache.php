@@ -2,6 +2,7 @@
 namespace Quiote\Config;
 
 use Quiote\Context;
+use Quiote\Config\Format\FormatDriverRegistry;
 use Quiote\Exception\CacheException;
 use Quiote\Exception\ConfigurationException;
 use Quiote\Exception\QuioteException;
@@ -161,6 +162,40 @@ class ConfigCache
 		// call the handler and retrieve the cache data
 		$handler = new $handlerInfo['class'];
 		if($handler instanceof IXmlConfigHandler) {
+			$extension = strtolower(pathinfo((string) $config, PATHINFO_EXTENSION));
+
+			if ($extension !== 'xml' && $extension !== '') {
+				// core.config_format / autodetect (see resolveConfigFormat()) resolved
+				// this logical config to a non-XML physical file. Only handlers migrated
+				// to the array contract (docs/CONFIG_SYSTEM_REWRITE_PLAN.md phase 2) can
+				// be fed from one -- everything else (currently only
+				// ValidatorConfigHandler, which has its own separate compiler; see
+				// docs/VALIDATOR_COMPILER_PLAN.md) stays XML-only.
+				if (!$handler instanceof IArrayConfigHandler) {
+					throw new ConfigurationException(sprintf(
+						'"%s" does not support non-XML config sources (no IArrayConfigHandler implementation); "%s" cannot be used for it.',
+						$handlerInfo['class'],
+						$config
+					));
+				}
+
+				$contextObj = $context !== null ? Context::getInstance($context) : null;
+				$handler->initialize($contextObj, $handlerInfo['parameters']);
+
+				try {
+					$registry = FormatDriverRegistry::forHandler(
+						$handler,
+						$handlerInfo['transformations'][XmlConfigParser::STAGE_SINGLE] ?? []
+					);
+					$canonical = $registry->load($config, Config::get('core.environment'), $context);
+					$data = $handler->executeArray($canonical, $config);
+				} catch (\Exception $e) {
+					throw new $e(sprintf("Compilation of configuration file '%s' failed for the following reason(s):\n\n%s", $config, $e->getMessage()), 0, $e);
+				}
+
+				return $data;
+			}
+
 			// a new-style config handler
 			// it does not parse the config itself; instead, it is given a complete and merged DOM document
 			$doc = XmlConfigParser::run($config, Config::get('core.environment'), $context, $handlerInfo['transformations'], $handlerInfo['validations']);
@@ -208,19 +243,120 @@ class ConfigCache
 		// the full filename path to the config, which might not be what we were given.
 		$filename = Toolkit::isPathAbsolute($config) ? $config : Toolkit::normalizePath(Config::get('core.app_dir')) . '/' . $config;
 
-		if(!is_readable($filename)) {
-			throw new UnreadableException('Configuration file "' . $filename . '" does not exist or is unreadable.');
+		// Extension-agnostic format resolution (docs/CONFIG_SYSTEM_REWRITE_PLAN.md
+		// phase 3): $config (the logical name used for handler-pattern lookup
+		// below) is untouched -- only the physical file we actually read/cache
+		// against can change here.
+		$resolvedFilename = self::resolveConfigFormat($filename);
+
+		if(!is_readable($resolvedFilename)) {
+			throw new UnreadableException('Configuration file "' . $resolvedFilename . '" does not exist or is unreadable.');
 		}
 
-		// the cache filename we'll be using
-		$cache = self::getCacheName($config, $context);
+		// The cache name is derived from the resolved (physical) filename, not
+		// the logical $config name, so switching which format supplies a given
+		// logical config -- an autodetect priority match changing, or
+		// core.config_format changing -- can never silently reuse a cache
+		// entry compiled from a different source file.
+		$cache = self::getCacheName($resolvedFilename, $context);
 
-		if(self::isModified($filename, $cache)) {
+		if(self::isModified($resolvedFilename, $cache)) {
 			// configuration file has changed so we need to reparse it
-			self::callHandler($config, $filename, $cache, $context);
+			self::callHandler($config, $resolvedFilename, $cache, $context);
 		}
 
 		return $cache;
+	}
+
+	/**
+	 * File extensions this class knows how to resolve/compile, in
+	 * autodetect priority order (PHP > YAML > XML, per
+	 * docs/CONFIG_SYSTEM_REWRITE_PLAN.md phase 3).
+	 */
+	private const CONFIG_FORMAT_EXTENSIONS = [
+		'php' => ['php'],
+		'yaml' => ['yaml', 'yml'],
+		'xml' => ['xml'],
+	];
+
+	/**
+	 * Resolves the logical config path $filename (as given, typically with
+	 * a .xml extension baked into a directive like
+	 * "%core.config_dir%/settings.xml") to the actual physical file that
+	 * should be read.
+	 *
+	 * If `core.config_format` is set (one of 'php', 'yaml', 'xml'), that
+	 * format is used deterministically -- e.g. with core.config_format =
+	 * 'php', "settings.xml" resolves to "settings.php" (or ".yaml"/".yml"
+	 * for 'yaml') regardless of whether a "settings.xml" also exists.
+	 * Missing the forced format's file is a hard error rather than a
+	 * silent fallback, matching how this codebase already treats
+	 * configuration ambiguity (e.g. an undefined default database).
+	 *
+	 * If unset, the first of .php / .yaml / .yml / .xml that actually
+	 * exists wins (autodetect). A $filename with no recognized config
+	 * extension (or where NONE of the candidate extensions exist on disk)
+	 * is returned unchanged, so the caller's normal is_readable() check
+	 * produces its usual "does not exist" error.
+	 */
+	protected static function resolveConfigFormat(string $filename): string
+	{
+		$base = self::stripKnownConfigExtension($filename);
+		if ($base === null) {
+			return $filename;
+		}
+
+		$format = Config::get('core.config_format');
+		if ($format !== null) {
+			$extensions = self::CONFIG_FORMAT_EXTENSIONS[$format] ?? null;
+			if ($extensions === null) {
+				throw new ConfigurationException(sprintf(
+					'Unknown core.config_format "%s"; expected one of: %s',
+					$format,
+					implode(', ', array_keys(self::CONFIG_FORMAT_EXTENSIONS))
+				));
+			}
+			foreach ($extensions as $extension) {
+				$candidate = $base . '.' . $extension;
+				if (is_file($candidate)) {
+					return $candidate;
+				}
+			}
+			throw new UnreadableException(sprintf(
+				'core.config_format is set to "%s" but no "%s.{%s}" file exists.',
+				$format,
+				$base,
+				implode(',', $extensions)
+			));
+		}
+
+		foreach (self::CONFIG_FORMAT_EXTENSIONS as $extensions) {
+			foreach ($extensions as $extension) {
+				$candidate = $base . '.' . $extension;
+				if (is_file($candidate)) {
+					return $candidate;
+				}
+			}
+		}
+
+		return $filename;
+	}
+
+	/**
+	 * @return string|null $filename with its extension removed, or null if
+	 *                      it doesn't end in a recognized config extension.
+	 */
+	private static function stripKnownConfigExtension(string $filename): ?string
+	{
+		$lower = strtolower($filename);
+		foreach (self::CONFIG_FORMAT_EXTENSIONS as $extensions) {
+			foreach ($extensions as $extension) {
+				if (str_ends_with($lower, '.' . $extension)) {
+					return substr($filename, 0, -(strlen($extension) + 1));
+				}
+			}
+		}
+		return null;
 	}
 
 	/**

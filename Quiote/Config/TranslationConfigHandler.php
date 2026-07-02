@@ -8,28 +8,37 @@ use Quiote\Translation\QuioteLocale;
 /**
  * TranslationConfigHandler allows you to define translator implementations
  * for different domains.
+ *
+ * Migrated to IArrayConfigHandler (docs/CONFIG_SYSTEM_REWRITE_PLAN.md
+ * phase 2). Canonical schema:
+ *   ['default_domain' => string, 'default_locale' => string|null, 'default_timezone' => string|null,
+ *    'locales' => ['identifier' => ['name' => ..., 'params' => [...], 'fallback' => ..., 'ldml_file' => ...]],
+ *    'translators' => ['domain' => ['msg'|'num'|'cur'|'date' => ['class' => ..., 'filters' => [...], 'params' => [...]]]]]
+ * getFilters()/getTranslators() are DOM-walking helpers used only by
+ * toCanonicalArray(); the translator-class existence check (a pure
+ * function of the finished canonical array) moved to executeArray().
  * @since      1.0.0
  * @version    1.0.0
  */
-class TranslationConfigHandler extends XmlConfigHandler
+class TranslationConfigHandler extends XmlConfigHandler implements IArrayConfigHandler
 {
 	const XML_NAMESPACE = 'http://quiote.dev/quiote/config/parts/translation/1.1';
-	
+
 	/**
-	 * Execute this configuration handler.
-	 * @param      XmlConfigDomDocument The document to parse.
-	 * @return     string Data to be written to a cache file.
 	 * @throws     <b>ParseException</b> If a requested configuration file is
 	 *                                        improperly formatted.
 	 * @since      1.0.0
 	 */
-	public function execute(XmlConfigDomDocument $document)
+	public function execute(XmlConfigDomDocument $document): string
+	{
+		return $this->executeArray($this->toCanonicalArray($document), $document->documentURI);
+	}
+
+	public function toCanonicalArray(XmlConfigDomDocument $document): array
 	{
 		// set up our default namespace
 		$document->setDefaultNamespace(self::XML_NAMESPACE, 'translation');
-		
-		$config = $document->documentURI;
-		
+
 		$translatorData = [];
 		$localeData = [];
 
@@ -37,16 +46,16 @@ class TranslationConfigHandler extends XmlConfigHandler
 		$defaultLocale = null;
 		$defaultTimeZone = null;
 
-		foreach($document->getConfigurationElements() as $cfg) {
+		foreach ($document->getConfigurationElements() as $cfg) {
 
-			if($cfg->hasChild('available_locales')) {
+			if ($cfg->hasChild('available_locales')) {
 				$availableLocales = $cfg->getChild('available_locales');
 				// TODO: is this really optional? according to the schema: yes...
 				$defaultLocale = $availableLocales->getAttribute('default_locale', $defaultLocale);
 				$defaultTimeZone = $availableLocales->getAttribute('default_timezone', $defaultTimeZone);
-				foreach($availableLocales as $locale) {
+				foreach ($availableLocales as $locale) {
 					$name = $locale->getAttribute('identifier');
-					if(!isset($localeData[$name])) {
+					if (!isset($localeData[$name])) {
 						$localeData[$name] = ['name' => $name, 'params' => [], 'fallback' => null, 'ldml_file' => null];
 					}
 					$localeData[$name]['params'] = $locale->getQuioteParameters($localeData[$name]['params']);
@@ -55,12 +64,29 @@ class TranslationConfigHandler extends XmlConfigHandler
 				}
 			}
 
-			if($cfg->hasChild('translators')) {
+			if ($cfg->hasChild('translators')) {
 				$translators = $cfg->getChild('translators');
 				$defaultDomain = $translators->getAttribute('default_domain', $defaultDomain);
 				$this->getTranslators($translators, $translatorData);
 			}
 		}
+
+		return [
+			'default_domain' => $defaultDomain,
+			'default_locale' => $defaultLocale,
+			'default_timezone' => $defaultTimeZone,
+			'locales' => $localeData,
+			'translators' => $translatorData,
+		];
+	}
+
+	public function executeArray(array $config, ?string $sourceRef = null): string
+	{
+		$defaultDomain = $config['default_domain'] ?? '';
+		$defaultLocale = $config['default_locale'] ?? null;
+		$defaultTimeZone = $config['default_timezone'] ?? null;
+		$localeData = $config['locales'] ?? [];
+		$translatorData = $config['translators'] ?? [];
 
 		$data = [];
 
@@ -68,16 +94,16 @@ class TranslationConfigHandler extends XmlConfigHandler
 		$data[] = sprintf('$this->defaultLocaleIdentifier = %s;', var_export($defaultLocale, true));
 		$data[] = sprintf('$this->defaultTimeZone = %s;', var_export($defaultTimeZone, true));
 
-		foreach($localeData as $locale) {
+		foreach ($localeData as $locale) {
 			// TODO: fallback stuff
 
 			$data[] = sprintf('$this->availableConfigLocales[%s] = array(\'identifier\' => %s, \'identifierData\' => %s, \'parameters\' => %s);', var_export($locale['name'], true), var_export($locale['name'], true), var_export(QuioteLocale::parseLocaleIdentifier($locale['name']), true), var_export($locale['params'], true));
 		}
 
-		foreach($translatorData as $domain => $translator) {
-			foreach(['msg', 'num', 'cur', 'date'] as $type) {
-				if(isset($translator[$type]['class'])) {
-					if(!class_exists($translator[$type]['class'])) {
+		foreach ($translatorData as $domain => $translator) {
+			foreach (['msg', 'num', 'cur', 'date'] as $type) {
+				if (isset($translator[$type]['class'])) {
+					if (!class_exists($translator[$type]['class'])) {
 						throw new ConfigurationException(sprintf('The Translator or Formatter class "%s" for domain "%s" could not be found.', $translator[$type]['class'], $domain));
 					}
 					$data[] = implode("\n", [
@@ -89,9 +115,9 @@ class TranslationConfigHandler extends XmlConfigHandler
 			}
 		}
 
-		return $this->generate($data, $config);
+		return $this->generate($data, $sourceRef);
 	}
-	
+
 	/**
 	 * Builds a list of filters for a translator.
 	 * @param      ConfigValueHolder The Translator node.
@@ -101,14 +127,14 @@ class TranslationConfigHandler extends XmlConfigHandler
 	protected function getFilters($translator)
 	{
 		$filters = [];
-		if($translator->has('filters')) {
-			foreach($translator->get('filters') as $filter) {
+		if ($translator->has('filters')) {
+			foreach ($translator->get('filters') as $filter) {
 				$func = explode('::', (string) $filter->getValue());
-				if(count($func) != 2) {
+				if (count($func) != 2) {
 					$func = $func[0];
 				}
-				if(!is_callable($func)) {
-					throw new ConfigurationException('Non-existant or uncallable filter function "' . $filter->getValue() .  '" specified.');
+				if (!is_callable($func)) {
+					throw new ConfigurationException('Non-existant or uncallable filter function "' . $filter->getValue() . '" specified.');
 				}
 				$filters[] = $func;
 			}
@@ -132,13 +158,13 @@ class TranslationConfigHandler extends XmlConfigHandler
 			'date' => ['class' => \Quiote\Translation\DateFormatter::class, 'filters' => [], 'params' => []],
 		];
 
-		foreach($translators as $translator) {
+		foreach ($translators as $translator) {
 			$domain = $translator->getAttribute('domain');
-			if($parent) {
+			if ($parent) {
 				$domain = $parent . '.' . $domain;
 			}
-			if(!isset($data[$domain])) {
-				if(!$parent) {
+			if (!isset($data[$domain])) {
+				if (!$parent) {
 					$data[$domain] = $defaultData;
 				} else {
 					$data[$domain] = [];
@@ -147,14 +173,14 @@ class TranslationConfigHandler extends XmlConfigHandler
 
 			$domainData =& $data[$domain];
 
-			foreach(['msg' => 'message_translator', 'num' => 'number_formatter', 'cur' => 'currency_formatter', 'date' => 'date_formatter'] as $type => $nodeName) {
-				if($translator->hasChild($nodeName)) {
+			foreach (['msg' => 'message_translator', 'num' => 'number_formatter', 'cur' => 'currency_formatter', 'date' => 'date_formatter'] as $type => $nodeName) {
+				if ($translator->hasChild($nodeName)) {
 					$node = $translator->getChild($nodeName);
-					if(!isset($domainData[$type])) {
+					if (!isset($domainData[$type])) {
 						$domainData[$type] = $defaultData[$type];
 					}
-					
-					if($node->hasAttribute('translation_domain')) {
+
+					if ($node->hasAttribute('translation_domain')) {
 						$domainData[$type]['params']['translation_domain'] = $node->getAttribute('translation_domain');
 					}
 					$domainData[$type]['class'] = $node->getAttribute('class', $domainData[$type]['class']);
@@ -163,7 +189,7 @@ class TranslationConfigHandler extends XmlConfigHandler
 				}
 			}
 
-			if($translator->has('translators')) {
+			if ($translator->has('translators')) {
 				$this->getTranslators($translator->get('translators'), $data, $domain);
 			}
 		}
