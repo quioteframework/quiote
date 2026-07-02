@@ -108,6 +108,18 @@ final class NewCommandTest extends TestCase
         $this->assertStringContainsString('About', $body);
     }
 
+    public function testContactServesSuccessfullyViaAttributeRoute(): void
+    {
+        // /contact isn't declared in AppRouting's hand-written routes -- it
+        // only exists via the #[Route] attribute on ContactAction, merged in
+        // with AttributeRoutes::mergeInto(). A 200 here proves attribute
+        // routing and file-based routing coexist end to end, not just in a
+        // unit test against the builder.
+        [$status, $body] = $this->get('/contact');
+        $this->assertSame(200, $status);
+        $this->assertStringContainsString('Contact', $body);
+    }
+
     public function testBoomReturnsServerErrorWithoutCrashingTheServer(): void
     {
         [$status] = $this->get('/boom');

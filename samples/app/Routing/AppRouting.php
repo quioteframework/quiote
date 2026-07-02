@@ -1,6 +1,7 @@
 <?php
 namespace SampleApp\Routing;
 
+use Quiote\Routing\AttributeRoutes;
 use Quiote\Routing\Routing;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
@@ -9,6 +10,11 @@ use Symfony\Component\Routing\RouteCollection;
  * Plain PHP routing -- see docs/ROUTING_AND_CLI_PLAN.md: routing.xml has no
  * working config handler today, so a Routing subclass building the
  * RouteCollection directly is the supported way to declare routes.
+ *
+ * Index/About/Boom are declared here by hand; Contact is declared via a
+ * #[Route] attribute on ContactAction instead and pulled into this same
+ * RouteCollection by AttributeRoutes::mergeInto() -- the two styles are not
+ * mutually exclusive.
  */
 final class AppRouting extends Routing
 {
@@ -25,6 +31,8 @@ final class AppRouting extends Routing
 
 		$routes->add('boom', new Route('/boom', ['_module' => 'Default', '_action' => 'Boom']));
 		$meta['boom'] = ['gen_path' => '/boom', 'path' => '/boom', 'cut' => false];
+
+		AttributeRoutes::mergeInto($routes, $meta);
 
 		return [$routes, $meta];
 	}

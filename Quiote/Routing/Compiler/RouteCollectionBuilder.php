@@ -23,7 +23,22 @@ final class RouteCollectionBuilder
 	{
 		$routes = new RouteCollection();
 		$meta = [];
+		$this->mergeInto($routes, $meta, $plan);
 
+		return [$routes, $meta];
+	}
+
+	/**
+	 * Adds a RoutePlan's routes into an already-populated RouteCollection +
+	 * meta pair, instead of building a fresh one. This is what lets a
+	 * hand-written Routing subclass declare some routes programmatically and
+	 * pull in #[Route]-attributed ones for the rest, in the same
+	 * RouteCollection -- see Quiote\Routing\AttributeRoutes::mergeInto() for
+	 * the usual entrypoint.
+	 * @param array<string,array{gen_path:string,cut:bool,path:string}> $meta
+	 */
+	public function mergeInto(RouteCollection $routes, array &$meta, RoutePlan $plan): void
+	{
 		foreach ($plan->routes as $definition) {
 			$defaults = $definition->defaults;
 			$defaults['_module'] = $definition->module;
@@ -46,7 +61,5 @@ final class RouteCollectionBuilder
 			$routes->add($definition->name, $route, $definition->priority);
 			$meta[$definition->name] = $definition->meta;
 		}
-
-		return [$routes, $meta];
 	}
 }
