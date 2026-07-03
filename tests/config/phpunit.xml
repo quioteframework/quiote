@@ -43,6 +43,7 @@
         <exclude>
             <group>apcu</group>
             <group>e2e</group>
+            <group>integration</group>
         </exclude>
     </groups>
     <php>

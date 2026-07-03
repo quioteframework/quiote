@@ -59,7 +59,14 @@
 		"open-telemetry/sem-conv": "^1.38",
 		"open-telemetry/exporter-otlp": "^1.4",
 		"open-telemetry/context": "^1.5",
-		"symfony/tui": "^8.1"
+		"symfony/tui": "^8.1",
+		"doctrine/orm": "^3.6",
+		"doctrine/dbal": "^4.4",
+		"illuminate/database": "^13.18",
+		"cycle/orm": "^2.18",
+		"cycle/database": "^2.21",
+		"testcontainers/testcontainers": "^1.0",
+		"symfony/http-client": "^8.1"
 	},
 	"suggest": {
 		"phpunit/phpunit": "Install phpunit if you want to run your tests",
@@ -68,6 +75,11 @@
 		"ext-tokenizer": "Enable the tokenizer extension allows Quiote to generate more efficient config-caches",
 		"ext-session": "If the session extension is disabled you'll have to build your own session storage system and hook it into quiote",
 		"ext-pdo": "PDO is required for database connectors that use PDO as base",
+		"illuminate/database": "Enables the 'eloquent' database driver (Quiote\\Database\\Adapter\\Eloquent\\EloquentDatabase); see docs/DATABASE_ADAPTERS_PLAN.md",
+		"doctrine/orm": "Enables the 'doctrine' database driver (Quiote\\Database\\Adapter\\Doctrine\\DoctrineDatabase)",
+		"doctrine/dbal": "Enables the 'doctrine_dbal' database driver (query builder without the ORM)",
+		"cycle/orm": "Enables the 'cycle' database driver (Quiote\\Database\\Adapter\\Cycle\\CycleDatabase); pair with cycle/database",
+		"cycle/database": "Cycle's database abstraction layer, required by the 'cycle' driver",
 		"ext-iconv": "Enable iconv if you need to convert between other charset than iso-8859-1 and utf-8",
 		"open-telemetry/api": "Install these open-telemetry/* packages to enable the telemetry.* settings family (see docs/OPENTELEMETRY_PLAN.md)",
 		"open-telemetry/sdk": "OpenTelemetry SDK: providers, processors, samplers, resource detection",
@@ -79,12 +91,14 @@
 	"scripts": {
 		"test": "php -d apc.enable_cli=0 vendor/bin/phpunit --no-coverage -c tests/config/phpunit.xml",
 		"test:apcu": "php -d apc.enable_cli=1 vendor/bin/phpunit --no-coverage -c tests/config/phpunit.xml --group apcu",
-		"test:e2e": "vendor/bin/phpunit --no-coverage -c tests/config/phpunit.xml tests/e2e --group e2e"
+		"test:e2e": "vendor/bin/phpunit --no-coverage -c tests/config/phpunit.xml tests/e2e --group e2e",
+		"test:integration": "vendor/bin/phpunit --no-coverage -c tests/config/phpunit.xml tests/integration --group integration"
 	},
 	"scripts-descriptions": {
 		"test": "Run the full test suite with APCu disabled (default, deterministic).",
 		"test:apcu": "Run only the APCu config-cache tests with apc.enable_cli=1.",
-		"test:e2e": "Run the Docker-based end-to-end tests (real OTel Collector + real FrankenPHP). Requires Docker; not run in CI."
+		"test:e2e": "Run the Docker-based end-to-end tests (real OTel Collector + real FrankenPHP). Requires Docker; not run in CI.",
+		"test:integration": "Run the Docker-based database integration tests against real DBs via Testcontainers (Doctrine, Eloquent, Cycle). Requires Docker; not run in CI."
 	},
 	"autoload": {
 		"psr-4": {

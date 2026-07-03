@@ -182,6 +182,7 @@ final class PluginManager
         self::$commands = [];
         self::$containerServices = [];
         self::$httpClientConfigs = [];
+        \Quiote\Database\DatabaseDriverRegistry::reset();
     }
 
     private static function instantiate(string $class): ?PluginInterface

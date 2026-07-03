@@ -91,6 +91,22 @@ final class PluginRegistrar
     }
 
     /**
+     * Register a database driver alias, so `databases.xml` can reference the
+     * adapter by a short name (`class="eloquent"`) instead of a fully-qualified
+     * class name. Routes to the static {@see \Quiote\Database\DatabaseDriverRegistry}
+     * (applied immediately, like config/middleware/event contributions). The
+     * alias must be a valid PHP label (no hyphens) to satisfy the databases.xsd
+     * `class` attribute pattern — use e.g. `doctrine_dbal`, not `doctrine-dbal`.
+     *
+     * @param class-string<\Quiote\Database\Database> $adapterClass
+     */
+    public function databaseDriver(string $alias, string $adapterClass): self
+    {
+        \Quiote\Database\DatabaseDriverRegistry::register($alias, $adapterClass);
+        return $this;
+    }
+
+    /**
      * Configure a named HTTP client (applied to the container's
      * {@see \Quiote\Http\Client\HttpClientFactory}). Same signature as
      * {@see \Quiote\Http\Client\HttpClientFactory::configure()}.

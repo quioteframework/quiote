@@ -102,8 +102,18 @@ class DatabaseConfigHandler extends XmlConfigHandler implements IArrayConfigHand
 		$data = [];
 
 		foreach ($databases as $name => $db) {
+			// Resolve a short driver alias (e.g. "eloquent") to its adapter class
+			// at compile time; a fully-qualified class name passes through
+			// unchanged. Aliases are contributed by plugins during bootstrap,
+			// which runs before any config is compiled. Resolution happens here
+			// (not at runtime) to keep the generated code a plain `new <FQCN>()`.
+			// NOTE: if the set of registered aliases can change between compiles,
+			// fold \Quiote\Database\DatabaseDriverRegistry::aliases() into the
+			// config-cache key (see docs/DATABASE_ADAPTERS_PLAN.md §7.1).
+			$class = \Quiote\Database\DatabaseDriverRegistry::resolve($db['class']);
+
 			// append new data
-			$data[] = sprintf('$database = new %s();', $db['class']);
+			$data[] = sprintf('$database = new %s();', $class);
 			$data[] = sprintf('$this->databases[%s] = $database;', var_export($name, true));
 			$data[] = sprintf('$database->initialize($this, %s);', var_export($db['parameters'], true));
 		}
