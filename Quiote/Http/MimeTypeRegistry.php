@@ -137,8 +137,20 @@ final class MimeTypeRegistry
      * Returns all MIME type strings we recognise, for use in content negotiation.
      * @return string[]
      */
+    /**
+     * Flattened list of every supported MIME type, computed once per worker.
+     * The source ($supportedFormats + symfony/mime's static tables) is constant
+     * for the process lifetime, so there is no reason to rebuild it on every
+     * content-negotiated request.
+     * @var string[]|null
+     */
+    private static ?array $allMimeTypesMemo = null;
+
     public static function allMimeTypes(): array
     {
+        if (self::$allMimeTypesMemo !== null) {
+            return self::$allMimeTypesMemo;
+        }
         $all = [];
         $sf = self::sf();
         foreach (self::$supportedFormats as $format) {
@@ -146,6 +158,42 @@ final class MimeTypeRegistry
                 $all[] = $mime;
             }
         }
-        return array_values(array_unique($all));
+        return self::$allMimeTypesMemo = array_values(array_unique($all));
+    }
+
+    /**
+     * Formats a dynamic action response can realistically be negotiated into,
+     * most-preferred first. Content negotiation picks an action *output type*
+     * (executeHtml/executeJson/executePdf/...), so negotiating against the full
+     * asset MIME universe (fonts, video, images, executables) is both wasteful
+     * and wrong — an action never negotiates its response into font/woff2. HTML
+     * is first so it wins wildcard/tie requests (the common browser case).
+     * @var string[]
+     */
+    private static array $negotiableFormats = ['html', 'json', 'xml', 'pdf', 'csv', 'xlsx', 'docx', 'txt'];
+
+    /** @var string[]|null */
+    private static ?array $negotiableMimeTypesMemo = null;
+
+    /**
+     * The MIME types for {@see $negotiableFormats}, html-first, memoized. This
+     * is the priority list content negotiation should score an Accept header
+     * against — a handful of entries instead of ~60, so getBest()'s inner loop
+     * does far less work per request.
+     * @return string[]
+     */
+    public static function negotiableMimeTypes(): array
+    {
+        if (self::$negotiableMimeTypesMemo !== null) {
+            return self::$negotiableMimeTypesMemo;
+        }
+        $mimes = [];
+        $sf = self::sf();
+        foreach (self::$negotiableFormats as $format) {
+            foreach ($sf->getMimeTypes($format) as $mime) {
+                $mimes[] = $mime;
+            }
+        }
+        return self::$negotiableMimeTypesMemo = array_values(array_unique($mimes));
     }
 }

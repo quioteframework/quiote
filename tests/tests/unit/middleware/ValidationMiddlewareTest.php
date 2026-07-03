@@ -238,8 +238,15 @@ class ValidationMiddlewareTest extends TestCase
             public function handleError($r){ return 'Error'; }
         };
         $routeParams = [ 'slug' => 'abc', '_internal' => 'skip', 'existing' => 'rv' ];
-        // Provide existing query param so route param of same name not injected
-        $request = (new \Quiote\Request\WebRequest('GET','/routes/show?existing=keep'))
+        // Seed the canonical context request with the pre-existing query param.
+        // In production this is present via superglobals / ActionExecutor::
+        // buildRequestDataFromPsr; ValidationMiddleware no longer overlays the
+        // pipeline request onto the canonical one for simple actions, so the
+        // route-param promotion's "don't overwrite an existing query param"
+        // dedup reads it from here.
+        $seeded = $this->context->getRequest()->withQueryParams(['existing' => 'keep']);
+        $this->context->setRequest($seeded);
+        $request = (new \Quiote\Request\WebRequest('GET','/routes/show'))
             ->withAttribute(\Quiote\Execution\ActionDescriptor::class, $actionDesc)
             ->withAttribute('route_params', $routeParams)
             ->withAttribute('quiote.preinstantiated_action',$action)
@@ -269,7 +276,12 @@ class ValidationMiddlewareTest extends TestCase
             public function handleReadError($r){ return 'Error'; }
             public function handleError($r){ return 'Error'; }
         };
-        $request = (new ServerRequest('GET','/default/index?keep=1'))
+        // Seed the canonical request with the query param (production: superglobals /
+        // ActionExecutor::buildRequestDataFromPsr). A simple action bypasses the
+        // validation strict-clear, so the param must survive to the action.
+        $seeded = $this->context->getRequest()->withQueryParams(['keep' => '1']);
+        $this->context->setRequest($seeded);
+        $request = (new ServerRequest('GET','/default/index'))
             ->withAttribute(\Quiote\Execution\ActionDescriptor::class, $actionDesc)
             ->withAttribute('quiote.preinstantiated_action',$action)
             ->withAttribute('module','Default')

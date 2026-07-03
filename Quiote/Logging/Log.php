@@ -23,6 +23,15 @@ final class Log
 {
     private function __construct() {}
 
+    /**
+     * Category => CategoryLogger. A logger's only mutable state is its cached
+     * threshold, which is itself only valid for as long as the logging config
+     * is (i.e. the worker's lifetime), so instances are safe to hand out
+     * repeatedly instead of reallocating one per call site per request.
+     * @var array<string,CategoryLogger>
+     */
+    private static array $cache = [];
+
     // --- configuration -----------------------------------------------------
 
     public static function setDefaultLevel(Level $level): void
@@ -52,13 +61,14 @@ final class Log
     {
         LogRegistry::reset();
         LogContext::clear();
+        self::$cache = [];
     }
 
     // --- acquisition -------------------------------------------------------
 
     public static function create(string $category): CategoryLogger
     {
-        return new CategoryLogger($category);
+        return self::$cache[$category] ??= new CategoryLogger($category);
     }
 
     /**
@@ -69,7 +79,8 @@ final class Log
     public static function for(object|string $classOrObject): CategoryLogger
     {
         $fqcn = is_object($classOrObject) ? $classOrObject::class : $classOrObject;
-        return new CategoryLogger(self::normalizeCategory($fqcn));
+        $category = self::normalizeCategory($fqcn);
+        return self::$cache[$category] ??= new CategoryLogger($category);
     }
 
     /**

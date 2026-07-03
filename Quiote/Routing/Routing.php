@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Quiote\Routing;
 
+use Quiote\Config\Config;
 use Quiote\Context;
 use Quiote\Exception\QuioteException;
+use Quiote\Routing\Compiler\CompiledMatcherDumper;
 use Quiote\Util\Toolkit;
+use Symfony\Component\Routing\Matcher\CompiledUrlMatcher;
 use Symfony\Component\Routing\Matcher\UrlMatcher;
 use Symfony\Component\Routing\RequestContext;
 use Symfony\Component\Routing\RouteCollection;
@@ -37,14 +40,48 @@ abstract class Routing
 		$this->routes = $routes;
 		$this->meta = $meta;
 		$this->requestContext = $requestContext ?? new RequestContext();
-		$this->matcher = new UrlMatcher($this->routes, $this->requestContext);
+		// Prefer a precompiled matcher (Symfony CompiledUrlMatcher) dumped by
+		// `quiote cache:warmup`; fall back to the dynamic UrlMatcher when none
+		// is present or it is stale. See loadCompiledMatcher().
+		$this->matcher = $this->loadCompiledMatcher() ?? new UrlMatcher($this->routes, $this->requestContext);
 	}
 
     abstract protected function build(): array; // [RouteCollection, meta]
 
+    /**
+     * Load a precompiled CompiledUrlMatcher for the current routes if one has
+     * been dumped and still matches (the on-disk file is keyed by a signature
+     * of the route definitions, so a changed route table simply finds no file
+     * and returns null). Any failure falls back to the dynamic matcher — a bad
+     * or stale dump must never break routing. Gate off via
+     * core.routing.compiled_matcher = false.
+     */
+    private function loadCompiledMatcher(): ?CompiledUrlMatcher
+    {
+        if (!Config::get('core.routing.compiled_matcher', true)) {
+            return null;
+        }
+        try {
+            $path = CompiledMatcherDumper::targetFor($this->routes);
+            if (!is_file($path)) {
+                return null;
+            }
+            $compiled = include $path;
+            if (!is_array($compiled)) {
+                return null;
+            }
+            return new CompiledUrlMatcher($compiled, $this->requestContext);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
     public function match(string $path): array
     {
         if ($this->matcher === null) {
+            // Runtime rebuild (after addRoute()/importRoutes() invalidation):
+            // use the dynamic matcher — the routes just changed, so any
+            // precompiled dump no longer applies.
             $this->matcher = new UrlMatcher($this->routes, $this->requestContext);
         }
         return $this->matcher->match($path);

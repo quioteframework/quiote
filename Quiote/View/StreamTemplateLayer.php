@@ -14,6 +14,18 @@ use Quiote\Util\Toolkit;
 class StreamTemplateLayer extends TemplateLayer
 {
 	/**
+	 * Resolved-path cache, shared across all layer instances for the process
+	 * lifetime. Template layers are rebuilt per render (View::createLayer does
+	 * `new $class()` each time), so an instance cache would never hit; the
+	 * resolution — which target pattern exists on disk for a given set of
+	 * parameters — is constant for a worker's lifetime, so we key a static
+	 * cache on those inputs and skip the per-render expandVariables +
+	 * is_readable filesystem probes. Only successful resolutions are cached.
+	 * @var array<string,string>
+	 */
+	private static array $resolvedCache = [];
+
+	/**
 	 * Constructor.
 	 * @param      array Initial parameters.
 	 * @since      1.0.0
@@ -62,25 +74,41 @@ class StreamTemplateLayer extends TemplateLayer
 			throw new QuioteException('Unknown stream wrapper "' . $scheme . '", must be one of "' . implode('", "', stream_get_wrappers()) . '".');
 		}
 		$check = $this->getParameter('check');
-		
+
+		$targets = (array)$this->getParameter('targets', []);
+		$scalarParams = array_filter($this->getParameters(), is_scalar(...));
+		$nullParams = array_filter($this->getParameters(), is_null(...));
+
+		// Key the resolution on everything that feeds it: scheme, the target
+		// patterns, the scalar/null parameters expandVariables interpolates, and
+		// the locale lookup path. Constant per worker, so a hit skips both
+		// expandVariables and the is_readable probes below.
+		$cacheKey = $scheme . "\0" . implode("\0", $targets);
+		foreach($scalarParams as $k => $v) { $cacheKey .= "\0s:$k=$v"; }
+		foreach($nullParams as $k => $v) { $cacheKey .= "\0n:$k"; }
+		foreach($args as $arg) { foreach($arg as $k => $v) { $cacheKey .= "\0a:$k=$v"; } }
+		if(isset(self::$resolvedCache[$cacheKey])) {
+			return self::$resolvedCache[$cacheKey];
+		}
+
 		$attempts = [];
-		
+
 		// try each of the patterns
-		foreach((array)$this->getParameter('targets', []) as $pattern) {
+		foreach($targets as $pattern) {
 			// try pattern with each argument list
 			foreach($args as $arg) {
-				$target = Toolkit::expandVariables($pattern, array_merge(array_filter($this->getParameters(), is_scalar(...)), array_filter($this->getParameters(), is_null(...)), $arg));
+				$target = Toolkit::expandVariables($pattern, array_merge($scalarParams, $nullParams, $arg));
 				// FIXME (should they fix it): don't add file:// because suhosin's include whitelist is empty by default, does not contain 'file' as allowed uri scheme
 				if($scheme != 'file') {
 					$target = $scheme . '://' . $target;
 				}
 				if(!$check || is_readable($target)) {
-					return $target;
+					return self::$resolvedCache[$cacheKey] = $target;
 				}
 				$attempts[] = $target;
 			}
 		}
-		
+
 		// no template found, time to throw an exception
 		throw new QuioteException('Template "' . $template . '" could not be found. Paths tried:' . "\n" . implode("\n", $attempts));
 	}
