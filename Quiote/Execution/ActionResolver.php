@@ -26,8 +26,9 @@ class ActionResolver
         $canonical = 'execute' . ucfirst(strtolower($requestMethod));
         if($canonical !== end($candidates)) { $candidates[] = $canonical; }
         
-        // Semantic mapping driven by HttpMethodMapper so both call sites agree
-        // (GET -> Read, POST/PUT -> Write, PATCH -> Update, DELETE -> Remove).
+        // Semantic mapping driven by HttpMethodMapper (configurable via the
+        // routing.http_method_map setting) so both call sites agree.
+        // Default: GET/HEAD/OPTIONS/TRACE -> Read, POST -> Write, PUT/PATCH -> Update, DELETE -> Remove.
         $candidates[] = 'execute' . ucfirst(HttpMethodMapper::toActionMethod($requestMethod));
         
         foreach($candidates as $methodName) {
