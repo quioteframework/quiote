@@ -43,7 +43,13 @@ final class AttributeRouteScanner
 	{
 		$this->diagnostics = [];
 
-		$moduleDirs = $moduleDirs !== null ? $moduleDirs : [Config::get('core.module_dir')];
+		// Default scan set = the app's module dir plus any plugin-contributed
+		// module directories (docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md), so a
+		// plugin's #[Route] action classes are discovered automatically. An
+		// explicit $moduleDirs argument overrides this entirely.
+		$moduleDirs = $moduleDirs !== null
+			? $moduleDirs
+			: [Config::get('core.module_dir'), ...\Quiote\Plugin\PluginManager::moduleDirectories()];
 		$namespacePrefix = (string) Config::get('core.namespace_prefix', 'App');
 
 		/** @var RouteDefinition[] $routes */

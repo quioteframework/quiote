@@ -33,8 +33,10 @@ class Context implements \Stringable, ResetInterface
   static $debugLoaded = true;
 
   /**
-   * Per-request correlation ID (regenerated each handle()).
-   * Used only for diagnostics; not propagated to clients.
+   * Per-request correlation ID, resolved each handle(): adopted from the
+   * configured inbound header (core.correlation_id.header, default
+   * X-Correlation-Id) when present and sane, else generated. Echoed back on the
+   * response unless core.correlation_id.expose is false.
    */
   protected ?string $correlationId = null;
 
@@ -329,6 +331,30 @@ class Context implements \Stringable, ResetInterface
     $this->registerCoreService('storage', $this->storage, Container::SCOPE_REQUEST);
     $this->registerCoreService('user', $this->user, Container::SCOPE_REQUEST);
     $this->registerTelemetryServicesInContainer();
+    $this->registerHttpClientFactory();
+    // Plugin-contributed DI services (register-if-absent, so core/app bindings
+    // above win). See docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md.
+    \Quiote\Plugin\PluginManager::configureContainer($container);
+  }
+
+  /**
+   * Register the named-HTTP-client factory as a worker-lifetime container
+   * singleton, applying any plugin-contributed named-client configs the first
+   * time it's built. Constructor-inject {@see \Quiote\Http\Client\HttpClientFactory}
+   * (or resolve 'http_client_factory') to obtain named clients.
+   */
+  private function registerHttpClientFactory(): void
+  {
+    $container = $this->getContainer();
+    if ($container->has(\Quiote\Http\Client\HttpClientFactory::class)) {
+      return;
+    }
+    $container->setFactory(\Quiote\Http\Client\HttpClientFactory::class, static function (): \Quiote\Http\Client\HttpClientFactory {
+      $factory = new \Quiote\Http\Client\HttpClientFactory();
+      \Quiote\Plugin\PluginManager::configureHttpClients($factory);
+      return $factory;
+    }, Container::SCOPE_SINGLETON);
+    $container->alias('http_client_factory', \Quiote\Http\Client\HttpClientFactory::class);
   }
 
   /**
@@ -610,17 +636,12 @@ class Context implements \Stringable, ResetInterface
     if (self::$psrKernel === null) {
       self::$psrKernel = new \Quiote\Middleware\MiddlewarePipeline($this);
     }
-    // Generate a new correlation ID for this inbound request (simple high-entropy base32 fragment)
-    // TODO: Support configurable header name for e.g. Azure Application Gateway correlation ID
-    try {
-      $bytes = random_bytes(10);
-      $this->correlationId = rtrim(
-        strtr(base64_encode($bytes), "+/=", "ABC"),
-        "=",
-      );
-    } catch (\Throwable) {
-      $this->correlationId = uniqid("req", true);
-    }
+    // Adopt an inbound correlation ID from the configured header (e.g. an
+    // upstream gateway / distributed-tracing correlation id) when present and
+    // sane; otherwise generate a fresh one. The header name is configurable so
+    // it can match e.g. Azure Application Gateway's own correlation header.
+    $this->correlationId = \Quiote\Support\CorrelationId::fromRequest($request, $this->correlationIdHeaderName())
+      ?? \Quiote\Support\CorrelationId::generate();
 
     // Start a fresh ambient logging scope for this request so every log line is
     // correlatable by rid. clear() first is defensive: it guards against a scope
@@ -650,7 +671,29 @@ class Context implements \Stringable, ResetInterface
     // Propagate correlation ID so middleware can use it without re-generating (avoids redundant random_bytes()).
     $request = $request->withAttribute("quiote.rid", $this->correlationId);
     $response = self::$psrKernel->handle($request);
+
+    // Echo the correlation ID back so a caller/gateway can tie its request to
+    // our logs/traces (unless disabled). Only add it if the response doesn't
+    // already carry the header (e.g. an action set it explicitly).
+    if (Config::get('core.correlation_id.expose', true)) {
+      $header = $this->correlationIdHeaderName();
+      if (!$response->hasHeader($header)) {
+        $response = $response->withHeader($header, $this->correlationId);
+      }
+    }
+
+    // Last hook that sees the full request + response together (see
+    // docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md). No-op with no listeners.
+    \Quiote\Event\Events::emit(new \Quiote\Event\Lifecycle\ResponseSendingEvent($request, $response));
+
     return $response;
+  }
+
+  /** The configured inbound/outbound correlation-ID header name. */
+  private function correlationIdHeaderName(): string
+  {
+    $name = Config::get('core.correlation_id.header', \Quiote\Support\CorrelationId::DEFAULT_HEADER);
+    return is_string($name) && $name !== '' ? $name : \Quiote\Support\CorrelationId::DEFAULT_HEADER;
   }
 
   /**

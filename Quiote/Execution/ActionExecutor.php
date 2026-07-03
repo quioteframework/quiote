@@ -163,8 +163,12 @@ final class ActionExecutor
                 'quiote.output_type' => $desc->outputType,
             ])
             : \Quiote\Telemetry\NoopSpanHandle::instance();
+        // Lifecycle hook: about to run the action (docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md).
+        \Quiote\Event\Events::emit(new \Quiote\Event\Lifecycle\ActionBeforeEvent($desc));
         try {
-            return $this->doExecute($desc, $state, $preInstantiatedAction, $dbg, $logger);
+            $result = $this->doExecute($desc, $state, $preInstantiatedAction, $dbg, $logger);
+            \Quiote\Event\Events::emit(new \Quiote\Event\Lifecycle\ActionAfterEvent($desc, $result));
+            return $result;
         } catch (\Throwable $e) {
             $span->recordException($e)->setStatusError($e->getMessage());
             throw $e;

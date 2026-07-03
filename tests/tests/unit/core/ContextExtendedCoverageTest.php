@@ -77,6 +77,64 @@ class ContextExtendedCoverageTest extends TestCase
         $this->assertNotNull($ctx->getCurrentPsrRequest());
     }
 
+    public function testHandleAdoptsInboundCorrelationIdHeader()
+    {
+        $ctx = $this->ctx();
+        (new ReflectionObject($ctx))->getProperty('routing')->setValue($ctx, new TestRouting());
+
+        $req = (new ServerRequest('GET', '/foo'))->withHeader('X-Correlation-Id', 'upstream-123');
+        $res = $ctx->handle($req);
+
+        $this->assertSame('upstream-123', $ctx->getCorrelationId(), 'inbound correlation id should be adopted');
+        $this->assertSame('upstream-123', $res->getHeaderLine('X-Correlation-Id'), 'adopted id should be echoed back');
+    }
+
+    public function testHandleEchoesGeneratedCorrelationIdOnResponse()
+    {
+        $ctx = $this->ctx();
+        (new ReflectionObject($ctx))->getProperty('routing')->setValue($ctx, new TestRouting());
+
+        $res = $ctx->handle(new ServerRequest('GET', '/foo'));
+
+        $this->assertNotSame('', $res->getHeaderLine('X-Correlation-Id'));
+        $this->assertSame($ctx->getCorrelationId(), $res->getHeaderLine('X-Correlation-Id'));
+    }
+
+    public function testHandleCapsOverlongInboundCorrelationId()
+    {
+        $ctx = $this->ctx();
+        (new ReflectionObject($ctx))->getProperty('routing')->setValue($ctx, new TestRouting());
+
+        // A caller-supplied header becomes a log field and a response header, so
+        // an absurdly long value is length-capped before adoption. (Control-byte
+        // stripping is covered by CorrelationIdTest — Nyholm's PSR-7 refuses to
+        // even construct a request with a CRLF header value, so that vector can't
+        // reach handle() through a normal request in the first place.)
+        $req = (new ServerRequest('GET', '/foo'))->withHeader('X-Correlation-Id', str_repeat('x', 500));
+        $ctx->handle($req);
+
+        $this->assertSame(200, mb_strlen($ctx->getCorrelationId()));
+    }
+
+    public function testHandleRespectsConfiguredHeaderNameAndExposeFlag()
+    {
+        Config::set('core.correlation_id.header', 'Request-Id', true);
+        Config::set('core.correlation_id.expose', false, true);
+        try {
+            $ctx = $this->ctx();
+            (new ReflectionObject($ctx))->getProperty('routing')->setValue($ctx, new TestRouting());
+
+            $req = (new ServerRequest('GET', '/foo'))->withHeader('Request-Id', 'rid-9');
+            $res = $ctx->handle($req);
+
+            $this->assertSame('rid-9', $ctx->getCorrelationId());
+            $this->assertFalse($res->hasHeader('Request-Id'), 'expose=false must suppress the response header');
+        } finally {
+            Config::remove('core.correlation_id.header');
+            Config::remove('core.correlation_id.expose');
+        }
+    }
+
     public function testResetClearsLogContextScope()
     {
         $ctx = $this->ctx();

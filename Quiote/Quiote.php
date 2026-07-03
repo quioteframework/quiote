@@ -113,6 +113,11 @@ final class Quiote
 
 			// compile.xml aggregation removed; rely on autoload + opcache.
 
+			// Plugin registration lives exactly here — after settings have loaded
+			// (so app config wins over plugin defaults) and before any Context is
+			// created (so plugins can contribute config/services/middleware/routes
+			// the contexts will consume). See docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md.
+			\Quiote\Plugin\PluginManager::bootFromConfig();
 
 			// Normalize contexts argument
 			$contextList = [];
@@ -165,6 +170,13 @@ final class Quiote
 					self::prewarm(Config::get('core.default_context'));
 				}
 			}
+
+			// Whole-framework "we're up" hook: settings loaded, plugins registered,
+			// requested contexts created (docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md).
+			\Quiote\Event\Events::emit(new \Quiote\Event\Lifecycle\KernelBootEvent(
+				(string) Config::get('core.environment'),
+				$createdContexts,
+			));
 
 			return ['contexts' => $createdContexts];
 

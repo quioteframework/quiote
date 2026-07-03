@@ -30,8 +30,10 @@
 		"symfony/service-contracts": "^3.6",
 		"psr/http-message": "^2.0",
 		"psr/http-factory": "^1.1",
+		"psr/http-client": "^1.0",
 		"psr/http-server-middleware": "^1.0",
 		"psr/http-server-handler": "^1.0",
+		"psr/event-dispatcher": "^1.0",
 		"psr/log": "^3.0",
 		"nyholm/psr7": "^1.8",
 		"nyholm/psr7-server": "^1.0",
@@ -56,7 +58,8 @@
 		"open-telemetry/sdk": "^1.14",
 		"open-telemetry/sem-conv": "^1.38",
 		"open-telemetry/exporter-otlp": "^1.4",
-		"open-telemetry/context": "^1.5"
+		"open-telemetry/context": "^1.5",
+		"symfony/tui": "^8.1"
 	},
 	"suggest": {
 		"phpunit/phpunit": "Install phpunit if you want to run your tests",
@@ -70,7 +73,8 @@
 		"open-telemetry/sdk": "OpenTelemetry SDK: providers, processors, samplers, resource detection",
 		"open-telemetry/sem-conv": "OpenTelemetry semantic-convention attribute constants",
 		"open-telemetry/exporter-otlp": "OTLP exporter for traces and metrics",
-		"open-telemetry/context": "OpenTelemetry context propagation (traceparent/tracestate)"
+		"open-telemetry/context": "OpenTelemetry context propagation (traceparent/tracestate)",
+		"symfony/tui": "Install to enable the `telemetry:dashboard` CLI command (see docs/TELEMETRY_DASHBOARD_PLAN.md)"
 	},
 	"scripts": {
 		"test": "php -d apc.enable_cli=0 vendor/bin/phpunit --no-coverage -c tests/config/phpunit.xml",

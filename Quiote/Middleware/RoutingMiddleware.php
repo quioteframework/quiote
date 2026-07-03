@@ -81,6 +81,13 @@ class RoutingMiddleware implements MiddlewareInterface
                     ->withAttribute(ActionDescriptor::class, $descriptor)
                     ->withAttribute('route_name', $attributes['_route'] ?? null)
                     ->withAttribute('route_params', $attributes);
+                // Lifecycle hook: route matched (docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md).
+                // Events::emit gates on hasListeners and swallows listener errors,
+                // so a no-listener app pays only a lookup and a bad listener can't
+                // break routing.
+                \Quiote\Event\Events::emit(new \Quiote\Event\Lifecycle\RequestMatchedEvent(
+                    $request, (string) $module, (string) $action, $attributes['_route'] ?? null, $outputType
+                ));
             } else {
                 if ($dbg) {
                     \Quiote\Logging\Log::for($this)->debug('[RoutingMiddleware] no module/action resolved for path=' . $path);
