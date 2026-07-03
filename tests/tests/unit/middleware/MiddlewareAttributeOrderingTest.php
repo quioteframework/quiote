@@ -6,6 +6,7 @@ use Quiote\Middleware\MiddlewarePipeline;
 use Quiote\Middleware\MiddlewareCatalog;
 use Quiote\Middleware\ErrorHandlingMiddleware;
 use Quiote\Middleware\SessionMiddleware;
+use Quiote\Middleware\TelemetryMiddleware;
 use Quiote\Middleware\TimingMiddleware;
 use Quiote\Middleware\TraceMiddleware;
 use Quiote\Middleware\PayloadParsingMiddleware;
@@ -65,6 +66,7 @@ class MiddlewareAttributeOrderingTest extends TestCase
     {
         $this->assertSame([
             ErrorHandlingMiddleware::class,
+            TelemetryMiddleware::class,
             SessionMiddleware::class,
             TimingMiddleware::class,
             TraceMiddleware::class,

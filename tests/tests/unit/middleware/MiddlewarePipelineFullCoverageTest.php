@@ -21,7 +21,15 @@ use Psr\Http\Message\ResponseInterface;
  * error handling (HTML + JSON), status mapping, correlation id extraction, and sentinel safety.
  * NOTE: Caching branches in DispatchMiddleware remain skipped elsewhere; here we focus on pipeline
  * and error middleware coverage without re-enabling cache writes.
+ *
+ * Run in a separate process: setUp() sets core.environment via a plain
+ * Config::set() (readonly defaults to false), but the first
+ * Context::getInstance()/Quiote::bootstrap() call anywhere in the process
+ * afterward locks core.environment read-only at whatever value it currently
+ * holds -- see DispatchMiddlewareDeeperCoverageTest's docblock for the full
+ * story (this is the same landmine, found and fixed alongside it).
  */
+#[\PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses]
 class MiddlewarePipelineFullCoverageTest extends TestCase
 {
     private function ctx(): Context

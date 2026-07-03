@@ -151,6 +151,30 @@ final class ActionExecutor
         if ($dbg) {
             $logger->debug('[ActionExecutor] start ' . $desc->module . ':' . $desc->action . ' method=' . $desc->method . ' output=' . $desc->outputType);
         }
+
+        // Action span (telemetry.spans.action, default true — docs/OPENTELEMETRY_PLAN.md,
+        // Phase 6). Not created at all (not even as a no-op wrap) when the
+        // depth toggle is off, matching RoutingMiddleware's own pattern.
+        $span = \Quiote\Config\Config::get('telemetry.spans.action', true)
+            ? \Quiote\Telemetry\Trace::span('Quiote.Action', $desc->module . ':' . $desc->action, [
+                'quiote.module' => $desc->module,
+                'quiote.action' => $desc->action,
+                'quiote.method' => $desc->method,
+                'quiote.output_type' => $desc->outputType,
+            ])
+            : \Quiote\Telemetry\NoopSpanHandle::instance();
+        try {
+            return $this->doExecute($desc, $state, $preInstantiatedAction, $dbg, $logger);
+        } catch (\Throwable $e) {
+            $span->recordException($e)->setStatusError($e->getMessage());
+            throw $e;
+        } finally {
+            $span->end();
+        }
+    }
+
+    private function doExecute(ActionDescriptor $desc, ExecutionState $state, ?Action $preInstantiatedAction, bool $dbg, \Quiote\Logging\CategoryLogger $logger): ActionExecutionContext
+    {
         // Use provided action instance if supplied to avoid double instantiation (enables external pre-initialization & test counters)
         $action = $preInstantiatedAction ?? $this->controller->createActionInstance($desc->module, $desc->action);
         if (!($action instanceof Action)) {
@@ -218,36 +242,7 @@ final class ActionExecutor
         }
 
         [$vm, $vn] = $this->viewNameResolver->resolve($desc->module, $desc->action, $rawView);
-        $view = null;
-        $content = '';
-        if ($vn !== View::NONE) {
-            $view = $this->viewFactory?->create($vm, $vn, $desc->module, $desc->action, strtolower($this->controller->getOutputType()->getName()), $actionRequest, $attributeSnapshot, $this->validationService?->getValidationManager());
-            if (!$view) {
-                $view = $this->createAndInitView($vm, $vn, $desc->module, $desc->action, $actionRequest, $attributeSnapshot);
-            }
-                if ($view !== null) {
-                    $method = $this->selectViewMethod($view, $desc->outputType);
-                    $res = $view->$method($actionRequest);
-                    if ($res !== null) {
-                        $content = (string)$res;
-                    } elseif (method_exists($view, 'getLayers') && method_exists($view, 'renderLayers') && $view->getLayers()) {
-                        $layerContent = $view->renderLayers();
-                        if ($layerContent !== '') {
-                            $content = $layerContent;
-                        }
-                    }
-                } else {
-                    // No view could be created; leave content empty (legacy tests expect this behaviour)
-                }
-            if ($dbg) {
-                $prefix = substr($content, 0, 120);
-                $logger->debug('[ActionExecutor] view=' . $view::class . ' method=' . $method . ' contentLen=' . strlen($content) . ' prefix=' . $prefix);
-            }
-        } else {
-            if ($dbg) {
-                $logger->debug('[ActionExecutor] vn is NONE (no view)');
-            }
-        }
+        [$view, $content] = $this->renderView($vm, $vn, $desc, $actionRequest, $attributeSnapshot, $dbg, $logger);
         $state->securityDecision = SecurityDecision::Allow;
         $state->viewModule = $vm;
         $state->viewName = $vn;
@@ -265,6 +260,60 @@ final class ActionExecutor
             $logger->debug('[ActionExecutor] done contentLen=' . strlen($content));
         }
         return $ctx;
+    }
+
+    /**
+     * Resolves, creates, and renders the view (if any), wrapped in a nested
+     * view-render span — a child of the action span opened by
+     * {@see execute()} (docs/OPENTELEMETRY_PLAN.md, Phase 6). Gated by the
+     * same `telemetry.spans.action` toggle; when `$vn` is `View::NONE` no
+     * span is opened at all, since there is nothing to render.
+     * @return array{0: ?View, 1: string} [$view, $content]
+     */
+    private function renderView(?string $vm, ?string $vn, ActionDescriptor $desc, WebRequest $actionRequest, array $attributeSnapshot, bool $dbg, \Quiote\Logging\CategoryLogger $logger): array
+    {
+        if ($vn === View::NONE) {
+            if ($dbg) {
+                $logger->debug('[ActionExecutor] vn is NONE (no view)');
+            }
+            return [null, ''];
+        }
+
+        $span = \Quiote\Config\Config::get('telemetry.spans.action', true)
+            ? \Quiote\Telemetry\Trace::span('Quiote.View', $vm . ':' . $vn, ['quiote.view.module' => $vm, 'quiote.view.name' => $vn])
+            : \Quiote\Telemetry\NoopSpanHandle::instance();
+        try {
+            $view = $this->viewFactory?->create($vm, $vn, $desc->module, $desc->action, strtolower($this->controller->getOutputType()->getName()), $actionRequest, $attributeSnapshot, $this->validationService?->getValidationManager());
+            if (!$view) {
+                $view = $this->createAndInitView($vm, $vn, $desc->module, $desc->action, $actionRequest, $attributeSnapshot);
+            }
+            $content = '';
+            $method = 'execute';
+            if ($view !== null) {
+                $method = $this->selectViewMethod($view, $desc->outputType);
+                $res = $view->$method($actionRequest);
+                if ($res !== null) {
+                    $content = (string)$res;
+                } elseif (method_exists($view, 'getLayers') && method_exists($view, 'renderLayers') && $view->getLayers()) {
+                    $layerContent = $view->renderLayers();
+                    if ($layerContent !== '') {
+                        $content = $layerContent;
+                    }
+                }
+            } else {
+                // No view could be created; leave content empty (legacy tests expect this behaviour)
+            }
+            if ($dbg) {
+                $prefix = substr($content, 0, 120);
+                $logger->debug('[ActionExecutor] view=' . $view::class . ' method=' . $method . ' contentLen=' . strlen($content) . ' prefix=' . $prefix);
+            }
+            return [$view, $content];
+        } catch (\Throwable $e) {
+            $span->recordException($e)->setStatusError($e->getMessage());
+            throw $e;
+        } finally {
+            $span->end();
+        }
     }
 
     private function createAndInitView(string $vm, string $vn, string $module, string $action, ServerRequestInterface $rd, array $attributeSnapshot = []): ?View

@@ -30,10 +30,19 @@
         leak compiled config between unrelated test classes. The tests covering
         QuioteAPCuConfigCache are tagged @group apcu and excluded here; run them
         explicitly with `composer test:apcu` (which enables apc.enable_cli).
+
+        e2e tests spin up real Docker containers (an OTel Collector plus a
+        FrankenPHP-served build of samples/app; see tests/e2e/). They live
+        outside every directory listed under <testsuites> above, so they are
+        never discovered by a plain `vendor/bin/phpunit` run regardless of
+        this exclusion; the #[Group('e2e')] tag is a second, belt-and-braces
+        safety net (and lets tooling that filters by group find them). Run
+        them explicitly with `composer test:e2e`.
     -->
     <groups>
         <exclude>
             <group>apcu</group>
+            <group>e2e</group>
         </exclude>
     </groups>
     <php>

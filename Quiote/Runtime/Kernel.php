@@ -66,6 +66,10 @@ class Kernel
             } catch (\Throwable $e) {
                 // Log basic diagnostics
                 \Quiote\Logging\Log::for($this)->debug('[Kernel] Uncaught during handle bootstrap: '.$e::class.': '.$e->getMessage().' @ '.$e->getFile().':'.$e->getLine());
+                // Backstop for a pre-pipeline failure (docs/OPENTELEMETRY_PLAN.md,
+                // Phase 3) — TelemetryMiddleware never got a chance to run, so
+                // whatever span (if any) is active gets the exception recorded here.
+                \Quiote\Telemetry\Trace::current()->recordException($e)->setStatusError($e->getMessage());
                 // Attempt unified error rendering via ErrorHandlingMiddleware helper.
                 try {
                     $err = new ErrorHandlingMiddleware(function(\Throwable $ex, \Psr\Http\Message\ServerRequestInterface $r) use ($context): void {
@@ -99,6 +103,7 @@ class Kernel
             if (class_exists(WorkerManager::class)) {
                 WorkerManager::resetForNextRequest($context->getName());
             }
+            \Quiote\Telemetry\TelemetryBootstrap::flushAfterRequest();
         };
 
         $adapter->run($handle, $reset);
@@ -125,6 +130,12 @@ class Kernel
         // Bootstrap (prewarm only if requested or option set)
         $contextsToPreCreate = array_unique(array_filter(array_merge([$this->contextName], $this->extraContexts)));
         Quiote::bootstrap($this->env, $contextsToPreCreate, ['prewarm' => $this->prewarm]);
+
+        // Build the worker-lifetime telemetry providers now that settings.xml has
+        // loaded (docs/OPENTELEMETRY_PLAN.md, Phase 2). Exactly once per worker
+        // process; a no-op when telemetry.enabled is false or the SDK isn't
+        // installed.
+        \Quiote\Telemetry\TelemetryBootstrap::configureFromConfig();
     }
 
     private function selectWorkerAdapter(): WorkerAdapterInterface

@@ -51,7 +51,12 @@
 	"require-dev": {
 		"phpunit/phpunit": "^12.0",
 		"rector/rector": "^2.3",
-		"phpstan/phpstan": "^2.1"
+		"phpstan/phpstan": "^2.1",
+		"open-telemetry/api": "^1.9",
+		"open-telemetry/sdk": "^1.14",
+		"open-telemetry/sem-conv": "^1.38",
+		"open-telemetry/exporter-otlp": "^1.4",
+		"open-telemetry/context": "^1.5"
 	},
 	"suggest": {
 		"phpunit/phpunit": "Install phpunit if you want to run your tests",
@@ -60,15 +65,22 @@
 		"ext-tokenizer": "Enable the tokenizer extension allows Quiote to generate more efficient config-caches",
 		"ext-session": "If the session extension is disabled you'll have to build your own session storage system and hook it into quiote",
 		"ext-pdo": "PDO is required for database connectors that use PDO as base",
-		"ext-iconv": "Enable iconv if you need to convert between other charset than iso-8859-1 and utf-8"
+		"ext-iconv": "Enable iconv if you need to convert between other charset than iso-8859-1 and utf-8",
+		"open-telemetry/api": "Install these open-telemetry/* packages to enable the telemetry.* settings family (see docs/OPENTELEMETRY_PLAN.md)",
+		"open-telemetry/sdk": "OpenTelemetry SDK: providers, processors, samplers, resource detection",
+		"open-telemetry/sem-conv": "OpenTelemetry semantic-convention attribute constants",
+		"open-telemetry/exporter-otlp": "OTLP exporter for traces and metrics",
+		"open-telemetry/context": "OpenTelemetry context propagation (traceparent/tracestate)"
 	},
 	"scripts": {
 		"test": "php -d apc.enable_cli=0 vendor/bin/phpunit --no-coverage -c tests/config/phpunit.xml",
-		"test:apcu": "php -d apc.enable_cli=1 vendor/bin/phpunit --no-coverage -c tests/config/phpunit.xml --group apcu"
+		"test:apcu": "php -d apc.enable_cli=1 vendor/bin/phpunit --no-coverage -c tests/config/phpunit.xml --group apcu",
+		"test:e2e": "vendor/bin/phpunit --no-coverage -c tests/config/phpunit.xml tests/e2e --group e2e"
 	},
 	"scripts-descriptions": {
 		"test": "Run the full test suite with APCu disabled (default, deterministic).",
-		"test:apcu": "Run only the APCu config-cache tests with apc.enable_cli=1."
+		"test:apcu": "Run only the APCu config-cache tests with apc.enable_cli=1.",
+		"test:e2e": "Run the Docker-based end-to-end tests (real OTel Collector + real FrankenPHP). Requires Docker; not run in CI."
 	},
 	"autoload": {
 		"psr-4": {
@@ -88,5 +100,11 @@
 			"tests/lib/"
 		]
 	},
-	"bin": ["bin/quiote"]
+	"bin": ["bin/quiote"],
+	"config": {
+		"allow-plugins": {
+			"php-http/discovery": true,
+			"tbachert/spi": true
+		}
+	}
 }

@@ -70,8 +70,19 @@ class MiddlewarePipeline implements RequestHandlerInterface
             $controller = $context->getController();
             $routing = $context->getRouting();
 
-            $construct = function (string $label, callable $factory) use (&$stack): void {
+            // Phase 8 (docs/OPENTELEMETRY_PLAN.md): per-middleware spans, opt-in
+            // and high-cardinality — computed once per build (the stack itself is
+            // cached for the worker's lifetime, and telemetry is configured once
+            // at worker startup, before any request runs, so this can't go stale
+            // mid-worker) so a disabled pipeline never allocates the decorator.
+            $spanEachMiddleware = \Quiote\Telemetry\Trace::enabled()
+                && \Quiote\Config\Config::get('telemetry.spans.middleware', false);
+
+            $construct = function (string $label, callable $factory) use (&$stack, $spanEachMiddleware): void {
                 $mw = $factory();
+                if ($spanEachMiddleware) {
+                    $mw = new \Quiote\Telemetry\MiddlewareSpanDecorator($mw, $label);
+                }
                 $stack[] = $mw;
                 $this->debugStack[] = $label;
             };
@@ -85,8 +96,16 @@ class MiddlewarePipeline implements RequestHandlerInterface
                     $first = $e->getFile() . ':' . $e->getLine();
                     $snippet = substr(str_replace("\n", ' | ', $e->getTraceAsString()), 0, 500);
                     \Quiote\Logging\Log::for($this)->error('[MiddlewarePipeline] ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $first . ' trace=' . $snippet);
+                    // Backstop for docs/OPENTELEMETRY_PLAN.md Phase 3: TelemetryMiddleware
+                    // already records+ends the root span on its own way out (it sits
+                    // inside this middleware), so by the time we get here Trace::current()
+                    // is normally back to a no-op — this only matters if TelemetryMiddleware
+                    // itself never ran (e.g. a stack replaced via replaceCoreStack()) while
+                    // some other span is still active.
+                    \Quiote\Telemetry\Trace::current()->recordException($e)->setStatusError($e->getMessage());
                 }),
                 SessionMiddleware::class => fn() => new SessionMiddleware($controller),
+                TelemetryMiddleware::class => fn() => new TelemetryMiddleware(),
                 TimingMiddleware::class => fn() => new TimingMiddleware(false),
                 TraceMiddleware::class => fn() => new TraceMiddleware(false),
                 PayloadParsingMiddleware::class => fn() => new PayloadParsingMiddleware(),
@@ -193,6 +212,9 @@ class MiddlewarePipeline implements RequestHandlerInterface
         // Sort by priority descending so splice-based insertion yields lower-priority-first order
         uasort($entries, fn($a, $b) => $b['priority'] <=> $a['priority']);
 
+        $spanEachMiddleware = \Quiote\Telemetry\Trace::enabled()
+            && \Quiote\Config\Config::get('telemetry.spans.middleware', false);
+
         foreach ($entries as $entry) {
             if (!MiddlewareCatalog::isEnabled($entry['fqcn'])) {
                 continue;
@@ -200,6 +222,9 @@ class MiddlewarePipeline implements RequestHandlerInterface
 
             $pos = $this->findInsertPosition($entry['after'], $entry['before']);
             $mw = ($entry['factory'])();
+            if ($spanEachMiddleware) {
+                $mw = new \Quiote\Telemetry\MiddlewareSpanDecorator($mw, $entry['fqcn']);
+            }
 
             array_splice($stack, $pos, 0, [$mw]);
             array_splice($this->debugStack, $pos, 0, [$entry['fqcn']]);

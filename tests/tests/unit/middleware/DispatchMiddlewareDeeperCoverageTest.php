@@ -13,7 +13,18 @@ use Quiote\Execution\ValidationDecision;
 
 /**
  * Deeper coverage for DispatchMiddleware: secure simple heuristic and forwarded pending validation path.
+ *
+ * Run in a separate process: setUp() sets core.environment to 'development'
+ * via a plain Config::set() (readonly defaults to false), but the first
+ * Context::getInstance()/Quiote::bootstrap() call anywhere in the process
+ * afterward locks core.environment read-only at whatever value it currently
+ * holds. Left in the shared test process, that permanently pins
+ * core.environment to 'development' for every later test file -- including
+ * ones (e.g. RoutesListCommandTest) that depend on it matching factories.xml's
+ * `environment="testing.*"` blocks. #[RunTestsInSeparateProcesses] contains
+ * that lock to this class's own process, mirroring MiddlewareAttributeOrderingTest.
  */
+#[\PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses]
 class DispatchMiddlewareDeeperCoverageTest extends TestCase
 {
     private function ctx(): Context { return Context::getInstance(); }

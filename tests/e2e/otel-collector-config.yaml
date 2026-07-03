@@ -1,0 +1,27 @@
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+exporters:
+  # Queryable by the PHPUnit test (bind-mounted to the host) -- one JSON
+  # object per export batch, in the standard OTLP/JSON shape.
+  file:
+    path: /var/log/otel/output.json
+  debug:
+    verbosity: detailed
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [file, debug]
+    metrics:
+      receivers: [otlp]
+      exporters: [file, debug]
+  telemetry:
+    logs:
+      level: info

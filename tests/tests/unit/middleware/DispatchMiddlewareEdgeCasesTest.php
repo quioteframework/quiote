@@ -15,7 +15,15 @@ use Quiote\Controller\Controller;
 /**
  * Edge case coverage for DispatchMiddleware focusing on negative validation paths and 404 descriptor absence.
  * Caching branches remain outside scope and are exercised in dedicated cache tests (currently skipped).
+ *
+ * Run in a separate process: setUp() sets core.environment via a plain
+ * Config::set() (readonly defaults to false), but the first
+ * Context::getInstance()/Quiote::bootstrap() call anywhere in the process
+ * afterward locks core.environment read-only at whatever value it currently
+ * holds -- see DispatchMiddlewareDeeperCoverageTest's docblock for the full
+ * story (this is the same landmine, found and fixed alongside it).
  */
+#[\PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses]
 class DispatchMiddlewareEdgeCasesTest extends TestCase
 {
     private function ctx(): Context { return Context::getInstance(); }

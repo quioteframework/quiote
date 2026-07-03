@@ -328,6 +328,40 @@ class Context implements \Stringable, ResetInterface
     $this->registerCoreService('request', $this->request, Container::SCOPE_REQUEST);
     $this->registerCoreService('storage', $this->storage, Container::SCOPE_REQUEST);
     $this->registerCoreService('user', $this->user, Container::SCOPE_REQUEST);
+    $this->registerTelemetryServicesInContainer();
+  }
+
+  /**
+   * Register the DI-injectable OpenTelemetry provider aliases
+   * (docs/OPENTELEMETRY_PLAN.md, Phase 2). No-op unless telemetry is enabled
+   * AND {@see \Quiote\Telemetry\TelemetryBootstrap} actually built a real
+   * provider — mirrors {@see registerCoreService()}'s "no-op if unavailable"
+   * convention, so `$container->get(TracerProviderInterface::class)` throws
+   * the usual `NotFoundException` rather than resolving to null when
+   * telemetry is off. The container factory reads the same worker-lifetime
+   * singleton {@see \Quiote\Telemetry\TraceRegistry} already holds, so calling
+   * this repeatedly (as this method is, per its own docblock above) never
+   * creates a second provider instance.
+   */
+  private function registerTelemetryServicesInContainer(): void
+  {
+    if (!Config::get('telemetry.enabled', false) || !\Quiote\Telemetry\TraceRegistry::hasRealProvider()) {
+      return;
+    }
+    $container = $this->getContainer();
+    $container->setFactory(
+      \OpenTelemetry\SDK\Trace\TracerProviderInterface::class,
+      fn() => \Quiote\Telemetry\TraceRegistry::tracerProvider(),
+      Container::SCOPE_SINGLETON
+    );
+    $container->alias(\OpenTelemetry\API\Trace\TracerProviderInterface::class, \OpenTelemetry\SDK\Trace\TracerProviderInterface::class);
+
+    $container->setFactory(
+      \OpenTelemetry\SDK\Metrics\MeterProviderInterface::class,
+      fn() => \Quiote\Telemetry\TraceRegistry::meterProvider(),
+      Container::SCOPE_SINGLETON
+    );
+    $container->alias(\OpenTelemetry\API\Metrics\MeterProviderInterface::class, \OpenTelemetry\SDK\Metrics\MeterProviderInterface::class);
   }
 
   /**
