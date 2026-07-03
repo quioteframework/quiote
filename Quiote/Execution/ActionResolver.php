@@ -26,18 +26,9 @@ class ActionResolver
         $canonical = 'execute' . ucfirst(strtolower($requestMethod));
         if($canonical !== end($candidates)) { $candidates[] = $canonical; }
         
-        // Add semantic mapping for backward compatibility: GET -> Read, POST -> Write
-        $semanticMapping = [
-            'GET' => 'Read',
-            'POST' => 'Write',
-            'PUT' => 'Write',
-            'PATCH' => 'Write',
-            'DELETE' => 'Write'
-        ];
-        $upperMethod = strtoupper($requestMethod);
-        if (isset($semanticMapping[$upperMethod])) {
-            $candidates[] = 'execute' . $semanticMapping[$upperMethod];
-        }
+        // Semantic mapping driven by HttpMethodMapper so both call sites agree
+        // (GET -> Read, POST/PUT -> Write, PATCH -> Update, DELETE -> Remove).
+        $candidates[] = 'execute' . ucfirst(HttpMethodMapper::toActionMethod($requestMethod));
         
         foreach($candidates as $methodName) {
             if(is_callable([$action, $methodName])) {
