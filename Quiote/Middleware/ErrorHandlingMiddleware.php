@@ -12,6 +12,8 @@ use Quiote\Exception\Rendering\SafeRenderer;
 use Quiote\Exception\Rendering\WhoopsRenderer;
 use Throwable;
 use Quiote\Config\Config;
+use Quiote\Event\Events;
+use Quiote\Event\Lifecycle\ExceptionCaughtEvent;
 use Symfony\Component\Routing\Exception\MethodNotAllowedException;
 
 /**
@@ -79,6 +81,8 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
      */
     public function renderExceptionResponse(ServerRequestInterface $request, Throwable $e): ResponseInterface
     {
+        Events::emit(new ExceptionCaughtEvent($e, $request));
+
         if ($this->logger && \Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
             try {
                 ($this->logger)($e, $request);
