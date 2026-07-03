@@ -66,15 +66,24 @@ final class AdminRoutes {
     'cut' => false,
     'path' => '/admin/company/{company_id}/stats',
 ];
-        // DEBUG: name=admin.reports raw_path=/admin/reports/{year:\\d{4}}? gen=/admin/reports/{year:\\d{4}}? module=Admin action=Index.Reports
-        $routes->add('admin.reports', new Route('/admin/reports/{year:\\d{4}}?', [
+        // DEBUG: name=admin.reports raw_path=/admin/reports/{year} gen=/admin/reports/{year} module=Admin action=Index.Reports
+        // NOTE: originally generated as the invalid, unconverted inline capture
+        // "{year:\d{4}}?" -- "{name:regex}" was never valid Symfony route syntax
+        // (only "{name}" plus a separate requirement is), and the inner "\d{4}"
+        // quantifier's own braces broke UrlMatcher's compilation outright. Hand-fixed
+        // to a placeholder + requirement, with a default so the trailing segment
+        // stays optional (matches both "/admin/reports" and "/admin/reports/2024").
+        $routes->add('admin.reports', new Route('/admin/reports/{year}', [
     '_module' => 'Admin',
     '_action' => 'Index.Reports',
-], []));
+    'year' => '',
+], [
+    'year' => '\\d{4}',
+]));
         $meta['admin.reports'] = [
-    'gen_path' => '/admin/reports/{year:\\d{4}}?',
+    'gen_path' => '/admin/reports/{year}',
     'cut' => false,
-    'path' => '/admin/reports/{year:\\d{4}}?',
+    'path' => '/admin/reports/{year}',
 ];
     }
 }

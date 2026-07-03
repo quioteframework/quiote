@@ -51,12 +51,26 @@ final class ActionExecutor
      * Build an WebRequest (preferred) from a PSR-7 ServerRequest.
      * Merges query + parsed body (body wins) into runtime parameters and carries over route attributes.
      * (Deprecated) Older call sites expecting RequestDataHolder should be updated to use the returned WebRequest directly.
+     *
+     * @param ?\Quiote\Context $context The Context actually handling this request (e.g.
+     *        `$this->controller->getContext()` from a middleware that has a Controller).
+     *        Its existing canonical WebRequest is reused when present (avoids rebuilding
+     *        one already created earlier in the same request's pipeline). Previously this
+     *        always reused `Context::getInstance('web')`'s request regardless of which
+     *        context was actually dispatching -- harmless for single-context apps, but for
+     *        any app using more than one named Context, every dispatch after "web" had
+     *        handled its first request would silently reuse "web"'s stale WebRequest (wrong
+     *        parameter whitelist, wrong prior values) instead of the current request's own.
+     *        Omitting $context always builds a fresh WebRequest from $psr -- correct, if
+     *        slightly less optimized, rather than guessing a context that might be wrong.
      */
-    public static function buildRequestDataFromPsr(ServerRequestInterface $psr): WebRequest
+    public static function buildRequestDataFromPsr(ServerRequestInterface $psr, ?\Quiote\Context $context = null): WebRequest
     {
-    // Reuse context request if available; otherwise create WebRequest from the PSR-7 request
+    // Reuse the current context's own request if available; otherwise create WebRequest from the PSR-7 request
     $web = null;
-    try { $web = \Quiote\Quiote::context('web', true)?->getRequest(); } catch(\Throwable) { $web = null; }
+    if ($context !== null) {
+        try { $web = $context->getRequest(); } catch (\Throwable) { $web = null; }
+    }
     if (!($web instanceof WebRequest)) {
         // Create WebRequest from PSR-7 request (WebRequest extends ServerRequest)
         try {

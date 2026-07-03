@@ -127,8 +127,12 @@ class Context implements \Stringable, ResetInterface
    * @var        array TranslationManager factory info for worker mode recreation (prevent dynamic property creation)
    */
   protected $translationManagerFactoryInfo = null;
-  /** @var \Quiote\Middleware\MiddlewarePipeline|null */
-  protected static $psrKernel = null;
+  /**
+   * @var        \Quiote\Middleware\MiddlewarePipeline|null Per-instance (not shared across
+   *             named Context profiles -- see handle()); safe for worker reuse across requests
+   *             within the lifetime of this specific Context instance.
+   */
+  protected $psrKernel = null;
 
   /** @var \Quiote\Execution\SlotDispatcher|null */
   protected $slotDispatcher = null;
@@ -633,8 +637,8 @@ class Context implements \Stringable, ResetInterface
 
   public function handle(ServerRequestInterface $request): ResponseInterface
   {
-    if (self::$psrKernel === null) {
-      self::$psrKernel = new \Quiote\Middleware\MiddlewarePipeline($this);
+    if ($this->psrKernel === null) {
+      $this->psrKernel = new \Quiote\Middleware\MiddlewarePipeline($this);
     }
     // Adopt an inbound correlation ID from the configured header (e.g. an
     // upstream gateway / distributed-tracing correlation id) when present and
@@ -670,7 +674,7 @@ class Context implements \Stringable, ResetInterface
 
     // Propagate correlation ID so middleware can use it without re-generating (avoids redundant random_bytes()).
     $request = $request->withAttribute("quiote.rid", $this->correlationId);
-    $response = self::$psrKernel->handle($request);
+    $response = $this->psrKernel->handle($request);
 
     // Echo the correlation ID back so a caller/gateway can tie its request to
     // our logs/traces (unless disabled). Only add it if the response doesn't

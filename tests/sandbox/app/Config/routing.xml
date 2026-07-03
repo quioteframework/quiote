@@ -79,7 +79,20 @@
 			<route name="test_ticket_444_sample2" pattern="^/test_ticket_444_sample2/(name:[^/]+)" module="Blog">
 				<route name=".index" pattern="^/$" action="Index" />
 				<route name=".entry" pattern="^/(id:\d+).html$" action="Entry" />
-				<route name=".archive" pattern="^/({year:20\d{2}})/({month:\d{2}/})?({day:\d{2}/})?" action="Archive">
+				<!--
+					This file is historical documentation only: nothing parses routing.xml at
+					runtime; the actual routes live in the committed
+					Routing/Generated/Modules/BlogRoutes.php, produced by a one-time
+					generate_symfony_routes.php script that no longer exists in this repo.
+					That script left this route's inline "{year:20\d{2}}"-style capture syntax
+					unconverted (the "\d{2}" quantifier's own braces broke its brace-matching),
+					producing invalid Symfony route syntax that crashed UrlMatcher on any real
+					dispatch. Hand-fixed in both this file and BlogRoutes.php: "\d{2}" -> "\d\d"
+					here (an equivalent regex without inner braces, so the legacy inline capture
+					style stays readable/consistent with its siblings above); BlogRoutes.php
+					carries the actual modern placeholder + requirements + defaults equivalent.
+				-->
+				<route name=".archive" pattern="^/({year:20\d\d})/({month:\d\d/})?({day:\d\d/})?" action="Archive">
 					<default for="year">2007</default>
 					<default for="month">{1}/</default>
 					<default for="day">{1}/</default>
@@ -154,7 +167,13 @@
 				<route name=".companies.view" pattern="^/company/(company_id:\d+)$" action=".Company" />
 				<route name=".company.edit" pattern="^/company/(company_id:\d+)/edit$" action=".CompanyEdit" />
 				<route name=".company.stats" pattern="^/company/(company_id:\d+)/stats$" action=".CompanyStats" />
-				<route name=".reports" pattern="^/reports(/{year:\d{4}})?$" action=".Reports" />
+				<!--
+					"{year:\d{4}}" was never valid Symfony route syntax (only "{name}" plus a
+					separate requirement is), and it broke UrlMatcher compilation outright.
+					See Routing/Generated/Modules/AdminRoutes.php (not this file, which nothing
+					parses at runtime) for the hand-fixed placeholder + requirement equivalent.
+				-->
+				<route name=".reports" pattern="^/reports(/{year:\d\d\d\d})?$" action=".Reports" />
 			</route>
 
 			<route name="files" pattern="^files" module="File" action="Index">

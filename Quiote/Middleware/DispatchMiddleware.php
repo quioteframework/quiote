@@ -326,7 +326,7 @@ class DispatchMiddleware implements MiddlewareInterface
     private function processSimple(ServerRequestInterface $request, ActionDescriptor $actionDesc): ResponseInterface
     {
 
-        $webRequest = ActionExecutor::buildRequestDataFromPsr($request);
+        $webRequest = ActionExecutor::buildRequestDataFromPsr($request, $this->controller->getContext());
         // Reuse existing ExecutionState if provided so prior middleware decisions (e.g., security) persist.
         $execState = $request->getAttribute(ExecutionState::class);
         if (!$execState) {
@@ -467,7 +467,7 @@ class DispatchMiddleware implements MiddlewareInterface
                 // Build or synthesize an WebRequest for cache replay; fall back to a fresh instance if canonical not available.
                 $webReq = null;
                 try {
-                    $webReq = ActionExecutor::buildRequestDataFromPsr($request);
+                    $webReq = ActionExecutor::buildRequestDataFromPsr($request, $this->controller->getContext());
                 } catch (\Throwable) {
                     try { $webReq = new \Quiote\Request\WebRequest(); } catch (\Throwable) { $webReq = null; }
                 }

@@ -74,7 +74,7 @@ class FormPopulationMiddleware implements MiddlewareInterface
         $rd = $request->getAttribute('quiote.request_data');
         if (!$rd instanceof WebRequest) {
             try {
-                $rd = \Quiote\Quiote::context('web', true)?->getRequest();
+                $rd = $this->controller->getContext()->getRequest();
             } catch (\Throwable) {
                 $rd = null;
             }

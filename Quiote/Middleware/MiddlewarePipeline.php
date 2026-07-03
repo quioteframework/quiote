@@ -115,7 +115,7 @@ class MiddlewarePipeline implements RequestHandlerInterface
                 CsrfInjectionMiddleware::class => fn() => new CsrfInjectionMiddleware($controller),
                 CsrfValidationMiddleware::class => fn() => new CsrfValidationMiddleware($controller),
                 SecurityMiddleware::class => fn() => new SecurityMiddleware($controller),
-                ValidationMiddleware::class => fn() => new ValidationMiddleware(),
+                ValidationMiddleware::class => fn() => new ValidationMiddleware($controller),
                 SlotMiddleware::class => fn() => new SlotMiddleware($this->context),
                 DispatchMiddleware::class => fn() => new DispatchMiddleware($controller),
                 AssetAggregationMiddleware::class => fn() => new AssetAggregationMiddleware(),
