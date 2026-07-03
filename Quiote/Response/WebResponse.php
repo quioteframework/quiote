@@ -1007,7 +1007,7 @@ class WebResponse extends Response
 		}
 
 		if($this->getParameter('expose_quiote', true) && !$this->hasHttpHeader('X-Powered-By')) {
-			if(Config::get('expose_quiote_version', $expose_php = ini_get('expose_php'))) {
+			if(Config::get('core.expose_quiote_version', $expose_php = ini_get('expose_php'))) {
 				$xpbh = Config::get('quiote.release');
 			} else {
 				$xpbh = Config::get('quiote.name');

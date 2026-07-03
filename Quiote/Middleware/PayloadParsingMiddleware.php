@@ -15,7 +15,7 @@ use Nyholm\Psr7\Factory\Psr17Factory;
  * Responsibilities:
  *  - Parse JSON (application/json, +json types) strict by default; 400 on invalid unless QUIOTE_JSON_STRICT=0
  *  - Parse application/x-www-form-urlencoded (if not already parsed)
- *  - Preserve existing JsonBodyParsingMiddleware (temporary) by not re-parsing if parsedBody already set
+ *  - Skip re-parsing if the parsed body is already set (e.g. by an earlier middleware)
  * Order: should run before routing and after tracing.
  */
 #[\Quiote\Middleware\Attribute\Middleware(phase: 'bootstrap', after: 'TraceMiddleware', before: 'RoutingMiddleware', priority: 70)]

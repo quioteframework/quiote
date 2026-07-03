@@ -52,6 +52,74 @@ class WebResponseTest extends UnitTestCase
 		$this->assertEquals('content', $content);
 	}
 
+	public function testExposeQuioteVersionReadsCorePrefixedKey()
+	{
+		$wasSet = \Quiote\Config\Config::has('core.expose_quiote_version');
+		$original = \Quiote\Config\Config::get('core.expose_quiote_version');
+		try {
+			\Quiote\Config\Config::set('core.expose_quiote_version', true);
+			$r = $this->_r;
+			$r->setContent('content');
+			ob_start();
+			try {
+				$r->send();
+			} catch (\Exception) {
+				// discard exception about headers already sent
+			}
+			ob_end_clean();
+
+			$expected = \Quiote\Config\Config::get('quiote.release');
+			if (ini_get('expose_php')) {
+				$expected .= ' on PHP/' . PHP_VERSION;
+			}
+			$this->assertSame(
+				[$expected],
+				$r->getHttpHeader('X-Powered-By'),
+				'core.expose_quiote_version=true should expose the release string'
+			);
+		} finally {
+			if ($wasSet) {
+				\Quiote\Config\Config::set('core.expose_quiote_version', $original);
+			} else {
+				\Quiote\Config\Config::remove('core.expose_quiote_version');
+			}
+		}
+	}
+
+	public function testExposeQuioteVersionFalseHidesVersion()
+	{
+		$wasSet = \Quiote\Config\Config::has('core.expose_quiote_version');
+		$original = \Quiote\Config\Config::get('core.expose_quiote_version');
+		try {
+			\Quiote\Config\Config::set('core.expose_quiote_version', false);
+			$r = $this->_r;
+			$r->setContent('content');
+			ob_start();
+			try {
+				$r->send();
+			} catch (\Exception) {
+				// discard exception about headers already sent
+			}
+			ob_end_clean();
+
+			$expected = \Quiote\Config\Config::get('quiote.name');
+			if (ini_get('expose_php')) {
+				$expected .= ' on PHP/' . PHP_VERSION;
+			}
+			$this->assertSame(
+				[$expected],
+				$r->getHttpHeader('X-Powered-By'),
+				'core.expose_quiote_version=false should expose only the product name'
+			);
+		} finally {
+			if ($wasSet) {
+				\Quiote\Config\Config::set('core.expose_quiote_version', $original);
+			} else {
+				\Quiote\Config\Config::remove('core.expose_quiote_version');
+			}
+		}
+	}
+
 	public function testClear()
 	{
 		$r = $this->_r;
