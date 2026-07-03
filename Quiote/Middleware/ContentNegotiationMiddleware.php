@@ -22,7 +22,13 @@ class ContentNegotiationMiddleware implements MiddlewareInterface
 {
     private ?string $defaultFormat = 'html';
 
-    public function __construct(private readonly Controller $controller) {}
+    /** Stateless negotiator; built once per worker instead of per request. */
+    private readonly Negotiator $negotiator;
+
+    public function __construct(private readonly Controller $controller)
+    {
+        $this->negotiator = new Negotiator();
+    }
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
@@ -81,7 +87,15 @@ class ContentNegotiationMiddleware implements MiddlewareInterface
             return [];
         }
         $accept = $request->getHeaderLine('Accept');
-        $mime = $this->negotiateHeader($accept, new Negotiator(), MimeTypeRegistry::allMimeTypes());
+        // Fast path: browsers overwhelmingly lead with "text/html" or "*/*",
+        // both of which resolve to html (html is the first negotiable type, so
+        // it wins wildcard/tie requests anyway). Skip the negotiator entirely
+        // for that dominant case.
+        $firstType = strtolower(trim(strtok($accept, ',;') ?: ''));
+        if ($firstType === '' || $firstType === 'text/html' || $firstType === '*/*') {
+            return ['html'];
+        }
+        $mime = $this->negotiateHeader($accept, $this->negotiator, MimeTypeRegistry::negotiableMimeTypes());
         if ($dbg) { \Quiote\Logging\Log::for($this)->debug('[ContentNegotiationMiddleware] got ' . ($mime ?? 'null')); }
         return $mime !== null ? MimeTypeRegistry::formatsForMime($mime) : [];
     }

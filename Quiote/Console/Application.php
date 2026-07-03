@@ -2,6 +2,7 @@
 namespace Quiote\Console;
 
 use Quiote\Console\Command\AboutCommand;
+use Quiote\Console\Command\CacheWarmupCommand;
 use Quiote\Console\Command\NewCommand;
 use Quiote\Console\Command\RoutesListCommand;
 use Symfony\Component\Console\Application as SymfonyApplication;
@@ -22,6 +23,7 @@ final class Application extends SymfonyApplication
 		$this->addCommand(new NewCommand());
 		$this->addCommand(new AboutCommand());
 		$this->addCommand(new RoutesListCommand());
+		$this->addCommand(new CacheWarmupCommand());
 	}
 
 	private static function version(): string

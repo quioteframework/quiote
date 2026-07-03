@@ -24,7 +24,13 @@ use Quiote\Request\WebRequest;
 #[\Quiote\Middleware\Attribute\Middleware(phase: 'before_action', priority: 20, after: 'SecurityMiddleware', before: 'DispatchMiddleware')]
 class ValidationMiddleware implements MiddlewareInterface
 {
-    public function __construct(private ?\Quiote\Controller\Controller $controller = null) {}
+    /** Stateless; built once per worker instead of per request. */
+    private readonly ValidationService $validationService;
+
+    public function __construct(private ?\Quiote\Controller\Controller $controller = null)
+    {
+        $this->validationService = new ValidationService();
+    }
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
@@ -120,9 +126,19 @@ class ValidationMiddleware implements MiddlewareInterface
         if (!($webRequest instanceof WebRequest)) {
             throw new \RuntimeException('Canonical WebRequest missing in ValidationMiddleware (must be initialized earlier).');
         }
-        
+
+        // Simple actions declare no validators, so none of the validation
+        // machinery below applies to them. The full pipeline-request overlay
+        // (method/uri/query/body + every attribute, several immutable clones per
+        // request) is redundant for them: the canonical WebRequest is already
+        // populated from the request, and ActionExecutor::buildRequestDataFromPsr
+        // re-applies query/body downstream. Skip the overlay for simple actions,
+        // but still run route-param promotion below — that is the ONLY
+        // pre-execution source of path params like /user/{id}.
+        $isSimple = $action && method_exists($action, 'isSimple') && $action->isSimple();
+
         // If the request changed in the pipeline, sync it back to context.
-        if ($request !== $webRequest) {
+        if (!$isSimple && $request !== $webRequest) {
             if ($request instanceof WebRequest) {
                 // Already an WebRequest (e.g. a with*() clone) — use it directly.
                 $this->controller->getContext()->setRequest($request);
@@ -191,6 +207,18 @@ class ValidationMiddleware implements MiddlewareInterface
             // ignore promotion errors – validation will proceed without route params if something unexpected happens
         }
 
+        // Simple actions have nothing to validate: record a passed decision and
+        // hand straight to dispatch, skipping xmlOnlyValidate, the manual
+        // validate*/validate hooks, the post-validation re-fetch, and the
+        // strict parameter-clear. Route params were already promoted above.
+        if ($isSimple) {
+            $execState->validationDecision = ValidationDecision::passed();
+            $request = $request
+                ->withAttribute(ExecutionState::class, $execState)
+                ->withAttribute('quiote.request_data', $webRequest);
+            return $handler->handle($request);
+        }
+
         if ($vd) {
             \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleare] Already validated?');
         }
@@ -210,7 +238,7 @@ class ValidationMiddleware implements MiddlewareInterface
         $ok = true;
         $hasXml = false;
         $errors = [];
-        $vs = new ValidationService();
+        $vs = $this->validationService;
         try {
             if ($action && method_exists($action, 'isSimple') && $action->isSimple()) {
                 $ok = true; // simple actions bypass validation

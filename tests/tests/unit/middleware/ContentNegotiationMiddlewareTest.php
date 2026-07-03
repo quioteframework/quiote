@@ -72,4 +72,33 @@ class ContentNegotiationMiddlewareTest extends TestCase
 	$handled = $this->negotiate($mw,$req);
         $this->assertSame('html',$handled->getAttribute('output_type'));
     }
+
+    public function testBrowserAcceptFastPathsToHtml(): void
+    {
+        // Typical browser Accept -- leads with text/html; the fast path resolves
+        // straight to html without invoking the negotiator.
+        $mw = new ContentNegotiationMiddleware($this->controller());
+        $req = (new ServerRequest('GET','/foo'))->withHeader('Accept','text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8');
+        $handled = $this->negotiate($mw,$req);
+        $this->assertSame('html',$handled->getAttribute('output_type'));
+    }
+
+    public function testAssetAcceptNegotiatesToHtmlNotAnAssetFormat(): void
+    {
+        // A request whose Accept only names asset types negotiates against the
+        // narrowed action-output set (no image/font/video), so it resolves to
+        // the wildcard default (html) rather than an output type no action emits.
+        $mw = new ContentNegotiationMiddleware($this->controller());
+        $req = (new ServerRequest('GET','/foo'))->withHeader('Accept','image/png,image/webp,*/*');
+        $handled = $this->negotiate($mw,$req);
+        $this->assertSame('html',$handled->getAttribute('output_type'));
+    }
+
+    public function testExplicitJsonStillNegotiatesViaNarrowedSet(): void
+    {
+        $mw = new ContentNegotiationMiddleware($this->controller());
+        $req = (new ServerRequest('GET','/foo'))->withHeader('Accept','application/json');
+        $handled = $this->negotiate($mw,$req);
+        $this->assertSame('json',$handled->getAttribute('output_type'));
+    }
 }

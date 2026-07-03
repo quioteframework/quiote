@@ -44,6 +44,14 @@ class Container implements ContainerInterface
      */
     private array $reflectionCache = [];
 
+    /**
+     * Per-class instantiation plan (constructor params + #[Required] methods),
+     * computed once per process. See classPlan(). Immutable class metadata, so
+     * FrankenPHP-worker safe like reflectionCache.
+     * @var array<string, array{ctorParams: \ReflectionParameter[]|null, required: array<array{method: \ReflectionMethod, params: \ReflectionParameter[]}>}>
+     */
+    private array $planCache = [];
+
     public function set(string $id, mixed $concrete, string $scope = self::SCOPE_SINGLETON, array $params = []): void
     {
         $this->definitions[$id] = ['concrete' => $concrete, 'scope' => $scope, 'params' => $params];
@@ -202,12 +210,13 @@ class Container implements ContainerInterface
     private function autoWire(string $class, array $params, ?string $requestedId = null, ?\ReflectionClass $rc = null): object
     {
         $rc ??= $this->getReflectionClass($class);
-        $ctor = $rc->getConstructor();
-        if (!$ctor) {
+        $plan = $this->classPlan($class, $rc);
+
+        if ($plan['ctorParams'] === null) {
             $obj = new $class();
         } else {
             $args = [];
-            foreach ($ctor->getParameters() as $p) {
+            foreach ($plan['ctorParams'] as $p) {
                 $args[] = $this->resolveParamValue($p, $params, $class, $requestedId);
             }
             try {
@@ -216,8 +225,49 @@ class Container implements ContainerInterface
                 throw new ContainerException("Failed constructing '$class': " . $e->getMessage(), 0, $e);
             }
         }
-        $this->invokeRequiredMethods($rc, $obj, $class);
+        // #[Required] setter/method injection (usually none — plan caches an empty list).
+        foreach ($plan['required'] as $req) {
+            $args = [];
+            foreach ($req['params'] as $p) {
+                $args[] = $this->resolveParamValue($p, [], $class, null);
+            }
+            $req['method']->invoke($obj, ...$args);
+        }
         return $obj;
+    }
+
+    /**
+     * Immutable per-class instantiation plan, computed once per process (class
+     * metadata never changes at runtime, so this is FrankenPHP-worker safe like
+     * reflectionCache). Caches the constructor's parameter list (or null when
+     * the class has no constructor) and the list of #[Required] methods to call
+     * after construction, with each method's parameters. This hoists the
+     * getConstructor()/getParameters() calls and — the real per-request win —
+     * the getMethods(IS_PUBLIC) + getAttributes(Required::class) scan that
+     * previously ran on every make()/autowire (i.e. every action instantiation
+     * per request). The #[Required] guard is evaluated here, once, instead of
+     * on every invocation.
+     *
+     * @return array{ctorParams: \ReflectionParameter[]|null, required: array<array{method: \ReflectionMethod, params: \ReflectionParameter[]}>}
+     */
+    private function classPlan(string $class, \ReflectionClass $rc): array
+    {
+        if (isset($this->planCache[$class])) {
+            return $this->planCache[$class];
+        }
+        $ctor = $rc->getConstructor();
+        $required = [];
+        foreach ($rc->getMethods(\ReflectionMethod::IS_PUBLIC) as $method) {
+            if ($method->isStatic() || !$method->getAttributes(Required::class)) {
+                continue;
+            }
+            $this->guardRequiredMethod($method, $class);
+            $required[] = ['method' => $method, 'params' => $method->getParameters()];
+        }
+        return $this->planCache[$class] = [
+            'ctorParams' => $ctor ? $ctor->getParameters() : null,
+            'required' => $required,
+        ];
     }
 
     /**
@@ -262,27 +312,6 @@ class Container implements ContainerInterface
             return $p->getDefaultValue();
         }
         throw new ContainerException("Cannot autowire '$class': untyped parameter $" . $name . " without default (requested as '$requestedId')");
-    }
-
-    /**
-     * After construction, calls every #[Required]-marked method with container-autowired
-     * args — optional setter/method injection for cross-cutting deps (e.g. a logger) that
-     * shouldn't clutter every constructor (same mechanism Symfony uses for
-     * AbstractController::setContainer()).
-     */
-    private function invokeRequiredMethods(\ReflectionClass $rc, object $obj, string $class): void
-    {
-        foreach ($rc->getMethods(\ReflectionMethod::IS_PUBLIC) as $method) {
-            if ($method->isStatic() || !$method->getAttributes(Required::class)) {
-                continue;
-            }
-            $this->guardRequiredMethod($method, $class);
-            $args = [];
-            foreach ($method->getParameters() as $p) {
-                $args[] = $this->resolveParamValue($p, [], $class, null);
-            }
-            $method->invoke($obj, ...$args);
-        }
     }
 
     /**

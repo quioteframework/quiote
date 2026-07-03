@@ -485,24 +485,32 @@ class APCuConfigCache extends ConfigCache
     /**
      * Get default configuration files to warm up in the same order as original Quiote loading
      */
-    private static function getDefaultConfigs(): array
+    /**
+     * The core config files, in dependency order, that a cold worker will load.
+     * Public so the `cache:warmup` command can compile the same set into the
+     * on-disk cache for the non-APCu backend (single source of truth).
+     */
+    public static function getDefaultConfigs(): array
     {
         return [
             // Bootstrap phase (from Quiote.php) - these get cached after first load
             'settings.xml',      // First - establishes core settings
-            'compile.xml',       // Second - defines compilation settings
-            
+
             // Context initialization phase (from Context::initialize)
-            'factories.xml',     // Third - creates factories including session storage
-            
-            // Controller initialization phase (from Controller::initialize)  
-            'output_types.xml',  // Fourth - defines output types
-            
+            'factories.xml',     // Creates factories including session storage
+
+            // Controller initialization phase (from Controller::initialize)
+            'output_types.xml',  // Defines output types
+
             // Runtime phase (loaded during execution as needed)
-            'routing.xml',       // Routing configuration
             'databases.xml',     // Database configuration (loaded by DatabaseManager)
             'translation.xml',   // Translation configuration
             'config_handlers.xml' // Config handlers
+            // NOTE: compile.xml (dormant -- aggregation removed, see Quiote.php)
+            // and routing.xml (no ConfigCache handler in this repo; routing is
+            // the Routing class's job, and warmup() handles route data via
+            // warmupRouting()) are intentionally omitted -- neither is loadable
+            // through the config cache, so warming them only produced errors.
         ];
     }
     
