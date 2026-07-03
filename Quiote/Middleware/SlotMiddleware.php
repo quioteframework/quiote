@@ -12,7 +12,7 @@ use Quiote\Execution\SlotStack;
  * SlotMiddleware: establishes a SlotStack in request attributes for nested slot/sub-action rendering.
  * Later stages (DispatchMiddleware or a future SlotDispatcher) can push/pop keys as they perform slot executions.
  */
-#[\Quiote\Middleware\Attribute\Middleware(phase: 'pre_routing', before: 'RoutingMiddleware')]
+#[\Quiote\Middleware\Attribute\Middleware(phase: 'before_action', priority: 10)]
 class SlotMiddleware implements MiddlewareInterface
 {
     public const ATTR = SlotStack::class;

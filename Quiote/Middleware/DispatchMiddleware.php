@@ -31,7 +31,7 @@ use Quiote\Execution\ValidationDecision;
  * the container-less ActionExecutor (simple and non-simple). Caching operates solely on
  * executor output; no legacy container response objects are produced anymore.
  */
-#[\Quiote\Middleware\Attribute\Middleware(phase: 'action', after: 'SecurityMiddleware')]
+#[\Quiote\Middleware\Attribute\Middleware(phase: 'action')]
 class DispatchMiddleware implements MiddlewareInterface
 {
     private ?ActionExecutor $actionExecutor = null;

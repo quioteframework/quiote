@@ -11,6 +11,7 @@ use Psr\Http\Message\ResponseInterface as PsrResponse;
  * Collects legacy appended attributes like 'css' and 'js' from the Request
  * (when using adapter) and exposes them as PSR request attributes `assets.css` and `assets.js`.
  */
+#[\Quiote\Middleware\Attribute\Middleware(phase: 'after_action')]
 class AssetAggregationMiddleware implements MiddlewareInterface
 {
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface

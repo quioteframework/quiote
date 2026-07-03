@@ -32,7 +32,7 @@ use Psr\Http\Server\RequestHandlerInterface;
  * for any other reason can add `_csrf => false`.
  * Runs after PayloadParsingMiddleware (so the body is parsed) and
  * RoutingMiddleware (so route opt-out is known), before DispatchMiddleware. */
-#[\Quiote\Middleware\Attribute\Middleware(phase: 'pre', priority: 40, after: 'RoutingMiddleware', before: 'DispatchMiddleware')]
+#[\Quiote\Middleware\Attribute\Middleware(phase: 'before_action', priority: 40, after: 'RoutingMiddleware', before: 'DispatchMiddleware')]
 class CsrfValidationMiddleware implements MiddlewareInterface
 {
     public function __construct(private readonly Controller $controller)

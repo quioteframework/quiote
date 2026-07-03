@@ -31,6 +31,14 @@ class MiddlewareCatalog
     /** @var (callable(Context): list<\Psr\Http\Server\MiddlewareInterface>)|null */
     private static $coreStackFactory = null;
 
+    /**
+     * FQCNs of app middleware to include in `#[Middleware]` attribute
+     * scanning, in addition to the framework's own core classes. Populated
+     * via {@see registerAttributed()}.
+     * @var array<string,true>
+     */
+    private static array $attributedCandidates = [];
+
     /** Initialize the catalog (idempotent overwrite). */
     public static function initialize(array $map): void
     {
@@ -41,6 +49,33 @@ class MiddlewareCatalog
     public static function isEnabled(string $fqcn): bool
     {
         return self::$enabledMap[$fqcn] ?? true;
+    }
+
+    /** Whether $fqcn has an explicit enabled/disabled entry from <middleware_config>. */
+    public static function hasOverride(string $fqcn): bool
+    {
+        return array_key_exists($fqcn, self::$enabledMap);
+    }
+
+    /**
+     * Register an app middleware class as a candidate for `#[Middleware]`
+     * attribute scanning. Unlike {@see register()}, no factory or explicit
+     * before/after/priority is needed here — the class must carry a
+     * `#[Middleware(...)]` attribute describing its own placement, and it is
+     * resolved through the DI container when the pipeline builds. If the
+     * same FQCN is also passed to {@see register()}, register() wins (see
+     * docs/MIDDLEWARE_ATTRIBUTE_REGISTRATION_PLAN.md) and this candidate
+     * entry is ignored.
+     */
+    public static function registerAttributed(string $fqcn): void
+    {
+        self::$attributedCandidates[$fqcn] = true;
+    }
+
+    /** @return string[] FQCNs registered via {@see registerAttributed()}. */
+    public static function getAttributedCandidates(): array
+    {
+        return array_keys(self::$attributedCandidates);
     }
 
     /** Raw map mainly for tests. */
@@ -79,6 +114,7 @@ class MiddlewareCatalog
     {
         self::$registered = [];
         self::$coreStackFactory = null;
+        self::$attributedCandidates = [];
     }
 
     /**

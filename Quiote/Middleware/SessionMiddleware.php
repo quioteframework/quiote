@@ -12,7 +12,7 @@ use Quiote\Execution\ExecutionState;
 /**
  * SessionMiddleware: ensures session storage is started and ExecutionState present before security.
  */
-#[\Quiote\Middleware\Attribute\Middleware(phase: 'before_action', after: 'RoutingMiddleware', before: 'SecurityMiddleware')]
+#[\Quiote\Middleware\Attribute\Middleware(phase: 'bootstrap', priority: 900)]
 class SessionMiddleware implements MiddlewareInterface
 {
     public function __construct(private readonly Controller $controller) {}

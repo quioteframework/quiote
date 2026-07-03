@@ -19,6 +19,7 @@ use Symfony\Component\Routing\Exception\MethodNotAllowedException;
  * produces a generic 500 (or mapped) response. Minimal for Phase 2; can be
  * extended to perform content negotiation (HTML/JSON) and structured logging.
  */
+#[\Quiote\Middleware\Attribute\Middleware(phase: 'bootstrap', priority: 1000)]
 class ErrorHandlingMiddleware implements MiddlewareInterface
 {
     /** @var callable|null */

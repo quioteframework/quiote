@@ -21,7 +21,7 @@ use Quiote\Request\WebRequest;
  * Executes validation early (before action execution) and enforces strict access to validated params only.
  * If validation fails, converts flow to handleError view resolution path similar to legacy performValidation().
  */
-#[\Quiote\Middleware\Attribute\Middleware(phase: 'before_action', after: 'SecurityMiddleware', before: 'DispatchMiddleware')]
+#[\Quiote\Middleware\Attribute\Middleware(phase: 'before_action', priority: 20, after: 'SecurityMiddleware', before: 'DispatchMiddleware')]
 class ValidationMiddleware implements MiddlewareInterface
 {
     public function __construct(private ?\Quiote\Controller\Controller $controller = null) {}

@@ -20,7 +20,7 @@ use Quiote\Execution\ValidationDecision;
  * Security middleware: evaluates action security requirements and forwards
  * unauthenticated/unauthorized requests to login/secure system actions.
  */
-#[\Quiote\Middleware\Attribute\Middleware(phase: 'before_action', after: 'RoutingMiddleware')]
+#[\Quiote\Middleware\Attribute\Middleware(phase: 'before_action', priority: 30, after: 'RoutingMiddleware')]
 class SecurityMiddleware implements MiddlewareInterface
 {
     private ?ForwardService $forwardService = null;

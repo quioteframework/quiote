@@ -6,6 +6,9 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Quiote\Context;
+use Quiote\Middleware\Compiler\MiddlewareAttributeScanner;
+use Quiote\Middleware\Compiler\MiddlewareOrderResolver;
+use Quiote\Support\Compiler\Diagnostic;
 use Relay\Relay;
 
 /**
@@ -73,38 +76,77 @@ class MiddlewarePipeline implements RequestHandlerInterface
                 $this->debugStack[] = $label;
             };
 
-            $construct(ErrorHandlingMiddleware::class, fn() => new ErrorHandlingMiddleware(function (\Throwable $e, ServerRequestInterface $r) use ($context): void {
-                $first = $e->getFile() . ':' . $e->getLine();
-                $snippet = substr(str_replace("\n", ' | ', $e->getTraceAsString()), 0, 500);
-                \Quiote\Logging\Log::for($this)->error('[MiddlewarePipeline] ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $first . ' trace=' . $snippet);
-            }));
+            // CSRF: injection wraps the response (positioned early so it post-processes
+            // the final HTML on the way back out), validation short-circuits unsafe
+            // requests with a bad/missing token before the action runs. Behavior is
+            // gated at runtime by core.csrf.enabled.
+            $factories = [
+                ErrorHandlingMiddleware::class => fn() => new ErrorHandlingMiddleware(function (\Throwable $e, ServerRequestInterface $r) use ($context): void {
+                    $first = $e->getFile() . ':' . $e->getLine();
+                    $snippet = substr(str_replace("\n", ' | ', $e->getTraceAsString()), 0, 500);
+                    \Quiote\Logging\Log::for($this)->error('[MiddlewarePipeline] ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $first . ' trace=' . $snippet);
+                }),
+                SessionMiddleware::class => fn() => new SessionMiddleware($controller),
+                TimingMiddleware::class => fn() => new TimingMiddleware(false),
+                TraceMiddleware::class => fn() => new TraceMiddleware(false),
+                PayloadParsingMiddleware::class => fn() => new PayloadParsingMiddleware(),
+                ContentNegotiationMiddleware::class => fn() => new ContentNegotiationMiddleware($controller),
+                RoutingMiddleware::class => fn() => new RoutingMiddleware($routing, $controller),
+                OutputTypeSyncMiddleware::class => fn() => new OutputTypeSyncMiddleware($controller),
+                CsrfInjectionMiddleware::class => fn() => new CsrfInjectionMiddleware($controller),
+                CsrfValidationMiddleware::class => fn() => new CsrfValidationMiddleware($controller),
+                SecurityMiddleware::class => fn() => new SecurityMiddleware($controller),
+                ValidationMiddleware::class => fn() => new ValidationMiddleware(),
+                SlotMiddleware::class => fn() => new SlotMiddleware($this->context),
+                DispatchMiddleware::class => fn() => new DispatchMiddleware($controller),
+                AssetAggregationMiddleware::class => fn() => new AssetAggregationMiddleware(),
+                FormPopulationMiddleware::class => fn() => new FormPopulationMiddleware($controller),
+                ExecutionTimeMiddleware::class => fn() => new ExecutionTimeMiddleware(),
+            ];
 
-            $construct(SessionMiddleware::class, fn() => new SessionMiddleware($controller));
+            // Order is derived from each class's #[Middleware] attribute (phase +
+            // before/after + priority), not a hand-maintained sequence — see
+            // docs/MIDDLEWARE_ATTRIBUTE_REGISTRATION_PLAN.md. App middleware opts in
+            // via MiddlewareCatalog::registerAttributed(). If the same FQCN is also
+            // passed to MiddlewareCatalog::register(), register() wins outright: it's
+            // excluded here and spliced in below by insertRegistered() instead.
+            $registered = MiddlewareCatalog::getRegistered();
+            $attributedCandidates = array_merge(array_keys($factories), MiddlewareCatalog::getAttributedCandidates());
+            foreach ($attributedCandidates as $fqcn) {
+                if (isset($registered[$fqcn])) {
+                    \Quiote\Logging\Log::for($this)->warning(
+                        "[MiddlewarePipeline] \"$fqcn\" is both attribute-scannable and "
+                        . 'MiddlewareCatalog::register()-ed; register() wins for placement.'
+                    );
+                }
+            }
+            $candidates = array_filter(
+                $attributedCandidates,
+                static fn(string $fqcn): bool => !isset($registered[$fqcn])
+            );
 
-            if (MiddlewareCatalog::isEnabled(TimingMiddleware::class)) {
-                $construct(TimingMiddleware::class, fn() => new TimingMiddleware(false));
+            $scanner = new MiddlewareAttributeScanner();
+            $definitions = $scanner->scan($candidates);
+            foreach ($scanner->getDiagnostics() as $diagnostic) {
+                $level = $diagnostic->severity === Diagnostic::SEVERITY_ERROR ? 'error' : 'warning';
+                \Quiote\Logging\Log::for($this)->{$level}('[MiddlewarePipeline] middleware scan: ' . $diagnostic->message);
             }
-            if (MiddlewareCatalog::isEnabled(TraceMiddleware::class)) {
-                $construct(TraceMiddleware::class, fn() => new TraceMiddleware(false));
+
+            $resolver = new MiddlewareOrderResolver();
+            $ordered = $resolver->resolve($definitions);
+            foreach ($resolver->getDiagnostics() as $diagnostic) {
+                $level = $diagnostic->severity === Diagnostic::SEVERITY_ERROR ? 'error' : 'warning';
+                \Quiote\Logging\Log::for($this)->{$level}('[MiddlewarePipeline] middleware order: ' . $diagnostic->message);
             }
-            $construct(PayloadParsingMiddleware::class, fn() => new PayloadParsingMiddleware());
-            $construct(ContentNegotiationMiddleware::class, fn() => new ContentNegotiationMiddleware($controller));
-            $construct(RoutingMiddleware::class, fn() => new RoutingMiddleware($routing, $controller));
-            $construct(OutputTypeSyncMiddleware::class, fn() => new OutputTypeSyncMiddleware($controller));
-            // CSRF: injection wraps the response (placed first so it post-processes the
-            // final HTML), validation short-circuits unsafe requests with a bad/missing
-            // token before the action runs. Both sit before DispatchMiddleware (which is
-            // terminal). Behavior is gated at runtime by core.csrf.enabled.
-            $construct(CsrfInjectionMiddleware::class, fn() => new CsrfInjectionMiddleware($controller));
-            $construct(CsrfValidationMiddleware::class, fn() => new CsrfValidationMiddleware($controller));
-            $construct(SecurityMiddleware::class, fn() => new SecurityMiddleware($controller));
-            $construct(ValidationMiddleware::class, fn() => new ValidationMiddleware());
-            $construct(SlotMiddleware::class, fn() => new SlotMiddleware($this->context));
-            $construct(DispatchMiddleware::class, fn() => new DispatchMiddleware($controller));
-            $construct(AssetAggregationMiddleware::class, fn() => new AssetAggregationMiddleware());
-            $construct(FormPopulationMiddleware::class, fn() => new FormPopulationMiddleware($controller));
-            if (MiddlewareCatalog::isEnabled(ExecutionTimeMiddleware::class)) {
-                $construct(ExecutionTimeMiddleware::class, fn() => new ExecutionTimeMiddleware());
+
+            foreach ($ordered as $definition) {
+                $fqcn = $definition->fqcn;
+                $enabled = MiddlewareCatalog::hasOverride($fqcn) ? MiddlewareCatalog::isEnabled($fqcn) : $definition->enabled;
+                if (!$enabled) {
+                    continue;
+                }
+                $factory = $factories[$fqcn] ?? fn() => $context->getContainer()->get($fqcn);
+                $construct($fqcn, $factory);
             }
 
             // Insert externally registered middleware

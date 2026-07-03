@@ -2,8 +2,17 @@
 
 Quiote builds a single PSR-15 middleware pipeline
 (`Quiote\Middleware\MiddlewarePipeline`) once per worker and reuses it across
-requests. Applications inject their own middleware at a **predefined position**
-via `Quiote\Middleware\MiddlewareCatalog::register()`.
+requests. There are two ways for an application to add its own middleware,
+and they can be mixed freely:
+
+1. **By code** — `Quiote\Middleware\MiddlewareCatalog::register()`, giving an
+   explicit factory and `before:`/`after:`/`priority:` hints. See [API](#api)
+   below.
+2. **By attribute** — decorate the class with `#[Quiote\Middleware\Attribute\Middleware(...)]`
+   and call `MiddlewareCatalog::registerAttributed(YourMiddleware::class)`
+   once at bootstrap. No factory needed — the class is resolved through the DI
+   container, and its position is computed from the attribute instead of
+   being passed explicitly. See [Attribute-based registration](#attribute-based-registration).
 
 ## API
 
@@ -105,12 +114,55 @@ before the internal terminal sentinel.
   via `MiddlewareCatalog::initialize([Fqcn::class => false])` (populated from
   `<middleware_config>`). A disabled registered middleware is skipped entirely.
 
-## Note: the `#[QuioteMiddleware]` attribute is NOT auto-registration
+## Attribute-based registration
 
-Framework middleware classes carry a `#[QuioteMiddleware(phase:, after:, before:)]`
-attribute, but it is **descriptive only** — the pipeline builder does not scan
-it. The built-in order is hard-coded in `MiddlewarePipeline::doBuild()`, and the
-**only** way to inject application middleware is `MiddlewareCatalog::register()`.
+Every framework middleware class carries a
+`#[Quiote\Middleware\Attribute\Middleware(phase:, priority:, before:, after:, enabled:)]`
+attribute, and the built-in order above is *derived* from these attributes at
+pipeline-build time (`Quiote\Middleware\Compiler\MiddlewareAttributeScanner` +
+`MiddlewareOrderResolver`) — it is no longer a hand-maintained sequence. An
+application can add its own middleware the same way:
+
+```php
+use Quiote\Middleware\Attribute\Middleware;
+use Quiote\Middleware\MiddlewareCatalog;
+
+#[Middleware(phase: 'before_action', after: 'RoutingMiddleware', before: 'SecurityMiddleware')]
+final class HealthzMiddleware implements \Psr\Http\Server\MiddlewareInterface
+{
+    // ...
+}
+
+// bootstrap, before run():
+MiddlewareCatalog::registerAttributed(HealthzMiddleware::class);
+```
+
+- `phase` is the primary ordering key — one of, in order: `bootstrap`,
+  `pre_routing`, `pre`, `routing`, `before_action`, `action`, `after_action`,
+  `finalize`. Pick the phase that matches when your middleware needs to run
+  relative to routing/auth/dispatch, not necessarily immediate adjacency to a
+  specific class.
+- `before`/`after` may reference a **short class name** (e.g.
+  `'RoutingMiddleware'`) or a fully-qualified one. Unlike `register()`'s
+  `before:`/`after:`, these are ordering *constraints* within the topological
+  sort, not "insert immediately next to" — `priority` (higher runs earlier,
+  default `0`) breaks ties within the same phase, then declaration order.
+  A short name that matches more than one scanned class, or that matches
+  nothing, is logged and ignored rather than failing the build; a genuine
+  cycle in `before`/`after` throws `MiddlewareOrderException` when the
+  pipeline builds.
+- `enabled: false` disables the middleware by default. `<middleware_config>`
+  (via `MiddlewareCatalog::initialize()`) always overrides it when the FQCN
+  has an explicit entry there, in either direction.
+- Attribute-registered middleware is resolved via the DI container
+  (`Container::get()`), so it must be autowireable — unlike `register()`,
+  there's no factory closure to reach for special construction.
+- **`register()` wins over the attribute for the same FQCN.** If a class is
+  both `registerAttributed()`-ed and `register()`-ed, the `register()` call's
+  factory and before/after/priority are used and the attribute is ignored for
+  placement purposes (a diagnostic is still logged). This lets you override an
+  attribute-declared class's default position without editing the class.
+  See `docs/MIDDLEWARE_ATTRIBUTE_REGISTRATION_PLAN.md` for the full design.
 
 ## Verifying position
 

@@ -31,7 +31,7 @@ use Psr\Http\Server\RequestHandlerInterface;
  * with. Operates on the serialized HTML independently of the Form Population
  * filter (which only runs when there is data to repopulate), so fresh forms get
  * a token too. */
-#[\Quiote\Middleware\Attribute\Middleware(phase: 'after_action', after: 'FormPopulationMiddleware')]
+#[\Quiote\Middleware\Attribute\Middleware(phase: 'before_action', priority: 45)]
 class CsrfInjectionMiddleware implements MiddlewareInterface
 {
     public function __construct(private readonly Controller $controller)
