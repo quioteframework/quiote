@@ -27,11 +27,11 @@ final class EmojiTextStreamSink extends AnsiTextStreamSink
             $level->value >= Level::Emergency->value => '💀',
             $level->value >= Level::Alert->value     => '🚨',
             $level->value >= Level::Critical->value  => '🔥',
-            $level->value >= Level::Error->value     => '❌',
+            $level->value >= Level::Error->value     => '‼️',
             $level->value >= Level::Warning->value   => '⚠️',
             $level->value >= Level::Notice->value    => '📝',
             $level->value >= Level::Info->value      => 'ℹ️',
-            $level->value >= Level::Debug->value     => '🐛',
+            $level->value >= Level::Debug->value     => '🪲',
             default                                   => '🔎', // Trace
         };
     }

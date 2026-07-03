@@ -113,7 +113,7 @@ class SinkTest extends TestCase
         rewind($buf);
         $line = stream_get_contents($buf);
 
-        $this->assertStringStartsWith('❌', $line);
+        $this->assertStringStartsWith('‼️', $line);
         $this->assertStringContainsString('ERROR App.Test: broken', $line);
     }
 }
