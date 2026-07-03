@@ -84,6 +84,19 @@
 		<routing class="Sandbox\App\Routing\AttributeMergedRouting" />
 	</ae:configuration>
 
+	<!--
+		Pure #[Route] attribute routing (no committed Routes::build() tree), used
+		by the MCP actions-as-tools bridge tests (ActionToolAdapterTest,
+		ActionToolScannerTest; see docs/MCP_SERVER_PLAN.md §7). Unlike
+		SandboxRouting/AttributeMergedRouting, this never merges in the legacy
+		Routes::build() tree, so it is unaffected by that tree's unrelated
+		malformed test_ticket_444_sample2 route (which breaks real request
+		dispatch for any path once matched dynamically).
+	-->
+	<ae:configuration environment="testing.*" context="mcp-action-tool-test">
+		<routing class="Quiote\Routing\AttributeRouting" />
+	</ae:configuration>
+
 	<ae:configuration environment="development.*">
 		<response class="Quiote\Response\WebResponse">
 			<ae:parameter name="send_content_length">false</ae:parameter>

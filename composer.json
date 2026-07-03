@@ -8,16 +8,14 @@
 	"authors": [
 		{
 			"name": "Quiote Contributors",
-			"homepage": "https://github.com/quiote/quiote/graphs/contributors"
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
 		},
 		{
 		  "name": "Markus Lervik <markus@saake.li>"
 		}
 	],
 	"support": {
-		"issues": "https://github.com/quiote/quiote/issues",
-		"wiki": "https://github.com/quiote/quiote/wiki",
-		"irc": "irc://irc.freenode.org/quiote"
+		"issues": "https://github.com/quioteframework/quiote/issues"
 	},
 	"require": {
 		"php": ">=8.5.0",
@@ -66,7 +64,8 @@
 		"cycle/orm": "^2.18",
 		"cycle/database": "^2.21",
 		"testcontainers/testcontainers": "^1.0",
-		"symfony/http-client": "^8.1"
+		"symfony/http-client": "^8.1",
+		"mcp/sdk": "^0.6.0"
 	},
 	"suggest": {
 		"phpunit/phpunit": "Install phpunit if you want to run your tests",
@@ -86,7 +85,8 @@
 		"open-telemetry/sem-conv": "OpenTelemetry semantic-convention attribute constants",
 		"open-telemetry/exporter-otlp": "OTLP exporter for traces and metrics",
 		"open-telemetry/context": "OpenTelemetry context propagation (traceparent/tracestate)",
-		"symfony/tui": "Install to enable the `telemetry:dashboard` CLI command (see docs/TELEMETRY_DASHBOARD_PLAN.md)"
+		"symfony/tui": "Install to enable the `telemetry:dashboard` CLI command (see docs/TELEMETRY_DASHBOARD_PLAN.md)",
+		"mcp/sdk": "Enables the MCP server capability (Quiote\\Mcp\\McpPlugin, `mcp:serve`); see docs/MCP_SERVER_PLAN.md"
 	},
 	"scripts": {
 		"test": "php -d apc.enable_cli=0 vendor/bin/phpunit --no-coverage -c tests/config/phpunit.xml",

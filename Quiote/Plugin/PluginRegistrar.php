@@ -5,6 +5,7 @@ namespace Quiote\Plugin;
 use Quiote\Config\Config;
 use Quiote\DI\Container;
 use Quiote\Event\Events;
+use Quiote\Mcp\McpCatalog;
 use Quiote\Middleware\MiddlewareCatalog;
 
 /**
@@ -114,6 +115,66 @@ final class PluginRegistrar
     public function httpClient(string $name, callable $configurator): self
     {
         PluginManager::addHttpClientConfig($name, $configurator);
+        return $this;
+    }
+
+    /**
+     * Register an MCP tool (routes to {@see McpCatalog::addTool()}), see
+     * docs/MCP_SERVER_PLAN.md §6.2. $handlerFqcn is resolved through the DI
+     * container at call time; $method defaults to `__invoke` when omitted.
+     */
+    public function mcpTool(
+        string $handlerFqcn,
+        ?string $method = null,
+        ?string $name = null,
+        ?string $description = null,
+        ?array $inputSchema = null,
+        ?array $outputSchema = null,
+    ): self {
+        McpCatalog::addTool(
+            $method !== null ? [$handlerFqcn, $method] : $handlerFqcn,
+            $name,
+            null,
+            $description,
+            $inputSchema,
+            $outputSchema,
+        );
+        return $this;
+    }
+
+    /** Register an MCP resource (routes to {@see McpCatalog::addResource()}). */
+    public function mcpResource(
+        string $handlerFqcn,
+        string $uri,
+        ?string $method = null,
+        ?string $name = null,
+        ?string $description = null,
+        ?string $mimeType = null,
+    ): self {
+        McpCatalog::addResource(
+            $method !== null ? [$handlerFqcn, $method] : $handlerFqcn,
+            $uri,
+            $name,
+            null,
+            $description,
+            $mimeType,
+        );
+        return $this;
+    }
+
+    /** Register an MCP prompt (routes to {@see McpCatalog::addPrompt()}). */
+    public function mcpPrompt(
+        string $handlerFqcn,
+        ?string $method = null,
+        ?string $name = null,
+        ?string $description = null,
+    ): self {
+        McpCatalog::addPrompt(
+            $method !== null ? [$handlerFqcn, $method] : $handlerFqcn,
+            $name,
+            null,
+            $description,
+        );
         return $this;
     }
 }
