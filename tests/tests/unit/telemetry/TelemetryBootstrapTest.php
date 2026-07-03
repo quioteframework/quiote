@@ -53,6 +53,7 @@ class TelemetryBootstrapTest extends TestCase
         Config::remove('telemetry.service.name');
         Config::remove('telemetry.sampling.strategy');
         Config::remove('telemetry.sampling.ratio');
+        Config::remove('telemetry.otlp.endpoint');
         putenv('OTEL_EXPORTER_OTLP_ENDPOINT');
         putenv('OTEL_EXPORTER_OTLP_PROTOCOL');
         \OpenTelemetry\API\Behavior\Internal\Logging::reset();
@@ -253,25 +254,31 @@ class TelemetryBootstrapTest extends TestCase
 
     // --- failure paths ---------------------------------------------------------
 
-    public function testOtlpWithoutPsr18ClientFallsBackToDisabled(): void
+    public function testOtlpWorksOutOfTheBoxViaTheBundledCurlTransport(): void
     {
-        // No PSR-18 client implementation is installed in this repo (deliberately
-        // — telemetry is suggest-only, see composer.json). Constructing the OTLP
-        // exporter must fail closed, not fatally error the whole request.
-        Log::setDefaultLevel(Level::Debug);
-        Log::addSink($this->sink());
+        // Previously this repo shipped no PSR-18 client, so `telemetry.exporter =
+        // otlp` degraded to disabled (the SDK's php-http/discovery found no
+        // client). Quiote now ships its own zero-dependency PSR-18 client
+        // (Quiote\Http\Client\CurlTransport) and hands it to the OTLP exporter
+        // factories (TelemetryBootstrap::otlpTransportFactory()), so OTLP export
+        // works with no extra Composer package — building the provider succeeds
+        // and telemetry comes up. See docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md.
+        if (!\function_exists('curl_init')) {
+            $this->markTestSkipped('curl extension required for the bundled OTLP transport');
+        }
 
         Config::set('telemetry.enabled', true, true);
         Config::set('telemetry.exporter', 'otlp', true);
+        Config::set('telemetry.otlp.endpoint', 'http://127.0.0.1:4318', true);
 
-        $this->assertFalse(TelemetryBootstrap::configureFromConfig());
-        $this->assertFalse(Trace::enabled());
-        $this->assertFalse(TraceRegistry::hasRealProvider());
-        $this->assertInstanceOf(NoopSpanHandle::class, Trace::span('Quiote.Test', 'op'));
-
-        $records = $this->logRecords();
-        $this->assertNotEmpty($records, 'a diagnostic log line must explain why telemetry stayed off');
-        $this->assertSame('error', $records[0]['level']);
+        $this->assertTrue(TelemetryBootstrap::configureFromConfig());
+        $this->assertTrue(Trace::enabled());
+        $this->assertTrue(TraceRegistry::hasRealProvider());
+        // A real (recording) span, not the disabled no-op handle. End it so it
+        // doesn't linger on the OTel context stack into the next test.
+        $span = Trace::span('Quiote.Test', 'op');
+        $this->assertNotInstanceOf(NoopSpanHandle::class, $span);
+        $span->end();
     }
 
     public function testUnknownExporterValueFallsBackToInMemoryWithWarning(): void

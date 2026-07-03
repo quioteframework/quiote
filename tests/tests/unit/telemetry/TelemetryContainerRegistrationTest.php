@@ -47,12 +47,16 @@ class TelemetryContainerRegistrationTest extends TestCase
 
     public function testContainerHasNoTelemetryServicesWhenEnabledButSdkConstructionFailed(): void
     {
-        // Enabled, but the otlp exporter can't be built (no PSR-18 client
-        // installed in this repo) — TelemetryBootstrap falls back to disabled,
-        // and the container registration must follow suit, not register a
-        // service backed by a provider that doesn't exist.
+        // Enabled, but the otlp exporter can't be built — here forced with an
+        // invalid endpoint URL, which the transport factory rejects. (OTLP no
+        // longer fails merely for want of a PSR-18 client: Quiote ships its own
+        // CurlTransport now — see TelemetryBootstrapTest.) TelemetryBootstrap
+        // must still fall back to disabled on a genuine construction failure,
+        // and the container registration must follow suit rather than register
+        // a service backed by a provider that doesn't exist.
         Config::set('telemetry.enabled', true, true);
         Config::set('telemetry.exporter', 'otlp', true);
+        Config::set('telemetry.otlp.endpoint', 'not a valid url', true);
         $this->assertFalse(TelemetryBootstrap::configureFromConfig());
 
         $container = Context::getInstance()->getContainer();

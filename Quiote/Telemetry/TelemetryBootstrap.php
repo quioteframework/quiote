@@ -14,9 +14,12 @@ use Quiote\Runtime\Worker\FrankenPhpWorkerAdapter;
  * feature-flag check of their own.
  *
  * Every path that can fail — telemetry disabled, the open-telemetry/sdk
- * package not installed, a bad exporter/endpoint config, a missing PSR-18
- * client for the OTLP exporter — degrades to "telemetry stays off" rather
- * than throwing, matching the plan's "not a hard dependency" requirement.
+ * package not installed, a bad exporter/endpoint config — degrades to
+ * "telemetry stays off" rather than throwing, matching the plan's "not a hard
+ * dependency" requirement. The OTLP exporter no longer needs an externally
+ * installed PSR-18 client: it is handed Quiote's own zero-dependency
+ * {@see \Quiote\Http\Client\CurlTransport} (see {@see otlpTransportFactory()}),
+ * so `telemetry.exporter = otlp` works out of the box.
  */
 final class TelemetryBootstrap
 {
@@ -260,13 +263,45 @@ final class TelemetryBootstrap
     private static function buildOtlpSpanExporter(): \OpenTelemetry\SDK\Trace\SpanExporterInterface
     {
         self::applyOtlpEnv();
-        return (new \OpenTelemetry\Contrib\Otlp\SpanExporterFactory())->create();
+        return (new \OpenTelemetry\Contrib\Otlp\SpanExporterFactory(self::otlpTransportFactory()))->create();
     }
 
     private static function buildOtlpMetricExporter(): \OpenTelemetry\SDK\Metrics\MetricExporterInterface
     {
         self::applyOtlpEnv();
-        return (new \OpenTelemetry\Contrib\Otlp\MetricExporterFactory())->create();
+        return (new \OpenTelemetry\Contrib\Otlp\MetricExporterFactory(self::otlpTransportFactory()))->create();
+    }
+
+    /**
+     * The transport factory the OTLP exporter factories use to send data.
+     *
+     * The SDK's exporter factories otherwise resolve a PSR-18 client via
+     * `php-http/discovery`, which fails hard when no PSR-18 implementation is
+     * installed — the historical reason `telemetry.exporter = otlp` silently
+     * degraded to disabled unless the app also pulled in a client package. Now
+     * that Quiote ships its own zero-dependency PSR-18 client
+     * ({@see \Quiote\Http\Client\CurlTransport}), we hand it to the SDK
+     * explicitly so OTLP export works out of the box with no extra Composer
+     * package (this is the egress seam the HTTP client abstraction unblocked —
+     * see docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md). The SDK factory still owns
+     * endpoint resolution (appending `/v1/traces` etc.), protocol → content
+     * type, headers, compression, and retries — we only supply the client.
+     *
+     * If ext-curl is somehow unavailable, we fall back to `null` so the SDK's
+     * own discovery runs (and telemetry degrades to disabled if that finds
+     * nothing, exactly as before) rather than fataling here.
+     */
+    private static function otlpTransportFactory(): ?\OpenTelemetry\SDK\Common\Export\TransportFactoryInterface
+    {
+        if (!\function_exists('curl_init')) {
+            return null;
+        }
+        $psr17 = new \Nyholm\Psr7\Factory\Psr17Factory();
+        return new \OpenTelemetry\SDK\Common\Export\Http\PsrTransportFactory(
+            new \Quiote\Http\Client\CurlTransport($psr17, $psr17),
+            $psr17,
+            $psr17,
+        );
     }
 
     /**
