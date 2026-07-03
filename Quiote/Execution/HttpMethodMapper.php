@@ -10,14 +10,14 @@ use Quiote\Config\Config;
  * execute<Token>() dispatch from this same mapping so the two never diverge.
  *
  * The default mapping can be extended or overridden via the
- * `routing.http_method_map` setting, e.g. (settings.xml):
- *   <settings>
- *     <routing>
- *       <ae:parameter name="http_method_map">
- *         <ae:parameter name="PATCH">write</ae:parameter>
- *         <ae:parameter name="LOCK">lock</ae:parameter>
- *       </ae:parameter>
- *     </routing>
+ * `routing.http_method_map` setting. A bare <settings> block always lands
+ * under the `core.` prefix, so setting `routing.http_method_map` needs a
+ * `prefix` attribute on the wrapping <settings> element (settings.xml):
+ *   <settings prefix="routing.">
+ *     <setting name="http_method_map">
+ *       <ae:parameter name="PATCH">write</ae:parameter>
+ *       <ae:parameter name="LOCK">lock</ae:parameter>
+ *     </setting>
  *   </settings>
  * or programmatically: Config::set('routing.http_method_map', ['LOCK' => 'lock']).
  * Keys are matched case-insensitively; values become the `execute<Token>()`
