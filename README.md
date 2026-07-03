@@ -2,7 +2,7 @@
 
 - License: LGPL-2.1
 - Latest Version: 1.0.0-pre-alpha1
-- Build: N/A
+- Build: [![Tests](https://github.com/quioteframework/quiote/actions/workflows/tests.yml/badge.svg)](https://github.com/quioteframework/quiote/actions/workflows/tests.yml)
 - Homepage: [https://github.com/quioteframework/quiote/](https://github.com/quioteframework/quiote/)
 
 ## History
