@@ -47,51 +47,69 @@ class MiddlewarePipeline implements RequestHandlerInterface
         $stack = [];
 
         $context = $this->context;
-        $controller = $context->getController();
-        $routing = $context->getRouting();                
 
-        $construct = function (string $label, callable $factory) use (&$stack): void {
-            $mw = $factory();
-            $stack[] = $mw;
-            $this->debugStack[] = $label;
-        };
-                    
-        $construct(ErrorHandlingMiddleware::class, fn() => new ErrorHandlingMiddleware(function (\Throwable $e, ServerRequestInterface $r) use ($context): void {
-            $first = $e->getFile() . ':' . $e->getLine();
-            $snippet = substr(str_replace("\n", ' | ', $e->getTraceAsString()), 0, 500);
-            \Quiote\Logging\Log::for($this)->error('[MiddlewarePipeline] ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $first . ' trace=' . $snippet);
-        }));
-        
-        $construct(SessionMiddleware::class, fn() => new SessionMiddleware($controller));
+        if (MiddlewareCatalog::hasCoreStackOverride()) {
+            // Escape hatch: the app has explicitly replaced the entire default
+            // stack (see MiddlewareCatalog::replaceCoreStack()). None of Quiote's
+            // own error handling / session / CSRF / security / routing middleware
+            // runs here, and registered() middleware is deliberately NOT spliced
+            // in either — the app owns the whole pipeline now.
+            \Quiote\Logging\Log::for($this)->warning(
+                '[MiddlewarePipeline] core stack REPLACED via MiddlewareCatalog::replaceCoreStack() — '
+                . 'none of the framework default middleware (error handling, sessions, CSRF, security, '
+                . 'routing) is running for this pipeline.'
+            );
+            foreach (MiddlewareCatalog::buildCoreStack($context) as $mw) {
+                $stack[] = $mw;
+                $this->debugStack[] = $mw::class;
+            }
+        } else {
+            $controller = $context->getController();
+            $routing = $context->getRouting();
 
-        if (MiddlewareCatalog::isEnabled(TimingMiddleware::class)) {
-            $construct(TimingMiddleware::class, fn() => new TimingMiddleware(false));
-        }
-        if (MiddlewareCatalog::isEnabled(TraceMiddleware::class)) {
-            $construct(TraceMiddleware::class, fn() => new TraceMiddleware(false));
-        }
-        $construct(PayloadParsingMiddleware::class, fn() => new PayloadParsingMiddleware());
-        $construct(ContentNegotiationMiddleware::class, fn() => new ContentNegotiationMiddleware($controller));
-        $construct(RoutingMiddleware::class, fn() => new RoutingMiddleware($routing, $controller));
-        $construct(OutputTypeSyncMiddleware::class, fn() => new OutputTypeSyncMiddleware($controller));
-        // CSRF: injection wraps the response (placed first so it post-processes the
-        // final HTML), validation short-circuits unsafe requests with a bad/missing
-        // token before the action runs. Both sit before DispatchMiddleware (which is
-        // terminal). Behavior is gated at runtime by core.csrf.enabled.
-        $construct(CsrfInjectionMiddleware::class, fn() => new CsrfInjectionMiddleware($controller));
-        $construct(CsrfValidationMiddleware::class, fn() => new CsrfValidationMiddleware($controller));
-        $construct(SecurityMiddleware::class, fn() => new SecurityMiddleware($controller));
-        $construct(ValidationMiddleware::class, fn() => new ValidationMiddleware());
-        $construct(SlotMiddleware::class, fn() => new SlotMiddleware($this->context));
-        $construct(DispatchMiddleware::class, fn() => new DispatchMiddleware($controller));
-        $construct(AssetAggregationMiddleware::class, fn() => new AssetAggregationMiddleware());
-        $construct(FormPopulationMiddleware::class, fn() => new FormPopulationMiddleware($controller));
-        if (MiddlewareCatalog::isEnabled(ExecutionTimeMiddleware::class)) {
-            $construct(ExecutionTimeMiddleware::class, fn() => new ExecutionTimeMiddleware());
-        }
+            $construct = function (string $label, callable $factory) use (&$stack): void {
+                $mw = $factory();
+                $stack[] = $mw;
+                $this->debugStack[] = $label;
+            };
 
-        // Insert externally registered middleware
-        $this->insertRegistered($stack);
+            $construct(ErrorHandlingMiddleware::class, fn() => new ErrorHandlingMiddleware(function (\Throwable $e, ServerRequestInterface $r) use ($context): void {
+                $first = $e->getFile() . ':' . $e->getLine();
+                $snippet = substr(str_replace("\n", ' | ', $e->getTraceAsString()), 0, 500);
+                \Quiote\Logging\Log::for($this)->error('[MiddlewarePipeline] ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $first . ' trace=' . $snippet);
+            }));
+
+            $construct(SessionMiddleware::class, fn() => new SessionMiddleware($controller));
+
+            if (MiddlewareCatalog::isEnabled(TimingMiddleware::class)) {
+                $construct(TimingMiddleware::class, fn() => new TimingMiddleware(false));
+            }
+            if (MiddlewareCatalog::isEnabled(TraceMiddleware::class)) {
+                $construct(TraceMiddleware::class, fn() => new TraceMiddleware(false));
+            }
+            $construct(PayloadParsingMiddleware::class, fn() => new PayloadParsingMiddleware());
+            $construct(ContentNegotiationMiddleware::class, fn() => new ContentNegotiationMiddleware($controller));
+            $construct(RoutingMiddleware::class, fn() => new RoutingMiddleware($routing, $controller));
+            $construct(OutputTypeSyncMiddleware::class, fn() => new OutputTypeSyncMiddleware($controller));
+            // CSRF: injection wraps the response (placed first so it post-processes the
+            // final HTML), validation short-circuits unsafe requests with a bad/missing
+            // token before the action runs. Both sit before DispatchMiddleware (which is
+            // terminal). Behavior is gated at runtime by core.csrf.enabled.
+            $construct(CsrfInjectionMiddleware::class, fn() => new CsrfInjectionMiddleware($controller));
+            $construct(CsrfValidationMiddleware::class, fn() => new CsrfValidationMiddleware($controller));
+            $construct(SecurityMiddleware::class, fn() => new SecurityMiddleware($controller));
+            $construct(ValidationMiddleware::class, fn() => new ValidationMiddleware());
+            $construct(SlotMiddleware::class, fn() => new SlotMiddleware($this->context));
+            $construct(DispatchMiddleware::class, fn() => new DispatchMiddleware($controller));
+            $construct(AssetAggregationMiddleware::class, fn() => new AssetAggregationMiddleware());
+            $construct(FormPopulationMiddleware::class, fn() => new FormPopulationMiddleware($controller));
+            if (MiddlewareCatalog::isEnabled(ExecutionTimeMiddleware::class)) {
+                $construct(ExecutionTimeMiddleware::class, fn() => new ExecutionTimeMiddleware());
+            }
+
+            // Insert externally registered middleware
+            $this->insertRegistered($stack);
+        }
 
         // Terminal sentinel - framework must always produce a response
         $stack[] = new class implements \Psr\Http\Server\MiddlewareInterface {
