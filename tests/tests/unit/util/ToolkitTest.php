@@ -212,6 +212,7 @@ class ToolkitTest extends PhpUnitTestCase
 		];
 		foreach($data as $key => $value) {
 			$data['file://' . $key] = ['file://' . $value[0], $value[1]];
+			$data['phar://' . $key] = ['phar://' . $value[0], $value[1]];
 		}
 		return $data;
 	}

@@ -19,10 +19,12 @@ final class Toolkit
 	 */
 	public static function isPathAbsolute($path)
 	{
-		if(str_starts_with((string) $path, "file://")) {
-			$path = substr((string) $path, 7);
+		$path = (string) $path;
+
+		if(preg_match('#^[a-zA-Z][a-zA-Z0-9+.-]*://#', $path, $matches)) {
+			$path = substr($path, strlen($matches[0]));
 		}
-		
+
 		if($path[0] == '/' || str_starts_with((string) $path, '\\\\') ||
 			(
 				strlen((string) $path) >= 3 && ctype_alpha((string) $path[0]) &&
