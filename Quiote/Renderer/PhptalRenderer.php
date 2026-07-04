@@ -1,5 +1,8 @@
 <?php
 namespace Quiote\Renderer;
+
+use Quiote\View\TemplateLayer;
+
 /**
  * A renderer produces the output as defined by a View
  * @since      1.0.0
