@@ -8,6 +8,15 @@ bursts) so the dashboard has something to show.
 
 ## Status
 
+**Update:** physically split into its own composer package at `packages/telemetry-dashboard/`
+(developed in-tree, symlinked via a path repository; see docs/MONOREPO_SPLIT_PLAN.md and
+docs/PLUGIN_EXTRACTION_PLAN.md) — not yet pushed to a standalone repo. `Quiote\Telemetry\Dashboard\*`
+and `Quiote\Console\Command\TelemetryDashboardCommand` kept their namespaces (both are shared
+with core-owned siblings — `Quiote\Telemetry\*`'s always-on facade, `Quiote\Console\Command`'s
+other built-in commands — resolved via Composer's longest-prefix-first PSR-4 lookup rather than
+a rename). `symfony/tui` moved from the kernel's own `require-dev` into the package's `require`.
+Tests moved to `packages/telemetry-dashboard/tests/`.
+
 **All 6 phases are implemented and verified**, including a full three-process
 live demo (real sample app + real load generator + real dashboard, real OTLP
 over the wire — see the Demo runbook below and each phase's "Done" notes for

@@ -2,17 +2,25 @@
 
 Addresses finding #5 of `SECURITY_AUDIT.md` (no CSRF protection anywhere in the framework).
 
-## Status: core implemented (using `symfony/security-csrf`)
+## Status: implemented, physically split into `packages/csrf/`
+
+Physically split into its own composer package at `packages/csrf/` (developed in-tree,
+symlinked via a path repository; see docs/MONOREPO_SPLIT_PLAN.md and
+docs/PLUGIN_EXTRACTION_PLAN.md §2.3/§3) — not yet pushed to a standalone repo. Both
+middleware moved namespace from `Quiote\Middleware\*` to `Quiote\Security\Csrf\Middleware\*`
+as part of the move; `symfony/security-csrf` moved from the kernel's own `require` into the
+package's `require`. `Quiote::bootstrap()` still runs `CsrfPlugin` unconditionally today (a
+"core default", see that file) so CSRF stays on by default while it's split-but-not-yet-opt-in.
 
 Implemented on the security-fixes branch:
 
 - **`symfony/security-csrf` ^8.0** added to `composer.json`.
 - **`Quiote\Security\Csrf\QuioteSessionTokenStorage`** — Symfony `TokenStorageInterface` backed by the context's `QuioteStorage` (session), namespaced under `org.quiote.csrf.`.
 - **`Quiote\Security\Csrf\CsrfManager`** — wraps Symfony's `CsrfTokenManager` (random `UriSafeTokenGenerator`, BREACH-masked values, constant-time `hash_equals` comparison) and exposes the config (`enabled`, `token_id`, `field_name`, `header_name`, `safe_methods`) plus `getTokenValue()` / `isValid()` / `removeToken()`.
-- **`Quiote\Middleware\CsrfValidationMiddleware`** — rejects unsafe-method requests (non GET/HEAD/OPTIONS/TRACE) with **403** unless a valid token is present in the configured form field (parsed body) or header; per-route opt-out via `_csrf => false`. Wired into `MiddlewarePipeline` before `DispatchMiddleware`.
-- **`Quiote\Middleware\CsrfInjectionMiddleware`** — always-on response pass that delivers the token two ways: (1) into server-rendered HTML — a hidden `<input type="hidden" name="_csrf_token" value="…">` in every non-GET `<form>` (skips `data-csrf="off"`) plus a `<meta name="csrf-token">` in `<head>`; and (2) a readable (non-HttpOnly) **`XSRF-TOKEN` cookie** (`Secure` on HTTPS, `SameSite=Lax`) on any session-bearing request regardless of content type — this is how a decoupled same-origin SPA (served from a different service/pod, so it never sees the rendered HTML/meta tag) obtains the token: it reads the cookie and echoes it in the `X-CSRF-Token` header. Wired into `MiddlewarePipeline` (wraps the response, so even a 403 carries a fresh cookie for retry). Implemented as a dedicated middleware rather than inside the Form Population filter, because FPF only runs when there is data to repopulate (it early-returns on a fresh GET render) and would therefore miss freshly-rendered forms.
+- **`Quiote\Security\Csrf\Middleware\CsrfValidationMiddleware`** — rejects unsafe-method requests (non GET/HEAD/OPTIONS/TRACE) with **403** unless a valid token is present in the configured form field (parsed body) or header; per-route opt-out via `_csrf => false`. Registered via `CsrfPlugin` (see docs/PLUGIN_EXTRACTION_PLAN.md §2.3), spliced into the pipeline before `DispatchMiddleware`.
+- **`Quiote\Security\Csrf\Middleware\CsrfInjectionMiddleware`** — always-on response pass that delivers the token two ways: (1) into server-rendered HTML — a hidden `<input type="hidden" name="_csrf_token" value="…">` in every non-GET `<form>` (skips `data-csrf="off"`) plus a `<meta name="csrf-token">` in `<head>`; and (2) a readable (non-HttpOnly) **`XSRF-TOKEN` cookie** (`Secure` on HTTPS, `SameSite=Lax`) on any session-bearing request regardless of content type — this is how a decoupled same-origin SPA (served from a different service/pod, so it never sees the rendered HTML/meta tag) obtains the token: it reads the cookie and echoes it in the `X-CSRF-Token` header. Registered via `CsrfPlugin` (wraps the response, so even a 403 carries a fresh cookie for retry). Implemented as a dedicated middleware rather than inside the Form Population filter, because FPF only runs when there is data to repopulate (it early-returns on a fresh GET render) and would therefore miss freshly-rendered forms.
 - **Config directives** (read with secure defaults; no central registration needed): `core.csrf.enabled` (default `true`; set `false` in the test bootstrap), `core.csrf.token_id` (`quiote_csrf`), `core.csrf.field_name` (`_csrf_token`), `core.csrf.header_name` (`X-CSRF-Token`), `core.csrf.cookie_name` (`XSRF-TOKEN`), `core.csrf.safe_methods`.
-- **Tests** — `test/tests/unit/security/CsrfTest.php` (12 tests): token roundtrip/rejection, validation pass/fail/opt-out/disabled, injection into POST forms / skip GET / `data-csrf=off` / non-HTML / meta tag.
+- **Tests** — `packages/csrf/tests/CsrfTest.php` (12 tests): token roundtrip/rejection, validation pass/fail/opt-out/disabled, injection into POST forms / skip GET / `data-csrf=off` / non-HTML / meta tag.
 
 > ⚠️ **Deployment note:** `core.csrf.enabled` defaults to **true**, so deploying this immediately enforces CSRF on all unsafe requests. Server-rendered HTML forms get tokens automatically via the injection middleware; **JS/XHR clients must send the token in the `X-CSRF-Token` header** (read it from the `<meta name="csrf-token">` tag), and **stateless API/webhook routes must opt out** with an `_csrf => false` route default. CSRF is disabled in the test environment (`test/bootstrap.php`) as is conventional.
 

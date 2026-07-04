@@ -208,15 +208,30 @@ low-level mechanism** — every contribution routes to a seam that already exist
     container services (set-if-absent semantics).
   - Middleware ordering is the existing deterministic attribute/`MiddlewareCatalog`
     resolution — unchanged.
-- **Command contribution boundary**: `bin/quiote` builds the `Console\Application`
-  *before* any bootstrap, so plugin-contributed commands only appear once a
-  bootstrap has populated the registry in the same process (e.g. programmatic
-  `new Application()` after `Quiote::bootstrap()`, or a command that bootstraps
-  first). The mechanism is real and tested; wiring `bin/quiote` to bootstrap
-  before building the app is a deliberate non-goal of this pass. Deep multi-root
-  *module resolution* in the `Controller` is likewise out of scope — plugin
-  modules are discovered for **routing**; full module action/view resolution from
-  multiple roots is future work.
+- **Command contribution boundary — resolved for the common case.** `bin/quiote`
+  builds the `Console\Application` *before* any bootstrap, so plugin-contributed
+  commands only appear once a bootstrap has populated the registry in the same
+  process (e.g. programmatic `new Application()` after `Quiote::bootstrap()`, or
+  a command that bootstraps first). Fixed by having `bin/quiote` itself attempt
+  a **best-effort, silent pre-bootstrap** before constructing `Application`: it
+  resolves the app the same way `AbstractAppCommand` does (see
+  `Quiote\Console\AppDirResolver` — `--app-dir`/`--env`, else
+  `$QUIOTE_APP_DIR`/`$QUIOTE_ENV`, else a `.quiote.json` marker file
+  (`{"app_dir": "...", "env": "..."}`, found by walking up from `$CWD`), else an
+  upward search for `Config/settings.*`) and, if an app is found, bootstraps it
+  — populating `PluginManager::contributedCommands()` before `Application`'s
+  constructor reads it, so `mcp:serve` and any app-authored plugin command show
+  up in `bin/quiote list`/`--help` with zero commands run first. Any failure
+  (no app found, broken config) is swallowed silently — `quiote new` outside any
+  app, and a plain `quiote --version`, are unaffected; a real command's own
+  `bootstrapApp()` still surfaces genuine problems when it actually runs. This
+  was deliberately **not** implemented as a parallel attribute-based command
+  scanner: the existing `PluginRegistrar::command()` seam was already generic
+  and correct, the only missing piece was *when* `bin/quiote` attempts a
+  bootstrap, not *how* commands are declared. Deep multi-root *module
+  resolution* in the `Controller` is likewise out of scope — plugin modules are
+  discovered for **routing**; full module action/view resolution from multiple
+  roots is future work.
 
 ## 4. Inbound correlation-ID header
 

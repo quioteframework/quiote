@@ -1,10 +1,12 @@
 # MCP server for Quiote — plan
 
-Status: **partially implemented**, in-tree under `Quiote\Mcp\*` (merged to `main`; validator→schema
-work on branch `feat/mcp-validator-schema`). Phases 0–3 (including the validator→JSON-Schema
-mapping) and Phase 4A are done and tested (see §13); Phase 4B (OAuth 2.1), resource/prompt
-attribute discovery, stateless HTTP, and the extensions framework are not started — see `TODO.md`
-for the live list.
+Status: **partially implemented**. Namespace `Quiote\Mcp\*`, physically split into its own
+composer package at `packages/mcp/` (developed in-tree in this monorepo, symlinked in via a
+path repository; see docs/MONOREPO_SPLIT_PLAN.md and docs/PLUGIN_EXTRACTION_PLAN.md §2.1/§3)
+— not yet pushed to a standalone `quioteframework/mcp` repo. Phases 0–3 (including the
+validator→JSON-Schema mapping) and Phase 4A are done and tested (see §13); Phase 4B (OAuth 2.1),
+resource/prompt attribute discovery, stateless HTTP, and the extensions framework are not
+started — see `TODO.md` for the live list.
 Related seams: `Quiote/Routing/Compiler/AttributeRouteScanner.php`, `Quiote/Middleware/*`,
 `Quiote/Console/Application.php`, `Quiote/Plugin/*`, `Quiote/Context.php` (`handle()` is what the
 actions-as-tools bridge actually drives requests through, not `ActionExecutor` directly — see §7),
@@ -122,10 +124,13 @@ HTTP/auth surface) and is what local clients (Claude Desktop, IDEs) launch as a 
    `PluginManager::moduleDirectories()`, so app *and* plugin capabilities are auto-discovered.
    Discovery is cached/generated like routes (a `cache:warmup` contribution), not scanned per
    request.
-2. **Manual registration via the plugin seam.** New `PluginRegistrar` methods:
-   `mcpTool(string $handlerFqcn, ?string $method = null, ...)`, `mcpResource(...)`,
-   `mcpPrompt(...)` → `McpCatalog::add*()`. Lets a plugin contribute tools without the attribute
-   scan.
+2. **Manual registration, direct to the catalog.** Any plugin's `register()` can call
+   `McpCatalog::addTool(...)`/`addResource(...)`/`addPrompt(...)` directly — no `PluginRegistrar`
+   detour. (Earlier drafts added `mcpTool()`/`mcpResource()`/`mcpPrompt()` convenience methods to
+   the core `PluginRegistrar`; those were removed — see
+   `docs/PLUGIN_EXTRACTION_PLAN.md` §2.1 — because a *generic* registrar must not grow a method
+   per plugin package. `McpCatalog::add*()` already is the plain, dependency-free API; a plugin
+   author who wants tool registration simply depends on `quioteframework/mcp` and calls it.)
 3. **Existing `#[Route]` actions exposed as tools** — the killer feature (§7).
 
 ## 7. Exposing existing actions as tools (the killer feature) — IMPLEMENTED
