@@ -13,7 +13,7 @@ final class GettextMoReader
 	/**
 	 * Parses a .mo file and returns the data as an array.
 	 * For the format see the gettext manual
-	 * @param      string Full path to the .mo file.
+	 * @param      string $filePath Full path to the .mo file.
 	 * @return     array The translation data.
 	 * @since      1.0.0
 	 */

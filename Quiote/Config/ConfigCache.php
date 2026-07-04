@@ -57,13 +57,13 @@ class ConfigCache
 
 	/**
 	 * Load a configuration handler.
-	 * @param      string The path of the originally requested configuration file.
-	 * @param      string An absolute filesystem path to a configuration file.
-	 * @param      string An absolute filesystem path to the cache file that
+	 * @param      string $name The path of the originally requested configuration file.
+	 * @param      string $config An absolute filesystem path to a configuration file.
+	 * @param      string $cache An absolute filesystem path to the cache file that
 	 *                    will be written.
-	 * @param      string The context which we're currently running.
-	 * @param      array  Optional config handler info array.
-	 * @throws     <b>ConfigurationException</b> If a requested configuration
+	 * @param      ?string $context The context which we're currently running.
+	 * @param      array $handlerInfo Optional config handler info array.
+	 * @throws     \Quiote\Exception\ConfigurationException If a requested configuration
 	 *                                                file does not have an
 	 *                                                associated config handler.
 	 * @since      1.0.0
@@ -113,8 +113,8 @@ class ConfigCache
 	
 	/**
 	 * Fetch the handler information for the given filename.
-	 * @param        string The name of the config file (partial path).
-	 * @return       array  The handler info.
+	 * @param        string $name The name of the config file (partial path).
+	 * @return       ?array  The handler info.
 	 * @since        1.0.0
 	 */
 	protected static function getHandlerInfo($name)
@@ -151,9 +151,9 @@ class ConfigCache
 	
 	/**
 	 * Execute the config handler for the given file.
-	 * @param        string The path to the config file (full path).
-	 * @param        string The context which we're currently running.
-	 * @param        array  The config handler info.
+	 * @param        string $config The path to the config file (full path).
+	 * @param        ?string $context The context which we're currently running.
+	 * @param        array $handlerInfo The config handler info.
 	 * @return       string The compiled data.
 	 * @since        1.0.0
 	 */
@@ -227,12 +227,12 @@ class ConfigCache
 	 * recompile the cache file associated with it.
 	 * If the configuration file path is relative, the path itself is relative
 	 * to the Quiote "core.app_dir" application setting.
-	 * @param      string A filesystem path to a configuration file.
-	 * @param      string An optional context name for which the config should be
+	 * @param      string $config A filesystem path to a configuration file.
+	 * @param      string $context An optional context name for which the config should be
 	 *                    read.
 	 * @return     string An absolute filesystem path to the cache filename
 	 *                    associated with this specified configuration file.
-	 * @throws     <b>UnreadableException</b> If a requested configuration
+	 * @throws     \Quiote\Exception\UnreadableException If a requested configuration
 	 *                                             file does not exist.
 	 * @since      1.0.0
 	 */
@@ -341,7 +341,7 @@ class ConfigCache
 	}
 
 	/**
-	 * @return string|null $filename with its extension removed, or null if
+	 * @return ?string $filename with its extension removed, or null if
 	 *                      it doesn't end in a recognized config extension.
 	 */
 	private static function stripKnownConfigExtension(string $filename): ?string
@@ -405,8 +405,8 @@ class ConfigCache
 
 	/**
 	 * Convert a normal filename into a cache filename.
-	 * @param      string A normal filename.
-	 * @param      string A context name.
+	 * @param      string $config A normal filename.
+	 * @param      string $context A context name.
 	 * @return     string An absolute filesystem path to a cache filename.
 	 * @since      1.0.0
 	 */
@@ -461,9 +461,9 @@ class ConfigCache
 	 * Import a configuration file.
 	 * If the configuration file path is relative, the path itself is relative
 	 * to the Quiote "core.app_dir" application setting.
-	 * @param      string A filesystem path to a configuration file.
-	 * @param      string A context name.
-	 * @param      bool   Only allow this configuration file to be included once
+	 * @param      string $config A filesystem path to a configuration file.
+	 * @param      string $context A context name.
+	 * @param      bool $once Only allow this configuration file to be included once
 	 *                    per request?
 	 * @since      1.0.0
 	 */
@@ -480,7 +480,7 @@ class ConfigCache
 
 	/**
 	 * Load all configuration application and module level handlers.
-	 * @throws     <b>ConfigurationException</b> If a configuration related
+	 * @throws     \Quiote\Exception\ConfigurationException If a configuration related
 	 *                                                error occurs.
 	 * @since      1.0.0
 	 */
@@ -551,7 +551,7 @@ class ConfigCache
 	/**
 	 * Load the config handlers from the given config file.
 	 * Existing handlers will not be overwritten.
-	 * @param      string The path to a config_handlers.xml file.
+	 * @param      string $cfg The path to a config_handlers.xml file.
 	 * @since      1.0.0
 	 */
 	protected static function loadConfigHandlersFile($cfg)
@@ -564,7 +564,7 @@ class ConfigCache
 		// leak a config_handlers cache file to disk even though APCu is enabled.
 		// Preserving LSB keeps the whole chain on the APCu store.
 		$result = static::checkConfig($cfg);
-		if (is_string($result) && str_starts_with($result, 'APCU:')) {
+		if (str_starts_with($result, 'APCU:')) {
 			// APCu hit/cold-store: the marker carries the compiled PHP directly.
 			// eval()ing it (after a close-tag prefix) returns the compiled file's
 			// return value, i.e. the handlers array, exactly as include() of the
@@ -582,7 +582,7 @@ class ConfigCache
 
 	/**
 	 * Schedules a config handlers file to be loaded.
-	 * @param      string The path to a config_handlers.xml file.
+	 * @param      string $filename The path to a config_handlers.xml file.
 	 * @since      1.0.0
 	 */
 	public static function addConfigHandlersFile($filename)
@@ -599,12 +599,12 @@ class ConfigCache
 
 	/**
 	 * Write a cache file.
-	 * @param      string An absolute filesystem path to a configuration file.
-	 * @param      string An absolute filesystem path to the cache file that
+	 * @param      string $config An absolute filesystem path to a configuration file.
+	 * @param      string $cache An absolute filesystem path to the cache file that
 	 *                    will be written.
-	 * @param      string Data to be written to the cache file.
-	 * @param      bool   Should we append the data?
-	 * @throws     <b>CacheException</b> If the cache file cannot be written.
+	 * @param      string $data Data to be written to the cache file.
+	 * @param      bool $append Should we append the data?
+	 * @throws     \Quiote\Exception\CacheException If the cache file cannot be written.
 	 * @since      1.0.0
 	 */
 	public static function writeCacheFile($config, $cache, $data, $append = false)
@@ -669,14 +669,14 @@ class ConfigCache
 	/**
      * Parses a config file with the ConfigParser for the extension of the given
      * file.
-     * @param      string An absolute filesystem path to a configuration file.
-     * @param      bool   Whether the config parser class should be autoloaded if
+     * @param      string $config An absolute filesystem path to a configuration file.
+     * @param      bool $autoloadParser Whether the config parser class should be autoloaded if
      *                    the class doesn't exist.
-     * @param      string A path to a validation file for this config file.
-     * @param      string A class name which specifies an parser to be used.
+     * @param      string $validationFile A path to a validation file for this config file.
+     * @param      string $parserClass A class name which specifies an parser to be used.
      * @return     ConfigValueHolder An abstract representation of the
      *                                    config file.
-     * @throws     <b>ConfigurationException</b> If the parser for the
+     * @throws     \Quiote\Exception\ConfigurationException If the parser for the
      *             extension couldn't be found.
      * @since      1.0.0
      */

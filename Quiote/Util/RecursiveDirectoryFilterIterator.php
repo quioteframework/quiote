@@ -30,10 +30,10 @@ class RecursiveDirectoryFilterIterator extends RecursiveFilterIterator
 	
 	/**
 	 * Creates a new RecursiveDirectoryFilterIterator.
-	 * @var          RecursiveDirectoryIterator the directory iterator to decorate
-	 * @var          array the list of include patterns (regular expressions)
-	 * @var          array the list of exclude patterns (literal)
-	 * @var          boolean whether to use the default exclude patterns.
+	 * @param        RecursiveDirectoryIterator $iterator the directory iterator to decorate
+	 * @param        array $includes the list of include patterns (regular expressions)
+	 * @param        array $excludes the list of exclude patterns (literal)
+	 * @param        boolean $noDefaultExcludes whether to use the default exclude patterns.
 	 */
 	public function __construct(RecursiveDirectoryIterator $iterator, array $includes = [], array $excludes = [], $noDefaultExcludes = false)
 	{
@@ -55,7 +55,7 @@ class RecursiveDirectoryFilterIterator extends RecursiveFilterIterator
 	 * and none of the exclude patterns.
 	 * @return       boolean true if the item is included
 	 */
-	public function accept()
+	public function accept(): bool
 	{
 		if(!$this->isIncluded()) {
 			return false;
@@ -100,13 +100,15 @@ class RecursiveDirectoryFilterIterator extends RecursiveFilterIterator
 	 * Returns a child iterator.
 	 * @return       RecursiveDirectoryFilterIterator an iterator for a subdirectory
 	 */
-	public function getChildren()
+	public function getChildren(): ?RecursiveDirectoryFilterIterator
 	{
 		$it = parent::getChildren();
-		if(null !== $it) {
-			$it->excludes = $this->excludes;
-			$it->includes = $this->includes;
-		}
+		// RecursiveFilterIterator's default getChildren() implementation uses
+		// `new static(...)`, so it always returns an instance of this same
+		// subclass, never a plain RecursiveFilterIterator.
+		/** @var self $it */
+		$it->excludes = $this->excludes;
+		$it->includes = $this->includes;
 		return $it;
 	}
 }

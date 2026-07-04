@@ -13,8 +13,8 @@ class PdoDatabase extends Database
 {
 	/**
 	 * Initialize this Database.
-	 * @param      DatabaseManager The database manager of this instance.
-	 * @param      array                An assoc array of initialization params.
+	 * @param      DatabaseManager $databaseManager The database manager of this instance.
+	 * @param      array $parameters An assoc array of initialization params.
 	 * @since      1.0.0
 	 */
 	#[\Override]
@@ -32,21 +32,12 @@ class PdoDatabase extends Database
 					$matches[0]
 				));
 			}
-			if(str_contains((string) $this->getParameter('dsn'), ';charset=') && version_compare(PHP_VERSION, '5.3.6', '<')) {
-				throw new DatabaseException(
-					'The "charset" option in a PDO_MYSQL DSN has no effect in PHP versions prior to 5.3.6. In combination with certain multi-byte character sets such as GBK or Big5, this may cause incorrectly escaped characters in prepared statements and quoted strings, potentially leading to vulnerabilities in application code.' . "\n\n" .
-					'There are two ways of working around this problem:' . "\n" .
-					'1) Upgrade to PHP 5.3.6 or later :)' . "\n" .
-					'2) Double-check your my.cnf configuration to make sure the default connection charset is compatible with the charset you wish to set (for example, latin1 as the connection default in combination with "SET NAMES utf8" is safe), then revert to using "SET NAMES" in "init_queries" and set the "warn_mysql_charset" configuration parameter on this connection to false. In this case, it is recommended to use native prepared statements by setting the flag PDO::ATTR_EMULATE_PREPARES to 0 in "options" or "attributes", but be advised that per-statement attributes can override this setting, and calls to PDO::quote() might still yield incorrectly escaped strings.'  . "\n\n" .
-					'The associated PHP bug ticket http://bugs.php.net/47802 contains further information.'
-				);
-			}
 		}
 	}
 
 	/**
 	 * Connect to the database.
-	 * @throws     <b>DatabaseException</b> If a connection could not be 
+	 * @throws     DatabaseException If a connection could not be 
 	 *                                           created.
 	 * @since      1.0.0
 	 */
@@ -65,6 +56,8 @@ class PdoDatabase extends Database
 					throw new DatabaseException($error);
 				}
 				break;
+			default :
+				throw new DatabaseException(sprintf('Database configuration specifies unsupported connection method "%s"', $method));
 		}
 
 		try {
@@ -104,7 +97,7 @@ class PdoDatabase extends Database
 
 	/**
 	 * Execute the shutdown procedure.
-	 * @throws     <b>DatabaseException</b> If an error occurs while shutting
+	 * @throws     DatabaseException If an error occurs while shutting
 	 *                                           down this database.
 	 * @since      1.0.0
 	 */

@@ -53,7 +53,7 @@ final class ValidatorBuilder
 	}
 
 	/**
-	 * @param string|null $method The resolved action method token
+	 * @param ?string $method The resolved action method token
 	 *                            ('read'/'write'/...), i.e. the same value
 	 *                            ValidationService passes as its own
 	 *                            $method argument -- NOT the raw HTTP verb.
@@ -138,7 +138,9 @@ final class ValidatorBuilder
 	 * Registers an and/or/not/xor container and yields a nested builder
 	 * scoped to it, so children addChild() onto the container instead of
 	 * the outer validation manager.
-	 * @param 'and'|'or'|'not'|'xor' $operator
+	 * @param string $operator One of 'and', 'or', 'not', 'xor' — not enforced by
+	 *                the native `string` param type, so callers can pass an
+	 *                invalid value at runtime; the check below is load-bearing.
 	 */
 	public function group(string $operator, callable $configure): ValidatorSpec
 	{
@@ -146,7 +148,6 @@ final class ValidatorBuilder
 			'Unknown validator group operator "' . $operator . '"; expected one of: ' . implode(', ', array_keys(self::OPERATORS))
 		);
 
-		/** @var Validator&IValidatorContainer $validator */
 		$validator = new $class();
 		$validator->initialize($this->context, [], [], []);
 		$this->container->addChild($validator);

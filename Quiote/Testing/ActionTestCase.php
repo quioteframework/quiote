@@ -1,7 +1,6 @@
 <?php
 namespace Quiote\Testing;
 
-use Quiote\Request\WebRequest;
 use Quiote\Execution\ValidationService;
 use Quiote\Testing\PHPUnit\Constraint\ConstraintActionHandlesMethod;
 use Quiote\Validator\ValidationArgument;
@@ -33,7 +32,7 @@ abstract class ActionTestCase extends FragmentTestCase
 	{
 		// Container removed in modernized pipeline: execute action manually.
 		$action = $this->createActionInstance();
-		$methodLogical = strtolower($this->requestMethod ?? 'read');
+		$methodLogical = strtolower($this->requestMethod);
 		$method = ucfirst($methodLogical);
 		$execMethod = 'execute' . $method;
 		$hasSpecific = is_callable([$action, $execMethod]);
@@ -41,14 +40,6 @@ abstract class ActionTestCase extends FragmentTestCase
 			$execMethod = 'execute';
 		}
 		$request = $this->getContext()->getRequest();
-		/** @var WebRequest $request */
-		// Ensure we have concrete WebRequest (context should supply it). If not, attempt adapt.
-		if (!($request instanceof WebRequest)) {
-			try {
-				$request = $this->getContext()->getRequest();
-			} catch (\Throwable) {
-			}
-		}
 		$resultView = null;
 
 		// If validation already determined to have failed, emulate framework behavior by invoking
@@ -59,10 +50,8 @@ abstract class ActionTestCase extends FragmentTestCase
 			try {
 				if (is_callable([$action, $errorHandler])) {
 					$resultView = $action->$errorHandler($request);
-				} elseif (is_callable($action->handleError(...))) {
-					$resultView = $action->handleError($request);
 				} else {
-					$resultView = 'Error';
+					$resultView = $action->handleError($request);
 				}
 			} catch (\Throwable) {
 				$resultView = 'Error';
@@ -99,7 +88,7 @@ abstract class ActionTestCase extends FragmentTestCase
 		$logger = \Quiote\Logging\Log::for($this);
 		if ($logger->isEnabled(\Quiote\Logging\Level::Debug) || getenv('DEBUG_TESTS')) {
 			try {
-				$logger->debug('[TestDebug][runAction] rawResult=' . var_export($resultView, true) . ' method=' . $execMethod . ' validationSuccess=' . ($this->validationSuccess ? '1' : '0'));
+				$logger->debug('[TestDebug][runAction] rawResult=' . var_export($resultView, true) . ' method=' . $execMethod . ' validationSuccess=1');
 			} catch (\Throwable) {
 			}
 		}
@@ -134,7 +123,7 @@ abstract class ActionTestCase extends FragmentTestCase
 		$action = $this->createActionInstance();
 		// IMPORTANT: validation XML <validator method="write"> expects lowercase tokens.
 		// We still need Ucfirst variant inside ValidationService when constructing validate* methods.
-		$methodToken = strtolower($this->requestMethod ?? 'read');
+		$methodToken = strtolower($this->requestMethod);
 		// Acquire canonical WebRequest (it already holds parameters injected via helpers)
 		$request = $this->getContext()->getRequest();
 		$logger = \Quiote\Logging\Log::for($this);
@@ -148,12 +137,12 @@ abstract class ActionTestCase extends FragmentTestCase
 		// Controlled debug: only emit pre-validation parameter dump when explicitly enabled
 		if ($dbg) {
 			try {
-				$rawParams = method_exists($request, 'getParameters') ? $request->getParameters('parameters') : [];
+				$rawParams = $request->getParameters('parameters');
 				$flat = [];
 				if (class_exists(\Quiote\Util\ArrayPathDefinition::class)) {
 					$flat = \Quiote\Util\ArrayPathDefinition::getFlatKeyNames($rawParams);
 				}
-				$logger->debug('[TestDebug][PreValidation] action=' . ($this->actionName ?? '') . ' method=' . $methodToken . ' keys=' . implode(',', $flat) . ' raw=' . json_encode($rawParams));
+				$logger->debug('[TestDebug][PreValidation] action=' . $this->actionName . ' method=' . $methodToken . ' keys=' . implode(',', $flat) . ' raw=' . json_encode($rawParams));
 			} catch (\Throwable $e) {
 				try {
 					$logger->debug('[TestDebug][PreValidation] exception dumping params: ' . $e->getMessage());
@@ -166,7 +155,7 @@ abstract class ActionTestCase extends FragmentTestCase
 		try {
 			$vm = $this->getContext()->createInstanceFor('validation_manager');
 			if ($this->container && method_exists($this->container, 'setValidationManager')) {
-				if (method_exists($this->container, 'setArguments') && method_exists($request, 'getParameters')) {
+				if (method_exists($this->container, 'setArguments')) {
 					try {
 						$this->container->setArguments($request->getParameters('parameters') ?? []);
 					} catch (\Throwable) {
@@ -176,7 +165,7 @@ abstract class ActionTestCase extends FragmentTestCase
 			}
 			if ($dbg) {
 				try {
-					$rp = method_exists($request, 'getParameters') ? $request->getParameters('runtime') : [];
+					$rp = $request->getParameters('runtime');
 					$logger->debug('[TestDebug][RuntimeBeforeValidation] keys=' . implode(',', array_keys($rp)));
 				} catch (\Throwable) {
 				}
@@ -207,12 +196,9 @@ abstract class ActionTestCase extends FragmentTestCase
 				$result = (object)['ok' => false, 'data' => []];
 			}
 			$this->validationSuccess = (bool)$result->ok;
-			try {
-				$trace = $result->data['trace'] ?? null;
-				if ($trace) {
-					$loaded = $trace->validatorsLoaded ?? [];
-				}
-			} catch (\Throwable) {
+			$trace = $result->data['trace'] ?? null;
+			if ($trace) {
+				$loaded = $trace->validatorsLoaded ?? [];
 			}
 			if (empty($loaded) && $alternativeName) {
 				try {
@@ -285,8 +271,8 @@ abstract class ActionTestCase extends FragmentTestCase
 
 	/**
 	 * asserts that the viewName is the expected value after runAction was called
-	 * @param      string the expected viewname in short form ('Success' etc)
-	 * @param      string an optional message to display if the test fails
+	 * @param      string $expected the expected viewname in short form ('Success' etc)
+	 * @param      string $message an optional message to display if the test fails
 	 * @return     void
 	 * @since      1.0.0
 	 */
@@ -298,8 +284,8 @@ abstract class ActionTestCase extends FragmentTestCase
 
 	/**
 	 * asserts that the view's modulename is the expected value after runAction was called
-	 * @param      string the expected moduleName 
-	 * @param      string an optional message to display if the test fails
+	 * @param      string $expected the expected moduleName 
+	 * @param      string $message an optional message to display if the test fails
 	 * @return     void
 	 * @since      1.0.0
 	 */
@@ -310,12 +296,12 @@ abstract class ActionTestCase extends FragmentTestCase
 
 	/**
 	 * asserts that the DefaultView is the expected 
-	 * @param     mixed A string containing the view name associated with the
+	 * @param     mixed $expected A string containing the view name associated with the
 	 *                   action.
 	 *                   Or an array with the following indices:
 	 *                   - The parent module of the view that will be executed.
 	 *                   - The view that will be executed.
-	 * @param      string an optional message to display if the test fails
+	 * @param      string $message an optional message to display if the test fails
 	 * @return     void
 	 * @see        Action::getDefaultViewName()
 	 * @since      1.0.0
@@ -328,9 +314,9 @@ abstract class ActionTestCase extends FragmentTestCase
 
 	/**
 	 * assert that the action handles the given request method
-	 * @param      string  the method name
-	 * @param      boolean true if the generic 'execute' method should be accepted as handled
-	 * @param      string  an optional message to display if the test fails
+	 * @param      string $method the method name
+	 * @param      boolean $acceptGeneric true if the generic 'execute' method should be accepted as handled
+	 * @param      string $message an optional message to display if the test fails
 	 * @since      1.0.0
 	 */
 	protected function assertHandlesMethod($method, $acceptGeneric = true, $message = '')
@@ -343,9 +329,9 @@ abstract class ActionTestCase extends FragmentTestCase
 
 	/**
 	 * assert that the action does not handle the given request method
-	 * @param      string  the method name
-	 * @param      boolean true if the generic 'execute' method should be accepted as handled
-	 * @param      string  an optional message to display if the test fails
+	 * @param      string $method the method name
+	 * @param      boolean $acceptGeneric true if the generic 'execute' method should be accepted as handled
+	 * @param      string $message an optional message to display if the test fails
 	 * @since      1.0.0
 	 */
 	protected function assertNotHandlesMethod($method, $acceptGeneric = true, $message = '')
@@ -358,7 +344,7 @@ abstract class ActionTestCase extends FragmentTestCase
 
 	/**
 	 * assert that the action is simple
-	 * @param      string  an optional message to display if the test fails
+	 * @param      string $message an optional message to display if the test fails
 	 * @since      1.0.0
 	 */
 	protected function assertIsSimple($message = 'Failed asserting that the action is simple.')
@@ -369,7 +355,7 @@ abstract class ActionTestCase extends FragmentTestCase
 
 	/**
 	 * assert that the action is not simple
-	 * @param      string  an optional message to display if the test fails
+	 * @param      string $message an optional message to display if the test fails
 	 * @since      1.0.0
 	 */
 	protected function assertIsNotSimple($message = 'Failed asserting that the action is not simple.')
@@ -382,9 +368,9 @@ abstract class ActionTestCase extends FragmentTestCase
 	 * asserts that the given argument has been touched by a validator
 	 * This does not imply that the validation failed or succeeded, just
 	 * that a validator attempted to validate the given argument
-	 * @param      string the name of the argument
-	 * @param      string the source of the argument
-	 * @param      string an optional message 
+	 * @param      string $argumentName the name of the argument
+	 * @param      string $source the source of the argument
+	 * @param      string $message an optional message 
 	 * @since      1.0.0
 	 */
 	protected function assertValidatedArgument($argumentName, $source = 'parameters', $message = 'Failed asserting that the argument <%1$s> is validated.')
@@ -395,9 +381,9 @@ abstract class ActionTestCase extends FragmentTestCase
 
 	/**
 	 * asserts that the given argument has failed the validation
-	 * @param      string the name of the argument
-	 * @param      string the source of the argument
-	 * @param      string an optional message 
+	 * @param      string $argumentName the name of the argument
+	 * @param      string $source the source of the argument
+	 * @param      string $message an optional message 
 	 * @since      1.0.0
 	 */
 	protected function assertFailedArgument($argumentName, $source = 'parameters', $message = 'Failed asserting that the argument <%1$s> is failed.')
@@ -408,9 +394,9 @@ abstract class ActionTestCase extends FragmentTestCase
 
 	/**
 	 * asserts that the given argument has succeeded the validation
-	 * @param      string the name of the argument
-	 * @param      string the source of the argument
-	 * @param      string an optional message 
+	 * @param      string $argumentName the name of the argument
+	 * @param      string $source the source of the argument
+	 * @param      string $message an optional message 
 	 * @since      1.0.0
 	 */
 	protected function assertSucceededArgument($argumentName, $source = 'parameters', $message = 'Failed asserting that the argument <%1$s> is succeeded.')

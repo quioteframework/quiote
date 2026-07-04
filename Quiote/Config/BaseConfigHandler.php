@@ -15,8 +15,8 @@ abstract class BaseConfigHandler extends ParameterHolder
 {
 	/**
 	 * Generate the code for returning from execute().
-	 * @param      mixed A string with the code, or an array of code lines.
-	 * @param      string An optional config file path, to be put in a comment.
+	 * @param      mixed $code A string with the code, or an array of code lines.
+	 * @param      ?string $path An optional config file path, to be put in a comment.
 	 * @return     string PHP code.
 	 * @since      1.0.0
 	 */
@@ -49,7 +49,7 @@ abstract class BaseConfigHandler extends ParameterHolder
 	
 	/**
      * Literalize a string value.
-     * @param      string The value to literalize.
+     * @param      string $value The value to literalize.
      * @return     string A literalized value.
      * @since      1.0.0
      */
@@ -61,7 +61,7 @@ abstract class BaseConfigHandler extends ParameterHolder
 
 	/**
      * Replace configuration directive identifiers in a string.
-     * @param      string The value on which to run the replacement procedure.
+     * @param      string $value The value on which to run the replacement procedure.
      * @return     string The new value.
      * @since      1.0.0
      */
@@ -73,7 +73,7 @@ abstract class BaseConfigHandler extends ParameterHolder
 
 	/**
 	 * Replace a relative filesystem path with an absolute one.
-	 * @param      string A relative filesystem path.
+	 * @param      string $path A relative filesystem path.
 	 * @return     string The new path.
 	 * @since      1.0.0
 	 */

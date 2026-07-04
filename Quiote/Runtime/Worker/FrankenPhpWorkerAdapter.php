@@ -5,8 +5,6 @@ use Quiote\Util\WorkerManager;
 
 class FrankenPhpWorkerAdapter implements WorkerAdapterInterface
 {
-    public function __construct(private readonly string $contextName) {}
-
     public static function isSupported(): bool
     {
         return function_exists('frankenphp_handle_request');

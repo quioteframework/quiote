@@ -120,7 +120,7 @@ final class Inflector
 
 	/**
 	 * Translates a noun from its plural form in its singular form
-	 * @param      string Word to singularize
+	 * @param      string $word Word to singularize
 	 * @return     string The singular form of the word
 	 * @since      1.0.0
 	 */
@@ -146,7 +146,7 @@ final class Inflector
 
 	/**
 	 * Translates a noun from its singular form in its plural form
-	 * @param      string Word to pluralize
+	 * @param      string $word Word to pluralize
 	 * @return     string The plural form of the word
 	 * @since      1.0.0
 	 */

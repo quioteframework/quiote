@@ -54,7 +54,7 @@ class PayloadParsingMiddleware implements MiddlewareInterface
             if ($ct && str_contains($ct, 'application/x-www-form-urlencoded')) {
                 $raw = (string)$request->getBody();
                 parse_str($raw, $data);
-                if (is_array($data) && $data) {
+                if ($data) {
                     if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
                         \Quiote\Logging\Log::for($this)->debug('[PayloadParsingMiddleware] parsed body: '. $raw);
                     }

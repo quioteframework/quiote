@@ -52,7 +52,7 @@ class SecurityMiddleware implements MiddlewareInterface
         $sessId = 'no-sid';
         try {
             $storage = $this->controller->getContext()->getStorage();
-            if ($storage && method_exists($storage, 'getId')) {
+            if (method_exists($storage, 'getId')) {
                 $sidTmp = $storage->getId();
                 if (is_string($sidTmp) && $sidTmp !== '') {
                     $sessId = $sidTmp;
@@ -71,7 +71,7 @@ class SecurityMiddleware implements MiddlewareInterface
         }
         try {
             $userObj = $this->controller->getContext()->getUser();
-            if ($userObj && method_exists($userObj, 'isAuthenticated')) {
+            if (method_exists($userObj, 'isAuthenticated')) {
                 $authState = $userObj->isAuthenticated() ? '1' : '0';
             }
         } catch (\Throwable) {
@@ -84,21 +84,19 @@ class SecurityMiddleware implements MiddlewareInterface
         $action = null;
         try {
             $action = $this->controller->createActionInstance($actionDesc->module, $actionDesc->action);
-            if (method_exists($action, 'initialize')) {
-                $lwCtx = new LightweightActionInitContext(
-                    $this->controller->getContext(),
-                    $actionDesc->module,
-                    $actionDesc->action,
-                    $actionDesc->method,
-                    $actionDesc->outputType,
-                    $request,
-                    $this->controller->getGlobalResponse()
-                );
-                $action->initialize($lwCtx);
-                try {
-                    $request = $request->withAttribute('quiote.preinstantiated_action', $action);
-                } catch (\Throwable) {
-                }
+            $lwCtx = new LightweightActionInitContext(
+                $this->controller->getContext(),
+                $actionDesc->module,
+                $actionDesc->action,
+                $actionDesc->method,
+                $actionDesc->outputType,
+                $request,
+                $this->controller->getGlobalResponse()
+            );
+            $action->initialize($lwCtx);
+            try {
+                $request = $request->withAttribute('quiote.preinstantiated_action', $action);
+            } catch (\Throwable) {
             }
         } catch (\Throwable $initEx) {
             \Quiote\Logging\Log::for($this)->error('[SecurityMiddleware][' . $rid . '] action init FAILED: ' . $initEx::class . ': ' . $initEx->getMessage() . ' @ ' . $initEx->getFile() . ':' . $initEx->getLine());
@@ -117,7 +115,7 @@ class SecurityMiddleware implements MiddlewareInterface
             $isAuth = false;
             try {
                 $user = $this->controller->getContext()->getUser();
-                $isAuth = $user && method_exists($user, 'isAuthenticated') && $user->isAuthenticated();
+                $isAuth = method_exists($user, 'isAuthenticated') && $user->isAuthenticated();
             } catch (\Throwable) {
             }
             $decision = $isAuth ? SecurityDecision::Allow : SecurityDecision::LoginForward;
@@ -142,12 +140,11 @@ class SecurityMiddleware implements MiddlewareInterface
             $key = match ($decision) {
                 SecurityDecision::LoginForward => 'login',
                 SecurityDecision::SecureForward => 'secure',
-                default => 'login'
             };
             if($dbg) {
                 try {
                     $orig = $actionDesc;
-                    $sidLog = $sessId ?? 'n/a';
+                    $sidLog = $sessId;
                     \Quiote\Logging\Log::for($this)->debug('[SecurityMiddleware]['.$rid.'] non-allow decision='.$decision->name.' orig='.$orig->module.':'.$orig->action.':'.$orig->method.' sid='.$sidLog.' auth='.$authState);
                 } catch(\Throwable) {}
             }
@@ -157,9 +154,7 @@ class SecurityMiddleware implements MiddlewareInterface
             $outputTypeName = 'html';
             try {
                 $ot = $this->controller->getOutputType();
-                if ($ot) {
-                    $outputTypeName = $ot->getName();
-                }
+                $outputTypeName = $ot->getName();
             } catch (\Throwable) {
                 // Output types not yet loaded; use default
             }
@@ -172,23 +167,21 @@ class SecurityMiddleware implements MiddlewareInterface
                 // action descriptor, not the forwarded one. DispatchMiddleware must
                 // create a fresh instance for the login/secure action.
                 $request = $request->withAttribute('quiote.preinstantiated_action', null);
-                if ($execState instanceof ExecutionState) {
-                    $execState->forwarded = true;
-                    $execState->forwardCount++;
-                    if ($execState->forwardCount > 5) {
-                        $factory = new \Nyholm\Psr7\Factory\Psr17Factory();
-                        return $factory->createResponse(508)->withBody($factory->createStream('Too many forwards'));
-                    }
-                    $execState->viewName = null;
-                    $execState->viewModule = null;
-                    $execState->actionAttributes = [];
-                    $execState->module = $newDesc->module;
-                    $execState->action = $newDesc->action;
-                    $execState->outputType = $newDesc->outputType;
-                    $execState->validationDecision = ValidationDecision::pending();
-                    $execState->securityDecision = SecurityDecision::Allow;
-                    $request = $request->withAttribute(ExecutionState::class, $execState);
+                $execState->forwarded = true;
+                $execState->forwardCount++;
+                if ($execState->forwardCount > 5) {
+                    $factory = new \Nyholm\Psr7\Factory\Psr17Factory();
+                    return $factory->createResponse(508)->withBody($factory->createStream('Too many forwards'));
                 }
+                $execState->viewName = null;
+                $execState->viewModule = null;
+                $execState->actionAttributes = [];
+                $execState->module = $newDesc->module;
+                $execState->action = $newDesc->action;
+                $execState->outputType = $newDesc->outputType;
+                $execState->validationDecision = ValidationDecision::pending();
+                $execState->securityDecision = SecurityDecision::Allow;
+                $request = $request->withAttribute(ExecutionState::class, $execState);
                 if ($dbg) {
                     \Quiote\Logging\Log::for($this)->debug('[SecurityMiddleware] forwarded decision=' . $decision->name . ' -> system action ' . $newDesc->module . ':' . $newDesc->action . ':' . $newDesc->method);
                 }
@@ -203,7 +196,7 @@ class SecurityMiddleware implements MiddlewareInterface
         if ($dbg) {
             $finalDesc = $request->getAttribute(ActionDescriptor::class);
             if ($finalDesc) {
-                \Quiote\Logging\Log::for($this)->debug('[SecurityMiddleware][' . $rid . '] post module=' . $finalDesc->module . ' action=' . $finalDesc->action . ' method=' . $finalDesc->method . ' forwarded=' . ($execState ? ($execState->forwarded ? '1' : '0') : '0'));
+                \Quiote\Logging\Log::for($this)->debug('[SecurityMiddleware][' . $rid . '] post module=' . $finalDesc->module . ' action=' . $finalDesc->action . ' method=' . $finalDesc->method . ' forwarded=' . ($execState->forwarded ? '1' : '0'));
             }
         }
         return $handler->handle($request);

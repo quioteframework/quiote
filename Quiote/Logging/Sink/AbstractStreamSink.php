@@ -23,8 +23,9 @@ abstract class AbstractStreamSink implements SinkInterface
     /**
      * @param Level $minLevel Minimum level this sink accepts by default.
      * @param array<string,Level> $categoryOverrides category-prefix => min level.
-     * @param string|resource $stream A stream path (opened lazily, append) or an
-     *        already-open writable resource (e.g. for tests).
+     * @param string $stream A stream path (opened lazily, append).
+     * @param resource|null $streamResource An already-open writable resource
+     *        (e.g. for tests), used instead of opening $stream lazily.
      */
     public function __construct(
         private readonly Level $minLevel = Level::Debug,

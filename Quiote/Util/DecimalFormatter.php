@@ -17,7 +17,7 @@ use Symfony\Contracts\Service\ResetInterface;
 class DecimalFormatter implements ResetInterface
 {
 	/**
-	 * @var        string The format string given by the user
+	 * @var        ?string The format string given by the user
 	 */
 	protected $originalFormatString = null;
 
@@ -27,7 +27,7 @@ class DecimalFormatter implements ResetInterface
 	protected $formatString = '';
 
 	/**
-	 * @var        string The format string which will be given to sprintf if the 
+	 * @var        ?string The format string which will be given to sprintf if the 
 	 *                    number is negative
 	 */
 	protected $negativeFormatString = null;
@@ -63,7 +63,7 @@ class DecimalFormatter implements ResetInterface
 	protected $hasCurrency = false;
 
 	/**
-	 * @var        int The type of the currency symbol.
+	 * @var        ?int The type of the currency symbol.
 	 */
 	protected $currencyType = null;
 
@@ -104,7 +104,7 @@ class DecimalFormatter implements ResetInterface
 
 	/**
 	 * Constructs a new Decimalformatter with the optional format.
-	 * @param      string The format (if any).
+	 * @param      string $format The format (if any).
 	 * @since      1.0.0
 	 */
 	public function __construct($format = null)
@@ -126,7 +126,7 @@ class DecimalFormatter implements ResetInterface
 
 	/**
 	 * Sets the format to be used for formatting numbers.
-	 * @return     string The current format.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setFormat($format)
@@ -322,8 +322,8 @@ class DecimalFormatter implements ResetInterface
 
 	/**
 	 * Formats the given number with the information in this instance.
-	 * @param      int|float A number to format.
-	 * @param      string    A currency symbol to be used.
+	 * @param      int|float $number A number to format.
+	 * @param      string $currencySymbol A currency symbol to be used.
 	 * @return     array The number and some information in the desired format.
 	 * @since      1.0.0
 	 */
@@ -497,7 +497,7 @@ class DecimalFormatter implements ResetInterface
 
 	/**
 	 * Formats the given number and returns the formatted result.
-	 * @param      int|float The number to be formatted.
+	 * @param      int|float $number The number to be formatted.
 	 * @return     string    The number formatted in the desired format.
 	 * @since      1.0.0
 	 */
@@ -508,8 +508,8 @@ class DecimalFormatter implements ResetInterface
 
 	/**
 	 * Formats the given currency and returns the formatted result.
-	 * @param      int|float The number to be formatted.
-	 * @param      string    The currency symbol to be used when formatting.
+	 * @param      int|float $number The number to be formatted.
+	 * @param      string $currencySymbol The currency symbol to be used when formatting.
 	 * @return     string    The currency formatted in the desired format.
 	 * @since      1.0.0
 	 */
@@ -530,7 +530,7 @@ class DecimalFormatter implements ResetInterface
 
 	/**
 	 * Sets the rounding mode.
-	 * @return     string The rounding mode.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setRoundingMode($mode)
@@ -540,7 +540,7 @@ class DecimalFormatter implements ResetInterface
 
 	/**
 	 * Maps a string rounding mode definition to the rounding mode constants.
-	 * @param      string    The mode string.
+	 * @param      string $mode The mode string.
 	 * @return     string    The rounding mode constant.
 	 * @since      1.0.0
 	 */
@@ -617,7 +617,7 @@ class DecimalFormatter implements ResetInterface
 				try {
 					$nf = new \NumberFormatter($locale->getIdentifier(), \NumberFormatter::DECIMAL);
 					$pattern = $nf->getPattern();
-					if(is_string($pattern) && $pattern !== '') {
+					if($pattern !== '') {
 						$decimalFormats = [$pattern];
 					}
 					$groupingSeparator = $nf->getSymbol(\NumberFormatter::GROUPING_SEPARATOR_SYMBOL);
@@ -691,9 +691,9 @@ class DecimalFormatter implements ResetInterface
 
 	/**
 	 * Parses a string into float or int.
-	 * @param      string The input number string.
-	 * @param      Locale An optional locale to get the separators from.
-	 * @param      bool An out value indicating whether there were additional 
+	 * @param      string $string The input number string.
+	 * @param      \Quiote\Translation\QuioteLocale|string|null $locale An optional locale to get the separators from.
+	 * @param      bool $hasExtraChars An out value indicating whether there were additional 
 	 *                  characters after the matched number.
 	 * @return     mixed The result if parsing was successful or false when the 
 	 *                   input was no number.
@@ -748,7 +748,7 @@ class DecimalFormatter implements ResetInterface
 		if($locale && class_exists('NumberFormatter')) {
 			try {
 				$nf = new \NumberFormatter($locale->getIdentifier(), \NumberFormatter::DECIMAL);
-				$groupingSeparator = $nf->getSymbol(\NumberFormatter::GROUPING_SEPARATOR_SYMBOL) ?? ',';
+				$groupingSeparator = $nf->getSymbol(\NumberFormatter::GROUPING_SEPARATOR_SYMBOL);
 			} catch(\Throwable) {
 				$groupingSeparator = ',';
 			}

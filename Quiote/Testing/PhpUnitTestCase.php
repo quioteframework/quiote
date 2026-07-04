@@ -39,7 +39,7 @@ abstract class PhpUnitTestCase extends TestCase
 	
 	/**
 	 * set the environment to bootstrap in isolated tests
-	 * @param        string the name of the environment
+	 * @param        string $environmentName the name of the environment
 	 * @since        1.0.0
 	 */
 	public function setIsolationEnvironment($environmentName)
@@ -89,7 +89,7 @@ abstract class PhpUnitTestCase extends TestCase
 	
 	/**
 	 * set the default context to use in isolated tests
-	 * @param        string the name of the context
+	 * @param        string $contextName the name of the context
 	 * @since        1.0.0
 	 */
 	public function setIsolationDefaultContext($contextName)
@@ -138,7 +138,7 @@ abstract class PhpUnitTestCase extends TestCase
 	
 	/**
 	 * set whether the cache should be cleared for the isolated subprocess
-	 * @param        bool true if the cache should be cleared
+	 * @param        bool $flag true if the cache should be cleared
 	 * @since        1.0.0
 	 */
 	public function setClearCache($flag)

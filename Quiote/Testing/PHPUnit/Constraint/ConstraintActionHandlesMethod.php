@@ -19,8 +19,8 @@ class ConstraintActionHandlesMethod extends BaseConstraintBecausePhpunitSucksAtB
 	
 	/**
      * Class constructor.
-     * @param      Action Instance of the Action to test.
-     * @param      bool        Whether generic execute methods should be accepted.
+     * @param      Action $actionInstance Instance of the Action to test.
+     * @param      bool        $acceptGeneric Whether generic execute methods should be accepted.
      * @since      1.0.0
      * @param bool $acceptGeneric
      */
@@ -32,7 +32,7 @@ class ConstraintActionHandlesMethod extends BaseConstraintBecausePhpunitSucksAtB
 	/**
 	 * Evaluates the constraint for parameter $other. Returns TRUE if the
 	 * constraint is met, FALSE otherwise.
-	 * @param      mixed Value or object to evaluate.
+	 * @param      mixed $other Value or object to evaluate.
 	 * @return     bool The result of the evaluation.
 	 * @since      1.0.0
 	 */
@@ -62,9 +62,9 @@ class ConstraintActionHandlesMethod extends BaseConstraintBecausePhpunitSucksAtB
 	
 	/**
 	 * Returns a custom error description.
-	 * @param      mixed  Value or object to evaluate.
-	 * @param      string The original description.
-	 * @param      bool   true if the constraint was negated.
+	 * @param      mixed  $other Value or object to evaluate.
+	 * @param      string $description The original description.
+	 * @param      bool   $not true if the constraint was negated.
 	 * @return     string The error description.
 	 * @since      1.0.0
 	 */

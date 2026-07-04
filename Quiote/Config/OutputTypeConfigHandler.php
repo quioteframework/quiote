@@ -26,10 +26,10 @@ class OutputTypeConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 	const XML_NAMESPACE = 'http://quiote.dev/quiote/config/parts/output_types/1.1';
 
 	/**
-	 * @throws     <b>UnreadableException</b> If a requested configuration
+	 * @throws     \Quiote\Exception\UnreadableException If a requested configuration
 	 *                                             file does not exist or is not
 	 *                                             readable.
-	 * @throws     <b>ParseException</b> If a requested configuration file is
+	 * @throws     \Quiote\Exception\ParseException If a requested configuration file is
 	 *                                        improperly formatted.
 	 * @since      1.0.0
 	 */

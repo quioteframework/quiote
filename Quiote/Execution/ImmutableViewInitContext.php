@@ -64,18 +64,15 @@ final class ImmutableViewInitContext extends AttributeHolder implements ViewInit
         return $this->response;
     }
 
-    public function getPsrResponse(): ?ResponseInterface
+    public function getPsrResponse(): ResponseInterface
     {
-        // If an explicit PSR response was provided use it; otherwise, if the
-        // legacy response is an WebResponse wrap it lazily in the adapter
+        // If an explicit PSR response was provided use it; otherwise wrap the
+        // legacy WebResponse lazily in the adapter.
         if ($this->psrResponse !== null) {
             return $this->psrResponse;
         }
-        if ($this->response instanceof \Quiote\Response\WebResponse) {
-            $this->psrResponse = new PsrResponseAdapter($this->response);
-            return $this->psrResponse;
-        }
-        return null;
+        $this->psrResponse = new PsrResponseAdapter($this->response);
+        return $this->psrResponse;
     }
 
     // ---------------------------------------------------------------------
@@ -93,7 +90,7 @@ final class ImmutableViewInitContext extends AttributeHolder implements ViewInit
     /**
      * Return action module name for legacy code that called getModuleName().
      */
-    public function getModuleName(): ?string
+    public function getModuleName(): string
     {
         return $this->actionModule ?? $this->viewModule;
     }

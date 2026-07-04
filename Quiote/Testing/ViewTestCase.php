@@ -41,7 +41,7 @@ abstract class ViewTestCase extends FragmentTestCase
 	
 	/**
 	 *  runs the view instance for this testcase
-	 * @param      string the name of the output type to run the view for
+	 * @param      string $otName the name of the output type to run the view for
 	 *                    null for the default output type
 	 * @since      1.0.0
 	 */
@@ -51,7 +51,7 @@ abstract class ViewTestCase extends FragmentTestCase
 		$view = $this->createViewInstance();
 		// Modern request no longer exposes a separate requestData holder; pass parameter array for legacy execute signatures if needed.
 		$req = $this->getContext()->getRequest();
-		$rd = method_exists($req, 'getParameters') ? $req->getParameters('parameters') : [];
+		$rd = $req->getParameters('parameters');
 		$method = 'execute' . ucfirst($otName ?? $this->getContext()->getController()->getOutputType()->getName());
 		if(!is_callable([$view,$method])) { $method = 'execute'; }
 		$this->viewResult = $view->$method($rd);
@@ -59,9 +59,9 @@ abstract class ViewTestCase extends FragmentTestCase
 	
 	/**
 	 * assert that the view handles the given output type
-	 * @param      string  the output type name
-	 * @param      boolean true if the generic 'execute' method should be accepted as handled
-	 * @param      string  an optional message to display if the test fails
+	 * @param      string $method the output type name
+	 * @param      boolean $acceptGeneric true if the generic 'execute' method should be accepted as handled
+	 * @param      string $message an optional message to display if the test fails
 	 * @since      1.0.0
 	 */
 	protected function assertHandlesOutputType($method, $acceptGeneric = false, $message = '')
@@ -74,9 +74,9 @@ abstract class ViewTestCase extends FragmentTestCase
 	
 	/**
 	 * assert that the view does not handle the given output type
-	 * @param      string  the output type name
-	 * @param      boolean true if the generic 'execute' method should be accepted as handled
-	 * @param      string  an optional message to display if the test fails
+	 * @param      string $method the output type name
+	 * @param      boolean $acceptGeneric true if the generic 'execute' method should be accepted as handled
+	 * @param      string $message an optional message to display if the test fails
 	 * @since      1.0.0
 	 */
 	protected function assertNotHandlesOutputType($method, $acceptGeneric = false, $message = '')
@@ -89,7 +89,7 @@ abstract class ViewTestCase extends FragmentTestCase
 	
 	/**
 	 * assert that the response contains a redirect
-	 * @param      string the message to emit on failure
+	 * @param      string $message the message to emit on failure
 	 * @since      1.0.0
 	 */
 	protected function assertViewRedirects($message = 'Failed asserting that the view redirects')
@@ -104,7 +104,7 @@ abstract class ViewTestCase extends FragmentTestCase
 	
 	/**
 	 * assert that the response contains no redirect
-	 * @param      string the message to emit on failure
+	 * @param      string $message the message to emit on failure
 	 * @since      1.0.0
 	 */
 	protected function assertViewRedirectsNot($message = 'Failed asserting that the view does not redirect')
@@ -119,8 +119,8 @@ abstract class ViewTestCase extends FragmentTestCase
 	
 	/**
 	 * assert that the response contains the expected redirect
-	 * @param      mixed  the expected redirect
-	 * @param      string the message to emit on failure
+	 * @param      mixed $expected the expected redirect
+	 * @param      string $message the message to emit on failure
 	 * @since      1.0.0
 	 */
 	protected function assertViewRedirectsTo($expected, $message = 'Failed asserting that the view redirects to the given target.')
@@ -136,8 +136,8 @@ abstract class ViewTestCase extends FragmentTestCase
 	/**
 	 * Assert that the view sets the given content type.
 	 * this assertion only works on WebResponse or subclasses
-	 * @param      string the expected content type
-	 * @param      string the message to emit on failure
+	 * @param      string $expected the expected content type
+	 * @param      string $message the message to emit on failure
 	 * @since      1.0.0
 	 */
 	protected function assertViewSetsContentType($expected, $message = 'Failed asserting that the view sets the content type "%1$s".')
@@ -153,9 +153,9 @@ abstract class ViewTestCase extends FragmentTestCase
 	/**
 	 * Assert that the view sets the given header with the given value.
 	 * this response only works on WebResponse and subclasses
-	 * @param      string the name of the expected header
-	 * @param      string the value of the expected header
-	 * @param      string the message to emit on failure
+	 * @param      string $expected the name of the expected header
+	 * @param      string $expectedValue the value of the expected header
+	 * @param      string $message the message to emit on failure
 	 * @since      1.0.0
 	 */
 	protected function assertViewSetsHeader($expected, $expectedValue = null, $message = 'Failed asserting that the view sets a header named <%1$s> with the value <%2$s>')
@@ -171,9 +171,9 @@ abstract class ViewTestCase extends FragmentTestCase
 	/**
 	 * Assert that the view sets the given cookie with the given value.<y></y>
 	 * this response only works on WebResponse and subclasses
-	 * @param      string the name of the expected cookie
-	 * @param      string the value of the expected header
-	 * @param      string the message to emit on failure
+	 * @param      string $expected the name of the expected cookie
+	 * @param      string $expectedValue the value of the expected header
+	 * @param      string $message the message to emit on failure
 	 * @since      1.0.0
 	 */
 	protected function assertViewSetsCookie($expected, $expectedValue = null, $message = 'Failed asserting that the view sets a cookie named <%1$s> with a value of <%2$s>')
@@ -189,8 +189,8 @@ abstract class ViewTestCase extends FragmentTestCase
 	/**
 	 * assert that the response has the given http status
 	 * this assertion only works on WebResponse or subclasses
-	 * @param      string the expected http status
-	 * @param      string the message to emit on failure
+	 * @param      string $expected the expected http status
+	 * @param      string $message the message to emit on failure
 	 * @since      1.0.0
 	 */
 	protected function assertViewResponseHasHTTPStatus($expected, $message = 'Failed asserting that the response status is %1$s.')
@@ -205,8 +205,8 @@ abstract class ViewTestCase extends FragmentTestCase
 	
 	/**
 	 * assert that the response has the given content 
-	 * @param      mixed the expected content
-	 * @param      string the message to emit on failure
+	 * @param      mixed $expected the expected content
+	 * @param      string $message the message to emit on failure
 	 * @since      1.0.0
 	 */
 	protected function assertViewResponseHasContent($expected, $message = 'Failed asserting that the response has content <%1$s>.')
@@ -217,8 +217,8 @@ abstract class ViewTestCase extends FragmentTestCase
 	
 	/**
 	 * assert that the view result has the given content 
-	 * @param      mixed the expected content
-	 * @param      string the message to emit on failure
+	 * @param      mixed $expected the expected content
+	 * @param      string $message the message to emit on failure
 	 * @since      1.0.0
 	 */
 	protected function assertViewResultEquals($expected, $message = 'Failed asserting the expected view result.')
@@ -228,9 +228,9 @@ abstract class ViewTestCase extends FragmentTestCase
 	
 	/**
 	 * assert that the view forwards to the given module/action
-	 * @param      string the expected module name
-	 * @param      string the expected action name
-	 * @param      string the message to emit on failure
+	 * @param      string $expectedModule the expected module name
+	 * @param      string $expectedAction the expected action name
+	 * @param      string $message the message to emit on failure
 	 * @since      1.0.0
 	 */
 	protected function assertViewForwards($expectedModule, $expectedAction, $message = 'Failed asserting that the view forwards to "%1$s" "%2$s".')
@@ -246,8 +246,8 @@ abstract class ViewTestCase extends FragmentTestCase
 	
 	/**
 	 * assert that the view has the  given layer
-	 * @param      string the expected layer name
-	 * @param      string the message to emit on failure
+	 * @param      string $expectedLayer the expected layer name
+	 * @param      string $message the message to emit on failure
 	 * @since      1.0.0
 	 */
 	protected function assertHasLayer($expectedLayer, $message = 'Failed asserting that the view contains the layer "%1$s".')
@@ -262,8 +262,8 @@ abstract class ViewTestCase extends FragmentTestCase
 	
 	/**
 	 * assert that the view has the  given layer
-	 * @param      string the expected layer name
-	 * @param      string the message to emit on failure
+	 * @param      string $expectedLayer the expected layer name
+	 * @param      string $message the message to emit on failure
 	 * @since      1.0.0
 	 */
 	protected function assertNotHasLayer($expectedLayer, $message = '')

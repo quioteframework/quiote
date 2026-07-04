@@ -76,32 +76,30 @@ class ValidationMiddleware implements MiddlewareInterface
             $controller = $this->controller;
             if (!$controller) {
                 try {
-                    $controller = \Quiote\Quiote::context('web', true)?->getController();
+                    $controller = \Quiote\Quiote::context('web', true)->getController();
                 } catch (\Throwable) {
                 }
             }
-            if (!$controller && method_exists(\Quiote\Quiote::class, 'context')) {
+            if (!$controller) {
                 try {
                     $controller = \Quiote\Quiote::context('web', true)->getController();
                 } catch (\Throwable) {
                 }
             }
-            if ($controller && $actionDesc) {
+            if ($controller) {
                 // Let exceptions bubble to ErrorHandlingMiddleware – failure is a hard error.
                 $action = $controller->createActionInstance($moduleName, $actionName);
-                if ($action) {
-                    // Use the PSR request for type compatibility; action methods still receive WebRequest param from dispatcher later.
-                    $initCtx = new \Quiote\Execution\LightweightActionInitContext(
-                        $controller->getContext(),
-                        $moduleName,
-                        $actionName,
-                        $actionDesc->method,
-                        $actionDesc->outputType,
-                        $request,
-                        $controller->getGlobalResponse()
-                    );
-                    $action->initialize($initCtx);
-                }
+                // Use the PSR request for type compatibility; action methods still receive WebRequest param from dispatcher later.
+                $initCtx = new \Quiote\Execution\LightweightActionInitContext(
+                    $controller->getContext(),
+                    $moduleName,
+                    $actionName,
+                    $actionDesc->method,
+                    $actionDesc->outputType,
+                    $request,
+                    $controller->getGlobalResponse()
+                );
+                $action->initialize($initCtx);
             }
         }
 
@@ -113,9 +111,9 @@ class ValidationMiddleware implements MiddlewareInterface
         // lazily create a different instance afterwards.
         $webRequest = null;
         // Ensure we resolve a controller reference early so context reuse works even if constructor passed null
-        if ($this->controller === null && method_exists(\Quiote\Quiote::class, 'context')) {
+        if ($this->controller === null) {
             try {
-                $this->controller = \Quiote\Quiote::context('web', true)?->getController();
+                $this->controller = \Quiote\Quiote::context('web', true)->getController();
             } catch (\Throwable) {
             }
         }
@@ -246,7 +244,7 @@ class ValidationMiddleware implements MiddlewareInterface
             } else {
                 // Attempt XML-only validation first (must use lowercase token so compiled config matches)
                 $xmlRes = $vs->xmlOnlyValidate($action, $webRequest, $moduleName, $actionName, $lowerMethodToken);
-                if ($vd && method_exists($xmlRes, 'getTrace')) {
+                if ($vd) {
                     try {
                         $t = $xmlRes->getTrace();
                         if ($t) {
@@ -271,7 +269,7 @@ class ValidationMiddleware implements MiddlewareInterface
                     if ($ok && is_callable([$action, 'validate'])) {
                         $ok = (bool)$action->validate($webRequest);
                     }
-                    if (!$ok && empty($errors)) {
+                    if (!$ok) {
                         $errors[] = 'manual_validation_failed';
                     }
                     // manual validation phase complete
@@ -279,9 +277,7 @@ class ValidationMiddleware implements MiddlewareInterface
             }
         } catch (\Throwable $e) {
             $ok = false;
-            if (!$errors) {
-                $errors[] = $e->getMessage();
-            }
+            $errors[] = $e->getMessage();
         }
         
         // CRITICAL: Re-fetch request from context after validation
@@ -297,22 +293,18 @@ class ValidationMiddleware implements MiddlewareInterface
 
         // Keep the PSR request in sync with the canonical WebRequest so downstream
         // middleware (e.g. FormPopulation) continue working on the pruned/whitelisted payload.
-        if ($webRequest instanceof ServerRequestInterface) {
-            $originalPsr = $request->getAttribute('_original_psr_request');
-            $request = $webRequest;
-            if ($originalPsr instanceof ServerRequestInterface) {
-                $request = $request->withAttribute('_original_psr_request', $originalPsr);
-            }
+        $originalPsr = $request->getAttribute('_original_psr_request');
+        $request = $webRequest;
+        if ($originalPsr instanceof ServerRequestInterface) {
+            $request = $request->withAttribute('_original_psr_request', $originalPsr);
         }
-        
+
         // If no XML present treat as success but expose ZERO parameters to action (strict empty set)
         if (!$hasXml && !$action?->isSimple()) {
             // Clear webRequest parameters and lock down
             try {
-                if (method_exists($webRequest, 'clearParameters')) {
-                    $webRequest = $webRequest->clearParameters();
-                    $this->controller->getContext()->setRequest($webRequest);
-                }
+                $webRequest = $webRequest->clearParameters();
+                $this->controller->getContext()->setRequest($webRequest);
             } catch (\Throwable) {
             }
             // no xml => params cleared
@@ -380,11 +372,9 @@ class ValidationMiddleware implements MiddlewareInterface
         $rawViewName = $action ? $action->$handleErrorMethod($webRequest) : 'Error';
         $resolver = new ViewNameResolver();
         [$viewModule, $viewName] = $resolver->resolve($moduleName, $actionName, $rawViewName);
-        if ($execState instanceof ExecutionState) {
-            $execState->viewModule = $viewModule;
-            $execState->viewName = $viewName;
-            $request = $request->withAttribute(ExecutionState::class, $execState);
-        }
+        $execState->viewModule = $viewModule;
+        $execState->viewName = $viewName;
+        $request = $request->withAttribute(ExecutionState::class, $execState);
         // Execute view immediately so downstream dispatch middleware can skip action logic
         if ($viewName === View::NONE) {
             $factory = new \Nyholm\Psr7\Factory\Psr17Factory();
@@ -408,7 +398,7 @@ class ValidationMiddleware implements MiddlewareInterface
                     \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware] view creation returned null for ' . $viewModule . ':' . $viewName);
                 }
                 $resp = $factory->createResponse(400)->withHeader('X-Quiote-Validation', 'failed')->withHeader('X-Quiote-Validation-Reason', 'view_not_created');
-                return $resp->withBody($factory->createStream(is_string($viewName) ? $viewName : 'Error'));
+                return $resp->withBody($factory->createStream($viewName));
             }
             $otMethod = 'execute' . ucfirst($ot);
             $hasOtMethod = is_callable([$view, $otMethod]);
@@ -431,11 +421,9 @@ class ValidationMiddleware implements MiddlewareInterface
                 }
             } elseif ($hasOtMethod) {
                 $content = $view->$otMethod($webRequest);
-            } elseif (is_callable($view->execute(...))) {
+            } else {
                 // Legacy fallback for non-JSON output types.
                 $content = $view->execute($webRequest);
-            } else {
-                $content = null;
             }
             // Stash content for DispatchMiddleware early short-circuit (non-simple container-less path)
             try {
@@ -511,7 +499,7 @@ class ValidationMiddleware implements MiddlewareInterface
     {
         $descriptor = $request->getAttribute(\Quiote\Execution\ActionDescriptor::class);
         if ($descriptor instanceof \Quiote\Execution\ActionDescriptor
-            && is_string($descriptor->outputType) && $descriptor->outputType !== '') {
+            && $descriptor->outputType !== '') {
             return strtolower($descriptor->outputType);
         }
         $attrOt = $request->getAttribute('output_type');
@@ -540,7 +528,7 @@ class ValidationMiddleware implements MiddlewareInterface
      * The `errors` map (field -> messages) follows the widely-recognised
      * validation-problem convention. Falls back to the flat message list under
      * the "" key when the report cannot be introspected.
-     * @param object|null $vm       The validation manager (may be null).
+     * @param ?object $vm       The validation manager (may be null).
      * @param array        $fallback Flat list of error messages.
      */
     private function buildValidationProblemDetails($vm, array $fallback, \Psr\Http\Message\ServerRequestInterface $request): string

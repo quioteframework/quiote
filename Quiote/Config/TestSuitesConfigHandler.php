@@ -19,7 +19,7 @@ class TestSuitesConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 	const XML_NAMESPACE = 'http://quiote.dev/quiote/config/parts/testing/suites/1.1';
 
 	/**
-	 * @throws     <b>ParseException</b> If a requested configuration file is
+	 * @throws     \Quiote\Exception\ParseException If a requested configuration file is
 	 *                                        improperly formatted.
 	 * @since      1.0.0
 	 */

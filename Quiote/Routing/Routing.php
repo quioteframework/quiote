@@ -18,7 +18,7 @@ use Symfony\Component\Routing\Route;
 abstract class Routing
 {
 	private RouteCollection $routes;
-	/** @var array<string,array{gen_path:string,cut:bool,path:string,opt:array}> */
+	/** @var array<string,array{gen_path:string,cut:bool,path:string,opt:array,pattern?:string,match_full?:string,match_partial?:string}> */
 	private array $meta = [];
 	private ?UrlMatcher $matcher;
 	// Symfony routing request context (renamed to avoid collision with Context)
@@ -125,7 +125,7 @@ abstract class Routing
 	 * @param array $opts Route options: name (optional), module, action, defaults[] etc.
 	 * @param string|null $parent Parent route name for hierarchy.
 	 * @return string Final route name.
-	 * @throws Exception on conflicting duplicate name with different parent.
+	 * @throws QuioteException on conflicting duplicate name with different parent.
 	 */
 	public function addRoute(string $pattern, array $opts = [], ?string $parent = null): string
 	{
@@ -141,7 +141,7 @@ abstract class Routing
 		if ($parent !== null) {
 			$parentMeta = $this->meta[$parent] ?? null;
 			if ($parentMeta) {
-				$parentPattern = $parentMeta['pattern'] ?? ($parentMeta['path'] ?? null);
+				$parentPattern = $parentMeta['pattern'] ?? $parentMeta['path'];
 			}
 		}
 
@@ -201,7 +201,6 @@ abstract class Routing
 			$script = $_SERVER['SCRIPT_NAME'] ?? '';
 			if ($script && $script[0] !== '/') { $script = '/' . $script; }
 			$inputPath = $this->input ?: ($this->requestContext->getPathInfo() ?: '/');
-			if ($inputPath === '') { $inputPath = '/'; }
 			if ($script && str_starts_with($inputPath, (string) $script)) { $path = $inputPath; }
 			else { $path = rtrim((string) $script, '/') . ($inputPath === '/' ? '' : $inputPath); if ($path === '') { $path = '/'; } }
 			$current = [];
@@ -246,9 +245,6 @@ abstract class Routing
 			$script = '/' . $script;
 		}
 		$inputPath = $this->input ?: ($this->requestContext->getPathInfo() ?: '/');
-		if ($inputPath === '') {
-			$inputPath = '/';
-		}
 		if ($script && str_starts_with($inputPath, (string) $script)) {
 			$path = $inputPath;
 		} else {
@@ -286,15 +282,13 @@ abstract class Routing
 	public function getBaseHref(): string
 	{
 		// Prefer data from the Quiote web request if available
-		if ($this->context && method_exists($this->context, 'getRequest')) {
+		if ($this->context) {
 			try {
 				$rq = $this->context->getRequest();
-				if ($rq instanceof \Quiote\Request\WebRequest) {
-					$scheme = $rq->getUrlScheme();
-					$auth = $rq->getUrlAuthority();
-					if ($auth) {
-						return rtrim($scheme . '://' . $auth, '/');
-					}
+				$scheme = $rq->getUrlScheme();
+				$auth = $rq->getUrlAuthority();
+				if ($auth) {
+					return rtrim($scheme . '://' . $auth, '/');
 				}
 			} catch (\Throwable) { /* fall back to server vars */
 			}
@@ -379,7 +373,7 @@ abstract class Routing
 				$val = $params[$n] ?? ($defaults[$n] ?? null);
 				$val = $val === null ? null : (string)$val;
 				$enc = ($val !== null && $val !== '') ? str_replace('%21', '!', rawurlencode($val)) : null;
-				$phs[] = ['name' => $n, 'default' => isset($defaults[$n]) ? (string)$defaults[$n] : null, 'used' => $val, 'present' => $enc !== null && $enc !== '', 'index' => null];
+				$phs[] = ['name' => $n, 'default' => isset($defaults[$n]) ? (string)$defaults[$n] : null, 'used' => $val, 'present' => $enc !== null, 'index' => null];
 			}
 		}
 		$idx = 0;
@@ -390,15 +384,15 @@ abstract class Routing
 				unset($p);
 			} else { $idx++; }
 		}
-		$remove = [];$foundNon=false;$first=null;
+		$remove = [];$first=null;
 		for ($i = count($phs)-1; $i >= 0; $i--) {
 			$p = $phs[$i]; if (!$p['present']) continue;
 			$isDef = $p['default'] !== null && $p['used'] !== null && $p['used'] === $p['default'];
-			$isNon = $p['present'] && $p['default'] !== null && $p['used'] !== null && $p['used'] !== $p['default'];
-			if ($isDef && !$foundNon) { if ($p['index'] !== null) { $remove[$p['index']]=true; $first ??= $p['index']; } continue; }
-			if ($isNon) { $foundNon=true; if ($first!==null) { $hasLeft=false; for($j=0;$j<$i;$j++){ $L=$phs[$j]; if($L['present']) { $lDef=$L['default']!==null && $L['used']!==null && $L['used']===$L['default']; if($lDef && ($L['index']===null||!isset($remove[$L['index']]))) { $hasLeft=true; break; } } } if($hasLeft) unset($remove[$first]); } break; }
+			$isNon = $p['default'] !== null && $p['used'] !== null && $p['used'] !== $p['default'];
+			if ($isDef) { if ($p['index'] !== null) { $remove[$p['index']]=true; $first ??= $p['index']; } continue; }
+			if ($isNon) { if ($first!==null) { $hasLeft=false; for($j=0;$j<$i;$j++){ $L=$phs[$j]; if($L['present']) { $lDef=$L['default']!==null && $L['used']!==null && $L['used']===$L['default']; if($lDef) { $hasLeft=true; break; } } } if($hasLeft) unset($remove[$first]); } break; }
 		}
-		if ($remove) { $new=[]; foreach($segments as $k=>$s){ if(!isset($remove[$k])) $new[]=$s; } $segments=$new; $genPath='/' . implode('/', array_filter($segments, fn($s)=>$s!=='')); if($genPath==='') $genPath='/'; }
+		if ($remove) { $new=[]; foreach($segments as $k=>$s){ if(!isset($remove[$k])) $new[]=$s; } $segments=$new; $genPath='/' . implode('/', array_filter($segments, fn($s)=>$s!=='')); }
 		return $genPath;
 	}
 
@@ -541,7 +535,7 @@ abstract class Routing
 		$this->initialized = true;
 		// Derive input for null-route generation when possible
 		try {
-			if ($this->input === '' && method_exists($context, 'getRequest') && ($rq = $context->getRequest())) {
+			if ($this->input === '') {
 				// Web requests usually provide PATH_INFO via server vars; defer to requestContext otherwise
 				$pi = $this->requestContext->getPathInfo();
 				if ($pi !== '') { $this->input = $pi; }

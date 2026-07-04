@@ -19,7 +19,7 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 	const ROLES_NAMESPACE = 'org.quiote.user.RbacSecurityUser.roles';
 
 	/**
-	 * @var        array An array of roles and permissions.
+	 * @var        ?array An array of roles and permissions.
 	 */
 	protected $definitions = null;
 
@@ -30,7 +30,7 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 
 	/**
 	 * Set a role membership for this user.
-	 * @param      string The role name to add to this user.
+	 * @param      string $role The role name to add to this user.
 	 * @since      1.0.0
 	 */
 	public function grantRole($role)
@@ -54,7 +54,7 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 	
 	/**
 	 * Set many role memberships for this user.
-	 * @param      array An array of role names.
+	 * @param      array $roles An array of role names.
 	 * @since      1.0.0
 	 */
 	public function grantRoles(array $roles)
@@ -66,7 +66,7 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 	
 	/**
 	 * Revoke a role membership for this user.
-	 * @param      string The role name to remove from this user.
+	 * @param      string $role The role name to remove from this user.
 	 * @since      1.0.0
 	 */
 	public function revokeRole($role)
@@ -82,7 +82,7 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 	
 	/**
 	 * Check whether or not a user is a member of a certain role.
-	 * @param      string The role name to remove from this user.
+	 * @param      string $role The role name to remove from this user.
 	 * @return     bool Whether or not the user is a member of the given role.
 	 * @since      1.0.0
 	 */
@@ -114,9 +114,9 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 	
 	/**
 	 * Initialize this User.
-	 * @param      Context An Context instance.
-	 * @param      array        An associative array of initialization parameters.
-	 * @throws     <b>InitializationException</b> If an error occurs while
+	 * @param      Context $context An Context instance.
+	 * @param      array $parameters An associative array of initialization parameters.
+	 * @throws     \Quiote\Exception\InitializationException If an error occurs while
 	 *                                                 initializing this User.
 	 * @since      1.0.0
 	 */
@@ -131,7 +131,7 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 
 		if(!$this->authenticated) {
 			$this->roles = [];
-		} else if (is_array($this->roles) && count($this->roles) > 0) {
+		} else if (count($this->roles) > 0) {
 			// We have stored roles. To (re)derive credentials we must NOT skip grantRole() just
 			// because the role already appears in $this->roles. The original implementation
 			// populated $this->roles first, then called grantRole() which bails when the role
@@ -174,7 +174,7 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 	{
 		$logger = \Quiote\Logging\Log::for($this);
 		if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
-			$logger->debug('RbacSecurityUser storing roles', ['class' => static::class, 'namespace' => self::ROLES_NAMESPACE, 'roles_count' => is_array($this->roles) ? count($this->roles) : 0]);
+			$logger->debug('RbacSecurityUser storing roles', ['class' => static::class, 'namespace' => self::ROLES_NAMESPACE, 'roles_count' => count($this->roles)]);
 		}
 		$this->context->getStorage()->store(self::ROLES_NAMESPACE, $this->roles);
 	// Note: credentials are stored by parent SecurityUser::shutdown(). If they were

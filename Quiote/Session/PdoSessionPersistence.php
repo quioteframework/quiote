@@ -43,9 +43,6 @@ class PdoSessionPersistence implements SessionPersistenceInterface
             if (in_array($blob, [false, null, ''], true)) {
                 return null;
             }
-            if (is_resource($blob)) {
-                $blob = stream_get_contents($blob);
-            }
             if (!is_string($blob)) {
                 return null;
             }

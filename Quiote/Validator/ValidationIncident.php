@@ -17,17 +17,14 @@ class ValidationIncident implements ResetInterface
 
 	/**
      * Constructor
-     * @param      Validator The validator which caused this incident (null
+     * @param      Validator $validator The validator which caused this incident (null
      *                            for errors thrown not in the validation)
-     * @param      int The severity of the incident
-     * @param      array The fields affected by this error.
+     * @param      int $severity The severity of the incident
      * @since      1.0.0
-     * @param \Validator $validator
-     * @param int $severity
      */
     public function __construct(
         /**
-         * @var        Validator The source of this incident.
+         * @var        ?Validator The source of this incident.
          */
         protected $validator,
         /**
@@ -40,7 +37,7 @@ class ValidationIncident implements ResetInterface
 
 	/**
 	 * Sets the severity of this incident.
-	 * @param      int The severity.
+	 * @param      int $severity The severity.
 	 * @since      1.0.0
 	 */
 	public function setSeverity($severity)
@@ -61,7 +58,7 @@ class ValidationIncident implements ResetInterface
 	/**
 	 * Adds an error to this incident. This will set the incident of the error to 
 	 * this incident instance.
-	 * @param      ValidationError The error.
+	 * @param      ValidationError $error The error.
 	 * @since      1.0.0
 	 */
 	public function addError(ValidationError $error)
@@ -72,7 +69,7 @@ class ValidationIncident implements ResetInterface
 
 	/**
 	 * Sets the errors of this incident.
-	 * @param      array An array of ValidationErrors.
+	 * @param      array $errors An array of ValidationErrors.
 	 * @since      1.0.0
 	 */
 	public function setErrors(array $errors)
@@ -95,7 +92,7 @@ class ValidationIncident implements ResetInterface
 
 	/**
 	 * Sets the validator of this incident.
-	 * @param      Validator The validator.
+	 * @param      Validator $validator The validator.
 	 * @since      1.0.0
 	 */
 	public function setValidator($validator)
@@ -137,14 +134,14 @@ class ValidationIncident implements ResetInterface
     /**
      * Checks if any of the errors of this incident were thrown for the given
      * field name.
-     * @param      string The field name.
+     * @param      string $fieldname The field name.
      * @return     bool The result.
      * @since      1.0.0
      */
     #[\Deprecated(message: '1.0.0')]
     public function hasFieldError($fieldname)
 	{
-		$argument = $this->hasArgumentError(new ValidationArgument($fieldname));
+		$argument = new ValidationArgument($fieldname);
 		foreach($this->errors as $error) {
 			if($error->hasArgument($argument)) {
 				return true;
@@ -172,7 +169,7 @@ class ValidationIncident implements ResetInterface
 
 	/**
      * Retrieves the errors which were thrown for the given field.
-     * @param      string The field name.
+     * @param      string $fieldname The field name.
      * @return     array An array of ValidationError.
      * @since      1.0.0
      */

@@ -106,14 +106,14 @@ final class ActionExecutor
                     if ($stream->isSeekable()) {
                         $stream->rewind();
                     }
-                    $raw = method_exists($stream, 'getContents') ? $stream->getContents() : (string)$stream;
+                    $raw = $stream->getContents();
                     if ($raw === '' && $stream->isSeekable()) {
                         $stream->rewind();
                         $raw = (string)$stream;
                     }
                 } catch (\Throwable) {
                 }
-                if ($raw === '' && isset($_POST) && is_array($_POST) && $_POST) {
+                if ($raw === '' && $_POST) {
                     $body = $_POST;
                 } else {
                     $tmp = [];
@@ -130,9 +130,6 @@ final class ActionExecutor
                     $logger->debug('[ActionExecutor] formParse(webReq) ct=' . $ct . ' rawLen=' . strlen($raw) . ' keys=' . $keys);
                 }
             }
-        }
-        if (!is_array($query)) {
-            $query = [];
         }
         if (!is_array($body)) {
             $body = [];
@@ -195,9 +192,6 @@ final class ActionExecutor
     {
         // Use provided action instance if supplied to avoid double instantiation (enables external pre-initialization & test counters)
         $action = $preInstantiatedAction ?? $this->controller->createActionInstance($desc->module, $desc->action);
-        if (!($action instanceof Action)) {
-            throw new \RuntimeException('Created action is not instance of Action');
-        }
         // Reuse the context's canonical WebRequest (created earlier by ValidationMiddleware) so
         // validator exports are visible to action and later to the view without copying.
         $actionRequest = null;
@@ -225,7 +219,7 @@ final class ActionExecutor
             $useSecurity = \Quiote\Config\Config::get('core.use_security', true);
             if (!$useSecurity) {
                 $state->securityDecision = SecurityDecision::Allow; // global security disabled
-            } elseif (method_exists($action, 'isSecure') && !$action->isSecure()) {
+            } elseif (!$action->isSecure()) {
                 $state->securityDecision = SecurityDecision::Allow; // action explicitly open
             } else {
                 throw new \RuntimeException('Security decision missing before action execution for ' . $desc->module . ':' . $desc->action);
@@ -245,18 +239,16 @@ final class ActionExecutor
         }
         // Snapshot attributes immediately after action code runs (pre-view)
         $attributeSnapshot = [];
-        if (method_exists($action, 'getAttributes')) {
-            try {
-                $attributeSnapshot = $action->getAttributes();
-            } catch (\Throwable) {
-                $attributeSnapshot = [];
-            }
-            // Shallow clone to detach from holder internal storage (defensive)
-            if (is_array($attributeSnapshot)) {
-                $attributeSnapshot = array_merge([], $attributeSnapshot);
-            } else {
-                $attributeSnapshot = [];
-            }
+        try {
+            $attributeSnapshot = $action->getAttributes();
+        } catch (\Throwable) {
+            $attributeSnapshot = [];
+        }
+        // Shallow clone to detach from holder internal storage (defensive)
+        if (is_array($attributeSnapshot)) {
+            $attributeSnapshot = array_merge([], $attributeSnapshot);
+        } else {
+            $attributeSnapshot = [];
         }
 
         [$vm, $vn] = $this->viewNameResolver->resolve($desc->module, $desc->action, $rawView);
@@ -269,10 +261,7 @@ final class ActionExecutor
         $respHandle = new ResponseHandle($globalResp);
         // Snapshot redirect immediately - before any fiber context switch could cause another
         // request to call clear() on the shared global response object.
-        $redirectSnapshot = null;
-        if (method_exists($globalResp, 'getRedirect') && $globalResp->getRedirect() !== null) {
-            $redirectSnapshot = $globalResp->getRedirect();
-        }
+        $redirectSnapshot = $globalResp->getRedirect();
         $ctx = new ActionExecutionContext($action, $view, $desc->module, $desc->action, $desc->outputType, $actionRequest, $content, $vm, $vn, $attributeSnapshot, $bag, $respHandle, $redirectSnapshot);
         if ($dbg) {
             $logger->debug('[ActionExecutor] done contentLen=' . strlen($content));
@@ -312,7 +301,7 @@ final class ActionExecutor
                 $res = $view->$method($actionRequest);
                 if ($res !== null) {
                     $content = (string)$res;
-                } elseif (method_exists($view, 'getLayers') && method_exists($view, 'renderLayers') && $view->getLayers()) {
+                } elseif ($view->getLayers()) {
                     $layerContent = $view->renderLayers();
                     if ($layerContent !== '') {
                         $content = $layerContent;
@@ -341,10 +330,7 @@ final class ActionExecutor
             $view = $this->controller->createViewInstance($vm, $vn);
             // Snapshot action attributes if action already executed (not passed here; minimal for now)
             $global = $this->controller->getGlobalResponse();
-            $psr = null;
-            if ($global instanceof \Quiote\Response\WebResponse) {
-                $psr = new \Quiote\Http\PsrResponseAdapter($global);
-            }
+            $psr = new \Quiote\Http\PsrResponseAdapter($global);
             $vic = new ImmutableViewInitContext(
                 context: $this->controller->getContext(),
                 viewModule: $vm,

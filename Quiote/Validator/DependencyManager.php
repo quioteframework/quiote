@@ -27,8 +27,8 @@ class DependencyManager implements ResetInterface
 	
 	/**
 	 * Checks whether a list of dependencies is met.
-	 * @param      array  The list of dependencies that have to meet.
-	 * @param      VirtualArrayPath The base path to which all tokens are 
+	 * @param      array $tokens The list of dependencies that have to meet.
+	 * @param      VirtualArrayPath $base The base path to which all tokens are
 	 *                                   appended.
 	 * @return     bool all dependencies are met
 	 * @since      1.0.0
@@ -53,8 +53,8 @@ class DependencyManager implements ResetInterface
 	
 	/**
 	 * Puts a list of tokens into the dependency cache.
-	 * @param      array  The list of new tokens.
-	 * @param      VirtualArrayPath The base path to which all tokens are 
+	 * @param      array $tokens The list of new tokens.
+	 * @param      VirtualArrayPath $base The base path to which all tokens are
 	 *                                   appended.
 	 * @since      1.0.0
 	 */
@@ -77,7 +77,7 @@ class DependencyManager implements ResetInterface
 	 * Fills only empty bracket positions with an sprintf() offset placeholder.
 	 * Example: foo[][bar][] as input will return foo[%2$s][bar][%4$s] as output.
 	 * This is used in validate.xsl to convert pre-1.1 provides/depends behavior.
-	 * @param      string The argument base string.
+	 * @param      string $string The argument base string.
 	 * @return     string The argument base string with empty brackets filled with
 	 *                    correct sprintf() position specifiers.
 	 * @since      1.0.0

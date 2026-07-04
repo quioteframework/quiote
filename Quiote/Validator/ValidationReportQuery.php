@@ -40,7 +40,7 @@ class ValidationReportQuery implements IValidationReportQuery
 	
 	/**
 	 * Constructor.
-	 * @param      ValidationReport The validation report instance.
+	 * @param      ValidationReport $report The validation report instance.
 	 * @since      1.0.0
 	 */
 	public function __construct(ValidationReport $report)
@@ -51,7 +51,7 @@ class ValidationReportQuery implements IValidationReportQuery
 	/**
 	 * Returns a new IValidationReportQuery which returns only the incidents
 	 * for the given argument (and the other existing filter rules).
-	 * @param      ValidationArgument|string|array The argument instance, or
+	 * @param      ValidationArgument|string|array $argument The argument instance, or
 	 *                                                  a parameter name, or an
 	 *                                                  array of these elements.
 	 * @return     IValidationReportQuery
@@ -79,7 +79,7 @@ class ValidationReportQuery implements IValidationReportQuery
 	/**
 	 * Returns a new IValidationReportQuery which contains only the incidents
 	 * for the given validator (and the other existing filter rules).
-	 * @param      string|array The name of the validator, or an array of names.
+	 * @param      string|array $name The name of the validator, or an array of names.
 	 * @return     IValidationReportQuery
 	 * @since      1.0.0
 	 */
@@ -96,7 +96,7 @@ class ValidationReportQuery implements IValidationReportQuery
 	/**
 	 * Returns a new IValidationReportQuery which contains only the incidents
 	 * for the given error name (and the other existing filter rules).
-	 * @param      string|array The name of the error, or an array of names.
+	 * @param      string|array $name The name of the error, or an array of names.
 	 * @return     IValidationReportQuery
 	 * @since      1.0.0
 	 */
@@ -113,7 +113,7 @@ class ValidationReportQuery implements IValidationReportQuery
 	/**
 	 * Returns a new IValidationReportQuery which contains only the incidents
 	 * of the given severity or higher (and the other existing filter rules).
-	 * @param      int The minimum severity.
+	 * @param      int $minSeverity The minimum severity.
 	 * @return     IValidationReportQuery
 	 * @since      1.0.0
 	 */
@@ -127,7 +127,7 @@ class ValidationReportQuery implements IValidationReportQuery
 	/**
 	 * Returns a new IValidationReportQuery which contains only the incidents
 	 * of the given severity or lower (and the other existing filter rules).
-	 * @param      int The maximum severity.
+	 * @param      int $maxSeverity The maximum severity.
 	 * @return     IValidationReportQuery
 	 * @since      1.0.0
 	 */
@@ -307,7 +307,7 @@ class ValidationReportQuery implements IValidationReportQuery
 	/**
 	 * Retrieves the highest validation result code of the collection composed of
 	 * the currently defined filter rules.
-	 * @return     int An Validator::* severity constant, or null if there is
+	 * @return     ?int An Validator::* severity constant, or null if there is
 	 *                 no result for this filter combination. Please remember to
 	 *                 do a strict === comparison if you are comparing against
 	 *                 Validator::SUCCESS.	 */

@@ -15,7 +15,6 @@ namespace Quiote\Controller;
  */
 use Quiote\Util\AttributeHolder;
 use Quiote\Exception\QuioteException;
-use Quiote\Request\RequestDataHolder;
 use Quiote\Exception\DisabledModuleException;
 use Quiote\Exception\FileNotFoundException;
 use Quiote\Exception\ConfigurationException;
@@ -58,70 +57,70 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	}
 
 	/**
-	 * @var string The context name
+	 * @var ?string The context name
 	 */
-	protected $contextName;
+	protected final $contextName;
 
 	/**
-	 * @var string The output type name
+	 * @var ?string The output type name
 	 */
-	protected $outputTypeName;
+	protected final $outputTypeName;
 	
 	/**
-	 * @var        Context The context instance.
+	 * @var        ?Context The context instance.
 	 */
 	protected $context = null;
 
 	// Legacy filter chain removed; container now invokes action/view directly.
 
 	/**
-	 * @var        ValidationManager The validation manager instance.
+	 * @var        ?\Quiote\Validator\ValidationManager The validation manager instance.
 	 */
 	protected $validationManager = null;
 
 	/**
-	 * @var        string The request method for this container.
+	 * @var        ?string The request method for this container.
 	 */
 	protected $requestMethod = null;
 
 	/**
-	 * @var        RequestDataHolder A request data holder with request info.
+	 * @var        array|object|null A request data holder with request info.
 	 */
-	protected $requestData = null; // TODO: check if this can actually be protected 
+	protected $requestData = null; // TODO: check if this can actually be protected
 	                               // or whether it should be private (would break actiontests though)
 
 	/**
-	 * @var        RequestDataHolder A pointer to the global request data.
+	 * @var        ?object A pointer to the global request data.
 	 */
 	private $globalRequestData = null;
 
 	/**
-	 * @var        RequestDataHolder A request data holder with arguments.
+	 * @var        ?array Additional request arguments.
 	 */
 	protected $arguments = null;
 
 	/**
-	* @var        WebResponse A response instance holding the Action's output.
+	* @var        ?WebResponse A response instance holding the Action's output.
 	 */
 	protected $response = null;
 
 	/**
-	 * @var        OutputType The output type for this container.
+	 * @var        ?OutputType The output type for this container.
 	 */
 	protected $outputType = null;
 
 	/**
-	 * @var        float The microtime at which this container was initialized.
+	 * @var        ?float The microtime at which this container was initialized.
 	 */
 	protected $microtime = null;
 
 	/**
-	 * @var        Action The Action instance that belongs to this container.
+	 * @var        ?\Quiote\Action\Action The Action instance that belongs to this container.
 	 */
 	protected $actionInstance = null;
 
 	/**
-	 * @var        View The View instance that belongs to this container.
+	 * @var        ?\Quiote\View\View The View instance that belongs to this container.
 	 */
 	protected $viewInstance = null;
 
@@ -136,27 +135,27 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	protected bool $validationSucceeded = true;
 
 	/**
-	 * @var        string The name of the Action's Module.
+	 * @var        ?string The name of the Action's Module.
 	 */
 	protected $moduleName = null;
 
 	/**
-	 * @var        string The name of the Action.
+	 * @var        ?string The name of the Action.
 	 */
 	protected $actionName = null;
 
 	/**
-	 * @var        string Name of the module of the View returned by the Action.
+	 * @var        ?string Name of the module of the View returned by the Action.
 	 */
 	protected $viewModuleName = null;
 
 	/**
-	 * @var        string The name of the View returned by the Action.
+	 * @var        ?string The name of the View returned by the Action.
 	 */
 	protected $viewName = null;
 
 	/**
-	 * @var        ExecutionContainer The next container to execute.
+	 * @var        ?ExecutionContainer The next container to execute.
 	 */
 	protected $next = null;
 
@@ -213,18 +212,14 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 			$this->outputType = $this->context->getController()->getOutputType($this->outputTypeName);
 		}
 		
-		try {
-			$this->globalRequestData = $this->context->getRequest()->getRequestData();
-		} catch (\Exception) {
-			$this->globalRequestData = new RequestDataHolder();
-		}
+		$this->globalRequestData = null;
 		unset($this->contextName, $this->outputTypeName);
 	}
 
 	/**
 	 * Initialize the container. This will create a response instance.
-	 * @param      Context The current Context instance.
-	 * @param      array        An array of initialization parameters.
+	 * @param      Context $context The current Context instance.
+	 * @param      array $parameters An array of initialization parameters.
 	 * @since      1.0.0
 	 */
 	public function initialize(Context $context, array $parameters = [])
@@ -241,19 +236,18 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	/**
 	 * Creates a new container instance with the same output type and request
 	 * method as this one.
-	 * @param      string                 The name of the module.
-	 * @param      string                 The name of the action.
-	 * @param      RequestDataHolder A RequestDataHolder with additional
-	 *                                    request arguments.
-	 * @param      string                 Optional name of an initial output type
+	 * @param      string $moduleName The name of the module.
+	 * @param      string $actionName The name of the action.
+	 * @param      array $arguments Additional request arguments.
+	 * @param      string $outputType Optional name of an initial output type
 	 *                                    to set.
-	 * @param      string                 Optional name of the request method to
+	 * @param      string $requestMethod Optional name of the request method to
 	 *                                    be used in this container.
 	 * @return     ExecutionContainer A new execution container instance,
 	 *                                     fully initialized.
 	 * @since      1.0.0
 	 */
-	public function createExecutionContainer($moduleName = null, $actionName = null, ?RequestDataHolder $arguments = null, $outputType = null, $requestMethod = null)
+	public function createExecutionContainer($moduleName = null, $actionName = null, ?array $arguments = null, $outputType = null, $requestMethod = null)
 	{
 		// DEPRECATED: Container spawning retained only for legacy forward paths.
 		$logger = \Quiote\Logging\Log::for($this);
@@ -351,8 +345,9 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 		}
 		if($this->getActionInstance()->isSimple()) {
 			if($this->arguments !== null) {
-				// clone it so mutating it has no effect on the "outside world"
-				$this->requestData = clone $this->arguments;
+				// arrays are value types in PHP, so a plain assignment already
+				// gives us a copy that mutations won't affect the original
+				$this->requestData = $this->arguments;
 			} else {
 				$rdhc = $this->getContext()->getRequest()->getParameter('request_data_holder_class');
 				$this->requestData = new $rdhc();
@@ -387,9 +382,9 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	 *  - (optional) exception
 	 * in the appropriate namespace on the created container as well as the global
 	 * request (for legacy reasons)
-	 * @param      string          The type of forward to create (error_404, 
+	 * @param      string $type The type of forward to create (error_404, 
 	 *                             module_disabled, secure, login, unavailable).
-	 * @param      Exception  Optional exception thrown by the controller
+	 * @param      Exception $e Optional exception thrown by the controller
 	 *                             while resolving the module/action.
 	 * @return     ExecutionContainer The forward container.
 	 * @since      1.0.0
@@ -422,8 +417,11 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 		$forwardContainer = $this->createExecutionContainer($moduleName, $actionName);
 		
 		$forwardContainer->setAttributes($forwardInfoData, $forwardInfoNamespace);
-		// legacy
-		$this->context->getRequest()->setAttributes($forwardInfoData, $forwardInfoNamespace);
+		// legacy: WebRequest has no namespaced bulk setter, so mirror each entry individually
+		$request = $this->context->getRequest();
+		foreach ($forwardInfoData as $key => $value) {
+			$request->setAttribute($forwardInfoNamespace . '.' . $key, $value);
+		}
 		
 		return $forwardContainer;
 	}
@@ -455,7 +453,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 
 	/**
 	 * Retrieve the ValidationManager
-	 * @return     ValidationManager The container's ValidationManager
+	 * @return     \Quiote\Validator\ValidationManager The container's ValidationManager
 	 *                                    implementation instance.
 	 * @since      1.0.0
 	 */
@@ -478,8 +476,6 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	{
 	$viewName = null;
 
-		$controller = $this->context->getController();
-		$request = $this->context->getRequest();
 		$validationManager = $this->getValidationManager();
 
 		// get the current action instance
@@ -503,16 +499,8 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 		if($actionInstance->isSimple() || ($useGenericMethods && !is_callable([$actionInstance, $executeMethod]))) {
 			// this action will skip validation/execution for this method
 			// get the default view
-			$key = $request->toggleLock();
-			try {
-				$viewName = $actionInstance->getDefaultViewName();
-			} catch (\Exception $e) {
-				// we caught an exception... unlock the request and rethrow!
-				$request->toggleLock($key);
-				throw $e;
-			}
-			$request->toggleLock($key);
-			
+			$viewName = $actionInstance->getDefaultViewName();
+
 			// run the validation manager for non-simple actions if not already performed (early middleware may have done it)
 			if(!$actionInstance->isSimple() && !$this->hasValidationPerformed()) {
 				$success = $validationManager->execute($requestData);
@@ -523,33 +511,16 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 			$validationOk = $this->hasValidationPerformed() ? $this->wasValidationSuccessful() : $this->performValidation();
 			if($validationOk) {
 				// execute the action
-				// prevent access to Request::getParameters()
-				$key = $request->toggleLock();
-				try {
-							/** @var \Quiote\Action\Action $actionInstance */
-                            $viewName = $resolver->execute($actionInstance, $method, $requestData);
-				} catch (\Exception $e) {
-					// we caught an exception... unlock the request and rethrow!
-					$request->toggleLock($key);
-					throw $e;
-				}
-				$request->toggleLock($key);
+				/** @var \Quiote\Action\Action $actionInstance */
+				$viewName = $resolver->execute($actionInstance, $method, $requestData);
 			} else {
 				// validation failed
 				$handleErrorMethod = 'handle' . $method . 'Error';
 				if(!is_callable([$actionInstance, $handleErrorMethod])) {
 					$handleErrorMethod = 'handleError';
 				}
-				$key = $request->toggleLock();
-				try {
-							/** @var \Quiote\Action\Action $actionInstance */
-                            $viewName = $resolver->execute($actionInstance, $handleErrorMethod === 'handleError' ? '' : $method . 'Error', $requestData); // falls back internally
-				} catch (\Exception $e) {
-					// we caught an exception... unlock the request and rethrow!
-					$request->toggleLock($key);
-					throw $e;
-				}
-				$request->toggleLock($key);
+				/** @var \Quiote\Action\Action $actionInstance */
+				$viewName = $resolver->execute($actionInstance, $handleErrorMethod === 'handleError' ? '' : $method . 'Error', $requestData); // falls back internally
 			}
 		}
 
@@ -567,11 +538,9 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	public function performValidation()
 	{
 		$validationManager = $this->getValidationManager();
-		
+
 		// Ensure validation manager is properly reset for worker mode
-		if($validationManager instanceof ResetInterface) {
-			$validationManager->reset();
-		}
+		$validationManager->reset();
 
 		// get the current action instance
 		$actionInstance = $this->getActionInstance();
@@ -631,7 +600,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 		if(is_readable($validationConfig)) {
 			// load validation configuration
 			// do NOT use require_once
-			if(defined('\QUIOTE_USE_APCU_CONFIG_CACHE') && \QUIOTE_USE_APCU_CONFIG_CACHE) {
+			if(defined('QUIOTE_USE_APCU_CONFIG_CACHE') && QUIOTE_USE_APCU_CONFIG_CACHE) {
 				$cacheResult = APCuConfigCache::checkConfig($validationConfig, $this->context->getName());
 				if (str_starts_with($cacheResult, 'APCU:')) {
 					eval('?>' . substr($cacheResult, 5));
@@ -664,7 +633,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 
 	/**
 	 * Set this container's request method name.
-	 * @param      string The request method name.
+	 * @param      string $requestMethod The request method name.
 	 * @since      1.0.0
 	 */
 	public function setRequestMethod($requestMethod)
@@ -674,7 +643,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 
 	/**
 	 * Retrieve this container's request data holder instance.
-	 * @return     RequestDataHolder The request data holder.
+	 * @return     array|object|null The request data holder.
 	 * @since      1.0.0
 	 */
 	public final function getRequestData()
@@ -684,17 +653,17 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 
 	/**
 	 * Set this container's global request data holder reference.
-	 * @param      RequestDataHolder The request data holder.
+	 * @param      object $rd The request data holder.
 	 * @since      1.0.0
 	 */
-	public final function setRequestData(RequestDataHolder $rd)
+	public final function setRequestData(object $rd): void
 	{
 		$this->globalRequestData = $rd;
 	}
 
 	/**
-	 * Get this container's request data holder instance for additional arguments.
-	 * @return     RequestDataHolder The additional arguments.
+	 * Get this container's additional arguments.
+	 * @return     ?array The additional arguments.
 	 * @since      1.0.0
 	 */
 	public function getArguments()
@@ -703,18 +672,18 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	}
 
 	/**
-	 * Set this container's request data holder instance for additional arguments.
-	 * @return     RequestDataHolder The request data holder.
+	 * Set this container's additional arguments.
+	 * @param      array $arguments The additional arguments.
 	 * @since      1.0.0
 	 */
-	public function setArguments(RequestDataHolder $arguments)
+	public function setArguments(array $arguments): void
 	{
 		$this->arguments = $arguments;
 	}
 
 	/**
 	 * Retrieve this container's response instance.
-	 * @return     Response The Response instance for this action.
+	 * @return     ?\Quiote\Response\WebResponse The Response instance for this action.
 	 * @since      1.0.0
 	 */
 	public function getResponse()
@@ -724,7 +693,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 
 	/**
 	 * Set a new response.
-	* @param      WebResponse A new Response instance.
+	* @param      WebResponse $response A new Response instance.
 	 * @since      1.0.0
 	 */
 	public function setResponse(WebResponse $response)
@@ -745,7 +714,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 
 	/**
 	 * Set a different output type for this container.
-	 * @param      OutputType An output type object.
+	 * @param      OutputType $outputType An output type object.
 	 * @since      1.0.0
 	 */
 	public function setOutputType(OutputType $outputType)
@@ -762,8 +731,8 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 
 	/**
 	 * Retrieve this container's microtime.
-	 * @return     string A string representing the microtime this container was
-	 *                    initialized.
+	 * @return     ?float The microtime this container was initialized, or null
+	 *                    if not yet initialized.
 	 * @since      1.0.0
 	 */
 	public function getMicrotime()
@@ -773,7 +742,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 
 	/**
 	 * Retrieve this container's action instance.
-	 * @return     Action An action implementation instance.
+	 * @return     \Quiote\Action\Action An action implementation instance.
 	 * @since      1.0.0
 	 */
 	public function getActionInstance()
@@ -795,7 +764,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 
 	/**
 	 * Retrieve this container's view instance.
-	 * @return     View A view implementation instance.
+	 * @return     \Quiote\View\View A view implementation instance.
 	 * @since      1.0.0
 	 */
 	public function getViewInstance()
@@ -812,7 +781,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 
 	/**
 	 * Set this container's view instance.
-	 * @param      View A view implementation instance.
+	 * @param      View $viewInstance A view implementation instance.
 	 * @since      1.0.0
 	 */
 	public function setViewInstance($viewInstance)
@@ -863,7 +832,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 
 	/**
 	 * Set the module name for this container.
-	 * @param      string A module name.
+	 * @param      ?string $moduleName A module name.
 	 * @since      1.0.0
 	 */
 	public function setModuleName($moduleName)
@@ -879,7 +848,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 
 	/**
 	 * Set the action name for this container.
-	 * @param      string An action name.
+	 * @param      ?string $actionName An action name.
 	 * @since      1.0.0
 	 */
 	public function setActionName($actionName)
@@ -896,7 +865,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 
 	/**
 	 * Set the view module name for this container.
-	 * @param      string A view module name.
+	 * @param      ?string $viewModuleName A view module name.
 	 * @since      1.0.0
 	 */
 	public function setViewModuleName($viewModuleName)
@@ -912,7 +881,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 
 	/**
 	 * Set the module name for this container.
-	 * @param      string A view name.
+	 * @param      ?string $viewName A view name.
 	 * @since      1.0.0
 	 */
 	public function setViewName($viewName)
@@ -949,7 +918,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 
 	/**
 	 * Set the container that should be executed once this one finished running.
-	 * @param      ExecutionContainer An execution container instance.
+	 * @param      ExecutionContainer $container An execution container instance.
 	 * @since      1.0.0
 	 */
 	public function setNext(ExecutionContainer $container)

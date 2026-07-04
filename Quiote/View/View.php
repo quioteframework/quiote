@@ -40,7 +40,7 @@ abstract class View implements ResetInterface
 	protected $localAttributes = null;
 
 	/**
-	 * @var        Context The Context instance this View belongs to.
+	 * @var        ?Context The Context instance this View belongs to.
 	 */
 	protected $context = null;
 
@@ -51,7 +51,7 @@ abstract class View implements ResetInterface
 
 	/**
 	 * Execute any presentation logic and set template attributes.
-	 * @param      WebRequest The action's request data holder.
+	 * @param      WebRequest $rd The action's request data holder.
 	 * @return     mixed Array forward descriptor (legacy) or null.
 	 * @since      1.0.0
 	 */
@@ -90,7 +90,7 @@ abstract class View implements ResetInterface
 
 	/**
 	 * Retrieve the current application context.
-	 * @return     Context The current Context instance.
+	 * @return     ?Context The current Context instance.
 	 * @since      1.0.0
 	 */
 	public final function getContext()
@@ -149,7 +149,7 @@ abstract class View implements ResetInterface
 		$instance = null;
 		try {
 			$request = $this->getContext()?->getRequest();
-			if ($request !== null && method_exists($request, 'getRequestUri')) {
+			if ($request !== null) {
 				$instance = $request->getRequestUri();
 			}
 		} catch (\Throwable) {
@@ -167,14 +167,8 @@ abstract class View implements ResetInterface
 
 		try {
 			$response = $this->getResponse();
-			if ($response !== null) {
-				if (method_exists($response, 'setHttpStatusCode')) {
-					$response->setHttpStatusCode($status);
-				}
-				if (method_exists($response, 'setContentType')) {
-					$response->setContentType(\Quiote\Http\ProblemDetails::MEDIA_TYPE);
-				}
-			}
+			$response->setHttpStatusCode($status);
+			$response->setContentType(\Quiote\Http\ProblemDetails::MEDIA_TYPE);
 		} catch (\Throwable) {
 		}
 
@@ -183,7 +177,7 @@ abstract class View implements ResetInterface
 
 	/**
 	 * Initialize this view.
-	 * @param      ActionInitContext Initialization context.
+	 * @param      ActionInitContext|ViewInitContext $context Initialization context.
 	 * @since      1.0.0
 	 */
 	public function initialize(ActionInitContext|ViewInitContext $context)
@@ -199,7 +193,7 @@ abstract class View implements ResetInterface
 		try {
 			if ($context instanceof \Quiote\Execution\ImmutableViewInitContext) {
 				$attrs = $context->getActionAttributes();
-				$this->localAttributes = is_array($attrs) ? array_merge([], $attrs) : [];
+				$this->localAttributes = array_merge([], $attrs);
 			} elseif ($context instanceof \Quiote\Util\AttributeHolder) {
 				$this->localAttributes = $context->getAttributes();
 			} else {
@@ -241,9 +235,9 @@ abstract class View implements ResetInterface
 	 * Create a new template layer object.
 	 * This will automatically set the name of the layer, the current module, the
 	 * current view name as the template, and the output type name.
-	 * @param      string The class name of the TemplateLayer implementation.
-	 * @param      string The name of the layer.
-	 * @param      mixed  An optional name of the non-default renderer to use, or
+	 * @param      string $class The class name of the TemplateLayer implementation.
+	 * @param      string $name The name of the layer.
+	 * @param      mixed $renderer An optional name of the non-default renderer to use, or
 	 *                    an Renderer instance to use.
 	 * @return     TemplateLayer A template layer instance.
 	 * @since      1.0.0
@@ -264,35 +258,14 @@ abstract class View implements ResetInterface
 			$moduleParam = $this->initContext->getViewModuleName();
 			$templateParam = $this->initContext->getViewName();
 		} elseif ($this->initContext !== null) {
-			// Container-less immutable init context (ViewInitContext or similar)
-			// may still provide action/module names via a different API.
-			// Prefer explicit view identifiers when available on the init context
-			if (method_exists($this->initContext, 'getViewName')) {
-				$templateParam = $this->initContext->getViewName();
-			} elseif (method_exists($this->initContext, 'getActionName')) {
-				$templateParam = $this->initContext->getActionName();
-			}
-			if (method_exists($this->initContext, 'getViewModuleName')) {
-				$moduleParam = $this->initContext->getViewModuleName();
-			} elseif (method_exists($this->initContext, 'getActionModuleName')) {
-				$moduleParam = $this->initContext->getActionModuleName();
-			}
-			// If still not resolved, fall back to view attributes
-			if (($moduleParam === null || $templateParam === null) && method_exists($this, 'getAttribute')) {
-				$am = $this->getAttribute('moduleName', null);
-				$aa = $this->getAttribute('actionName', null);
-				if ($am !== null) {
-					$moduleParam = $am;
-				}
-				if ($aa !== null) {
-					$templateParam = $aa;
-				}
-			}
+			// Container-less immutable init context (ViewInitContext): the
+			// interface guarantees both accessors, so no further fallback is
+			// needed here.
+			$templateParam = $this->initContext->getViewName();
+			$moduleParam = $this->initContext->getViewModuleName();
 		} else {
-			if (method_exists($this, 'getAttribute')) {
-				$moduleParam = $this->getAttribute('moduleName', null);
-				$templateParam = $this->getAttribute('actionName', null);
-			}
+			$moduleParam = $this->getAttribute('moduleName', null);
+			$templateParam = $this->getAttribute('actionName', null);
 		}
 		// If templateParam is not set, prefer the resolved view name (container-less paths)
 		if (empty($templateParam)) {
@@ -311,8 +284,8 @@ abstract class View implements ResetInterface
 	 * Append a layer to the list of layers.
 	 * If no reference layer is given, the layer will be added to the end of the
 	 * list.
-	 * @param      TemplateLayer The layer to insert.
-	 * @param      TemplateLayer An optional other layer to insert after.
+	 * @param      TemplateLayer $layer The layer to insert.
+	 * @param      TemplateLayer $otherLayer An optional other layer to insert after.
 	 * @return     TemplateLayer The template layer that was inserted.
 	 * @since      1.0.0
 	 */
@@ -343,8 +316,8 @@ abstract class View implements ResetInterface
 	 * Prepend a layer to the list of layers.
 	 * If no reference layer is given, the layer will be added to the beginning of
 	 * the list.
-	 * @param      TemplateLayer The layer to insert.
-	 * @param      TemplateLayer An optional other layer to insert before.
+	 * @param      TemplateLayer $layer The layer to insert.
+	 * @param      TemplateLayer $otherLayer An optional other layer to insert before.
 	 * @return     TemplateLayer The template layer that was inserted.
 	 * @since      1.0.0
 	 */
@@ -373,7 +346,7 @@ abstract class View implements ResetInterface
 
 	/**
 	 * Remove a layer from the list.
-	 * @param      TemplateLayer The layer to remove.
+	 * @param      TemplateLayer $layer The layer to remove.
 	 * @since      1.0.0
 	 */
 	public function removeLayer(TemplateLayer $layer)
@@ -395,8 +368,8 @@ abstract class View implements ResetInterface
 
 	/**
 	 * Retrieve a layer from the list.
-	 * @param      string The name of the layer.
-	 * @return     ?FileTemplateLayer|?TemplateLayer The layer instance, or null if not found.
+	 * @param      string $name The name of the layer.
+	 * @return     FileTemplateLayer|TemplateLayer|null The layer instance, or null if not found.
 	 * @since      1.0.0
 	 */
 	public function getLayer($name)
@@ -422,9 +395,9 @@ abstract class View implements ResetInterface
 	/**
 	 * Load a pre-configured layout.
 	 * If no layout name is given, the default layout will be used.
-	 * @param      string The (optional) name of the layout.
+	 * @param      string $layoutName The (optional) name of the layout.
 	 * @return     array An array of parameters set for the layout.
-	 * @throws     Exception If the layout doesn't exist.
+	 * @throws     \Exception If the layout doesn't exist.
 	 * @since      1.0.0
 	 */
 	public function loadLayout($layoutName = null)
@@ -451,13 +424,13 @@ abstract class View implements ResetInterface
      * Creates a new container with the same output type and request method as
      * this view's container.
      * This container will have a parameter called 'is_slot' set to true.
-     * @param      string The name of the module.
-     * @param      string The name of the action.
-     * @param      mixed  Array of request parameters.
-     * @param      string Optional name of an initial output type to set.
-     * @param      string Optional name of the request method to be used in this
+     * @param      string $moduleName The name of the module.
+     * @param      string $actionName The name of the action.
+     * @param      mixed $arguments Array of request parameters.
+     * @param      string $outputType Optional name of an initial output type to set.
+     * @param      string $requestMethod Optional name of the request method to be used in this
      *                    container.
-     * @return     \Quiote\Execution\SlotContent Slot content value object.
+     * @return     \Quiote\Execution\SlotRenderable Slot content value object.
      * @since      1.0.0
      */
     #[\Deprecated(message: 'Legacy container API removed; returns SlotContent.')]
@@ -503,7 +476,7 @@ abstract class View implements ResetInterface
 		// attributes on the view. Try those as
 		// fallback so the short-circuit works even when initContext doesn't
 		// expose resolved names yet.
-		if (($currentModule === null || $currentAction === null) && method_exists($this, 'getAttribute')) {
+		if ($currentModule === null || $currentAction === null) {
 			try {
 				$am = $this->getAttribute('moduleName', null);
 				$aa = $this->getAttribute('actionName', null);
@@ -540,11 +513,11 @@ abstract class View implements ResetInterface
 	 * Creates a new container with the same output type and request method as
 	 * this view's container.
 	 * This container will have a parameter called 'is_forward' set to true.
-	 * @param      string The name of the module.
-	 * @param      string The name of the action.
-	 * @param      mixed  An array of request parameters.
-	 * @param      string Optional name of an initial output type to set.
-	 * @param      string Optional name of the request method to be used in this
+	 * @param      string $moduleName The name of the module.
+	 * @param      string $actionName The name of the action.
+	 * @param      mixed $arguments An array of request parameters.
+	 * @param      string $outputType Optional name of an initial output type to set.
+	 * @param      string $requestMethod Optional name of the request method to be used in this
 	 *                    container.
 	 * @return     mixed Forward descriptor or content (string) depending on usage.
 	 * @since      1.0.0
@@ -581,33 +554,14 @@ abstract class View implements ResetInterface
 			[$view, $vm, $vn, $content] = $fs->createSystemForwardView($name, $outputType ?? $this->context->getController()->getOutputType()->getName(), $arguments);
 			return (string)$content;
 		} catch (\Throwable $e) {
-			// Fallback: legacy forward container path (will be removed). Ensure we also reuse canonical request.
-			@trigger_error('ForwardService failed, falling back to legacy forward container: ' . $e->getMessage(), E_USER_DEPRECATED);
-			$fc = $this->createForwardContainer(ucfirst($name), 'Success', $arguments, $outputType);
-			$view = $fc->getViewInstance();
-			$rd = $fc->getRequestData();
-			if (!($rd instanceof WebRequest)) {
-				try {
-					$rd = $this->context->getRequest();
-				} catch (\Throwable) {
-					$rd = null;
-				}
-				if (!($rd instanceof WebRequest)) {
-					throw new \RuntimeException('Canonical WebRequest missing in system forward fallback');
-				}
-			}
-			$method = 'execute' . ucfirst((string) $fc->getOutputType()->getName());
-			if (!is_callable([$view, $method])) {
-				$method = 'execute';
-			}
-			$res = $view->$method($rd);
-			if ($res !== null) {
-				return (string)$res;
-			}
-			if (method_exists($view, 'getLayers') && $view->getLayers()) {
-				return $view->renderLayers();
-			}
-			return '';
+			// The legacy forward-container fallback this used to defer to
+			// returned an ExecutionContainer with getViewInstance()/getRequestData()/
+			// getOutputType(); createForwardContainer() was migrated to the
+			// container-less pipeline and now returns a SlotRenderable, which
+			// exposes none of those methods. There is no functional legacy
+			// path left to fall back to, so surface the original failure
+			// instead of silently faulting on undefined method calls.
+			throw new \RuntimeException('System forward "' . $name . '" failed: ' . $e->getMessage(), 0, $e);
 		}
 	}
 

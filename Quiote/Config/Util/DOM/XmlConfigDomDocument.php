@@ -22,7 +22,7 @@ class XmlConfigDomDocument extends \DOMDocument
 	protected $defaultNamespacePrefix = '';
 	
 	/**
-	 * @var        DOMXPath A DOMXPath instance for this document.
+	 * @var        \DOMXPath A DOMXPath instance for this document.
 	 */
 	protected $xpath = null;
 	
@@ -49,8 +49,8 @@ class XmlConfigDomDocument extends \DOMDocument
 	/**
 	 * The constructor.
 	 * Will auto-register Quiote DOM node classes and create an XPath instance.
-	 * @param      string The XML version.
-	 * @param      string The XML encoding.
+	 * @param      string $version The XML version.
+	 * @param      string $encoding The XML encoding.
 	 * @see        DOMDocument::__construct()
 	 * @since      1.0.0
 	 */
@@ -67,8 +67,8 @@ class XmlConfigDomDocument extends \DOMDocument
 	
 	/**
 	 * Load XML from a file.
-	 * @param      string The path to the XML document.
-	 * @param      int    Bitwise OR of the libxml option constants.
+	 * @param      string $filename The path to the XML document.
+	 * @param      int $options Bitwise OR of the libxml option constants.
 	 * @return     bool True of the operation is successful; false otherwise.
 	 * @since      1.0.0
 	 */
@@ -114,8 +114,8 @@ class XmlConfigDomDocument extends \DOMDocument
 	
 	/**
 	 * Load XML from a string.
-	 * @param      string The string containing the XML.
-	 * @param      int    Bitwise OR of the libxml option constants.
+	 * @param      string $source The string containing the XML.
+	 * @param      int $options Bitwise OR of the libxml option constants.
 	 * @return     bool True of the operation is successful; false otherwise.
 	 * @since      1.0.0
 	 */
@@ -157,7 +157,7 @@ class XmlConfigDomDocument extends \DOMDocument
 	
 	/**
 	 * Substitutes XIncludes in a DOMDocument object.
-	 * @param      int Bitwise OR of the libxml option constants.
+	 * @param      int $options Bitwise OR of the libxml option constants.
 	 * @return     int The number of XIncludes in the document.
 	 * @since      1.0.0
 	 */
@@ -199,8 +199,8 @@ class XmlConfigDomDocument extends \DOMDocument
 	
 	/**
 	 * Import a node into the current document.
-	 * @param      DOMNode The node to import.
-	 * @param      bool    Whether or not to recursively import the node's
+	 * @param      \DOMNode $node The node to import.
+	 * @param      bool $deep Whether or not to recursively import the node's
 	 *                     subtree.
 	 * @return     mixed The copied node, or false if it cannot be copied.
 	 * @since      1.0.0
@@ -236,7 +236,7 @@ class XmlConfigDomDocument extends \DOMDocument
 	
 	/**
 	 * Validate a document based on a schema.
-	 * @param      string The path to the schema.
+	 * @param      string $filename The path to the schema.
 	 * @return     bool True if the validation is successful; false otherwise.
 	 * @since      1.0.0
 	 */
@@ -270,7 +270,7 @@ class XmlConfigDomDocument extends \DOMDocument
 	
 	/**
 	 * Validate a document based on a schema.
-	 * @param      string A string containing the schema.
+	 * @param      string $source A string containing the schema.
 	 * @return     bool True if the validation is successful; false otherwise.
 	 * @since      1.0.0
 	 */
@@ -303,7 +303,7 @@ class XmlConfigDomDocument extends \DOMDocument
 	
 	/**
 	 * Perform RELAX NG validation on the document.
-	 * @param      string The path to the schema.
+	 * @param      string $filename The path to the schema.
 	 * @return     bool True if the validation is successful; false otherwise.
 	 * @since      1.0.0
 	 */
@@ -337,7 +337,7 @@ class XmlConfigDomDocument extends \DOMDocument
 	
 	/**
 	 * Retrieve the DOMXPath instance that is associated with this document.
-	 * @return     DOMXPath The DOMXPath instance.
+	 * @return     \DOMXPath The DOMXPath instance.
 	 * @since      1.0.0
 	 */
 	public function getXpath()
@@ -349,8 +349,8 @@ class XmlConfigDomDocument extends \DOMDocument
 	 * Set a default namespace that should be used when accessing elements via
 	 * convenience methods (such as magic get overload for children), and bind it
 	 * to the given prefix for use in XPath expressions.
-	 * @param      string A namespace URI
-	 * @param      string An optional prefix, defaulting to "_default"
+	 * @param      string $namespaceUri A namespace URI
+	 * @param      string $prefix An optional prefix, defaulting to "_default"
 	 * @since      1.0.0
 	 */
 	public function setDefaultNamespace($namespaceUri, $prefix = '_default')
@@ -396,7 +396,7 @@ class XmlConfigDomDocument extends \DOMDocument
 	
 	/**
 	 * Retrieve the namespace of the Quiote envelope.
-	 * @return     string A namespace URI, or null if it's not an Quiote config.
+	 * @return     ?string A namespace URI, or null if it's not an Quiote config.
 	 * @since      1.0.0
 	 */
 	public function getQuioteEnvelopeNamespace()
@@ -404,6 +404,8 @@ class XmlConfigDomDocument extends \DOMDocument
 		if($this->isQuioteConfiguration()) {
 			return $this->documentElement->namespaceURI;
 		}
+
+		return null;
 	}
 	
 	/**
@@ -431,7 +433,7 @@ class XmlConfigDomDocument extends \DOMDocument
 	
 	/**
 	 * Method to retrieve the Quiote <sandbox> element regardless of the namespace.
-	 * @return     XmlConfigDomElement The <sandbox> element, or null.
+	 * @return     ?XmlConfigDomElement The <sandbox> element, or null.
 	 * @since      1.0.0
 	 */
 	public function getSandbox()
@@ -441,10 +443,15 @@ class XmlConfigDomDocument extends \DOMDocument
 			
 			foreach($this->documentElement->childNodes as $node) {
 				if($node->nodeType == XML_ELEMENT_NODE && $node->localName == 'sandbox' && $node->namespaceURI == $quioteNs) {
+					// registerNodeClass() guarantees element nodes are always
+					// XmlConfigDomElement, never a vanilla DOMNode.
+					/** @var XmlConfigDomElement $node */
 					return $node;
 				}
 			}
 		}
+
+		return null;
 	}
 }
 

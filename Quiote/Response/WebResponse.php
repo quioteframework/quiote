@@ -108,7 +108,7 @@ class WebResponse extends Response
 	];
 
 	/**
-		* @var        array The array with the HTTP status codes to be used here.
+		* @var        ?array The array with the HTTP status codes to be used here.
 		*/
 	protected $httpStatusCodes = null;
 
@@ -128,20 +128,19 @@ class WebResponse extends Response
 	protected $cookies = [];
 
 	/**
-	 * @var        array An array of redirect information, or null if no redirect.
+	 * @var        ?array An array of redirect information, or null if no redirect.
 	 */
 	protected $redirect = null;
 
 	// --- Begin merged Response properties ---
-	protected $contentStreamMeta;
-	/** @var Context|null */
+	/** @var ?Context */
 	protected $context = null;
 	/** @var mixed */
 	protected $content = null;
-	/** @var OutputType|null */
+	/** @var ?OutputType */
 	protected $outputType = null;
 
-	/** @var ResponseInterface|null PSR-7 response attached for forwarding */
+	/** @var ?ResponseInterface PSR-7 response attached for forwarding */
 	protected ?ResponseInterface $psrResponse = null;
 	// --- End merged Response properties ---
 
@@ -173,6 +172,9 @@ class WebResponse extends Response
 		return $this->psrResponse;
 	}
 
+	/**
+	 * @return int|false The content size in bytes, or false if it could not be determined.
+	 */
 	#[\Override]
     public function getContentSize()
 	{
@@ -241,16 +243,14 @@ class WebResponse extends Response
 
 		// Clear attribute holder state
 		$this->clearAttributes();
-		if (method_exists($this, 'clearParameters')) {
-			$this->clearParameters();
-		}
+		$this->clearParameters();
 	}
 	// --- End Response methods merged ---
 
 	/**
 	 * Initialize this Response.
-	 * @param      Context An Context instance.
-	 * @param      array        An array of initialization parameters.
+	 * @param      Context $context An Context instance.
+	 * @param      array $parameters An array of initialization parameters.
 	 * @since      1.0.0
 	 */
 	#[\Override]
@@ -260,7 +260,7 @@ class WebResponse extends Response
 		$this->context = $context;
 		$this->setParameters($parameters);
 
-		/** @var WebRequest|null */
+		/** @var ?WebRequest */
 		$request = null;
 		try {
 			$request = $context->getRequest();
@@ -285,18 +285,14 @@ class WebResponse extends Response
 			'cookie_lifetime' => $parameters['cookie_lifetime'] ?? 0,
 			'cookie_path'     => $parameters['cookie_path'] ?? null,
 			'cookie_domain'   => $parameters['cookie_domain'] ?? "",
-			'cookie_secure'   => $parameters['cookie_secure'] ?? false,
+			'cookie_secure'   => $parameters['cookie_secure'],
 			'cookie_httponly' => $parameters['cookie_httponly'] ?? true,
 			'cookie_encode_callback' => $parameters['cookie_encode_callback'] ?? 'urlencode',
 			'cookie_samesite' => $parameters['cookie_samesite'] ?? 'Lax',
 		]);
 
-		// Support both WebRequest::getProtocol() and PSR-7 getProtocolVersion()
-		if ($request && method_exists($request, 'getProtocol')) {
+		if ($request) {
 			$protocol = $request->getProtocol();
-		} elseif ($request) {
-			// Convert PSR-7 protocol version (e.g., "1.1") to HTTP protocol (e.g., "HTTP/1.1")
-			$protocol = 'HTTP/' . $request->getProtocolVersion();
 		} else {
 			$protocol = 'HTTP/1.1';
 		}
@@ -325,7 +321,7 @@ class WebResponse extends Response
 
 	/**
 	 * Send all response data to the client.
-	 * @param      OutputType An optional Output Type object with information
+	 * @param      OutputType $outputType An optional Output Type object with information
 	 *                             the response can use to send additional data,
 	 *                             such as HTTP headers
 	 * @since      1.0.0
@@ -409,7 +405,7 @@ class WebResponse extends Response
 
 	/**
 	 * Set the content type for the response.
-	 * @param      string A content type.
+	 * @param      string $type A content type.
 	 * @since      1.0.0
 	 */
 	public function setContentType($type)
@@ -419,7 +415,7 @@ class WebResponse extends Response
 
 	/**
 	 * Retrieve the content type set for the response.
-	 * @return     string A content type, or null if none is set.
+	 * @return     ?string A content type, or null if none is set.
 	 * @since      1.0.0
 	 */
 	public function getContentType()
@@ -434,7 +430,7 @@ class WebResponse extends Response
 
 	/**
 	 * Import response metadata (headers, cookies) from another response.
-	 * @param      Response The other response to import information from.
+	 * @param      Response $otherResponse The other response to import information from.
 	 * @since      1.0.0
 	 */
 	#[\Override]
@@ -500,7 +496,7 @@ class WebResponse extends Response
 
 	/**
 	 * Sets a HTTP status code for the response.
-	 * @param      string|int A numeric HTTP status code.
+	 * @param      string|int $code A numeric HTTP status code.
 	 * @since      1.0.0
 	 */
 	public function setHttpStatusCode(string|int $code)
@@ -533,7 +529,7 @@ class WebResponse extends Response
 
 	/**
 	 * Normalizes a HTTP header names
-	 * @param      string A HTTP header name
+	 * @param      string $name A HTTP header name
 	 * @return     string A normalized HTTP header name
 	 * @since      1.0.0
 	 */
@@ -550,8 +546,8 @@ class WebResponse extends Response
 
 	/**
 	 * Retrieve the HTTP header values set for the response.
-	 * @param      string A HTTP header field name.
-	 * @return     array All values set for that header, or null if no headers set
+	 * @param      string $name A HTTP header field name.
+	 * @return     ?array All values set for that header, or null if no headers set
 	 * @since      1.0.0
 	 */
 	public function getHttpHeader($name)
@@ -576,7 +572,7 @@ class WebResponse extends Response
 
 	/**
 	 * Check if an HTTP header has been set for the response.
-	 * @param      string A HTTP header field name.
+	 * @param      string $name A HTTP header field name.
 	 * @return     bool true if the header exists, false otherwise.
 	 * @since      1.0.0
 	 */
@@ -592,9 +588,9 @@ class WebResponse extends Response
 
 	/**
 	 * Set a HTTP header for the response
-	 * @param      string A HTTP header field name.
-	 * @param      mixed  A HTTP header field value, of an array of values.
-	 * @param      bool   If true, a header with that name will be overwritten,
+	 * @param      string $name A HTTP header field name.
+	 * @param      mixed $value A HTTP header field value, of an array of values.
+	 * @param      bool $replace If true, a header with that name will be overwritten,
 	 *                    otherwise, the value will be appended.
 	 * @since      1.0.0
 	 */
@@ -637,9 +633,9 @@ class WebResponse extends Response
 	 *   secure: bool,
 	 *   httponly: bool,
 	 *   samesite: ?string
-	 * }|null
+	 * }
 	 */
-	private function normalizeCookieForSend(string $name, array $cookie): ?array
+	private function normalizeCookieForSend(string $name, array $cookie): array
 	{
 		$now = time();
 		$value = $cookie['value'];
@@ -677,8 +673,8 @@ class WebResponse extends Response
 			$path = '/';
 			try {
 				$routing = $this->context?->getRouting();
-				if($routing && method_exists($routing, 'getBasePath')) {
-					$base = (string)$routing->getBasePath();
+				if($routing) {
+					$base = $routing->getBasePath();
 					if($base !== '') {
 						$path = $base;
 					}
@@ -742,20 +738,14 @@ class WebResponse extends Response
 		return implode('; ', $parts);
 	}
 
-	private function isCookieDebugEnabled(): bool
-	{
-		return \Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug);
-	}
-
 	private function logCookieDebug(string $stage, array $context = []): void
 	{
 		$logger = \Quiote\Logging\Log::for($this);
 		if(!$logger->isEnabled(\Quiote\Logging\Level::Debug)) {
 			return;
 		}
-		try {
-			$payload = json_encode($context, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-		} catch(\Throwable) {
+		$payload = json_encode($context, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+		if($payload === false) {
 			$payload = '[unserializable context]';
 		}
 		$logger->debug('[WebResponse][' . $stage . '] ' . $payload);
@@ -786,7 +776,7 @@ class WebResponse extends Response
 	 * method_exists('isHttps') only tells us the request *type*, not the scheme, so
 	 * for PSR-7 requests (which never define isHttps()) we read the actual scheme
 	 * from the URI / server params / forwarded headers instead of assuming plain HTTP.
-	 * @param      object The request (WebRequest or PSR-7 ServerRequestInterface).
+	 * @param      object $request The request (WebRequest or PSR-7 ServerRequestInterface).
 	 * @return     bool
 	 */
 	private static function requestIsHttps(object $request): bool
@@ -862,15 +852,13 @@ class WebResponse extends Response
 		if($this->psrResponse !== null) {
 			try {
 				$normalized = $this->normalizeCookieForSend($name, $this->cookies[$name]);
-				if ($normalized !== null) {
-					$header = $this->buildSetCookieHeader($name, $normalized);
-					$this->psrResponse = $this->psrResponse->withAddedHeader('Set-Cookie', $header);
-					$this->logCookieDebug('psrResponseSetCookie', [
-						'name' => $name,
-						'normalized' => $normalized,
-						'header' => $header,
-					]);
-				}
+				$header = $this->buildSetCookieHeader($name, $normalized);
+				$this->psrResponse = $this->psrResponse->withAddedHeader('Set-Cookie', $header);
+				$this->logCookieDebug('psrResponseSetCookie', [
+					'name' => $name,
+					'normalized' => $normalized,
+					'header' => $header,
+				]);
 			} catch(\Throwable) {}
 		}
 	}
@@ -878,12 +866,12 @@ class WebResponse extends Response
 	/**
 	 * Unset an existing cookie.
 	 * All arguments must reflect the values of the cookie that is already set.
-	 * @param      string A cookie name.
-	 * @param      string The path on the server the cookie will be available on.
-	 * @param      string The domain the cookie is available on.
-	 * @param      bool   Indicates that the cookie should only be transmitted 
+	 * @param      string $name A cookie name.
+	 * @param      string $path The path on the server the cookie will be available on.
+	 * @param      string $domain The domain the cookie is available on.
+	 * @param      bool $secure Indicates that the cookie should only be transmitted 
 	 *                    over a secure HTTPS connection.
-	 * @param      bool   Whether the cookie will be made accessible only through
+	 * @param      bool $httponly Whether the cookie will be made accessible only through
 	 *                    the HTTP protocol, and not to client-side scripts.
 	 * @since      1.0.0
 	 */
@@ -896,8 +884,8 @@ class WebResponse extends Response
 
 	/**
 	 * Get a cookie set for later sending.
-	 * @param      string The name of the cookie.
-	 * @return     array An associative array containing the cookie data or null
+	 * @param      string $name The name of the cookie.
+	 * @return     ?array An associative array containing the cookie data or null
 	 *                   if no cookie with that name has been set.
 	 * @since      1.0.0
 	 */
@@ -906,11 +894,13 @@ class WebResponse extends Response
 		if(isset($this->cookies[$name])) {
 			return $this->cookies[$name];
 		}
+
+		return null;
 	}
 
 	/**
 	 * Check if a cookie has been set for later sending.
-	 * @param      string The name of the cookie.
+	 * @param      string $name The name of the cookie.
 	 * @return     bool True if a cookie with that name has been set, else false.
 	 * @since      1.0.0
 	 */
@@ -925,7 +915,7 @@ class WebResponse extends Response
 	 * cookie from the list of cookies to be sent along with the response. If you
 	 * wish to remove an existing cookie, use the setCookie method and supply null
 	 * as the value.
-	 * @param      string The name of the cookie.
+	 * @param      string $name The name of the cookie.
 	 * @since      1.0.0
 	 */
 	public function removeCookie($name)
@@ -948,7 +938,7 @@ class WebResponse extends Response
 
 	/**
 	 * Remove the HTTP header set for the response
-	 * @param      string A HTTP header field name.
+	 * @param      string $name A HTTP header field name.
 	 * @return     mixed The removed header's value or null if header was not set.
 	 * @since      1.0.0
 	 */
@@ -986,7 +976,7 @@ class WebResponse extends Response
 		}
 
 		// send HTTP status code
-		if(isset($this->httpStatusCode) && isset($this->httpStatusCodes[$this->httpStatusCode])) {
+		if(isset($this->httpStatusCodes[$this->httpStatusCode])) {
 			header($this->httpStatusCodes[$this->httpStatusCode]);
 		}
 
@@ -1021,12 +1011,6 @@ class WebResponse extends Response
 		// send cookies
 		foreach($this->cookies as $name => $values) {
 			$normalized = $this->normalizeCookieForSend($name, $values);
-			if($normalized === null) {
-				$this->logCookieDebug('sendCookieSkipped', [
-					'name' => $name,
-				]);
-				continue;
-			}
 			$headerValue = $this->buildSetCookieHeader($name, $normalized);
 			header('Set-Cookie: ' . $headerValue, false);
 			$this->logCookieDebug('sendCookieHeader', [
@@ -1050,7 +1034,7 @@ class WebResponse extends Response
 
 	/**
 	 * Redirect externally.
-	 * @param      mixed Where to redirect.
+	 * @param      mixed $location Where to redirect.
 	 * @since      1.0.0
 	 */
 	public function setRedirect($location, $code = 302)
@@ -1065,7 +1049,7 @@ class WebResponse extends Response
 
 	/**
 	 * Get info about the set redirect.
-	 * @return     array An assoc array of redirect info, or null if none set.
+	 * @return     ?array An assoc array of redirect info, or null if none set.
 	 * @since      1.0.0
 	 */
 	public function getRedirect()

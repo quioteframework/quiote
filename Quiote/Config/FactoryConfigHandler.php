@@ -102,7 +102,7 @@ class FactoryConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 	}
 
 	/**
-	 * @throws     <b>ParseException</b> If a requested configuration file is
+	 * @throws     \Quiote\Exception\ParseException If a requested configuration file is
 	 *                                        improperly formatted.
 	 * @since      1.0.0
 	 */

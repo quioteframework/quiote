@@ -283,7 +283,7 @@ class Container implements ContainerInterface
         }
 
         $type = $p->getType();
-        if ($type && !$type->isBuiltin() && array_key_exists($type->getName(), $params)) {
+        if ($type instanceof \ReflectionNamedType && !$type->isBuiltin() && array_key_exists($type->getName(), $params)) {
             return $params[$type->getName()];
         }
 
@@ -297,7 +297,7 @@ class Container implements ContainerInterface
             return $autowireAttrs[0]->newInstance()->value;
         }
 
-        if ($type && !$type->isBuiltin()) {
+        if ($type instanceof \ReflectionNamedType && !$type->isBuiltin()) {
             $dep = $type->getName();
             if ($this->canAutowire($dep)) {
                 return $this->get($dep);
@@ -334,7 +334,7 @@ class Container implements ContainerInterface
         }
         foreach ($method->getParameters() as $p) {
             $type = $p->getType();
-            if ($type && !$type->isBuiltin() && in_array($type->getName(), self::FORBIDDEN_REQUIRED_CONTEXT_TYPES, true)) {
+            if ($type instanceof \ReflectionNamedType && !$type->isBuiltin() && in_array($type->getName(), self::FORBIDDEN_REQUIRED_CONTEXT_TYPES, true)) {
                 throw new ContainerException(
                     "Cannot autowire '$class': #[Required] method '" . $method->getName() . "()' type-hints '" . $type->getName() . "', " .
                     "a per-execution context the container does not own. " .

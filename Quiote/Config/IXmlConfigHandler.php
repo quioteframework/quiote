@@ -14,9 +14,9 @@ interface IXmlConfigHandler
 {
 	/**
 	 * Initialize this ConfigHandler.
-	 * @param      Context The context to work with (if available).
-	 * @param      array        An associative array of initialization parameters.
-	 * @throws     <b>InitializationException</b> If an error occurs while
+	 * @param      ?Context $context The context to work with (if available).
+	 * @param      array        $parameters An associative array of initialization parameters.
+	 * @throws     \Quiote\Exception\InitializationException If an error occurs while
 	 *                                                 initializing the
 	 *                                                 ConfigHandler
 	 * @since      1.0.0
@@ -25,9 +25,9 @@ interface IXmlConfigHandler
 	
 	/**
 	 * Execute this configuration handler.
-	 * @param      XmlConfigDomDocument The document to parse.
+	 * @param      XmlConfigDomDocument $document The document to parse.
 	 * @return     string Data to be written to a cache file.
-	 * @throws     <b>ParseException</b> If a requested configuration file is
+	 * @throws     \Quiote\Exception\ParseException If a requested configuration file is
 	 *                                        improperly formatted.
 	 * @since      1.0.0
 	 */

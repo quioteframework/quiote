@@ -56,8 +56,8 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 
 	/**
 	 * initializes the validator manager.
-	 * @param      Context The context instance.
-	 * @param      array        The initialization parameters.
+	 * @param      Context $context The context instance.
+	 * @param      array $parameters The initialization parameters.
 	 * @since      1.0.0
 	 */
 	public function initialize(Context $context, array $parameters = [])
@@ -106,11 +106,11 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 
 	/**
 	 * Creates a new validator instance.
-	 * @param      string The name of the class implementing the validator.
-	 * @param      array The argument names.
-	 * @param      array The error messages.
-	 * @param      array The validator parameters.
-	 * @param      IValidatorContainer The parent (will use the validation 
+	 * @param      string $class The name of the class implementing the validator.
+	 * @param      array $arguments The argument names.
+	 * @param      array $errors The error messages.
+	 * @param      array $parameters The validator parameters.
+	 * @param      IValidatorContainer $parent The parent (will use the validation 
 	 *                                      manager if null is given)
 	 * @return     Validator
 	 * @since      1.0.0
@@ -148,7 +148,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 
 	/**
 	 * Adds a new child validator.
-	 * @param      Validator The new child validator.
+	 * @param      Validator $validator The new child validator.
 	 * @since      1.0.0
 	 */
 	public function addChild(Validator $validator)
@@ -170,7 +170,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 
 	/**
 	 * Returns a named child validator.
-	 * @param      Validator The child validator.
+	 * @param      string $name The name of the child validator.
 	 * @since      1.0.0
 	 */
 	public function getChild($name)
@@ -204,7 +204,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 
 	/**
 	 * Gets the base path of the validator.
-	 * @return     VirtualArrayPath The base path.
+	 * @return     \Quiote\Util\VirtualArrayPath The base path.
 	 * @since      1.0.0
 	 */
 	public function getBase()
@@ -214,7 +214,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 
 	/**
 	 * Starts the validation process.
-	 * @param      WebRequest The data which should be validated.
+	 * @param      WebRequest $request The data which should be validated.
 	 * @return     bool true, if validation succeeded.
 	 * @since      1.0.0
 	 */
@@ -225,12 +225,12 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 
 		// Pre-populate request validated parameters whitelist with the union of all validator argument names.
 		// This allows validators themselves to read the raw input for their declared arguments under always-on enforcement.
-		if(method_exists($request, 'enforceValidatedParameters')) {
+		{
 			$allArgumentNames = [];
 			$allExportNames = [];
-			
+
 			// Helper function to recursively collect arguments from validators and their children
-			$collectArguments = function($validator) use (&$collectArguments, &$allArgumentNames, &$allExportNames): void {
+			$collectArguments = function(object $validator) use (&$collectArguments, &$allArgumentNames, &$allExportNames): void {
 				// Collect arguments from this validator
 				try {
 					$ref = new \ReflectionObject($validator);
@@ -274,7 +274,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 				try {
 					if($validator->hasParameter('export')) {
 						$exp = $validator->getParameter('export');
-						if(is_string($exp) && $exp !== '') { $allArgumentNames[$exp] = true; }
+						if(is_string($exp) && $exp !== '') { $allArgumentNames[$exp] = true; $allExportNames[$exp] = true; }
 					}
 				} catch(\Throwable) { }
 				
@@ -391,7 +391,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 
 			// Delegate actual pruning to the request implementation (so it can update both
 			// intrinsic PSR-7 query/body params and runtime parameters consistently).
-			if(method_exists($request, 'pruneParametersToValidated')) {
+			{
 				// Flatten only parameter names for legacy method signature compatibility (will accept arrays soon if extended)
 				$paramKeeps = array_keys($keepNames['parameters'] ?? []);
 				$paramFails = array_keys($failedNames['parameters'] ?? []);
@@ -404,37 +404,20 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 					$aa
 				);
 				// Provide extended pruning hints for other sources (headers/cookies/files)
-				if(method_exists($request, 'pruneExtendedSources')) {
-					$request = $request->pruneExtendedSources(
-						$keepNames['headers'] ?? [],
-						$failedNames['headers'] ?? [],
-						$keepNames['cookies'] ?? [],
-						$failedNames['cookies'] ?? [],
-						$keepNames['files'] ?? [],
-						$failedNames['files'] ?? []
-					);
-				}
-				
+				$request = $request->pruneExtendedSources(
+					$keepNames['headers'] ?? [],
+					$failedNames['headers'] ?? [],
+					$keepNames['cookies'] ?? [],
+					$failedNames['cookies'] ?? [],
+					$keepNames['files'] ?? [],
+					$failedNames['files'] ?? []
+				);
+
 				// Update context with the pruned request so actions get the clean version
 				$this->getContext()->setRequest($request);
-			} else {
-				// Fallback: original per-parameter removal (may be incomplete for intrinsic sources)
-				foreach($failedArguments as $argument) {
-					$request = $request->removeParameter($argument->getName(), $argument->getSource());
-				}
-				foreach(['parameters', 'cookies', 'headers', 'files'] as $source) {
-					$sourceItems = $request->getParameters($source);
-					foreach(ArrayPathDefinition::getFlatKeyNames($sourceItems) as $name) {
-						$key = $source . '/' . $name;
-						$shouldKeep = isset($succeededArguments[$key]) || ($umap && ($source == "parameters" && ($name == $ma || $name == $aa)));
-						if(!$shouldKeep) {
-							$request = $request->removeParameter($name, $source);
-						}
-					}
-				}
 			}
 			// After pruning, merge whitelist with all succeeded parameter names and any exported roots
-			if(method_exists($request, 'enforceValidatedParameters')) {
+			{
 				$finalWhitelist = array_keys($keepNames['parameters'] ?? []);
 				// include predeclared export names even if validation failed (they may be accessed to assert null)
 				$predeclaredExports = (array)$this->getParameter('_predeclared_exports', []);
@@ -480,7 +463,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 
 	/**
 	 * Registers multiple validators.
-	 * @param      array An array of validators.
+	 * @param      array $validators An array of validators.
 	 * @since      1.0.0
 	 */
 	public function registerValidators(array $validators)
@@ -495,7 +478,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 	 * the field result table (which is required because one can still manually
 	 * add errors either via Request::addError or by directly using this 
 	 * method)
-	 * @param      ValidationIncident The incident.
+	 * @param      ValidationIncident $incident The incident.
 	 * @since      1.0.0
 	 */
 	public function addIncident(ValidationIncident $incident)
@@ -526,9 +509,9 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 
 	/**
      * Adds a validation result for a given field.
-     * @param      Validator The validator.
-     * @param      string The name of the field which has been validated.
-     * @param      int    The result of the validation.
+     * @param      Validator $validator The validator.
+     * @param      string $fieldname The name of the field which has been validated.
+     * @param      int $result The result of the validation.
      * @since      1.0.0
      */
     #[\Deprecated(message: '1.0.0')]
@@ -540,9 +523,9 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 
 	/**
 	 * Adds a intermediate result of an validator for the given argument
-	 * @param      ValidationArgument The argument
-	 * @param      int                     The arguments result.
-	 * @param      Validator          The validator (if the error was caused
+	 * @param      ValidationArgument $argument The argument
+	 * @param      int $result The arguments result.
+	 * @param      Validator $validator The validator (if the error was caused
 	 *                                     inside a validator).
 	 * @since      1.0.0
 	 */
@@ -555,8 +538,8 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
      * Will return the highest error code for a field. This can be optionally
      * limited to the highest error code of an validator. If the field was not
      * "touched" by a validator null is returned.
-     * @param      string The name of the field.
-     * @param      string The Validator name
+     * @param      string $fieldname The name of the field.
+     * @param      string $validatorName The Validator name
      * @return     int The error code.
      * @since      1.0.0
      */
@@ -568,7 +551,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 
 	/**
      * Checks whether a field has failed in any validator.
-     * @param      string The name of the field.
+     * @param      string $fieldname The name of the field.
      * @return     bool Whether the field has failed.
      * @since      1.0.0
      */
@@ -582,7 +565,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
      * Checks whether a field has been processed by a validator (this includes
      * fields which were skipped because their value was not set and the validator
      * was not required)
-     * @param      string The name of the field.
+     * @param      string $fieldname The name of the field.
      * @return     bool Whether the field was validated.
      * @since      1.0.0
      */
@@ -596,7 +579,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
      * Returns all fields which succeeded in the validation. Includes fields which
      * were not processed (happens when the field is "not set" and the validator
      * is not required)
-     * @param      string The source for which the fields should be returned.
+     * @param      string $source The source for which the fields should be returned.
      * @return     array An array of field names.
      * @since      1.0.0
      */
@@ -616,7 +599,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
      * Checks if any incidents occurred Returns all fields which succeeded in the
      * validation. Includes fields which were not processed (happens when the
      * field is "not set" and the validator is not required)
-     * @param      int The minimum severity which shall be checked for.
+     * @param      int $minSeverity The minimum severity which shall be checked for.
      * @return     bool The result.
      * @since      1.0.0
      */
@@ -628,7 +611,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 
 	/**
      * Returns all incidents which happened during the execution of the validation.
-     * @param      int The minimum severity a returned incident needs to have.
+     * @param      int $minSeverity The minimum severity a returned incident needs to have.
      * @return     array The incidents.
      * @since      1.0.0
      */
@@ -650,8 +633,8 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 
 	/**
      * Returns all incidents of a given validator.
-     * @param      string The name of the validator.
-     * @param      int The minimum severity a returned incident needs to have.
+     * @param      string $validatorName The name of the validator.
+     * @param      int $minSeverity The minimum severity a returned incident needs to have.
      * @return     array The incidents.
      * @since      1.0.0
      */
@@ -674,8 +657,8 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 	}
 	/**
      * Returns all incidents of a given field.
-     * @param      string The name of the field.
-     * @param      int The minimum severity a returned incident needs to have.
+     * @param      string $fieldname The name of the field.
+     * @param      int $minSeverity The minimum severity a returned incident needs to have.
      * @return     array The incidents.
      * @since      1.0.0
      */
@@ -699,8 +682,8 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 
 	/**
      * Returns all errors of a given field.
-     * @param      string The name of the field.
-     * @param      int The minimum severity a returned incident of the error
+     * @param      string $fieldname The name of the field.
+     * @param      int $minSeverity The minimum severity a returned incident of the error
      *                 needs to have.
      * @return     array The errors.
      * @since      1.0.0
@@ -718,8 +701,8 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 
 	/**
      * Returns all errors of a given field in a given validator.
-     * @param      string The name of the field.
-     * @param      int The minimum severity a returned incident of the error
+     * @param      string $validatorName The name of the field.
+     * @param      int $fieldname The minimum severity a returned incident of the error
      *                 needs to have.
      * @return     array The incidents.
      * @since      1.0.0
@@ -742,7 +725,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
      * Returns all failed fields (this are all fields including those with
      * severity none and notice).
      * @return     array The names of the fields.
-     * @param      int The minimum severity a field needs to have.
+     * @param      int $minSeverity The minimum severity a field needs to have.
      * @since      1.0.0
      */
     #[\Deprecated(message: '1.0.0')]
@@ -758,8 +741,8 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 	
 	/**
      * Retrieve an error message.
-     * @param      string An error name.
-     * @return     string The error message.
+     * @param      string $name An error name.
+     * @return     ?string The error message, or null if there is no such error.
      * @since      1.0.0
      */
     #[\Deprecated(message: '1.0.0')]
@@ -788,7 +771,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 
 	/**
      * Retrieve an array of errors.
-     * @param      string An optional error name.
+     * @param      string $name An optional error name.
      * @return     array An associative array of errors(if no name was given) as
      *                   an array with the error messages (key 'messages') and
      *                   the validators (key 'validators') which failed.
@@ -823,7 +806,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 
 	/**
      * Retrieve an array of error Messages.
-     * @param      string An optional error name.
+     * @param      string $name An optional error name.
      * @return     array An indexed array of error messages (if a name was given)
      *                   or an indexed array in this format:
      *                   array('message' => string, 'errors' => array(string))
@@ -856,7 +839,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 
 	/**
      * Indicates whether or not a field has an error.
-     * @param      string A field name.
+     * @param      string $name A field name.
      * @return     bool true, if the field has an error, false otherwise.
      * @since      1.0.0
      */
@@ -882,8 +865,8 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 
 	/**
      * Set an error.
-     * @param      string An error name.
-     * @param      string An error message.
+     * @param      string $name An error name.
+     * @param      string $message An error message.
      * @since      1.0.0
      */
     #[\Deprecated(message: '1.0.0')]
@@ -899,7 +882,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
      * Set an array of errors
      * If an existing error name matches any of the keys in the supplied
      * array, the associated message will be appended to the messages array.
-     * @param      array An associative array of errors and their associated
+     * @param      array $errors An associative array of errors and their associated
      *                   messages.
      * @since      1.0.0
      */
@@ -930,11 +913,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 		$this->children = [];
 		
 		// Reset dependency manager
-		if($this->dependencyManager instanceof ResetInterface) {
-			$this->dependencyManager->reset();
-		} else {
-			$this->dependencyManager->clear();
-		}
+		$this->dependencyManager->reset();
 		
 		// Reset validation report
 		$this->report = new ValidationReport();

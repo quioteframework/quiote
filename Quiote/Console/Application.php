@@ -68,7 +68,7 @@ final class Application extends SymfonyApplication
 		$attrs = (new \ReflectionClass($fqcn))->getAttributes(\Symfony\Component\Console\Attribute\AsCommand::class);
 		if ($attrs) {
 			$name = $attrs[0]->newInstance()->name;
-			if (is_string($name) && $name !== '') {
+			if ($name !== '') {
 				return $name;
 			}
 		}

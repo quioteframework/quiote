@@ -6,7 +6,6 @@ use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
-use Quiote\Controller\Controller;
 use Negotiation\BaseAccept;
 use Quiote\Http\MimeTypeRegistry;
 use Negotiation\Negotiator;
@@ -20,12 +19,12 @@ use Negotiation\Negotiator;
 #[\Quiote\Middleware\Attribute\Middleware(phase: 'pre', priority: 50)]
 class ContentNegotiationMiddleware implements MiddlewareInterface
 {
-    private ?string $defaultFormat = 'html';
+    private string $defaultFormat = 'html';
 
     /** Stateless negotiator; built once per worker instead of per request. */
     private readonly Negotiator $negotiator;
 
-    public function __construct(private readonly Controller $controller)
+    public function __construct()
     {
         $this->negotiator = new Negotiator();
     }
@@ -41,7 +40,7 @@ class ContentNegotiationMiddleware implements MiddlewareInterface
         }
 
         $formats = $this->detectFormats($request);
-        if (empty($formats) && $this->defaultFormat !== null) {
+        if (empty($formats)) {
             $formats = [$this->defaultFormat];
         }
 

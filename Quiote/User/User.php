@@ -16,7 +16,7 @@ use Symfony\Contracts\Service\ResetInterface;
 class User extends AttributeHolder implements ResetInterface
 {
 	/**
-	 * @var        Context An Context instance.
+	 * @var        ?Context An Context instance.
 	 */
 	protected $context = null;
 
@@ -47,9 +47,9 @@ class User extends AttributeHolder implements ResetInterface
 
 	/**
 	 * Initialize this User.
-	 * @param      Context An Context instance.
-	 * @param      array        An associative array of initialization parameters.
-	 * @throws     <b>InitializationException</b> If an error occurs while
+	 * @param      Context $context An Context instance.
+	 * @param      array $parameters An associative array of initialization parameters.
+	 * @throws     \Quiote\Exception\InitializationException If an error occurs while
 	 *                                                 initializing this User.
 	 * @since      1.0.0
 	 */
@@ -96,13 +96,12 @@ class User extends AttributeHolder implements ResetInterface
 	{
 		// write attributes to the storage, but do not clobber with an empty map
 		$ns = $this->getDefaultNamespace();
-		$hasNsData = is_array($this->attributes)
-			&& array_key_exists($ns, $this->attributes)
+		$hasNsData = array_key_exists($ns, $this->attributes)
 			&& is_array($this->attributes[$ns])
 			&& count($this->attributes[$ns]) > 0;
 		try {
 			$keys = [];
-			if (is_array($this->attributes) && isset($this->attributes[$ns]) && is_array($this->attributes[$ns])) {
+			if (isset($this->attributes[$ns]) && is_array($this->attributes[$ns])) {
 				$keys = array_keys($this->attributes[$ns]);
 			}
 			$logger = \Quiote\Logging\Log::for($this);
@@ -129,7 +128,7 @@ class User extends AttributeHolder implements ResetInterface
 	 * This reduces the window where a FrankenPHP worker could recreate a fresh
 	 * user object (due to lazy getUser() calls) before shutdown() runs, which would
 	 * otherwise lose in-memory identity attributes (userId/companyId etc.).
-	 * @param array|null $onlyKeys Optional whitelist of attribute keys to persist.
+	 * @param ?array $onlyKeys Optional whitelist of attribute keys to persist.
 	 */
 	public function persistAttributesImmediate(?array $onlyKeys = null): void
 	{
@@ -193,9 +192,6 @@ class User extends AttributeHolder implements ResetInterface
 	{
 		$this->context = $context;
 		// Ensure attribute array shape (it may already be fine)
-		if (!is_array($this->attributes)) {
-			$this->attributes = [];
-		}
 		if (!array_key_exists($this->defaultNamespace, $this->attributes)) {
 			$this->attributes = [$this->defaultNamespace => $this->attributes];
 		}

@@ -1,0 +1,8 @@
+parameters:
+	level: 4
+	bootstrapFiles:
+		- etc/phpstan/bootstrap.php
+	dynamicConstantNames:
+		- QUIOTE_USE_APCU_CONFIG_CACHE
+	paths:
+		- Quiote

@@ -35,22 +35,22 @@ trait Psr7RequestTrait
 
         // query params
         $query = $request->getQueryParams();
-        if (is_array($query) && array_key_exists($name, $query)) {
+        if (array_key_exists($name, $query)) {
             return $query[$name];
         }
 
         $cookies = $request->getCookieParams();
-        if (is_array($cookies) && array_key_exists($name, $cookies)) {
+        if (array_key_exists($name, $cookies)) {
             return $cookies[$name];
         }
 
         $headers = $request->getHeaders();
-        if (is_array($headers) && array_key_exists($name, $headers)) {
+        if (array_key_exists($name, $headers)) {
             return $headers[$name];
         }
 
         $files = $request->getUploadedFiles();
-        if (is_array($files) && array_key_exists($name, $files)) {
+        if (array_key_exists($name, $files)) {
             return $files[$name];
         }
 

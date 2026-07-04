@@ -23,8 +23,8 @@ class ConfigParser
 	protected $config = '';
 	
 	/**
-	 * @param      string An absolute filesystem path to a configuration file.
-	 * @param      array  An associative array of validation information.
+	 * @param      string $config An absolute filesystem path to a configuration file.
+	 * @param      ?string  $validationFile An associative array of validation information.
 	 * @return     ConfigValueHolder The data handlers use to perform tasks.
 	 * @since      1.0.0
 	 */
@@ -61,9 +61,9 @@ class ConfigParser
 	/**
 	 * Iterates through a list of nodes and stores to each node in the
 	 * ConfigValueHolder
-	 * @param      mixed An array or an object that can be iterated over
-	 * @param      XmlValueHolder The storage for the info from the nodes
-	 * @param      bool Whether this list is the singular form of the parent node
+	 * @param      mixed $nodes An array or an object that can be iterated over
+	 * @param      ConfigValueHolder $parentVh The storage for the info from the nodes
+	 * @param      bool $isSingular Whether this list is the singular form of the parent node
 	 * @since      1.0.0
 	 */
 	protected function parseNodes($nodes, ConfigValueHolder $parentVh, $isSingular = false)
@@ -95,7 +95,7 @@ class ConfigParser
 	
 	/**
 	 * Handle encoding for a value, i.e. translate from UTF-8 if necessary.
-	 * @param      string A UTF-8 string value from the DomDocument.
+	 * @param      ?string $value A UTF-8 string value from the DomDocument.
 	 * @return     string A value in the correct encoding of the parsed document.
 	 * @since      1.0.0
 	 */

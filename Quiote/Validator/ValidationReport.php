@@ -16,7 +16,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	protected $argumentResults = [];
 	
 	/**
-	 * @var        int The highest error severity thrown by the validation run.
+	 * @var        ?int The highest error severity thrown by the validation run.
 	 */
 	protected $result = null;
 	
@@ -32,7 +32,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	
 	/**
 	 * Retrieves the highest validation result code in this report.
-	 * @return     int An Validator::* severity constant, or null if there is
+	 * @return     ?int An Validator::* severity constant, or null if there is
 	 *                 no result. Please remember to do a strict === comparison if
 	 *                 you are comparing against Validator::SUCCESS.
 	 * @since      1.0.0
@@ -44,7 +44,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	
 	/**
 	 * Sets the validation result
-	 * @param      int The new validation result
+	 * @param      int $result The new validation result
 	 * @since      1.0.0
 	 */
 	public function setResult($result)
@@ -56,7 +56,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	 * Adds an incident to the validation result. This will automatically adjust
 	 * the argument result table (which is required because one can still 
 	 * manually add errors either via addError or by directly using this method)
-	 * @param      ValidationIncident The incident.
+	 * @param      ValidationIncident $incident The incident.
 	 * @since      1.0.0
 	 */
 	public function addIncident(ValidationIncident $incident)
@@ -73,7 +73,17 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 		foreach($incident->getArguments() as $argument) {
 			$this->addArgumentResult($argument, $severity, $validator);
 		}
-		$this->incidents[$validator ? $validator->getName() : ''][] = $incident;
+		// ValidationIncident::getValidator() can genuinely return null (incidents
+		// raised outside a validator, e.g. ValidationManager::setError()/setErrors()),
+		// even though its return type is documented as non-nullable elsewhere.
+		// Guard against that here without relying on a null check on $validator
+		// itself.
+		try {
+			$name = $validator->getName();
+		} catch (\Throwable) {
+			$name = '';
+		}
+		$this->incidents[$name][] = $incident;
 	}
 	
 	/**
@@ -105,7 +115,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	
 	/**
 	 * Sets dependency tokens provided by executed validators onto the result.
-	 * @param      array The depend tokens of the DependencyManager.
+	 * @param      array $dependTokens The depend tokens of the DependencyManager.
 	 * @since      1.0.0
 	 */
 	public function setDependTokens(array $dependTokens = [])
@@ -115,7 +125,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	
 	/**
 	 * Check whether the given depend token was provided by the validation run.
-	 * @param      string Name of depend token suspected to have been provided.
+	 * @param      string $token Name of depend token suspected to have been provided.
 	 * @return     bool True if depend token was provided.
 	 * @since      1.0.0
 	 */
@@ -136,9 +146,9 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	
 	/**
 	 * Adds a intermediate result of an validator for the given argument
-	 * @param      ValidationArgument The argument
-	 * @param      int    The arguments result.
-	 * @param      Validator The validator (if the error was cause inside 
+	 * @param      ValidationArgument $argument The argument
+	 * @param      int $result The arguments result.
+	 * @param      Validator $validator The validator (if the error was cause inside 
 	 *                            a validator).
 	 * @since      1.0.0
 	 */
@@ -170,10 +180,10 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	 * Will return the highest error severity for an argument. If the field was
 	 * not "touched" by a validator null is returned. Can optionally be restricted
 	 * to the severity of just one specific validator.
-	 * @param      ValidationArgument The argument.
-	 * @param      string                  Optional name of a specific validator
+	 * @param      ValidationArgument $argument The argument.
+	 * @param      string $validatorName Optional name of a specific validator
 	 *                                     to get a result for.
-	 * @return     int The error severity.
+	 * @return     ?int The error severity.
 	 * @since      1.0.0
 	 */
 	public function getAuthoritativeArgumentSeverity(ValidationArgument $argument, $validatorName = null)
@@ -200,7 +210,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	 * Checks whether an argument has been processed by a validator (this 
 	 * includes arguments which were skipped because their value was not set 
 	 * and the validator was not required)
-	 * @param      ValidationArgument The argument.
+	 * @param      ValidationArgument $argument The argument.
 	 * @return     bool Whether the argument was validated.
 	 * @since      1.0.0
 	 */
@@ -211,7 +221,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	
 	/**
 	 * Checks whether an argument has failed in any validator.
-	 * @param      ValidationArgument The argument.
+	 * @param      ValidationArgument $argument The argument.
 	 * @return     bool Whether the validating that argument has failed.
 	 * @since      1.0.0
 	 */
@@ -223,7 +233,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	
 	/**
 	 * Returns all arguments which validated successfully.
-	 * @param      string Optional source name to limit the list of arguments to.
+	 * @param      string $source Optional source name to limit the list of arguments to.
 	 * @return     array An array of ValidationArgument objects.
 	 * @since      1.0.0
 	 */
@@ -250,7 +260,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	
 	/**
 	 * Returns all arguments which failed in the validation.
-	 * @param      string Optional source name to limit the list of arguments to.
+	 * @param      string $source Optional source name to limit the list of arguments to.
 	 * @return     array An array of ValidationArgument objects.
 	 * @since      1.0.0
 	 */
@@ -293,7 +303,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	/**
 	 * Returns a new IValidationReportQuery which returns only the incidents
 	 * for the given argument (and the other existing filter rules).
-	 * @param      ValidationArgument|string|array The argument instance, or
+	 * @param      ValidationArgument|string|array $argument The argument instance, or
 	 *                                                  a parameter name, or an
 	 *                                                  array of these elements.
 	 * @return     IValidationReportQuery
@@ -307,7 +317,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	/**
 	 * Returns a new IValidationReportQuery which contains only the incidents
 	 * for the given validator (and the other existing filter rules).
-	 * @param      string|array The name of the validator, or an array of names.
+	 * @param      string|array $name The name of the validator, or an array of names.
 	 * @return     IValidationReportQuery
 	 * @since      1.0.0
 	 */
@@ -319,7 +329,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	/**
 	 * Returns a new IValidationReportQuery which contains only the incidents
 	 * for the given error name (and the other existing filter rules).
-	 * @param      string|array The name of the error, or an array of names.
+	 * @param      string|array $name The name of the error, or an array of names.
 	 * @return     IValidationReportQuery
 	 * @since      1.0.0
 	 */
@@ -331,7 +341,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	/**
 	 * Returns a new IValidationReportQuery which contains only the incidents
 	 * of the given severity or higher (and the other existing filter rules).
-	 * @param      int The minimum severity.
+	 * @param      int $minSeverity The minimum severity.
 	 * @return     IValidationReportQuery
 	 * @since      1.0.0
 	 */
@@ -343,7 +353,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	/**
 	 * Returns a new IValidationReportQuery which contains only the incidents
 	 * of the given severity or lower (and the other existing filter rules).
-	 * @param      int The maximum severity.
+	 * @param      int $maxSeverity The maximum severity.
 	 * @return     IValidationReportQuery
 	 * @since      1.0.0
 	 */

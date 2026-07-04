@@ -25,6 +25,6 @@ final class ActionExecutionSession
 
     public function getContent(): string
     {
-        return $this->context?->content ?? '';
+        return $this->context->content ?? '';
     }
 }

@@ -73,30 +73,30 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	const CRITICAL = 500;
 
 	/**
-	 * @var        Context An Context instance.
+	 * @var        ?Context An Context instance.
 	 */
 	protected $context = null;
 
 	/**
-	 * @var        IValidatorContainer parent validator container (in
+	 * @var        ?IValidatorContainer parent validator container (in
 	 *                                      most cases the validator manager)
 	 */
 	protected $parentContainer = null;
 
 	/**
-	 * @var        VirtualArrayPath The current base for input names, 
+	 * @var        ?\Quiote\Util\VirtualArrayPath The current base for input names, 
 	 *                                   dependencies etc.
 	 */
 	protected $curBase = null;
 
 	/**
-	 * @var        string The name of this validator instance. This will either
+	 * @var        ?string The name of this validator instance. This will either
 	 *                    be the user supplied name (if any) or a random string
 	 */
 	protected $name = null;
 
 	/**
-	 * @var        WebRequest The parameters which should be validated
+	 * @var        ?WebRequest The parameters which should be validated
 	 *                                  in the current validation run.
 	 */
 	protected $validationParameters = null;
@@ -113,7 +113,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	protected $errorMessages = [];
 
 	/**
-	 * @var        ValidationIncident The current incident.
+	 * @var        ?ValidationIncident The current incident.
 	 */
 	protected $incident = null;
 	
@@ -124,7 +124,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 
 	/**
 	 * Returns the base path of this validator.
-	 * @return     VirtualArrayPath The basepath of this validator
+	 * @return     \Quiote\Util\VirtualArrayPath The basepath of this validator
 	 * @since      1.0.0
 	 */
 	public function getBase()
@@ -211,10 +211,10 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 
 	/**
 	 * Initialize this validator.
-	 * @param      Context The Context.
-	 * @param      array        An array of validator parameters.
-	 * @param      array        An array of argument names which should be validated.
-	 * @param      array        An array of error messages.
+	 * @param      Context $context The Context.
+	 * @param      array $parameters An array of validator parameters.
+	 * @param      array $arguments An array of argument names which should be validated.
+	 * @param      array $errors An array of error messages.
 	 * @since      1.0.0
 	 */
 	public function initialize(Context $context, array $parameters = [], array $arguments = [], array $errors = [])
@@ -262,15 +262,35 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 
 	/**
 	 * Sets the parent container.
-	 * @param      IValidatorContainer The parent container.
+	 * @param      IValidatorContainer $parent The parent container.
 	 * @since      1.0.0
 	 */
 	public function setParentContainer(IValidatorContainer $parent)
 	{
 		// we need a reference here, so when looping happens in a parent
 		// we always have the right base
-		$this->curBase = $parent->getBase();
+		//
+		// IValidatorContainer::getBase() is documented with an unqualified
+		// "VirtualArrayPath" return type, which resolves to the (nonexistent)
+		// Quiote\Validator\VirtualArrayPath rather than Quiote\Util\VirtualArrayPath
+		// actually returned by every implementation. Route through a
+		// mixed-typed boundary so that stale contract doesn't propagate here.
+		$this->curBase = $this->coerceBase($parent->getBase());
 		$this->parentContainer = $parent;
+	}
+
+	/**
+	 * Narrows an arbitrary value from IValidatorContainer::getBase() (whose
+	 * documented return type does not match its real implementations, see
+	 * setParentContainer()) down to the actual VirtualArrayPath type used
+	 * throughout this class.
+	 * @param      mixed $base
+	 * @return     ?VirtualArrayPath
+	 * @since      1.0.0
+	 */
+	private function coerceBase(mixed $base): ?VirtualArrayPath
+	{
+		return $base instanceof VirtualArrayPath ? $base : null;
 	}
 
 	/**
@@ -301,7 +321,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	 * The given parameter is fetched from the request. You should _always_
 	 * use this method to fetch data from the request because it pays attention
 	 * to specified paths.
-	 * @param      string The name of the parameter to fetch from request.
+	 * @param      string $paramName The name of the parameter to fetch from request.
 	 * @return     mixed The input value from the validation input.
 	 * @since      1.0.0
 	 */
@@ -374,8 +394,9 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	 * Returns the name of the first (and typically only) argument by default, or,
 	 * if a string is provided to the method, returns the name of the argument
 	 * as configured for that identifier.
-	 * @param      string The optional argument identifier, as configured.
-	 * @return     string The resulting name of the argument in the request data.
+	 * @param      string $name The optional argument identifier, as configured.
+	 * @return     ?string The resulting name of the argument in the request data,
+	 *                   or null if no argument is registered under that identifier.
 	 * @since      1.0.0
 	 */
 	protected function getArgument($name = null)
@@ -389,6 +410,8 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 				return $this->arguments[$name];
 			}
 		}
+
+		return null;
 	}
 
 	/**
@@ -404,7 +427,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	/**
 	 * Sets the arguments which should be flagged with the result of the 
 	 * validator
-	 * @param      array A list of (absolute) argument names
+	 * @param      array $arguments A list of (absolute) argument names
 	 * @since      1.0.0
 	 */
 	protected function setAffectedArguments($arguments)
@@ -415,7 +438,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	/**
 	 * Returns whether all arguments are set in the validation input parameters.
 	 * Set means anything but empty string.
-	 * @param      bool Whether an error should be thrown for each missing 
+	 * @param      bool $throwError Whether an error should be thrown for each missing 
 	 *                  argument if this validator is required.
 	 * @return     bool Whether the arguments are set.
 	 * @since      1.0.0
@@ -461,8 +484,8 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	 * is the default/generic message). Exists for programmatic validator
 	 * registration (see Quiote\Validator\Compiler\Runtime\ValidatorSpec)
 	 * where errors aren't known until after initialize() has already run.
-	 * @param      string The error index ('' for the default message).
-	 * @param      string The error message.
+	 * @param      string $index The error index ('' for the default message).
+	 * @param      string $message The error message.
 	 * @since      1.0.0
 	 */
 	public function setErrorMessage(string $index, string $message): void
@@ -475,8 +498,8 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	 * If the given index does not exist in the error messages array, it first 
 	 * checks if an unnamed error message exists and returns it or falls back the
 	 * the backup message.
-	 * @param      string The name of the error.
-	 * @param      string The backup error message.
+	 * @param      string $index The name of the error.
+	 * @param      string $backupMessage The backup error message.
 	 * @since      1.0.0
 	 */
 	protected function getErrorMessage($index = null, $backupMessage = null)
@@ -498,13 +521,13 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	 * Will look up the index in the errors array with automatic fallback to the
 	 * default error. You can optionally specify the fields affected by this 
 	 * error. The error will be appended to the current incident.
-	 * @param      string The name of the error parameter to fetch the message 
+	 * @param      string $index The name of the error parameter to fetch the message 
 	 *                    from.
-	 * @param      string|array The arguments which are affected by this error.
+	 * @param      string|array $affectedArgument The arguments which are affected by this error.
 	 *                          If null is given it will affect all fields.
-	 * @param      boolean Whether the argument names in $affectedArgument are
+	 * @param      boolean $argumentsRelative Whether the argument names in $affectedArgument are
 	 *                     relative or absolute.
-	 * @param      boolean Whether to set the affected fields of the validator
+	 * @param      boolean $setAffected Whether to set the affected fields of the validator
 	 *                     to the $affectedArguments
 	 * @since      1.0.0
 	 */
@@ -553,12 +576,12 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	 * Similar to getData() you should always use export() to submit data to
 	 * the request because it pays attention to paths and otherwise you could
 	 * overwrite stuff you don't want to.
-	 * @param      mixed The value to be exported.
-	 * @param      mixed An optional parameter name which should be used for
+	 * @param      mixed $value The value to be exported.
+	 * @param      mixed $argument An optional parameter name which should be used for
 	 *                   exporting instead of the "export" attribute value, or an
 	 *                   ValidationArgument object if the value should be
 	 *                   exported to a different source.
-	 * @param      int   The result status code to use for the exported value.
+	 * @param      int $result The result status code to use for the exported value.
 	 *                   Defaults to Validator::SUCCESS.
 	 * @since      1.0.0
 	 */
@@ -657,7 +680,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 			// PHASE 3 FIX: Also register the root parameter (e.g. 'User') as a succeeded argument
 			// when we export to bracketed names (e.g. 'User[0]'). This prevents the pruning logic
 			// from removing the root array parameter that we just created.
-			if($rootParameterName !== null && $rootParameterName !== '') {
+			if($rootParameterName !== null) {
 				$this->parentContainer->addArgumentResult(new ValidationArgument($rootParameterName, $source), $result, $this);
 				if (($logger = \Quiote\Logging\Log::for($this))->isEnabled(\Quiote\Logging\Level::Debug)) { $logger->debug('[Validator][export][debug] registered root argument=' . $rootParameterName . ' to prevent pruning'); }
 			}
@@ -675,7 +698,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 
 	/**
 	 * Validates this validator in the given base.
-	 * @param      VirtualArrayPath The base in which the input should be 
+	 * @param      \Quiote\Util\VirtualArrayPath $base The base in which the input should be 
 	 *                                   validated.
 	 * @return     int Validator::SUCCESS if validation succeeded or given
 	 *                 error severity.
@@ -820,7 +843,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 
 	/**
 	 * Executes the validator.
-	 * @param      WebRequest The data which should be validated.
+	 * @param      WebRequest $parameters The data which should be validated.
 	 * @return     int The validation result (see severity constants).
 	 * @since      1.0.0
 	 */
@@ -849,9 +872,9 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	 * notice   -> Validator::NOTICE
 	 * none     -> Validator::NONE
 	 * success  -> not allowed to be specified by the user.
-	 * @param      string The error severity as string.
+	 * @param      string $code The error severity as string.
 	 * @return     int The error severity as in (see severity constants).
-	 * @throws     <b>ValidatorException</b> if the input was no known 
+	 * @throws     ValidatorException if the input was no known 
 	 *                                           severity
 	 * @since      1.0.0
 	 */
@@ -907,7 +930,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 
 	/**
 	 * Returns the depency manager of the parent container if any.
-	 * @return     DependencyManager The parent's dependency manager.
+	 * @return     ?DependencyManager The parent's dependency manager.
 	 * @since      1.0.0
 	 */
 	public function getDependencyManager()

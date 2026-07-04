@@ -269,7 +269,7 @@ class ValidationService
 
         $vd = $logger->isEnabled(\Quiote\Logging\Level::Debug);
         if ($vd) {
-            $logger->debug("[ValidationService] xmlOnlyValidate for " . ($moduleName ?: 'no_module') . "/" . ($actionName ?: 'no_action') . " method=" . ($method ?: 'no_method'));
+            $logger->debug("[ValidationService] xmlOnlyValidate for " . ($moduleName ?: 'no_module') . "/" . ($actionName ?: 'no_action') . " method=" . $method);
         }
         $validationManager = $this->manager;
         if (!$validationManager) {
@@ -318,7 +318,7 @@ class ValidationService
         try {
             /** @var ValidationManager $validationManager */
             if ($vd) {
-                $modeDbg = method_exists($validationManager, 'getParameter') ? $validationManager->getParameter('mode', 'strict') : 'n/a';
+                $modeDbg = $validationManager->getParameter('mode', 'strict');
                 $logger->debug("[ValidationService] Running validation (mode=" . $modeDbg . ")");
             }
             $ok = (bool)$validationManager->execute($request);
@@ -333,11 +333,11 @@ class ValidationService
             // Emit a compact report snapshot for diagnostics
             try {
                 $report = $validationManager->getReport();
-                $resultSev = $report?->getResult();
-                $incidents = $report?->getIncidents() ?? [];
-                $childCount = is_array($validationManager->getChilds()) ? count($validationManager->getChilds()) : 0;
-                $mode = method_exists($validationManager, 'getParameter') ? $validationManager->getParameter('mode') : 'n/a';
-                $logger->debug('[ValidationService] summary ok=' . ($ok ? '1' : '0') . ' childValidators=' . $childCount . ' mode=' . $mode . ' reportSeverity=' . ($resultSev ?? 'null') . ' incidents=' . count($incidents));
+                $resultSev = $report->getResult();
+                $incidents = $report->getIncidents();
+                $childCount = count($validationManager->getChilds());
+                $mode = $validationManager->getParameter('mode');
+                $logger->debug('[ValidationService] summary ok=' . ($ok ? '1' : '0') . ' childValidators=' . $childCount . ' mode=' . $mode . ' reportSeverity=' . $resultSev . ' incidents=' . count($incidents));
                 foreach ($incidents as $i => $incident) {
                     try {
                         $vName = method_exists($incident->getValidator(), 'getName') ? $incident->getValidator()->getName() : 'null';
@@ -366,39 +366,37 @@ class ValidationService
     if (!$ok) {
             try {
                 $report = $validationManager->getReport();
-                if ($report) {
-                    $errors = $report->getErrorMessages();
-                    // Fallback: if there are no incidents/messages, synthesize a brief summary
-                    if (empty($errors)) {
-                        $failedArgs = [];
-                        try {
-                            // List failed arguments (fields) and the highest severities per argument
-                            foreach ($report->getFailedArguments() as $arg) {
-                                $failedArgs[] = $arg->getName();
-                            }
-                            // Also attempt to infer failing validators from argument results
-                            $failedValidators = [];
-                            foreach ($report->getArgumentResults() as $results) {
-                                foreach ($results as $res) {
-                                    // consider > NOTICE as a failure contributing to decision
-                                    if (isset($res['severity']) && is_int($res['severity']) && $res['severity'] > \Quiote\Validator\Validator::NOTICE) {
-                                        $v = $res['validator'] ?? null;
-                                        if ($v && method_exists($v, 'getName')) {
-                                            $failedValidators[$v->getName()] = true;
-                                        }
+                $errors = $report->getErrorMessages();
+                // Fallback: if there are no incidents/messages, synthesize a brief summary
+                if (empty($errors)) {
+                    $failedArgs = [];
+                    try {
+                        // List failed arguments (fields) and the highest severities per argument
+                        foreach ($report->getFailedArguments() as $arg) {
+                            $failedArgs[] = $arg->getName();
+                        }
+                        // Also attempt to infer failing validators from argument results
+                        $failedValidators = [];
+                        foreach ($report->getArgumentResults() as $results) {
+                            foreach ($results as $res) {
+                                // consider > NOTICE as a failure contributing to decision
+                                if (isset($res['severity']) && is_int($res['severity']) && $res['severity'] > \Quiote\Validator\Validator::NOTICE) {
+                                    $v = $res['validator'] ?? null;
+                                    if ($v && method_exists($v, 'getName')) {
+                                        $failedValidators[$v->getName()] = true;
                                     }
                                 }
                             }
-                            $fv = array_keys($failedValidators);
-                            if (!empty($failedArgs)) {
-                                $errors[] = 'failed_fields: ' . implode(',', array_unique($failedArgs));
-                            }
-                            if (!empty($fv)) {
-                                $errors[] = 'failed_validators: ' . implode(',', $fv);
-                            }
-                        } catch (\Throwable) {
-                            // ignore synthesis failure
                         }
+                        $fv = array_keys($failedValidators);
+                        if (!empty($failedArgs)) {
+                            $errors[] = 'failed_fields: ' . implode(',', array_unique($failedArgs));
+                        }
+                        if (!empty($fv)) {
+                            $errors[] = 'failed_validators: ' . implode(',', $fv);
+                        }
+                    } catch (\Throwable) {
+                        // ignore synthesis failure
                     }
                 }
             } catch (\Throwable $te) {
@@ -413,16 +411,16 @@ class ValidationService
             // Always emit a concise failure summary for tracing
             try {
                 $report ??= $validationManager->getReport();
-                $sev = $report?->getResult();
+                $sev = $report->getResult();
                 $failedArgs = [];
-                try { foreach(($report?->getFailedArguments() ?? []) as $arg) { $failedArgs[] = $arg->getName(); } } catch (\Throwable) {}
+                try { foreach($report->getFailedArguments() as $arg) { $failedArgs[] = $arg->getName(); } } catch (\Throwable) {}
                 $vNames = [];
                 try { foreach($validationManager->getChilds() as $v) { $vNames[] = method_exists($v, 'getName') ? $v->getName() : 'unknown'; } } catch (\Throwable) {}
-                $logger->debug('[ValidationService] FAIL module=' . $moduleName . ' action=' . $actionName . ' method=' . ($method ?: 'n/a') . ' severity=' . ($sev ?? 'null') . ' failedArgs=' . implode(',', $failedArgs) . ' validators=' . implode(',', $vNames) . ' errors=' . json_encode($errors));
+                $logger->debug('[ValidationService] FAIL module=' . $moduleName . ' action=' . $actionName . ' method=' . $method . ' severity=' . $sev . ' failedArgs=' . implode(',', $failedArgs) . ' validators=' . implode(',', $vNames) . ' errors=' . json_encode($errors));
             } catch (\Throwable) { /* ignore */ }
             if ($vd) {
                 try {
-                    $resSev = method_exists($report ?? null, 'getResult') ? ($report->getResult() ?? 'null') : 'no-report';
+                    $resSev = $report->getResult() ?? 'null';
                 } catch (\Throwable) {
                     $resSev = 'exception';
                 }

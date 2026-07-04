@@ -1,7 +1,6 @@
 <?php
 namespace Quiote\Storage;
 
-use Quiote\Request\WebRequest;
 use SessionHandler;
 use SessionHandlerInterface;
 use Symfony\Contracts\Service\ResetInterface;
@@ -81,7 +80,6 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 		if($dbg) {
 			$rawCookieHeader = $_SERVER['HTTP_COOKIE'] ?? '';
 			$rawQuiote = $_COOKIE[session_name()] ?? '(none)';
-			ini_get('session.cookie_samesite');
 						$logger->debug('[SessionStorage] pre-start cookies rawHeader=' . $rawCookieHeader);
 						$logger->debug('[SessionStorage] pre-start $_COOKIE[' . session_name() . ']=' . $rawQuiote);
 						$logger->debug('[SessionStorage] ini session.use_cookies=' . ini_get('session.use_cookies') . ' use_only_cookies=' . ini_get('session.use_only_cookies') . ' cookie_samesite=' . ini_get('session.cookie_samesite'));
@@ -130,7 +128,7 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 				$secure = true;
 			}
 			$request = $this->context->getRequest();
-			if($secure && $request instanceof WebRequest && !$request->isHttps()) {
+			if($secure && !$request->isHttps()) {
 				// Ensure downstream logic can intentionally disable via config if running on HTTP
 				$secure = true;
 			}
@@ -158,7 +156,7 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 	 * Retrieve data from this storage.
 	 * The preferred format for a key is directory style so naming conflicts can
 	 * be avoided.
-	 * @param      string A unique key identifying your data.
+	 * @param      string $key A unique key identifying your data.
 	 * @return     mixed Data associated with the key.
 	 * @since      1.0.0
 	 */
@@ -176,7 +174,7 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 	 * Remove data from this storage.
 	 * The preferred format for a key is directory style so naming conflicts can
 	 * be avoided.
-	 * @param      string A unique key identifying your data.
+	 * @param      string $key A unique key identifying your data.
 	 * @return     mixed Data associated with the key.
 	 * @since      1.0.0
 	 */
@@ -211,8 +209,8 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 	 * Store data in this storage.
 	 * The preferred format for a key is directory style so naming conflicts can
 	 * be avoided.
-	 * @param      string A unique key identifying your data.
-	 * @param      mixed  Data associated with your key.
+	 * @param      string $id A unique key identifying your data.
+	 * @param      mixed $data Data associated with your key.
 	 * @since      1.0.0
 	 */
 	public function store(string $id, mixed $data): bool
@@ -249,7 +247,7 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 	 * Called at privilege transitions (e.g. login) to defeat session fixation.
 	 * Uses PHP's native session_regenerate_id(); $_SESSION contents are kept and
 	 * moved to the new ID.
-	 * @param      bool Whether to delete the old session file/record.
+	 * @param      bool $deleteOldSession Whether to delete the old session file/record.
 	 * @return     bool True on success (or no-op when no session is active).
 	 * @since      1.0.0
 	 */

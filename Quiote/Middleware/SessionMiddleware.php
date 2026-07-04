@@ -40,7 +40,7 @@ class SessionMiddleware implements MiddlewareInterface
             // If PSR cookie params are available, mirror them into $_COOKIE so legacy adapter fallback can read them.
             try {
                 $psrCookies = $request->getCookieParams();
-                if (is_array($psrCookies) && !empty($psrCookies)) {
+                if (!empty($psrCookies)) {
                     foreach ($psrCookies as $k => $v) { $_COOKIE[$k] = $v; }
                 } else {
                     // Fallback: parse raw Cookie header if cookie params are empty (some PSR stacks don't populate cookie params)
@@ -61,7 +61,7 @@ class SessionMiddleware implements MiddlewareInterface
             if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
                 try { \Quiote\Logging\Log::for($this)->debug('[SessionMiddleware] mirrored $_COOKIE=' . var_export($_COOKIE, true)); } catch (\Throwable) {}
             }
-            if (method_exists($storage, 'startup') && session_status() !== PHP_SESSION_ACTIVE) {
+            if (session_status() !== PHP_SESSION_ACTIVE) {
                 if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) { \Quiote\Logging\Log::for($this)->debug('[SessionMiddleware] calling storage->startup()'); }
                 $storage->startup();
                 if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) { \Quiote\Logging\Log::for($this)->debug('[SessionMiddleware] storage->startup() returned; session id=' . var_export(method_exists($storage,'getId') ? $storage->getId() : null, true)); }
@@ -81,17 +81,15 @@ class SessionMiddleware implements MiddlewareInterface
         // After handler completes, ensure storage shutdown/persistence runs and bridge any queued cookies
         try {
             $storage = $this->controller->getContext()->getStorage();
-            if (method_exists($storage, 'shutdown')) {
-                // storage->shutdown may queue cookies into Quiote WebResponse
-                $storage->shutdown();
-            }
+            // storage->shutdown may queue cookies into Quiote WebResponse
+            $storage->shutdown();
             // Bridge queued cookies from WebResponse to PSR response if present
             $globalResp = null;
             try { $globalResp = $this->controller->getGlobalResponse(); } catch (\Throwable) { $globalResp = null; }
             if (is_object($globalResp)) {
                 try {
                     $routing = $this->controller->getContext()->getRouting();
-                    $basePath = method_exists($routing, 'getBasePath') ? $routing->getBasePath() : '/';
+                    $basePath = $routing->getBasePath();
                     $response = \Quiote\Http\CookieSerializer::bridge($globalResp, $response, $basePath);
                 } catch (\Throwable) {}
             }

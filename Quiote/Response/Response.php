@@ -12,12 +12,12 @@ use Symfony\Contracts\Service\ResetInterface;
 abstract class Response extends AttributeHolder implements ResetInterface
 {
 
-	protected $contextName;
-	protected $outputTypeName;
-	protected $contentStreamMeta;
+	protected final $contextName;
+	protected final $outputTypeName;
+	protected final $contentStreamMeta;
 
 	/**
-	 * @var        Context An Context instance.
+	 * @var        ?Context An Context instance.
 	 */
 	protected $context = null;
 	
@@ -27,7 +27,7 @@ abstract class Response extends AttributeHolder implements ResetInterface
 	protected $content = null;
 	
 	/**
-	 * @var        OutputType The output type of this response.
+	 * @var        ?OutputType The output type of this response.
 	 */
 	protected $outputType = null;
 	
@@ -92,8 +92,8 @@ abstract class Response extends AttributeHolder implements ResetInterface
 	
 	/**
 	 * Initialize this Response.
-	 * @param      Context An Context instance.
-	 * @param      array        An array of initialization parameters.
+	 * @param      Context $context An Context instance.
+	 * @param      array $parameters An array of initialization parameters.
 	 * @since      1.0.0
 	 */
 	public function initialize(Context $context, array $parameters = [])
@@ -104,7 +104,7 @@ abstract class Response extends AttributeHolder implements ResetInterface
 	
 	/**
 	 * Get the Output Type to use with this response.
-	 * @return     OutputType The Output Type instance associated with.
+	 * @return     ?OutputType The Output Type instance associated with, or null if none is set.
 	 * @since      1.0.0
 	 */
 	public function getOutputType()
@@ -114,7 +114,7 @@ abstract class Response extends AttributeHolder implements ResetInterface
 	
 	/**
 	 * Set the Output Type to use with this response.
-	 * @param      OutputType The Output Type instance to associate with.
+	 * @param      OutputType $outputType The Output Type instance to associate with.
 	 * @since      1.0.0
 	 */
 	public function setOutputType(OutputType $outputType)
@@ -153,7 +153,7 @@ abstract class Response extends AttributeHolder implements ResetInterface
 	
 	/**
 	 * Retrieve the size (in bytes) of the content set for this Response.
-	 * @return     int The content size in bytes.
+	 * @return     int|false The content size in bytes, or false if it could not be determined.
 	 * @since      1.0.0
 	 */
 	public function getContentSize()
@@ -171,7 +171,7 @@ abstract class Response extends AttributeHolder implements ResetInterface
 	
 	/**
 	 * Set the content for this Response.
-	 * @param      mixed The content to be sent in this Response.
+	 * @param      mixed $content The content to be sent in this Response.
 	 * @since      1.0.0
 	 */
 	public function setContent($content)
@@ -181,7 +181,7 @@ abstract class Response extends AttributeHolder implements ResetInterface
 	
 	/**
 	 * Prepend content to the existing content for this Response.
-	 * @param      mixed The content to be prepended to this Response.
+	 * @param      mixed $content The content to be prepended to this Response.
 	 * @since      1.0.0
 	 */
 	public function prependContent($content)
@@ -191,7 +191,7 @@ abstract class Response extends AttributeHolder implements ResetInterface
 	
 	/**
 	 * Append content to the existing content for this Response.
-	 * @param      mixed The content to be appended to this Response.
+	 * @param      mixed $content The content to be appended to this Response.
 	 * @since      1.0.0
 	 */
 	public function appendContent($content)
@@ -210,14 +210,14 @@ abstract class Response extends AttributeHolder implements ResetInterface
 	
 	/**
 	 * Redirect externally.
-	 * @param      mixed Where to redirect.
+	 * @param      mixed $to Where to redirect.
 	 * @since      1.0.0
 	 */
 	abstract public function setRedirect($to);
 
 	/**
 	 * Get info about the set redirect.
-	 * @return     array An assoc array of redirect info, or null if none set.
+	 * @return     ?array An assoc array of redirect info, or null if none set.
 	 * @since      1.0.0
 	 */
 	abstract public function getRedirect();
@@ -237,7 +237,7 @@ abstract class Response extends AttributeHolder implements ResetInterface
 
 	/**
 	 * Import response metadata from another response.
-	 * @param      Response The other response to import information from.
+	 * @param      Response $otherResponse The other response to import information from.
 	 * @since      1.0.0
 	 */
 	public function merge(Response $otherResponse)
@@ -264,7 +264,7 @@ abstract class Response extends AttributeHolder implements ResetInterface
 	
 	/**
 	 * Send all response data to the client.
-	 * @param      OutputType An optional Output Type object with information
+	 * @param      OutputType $outputType An optional Output Type object with information
 	 *                             the response can use to send additional data.
 	 * @since      1.0.0
 	 */
@@ -315,9 +315,7 @@ abstract class Response extends AttributeHolder implements ResetInterface
 		parent::clearAttributes();
 		
 		// Also clear parameters that might exist at the parameter holder level
-		if (method_exists($this, 'clearParameters')) {
-			$this->clearParameters();
-		}
+		$this->clearParameters();
 	}
 }
 

@@ -29,27 +29,27 @@ class TranslationManager implements ResetInterface
 	protected $context = null;
 
 	/**
-	 * @var        array An array of the translator instances for the domains.
+	 * @var        array<string, array<string, ITranslator>> An array of the translator instances for the domains.
 	 */
 	protected $translators = [];
 
 	/**
-	 * @var        Locale The current locale.
+	 * @var        ?QuioteLocale The current locale.
 	 */
 	protected $currentLocale = null;
 
 	/**
-	 * @var        string The original locale identifier given to this instance.
+	 * @var        ?string The original locale identifier given to this instance.
 	 */
 	protected $givenLocaleIdentifier = null;
 
 	/**
-	 * @var        string The identifier of the current locale.
+	 * @var        ?string The identifier of the current locale.
 	 */
 	protected $currentLocaleIdentifier = null;
 
 	/**
-	 * @var        string The default locale identifier.
+	 * @var        ?string The default locale identifier.
 	 */
 	protected $defaultLocaleIdentifier = null;
 
@@ -104,8 +104,8 @@ class TranslationManager implements ResetInterface
 
 	/**
 	 * Initialize this TranslationManager.
-	 * @param      Context The current application context.
-	 * @param      array        An associative array of initialization parameters.
+	 * @param      Context $context The current application context.
+	 * @param      array $parameters An associative array of initialization parameters.
 	 * @since      1.0.0
 	 */
 	public function initialize(Context $context, array $parameters = [])
@@ -177,7 +177,7 @@ class TranslationManager implements ResetInterface
 
 	/**
 	 * Sets the current locale.
-	 * @param      string The locale identifier.
+	 * @param      string $identifier The locale identifier.
 	 * @since      1.0.0
 	 */
 	public function setLocale($identifier)
@@ -191,7 +191,7 @@ class TranslationManager implements ResetInterface
 
 	/**
 	 * Retrieve the current locale.
-	 * @return     Locale The current locale.
+	 * @return     ?QuioteLocale The current locale.
 	 * @since      1.0.0
 	 */
 	public function getCurrentLocale()
@@ -214,7 +214,7 @@ class TranslationManager implements ResetInterface
 
 	/**
 	 * Retrieve the default locale.
-	 * @return     Locale The current default.
+	 * @return     QuioteLocale The current default.
 	 * @since      1.0.0
 	 */
 	public function getDefaultLocale()
@@ -234,7 +234,7 @@ class TranslationManager implements ResetInterface
 
 	/**
 	 * Sets the default domain.
-	 * @param      string The new default domain.
+	 * @param      string $domain The new default domain.
 	 * @since      1.0.0
 	 */
 	public function setDefaultDomain($domain)
@@ -254,9 +254,9 @@ class TranslationManager implements ResetInterface
 
 	/**
 	 * Formats a date in the current locale.
-	 * @param      mixed       The date to be formatted.
-	 * @param      string      The domain in which the date should be formatted.
-	 * @param      Locale The locale which should be used for formatting.
+	 * @param      mixed $date The date to be formatted.
+	 * @param      ?string $domain The domain in which the date should be formatted.
+	 * @param      QuioteLocale|string|null $locale The locale which should be used for formatting.
 	 *                         Defaults to the currently active locale.
 	 * @return     string The formatted date.
 	 * @since      1.0.0
@@ -285,9 +285,9 @@ class TranslationManager implements ResetInterface
 
 	/**
 	 * Formats a currency amount in the current locale.
-	 * @param      mixed       The number to be formatted.
-	 * @param      string      The domain in which the amount should be formatted.
-	 * @param      Locale The locale which should be used for formatting.
+	 * @param      mixed $number The number to be formatted.
+	 * @param      ?string $domain The domain in which the amount should be formatted.
+	 * @param      QuioteLocale|string|null $locale The locale which should be used for formatting.
 	 *                         Defaults to the currently active locale.
 	 * @return     string The formatted number.
 	 * @since      1.0.0
@@ -316,9 +316,9 @@ class TranslationManager implements ResetInterface
 
 	/**
 	 * Formats a number in the current locale.
-	 * @param      mixed       The number to be formatted.
-	 * @param      string      The domain in which the number should be formatted.
-	 * @param      Locale The locale which should be used for formatting.
+	 * @param      mixed $number The number to be formatted.
+	 * @param      ?string $domain The domain in which the number should be formatted.
+	 * @param      QuioteLocale|string|null $locale The locale which should be used for formatting.
 	 *                         Defaults to the currently active locale.
 	 * @return     string The formatted number.
 	 * @since      1.0.0
@@ -347,11 +347,11 @@ class TranslationManager implements ResetInterface
 
 	/**
 	 * Translate a message into the current locale.
-	 * @param      mixed       The message.
-	 * @param      string      The domain in which the translation should be done.
-	 * @param      ?Locale The locale which should be used for formatting.
+	 * @param      mixed $message The message.
+	 * @param      ?string $domain The domain in which the translation should be done.
+	 * @param      QuioteLocale|string|null $locale The locale which should be used for formatting.
 	 *                         Defaults to the currently active locale.
-	 * @param      array       The parameters which should be used for sprintf on
+	 * @param      ?array $parameters The parameters which should be used for sprintf on
 	 *                         the translated string.
 	 * @return     string The translated message.
 	 * @since      1.0.0
@@ -383,13 +383,13 @@ class TranslationManager implements ResetInterface
 
 	/**
 	 * Translate a singular/plural message into the current locale.
-	 * @param      string      The message for the singular form.
-	 * @param      string      The message for the plural form.
-	 * @param      int         The amount for which the translation should happen.
-	 * @param      string      The domain in which the translation should be done.
-	 * @param      Locale The locale which should be used for formatting.
+	 * @param      string $singularMessage The message for the singular form.
+	 * @param      string $pluralMessage The message for the plural form.
+	 * @param      int $amount The amount for which the translation should happen.
+	 * @param      ?string $domain The domain in which the translation should be done.
+	 * @param      QuioteLocale|string|null $locale The locale which should be used for formatting.
 	 *                         Defaults to the currently active locale.
-	 * @param      array       The parameters which should be used for sprintf on
+	 * @param      ?array $parameters The parameters which should be used for sprintf on
 	 *                         the translated string.
 	 * @return     string The translated message.
 	 * @since      1.0.0
@@ -401,10 +401,10 @@ class TranslationManager implements ResetInterface
 
 	/**
 	 * Returns the translators for a given domain.
-	 * @param      string The domain.
-	 * @param      string The remaining part in the domain which didn't match
-	 * @param      string The type of the translator
-	 * @return     array|object An array of translators for the given domain
+	 * @param      string $domain The domain.
+	 * @param      string $domainExtra The remaining part in the domain which didn't match
+	 * @param      ?string $type The type of the translator
+	 * @return     ($type is string ? ITranslator : array<string, ITranslator>) An array of translators for the given domain, or a single translator when a type is given
 	 * @since      1.0.0
 	 */
 	protected function getTranslators(&$domain, &$domainExtra, $type = null)
@@ -432,9 +432,9 @@ class TranslationManager implements ResetInterface
 	 * Returns the translators for a given domain and type. The domain can contain
 	 * any extra parts which will be ignored. Will return null when no translator 
 	 * is defined.
-	 * @param      string The domain.
-	 * @param      string The type of the translator.
-	 * @return     ITranslator The translator instance.
+	 * @param      string $domain The domain.
+	 * @param      string $type The type of the translator.
+	 * @return     ?ITranslator The translator instance.
 	 * @since      1.0.0
 	 */
 	public function getDomainTranslator($domain, $type)
@@ -461,7 +461,7 @@ class TranslationManager implements ResetInterface
 	protected function loadCurrentLocale(): void
 	{
 		// If no locale requested yet, derive a base: prefer defaultLocaleIdentifier, else first available.
-		if(!$this->givenLocaleIdentifier || $this->givenLocaleIdentifier === '') {
+		if(!$this->givenLocaleIdentifier) {
 			$base = $this->defaultLocaleIdentifier;
 			if(!$base && !empty($this->availableLocales)) {
 				$keys = array_keys($this->availableLocales);
@@ -473,7 +473,7 @@ class TranslationManager implements ResetInterface
 			}
 		}
 		if(!$this->currentLocale || $this->currentLocale->getIdentifier() !== $this->givenLocaleIdentifier) {
-			if(!$this->givenLocaleIdentifier || $this->givenLocaleIdentifier === '') {
+			if(!$this->givenLocaleIdentifier) {
 				// Still nothing resolvable: defer without throwing; callers using getLocale directly will error explicitly.
 				return;
 			}
@@ -488,9 +488,9 @@ class TranslationManager implements ResetInterface
 
 	/**
 	 * Returns the translator filters for a given domain.
-	 * @param      string The message.
-	 * @param      string The domain (w/o extra parts).
-	 * @param      string The type.
+	 * @param      string $message The message.
+	 * @param      string $domain The domain (w/o extra parts).
+	 * @param      string $type The type.
 	 * @return     string The new message.
 	 * @since      1.0.0
 	 */
@@ -507,7 +507,7 @@ class TranslationManager implements ResetInterface
 	/**
 	 * Returns all the identifiers of the available locales which match the given 
 	 * locale identifier.
-	 * @param      string A locale identifier
+	 * @param      string $identifier A locale identifier
 	 * @return     array The actual locale identifiers of the available locales.	 */
 	public function getMatchingLocaleIdentifiers($identifier)
 	{
@@ -548,7 +548,7 @@ class TranslationManager implements ResetInterface
 	/**
 	 * Returns the identifier of the available locale which matches the given 
 	 * locale identifier most.
-	 * @param      string A locale identifier
+	 * @param      string $identifier A locale identifier
 	 * @return     string The actual locale identifier of the available locale.
 	 * @since      1.0.0
 	 */
@@ -575,15 +575,15 @@ class TranslationManager implements ResetInterface
 
 	/**
 	 * Returns a new Locale object from the given identifier.
-	 * @param      string The locale identifier
-	 * @param      bool   Force a new instance even if an identical one exists.
-	 * @return     Locale The locale instance which matches the available
+	 * @param      string $identifier The locale identifier
+	 * @param      bool $forceNew Force a new instance even if an identical one exists.
+	 * @return     QuioteLocale The locale instance which matches the available
 	 *                         locales most.
 	 * @since      1.0.0
 	 */
 	public function getLocale($identifier, $forceNew = false)
 	{
-		if(!is_string($identifier) || $identifier === '') {
+		if($identifier === '') {
 			throw new QuioteException('Invalid locale identifier specified');
 		}
 
@@ -660,7 +660,7 @@ class TranslationManager implements ResetInterface
 
 	/**
 	 * Sets the default time zone.
-	 * @param      string The timezone identifier
+	 * @param      \DateTimeZone|string $id The timezone identifier
 	 * @since      1.0.0
 	 */
 	public function setDefaultTimeZone($id)
@@ -674,7 +674,7 @@ class TranslationManager implements ResetInterface
 
 	/**
      * Gets the instance of the current timezone.
-     * @return     TimeZone The current timezone instance.
+     * @return     ?\DateTimeZone The current timezone instance.
      * @since      1.0.0
      */
     #[\Deprecated(message: 'Superseded by TranslationManager::getDefaultTimeZone()')]
@@ -685,7 +685,7 @@ class TranslationManager implements ResetInterface
 
 	/**
 	 * Get the default timezone instance.
-	 * @return     TimeZone The default timezone instance.
+	 * @return     ?\DateTimeZone The default timezone instance.
 	 * @since      1.0.0
 	 */
 	public function getDefaultTimeZone()
@@ -695,16 +695,16 @@ class TranslationManager implements ResetInterface
 
 	/**
 	 * Gets the territory id a (resolved) timezone id belongs to.
-	 * @param      string The resolved timezone id.
-	 * @param      bool   Will receive whether the territory has multiple 
+	 * @param      string $id The resolved timezone id.
+	 * @param      bool $hasMultipleZones Will receive whether the territory has multiple
 	 *                    time zones
-	 * @return     string The territory identifier or null.
+	 * @return     ?string The territory identifier or null.
 	 * @since      1.0.0
 	 */
 	public function getTimeZoneTerritory($id, &$hasMultipleZones = false)
 	{
 		$hasMultipleZones = false;
-		if(!is_string($id) || $id === '') {
+		if($id === '') {
 			return null;
 		}
 		$resolved = $this->resolveTimeZoneId($id);
@@ -718,6 +718,13 @@ class TranslationManager implements ResetInterface
 		}
 		$territory = null;
 		try {
+			/**
+			 * IntlTimeZone::getRegion() is declared as always returning a non-empty
+			 * string in the bundled ext-intl stubs, but empirically (verified via
+			 * direct testing) it returns `false` for a timezone id ICU doesn't
+			 * recognize, e.g. IntlTimeZone::getRegion('Not/A_Real_Zone') === false.
+			 * @var string|false $territory
+			 */
 			$territory = \IntlTimeZone::getRegion($resolved);
 			if(!is_string($territory) || $territory === '') {
 				$territory = null;
@@ -728,7 +735,7 @@ class TranslationManager implements ResetInterface
 		if($territory !== null) {
 			try {
 				$zones = \DateTimeZone::listIdentifiers(\DateTimeZone::PER_COUNTRY, $territory);
-				if(is_array($zones) && count($zones) > 1) {
+				if(count($zones) > 1) {
 					$hasMultipleZones = true;
 				}
 			} catch(\Throwable) {}
@@ -744,8 +751,8 @@ class TranslationManager implements ResetInterface
 	 * this method will not create a new timezone instance and look up the 
 	 * resolved id there, but instead directly returns the resolved id by using
 	 * a simple lookup.
-	 * @param      int The timezone id to be resolved
-	 * @return     int The resolved timezone id
+	 * @param      \DateTimeZone|string $id The timezone id to be resolved
+	 * @return     ?string The resolved timezone id
 	 * @since      1.0.0
 	 */
 	public function resolveTimeZoneId($id)
@@ -753,7 +760,7 @@ class TranslationManager implements ResetInterface
 		if($id instanceof \DateTimeZone) {
 			$id = $id->getName();
 		}
-		if(!is_string($id) || $id === '') {
+		if($id === '') {
 			return null;
 		}
 		if(isset($this->canonicalTimeZoneCache[$id])) {
@@ -762,6 +769,13 @@ class TranslationManager implements ResetInterface
 		$normalized = $this->normalizeOffsetTimeZoneId($id);
 		$candidate = $normalized ?: $id;
 		try {
+			/**
+			 * IntlTimeZone::getCanonicalID() is declared as always returning a
+			 * string in the bundled ext-intl stubs, but empirically (verified via
+			 * direct testing) it returns `false` for a timezone id ICU doesn't
+			 * recognize, e.g. IntlTimeZone::getCanonicalID('Not/A_Real_Zone') === false.
+			 * @var string|false $canonical
+			 */
 			$canonical = \IntlTimeZone::getCanonicalID($candidate, $isSystemId);
 			if(is_string($canonical) && $canonical !== '') {
 				return $this->canonicalTimeZoneCache[$id] = $canonical;
@@ -778,7 +792,7 @@ class TranslationManager implements ResetInterface
 	 * clone them first. Alternatively you can set the cache parameter to false,
 	 * but this will mean the data for this timezone will be loaded from the 
 	 * hdd again.
-	 * @return     TimeZone The timezone instance for the given id.
+	 * @return     ?\DateTimeZone The timezone instance for the given id.
 	 * @since      1.0.0
 	 */
 	public function createTimeZone($id, $cache = true)
@@ -823,31 +837,29 @@ class TranslationManager implements ResetInterface
 	/**
 	 * Returns the stored information from the ldml supplemental data about a 
 	 * territory.
-	 * @param      string The uppercase 2 letter country iso code.
+	 * @param      string $country The uppercase 2 letter country iso code.
 	 * @return     array The data.
 	 * @since      1.0.0
 	 */
 	public function getTerritoryData($country)
 	{
-		if(!is_string($country) || $country === '') { return []; }
+		if($country === '') { return []; }
 		$country = strtoupper($country);
 		if(isset($this->territoryDataCache[$country])) { return $this->territoryDataCache[$country]; }
 		$data = [];
 		try {
 			$cal = \IntlCalendar::createInstance(null, 'und_' . $country);
-			if($cal instanceof \IntlCalendar) {
-				$fd = $cal->getFirstDayOfWeek();
-				$md = $cal->getMinimalDaysInFirstWeek();
-				if(is_int($fd) && $fd > 0) { $data['week']['firstDay'] = $fd; }
-				if(is_int($md) && $md > 0) { $data['week']['minDays'] = $md; }
-			}
+			$fd = $cal->getFirstDayOfWeek();
+			$md = $cal->getMinimalDaysInFirstWeek();
+			if($fd > 0) { $data['week']['firstDay'] = $fd; }
+			if($md > 0) { $data['week']['minDays'] = $md; }
 		} catch(\Throwable) {}
 		return $this->territoryDataCache[$country] = $data;
 	}
 
 	/**
 	 * Returns an array containing digits and rounding information for a currency.
-	 * @param      string The uppercase 3 letter currency iso code.
+	 * @param      string $currency The uppercase 3 letter currency iso code.
 	 * @return     array The data.
 	 * @since      1.0.0
 	 */
@@ -862,9 +874,9 @@ class TranslationManager implements ResetInterface
 			$fmt = new \NumberFormatter($localeIdentifier, \NumberFormatter::CURRENCY);
 			$fmt->setTextAttribute(\NumberFormatter::CURRENCY_CODE, $currency);
 			$fd = $fmt->getAttribute(\NumberFormatter::FRACTION_DIGITS);
-			if(is_numeric($fd) && $fd >= 0) { $digits = (int) $fd; }
+			if($fd >= 0) { $digits = (int) $fd; }
 			$ri = $fmt->getAttribute(\NumberFormatter::ROUNDING_INCREMENT);
-			if(is_numeric($ri) && $ri > 0) { $rounding = (int) round($ri * 10 ** $digits); }
+			if($ri > 0) { $rounding = (int) round($ri * 10 ** $digits); }
 		} catch(\Throwable) {}
 		return $this->currencyFractionCache[$currency] = ['digits' => $digits, 'rounding' => $rounding];
 	}

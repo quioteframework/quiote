@@ -13,7 +13,7 @@ class NullStorage extends Storage
 	 * Read data from this storage.
 	 * The preferred format for a key is directory style so naming conflicts can
 	 * be avoided.
-	 * @param      string A unique key identifying your data.
+	 * @param      string $key A unique key identifying your data.
 	 * @return     false Always false.
 	 * @since      1.0.0
 	 */
@@ -26,7 +26,7 @@ class NullStorage extends Storage
 	 * Remove data from this storage.
 	 * The preferred format for a key is directory style so naming conflicts can
 	 * be avoided.
-	 * @param      string A unique key identifying your data.
+	 * @param      string $key A unique key identifying your data.
 	 * @return     null Always null.
 	 * @since      1.0.0
 	 */
@@ -47,8 +47,8 @@ class NullStorage extends Storage
 	 * Write data to this storage.
 	 * The preferred format for a key is directory style so naming conflicts can
 	 * be avoided.
-	 * @param      string A unique key identifying your data.
-	 * @param      mixed  Data associated with your key.
+	 * @param      string $key A unique key identifying your data.
+	 * @param      mixed  $data Data associated with your key.
 	 * @since      1.0.0
 	 */
 	public function write($key, $data)
@@ -59,9 +59,9 @@ class NullStorage extends Storage
 	 * Store data in this storage.
 	 * The preferred format for a key is directory style so naming conflicts can
 	 * be avoided.
-	 * @param      string A unique key identifying your data.
-	 * @param      mixed  Data associated with your key.
-	 * @return     void
+	 * @param      string $key A unique key identifying your data.
+	 * @param      mixed  $data Data associated with your key.
+	 * @return     bool Always false.
 	 */
 	public function store($key, $data) : bool
 	{

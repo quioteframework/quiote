@@ -25,7 +25,7 @@ class ModuleConfigHandler extends XmlConfigHandler implements IArrayConfigHandle
 	const XML_NAMESPACE = 'http://quiote.dev/quiote/config/parts/module/1.1';
 
 	/**
-	 * @throws     <b>ParseException</b> If a requested configuration file is
+	 * @throws     \Quiote\Exception\ParseException If a requested configuration file is
 	 *                                        improperly formatted.
 	 * @since      1.0.0
 	 */

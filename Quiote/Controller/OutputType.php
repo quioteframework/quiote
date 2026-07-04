@@ -10,11 +10,12 @@ use Quiote\Util\ParameterHolder;
 use Quiote\Context;
 use Quiote\Exception\QuioteException;
 use Quiote\Renderer\IReusableRenderer;
+use Quiote\Renderer\Renderer;
 use Symfony\Contracts\Service\ResetInterface;
 class OutputType extends ParameterHolder implements \Stringable, ResetInterface
 {
 	/**
-	 * @var        Context The context instance.
+	 * @var        ?Context The context instance.
 	 */
 	protected $context = null;
 	
@@ -50,8 +51,8 @@ class OutputType extends ParameterHolder implements \Stringable, ResetInterface
 	
 	/**
 	 * Initialize the Output Type.
-	 * @param      Context The current Context instance.
-	 * @param      array        An array of initialization parameters.
+	 * @param      Context $context The current Context instance.
+	 * @param      array $parameters An array of initialization parameters.
 	 * @since      1.0.0
 	 */
 	public function initialize(Context $context, array $parameters, $name, array $renderers, $defaultRenderer, array $layouts, $defaultLayout, $exceptionTemplate = null)
@@ -104,8 +105,8 @@ class OutputType extends ParameterHolder implements \Stringable, ResetInterface
 	
 	/**
 	 * Get a renderer instance.
-	 * @param      string The optional name of the Renderer to fetch.
-	 * @return     Renderer A Renderer instance or null if none defined.
+	 * @param      ?string $name The optional name of the Renderer to fetch.
+	 * @return     ?Renderer A Renderer instance or null if none defined.
 	 * @since      1.0.0
 	 */
 	public function getRenderer($name = null)
@@ -146,9 +147,9 @@ class OutputType extends ParameterHolder implements \Stringable, ResetInterface
 	
 	/**
 	 * Get a layout.
-	 * @param      The optional name of the layout to fetch.
+	 * @param      ?string $name The optional name of the layout to fetch.
 	 * @return     array An array of layout information.
-	 * @throws     Exception If the layout doesn't exist.
+	 * @throws     QuioteException If the layout doesn't exist.
 	 * @since      1.0.0
 	 */
 	public function getLayout($name = null)

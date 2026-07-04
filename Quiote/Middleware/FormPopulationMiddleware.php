@@ -41,7 +41,7 @@ class FormPopulationMiddleware implements MiddlewareInterface
         }
 
         $globalResponse = $this->controller->getGlobalResponse();
-        if (!is_object($globalResponse) || !method_exists($globalResponse, 'isContentMutable') || !$globalResponse->isContentMutable()) {
+        if (!$globalResponse->isContentMutable()) {
             return $response;
         }
 
@@ -84,10 +84,8 @@ class FormPopulationMiddleware implements MiddlewareInterface
         }
         // No need to attachPsrRequest - WebRequest IS the PSR-7 request
         $query = $request->getQueryParams();
-        if (is_array($query)) {
-            foreach ($query as $k => $v) {
-                $rd->setParameter($k, $v);
-            }
+        foreach ($query as $k => $v) {
+            $rd->setParameter($k, $v);
         }
         $body = $request->getParsedBody();
         if (is_array($body)) {
@@ -131,15 +129,12 @@ class FormPopulationMiddleware implements MiddlewareInterface
     private function extractBody(ResponseInterface $response): string
     {
         $body = $response->getBody();
-        if (!is_object($body)) {
-            return '';
-        }
         try {
-            if (method_exists($body, 'isSeekable') && $body->isSeekable()) {
+            if ($body->isSeekable()) {
                 $body->rewind();
             }
-            $contents = method_exists($body, 'getContents') ? $body->getContents() : (string) $body;
-            if ($contents === '' && method_exists($body, 'isSeekable') && $body->isSeekable()) {
+            $contents = $body->getContents();
+            if ($contents === '' && $body->isSeekable()) {
                 $body->rewind();
                 $contents = (string) $body;
             }

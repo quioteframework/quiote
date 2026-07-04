@@ -17,7 +17,7 @@ class RoutingUserSource implements IRoutingSource
 
 	/**
 	 * Constructor.
-	 * @param      ISecurityUser An user instance.
+	 * @param      ISecurityUser $user An user instance.
 	 * @since      1.0.0
 	 */
 	public function __construct(ISecurityUser $user)
@@ -27,7 +27,7 @@ class RoutingUserSource implements IRoutingSource
 
 	/**
 	 * Retrieves the value for a given entry from the source.
-	 * @param      array An array with the name parts for the entry.
+	 * @param      array $parts An array with the name parts for the entry.
 	 * @return     mixed The value.
 	 * @since      1.0.0
 	 */

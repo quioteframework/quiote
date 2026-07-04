@@ -24,7 +24,7 @@ class DateFormatter implements ITranslator, ResetInterface
 	/** @var Context */
 	protected $context;
 
-	/** @var Locale|null */
+	/** @var ?QuioteLocale */
 	protected $locale = null;
 
 	/** @var string */
@@ -184,7 +184,7 @@ class DateFormatter implements ITranslator, ResetInterface
 		if(class_exists(\Locale::class)) {
 			try {
 				$canon = \Locale::canonicalize($normalized);
-				if(is_string($canon) && $canon !== '') {
+				if(is_string($canon)) {
 					return $canon;
 				}
 			} catch(\Throwable) {

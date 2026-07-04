@@ -22,10 +22,10 @@ class RbacDefinitionConfigHandler extends XmlConfigHandler implements IArrayConf
 	const XML_NAMESPACE = 'http://quiote.dev/quiote/config/parts/rbac_definitions/1.1';
 
 	/**
-	 * @throws     <b>UnreadableException</b> If a requested configuration
+	 * @throws     \Quiote\Exception\UnreadableException If a requested configuration
 	 *                                             file does not exist or is not
 	 *                                             readable.
-	 * @throws     <b>ParseException</b> If a requested configuration file is
+	 * @throws     \Quiote\Exception\ParseException If a requested configuration file is
 	 *                                        improperly formatted.
 	 * @since      1.0.0
 	 */
@@ -60,9 +60,9 @@ class RbacDefinitionConfigHandler extends XmlConfigHandler implements IArrayConf
 
 	/**
 	 * Parse a 'roles' node.
-	 * @param      mixed  The "roles" node (element or node list)
-	 * @param      string The name of the parent role, or null.
-	 * @param      array  A reference to the output data array.
+	 * @param      mixed  $roles The "roles" node (element or node list)
+	 * @param      ?string $parent The name of the parent role, or null.
+	 * @param      array  $data A reference to the output data array.
 	 * @since      1.0.0
 	 */
 	protected function parseRoles($roles, $parent, &$data)

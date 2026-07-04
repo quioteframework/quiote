@@ -55,22 +55,22 @@ class Context implements \Stringable, ResetInterface
   ];
 
   /**
-   * @var        DatabaseManager A DatabaseManager instance.
+   * @var        ?\Quiote\Database\DatabaseManager A DatabaseManager instance.
    */
   protected $databaseManager = null;
 
   /**
-   * @var        WebRequest A Request instance.
+   * @var        ?WebRequest A Request instance.
    */
   protected $request = null;
 
   /**
-   * @var        Routing A Routing instance.
+   * @var        ?Routing A Routing instance.
    */
   protected $routing = null;
 
   /**
-   * @var        Storage A Storage instance.
+   * @var        ?\Quiote\Storage\Storage A Storage instance.
    */
   protected $storage = null;
 
@@ -80,7 +80,7 @@ class Context implements \Stringable, ResetInterface
   protected $translationManager = null;
 
   /**
-   * @var        User A User instance.
+   * @var        ?User A User instance.
    */
   protected $user = null;
 
@@ -128,16 +128,16 @@ class Context implements \Stringable, ResetInterface
    */
   protected $translationManagerFactoryInfo = null;
   /**
-   * @var        \Quiote\Middleware\MiddlewarePipeline|null Per-instance (not shared across
+   * @var        ?\Quiote\Middleware\MiddlewarePipeline Per-instance (not shared across
    *             named Context profiles -- see handle()); safe for worker reuse across requests
    *             within the lifetime of this specific Context instance.
    */
   protected $psrKernel = null;
 
-  /** @var \Quiote\Execution\SlotDispatcher|null */
+  /** @var ?\Quiote\Execution\SlotDispatcher */
   protected $slotDispatcher = null;
 
-  /** @var \Quiote\Execution\ActionResolver|null */
+  /** @var ?\Quiote\Execution\ActionResolver */
   protected $actionResolver = null;
 
   /**
@@ -151,7 +151,7 @@ class Context implements \Stringable, ResetInterface
   protected $databaseManagerFactoryInfo = null;
 
   /**
-   * @var        Container|null DI container.
+   * @var        ?Container DI container.
    *             Additive/observational for now: factories.xml remains the single
    *             source of truth for construction of the core services below.
    */
@@ -172,9 +172,8 @@ class Context implements \Stringable, ResetInterface
   /**
    * Constructor method, intentionally made protected so the context cannot be
    * created directly.
-   * @param      string The name of this context.
+   * @param      string $name The name of this context.
    * @since      1.0.0
-   * @param string $name
    */
   protected function __construct(
     /**
@@ -196,8 +195,8 @@ class Context implements \Stringable, ResetInterface
 
   /**
    * Get information on a frequently used class.
-   * @param      string The factory identifier.
-   * @return     array An associative array (keys 'class' and 'parameters').
+   * @param      string $for The factory identifier.
+   * @return     ?array An associative array (keys 'class' and 'parameters'), or null if not found.
    * @since      1.0.0
    */
   public function getFactoryInfo($for)
@@ -226,8 +225,8 @@ class Context implements \Stringable, ResetInterface
 
   /**
    * Set information on a frequently used class.
-   * @param      string The factory identifier.
-   * @param      array An associative array (keys 'class' and 'parameters').
+   * @param      string $for The factory identifier.
+   * @param      array $info An associative array (keys 'class' and 'parameters').
    * @since      1.0.0
    */
   public function setFactoryInfo($for, array $info)
@@ -237,9 +236,9 @@ class Context implements \Stringable, ResetInterface
 
   /**
    * Factory for frequently used classes from factories.xml
-   * @param      string The factory identifier.
+   * @param      string $for The factory identifier.
    * @return     mixed An instance, already initialized with parameters.
-   * @throws     Exception If no such identifier exists.
+   * @throws     QuioteException If no such identifier exists.
    * @since      1.0.0
    */
   public function createInstanceFor($for)
@@ -399,9 +398,9 @@ class Context implements \Stringable, ResetInterface
    * This is a shortcut to manually getting a connection from an existing
    * database implementation instance.
    * If the core.use_database setting is off, this will return null.
-   * @param      name A database name.
+   * @param      ?string $name A database name.
    * @return     mixed A database connection.
-   * @throws     <b>DatabaseException</b> If the requested database name
+   * @throws     \Quiote\Exception\DatabaseException If the requested database name
    *                                           does not exist.
    * @since      1.0.0
    */
@@ -414,7 +413,7 @@ class Context implements \Stringable, ResetInterface
 
   /**
    * Retrieve the database manager.
-   * @return     DatabaseManager|null The current DatabaseManager instance
+   * @return     ?\Quiote\Database\DatabaseManager The current DatabaseManager instance
    *                                       or null if database support is disabled.
    * @since      1.0.0
    */
@@ -427,7 +426,7 @@ class Context implements \Stringable, ResetInterface
    * Retrieve the Context instance.
    * If you don't supply a profile name this will try to return the context
    * specified in the <kbd>core.default_context</kbd> setting.
-   * @param      string A name corresponding to a section of the config
+   * @param      string $profile A name corresponding to a section of the config
    * @return     Context An context instance initialized with the
    *                          settings of the requested context name
    * @since      1.0.0
@@ -484,28 +483,22 @@ class Context implements \Stringable, ResetInterface
       } else {
         $isAuthenticated = "N/A";
       }
-      if ($logger) {
-        $logger->debug(
-          "[Context.reset] user class=$userClass authenticated=$isAuthenticated",
-        );
-      }
+      $logger->debug(
+        "[Context.reset] user class=$userClass authenticated=$isAuthenticated",
+      );
     } else {
-      if ($logger) {
-        $logger->debug("[Context.reset] no user object");
-      }
+      $logger->debug("[Context.reset] no user object");
     }
 
     // Reset the controller state if it exists
-    if ($this->controller && $this->controller instanceof ResetInterface) {
+    if ($this->controller) {
       $this->controller->reset();
-      if ($logger) {
-        $logger->debug("context.reset controller reset");
-      }
+      $logger->debug("context.reset controller reset");
     }
 
     // CRITICAL: Manually execute the shutdown sequence in correct order for FrankenPHP
     // This ensures session data is saved properly before clearing state
-    if ($logger && $logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+    if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
       $logger->debug("context.reset manual shutdown sequence");
     }
 
@@ -513,31 +506,25 @@ class Context implements \Stringable, ResetInterface
     // But skip components that don't need shutdown or would interfere with worker mode
     foreach ($this->shutdownSequence as $component) {
       if ($component === $this->user && $component !== null) {
-        if ($logger) {
-          $logger->debug("context.reset shutdown user");
-        }
+        $logger->debug("context.reset shutdown user");
         $component->shutdown();
       } elseif ($component === $this->storage && $component !== null) {
-        if ($logger) {
-          $logger->debug("context.reset shutdown storage");
-        }
+        $logger->debug("context.reset shutdown storage");
 
         // CRITICAL: Must call shutdown() BEFORE reset() to ensure session data is persisted
         // shutdown() persists dirty session data to database/storage
         // reset() clears in-memory state for next request
         $component->shutdown(); // This persists session data
 
-        // Reset storage connections after shutdown if it implements ResetInterface
-        if ($component instanceof ResetInterface) {
-          if ($logger && $logger->isEnabled(\Quiote\Logging\Level::Debug)) {
-            $logger->debug("[Context] calling storage reset()");
-          }
-          $component->reset();
+        // Reset storage connections after shutdown
+        if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+          $logger->debug("[Context] calling storage reset()");
         }
+        $component->reset();
       } elseif ($component === $this->databaseManager && $component !== null) {
         // Recycle (ping + null dead connections) instead of full shutdown so the manager
         // stays alive across requests, avoiding re-initialization cost.
-        if ($logger && $logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+        if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
           $logger->debug(
             "context.reset recycleConnections databaseManager - id=" .
               spl_object_id($component),
@@ -549,7 +536,7 @@ class Context implements \Stringable, ResetInterface
       // as they're not needed for session persistence and might interfere with worker mode
     }
 
-    if ($logger && $logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+    if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
       $logger->debug("context.reset shutdown complete");
     }
 
@@ -557,13 +544,13 @@ class Context implements \Stringable, ResetInterface
     // In worker mode, null the storage so it gets recreated with fresh startup() call
     // This ensures session_start() is called properly on each request
     $this->storage = null;
-    if ($logger && $logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+    if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
       $logger->debug("context.reset storage nulled");
     }
 
     // Reset user object (it will be recreated with clean session state)
     $this->user = null;
-    if ($logger && $logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+    if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
       $logger->debug("[Context.reset] user cleared");
     }
 
@@ -573,22 +560,20 @@ class Context implements \Stringable, ResetInterface
         $instance->reset();
       }
     }
-    if ($logger && $logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+    if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
       $logger->debug("[Context.reset] routing reset instances");
     }
 
     // CRITICAL: Reset routing object to prevent cache corruption in worker mode
     if ($this->routing && $this->routing instanceof ResetInterface) {
       $this->routing->reset();
-      if ($logger) {
-        $logger->debug("[Context.reset] routing object reset");
-      }
+      $logger->debug("[Context.reset] routing object reset");
     }
 
     // Reset request object (it will be recreated for the next request)
     $this->request = null;
     // Reset PSR middleware kernel for worker mode safety
-    if ($logger && $logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+    if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
       $logger->debug("[Context.reset] request nulled");
     }
 
@@ -602,7 +587,7 @@ class Context implements \Stringable, ResetInterface
     // leak class as the session state cleared elsewhere in this reset).
     \Quiote\Logging\LogContext::clear();
 
-    if ($logger && $logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+    if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
       $logger->debug("[Context.reset] completed");
     }
   }
@@ -780,13 +765,14 @@ class Context implements \Stringable, ResetInterface
    */
   public function initialize()
   {
+    $logger = null;
     try {
       $logger = \Quiote\Logging\Log::for($this);
       if (
         defined("QUIOTE_USE_APCU_CONFIG_CACHE") &&
         QUIOTE_USE_APCU_CONFIG_CACHE
       ) {
-        $logger?->debug(
+        $logger->debug(
           "Context using APCu config cache for factories.xml",
         );
         $cacheResult = APCuConfigCache::checkConfig(
@@ -795,7 +781,7 @@ class Context implements \Stringable, ResetInterface
         );
 
         if (str_starts_with($cacheResult, "APCU:")) {
-          $logger?->debug(
+          $logger->debug(
             "Context executing factories.xml directly from APCu (no file I/O)",
           );
           eval("?>" . substr($cacheResult, 5));
@@ -803,7 +789,7 @@ class Context implements \Stringable, ResetInterface
           include $cacheResult;
         }
       } else {
-        $logger?->debug(
+        $logger->debug(
           "Context using regular config cache for factories.xml (constant defined: " .
             (defined("QUIOTE_USE_APCU_CONFIG_CACHE") ? "yes" : "no") .
             ", value: " .
@@ -823,7 +809,7 @@ class Context implements \Stringable, ResetInterface
       // Same reasoning as Context::getInstance(): this runs before any PSR-15
       // pipeline exists, so there is no ErrorHandlingMiddleware to hand off to
       // yet. Log and propagate instead of rendering a template and exit()ing.
-      $logger?->error(
+      $logger->error(
         'Context::initialize() failed for context "' . $this->name . '": ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine()
       );
       throw $e;
@@ -841,7 +827,7 @@ class Context implements \Stringable, ResetInterface
     }
     foreach ($invariantList as $prop => $label) {
       if ($this->$prop === null) {
-        $logger?->error(
+        $logger->error(
           "Context invariant failed: missing $prop after initialize() (component '$label')",
         );
         throw new QuioteException(
@@ -864,11 +850,11 @@ class Context implements \Stringable, ResetInterface
 
     if (!$isFrankenPHP) {
       register_shutdown_function([$this, "shutdown"]);
-      $logger?->debug(
+      $logger->debug(
         "Context registered shutdown function (not FrankenPHP)",
       );
     } else {
-      $logger?->debug(
+      $logger->debug(
         "Context skipping shutdown function registration (FrankenPHP worker mode)",
       );
     }
@@ -896,11 +882,9 @@ class Context implements \Stringable, ResetInterface
       $this->user !== null
     ) {
       try {
-        if ($logger) {
-          $logger->debug(
-            "Context.initialize pre-request: deferring user creation until first real request",
-          );
-        }
+        $logger->debug(
+          "Context.initialize pre-request: deferring user creation until first real request",
+        );
         // Remove existing user from shutdown sequence (keep order of remaining components)
         foreach ($this->shutdownSequence as $idx => $obj) {
           if ($obj === $this->user) {
@@ -960,13 +944,13 @@ class Context implements \Stringable, ResetInterface
 
   /**
    * Retrieve a Model implementation instance.
-   * @param      string A model name or fully qualified class name.
-   * @param      string A module name, if the requested model is a module model,
+   * @param      string $modelName A model name or fully qualified class name.
+   * @param      string $moduleName A module name, if the requested model is a module model,
    *                    or null for global models. (DEPRECATED with namespaces)
-   * @param      array  An array of parameters to be passed to initialize() or
+   * @param      array $parameters An array of parameters to be passed to initialize() or
    *                    the constructor.
-   * @return     Model A Model implementation instance.
-   * @throws     AutloadException if class is ultimately not found.
+   * @return     \Quiote\Model\Model A Model implementation instance.
+   * @throws     QuioteException if class is ultimately not found.
    * @since      1.0.0
    */
   public function getModel(
@@ -1048,7 +1032,7 @@ class Context implements \Stringable, ResetInterface
             "Model.php";
         }
 
-        if (null !== $file && is_readable($file)) {
+        if (is_readable($file)) {
           require $file;
         }
       }
@@ -1141,7 +1125,7 @@ class Context implements \Stringable, ResetInterface
         // No need to attachPsrRequest - WebRequest IS the PSR-7 request
 
         // Re-run controller startup so it re-caches the (new) global request data pointer
-        if ($this->controller && method_exists($this->controller, "startup")) {
+        if ($this->controller) {
           try {
             $this->controller->startup();
             if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
@@ -1190,20 +1174,20 @@ class Context implements \Stringable, ResetInterface
     // Lazy initialization for worker mode - recreate routing object if null after reset
     if ($this->routing === null) {
       $logger = \Quiote\Logging\Log::for($this);
-      $logger?->debug(
+      $logger->debug(
         "Context::getRouting() - Routing object is null, recreating...",
       );
       // Recreate from factory info if available
       if ($this->routingFactoryInfo !== null) {
         $className = $this->routingFactoryInfo["class"];
         $this->routing = new $className();
-        $logger?->debug(
+        $logger->debug(
           "Context::getRouting() - Routing (compat) object recreated via factory info: " .
             $className,
         );
         $this->registerCoreService('routing', $this->routing);
       } else {
-        $logger?->error(
+        $logger->error(
           "Context::getRouting() - No routing factory info available, cannot recreate routing",
         );
         throw new QuioteException(
@@ -1216,7 +1200,7 @@ class Context implements \Stringable, ResetInterface
 
   /**
    * Retrieve the storage.
-   * @return     Storage The current Storage implementation instance.
+   * @return     \Quiote\Storage\Storage The current Storage implementation instance.
    * @since      1.0.0
    */
   public function getStorage()
@@ -1224,7 +1208,7 @@ class Context implements \Stringable, ResetInterface
     // Lazy initialization for worker mode - recreate storage object if null after reset
     if ($this->storage === null) {
       $logger = \Quiote\Logging\Log::for($this);
-      $logger?->debug(
+      $logger->debug(
         "[Context.getStorage] - Storage object is null, recreating...",
       );
       // Ensure database manager is available if database use is enabled BEFORE creating storage (storage may need DB)
@@ -1232,7 +1216,7 @@ class Context implements \Stringable, ResetInterface
         Config::get("core.use_database", false) &&
         $this->databaseManager === null
       ) {
-        $logger?->debug(
+        $logger->debug(
           "[Context.getStorage] - Database manager is null, attempting recreation...",
         );
         if ($this->databaseManagerFactoryInfo !== null) {
@@ -1242,19 +1226,19 @@ class Context implements \Stringable, ResetInterface
             $this->databaseManager = new $className();
             $this->databaseManager->initialize($this, $parameters);
             $this->databaseManager->startup();
-            $logger?->debug(
+            $logger->debug(
               "[Context.getStorage] - Database manager recreated successfully using factory info: " .
                 $className,
             );
             $this->registerCoreService('databaseManager', $this->databaseManager);
           } catch (\Throwable $e) {
-            $logger?->error(
+            $logger->error(
               "[Context.getStorage] - Failed to recreate database manager: " .
                 $e->getMessage(),
             );
           }
         } else {
-          $logger?->warning(
+          $logger->warning(
             "[Context.getStorage] - Database manager factory info missing, cannot recreate (may affect storage)",
           );
         }
@@ -1270,13 +1254,13 @@ class Context implements \Stringable, ResetInterface
         // Do NOT call startup() here - SessionMiddleware will call it after mirroring PSR-7 cookies to $_COOKIE
         // Calling it here causes session loss because $_COOKIE is empty before SessionMiddleware runs
 
-        $logger?->debug(
+        $logger->debug(
           "[Context.getStorage] - Storage object recreated successfully using factory info: " .
             $className,
         );
         $this->registerCoreService('storage', $this->storage, Container::SCOPE_REQUEST);
       } else {
-        $logger?->error(
+        $logger->error(
           "[Context.getStorage] - No storage factory info available, cannot recreate storage",
         );
         throw new QuioteException(
@@ -1290,7 +1274,7 @@ class Context implements \Stringable, ResetInterface
 
   /**
    * Retrieve the translation manager.
-   * @return     TranslationManager|null The current TranslationManager
+   * @return     ?TranslationManager The current TranslationManager
    *                                          implementation instance or null if
    *                                          translations are disabled.
    * @since      1.0.0
@@ -1327,7 +1311,7 @@ class Context implements \Stringable, ResetInterface
               " " .
               (($f["class"] ?? "") .
                 ($f["type"] ?? "") .
-                ($f["function"] ?? ""));
+                $f["function"]);
           }
           $logger->debug(
             "[getUser] user null, recreating trace=" . json_encode($bt),
@@ -1335,7 +1319,7 @@ class Context implements \Stringable, ResetInterface
         } catch (\Throwable) {
         }
       }
-      $logger?->debug(
+      $logger->debug(
         "[Context.getUser] - User object is null, recreating...",
       );
       // Ensure database manager is available if database use is enabled BEFORE creating user (user may need storage->db)
@@ -1343,7 +1327,7 @@ class Context implements \Stringable, ResetInterface
         Config::get("core.use_database", false) &&
         $this->databaseManager === null
       ) {
-        $logger?->debug(
+        $logger->debug(
           "[Context.getUser] - Database manager is null, attempting recreation before user...",
         );
         if ($this->databaseManagerFactoryInfo !== null) {
@@ -1353,19 +1337,19 @@ class Context implements \Stringable, ResetInterface
             $this->databaseManager = new $className();
             $this->databaseManager->initialize($this, $parameters);
             $this->databaseManager->startup();
-            $logger?->debug(
+            $logger->debug(
               "[Context.getUser] - Database manager recreated successfully using factory info: " .
                 $className,
             );
             $this->registerCoreService('databaseManager', $this->databaseManager);
           } catch (\Throwable $e) {
-            $logger?->error(
+            $logger->error(
               "[Context.getUser] - Failed to recreate database manager: " .
                 $e->getMessage(),
             );
           }
         } else {
-          $logger?->warning(
+          $logger->warning(
             "[Context.getUser] - Database manager factory info missing, cannot recreate",
           );
         }
@@ -1373,7 +1357,7 @@ class Context implements \Stringable, ResetInterface
 
       // Ensure storage is available before creating user (user initialization needs storage)
       if ($this->storage === null) {
-        $logger?->debug(
+        $logger->debug(
           "[Context.getUser] - Storage is null, recreating storage first...",
         );
         $this->getStorage(); // This will recreate storage if needed
@@ -1444,13 +1428,13 @@ class Context implements \Stringable, ResetInterface
         } catch (\Throwable) {
         }
 
-        $logger?->debug(
+        $logger->debug(
           "[Context.getUser] - User object recreated successfully using factory info: " .
             $className,
         );
         $this->registerCoreService('user', $this->user, Container::SCOPE_REQUEST);
       } else {
-        $logger?->error(
+        $logger->error(
           "[Context.getUser] - No user factory info available, cannot recreate user",
         );
         throw new QuioteException(

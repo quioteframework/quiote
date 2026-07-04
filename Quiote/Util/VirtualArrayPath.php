@@ -21,7 +21,7 @@ class VirtualArrayPath implements \Stringable
 	
 	/**
 	 * constructor
-	 * @param      string The path to be handled by the object
+	 * @param      ?string $path The path to be handled by the object
 	 * @since      1.0.0
 	 */
 	public function __construct(?string $path)
@@ -85,8 +85,8 @@ class VirtualArrayPath implements \Stringable
 	
 	/**
 	 * Returns the given component of the path.
-	 * @param      int Position of the component.
-	 * @return     string The component at the given position.
+	 * @param      int $position Position of the component.
+	 * @return     int|string|null The component at the given position, or null if out of range.
 	 * @since      1.0.0
 	 */
 	public function get($position)
@@ -106,9 +106,9 @@ class VirtualArrayPath implements \Stringable
 
 	/**
 	 * Returns the root component of the path.
-	 * @param      bool Whether brackets should be added around the component if
+	 * @param      bool $addBracketsWhenRelative Whether brackets should be added around the component if
 	 *                  this path is not absolute.
-	 * @return     string The root component.
+	 * @return     int|string|null The root component, or null if the path is empty.
 	 * @since      1.0.0
 	 */
 	public function left($addBracketsWhenRelative = false)
@@ -132,7 +132,7 @@ class VirtualArrayPath implements \Stringable
 	
 	/**
 	 * Returns the last component of the path and deletes it from the path.
-	 * @return     string The last component.
+	 * @return     int|string|null The last component, or null if the path is empty.
 	 * @since      1.0.0
 	 */
 	public function pop()
@@ -152,7 +152,7 @@ class VirtualArrayPath implements \Stringable
 	
 	/**
 	 * Appends one or more components to the path.
-	 * @param      string The components to be added.
+	 * @param      string $path The components to be added.
 	 * @since      1.0.0
 	 */
 	public function push($path)
@@ -163,7 +163,7 @@ class VirtualArrayPath implements \Stringable
 
 	/**
 	 * Clones this path, appends one or more components to it and returns it.
-	 * @param      string the components to be added.
+	 * @param      string $path the components to be added.
 	 * @since      1.0.0
 	 */
 	public function pushRetNew($path)
@@ -175,9 +175,9 @@ class VirtualArrayPath implements \Stringable
 	
 	/**
 	 * Returns the root component of the path and deletes it from the path.
-	 * @param      bool Whether brackets should be added around the component if
+	 * @param      bool $addBracketsWhenRelative Whether brackets should be added around the component if
 	 *                  this path is not absolute.
-	 * @return     string The root component.
+	 * @return     int|string|null The root component, or null if the path is empty.
 	 * @since      1.0.0
 	 */
 	public function shift($addBracketsWhenRelative = false)
@@ -199,7 +199,7 @@ class VirtualArrayPath implements \Stringable
 
 	/**
 	 * Prepends one or more components to the path.
-	 * @param      string The components to be prepended.
+	 * @param      string $path The components to be prepended.
 	 * @since      1.0.0
 	 */
 	public function unshift($path)
@@ -210,7 +210,7 @@ class VirtualArrayPath implements \Stringable
 
 	/**
 	 * Checks if a value exists  at the path of this instance in the given array.
-	 * @param      array The array to check.
+	 * @param      array $array The array to check.
 	 * @since      1.0.0
 	 */
 	public function hasValue(array &$array)
@@ -259,9 +259,9 @@ class VirtualArrayPath implements \Stringable
 
 	/**
 	 * Sets the value at the given child path of this instance in the given array.
-	 * @param      string The child path appended to the path in this instance.
-	 * @param      array The array to set the data in.
-	 * @param      mixed The value to be set.
+	 * @param      string $path The child path appended to the path in this instance.
+	 * @param      array $array The array to set the data in.
+	 * @param      mixed $value The value to be set.
 	 * @since      1.0.0
 	 */
 	public function setValueByChildPath($path, array &$array, $value)
@@ -273,8 +273,8 @@ class VirtualArrayPath implements \Stringable
 
 	/**
 	 * Checks if a value at the given child path exists in the given array.
-	 * @param      string The child path appended to the path in this instance.
-	 * @param      array The array to check.
+	 * @param      string $path The child path appended to the path in this instance.
+	 * @param      array $array The array to check.
 	 * @since      1.0.0
 	 */
 	public function hasValueByChildPath($path, array &$array)

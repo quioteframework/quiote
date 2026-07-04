@@ -42,9 +42,9 @@ abstract class AttributeHolder extends ParameterHolder
 
 	/**
 	 * Retrieve an attribute.
-	 * @param      string An attribute name.
-	 * @param      string An attribute namespace.
-	 * @param      mixed  A default attribute value.
+	 * @param      string $name An attribute name.
+	 * @param      string $ns An attribute namespace.
+	 * @param      mixed  $default A default attribute value.
 	 * @return     mixed An attribute value, if the attribute exists, otherwise
 	 *                   null.
 	 * @since      1.0.0
@@ -72,8 +72,8 @@ abstract class AttributeHolder extends ParameterHolder
 
 	/**
 	 * Retrieve an array of attribute names.
-	 * @param      string An attribute namespace.
-	 * @return     array An indexed array of attribute names, if the namespace
+	 * @param      string $ns An attribute namespace.
+	 * @return     ?array An indexed array of attribute names, if the namespace
 	 *                   exists, otherwise null.
 	 * @since      1.0.0
 	 */
@@ -86,14 +86,16 @@ abstract class AttributeHolder extends ParameterHolder
 		if(isset($this->attributes[$ns])) {
 			return array_keys($this->attributes[$ns]);
 		}
+
+		return null;
 	}
 
 	/**
 	 * Retrieve an array of flattened attribute names. This means if an attribute
 	 * is an array you wont get the name of the attribute in the result but 
 	 * instead all child keys appended to the name (like foo[0],foo[1][0], ...)
-	 * @param      string An attribute namespace.
-	 * @return     array An indexed array of attribute names, if the namespace
+	 * @param      string $ns An attribute namespace.
+	 * @return     ?array An indexed array of attribute names, if the namespace
 	 *                   exists, otherwise null.
 	 * @since      1.0.0
 	 */
@@ -106,11 +108,13 @@ abstract class AttributeHolder extends ParameterHolder
 		if(isset($this->attributes[$ns])) {
 			return ArrayPathDefinition::getFlatKeyNames($this->attributes[$ns]);
 		}
+
+		return null;
 	}
 
 	/**
 	 * Retrieve all attributes within a namespace.
-	 * @param      string An attribute namespace.
+	 * @param      string $ns An attribute namespace.
 	 * @return     array An associative array of attributes.
 	 * @since      1.0.0
 	 */
@@ -131,7 +135,7 @@ abstract class AttributeHolder extends ParameterHolder
 
 	/**
 	 * Retrieve all attributes within a namespace.
-	 * @param      string An attribute namespace.
+	 * @param      string $ns An attribute namespace.
 	 * @return     array An associative array of attributes if the namespace
 	 *                   exists, otherwise null.
 	 * @since      1.0.0
@@ -163,8 +167,8 @@ abstract class AttributeHolder extends ParameterHolder
 
 	/**
 	 * Indicates whether or not an attribute exists.
-	 * @param      string An attribute name.
-	 * @param      string An attribute namespace.
+	 * @param      string $name An attribute name.
+	 * @param      string $ns An attribute namespace.
 	 * @return     bool true, if the attribute exists, otherwise false.
 	 * @since      1.0.0
 	 */
@@ -191,7 +195,7 @@ abstract class AttributeHolder extends ParameterHolder
 
 	/**
 	 * Indicates whether or not an attribute namespace exists.
-	 * @param      string An attribute namespace.
+	 * @param      string $ns An attribute namespace.
 	 * @return     bool true, if the namespace exists, otherwise false.
 	 * @since      1.0.0
 	 */
@@ -202,8 +206,8 @@ abstract class AttributeHolder extends ParameterHolder
 
 	/**
 	 * Remove an attribute.
-	 * @param      string An attribute name.
-	 * @param      string An attribute namespace.
+	 * @param      string $name An attribute name.
+	 * @param      string $ns An attribute namespace.
 	 * @return     mixed An attribute value, if the attribute was removed,
 	 *                   otherwise null.
 	 * @since      1.0.0
@@ -233,7 +237,7 @@ abstract class AttributeHolder extends ParameterHolder
 
 	/**
 	 * Remove an attribute namespace and all of its associated attributes.
-	 * @param      string An attribute namespace.
+	 * @param      string $ns An attribute namespace.
 	 * @return     mixed An array with all namespace attributes, if the namespace
 	 *                   was removed, or null otherwise.
 	 * @since      1.0.0
@@ -255,9 +259,9 @@ abstract class AttributeHolder extends ParameterHolder
 	 * Set an attribute.
 	 * If an attribute with the name already exists the value will be
 	 * overridden.
-	 * @param      string An attribute name.
-	 * @param      mixed  An attribute value.
-	 * @param      string An attribute namespace.
+	 * @param      string $name An attribute name.
+	 * @param      mixed $value An attribute value.
+	 * @param      string $ns An attribute namespace.
 	 * @since      1.0.0
 	 */
 	public function setAttribute($name, $value, $ns = null)
@@ -277,9 +281,9 @@ abstract class AttributeHolder extends ParameterHolder
 	 * Append an attribute.
 	 * If an attribute with the name already exists, it will be converted to an
 	 * array and the new value appended.
-	 * @param      string An attribute name.
-	 * @param      mixed  An attribute value.
-	 * @param      string An attribute namespace.
+	 * @param      string $name An attribute name.
+	 * @param      mixed $value An attribute value.
+	 * @param      string $ns An attribute namespace.
 	 * @since      1.0.0
 	 */
 	public function appendAttribute($name, $value, $ns = null)
@@ -303,9 +307,9 @@ abstract class AttributeHolder extends ParameterHolder
 	 * Set an attribute by reference.
 	 * If an attribute with the name already exists the value will be
 	 * overridden.
-	 * @param      string An attribute name.
-	 * @param      mixed  A reference to an attribute value.
-	 * @param      string An attribute namespace.
+	 * @param      string $name An attribute name.
+	 * @param      mixed $value A reference to an attribute value.
+	 * @param      string $ns An attribute namespace.
 	 * @since      1.0.0
 	 */
 	public function setAttributeByRef($name, &$value, $ns = null)
@@ -325,9 +329,9 @@ abstract class AttributeHolder extends ParameterHolder
 	 * Append an attribute by reference.
 	 * If an attribute with the name already exists, it will be converted to an
 	 * array and the reference to the new value appended.
-	 * @param      string An attribute name.
-	 * @param      mixed  A reference to an attribute value.
-	 * @param      string An attribute namespace.
+	 * @param      string $name An attribute name.
+	 * @param      mixed $value A reference to an attribute value.
+	 * @param      string $ns An attribute namespace.
 	 * @since      1.0.0
 	 */
 	public function appendAttributeByRef($name, &$value, $ns = null)
@@ -351,9 +355,9 @@ abstract class AttributeHolder extends ParameterHolder
 	 * Set an array of attributes.
 	 * If an existing attribute name matches any of the keys in the supplied
 	 * array, the associated value will be overridden.
-	 * @param      array  An associative array of attributes and their
+	 * @param      array $attributes An associative array of attributes and their
 	 *                    associated values.
-	 * @param      string An attribute namespace.
+	 * @param      string $ns An attribute namespace.
 	 * @since      1.0.0
 	 */
 	public function setAttributes(array $attributes, $ns = null)
@@ -375,9 +379,9 @@ abstract class AttributeHolder extends ParameterHolder
 	 * Set an array of attributes by reference.
 	 * If an existing attribute name matches any of the keys in the supplied
 	 * array, the associated value will be overridden.
-	 * @param      array  An associative array of attributes and references to
+	 * @param      array $attributes An associative array of attributes and references to
 	 *                    their associated values.
-	 * @param      string An attribute namespace.
+	 * @param      string $ns An attribute namespace.
 	 * @since      1.0.0
 	 */
 	public function setAttributesByRef(array &$attributes, $ns = null)

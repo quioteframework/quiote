@@ -15,9 +15,9 @@ abstract class BaseConstraintBecausePhpunitSucksAtBackwardsCompatibility extends
 	 * Overridden function to cover differences between PHPUnit 3.5 and 3.6.
 	 * Intentionally made final so people have to use match() from now on.
 	 * match() should be abstract really, but isn't, the usual PHPUnit quality...
-	 * @param      mixed  The item to evaluate.
-	 * @param      string Additional information about the test (3.6+).
-	 * @param      bool   Whether to return a result or throw an exception (3.6+).
+	 * @param      mixed  $other The item to evaluate.
+	 * @param      string $description Additional information about the test (3.6+).
+	 * @param      bool   $returnResult Whether to return a result or throw an exception (3.6+).
 	 * @since      1.0.0
 	 */
 	#[\Override]

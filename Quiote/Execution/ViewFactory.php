@@ -20,19 +20,15 @@ class ViewFactory
      * @param string $actionModule Original action module
      * @param string $actionName Original action name
      * @param string $outputType Output type name (lowercase)
-     * @param WebRequest|null $requestData Request data snapshot
+     * @param ?WebRequest $request Request data snapshot
      * @param array $actionAttributeSnapshot Attributes snapshot from action exec
      */
     public function create(string $viewModule, string $viewName, string $actionModule, string $actionName, string $outputType, ?WebRequest $request, array $actionAttributeSnapshot, ?object $validationManager = null): ?View
     {
         try {
-            /** @var View $view */
             $view = $this->controller->createViewInstance($viewModule, $viewName);
             $global = $this->controller->getGlobalResponse();
-            $psr = null;
-            if ($global instanceof \Quiote\Response\WebResponse) {
-                $psr = new \Quiote\Http\PsrResponseAdapter($global);
-            }
+            $psr = new \Quiote\Http\PsrResponseAdapter($global);
             $vic = new ImmutableViewInitContext(
                 context: $this->controller->getContext(),
                 viewModule: $viewModule,

@@ -17,7 +17,7 @@ class RoutingArraySource implements IRoutingSource
 
 	/**
 	 * Constructor.
-	 * @param      array An array with data.
+	 * @param      array $data An array with data.
 	 * @since      1.0.0
 	 */
 	public function __construct(array $data)
@@ -27,7 +27,7 @@ class RoutingArraySource implements IRoutingSource
 
 	/**
 	 * Retrieves the value for a given entry from the source.
-	 * @param      array An array with the name parts for the entry.
+	 * @param      array $parts An array with the name parts for the entry.
 	 * @return     mixed The value.
 	 * @since      1.0.0
 	 */

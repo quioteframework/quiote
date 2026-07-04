@@ -13,19 +13,19 @@ use Symfony\Contracts\Service\ResetInterface;
 abstract class RoutingCallback extends ParameterHolder implements ResetInterface
 {
 	/**
-	 * @var        Context An Context instance.
+	 * @var        ?Context An Context instance.
 	 */
 	protected $context = null;
 
 	/**
-	 * @var        array An array with information about the route.
+	 * @var        ?array An array with information about the route.
 	 */
 	protected $route = null;
 
 	/**
 	 * Initialize the callback instance.
-	 * @param      \Quiote\Response\WebResponse An WebResponse instance.
-	 * @param      array         An array with information about the route.
+	 * @param      Context $context An Context instance.
+	 * @param      array   $route   An array with information about the route.
 	 * @since      1.0.0
 	 */
 	public function initialize(Context $context, array &$route)
@@ -67,9 +67,9 @@ abstract class RoutingCallback extends ParameterHolder implements ResetInterface
 	/**
 	 * Gets executed when the route of this callback is about to be reverse 
 	 * generated into an URL.
-	 * @param      array The default parameters stored in the route.
-	 * @param      array The parameters the user supplied to Routing::gen().
-	 * @param      array The options the user supplied to Routing::gen().
+	 * @param      array $defaultParameters The default parameters stored in the route.
+	 * @param      array $userParameters The parameters the user supplied to Routing::gen().
+	 * @param      array $userOptions The options the user supplied to Routing::gen().
 	 * @return     bool  Whether this route part should be generated.
 	 * @since      1.0.0
 	 */

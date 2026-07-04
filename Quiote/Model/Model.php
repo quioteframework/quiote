@@ -14,7 +14,7 @@ use Quiote\Context;
 abstract class Model implements IModel
 {
 
-	protected $_contextName;
+	protected final $_contextName;
 	/**
 	 * @var        Context An Context instance.
 	 */
@@ -32,7 +32,7 @@ abstract class Model implements IModel
 
 	/**
 	 * Initialize this model.
-	 * @param      Context The current application context.
+	 * @param      Context $context The current application context.
 	 * @since      1.0.0
 	 */
 	public function initialize(Context $context, array $parameters = [])

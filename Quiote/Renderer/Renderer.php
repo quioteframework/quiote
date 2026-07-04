@@ -14,9 +14,9 @@ use Symfony\Contracts\Service\ResetInterface;
  */
 abstract class Renderer extends ParameterHolder implements ResetInterface
 {
-	protected $contextName = null;
+	protected final $contextName = null;
 	/**
-	 * @var        Context An Context instance.
+	 * @var        ?Context An Context instance.
 	 */
 	protected $context = null;
 	
@@ -77,8 +77,8 @@ abstract class Renderer extends ParameterHolder implements ResetInterface
 	
 	/**
 	 * Initialize this Renderer.
-	 * @param      Context The current application context.
-	 * @param      array        An associative array of initialization parameters.
+	 * @param      Context $context The current application context.
+	 * @param      array $parameters An associative array of initialization parameters.
 	 * @since      1.0.0
 	 */
 	public function initialize(Context $context, array $parameters = [])
@@ -134,8 +134,8 @@ abstract class Renderer extends ParameterHolder implements ResetInterface
 	
 	/**
 	 * Build an array of "more" assigns.
-	 * @param      array The values to be assigned.
-	 * @param      array Assigns name map.
+	 * @param      array $moreAssigns The values to be assigned.
+	 * @param      array $moreAssignNames Assigns name map.
 	 * @return     array The data.
 	 * @since      1.0.0
 	 */
@@ -158,10 +158,10 @@ abstract class Renderer extends ParameterHolder implements ResetInterface
 	
 	/**
 	 * Render the presentation and return the result.
-	 * @param      TemplateLayer The template layer to render.
-	 * @param      array              The template variables.
-	 * @param      array              The slots.
-	 * @param      array              Associative array of additional assigns.
+	 * @param      TemplateLayer $layer The template layer to render.
+	 * @param      array $attributes The template variables.
+	 * @param      array $slots The slots.
+	 * @param      array $moreAssigns Associative array of additional assigns.
 	 * @return     string A rendered result.
 	 * @since      1.0.0
 	 */

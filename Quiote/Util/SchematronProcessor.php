@@ -36,7 +36,7 @@ class SchematronProcessor extends ParameterHolder
 	];
 	
 	/**
-	 * @var        DOMNode The node the processor will work on.
+	 * @var        ?\DOMNode The node the processor will work on.
 	 */
 	protected $node = null;
 	
@@ -74,8 +74,8 @@ class SchematronProcessor extends ParameterHolder
 	
 	/**
 	 * Get a processor instance for the given XSLT path.
-	 * @param      string The file path to the XSL template.
-	 * @return     XsltProcessor The processor instance.
+	 * @param      string $path The file path to the XSL template.
+	 * @return     \XSLTProcessor The processor instance.
 	 * @since      1.0.0
 	 */
 	protected static function getProcessor($path)
@@ -93,7 +93,7 @@ class SchematronProcessor extends ParameterHolder
 	
 	/**
 	 * Sets the node that this processor will transform and validate.
-	 * @param      \DOMNode The node to use.
+	 * @param      \DOMNode $node The node to use.
 	 * @since      1.0.0
 	 */
 	public function setNode(\DOMNode $node)
@@ -128,8 +128,8 @@ class SchematronProcessor extends ParameterHolder
 	
 	/**
 	 * Validates the node against a given Schematron validation file.
-	 * @param      \DOMDocument The validator to use.
-	 * @return     XmlConfigDomDocument The transformed validation document.
+	 * @param      \DOMDocument $schema The validator to use.
+	 * @return     \DOMDocument The transformed validation document.
 	 * @since      1.0.0
 	 */
 	public function transform(\DOMDocument $schema)

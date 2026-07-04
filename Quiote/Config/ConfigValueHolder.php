@@ -9,6 +9,8 @@ use AllowDynamicProperties;
  * @since      1.0.0
  * @deprecated Not used anymore by XML config handlers, to be removed in Quiote 1.1
  * @version    1.0.0
+ * @property-read ?ConfigValueHolder $configurations Dynamically added child node, if it exists.
+ * @property-read ?ConfigValueHolder $parameters Dynamically added child node, if it exists.
  */
 #[AllowDynamicProperties]
 class ConfigValueHolder implements \ArrayAccess, \IteratorAggregate, \Stringable
@@ -33,7 +35,7 @@ class ConfigValueHolder implements \ArrayAccess, \IteratorAggregate, \Stringable
 
 	/**
 	 * Sets the name of this value.
-	 * @param      string The name.
+	 * @param      string $name The name.
 	 * @since      1.0.0
 	 */
 	public function setName($name)
@@ -53,7 +55,7 @@ class ConfigValueHolder implements \ArrayAccess, \IteratorAggregate, \Stringable
 
 	/**
 	 * isset() overload.
-	 * @param      string Name of the child.
+	 * @param      string $name Name of the child.
 	 * @return     bool Whether or not that child exists.
 	 * @since      1.0.0
 	 */
@@ -64,8 +66,8 @@ class ConfigValueHolder implements \ArrayAccess, \IteratorAggregate, \Stringable
 
 	/**
 	 * Magic getter overload.
-	 * @param      string Name of the child .
-	 * @return     ConfigValueHolder The child, if it exists.
+	 * @param      string $name Name of the child.
+	 * @return     ?ConfigValueHolder The child, if it exists.
 	 * @since      1.0.0
 	 */
 	public function __get($name)
@@ -106,8 +108,8 @@ class ConfigValueHolder implements \ArrayAccess, \IteratorAggregate, \Stringable
 	/**
 	 * Adds a named children to this value. If a children with the same name
 	 * already exists the given value will be appended to the children.
-	 * @param      string The name of the child.
-	 * @param      ConfigValueHolder The child value.
+	 * @param      string $name The name of the child.
+	 * @param      ConfigValueHolder $children The child value.
 	 * @since      1.0.0
 	 */
 	public function addChildren($name, $children)
@@ -122,7 +124,7 @@ class ConfigValueHolder implements \ArrayAccess, \IteratorAggregate, \Stringable
 
 	/**
 	 * Adds a unnamed children to this value.
-	 * @param      ConfigValueHolder The child value.
+	 * @param      ConfigValueHolder $children The child value.
 	 * @since      1.0.0
 	 */
 	public function appendChildren($children)
@@ -133,7 +135,7 @@ class ConfigValueHolder implements \ArrayAccess, \IteratorAggregate, \Stringable
 	/**
 	 * Checks whether the value has children at all (no params) or whether a
 	 * child with the given name exists.
-	 * @param      string The name of the child.
+	 * @param      ?string $child The name of the child.
 	 * @return     bool True if children exist, false if not.
 	 * @since      1.0.0
 	 */
@@ -161,7 +163,7 @@ class ConfigValueHolder implements \ArrayAccess, \IteratorAggregate, \Stringable
 
 	/**
 	 * Returns the children of this value.
-	 * @param      string Return only the childs matching this node (tag) name.
+	 * @param      ?string $nodename Return only the childs matching this node (tag) name.
 	 * @return     array An array with the childs of this value.
 	 * @since      1.0.0
 	 */
@@ -185,8 +187,8 @@ class ConfigValueHolder implements \ArrayAccess, \IteratorAggregate, \Stringable
 	 * Set an attribute.
 	 * If an attribute with the name already exists the value will be
 	 * overridden.
-	 * @param      string An attribute name.
-	 * @param      mixed  An attribute value.
+	 * @param      string $name An attribute name.
+	 * @param      mixed  $value An attribute value.
 	 * @since      1.0.0
 	 */
 	public function setAttribute($name, $value)
@@ -196,7 +198,7 @@ class ConfigValueHolder implements \ArrayAccess, \IteratorAggregate, \Stringable
 
 	/**
 	 * Indicates whether or not an attribute exists.
-	 * @param      string An attribute name.
+	 * @param      string $name An attribute name.
 	 * @return     bool true, if the attribute exists, otherwise false.
 	 * @since      1.0.0
 	 */
@@ -207,8 +209,8 @@ class ConfigValueHolder implements \ArrayAccess, \IteratorAggregate, \Stringable
 
 	/**
 	 * Retrieve an attribute.
-	 * @param      string An attribute name.
-	 * @param      mixed  A default attribute value.
+	 * @param      string $name An attribute name.
+	 * @param      mixed  $default A default attribute value.
 	 * @return     mixed An attribute value, if the attribute exists, otherwise
 	 *                   null or the given default.
 	 * @since      1.0.0
@@ -230,7 +232,7 @@ class ConfigValueHolder implements \ArrayAccess, \IteratorAggregate, \Stringable
 
 	/**
 	 * Set the value of this value node.
-	 * @param      string A value.
+	 * @param      string $value A value.
 	 * @since      1.0.0
 	 */
 	public function setValue($value)
@@ -265,7 +267,7 @@ class ConfigValueHolder implements \ArrayAccess, \IteratorAggregate, \Stringable
 
 	/**
 	 * Determines if a named child exists. From ArrayAccess.
-	 * @param      string Offset to check
+	 * @param      string $offset Offset to check
 	 * @return     bool Whether the offset exists.
 	 * @since      1.0.0
 	 */
@@ -276,8 +278,8 @@ class ConfigValueHolder implements \ArrayAccess, \IteratorAggregate, \Stringable
 
 	/**
 	 * Retrieves a named child. From ArrayAccess.
-	 * @param      string Offset to retrieve
-	 * @return     ConfigValueHolder The child value.
+	 * @param      string $offset Offset to retrieve
+	 * @return     ?ConfigValueHolder The child value.
 	 * @since      1.0.0
 	 */
 	public function offsetGet($offset): ConfigValueHolder|null
@@ -289,8 +291,8 @@ class ConfigValueHolder implements \ArrayAccess, \IteratorAggregate, \Stringable
 
 	/**
 	 * Inserts a named child. From ArrayAccess.
-	 * @param      string Offset to modify
-	 * @param      ConfigValueHolder The child value.
+	 * @param      string $offset Offset to modify
+	 * @param      ConfigValueHolder $value The child value.
 	 * @since      1.0.0
 	 */
 	public function offsetSet($offset, $value): void
@@ -300,17 +302,17 @@ class ConfigValueHolder implements \ArrayAccess, \IteratorAggregate, \Stringable
 
 	/**
 	 * Deletes a named child. From ArrayAccess.
-	 * @return     string Offset to delete.
+	 * @param      string $offset Offset to delete.
 	 * @since      1.0.0
 	 */
-	public function offsetUnset($offset): void	
+	public function offsetUnset($offset): void
 	{
 		unset($this->_childs[$offset]);
 	}
 
 	/**
 	 * Returns an Iterator for the child nodes. From IteratorAggregate.
-	 * @return     Iterator The iterator.
+	 * @return     \ArrayIterator The iterator.
 	 * @since      1.0.0
 	 */
 	public function getIterator(): \Traversable

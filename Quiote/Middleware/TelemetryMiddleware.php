@@ -243,7 +243,7 @@ class TelemetryMiddleware implements MiddlewareInterface
 
         $meter = Trace::metrics();
         $meter->recordHistogram('http.server.request.duration', $durationSeconds, $metricAttributes);
-        if ($cpuUserSeconds !== null && $cpuSystemSeconds !== null) {
+        if ($cpuUserSeconds !== null) {
             $meter->recordHistogram('quiote.request.cpu.time', $cpuUserSeconds, $metricAttributes + ['cpu.mode' => 'user']);
             $meter->recordHistogram('quiote.request.cpu.time', $cpuSystemSeconds, $metricAttributes + ['cpu.mode' => 'system']);
         }

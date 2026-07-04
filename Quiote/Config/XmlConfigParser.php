@@ -88,13 +88,13 @@ class XmlConfigParser
 	protected $environment = '';
 	
 	/**
-	 * @var        \DOMDocument The document we're parsing here.
+	 * @var        ?XmlConfigDomDocument The document we're parsing here.
 	 */
-	protected $doc = null;
+	protected final $doc = null;
 	
 	/**
 	 * Test if the given document looks like an Quiote config file.
-	 * @param      XmlConfigDomDocument The document to test.
+	 * @param      XmlConfigDomDocument $doc The document to test.
 	 * @return     bool True, if it is an Quiote config document, false otherwise.
 	 * @since      1.0.0
 	 */
@@ -105,7 +105,7 @@ class XmlConfigParser
 	
 	/**
 	 * Check if the given namespace URI is a valid Quiote envelope namespace.
-	 * @param      string The namespace URI.
+	 * @param      string $namespaceUri The namespace URI.
 	 * @return     bool True, if the given URI is a valid namespace URI, or false.
 	 * @since      1.0.0
 	 */
@@ -116,7 +116,7 @@ class XmlConfigParser
 	
 	/**
 	 * Check if a given namespace URI is a valid Quiote namespace.
-	 * @param      string The namespace URI.
+	 * @param      string $namespaceUri The namespace URI.
 	 * @return     bool True if the given URI is a valid namespace URI,
 	 *                  false otherwise.
 	 * @since      1.0.0
@@ -128,8 +128,8 @@ class XmlConfigParser
 	
 	/**
 	 * Retrieves an XPath namespace prefix based on a given namespace URI.
-	 * @param      string The namespace URI.
-	 * @return     string The prefix for the namespace URI, or null if none
+	 * @param      string $namespaceUri The namespace URI.
+	 * @return     ?string The prefix for the namespace URI, or null if none
 	 *                    exists.
 	 * @since      1.0.0
 	 */
@@ -143,7 +143,7 @@ class XmlConfigParser
 	
 	/**
 	 * Register Quiote namespace prefixes in a given document.
-	 * @param      XmlConfigDomDocument The document.
+	 * @param      XmlConfigDomDocument $document The document.
 	 * @since      1.0.0
 	 */
 	public static function registerQuioteNamespaces(XmlConfigDomDocument $document)
@@ -160,15 +160,15 @@ class XmlConfigParser
 	}
 	                                                 
 	/**
-	 * @param      string An absolute filesystem path to a configuration file.
-	 * @param      string The environment name.
-	 * @param      string The optional context name.
-	 * @param      array  An associative array of transformation information.
-	 * @param      array  An associative array of validation information.
+	 * @param      string $path An absolute filesystem path to a configuration file.
+	 * @param      string $environment The environment name.
+	 * @param      string $context The optional context name.
+	 * @param      array $transformationInfo An associative array of transformation information.
+	 * @param      array $validationInfo An associative array of validation information.
 	 * @return     XmlConfigDomDocument A properly merged DOMDocument.
 	 * @since      1.0.0
 	 */
-	public static function run($path, $environment, $context = null, array $transformationInfo = [], array $validationInfo = [])
+	public static function run(string $path, $environment, $context = null, array $transformationInfo = [], array $validationInfo = [])
 	{
 		$isQuioteConfigFormat = true;
 		// build an array of documents (this one, and the parents)
@@ -267,6 +267,9 @@ class XmlConfigParser
 			foreach($configurationOrder as $xpath) {
 				// append all matching nodes from the order array...
 				foreach($configurationElements as &$element) {
+					// registerNodeClass() guarantees every node here is a
+					// XmlConfigDomElement, never a vanilla DOMNode.
+					/** @var XmlConfigDomElement $element */
 					// ... if the xpath matches, that is!
 					if($element->ownerDocument->getXpath()->evaluate($xpath, $element)) {
 						// it did, so import the node and append it to the result doc
@@ -296,7 +299,7 @@ class XmlConfigParser
 	 * Builds a proper regular expression from the input pattern to test against
 	 * the given subject. This is for "environment" and "context" attributes of
 	 * configuration blocks in the files.
-	 * @param      string A regular expression chunk without delimiters/anchors.
+	 * @param      string $pattern A regular expression chunk without delimiters/anchors.
 	 * @return     bool Whether or not the subject matched the pattern.
 	 * @since      1.0.0
 	 */
@@ -310,11 +313,10 @@ class XmlConfigParser
 	/**
      * The constructor.
      * Will make a DOMDocument instance using the given path.
-     * @param      string The path to the configuration file.
-     * @param      string The optional name of the current environment.
-     * @param      string The optional name of the current context.
+     * @param      string $path The path to the configuration file.
+     * @param      string $environment The optional name of the current environment.
+     * @param      string $context The optional name of the current context.
      * @since      1.0.0
-     * @param string $context
      */
     public function __construct($path, $environment = null, /**
      * @var        string The name of the current context.
@@ -355,8 +357,8 @@ class XmlConfigParser
 	}
 	
 	/**
-	 * @param      array An array of XSL paths for transformation.
-	 * @param      array An associative array of validation information.
+	 * @param      array $transformationInfo An array of XSL paths for transformation.
+	 * @param      array $validationInfo An associative array of validation information.
 	 * @return     XmlConfigDomDocument Our DOMDocument.
 	 * @since      1.0.0
 	 */
@@ -396,11 +398,11 @@ class XmlConfigParser
 	
 	/**
 	 * Executes the parser for a compilation document.
-	 * @param      XmlConfigDomDocument The document to act upon.
-	 * @param      string The environment name.
-	 * @param      string The context name.
-	 * @param      array An array of XSL paths for transformation.
-	 * @param      array An associative array of validation information.
+	 * @param      XmlConfigDomDocument $document The document to act upon.
+	 * @param      string $environment The environment name.
+	 * @param      string $context The context name.
+	 * @param      array $transformationInfo An array of XSL paths for transformation.
+	 * @param      array $validationInfo An associative array of validation information.
 	 * @since      1.0.0
 	 */
 	public static function executeCompilation(XmlConfigDomDocument $document, $environment, $context, array $transformationInfo = [], array $validationInfo = [])
@@ -427,7 +429,7 @@ class XmlConfigParser
 	
 	/**
 	 * Resolve xinclude directives on a given document.
-	 * @param      XmlConfigDomDocument The document to act upon.
+	 * @param      XmlConfigDomDocument $document The document to act upon.
 	 * @since      1.0.0
 	 */
 	public static function xinclude(XmlConfigDomDocument $document)
@@ -449,6 +451,9 @@ class XmlConfigParser
 					if($glob) {
 						$glob = array_unique($glob); // it could be that someone used /path/to/{Foo,*}/burp.xml so Foo would come before all others, that's why we need to remove duplicates as the * would match Foo again
 						foreach($glob as $path) {
+							// registerNodeClass() guarantees cloneNode() returns a
+							// XmlConfigDomElement here, never a vanilla DOMNode.
+							/** @var XmlConfigDomElement $new */
 							$new = $element->cloneNode(true);
 							$new->setAttribute('href', rawurlencode($path) . (isset($parts[1]) ? '#' . $parts[1] : ''));
 							$element->parentNode->insertBefore($new, $element);
@@ -470,6 +475,9 @@ class XmlConfigParser
 		// remove all xml:base attributes inserted by XIncludes
 		$nodes = $document->getXpath()->query('//@xml:base', $document);
 		foreach($nodes as $node) {
+			// The query selects attribute nodes only, and registerNodeClass()
+			// guarantees they are always XmlConfigDomAttr, never a vanilla DOMNode.
+			/** @var \Quiote\Config\Util\DOM\XmlConfigDomAttr $node */
 			$node->ownerElement->removeAttributeNode($node);
 		}
 	}
@@ -477,9 +485,9 @@ class XmlConfigParser
 	/**
 	 * Annotate the document with matched attributes against each configuration
 	 * element that matches the given context and environment.
-	 * @param      XmlConfigDomDocument The document to act upon.
-	 * @param      string The environment name.
-	 * @param      string The context name.
+	 * @param      XmlConfigDomDocument $document The document to act upon.
+	 * @param      string $environment The environment name.
+	 * @param      string $context The context name.
 	 * @since      1.0.0
 	 */
 	public static function match(XmlConfigDomDocument $document, $environment, $context)
@@ -510,11 +518,11 @@ class XmlConfigParser
 	/**
 	 * Transform the document using info from embedded processing instructions
 	 * and given stylesheets.
-	 * @param      XmlConfigDomDocument The document to act upon.
-	 * @param      string The environment name.
-	 * @param      string The context name.
-	 * @param      array  An array of transformation information.
-	 * @param      array  An array of XSL stylesheets in DOMDocument instances.
+	 * @param      XmlConfigDomDocument $document The document to act upon.
+	 * @param      string $environment The environment name.
+	 * @param      string $context The context name.
+	 * @param      array $transformationInfo An array of transformation information.
+	 * @param      array $transformations An array of XSL stylesheets in DOMDocument instances.
 	 * @return     XmlConfigDomDocument The transformed document.
 	 * @since      1.0.0
 	 */
@@ -571,8 +579,9 @@ class XmlConfigParser
 			]);
 			
 			try {
-				// transform the doc
-				$newdoc = $proc->transformToDoc($document);
+				// transform the doc, requesting an XmlConfigDomDocument result so the
+				// custom node classes (registerNodeClass()) are preserved post-transform
+				$newdoc = $proc->transformToDoc($document, XmlConfigDomDocument::class);
 			} catch(\Exception $e) {
 				throw new ParseException(sprintf('Configuration file "%s" could not be parsed: Could not transform the document using the XSL stylesheet "%s": %s', $document->documentURI, $xsl->documentURI, $e->getMessage()), 0, $e);
 			}
@@ -581,8 +590,9 @@ class XmlConfigParser
 			
 			// get the old document URI
 			$documentUri = $document->documentURI;
-			
+
 			// and assign the new document to the old one
+			/** @var XmlConfigDomDocument $newdoc we explicitly requested this class above */
 			$document = $newdoc;
 			
 			// save the old document URI just in case
@@ -595,9 +605,9 @@ class XmlConfigParser
 	/**
 	 * Transforms a given document according to xml-stylesheet processing
 	 * instructions
-	 * @param      XmlConfigDomDocument The document to act upon.
-	 * @param      string The environment name.
-	 * @param      string The context name.
+	 * @param      XmlConfigDomDocument $document The document to act upon.
+	 * @param      string $environment The environment name.
+	 * @param      string $context The context name.
 	 * @return     XmlConfigDomDocument The transformed document.
 	 * @since      1.0.0
 	 */
@@ -611,13 +621,21 @@ class XmlConfigParser
 		// see if there are <?xml-stylesheet... processing instructions
 		$stylesheetProcessingInstructions = $xpath->query("//processing-instruction('xml-stylesheet')", $document);
 		foreach($stylesheetProcessingInstructions as $pi) {
+			// The query selects processing-instruction() nodes only, and
+			// registerNodeClass() guarantees they are always
+			// XmlConfigDomProcessingInstruction, never a vanilla DOMNode.
+			/** @var \Quiote\Config\Util\DOM\XmlConfigDomProcessingInstruction $pi */
 			// yes! alright. trick: we create a doc fragment with the contents so we don't have to parse things by hand...
 			$fragment = $document->createDocumentFragment();
 			$fragment->appendXml('<foo ' . $pi->data . ' />');
-			$type = $fragment->firstChild->getAttribute('type');
+			// registerNodeClass() guarantees the parsed element is a
+			// XmlConfigDomElement, never a vanilla DOMNode.
+			/** @var XmlConfigDomElement $firstChild */
+			$firstChild = $fragment->firstChild;
+			$type = $firstChild->getAttribute('type');
 			// we process only the types below...
 			if(in_array($type, ['text/xml', 'text/xsl', 'application/xml', 'application/xsl+xml'])) {
-				$href = $href = $fragment->firstChild->getAttribute('href');
+				$href = $href = $firstChild->getAttribute('href');
 				
 				if(str_starts_with((string) $href, '#')) {
 					// the href points to an embedded XSL stylesheet (with ID reference), so let's see if we can find it
@@ -652,10 +670,10 @@ class XmlConfigParser
 	
 	/**
 	 * Perform validation on a given document.
-	 * @param      XmlConfigDomDocument The document to act upon.
-	 * @param      string The environment name.
-	 * @param      string The context name.
-	 * @param      array An array of validation information.
+	 * @param      XmlConfigDomDocument $document The document to act upon.
+	 * @param      string $environment The environment name.
+	 * @param      string $context The context name.
+	 * @param      array $validationInfo An array of validation information.
 	 * @since      1.0.0
 	 */
 	public static function validate(XmlConfigDomDocument $document, $environment, $context, array $validationInfo = [])
@@ -692,7 +710,7 @@ class XmlConfigParser
 
 	/**
 	 * Clean up a given document.
-	 * @param      XmlConfigDomDocument The document to clean up.
+	 * @param      XmlConfigDomDocument $document The document to clean up.
 	 * @since      1.0.0
 	 */
 	public static function cleanup(XmlConfigDomDocument $document)
@@ -706,7 +724,7 @@ class XmlConfigParser
 	/**
 	 * Validate a given document according to XMLSchema-instance (xsi)
 	 * declarations.
-	 * @param      XmlConfigDomDocument The document to act upon.
+	 * @param      XmlConfigDomDocument $document The document to act upon.
 	 * @since      1.0.0
 	 */
 	public static function validateXsi(XmlConfigDomDocument $document)
@@ -747,8 +765,8 @@ class XmlConfigParser
 	
 	/**
 	 * Validate the document against the given list of XML Schema files.
-	 * @param      XmlConfigDomDocument The document to act upon.
-	 * @param      array An array of file names to validate against.
+	 * @param      XmlConfigDomDocument $document The document to act upon.
+	 * @param      array $validationFiles An array of file names to validate against.
 	 * @since      1.0.0
 	 */
 	public static function validateXmlschema(XmlConfigDomDocument $document, array $validationFiles = [])
@@ -768,8 +786,8 @@ class XmlConfigParser
 	
 	/**
 	 * Validate the document against the given list of XML Schema documents.
-	 * @param      XmlConfigDomDocument The document to act upon.
-	 * @param      array An array of schema documents to validate against.
+	 * @param      XmlConfigDomDocument $document The document to act upon.
+	 * @param      array $validationSources An array of schema documents to validate against.
 	 * @since      1.0.0
 	 */
 	public static function validateXmlschemaSource(XmlConfigDomDocument $document, array $validationSources = [])
@@ -785,8 +803,8 @@ class XmlConfigParser
 	
 	/**
 	 * Validate the document against the given list of RELAX NG files.
-	 * @param      XmlConfigDomDocument The document to act upon.
-	 * @param      array An array of file names to validate against.
+	 * @param      XmlConfigDomDocument $document The document to act upon.
+	 * @param      array $validationFiles An array of file names to validate against.
 	 * @since      1.0.0
 	 */
 	public static function validateRelaxng(XmlConfigDomDocument $document, array $validationFiles = [])
@@ -806,10 +824,10 @@ class XmlConfigParser
 	
 	/**
 	 * Validate the document against the given list of Schematron files.
-	 * @param      XmlConfigDomDocument The document to act upon.
-	 * @param      string The environment name.
-	 * @param      string The context name.
-	 * @param      array An array of file names to validate against.
+	 * @param      XmlConfigDomDocument $document The document to act upon.
+	 * @param      string $environment The environment name.
+	 * @param      string $context The context name.
+	 * @param      array $validationFiles An array of file names to validate against.
 	 * @since      1.0.0
 	 */
 	public static function validateSchematron(XmlConfigDomDocument $document, $environment, $context, array $validationFiles = [])
@@ -852,7 +870,9 @@ class XmlConfigParser
 			}
 			
 			// validation ran okay, now we need to look at the result document to see if there are errors
-			$xpath = $result->getXpath();
+			// $result comes from XSLTProcessor::transformToDoc(), which returns a plain
+			// \DOMDocument (not an XmlConfigDomDocument), so it has no getXpath() method.
+			$xpath = new \DOMXPath($result);
 			$xpath->registerNamespace('svrl', self::NAMESPACE_SVRL_ISO);
 			
 			$results = $xpath->query('/svrl:schematron-output/svrl:failed-assert/svrl:text');

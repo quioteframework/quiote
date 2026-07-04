@@ -16,7 +16,7 @@ use Symfony\Contracts\Service\ResetInterface;
 class GettextTranslator extends BasicTranslator implements ResetInterface
 {
 	/**
-	 * @var        string A pattern for the path to the domain files.
+	 * @var        ?string A pattern for the path to the domain files.
 	 */
 	protected $domainPathPattern = null;
 
@@ -31,30 +31,30 @@ class GettextTranslator extends BasicTranslator implements ResetInterface
 	protected $domainData = [];
 	
 	/**
-	 * @var        Locale The locale identifier of the current locale
+	 * @var        ?QuioteLocale The locale identifier of the current locale
 	 */
 	protected $locale = null;
 
 	/**
-	 * @var        string The name of the plural form function
+	 * @var        ?\Closure The plural form determination function
 	 */
 	protected $pluralFormFunc = null;
-	
+
 	/**
 	 * @var        bool Whether or not to write a file with all used translations
 	 *                  that can be parsed using xgettext.
 	 */
 	protected $storeTranslationCalls = false;
-	
+
 	/**
-	 * @var        string The folder to write translation call files to.
+	 * @var        ?string The folder to write translation call files to.
 	 */
 	protected $translationCallStoreDir = null;
 
 	/**
 	 * Initialize this Translator.
-	 * @param      Context The current application context.
-	 * @param      array        An associative array of initialization parameters
+	 * @param      Context $context The current application context.
+	 * @param      array $parameters An associative array of initialization parameters
 	 * @since      1.0.0
 	 */
 	#[\Override]
@@ -81,9 +81,9 @@ class GettextTranslator extends BasicTranslator implements ResetInterface
 
 	/**
 	 * Translates a message into the defined language.
-	 * @param      mixed       The message to be translated.
-	 * @param      string      The domain of the message.
-	 * @param      ?Locale The locale to which the message should be 
+	 * @param      mixed $message The message to be translated.
+	 * @param      string $domain The domain of the message.
+	 * @param      ?QuioteLocale $locale The locale to which the message should be
 	 *                         translated.
 	 * @return     string The translated message.
 	 * @since      1.0.0
@@ -147,10 +147,11 @@ class GettextTranslator extends BasicTranslator implements ResetInterface
 	/**
 	 * This method gets called by the translation manager when the default locale
 	 * has been changed.
-	 * @param      string The new default locale.
+	 * @param      QuioteLocale $newLocale The new default locale.
 	 * @since      1.0.0
 	 */
-	public function localeChanged($newLocale)
+	#[\Override]
+    public function localeChanged(QuioteLocale $newLocale)
 	{
 		$this->locale = $newLocale;
 		$this->domainData = [];
@@ -158,9 +159,9 @@ class GettextTranslator extends BasicTranslator implements ResetInterface
 	}
 
 	/**
-	 * Loads the data from the data file for the given domain with the current 
+	 * Loads the data from the data file for the given domain with the current
 	 * locale.
-	 * @param      string The domain to load the data for.
+	 * @param      string $domain The domain to load the data for.
 	 * @since      1.0.0
 	 */
 	public function loadDomainData($domain)

@@ -50,11 +50,11 @@ class SlotDispatcher
      * @param string $module Module name.
      * @param string $action Action name.
      * @param array $parameters Optional associative array of request parameters for the slot.
-     * @param string|null $outputType Optional output type override.
+     * @param ?string $outputType Optional output type override.
      */
     public function dispatch(ServerRequestInterface $parentRequest, string $module, string $action, array $parameters = [], ?string $outputType = null): string
     {
-        /** @var SlotStack|null $stack */
+        /** @var ?SlotStack $stack */
         $stack = $parentRequest->getAttribute(SlotStack::class);
         // Build canonical key for this slot early so diagnostics and guards can reference it
         $key = $module . '/' . $action;
@@ -113,7 +113,7 @@ class SlotDispatcher
                     throw new \RuntimeException('Canonical WebRequest missing when applying slot parameters');
                 }
                 // Get original PSR-7 request from SlotStack (saved before validation pruning)
-                $originalRequest = $stack?->getOriginalRequest();
+                $originalRequest = $stack->getOriginalRequest();
                 foreach ($parameters as $k => $v) {
                     if (!array_key_exists($k, $originals)) {
                         // Check original request for parameters pruned during parent validation
@@ -146,9 +146,6 @@ class SlotDispatcher
             $normalizedOutputType = $outputType !== null ? strtolower($outputType) : null;
             // Determine upfront which execution mode to use so we only create a legacy container if required.
             $actionInstance = $this->controller->createActionInstance($module, $action);
-            if (!($actionInstance instanceof Action)) {
-                throw new QuioteException('Slot action did not resolve to Action');
-            }
             // Hard break: container path removed. Always container-less execution.
             if (!$rdh) {
                 try {
@@ -196,29 +193,18 @@ class SlotDispatcher
             }
             if ($actionInstance->isSimple()) {
                 // Mark action as slot for downstream views/layout selection (container-less compatibility)
-                if (method_exists($actionInstance, 'setAttribute')) {
-                    try {
-                        $logger->debug('[SlotDispatcher] Setting is_slot=true on simple action ' . $actionInstance::class);
-                        $actionInstance->setAttribute('is_slot', true);
-                        $logger->debug('[SlotDispatcher] is_slot set, checking: ' . ($actionInstance->hasAttribute('is_slot') ? 'found' : 'not found'));
-                    } catch (\Throwable $e) {
-                        $logger->debug('[SlotDispatcher] Failed to set is_slot attribute: ' . $e->getMessage());
-                    }
+                try {
+                    $logger->debug('[SlotDispatcher] Setting is_slot=true on simple action ' . $actionInstance::class);
+                    $actionInstance->setAttribute('is_slot', true);
+                    $logger->debug('[SlotDispatcher] is_slot set, checking: ' . ($actionInstance->hasAttribute('is_slot') ? 'found' : 'not found'));
+                } catch (\Throwable $e) {
+                    $logger->debug('[SlotDispatcher] Failed to set is_slot attribute: ' . $e->getMessage());
                 }
                 // Early experimental path: execute simple action without full container
-                $rd = $rdh ?? (function ($self) {
-                    try {
-                        return $self->controller->getContext()->getRequest();
-                    } catch (\Throwable) {
-                        return null;
-                    }
-                })($this);
-                if (!($rd instanceof WebRequest)) {
-                    throw new \RuntimeException('Canonical WebRequest missing in SlotDispatcher simple action path');
-                }
+                $rd = $rdh;
                 // Execute action via resolver for method-based verbs (execute|executeXxx)
                 try {
-                    $rawViewName = $this->actionResolver->execute($actionInstance, strtoupper($parentRequest->getMethod() ?? 'GET'), $rd);
+                    $rawViewName = $this->actionResolver->execute($actionInstance, strtoupper($parentRequest->getMethod()), $rd);
                 } catch (\Throwable $e) {
                     if ($logExceptions) {
                         $this->logSlotException($e, $module, $action, $parameters, 'simple_action_execute');
@@ -226,12 +212,10 @@ class SlotDispatcher
                     throw $e;
                 }
                 $attributeSnapshot = [];
-                if (method_exists($actionInstance, 'getAttributes')) {
-                    try {
-                        $attributeSnapshot = $actionInstance->getAttributes();
-                    } catch (\Throwable) {
-                        $attributeSnapshot = [];
-                    }
+                try {
+                    $attributeSnapshot = $actionInstance->getAttributes();
+                } catch (\Throwable) {
+                    $attributeSnapshot = [];
                 }
                 [$viewModule, $viewCanonical] = $this->viewNameResolver->resolve($module, $action, $rawViewName);
                 $viewInstance = null;
@@ -272,14 +256,14 @@ class SlotDispatcher
                     }
                     if ($res !== null) {
                         $result = (string)$res;
-                    } elseif ($viewInstance && method_exists($viewInstance, 'getLayers') && method_exists($viewInstance, 'renderLayers') && $viewInstance->getLayers()) {
+                    } elseif ($viewInstance && $viewInstance->getLayers()) {
                         $layerContent = $viewInstance->renderLayers();
                         if ($layerContent !== '') {
                             $result = $layerContent;
                         }
                     }
                 }
-                if ($cacheEnabled && !$cacheHit) {
+                if ($cacheEnabled) {
                     $ttl = null;
                     if (method_exists($actionInstance, 'slotCacheTtlSeconds')) {
                         try {
@@ -309,23 +293,14 @@ class SlotDispatcher
                 return $ctx->content;
             } else { // non-simple
                 // Container-less path for non-simple actions (security + validation + view)
-                $rd = $rdh ?? (function ($self) {
-                    try {
-                        return $self->controller->getContext()->getRequest();
-                    } catch (\Throwable) {
-                        return null;
-                    }
-                })($this);
-                if (!($rd instanceof WebRequest)) {
-                    throw new \RuntimeException('Canonical WebRequest missing in SlotDispatcher non-simple action path');
-                }
+                $rd = $rdh;
                 // Initialize action with lightweight context (mirrors ActionExecutor)
                 try {
                     $lwCtx = new LightweightActionInitContext(
                         $this->controller->getContext(),
                         $module,
                         $action,
-                        strtoupper($parentRequest->getMethod() ?? 'GET'),
+                        strtoupper($parentRequest->getMethod()),
                         strtolower(($outputType ?? $this->controller->getOutputType()->getName())),
                         $rd,
                         $this->controller->getGlobalResponse()
@@ -339,12 +314,10 @@ class SlotDispatcher
                 }
 
                 // Mark action as slot AFTER initialization (when initContext exists)
-                if (method_exists($actionInstance, 'setAttribute')) {
-                    try {
-                        $actionInstance->setAttribute('is_slot', true);
-                    } catch (\Throwable $e) {
-                        $logger->debug('[SlotDispatcher] Failed to set is_slot attribute: ' . $e->getMessage());
-                    }
+                try {
+                    $actionInstance->setAttribute('is_slot', true);
+                } catch (\Throwable $e) {
+                    $logger->debug('[SlotDispatcher] Failed to set is_slot attribute: ' . $e->getMessage());
                 }
                 $securityService = new SecurityService($this->controller);
                 $decision = $securityService->decide($actionInstance);
@@ -368,7 +341,7 @@ class SlotDispatcher
                 $validationService = new ValidationService();
                 try {
                         // Map HTTP verb to logical validation method token consistent with container path.
-                        $httpVerb = strtoupper($parentRequest->getMethod() ?? 'GET');
+                        $httpVerb = strtoupper($parentRequest->getMethod());
                         $methodToken = match($httpVerb) {
                             'GET', 'HEAD', 'OPTIONS' => 'Read',
                             'POST' => 'Write',
@@ -400,7 +373,7 @@ class SlotDispatcher
                     $content = '';
                     if ($vn !== View::NONE) {
                         try {
-                            $viewInstance = $this->viewFactory->create($vm, $vn, $module, $action, strtolower(($outputType ?? $this->controller->getOutputType()->getName())), $rd, method_exists($actionInstance, 'getAttributes') ? (array)$actionInstance->getAttributes() : []);
+                            $viewInstance = $this->viewFactory->create($vm, $vn, $module, $action, strtolower(($outputType ?? $this->controller->getOutputType()->getName())), $rd, (array)$actionInstance->getAttributes());
                         } catch (\Throwable $e) {
                             if ($logExceptions) {
                                 $this->logSlotException($e, $module, $action, $parameters, 'nonsimple_error_view_factory_create');
@@ -415,7 +388,7 @@ class SlotDispatcher
                         }
                         if ($viewInstance) {
                             try {
-                                $vic = new \Quiote\Execution\ImmutableViewInitContext($this->controller->getContext(), $vm, $vn, strtolower(($outputType ?? $this->controller->getOutputType()->getName())), $module, $action, method_exists($actionInstance, 'getAttributes') ? (array)$actionInstance->getAttributes() : [], $this->controller->getGlobalResponse());
+                                $vic = new \Quiote\Execution\ImmutableViewInitContext($this->controller->getContext(), $vm, $vn, strtolower(($outputType ?? $this->controller->getOutputType()->getName())), $module, $action, (array)$actionInstance->getAttributes(), $this->controller->getGlobalResponse());
                                 $viewInstance->initialize($vic);
                             } catch (\Throwable) {
                             }
@@ -434,7 +407,7 @@ class SlotDispatcher
                         }
                         if ($res !== null) {
                             $content = (string)$res;
-                        } elseif ($viewInstance && method_exists($viewInstance, 'getLayers') && method_exists($viewInstance, 'renderLayers') && $viewInstance->getLayers()) {
+                        } elseif ($viewInstance && $viewInstance->getLayers()) {
                             $layerContent = $viewInstance->renderLayers();
                             if ($layerContent !== '') {
                                 $content = $layerContent;
@@ -446,7 +419,7 @@ class SlotDispatcher
                     return $ctx->content;
                 }
                 // Execute action method
-                $requestMethod = strtoupper($parentRequest->getMethod() ?? 'GET');
+                $requestMethod = strtoupper($parentRequest->getMethod());
                 try {
                     $rawViewName = $this->actionResolver->execute($actionInstance, $requestMethod, $rd);
                 } catch (\Throwable $e) {
@@ -459,7 +432,7 @@ class SlotDispatcher
                 $viewInstance = null;
                 $result = '';
                 if ($vn !== View::NONE) {
-                    $attrs = method_exists($actionInstance, 'getAttributes') ? (array)$actionInstance->getAttributes() : [];
+                    $attrs = (array)$actionInstance->getAttributes();
                     try {
                         $viewInstance = $this->viewFactory->create($vm, $vn, $module, $action, strtolower(($outputType ?? $this->controller->getOutputType()->getName())), $rd, $attrs);
                     } catch (\Throwable $e) {
@@ -495,14 +468,14 @@ class SlotDispatcher
                     }
                     if ($res !== null) {
                         $result = (string)$res;
-                    } elseif ($viewInstance && method_exists($viewInstance, 'getLayers') && method_exists($viewInstance, 'renderLayers') && $viewInstance->getLayers()) {
+                    } elseif ($viewInstance && $viewInstance->getLayers()) {
                         $layerContent = $viewInstance->renderLayers();
                         if ($layerContent !== '') {
                             $result = $layerContent;
                         }
                     }
                 }
-                if ($cacheEnabled && !$cacheHit) {
+                if ($cacheEnabled) {
                     $ttl = null;
                     if (method_exists($actionInstance, 'slotCacheTtlSeconds')) {
                         try {
@@ -516,14 +489,14 @@ class SlotDispatcher
                     } catch (\Throwable) {
                     }
                 }
-                $attrsFinal = method_exists($actionInstance, 'getAttributes') ? (array)$actionInstance->getAttributes() : [];
+                $attrsFinal = (array)$actionInstance->getAttributes();
                 $ctx = new ActionExecutionContext($actionInstance, $viewInstance, $module, $action, $outputType ?? $this->controller->getOutputType()->getName(), $rd, (string)$result, $vm, $vn, $attrsFinal);
                 $this->lastContext = $ctx;
                 return $ctx->content;
             }
         } finally {
             // Restore original parameters if overlay applied
-            if (isset($overlayApplied) && $overlayApplied && isset($rdh) && $rdh instanceof WebRequest) {
+            if (isset($overlayApplied) && $overlayApplied && isset($rdh) && isset($originals)) {
                 foreach ($originals as $k => $v) {
                     if ($v === null) {
                         // Parameter didn't exist before overlay; remove if current matches overlay value.
@@ -627,7 +600,7 @@ class SlotDispatcher
             content: $ctx->content,
             viewModuleName: $ctx->viewModuleName,
             viewName: $ctx->viewName,
-            actionAttributes: $ctx->actionAttributes ?? [],
+            actionAttributes: $ctx->actionAttributes,
             parameters: $parameters
         );
     }

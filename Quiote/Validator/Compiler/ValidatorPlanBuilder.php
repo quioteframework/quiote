@@ -99,10 +99,14 @@ class ValidatorPlanBuilder
 	{
 		$nodes = [];
 		foreach ($node->get('validators') as $validator) {
-			if ($validator->parentNode->localName == 'validators') {
-				$severity = $validator->parentNode->getAttribute('severity', $defaultSeverity);
-				$method = $validator->parentNode->getAttribute('method', $defaultMethod);
-				$translationDomain = $validator->parentNode->getAttribute('translation_domain', $defaultTranslationDomain);
+			// registerNodeClass() guarantees every node here is a XmlConfigDomElement,
+			// never a vanilla DOMNode.
+			/** @var XmlConfigDomElement $parentNode */
+			$parentNode = $validator->parentNode;
+			if ($parentNode->localName == 'validators') {
+				$severity = $parentNode->getAttribute('severity', $defaultSeverity);
+				$method = $parentNode->getAttribute('method', $defaultMethod);
+				$translationDomain = $parentNode->getAttribute('translation_domain', $defaultTranslationDomain);
 			} else {
 				$severity = $defaultSeverity;
 				$method = $defaultMethod;
@@ -132,6 +136,9 @@ class ValidatorPlanBuilder
 
 		$arguments = [];
 		foreach ($validator->get('arguments') as $argument) {
+			// registerNodeClass() guarantees every node here is a XmlConfigDomElement,
+			// never a vanilla DOMNode.
+			/** @var XmlConfigDomElement $argument */
 			if ($argument->hasAttribute('name')) {
 				$arguments[$argument->getAttribute('name')] = $argument->getValue();
 			} else {
@@ -225,6 +232,9 @@ class ValidatorPlanBuilder
 		$result = $existing;
 		$elements = $node->get('errors', $this->namespace);
 		foreach ($elements as $element) {
+			// registerNodeClass() guarantees every node here is a XmlConfigDomElement,
+			// never a vanilla DOMNode.
+			/** @var XmlConfigDomElement $element */
 			// New simplified semantics:
 			// <error>foo</error>            => ['' => 'foo']
 			// <error for="min">bar</error> => ['min' => 'bar']
@@ -233,6 +243,7 @@ class ValidatorPlanBuilder
 				$name = $element->getAttribute('name');
 				$domains = [];
 				foreach ($element->get('domain') as $domainElement) {
+					/** @var XmlConfigDomElement $domainElement */
 					$domains[$domainElement->getAttribute('name')] = $domainElement->getValue();
 				}
 				$result[$name] = [
@@ -242,7 +253,7 @@ class ValidatorPlanBuilder
 				continue;
 			}
 			$val = $element->getValue();
-			if ($val === null || $val === '') { continue; }
+			if ($val === '') { continue; }
 			if ($element->hasAttribute('for')) {
 				$result[$element->getAttribute('for')] = $val;
 			} else {

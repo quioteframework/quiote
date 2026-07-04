@@ -23,7 +23,7 @@ class ConsoleResponse extends Response
 	
 	/**
 	 * Import response metadata (nothing in this case) from another response.
-	 * @param      Response The other response to import information from.
+	 * @param      Response $otherResponse The other response to import information from.
 	 * @since      1.0.0
 	 */
 	#[\Override]
@@ -34,7 +34,7 @@ class ConsoleResponse extends Response
 	
 	/**
 	 * Redirect externally. Not implemented here.
-	 * @param      mixed Where to redirect.
+	 * @param      mixed $to Where to redirect.
 	 * @throws     BadMethodCallException
 	 * @since      1.0.0
 	 */
@@ -45,7 +45,7 @@ class ConsoleResponse extends Response
 	
 	/**
 	 * Get info about the set redirect. Not implemented here.
-	 * @return     array An assoc array of redirect info, or null if none set.
+	 * @return     never
 	 * @throws     BadMethodCallException
 	 * @since      1.0.0
 	 */
@@ -56,7 +56,7 @@ class ConsoleResponse extends Response
 
 	/**
 	 * Check if a redirect is set. Not implemented here.
-	 * @return     bool true, if a redirect is set, otherwise false
+	 * @return     never
 	 * @throws     BadMethodCallException
 	 * @since      1.0.0
 	 */
@@ -77,7 +77,7 @@ class ConsoleResponse extends Response
 	
 	/**
 	 * Set the shell exit code of this response.
-	 * @param      int The exit code.
+	 * @param      int $exitCode The exit code.
 	 * @since      1.0.0
 	 */
 	public function setExitCode($exitCode)
@@ -105,7 +105,7 @@ class ConsoleResponse extends Response
 	#[\Override]
     public function isContentMutable()
 	{
-		return !is_resource($this->content);
+		return true;
 	}
 	
 	/**

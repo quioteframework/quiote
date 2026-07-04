@@ -19,9 +19,10 @@ class Config
 
 	/**
 	 * Get a configuration value.
-	 * @param      string The name of the configuration directive.
+	 * @param      string $name The name of the configuration directive.
 	 * @return     mixed The value of the directive, or null if not set.
 	 * @since      1.0.0
+	 * @phpstan-impure
 	 */
 	public static function get($name, $default = null)
 	{
@@ -34,7 +35,7 @@ class Config
 
 	/**
 	 * Check if a configuration directive has been set.
-	 * @param      string The name of the configuration directive.
+	 * @param      string $name The name of the configuration directive.
 	 * @return     bool Whether the directive was set.
 	 * @since      1.0.0
 	 */
@@ -45,7 +46,7 @@ class Config
 
 	/**
 	 * Check if a configuration directive has been set as read-only.
-	 * @param      string The name of the configuration directive.
+	 * @param      string $name The name of the configuration directive.
 	 * @return     bool Whether the directive is read-only.
 	 * @since      1.0.0
 	 */
@@ -56,10 +57,10 @@ class Config
 
 	/**
 	 * Set a configuration value.
-	 * @param      string The name of the configuration directive.
-	 * @param      mixed  The configuration value.
-	 * @param      bool   Whether or not an existing value should be overwritten.
-	 * @param      bool   Whether or not this value should be read-only once set.
+	 * @param      string $name The name of the configuration directive.
+	 * @param      mixed  $value The configuration value.
+	 * @param      bool   $overwrite Whether or not an existing value should be overwritten.
+	 * @param      bool   $readonly Whether or not this value should be read-only once set.
 	 * @return     bool   Whether or not the configuration directive has been set.
 	 * @since      1.0.0
 	 */
@@ -78,7 +79,7 @@ class Config
 
 	/**
 	 * Remove a configuration value.
-	 * @param      string The name of the configuration directive.
+	 * @param      string $name The name of the configuration directive.
 	 * @return     bool true, if removed successfully, false otherwise.
 	 * @since      1.0.0
 	 */
@@ -94,7 +95,7 @@ class Config
 
 	/**
 	 * Import a list of configuration directives.
-	 * @param      array An array of configuration directives.
+	 * @param      array $data An array of configuration directives.
 	 * @since      1.0.0
 	 */
 	public static function fromArray(array $data)

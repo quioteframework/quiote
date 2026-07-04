@@ -635,9 +635,9 @@ final class FormPopulationEngine
 				// http://www.456bereastreet.com/archive/200501/the_perils_of_using_xhtml_properly/
 				// http://www.hixie.ch/advocacy/xhtml
 				$out = preg_replace('/<style([^>]*)>\s*<!\[CDATA\[\s*?/iU' . ($utf8 ? 'u' : ''), '<style$1><!--/*--><![CDATA[/*><!--*/' . "\n", $out);
-				if(!$firstError) {
-					$firstError = preg_last_error();
-				}
+				// this is the first preg_* call since $firstError was reset to null above,
+				// so it always captures the error state at this point
+				$firstError = preg_last_error();
 				// we can't clean up whitespace before the closing element because a preg with a leading \s* expression would be horribly slow
 				$out = preg_replace('/\]\]>\s*<\/style>/iU' . ($utf8 ? 'u' : ''), "\n" . '/*]]>*/--></style>', (string) $out);
 				if(!$firstError) {
@@ -696,9 +696,9 @@ final class FormPopulationEngine
 	/**
 	 * Insert the error messages from the given incidents into the given element
 	 * using the given rules.
-	 * @param      \DOMElement The element to work on.
-	 * @param      array      An array of insertion rules
-	 * @param      array      An array of ValidationIncidents.
+	 * @param      \DOMElement $element The element to work on.
+	 * @param      array $rules An array of insertion rules
+	 * @param      array $incidents An array of ValidationIncidents.
 	 * @return     bool Whether or not the inserts were successful.
 	 * @since      1.0.0
 	 */
@@ -901,8 +901,8 @@ final class FormPopulationEngine
 
 	/**
 	 * Encode given value to UTF-8
-	 * @param      mixed  The value to convert (can be an array).
-	 * @param      string The encoding of the value.
+	 * @param      mixed $value The value to convert (can be an array).
+	 * @param      string $encoding The encoding of the value.
 	 * @return     mixed  The converted value.
 	 * @since      1.0.0
 	 */
@@ -931,8 +931,8 @@ final class FormPopulationEngine
 
 	/**
 	 * Decode given value from UTF-8
-	 * @param      mixed  The value to convert (can be an array).
-	 * @param      string The encoding of the value.
+	 * @param      mixed $value The value to convert (can be an array).
+	 * @param      string $encoding The encoding of the value.
 	 * @return     mixed  The converted value.
 	 * @since      1.0.0
 	 */
@@ -961,8 +961,8 @@ final class FormPopulationEngine
 
 	/**
 	 * Initialize this engine.
-	 * @param      Context The current application context.
-	 * @param      array        An associative array of initialization parameters.
+	 * @param      Context $context The current application context.
+	 * @param      array $parameters An associative array of initialization parameters.
 	 * @since      1.0.0
 	 */
     public function initialize(Context $context, array $parameters = []): void

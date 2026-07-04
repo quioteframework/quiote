@@ -24,8 +24,8 @@ class QuioteException extends \Exception
 	 * Returns a fixed stack trace in case the original one from the exception
 	 * does not contain the origin as the first entry in the trace array, which
 	 * appears to happen from time to time or with certain PHP/XDebug versions.
-	 * @param      \Throwable The exception to pull the trace from.
-	 * @param      \Throwable Optionally, the next exception to display (pulled
+	 * @param      \Throwable $e The exception to pull the trace from.
+	 * @param      ?\Throwable $next Optionally, the next exception to display (pulled
 	 *                       from Exception::getPrevious() and displayed in
 	 *                       reverse order), which will then result in identical
 	 *                       parts of the stack trace not being returned.
@@ -57,8 +57,8 @@ class QuioteException extends \Exception
 	/**
 	 * Build a list of parameters passed to a method. Example:
 	 * array([object Filter], 'baz' => array(1, 2), 'log' => [resource stream])
-	 * @param      array An (associative) array of variables.
-	 * @param      bool  Whether or not to style and encode for HTML output.
+	 * @param      array $params An (associative) array of variables.
+	 * @param      bool $html Whether or not to style and encode for HTML output.
 	 * @return     string A string, possibly formatted using HTML "em" tags.
 	 * @since      1.0.0
 	 */
@@ -120,7 +120,7 @@ class QuioteException extends \Exception
 	
 	/**
 	 * Perform PHP syntax highlighting on the given file.
-	 * @param      string The path of the file to highlight.
+	 * @param      string $filepath The path of the file to highlight.
 	 * @return     array An 0-indexed array of HTML-highlighted code lines.
 	 * @since      1.0.0
 	 */
@@ -131,7 +131,7 @@ class QuioteException extends \Exception
 	
 	/**
 	 * Perform PHP syntax highlighting on the given code string.
-	 * @param      string The PHP code to highlight.
+	 * @param      string $code The PHP code to highlight.
 	 * @return     array An 0-indexed array of HTML-highlighted code lines.
 	 * @since      1.0.0
 	 */

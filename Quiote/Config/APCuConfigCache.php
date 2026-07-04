@@ -403,28 +403,6 @@ class APCuConfigCache extends ConfigCache
     }
     
     /**
-     * Serialize data using igbinary if available, fallback to regular serialize
-     */
-    private static function serialize($data): string
-    {
-        if (self::isIgbinaryAvailable()) {
-            return \igbinary_serialize($data);
-        }
-        return \serialize($data);
-    }
-    
-    /**
-     * Unserialize data using igbinary if available, fallback to regular unserialize
-     */
-    private static function unserialize(string $data)
-    {
-        if (self::isIgbinaryAvailable()) {
-            return \igbinary_unserialize($data);
-        }
-        return \unserialize($data);
-    }
-
-    /**
      * Generate APCu key for config file.
      * Normalizes the config path to a full absolute path so that the key is
      * consistent regardless of whether the caller passes a relative or
@@ -451,22 +429,6 @@ class APCuConfigCache extends ConfigCache
         $normalized = self::resolveConfigFormat($normalized);
         $cacheKey = $normalized . '|' . ($context ?? '');
         return self::$keyCache[$cacheKey] ??= self::$configPrefix . md5($cacheKey);
-    }
-    
-    /**
-     * Create temporary cache file for compatibility with existing code
-     */
-    private static function createTempCacheFile(string $content, string $config, ?string $context): string
-    {
-        // Use the standard cache name from parent class
-        $cacheName = parent::getCacheName($config, $context);
-        
-        // Write content to cache file if it doesn't exist or is outdated
-        if (!is_file($cacheName) || !is_readable($cacheName)) {
-            parent::writeCacheFile($config, $cacheName, $content);
-        }
-        
-        return $cacheName;
     }
     
     /**

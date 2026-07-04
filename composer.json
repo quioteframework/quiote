@@ -4,7 +4,7 @@
 	"keywords": ["framework", "mvc"],
 	"homepage": "https://github.com/quioteframework/quiote",
 	"type": "library",
-	"license": "LGPL-2.1+",
+	"license": "LGPL-2.1-or-later",
 	"authors": [
 		{
 			"name": "Quiote Contributors",
@@ -136,5 +136,7 @@
 			"php-http/discovery": true,
 			"tbachert/spi": true
 		}
-	}
+	},
+	"minimum-stability": "dev",
+	"prefer-stable": true
 }

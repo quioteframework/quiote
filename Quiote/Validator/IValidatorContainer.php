@@ -1,6 +1,8 @@
 <?php
 namespace Quiote\Validator;
 
+use Quiote\Util\VirtualArrayPath;
+
 /**
  * IValidatorContainer is an interface for classes which contains several
  * child validators
@@ -11,31 +13,31 @@ interface IValidatorContainer
 {
 	/**
 	 * Adds a new validator to the list of children.
-	 * @param      Validator new child
+	 * @param      Validator $validator The new child.
 	 * @since      1.0.0
 	 */
 	public function addChild(Validator $validator);
 
 	/**
 	 * Adds a intermediate result of an validator for the given argument
-	 * @param      ValidationArgument The argument
-	 * @param      int                     The arguments result.
-	 * @param      Validator          The validator (if the error was caused
+	 * @param      ValidationArgument $argument The argument
+	 * @param      int                     $result The arguments result.
+	 * @param      ?Validator          $validator The validator (if the error was caused
 	 *                                     inside a validator).
 	 * @since      1.0.0
 	 */
 	public function addArgumentResult(ValidationArgument $argument, $result, $validator = null);
 
 	/**
-	 * Adds an incident to the validation result. 
-	 * @param      ValidationIncident The incident.
+	 * Adds an incident to the validation result.
+	 * @param      ValidationIncident $incident The incident.
 	 * @since      1.0.0
 	 */
 	public function addIncident(ValidationIncident $incident);
 
 	/**
 	 * Returns a named child validator.
-	 * @param      Validator The child validator.
+	 * @param      string $name The name of the child validator.
 	 * @since      1.0.0
 	 */
 	public function getChild($name);

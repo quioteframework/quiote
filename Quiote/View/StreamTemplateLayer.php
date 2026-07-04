@@ -27,7 +27,7 @@ class StreamTemplateLayer extends TemplateLayer
 
 	/**
 	 * Constructor.
-	 * @param      array Initial parameters.
+	 * @param      array $parameters Initial parameters.
 	 * @since      1.0.0
 	 */
 	public function __construct(array $parameters = [])
@@ -43,8 +43,8 @@ class StreamTemplateLayer extends TemplateLayer
 	
 	/**
 	 * Get the full, resolved stream location name to the template resource.
-	 * @return     string A PHP stream resource identifier.
-	 * @throws     Exception If the template could not be found.
+	 * @return     ?string A PHP stream resource identifier, or null if no template is set.
+	 * @throws     QuioteException If the template could not be found.
 	 * @since      1.0.0
 	 */
 	public function getResourceStreamIdentifier()

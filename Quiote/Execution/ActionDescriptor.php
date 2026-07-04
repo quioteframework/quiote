@@ -31,7 +31,7 @@ final class ActionDescriptor
         $cacheKey = $module . ':' . $action;
         if (!isset(self::$isSimpleCache[$cacheKey])) {
             $instance = $controller->createActionInstance($module, $action);
-            self::$isSimpleCache[$cacheKey] = method_exists($instance, 'isSimple') ? (bool)$instance->isSimple() : false;
+            self::$isSimpleCache[$cacheKey] = (bool)$instance->isSimple();
         }
         return new self($module, $action, $method, $outputType, self::$isSimpleCache[$cacheKey]);
     }

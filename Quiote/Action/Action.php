@@ -23,7 +23,7 @@ abstract class Action implements ResetInterface
 	protected $initContext = null;
 
 	/**
-	 * @var        Context An Context instance.
+	 * @var        ?Context An Context instance.
 	 */
 	protected $context = null;
 
@@ -67,7 +67,7 @@ abstract class Action implements ResetInterface
 
 	/**
 	 * Execute any post-validation error application logic.
-	 * @param      WebRequest The action's request data holder.
+	 * @param      WebRequest $rd The action's request data holder.
 	 * @return     mixed A string containing the view name associated with this
 	 *                   action.
 	 *                   Or an array with the following indices:
@@ -168,7 +168,7 @@ abstract class Action implements ResetInterface
 
 	/**
 	 * Manually validate files and parameters.
-	 * @param      WebRequest The action's request data holder.
+	 * @param      WebRequest $request The action's request data holder.
 	 * @return     bool true, if validation completed successfully, otherwise
 	 *                  false.
 	 * @since      1.0.0

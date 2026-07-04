@@ -26,10 +26,10 @@ class ConfigHandlersConfigHandler extends XmlConfigHandler implements IArrayConf
 	const XML_NAMESPACE = 'http://quiote.dev/quiote/config/parts/config_handlers/1.1';
 
 	/**
-	 * @throws     <b>UnreadableException</b> If a requested configuration
+	 * @throws     \Quiote\Exception\UnreadableException If a requested configuration
 	 *                                             file does not exist or is not
 	 *                                             readable.
-	 * @throws     <b>ParseException</b> If a requested configuration file is
+	 * @throws     \Quiote\Exception\ParseException If a requested configuration file is
 	 *                                        improperly formatted.
 	 * @since      1.0.0
 	 */
@@ -167,9 +167,9 @@ class ConfigHandlersConfigHandler extends XmlConfigHandler implements IArrayConf
 	/**
 	 * Convenience method to quickly guess the type of a validation file using its
 	 * file extension.
-	 * @param      string The path to the file.
+	 * @param      string $path The path to the file.
 	 * @return     string An XmlConfigParser::VALIDATION_TYPE_* const value.
-	 * @throws     Exception If the type could not be determined.
+	 * @throws     \Quiote\Exception\QuioteException If the type could not be determined.
 	 * @since      1.0.0
 	 */
 	protected function guessValidationType($path)

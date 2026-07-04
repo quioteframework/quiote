@@ -23,7 +23,7 @@ class TimingMiddleware implements MiddlewareInterface
         $request = $request->withAttribute(ExecutionState::class, $exec);
         $response = $handler->handle($request);
         $exec->metrics['total_ms'] = (microtime(true) - $start) * 1000;
-        if($this->emitHeader && method_exists($response,'withHeader')) {
+        if($this->emitHeader) {
             $response = $response->withHeader('X-Quiote-Timing', json_encode(['total_ms'=>round($exec->metrics['total_ms'],2)], JSON_UNESCAPED_SLASHES));
         }
         return $response;

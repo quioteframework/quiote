@@ -15,7 +15,7 @@ class NotoperatorValidator extends OperatorValidator implements ResetInterface
 {
 	/**
 	 * Checks if operator has more then one child validator.
-	 * @throws     <b>ValidatorException</b> If the operator has more then 
+	 * @throws     ValidatorException If the operator has more then
 	 *                                            one child validator
 	 * @since      1.0.0
 	 */
@@ -28,9 +28,9 @@ class NotoperatorValidator extends OperatorValidator implements ResetInterface
 
 	/**
      * Adds a validation result for a given field.
-     * @param      Validator The validator.
-     * @param      string The name of the field which has been validated.
-     * @param      int    The result of the validation.
+     * @param      Validator $validator The validator.
+     * @param      string $fieldname The name of the field which has been validated.
+     * @param      int    $result The result of the validation.
      * @since      1.0.0
      */
     #[\Override]
@@ -42,9 +42,9 @@ class NotoperatorValidator extends OperatorValidator implements ResetInterface
 
 	/**
 	 * Adds a intermediate result of an validator for the given argument
-	 * @param      ValidationArgument The argument
-	 * @param      int                     The arguments result.
-	 * @param      Validator          The validator (if the error was caused
+	 * @param      ValidationArgument $argument The argument
+	 * @param      int                     $result The arguments result.
+	 * @param      ?Validator          $validator The validator (if the error was caused
 	 *                                     inside a validator).
 	 * @since      1.0.0
 	 */
@@ -56,7 +56,7 @@ class NotoperatorValidator extends OperatorValidator implements ResetInterface
 
 	/**
 	 * Adds an incident to the validation result. 
-	 * @param      ValidationIncident The incident.
+	 * @param      ValidationIncident $incident The incident.
 	 * @since      1.0.0
 	 */
 	#[\Override]

@@ -9,21 +9,22 @@ use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * A template layer wraps information necessary to render a template.
+ * @method string getName() Magic accessor (via __call()) for the 'name' parameter.
  * @since      1.0.0
  * @version    1.0.0
  */
 abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 {
 
-	protected $contextName = null;
+	protected final $contextName = null;
 	
 	/**
-	 * @var        Context The current Context.
+	 * @var        ?Context The current Context.
 	 */
 	protected $context = null;
 	
 	/**
-	 * @var        Renderer The Renderer instance to be used for this layer.
+	 * @var        ?Renderer The Renderer instance to be used for this layer.
 	 */
 	protected $renderer = null;
 	
@@ -34,7 +35,7 @@ abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 	
 	/**
 	 * Constructor.
-	 * @param      array Initial parameters.
+	 * @param      array $parameters Initial parameters.
 	 * @since      1.0.0
 	 */
 	public function __construct(array $parameters = [])
@@ -47,8 +48,8 @@ abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 	
 	/**
 	 * Convenience overload for accessing parameters using a method.
-	 * @param      string The method name.
-	 * @param      array  The method arguments.
+	 * @param      string $name The method name.
+	 * @param      array $args The method arguments.
 	 * @since      1.0.0
 	 */
 	public function __call($name, array $args)
@@ -101,7 +102,7 @@ abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 	/**
 	 * A convenience function that renders all slots and then the main template.
 	 * Useful in your custom models to render an email, for example.
-	 * @param      Renderer An optional renderer instance that will be used
+	 * @param      Renderer $renderer An optional renderer instance that will be used
 	 *                           instead of the one set on the layer.
 	 * @return     string The rendered result.
 	 * @since      1.0.0
@@ -150,8 +151,8 @@ abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 	
 	/**
 	 * Initialize the layer.
-	 * @param      Context The current Context instance.
-	 * @param      array        An array of initialization parameters.
+	 * @param      Context $context The current Context instance.
+	 * @param      array $parameters An array of initialization parameters.
 	 * @since      1.0.0
 	 */
 	public function initialize(Context $context, array $parameters = [])
@@ -163,7 +164,7 @@ abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 	
 	/**
 	 * Set a renderer instance to use for this layer.
-	 * @param      Renderer A renderer instance.
+	 * @param      Renderer $renderer A renderer instance.
 	 * @since      1.0.0
 	 */
 	public function setRenderer(Renderer $renderer)
@@ -173,7 +174,7 @@ abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 	
 	/**
 	 * Get the renderer instance used for this layer.
-	 * @return     Renderer A renderer instance.
+	 * @return     ?Renderer A renderer instance.
 	 * @since      1.0.0
 	 */
 	public function getRenderer()
@@ -183,8 +184,8 @@ abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 	
 	/**
 	 * Set a slot that is rendered along with and available inside this layer.
-	 * @param      string                  The name of the slot.
-	 * @param      \Quiote\Execution\SlotRenderable|string Deprecated legacy container parameter now supports SlotRenderable only.
+	 * @param      string $name The name of the slot.
+	 * @param      \Quiote\Execution\SlotRenderable|string $c Deprecated legacy container parameter now supports SlotRenderable only.
 	 * @since      1.0.0
 	 */
 	public function setSlot($name, $c)
@@ -198,8 +199,8 @@ abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 	
 	/**
      * Get the execution container for a slot.
-     * @param      string The name of the slot.
-     * @return ExecutionContainer|\Quiote\Execution\SlotRenderable The slot's container or renderable surrogate.
+     * @param      string $name The name of the slot.
+     * @return \Quiote\Controller\ExecutionContainer|\Quiote\Execution\SlotRenderable|null The slot's container or renderable surrogate, or null if no slot with that name is set.
      * @since      1.0.0
      */
     public function getSlot($name)
@@ -207,6 +208,8 @@ abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 		if(isset($this->slots[$name])) {
 			return $this->slots[$name];
 		}
+
+		return null;
 	}
 	
 	/**
@@ -221,7 +224,7 @@ abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 	
 	/**
 	 * Check whether or not a slot has been set.
-	 * @param      string The name of the slot.
+	 * @param      string $name The name of the slot.
 	 * @return     bool True if the slot exists, false otherwise.
 	 * @since      1.0.0
 	 */
@@ -242,7 +245,7 @@ abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 	
 	/**
 	 * Remove a slot.
-	 * @param      string The name of the slot.
+	 * @param      string $name The name of the slot.
 	 * @since      1.0.0
 	 */
 	public function removeSlot($name)
@@ -254,8 +257,8 @@ abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 	
 	/**
 	 * Get the full, resolved stream location name to the template resource.
-	 * @return     string A PHP stream resource identifier.
-	 * @throws     Exception If the template could not be found.
+	 * @return     ?string A PHP stream resource identifier, or null if no template is set.
+	 * @throws     \Exception If the template could not be found.
 	 * @since      1.0.0
 	 */
 	abstract public function getResourceStreamIdentifier();

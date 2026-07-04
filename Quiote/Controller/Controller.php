@@ -30,25 +30,38 @@ class Controller extends ParameterHolder implements ResetInterface
 {
 	/** Enable verbose controller lifecycle logging (worker diagnostics). */
 	public const DEBUG = false; // set true for deep debugging
+
+	/**
+	 * Indirection around the DEBUG constant with an explicit `bool` return
+	 * type so flipping DEBUG to true for local debugging doesn't require
+	 * touching every call site, and so the checks below read as an ordinary
+	 * runtime condition rather than a compile-time-constant literal.
+	 * @return     bool Whether verbose controller lifecycle logging is enabled.
+	 */
+	private static function debugEnabled(): bool
+	{
+		return self::DEBUG;
+	}
+
 	/**
 	 * @var        int The number of execution containers run so far.
 	 */
 	protected $numExecutions = 0;
-	
+
 	/**
-	 * @var        Context An Context instance.
+	 * @var        ?Context An Context instance.
 	 */
 	protected $context = null;
-	
+
 	/**
-	 * @var        WebResponse The global response.
+	 * @var        ?WebResponse The global response.
 	 */
 	protected $response = null;
-	
+
 	// Legacy filter chain and filters removed (replaced by middleware pipeline)
-	
+
 	/**
-	 * @var        string The default Output Type.
+	 * @var        ?string The default Output Type.
 	 */
 	protected $defaultOutputType = null;
 	/**
@@ -75,11 +88,6 @@ class Controller extends ParameterHolder implements ResetInterface
 	}
 	
 	/**
-	 * Legacy request data reference removed (PSR-7 migration). Retained as null for BC where code checks property existence.
-	 */
-	private $requestData = null; // no longer populated; use WebRequest parameter helpers instead
-	
-	/**
 	 * Increment the execution counter.
 	 * Will throw an exception if the maximum amount of runs is exceeded.
 	 * @throws     ControllerException If too many execution runs were made.
@@ -104,7 +112,7 @@ class Controller extends ParameterHolder implements ResetInterface
 	 * do not depend on the module's own configuration. Each key is only set when
 	 * absent so a value supplied by the module's config is never overwritten, and
 	 * so the call is safe (and cheap) to make on every initializeModule().
-	 * @param      string The lower-cased module name.
+	 * @param      string $lowerModuleName The lower-cased module name.
 	 */
 	private function ensureModuleDirectiveDefaults($lowerModuleName)
 	{
@@ -125,7 +133,7 @@ class Controller extends ParameterHolder implements ResetInterface
 
 	/**
 	 * Initialize a module and load its autoload, module config etc.
-	 * @param      string The name of the module to initialize.
+	 * @param      string $moduleName The name of the module to initialize.
 	 * @since      1.0.0
 	 */
 	public function initializeModule($moduleName)
@@ -209,8 +217,8 @@ class Controller extends ParameterHolder implements ResetInterface
 	 * Indicates whether or not a module has a specific action file.
 	 * Please note that this is only a cursory check and does not 
 	 * check whether the file actually contains the proper class
-	 * @param      string A module name.
-	 * @param      string An action name.
+	 * @param      string $moduleName A module name.
+	 * @param      string $actionName An action name.
 	 * @return     mixed  the path to the action file if the action file 
 	 *                    exists and is readable, false in any other case
 	 * @since      1.0.0
@@ -238,8 +246,8 @@ class Controller extends ParameterHolder implements ResetInterface
 	
 	/**
 	 * Retrieve an Action implementation instance.
-	 * @param      string A module name.
-	 * @param      string An action name.
+	 * @param      string $moduleName A module name.
+	 * @param      string $actionName An action name.
 	 * @return     Action An Action implementation instance
 	 * @throws     Exception if the action could not be found.
 	 * @since      1.0.0
@@ -300,7 +308,7 @@ class Controller extends ParameterHolder implements ResetInterface
 	 * so every dispatch gets its own fresh instance, same as the plain `new $class()` this
 	 * replaces. A class with no constructor is unaffected — zero migration burden.
 	 * initialize($initContext) is still called by the executor after this returns, unchanged.
-	 * @param      string A fully qualified class name.
+	 * @param      string $class A fully qualified class name.
 	 * @return     object A new instance, with any constructor dependencies autowired.
 	 */
 	private function makeInstance($class)
@@ -314,8 +322,8 @@ class Controller extends ParameterHolder implements ResetInterface
 	 * Indicates whether or not a module has a specific view file.
 	 * Please note that this is only a cursory check and does not 
 	 * check whether the file actually contains the proper class
-	 * @param      string A module name.
-	 * @param      string A view name.
+	 * @param      string $moduleName A module name.
+	 * @param      string $viewName A view name.
 	 * @return     mixed  the path to the view file if the view file 
 	 *                    exists and is readable, false in any other case
 	 * @since      1.0.0
@@ -343,9 +351,9 @@ class Controller extends ParameterHolder implements ResetInterface
 	
 	/**
 	 * Retrieve a View implementation instance.
-	 * @param      string A module name.
-	 * @param      string A view name.
-	 * @return     View A View implementation instance,
+	 * @param      string $moduleName A module name.
+	 * @param      string $viewName A view name.
+	 * @return     \Quiote\View\View A View implementation instance,
 	 * @throws     Exception if the view could not be found.
 	 * @since      1.0.0
 	 */
@@ -398,8 +406,8 @@ class Controller extends ParameterHolder implements ResetInterface
 	
 	/**
 	 * Initialize this controller.
-	 * @param      Context An Context instance.
-	 * @param      array        An array of initialization parameters.
+	 * @param      Context $context An Context instance.
+	 * @param      array $parameters An array of initialization parameters.
 	 * @since      1.0.0
 	 */
 	public function initialize(Context $context, array $parameters = [])
@@ -411,7 +419,7 @@ class Controller extends ParameterHolder implements ResetInterface
 		$this->response = $this->context->createInstanceFor('response');
 
 		$cfg = Config::get('core.config_dir') . '/output_types.xml';
-		if(defined('\QUIOTE_USE_APCU_CONFIG_CACHE') && \QUIOTE_USE_APCU_CONFIG_CACHE) {
+		if(defined('QUIOTE_USE_APCU_CONFIG_CACHE') && QUIOTE_USE_APCU_CONFIG_CACHE) {
 			$cacheResult = APCuConfigCache::checkConfig($cfg, $this->context->getName());
 			if (str_starts_with($cacheResult, 'APCU:')) {
 				eval('?>' . substr($cacheResult, 5));
@@ -428,8 +436,8 @@ class Controller extends ParameterHolder implements ResetInterface
 
 	/**
 	 * Indicates whether or not a module has a specific model.
-	 * @param      string A module name.
-	 * @param      string A model name.
+	 * @param      string $moduleName A module name.
+	 * @param      string $modelName A model name.
 	 * @return     bool true, if the model exists, otherwise false.
 	 * @since      1.0.0
 	 */
@@ -441,7 +449,7 @@ class Controller extends ParameterHolder implements ResetInterface
 
 		// APCu key (only if enabled) – immutable deployments benefit most
 		$apcuKey = null;
-		if(defined('\QUIOTE_USE_APCU_CONFIG_CACHE') && \QUIOTE_USE_APCU_CONFIG_CACHE && function_exists('apcu_fetch')) {
+		if(defined('QUIOTE_USE_APCU_CONFIG_CACHE') && QUIOTE_USE_APCU_CONFIG_CACHE && function_exists('apcu_fetch')) {
 			$apcuKey = 'quiote_exists_model_' . md5($baseNamespace.'|'.$moduleName.'|'.$namespacedModelName);
 			$cached = apcu_fetch($apcuKey, $hit);
 			if($hit) {
@@ -464,14 +472,14 @@ class Controller extends ParameterHolder implements ResetInterface
 
 	/**
 	 * Indicates whether or not a module exists.
-	 * @param      string A module name.
+	 * @param      string $moduleName A module name.
 	 * @return     bool true, if the module exists, otherwise false.
 	 * @since      1.0.0
 	 */
 	public function moduleExists($moduleName)
 	{
 		$apcuKey = null;
-		if(defined('\QUIOTE_USE_APCU_CONFIG_CACHE') && \QUIOTE_USE_APCU_CONFIG_CACHE && function_exists('apcu_fetch')) {
+		if(defined('QUIOTE_USE_APCU_CONFIG_CACHE') && QUIOTE_USE_APCU_CONFIG_CACHE && function_exists('apcu_fetch')) {
 			$apcuKey = 'quiote_exists_module_' . md5((string) $moduleName);
 			$cached = apcu_fetch($apcuKey, $hit);
 			if($hit) {
@@ -502,7 +510,7 @@ class Controller extends ParameterHolder implements ResetInterface
 		// attempt to mutate $defaultOutputType (it normally should not mutate).
 		if($this->configuredDefaultOutputType === null && $this->defaultOutputType !== null) {
 			$this->configuredDefaultOutputType = $this->defaultOutputType;
-			if(self::DEBUG) { $logger->debug("controller.startup capture configuredDefaultOT=".var_export($this->configuredDefaultOutputType, true)); }
+			if(self::debugEnabled()) { $logger->debug("controller.startup capture configuredDefaultOT=".var_export($this->configuredDefaultOutputType, true)); }
 		}
 	}
 
@@ -524,16 +532,13 @@ class Controller extends ParameterHolder implements ResetInterface
     public function reset(): void
 	{
 		$logger = \Quiote\Logging\Log::for($this);
-		if(self::DEBUG) { $logger->debug("controller.reset begin defaultOT=".var_export($this->defaultOutputType, true)); }
+		if(self::debugEnabled()) { $logger->debug("controller.reset begin defaultOT=".var_export($this->defaultOutputType, true)); }
 		
 		// Reset execution counter
 		$this->numExecutions = 0;
 		
 		// Legacy filter chain/filters removed – nothing to reset here
-		
-		// Clear legacy request data reference (unused in PSR-7 mode)
-		$this->requestData = null;
-		
+
 		// Reset the global response to a fresh instance
 		if ($this->context) {
 			$this->response = $this->context->createInstanceFor('response');
@@ -551,13 +556,13 @@ class Controller extends ParameterHolder implements ResetInterface
 			// Fallback safety: leave as-is (likely null only during very early init)
 		}
 		
-		if(self::DEBUG) { $logger->debug("controller.reset end defaultOT=".var_export($this->defaultOutputType, true)); }
+		if(self::debugEnabled()) { $logger->debug("controller.reset end defaultOT=".var_export($this->defaultOutputType, true)); }
 	}
 
 	/**
 	 * Indicates whether or not a module has a specific action.
-	 * @param      string A module name.
-	 * @param      string A view name.
+	 * @param      string $moduleName A module name.
+	 * @param      string $actionName A view name.
 	 * @return     bool true, if the action exists, otherwise false.
 	 * @since      1.0.0
 	 */
@@ -568,8 +573,8 @@ class Controller extends ParameterHolder implements ResetInterface
 
 	/**
 	 * Indicates whether or not a module has a specific view.
-	 * @param      string A module name.
-	 * @param      string A view name.
+	 * @param      string $moduleName A module name.
+	 * @param      string $viewName A view name.
 	 * @return     bool true, if the view exists, otherwise false.
 	 * @since      1.0.0
 	 */
@@ -580,7 +585,7 @@ class Controller extends ParameterHolder implements ResetInterface
 		$namespacedViewName = str_replace('/', '\\', $viewName);
 
 		$apcuKey = null;
-		if(defined('\QUIOTE_USE_APCU_CONFIG_CACHE') && \QUIOTE_USE_APCU_CONFIG_CACHE && function_exists('apcu_fetch')) {
+		if(defined('QUIOTE_USE_APCU_CONFIG_CACHE') && QUIOTE_USE_APCU_CONFIG_CACHE && function_exists('apcu_fetch')) {
 			$apcuKey = 'quiote_exists_view_' . md5($moduleName.'|'.$namespacedViewName);
 			$cached = apcu_fetch($apcuKey, $hit);
 			if($hit) {
@@ -601,30 +606,30 @@ class Controller extends ParameterHolder implements ResetInterface
 	
 	/**
 	 * Retrieve an Output Type object
-	 * @param      string The optional output type name.
+	 * @param      string $name The optional output type name.
 	 * @return     OutputType An Output Type object.
 	 * @since      1.0.0
 	 */
 	public function getOutputType($name = null)
 	{
 		$logger = \Quiote\Logging\Log::for($this);
-		if(self::DEBUG) { $logger->debug("controller.get_output_type in name=".var_export($name, true)." default=".var_export($this->defaultOutputType, true)); }
+		if(self::debugEnabled()) { $logger->debug("controller.get_output_type in name=".var_export($name, true)." default=".var_export($this->defaultOutputType, true)); }
 		
 		if($name === null) {
 			if($this->defaultOutputType !== null) {
 				$name = $this->defaultOutputType;
-				if(self::DEBUG) { $logger->debug("controller.get_output_type use defaultOT $name"); }
+				if(self::debugEnabled()) { $logger->debug("controller.get_output_type use defaultOT $name"); }
 			} else {
 				// Fall back to first available output type if no default is set
 				$name = array_key_first($this->outputTypes) ?: 'html';
-				if(self::DEBUG) { $logger->debug("controller.get_output_type fallback firstOT $name"); }
+				if(self::debugEnabled()) { $logger->debug("controller.get_output_type fallback firstOT $name"); }
 			}
 		} else {
-			if(self::DEBUG) { $logger->debug("controller.get_output_type provided $name"); }
+			if(self::debugEnabled()) { $logger->debug("controller.get_output_type provided $name"); }
 		}
 		
 		if(isset($this->outputTypes[$name])) {
-			if(self::DEBUG) { $logger->debug("controller.get_output_type return $name"); }
+			if(self::debugEnabled()) { $logger->debug("controller.get_output_type return $name"); }
 			return $this->outputTypes[$name];
 		}
 		throw new QuioteException('Output Type "' . $name . '" has not been configured.');

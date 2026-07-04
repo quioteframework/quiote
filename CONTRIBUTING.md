@@ -7,7 +7,7 @@ add documentation or fix spelling mistakes try this:
 1. [Fork](https://help.github.com/forking/) this repository.
 1. Clone the forked repository via ```git clone git@github.com:YOURNAME/quiote.git```.
 1. [Install composer](https://getcomposer.org/doc/00-intro.md) and check that
-   the tests run via ```cd test && php run-tests.php```
+   the tests run via ```composer test```
 1. Make changes and additions in specific branches and add tests where appropriate.
 1. Verify changes and make sure that the tests succeed.
 1. Add, commit, squash and push the changes to the forked repository.

@@ -18,7 +18,7 @@ class ParameterHolder implements ResetInterface
 
 	/**
 	 * Constructor. Accepts an array of initial parameters as an argument.
-	 * @param      array An array of parameters to be set right away.
+	 * @param      array $parameters An array of parameters to be set right away.
 	 * @since      1.0.0
 	 */
 	public function __construct(array $parameters = [])
@@ -37,8 +37,8 @@ class ParameterHolder implements ResetInterface
 
 	/**
 	 * Retrieve a parameter.
-	 * @param      string A parameter name.
-	 * @param      mixed  A default parameter value.
+	 * @param      string $name A parameter name.
+	 * @param      mixed  $default A default parameter value.
 	 * @return     mixed A parameter value, if the parameter exists, otherwise
 	 *                   null.
 	 * @since      1.0.0
@@ -89,7 +89,7 @@ class ParameterHolder implements ResetInterface
 
 	/**
 	 * Indicates whether or not a parameter exists.
-	 * @param      string A parameter name.
+	 * @param      string $name A parameter name.
 	 * @return     bool true, if the parameter exists, otherwise false.
 	 * @since      1.0.0
 	 */
@@ -107,7 +107,7 @@ class ParameterHolder implements ResetInterface
 
 	/**
 	 * Remove a parameter.
-	 * @param      string A parameter name.
+	 * @param      string $name A parameter name.
 	 * @return     string A parameter value, if the parameter was removed,
 	 *                    otherwise null.
 	 * @since      1.0.0
@@ -131,8 +131,8 @@ class ParameterHolder implements ResetInterface
 	/**
 	 * Set a parameter.
 	 * If a parameter with the name already exists the value will be overridden.
-	 * @param      string A parameter name.
-	 * @param      mixed  A parameter value.
+	 * @param      string $name A parameter name.
+	 * @param      mixed  $value A parameter value.
 	 * @since      1.0.0
 	 */
 	public function setParameter($name, $value)
@@ -144,8 +144,8 @@ class ParameterHolder implements ResetInterface
 	 * Append a parameter.
 	 * If this parameter is already set, convert it to an array and append the
 	 * new value.  If not, set the new value like normal.
-	 * @param      string A parameter name.
-	 * @param      mixed  A parameter value.
+	 * @param      string $name A parameter name.
+	 * @param      mixed  $value A parameter value.
 	 * @since      1.0.0
 	 */
 	public function appendParameter($name, $value)
@@ -160,8 +160,8 @@ class ParameterHolder implements ResetInterface
 	 * Set a parameter by reference.
 	 * If a parameter with the name already exists the value will be
 	 * overridden.
-	 * @param      string A parameter name.
-	 * @param      mixed  A reference to a parameter value.
+	 * @param      string $name A parameter name.
+	 * @param      mixed  $value A reference to a parameter value.
 	 * @since      1.0.0
 	 */
 	public function setParameterByRef($name, &$value)
@@ -173,8 +173,8 @@ class ParameterHolder implements ResetInterface
 	 * Append a parameter by reference.
 	 * If this parameter is already set, convert it to an array and append the
 	 * reference to the new value.  If not, set the new value like normal.
-	 * @param      string A parameter name.
-	 * @param      mixed  A reference to a parameter value.
+	 * @param      string $name A parameter name.
+	 * @param      mixed  $value A reference to a parameter value.
 	 * @since      1.0.0
 	 */
 	public function appendParameterByRef($name, &$value)
@@ -189,7 +189,7 @@ class ParameterHolder implements ResetInterface
 	 * Set an array of parameters.
 	 * If an existing parameter name matches any of the keys in the supplied
 	 * array, the associated value will be overridden.
-	 * @param      array An associative array of parameters and their associated
+	 * @param      array $parameters An associative array of parameters and their associated
 	 *                   values.
 	 * @since      1.0.0
 	 */
@@ -204,7 +204,7 @@ class ParameterHolder implements ResetInterface
 	 * Set an array of parameters by reference.
 	 * If an existing parameter name matches any of the keys in the supplied
 	 * array, the associated value will be overridden.
-	 * @param      array An associative array of parameters and references to their
+	 * @param      array $parameters An associative array of parameters and references to their
 	 *                   associated values.
 	 * @since      1.0.0
 	 */

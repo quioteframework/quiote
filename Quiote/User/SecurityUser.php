@@ -22,12 +22,12 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 	const CREDENTIAL_NAMESPACE = 'org.quiote.user.BasicSecurityUser.credentials';
 
 	/**
-	 * @var        bool True if the user is authenticated, otherwise false.
+	 * @var        ?bool True if the user is authenticated, otherwise false.
 	 */
 	protected $authenticated = false;
 	
 	/**
-	 * @var        array An array of user credentials.
+	 * @var        ?array An array of user credentials.
 	 */
 	protected $credentials   = null;
 
@@ -40,7 +40,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 
 	/**
 	 * Add a credential to this user.
-	 * @param      mixed Credential data.
+	 * @param      mixed $credential Credential data.
 	 * @since      1.0.0
 	 */
 	public function addCredential($credential)
@@ -63,7 +63,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 	/**
 	 * Indicates whether or not this user has a credential or a set of
 	 * credentials.
-	 * @param      mixed Credential data. Either a string or an array of
+	 * @param      mixed $credentials Credential data. Either a string or an array of
 	 *                   credentials which are all required. If these individual
 	 *                   credentials are again an array of credentials, one or
 	 *                   more of these sub-credentials will be required.
@@ -93,7 +93,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 	
 	/**
 	 * Indicates whether or not this user has a credential.
-	 * @param      string Credential data.
+	 * @param      string $credential Credential data.
 	 * @return     bool True if this user has the credential, otherwise false.
 	 * @since      1.0.0
 	 */
@@ -115,9 +115,9 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 
 	/**
 	 * Initialize this User.
-	 * @param      Context An Context instance.
-	 * @param      array        An associative array of initialization parameters.
-	 * @throws     <b>InitializationException</b> If an error occurs while
+	 * @param      Context $context An Context instance.
+	 * @param      array $parameters An associative array of initialization parameters.
+	 * @throws     \Quiote\Exception\InitializationException If an error occurs while
 	 *                                                 initializing this User.
 	 * @since      1.0.0
 	 */
@@ -146,8 +146,8 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 		$logger = \Quiote\Logging\Log::for($this);
 		if($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
 			try {
-				$cid = method_exists($this->getContext(), 'getCorrelationId') ? ($this->getContext()->getCorrelationId() ?? 'n/a') : 'n/a';
-				$logger->debug('[SecurityUser.initialize] cid=' . $cid . ' eff auth=' . var_export($this->authenticated,true) . ' num creds=' . (is_array($this->credentials) ? count($this->credentials) : 0) . ' storedAuth=' . var_export($storedAuth,true));
+				$cid = $this->getContext()->getCorrelationId() ?? 'n/a';
+				$logger->debug('[SecurityUser.initialize] cid=' . $cid . ' eff auth=' . var_export($this->authenticated,true) . ' num creds=' . count($this->credentials) . ' storedAuth=' . var_export($storedAuth,true));
 			} catch(\Throwable) {}
 		}
 	}
@@ -171,7 +171,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 
 	/**
 	 * Remove a credential from this user.
-	 * @param      mixed Credential data.
+	 * @param      mixed $credential Credential data.
 	 * @since      1.0.0
 	 */
 	public function removeCredential($credential)
@@ -189,7 +189,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 
 	/**
 	 * Set the authenticated status of this user.
-	 * @param      bool A flag indicating the authenticated status of this user.
+	 * @param      bool $authenticated A flag indicating the authenticated status of this user.
 	 * @since      1.0.0
 	 */
 	public function setAuthenticated($authenticated)
@@ -200,19 +200,17 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 			$this->logoutIntent = false; // clear any previous logout marker
 			// immediate persistence so later initialize() pulls true
 			try {
-				$storage = $this->getContext()?->getStorage();
-				if($storage) {
-					// Regenerate the session ID on the unauthenticated -> authenticated
-					// transition to defeat session fixation: any ID an attacker may have
-					// fixed in the victim's browser before login is invalidated. Only do
-					// it on the actual privilege transition (not on every re-affirmation)
-					// to avoid needless churn. $_SESSION data is preserved.
-					if(!$wasAuthenticated && method_exists($storage, 'regenerate')) {
-						$storage->regenerate(true);
-					}
-					$storage->store(self::AUTH_NAMESPACE, true);
-					if (method_exists($storage, 'flush')) { $storage->flush(); }
+				$storage = $this->getContext()->getStorage();
+				// Regenerate the session ID on the unauthenticated -> authenticated
+				// transition to defeat session fixation: any ID an attacker may have
+				// fixed in the victim's browser before login is invalidated. Only do
+				// it on the actual privilege transition (not on every re-affirmation)
+				// to avoid needless churn. $_SESSION data is preserved.
+				if(!$wasAuthenticated && method_exists($storage, 'regenerate')) {
+					$storage->regenerate(true);
 				}
+				$storage->store(self::AUTH_NAMESPACE, true);
+				if (method_exists($storage, 'flush')) { $storage->flush(); }
 			} catch(\Throwable) {}
 
 			return;
@@ -226,13 +224,13 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 			try {
 				$raw = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 15);
 				foreach($raw as $f) {
-					$fn = ($f['class'] ?? '') . ($f['type'] ?? '') . ($f['function'] ?? '');
+					$fn = ($f['class'] ?? '') . ($f['type'] ?? '') . $f['function'];
 					$bt[] = ($f['file'] ?? 'nofile') . ':' . ($f['line'] ?? 0) . ' ' . $fn;
 				}
 			} catch(\Throwable) { $bt[] = 'backtrace_failed'; }
 			$reqUri = $_SERVER['REQUEST_URI'] ?? 'unknown';
 			$sid = 'no-sid';
-			try { $storage = $this->getContext()?->getStorage(); if($storage && method_exists($storage,'getId')) { $tmp=$storage->getId(); if(is_string($tmp)&&$tmp!==''){ $sid=$tmp; } } } catch(\Throwable) {}
+			try { $storage = $this->getContext()->getStorage(); if(method_exists($storage,'getId')) { $tmp=$storage->getId(); if(is_string($tmp)&&$tmp!==''){ $sid=$tmp; } } } catch(\Throwable) {}
 			$pid = getmypid();
 			$worker = getenv('FRANKENPHP_WORKER') ?: getenv('FRANKENPHP_WORKER_ID') ?: 'n/a';
 			$tracePayload = [
@@ -247,7 +245,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 		}
 		$this->authenticated = false;
 		$this->logoutIntent = true; // mark explicit downgrade
-		try { $this->getContext()?->getStorage()?->store(self::AUTH_NAMESPACE, false); } catch(\Throwable) {}
+		try { $this->getContext()->getStorage()->store(self::AUTH_NAMESPACE, false); } catch(\Throwable) {}
 	}
 
 	/**
@@ -298,7 +296,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 		}
 		if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
 			try {
-				$cid = method_exists($this->getContext(), 'getCorrelationId') ? ($this->getContext()->getCorrelationId() ?? 'n/a') : 'n/a';
+				$cid = $this->getContext()->getCorrelationId() ?? 'n/a';
 				$logger->debug('[SecurityUser] Shutdown correlation id=' . $cid . ' stored auth=' . var_export($this->authenticated,true) . ' creds count=' . count($this->credentials));
 				$logger->debug('[SecurityUser] Shutdown session snapshot', [
 					'session' => isset($_SESSION) ? array_keys($_SESSION) : [],

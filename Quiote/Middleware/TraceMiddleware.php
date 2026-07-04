@@ -24,7 +24,7 @@ class TraceMiddleware implements MiddlewareInterface
         $exec->metrics['trace'] = $trace;
         $request = $request->withAttribute(ExecutionState::class, $exec);
         $response = $handler->handle($request);
-        if($this->emitHeader && method_exists($response,'withHeader')) {
+        if($this->emitHeader) {
             $response = $response->withHeader($this->headerName, implode(',', $exec->metrics['trace'] ?? []));
         }
         return $response;

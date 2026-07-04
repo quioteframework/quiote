@@ -16,19 +16,17 @@ class ValidationError implements ResetInterface
 	protected $arguments = [];
 
 	/**
-	 * @var        ValidationIncident The incident in which this error 
+	 * @var        ?ValidationIncident The incident in which this error
 	 *                                     occurred.
 	 */
 	protected $incident = null;
 
 	/**
      * Constructor
-     * @param      string The message of this error.
-     * @param      string The name of the message.
-     * @param      array The arguments affected by this error.
+     * @param      string $message The message of this error.
+     * @param      string $name The name of the message.
+     * @param      array $arguments The arguments affected by this error.
      * @since      1.0.0
-     * @param string $message
-     * @param string $name
      */
     public function __construct(/**
      * @var        string The message for this error.
@@ -48,7 +46,7 @@ class ValidationError implements ResetInterface
 
 	/**
 	 * Sets the name of this error.
-	 * @param      string The error name.
+	 * @param      string $name The error name.
 	 * @since      1.0.0
 	 */
 	public function setName($name)
@@ -58,7 +56,7 @@ class ValidationError implements ResetInterface
 
 	/**
      * Sets the message index of this error.
-     * @param      string The message index.
+     * @param      string $messageIndex The message index.
      * @since      1.0.0
      */
     #[\Deprecated(message: 'Superseded by setName()')]
@@ -90,7 +88,7 @@ class ValidationError implements ResetInterface
 
 	/**
 	 * Sets the message of this error.
-	 * @param      string The message.
+	 * @param      string $message The message.
 	 * @since      1.0.0
 	 */
 	public function setMessage($message)
@@ -110,7 +108,7 @@ class ValidationError implements ResetInterface
 
 	/**
 	 * Sets the incident which caused this error.
-	 * @param      ValidationIncident The incident.
+	 * @param      ValidationIncident $incident The incident.
 	 * @since      1.0.0
 	 */
 	public function setIncident(ValidationIncident $incident)
@@ -120,7 +118,7 @@ class ValidationError implements ResetInterface
 
 	/**
 	 * Retrieves the incident which caused this error.
-	 * @return     ValidationIncident The incident.
+	 * @return     ?ValidationIncident The incident.
 	 * @since      1.0.0
 	 */
 	public function getIncident()
@@ -140,7 +138,7 @@ class ValidationError implements ResetInterface
 
 	/**
 	 * Checks if this error was caused for the given argument
-	 * @param      ValidationArgument The argument.
+	 * @param      ValidationArgument $argument The argument.
 	 * @return     bool The result.
 	 * @since      1.0.0
 	 */
@@ -165,7 +163,7 @@ class ValidationError implements ResetInterface
 
 	/**
 	 * Checks if this error was caused for the given field
-	 * @param      string The name of the field to check.
+	 * @param      string $fieldname The name of the field to check.
 	 * @return     bool The result.
 	 * @since      1.0.0
 	 */

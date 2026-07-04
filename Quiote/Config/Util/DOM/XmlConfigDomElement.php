@@ -9,6 +9,11 @@ use Traversable;
 
 /**
  * Extended DOMElement class with several convenience enhancements.
+ * The owner document of any node in this DOM tree is always an
+ * XmlConfigDomDocument: XmlConfigDomDocument::__construct() registers Quiote's
+ * node classes via registerNodeClass() for every DOM node type, including
+ * DOMDocument itself, so $ownerDocument is never a vanilla DOMDocument.
+ * @property-read XmlConfigDomDocument $ownerDocument
  * @since      1.0.0
  * @version    1.0.0
  */
@@ -96,7 +101,7 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 	
 	/**
 	 * Returns an iterator for the child nodes.
-	 * @return     Iterator An iterator.
+	 * @return     \Traversable An iterator.
 	 * @since      1.0.0
 	 */
 	public function getIterator(): Traversable
@@ -104,17 +109,20 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 		// should only pull elements from the default ns
 		$prefix = $this->ownerDocument->getDefaultNamespacePrefix();
 		if($prefix) {
-			return $this->ownerDocument->getXpath()->query(sprintf('child::%s:*', $prefix), $this);
+			$result = $this->ownerDocument->getXpath()->query(sprintf('child::%s:*', $prefix), $this);
 		} else {
-			return $this->ownerDocument->getXpath()->query('child::*', $this);
+			$result = $this->ownerDocument->getXpath()->query('child::*', $this);
 		}
+		// query() only returns false for a malformed XPath expression, which
+		// cannot happen with the fixed expressions above.
+		return $result === false ? new \ArrayIterator([]) : $result;
 	}
 	
 	/**
 	 * Retrieve singular form of given element name.
 	 * This does special splitting only of the last part of the name if the name
 	 * of the element contains hyphens, underscores or dots.
-	 * @param      string The element name to singularize.
+	 * @param      string $name The element name to singularize.
 	 * @return     string The singularized element name.
 	 * @since      1.0.0
 	 */
@@ -130,11 +138,11 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 	 * Convenience method to retrieve child elements of the given name.
 	 * Accepts singular or plural forms of the name, and will detect and handle
 	 * parent containers with plural names properly.
-	 * @param      string The name of the element(s) to check for.
-	 * @param      string The namespace URI. If null, the document default
+	 * @param      string $name The name of the element(s) to check for.
+	 * @param      string $namespaceUri The namespace URI. If null, the document default
 	 *                    namespace will be used. If an empty string, no namespace
 	 *                    will be used.
-	 * @return     DOMNodeList A list of the child elements.
+	 * @return     \DOMNodeList A list of the child elements.
 	 * @since      1.0.0
 	 */
 	public function get($name, $namespaceUri = null): \DOMNodeList
@@ -146,8 +154,8 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 	 * Convenience method to check if there are child elements of the given name.
 	 * Accepts singular or plural forms of the name, and will detect and handle
 	 * parent containers with plural names properly.
-	 * @param      string The name of the element(s) to check for.
-	 * @param      string The namespace URI. If null, the document default
+	 * @param      string $name The name of the element(s) to check for.
+	 * @param      string $namespaceUri The namespace URI. If null, the document default
 	 *                    namespace will be used. If an empty string, no namespace
 	 *                    will be used.
 	 * @return     bool True if one or more child elements with the given name
@@ -161,11 +169,11 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 	
 	/**
 	 * Count the number of child elements with a given name.
-	 * @param      string The name of the element.
-	 * @param      string The namespace URI. If null, the document default
+	 * @param      string $name The name of the element.
+	 * @param      string $namespaceUri The namespace URI. If null, the document default
 	 *                    namespace will be used. If an empty string, no namespace
 	 *                    will be used.
-	 * @param      bool   Whether or not to apply automatic singular/plural
+	 * @param      bool $pluralMagic Whether or not to apply automatic singular/plural
 	 *                    handling that skips plural container elements.
 	 * @return     int The number of child elements with the given name.
 	 * @since      1.0.0
@@ -211,11 +219,11 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 	/**
 	 * Determine whether there is at least one instance of a child element with a
 	 * given name.
-	 * @param      string The name of the element.
-	 * @param      string The namespace URI. If null, the document default
+	 * @param      string $name The name of the element.
+	 * @param      string $namespaceUri The namespace URI. If null, the document default
 	 *                    namespace will be used. If an empty string, no namespace
 	 *                    will be used.
-	 * @param      bool   Whether or not to apply automatic singular/plural
+	 * @param      bool $pluralMagic Whether or not to apply automatic singular/plural
 	 *                    handling that skips plural container elements.
 	 * @return     bool True if one or more child elements with the given name
 	 *                  exist, false otherwise.
@@ -228,11 +236,11 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 	
 	/**
 	 * Retrieve all children with the given element name.
-	 * @param      string The name of the element.
-	 * @param      string The namespace URI. If null, the document default
+	 * @param      string $name The name of the element.
+	 * @param      string $namespaceUri The namespace URI. If null, the document default
 	 *                    namespace will be used. If an empty string, no namespace
 	 *                    will be used.
-	 * @param      bool   Whether or not to apply automatic singular/plural
+	 * @param      bool $pluralMagic Whether or not to apply automatic singular/plural
 	 *                    handling that skips plural container elements.
 	 * @return     \DOMNodeList A list of the child elements.
 	 * @since      1.0.0
@@ -277,8 +285,8 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 	/**
 	 * Determine whether this element has a particular child element. This method
 	 * succeeds only when there is exactly one child element with the given name.
-	 * @param      string The name of the element.
-	 * @param      string The namespace URI. If null, the document default
+	 * @param      string $name The name of the element.
+	 * @param      string $namespaceUri The namespace URI. If null, the document default
 	 *                    namespace will be used. If an empty string, no namespace
 	 *                    will be used.
 	 * @return     bool True if there is exactly one instance of an element with
@@ -293,11 +301,11 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 	/**
 	 * Return a single child element with a given name.
 	 * Only returns anything if there is exactly one child of this name.
-	 * @param      string The name of the element.
-	 * @param      string The namespace URI. If null, the document default
+	 * @param      string $name The name of the element.
+	 * @param      string $namespaceUri The namespace URI. If null, the document default
 	 *                    namespace will be used. If an empty string, no namespace
 	 *                    will be used.
-	 * @return     DOMElement The child element, or null if none exists.
+	 * @return     ?XmlConfigDomElement The child element, or null if none exists.
 	 * @since      1.0.0
 	 */
 	public function getChild($name, $namespaceUri = null): null|XmlConfigDomElement
@@ -317,9 +325,12 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 		}
 		
 		$retval = $this->ownerDocument->getXpath()->query(sprintf($query, $name, $namespaceUri, $marker), $this)->item(0);
-		
+
 		$this->removeAttributeNS(XmlConfigParser::NAMESPACE_QUIOTE_ANNOTATIONS_LATEST, 'quiote_annotations_latest:marker');
-		
+
+		// The query above only ever selects element nodes, and registerNodeClass()
+		// guarantees those are always XmlConfigDomElement, never a vanilla DOMNode.
+		/** @var ?XmlConfigDomElement $retval */
 		return $retval;
 	}
 	
@@ -327,9 +338,9 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 	 * Retrieve an attribute value.
 	 * Unlike DOMElement::getAttribute(), this method accepts an optional default
 	 * return value.
-	 * @param      string An attribute name.
-	 * @param      mixed  A default attribute value.
-	 * @return     mixed An attribute value, if the attribute exists, otherwise
+	 * @param      string $name An attribute name.
+	 * @param      ?string $default A default attribute value.
+	 * @return     ?string An attribute value, if the attribute exists, otherwise
 	 *                   null or the given default.
 	 * @see        DOMElement::getAttribute()
 	 * @since      1.0.0
@@ -352,10 +363,10 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 	 * Retrieve a namespaced attribute value.
 	 * Unlike DOMElement::getAttributeNS(), this method accepts an optional
 	 * default return value.
-	 * @param      string A namespace URI.
-	 * @param      string An attribute name.
-	 * @param      mixed  A default attribute value.
-	 * @return     mixed An attribute value, if the attribute exists, otherwise
+	 * @param      string $namespaceUri A namespace URI.
+	 * @param      string $localName An attribute name.
+	 * @param      ?string $default A default attribute value.
+	 * @return     ?string An attribute value, if the attribute exists, otherwise
 	 *                   null or the given default.
 	 * @see        DOMElement::getAttributeNS()
 	 * @since      1.0.0
@@ -364,8 +375,8 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 	public function getAttributeNS($namespaceUri, $localName, $default = null): string|null
 	{
 		$retval = parent::getAttributeNS($namespaceUri, $localName);
-		
-		if($retval === null) {
+
+		if($retval == null) {
 			$retval = $default;
 		}
 		
@@ -415,7 +426,7 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 	/**
 	 * Retrieve all of the Quiote parameter elements associated with this
 	 * element.
-	 * @param      array An array of existing parameters.
+	 * @param      array $existing An array of existing parameters.
 	 * @return     array The complete array of parameters.
 	 * @since      1.0.0
 	 */
@@ -428,6 +439,9 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 			$elements = $this->get('parameters', XmlConfigParser::NAMESPACE_QUIOTE_ENVELOPE_LATEST);
 			
 			foreach($elements as $element) {
+				// See the class docblock: registerNodeClass() guarantees every node here
+				// is a XmlConfigDomElement, never a vanilla DOMNode.
+				/** @var XmlConfigDomElement $element */
 				$key = null;
 				if(!$element->hasAttribute('name')) {
 					$result[$key = $offset++] = null;

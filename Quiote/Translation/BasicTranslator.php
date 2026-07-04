@@ -2,6 +2,7 @@
 namespace Quiote\Translation;
 
 use Quiote\Context;
+use Quiote\Translation\QuioteLocale;
 use Symfony\Contracts\Service\ResetInterface;
 
 /**
@@ -12,13 +13,13 @@ use Symfony\Contracts\Service\ResetInterface;
 abstract class BasicTranslator implements ITranslator, ResetInterface
 {
 	/**
-	 * @var        Context An Context instance.
+	 * @var        ?Context An Context instance.
 	 */
 	protected $context = null;
 
 	/**
 	 * Retrieve the current application context.
-	 * @return     Context The current Context instance.
+	 * @return     ?Context The current Context instance.
 	 * @since      1.0.0
 	 */
 	public final function getContext()
@@ -28,8 +29,8 @@ abstract class BasicTranslator implements ITranslator, ResetInterface
 
 	/**
 	 * Initialize this Translator.
-	 * @param      Context The current application context.
-	 * @param      array        An associative array of initialization parameters
+	 * @param      Context $context The current application context.
+	 * @param      array $parameters An associative array of initialization parameters
 	 * @since      1.0.0
 	 */
 	public function initialize(Context $context, array $parameters = [])
@@ -40,10 +41,10 @@ abstract class BasicTranslator implements ITranslator, ResetInterface
 	/**
 	 * This method gets called by the translation manager when the default locale
 	 * has been changed.
-	 * @param      Locale The new default locale.
+	 * @param      QuioteLocale $newLocale The new default locale.
 	 * @since      1.0.0
 	 */
-	public function localeChanged($newLocale)
+	public function localeChanged(QuioteLocale $newLocale)
 	{
 	}
 

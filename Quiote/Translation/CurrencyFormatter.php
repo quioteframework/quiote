@@ -16,12 +16,12 @@ use Symfony\Contracts\Service\ResetInterface;
 class CurrencyFormatter extends DecimalFormatter implements ITranslator, ResetInterface
 {
 	/**
-	 * @var        Context An Context instance.
+	 * @var        ?Context An Context instance.
 	 */
 	protected $context = null;
 
 	/**
-	 * @var        string The custom format supplied by the user (if any).
+	 * @var        array|string|null The custom format supplied by the user (if any).
 	 */
 	protected $customFormat = null;
 
@@ -31,12 +31,12 @@ class CurrencyFormatter extends DecimalFormatter implements ITranslator, ResetIn
 	protected $currencyCode = '';
 
 	/**
-	 * @var        Locale The locale which should be used for formatting.
+	 * @var        ?QuioteLocale The locale which should be used for formatting.
 	 */
 	protected $locale = null;
 
 	/**
-	 * @var        string The translation domain to translate the format (if any).
+	 * @var        ?string The translation domain to translate the format (if any).
 	 */
 	protected $translationDomain = null;
 
@@ -50,8 +50,8 @@ class CurrencyFormatter extends DecimalFormatter implements ITranslator, ResetIn
 
 	/**
 	 * Initialize this Translator.
-	 * @param      Context The current application context.
-	 * @param      array        An associative array of initialization parameters
+	 * @param      Context $context The current application context.
+	 * @param      array $parameters An associative array of initialization parameters
 	 * @since      1.0.0
 	 */
 	public function initialize(Context $context, array $parameters = [])
@@ -82,9 +82,9 @@ class CurrencyFormatter extends DecimalFormatter implements ITranslator, ResetIn
 
 	/**
 	 * Translates a message into the defined language.
-	 * @param      mixed       The message to be translated.
-	 * @param      string      The domain of the message.
-	 * @param      ?Locale The locale to which the message should be 
+	 * @param      mixed $message The message to be translated.
+	 * @param      string $domain The domain of the message.
+	 * @param      ?QuioteLocale $locale The locale to which the message should be
 	 *                         translated.
 	 * @return     string The translated message.
 	 * @since      1.0.0
@@ -125,7 +125,7 @@ class CurrencyFormatter extends DecimalFormatter implements ITranslator, ResetIn
 	/**
 	 * This method gets called by the translation manager when the default locale
 	 * has been changed.
-	 * @param      string The new default locale.
+	 * @param      QuioteLocale $newLocale The new default locale.
 	 * @since      1.0.0
 	 */
 	public function localeChanged($newLocale)
@@ -136,10 +136,10 @@ class CurrencyFormatter extends DecimalFormatter implements ITranslator, ResetIn
 		if(class_exists(\NumberFormatter::class)) {
 			try {
 				$nf = new \NumberFormatter($this->locale->getIdentifier(), \NumberFormatter::CURRENCY);
-				$this->groupingSeparator = $nf->getSymbol(\NumberFormatter::GROUPING_SEPARATOR_SYMBOL) ?? $this->groupingSeparator;
-				$this->decimalSeparator = $nf->getSymbol(\NumberFormatter::DECIMAL_SEPARATOR_SYMBOL) ?? $this->decimalSeparator;
+				$this->groupingSeparator = $nf->getSymbol(\NumberFormatter::GROUPING_SEPARATOR_SYMBOL);
+				$this->decimalSeparator = $nf->getSymbol(\NumberFormatter::DECIMAL_SEPARATOR_SYMBOL);
 				$pattern = $nf->getPattern();
-				if(is_string($pattern) && $pattern !== '') {
+				if($pattern !== '') {
 					$format = $pattern;
 				}
 			} catch(\Throwable) {
@@ -194,7 +194,7 @@ class CurrencyFormatter extends DecimalFormatter implements ITranslator, ResetIn
 				$nf = new \NumberFormatter($this->locale->getIdentifier(), \NumberFormatter::CURRENCY);
 				$nf->setTextAttribute(\NumberFormatter::CURRENCY_CODE, $code);
 				$sym = $nf->getSymbol(\NumberFormatter::CURRENCY_SYMBOL);
-				if(is_string($sym) && $sym !== '') {
+				if($sym !== '') {
 					$symbol = $sym;
 				}
 				$display = self::resolveCurrencyDisplayName($this->locale->getIdentifier(), $code);
@@ -238,7 +238,7 @@ class CurrencyFormatter extends DecimalFormatter implements ITranslator, ResetIn
 
 	/**
 	 * Sets the amount of fractional digits to be shown.
-	 * @param      int The amount of digits.
+	 * @param      int $count The amount of digits.
 	 * @since      1.0.0
 	 */
 	public function setFractionDigits($count)

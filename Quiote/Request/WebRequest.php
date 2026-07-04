@@ -30,16 +30,23 @@ use Symfony\Contracts\Service\ResetInterface;
  * @method string getUrl()
  * NOTE: These methods already exist concretely; annotations help static analyzers when
  * code references the web request through the abstract Request type.
- * Extends Nyholm ServerRequest directly to become a true PSR-7 implementation
- * with Quiote-specific extensions rather than wrapping one.
+ * Composes a Nyholm\Psr7\ServerRequest to implement PSR-7 rather than extending
+ * it: Nyholm marks its request classes @final, and composition also means we
+ * are never at the mercy of a future Nyholm release changing its with*()
+ * methods away from clone-based immutability.
  */
-class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
+class WebRequest implements ServerRequestInterface, ResetInterface
 {
 	// Trait provides helper methods for parameter access
 	use Psr7RequestTrait;
 
 	/**
-	 * @var        string The protocol information of this request.
+	 * @var        \Nyholm\Psr7\ServerRequest The wrapped PSR-7 request implementation.
+	 */
+	private \Nyholm\Psr7\ServerRequest $psrRequest;
+
+	/**
+	 * @var        ?string The protocol information of this request.
 	 */
 	protected $protocol = null;
 
@@ -54,7 +61,7 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 	protected $urlHost = '';
 
 	/**
-	 * @var        string The current URL authority.
+	 * @var        int The current URL port.
 	 */
 	protected $urlPort = 0;
 
@@ -106,14 +113,17 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 	private array $mutableAttributes = [];
 
 	/**
-	 * Helper to copy mutable state (runtime parameters and mutable attributes) to a cloned request.
-	 * Call this after every parent::with*() method that returns a new instance.
+	 * Clone this WebRequest with the wrapped PSR-7 request instance replaced.
+	 * Since the clone is of $this (the WebRequest wrapper), all Quiote-specific
+	 * state (runtime parameters, mutable attributes, validated keys, URL
+	 * metadata) is preserved automatically by PHP's default member-wise clone.
+	 * Call this after every $this->psrRequest->with*() call that returns a new
+	 * inner instance.
 	 */
-	private function copyMutableStateTo(self $new): self
+	private function withPsrRequest(\Nyholm\Psr7\ServerRequest $psrRequest): static
 	{
-		$new->runtimeParameters = $this->runtimeParameters;
-		$new->mutableAttributes = $this->mutableAttributes;
-		$new->validatedKeys = $this->validatedKeys;
+		$new = clone $this;
+		$new->psrRequest = $psrRequest;
 		return $new;
 	}
 
@@ -121,8 +131,8 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 	/**
 	 * Checks if a field has no value (In web context this would only return true
 	 * when the strings length is 0 or the field is not set.
-	 * @param      string The name of the source to operate on.
-	 * @param      string A field name.
+	 * @param      string $source The name of the source to operate on.
+	 * @param      string $field A field name.
 	 * @return     bool The result.
 	 * @since      1.0.0
 	 */
@@ -138,7 +148,7 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 
 	/**
 	 * Checks if there is a value of a parameter is empty or not set.
-	 * @param      string The field name.
+	 * @param      string $field The field name.
 	 * @return     bool The result.
 	 * @since      1.0.0
 	 */
@@ -156,13 +166,13 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 
 	/**
 	 * Indicates whether or not a Cookie exists.
-	 * @param      string A cookie name.
+	 * @param      string $name A cookie name.
 	 * @return     bool True, if a cookie with that name exists, otherwise false.
 	 * @since      1.0.0
 	 */
 	public function hasCookie($name)
 	{
-		if (isset($this->cookies[$name]) || array_key_exists($name, $this->getCookieParams())) {
+		if (array_key_exists($name, $this->getCookieParams())) {
 			return true;
 		}
 		try {
@@ -174,7 +184,7 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 
 	/**
 	 * Checks if there is a value of a cookie is empty or not set.
-	 * @param      string The cookie name.
+	 * @param      string $name The cookie name.
 	 * @return     bool The result.
 	 * @since      1.0.0
 	 */
@@ -192,7 +202,7 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 
 	/**
 	 * Checks if there is a value of a header is empty or not set.
-	 * @param      string The header name.
+	 * @param      string $name The header name.
 	 * @return     bool The result.
 	 * @since      1.0.0
 	 */
@@ -210,7 +220,7 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 
 	/**
 	 * Checks if a file is empty, i.e. not set or set, but not actually uploaded.
-	 * @param      string The file name.
+	 * @param      string $field The file name.
 	 * @return     bool The result.
 	 * @since      1.0.0
 	 */
@@ -256,7 +266,7 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 	public function getUploadedFileArray(string $name): array
 	{
 		$uploadedFiles = $this->getUploadedFiles();
-		if (!is_array($uploadedFiles) || $uploadedFiles === []) {
+		if ($uploadedFiles === []) {
 			return [];
 		}
 
@@ -339,8 +349,8 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 	}
 
 	/**
-	 * Retrieve the hostname part of a request URL.
-	 * @return     string The request URL hostname.
+	 * Retrieve the port part of a request URL.
+	 * @return     int The request URL port.
 	 * @since      1.0.0
 	 */
 	public function getUrlPort()
@@ -360,7 +370,7 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 	/**
 	 * Retrieve the request URL authority, typically host and port.
 	 * Example: "foo.example.com:8080".
-	 * @param      bool Whether or not ports 80 (for HTTP) and 433 (for HTTPS)
+	 * @param      bool $forcePort Whether or not ports 80 (for HTTP) and 433 (for HTTPS)
 	 *                  should be included in the return string.
 	 * @return     string The request URL authority.
 	 * @since      1.0.0
@@ -433,7 +443,7 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 
 	/**
 	 * Set the URL scheme for this request.
-	 * @param      string The URL scheme (e.g., 'http', 'https').
+	 * @param      string $scheme The URL scheme (e.g., 'http', 'https').
 	 * @since      1.0.0
 	 */
 	public function setUrlScheme($scheme)
@@ -443,7 +453,7 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 
 	/**
 	 * Set the URL host for this request.
-	 * @param      string The URL host (e.g., 'example.com').
+	 * @param      string $host The URL host (e.g., 'example.com').
 	 * @since      1.0.0
 	 */
 	public function setUrlHost($host)
@@ -453,7 +463,7 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 
 	/**
 	 * Set the URL port for this request.
-	 * @param      int The URL port (e.g., 80, 443, 8080).
+	 * @param      int $port The URL port (e.g., 80, 443, 8080).
 	 * @since      1.0.0
 	 */
 	public function setUrlPort($port)
@@ -463,7 +473,7 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 
 	/**
 	 * Set the request URI for this request.
-	 * @param      string The request URI (e.g., '/path/to/resource?query=value').
+	 * @param      string $uri The request URI (e.g., '/path/to/resource?query=value').
 	 * @since      1.0.0
 	 */
 	public function setRequestUri($uri)
@@ -472,7 +482,7 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 	}
 
 	/**
-	 * Constructor - extends Nyholm ServerRequest.
+	 * Constructor - wraps a fresh Nyholm ServerRequest.
 	 * @since      1.0.0
 	 */
 	public function __construct(
@@ -483,8 +493,8 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 		string $version = '1.1',
 		array $serverParams = []
 	) {
-		// Initialize parent Nyholm ServerRequest
-		parent::__construct(
+		// Build the wrapped Nyholm ServerRequest
+		$this->psrRequest = new \Nyholm\Psr7\ServerRequest(
 			$method,
 			$uri ?? new \Quiote\Http\SimpleUri('http://localhost/'),
 			$headers,
@@ -492,18 +502,18 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 			$version,
 			$serverParams
 		);
-		
+
 		// Initialize Quiote-specific fields
 		$this->runtimeParameters = [];
 		$this->validatedKeys = [];
-		
-		// Sync URL metadata from parent URI
+
+		// Sync URL metadata from the wrapped request's URI
 		$this->syncUrlMetadata();
 	}
 
 	/**
 	 * Build an WebRequest carrying the state of an arbitrary PSR-7 request.
-	 * WebRequest extends Nyholm's ServerRequest, but a plain
+	 * WebRequest wraps a Nyholm\Psr7\ServerRequest internally, but a plain
 	 * Nyholm\Psr7\ServerRequest can still flow through the pipeline (it lacks the
 	 * Quiote helpers such as isHttps()/getParameter()). This adapter produces an
 	 * WebRequest with the same method, URI, headers, body, protocol, server
@@ -558,18 +568,18 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 	}
 
 	/**
-	 * Sync URL metadata from parent PSR-7 URI.
+	 * Sync URL metadata from the wrapped PSR-7 request's URI.
 	 */
 	private function syncUrlMetadata(): void
 	{
-		$uri = parent::getUri();
+		$uri = $this->psrRequest->getUri();
 		$this->url = $uri->__toString();
 		$this->urlScheme = (string) $uri->getScheme();
 		$this->urlHost = (string) $uri->getHost();
 		// Derive port robustly
 		$rawPort = $uri->getPort();
 		if ($rawPort === null) {
-			$sp = parent::getServerParams();
+			$sp = $this->psrRequest->getServerParams();
 			if (isset($sp['SERVER_PORT']) && is_numeric($sp['SERVER_PORT'])) {
 				$rawPort = (int) $sp['SERVER_PORT'];
 			}
@@ -585,7 +595,7 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 		$this->urlQuery = (string) $uri->getQuery();
 		$this->urlPath = (string) $uri->getPath();
 		$this->requestUri = $this->urlPath . ($this->urlQuery !== '' ? '?' . $this->urlQuery : '');
-		$pv = parent::getProtocolVersion();
+		$pv = $this->psrRequest->getProtocolVersion();
 		$this->protocol = $pv !== '' ? 'HTTP/' . $pv : null;
 	}
 
@@ -593,7 +603,7 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
     public function attachPsrRequest(ServerRequestInterface $request): void
 	{
 		// No-op for backward compatibility
-		trigger_error('attachPsrRequest() is deprecated - WebRequest now extends ServerRequest directly', E_USER_DEPRECATED);
+		trigger_error('attachPsrRequest() is deprecated - WebRequest wraps a ServerRequest directly', E_USER_DEPRECATED);
 	}
 
 	/**
@@ -830,25 +840,25 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 	#[\Override]
     public function getProtocolVersion(): string
 	{
-		return parent::getProtocolVersion();
+		return $this->psrRequest->getProtocolVersion();
 	}
 
 	#[\Override]
-    public function withProtocolVersion($version): self
+    public function withProtocolVersion($version): static
 	{
-		return $this->copyMutableStateTo(parent::withProtocolVersion($version));
+		return $this->withPsrRequest($this->psrRequest->withProtocolVersion($version));
 	}
 
 	#[\Override]
     public function getHeaders(): array
 	{
-		return parent::getHeaders();
+		return $this->psrRequest->getHeaders();
 	}
 
 	#[\Override]
     public function hasHeader($name): bool
 	{
-		return parent::hasHeader($name);
+		return $this->psrRequest->hasHeader($name);
 	}
 
 	public function hasParameter(string $name): bool
@@ -917,17 +927,6 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 		if ($source === 'runtime') {
 			return $this->runtimeParameters;
 		}
-		// WebRequest IS the request now
-
-		if (false) {
-
-		// In test or pre-attachment scenarios, expose runtime parameters also for explicit 'parameters' source
-			if ($source === null || $source === 'parameters') {
-				return $this->runtimeParameters;
-			}
-			if ($source === 'files') { return []; }
-			return [];
-		}
 		if ($source === null) {
 			// Merge intrinsic HTTP param sources (query+body) then overlay runtime
 			$base = $this->getRequestParams($this, 'parameters');
@@ -939,13 +938,13 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 			$merged = $this->runtimeParameters + $base;
 			return $merged;
 		}
-		if ($source === 'files') { return parent::getUploadedFiles() ?? []; }
+		if ($source === 'files') { return $this->psrRequest->getUploadedFiles(); }
 		return $this->getRequestParams($this, $source);
 	}
 
 	/**
 	 * Retrieves all fields of a stored data type (legacy RequestDataHolder compatibility).
-	 * @param      string The name of the source to operate on.
+	 * @param      string $source The name of the source to operate on.
 	 * @return     array The values.
 	 * @since      1.0.0
 	 */
@@ -960,7 +959,7 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 	 */
 	public function removeParameter(string $name, string $source = 'runtime'): self
 	{
-		if ($source === 'runtime' || $source === null) {
+		if ($source === 'runtime') {
 			// Support nested path removal for runtime parameters (best-effort)
 			$new = clone $this;
 			if (array_key_exists($name, $new->runtimeParameters)) {
@@ -1052,7 +1051,7 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 	public function declareParameters(array $names): void
 	{
 		foreach ($names as $name) {
-			if (is_string($name) && $name !== '') {
+			if ($name !== '') {
 				$this->validatedKeys[$name] = true;
 			}
 		}
@@ -1284,8 +1283,8 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 		}
 
 		// Prune query and body params
-		$query = parent::getQueryParams();
-		$body = parent::getParsedBody();
+		$query = $this->psrRequest->getQueryParams();
+		$body = $this->psrRequest->getParsedBody();
 		if (!is_array($body)) $body = [];
 		
 		$intrinsic = $body + $query;
@@ -1418,10 +1417,7 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 	public function appendAttribute(string $name, $value): self
 	{
 		// Legacy callers expect in-place mutation; emulate by updating the mutable store directly.
-		if (!isset($this->mutableAttributes)) {
-			$this->mutableAttributes = [];
-		}
-		$current = $this->mutableAttributes[$name] ?? parent::getAttribute($name);
+		$current = $this->mutableAttributes[$name] ?? $this->psrRequest->getAttribute($name);
 		if ($current === null) {
 			$current = [];
 		} elseif (!is_array($current)) {
@@ -1445,7 +1441,7 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 	 */
 	public function hasAttribute(string $name): bool
 	{
-		return array_key_exists($name, $this->mutableAttributes) || parent::getAttribute($name) !== null;
+		return array_key_exists($name, $this->mutableAttributes) || $this->psrRequest->getAttribute($name) !== null;
 	}
 
 	/**
@@ -1456,88 +1452,85 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 	public function setAttribute(string $name, $value): void
 	{
 		// Store in mutable internal map, will be merged with PSR-7 attributes on read
-		if (!isset($this->mutableAttributes)) {
-			$this->mutableAttributes = [];
-		}
 		$this->mutableAttributes[$name] = $value;
 	}
 
 	#[\Override]
     public function getHeader($name): array
 	{
-		return parent::getHeader($name) ?? [];
+		return $this->psrRequest->getHeader($name);
 	}
 
 	#[\Override]
     public function getHeaderLine($name): string
 	{
-		return parent::getHeaderLine($name) ?? '';
+		return $this->psrRequest->getHeaderLine($name);
 	}
 
 	#[\Override]
-    public function withHeader($name, $value): self
+    public function withHeader($name, $value): static
 	{
-		return $this->copyMutableStateTo(parent::withHeader($name, $value));
+		return $this->withPsrRequest($this->psrRequest->withHeader($name, $value));
 	}
 
 	#[\Override]
-    public function withAddedHeader($name, $value): self
+    public function withAddedHeader($name, $value): static
 	{
-		return $this->copyMutableStateTo(parent::withAddedHeader($name, $value));
+		return $this->withPsrRequest($this->psrRequest->withAddedHeader($name, $value));
 	}
 
 	#[\Override]
-    public function withoutHeader($name): self
+    public function withoutHeader($name): static
 	{
-		return $this->copyMutableStateTo(parent::withoutHeader($name));
+		return $this->withPsrRequest($this->psrRequest->withoutHeader($name));
 	}
 
 	#[\Override]
     public function getBody(): StreamInterface
 	{
-		return parent::getBody();
+		return $this->psrRequest->getBody();
 	}
 
 	#[\Override]
-    public function withBody(StreamInterface $body): self
+    public function withBody(StreamInterface $body): static
 	{
-		return $this->copyMutableStateTo(parent::withBody($body));
+		return $this->withPsrRequest($this->psrRequest->withBody($body));
 	}
 
 	#[\Override]
     public function getRequestTarget(): string
 	{
-		return parent::getRequestTarget() ?? '';
+		return $this->psrRequest->getRequestTarget();
 	}
 
 	#[\Override]
-    public function withRequestTarget($requestTarget): self
+    public function withRequestTarget($requestTarget): static
 	{
-		return $this->copyMutableStateTo(parent::withRequestTarget($requestTarget));
+		return $this->withPsrRequest($this->psrRequest->withRequestTarget($requestTarget));
 	}
 
 	#[\Override]
     public function getMethod(): string
 	{
-		return parent::getMethod() ?? ($this->method ?? 'GET');
+		return $this->psrRequest->getMethod();
 	}
 
 	#[\Override]
-    public function withMethod($method): self
+    public function withMethod($method): static
 	{
-		return $this->copyMutableStateTo(parent::withMethod($method));
+		return $this->withPsrRequest($this->psrRequest->withMethod($method));
 	}
 
 	#[\Override]
     public function getUri(): UriInterface
 	{
-		return parent::getUri();
+		return $this->psrRequest->getUri();
 	}
 
 	#[\Override]
-    public function withUri(UriInterface $uri, $preserveHost = false): self
+    public function withUri(UriInterface $uri, $preserveHost = false): static
 	{
-		$new = $this->copyMutableStateTo(parent::withUri($uri, $preserveHost));
+		$new = $this->withPsrRequest($this->psrRequest->withUri($uri, $preserveHost));
 		$new->syncUrlMetadata();
 		return $new;
 	}
@@ -1545,31 +1538,31 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 	#[\Override]
     public function getServerParams(): array
 	{
-		return parent::getServerParams() ?? [];
+		return $this->psrRequest->getServerParams();
 	}
 
 	#[\Override]
     public function getCookieParams(): array
 	{
-		return parent::getCookieParams() ?? [];
+		return $this->psrRequest->getCookieParams();
 	}
 
 	#[\Override]
-    public function withCookieParams(array $cookies): self
+    public function withCookieParams(array $cookies): static
 	{
-		return $this->copyMutableStateTo(parent::withCookieParams($cookies));
+		return $this->withPsrRequest($this->psrRequest->withCookieParams($cookies));
 	}
 
 	#[\Override]
     public function getQueryParams(): array
 	{
-		return parent::getQueryParams() ?? [];
+		return $this->psrRequest->getQueryParams();
 	}
 
 	#[\Override]
-    public function withQueryParams(array $query): self
+    public function withQueryParams(array $query): static
 	{
-		return $this->copyMutableStateTo(parent::withQueryParams($query));
+		return $this->withPsrRequest($this->psrRequest->withQueryParams($query));
 	}
 
 	/**
@@ -1578,32 +1571,32 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 	#[\Override]
     public function getUploadedFiles(): array
 	{
-		return parent::getUploadedFiles() ?? [];
+		return $this->psrRequest->getUploadedFiles();
 	}
 
 	#[\Override]
-    public function withUploadedFiles(array $uploadedFiles): self
+    public function withUploadedFiles(array $uploadedFiles): static
 	{
-		return $this->copyMutableStateTo(parent::withUploadedFiles($uploadedFiles));
+		return $this->withPsrRequest($this->psrRequest->withUploadedFiles($uploadedFiles));
 	}
 
 	#[\Override]
     public function getParsedBody(): mixed
 	{
-		return parent::getParsedBody();
+		return $this->psrRequest->getParsedBody();
 	}
 
 	#[\Override]
-    public function withParsedBody($data): self
+    public function withParsedBody($data): static
 	{
-		return $this->copyMutableStateTo(parent::withParsedBody($data));
+		return $this->withPsrRequest($this->psrRequest->withParsedBody($data));
 	}
 
 	#[\Override]
     public function getAttributes(): array
 	{
 		// Merge PSR-7 attributes with mutable attributes (mutable takes precedence)
-		return array_merge(parent::getAttributes() ?? [], $this->mutableAttributes);
+		return array_merge($this->psrRequest->getAttributes(), $this->mutableAttributes);
 	}
 
 	#[\Override]
@@ -1613,29 +1606,22 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 		if (array_key_exists($name, $this->mutableAttributes)) {
 			return $this->mutableAttributes[$name];
 		}
-		return parent::getAttribute($name, $default);
+		return $this->psrRequest->getAttribute($name, $default);
 	}
 
 	#[\Override]
-    public function withAttribute($name, $value): self
+    public function withAttribute($name, $value): static
 	{
-		$new = $this->copyMutableStateTo(parent::withAttribute($name, $value));
+		$new = $this->withPsrRequest($this->psrRequest->withAttribute($name, $value));
 		// Override the specific attribute in mutable store
 		$new->mutableAttributes[$name] = $value;
 		return $new;
 	}
 
 	#[\Override]
-    public function withoutAttribute($name): self
+    public function withoutAttribute($name): static
 	{
-		// Nyholm's withoutAttribute() returns $this (no-op) when the attribute isn't in
-		// its internal PSR-7 store. Since we may have the attribute only in mutableAttributes,
-		// we must force a clone to maintain immutability.
-		$psrNew = parent::withoutAttribute($name);
-		if ($psrNew === $this) {
-			$psrNew = clone $this;
-		}
-		$new = $this->copyMutableStateTo($psrNew);
+		$new = $this->withPsrRequest($this->psrRequest->withoutAttribute($name));
 		// Remove the specific attribute from mutable store
 		unset($new->mutableAttributes[$name]);
 		return $new;
@@ -1650,7 +1636,7 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 	public function startup()
 	{
 		// WebRequest IS the PSR-7 request now
-		if (parent::getAttribute('unset_input', true)) {
+		if ($this->psrRequest->getAttribute('unset_input', true)) {
 			$rla = ini_get('register_long_arrays');
 
 			$_GET = $_POST = $_COOKIE = $_REQUEST = $_FILES = [];
@@ -1675,7 +1661,9 @@ class WebRequest extends \Nyholm\Psr7\ServerRequest implements ResetInterface
 	 */
 	public function reset(): void
 	{
-		// WebRequest IS the PSR-7 request now, parent handles state
+		// The wrapped PSR-7 request instance itself is immutable and gets
+		// replaced wholesale on the next request; only Quiote-specific mutable
+		// state needs clearing here.
 		$this->runtimeParameters = [];
 		$this->mutableAttributes = [];
 		$this->protocol = null;

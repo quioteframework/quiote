@@ -82,7 +82,8 @@ class WorkerManager
     
     /**
      * Reset all framework state for the next request in worker mode
-     * @param string|null $contextProfile Context profile to reset (null for all)
+     * @param string|array|null $contextProfile Context profile to reset (null for all).
+     *        For backwards compatibility, an options array may be passed here instead.
      * @param array $options Override default reset options
      */
     public static function resetForNextRequest($contextProfile = null, array $options = [])
@@ -99,7 +100,7 @@ class WorkerManager
         
     $logger = self::getLogger();
     // Reset context state using existing getInstance API and reset() method
-    $logger?->debug('WorkerManager: Resetting context using getInstance approach');
+    $logger->debug('WorkerManager: Resetting context using getInstance approach');
         
         try {
             if ($contextProfile !== null) {
@@ -109,29 +110,21 @@ class WorkerManager
                     $contextProfile = Config::get('core.default_context', 'web');
                 }
                 $context = Context::getInstance($contextProfile);
-                if ($context instanceof \Symfony\Contracts\Service\ResetInterface) {
-                    $context->reset();
-                    $logger?->debug("[WorkerManager] Reset context profile: $contextProfile");
-                } else {
-                    $logger?->warning("[WorkerManager] Context $contextProfile does not implement ResetInterface");
-                }
+                $context->reset();
+                $logger->debug("[WorkerManager] Reset context profile: $contextProfile");
             } else {
                 // Reset all available contexts - we'll need to get the default context
                 // Since we don't have access to all instances, reset the default context
                 try {
                     $context = Context::getInstance();
-                    if ($context instanceof \Symfony\Contracts\Service\ResetInterface) {
-                        $context->reset();
-                        $logger?->debug('[WorkerManager] Reset default context');
-                    } else {
-                        $logger?->warning('[WorkerManager] Default context does not implement ResetInterface');
-                    }
+                    $context->reset();
+                    $logger->debug('[WorkerManager] Reset default context');
                 } catch (\Exception $e) {
-                    $logger?->error('[WorkerManager] Failed to get default context: ' . $e->getMessage());
+                    $logger->error('[WorkerManager] Failed to get default context: ' . $e->getMessage());
                 }
             }
         } catch (\Exception $e) {
-            $logger?->error('[WorkerManager] Context reset failed: ' . $e->getMessage());
+            $logger->error('[WorkerManager] Context reset failed: ' . $e->getMessage());
         }
         
         // Reset configuration only if explicitly enabled (disabled by default in worker mode)
@@ -212,7 +205,7 @@ class WorkerManager
         
         self::$statistics['initialization_time'] = microtime(true) - $startTime;
         
-    self::getLogger()?->debug('WorkerManager initialized with options: ' . json_encode($options));
+    self::getLogger()->debug('WorkerManager initialized with options: ' . json_encode($options));
     }
     
     /**
@@ -234,7 +227,7 @@ class WorkerManager
      */
     public static function shutdown(): void
     {
-    self::getLogger()?->info('WorkerManager shutting down...');
+    self::getLogger()->info('WorkerManager shutting down...');
         
         // Perform final cleanup
         if (self::$statistics['db_connections_active']) {
@@ -244,7 +237,7 @@ class WorkerManager
         // Reset statistics
         self::$statistics['reset_count'] = 0;
         
-    self::getLogger()?->info('WorkerManager shutdown complete');
+    self::getLogger()->info('WorkerManager shutdown complete');
     }
     
     /**
@@ -338,7 +331,7 @@ if (isset($context)) {
                     throw $e;
                 }
                 // Log the error but continue
-                self::getLogger()?->error(sprintf(
+                self::getLogger()->error(sprintf(
                     'Failed to reset object at key "%s" (%s): %s',
                     $key,
                     $object::class,
@@ -373,10 +366,10 @@ if (isset($context)) {
                         $con = \call_user_func([$propelClass, 'getConnection']);
                         if ($con && $con->inTransaction()) {
                             $con->rollback();
-                            self::getLogger()?->warning('Warning: Uncommitted transaction rolled back in worker');
+                            self::getLogger()->warning('Warning: Uncommitted transaction rolled back in worker');
                         }
                     } catch (\Exception $e) {
-                        self::getLogger()?->error('Propel transaction cleanup failed: ' . $e->getMessage());
+                        self::getLogger()->error('Propel transaction cleanup failed: ' . $e->getMessage());
                         // If reset fails, close and let it reconnect
                         \call_user_func([$propelClass, 'close']);
                     }

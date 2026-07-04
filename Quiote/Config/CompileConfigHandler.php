@@ -26,7 +26,7 @@ class CompileConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 	const XML_NAMESPACE = 'http://quiote.dev/quiote/config/parts/compile/1.1';
 
 	/**
-	 * @throws     <b>ParseException</b> If a requested configuration file is
+	 * @throws     \Quiote\Exception\ParseException If a requested configuration file is
 	 *                                        improperly formatted.
 	 * @since      1.0.0
 	 */
@@ -87,7 +87,7 @@ class CompileConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 
 	/**
 	 * Given some data, remove unnecessary formatting and return the new data
-	 * @param      string Data to format for a compiled file, probably PHP code
+	 * @param      string $data Data to format for a compiled file, probably PHP code
 	 * @return     string Data with unnecessary content removed
 	 * @since      1.0.0
 	 */

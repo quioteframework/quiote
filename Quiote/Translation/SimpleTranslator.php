@@ -26,14 +26,14 @@ class SimpleTranslator extends BasicTranslator implements ResetInterface
 	protected $currentData = [];
 
 	/**
-	 * @var        Locale The currently set locale
+	 * @var        ?QuioteLocale The currently set locale
 	 */
 	protected $locale = null;
 
 	/**
 	 * Initialize this Translator.
-	 * @param      Context The current application context.
-	 * @param      array        An associative array of initialization parameters
+	 * @param      Context $context The current application context.
+	 * @param      array $parameters An associative array of initialization parameters
 	 * @since      1.0.0
 	 */
 	#[\Override]
@@ -60,16 +60,17 @@ class SimpleTranslator extends BasicTranslator implements ResetInterface
 
 	/**
 	 * Translates a message into the defined language.
-	 * @param      mixed       The message to be translated.
-	 * @param      string      The domain of the message.
-	 * @param      ?Locale The locale to which the message should be 
+	 * @param      mixed $message The message to be translated.
+	 * @param      string $domain The domain of the message.
+	 * @param      ?QuioteLocale $locale The locale to which the message should be
 	 *                         translated.
 	 * @return     string The translated message.
 	 * @since      1.0.0
 	 */
 	public function translate($message, $domain, ?QuioteLocale $locale = null)
 	{
-		if($locale && $locale !== $this->locale) {
+		$switchedLocale = $locale && $locale !== $this->locale;
+		if($switchedLocale) {
 			$oldCurrentData = $this->currentData;
 			$oldLocale = $this->locale;
 			$this->localeChanged($locale);
@@ -81,7 +82,7 @@ class SimpleTranslator extends BasicTranslator implements ResetInterface
 			$data = $this->currentData[(string)$domain][$message] ?? $message;
 		}
 
-		if($locale && $locale !== $this->locale) {
+		if($switchedLocale) {
 			$this->currentData = $oldCurrentData;
 			$this->locale = $oldLocale;
 		}
@@ -93,10 +94,11 @@ class SimpleTranslator extends BasicTranslator implements ResetInterface
 	/**
 	 * This method gets called by the translation manager when the default locale
 	 * has been changed.
-	 * @param      Locale The new default locale.
+	 * @param      QuioteLocale $newLocale The new default locale.
 	 * @since      1.0.0
 	 */
-	public function localeChanged($newLocale)
+	#[\Override]
+    public function localeChanged(QuioteLocale $newLocale)
 	{
 		$this->locale = $newLocale;
 		$this->currentData = Toolkit::getValueByKeyList($this->domainData, QuioteLocale::getLookupPath($this->locale->getIdentifier()), []);

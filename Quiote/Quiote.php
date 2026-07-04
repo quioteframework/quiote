@@ -176,9 +176,7 @@ final class Quiote
 				// Prime controller & output types (forces factories + output_types.xml load)
 				try {
 					$controller = $ctx->getController();
-					if(method_exists($controller, 'startup')) {
-						$controller->startup();
-					}
+					$controller->startup();
 					// Touch default output type to ensure it's in-memory
 					$controller->getOutputType();
 				} catch(\Throwable $e) {
@@ -288,9 +286,7 @@ final class Quiote
 		if($prime) {
 			try {
 				$controller = $ctx->getController();
-				if(method_exists($controller, 'startup')) {
-					$controller->startup();
-				}
+				$controller->startup();
 				$controller->getOutputType();
 			} catch(\Throwable $e) {
 				\Quiote\Logging\Log::create('Quiote.Quiote')->debug('context prime failed: '.$e->getMessage());

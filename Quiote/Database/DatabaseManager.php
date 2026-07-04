@@ -44,9 +44,9 @@ class DatabaseManager
 	/**
 	 * Retrieve the database connection associated with this Database
 	 * implementation.
-	 * @param      string A database name.
+	 * @param      string $name A database name.
 	 * @return     mixed A Database instance.
-	 * @throws     <b>DatabaseException</b> If the requested database name
+	 * @throws     \Quiote\Exception\DatabaseException If the requested database name
 	 *                                           does not exist.
 	 * @since      1.0.0
 	 */
@@ -76,7 +76,7 @@ class DatabaseManager
 	
 	/**
 	 * Retrieve the name of the given database instance.
-	 * @param      Database The database to fetch the name of.
+	 * @param      Database $database The database to fetch the name of.
 	 * @return     string The name of the database, or false if it was not found.
 	 * @since      1.0.0
 	 */
@@ -97,9 +97,9 @@ class DatabaseManager
 
 	/**
 	 * Initialize this DatabaseManager.
-	 * @param      Context An Context instance.
-	 * @param      array        An array of initialization parameters.
-	 * @throws     <b>InitializationException</b> If an error occurs while
+	 * @param      Context $context An Context instance.
+	 * @param      array $parameters An array of initialization parameters.
+	 * @throws     \Quiote\Exception\InitializationException If an error occurs while
 	 *                                                 initializing this 
 	 *                                                 DatabaseManager.
 	 * @since      1.0.0
@@ -158,7 +158,7 @@ class DatabaseManager
 
 	/**
 	 * Execute the shutdown procedure.
-	 * @throws     <b>DatabaseException</b> If an error occurs while shutting
+	 * @throws     \Quiote\Exception\DatabaseException If an error occurs while shutting
 	 *                                           down this DatabaseManager.
 	 * @since      1.0.0
 	 */

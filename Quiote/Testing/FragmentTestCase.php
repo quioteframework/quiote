@@ -5,7 +5,6 @@ use Quiote\Action\Action;
 use Quiote\Context;
 use Quiote\Controller\OutputType;
 use Quiote\Util\Toolkit;
-use Quiote\View\View;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
@@ -89,24 +88,22 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	 * normalizes a viewname according to the configured rules
 	 * Please do not use this method, it exists only for internal 
 	 * purposes and will be removed ASAP. You have been warned
-	 * @param      string the short view name
+	 * @param      string $shortName the short view name
 	 * @return     string the full view name
 	 * @since      1.0.0
 	 */
 	protected function normalizeViewName($shortName)
 	{
-		if($shortName !== View::NONE) {
-			$shortName = Toolkit::evaluateModuleDirective(
-				$this->moduleName,
-				'quiote.view.name',
-				[
-					'actionName' => $this->actionName,
-					'viewName' => $shortName,
-				]
-			);
-			$shortName = Toolkit::canonicalName($shortName);
-		}
-		
+		$shortName = Toolkit::evaluateModuleDirective(
+			$this->moduleName,
+			'quiote.view.name',
+			[
+				'actionName' => $this->actionName,
+				'viewName' => $shortName,
+			]
+		);
+		$shortName = Toolkit::canonicalName($shortName);
+
 		return $shortName;
 	}
 
@@ -115,7 +112,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	 * the configured executionfilter class will be wrapped in a testing
 	 * extension to provide advanced capabilities required for testing 
 	 * only
-	 * @return     ExecutionFilter 
+	 * @return     never
 	 * @since      1.0.0
 	 */
 	protected function createExecutionFilter() { throw new \RuntimeException('Legacy execution filter removed – tests should use middleware pipeline.'); }
@@ -149,7 +146,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 			'delete' => 'DELETE',
 			'update' => 'PUT',
 		];
-		$semantic = strtolower($this->requestMethod ?? 'read');
+		$semantic = strtolower($this->requestMethod);
 		$httpMethod = $methodMap[$semantic] ?? strtoupper($semantic);
 		// Use the canonical WebRequest (PSR-7) rather than a RequestDataHolder – the init context
 		// now expects a ServerRequestInterface. This preserves single-request invariant for tests.
@@ -193,10 +190,10 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	
 	/**
 	 * assert that the exectionContainer has a given attribute with the expected value
-	 * @param      mixed   the expected attribute value
-	 * @param      string  the attribute name
-	 * @param      string  the attribute namespace
-	 * @param      string  an optional message to display if the test fails
+	 * @param      mixed $expected the expected attribute value
+	 * @param      string $attributeName the attribute name
+	 * @param      string $namespace the attribute namespace
+	 * @param      string $message an optional message to display if the test fails
 	 * @param      float   $delta
 	 * @param      integer $maxDepth
 	 * @param      boolean $canonicalizeEol
@@ -210,9 +207,9 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	
 	/**
 	 * assert that the exectionContainer has a given attribute 
-	 * @param      string  the attribute name
-	 * @param      string  the attribute namespace
-	 * @param      string  an optional message to display if the test fails
+	 * @param      string $attributeName the attribute name
+	 * @param      string $namespace the attribute namespace
+	 * @param      string $message an optional message to display if the test fails
 	 * @since      1.0.0
 	 */
 	protected function assertContainerAttributeExists($attributeName, $namespace = null, $message = 'Failed asserting that the container has an attribute named <%1$s/%2$s>.')
@@ -387,12 +384,10 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	protected function clearSingletonModels()
 	{
 		$context = $this->getContext();
-		if ($context) {
-			$reflection = new \ReflectionClass($context);
-			$property = $reflection->getProperty('singletonModelInstances');
-			// $property->setAccessible(true); // Deprecated, not needed in PHP 8.1+
-			$property->setValue($context, []);
-		}
+		$reflection = new \ReflectionClass($context);
+		$property = $reflection->getProperty('singletonModelInstances');
+		// $property->setAccessible(true); // Deprecated, not needed in PHP 8.1+
+		$property->setValue($context, []);
 	}
 
 	/**
@@ -402,11 +397,11 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	{
 		try { $req = $this->getContext()->getRequest(); } catch(\Throwable) { $req = null; }
 		if (!$req) { return; }
-		if ($clearFirst && method_exists($req, 'clearParameters')) {
+		if ($clearFirst) {
 			$req->clearParameters();
 		}
 		foreach ($parameters as $k => $v) {
-			if (method_exists($req, 'setParameter')) { $req->setParameter($k, $v); }
+			$req->setParameter($k, $v);
 		}
 	}
 }

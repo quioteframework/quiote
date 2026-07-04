@@ -131,11 +131,12 @@ final class AppWriter
 		return match ($this->format) {
 			'php' => "<?php\n\nreturn " . var_export($values, true) . ";\n",
 			'yaml' => implode("\n", array_map(
-				static fn(string $k, mixed $v) => $k . ': ' . (is_bool($v) ? ($v ? 'true' : 'false') : (is_string($v) ? "'" . $v . "'" : $v)),
+				static fn(string $k, mixed $v) => $k . ': ' . (is_bool($v) ? ($v ? 'true' : 'false') : "'" . $v . "'"),
 				array_keys($values),
 				$values,
 			)) . "\n",
 			'xml' => $this->settingsXml($values),
+			default => throw new ConfigurationException('Unknown config format "' . $this->format . '"'),
 		};
 	}
 

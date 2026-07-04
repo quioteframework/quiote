@@ -24,7 +24,7 @@ class TranslationConfigHandler extends XmlConfigHandler implements IArrayConfigH
 	const XML_NAMESPACE = 'http://quiote.dev/quiote/config/parts/translation/1.1';
 
 	/**
-	 * @throws     <b>ParseException</b> If a requested configuration file is
+	 * @throws     \Quiote\Exception\ParseException If a requested configuration file is
 	 *                                        improperly formatted.
 	 * @since      1.0.0
 	 */
@@ -119,7 +119,7 @@ class TranslationConfigHandler extends XmlConfigHandler implements IArrayConfigH
 
 	/**
 	 * Builds a list of filters for a translator.
-	 * @param      ConfigValueHolder The Translator node.
+	 * @param      \Quiote\Config\Util\DOM\XmlConfigDomElement $translator The Translator node.
 	 * @return     array An array of filter definitions.
 	 * @since      1.0.0
 	 */
@@ -127,7 +127,10 @@ class TranslationConfigHandler extends XmlConfigHandler implements IArrayConfigH
 	{
 		$filters = [];
 		if ($translator->has('filters')) {
+			// get() only ever selects element nodes, and registerNodeClass()
+			// guarantees those are always XmlConfigDomElement, never a vanilla DOMNode.
 			foreach ($translator->get('filters') as $filter) {
+				/** @var \Quiote\Config\Util\DOM\XmlConfigDomElement $filter */
 				$func = explode('::', (string) $filter->getValue());
 				if (count($func) != 2) {
 					$func = $func[0];
@@ -143,9 +146,9 @@ class TranslationConfigHandler extends XmlConfigHandler implements IArrayConfigH
 
 	/**
 	 * Build a list of translators.
-	 * @param      ConfigValueHolder The translators container.
-	 * @param      array                  The destination data array.
-	 * @param      string                 The name of the parent domain.
+	 * @param      \Quiote\Config\Util\DOM\XmlConfigDomElement $translators The translators container.
+	 * @param      array                  $data The destination data array.
+	 * @param      ?string                $parent The name of the parent domain.
 	 * @since      1.0.0
 	 */
 	protected function getTranslators($translators, &$data, $parent = null)

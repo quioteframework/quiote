@@ -17,9 +17,9 @@ abstract class XmlConfigHandler extends BaseConfigHandler implements IXmlConfigH
 	
 	/**
 	 * Initialize this ConfigHandler.
-	 * @param      Context The context to work with (if available).
-	 * @param      array        An associative array of initialization parameters.
-	 * @throws     <b>InitializationException</b> If an error occurs while
+	 * @param      ?Context $context The context to work with (if available).
+	 * @param      array        $parameters An associative array of initialization parameters.
+	 * @throws     \Quiote\Exception\InitializationException If an error occurs while
 	 *                                                 initializing the
 	 *                                                 ConfigHandler
 	 * @since      1.0.0

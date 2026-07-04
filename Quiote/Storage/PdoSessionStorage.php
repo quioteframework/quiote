@@ -34,15 +34,15 @@ use Symfony\Contracts\Service\ResetInterface;
 class PdoSessionStorage extends SessionStorage implements ResetInterface
 {
 	/**
-	 * @var        PDO A Database Connection.
+	 * @var        ?\PDO A Database Connection.
 	 */
 	protected $connection;
 
 	/**
 	 * Initialize this Storage.
-	 * @param      Context An Context instance.
-	 * @param      array        An associative array of initialization parameters.
-	 * @throws     <b>InitializationException</b> If an error occurs while
+	 * @param      Context $context An Context instance.
+	 * @param      array $parameters An associative array of initialization parameters.
+	 * @throws     \Quiote\Exception\InitializationException If an error occurs while
 	 *                                                 initializing this Storage.
 	 * @since      1.0.0
 	 */
@@ -79,10 +79,10 @@ class PdoSessionStorage extends SessionStorage implements ResetInterface
 
 	/**
 	 * Destroy a session.
-	 * @param      string A session ID.
+	 * @param      string $id A session ID.
 	 * @return     bool true, if the session was destroyed, otherwise an
 	 *                  exception is thrown.
-	 * @throws     <b>DatabaseException</b> If the session cannot be
+	 * @throws     \Quiote\Exception\DatabaseException If the session cannot be
 	 *                                           destroyed.
 	 * @since      1.0.0
 	 */
@@ -118,10 +118,9 @@ class PdoSessionStorage extends SessionStorage implements ResetInterface
 
 	/**
 	 * Cleanup old sessions.
-	 * @param      int The lifetime of a session.
-	 * @return     bool true, if old sessions have been cleaned, otherwise an
-	 *                  exception is thrown.
-	 * @throws     <b>DatabaseException</b> If old sessions cannot be
+	 * @param      int $lifetime The lifetime of a session.
+	 * @return     int|false The number of sessions removed, or false on failure.
+	 * @throws     \Quiote\Exception\DatabaseException If old sessions cannot be
 	 *                                           cleaned.
 	 * @since      1.0.0
 	 */
@@ -159,8 +158,8 @@ class PdoSessionStorage extends SessionStorage implements ResetInterface
 				$e->errorInfo = $errorInfo;
 				throw $e;
 			}
-			
-			return true;
+
+			return $stmt->rowCount();
 		} catch(\PDOException $e) {
 			$error = sprintf('PDOException was thrown when trying to manipulate session data. Message: "%s"', $e->getMessage());
 			throw new DatabaseException($error, 0, $e);
@@ -169,11 +168,11 @@ class PdoSessionStorage extends SessionStorage implements ResetInterface
 
 	/**
 	 * Open a session.
-	 * @param      string The path is ignored.
-	 * @param      string The name is ignored.
+	 * @param      string $path The path is ignored.
+	 * @param      string $name The name is ignored.
 	 * @return     bool true, if the session was opened, otherwise an exception
 	 *                  is thrown.
-	 * @throws     <b>DatabaseException</b> If a connection with the database
+	 * @throws     \Quiote\Exception\DatabaseException If a connection with the database
 	 *                                           does not exist or cannot be
 	 *                                           created.
 	 * @since      1.0.0
@@ -196,10 +195,9 @@ class PdoSessionStorage extends SessionStorage implements ResetInterface
 
 	/**
 	 * Read a session.
-	 * @param      string A session ID.
-	 * @return     bool true, if the session was read, otherwise an exception is
-	 *                  thrown.
-	 * @throws     <b>DatabaseException</b> If the session cannot be read.
+	 * @param      string $id A session ID.
+	 * @return     string|false The session data, or false if the session is closed.
+	 * @throws     \Quiote\Exception\DatabaseException If the session cannot be read.
 	 * @since      1.0.0
 	 */
 	#[\Override]
@@ -246,11 +244,11 @@ class PdoSessionStorage extends SessionStorage implements ResetInterface
 
 	/**
 	 * Write session data.
-	 * @param      string A session ID.
-	 * @param      string A serialized chunk of session data.
+	 * @param      string $id A session ID.
+	 * @param      string $data A serialized chunk of session data.
 	 * @return     bool true, if the session was written, otherwise an exception
 	 *                  is thrown.
-	 * @throws     <b>DatabaseException</b> If session data cannot be
+	 * @throws     \Quiote\Exception\DatabaseException If session data cannot be
 	 *                                           written.
 	 * @since      1.0.0
 	 */
@@ -319,31 +317,33 @@ class PdoSessionStorage extends SessionStorage implements ResetInterface
 				$sql = sprintf('UPDATE %s SET %s = :data, %s = :time WHERE %s = :id', $db_table, $db_data_col, $db_time_col, $db_id_col);
 			}
 
-			$stmt = $this->connection->prepare($sql);
-			$stmt->bindParam(':data', $sp, $columnType);
-			if(is_int($ts)) {
-				$stmt->bindValue(':time', $ts, \PDO::PARAM_INT);
-			} else {
-				$stmt->bindValue(':time', $ts, \PDO::PARAM_STR);
+			try {
+				$stmt = $this->connection->prepare($sql);
+				$stmt->bindParam(':data', $sp, $columnType);
+				if(is_int($ts)) {
+					$stmt->bindValue(':time', $ts, \PDO::PARAM_INT);
+				} else {
+					$stmt->bindValue(':time', $ts, \PDO::PARAM_STR);
+				}
+				$stmt->bindParam(':id', $id);
+				$this->connection->beginTransaction();
+				if(!$stmt->execute()) {
+					$errorInfo = $stmt->errorInfo();
+					$e = new \PDOException($errorInfo[2], $errorInfo[0]);
+					$e->errorInfo = $errorInfo;
+					throw $e;
+				}
+				if(!$this->connection->commit()) {
+					$errorInfo = $stmt->errorInfo();
+					$e = new \PDOException($errorInfo[2], $errorInfo[0]);
+					$e->errorInfo = $errorInfo;
+					throw $e;
+				}
+			} catch(\PDOException $e) {
+				$this->connection->rollback();
+				$error = sprintf('PDOException was thrown when trying to manipulate session data. Message: "%s"', $e->getMessage());
+				throw new DatabaseException($error, 0, $e);
 			}
-			$stmt->bindParam(':id', $id);
-			$this->connection->beginTransaction();
-			if(!$stmt->execute()) {
-				$errorInfo = $stmt->errorInfo();
-				$e = new \PDOException($errorInfo[2], $errorInfo[0]);
-				$e->errorInfo = $errorInfo;
-				throw $e;
-			}
-			if(!$this->connection->commit()) {
-				$errorInfo = $stmt->errorInfo();
-				$e = new \PDOException($errorInfo[2], $errorInfo[0]);
-				$e->errorInfo = $errorInfo;
-				throw $e;
-			}
-		} catch(\PDOException $e) {
-			$this->connection->rollback();
-			$error = sprintf('PDOException was thrown when trying to manipulate session data. Message: "%s"', $e->getMessage());
-			throw new DatabaseException($error, 0, $e);
 		}
 		
 		return true;

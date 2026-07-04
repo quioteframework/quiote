@@ -23,7 +23,7 @@ final class ArrayPathDefinition
 
 	/**
 	 * Converts the given argument to an array of parts for use in the path getter/setters
-	 * @param      array|string The path string or an array containing the path
+	 * @param      array|string $partsArrayOrPathString The path string or an array containing the path
 	 *                          divided into its individual parts.
 	 * @return     array        The array of parts.
 	 * @since      1.0.0
@@ -46,9 +46,9 @@ final class ArrayPathDefinition
 	
 	/**
 	 * Unsets a value at the given path.
-	 * @param      array|string The path string or an array containing the path
+	 * @param      array|string $partsArrayOrPathString The path string or an array containing the path
 	 *                          divided into its individual parts.
-	 * @param      array The array we should operate on.
+	 * @param      array $array The array we should operate on.
 	 * @return     mixed The previously stored value.
 	 * @since      1.0.0
 	 */
@@ -86,9 +86,9 @@ final class ArrayPathDefinition
 
 	/**
 	 * Checks whether the array has a value at the given path.
-	 * @param      array|string The path string or an array containing the path
+	 * @param      array|string $partsArrayOrPathString The path string or an array containing the path
 	 *                          divided into its individual parts.
-	 * @param      array The array we should operate on.
+	 * @param      array $array The array we should operate on.
 	 * @return     bool Whether the path exists in this array.
 	 * @since      1.0.0
 	 */
@@ -116,10 +116,10 @@ final class ArrayPathDefinition
 
 	/**
 	 * Returns the value at the given path.
-	 * @param      array|string The path string or an array containing the path
+	 * @param      array|string $partsArrayOrPathString The path string or an array containing the path
 	 *                          divided into its individual parts.
-	 * @param      array The array we should operate on.
-	 * @param      mixed A default value if the path doesn't exist in the array.
+	 * @param      array $array The array we should operate on.
+	 * @param      mixed $default A default value if the path doesn't exist in the array.
 	 * @return     mixed The value stored at the given path.
 	 * @since      1.0.0
 	 */
@@ -148,10 +148,10 @@ final class ArrayPathDefinition
 
 	/**
 	 * Sets the value at the given path.
-	 * @param      array|string The path string or an array containing the path
+	 * @param      array|string $partsArrayOrPathString The path string or an array containing the path
 	 *                          divided into its individual parts.
-	 * @param      array The array we should operate on.
-	 * @param      mixed The value.
+	 * @param      array $array The array we should operate on.
+	 * @param      mixed $value The value.
 	 * @since      1.0.0
 	 */
 	public static function setValue($partsArrayOrPathString, array &$array, $value)
@@ -162,10 +162,10 @@ final class ArrayPathDefinition
 
 		foreach($parts as $part) {
 			if($part !== null) {
-				if(is_array($a) && is_numeric($part) && !str_contains($part, '.') && !str_contains($part, ',') && (isset($a[(int)$part]) || array_key_exists((int)$part, $a))) {
+				if(is_numeric($part) && !str_contains($part, '.') && !str_contains($part, ',') && (isset($a[(int)$part]) || array_key_exists((int)$part, $a))) {
 					$part = (int)$part;
 				}
-				if(!isset($a[$part]) || !is_array($a[$part]) || (is_array($a) && !(isset($a[$part]) || array_key_exists($part, $a)))) {
+				if(!isset($a[$part]) || !is_array($a[$part]) || !(isset($a[$part]) || array_key_exists($part, $a))) {
 					$a[$part] = [];
 				}
 				$a = &$a[$part];
@@ -177,7 +177,7 @@ final class ArrayPathDefinition
 
 	/**
 	 * Returns an array with the single parts of the given path.
-	 * @param      string The path.
+	 * @param      string $path The path.
 	 * @return     array The parts of the given path.
 	 * @since      1.0.0
 	 */
@@ -189,7 +189,7 @@ final class ArrayPathDefinition
 		}
 
 		$parts = [];
-		$absolute = (strlen($pathStr) > 0 && $pathStr[0] != '[');
+		$absolute = ($pathStr[0] != '[');
 		if(($pos = strpos($pathStr, '[')) === false) {
 			if(str_contains($pathStr, ']')) {
 				throw new InvalidArgumentException('Invalid "]" without opening "[" found');
@@ -254,8 +254,8 @@ final class ArrayPathDefinition
 	/**
 	 * Returns the flat key names of an array.
 	 * This method calls itself recursively to flatten the keys.
-	 * @param      array The array which keys should be returned.
-	 * @param      string The prefix for the name (only for internal use).
+	 * @param      array $array The array which keys should be returned.
+	 * @param      string $prefix The prefix for the name (only for internal use).
 	 * @return     array The flattened keys.
 	 * @since      1.0.0
 	 */
@@ -289,8 +289,8 @@ final class ArrayPathDefinition
 	 * will be one dimensional with the flattened key names as keys
 	 * and their values from the original array as values.
 	 * This method calls itself recursively to flatten the array.
-	 * @param      array The array which should be flattened.
-	 * @param      string The prefix for the key names (only for internal use).
+	 * @param      array $array The array which should be flattened.
+	 * @param      string $prefix The prefix for the key names (only for internal use).
 	 * @return     array The flattened array.
 	 * @since      1.0.0
 	 */

@@ -90,7 +90,7 @@ final class CookieSerializer
                 }
 
                 // Avoid duplicate Set-Cookie headers for the same cookie string
-                $existing = method_exists($response, 'getHeader') ? $response->getHeader('Set-Cookie') : [];
+                $existing = $response->getHeader('Set-Cookie');
                 if (!in_array($cookieStr, $existing, true)) {
                     $response = $response->withAddedHeader('Set-Cookie', $cookieStr);
                 }

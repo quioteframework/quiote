@@ -22,7 +22,7 @@ abstract class ContainerTestCase extends FragmentTestCase
 	protected $moduleName;
 
 	/**
-	 * @var        Response the response after the dispatch call
+	 * @var        \Quiote\Response\WebResponse the response after the dispatch call
 	 */
 	protected $response;
 
@@ -38,9 +38,7 @@ abstract class ContainerTestCase extends FragmentTestCase
 			// Inject parameters directly into request runtime for downstream usage.
 			try {
 				$request = $context->getRequest();
-				if (method_exists($request, 'setParameter')) {
-					foreach ($arguments as $k => $v) { $request->setParameter($k, $v); }
-				}
+				foreach ($arguments as $k => $v) { $request->setParameter($k, $v); }
 			} catch (\Throwable) {}
 		}
 		// Response simulation: create an empty response equivalent.

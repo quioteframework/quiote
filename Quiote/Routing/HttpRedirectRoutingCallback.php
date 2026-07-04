@@ -30,8 +30,8 @@ class HttpRedirectRoutingCallback extends RoutingCallback
 {
 	/**
 	 * Initialize the callback instance.
-	 * @param      \Quiote\Response\WebResponse An WebResponse instance.
-	 * @param      array         An array with information about the route.
+	 * @param      Context $context An Context instance.
+	 * @param      array   $route   An array with information about the route.
 	 * @since      1.0.0
 	 */
 	#[\Override]
@@ -48,7 +48,8 @@ class HttpRedirectRoutingCallback extends RoutingCallback
 	/**
 	 * Container-less match hook.
 	 * @param array $parameters Matched parameters (modifiable for rewrite).
-	 * @return bool true accept; false reject.
+	 * @return bool|WebResponse false to reject the match on misconfiguration, otherwise
+	 *                          a WebResponse carrying the redirect to be sent to the client.
 	 * @since      1.0.0
 	 */
 	#[\Override]
@@ -82,9 +83,11 @@ class HttpRedirectRoutingCallback extends RoutingCallback
 			$url = Toolkit::expandVariables(
 				$this->getParameter('url'),
 				array_map(
-					function($value) use($routing) {
+					function($value) {
 						if(is_scalar($value)) {
-							return $routing->escapeOutputParameter($value);
+							// Mirrors the URL-encoding Routing::gen() applies to generated path
+							// segments; there is no dedicated escaping method on Routing itself.
+							return rawurlencode((string)$value);
 						} else {
 							return '';
 						}

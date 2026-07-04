@@ -17,8 +17,8 @@ class ValidationArgument
 	
 	/**
      * Create a new ValidationArgument instance.
-     * @param      string the name of the argument.
-     * @param      string the name of the source, if null, "parameters" is used.
+     * @param      string $name the name of the argument.
+     * @param      string $source the name of the source, if null, "parameters" is used.
      * @since      1.0.0
      * @param string $name
      */

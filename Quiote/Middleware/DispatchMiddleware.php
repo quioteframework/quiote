@@ -35,7 +35,6 @@ use Quiote\Execution\ValidationDecision;
 class DispatchMiddleware implements MiddlewareInterface
 {
     private ?ActionExecutor $actionExecutor = null;
-    private static array $executedSimpleActions = [];
     private static array $executedNonSimpleActions = [];
 
     /**
@@ -60,9 +59,6 @@ class DispatchMiddleware implements MiddlewareInterface
                 return null;
             }
             $user = $this->controller->getContext()->getUser();
-            if (!$user) {
-                return 'guest';
-            }
             $bits = [];
             if (method_exists($user, 'isAuthenticated')) {
                 $bits[] = $user->isAuthenticated() ? 'auth:1' : 'auth:0';
@@ -102,30 +98,24 @@ class DispatchMiddleware implements MiddlewareInterface
 
     private function buildPsrResponse(string $content, string $outputType, bool $cacheHit, bool $containerUsed, ?array $redirectSnapshot = null): ResponseInterface
     {
-        
+
         $factory = new Psr17Factory();
         $status = 200;
 
         // TODO: propagate status from global response once unified interface available
         $resp = $factory->createResponse($status)->withBody($factory->createStream($content));
-        
+
         // Set Content-Type and other headers from the OutputType configuration
         try {
             $ot = $this->controller->getOutputType($outputType);
-            if ($ot) {
-                $httpHeaders = $ot->getParameter('http_headers', []);
-                if (is_array($httpHeaders)) {
-                    foreach ($httpHeaders as $name => $value) {
-                        $resp = $resp->withHeader($name, $value);
-                    }
+            $httpHeaders = $ot->getParameter('http_headers', []);
+            if (is_array($httpHeaders)) {
+                foreach ($httpHeaders as $name => $value) {
+                    $resp = $resp->withHeader($name, $value);
                 }
-                if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
-                    \Quiote\Logging\Log::for($this)->debug('[DispatchMiddleware.buildPsrResponse] set headers from output type ' . $outputType . ': ' . json_encode($httpHeaders));
-                }
-            } else {
-                if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
-                    \Quiote\Logging\Log::for($this)->debug('[DispatchMiddleware.buildPsrResponse] getOutputType(' . $outputType . ') returned null');
-                }
+            }
+            if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
+                \Quiote\Logging\Log::for($this)->debug('[DispatchMiddleware.buildPsrResponse] set headers from output type ' . $outputType . ': ' . json_encode($httpHeaders));
             }
         } catch (\Throwable $e) {
             if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
@@ -140,27 +130,23 @@ class DispatchMiddleware implements MiddlewareInterface
         }
         if (is_object($globalResp)) {
             try {
-                if (method_exists($globalResp, 'getHttpStatusCode')) {
-                    $statusCode = (int)$globalResp->getHttpStatusCode();
-                    if ($statusCode >= 100) {
-                        $resp = $resp->withStatus($statusCode);
-                    }
+                $statusCode = (int)$globalResp->getHttpStatusCode();
+                if ($statusCode >= 100) {
+                    $resp = $resp->withStatus($statusCode);
                 }
             } catch (\Throwable) {
             }
             try {
-                if (method_exists($globalResp, 'getHttpHeaders')) {
-                    foreach ((array)$globalResp->getHttpHeaders() as $name => $value) {
-                        if ($value === null) {
-                            continue;
-                        }
-                        $resp = $resp->withHeader($name, $value);
+                foreach ((array)$globalResp->getHttpHeaders() as $name => $value) {
+                    if ($value === null) {
+                        continue;
                     }
+                    $resp = $resp->withHeader($name, $value);
                 }
             } catch (\Throwable) {
             }
         }
-        
+
         $disableHeaders = (bool)Config::get('core.disable-framework-headers', false);
         if (!$disableHeaders) {
             $cacheHitHeader = Config::get('core.cache-hit-header', 'X-Quiote-Cache-Hit');
@@ -186,9 +172,7 @@ class DispatchMiddleware implements MiddlewareInterface
         if ($redirectData === null && is_object($globalResp)) {
             // Fallback: covers cache-hit and simple paths where no per-execution snapshot exists.
             try {
-                if (method_exists($globalResp, 'getRedirect') && $globalResp->getRedirect() !== null) {
-                    $redirectData = $globalResp->getRedirect();
-                }
+                $redirectData = $globalResp->getRedirect();
             } catch (\Throwable) {}
         }
         if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
@@ -203,9 +187,7 @@ class DispatchMiddleware implements MiddlewareInterface
                     $quioteCtx = $this->controller->getContext();
                     if (isset($location[0]) && $location[0] === '/') {
                         $rq = $quioteCtx->getRequest();
-                        if (method_exists($rq, 'getUrlScheme') && method_exists($rq, 'getUrlAuthority')) {
-                            $location = $rq->getUrlScheme() . '://' . $rq->getUrlAuthority() . $location;
-                        }
+                        $location = $rq->getUrlScheme() . '://' . $rq->getUrlAuthority() . $location;
                     } else {
                         $location = $quioteCtx->getRouting()->getBaseHref() . $location;
                     }
@@ -225,7 +207,7 @@ class DispatchMiddleware implements MiddlewareInterface
         if (is_object($globalResp)) {
             try {
                 $routing = $this->controller->getContext()->getRouting();
-                $basePath = method_exists($routing, 'getBasePath') ? $routing->getBasePath() : '/';
+                $basePath = $routing->getBasePath();
                 $resp = \Quiote\Http\CookieSerializer::bridge($globalResp, $resp, $basePath);
             } catch (\Throwable) {}
         }
@@ -240,9 +222,7 @@ class DispatchMiddleware implements MiddlewareInterface
         // current action/view cycle actually set.
         try {
             $globalResp = $this->controller->getGlobalResponse();
-            if (is_object($globalResp) && method_exists($globalResp, 'clear')) {
-                $globalResp->clear();
-            }
+            $globalResp->clear();
         } catch (\Throwable) {
         }
         // Correlation ID (per-request) for tracing multi-request races
@@ -269,7 +249,7 @@ class DispatchMiddleware implements MiddlewareInterface
             $sessId = 'no-sid';
             try {
                 $storage = $this->controller->getContext()->getStorage();
-                if ($storage && method_exists($storage, 'getId')) {
+                if (method_exists($storage, 'getId')) {
                     $sidTmp = $storage->getId();
                     if (is_string($sidTmp) && $sidTmp !== '') {
                         $sessId = $sidTmp;
@@ -289,12 +269,12 @@ class DispatchMiddleware implements MiddlewareInterface
             $auth = 'na';
             try {
                 $u = $this->controller->getContext()->getUser();
-                if ($u && method_exists($u, 'isAuthenticated')) {
+                if (method_exists($u, 'isAuthenticated')) {
                     $auth = $u->isAuthenticated() ? '1' : '0';
                 }
             } catch (\Throwable) {
             }
-            \Quiote\Logging\Log::for($this)->debug('[DispatchMiddleware][' . $rid . '] action=' . $actionDesc->module . ':' . $actionDesc->action . ' method=' . $actionDesc->method . ' simple=' . ($actionDesc->isSimple ? '1' : '0') . ' vd=' . ($execState->validationDecision?->state ?? 'null') . ' sec=' . ($execState->securityDecision?->name ?? 'null') . ' sessId=' . $sessId . ' auth=' . $auth);
+            \Quiote\Logging\Log::for($this)->debug('[DispatchMiddleware][' . $rid . '] action=' . $actionDesc->module . ':' . $actionDesc->action . ' method=' . $actionDesc->method . ' simple=' . ($actionDesc->isSimple ? '1' : '0') . ' vd=' . ($execState->validationDecision->state ?? 'null') . ' sec=' . ($execState->securityDecision->name ?? 'null') . ' sessId=' . $sessId . ' auth=' . $auth);
         }
         // Non-simple actions require validation; allow pending if this is a forwarded target (ValidationMiddleware should run earlier in pipeline).
         if (!$actionDesc->isSimple) {
@@ -303,7 +283,7 @@ class DispatchMiddleware implements MiddlewareInterface
                 if (!$execState->forwarded) {
                     $factory = new Psr17Factory();
                     $resp = $factory->createResponse(500)->withBody($factory->createStream('Validation middleware missing'));
-                    return $resp->withHeader('X-Quiote-Validation-State', $execState->validationDecision?->state ?? 'absent')->withHeader('X-Quiote-Debug', 'validation-middleware-missing');
+                    return $resp->withHeader('X-Quiote-Validation-State', $execState->validationDecision->state ?? 'absent')->withHeader('X-Quiote-Debug', 'validation-middleware-missing');
                 }
             } elseif ($execState->validationDecision->isFailed()) {
                 $factory = new Psr17Factory();
@@ -315,7 +295,7 @@ class DispatchMiddleware implements MiddlewareInterface
             $resp = $resp->withHeader('X-Quiote-Validation-State', $execState->validationDecision->state);
         }
 
-        if ($dbg && method_exists($resp, 'getBody')) {
+        if ($dbg) {
             \Quiote\Logging\Log::for($this)->debug('[DispatchMiddleware][' . $rid . '] response status=' . $resp->getStatusCode() . ' len=' . strlen((string)$resp->getBody()));
         }
         return $resp;
@@ -350,17 +330,15 @@ class DispatchMiddleware implements MiddlewareInterface
             if (!($actionInstance instanceof \Quiote\Action\Action)) {
                 // SecurityMiddleware didn't set one (e.g. security disabled); create it now.
                 $actionInstance = $this->controller->createActionInstance($actionDesc->module, $actionDesc->action);
-                if (method_exists($actionInstance, 'initialize')) {
-                    $actionInstance->initialize(new LightweightActionInitContext(
-                        $this->controller->getContext(),
-                        $actionDesc->module,
-                        $actionDesc->action,
-                        $actionDesc->method,
-                        $actionDesc->outputType,
-                        $request,
-                        $this->controller->getGlobalResponse()
-                    ));
-                }
+                $actionInstance->initialize(new LightweightActionInitContext(
+                    $this->controller->getContext(),
+                    $actionDesc->module,
+                    $actionDesc->action,
+                    $actionDesc->method,
+                    $actionDesc->outputType,
+                    $request,
+                    $this->controller->getGlobalResponse()
+                ));
             }
             $isCacheable = (bool)$actionInstance->isCacheable($actionDesc->outputType);
             $userFp = $this->computeUserFingerprint($actionInstance);
@@ -375,9 +353,7 @@ class DispatchMiddleware implements MiddlewareInterface
             }
         }
         if ($cacheHitPayload) {
-            if ($cacheHitPayload) {
-                $ctx = ActionCacheHelper::buildContextFromPayload($cacheHitPayload, $actionDesc, $execState, $actionInstance, $webRequest);
-            }
+            $ctx = ActionCacheHelper::buildContextFromPayload($cacheHitPayload, $actionDesc, $execState, $actionInstance, $webRequest);
             $execState->cacheHit = true;
             return $this->buildPsrResponse($ctx->content, $actionDesc->outputType, true, false);
         }
@@ -386,7 +362,7 @@ class DispatchMiddleware implements MiddlewareInterface
             // Heuristic: presence of QUIOTE_SECURITY_DEBUG log decision=allow earlier isn't directly accessible; rely on user auth + secure action.
             try {
                 $usr = $this->controller->getContext()->getUser();
-                if ($actionInstance && method_exists($actionInstance, 'isSecure') && $actionInstance->isSecure() && $usr && method_exists($usr, 'isAuthenticated') && $usr->isAuthenticated()) {
+                if ($actionInstance && method_exists($actionInstance, 'isSecure') && $actionInstance->isSecure() && method_exists($usr, 'isAuthenticated') && $usr->isAuthenticated()) {
                     $execState->securityDecision = SecurityDecision::Allow;
                 }
             } catch (\Throwable) {
@@ -394,7 +370,6 @@ class DispatchMiddleware implements MiddlewareInterface
         }
         $ctx = $this->actionExecutor->execute($actionDesc, $request, $execState, [], $actionInstance);
 
-        self::$executedSimpleActions[$actionDesc->module . ':' . $actionDesc->action . ':' . $actionDesc->outputType] = true;
         if ($cacheEnabled && $isCacheable && !$execState->cacheHit) {
             $ttl = method_exists($actionInstance, 'cacheTtlSeconds') ? $actionInstance->cacheTtlSeconds($actionDesc->outputType) : null;
             if ($avCache) {
@@ -416,7 +391,7 @@ class DispatchMiddleware implements MiddlewareInterface
             $execState->validationDecision = ValidationDecision::pending();
         }
         // Security decision must have been established by SecurityMiddleware. If missing and security disabled, executor will allow; otherwise treat as logic gap.
-        if ($execState->validationDecision && $execState->validationDecision->isFailed() && $execState->viewName) {
+        if ($execState->validationDecision->isFailed() && $execState->viewName) {
             $content = (string)($request->getAttribute('validation.error.content') ?? '<div>Validation Failed</div>');
             $factory = new Psr17Factory();
             return $factory->createResponse(400)->withBody($factory->createStream($content));
@@ -431,17 +406,15 @@ class DispatchMiddleware implements MiddlewareInterface
             $actionInstance = $request->getAttribute('quiote.preinstantiated_action');
             if (!($actionInstance instanceof \Quiote\Action\Action)) {
                 $actionInstance = $this->controller->createActionInstance($actionDesc->module, $actionDesc->action);
-                if (method_exists($actionInstance, 'initialize')) {
-                    $actionInstance->initialize(new LightweightActionInitContext(
-                        $this->controller->getContext(),
-                        $actionDesc->module,
-                        $actionDesc->action,
-                        $actionDesc->method,
-                        $actionDesc->outputType,
-                        $request,
-                        $this->controller->getGlobalResponse()
-                    ));
-                }
+                $actionInstance->initialize(new LightweightActionInitContext(
+                    $this->controller->getContext(),
+                    $actionDesc->module,
+                    $actionDesc->action,
+                    $actionDesc->method,
+                    $actionDesc->outputType,
+                    $request,
+                    $this->controller->getGlobalResponse()
+                ));
             }
             $isCacheable = (bool)$actionInstance->isCacheable($actionDesc->outputType);
             $userFp = $this->computeUserFingerprint($actionInstance);
@@ -463,28 +436,24 @@ class DispatchMiddleware implements MiddlewareInterface
             }
         }
         if ($cacheHitPayload) {
-            if ($cacheHitPayload) {
-                // Build or synthesize an WebRequest for cache replay; fall back to a fresh instance if canonical not available.
-                $webReq = null;
-                try {
-                    $webReq = ActionExecutor::buildRequestDataFromPsr($request, $this->controller->getContext());
-                } catch (\Throwable) {
-                    try { $webReq = new \Quiote\Request\WebRequest(); } catch (\Throwable) { $webReq = null; }
-                }
-                if (!($webReq instanceof \Quiote\Request\WebRequest)) {
-                    throw new \TypeError('WebRequest unavailable for cache replay');
-                }
-                $ctx = ActionCacheHelper::buildContextFromPayload($cacheHitPayload, $actionDesc, $execState, $actionInstance, $webReq);
+            // Build or synthesize an WebRequest for cache replay; fall back to a fresh instance if canonical not available.
+            $webReq = null;
+            try {
+                $webReq = ActionExecutor::buildRequestDataFromPsr($request, $this->controller->getContext());
+            } catch (\Throwable) {
+                try { $webReq = new \Quiote\Request\WebRequest(); } catch (\Throwable) { $webReq = null; }
             }
+            if (!($webReq instanceof \Quiote\Request\WebRequest)) {
+                throw new \TypeError('WebRequest unavailable for cache replay');
+            }
+            $ctx = ActionCacheHelper::buildContextFromPayload($cacheHitPayload, $actionDesc, $execState, $actionInstance, $webReq);
         } else {
             $ctx = $this->actionExecutor->execute($actionDesc, $request, $execState, [], $actionInstance);
         }
         self::$executedNonSimpleActions[$actionDesc->module . ':' . $actionDesc->action . ':' . $actionDesc->outputType] = true;
         if ($cacheEnabled && $isCacheable && !$execState->cacheHit && $avCache) {
             $ttl = method_exists($actionInstance, 'cacheTtlSeconds') ? $actionInstance->cacheTtlSeconds($actionDesc->outputType) : null;
-            if ($avCache) {
-                ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, ($actionInstance && method_exists($actionInstance, 'getAttributes')) ? $actionInstance->getAttributes() : [], false, $ttl, $userFp);
-            }
+            ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, ($actionInstance && method_exists($actionInstance, 'getAttributes')) ? $actionInstance->getAttributes() : [], false, $ttl, $userFp);
         }
         if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
             $rid = $request->getAttribute('quiote.rid');
@@ -493,19 +462,4 @@ class DispatchMiddleware implements MiddlewareInterface
         return $this->buildPsrResponse($ctx->content, $actionDesc->outputType, $execState->cacheHit, false, $ctx->redirect ?? null);
     }
     // runWithCaching & executeView removed with container elimination.
-
-    private function dbg($msg): void
-    {
-        if (!getenv('DM_DEBUG')) {
-            return;
-        }
-        if (!getenv('DM_DEBUG_VERBOSE')) {
-            foreach (['normalized single caching element', 'normalized cachings list', 'normalized views canonical', 'post-include config keys=', 'determined groups=', 'actionGroups=', 'view cacheability check', 'loaded action cache keys=', 'set view from action cache'] as $needle) {
-                if (str_contains((string) $msg, $needle)) {
-                    return;
-                }
-            }
-        }
-        @file_put_contents('/tmp/dispatch_mw_debug.log', '[' . getmypid() . '] ' . $msg . "\n", FILE_APPEND);
-    }
 }

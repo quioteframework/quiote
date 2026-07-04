@@ -47,7 +47,7 @@ trait PHPUnitTestCaseMethods
         }
         
         // Get the current test method
-        $methodName = $this->getName(false);
+        $methodName = $this->name();
         if ($methodName) {
             try {
                 $method = $reflector->getMethod($methodName);
@@ -99,7 +99,7 @@ trait PHPUnitTestCaseMethods
     
     /**
      * Parse docblock annotations
-     * @param \Reflection $reflection Reflection object
+     * @param \ReflectionClass|\ReflectionMethod $reflection Reflection object
      * @param array &$target Target array for annotations
      */
     private function parseDocBlockAnnotations($reflection, array &$target): void

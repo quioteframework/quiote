@@ -13,7 +13,7 @@ final class Toolkit
 {
 	/**
 	 * Determine if a filesystem path is absolute.
-	 * @param      path A filesystem path.
+	 * @param      string $path A filesystem path.
 	 * @return     bool true, if the path is absolute, otherwise false.
 	 * @since      1.0.0
 	 */
@@ -38,7 +38,7 @@ final class Toolkit
 
 	/**
 	 * Normalizes a path to contain only '/' as path delimiter.
-	 * @param      string The path to normalize.
+	 * @param      string $path The path to normalize.
 	 * @return     string The unified bool The mkdir return value.
 	 * @since      1.0.0
 	 */
@@ -50,10 +50,10 @@ final class Toolkit
 	/**
 	 * Creates a directory without sucking at permissions.
 	 * PHP mkdir() doesn't do what you tell it to, it takes umask into account.
-	 * @param      string   The path name.
-	 * @param      int      The mode. Really. Defaults to 0775.
-	 * @param      bool     Recursive or not.
-	 * @param      resource A Context.
+	 * @param      string $path The path name.
+	 * @param      int $mode The mode. Really. Defaults to 0775.
+	 * @param      bool $recursive Recursive or not.
+	 * @param      resource $context A Context.
 	 * @return     bool The mkdir return value.
 	 * @since      1.0.0
 	 */
@@ -76,9 +76,9 @@ final class Toolkit
 	/**
 	 * Returns the base for two strings (the part at the beginning of both which
 	 * is equal)
-	 * @param      string The base string.
-	 * @param      string The string which should be compared to the base string.
-	 * @param      int    The number of characters which are equal.
+	 * @param      string $baseString The base string.
+	 * @param      string $compString The string which should be compared to the base string.
+	 * @param      int $equalAmount The number of characters which are equal.
 	 * @return     string The equal part at the beginning of both strings.
 	 * @since      1.0.0
 	 */
@@ -98,7 +98,7 @@ final class Toolkit
 	 * Deletes a specified path in the cache dir recursively. If a folder is given
 	 * the contents of this folder and all sub-folders get erased, but not the
 	 * folder itself.
-	 * @param      string The path to remove
+	 * @param      string $path The path to remove
 	 * @since      1.0.0
 	 */
 	public static function clearCache($path = '')
@@ -158,8 +158,8 @@ final class Toolkit
 	/**
 	 * Returns the method from the given definition list matching the given
 	 * parameters.
-	 * @param      array  The definitions of the functions.
-	 * @param      array  The parameters which were passed to the function.
+	 * @param      array $definitions The definitions of the functions.
+	 * @param      array $parameters The parameters which were passed to the function.
 	 * @return     string The name of the function which matched.
 	 * @since      1.0.0
 	 */
@@ -204,8 +204,8 @@ final class Toolkit
 	/**
 	 * Expand variables in a string.
 	 * Variables can be in the form $foo, ${foo} or {$foo}.
-	 * @param      string The format string.
-	 * @param      array  The variables to use.
+	 * @param      string $string The format string.
+	 * @param      array $arguments The variables to use.
 	 * @since      1.0.0
 	 */
 	public static function expandVariables($string, array $arguments = [])
@@ -224,17 +224,17 @@ final class Toolkit
 		return str_replace($search, $arguments, $string);
 	}
 	
-	/**
-	 * Literalize a string value.
-	 * @param      string The value to literalize.
-	 * @return     string A literalized value.
-	 * @since      1.0.0
-	 */
 	private static array $boolLiterals = [
 		'on' => true, 'yes' => true, 'true' => true,
 		'off' => false, 'no' => false, 'false' => false,
 	];
 
+	/**
+	 * Literalize a string value.
+	 * @param      mixed $value The value to literalize.
+	 * @return     mixed A literalized value.
+	 * @since      1.0.0
+	 */
 	public static function literalize($value)
 	{
 		if(!is_string($value)) {
@@ -263,11 +263,11 @@ final class Toolkit
 	
 	/**
 	 * Replace configuration directive identifiers in a string.
-	 * @param      string The value on which to run the replacement procedure.
-	 * @return     string The new value.
+	 * @param      ?string $value The value on which to run the replacement procedure.
+	 * @return     ?string The new value.
 	 * @since      1.0.0
 	 */
-	public static function expandDirectives($value): array|string|null
+	public static function expandDirectives($value): ?string
 	{
 		if ($value === null) {
 			return null;
@@ -291,9 +291,9 @@ final class Toolkit
 	/**
 	 * This function takes the numerator and divides it through the denominator while
 	 * storing the remainder and returning the quotient.
-	 * @param      float The numerator.
-	 * @param      int   The denominator.
-	 * @param      int   The remainder.
+	 * @param      float $numerator The numerator.
+	 * @param      int $denominator The denominator.
+	 * @param      int $remainder The remainder.
 	 * @return     int   The floored quotient.
 	 * @since      1.0.0
 	 */
@@ -305,13 +305,13 @@ final class Toolkit
 		$quotient = floor($numerator / $denominator);
 		$remainder = (int) ($numerator - ($quotient * $denominator));
 
-		return $quotient;
+		return (int) $quotient;
 	}
 	
 	/**
 	 * Determines whether a port declaration is necessary in a URL authority.
-	 * @param      string The scheme (protocol identifier).
-	 * @param      int    The port.
+	 * @param      string $scheme The scheme (protocol identifier).
+	 * @param      int $port The port.
 	 * @return     bool True, if port must be included, otherwise false.
 	 * @since      1.0.0
 	 */
@@ -335,9 +335,9 @@ final class Toolkit
 	
 	/**
 	 * Tries to grab a value from the given array using the given list of keys.
-	 * @param      array The array to search in.
-	 * @param      array The list of keys.
-	 * @param      mixed A default return value, defaults to null.
+	 * @param      array $array The array to search in.
+	 * @param      array $keys The list of keys.
+	 * @param      mixed $default A default return value, defaults to null.
 	 * @return     mixed The found value, or the default value if nothing found.
 	 * @since      1.0.0
 	 */
@@ -353,7 +353,7 @@ final class Toolkit
 
 	/**
 	 * Checks if a value is not an array
-	 * @param      mixed The value to check
+	 * @param      mixed $value The value to check
 	 * @return     bool The result.
 	 * @since      1.0.0
 	 */
@@ -366,7 +366,7 @@ final class Toolkit
 	 * Generate a proper unique ID.
 	 * Uses PHP's uniqid(), but forces use of additional entropy. Without, it's
 	 * just the microtime in hex, and much slower than with entropy on Linux.
-	 * @param      string An optional prefix
+	 * @param      string $prefix An optional prefix
 	 * @return     string A properly unique ID
 	 * @since      1.0.0
 	 */
@@ -378,7 +378,7 @@ final class Toolkit
 	/**
 	 * Returns the canonical name for a dot-separated view/action/model name.
 	 * This method is idempotent.
-	 * @param      string The view/action/model name.
+	 * @param      string $name The view/action/model name.
 	 * @return     string The canonical name.
 	 * @since      1.0.0
 	 */

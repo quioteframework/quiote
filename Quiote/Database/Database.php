@@ -1,6 +1,8 @@
 <?php
 namespace Quiote\Database;
 
+use Quiote\Exception\DatabaseException;
+use Quiote\Exception\InitializationException;
 use Quiote\Util\ParameterHolder;
 use Symfony\Contracts\Service\ResetInterface;
 
@@ -13,17 +15,17 @@ use Symfony\Contracts\Service\ResetInterface;
 abstract class Database extends ParameterHolder implements ResetInterface
 {
 	/**
-	 * @var        DatabaseManager An DatabaseManager instance.
+	 * @var        ?DatabaseManager An DatabaseManager instance.
 	 */
 	protected $databaseManager = null;
-	
+
 	/**
 	 * @var        mixed A database connection.
 	 */
 	protected $connection = null;
 
 	/**
-	 * @var        string The name of the database.
+	 * @var        ?string The name of the database.
 	 */
 	private $name = null;
 
@@ -34,8 +36,7 @@ abstract class Database extends ParameterHolder implements ResetInterface
 
 	/**
 	 * Connect to the database.
-	 * @throws     <b>DatabaseException</b> If a connection could not be 
-	 *                                           created.
+	 * @throws     DatabaseException If a connection could not be created.
 	 * @since      1.0.0
 	 */
 	abstract protected function connect();
@@ -66,8 +67,7 @@ abstract class Database extends ParameterHolder implements ResetInterface
 	 * When this is executed on a Database implementation that isn't an
 	 * abstraction layer, a copy of the resource will be returned.
 	 * @return     mixed A database connection.
-	 * @throws     <b>DatabaseException</b> If a connection could not be 
-	 *                                           retrieved.
+	 * @throws     DatabaseException If a connection could not be retrieved.
 	 * @since      1.0.0
 	 */
 	public function getConnection()
@@ -95,7 +95,7 @@ abstract class Database extends ParameterHolder implements ResetInterface
 	 * Retrieve a raw database resource associated with this Database
 	 * implementation.
 	 * @return     mixed A database resource.
-	 * @throws     <b>DatabaseException</b> If no resource could be retrieved
+	 * @throws     DatabaseException If no resource could be retrieved
 	 * @since      1.0.0
 	 */
 	public function getResource()
@@ -109,9 +109,9 @@ abstract class Database extends ParameterHolder implements ResetInterface
 
 	/**
 	 * Initialize this Database.
-	 * @param      DatabaseManager The database manager of this instance.
-	 * @param      array                An assoc array of initialization params.
-	 * @throws     <b>InitializationException</b> If an error occurs while
+	 * @param      DatabaseManager $databaseManager The database manager of this instance.
+	 * @param      array $parameters An assoc array of initialization params.
+	 * @throws     InitializationException If an error occurs while
 	 *                                                 initializing this Database.
 	 * @since      1.0.0
 	 */
@@ -136,7 +136,7 @@ abstract class Database extends ParameterHolder implements ResetInterface
 
 	/**
 	 * Execute the shutdown procedure.
-	 * @throws     <b>DatabaseException</b> If an error occurs while shutting
+	 * @throws     DatabaseException If an error occurs while shutting
 	 *                                           down this database.
 	 * @since      1.0.0
 	 */

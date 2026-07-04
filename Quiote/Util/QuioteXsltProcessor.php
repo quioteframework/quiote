@@ -12,7 +12,7 @@ class QuioteXsltProcessor extends \XSLTProcessor
 {
 	/**
 	 * Import a stylesheet.
-	 * @param      DOMDocument The stylesheet to import.
+	 * @param      \DOMDocument $stylesheet The stylesheet to import.
 	 * @since      1.0.0
 	 */
 	public function importStylesheet($stylesheet): bool
@@ -47,8 +47,8 @@ class QuioteXsltProcessor extends \XSLTProcessor
 	
 	/**
 	 * Transform a node with a stylesheet.
-	 * @param      DOMNode The node to transform.
-	 * @return     DOMDocument The resulting DOMDocument.
+	 * @param      \DOMNode $doc The node to transform.
+	 * @return     object The resulting DOMDocument (or subclass of $doc's owner document).
 	 * @since      1.0.0
 	 */
 	public function transformToDoc($doc, $returnClass = null): false|object

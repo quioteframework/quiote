@@ -4,6 +4,7 @@ namespace Quiote\Validator\Compiler;
 use Quiote\Config\Config;
 use Quiote\Config\XmlConfigParser;
 use Quiote\Config\ValidatorConfigHandler;
+use Quiote\Support\Compiler\Diagnostic;
 use Quiote\Support\Compiler\EmittedArtifact;
 use Quiote\Validator\Compiler\Ir\ValidatorPlan;
 

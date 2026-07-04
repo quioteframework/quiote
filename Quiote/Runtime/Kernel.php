@@ -71,11 +71,11 @@ class Kernel
                 \Quiote\Telemetry\Trace::current()->recordException($e)->setStatusError($e->getMessage());
                 // Attempt unified error rendering via ErrorHandlingMiddleware helper.
                 try {
-                    $err = new ErrorHandlingMiddleware(function(\Throwable $ex, \Psr\Http\Message\ServerRequestInterface $r) use ($context): void {
+                    $err = new ErrorHandlingMiddleware(function(\Throwable $ex, \Psr\Http\Message\ServerRequestInterface $r): void {
                         \Quiote\Logging\Log::for($this)->debug('[Kernel][late] '.$ex::class.': '.$ex->getMessage());
                     });
                     // If original PSR request not built (rare), synthesize minimal one.
-                    if(!isset($request) || !$request) {
+                    if(!isset($request)) {
                         $psr17 = new \Nyholm\Psr7\Factory\Psr17Factory();
                         $request = $psr17->createServerRequest('GET', '/error');
                     }
@@ -148,7 +148,7 @@ class Kernel
                 'preserve_callback_pool' => true,
                 'reset_stats' => true,
             ]);
-            return new FrankenPhpWorkerAdapter($this->contextName);
+            return new FrankenPhpWorkerAdapter();
         }
         return new SingleRequestAdapter();
     }

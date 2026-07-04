@@ -23,7 +23,7 @@ class ArraylengthValidator extends Validator
 	 * Different to Validator::checkAllArgumentsSet() in that it will not
 	 * rely on the isValueEmpty() information from the respective request data
 	 * holder class, but instead pull the value and check if it is an array.
-	 * @param      bool Whether an error should be thrown for each missing 
+	 * @param      bool $throwError Whether an error should be thrown for each missing
 	 *                  argument if this validator is required.
 	 * @return     bool Whether the arguments are set.
 	 * @since      1.0.0

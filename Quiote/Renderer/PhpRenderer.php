@@ -18,35 +18,35 @@ class PhpRenderer extends Renderer implements IReusableRenderer, ResetInterface
 	protected $defaultExtension = '.php';
 	
 	/**
-	 * @var        TemplateLayer Temporary storage for the template layer,
+	 * @var        ?TemplateLayer Temporary storage for the template layer,
 	 *                                used during rendering.
 	 */
 	private $layer = null;
 	
 	/**
-	 * @var        array Temporary storage for the template layer, used during
+	 * @var        ?array Temporary storage for the template layer, used during
 	 *                   rendering.
 	 */
 	private $attributes = null;
 	
 	/**
-	 * @var        array Temporary storage for the template layer, used during
+	 * @var        ?array Temporary storage for the template layer, used during
 	 *                   rendering.
 	 */
 	private $slots = null;
 	
 	/**
-	 * @var        array Temporary storage for additional assigns, used during
+	 * @var        ?array Temporary storage for additional assigns, used during
 	 *                   rendering.
 	 */
 	private $moreAssigns = null;
 	
 	/**
 	 * Render the presentation and return the result.
-	 * @param      TemplateLayer The template layer to render.
-	 * @param      array              The template variables.
-	 * @param      array              The slots.
-	 * @param      array              Associative array of additional assigns.
+	 * @param      TemplateLayer $layer The template layer to render.
+	 * @param      array $attributes The template variables.
+	 * @param      array $slots The slots.
+	 * @param      array $moreAssigns Associative array of additional assigns.
 	 * @return     string A rendered result.
 	 * @since      1.0.0
 	 */
@@ -86,7 +86,7 @@ class PhpRenderer extends Renderer implements IReusableRenderer, ResetInterface
 		// Provide backwards-compatible template variables: ensure moduleName
 		// and actionName are present in the attributes array. These keys are
 		// expected by many templates (available as $t['moduleName'] etc).
-		$layerParams = $this->layer ? $this->layer->getParameters() : [];
+		$layerParams = $this->layer->getParameters();
 		if (!isset($this->attributes['moduleName']) && isset($layerParams['module'])) {
 			$this->attributes['moduleName'] = $layerParams['module'];
 		}
@@ -114,7 +114,7 @@ class PhpRenderer extends Renderer implements IReusableRenderer, ResetInterface
 		// contain the main content (combined layers/slots). Populate $inner from
 		// the attributes array if present to preserve backward compatibility.
 		$inner = null;
-		if (is_array($this->attributes) && array_key_exists('inner', $this->attributes)) {
+		if (array_key_exists('inner', $this->attributes)) {
 			$inner = $this->attributes['inner'];
 		}
 		try {

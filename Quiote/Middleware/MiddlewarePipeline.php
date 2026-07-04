@@ -103,7 +103,7 @@ class MiddlewarePipeline implements RequestHandlerInterface
             // in-tree, and needs no further change when they actually move to
             // their own package.
             $factories = [
-                ErrorHandlingMiddleware::class => fn() => new ErrorHandlingMiddleware(function (\Throwable $e, ServerRequestInterface $r) use ($context): void {
+                ErrorHandlingMiddleware::class => fn() => new ErrorHandlingMiddleware(function (\Throwable $e, ServerRequestInterface $r): void {
                     $first = $e->getFile() . ':' . $e->getLine();
                     $snippet = substr(str_replace("\n", ' | ', $e->getTraceAsString()), 0, 500);
                     \Quiote\Logging\Log::for($this)->error('[MiddlewarePipeline] ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $first . ' trace=' . $snippet);
@@ -120,7 +120,7 @@ class MiddlewarePipeline implements RequestHandlerInterface
                 TimingMiddleware::class => fn() => new TimingMiddleware(false),
                 TraceMiddleware::class => fn() => new TraceMiddleware(false),
                 PayloadParsingMiddleware::class => fn() => new PayloadParsingMiddleware(),
-                ContentNegotiationMiddleware::class => fn() => new ContentNegotiationMiddleware($controller),
+                ContentNegotiationMiddleware::class => fn() => new ContentNegotiationMiddleware(),
                 RoutingMiddleware::class => fn() => new RoutingMiddleware($routing, $controller),
                 OutputTypeSyncMiddleware::class => fn() => new OutputTypeSyncMiddleware($controller),
                 SecurityMiddleware::class => fn() => new SecurityMiddleware($controller),
@@ -210,7 +210,8 @@ class MiddlewarePipeline implements RequestHandlerInterface
 
     /**
      * Insert externally registered middleware into the stack at their requested positions.
-     * @param list<\Psr\Http\Server\MiddlewareInterface> &$stack
+     * @param non-empty-list<\Psr\Http\Server\MiddlewareInterface> &$stack
+     * @param-out non-empty-list<\Psr\Http\Server\MiddlewareInterface> $stack
      */
     private function insertRegistered(array &$stack): void
     {
@@ -235,6 +236,13 @@ class MiddlewarePipeline implements RequestHandlerInterface
             // plugin's MiddlewareCatalog::register() factory build a per-context
             // middleware without capturing anything at plugin-registration time.
             $mw = ($entry['factory'])($this->context);
+            if (!$mw instanceof \Psr\Http\Server\MiddlewareInterface) {
+                throw new \Quiote\Exception\QuioteException(sprintf(
+                    'Middleware factory for "%s" must return an instance of %s.',
+                    $entry['fqcn'],
+                    \Psr\Http\Server\MiddlewareInterface::class,
+                ));
+            }
             if ($spanEachMiddleware) {
                 $mw = new \Quiote\Telemetry\MiddlewareSpanDecorator($mw, $entry['fqcn']);
             }

@@ -16,7 +16,7 @@ use Symfony\Contracts\Service\ResetInterface;
 class QuioteLocale extends ParameterHolder implements ResetInterface
 {
 	/**
-	 * @var        Context An Context instance.
+	 * @var        ?Context An Context instance.
 	 */
 	protected $context = null;
 
@@ -26,16 +26,16 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	protected $data = [];
 
 	/**
-	 * @var        string The identifier of this locale.
+	 * @var        ?string The identifier of this locale.
 	 */
 	protected $identifier = null;
 
 	/**
 	 * Returns the locale option string containing the timezone option set 
 	 * to the timezone of this calendar.
-	* @param      \DateTimeInterface|\DateTimeZone|string|int The item to determine the timezone
+	* @param      \DateTimeInterface|\DateTimeZone|string|int $item The item to determine the timezone
 	 *                                        from
-	 * @param      string The prefix which will be applied to the timezone option
+	 * @param      string $prefix The prefix which will be applied to the timezone option
 	 *                    string. Use ';' here if you intend to use several 
 	 *                    locale options and append the result of this method
 	 *                    to your locale string.
@@ -69,10 +69,10 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 
 	/**
 	 * Initialize this Locale.
-	 * @param      Context The current application context.
-	 * @param      array        An associative array of initialization parameters.
-	 * @param      string       The identifier of the locale
-	 * @param      array        The locale data.
+	 * @param      Context $context The current application context.
+	 * @param      array $parameters An associative array of initialization parameters.
+	 * @param      string $identifier The identifier of the locale
+	 * @param      array $data The locale data.
 	 * @since      1.0.0
 	 */
 	public function initialize(Context $context, array $parameters = [], $identifier = null, array $data = [])
@@ -112,9 +112,9 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 			return $this->data['locale']['language'];
 		}
 
-		if(class_exists(QuioteLocale::class)) {
+		if(class_exists(Locale::class)) {
 			try {
-				return QuioteLocale::getPrimaryLanguage($this->getBaseLocaleIdentifier()) ?: null;
+				return Locale::getPrimaryLanguage($this->getBaseLocaleIdentifier()) ?: null;
 			} catch(\Throwable) {
 			}
 		}
@@ -128,9 +128,9 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 			return $this->data['locale']['territory'];
 		}
 
-		if(class_exists(QuioteLocale::class)) {
+		if(class_exists(Locale::class)) {
 			try {
-				$region = QuioteLocale::getRegion($this->getBaseLocaleIdentifier());
+				$region = Locale::getRegion($this->getBaseLocaleIdentifier());
 				return $region !== '' ? $region : null;
 			} catch(\Throwable) {
 			}
@@ -145,9 +145,9 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 			return $this->data['locale']['script'];
 		}
 
-		if(class_exists(QuioteLocale::class)) {
+		if(class_exists(Locale::class)) {
 			try {
-				$script = QuioteLocale::getScript($this->getBaseLocaleIdentifier());
+				$script = Locale::getScript($this->getBaseLocaleIdentifier());
 				if($script === '') {
 					$parts = $this->getParsedLocaleParts();
 					$script = $parts['script'] ?? '';
@@ -201,7 +201,7 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 			try {
 				$formatter = new NumberFormatter($this->getBaseLocaleIdentifier(), NumberFormatter::CURRENCY);
 				$code = $formatter->getTextAttribute(NumberFormatter::CURRENCY_CODE);
-				if(is_string($code) && $code !== '') {
+				if($code !== '') {
 					return $code;
 				}
 			} catch(\Throwable) {
@@ -233,9 +233,9 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 		static $cache = [];
 		$key = $this->getBaseLocaleIdentifier();
 		if(!isset($cache[$key])) {
-			if(class_exists(QuioteLocale::class)) {
+			if(class_exists(Locale::class)) {
 				try {
-					$cache[$key] = QuioteLocale::parseLocale($key) ?: [];
+					$cache[$key] = Locale::parseLocale($key) ?: [];
 				} catch(\Throwable) {
 					$cache[$key] = [];
 				}
@@ -785,7 +785,7 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 
 	/**
 	 * Parses a locale identifier and returns its parts.
-	 * @param      string The locale identifier.
+	 * @param      string $identifier The locale identifier.
 	 * @return     array The parts of the identifier
 	 * @since      1.0.0
 	 */
@@ -853,7 +853,7 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	/**
 	 * Returns all file names which need to be considered for the given 
 	 * identifier. 
-	 * @param      mixed The locale identifier or the result of 
+	 * @param      mixed $localeIdentifier The locale identifier or the result of 
 	 *                   QuioteLocale::parseLocaleIdentifier
 	 * @return     array The filenames.
 	 * @since      1.0.0

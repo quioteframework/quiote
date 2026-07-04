@@ -36,7 +36,7 @@ abstract class OperatorValidator extends Validator implements IValidatorContaine
 	 * validators so they implement an algorithm that checks of the setup
 	 * is valid. This method is run first when execute() is invoked and
 	 * should throw an exception if the setup is invalid.
-	 * @throws     <b>ValidatorException</b> If the  quantity of child 
+	 * @throws     \Quiote\Exception\ValidatorException If the  quantity of child
 	 *                                           validators is invalid
 	 * @since      1.0.0
 	 */
@@ -58,24 +58,27 @@ abstract class OperatorValidator extends Validator implements IValidatorContaine
 
 	/**
      * Adds a validation result for a given field.
-     * @param      Validator The validator.
-     * @param      string The name of the field which has been validated.
-     * @param      int    The result of the validation.
+     * @param      Validator $validator The validator.
+     * @param      string $fieldname The name of the field which has been validated.
+     * @param      int $result The result of the validation.
      * @since      1.0.0
      */
     #[\Deprecated(message: '1.0.0')]
     public function addFieldResult($validator, $fieldname, $result)
 	{
-		if($this->parentContainer !== null) {
+		// IValidatorContainer does not declare addFieldResult() (it's a
+		// deprecated, legacy method some containers still implement), so
+		// this cannot be called through the interface type alone.
+		if($this->parentContainer !== null && method_exists($this->parentContainer, 'addFieldResult')) {
 			return $this->parentContainer->addFieldResult($validator, $fieldname, $result);
 		}
 	}
 
 	/**
 	 * Adds a intermediate result of an validator for the given argument
-	 * @param      ValidationArgument The argument
-	 * @param      int                     The arguments result.
-	 * @param      Validator          The validator (if the error was caused
+	 * @param      ValidationArgument $argument The argument
+	 * @param      int $result The arguments result.
+	 * @param      Validator $validator The validator (if the error was caused
 	 *                                     inside a validator).
 	 * @since      1.0.0
 	 */
@@ -88,7 +91,7 @@ abstract class OperatorValidator extends Validator implements IValidatorContaine
 
 	/**
 	 * Adds an incident to the validation result. 
-	 * @param      ValidationIncident The incident.
+	 * @param      ValidationIncident $incident The incident.
 	 * @since      1.0.0
 	 */
 	public function addIncident(ValidationIncident $incident)
@@ -100,7 +103,7 @@ abstract class OperatorValidator extends Validator implements IValidatorContaine
 
 	/**
 	 * Adds new child validator.
-	 * @param      Validator The new child validator.
+	 * @param      Validator $validator The new child validator.
 	 * @since      1.0.0
 	 */
 	public function addChild(Validator $validator)
@@ -116,7 +119,7 @@ abstract class OperatorValidator extends Validator implements IValidatorContaine
 
 	/**
 	 * Returns a named child validator.
-	 * @param      Validator The child validator.
+	 * @param      string $name The name of the child validator.
 	 * @since      1.0.0
 	 */
 	public function getChild($name)
@@ -140,7 +143,7 @@ abstract class OperatorValidator extends Validator implements IValidatorContaine
 
 	/**
 	 * Registers an array of validators.
-	 * @param      array The array of validators.
+	 * @param      array $validators The array of validators.
 	 * @since      1.0.0
 	 */
 	public function registerValidators(array $validators)
@@ -175,7 +178,7 @@ abstract class OperatorValidator extends Validator implements IValidatorContaine
 	 * Executes the validator.
 	 * Executes the operators validate()-Method after checking the quantity
 	 * of child validators with checkValidSetup().
-	 * @param      WebRequest The parameters which should be validated.
+	 * @param      WebRequest $parameters The parameters which should be validated.
 	 * @return     int The result of validation (SUCCESS, NONE, NOTICE, ERROR, CRITICAL).
 	 * @since      1.0.0
 	 */
@@ -202,11 +205,10 @@ abstract class OperatorValidator extends Validator implements IValidatorContaine
 	#[\Override]
     public function reset() : void
 	{
-		$this->children = [];
-		$this->result = Validator::SUCCESS;
 		foreach($this->children as $child) {
 			$child->reset();
 		}
-		
+		$this->children = [];
+		$this->result = Validator::SUCCESS;
 	}
 }

@@ -14,7 +14,7 @@ use Symfony\Contracts\Service\ResetInterface;
 class RoutingValue implements IRoutingValue, ResetInterface
 {
 	protected $context;
-	protected $contextName;
+	protected final $contextName;
 	protected $prefix;
 	protected $postfix;
 	protected $prefixNeedsEncoding = false;
@@ -31,11 +31,11 @@ class RoutingValue implements IRoutingValue, ResetInterface
 	
 	/**
 	 * Constructor.
-	 * @param      mixed The value.
-	 * @param      bool  Whether or not the value needs encoding.
+	 * @param      mixed $value The value.
+	 * @param      bool $valueNeedsEncoding Whether or not the value needs encoding.
 	 * @since      1.0.0
 	 */
-	public function __construct(protected $value, protected $valueNeedsEncoding = true)
+	public function __construct(protected final $value, protected final $valueNeedsEncoding = true)
     {
     }
 	
@@ -67,8 +67,8 @@ class RoutingValue implements IRoutingValue, ResetInterface
 	
 	/**
 	 * Initialize the routing value.
-	 * @param      Context The Context.
-	 * @param      array        An array of initialization parameters.
+	 * @param      Context $context The Context.
+	 * @param      array $parameters An array of initialization parameters.
 	 * @since      1.0.0
 	 */
 	public function initialize(Context $context, array $parameters = [])
@@ -78,7 +78,7 @@ class RoutingValue implements IRoutingValue, ResetInterface
 	
 	/**
 	 * Set the value.
-	 * @param      mixed The value.
+	 * @param      mixed $value The value.
 	 * @since      1.0.0
 	 */
 	public function setValue($value)
@@ -89,7 +89,7 @@ class RoutingValue implements IRoutingValue, ResetInterface
 	
 	/**
 	 * Retrieve the value.
-	 * @param      mixed The value.
+	 * @return     mixed The value.
 	 * @since      1.0.0
 	 */
 	public function getValue()
@@ -99,7 +99,7 @@ class RoutingValue implements IRoutingValue, ResetInterface
 	
 	/**
 	 * Set the prefix.
-	 * @param      string The prefix.
+	 * @param      string $value The prefix.
 	 * @since      1.0.0
 	 */
 	public function setPrefix($value)
@@ -130,7 +130,7 @@ class RoutingValue implements IRoutingValue, ResetInterface
 	
 	/**
 	 * Set the postfix.
-	 * @param      string The postfix.
+	 * @param      string $value The postfix.
 	 * @since      1.0.0
 	 */
 	public function setPostfix($value)
@@ -161,7 +161,7 @@ class RoutingValue implements IRoutingValue, ResetInterface
 	
 	/**
 	 * Set whether or not the value needs to be encoded.
-	 * @param      bool True, if the postfix needs encoding, false otherwise.
+	 * @param      bool $needsEncoding True, if the postfix needs encoding, false otherwise.
 	 * @since      1.0.0
 	 */
 	public function setValueNeedsEncoding($needsEncoding)
@@ -182,7 +182,7 @@ class RoutingValue implements IRoutingValue, ResetInterface
 	
 	/**
 	 * Set whether or not the prefix needs to be encoded.
-	 * @param      bool True, if the prefix needs encoding, false otherwise.
+	 * @param      bool $needsEncoding True, if the prefix needs encoding, false otherwise.
 	 * @since      1.0.0
 	 */
 	public function setPrefixNeedsEncoding($needsEncoding)
@@ -203,7 +203,7 @@ class RoutingValue implements IRoutingValue, ResetInterface
 	
 	/**
 	 * Set whether or not the postfix needs to be encoded.
-	 * @param      bool True, if the postfix needs encoding, false otherwise.
+	 * @param      bool $needsEncoding True, if the postfix needs encoding, false otherwise.
 	 * @since      1.0.0
 	 */
 	public function setPostfixNeedsEncoding($needsEncoding)
@@ -224,7 +224,7 @@ class RoutingValue implements IRoutingValue, ResetInterface
 	
 	/**
 	 * Check if this routing value is equal to the given parameter.
-	 * @param      mixed The value to compare $this against.
+	 * @param      mixed $other The value to compare $this against.
 	 * @return     bool Whether the value matches $this.
 	 * @since      1.0.0
 	 */
@@ -241,7 +241,7 @@ class RoutingValue implements IRoutingValue, ResetInterface
 	
 	/**
 	 * ArrayAccess method for isset().
-	 * @param      mixed The offset.
+	 * @param      mixed $offset The offset.
 	 * @return     bool Whether or not the given offset exists.
 	 * @since      1.0.0
 	 */
@@ -252,7 +252,7 @@ class RoutingValue implements IRoutingValue, ResetInterface
 	
 	/**
 	 * ArrayAccess method for getting a value.
-	 * @param      mixed The offset.
+	 * @param      mixed $offset The offset.
 	 * @return     mixed The value, nor null if the value does not exist.
 	 * @since      1.0.0
 	 */
@@ -266,8 +266,8 @@ class RoutingValue implements IRoutingValue, ResetInterface
 	
 	/**
 	 * ArrayAccess method for setting a value.
-	 * @param      mixed The offset.
-	 * @param      mixed The value.
+	 * @param      mixed $offset The offset.
+	 * @param      mixed $value The value.
 	 * @since      1.0.0
 	 */
 	public function offsetSet($offset, $value): void
@@ -279,7 +279,7 @@ class RoutingValue implements IRoutingValue, ResetInterface
 	
 	/**
 	 * ArrayAccess method for unset().
-	 * @param      mixed The offset.
+	 * @param      mixed $offset The offset.
 	 * @since      1.0.0
 	 */
 	public function offsetUnset($offset): void
