@@ -32,8 +32,8 @@ final class McpEndpointMiddlewarePassthroughHandler implements RequestHandlerInt
 }
 
 /**
- * The Streamable-HTTP transport middleware (docs/MCP_SERVER_PLAN.md §5.1):
- * path matching, the `mcp.enabled` gate, and a real POST /mcp round trip
+ * The Streamable-HTTP transport middleware: path matching, the
+ * `mcp.enabled` gate, and a real POST /mcp round trip
  * driven through McpServer::handleHttp() -> a real `Mcp\Server`.
  */
 final class McpEndpointMiddlewareTest extends PhpUnitTestCase

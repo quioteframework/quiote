@@ -6,9 +6,9 @@ namespace Quiote\Plugin;
  * A Quiote plugin: a self-contained bundle that contributes to the framework
  * through the seams that already exist (config defaults, DI services,
  * middleware, event listeners, routes/modules, output types, commands, HTTP
- * clients) via a single {@see register()} lifecycle call. See
- * docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md — this is the mechanism the framework's
- * "unopinionated core + opinionated drop-ins" philosophy is built on.
+ * clients) via a single {@see register()} lifecycle call — this is the
+ * mechanism the framework's "unopinionated core + opinionated drop-ins"
+ * philosophy is built on.
  *
  * Plugins are registered either programmatically ({@see PluginManager::add()}
  * before bootstrap) or declaratively via the `plugins` config key (a list of

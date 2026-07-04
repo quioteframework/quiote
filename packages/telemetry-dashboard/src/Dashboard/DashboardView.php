@@ -14,20 +14,17 @@ use Symfony\Component\Tui\Widget\TextWidget;
  * Pure state -> widget-tree builder for the dashboard's live view: no I/O, no
  * `symfony/tui` runtime calls (`Tui::add()`/`requestRender()` etc.) -- only
  * this class and {@see TelemetryDashboardCommand} touch `Symfony\Component\Tui\*`
- * directly, containing the experimental package's surface to two files (see
- * docs/TELEMETRY_DASHBOARD_PLAN.md's dependency rationale). Being pure also
- * makes it trivially testable: feed it a `DashboardSnapshot`, assert on the
- * text the returned widget tree renders, no terminal required.
+ * directly, containing the experimental package's surface to two files. Being
+ * pure also makes it trivially testable: feed it a `DashboardSnapshot`,
+ * assert on the text the returned widget tree renders, no terminal required.
  *
  * `symfony/tui` has no Chart/Sparkline/Gauge/Table widgets -- {@see Spark}
  * and {@see Bars} stand in for the first two, and route/recent-request rows
- * are hand-aligned text for the third (see the plan doc's "Widget reality
- * check"). Every string that ultimately originates from telemetry data (span
- * names, status messages, route labels) is passed through
- * {@see TextSanitizer} before reaching a `TextWidget`, since that widget
- * renders raw ANSI passthrough and an instrumented app's telemetry export is
- * not a trusted input source (see docs/TELEMETRY_DASHBOARD_PLAN.md's Phase 0
- * findings).
+ * are hand-aligned text for the third. Every string that ultimately
+ * originates from telemetry data (span names, status messages, route labels)
+ * is passed through {@see TextSanitizer} before reaching a `TextWidget`,
+ * since that widget renders raw ANSI passthrough and an instrumented app's
+ * telemetry export is not a trusted input source.
  */
 final class DashboardView
 {
@@ -325,8 +322,7 @@ final class DashboardView
      * `http.response.status_code` is genuinely absent on the root span for
      * an unhandled exception (`TelemetryMiddleware` records Error status via
      * `recordException()`/`setStatusError()` before any response exists to
-     * read a status code from -- see docs/OPENTELEMETRY_PLAN.md Phase 3's
-     * exception-recording notes) -- rendering the raw `0` there reads as a
+     * read a status code from) -- rendering the raw `0` there reads as a
      * wrong/successful status rather than "no code was ever recorded".
      * Confirmed against the real sample app's `/boom` action, not
      * hypothesized: a live end-to-end run showed exactly this `0`.

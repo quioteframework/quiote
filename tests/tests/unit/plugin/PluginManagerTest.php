@@ -15,7 +15,7 @@ use Quiote\Plugin\PluginRegistrar;
 /**
  * The plugin lifecycle: registration (programmatic + via the `plugins` config
  * key), each contribution kind routing to its seam, override/ordering rules,
- * dedup, and idempotency. See docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md.
+ * dedup, and idempotency.
  */
 class PluginManagerTest extends TestCase
 {

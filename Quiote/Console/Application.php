@@ -12,9 +12,8 @@ use Symfony\Component\Console\Application as SymfonyApplication;
  * The `quiote` CLI. `new` is pre-bootstrap (it scaffolds an app from
  * nothing, so there is no Quiote\Context to build yet); `about` and
  * `routes:list` bootstrap an existing app via AbstractAppCommand's app-dir
- * resolution + Quiote::bootstrap() wiring -- see
- * docs/ROUTING_AND_CLI_PLAN.md (B1-B3). `telemetry:dashboard` now lives in
- * its own package, `packages/telemetry-dashboard/` (docs/MONOREPO_SPLIT_PLAN.md),
+ * resolution + Quiote::bootstrap() wiring. `telemetry:dashboard` now lives in
+ * its own package, `packages/telemetry-dashboard/`,
  * and is only registered when that package (and therefore `symfony/tui`) is
  * actually installed -- a production install without it simply doesn't offer
  * the command, mirroring how the `open-telemetry/*` packages are optional
@@ -22,8 +21,7 @@ use Symfony\Component\Console\Application as SymfonyApplication;
  * plugin-command-contribution seam) because `bin/quiote` builds this
  * `Application` before any `Quiote::bootstrap()` call -- a plugin-contributed
  * command would only appear once a bootstrap had already run in the same
- * process (see docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md's "Command contribution
- * boundary"), which would silently break `bin/quiote telemetry:dashboard`
+ * process, which would silently break `bin/quiote telemetry:dashboard`
  * used standalone.
  * @since      1.0.0
  */
@@ -46,7 +44,7 @@ final class Application extends SymfonyApplication
 	 * Register console commands contributed by plugins via
 	 * {@see \Quiote\Plugin\PluginRegistrar::command()}. Idempotent: safe to call
 	 * again after a bootstrap has populated the registry (each command is only
-	 * added once). Note the boundary in docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md —
+	 * added once). Note the boundary:
 	 * `bin/quiote` builds this Application before any bootstrap, so plugin
 	 * commands appear only once a bootstrap has run in the same process (e.g. a
 	 * programmatic `new Application()` after `Quiote::bootstrap()`).

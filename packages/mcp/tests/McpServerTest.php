@@ -61,8 +61,8 @@ final class RecordingInMemoryTransport extends InMemoryTransport
 /**
  * Builds a real `Mcp\Server` from the catalog + drives a full JSON-RPC
  * initialize -> tools/call round trip over {@see InMemoryTransport}, proving
- * the facade (docs/MCP_SERVER_PLAN.md §4) actually wires a registered tool
- * through Quiote's own DI container end to end.
+ * the facade actually wires a registered tool through Quiote's own DI
+ * container end to end.
  */
 final class McpServerTest extends TestCase
 {

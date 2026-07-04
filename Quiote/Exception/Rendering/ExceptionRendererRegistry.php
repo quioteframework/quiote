@@ -10,7 +10,7 @@ namespace Quiote\Exception\Rendering;
  * {@see \Quiote\Middleware\MiddlewareCatalog}.
  *
  * This exists so core never hard-references a concrete renderer class (e.g.
- * {@see WhoopsRenderer}) directly — see docs/PLUGIN_EXTRACTION_PLAN.md §2.4.
+ * {@see WhoopsRenderer}) directly.
  * A plugin contributes a renderer via
  * {@see \Quiote\Plugin\PluginRegistrar::developerExceptionRenderer()}; first
  * registration wins (set-if-absent), matching the override rule every other

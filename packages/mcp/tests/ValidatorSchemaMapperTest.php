@@ -15,8 +15,8 @@ use Quiote\Validator\StringValidator;
 
 /**
  * ValidatorSchemaMapper maps the validator IR (ValidatorPlan/ValidatorNode) to
- * a JSON Schema for an action-as-tool's input (docs/MCP_SERVER_PLAN.md §7).
- * Exercised against hand-built IR nodes -- no XML parse, no bootstrap -- so
+ * a JSON Schema for an action-as-tool's input. Exercised against hand-built
+ * IR nodes -- no XML parse, no bootstrap -- so
  * this covers the mapping logic in isolation from discovery/dispatch.
  */
 final class ValidatorSchemaMapperTest extends TestCase

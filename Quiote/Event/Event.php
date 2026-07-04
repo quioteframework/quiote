@@ -13,7 +13,7 @@ namespace Quiote\Event;
  * models the HTTP request/response lifecycle, events model framework/domain
  * moments (kernel boot, route matched, action before/after, response sending)
  * that plugins and app code hook into without inserting themselves into the
- * PSR-15 stack. See docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md.
+ * PSR-15 stack.
  */
 abstract class Event
 {

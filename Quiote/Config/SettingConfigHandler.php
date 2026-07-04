@@ -6,7 +6,7 @@ use Quiote\Config\Util\DOM\XmlConfigDomDocument;
 /**
  * SettingConfigHandler handles the settings.xml file.
  *
- * Pilot migration for docs/CONFIG_SYSTEM_REWRITE_PLAN.md phase 2: the
+ * Pilot migration (phase 2): the
  * actual compilation logic (executeArray()) now consumes a plain array
  * instead of walking the DOM directly, so the exact same logic compiles a
  * settings.php or settings.yaml file too (via

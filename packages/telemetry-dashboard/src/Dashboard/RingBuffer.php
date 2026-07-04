@@ -8,8 +8,7 @@ namespace Quiote\Telemetry\Dashboard;
  * pruned on every {@see record()} call, so memory is bounded by
  * `$windowSeconds` regardless of how long the dashboard runs or how much
  * traffic it observes -- the same "no unbounded retention across a long run"
- * discipline `docs/OPENTELEMETRY_PLAN.md` Phase 2 holds for span/metric
- * providers.
+ * discipline the telemetry span/metric providers hold to.
  *
  * Deliberately takes the current second as a parameter rather than reading
  * the clock itself, so it is fully deterministic and unit-testable without

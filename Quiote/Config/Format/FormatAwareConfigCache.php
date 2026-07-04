@@ -9,9 +9,8 @@ use Quiote\Exception\UnreadableException;
 use Quiote\Util\Toolkit;
 
 /**
- * Extension-agnostic sibling of ConfigCache::checkConfig() (see
- * docs/CONFIG_SYSTEM_REWRITE_PLAN.md phase 3): given a base path with NO
- * extension, resolves whichever of .php/.yaml/.yml/.xml actually exists
+ * Extension-agnostic sibling of ConfigCache::checkConfig() (phase 3):
+ * given a base path with NO extension, resolves whichever of .php/.yaml/.yml/.xml actually exists
  * (via FormatDriverRegistry::locate(), priority PHP > YAML > XML),
  * compiles it through the given handler's array contract, and reuses
  * ConfigCache's own cache-naming/staleness/write primitives so the

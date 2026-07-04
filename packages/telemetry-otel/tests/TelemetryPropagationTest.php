@@ -15,11 +15,11 @@ use Quiote\Telemetry\Psr7HeaderGetter;
 use Quiote\Telemetry\TelemetryBootstrap;
 
 /**
- * Phase 7 tests for inbound W3C trace-context propagation and log/trace
- * correlation: the plan's exact acceptance criteria — "an inbound traceparent
- * produces spans whose parent is the upstream span" and "every log line
- * during a request carries the same trace_id as that request's root span,"
- * including the specific claim that this holds even for a sampled-out span.
+ * Tests for inbound W3C trace-context propagation and log/trace correlation:
+ * "an inbound traceparent produces spans whose parent is the upstream span"
+ * and "every log line during a request carries the same trace_id as that
+ * request's root span," including the specific claim that this holds even
+ * for a sampled-out span.
  */
 class TelemetryPropagationTest extends TestCase
 {

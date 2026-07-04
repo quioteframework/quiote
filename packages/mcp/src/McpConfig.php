@@ -5,7 +5,7 @@ namespace Quiote\Mcp;
 use Quiote\Config\Config;
 
 /**
- * Typed snapshot of the `mcp.*` settings family (see docs/MCP_SERVER_PLAN.md §11).
+ * Typed snapshot of the `mcp.*` settings family.
  * Defaults here are read as fallbacks only — {@see McpPlugin} is what actually
  * publishes them into {@see Config} via `configDefault()`, so an app that adds
  * `McpPlugin` to its `plugins` key without further configuration still gets a

@@ -8,7 +8,7 @@ use Quiote\Config\TestSuitesConfigHandler;
 /**
  * Proves a PHP-array file compiles through RbacDefinitionConfigHandler and
  * TestSuitesConfigHandler exactly like the XML equivalents do -- third and
- * fourth handlers migrated per docs/CONFIG_SYSTEM_REWRITE_PLAN.md phase 2.
+ * fourth handlers migrated, phase 2.
  */
 class RbacAndTestSuitesFormatDriverTest extends PhpUnitTestCase
 {

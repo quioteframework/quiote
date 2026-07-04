@@ -13,8 +13,8 @@ use Quiote\Mcp\Auth\McpAuthenticatorInterface;
 use Quiote\Mcp\McpConfig;
 
 /**
- * Bearer-token auth for the MCP HTTP endpoint (docs/MCP_SERVER_PLAN.md §10,
- * Phase A). Registered by {@see \Quiote\Mcp\McpPlugin} immediately *before*
+ * Bearer-token auth for the MCP HTTP endpoint. Registered by
+ * {@see \Quiote\Mcp\McpPlugin} immediately *before*
  * {@see McpEndpointMiddleware} -- only when the "http" transport is enabled
  * and `mcp.auth` isn't `'none'` -- so an invalid/missing token never reaches
  * the SDK server at all. The actual validation is delegated to a

@@ -8,8 +8,7 @@ declare(strict_types=1);
  * concurrent requests -- so `quiote telemetry:dashboard` (or any other
  * OTLP-consuming tool pointed at the app) has something live to show.
  * Deliberately dependency-free (curl only, no Composer autoload): this is a
- * standalone script, not part of the framework or its test suite. See
- * docs/TELEMETRY_DASHBOARD_PLAN.md, Phase 5.
+ * standalone script, not part of the framework or its test suite.
  */
 
 $options = getopt('', [

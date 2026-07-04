@@ -19,8 +19,6 @@ use Quiote\Exception\DatabaseException;
  *
  * Only `pdo` ships in core (the one always-available driver). ORM adapters
  * register their own aliases from their plugin.
- *
- * @see docs/DATABASE_ADAPTERS_PLAN.md §7.1
  */
 final class DatabaseDriverRegistry
 {

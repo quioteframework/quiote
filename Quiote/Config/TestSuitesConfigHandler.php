@@ -7,8 +7,8 @@ use Quiote\Config\Util\DOM\XmlConfigDomDocument;
  * TestSuitesConfigHandler reads the testsuites configuration files to determine
  * the available suites and their tests.
  *
- * Migrated to IArrayConfigHandler (docs/CONFIG_SYSTEM_REWRITE_PLAN.md
- * phase 2). Canonical schema, already exactly what execute() built inline:
+ * Migrated to IArrayConfigHandler (phase 2). Canonical schema, already
+ * exactly what execute() built inline:
  *   ['suite_name' => ['class' => ..., 'base' => ..., 'includes' => [...],
  *                      'excludes' => [...], 'testfiles' => [...]]]
  * @since      1.0.0

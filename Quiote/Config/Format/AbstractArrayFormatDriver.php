@@ -17,7 +17,7 @@ use Quiote\Util\Toolkit;
  * needs environment-conditional values in a PHP-array file can already
  * express that directly (`Config::get('core.environment') === 'test'`
  * inside the returned array's construction) -- that's a deliberate scope
- * limit, not an oversight; see docs/CONFIG_SYSTEM_REWRITE_PLAN.md phase 1.
+ * limit, not an oversight.
  * @since      1.0.0
  */
 abstract class AbstractArrayFormatDriver implements FormatDriverInterface

@@ -15,7 +15,7 @@ use Symfony\Component\Console\Input\InputOption;
  * Base for commands that need a bootstrapped Quiote application (as opposed
  * to `new`, which is deliberately pre-bootstrap -- see NewCommand). Adds the
  * `--app-dir`/`--env` options and the app-dir resolution + Quiote::bootstrap()
- * wiring described in docs/ROUTING_AND_CLI_PLAN.md (B1). App-dir/env
+ * wiring. App-dir/env
  * resolution itself is {@see AppDirResolver} (shared with `bin/quiote`'s
  * best-effort pre-bootstrap).
  *

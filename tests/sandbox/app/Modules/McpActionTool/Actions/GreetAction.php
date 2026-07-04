@@ -8,8 +8,7 @@ use Quiote\Action\Action;
 use Quiote\Routing\Attribute\Route;
 
 /**
- * Test-only fixture for the actions-as-tools bridge (docs/MCP_SERVER_PLAN.md
- * §7): an ordinary #[Route] action additionally carrying the SDK's own
+ * Test-only fixture for the actions-as-tools bridge: an ordinary #[Route] action additionally carrying the SDK's own
  * #[McpTool] attribute, exercised by ActionToolScannerTest/ActionToolAdapterTest
  * via the "mcp-action-tool-test" context (Config/factories.xml), whose routing
  * (Quiote\Routing\AttributeRouting) scans only #[Route]-attributed classes --

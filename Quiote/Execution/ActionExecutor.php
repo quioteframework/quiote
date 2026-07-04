@@ -20,13 +20,13 @@ use Quiote\Request\WebRequest;
 
 /**
  * ActionExecutor: container-less execution of an action+view producing ActionExecutionContext.
- * Phase 1 scope (incremental):
+ * Current scope (incremental):
  * - Security + validation (optional) via services when enabled.
  * - Simple actions: execute() method.
  * - Non-simple actions: use ActionResolver for method dispatch.
  * - View resolution via ViewNameResolver (pure).
  * - View initialization via legacy container (temporary) if needed until ViewFactory extracted.
- * Future phases will remove any dependency on containers entirely.
+ * Future work will remove any dependency on containers entirely.
  */
 final class ActionExecutor
 {
@@ -166,8 +166,8 @@ final class ActionExecutor
             $logger->debug('[ActionExecutor] start ' . $desc->module . ':' . $desc->action . ' method=' . $desc->method . ' output=' . $desc->outputType);
         }
 
-        // Action span (telemetry.spans.action, default true — docs/OPENTELEMETRY_PLAN.md,
-        // Phase 6). Not created at all (not even as a no-op wrap) when the
+        // Action span (telemetry.spans.action, default true). Not
+        // created at all (not even as a no-op wrap) when the
         // depth toggle is off, matching RoutingMiddleware's own pattern.
         $span = \Quiote\Config\Config::get('telemetry.spans.action', true)
             ? \Quiote\Telemetry\Trace::span('Quiote.Action', $desc->module . ':' . $desc->action, [
@@ -177,7 +177,7 @@ final class ActionExecutor
                 'quiote.output_type' => $desc->outputType,
             ])
             : \Quiote\Telemetry\NoopSpanHandle::instance();
-        // Lifecycle hook: about to run the action (docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md).
+        // Lifecycle hook: about to run the action.
         \Quiote\Event\Events::emit(new \Quiote\Event\Lifecycle\ActionBeforeEvent($desc));
         try {
             $result = $this->doExecute($desc, $state, $preInstantiatedAction, $dbg, $logger);
@@ -283,7 +283,7 @@ final class ActionExecutor
     /**
      * Resolves, creates, and renders the view (if any), wrapped in a nested
      * view-render span — a child of the action span opened by
-     * {@see execute()} (docs/OPENTELEMETRY_PLAN.md, Phase 6). Gated by the
+     * {@see execute()}. Gated by the
      * same `telemetry.spans.action` toggle; when `$vn` is `View::NONE` no
      * span is opened at all, since there is nothing to render.
      * @return array{0: ?View, 1: string} [$view, $content]

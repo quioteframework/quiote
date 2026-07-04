@@ -12,8 +12,6 @@ namespace Quiote\Mcp;
  * Each entry is the argument set for the matching `Mcp\Server\Builder::add*()`
  * call, stored verbatim so `McpServer` can forward it without this class
  * knowing anything about the SDK's types.
- *
- * @see docs/MCP_SERVER_PLAN.md §6
  */
 final class McpCatalog
 {

@@ -9,8 +9,8 @@ use Quiote\Telemetry\TelemetryBootstrap;
 use Quiote\Telemetry\TraceRegistry;
 
 /**
- * Phase 2: DI container registration of the OpenTelemetry provider aliases
- * (docs/OPENTELEMETRY_PLAN.md). Run in separate processes because Context/
+ * DI container registration of the OpenTelemetry provider aliases.
+ * Run in separate processes because Context/
  * Config carry process-global state that's otherwise easy to leak between
  * tests (same isolation MiddlewarePipelineTest uses for the same reason).
  */

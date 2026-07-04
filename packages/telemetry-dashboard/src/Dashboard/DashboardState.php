@@ -5,26 +5,22 @@ namespace Quiote\Telemetry\Dashboard;
 /**
  * The rolling in-memory store fed by {@see OtlpReceiver}'s decoded batches
  * and read by the render loop via {@see snapshot()}. Single-threaded (one
- * Revolt event loop drives both ingestion and rendering -- see
- * docs/TELEMETRY_DASHBOARD_PLAN.md, "The core idea"), so plain arrays with no
- * locking are correct here.
+ * Revolt event loop drives both ingestion and rendering), so plain arrays
+ * with no locking are correct here.
  *
- * **Divergence from the original plan sketch, worth calling out**: throughput,
- * latency (avg/p95/max), error rate, per-route stats, and the recent-request/
- * error feeds are all derived from **root spans**, not from
- * `http.server.request.count`/`http.server.request.duration` metrics as the
- * plan doc's "Metric extraction" section originally sketched. Once Phase 6 of
- * `docs/OPENTELEMETRY_PLAN.md` shipped, the root span itself already carries
- * `http.route`/`route_name`/`quiote.cache.hit`/`http.response.status_code`
+ * **Worth calling out**: throughput, latency (avg/p95/max), error rate,
+ * per-route stats, and the recent-request/error feeds are all derived from
+ * **root spans**, not from `http.server.request.count`/
+ * `http.server.request.duration` metrics. The root span itself already
+ * carries `http.route`/`route_name`/`quiote.cache.hit`/`http.response.status_code`
  * attributes (see `RoutingMiddleware::process()` and
  * `TelemetryMiddleware::recordMeasurements()`) plus its own real duration and
  * OTel `Status` -- a strictly richer, per-request-precise source than
  * aggregated histogram buckets, and it means genuine percentiles (not
  * bucket-boundary estimates) are possible from a bounded reservoir of raw
  * samples. Metrics are still the only source for **CPU time and memory**,
- * which spans don't carry (see `TelemetryMiddleware`'s Phase 3 status notes on
- * why those live on the metrics side), and for worker RSS, an aggregate signal
- * with no meaningful per-span equivalent at all.
+ * which spans don't carry, and for worker RSS, an aggregate signal with no
+ * meaningful per-span equivalent at all.
  */
 final class DashboardState
 {

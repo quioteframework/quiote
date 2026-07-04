@@ -6,7 +6,7 @@ namespace Quiote\Mcp\Auth;
  * The default {@see McpAuthenticatorInterface}: a single shared secret from the
  * `mcp.auth_token` setting. A null/empty configured token always rejects --
  * there is no "auth disabled by an empty token" footgun; use `mcp.auth = 'none'`
- * to actually disable auth (docs/MCP_SERVER_PLAN.md §10).
+ * to actually disable auth.
  */
 final class StaticTokenAuthenticator implements McpAuthenticatorInterface
 {

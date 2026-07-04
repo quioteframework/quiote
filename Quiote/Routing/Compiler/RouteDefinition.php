@@ -6,7 +6,7 @@ namespace Quiote\Routing\Compiler;
 /**
  * Format-independent description of one route, whatever front-end produced
  * it (today: a #[Route] attribute; later, possibly routing.xml or a
- * programmatic builder -- see docs/ROUTING_AND_CLI_PLAN.md). Every back-end
+ * programmatic builder). Every back-end
  * (RouteCollectionBuilder, a compiled-matcher emitter, routes:list) consumes
  * this shape and never needs to know the source.
  * @since      1.0.0

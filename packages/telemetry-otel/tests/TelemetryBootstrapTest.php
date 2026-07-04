@@ -16,15 +16,14 @@ use Quiote\Telemetry\Trace;
 use Quiote\Telemetry\TraceRegistry;
 
 /**
- * Phase 2 tests for the real SDK-backed telemetry bootstrap: provider
+ * Tests for the real SDK-backed telemetry bootstrap: provider
  * construction, worker-lifetime singleton behavior, request-boundary flush,
  * and — the important half — every way construction can fail (SDK exporter
  * misconfiguration, a missing PSR-18 client, hostile attribute values)
  * degrading to "telemetry stays off" rather than breaking the request.
  *
  * These tests exercise the REAL open-telemetry/* SDK (installed as a
- * require-dev dependency) via the "none" (in-memory) exporter, not a fake —
- * see docs/OPENTELEMETRY_PLAN.md, Phase 2.
+ * require-dev dependency) via the "none" (in-memory) exporter, not a fake.
  */
 class TelemetryBootstrapTest extends TestCase
 {
@@ -85,7 +84,7 @@ class TelemetryBootstrapTest extends TestCase
         Config::set('telemetry.exporter', 'none', true);
         Config::set('telemetry.export.mode', $mode, true);
         // Pinned to always_on: these tests assert on provider/span/metric
-        // plumbing, not sampling behavior (Phase 4's own tests live in
+        // plumbing, not sampling behavior (tests for that live in
         // TelemetrySamplingTest.php) — the default ratio sampler would make
         // span capture here nondeterministic.
         Config::set('telemetry.sampling.strategy', 'always_on', true);
@@ -262,7 +261,7 @@ class TelemetryBootstrapTest extends TestCase
         // (Quiote\Http\Client\CurlTransport) and hands it to the OTLP exporter
         // factories (TelemetryBootstrap::otlpTransportFactory()), so OTLP export
         // works with no extra Composer package — building the provider succeeds
-        // and telemetry comes up. See docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md.
+        // and telemetry comes up.
         if (!\function_exists('curl_init')) {
             $this->markTestSkipped('curl extension required for the bundled OTLP transport');
         }

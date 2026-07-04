@@ -6,7 +6,7 @@ use Quiote\Controller\Controller;
 
 /**
  * Lightweight security checker mapping Action security methods to a decision enum.
- * Phase 1: only supports isSecure + credentials check via context user.
+ * Currently only supports isSecure + credentials check via context user.
  */
 class SecurityService
 {

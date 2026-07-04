@@ -133,8 +133,8 @@ abstract class Action implements ResetInterface
 	 * validator-builder file for this module/action, if one exists at
 	 * %core.module_dir%/{Module}/Validate/{Action}.generated.php (or
 	 * the hand-written .php variant of the same name) -- see
-	 * CompiledValidatorRegistry and docs/VALIDATOR_COMPILER_PLAN.md. This
-	 * runs alongside (not instead of) any XML validators.xml for the same
+	 * CompiledValidatorRegistry. This runs alongside (not instead of) any
+	 * XML validators.xml for the same
 	 * action; both add to the same ValidationManager instance.
 	 *
 	 * Override this (or register[Method]Validators(), e.g.

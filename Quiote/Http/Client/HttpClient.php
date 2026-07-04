@@ -16,7 +16,7 @@ use Quiote\Telemetry\Trace;
  * retry policy, ergonomic verb helpers, and — the payoff for the whole
  * abstraction — the central egress seam for telemetry. Every outbound request
  * opens a CLIENT-kind span and injects W3C `traceparent` so downstream services
- * continue the trace (the outbound half of docs/OPENTELEMETRY_PLAN.md Phase 7,
+ * continue the trace (the outbound half of the request-tracing story,
  * previously blocked on the absence of exactly this client).
  *
  * Obtain instances via {@see HttpClientFactory} (memoized, named) rather than

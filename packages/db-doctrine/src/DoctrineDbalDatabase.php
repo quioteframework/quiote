@@ -14,8 +14,6 @@ use Doctrine\DBAL\Connection as DbalConnection;
  *
  * Parameters: either an inline `connection` array, a DSN `url`, or flat
  * `driver`/`host`/`dbname`/`user`/`password` params (see {@see DoctrineDbalParams}).
- *
- * @see docs/DATABASE_ADAPTERS_PLAN.md §3 (Tier 2)
  */
 class DoctrineDbalDatabase extends AbstractOrmDatabase
 {

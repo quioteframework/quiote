@@ -11,8 +11,8 @@ use Quiote\Context;
 use Symfony\Component\Routing\Generator\UrlGenerator;
 
 /**
- * The actions-as-tools bridge (docs/MCP_SERVER_PLAN.md §7, the headline
- * feature): maps one `tools/call` to a specific `#[Route]` action's own
+ * The actions-as-tools bridge (the headline feature): maps one `tools/call`
+ * to a specific `#[Route]` action's own
  * execution path. Rather than reaching into `ActionExecutor` directly --
  * which requires preconditions (a canonical WebRequest, a validation
  * decision) that only `Context::handle()`'s own middleware pipeline

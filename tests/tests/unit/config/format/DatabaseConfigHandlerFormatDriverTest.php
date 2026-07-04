@@ -7,8 +7,8 @@ use Quiote\Config\DatabaseConfigHandler;
 /**
  * Proves a databases file written as plain PHP compiles through the exact
  * same DatabaseConfigHandler as databases.xml, including its
- * undefined-default-database validation -- seventh handler migrated per
- * docs/CONFIG_SYSTEM_REWRITE_PLAN.md phase 2.
+ * undefined-default-database validation -- seventh handler migrated,
+ * phase 2.
  */
 class DatabaseConfigHandlerFormatDriverTest extends PhpUnitTestCase
 {

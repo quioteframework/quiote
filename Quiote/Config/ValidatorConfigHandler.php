@@ -14,7 +14,7 @@ use Quiote\Validator\Compiler\ValidatorPlanBuilder;
  * a format-independent ValidatorPlan (see Quiote\Validator\Compiler\Ir).
  * This handler is now a thin adapter: parse to IR, emit the runtime array
  * snippets from that IR via RuntimeArrayEmitter, wrap in the standard
- * compiled-file header. See docs/VALIDATOR_COMPILER_PLAN.md -- the same
+ * compiled-file header. The same
  * ValidatorPlan also feeds a fluent-source emitter for hand-committable,
  * opcacheable validator files, and any future non-XML config front-end
  * builds the same IR without touching this class or the emitter.

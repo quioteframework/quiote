@@ -9,9 +9,8 @@ use RuntimeException;
  * Resolves and loads the compiled/hand-written PHP validator-builder file
  * for a module/action, if one exists, and applies it to a ValidatorBuilder
  * scoped to the given container. Wired into Action::registerValidators()
- * by default (see docs/VALIDATOR_COMPILER_PLAN.md phase 4), so committing
- * a generated (or hand-written) validator file is all it takes to activate
- * it -- no per-action boilerplate.
+ * by default, so committing a generated (or hand-written) validator file
+ * is all it takes to activate it -- no per-action boilerplate.
  *
  * The file is a plain `require` (opcache-backed): no parsing happens at
  * request time beyond what any other PHP include already costs. It must

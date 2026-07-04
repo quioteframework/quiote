@@ -14,8 +14,8 @@ use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\ServerRequest;
 
 /**
- * Phase 6 tests for the action span and its nested view-render span
- * (docs/OPENTELEMETRY_PLAN.md). Reuses the sandbox app's "Cache" module —
+ * Tests for the action span and its nested view-render span.
+ * Reuses the sandbox app's "Cache" module —
  * the same real end-to-end fixture DispatchMiddlewareContextSimpleTest uses
  * — rather than hand-rolled Action/View doubles, so this exercises the real
  * ActionExecutor/ViewFactory path, not a simplified stand-in.

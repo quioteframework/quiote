@@ -5,9 +5,8 @@ use Quiote\Exception\ConfigurationException;
 
 /**
  * Loads a config source that is itself a plain PHP file returning an
- * array -- the recommended primary format per
- * docs/CONFIG_SYSTEM_REWRITE_PLAN.md (zero parsing cost beyond opcache,
- * full IDE support, native `parent`/`imports` path resolution via
+ * array -- the recommended primary format (zero parsing cost beyond
+ * opcache, full IDE support, native `parent`/`imports` path resolution via
  * AbstractArrayFormatDriver).
  * @since      1.0.0
  */

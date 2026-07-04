@@ -30,8 +30,7 @@ use Psr\Http\Message\ResponseInterface;
 
 /**
  * Parity check: MiddlewarePipeline now derives the core stack's order from
- * each class's #[Middleware] attribute (see
- * docs/MIDDLEWARE_ATTRIBUTE_REGISTRATION_PLAN.md) instead of the old
+ * each class's #[Middleware] attribute instead of the old
  * hand-maintained construct() sequence. This asserts the scanned+resolved
  * order still matches that original sequence exactly, and that
  * MiddlewareCatalog::registerAttributed() / register() interact as designed.
@@ -43,8 +42,8 @@ class MiddlewareAttributeOrderingTest extends TestCase
         MiddlewareCatalog::initialize([]);
         MiddlewareCatalog::reset();
         // CSRF middleware are no longer in MiddlewarePipeline's own $factories
-        // map (docs/PLUGIN_EXTRACTION_PLAN.md §2.3) -- this test builds a
-        // pipeline via Context::getInstance() directly, without going through
+        // map -- this test builds a pipeline via Context::getInstance() directly,
+        // without going through
         // Quiote::bootstrap() (which runs this by default today), so it must
         // register the plugin itself, same as any other plugin-dependent test.
         (new \Quiote\Security\Csrf\CsrfPlugin())->register(new \Quiote\Plugin\PluginRegistrar('quiote/csrf'));

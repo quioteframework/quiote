@@ -8,8 +8,8 @@ use Quiote\Exception\UnreadableException;
 
 /**
  * Proves the `core.config_format` setting + autodetect wiring into
- * ConfigCache's real dispatch (docs/CONFIG_SYSTEM_REWRITE_PLAN.md phase 3,
- * now wired into production, not just the opt-in FormatAwareConfigCache):
+ * ConfigCache's real dispatch (phase 3, now wired into production, not
+ * just the opt-in FormatAwareConfigCache):
  * given siblings databases.xml / databases.php / databases.yaml, the
  * physical file actually read is whichever `core.config_format` names, or
  * (unset) the highest-priority one that exists: PHP > YAML > XML.

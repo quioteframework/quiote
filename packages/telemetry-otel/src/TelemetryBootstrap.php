@@ -8,8 +8,8 @@ use Quiote\Runtime\Worker\FrankenPhpWorkerAdapter;
 
 /**
  * Builds the worker-lifetime TracerProvider/MeterProvider from `telemetry.*`
- * settings, exactly once per worker process (see docs/OPENTELEMETRY_PLAN.md,
- * Phase 2). Called unconditionally from `Kernel::bootstrap()` — this class
+ * settings, exactly once per worker process. Called unconditionally from
+ * `Kernel::bootstrap()` — this class
  * itself decides whether there is anything to do, so callers never need a
  * feature-flag check of their own.
  *
@@ -53,7 +53,7 @@ final class TelemetryBootstrap
         if (!class_exists(\OpenTelemetry\SDK\Trace\TracerProviderBuilder::class)) {
             Log::for(self::class)->warning(
                 'telemetry.enabled is true but the open-telemetry/sdk package is not installed; '
-                . 'telemetry stays disabled (see docs/OPENTELEMETRY_PLAN.md).'
+                . 'telemetry stays disabled.'
             );
             return false;
         }
@@ -198,8 +198,8 @@ final class TelemetryBootstrap
     }
 
     /**
-     * Head-based sampling (docs/OPENTELEMETRY_PLAN.md, Phase 4). Metrics are
-     * never sampled — this only ever affects the TracerProvider.
+     * Head-based sampling. Metrics are never sampled — this only ever affects
+     * the TracerProvider.
      */
     private static function buildSampler(): \OpenTelemetry\SDK\Trace\SamplerInterface
     {
@@ -282,8 +282,8 @@ final class TelemetryBootstrap
      * that Quiote ships its own zero-dependency PSR-18 client
      * ({@see \Quiote\Http\Client\CurlTransport}), we hand it to the SDK
      * explicitly so OTLP export works out of the box with no extra Composer
-     * package (this is the egress seam the HTTP client abstraction unblocked —
-     * see docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md). The SDK factory still owns
+     * package (this is the egress seam the HTTP client abstraction unblocked).
+     * The SDK factory still owns
      * endpoint resolution (appending `/v1/traces` etc.), protocol → content
      * type, headers, compression, and retries — we only supply the client.
      *

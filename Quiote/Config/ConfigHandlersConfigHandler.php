@@ -9,13 +9,13 @@ use Quiote\Util\Toolkit;
  * ConfigHandlersConfigHandler allows you to specify configuration handlers
  * for the application or on a module level.
  *
- * Migrated to IArrayConfigHandler (docs/CONFIG_SYSTEM_REWRITE_PLAN.md
- * phase 2). Canonical schema is exactly the `$handlers` map (plus the
+ * Migrated to IArrayConfigHandler. Canonical schema is exactly
+ * the `$handlers` map (plus the
  * reserved `__middleware_config` key) execute() used to build inline:
  *   ['pattern' => ['class' => ..., 'parameters' => [...], 'transformations' => [...], 'validations' => [...]],
  *    '__middleware_config' => ['Middleware\Class' => bool]]
  * Note this handler is what config_handlers.xml itself compiles through
- * -- it is NOT what Phase 3's extension-agnostic discovery reads (that
+ * -- it is NOT what the extension-agnostic handler discovery reads (that
  * would be circular); it stays the framework's own bootstrap-time handler
  * registry regardless of what format future handler configs adopt.
  * @since      1.0.0

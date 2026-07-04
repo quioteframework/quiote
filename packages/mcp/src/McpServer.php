@@ -17,9 +17,9 @@ use Quiote\Mcp\Bridge\ContainerAdapter;
 use Quiote\Mcp\Compiler\ActionToolScanner;
 
 /**
- * Our own facade over the official `mcp/sdk` `Server::builder()` API (decision
- * §2.1 / §4 of docs/MCP_SERVER_PLAN.md): every `Mcp\*` symbol the app touches
- * is confined to this class (plus {@see Bridge\ContainerAdapter}), so an SDK
+ * Our own facade over the official `mcp/sdk` `Server::builder()` API: every
+ * `Mcp\*` symbol the app touches is confined to this class (plus
+ * {@see Bridge\ContainerAdapter}), so an SDK
  * breaking change (it is pre-1.0) touches one file, not the whole feature.
  *
  * Builds an SDK server from {@see McpCatalog}'s registered tools/resources/
@@ -84,16 +84,16 @@ final class McpServer
     }
 
     /**
-     * The actions-as-tools bridge (docs/MCP_SERVER_PLAN.md §7): discovers
-     * `#[Route]` actions also carrying `#[McpTool]` and registers each as an
+     * The actions-as-tools bridge: discovers `#[Route]` actions also
+     * carrying `#[McpTool]` and registers each as an
      * explicit tool (`Builder::add()`, not `addTool()`) paired with an
      * {@see ActionToolAdapter} bound to that specific route -- the "runtime-known
      * definition + handler pair" entry point the SDK's own docblock calls out
      * for exactly this kind of dynamically-generated registration.
      *
-     * Input schema is deliberately permissive (docs/MCP_SERVER_PLAN.md §15
-     * risk: "not every validator rule maps to JSON Schema") -- validation
-     * still happens for real when the tool call is dispatched, via the same
+     * Input schema is deliberately permissive (not every validator rule maps
+     * to JSON Schema) -- validation still happens for real when the tool call
+     * is dispatched, via the same
      * pipeline (and hence the same validators) a normal HTTP request to that
      * route would go through.
      */
@@ -103,9 +103,9 @@ final class McpServer
         $definitions = (new ActionToolScanner())->scan($controller, $config->moduleDirs ?: null);
 
         foreach ($definitions as $definition) {
-            // Prefer the schema derived from the action's own validators
-            // (docs/MCP_SERVER_PLAN.md §7); fall back to a permissive one when
-            // none could be derived. Either way real enforcement happens on
+            // Prefer the schema derived from the action's own validators;
+            // fall back to a permissive one when none could be derived.
+            // Either way real enforcement happens on
             // dispatch, so the fallback loses precision, not safety.
             $inputSchema = $definition->inputSchema
                 ?? ['type' => 'object', 'properties' => [], 'required' => [], 'additionalProperties' => true];
@@ -136,8 +136,8 @@ final class McpServer
     }
 
     /**
-     * Drive one Streamable-HTTP request/response cycle (docs/MCP_SERVER_PLAN.md
-     * §5.1). The SDK server is stateless per PHP request either way (no shared
+     * Drive one Streamable-HTTP request/response cycle. The SDK server is
+     * stateless per PHP request either way (no shared
      * state survives beyond this call other than what its session store
      * persists) so it's safe to reuse the cached {@see build()} result across
      * requests within a worker.
@@ -146,8 +146,8 @@ final class McpServer
      * request's raw body stream itself -- but earlier in the real pipeline,
      * `PayloadParsingMiddleware` already consumed that stream to populate
      * `getParsedBody()` and does not rewind it, so by the time this runs the
-     * stream is at EOF. Rebuilding the body from the already-parsed data (per
-     * §5.1: "no re-parsing") avoids a spurious JSON parse error on every call.
+     * stream is at EOF. Rebuilding the body from the already-parsed data
+     * instead of re-parsing it avoids a spurious JSON parse error on every call.
      */
     public function handleHttp(McpConfig $config, ServerRequestInterface $request): ResponseInterface
     {

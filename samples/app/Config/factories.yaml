@@ -1,4 +1,4 @@
-# Factories in YAML -- see docs/CONFIG_SYSTEM_REWRITE_PLAN.md. Settings are in
+# Factories in YAML. Settings are in
 # php, this is YAML, databases/output_types are XML: one
 # generated app, all three FormatDrivers.
 controller:

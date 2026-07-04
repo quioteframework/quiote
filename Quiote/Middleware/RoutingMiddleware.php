@@ -19,9 +19,8 @@ use Nyholm\Psr7\Response;
 /**
  * Executes Quiote routing and attaches module/action/outputType to PSR request attributes.
  *
- * Also owns the route-match span (`telemetry.spans.route`, default true —
- * docs/OPENTELEMETRY_PLAN.md, Phase 6) and, on a successful match, renames
- * whatever telemetry span is currently active (the root request span opened
+ * Also owns the route-match span (`telemetry.spans.route`, default true)
+ * and, on a successful match, renames whatever telemetry span is currently active (the root request span opened
  * by `TelemetryMiddleware`) to the matched route's low-cardinality identity —
  * this is the only place in the pipeline that knows it, since `TelemetryMiddleware`
  * only ever sees the raw request/response per PSR-7 immutability (its own
@@ -81,7 +80,7 @@ class RoutingMiddleware implements MiddlewareInterface
                     ->withAttribute(ActionDescriptor::class, $descriptor)
                     ->withAttribute('route_name', $attributes['_route'] ?? null)
                     ->withAttribute('route_params', $attributes);
-                // Lifecycle hook: route matched (docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md).
+                // Lifecycle hook: route matched.
                 // Events::emit gates on hasListeners and swallows listener errors,
                 // so a no-listener app pays only a lookup and a bad listener can't
                 // break routing.

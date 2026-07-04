@@ -20,8 +20,7 @@ if (!class_exists(Quiote\Console\Application::class)) {
 
 // Best-effort pre-bootstrap so plugin-contributed commands (mcp:serve, an
 // app's own console commands, etc.) show up in `list`/`--help` without the
-// user having to run a command first -- see the "Command contribution
-// boundary" note in docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md: Application's
+// user having to run a command first -- Application's
 // constructor reads PluginManager::contributedCommands(), which is only
 // populated once Quiote::bootstrap() has run. Resolves the app exactly the
 // way AbstractAppCommand does (--app-dir/$QUIOTE_APP_DIR, a .quiote.json

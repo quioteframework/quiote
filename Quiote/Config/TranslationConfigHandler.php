@@ -9,8 +9,7 @@ use Quiote\Translation\QuioteLocale;
  * TranslationConfigHandler allows you to define translator implementations
  * for different domains.
  *
- * Migrated to IArrayConfigHandler (docs/CONFIG_SYSTEM_REWRITE_PLAN.md
- * phase 2). Canonical schema:
+ * Migrated to IArrayConfigHandler (phase 2). Canonical schema:
  *   ['default_domain' => string, 'default_locale' => string|null, 'default_timezone' => string|null,
  *    'locales' => ['identifier' => ['name' => ..., 'params' => [...], 'fallback' => ..., 'ldml_file' => ...]],
  *    'translators' => ['domain' => ['msg'|'num'|'cur'|'date' => ['class' => ..., 'filters' => [...], 'params' => [...]]]]]

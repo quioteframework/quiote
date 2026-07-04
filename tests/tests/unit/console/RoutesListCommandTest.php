@@ -10,7 +10,7 @@ use Symfony\Component\Console\Tester\CommandTester;
  * (generated from routing.xml), not attribute-based -- this deliberately
  * proves routes:list reads the app's actual configured Routing service
  * (Context::getInstance($context)->getRouting()) rather than only scanning
- * #[Route] attributes, per docs/ROUTING_AND_CLI_PLAN.md (B3).
+ * #[Route] attributes.
  */
 final class RoutesListCommandTest extends PhpUnitTestCase
 {

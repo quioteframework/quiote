@@ -6,8 +6,8 @@ use Quiote\Mcp\Bridge\ActionToolAdapter;
 use Quiote\Testing\PhpUnitTestCase;
 
 /**
- * The actions-as-tools bridge dispatch mechanism (docs/MCP_SERVER_PLAN.md §7):
- * builds a synthetic request for the target route and drives it through the
+ * The actions-as-tools bridge dispatch mechanism: builds a synthetic request
+ * for the target route and drives it through the
  * real {@see \Quiote\Context::handle()} pipeline -- the same DI, verb
  * dispatch, and (were the fixture action to declare any) validation a normal
  * HTTP request would get. Exercised against the "mcp-action-tool-test"

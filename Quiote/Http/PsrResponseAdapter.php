@@ -6,7 +6,7 @@ use Psr\Http\Message\StreamInterface;
 use Quiote\Response\WebResponse;
 
 /**
- * Thin PSR-7 ResponseInterface adapter around WebResponse (Phase 1).
+ * Thin PSR-7 ResponseInterface adapter around WebResponse.
  * Immutable-ish: mutation methods return $this for now (no deep cloning) – acceptable for bridge stage.
  */
 class PsrResponseAdapter implements ResponseInterface

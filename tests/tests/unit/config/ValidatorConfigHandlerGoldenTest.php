@@ -15,7 +15,7 @@ require_once(__DIR__ . '/ConfigHandlerTestBase.php');
  *
  * ValidatorConfigHandler::execute() is now a thin adapter over
  * ValidatorPlanBuilder (XML -> IR) and RuntimeArrayEmitter (IR -> runtime
- * snippets) -- see docs/VALIDATOR_COMPILER_PLAN.md phase 1. This test is
+ * snippets), phase 1. This test is
  * the parity guarantee that refactor promised: any future change to either
  * class that alters the compiled output for these fixtures must fail here
  * first, rather than surfacing as a silent behavior change in production

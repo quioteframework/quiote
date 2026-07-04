@@ -6,7 +6,7 @@ use Quiote\Request\WebRequest;
 
 /**
  * ForwardService: resolves forward targets (login / secure / custom) without creating a full execution container.
- * Phase 1: only system forwards used by security (login, secure).
+ * Currently only handles system forwards used by security (login, secure).
  * Future: generalize to arbitrary forward tokens returned by actions (array/module override forms).
  */
 final class ForwardService

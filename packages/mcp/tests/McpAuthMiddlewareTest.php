@@ -26,8 +26,8 @@ final class McpAuthMiddlewarePassthroughHandler implements RequestHandlerInterfa
 }
 
 /**
- * Bearer-token auth gate in front of the MCP HTTP endpoint (docs/MCP_SERVER_PLAN.md
- * §10, Phase A). Binds a {@see StaticTokenAuthenticator} directly into the "web"
+ * Bearer-token auth gate in front of the MCP HTTP endpoint. Binds a
+ * {@see StaticTokenAuthenticator} directly into the "web"
  * context's container for each test rather than going through McpPlugin, to
  * isolate the middleware's own request-handling logic from plugin wiring
  * (covered separately by McpPluginTest).

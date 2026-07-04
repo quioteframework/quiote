@@ -67,8 +67,7 @@ final class Quiote
 			Config::set('core.debug', false, false);
 
 			// Standalone from core.debug: no shared "production mode", no
-			// implicit derivation. Off by default -- see
-			// docs/WHOOPS_ERROR_HANDLING_PLAN.md for why these are separate
+			// implicit derivation. Off by default -- these are separate
 			// switches (core.debug carries unrelated, heavy per-request
 			// behavior; this only controls exception response detail).
 			Config::set('core.developer_exceptions', false, false);
@@ -113,55 +112,51 @@ final class Quiote
 
 			// compile.xml aggregation removed; rely on autoload + opcache.
 
-			// Core's own default telemetry-exporter wiring, added to PluginManager's
-			// plugin list (rather than called directly) so its register() call --
-			// which adds Events listeners, NOT idempotent to re-add -- only ever
-			// runs once per bootFromConfig() guard below, exactly like an
-			// app-configured plugin (docs/PLUGIN_EXTRACTION_PLAN.md §2.2). Now that
-			// TelemetryPlugin physically lives in its own package,
-			// `packages/telemetry-otel/` (docs/MONOREPO_SPLIT_PLAN.md), guarded by
-			// class_exists() so a build without it degrades to the always-safe
-			// no-op Trace facade instead of fataling. Once the package stops being
-			// installed by default, this whole block is deleted and the app opts
-			// in via the `plugins` config key instead, exactly like
-			// Quiote\Mcp\McpPlugin already works.
-			if (class_exists(\Quiote\Telemetry\TelemetryPlugin::class)) {
-				\Quiote\Plugin\PluginManager::add(new \Quiote\Telemetry\TelemetryPlugin());
-			}
-
 			// Plugin registration lives exactly here — after settings have loaded
 			// (so app config wins over plugin defaults) and before any Context is
 			// created (so plugins can contribute config/services/middleware/routes
-			// the contexts will consume). See docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md.
+			// the contexts will consume).
+			//
+			// telemetry-otel (Quiote\Telemetry\TelemetryPlugin) and whoops
+			// (Quiote\Exception\Rendering\Whoops\WhoopsPlugin) are NOT
+			// registered here — both are fully opt-in via the `plugins` config
+			// key, exactly like Quiote\Mcp\McpPlugin: neither was ever
+			// default/always-on behavior in a way that would break an existing
+			// app if it stayed absent.
 			\Quiote\Plugin\PluginManager::bootFromConfig();
 
-			// Core's own (set-if-absent) developer-exception-renderer default —
-			// runs after plugins so a plugin-registered renderer always wins.
-			// `Quiote\Exception\Rendering\Whoops\WhoopsRenderer` now lives in its
-			// own package, `packages/whoops/` (docs/PLUGIN_EXTRACTION_PLAN.md
-			// §2.4/§3, docs/MONOREPO_SPLIT_PLAN.md); this is the ONE place core
-			// still names it directly. Once the package stops being installed by
-			// default, this block is deleted and the package's own plugin calls
-			// PluginRegistrar::developerExceptionRenderer() instead. Guarded by
-			// class_exists() on OUR wrapper class (not \Whoops\Run -- the package,
-			// not just the underlying library, must be installed) so a build
-			// without it degrades to SafeRenderer instead of fataling.
-			if (class_exists(\Quiote\Exception\Rendering\Whoops\WhoopsRenderer::class)) {
-				\Quiote\Exception\Rendering\ExceptionRendererRegistry::setDeveloperRenderer(
-					static fn() => new \Quiote\Exception\Rendering\Whoops\WhoopsRenderer()
+			// CSRF is the one exception: a deliberate opt-OUT default, not
+			// opt-in. It's a security default, not merely a packaging
+			// convenience -- physically living in its own package
+			// (`packages/csrf/`) is a code-
+			// organization choice, but the framework always pulls the package
+			// in (`quioteframework/csrf` is in composer.json's `require`, not
+			// `require-dev`/`suggest`) and always registers it here, so a
+			// fresh app is protected without having to know to ask for it.
+			// Disabling it takes conscious effort: set `core.csrf.enabled` to
+			// `false` (CsrfManager::isEnabled(), already the runtime gate both
+			// CSRF middleware check), or the harder `composer remove
+			// quioteframework/csrf`, which this class_exists() guard degrades
+			// gracefully from (no CSRF, not a fatal error) rather than assuming
+			// the package can never be absent.
+			if (class_exists(\Quiote\Security\Csrf\CsrfPlugin::class)) {
+				(new \Quiote\Security\Csrf\CsrfPlugin())->register(
+					new \Quiote\Plugin\PluginRegistrar('quiote/csrf')
+				);
+				if (!Config::get('core.csrf.enabled', true)) {
+					\Quiote\Logging\Log::create('Quiote.Quiote')->warning(
+						'[Quiote::bootstrap] CSRF protection is explicitly disabled (core.csrf.enabled=false). '
+						. 'This is a deliberate "conscious effort" opt-out -- '
+						. 'confirm that is intentional.'
+					);
+				}
+			} else {
+				\Quiote\Logging\Log::create('Quiote.Quiote')->warning(
+					'[Quiote::bootstrap] CSRF protection is unavailable: quioteframework/csrf is not installed. '
+					. 'Every app is expected to have it (it is a mandatory kernel dependency); if you removed it '
+					. 'deliberately, this warning is expected.'
 				);
 			}
-
-			// Core's own default CSRF wiring — runs the plugin directly (not via
-			// the `plugins` config key) so CSRF stays on by default while it's
-			// still in-tree (docs/PLUGIN_EXTRACTION_PLAN.md §2.3/§3). Idempotent:
-			// attributedMiddleware() registrations are plain overwrite-safe array
-			// writes. Once CSRF moves to `quioteframework/csrf`, this line is
-			// deleted and CSRF becomes opt-in via the `plugins` config key,
-			// exactly like Quiote\Mcp\McpPlugin already is.
-			(new \Quiote\Security\Csrf\CsrfPlugin())->register(
-				new \Quiote\Plugin\PluginRegistrar('quiote/csrf')
-			);
 
 			// Normalize contexts argument
 			$contextList = [];
@@ -216,11 +211,24 @@ final class Quiote
 			}
 
 			// Whole-framework "we're up" hook: settings loaded, plugins registered,
-			// requested contexts created (docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md).
+			// requested contexts created.
+			// The real telemetry provider (if any) is built by a
+			// Quiote\Telemetry\TelemetryPlugin listener on this exact event,
+			// so TraceRegistry::hasRealProvider() only reflects reality once
+			// this has fired -- check after, not before.
 			\Quiote\Event\Events::emit(new \Quiote\Event\Lifecycle\KernelBootEvent(
 				(string) Config::get('core.environment'),
 				$createdContexts,
 			));
+
+			if (Config::get('telemetry.enabled', false) && !\Quiote\Telemetry\TraceRegistry::hasRealProvider()) {
+				\Quiote\Logging\Log::create('Quiote.Quiote')->warning(
+					'[Quiote::bootstrap] telemetry.enabled is true but no real telemetry provider is active. '
+					. 'telemetry-otel is opt-in: install '
+					. 'quioteframework/telemetry-otel and add Quiote\\Telemetry\\TelemetryPlugin to the '
+					. '`plugins` config key, or set telemetry.enabled=false to silence this.'
+				);
+			}
 
 			return ['contexts' => $createdContexts];
 

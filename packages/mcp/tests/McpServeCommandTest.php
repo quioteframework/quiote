@@ -8,8 +8,8 @@ use Quiote\Testing\PhpUnitTestCase;
 use Symfony\Component\Console\Tester\CommandTester;
 
 /**
- * `mcp:serve` is opt-in-gated on `mcp.enabled` (docs/MCP_SERVER_PLAN.md §11);
- * this only exercises that gate. The enabled path blocks on the stdio
+ * `mcp:serve` is opt-in-gated on `mcp.enabled`; this only exercises that
+ * gate. The enabled path blocks on the stdio
  * transport's read loop and is exercised end-to-end by McpServerTest instead
  * (via InMemoryTransport, driving McpServer directly).
  */

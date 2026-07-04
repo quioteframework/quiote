@@ -7,8 +7,8 @@ use Quiote\Config\FactoryConfigHandler;
 
 /**
  * Proves a factories file written as plain PHP compiles through the exact
- * same FactoryConfigHandler as factories.xml -- second handler migrated
- * per docs/CONFIG_SYSTEM_REWRITE_PLAN.md phase 2.
+ * same FactoryConfigHandler as factories.xml -- second handler migrated,
+ * phase 2.
  */
 class FactoryConfigHandlerFormatDriverTest extends PhpUnitTestCase
 {

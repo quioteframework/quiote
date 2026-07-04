@@ -6,8 +6,7 @@ namespace Quiote\Telemetry\Dashboard;
  * Renders a numeric series as a Unicode block-glyph bar chart, using eighth
  * blocks (`▁▂▃▄▅▆▇█`) per character row to get sub-row vertical resolution
  * across an arbitrary number of text rows. `symfony/tui` has no built-in
- * Chart/Sparkline widget (see docs/TELEMETRY_DASHBOARD_PLAN.md, "Widget
- * reality check") -- this, plus {@see Bars} and {@see ChartWidget} (which
+ * Chart/Sparkline widget -- this, plus {@see Bars} and {@see ChartWidget} (which
  * wraps this class to make it fill its assigned space and react to terminal
  * resizes), is what stands in for one.
  *

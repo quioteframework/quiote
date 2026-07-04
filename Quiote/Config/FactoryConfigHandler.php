@@ -8,8 +8,8 @@ use Quiote\Exception\ConfigurationException;
  * FactoryConfigHandler allows you to specify which factory implementation
  * the system will use.
  *
- * Migrated to IArrayConfigHandler (docs/CONFIG_SYSTEM_REWRITE_PLAN.md
- * phase 2, second handler after SettingConfigHandler). The factory
+ * Migrated to IArrayConfigHandler (phase 2, second handler after
+ * SettingConfigHandler). The factory
  * ordering/startup-sequence/must_implement logic in
  * getFactoryDefinitions() is pure PHP with no XML-specific content at
  * all -- it was never really "config", just code that happened to live

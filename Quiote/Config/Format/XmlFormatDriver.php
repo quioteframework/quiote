@@ -8,7 +8,7 @@ use Quiote\Config\XmlConfigParser;
 /**
  * Wraps the existing XmlConfigParser pipeline (XInclude, XSD validation,
  * XSL normalization, parent-chain merge -- all untouched, see
- * docs/CONFIG_SYSTEM_REWRITE_PLAN.md phase 1's "what this is NOT") and
+ * phase 1's "what this is NOT") and
  * converts its output to the canonical array via the bound handler's
  * toCanonicalArray(). This is what lets a FormatDriverRegistry treat an
  * existing validators.xml/settings.xml exactly like a PHP-array or YAML

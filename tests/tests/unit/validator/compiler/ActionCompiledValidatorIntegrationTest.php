@@ -6,9 +6,9 @@ use Quiote\Execution\LightweightActionInitContext;
 use Quiote\Request\WebRequest;
 
 /**
- * Proves the guarantee from docs/VALIDATOR_COMPILER_PLAN.md end to end for
- * the fluent/compiled path: an action with NO XML validators.xml and NO
- * override of registerValidators() still gets its validators loaded (via
+ * Proves the guarantee end to end for the fluent/compiled path: an action
+ * with NO XML validators.xml and NO override of registerValidators()
+ * still gets its validators loaded (via
  * Action::registerValidators()'s default CompiledValidatorRegistry wiring)
  * from tests/sandbox/app/Modules/ControllerTests/Validate/CompiledFluentDemo.generated.php,
  * and strict-mode pruning removes any parameter that file didn't declare

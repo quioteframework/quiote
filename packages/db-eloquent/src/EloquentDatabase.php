@@ -24,8 +24,6 @@ use Illuminate\Database\Connection as IlluminateConnection;
  *  - `connection_name` : Capsule connection name (default "default")
  *  - `global`          : call setAsGlobal() (default false)
  *  - `boot_eloquent`   : call bootEloquent() (default = value of `global`)
- *
- * @see docs/DATABASE_ADAPTERS_PLAN.md §4.2
  */
 class EloquentDatabase extends AbstractOrmDatabase
 {

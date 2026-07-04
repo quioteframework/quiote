@@ -294,8 +294,8 @@ class Controller extends ParameterHolder implements ResetInterface
 	}
 
 	/**
-	 * Build an Action/View instance through the container (docs/DI_MIGRATION_PLAN.md,
-	 * Phase 3b) — the single choke point both createActionInstance() and
+	 * Build an Action/View instance through the container — the single
+	 * choke point both createActionInstance() and
 	 * createViewInstance() route through. Uses Container::make(): a non-caching autowire,
 	 * so every dispatch gets its own fresh instance, same as the plain `new $class()` this
 	 * replaces. A class with no constructor is unaffected — zero migration burden.

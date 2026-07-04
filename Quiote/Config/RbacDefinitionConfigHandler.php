@@ -7,8 +7,8 @@ use Quiote\Config\Util\DOM\XmlConfigDomDocument;
  * RbacDefinitionConfigHandler handles RBAC role and permission definition
  * files.
  *
- * Migrated to IArrayConfigHandler (docs/CONFIG_SYSTEM_REWRITE_PLAN.md
- * phase 2). Canonical schema is a flat map, role name => entry, already
+ * Migrated to IArrayConfigHandler (phase 2). Canonical schema is a flat
+ * map, role name => entry, already
  * exactly what execute() built inline:
  *   ['role_name' => ['parent' => 'parent_role_name'|null, 'permissions' => ['perm1', 'perm2']]]
  * Nested <roles> in XML become entries with 'parent' set; a PHP/YAML file

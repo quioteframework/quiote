@@ -8,8 +8,7 @@ use Quiote\Util\Toolkit;
 /**
  * OutputTypeConfigHandler handles output type configuration files.
  *
- * Migrated to IArrayConfigHandler (docs/CONFIG_SYSTEM_REWRITE_PLAN.md
- * phase 2). Canonical schema:
+ * Migrated to IArrayConfigHandler (phase 2). Canonical schema:
  *   ['default' => 'output_type_name',
  *    'output_types' => ['name' => ['parameters' => [...], 'default_renderer' => ...,
  *        'renderers' => [...], 'layouts' => [...], 'default_layout' => ...,

@@ -10,7 +10,7 @@ use Quiote\Middleware\RoutingMiddleware;
 use Quiote\Telemetry\TelemetryBootstrap;
 
 /**
- * Phase 8 integration test: `telemetry.spans.middleware` wired through the
+ * Integration test: `telemetry.spans.middleware` wired through the
  * REAL default `MiddlewarePipeline`, not the decorator in isolation. Run in
  * a separate process — Context/Config/MiddlewarePipeline all carry
  * process-global state (same isolation MiddlewareAttributeOrderingTest and

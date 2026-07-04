@@ -13,9 +13,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 /**
  * Scaffolds a new Quiote application: a Default module (Index/About/Boom
  * actions), the minimal config set needed to boot (settings, factories,
- * routing, output_types -- see docs/CONFIG_SYSTEM_REWRITE_PLAN.md for why
- * config_handlers.xml/compile.xml/translation.xml/databases.xml can all be
- * omitted and still boot cleanly), and a FrankenPHP-ready pub/index.php.
+ * routing, output_types -- config_handlers.xml/compile.xml/translation.xml/databases.xml
+ * can all be omitted and still boot cleanly), and a FrankenPHP-ready pub/index.php.
  *
  * Deliberately pre-bootstrap: this command never touches Quiote\Context or
  * Quiote::bootstrap() -- it only writes files. The generated app is

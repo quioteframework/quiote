@@ -20,8 +20,6 @@ use Quiote\Exception\DatabaseException;
  *
  * Concrete adapters remain thin: they only translate resolved connection info
  * into their ORM's bootstrap and expose typed accessors.
- *
- * @see docs/DATABASE_ADAPTERS_PLAN.md §4
  */
 abstract class AbstractOrmDatabase extends Database
 {

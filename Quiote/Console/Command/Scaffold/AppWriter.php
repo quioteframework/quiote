@@ -9,12 +9,11 @@ use Quiote\Exception\ConfigurationException;
  * option-parsing/error-reporting concerns.
  *
  * The generated app deliberately mixes config formats to exercise all three
- * FormatDrivers (docs/CONFIG_SYSTEM_REWRITE_PLAN.md): settings in whichever
+ * FormatDrivers: settings in whichever
  * format was requested (default php), factories in YAML, databases/output_types
  * in XML. Routing is a plain PHP `Routing` subclass rather than a config file
  * at all -- `Quiote\Config\RoutingConfigHandler` (the class routing.xml
- * would need) doesn't exist (see docs/ROUTING_AND_CLI_PLAN.md background),
- * so routing.xml is not a working option today. The generated AppRouting
+ * would need) doesn't exist, so routing.xml is not a working option today. The generated AppRouting
  * also demonstrates that file-based and #[Route]-attribute routing coexist:
  * Index/About/Boom are declared by hand, Contact is declared via a #[Route]
  * attribute on ContactAction and pulled in with AttributeRoutes::mergeInto().
@@ -165,7 +164,7 @@ final class AppWriter
 	{
 		$namespace = $this->namespace;
 		return <<<YAML
-		# Factories in YAML -- see docs/CONFIG_SYSTEM_REWRITE_PLAN.md. Settings are in
+		# Factories in YAML. Settings are in
 		# {$this->settingsExtension()}, this is YAML, databases/output_types are XML: one
 		# generated app, all three FormatDrivers.
 		controller:
@@ -255,7 +254,7 @@ final class AppWriter
 		use Symfony\\Component\\Routing\\RouteCollection;
 
 		/**
-		 * Plain PHP routing -- see docs/ROUTING_AND_CLI_PLAN.md: routing.xml has no
+		 * Plain PHP routing -- routing.xml has no
 		 * working config handler today, so a Routing subclass building the
 		 * RouteCollection directly is the supported way to declare routes.
 		 *
@@ -371,8 +370,8 @@ final class AppWriter
 		use Quiote\\Routing\\Attribute\\Route;
 
 		/**
-		 * Routed via #[Route] instead of a line in AppRouting -- see
-		 * docs/ROUTING_AND_CLI_PLAN.md. AppRouting::build() pulls this in with
+		 * Routed via #[Route] instead of a line in AppRouting.
+		 * AppRouting::build() pulls this in with
 		 * AttributeRoutes::mergeInto() alongside its hand-written routes.
 		 */
 		#[Route('/contact', name: 'contact', methods: ['GET'])]

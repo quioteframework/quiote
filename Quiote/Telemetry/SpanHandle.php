@@ -12,7 +12,7 @@ interface SpanHandle
 {
     /**
      * Renames the span (e.g. once route matching resolves the root request
-     * span's low-cardinality identity — docs/OPENTELEMETRY_PLAN.md, Phase 6).
+     * span's low-cardinality identity).
      */
     public function updateName(string $name): static;
 
@@ -33,8 +33,8 @@ interface SpanHandle
     /**
      * The span's trace ID (32 lowercase hex chars), or null for a no-op span
      * or one with no valid context. IDs exist regardless of the sampling
-     * decision (docs/OPENTELEMETRY_PLAN.md, Phase 7) — a dropped/unsampled
-     * span still has a real trace ID, just nothing exported for it.
+     * decision — a dropped/unsampled span still has a real trace ID, just
+     * nothing exported for it.
      */
     public function traceId(): ?string;
 

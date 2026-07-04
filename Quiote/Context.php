@@ -151,7 +151,7 @@ class Context implements \Stringable, ResetInterface
   protected $databaseManagerFactoryInfo = null;
 
   /**
-   * @var        Container|null DI container (docs/DI_MIGRATION_PLAN.md, Phase 1).
+   * @var        Container|null DI container.
    *             Additive/observational for now: factories.xml remains the single
    *             source of truth for construction of the core services below.
    */
@@ -266,7 +266,7 @@ class Context implements \Stringable, ResetInterface
 
   /**
    * Retrieve (lazily create) the DI container.
-   * Phase 1 of docs/DI_MIGRATION_PLAN.md: the core services created by factories.xml
+   * The core services created by factories.xml
    * are registered here under their role name and concrete class name, so both
    * `getContainer()->get('user')` and `getContainer()->get(JakamoRbacUser::class)`
    * resolve to the same instance. factories.xml remains the sole construction path;
@@ -282,12 +282,12 @@ class Context implements \Stringable, ResetInterface
 
   /**
    * Retrieve a service from the container.
-   * Phase 3 of docs/DI_MIGRATION_PLAN.md: the locator escape hatch for legacy call sites
+   * The locator escape hatch for legacy call sites
    * and lazy/conditional access (the `IServiceProvider`-injection equivalent from .NET).
    * The preferred path for new code is constructor injection; both resolve through the
    * same container. Thin wrapper — exceptions from the container propagate as-is.
    * Deliberately does not touch getModel(): services and models remain separate
-   * conventions (see docs/DI_MIGRATION_PLAN.md §2.5).
+   * conventions.
    */
   public function getService(string $id): mixed
   {
@@ -319,7 +319,7 @@ class Context implements \Stringable, ResetInterface
   {
     // Register this context itself, so a service's constructor can type-hint Context
     // (or the app's context subclass) and have it autowired — needed for the transitional
-    // Quiote\Service\Service base (docs/DI_MIGRATION_PLAN.md, Phase 3).
+    // Quiote\Service\Service base.
     $container = $this->getContainer();
     $container->set('context', $this);
     $container->set(static::class, $this);
@@ -337,7 +337,7 @@ class Context implements \Stringable, ResetInterface
     $this->registerTelemetryServicesInContainer();
     $this->registerHttpClientFactory();
     // Plugin-contributed DI services (register-if-absent, so core/app bindings
-    // above win). See docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md.
+    // above win).
     \Quiote\Plugin\PluginManager::configureContainer($container);
   }
 
@@ -362,8 +362,8 @@ class Context implements \Stringable, ResetInterface
   }
 
   /**
-   * Register the DI-injectable OpenTelemetry provider aliases
-   * (docs/OPENTELEMETRY_PLAN.md, Phase 2). No-op unless telemetry is enabled
+   * Register the DI-injectable OpenTelemetry provider aliases.
+   * No-op unless telemetry is enabled
    * AND {@see \Quiote\Telemetry\TelemetryBootstrap} actually built a real
    * provider — mirrors {@see registerCoreService()}'s "no-op if unavailable"
    * convention, so `$container->get(TracerProviderInterface::class)` throws
@@ -593,7 +593,7 @@ class Context implements \Stringable, ResetInterface
     }
 
     // Drop request-scoped container entries in lockstep with the request/storage/user
-    // nulling above (docs/DI_MIGRATION_PLAN.md, Phase 1) — otherwise the container would
+    // nulling above — otherwise the container would
     // keep serving a discarded per-request instance until the next lazy recreation re-registers it.
     $this->container?->reset();
 
@@ -686,8 +686,8 @@ class Context implements \Stringable, ResetInterface
       }
     }
 
-    // Last hook that sees the full request + response together (see
-    // docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md). No-op with no listeners.
+    // Last hook that sees the full request + response together.
+    // No-op with no listeners.
     \Quiote\Event\Events::emit(new \Quiote\Event\Lifecycle\ResponseSendingEvent($request, $response));
 
     return $response;
@@ -914,7 +914,7 @@ class Context implements \Stringable, ResetInterface
       }
     }
 
-    // DI migration Phase 1 (docs/DI_MIGRATION_PLAN.md): register the core services
+    // Register the core services
     // factories.xml just built (post user-deferral) into the container. Additive only —
     // nothing resolves services through the container yet.
     $this->registerCoreServicesInContainer();

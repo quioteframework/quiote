@@ -9,8 +9,8 @@ use OpenTelemetry\SDK\Trace\SamplingResult;
 use OpenTelemetry\SDK\Trace\Span;
 
 /**
- * Head-based force-sample escape hatch (docs/OPENTELEMETRY_PLAN.md, Phase 4):
- * "trace this one request" without touching the global sampling ratio.
+ * Head-based force-sample escape hatch: "trace this one request" without
+ * touching the global sampling ratio.
  *
  * Wraps a delegate sampler. If the span-creation attributes carry
  * `quiote.force_sample = true` (set by {@see \Quiote\Middleware\

@@ -13,8 +13,7 @@
     <testsuites>
         <testsuite name="unit">
             <directory>../tests/unit</directory>
-            <!-- The subsystems below now live in packages/* (docs/MONOREPO_SPLIT_PLAN.md,
-                 docs/PLUGIN_EXTRACTION_PLAN.md); still run from the root suite while
+            <!-- The subsystems below now live in packages/*; still run from the root suite while
                  everything shares one composer install (via the packages/* path
                  repository). Once each package gets its own isolated CI job, its line
                  moves to that package's own phpunit config. Docker-based integration

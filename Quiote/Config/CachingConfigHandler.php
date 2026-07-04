@@ -8,8 +8,8 @@ use Quiote\Util\Toolkit;
  * CachingConfigHandler compiles the per-action configuration files placed
  * in the "cache" subfolder of a module directory.
  *
- * Migrated to IArrayConfigHandler (docs/CONFIG_SYSTEM_REWRITE_PLAN.md
- * phase 2). Canonical schema is exactly the `$cachings` map execute() used
+ * Migrated to IArrayConfigHandler (phase 2). Canonical schema is exactly
+ * the `$cachings` map execute() used
  * to build inline: request method (or '*') => ['lifetime' => ..., 'groups' => [...],
  * 'views' => ..., 'action_attributes' => [...], 'output_types' => [...]].
  * @since      1.0.0

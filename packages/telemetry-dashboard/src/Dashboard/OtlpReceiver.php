@@ -10,8 +10,7 @@ use Revolt\EventLoop;
  * global Revolt event loop, exactly the pattern `symfony/tui`'s own
  * `Terminal::start()` uses for STDIN (`EventLoop::onReadable()`) -- so this
  * runs cooperatively alongside a `Tui::run()` loop in the same process, no
- * threads or second process needed (see docs/TELEMETRY_DASHBOARD_PLAN.md,
- * "The core idea").
+ * threads or second process needed.
  *
  * Deliberately not a general HTTP server: it accepts exactly `POST
  * /v1/traces` and `POST /v1/metrics`, the two paths the OTel PHP OTLP/HTTP

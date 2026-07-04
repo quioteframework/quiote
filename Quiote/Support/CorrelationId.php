@@ -8,8 +8,7 @@ use Psr\Http\Message\ServerRequestInterface;
  * Resolves a per-request correlation ID: adopt a sane inbound header value if
  * present, else generate a fresh one. Pure and dependency-free so it is unit
  * testable without a bootstrapped {@see \Quiote\Context}; the Context wires the
- * configured header name / expose flag around it. See
- * docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md.
+ * configured header name / expose flag around it.
  */
 final class CorrelationId
 {

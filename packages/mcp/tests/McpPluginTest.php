@@ -12,8 +12,8 @@ use Quiote\Plugin\PluginManager;
 
 /**
  * McpPlugin::register() -- the settings it publishes are all opt-in-safe, and
- * the HTTP middleware (docs/MCP_SERVER_PLAN.md §5.1) is only spliced into the
- * pipeline when `mcp.transports` actually asks for "http".
+ * the HTTP middleware is only spliced into the pipeline when
+ * `mcp.transports` actually asks for "http".
  */
 final class McpPluginTest extends TestCase
 {

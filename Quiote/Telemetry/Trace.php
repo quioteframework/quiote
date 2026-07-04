@@ -7,7 +7,6 @@ use Quiote\Logging\Log;
 
 /**
  * Static facade for the telemetry subsystem (mirrors {@see \Quiote\Logging\Log}).
- * See docs/OPENTELEMETRY_PLAN.md for the full design.
  *
  * Configuration: {@see TelemetryBootstrap::configureFromConfig()} builds the
  * real provider from `telemetry.*` settings once per worker (called from
@@ -44,9 +43,9 @@ final class Trace
      * Enable/disable a dot-namespaced trace category prefix (e.g.
      * "Quiote.Routing"), mirroring {@see \Quiote\Logging\Log::setLevel()} —
      * except a disabled prefix cascades unconditionally to every descendant
-     * category, it cannot be re-enabled by a more specific child entry. See
-     * docs/OPENTELEMETRY_PLAN.md, Phase 5. Configured in index.php alongside
-     * `Log::setLevels(...)`, not via `settings.xml`.
+     * category, it cannot be re-enabled by a more specific child entry.
+     * Configured in index.php alongside `Log::setLevels(...)`, not via
+     * `settings.xml`.
      */
     public static function setCategoryEnabled(string $categoryPrefix, bool $enabled): void
     {
@@ -71,7 +70,7 @@ final class Trace
      * Open a span. $category is the dot-namespaced trace category (mirrors log
      * categories, e.g. "Quiote.Routing"; recorded as the `quiote.trace.category`
      * span attribute, and gated by {@see setCategoryEnabled()}/
-     * {@see setCategories()} — Phase 5 of the telemetry plan). $name is
+     * {@see setCategories()}). $name is
      * the span's own name within that category (e.g. "match"). $kind defaults
      * to Internal; pass Server for a root request span, Client for outbound
      * calls, etc.

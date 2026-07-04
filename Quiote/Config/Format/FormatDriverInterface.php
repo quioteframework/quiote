@@ -5,8 +5,7 @@ namespace Quiote\Config\Format;
  * A FormatDriver turns one config source file, in whatever format it
  * understands, into a normalized PHP array -- the same canonical shape a
  * given config handler's array-based execute() method consumes regardless
- * of which driver produced it (see docs/CONFIG_SYSTEM_REWRITE_PLAN.md
- * phase 1, and Quiote\Config\IArrayConfigHandler).
+ * of which driver produced it (see Quiote\Config\IArrayConfigHandler).
  * @since      1.0.0
  */
 interface FormatDriverInterface

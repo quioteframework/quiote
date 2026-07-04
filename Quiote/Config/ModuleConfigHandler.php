@@ -8,8 +8,7 @@ use Quiote\Util\Toolkit;
  * ModuleConfigHandler reads module configuration files to determine the
  * status of a module.
  *
- * Migrated to IArrayConfigHandler (docs/CONFIG_SYSTEM_REWRITE_PLAN.md
- * phase 2). Canonical schema:
+ * Migrated to IArrayConfigHandler (phase 2). Canonical schema:
  *   ['enabled' => bool, 'settings' => ['fully_prefixed_setting_name' => value]]
  * Setting keys are already fully prefixed in the canonical array, exactly
  * as the original DOM-walking code built them: 'modules.${moduleName}.'

@@ -11,8 +11,8 @@ use Quiote\Validator\Compiler\ValidatorSource;
 
 /**
  * Discovers `#[Route]` action classes that are also decorated with the SDK's
- * own `#[McpTool]` attribute (docs/MCP_SERVER_PLAN.md §7, §6 item 1) --
- * "add one attribute to an existing action" is the headline feature. Modeled
+ * own `#[McpTool]` attribute -- "add one attribute to an existing action" is
+ * the headline feature. Modeled
  * on {@see AttributeRouteScanner}: reuses it to find every `#[Route]` action,
  * then resolves each one's class the same way {@see Controller::createActionInstance()}
  * does and inspects it for `#[McpTool]`.
@@ -68,7 +68,7 @@ final class ActionToolScanner
 
     /**
      * Derive a JSON Schema for the tool's input from the action's declared
-     * validators (docs/MCP_SERVER_PLAN.md §7): one declaration drives both
+     * validators: one declaration drives both
      * HTTP validation and the MCP schema. Resolves the action's
      * `{module}/Validate/{action}.xml` under `core.module_dir` (the same
      * convention {@see \Quiote\Validator\Compiler\Runtime\CompiledValidatorRegistry}

@@ -13,8 +13,8 @@ use Quiote\Util\Toolkit;
  * an XML namespace for your elements, define the namespace URI using the
  * "namespace_uri" parameter.
  *
- * Migrated to IArrayConfigHandler (docs/CONFIG_SYSTEM_REWRITE_PLAN.md
- * phase 2). This handler's whole purpose is "turn a config file into a
+ * Migrated to IArrayConfigHandler (phase 2). This handler's whole purpose
+ * is "turn a config file into a
  * plain array" -- for XML that means the recursive convertToArray() walk
  * below; for a PHP/YAML source the canonical array *is* the source (there
  * is nothing left to convert), so toCanonicalArray() and executeArray()

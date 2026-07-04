@@ -18,10 +18,9 @@ use Quiote\Validator\RegexValidator;
 use Quiote\Validator\StringValidator;
 
 /**
- * Maps a {@see ValidatorPlan} (the format-independent validator IR, see
- * docs/VALIDATOR_COMPILER_PLAN.md) to a JSON Schema `inputSchema` for an
- * MCP tool exposed from a `#[Route]` action (docs/MCP_SERVER_PLAN.md §7) --
- * one declaration drives both HTTP validation and the tool's advertised
+ * Maps a {@see ValidatorPlan} (the format-independent validator IR) to a
+ * JSON Schema `inputSchema` for an MCP tool exposed from a `#[Route]`
+ * action -- one declaration drives both HTTP validation and the tool's advertised
  * schema.
  *
  * Deliberately best-effort and *descriptive*, not a faithful re-encoding of
@@ -31,8 +30,8 @@ use Quiote\Validator\StringValidator;
  * doesn't map cleanly to JSON Schema (a negative regex match, an operator
  * group spanning several fields, an unrecognized validator class), we degrade
  * to a looser description rather than dropping the field or misrepresenting
- * it -- matching the plan's §15 "permissive schema + server-side validation"
- * stance.
+ * it -- favoring a permissive schema with server-side validation over a
+ * strict but inaccurate one.
  *
  * Only leaf validators keyed by a single request parameter contribute a
  * property. Operator groups (and/or/not/xor) are flattened -- their child

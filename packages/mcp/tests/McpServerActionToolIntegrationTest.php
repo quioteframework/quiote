@@ -10,8 +10,8 @@ use Quiote\Mcp\McpServer;
 use Quiote\Testing\PhpUnitTestCase;
 
 /**
- * The full actions-as-tools bridge, end to end (docs/MCP_SERVER_PLAN.md §7):
- * `mcp.expose_actions` on -> ActionToolScanner discovers GreetAction (the
+ * The full actions-as-tools bridge, end to end: `mcp.expose_actions` on
+ * -> ActionToolScanner discovers GreetAction (the
  * "mcp-action-tool-test" fixture) -> McpServer::build() registers it as an
  * explicit tool -> a real `tools/call` JSON-RPC round trip actually dispatches
  * to the action through Context::handle() and returns its rendered output.

@@ -10,9 +10,16 @@ return array (
   'core.use_security' => false,
   'core.use_translation' => false,
   'core.default_context' => 'web',
-  // Master telemetry gate (see docs/OPENTELEMETRY_PLAN.md and
-  // docs/CONFIGURATION_SETTINGS.md's Telemetry section for the full
+  // telemetry-otel is opt-in -- without this,
+  // telemetry.enabled below does nothing.
+  'plugins' => [\Quiote\Telemetry\TelemetryPlugin::class],
+  // Master telemetry gate (covers the full
   // telemetry.* family). Requires the open-telemetry/* packages to be
   // installed to have any effect -- see the plan's Dependencies section.
-  'telemetry.enabled' => false,
+  'telemetry.enabled' => true,
+  'telemetry.exporter' => 'otlp',
+  'telemetry.export.mode' => 'simple',
+  'telemetry.sampling.strategy' => 'always_on',
+  'telemetry.otlp.endpoint' => 'http://127.0.0.1:4318',
+  'telemetry.service.name' => 'quiote-sample-app',
 );

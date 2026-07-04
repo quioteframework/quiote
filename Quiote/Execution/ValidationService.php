@@ -24,7 +24,7 @@ final readonly class ValidationTrace
 
 /**
  * Adapter around legacy validation logic to enable container-less execution.
- * Phase 1: call Action::validate directly (manual validators unsupported without container).
+ * Calls Action::validate directly (manual validators unsupported without container).
  */
 class ValidationService
 {

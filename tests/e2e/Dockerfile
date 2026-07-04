@@ -1,6 +1,5 @@
 # e2e-only image: identical to the repo root Dockerfile, except it installs
-# require-dev too (the open-telemetry/* packages live there -- see
-# docs/OPENTELEMETRY_PLAN.md's Dependencies section for why they're dev-only
+# require-dev too (the open-telemetry/* packages live there, and are dev-only
 # in the real production image). Never used outside tests/e2e/docker-compose.yml
 # -- the production Dockerfile at the repo root is untouched by this.
 FROM dunglas/frankenphp
@@ -20,8 +19,7 @@ WORKDIR /app
 COPY . /app/
 RUN composer install --no-interaction --no-progress --prefer-dist
 # A PSR-18 client for the OTLP exporter -- deliberately NOT part of the repo's
-# own composer.json/lock (see docs/OPENTELEMETRY_PLAN.md's Dependencies
-# section for why its absence there is itself load-bearing for a unit test).
+# own composer.json/lock (its absence there is itself load-bearing for a unit test).
 # This e2e image needs a real one to actually export over the wire, added
 # here in an isolated build step so it never touches the committed lock file.
 RUN composer require --no-interaction --no-progress symfony/http-client

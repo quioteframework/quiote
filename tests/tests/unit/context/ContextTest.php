@@ -159,9 +159,9 @@ class ContextTest extends PhpUnitTestCase
 	}
 
 	/**
-	 * DI migration Phase 1 (docs/DI_MIGRATION_PLAN.md): core services built by
-	 * factories.xml must also be resolvable through the container, by role name
-	 * and by concrete class name, resolving to the exact same instances.
+	 * Core services built by factories.xml must also be resolvable through the
+	 * container, by role name and by concrete class name, resolving to the
+	 * exact same instances.
 	 */
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
 	public function testContainerResolvesCoreServicesByRoleAndClass()
@@ -203,9 +203,9 @@ class ContextTest extends PhpUnitTestCase
 	}
 
 	/**
-	 * DI migration Phase 3 (docs/DI_MIGRATION_PLAN.md): getService() is a thin wrapper
-	 * over the container, and the context itself must be autowireable so the transitional
-	 * Service base (constructor-injecting Context) resolves correctly.
+	 * getService() is a thin wrapper over the container, and the context itself
+	 * must be autowireable so the transitional Service base (constructor-injecting
+	 * Context) resolves correctly.
 	 */
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
 	public function testGetServiceResolvesCoreServiceAndArbitraryClass()

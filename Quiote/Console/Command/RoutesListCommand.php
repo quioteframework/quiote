@@ -21,8 +21,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * (`Routing::build()`), attribute routes only, or both merged via
  * `AttributeRoutes::mergeInto()` (see samples/app/Routing/AppRouting.php) --
  * this command is a read-only view onto the live result, not a second
- * opinion sourced only from `#[Route]` attributes. See
- * docs/ROUTING_AND_CLI_PLAN.md (B3).
+ * opinion sourced only from `#[Route]` attributes.
  *
  * Attribute-declared routes are additionally scanned (independently of
  * whatever the app's Routing class does with them) to surface authoring

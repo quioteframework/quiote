@@ -66,8 +66,7 @@ class Kernel
             } catch (\Throwable $e) {
                 // Log basic diagnostics
                 \Quiote\Logging\Log::for($this)->debug('[Kernel] Uncaught during handle bootstrap: '.$e::class.': '.$e->getMessage().' @ '.$e->getFile().':'.$e->getLine());
-                // Backstop for a pre-pipeline failure (docs/OPENTELEMETRY_PLAN.md,
-                // Phase 3) — TelemetryMiddleware never got a chance to run, so
+                // Backstop for a pre-pipeline failure — TelemetryMiddleware never got a chance to run, so
                 // whatever span (if any) is active gets the exception recorded here.
                 \Quiote\Telemetry\Trace::current()->recordException($e)->setStatusError($e->getMessage());
                 // Attempt unified error rendering via ErrorHandlingMiddleware helper.
@@ -104,8 +103,8 @@ class Kernel
                 WorkerManager::resetForNextRequest($context->getName());
             }
             // Per-request-boundary hook for plugins holding worker-lifetime state
-            // that needs flushing between requests (docs/PLUGIN_EXTRACTION_PLAN.md
-            // §2.2) -- Kernel names no concrete plugin class here. Core's own
+            // that needs flushing between requests -- Kernel names no concrete
+            // plugin class here. Core's own
             // telemetry-exporter default registers its listener a few lines below.
             \Quiote\Event\Events::emit(new \Quiote\Event\Lifecycle\WorkerRequestCompletedEvent($context));
         };
@@ -134,8 +133,7 @@ class Kernel
         // Bootstrap (prewarm only if requested or option set)
         $contextsToPreCreate = array_unique(array_filter(array_merge([$this->contextName], $this->extraContexts)));
         // Quiote::bootstrap() builds the worker-lifetime telemetry providers
-        // itself, as a KernelBootEvent listener (docs/OPENTELEMETRY_PLAN.md
-        // Phase 2, docs/PLUGIN_EXTRACTION_PLAN.md §2.2) -- Kernel no longer
+        // itself, as a KernelBootEvent listener -- Kernel no longer
         // names TelemetryBootstrap directly.
         Quiote::bootstrap($this->env, $contextsToPreCreate, ['prewarm' => $this->prewarm]);
     }

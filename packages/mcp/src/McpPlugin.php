@@ -13,8 +13,8 @@ use Quiote\Plugin\PluginInterface;
 use Quiote\Plugin\PluginRegistrar;
 
 /**
- * Opt-in entry point for the MCP server capability (docs/MCP_SERVER_PLAN.md).
- * Adding this class to the `plugins` config key publishes the `mcp.*` setting
+ * Opt-in entry point for the MCP server capability. Adding this class to the
+ * `plugins` config key publishes the `mcp.*` setting
  * defaults (all opt-in-safe: `mcp.enabled` defaults to `false`) and registers
  * `mcp:serve`. When the adapters are extracted into a standalone composer
  * package this plugin (and `Quiote\Mcp\*`) move to `quioteframework/quiote-mcp`

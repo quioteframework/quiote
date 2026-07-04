@@ -12,8 +12,8 @@ use Quiote\Mcp\McpConfig;
 use Quiote\Mcp\McpServer;
 
 /**
- * The Streamable-HTTP transport (docs/MCP_SERVER_PLAN.md §5.1): matches the
- * configured `mcp.path` (default `/mcp`) and delegates everything else to the
+ * The Streamable-HTTP transport: matches the configured `mcp.path` (default
+ * `/mcp`) and delegates everything else to the
  * rest of the pipeline unchanged. Registered by {@see \Quiote\Mcp\McpPlugin}
  * *before* `SecurityMiddleware` (MCP does its own auth, not session/CSRF), so
  * it still inherits earlier bootstrap middleware (tracing, payload parsing)

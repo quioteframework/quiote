@@ -32,8 +32,6 @@ use Doctrine\ORM\ORMSetup;
  * Cache bridging (metadata/query caches to Quiote's PSR-6 pool) is a follow-up;
  * for now ORMSetup's in-memory default is used unless a subclass overrides
  * {@see metadataCache()}.
- *
- * @see docs/DATABASE_ADAPTERS_PLAN.md §4.2
  */
 class DoctrineDatabase extends AbstractOrmDatabase
 {

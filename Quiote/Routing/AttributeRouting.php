@@ -12,9 +12,9 @@ use Quiote\Support\Compiler\Diagnostic;
  * scanning #[Route] attributes on action classes instead of a committed
  * Routing/Generated/ tree. An app switches to attribute routing by
  * extending this (or using it directly) in place of its own
- * generated-routes subclass -- see docs/ROUTING_AND_CLI_PLAN.md. A future
- * `routes:compile` artifact is expected to supersede the live scan done
- * here for production, with this remaining the always-correct fallback.
+ * generated-routes subclass. A future `routes:compile` artifact is
+ * expected to supersede the live scan done here for production, with
+ * this remaining the always-correct fallback.
  * @since      1.0.0
  */
 class AttributeRouting extends Routing

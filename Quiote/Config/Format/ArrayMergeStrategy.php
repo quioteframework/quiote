@@ -2,8 +2,8 @@
 namespace Quiote\Config\Format;
 
 /**
- * Format-agnostic parent/child config inheritance (docs/CONFIG_SYSTEM_REWRITE_PLAN.md
- * phase 4). Every FormatDriver resolves its own `parent` chain the same
+ * Format-agnostic parent/child config inheritance (phase 4). Every
+ * FormatDriver resolves its own `parent` chain the same
  * way: load the parent's array first, then deep-merge this file's array on
  * top of it via array_replace_recursive() semantics -- child values win,
  * nested arrays merge key-by-key rather than replacing wholesale.

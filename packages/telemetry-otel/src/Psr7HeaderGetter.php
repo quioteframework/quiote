@@ -7,10 +7,9 @@ use Psr\Http\Message\MessageInterface;
 
 /**
  * Reads W3C `traceparent`/`tracestate` (or any other propagated header) off a
- * PSR-7 message for {@see \OpenTelemetry\API\Trace\Propagation\TraceContextPropagator::extract()}
- * (docs/OPENTELEMETRY_PLAN.md, Phase 7). The SDK's default
- * `ArrayAccessGetterSetter` expects array-like access, which a PSR-7 message
- * isn't — this bridges the two.
+ * PSR-7 message for {@see \OpenTelemetry\API\Trace\Propagation\TraceContextPropagator::extract()}.
+ * The SDK's default `ArrayAccessGetterSetter` expects array-like access,
+ * which a PSR-7 message isn't — this bridges the two.
  */
 final class Psr7HeaderGetter implements PropagationGetterInterface
 {

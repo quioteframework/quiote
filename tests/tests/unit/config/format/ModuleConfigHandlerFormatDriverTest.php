@@ -6,8 +6,7 @@ use Quiote\Config\ModuleConfigHandler;
 
 /**
  * Proves a PHP-array file compiles through ModuleConfigHandler exactly
- * like the XML equivalent does -- docs/CONFIG_SYSTEM_REWRITE_PLAN.md
- * phase 2.
+ * like the XML equivalent does -- phase 2.
  */
 class ModuleConfigHandlerFormatDriverTest extends PhpUnitTestCase
 {

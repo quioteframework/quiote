@@ -5,8 +5,8 @@ use Quiote\Mcp\Compiler\ActionToolScanner;
 use Quiote\Testing\PhpUnitTestCase;
 
 /**
- * The actions-as-tools discovery pass (docs/MCP_SERVER_PLAN.md §7): finds
- * `#[Route]` action classes additionally decorated with the SDK's own
+ * The actions-as-tools discovery pass: finds `#[Route]` action classes
+ * additionally decorated with the SDK's own
  * `#[McpTool]` attribute. Fixture: tests/sandbox/app/Modules/McpActionTool/Actions/GreetAction.php.
  * Pure reflection -- no route matching involved, so this is safe to run
  * against any context's Controller regardless of that context's routing.

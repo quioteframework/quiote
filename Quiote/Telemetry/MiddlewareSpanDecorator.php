@@ -8,9 +8,9 @@ use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
 /**
- * Wraps a single pipeline middleware in a child span named by its FQCN
- * (docs/OPENTELEMETRY_PLAN.md, Phase 8). Reproduces, as real spans, what
- * `TraceMiddleware` already records as a flat name list.
+ * Wraps a single pipeline middleware in a child span named by its FQCN.
+ * Reproduces, as real spans, what `TraceMiddleware` already records as a
+ * flat name list.
  *
  * High cardinality/overhead — opt-in only via `telemetry.spans.middleware`
  * (default `false`). `MiddlewarePipeline::doBuild()` only constructs this

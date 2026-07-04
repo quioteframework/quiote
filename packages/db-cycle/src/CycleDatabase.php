@@ -26,9 +26,7 @@ use Cycle\Database\Config\DatabaseConfig;
  *
  * Schema *compilation* from annotated entities (cycle/annotated +
  * cycle/schema-builder) is an app/console concern, not something this adapter
- * does on every boot — supply a compiled/cached schema here. See plan §8.
- *
- * @see docs/DATABASE_ADAPTERS_PLAN.md §4.2
+ * does on every boot — supply a compiled/cached schema here.
  */
 class CycleDatabase extends AbstractOrmDatabase
 {
@@ -55,8 +53,7 @@ class CycleDatabase extends AbstractOrmDatabase
 
         throw new DatabaseException(sprintf(
             'CycleDatabase "%s" requires a "cycle" parameter containing a native '
-            . 'Cycle DatabaseConfig array (default, databases, connections). '
-            . 'See docs/DATABASE_ADAPTERS_PLAN.md §4.2.',
+            . 'Cycle DatabaseConfig array (default, databases, connections).',
             $this->getName()
         ));
     }
@@ -91,7 +88,7 @@ class CycleDatabase extends AbstractOrmDatabase
         throw new DatabaseException(sprintf(
             'CycleDatabase "%s" requires a compiled schema: provide a "schema" array '
             . '(or Schema), or a "schema_provider" callable. Schema compilation from '
-            . 'annotated entities is an app/console concern (see plan §8).',
+            . 'annotated entities is an app/console concern.',
             $this->getName()
         ));
     }

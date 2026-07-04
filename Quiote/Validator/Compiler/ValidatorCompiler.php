@@ -9,10 +9,9 @@ use Quiote\Validator\Compiler\Ir\ValidatorPlan;
 
 /**
  * Public entrypoint for validator compilation, independent of any CLI.
- * See docs/VALIDATOR_COMPILER_PLAN.md. A future `quiote compile validators`
- * command is expected to be a thin wrapper: discover()/compile() here,
- * ArtifactWriter (or a --check comparison) for output, print diagnostics,
- * choose an exit code.
+ * A future `quiote compile validators` command is expected to be a thin
+ * wrapper: discover()/compile() here, ArtifactWriter (or a --check
+ * comparison) for output, print diagnostics, choose an exit code.
  * @since      1.0.0
  */
 class ValidatorCompiler

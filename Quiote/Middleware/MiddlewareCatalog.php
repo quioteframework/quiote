@@ -67,16 +67,15 @@ class MiddlewareCatalog
      * attribute scanning. No explicit before/after/priority is needed here —
      * the class must carry a `#[Middleware(...)]` attribute describing its own
      * placement. If the same FQCN is also passed to {@see register()},
-     * register() wins (see docs/MIDDLEWARE_ATTRIBUTE_REGISTRATION_PLAN.md) and
-     * this candidate entry is ignored.
+     * register() wins and this candidate entry is ignored.
      *
      * By default the class is resolved through the DI container when the
      * pipeline builds (`$container->get($fqcn)`), which only works if every
      * constructor dependency is either type-hinted and container-resolvable
      * or has a default. A plugin middleware that needs the currently-building
      * pipeline's {@see Context} itself (e.g. to pull the context's own
-     * `Controller` instance rather than risk autowiring an unrelated one — see
-     * docs/PLUGIN_EXTRACTION_PLAN.md §2.3) supplies `$factory` instead; it is
+     * `Controller` instance rather than risk autowiring an unrelated one)
+     * supplies `$factory` instead; it is
      * called with that `Context` when the pipeline builds, while ordering
      * still comes from the class's own attribute, same as the DI-resolved case.
      *

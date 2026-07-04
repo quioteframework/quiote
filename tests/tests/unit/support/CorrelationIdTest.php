@@ -6,7 +6,7 @@ use Quiote\Support\CorrelationId;
 
 /**
  * The correlation-ID resolution/sanitization used by Context::handle() for the
- * inbound X-Correlation-Id header (docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md §4).
+ * inbound X-Correlation-Id header.
  * Adversarial coverage matters: the value is echoed into a response header and
  * log lines, so it is untrusted input.
  */

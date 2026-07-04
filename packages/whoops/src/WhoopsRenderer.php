@@ -15,8 +15,7 @@ use Whoops\Run;
 /**
  * Full-detail developer renderer built on filp/whoops -- the "shiny page"
  * shiny.php always tried and failed to be. Only ever used when
- * core.developer_exceptions is explicitly enabled; never the default (see
- * docs/WHOOPS_ERROR_HANDLING_PLAN.md).
+ * core.developer_exceptions is explicitly enabled; never the default.
  *
  * Whoops\Run is configured with allowQuit(false) and writeToOutput(false)
  * so handleException() returns its generated markup as a string instead of

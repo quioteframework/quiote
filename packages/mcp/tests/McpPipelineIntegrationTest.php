@@ -29,13 +29,13 @@ final class McpPipelineIntegrationGreeter
 /**
  * End-to-end: McpPlugin's contributions actually take effect inside a real
  * MiddlewarePipeline, in the right relative order (auth before endpoint,
- * both before SecurityMiddleware -- docs/MCP_SERVER_PLAN.md §5.1/§10), not
- * just "MiddlewareCatalog holds an entry" as the narrower McpPluginTest checks,
- * and that a real request/response round trip through the "web" context's
- * full pipeline actually reaches the MCP server. (Two malformed legacy routes
- * in this fixture app used to make *any* dispatch through this context crash
- * before ever reaching these middleware -- see docs/MCP_SERVER_PLAN.md §15 --
- * fixed in tests/sandbox/app/Routing/Generated/Modules/{BlogRoutes,AdminRoutes}.php.)
+ * both before SecurityMiddleware), not just "MiddlewareCatalog holds an
+ * entry" as the narrower McpPluginTest checks, and that a real
+ * request/response round trip through the "web" context's full pipeline
+ * actually reaches the MCP server. (Two malformed legacy routes in this
+ * fixture app used to make *any* dispatch through this context crash before
+ * ever reaching these middleware -- fixed in
+ * tests/sandbox/app/Routing/Generated/Modules/{BlogRoutes,AdminRoutes}.php.)
  */
 final class McpPipelineIntegrationTest extends PhpUnitTestCase
 {

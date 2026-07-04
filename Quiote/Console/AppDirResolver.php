@@ -11,8 +11,7 @@ use Quiote\Exception\QuioteException;
  * (which needs it once a command actually executes) and `bin/quiote`'s
  * best-effort pre-bootstrap (which needs it before {@see Application} is even
  * constructed, so plugin-contributed commands can appear in `list`/`--help`
- * without the user running a command first — see
- * docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md's "Command contribution boundary").
+ * without the user running a command first).
  *
  * Precedence:
  *  1. `$appDirOption`/`$envOption` — an explicit `--app-dir`/`--env`.

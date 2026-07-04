@@ -168,9 +168,9 @@ class MiddlewarePipelineFullCoverageTest extends TestCase
 
     public function testDeveloperExceptionsOffMasksMessageRegardlessOfEnvironmentName()
     {
-        // core.developer_exceptions -- not the environment name -- is the sole signal
-        // (see docs/WHOOPS_ERROR_HANDLING_PLAN.md); assert this holds under an
-        // environment named "production" as well as any other name.
+        // core.developer_exceptions -- not the environment name -- is the sole signal;
+        // assert this holds under an environment named "production" as well as any
+        // other name.
         \Quiote\Config\Config::set('core.environment', 'production');
         \Quiote\Config\Config::set('core.developer_exceptions', false);
         $eh = new ErrorHandlingMiddleware();
@@ -210,8 +210,8 @@ class MiddlewarePipelineFullCoverageTest extends TestCase
         \Quiote\Config\Config::set('core.environment', 'production');
         \Quiote\Config\Config::set('core.developer_exceptions', true);
         // ErrorHandlingMiddleware no longer hardcodes WhoopsRenderer -- something
-        // (normally Quiote::bootstrap()'s core-default registration, see
-        // docs/PLUGIN_EXTRACTION_PLAN.md §2.4) must register a developer renderer.
+        // (normally Quiote::bootstrap()'s core-default registration) must
+        // register a developer renderer.
         // This test constructs the middleware directly (no bootstrap), so it
         // registers one itself, exactly like the real default does.
         \Quiote\Exception\Rendering\ExceptionRendererRegistry::setDeveloperRenderer(

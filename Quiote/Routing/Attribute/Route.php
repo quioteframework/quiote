@@ -13,7 +13,7 @@ use Attribute;
  * `module`/`action` are deliberately not fields here -- they're derived from
  * the class's location by AttributeRouteScanner, the same way
  * Controller::createActionInstance() derives a class from a module/action
- * pair, just in reverse. See docs/ROUTING_AND_CLI_PLAN.md.
+ * pair, just in reverse.
  * @since      1.0.0
  */
 #[Attribute(Attribute::TARGET_CLASS | Attribute::IS_REPEATABLE)]

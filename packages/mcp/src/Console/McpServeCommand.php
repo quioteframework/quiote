@@ -15,8 +15,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
- * Runs this app as an MCP server over stdio (docs/MCP_SERVER_PLAN.md §5.2) --
- * the transport local clients (Claude Desktop, IDEs) launch as a subprocess,
+ * Runs this app as an MCP server over stdio -- the transport local clients
+ * (Claude Desktop, IDEs) launch as a subprocess,
  * and the fastest end-to-end path for the capability (phase 1: no HTTP/auth
  * surface). Registered via {@see \Quiote\Mcp\McpPlugin}.
  */

@@ -146,9 +146,9 @@ class ControllerTest extends PhpUnitTestCase
 	}
 
 	/**
-	 * DI migration Phase 3b (docs/DI_MIGRATION_PLAN.md): createActionInstance() routes
-	 * through Container::make(), so an action's constructor-typed dependency must be
-	 * autowired, and every call must build a fresh instance (never cached like get()).
+	 * createActionInstance() routes through Container::make(), so an action's
+	 * constructor-typed dependency must be autowired, and every call must
+	 * build a fresh instance (never cached like get()).
 	 */
 	public function testCreateActionInstanceAutowiresConstructorDependency()
 	{
@@ -164,7 +164,8 @@ class ControllerTest extends PhpUnitTestCase
 	}
 
 	/**
-	 * Same as above for createViewInstance() — the second Phase 3b choke point.
+	 * Same as above for createViewInstance() — the second choke point that
+	 * routes through the container.
 	 */
 	public function testCreateViewInstanceAutowiresConstructorDependency()
 	{

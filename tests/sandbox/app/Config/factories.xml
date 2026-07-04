@@ -87,7 +87,7 @@
 	<!--
 		Pure #[Route] attribute routing (no committed Routes::build() tree), used
 		by the MCP actions-as-tools bridge tests (ActionToolAdapterTest,
-		ActionToolScannerTest; see docs/MCP_SERVER_PLAN.md §7). Unlike
+		ActionToolScannerTest). Unlike
 		SandboxRouting/AttributeMergedRouting, this never merges in the legacy
 		Routes::build() tree, so it is unaffected by that tree's unrelated
 		malformed test_ticket_444_sample2 route (which breaks real request

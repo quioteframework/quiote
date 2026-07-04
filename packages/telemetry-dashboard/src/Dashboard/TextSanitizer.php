@@ -11,8 +11,7 @@ namespace Quiote\Telemetry\Dashboard;
  * dashboard displays ultimately comes from an instrumented app's telemetry
  * export, which the dashboard does not control. A hostile or buggy app could
  * otherwise inject ESC/CSI/OSC sequences via, e.g., a span attribute value,
- * to corrupt or hijack the terminal display. See
- * docs/TELEMETRY_DASHBOARD_PLAN.md's Phase 0 findings.
+ * to corrupt or hijack the terminal display.
  *
  * Deliberately not reusing `Symfony\Component\Tui\Widget\Util\StringUtils`
  * (which does the same thing) -- that class is marked `@internal` to the

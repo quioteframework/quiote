@@ -18,10 +18,10 @@ use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
 
 /**
- * Phase 6 tests for the route-match span: attributes, the 404/405 outcomes,
- * and — the plan's specific "this is also where the root span gets its final
- * name" requirement — that a successful match renames whatever span is
- * currently active to the route's low-cardinality identity.
+ * Tests for the route-match span: attributes, the 404/405 outcomes, and
+ * that a successful match renames whatever span is currently active to the
+ * route's low-cardinality identity (this is also where the root span gets
+ * its final name).
  */
 class TelemetryRoutingSpanTest extends TestCase
 {

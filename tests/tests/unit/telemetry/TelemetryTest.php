@@ -11,7 +11,7 @@ use Quiote\Telemetry\Trace;
 use Quiote\Telemetry\TraceRegistry;
 
 /**
- * Phase 1 tests for the telemetry facade/skeleton: no real tracer/meter
+ * Tests for the telemetry facade/skeleton: no real tracer/meter
  * provider exists yet, so every acquisition call must resolve to a shared
  * no-op handle regardless of the enabled flag, and every no-op method must be
  * safe to call with any input (happy path AND deliberately hostile input)
@@ -211,7 +211,7 @@ class TelemetryTest extends TestCase
     {
         // Ten calls, still the exact same instances: proves span()/current()/
         // metrics() never allocate on the disabled/unwired path, satisfying the
-        // "no new runtime cost" acceptance bar for Phase 1.
+        // "no new runtime cost" acceptance bar.
         $seen = [];
         for ($i = 0; $i < 10; $i++) {
             $seen[] = Trace::span('Quiote', 'op-' . $i);

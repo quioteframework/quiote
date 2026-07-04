@@ -13,7 +13,7 @@ use Quiote\Telemetry\Trace;
 use Quiote\Test\Http\Client\RecordingTransport;
 
 /**
- * The outbound half of docs/OPENTELEMETRY_PLAN.md Phase 7: when telemetry is
+ * The outbound half of telemetry tracing: when telemetry is
  * on, HttpClient injects W3C traceparent into the outgoing request (via
  * Psr7HeaderSetter) so a downstream service continues the trace, and opens a
  * CLIENT-kind span. When telemetry is off it's a pure pass-through.

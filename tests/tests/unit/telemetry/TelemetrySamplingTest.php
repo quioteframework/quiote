@@ -13,10 +13,10 @@ use Quiote\Telemetry\TelemetryBootstrap;
 use Quiote\Telemetry\Trace;
 
 /**
- * Phase 4 tests for head-based sampling: the ratio sampler, the always_on/
- * always_off strategies, the force-sample escape hatch, and — the specific
- * acceptance criteria from docs/OPENTELEMETRY_PLAN.md — that metrics are
- * NEVER sampled and that a child of a locally-sampled parent is always
+ * Tests for head-based sampling: the ratio sampler, the always_on/
+ * always_off strategies, the force-sample escape hatch, and the specific
+ * acceptance criteria that metrics are NEVER sampled and that a child of a
+ * locally-sampled parent is always
  * sampled regardless of ratio.
  */
 class TelemetrySamplingTest extends TestCase
@@ -73,7 +73,7 @@ class TelemetrySamplingTest extends TestCase
         return array_map('json_decode', explode("\n", $out), array_fill(0, substr_count($out, "\n") + 1, true));
     }
 
-    // --- ratio sampling: the plan's own acceptance criteria -------------------
+    // --- ratio sampling: acceptance criteria ----------------------------------
 
     public function testRatioZeroSamplesNoSpans(): void
     {
@@ -88,7 +88,7 @@ class TelemetrySamplingTest extends TestCase
 
     public function testRatioZeroStillRecordsAllMetrics(): void
     {
-        // The plan's central claim: sampling applies to traces only.
+        // Central claim: sampling applies to traces only.
         $this->configure('parentbased_traceidratio', 0.0);
 
         for ($i = 0; $i < 5; $i++) {

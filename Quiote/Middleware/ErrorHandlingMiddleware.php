@@ -18,7 +18,7 @@ use Symfony\Component\Routing\Exception\MethodNotAllowedException;
 
 /**
  * Catches unhandled throwables from downstream middleware/action dispatch and
- * produces a generic 500 (or mapped) response. Minimal for Phase 2; can be
+ * produces a generic 500 (or mapped) response. Currently minimal; can be
  * extended to perform content negotiation (HTML/JSON) and structured logging.
  */
 #[\Quiote\Middleware\Attribute\Middleware(phase: 'bootstrap', priority: 1000)]
@@ -125,11 +125,10 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
     /**
      * The sole signal is core.developer_exceptions -- no environment-name
      * sniffing, no QUIOTE_DEBUG. Default false: every client gets the safe
-     * generic response unless a developer has explicitly opted in (see
-     * docs/WHOOPS_ERROR_HANDLING_PLAN.md). The developer renderer itself is
-     * resolved through {@see ExceptionRendererRegistry} rather than a
-     * hardcoded class -- this middleware never names a concrete developer
-     * renderer (see docs/PLUGIN_EXTRACTION_PLAN.md §2.4).
+     * generic response unless a developer has explicitly opted in. The
+     * developer renderer itself is resolved through {@see ExceptionRendererRegistry}
+     * rather than a hardcoded class -- this middleware never names a concrete
+     * developer renderer.
      */
     private function resolveRenderer(): ExceptionRenderer
     {

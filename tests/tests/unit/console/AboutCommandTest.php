@@ -7,8 +7,8 @@ use Symfony\Component\Console\Tester\CommandTester;
 
 /**
  * Proves the bootstrap-in-console-context harness (AbstractAppCommand) works
- * before building routes:list/routes:compile on top of it -- see
- * docs/ROUTING_AND_CLI_PLAN.md (B2). core.app_dir is already set (readonly)
+ * before building routes:list/routes:compile on top of it.
+ * core.app_dir is already set (readonly)
  * by tests/bootstrap.php, so this exercises the "already bootstrapped"
  * branch rather than app-dir resolution -- app-dir resolution itself has no
  * Quiote-specific state to fake convincingly under the shared test process.

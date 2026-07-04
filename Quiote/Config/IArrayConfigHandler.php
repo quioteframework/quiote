@@ -4,9 +4,9 @@ namespace Quiote\Config;
 use Quiote\Config\Util\DOM\XmlConfigDomDocument;
 
 /**
- * A ConfigHandler that has been migrated to the array-based contract from
- * docs/CONFIG_SYSTEM_REWRITE_PLAN.md phase 2: its actual compilation logic
- * (executeArray()) consumes a plain, canonical array instead of walking a
+ * A ConfigHandler that has been migrated to the array-based contract
+ * (phase 2): its actual compilation logic (executeArray()) consumes a
+ * plain, canonical array instead of walking a
  * DOM directly, so the same logic works whether that array came from XML,
  * a PHP-array file, or YAML.
  *

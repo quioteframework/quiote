@@ -10,7 +10,7 @@ use Quiote\Logging\LogRegistry;
 use Quiote\Logging\Sink\JsonStdoutSink;
 
 /**
- * Core tests for the PSR-3 logging subsystem (Phase 1).
+ * Core tests for the PSR-3 logging subsystem.
  */
 class LoggingTest extends TestCase
 {

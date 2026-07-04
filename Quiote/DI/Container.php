@@ -124,7 +124,7 @@ class Container implements ContainerInterface
     }
 
     /**
-     * Build a fresh, never-cached instance of $class (docs/DI_MIGRATION_PLAN.md, Phase 3b).
+     * Build a fresh, never-cached instance of $class.
      * The public entry point for per-execution objects — actions and views — which must
      * never be memoized the way get() memoizes services: each dispatch needs its own
      * instance regardless of scope.
@@ -189,8 +189,8 @@ class Container implements ContainerInterface
 
     /**
      * Default scope for an unregistered, autowired class: #[Service(scope: ...)] wins if
-     * present; otherwise a class implementing ServiceInterface (docs/DI_MIGRATION_PLAN.md,
-     * Phase 3) defaults to transient — services are transient today (as models, none are
+     * present; otherwise a class implementing ServiceInterface defaults to
+     * transient — services are transient today (as models, none are
      * ISingletonModel), and silently promoting one to a process singleton under
      * FrankenPHP is a latent cross-request bug. Anything else defaults to singleton, matching
      * this container's pre-Phase-3 autowire-fallback behavior.

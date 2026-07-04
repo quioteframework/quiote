@@ -7,9 +7,8 @@ use OpenTelemetry\Context\Propagation\PropagationSetterInterface;
 /**
  * The outbound counterpart to {@see Psr7HeaderGetter}: adapts a PSR-7 request
  * to OpenTelemetry's propagation *setter* so `TraceContextPropagator::inject()`
- * can write `traceparent`/`tracestate` onto an outgoing request. This is the
- * egress half of Phase 7 in docs/OPENTELEMETRY_PLAN.md, previously unbuilt for
- * want of an HTTP client to inject into.
+ * can write `traceparent`/`tracestate` onto an outgoing request. This was
+ * previously unbuilt for want of an HTTP client to inject into.
  *
  * The carrier is passed and reassigned by reference because PSR-7 messages are
  * immutable — `withHeader()` returns a new instance — so `inject()`'s

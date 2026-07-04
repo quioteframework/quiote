@@ -10,8 +10,7 @@ use Quiote\Config\SettingConfigHandler;
  * IArrayConfigHandler: a settings file written as plain PHP or YAML
  * compiles through the exact same handler as settings.xml, with no
  * special-casing. This is the "greenfield code can use or not use XML" bet
- * from docs/CONFIG_SYSTEM_REWRITE_PLAN.md actually landing for one config
- * type, not just described in a plan document.
+ * actually landing for one config type, not just described in a plan.
  */
 class SettingConfigHandlerFormatDriverTest extends PhpUnitTestCase
 {

@@ -25,6 +25,6 @@
 		}
 	},
 	"extra": {
-		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/mcp/ (docs/MONOREPO_SPLIT_PLAN.md); split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/mcp/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
 	}
 }

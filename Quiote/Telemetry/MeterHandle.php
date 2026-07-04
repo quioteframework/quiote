@@ -4,8 +4,8 @@ namespace Quiote\Telemetry;
 
 /**
  * Records metric instruments (histograms, counters, gauges). Unlike spans,
- * metric recordings are never sampled (see docs/OPENTELEMETRY_PLAN.md, Phase 4)
- * — every call here is meant to always count toward the aggregate.
+ * metric recordings are never sampled — every call here is meant to always
+ * count toward the aggregate.
  */
 interface MeterHandle
 {

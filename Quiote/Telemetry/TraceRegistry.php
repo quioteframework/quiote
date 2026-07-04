@@ -16,8 +16,8 @@ use OpenTelemetry\SDK\Trace\TracerProviderInterface;
  * Kernel::run() and is safe to call during bootstrap itself.
  *
  * The `TracerProviderInterface`/`MeterProviderInterface` type hints below
- * reference optional open-telemetry/* classes (see docs/OPENTELEMETRY_PLAN.md
- * — those packages are `suggest`-only, never a hard dependency). PHP resolves
+ * reference optional open-telemetry/* classes — those packages are
+ * `suggest`-only, never a hard dependency. PHP resolves
  * parameter/return types lazily at call time, not at class-load time, so this
  * file loads safely even when the SDK isn't installed; {@see setProviders()}
  * and the accessors below are simply never called in that case (guarded by
@@ -71,8 +71,7 @@ final class TraceRegistry
     }
 
     /**
-     * Whether spans in $category should be recorded (docs/OPENTELEMETRY_PLAN.md,
-     * Phase 5). Deliberately NOT the same algorithm as
+     * Whether spans in $category should be recorded. Deliberately NOT the same algorithm as
      * {@see \Quiote\Logging\LogRegistry::resolveLevel()}: logging lets a more
      * specific child override its parent (longest-prefix-wins); this is a
      * cascade instead — a disabled ancestor (or the category itself) wins

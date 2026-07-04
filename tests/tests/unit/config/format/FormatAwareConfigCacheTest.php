@@ -8,7 +8,7 @@ use Quiote\Config\SettingConfigHandler;
 use Quiote\Exception\UnreadableException;
 
 /**
- * Phase 3 (extension-agnostic discovery): proves FormatAwareConfigCache
+ * Extension-agnostic discovery: proves FormatAwareConfigCache
  * resolves whichever of .php/.yaml/.xml exists for a given base path, and
  * that the resulting compiled cache file is a real, includable artifact
  * indistinguishable from what ConfigCache::checkConfig() would produce for

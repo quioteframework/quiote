@@ -18,8 +18,7 @@ use Symfony\Component\Tui\Render\Renderer;
 use Symfony\Component\Tui\Tui;
 
 /**
- * Live monitoring for a Quiote app's OTLP telemetry (docs/OPENTELEMETRY_PLAN.md)
- * -- see docs/TELEMETRY_DASHBOARD_PLAN.md for the full design. The dashboard
+ * Live monitoring for a Quiote app's OTLP telemetry. The dashboard
  * *is* a minimal OTLP/HTTP receiver: point an app's `telemetry.otlp.endpoint`
  * at this process and its existing spans/metrics export here directly, no
  * external Collector needed.
@@ -110,8 +109,7 @@ final class TelemetryDashboardCommand extends Command
                 ->requestRender();
         }, self::REFRESH_INTERVAL_SECONDS);
 
-        // Deliberately pcntl_signal(), not EventLoop::onSignal(): see
-        // docs/TELEMETRY_DASHBOARD_PLAN.md's Phase 1 findings -- a
+        // Deliberately pcntl_signal(), not EventLoop::onSignal(): a
         // stream_select() blocked with no timers registered does not
         // reliably wake up early for an incoming signal via
         // pcntl_signal_dispatch(). Once the refresh interval above is

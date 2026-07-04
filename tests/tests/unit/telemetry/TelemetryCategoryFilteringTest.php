@@ -10,10 +10,10 @@ use Quiote\Telemetry\Trace;
 use Quiote\Telemetry\TraceRegistry;
 
 /**
- * Phase 5 tests for category-based trace filtering: the cascade semantics
+ * Tests for category-based trace filtering: the cascade semantics
  * (deliberately NOT longest-prefix-wins like LogRegistry), the default
- * fallback, and — the acceptance criteria from docs/OPENTELEMETRY_PLAN.md —
- * that a span whose category is filtered out still lets a later, enabled
+ * fallback, and the acceptance criteria that a span whose category is
+ * filtered out still lets a later, enabled
  * span correctly parent onto the nearest recorded ancestor.
  */
 class TelemetryCategoryFilteringTest extends TestCase
@@ -39,7 +39,7 @@ class TelemetryCategoryFilteringTest extends TestCase
         Config::set('telemetry.enabled', true, true);
         Config::set('telemetry.exporter', 'none', true);
         Config::set('telemetry.export.mode', 'simple', true);
-        Config::set('telemetry.sampling.strategy', 'always_on', true); // isolate category filtering from Phase 4 sampling
+        Config::set('telemetry.sampling.strategy', 'always_on', true); // isolate category filtering from sampling behavior
         TelemetryBootstrap::configureFromConfig();
     }
 
@@ -230,8 +230,8 @@ class TelemetryCategoryFilteringTest extends TestCase
 
     public function testMetricsAreRecordedRegardlessOfCategoryFiltering(): void
     {
-        // Category filtering applies to spans only (docs/OPENTELEMETRY_PLAN.md,
-        // Phase 5) — Trace::metrics() takes no category argument at all, so
+        // Category filtering applies to spans only — Trace::metrics() takes
+        // no category argument at all, so
         // there's nothing to filter; this documents that invariant explicitly.
         $this->enable();
         Trace::setCategoryEnabled('Quiote.Http', false);

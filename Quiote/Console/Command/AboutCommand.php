@@ -13,7 +13,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * Prints framework/app diagnostic info. Deliberately trivial: it exists to
  * prove the bootstrap-in-console-context path (app-dir resolution +
  * Quiote::bootstrap()) works before building real commands (routes:list,
- * routes:compile) on top of it -- see docs/ROUTING_AND_CLI_PLAN.md (B2).
+ * routes:compile) on top of it.
  * @since      1.0.0
  */
 #[AsCommand(name: 'about', description: 'Display framework and application information')]

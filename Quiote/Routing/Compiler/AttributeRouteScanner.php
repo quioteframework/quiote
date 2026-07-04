@@ -12,8 +12,8 @@ use ReflectionClass;
 /**
  * Discovers #[Route] attributes on action classes under one or more module
  * directories and builds a RoutePlan from them. This is the first front-end
- * for the routing IR (see docs/ROUTING_AND_CLI_PLAN.md) -- a future
- * RoutingConfigHandler (XML) or programmatic builder would feed the same
+ * for the routing IR -- a future RoutingConfigHandler (XML) or
+ * programmatic builder would feed the same
  * RoutePlan shape without either back-end (RouteCollectionBuilder, the
  * compiled-matcher emitter) needing to change.
  *
@@ -44,8 +44,8 @@ final class AttributeRouteScanner
 		$this->diagnostics = [];
 
 		// Default scan set = the app's module dir plus any plugin-contributed
-		// module directories (docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md), so a
-		// plugin's #[Route] action classes are discovered automatically. An
+		// module directories, so a plugin's #[Route] action classes are
+		// discovered automatically. An
 		// explicit $moduleDirs argument overrides this entirely.
 		$moduleDirs = $moduleDirs !== null
 			? $moduleDirs

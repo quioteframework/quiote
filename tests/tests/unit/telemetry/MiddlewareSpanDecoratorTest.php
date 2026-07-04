@@ -14,8 +14,8 @@ use Quiote\Telemetry\MiddlewareSpanDecorator;
 use Quiote\Telemetry\TelemetryBootstrap;
 
 /**
- * Phase 8 unit tests for MiddlewareSpanDecorator in isolation: the wrapper
- * every pipeline middleware gets when `telemetry.spans.middleware` is on.
+ * Unit tests for MiddlewareSpanDecorator in isolation: the wrapper every
+ * pipeline middleware gets when `telemetry.spans.middleware` is on.
  */
 class MiddlewareSpanDecoratorTest extends TestCase
 {

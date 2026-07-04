@@ -5,8 +5,8 @@ namespace Quiote\Telemetry\Dashboard;
 /**
  * A metric decoded from an OTLP `ExportMetricsServiceRequest` by
  * {@see OtlpDecoder}. `$type` is one of `'gauge'`, `'sum'`, `'histogram'` --
- * the only three shapes {@see \Quiote\Middleware\TelemetryMiddleware} emits
- * (see docs/OPENTELEMETRY_PLAN.md, Phase 3). Other OTLP metric types
+ * the only three shapes {@see \Quiote\Middleware\TelemetryMiddleware} emits.
+ * Other OTLP metric types
  * (exponential histogram, summary) are skipped by the decoder rather than
  * represented here.
  */

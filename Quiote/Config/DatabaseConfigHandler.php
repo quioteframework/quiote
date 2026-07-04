@@ -10,8 +10,7 @@ use Quiote\Exception\ParseException;
  * configuration file that will be created for you automatically upon first
  * request.
  *
- * Migrated to IArrayConfigHandler (docs/CONFIG_SYSTEM_REWRITE_PLAN.md
- * phase 2). Canonical schema:
+ * Migrated to IArrayConfigHandler (phase 2). Canonical schema:
  *   ['default' => 'connection_name'|null,
  *    'databases' => ['connection_name' => ['class' => 'Some\Class', 'parameters' => [...]]]]
  * The "a default must be declared by the time a <databases> block is
@@ -109,7 +108,7 @@ class DatabaseConfigHandler extends XmlConfigHandler implements IArrayConfigHand
 			// (not at runtime) to keep the generated code a plain `new <FQCN>()`.
 			// NOTE: if the set of registered aliases can change between compiles,
 			// fold \Quiote\Database\DatabaseDriverRegistry::aliases() into the
-			// config-cache key (see docs/DATABASE_ADAPTERS_PLAN.md §7.1).
+			// config-cache key.
 			$class = \Quiote\Database\DatabaseDriverRegistry::resolve($db['class']);
 
 			// append new data

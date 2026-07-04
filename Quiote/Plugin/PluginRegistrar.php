@@ -24,10 +24,9 @@ use Quiote\Middleware\MiddlewareCatalog;
  * that object is built. Route/command contributions are recorded and consulted
  * by the route scanner / console.
  *
- * Override rules (see docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md): config defaults
- * and container services are *set-if-absent*, so app settings/bindings (loaded
- * before plugins) always win, and among plugins the first to contribute a given
- * key/id wins.
+ * Override rules: config defaults and container services are *set-if-absent*,
+ * so app settings/bindings (loaded before plugins) always win, and among
+ * plugins the first to contribute a given key/id wins.
  */
 final class PluginRegistrar
 {

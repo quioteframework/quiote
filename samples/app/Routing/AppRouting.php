@@ -7,7 +7,7 @@ use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
 
 /**
- * Plain PHP routing -- see docs/ROUTING_AND_CLI_PLAN.md: routing.xml has no
+ * Plain PHP routing -- routing.xml has no
  * working config handler today, so a Routing subclass building the
  * RouteCollection directly is the supported way to declare routes.
  *

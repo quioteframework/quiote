@@ -25,7 +25,7 @@ use Quiote\Validator\XoroperatorValidator;
  * Emits a ValidatorPlan as committable, opcacheable PHP source that returns
  * a closure over Quiote\Validator\Compiler\Runtime\ValidatorBuilder --
  * the same format a developer can hand-write for a validator that never
- * had an XML config at all (see docs/VALIDATOR_COMPILER_PLAN.md phase 3).
+ * had an XML config at all.
  *
  * Every parameter reaching this emitter already passed
  * ValidatorPlanBuilder's compile-time whitelist check (assuming the

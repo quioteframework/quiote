@@ -58,17 +58,17 @@ final class SecurityForwardValidationResetTest extends UnitTestCase
         $state->validationDecision = ValidationDecision::passed(); // simulate original action validated
         $psr = $this->buildPsr()->withAttribute(ExecutionState::class, $state);
 
-        // Phase 1: run only security and capture immediate reset before validation executes.
-        $phase1 = $security->process($psr, new class implements \Psr\Http\Server\RequestHandlerInterface {
+        // Run only security and capture immediate reset before validation executes.
+        $securityOnlyResponse = $security->process($psr, new class implements \Psr\Http\Server\RequestHandlerInterface {
             public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface {
                 return (new Psr17Factory())->createResponse(202); // short‑circuit before validation
             }
         });
-        $this->assertSame(202, $phase1->getStatusCode());
+        $this->assertSame(202, $securityOnlyResponse->getStatusCode());
         $this->assertTrue($state->forwarded, 'Expected forwarded flag after security');
         $this->assertSame('pending', $state->validationDecision->state, 'Security forward should reset validation decision to pending');
 
-        // Phase 2: now run validation + dispatch using the mutated state; it should move to passed.
+        // Now run validation + dispatch using the mutated state; it should move to passed.
         $resp = $validation->process($psr, new class($dispatch) implements \Psr\Http\Server\RequestHandlerInterface {
             public function __construct(private $dispatch){}
             public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface {

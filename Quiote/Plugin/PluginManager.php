@@ -13,7 +13,7 @@ use Quiote\Logging\Log;
  * and {@see \Quiote\Event\Events}: plugins are registered once and their
  * contributions persist for the life of the process.
  *
- * Lifecycle (see docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md):
+ * Lifecycle:
  *  - {@see add()} — programmatic registration (before bootstrap).
  *  - {@see bootFromConfig()} — called by {@see \Quiote\Quiote::bootstrap()} after
  *    settings load and before contexts are created (the one seam between those

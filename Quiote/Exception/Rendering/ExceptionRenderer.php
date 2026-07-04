@@ -9,7 +9,7 @@ use Throwable;
  * Turns a caught Throwable into a client-facing PSR-7 response. This is the
  * seam ErrorHandlingMiddleware delegates to -- it is the ONE catch point in
  * the framework; a renderer only decides how to present what was caught, it
- * never does its own catching (see docs/WHOOPS_ERROR_HANDLING_PLAN.md).
+ * never does its own catching.
  *
  * Implementations must be worker-mode safe: no echo, no exit(), no reliance
  * on superglobals (use $request instead -- $_SERVER/$_GET can be stale or

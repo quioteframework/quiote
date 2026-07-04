@@ -8,9 +8,9 @@ require_once(__DIR__ . '/ConfigHandlerTestBase.php');
 /**
  * Locks in FactoryConfigHandler's compiled output against the real
  * tests/sandbox/app/Config/factories.xml fixture. execute() is now a
- * two-line adapter over toCanonicalArray() + executeArray() (see
- * docs/CONFIG_SYSTEM_REWRITE_PLAN.md phase 2, second handler after
- * SettingConfigHandler); this is the parity guarantee that refactor
+ * two-line adapter over toCanonicalArray() + executeArray() (phase 2,
+ * second handler after SettingConfigHandler); this is the parity guarantee
+ * that refactor
  * promised, generated from the pre-refactor handler's actual output.
  */
 class FactoryConfigHandlerGoldenTest extends ConfigHandlerTestBase

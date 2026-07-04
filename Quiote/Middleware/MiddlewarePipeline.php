@@ -70,8 +70,8 @@ class MiddlewarePipeline implements RequestHandlerInterface
             $controller = $context->getController();
             $routing = $context->getRouting();
 
-            // Phase 8 (docs/OPENTELEMETRY_PLAN.md): per-middleware spans, opt-in
-            // and high-cardinality — computed once per build (the stack itself is
+            // Per-middleware spans, opt-in and high-cardinality — computed once
+            // per build (the stack itself is
             // cached for the worker's lifetime, and telemetry is configured once
             // at worker startup, before any request runs, so this can't go stale
             // mid-worker) so a disabled pipeline never allocates the decorator.
@@ -97,8 +97,7 @@ class MiddlewarePipeline implements RequestHandlerInterface
 
             // CSRF middleware are NOT in this map — they're registered by
             // Quiote\Security\Csrf\CsrfPlugin via
-            // PluginRegistrar::attributedMiddleware() (see
-            // docs/PLUGIN_EXTRACTION_PLAN.md §2.3), which core runs by default
+            // PluginRegistrar::attributedMiddleware(), which core runs by default
             // today (see the "core default" note in Quiote::bootstrap()) so
             // this map staying free of them costs nothing while they're still
             // in-tree, and needs no further change when they actually move to
@@ -108,7 +107,7 @@ class MiddlewarePipeline implements RequestHandlerInterface
                     $first = $e->getFile() . ':' . $e->getLine();
                     $snippet = substr(str_replace("\n", ' | ', $e->getTraceAsString()), 0, 500);
                     \Quiote\Logging\Log::for($this)->error('[MiddlewarePipeline] ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $first . ' trace=' . $snippet);
-                    // Backstop for docs/OPENTELEMETRY_PLAN.md Phase 3: TelemetryMiddleware
+                    // Backstop: TelemetryMiddleware
                     // already records+ends the root span on its own way out (it sits
                     // inside this middleware), so by the time we get here Trace::current()
                     // is normally back to a no-op — this only matters if TelemetryMiddleware
@@ -134,8 +133,7 @@ class MiddlewarePipeline implements RequestHandlerInterface
             ];
 
             // Order is derived from each class's #[Middleware] attribute (phase +
-            // before/after + priority), not a hand-maintained sequence — see
-            // docs/MIDDLEWARE_ATTRIBUTE_REGISTRATION_PLAN.md. App middleware opts in
+            // before/after + priority), not a hand-maintained sequence. App middleware opts in
             // via MiddlewareCatalog::registerAttributed(). If the same FQCN is also
             // passed to MiddlewareCatalog::register(), register() wins outright: it's
             // excluded here and spliced in below by insertRegistered() instead.

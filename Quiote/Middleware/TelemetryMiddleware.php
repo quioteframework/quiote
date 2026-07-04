@@ -19,11 +19,11 @@ use Quiote\Telemetry\Trace;
 /**
  * Opens the root OpenTelemetry span for the request and records the headline
  * resource measurements — wall time, CPU, memory — as both span attributes
- * and OTel metrics. See docs/OPENTELEMETRY_PLAN.md, Phase 3. Also carries the
- * force-sample signal (Phase 4) into the span's creation-time attributes,
+ * and OTel metrics. Also carries the force-sample signal into the span's
+ * creation-time attributes,
  * since a sampler can only see attributes present when the span is created.
  *
- * Phase 7: extracts an inbound W3C `traceparent`/`tracestate` so this request
+ * Extracts an inbound W3C `traceparent`/`tracestate` so this request
  * joins an upstream distributed trace instead of always starting a new one,
  * and enriches {@see LogContext} with the root span's trace/span IDs so every
  * log line during the request is cross-navigable with the trace — this works
@@ -46,7 +46,7 @@ use Quiote\Telemetry\Trace;
  * middleware (RoutingMiddleware/DispatchMiddleware) operating on their own
  * PSR-7 request clone, which this outer middleware never sees back per PSR-7
  * immutability. Enriching the root span with route/action dimensions is
- * Phase 6's job (it already touches RoutingMiddleware directly).
+ * left to the middleware that already touches RoutingMiddleware directly.
  */
 #[\Quiote\Middleware\Attribute\Middleware(phase: 'bootstrap', priority: 950)]
 class TelemetryMiddleware implements MiddlewareInterface
@@ -142,10 +142,10 @@ class TelemetryMiddleware implements MiddlewareInterface
      * Enriches LogContext with the root span's trace/span IDs so every log
      * line emitted during this request is cross-navigable with the trace,
      * mirroring how Context::handle() already enriches with `rid`. Done here
-     * rather than in Context::handle() (where the plan originally sketched
-     * it) because at that point in the pipeline no span exists yet —
-     * Context::handle() runs before the middleware pipeline even starts, so
-     * TelemetryMiddleware is the earliest point a real span is available.
+     * rather than in Context::handle() because at that point in the pipeline
+     * no span exists yet — Context::handle() runs before the middleware
+     * pipeline even starts, so TelemetryMiddleware is the earliest point a
+     * real span is available.
      */
     private static function correlateLogContext(SpanHandle $span): void
     {
@@ -162,9 +162,8 @@ class TelemetryMiddleware implements MiddlewareInterface
     }
 
     /**
-     * Head-based force-sample escape hatch (docs/OPENTELEMETRY_PLAN.md,
-     * Phase 4): "trace this one request" without touching the global
-     * sampling ratio. Two signals, either one is enough: a PSR-7
+     * Head-based force-sample escape hatch: "trace this one request" without
+     * touching the global sampling ratio. Two signals, either one is enough: a PSR-7
      * `quiote.force_sample` request attribute (settable programmatically by
      * app/earlier-middleware code), or the configured header
      * (`telemetry.sampling.force_header`, default `X-Quiote-Trace`) set to a

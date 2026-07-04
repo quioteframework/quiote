@@ -6,7 +6,8 @@ This plan takes the framework's stated philosophy ("unopinionated core + opinion
 drop-ins", `docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md`) to its conclusion: move opinionated,
 optional, or heavy-dependency subsystems out of `Quiote/` into separately-installable
 composer packages under `quioteframework/*`, so a minimal app pulls only the kernel and
-opts into the rest with `composer require quioteframework/csrf` (etc.).
+opts into the rest with `composer require quioteframework/mcp` (etc.) — CSRF is the one
+deliberate exception, see "Registration policy" below.
 
 **Progress:** §2's core seam gaps (2.1–2.4) are closed. **All 9 Tier-1 packages are now
 physically split** into `packages/*` (see docs/MONOREPO_SPLIT_PLAN.md): `mcp`, `ratelimit`,
@@ -15,6 +16,31 @@ physically split** into `packages/*` (see docs/MONOREPO_SPLIT_PLAN.md): `mcp`, `
 `docs/MONOREPO_SPLIT_PLAN.md`'s still-open step 3, no `split.yml` exists). Tier 2 (PHPTAL/XSLT
 renderers, Gettext, RBAC, YAML config driver, PDO session backends) is the only thing left
 in `Quiote/` from the original candidate catalog, unblocked but not yet moved.
+
+**Registration policy — settled, supersedes the "all transitional" language below.** Every
+extracted package's default posture was originally framed as transitional scaffolding pending a
+future breaking-change release — that framing assumed an existing app population to avoid
+breaking, which doesn't exist (this fork is days old, zero real installs). Given that, the
+actual policy per package is now:
+- **MCP, the 3 ORM adapters, `ratelimit`, `whoops`, `telemetry-otel`** — genuinely, permanently
+  **opt-in**, exactly like `McpPlugin` always was: add the plugin class to the `plugins` config
+  key, nothing runs otherwise. `Quiote::bootstrap()` registers none of these automatically (the
+  telemetry-otel/whoops core-default blocks from §2.2/§2.4 below have been **removed** — see
+  `WhoopsPlugin`, a new plugin class mirroring `CsrfPlugin`/`McpPlugin` so Whoops can actually be
+  opted into now that nothing does it by default).
+- **CSRF** — the one deliberate **opt-OUT** default, permanently, not a transitional step toward
+  opt-in. It's a security default, not just a packaging convenience: `quioteframework/csrf` is a
+  mandatory `require` of the kernel (not `require-dev`/`suggest`), and `Quiote::bootstrap()`
+  always registers `CsrfPlugin` (behind a `class_exists()` guard for the "harder" opt-out path —
+  see below). A fresh `quiote new` app is CSRF-protected without anyone having to know to ask.
+  Disabling it takes conscious effort: the existing `core.csrf.enabled = false` runtime flag (the
+  "soft" opt-out — already the gate both CSRF middleware read), or `composer remove
+  quioteframework/csrf` (the "hard" opt-out — the `class_exists()` guard means this degrades to
+  no CSRF rather than a fatal error, since the package genuinely can be absent now that it's not
+  merely a compatibility fiction).
+- **`telemetry-dashboard`** — unaffected by any of this; it was never conditionally registered
+  for compatibility reasons, it's permanently excluded from the plugin-command system because it
+  must run with zero bootstrap at all (§ below, unchanged).
 
 The good news from the audit: **the seams already exist and most candidates are already
 plugin-shaped.** The MCP subsystem and all three ORM adapters are self-contained plugins
@@ -109,10 +135,13 @@ now resolves through the registry and falls back to `SafeRenderer` if nothing is
 core registers `WhoopsRenderer` as the default in `Quiote::bootstrap()` today, guarded by
 `class_exists(\Whoops\Run::class)`.
 
-All four core-default registrations added by 2.2–2.4 (plus CSRF) are explicitly transitional —
-each is one clearly-delineated, deletable block. When a subsystem actually moves to its own
-package, that block is deleted and the app opts in via the `plugins` config key instead,
-exactly like `Quiote\Mcp\McpPlugin` already works.
+**Superseded by the "Registration policy" note near the top of this doc.** All four
+core-default registrations added by 2.2–2.4 were originally framed as transitional
+compatibility scaffolding, each meant to be deleted once its package "really" shipped. That
+framing assumed an existing app population to protect from a breaking change, which doesn't
+exist. The telemetry-otel and whoops blocks have since been deleted outright (both are fully
+opt-in now, no core-default at all); the CSRF block stays, but permanently, as a deliberate
+opt-out default rather than a transitional stand-in for opt-in.
 
 ### 2.5 (Already clean — no core change) renderers, translators, user model, DB adapters, rate-limit
 These select their implementation through existing config-driven registries/factories and
@@ -243,12 +272,14 @@ No monorepo/subtree tooling exists yet. Recommended: **monorepo-with-read-only-s
   integration test suite keeps exercising them together against the kernel.
 - **Split on tag**: a GitHub Action (e.g. `splitsh/lite`) mirrors each subsystem subtree to a
   read-only `quioteframework/<pkg>` repo, so Packagist serves `composer require
-  quioteframework/csrf`. Consumers never see the monorepo.
+  quioteframework/mcp`. Consumers never see the monorepo.
 - **Per-package `composer.json`**: each split carries its own manifest — `require:
   quioteframework/quiote` (kernel) + its freed dependency (e.g. `filp/whoops`), PSR-4 for its
   slice of the `Quiote\` namespace, and (where relevant) its own `suggest`.
 - **Versioning**: lockstep-tag all packages to the kernel version initially (simplest;
-  matches the monorepo model). Kernel declares each as `suggest`, never `require`.
+  matches the monorepo model). Kernel declares each as `suggest`, never `require` — except
+  `quioteframework/csrf`, the deliberate opt-out default (see "Registration policy" above),
+  which the kernel `require`s like any other real dependency.
 - **Optional meta-package** `quioteframework/quiote-full` that requires the common drop-ins,
   for users who want today's batteries-included install in one line.
 - **Scaffolding**: `NewCommand`/`AppWriter` should offer a "batteries" toggle that adds the
@@ -264,11 +295,12 @@ No monorepo/subtree tooling exists yet. Recommended: **monorepo-with-read-only-s
   therefore cannot register through the normal `plugins` key; it needs a pre-bootstrap
   registration path (composer autoload + a `FormatDriverRegistry` entry loaded eagerly), or it
   stays in core. Flag before committing to extracting it.
-- **Behavior change: CSRF becomes opt-in.** Today CSRF is on-by-default (in the core stack,
-  gated by `core.csrf.enabled`). After extraction it's "on when the plugin is installed." This
-  is a **breaking change** for existing apps — document loudly, ship in a major bump, and have
-  the scaffolder include `quioteframework/csrf` by default. Same posture for anything currently
-  in the default middleware stack.
+- ~~**Behavior change: CSRF becomes opt-in.**~~ **Superseded — CSRF stays opt-out,
+  permanently** (see "Registration policy" near the top). No BC break to plan for: the package
+  physically moved, but `quioteframework/csrf` is a mandatory `require` of the kernel and
+  `CsrfPlugin` is always registered, so behavior is unchanged for any app, existing or future.
+  Disabling it is the deliberate exception, gated by `core.csrf.enabled` (soft) or `composer
+  remove quioteframework/csrf` (hard, degrades gracefully via a `class_exists()` guard).
 - **The telemetry facade must not follow the exporter out.** Extracting tier-b/c while keeping
   tier-a in core is the whole point; conflating them would force rewriting every `Trace::span()`
   call site behind an indirection. Keep the boundary crisp.
@@ -301,10 +333,14 @@ No monorepo/subtree tooling exists yet. Recommended: **monorepo-with-read-only-s
    `packages/csrf/` and `packages/telemetry-otel/` both split.
 5. **Tier 2 opinionated code**: PHPTAL/XSLT, Gettext, RBAC, (YAML pending §5), session-PDO.
    **Not started.**
-6. **Docs + meta-package + scaffolder toggle**; announce BC breaks. **Not started** — no
-   `quioteframework/quiote-full` meta-package yet, and the CSRF/rate-limit/etc. "opt-in"
-   posture is still nominal: `Quiote::bootstrap()`'s core-default calls mean nothing has
-   actually become opt-in-by-absence yet (removing a core-default call, and the resulting BC
-   break, is deliberately deferred to whenever each package is ready to leave the monorepo for
-   real).
+6. **Docs + meta-package + scaffolder toggle**; announce BC breaks. **Partially done.**
+   `quioteframework/mcp`/`ratelimit`/`whoops`/`db-*`/`telemetry-otel` are now genuinely opt-in
+   (their core-default registrations, where they existed, are deleted — see "Registration
+   policy" near the top of this doc); no BC break to announce for these since nothing depended
+   on their old defaults. CSRF is deliberately **not** part of that flip — it stays a permanent
+   opt-out default (mandatory `require`, always registered), so there's no future "CSRF becomes
+   opt-in" migration to plan for at all. Still not started: a `quioteframework/quiote-full`
+   meta-package, and `NewCommand` scaffolding review (worth checking whether the scaffolder
+   should also default-suggest `telemetry-otel`/`whoops` for a new app, now that they require a
+   conscious `plugins` addition to get at all).
 </content>

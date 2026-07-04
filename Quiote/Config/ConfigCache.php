@@ -167,10 +167,9 @@ class ConfigCache
 			if ($extension !== 'xml' && $extension !== '') {
 				// core.config_format / autodetect (see resolveConfigFormat()) resolved
 				// this logical config to a non-XML physical file. Only handlers migrated
-				// to the array contract (docs/CONFIG_SYSTEM_REWRITE_PLAN.md phase 2) can
-				// be fed from one -- everything else (currently only
-				// ValidatorConfigHandler, which has its own separate compiler; see
-				// docs/VALIDATOR_COMPILER_PLAN.md) stays XML-only.
+				// to the array contract (phase 2) can be fed from one -- everything else
+				// (currently only ValidatorConfigHandler, which has its own separate
+				// compiler) stays XML-only.
 				if (!$handler instanceof IArrayConfigHandler) {
 					throw new ConfigurationException(sprintf(
 						'"%s" does not support non-XML config sources (no IArrayConfigHandler implementation); "%s" cannot be used for it.',
@@ -243,8 +242,8 @@ class ConfigCache
 		// the full filename path to the config, which might not be what we were given.
 		$filename = Toolkit::isPathAbsolute($config) ? $config : Toolkit::normalizePath(Config::get('core.app_dir')) . '/' . $config;
 
-		// Extension-agnostic format resolution (docs/CONFIG_SYSTEM_REWRITE_PLAN.md
-		// phase 3): $config (the logical name used for handler-pattern lookup
+		// Extension-agnostic format resolution (phase 3): $config (the
+		// logical name used for handler-pattern lookup
 		// below) is untouched -- only the physical file we actually read/cache
 		// against can change here.
 		$resolvedFilename = self::resolveConfigFormat($filename);
@@ -270,8 +269,7 @@ class ConfigCache
 
 	/**
 	 * File extensions this class knows how to resolve/compile, in
-	 * autodetect priority order (PHP > YAML > XML, per
-	 * docs/CONFIG_SYSTEM_REWRITE_PLAN.md phase 3).
+	 * autodetect priority order (PHP > YAML > XML, per phase 3).
 	 */
 	private const CONFIG_FORMAT_EXTENSIONS = [
 		'php' => ['php'],

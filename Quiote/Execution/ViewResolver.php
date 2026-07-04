@@ -3,7 +3,7 @@ namespace Quiote\Execution;
 
 /**
  * @deprecated ViewResolver has been removed. Use ViewNameResolver directly.
- * This stub will be removed in Phase 8 (hard removal). Instantiation triggers a deprecation warning.
+ * This stub will be removed in a future hard-removal cleanup. Instantiation triggers a deprecation warning.
  */
 class ViewResolver
 {

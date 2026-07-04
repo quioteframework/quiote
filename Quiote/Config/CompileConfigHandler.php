@@ -9,8 +9,8 @@ use Quiote\Util\Toolkit;
  * CompileConfigHandler gathers multiple files and puts them into a single
  * file. Upon creation of the new file, all comments and blank lines are removed.
  *
- * Migrated to IArrayConfigHandler (docs/CONFIG_SYSTEM_REWRITE_PLAN.md
- * phase 2). Canonical schema: ['resolved_file_path' => 'code_to_embed'],
+ * Migrated to IArrayConfigHandler (phase 2). Canonical schema:
+ * ['resolved_file_path' => 'code_to_embed'],
  * exactly the map execute() used to build inline and hand straight to
  * generate() (which concatenates the values). Gathering/reading/
  * formatting the referenced files still happens in toCanonicalArray() --

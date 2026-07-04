@@ -10,8 +10,8 @@ use Quiote\Plugin\PluginRegistrar;
 /**
  * Wires the OTel-SDK-dependent exporter bootstrap ({@see TelemetryBootstrap})
  * into the generic event seams instead of {@see \Quiote\Runtime\Kernel}
- * calling it by hard FQCN (see docs/PLUGIN_EXTRACTION_PLAN.md §2.2). The
- * always-on `Trace` facade this exporter feeds ({@see Trace}, {@see
+ * calling it by hard FQCN. The always-on `Trace` facade this exporter feeds
+ * ({@see Trace}, {@see
  * TraceRegistry}, the no-op handles) stays in core regardless — only the
  * SDK-backed provider setup/flush moves through this seam.
  *

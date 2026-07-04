@@ -17,7 +17,7 @@ use Quiote\Telemetry\TelemetryBootstrap;
 use Quiote\Telemetry\Trace;
 
 /**
- * Phase 3 tests for TelemetryMiddleware: the root request span plus the
+ * Tests for TelemetryMiddleware: the root request span plus the
  * headline resource measurements (wall time, CPU, memory), and every failure
  * path — downstream exceptions, telemetry disabled — degrading safely.
  */
@@ -47,7 +47,7 @@ class TelemetryMiddlewareTest extends TestCase
         Config::set('telemetry.exporter', 'none', true);
         Config::set('telemetry.export.mode', 'simple', true); // synchronous export on span end
         // Pinned to always_on: these tests assert on span/metric content, not
-        // sampling behavior (Phase 4's own ratio/force-sample tests live in
+        // sampling behavior (ratio/force-sample tests live in
         // TelemetrySamplingTest.php) — the default ratio sampler would make
         // span capture here nondeterministic.
         Config::set('telemetry.sampling.strategy', 'always_on', true);
@@ -325,7 +325,7 @@ class TelemetryMiddlewareTest extends TestCase
         $this->assertTrue($attrs['quiote.cache.hit']);
     }
 
-    // --- Phase 4: sampling integration through the middleware -------------------
+    // --- sampling integration through the middleware --------------------------
 
     private function enableWithRatio(float $ratio): void
     {
@@ -384,8 +384,8 @@ class TelemetryMiddlewareTest extends TestCase
 
     public function testMetricsAreRecordedEvenWhenTheSpanIsDropped(): void
     {
-        // The plan's central claim, exercised at the actual integration point:
-        // a 0.0 ratio drops the trace but must never suppress metrics.
+        // Central claim, exercised at the actual integration point: a 0.0
+        // ratio drops the trace but must never suppress metrics.
         $this->enableWithRatio(0.0);
         $mw = new TelemetryMiddleware();
 
