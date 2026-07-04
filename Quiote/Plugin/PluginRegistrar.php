@@ -5,7 +5,6 @@ namespace Quiote\Plugin;
 use Quiote\Config\Config;
 use Quiote\DI\Container;
 use Quiote\Event\Events;
-use Quiote\Mcp\McpCatalog;
 use Quiote\Middleware\MiddlewareCatalog;
 
 /**
@@ -13,8 +12,13 @@ use Quiote\Middleware\MiddlewareCatalog;
  *
  * Every method routes to a seam that already exists in the framework — this
  * class adds no new low-level mechanism, it just gives plugins one coherent,
- * discoverable surface for the seven contribution kinds. Contributions to
- * *static* seams (config, middleware, events) are applied immediately;
+ * discoverable surface for the contribution kinds core itself knows about.
+ * A plugin package that owns its own registry (e.g. MCP's {@see
+ * \Quiote\Mcp\McpCatalog}) is registered by calling that registry directly
+ * from {@see PluginInterface::register()} instead of gaining a bespoke method
+ * here — this class must not grow a method per plugin package, or every
+ * package would force a core release to gain a contribution seam. Contributions
+ * to *static* seams (config, middleware, events) are applied immediately;
  * contributions that need a per-{@see \Quiote\Context} object (DI services,
  * named HTTP clients) are recorded on {@see PluginManager} and applied when
  * that object is built. Route/command contributions are recorded and consulted
@@ -53,17 +57,32 @@ final class PluginRegistrar
         return $this;
     }
 
-    /** Insert a middleware at a position (routes to {@see MiddlewareCatalog::register()}). */
+    /**
+     * Insert a middleware at a position (routes to {@see MiddlewareCatalog::register()}).
+     * $factory is called with the building pipeline's {@see \Quiote\Context} as its
+     * argument (ignore it if unneeded — e.g. a single-context feature like MCP
+     * captures a fixed context name instead; see `Quiote\Mcp\McpPlugin`).
+     */
     public function middleware(string $fqcn, callable $factory, ?string $after = null, ?string $before = null, int $priority = 0): self
     {
         MiddlewareCatalog::register($fqcn, $factory, $after, $before, $priority);
         return $this;
     }
 
-    /** Add an app/plugin middleware class to `#[Middleware]` attribute scanning. */
-    public function attributedMiddleware(string $fqcn): self
+    /**
+     * Add an app/plugin middleware class to `#[Middleware]` attribute scanning
+     * — ordering comes from the class's own attribute. By default it's built
+     * by the DI container (`$container->get($fqcn)`); pass `$factory` when the
+     * class needs the building pipeline's {@see \Quiote\Context} itself (e.g.
+     * to pull that context's own `Controller` instance rather than risk the
+     * container autowiring an unrelated one) — see
+     * {@see MiddlewareCatalog::registerAttributed()}.
+     *
+     * @param ?callable(\Quiote\Context): \Psr\Http\Server\MiddlewareInterface $factory
+     */
+    public function attributedMiddleware(string $fqcn, ?callable $factory = null): self
     {
-        MiddlewareCatalog::registerAttributed($fqcn);
+        MiddlewareCatalog::registerAttributed($fqcn, $factory);
         return $this;
     }
 
@@ -119,62 +138,18 @@ final class PluginRegistrar
     }
 
     /**
-     * Register an MCP tool (routes to {@see McpCatalog::addTool()}), see
-     * docs/MCP_SERVER_PLAN.md §6.2. $handlerFqcn is resolved through the DI
-     * container at call time; $method defaults to `__invoke` when omitted.
+     * Register the "developer" exception renderer used by
+     * {@see \Quiote\Middleware\ErrorHandlingMiddleware} when
+     * `core.developer_exceptions` is true. Routes to the static
+     * {@see \Quiote\Exception\Rendering\ExceptionRendererRegistry} (applied
+     * immediately, like {@see databaseDriver()}). Set-if-absent: first
+     * registration wins.
+     *
+     * @param callable(): \Quiote\Exception\Rendering\ExceptionRenderer $factory
      */
-    public function mcpTool(
-        string $handlerFqcn,
-        ?string $method = null,
-        ?string $name = null,
-        ?string $description = null,
-        ?array $inputSchema = null,
-        ?array $outputSchema = null,
-    ): self {
-        McpCatalog::addTool(
-            $method !== null ? [$handlerFqcn, $method] : $handlerFqcn,
-            $name,
-            null,
-            $description,
-            $inputSchema,
-            $outputSchema,
-        );
-        return $this;
-    }
-
-    /** Register an MCP resource (routes to {@see McpCatalog::addResource()}). */
-    public function mcpResource(
-        string $handlerFqcn,
-        string $uri,
-        ?string $method = null,
-        ?string $name = null,
-        ?string $description = null,
-        ?string $mimeType = null,
-    ): self {
-        McpCatalog::addResource(
-            $method !== null ? [$handlerFqcn, $method] : $handlerFqcn,
-            $uri,
-            $name,
-            null,
-            $description,
-            $mimeType,
-        );
-        return $this;
-    }
-
-    /** Register an MCP prompt (routes to {@see McpCatalog::addPrompt()}). */
-    public function mcpPrompt(
-        string $handlerFqcn,
-        ?string $method = null,
-        ?string $name = null,
-        ?string $description = null,
-    ): self {
-        McpCatalog::addPrompt(
-            $method !== null ? [$handlerFqcn, $method] : $handlerFqcn,
-            $name,
-            null,
-            $description,
-        );
+    public function developerExceptionRenderer(callable $factory): self
+    {
+        \Quiote\Exception\Rendering\ExceptionRendererRegistry::setDeveloperRenderer($factory);
         return $this;
     }
 }

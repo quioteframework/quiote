@@ -1,0 +1,36 @@
+{
+	"name": "quioteframework/db-doctrine",
+	"description": "Doctrine ORM and DBAL driver adapters for Quiote's database layer.",
+	"keywords": ["quiote", "database", "orm", "doctrine"],
+	"homepage": "https://github.com/quioteframework/db-doctrine",
+	"type": "library",
+	"license": "LGPL-2.1+",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"quioteframework/quiote": "*",
+		"doctrine/orm": "^3.6",
+		"doctrine/dbal": "^4.4"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Database\\Adapter\\Doctrine\\": "src/"
+		}
+	},
+	"autoload-dev": {
+		"psr-4": {
+			"Quiote\\Test\\Database\\Entity\\": "tests/Entity/"
+		}
+	},
+	"extra": {
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/db-doctrine/ (docs/MONOREPO_SPLIT_PLAN.md); split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here. NOTE: this package's own autoload-dev is inert while installed as a path-repo dependency of the monorepo -- composer only loads a dependency's `autoload` section, never its `autoload-dev` (that's why the monorepo's own root composer.json duplicates the Quiote\\Test\\Database\\Entity\\ mapping in ITS autoload-dev). This section only takes effect once this package is tested standalone after the real split."
+	}
+}

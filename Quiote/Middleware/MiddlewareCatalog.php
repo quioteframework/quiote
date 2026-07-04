@@ -32,10 +32,15 @@ class MiddlewareCatalog
     private static $coreStackFactory = null;
 
     /**
-     * FQCNs of app middleware to include in `#[Middleware]` attribute
+     * FQCNs of app/plugin middleware to include in `#[Middleware]` attribute
      * scanning, in addition to the framework's own core classes. Populated
-     * via {@see registerAttributed()}.
-     * @var array<string,true>
+     * via {@see registerAttributed()}. Value is `true` when the class is
+     * expected to be constructible by the DI container unassisted (the common
+     * case), or a factory callable when it needs a hand-built factory (e.g. a
+     * plugin middleware that needs the building pipeline's {@see Context} —
+     * see {@see attributedFactory()}) while still being *ordered* by its own
+     * `#[Middleware]` attribute like any other attribute-scanned class.
+     * @var array<string,true|callable(Context): \Psr\Http\Server\MiddlewareInterface>
      */
     private static array $attributedCandidates = [];
 
@@ -58,24 +63,41 @@ class MiddlewareCatalog
     }
 
     /**
-     * Register an app middleware class as a candidate for `#[Middleware]`
-     * attribute scanning. Unlike {@see register()}, no factory or explicit
-     * before/after/priority is needed here — the class must carry a
-     * `#[Middleware(...)]` attribute describing its own placement, and it is
-     * resolved through the DI container when the pipeline builds. If the
-     * same FQCN is also passed to {@see register()}, register() wins (see
-     * docs/MIDDLEWARE_ATTRIBUTE_REGISTRATION_PLAN.md) and this candidate
-     * entry is ignored.
+     * Register an app/plugin middleware class as a candidate for `#[Middleware]`
+     * attribute scanning. No explicit before/after/priority is needed here —
+     * the class must carry a `#[Middleware(...)]` attribute describing its own
+     * placement. If the same FQCN is also passed to {@see register()},
+     * register() wins (see docs/MIDDLEWARE_ATTRIBUTE_REGISTRATION_PLAN.md) and
+     * this candidate entry is ignored.
+     *
+     * By default the class is resolved through the DI container when the
+     * pipeline builds (`$container->get($fqcn)`), which only works if every
+     * constructor dependency is either type-hinted and container-resolvable
+     * or has a default. A plugin middleware that needs the currently-building
+     * pipeline's {@see Context} itself (e.g. to pull the context's own
+     * `Controller` instance rather than risk autowiring an unrelated one — see
+     * docs/PLUGIN_EXTRACTION_PLAN.md §2.3) supplies `$factory` instead; it is
+     * called with that `Context` when the pipeline builds, while ordering
+     * still comes from the class's own attribute, same as the DI-resolved case.
+     *
+     * @param ?callable(Context): \Psr\Http\Server\MiddlewareInterface $factory
      */
-    public static function registerAttributed(string $fqcn): void
+    public static function registerAttributed(string $fqcn, ?callable $factory = null): void
     {
-        self::$attributedCandidates[$fqcn] = true;
+        self::$attributedCandidates[$fqcn] = $factory ?? true;
     }
 
     /** @return string[] FQCNs registered via {@see registerAttributed()}. */
     public static function getAttributedCandidates(): array
     {
         return array_keys(self::$attributedCandidates);
+    }
+
+    /** @return (callable(Context): \Psr\Http\Server\MiddlewareInterface)|null The custom factory for $fqcn, if one was supplied to {@see registerAttributed()}. */
+    public static function attributedFactory(string $fqcn): ?callable
+    {
+        $entry = self::$attributedCandidates[$fqcn] ?? null;
+        return is_callable($entry) ? $entry : null;
     }
 
     /** Raw map mainly for tests. */

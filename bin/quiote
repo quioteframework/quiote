@@ -18,5 +18,33 @@ if (!class_exists(Quiote\Console\Application::class)) {
 	exit(1);
 }
 
+// Best-effort pre-bootstrap so plugin-contributed commands (mcp:serve, an
+// app's own console commands, etc.) show up in `list`/`--help` without the
+// user having to run a command first -- see the "Command contribution
+// boundary" note in docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md: Application's
+// constructor reads PluginManager::contributedCommands(), which is only
+// populated once Quiote::bootstrap() has run. Resolves the app exactly the
+// way AbstractAppCommand does (--app-dir/$QUIOTE_APP_DIR, a .quiote.json
+// marker file, or an upward search for Config/settings.*) and silently
+// gives up on any failure -- `quiote new` (no app exists yet) and a plain
+// `quiote --version`/`quiote list` run outside any app must keep working
+// exactly as before. A real command's own bootstrapApp() surfaces any
+// actual problem (missing app, bad config) when it actually runs.
+try {
+	$input = new Symfony\Component\Console\Input\ArgvInput();
+	$appDirOption = $input->getParameterOption(['--app-dir'], null, true);
+	$envOption = $input->getParameterOption(['--env'], null, true);
+	$resolved = Quiote\Console\AppDirResolver::resolve(
+		is_string($appDirOption) ? $appDirOption : null,
+		is_string($envOption) ? $envOption : null,
+	);
+	if ($resolved['appDir'] !== null) {
+		Quiote\Config\Config::set('core.app_dir', $resolved['appDir'], true, true);
+		Quiote\Quiote::bootstrap($resolved['env'] ?: 'development');
+	}
+} catch (\Throwable) {
+	// Opportunistic only; see the comment above.
+}
+
 $application = new Quiote\Console\Application();
 exit($application->run());

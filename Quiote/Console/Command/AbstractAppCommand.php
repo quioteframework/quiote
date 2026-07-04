@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Quiote\Console\Command;
 
 use Quiote\Config\Config;
+use Quiote\Console\AppDirResolver;
 use Quiote\Exception\QuioteException;
 use Quiote\Quiote;
 use Symfony\Component\Console\Command\Command;
@@ -14,10 +15,10 @@ use Symfony\Component\Console\Input\InputOption;
  * Base for commands that need a bootstrapped Quiote application (as opposed
  * to `new`, which is deliberately pre-bootstrap -- see NewCommand). Adds the
  * `--app-dir`/`--env` options and the app-dir resolution + Quiote::bootstrap()
- * wiring described in docs/ROUTING_AND_CLI_PLAN.md (B1).
+ * wiring described in docs/ROUTING_AND_CLI_PLAN.md (B1). App-dir/env
+ * resolution itself is {@see AppDirResolver} (shared with `bin/quiote`'s
+ * best-effort pre-bootstrap).
  *
- * App-dir resolution order: `--app-dir`, else $QUIOTE_APP_DIR, else an
- * upward search from the current directory for a `Config/settings.*` file.
  * If `core.app_dir` is already set (e.g. a test harness bootstrapped it
  * before invoking the command via CommandTester), that value wins and no
  * resolution/re-bootstrap of app-dir happens -- only the environment is
@@ -26,23 +27,32 @@ use Symfony\Component\Console\Input\InputOption;
  */
 abstract class AbstractAppCommand extends Command
 {
-	private const SETTINGS_EXTENSIONS = ['php', 'xml', 'yaml', 'yml'];
-
 	protected function configureAppOptions(): void
 	{
 		$this
-			->addOption('app-dir', null, InputOption::VALUE_REQUIRED, 'Path to the application directory (defaults to $QUIOTE_APP_DIR, else an upward search from the current directory)')
-			->addOption('env', null, InputOption::VALUE_REQUIRED, 'Environment to bootstrap (defaults to $QUIOTE_ENV, else "development")');
+			->addOption('app-dir', null, InputOption::VALUE_REQUIRED, 'Path to the application directory (defaults to $QUIOTE_APP_DIR, else a .quiote.json marker file, else an upward search from the current directory)')
+			->addOption('env', null, InputOption::VALUE_REQUIRED, 'Environment to bootstrap (defaults to $QUIOTE_ENV, else a .quiote.json marker file, else "development")');
 	}
 
 	protected function bootstrapApp(InputInterface $input): void
 	{
+		$resolved = AppDirResolver::resolve(
+			$input->getOption('app-dir') ?: null,
+			$input->getOption('env') ?: null,
+		);
+
 		if (!Config::has('core.app_dir')) {
-			Config::set('core.app_dir', $this->resolveAppDir($input), true, true);
+			if ($resolved['appDir'] === null) {
+				throw new QuioteException(
+					'Could not locate a Quiote application. Pass --app-dir, set $QUIOTE_APP_DIR, '
+					. 'add a .quiote.json marker file (with an "app_dir" key), or run this command '
+					. 'from inside an application directory (one containing Config/settings.*).'
+				);
+			}
+			Config::set('core.app_dir', $resolved['appDir'], true, true);
 		}
 
-		$env = $input->getOption('env') ?: (getenv('QUIOTE_ENV') ?: 'development');
-		Quiote::bootstrap($env);
+		Quiote::bootstrap($resolved['env'] ?: 'development');
 
 		$this->registerAppNamespaceFallbackAutoloader();
 	}
@@ -75,41 +85,5 @@ abstract class AbstractAppCommand extends Command
 				require $file;
 			}
 		});
-	}
-
-	private function resolveAppDir(InputInterface $input): string
-	{
-		$appDir = $input->getOption('app-dir') ?: (getenv('QUIOTE_APP_DIR') ?: null);
-		if ($appDir !== null) {
-			$real = realpath($appDir);
-			if ($real === false || !is_dir($real)) {
-				throw new QuioteException(sprintf('App directory "%s" does not exist.', $appDir));
-			}
-			return $real;
-		}
-
-		$dir = getcwd();
-		while ($dir !== false && $dir !== '') {
-			if ($this->hasSettingsFile($dir)) {
-				return $dir;
-			}
-			$parent = dirname($dir);
-			if ($parent === $dir) {
-				break;
-			}
-			$dir = $parent;
-		}
-
-		throw new QuioteException('Could not locate a Quiote application. Pass --app-dir, set $QUIOTE_APP_DIR, or run this command from inside an application directory (one containing Config/settings.*).');
-	}
-
-	private function hasSettingsFile(string $dir): bool
-	{
-		foreach (self::SETTINGS_EXTENSIONS as $extension) {
-			if (is_file($dir . '/Config/settings.' . $extension)) {
-				return true;
-			}
-		}
-		return false;
 	}
 }

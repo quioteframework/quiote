@@ -1,7 +1,7 @@
 <?php
 use PHPUnit\Framework\TestCase;
 use Nyholm\Psr7\ServerRequest;
-use Quiote\Exception\Rendering\WhoopsRenderer;
+use Quiote\Exception\Rendering\Whoops\WhoopsRenderer;
 
 final class WhoopsRendererTest extends TestCase
 {

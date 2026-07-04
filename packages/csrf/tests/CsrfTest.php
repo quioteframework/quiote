@@ -2,8 +2,8 @@
 
 use Quiote\Testing\UnitTestCase;
 use Quiote\Security\Csrf\CsrfManager;
-use Quiote\Middleware\CsrfValidationMiddleware;
-use Quiote\Middleware\CsrfInjectionMiddleware;
+use Quiote\Security\Csrf\Middleware\CsrfValidationMiddleware;
+use Quiote\Security\Csrf\Middleware\CsrfInjectionMiddleware;
 use Quiote\Config\Config;
 use Nyholm\Psr7\ServerRequest;
 use Nyholm\Psr7\Response as Psr7Response;

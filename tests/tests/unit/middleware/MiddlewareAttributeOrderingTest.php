@@ -13,8 +13,8 @@ use Quiote\Middleware\PayloadParsingMiddleware;
 use Quiote\Middleware\ContentNegotiationMiddleware;
 use Quiote\Middleware\RoutingMiddleware;
 use Quiote\Middleware\OutputTypeSyncMiddleware;
-use Quiote\Middleware\CsrfInjectionMiddleware;
-use Quiote\Middleware\CsrfValidationMiddleware;
+use Quiote\Security\Csrf\Middleware\CsrfInjectionMiddleware;
+use Quiote\Security\Csrf\Middleware\CsrfValidationMiddleware;
 use Quiote\Middleware\SecurityMiddleware;
 use Quiote\Middleware\ValidationMiddleware;
 use Quiote\Middleware\SlotMiddleware;
@@ -42,6 +42,12 @@ class MiddlewareAttributeOrderingTest extends TestCase
     {
         MiddlewareCatalog::initialize([]);
         MiddlewareCatalog::reset();
+        // CSRF middleware are no longer in MiddlewarePipeline's own $factories
+        // map (docs/PLUGIN_EXTRACTION_PLAN.md §2.3) -- this test builds a
+        // pipeline via Context::getInstance() directly, without going through
+        // Quiote::bootstrap() (which runs this by default today), so it must
+        // register the plugin itself, same as any other plugin-dependent test.
+        (new \Quiote\Security\Csrf\CsrfPlugin())->register(new \Quiote\Plugin\PluginRegistrar('quiote/csrf'));
     }
 
     #[\Override]

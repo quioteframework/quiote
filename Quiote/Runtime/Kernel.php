@@ -103,7 +103,11 @@ class Kernel
             if (class_exists(WorkerManager::class)) {
                 WorkerManager::resetForNextRequest($context->getName());
             }
-            \Quiote\Telemetry\TelemetryBootstrap::flushAfterRequest();
+            // Per-request-boundary hook for plugins holding worker-lifetime state
+            // that needs flushing between requests (docs/PLUGIN_EXTRACTION_PLAN.md
+            // §2.2) -- Kernel names no concrete plugin class here. Core's own
+            // telemetry-exporter default registers its listener a few lines below.
+            \Quiote\Event\Events::emit(new \Quiote\Event\Lifecycle\WorkerRequestCompletedEvent($context));
         };
 
         $adapter->run($handle, $reset);
@@ -129,13 +133,11 @@ class Kernel
 
         // Bootstrap (prewarm only if requested or option set)
         $contextsToPreCreate = array_unique(array_filter(array_merge([$this->contextName], $this->extraContexts)));
+        // Quiote::bootstrap() builds the worker-lifetime telemetry providers
+        // itself, as a KernelBootEvent listener (docs/OPENTELEMETRY_PLAN.md
+        // Phase 2, docs/PLUGIN_EXTRACTION_PLAN.md §2.2) -- Kernel no longer
+        // names TelemetryBootstrap directly.
         Quiote::bootstrap($this->env, $contextsToPreCreate, ['prewarm' => $this->prewarm]);
-
-        // Build the worker-lifetime telemetry providers now that settings.xml has
-        // loaded (docs/OPENTELEMETRY_PLAN.md, Phase 2). Exactly once per worker
-        // process; a no-op when telemetry.enabled is false or the SDK isn't
-        // installed.
-        \Quiote\Telemetry\TelemetryBootstrap::configureFromConfig();
     }
 
     private function selectWorkerAdapter(): WorkerAdapterInterface

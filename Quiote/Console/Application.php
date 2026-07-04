@@ -13,11 +13,18 @@ use Symfony\Component\Console\Application as SymfonyApplication;
  * nothing, so there is no Quiote\Context to build yet); `about` and
  * `routes:list` bootstrap an existing app via AbstractAppCommand's app-dir
  * resolution + Quiote::bootstrap() wiring -- see
- * docs/ROUTING_AND_CLI_PLAN.md (B1-B3). `telemetry:dashboard` is only
- * registered when `symfony/tui` (a `require-dev`/`suggest`-only dependency,
- * see docs/TELEMETRY_DASHBOARD_PLAN.md) is actually installed -- a
- * production install without it simply doesn't offer the command, mirroring
- * how the `open-telemetry/*` packages are optional everywhere else.
+ * docs/ROUTING_AND_CLI_PLAN.md (B1-B3). `telemetry:dashboard` now lives in
+ * its own package, `packages/telemetry-dashboard/` (docs/MONOREPO_SPLIT_PLAN.md),
+ * and is only registered when that package (and therefore `symfony/tui`) is
+ * actually installed -- a production install without it simply doesn't offer
+ * the command, mirroring how the `open-telemetry/*` packages are optional
+ * everywhere else. Registered eagerly here (not through the generic
+ * plugin-command-contribution seam) because `bin/quiote` builds this
+ * `Application` before any `Quiote::bootstrap()` call -- a plugin-contributed
+ * command would only appear once a bootstrap had already run in the same
+ * process (see docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md's "Command contribution
+ * boundary"), which would silently break `bin/quiote telemetry:dashboard`
+ * used standalone.
  * @since      1.0.0
  */
 final class Application extends SymfonyApplication
@@ -29,7 +36,7 @@ final class Application extends SymfonyApplication
 		$this->addCommand(new AboutCommand());
 		$this->addCommand(new RoutesListCommand());
 		$this->addCommand(new CacheWarmupCommand());
-		if (class_exists(\Symfony\Component\Tui\Tui::class)) {
+		if (class_exists(TelemetryDashboardCommand::class)) {
 			$this->addCommand(new TelemetryDashboardCommand());
 		}
 		$this->addContributedCommands();

@@ -8,8 +8,8 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Quiote\Exception\Rendering\ExceptionRenderer;
+use Quiote\Exception\Rendering\ExceptionRendererRegistry;
 use Quiote\Exception\Rendering\SafeRenderer;
-use Quiote\Exception\Rendering\WhoopsRenderer;
 use Throwable;
 use Quiote\Config\Config;
 use Quiote\Event\Events;
@@ -126,10 +126,16 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
      * The sole signal is core.developer_exceptions -- no environment-name
      * sniffing, no QUIOTE_DEBUG. Default false: every client gets the safe
      * generic response unless a developer has explicitly opted in (see
-     * docs/WHOOPS_ERROR_HANDLING_PLAN.md).
+     * docs/WHOOPS_ERROR_HANDLING_PLAN.md). The developer renderer itself is
+     * resolved through {@see ExceptionRendererRegistry} rather than a
+     * hardcoded class -- this middleware never names a concrete developer
+     * renderer (see docs/PLUGIN_EXTRACTION_PLAN.md §2.4).
      */
     private function resolveRenderer(): ExceptionRenderer
     {
-        return Config::get('core.developer_exceptions', false) ? new WhoopsRenderer() : new SafeRenderer();
+        if (!Config::get('core.developer_exceptions', false)) {
+            return new SafeRenderer();
+        }
+        return ExceptionRendererRegistry::developerRenderer() ?? new SafeRenderer();
     }
 }

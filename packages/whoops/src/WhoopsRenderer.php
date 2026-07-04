@@ -1,9 +1,11 @@
 <?php
-namespace Quiote\Exception\Rendering;
+namespace Quiote\Exception\Rendering\Whoops;
 
 use Nyholm\Psr7\Response;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Quiote\Exception\Rendering\ExceptionRenderer;
+use Quiote\Exception\Rendering\NegotiatesContent;
 use Throwable;
 use Whoops\Handler\JsonResponseHandler;
 use Whoops\Handler\PlainTextHandler;

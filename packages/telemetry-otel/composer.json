@@ -1,0 +1,34 @@
+{
+	"name": "quioteframework/telemetry-otel",
+	"description": "OpenTelemetry SDK exporter/bootstrap for Quiote's always-on Trace facade. Builds worker-lifetime tracer/meter providers from telemetry.* settings and flushes them per request.",
+	"keywords": ["quiote", "opentelemetry", "telemetry", "observability"],
+	"homepage": "https://github.com/quioteframework/telemetry-otel",
+	"type": "library",
+	"license": "LGPL-2.1+",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"quioteframework/quiote": "*",
+		"open-telemetry/api": "^1.9",
+		"open-telemetry/sdk": "^1.14",
+		"open-telemetry/sem-conv": "^1.38",
+		"open-telemetry/exporter-otlp": "^1.4",
+		"open-telemetry/context": "^1.5"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Telemetry\\": "src/"
+		}
+	},
+	"extra": {
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/telemetry-otel/ (docs/MONOREPO_SPLIT_PLAN.md); split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here. NOTE: this package DELIBERATELY shares the Quiote\\Telemetry\\ namespace with the kernel -- Trace/TraceRegistry/SpanKind/the no-op handles/MiddlewareSpanDecorator (the always-on, SDK-dependency-free facade) stay in the kernel's own Quiote/Telemetry/ directory; only the OTel-SDK-backed classes (TelemetryBootstrap, OtelSpanHandle, OtelMeterHandle, ForceSampleSampler, Psr7HeaderGetter/Setter, TelemetryPlugin) live here. Composer's longest-prefix-first PSR-4 resolution checks this package's src/ first for any Quiote\\Telemetry\\* class and falls back to the kernel's Quiote/ root for the rest -- verified working via composer dump-autoload + a full test run. This is the one Tier-1 package that intentionally keeps the shared-namespace-across-packages approach (rejected for csrf/whoops) because the cross-references between the two tiers are extensive and functional (Trace::span() directly instantiates OtelSpanHandle, TraceRegistry has a typed OtelMeterHandle property), not merely adjacent."
+	}
+}

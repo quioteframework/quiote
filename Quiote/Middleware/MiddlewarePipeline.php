@@ -78,8 +78,16 @@ class MiddlewarePipeline implements RequestHandlerInterface
             $spanEachMiddleware = \Quiote\Telemetry\Trace::enabled()
                 && \Quiote\Config\Config::get('telemetry.spans.middleware', false);
 
-            $construct = function (string $label, callable $factory) use (&$stack, $spanEachMiddleware): void {
-                $mw = $factory();
+            // $factory is called with $context so a plugin-supplied attributed
+            // factory (see MiddlewareCatalog::attributedFactory()) can build a
+            // middleware that needs the currently-building pipeline's Context
+            // (e.g. its Controller instance) without capturing anything at plugin
+            // registration time, when no Context yet exists. Core's own zero-arg
+            // factories (below) and the plain DI fallback both ignore the extra
+            // argument, same as any PHP callable invoked with more args than it
+            // declares.
+            $construct = function (string $label, callable $factory) use (&$stack, $spanEachMiddleware, $context): void {
+                $mw = $factory($context);
                 if ($spanEachMiddleware) {
                     $mw = new \Quiote\Telemetry\MiddlewareSpanDecorator($mw, $label);
                 }
@@ -87,10 +95,14 @@ class MiddlewarePipeline implements RequestHandlerInterface
                 $this->debugStack[] = $label;
             };
 
-            // CSRF: injection wraps the response (positioned early so it post-processes
-            // the final HTML on the way back out), validation short-circuits unsafe
-            // requests with a bad/missing token before the action runs. Behavior is
-            // gated at runtime by core.csrf.enabled.
+            // CSRF middleware are NOT in this map — they're registered by
+            // Quiote\Security\Csrf\CsrfPlugin via
+            // PluginRegistrar::attributedMiddleware() (see
+            // docs/PLUGIN_EXTRACTION_PLAN.md §2.3), which core runs by default
+            // today (see the "core default" note in Quiote::bootstrap()) so
+            // this map staying free of them costs nothing while they're still
+            // in-tree, and needs no further change when they actually move to
+            // their own package.
             $factories = [
                 ErrorHandlingMiddleware::class => fn() => new ErrorHandlingMiddleware(function (\Throwable $e, ServerRequestInterface $r) use ($context): void {
                     $first = $e->getFile() . ':' . $e->getLine();
@@ -112,8 +124,6 @@ class MiddlewarePipeline implements RequestHandlerInterface
                 ContentNegotiationMiddleware::class => fn() => new ContentNegotiationMiddleware($controller),
                 RoutingMiddleware::class => fn() => new RoutingMiddleware($routing, $controller),
                 OutputTypeSyncMiddleware::class => fn() => new OutputTypeSyncMiddleware($controller),
-                CsrfInjectionMiddleware::class => fn() => new CsrfInjectionMiddleware($controller),
-                CsrfValidationMiddleware::class => fn() => new CsrfValidationMiddleware($controller),
                 SecurityMiddleware::class => fn() => new SecurityMiddleware($controller),
                 ValidationMiddleware::class => fn() => new ValidationMiddleware($controller),
                 SlotMiddleware::class => fn() => new SlotMiddleware($this->context),
@@ -164,7 +174,9 @@ class MiddlewarePipeline implements RequestHandlerInterface
                 if (!$enabled) {
                     continue;
                 }
-                $factory = $factories[$fqcn] ?? fn() => $context->getContainer()->get($fqcn);
+                $factory = $factories[$fqcn]
+                    ?? MiddlewareCatalog::attributedFactory($fqcn)
+                    ?? fn() => $context->getContainer()->get($fqcn);
                 $construct($fqcn, $factory);
             }
 
@@ -221,7 +233,10 @@ class MiddlewarePipeline implements RequestHandlerInterface
             }
 
             $pos = $this->findInsertPosition($entry['after'], $entry['before']);
-            $mw = ($entry['factory'])();
+            // See the analogous call in doBuild(): passing $this->context lets a
+            // plugin's MiddlewareCatalog::register() factory build a per-context
+            // middleware without capturing anything at plugin-registration time.
+            $mw = ($entry['factory'])($this->context);
             if ($spanEachMiddleware) {
                 $mw = new \Quiote\Telemetry\MiddlewareSpanDecorator($mw, $entry['fqcn']);
             }

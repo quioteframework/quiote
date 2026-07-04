@@ -1,0 +1,30 @@
+{
+	"name": "quioteframework/mcp",
+	"description": "MCP (Model Context Protocol) server capability for Quiote -- expose Quiote actions/tools over MCP.",
+	"keywords": ["quiote", "mcp", "model-context-protocol"],
+	"homepage": "https://github.com/quioteframework/mcp",
+	"type": "library",
+	"license": "LGPL-2.1+",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"quioteframework/quiote": "*",
+		"mcp/sdk": "^0.6.0"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Mcp\\": "src/"
+		}
+	},
+	"extra": {
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/mcp/ (docs/MONOREPO_SPLIT_PLAN.md); split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}

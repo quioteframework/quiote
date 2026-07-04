@@ -209,6 +209,14 @@ class MiddlewarePipelineFullCoverageTest extends TestCase
         // flipped -- proves the environment name has zero bearing on the outcome.
         \Quiote\Config\Config::set('core.environment', 'production');
         \Quiote\Config\Config::set('core.developer_exceptions', true);
+        // ErrorHandlingMiddleware no longer hardcodes WhoopsRenderer -- something
+        // (normally Quiote::bootstrap()'s core-default registration, see
+        // docs/PLUGIN_EXTRACTION_PLAN.md §2.4) must register a developer renderer.
+        // This test constructs the middleware directly (no bootstrap), so it
+        // registers one itself, exactly like the real default does.
+        \Quiote\Exception\Rendering\ExceptionRendererRegistry::setDeveloperRenderer(
+            static fn() => new \Quiote\Exception\Rendering\Whoops\WhoopsRenderer()
+        );
         $eh = new ErrorHandlingMiddleware();
         $resp = $eh->process($this->makeReq(['Accept' => 'application/json']), new class implements RequestHandlerInterface {
             public function handle(ServerRequestInterface $r): ResponseInterface

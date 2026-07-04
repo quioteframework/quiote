@@ -13,6 +13,23 @@
     <testsuites>
         <testsuite name="unit">
             <directory>../tests/unit</directory>
+            <!-- The subsystems below now live in packages/* (docs/MONOREPO_SPLIT_PLAN.md,
+                 docs/PLUGIN_EXTRACTION_PLAN.md); still run from the root suite while
+                 everything shares one composer install (via the packages/* path
+                 repository). Once each package gets its own isolated CI job, its line
+                 moves to that package's own phpunit config. Docker-based integration
+                 tests under packages/db-*/tests are #[Group('integration')]-tagged, so
+                 the <groups><exclude> below still keeps them out of a plain `composer
+                 test` run; `composer test:integration` runs them explicitly. -->
+            <directory>../../packages/mcp/tests</directory>
+            <directory>../../packages/ratelimit/tests</directory>
+            <directory>../../packages/csrf/tests</directory>
+            <directory>../../packages/whoops/tests</directory>
+            <directory>../../packages/db-eloquent/tests</directory>
+            <directory>../../packages/db-doctrine/tests</directory>
+            <directory>../../packages/db-cycle/tests</directory>
+            <directory>../../packages/telemetry-otel/tests</directory>
+            <directory>../../packages/telemetry-dashboard/tests</directory>
         </testsuite>
         <testsuite name="flow">
             <directory>../tests/flow</directory>
@@ -56,6 +73,15 @@
     <source>
         <include>
             <directory>../../Quiote</directory>
+            <directory>../../packages/mcp/src</directory>
+            <directory>../../packages/ratelimit/src</directory>
+            <directory>../../packages/csrf/src</directory>
+            <directory>../../packages/whoops/src</directory>
+            <directory>../../packages/db-eloquent/src</directory>
+            <directory>../../packages/db-doctrine/src</directory>
+            <directory>../../packages/db-cycle/src</directory>
+            <directory>../../packages/telemetry-otel/src</directory>
+            <directory>../../packages/telemetry-dashboard/src</directory>
         </include>
         <exclude>
         <directory>../../Quiote/translation/data</directory>

@@ -1,0 +1,31 @@
+{
+	"name": "quioteframework/ratelimit",
+	"description": "Rate limiting (login throttle, PDO-backed limiter storage) for Quiote, built on symfony/rate-limiter.",
+	"keywords": ["quiote", "rate-limiting", "security"],
+	"homepage": "https://github.com/quioteframework/ratelimit",
+	"type": "library",
+	"license": "LGPL-2.1+",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"ext-pdo": "*",
+		"quioteframework/quiote": "*",
+		"symfony/rate-limiter": "^8.0"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Security\\RateLimit\\": "src/"
+		}
+	},
+	"extra": {
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/ratelimit/ (docs/MONOREPO_SPLIT_PLAN.md); split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}

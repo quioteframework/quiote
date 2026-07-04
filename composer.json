@@ -17,6 +17,13 @@
 	"support": {
 		"issues": "https://github.com/quioteframework/quiote/issues"
 	},
+	"repositories": [
+		{
+			"type": "path",
+			"url": "packages/*",
+			"options": { "symlink": true }
+		}
+	],
 	"require": {
 		"php": ">=8.5.0",
 		"ext-dom": "*",
@@ -42,30 +49,24 @@
 		"middlewares/negotiation": "^2.2",
 		"middlewares/payload": "^3.1",
 		"symfony/mime": "^8.0",
-		"symfony/security-csrf": "^8.0",
-		"symfony/rate-limiter": "^8.0",
 		"symfony/yaml": "^8.0",
-		"symfony/console": "^8.0",
-		"filp/whoops": "^2.18"
+		"symfony/console": "^8.0"
 	},
 	"require-dev": {
 		"phpunit/phpunit": "^12.0 || ^13.0",
 		"rector/rector": "^2.3",
 		"phpstan/phpstan": "^2.1",
-		"open-telemetry/api": "^1.9",
-		"open-telemetry/sdk": "^1.14",
-		"open-telemetry/sem-conv": "^1.38",
-		"open-telemetry/exporter-otlp": "^1.4",
-		"open-telemetry/context": "^1.5",
-		"symfony/tui": "^8.1",
-		"doctrine/orm": "^3.6",
-		"doctrine/dbal": "^4.4",
-		"illuminate/database": "^13.18",
-		"cycle/orm": "^2.18",
-		"cycle/database": "^2.21",
 		"testcontainers/testcontainers": "^1.0",
 		"symfony/http-client": "^8.1",
-		"mcp/sdk": "^0.6.0"
+		"quioteframework/mcp": "@dev",
+		"quioteframework/ratelimit": "@dev",
+		"quioteframework/db-eloquent": "@dev",
+		"quioteframework/db-doctrine": "@dev",
+		"quioteframework/db-cycle": "@dev",
+		"quioteframework/whoops": "@dev",
+		"quioteframework/csrf": "@dev",
+		"quioteframework/telemetry-otel": "@dev",
+		"quioteframework/telemetry-dashboard": "@dev"
 	},
 	"suggest": {
 		"phpunit/phpunit": "Install phpunit if you want to run your tests",
@@ -74,25 +75,22 @@
 		"ext-tokenizer": "Enable the tokenizer extension allows Quiote to generate more efficient config-caches",
 		"ext-session": "If the session extension is disabled you'll have to build your own session storage system and hook it into quiote",
 		"ext-pdo": "PDO is required for database connectors that use PDO as base",
-		"illuminate/database": "Enables the 'eloquent' database driver (Quiote\\Database\\Adapter\\Eloquent\\EloquentDatabase); see docs/DATABASE_ADAPTERS_PLAN.md",
-		"doctrine/orm": "Enables the 'doctrine' database driver (Quiote\\Database\\Adapter\\Doctrine\\DoctrineDatabase)",
-		"doctrine/dbal": "Enables the 'doctrine_dbal' database driver (query builder without the ORM)",
-		"cycle/orm": "Enables the 'cycle' database driver (Quiote\\Database\\Adapter\\Cycle\\CycleDatabase); pair with cycle/database",
-		"cycle/database": "Cycle's database abstraction layer, required by the 'cycle' driver",
+		"quioteframework/db-eloquent": "Enables the 'eloquent' database driver (Quiote\\Database\\Adapter\\Eloquent\\EloquentDatabase); see docs/DATABASE_ADAPTERS_PLAN.md",
+		"quioteframework/db-doctrine": "Enables the 'doctrine' and 'doctrine_dbal' database drivers (Quiote\\Database\\Adapter\\Doctrine\\*)",
+		"quioteframework/db-cycle": "Enables the 'cycle' database driver (Quiote\\Database\\Adapter\\Cycle\\CycleDatabase)",
 		"ext-iconv": "Enable iconv if you need to convert between other charset than iso-8859-1 and utf-8",
-		"open-telemetry/api": "Install these open-telemetry/* packages to enable the telemetry.* settings family (see docs/OPENTELEMETRY_PLAN.md)",
-		"open-telemetry/sdk": "OpenTelemetry SDK: providers, processors, samplers, resource detection",
-		"open-telemetry/sem-conv": "OpenTelemetry semantic-convention attribute constants",
-		"open-telemetry/exporter-otlp": "OTLP exporter for traces and metrics",
-		"open-telemetry/context": "OpenTelemetry context propagation (traceparent/tracestate)",
-		"symfony/tui": "Install to enable the `telemetry:dashboard` CLI command (see docs/TELEMETRY_DASHBOARD_PLAN.md)",
-		"mcp/sdk": "Enables the MCP server capability (Quiote\\Mcp\\McpPlugin, `mcp:serve`); see docs/MCP_SERVER_PLAN.md"
+		"quioteframework/mcp": "Enables the MCP server capability (Quiote\\Mcp\\McpPlugin, `mcp:serve`); see docs/MCP_SERVER_PLAN.md and docs/MONOREPO_SPLIT_PLAN.md",
+		"quioteframework/ratelimit": "Login throttle / rate limiting (Quiote\\Security\\RateLimit\\LoginThrottle), built on symfony/rate-limiter",
+		"quioteframework/whoops": "Full-detail developer exception renderer (Quiote\\Exception\\Rendering\\Whoops\\WhoopsRenderer), built on filp/whoops; see docs/WHOOPS_ERROR_HANDLING_PLAN.md",
+		"quioteframework/csrf": "CSRF protection middleware (Quiote\\Security\\Csrf\\*), built on symfony/security-csrf; see docs/CSRF_PLAN.md",
+		"quioteframework/telemetry-otel": "Install to enable the telemetry.* settings family / OTel SDK exporter (Quiote\\Telemetry\\TelemetryBootstrap); see docs/OPENTELEMETRY_PLAN.md",
+		"quioteframework/telemetry-dashboard": "Install to enable the `telemetry:dashboard` CLI command; see docs/TELEMETRY_DASHBOARD_PLAN.md"
 	},
 	"scripts": {
 		"test": "php -d apc.enable_cli=0 vendor/bin/phpunit --no-coverage -c tests/config/phpunit.xml",
 		"test:apcu": "php -d apc.enable_cli=1 vendor/bin/phpunit --no-coverage -c tests/config/phpunit.xml --group apcu",
 		"test:e2e": "vendor/bin/phpunit --no-coverage -c tests/config/phpunit.xml tests/e2e --group e2e",
-		"test:integration": "vendor/bin/phpunit --no-coverage -c tests/config/phpunit.xml tests/integration --group integration"
+		"test:integration": "vendor/bin/phpunit --no-coverage -c tests/config/phpunit.xml packages/db-eloquent/tests packages/db-doctrine/tests packages/db-cycle/tests --group integration"
 	},
 	"scripts-descriptions": {
 		"test": "Run the full test suite with APCu disabled (default, deterministic).",
@@ -112,7 +110,8 @@
 			"Sandbox\\": ["tests/sandbox/app/"],
 			"Quiote\\Test\\Routing\\": ["tests/lib/routing/"],
 			"QuioteTestGeneratedTest1\\": ["tests/GeneratedRoutes/test1/"],
-			"QuioteTestGeneratedTest2\\": ["tests/GeneratedRoutes/test2/"]
+			"QuioteTestGeneratedTest2\\": ["tests/GeneratedRoutes/test2/"],
+			"Quiote\\Test\\Database\\Entity\\": ["packages/db-doctrine/tests/Entity/", "packages/db-cycle/tests/Entity/"]
 		},
 		"classmap": [
 			"tests/lib/"

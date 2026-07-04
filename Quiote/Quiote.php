@@ -113,11 +113,55 @@ final class Quiote
 
 			// compile.xml aggregation removed; rely on autoload + opcache.
 
+			// Core's own default telemetry-exporter wiring, added to PluginManager's
+			// plugin list (rather than called directly) so its register() call --
+			// which adds Events listeners, NOT idempotent to re-add -- only ever
+			// runs once per bootFromConfig() guard below, exactly like an
+			// app-configured plugin (docs/PLUGIN_EXTRACTION_PLAN.md §2.2). Now that
+			// TelemetryPlugin physically lives in its own package,
+			// `packages/telemetry-otel/` (docs/MONOREPO_SPLIT_PLAN.md), guarded by
+			// class_exists() so a build without it degrades to the always-safe
+			// no-op Trace facade instead of fataling. Once the package stops being
+			// installed by default, this whole block is deleted and the app opts
+			// in via the `plugins` config key instead, exactly like
+			// Quiote\Mcp\McpPlugin already works.
+			if (class_exists(\Quiote\Telemetry\TelemetryPlugin::class)) {
+				\Quiote\Plugin\PluginManager::add(new \Quiote\Telemetry\TelemetryPlugin());
+			}
+
 			// Plugin registration lives exactly here — after settings have loaded
 			// (so app config wins over plugin defaults) and before any Context is
 			// created (so plugins can contribute config/services/middleware/routes
 			// the contexts will consume). See docs/PLUGIN_AND_EXTENSIBILITY_PLAN.md.
 			\Quiote\Plugin\PluginManager::bootFromConfig();
+
+			// Core's own (set-if-absent) developer-exception-renderer default —
+			// runs after plugins so a plugin-registered renderer always wins.
+			// `Quiote\Exception\Rendering\Whoops\WhoopsRenderer` now lives in its
+			// own package, `packages/whoops/` (docs/PLUGIN_EXTRACTION_PLAN.md
+			// §2.4/§3, docs/MONOREPO_SPLIT_PLAN.md); this is the ONE place core
+			// still names it directly. Once the package stops being installed by
+			// default, this block is deleted and the package's own plugin calls
+			// PluginRegistrar::developerExceptionRenderer() instead. Guarded by
+			// class_exists() on OUR wrapper class (not \Whoops\Run -- the package,
+			// not just the underlying library, must be installed) so a build
+			// without it degrades to SafeRenderer instead of fataling.
+			if (class_exists(\Quiote\Exception\Rendering\Whoops\WhoopsRenderer::class)) {
+				\Quiote\Exception\Rendering\ExceptionRendererRegistry::setDeveloperRenderer(
+					static fn() => new \Quiote\Exception\Rendering\Whoops\WhoopsRenderer()
+				);
+			}
+
+			// Core's own default CSRF wiring — runs the plugin directly (not via
+			// the `plugins` config key) so CSRF stays on by default while it's
+			// still in-tree (docs/PLUGIN_EXTRACTION_PLAN.md §2.3/§3). Idempotent:
+			// attributedMiddleware() registrations are plain overwrite-safe array
+			// writes. Once CSRF moves to `quioteframework/csrf`, this line is
+			// deleted and CSRF becomes opt-in via the `plugins` config key,
+			// exactly like Quiote\Mcp\McpPlugin already is.
+			(new \Quiote\Security\Csrf\CsrfPlugin())->register(
+				new \Quiote\Plugin\PluginRegistrar('quiote/csrf')
+			);
 
 			// Normalize contexts argument
 			$contextList = [];

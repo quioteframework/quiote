@@ -1,6 +1,6 @@
 <?php
 
-namespace Quiote\Middleware;
+namespace Quiote\Security\Csrf\Middleware;
 
 use Quiote\Controller\Controller;
 use Quiote\Security\Csrf\CsrfManager;
