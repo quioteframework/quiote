@@ -1,0 +1,9 @@
+{
+    "subtree-splits": [
+        {
+            "name": "mcp",
+            "directory": "packages/mcp",
+            "target": "git@github.com:quioteframework/mcp.git"
+        }
+    ]
+}
