@@ -3,12 +3,14 @@
 ## MCP server (`docs/MCP_SERVER_PLAN.md`)
 
 `docs/MCP_SERVER_PLAN.md` is **not fully completed** — Phases 0–3 and Phase 4A are implemented
-(in-tree under `Quiote\Mcp\*`, branch `feat/mcp-server`), the rest is not. See the plan doc's §13
+(in-tree under `Quiote\Mcp\*`, merged to `main`), the rest is not. See the plan doc's §13
 (Phasing), §14 (Testing), and §15 (Risks) for the detailed, up-to-date status of what's done vs.
 outstanding. Remaining work, roughly in priority order:
 
-- [ ] Validator-IR → JSON-Schema mapping for actions-as-tools input schemas (currently
-      permissive: `{"type":"object","properties":{},"additionalProperties":true}`). Plan §7.
+- [x] Validator-IR → JSON-Schema mapping for actions-as-tools input schemas
+      (`Quiote\Mcp\Compiler\ValidatorSchemaMapper`; derived from each action's
+      `{module}/Validate/{action}.xml`, scoped to the route's action verb, enforced by the SDK
+      before dispatch). Permissive schema is now the fallback, not the default. Plan §7.
 - [ ] `#[McpTool]`/`#[McpResource]`/`#[McpPrompt]` attribute discovery for plain (non-`#[Route]`)
       classes — only manual registration via `PluginRegistrar` and the actions-as-tools bridge
       exist today. Plan §6 item 1.

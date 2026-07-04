@@ -103,6 +103,13 @@ final class McpServer
         $definitions = (new ActionToolScanner())->scan($controller, $config->moduleDirs ?: null);
 
         foreach ($definitions as $definition) {
+            // Prefer the schema derived from the action's own validators
+            // (docs/MCP_SERVER_PLAN.md §7); fall back to a permissive one when
+            // none could be derived. Either way real enforcement happens on
+            // dispatch, so the fallback loses precision, not safety.
+            $inputSchema = $definition->inputSchema
+                ?? ['type' => 'object', 'properties' => [], 'required' => [], 'additionalProperties' => true];
+
             // Tool::fromArray() (not the constructor) normalizes an empty
             // "properties" to a JSON object ({}) rather than an array ([]) --
             // the opis/json-schema validator CallToolHandler runs every call's
@@ -111,7 +118,7 @@ final class McpServer
             $tool = Tool::fromArray([
                 'name' => $definition->toolName,
                 'description' => $definition->description,
-                'inputSchema' => ['type' => 'object', 'properties' => [], 'required' => [], 'additionalProperties' => true],
+                'inputSchema' => $inputSchema,
                 'outputSchema' => $definition->outputSchema,
             ]);
 

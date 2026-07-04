@@ -31,6 +31,33 @@ final class ActionToolScannerTest extends PhpUnitTestCase
         $this->assertNull($tool->outputSchema);
     }
 
+    public function testInputSchemaIsDerivedFromTheActionsValidatorXml(): void
+    {
+        // tests/sandbox/app/Modules/McpActionTool/Validate/Greet.xml declares a
+        // StringValidator(min=2,max=50) on `name`, method-agnostic. GET -> read.
+        $controller = Context::getInstance('mcp-action-tool-test')->getController();
+        $definitions = (new ActionToolScanner())->scan($controller);
+
+        $tool = null;
+        foreach ($definitions as $definition) {
+            if ($definition->toolName === 'greet_via_action') {
+                $tool = $definition;
+                break;
+            }
+        }
+
+        $this->assertNotNull($tool);
+        $this->assertSame(
+            [
+                'type' => 'object',
+                'properties' => ['name' => ['type' => 'string', 'minLength' => 2, 'maxLength' => 50]],
+                'required' => ['name'],
+                'additionalProperties' => true,
+            ],
+            $tool->inputSchema,
+        );
+    }
+
     public function testIgnoresRouteActionsWithoutMcpTool(): void
     {
         $controller = Context::getInstance('mcp-action-tool-test')->getController();

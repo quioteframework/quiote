@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+	Validators for McpActionTool.Greet, used by ActionToolScannerTest to prove
+	the actions-as-tools bridge derives a tool inputSchema from an action's own
+	declared validators (docs/MCP_SERVER_PLAN.md §7). GET dispatches to
+	executeRead, so these method-agnostic validators apply.
+-->
+<ae:configurations xmlns="http://quiote.dev/quiote/config/parts/validators/1.1" xmlns:ae="http://quiote.dev/quiote/config/global/envelope/1.1">
+	<ae:configuration>
+		<validators>
+			<validator class="Quiote\Validator\StringValidator" name="greet_name">
+				<arguments>
+					<argument>name</argument>
+				</arguments>
+				<ae:parameters>
+					<ae:parameter name="min">2</ae:parameter>
+					<ae:parameter name="max">50</ae:parameter>
+				</ae:parameters>
+			</validator>
+		</validators>
+	</ae:configuration>
+</ae:configurations>

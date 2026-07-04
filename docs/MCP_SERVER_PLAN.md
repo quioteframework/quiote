@@ -1,9 +1,10 @@
 # MCP server for Quiote — plan
 
-Status: **partially implemented** on branch `feat/mcp-server` (in-tree under `Quiote\Mcp\*`).
-Phases 0–3 and Phase 4A are done and tested (see §13); Phase 4B (OAuth 2.1), validator→schema
-mapping, resource/prompt attribute discovery, stateless HTTP, and the extensions framework are
-not started — see `TODO.md` for the live list.
+Status: **partially implemented**, in-tree under `Quiote\Mcp\*` (merged to `main`; validator→schema
+work on branch `feat/mcp-validator-schema`). Phases 0–3 (including the validator→JSON-Schema
+mapping) and Phase 4A are done and tested (see §13); Phase 4B (OAuth 2.1), resource/prompt
+attribute discovery, stateless HTTP, and the extensions framework are not started — see `TODO.md`
+for the live list.
 Related seams: `Quiote/Routing/Compiler/AttributeRouteScanner.php`, `Quiote/Middleware/*`,
 `Quiote/Console/Application.php`, `Quiote/Plugin/*`, `Quiote/Context.php` (`handle()` is what the
 actions-as-tools bridge actually drives requests through, not `ActionExecutor` directly — see §7),
@@ -152,19 +153,31 @@ is bound to its own route name/method) maps a `tools/call` to the action's execu
 - A non-2xx response, or any exception `Context::handle()` throws, becomes an
   `Mcp\Exception\ToolCallException` (rendered as an `isError: true` tool result), not a JSON-RPC
   protocol error.
-- **Input schema from validators — NOT implemented.** The plan's original idea (generate
-  `inputSchema` from the `ValidatorCompiler` IR) was deferred; the shipped schema is deliberately
-  permissive (`{"type":"object","properties":{},"additionalProperties":true}`, via `Tool::fromArray()`
+- **Input schema from validators — IMPLEMENTED.** `Quiote\Mcp\Compiler\ValidatorSchemaMapper`
+  maps the action's validator IR (`ValidatorPlan`, from parsing its
+  `{module}/Validate/{action}.xml` via the existing `ValidatorCompiler`) to the tool's
+  `inputSchema`, scoped to the action verb the route's HTTP method dispatches to
+  (`HttpMethodMapper`). String→`minLength`/`maxLength`, Number→`integer`/`number` + `minimum`/`maximum`,
+  Email→`format: email`, Inarray→`enum`, Regex→`pattern` (positive, unflagged matches only),
+  Boolean/Json/DateTime/IsNotEmpty mapped too; `required` reflects each validator's `required` flag.
+  It is deliberately **descriptive, not a faithful re-encoding**: the schema always keeps
+  `additionalProperties: true`, operator groups (and/or/not/xor) are flattened to a union of their
+  fields rather than modeled as allOf/anyOf, and anything unmappable (a negative/flagged regex, an
+  unrecognized validator class) degrades to a looser description rather than dropping the field —
+  matching the §15 "permissive schema + server-side validation" stance, since real enforcement still
+  happens on dispatch. Because the SDK validates a `tools/call`'s arguments against `inputSchema`
+  before invoking the handler, a schema-violating call is now rejected as invalid params *before*
+  dispatch, on top of the validators running again during dispatch. Fallback when no XML validator
+  file exists (e.g. the action validates via a hand-written fluent builder, which produces no IR),
+  parsing fails, or the rules yield nothing describable: the permissive
+  `{"type":"object","properties":{},"additionalProperties":true}` schema (built via `Tool::fromArray()`
   so the SDK normalizes the empty `properties` array to a JSON object — passing `[]` directly makes
-  opis/json-schema reject every call with "properties must be an object"). This matches the plan's
-  own §15 fallback ("not every validator rule maps to JSON Schema … fall back to a permissive
-  schema + server-side validation") — validation still happens for real on dispatch, just without
-  advertising precise per-field schema to the client yet. See `TODO.md`.
+  opis/json-schema reject every call with "properties must be an object").
 - **Output schema** comes through as-is from `#[McpTool(outputSchema: ...)]` when the action author
   supplies one; nothing is derived from the route's `outputType` automatically.
-- Result: your web endpoints become agent tools with correct DI/dispatch/validation and (for now)
-  a permissive schema, for the cost of one attribute. Opt-in per action; nothing is exposed by
-  default (`mcp.expose_actions = false`).
+- Result: your web endpoints become agent tools with correct DI/dispatch/validation and a
+  validator-derived input schema, for the cost of one attribute. Opt-in per action; nothing is
+  exposed by default (`mcp.expose_actions = false`).
 
 ## 8. DI & worker-mode integration
 
@@ -236,9 +249,11 @@ ship early and drive the capability's roadmap by real use.
    on classes that also carry `#[Route]`.
 2. **Streamable HTTP (stateful 2025-11-25)** — DONE. `Middleware\McpEndpointMiddleware`,
    ProblemDetails errors. **OTel spans per call are NOT implemented** (§9 is otherwise unstarted).
-3. **Actions-as-tools bridge** — DONE, via `Context::handle()` rather than `ActionExecutor::execute()`
-   directly (see §7's "Deviation" note). **validator→schema mapping is NOT implemented** — ships a
-   permissive input schema instead, per the plan's own §15 fallback.
+3. **Actions-as-tools bridge + validator→schema mapping** — DONE. Bridge dispatches via
+   `Context::handle()` rather than `ActionExecutor::execute()` directly (see §7's "Deviation" note);
+   `ValidatorSchemaMapper` derives the tool `inputSchema` from the action's validator IR (see §7),
+   falling back to a permissive schema only when no XML validator file exists or the rules aren't
+   describable.
 4. **Auth** — Phase A (bearer) DONE: `Middleware\McpAuthMiddleware`,
    `Auth\McpAuthenticatorInterface` + default `Auth\StaticTokenAuthenticator`, `mcp.auth_token`.
    **Rate limiting and RBAC-gated tool listing are NOT implemented.** **Phase B (OAuth 2.1) is NOT
@@ -256,15 +271,18 @@ the SDK's own `Server`/`InMemoryTransport` in-process rather than a separate cli
 
 - **Unit** (done): `McpCatalog` registration; PSR-11 `Bridge\ContainerAdapter` autowiring
   behavior; `McpConfig` defaults/overrides; `ActionToolScanner` discovery;
-  `ActionToolAdapter` request marshalling (path vs. extra params) and error mapping.
-  **Not done**: validator-IR → JSON-Schema mapping (feature doesn't exist yet).
+  `ActionToolAdapter` request marshalling (path vs. extra params) and error mapping;
+  `ValidatorSchemaMapper` validator-IR → JSON-Schema mapping (per validator class, method scoping,
+  operator flattening, regex delimiter stripping, required handling — from hand-built IR nodes).
 - **Integration** (partial): `McpServerTest`/`McpServerActionToolIntegrationTest` drive a full
-  `initialize` → `tools/call` round trip via `Mcp\Server\Transport\InMemoryTransport` (a custom
-  subclass draining the SDK's outgoing-message queue, since the stock `InMemoryTransport` doesn't);
-  `McpEndpointMiddlewareTest`/`McpAuthMiddlewareTest` do the same over real PSR-7
-  request/response objects. **Not done**: driving `mcp/sdk`'s own *client* against stdio via
-  `CommandTester`/a subprocess, or an end-to-end run through the full `MiddlewarePipeline` with a
-  real matched route (see the routing caveat below).
+  `initialize` → `tools/call`/`tools/list` round trip via `Mcp\Server\Transport\InMemoryTransport`
+  (a custom subclass draining the SDK's outgoing-message queue, since the stock `InMemoryTransport`
+  doesn't); `McpEndpointMiddlewareTest`/`McpAuthMiddlewareTest` do the same over real PSR-7
+  request/response objects. The actions-as-tools tests additionally run end-to-end through the full
+  `MiddlewarePipeline` with a real matched route (`ActionToolAdapter` → `Context::handle()`), and
+  assert the derived schema is both advertised in `tools/list` and *enforced* — a schema-violating
+  `tools/call` is rejected as invalid params before dispatch. **Not done**: driving `mcp/sdk`'s own
+  *client* against stdio via `CommandTester`/a subprocess.
 - **Auth** (done): unauthorized → 401 + `WWW-Authenticate`; `mcp.auth = 'none'` bypass. **Not
   done**: RBAC-filtered tool listing (no RBAC integration exists yet), rate-limit tests (no rate
   limiting exists yet).
@@ -322,9 +340,12 @@ the SDK's own `Server`/`InMemoryTransport` in-process rather than a separate cli
 - **SSE under FrankenPHP workers** — largely moot for now: the installed SDK version (`mcp/sdk`
   v0.6.0)'s `StreamableHttpTransport` doesn't implement GET/SSE at all (`OPTIONS`/`POST`/`DELETE`
   only), so this risk doesn't yet apply in practice.
-- **Schema fidelity** — materialized as expected: validator-IR mapping wasn't built; actions-as-tools
-  ship a permissive schema + real server-side validation via dispatch, exactly the fallback this
-  section already called for.
+- **Schema fidelity** — validator-IR → JSON-Schema mapping is now implemented (`ValidatorSchemaMapper`,
+  §7), and the risk played out exactly as anticipated: not every rule maps cleanly, so the mapper is
+  descriptive rather than exact (keeps `additionalProperties: true`, flattens operator groups, degrades
+  unmappable rules to a looser shape) and real server-side validation on dispatch remains the source of
+  truth. The permissive schema is now the fallback (no XML validator file / unparseable / nothing
+  describable), not the default.
 - **Auth spec surface** — bearer-token Phase A shipped; OAuth 2.1 Phase B not started.
 
 ## References

@@ -15,6 +15,9 @@ final class ActionToolDefinition
      * @param array<string, mixed>|null $outputSchema JSON Schema for the tool's
      *        output, from `#[McpTool(outputSchema: ...)]` if the action author
      *        supplied one.
+     * @param array<string, mixed>|null $inputSchema JSON Schema derived from the
+     *        action's declared validators ({@see ValidatorSchemaMapper}), or null
+     *        when none could be derived (caller falls back to a permissive schema).
      */
     public function __construct(
         public readonly string $toolName,
@@ -22,6 +25,7 @@ final class ActionToolDefinition
         public readonly string $routeName,
         public readonly string $httpMethod,
         public readonly ?array $outputSchema,
+        public readonly ?array $inputSchema = null,
     ) {
     }
 }
