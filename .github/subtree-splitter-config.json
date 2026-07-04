@@ -44,6 +44,41 @@
             "name": "telemetry-dashboard",
             "directory": "packages/telemetry-dashboard",
             "target": "git@github.com:quioteframework/telemetry-dashboard.git"
+        },
+        {
+            "name": "phptal",
+            "directory": "packages/phptal",
+            "target": "git@github.com:quioteframework/phptal.git"
+        },
+        {
+            "name": "xslt",
+            "directory": "packages/xslt",
+            "target": "git@github.com:quioteframework/xslt.git"
+        },
+        {
+            "name": "twig",
+            "directory": "packages/twig",
+            "target": "git@github.com:quioteframework/twig.git"
+        },
+        {
+            "name": "session-pdo",
+            "directory": "packages/session-pdo",
+            "target": "git@github.com:quioteframework/session-pdo.git"
+        },
+        {
+            "name": "session-azure",
+            "directory": "packages/session-azure",
+            "target": "git@github.com:quioteframework/session-azure.git"
+        },
+        {
+            "name": "session-s3",
+            "directory": "packages/session-s3",
+            "target": "git@github.com:quioteframework/session-s3.git"
+        },
+        {
+            "name": "session-gcs",
+            "directory": "packages/session-gcs",
+            "target": "git@github.com:quioteframework/session-gcs.git"
         }
     ]
 }

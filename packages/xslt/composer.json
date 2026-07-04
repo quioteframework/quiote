@@ -1,0 +1,32 @@
+{
+	"name": "quioteframework/xslt",
+	"description": "XSLT (.xsl) template renderer for Quiote, built on ext-xsl/ext-dom.",
+	"keywords": ["quiote", "xslt", "renderer", "template"],
+	"homepage": "https://github.com/quioteframework/xslt",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"ext-dom": "*",
+		"ext-xsl": "*",
+		"lib-libxml": "*",
+		"quioteframework/quiote": "*"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Renderer\\Xslt\\": "src/"
+		}
+	},
+	"extra": {
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/xslt/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}

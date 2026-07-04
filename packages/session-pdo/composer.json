@@ -1,0 +1,31 @@
+{
+	"name": "quioteframework/session-pdo",
+	"description": "PDO-backed session storage for Quiote: a SessionPersistenceInterface implementation for SessionManager, plus a native SessionHandlerInterface implementation for the legacy Storage subsystem.",
+	"keywords": ["quiote", "session", "pdo", "storage"],
+	"homepage": "https://github.com/quioteframework/session-pdo",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"ext-pdo": "*",
+		"quioteframework/quiote": "*"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Session\\Pdo\\": "src/",
+			"Quiote\\Storage\\Pdo\\": "src/"
+		}
+	},
+	"extra": {
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/session-pdo/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}

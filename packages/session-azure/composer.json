@@ -1,0 +1,32 @@
+{
+	"name": "quioteframework/session-azure",
+	"description": "Azure Blob Storage and Table Storage session backends for Quiote — SessionPersistenceInterface implementations for SessionManager, backed by minimal Shared-Key REST clients (no official SDK dependency).",
+	"keywords": ["quiote", "session", "azure", "blob-storage", "table-storage", "storage"],
+	"homepage": "https://github.com/quioteframework/session-azure",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"quioteframework/quiote": "*",
+		"psr/http-client": "^1.0",
+		"psr/http-message": "^2.0",
+		"nyholm/psr7": "^1.8"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Storage\\Azure\\": "src/"
+		}
+	},
+	"extra": {
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/session-azure/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}

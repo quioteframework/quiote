@@ -1,0 +1,30 @@
+{
+	"name": "quioteframework/twig",
+	"description": "Twig (.twig) template renderer for Quiote, built on twig/twig.",
+	"keywords": ["quiote", "twig", "renderer", "template"],
+	"homepage": "https://github.com/quioteframework/twig",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"quioteframework/quiote": "*",
+		"twig/twig": "^3.14"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Renderer\\Twig\\": "src/"
+		}
+	},
+	"extra": {
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/twig/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}

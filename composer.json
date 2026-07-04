@@ -66,7 +66,14 @@
 		"quioteframework/db-cycle": "@dev",
 		"quioteframework/whoops": "@dev",
 		"quioteframework/telemetry-otel": "@dev",
-		"quioteframework/telemetry-dashboard": "@dev"
+		"quioteframework/telemetry-dashboard": "@dev",
+		"quioteframework/phptal": "@dev",
+		"quioteframework/xslt": "@dev",
+		"quioteframework/twig": "@dev",
+		"quioteframework/session-pdo": "@dev",
+		"quioteframework/session-azure": "@dev",
+		"quioteframework/session-s3": "@dev",
+		"quioteframework/session-gcs": "@dev"
 	},
 	"suggest": {
 		"phpunit/phpunit": "Install phpunit if you want to run your tests",
@@ -83,7 +90,14 @@
 		"quioteframework/ratelimit": "Login throttle / rate limiting (Quiote\\Security\\RateLimit\\LoginThrottle), built on symfony/rate-limiter",
 		"quioteframework/whoops": "Full-detail developer exception renderer (Quiote\\Exception\\Rendering\\Whoops\\WhoopsRenderer), built on filp/whoops; see docs/WHOOPS_ERROR_HANDLING_PLAN.md",
 		"quioteframework/telemetry-otel": "Install to enable the telemetry.* settings family / OTel SDK exporter (Quiote\\Telemetry\\TelemetryBootstrap); see docs/OPENTELEMETRY_PLAN.md",
-		"quioteframework/telemetry-dashboard": "Install to enable the `telemetry:dashboard` CLI command; see docs/TELEMETRY_DASHBOARD_PLAN.md"
+		"quioteframework/telemetry-dashboard": "Install to enable the `telemetry:dashboard` CLI command; see docs/TELEMETRY_DASHBOARD_PLAN.md",
+		"quioteframework/phptal": "Enables the PHPTAL (.tal) template renderer (Quiote\\Renderer\\Phptal\\PhptalRenderer)",
+		"quioteframework/xslt": "Enables the XSLT (.xsl) template renderer (Quiote\\Renderer\\Xslt\\XsltRenderer)",
+		"quioteframework/twig": "Enables the Twig (.twig) template renderer (Quiote\\Renderer\\Twig\\TwigRenderer)",
+		"quioteframework/session-pdo": "PDO-backed session storage (Quiote\\Session\\Pdo\\PdoSessionPersistence for SessionManager, Quiote\\Storage\\Pdo\\PdoSessionStorage for the legacy Storage subsystem)",
+		"quioteframework/session-azure": "Azure Blob Storage session backend (Quiote\\Storage\\Azure\\AzureBlobSessionPersistence)",
+		"quioteframework/session-s3": "AWS S3 session backend (Quiote\\Storage\\S3\\S3SessionPersistence)",
+		"quioteframework/session-gcs": "Google Cloud Storage session backend (Quiote\\Storage\\Gcs\\GcsSessionPersistence)"
 	},
 	"scripts": {
 		"test": "php -d apc.enable_cli=0 vendor/bin/phpunit --no-coverage -c tests/config/phpunit.xml",

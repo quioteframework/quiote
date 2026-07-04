@@ -1,0 +1,30 @@
+{
+	"name": "quioteframework/phptal",
+	"description": "PHPTAL (.tal) template renderer for Quiote, built on phptal/phptal.",
+	"keywords": ["quiote", "phptal", "renderer", "template"],
+	"homepage": "https://github.com/quioteframework/phptal",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"quioteframework/quiote": "*",
+		"phptal/phptal": "^1.5"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Renderer\\Phptal\\": "src/"
+		}
+	},
+	"extra": {
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/phptal/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}

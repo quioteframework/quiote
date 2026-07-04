@@ -1,0 +1,32 @@
+{
+	"name": "quioteframework/session-s3",
+	"description": "AWS S3 session backend for Quiote — a SessionPersistenceInterface implementation for SessionManager, backed by a minimal SigV4 REST client (no aws-sdk-php dependency).",
+	"keywords": ["quiote", "session", "s3", "aws", "storage"],
+	"homepage": "https://github.com/quioteframework/session-s3",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"quioteframework/quiote": "*",
+		"psr/http-client": "^1.0",
+		"psr/http-message": "^2.0",
+		"nyholm/psr7": "^1.8"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Storage\\S3\\": "src/"
+		}
+	},
+	"extra": {
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/session-s3/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}

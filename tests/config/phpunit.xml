@@ -29,6 +29,13 @@
             <directory>../../packages/db-cycle/tests</directory>
             <directory>../../packages/telemetry-otel/tests</directory>
             <directory>../../packages/telemetry-dashboard/tests</directory>
+            <directory>../../packages/phptal/tests</directory>
+            <directory>../../packages/xslt/tests</directory>
+            <directory>../../packages/twig/tests</directory>
+            <directory>../../packages/session-pdo/tests</directory>
+            <directory>../../packages/session-azure/tests</directory>
+            <directory>../../packages/session-s3/tests</directory>
+            <directory>../../packages/session-gcs/tests</directory>
         </testsuite>
         <testsuite name="flow">
             <directory>../tests/flow</directory>
