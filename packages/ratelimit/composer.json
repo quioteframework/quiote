@@ -4,7 +4,7 @@
 	"keywords": ["quiote", "rate-limiting", "security"],
 	"homepage": "https://github.com/quioteframework/ratelimit",
 	"type": "library",
-	"license": "LGPL-2.1+",
+	"license": "MIT",
 	"authors": [
 		{
 			"name": "Quiote Contributors",

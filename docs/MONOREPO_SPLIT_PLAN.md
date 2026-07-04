@@ -234,10 +234,20 @@ unaffected by this plan — they stay in the kernel's `require-dev` regardless o
    pending). Full `composer test` (1874 tests) verified green after the move, plus a scratch
    end-to-end boot confirming `Quiote\Mcp\McpPlugin` resolves and registers identically to
    before.
-3. Stand up `split.yml`, dry-run against a scratch org/repo before pointing at
-   `quioteframework/mcp` for real. **Not yet done** — no GitHub Action or split repo exists
-   yet for ANY package; this remains the next step before any of them is actually consumable
-   as a standalone package outside this monorepo.
+3. ~~Stand up `split.yml`, dry-run against a scratch org/repo before pointing at
+   `quioteframework/mcp` for real.~~ **DONE.** `.github/workflows/split.yml` (using
+   `acrobat/subtree-splitter`, not raw `splitsh/lite` directly — the first attempt at a
+   hand-rolled `splitsh-lite` install failed because the tool stopped publishing prebuilt
+   release binaries; the maintained wrapper action handles that) plus
+   `.github/subtree-splitter-config.json` (currently listing only `mcp`), a fine-grained PAT
+   scoped to just the target repos stored as the `SPLIT_TOKEN` secret, and plain `git config
+   url.insteadOf` for auth (no dependency on a second unverified action's exact input names).
+   Confirmed working end-to-end: `quioteframework/mcp` now exists as a real, populated
+   standalone repo. Next: add the other 8 packages (`csrf`, `whoops`, `ratelimit`,
+   `db-eloquent`, `db-doctrine`, `db-cycle`, `telemetry-otel`, `telemetry-dashboard`) to
+   `subtree-splitter-config.json` now that the pattern is proven — each needs its own empty
+   target repo created first (see the "Run these commands" list from earlier in this project's
+   history), same as `mcp` did.
 4. ~~Repeat step 1 for each remaining Tier-1 package once its core seam gap (extraction plan
    §2) is closed~~ **DONE for 6 of 8 Tier-1 packages**: `ratelimit`, `csrf`, `whoops`,
    `db-eloquent`, `db-doctrine`, `db-cycle` all now have `packages/<name>/{composer.json,src/,
@@ -323,7 +333,9 @@ unaffected by this plan — they stay in the kernel's `require-dev` regardless o
 
 All 9 Tier-1 packages (`mcp`, `ratelimit`, `csrf`, `whoops`, `db-eloquent`, `db-doctrine`,
 `db-cycle`, `telemetry-otel`, `telemetry-dashboard`) are now physically split into `packages/*`.
-What's left, in order: (a) the actual `split.yml` GitHub Action — nothing is consumable outside
-this monorepo yet; (b) Tier 2 (`docs/PLUGIN_EXTRACTION_PLAN.md`'s PHPTAL/XSLT, Gettext, RBAC,
-YAML, session-PDO), none of which have had their core seams touched yet.
+`split.yml` is live and proven against `mcp` — `quioteframework/mcp` is a real, populated
+standalone repo. What's left, in order: (a) add the other 8 packages to
+`subtree-splitter-config.json` (each needs its target repo created first); (b) Tier 2
+(`docs/PLUGIN_EXTRACTION_PLAN.md`'s PHPTAL/XSLT, Gettext, RBAC, YAML, session-PDO), none of
+which have had their core seams touched yet.
 </content>

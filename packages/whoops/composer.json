@@ -4,7 +4,7 @@
 	"keywords": ["quiote", "whoops", "error-handling", "developer-tools"],
 	"homepage": "https://github.com/quioteframework/whoops",
 	"type": "library",
-	"license": "LGPL-2.1+",
+	"license": "MIT",
 	"authors": [
 		{
 			"name": "Quiote Contributors",

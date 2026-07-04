@@ -4,7 +4,7 @@
 	"keywords": ["quiote", "database", "orm", "cycle"],
 	"homepage": "https://github.com/quioteframework/db-cycle",
 	"type": "library",
-	"license": "LGPL-2.1+",
+	"license": "MIT",
 	"authors": [
 		{
 			"name": "Quiote Contributors",

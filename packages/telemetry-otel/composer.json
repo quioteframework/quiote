@@ -4,7 +4,7 @@
 	"keywords": ["quiote", "opentelemetry", "telemetry", "observability"],
 	"homepage": "https://github.com/quioteframework/telemetry-otel",
 	"type": "library",
-	"license": "LGPL-2.1+",
+	"license": "MIT",
 	"authors": [
 		{
 			"name": "Quiote Contributors",

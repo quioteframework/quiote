@@ -164,7 +164,7 @@ effort. "Dep in `require`" = currently forced on every install.
 
 | Package (proposed) | Moves out of core | Dep freed | Core seam work | Effort |
 |---|---|---|---|---|
-| `quioteframework/mcp` | `packages/mcp/src/*` + `McpPlugin` | `mcp/sdk` (require) | §2.1 — DONE | **DONE (in-tree split)** — symlinked via path repo; not yet pushed to a standalone repo |
+| `quioteframework/mcp` | `packages/mcp/src/*` + `McpPlugin` | `mcp/sdk` (require) | §2.1 — DONE | **DONE, pushed for real** — first package split by `split.yml`; `quioteframework/mcp` is a live standalone repo |
 | `quioteframework/db-eloquent` | `packages/db-eloquent/src/*` | `illuminate/database` (dev) | none | **DONE (in-tree split)** — zero namespace change, already a plugin |
 | `quioteframework/db-doctrine` | `packages/db-doctrine/src/*` | `doctrine/orm`+`dbal` (dev) | none | **DONE (in-tree split)** — zero namespace change, already a plugin |
 | `quioteframework/db-cycle` | `packages/db-cycle/src/*` | `cycle/orm`+`database` (dev) | none | **DONE (in-tree split)** — zero namespace change, already a plugin |

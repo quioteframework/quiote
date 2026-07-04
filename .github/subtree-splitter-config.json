@@ -4,6 +4,46 @@
             "name": "mcp",
             "directory": "packages/mcp",
             "target": "git@github.com:quioteframework/mcp.git"
+        },
+        {
+            "name": "csrf",
+            "directory": "packages/csrf",
+            "target": "git@github.com:quioteframework/csrf.git"
+        },
+        {
+            "name": "whoops",
+            "directory": "packages/whoops",
+            "target": "git@github.com:quioteframework/whoops.git"
+        },
+        {
+            "name": "ratelimit",
+            "directory": "packages/ratelimit",
+            "target": "git@github.com:quioteframework/ratelimit.git"
+        },
+        {
+            "name": "db-eloquent",
+            "directory": "packages/db-eloquent",
+            "target": "git@github.com:quioteframework/db-eloquent.git"
+        },
+        {
+            "name": "db-doctrine",
+            "directory": "packages/db-doctrine",
+            "target": "git@github.com:quioteframework/db-doctrine.git"
+        },
+        {
+            "name": "db-cycle",
+            "directory": "packages/db-cycle",
+            "target": "git@github.com:quioteframework/db-cycle.git"
+        },
+        {
+            "name": "telemetry-otel",
+            "directory": "packages/telemetry-otel",
+            "target": "git@github.com:quioteframework/telemetry-otel.git"
+        },
+        {
+            "name": "telemetry-dashboard",
+            "directory": "packages/telemetry-dashboard",
+            "target": "git@github.com:quioteframework/telemetry-dashboard.git"
         }
     ]
 }
