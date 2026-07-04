@@ -1,0 +1,85 @@
+name: Split packages
+
+# Mirrors each packages/<name>/ subtree into its own standalone repo under
+# quioteframework/<name>, using splitsh/lite (https://github.com/splitsh/lite)
+# -- see docs/MONOREPO_SPLIT_PLAN.md. Runs on every push to main (continuous
+# split; most pushes touch zero or one package dir, so most matrix jobs are a
+# cheap no-op push of an unchanged history) and on every tag push (additionally
+# tags each split repo to match, so `quioteframework/mcp:v2.3.0` always exists
+# alongside `quioteframework/quiote:v2.3.0`).
+#
+# Prerequisites (one-time, done outside this file):
+#   1. An empty (no auto-init) GitHub repo per package below, e.g.
+#      quioteframework/mcp, quioteframework/csrf, etc.
+#   2. A fine-grained PAT scoped to ONLY those repos, with the single
+#      permission "Contents: Read and write", stored as the repo secret
+#      SPLIT_TOKEN on this (the monorepo's) repo.
+#
+# Rollout: only `mcp` is enabled in the matrix below. Verify its split repo
+# looks right (a real `composer.json` at its root, correct history) before
+# uncommenting the rest one at a time.
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch: {}
+
+jobs:
+  split:
+    # Guard against forks/mirrors accidentally pushing into the real split repos.
+    if: github.repository == 'quioteframework/quiote'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - mcp
+          # - csrf
+          # - whoops
+          # - ratelimit
+          # - db-eloquent
+          # - db-doctrine
+          # - db-cycle
+          # - telemetry-otel
+          # - telemetry-dashboard
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # splitsh-lite needs the full history to correctly filter commits
+          # touching packages/<name>/ -- a shallow clone would silently
+          # produce an incomplete/wrong split history.
+          fetch-depth: 0
+
+      - name: Install splitsh-lite
+        run: |
+          curl -sL "https://github.com/splitsh/lite/releases/latest/download/lite_linux_amd64.tar.gz" -o splitsh-lite.tar.gz
+          tar -xzf splitsh-lite.tar.gz splitsh-lite
+          chmod +x splitsh-lite
+          sudo mv splitsh-lite /usr/local/bin/splitsh-lite
+          splitsh-lite --version
+
+      - name: Split packages/${{ matrix.package }}
+        id: split
+        run: |
+          set -euo pipefail
+          SPLIT_SHA=$(splitsh-lite --prefix="packages/${{ matrix.package }}")
+          echo "sha=$SPLIT_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Push to quioteframework/${{ matrix.package }}
+        env:
+          SPLIT_TOKEN: ${{ secrets.SPLIT_TOKEN }}
+        run: |
+          set -euo pipefail
+          git push "https://x-access-token:${SPLIT_TOKEN}@github.com/quioteframework/${{ matrix.package }}.git" \
+            "${{ steps.split.outputs.sha }}:refs/heads/main" --force
+
+      - name: Tag quioteframework/${{ matrix.package }}
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          SPLIT_TOKEN: ${{ secrets.SPLIT_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF#refs/tags/}"
+          git push "https://x-access-token:${SPLIT_TOKEN}@github.com/quioteframework/${{ matrix.package }}.git" \
+            "${{ steps.split.outputs.sha }}:refs/tags/${TAG}" --force
