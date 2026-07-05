@@ -22,13 +22,15 @@ use Quiote\Config\Util\DOM\XmlConfigDomDocument;
 interface IArrayConfigHandler
 {
 	/**
-	 * @return array The canonical array shape this handler's config type
+	 * @return array<mixed> The canonical array shape this handler's config type
 	 *               uses -- see the concrete handler's own docblock (e.g.
 	 *               SettingConfigHandler) for exactly what that shape is.
 	 */
 	public function toCanonicalArray(XmlConfigDomDocument $document): array;
 
 	/**
+	 * @param array<mixed> $config The canonical config array, matching the
+	 *                    shape returned by toCanonicalArray().
 	 * @param string|null $sourceRef Origin reference for the compiled
 	 *                    cache file's header comment (a file path for any
 	 *                    format; XML's is $document->documentURI).

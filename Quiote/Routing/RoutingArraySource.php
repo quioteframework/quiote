@@ -11,13 +11,13 @@ use Quiote\Util\ArrayPathDefinition;
 class RoutingArraySource implements IRoutingSource
 {
 	/**
-	 * @var        array An array with data.
+	 * @var        array<mixed> An array with data.
 	 */
 	protected $data = [];
 
 	/**
 	 * Constructor.
-	 * @param      array $data An array with data.
+	 * @param      array<mixed> $data An array with data.
 	 * @since      1.0.0
 	 */
 	public function __construct(array $data)
@@ -27,7 +27,7 @@ class RoutingArraySource implements IRoutingSource
 
 	/**
 	 * Retrieves the value for a given entry from the source.
-	 * @param      array $parts An array with the name parts for the entry.
+	 * @param      array<int|string> $parts An array with the name parts for the entry.
 	 * @return     mixed The value.
 	 * @since      1.0.0
 	 */

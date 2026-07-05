@@ -80,6 +80,9 @@ class LightweightActionInitContext extends AttributeHolder implements ActionInit
     // Legacy shim: some legacy actions call $this->getValidationManager() on the container.
     // Cached so that the same instance is returned every time — XML validators, action
     // validate*() methods, and error-handler code all need to share a single VM.
+    /**
+     * @return mixed
+     */
     public function getValidationManager()
     {
         if ($this->validationManager !== null) {

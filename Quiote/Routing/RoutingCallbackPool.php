@@ -18,7 +18,7 @@ class RoutingCallbackPool implements ResetInterface
     private static $resetInstance = null;
     
     /**
-     * @var array Pool of callback instances
+     * @var array<string, object> Pool of callback instances
      */
     private static $instances = [];
     
@@ -46,7 +46,7 @@ class RoutingCallbackPool implements ResetInterface
     /**
      * Get or create callback instance from pool
      * @param string $className Callback class name
-     * @param array $parameters Callback parameters
+     * @param array<string, mixed> $parameters Callback parameters
      * @return object Callback instance
      */
     public static function getInstance($className, $parameters = [])
@@ -90,6 +90,7 @@ class RoutingCallbackPool implements ResetInterface
     
     /**
      * Clear the callback pool
+     * @return void
      */
     public static function clearPool()
     {
@@ -100,6 +101,7 @@ class RoutingCallbackPool implements ResetInterface
     /**
      * Set maximum pool size
      * @param int $size Maximum number of pooled instances
+     * @return void
      */
     public static function setMaxInstances($size)
     {
@@ -108,7 +110,7 @@ class RoutingCallbackPool implements ResetInterface
     
     /**
      * Get pool statistics
-     * @return array Pool performance stats
+     * @return array{pool_size: int, max_instances: int, access_count: int, memory_usage: int} Pool performance stats
      */
     public static function getStats()
     {
@@ -123,7 +125,8 @@ class RoutingCallbackPool implements ResetInterface
     /**
      * Remove specific instance from pool
      * @param string $className Callback class name
-     * @param array $parameters Callback parameters
+     * @param array<string, mixed> $parameters Callback parameters
+     * @return void
      */
     public static function removeInstance($className, $parameters = [])
     {

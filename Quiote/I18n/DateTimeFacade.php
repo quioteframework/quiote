@@ -20,7 +20,10 @@ use RuntimeException;
  */
 final class DateTimeFacade
 {
-    /** Map legacy pattern tokens to ICU equivalents (most overlap). */
+    /**
+     * Map legacy pattern tokens to ICU equivalents (most overlap).
+     * @var array<string, string>
+     */
     private static array $tokenMap = [
         'yyyy' => 'yyyy',
         'MM'   => 'MM',

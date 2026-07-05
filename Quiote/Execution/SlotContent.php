@@ -12,6 +12,9 @@ final readonly class SlotContent implements SlotRenderable, \Stringable
 {
     // original argument hash (already merged / sanitized)
 
+    /**
+     * @param array<string, mixed> $arguments
+     */
     public function __construct(private string $module, private string $action, private ?string $outputType, private string $content, private array $arguments = [])
     {
     }
@@ -19,6 +22,8 @@ final readonly class SlotContent implements SlotRenderable, \Stringable
     public function getModule(): string { return $this->module; }
     public function getAction(): string { return $this->action; }
     public function getOutputType(): ?string { return $this->outputType; }
+
+    /** @return array<string, mixed> */
     public function getArguments(): array { return $this->arguments; }
 
     /** Return the already rendered slot content. */
@@ -26,6 +31,9 @@ final readonly class SlotContent implements SlotRenderable, \Stringable
 
     public function __toString(): string { return $this->content; }
 
+    /**
+     * @return array{module: string, action: string, output_type: ?string, arguments: array<string, mixed>, content_length: int}
+     */
     public function toArray(): array
     {
         return [

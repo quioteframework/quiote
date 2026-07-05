@@ -28,6 +28,10 @@ abstract class ContainerTestCase extends FragmentTestCase
 
 	/**
 	 * dispatch the request
+	 * @param      array<string, mixed>|null $arguments
+	 * @param      string|null $outputType
+	 * @param      string|null $requestMethod
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function execute($arguments = null, $outputType = null, $requestMethod = null)

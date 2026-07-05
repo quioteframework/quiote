@@ -120,8 +120,11 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	/**
 	 * legacy: create a container for the test (removed)
 	 * legacy container class reference removed
-	 * extension to provide advanced capabilities required for testing 
+	 * extension to provide advanced capabilities required for testing
 	 * only
+	 * @param      mixed $arguments
+	 * @param      mixed $outputType
+	 * @param      mixed $requestMethod
 	 * @return     mixed
 	 * @since      1.0.0
 	 */
@@ -173,6 +176,9 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
      *  - ['foo' => 'bar'] (already normalized)
      *  - [ANY_CONSTANT => ['foo' => 'bar']] legacy style
      * Returns the inner parameter array.
+     * @param      array<int|string, mixed> $arguments
+     * @param      mixed $type
+     * @return     array<int|string, mixed>
      */
     #[\Deprecated(message: 'Will be removed once all tests have been migrated to setArguments([...]).')]
     protected function createRequestDataHolder(array $arguments = [], $type = null)
@@ -198,6 +204,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	 * @param      integer $maxDepth
 	 * @param      boolean $canonicalizeEol
 	 * @see        PHPUnit_Framework_Assert::assertEquals()
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function assertContainerAttributeEquals($expected, $attributeName, $namespace = null, $message = 'Failed asserting that the attribute <%1$s/%2$s> has the value <%3$s>', $delta = 0, $maxDepth = 10, $canonicalizeEol = false)
@@ -210,6 +217,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	 * @param      string $attributeName the attribute name
 	 * @param      string $namespace the attribute namespace
 	 * @param      string $message an optional message to display if the test fails
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function assertContainerAttributeExists($attributeName, $namespace = null, $message = 'Failed asserting that the container has an attribute named <%1$s/%2$s>.')
@@ -221,6 +229,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 
 	/**
 	 * @see        ExcutionContainer::setOutputType()
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function setOutputType(OutputType $outputType)
@@ -230,6 +239,8 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 
 	/**
 	 * @see        Request::setRequestData()
+	 * @param      mixed $rd
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function setRequestData($rd)
@@ -240,6 +251,8 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	
 	/**
 	 * @see        ExcutionContainer::setArguments()
+	 * @param      mixed $arguments
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function setArguments($arguments)
@@ -262,6 +275,8 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 
 	/**
 	 * @see        ExcutionContainer::setRequestMethod()
+	 * @param      string $method
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function setRequestMethod($method)
@@ -275,6 +290,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 
 	/**
 	 * @see        AttributeHolder::clearAttributes()
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function clearAttributes()
@@ -284,6 +300,9 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 
 	/**
 	 * @see        AttributeHolder::getAttribute()
+	 * @param      string $name
+	 * @param      mixed $default
+	 * @return     mixed
 	 * @since      1.0.0
 	 */
 	protected function &getAttribute($name, $default = null)
@@ -293,6 +312,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 
 	/**
 	 * @see        AttributeHolder::getAttributeNames()
+	 * @return     array<int, string>
 	 * @since      1.0.0
 	 */
 	protected function getAttributeNames()
@@ -302,6 +322,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 
 	/**
 	 * @see        AttributeHolder::getAttributes()
+	 * @return     array<string, mixed>
 	 * @since      1.0.0
 	 */
 	protected function &getAttributes()
@@ -311,6 +332,8 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 
 	/**
 	 * @see        AttributeHolder::hasAttribute()
+	 * @param      string $name
+	 * @return     bool
 	 * @since      1.0.0
 	 */
 	protected function hasAttribute($name)
@@ -320,6 +343,8 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 
 	/**
 	 * @see        AttributeHolder::removeAttribute()
+	 * @param      string $name
+	 * @return     mixed
 	 * @since      1.0.0
 	 */
 	protected function &removeAttribute($name)
@@ -329,6 +354,9 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 
 	/**
 	 * @see        AttributeHolder::setAttribute()
+	 * @param      string $name
+	 * @param      mixed $value
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function setAttribute($name, $value)
@@ -338,6 +366,9 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 
 	/**
 	 * @see        AttributeHolder::appendAttribute()
+	 * @param      string $name
+	 * @param      mixed $value
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function appendAttribute($name, $value)
@@ -347,6 +378,9 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 
 	/**
 	 * @see        AttributeHolder::setAttributesByRef()
+	 * @param      string $name
+	 * @param      mixed $value
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function setAttributeByRef($name, &$value)
@@ -356,6 +390,9 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 
 	/**
 	 * @see        AttributeHolder::appendAttributeByRef()
+	 * @param      string $name
+	 * @param      mixed $value
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function appendAttributeByRef($name, &$value)
@@ -365,6 +402,8 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 
 	/**
 	 * @see        AttributeHolder::setAttributes()
+	 * @param      array<string, mixed> $attributes
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function setAttributes(array $attributes)
@@ -374,6 +413,8 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 
 	/**
 	 * @see        AttributeHolder::setAttributesByRef()
+	 * @param      array<string, mixed> $attributes
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function setAttributesByRef(array &$attributes)
@@ -381,6 +422,9 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 		$this->container->setAttributesByRef($attributes);
 	}
 
+	/**
+	 * @return     void
+	 */
 	protected function clearSingletonModels()
 	{
 		$context = $this->getContext();
@@ -392,6 +436,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 
 	/**
 	 * Helper: apply runtime parameters directly to canonical WebRequest (replaces deprecated DataHolder usage).
+	 * @param      array<string, mixed> $parameters
 	 */
 	protected function applyRequestParameters(array $parameters, bool $clearFirst = false): void
 	{

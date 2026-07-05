@@ -2,6 +2,7 @@
 namespace Quiote\Config;
 
 use Quiote\Config\Util\DOM\XmlConfigDomDocument;
+use Quiote\Config\Util\DOM\XmlConfigDomElement;
 use Quiote\Exception\ConfigurationException;
 use Quiote\Exception\ParseException;
 
@@ -36,6 +37,9 @@ class DatabaseConfigHandler extends XmlConfigHandler implements IArrayConfigHand
 		return $this->executeArray($this->toCanonicalArray($document), $document->documentURI);
 	}
 
+	/**
+	 * @return array{default: string|null, databases: array<string, array{class?: string, parameters: array<string, mixed>}>}
+	 */
 	public function toCanonicalArray(XmlConfigDomDocument $document): array
 	{
 		// set up our default namespace
@@ -49,6 +53,9 @@ class DatabaseConfigHandler extends XmlConfigHandler implements IArrayConfigHand
 			}
 
 			$databasesElement = $configuration->getChild('databases');
+			// registerNodeClass() guarantees element nodes are always
+			// XmlConfigDomElement, never a vanilla DOMNode.
+			/** @var XmlConfigDomElement<int, \DOMNode> $databasesElement */
 
 			// make sure we have a default database exists
 			if (!$databasesElement->hasAttribute('default') && $default === null) {
@@ -64,6 +71,9 @@ class DatabaseConfigHandler extends XmlConfigHandler implements IArrayConfigHand
 
 			// let's do our fancy work
 			foreach ($configuration->get('databases') as $database) {
+				// registerNodeClass() guarantees element nodes are always
+				// XmlConfigDomElement, never a vanilla DOMNode.
+				/** @var XmlConfigDomElement<int, \DOMNode> $database */
 				$name = $database->getAttribute('name');
 
 				if (!isset($databases[$name])) {
@@ -86,6 +96,9 @@ class DatabaseConfigHandler extends XmlConfigHandler implements IArrayConfigHand
 		return ['default' => $default, 'databases' => $databases];
 	}
 
+	/**
+	 * @param array{default?: string|null, databases?: array<string, array{class: string, parameters: array<string, mixed>}>} $config
+	 */
 	public function executeArray(array $config, ?string $sourceRef = null): string
 	{
 		$default = $config['default'] ?? null;

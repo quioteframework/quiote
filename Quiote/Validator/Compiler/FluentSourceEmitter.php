@@ -142,6 +142,9 @@ class FluentSourceEmitter implements EmitterInterface
 
 	// -- simplicity predicates -------------------------------------------------
 
+	/**
+	 * @param array<int, string> $classSpecificKeys
+	 */
 	private function hasOnlyGenericChainable(ValidatorNode $node, array $classSpecificKeys): bool
 	{
 		$structural = ['class', 'method', 'required'];
@@ -151,6 +154,9 @@ class FluentSourceEmitter implements EmitterInterface
 		return empty($extra);
 	}
 
+	/**
+	 * @param array<string, mixed> $classSpecificKeys
+	 */
 	private function isSimpleLeaf(ValidatorNode $node, array $classSpecificKeys): bool
 	{
 		return $node->base === ''
@@ -193,6 +199,9 @@ class FluentSourceEmitter implements EmitterInterface
 
 	// -- emission ---------------------------------------------------------------
 
+	/**
+	 * @return string[]
+	 */
 	private function emitSimpleLeaf(ValidatorNode $node, int $depth): array
 	{
 		[$factoryMethod, $paramMap] = self::SIMPLE_FACTORY[$node->validatorClass];
@@ -203,6 +212,9 @@ class FluentSourceEmitter implements EmitterInterface
 		return $this->wrapWithChain($node, $expr, $paramMap, $depth);
 	}
 
+	/**
+	 * @return string[]
+	 */
 	private function emitEnum(ValidatorNode $node, int $depth): array
 	{
 		$required = $this->literal($node->parameters['required'] ?? true);
@@ -213,6 +225,9 @@ class FluentSourceEmitter implements EmitterInterface
 		return $this->wrapWithChain($node, $expr, ['case' => 'caseSensitive', 'strict' => 'strict'], $depth);
 	}
 
+	/**
+	 * @return string[]
+	 */
 	private function emitRegex(ValidatorNode $node, int $depth): array
 	{
 		$required = $this->literal($node->parameters['required'] ?? true);
@@ -224,6 +239,10 @@ class FluentSourceEmitter implements EmitterInterface
 		return $this->wrapWithChain($node, $expr, [], $depth);
 	}
 
+	/**
+	 * @param array<string, string> $paramMap
+	 * @return string[]
+	 */
 	private function wrapWithChain(ValidatorNode $node, string $expr, array $paramMap, int $depth): array
 	{
 		$indent = str_repeat('    ', $depth);
@@ -248,6 +267,9 @@ class FluentSourceEmitter implements EmitterInterface
 		return [$indent . implode('', $chain) . ';'];
 	}
 
+	/**
+	 * @return string[]
+	 */
 	private function emitOperator(ValidatorNode $node, int $depth): array
 	{
 		$indent = str_repeat('    ', $depth);
@@ -275,6 +297,9 @@ class FluentSourceEmitter implements EmitterInterface
 		return $lines;
 	}
 
+	/**
+	 * @return string[]
+	 */
 	private function emitRaw(ValidatorNode $node, int $depth): array
 	{
 		$indent = str_repeat('    ', $depth);

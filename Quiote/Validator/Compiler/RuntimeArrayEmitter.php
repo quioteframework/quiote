@@ -114,6 +114,9 @@ class RuntimeArrayEmitter
 	 * Return the deduped list of parameter names declared for a given
 	 * method key. The empty string represents methodless declarations.
 	 */
+	/**
+	 * @return array<int, string>
+	 */
 	private function uniqueDeclaredNames(string $method): array
 	{
 		$names = $this->declaredParams[$method] ?? [];
@@ -129,6 +132,9 @@ class RuntimeArrayEmitter
 	/**
 	 * Build the generated PHP line that declares a batch of parameter names
 	 * on the request's strict-validation whitelist.
+	 */
+	/**
+	 * @param array<int, string> $names
 	 */
 	private function buildDeclareParametersSnippet(array $names): string
 	{

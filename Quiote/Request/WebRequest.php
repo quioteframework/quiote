@@ -101,6 +101,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	 * Strict validated parameter enforcement is ALWAYS active.
 	 * Only parameters whitelisted in $validatedKeys may be accessed via
 	 * getParameter()/hasParameter(). Unvalidated access ALWAYS throws.
+	 * @var array<string, bool>
 	 */
 	private array $validatedKeys = [];
 
@@ -127,6 +128,9 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 		return $new;
 	}
 
+	/**
+	 * @var array<string, string>
+	 */
 	private array $sourceNames = ["parameters" => "parameter", "cookies" => "cookie", "files" => "file", "headers" => "header"];
 	/**
 	 * Checks if a field has no value (In web context this would only return true
@@ -262,6 +266,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	 * Convenience accessor returning a flat array of UploadedFileInterface objects.
 	 * Calling code no longer needs to worry about Quiote returning null for
 	 * getUploadedFiles() when no payload exists or about nested PSR-7 structures.
+	 * @return UploadedFileInterface[]
 	 */
 	public function getUploadedFileArray(string $name): array
 	{
@@ -444,6 +449,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	/**
 	 * Set the URL scheme for this request.
 	 * @param      string $scheme The URL scheme (e.g., 'http', 'https').
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setUrlScheme($scheme)
@@ -454,6 +460,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	/**
 	 * Set the URL host for this request.
 	 * @param      string $host The URL host (e.g., 'example.com').
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setUrlHost($host)
@@ -464,6 +471,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	/**
 	 * Set the URL port for this request.
 	 * @param      int $port The URL port (e.g., 80, 443, 8080).
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setUrlPort($port)
@@ -474,6 +482,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	/**
 	 * Set the request URI for this request.
 	 * @param      string $uri The request URI (e.g., '/path/to/resource?query=value').
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setRequestUri($uri)
@@ -483,6 +492,12 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 
 	/**
 	 * Constructor - wraps a fresh Nyholm ServerRequest.
+	 * @param      string $method
+	 * @param      string|UriInterface|null $uri
+	 * @param      array<string, string|string[]> $headers
+	 * @param      string|resource|StreamInterface|null $body
+	 * @param      string $version
+	 * @param      array<string, mixed> $serverParams
 	 * @since      1.0.0
 	 */
 	public function __construct(
@@ -558,6 +573,8 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	/**
 	 * Initialize this Request (compat stub for factories.xml flow).
 	 * We don't use Quiote's parameter holder anymore here.
+	 * @param      array<string, mixed> $parameters
+	 * @return     void
 	 */
 	public function initialize(Context $context, array $parameters = [])
 	{
@@ -609,6 +626,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	/**
 	 * Derive legacy URL metadata from PHP's server parameters when no PSR-7
 	 * request is available (e.g. unit tests, early bootstrap flows).
+	 * @param      array<string, mixed> $server
 	 */
 	private function bootstrapFromServerParams(array $server): void
 	{
@@ -768,6 +786,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	/**
 	 * Copy decoded JSON fields into the runtime parameter store so validators/actions
 	 * can consume them just like classic form inputs.
+	 * @param      array<int|string, mixed> $json
 	 */
 	private function importJsonParameters(array $json): void
 	{
@@ -890,6 +909,8 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	/**
 	 * Manual, conservative bracket path resolution for nested parameters like foo[0][bar].
 	 * Returns null if any segment is missing. Does not support empty brackets [] append semantics for safety.
+	 * @param      array<string, mixed> $rootArray
+	 * @return     mixed
 	 */
 	private function resolveBracketPath(string $path, array $rootArray)
 	{
@@ -921,6 +942,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	 * Retrieve parameters. When $source is null we merge runtime parameters
 	 * over intrinsic HTTP parameters. Specific sources bypass runtime store.
 	 * Allowed $source values mirror legacy API: parameters|cookies|files|headers|attributes|runtime
+	 * @return     array<string, mixed>
 	 */
 	public function getParameters(?string $source = null)
 	{
@@ -945,7 +967,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	/**
 	 * Retrieves all fields of a stored data type (legacy RequestDataHolder compatibility).
 	 * @param      string $source The name of the source to operate on.
-	 * @return     array The values.
+	 * @return     array<string, mixed> The values.
 	 * @since      1.0.0
 	 */
 	public function getAll($source)
@@ -990,6 +1012,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 
 	/**
 	 * Legacy write API: set a runtime parameter (not an attribute, not HTTP input).
+	 * @param      mixed $value
 	 */
 	public function setParameter(string $name, $value): void
 	{
@@ -1071,6 +1094,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 
 	/**
 	 * Decide whether to materialize bracket paths for a root key; avoid huge structures (>200 elements) for performance.
+	 * @param      array<mixed> $value
 	 */
 	private function shouldMaterializeBracketPaths(string $root, array $value): bool
 	{
@@ -1084,6 +1108,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	 * For a structure like ['data' => [ ['Application' => 'orders', 'Enabled' => true] ] ]
 	 * create flattened bracketed entries: data[0][Application], data[0][Enabled].
 	 * Stored as scalar runtimeParameters so legacy validator key enumeration that scans flat names picks them up.
+	 * @param      array<int|string, mixed> $list
 	 */
 	private function materializeBracketPaths(string $root, array $list): void
 	{
@@ -1101,6 +1126,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 
 	/**
 	 * Legacy append API mirrors ParameterHolder::appendParameter semantics.
+	 * @param      mixed $value
 	 */
 	public function appendParameter(string $name, $value): void
 	{
@@ -1117,12 +1143,16 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	/**
 	 * Define the set of validated parameter names. Always-on enforcement.
 	 * Calling this replaces the whitelist completely.
+	 * @return     array<int, string>
 	 */
 	public function getRuntimeParameterKeys(): array
 	{
 		return array_keys($this->runtimeParameters);
 	}
 
+	/**
+	 * @param      array<int, string> $keys
+	 */
 	public function enforceValidatedParameters(array $keys): void
 	{
 		foreach($keys as $key) {
@@ -1138,6 +1168,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	/**
 	 * Expand a validated parameter name to include relevant base aliases.
 	 * For example "foo[]" will add both "foo[]" and "foo" to the whitelist.
+	 * @return     array<int, string>
 	 */
 	private function expandValidatedKeyVariants(string $key): array
 	{
@@ -1200,7 +1231,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 				continue;
 			}
 			$segmentStr = (string)$segment;
-			if($segmentStr !== '' && ctype_digit($segmentStr)) {
+			if(ctype_digit($segmentStr)) {
 				$normalizedParts[$idx] = '';
 				$updated = true;
 			}
@@ -1232,6 +1263,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	
 	/**
 	 * Create new instance with runtime parameters replaced.
+	 * @param      array<string, mixed> $params
 	 */
 	private function withRuntimeParameters(array $params): self
 	{
@@ -1252,6 +1284,8 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	 * and headers are left untouched here because validator arguments typically
 	 * target parameters; if needed we can later extend with additional source
 	 * pruning rules.
+	 * @param array<int, string> $keep
+	 * @param array<int, string> $failed
 	 * @return self New immutable instance with pruned parameters
 	 */
 	public function pruneParametersToValidated(array $keep, array $failed, bool $preserveModuleAction, ?string $moduleKey, ?string $actionKey): self
@@ -1366,6 +1400,12 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	/**
 	 * Extended pruning invoked by ValidationManager for non-parameter sources when available.
 	 * Each keep/failed array is an associative map of name => true.
+	 * @param array<string, bool> $headerKeep
+	 * @param array<string, bool> $headerFail
+	 * @param array<string, bool> $cookieKeep
+	 * @param array<string, bool> $cookieFail
+	 * @param array<string, bool> $fileKeep
+	 * @param array<string, bool> $fileFail
 	 */
 	public function pruneExtendedSources(array $headerKeep, array $headerFail, array $cookieKeep, array $cookieFail, array $fileKeep, array $fileFail): self
 	{
@@ -1413,6 +1453,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	/**
 	 * Append a value to a list-style attribute (legacy API used by views to add css/js).
 	 * Values are stored as array under attribute name. Idempotent for identical consecutive adds.
+	 * @param      mixed $value
 	 */
 	public function appendAttribute(string $name, $value): self
 	{
@@ -1430,6 +1471,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 
 	/**
 	 * Backwards compat: alias for appendAttribute when code used singular.
+	 * @param      mixed $value
 	 */
 	public function appendListAttribute(string $name, $value): self
 	{
@@ -1448,6 +1490,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	 * Legacy mutator: set attribute (overwrites any existing value).
 	 * NOTE: This uses a mutable internal storage for backward compatibility with
 	 * code that expects to mutate attributes. For new code, prefer withAttribute().
+	 * @param      mixed $value
 	 */
 	public function setAttribute(string $name, $value): void
 	{
@@ -1535,30 +1578,45 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 		return $new;
 	}
 
+	/**
+	 * @return array<string, mixed>
+	 */
 	#[\Override]
     public function getServerParams(): array
 	{
 		return $this->psrRequest->getServerParams();
 	}
 
+	/**
+	 * @return array<string, mixed>
+	 */
 	#[\Override]
     public function getCookieParams(): array
 	{
 		return $this->psrRequest->getCookieParams();
 	}
 
+	/**
+	 * @param array<string, mixed> $cookies
+	 */
 	#[\Override]
     public function withCookieParams(array $cookies): static
 	{
 		return $this->withPsrRequest($this->psrRequest->withCookieParams($cookies));
 	}
 
+	/**
+	 * @return array<string, mixed>
+	 */
 	#[\Override]
     public function getQueryParams(): array
 	{
 		return $this->psrRequest->getQueryParams();
 	}
 
+	/**
+	 * @param array<string, mixed> $query
+	 */
 	#[\Override]
     public function withQueryParams(array $query): static
 	{
@@ -1566,7 +1624,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	}
 
 	/**
-	 * @return array<string, UploadedFileInterface|array>
+	 * @return array<string, UploadedFileInterface|array<int|string, mixed>>
 	 */
 	#[\Override]
     public function getUploadedFiles(): array
@@ -1574,24 +1632,36 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 		return $this->psrRequest->getUploadedFiles();
 	}
 
+	/**
+	 * @param array<string, UploadedFileInterface|array<int|string, mixed>> $uploadedFiles
+	 */
 	#[\Override]
     public function withUploadedFiles(array $uploadedFiles): static
 	{
 		return $this->withPsrRequest($this->psrRequest->withUploadedFiles($uploadedFiles));
 	}
 
+	/**
+	 * @return array<string, mixed>|object|null
+	 */
 	#[\Override]
     public function getParsedBody(): mixed
 	{
 		return $this->psrRequest->getParsedBody();
 	}
 
+	/**
+	 * @param array<string, mixed>|object|null $data
+	 */
 	#[\Override]
     public function withParsedBody($data): static
 	{
 		return $this->withPsrRequest($this->psrRequest->withParsedBody($data));
 	}
 
+	/**
+	 * @return array<string, mixed>
+	 */
 	#[\Override]
     public function getAttributes(): array
 	{
@@ -1631,6 +1701,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	/**
 	 * Do any necessary startup work after initialization.
 	 * This method is not called directly after initialize().
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function startup()

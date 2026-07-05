@@ -14,7 +14,7 @@ final class GettextMoReader
 	 * Parses a .mo file and returns the data as an array.
 	 * For the format see the gettext manual
 	 * @param      string $filePath Full path to the .mo file.
-	 * @return     array The translation data.
+	 * @return     array<string, string> The translation data.
 	 * @since      1.0.0
 	 */
 	public static function readFile($filePath)

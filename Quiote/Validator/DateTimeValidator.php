@@ -328,6 +328,9 @@ class DateTimeValidator extends Validator
 		return date_default_timezone_get();
 	}
 
+	/**
+	 * @param array<int|string, mixed> $formats
+	 */
 	private function parseInputValue(string $value, array $formats, QuioteLocale $defaultLocale, string $timezoneId): ?DateTimeImmutable
 	{
 		$tm = $this->getContext()->getTranslationManager();
@@ -432,6 +435,9 @@ class DateTimeValidator extends Validator
 		return $this->coerceBoundaryValue($definition, $locale, $timezoneId, null);
 	}
 
+	/**
+	 * @param mixed $value
+	 */
 	private function coerceBoundaryValue($value, QuioteLocale $locale, string $timezoneId, ?string $format): DateTimeImmutable
 	{
 		if($value instanceof DateTimeInterface) {
@@ -462,6 +468,10 @@ class DateTimeValidator extends Validator
 		return preg_match('/^-?\d+$/', $value) === 1;
 	}
 
+	/**
+	 * @param mixed $key
+	 * @return array{field: string, zero_based?: bool}|null
+	 */
 	private function normalizeFieldKey($key): ?array
 	{
 		if(is_int($key) || (is_string($key) && ctype_digit($key))) {
@@ -479,6 +489,9 @@ class DateTimeValidator extends Validator
 		return null;
 	}
 
+	/**
+	 * @param string $value
+	 */
 	private function fromUnixMilliseconds($value, string $timezoneId): ?DateTimeImmutable
 	{
 		$secondsFloat = ((float)$value) / 1000;
@@ -495,6 +508,10 @@ class DateTimeValidator extends Validator
 		return $dt->setTimezone(new DateTimeZone($timezoneId));
 	}
 
+	/**
+	 * @param int|string $fieldKey
+	 * @return int|float
+	 */
 	private function resolveExportComponent(DateTimeImmutable $date, $fieldKey, string $timezoneId)
 	{
 		$mapping = $this->normalizeFieldKey($fieldKey);

@@ -15,7 +15,8 @@ interface IXmlConfigHandler
 	/**
 	 * Initialize this ConfigHandler.
 	 * @param      ?Context $context The context to work with (if available).
-	 * @param      array        $parameters An associative array of initialization parameters.
+	 * @param      array<string, mixed> $parameters An associative array of initialization parameters.
+	 * @return     void
 	 * @throws     \Quiote\Exception\InitializationException If an error occurs while
 	 *                                                 initializing the
 	 *                                                 ConfigHandler

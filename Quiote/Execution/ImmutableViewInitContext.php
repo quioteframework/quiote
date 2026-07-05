@@ -11,6 +11,9 @@ use Quiote\Util\AttributeHolder; // to expose action attributes via standard vie
 
 final class ImmutableViewInitContext extends AttributeHolder implements ViewInitContext
 {
+    /**
+     * @param array<string, mixed> $actionAttributes
+     */
     public function __construct(
         private readonly Context $context,
         private readonly string $viewModule,
@@ -55,6 +58,7 @@ final class ImmutableViewInitContext extends AttributeHolder implements ViewInit
     {
         return $this->actionName;
     }
+    /** @return array<string, mixed> */
     public function getActionAttributes(): array
     {
         return $this->actionAttributes;
@@ -100,13 +104,14 @@ final class ImmutableViewInitContext extends AttributeHolder implements ViewInit
      * sometimes dereferenced $this->container->getOutputType()->getName(). We
      * can't cheaply recreate the output type object here without a controller
      * reference, so omit for now; views should use View::getCurrentOutputType().
+     * @return object An anonymous object exposing getName(): string.
      */
-    public function getOutputType()
+    public function getOutputType(): object
     {
         // Provide a tiny proxy object exposing getName() only.
         return new readonly class($this->outputType) {
             public function __construct(private string $n) {}
-            public function getName()
+            public function getName(): string
             {
                 return $this->n;
             }
@@ -133,6 +138,7 @@ final class ImmutableViewInitContext extends AttributeHolder implements ViewInit
 
     /**
      * Expose an empty parameter array for completeness.
+     * @return array<string, mixed>
      */
     #[\Override]
     public function &getParameters(): array
@@ -149,6 +155,7 @@ final class ImmutableViewInitContext extends AttributeHolder implements ViewInit
      * carries the live error state from the current request). Falls back to creating a fresh
      * instance only when none was supplied — callers that need error messages (e.g. JSON error
      * views) must pass the validation manager explicitly via the constructor.
+     * @return ?object
      */
     public function getValidationManager()
     {

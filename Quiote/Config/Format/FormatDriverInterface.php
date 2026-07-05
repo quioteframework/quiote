@@ -17,7 +17,7 @@ interface FormatDriverInterface
 	 *                            e.g. XmlFormatDriver; array/YAML drivers
 	 *                            ignore it today -- see class docs).
 	 * @param string|null $context The active context name, if any.
-	 * @return array The resolved, parent-chain-merged, directive-expanded
+	 * @return array<string, mixed> The resolved, parent-chain-merged, directive-expanded
 	 *               config data.
 	 */
 	public function load(string $path, string $environment, ?string $context = null): array;

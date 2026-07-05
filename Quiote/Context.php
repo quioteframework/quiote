@@ -30,6 +30,7 @@ use Psr\Http\Message\ResponseInterface;
 class Context implements \Stringable, ResetInterface
 {
   // Debug: Log when this class version is loaded
+  /** @var bool */
   static $debugLoaded = true;
 
   /**
@@ -46,7 +47,7 @@ class Context implements \Stringable, ResetInterface
   protected $controller = null;
 
   /**
-   * @var        array An array of class names for frequently used factories.
+   * @var        array<string, array<string, mixed>|null> An array of class names for frequently used factories.
    */
   protected $factories = [
     // Legacy filters removed; only remaining non-var factories listed here
@@ -85,46 +86,46 @@ class Context implements \Stringable, ResetInterface
   protected $user = null;
 
   /**
-   * @var        array The array used for the shutdown sequence.
+   * @var        array<int, mixed> The array used for the shutdown sequence.
    */
   protected $shutdownSequence = [];
 
   /**
-   * @var        array An array of Context instances.
+   * @var        array<string, mixed> An array of Context instances.
    */
   protected static $instances = [];
 
   /**
-   * @var        array An array of SingletonModel instances.
+   * @var        array<class-string, object> An array of SingletonModel instances.
    */
   protected $singletonModelInstances = [];
 
   /**
-   * @var        array Reset instances for FrankenPHP worker mode
+   * @var        array<int, mixed> Reset instances for FrankenPHP worker mode
    */
   protected $resetInstances = [];
 
   /**
-   * @var        array Request factory info for worker mode recreation
+   * @var        ?array<string, mixed> Request factory info for worker mode recreation
    */
   protected $requestFactoryInfo = null;
 
   /**
-   * @var        array User factory info for worker mode recreation
+   * @var        ?array<string, mixed> User factory info for worker mode recreation
    */
   protected $userFactoryInfo = null;
   /**
-   * @var        array Routing factory info for worker mode recreation
+   * @var        ?array<string, mixed> Routing factory info for worker mode recreation
    */
   protected $routingFactoryInfo = null;
 
   /**
-   * @var        array Controller factory info for worker mode recreation (prevent dynamic property creation)
+   * @var        ?array<string, mixed> Controller factory info for worker mode recreation (prevent dynamic property creation)
    */
   protected $controllerFactoryInfo = null;
 
   /**
-   * @var        array TranslationManager factory info for worker mode recreation (prevent dynamic property creation)
+   * @var        ?array<string, mixed> TranslationManager factory info for worker mode recreation (prevent dynamic property creation)
    */
   protected $translationManagerFactoryInfo = null;
   /**
@@ -141,12 +142,12 @@ class Context implements \Stringable, ResetInterface
   protected $actionResolver = null;
 
   /**
-   * @var        array Storage factory info for worker mode recreation
+   * @var        ?array<string, mixed> Storage factory info for worker mode recreation
    */
   protected $storageFactoryInfo = null;
 
   /**
-   * @var        array Database manager factory info for worker mode recreation
+   * @var        ?array<string, mixed> Database manager factory info for worker mode recreation
    */
   protected $databaseManagerFactoryInfo = null;
 
@@ -196,7 +197,7 @@ class Context implements \Stringable, ResetInterface
   /**
    * Get information on a frequently used class.
    * @param      string $for The factory identifier.
-   * @return     ?array An associative array (keys 'class' and 'parameters'), or null if not found.
+   * @return     ?array<string, mixed> An associative array (keys 'class' and 'parameters'), or null if not found.
    * @since      1.0.0
    */
   public function getFactoryInfo($for)
@@ -226,10 +227,11 @@ class Context implements \Stringable, ResetInterface
   /**
    * Set information on a frequently used class.
    * @param      string $for The factory identifier.
-   * @param      array $info An associative array (keys 'class' and 'parameters').
+   * @param      array<string, mixed> $info An associative array (keys 'class' and 'parameters').
+   * @return     void
    * @since      1.0.0
    */
-  public function setFactoryInfo($for, array $info)
+  public function setFactoryInfo($for, array $info): void
   {
     $this->factories[$for] = $info;
   }
@@ -597,9 +599,11 @@ class Context implements \Stringable, ResetInterface
 	 * This method clears request-specific state while preserving the context configuration.
 	// We intentionally DO NOT reset *FactoryInfo properties as these are immutable across
 	// requests and used for lazy recreation (request/user/routing/storage/databaseManager).
+	 * @param      ?string $profile The named context profile to reset, or null to reset all.
+	 * @return     void
 	 * @since      1.0.0
 	 */
-  public static function resetWorkerState($profile = null)
+  public static function resetWorkerState($profile = null): void
   {
     if ($profile !== null) {
       $profile = strtolower($profile);
@@ -688,6 +692,8 @@ class Context implements \Stringable, ResetInterface
   /**
    * Set the request object explicitly.
    * WebRequest extends ServerRequest, so this is the single source of truth.
+   * @param      mixed $request The request object (a WebRequest, a PSR-7
+   *             ServerRequestInterface, a legacy non-PSR request, or null).
    */
   public function setRequest($request): void
   {
@@ -761,9 +767,10 @@ class Context implements \Stringable, ResetInterface
 
   /**
    * (re)Initialize the Context instance.
+   * @return     void
    * @since      1.0.0
    */
-  public function initialize()
+  public function initialize(): void
   {
     $logger = null;
     try {
@@ -907,8 +914,9 @@ class Context implements \Stringable, ResetInterface
   /**
    * Initialize reset instances for FrankenPHP worker mode
    * These instances will be automatically reset by FrankenPHP between requests
+   * @return     void
    */
-  protected function initializeResetInstances()
+  protected function initializeResetInstances(): void
   {
     // Only the callback pool remains relevant; legacy route cache/trie removed.
     if (class_exists(\Quiote\Routing\RoutingCallbackPool::class)) {
@@ -918,9 +926,10 @@ class Context implements \Stringable, ResetInterface
 
   /**
    * Shut down this Context and all related factories.
+   * @return     void
    * @since      1.0.0
    */
-  public function shutdown()
+  public function shutdown(): void
   {
     foreach ($this->shutdownSequence as $object) {
       try {
@@ -947,7 +956,7 @@ class Context implements \Stringable, ResetInterface
    * @param      string $modelName A model name or fully qualified class name.
    * @param      string $moduleName A module name, if the requested model is a module model,
    *                    or null for global models. (DEPRECATED with namespaces)
-   * @param      array $parameters An array of parameters to be passed to initialize() or
+   * @param      ?array<int, mixed> $parameters An array of parameters to be passed to initialize() or
    *                    the constructor.
    * @return     \Quiote\Model\Model A Model implementation instance.
    * @throws     QuioteException if class is ultimately not found.

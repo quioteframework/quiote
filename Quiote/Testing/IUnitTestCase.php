@@ -8,6 +8,9 @@ namespace Quiote\Testing;
  */
 interface IUnitTestCase extends ITestCase
 {
+	/**
+	 * @return \Quiote\Context
+	 */
 	public function getContext();
 }
 

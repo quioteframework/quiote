@@ -21,12 +21,12 @@ class ConfigCache
 	const CACHE_SUBDIR = 'config';
 
 	/**
-	 * @var        array An array of config handler instructions.
+	 * @var        ?array<string,array<string,mixed>> An array of config handler instructions.
 	 */
 	protected static $handlers = null;
 
 	/**
-	 * @var        array A string=>bool array containing config handler files and
+	 * @var        array<string,bool> A string=>bool array containing config handler files and
 	 *                   their loaded status.
 	 */
 	protected static $handlerFiles = [];
@@ -62,7 +62,8 @@ class ConfigCache
 	 * @param      string $cache An absolute filesystem path to the cache file that
 	 *                    will be written.
 	 * @param      ?string $context The context which we're currently running.
-	 * @param      array $handlerInfo Optional config handler info array.
+	 * @param      ?array<string,mixed> $handlerInfo Optional config handler info array.
+	 * @return     void
 	 * @throws     \Quiote\Exception\ConfigurationException If a requested configuration
 	 *                                                file does not have an
 	 *                                                associated config handler.
@@ -92,6 +93,7 @@ class ConfigCache
 	 * Set up all config handler definitions.
 	 * Checks whether the handlers have been loaded or the dirtyHandlers flat is
 	 * set, and loads any handler that has not been loaded.
+	 * @return       void
 	 * @since        1.0.0
 	 */
 	protected static function setupHandlers()
@@ -114,7 +116,7 @@ class ConfigCache
 	/**
 	 * Fetch the handler information for the given filename.
 	 * @param        string $name The name of the config file (partial path).
-	 * @return       ?array  The handler info.
+	 * @return       ?array<string,mixed>  The handler info.
 	 * @since        1.0.0
 	 */
 	protected static function getHandlerInfo($name)
@@ -153,7 +155,7 @@ class ConfigCache
 	 * Execute the config handler for the given file.
 	 * @param        string $config The path to the config file (full path).
 	 * @param        ?string $context The context which we're currently running.
-	 * @param        array $handlerInfo The config handler info.
+	 * @param        array<string,mixed> $handlerInfo The config handler info.
 	 * @return       string The compiled data.
 	 * @since        1.0.0
 	 */
@@ -358,19 +360,19 @@ class ConfigCache
 	}
 
 	/**
-	 * Check if the cached version of a file is up to date.
-	 * @param      string The source file.
-	 * @param      string The name of the cached version.
-	 * @return     bool Whether or not the cached file must be updated.
-	 * @since      1.0.0
-	 */
-	/**
 	 * @var array<string,bool> Per-process cache of modification check results.
 	 * In persistent workers (FrankenPHP), avoids repeated stat() syscalls for
 	 * configs that have already been verified as fresh.
 	 */
 	protected static array $modifiedCache = [];
 
+	/**
+	 * Check if the cached version of a file is up to date.
+	 * @param      string $filename The source file.
+	 * @param      string $cachename The name of the cached version.
+	 * @return     bool Whether or not the cached file must be updated.
+	 * @since      1.0.0
+	 */
 	public static function isModified($filename, $cachename)
 	{
 		$cacheKey = $filename . '|' . $cachename;
@@ -395,6 +397,7 @@ class ConfigCache
 
 	/**
 	 * Clear all configuration cache files.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public static function clear()
@@ -465,6 +468,7 @@ class ConfigCache
 	 * @param      string $context A context name.
 	 * @param      bool $once Only allow this configuration file to be included once
 	 *                    per request?
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public static function load($config, $context = null, $once = true)
@@ -482,6 +486,7 @@ class ConfigCache
 	 * Load all configuration application and module level handlers.
 	 * @throws     \Quiote\Exception\ConfigurationException If a configuration related
 	 *                                                error occurs.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected static function loadConfigHandlers()
@@ -552,6 +557,7 @@ class ConfigCache
 	 * Load the config handlers from the given config file.
 	 * Existing handlers will not be overwritten.
 	 * @param      string $cfg The path to a config_handlers.xml file.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected static function loadConfigHandlersFile($cfg)
@@ -583,6 +589,7 @@ class ConfigCache
 	/**
 	 * Schedules a config handlers file to be loaded.
 	 * @param      string $filename The path to a config_handlers.xml file.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public static function addConfigHandlersFile($filename)
@@ -604,6 +611,7 @@ class ConfigCache
 	 *                    will be written.
 	 * @param      string $data Data to be written to the cache file.
 	 * @param      bool $append Should we append the data?
+	 * @return     void
 	 * @throws     \Quiote\Exception\CacheException If the cache file cannot be written.
 	 * @since      1.0.0
 	 */

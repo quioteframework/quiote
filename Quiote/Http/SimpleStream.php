@@ -6,8 +6,12 @@ use RuntimeException;
 
 class SimpleStream implements StreamInterface
 {
+    /** @var resource|null */
     private $resource;
 
+    /**
+     * @param resource $resource
+     */
     public function __construct($resource)
     {
         if(!is_resource($resource)) {

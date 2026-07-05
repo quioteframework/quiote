@@ -11,6 +11,7 @@ use Quiote\Util\ParameterHolder;
 use Quiote\Util\Toolkit;
 use Quiote\Util\FormPopulationConfig;
 use Quiote\Validator\ValidationArgument;
+use Quiote\Validator\ValidationIncident;
 use Quiote\Validator\ValidationReport;
 use Quiote\Validator\Validator;
 
@@ -62,6 +63,7 @@ final class FormPopulationEngine
 
 	/**
 	 * Populate the provided response content with request data and validation errors.
+	 * @param      array<string, mixed> $overrides
 	 */
 	public function populate(WebResponse $response, WebRequest $request, array $overrides = []): void
 	{
@@ -697,8 +699,8 @@ final class FormPopulationEngine
 	 * Insert the error messages from the given incidents into the given element
 	 * using the given rules.
 	 * @param      \DOMElement $element The element to work on.
-	 * @param      array $rules An array of insertion rules
-	 * @param      array $incidents An array of ValidationIncidents.
+	 * @param      array<string, mixed> $rules An array of insertion rules
+	 * @param      array<int, ValidationIncident> $incidents An array of ValidationIncidents.
 	 * @return     bool Whether or not the inserts were successful.
 	 * @since      1.0.0
 	 */
@@ -962,7 +964,7 @@ final class FormPopulationEngine
 	/**
 	 * Initialize this engine.
 	 * @param      Context $context The current application context.
-	 * @param      array $parameters An associative array of initialization parameters.
+	 * @param      array<string, mixed> $parameters An associative array of initialization parameters.
 	 * @since      1.0.0
 	 */
     public function initialize(Context $context, array $parameters = []): void
@@ -998,11 +1000,13 @@ final class FormPopulationEngine
 		$this->xmlnsPrefix = '';
 	}
 
+	/** @return array<string, mixed> */
 	public function getDefaults(): array
 	{
 		return $this->parameters;
 	}
 
+	/** @return array<string, mixed> */
 	private function defaultParameters(): array
 	{
 		return [
@@ -1037,6 +1041,10 @@ final class FormPopulationEngine
 		];
 	}
 
+	/**
+	 * @param      array<string, mixed> $parameters
+	 * @return     array<string, mixed>
+	 */
 	private function normalizeParameters(array $parameters): array
 	{
 		$errorClassMap = (array) ($parameters['error_class_map'] ?? []);
@@ -1093,6 +1101,10 @@ final class FormPopulationEngine
 		return $isIgnoreSetting ? LIBXML_ERR_ERROR : LIBXML_ERR_WARNING;
 	}
 
+	/**
+	 * @param array<string, mixed> $overrides
+	 * @return array<string, mixed>
+	 */
 	private function buildConfiguration(WebRequest $request, array $overrides): array
 	{
 		$config = array_replace($this->parameters, FormPopulationConfig::get($request));
@@ -1104,6 +1116,9 @@ final class FormPopulationEngine
 
 	/**
 	 * Resolve populate configuration into parameter holders understood by the processor.
+	 * @param mixed $request
+	 * @param array<string, mixed> $cfg
+	 * @return mixed
 	 */
 	protected function resolvePopulateSource($request, array $cfg)
 	{
@@ -1180,6 +1195,7 @@ final class FormPopulationEngine
 
 	/**
 	 * Create a parameter holder from the given request-like object.
+	 * @param mixed $request
 	 */
 	protected function createParameterHolderFromRequest($request): ?ParameterHolder
 	{
@@ -1192,12 +1208,7 @@ final class FormPopulationEngine
 			} catch(\Throwable) {
 				$params = [];
 			}
-			if($params instanceof ParameterHolder) {
-				return $params;
-			}
-			if(is_array($params)) {
-				return new ParameterHolder($params);
-			}
+			return new ParameterHolder($params);
 		}
 		if(is_object($request) && method_exists($request, 'getParameters')) {
 			try {
@@ -1224,6 +1235,9 @@ final class FormPopulationEngine
 		return null;
 	}
 
+	/**
+	 * @param mixed $request
+	 */
 	protected function resolveRequestUri($request): string
 	{
 		if($request instanceof WebRequest) {
@@ -1254,6 +1268,9 @@ final class FormPopulationEngine
 		return '/';
 	}
 
+	/**
+	 * @param mixed $request
+	 */
 	protected function resolveRequestUrl($request, string $fallbackUri): string
 	{
 		if($request instanceof WebRequest) {

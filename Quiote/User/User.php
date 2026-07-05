@@ -48,7 +48,8 @@ class User extends AttributeHolder implements ResetInterface
 	/**
 	 * Initialize this User.
 	 * @param      Context $context An Context instance.
-	 * @param      array $parameters An associative array of initialization parameters.
+	 * @param      array<string, mixed> $parameters An associative array of initialization parameters.
+	 * @return     void
 	 * @throws     \Quiote\Exception\InitializationException If an error occurs while
 	 *                                                 initializing this User.
 	 * @since      1.0.0
@@ -84,12 +85,14 @@ class User extends AttributeHolder implements ResetInterface
 	/**
 	 * Startup the user.
 	 * You'd usually try to auth from a cookie here etc.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function startup() {}
 
 	/**
 	 * Execute the shutdown procedure.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function shutdown()
@@ -97,11 +100,10 @@ class User extends AttributeHolder implements ResetInterface
 		// write attributes to the storage, but do not clobber with an empty map
 		$ns = $this->getDefaultNamespace();
 		$hasNsData = array_key_exists($ns, $this->attributes)
-			&& is_array($this->attributes[$ns])
 			&& count($this->attributes[$ns]) > 0;
 		try {
 			$keys = [];
-			if (isset($this->attributes[$ns]) && is_array($this->attributes[$ns])) {
+			if (isset($this->attributes[$ns])) {
 				$keys = array_keys($this->attributes[$ns]);
 			}
 			$logger = \Quiote\Logging\Log::for($this);
@@ -128,7 +130,7 @@ class User extends AttributeHolder implements ResetInterface
 	 * This reduces the window where a FrankenPHP worker could recreate a fresh
 	 * user object (due to lazy getUser() calls) before shutdown() runs, which would
 	 * otherwise lose in-memory identity attributes (userId/companyId etc.).
-	 * @param ?array $onlyKeys Optional whitelist of attribute keys to persist.
+	 * @param ?array<int, string> $onlyKeys Optional whitelist of attribute keys to persist.
 	 */
 	public function persistAttributesImmediate(?array $onlyKeys = null): void
 	{

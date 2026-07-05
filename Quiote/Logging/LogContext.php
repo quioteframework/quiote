@@ -19,7 +19,10 @@ final class LogContext
 
     private static int $nextId = 0;
 
-    /** Memoized merge of all active frames; null when dirty. */
+    /**
+     * Memoized merge of all active frames; null when dirty.
+     * @var array<string,mixed>|null
+     */
     private static ?array $merged = null;
 
     /**

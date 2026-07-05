@@ -11,7 +11,10 @@ class CacheManager
 {
     /** @var CacheInterface|null */
     private static ?CacheInterface $instance = null;
-    /** in-memory cache of namespace versions for current request */
+    /**
+     * in-memory cache of namespace versions for current request
+     * @var array<string, int>
+     */
     private static array $namespaceVersions = [];
     /** selected backend name (filesystem|apcu|custom) */
     private static string $backend = 'filesystem';

@@ -9,6 +9,8 @@ final class ActionCacheHelper
 {
     /**
      * Unified cache payload write.
+     *
+     * @param array<string, mixed> $actionAttributes
      */
     public static function store(ActionViewCache $cache, ActionDescriptor $desc, ExecutionState $state, string $content, array $actionAttributes, bool $isSimple, ?int $ttl = null, ?string $userFingerprint = null): void
     {
@@ -41,6 +43,8 @@ final class ActionCacheHelper
 
     /**
      * Raw read of cached payload (no hydration) – returns array payload or null.
+     *
+     * @return array<string, mixed>|null
      */
     public static function read(ActionViewCache $cache, ActionDescriptor $desc, ?string $userFingerprint = null): ?array
     {
@@ -58,6 +62,9 @@ final class ActionCacheHelper
     /**
      * Hydrate ExecutionState and build an ActionExecutionContext from a payload.
      * Mutates $state (sets viewModule/viewName/cacheHit and validation flags if present).
+     *
+     * @param array<string, mixed> $payload
+     * @param \Quiote\Action\Action|null $actionInstance
      */
     public static function buildContextFromPayload(array $payload, ActionDescriptor $desc, ExecutionState $state, $actionInstance, WebRequest $request, ?string $contentOverride = null): ActionExecutionContext
     {

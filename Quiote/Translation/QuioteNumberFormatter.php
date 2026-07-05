@@ -25,7 +25,7 @@ class QuioteNumberFormatter extends DecimalFormatter implements ITranslator, Res
 	protected $locale = null;
 
 	/**
-	 * @var        array|string|null The custom format supplied by the user (if any).
+	 * @var        array<int|string, mixed>|string|null The custom format supplied by the user (if any).
 	 */
 	protected $customFormat = null;
 
@@ -45,7 +45,8 @@ class QuioteNumberFormatter extends DecimalFormatter implements ITranslator, Res
 	/**
 	 * Initialize this Translator.
 	 * @param      Context $context The current application context.
-	 * @param      array $parameters An associative array of initialization parameters
+	 * @param      array<string, mixed> $parameters An associative array of initialization parameters
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function initialize(Context $context, array $parameters = [])
@@ -106,6 +107,7 @@ class QuioteNumberFormatter extends DecimalFormatter implements ITranslator, Res
 	 * This method gets called by the translation manager when the default locale
 	 * has been changed.
 	 * @param      QuioteLocale $newLocale The new default locale.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function localeChanged($newLocale)

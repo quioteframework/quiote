@@ -8,7 +8,7 @@ trait PHPUnitTestCaseMethods
 {
     /**
      * Get test annotations/attributes in a format compatible with both PHPUnit < 10 and >= 10
-     * @return array The annotations
+     * @return array<string, array<string, mixed>> The annotations
      */
     protected function getAnnotations(): array
     {
@@ -99,8 +99,8 @@ trait PHPUnitTestCaseMethods
     
     /**
      * Parse docblock annotations
-     * @param \ReflectionClass|\ReflectionMethod $reflection Reflection object
-     * @param array &$target Target array for annotations
+     * @param \ReflectionClass<*>|\ReflectionMethod $reflection Reflection object
+     * @param array<string, mixed> &$target Target array for annotations
      */
     private function parseDocBlockAnnotations($reflection, array &$target): void
     {

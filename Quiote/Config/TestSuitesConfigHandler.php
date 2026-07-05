@@ -28,6 +28,9 @@ class TestSuitesConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 		return $this->executeArray($this->toCanonicalArray($document), $document->documentURI);
 	}
 
+	/**
+	 * @return array<string, array<string, mixed>>
+	 */
 	public function toCanonicalArray(XmlConfigDomDocument $document): array
 	{
 		// set up our default namespace
@@ -36,14 +39,22 @@ class TestSuitesConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 		$data = [];
 		// loop over <configuration> elements
 		foreach ($document->getConfigurationElements() as $configuration) {
-			foreach ($configuration->get('suites') as $current) {
+			// get() only ever selects element nodes, and registerNodeClass()
+			// guarantees those are always XmlConfigDomElement, never a vanilla DOMNode.
+			/** @var iterable<int, \Quiote\Config\Util\DOM\XmlConfigDomElement<int, \Quiote\Config\Util\DOM\XmlConfigDomElement>> $suites */
+			$suites = $configuration->get('suites');
+			foreach ($suites as $current) {
 				$includes = [];
-				foreach ($current->get('includes') as $include) {
+				/** @var iterable<int, \Quiote\Config\Util\DOM\XmlConfigDomElement<int, \Quiote\Config\Util\DOM\XmlConfigDomElement>> $includeNodes */
+				$includeNodes = $current->get('includes');
+				foreach ($includeNodes as $include) {
 					$includes[] = $include->textContent;
 				}
 
 				$excludes = [];
-				foreach ($current->get('excludes') as $exclude) {
+				/** @var iterable<int, \Quiote\Config\Util\DOM\XmlConfigDomElement<int, \Quiote\Config\Util\DOM\XmlConfigDomElement>> $excludeNodes */
+				$excludeNodes = $current->get('excludes');
+				foreach ($excludeNodes as $exclude) {
 					$excludes[] = $exclude->textContent;
 				}
 
@@ -55,7 +66,9 @@ class TestSuitesConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 				];
 
 				$suite['testfiles'] = [];
-				foreach ($current->get('testfiles') as $file) {
+				/** @var iterable<int, \Quiote\Config\Util\DOM\XmlConfigDomElement<int, \Quiote\Config\Util\DOM\XmlConfigDomElement>> $testfileNodes */
+				$testfileNodes = $current->get('testfiles');
+				foreach ($testfileNodes as $file) {
 					$suite['testfiles'][] = $file->textContent;
 				}
 
@@ -66,6 +79,9 @@ class TestSuitesConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 		return $data;
 	}
 
+	/**
+	 * @param array<string, array<string, mixed>> $config
+	 */
 	public function executeArray(array $config, ?string $sourceRef = null): string
 	{
 		$code = 'return ' . var_export($config, true);

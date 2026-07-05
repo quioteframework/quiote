@@ -38,6 +38,9 @@ class OutputTypeConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 		return $this->executeArray($this->toCanonicalArray($document), $document->documentURI);
 	}
 
+	/**
+	 * @return array{default: string|null, output_types: array<string, array<string, mixed>>}
+	 */
 	public function toCanonicalArray(XmlConfigDomDocument $document): array
 	{
 		// set up our default namespace
@@ -130,6 +133,9 @@ class OutputTypeConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 		return ['default' => $defaultOt, 'output_types' => $data];
 	}
 
+	/**
+	 * @param array{default?: string|null, output_types?: array<string, array<string, mixed>>} $config
+	 */
 	public function executeArray(array $config, ?string $sourceRef = null): string
 	{
 		$defaultOt = $config['default'] ?? null;

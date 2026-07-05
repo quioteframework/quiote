@@ -64,6 +64,7 @@ class ConfigParser
 	 * @param      mixed $nodes An array or an object that can be iterated over
 	 * @param      ConfigValueHolder $parentVh The storage for the info from the nodes
 	 * @param      bool $isSingular Whether this list is the singular form of the parent node
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function parseNodes($nodes, ConfigValueHolder $parentVh, $isSingular = false)

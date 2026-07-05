@@ -30,10 +30,15 @@ class Container implements ContainerInterface
         \Quiote\Execution\ViewInitContext::class,
     ];
 
+    /** @var array<string, array{concrete: mixed, scope: string, params: array<string, mixed>}> */
     private array $definitions = [];
+    /** @var array<string, string> */
     private array $aliases = [];
+    /** @var array<string, mixed> */
     private array $singletonResolved = [];
+    /** @var array<string, mixed> */
     private array $requestResolved = [];
+    /** @var array<string, bool> */
     private array $resolvingStack = [];
 
     /**
@@ -41,6 +46,7 @@ class Container implements ContainerInterface
      * immutable for the process lifetime, so this is safe to keep across requests under
      * a FrankenPHP worker — it just saves re-reflecting the same action/view/service
      * constructor on every request.
+     * @var array<string, \ReflectionClass<object>>
      */
     private array $reflectionCache = [];
 
@@ -52,6 +58,9 @@ class Container implements ContainerInterface
      */
     private array $planCache = [];
 
+    /**
+     * @param array<string, mixed> $params
+     */
     public function set(string $id, mixed $concrete, string $scope = self::SCOPE_SINGLETON, array $params = []): void
     {
         $this->definitions[$id] = ['concrete' => $concrete, 'scope' => $scope, 'params' => $params];
@@ -135,11 +144,17 @@ class Container implements ContainerInterface
      * A class with no constructor is `new`'d directly — zero behavior change and zero
      * migration burden for the untouched majority of actions/views.
      */
+    /**
+     * @param array<string, mixed> $extraParams
+     */
     public function make(string $class, array $extraParams = []): object
     {
         return $this->autoWire($class, $extraParams, null, $this->getReflectionClass($class));
     }
 
+    /**
+     * @return \ReflectionClass<object>
+     */
     private function getReflectionClass(string $class): \ReflectionClass
     {
         return $this->reflectionCache[$class] ??= new \ReflectionClass($class);
@@ -195,6 +210,9 @@ class Container implements ContainerInterface
      * FrankenPHP is a latent cross-request bug. Anything else defaults to singleton, matching
      * this container's pre-Phase-3 autowire-fallback behavior.
      */
+    /**
+     * @param \ReflectionClass<object> $rc
+     */
     private function resolveDefaultScope(\ReflectionClass $rc): string
     {
         $serviceAttr = $rc->getAttributes(\Quiote\DI\Attribute\Service::class);
@@ -207,6 +225,10 @@ class Container implements ContainerInterface
         return self::SCOPE_SINGLETON;
     }
 
+    /**
+     * @param array<string, mixed> $params
+     * @param \ReflectionClass<object>|null $rc
+     */
     private function autoWire(string $class, array $params, ?string $requestedId = null, ?\ReflectionClass $rc = null): object
     {
         $rc ??= $this->getReflectionClass($class);
@@ -248,6 +270,7 @@ class Container implements ContainerInterface
      * per request). The #[Required] guard is evaluated here, once, instead of
      * on every invocation.
      *
+     * @param \ReflectionClass<object> $rc
      * @return array{ctorParams: \ReflectionParameter[]|null, required: array<array{method: \ReflectionMethod, params: \ReflectionParameter[]}>}
      */
     private function classPlan(string $class, \ReflectionClass $rc): array
@@ -274,6 +297,9 @@ class Container implements ContainerInterface
      * Resolves a single constructor/#[Required]-method parameter, in priority order:
      * explicit registration-time param binding, #[Inject]/#[Autowire] attribute override,
      * type-hinted autowiring, constructor default, or a loud ContainerException.
+     */
+    /**
+     * @param array<string, mixed> $params
      */
     private function resolveParamValue(\ReflectionParameter $p, array $params, string $class, ?string $requestedId): mixed
     {

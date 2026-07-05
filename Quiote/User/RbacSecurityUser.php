@@ -19,18 +19,19 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 	const ROLES_NAMESPACE = 'org.quiote.user.RbacSecurityUser.roles';
 
 	/**
-	 * @var        ?array An array of roles and permissions.
+	 * @var        ?array<string, array<string, mixed>> An array of roles and permissions.
 	 */
 	protected $definitions = null;
 
 	/**
-	 * @var        array An array of roles the user is assigned to.
+	 * @var        array<int, string> An array of roles the user is assigned to.
 	 */
 	protected $roles = null;
 
 	/**
 	 * Set a role membership for this user.
 	 * @param      string $role The role name to add to this user.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function grantRole($role)
@@ -54,7 +55,8 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 	
 	/**
 	 * Set many role memberships for this user.
-	 * @param      array $roles An array of role names.
+	 * @param      array<int, string> $roles An array of role names.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function grantRoles(array $roles)
@@ -67,6 +69,7 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 	/**
 	 * Revoke a role membership for this user.
 	 * @param      string $role The role name to remove from this user.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function revokeRole($role)
@@ -93,7 +96,7 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 	
 	/**
 	 * Return a list of roles this user has been granted.
-	 * @return     array An array of role names.
+	 * @return     array<int, string> An array of role names.
 	 * @since      1.0.0
 	 */
 	public function getRoles()
@@ -103,6 +106,7 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 	
 	/**
 	 * Revoke all roles.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function revokeAllRoles()
@@ -115,7 +119,8 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 	/**
 	 * Initialize this User.
 	 * @param      Context $context An Context instance.
-	 * @param      array $parameters An associative array of initialization parameters.
+	 * @param      array<string, mixed> $parameters An associative array of initialization parameters.
+	 * @return     void
 	 * @throws     \Quiote\Exception\InitializationException If an error occurs while
 	 *                                                 initializing this User.
 	 * @since      1.0.0
@@ -154,6 +159,7 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 
 	/**
 	 * Load RBAC role and permission definitions.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function loadDefinitions()
@@ -167,6 +173,7 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 
 	/**
 	 * Execute the shutdown procedure.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	#[\Override]

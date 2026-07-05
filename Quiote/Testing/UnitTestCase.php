@@ -30,6 +30,7 @@ abstract class UnitTestCase extends PhpUnitTestCase implements IUnitTestCase
 	/**
 	 * Convenience factory for PSR-compatible WebRequest instances in tests.
 	 * @param array<string,mixed> $parameters runtime parameters to seed.
+	 * @param string[] $additionalWhitelist additional parameter keys to whitelist.
 	 */
 	protected function newWebRequest(array $parameters = [], array $additionalWhitelist = []): WebRequest
 	{

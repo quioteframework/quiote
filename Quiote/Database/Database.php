@@ -37,6 +37,7 @@ abstract class Database extends ParameterHolder implements ResetInterface
 	/**
 	 * Connect to the database.
 	 * @throws     DatabaseException If a connection could not be created.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	abstract protected function connect();
@@ -110,7 +111,8 @@ abstract class Database extends ParameterHolder implements ResetInterface
 	/**
 	 * Initialize this Database.
 	 * @param      DatabaseManager $databaseManager The database manager of this instance.
-	 * @param      array $parameters An assoc array of initialization params.
+	 * @param      array<string, mixed> $parameters An assoc array of initialization params.
+	 * @return     void
 	 * @throws     InitializationException If an error occurs while
 	 *                                                 initializing this Database.
 	 * @since      1.0.0
@@ -128,6 +130,7 @@ abstract class Database extends ParameterHolder implements ResetInterface
 	 * Do any necessary startup work after initialization.
 	 * This method is not called directly after initialize().
 	 * It is called during the startup() of the database manager.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function startup()
@@ -138,6 +141,7 @@ abstract class Database extends ParameterHolder implements ResetInterface
 	 * Execute the shutdown procedure.
 	 * @throws     DatabaseException If an error occurs while shutting
 	 *                                           down this database.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	abstract public function shutdown();

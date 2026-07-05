@@ -36,7 +36,7 @@ final class Inflector
 		)$/ix';
 	
 	/**
-	 * @var        array singular => plural mapping
+	 * @var        array<string, string> singular => plural mapping
 	 */
 	protected static $singularMatches = [
 		self::UNCOUNTABLE_REGEX => '$1',
@@ -70,7 +70,7 @@ final class Inflector
 	];
 
 	/**
-	 * @var        array plural => singular mapping
+	 * @var        array<string, string> plural => singular mapping
 	 */
 	protected static $pluralMatches = [
 		self::UNCOUNTABLE_REGEX => '\1',
@@ -109,12 +109,12 @@ final class Inflector
 	];
 
 	/**
-	 * @var        array An array remembering the results of singularize()
+	 * @var        array<string, string> An array remembering the results of singularize()
 	 */
 	protected static $singularizeCache = [];
-	
+
 	/**
-	 * @var        array An array remembering the results of pluralize()
+	 * @var        array<string, string> An array remembering the results of pluralize()
 	 */
 	protected static $pluralizeCache = [];
 

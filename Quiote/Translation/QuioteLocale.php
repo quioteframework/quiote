@@ -21,7 +21,7 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	protected $context = null;
 
 	/**
-	 * @var        array The data.
+	 * @var        array<string, mixed> The data.
 	 */
 	protected $data = [];
 
@@ -70,9 +70,10 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	/**
 	 * Initialize this Locale.
 	 * @param      Context $context The current application context.
-	 * @param      array $parameters An associative array of initialization parameters.
+	 * @param      array<string, mixed> $parameters An associative array of initialization parameters.
 	 * @param      string $identifier The identifier of the locale
-	 * @param      array $data The locale data.
+	 * @param      array<string, mixed> $data The locale data.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function initialize(Context $context, array $parameters = [], $identifier = null, array $data = [])
@@ -106,6 +107,9 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 
 	////////////////////////////// Locale data //////////////////////////////////
 
+	/**
+	 * @return     ?string The language of this locale.
+	 */
 	public function getLocaleLanguage()
 	{
 		if(isset($this->data['locale']['language'])) {
@@ -122,6 +126,9 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 		return null;
 	}
 
+	/**
+	 * @return     ?string The territory of this locale.
+	 */
 	public function getLocaleTerritory()
 	{
 		if(isset($this->data['locale']['territory'])) {
@@ -139,6 +146,9 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 		return null;
 	}
 
+	/**
+	 * @return     ?string The script of this locale.
+	 */
 	public function getLocaleScript()
 	{
 		if(isset($this->data['locale']['script'])) {
@@ -160,6 +170,9 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 		return null;
 	}
 
+	/**
+	 * @return     ?string The variant of this locale.
+	 */
 	public function getLocaleVariant()
 	{
 		if(isset($this->data['locale']['variant'])) {
@@ -185,6 +198,9 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 		return null;
 	}
 
+	/**
+	 * @return     ?string The currency code of this locale.
+	 */
 	public function getLocaleCurrency()
 	{
 		if(isset($this->data['locale']['currency'])) {
@@ -211,11 +227,17 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 		return null;
 	}
 
+	/**
+	 * @return     ?string The calendar identifier of this locale.
+	 */
 	public function getLocaleCalendar()
 	{
 		return $this->data['locale']['calendar'] ?? $this->parameters['calendar'] ?? $this->getDefaultCalendar();
 	}
 
+	/**
+	 * @return     ?string The timezone identifier of this locale.
+	 */
 	public function getLocaleTimeZone()
 	{
 		return $this->data['locale']['timezone'] ?? $this->parameters['timezone'] ?? null;
@@ -228,6 +250,9 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 		return $pos === false ? $identifier : substr($identifier, 0, $pos);
 	}
 
+	/**
+	 * @return     array<string, mixed> The parsed locale parts.
+	 */
 	private function getParsedLocaleParts(): array
 	{
 		static $cache = [];
@@ -248,6 +273,9 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 
 	///////////////////////////// locale names //////////////////////////////////
 
+	/**
+	 * @return     void
+	 */
 	protected function generateCountryList()
 	{
 		if(!isset($this->data['displayNames']['territories'])) {
@@ -269,6 +297,9 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 		$this->data['displayNames']['countries'] = array_slice($terrs, $i, count($terrs) - $i, true);
 	}
 
+	/**
+	 * @return     ?array<string, string> The list of countries, keyed by country code.
+	 */
 	public function getCountries()
 	{
 		if(!isset($this->data['displayNames']['countries'])) {
@@ -278,6 +309,10 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 		return $this->data['displayNames']['countries'] ?? null;
 	}
 
+	/**
+	 * @param      string $id The country code.
+	 * @return     ?string The display name of the country.
+	 */
 	public function getCountry($id)
 	{
 		if(!isset($this->data['displayNames']['countries'])) {
@@ -287,51 +322,86 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 		return $this->data['displayNames']['countries'][$id] ?? null;
 	}
 
+	/**
+	 * @return     ?array<string, string> The list of languages, keyed by language code.
+	 */
 	public function getLanguages()
 	{
 		return $this->data['displayNames']['languages'] ?? null;
 	}
 
+	/**
+	 * @param      string $id The language code.
+	 * @return     ?string The display name of the language.
+	 */
 	public function getLanguage($id)
 	{
 		return $this->data['displayNames']['languages'][$id] ?? null;
 	}
 
+	/**
+	 * @return     ?array<string, string> The list of scripts, keyed by script code.
+	 */
 	public function getScripts()
 	{
 		return $this->data['displayNames']['scripts'] ?? null;
 	}
 
+	/**
+	 * @param      string $id The script code.
+	 * @return     ?string The display name of the script.
+	 */
 	public function getScript($id)
 	{
 		return $this->data['displayNames']['scripts'][$id] ?? null;
 	}
 
+	/**
+	 * @return     ?array<string, string> The list of territories, keyed by territory code.
+	 */
 	public function getTerritories()
 	{
 		return $this->data['displayNames']['territories'] ?? null;
 	}
 
+	/**
+	 * @param      string $id The territory code.
+	 * @return     ?string The display name of the territory.
+	 */
 	public function getTerritory($id)
 	{
 		return $this->data['displayNames']['territories'][$id] ?? null;
 	}
 
+	/**
+	 * @return     ?array<string, string> The list of variants, keyed by variant code.
+	 */
 	public function getVariants()
 	{
 		return $this->data['displayNames']['variants'] ?? null;
 	}
 
+	/**
+	 * @param      string $id The variant code.
+	 * @return     ?string The display name of the variant.
+	 */
 	public function getVariant($id)
 	{
 		return $this->data['displayNames']['variants'][$id] ?? null;
 	}
 
+	/**
+	 * @return     ?array<string, string> The list of measurement system names, keyed by id.
+	 */
 	public function getMeasurementSystemNames()
 	{
 		return $this->data['displayNames']['measurementSystemNames'] ?? null;
 	}
 
+	/**
+	 * @param      string $id The measurement system id.
+	 * @return     ?string The display name of the measurement system.
+	 */
 	public function getMeasurementSystemName($id)
 	{
 		return $this->data['displayNames']['measurementSystemNames'][$id] ?? null;
@@ -339,11 +409,17 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 
 	//////////////////////////////// layout /////////////////////////////////////
 
+	/**
+	 * @return     ?string The line orientation.
+	 */
 	public function getLineOrientation()
 	{
 		return $this->data['layout']['orientation']['lines'] ?? null;
 	}
 
+	/**
+	 * @return     ?string The character orientation.
+	 */
 	public function getCharacterOrientation()
 	{
 		return $this->data['layout']['orientation']['characters'] ?? null;
@@ -351,21 +427,33 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 
 	//////////////////////////////// delimiters /////////////////////////////////
 
+	/**
+	 * @return     ?string The quotation start delimiter.
+	 */
 	public function getQuotationStart()
 	{
 		return $this->data['delimiters']['quotationStart'] ?? null;
 	}
 
+	/**
+	 * @return     ?string The quotation end delimiter.
+	 */
 	public function getQuotationEnd()
 	{
 		return $this->data['delimiters']['quotationEnd'] ?? null;
 	}
 
+	/**
+	 * @return     ?string The alternate quotation start delimiter.
+	 */
 	public function getAlternateQuotationStart()
 	{
 		return $this->data['delimiters']['altQuotationStart'] ?? null;
 	}
 
+	/**
+	 * @return     ?string The alternate quotation end delimiter.
+	 */
 	public function getAlternateQuotationEnd()
 	{
 		return $this->data['delimiters']['altQuotationEnd'] ?? null;
@@ -373,411 +461,739 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 
 	//////////////////////////////// calendars //////////////////////////////////
 
+	/**
+	 * @return     ?string The default calendar identifier.
+	 */
 	public function getDefaultCalendar()
 	{
 		return $this->data['calendars']['default'] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @return array<int|string, mixed>|null
+	 */
 	public function getCalendarMonthsWide($calendar)
 	{
 		return $this->data['calendars'][$calendar]['months']['format']['wide'] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @param mixed $month
+	 * @return ?string
+	 */
 	public function getCalendarMonthWide($calendar, $month)
 	{
 		return $this->data['calendars'][$calendar]['months']['format']['wide'][$month] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @return array<int|string, mixed>|null
+	 */
 	public function getCalendarMonthsAbbreviated($calendar)
 	{
 		return $this->data['calendars'][$calendar]['months']['format']['abbreviated'] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @param mixed $month
+	 * @return ?string
+	 */
 	public function getCalendarMonthAbbreviated($calendar, $month)
 	{
 		return $this->data['calendars'][$calendar]['months']['format']['abbreviated'][$month] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @return array<int|string, mixed>|null
+	 */
 	public function getCalendarMonthsNarrow($calendar)
 	{
 		return $this->data['calendars'][$calendar]['months']['stand-alone']['narrow'] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @param mixed $month
+	 * @return ?string
+	 */
 	public function getCalendarMonthNarrow($calendar, $month)
 	{
 		return $this->data['calendars'][$calendar]['months']['stand-alone']['narrow'][$month] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @return array<int|string, mixed>|null
+	 */
 	public function getCalendarDaysWide($calendar)
 	{
 		return $this->data['calendars'][$calendar]['days']['format']['wide'] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @param mixed $day
+	 * @return ?string
+	 */
 	public function getCalendarDayWide($calendar, $day)
 	{
 		return $this->data['calendars'][$calendar]['days']['format']['wide'][$day] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @return array<int|string, mixed>|null
+	 */
 	public function getCalendarDaysAbbreviated($calendar)
 	{
 		return $this->data['calendars'][$calendar]['days']['format']['abbreviated'] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @param mixed $day
+	 * @return ?string
+	 */
 	public function getCalendarDayAbbreviated($calendar, $day)
 	{
 		return $this->data['calendars'][$calendar]['days']['format']['abbreviated'][$day] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @return array<int|string, mixed>|null
+	 */
 	public function getCalendarDaysNarrow($calendar)
 	{
 		return $this->data['calendars'][$calendar]['days']['stand-alone']['narrow'] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @param mixed $day
+	 * @return ?string
+	 */
 	public function getCalendarDayNarrow($calendar, $day)
 	{
 		return $this->data['calendars'][$calendar]['days']['stand-alone']['narrow'][$day] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @return array<int|string, mixed>|null
+	 */
 	public function getCalendarQuartersWide($calendar)
 	{
 		return $this->data['calendars'][$calendar]['quarters']['format']['wide'] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @param mixed $quarter
+	 * @return ?string
+	 */
 	public function getCalendarQuarterWide($calendar, $quarter)
 	{
 		return $this->data['calendars'][$calendar]['quarters']['format']['wide'][$quarter] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @return array<int|string, mixed>|null
+	 */
 	public function getCalendarQuartersAbbreviated($calendar)
 	{
 		return $this->data['calendars'][$calendar]['quarters']['format']['abbreviated'] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @param mixed $quarter
+	 * @return ?string
+	 */
 	public function getCalendarQuarterAbbreviated($calendar, $quarter)
 	{
 		return $this->data['calendars'][$calendar]['quarters']['format']['abbreviated'][$quarter] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @return array<int|string, mixed>|null
+	 */
 	public function getCalendarQuartersNarrow($calendar)
 	{
 		return $this->data['calendars'][$calendar]['quarters']['stand-alone']['narrow'] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @param mixed $quarter
+	 * @return ?string
+	 */
 	public function getCalendarQuarterNarrow($calendar, $quarter)
 	{
 		return $this->data['calendars'][$calendar]['quarters']['stand-alone']['narrow'][$quarter] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @return ?string
+	 */
 	public function getCalendarAm($calendar)
 	{
 		return $this->data['calendars'][$calendar]['am'] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @return ?string
+	 */
 	public function getCalendarPm($calendar)
 	{
 		return $this->data['calendars'][$calendar]['pm'] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @return array<int|string, mixed>|null
+	 */
 	public function getCalendarErasWide($calendar)
 	{
 		return $this->data['calendars'][$calendar]['eras']['wide'] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @param mixed $era
+	 * @return ?string
+	 */
 	public function getCalendarEraWide($calendar, $era)
 	{
 		return $this->data['calendars'][$calendar]['eras']['wide'][$era] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @return array<int|string, mixed>|null
+	 */
 	public function getCalendarErasAbbreviated($calendar)
 	{
 		return $this->data['calendars'][$calendar]['eras']['abbreviated'] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @param mixed $era
+	 * @return ?string
+	 */
 	public function getCalendarEraAbbreviated($calendar, $era)
 	{
 		return $this->data['calendars'][$calendar]['eras']['abbreviated'][$era] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @return array<int|string, mixed>|null
+	 */
 	public function getCalendarErasNarrow($calendar)
 	{
 		return $this->data['calendars'][$calendar]['eras']['narrow'] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @param mixed $era
+	 * @return ?string
+	 */
 	public function getCalendarEraNarrow($calendar, $era)
 	{
 		return $this->data['calendars'][$calendar]['eras']['narrow'][$era] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @return ?string
+	 */
 	public function getCalendarDateFormatDefaultName($calendar)
 	{
 		return $this->data['calendars'][$calendar]['dateFormats']['default'] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @return array<int|string, mixed>|null
+	 */
 	public function getCalendarDateFormats($calendar)
 	{
 		return $this->data['calendars'][$calendar]['dateFormats'] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @param mixed $id
+	 * @return array<string, mixed>|string|null
+	 */
 	public function getCalendarDateFormat($calendar, $id)
 	{
 		return $this->data['calendars'][$calendar]['dateFormats'][$id] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @param mixed $id
+	 * @return ?string
+	 */
 	public function getCalendarDateFormatPattern($calendar, $id)
 	{
 		return $this->data['calendars'][$calendar]['dateFormats'][$id]['pattern'] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @param mixed $id
+	 * @return ?string
+	 */
 	public function getCalendarDateFormatDisplayName($calendar, $id)
 	{
 		return $this->data['calendars'][$calendar]['dateFormats'][$id]['displayName'] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @return ?string
+	 */
 	public function getCalendarTimeFormatDefaultName($calendar)
 	{
 		return $this->data['calendars'][$calendar]['timeFormats']['default'] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @return array<int|string, mixed>|null
+	 */
 	public function getCalendarTimeFormats($calendar)
 	{
 		return $this->data['calendars'][$calendar]['timeFormats'] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @param mixed $id
+	 * @return array<string, mixed>|string|null
+	 */
 	public function getCalendarTimeFormat($calendar, $id)
 	{
 		return $this->data['calendars'][$calendar]['timeFormats'][$id] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @param mixed $id
+	 * @return ?string
+	 */
 	public function getCalendarTimeFormatPattern($calendar, $id)
 	{
 		return $this->data['calendars'][$calendar]['timeFormats'][$id]['pattern'] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @param mixed $id
+	 * @return ?string
+	 */
 	public function getCalendarTimeFormatDisplayName($calendar, $id)
 	{
 		return $this->data['calendars'][$calendar]['timeFormats'][$id]['displayName'] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @return ?string
+	 */
 	public function getCalendarDateTimeFormatDefaultName($calendar)
 	{
 		return $this->data['calendars'][$calendar]['dateTimeFormats']['default'] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @return array<int|string, mixed>|null
+	 */
 	public function getCalendarDateTimeFormats($calendar)
 	{
 		return $this->data['calendars'][$calendar]['dateTimeFormats']['formats'] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @param mixed $id
+	 * @return array<string, mixed>|string|null
+	 */
 	public function getCalendarDateTimeFormat($calendar, $id)
 	{
 		return $this->data['calendars'][$calendar]['dateTimeFormats']['formats'][$id] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @param mixed $id
+	 * @return array<int|string, mixed>|null
+	 */
 	public function getCalendarFields($calendar, $id)
 	{
 		return $this->data['calendars'][$calendar]['fields'] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @param mixed $id
+	 * @return array<string, mixed>|string|null
+	 */
 	public function getCalendarField($calendar, $id)
 	{
 		return $this->data['calendars'][$calendar]['fields'][$id] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @param mixed $id
+	 * @return ?string
+	 */
 	public function getCalendarFieldDisplayName($calendar, $id)
 	{
 		return $this->data['calendars'][$calendar]['fields'][$id]['displayName'] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @param mixed $id
+	 * @return array<int|string, mixed>|null
+	 */
 	public function getCalendarFieldRelatives($calendar, $id)
 	{
 		return $this->data['calendars'][$calendar]['fields'][$id]['relatives'] ?? null;
 	}
 
+	/**
+	 * @param mixed $calendar
+	 * @param mixed $id
+	 * @param mixed $rId
+	 * @return ?string
+	 */
 	public function getCalendarFieldRelative($calendar, $id, $rId)
 	{
 		return $this->data['calendars'][$calendar]['fields'][$id]['relatives'][$rId] ?? null;
 	}
 
+	/**
+	 * @return ?string
+	 */
 	public function getTimeZoneHourFormat()
 	{
 		return $this->data['timeZoneNames']['hourFormat'] ?? null;
 	}
 
+	/**
+	 * @return ?string
+	 */
 	public function getTimeZoneHoursFormat()
 	{
 		return $this->data['timeZoneNames']['hoursFormat'] ?? null;
 	}
 
+	/**
+	 * @return ?string
+	 */
 	public function getTimeZoneGmtFormat()
 	{
 		return $this->data['timeZoneNames']['gmtFormat'] ?? null;
 	}
 
+	/**
+	 * @return ?string
+	 */
 	public function getTimeZoneRegionFormat()
 	{
 		return $this->data['timeZoneNames']['regionFormat'] ?? null;
 	}
 
+	/**
+	 * @return ?string
+	 */
 	public function getTimeZoneFallbackFormat()
 	{
 		return $this->data['timeZoneNames']['fallbackFormat'] ?? null;
 	}
 
+	/**
+	 * @return ?string
+	 */
 	public function getTimeZoneAbbreviationFormat()
 	{
 		return $this->data['timeZoneNames']['abbreviationFormat'] ?? null;
 	}
 
+	/**
+	 * @param mixed $tz
+	 * @return ?string
+	 */
 	public function getTimeZoneLongGenericName($tz)
 	{
 		return $this->data['timeZoneNames']['zones'][$tz]['long']['generic'] ?? null;
 	}
 
+	/**
+	 * @param mixed $tz
+	 * @return ?string
+	 */
 	public function getTimeZoneLongStandardName($tz)
 	{
 		return $this->data['timeZoneNames']['zones'][$tz]['long']['standard'] ?? null;
 	}
 
+	/**
+	 * @param mixed $tz
+	 * @return ?string
+	 */
 	public function getTimeZoneLongDaylightName($tz)
 	{
 		return $this->data['timeZoneNames']['zones'][$tz]['long']['daylight'] ?? null;
 	}
 
+	/**
+	 * @param mixed $tz
+	 * @return ?string
+	 */
 	public function getTimeZoneShortGenericName($tz)
 	{
 		return $this->data['timeZoneNames']['zones'][$tz]['short']['generic'] ?? null;
 	}
 
+	/**
+	 * @param mixed $tz
+	 * @return ?string
+	 */
 	public function getTimeZoneShortStandardName($tz)
 	{
 		return $this->data['timeZoneNames']['zones'][$tz]['short']['standard'] ?? null;
 	}
 
+	/**
+	 * @param mixed $tz
+	 * @return ?string
+	 */
 	public function getTimeZoneShortDaylightName($tz)
 	{
 		return $this->data['timeZoneNames']['zones'][$tz]['short']['daylight'] ?? null;
 	}
 
+	/**
+	 * @return array<int|string, mixed>|null
+	 */
 	public function getTimeZoneNames()
 	{
 		return $this->data['timeZoneNames']['zones'] ?? [];
 	}
 
+	/**
+	 * @return ?string
+	 */
 	public function getNumberSymbolDecimal()
 	{
 		return $this->data['numbers']['symbols']['decimal'] ?? null;
 	}
 
+	/**
+	 * @return ?string
+	 */
 	public function getNumberSymbolGroup()
 	{
 		return $this->data['numbers']['symbols']['group'] ?? null;
 	}
 
+	/**
+	 * @return ?string
+	 */
 	public function getNumberSymbolList()
 	{
 		return $this->data['numbers']['symbols']['list'] ?? null;
 	}
 
+	/**
+	 * @return ?string
+	 */
 	public function getNumberSymbolPercentSign()
 	{
 		return $this->data['numbers']['symbols']['percentSign'] ?? null;
 	}
 
+	/**
+	 * @return ?string
+	 */
 	public function getNumberSymbolZeroDigit()
 	{
 		return $this->data['numbers']['symbols']['nativeZeroDigit'] ?? null;
 	}
 
+	/**
+	 * @return ?string
+	 */
 	public function getNumberSymbolPatternDigit()
 	{
 		return $this->data['numbers']['symbols']['patternDigit'] ?? null;
 	}
 
+	/**
+	 * @return ?string
+	 */
 	public function getNumberSymbolPlusSign()
 	{
 		return $this->data['numbers']['symbols']['plusSign'] ?? null;
 	}
 
+	/**
+	 * @return ?string
+	 */
 	public function getNumberSymbolMinusSign()
 	{
 		return $this->data['numbers']['symbols']['minusSign'] ?? null;
 	}
 
+	/**
+	 * @return ?string
+	 */
 	public function getNumberSymbolExponential()
 	{
 		return $this->data['numbers']['symbols']['exponential'] ?? null;
 	}
 
+	/**
+	 * @return ?string
+	 */
 	public function getNumberSymbolPerMille()
 	{
 		return $this->data['numbers']['symbols']['perMille'] ?? null;
 	}
 
+	/**
+	 * @return ?string
+	 */
 	public function getNumberSymbolInfinity()
 	{
 		return $this->data['numbers']['symbols']['infinity'] ?? null;
 	}
 
+	/**
+	 * @return ?string
+	 */
 	public function getNumberSymbolNaN()
 	{
 		return $this->data['numbers']['symbols']['nan'] ?? null;
 	}
 
+	/**
+	 * @param mixed $dfId
+	 * @return array<string, mixed>|string|null
+	 */
 	public function getDecimalFormat($dfId)
 	{
 		return $this->data['numbers']['decimalFormats'][$dfId] ?? null;
 	}
 
+	/**
+	 * @return array<int|string, mixed>|null
+	 */
 	public function getDecimalFormats()
 	{
 		return $this->data['numbers']['decimalFormats'] ?? null;
 	}
 
+	/**
+	 * @param mixed $sfId
+	 * @return array<string, mixed>|string|null
+	 */
 	public function getScientificFormat($sfId)
 	{
 		return $this->data['numbers']['scientificFormats'][$sfId] ?? null;
 	}
 
+	/**
+	 * @return array<int|string, mixed>|null
+	 */
 	public function getScientificFormats()
 	{
 		return $this->data['numbers']['scientificFormats'] ?? null;
 	}
 
+	/**
+	 * @param mixed $pfId
+	 * @return array<string, mixed>|string|null
+	 */
 	public function getPercentFormat($pfId)
 	{
 		return $this->data['numbers']['percentFormats'][$pfId] ?? null;
 	}
 
+	/**
+	 * @return array<int|string, mixed>|null
+	 */
 	public function getPercentFormats()
 	{
 		return $this->data['numbers']['percentFormats'] ?? null;
 	}
 
+	/**
+	 * @param mixed $cfId
+	 * @return array<string, mixed>|string|null
+	 */
 	public function getCurrencyFormat($cfId)
 	{
 		return $this->data['numbers']['currencyFormats'][$cfId] ?? null;
 	}
 
+	/**
+	 * @return array<int|string, mixed>|null
+	 */
 	public function getCurrencyFormats()
 	{
 		return $this->data['numbers']['currencyFormats'] ?? null;
 	}
 
+	/**
+	 * @return array<int|string, mixed>|null
+	 */
 	public function getCurrencies()
 	{
 		return $this->data['numbers']['currencies'] ?? null;
 	}
 
+	/**
+	 * @param mixed $cId
+	 * @return array<string, mixed>|string|null
+	 */
 	public function getCurrency($cId)
 	{
 		return $this->data['numbers']['currencies'][$cId] ?? null;
 	}
 
+	/**
+	 * @param mixed $cId
+	 * @return ?string
+	 */
 	public function getCurrencyDisplayName($cId)
 	{
 		return $this->data['numbers']['currencies'][$cId]['displayName'] ?? null;
 	}
 
+	/**
+	 * @param mixed $cId
+	 * @return ?string
+	 */
 	public function getCurrencySymbol($cId)
 	{
 		return $this->data['numbers']['currencies'][$cId]['symbol'] ?? null;
@@ -786,7 +1202,7 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	/**
 	 * Parses a locale identifier and returns its parts.
 	 * @param      string $identifier The locale identifier.
-	 * @return     array The parts of the identifier
+	 * @return     array{language: ?string, script: ?string, territory: ?string, variant: ?string, options: array<string, string>, locale_str: ?string, option_str: ?string} The parts of the identifier
 	 * @since      1.0.0
 	 */
 	public static function parseLocaleIdentifier($identifier)
@@ -853,9 +1269,9 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	/**
 	 * Returns all file names which need to be considered for the given 
 	 * identifier. 
-	 * @param      mixed $localeIdentifier The locale identifier or the result of 
+	 * @param      mixed $localeIdentifier The locale identifier or the result of
 	 *                   QuioteLocale::parseLocaleIdentifier
-	 * @return     array The filenames.
+	 * @return     array<int, string> The filenames.
 	 * @since      1.0.0
 	 */
 	public static function getLookupPath($localeIdentifier)

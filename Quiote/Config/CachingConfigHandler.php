@@ -32,6 +32,9 @@ class CachingConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 		return $this->executeArray($this->toCanonicalArray($document), $document->documentURI);
 	}
 
+	/**
+	 * @return array<string, array<string, mixed>>
+	 */
 	public function toCanonicalArray(XmlConfigDomDocument $document): array
 	{
 		// set up our default namespace
@@ -128,7 +131,7 @@ class CachingConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 
 				$methods = array_map(trim(...), explode(' ', (string) $caching->getAttribute('method', '*')));
 				foreach ($methods as $method) {
-					if (!Toolkit::literalize($caching->getAttribute('enabled', true))) {
+					if (!Toolkit::literalize($caching->getAttribute('enabled', 'true'))) {
 						unset($cachings[$method]);
 					} else {
 						$values = [
@@ -147,6 +150,9 @@ class CachingConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 		return $cachings;
 	}
 
+	/**
+	 * @param array<string, mixed> $config
+	 */
 	public function executeArray(array $config, ?string $sourceRef = null): string
 	{
 		$code = [

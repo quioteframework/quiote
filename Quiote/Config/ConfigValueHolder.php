@@ -11,6 +11,8 @@ use AllowDynamicProperties;
  * @version    1.0.0
  * @property-read ?ConfigValueHolder $configurations Dynamically added child node, if it exists.
  * @property-read ?ConfigValueHolder $parameters Dynamically added child node, if it exists.
+ * @implements \ArrayAccess<int|string, ConfigValueHolder>
+ * @implements \IteratorAggregate<int|string, ConfigValueHolder>
  */
 #[AllowDynamicProperties]
 class ConfigValueHolder implements \ArrayAccess, \IteratorAggregate, \Stringable
@@ -20,11 +22,11 @@ class ConfigValueHolder implements \ArrayAccess, \IteratorAggregate, \Stringable
 	 */
 	protected $_name = '';
 	/**
-	 * @var        array The attributes of this value.
+	 * @var        array<string, mixed> The attributes of this value.
 	 */
 	protected $_attributes = [];
 	/**
-	 * @var        array The child nodes of this value.
+	 * @var        array<int|string, ConfigValueHolder> The child nodes of this value.
 	 */
 	protected $_childs = [];
 	/**
@@ -36,9 +38,10 @@ class ConfigValueHolder implements \ArrayAccess, \IteratorAggregate, \Stringable
 	/**
 	 * Sets the name of this value.
 	 * @param      string $name The name.
+	 * @return     void
 	 * @since      1.0.0
 	 */
-	public function setName($name)
+	public function setName($name): void
 	{
 		$this->_name = $name;
 	}
@@ -110,9 +113,10 @@ class ConfigValueHolder implements \ArrayAccess, \IteratorAggregate, \Stringable
 	 * already exists the given value will be appended to the children.
 	 * @param      string $name The name of the child.
 	 * @param      ConfigValueHolder $children The child value.
+	 * @return     void
 	 * @since      1.0.0
 	 */
-	public function addChildren($name, $children)
+	public function addChildren($name, $children): void
 	{
 		if(!$this->hasChildren($name)) {
 			$this->$name = $children;
@@ -125,9 +129,10 @@ class ConfigValueHolder implements \ArrayAccess, \IteratorAggregate, \Stringable
 	/**
 	 * Adds a unnamed children to this value.
 	 * @param      ConfigValueHolder $children The child value.
+	 * @return     void
 	 * @since      1.0.0
 	 */
-	public function appendChildren($children)
+	public function appendChildren($children): void
 	{
 		$this->_childs[] = $children;
 	}
@@ -164,7 +169,7 @@ class ConfigValueHolder implements \ArrayAccess, \IteratorAggregate, \Stringable
 	/**
 	 * Returns the children of this value.
 	 * @param      ?string $nodename Return only the childs matching this node (tag) name.
-	 * @return     array An array with the childs of this value.
+	 * @return     array<int|string, ConfigValueHolder> An array with the childs of this value.
 	 * @since      1.0.0
 	 */
 	public function getChildren($nodename = null)
@@ -189,9 +194,10 @@ class ConfigValueHolder implements \ArrayAccess, \IteratorAggregate, \Stringable
 	 * overridden.
 	 * @param      string $name An attribute name.
 	 * @param      mixed  $value An attribute value.
+	 * @return     void
 	 * @since      1.0.0
 	 */
-	public function setAttribute($name, $value)
+	public function setAttribute($name, $value): void
 	{
 		$this->_attributes[$name] = $value;
 	}
@@ -222,7 +228,7 @@ class ConfigValueHolder implements \ArrayAccess, \IteratorAggregate, \Stringable
 
 	/**
 	 * Retrieve all attributes.
-	 * @return     array An associative array of attributes.
+	 * @return     array<string, mixed> An associative array of attributes.
 	 * @since      1.0.0
 	 */
 	public function getAttributes()
@@ -233,9 +239,10 @@ class ConfigValueHolder implements \ArrayAccess, \IteratorAggregate, \Stringable
 	/**
 	 * Set the value of this value node.
 	 * @param      string $value A value.
+	 * @return     void
 	 * @since      1.0.0
 	 */
-	public function setValue($value)
+	public function setValue($value): void
 	{
 		$this->_value = $value;
 	}
@@ -252,7 +259,7 @@ class ConfigValueHolder implements \ArrayAccess, \IteratorAggregate, \Stringable
 
 	/**
 	 * Retrieves the info of this value node.
-	 * @return     array An array containing the info for this node.
+	 * @return     array{name: string, attributes: array<string, mixed>, children: array<int|string, ConfigValueHolder>, value: string|null} An array containing the info for this node.
 	 * @since      1.0.0
 	 */
 	public function getNode()
@@ -312,7 +319,7 @@ class ConfigValueHolder implements \ArrayAccess, \IteratorAggregate, \Stringable
 
 	/**
 	 * Returns an Iterator for the child nodes. From IteratorAggregate.
-	 * @return     \ArrayIterator The iterator.
+	 * @return     \ArrayIterator<int|string, ConfigValueHolder> The iterator.
 	 * @since      1.0.0
 	 */
 	public function getIterator(): \Traversable

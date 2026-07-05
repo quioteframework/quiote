@@ -203,6 +203,9 @@ class MiddlewarePipeline implements RequestHandlerInterface
         $this->built = true;
     }
 
+    /**
+     * @return list<string>
+     */
     public function debugStack(): array
     {
         return $this->debugStack;

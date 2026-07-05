@@ -40,8 +40,8 @@ final class Quiote
      *  - Previous: bootstrap('env')
      *  - New:      bootstrap('env', 'web') or bootstrap('env', ['web','api'], ['prewarm' => true])
      * @param string|null               $environment Environment name (core.environment)
-     * @param string|array|null         $contexts    One or multiple context names to pre-create
-     * @param array                     $options     ['prewarm' => bool] force prewarm
+     * @param string|array<int, string>|null $contexts One or multiple context names to pre-create
+     * @param array<string, mixed>      $options     ['prewarm' => bool] force prewarm
      * @return array{contexts: array<string, \Quiote\Context>} Context map (may be empty)
      */
     public static function bootstrap($environment = null, $contexts = null, array $options = [])

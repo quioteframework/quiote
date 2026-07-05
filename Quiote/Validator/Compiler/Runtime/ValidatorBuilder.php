@@ -165,6 +165,9 @@ final class ValidatorBuilder
 	 * arguments/parameters/errors are passed through untouched, so this
 	 * never loses information the way an incomplete fluent mapping could.
 	 * @param class-string<Validator> $class
+	 * @param array<int|string, mixed> $arguments
+	 * @param array<int|string, mixed> $parameters
+	 * @param array<int|string, mixed> $errors
 	 * @param callable(self): void|null $children If given, and the
 	 *        created validator implements IValidatorContainer, invoked
 	 *        with a nested builder scoped to it -- for operator-like
@@ -187,6 +190,11 @@ final class ValidatorBuilder
 		return $spec;
 	}
 
+	/**
+	 * @param array<int|string, mixed> $arguments
+	 * @param array<int|string, mixed> $parameters
+	 * @param array<int|string, mixed> $errors
+	 */
 	private function add(Validator $validator, array $arguments, array $parameters, array $errors = []): ValidatorSpec
 	{
 		$validator->initialize($this->context, $parameters, $arguments, $errors);

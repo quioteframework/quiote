@@ -8,18 +8,19 @@ namespace Quiote\Config;
 class Config
 {
 	/**
-	 * @var        array
+	 * @var        array<string, mixed>
 	 */
 	public static $config = [];
 
 	/**
-	 * @var        array
+	 * @var        array<string, mixed>
 	 */
 	private static $readonlies = [];
 
 	/**
 	 * Get a configuration value.
 	 * @param      string $name The name of the configuration directive.
+	 * @param      mixed  $default The value to return if the directive is not set.
 	 * @return     mixed The value of the directive, or null if not set.
 	 * @since      1.0.0
 	 * @phpstan-impure
@@ -95,10 +96,11 @@ class Config
 
 	/**
 	 * Import a list of configuration directives.
-	 * @param      array $data An array of configuration directives.
+	 * @param      array<string, mixed> $data An array of configuration directives.
+	 * @return     void
 	 * @since      1.0.0
 	 */
-	public static function fromArray(array $data)
+	public static function fromArray(array $data): void
 	{
 		// array_merge would reindex numeric keys, so we use the + operator
 		// mind the operand order: keys that exist in the left one aren't overridden
@@ -107,19 +109,20 @@ class Config
 
 	/**
 	 * Get all configuration directives and values.
-	 * @return     array An associative array of configuration values.
+	 * @return     array<string, mixed> An associative array of configuration values.
 	 * @since      1.0.0
 	 */
-	public static function toArray()
+	public static function toArray(): array
 	{
 		return self::$config;
 	}
 
 	/**
 	 * Clear the configuration.
+	 * @return     void
 	 * @since      1.0.0
 	 */
-	public static function clear()
+	public static function clear(): void
 	{
 		$restore = array_intersect_assoc(self::$readonlies, self::$config);
 		self::$config = $restore;
@@ -128,10 +131,11 @@ class Config
 	/**
 	 * Reset configuration state for FrankenPHP worker mode.
 	 * This preserves readonly configuration while clearing request-specific config.
-	 * @param array $preserveKeys Configuration keys to preserve (in addition to readonly)
+	 * @param array<int, string> $preserveKeys Configuration keys to preserve (in addition to readonly)
+	 * @return     void
 	 * @since      1.0.0
 	 */
-	public static function resetWorkerState(array $preserveKeys = [])
+	public static function resetWorkerState(array $preserveKeys = []): void
 	{
 		// Preserve readonly config and specified keys
 		$preserve = [];

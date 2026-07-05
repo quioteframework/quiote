@@ -58,7 +58,7 @@ class APCuConfigCache extends ConfigCache
     private static $igbinaryAvailable = null;
     
     /**
-     * @var array Track loaded configs to prevent double loading
+     * @var array<string, bool> Track loaded configs to prevent double loading
      */
     private static $loadedConfigs = [];
 
@@ -73,6 +73,7 @@ class APCuConfigCache extends ConfigCache
     
     /**
      * Override writeCacheFile to store compiled PHP in APCu instead of filesystem
+     * @return void
      */
     #[\Override]
     public static function writeCacheFile($config, $cache, $data, $append = false)
@@ -159,6 +160,7 @@ class APCuConfigCache extends ConfigCache
     /**
      * Drop-in replacement for ConfigCache::load
      * Loads directly from APCu if available, otherwise falls back to normal loading
+     * @return void
      */
     #[\Override]
     public static function load($config, $context = null, $once = true)
@@ -191,9 +193,9 @@ class APCuConfigCache extends ConfigCache
     
     /**
      * Warm up all configurations and routing data into APCu
-     * @param array $configs Array of config files to warm up (relative to config_dir)
+     * @param array<int, string> $configs Array of config files to warm up (relative to config_dir)
      * @param string $context The context to warm up for
-     * @return array Warmup statistics
+     * @return array<string, mixed> Warmup statistics
      */
     public static function warmup(array $configs = [], ?string $context = null): array
     {
@@ -364,6 +366,7 @@ class APCuConfigCache extends ConfigCache
     
     /**
      * Configure APCu cache settings
+     * @param array<string, mixed> $options
      */
     public static function configure(array $options): void
     {
@@ -410,6 +413,9 @@ class APCuConfigCache extends ConfigCache
      * is always the full absolute path).
      * Memoized to avoid repeated normalization and md5() hashing on the hot path.
      */
+    /**
+     * @var array<string, string>
+     */
     private static array $keyCache = [];
     private static function getConfigKey(string $config, ?string $context): string
     {
@@ -451,6 +457,7 @@ class APCuConfigCache extends ConfigCache
      * The core config files, in dependency order, that a cold worker will load.
      * Public so the `cache:warmup` command can compile the same set into the
      * on-disk cache for the non-APCu backend (single source of truth).
+     * @return array<int, string>
      */
     public static function getDefaultConfigs(): array
     {
@@ -486,6 +493,7 @@ class APCuConfigCache extends ConfigCache
     
     /**
      * Clear all APCu cached data
+     * @return void
      */
     #[\Override]
     public static function clear()
@@ -533,6 +541,7 @@ class APCuConfigCache extends ConfigCache
     
     /**
      * Get warmup status and statistics
+     * @return array<string, mixed>
      */
     public static function getStatus(): array
     {
@@ -558,6 +567,7 @@ class APCuConfigCache extends ConfigCache
     
     /**
      * Internal helper to obtain a logger without hard-failing if context/logging not ready.
+     * @return \Quiote\Logging\CategoryLogger
      */
     private static function getLoggerFor(?string $context)
     {

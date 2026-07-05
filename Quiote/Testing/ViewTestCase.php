@@ -44,7 +44,8 @@ abstract class ViewTestCase extends FragmentTestCase
 	 * @param      string $otName the name of the output type to run the view for
 	 *                    null for the default output type
 	 * @since      1.0.0
-	 */
+	 * @return     void
+	*/
 	protected function runView($otName = null)
 	{
 		// Container-based execution removed; directly instantiate view and invoke execute method.
@@ -63,7 +64,8 @@ abstract class ViewTestCase extends FragmentTestCase
 	 * @param      boolean $acceptGeneric true if the generic 'execute' method should be accepted as handled
 	 * @param      string $message an optional message to display if the test fails
 	 * @since      1.0.0
-	 */
+	 * @return     void
+	*/
 	protected function assertHandlesOutputType($method, $acceptGeneric = false, $message = '')
 	{
 		$viewInstance = $this->createViewInstance();
@@ -78,7 +80,8 @@ abstract class ViewTestCase extends FragmentTestCase
 	 * @param      boolean $acceptGeneric true if the generic 'execute' method should be accepted as handled
 	 * @param      string $message an optional message to display if the test fails
 	 * @since      1.0.0
-	 */
+	 * @return     void
+	*/
 	protected function assertNotHandlesOutputType($method, $acceptGeneric = false, $message = '')
 	{
 		$viewInstance = $this->createViewInstance();
@@ -91,7 +94,8 @@ abstract class ViewTestCase extends FragmentTestCase
 	 * assert that the response contains a redirect
 	 * @param      string $message the message to emit on failure
 	 * @since      1.0.0
-	 */
+	 * @return     void
+	*/
 	protected function assertViewRedirects($message = 'Failed asserting that the view redirects')
 	{
 		$response = $this->container->getResponse();
@@ -106,7 +110,8 @@ abstract class ViewTestCase extends FragmentTestCase
 	 * assert that the response contains no redirect
 	 * @param      string $message the message to emit on failure
 	 * @since      1.0.0
-	 */
+	 * @return     void
+	*/
 	protected function assertViewRedirectsNot($message = 'Failed asserting that the view does not redirect')
 	{
 		$response = $this->container->getResponse();
@@ -122,7 +127,8 @@ abstract class ViewTestCase extends FragmentTestCase
 	 * @param      mixed $expected the expected redirect
 	 * @param      string $message the message to emit on failure
 	 * @since      1.0.0
-	 */
+	 * @return     void
+	*/
 	protected function assertViewRedirectsTo($expected, $message = 'Failed asserting that the view redirects to the given target.')
 	{
 		$response = $this->container->getResponse();
@@ -139,7 +145,8 @@ abstract class ViewTestCase extends FragmentTestCase
 	 * @param      string $expected the expected content type
 	 * @param      string $message the message to emit on failure
 	 * @since      1.0.0
-	 */
+	 * @return     void
+	*/
 	protected function assertViewSetsContentType($expected, $message = 'Failed asserting that the view sets the content type "%1$s".')
 	{
 		$response = $this->container->getResponse();
@@ -157,7 +164,8 @@ abstract class ViewTestCase extends FragmentTestCase
 	 * @param      string $expectedValue the value of the expected header
 	 * @param      string $message the message to emit on failure
 	 * @since      1.0.0
-	 */
+	 * @return     void
+	*/
 	protected function assertViewSetsHeader($expected, $expectedValue = null, $message = 'Failed asserting that the view sets a header named <%1$s> with the value <%2$s>')
 	{
 		$response = $this->container->getResponse();
@@ -175,7 +183,8 @@ abstract class ViewTestCase extends FragmentTestCase
 	 * @param      string $expectedValue the value of the expected header
 	 * @param      string $message the message to emit on failure
 	 * @since      1.0.0
-	 */
+	 * @return     void
+	*/
 	protected function assertViewSetsCookie($expected, $expectedValue = null, $message = 'Failed asserting that the view sets a cookie named <%1$s> with a value of <%2$s>')
 	{
 		$response = $this->container->getResponse();
@@ -192,7 +201,8 @@ abstract class ViewTestCase extends FragmentTestCase
 	 * @param      string $expected the expected http status
 	 * @param      string $message the message to emit on failure
 	 * @since      1.0.0
-	 */
+	 * @return     void
+	*/
 	protected function assertViewResponseHasHTTPStatus($expected, $message = 'Failed asserting that the response status is %1$s.')
 	{
 		$response = $this->container->getResponse();
@@ -208,7 +218,8 @@ abstract class ViewTestCase extends FragmentTestCase
 	 * @param      mixed $expected the expected content
 	 * @param      string $message the message to emit on failure
 	 * @since      1.0.0
-	 */
+	 * @return     void
+	*/
 	protected function assertViewResponseHasContent($expected, $message = 'Failed asserting that the response has content <%1$s>.')
 	{
 		$response = $this->container->getResponse();
@@ -220,7 +231,8 @@ abstract class ViewTestCase extends FragmentTestCase
 	 * @param      mixed $expected the expected content
 	 * @param      string $message the message to emit on failure
 	 * @since      1.0.0
-	 */
+	 * @return     void
+	*/
 	protected function assertViewResultEquals($expected, $message = 'Failed asserting the expected view result.')
 	{
 		$this->assertEquals($expected, $this->viewResult, sprintf($message, $expected));
@@ -232,7 +244,8 @@ abstract class ViewTestCase extends FragmentTestCase
 	 * @param      string $expectedAction the expected action name
 	 * @param      string $message the message to emit on failure
 	 * @since      1.0.0
-	 */
+	 * @return     void
+	*/
 	protected function assertViewForwards($expectedModule, $expectedAction, $message = 'Failed asserting that the view forwards to "%1$s" "%2$s".')
 	{
 		if(!is_object($this->viewResult)) {
@@ -249,7 +262,8 @@ abstract class ViewTestCase extends FragmentTestCase
 	 * @param      string $expectedLayer the expected layer name
 	 * @param      string $message the message to emit on failure
 	 * @since      1.0.0
-	 */
+	 * @return     void
+	*/
 	protected function assertHasLayer($expectedLayer, $message = 'Failed asserting that the view contains the layer "%1$s".')
 	{
 		$viewInstance = $this->container?->getViewInstance();
@@ -265,7 +279,8 @@ abstract class ViewTestCase extends FragmentTestCase
 	 * @param      string $expectedLayer the expected layer name
 	 * @param      string $message the message to emit on failure
 	 * @since      1.0.0
-	 */
+	 * @return     void
+	*/
 	protected function assertNotHasLayer($expectedLayer, $message = '')
 	{
 		$viewInstance = $this->container?->getViewInstance();

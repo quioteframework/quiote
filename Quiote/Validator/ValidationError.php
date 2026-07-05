@@ -11,7 +11,7 @@ use Symfony\Contracts\Service\ResetInterface;
 class ValidationError implements ResetInterface
 {
 	/**
-	 * @var        array The fields this error affects.
+	 * @var        array<string, ValidationArgument> The fields this error affects.
 	 */
 	protected $arguments = [];
 
@@ -25,7 +25,7 @@ class ValidationError implements ResetInterface
      * Constructor
      * @param      string $message The message of this error.
      * @param      string $name The name of the message.
-     * @param      array $arguments The arguments affected by this error.
+     * @param      array<int, mixed> $arguments The arguments affected by this error.
      * @since      1.0.0
      */
     public function __construct(/**
@@ -47,6 +47,7 @@ class ValidationError implements ResetInterface
 	/**
 	 * Sets the name of this error.
 	 * @param      string $name The error name.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setName($name)
@@ -57,6 +58,7 @@ class ValidationError implements ResetInterface
 	/**
      * Sets the message index of this error.
      * @param      string $messageIndex The message index.
+     * @return     void
      * @since      1.0.0
      */
     #[\Deprecated(message: 'Superseded by setName()')]
@@ -89,6 +91,7 @@ class ValidationError implements ResetInterface
 	/**
 	 * Sets the message of this error.
 	 * @param      string $message The message.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setMessage($message)
@@ -109,6 +112,7 @@ class ValidationError implements ResetInterface
 	/**
 	 * Sets the incident which caused this error.
 	 * @param      ValidationIncident $incident The incident.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setIncident(ValidationIncident $incident)
@@ -128,7 +132,7 @@ class ValidationError implements ResetInterface
 
 	/**
 	 * Retrieves the arguments which caused this error.
-	 * @return     array An array of ValidationArgument.
+	 * @return     array<string, ValidationArgument> An array of ValidationArgument.
 	 * @since      1.0.0
 	 */
 	public function getArguments()
@@ -149,7 +153,7 @@ class ValidationError implements ResetInterface
 	
 	/**
 	 * Retrieves the fields which caused this error.
-	 * @return     array An array of field names.
+	 * @return     array<int, string> An array of field names.
 	 * @since      1.0.0
 	 */
 	public function getFields()

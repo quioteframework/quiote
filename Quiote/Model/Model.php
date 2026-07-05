@@ -14,6 +14,9 @@ use Quiote\Context;
 abstract class Model implements IModel
 {
 
+	/**
+	 * @var        ?string The name of the context, set by __sleep for serialization.
+	 */
 	protected final $_contextName;
 	/**
 	 * @var        Context An Context instance.
@@ -33,6 +36,8 @@ abstract class Model implements IModel
 	/**
 	 * Initialize this model.
 	 * @param      Context $context The current application context.
+	 * @param      array<string, mixed> $parameters An associative array of initialization parameters.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function initialize(Context $context, array $parameters = [])

@@ -39,6 +39,7 @@ class ValidatorPlanBuilder
 	/**
 	 * name => [class, parameters, errors]
 	 * (definition name, not necessarily the real PHP class)
+	 * @var array<string, array{class: string, parameters: array<string, mixed>, errors: array<mixed>}>
 	 */
 	protected array $classMap = [];
 
@@ -58,7 +59,11 @@ class ValidatorPlanBuilder
 		$nodes = [];
 		foreach ($document->getConfigurationElements() as $cfg) {
 			if ($cfg->has('validator_definitions')) {
-				foreach ($cfg->get('validator_definitions') as $def) {
+				// get() only ever selects element nodes, and registerNodeClass()
+				// guarantees those are always XmlConfigDomElement, never a vanilla DOMNode.
+				/** @var iterable<int, XmlConfigDomElement<int, XmlConfigDomElement>> $definitionNodes */
+				$definitionNodes = $cfg->get('validator_definitions');
+				foreach ($definitionNodes as $def) {
 					$name = $def->getAttribute('name');
 					if (!isset($this->classMap[$name])) {
 						$this->classMap[$name] = [
@@ -92,16 +97,14 @@ class ValidatorPlanBuilder
 	}
 
 	/**
-	 * @param XmlConfigDomElement|XmlConfigDomDocument $node
+	 * @param XmlConfigDomElement<int, XmlConfigDomElement>|XmlConfigDomDocument $node
 	 * @return ValidatorNode[]
 	 */
 	protected function buildValidatorElements($node, string $defaultSeverity, ?string $defaultMethod, bool $defaultRequired, ?string $defaultTranslationDomain): array
 	{
 		$nodes = [];
 		foreach ($node->get('validators') as $validator) {
-			// registerNodeClass() guarantees every node here is a XmlConfigDomElement,
-			// never a vanilla DOMNode.
-			/** @var XmlConfigDomElement $parentNode */
+			/** @var XmlConfigDomElement<int, XmlConfigDomElement> $parentNode */
 			$parentNode = $validator->parentNode;
 			if ($parentNode->localName == 'validators') {
 				$severity = $parentNode->getAttribute('severity', $defaultSeverity);
@@ -118,6 +121,9 @@ class ValidatorPlanBuilder
 		return $nodes;
 	}
 
+	/**
+	 * @param XmlConfigDomElement<int, XmlConfigDomElement> $validator
+	 */
 	protected function buildValidatorNode(XmlConfigDomElement $validator, string $stdSeverity, ?string $stdMethod, bool $stdRequired, ?string $stdTranslationDomain): ValidatorNode
 	{
 		[$class, $defParams, $defErrors] = $this->resolveClass($validator->getAttribute('class'));
@@ -138,7 +144,7 @@ class ValidatorPlanBuilder
 		foreach ($validator->get('arguments') as $argument) {
 			// registerNodeClass() guarantees every node here is a XmlConfigDomElement,
 			// never a vanilla DOMNode.
-			/** @var XmlConfigDomElement $argument */
+			/** @var XmlConfigDomElement<int, XmlConfigDomElement> $argument */
 			if ($argument->hasAttribute('name')) {
 				$arguments[$argument->getAttribute('name')] = $argument->getValue();
 			} else {
@@ -209,6 +215,9 @@ class ValidatorPlanBuilder
 		);
 	}
 
+	/**
+	 * @return array{0: string, 1: array<string, mixed>, 2: array<mixed>}
+	 */
 	protected function resolveClass(string $declared): array
 	{
 		// If declared token is a definition name, return mapped class + defaults
@@ -227,6 +236,11 @@ class ValidatorPlanBuilder
 		return [$declared, [], []];
 	}
 
+	/**
+	 * @param XmlConfigDomElement<int, XmlConfigDomElement> $node
+	 * @param array<string, mixed> $existing
+	 * @return array<string, mixed>
+	 */
 	public function collectErrors(XmlConfigDomElement $node, array $existing = []): array
 	{
 		$result = $existing;
@@ -234,7 +248,7 @@ class ValidatorPlanBuilder
 		foreach ($elements as $element) {
 			// registerNodeClass() guarantees every node here is a XmlConfigDomElement,
 			// never a vanilla DOMNode.
-			/** @var XmlConfigDomElement $element */
+			/** @var XmlConfigDomElement<int, XmlConfigDomElement> $element */
 			// New simplified semantics:
 			// <error>foo</error>            => ['' => 'foo']
 			// <error for="min">bar</error> => ['min' => 'bar']
@@ -243,7 +257,7 @@ class ValidatorPlanBuilder
 				$name = $element->getAttribute('name');
 				$domains = [];
 				foreach ($element->get('domain') as $domainElement) {
-					/** @var XmlConfigDomElement $domainElement */
+					/** @var XmlConfigDomElement<int, XmlConfigDomElement> $domainElement */
 					$domains[$domainElement->getAttribute('name')] = $domainElement->getValue();
 				}
 				$result[$name] = [
@@ -291,7 +305,7 @@ class ValidatorPlanBuilder
 	/**
 	 * Collect the effective request parameter names a validator reads.
 	 * Honors <arguments base="..."> by prepending the base path.
-	 * @param array $arguments Flat list of argument values (the request
+	 * @param array<int, mixed> $arguments Flat list of argument values (the request
 	 *                         parameter name or sub-path the validator reads).
 	 * @param string $base Optional base path from <arguments base="...">.
 	 * @return string[] Effective parameter names to whitelist.
@@ -347,6 +361,10 @@ class ValidatorPlanBuilder
 	 * 'throw' (default) fails the build, 'warn' logs, records a Diagnostic,
 	 * and continues (useful for auditing an existing corpus before flipping
 	 * to 'throw'), 'off' skips the check entirely.
+	 */
+	/**
+	 * @param array<int|string, mixed> $parameters
+	 * @param XmlConfigDomElement<int, XmlConfigDomElement> $validator
 	 */
 	protected function checkParameters(string $class, array $parameters, XmlConfigDomElement $validator): void
 	{
@@ -414,6 +432,7 @@ class ValidatorPlanBuilder
 	 * a compile error into an actionable typo hint. Only suggests when the
 	 * edit distance is small enough to plausibly be a typo rather than a
 	 * genuinely different (nonexistent) feature.
+	 * @param string[] $accepted
 	 */
 	private function suggestParameterName(string $unknown, array $accepted): ?string
 	{

@@ -70,7 +70,7 @@ class SettingConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 				$localPrefix = $prefix;
 
 				// let's see if this buddy has a <settings> parent with valuable information
-				if ($setting->parentNode->localName == 'settings') {
+				if ($setting->parentNode instanceof \DOMElement && $setting->parentNode->localName == 'settings') {
 					if ($setting->parentNode->hasAttribute('prefix')) {
 						$localPrefix = $setting->parentNode->getAttribute('prefix');
 					}

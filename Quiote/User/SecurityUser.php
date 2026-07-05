@@ -27,7 +27,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 	protected $authenticated = false;
 	
 	/**
-	 * @var        ?array An array of user credentials.
+	 * @var        ?array<int, mixed> An array of user credentials.
 	 */
 	protected $credentials   = null;
 
@@ -41,6 +41,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 	/**
 	 * Add a credential to this user.
 	 * @param      mixed $credential Credential data.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function addCredential($credential)
@@ -52,6 +53,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 
 	/**
 	 * Clear all credentials associated with this user.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function clearCredentials()
@@ -104,7 +106,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 	
 	/**
 	 * Returns the list of credentials that this user possesses.
-	 * @return     array This user's credentials.
+	 * @return     ?array<int, mixed> This user's credentials.
 	 * @since      1.0.0
 	 */
 	public function getCredentials()
@@ -116,9 +118,10 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 	/**
 	 * Initialize this User.
 	 * @param      Context $context An Context instance.
-	 * @param      array $parameters An associative array of initialization parameters.
+	 * @param      array<string, mixed> $parameters An associative array of initialization parameters.
 	 * @throws     \Quiote\Exception\InitializationException If an error occurs while
 	 *                                                 initializing this User.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	#[\Override]
@@ -172,6 +175,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 	/**
 	 * Remove a credential from this user.
 	 * @param      mixed $credential Credential data.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function removeCredential($credential)
@@ -190,6 +194,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 	/**
 	 * Set the authenticated status of this user.
 	 * @param      bool $authenticated A flag indicating the authenticated status of this user.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setAuthenticated($authenticated)
@@ -250,6 +255,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 
 	/**
 	 * Execute the shutdown procedure.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	#[\Override]

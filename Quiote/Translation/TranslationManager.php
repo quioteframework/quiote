@@ -21,6 +21,9 @@ class TranslationManager implements ResetInterface
 	const CURRENCY = 'cur';
 	const DATETIME = 'date';
 
+	/**
+	 * @var        array<string, array<string, array<int, callable>>>
+	 */
 	protected $translatorFilters = [];
 	
 	/**
@@ -59,28 +62,28 @@ class TranslationManager implements ResetInterface
 	protected $defaultDomain = null;
 
 	/**
-	 * @var        array The available locales which have been defined in the 
+	 * @var        array<string, mixed> The available locales which have been defined in the
 	 *                   translation.xml config file.
 	 */
 	protected $availableConfigLocales = [];
 
 	/**
-	 * @var        array All available locales. Just stores the info for lazyload.
+	 * @var        array<string, mixed> All available locales. Just stores the info for lazyload.
 	 */
 	protected $availableLocales = [];
 
 	/**
-	 * @var        array A cache for locale instances.
+	 * @var        array<string, QuioteLocale> A cache for locale instances.
 	 */
 	protected $localeCache = [];
 
 	/**
-	 * @var        array A cache for locale identifiers resolved from a string.
+	 * @var        array<string, string> A cache for locale identifiers resolved from a string.
 	 */
 	protected $localeIdentifierCache = [];
 
     /**
-     * @var        array A cache for the time zone instances.
+     * @var        array<string, ?\DateTimeZone> A cache for the time zone instances.
      */
     protected $timeZoneCache = [];
 
@@ -93,7 +96,7 @@ class TranslationManager implements ResetInterface
     /** @var array<string,array{digits:int,rounding:int}> */
     protected $currencyFractionCache = [];
 
-    /** @var array<string,array> */
+    /** @var array<string,array<string, mixed>> */
     protected $territoryDataCache = [];
 
 	/**
@@ -105,7 +108,8 @@ class TranslationManager implements ResetInterface
 	/**
 	 * Initialize this TranslationManager.
 	 * @param      Context $context The current application context.
-	 * @param      array $parameters An associative array of initialization parameters.
+	 * @param      array<string, mixed> $parameters An associative array of initialization parameters.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function initialize(Context $context, array $parameters = [])
@@ -142,6 +146,7 @@ class TranslationManager implements ResetInterface
 	/**
 	 * Do any necessary startup work after initialization.
 	 * This method is not called directly after initialize().
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function startup()
@@ -150,6 +155,7 @@ class TranslationManager implements ResetInterface
 
 	/**
 	 * Execute the shutdown procedure.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function shutdown()
@@ -168,6 +174,7 @@ class TranslationManager implements ResetInterface
 
 	/**
 	 * Returns the list of available locales.
+	 * @return     array<string, mixed>
 	 * @since      1.0.0
 	 */
 	public function getAvailableLocales()
@@ -178,6 +185,7 @@ class TranslationManager implements ResetInterface
 	/**
 	 * Sets the current locale.
 	 * @param      string $identifier The locale identifier.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setLocale($identifier)
@@ -235,6 +243,7 @@ class TranslationManager implements ResetInterface
 	/**
 	 * Sets the default domain.
 	 * @param      string $domain The new default domain.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setDefaultDomain($domain)
@@ -351,7 +360,7 @@ class TranslationManager implements ResetInterface
 	 * @param      ?string $domain The domain in which the translation should be done.
 	 * @param      QuioteLocale|string|null $locale The locale which should be used for formatting.
 	 *                         Defaults to the currently active locale.
-	 * @param      ?array $parameters The parameters which should be used for sprintf on
+	 * @param      ?array<int, mixed> $parameters The parameters which should be used for sprintf on
 	 *                         the translated string.
 	 * @return     string The translated message.
 	 * @since      1.0.0
@@ -389,7 +398,7 @@ class TranslationManager implements ResetInterface
 	 * @param      ?string $domain The domain in which the translation should be done.
 	 * @param      QuioteLocale|string|null $locale The locale which should be used for formatting.
 	 *                         Defaults to the currently active locale.
-	 * @param      ?array $parameters The parameters which should be used for sprintf on
+	 * @param      ?array<int, mixed> $parameters The parameters which should be used for sprintf on
 	 *                         the translated string.
 	 * @return     string The translated message.
 	 * @since      1.0.0
@@ -508,7 +517,7 @@ class TranslationManager implements ResetInterface
 	 * Returns all the identifiers of the available locales which match the given 
 	 * locale identifier.
 	 * @param      string $identifier A locale identifier
-	 * @return     array The actual locale identifiers of the available locales.	 */
+	 * @return     array<int, string> The actual locale identifiers of the available locales.	 */
 	public function getMatchingLocaleIdentifiers($identifier)
 	{
 		// if a locale with the given identifier doesn't exist try to find the closest matches
@@ -661,6 +670,7 @@ class TranslationManager implements ResetInterface
 	/**
 	 * Sets the default time zone.
 	 * @param      \DateTimeZone|string $id The timezone identifier
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setDefaultTimeZone($id)
@@ -792,6 +802,8 @@ class TranslationManager implements ResetInterface
 	 * clone them first. Alternatively you can set the cache parameter to false,
 	 * but this will mean the data for this timezone will be loaded from the 
 	 * hdd again.
+	 * @param      mixed $id The timezone identifier
+	 * @param      bool $cache Whether to use/populate the timezone instance cache.
 	 * @return     ?\DateTimeZone The timezone instance for the given id.
 	 * @since      1.0.0
 	 */
@@ -838,7 +850,7 @@ class TranslationManager implements ResetInterface
 	 * Returns the stored information from the ldml supplemental data about a 
 	 * territory.
 	 * @param      string $country The uppercase 2 letter country iso code.
-	 * @return     array The data.
+	 * @return     array<string, mixed> The data.
 	 * @since      1.0.0
 	 */
 	public function getTerritoryData($country)
@@ -860,7 +872,7 @@ class TranslationManager implements ResetInterface
 	/**
 	 * Returns an array containing digits and rounding information for a currency.
 	 * @param      string $currency The uppercase 3 letter currency iso code.
-	 * @return     array The data.
+	 * @return     array{digits: int, rounding: int} The data.
 	 * @since      1.0.0
 	 */
 	public function getCurrencyFraction($currency)

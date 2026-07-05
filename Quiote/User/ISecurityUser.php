@@ -10,12 +10,14 @@ interface ISecurityUser
 	/**
 	 * Add a credential to this user.
 	 * @param      mixed $credential Credential data.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function addCredential($credential);
 
 	/**
 	 * Clear all credentials associated with this user.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function clearCredentials();
@@ -38,6 +40,7 @@ interface ISecurityUser
 	/**
 	 * Remove a credential from this user.
 	 * @param      mixed $credential Credential data.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function removeCredential($credential);
@@ -45,6 +48,7 @@ interface ISecurityUser
 	/**
 	 * Set the authenticated status of this user.
 	 * @param      bool $authenticated A flag indicating the authenticated status of this user.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setAuthenticated($authenticated);

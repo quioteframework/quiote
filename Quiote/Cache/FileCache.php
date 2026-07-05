@@ -24,7 +24,7 @@ class FileCache implements CacheInterface
         $expires = $ttl ? (time()+$ttl) : 0;
         return $expires."\n".serialize($value);
     }
-    private function unserialize(string $payload)
+    private function unserialize(string $payload): mixed
     {
         $pos = strpos($payload,"\n");
         $exp = (int)substr($payload,0,$pos);
@@ -54,6 +54,9 @@ class FileCache implements CacheInterface
     }
     public function getMultiple($keys, mixed $default = null): iterable
     { foreach ($keys as $k) yield $k => $this->get($k,$default); }
+    /**
+     * @param iterable<string, mixed> $values
+     */
     public function setMultiple($values, null|int|\DateInterval $ttl = null): bool
     { $ok=true; foreach($values as $k=>$v) $ok = $this->set($k,$v,$ttl) && $ok; return $ok; }
     public function deleteMultiple($keys): bool

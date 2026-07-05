@@ -15,6 +15,7 @@ class Kernel
 {
     private ?string $appDir = null;
     private bool $prewarm = false;
+    /** @var array<int, string> */
     private array $extraContexts = [];
 
     private function __construct(
@@ -32,6 +33,7 @@ class Kernel
      *  - autoload_paths: string|array additional composer autoload files to require (app first)
      *  - prewarm: bool force prewarm
      *  - contexts: array additional contexts to pre-create
+     * @param array<string, mixed> $options
      */
     public static function create(array $options = []): self
     {
@@ -189,6 +191,7 @@ class Kernel
     
     /**
      * Pre-adjust $_SERVER globals based on X-Forwarded-* headers before PSR-7 request creation
+     * @param array<string, mixed> $server
      */
     private function preAdjustServerGlobalsForProxy(array $server): void
     {

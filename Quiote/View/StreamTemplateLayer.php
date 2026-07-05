@@ -27,7 +27,7 @@ class StreamTemplateLayer extends TemplateLayer
 
 	/**
 	 * Constructor.
-	 * @param      array $parameters Initial parameters.
+	 * @param      array<string,mixed> $parameters Initial parameters.
 	 * @since      1.0.0
 	 */
 	public function __construct(array $parameters = [])

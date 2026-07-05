@@ -57,7 +57,7 @@ class XmlConfigParser
 	const STEP_TRANSFORMATIONS_AFTER = 'transformations_after';
 	
 	/**
-	 * @var        array A list of XML namespaces for Quiote configuration files as
+	 * @var        array<string,string> A list of XML namespaces for Quiote configuration files as
 	 *                   keys and their associated XPath namespace prefix (value).
 	 */
 	public static $quioteEnvelopeNamespaces = [
@@ -67,7 +67,7 @@ class XmlConfigParser
 	];
 	
 	/**
-	 * @var        array A list of all XML namespaces that are used internally by
+	 * @var        array<string,string> A list of all XML namespaces that are used internally by
 	 *                   the configuration parser.
 	 */
 	public static $quioteNamespaces = [
@@ -144,6 +144,7 @@ class XmlConfigParser
 	/**
 	 * Register Quiote namespace prefixes in a given document.
 	 * @param      XmlConfigDomDocument $document The document.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public static function registerQuioteNamespaces(XmlConfigDomDocument $document)
@@ -163,8 +164,8 @@ class XmlConfigParser
 	 * @param      string $path An absolute filesystem path to a configuration file.
 	 * @param      string $environment The environment name.
 	 * @param      string $context The optional context name.
-	 * @param      array $transformationInfo An associative array of transformation information.
-	 * @param      array $validationInfo An associative array of validation information.
+	 * @param      array<string,array<int,string>> $transformationInfo An associative array of transformation information.
+	 * @param      array<string,mixed> $validationInfo An associative array of validation information.
 	 * @return     XmlConfigDomDocument A properly merged DOMDocument.
 	 * @since      1.0.0
 	 */
@@ -300,6 +301,7 @@ class XmlConfigParser
 	 * the given subject. This is for "environment" and "context" attributes of
 	 * configuration blocks in the files.
 	 * @param      string $pattern A regular expression chunk without delimiters/anchors.
+	 * @param      mixed $subject The subject to test against the pattern.
 	 * @return     bool Whether or not the subject matched the pattern.
 	 * @since      1.0.0
 	 */
@@ -357,8 +359,8 @@ class XmlConfigParser
 	}
 	
 	/**
-	 * @param      array $transformationInfo An array of XSL paths for transformation.
-	 * @param      array $validationInfo An associative array of validation information.
+	 * @param      array<int,string> $transformationInfo An array of XSL paths for transformation.
+	 * @param      array<string,mixed> $validationInfo An associative array of validation information.
 	 * @return     XmlConfigDomDocument Our DOMDocument.
 	 * @since      1.0.0
 	 */
@@ -401,8 +403,9 @@ class XmlConfigParser
 	 * @param      XmlConfigDomDocument $document The document to act upon.
 	 * @param      string $environment The environment name.
 	 * @param      string $context The context name.
-	 * @param      array $transformationInfo An array of XSL paths for transformation.
-	 * @param      array $validationInfo An associative array of validation information.
+	 * @param      array<int,string> $transformationInfo An array of XSL paths for transformation.
+	 * @param      array<string,mixed> $validationInfo An associative array of validation information.
+	 * @return     XmlConfigDomDocument The compiled document.
 	 * @since      1.0.0
 	 */
 	public static function executeCompilation(XmlConfigDomDocument $document, $environment, $context, array $transformationInfo = [], array $validationInfo = [])
@@ -430,6 +433,7 @@ class XmlConfigParser
 	/**
 	 * Resolve xinclude directives on a given document.
 	 * @param      XmlConfigDomDocument $document The document to act upon.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public static function xinclude(XmlConfigDomDocument $document)
@@ -488,6 +492,7 @@ class XmlConfigParser
 	 * @param      XmlConfigDomDocument $document The document to act upon.
 	 * @param      string $environment The environment name.
 	 * @param      string $context The context name.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public static function match(XmlConfigDomDocument $document, $environment, $context)
@@ -521,8 +526,8 @@ class XmlConfigParser
 	 * @param      XmlConfigDomDocument $document The document to act upon.
 	 * @param      string $environment The environment name.
 	 * @param      string $context The context name.
-	 * @param      array $transformationInfo An array of transformation information.
-	 * @param      array $transformations An array of XSL stylesheets in DOMDocument instances.
+	 * @param      array<int,string> $transformationInfo An array of transformation information.
+	 * @param      array<int,XmlConfigDomDocument> $transformations An array of XSL stylesheets in DOMDocument instances.
 	 * @return     XmlConfigDomDocument The transformed document.
 	 * @since      1.0.0
 	 */
@@ -673,7 +678,8 @@ class XmlConfigParser
 	 * @param      XmlConfigDomDocument $document The document to act upon.
 	 * @param      string $environment The environment name.
 	 * @param      string $context The context name.
-	 * @param      array $validationInfo An array of validation information.
+	 * @param      array<string,mixed> $validationInfo An array of validation information.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public static function validate(XmlConfigDomDocument $document, $environment, $context, array $validationInfo = [])
@@ -711,6 +717,7 @@ class XmlConfigParser
 	/**
 	 * Clean up a given document.
 	 * @param      XmlConfigDomDocument $document The document to clean up.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public static function cleanup(XmlConfigDomDocument $document)
@@ -725,6 +732,7 @@ class XmlConfigParser
 	 * Validate a given document according to XMLSchema-instance (xsi)
 	 * declarations.
 	 * @param      XmlConfigDomDocument $document The document to act upon.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public static function validateXsi(XmlConfigDomDocument $document)
@@ -766,13 +774,14 @@ class XmlConfigParser
 	/**
 	 * Validate the document against the given list of XML Schema files.
 	 * @param      XmlConfigDomDocument $document The document to act upon.
-	 * @param      array $validationFiles An array of file names to validate against.
+	 * @param      array<int,string> $validationFiles An array of file names to validate against.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public static function validateXmlschema(XmlConfigDomDocument $document, array $validationFiles = [])
 	{
 		foreach($validationFiles as $validationFile) {
-			if(!is_resource($validationFile) && !is_readable($validationFile)) {
+			if(!is_readable($validationFile)) {
 				throw new UnreadableException(sprintf('XML Schema validation file "%s" for configuration file "%s" does not exist or is unreadable', $validationFile, $document->documentURI));
 			}
 			
@@ -787,7 +796,8 @@ class XmlConfigParser
 	/**
 	 * Validate the document against the given list of XML Schema documents.
 	 * @param      XmlConfigDomDocument $document The document to act upon.
-	 * @param      array $validationSources An array of schema documents to validate against.
+	 * @param      array<int,string> $validationSources An array of schema documents to validate against.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public static function validateXmlschemaSource(XmlConfigDomDocument $document, array $validationSources = [])
@@ -804,7 +814,8 @@ class XmlConfigParser
 	/**
 	 * Validate the document against the given list of RELAX NG files.
 	 * @param      XmlConfigDomDocument $document The document to act upon.
-	 * @param      array $validationFiles An array of file names to validate against.
+	 * @param      array<int,string> $validationFiles An array of file names to validate against.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public static function validateRelaxng(XmlConfigDomDocument $document, array $validationFiles = [])
@@ -827,7 +838,8 @@ class XmlConfigParser
 	 * @param      XmlConfigDomDocument $document The document to act upon.
 	 * @param      string $environment The environment name.
 	 * @param      string $context The context name.
-	 * @param      array $validationFiles An array of file names to validate against.
+	 * @param      array<int,string> $validationFiles An array of file names to validate against.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public static function validateSchematron(XmlConfigDomDocument $document, $environment, $context, array $validationFiles = [])

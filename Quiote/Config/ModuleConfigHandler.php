@@ -2,6 +2,7 @@
 namespace Quiote\Config;
 
 use Quiote\Config\Util\DOM\XmlConfigDomDocument;
+use Quiote\Config\Util\DOM\XmlConfigDomElement;
 use Quiote\Util\Toolkit;
 
 /**
@@ -34,6 +35,9 @@ class ModuleConfigHandler extends XmlConfigHandler implements IArrayConfigHandle
 		return $this->executeArray($this->toCanonicalArray($document), $document->documentURI);
 	}
 
+	/**
+	 * @return     array{enabled: bool, settings: array<string, mixed>}
+	 */
 	public function toCanonicalArray(XmlConfigDomDocument $document): array
 	{
 		// set up our default namespace
@@ -55,12 +59,18 @@ class ModuleConfigHandler extends XmlConfigHandler implements IArrayConfigHandle
 
 			// loop over <setting> elements; there can be many of them
 			foreach ($module->get('settings') as $setting) {
+				// The get() call above only ever selects element nodes, and
+				// registerNodeClass() guarantees those are always XmlConfigDomElement,
+				// never a vanilla DOMNode.
+				/** @var XmlConfigDomElement<int, XmlConfigDomElement> $setting */
 				$localPrefix = $prefix;
 
 				// let's see if this buddy has a <settings> parent with valuable information
-				if ($setting->parentNode->localName == 'settings') {
-					if ($setting->parentNode->hasAttribute('prefix')) {
-						$localPrefix = $setting->parentNode->getAttribute('prefix');
+				/** @var XmlConfigDomElement<int, XmlConfigDomElement> $settingParent */
+				$settingParent = $setting->parentNode;
+				if ($settingParent->localName == 'settings') {
+					if ($settingParent->hasAttribute('prefix')) {
+						$localPrefix = $settingParent->getAttribute('prefix');
 					}
 				}
 

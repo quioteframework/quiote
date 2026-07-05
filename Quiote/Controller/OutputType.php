@@ -25,34 +25,41 @@ class OutputType extends ParameterHolder implements \Stringable, ResetInterface
 	protected $name = '';
 	
 	/**
-	 * @var        array An array of Renderers (settings and instances).
+	 * @var        array<string, array<string, mixed>> An array of Renderers (settings and instances).
 	 */
 	protected $renderers = [];
-	
+
 	/**
-	 * @var        string The name of the default Renderer, if set.
+	 * @var        ?string The name of the default Renderer, if set.
 	 */
 	protected $defaultRenderer = null;
-	
+
 	/**
-	 * @var        array An array of configured layouts.
+	 * @var        array<string, array<string, mixed>> An array of configured layouts.
 	 */
 	protected $layouts = [];
-	
+
 	/**
-	 * @var        string The name of the default layout, if set.
+	 * @var        ?string The name of the default layout, if set.
 	 */
 	protected $defaultLayout = null;
-	
+
 	/**
-	 * @var        string The name of the exception template for this output type.
+	 * @var        ?string The name of the exception template for this output type.
 	 */
 	protected $exceptionTemplate = null;
-	
+
 	/**
 	 * Initialize the Output Type.
 	 * @param      Context $context The current Context instance.
-	 * @param      array $parameters An array of initialization parameters.
+	 * @param      array<string, mixed> $parameters An array of initialization parameters.
+	 * @param      string $name The name of the Output Type.
+	 * @param      array<string, array<string, mixed>> $renderers An array of Renderers (settings and instances).
+	 * @param      ?string $defaultRenderer The name of the default Renderer, if set.
+	 * @param      array<string, array<string, mixed>> $layouts An array of configured layouts.
+	 * @param      ?string $defaultLayout The name of the default layout, if set.
+	 * @param      ?string $exceptionTemplate The name of the exception template for this output type.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function initialize(Context $context, array $parameters, $name, array $renderers, $defaultRenderer, array $layouts, $defaultLayout, $exceptionTemplate = null)
@@ -148,7 +155,7 @@ class OutputType extends ParameterHolder implements \Stringable, ResetInterface
 	/**
 	 * Get a layout.
 	 * @param      ?string $name The optional name of the layout to fetch.
-	 * @return     array An array of layout information.
+	 * @return     array<string, mixed> An array of layout information.
 	 * @throws     QuioteException If the layout doesn't exist.
 	 * @since      1.0.0
 	 */

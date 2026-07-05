@@ -84,7 +84,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	protected $requestMethod = null;
 
 	/**
-	 * @var        array|object|null A request data holder with request info.
+	 * @var        array<string, mixed>|object|null A request data holder with request info.
 	 */
 	protected $requestData = null; // TODO: check if this can actually be protected
 	                               // or whether it should be private (would break actiontests though)
@@ -95,7 +95,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	private $globalRequestData = null;
 
 	/**
-	 * @var        ?array Additional request arguments.
+	 * @var        array<string, mixed>|null Additional request arguments.
 	 */
 	protected $arguments = null;
 
@@ -123,6 +123,13 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	 * @var        ?\Quiote\View\View The View instance that belongs to this container.
 	 */
 	protected $viewInstance = null;
+
+	/**
+	 * @var        ?\Quiote\Execution\LegacyContainerInitContext Shared init context passed to
+	 *             this container's action and view instances, so attributes set during
+	 *             the action's initialize() remain visible to the view's.
+	 */
+	protected $initContext = null;
 
 	/**
 	 * Whether validation has already been performed for this container (early validation middleware).
@@ -219,7 +226,8 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	/**
 	 * Initialize the container. This will create a response instance.
 	 * @param      Context $context The current Context instance.
-	 * @param      array $parameters An array of initialization parameters.
+	 * @param      array<string, mixed> $parameters An array of initialization parameters.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function initialize(Context $context, array $parameters = [])
@@ -238,7 +246,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	 * method as this one.
 	 * @param      string $moduleName The name of the module.
 	 * @param      string $actionName The name of the action.
-	 * @param      array $arguments Additional request arguments.
+	 * @param      array<string, mixed>|null $arguments Additional request arguments.
 	 * @param      string $outputType Optional name of an initial output type
 	 *                                    to set.
 	 * @param      string $requestMethod Optional name of the request method to
@@ -335,6 +343,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	
 	/**
 	 * Copies and merges the global request data.
+	 * @return       void
 	 * @since        1.0.0
 	 */
 	public function initRequestData()
@@ -571,6 +580,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 
 	/**
 	 * Register validators for this execution container.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function registerValidators()
@@ -634,6 +644,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	/**
 	 * Set this container's request method name.
 	 * @param      string $requestMethod The request method name.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setRequestMethod($requestMethod)
@@ -643,7 +654,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 
 	/**
 	 * Retrieve this container's request data holder instance.
-	 * @return     array|object|null The request data holder.
+	 * @return     array<string, mixed>|object|null The request data holder.
 	 * @since      1.0.0
 	 */
 	public final function getRequestData()
@@ -663,7 +674,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 
 	/**
 	 * Get this container's additional arguments.
-	 * @return     ?array The additional arguments.
+	 * @return     array<string, mixed>|null The additional arguments.
 	 * @since      1.0.0
 	 */
 	public function getArguments()
@@ -673,7 +684,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 
 	/**
 	 * Set this container's additional arguments.
-	 * @param      array $arguments The additional arguments.
+	 * @param      array<string, mixed> $arguments The additional arguments.
 	 * @since      1.0.0
 	 */
 	public function setArguments(array $arguments): void
@@ -694,6 +705,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	/**
 	 * Set a new response.
 	* @param      WebResponse $response A new Response instance.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setResponse(WebResponse $response)
@@ -715,6 +727,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	/**
 	 * Set a different output type for this container.
 	 * @param      OutputType $outputType An output type object.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setOutputType(OutputType $outputType)
@@ -754,12 +767,24 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 			$actionName = $this->getActionName();
 			
 			$this->actionInstance = $controller->createActionInstance($moduleName, $actionName);
-			
+
 			// initialize the action
-			$this->actionInstance->initialize($this);
+			$this->actionInstance->initialize($this->getInitContext());
 		}
-		
+
 		return $this->actionInstance;
+	}
+
+	/**
+	 * Retrieve the shared init context adapter for this container's action/view instances.
+	 * @since      1.0.0
+	 */
+	protected function getInitContext(): \Quiote\Execution\LegacyContainerInitContext
+	{
+		if ($this->initContext === null) {
+			$this->initContext = new \Quiote\Execution\LegacyContainerInitContext($this);
+		}
+		return $this->initContext;
 	}
 
 	/**
@@ -773,7 +798,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 			// get the view instance
 			$this->viewInstance = $this->getContext()->getController()->createViewInstance($this->getViewModuleName(), $this->getViewName());
 			// initialize the view
-			$this->viewInstance->initialize($this);
+			$this->viewInstance->initialize($this->getInitContext());
 		}
 		
 		return $this->viewInstance;
@@ -782,6 +807,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	/**
 	 * Set this container's view instance.
 	 * @param      View $viewInstance A view implementation instance.
+	 * @return     View The view instance that was set.
 	 * @since      1.0.0
 	 */
 	public function setViewInstance($viewInstance)
@@ -833,6 +859,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	/**
 	 * Set the module name for this container.
 	 * @param      ?string $moduleName A module name.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setModuleName($moduleName)
@@ -849,6 +876,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	/**
 	 * Set the action name for this container.
 	 * @param      ?string $actionName An action name.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setActionName($actionName)
@@ -866,6 +894,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	/**
 	 * Set the view module name for this container.
 	 * @param      ?string $viewModuleName A view module name.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setViewModuleName($viewModuleName)
@@ -882,6 +911,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	/**
 	 * Set the module name for this container.
 	 * @param      ?string $viewName A view name.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setViewName($viewName)
@@ -919,6 +949,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	/**
 	 * Set the container that should be executed once this one finished running.
 	 * @param      ExecutionContainer $container An execution container instance.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setNext(ExecutionContainer $container)
@@ -951,6 +982,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	/**
 	 * Mark this container as the result of a security forward.
 	 * @param bool $flag
+	 * @return void
 	 */
 	public function setSecurityForwarded($flag = true)
 	{
@@ -979,6 +1011,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 		$this->microtime = null;
 		$this->actionInstance = null;
 		$this->viewInstance = null;
+		$this->initContext = null;
 		$this->moduleName = null;
 		$this->actionName = null;
 		$this->viewModuleName = null;

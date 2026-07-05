@@ -12,12 +12,13 @@ use Symfony\Contracts\Service\ResetInterface;
 class DependencyManager implements ResetInterface
 {
 	/**
-	 * @var array already provided tokens.
+	 * @var array<int|string, mixed> already provided tokens.
 	 */
 	protected $depData = [];
-	
+
 	/**
 	 * Clears the dependency cache.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function clear()
@@ -27,7 +28,7 @@ class DependencyManager implements ResetInterface
 	
 	/**
 	 * Checks whether a list of dependencies is met.
-	 * @param      array $tokens The list of dependencies that have to meet.
+	 * @param      array<int, mixed> $tokens The list of dependencies that have to meet.
 	 * @param      VirtualArrayPath $base The base path to which all tokens are
 	 *                                   appended.
 	 * @return     bool all dependencies are met
@@ -53,9 +54,10 @@ class DependencyManager implements ResetInterface
 	
 	/**
 	 * Puts a list of tokens into the dependency cache.
-	 * @param      array $tokens The list of new tokens.
+	 * @param      array<int, mixed> $tokens The list of new tokens.
 	 * @param      VirtualArrayPath $base The base path to which all tokens are
 	 *                                   appended.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function addDependTokens(array $tokens, VirtualArrayPath $base)
@@ -95,10 +97,10 @@ class DependencyManager implements ResetInterface
 		);
 	}
 	
-	/*
+	/**
 	 * Returns the list of provided tokens from the dependency cache.
 	 *
-	 * @return     array Provided tokens from the dependency cache.
+	 * @return     array<int|string, mixed> Provided tokens from the dependency cache.
 	 *
 	 * @since      1.0.0
 	 */

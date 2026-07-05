@@ -35,6 +35,9 @@ use Symfony\Contracts\Service\ResetInterface;
 class SessionStorage extends Storage implements SessionHandlerInterface, ResetInterface
 {
 
+	/**
+	 * @var ?SessionHandler
+	 */
 	private $defaultHandler;
 
 	public function __construct() {
@@ -48,6 +51,7 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 	 * A Database Session Storage must initialize the parent, then itself, and
 	 * may only then call startup() to auto-start the session.
 	 * Also, the routing must be fully initialized, too.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function startup()
@@ -197,6 +201,7 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 
 	/**
 	 * Execute the shutdown procedure.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function shutdown()

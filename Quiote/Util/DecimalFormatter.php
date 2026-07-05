@@ -68,7 +68,7 @@ class DecimalFormatter implements ResetInterface
 	protected $currencyType = null;
 
 	/**
-	 * @var        array An array containing the distances for the grouping 
+	 * @var        array<int, int> An array containing the distances for the grouping
 	 *                   operators which will be applied to the number
 	 */
 	protected $groupingDistances = [];
@@ -126,6 +126,7 @@ class DecimalFormatter implements ResetInterface
 
 	/**
 	 * Sets the format to be used for formatting numbers.
+	 * @param      string $format The format.
 	 * @return     void
 	 * @since      1.0.0
 	 */
@@ -324,7 +325,7 @@ class DecimalFormatter implements ResetInterface
 	 * Formats the given number with the information in this instance.
 	 * @param      int|float $number A number to format.
 	 * @param      string $currencySymbol A currency symbol to be used.
-	 * @return     array The number and some information in the desired format.
+	 * @return     array{0: string, 1: string, 2: string} The number and some information in the desired format.
 	 * @since      1.0.0
 	 */
 	protected function prepareNumber($number, $currencySymbol)
@@ -530,6 +531,7 @@ class DecimalFormatter implements ResetInterface
 
 	/**
 	 * Sets the rounding mode.
+	 * @param      int $mode The rounding mode.
 	 * @return     void
 	 * @since      1.0.0
 	 */
@@ -541,7 +543,7 @@ class DecimalFormatter implements ResetInterface
 	/**
 	 * Maps a string rounding mode definition to the rounding mode constants.
 	 * @param      string $mode The mode string.
-	 * @return     string    The rounding mode constant.
+	 * @return     int    The rounding mode constant.
 	 * @since      1.0.0
 	 */
 	public function getRoundingModeFromString($mode)
@@ -561,6 +563,11 @@ class DecimalFormatter implements ResetInterface
 		return $map[$mode];
 	}
 	
+	/**
+	 * @param      QuioteLocale|string|null $locale An optional locale to get the formatter for.
+	 * @return     mixed A cached NumberFormatter instance, or null if unavailable.
+	 * @since      1.0.0
+	 */
 	protected static function getNumberFormatterInstance($locale)
 	{
 		static $formatterCache = [];
@@ -588,12 +595,16 @@ class DecimalFormatter implements ResetInterface
 			return $formatterCache[$cacheKey] = null;
 		}
 
-		$formatter->setAttribute(\NumberFormatter::LENIENT_PARSE, true);
+		$formatter->setAttribute(\NumberFormatter::LENIENT_PARSE, 1);
 
 
 		return $formatterCache[$cacheKey] = $formatter;
 	}
 
+	/**
+	 * @return     string The compiled regular expression used to parse decimal numbers.
+	 * @since      1.0.0
+	 */
 	protected static function getDecimalParseRegex(?QuioteLocale $locale = null)
 	{
 		static $patternCache = [];

@@ -109,6 +109,12 @@ class DateFormatter implements ITranslator, ResetInterface
 		$this->resolvedPattern = $this->resolvePattern($newLocale, $format);
 	}
 
+	/**
+	 * @param      ?string $format A date format specifier or explicit pattern.
+	 * @param      QuioteLocale $locale The locale to resolve the format for.
+	 * @param      string $type The date type ('date', 'time' or 'datetime').
+	 * @return     ?string The resolved pattern, or the original format if it wasn't a specifier.
+	 */
 	public static function resolveFormat($format, $locale, $type = 'datetime')
 	{
 		if(self::isDateSpecifier($format)) {
@@ -118,6 +124,10 @@ class DateFormatter implements ITranslator, ResetInterface
 		return $format;
 	}
 
+	/**
+	 * @param      ?string $format A date format specifier or explicit pattern.
+	 * @return     bool
+	 */
 	protected static function isDateSpecifier($format)
 	{
 		static $specifiers = ['full', 'long', 'medium', 'short'];
@@ -133,6 +143,9 @@ class DateFormatter implements ITranslator, ResetInterface
 		$this->resolvedPattern = null;
 	}
 
+	/**
+	 * @param      ?string $format A date format specifier or explicit pattern.
+	 */
 	protected function resolvePattern(QuioteLocale $locale, $format): ?string
 	{
 		if($format === null || self::isDateSpecifier($format)) {
@@ -142,6 +155,10 @@ class DateFormatter implements ITranslator, ResetInterface
 		return (string) $format;
 	}
 
+	/**
+	 * @param      ?string $spec A date format specifier (full, long, medium, short).
+	 * @param      ?string $type The date type ('date', 'time' or 'datetime').
+	 */
 	protected static function resolveSpecifierPattern(QuioteLocale $locale, $spec, $type): ?string
 	{
 		$type = $type ?: 'datetime';
@@ -194,6 +211,9 @@ class DateFormatter implements ITranslator, ResetInterface
 		return $normalized;
 	}
 
+	/**
+	 * @param      mixed $value The value to coerce into a DateTimeImmutable instance.
+	 */
 	protected function coerceToDateTime($value, QuioteLocale $locale): DateTimeImmutable
 	{
 		$timezone = $this->resolveTimezone($locale);

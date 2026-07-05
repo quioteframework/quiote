@@ -22,6 +22,10 @@ interface ActionInitContext
     public function setViewName(?string $name): void;
     public function getViewModuleName(): ?string;
     public function getViewName(): ?string;
+
+    /**
+     * @return mixed
+     */
     public function getValidationManager();
-    
+
 }

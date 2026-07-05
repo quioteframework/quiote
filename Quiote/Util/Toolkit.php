@@ -101,6 +101,7 @@ final class Toolkit
 	 * the contents of this folder and all sub-folders get erased, but not the
 	 * folder itself.
 	 * @param      string $path The path to remove
+	 * @return     bool|void False if the given path could not be resolved.
 	 * @since      1.0.0
 	 */
 	public static function clearCache($path = '')
@@ -160,8 +161,8 @@ final class Toolkit
 	/**
 	 * Returns the method from the given definition list matching the given
 	 * parameters.
-	 * @param      array $definitions The definitions of the functions.
-	 * @param      array $parameters The parameters which were passed to the function.
+	 * @param      array<int, array{parameters: array<int, string>, name: string}> $definitions The definitions of the functions.
+	 * @param      array<int, mixed> $parameters The parameters which were passed to the function.
 	 * @return     string The name of the function which matched.
 	 * @since      1.0.0
 	 */
@@ -207,7 +208,8 @@ final class Toolkit
 	 * Expand variables in a string.
 	 * Variables can be in the form $foo, ${foo} or {$foo}.
 	 * @param      string $string The format string.
-	 * @param      array $arguments The variables to use.
+	 * @param      array<string, mixed> $arguments The variables to use.
+	 * @return     string The expanded string.
 	 * @since      1.0.0
 	 */
 	public static function expandVariables($string, array $arguments = [])
@@ -226,6 +228,7 @@ final class Toolkit
 		return str_replace($search, $arguments, $string);
 	}
 	
+	/** @var array<string, bool> */
 	private static array $boolLiterals = [
 		'on' => true, 'yes' => true, 'true' => true,
 		'off' => false, 'no' => false, 'false' => false,
@@ -337,8 +340,8 @@ final class Toolkit
 	
 	/**
 	 * Tries to grab a value from the given array using the given list of keys.
-	 * @param      array $array The array to search in.
-	 * @param      array $keys The list of keys.
+	 * @param      array<mixed> $array The array to search in.
+	 * @param      array<int|string> $keys The list of keys.
 	 * @param      mixed $default A default return value, defaults to null.
 	 * @return     mixed The found value, or the default value if nothing found.
 	 * @since      1.0.0
@@ -390,19 +393,19 @@ final class Toolkit
 	}
 	
 	/**
-	 * Evaluates a given Config per-module directive using the given info.
-	 * @param      string The name of the module
-	 * @param      string The relevant name fragment of the directive
-	 * @param      array  The variables to expand in the directive value.
-	 * @return     string The final value
-	 * @since      1.0.0
-	 */
-	/**
 	 * @var array<string,string> Cache for expanded module directives (without variables).
 	 * The config value + expandDirectives result is constant for the process lifetime.
 	 */
 	private static array $moduleDirectiveCache = [];
 
+	/**
+	 * Evaluates a given Config per-module directive using the given info.
+	 * @param      string $moduleName The name of the module
+	 * @param      string $directiveNameFragment The relevant name fragment of the directive
+	 * @param      array<string, mixed> $variables The variables to expand in the directive value.
+	 * @return     string The final value
+	 * @since      1.0.0
+	 */
 	public static function evaluateModuleDirective($moduleName, $directiveNameFragment, $variables = [])
 	{
 		$cacheKey = strtolower((string) $moduleName) . '|' . $directiveNameFragment;
@@ -438,7 +441,7 @@ final class Toolkit
 	
 	/**
 	 * Counterpart of PHP's parse_url().
-	 * @param      array $parts The parts of the URL as defined by parse_url()
+	 * @param      array<string, int|string> $parts The parts of the URL as defined by parse_url()
 	 * @return     string	 */
 	public static function buildUrl(array $parts)
 	{

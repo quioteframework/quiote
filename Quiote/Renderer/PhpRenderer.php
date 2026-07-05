@@ -24,29 +24,29 @@ class PhpRenderer extends Renderer implements IReusableRenderer, ResetInterface
 	private $layer = null;
 	
 	/**
-	 * @var        ?array Temporary storage for the template layer, used during
+	 * @var        ?array<string, mixed> Temporary storage for the template layer, used during
 	 *                   rendering.
 	 */
 	private $attributes = null;
-	
+
 	/**
-	 * @var        ?array Temporary storage for the template layer, used during
+	 * @var        ?array<string, mixed> Temporary storage for the template layer, used during
 	 *                   rendering.
 	 */
 	private $slots = null;
-	
+
 	/**
-	 * @var        ?array Temporary storage for additional assigns, used during
+	 * @var        ?array<int|string, mixed> Temporary storage for additional assigns, used during
 	 *                   rendering.
 	 */
 	private $moreAssigns = null;
-	
+
 	/**
 	 * Render the presentation and return the result.
 	 * @param      TemplateLayer $layer The template layer to render.
-	 * @param      array $attributes The template variables.
-	 * @param      array $slots The slots.
-	 * @param      array $moreAssigns Associative array of additional assigns.
+	 * @param      array<string, mixed> $attributes The template variables.
+	 * @param      array<string, mixed> $slots The slots.
+	 * @param      array<int|string, mixed> $moreAssigns Associative array of additional assigns.
 	 * @return     string A rendered result.
 	 * @since      1.0.0
 	 */

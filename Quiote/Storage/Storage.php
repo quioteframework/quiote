@@ -34,7 +34,8 @@ abstract class Storage extends ParameterHolder implements ResetInterface
 	/**
 	 * Initialize this Storage.
 	 * @param      Context $context An Context instance.
-	 * @param      array $parameters An associative array of initialization parameters.
+	 * @param      array<string, mixed> $parameters An associative array of initialization parameters.
+	 * @return     void
 	 * @throws     InitializationException If an error occurs while
 	 *                                                 initializing this Storage.
 	 * @since      1.0.0
@@ -50,6 +51,7 @@ abstract class Storage extends ParameterHolder implements ResetInterface
 	 * Executes code necessary to startup the storage (a session, for example).
 	 * This code cannot be run in initialize(), because initialization has to
 	 * finish completely, for all instances, before a session can be created.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function startup()
@@ -96,6 +98,7 @@ abstract class Storage extends ParameterHolder implements ResetInterface
 	 * Execute the shutdown procedure.
 	 * @throws     StorageException If an error occurs while shutting
 	 *                                          down this storage.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	abstract function shutdown();

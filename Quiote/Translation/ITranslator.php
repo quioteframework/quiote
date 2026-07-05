@@ -22,7 +22,8 @@ interface ITranslator
 	/**
 	 * Initialize this Translator.
 	 * @param      Context $context The current application context.
-	 * @param      array $parameters An associative array of initialization parameters
+	 * @param      array<string, mixed> $parameters An associative array of initialization parameters
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function initialize(Context $context, array $parameters = []);
@@ -42,6 +43,7 @@ interface ITranslator
 	 * This method gets called by the translation manager when the default locale
 	 * has been changed.
 	 * @param      QuioteLocale $newLocale The new default locale.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function localeChanged(QuioteLocale $newLocale);

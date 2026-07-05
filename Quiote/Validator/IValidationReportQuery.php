@@ -11,27 +11,27 @@ interface IValidationReportQuery
 	/**
 	 * Returns a new IValidationReportQuery which returns only the incidents
 	 * for the given argument (and the other existing filter rules).
-	 * @param      ValidationArgument|string|array $argument The argument instance, or
+	 * @param      ValidationArgument|string|array<int, ValidationArgument|string> $argument The argument instance, or
 	 *                                                  a parameter name, or an
 	 *                                                  array of these elements.
 	 * @return     IValidationReportQuery
 	 * @since      1.0.0
 	 */
 	public function byArgument($argument);
-	
+
 	/**
 	 * Returns a new IValidationReportQuery which contains only the incidents
 	 * for the given validator (and the other existing filter rules).
-	 * @param      string|array $name The name of the validator, or an array of names.
+	 * @param      string|array<int, string> $name The name of the validator, or an array of names.
 	 * @return     IValidationReportQuery
 	 * @since      1.0.0
 	 */
 	public function byValidator($name);
-	
+
 	/**
 	 * Returns a new IValidationReportQuery which contains only the incidents
 	 * for the given error name (and the other existing filter rules).
-	 * @param      string|array $name The name of the error, or an array of names.
+	 * @param      string|array<int, string> $name The name of the error, or an array of names.
 	 * @return     IValidationReportQuery
 	 * @since      1.0.0
 	 */
@@ -57,7 +57,7 @@ interface IValidationReportQuery
 	
 	/**
 	 * Retrieves all incidents which match the currently defined filter rules.
-	 * @return     array An array of ValidationIncident objects.
+	 * @return     array<int, ValidationIncident> An array of ValidationIncident objects.
 	 * @since      1.0.0
 	 */
 	public function getIncidents();
@@ -65,7 +65,7 @@ interface IValidationReportQuery
 	/**
 	 * Retrieves all ValidationError objects which match the currently
 	 * defined filter rules.
-	 * @return     array An array of ValidationError objects.
+	 * @return     array<int, ValidationError> An array of ValidationError objects.
 	 * @since      1.0.0
 	 */
 	public function getErrors();
@@ -73,7 +73,7 @@ interface IValidationReportQuery
 	/**
 	 * Retrieves all error messages which match the currently defined filter
 	 * rules.
-	 * @return     array An array of message strings.
+	 * @return     array<int, string> An array of message strings.
 	 * @since      1.0.0
 	 */
 	public function getErrorMessages();
@@ -85,7 +85,7 @@ interface IValidationReportQuery
 	 * i.e. the same structure the (deprecated) ValidationManager::getErrorMessages()
 	 * returns — provided here as a non-deprecated report-query accessor so callers
 	 * that need the field annotation don't have to reach for the deprecated method.
-	 * @return     array An array of array('message' => string, 'errors' => array).
+	 * @return     array<int, array{message: string, errors: array<int, string>}> An array of array('message' => string, 'errors' => array).
 	 * @since      1.0.0
 	 */
 	public function getErrorMessagesWithFields();
@@ -93,7 +93,7 @@ interface IValidationReportQuery
 	/**
 	 * Retrieves all ValidationArgument objects which match the currently
 	 * defined filter rules.
-	 * @return     array An array of ValidationArgument objects.
+	 * @return     array<int, ValidationArgument> An array of ValidationArgument objects.
 	 * @since      1.0.0
 	 */
 	public function getArguments();

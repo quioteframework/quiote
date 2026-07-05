@@ -157,7 +157,7 @@ abstract class ActionTestCase extends FragmentTestCase
 			if ($this->container && method_exists($this->container, 'setValidationManager')) {
 				if (method_exists($this->container, 'setArguments')) {
 					try {
-						$this->container->setArguments($request->getParameters('parameters') ?? []);
+						$this->container->setArguments($request->getParameters('parameters'));
 					} catch (\Throwable) {
 					}
 				}
@@ -317,6 +317,7 @@ abstract class ActionTestCase extends FragmentTestCase
 	 * @param      string $method the method name
 	 * @param      boolean $acceptGeneric true if the generic 'execute' method should be accepted as handled
 	 * @param      string $message an optional message to display if the test fails
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function assertHandlesMethod($method, $acceptGeneric = true, $message = '')
@@ -332,6 +333,7 @@ abstract class ActionTestCase extends FragmentTestCase
 	 * @param      string $method the method name
 	 * @param      boolean $acceptGeneric true if the generic 'execute' method should be accepted as handled
 	 * @param      string $message an optional message to display if the test fails
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function assertNotHandlesMethod($method, $acceptGeneric = true, $message = '')
@@ -345,6 +347,7 @@ abstract class ActionTestCase extends FragmentTestCase
 	/**
 	 * assert that the action is simple
 	 * @param      string $message an optional message to display if the test fails
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function assertIsSimple($message = 'Failed asserting that the action is simple.')
@@ -356,6 +359,7 @@ abstract class ActionTestCase extends FragmentTestCase
 	/**
 	 * assert that the action is not simple
 	 * @param      string $message an optional message to display if the test fails
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function assertIsNotSimple($message = 'Failed asserting that the action is not simple.')
@@ -370,7 +374,8 @@ abstract class ActionTestCase extends FragmentTestCase
 	 * that a validator attempted to validate the given argument
 	 * @param      string $argumentName the name of the argument
 	 * @param      string $source the source of the argument
-	 * @param      string $message an optional message 
+	 * @param      string $message an optional message
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function assertValidatedArgument($argumentName, $source = 'parameters', $message = 'Failed asserting that the argument <%1$s> is validated.')
@@ -383,7 +388,8 @@ abstract class ActionTestCase extends FragmentTestCase
 	 * asserts that the given argument has failed the validation
 	 * @param      string $argumentName the name of the argument
 	 * @param      string $source the source of the argument
-	 * @param      string $message an optional message 
+	 * @param      string $message an optional message
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function assertFailedArgument($argumentName, $source = 'parameters', $message = 'Failed asserting that the argument <%1$s> is failed.')
@@ -396,7 +402,8 @@ abstract class ActionTestCase extends FragmentTestCase
 	 * asserts that the given argument has succeeded the validation
 	 * @param      string $argumentName the name of the argument
 	 * @param      string $source the source of the argument
-	 * @param      string $message an optional message 
+	 * @param      string $message an optional message
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function assertSucceededArgument($argumentName, $source = 'parameters', $message = 'Failed asserting that the argument <%1$s> is succeeded.')

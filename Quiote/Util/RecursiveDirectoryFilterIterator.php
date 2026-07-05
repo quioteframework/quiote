@@ -14,25 +14,25 @@ class RecursiveDirectoryFilterIterator extends RecursiveFilterIterator
 {
 	/**
 	 * The list of default excludes
-	 * @var          array
+	 * @var          array<int, string>
 	 */
 	public static $defaultExcludes = ['.', '..', '.svn', 'CVS', '_darcs', '.arch-params', '.monotone', '.bzr'];
-	
+
 	/**
-	 * @var          array the list of excludes
+	 * @var          array<int, string> the list of excludes
 	 */
 	protected $excludes = [];
-	
+
 	/**
-	 * @var          array the list of include patterns
+	 * @var          array<int, string> the list of include patterns
 	 */
 	protected $includes = [];
-	
+
 	/**
 	 * Creates a new RecursiveDirectoryFilterIterator.
 	 * @param        RecursiveDirectoryIterator $iterator the directory iterator to decorate
-	 * @param        array $includes the list of include patterns (regular expressions)
-	 * @param        array $excludes the list of exclude patterns (literal)
+	 * @param        array<int, string> $includes the list of include patterns (regular expressions)
+	 * @param        array<int, string> $excludes the list of exclude patterns (literal)
 	 * @param        boolean $noDefaultExcludes whether to use the default exclude patterns.
 	 */
 	public function __construct(RecursiveDirectoryIterator $iterator, array $includes = [], array $excludes = [], $noDefaultExcludes = false)

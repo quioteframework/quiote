@@ -44,7 +44,10 @@ class MiddlewareCatalog
      */
     private static array $attributedCandidates = [];
 
-    /** Initialize the catalog (idempotent overwrite). */
+    /**
+     * Initialize the catalog (idempotent overwrite).
+     * @param array<string,bool> $map
+     */
     public static function initialize(array $map): void
     {
         self::$enabledMap = $map;
@@ -99,7 +102,10 @@ class MiddlewareCatalog
         return is_callable($entry) ? $entry : null;
     }
 
-    /** Raw map mainly for tests. */
+    /**
+     * Raw map mainly for tests.
+     * @return array<string,bool>
+     */
     public static function all(): array
     {
         return self::$enabledMap;

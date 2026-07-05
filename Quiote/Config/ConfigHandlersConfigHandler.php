@@ -38,6 +38,9 @@ class ConfigHandlersConfigHandler extends XmlConfigHandler implements IArrayConf
 		return $this->executeArray($this->toCanonicalArray($document), $document->documentURI);
 	}
 
+	/**
+	 * @return array<string, mixed>
+	 */
 	public function toCanonicalArray(XmlConfigDomDocument $document): array
 	{
 		// set up our default namespace
@@ -157,6 +160,9 @@ class ConfigHandlersConfigHandler extends XmlConfigHandler implements IArrayConf
 		return $handlers;
 	}
 
+	/**
+	 * @param array<string, mixed> $config
+	 */
 	public function executeArray(array $config, ?string $sourceRef = null): string
 	{
 		$data = ['return ' . var_export($config, true)];

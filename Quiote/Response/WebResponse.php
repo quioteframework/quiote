@@ -22,7 +22,7 @@ class WebResponse extends Response
 
 
 	/**
-	 * @var        array An array of all HTTP 1.0 status codes and their message.
+	 * @var        array<int, string> An array of all HTTP 1.0 status codes and their message.
 	 */
 	protected $http10StatusCodes = [
 		'200' => "HTTP/1.0 200 OK",
@@ -62,7 +62,7 @@ class WebResponse extends Response
 	];
 
 	/**
-	 * @var        array An array of all HTTP 1.1 status codes and their message.
+	 * @var        array<int, string> An array of all HTTP 1.1 status codes and their message.
 	 */
 	protected $http11StatusCodes = [
 		'100' => "HTTP/1.1 100 Continue",
@@ -108,7 +108,7 @@ class WebResponse extends Response
 	];
 
 	/**
-		* @var        ?array The array with the HTTP status codes to be used here.
+		* @var        ?array<int, string> The array with the HTTP status codes to be used here.
 		*/
 	protected $httpStatusCodes = null;
 
@@ -118,17 +118,17 @@ class WebResponse extends Response
 	protected $httpStatusCode = '200';
 
 	/**
-	 * @var        array The HTTP headers scheduled to be sent with the response.
+	 * @var        array<string, array<int, mixed>> The HTTP headers scheduled to be sent with the response.
 	 */
 	protected $httpHeaders = [];
 
 	/**
-	 * @var        array The Cookies scheduled to be sent with the response.
+	 * @var        array<string, array<string, mixed>> The Cookies scheduled to be sent with the response.
 	 */
 	protected $cookies = [];
 
 	/**
-	 * @var        ?array An array of redirect information, or null if no redirect.
+	 * @var        ?array{location: mixed, code: int|string} An array of redirect information, or null if no redirect.
 	 */
 	protected $redirect = null;
 
@@ -250,7 +250,8 @@ class WebResponse extends Response
 	/**
 	 * Initialize this Response.
 	 * @param      Context $context An Context instance.
-	 * @param      array $parameters An array of initialization parameters.
+	 * @param      array<string, mixed> $parameters An array of initialization parameters.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	#[\Override]
@@ -324,6 +325,7 @@ class WebResponse extends Response
 	 * @param      OutputType $outputType An optional Output Type object with information
 	 *                             the response can use to send additional data,
 	 *                             such as HTTP headers
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function send(?OutputType $outputType = null)
@@ -353,6 +355,7 @@ class WebResponse extends Response
 
 	/**
 	 * Send the content for this response
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	#[\Override]
@@ -381,6 +384,7 @@ class WebResponse extends Response
 
 	/**
 	 * Clear all response data.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function clear()
@@ -406,6 +410,7 @@ class WebResponse extends Response
 	/**
 	 * Set the content type for the response.
 	 * @param      string $type A content type.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setContentType($type)
@@ -431,6 +436,7 @@ class WebResponse extends Response
 	/**
 	 * Import response metadata (headers, cookies) from another response.
 	 * @param      Response $otherResponse The other response to import information from.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	#[\Override]
@@ -484,6 +490,7 @@ class WebResponse extends Response
 	/**
 	 * Check if the given HTTP status code is valid.
 	public function hasContent()
+	 * @param      string|int $code A numeric HTTP status code.
 	 * @return     bool True, if the code is valid, or false otherwise.
 	 * @since      1.0.0
 	 */
@@ -497,6 +504,7 @@ class WebResponse extends Response
 	/**
 	 * Sets a HTTP status code for the response.
 	 * @param      string|int $code A numeric HTTP status code.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setHttpStatusCode(string|int $code)
@@ -547,7 +555,7 @@ class WebResponse extends Response
 	/**
 	 * Retrieve the HTTP header values set for the response.
 	 * @param      string $name A HTTP header field name.
-	 * @return     ?array All values set for that header, or null if no headers set
+	 * @return     ?array<int, mixed> All values set for that header, or null if no headers set
 	 * @since      1.0.0
 	 */
 	public function getHttpHeader($name)
@@ -562,7 +570,7 @@ class WebResponse extends Response
 
 	/**
 	 * Retrieve the HTTP headers set for the response.
-	 * @return     array An associative array of HTTP header names and values.
+	 * @return     array<string, array<int, mixed>> An associative array of HTTP header names and values.
 	 * @since      1.0.0
 	 */
 	public function getHttpHeaders()
@@ -592,6 +600,7 @@ class WebResponse extends Response
 	 * @param      mixed $value A HTTP header field value, of an array of values.
 	 * @param      bool $replace If true, a header with that name will be overwritten,
 	 *                    otherwise, the value will be appended.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setHttpHeader($name, $value, $replace = true)
@@ -618,12 +627,18 @@ class WebResponse extends Response
 		}
 	}
 
+	/**
+	 * @param      string $name A HTTP header field name.
+	 * @param      mixed  $value A HTTP header field value, or an array of values.
+	 * @return     void
+	 */
 	public function addHttpHeader($name, $value)
 	{
 		$this->setHttpHeader($name, $value, false);
 	}
 
 	/**
+	 * @param array<string, mixed> $cookie
 	 * @return array{
 	 *   value: string,
 	 *   expires: ?int,
@@ -707,6 +722,18 @@ class WebResponse extends Response
 		];
 	}
 
+	/**
+	 * @param array{
+	 *   value: string,
+	 *   expires: ?int,
+	 *   max_age: ?int,
+	 *   path: string,
+	 *   domain: ?string,
+	 *   secure: bool,
+	 *   httponly: bool,
+	 *   samesite: ?string
+	 * } $normalized
+	 */
 	private function buildSetCookieHeader(string $name, array $normalized): string
 	{
 		$parts = [];
@@ -738,6 +765,9 @@ class WebResponse extends Response
 		return implode('; ', $parts);
 	}
 
+	/**
+	 * @param array<string, mixed> $context
+	 */
 	private function logCookieDebug(string $stage, array $context = []): void
 	{
 		$logger = \Quiote\Logging\Log::for($this);
@@ -821,6 +851,24 @@ class WebResponse extends Response
 		return false;
 	}
 
+	/**
+	 * @param      string        $name A cookie name.
+	 * @param      mixed         $value Data to store into a cookie. If null or empty cookie
+	 *                           will be tried to be removed.
+	 * @param      mixed         $lifetime The lifetime of the cookie in seconds. When you pass 0
+	 *                           the cookie will be valid until the browser is closed.
+	 *                           You can also use a strtotime() string instead of an int.
+	 * @param      ?string       $path The path on the server the cookie will be available on.
+	 * @param      ?string       $domain The domain the cookie is available on.
+	 * @param      ?bool         $secure Indicates that the cookie should only be transmitted
+	 *                           over a secure HTTPS connection.
+	 * @param      ?bool         $httponly Whether the cookie will be made accessible only through
+	 *                           the HTTP protocol, and not to client-side scripts.
+	 * @param      mixed         $encodeCallback Callback to encode the cookie value. Set to false
+	 *                           if you did already encode the value on your own.
+	 * @param      ?string       $samesite The SameSite attribute for the cookie.
+	 * @return     void
+	 */
 	public function setCookie($name, $value, $lifetime = null, $path = null, $domain = null, $secure = null, $httponly = null, $encodeCallback = null, $samesite = null)
 	{
 		$lifetime ??= $this->getParameter('cookie_lifetime');
@@ -873,6 +921,7 @@ class WebResponse extends Response
 	 *                    over a secure HTTPS connection.
 	 * @param      bool $httponly Whether the cookie will be made accessible only through
 	 *                    the HTTP protocol, and not to client-side scripts.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function unsetCookie($name, $path = null, $domain = null, $secure = null, $httponly = null)
@@ -885,7 +934,7 @@ class WebResponse extends Response
 	/**
 	 * Get a cookie set for later sending.
 	 * @param      string $name The name of the cookie.
-	 * @return     ?array An associative array containing the cookie data or null
+	 * @return     ?array<string, mixed> An associative array containing the cookie data or null
 	 *                   if no cookie with that name has been set.
 	 * @since      1.0.0
 	 */
@@ -916,6 +965,7 @@ class WebResponse extends Response
 	 * wish to remove an existing cookie, use the setCookie method and supply null
 	 * as the value.
 	 * @param      string $name The name of the cookie.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function removeCookie($name)
@@ -927,7 +977,7 @@ class WebResponse extends Response
 
 	/**
 	 * Get a list of cookies set for later sending.
-	 * @return     array An associative array of cookie names (key) and cookie
+	 * @return     array<string, array<string, mixed>> An associative array of cookie names (key) and cookie
 	 *                   information (value, associative array).
 	 * @since      1.0.0
 	 */
@@ -958,6 +1008,7 @@ class WebResponse extends Response
 
 	/**
 	 * Clears the HTTP headers set for this response.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function clearHttpHeaders()
@@ -967,6 +1018,7 @@ class WebResponse extends Response
 
 	/**
 	 * Sends HTTP Status code, headers and cookies
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function sendHttpResponseHeaders(?OutputType $outputType = null)
@@ -1035,6 +1087,8 @@ class WebResponse extends Response
 	/**
 	 * Redirect externally.
 	 * @param      mixed $location Where to redirect.
+	 * @param      int|string $code A numeric HTTP status code.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setRedirect($location, $code = 302)
@@ -1049,7 +1103,7 @@ class WebResponse extends Response
 
 	/**
 	 * Get info about the set redirect.
-	 * @return     ?array An assoc array of redirect info, or null if none set.
+	 * @return     ?array{location: mixed, code: int|string} An assoc array of redirect info, or null if none set.
 	 * @since      1.0.0
 	 */
 	public function getRedirect()
@@ -1069,6 +1123,7 @@ class WebResponse extends Response
 
 	/**
 	 * Clear any set redirect information.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function clearRedirect()

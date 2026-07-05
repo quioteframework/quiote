@@ -20,7 +20,7 @@ abstract class OperatorValidator extends Validator implements IValidatorContaine
 	}
 
 	/**
-	 * @var        array The child validators.
+	 * @var        array<string, Validator> The child validators.
 	 */
 	protected $children = [];
 
@@ -38,14 +38,16 @@ abstract class OperatorValidator extends Validator implements IValidatorContaine
 	 * should throw an exception if the setup is invalid.
 	 * @throws     \Quiote\Exception\ValidatorException If the  quantity of child
 	 *                                           validators is invalid
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function checkValidSetup()
 	{
 	}
-	
+
 	/**
 	 * Shutdown method, for shutting down the model etc.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function shutdown()
@@ -61,6 +63,7 @@ abstract class OperatorValidator extends Validator implements IValidatorContaine
      * @param      Validator $validator The validator.
      * @param      string $fieldname The name of the field which has been validated.
      * @param      int $result The result of the validation.
+     * @return     mixed
      * @since      1.0.0
      */
     #[\Deprecated(message: '1.0.0')]
@@ -80,30 +83,35 @@ abstract class OperatorValidator extends Validator implements IValidatorContaine
 	 * @param      int $result The arguments result.
 	 * @param      Validator $validator The validator (if the error was caused
 	 *                                     inside a validator).
+	 * @return     null
 	 * @since      1.0.0
 	 */
 	public function addArgumentResult(ValidationArgument $argument, $result, $validator = null)
 	{
 		if($this->parentContainer !== null) {
-			return $this->parentContainer->addArgumentResult($argument, $result, $validator);
+			$this->parentContainer->addArgumentResult($argument, $result, $validator);
 		}
+		return null;
 	}
 
 	/**
 	 * Adds an incident to the validation result. 
 	 * @param      ValidationIncident $incident The incident.
+	 * @return     null
 	 * @since      1.0.0
 	 */
 	public function addIncident(ValidationIncident $incident)
 	{
 		if($this->parentContainer !== null) {
-			return $this->parentContainer->addIncident($incident);
+			$this->parentContainer->addIncident($incident);
 		}
+		return null;
 	}
 
 	/**
 	 * Adds new child validator.
 	 * @param      Validator $validator The new child validator.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function addChild(Validator $validator)
@@ -120,6 +128,7 @@ abstract class OperatorValidator extends Validator implements IValidatorContaine
 	/**
 	 * Returns a named child validator.
 	 * @param      string $name The name of the child validator.
+	 * @return     Validator The named child validator.
 	 * @since      1.0.0
 	 */
 	public function getChild($name)
@@ -133,7 +142,7 @@ abstract class OperatorValidator extends Validator implements IValidatorContaine
 
 	/**
 	 * Returns all child validators.
-	 * @return     array An array of Validator instances.
+	 * @return     array<string, Validator> An array of Validator instances.
 	 * @since      1.0.0
 	 */
 	public function getChilds()
@@ -143,7 +152,8 @@ abstract class OperatorValidator extends Validator implements IValidatorContaine
 
 	/**
 	 * Registers an array of validators.
-	 * @param      array $validators The array of validators.
+	 * @param      array<Validator> $validators The array of validators.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function registerValidators(array $validators)

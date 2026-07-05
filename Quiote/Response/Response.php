@@ -12,8 +12,19 @@ use Symfony\Contracts\Service\ResetInterface;
 abstract class Response extends AttributeHolder implements ResetInterface
 {
 
+	/**
+	 * @var        ?string
+	 */
 	protected final $contextName;
+
+	/**
+	 * @var        ?string
+	 */
 	protected final $outputTypeName;
+
+	/**
+	 * @var        ?array<string, mixed>
+	 */
 	protected final $contentStreamMeta;
 
 	/**
@@ -93,7 +104,8 @@ abstract class Response extends AttributeHolder implements ResetInterface
 	/**
 	 * Initialize this Response.
 	 * @param      Context $context An Context instance.
-	 * @param      array $parameters An array of initialization parameters.
+	 * @param      array<string, mixed> $parameters An array of initialization parameters.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function initialize(Context $context, array $parameters = [])
@@ -115,6 +127,7 @@ abstract class Response extends AttributeHolder implements ResetInterface
 	/**
 	 * Set the Output Type to use with this response.
 	 * @param      OutputType $outputType The Output Type instance to associate with.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setOutputType(OutputType $outputType)
@@ -124,6 +137,7 @@ abstract class Response extends AttributeHolder implements ResetInterface
 	
 	/**
 	 * Clear the Output Type to use with this response.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function clearOutputType()
@@ -172,6 +186,7 @@ abstract class Response extends AttributeHolder implements ResetInterface
 	/**
 	 * Set the content for this Response.
 	 * @param      mixed $content The content to be sent in this Response.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setContent($content)
@@ -182,6 +197,7 @@ abstract class Response extends AttributeHolder implements ResetInterface
 	/**
 	 * Prepend content to the existing content for this Response.
 	 * @param      mixed $content The content to be prepended to this Response.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function prependContent($content)
@@ -192,6 +208,7 @@ abstract class Response extends AttributeHolder implements ResetInterface
 	/**
 	 * Append content to the existing content for this Response.
 	 * @param      mixed $content The content to be appended to this Response.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function appendContent($content)
@@ -201,6 +218,7 @@ abstract class Response extends AttributeHolder implements ResetInterface
 	
 	/**
 	 * Clear the content for this Response
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function clearContent()
@@ -211,13 +229,14 @@ abstract class Response extends AttributeHolder implements ResetInterface
 	/**
 	 * Redirect externally.
 	 * @param      mixed $to Where to redirect.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	abstract public function setRedirect($to);
 
 	/**
 	 * Get info about the set redirect.
-	 * @return     ?array An assoc array of redirect info, or null if none set.
+	 * @return     ?array<string, mixed> An assoc array of redirect info, or null if none set.
 	 * @since      1.0.0
 	 */
 	abstract public function getRedirect();
@@ -231,6 +250,7 @@ abstract class Response extends AttributeHolder implements ResetInterface
 
 	/**
 	 * Clear any set redirect information.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	abstract public function clearRedirect();
@@ -238,6 +258,7 @@ abstract class Response extends AttributeHolder implements ResetInterface
 	/**
 	 * Import response metadata from another response.
 	 * @param      Response $otherResponse The other response to import information from.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function merge(Response $otherResponse)
@@ -258,14 +279,16 @@ abstract class Response extends AttributeHolder implements ResetInterface
 	
 	/**
 	 * Clear all data for this Response.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	abstract public function clear();
-	
+
 	/**
 	 * Send all response data to the client.
 	 * @param      OutputType $outputType An optional Output Type object with information
 	 *                             the response can use to send additional data.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	abstract public function send(?OutputType $outputType = null);
@@ -284,6 +307,7 @@ abstract class Response extends AttributeHolder implements ResetInterface
 	
 	/**
 	 * Send the content for this response
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function sendContent()

@@ -6,6 +6,10 @@ namespace Quiote\Execution;
  */
 final class ExecutionState
 {
+    /**
+     * @param array<string, mixed> $actionAttributes
+     * @param ?array<string, mixed> $metrics
+     */
     public function __construct(
     // Removed legacy validation booleans; rely solely on ValidationDecision.
         public ?string $viewModule = null,

@@ -29,7 +29,7 @@ abstract class Action implements ResetInterface
 
 	/**
 	 * Retrieve the current application context.
-	 * @return     Context The current Context instance.
+	 * @return     ?Context The current Context instance.
 	 * @since      1.0.0
 	 */
 	public final function getContext()
@@ -39,6 +39,7 @@ abstract class Action implements ResetInterface
 
 	/**
      * Backward compatible accessor (legacy name) for the init context.
+     * @return ?ActionInitContext
      */
     #[\Deprecated(message: 'Will be removed once all userland code migrates to getInitContext().')]
     public final function getContainer()
@@ -82,6 +83,7 @@ abstract class Action implements ResetInterface
 
 	/**
 	 * Initialize this action with a lightweight initialization context.
+	 * @return void
 	 */
 	public function initialize(ActionInitContext $context)
 	{
@@ -142,6 +144,7 @@ abstract class Action implements ResetInterface
 	 * via Quiote\Validator\Compiler\Runtime\ValidatorBuilder without a
 	 * generated file at all -- call parent::registerValidators() first if
 	 * you still want the file-based ones loaded too.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function registerValidators()
@@ -194,6 +197,7 @@ abstract class Action implements ResetInterface
 
 	/**
 	 * @see        AttributeHolder::clearAttributes()
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function clearAttributes()
@@ -205,6 +209,9 @@ abstract class Action implements ResetInterface
 
 	/**
 	 * @see        AttributeHolder::getAttribute()
+	 * @param      string $name An attribute name.
+	 * @param      mixed  $default A default attribute value.
+	 * @return     mixed
 	 * @since      1.0.0
 	 */
 	public function &getAttribute($name, $default = null)
@@ -217,6 +224,7 @@ abstract class Action implements ResetInterface
 
 	/**
 	 * @see        AttributeHolder::getAttributeNames()
+	 * @return     array<int, int|string>|null
 	 * @since      1.0.0
 	 */
 	public function getAttributeNames()
@@ -229,6 +237,7 @@ abstract class Action implements ResetInterface
 
 	/**
 	 * @see        AttributeHolder::getAttributes()
+	 * @return     array<int|string, mixed>
 	 * @since      1.0.0
 	 */
 	public function &getAttributes()
@@ -242,6 +251,8 @@ abstract class Action implements ResetInterface
 
 	/**
 	 * @see        AttributeHolder::hasAttribute()
+	 * @param      string $name An attribute name.
+	 * @return     bool
 	 * @since      1.0.0
 	 */
 	public function hasAttribute($name)
@@ -254,6 +265,8 @@ abstract class Action implements ResetInterface
 
 	/**
 	 * @see        AttributeHolder::removeAttribute()
+	 * @param      string $name An attribute name.
+	 * @return     mixed
 	 * @since      1.0.0
 	 */
 	public function &removeAttribute($name)
@@ -266,6 +279,9 @@ abstract class Action implements ResetInterface
 
 	/**
 	 * @see        AttributeHolder::setAttribute()
+	 * @param      string $name An attribute name.
+	 * @param      mixed  $value An attribute value.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setAttribute($name, $value)
@@ -277,6 +293,9 @@ abstract class Action implements ResetInterface
 
 	/**
 	 * @see        AttributeHolder::appendAttribute()
+	 * @param      string $name An attribute name.
+	 * @param      mixed  $value An attribute value.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function appendAttribute($name, $value)
@@ -288,6 +307,9 @@ abstract class Action implements ResetInterface
 
 	/**
 	 * @see        AttributeHolder::setAttributeByRef()
+	 * @param      string $name An attribute name.
+	 * @param      mixed  $value A reference to an attribute value.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setAttributeByRef($name, &$value)
@@ -299,6 +321,9 @@ abstract class Action implements ResetInterface
 
 	/**
 	 * @see        AttributeHolder::appendAttributeByRef()
+	 * @param      string $name An attribute name.
+	 * @param      mixed  $value A reference to an attribute value.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function appendAttributeByRef($name, &$value)
@@ -310,6 +335,8 @@ abstract class Action implements ResetInterface
 
 	/**
 	 * @see        AttributeHolder::setAttributes()
+	 * @param      array<int|string, mixed> $attributes
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setAttributes(array $attributes)
@@ -321,6 +348,8 @@ abstract class Action implements ResetInterface
 
 	/**
 	 * @see        AttributeHolder::setAttributesByRef()
+	 * @param      array<int|string, mixed> $attributes
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setAttributesByRef(array &$attributes)

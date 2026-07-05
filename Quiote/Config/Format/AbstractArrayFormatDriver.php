@@ -41,13 +41,16 @@ abstract class AbstractArrayFormatDriver implements FormatDriverInterface
 	}
 
 	/**
-	 * @return array The raw, un-expanded array as read from $path (e.g.
+	 * @return array<string, mixed> The raw, un-expanded array as read from $path (e.g.
 	 *               the value `require`d from a PHP file, or the parsed
 	 *               YAML document). May contain 'parent' and/or 'imports'
 	 *               keys, which load() strips before returning.
 	 */
 	abstract protected function parse(string $path): array;
 
+	/**
+	 * @return array<string, mixed>
+	 */
 	public function load(string $path, string $environment, ?string $context = null): array
 	{
 		$raw = $this->parse($path);
@@ -72,6 +75,9 @@ abstract class AbstractArrayFormatDriver implements FormatDriverInterface
 		return $this->merger->merge($parentData, $own);
 	}
 
+	/**
+	 * @return array<string, mixed>
+	 */
 	private function loadReference(string $reference, string $fromPath, string $environment, ?string $context): array
 	{
 		$registry = $this->registry ?? throw new LogicException(

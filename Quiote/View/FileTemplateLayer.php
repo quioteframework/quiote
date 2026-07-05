@@ -15,7 +15,7 @@ class FileTemplateLayer extends StreamTemplateLayer
 {
 	/**
 	 * Constructor.
-	 * @param      array $parameters Initial parameters.
+	 * @param      array<string, mixed> $parameters Initial parameters.
 	 * @since      1.0.0
 	 */
 	public function __construct(array $parameters = [])
@@ -39,7 +39,8 @@ class FileTemplateLayer extends StreamTemplateLayer
 	 * Initialize the layer.
 	 * Will try and figure out an alternative default for "directory".
 	 * @param      Context $context The current Context instance.
-	 * @param      array $parameters An array of initialization parameters.
+	 * @param      array<string, mixed> $parameters An array of initialization parameters.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	#[\Override]

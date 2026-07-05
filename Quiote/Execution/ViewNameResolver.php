@@ -32,7 +32,7 @@ final class ViewNameResolver
                 [ 'actionName' => $actionName, 'viewName' => $rawViewName ]
             );
             // Fallback to raw input when directive evaluation yields empty (sandbox modules may not define directive)
-            $raw = ($evaluated === '' || $evaluated === null) ? $rawViewName : $evaluated;
+            $raw = ($evaluated === '') ? $rawViewName : $evaluated;
             $viewModule = $actionModule;
         } else {
             $viewModule = View::NONE;

@@ -22,7 +22,9 @@ final class ArrayMergeStrategy
 	 * arrays present on both sides are merged recursively so a child
 	 * config can override a single nested key without having to repeat
 	 * its siblings.
-	 * @return array The merged result. Neither input is mutated.
+	 * @param array<int|string, mixed> $base
+	 * @param array<int|string, mixed> $override
+	 * @return array<int|string, mixed> The merged result. Neither input is mutated.
 	 */
 	public function merge(array $base, array $override): array
 	{
@@ -43,6 +45,7 @@ final class ArrayMergeStrategy
 	 * a length-dependent Frankenstein array), whereas replacing the whole
 	 * list is predictable and matches how XML `parent` overrides already
 	 * behave for repeated sibling elements.
+	 * @param array<int|string, mixed> $value
 	 */
 	private function isAssociative(array $value): bool
 	{

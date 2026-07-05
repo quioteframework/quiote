@@ -27,10 +27,10 @@ abstract class ConfigHandler extends BaseConfigHandler implements ILegacyConfigH
 	/**
 	 * Retrieve the parameter node values of the given item's parameters element.
 	 * @param      ConfigValueHolder $itemNode The node that contains a parameters child.
-	 * @param      array             $oldValues An associative array of parameters that will
+	 * @param      array<int|string, mixed> $oldValues An associative array of parameters that will
 	 *                               be overwritten if appropriate.
 	 * @param      boolean           $literalize Whether or not values should be literalized.
-	 * @return     array An associative array of parameters
+	 * @return     array<int|string, mixed> An associative array of parameters
 	 * @since      1.0.0
 	 */
 	protected function getItemParameters($itemNode, $oldValues = [], $literalize = true)
@@ -66,7 +66,8 @@ abstract class ConfigHandler extends BaseConfigHandler implements ILegacyConfigH
 	 * Initialize this ConfigHandler.
 	 * @param      ?string $validationFile The path to a validation file for this config handler.
 	 * @param      ?string $parser The parser class to use.
-	 * @param      array $parameters An associative array of initialization parameters.
+	 * @param      array<string, mixed> $parameters An associative array of initialization parameters.
+	 * @return     void
 	 * @throws     \Quiote\Exception\InitializationException If an error occurs while
 	 *                                                 initializing the
 	 *                                                 ConfigHandler
@@ -94,6 +95,7 @@ abstract class ConfigHandler extends BaseConfigHandler implements ILegacyConfigH
 	 * the given subject. This is for "environment" and "context" attributes of
 	 * configuration blocks in the files.
 	 * @param      string $pattern A regular expression chunk without delimiters/anchors.
+	 * @param      string $subject The subject string to test the pattern against.
 	 * @return     bool Whether or not the subject matched the pattern.
 	 * @see        XmlConfigParser::testPattern()
 	 * @since      1.0.0
@@ -111,7 +113,7 @@ abstract class ConfigHandler extends BaseConfigHandler implements ILegacyConfigH
 	 * @param      ?string                $context A context name.
 	 * @param      bool                   $autoloadParser Whether the parser class should be
 	 *                                    autoloaded or not.
-	 * @return     array An array of ConfigValueHolder configuration elements.
+	 * @return     array<int, ConfigValueHolder> An array of ConfigValueHolder configuration elements.
 	 * @since      1.0.0
 	 */
 	public function orderConfigurations(ConfigValueHolder $configurations, $environment = null, $context = null, $autoloadParser = true)

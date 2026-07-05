@@ -1,6 +1,8 @@
 <?php
 namespace Quiote\Testing;
 
+use Quiote\Context;
+
 /**
  * IFragmentTestCase is the interface that all fragment tests must implement
  * @since      1.0.0
@@ -8,6 +10,9 @@ namespace Quiote\Testing;
  */
 interface IFragmentTestCase extends ITestCase
 {
+	/**
+	 * @return Context
+	 */
 	public function getContext();
 }
 

@@ -2,6 +2,7 @@
 namespace Quiote\Config;
 
 use Quiote\Config\Util\DOM\XmlConfigDomDocument;
+use Quiote\Config\Util\DOM\XmlConfigDomElement;
 
 /**
  * RbacDefinitionConfigHandler handles RBAC role and permission definition
@@ -34,6 +35,9 @@ class RbacDefinitionConfigHandler extends XmlConfigHandler implements IArrayConf
 		return $this->executeArray($this->toCanonicalArray($document), $document->documentURI);
 	}
 
+	/**
+	 * @return array<string, array{parent: ?string, permissions: array<int, mixed>}>
+	 */
 	public function toCanonicalArray(XmlConfigDomDocument $document): array
 	{
 		// set up our default namespace
@@ -52,6 +56,9 @@ class RbacDefinitionConfigHandler extends XmlConfigHandler implements IArrayConf
 		return $data;
 	}
 
+	/**
+	 * @param array<string, array{parent: ?string, permissions: array<int, mixed>}> $config
+	 */
 	public function executeArray(array $config, ?string $sourceRef = null): string
 	{
 		$code = "return " . var_export($config, true) . ";";
@@ -62,12 +69,16 @@ class RbacDefinitionConfigHandler extends XmlConfigHandler implements IArrayConf
 	 * Parse a 'roles' node.
 	 * @param      mixed  $roles The "roles" node (element or node list)
 	 * @param      ?string $parent The name of the parent role, or null.
-	 * @param      array  $data A reference to the output data array.
+	 * @param      array<string, array{parent: ?string, permissions: array<int, mixed>}>  $data A reference to the output data array.
+	 * @return     void
 	 * @since      1.0.0
 	 */
-	protected function parseRoles($roles, $parent, &$data)
+	protected function parseRoles($roles, $parent, &$data): void
 	{
 		foreach ($roles as $role) {
+			// registerNodeClass() guarantees element nodes are always
+			// XmlConfigDomElement, never a vanilla DOMNode.
+			/** @var XmlConfigDomElement $role */
 			$name = $role->getAttribute('name');
 			$entry = [];
 			$entry['parent'] = $parent;

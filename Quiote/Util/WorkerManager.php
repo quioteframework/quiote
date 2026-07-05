@@ -21,7 +21,7 @@ class WorkerManager
     private static $requestCount = 0;
     
     /**
-     * @var array Configuration for worker reset behavior
+     * @var array<string, mixed> Configuration for worker reset behavior
      */
     private static $config = [
     // Removed: route cache + trie preservation (legacy stack removed)
@@ -61,7 +61,7 @@ class WorkerManager
     ];
     
     /**
-     * @var array Worker statistics
+     * @var array<string, mixed> Worker statistics
      */
     private static $statistics = [
         'reset_count' => 0,
@@ -82,9 +82,10 @@ class WorkerManager
     
     /**
      * Reset all framework state for the next request in worker mode
-     * @param string|array|null $contextProfile Context profile to reset (null for all).
+     * @param string|array<string, mixed>|null $contextProfile Context profile to reset (null for all).
      *        For backwards compatibility, an options array may be passed here instead.
-     * @param array $options Override default reset options
+     * @param array<string, mixed> $options Override default reset options
+     * @return void
      */
     public static function resetForNextRequest($contextProfile = null, array $options = [])
     {
@@ -153,6 +154,7 @@ class WorkerManager
     
     /**
      * Perform deep cleanup periodically to prevent memory leaks
+     * @return void
      */
     private static function performDeepCleanup()
     {
@@ -171,7 +173,8 @@ class WorkerManager
     
     /**
      * Configure worker behavior
-     * @param array $config Configuration options
+     * @param array<string, mixed> $config Configuration options
+     * @return void
      */
     public static function configure(array $config)
     {
@@ -189,7 +192,7 @@ class WorkerManager
     
     /**
      * Initialize the worker manager with configuration options
-     * @param array $options Configuration options
+     * @param array<string, mixed> $options Configuration options
      */
     public static function initialize(array $options = []): void
     {
@@ -210,7 +213,7 @@ class WorkerManager
     
     /**
      * Get worker statistics
-     * @return array Worker statistics
+     * @return array<string, mixed> Worker statistics
      */
     public static function getStatistics(): array
     {
@@ -243,7 +246,7 @@ class WorkerManager
     /**
      * Create a FrankenPHP worker script template
      * @param string $bootstrapFile Path to your application's bootstrap file
-     * @param array $options Worker configuration options
+     * @param array<string, mixed> $options Worker configuration options
      * @return string Worker script content
      */
     public static function createWorkerScript($bootstrapFile, array $options = [])
@@ -305,8 +308,9 @@ if (isset($context)) {
     /**
      * This method should be called to reset any long-lived objects that might
      * hold request-specific state between FrankenPHP worker requests.
-     * @param array $objects Array of objects to reset
+     * @param array<int|string, mixed> $objects Array of objects to reset
      * @param bool $skipErrors Whether to continue if reset fails for some objects
+     * @return void
      */
     public static function resetObjects(array $objects, bool $skipErrors = true)
     {
@@ -344,6 +348,7 @@ if (isset($context)) {
     /**
      * Helper method for database connection management in worker mode
      * @param string $strategy Connection management strategy: 'keep' (default), 'close', or 'reset'
+     * @return void
      */
     public static function manageDatabaseConnections(string $strategy = 'keep')
     {

@@ -33,6 +33,9 @@ class TranslationConfigHandler extends XmlConfigHandler implements IArrayConfigH
 		return $this->executeArray($this->toCanonicalArray($document), $document->documentURI);
 	}
 
+	/**
+	 * @return array<string, mixed>
+	 */
 	public function toCanonicalArray(XmlConfigDomDocument $document): array
 	{
 		// set up our default namespace
@@ -79,6 +82,9 @@ class TranslationConfigHandler extends XmlConfigHandler implements IArrayConfigH
 		];
 	}
 
+	/**
+	 * @param array<string, mixed> $config
+	 */
 	public function executeArray(array $config, ?string $sourceRef = null): string
 	{
 		$defaultDomain = $config['default_domain'] ?? '';
@@ -119,8 +125,8 @@ class TranslationConfigHandler extends XmlConfigHandler implements IArrayConfigH
 
 	/**
 	 * Builds a list of filters for a translator.
-	 * @param      \Quiote\Config\Util\DOM\XmlConfigDomElement $translator The Translator node.
-	 * @return     array An array of filter definitions.
+	 * @param      \Quiote\Config\Util\DOM\XmlConfigDomElement<int, \Quiote\Config\Util\DOM\XmlConfigDomElement> $translator The Translator node.
+	 * @return     array<int, string|array<int, string>> An array of filter definitions.
 	 * @since      1.0.0
 	 */
 	protected function getFilters($translator)
@@ -130,7 +136,7 @@ class TranslationConfigHandler extends XmlConfigHandler implements IArrayConfigH
 			// get() only ever selects element nodes, and registerNodeClass()
 			// guarantees those are always XmlConfigDomElement, never a vanilla DOMNode.
 			foreach ($translator->get('filters') as $filter) {
-				/** @var \Quiote\Config\Util\DOM\XmlConfigDomElement $filter */
+				/** @var \Quiote\Config\Util\DOM\XmlConfigDomElement<int, \Quiote\Config\Util\DOM\XmlConfigDomElement> $filter */
 				$func = explode('::', (string) $filter->getValue());
 				if (count($func) != 2) {
 					$func = $func[0];
@@ -146,9 +152,10 @@ class TranslationConfigHandler extends XmlConfigHandler implements IArrayConfigH
 
 	/**
 	 * Build a list of translators.
-	 * @param      \Quiote\Config\Util\DOM\XmlConfigDomElement $translators The translators container.
-	 * @param      array                  $data The destination data array.
+	 * @param      iterable<int, \Quiote\Config\Util\DOM\XmlConfigDomElement<int, \Quiote\Config\Util\DOM\XmlConfigDomElement>> $translators The translators container.
+	 * @param      array<string, mixed>   $data The destination data array.
 	 * @param      ?string                $parent The name of the parent domain.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function getTranslators($translators, &$data, $parent = null)
@@ -192,7 +199,11 @@ class TranslationConfigHandler extends XmlConfigHandler implements IArrayConfigH
 			}
 
 			if ($translator->has('translators')) {
-				$this->getTranslators($translator->get('translators'), $data, $domain);
+				// get() only ever selects element nodes, and registerNodeClass()
+				// guarantees those are always XmlConfigDomElement, never a vanilla DOMNode.
+				/** @var iterable<int, \Quiote\Config\Util\DOM\XmlConfigDomElement<int, \Quiote\Config\Util\DOM\XmlConfigDomElement>> $childTranslators */
+				$childTranslators = $translator->get('translators');
+				$this->getTranslators($childTranslators, $data, $domain);
 			}
 		}
 	}

@@ -9,6 +9,9 @@ use Quiote\Context;
  * and postfixes
  * @since      1.0.0
  * @version    1.0.0
+ * @template TKey
+ * @template TValue
+ * @extends \ArrayAccess<TKey, TValue>
  */
 interface IRoutingValue extends \ArrayAccess
 {
@@ -38,7 +41,8 @@ interface IRoutingValue extends \ArrayAccess
 	/**
 	 * Initialize the routing value.
 	 * @param      Context $context The Context.
-	 * @param      array        $parameters An array of initialization parameters.
+	 * @param      array<mixed> $parameters An array of initialization parameters.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function initialize(Context $context, array $parameters = []);
@@ -46,6 +50,7 @@ interface IRoutingValue extends \ArrayAccess
 	/**
 	 * Set the value.
 	 * @param      mixed $value The value.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setValue($value);
@@ -60,6 +65,7 @@ interface IRoutingValue extends \ArrayAccess
 	/**
 	 * Set the prefix.
 	 * @param      string $value The prefix.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setPrefix($value);
@@ -81,6 +87,7 @@ interface IRoutingValue extends \ArrayAccess
 	/**
 	 * Set the postfix.
 	 * @param      string $value The postfix.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setPostfix($value);
@@ -102,6 +109,7 @@ interface IRoutingValue extends \ArrayAccess
 	/**
 	 * Set whether or not the value needs to be encoded.
 	 * @param      bool $needsEncoding True, if the postfix needs encoding, false otherwise.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setValueNeedsEncoding($needsEncoding);
@@ -116,6 +124,7 @@ interface IRoutingValue extends \ArrayAccess
 	/**
 	 * Set whether or not the prefix needs to be encoded.
 	 * @param      bool $needsEncoding True, if the prefix needs encoding, false otherwise.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setPrefixNeedsEncoding($needsEncoding);
@@ -130,6 +139,7 @@ interface IRoutingValue extends \ArrayAccess
 	/**
 	 * Set whether or not the postfix needs to be encoded.
 	 * @param      bool $needsEncoding True, if the postfix needs encoding, false otherwise.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setPostfixNeedsEncoding($needsEncoding);

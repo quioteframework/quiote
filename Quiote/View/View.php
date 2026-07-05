@@ -32,7 +32,7 @@ abstract class View implements ResetInterface
 	protected $initContext = null;
 
 	/**
-	 * @var array|null Mutable attribute store for this view. Populated from
+	 * @var array<int|string, mixed>|null Mutable attribute store for this view. Populated from
 	 *                action attribute snapshot (ImmutableViewInitContext) or
 	 *                from an attribute holder. Ensures view-set attributes
 	 *                are visible to the renderer via getAttributes().
@@ -45,7 +45,7 @@ abstract class View implements ResetInterface
 	protected $context = null;
 
 	/**
-	 * @var        array An array of defined layers.
+	 * @var        array<int, TemplateLayer> An array of defined layers.
 	 */
 	protected $layers = [];
 
@@ -77,8 +77,7 @@ abstract class View implements ResetInterface
 			$logger->debug('[View] renderLayers count=' . count($this->layers) . ' view=' . static::class);
 		}
 		foreach ($this->layers as $layer) {
-			$attrsSnapshot = $this->getAttributes();
-			$attrsForLayer = is_array($attrsSnapshot) ? $attrsSnapshot : (array)$attrsSnapshot;
+			$attrsForLayer = $this->getAttributes();
 			$attrsForLayer['inner'] = $out;
 			$out = (string)$layer->execute(null, $attrsForLayer); // exceptions bubble naturally now
 			if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
@@ -100,6 +99,9 @@ abstract class View implements ResetInterface
 
 	/**
      * Backward compatibility accessor for legacy getContainer() usage.
+     */
+    /**
+     * @return ActionInitContext|ViewInitContext|null
      */
     #[\Deprecated(message: 'Use getInitContext().')]
     public final function getContainer()
@@ -178,6 +180,7 @@ abstract class View implements ResetInterface
 	/**
 	 * Initialize this view.
 	 * @param      ActionInitContext|ViewInitContext $context Initialization context.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function initialize(ActionInitContext|ViewInitContext $context)
@@ -347,6 +350,7 @@ abstract class View implements ResetInterface
 	/**
 	 * Remove a layer from the list.
 	 * @param      TemplateLayer $layer The layer to remove.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function removeLayer(TemplateLayer $layer)
@@ -359,6 +363,7 @@ abstract class View implements ResetInterface
 
 	/**
 	 * Remove all layers from the list.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function clearLayers()
@@ -384,7 +389,7 @@ abstract class View implements ResetInterface
 
 	/**
 	 * Get all layers from the list.
-	 * @return     array An array of template layer instances.
+	 * @return     array<int, TemplateLayer> An array of template layer instances.
 	 * @since      1.0.0
 	 */
 	public function getLayers()
@@ -396,7 +401,7 @@ abstract class View implements ResetInterface
 	 * Load a pre-configured layout.
 	 * If no layout name is given, the default layout will be used.
 	 * @param      string $layoutName The (optional) name of the layout.
-	 * @return     array An array of parameters set for the layout.
+	 * @return     array<string, mixed> An array of parameters set for the layout.
 	 * @throws     \Exception If the layout doesn't exist.
 	 * @since      1.0.0
 	 */
@@ -444,6 +449,7 @@ abstract class View implements ResetInterface
 	 * Convenience helper: directly render a slot and return its string content.
 	 * This bypasses legacy container creation and uses the SlotDispatcher fast path.
 	 * Arguments is array
+	 * @param ?array<string, mixed> $arguments
 	 */
 	public function renderSlot(string $moduleName, string $actionName, ?array $arguments = null, ?string $outputType = null): string
 	{
@@ -454,6 +460,8 @@ abstract class View implements ResetInterface
 
 	/**
 	 * New API returning SlotContent value object explicitly, bypassing container wrapper regardless of flag.
+	 * @param mixed $arguments
+	 * @param ?string $outputType
 	 */
 	public function createSlotContent(string $moduleName, string $actionName, $arguments = null, $outputType = null): \Quiote\Execution\SlotRenderable
 	{
@@ -567,6 +575,7 @@ abstract class View implements ResetInterface
 
 	/**
 	 * @see        AttributeHolder::setAttributesByRef()
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function clearAttributes()
@@ -578,6 +587,9 @@ abstract class View implements ResetInterface
 
 	/**
 	 * @see        AttributeHolder::setAttributesByRef()
+	 * @param      string $name An attribute name.
+	 * @param      mixed  $default A default attribute value.
+	 * @return     mixed
 	 * @since      1.0.0
 	 */
 	public function &getAttribute($name, $default = null)
@@ -591,6 +603,7 @@ abstract class View implements ResetInterface
 
 	/**
 	 * @see        AttributeHolder::setAttributesByRef()
+	 * @return     array<int, int|string>|null
 	 * @since      1.0.0
 	 */
 	public function getAttributeNames()
@@ -603,6 +616,7 @@ abstract class View implements ResetInterface
 
 	/**
 	 * @see        AttributeHolder::setAttributesByRef()
+	 * @return     array<int|string, mixed>
 	 * @since      1.0.0
 	 */
 	public function &getAttributes()
@@ -621,6 +635,8 @@ abstract class View implements ResetInterface
 
 	/**
 	 * @see        AttributeHolder::setAttributesByRef()
+	 * @param      string $name An attribute name.
+	 * @return     bool
 	 * @since      1.0.0
 	 */
 	public function hasAttribute($name)
@@ -633,6 +649,8 @@ abstract class View implements ResetInterface
 
 	/**
 	 * @see        AttributeHolder::setAttributesByRef()
+	 * @param      string $name An attribute name.
+	 * @return     mixed
 	 * @since      1.0.0
 	 */
 	public function &removeAttribute($name)
@@ -646,6 +664,9 @@ abstract class View implements ResetInterface
 
 	/**
 	 * @see        AttributeHolder::setAttributesByRef()
+	 * @param      string $name An attribute name.
+	 * @param      mixed  $value An attribute value.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setAttribute($name, $value)
@@ -668,6 +689,9 @@ abstract class View implements ResetInterface
 
 	/**
 	 * @see        AttributeHolder::setAttributesByRef()
+	 * @param      string $name An attribute name.
+	 * @param      mixed  $value An attribute value.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function appendAttribute($name, $value)
@@ -683,6 +707,9 @@ abstract class View implements ResetInterface
 
 	/**
 	 * @see        AttributeHolder::setAttributesByRef()
+	 * @param      string $name An attribute name.
+	 * @param      mixed  $value A reference to an attribute value.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setAttributeByRef($name, &$value)
@@ -698,6 +725,9 @@ abstract class View implements ResetInterface
 
 	/**
 	 * @see        AttributeHolder::setAttributesByRef()
+	 * @param      string $name An attribute name.
+	 * @param      mixed  $value A reference to an attribute value.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function appendAttributeByRef($name, &$value)
@@ -713,6 +743,8 @@ abstract class View implements ResetInterface
 
 	/**
 	 * @see        AttributeHolder::setAttributesByRef()
+	 * @param      array<int|string, mixed> $attributes
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setAttributes(array $attributes)
@@ -728,6 +760,8 @@ abstract class View implements ResetInterface
 
 	/**
 	 * @see        AttributeHolder::setAttributesByRef()
+	 * @param      array<int|string, mixed> $attributes
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setAttributesByRef(array &$attributes)

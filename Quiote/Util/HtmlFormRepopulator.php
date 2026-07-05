@@ -9,6 +9,10 @@ use Quiote\Validator\ValidationReport;
  */
 final class HtmlFormRepopulator
 {
+    /**
+     * @param array<string, mixed> $parameters
+     * @param array<string, mixed> $config
+     */
     public static function repopulate(string $html, array $parameters, ?ValidationReport $report = null, array $config = []): string
     {
         if($html === '') { return $html; }

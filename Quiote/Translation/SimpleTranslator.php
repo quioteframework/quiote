@@ -16,12 +16,12 @@ use Symfony\Contracts\Service\ResetInterface;
 class SimpleTranslator extends BasicTranslator implements ResetInterface
 {
 	/**
-	 * @var        array The data for each domain
+	 * @var        array<string, mixed> The data for each domain
 	 */
 	protected $domainData = [];
 
 	/**
-	 * @var        array The data for the currently active locale
+	 * @var        array<string, mixed> The data for the currently active locale
 	 */
 	protected $currentData = [];
 
@@ -33,7 +33,8 @@ class SimpleTranslator extends BasicTranslator implements ResetInterface
 	/**
 	 * Initialize this Translator.
 	 * @param      Context $context The current application context.
-	 * @param      array $parameters An associative array of initialization parameters
+	 * @param      array<string, mixed> $parameters An associative array of initialization parameters
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	#[\Override]

@@ -99,6 +99,9 @@ class ContentNegotiationMiddleware implements MiddlewareInterface
         return $mime !== null ? MimeTypeRegistry::formatsForMime($mime) : [];
     }
 
+    /**
+     * @param string[] $headers
+     */
     private function negotiateHeader(string $accept, Negotiator $negotiator, array $headers): ?string
     {
         $best = $negotiator->getBest($accept, $headers);

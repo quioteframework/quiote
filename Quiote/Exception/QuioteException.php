@@ -29,7 +29,7 @@ class QuioteException extends \Exception
 	 *                       from Exception::getPrevious() and displayed in
 	 *                       reverse order), which will then result in identical
 	 *                       parts of the stack trace not being returned.
-	 * @return     array The trace containing the exception origin as first item.
+	 * @return     array<int, array<string, mixed>> The trace containing the exception origin as first item.
 	 * @since      1.0.0
 	 */
 	public static function getFixedTrace(\Throwable $e, ?\Throwable $next = null)
@@ -57,8 +57,9 @@ class QuioteException extends \Exception
 	/**
 	 * Build a list of parameters passed to a method. Example:
 	 * array([object Filter], 'baz' => array(1, 2), 'log' => [resource stream])
-	 * @param      array $params An (associative) array of variables.
+	 * @param      array<int|string, mixed> $params An (associative) array of variables.
 	 * @param      bool $html Whether or not to style and encode for HTML output.
+	 * @param      int $level The current recursion level.
 	 * @return     string A string, possibly formatted using HTML "em" tags.
 	 * @since      1.0.0
 	 */
@@ -121,7 +122,7 @@ class QuioteException extends \Exception
 	/**
 	 * Perform PHP syntax highlighting on the given file.
 	 * @param      string $filepath The path of the file to highlight.
-	 * @return     array An 0-indexed array of HTML-highlighted code lines.
+	 * @return     array<int, string> An 0-indexed array of HTML-highlighted code lines.
 	 * @since      1.0.0
 	 */
 	public static function highlightFile($filepath)
@@ -132,7 +133,7 @@ class QuioteException extends \Exception
 	/**
 	 * Perform PHP syntax highlighting on the given code string.
 	 * @param      string $code The PHP code to highlight.
-	 * @return     array An 0-indexed array of HTML-highlighted code lines.
+	 * @return     array<int, string> An 0-indexed array of HTML-highlighted code lines.
 	 * @since      1.0.0
 	 */
 	public static function highlightString($code)

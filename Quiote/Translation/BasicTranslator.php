@@ -30,7 +30,8 @@ abstract class BasicTranslator implements ITranslator, ResetInterface
 	/**
 	 * Initialize this Translator.
 	 * @param      Context $context The current application context.
-	 * @param      array $parameters An associative array of initialization parameters
+	 * @param      array<string, mixed> $parameters An associative array of initialization parameters
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function initialize(Context $context, array $parameters = [])

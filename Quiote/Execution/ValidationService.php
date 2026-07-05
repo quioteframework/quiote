@@ -14,6 +14,9 @@ use Quiote\Request\WebRequest;
  */
 final readonly class ValidationTrace
 {
+    /**
+     * @param string[] $validatorsLoaded
+     */
     public function __construct(
         public string $module,
         public string $action,
@@ -28,7 +31,10 @@ final readonly class ValidationTrace
  */
 class ValidationService
 {
-    private $currentContext = null; // holds Context for compiled validator config
+    /**
+     * @var ?\Quiote\Context holds Context for compiled validator config
+     */
+    private $currentContext = null;
 
     /**
      * The validation manager actually used by the most recent validate() /
@@ -50,7 +56,7 @@ class ValidationService
     }
 
     // Expose context to compiled validator config (expects $this->getContext())
-    public function getContext()
+    public function getContext(): ?\Quiote\Context
     {
         return $this->currentContext;
     }
@@ -340,9 +346,9 @@ class ValidationService
                 $logger->debug('[ValidationService] summary ok=' . ($ok ? '1' : '0') . ' childValidators=' . $childCount . ' mode=' . $mode . ' reportSeverity=' . $resultSev . ' incidents=' . count($incidents));
                 foreach ($incidents as $i => $incident) {
                     try {
-                        $vName = method_exists($incident->getValidator(), 'getName') ? $incident->getValidator()->getName() : 'null';
+                        $vName = $incident->getValidator()->getName();
                     } catch (\Throwable) { $vName = 'null'; }
-                    $sev = method_exists($incident, 'getSeverity') ? $incident->getSeverity() : 'n/a';
+                    $sev = $incident->getSeverity();
                     $errs = [];
                     try { foreach($incident->getErrors() as $e) { $errs[] = $e->getMessage(); } } catch (\Throwable) {}
                     $args = [];
@@ -352,10 +358,10 @@ class ValidationService
                 // Also print a quick view of validator config (name -> key params)
                 foreach ($validationManager->getChilds() as $v) {
                     try {
-                        $name = method_exists($v, 'getName') ? $v->getName() : 'unknown';
-                        $source = method_exists($v, 'getParameter') ? $v->getParameter('source') : 'n/a';
-                        $required = method_exists($v, 'getParameter') ? var_export($v->getParameter('required', true), true) : 'n/a';
-                        $base = method_exists($v, 'getParameter') ? (string)$v->getParameter('base', '') : '';
+                        $name = $v->getName();
+                        $source = $v->getParameter('source');
+                        $required = var_export($v->getParameter('required', true), true);
+                        $base = (string)$v->getParameter('base', '');
                         $logger->debug('[ValidationService] validator cfg name=' . $name . ' source=' . $source . ' required=' . $required . ' base=' . $base);
                     } catch (\Throwable) { /* ignore */ }
                 }
@@ -380,9 +386,9 @@ class ValidationService
                         foreach ($report->getArgumentResults() as $results) {
                             foreach ($results as $res) {
                                 // consider > NOTICE as a failure contributing to decision
-                                if (isset($res['severity']) && is_int($res['severity']) && $res['severity'] > \Quiote\Validator\Validator::NOTICE) {
+                                if ($res['severity'] > \Quiote\Validator\Validator::NOTICE) {
                                     $v = $res['validator'] ?? null;
-                                    if ($v && method_exists($v, 'getName')) {
+                                    if ($v) {
                                         $failedValidators[$v->getName()] = true;
                                     }
                                 }
@@ -415,7 +421,7 @@ class ValidationService
                 $failedArgs = [];
                 try { foreach($report->getFailedArguments() as $arg) { $failedArgs[] = $arg->getName(); } } catch (\Throwable) {}
                 $vNames = [];
-                try { foreach($validationManager->getChilds() as $v) { $vNames[] = method_exists($v, 'getName') ? $v->getName() : 'unknown'; } } catch (\Throwable) {}
+                try { foreach($validationManager->getChilds() as $v) { $vNames[] = $v->getName(); } } catch (\Throwable) {}
                 $logger->debug('[ValidationService] FAIL module=' . $moduleName . ' action=' . $actionName . ' method=' . $method . ' severity=' . $sev . ' failedArgs=' . implode(',', $failedArgs) . ' validators=' . implode(',', $vNames) . ' errors=' . json_encode($errors));
             } catch (\Throwable) { /* ignore */ }
             if ($vd) {

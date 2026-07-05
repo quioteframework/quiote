@@ -17,8 +17,10 @@ final class TransportFactory
     public static function default(): ClientInterface
     {
         if (class_exists(\GuzzleHttp\Client::class)) {
-            /** @var ClientInterface */
-            return new \GuzzleHttp\Client();
+            $client = new \GuzzleHttp\Client();
+            if ($client instanceof ClientInterface) {
+                return $client;
+            }
         }
         return new CurlTransport();
     }

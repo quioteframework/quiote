@@ -21,9 +21,15 @@ class ActionViewCache
         return 'av:' . $modVer . ':' . $actVer . ':' . $module . ':' . $action . ':' . $outputType . $fpPart;
     }
 
+    /**
+     * @return array<string, mixed>|null
+     */
     public function get(string $module, string $action, string $outputType, ?string $fingerprint = null): ?array
     { return $this->cache->get($this->key($module,$action,$outputType,$fingerprint)); }
 
+    /**
+     * @param array<string, mixed> $payload
+     */
     public function set(string $module, string $action, string $outputType, array $payload, ?int $ttlSeconds = null, ?string $fingerprint = null): void
     {
         // Normalize new descriptor/state keys to a sub-structure to avoid collisions

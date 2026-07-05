@@ -35,6 +35,7 @@ use Quiote\Execution\ValidationDecision;
 class DispatchMiddleware implements MiddlewareInterface
 {
     private ?ActionExecutor $actionExecutor = null;
+    /** @var array<string, bool> */
     private static array $executedNonSimpleActions = [];
 
     /**
@@ -52,6 +53,9 @@ class DispatchMiddleware implements MiddlewareInterface
         $this->actionExecutor = new ActionExecutor($controller);
     }
 
+    /**
+     * @param object|null $actionInstance
+     */
     private function computeUserFingerprint($actionInstance): ?string
     {
         try {
@@ -73,6 +77,9 @@ class DispatchMiddleware implements MiddlewareInterface
         }
     }
 
+    /**
+     * @param object|null $actionInstance
+     */
     private function dynamicFlagsActive($actionInstance): bool
     {
         if (!$actionInstance) {
@@ -96,6 +103,9 @@ class DispatchMiddleware implements MiddlewareInterface
         return self::$dynamicFlagsCache[$cls] = false;
     }
 
+    /**
+     * @param array<string, mixed>|null $redirectSnapshot
+     */
     private function buildPsrResponse(string $content, string $outputType, bool $cacheHit, bool $containerUsed, ?array $redirectSnapshot = null): ResponseInterface
     {
 
@@ -138,9 +148,6 @@ class DispatchMiddleware implements MiddlewareInterface
             }
             try {
                 foreach ((array)$globalResp->getHttpHeaders() as $name => $value) {
-                    if ($value === null) {
-                        continue;
-                    }
                     $resp = $resp->withHeader($name, $value);
                 }
             } catch (\Throwable) {

@@ -11,6 +11,10 @@ use Psr\Http\Message\ServerRequestInterface;
  */
 class ActionExecutionContext
 {
+    /**
+     * @param array<string, mixed> $actionAttributes
+     * @param array<string, mixed>|null $redirect
+     */
     public function __construct(
         public readonly object $action,
         public ?View $view,

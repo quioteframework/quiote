@@ -10,6 +10,9 @@ namespace Quiote\Execution;
  */
 final readonly class ValidationDecision
 {
+    /**
+     * @param array<mixed> $errors
+     */
     private function __construct(
         public string $state, // 'pending' | 'passed' | 'failed'
         public array $errors = []
@@ -17,6 +20,10 @@ final readonly class ValidationDecision
 
     public static function pending(): self { return new self('pending'); }
     public static function passed(): self { return new self('passed'); }
+
+    /**
+     * @param array<mixed> $errors
+     */
     public static function failed(array $errors = []): self { return new self('failed', $errors); }
 
     public function isPending(): bool { return $this->state === 'pending'; }

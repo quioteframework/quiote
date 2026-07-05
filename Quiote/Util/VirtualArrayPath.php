@@ -15,7 +15,7 @@ class VirtualArrayPath implements \Stringable
 	 */
 	protected $absolute = false;
 	/**
-	 * @var        array Array components.
+	 * @var        array<int, int|string> Array components.
 	 */
 	protected $parts = [];
 	
@@ -153,6 +153,7 @@ class VirtualArrayPath implements \Stringable
 	/**
 	 * Appends one or more components to the path.
 	 * @param      string $path The components to be added.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function push($path)
@@ -164,6 +165,7 @@ class VirtualArrayPath implements \Stringable
 	/**
 	 * Clones this path, appends one or more components to it and returns it.
 	 * @param      string $path the components to be added.
+	 * @return     static
 	 * @since      1.0.0
 	 */
 	public function pushRetNew($path)
@@ -200,6 +202,7 @@ class VirtualArrayPath implements \Stringable
 	/**
 	 * Prepends one or more components to the path.
 	 * @param      string $path The components to be prepended.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function unshift($path)
@@ -210,7 +213,8 @@ class VirtualArrayPath implements \Stringable
 
 	/**
 	 * Checks if a value exists  at the path of this instance in the given array.
-	 * @param      array $array The array to check.
+	 * @param      array<mixed> $array The array to check.
+	 * @return     bool
 	 * @since      1.0.0
 	 */
 	public function hasValue(array &$array)
@@ -220,7 +224,7 @@ class VirtualArrayPath implements \Stringable
 
 	/**
 	 * Returns the value at the path of this instance in the given array.
-	 * @param array $array The array to get the data from.
+	 * @param array<mixed> $array The array to get the data from.
 	 * @param mixed $default The default value to be used if the path doesn't exist.
 	 * @return mixed The value at the path.
 	 * @since 1.0.0
@@ -232,8 +236,9 @@ class VirtualArrayPath implements \Stringable
 
 	/**
 	 * Sets the value at the path of this instance in the given array.
-	 * @param array $array The array to set the data in.
+	 * @param array<mixed> $array The array to set the data in.
 	 * @param mixed $value The value to be set.
+	 * @return void
 	 * @since 1.0.0
 	 */
 	public function setValue(array &$array, $value)
@@ -245,7 +250,7 @@ class VirtualArrayPath implements \Stringable
 	 * Returns the value at the given child path of this instance in the given 
 	 * array.
 	 * @param string $path The child path appended to the path in this instance.
-	 * @param array $array The array to get the data from.
+	 * @param array<mixed> $array The array to get the data from.
 	 * @param mixed $default The default value to be used if the path doesn't exist.
 	 * @return mixed The value at the path.
 	 * @since 1.0.0
@@ -260,8 +265,9 @@ class VirtualArrayPath implements \Stringable
 	/**
 	 * Sets the value at the given child path of this instance in the given array.
 	 * @param      string $path The child path appended to the path in this instance.
-	 * @param      array $array The array to set the data in.
+	 * @param      array<mixed> $array The array to set the data in.
 	 * @param      mixed $value The value to be set.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setValueByChildPath($path, array &$array, $value)
@@ -274,7 +280,8 @@ class VirtualArrayPath implements \Stringable
 	/**
 	 * Checks if a value at the given child path exists in the given array.
 	 * @param      string $path The child path appended to the path in this instance.
-	 * @param      array $array The array to check.
+	 * @param      array<mixed> $array The array to check.
+	 * @return     bool
 	 * @since      1.0.0
 	 */
 	public function hasValueByChildPath($path, array &$array)
@@ -286,7 +293,7 @@ class VirtualArrayPath implements \Stringable
 
 	/**
 	 * Returns the components of this path.
-	 * @return     array The components
+	 * @return     array<int, int|string> The components
 	 * @since      1.0.0
 	 */
 	public function getParts()

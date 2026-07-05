@@ -9,6 +9,7 @@ namespace Quiote\Routing;
  */
 final class CompatRouter extends Routing
 {
+    /** @return array{0: \Symfony\Component\Routing\RouteCollection, 1: array<mixed>} */
     protected function build(): array
     {
         // Provide empty route collection to avoid errors if accidentally instantiated.

@@ -27,7 +27,7 @@ class XmlConfigDomDocument extends \DOMDocument
 	protected $xpath = null;
 	
 	/**
-	 * @var        array A map of DOM classes and extended Quiote implementations.
+	 * @var        array<string, class-string> A map of DOM classes and extended Quiote implementations.
 	 */
 	protected $nodeClassMap = [
 		'DOMAttr'                  => \Quiote\Config\Util\DOM\XmlConfigDomAttr::class,
@@ -237,6 +237,7 @@ class XmlConfigDomDocument extends \DOMDocument
 	/**
 	 * Validate a document based on a schema.
 	 * @param      string $filename The path to the schema.
+	 * @param      int $flags Bitwise OR of the libxml option constants.
 	 * @return     bool True if the validation is successful; false otherwise.
 	 * @since      1.0.0
 	 */
@@ -351,6 +352,7 @@ class XmlConfigDomDocument extends \DOMDocument
 	 * to the given prefix for use in XPath expressions.
 	 * @param      string $namespaceUri A namespace URI
 	 * @param      string $prefix An optional prefix, defaulting to "_default"
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setDefaultNamespace($namespaceUri, $prefix = '_default')
@@ -411,41 +413,44 @@ class XmlConfigDomDocument extends \DOMDocument
 	/**
 	 * Method to retrieve a list of Quiote <configuration> elements regardless of
 	 * their namespace.
-	 * @return     array A list of XmlConfigDomElement elements.
+	 * @return     array<int, XmlConfigDomElement<int, XmlConfigDomElement>> A list of XmlConfigDomElement elements.
 	 * @since      1.0.0
 	 */
 	public function getConfigurationElements()
 	{
 		$retval = [];
-		
+
 		if($this->isQuioteConfiguration()) {
 			$quioteNs = $this->getQuioteEnvelopeNamespace();
-			
+
 			foreach($this->documentElement->childNodes as $node) {
 				if($node->nodeType == XML_ELEMENT_NODE && $node->localName == 'configuration' && $node->namespaceURI == $quioteNs) {
+					// registerNodeClass() guarantees element nodes are always
+					// XmlConfigDomElement, never a vanilla DOMNode.
+					/** @var XmlConfigDomElement<int, XmlConfigDomElement> $node */
 					$retval[] = $node;
 				}
 			}
 		}
-		
+
 		return $retval;
 	}
 	
 	/**
 	 * Method to retrieve the Quiote <sandbox> element regardless of the namespace.
-	 * @return     ?XmlConfigDomElement The <sandbox> element, or null.
+	 * @return     ?XmlConfigDomElement<int, XmlConfigDomElement> The <sandbox> element, or null.
 	 * @since      1.0.0
 	 */
 	public function getSandbox()
 	{
 		if($this->isQuioteConfiguration()) {
 			$quioteNs = $this->getQuioteEnvelopeNamespace();
-			
+
 			foreach($this->documentElement->childNodes as $node) {
 				if($node->nodeType == XML_ELEMENT_NODE && $node->localName == 'sandbox' && $node->namespaceURI == $quioteNs) {
 					// registerNodeClass() guarantees element nodes are always
 					// XmlConfigDomElement, never a vanilla DOMNode.
-					/** @var XmlConfigDomElement $node */
+					/** @var XmlConfigDomElement<int, XmlConfigDomElement> $node */
 					return $node;
 				}
 			}

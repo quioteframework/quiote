@@ -23,6 +23,8 @@ trait Psr7RequestTrait
      *   3. Cookies
      *   4. Headers
      *   5. Uploaded files
+     * @param mixed $default
+     * @return mixed
      */
     protected function getRequestParam(ServerRequestInterface $request, string $name, $default = null)
     {
@@ -61,6 +63,9 @@ trait Psr7RequestTrait
         return $default;
     }
 
+    /**
+     * @return array<int|string, mixed>
+     */
     protected function getRequestParams(ServerRequestInterface $request, ?string $source = null)
     {
         $merge = (static fn(?array $a, ?array $b): array => array_merge($a ?? [], $b ?? []));
@@ -100,6 +105,9 @@ trait Psr7RequestTrait
         return [];
     }
 
+    /**
+     * @return ?ServerRequestInterface
+     */
     protected function withoutParameter(ServerRequestInterface $request, string $name, ?string $source = null) {
 
         // parameters (query + parsed body)

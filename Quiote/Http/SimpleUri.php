@@ -30,6 +30,7 @@ class SimpleUri implements UriInterface
     public function getQuery(): string { return $this->query; }
     public function getFragment(): string { return $this->fragment; }
 
+    /** @param array<string, mixed> $changes */
     private function cloneWith(array $changes): static { $c=clone $this; foreach($changes as $k=>$v) $c->$k=$v; return $c; }
     public function withScheme($scheme): static { return $this->cloneWith(['scheme'=>$scheme]); }
     public function withUserInfo($user, $password = null): static { return $this->cloneWith(['user'=>$user,'pass'=>$password??'']); }

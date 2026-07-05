@@ -11,6 +11,10 @@ use Quiote\Request\WebRequest;
  */
 final readonly class SlotExecutionContext
 {
+    /**
+     * @param array<string, mixed> $actionAttributes
+     * @param array<string, mixed> $parameters
+     */
     public function __construct(
         public Action $action,
         public ?View $view,

@@ -2,7 +2,7 @@
 namespace Quiote\Config\Format;
 
 use Quiote\Config\IArrayConfigHandler;
-use Quiote\Config\XmlConfigHandler;
+use Quiote\Config\IXmlConfigHandler;
 use Quiote\Exception\ConfigurationException;
 
 /**
@@ -51,7 +51,7 @@ final class FormatDriverRegistry
 	 * @param string[] $transformations XSL stylesheets applied to the XML
 	 *        path only (see XmlFormatDriver); irrelevant to PHP/YAML.
 	 */
-	public static function forHandler(IArrayConfigHandler&XmlConfigHandler $handler, array $transformations = []): self
+	public static function forHandler(IArrayConfigHandler&IXmlConfigHandler $handler, array $transformations = []): self
 	{
 		return new self([
 			new PhpArrayFormatDriver(),
@@ -70,6 +70,9 @@ final class FormatDriverRegistry
 		throw new ConfigurationException('No FormatDriver registered that supports "' . $path . '".');
 	}
 
+	/**
+	 * @return array<string, mixed>
+	 */
 	public function load(string $path, string $environment, ?string $context = null): array
 	{
 		return $this->resolve($path)->load($path, $environment, $context);
@@ -98,6 +101,9 @@ final class FormatDriverRegistry
 		return null;
 	}
 
+	/**
+	 * @return string[]
+	 */
 	private function candidateExtensionsFor(FormatDriverInterface $driver): array
 	{
 		return match (true) {

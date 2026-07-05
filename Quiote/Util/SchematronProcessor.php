@@ -19,15 +19,18 @@ class SchematronProcessor extends ParameterHolder
 	
 	const NAMESPACE_XSL_1999 = 'http://www.w3.org/1999/XSL/Transform';
 	
+	/**
+	 * @var        array<int, string> The list of Schematron implementation paths to process.
+	 */
 	private $chain;
 
 	/**
-	 * @var        array A cache of processor instances.
+	 * @var        array<string, QuioteXsltProcessor> A cache of processor instances.
 	 */
 	protected static $processors = [];
-	
+
 	/**
-	 * @var        array The list of Schematron implementation paths to process.
+	 * @var        array<int, string> The list of Schematron implementation paths to process.
 	 */
 	protected static $defaultChain = [
 		'%core.quiote_dir%/Config/schematron/iso_dsdl_include.xsl',
@@ -36,13 +39,14 @@ class SchematronProcessor extends ParameterHolder
 	];
 	
 	/**
-	 * @var        ?\DOMNode The node the processor will work on.
+	 * @var        ?\DOMDocument The document the processor will work on.
 	 */
 	protected $node = null;
 	
 	/**
 	 * Creates a new processor for transforming documents into a Schematron
 	 * report.
+	 * @param      ?array<int, string> $chain The list of Schematron implementation paths to process.
 	 * @since      1.0.0
 	 */
 	public function __construct(?array $chain = null)
@@ -60,7 +64,7 @@ class SchematronProcessor extends ParameterHolder
 	
 	/**
 	 * Get an array of all processors.
-	 * @return     array An array of XsltProcessor instances.
+	 * @return     array<int, QuioteXsltProcessor> An array of XsltProcessor instances.
 	 * @since      1.0.0
 	 */
 	public function getProcessors()
@@ -75,7 +79,7 @@ class SchematronProcessor extends ParameterHolder
 	/**
 	 * Get a processor instance for the given XSLT path.
 	 * @param      string $path The file path to the XSL template.
-	 * @return     \XSLTProcessor The processor instance.
+	 * @return     QuioteXsltProcessor The processor instance.
 	 * @since      1.0.0
 	 */
 	protected static function getProcessor($path)
@@ -92,11 +96,12 @@ class SchematronProcessor extends ParameterHolder
 	}
 	
 	/**
-	 * Sets the node that this processor will transform and validate.
-	 * @param      \DOMNode $node The node to use.
+	 * Sets the document that this processor will transform and validate.
+	 * @param      \DOMDocument $node The document to use.
+	 * @return     void
 	 * @since      1.0.0
 	 */
-	public function setNode(\DOMNode $node)
+	public function setNode(\DOMDocument $node)
 	{
 		$this->node = $node;
 	}
@@ -104,6 +109,8 @@ class SchematronProcessor extends ParameterHolder
 	/**
 	 * Prepare the given processor for use.
 	 * Sets all parameters from this processor class.
+	 * @param      QuioteXsltProcessor $processor The processor to prepare.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function prepareProcessor($processor)
@@ -117,6 +124,8 @@ class SchematronProcessor extends ParameterHolder
 	 * Removes all parameters from this processor class.
 	 * Cannot be done in SchematronProcessor::prepareProcessor(), which is
 	 * why this must be called in transform().
+	 * @param      QuioteXsltProcessor $processor The processor to clean up.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function cleanupProcessor($processor)
@@ -167,6 +176,9 @@ class SchematronProcessor extends ParameterHolder
 		}
 		
 		// it transformed fine. but did we get a proper stylesheet instance at all? wrong namespaces can lead to empty docs that only have an XML prolog
+		if(!$validatorImpl instanceof \DOMDocument) {
+			throw new ParseException(sprintf('Processing using schema file "%s" resulted in no stylesheet document', $schema->documentURI));
+		}
 		if(!$validatorImpl->documentElement || $validatorImpl->documentElement->namespaceURI != self::NAMESPACE_XSL_1999) {
 			throw new ParseException(sprintf('Processing using schema file "%s" resulted in an invalid stylesheet', $schema->documentURI));
 		}

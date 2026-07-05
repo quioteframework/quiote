@@ -17,6 +17,7 @@ class SlotRequestFactory
     /**
      * Create a child request containing slot metadata.
      * The SlotStack attribute (SlotStack::class) is preserved or created if missing.
+     * @param array<string,mixed> $parameters
      */
     public static function create(ServerRequestInterface $parent, string $module, string $action, array $parameters = [], ?string $outputType = null): ServerRequestInterface
     {

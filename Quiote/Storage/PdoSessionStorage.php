@@ -41,7 +41,8 @@ class PdoSessionStorage extends SessionStorage implements ResetInterface
 	/**
 	 * Initialize this Storage.
 	 * @param      Context $context An Context instance.
-	 * @param      array $parameters An associative array of initialization parameters.
+	 * @param      array<string, mixed> $parameters An associative array of initialization parameters.
+	 * @return     void
 	 * @throws     \Quiote\Exception\InitializationException If an error occurs while
 	 *                                                 initializing this Storage.
 	 * @since      1.0.0

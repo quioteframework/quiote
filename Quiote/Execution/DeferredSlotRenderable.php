@@ -8,6 +8,9 @@ class DeferredSlotRenderable implements SlotRenderable, \Stringable
 {
     private ?string $rendered = null;
 
+    /**
+     * @param array<string, mixed> $parameters
+     */
     public function __construct(private readonly \Quiote\Context $context, private readonly string $module, private readonly string $action, private readonly array $parameters = [], private readonly ?string $outputType = null)
     {
     }
@@ -79,6 +82,9 @@ class DeferredSlotRenderable implements SlotRenderable, \Stringable
     {
         return $this->outputType;
     }
+    /**
+     * @return array<string, mixed>
+     */
     public function getArguments(): array
     {
         return $this->parameters;
@@ -87,6 +93,9 @@ class DeferredSlotRenderable implements SlotRenderable, \Stringable
     {
         return $this->getContent();
     }
+    /**
+     * @return array<string, mixed>
+     */
     public function toArray(): array
     {
         return [

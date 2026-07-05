@@ -494,6 +494,7 @@ class ValidationMiddleware implements MiddlewareInterface
      * Determine the output type to render the validation-error view in: the
      * negotiated type used by dispatch (ActionDescriptor->outputType, then the
      * request's 'output_type' attribute), falling back to the controller default.
+     * @param \Quiote\Controller\Controller $controller The controller dispatching the request.
      */
     private function resolveErrorOutputType(\Psr\Http\Message\ServerRequestInterface $request, $controller): string
     {
@@ -529,7 +530,7 @@ class ValidationMiddleware implements MiddlewareInterface
      * validation-problem convention. Falls back to the flat message list under
      * the "" key when the report cannot be introspected.
      * @param ?object $vm       The validation manager (may be null).
-     * @param array        $fallback Flat list of error messages.
+     * @param array<int, mixed> $fallback Flat list of error messages.
      */
     private function buildValidationProblemDetails($vm, array $fallback, \Psr\Http\Message\ServerRequestInterface $request): string
     {

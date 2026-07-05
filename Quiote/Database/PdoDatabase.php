@@ -14,7 +14,8 @@ class PdoDatabase extends Database
 	/**
 	 * Initialize this Database.
 	 * @param      DatabaseManager $databaseManager The database manager of this instance.
-	 * @param      array $parameters An assoc array of initialization params.
+	 * @param      array<string, mixed> $parameters An assoc array of initialization params.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	#[\Override]
@@ -37,8 +38,9 @@ class PdoDatabase extends Database
 
 	/**
 	 * Connect to the database.
-	 * @throws     DatabaseException If a connection could not be 
+	 * @throws     DatabaseException If a connection could not be
 	 *                                           created.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function connect()
@@ -99,6 +101,7 @@ class PdoDatabase extends Database
 	 * Execute the shutdown procedure.
 	 * @throws     DatabaseException If an error occurs while shutting
 	 *                                           down this database.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function shutdown()

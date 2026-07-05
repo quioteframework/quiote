@@ -21,7 +21,7 @@ class CurrencyFormatter extends DecimalFormatter implements ITranslator, ResetIn
 	protected $context = null;
 
 	/**
-	 * @var        array|string|null The custom format supplied by the user (if any).
+	 * @var        array<mixed>|string|null The custom format supplied by the user (if any).
 	 */
 	protected $customFormat = null;
 
@@ -51,7 +51,8 @@ class CurrencyFormatter extends DecimalFormatter implements ITranslator, ResetIn
 	/**
 	 * Initialize this Translator.
 	 * @param      Context $context The current application context.
-	 * @param      array $parameters An associative array of initialization parameters
+	 * @param      array<string, mixed> $parameters An associative array of initialization parameters
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function initialize(Context $context, array $parameters = [])
@@ -126,6 +127,7 @@ class CurrencyFormatter extends DecimalFormatter implements ITranslator, ResetIn
 	 * This method gets called by the translation manager when the default locale
 	 * has been changed.
 	 * @param      QuioteLocale $newLocale The new default locale.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function localeChanged($newLocale)
@@ -239,6 +241,7 @@ class CurrencyFormatter extends DecimalFormatter implements ITranslator, ResetIn
 	/**
 	 * Sets the amount of fractional digits to be shown.
 	 * @param      int $count The amount of digits.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setFractionDigits($count)

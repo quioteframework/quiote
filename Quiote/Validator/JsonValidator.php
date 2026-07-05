@@ -15,6 +15,9 @@ class JsonValidator extends Validator
 		return array_merge(parent::getAcceptedParameters(), ['assoc']);
 	}
 
+	/**
+	 * @var array<int, string>
+	 */
 	protected $jsonErrors = [
 		'depth',
 		'state_mismatch',

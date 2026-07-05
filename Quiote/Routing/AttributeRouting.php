@@ -22,6 +22,9 @@ class AttributeRouting extends Routing
 	/** @var Diagnostic[] */
 	private array $diagnostics = [];
 
+	/**
+	 * @return array{0:\Symfony\Component\Routing\RouteCollection,1:array<string,array{gen_path:string,cut:bool,path:string}>}
+	 */
 	#[\Override]
 	protected function build(): array
 	{

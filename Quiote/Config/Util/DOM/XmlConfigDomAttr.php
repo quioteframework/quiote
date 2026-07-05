@@ -13,7 +13,7 @@ class XmlConfigDomAttr extends \DOMAttr implements \Stringable
 		return (string) $this->getValue();
 	}
 	
-	public function getValue()
+	public function getValue(): ?string
 	{
 		return $this->nodeValue;
 	}

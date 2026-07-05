@@ -22,7 +22,7 @@ class DatabaseManager
 	protected $defaultDatabaseName = null;
 	
 	/**
-	 * @var        array An array of Databases.
+	 * @var        array<string, Database> An array of Databases.
 	 */
 	protected $databases = [];
 
@@ -103,8 +103,9 @@ class DatabaseManager
 	 *                                                 initializing this 
 	 *                                                 DatabaseManager.
 	 * @since      1.0.0
+	 * @param array<string, mixed> $parameters
 	 */
-	public function initialize(Context $context, array $parameters = [])
+	public function initialize(Context $context, array $parameters = []): void
 	{
         $logger = \Quiote\Logging\Log::for($this);
 
@@ -136,7 +137,7 @@ class DatabaseManager
 	 * This method is not called directly after initialize().
 	 * @since      1.0.0
 	 */
-	public function startup()
+	public function startup(): void
 	{
         $logger = \Quiote\Logging\Log::for($this);
 
@@ -162,7 +163,7 @@ class DatabaseManager
 	 *                                           down this DatabaseManager.
 	 * @since      1.0.0
 	 */
-	public function shutdown()
+	public function shutdown(): void
 	{
         $logger = \Quiote\Logging\Log::for($this);
 

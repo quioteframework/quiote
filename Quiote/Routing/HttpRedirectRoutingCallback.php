@@ -31,7 +31,8 @@ class HttpRedirectRoutingCallback extends RoutingCallback
 	/**
 	 * Initialize the callback instance.
 	 * @param      Context $context An Context instance.
-	 * @param      array   $route   An array with information about the route.
+	 * @param      array<mixed, mixed> $route   An array with information about the route.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	#[\Override]
@@ -47,7 +48,8 @@ class HttpRedirectRoutingCallback extends RoutingCallback
 	
 	/**
 	 * Container-less match hook.
-	 * @param array $parameters Matched parameters (modifiable for rewrite).
+	 * @param array<string, mixed> $parameters Matched parameters (modifiable for rewrite).
+	 * @param mixed $legacyContainer Unused; retained for signature compatibility.
 	 * @return bool|WebResponse false to reject the match on misconfiguration, otherwise
 	 *                          a WebResponse carrying the redirect to be sent to the client.
 	 * @since      1.0.0

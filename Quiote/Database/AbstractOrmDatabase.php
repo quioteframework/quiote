@@ -118,6 +118,7 @@ abstract class AbstractOrmDatabase extends Database
      * adapters override to roll back dangling transactions / close underlying
      * connections first.
      */
+    /** @return void */
     #[\Override]
     public function shutdown()
     {

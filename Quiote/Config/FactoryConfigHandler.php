@@ -39,6 +39,7 @@ class FactoryConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 	 * unrelated to config format -- see class docs. A bare string value
 	 * (rather than name => info) is a "call startup() now" marker for the
 	 * factory named by that string, interleaved with the declarations.
+	 * @return array<int|string, string|array{required: bool, var: string|null, must_implement: array<int, string>}>
 	 */
 	private function getFactoryDefinitions(): array
 	{
@@ -111,6 +112,9 @@ class FactoryConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 		return $this->executeArray($this->toCanonicalArray($document), $document->documentURI);
 	}
 
+	/**
+	 * @return array<string, array{class: string|null, params: array<mixed>}>
+	 */
 	public function toCanonicalArray(XmlConfigDomDocument $document): array
 	{
 		// set up our default namespace
@@ -134,6 +138,9 @@ class FactoryConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 		return $data;
 	}
 
+	/**
+	 * @param array<string, array{class: string|null, params: array<mixed>}> $config
+	 */
 	public function executeArray(array $config, ?string $sourceRef = null): string
 	{
 		$factories = $this->getFactoryDefinitions();

@@ -21,7 +21,7 @@ class ViewFactory
      * @param string $actionName Original action name
      * @param string $outputType Output type name (lowercase)
      * @param ?WebRequest $request Request data snapshot
-     * @param array $actionAttributeSnapshot Attributes snapshot from action exec
+     * @param array<string, mixed> $actionAttributeSnapshot Attributes snapshot from action exec
      */
     public function create(string $viewModule, string $viewName, string $actionModule, string $actionName, string $outputType, ?WebRequest $request, array $actionAttributeSnapshot, ?object $validationManager = null): ?View
     {

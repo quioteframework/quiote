@@ -11,22 +11,22 @@ use Symfony\Contracts\Service\ResetInterface;
 class ValidationReport implements IValidationReportQuery, ResetInterface
 {
 	/**
-	 * @var        array A List of result severities for each argument which has been validated.
+	 * @var        array<string, array<int, array{argument: ValidationArgument, severity: int, validator: ?Validator}>> A List of result severities for each argument which has been validated.
 	 */
 	protected $argumentResults = [];
-	
+
 	/**
 	 * @var        ?int The highest error severity thrown by the validation run.
 	 */
 	protected $result = null;
-	
+
 	/**
-	 * @var        array The incidents which were thrown by the validation run.
+	 * @var        array<string, array<int, ValidationIncident>> The incidents which were thrown by the validation run.
 	 */
 	protected $incidents = [];
-	
+
 	/**
-	 * @var        array The depend tokens provided by the validation run.
+	 * @var        array<int|string, mixed> The depend tokens provided by the validation run.
 	 */
 	protected $providedDependTokens = [];
 	
@@ -45,6 +45,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	/**
 	 * Sets the validation result
 	 * @param      int $result The new validation result
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setResult($result)
@@ -57,6 +58,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	 * the argument result table (which is required because one can still 
 	 * manually add errors either via addError or by directly using this method)
 	 * @param      ValidationIncident $incident The incident.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function addIncident(ValidationIncident $incident)
@@ -101,7 +103,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	/**
 	 * Returns all incidents which happened during the execution of the 
 	 * validation.
-	 * @return     array The incidents.
+	 * @return     array<int, ValidationIncident> The incidents.
 	 * @since      1.0.0
 	 */
 	public function getIncidents()
@@ -115,7 +117,8 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	
 	/**
 	 * Sets dependency tokens provided by executed validators onto the result.
-	 * @param      array $dependTokens The depend tokens of the DependencyManager.
+	 * @param      array<int|string, mixed> $dependTokens The depend tokens of the DependencyManager.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setDependTokens(array $dependTokens = [])
@@ -136,7 +139,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	
 	/**
 	 * Check whether the given depend token was provided by the validation run.
-	 * @return     array All provided depend tokens.
+	 * @return     array<int|string, mixed> All provided depend tokens.
 	 * @since      1.0.0
 	 */
 	public function getDependTokens()
@@ -150,6 +153,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	 * @param      int $result The arguments result.
 	 * @param      Validator $validator The validator (if the error was cause inside 
 	 *                            a validator).
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function addArgumentResult(ValidationArgument $argument, $result, ?Validator $validator = null)
@@ -168,7 +172,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	 * You shouldn't have to use this method.
 	 * Don't even think about using it to harm cute little animals, or you shall
 	 * suffer the wrath of an angry god.
-	 * @return     array An array of argument result info arrays.
+	 * @return     array<string, array<int, array{argument: ValidationArgument, severity: int, validator: ?Validator}>> An array of argument result info arrays.
 	 * @since      1.0.0
 	 */
 	public function getArgumentResults()
@@ -234,7 +238,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	/**
 	 * Returns all arguments which validated successfully.
 	 * @param      string $source Optional source name to limit the list of arguments to.
-	 * @return     array An array of ValidationArgument objects.
+	 * @return     array<string, ValidationArgument> An array of ValidationArgument objects.
 	 * @since      1.0.0
 	 */
 	public function getSucceededArguments($source = null)
@@ -261,7 +265,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	/**
 	 * Returns all arguments which failed in the validation.
 	 * @param      string $source Optional source name to limit the list of arguments to.
-	 * @return     array An array of ValidationArgument objects.
+	 * @return     array<string, ValidationArgument> An array of ValidationArgument objects.
 	 * @since      1.0.0
 	 */
 	public function getFailedArguments($source = null)
@@ -303,7 +307,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	/**
 	 * Returns a new IValidationReportQuery which returns only the incidents
 	 * for the given argument (and the other existing filter rules).
-	 * @param      ValidationArgument|string|array $argument The argument instance, or
+	 * @param      ValidationArgument|string|array<int, mixed> $argument The argument instance, or
 	 *                                                  a parameter name, or an
 	 *                                                  array of these elements.
 	 * @return     IValidationReportQuery
@@ -317,7 +321,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	/**
 	 * Returns a new IValidationReportQuery which contains only the incidents
 	 * for the given validator (and the other existing filter rules).
-	 * @param      string|array $name The name of the validator, or an array of names.
+	 * @param      string|array<int, string> $name The name of the validator, or an array of names.
 	 * @return     IValidationReportQuery
 	 * @since      1.0.0
 	 */
@@ -329,7 +333,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	/**
 	 * Returns a new IValidationReportQuery which contains only the incidents
 	 * for the given error name (and the other existing filter rules).
-	 * @param      string|array $name The name of the error, or an array of names.
+	 * @param      string|array<int, string> $name The name of the error, or an array of names.
 	 * @return     IValidationReportQuery
 	 * @since      1.0.0
 	 */
@@ -364,7 +368,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	
 	/**
 	 * Retrieves all ValidationError objects in this report.
-	 * @return     array An array of ValidationError objects.
+	 * @return     array<int, ValidationError> An array of ValidationError objects.
 	 * @since      1.0.0
 	 */
 	public function getErrors()
@@ -374,7 +378,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	
 	/**
 	 * Retrieves all error messages in this report.
-	 * @return     array An array of message strings.
+	 * @return     array<int, string> An array of message strings.
 	 * @since      1.0.0
 	 */
 	public function getErrorMessages()
@@ -388,7 +392,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	 * the deprecated ValidationManager::getErrorMessages(), but as a
 	 * non-deprecated accessor. Callers migrating off the deprecated method can use
 	 * getReport()->getErrorMessagesWithFields() to keep the field-annotated shape.
-	 * @return     array An array of array('message' => string, 'errors' => array).
+	 * @return     array<int, array{message: string, errors: array<int, string>}> An array of array('message' => string, 'errors' => array).
 	 * @since      1.0.0
 	 */
 	public function getErrorMessagesWithFields()
@@ -398,7 +402,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	
 	/**
 	 * Retrieves all ValidationArgument objects in this report.
-	 * @return     array An array of ValidationArgument objects.
+	 * @return     array<int, ValidationArgument> An array of ValidationArgument objects.
 	 * @since      1.0.0
 	 */
 	public function getArguments()

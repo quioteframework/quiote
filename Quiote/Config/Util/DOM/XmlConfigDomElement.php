@@ -14,6 +14,7 @@ use Traversable;
  * node classes via registerNodeClass() for every DOM node type, including
  * DOMDocument itself, so $ownerDocument is never a vanilla DOMDocument.
  * @property-read XmlConfigDomDocument $ownerDocument
+ * @implements \IteratorAggregate<int,XmlConfigDomElement>
  * @since      1.0.0
  * @version    1.0.0
  */
@@ -101,7 +102,7 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 	
 	/**
 	 * Returns an iterator for the child nodes.
-	 * @return     \Traversable An iterator.
+	 * @return     \Traversable<int,XmlConfigDomElement> An iterator.
 	 * @since      1.0.0
 	 */
 	public function getIterator(): Traversable
@@ -142,7 +143,7 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 	 * @param      string $namespaceUri The namespace URI. If null, the document default
 	 *                    namespace will be used. If an empty string, no namespace
 	 *                    will be used.
-	 * @return     \DOMNodeList A list of the child elements.
+	 * @return     \DOMNodeList<XmlConfigDomElement> A list of the child elements.
 	 * @since      1.0.0
 	 */
 	public function get($name, $namespaceUri = null): \DOMNodeList
@@ -242,7 +243,7 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 	 *                    will be used.
 	 * @param      bool $pluralMagic Whether or not to apply automatic singular/plural
 	 *                    handling that skips plural container elements.
-	 * @return     \DOMNodeList A list of the child elements.
+	 * @return     \DOMNodeList<XmlConfigDomElement> A list of the child elements.
 	 * @since      1.0.0
 	 */
 	public function getChildren($name, $namespaceUri = null, $pluralMagic = false): null|\DOMNodeList
@@ -385,7 +386,7 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 	
 	/**
 	 * Retrieve all attributes of the element that are in no namespace.
-	 * @return     array An associative array of attribute names and values.
+	 * @return     array<string,?string> An associative array of attribute names and values.
 	 * @since      1.0.0
 	 */
 	public function getAttributes(): array
@@ -395,7 +396,8 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 	
 	/**
 	 * Retrieve all attributes of the element that are in the given namespace.
-	 * @return     array An associative array of attribute names and values.
+	 * @param      string $namespaceUri The namespace URI.
+	 * @return     array<string,?string> An associative array of attribute names and values.
 	 * @since      1.0.0
 	 */
 	public function getAttributesNS($namespaceUri): array
@@ -426,8 +428,8 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 	/**
 	 * Retrieve all of the Quiote parameter elements associated with this
 	 * element.
-	 * @param      array $existing An array of existing parameters.
-	 * @return     array The complete array of parameters.
+	 * @param      array<int|string,mixed> $existing An array of existing parameters.
+	 * @return     array<int|string,mixed> The complete array of parameters.
 	 * @since      1.0.0
 	 */
 	public function getQuioteParameters(array $existing = []): array

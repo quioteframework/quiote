@@ -12,7 +12,8 @@ interface ILegacyConfigHandler
 	 * Initialize this ConfigHandler.
 	 * @param      ?string $validationFile The path to a validation file for this config handler.
 	 * @param      ?string $parser The parser class to use.
-	 * @param      array $parameters An associative array of initialization parameters.
+	 * @param      array<string, mixed> $parameters An associative array of initialization parameters.
+	 * @return     void
 	 * @throws     \Quiote\Exception\InitializationException If an error occurs while
 	 *                                                 initializing the
 	 *                                                 ConfigHandler

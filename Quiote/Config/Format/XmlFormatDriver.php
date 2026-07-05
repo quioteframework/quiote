@@ -2,7 +2,7 @@
 namespace Quiote\Config\Format;
 
 use Quiote\Config\IArrayConfigHandler;
-use Quiote\Config\XmlConfigHandler;
+use Quiote\Config\IXmlConfigHandler;
 use Quiote\Config\XmlConfigParser;
 
 /**
@@ -22,14 +22,14 @@ use Quiote\Config\XmlConfigParser;
 final class XmlFormatDriver implements FormatDriverInterface
 {
 	/**
-	 * @param IArrayConfigHandler&XmlConfigHandler $handler
+	 * @param IArrayConfigHandler&IXmlConfigHandler $handler
 	 * @param string[] $transformations XSL stylesheet paths applied in
 	 *        the single-file parse stage, in order (matching how
 	 *        config_handlers.xml lists <transformation> entries for this
 	 *        config type today).
 	 */
 	public function __construct(
-		private readonly IArrayConfigHandler&XmlConfigHandler $handler,
+		private readonly IArrayConfigHandler&IXmlConfigHandler $handler,
 		private readonly array $transformations = [],
 	) {
 	}
@@ -39,6 +39,9 @@ final class XmlFormatDriver implements FormatDriverInterface
 		return str_ends_with(strtolower($path), '.xml');
 	}
 
+	/**
+	 * @return array<string,mixed>
+	 */
 	public function load(string $path, string $environment, ?string $context = null): array
 	{
 		$document = XmlConfigParser::run(

@@ -13,6 +13,7 @@ final class FormPopulationConfig
 
     /**
      * Retrieve the current configuration map.
+     * @return array<string, mixed>
      */
     public static function get(mixed $request): array
     {
@@ -32,6 +33,7 @@ final class FormPopulationConfig
 
     /**
      * Seed configuration defaults without overwriting previously provided values.
+     * @param array<string, mixed> $defaults
      */
     public static function seed(mixed $request, array $defaults): void
     {
@@ -50,6 +52,7 @@ final class FormPopulationConfig
 
     /**
      * Merge configuration overrides, allowing new values to replace existing ones.
+     * @param array<string, mixed> $overrides
      */
     public static function merge(mixed $request, array $overrides): void
     {
@@ -80,6 +83,9 @@ final class FormPopulationConfig
         return $config[$key] ?? $default;
     }
 
+    /**
+     * @param array<string, mixed> $config
+     */
     private static function store(mixed $request, array $config): void
     {
         if ($request === null) {

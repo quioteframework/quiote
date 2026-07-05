@@ -7,6 +7,7 @@ namespace Quiote\Util;
  */
 final class DeprecationSilencer
 {
+    /** @var array<int,array<string,bool>> */
     private static array $emitted = [];
 
     public static function triggerOnce(string $message, int $level = E_USER_DEPRECATED): void

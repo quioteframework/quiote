@@ -10,6 +10,7 @@ use Quiote\Request\WebRequest;
 final class RequestDiagnostics
 {
     private static ?int $canonicalId = null;
+    /** @var array<int, array{0: string, 1: int, 2: float}> */
     private static array $stages = [];
 
     public static function note(string $stage, ?WebRequest $req): void
@@ -29,6 +30,9 @@ final class RequestDiagnostics
         }
     }
 
+    /**
+     * @return array{canonical: ?int, stages: array<int, array{0: string, 1: int, 2: float}>}
+     */
     public static function summary(): array
     {
         return [

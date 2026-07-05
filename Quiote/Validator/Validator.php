@@ -102,13 +102,13 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	protected $validationParameters = null;
 
 	/**
-	 * @var        array The name of the request parameters serving as argument to
+	 * @var        array<int|string, mixed> The name of the request parameters serving as argument to
 	 *                   this validator.
 	 */
 	protected $arguments = [];
 
 	/**
-	 * @var        array The error messages.
+	 * @var        array<string, string> The error messages.
 	 */
 	protected $errorMessages = [];
 
@@ -118,7 +118,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	protected $incident = null;
 	
 	/**
-	 * @var        array The affected arguments of this validation run.
+	 * @var        array<int, mixed> The affected arguments of this validation run.
 	 */
 	protected $affectedArguments = [];
 
@@ -134,7 +134,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 
 	/**
 	 * Returns the "keys" in the path of the base
-	 * @return     array The keys from left to right
+	 * @return     array<int, mixed> The keys from left to right
 	 * @since      1.0.0
 	 */
 	public function getBaseKeys()
@@ -212,9 +212,10 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	/**
 	 * Initialize this validator.
 	 * @param      Context $context The Context.
-	 * @param      array $parameters An array of validator parameters.
-	 * @param      array $arguments An array of argument names which should be validated.
-	 * @param      array $errors An array of error messages.
+	 * @param      array<string, mixed> $parameters An array of validator parameters.
+	 * @param      array<int|string, mixed> $arguments An array of argument names which should be validated.
+	 * @param      array<string, string> $errors An array of error messages.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function initialize(Context $context, array $parameters = [], array $arguments = [], array $errors = [])
@@ -263,6 +264,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	/**
 	 * Sets the parent container.
 	 * @param      IValidatorContainer $parent The parent container.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setParentContainer(IValidatorContainer $parent)
@@ -310,6 +312,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	 * This method can be used in validators to shut down used models or
 	 * other activities before the validator is killed.
 	 * @see        ValidationManager::shutdown()
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function shutdown()
@@ -416,18 +419,19 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 
 	/**
 	 * Returns all arguments which should be validated.
-	 * @return     array A list of input arguments names.
+	 * @return     array<int|string, mixed> A list of input arguments names.
 	 * @since      1.0.0
 	 */
 	protected function getArguments()
 	{
 		return $this->arguments;
 	}
-	
+
 	/**
-	 * Sets the arguments which should be flagged with the result of the 
+	 * Sets the arguments which should be flagged with the result of the
 	 * validator
-	 * @param      array $arguments A list of (absolute) argument names
+	 * @param      array<int, mixed> $arguments A list of (absolute) argument names
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function setAffectedArguments($arguments)
@@ -500,6 +504,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	 * the backup message.
 	 * @param      string $index The name of the error.
 	 * @param      string $backupMessage The backup error message.
+	 * @return     ?string
 	 * @since      1.0.0
 	 */
 	protected function getErrorMessage($index = null, $backupMessage = null)
@@ -523,12 +528,13 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	 * error. The error will be appended to the current incident.
 	 * @param      string $index The name of the error parameter to fetch the message 
 	 *                    from.
-	 * @param      string|array $affectedArgument The arguments which are affected by this error.
+	 * @param      string|array<int, mixed> $affectedArgument The arguments which are affected by this error.
 	 *                          If null is given it will affect all fields.
 	 * @param      boolean $argumentsRelative Whether the argument names in $affectedArgument are
 	 *                     relative or absolute.
 	 * @param      boolean $setAffected Whether to set the affected fields of the validator
 	 *                     to the $affectedArguments
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function throwError($index = null, $affectedArgument = null, $argumentsRelative = false, $setAffected = false)
@@ -583,6 +589,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	 *                   exported to a different source.
 	 * @param      int $result The result status code to use for the exported value.
 	 *                   Defaults to Validator::SUCCESS.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function export($value, $argument = null, $result = null)
@@ -892,7 +899,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 
 	/**
 	 * Returns all available keys in the currently set base.
-	 * @return     array The available keys.
+	 * @return     array<int, mixed> The available keys.
 	 * @since      1.0.0
 	 */
 	protected function getKeysInCurrentBase()
@@ -911,7 +918,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 
 	/**
 	 * Returns all arguments with their full path.
-	 * @return     array The arguments.
+	 * @return     array<int, string> The arguments.
 	 * @since      1.0.0
 	 */
 	protected function getFullArgumentNames()

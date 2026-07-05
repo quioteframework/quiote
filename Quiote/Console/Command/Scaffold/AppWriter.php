@@ -140,6 +140,9 @@ final class AppWriter
 		};
 	}
 
+	/**
+	 * @param array<string, mixed> $values
+	 */
 	private function settingsXml(array $values): string
 	{
 		$settings = '';

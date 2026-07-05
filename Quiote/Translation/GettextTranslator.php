@@ -21,12 +21,12 @@ class GettextTranslator extends BasicTranslator implements ResetInterface
 	protected $domainPathPattern = null;
 
 	/**
-	 * @var        array The paths to the locale files indexed by domains
+	 * @var        array<string, string> The paths to the locale files indexed by domains
 	 */
 	protected $domainPaths = [];
 
 	/**
-	 * @var        array The data for each domain
+	 * @var        array<string, array{headers: array<string, string>, msgs: array<string, string>}> The data for each domain
 	 */
 	protected $domainData = [];
 	
@@ -54,7 +54,8 @@ class GettextTranslator extends BasicTranslator implements ResetInterface
 	/**
 	 * Initialize this Translator.
 	 * @param      Context $context The current application context.
-	 * @param      array $parameters An associative array of initialization parameters
+	 * @param      array<string, mixed> $parameters An associative array of initialization parameters
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	#[\Override]
@@ -162,6 +163,7 @@ class GettextTranslator extends BasicTranslator implements ResetInterface
 	 * Loads the data from the data file for the given domain with the current
 	 * locale.
 	 * @param      string $domain The domain to load the data for.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function loadDomainData($domain)

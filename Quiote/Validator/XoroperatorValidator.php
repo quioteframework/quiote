@@ -18,6 +18,7 @@ class XoroperatorValidator extends OperatorValidator implements ResetInterface
 	 * Checks if this operator has a exactly 2 child validators.
 	 * @throws     ValidatorException If the operator doesn't have
 	 *                                            exactly 2 child validators.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	protected function checkValidSetup()

@@ -42,7 +42,7 @@ abstract class PhpUnitTestCase extends TestCase
 	 * @param        string $environmentName the name of the environment
 	 * @since        1.0.0
 	 */
-	public function setIsolationEnvironment($environmentName)
+	public function setIsolationEnvironment($environmentName): void
 	{
 		$this->isolationEnvironment = $environmentName;
 	}
@@ -92,7 +92,7 @@ abstract class PhpUnitTestCase extends TestCase
 	 * @param        string $contextName the name of the context
 	 * @since        1.0.0
 	 */
-	public function setIsolationDefaultContext($contextName)
+	public function setIsolationDefaultContext($contextName): void
 	{
 		$this->isolationDefaultContext = $contextName;
 	}
@@ -141,7 +141,7 @@ abstract class PhpUnitTestCase extends TestCase
 	 * @param        bool $flag true if the cache should be cleared
 	 * @since        1.0.0
 	 */
-	public function setClearCache($flag)
+	public function setClearCache($flag): void
 	{
 		$this->clearIsolationCache = (bool)$flag;
 	}

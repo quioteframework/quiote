@@ -27,7 +27,7 @@ use Quiote\Request\WebRequest;
 /**
  * Dynamic optional action extension points used via method_exists():
  * @method int|null slotCacheTtlSeconds()
- * @method array slotCacheTags(array $parameters = [])
+ * @method array<int, string> slotCacheTags(array<string, mixed> $parameters = [])
  */
 class SlotDispatcher
 {
@@ -49,7 +49,7 @@ class SlotDispatcher
      * @param ServerRequestInterface $parentRequest The parent PSR request containing SlotStack attribute.
      * @param string $module Module name.
      * @param string $action Action name.
-     * @param array $parameters Optional associative array of request parameters for the slot.
+     * @param array<string, mixed> $parameters Optional associative array of request parameters for the slot.
      * @param ?string $outputType Optional output type override.
      */
     public function dispatch(ServerRequestInterface $parentRequest, string $module, string $action, array $parameters = [], ?string $outputType = null): string
@@ -518,6 +518,9 @@ class SlotDispatcher
         }
     }
 
+    /**
+     * @param array<string, mixed> $parameters
+     */
     private function logSlotException(\Throwable $e, string $module, string $action, array $parameters, string $phase): void
     {
         try {
@@ -547,6 +550,7 @@ class SlotDispatcher
 
     /**
      * Experimental API: identical to dispatch() but returns ActionExecutionContext alongside content.
+     * @param array<string, mixed> $parameters
      */
     public function dispatchWithContext(ServerRequestInterface $parentRequest, string $module, string $action, array $parameters = [], ?string $outputType = null): ActionExecutionContext
     {
@@ -577,6 +581,7 @@ class SlotDispatcher
 
     /**
      * New API: dispatch and return SlotContent value object instead of raw string.
+     * @param array<string, mixed> $parameters
      */
     public function dispatchSlotContent(ServerRequestInterface $parentRequest, string $module, string $action, array $parameters = [], ?string $outputType = null): SlotContent
     {
@@ -586,6 +591,7 @@ class SlotDispatcher
 
     /**
      * Experimental: dispatch slot and return SlotExecutionContext (immutable) for richer metadata.
+     * @param array<string, mixed> $parameters
      */
     public function dispatchSlotContext(ServerRequestInterface $parentRequest, string $module, string $action, array $parameters = [], ?string $outputType = null): SlotExecutionContext
     {

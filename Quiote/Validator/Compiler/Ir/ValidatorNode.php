@@ -18,10 +18,10 @@ final class ValidatorNode
 	/**
 	 * @param string $name The validator's name (explicit or generated).
 	 * @param string $validatorClass The resolved, fully-qualified validator class.
-	 * @param array $arguments Request parameter names/sub-paths this validator reads.
+	 * @param array<int, mixed> $arguments Request parameter names/sub-paths this validator reads.
 	 * @param string $base The base path from <arguments base="...">, or ''.
-	 * @param array $parameters The fully resolved, already-checked parameter bag.
-	 * @param array $errors Error message overrides, keyed by error index (or '').
+	 * @param array<string, mixed> $parameters The fully resolved, already-checked parameter bag.
+	 * @param array<int|string, mixed> $errors Error message overrides, keyed by error index (or '').
 	 * @param string[] $methods The HTTP methods this validator applies to (or [''] for all).
 	 * @param string[] $declaredNames Request parameter names this validator whitelists.
 	 * @param ValidatorNode[] $children Nested validators (and/or/not/xor containers).

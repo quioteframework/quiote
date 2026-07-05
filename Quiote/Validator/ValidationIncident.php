@@ -11,7 +11,7 @@ use Symfony\Contracts\Service\ResetInterface;
 class ValidationIncident implements ResetInterface
 {
 	/**
-	 * @var        array The errors of this incident.
+	 * @var        array<int, ValidationError> The errors of this incident.
 	 */
 	protected $errors = [];
 
@@ -38,6 +38,7 @@ class ValidationIncident implements ResetInterface
 	/**
 	 * Sets the severity of this incident.
 	 * @param      int $severity The severity.
+	 * @return     int
 	 * @since      1.0.0
 	 */
 	public function setSeverity($severity)
@@ -59,6 +60,7 @@ class ValidationIncident implements ResetInterface
 	 * Adds an error to this incident. This will set the incident of the error to 
 	 * this incident instance.
 	 * @param      ValidationError $error The error.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function addError(ValidationError $error)
@@ -69,7 +71,8 @@ class ValidationIncident implements ResetInterface
 
 	/**
 	 * Sets the errors of this incident.
-	 * @param      array $errors An array of ValidationErrors.
+	 * @param      array<int, ValidationError> $errors An array of ValidationErrors.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setErrors(array $errors)
@@ -82,7 +85,7 @@ class ValidationIncident implements ResetInterface
 
 	/**
 	 * Retrieves the errors of this incident.
-	 * @return     array The errors.
+	 * @return     array<int, ValidationError> The errors.
 	 * @since      1.0.0
 	 */
 	public function getErrors()
@@ -92,7 +95,8 @@ class ValidationIncident implements ResetInterface
 
 	/**
 	 * Sets the validator of this incident.
-	 * @param      Validator $validator The validator.
+	 * @param      ?Validator $validator The validator.
+	 * @return     ?Validator
 	 * @since      1.0.0
 	 */
 	public function setValidator($validator)
@@ -102,7 +106,7 @@ class ValidationIncident implements ResetInterface
 
 	/**
 	 * Retrieves the validator of this incident.
-	 * @return     Validator The validator.
+	 * @return     ?Validator The validator.
 	 * @since      1.0.0
 	 */
 	public function getValidator()
@@ -112,7 +116,7 @@ class ValidationIncident implements ResetInterface
 
 	/**
 	 * Retrieves a list of all erroneous arguments of this incident.
-	 * @return     array An array of ValidationArgument.
+	 * @return     array<string, ValidationArgument> An array of ValidationArgument.
 	 * @since      1.0.0
 	 */
 	public function getArguments()
@@ -153,7 +157,7 @@ class ValidationIncident implements ResetInterface
 
 	/**
      * Retrieves a list of all fields of all the containing errors.
-     * @return     array An array of field names.
+     * @return     array<int, string> An array of field names.
      * @since      1.0.0
      */
     #[\Deprecated(message: '1.0.0')]
@@ -170,7 +174,7 @@ class ValidationIncident implements ResetInterface
 	/**
      * Retrieves the errors which were thrown for the given field.
      * @param      string $fieldname The field name.
-     * @return     array An array of ValidationError.
+     * @return     array<int, ValidationError> An array of ValidationError.
      * @since      1.0.0
      */
     #[\Deprecated(message: '1.0.0')]

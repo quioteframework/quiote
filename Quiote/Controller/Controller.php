@@ -69,11 +69,12 @@ class Controller extends ParameterHolder implements ResetInterface
 	 * resets can restore the intended framework configuration instead of
 	 * falling back to the first registered output type (which caused request 1
 	 * to influence subsequent requests when $defaultOutputType was nulled).
+	 * @var        ?string
 	 */
 	protected $configuredDefaultOutputType = null;
 	
 	/**
-	 * @var        array An array of registered Output Types.
+	 * @var        array<string, mixed> An array of registered Output Types.
 	 */
 	protected $outputTypes = [];
 
@@ -91,6 +92,7 @@ class Controller extends ParameterHolder implements ResetInterface
 	 * Increment the execution counter.
 	 * Will throw an exception if the maximum amount of runs is exceeded.
 	 * @throws     ControllerException If too many execution runs were made.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function countExecution()
@@ -113,6 +115,7 @@ class Controller extends ParameterHolder implements ResetInterface
 	 * absent so a value supplied by the module's config is never overwritten, and
 	 * so the call is safe (and cheap) to make on every initializeModule().
 	 * @param      string $lowerModuleName The lower-cased module name.
+	 * @return     void
 	 */
 	private function ensureModuleDirectiveDefaults($lowerModuleName)
 	{
@@ -134,6 +137,7 @@ class Controller extends ParameterHolder implements ResetInterface
 	/**
 	 * Initialize a module and load its autoload, module config etc.
 	 * @param      string $moduleName The name of the module to initialize.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function initializeModule($moduleName)
@@ -407,7 +411,8 @@ class Controller extends ParameterHolder implements ResetInterface
 	/**
 	 * Initialize this controller.
 	 * @param      Context $context An Context instance.
-	 * @param      array $parameters An array of initialization parameters.
+	 * @param      array<string, mixed> $parameters An array of initialization parameters.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function initialize(Context $context, array $parameters = [])
@@ -497,6 +502,7 @@ class Controller extends ParameterHolder implements ResetInterface
 	/**
 	 * Do any necessary startup work after initialization.
 	 * This method is not called directly after initialize().
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function startup()
@@ -516,6 +522,7 @@ class Controller extends ParameterHolder implements ResetInterface
 
 	/**
 	 * Execute the shutdown procedure for this controller.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function shutdown()

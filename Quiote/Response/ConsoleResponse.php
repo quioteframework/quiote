@@ -24,6 +24,7 @@ class ConsoleResponse extends Response
 	/**
 	 * Import response metadata (nothing in this case) from another response.
 	 * @param      Response $otherResponse The other response to import information from.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	#[\Override]
@@ -78,6 +79,7 @@ class ConsoleResponse extends Response
 	/**
 	 * Set the shell exit code of this response.
 	 * @param      int $exitCode The exit code.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setExitCode($exitCode)
@@ -110,6 +112,7 @@ class ConsoleResponse extends Response
 	
 	/**
 	 * Send all response data to the client.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function send(?OutputType $outputType = null)
@@ -121,6 +124,7 @@ class ConsoleResponse extends Response
 	
 	/**
 	 * Clear all response data.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function clear()
@@ -131,6 +135,7 @@ class ConsoleResponse extends Response
 	
 	/**
 	 * Send the content for this response
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	#[\Override]

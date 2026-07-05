@@ -13,6 +13,9 @@ class ViewResolver
         @trigger_error('ViewResolver is deprecated; use ViewNameResolver directly', E_USER_DEPRECATED);
         $this->delegate = $delegate ?? new ViewNameResolver();
     }
+    /**
+     * @return array{0: string, 1: string|null}
+     */
     public function resolve(string $module, string $action, mixed $rawViewName): array
     {
         return $this->delegate->resolve($module,$action,$rawViewName);

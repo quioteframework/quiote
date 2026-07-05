@@ -12,13 +12,13 @@ use Symfony\Contracts\Service\ResetInterface;
 class ParameterHolder implements ResetInterface
 {
 	/**
-	 * @var        array An array of parameters
+	 * @var        array<string,mixed> An array of parameters
 	 */
 	protected $parameters = [];
 
 	/**
 	 * Constructor. Accepts an array of initial parameters as an argument.
-	 * @param      array $parameters An array of parameters to be set right away.
+	 * @param      array<string,mixed> $parameters An array of parameters to be set right away.
 	 * @since      1.0.0
 	 */
 	public function __construct(array $parameters = [])
@@ -28,6 +28,7 @@ class ParameterHolder implements ResetInterface
 
 	/**
 	 * Clear all parameters associated with this request.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function clearParameters()
@@ -57,7 +58,7 @@ class ParameterHolder implements ResetInterface
 
 	/**
 	 * Retrieve an array of parameter names.
-	 * @return     array An indexed array of parameter names.
+	 * @return     array<int,string> An indexed array of parameter names.
 	 * @since      1.0.0
 	 */
 	public function getParameterNames()
@@ -69,7 +70,7 @@ class ParameterHolder implements ResetInterface
 	 * Retrieve an array of flattened parameter names. This means when a parameter
 	 * is an array you wont get the name of the parameter in the result but 
 	 * instead all child keys appended to the name (like foo[0],foo[1][0], ...)
-	 * @return     array An indexed array of parameter names.
+	 * @return     array<int,string> An indexed array of parameter names.
 	 * @since      1.0.0
 	 */
 	public function getFlatParameterNames()
@@ -79,7 +80,7 @@ class ParameterHolder implements ResetInterface
 
 	/**
 	 * Retrieve an array of parameters.
-	 * @return     array An associative array of parameters.
+	 * @return     array<string,mixed> An associative array of parameters.
 	 * @since      1.0.0
 	 */
 	public function &getParameters()
@@ -133,6 +134,7 @@ class ParameterHolder implements ResetInterface
 	 * If a parameter with the name already exists the value will be overridden.
 	 * @param      string $name A parameter name.
 	 * @param      mixed  $value A parameter value.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setParameter($name, $value)
@@ -146,6 +148,7 @@ class ParameterHolder implements ResetInterface
 	 * new value.  If not, set the new value like normal.
 	 * @param      string $name A parameter name.
 	 * @param      mixed  $value A parameter value.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function appendParameter($name, $value)
@@ -162,6 +165,7 @@ class ParameterHolder implements ResetInterface
 	 * overridden.
 	 * @param      string $name A parameter name.
 	 * @param      mixed  $value A reference to a parameter value.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setParameterByRef($name, &$value)
@@ -175,6 +179,7 @@ class ParameterHolder implements ResetInterface
 	 * reference to the new value.  If not, set the new value like normal.
 	 * @param      string $name A parameter name.
 	 * @param      mixed  $value A reference to a parameter value.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function appendParameterByRef($name, &$value)
@@ -189,8 +194,9 @@ class ParameterHolder implements ResetInterface
 	 * Set an array of parameters.
 	 * If an existing parameter name matches any of the keys in the supplied
 	 * array, the associated value will be overridden.
-	 * @param      array $parameters An associative array of parameters and their associated
+	 * @param      array<string,mixed> $parameters An associative array of parameters and their associated
 	 *                   values.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setParameters(array $parameters)
@@ -204,8 +210,9 @@ class ParameterHolder implements ResetInterface
 	 * Set an array of parameters by reference.
 	 * If an existing parameter name matches any of the keys in the supplied
 	 * array, the associated value will be overridden.
-	 * @param      array $parameters An associative array of parameters and references to their
+	 * @param      array<string,mixed> $parameters An associative array of parameters and references to their
 	 *                   associated values.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setParametersByRef(array &$parameters)

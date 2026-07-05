@@ -16,26 +16,29 @@ use Symfony\Contracts\Service\ResetInterface;
 abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 {
 
+	/**
+	 * @var        ?string The name of the context, used to restore it on __wakeup.
+	 */
 	protected final $contextName = null;
-	
+
 	/**
 	 * @var        ?Context The current Context.
 	 */
 	protected $context = null;
-	
+
 	/**
 	 * @var        ?Renderer The Renderer instance to be used for this layer.
 	 */
 	protected $renderer = null;
-	
+
 	/**
-	 * @var        array An associative array of execution containers for slots.
+	 * @var        array<string, mixed> An associative array of execution containers for slots.
 	 */
 	protected $slots = [];
-	
+
 	/**
 	 * Constructor.
-	 * @param      array $parameters Initial parameters.
+	 * @param      array<string, mixed> $parameters Initial parameters.
 	 * @since      1.0.0
 	 */
 	public function __construct(array $parameters = [])
@@ -49,7 +52,8 @@ abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 	/**
 	 * Convenience overload for accessing parameters using a method.
 	 * @param      string $name The method name.
-	 * @param      array $args The method arguments.
+	 * @param      array<int, mixed> $args The method arguments.
+	 * @return     mixed
 	 * @since      1.0.0
 	 */
 	public function __call($name, array $args)
@@ -104,6 +108,8 @@ abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 	 * Useful in your custom models to render an email, for example.
 	 * @param      Renderer $renderer An optional renderer instance that will be used
 	 *                           instead of the one set on the layer.
+	 * @param      array<string, mixed> $attributes The template variables.
+	 * @param      array<int|string, mixed> $moreAssigns Associative array of additional assigns.
 	 * @return     string The rendered result.
 	 * @since      1.0.0
 	 */
@@ -152,7 +158,8 @@ abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 	/**
 	 * Initialize the layer.
 	 * @param      Context $context The current Context instance.
-	 * @param      array $parameters An array of initialization parameters.
+	 * @param      array<string, mixed> $parameters An array of initialization parameters.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function initialize(Context $context, array $parameters = [])
@@ -165,6 +172,7 @@ abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 	/**
 	 * Set a renderer instance to use for this layer.
 	 * @param      Renderer $renderer A renderer instance.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setRenderer(Renderer $renderer)
@@ -186,6 +194,7 @@ abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 	 * Set a slot that is rendered along with and available inside this layer.
 	 * @param      string $name The name of the slot.
 	 * @param      \Quiote\Execution\SlotRenderable|string $c Deprecated legacy container parameter now supports SlotRenderable only.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function setSlot($name, $c)
@@ -214,7 +223,7 @@ abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 	
 	/**
 	 * Get all slots.
-	 * @return     array An associative array of slot names and exec containers.
+	 * @return     array<string, mixed> An associative array of slot names and exec containers.
 	 * @since      1.0.0
 	 */
 	public function getSlots()
@@ -246,6 +255,7 @@ abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 	/**
 	 * Remove a slot.
 	 * @param      string $name The name of the slot.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function removeSlot($name)

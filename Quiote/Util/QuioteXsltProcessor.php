@@ -46,16 +46,24 @@ class QuioteXsltProcessor extends \XSLTProcessor
 	}
 	
 	/**
-	 * Transform a node with a stylesheet.
-	 * @param      \DOMNode $doc The node to transform.
+	 * Transform a document with a stylesheet.
+	 * @param      mixed $doc The document to transform; must be a DOMDocument or SimpleXMLElement.
 	 * @return     object The resulting DOMDocument (or subclass of $doc's owner document).
 	 * @since      1.0.0
 	 */
 	public function transformToDoc($doc, $returnClass = null): false|object
 	{
+		if (!$doc instanceof \DOMDocument && !$doc instanceof \SimpleXMLElement) {
+			throw new \InvalidArgumentException(sprintf(
+				'%s::transformToDoc() requires a DOMDocument or SimpleXMLElement, %s given.',
+				self::class,
+				get_debug_type($doc)
+			));
+		}
+
 		$luie = libxml_use_internal_errors(true);
 		libxml_clear_errors();
-		
+
 		$result = parent::transformToDoc($doc, $returnClass);
 		
 		// check if result is false, too, as that means the transformation failed for reasons like infinite template recursion

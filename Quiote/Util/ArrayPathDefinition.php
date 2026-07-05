@@ -23,9 +23,9 @@ final class ArrayPathDefinition
 
 	/**
 	 * Converts the given argument to an array of parts for use in the path getter/setters
-	 * @param      array|string $partsArrayOrPathString The path string or an array containing the path
+	 * @param      array<int, mixed>|string $partsArrayOrPathString The path string or an array containing the path
 	 *                          divided into its individual parts.
-	 * @return     array        The array of parts.
+	 * @return     array<int, mixed>        The array of parts.
 	 * @since      1.0.0
 	 */
 	protected static function preparePartsArray($partsArrayOrPathString)
@@ -46,9 +46,9 @@ final class ArrayPathDefinition
 	
 	/**
 	 * Unsets a value at the given path.
-	 * @param      array|string $partsArrayOrPathString The path string or an array containing the path
+	 * @param      array<int, mixed>|string $partsArrayOrPathString The path string or an array containing the path
 	 *                          divided into its individual parts.
-	 * @param      array $array The array we should operate on.
+	 * @param      array<int|string, mixed> $array The array we should operate on.
 	 * @return     mixed The previously stored value.
 	 * @since      1.0.0
 	 */
@@ -86,13 +86,13 @@ final class ArrayPathDefinition
 
 	/**
 	 * Checks whether the array has a value at the given path.
-	 * @param      array|string $partsArrayOrPathString The path string or an array containing the path
+	 * @param      array<int, mixed>|string $partsArrayOrPathString The path string or an array containing the path
 	 *                          divided into its individual parts.
-	 * @param      array $array The array we should operate on.
+	 * @param      array<int|string, mixed> $array The array we should operate on.
 	 * @return     bool Whether the path exists in this array.
 	 * @since      1.0.0
 	 */
-	public static function hasValue($partsArrayOrPathString, array &$array)
+	public static function hasValue($partsArrayOrPathString, array $array)
 	{
 		$parts = self::preparePartsArray($partsArrayOrPathString);
 		
@@ -116,9 +116,9 @@ final class ArrayPathDefinition
 
 	/**
 	 * Returns the value at the given path.
-	 * @param      array|string $partsArrayOrPathString The path string or an array containing the path
+	 * @param      array<int, mixed>|string $partsArrayOrPathString The path string or an array containing the path
 	 *                          divided into its individual parts.
-	 * @param      array $array The array we should operate on.
+	 * @param      array<int|string, mixed> $array The array we should operate on.
 	 * @param      mixed $default A default value if the path doesn't exist in the array.
 	 * @return     mixed The value stored at the given path.
 	 * @since      1.0.0
@@ -148,10 +148,11 @@ final class ArrayPathDefinition
 
 	/**
 	 * Sets the value at the given path.
-	 * @param      array|string $partsArrayOrPathString The path string or an array containing the path
+	 * @param      array<int, mixed>|string $partsArrayOrPathString The path string or an array containing the path
 	 *                          divided into its individual parts.
-	 * @param      array $array The array we should operate on.
+	 * @param      array<int|string, mixed> $array The array we should operate on.
 	 * @param      mixed $value The value.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public static function setValue($partsArrayOrPathString, array &$array, $value)
@@ -178,7 +179,7 @@ final class ArrayPathDefinition
 	/**
 	 * Returns an array with the single parts of the given path.
 	 * @param      string $path The path.
-	 * @return     array The parts of the given path.
+	 * @return     array{parts: array<int, string>, absolute: bool} The parts of the given path.
 	 * @since      1.0.0
 	 */
 	public static function getPartsFromPath($path)
@@ -254,9 +255,9 @@ final class ArrayPathDefinition
 	/**
 	 * Returns the flat key names of an array.
 	 * This method calls itself recursively to flatten the keys.
-	 * @param      array $array The array which keys should be returned.
+	 * @param      array<int|string, mixed> $array The array which keys should be returned.
 	 * @param      string $prefix The prefix for the name (only for internal use).
-	 * @return     array The flattened keys.
+	 * @return     array<int, string> The flattened keys.
 	 * @since      1.0.0
 	 */
 	public static function getFlatKeyNames(array $array, $prefix = null)
@@ -289,9 +290,9 @@ final class ArrayPathDefinition
 	 * will be one dimensional with the flattened key names as keys
 	 * and their values from the original array as values.
 	 * This method calls itself recursively to flatten the array.
-	 * @param      array $array The array which should be flattened.
+	 * @param      array<int|string, mixed> $array The array which should be flattened.
 	 * @param      string $prefix The prefix for the key names (only for internal use).
-	 * @return     array The flattened array.
+	 * @return     array<int|string, mixed> The flattened array.
 	 * @since      1.0.0
 	 */
 	public static function flatten($array, $prefix = null)

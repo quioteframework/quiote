@@ -20,6 +20,9 @@ final class YamlFormatDriver extends AbstractArrayFormatDriver
 		return str_ends_with($lower, '.yaml') || str_ends_with($lower, '.yml');
 	}
 
+	/**
+	 * @return array<int|string, mixed>
+	 */
 	protected function parse(string $path): array
 	{
 		if (!is_file($path)) {

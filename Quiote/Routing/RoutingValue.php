@@ -10,19 +10,30 @@ use Symfony\Contracts\Service\ResetInterface;
  * and postfixes
  * @since      1.0.0
  * @version    1.0.0
+ * @implements IRoutingValue<string, mixed>
  */
 class RoutingValue implements IRoutingValue, ResetInterface
 {
+	/** @var Context|null */
 	protected $context;
+	/** @var string|null */
 	protected final $contextName;
+	/** @var string|null */
 	protected $prefix;
+	/** @var string|null */
 	protected $postfix;
+	/** @var bool */
 	protected $prefixNeedsEncoding = false;
+	/** @var bool */
 	protected $postfixNeedsEncoding = false;
+	/** @var bool|null */
 	protected $valueEncoded;
+	/** @var bool|null */
 	protected $postfixEncoded;
+	/** @var bool|null */
 	protected $prefixEncoded;
-	
+
+	/** @var array<string,string> */
 	protected static $arrayMap = [
 		'pre'  => 'prefix',
 		'val'  => 'value',
@@ -68,7 +79,7 @@ class RoutingValue implements IRoutingValue, ResetInterface
 	/**
 	 * Initialize the routing value.
 	 * @param      Context $context The Context.
-	 * @param      array $parameters An array of initialization parameters.
+	 * @param      array<mixed> $parameters An array of initialization parameters.
 	 * @since      1.0.0
 	 */
 	public function initialize(Context $context, array $parameters = [])
@@ -79,6 +90,7 @@ class RoutingValue implements IRoutingValue, ResetInterface
 	/**
 	 * Set the value.
 	 * @param      mixed $value The value.
+	 * @return     $this
 	 * @since      1.0.0
 	 */
 	public function setValue($value)
@@ -100,6 +112,7 @@ class RoutingValue implements IRoutingValue, ResetInterface
 	/**
 	 * Set the prefix.
 	 * @param      string $value The prefix.
+	 * @return     $this
 	 * @since      1.0.0
 	 */
 	public function setPrefix($value)
@@ -131,6 +144,7 @@ class RoutingValue implements IRoutingValue, ResetInterface
 	/**
 	 * Set the postfix.
 	 * @param      string $value The postfix.
+	 * @return     $this
 	 * @since      1.0.0
 	 */
 	public function setPostfix($value)
@@ -162,6 +176,7 @@ class RoutingValue implements IRoutingValue, ResetInterface
 	/**
 	 * Set whether or not the value needs to be encoded.
 	 * @param      bool $needsEncoding True, if the postfix needs encoding, false otherwise.
+	 * @return     $this
 	 * @since      1.0.0
 	 */
 	public function setValueNeedsEncoding($needsEncoding)
@@ -183,6 +198,7 @@ class RoutingValue implements IRoutingValue, ResetInterface
 	/**
 	 * Set whether or not the prefix needs to be encoded.
 	 * @param      bool $needsEncoding True, if the prefix needs encoding, false otherwise.
+	 * @return     $this
 	 * @since      1.0.0
 	 */
 	public function setPrefixNeedsEncoding($needsEncoding)
@@ -204,6 +220,7 @@ class RoutingValue implements IRoutingValue, ResetInterface
 	/**
 	 * Set whether or not the postfix needs to be encoded.
 	 * @param      bool $needsEncoding True, if the postfix needs encoding, false otherwise.
+	 * @return     $this
 	 * @since      1.0.0
 	 */
 	public function setPostfixNeedsEncoding($needsEncoding)
@@ -296,7 +313,8 @@ class RoutingValue implements IRoutingValue, ResetInterface
 	 */
 	public function __toString(): string
 	{
-		return (string) $this->context->getRouting()->escapeOutputParameter($this->value);
+		$value = (string) $this->value;
+		return $this->valueNeedsEncoding ? rawurlencode($value) : $value;
 	}
 
 	public function reset(): void

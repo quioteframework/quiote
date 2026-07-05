@@ -146,6 +146,7 @@ final class MimeTypeRegistry
      */
     private static ?array $allMimeTypesMemo = null;
 
+    /** @return string[] */
     public static function allMimeTypes(): array
     {
         if (self::$allMimeTypesMemo !== null) {

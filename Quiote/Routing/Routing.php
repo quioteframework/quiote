@@ -18,7 +18,7 @@ use Symfony\Component\Routing\Route;
 abstract class Routing
 {
 	private RouteCollection $routes;
-	/** @var array<string,array{gen_path:string,cut:bool,path:string,opt:array,pattern?:string,match_full?:string,match_partial?:string}> */
+	/** @var array<string,array{gen_path:string,cut:bool,path:string,opt?:array{parent:string|null,action:mixed},pattern?:string,match_full?:string,match_partial?:string}> */
 	private array $meta = [];
 	private ?UrlMatcher $matcher;
 	// Symfony routing request context (renamed to avoid collision with Context)
@@ -27,11 +27,15 @@ abstract class Routing
 	protected ?Context $context = null;
 	// Compatibility shims / state
 	protected string $input = '';
+	/** @var array<string,mixed> */
 	protected array $inputParameters = [];
+	/** @var array<string,mixed> */
 	protected array $legacyGenerated = [];
 	protected bool $initialized = false;
 	protected bool $started = false;
+	/** @var array<string,mixed> */
 	protected array $sources = [];
+	/** @var array<string,mixed> */
 	protected array $parameters = [];
 
 	public function __construct(?RequestContext $requestContext = null)
@@ -46,7 +50,10 @@ abstract class Routing
 		$this->matcher = $this->loadCompiledMatcher() ?? new UrlMatcher($this->routes, $this->requestContext);
 	}
 
-    abstract protected function build(): array; // [RouteCollection, meta]
+    /**
+     * @return array{0:RouteCollection,1:array<string,array{gen_path:string,cut:bool,path:string,opt?:array{parent:string|null,action:mixed},pattern?:string,match_full?:string,match_partial?:string}>}
+     */
+    abstract protected function build(): array;
 
     /**
      * Load a precompiled CompiledUrlMatcher for the current routes if one has
@@ -76,6 +83,7 @@ abstract class Routing
         }
     }
 
+    /** @return array<string,mixed> */
     public function match(string $path): array
     {
         if ($this->matcher === null) {
@@ -92,7 +100,7 @@ abstract class Routing
 	 * Accepts either the tuple [RouteCollection, meta] or the legacy serialized
 	 * form returned by RoutingConfigHandler (which already supplies those
 	 * two elements after unserialize()).
-	 * @param array $spec
+	 * @param array<int,mixed> $spec
 	 */
 	public function importRoutes(array $spec): void
 	{
@@ -109,7 +117,7 @@ abstract class Routing
 	/**
 	 * Export current routing definition (RouteCollection + meta) for config caching.
 	 * Signature kept compatible with RoutingConfigHandler expectations.
-	 * @return array{0:RouteCollection,1:array}
+	 * @return array{0:RouteCollection,1:array<string,array{gen_path:string,cut:bool,path:string,opt?:array{parent:string|null,action:mixed},pattern?:string,match_full?:string,match_partial?:string}>}
 	 */
 	public function exportRoutes(): array
 	{
@@ -122,7 +130,7 @@ abstract class Routing
 	 * appended to the parent's pattern. A child pattern beginning with '/' is
 	 * treated as absolute while still recording parent linkage.
 	 * @param string $pattern Raw pattern (may be relative if parent provided)
-	 * @param array $opts Route options: name (optional), module, action, defaults[] etc.
+	 * @param array<string,mixed> $opts Route options: name (optional), module, action, defaults[] etc.
 	 * @param string|null $parent Parent route name for hierarchy.
 	 * @return string Final route name.
 	 * @throws QuioteException on conflicting duplicate name with different parent.
@@ -180,7 +188,10 @@ abstract class Routing
 		return $name;
 	}
 
-	/** Retrieve a single route meta entry or null. */
+	/**
+	 * Retrieve a single route meta entry or null.
+	 * @return array{gen_path:string,cut:bool,path:string,opt?:array{parent:string|null,action:mixed},pattern?:string,match_full?:string,match_partial?:string}|null
+	 */
 	public function getRoute(string $name): ?array
 	{
 		return $this->meta[$name] ?? null;
@@ -188,7 +199,11 @@ abstract class Routing
 
 	/**
 	 * URL generation.
-	 * Always returns a string path. 
+	 * Always returns a string path.
+	 * @param string|null $route
+	 * @param array<string,mixed> $params
+	 * @param array<string,mixed> $options
+	 * @return string
 	 */
 	public function gen($route, array $params = [], $options = [])
 	{
@@ -233,11 +248,14 @@ abstract class Routing
 		return $genPath;
 	}
 
+	/**
+	 * @param array<string,mixed> $params
+	 * @param array<string,mixed> $currentQuery
+	 */
 	public function genSelf(?string $routeName, array $params = [], array $currentQuery = []): string
 	{
 		if ($routeName !== null) {
-			$r = $this->gen($routeName, $params);
-			return is_array($r) ? $r[0] : $r;
+			return $this->gen($routeName, $params);
 		}
 		// Mirror null-route generation logic in gen()
 		$script = $_SERVER['SCRIPT_NAME'] ?? '';
@@ -266,6 +284,7 @@ abstract class Routing
 	{
 		return $this->routes;
 	}
+	/** @return array<string,array{gen_path:string,cut:bool,path:string,opt?:array{parent:string|null,action:mixed},pattern?:string,match_full?:string,match_partial?:string}> */
 	public function getMeta(): array
 	{
 		return $this->meta;
@@ -340,6 +359,7 @@ abstract class Routing
     }
 
 	// Placeholder for removed legacy features used in some tests; provide no-op minimal parser
+	/** @return array{0:string,1:string,2:array<string,array{name:string,pre:string,val:string,post:string,is_optional:bool}>,3:int} */
 	public function parseRouteString(string $routeString): array
 	{
 		// Simplified token extraction for legacy tests: Keep regex wrapper separate from token scan.
@@ -359,7 +379,11 @@ abstract class Routing
 		return [$pattern, $routeString, $vars, 0];
 	}
 
-	/** Omit-defaults pruning helper (refactored from inline logic). */
+	/**
+	 * Omit-defaults pruning helper (refactored from inline logic).
+	 * @param array<string,mixed> $params
+	 * @param array<string,mixed> $defaults
+	 */
 	private function applyOmitDefaultsPruning(string $routeName, string $genPath, array $params, array $defaults): string
 	{
 		$pattern = $this->meta[$routeName]['gen_path'] ?? '';
@@ -527,6 +551,8 @@ abstract class Routing
 	/**
 	 * Legacy initialize() hook – stores Context & parameters and marks initialized.
 	 * Kept lightweight; route definitions already built in constructor. Idempotent.
+	 * @param array<string,mixed> $parameters
+	 * @return void
 	 */
 	public function initialize(Context $context, array $parameters = [])
 	{
@@ -543,7 +569,10 @@ abstract class Routing
 		} catch (\Throwable) { /* ignore */ }
 	}
 
-	/** Legacy startup() hook. Marks started, no heavy logic needed. */
+	/**
+	 * Legacy startup() hook. Marks started, no heavy logic needed.
+	 * @return void
+	 */
 	public function startup()
 	{
 		$this->started = true;

@@ -37,6 +37,7 @@ class NullStorage extends Storage
 
 	/**
 	 * Execute the shutdown procedure.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function shutdown()
@@ -49,6 +50,7 @@ class NullStorage extends Storage
 	 * be avoided.
 	 * @param      string $key A unique key identifying your data.
 	 * @param      mixed  $data Data associated with your key.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function write($key, $data)

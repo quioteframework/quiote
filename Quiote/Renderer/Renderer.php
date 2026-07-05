@@ -14,6 +14,9 @@ use Symfony\Contracts\Service\ResetInterface;
  */
 abstract class Renderer extends ParameterHolder implements ResetInterface
 {
+	/**
+	 * @var        ?string
+	 */
 	protected final $contextName = null;
 	/**
 	 * @var        ?Context An Context instance.
@@ -42,12 +45,12 @@ abstract class Renderer extends ParameterHolder implements ResetInterface
 	protected $extractVars = false;
 	
 	/**
-	 * @var        array An array of objects to be exported for use in templates.
+	 * @var        array<int|string, string> An array of objects to be exported for use in templates.
 	 */
 	protected $assigns = [];
-	
+
 	/**
-	 * @var        array An array of names for the "more" assigns.
+	 * @var        array<int|string, mixed> An array of names for the "more" assigns.
 	 */
 	protected $moreAssignNames = [];
 	
@@ -78,7 +81,8 @@ abstract class Renderer extends ParameterHolder implements ResetInterface
 	/**
 	 * Initialize this Renderer.
 	 * @param      Context $context The current application context.
-	 * @param      array $parameters An associative array of initialization parameters.
+	 * @param      array<string, mixed> $parameters An associative array of initialization parameters.
+	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function initialize(Context $context, array $parameters = [])
@@ -134,9 +138,9 @@ abstract class Renderer extends ParameterHolder implements ResetInterface
 	
 	/**
 	 * Build an array of "more" assigns.
-	 * @param      array $moreAssigns The values to be assigned.
-	 * @param      array $moreAssignNames Assigns name map.
-	 * @return     array The data.
+	 * @param      array<int|string, mixed> $moreAssigns The values to be assigned.
+	 * @param      array<int|string, mixed> $moreAssignNames Assigns name map.
+	 * @return     array<int|string, mixed> The data.
 	 * @since      1.0.0
 	 */
 	protected static function &buildMoreAssigns(&$moreAssigns, $moreAssignNames)
@@ -159,9 +163,9 @@ abstract class Renderer extends ParameterHolder implements ResetInterface
 	/**
 	 * Render the presentation and return the result.
 	 * @param      TemplateLayer $layer The template layer to render.
-	 * @param      array $attributes The template variables.
-	 * @param      array $slots The slots.
-	 * @param      array $moreAssigns Associative array of additional assigns.
+	 * @param      array<string, mixed> $attributes The template variables.
+	 * @param      array<string, mixed> $slots The slots.
+	 * @param      array<int|string, mixed> $moreAssigns Associative array of additional assigns.
 	 * @return     string A rendered result.
 	 * @since      1.0.0
 	 */

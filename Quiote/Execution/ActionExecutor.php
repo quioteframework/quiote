@@ -154,6 +154,8 @@ final class ActionExecutor
      * Execute an action given its descriptor and request data, mutating ExecutionState accordingly.
      * NOTE: For now we still create a lightweight execution container only to satisfy legacy view->initialize expectations.
      * In a later phase a ViewFactory + ViewInitContext will replace this.
+     *
+     * @param array<string, mixed> $parameters
      */
     public function execute(ActionDescriptor $desc, ServerRequestInterface $request, ExecutionState $state, array $parameters = [], ?Action $preInstantiatedAction = null): ActionExecutionContext
     {
@@ -245,11 +247,7 @@ final class ActionExecutor
             $attributeSnapshot = [];
         }
         // Shallow clone to detach from holder internal storage (defensive)
-        if (is_array($attributeSnapshot)) {
-            $attributeSnapshot = array_merge([], $attributeSnapshot);
-        } else {
-            $attributeSnapshot = [];
-        }
+        $attributeSnapshot = array_merge([], $attributeSnapshot);
 
         [$vm, $vn] = $this->viewNameResolver->resolve($desc->module, $desc->action, $rawView);
         [$view, $content] = $this->renderView($vm, $vn, $desc, $actionRequest, $attributeSnapshot, $dbg, $logger);
@@ -275,6 +273,7 @@ final class ActionExecutor
      * {@see execute()}. Gated by the
      * same `telemetry.spans.action` toggle; when `$vn` is `View::NONE` no
      * span is opened at all, since there is nothing to render.
+     * @param array<string, mixed> $attributeSnapshot
      * @return array{0: ?View, 1: string} [$view, $content]
      */
     private function renderView(?string $vm, ?string $vn, ActionDescriptor $desc, WebRequest $actionRequest, array $attributeSnapshot, bool $dbg, \Quiote\Logging\CategoryLogger $logger): array
@@ -323,6 +322,9 @@ final class ActionExecutor
         }
     }
 
+    /**
+     * @param array<string, mixed> $attributeSnapshot
+     */
     private function createAndInitView(string $vm, string $vn, string $module, string $action, ServerRequestInterface $rd, array $attributeSnapshot = []): ?View
     {
         try {

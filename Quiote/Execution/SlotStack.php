@@ -6,8 +6,10 @@ namespace Quiote\Execution;
  */
 final class SlotStack
 {
+    /** @var string[] */
     private array $stack = [];
     // Transient per-request set of keys we've already warned about to avoid log spam
+    /** @var array<string,bool> */
     private array $warnedKeys = [];
     // Original PSR-7 request before validation pruning - used by SlotDispatcher
     private ?\Psr\Http\Message\ServerRequestInterface $originalRequest = null;
