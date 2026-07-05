@@ -125,7 +125,7 @@ class TranslationConfigHandler extends XmlConfigHandler implements IArrayConfigH
 
 	/**
 	 * Builds a list of filters for a translator.
-	 * @param      \Quiote\Config\Util\DOM\XmlConfigDomElement<int, \Quiote\Config\Util\DOM\XmlConfigDomElement> $translator The Translator node.
+	 * @param      \Quiote\Config\Util\DOM\XmlConfigDomElement $translator The Translator node.
 	 * @return     array<int, string|array<int, string>> An array of filter definitions.
 	 * @since      1.0.0
 	 */
@@ -136,7 +136,7 @@ class TranslationConfigHandler extends XmlConfigHandler implements IArrayConfigH
 			// get() only ever selects element nodes, and registerNodeClass()
 			// guarantees those are always XmlConfigDomElement, never a vanilla DOMNode.
 			foreach ($translator->get('filters') as $filter) {
-				/** @var \Quiote\Config\Util\DOM\XmlConfigDomElement<int, \Quiote\Config\Util\DOM\XmlConfigDomElement> $filter */
+				/** @var \Quiote\Config\Util\DOM\XmlConfigDomElement $filter */
 				$func = explode('::', (string) $filter->getValue());
 				if (count($func) != 2) {
 					$func = $func[0];
@@ -152,7 +152,7 @@ class TranslationConfigHandler extends XmlConfigHandler implements IArrayConfigH
 
 	/**
 	 * Build a list of translators.
-	 * @param      iterable<int, \Quiote\Config\Util\DOM\XmlConfigDomElement<int, \Quiote\Config\Util\DOM\XmlConfigDomElement>> $translators The translators container.
+	 * @param      iterable<int, \Quiote\Config\Util\DOM\XmlConfigDomElement> $translators The translators container.
 	 * @param      array<string, mixed>   $data The destination data array.
 	 * @param      ?string                $parent The name of the parent domain.
 	 * @return     void
@@ -201,7 +201,7 @@ class TranslationConfigHandler extends XmlConfigHandler implements IArrayConfigH
 			if ($translator->has('translators')) {
 				// get() only ever selects element nodes, and registerNodeClass()
 				// guarantees those are always XmlConfigDomElement, never a vanilla DOMNode.
-				/** @var iterable<int, \Quiote\Config\Util\DOM\XmlConfigDomElement<int, \Quiote\Config\Util\DOM\XmlConfigDomElement>> $childTranslators */
+				/** @var iterable<int, \Quiote\Config\Util\DOM\XmlConfigDomElement> $childTranslators */
 				$childTranslators = $translator->get('translators');
 				$this->getTranslators($childTranslators, $data, $domain);
 			}

@@ -55,7 +55,7 @@ class DatabaseConfigHandler extends XmlConfigHandler implements IArrayConfigHand
 			$databasesElement = $configuration->getChild('databases');
 			// registerNodeClass() guarantees element nodes are always
 			// XmlConfigDomElement, never a vanilla DOMNode.
-			/** @var XmlConfigDomElement<int, \DOMNode> $databasesElement */
+			/** @var XmlConfigDomElement $databasesElement */
 
 			// make sure we have a default database exists
 			if (!$databasesElement->hasAttribute('default') && $default === null) {
@@ -73,7 +73,7 @@ class DatabaseConfigHandler extends XmlConfigHandler implements IArrayConfigHand
 			foreach ($configuration->get('databases') as $database) {
 				// registerNodeClass() guarantees element nodes are always
 				// XmlConfigDomElement, never a vanilla DOMNode.
-				/** @var XmlConfigDomElement<int, \DOMNode> $database */
+				/** @var XmlConfigDomElement $database */
 				$name = $database->getAttribute('name');
 
 				if (!isset($databases[$name])) {

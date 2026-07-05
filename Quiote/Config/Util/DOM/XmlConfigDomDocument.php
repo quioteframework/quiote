@@ -413,7 +413,7 @@ class XmlConfigDomDocument extends \DOMDocument
 	/**
 	 * Method to retrieve a list of Quiote <configuration> elements regardless of
 	 * their namespace.
-	 * @return     array<int, XmlConfigDomElement<int, XmlConfigDomElement>> A list of XmlConfigDomElement elements.
+	 * @return     array<int, XmlConfigDomElement> A list of XmlConfigDomElement elements.
 	 * @since      1.0.0
 	 */
 	public function getConfigurationElements()
@@ -427,7 +427,7 @@ class XmlConfigDomDocument extends \DOMDocument
 				if($node->nodeType == XML_ELEMENT_NODE && $node->localName == 'configuration' && $node->namespaceURI == $quioteNs) {
 					// registerNodeClass() guarantees element nodes are always
 					// XmlConfigDomElement, never a vanilla DOMNode.
-					/** @var XmlConfigDomElement<int, XmlConfigDomElement> $node */
+					/** @var XmlConfigDomElement $node */
 					$retval[] = $node;
 				}
 			}
@@ -438,7 +438,7 @@ class XmlConfigDomDocument extends \DOMDocument
 	
 	/**
 	 * Method to retrieve the Quiote <sandbox> element regardless of the namespace.
-	 * @return     ?XmlConfigDomElement<int, XmlConfigDomElement> The <sandbox> element, or null.
+	 * @return     ?XmlConfigDomElement The <sandbox> element, or null.
 	 * @since      1.0.0
 	 */
 	public function getSandbox()
@@ -450,7 +450,7 @@ class XmlConfigDomDocument extends \DOMDocument
 				if($node->nodeType == XML_ELEMENT_NODE && $node->localName == 'sandbox' && $node->namespaceURI == $quioteNs) {
 					// registerNodeClass() guarantees element nodes are always
 					// XmlConfigDomElement, never a vanilla DOMNode.
-					/** @var XmlConfigDomElement<int, XmlConfigDomElement> $node */
+					/** @var XmlConfigDomElement $node */
 					return $node;
 				}
 			}

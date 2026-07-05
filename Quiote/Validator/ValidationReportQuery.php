@@ -149,7 +149,8 @@ class ValidationReportQuery implements IValidationReportQuery
 		$resultIncidents = [];
 		foreach($incidents as $incident) {
 			if($this->validatorFilter) {
-				if(!in_array($incident->getValidator()->getName(), $this->validatorFilter)) {
+				$validator = $incident->getValidator();
+				if(!$validator || !in_array($validator->getName(), $this->validatorFilter)) {
 					continue;
 				}
 			}

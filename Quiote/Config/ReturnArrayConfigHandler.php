@@ -52,7 +52,7 @@ class ReturnArrayConfigHandler extends XmlConfigHandler implements IArrayConfigH
 
 	/**
 	 * Converts an XmlConfigDomElement into an array.
-	 * @param      XmlConfigDomElement<int, XmlConfigDomElement> $item The configuration element to convert.
+	 * @param      XmlConfigDomElement $item The configuration element to convert.
 	 * @param      bool                     $topLevel Whether this is a top level element.
 	 * @return     array<int|string, mixed> The configuration values as an array.
 	 * @since      1.0.0
@@ -113,7 +113,7 @@ class ReturnArrayConfigHandler extends XmlConfigHandler implements IArrayConfigH
 			// never a vanilla DOMNode.
 			$children = $item->ownerDocument->getXpath()->query(sprintf('*[namespace-uri() = "%s"]', $item->ownerDocument->getDefaultNamespaceUri()), $item);
 			foreach ($children as $child) {
-				/** @var XmlConfigDomElement<int, XmlConfigDomElement> $child */
+				/** @var XmlConfigDomElement $child */
 				$names[] = $child->getName();
 			}
 			$dupes = [];
@@ -121,7 +121,7 @@ class ReturnArrayConfigHandler extends XmlConfigHandler implements IArrayConfigH
 				$dupes[] = $name;
 			}
 			foreach ($children as $key => $child) {
-				/** @var XmlConfigDomElement<int, XmlConfigDomElement> $child */
+				/** @var XmlConfigDomElement $child */
 				$hasId = ($idAttribute && $child->hasAttribute($idAttribute));
 				$isDupe = in_array($child->getName(), $dupes);
 				$hasParent = $child->getName() == $singularParentName && $item->getName() != $singularParentName;

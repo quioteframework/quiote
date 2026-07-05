@@ -61,7 +61,7 @@ class ValidatorPlanBuilder
 			if ($cfg->has('validator_definitions')) {
 				// get() only ever selects element nodes, and registerNodeClass()
 				// guarantees those are always XmlConfigDomElement, never a vanilla DOMNode.
-				/** @var iterable<int, XmlConfigDomElement<int, XmlConfigDomElement>> $definitionNodes */
+				/** @var iterable<int, XmlConfigDomElement> $definitionNodes */
 				$definitionNodes = $cfg->get('validator_definitions');
 				foreach ($definitionNodes as $def) {
 					$name = $def->getAttribute('name');
@@ -97,14 +97,14 @@ class ValidatorPlanBuilder
 	}
 
 	/**
-	 * @param XmlConfigDomElement<int, XmlConfigDomElement>|XmlConfigDomDocument $node
+	 * @param XmlConfigDomElement|XmlConfigDomDocument $node
 	 * @return ValidatorNode[]
 	 */
 	protected function buildValidatorElements($node, string $defaultSeverity, ?string $defaultMethod, bool $defaultRequired, ?string $defaultTranslationDomain): array
 	{
 		$nodes = [];
 		foreach ($node->get('validators') as $validator) {
-			/** @var XmlConfigDomElement<int, XmlConfigDomElement> $parentNode */
+			/** @var XmlConfigDomElement $parentNode */
 			$parentNode = $validator->parentNode;
 			if ($parentNode->localName == 'validators') {
 				$severity = $parentNode->getAttribute('severity', $defaultSeverity);
@@ -122,7 +122,7 @@ class ValidatorPlanBuilder
 	}
 
 	/**
-	 * @param XmlConfigDomElement<int, XmlConfigDomElement> $validator
+	 * @param XmlConfigDomElement $validator
 	 */
 	protected function buildValidatorNode(XmlConfigDomElement $validator, string $stdSeverity, ?string $stdMethod, bool $stdRequired, ?string $stdTranslationDomain): ValidatorNode
 	{
@@ -144,7 +144,7 @@ class ValidatorPlanBuilder
 		foreach ($validator->get('arguments') as $argument) {
 			// registerNodeClass() guarantees every node here is a XmlConfigDomElement,
 			// never a vanilla DOMNode.
-			/** @var XmlConfigDomElement<int, XmlConfigDomElement> $argument */
+			/** @var XmlConfigDomElement $argument */
 			if ($argument->hasAttribute('name')) {
 				$arguments[$argument->getAttribute('name')] = $argument->getValue();
 			} else {
@@ -237,7 +237,7 @@ class ValidatorPlanBuilder
 	}
 
 	/**
-	 * @param XmlConfigDomElement<int, XmlConfigDomElement> $node
+	 * @param XmlConfigDomElement $node
 	 * @param array<string, mixed> $existing
 	 * @return array<string, mixed>
 	 */
@@ -248,7 +248,7 @@ class ValidatorPlanBuilder
 		foreach ($elements as $element) {
 			// registerNodeClass() guarantees every node here is a XmlConfigDomElement,
 			// never a vanilla DOMNode.
-			/** @var XmlConfigDomElement<int, XmlConfigDomElement> $element */
+			/** @var XmlConfigDomElement $element */
 			// New simplified semantics:
 			// <error>foo</error>            => ['' => 'foo']
 			// <error for="min">bar</error> => ['min' => 'bar']
@@ -257,7 +257,7 @@ class ValidatorPlanBuilder
 				$name = $element->getAttribute('name');
 				$domains = [];
 				foreach ($element->get('domain') as $domainElement) {
-					/** @var XmlConfigDomElement<int, XmlConfigDomElement> $domainElement */
+					/** @var XmlConfigDomElement $domainElement */
 					$domains[$domainElement->getAttribute('name')] = $domainElement->getValue();
 				}
 				$result[$name] = [
@@ -364,7 +364,7 @@ class ValidatorPlanBuilder
 	 */
 	/**
 	 * @param array<int|string, mixed> $parameters
-	 * @param XmlConfigDomElement<int, XmlConfigDomElement> $validator
+	 * @param XmlConfigDomElement $validator
 	 */
 	protected function checkParameters(string $class, array $parameters, XmlConfigDomElement $validator): void
 	{

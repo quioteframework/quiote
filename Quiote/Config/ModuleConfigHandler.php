@@ -62,11 +62,11 @@ class ModuleConfigHandler extends XmlConfigHandler implements IArrayConfigHandle
 				// The get() call above only ever selects element nodes, and
 				// registerNodeClass() guarantees those are always XmlConfigDomElement,
 				// never a vanilla DOMNode.
-				/** @var XmlConfigDomElement<int, XmlConfigDomElement> $setting */
+				/** @var XmlConfigDomElement $setting */
 				$localPrefix = $prefix;
 
 				// let's see if this buddy has a <settings> parent with valuable information
-				/** @var XmlConfigDomElement<int, XmlConfigDomElement> $settingParent */
+				/** @var XmlConfigDomElement $settingParent */
 				$settingParent = $setting->parentNode;
 				if ($settingParent->localName == 'settings') {
 					if ($settingParent->hasAttribute('prefix')) {

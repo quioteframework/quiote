@@ -41,18 +41,18 @@ class TestSuitesConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 		foreach ($document->getConfigurationElements() as $configuration) {
 			// get() only ever selects element nodes, and registerNodeClass()
 			// guarantees those are always XmlConfigDomElement, never a vanilla DOMNode.
-			/** @var iterable<int, \Quiote\Config\Util\DOM\XmlConfigDomElement<int, \Quiote\Config\Util\DOM\XmlConfigDomElement>> $suites */
+			/** @var iterable<int, \Quiote\Config\Util\DOM\XmlConfigDomElement> $suites */
 			$suites = $configuration->get('suites');
 			foreach ($suites as $current) {
 				$includes = [];
-				/** @var iterable<int, \Quiote\Config\Util\DOM\XmlConfigDomElement<int, \Quiote\Config\Util\DOM\XmlConfigDomElement>> $includeNodes */
+				/** @var iterable<int, \Quiote\Config\Util\DOM\XmlConfigDomElement> $includeNodes */
 				$includeNodes = $current->get('includes');
 				foreach ($includeNodes as $include) {
 					$includes[] = $include->textContent;
 				}
 
 				$excludes = [];
-				/** @var iterable<int, \Quiote\Config\Util\DOM\XmlConfigDomElement<int, \Quiote\Config\Util\DOM\XmlConfigDomElement>> $excludeNodes */
+				/** @var iterable<int, \Quiote\Config\Util\DOM\XmlConfigDomElement> $excludeNodes */
 				$excludeNodes = $current->get('excludes');
 				foreach ($excludeNodes as $exclude) {
 					$excludes[] = $exclude->textContent;
@@ -66,7 +66,7 @@ class TestSuitesConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 				];
 
 				$suite['testfiles'] = [];
-				/** @var iterable<int, \Quiote\Config\Util\DOM\XmlConfigDomElement<int, \Quiote\Config\Util\DOM\XmlConfigDomElement>> $testfileNodes */
+				/** @var iterable<int, \Quiote\Config\Util\DOM\XmlConfigDomElement> $testfileNodes */
 				$testfileNodes = $current->get('testfiles');
 				foreach ($testfileNodes as $file) {
 					$suite['testfiles'][] = $file->textContent;
