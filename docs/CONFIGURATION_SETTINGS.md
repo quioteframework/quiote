@@ -1004,7 +1004,7 @@ This mechanism exists specifically to close a real bug class: a `values="a,b,c"`
 
 Both are bypassable per-call: `AttributeRouting::moduleDirs()` (protected, returns `null` by default) and `AttributeRoutes::mergeInto(..., ?iterable $moduleDirs = null)` can be given explicit directories, skipping `Config` entirely — **constructor/method-argument configuration**.
 
-`WebRouting`/`CompatRouter` are thin `Routing` subclasses with no configuration of their own. `HttpRedirectRoutingCallback` is a `factories.xml`-style routing callback configured entirely via `<ae:parameter>` children (`route`, `arguments`, `options`, `url`, `scheme`/`host`/`port`/`user`/`pass`/`path`/`query`/`fragment`, `code` — default `302`) — a route-definition concern, not a global setting.
+`CompatRouter` is a thin `Routing` subclass with no configuration of its own. `HttpRedirectRoutingCallback` is a `factories.xml`-style routing callback configured entirely via `<ae:parameter>` children (`route`, `arguments`, `options`, `url`, `scheme`/`host`/`port`/`user`/`pass`/`path`/`query`/`fragment`, `code` — default `302`) — a route-definition concern, not a global setting.
 
 `core.trusted_hosts` (Host-header validation) already documented above under `Quiote\Request\WebRequest`.
 

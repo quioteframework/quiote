@@ -39,13 +39,8 @@ class HttpRedirectRoutingCallback extends RoutingCallback
     public function initialize(Context $context, array &$route)
 	{
 		parent::initialize($context, $route);
-		
-		// sanity check
-		if(!($context->getRouting() instanceof WebRouting)) {
-			throw new QuioteException('HttpRedirectRoutingCallback can only be used in combination with WebRouting.');
-		}
 	}
-	
+
 	/**
 	 * Container-less match hook.
 	 * @param array<string, mixed> $parameters Matched parameters (modifiable for rewrite).

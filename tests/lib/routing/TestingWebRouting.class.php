@@ -1,5 +1,5 @@
 <?php
-use Quiote\Routing\WebRouting;
+use Quiote\Routing\Routing;
 use Quiote\Routing\RoutingArraySource;
 
 /**
@@ -8,13 +8,19 @@ use Quiote\Routing\RoutingArraySource;
  * @since      1.0.0
  * @version    1.0.0
  */
-class TestingWebRouting extends WebRouting
+class TestingWebRouting extends Routing
 {
+	/** @return array{0: \Symfony\Component\Routing\RouteCollection, 1: array<mixed>} */
+	protected function build(): array
+	{
+		return [new \Symfony\Component\Routing\RouteCollection(), []];
+	}
+
 	public function setInput($input)
 	{
 		$this->input = $input;
 	}
-	
+
 	public function setRoutingSource($name, $data, $type = null)
 	{
 		if(null === $type) {
@@ -22,7 +28,7 @@ class TestingWebRouting extends WebRouting
 		}
 		$this->sources[$name] = new RoutingArraySource($data);
 	}
-	
+
 	public function setInputParameters(array $parameters)
 	{
 		$this->inputParameters = $parameters;

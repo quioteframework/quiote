@@ -210,7 +210,7 @@ return RectorConfig::configure()
     'Quiote\\Routing\\QuioteRoutingCallbackPool' => 'Quiote\\Routing\\RoutingCallbackPool',
     'Quiote\\Routing\\QuioteRoutingUserSource' => 'Quiote\\Routing\\RoutingUserSource',
     'Quiote\\Routing\\QuioteRoutingValue' => 'Quiote\\Routing\\RoutingValue',
-    'Quiote\\Routing\\QuioteWebRouting' => 'Quiote\\Routing\\WebRouting',
+    'Quiote\\Routing\\QuioteWebRouting' => 'Quiote\\Routing\\Routing',
     'Quiote\\Routing\\Routes' => 'Quiote\\Routing\\Routes',
     'Quiote\\Routing\\Routing' => 'Quiote\\Routing\\Routing',
     'Quiote\\Runtime\\QuioteKernel' => 'Quiote\\Runtime\\Kernel',

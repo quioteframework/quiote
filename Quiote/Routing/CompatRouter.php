@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace Quiote\Routing;
 
 /**
- * @deprecated Legacy alias kept temporarily; prefer Routing subclass (e.g., SandboxRouting / WebRouting).
+ * @deprecated Legacy alias kept temporarily; prefer a Routing subclass (e.g., SandboxRouting).
  * This class will be removed once all factory configs updated.
  */
 final class CompatRouter extends Routing

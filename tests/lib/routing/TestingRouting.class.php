@@ -1,7 +1,6 @@
 <?php
 use Quiote\Routing\Routing;
 use Quiote\Routing\RoutingArraySource;
-use Quiote\Routing\WebRouting;
 
 /**
  * TestingRouting allows access to some internal routing properties and
@@ -9,11 +8,17 @@ use Quiote\Routing\WebRouting;
  * @since      1.0.0
  * @version    1.0.0
  */
-class TestingRouting extends WebRouting
+class TestingRouting extends Routing
 {
 	protected $forcedInput = null;
 	protected $errorActions = [];
-	
+
+	/** @return array{0: \Symfony\Component\Routing\RouteCollection, 1: array<mixed>} */
+	protected function build(): array
+	{
+		return [new \Symfony\Component\Routing\RouteCollection(), []];
+	}
+
 	/**
 	 * Set the input to use for routing
 	 */
