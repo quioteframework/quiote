@@ -36,6 +36,11 @@
             "target": "git@github.com:quioteframework/db-cycle.git"
         },
         {
+            "name": "db-propulsion",
+            "directory": "packages/db-propulsion",
+            "target": "git@github.com:quioteframework/db-propulsion.git"
+        },
+        {
             "name": "telemetry-otel",
             "directory": "packages/telemetry-otel",
             "target": "git@github.com:quioteframework/telemetry-otel.git"

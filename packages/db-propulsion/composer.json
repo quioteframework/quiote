@@ -1,0 +1,30 @@
+{
+	"name": "quioteframework/db-propulsion",
+	"description": "Propulsion (Propel 1 fork) driver adapter for Quiote's database layer.",
+	"keywords": ["quiote", "database", "orm", "propulsion", "propel"],
+	"homepage": "https://github.com/quioteframework/db-propulsion",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"quioteframework/quiote": "*",
+		"quioteframework/propulsion": "*"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Database\\Adapter\\Propulsion\\": "src/"
+		}
+	},
+	"extra": {
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/db-propulsion/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}

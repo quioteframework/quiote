@@ -2,7 +2,7 @@
 <phpunit
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/12.0/phpunit.xsd"
-         bootstrap="../bootstrap.php"
+         bootstrap="tests/bootstrap.php"
          cacheDirectory=".phpunit.cache"
          executionOrder="depends,defects"
          requireCoverageMetadata="false"
@@ -12,7 +12,7 @@
          failOnWarning="false">
     <testsuites>
         <testsuite name="unit">
-            <directory>../tests/unit</directory>
+            <directory>tests/tests/unit</directory>
             <!-- The subsystems below now live in packages/*; still run from the root suite while
                  everything shares one composer install (via the packages/* path
                  repository). Once each package gets its own isolated CI job, its line
@@ -20,31 +20,31 @@
                  tests under packages/db-*/tests are #[Group('integration')]-tagged, so
                  the <groups><exclude> below still keeps them out of a plain `composer
                  test` run; `composer test:integration` runs them explicitly. -->
-            <directory>../../packages/mcp/tests</directory>
-            <directory>../../packages/ratelimit/tests</directory>
-            <directory>../../packages/csrf/tests</directory>
-            <directory>../../packages/whoops/tests</directory>
-            <directory>../../packages/db-eloquent/tests</directory>
-            <directory>../../packages/db-doctrine/tests</directory>
-            <directory>../../packages/db-cycle/tests</directory>
-            <directory>../../packages/telemetry-otel/tests</directory>
-            <directory>../../packages/telemetry-dashboard/tests</directory>
-            <directory>../../packages/phptal/tests</directory>
-            <directory>../../packages/xslt/tests</directory>
-            <directory>../../packages/twig/tests</directory>
-            <directory>../../packages/session-pdo/tests</directory>
-            <directory>../../packages/session-azure/tests</directory>
-            <directory>../../packages/session-s3/tests</directory>
-            <directory>../../packages/session-gcs/tests</directory>
+            <directory>packages/mcp/tests</directory>
+            <directory>packages/ratelimit/tests</directory>
+            <directory>packages/csrf/tests</directory>
+            <directory>packages/whoops/tests</directory>
+            <directory>packages/db-eloquent/tests</directory>
+            <directory>packages/db-doctrine/tests</directory>
+            <directory>packages/db-cycle/tests</directory>
+            <directory>packages/telemetry-otel/tests</directory>
+            <directory>packages/telemetry-dashboard/tests</directory>
+            <directory>packages/phptal/tests</directory>
+            <directory>packages/xslt/tests</directory>
+            <directory>packages/twig/tests</directory>
+            <directory>packages/session-pdo/tests</directory>
+            <directory>packages/session-azure/tests</directory>
+            <directory>packages/session-s3/tests</directory>
+            <directory>packages/session-gcs/tests</directory>
         </testsuite>
         <testsuite name="flow">
-            <directory>../tests/flow</directory>
+            <directory>tests/tests/flow</directory>
         </testsuite>
         <testsuite name="fragment">
-            <directory>../tests/fragment</directory>
+            <directory>tests/tests/fragment</directory>
         </testsuite>
         <testsuite name="psr">
-            <directory>../PsrPipeline</directory>
+            <directory>tests/PsrPipeline</directory>
         </testsuite>
     </testsuites>
     <!--
@@ -78,19 +78,19 @@
     </php>
     <source>
         <include>
-            <directory>../../Quiote</directory>
-            <directory>../../packages/mcp/src</directory>
-            <directory>../../packages/ratelimit/src</directory>
-            <directory>../../packages/csrf/src</directory>
-            <directory>../../packages/whoops/src</directory>
-            <directory>../../packages/db-eloquent/src</directory>
-            <directory>../../packages/db-doctrine/src</directory>
-            <directory>../../packages/db-cycle/src</directory>
-            <directory>../../packages/telemetry-otel/src</directory>
-            <directory>../../packages/telemetry-dashboard/src</directory>
+            <directory>Quiote</directory>
+            <directory>packages/mcp/src</directory>
+            <directory>packages/ratelimit/src</directory>
+            <directory>packages/csrf/src</directory>
+            <directory>packages/whoops/src</directory>
+            <directory>packages/db-eloquent/src</directory>
+            <directory>packages/db-doctrine/src</directory>
+            <directory>packages/db-cycle/src</directory>
+            <directory>packages/telemetry-otel/src</directory>
+            <directory>packages/telemetry-dashboard/src</directory>
         </include>
         <exclude>
-        <directory>../../Quiote/translation/data</directory>
+        <directory>Quiote/translation/data</directory>
         </exclude>
     </source>
 </phpunit>
