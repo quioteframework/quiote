@@ -9,7 +9,8 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Quiote\Context;
 use Quiote\Http\ProblemDetails;
 use Quiote\Mcp\McpConfig;
-use Quiote\Mcp\McpServer;
+use Quiote\Mcp\McpServer
+
 
 /**
  * The Streamable-HTTP transport: matches the configured `mcp.path` (default
@@ -54,7 +55,7 @@ final class McpEndpointMiddleware implements MiddlewareInterface
     {
         $problem = ProblemDetails::create(
             status: 500,
-            detail: $e->getMessage(),
+            detail: "Internal server error",
             instance: (string) $request->getUri()->getPath(),
         );
 
