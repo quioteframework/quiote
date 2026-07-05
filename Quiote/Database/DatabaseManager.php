@@ -8,8 +8,8 @@ use Quiote\Config\APCuConfigCache;
 use Quiote\Exception\DatabaseException;
 
 /**
- * DatabaseManager allows you to setup your database connectivity before 
- * the request is handled. This eliminates the need for a filter to manage 
+ * DatabaseManager allows you to setup your database connectivity before
+ * the request is handled. This eliminates the need for a filter to manage
  * database connections.
  * @since      1.0.0
  * @version    1.0.0
@@ -20,7 +20,7 @@ class DatabaseManager
 	 * @var        string The name of the default database.
 	 */
 	protected $defaultDatabaseName = null;
-	
+
 	/**
 	 * @var        array<string, Database> An array of Databases.
 	 */
@@ -45,7 +45,7 @@ class DatabaseManager
 	 * Retrieve the database connection associated with this Database
 	 * implementation.
 	 * @param      string $name A database name.
-	 * @return     mixed A Database instance.
+	 * @return     Database A Database instance.
 	 * @throws     \Quiote\Exception\DatabaseException If the requested database name
 	 *                                           does not exist.
 	 * @since      1.0.0
@@ -56,11 +56,11 @@ class DatabaseManager
 		if($name === null) {
 			$name = $this->defaultDatabaseName;
 		}
-		
+
 		if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
 			$logger->debug('[DatabaseManager] getDatabase(' . $name . ') - manager_id=' . spl_object_id($this));
 		}
-		
+
 		if(isset($this->databases[$name])) {
 			if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
 				$logger->debug('[DatabaseManager] returning existing database: ' . $name . ' id=' . spl_object_id($this->databases[$name]));
@@ -73,16 +73,17 @@ class DatabaseManager
 		$error = sprintf($error, $name);
 		throw new DatabaseException($error);
 	}
-	
+
 	/**
 	 * Retrieve the name of the given database instance.
 	 * @param      Database $database The database to fetch the name of.
-	 * @return     string The name of the database, or false if it was not found.
+	 * @return     ?string The name of the database, or null if it was not found.
 	 * @since      1.0.0
 	 */
-	public function getDatabaseName(Database $database)
+	public function getDatabaseName(Database $database): ?string
 	{
-		return array_search($database, $this->databases, true);
+		$name = array_search($database, $this->databases, true);
+		return $name === false ? null : $name;
 	}
 
 	/**
@@ -100,7 +101,7 @@ class DatabaseManager
 	 * @param      Context $context An Context instance.
 	 * @param      array $parameters An array of initialization parameters.
 	 * @throws     \Quiote\Exception\InitializationException If an error occurs while
-	 *                                                 initializing this 
+	 *                                                 initializing this
 	 *                                                 DatabaseManager.
 	 * @since      1.0.0
 	 * @param array<string, mixed> $parameters
@@ -112,7 +113,7 @@ class DatabaseManager
 		if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
 			$logger->debug('[DatabaseManager] initialize() called - id=' . spl_object_id($this));
 		}
-		
+
 		$this->context = $context;
 
 		// load database configuration
@@ -126,7 +127,7 @@ class DatabaseManager
 		} else {
 			require(ConfigCache::checkConfig(Config::getString('core.config_dir') . '/databases.xml'));
 		}
-		
+
 		if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
 			$logger->debug('[DatabaseManager] initialize() completed - databases loaded: ' . implode(', ', array_keys($this->databases)));
 		}
@@ -144,14 +145,14 @@ class DatabaseManager
 		if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
 			$logger->debug('[DatabaseManager] startup() called - id=' . spl_object_id($this) . ' databases=' . count($this->databases));
 		}
-		
+
 		foreach($this->databases as $name => $database) {
 			if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
 				$logger->debug('[DatabaseManager] starting up database: ' . $name . ' id=' . spl_object_id($database));
 			}
 			$database->startup();
 		}
-		
+
 		if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
 			$logger->debug('[DatabaseManager] startup() completed');
 		}
@@ -170,7 +171,7 @@ class DatabaseManager
 		if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
 			$logger->debug('[DatabaseManager] shutdown() called - id=' . spl_object_id($this) . ' databases=' . count($this->databases));
 		}
-		
+
 		// loop through databases and shutdown connections
 		foreach($this->databases as $name => $database) {
 			if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
@@ -178,15 +179,7 @@ class DatabaseManager
 			}
 			$database->shutdown();
 		}
-		
-		// Close Propel static connections to prevent stale connection reuse in worker mode
-		if (class_exists('\Propel\Propel', false)) {
-			if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
-				$logger->debug('[DatabaseManager] closing Propel static connections');
-			}
-			\Propel\Propel::close();
-		}
-		
+
 		if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
 			$logger->debug('[DatabaseManager] shutdown() completed');
 		}
@@ -213,15 +206,6 @@ class DatabaseManager
 					. ' alive=' . ($alive ? 'yes' : 'no — will reconnect lazily')
 				);
 			}
-		}
-
-		// Close Propel static connections — Propel maintains its own pool
-		// which does not go through our ping() path.
-		if (class_exists('\Propel\Propel', false)) {
-			if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
-				$logger->debug('[DatabaseManager] recycleConnections: closing Propel static connections');
-			}
-			\Propel\Propel::close();
 		}
 	}
 }

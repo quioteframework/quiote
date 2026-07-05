@@ -31,7 +31,9 @@ class PropulsionDatabaseTest extends TestCase
 
     protected function tearDown(): void
     {
-        Propulsion::close();
+        if (class_exists(Propulsion::class)) {
+            Propulsion::close();
+        }
         DatabaseDriverRegistry::reset();
 
         foreach ($this->filesToDelete as $file) {
