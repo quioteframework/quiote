@@ -100,10 +100,10 @@
 		"quioteframework/session-gcs": "Google Cloud Storage session backend (Quiote\\Storage\\Gcs\\GcsSessionPersistence)"
 	},
 	"scripts": {
-		"test": "php -d apc.enable_cli=0 vendor/bin/phpunit --no-coverage -c tests/config/phpunit.xml",
-		"test:apcu": "php -d apc.enable_cli=1 vendor/bin/phpunit --no-coverage -c tests/config/phpunit.xml --group apcu",
-		"test:e2e": "vendor/bin/phpunit --no-coverage -c tests/config/phpunit.xml tests/e2e --group e2e",
-		"test:integration": "vendor/bin/phpunit --no-coverage -c tests/config/phpunit.xml packages/db-eloquent/tests packages/db-doctrine/tests packages/db-cycle/tests --group integration"
+		"test": "php -d apc.enable_cli=0 vendor/bin/phpunit --no-coverage",
+		"test:apcu": "php -d apc.enable_cli=1 vendor/bin/phpunit --no-coverage --group apcu",
+		"test:e2e": "vendor/bin/phpunit --no-coverage tests/e2e --group e2e",
+		"test:integration": "vendor/bin/phpunit --no-coverage packages/db-eloquent/tests packages/db-doctrine/tests packages/db-cycle/tests --group integration"
 	},
 	"scripts-descriptions": {
 		"test": "Run the full test suite with APCu disabled (default, deterministic).",

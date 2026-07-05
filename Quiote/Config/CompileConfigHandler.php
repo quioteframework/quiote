@@ -64,7 +64,7 @@ class CompileConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 					throw new ParseException($error);
 				}
 
-				if (Config::get('core.debug', false)) {
+				if (Config::getBool('core.debug', false)) {
 					// debug mode, just require() the files, makes for nicer stack traces
 					$contents = 'require(' . var_export($file, true) . ');';
 				} else {

@@ -466,7 +466,7 @@ class ValidationMiddleware implements MiddlewareInterface
             // structure to the client, so it is opt-in and OFF by default. Enable it
             // (e.g. for a trusted dev/test front-end) via:
             //   Config::set('core.expose_validation_errors_header', true)
-            if (!empty($errors) && \Quiote\Config\Config::get('core.expose_validation_errors_header', false)) {
+            if (!empty($errors) && \Quiote\Config\Config::getBool('core.expose_validation_errors_header', false)) {
                 $resp = $resp->withHeader('X-Quiote-Validation-Errors', base64_encode(json_encode($errors)));
             }
             if ($content !== null) {
@@ -483,7 +483,7 @@ class ValidationMiddleware implements MiddlewareInterface
             // structure to the client, so it is opt-in and OFF by default. Enable it
             // (e.g. for a trusted dev/test front-end) via:
             //   Config::set('core.expose_validation_errors_header', true)
-            if (!empty($errors) && \Quiote\Config\Config::get('core.expose_validation_errors_header', false)) {
+            if (!empty($errors) && \Quiote\Config\Config::getBool('core.expose_validation_errors_header', false)) {
                 $resp = $resp->withHeader('X-Quiote-Validation-Errors', base64_encode(json_encode($errors)));
             }
             return $resp->withBody($factory->createStream('Error'));

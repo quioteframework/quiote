@@ -30,8 +30,8 @@ class DatabaseConfigHandlerTest extends ConfigHandlerTestBase
 		$DBCH = new DatabaseConfigHandler();
 		
 		$document = $this->parseConfiguration(
-			Config::get('core.config_dir') . '/tests/databases.xml',
-			Config::get('core.quiote_dir') . '/Config/xsl/databases.xsl',
+			Config::getString('core.config_dir') . '/tests/databases.xml',
+			Config::getString('core.quiote_dir') . '/Config/xsl/databases.xsl',
 			$env
 		);
 
@@ -47,7 +47,7 @@ class DatabaseConfigHandlerTest extends ConfigHandlerTestBase
 		$paramsExpected = [
 			'host' => 'localhost1',
 			'user' => 'username1',
-			'config' => Config::get('core.app_dir') . '/Config/project-conf.php',
+			'config' => Config::getString('core.app_dir') . '/Config/project-conf.php',
 		];
 		$this->assertSame($paramsExpected, $this->databases['test1']->params);
 
@@ -62,7 +62,7 @@ class DatabaseConfigHandlerTest extends ConfigHandlerTestBase
 		$paramsExpected = [
 			'host' => 'localhost1',
 			'user' => 'testuser1',
-			'config' => Config::get('core.app_dir') . '/Config/project-conf.php',
+			'config' => Config::getString('core.app_dir') . '/Config/project-conf.php',
 		];
 		$this->assertSame($paramsExpected, $this->databases['test1']->params);
 

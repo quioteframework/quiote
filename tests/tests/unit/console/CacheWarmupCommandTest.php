@@ -21,7 +21,7 @@ final class CacheWarmupCommandTest extends PhpUnitTestCase
 
     public function testWarmsConfigIntoTheFileCache(): void
     {
-        $cacheConfigDir = Config::get('core.cache_dir') . '/config';
+        $cacheConfigDir = Config::getString('core.cache_dir') . '/config';
         // Start from a cold cache so we prove the command actually compiles.
         array_map('unlink', glob($cacheConfigDir . '/settings*.php') ?: []);
 

@@ -164,7 +164,7 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 	 */
 	protected function loadDefinitions()
 	{
-		$cfg = $this->getParameter('definitions_file', Config::get('core.config_dir') . '/rbac_definitions.xml');
+		$cfg = $this->getParameter('definitions_file', Config::getString('core.config_dir') . '/rbac_definitions.xml');
 		
 		if(is_readable($cfg)) {
 			$this->definitions = include(ConfigCache::checkConfig($cfg, $this->context->getName()));

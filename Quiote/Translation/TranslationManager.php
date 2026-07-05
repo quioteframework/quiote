@@ -117,14 +117,14 @@ class TranslationManager implements ResetInterface
 		$this->context = $context;
 
 		if(defined('\QUIOTE_USE_APCU_CONFIG_CACHE') && \QUIOTE_USE_APCU_CONFIG_CACHE) {
-			$cacheResult = APCuConfigCache::checkConfig(Config::get('core.config_dir') . '/translation.xml');
+			$cacheResult = APCuConfigCache::checkConfig(Config::getString('core.config_dir') . '/translation.xml');
 			if (str_starts_with($cacheResult, 'APCU:')) {
 				eval('?>' . substr($cacheResult, 5));
 			} else {
 				include($cacheResult);
 			}
 		} else {
-			include(ConfigCache::checkConfig(Config::get('core.config_dir') . '/translation.xml'));
+			include(ConfigCache::checkConfig(Config::getString('core.config_dir') . '/translation.xml'));
 		}
 		// CLDR XML loading removed; rely on ext/intl for locale, timezone, currency metadata
 		$this->loadAvailableLocales();

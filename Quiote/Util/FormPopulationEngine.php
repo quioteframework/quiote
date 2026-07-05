@@ -185,7 +185,7 @@ final class FormPopulationEngine
 				count($errors) > 1 ? 's' : '',
 				implode("\n", $errors)
 			);
-			if(Config::get('core.use_logging') && $cfg['log_parse_errors'] !== false && $maxError >= $cfg['log_parse_errors']) {
+			if(Config::getBool('core.use_logging', false) && $cfg['log_parse_errors'] !== false && $maxError >= $cfg['log_parse_errors']) {
 				$lmsg = $emsg . "\n\nResponse content:\n\n" . $response->getContent();
 				$logger = \Quiote\Logging\Log::for($this);
 				match ($maxError) {

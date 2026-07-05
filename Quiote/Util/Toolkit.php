@@ -106,7 +106,7 @@ final class Toolkit
 	 */
 	public static function clearCache($path = '')
 	{
-		$baseCache = Config::get('core.cache_dir');
+		$baseCache = Config::getString('core.cache_dir', '');
 		if(empty($baseCache)) {
 			// Tests (and some code paths) may clear Config during setup; use
 			// a safe fallback to the system temp directory to avoid throwing and
@@ -207,7 +207,7 @@ final class Toolkit
 	/**
 	 * Expand variables in a string.
 	 * Variables can be in the form $foo, ${foo} or {$foo}.
-	 * @param      string $string The format string.
+	 * @param      ?string $string The format string.
 	 * @param      array<string, mixed> $arguments The variables to use.
 	 * @return     string The expanded string.
 	 * @since      1.0.0
@@ -236,8 +236,10 @@ final class Toolkit
 
 	/**
 	 * Literalize a string value.
+	 * Non-string input is returned unchanged.
 	 * @param      mixed $value The value to literalize.
 	 * @return     mixed A literalized value.
+	 * @phpstan-return ($value is string ? null|bool|int|float|string : mixed)
 	 * @since      1.0.0
 	 */
 	public static function literalize($value)
@@ -262,8 +264,9 @@ final class Toolkit
 			return self::expandDirectives($value);
 		}
 
-		// numeric value, remains a string on purpose (for BC)
-		return $value;
+		return str_contains($value, '.') || stripos($value, 'e') !== false
+			? (float) $value
+			: (int) $value;
 	}
 	
 	/**
@@ -285,7 +288,7 @@ final class Toolkit
 			$oldvalue = $value;
 			$value = preg_replace_callback(
 				'/\%([\w\.]+?)\%/',
-				fn($matches) => Config::get($matches[1], '%' . $matches[1] . '%'),
+				fn($matches) => Config::getString($matches[1], '%' . $matches[1] . '%'),
 				(string) $value
 			);
 		} while($oldvalue !== $value);
@@ -410,7 +413,7 @@ final class Toolkit
 	{
 		$cacheKey = strtolower((string) $moduleName) . '|' . $directiveNameFragment;
 		if (!isset(self::$moduleDirectiveCache[$cacheKey])) {
-			$rawDirective = Config::get(
+			$rawDirective = Config::getNullableString(
 				sprintf(
 					'modules.%s.%s',
 					strtolower((string) $moduleName),
@@ -431,7 +434,7 @@ final class Toolkit
 					$variables
 				);
 			}
-			self::$moduleDirectiveCache[$cacheKey] = Toolkit::expandDirectives($rawDirective);
+			self::$moduleDirectiveCache[$cacheKey] = Toolkit::expandDirectives($rawDirective) ?? '';
 		}
 		return Toolkit::expandVariables(
 			self::$moduleDirectiveCache[$cacheKey],

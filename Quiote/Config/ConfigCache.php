@@ -188,7 +188,7 @@ class ConfigCache
 						$handler,
 						$handlerInfo['transformations'][XmlConfigParser::STAGE_SINGLE] ?? []
 					);
-					$canonical = $registry->load($config, Config::get('core.environment'), $context);
+					$canonical = $registry->load($config, Config::getNullableString('core.environment'), $context);
 					$data = $handler->executeArray($canonical, $config);
 				} catch (\Exception $e) {
 					throw new $e(sprintf("Compilation of configuration file '%s' failed for the following reason(s):\n\n%s", $config, $e->getMessage()), 0, $e);
@@ -199,7 +199,7 @@ class ConfigCache
 
 			// a new-style config handler
 			// it does not parse the config itself; instead, it is given a complete and merged DOM document
-			$doc = XmlConfigParser::run($config, Config::get('core.environment'), $context, $handlerInfo['transformations'], $handlerInfo['validations']);
+			$doc = XmlConfigParser::run($config, Config::getNullableString('core.environment'), $context, $handlerInfo['transformations'], $handlerInfo['validations']);
 
 			if($context !== null) {
 				$context = Context::getInstance($context);
@@ -242,7 +242,7 @@ class ConfigCache
 	{
 		$config = Toolkit::normalizePath($config);
 		// the full filename path to the config, which might not be what we were given.
-		$filename = Toolkit::isPathAbsolute($config) ? $config : Toolkit::normalizePath(Config::get('core.app_dir')) . '/' . $config;
+		$filename = Toolkit::isPathAbsolute($config) ? $config : Toolkit::normalizePath(Config::getString('core.app_dir')) . '/' . $config;
 
 		// Extension-agnostic format resolution (phase 3): $config (the
 		// logical name used for handler-pattern lookup
@@ -306,7 +306,7 @@ class ConfigCache
 			return $filename;
 		}
 
-		$format = Config::get('core.config_format');
+		$format = Config::getNullableString('core.config_format');
 		if ($format !== null) {
 			$extensions = self::CONFIG_FORMAT_EXTENSIONS[$format] ?? null;
 			if ($extensions === null) {
@@ -420,7 +420,7 @@ class ConfigCache
 			return self::$cacheNameMemo[$memoKey];
 		}
 
-		$environment = Config::get('core.environment');
+		$environment = Config::getNullableString('core.environment');
 
 		if(strlen((string) $config) > 3 && ctype_alpha((string) $config[0]) && $config[1] == ':' && ($config[2] == '\\' || $config[2] == '/')) {
 			// file is a windows absolute path, strip off the drive letter
@@ -451,7 +451,7 @@ class ConfigCache
 			)
 		);
 		
-		$baseCacheDir = Config::get('core.cache_dir');
+		$baseCacheDir = Config::getString('core.cache_dir');
 		if(empty($baseCacheDir)) {
 			// Fallback to system temp dir when core.cache_dir is not available.
 			$baseCacheDir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'quiote_cache';
@@ -498,13 +498,13 @@ class ConfigCache
 		}
 		
 		// some checks first
-		if(!defined('LIBXML_DOTTED_VERSION') || (!Config::get('core.ignore_broken_libxml', false) && !version_compare(LIBXML_DOTTED_VERSION, '2.6.16', 'gt'))) {
+		if(!defined('LIBXML_DOTTED_VERSION') || (!Config::getBool('core.ignore_broken_libxml', false) && !version_compare(LIBXML_DOTTED_VERSION, '2.6.16', 'gt'))) {
 			throw new QuioteException("A libxml version greater than 2.6.16 is highly recommended. With version 2.6.16 and possibly later releases, validation of XML configuration files will not work and Form Population Filter will eventually fail randomly on some documents due to *severe bugs* in older libxml releases (2.6.16 was released in November 2004, so it is really getting time to update).\n\nIf you still would like to try your luck, disable this message by doing\nQuioteConfig::set('core.ignore_broken_libxml', true);\nand\nQuioteConfig::set('core.skip_config_validation', true);\nbefore calling\nQuiote::bootstrap();\nin index.php (app/config.php is not the right place for this).\n\nBut be advised that you *will* run into segfaults and other sad situations eventually, so what you should really do is upgrade your libxml install.");
 		}
 		
-		$quioteDir = Config::get('core.quiote_dir');
+		$quioteDir = Config::getString('core.quiote_dir');
 		
-		if(!Config::get('core.skip_config_transformations', false)) {
+		if(!Config::getBool('core.skip_config_transformations', false)) {
 			if(!extension_loaded('xsl')) {
 				throw new ConfigurationException("You do not have the XSL extension for PHP (ext/xsl) installed or enabled. The extension is used by Quiote to perform XSL transformations in the configuration system to guarantee forwards compatibility of applications.\n\nIf you do not want to or can not install ext/xsl, you may disable all transformations by setting\nQuioteConfig::set('core.skip_config_transformations', true);\nbefore calling\nQuiote::bootstrap();\nin index.php (app/config.php is not the right place for this because this is a setting that's specific to your environment or machine).\n\nKeep in mind that disabling transformations mean you *have* to use the latest configuration file formats and namespace versions. Also, certain additional configuration file validations implemented via Schematron will not be performed.");
 			}
@@ -545,9 +545,9 @@ class ConfigCache
 			],
 		];
 
-		$cfg = Config::get('core.config_dir') . '/config_handlers.xml';
+		$cfg = Config::getString('core.config_dir') . '/config_handlers.xml';
 		if(!is_readable($cfg)) {
-			$cfg = Config::get('core.system_config_dir') . '/config_handlers.xml';
+			$cfg = Config::getString('core.system_config_dir') . '/config_handlers.xml';
 		}
 		// application configuration handlers
 		self::loadConfigHandlersFile($cfg);
@@ -617,7 +617,7 @@ class ConfigCache
 	 */
 	public static function writeCacheFile($config, $cache, $data, $append = false)
 	{
-		$baseCacheDir = Config::get('core.cache_dir');
+		$baseCacheDir = Config::getString('core.cache_dir');
 		if(empty($baseCacheDir)) {
 			$baseCacheDir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'quiote_cache';
 		}
@@ -670,7 +670,7 @@ class ConfigCache
 		$error = 'Failed to write cache file "%s" generated from ' . 'configuration file "%s".';
 		$error .= "\n\n";
 		$error .= 'Please make sure you have set correct write permissions for directory "%s".';
-		$error = sprintf($error, $cache, $config, Config::get('core.cache_dir'));
+		$error = sprintf($error, $cache, $config, Config::getString('core.cache_dir'));
 		throw new CacheException($error);
 	}
 

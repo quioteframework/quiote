@@ -23,7 +23,7 @@ class ValidatorConfigHandlerUnknownParameterTest extends ConfigHandlerTestBase
 	protected function setUp(): void
 	{
 		parent::setUp();
-		$this->fixture = Config::get('core.config_dir') . '/tests/validators_unknown_param.xml';
+		$this->fixture = Config::getString('core.config_dir') . '/tests/validators_unknown_param.xml';
 	}
 
 	protected function tearDown(): void
@@ -34,10 +34,10 @@ class ValidatorConfigHandlerUnknownParameterTest extends ConfigHandlerTestBase
 
 	protected function getContext()
 	{
-		if (Config::get('core.default_context') === null) {
+		if (Config::getNullableString('core.default_context') === null) {
 			Config::set('core.default_context', 'web', true, true);
 		}
-		return Context::getInstance(Config::get('core.default_context'));
+		return Context::getInstance(Config::getNullableString('core.default_context'));
 	}
 
 	private function compile(string $environment): string
@@ -45,7 +45,7 @@ class ValidatorConfigHandlerUnknownParameterTest extends ConfigHandlerTestBase
 		$VCH = new ValidatorConfigHandler();
 		$document = $this->parseConfiguration(
 			$this->fixture,
-			Config::get('core.quiote_dir') . '/Config/xsl/validators.xsl',
+			Config::getString('core.quiote_dir') . '/Config/xsl/validators.xsl',
 			$environment
 		);
 		return $VCH->execute($document);

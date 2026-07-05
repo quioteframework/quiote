@@ -7,7 +7,7 @@
 
 ${'_validator_toplevel_simple'} = new Quiote\Validator\StringValidator();
 ${'_validator_toplevel_simple'}->initialize($this->getContext(), array (
-  'min' => '1',
+  'min' => 1,
   'severity' => 'error',
   'required' => true,
   'name' => 'toplevel_simple',
@@ -19,7 +19,7 @@ ${'_validator_toplevel_simple'}->initialize($this->getContext(), array (
 $validationManager->addChild(${'_validator_toplevel_simple'});
 ${'_validator_toplevel_reset'} = new Quiote\Validator\StringValidator();
 ${'_validator_toplevel_reset'}->initialize($this->getContext(), array (
-  'min' => '1',
+  'min' => 1,
   'severity' => 'error',
   'required' => true,
   'name' => 'toplevel_reset',
@@ -42,7 +42,7 @@ ${'_validator_toplevel_or'}->initialize($this->getContext(), array (
 $validationManager->addChild(${'_validator_toplevel_or'});
 ${'_validator_or_child'} = new Quiote\Validator\StringValidator();
 ${'_validator_or_child'}->initialize($this->getContext(), array (
-  'min' => '1',
+  'min' => 1,
   'severity' => 'error',
   'required' => true,
   'name' => 'or_child',
@@ -66,7 +66,7 @@ ${'_validator_toplevel_param_or'}->initialize($this->getContext(), array (
 $validationManager->addChild(${'_validator_toplevel_param_or'});
 ${'_validator_param_or_child'} = new Quiote\Validator\StringValidator();
 ${'_validator_param_or_child'}->initialize($this->getContext(), array (
-  'min' => '1',
+  'min' => 1,
   'severity' => 'error',
   'required' => true,
   'name' => 'param_or_child',
@@ -90,7 +90,7 @@ ${'_validator_toplevel_direct_or'}->initialize($this->getContext(), array (
 $validationManager->addChild(${'_validator_toplevel_direct_or'});
 ${'_validator_direct_or_child'} = new Quiote\Validator\StringValidator();
 ${'_validator_direct_or_child'}->initialize($this->getContext(), array (
-  'min' => '1',
+  'min' => 1,
   'severity' => 'error',
   'required' => true,
   'name' => 'direct_or_child',

@@ -20,7 +20,7 @@ interface FormatDriverInterface
 	 * @return array<string, mixed> The resolved, parent-chain-merged, directive-expanded
 	 *               config data.
 	 */
-	public function load(string $path, string $environment, ?string $context = null): array;
+	public function load(string $path, ?string $environment, ?string $context = null): array;
 
 	/**
 	 * Whether this driver can handle the given path, based on its

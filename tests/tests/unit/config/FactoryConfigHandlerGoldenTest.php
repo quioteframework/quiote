@@ -22,7 +22,7 @@ class FactoryConfigHandlerGoldenTest extends ConfigHandlerTestBase
 		$h = new FactoryConfigHandler();
 		$h->initialize(null, []);
 		$document = $this->parseConfiguration(
-			Config::get('core.config_dir') . '/factories.xml',
+			Config::getString('core.config_dir') . '/factories.xml',
 			null,
 			'testing'
 		);

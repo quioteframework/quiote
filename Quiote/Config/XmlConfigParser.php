@@ -83,7 +83,7 @@ class XmlConfigParser
 	protected $path = '';
 	
 	/**
-	 * @var        string The name of the current environment.
+	 * @var        ?string The name of the current environment, or null if none is configured.
 	 */
 	protected $environment = '';
 	
@@ -161,15 +161,15 @@ class XmlConfigParser
 	}
 	                                                 
 	/**
-	 * @param      string $path An absolute filesystem path to a configuration file.
-	 * @param      string $environment The environment name.
-	 * @param      string $context The optional context name.
+	 * @param      string  $path An absolute filesystem path to a configuration file.
+	 * @param      ?string $environment The environment name, or null to resolve it from core.environment (which may itself be unset -- see the constructor).
+	 * @param      string  $context The optional context name.
 	 * @param      array<string,array<int,string>> $transformationInfo An associative array of transformation information.
 	 * @param      array<string,mixed> $validationInfo An associative array of validation information.
 	 * @return     XmlConfigDomDocument A properly merged DOMDocument.
 	 * @since      1.0.0
 	 */
-	public static function run(string $path, $environment, $context = null, array $transformationInfo = [], array $validationInfo = [])
+	public static function run(string $path, ?string $environment, $context = null, array $transformationInfo = [], array $validationInfo = [])
 	{
 		$isQuioteConfigFormat = true;
 		// build an array of documents (this one, and the parents)
@@ -192,7 +192,7 @@ class XmlConfigParser
 			// is it an Quiote <configurations> element? does it have a parent attribute? yes? good. parse that next
 			// TODO: support future namespaces
 			if($isQuioteConfigFormat && $doc->documentElement->hasAttribute('parent')) {
-				$theNextPath = Toolkit::literalize($doc->documentElement->getAttribute('parent'));
+				$theNextPath = (string) Toolkit::literalize($doc->documentElement->getAttribute('parent'));
 				
 				// no infinite loop plz, kthx
 				if($nextPath === $theNextPath) {
@@ -316,7 +316,7 @@ class XmlConfigParser
      * The constructor.
      * Will make a DOMDocument instance using the given path.
      * @param      string $path The path to the configuration file.
-     * @param      string $environment The optional name of the current environment.
+     * @param      ?string $environment The optional name of the current environment.
      * @param      string $context The optional name of the current context.
      * @since      1.0.0
      */
@@ -327,7 +327,7 @@ class XmlConfigParser
 	{
 		// store environment...
 		if($environment === null) {
-			$environment = Config::get('core.environment');
+			$environment = Config::getNullableString('core.environment');
 		}
 		$this->environment = $environment;
 		
@@ -378,7 +378,7 @@ class XmlConfigParser
 		// mark document for merging
 		self::match($this->doc, $this->environment, $this->context);
 		
-		if(!Config::get('core.skip_config_transformations', false)) {
+		if(!Config::getBool('core.skip_config_transformations', false)) {
 			// run inline transformations
 			$this->doc = self::transformProcessingInstructions($this->doc, $this->environment, $this->context);
 			
@@ -401,14 +401,14 @@ class XmlConfigParser
 	/**
 	 * Executes the parser for a compilation document.
 	 * @param      XmlConfigDomDocument $document The document to act upon.
-	 * @param      string $environment The environment name.
+	 * @param      ?string $environment The environment name, or null if none is configured.
 	 * @param      string $context The context name.
 	 * @param      array<int,string> $transformationInfo An array of XSL paths for transformation.
 	 * @param      array<string,mixed> $validationInfo An associative array of validation information.
 	 * @return     XmlConfigDomDocument The compiled document.
 	 * @since      1.0.0
 	 */
-	public static function executeCompilation(XmlConfigDomDocument $document, $environment, $context, array $transformationInfo = [], array $validationInfo = [])
+	public static function executeCompilation(XmlConfigDomDocument $document, ?string $environment, $context, array $transformationInfo = [], array $validationInfo = [])
 	{
 		// resolve xincludes
 		self::xinclude($document);
@@ -416,7 +416,7 @@ class XmlConfigParser
 		// validate pre-transformation
 		self::validate($document, $environment, $context, $validationInfo[XmlConfigParser::STEP_TRANSFORMATIONS_BEFORE]);
 		
-		if(!Config::get('core.skip_config_transformations', false)) {
+		if(!Config::getBool('core.skip_config_transformations', false)) {
 			// perform XSL transformations
 			$document = self::transform($document, $environment, $context, $transformationInfo);
 			
@@ -490,7 +490,7 @@ class XmlConfigParser
 	 * Annotate the document with matched attributes against each configuration
 	 * element that matches the given context and environment.
 	 * @param      XmlConfigDomDocument $document The document to act upon.
-	 * @param      string $environment The environment name.
+	 * @param      ?string $environment The environment name, or null if none is configured.
 	 * @param      string $context The context name.
 	 * @return     void
 	 * @since      1.0.0
@@ -524,7 +524,7 @@ class XmlConfigParser
 	 * Transform the document using info from embedded processing instructions
 	 * and given stylesheets.
 	 * @param      XmlConfigDomDocument $document The document to act upon.
-	 * @param      string $environment The environment name.
+	 * @param      ?string $environment The environment name, or null if none is configured.
 	 * @param      string $context The context name.
 	 * @param      array<int,string> $transformationInfo An array of transformation information.
 	 * @param      array<int,XmlConfigDomDocument> $transformations An array of XSL stylesheets in DOMDocument instances.
@@ -561,11 +561,8 @@ class XmlConfigParser
 				// this directive to the fully-qualified callable(s) they use, e.g.
 				//   Config::set('core.config_xsl_allowed_php_functions',
 				//       ['Quiote\\Validator\\DependencyManager::populateArgumentBaseKeyRefs']);
-				$allowedPHPFunctions = \Quiote\Config\Config::get('core.config_xsl_allowed_php_functions', null);
-				if (is_string($allowedPHPFunctions) && $allowedPHPFunctions !== '') {
-					$allowedPHPFunctions = [$allowedPHPFunctions];
-				}
-				if (is_array($allowedPHPFunctions) && $allowedPHPFunctions !== []) {
+				$allowedPHPFunctions = \Quiote\Config\Config::getStringList('core.config_xsl_allowed_php_functions');
+				if ($allowedPHPFunctions !== []) {
 					$proc->registerPHPFunctions($allowedPHPFunctions);
 				}
 				$proc->importStylesheet($xsl);
@@ -611,7 +608,7 @@ class XmlConfigParser
 	 * Transforms a given document according to xml-stylesheet processing
 	 * instructions
 	 * @param      XmlConfigDomDocument $document The document to act upon.
-	 * @param      string $environment The environment name.
+	 * @param      ?string $environment The environment name, or null if none is configured.
 	 * @param      string $context The context name.
 	 * @return     XmlConfigDomDocument The transformed document.
 	 * @since      1.0.0
@@ -676,7 +673,7 @@ class XmlConfigParser
 	/**
 	 * Perform validation on a given document.
 	 * @param      XmlConfigDomDocument $document The document to act upon.
-	 * @param      string $environment The environment name.
+	 * @param      ?string $environment The environment name, or null if none is configured.
 	 * @param      string $context The context name.
 	 * @param      array<string,mixed> $validationInfo An array of validation information.
 	 * @return     void
@@ -685,7 +682,7 @@ class XmlConfigParser
 	public static function validate(XmlConfigDomDocument $document, $environment, $context, array $validationInfo = [])
 	{
 		// bail out right away if validation is disabled
-		if(Config::get('core.skip_config_validation', false)) {
+		if(Config::getBool('core.skip_config_validation', false)) {
 			return;
 		}
 		
@@ -836,7 +833,7 @@ class XmlConfigParser
 	/**
 	 * Validate the document against the given list of Schematron files.
 	 * @param      XmlConfigDomDocument $document The document to act upon.
-	 * @param      string $environment The environment name.
+	 * @param      ?string $environment The environment name, or null if none is configured.
 	 * @param      string $context The context name.
 	 * @param      array<int,string> $validationFiles An array of file names to validate against.
 	 * @return     void
@@ -844,7 +841,7 @@ class XmlConfigParser
 	 */
 	public static function validateSchematron(XmlConfigDomDocument $document, $environment, $context, array $validationFiles = [])
 	{
-		if(Config::get('core.skip_config_transformations', false)) {
+		if(Config::getBool('core.skip_config_transformations', false)) {
 			return;
 		}
 		

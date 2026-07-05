@@ -33,7 +33,7 @@ class ConfigParser
 		// copy path in case convertEncoding() needs to complain about a missing ICONV extension
 		$this->config = $config;
 		
-		$parser = new XmlConfigParser($config, Config::get('core.environment'), null);
+		$parser = new XmlConfigParser($config, Config::getNullableString('core.environment'), null);
 		
 		$validation = [
 			XmlConfigParser::STEP_TRANSFORMATIONS_BEFORE => [],

@@ -31,12 +31,12 @@ class ConfigHandlersConfigHandlerTest extends ConfigHandlerTestBase
 
 	public function testConfigHandlersConfigHandler()
 	{
-		$hf = Toolkit::normalizePath(Config::get('core.config_dir') . '/routing.xml');
+		$hf = Toolkit::normalizePath(Config::getString('core.config_dir') . '/routing.xml');
 		$CHCH = new ConfigHandlersConfigHandler();
 
 		$document = $this->parseConfiguration(
-			Config::get('core.config_dir') . '/tests/config_handlers.xml',
-			Config::get('core.quiote_dir') . '/Config/xsl/config_handlers.xsl'
+			Config::getString('core.config_dir') . '/tests/config_handlers.xml',
+			Config::getString('core.quiote_dir') . '/Config/xsl/config_handlers.xsl'
 		);
 
 		$file = $this->getIncludeFile($CHCH->execute($document));
@@ -46,8 +46,8 @@ class ConfigHandlersConfigHandlerTest extends ConfigHandlerTestBase
 		$this->assertCount(1, $handlers);
 		$this->assertTrue(isset($handlers[$hf]));
 		$this->assertSame('CHCHTestHandler', $handlers[$hf]['class']);
-		$this->assertSame(Config::get('core.quiote_dir') . '/config/xsd/routing.xsd', $handlers[$hf]['validations']['single']['transformations_after']['xml_schema'][0]);
-		$this->assertSame(['foo' => 'bar', 'dir' => Config::get('core.quiote_dir')] , $handlers[$hf]['parameters']);
+		$this->assertSame(Config::getString('core.quiote_dir') . '/config/xsd/routing.xsd', $handlers[$hf]['validations']['single']['transformations_after']['xml_schema'][0]);
+		$this->assertSame(['foo' => 'bar', 'dir' => Config::getString('core.quiote_dir')] , $handlers[$hf]['parameters']);
 	}
 
 }

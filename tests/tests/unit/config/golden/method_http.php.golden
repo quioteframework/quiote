@@ -15,7 +15,7 @@ ${'_validator_fail_param'}->initialize($this->getContext(), array (
   'class' => 'Quiote\\Validator\\RegexValidator',
   'name' => 'fail_param',
   'pattern' => '/^[01]$/',
-  'match' => '1',
+  'match' => 1,
   'base' => NULL,
 ), array (
   0 => 'fail',

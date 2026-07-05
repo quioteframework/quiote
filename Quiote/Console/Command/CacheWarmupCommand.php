@@ -50,7 +50,7 @@ final class CacheWarmupCommand extends AbstractAppCommand
         $this->bootstrapApp($input);
         $io = new SymfonyStyle($input, $output);
 
-        $context = (string) ($input->getOption('context') ?? Config::get('core.default_context', 'web'));
+        $context = (string) ($input->getOption('context') ?? Config::getString('core.default_context', 'web'));
 
         if ($input->getOption('check')) {
             return $this->checkRoutingDrift($context, $io);
@@ -71,7 +71,7 @@ final class CacheWarmupCommand extends AbstractAppCommand
             }
             $io->writeln(sprintf('APCu config cache warmed in <info>%.1f ms</info>.', ($stats['duration'] ?? 0) * 1000));
         } else {
-            $configDir = Config::get('core.config_dir');
+            $configDir = Config::getString('core.config_dir');
             $warmed = 0;
             $skipped = [];
             $rows = [];
@@ -92,7 +92,7 @@ final class CacheWarmupCommand extends AbstractAppCommand
             }
 
             $io->table(['Config', 'Status'], $rows);
-            $io->writeln(sprintf('Warmed <info>%d</info> config file(s) into %s/config%s.', $warmed, Config::get('core.cache_dir'), $skipped ? sprintf(' (%d optional file(s) absent)', count($skipped)) : ''));
+            $io->writeln(sprintf('Warmed <info>%d</info> config file(s) into %s/config%s.', $warmed, Config::getString('core.cache_dir'), $skipped ? sprintf(' (%d optional file(s) absent)', count($skipped)) : ''));
         }
 
         $this->dumpCompiledMatcher($context, $io);

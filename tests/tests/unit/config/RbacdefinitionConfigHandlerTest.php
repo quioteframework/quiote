@@ -10,8 +10,8 @@ class RbacDefinitionConfigHandlerTest extends ConfigHandlerTestBase
 	public function testHandler()
 	{
 		$document = $this->parseConfiguration(
-			Config::get('core.config_dir') . '/tests/rbac_definitions.xml',
-			Config::get('core.quiote_dir') . '/Config/xsl/rbac_definitions.xsl'
+			Config::getString('core.config_dir') . '/tests/rbac_definitions.xml',
+			Config::getString('core.quiote_dir') . '/Config/xsl/rbac_definitions.xsl'
 		);
 		
 		$handler = new RbacDefinitionConfigHandler();

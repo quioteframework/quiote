@@ -228,7 +228,7 @@ abstract class PhpUnitTestCase extends TestCase
 			
 			// Bootstrap Quiote with the isolation environment
 			\Quiote\Quiote::bootstrap($isolationEnvironment);
-		} elseif (!Config::get('core.environment')) {
+		} elseif (!Config::getNullableString('core.environment')) {
 			// Non-isolated test and Quiote not yet bootstrapped - bootstrap with default testing environment
 			\Quiote\Quiote::bootstrap('testing');
 		}

@@ -69,12 +69,10 @@ final class PluginManager
             return;
         }
 
-        $configured = Config::get('plugins', []);
-        if (is_array($configured)) {
-            foreach ($configured as $pluginClass) {
-                if (is_string($pluginClass) || $pluginClass instanceof PluginInterface) {
-                    self::add($pluginClass);
-                }
+        $configured = Config::getArray('plugins', []);
+        foreach ($configured as $pluginClass) {
+            if (is_string($pluginClass) || $pluginClass instanceof PluginInterface) {
+                self::add($pluginClass);
             }
         }
 

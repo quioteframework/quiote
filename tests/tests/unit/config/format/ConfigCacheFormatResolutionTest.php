@@ -142,19 +142,23 @@ class ConfigCacheFormatResolutionTest extends PhpUnitTestCase
 		// (%core.config_dir%/settings.xml), not just resolveConfigFormat()
 		// in isolation -- a sibling settings.php dropped next to the real
 		// settings.xml must be what compiles, with zero other configuration.
-		$configDir = Config::get('core.config_dir');
+		$configDir = Config::getString('core.config_dir');
 		$phpSibling = $configDir . '/settings.php';
 		$this->assertFileDoesNotExist($phpSibling, 'This test cannot run if a real settings.php already exists.');
 
-		$originalAppName = Config::get('core.app_name');
+		$originalAppName = Config::getNullableString('core.app_name');
 		file_put_contents($phpSibling, "<?php\nreturn ['core.app_name' => 'FromSiblingPhp'];\n");
 		try {
 			$cacheFile = ConfigCache::checkConfig($configDir . '/settings.xml', null);
 			require $cacheFile;
-			$this->assertSame('FromSiblingPhp', Config::get('core.app_name'));
+			$this->assertSame('FromSiblingPhp', Config::getString('core.app_name'));
 		} finally {
 			unlink($phpSibling);
-			Config::set('core.app_name', $originalAppName, true);
+			if ($originalAppName === null) {
+				Config::remove('core.app_name');
+			} else {
+				Config::set('core.app_name', $originalAppName, true);
+			}
 		}
 	}
 }

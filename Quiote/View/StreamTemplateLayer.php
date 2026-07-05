@@ -57,7 +57,7 @@ class StreamTemplateLayer extends TemplateLayer
 		}
 		
 		$args = [];
-		if(Config::get('core.use_translation')) {
+		if(Config::getBool('core.use_translation', false)) {
 			// i18n is enabled, build a list of sprintf args with the locale identifier
 			foreach(QuioteLocale::getLookupPath($this->context->getTranslationManager()->getCurrentLocaleIdentifier()) as $identifier) {
 				$args[] = ['locale' => $identifier];

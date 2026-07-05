@@ -8,7 +8,7 @@ abstract class ConfigHandlerTestBase extends PhpUnitTestCase
 {
 	protected function getIncludeFile($code)
 	{
-		$file = tempnam(Config::get('core.cache_dir'), 'cht');
+		$file = tempnam(Config::getString('core.cache_dir'), 'cht');
 		file_put_contents($file, $code);
 		return $file;
 	}
@@ -25,7 +25,7 @@ abstract class ConfigHandlerTestBase extends PhpUnitTestCase
 	protected function parseConfiguration($configFile, $xslFile = null, $environment = null) {
 		return XmlConfigParser::run(
 			$configFile,
-			$environment ?: Config::get('core.environment'),
+			$environment ?: Config::getNullableString('core.environment'),
 			'',
 			[
 				XmlConfigParser::STAGE_SINGLE => $xslFile ? [$xslFile] : [],

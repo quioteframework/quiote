@@ -19,7 +19,7 @@ class AttributeRoutesMergeTest extends PhpUnitTestCase
 {
 	private function makeMixedRouting(): Routing
 	{
-		$moduleDir = Config::get('core.module_dir');
+		$moduleDir = Config::getString('core.module_dir');
 
 		return new class($moduleDir) extends Routing {
 			public function __construct(private readonly string $moduleDir)

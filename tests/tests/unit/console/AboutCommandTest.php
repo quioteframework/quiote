@@ -25,8 +25,8 @@ final class AboutCommandTest extends PhpUnitTestCase
 
 		$this->assertSame(0, $exitCode);
 		$display = $tester->getDisplay();
-		$this->assertStringContainsString(Config::get('core.app_dir'), $display);
-		$this->assertStringContainsString(Config::get('core.environment'), $display);
-		$this->assertStringContainsString(Config::get('core.module_dir'), $display);
+		$this->assertStringContainsString(Config::getString('core.app_dir'), $display);
+		$this->assertStringContainsString(Config::getNullableString('core.environment'), $display);
+		$this->assertStringContainsString(Config::getString('core.module_dir'), $display);
 	}
 }

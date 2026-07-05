@@ -10,12 +10,12 @@ class ReturnArrayConfigHandlerTest extends ConfigHandlerTestBase
 	public function testParseMixed()
 	{
 		$RACH = new ReturnArrayConfigHandler();
-		$document = $this->parseConfiguration(Config::get('core.config_dir') . '/tests/rach_mixed.xml');
+		$document = $this->parseConfiguration(Config::getString('core.config_dir') . '/tests/rach_mixed.xml');
 		$actual = $this->includeCode($RACH->execute($document));
 		$expected = [
 			'section1' => ['One' => 'A', 'Two' => 'B', 'Three' => 'C'], 
 			'section2' => ['Three' => 'Z', 'Two' => 'Y', 'One' => 'X', 'value' => ''],
-			'section3' => ['One' => '1', 'Three' => '3', 'Two' => '2']
+			'section3' => ['One' => 1, 'Three' => 3, 'Two' => 2]
 		];
 		$this->assertSame($expected, $actual);
 	}
@@ -24,11 +24,11 @@ class ReturnArrayConfigHandlerTest extends ConfigHandlerTestBase
 	public function testParseAttributes()
 	{
 		$RACH = new ReturnArrayConfigHandler();
-		$document = $this->parseConfiguration(Config::get('core.config_dir') . '/tests/rach_attributes.xml');
+		$document = $this->parseConfiguration(Config::getString('core.config_dir') . '/tests/rach_attributes.xml');
 		$actual = $this->includeCode($RACH->execute($document));
 		$expected = [
 			'section1' => ['One' => 'A', 'Two' => 'B', 'Three' => 'C', 'value' => ''], 
-			'section2' => ['Three' => Config::get('core.config_dir'), 'Two' => false, 'One' => true, 'value' => ''],
+			'section2' => ['Three' => Config::getString('core.config_dir'), 'Two' => false, 'One' => true, 'value' => ''],
 		];
 		$this->assertSame($expected, $actual);
 	}
@@ -37,7 +37,7 @@ class ReturnArrayConfigHandlerTest extends ConfigHandlerTestBase
 	public function testParseTags()
 	{
 		$RACH = new ReturnArrayConfigHandler();
-		$document = $this->parseConfiguration(Config::get('core.config_dir') . '/tests/rach_tags.xml');
+		$document = $this->parseConfiguration(Config::getString('core.config_dir') . '/tests/rach_tags.xml');
 		$actual = $this->includeCode($RACH->execute($document));
 		$expected = [
 			'section1' => ['One' => 'A', 'Two' => 'B', 'Three' => 'C'], 
@@ -49,14 +49,14 @@ class ReturnArrayConfigHandlerTest extends ConfigHandlerTestBase
 	public function testParseComplex()
 	{
 		$RACH = new ReturnArrayConfigHandler();
-		$document = $this->parseConfiguration(Config::get('core.config_dir') . '/tests/rach_complex.xml');
+		$document = $this->parseConfiguration(Config::getString('core.config_dir') . '/tests/rach_complex.xml');
 		$actual = $this->includeCode($RACH->execute($document));
 
 		$expected = [
 			'cachings' => [
 				'Browse' => [
 					'enabled' => true,
-					'action' => Config::get('core.app_dir'),
+					'action' => Config::getString('core.app_dir'),
 					'groups' => [
 						'foo' => 'bar',
 						'categories' => '',

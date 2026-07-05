@@ -52,7 +52,7 @@ class DoctrineDatabase extends AbstractOrmDatabase
     protected function buildOrmConfiguration(): OrmConfiguration
     {
         $paths = (array) ($this->getParameter('entity_paths') ?? []);
-        $isDevMode = (bool) $this->getParameter('dev_mode', (bool) Config::get('core.debug', false));
+        $isDevMode = (bool) $this->getParameter('dev_mode', Config::getBool('core.debug', false));
         $proxyDir = $this->getParameter('proxy_dir'); // null → system temp
         $cache = $this->metadataCache();
 

@@ -9,7 +9,7 @@ class AttributeRouteScannerTest extends PhpUnitTestCase
 	public function testScanDiscoversFlatParameterizedAndNestedRoutes()
 	{
 		$scanner = new AttributeRouteScanner();
-		$plan = $scanner->scan([Config::get('core.module_dir')]);
+		$plan = $scanner->scan([Config::getString('core.module_dir')]);
 
 		$byName = [];
 		foreach ($plan->routes as $route) {
@@ -37,7 +37,7 @@ class AttributeRouteScannerTest extends PhpUnitTestCase
 	public function testScanIgnoresActionsWithoutRouteAttribute()
 	{
 		$scanner = new AttributeRouteScanner();
-		$plan = $scanner->scan([Config::get('core.module_dir')]);
+		$plan = $scanner->scan([Config::getString('core.module_dir')]);
 
 		foreach ($plan->routes as $route) {
 			$this->assertNotSame('Unrouted', $route->action);

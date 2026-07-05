@@ -45,12 +45,12 @@ final class McpPlugin implements PluginInterface
 
         $registrar->service(
             McpAuthenticatorInterface::class,
-            fn() => new StaticTokenAuthenticator(Config::get('mcp.auth_token') !== null ? (string) Config::get('mcp.auth_token') : null),
+            fn() => new StaticTokenAuthenticator(Config::getNullableString('mcp.auth_token')),
         );
 
-        $transports = (array) Config::get('mcp.transports', ['stdio']);
+        $transports = Config::getArray('mcp.transports', ['stdio']);
         if (in_array('http', $transports, true)) {
-            $contextName = (string) Config::get('core.default_context', 'web');
+            $contextName = Config::getString('core.default_context', 'web');
 
             // McpAuthMiddleware anchors "before: McpEndpointMiddleware::class" -- the
             // endpoint middleware must already be registered (and thus spliced into
@@ -62,7 +62,7 @@ final class McpPlugin implements PluginInterface
                 before: SecurityMiddleware::class,
             );
 
-            if ((string) Config::get('mcp.auth', 'bearer') !== 'none') {
+            if (Config::getString('mcp.auth', 'bearer') !== 'none') {
                 $registrar->middleware(
                     McpAuthMiddleware::class,
                     fn() => new McpAuthMiddleware($contextName),

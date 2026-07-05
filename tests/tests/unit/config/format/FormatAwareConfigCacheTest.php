@@ -37,7 +37,7 @@ class FormatAwareConfigCacheTest extends PhpUnitTestCase
 
 	private function newRegistry(SettingConfigHandler $handler): FormatDriverRegistry
 	{
-		return FormatDriverRegistry::forHandler($handler, [Config::get('core.quiote_dir') . '/Config/xsl/settings.xsl']);
+		return FormatDriverRegistry::forHandler($handler, [Config::getString('core.quiote_dir') . '/Config/xsl/settings.xsl']);
 	}
 
 	public function testResolvesAndCompilesAPhpSettingsFileByBaseNameAlone()
@@ -50,7 +50,7 @@ class FormatAwareConfigCacheTest extends PhpUnitTestCase
 
 		$this->assertFileExists($cacheFile);
 		$compiled = require $cacheFile;
-		$this->assertSame('Demo', Config::get('core.app_name'));
+		$this->assertSame('Demo', Config::getString('core.app_name'));
 	}
 
 	public function testPrefersPhpOverYamlAndXmlWhenMultipleExist()
@@ -64,7 +64,7 @@ class FormatAwareConfigCacheTest extends PhpUnitTestCase
 		$cacheFile = FormatAwareConfigCache::checkConfig($this->dir . '/settings', $handler, $this->newRegistry($handler), 'test');
 
 		require $cacheFile;
-		$this->assertSame('FromPhp', Config::get('core.app_name'));
+		$this->assertSame('FromPhp', Config::getString('core.app_name'));
 	}
 
 	public function testFallsBackToYamlWhenPhpAbsent()
@@ -76,7 +76,7 @@ class FormatAwareConfigCacheTest extends PhpUnitTestCase
 		$cacheFile = FormatAwareConfigCache::checkConfig($this->dir . '/settings', $handler, $this->newRegistry($handler), 'test');
 
 		require $cacheFile;
-		$this->assertSame('FromYaml', Config::get('core.app_name'));
+		$this->assertSame('FromYaml', Config::getString('core.app_name'));
 	}
 
 	public function testThrowsWhenNoCandidateFileExists()

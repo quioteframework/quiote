@@ -40,7 +40,7 @@ final class McpServeCommand extends AbstractAppCommand
             return self::FAILURE;
         }
 
-        $contextName = (string) ($input->getOption('context') ?? Config::get('core.default_context', 'web'));
+        $contextName = (string) ($input->getOption('context') ?? Config::getString('core.default_context', 'web'));
         try {
             $container = Context::getInstance($contextName)->getContainer();
         } catch (\Throwable $e) {

@@ -15,7 +15,7 @@ class ValidatorCompilerTest extends PhpUnitTestCase
 	public function testParseBuildsPlanFromRealValidatorSource()
 	{
 		$compiler = new ValidatorCompiler();
-		$source = new ValidatorSource(Config::get('core.module_dir') . '/Method/Validate/MethodHttp.xml', 'test');
+		$source = new ValidatorSource(Config::getString('core.module_dir') . '/Method/Validate/MethodHttp.xml', 'test');
 
 		[$plan, $diagnostics] = $compiler->parse($source);
 
@@ -42,7 +42,7 @@ class ValidatorCompilerTest extends PhpUnitTestCase
 	public function testCompileMergesParseAndEmitDiagnostics()
 	{
 		$compiler = new ValidatorCompiler();
-		$source = new ValidatorSource(Config::get('core.module_dir') . '/Method/Validate/MethodHttp.xml', 'test');
+		$source = new ValidatorSource(Config::getString('core.module_dir') . '/Method/Validate/MethodHttp.xml', 'test');
 
 		$emitter = new class implements EmitterInterface {
 			public function emit(ValidatorPlan $plan): EmittedArtifact

@@ -128,7 +128,7 @@ class Controller extends ParameterHolder implements ResetInterface
 			'modules.' . $lowerModuleName . '.quiote.view.name' => '${actionName}${viewName}',
 		];
 		foreach ($defaults as $key => $value) {
-			if (Config::get($key) === null) {
+			if (!Config::has($key)) {
 				Config::set($key, $value);
 			}
 		}
@@ -159,44 +159,44 @@ class Controller extends ParameterHolder implements ResetInterface
 		// in this process (avoids repeated is_readable/Config calls).
 		static $initializedModules = [];
 		if (isset($initializedModules[$lowerModuleName])) {
-			if (!Config::get('modules.' . $lowerModuleName . '.enabled')) {
+			if (!Config::getBool('modules.' . $lowerModuleName . '.enabled', false)) {
 				throw new DisabledModuleException(sprintf('The module "%1$s" is disabled.', $moduleName));
 			}
 			return;
 		}
 
-		if(null === Config::get('modules.' . $lowerModuleName . '.enabled')) {
+		if(!Config::has('modules.' . $lowerModuleName . '.enabled')) {
 			// include the module configuration
 		// loaded only once due to the way load() (former import()) works
-		if(is_readable(Config::get('core.module_dir') . '/' . $moduleName . '/Config/module.xml')) {
+		if(is_readable(Config::getString('core.module_dir') . '/' . $moduleName . '/Config/module.xml')) {
 			if(defined('QUIOTE_USE_APCU_CONFIG_CACHE') && QUIOTE_USE_APCU_CONFIG_CACHE) {
-				$cacheResult = APCuConfigCache::checkConfig(Config::get('core.module_dir') . '/' . $moduleName . '/Config/module.xml');
+				$cacheResult = APCuConfigCache::checkConfig(Config::getString('core.module_dir') . '/' . $moduleName . '/Config/module.xml');
 				if (str_starts_with($cacheResult, 'APCU:')) {
 					eval('?>' . substr($cacheResult, 5));
 				} else {
 					include_once($cacheResult);
 				}
 			} else {
-				include_once(ConfigCache::checkConfig(Config::get('core.module_dir') . '/' . $moduleName . '/Config/module.xml'));
+				include_once(ConfigCache::checkConfig(Config::getString('core.module_dir') . '/' . $moduleName . '/Config/module.xml'));
 			}
 		} else {
 			Config::set('modules.' . $lowerModuleName . '.enabled', true);
 		}
 		
-		if(Config::get('modules.' . $lowerModuleName . '.enabled')) {
-				$moduleConfigHandlers = Config::get('core.module_dir') . '/' . $moduleName . '/Config/config_handlers.xml';
+		if(Config::getBool('modules.' . $lowerModuleName . '.enabled', false)) {
+				$moduleConfigHandlers = Config::getString('core.module_dir') . '/' . $moduleName . '/Config/config_handlers.xml';
 				if(is_readable($moduleConfigHandlers)) {
 					ConfigCache::addConfigHandlersFile($moduleConfigHandlers);
 				}
 			}
 		}
 		
-		if(!Config::get('modules.' . $lowerModuleName . '.enabled')) {
+		if(!Config::getBool('modules.' . $lowerModuleName . '.enabled', false)) {
 			throw new DisabledModuleException(sprintf('The module "%1$s" is disabled.', $moduleName));
 		}
-		
+
 		// check for a module config.php
-		$moduleConfig = Config::get('core.module_dir') . '/' . $moduleName . '/Config.php';
+		$moduleConfig = Config::getString('core.module_dir') . '/' . $moduleName . '/Config.php';
 		if(is_readable($moduleConfig)) {
 			require_once($moduleConfig);
 		}
@@ -264,7 +264,7 @@ class Controller extends ParameterHolder implements ResetInterface
 		$longActionName = str_replace('/', '_', $actionName);
 		
 		// Build class names with configurable namespace pattern
-		$baseNamespace = Config::get('core.namespace_prefix', 'App');
+		$baseNamespace = Config::getString('core.namespace_prefix', 'App');
 		
 		// For namespaced classes, preserve directory structure as namespaces
 		$namespacedActionName = str_replace('/', '\\', $actionName);
@@ -374,7 +374,7 @@ class Controller extends ParameterHolder implements ResetInterface
 		$longViewName = str_replace('/', '_', $viewName);
 		
 		// Build class names with configurable namespace pattern
-		$baseNamespace = Config::get('core.namespace_prefix', 'App');
+		$baseNamespace = Config::getString('core.namespace_prefix', 'App');
 		
 		// For namespaced classes, preserve directory structure as namespaces
 		$namespacedViewName = str_replace('/', '\\', $viewName);
@@ -423,7 +423,7 @@ class Controller extends ParameterHolder implements ResetInterface
 
 		$this->response = $this->context->createInstanceFor('response');
 
-		$cfg = Config::get('core.config_dir') . '/output_types.xml';
+		$cfg = Config::getString('core.config_dir') . '/output_types.xml';
 		if(defined('QUIOTE_USE_APCU_CONFIG_CACHE') && QUIOTE_USE_APCU_CONFIG_CACHE) {
 			$cacheResult = APCuConfigCache::checkConfig($cfg, $this->context->getName());
 			if (str_starts_with($cacheResult, 'APCU:')) {
@@ -448,7 +448,7 @@ class Controller extends ParameterHolder implements ResetInterface
 	 */
 	public function modelExists($moduleName, $modelName)
 	{
-		$baseNamespace = Config::get('core.namespace_prefix', 'App');
+		$baseNamespace = Config::getString('core.namespace_prefix', 'App');
 		$modelName = Toolkit::canonicalName($modelName);
 		$namespacedModelName = str_replace('/', '\\', $modelName);
 
@@ -465,7 +465,7 @@ class Controller extends ParameterHolder implements ResetInterface
 		$namespacedClass = $baseNamespace . '\\Modules\\' . $moduleName . '\\Models\\' . $namespacedModelName . 'Model';
 		$exists = class_exists($namespacedClass);
 		if(!$exists) {
-			$file = Config::get('core.module_dir') . '/' . $moduleName . '/Models/' . $modelName . 'Model.php';
+			$file = Config::getString('core.module_dir') . '/' . $moduleName . '/Models/' . $modelName . 'Model.php';
 			$exists = is_readable($file);
 		}
 
@@ -491,7 +491,7 @@ class Controller extends ParameterHolder implements ResetInterface
 				return (bool)$cached;
 			}
 		}
-		$file = Config::get('core.module_dir') . '/' . $moduleName . '/Config/module.xml';
+		$file = Config::getString('core.module_dir') . '/' . $moduleName . '/Config/module.xml';
 		$exists = is_readable($file);
 		if($apcuKey) {
 			apcu_store($apcuKey, $exists, 0);
@@ -587,7 +587,7 @@ class Controller extends ParameterHolder implements ResetInterface
 	 */
 	public function viewExists($moduleName, $viewName)
 	{
-		$baseNamespace = Config::get('core.namespace_prefix', 'App');
+		$baseNamespace = Config::getString('core.namespace_prefix', 'App');
 		$viewName = Toolkit::canonicalName($viewName);
 		$namespacedViewName = str_replace('/', '\\', $viewName);
 

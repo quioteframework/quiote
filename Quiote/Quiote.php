@@ -9,8 +9,8 @@ use Quiote\Util\Toolkit;
 
 // check minimum PHP version
 Config::set('core.minimum_php_version', '8.5.0');
-if(version_compare(PHP_VERSION, Config::get('core.minimum_php_version'), '<') ) {
-	trigger_error('Quiote requires PHP version ' . Config::get('core.minimum_php_version') . ' or greater', E_USER_ERROR);
+if(version_compare(PHP_VERSION, Config::getString('core.minimum_php_version'), '<') ) {
+	trigger_error('Quiote requires PHP version ' . Config::getString('core.minimum_php_version') . ' or greater', E_USER_ERROR);
 }
 
 // define a few filesystem paths
@@ -50,10 +50,10 @@ final class Quiote
 		try {
 			if($environment === null) {
 				// no env given? let's read one from core.environment
-				$environment = Config::get('core.environment');
+				$environment = Config::getNullableString('core.environment');
 			} elseif(Config::has('core.environment') && Config::isReadonly('core.environment')) {
 				// env given, but core.environment is read-only? then we must use that instead and ignore the given setting
-				$environment = Config::get('core.environment');
+				$environment = Config::getString('core.environment');
 			}
 
 			if($environment === null) {
@@ -77,36 +77,36 @@ final class Quiote
 			}
 
 			// define a few filesystem paths
-			Config::set('core.cache_dir', Config::get('core.app_dir') . '/cache', false, true);
+			Config::set('core.cache_dir', Config::getString('core.app_dir') . '/cache', false, true);
 
-			Config::set('core.config_dir', Config::get('core.app_dir') . '/Config', false, true);
+			Config::set('core.config_dir', Config::getString('core.app_dir') . '/Config', false, true);
 
-			Config::set('core.system_config_dir', Config::get('core.quiote_dir') . '/Config/defaults', false, true);
+			Config::set('core.system_config_dir', Config::getString('core.quiote_dir') . '/Config/defaults', false, true);
 
-			Config::set('core.lib_dir', Config::get('core.app_dir') . '/Lib', false, true);
+			Config::set('core.lib_dir', Config::getString('core.app_dir') . '/Lib', false, true);
 
-			Config::set('core.model_dir', Config::get('core.app_dir') . '/Models', false, true);
+			Config::set('core.model_dir', Config::getString('core.app_dir') . '/Models', false, true);
 
-			Config::set('core.module_dir', Config::get('core.app_dir') . '/Modules', false, true);
+			Config::set('core.module_dir', Config::getString('core.app_dir') . '/Modules', false, true);
 
-			Config::set('core.template_dir', Config::get('core.app_dir') . '/Templates', false, true);
+			Config::set('core.template_dir', Config::getString('core.app_dir') . '/Templates', false, true);
 
 			// load base settings
 			if(defined('\QUIOTE_USE_APCU_CONFIG_CACHE') && \QUIOTE_USE_APCU_CONFIG_CACHE) {
-				APCuConfigCache::load(Config::get('core.config_dir') . '/settings.xml');
+				APCuConfigCache::load(Config::getString('core.config_dir') . '/settings.xml');
 			} else {
-				ConfigCache::load(Config::get('core.config_dir') . '/settings.xml');
+				ConfigCache::load(Config::getString('core.config_dir') . '/settings.xml');
 			}
 
 			// clear our cache if the conditions are right
-			if(Config::get('core.debug')) {
+			if(Config::getBool('core.debug', false)) {
 				Toolkit::clearCache();
 
 				// load base settings
 				if(defined('QUIOTE_USE_APCU_CONFIG_CACHE') && QUIOTE_USE_APCU_CONFIG_CACHE) {
-					APCuConfigCache::load(Config::get('core.config_dir') . '/settings.xml');
+					APCuConfigCache::load(Config::getString('core.config_dir') . '/settings.xml');
 				} else {
-					ConfigCache::load(Config::get('core.config_dir') . '/settings.xml');
+					ConfigCache::load(Config::getString('core.config_dir') . '/settings.xml');
 				}
 			}
 
@@ -143,7 +143,7 @@ final class Quiote
 				(new \Quiote\Security\Csrf\CsrfPlugin())->register(
 					new \Quiote\Plugin\PluginRegistrar('quiote/csrf')
 				);
-				if (!Config::get('core.csrf.enabled', true)) {
+				if (!Config::getBool('core.csrf.enabled', true)) {
 					\Quiote\Logging\Log::create('Quiote.Quiote')->warning(
 						'[Quiote::bootstrap] CSRF protection is explicitly disabled (core.csrf.enabled=false). '
 						. 'This is a deliberate "conscious effort" opt-out -- '
@@ -192,7 +192,7 @@ final class Quiote
 					if($envPrewarm !== false && in_array(strtolower($envPrewarm), ['1','true','yes','on'], true)) {
 						$doPrewarm = true;
 					}
-					if(Config::has('core.apcu_prewarm') && Config::get('core.apcu_prewarm')) {
+					if(Config::has('core.apcu_prewarm') && Config::getBool('core.apcu_prewarm', false)) {
 						$doPrewarm = true;
 					}
 				}
@@ -204,7 +204,7 @@ final class Quiote
 						self::prewarm($c);
 					}
 				} else {
-					self::prewarm(Config::get('core.default_context'));
+					self::prewarm(Config::getString('core.default_context'));
 				}
 			}
 
@@ -215,11 +215,11 @@ final class Quiote
 			// so TraceRegistry::hasRealProvider() only reflects reality once
 			// this has fired -- check after, not before.
 			\Quiote\Event\Events::emit(new \Quiote\Event\Lifecycle\KernelBootEvent(
-				(string) Config::get('core.environment'),
+				Config::getString('core.environment'),
 				$createdContexts,
 			));
 
-			if (Config::get('telemetry.enabled', false) && !\Quiote\Telemetry\TraceRegistry::hasRealProvider()) {
+			if (Config::getBool('telemetry.enabled', false) && !\Quiote\Telemetry\TraceRegistry::hasRealProvider()) {
 				\Quiote\Logging\Log::create('Quiote.Quiote')->warning(
 					'[Quiote::bootstrap] telemetry.enabled is true but no real telemetry provider is active. '
 					. 'telemetry-otel is opt-in: install '

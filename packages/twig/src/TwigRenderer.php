@@ -29,9 +29,9 @@ final class TwigRenderer extends Renderer implements IReusableRenderer
             return $this->environment;
         }
 
-        $cacheDir = Config::get('core.cache_dir');
-        $compileDir = rtrim((string) $cacheDir, '/\\') . DIRECTORY_SEPARATOR . self::CACHE_SUBDIR;
-        Toolkit::mkdir($compileDir, fileperms((string) $cacheDir), true);
+        $cacheDir = Config::getString('core.cache_dir');
+        $compileDir = rtrim($cacheDir, '/\\') . DIRECTORY_SEPARATOR . self::CACHE_SUBDIR;
+        Toolkit::mkdir($compileDir, fileperms($cacheDir), true);
 
         return $this->environment = new Environment(new TemplateLayerLoader(), [
             'cache' => $compileDir,

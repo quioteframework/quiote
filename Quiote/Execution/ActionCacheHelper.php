@@ -15,7 +15,7 @@ final class ActionCacheHelper
     public static function store(ActionViewCache $cache, ActionDescriptor $desc, ExecutionState $state, string $content, array $actionAttributes, bool $isSimple, ?int $ttl = null, ?string $userFingerprint = null): void
     {
     // Master switch: disable all action/view caching globally when core.cache_enabled = false (default off)
-    if(!\Quiote\Config\Config::get('core.cache_enabled', false)) { return; }
+    if(!\Quiote\Config\Config::getBool('core.cache_enabled', false)) { return; }
     try {
             $cache->set($desc->module, $desc->action, $desc->outputType, [
                 'view_module' => $state->viewModule,
@@ -48,7 +48,7 @@ final class ActionCacheHelper
      */
     public static function read(ActionViewCache $cache, ActionDescriptor $desc, ?string $userFingerprint = null): ?array
     {
-    if(!\Quiote\Config\Config::get('core.cache_enabled', false)) { return null; }
+    if(!\Quiote\Config\Config::getBool('core.cache_enabled', false)) { return null; }
         try {
             // Attempt fingerprint-specific first; fallback to global if none.
             if($userFingerprint) {

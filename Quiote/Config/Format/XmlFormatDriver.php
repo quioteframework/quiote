@@ -42,7 +42,7 @@ final class XmlFormatDriver implements FormatDriverInterface
 	/**
 	 * @return array<string,mixed>
 	 */
-	public function load(string $path, string $environment, ?string $context = null): array
+	public function load(string $path, ?string $environment, ?string $context = null): array
 	{
 		$document = XmlConfigParser::run(
 			$path,

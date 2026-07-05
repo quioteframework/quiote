@@ -55,7 +55,7 @@ class WebResponseTest extends UnitTestCase
 	public function testExposeQuioteVersionReadsCorePrefixedKey()
 	{
 		$wasSet = \Quiote\Config\Config::has('core.expose_quiote_version');
-		$original = \Quiote\Config\Config::get('core.expose_quiote_version');
+		$original = \Quiote\Config\Config::getBool('core.expose_quiote_version');
 		try {
 			\Quiote\Config\Config::set('core.expose_quiote_version', true);
 			$r = $this->_r;
@@ -68,7 +68,7 @@ class WebResponseTest extends UnitTestCase
 			}
 			ob_end_clean();
 
-			$expected = \Quiote\Config\Config::get('quiote.release');
+			$expected = \Quiote\Config\Config::getString('quiote.release');
 			if (ini_get('expose_php')) {
 				$expected .= ' on PHP/' . PHP_VERSION;
 			}
@@ -89,7 +89,7 @@ class WebResponseTest extends UnitTestCase
 	public function testExposeQuioteVersionFalseHidesVersion()
 	{
 		$wasSet = \Quiote\Config\Config::has('core.expose_quiote_version');
-		$original = \Quiote\Config\Config::get('core.expose_quiote_version');
+		$original = \Quiote\Config\Config::getBool('core.expose_quiote_version');
 		try {
 			\Quiote\Config\Config::set('core.expose_quiote_version', false);
 			$r = $this->_r;
@@ -102,7 +102,7 @@ class WebResponseTest extends UnitTestCase
 			}
 			ob_end_clean();
 
-			$expected = \Quiote\Config\Config::get('quiote.name');
+			$expected = \Quiote\Config\Config::getString('quiote.name');
 			if (ini_get('expose_php')) {
 				$expected .= ' on PHP/' . PHP_VERSION;
 			}

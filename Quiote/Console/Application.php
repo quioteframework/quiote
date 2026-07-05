@@ -81,6 +81,6 @@ final class Application extends SymfonyApplication
 		if (is_file($versionFile)) {
 			require_once $versionFile;
 		}
-		return \Quiote\Config\Config::get('quiote.version', 'dev');
+		return \Quiote\Config\Config::getString('quiote.version', 'dev');
 	}
 }

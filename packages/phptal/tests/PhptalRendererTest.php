@@ -22,8 +22,10 @@ final class PhptalRendererTest extends UnitTestCase
     #[\Override]
     public function tearDown(): void
     {
-        @unlink($this->templateBase . '.tal');
-        @unlink($this->templateBase . '-extract.tal');
+        if (file_exists($this->templateBase . '.tal'))
+            @unlink($this->templateBase . '.tal');
+        if (file_exists($this->templateBase . '-extract.tal'))
+            @unlink($this->templateBase . '-extract.tal');
     }
 
     public function testRendersTemplateWithAttributes(): void

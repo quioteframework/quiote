@@ -19,7 +19,7 @@ class DateTimeValidatorTest extends UnitTestCase
         ConfigCache::clear(); // Clear caches to ensure translation config handlers recompile
         Config::set('core.use_translation', true, true);
         if (!Config::has('core.cldr_dir')) {
-            $quioteDir = Config::get('core.quiote_dir') ?: dirname(__DIR__, 4) . '/Quiote';
+            $quioteDir = Config::getString('core.quiote_dir') ?: dirname(__DIR__, 4) . '/Quiote';
             $cldrDir = rtrim((string) $quioteDir, '/') . '/Translation/data';
             Config::set('core.cldr_dir', $cldrDir, true, true);
         }

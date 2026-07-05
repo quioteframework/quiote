@@ -376,7 +376,7 @@ class Context implements \Stringable, ResetInterface
    */
   private function registerTelemetryServicesInContainer(): void
   {
-    if (!Config::get('telemetry.enabled', false) || !\Quiote\Telemetry\TraceRegistry::hasRealProvider()) {
+    if (!Config::getBool('telemetry.enabled', false) || !\Quiote\Telemetry\TraceRegistry::hasRealProvider()) {
       return;
     }
     $container = $this->getContainer();
@@ -437,16 +437,11 @@ class Context implements \Stringable, ResetInterface
   {
     try {
       if ($profile === null) {
-        $profile = Config::get("core.default_context");
-        if ($profile === null) {
-          throw new QuioteException(
-            'You must supply a context name to Context::getInstance() or set the name of the default context to be used in the configuration directive "core.default_context".',
-          );
-        }
+        $profile = Config::getString("core.default_context");
       }
       $profile = strtolower($profile);
       if (!isset(self::$instances[$profile])) {
-        $class = Config::get("core.context_implementation", static::class);
+        $class = Config::getString("core.context_implementation", static::class);
         self::$instances[$profile] = new $class($profile);
         self::$instances[$profile]->initialize();
       }
@@ -668,7 +663,7 @@ class Context implements \Stringable, ResetInterface
     // Echo the correlation ID back so a caller/gateway can tie its request to
     // our logs/traces (unless disabled). Only add it if the response doesn't
     // already carry the header (e.g. an action set it explicitly).
-    if (Config::get('core.correlation_id.expose', true)) {
+    if (Config::getBool('core.correlation_id.expose', true)) {
       $header = $this->correlationIdHeaderName();
       if (!$response->hasHeader($header)) {
         $response = $response->withHeader($header, $this->correlationId);
@@ -685,8 +680,8 @@ class Context implements \Stringable, ResetInterface
   /** The configured inbound/outbound correlation-ID header name. */
   private function correlationIdHeaderName(): string
   {
-    $name = Config::get('core.correlation_id.header', \Quiote\Support\CorrelationId::DEFAULT_HEADER);
-    return is_string($name) && $name !== '' ? $name : \Quiote\Support\CorrelationId::DEFAULT_HEADER;
+    $name = Config::getString('core.correlation_id.header', \Quiote\Support\CorrelationId::DEFAULT_HEADER);
+    return $name !== '' ? $name : \Quiote\Support\CorrelationId::DEFAULT_HEADER;
   }
 
   /**
@@ -783,7 +778,7 @@ class Context implements \Stringable, ResetInterface
           "Context using APCu config cache for factories.xml",
         );
         $cacheResult = APCuConfigCache::checkConfig(
-          Config::get("core.config_dir") . "/factories.xml",
+          Config::getString("core.config_dir") . "/factories.xml",
           $this->name,
         );
 
@@ -808,7 +803,7 @@ class Context implements \Stringable, ResetInterface
             ")",
         );
         include ConfigCache::checkConfig(
-          Config::get("core.config_dir") . "/factories.xml",
+          Config::getString("core.config_dir") . "/factories.xml",
           $this->name,
         );
       }
@@ -829,7 +824,7 @@ class Context implements \Stringable, ResetInterface
       "storageFactoryInfo" => "storage",
       "requestFactoryInfo" => "request",
     ];
-    if (Config::get("core.use_database", false)) {
+    if (Config::getBool("core.use_database", false)) {
       $invariantList["databaseManagerFactoryInfo"] = "databaseManager";
     }
     foreach ($invariantList as $prop => $label) {
@@ -987,7 +982,7 @@ class Context implements \Stringable, ResetInterface
       }
     } else {
       // Try namespaced approach first with configurable namespace prefix
-      $baseNamespace = Config::get("core.namespace_prefix", "App");
+      $baseNamespace = Config::getString("core.namespace_prefix", "App");
       $modelName = Toolkit::canonicalName($modelName);
       $longModelName = str_replace("/", "_", $modelName);
       $namespacedModelName = str_replace("/", "\\", $modelName);
@@ -1030,10 +1025,10 @@ class Context implements \Stringable, ResetInterface
       if (!class_exists($class)) {
         if ($moduleName === null) {
           $file =
-            Config::get("core.model_dir") . "/" . $modelName . "Model.php";
+            Config::getString("core.model_dir") . "/" . $modelName . "Model.php";
         } else {
           $file =
-            Config::get("core.module_dir") .
+            Config::getString("core.module_dir") .
             "/" .
             $moduleName .
             "/Models/" .
@@ -1222,7 +1217,7 @@ class Context implements \Stringable, ResetInterface
       );
       // Ensure database manager is available if database use is enabled BEFORE creating storage (storage may need DB)
       if (
-        Config::get("core.use_database", false) &&
+        Config::getBool("core.use_database", false) &&
         $this->databaseManager === null
       ) {
         $logger->debug(
@@ -1291,7 +1286,7 @@ class Context implements \Stringable, ResetInterface
   public function getTranslationManager()
   {
     // Check if translations are enabled at runtime
-    if (!Config::get("core.use_translation", false)) {
+    if (!Config::getBool("core.use_translation", false)) {
       return null;
     }
     return $this->translationManager;
@@ -1333,7 +1328,7 @@ class Context implements \Stringable, ResetInterface
       );
       // Ensure database manager is available if database use is enabled BEFORE creating user (user may need storage->db)
       if (
-        Config::get("core.use_database", false) &&
+        Config::getBool("core.use_database", false) &&
         $this->databaseManager === null
       ) {
         $logger->debug(

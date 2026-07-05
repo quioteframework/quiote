@@ -217,7 +217,7 @@ class APCuConfigCache extends ConfigCache
                 $configs = self::getDefaultConfigs();
             }
             
-            $configDir = Config::get('core.config_dir');
+            $configDir = Config::getString('core.config_dir');
             
             // Warm up configuration files in the correct dependency order
             foreach ($configs as $config) {
@@ -247,7 +247,7 @@ class APCuConfigCache extends ConfigCache
                 'configs' => $configs,
                 'php_version' => PHP_VERSION,
                 // Version constant may not be defined in minimal bootstrap contexts
-                'quiote_version' => Config::get('quiote.version', 'unknown')
+                'quiote_version' => Config::getString('quiote.version', 'unknown')
             ];
             \apcu_store(self::$metaKey, $meta, self::$ttl);
             
@@ -314,7 +314,7 @@ class APCuConfigCache extends ConfigCache
      */
     private static function warmupRouting(?string $context): bool
     {
-        $routingConfig = Config::get('core.config_dir') . '/routing.xml';
+        $routingConfig = Config::getString('core.config_dir') . '/routing.xml';
         if (!is_readable($routingConfig)) {
             return false;
         }
@@ -422,7 +422,7 @@ class APCuConfigCache extends ConfigCache
         // Normalize to full absolute path — mirrors the logic in ConfigCache::checkConfig()
         $normalized = \Quiote\Util\Toolkit::normalizePath($config);
         if (!\Quiote\Util\Toolkit::isPathAbsolute($normalized)) {
-            $normalized = \Quiote\Util\Toolkit::normalizePath(Config::get('core.app_dir')) . '/' . $normalized;
+            $normalized = \Quiote\Util\Toolkit::normalizePath(Config::getString('core.app_dir')) . '/' . $normalized;
         }
         // Resolve to the actual physical source file (core.config_format /
         // autodetect, see ConfigCache::resolveConfigFormat()) before hashing,

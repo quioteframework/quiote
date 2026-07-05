@@ -22,7 +22,7 @@ class DispatchMiddlewareContextNonSimpleTest extends UnitTestCase
     if(!Config::has('core.app_dir')) { Config::set('core.app_dir', getcwd()); }
     if(!Config::has('core.default_context')) { Config::set('core.default_context', 'web'); }
         Config::set('core.cache_dir', sys_get_temp_dir() . '/quiote_ctx_nonsimple_cache_test');
-        $dir = Config::get('core.cache_dir');
+        $dir = Config::getString('core.cache_dir');
         if(!is_dir($dir)) { @mkdir($dir, 0777, true); }
         // These tests exercise the plain (uncached) dispatch path. Other tests
         // (e.g. SlotCacheTest, DispatchMiddlewareExecutionStateTest) enable the

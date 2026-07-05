@@ -297,7 +297,7 @@ class DispatchMiddlewareTest extends TestCase
             $resp2 = $mw->process($req, $this->createStub(RequestHandlerInterface::class));
             $this->assertSame((string)$resp1->getBody(), (string)$resp2->getBody());
             if($before === $executed) {
-                $this->assertSame('1', $resp2->getHeaderLine(\Quiote\Config\Config::get('core.cache-hit-header','X-Quiote-Cache-Hit')));
+                $this->assertSame('1', $resp2->getHeaderLine(\Quiote\Config\Config::getString('core.cache-hit-header','X-Quiote-Cache-Hit')));
             } else {
                 $this->markTestSkipped('Cache hit header not asserted due to missing canonical web context causing re-execution');
             }

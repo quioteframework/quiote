@@ -58,7 +58,7 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 
 	public function testWriteCacheFileStoresInApcuNotFilesystem(): void
 	{
-		$config = Config::get('core.config_dir') . '/tests/importtest.xml';
+		$config = Config::getString('core.config_dir') . '/tests/importtest.xml';
 		$cacheName = ConfigCache::getCacheName($config);
 		$data = "<?php\n// test data\n\$GLOBALS['apcu_write_test'] = true;\n?>";
 
@@ -87,7 +87,7 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 
 	public function testWriteCacheFileAppendWorks(): void
 	{
-		$config = Config::get('core.config_dir') . '/tests/importtest.xml';
+		$config = Config::getString('core.config_dir') . '/tests/importtest.xml';
 		$cacheName = ConfigCache::getCacheName($config);
 		$part1 = "<?php\n// part 1\n";
 		$part2 = "// part 2\n?>";
@@ -109,7 +109,7 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 
 	public function testCheckConfigEvalsFromApcuOnHit(): void
 	{
-		$config = Config::get('core.config_dir') . '/tests/importtest.xml';
+		$config = Config::getString('core.config_dir') . '/tests/importtest.xml';
 
 		// Pre-seed APCu with known PHP content
 		$reflection = new ReflectionClass(APCuConfigCache::class);
@@ -131,7 +131,7 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 
 	public function testCheckConfigFallsBackToParentOnMiss(): void
 	{
-		$config = Config::get('core.config_dir') . '/tests/importtest.xml';
+		$config = Config::getString('core.config_dir') . '/tests/importtest.xml';
 
 		// Ensure nothing in APCu for this config
 		$reflection = new ReflectionClass(APCuConfigCache::class);
@@ -156,7 +156,7 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 
 	public function testCheckConfigWithContextStoresUnderCorrectKey(): void
 	{
-		$config = Config::get('core.config_dir') . '/tests/importtest.xml';
+		$config = Config::getString('core.config_dir') . '/tests/importtest.xml';
 		$context = 'testing';
 
 		// First call: compiles and stores in APCu via writeCacheFile with pendingContext
@@ -180,7 +180,7 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 
 	public function testDifferentContextsUseDifferentKeys(): void
 	{
-		$config = Config::get('core.config_dir') . '/tests/importtest.xml';
+		$config = Config::getString('core.config_dir') . '/tests/importtest.xml';
 
 		$reflection = new ReflectionClass(APCuConfigCache::class);
 		$method = $reflection->getMethod('getConfigKey');
@@ -199,7 +199,7 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 
 	public function testLoadExecutesConfigFromApcu(): void
 	{
-		$config = Config::get('core.config_dir') . '/tests/importtest.xml';
+		$config = Config::getString('core.config_dir') . '/tests/importtest.xml';
 
 		// Pre-seed APCu
 		$reflection = new ReflectionClass(APCuConfigCache::class);
@@ -220,7 +220,7 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 
 	public function testLoadOnceDoesNotReExecute(): void
 	{
-		$config = Config::get('core.config_dir') . '/tests/importtest.xml';
+		$config = Config::getString('core.config_dir') . '/tests/importtest.xml';
 
 		$reflection = new ReflectionClass(APCuConfigCache::class);
 		$method = $reflection->getMethod('getConfigKey');
@@ -238,7 +238,7 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 
 	public function testLoadWithOnceFalseReExecutes(): void
 	{
-		$config = Config::get('core.config_dir') . '/tests/importtest.xml';
+		$config = Config::getString('core.config_dir') . '/tests/importtest.xml';
 
 		$reflection = new ReflectionClass(APCuConfigCache::class);
 		$method = $reflection->getMethod('getConfigKey');
@@ -274,7 +274,7 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 
 	public function testClearResetsLoadedConfigsTracking(): void
 	{
-		$config = Config::get('core.config_dir') . '/tests/importtest.xml';
+		$config = Config::getString('core.config_dir') . '/tests/importtest.xml';
 
 		$reflection = new ReflectionClass(APCuConfigCache::class);
 		$method = $reflection->getMethod('getConfigKey');
@@ -319,7 +319,7 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 
 	public function testConfigureChangesPrefix(): void
 	{
-		$config = Config::get('core.config_dir') . '/tests/importtest.xml';
+		$config = Config::getString('core.config_dir') . '/tests/importtest.xml';
 
 		APCuConfigCache::configure(['config_prefix' => 'custom_pfx_']);
 
@@ -346,7 +346,7 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 
 	public function testFullRoundTripCompileStoreHit(): void
 	{
-		$config = Config::get('core.config_dir') . '/tests/importtest.xml';
+		$config = Config::getString('core.config_dir') . '/tests/importtest.xml';
 
 		// Ensure nothing cached
 		$reflection = new ReflectionClass(APCuConfigCache::class);
@@ -381,7 +381,7 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 
 	public function testWriteCacheFileFallsBackToFilesystemWhenApcuUnavailable(): void
 	{
-		$config = Config::get('core.config_dir') . '/tests/importtest.xml';
+		$config = Config::getString('core.config_dir') . '/tests/importtest.xml';
 		$cacheName = ConfigCache::getCacheName($config);
 		$data = "<?php\n// fallback test\n?>";
 
@@ -416,7 +416,7 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 
 	public function testColdCompileUnderApcuWritesNoConfigHandlersToFilesystem(): void
 	{
-		$cacheConfigDir = Config::get('core.cache_dir') . DIRECTORY_SEPARATOR . 'config';
+		$cacheConfigDir = Config::getString('core.cache_dir') . DIRECTORY_SEPARATOR . 'config';
 
 		// Start fully cold: clear APCu + filesystem cache, and forget the loaded
 		// handlers so the next compile runs loadConfigHandlers()/loadConfigHandlersFile()
@@ -426,7 +426,7 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 
 		// Trigger a cold compile through the APCu entrypoint so late static binding
 		// is APCuConfigCache for the whole chain.
-		$result = APCuConfigCache::checkConfig(Config::get('core.config_dir') . '/settings.xml');
+		$result = APCuConfigCache::checkConfig(Config::getString('core.config_dir') . '/settings.xml');
 		$this->assertStringStartsWith('APCU:', $result, 'settings.xml should be served from APCu, not the filesystem');
 
 		// The bug: config_handlers.xml used to be written to the filesystem here.
@@ -445,7 +445,7 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 
 	public function testNestedCompileDoesNotClobberContextKey(): void
 	{
-		$config = Config::get('core.config_dir') . '/tests/importtest.xml';
+		$config = Config::getString('core.config_dir') . '/tests/importtest.xml';
 		$context = 'web';
 
 		// Start cold and forget handlers so compiling $config also runs

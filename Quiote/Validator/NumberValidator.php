@@ -45,7 +45,7 @@ class NumberValidator extends Validator
 		$hasExtraChars = false;
 		if(!is_int($value) && !is_float($value)) {
 			$locale = null;
-			if(Config::get('core.use_translation') && !$this->getParameter('no_locale', false)) {
+			if(Config::getBool('core.use_translation', false) && !$this->getParameter('no_locale', false)) {
 				// core.use_translation can be enabled without a translation manager
 				// actually being wired into the context (e.g. it was switched on
 				// after bootstrap). Guard against a null manager so we degrade to

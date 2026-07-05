@@ -33,16 +33,16 @@ final class McpConfig
     public static function fromConfig(): self
     {
         return new self(
-            enabled: (bool) Config::get('mcp.enabled', false),
-            transports: array_values((array) Config::get('mcp.transports', ['stdio'])),
-            path: (string) Config::get('mcp.path', '/mcp'),
-            protocolVersion: (string) Config::get('mcp.protocol_version', '2025-11-25'),
-            stateless: (bool) Config::get('mcp.stateless', true),
-            serverName: (string) Config::get('mcp.server_name', (string) Config::get('core.app_name', 'quiote-app')),
-            serverVersion: (string) Config::get('mcp.server_version', '1.0.0'),
-            auth: (string) Config::get('mcp.auth', 'bearer'),
-            exposeActions: (bool) Config::get('mcp.expose_actions', false),
-            moduleDirs: array_values((array) Config::get('mcp.module_dirs', [])),
+            enabled: Config::getBool('mcp.enabled', false),
+            transports: array_values(Config::getArray('mcp.transports', ['stdio'])),
+            path: Config::getString('mcp.path', '/mcp'),
+            protocolVersion: Config::getString('mcp.protocol_version', '2025-11-25'),
+            stateless: Config::getBool('mcp.stateless', true),
+            serverName: Config::getString('mcp.server_name', Config::getString('core.app_name', 'quiote-app')),
+            serverVersion: Config::getString('mcp.server_version', '1.0.0'),
+            auth: Config::getString('mcp.auth', 'bearer'),
+            exposeActions: Config::getBool('mcp.expose_actions', false),
+            moduleDirs: array_values(Config::getArray('mcp.module_dirs', [])),
         );
     }
 }

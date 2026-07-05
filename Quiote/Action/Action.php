@@ -160,7 +160,7 @@ abstract class Action implements ResetInterface
 		}
 
 		(new CompiledValidatorRegistry())->apply(
-			Config::get('core.module_dir'),
+			Config::getString('core.module_dir'),
 			$initContext->getModuleName(),
 			$initContext->getActionName(),
 			$validationManager,

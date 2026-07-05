@@ -24,7 +24,7 @@ class PhpUnitTestCaseTest extends PhpUnitTestCase
 	
 	public function testIsolationEnvironment()
 	{
-		$this->assertEquals('testing.testIsolation', Config::get('testing.environment'));
+		$this->assertEquals('testing.testIsolation', Config::getString('testing.environment'));
 	}
 	
 	/**
@@ -33,12 +33,12 @@ class PhpUnitTestCaseTest extends PhpUnitTestCase
 	#[IsolationEnvironment('testing.testIsolationAnnotated')]
 	public function testIsolationEnvironmentAnnotated()
 	{
-		$this->assertEquals('testing.testIsolationAnnotated', Config::get('testing.environment'));
+		$this->assertEquals('testing.testIsolationAnnotated', Config::getString('testing.environment'));
 	}
 	
 	public function testIsolationDefaultContext()
 	{
-		$this->assertEquals('web-isolated', Config::get('core.default_context'));
+		$this->assertEquals('web-isolated', Config::getNullableString('core.default_context'));
 	}
 	
 	/**
@@ -47,7 +47,7 @@ class PhpUnitTestCaseTest extends PhpUnitTestCase
 	#[IsolationDefaultContext('web-isolated-annotated-method')]
 	public function testIsolationDefaultContextAnnotated()
 	{
-		$this->assertEquals('web-isolated-annotated-method', Config::get('core.default_context'));
+		$this->assertEquals('web-isolated-annotated-method', Config::getNullableString('core.default_context'));
 	}
 	
 	/**

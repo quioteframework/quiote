@@ -104,7 +104,7 @@ class SecurityMiddleware implements MiddlewareInterface
         }
 
         // Determine security decision
-        $useSecurity = (bool)\Quiote\Config\Config::get('core.use_security', true);
+        $useSecurity = \Quiote\Config\Config::getBool('core.use_security', true);
         if (!$useSecurity) {
             $decision = SecurityDecision::Allow;
         } elseif ($action) {

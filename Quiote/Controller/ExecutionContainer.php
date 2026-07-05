@@ -412,8 +412,8 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 		];
 		$forwardInfoNamespace = 'org.quiote.controller.forwards.' . $type;
 		
-		$moduleName = Config::get('actions.' . $type . '_module');
-		$actionName = Config::get('actions.' . $type . '_action');
+		$moduleName = Config::getNullableString('actions.' . $type . '_module');
+		$actionName = Config::getNullableString('actions.' . $type . '_action');
 		
 		if(false === $this->context->getController()->checkActionFile($moduleName, $actionName)) {
 			// cannot find unavailable module/action

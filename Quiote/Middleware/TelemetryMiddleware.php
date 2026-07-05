@@ -174,7 +174,7 @@ class TelemetryMiddleware implements MiddlewareInterface
         if ($request->getAttribute('quiote.force_sample') === true) {
             return true;
         }
-        $headerName = (string) Config::get('telemetry.sampling.force_header', 'X-Quiote-Trace');
+        $headerName = Config::getString('telemetry.sampling.force_header', 'X-Quiote-Trace');
         if ($headerName === '') {
             return false;
         }

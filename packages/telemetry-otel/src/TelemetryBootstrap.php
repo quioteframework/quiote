@@ -46,7 +46,7 @@ final class TelemetryBootstrap
         }
         self::$configured = true;
 
-        if (!Config::get('telemetry.enabled', false)) {
+        if (!Config::getBool('telemetry.enabled', false)) {
             return false;
         }
 
@@ -157,15 +157,15 @@ final class TelemetryBootstrap
 
     private static function buildResource(): \OpenTelemetry\SDK\Resource\ResourceInfo
     {
-        $serviceName = Config::get('telemetry.service.name') ?: Config::get('core.app_name', 'quiote-app');
+        $serviceName = Config::getString('telemetry.service.name', '') ?: Config::getString('core.app_name', 'quiote-app');
         $attributes = [\OpenTelemetry\SemConv\ResourceAttributes::SERVICE_NAME => $serviceName];
 
-        $namespace = Config::get('telemetry.service.namespace');
+        $namespace = Config::getString('telemetry.service.namespace', '');
         if ($namespace) {
             $attributes[\OpenTelemetry\SemConv\ResourceAttributes::SERVICE_NAMESPACE] = $namespace;
         }
 
-        foreach ((array) Config::get('telemetry.resource', []) as $key => $value) {
+        foreach (Config::getArray('telemetry.resource', []) as $key => $value) {
             $attributes[$key] = $value;
         }
 
@@ -184,7 +184,7 @@ final class TelemetryBootstrap
     private static function buildTracerProvider(\OpenTelemetry\SDK\Resource\ResourceInfo $resource): \OpenTelemetry\SDK\Trace\TracerProviderInterface
     {
         $exporter = self::buildSpanExporter();
-        $mode = Config::get('telemetry.export.mode', self::isWorkerMode() ? 'batch' : 'simple');
+        $mode = Config::getString('telemetry.export.mode', self::isWorkerMode() ? 'batch' : 'simple');
 
         $processor = $mode === 'simple'
             ? new \OpenTelemetry\SDK\Trace\SpanProcessor\SimpleSpanProcessor($exporter)
@@ -203,8 +203,8 @@ final class TelemetryBootstrap
      */
     private static function buildSampler(): \OpenTelemetry\SDK\Trace\SamplerInterface
     {
-        $strategy = strtolower((string) Config::get('telemetry.sampling.strategy', 'parentbased_traceidratio'));
-        $ratio = (float) Config::get('telemetry.sampling.ratio', 0.1);
+        $strategy = strtolower(Config::getString('telemetry.sampling.strategy', 'parentbased_traceidratio'));
+        $ratio = Config::getFloat('telemetry.sampling.ratio', 0.1);
 
         $base = match ($strategy) {
             'always_on' => new \OpenTelemetry\SDK\Trace\Sampler\AlwaysOnSampler(),
@@ -238,7 +238,7 @@ final class TelemetryBootstrap
 
     private static function buildSpanExporter(): \OpenTelemetry\SDK\Trace\SpanExporterInterface
     {
-        $exporter = strtolower((string) Config::get('telemetry.exporter', 'otlp'));
+        $exporter = strtolower(Config::getString('telemetry.exporter', 'otlp'));
 
         return match ($exporter) {
             'none' => self::$inMemorySpanExporter = new \OpenTelemetry\SDK\Trace\SpanExporter\InMemoryExporter(),
@@ -250,7 +250,7 @@ final class TelemetryBootstrap
 
     private static function buildMetricExporter(): \OpenTelemetry\SDK\Metrics\MetricExporterInterface
     {
-        $exporter = strtolower((string) Config::get('telemetry.exporter', 'otlp'));
+        $exporter = strtolower(Config::getString('telemetry.exporter', 'otlp'));
 
         return match ($exporter) {
             'none' => self::$inMemoryMetricExporter = new \OpenTelemetry\SDK\Metrics\MetricExporter\InMemoryExporter(),
@@ -314,10 +314,10 @@ final class TelemetryBootstrap
      */
     private static function applyOtlpEnv(): void
     {
-        putenv('OTEL_EXPORTER_OTLP_ENDPOINT=' . Config::get('telemetry.otlp.endpoint', 'http://localhost:4318'));
-        putenv('OTEL_EXPORTER_OTLP_PROTOCOL=' . Config::get('telemetry.otlp.protocol', 'http/protobuf'));
+        putenv('OTEL_EXPORTER_OTLP_ENDPOINT=' . Config::getString('telemetry.otlp.endpoint', 'http://localhost:4318'));
+        putenv('OTEL_EXPORTER_OTLP_PROTOCOL=' . Config::getString('telemetry.otlp.protocol', 'http/protobuf'));
 
-        $headers = (array) Config::get('telemetry.otlp.headers', []);
+        $headers = Config::getArray('telemetry.otlp.headers', []);
         if ($headers !== []) {
             $encoded = [];
             foreach ($headers as $key => $value) {

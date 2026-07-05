@@ -18,9 +18,9 @@ class DispatchMiddlewareExecutionStateTest extends UnitTestCase
         Config::set('core.cache_enabled', true);
         Config::set('core.use_cache', true);
     Config::set('core.cache_dir', sys_get_temp_dir() . '/quiote_cache_test');
-    $dir = Config::get('core.cache_dir'); if(!is_dir($dir)) { @mkdir($dir, 0775, true); }
+    $dir = Config::getString('core.cache_dir'); if(!is_dir($dir)) { @mkdir($dir, 0775, true); }
         CacheManager::reset();
-        $psrDir = Config::get('core.cache_dir') . DIRECTORY_SEPARATOR . 'psr-cache';
+        $psrDir = Config::getString('core.cache_dir') . DIRECTORY_SEPARATOR . 'psr-cache';
         if (is_dir($psrDir)) {
             $rii = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($psrDir, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::CHILD_FIRST);
             foreach ($rii as $file) { $file->isDir() ? @rmdir($file->getPathname()) : @unlink($file->getPathname()); }

@@ -40,7 +40,7 @@ class RoutingMiddleware implements MiddlewareInterface
         // against a method-constrained route. Sync it to the incoming request before matching.
         $this->routing->getRequestContext()->setMethod($request->getMethod());
 
-        $spansEnabled = Config::get('telemetry.spans.route', true);
+        $spansEnabled = Config::getBool('telemetry.spans.route', true);
         // Captured BEFORE opening the route-match span below: Trace::span()
         // activates its span immediately, which would make Trace::current()
         // return the route span itself (now the innermost active span), not

@@ -11,7 +11,7 @@ use Quiote\Util\Toolkit;
  * which have no XML text-node equivalent to hook that into.
  *
  * Without this, a YAML/PHP config author would have to write
- * `Config::get('core.quiote_dir') . '/foo'` themselves instead of the
+ * `Config::getString('core.quiote_dir') . '/foo'` themselves instead of the
  * `%core.quiote_dir%/foo` string every existing XML config already uses,
  * which would make migrating a config file from XML a breaking change in
  * its own right rather than a drop-in format swap.

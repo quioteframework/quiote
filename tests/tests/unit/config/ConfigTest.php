@@ -3,6 +3,7 @@
 use Quiote\Testing\PhpUnitTestCase;
 use Quiote\Testing\Attributes\Bootstrap;
 use Quiote\Config\Config;
+use Quiote\Exception\ConfigurationException;
 
 require_once(__DIR__ . '/../../../../Quiote/Config/Config.php');
 
@@ -25,29 +26,64 @@ class ConfigTest extends PhpUnitTestCase
 		$expected = [];
 		// core.quiote_dir is set as readonly when Quiote.php is loaded
 		if (Config::has('core.quiote_dir')) {
-			$expected['core.quiote_dir'] = Config::get('core.quiote_dir');
+			$expected['core.quiote_dir'] = Config::getString('core.quiote_dir');
 		}
 		$this->assertEquals($expected, Config::toArray());
-		$this->assertNull(Config::get('something'));
+		$this->expectException(ConfigurationException::class);
+		Config::getString('something');
 	}
 
-	#[\PHPUnit\Framework\Attributes\DataProvider('providerGetSet')]
-	public function testGetSet($key, $value)
+	#[\PHPUnit\Framework\Attributes\DataProvider('providerGetSetStringKey')]
+	public function testGetSetStringKey(string $key, mixed $value)
 	{
 		$this->assertTrue(Config::set($key, $value));
-		$this->assertEquals($value, Config::get($key));
+		$this->assertEquals($value, Config::getString($key));
 		$this->assertTrue(Config::has($key));
 		$this->assertFalse(Config::isReadonly($key));
 		$this->assertTrue(Config::remove($key));
 	}
-	public static function providerGetSet()
+
+	#[\PHPUnit\Framework\Attributes\DataProvider('providerGetSetIntegerKey')]
+	public function testGetSetIntegerKey(int $key, mixed $value)
+	{
+		$this->assertTrue(Config::set($key, $value));
+		$this->assertEquals($value, Config::getString($key));
+		$this->assertTrue(Config::has($key));
+		$this->assertFalse(Config::isReadonly($key));
+		$this->assertTrue(Config::remove($key));
+	}
+
+	#[\PHPUnit\Framework\Attributes\DataProvider('providerGetSetOctalKey')]
+	public function testGetSetOctalKey(int $key, mixed $value)
+	{
+		$this->assertTrue(Config::set($key, $value));
+		$this->assertEquals($value, Config::getString($key));
+		$this->assertTrue(Config::has($key));
+		$this->assertFalse(Config::isReadonly($key));
+		$this->assertTrue(Config::remove($key));
+	}
+
+	public static function providerGetSetStringKey()
 	{
 		return [
 			'string key'                => ['foobar', 'baz'],
-			'string key with period'    => ['some.thing', 'ohai'],
-			// 'string key with null byte' => array("f\0oo", 'nullbyte'), // can't do this because PHPUnit doesn't do var_export(serialize(...)), so the null byte fucks everything up
-			'integer key'               => [123, 'qwe'],
+			'string key with period'    => ['some.thing', 'ohai']
+		];
+	}
+
+	public static function providerGetSetIntegerKey()
+	{
+		return [
+			'string key'                => [123, 'foo'],
+			'string key with period'    => [456, 'something.bar'],
+		];
+	}
+
+	public static function providerGetSetOctalKey()
+	{
+		return [
 			'octal number key'          => [0123, 'yay'],
+			'octal number key with period' => [0456, 'something.bar'],
 		];
 	}
 
@@ -63,7 +99,7 @@ class ConfigTest extends PhpUnitTestCase
 		$expected = [];
 		// core.quiote_dir is set as readonly when Quiote.php is loaded and survives clear()
 		if (Config::has('core.quiote_dir')) {
-			$expected['core.quiote_dir'] = Config::get('core.quiote_dir');
+			$expected['core.quiote_dir'] = Config::getString('core.quiote_dir');
 		}
 		$this->assertEquals($expected, Config::toArray());
 	}
@@ -85,7 +121,7 @@ class ConfigTest extends PhpUnitTestCase
 		$expected = $data;
 		// core.quiote_dir is set as readonly when Quiote.php is loaded
 		if (Config::has('core.quiote_dir')) {
-			$expected['core.quiote_dir'] = Config::get('core.quiote_dir');
+			$expected['core.quiote_dir'] = Config::getString('core.quiote_dir');
 		}
 		$this->assertEquals($expected, Config::toArray());
 	}
@@ -99,7 +135,7 @@ class ConfigTest extends PhpUnitTestCase
 		$expected = ['baz' => 'lol'] + $data;
 		// core.quiote_dir is set as readonly when Quiote.php is loaded
 		if (Config::has('core.quiote_dir')) {
-			$expected['core.quiote_dir'] = Config::get('core.quiote_dir');
+			$expected['core.quiote_dir'] = Config::getString('core.quiote_dir');
 		}
 		$this->assertEquals($expected, Config::toArray());
 	}
@@ -113,7 +149,7 @@ class ConfigTest extends PhpUnitTestCase
 		$expected = ['baz' => 'qux'] + $data;
 		// core.quiote_dir is set as readonly when Quiote.php is loaded
 		if (Config::has('core.quiote_dir')) {
-			$expected['core.quiote_dir'] = Config::get('core.quiote_dir');
+			$expected['core.quiote_dir'] = Config::getString('core.quiote_dir');
 		}
 		$this->assertEquals($expected, Config::toArray());
 	}
@@ -129,7 +165,7 @@ class ConfigTest extends PhpUnitTestCase
 		$expected = [2 => 'yay', 0 => 'omg', 1 => 'lol'];
 		// core.quiote_dir is set as readonly when Quiote.php is loaded
 		if (Config::has('core.quiote_dir')) {
-			$expected['core.quiote_dir'] = Config::get('core.quiote_dir');
+			$expected['core.quiote_dir'] = Config::getString('core.quiote_dir');
 		}
 		$this->assertEquals($expected, Config::toArray());
 	}
@@ -144,33 +180,33 @@ class ConfigTest extends PhpUnitTestCase
 	public function testGetDefault()
 	{
 		Config::set('some.where', 'ohai');
-		$this->assertEquals('ohai', Config::get('some.where'));
-		$this->assertEquals('ohai', Config::get('some.where', 'bai'));
-		$this->assertEquals('bai', Config::get('not.there', 'bai'));
+		$this->assertEquals('ohai', Config::getString('some.where'));
+		$this->assertEquals('ohai', Config::getString('some.where', 'bai'));
+		$this->assertEquals('bai', Config::getString('not.there', 'bai'));
 	}
 
 	public function testSetOverwrite()
 	{
-		Config::set('foo.bar', '123');
-		$this->assertEquals('123', Config::get('foo.bar'));
-		$this->assertFalse(Config::set('foo.bar', '456', false));
-		$this->assertEquals('123', Config::get('foo.bar'));
-		$this->assertTrue(Config::set('foo.bar', '456', true));
-		$this->assertEquals('456', Config::get('foo.bar'));
-		$this->assertTrue(Config::set('foo.bar', '789'));
-		$this->assertEquals('789', Config::get('foo.bar'));
+		Config::set('foo.bar', 'FOO');
+		$this->assertEquals('FOO', Config::getString('foo.bar'));
+		$this->assertFalse(Config::set('foo.bar', 'FOOBAR', false));
+		$this->assertEquals('FOO', Config::getString('foo.bar'));
+		$this->assertTrue(Config::set('foo.bar', 'FOOBAR', true));
+		$this->assertEquals('FOOBAR', Config::getString('foo.bar'));
+		$this->assertTrue(Config::set('foo.bar', 'FOOBAR'));
+		$this->assertEquals('FOOBAR', Config::getString('foo.bar'));
 	}
 
 	public function testSetReadonly()
 	{
 		Config::set('bulletproof', 'abc', true, true);
-		$this->assertEquals('abc', Config::get('bulletproof'));
-		$this->assertFalse(Config::set('bulletproof', '123'));
-		$this->assertEquals('abc', Config::get('bulletproof'));
-		$this->assertFalse(Config::set('bulletproof', '123', true));
-		$this->assertEquals('abc', Config::get('bulletproof'));
-		$this->assertFalse(Config::set('bulletproof', '123', true, true));
-		$this->assertEquals('abc', Config::get('bulletproof'));
+		$this->assertEquals('abc', Config::getString('bulletproof'));
+		$this->assertFalse(Config::set('bulletproof', 'FOO'));
+		$this->assertEquals('abc', Config::getString('bulletproof'));
+		$this->assertFalse(Config::set('bulletproof', 'FOO', true));
+		$this->assertEquals('abc', Config::getString('bulletproof'));
+		$this->assertFalse(Config::set('bulletproof', 'FOO', true, true));
+		$this->assertEquals('abc', Config::getString('bulletproof'));
 	}
 
 	public function testIsReadonly()
@@ -199,7 +235,7 @@ class ConfigTest extends PhpUnitTestCase
 		$expected = ['baz' => 'lol'] + $data;
 		// core.quiote_dir is set as readonly when Quiote.php is loaded
 		if (Config::has('core.quiote_dir')) {
-			$expected['core.quiote_dir'] = Config::get('core.quiote_dir');
+			$expected['core.quiote_dir'] = Config::getString('core.quiote_dir');
 		}
 		$this->assertEquals($expected, Config::toArray());
 	}
@@ -213,9 +249,9 @@ class ConfigTest extends PhpUnitTestCase
 
 	public function testGetSetStringInteger() {
 		Config::set('10', 'ten');
-		$this->assertEquals('ten', Config::get(10));
+		$this->assertEquals('ten', Config::getString(10));
 		Config::set(21, 'twentyone');
-		$this->assertEquals('twentyone', Config::get('21'));
+		$this->assertEquals('twentyone', Config::getString('21'));
 	}
 
 }

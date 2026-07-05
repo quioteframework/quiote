@@ -28,22 +28,22 @@ final readonly class CsrfManager
 
     public function isEnabled(): bool
     {
-        return (bool) Config::get('core.csrf.enabled', true);
+        return Config::getBool('core.csrf.enabled', true);
     }
 
     public function tokenId(): string
     {
-        return (string) Config::get('core.csrf.token_id', 'quiote_csrf');
+        return Config::getString('core.csrf.token_id', 'quiote_csrf');
     }
 
     public function fieldName(): string
     {
-        return (string) Config::get('core.csrf.field_name', '_csrf_token');
+        return Config::getString('core.csrf.field_name', '_csrf_token');
     }
 
     public function headerName(): string
     {
-        return (string) Config::get('core.csrf.header_name', 'X-CSRF-Token');
+        return Config::getString('core.csrf.header_name', 'X-CSRF-Token');
     }
 
     /**
@@ -52,7 +52,7 @@ final readonly class CsrfManager
      */
     public function cookieName(): string
     {
-        return (string) Config::get('core.csrf.cookie_name', 'XSRF-TOKEN');
+        return Config::getString('core.csrf.cookie_name', 'XSRF-TOKEN');
     }
 
     /**
@@ -61,11 +61,8 @@ final readonly class CsrfManager
      */
     public function safeMethods(): array
     {
-        $methods = Config::get('core.csrf.safe_methods', ['GET', 'HEAD', 'OPTIONS', 'TRACE']);
-        if (!is_array($methods)) {
-            $methods = ['GET', 'HEAD', 'OPTIONS', 'TRACE'];
-        }
-        return array_map(static fn($m) => strtoupper((string) $m), $methods);
+        $methods = Config::getArray('core.csrf.safe_methods', ['GET', 'HEAD', 'OPTIONS', 'TRACE']);
+        return array_map(static fn($m) => strtoupper(is_scalar($m) ? (string) $m : ''), $methods);
     }
 
     /**

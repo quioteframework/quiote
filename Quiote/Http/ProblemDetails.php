@@ -49,12 +49,12 @@ final readonly class ProblemDetails
     ): self {
         $type = ($type !== null && $type !== '')
             ? $type
-            : (string) Config::get('core.problem_details.type', 'about:blank');
+            : Config::getString('core.problem_details.type', 'about:blank');
 
         if ($title === null || $title === '') {
             $title = $type === 'about:blank'
                 ? self::statusPhrase($status)
-                : (string) Config::get('core.problem_details.title', self::statusPhrase($status));
+                : Config::getString('core.problem_details.title', self::statusPhrase($status));
         }
 
         return new self(

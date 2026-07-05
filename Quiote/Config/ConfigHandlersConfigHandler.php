@@ -80,7 +80,7 @@ class ConfigHandlersConfigHandler extends XmlConfigHandler implements IArrayConf
 				];
 				if ($handler->has('transformations')) {
 					foreach ($handler->get('transformations') as $transformation) {
-						$path = Toolkit::literalize($transformation->getValue());
+						$path = (string) Toolkit::literalize($transformation->getValue());
 						$for = $transformation->getAttribute('for', XmlConfigParser::STAGE_SINGLE);
 						$transformations[$for][] = $path;
 					}
@@ -126,7 +126,7 @@ class ConfigHandlersConfigHandler extends XmlConfigHandler implements IArrayConf
 				];
 				if ($handler->has('validations')) {
 					foreach ($handler->get('validations') as $validation) {
-						$path = Toolkit::literalize($validation->getValue());
+						$path = (string) Toolkit::literalize($validation->getValue());
 						$type = null;
 						if (!$validation->hasAttribute('type')) {
 							$type = $this->guessValidationType($path);

@@ -241,7 +241,7 @@ class ContextExtendedCoverageTest extends TestCase
         $this->assertInstanceOf(MockStorage::class, $storage);
         $user = $ctx->getUser();
         $dbm = null;
-        if (Config::get('core.use_database', false)) {
+        if (Config::getBool('core.use_database', false)) {
             $dbm = $ctx->getDatabaseManager();
         }
         // If requestFactoryInfo missing (unlikely in initialized context) skip rather than inject fake info

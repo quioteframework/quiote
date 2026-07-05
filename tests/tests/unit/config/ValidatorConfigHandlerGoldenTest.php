@@ -29,10 +29,10 @@ class ValidatorConfigHandlerGoldenTest extends ConfigHandlerTestBase
 {
 	protected function getContext()
 	{
-		if (Config::get('core.default_context') === null) {
+		if (Config::getNullableString('core.default_context') === null) {
 			Config::set('core.default_context', 'web', true, true);
 		}
-		return Context::getInstance(Config::get('core.default_context'));
+		return Context::getInstance(Config::getNullableString('core.default_context'));
 	}
 
 	private function compile(string $configFile, ?string $xslFile, string $environment): string
@@ -60,8 +60,8 @@ class ValidatorConfigHandlerGoldenTest extends ConfigHandlerTestBase
 	{
 		$this->assertMatchesGolden(
 			'main_translation_domain',
-			Config::get('core.config_dir') . '/tests/validators.xml',
-			Config::get('core.quiote_dir') . '/Config/xsl/validators.xsl',
+			Config::getString('core.config_dir') . '/tests/validators.xml',
+			Config::getString('core.quiote_dir') . '/Config/xsl/validators.xsl',
 			'test-translation-domain'
 		);
 	}
@@ -70,8 +70,8 @@ class ValidatorConfigHandlerGoldenTest extends ConfigHandlerTestBase
 	{
 		$this->assertMatchesGolden(
 			'main_translation_domain_1_0',
-			Config::get('core.config_dir') . '/tests/validators.xml',
-			Config::get('core.quiote_dir') . '/Config/xsl/validators.xsl',
+			Config::getString('core.config_dir') . '/tests/validators.xml',
+			Config::getString('core.quiote_dir') . '/Config/xsl/validators.xsl',
 			'test-translation-domain-1.0-behaviour'
 		);
 	}
@@ -80,8 +80,8 @@ class ValidatorConfigHandlerGoldenTest extends ConfigHandlerTestBase
 	{
 		$this->assertMatchesGolden(
 			'main_error_definitions',
-			Config::get('core.config_dir') . '/tests/validators.xml',
-			Config::get('core.quiote_dir') . '/Config/xsl/validators.xsl',
+			Config::getString('core.config_dir') . '/tests/validators.xml',
+			Config::getString('core.quiote_dir') . '/Config/xsl/validators.xsl',
 			'test-validator-definition-error-definition'
 		);
 	}
@@ -90,8 +90,8 @@ class ValidatorConfigHandlerGoldenTest extends ConfigHandlerTestBase
 	{
 		$this->assertMatchesGolden(
 			'known_parameter',
-			Config::get('core.config_dir') . '/tests/validators_unknown_param.xml',
-			Config::get('core.quiote_dir') . '/Config/xsl/validators.xsl',
+			Config::getString('core.config_dir') . '/tests/validators_unknown_param.xml',
+			Config::getString('core.quiote_dir') . '/Config/xsl/validators.xsl',
 			'test-known-parameter'
 		);
 	}
@@ -100,7 +100,7 @@ class ValidatorConfigHandlerGoldenTest extends ConfigHandlerTestBase
 	{
 		$this->assertMatchesGolden(
 			'method_http',
-			Config::get('core.module_dir') . '/Method/Validate/MethodHttp.xml',
+			Config::getString('core.module_dir') . '/Method/Validate/MethodHttp.xml',
 			null,
 			'test'
 		);

@@ -168,7 +168,7 @@ final class ActionExecutor
         // Action span (telemetry.spans.action, default true). Not
         // created at all (not even as a no-op wrap) when the
         // depth toggle is off, matching RoutingMiddleware's own pattern.
-        $span = \Quiote\Config\Config::get('telemetry.spans.action', true)
+        $span = \Quiote\Config\Config::getBool('telemetry.spans.action', true)
             ? \Quiote\Telemetry\Trace::span('Quiote.Action', $desc->module . ':' . $desc->action, [
                 'quiote.module' => $desc->module,
                 'quiote.action' => $desc->action,
@@ -218,7 +218,7 @@ final class ActionExecutor
 
         // SECURITY: Executor is security-agnostic. Only minimal guard remains.
         if ($state->securityDecision === null) {
-            $useSecurity = \Quiote\Config\Config::get('core.use_security', true);
+            $useSecurity = \Quiote\Config\Config::getBool('core.use_security', true);
             if (!$useSecurity) {
                 $state->securityDecision = SecurityDecision::Allow; // global security disabled
             } elseif (!$action->isSecure()) {
@@ -285,7 +285,7 @@ final class ActionExecutor
             return [null, ''];
         }
 
-        $span = \Quiote\Config\Config::get('telemetry.spans.action', true)
+        $span = \Quiote\Config\Config::getBool('telemetry.spans.action', true)
             ? \Quiote\Telemetry\Trace::span('Quiote.View', $vm . ':' . $vn, ['quiote.view.module' => $vm, 'quiote.view.name' => $vn])
             : \Quiote\Telemetry\NoopSpanHandle::instance();
         try {

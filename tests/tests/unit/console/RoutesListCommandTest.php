@@ -77,7 +77,7 @@ final class RoutesListCommandTest extends PhpUnitTestCase
 		// the AttrRouting fixture module's #[Route] attributes -- see
 		// tests/sandbox/app/Routing/AttributeMergedRouting.php.
 		$tester = $this->tester();
-		$tester->execute(['--context' => 'routes-list-cli-test', '--json' => true]);
+		$tester->execute(['--context' => 'routes-list-cli-test', '--env' => 'testing', '--json' => true]);
 
 		$routes = json_decode($tester->getDisplay(), true, flags: JSON_THROW_ON_ERROR);
 		$sourceByName = array_column($routes, 'source', 'name');

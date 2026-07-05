@@ -39,10 +39,10 @@ class ValidatorCompiler
 	{
 		$document = XmlConfigParser::run(
 			$source->path,
-			$source->environment ?? Config::get('core.environment'),
+			$source->environment ?? Config::getNullableString('core.environment'),
 			'',
 			[
-				XmlConfigParser::STAGE_SINGLE => [Config::get('core.quiote_dir') . '/Config/xsl/validators.xsl'],
+				XmlConfigParser::STAGE_SINGLE => [Config::getString('core.quiote_dir') . '/Config/xsl/validators.xsl'],
 				XmlConfigParser::STAGE_COMPILATION => [],
 			],
 			[

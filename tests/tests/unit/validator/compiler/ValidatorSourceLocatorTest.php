@@ -9,7 +9,7 @@ class ValidatorSourceLocatorTest extends PhpUnitTestCase
 	public function testDiscoverFindsPerActionValidatorFiles()
 	{
 		$locator = new ValidatorSourceLocator();
-		$sources = $locator->discover([Config::get('core.module_dir') . '/*/Validate/*.xml']);
+		$sources = $locator->discover([Config::getString('core.module_dir') . '/*/Validate/*.xml']);
 
 		$this->assertNotEmpty($sources);
 		$paths = array_map(fn($s) => basename($s->path), $sources);
@@ -21,7 +21,7 @@ class ValidatorSourceLocatorTest extends PhpUnitTestCase
 	public function testDiscoverIsSortedAndDeduplicated()
 	{
 		$locator = new ValidatorSourceLocator();
-		$pattern = Config::get('core.module_dir') . '/*/Validate/*.xml';
+		$pattern = Config::getString('core.module_dir') . '/*/Validate/*.xml';
 		$sources = $locator->discover([$pattern, $pattern]);
 
 		$paths = array_map(fn($s) => $s->path, $sources);
@@ -35,7 +35,7 @@ class ValidatorSourceLocatorTest extends PhpUnitTestCase
 	public function testDiscoverReturnsEmptyForNonMatchingPattern()
 	{
 		$locator = new ValidatorSourceLocator();
-		$sources = $locator->discover([Config::get('core.module_dir') . '/NoSuchModule*/Validate/*.xml']);
+		$sources = $locator->discover([Config::getString('core.module_dir') . '/NoSuchModule*/Validate/*.xml']);
 		$this->assertSame([], $sources);
 	}
 
@@ -43,7 +43,7 @@ class ValidatorSourceLocatorTest extends PhpUnitTestCase
 	{
 		$roots = ValidatorSourceLocator::defaultRoots();
 		$this->assertCount(1, $roots);
-		$this->assertSame(Config::get('core.module_dir') . '/*/Validate/*.xml', $roots[0]);
+		$this->assertSame(Config::getString('core.module_dir') . '/*/Validate/*.xml', $roots[0]);
 	}
 }
 ?>

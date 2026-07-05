@@ -11,17 +11,17 @@ class ValidatorConfigHandlerTest extends ConfigHandlerTestBase
 
 	protected function getContext()
 	{
-		if (Config::get('core.default_context') === null) {
+		if (Config::getNullableString('core.default_context') === null) {
 			Config::set('core.default_context', 'web', true, true);
 		}
 		
-		return Context::getInstance(Config::get('core.default_context'));
+		return Context::getInstance(Config::getNullableString('core.default_context'));
 	}
 	protected function createValidationManager($environment) {
 		$VCH = new ValidatorConfigHandler();
 		$document = $this->parseConfiguration(
-			Config::get('core.config_dir') . '/tests/validators.xml',
-			Config::get('core.quiote_dir') . '/Config/xsl/validators.xsl',
+			Config::getString('core.config_dir') . '/tests/validators.xml',
+			Config::getString('core.quiote_dir') . '/Config/xsl/validators.xsl',
 			$environment
 		);
 		

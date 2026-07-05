@@ -52,8 +52,8 @@ final class ForwardService
     {
         $confKeyModule = 'actions.' . strtolower($forwardName) . '_module';
         $confKeyAction = 'actions.' . strtolower($forwardName) . '_action';
-        $module = \Quiote\Config\Config::get($confKeyModule, 'Default');
-        $action = \Quiote\Config\Config::get($confKeyAction, ucfirst($forwardName));
+        $module = \Quiote\Config\Config::getString($confKeyModule, 'Default');
+        $action = \Quiote\Config\Config::getString($confKeyAction, ucfirst($forwardName));
         return [$module,$action];
     }
 

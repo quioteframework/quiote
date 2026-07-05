@@ -47,8 +47,8 @@ final class HttpMethodMapper
      */
     private static function map(): array
     {
-        $overrides = Config::get('routing.http_method_map', []);
-        if (!is_array($overrides) || $overrides === []) {
+        $overrides = Config::getArray('routing.http_method_map', []);
+        if ($overrides === []) {
             return self::DEFAULT_MAP;
         }
         $map = self::DEFAULT_MAP;

@@ -132,7 +132,7 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
      */
     private function resolveRenderer(): ExceptionRenderer
     {
-        if (!Config::get('core.developer_exceptions', false)) {
+        if (!Config::getBool('core.developer_exceptions', false)) {
             return new SafeRenderer();
         }
         return ExceptionRendererRegistry::developerRenderer() ?? new SafeRenderer();

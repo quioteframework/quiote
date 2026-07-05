@@ -8,7 +8,7 @@ class RouteCollectionBuilderTest extends PhpUnitTestCase
 {
 	private function makeAttributeRouting(): AttributeRouting
 	{
-		$moduleDir = Config::get('core.module_dir');
+		$moduleDir = Config::getString('core.module_dir');
 		return new class($moduleDir) extends AttributeRouting {
 			public function __construct(private readonly string $moduleDir)
 			{

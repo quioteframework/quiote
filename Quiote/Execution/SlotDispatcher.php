@@ -96,7 +96,7 @@ class SlotDispatcher
         $this->executionGuard->enter($stack, $key);
         try {
             $start = microtime(true);
-            $cacheEnabled = Config::get('core.use_cache', false) && (bool)getenv('QUIOTE_SLOT_CACHE');
+            $cacheEnabled = Config::getBool('core.use_cache', false) && (bool)getenv('QUIOTE_SLOT_CACHE');
             $cacheKey = null;
             $cacheHit = false;
             // Build request data holder: apply slot parameters via overlay (save originals, restore after dispatch).

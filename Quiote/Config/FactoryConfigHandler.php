@@ -64,7 +64,7 @@ class FactoryConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 			],
 			'database_manager', // startup()
 			'translation_manager' => [
-				'required' => Config::get('core.use_translation', false),
+				'required' => Config::getBool('core.use_translation', false),
 				'var' => 'translationManager',
 				'must_implement' => [],
 			],

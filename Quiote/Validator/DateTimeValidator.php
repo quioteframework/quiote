@@ -80,7 +80,7 @@ class DateTimeValidator extends Validator
 	 */
 	protected function validate()
 	{
-		if(!Config::get('core.use_translation')) {
+		if(!Config::getBool('core.use_translation', false)) {
 			throw new ConfigurationException('The datetime validator can only be used with use_translation on');
 		}
 

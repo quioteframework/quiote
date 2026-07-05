@@ -85,7 +85,7 @@ final class ActionToolScanner
      */
     private function deriveInputSchema(string $module, string $action, string $httpMethod): ?array
     {
-        $moduleDir = (string) Config::get('core.module_dir');
+        $moduleDir = Config::getString('core.module_dir', '');
         if ($moduleDir === '') {
             return null;
         }

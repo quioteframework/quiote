@@ -368,7 +368,7 @@ class ValidatorPlanBuilder
 	 */
 	protected function checkParameters(string $class, array $parameters, XmlConfigDomElement $validator): void
 	{
-		$mode = Config::get('validation.reject_unknown_parameters', self::REJECT_MODE_THROW);
+		$mode = Config::getString('validation.reject_unknown_parameters', self::REJECT_MODE_THROW);
 		if ($mode === self::REJECT_MODE_OFF) {
 			return;
 		}

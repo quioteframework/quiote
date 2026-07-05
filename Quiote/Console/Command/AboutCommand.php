@@ -30,11 +30,11 @@ final class AboutCommand extends AbstractAppCommand
 
 		$io = new SymfonyStyle($input, $output);
 		$io->table([], [
-			['Quiote version', Config::get('quiote.version', 'dev')],
-			['Application directory', Config::get('core.app_dir')],
-			['Environment', Config::get('core.environment')],
-			['Module directory', Config::get('core.module_dir')],
-			['Namespace prefix', Config::get('core.namespace_prefix', 'App')],
+			['Quiote version', Config::getString('quiote.version', 'dev')],
+			['Application directory', Config::getString('core.app_dir')],
+			['Environment', Config::getString('core.environment')],
+			['Module directory', Config::getString('core.module_dir')],
+			['Namespace prefix', Config::getString('core.namespace_prefix', 'App')],
 		]);
 
 		return self::SUCCESS;

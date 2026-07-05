@@ -71,8 +71,8 @@ abstract class AbstractAppCommand extends Command
 	 */
 	private function registerAppNamespaceFallbackAutoloader(): void
 	{
-		$namespacePrefix = trim((string) Config::get('core.namespace_prefix', 'App'), '\\');
-		$appDir = Config::get('core.app_dir');
+		$namespacePrefix = trim(Config::getString('core.namespace_prefix', 'App'), '\\');
+		$appDir = Config::getString('core.app_dir');
 
 		spl_autoload_register(static function (string $class) use ($namespacePrefix, $appDir): void {
 			$prefix = $namespacePrefix . '\\';

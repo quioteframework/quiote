@@ -73,7 +73,7 @@ final class FormatDriverRegistry
 	/**
 	 * @return array<string, mixed>
 	 */
-	public function load(string $path, string $environment, ?string $context = null): array
+	public function load(string $path, ?string $environment, ?string $context = null): array
 	{
 		return $this->resolve($path)->load($path, $environment, $context);
 	}

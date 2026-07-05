@@ -32,6 +32,7 @@ if (!is_dir($appDir . '/cache')) {
 \Quiote\Config\Config::set('core.lib_dir', $appDir . '/Lib');
 \Quiote\Config\Config::set('core.template_dir', $appDir . '/Templates');
 \Quiote\Config\Config::set('core.default_context', 'testing');
+\Quiote\Config\Config::set('core.environment', 'testing');
 \Quiote\Config\Config::set('testing.environment', 'testing');
 // Disable CSRF enforcement in the test environment (as Symfony and others do):
 // otherwise every POST/PUT/DELETE functional test would need to carry a valid

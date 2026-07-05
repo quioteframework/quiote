@@ -22,12 +22,12 @@ class CacheManager
     public static function getCache(): CacheInterface
     {
         if (self::$instance === null) {
-            $backendCfg = Config::get('core.cache_backend');
+            $backendCfg = Config::getString('core.cache_backend', 'filesystem');
             if ($backendCfg === 'apcu' && self::apcuAvailable()) {
                 $pool = new ApcuAdapter();
                 self::$backend = 'apcu';
             } else {
-                $baseDir = Config::get('core.cache_dir');
+                $baseDir = Config::getString('core.cache_dir');
                 if(empty($baseDir)) {
                     $baseDir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'quiote_cache';
                 }
@@ -48,7 +48,7 @@ class CacheManager
         self::$instance = null; self::$namespaceVersions = []; self::$backend = 'filesystem';
         // Best-effort purge of filesystem cache directory to isolate test runs (slot/action caches)
             try {
-                $dir = \Quiote\Config\Config::get('core.cache_dir');
+                $dir = \Quiote\Config\Config::getString('core.cache_dir');
                 if(empty($dir)) {
                     $dir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'quiote_cache';
                 }

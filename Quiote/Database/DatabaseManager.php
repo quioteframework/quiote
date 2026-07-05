@@ -117,14 +117,14 @@ class DatabaseManager
 
 		// load database configuration
 		if(defined('\QUIOTE_USE_APCU_CONFIG_CACHE') && \QUIOTE_USE_APCU_CONFIG_CACHE) {
-			$cacheResult = APCuConfigCache::checkConfig(Config::get('core.config_dir') . '/databases.xml');
+			$cacheResult = APCuConfigCache::checkConfig(Config::getString('core.config_dir') . '/databases.xml');
 			if (str_starts_with($cacheResult, 'APCU:')) {
 				eval('?>' . substr($cacheResult, 5));
 			} else {
 				require($cacheResult);
 			}
 		} else {
-			require(ConfigCache::checkConfig(Config::get('core.config_dir') . '/databases.xml'));
+			require(ConfigCache::checkConfig(Config::getString('core.config_dir') . '/databases.xml'));
 		}
 		
 		if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {

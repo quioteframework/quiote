@@ -14,7 +14,7 @@ class SlotCacheTest extends UnitTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->origUseCache = \Quiote\Config\Config::get('core.use_cache');
+        $this->origUseCache = \Quiote\Config\Config::getBool('core.use_cache', false);
         \Quiote\Config\Config::set('core.use_cache', true);
         // Enable slot cache for these tests
         putenv('QUIOTE_SLOT_CACHE=1');

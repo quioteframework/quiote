@@ -65,7 +65,7 @@ abstract class Routing
      */
     private function loadCompiledMatcher(): ?CompiledUrlMatcher
     {
-        if (!Config::get('core.routing.compiled_matcher', true)) {
+        if (!Config::getBool('core.routing.compiled_matcher', true)) {
             return null;
         }
         try {

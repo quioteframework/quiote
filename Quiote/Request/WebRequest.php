@@ -686,8 +686,8 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 		// of them is replaced with the first literal trusted host (safe
 		// canonicalization). Empty/unset preserves the previous behavior (no
 		// restriction) for backwards compatibility — set it in production.
-		$trustedHosts = \Quiote\Config\Config::get('core.trusted_hosts', []);
-		if (is_array($trustedHosts) && $trustedHosts !== [] && $host !== '') {
+		$trustedHosts = \Quiote\Config\Config::getArray('core.trusted_hosts', []);
+		if ($trustedHosts !== [] && $host !== '') {
 			$matched = false;
 			$firstLiteral = null;
 			foreach ($trustedHosts as $th) {

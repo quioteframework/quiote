@@ -15,7 +15,7 @@ class DispatchMiddlewareContextSimpleTest extends UnitTestCase
     {
         parent::setUp();
         Config::set('core.cache_dir', sys_get_temp_dir() . '/quiote_ctx_simple_cache_test');
-    $dir = Config::get('core.cache_dir');
+    $dir = Config::getString('core.cache_dir');
     if(!is_dir($dir)) { @mkdir($dir, 0777, true); }
         CacheManager::reset();
         putenv('QUIOTE_DISPATCH_CONTEXT=1');

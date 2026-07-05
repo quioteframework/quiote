@@ -49,8 +49,8 @@ final class AttributeRouteScanner
 		// explicit $moduleDirs argument overrides this entirely.
 		$moduleDirs = $moduleDirs !== null
 			? $moduleDirs
-			: [Config::get('core.module_dir'), ...\Quiote\Plugin\PluginManager::moduleDirectories()];
-		$namespacePrefix = (string) Config::get('core.namespace_prefix', 'App');
+			: [Config::getString('core.module_dir'), ...\Quiote\Plugin\PluginManager::moduleDirectories()];
+		$namespacePrefix = Config::getString('core.namespace_prefix', 'App');
 
 		/** @var RouteDefinition[] $routes */
 		$routes = [];

@@ -24,8 +24,8 @@ class SettingConfigHandlerGoldenTest extends ConfigHandlerTestBase
 		$h = new SettingConfigHandler();
 		$h->initialize(null, []);
 		$document = $this->parseConfiguration(
-			Config::get('core.config_dir') . '/settings.xml',
-			Config::get('core.quiote_dir') . '/Config/xsl/settings.xsl',
+			Config::getString('core.config_dir') . '/settings.xml',
+			Config::getString('core.quiote_dir') . '/Config/xsl/settings.xsl',
 			$environment
 		);
 		$code = $h->execute($document);

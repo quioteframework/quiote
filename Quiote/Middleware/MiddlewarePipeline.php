@@ -76,7 +76,7 @@ class MiddlewarePipeline implements RequestHandlerInterface
             // at worker startup, before any request runs, so this can't go stale
             // mid-worker) so a disabled pipeline never allocates the decorator.
             $spanEachMiddleware = \Quiote\Telemetry\Trace::enabled()
-                && \Quiote\Config\Config::get('telemetry.spans.middleware', false);
+                && \Quiote\Config\Config::getBool('telemetry.spans.middleware', false);
 
             // $factory is called with $context so a plugin-supplied attributed
             // factory (see MiddlewareCatalog::attributedFactory()) can build a
@@ -227,7 +227,7 @@ class MiddlewarePipeline implements RequestHandlerInterface
         uasort($entries, fn($a, $b) => $b['priority'] <=> $a['priority']);
 
         $spanEachMiddleware = \Quiote\Telemetry\Trace::enabled()
-            && \Quiote\Config\Config::get('telemetry.spans.middleware', false);
+            && \Quiote\Config\Config::getBool('telemetry.spans.middleware', false);
 
         foreach ($entries as $entry) {
             if (!MiddlewareCatalog::isEnabled($entry['fqcn'])) {

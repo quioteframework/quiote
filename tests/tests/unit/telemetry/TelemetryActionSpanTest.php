@@ -26,7 +26,7 @@ class TelemetryActionSpanTest extends UnitTestCase
     {
         parent::setUp();
         Config::set('core.cache_dir', sys_get_temp_dir() . '/quiote_telemetry_action_span_test');
-        $dir = Config::get('core.cache_dir');
+        $dir = Config::getString('core.cache_dir');
         if (!is_dir($dir)) {
             @mkdir($dir, 0777, true);
         }

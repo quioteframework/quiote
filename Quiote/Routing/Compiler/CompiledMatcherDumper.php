@@ -57,7 +57,7 @@ final class CompiledMatcherDumper
 
     public static function targetForSignature(string $signature): string
     {
-        return rtrim((string) Config::get('core.cache_dir'), '/') . '/routing/CompiledMatcher_' . $signature . '.php';
+        return rtrim(Config::getString('core.cache_dir'), '/') . '/routing/CompiledMatcher_' . $signature . '.php';
     }
 
     /**

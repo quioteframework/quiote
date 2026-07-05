@@ -215,7 +215,7 @@ class FluentSourceEmitterTest extends UnitTestCase
 	public function testEndToEndFromRealXmlSourceThroughCompiler()
 	{
 		$compiler = new ValidatorCompiler();
-		$source = new ValidatorSource(Config::get('core.config_dir') . '/tests/validators_unknown_param.xml', 'test-known-parameter');
+		$source = new ValidatorSource(Config::getString('core.config_dir') . '/tests/validators_unknown_param.xml', 'test-known-parameter');
 
 		[$plan, $parseDiagnostics] = $compiler->parse($source);
 		$this->assertSame([], $parseDiagnostics);

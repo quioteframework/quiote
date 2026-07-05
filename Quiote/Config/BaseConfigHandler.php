@@ -81,7 +81,7 @@ abstract class BaseConfigHandler extends ParameterHolder
 	{
 		if(!Toolkit::isPathAbsolute($path)) {
 			// not an absolute path so we'll prepend to it
-			$path = Config::get('core.app_dir') . '/' . $path;
+			$path = Config::getString('core.app_dir') . '/' . $path;
 		}
 
 		return $path;

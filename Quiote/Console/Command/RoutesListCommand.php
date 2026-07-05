@@ -59,7 +59,7 @@ final class RoutesListCommand extends AbstractAppCommand
 			return self::FAILURE;
 		}
 
-		$context = (string) ($input->getOption('context') ?? Config::get('core.default_context', 'web'));
+		$context = (string) ($input->getOption('context') ?? Config::getString('core.default_context', 'web'));
 		try {
 			$routing = Context::getInstance($context)->getRouting();
 		} catch (\Throwable $e) {

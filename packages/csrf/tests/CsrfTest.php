@@ -28,7 +28,7 @@ class CsrfTest extends UnitTestCase
         parent::setUp();
         // CSRF is disabled in the test bootstrap; enable it for these tests and
         // restore the prior value in tearDown so it doesn't leak to other tests.
-        $this->originalCsrfEnabled = Config::get('core.csrf.enabled');
+        $this->originalCsrfEnabled = Config::getBool('core.csrf.enabled');
         Config::set('core.csrf.enabled', true);
 
         // The testing.* environment uses the no-op NullStorage, so CSRF tokens

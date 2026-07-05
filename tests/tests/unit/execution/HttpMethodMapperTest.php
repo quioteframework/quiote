@@ -44,9 +44,10 @@ class HttpMethodMapperTest extends TestCase
         $this->assertSame('remove', HttpMethodMapper::toActionMethod('PATCH'));
     }
 
-    public function testNonArrayConfigValueIsIgnored(): void
+    public function testNonArrayConfigValueThrows(): void
     {
         Config::set('routing.http_method_map', 'not-an-array');
-        $this->assertSame('read', HttpMethodMapper::toActionMethod('GET'));
+        $this->expectException(Quiote\Exception\ConfigurationException::class);
+        HttpMethodMapper::toActionMethod('GET');
     }
 }

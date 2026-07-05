@@ -108,7 +108,7 @@ class WorkerManager
                 // Reset specific context profile
                 // Ensure contextProfile is string; if not, treat as default
                 if(!is_string($contextProfile) || $contextProfile === '') {
-                    $contextProfile = Config::get('core.default_context', 'web');
+                    $contextProfile = Config::getString('core.default_context', 'web');
                 }
                 $context = Context::getInstance($contextProfile);
                 $context->reset();

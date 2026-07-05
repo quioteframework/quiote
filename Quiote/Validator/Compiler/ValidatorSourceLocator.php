@@ -50,6 +50,6 @@ class ValidatorSourceLocator
 	 */
 	public static function defaultRoots(): array
 	{
-		return [Config::get('core.module_dir') . '/*/Validate/*.xml'];
+		return [Config::getString('core.module_dir') . '/*/Validate/*.xml'];
 	}
 }

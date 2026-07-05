@@ -41,7 +41,7 @@ class ContextTest extends PhpUnitTestCase
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
 	public function testGetName()
 	{
-		$this->assertSame(Config::get('core.default_context'), Context::getInstance()->getName());
+		$this->assertSame(Config::getNullableString('core.default_context'), Context::getInstance()->getName());
 		$this->assertSame('test1', Context::getInstance('test1')->getName());
 	}
 
@@ -95,7 +95,7 @@ class ContextTest extends PhpUnitTestCase
 	public function testGetDatabaseManagerOff()
 	{
 		$ctx = Context::getInstance();
-		$this->assertFalse(Config::get('core.use_database'));
+		$this->assertFalse(Config::getBool('core.use_database'));
 		$this->assertInstanceOf(\Quiote\Database\DatabaseManager::class, $ctx->getDatabaseManager());
 	}
 

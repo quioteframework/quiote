@@ -15,9 +15,9 @@ use Quiote\Util\Toolkit;
  * PHP-array/YAML files have no native equivalent of XML's
  * `<ae:configuration environment="...">` filtering. A config author who
  * needs environment-conditional values in a PHP-array file can already
- * express that directly (`Config::get('core.environment') === 'test'`
- * inside the returned array's construction) -- that's a deliberate scope
- * limit, not an oversight.
+ * express that directly (`Config::getNullableString('core.environment') 
+ * === 'test'` inside the returned array's construction) -- that's a 
+ * deliberate scope limit, not an oversight.
  * @since      1.0.0
  */
 abstract class AbstractArrayFormatDriver implements FormatDriverInterface
@@ -51,7 +51,7 @@ abstract class AbstractArrayFormatDriver implements FormatDriverInterface
 	/**
 	 * @return array<string, mixed>
 	 */
-	public function load(string $path, string $environment, ?string $context = null): array
+	public function load(string $path, ?string $environment, ?string $context = null): array
 	{
 		$raw = $this->parse($path);
 
@@ -78,7 +78,7 @@ abstract class AbstractArrayFormatDriver implements FormatDriverInterface
 	/**
 	 * @return array<string, mixed>
 	 */
-	private function loadReference(string $reference, string $fromPath, string $environment, ?string $context): array
+	private function loadReference(string $reference, string $fromPath, ?string $environment, ?string $context): array
 	{
 		$registry = $this->registry ?? throw new LogicException(
 			static::class . ' cannot resolve "' . $reference . '" without a FormatDriverRegistry (see setRegistry()).'

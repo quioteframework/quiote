@@ -77,7 +77,7 @@ XML);
 		$handler->initialize(null, []);
 		$registry = FormatDriverRegistry::forHandler(
 			$handler,
-			[Config::get('core.quiote_dir') . '/Config/xsl/config_handlers.xsl']
+			[Config::getString('core.quiote_dir') . '/Config/xsl/config_handlers.xsl']
 		);
 
 		$config = $registry->load($this->dir . '/config_handlers.xml', 'test');

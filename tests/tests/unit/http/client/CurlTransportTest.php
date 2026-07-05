@@ -7,9 +7,9 @@ use Quiote\Http\Client\Exception\NetworkException;
 
 /**
  * Exercises the real curl transport against a genuine one-shot TCP server run
- * in a forked child — the one thing the in-memory RecordingTransport can't
+ * in a child PHP process — the one thing the in-memory RecordingTransport can't
  * prove: that CurlTransport actually performs HTTP over a socket and maps the
- * response/failures per PSR-18. Skips where pcntl/curl aren't available.
+ * response/failures per PSR-18. Skips where curl isn't available.
  */
 class CurlTransportTest extends TestCase
 {
@@ -18,38 +18,51 @@ class CurlTransportTest extends TestCase
         if (!\function_exists('curl_init')) {
             $this->markTestSkipped('curl extension not available');
         }
-        if (!\function_exists('pcntl_fork')) {
-            $this->markTestSkipped('pcntl not available');
-        }
     }
 
     public function testPerformsRealHttpGetAndParsesResponse(): void
     {
-        $server = stream_socket_server('tcp://127.0.0.1:0', $errno, $errstr);
-        $this->assertIsResource($server, "bind failed: $errstr");
-        $port = (int) substr(stream_socket_get_name($server, false), strrpos(stream_socket_get_name($server, false), ':') + 1);
+        // Spawn an isolated PHP process as the one-shot HTTP server.
+        // Using proc_open instead of pcntl_fork avoids inheriting PHPUnit's
+        // shutdown handlers, output buffers, and signal masks — all of which
+        // can deadlock when exit() is called in a forked child.
+        //
+        // The server script binds to an OS-assigned port, prints that port on
+        // stdout, then blocks in stream_socket_accept(). Reading the port line
+        // here (fgets) blocks until the server is ready — no sleep/poll needed.
+        $serverScript = <<<'PHP'
+$server = stream_socket_server('tcp://127.0.0.1:0', $errno, $errstr);
+if ($server === false) { fwrite(STDERR, "bind: $errstr\n"); exit(1); }
+$addr = stream_socket_get_name($server, false);
+echo substr($addr, strrpos($addr, ':') + 1) . "\n";
+$conn = @stream_socket_accept($server, 5);
+if ($conn !== false) {
+    $body = 'hello-from-server';
+    fwrite($conn, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " . strlen($body) . "\r\nX-Test: yes\r\n\r\n" . $body);
+    fclose($conn);
+}
+fclose($server);
+PHP;
 
-        $pid = pcntl_fork();
-        if ($pid === 0) {
-            // Child: accept one connection, send a canned response, exit.
-            $conn = @stream_socket_accept($server, 5);
-            if ($conn !== false) {
-                $body = 'hello-from-server';
-                $response = "HTTP/1.1 200 OK\r\n"
-                    . "Content-Type: text/plain\r\n"
-                    . 'Content-Length: ' . strlen($body) . "\r\n"
-                    . "X-Test: yes\r\n\r\n"
-                    . $body;
-                fwrite($conn, $response);
-                fclose($conn);
-            }
-            exit(0);
-        }
+        $proc = proc_open(
+            [PHP_BINARY, '-r', $serverScript],
+            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes
+        );
+        $this->assertIsResource($proc, 'Failed to start one-shot server process');
+        fclose($pipes[0]);
 
-        $transport = new CurlTransport();
+        $portLine = fgets($pipes[1]);
+        $this->assertNotFalse($portLine, 'Server process did not report its port');
+        $port = (int) trim($portLine);
+        $this->assertGreaterThan(0, $port, 'Server reported an invalid port');
+
+        $transport = new CurlTransport(connectTimeoutSeconds: 5.0);
         $response = $transport->sendRequest(new Request('GET', "http://127.0.0.1:$port/"));
-        pcntl_waitpid($pid, $status);
-        fclose($server);
+
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        proc_close($proc);
 
         $this->assertSame(200, $response->getStatusCode());
         $this->assertSame('hello-from-server', (string) $response->getBody());

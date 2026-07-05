@@ -21,14 +21,14 @@ class FileTemplateLayer extends StreamTemplateLayer
 	public function __construct(array $parameters = [])
 	{
 		$targets = [];
-		if(Config::get('core.use_translation')) {
+		if(Config::getBool('core.use_translation', false)) {
 			$targets[] = '${directory}/${locale}/${template}${extension}';
 			$targets[] = '${directory}/${template}.${locale}${extension}';
 		}
 		$targets[] = '${directory}/${template}${extension}';
-		
+
 		parent::__construct(array_merge([
-			'directory' => Config::get('core.module_dir') . '/${module}/Templates',
+			'directory' => Config::getString('core.module_dir') . '/${module}/Templates',
 			'scheme' => 'file',
 			'check' => true,
 			'targets' => $targets,

@@ -154,9 +154,9 @@ class DispatchMiddleware implements MiddlewareInterface
             }
         }
 
-        $disableHeaders = (bool)Config::get('core.disable-framework-headers', false);
+        $disableHeaders = Config::getBool('core.disable-framework-headers', false);
         if (!$disableHeaders) {
-            $cacheHitHeader = Config::get('core.cache-hit-header', 'X-Quiote-Cache-Hit');
+            $cacheHitHeader = Config::getString('core.cache-hit-header', 'X-Quiote-Cache-Hit');
             if ($cacheHit && $cacheHitHeader) {
                 $resp = $resp->withHeader($cacheHitHeader, '1');
             }
@@ -166,7 +166,7 @@ class DispatchMiddleware implements MiddlewareInterface
             // type hasn't already specified it, and allow opt-out via config.
             // NOTE: deliberately NOT setting X-Frame-Options — framing by external
             // sites must remain allowed.
-            if (Config::get('core.send-nosniff-header', true) && !$resp->hasHeader('X-Content-Type-Options')) {
+            if (Config::getBool('core.send-nosniff-header', true) && !$resp->hasHeader('X-Content-Type-Options')) {
                 $resp = $resp->withHeader('X-Content-Type-Options', 'nosniff');
             }
         }
@@ -323,8 +323,8 @@ class DispatchMiddleware implements MiddlewareInterface
         if (!$execState->validationDecision) {
             $execState->validationDecision = ValidationDecision::passed();
         }
-        $cacheEnabled = (bool)Config::get('core.cache_enabled', false);
-        $useCache = $cacheEnabled && \Quiote\Config\Config::get('core.use_cache', false);
+        $cacheEnabled = Config::getBool('core.cache_enabled', false);
+        $useCache = $cacheEnabled && \Quiote\Config\Config::getBool('core.use_cache', false);
         $avCache = ($cacheEnabled && $useCache) ? new ActionViewCache(CacheManager::getCache()) : null;
         $cacheHitPayload = null;
         $isCacheable = false;
@@ -427,9 +427,9 @@ class DispatchMiddleware implements MiddlewareInterface
             $userFp = $this->computeUserFingerprint($actionInstance);
         } catch (\Throwable) {
         }
-        $cacheEnabled = (bool)Config::get('core.cache_enabled', false);
+        $cacheEnabled = Config::getBool('core.cache_enabled', false);
         if ($cacheEnabled && $isCacheable && !$request->getAttribute('quiote.cache.bypass')) {
-            $useCache = \Quiote\Config\Config::get('core.use_cache', false);
+            $useCache = \Quiote\Config\Config::getBool('core.use_cache', false);
             $avCache = $useCache ? new ActionViewCache(CacheManager::getCache()) : null;
             $cacheHitPayload = $avCache ? ActionCacheHelper::read($avCache, $actionDesc, $userFp) : null;
             if ($cacheHitPayload) {

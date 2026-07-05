@@ -39,6 +39,8 @@ final class McpPipelineIntegrationGreeter
  */
 final class McpPipelineIntegrationTest extends PhpUnitTestCase
 {
+    private ?string $originalDefaultContext = null;
+
     #[Before]
     #[After]
     public function resetState(): void
@@ -50,6 +52,33 @@ final class McpPipelineIntegrationTest extends PhpUnitTestCase
         Config::remove('mcp.auth');
         Config::remove('mcp.auth_token');
         Config::remove('mcp.path');
+    }
+
+    /**
+     * McpPlugin::register() binds its context-scoped middleware (McpAuthMiddleware,
+     * McpEndpointMiddleware) to whatever core.default_context resolves to, not
+     * necessarily "web" -- but every test in this file drives its pipeline via the
+     * hardcoded Context::getInstance('web'). Pin it to "web" for the duration of each
+     * test so the plugin's registrations and the test's manual container overrides
+     * (e.g. the McpAuthenticatorInterface binding) land on the same Context, and
+     * restore whatever it was before so other tests relying on the app's real
+     * core.default_context aren't affected.
+     */
+    #[Before]
+    public function pinDefaultContextToWeb(): void
+    {
+        $this->originalDefaultContext = Config::has('core.default_context')
+            ? Config::getString('core.default_context')
+            : null;
+        Config::set('core.default_context', 'web', true);
+    }
+
+    #[After]
+    public function restoreDefaultContext(): void
+    {
+        if ($this->originalDefaultContext !== null) {
+            Config::set('core.default_context', $this->originalDefaultContext, true);
+        }
     }
 
     /** Registers McpPlugin's contributions directly, bypassing PluginManager::bootFromConfig()'s once-only guard (already tripped by the sandbox app's own bootstrap). */

@@ -22,8 +22,10 @@ final class TwigRendererTest extends UnitTestCase
     #[\Override]
     public function tearDown(): void
     {
-        @unlink($this->templateBase . '.twig');
-        @unlink($this->templateBase . '-extract.twig');
+        if (file_exists($this->templateBase . '.twig'))
+            @unlink($this->templateBase . '.twig');
+        if (file_exists($this->templateBase . '-extract.twig'))
+            @unlink($this->templateBase . '-extract.twig');
     }
 
     public function testRendersTemplateWithAttributes(): void

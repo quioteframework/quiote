@@ -36,9 +36,9 @@ final class PhptalRenderer extends Renderer
             return $this->engine;
         }
 
-        $cacheDir = rtrim((string) Config::get('core.cache_dir'), '/\\')
+        $cacheDir = rtrim(Config::getString('core.cache_dir'), '/\\')
             . DIRECTORY_SEPARATOR . self::CACHE_SUBDIR . DIRECTORY_SEPARATOR;
-        Toolkit::mkdir($cacheDir, fileperms((string) Config::get('core.cache_dir')), true);
+        Toolkit::mkdir($cacheDir, fileperms(Config::getString('core.cache_dir')), true);
 
         $engine = new PHPTAL();
         $engine->setPhpCodeDestination($cacheDir);

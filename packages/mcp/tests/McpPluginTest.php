@@ -41,8 +41,8 @@ final class McpPluginTest extends TestCase
         PluginManager::add(new McpPlugin());
         PluginManager::bootFromConfig();
 
-        $this->assertFalse(Config::get('mcp.enabled'));
-        $this->assertSame(['stdio'], Config::get('mcp.transports'));
+        $this->assertFalse(Config::getBool('mcp.enabled'));
+        $this->assertSame(['stdio'], Config::getArray('mcp.transports'));
         $this->assertArrayNotHasKey(McpEndpointMiddleware::class, MiddlewareCatalog::getRegistered());
         $this->assertArrayNotHasKey(McpAuthMiddleware::class, MiddlewareCatalog::getRegistered());
     }

@@ -53,7 +53,7 @@ class PluginManagerTest extends TestCase
         PluginManager::add(new RecordingPlugin());
         PluginManager::bootFromConfig();
 
-        $this->assertSame('from-plugin', Config::get('demo.setting'));
+        $this->assertSame('from-plugin', Config::getString('demo.setting'));
     }
 
     public function testAppConfigWinsOverPluginDefault(): void
@@ -63,7 +63,7 @@ class PluginManagerTest extends TestCase
         PluginManager::bootFromConfig();
 
         // RecordingPlugin tries to set demo.appwins => 'plugin-value' as a default.
-        $this->assertSame('app-value', Config::get('demo.appwins'));
+        $this->assertSame('app-value', Config::getString('demo.appwins'));
     }
 
     public function testFirstPluginWinsForSameConfigDefault(): void
@@ -72,7 +72,7 @@ class PluginManagerTest extends TestCase
         PluginManager::add(new SecondConfigPlugin());       // tries demo.setting => 'from-second'
         PluginManager::bootFromConfig();
 
-        $this->assertSame('from-plugin', Config::get('demo.setting'));
+        $this->assertSame('from-plugin', Config::getString('demo.setting'));
     }
 
     public function testMiddlewareContributionReachesCatalog(): void

@@ -47,7 +47,7 @@ final class FormatAwareConfigCache
 		$basePathWithoutExtension = Toolkit::normalizePath($basePathWithoutExtension);
 		$base = Toolkit::isPathAbsolute($basePathWithoutExtension)
 			? $basePathWithoutExtension
-			: Toolkit::normalizePath(Config::get('core.app_dir')) . '/' . $basePathWithoutExtension;
+			: Toolkit::normalizePath(Config::getString('core.app_dir')) . '/' . $basePathWithoutExtension;
 
 		$resolved = $registry->locate($base);
 		if ($resolved === null) {
@@ -60,7 +60,7 @@ final class FormatAwareConfigCache
 
 		if (ConfigCache::isModified($resolved, $cache)) {
 			$code = $handler->executeArray(
-				$registry->load($resolved, $environment ?? Config::get('core.environment'), $context),
+				$registry->load($resolved, $environment ?? Config::getNullableString('core.environment'), $context),
 				$resolved
 			);
 			ConfigCache::writeCacheFile($resolved, $cache, $code, false);

@@ -52,7 +52,7 @@ $this->request->initialize($this, array (
   'sources' => 
   array (
     'SERVER_NAME' => 'localhost',
-    'SERVER_PORT' => '80',
+    'SERVER_PORT' => 80,
     'SERVER_PROTOCOL' => 'http',
   ),
 ));
@@ -60,7 +60,7 @@ $this->requestFactoryInfo = ['class' => 'Sandbox\\Lib\\Request\\TestWebRequest',
   'sources' => 
   array (
     'SERVER_NAME' => 'localhost',
-    'SERVER_PORT' => '80',
+    'SERVER_PORT' => 80,
     'SERVER_PROTOCOL' => 'http',
   ),
 )];

@@ -80,7 +80,7 @@ YAML);
 		// The realistic migration path: keep the framework/module defaults
 		// in XML, override just a couple of settings in a new PHP file,
 		// without touching or duplicating the XML at all.
-		$xmlParent = Config::get('core.config_dir') . '/settings.xml';
+		$xmlParent = Config::getString('core.config_dir') . '/settings.xml';
 
 		file_put_contents($this->dir . '/settings.php', <<<PHP
 <?php
@@ -92,7 +92,7 @@ PHP);
 
 		$handler = new SettingConfigHandler();
 		$handler->initialize(null, []);
-		$registry = FormatDriverRegistry::forHandler($handler, [Config::get('core.quiote_dir') . '/Config/xsl/settings.xsl']);
+		$registry = FormatDriverRegistry::forHandler($handler, [Config::getString('core.quiote_dir') . '/Config/xsl/settings.xsl']);
 
 		$config = $registry->load($this->dir . '/settings.php', 'testing');
 

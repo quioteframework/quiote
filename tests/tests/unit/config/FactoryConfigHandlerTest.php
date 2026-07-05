@@ -101,8 +101,8 @@ class FactoryConfigHandlerTest extends ConfigHandlerTestBase
 		// other tests may have toggled off.
 		Config::set('core.use_translation', true);
 		$document = $this->parseConfiguration(
-			Config::get('core.config_dir') . '/tests/factories.xml',
-			Config::get('core.quiote_dir') . '/Config/xsl/factories.xsl'
+			Config::getString('core.config_dir') . '/tests/factories.xml',
+			Config::getString('core.quiote_dir') . '/Config/xsl/factories.xsl'
 		);
 		$this->includeCode($FCH->execute($document));
 

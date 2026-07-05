@@ -12,7 +12,7 @@ class SlotDispatcherTest extends UnitTestCase
     {
         parent::setUp();
     Config::set('core.cache_dir', sys_get_temp_dir() . '/quiote_cache_test');
-    $dir = Config::get('core.cache_dir'); if(!is_dir($dir)) { @mkdir($dir, 0775, true); }
+    $dir = Config::getString('core.cache_dir'); if(!is_dir($dir)) { @mkdir($dir, 0775, true); }
         $this->getContext()->getController()->initializeModule('Cache');
     // Force action class load for tests (autoload bridging still in transition)
     $this->getContext()->getController()->createActionInstance('Cache','Cache');

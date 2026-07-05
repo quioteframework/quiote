@@ -45,7 +45,7 @@ final class QuioteBootstrapWarningsTest extends TestCase
         Log::addSink($this->sink);
 
         Config::set('core.app_dir', dirname(__DIR__, 3) . '/sandbox/app', true, true);
-        Config::set('core.config_dir', Config::get('core.app_dir') . '/Config', true, true);
+        Config::set('core.config_dir', Config::getString('core.app_dir') . '/Config', true, true);
     }
 
     /** @return list<LogEvent> */

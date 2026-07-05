@@ -16,7 +16,7 @@ class ConfigCacheTest extends PhpUnitTestCase
 		$cachename = ConfigCache::getCacheName($configname, $context);
 
 		// Calculate expected value here where Quiote is bootstrapped and core.environment is available
-		$environment = Config::get('core.environment');
+		$environment = Config::getNullableString('core.environment');
 
 		// This mirrors the logic in ConfigCache::getCacheName()
 		$expectedFilename = sprintf(
@@ -41,7 +41,7 @@ class ConfigCacheTest extends PhpUnitTestCase
 			)
 		);
 
-		$expected = Config::get('core.cache_dir').DIRECTORY_SEPARATOR.'config'.DIRECTORY_SEPARATOR.$expectedFilename;
+		$expected = Config::getString('core.cache_dir').DIRECTORY_SEPARATOR.'config'.DIRECTORY_SEPARATOR.$expectedFilename;
 
 		$this->assertEquals($expected, $cachename);
 	}
@@ -65,7 +65,7 @@ class ConfigCacheTest extends PhpUnitTestCase
 	public function testWriteCacheFile()
 	{
 		$expected = 'This is a config cache test.';
-		$config = Config::get('core.config_dir').DIRECTORY_SEPARATOR.'foo.xml';
+		$config = Config::getString('core.config_dir').DIRECTORY_SEPARATOR.'foo.xml';
 		$cacheName = ConfigCache::getCacheName($config);
 		if(file_exists($cacheName)) {
 			unlink($cacheName);
@@ -84,22 +84,22 @@ class ConfigCacheTest extends PhpUnitTestCase
 	public function testload()
 	{
 		$this->assertFalse( defined('ConfigCacheImportTest_included') );
-		ConfigCache::load(Config::get('core.config_dir') . '/tests/importtest.xml');
+		ConfigCache::load(Config::getString('core.config_dir') . '/tests/importtest.xml');
 		$this->assertTrue( defined('ConfigCacheImportTest_included') );
 
 		$GLOBALS["ConfigCacheImportTestOnce_included"] = false;
-		ConfigCache::load(Config::get('core.config_dir') . '/tests/importtest_once.xml', true);
+		ConfigCache::load(Config::getString('core.config_dir') . '/tests/importtest_once.xml', true);
 		$this->assertTrue( $GLOBALS["ConfigCacheImportTestOnce_included"] );
 
 		$GLOBALS["ConfigCacheImportTestOnce_included"] = false;
-		ConfigCache::load(Config::get('core.config_dir') . '/tests/importtest_once.xml', true);
+		ConfigCache::load(Config::getString('core.config_dir') . '/tests/importtest_once.xml', true);
 		$this->assertFalse( $GLOBALS["ConfigCacheImportTestOnce_included"] );
 	}
 
 
 	public function testClear()
 	{
-		$cacheDir = Config::get('core.cache_dir').DIRECTORY_SEPARATOR.'config';
+		$cacheDir = Config::getString('core.cache_dir').DIRECTORY_SEPARATOR.'config';
 		ConfigCache::clear();
 
 		// After clearing, the directory may not exist or it may exist but be empty
@@ -127,7 +127,7 @@ class ConfigCacheTest extends PhpUnitTestCase
 
 	public function testAddConfigHandlersFile()
 	{
-		$config = Config::get('core.module_dir').'/Default/Config/config_handlers.xml';
+		$config = Config::getString('core.module_dir').'/Default/Config/config_handlers.xml';
 		// Other tests (or module loading) may already have registered this file in
 		// the process-wide handler-file registry; forget it so addConfigHandlersFile()
 		// is exercised from a known-clean precondition regardless of execution order.
@@ -200,11 +200,11 @@ class ConfigCacheTest extends PhpUnitTestCase
 		$context = 'with/slash';
 		$cachename = ConfigCache::getCacheName($config, $context);
 
-		$expected = Config::get('core.cache_dir').DIRECTORY_SEPARATOR.'config'.DIRECTORY_SEPARATOR;
+		$expected = Config::getString('core.cache_dir').DIRECTORY_SEPARATOR.'config'.DIRECTORY_SEPARATOR;
 		$expected .= 'foo.xml';
-		$expected .= '_'.preg_replace('/[^\w_-]/i', '_', (string) Config::get('core.environment'));
+		$expected .= '_'.preg_replace('/[^\w_-]/i', '_', (string) Config::getNullableString('core.environment'));
 		$expected .= '_'.preg_replace('/[^\w_-]/i', '_', $context).'_';
-		$expected .= sha1($config.'_'.Config::get('core.environment').'_'.$context).'.php'; 
+		$expected .= sha1($config.'_'.Config::getNullableString('core.environment').'_'.$context).'.php'; 
 
 		$this->assertEquals($expected, $cachename);
 	}
