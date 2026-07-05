@@ -32,7 +32,7 @@ class ContentNegotiationMiddleware implements MiddlewareInterface
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $existing = $request->getAttribute('output_type');
-        if ($existing !== null) {
+        if ($existing !== null && is_string($existing)) {
             if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
                 \Quiote\Logging\Log::for($this)->debug('[ContentNegotiationMiddleware] output_type already set to ' . $existing . ', skipping');
             }
@@ -60,21 +60,7 @@ class ContentNegotiationMiddleware implements MiddlewareInterface
     /** @return string[] Ordered list of format names, most-preferred first. */
     private function detectFormats(ServerRequestInterface $request): array
     {
-        $format = $this->detectFromExtension($request);
-        if ($format !== null) {
-            return [$format];
-        }
         return $this->detectFromHeader($request);
-    }
-
-    private function detectFromExtension(ServerRequestInterface $request): ?string
-    {
-        $path = $request->getUri()->getPath();
-        $extension = strtolower((string) pathinfo($path, PATHINFO_EXTENSION));
-        if ($extension === '') {
-            return null;
-        }
-        return MimeTypeRegistry::formatForExtension($extension);
     }
 
     /** @return string[] */
@@ -86,14 +72,6 @@ class ContentNegotiationMiddleware implements MiddlewareInterface
             return [];
         }
         $accept = $request->getHeaderLine('Accept');
-        // Fast path: browsers overwhelmingly lead with "text/html" or "*/*",
-        // both of which resolve to html (html is the first negotiable type, so
-        // it wins wildcard/tie requests anyway). Skip the negotiator entirely
-        // for that dominant case.
-        $firstType = strtolower(trim(strtok($accept, ',;') ?: ''));
-        if ($firstType === '' || $firstType === 'text/html' || $firstType === '*/*') {
-            return ['html'];
-        }
         $mime = $this->negotiateHeader($accept, $this->negotiator, MimeTypeRegistry::negotiableMimeTypes());
         if ($dbg) { \Quiote\Logging\Log::for($this)->debug('[ContentNegotiationMiddleware] got ' . ($mime ?? 'null')); }
         return $mime !== null ? MimeTypeRegistry::formatsForMime($mime) : [];

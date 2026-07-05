@@ -13,6 +13,9 @@ use Quiote\Util\Toolkit;
  *    'output_types' => ['name' => ['parameters' => [...], 'default_renderer' => ...,
  *        'renderers' => [...], 'layouts' => [...], 'default_layout' => ...,
  *        'exception_template' => ...|null]]]
+ * All keys in the output-type, renderer, layout, layer, and slot sub-arrays are
+ * optional when using PHP/YAML format — executeArray() applies the same defaults
+ * that XML provides via getAttribute($name, $default), so terse configs work.
  * The duplicate-name and missing-default checks are inherently tied to
  * the order <ae:configuration> blocks are walked in (the last block's
  * `default` attribute wins), so they stay in toCanonicalArray() exactly
@@ -49,6 +52,9 @@ class OutputTypeConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 		// remember the config file path
 		$config = $document->documentURI;
 
+		$defaultLayerClassParam = $this->getParameter('default_layer_class', \Quiote\View\FileTemplateLayer::class);
+		$defaultLayerClassStr = is_string($defaultLayerClassParam) ? $defaultLayerClassParam : \Quiote\View\FileTemplateLayer::class;
+
 		$data = [];
 		$defaultOt = null;
 		foreach ($document->getConfigurationElements() as $cfg) {
@@ -58,30 +64,32 @@ class OutputTypeConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 
 			$otnames = [];
 			foreach ($cfg->get('output_types') as $outputType) {
-				$otname = $outputType->getAttribute('name');
+				$otname = (string) $outputType->getAttribute('name');
 				if (in_array($otname, $otnames)) {
 					throw new ConfigurationException('Duplicate Output Type "' . $otname . '" in ' . $config);
 				}
 				$otnames[] = $otname;
 			}
 
-			if (!$cfg->getChild('output_types')->hasAttribute('default')) {
+			$outputTypesEl = $cfg->getChild('output_types');
+			if ($outputTypesEl === null || !$outputTypesEl->hasAttribute('default')) {
 				throw new ConfigurationException('No default Output Type specified in ' . $config);
 			}
 
 			foreach ($cfg->get('output_types') as $outputType) {
-				$outputTypeName = $outputType->getAttribute('name');
+				$outputTypeName = (string) $outputType->getAttribute('name');
 				$data[$outputTypeName] ??= ['parameters' => [], 'default_renderer' => null, 'renderers' => [], 'layouts' => [], 'default_layout' => null, 'exception_template' => null];
 				if ($outputType->has('renderers')) {
 					foreach ($outputType->get('renderers') as $renderer) {
-						$rendererName = $renderer->getAttribute('name');
+						$rendererName = (string) $renderer->getAttribute('name');
 						$data[$outputTypeName]['renderers'][$rendererName] = [
 							'class' => $renderer->getAttribute('class'),
 							'instance' => null,
 							'parameters' => $renderer->getQuioteParameters([]),
 						];
 					}
-					$data[$outputTypeName]['default_renderer'] = $outputType->getChild('renderers')->getAttribute('default');
+					$renderersEl = $outputType->getChild('renderers');
+					$data[$outputTypeName]['default_renderer'] = $renderersEl !== null ? $renderersEl->getAttribute('default') : null;
 				}
 				if ($outputType->has('layouts')) {
 					foreach ($outputType->get('layouts') as $layout) {
@@ -93,7 +101,7 @@ class OutputTypeConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 
 								if ($layer->has('slots')) {
 									foreach ($layer->get('slots') as $slot) {
-										$slots[$slot->getAttribute('name')] = [
+										$slots[(string) $slot->getAttribute('name')] = [
 											'action' => $slot->getAttribute('action'),
 											'module' => $slot->getAttribute('module'),
 											'output_type' => $slot->getAttribute('output_type'),
@@ -103,8 +111,8 @@ class OutputTypeConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 									}
 								}
 
-								$layers[$layer->getAttribute('name')] = [
-									'class' => $layer->getAttribute('class', $this->getParameter('default_layer_class', \Quiote\View\FileTemplateLayer::class)),
+								$layers[(string) $layer->getAttribute('name')] = [
+									'class' => $layer->getAttribute('class', $defaultLayerClassStr),
 									'parameters' => $layer->getQuioteParameters([]),
 									'renderer' => $layer->getAttribute('renderer'),
 									'slots' => $slots,
@@ -112,22 +120,24 @@ class OutputTypeConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 							}
 						}
 
-						$data[$outputTypeName]['layouts'][$layout->getAttribute('name')] = [
+						$data[$outputTypeName]['layouts'][(string) $layout->getAttribute('name')] = [
 							'layers' => $layers,
 							'parameters' => $layout->getQuioteParameters([]),
 						];
 					}
-					$data[$outputTypeName]['default_layout'] = $outputType->getChild('layouts')->getAttribute('default');
+					$layoutsEl = $outputType->getChild('layouts');
+					$data[$outputTypeName]['default_layout'] = $layoutsEl !== null ? $layoutsEl->getAttribute('default') : null;
 				}
 				if ($outputType->hasAttribute('exception_template')) {
-					$data[$outputTypeName]['exception_template'] = Toolkit::expandDirectives($outputType->getAttribute('exception_template'));
-					if (!is_readable($data[$outputTypeName]['exception_template'])) {
-						throw new ConfigurationException('Exception template "' . $data[$outputTypeName]['exception_template'] . '" does not exist or is unreadable');
+					$exceptionTemplate = Toolkit::expandDirectives((string) $outputType->getAttribute('exception_template'));
+					if ($exceptionTemplate === null || !is_readable($exceptionTemplate)) {
+						throw new ConfigurationException('Exception template "' . $exceptionTemplate . '" does not exist or is unreadable');
 					}
+					$data[$outputTypeName]['exception_template'] = $exceptionTemplate;
 				}
 				$data[$outputTypeName]['parameters'] = $outputType->getQuioteParameters($data[$outputTypeName]['parameters']);
 			}
-			$defaultOt = $cfg->getChild('output_types')->getAttribute('default');
+			$defaultOt = $outputTypesEl->getAttribute('default');
 		}
 
 		return ['default' => $defaultOt, 'output_types' => $data];
@@ -141,22 +151,77 @@ class OutputTypeConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 		$defaultOt = $config['default'] ?? null;
 		$data = $config['output_types'] ?? [];
 
-		if (!isset($data[$defaultOt])) {
+		if ($defaultOt === null || !isset($data[$defaultOt])) {
 			$error = 'Configuration file "%s" specifies undefined default Output Type "%s".';
 			$error = sprintf($error, $sourceRef, $defaultOt);
 			throw new ConfigurationException($error);
 		}
 
+		$defaultLayerClass = $this->getParameter('default_layer_class', \Quiote\View\FileTemplateLayer::class);
+
 		$code = [];
 		foreach ($data as $outputTypeName => $outputType) {
+			$outputType += [
+				'parameters' => [],
+				'default_renderer' => null,
+				'renderers' => [],
+				'layouts' => [],
+				'default_layout' => null,
+				'exception_template' => null,
+			];
+
+			$renderers = [];
+			/** @var array<string, mixed> $rawRenderers */
+			$rawRenderers = is_array($outputType['renderers']) ? $outputType['renderers'] : [];
+			foreach ($rawRenderers as $rendererName => $renderer) {
+				$renderers[$rendererName] = (is_array($renderer) ? $renderer : []) + [
+					'instance' => null,
+					'parameters' => [],
+				];
+			}
+
+			$layouts = [];
+			/** @var array<string, mixed> $rawLayouts */
+			$rawLayouts = is_array($outputType['layouts']) ? $outputType['layouts'] : [];
+			foreach ($rawLayouts as $layoutName => $layout) {
+				$layout = (is_array($layout) ? $layout : []) + ['layers' => [], 'parameters' => []];
+				$layers = [];
+				/** @var array<string, mixed> $rawLayers */
+				$rawLayers = is_array($layout['layers']) ? $layout['layers'] : [];
+				foreach ($rawLayers as $layerName => $layer) {
+					$layer = (is_array($layer) ? $layer : []) + [
+						'class' => $defaultLayerClass,
+						'parameters' => [],
+						'renderer' => null,
+						'slots' => [],
+					];
+					$slots = [];
+					/** @var array<string, mixed> $rawSlots */
+					$rawSlots = is_array($layer['slots']) ? $layer['slots'] : [];
+					foreach ($rawSlots as $slotName => $slot) {
+						$slots[$slotName] = (is_array($slot) ? $slot : []) + [
+							'action' => '',
+							'module' => '',
+							'output_type' => '',
+							'request_method' => '',
+							'parameters' => [],
+						];
+					}
+					$layer['slots'] = $slots;
+					$layers[$layerName] = $layer;
+				}
+				$layout['layers'] = $layers;
+				$layouts[$layoutName] = $layout;
+			}
+
 			$code[] = '$ot = new Quiote\Controller\OutputType();';
 			$code[] = sprintf(
 				'$ot->initialize($this->context, %s, %s, %s, %s, %s, %s, %s);',
 				var_export($outputType['parameters'], true),
 				var_export($outputTypeName, true),
-				var_export($outputType['renderers'], true),
+				var_export($renderers, true),
 				var_export($outputType['default_renderer'], true),
-				var_export($outputType['layouts'], true),
+				var_export($layouts, true),
 				var_export($outputType['default_layout'], true),
 				var_export($outputType['exception_template'], true)
 			);

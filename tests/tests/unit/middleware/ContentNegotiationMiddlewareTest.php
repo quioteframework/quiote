@@ -48,13 +48,13 @@ class ContentNegotiationMiddlewareTest extends TestCase
         $this->assertSame('xml',$handled->getAttribute('output_type'));
     }
 
-    public function testExtensionIgnoredNow(): void
+    public function testExtensionIgnoredInFavorOfAcceptHeader(): void
     {
         $mw = new ContentNegotiationMiddleware();
-        $req = (new ServerRequest('GET','/report.xml'))->withHeader('Accept','application/json, text/html');
+        $req = (new ServerRequest('GET','/report.xml'))->withHeader('Accept','application/json');
 	$handled = $this->negotiate($mw,$req);
-        // Extension may cause library to pick xml prior to header negotiation (it checks extension first)
-        $this->assertSame('xml',$handled->getAttribute('output_type'));
+        // URL extension is irrelevant; Accept header wins
+        $this->assertSame('json',$handled->getAttribute('output_type'));
     }
 
     public function testWildcardAccept(): void
@@ -99,6 +99,24 @@ class ContentNegotiationMiddlewareTest extends TestCase
         $mw = new ContentNegotiationMiddleware();
         $req = (new ServerRequest('GET','/foo'))->withHeader('Accept','application/json');
         $handled = $this->negotiate($mw,$req);
+        $this->assertSame('json',$handled->getAttribute('output_type'));
+    }
+
+    public function testQualityParametersRespected(): void
+    {
+        $mw = new ContentNegotiationMiddleware();
+        $req = (new ServerRequest('GET','/foo'))->withHeader('Accept','application/json;q=0.5, text/html;q=0.9');
+        $handled = $this->negotiate($mw,$req);
+        // HTML has higher quality (0.9 > 0.5), so it wins
+        $this->assertSame('html',$handled->getAttribute('output_type'));
+    }
+
+    public function testQualityParametersHighJsonWins(): void
+    {
+        $mw = new ContentNegotiationMiddleware();
+        $req = (new ServerRequest('GET','/foo'))->withHeader('Accept','application/json;q=0.9, text/html;q=0.5');
+        $handled = $this->negotiate($mw,$req);
+        // JSON has higher quality (0.9 > 0.5), so it wins
         $this->assertSame('json',$handled->getAttribute('output_type'));
     }
 }
