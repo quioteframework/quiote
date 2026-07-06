@@ -303,7 +303,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 				$collectArguments($validator);
 			}
 			
-			if($allArgumentNames) { $request->enforceValidatedParameters(array_keys($allArgumentNames)); }
+			if($allArgumentNames) { $request = $request->enforceValidatedParameters(array_keys($allArgumentNames)); }
 			// Persist export names list for later re-whitelisting post-prune (if validation fails, no export() call happens)
 			$this->setParameter('_predeclared_exports', array_keys($allExportNames));
 		}
@@ -311,12 +311,15 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 		$success = true;
 		$this->report = new ValidationReport();
 		$result = Validator::SUCCESS;
-		
+
 		$executedValidators = 0;
 		foreach($this->children as $validator) {
 			++$executedValidators;
 
 			$validatorResult = $validator->execute($request);
+			// Validator::export() may have replaced its own copy of $request (setParameter/
+			// enforceValidatedParameters are immutable); pick up whatever it ended with.
+			$request = $validator->getMutatedRequest() ?? $request;
 			if ($vd) {
 				$logger->debug('[ValidationManager] Result from ' . $validator->getName() . ': ' . $validatorResult);
 			}
@@ -354,7 +357,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 				$maParam = $request->getAttribute($ma);
 				$aaParam = $request->getParameter($aa);
 			}
-			$request->clearParameters();
+			$request = $request->clearParameters();
 			if($umap) {
 				if($maParam) {
 					$request = $request->withAttribute($ma, $maParam);
@@ -436,9 +439,14 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 					if($aa) { $finalWhitelist[] = $aa; }
 				}
 				$finalWhitelist = array_values(array_unique($finalWhitelist));
-				if($finalWhitelist) { $request->enforceValidatedParameters($finalWhitelist); }
+				if($finalWhitelist) { $request = $request->enforceValidatedParameters($finalWhitelist); }
 			}
 		}
+
+		// Ensure the context always reflects the final request state, regardless of which
+		// branch above mutated it (executedValidators==0 clears params without an explicit
+		// setRequest() call above; the executedValidators>0 branch already re-syncs mid-flow).
+		$this->getContext()->setRequest($request);
 
 		if ($vd) {
 			$logger->debug('[ValidationManager] finalSuccess=' . ($success? '1':'0') . ' highestResult=' . $result . ' executedValidators=' . $executedValidators);

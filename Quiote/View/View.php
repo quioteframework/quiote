@@ -706,6 +706,26 @@ abstract class View implements ResetInterface
 	}
 
 	/**
+	 * Register a stylesheet for this page's render tree. Unlike
+	 * appendAttribute(), this reaches Context::getAssetRegistry() directly,
+	 * so it works from a top-level view or a slot-nested one alike, and is
+	 * unaffected by the immutable-snapshot no-op that appendAttribute() hits
+	 * under the modern container-less execution path.
+	 */
+	public function addCss(string $href): void
+	{
+		$this->getContext()?->getAssetRegistry()->addCss($href);
+	}
+
+	/**
+	 * Register a script for this page's render tree. See addCss().
+	 */
+	public function addJavascript(string $src): void
+	{
+		$this->getContext()?->getAssetRegistry()->addJavascript($src);
+	}
+
+	/**
 	 * @see        AttributeHolder::setAttributesByRef()
 	 * @param      string $name An attribute name.
 	 * @param      mixed  $value A reference to an attribute value.

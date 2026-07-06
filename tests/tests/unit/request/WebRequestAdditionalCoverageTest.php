@@ -31,9 +31,9 @@ class WebRequestAdditionalCoverageTest extends UnitTestCase
     public function testSetParameterBracketBuildsNestedStructure(): void
     {
         $wr = $this->newRequest();
-        $wr->setParameter('user[profile][name]', 'alice');
+        $wr = $wr->setParameter('user[profile][name]', 'alice');
         // Whitelist both root and bracket path for strict validation
-        $wr->enforceValidatedParameters(['user','user[profile][name]']);
+        $wr = $wr->enforceValidatedParameters(['user','user[profile][name]']);
         $this->assertSame('alice', $wr->getParameter('user[profile][name]'));
         // Ensure full bracket key not stored separately at root
         $all = $wr->getParameters('runtime');
@@ -45,9 +45,9 @@ class WebRequestAdditionalCoverageTest extends UnitTestCase
     public function testAppendParameterCreatesArrayAndAppends(): void
     {
         $wr = $this->newRequest();
-        $wr->appendParameter('list', 'a');
-        $wr->appendParameter('list', 'b');
-        $wr->enforceValidatedParameters(['list']);
+        $wr = $wr->appendParameter('list', 'a');
+        $wr = $wr->appendParameter('list', 'b');
+        $wr = $wr->enforceValidatedParameters(['list']);
         $vals = $wr->getParameter('list');
         $this->assertSame(['a','b'], $vals);
     }
@@ -80,11 +80,11 @@ class WebRequestAdditionalCoverageTest extends UnitTestCase
     public function testWithQueryParamsCloneIndependence(): void
     {
         $wr = $this->newRequest([], ['a' => '1'], ['b' => '2']);
-        $wr->enforceValidatedParameters(['a','b']);
+        $wr = $wr->enforceValidatedParameters(['a','b']);
         $this->assertSame('1', $wr->getParameter('a'));
         $next = $wr->withQueryParams(['a' => '9']);
         // In clone, a changed; original unchanged
-        $next->enforceValidatedParameters(['a','b']); // ensure whitelist copied or reinforced
+        $next = $next->enforceValidatedParameters(['a','b']); // ensure whitelist copied or reinforced
         $this->assertSame('9', $next->getParameter('a'));
         $this->assertSame('1', $wr->getParameter('a'));
         $this->assertSame('2', $wr->getParameter('b'));
@@ -93,7 +93,7 @@ class WebRequestAdditionalCoverageTest extends UnitTestCase
     public function testTrailingBracketArrayAccess(): void
     {
         $wr = $this->newRequest([], [], ['tags' => ['x','y']]);
-        $wr->enforceValidatedParameters(['tags','tags[]']);
+        $wr = $wr->enforceValidatedParameters(['tags','tags[]']);
         $tags = $wr->getParameter('tags[]');
         $this->assertSame(['x','y'], $tags);
     }

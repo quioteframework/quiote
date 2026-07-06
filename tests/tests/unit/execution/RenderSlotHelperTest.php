@@ -38,7 +38,7 @@ class RenderSlotHelperTest extends UnitTestCase
         try {
             $ctxReq = $this->getContext()->getRequest();
             if($ctxReq instanceof WebRequest) {
-                $ctxReq->enforceValidatedParameters(['foo','alpha','x','fail']);
+                $this->getContext()->setRequest($ctxReq->enforceValidatedParameters(['foo','alpha','x','fail']));
             }
         } catch(\Throwable) {}
         return $view;

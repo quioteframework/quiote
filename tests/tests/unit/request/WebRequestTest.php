@@ -23,7 +23,7 @@ class WebRequestTest extends UnitTestCase
 		$this->_r = new WebRequest();
 		$this->_r->initialize($this->getContext());
 		// Strict validation: pre-whitelist parameter names referenced in tests
-		$this->_r->enforceValidatedParameters(['x','y','z','a','b','k','missing']);
+		$this->_r = $this->_r->enforceValidatedParameters(['x','y','z','a','b','k','missing']);
 	}
 	
 	public function testGetUrlScheme()
@@ -64,7 +64,7 @@ class WebRequestTest extends UnitTestCase
 			->withQueryParams(['x' => '1', 'y' => '2'])
 			->withParsedBody(['y' => 'body', 'z' => '3']);
 		// Ensure whitelist includes merged params (already added in setUp but safe to repeat)
-		$this->_r->enforceValidatedParameters(['x','y','z']);
+		$this->_r = $this->_r->enforceValidatedParameters(['x','y','z']);
 		$this->assertSame('1', $this->_r->getParameter('x'));
 		$this->assertSame('body', $this->_r->getParameter('y'));
 		$this->assertSame('3', $this->_r->getParameter('z'));
@@ -78,7 +78,7 @@ class WebRequestTest extends UnitTestCase
 			->withMethod('POST')
 			->withHeader('Content-Type', 'application/x-www-form-urlencoded')
 			->withBody($stream);
-		$this->_r->enforceValidatedParameters(['a','b']);
+		$this->_r = $this->_r->enforceValidatedParameters(['a','b']);
 		// Current implementation does not parse raw form body unless parsedBody already array.
 		$this->assertNull($this->_r->getParameter('a'));
 		$this->assertNull($this->_r->getParameter('b'));
@@ -86,11 +86,11 @@ class WebRequestTest extends UnitTestCase
 
 	public function testIsParameterValueEmptyAndRuntimeMutation()
 	{
-		$this->_r->enforceValidatedParameters(['missing','k']);
+		$this->_r = $this->_r->enforceValidatedParameters(['missing','k']);
 		$this->assertTrue($this->_r->isParameterValueEmpty('missing'));
-		$this->_r->setParameter('k', '');
+		$this->_r = $this->_r->setParameter('k', '');
 		$this->assertTrue($this->_r->isParameterValueEmpty('k'));
-		$this->_r->setParameter('k', 'v');
+		$this->_r = $this->_r->setParameter('k', 'v');
 		$this->assertFalse($this->_r->isParameterValueEmpty('k'));
 		$this->_r = $this->_r->removeParameter('k');
 		$this->assertTrue($this->_r->isParameterValueEmpty('k'));

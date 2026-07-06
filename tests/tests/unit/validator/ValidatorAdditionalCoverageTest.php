@@ -66,6 +66,7 @@ class ValidatorAdditionalCoverageTest extends BaseValidatorTest
 
         $rd = $this->newWebRequest(['User' => [5 => ['name' => 'Ada']]], ['User[5][name]']);
         $validator->execute($rd);
+        $rd = $validator->getMutatedRequest() ?? $rd;
 
         $this->assertSame([5], $validator->capturedBaseKeys);
         $this->assertSame(5, $validator->capturedLastKey);
@@ -77,6 +78,7 @@ class ValidatorAdditionalCoverageTest extends BaseValidatorTest
         $validator = $this->createExposingValidator($vm, ['field'], ['name' => 'v1']);
         $rd = $this->newWebRequest(['field' => 'x']);
         $validator->execute($rd);
+        $rd = $validator->getMutatedRequest() ?? $rd;
 
         $this->assertNull($validator->capturedLastKey);
     }
@@ -99,6 +101,7 @@ class ValidatorAdditionalCoverageTest extends BaseValidatorTest
 
         $rd = $this->newWebRequest(['a' => 'x']);
         $validator->execute($rd);
+        $rd = $validator->getMutatedRequest() ?? $rd;
 
         // affectedArguments gets overwritten again by validateInBase() before recording
         // results, so this only proves the setter itself runs without error and the
@@ -112,6 +115,7 @@ class ValidatorAdditionalCoverageTest extends BaseValidatorTest
         $validator = $vm->createValidator(QMExposingValidator::class, ['a'], [], ['name' => 'v1']);
         $rd = $this->newWebRequest(['a' => 'x']);
         $validator->execute($rd);
+        $rd = $validator->getMutatedRequest() ?? $rd;
 
         $validator->reset();
 
@@ -130,6 +134,7 @@ class ValidatorAdditionalCoverageTest extends BaseValidatorTest
 
         $this->expectException(\Quiote\Exception\ConfigurationException::class);
         $validator->execute($rd);
+        $rd = $validator->getMutatedRequest() ?? $rd;
     }
 
     public function testWildcardBaseValidatesEachExistingKey(): void
@@ -147,6 +152,7 @@ class ValidatorAdditionalCoverageTest extends BaseValidatorTest
             ],
         ], ['Users[0][name]', 'Users[1][name]']);
         $result = $validator->execute($rd);
+        $rd = $validator->getMutatedRequest() ?? $rd;
 
         $this->assertSame(Validator::SUCCESS, $result);
     }
@@ -161,6 +167,7 @@ class ValidatorAdditionalCoverageTest extends BaseValidatorTest
 
         $rd = $this->newWebRequest(['Users' => []]);
         $result = $validator->execute($rd);
+        $rd = $validator->getMutatedRequest() ?? $rd;
 
         $this->assertSame(Validator::ERROR, $result);
     }
@@ -176,6 +183,7 @@ class ValidatorAdditionalCoverageTest extends BaseValidatorTest
 
         $rd = $this->newWebRequest(['Users' => []]);
         $result = $validator->execute($rd);
+        $rd = $validator->getMutatedRequest() ?? $rd;
 
         $this->assertSame(Validator::NOT_PROCESSED, $result);
     }

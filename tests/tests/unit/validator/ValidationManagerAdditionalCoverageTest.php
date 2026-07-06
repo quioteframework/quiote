@@ -27,6 +27,8 @@ class ValidationManagerAdditionalCoverageTest extends UnitTestCase
         $eq = $vm->createValidator(\Quiote\Validator\EqualsValidator::class, ['foo'], [], ['name'=>'eq','value'=>'123','export'=>'result']);
         $req = $this->newWebRequest(['foo' => '123']);
         $this->assertTrue($vm->execute($req));
+        // ValidationManager::execute() re-syncs its final (immutable) request into the context.
+        $req = $vm->getContext()->getRequest();
         // Export should have been whitelisted & preserved
         $this->assertTrue($req->hasParameter('result'));
         $this->assertSame('123', $req->getParameter('result'));
@@ -38,8 +40,9 @@ class ValidationManagerAdditionalCoverageTest extends UnitTestCase
         $bool = $vm->createValidator(\Quiote\Validator\BooleanValidator::class, ['flag'], [], ['name'=>'b']);
         $req = $this->newWebRequest(['flag' => '1']);
         $this->assertTrue($vm->execute($req));
+        $req = $vm->getContext()->getRequest();
         // Whitelist for strict enforcement path; relaxed mode still enforces ALWAYS, supply keys now.
-        $req->enforceValidatedParameters(['flag']);
+        $req = $req->enforceValidatedParameters(['flag']);
         $this->assertSame(true, $req->getParameter('flag')); // cast persisted
     }
 
@@ -50,7 +53,8 @@ class ValidationManagerAdditionalCoverageTest extends UnitTestCase
         $num1 = $vm1->createValidator(\Quiote\Validator\NumberValidator::class, ['amount'], [], ['name'=>'n1','type'=>'int','min'=>1,'max'=>10,'cast_to'=>'int']);
         $req1 = $this->newWebRequest(['amount' => '5']);
         $this->assertTrue($vm1->execute($req1));
-        $req1->enforceValidatedParameters(['amount']);
+        $req1 = $vm1->getContext()->getRequest();
+        $req1 = $req1->enforceValidatedParameters(['amount']);
         $this->assertSame(5, $req1->getParameter('amount'));
         // Second: fails min
         $vm2 = $this->vm(['mode' => ValidationManager::MODE_RELAXED]);
@@ -88,7 +92,7 @@ class ValidationManagerAdditionalCoverageTest extends UnitTestCase
         $req = $this->newWebRequest(['fieldA'=>'1','fieldB'=>'2']);
         $this->assertTrue($vm->execute($req));
         // After execution arguments still retrievable under strict enforcement if we now enforce
-        $req->enforceValidatedParameters(['fieldA','fieldB']);
+        $req = $req->enforceValidatedParameters(['fieldA','fieldB']);
         $this->assertSame('1', $req->getParameter('fieldA'));
         $this->assertSame('2', $req->getParameter('fieldB'));
     }

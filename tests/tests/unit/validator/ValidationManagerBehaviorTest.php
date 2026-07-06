@@ -54,7 +54,7 @@ class ValidationManagerBehaviorTest extends UnitTestCase
     {
         $vm = $this->newVm(['mode' => ValidationManager::MODE_STRICT]);
         $req = $this->newWebRequest();
-        $req->setParameter('unvalidated', 'val');
+        $req = $req->setParameter('unvalidated', 'val');
         // No validators registered -> strict mode should clear parameters
         $this->assertTrue($vm->execute($req));
         // Get the pruned request from context after validation

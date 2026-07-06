@@ -46,6 +46,7 @@ class NumberValidatorTest extends UnitTestCase
 		$validator = $this->vm->createValidator(NumberValidator::class, ['number'], ['invalid argument'], $parameters = ['type' => 'int']);
 		$rd = $this->newWebRequest(['number' => $number]);
 		$result = $validator->execute($rd);
+		$rd = $validator->getMutatedRequest() ?? $rd;
 		$this->assertEquals(Validator::ERROR, $result);
 		$this->assertEquals($number, $rd->getParameter('number'));
 		$this->assertTrue(is_string($rd->getParameter('number')), 'Failed asserting that the parameter "number" is a string');
@@ -57,6 +58,7 @@ class NumberValidatorTest extends UnitTestCase
 		$validator = $this->vm->createValidator(NumberValidator::class, ['number'], ['invalid argument'], $parameters = ['type' => 'float']);
 		$rd = $this->newWebRequest(['number' => $number]);
 		$result = $validator->execute($rd);
+		$rd = $validator->getMutatedRequest() ?? $rd;
 		$this->assertEquals(Validator::SUCCESS, $result);
 		$this->assertEquals($number, $rd->getParameter('number'));
 		$this->assertTrue(is_float($rd->getParameter('number')), 'Failed asserting that the parameter "number" is a float');
@@ -68,6 +70,7 @@ class NumberValidatorTest extends UnitTestCase
 		$validator = $this->vm->createValidator(NumberValidator::class, ['number'], ['invalid argument'], $parameters = ['type' => 'int']);
 		$rd = $this->newWebRequest(['number' => $number]);
 		$result = $validator->execute($rd);
+		$rd = $validator->getMutatedRequest() ?? $rd;
 		$this->assertEquals(Validator::SUCCESS, $result);
 		$this->assertEquals($number, $rd->getParameter('number'));
 		$this->assertTrue(is_int($rd->getParameter('number')), 'Failed asserting that the parameter "number" is an int');
@@ -79,6 +82,7 @@ class NumberValidatorTest extends UnitTestCase
 		$validator = $this->vm->createValidator(NumberValidator::class, ['number'], ['invalid argument'], $parameters = ['type' => 'float', 'cast_to' => 'int']);
 		$rd = $this->newWebRequest(['number' => $number]);
 		$result = $validator->execute($rd);
+		$rd = $validator->getMutatedRequest() ?? $rd;
 		$this->assertEquals(Validator::SUCCESS, $result);
 		$this->assertEquals(1, $rd->getParameter('number'));
 		$this->assertTrue(is_int($rd->getParameter('number')), 'Failed asserting that the parameter "number" is an int');
@@ -90,6 +94,7 @@ class NumberValidatorTest extends UnitTestCase
 		$validator = $this->vm->createValidator(NumberValidator::class, ['number'], ['invalid argument'], $parameters = ['type' => 'float', 'cast_to' => 'float']);
 		$rd = $this->newWebRequest(['number' => $number]);
 		$result = $validator->execute($rd);
+		$rd = $validator->getMutatedRequest() ?? $rd;
 		$this->assertEquals(Validator::SUCCESS, $result);
 		$this->assertEquals(1, $rd->getParameter('number'));
 		$this->assertTrue(is_float($rd->getParameter('number')), 'Failed asserting that the parameter "number" is a float');
@@ -102,6 +107,7 @@ class NumberValidatorTest extends UnitTestCase
 		$validator = $this->vm->createValidator(NumberValidator::class, ['number'], ['min' => $minError], $parameters = ['type' => 'int', 'min' => 2]);
 		$rd = $this->newWebRequest(['number' => $number]);
 		$result = $validator->execute($rd);
+		$rd = $validator->getMutatedRequest() ?? $rd;
 		$this->assertEquals(Validator::ERROR, $result);
 		$this->assertEquals(1, $this->vm->getReport()->byErrorName('min')->count(), 'Failes asserting that there is one min error.');
 		$this->assertEquals([$minError], $this->vm->getReport()->getErrorMessages(), 'Failed asserting that the min error message is emittet.');
@@ -112,7 +118,9 @@ class NumberValidatorTest extends UnitTestCase
 		$minError = 'value too low';
 		$validator = $this->vm->createValidator(NumberValidator::class, ['number'], ['min' => $minError], $parameters = ['type' => 'int', 'min' => 2]);
 		$rd = $this->newWebRequest(['number' => '1']);
-		$this->assertEquals(Validator::ERROR, $validator->execute($rd));
+		$result = $validator->execute($rd);
+		$rd = $validator->getMutatedRequest() ?? $rd;
+		$this->assertEquals(Validator::ERROR, $result);
 
 		// getErrorMessagesWithFields() must return the field-annotated structure
 		// (the same shape the deprecated ValidationManager::getErrorMessages()
@@ -128,7 +136,9 @@ class NumberValidatorTest extends UnitTestCase
 	{
 		$validator = $this->vm->createValidator(NumberValidator::class, ['number'], ['min' => 'value too low'], $parameters = ['type' => 'int', 'min' => 1]);
 		$rd = $this->newWebRequest(['number' => '1']);
-		$this->assertEquals(Validator::SUCCESS, $validator->execute($rd));
+		$result = $validator->execute($rd);
+		$rd = $validator->getMutatedRequest() ?? $rd;
+		$this->assertEquals(Validator::SUCCESS, $result);
 		$this->assertEquals([], $this->vm->getReport()->getErrorMessagesWithFields());
 	}
 
@@ -139,6 +149,7 @@ class NumberValidatorTest extends UnitTestCase
 		$validator = $this->vm->createValidator(NumberValidator::class, ['number'], ['min' => $minError], $parameters = ['type' => 'int', 'min' => 1]);
 		$rd = $this->newWebRequest(['number' => $number]);
 		$result = $validator->execute($rd);
+		$rd = $validator->getMutatedRequest() ?? $rd;
 		$this->assertEquals(Validator::SUCCESS, $result);
 		$this->assertEquals(0, $this->vm->getReport()->byErrorName('min')->count(), 'Failes asserting that there is no min error.');
 		$this->assertEquals([], $this->vm->getReport()->getErrorMessages(), 'Failed asserting that no min error message is emittet.');
@@ -151,6 +162,7 @@ class NumberValidatorTest extends UnitTestCase
 		$validator = $this->vm->createValidator(NumberValidator::class, ['number'], ['max' => $maxError], $parameters = ['type' => 'int', 'max' => 1]);
 		$rd = $this->newWebRequest(['number' => $number]);
 		$result = $validator->execute($rd);
+		$rd = $validator->getMutatedRequest() ?? $rd;
 		$this->assertEquals(Validator::ERROR, $result);
 		$this->assertEquals(1, $this->vm->getReport()->byErrorName('max')->count(), 'Failes asserting that there is one max error.');
 		$this->assertEquals([$maxError], $this->vm->getReport()->getErrorMessages(), 'Failed asserting that the max error message is emittet.');
@@ -163,6 +175,7 @@ class NumberValidatorTest extends UnitTestCase
 		$validator = $this->vm->createValidator(NumberValidator::class, ['number'], ['max' => $maxError], $parameters = ['type' => 'int', 'max' => 2]);
 		$rd = $this->newWebRequest(['number' => $number]);
 		$result = $validator->execute($rd);
+		$rd = $validator->getMutatedRequest() ?? $rd;
 		$this->assertEquals(Validator::SUCCESS, $result);
 		$this->assertEquals(0, $this->vm->getReport()->byErrorName('max')->count(), 'Failes asserting that there is no max error.');
 		$this->assertEquals([], $this->vm->getReport()->getErrorMessages(), 'Failed asserting that no max error message is emittet.');

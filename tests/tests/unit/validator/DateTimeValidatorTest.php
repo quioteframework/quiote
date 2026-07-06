@@ -73,6 +73,7 @@ class DateTimeValidatorTest extends UnitTestCase
         $input = '2025-10-02 13:24:30';
         $request = $this->newWebRequest(['date' => $input]);
         $result = $validator->execute($request);
+        $request = $validator->getMutatedRequest() ?? $request;
 
         $this->assertSame(Validator::SUCCESS, $result);
         $normalized = $request->getParameter('normalized');
@@ -99,6 +100,7 @@ class DateTimeValidatorTest extends UnitTestCase
 
         $request = $this->newWebRequest(['stamp' => $epochMillis]);
         $result = $validator->execute($request);
+        $request = $validator->getMutatedRequest() ?? $request;
 
         $this->assertSame(Validator::SUCCESS, $result);
         $this->assertSame((int) floor(((int) $epochMillis) / 1000), $request->getParameter('stamp'));
@@ -137,6 +139,7 @@ class DateTimeValidatorTest extends UnitTestCase
             'second' => '15',
         ]);
         $result = $validator->execute($request);
+        $request = $validator->getMutatedRequest() ?? $request;
 
         $this->assertSame(Validator::SUCCESS, $result);
         $this->assertSame(2025, $request->getParameter('year_out'));
@@ -163,15 +166,18 @@ class DateTimeValidatorTest extends UnitTestCase
 
         $request = $this->newWebRequest(['date' => '2025-06-15 12:00:00']);
         $result = $validator->execute($request);
+        $request = $validator->getMutatedRequest() ?? $request;
 
         $this->assertSame(Validator::SUCCESS, $result);
 
         $requestTooLow = $this->newWebRequest(['date' => '2024-12-31 23:59:59']);
         $resultTooLow = $validator->execute($requestTooLow);
+        $requestTooLow = $validator->getMutatedRequest() ?? $requestTooLow;
         $this->assertSame(Validator::ERROR, $resultTooLow);
 
         $requestTooHigh = $this->newWebRequest(['date' => '2026-01-01 00:00:00']);
         $resultTooHigh = $validator->execute($requestTooHigh);
+        $requestTooHigh = $validator->getMutatedRequest() ?? $requestTooHigh;
         $this->assertSame(Validator::ERROR, $resultTooHigh);
     }
 
@@ -191,6 +197,7 @@ class DateTimeValidatorTest extends UnitTestCase
         // malformed date (month=13)
         $request = $this->newWebRequest(['date' => '2025-13-10 08:15:00']);
         $result = $validator->execute($request);
+        $request = $validator->getMutatedRequest() ?? $request;
         
         $this->assertSame(Validator::ERROR, $result);
     }
@@ -211,6 +218,7 @@ class DateTimeValidatorTest extends UnitTestCase
         );
         $request = $this->newWebRequest(['date' => '2025-03-10 08:15:00']);
         $result = $validator->execute($request);
+        $request = $validator->getMutatedRequest() ?? $request;
         // Implementation resolves timezone early; invalid string falls back silently. Document SUCCESS.
         $this->assertSame(Validator::SUCCESS, $result);
     }
@@ -230,6 +238,7 @@ class DateTimeValidatorTest extends UnitTestCase
         );
         $request = $this->newWebRequest(['stamp' => '-100']);
         $result = $validator->execute($request);
+        $request = $validator->getMutatedRequest() ?? $request;
         // Negative milliseconds produce a valid timestamp (pre-epoch). Accept SUCCESS.
         $this->assertSame(Validator::SUCCESS, $result);
     }
@@ -262,10 +271,14 @@ class DateTimeValidatorTest extends UnitTestCase
         );
 
         $request = $this->newWebRequest(['date' => '2025-06-15', 'floor' => '2025-01-01']);
-        $this->assertSame(Validator::SUCCESS, $validator->execute($request));
+        $result = $validator->execute($request);
+        $request = $validator->getMutatedRequest() ?? $request;
+        $this->assertSame(Validator::SUCCESS, $result);
 
         $requestTooLow = $this->newWebRequest(['date' => '2024-12-31', 'floor' => '2025-01-01']);
-        $this->assertSame(Validator::ERROR, $validator->execute($requestTooLow));
+        $result = $validator->execute($requestTooLow);
+        $requestTooLow = $validator->getMutatedRequest() ?? $requestTooLow;
+        $this->assertSame(Validator::ERROR, $result);
     }
 
     public function testBoundaryDefinitionArrayWithoutFieldThrowsConfigurationException(): void
@@ -287,6 +300,7 @@ class DateTimeValidatorTest extends UnitTestCase
         $this->expectException(\Quiote\Exception\ConfigurationException::class);
         $this->expectExceptionMessage('Boundary definition for min requires a "field" entry.');
         $validator->execute($request);
+        $request = $validator->getMutatedRequest() ?? $request;
     }
 
     public function testBoundaryValueAsArrayThrowsValidatorException(): void
@@ -308,6 +322,7 @@ class DateTimeValidatorTest extends UnitTestCase
         $this->expectException(\Quiote\Exception\ValidatorException::class);
         $this->expectExceptionMessage('Boundary values must not be arrays.');
         $validator->execute($request);
+        $request = $validator->getMutatedRequest() ?? $request;
     }
 
     public function testUnparsableBoundaryValueThrowsValidatorException(): void
@@ -329,6 +344,7 @@ class DateTimeValidatorTest extends UnitTestCase
         $this->expectException(\Quiote\Exception\ValidatorException::class);
         $this->expectExceptionMessageMatches('/Unable to parse boundary value/');
         $validator->execute($request);
+        $request = $validator->getMutatedRequest() ?? $request;
     }
 
     public function testCastToFormattedString(): void
@@ -352,6 +368,7 @@ class DateTimeValidatorTest extends UnitTestCase
 
         $request = $this->newWebRequest(['date' => '2025-03-10 08:15:00']);
         $result = $validator->execute($request);
+        $request = $validator->getMutatedRequest() ?? $request;
 
         $this->assertSame(Validator::SUCCESS, $result);
         $this->assertSame('2025/03/10', $request->getParameter('formatted'));

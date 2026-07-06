@@ -429,9 +429,10 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 		// legacy: WebRequest has no namespaced bulk setter, so mirror each entry individually
 		$request = $this->context->getRequest();
 		foreach ($forwardInfoData as $key => $value) {
-			$request->setAttribute($forwardInfoNamespace . '.' . $key, $value);
+			$request = $request->setAttribute($forwardInfoNamespace . '.' . $key, $value);
 		}
-		
+		$this->context->setRequest($request);
+
 		return $forwardContainer;
 	}
 	

@@ -25,8 +25,10 @@ class TestOnNotMatchedRoutingCallback extends RoutingCallback
     public function onNotMatched($legacyContainer = null)
     {
         // Mark attribute directly via context routing callbacks pool if needed
-        if($this->getContext() && $this->getContext()->getRequest()) {
-            $this->getContext()->getRequest()->setAttribute('quiote.routing.callbacks.on_not_matched', true);
+        $context = $this->getContext();
+        $request = $context?->getRequest();
+        if ($context && $request) {
+            $context->setRequest($request->setAttribute('quiote.routing.callbacks.on_not_matched', true));
         }
         return true;
     }

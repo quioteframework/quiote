@@ -47,7 +47,9 @@ class SlotNonSimpleParityTest extends UnitTestCase
     \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,false,false); // ensure baseline
     // Strict validation: whitelist parameter used in validation failure scenario
     $ctxReq = $this->getContext()->getRequest();
-    if($ctxReq instanceof \Quiote\Request\WebRequest) { $ctxReq->enforceValidatedParameters(['fail']); }
+    if($ctxReq instanceof \Quiote\Request\WebRequest) {
+        $this->getContext()->setRequest($ctxReq->enforceValidatedParameters(['fail']));
+    }
     $legacy = $this->dispatchWithFlag(false, function(): void{ \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(true,false,false); }, ['fail'=>1]);
     $noContainer = $this->dispatchWithFlag(true, function(): void{ \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(true,false,false); }, ['fail'=>1]);
     $this->assertSame('<div>COMPLEX_ERROR</div>', $legacy);

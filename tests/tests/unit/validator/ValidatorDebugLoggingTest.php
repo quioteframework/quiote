@@ -37,7 +37,9 @@ class ValidatorDebugLoggingTest extends UnitTestCase
         $vm = $this->getContext()->createInstanceFor('validation_manager');
         $validator = $vm->createValidator($class, ['value'], [], $params);
         $rd = $this->newWebRequest(['value' => $value]);
-        return ['result' => $validator->execute($rd), 'vm' => $vm, 'rd' => $rd];
+        $result = $validator->execute($rd);
+        $rd = $validator->getMutatedRequest() ?? $rd;
+        return ['result' => $result, 'vm' => $vm, 'rd' => $rd];
     }
 
     public function testScalarStringWithDebugEnabled()

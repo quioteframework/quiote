@@ -143,6 +143,9 @@ class Context implements \Stringable, ResetInterface
   /** @var ?\Quiote\Execution\ActionResolver */
   protected $actionResolver = null;
 
+  /** @var ?\Quiote\Asset\AssetRegistry */
+  protected $assetRegistry = null;
+
   /**
    * @var        ?array<string, mixed> Storage factory info for worker mode recreation
    */
@@ -475,6 +478,7 @@ class Context implements \Stringable, ResetInterface
     // Reset singleton model instances
     $this->singletonModelInstances = [];
     $this->slotDispatcher = null; // rebuild per request
+    $this->assetRegistry = null; // rebuild per request (worker-mode safe)
 
     // Log user state before reset
     if ($this->user) {
@@ -743,6 +747,15 @@ class Context implements \Stringable, ResetInterface
       );
     }
     return $this->slotDispatcher;
+  }
+
+  /**
+   * Retrieve (lazily create) the AssetRegistry shared by the whole render
+   * tree for this request (the top-level View and every nested slot View).
+   */
+  public function getAssetRegistry(): \Quiote\Asset\AssetRegistry
+  {
+    return $this->assetRegistry ??= new \Quiote\Asset\AssetRegistry();
   }
 
   public function getActionResolver(): \Quiote\Execution\ActionResolver

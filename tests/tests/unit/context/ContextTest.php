@@ -190,6 +190,23 @@ class ContextTest extends PhpUnitTestCase
 	}
 
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+	public function testGetAssetRegistryReturnsSameInstanceUntilReset()
+	{
+		$ctx = Context::getInstance('asset_registry_test');
+		$registry1 = $ctx->getAssetRegistry();
+		$this->assertInstanceOf(\Quiote\Asset\AssetRegistry::class, $registry1);
+		$registry2 = $ctx->getAssetRegistry();
+		$this->assertSame($registry1, $registry2, 'Lazily created AssetRegistry must be a per-Context singleton within a request');
+
+		$registry1->addCss('css/one.css');
+		$ctx->reset();
+
+		$registry3 = $ctx->getAssetRegistry();
+		$this->assertNotSame($registry1, $registry3, 'reset() must rebuild the registry so assets never leak between requests in worker mode');
+		$this->assertSame([], $registry3->css(), 'A freshly rebuilt registry must start empty');
+	}
+
+	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
 	public function testGetRouting()
 	{
 		$ctx = Context::getInstance();

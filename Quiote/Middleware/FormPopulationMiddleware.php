@@ -30,7 +30,8 @@ class FormPopulationMiddleware implements MiddlewareInterface
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $webRequest = $this->resolveWebRequest($request);
-        $this->ensureDefaultConfig($webRequest);
+        $webRequest = $this->ensureDefaultConfig($webRequest);
+        $this->controller->getContext()->setRequest($webRequest);
         $request = $request->withAttribute('quiote.request_data', $webRequest);
 
         $response = $handler->handle($request);
@@ -47,7 +48,7 @@ class FormPopulationMiddleware implements MiddlewareInterface
 
         $globalResponse->setContent($content);
 
-        $this->applyRuntimeConfig($webRequest, $request);
+        $webRequest = $this->applyRuntimeConfig($webRequest, $request);
 
         try {
             $this->engine->populate($globalResponse, $webRequest);
@@ -85,29 +86,30 @@ class FormPopulationMiddleware implements MiddlewareInterface
         // No need to attachPsrRequest - WebRequest IS the PSR-7 request
         $query = $request->getQueryParams();
         foreach ($query as $k => $v) {
-            $rd->setParameter($k, $v);
+            $rd = $rd->setParameter($k, $v);
         }
         $body = $request->getParsedBody();
         if (is_array($body)) {
             foreach ($body as $k => $v) {
-                $rd->setParameter($k, $v);
+                $rd = $rd->setParameter($k, $v);
             }
         }
         $routeParams = $request->getAttribute('route_params');
         if (is_array($routeParams)) {
             foreach ($routeParams as $k => $v) {
-                $rd->setParameter($k, $v);
+                $rd = $rd->setParameter($k, $v);
             }
         }
         return $rd;
     }
 
-    private function ensureDefaultConfig(WebRequest $request): void
+    private function ensureDefaultConfig(WebRequest $request): WebRequest
     {
-        FormPopulationConfig::seed($request, $this->engine->getDefaults());
+        $updated = FormPopulationConfig::seed($request, $this->engine->getDefaults());
+        return $updated instanceof WebRequest ? $updated : $request;
     }
 
-    private function applyRuntimeConfig(WebRequest $webRequest, ServerRequestInterface $psrRequest): void
+    private function applyRuntimeConfig(WebRequest $webRequest, ServerRequestInterface $psrRequest): WebRequest
     {
         $config = FormPopulationConfig::get($webRequest);
         if (($config['force_request_uri'] ?? false) === false) {
@@ -115,15 +117,18 @@ class FormPopulationMiddleware implements MiddlewareInterface
             if ($path === '') {
                 $path = '/';
             }
-            FormPopulationConfig::merge($webRequest, ['force_request_uri' => $path]);
+            $updated = FormPopulationConfig::merge($webRequest, ['force_request_uri' => $path]);
+            $webRequest = $updated instanceof WebRequest ? $updated : $webRequest;
         }
         if (($config['force_request_url'] ?? false) === false) {
             $url = (string) $psrRequest->getUri();
             if ($url === '') {
                 $url = '/';
             }
-            FormPopulationConfig::merge($webRequest, ['force_request_url' => $url]);
+            $updated = FormPopulationConfig::merge($webRequest, ['force_request_url' => $url]);
+            $webRequest = $updated instanceof WebRequest ? $updated : $webRequest;
         }
+        return $webRequest;
     }
 
     private function extractBody(ResponseInterface $response): string

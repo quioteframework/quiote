@@ -131,8 +131,9 @@ class SlotDispatcher
                         }
                         $originals[$k] = $originalValue;
                     }
-                    $rdh->setParameter($k, $v);
+                    $rdh = $rdh->setParameter($k, $v);
                 }
+                $this->controller->getContext()->setRequest($rdh);
                 // (former temporary GuidanceSection instrumentation removed)
                 $overlayApplied = true;
                 if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
@@ -503,15 +504,19 @@ class SlotDispatcher
                         // We can't know overlay value without storing; accept leaving value as is if mismatch risk.
                         // Safer: remove unconditionally when original null and key exists.
                         try {
-                            $rdh->removeParameter($k);
+                            $rdh = $rdh->removeParameter($k);
                         } catch (\Throwable) {
                         }
                     } else {
                         try {
-                            $rdh->setParameter($k, $v);
+                            $rdh = $rdh->setParameter($k, $v);
                         } catch (\Throwable) {
                         }
                     }
+                }
+                try {
+                    $this->controller->getContext()->setRequest($rdh);
+                } catch (\Throwable) {
                 }
             }
             $this->executionGuard->leave($stack);

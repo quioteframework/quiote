@@ -115,8 +115,10 @@ class AdditionalValidatorEdgeCasesTest extends UnitTestCase
         ]);
         $req2 = $this->newWebRequest(['val'=>'AB123']);
         $this->assertTrue($vm2->execute($req2));
+        // ValidationManager::execute() re-syncs its final (immutable) request into the context.
+        $req2 = $vm2->getContext()->getRequest();
         // Whitelist exported names then assert presence
-        $req2->enforceValidatedParameters(['val','pref','digits']);
+        $req2 = $req2->enforceValidatedParameters(['val','pref','digits']);
         $this->assertSame('AB', $req2->getParameter('pref'));
         $this->assertSame('123', $req2->getParameter('digits'));
     }
@@ -146,7 +148,8 @@ class AdditionalValidatorEdgeCasesTest extends UnitTestCase
         $sv2 = $vm2->createValidator(\Quiote\Validator\StringValidator::class, ['s'], ['min'=>'too short','max'=>'too long'], ['name'=>'sv2','min'=>1,'max'=>4,'severity'=>'error','trim'=>true,'export'=>'s_out']);
         $req2 = $this->newWebRequest(['s'=>'  ab  ']);
         $this->assertTrue($vm2->execute($req2));
-        $req2->enforceValidatedParameters(['s','s_out']);
+        $req2 = $vm2->getContext()->getRequest();
+        $req2 = $req2->enforceValidatedParameters(['s','s_out']);
         $this->assertSame('ab', $req2->getParameter('s_out'));
         // Too long
         $vm3 = $this->vm(['mode'=>ValidationManager::MODE_RELAXED]);
@@ -218,7 +221,8 @@ class AdditionalValidatorEdgeCasesTest extends UnitTestCase
         ]);
         $req1 = $this->newWebRequest(['price'=>'1,234.50']); // en style
         $this->assertTrue($vm->execute($req1), 'English thousands format should parse');
-        $req1->enforceValidatedParameters(['price']);
+        $req1 = $vm->getContext()->getRequest();
+        $req1 = $req1->enforceValidatedParameters(['price']);
         $this->assertIsFloat($req1->getParameter('price'));
         $vm2 = $this->vm(['mode'=>ValidationManager::MODE_RELAXED]);
         $num2 = $vm2->createValidator(\Quiote\Validator\NumberValidator::class, ['price'], [], [
@@ -226,7 +230,8 @@ class AdditionalValidatorEdgeCasesTest extends UnitTestCase
         ]);
         $req2 = $this->newWebRequest(['price'=>'1.234,50']); // de style
         $this->assertTrue($vm2->execute($req2), 'German thousands format should parse when in_locale=de');
-        $req2->enforceValidatedParameters(['price']);
+        $req2 = $vm2->getContext()->getRequest();
+        $req2 = $req2->enforceValidatedParameters(['price']);
         $this->assertIsFloat($req2->getParameter('price'));
         // Invalid extra separators
         $vm3 = $this->vm(['mode'=>ValidationManager::MODE_RELAXED]);

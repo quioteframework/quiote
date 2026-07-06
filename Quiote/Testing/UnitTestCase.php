@@ -46,7 +46,7 @@ abstract class UnitTestCase extends PhpUnitTestCase implements IUnitTestCase
 		$wl = [];
 		if($parameters) { $wl = array_keys($parameters); }
 		if($additionalWhitelist) { $wl = array_merge($wl, $additionalWhitelist); }
-		if($wl) { $request->enforceValidatedParameters(array_values(array_unique($wl))); }
+		if($wl) { $request = $request->enforceValidatedParameters(array_values(array_unique($wl))); }
 		return $request;
 	}
 }

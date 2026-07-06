@@ -139,7 +139,7 @@ class RuntimeArrayEmitter
 	private function buildDeclareParametersSnippet(array $names): string
 	{
 		return sprintf(
-			'$validationManager->getContext()->getRequest()->declareParameters(%s);',
+			'$validationManager->getContext()->setRequest($validationManager->getContext()->getRequest()->declareParameters(%s));',
 			var_export(array_values($names), true)
 		);
 	}
