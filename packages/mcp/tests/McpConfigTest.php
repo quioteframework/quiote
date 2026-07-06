@@ -11,7 +11,8 @@ final class McpConfigTest extends TestCase
     private const KEYS = [
         'mcp.enabled', 'mcp.transports', 'mcp.path', 'mcp.protocol_version',
         'mcp.stateless', 'mcp.server_name', 'mcp.server_version', 'mcp.auth',
-        'mcp.expose_actions', 'mcp.module_dirs', 'core.app_name',
+        'mcp.expose_actions', 'mcp.module_dirs', 'mcp.discover_attributes',
+        'mcp.discovery_cache', 'core.app_name',
     ];
 
     #[Before]
@@ -37,6 +38,8 @@ final class McpConfigTest extends TestCase
         $this->assertSame('bearer', $config->auth);
         $this->assertFalse($config->exposeActions);
         $this->assertSame([], $config->moduleDirs);
+        $this->assertFalse($config->discoverAttributes);
+        $this->assertTrue($config->discoveryCache);
     }
 
     public function testServerNameFallsBackToCoreAppName(): void
@@ -59,11 +62,15 @@ final class McpConfigTest extends TestCase
         Config::set('mcp.enabled', true, true);
         Config::set('mcp.transports', ['http', 'stdio'], true);
         Config::set('mcp.expose_actions', true, true);
+        Config::set('mcp.discover_attributes', true, true);
+        Config::set('mcp.discovery_cache', false, true);
 
         $config = McpConfig::fromConfig();
 
         $this->assertTrue($config->enabled);
         $this->assertSame(['http', 'stdio'], $config->transports);
         $this->assertTrue($config->exposeActions);
+        $this->assertTrue($config->discoverAttributes);
+        $this->assertFalse($config->discoveryCache);
     }
 }

@@ -9,12 +9,17 @@ use Mcp\Server\Transport\StdioTransport;
 use Mcp\Server\Transport\StreamableHttpTransport;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\SimpleCache\CacheInterface;
+use Quiote\Config\Config;
 use Quiote\Context;
 use Quiote\DI\Container;
 use Quiote\Exception\QuioteException;
 use Quiote\Mcp\Bridge\ActionToolAdapter;
 use Quiote\Mcp\Bridge\ContainerAdapter;
 use Quiote\Mcp\Compiler\ActionToolScanner;
+use Quiote\Mcp\Compiler\McpDirectoryResolver;
+use Symfony\Component\Cache\Adapter\FilesystemAdapter;
+use Symfony\Component\Cache\Psr16Cache;
 
 /**
  * Our own facade over the official `mcp/sdk` `Server::builder()` API: every
@@ -24,6 +29,9 @@ use Quiote\Mcp\Compiler\ActionToolScanner;
  *
  * Builds an SDK server from {@see McpCatalog}'s registered tools/resources/
  * prompts, resolving each handler through Quiote's own DI {@see Container}.
+ *
+ * @phpstan-import-type ToolInputSchema from Tool
+ * @phpstan-import-type ToolOutputSchema from Tool
  */
 final class McpServer
 {
@@ -80,7 +88,58 @@ final class McpServer
             $this->addActionTools($builder, $config);
         }
 
+        $this->addAttributeDiscovery($builder, $config);
+
         return $this->server = $builder->build();
+    }
+
+    /**
+     * Plain-class `#[McpTool]`/`#[McpResource]`/`#[McpPrompt]`/`#[McpResourceTemplate]`
+     * discovery (as opposed to the actions-as-tools bridge, which only reads
+     * `#[McpTool]` on classes that also carry `#[Route]`, see {@see addActionTools()}).
+     * Delegates entirely to the SDK's own `Discoverer`/`DiscoveryLoader`
+     * (`Builder::setDiscovery()`), scoped to each module's `Mcp/` subdirectory
+     * (see {@see McpDirectoryResolver}) rather than the whole app, since that's
+     * already where the actions-as-tools bridge and manual registration cover
+     * the rest of a module's classes. A no-op when `mcp.discover_attributes`
+     * is off (default) or no module contributes an `Mcp/` directory.
+     */
+    private function addAttributeDiscovery(\Mcp\Server\Builder $builder, McpConfig $config): void
+    {
+        if (!$config->discoverAttributes) {
+            return;
+        }
+
+        $scanDirs = (new McpDirectoryResolver())->resolve($config->moduleDirs ?: null);
+        if ($scanDirs === []) {
+            return;
+        }
+
+        $builder->setDiscovery(
+            basePath: '',
+            scanDirs: $scanDirs,
+            excludeDirs: [],
+            cache: $this->buildDiscoveryCache($config),
+        );
+    }
+
+    /**
+     * A file-backed PSR-16 cache for discovery results, so a re-scan is only
+     * paid once per module tree (until it changes) rather than on every
+     * `McpServer::build()` -- including across separate PHP-FPM processes,
+     * unlike an in-memory cache. `mcp:warmup` populates this ahead of time;
+     * see {@see Console\McpWarmupCommand}. Returns null (SDK falls back to an
+     * uncached `Discoverer`) when `mcp.discovery_cache` is off.
+     */
+    private function buildDiscoveryCache(McpConfig $config): ?CacheInterface
+    {
+        if (!$config->discoveryCache) {
+            return null;
+        }
+
+        $cacheDir = rtrim(Config::getString('core.cache_dir', sys_get_temp_dir()), '/') . '/mcp-discovery';
+
+        return new Psr16Cache(new FilesystemAdapter(namespace: '', defaultLifetime: 0, directory: $cacheDir));
     }
 
     /**
@@ -103,27 +162,114 @@ final class McpServer
         $definitions = (new ActionToolScanner())->scan($controller, $config->moduleDirs ?: null);
 
         foreach ($definitions as $definition) {
-            // Prefer the schema derived from the action's own validators;
-            // fall back to a permissive one when none could be derived.
-            // Either way real enforcement happens on
-            // dispatch, so the fallback loses precision, not safety.
-            $inputSchema = $definition->inputSchema
-                ?? ['type' => 'object', 'properties' => [], 'required' => [], 'additionalProperties' => true];
+            $inputSchema = $this->buildToolInputSchema($definition->inputSchema);
+            $outputSchema = $this->buildToolOutputSchema($definition->outputSchema);
 
             // Tool::fromArray() (not the constructor) normalizes an empty
             // "properties" to a JSON object ({}) rather than an array ([]) --
             // the opis/json-schema validator CallToolHandler runs every call's
             // arguments through rejects the array form ("properties must be
-            // an object").
-            $tool = Tool::fromArray([
-                'name' => $definition->toolName,
-                'description' => $definition->description,
-                'inputSchema' => $inputSchema,
-                'outputSchema' => $definition->outputSchema,
-            ]);
+            // an object"). "outputSchema" is an optional key in ToolData, not
+            // a nullable value, so it's only included when actually present.
+            $tool = $outputSchema !== null
+                ? Tool::fromArray([
+                    'name' => $definition->toolName,
+                    'description' => $definition->description,
+                    'inputSchema' => $inputSchema,
+                    'outputSchema' => $outputSchema,
+                ])
+                : Tool::fromArray([
+                    'name' => $definition->toolName,
+                    'description' => $definition->description,
+                    'inputSchema' => $inputSchema,
+                ]);
 
             $builder->add($tool, new ActionToolAdapter($this->contextName, $definition->routeName, $definition->httpMethod));
         }
+    }
+
+    /**
+     * Normalizes an {@see \Quiote\Mcp\Compiler\ActionToolDefinition::$inputSchema}
+     * (derived from the action's own validators, or null when none could be
+     * derived) into the SDK's `ToolInputSchema` shape. Falls back to a fully
+     * permissive schema -- real enforcement happens on dispatch either way, so
+     * the fallback loses precision, not safety.
+     *
+     * Drops an incoming `additionalProperties` key rather than forwarding it:
+     * `ToolInputSchema` doesn't carry one, but JSON Schema already treats a
+     * missing key the same as `additionalProperties: true` -- and
+     * `ValidatorSchemaMapper` (and this method's own fallback) never produce
+     * `false` -- so omitting it changes nothing about how a `tools/call` is
+     * actually validated.
+     *
+     * @param array<string, mixed>|null $schema
+     * @return ToolInputSchema
+     */
+    private function buildToolInputSchema(?array $schema): array
+    {
+        return [
+            'type' => 'object',
+            'properties' => \is_array($schema['properties'] ?? null) ? $schema['properties'] : [],
+            'required' => $this->normalizeRequiredList($schema['required'] ?? null),
+        ];
+    }
+
+    /**
+     * Normalizes an author-supplied `#[McpTool(outputSchema: ...)]` array into
+     * the SDK's `ToolOutputSchema` shape. Unlike the input schema, nothing is
+     * derived here -- the action author opted in explicitly -- so a
+     * non-"object" `type` still throws, matching the check
+     * `Tool::fromArray()` itself would otherwise have performed on the raw array.
+     *
+     * A nested-schema `additionalProperties` (as opposed to a plain bool) is
+     * dropped rather than forwarded: preserving it would need to recursively
+     * validate it's itself a well-formed JSON Schema, which is more machinery
+     * than a rarely-used edge case of an already-optional, author-supplied
+     * schema warrants -- the output schema just becomes correspondingly more
+     * permissive by omission, the same graceful degradation
+     * {@see \Quiote\Mcp\Compiler\ValidatorSchemaMapper} applies to unmappable
+     * input validator rules.
+     *
+     * @param array<string, mixed>|null $schema
+     * @return ToolOutputSchema|null
+     */
+    private function buildToolOutputSchema(?array $schema): ?array
+    {
+        if ($schema === null) {
+            return null;
+        }
+
+        if (($schema['type'] ?? null) !== 'object') {
+            throw new \Mcp\Exception\InvalidArgumentException('Tool outputSchema must be of type "object".');
+        }
+
+        $result = [
+            'type' => 'object',
+            'properties' => \is_array($schema['properties'] ?? null) ? $schema['properties'] : [],
+            'required' => $this->normalizeRequiredList($schema['required'] ?? null),
+        ];
+
+        if (\is_bool($schema['additionalProperties'] ?? null)) {
+            $result['additionalProperties'] = $schema['additionalProperties'];
+        }
+        if (\is_string($schema['description'] ?? null)) {
+            $result['description'] = $schema['description'];
+        }
+
+        return $result;
+    }
+
+    /** @return list<string>|null */
+    private function normalizeRequiredList(mixed $required): ?array
+    {
+        if (!\is_array($required)) {
+            return null;
+        }
+
+        return array_values(array_map(
+            static fn (mixed $entry): string => \is_scalar($entry) ? (string) $entry : '',
+            $required,
+        ));
     }
 
     /**

@@ -34,6 +34,8 @@ final class McpPluginTest extends TestCase
         Config::remove('mcp.auth_token');
         Config::remove('mcp.expose_actions');
         Config::remove('mcp.module_dirs');
+        Config::remove('mcp.discover_attributes');
+        Config::remove('mcp.discovery_cache');
     }
 
     public function testDefaultsAreOptInSafe(): void
@@ -43,6 +45,8 @@ final class McpPluginTest extends TestCase
 
         $this->assertFalse(Config::getBool('mcp.enabled'));
         $this->assertSame(['stdio'], Config::getArray('mcp.transports'));
+        $this->assertFalse(Config::getBool('mcp.discover_attributes'));
+        $this->assertTrue(Config::getBool('mcp.discovery_cache'));
         $this->assertArrayNotHasKey(McpEndpointMiddleware::class, MiddlewareCatalog::getRegistered());
         $this->assertArrayNotHasKey(McpAuthMiddleware::class, MiddlewareCatalog::getRegistered());
     }
@@ -91,6 +95,14 @@ final class McpPluginTest extends TestCase
         PluginManager::bootFromConfig();
 
         $this->assertContains(\Quiote\Mcp\Console\McpServeCommand::class, PluginManager::contributedCommands());
+    }
+
+    public function testMcpWarmupCommandIsAlwaysContributed(): void
+    {
+        PluginManager::add(new McpPlugin());
+        PluginManager::bootFromConfig();
+
+        $this->assertContains(\Quiote\Mcp\Console\McpWarmupCommand::class, PluginManager::contributedCommands());
     }
 
     public function testAuthenticatorServiceDefaultIsPublishedToContainers(): void

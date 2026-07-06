@@ -28,13 +28,15 @@ final class McpConfig
         public readonly string $auth,
         public readonly bool $exposeActions,
         public readonly array $moduleDirs,
+        public readonly bool $discoverAttributes,
+        public readonly bool $discoveryCache,
     ) {}
 
     public static function fromConfig(): self
     {
         return new self(
             enabled: Config::getBool('mcp.enabled', false),
-            transports: array_values(Config::getArray('mcp.transports', ['stdio'])),
+            transports: array_values(Config::getStringList('mcp.transports', ['stdio'])),
             path: Config::getString('mcp.path', '/mcp'),
             protocolVersion: Config::getString('mcp.protocol_version', '2025-11-25'),
             stateless: Config::getBool('mcp.stateless', true),
@@ -42,7 +44,9 @@ final class McpConfig
             serverVersion: Config::getString('mcp.server_version', '1.0.0'),
             auth: Config::getString('mcp.auth', 'bearer'),
             exposeActions: Config::getBool('mcp.expose_actions', false),
-            moduleDirs: array_values(Config::getArray('mcp.module_dirs', [])),
+            moduleDirs: array_values(Config::getStringList('mcp.module_dirs', [])),
+            discoverAttributes: Config::getBool('mcp.discover_attributes', false),
+            discoveryCache: Config::getBool('mcp.discovery_cache', true),
         );
     }
 }

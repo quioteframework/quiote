@@ -6,6 +6,7 @@ use Quiote\Config\Config;
 use Quiote\Mcp\Auth\McpAuthenticatorInterface;
 use Quiote\Mcp\Auth\StaticTokenAuthenticator;
 use Quiote\Mcp\Console\McpServeCommand;
+use Quiote\Mcp\Console\McpWarmupCommand;
 use Quiote\Mcp\Middleware\McpAuthMiddleware;
 use Quiote\Mcp\Middleware\McpEndpointMiddleware;
 use Quiote\Middleware\SecurityMiddleware;
@@ -42,8 +43,11 @@ final class McpPlugin implements PluginInterface
         $registrar->configDefault('mcp.auth_token', null);
         $registrar->configDefault('mcp.expose_actions', false);
         $registrar->configDefault('mcp.module_dirs', []);
+        $registrar->configDefault('mcp.discover_attributes', false);
+        $registrar->configDefault('mcp.discovery_cache', true);
 
         $registrar->command(McpServeCommand::class);
+        $registrar->command(McpWarmupCommand::class);
 
         $registrar->service(
             McpAuthenticatorInterface::class,
