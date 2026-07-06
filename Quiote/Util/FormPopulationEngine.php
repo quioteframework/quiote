@@ -75,7 +75,7 @@ final class FormPopulationEngine
 		}
 
 		// Ensure the request has been seeded with default config (only runs once per request)
-		$this->ensureSeedInitialized($request);
+		$request = $this->ensureSeedInitialized($request);
 
 		$cfg = $this->buildConfiguration($request, $overrides);
 
@@ -584,7 +584,14 @@ final class FormPopulationEngine
 			}
 		}
 
-		FormPopulationConfig::setScopedValue($request, 'orphaned_errors', $allIncidents);
+		$updatedRequest = FormPopulationConfig::setScopedValue($request, 'orphaned_errors', $allIncidents);
+		if ($updatedRequest instanceof WebRequest) {
+			$request = $updatedRequest;
+			try {
+				$this->context->setRequest($request);
+			} catch (\Throwable) {
+			}
+		}
 
 		if($xhtml) {
 			$firstError = null;
@@ -986,11 +993,12 @@ final class FormPopulationEngine
 	 * because the request may not exist when middleware is being set up.
 	 * Note: seed() is idempotent - it only fills missing keys, doesn't overwrite.
 	 */
-	private function ensureSeedInitialized(WebRequest $request): void
+	private function ensureSeedInitialized(WebRequest $request): WebRequest
 	{
 		// Always seed - the seed() method itself is idempotent and won't overwrite
 		// existing values, only fill in defaults for missing keys
-		FormPopulationConfig::seed($request, $this->parameters);
+		$seeded = FormPopulationConfig::seed($request, $this->parameters);
+		return $seeded instanceof WebRequest ? $seeded : $request;
 	}
 
 	public function reset(): void

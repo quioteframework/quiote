@@ -5,6 +5,11 @@ namespace Quiote\Util;
 /**
  * Helper to bridge configuration storage for form population between legacy
  * namespaced attributes and the PSR-7 attribute bag on WebRequest.
+ *
+ * WebRequest is immutable, so seed()/merge()/setScopedValue()/store() return
+ * the (possibly new) request instance; callers must capture and propagate
+ * it. Legacy namespaced-attribute holders mutate in place and are returned
+ * unchanged for API symmetry.
  */
 final class FormPopulationConfig
 {
@@ -35,10 +40,10 @@ final class FormPopulationConfig
      * Seed configuration defaults without overwriting previously provided values.
      * @param array<string, mixed> $defaults
      */
-    public static function seed(mixed $request, array $defaults): void
+    public static function seed(mixed $request, array $defaults): mixed
     {
         if ($request === null) {
-            return;
+            return $request;
         }
         $current = self::get($request);
         // Only fill missing keys with defaults
@@ -47,31 +52,31 @@ final class FormPopulationConfig
                 $current[$key] = $value;
             }
         }
-        self::store($request, $current);
+        return self::store($request, $current);
     }
 
     /**
      * Merge configuration overrides, allowing new values to replace existing ones.
      * @param array<string, mixed> $overrides
      */
-    public static function merge(mixed $request, array $overrides): void
+    public static function merge(mixed $request, array $overrides): mixed
     {
         if ($request === null) {
-            return;
+            return $request;
         }
         $current = self::get($request);
         foreach ($overrides as $key => $value) {
             $current[$key] = $value;
         }
-        self::store($request, $current);
+        return self::store($request, $current);
     }
 
     /**
      * Convenience helper to set a single scoped value.
      */
-    public static function setScopedValue(mixed $request, string $key, mixed $value): void
+    public static function setScopedValue(mixed $request, string $key, mixed $value): mixed
     {
-        self::merge($request, [$key => $value]);
+        return self::merge($request, [$key => $value]);
     }
 
     /**
@@ -86,10 +91,10 @@ final class FormPopulationConfig
     /**
      * @param array<string, mixed> $config
      */
-    private static function store(mixed $request, array $config): void
+    private static function store(mixed $request, array $config): mixed
     {
         if ($request === null) {
-            return;
+            return $request;
         }
         // Legacy request supports namespaces
         if (self::supportsNamespacedAttributes($request)) {
@@ -98,13 +103,13 @@ final class FormPopulationConfig
             }
             if (method_exists($request, 'setAttributes')) {
                 $request->setAttributes($config, self::LEGACY_NAMESPACE);
-                return;
+                return $request;
             }
         }
         if (method_exists($request, 'setAttribute')) {
-            $request->setAttribute(self::ATTRIBUTE_KEY, $config);
-            return;
+            return $request->setAttribute(self::ATTRIBUTE_KEY, $config);
         }
+        return $request;
     }
 
     private static function supportsNamespacedAttributes(mixed $request): bool

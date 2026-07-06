@@ -21,7 +21,7 @@ class ValidationServiceConfigParityTest extends UnitTestCase
 
         $request1 = new WebRequest();
         $request1->initialize($this->getContext());
-        $request1->setParameter('ok','1');
+        $request1 = $request1->setParameter('ok','1');
     $svc = new ValidationService();
         $okContainer = $svc->validate($actionInstance,$request1,'Cache','CacheComplex')->ok;
 
@@ -29,7 +29,7 @@ class ValidationServiceConfigParityTest extends UnitTestCase
     $svc = new ValidationService();
         $request2 = new WebRequest();
         $request2->initialize($this->getContext());
-        $request2->setParameter('ok','1');
+        $request2 = $request2->setParameter('ok','1');
     /** @var \Quiote\Action\Action $action */
         $result = $svc->validate($action,$request2,'Cache','CacheComplex');
 

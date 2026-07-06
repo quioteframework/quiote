@@ -119,7 +119,7 @@ class NumberValidator extends Validator
 			// Persist casted numeric value back into request runtime parameters so subsequent validators/actions see normalized type.
 			try {
 				if(method_exists($this->validationParameters, 'setParameter')) {
-					$this->validationParameters->setParameter($this->getArgument(), $parsedValue);
+					$this->validationParameters = $this->validationParameters->setParameter($this->getArgument(), $parsedValue);
 				}
 			} catch(\Throwable) {}
 		}

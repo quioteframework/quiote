@@ -443,11 +443,12 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 		try { $req = $this->getContext()->getRequest(); } catch(\Throwable) { $req = null; }
 		if (!$req) { return; }
 		if ($clearFirst) {
-			$req->clearParameters();
+			$req = $req->clearParameters();
 		}
 		foreach ($parameters as $k => $v) {
-			$req->setParameter($k, $v);
+			$req = $req->setParameter($k, $v);
 		}
+		$this->getContext()->setRequest($req);
 	}
 }
 

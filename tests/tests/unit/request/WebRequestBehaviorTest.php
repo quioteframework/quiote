@@ -54,9 +54,10 @@ class WebRequestBehaviorTest extends UnitTestCase
         // Register validator BEFORE any access
         $vm->createValidator(\Quiote\Validator\EqualsValidator::class, ['foo'], [], ['value' => 'queryVal']);
         $vm->execute($wr);
+        $wr = $vm->getContext()->getRequest();
         $this->assertSame('queryVal', $wr->getParameter('foo'));
         // Mutate runtime parameter AFTER validation; this should still be accessible because foo already validated
-        $wr->setParameter('foo', 'runtimeVal');
+        $wr = $wr->setParameter('foo', 'runtimeVal');
         $this->assertSame('runtimeVal', $wr->getParameter('foo'));
         $all = $wr->getParameters();
         $this->assertSame('runtimeVal', $all['foo']);
@@ -66,12 +67,13 @@ class WebRequestBehaviorTest extends UnitTestCase
     {
         $wr = $this->newRequest();
         $dataVal = [ ['Application' => 'orders', 'Enabled' => true] ];
-        $wr->setParameter('data', $dataVal);
+        $wr = $wr->setParameter('data', $dataVal);
         // Explicitly whitelist the flattened bracket keys produced by materialization
-        $wr->enforceValidatedParameters(['data','data[0][Application]','data[0][Enabled]']);
+        $wr = $wr->enforceValidatedParameters(['data','data[0][Application]','data[0][Enabled]']);
         $vm = $this->getContext()->createInstanceFor('validation_manager');
         $vm->createValidator(\Quiote\Validator\EqualsValidator::class, ['data'], [], ['value' => $dataVal]);
         $vm->execute($wr);
+        $wr = $vm->getContext()->getRequest();
         $this->assertSame('orders', $wr->getParameter('data[0][Application]'));
         $this->assertSame(true, $wr->getParameter('data[0][Enabled]'));
     }
@@ -79,10 +81,11 @@ class WebRequestBehaviorTest extends UnitTestCase
     public function testRemoveParameterFromRuntime(): void
     {
         $wr = $this->newRequest();
-        $wr->setParameter('alpha', 'one');
+        $wr = $wr->setParameter('alpha', 'one');
         $vm = $this->getContext()->createInstanceFor('validation_manager');
         $vm->createValidator(\Quiote\Validator\EqualsValidator::class, ['alpha'], [], ['value' => 'one']);
         $vm->execute($wr);
+        $wr = $vm->getContext()->getRequest();
         $this->assertTrue($wr->hasParameter('alpha'));
         $wr = $wr->removeParameter('alpha');
         $this->assertFalse($wr->hasParameter('alpha'));
@@ -107,6 +110,7 @@ class WebRequestBehaviorTest extends UnitTestCase
         $vm->createValidator(\Quiote\Validator\EqualsValidator::class, ['q'], [], ['value' => 'query']);
         $vm->createValidator(\Quiote\Validator\EqualsValidator::class, ['p'], [], ['value' => 'body']);
         $vm->execute($wr);
+        $wr = $vm->getContext()->getRequest();
         $this->assertSame('query', $wr->getParameter('q'));
         $this->assertSame('body', $wr->getParameter('p'));
         $wr = $wr->removeParameter('q', 'parameters');

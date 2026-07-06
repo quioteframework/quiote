@@ -50,7 +50,7 @@ class AdvancedValidationCoverageTest extends UnitTestCase
         $req = $this->newWebRequest(['x'=>10]);
         $this->assertFalse($vm->execute($req));
         // After failure export shouldn't exist
-        $req->enforceValidatedParameters(['x']);
+        $req = $req->enforceValidatedParameters(['x']);
         $this->assertFalse($req->hasParameter('x_out'));
     }
 

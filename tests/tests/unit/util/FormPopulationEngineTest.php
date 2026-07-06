@@ -279,12 +279,14 @@ class FormPopulationEngineTest extends UnitTestCase
 		$request->initialize($this->context);
 
 		foreach($parameters as $key => $value) {
-			$request->setParameter($key, $value);
+			$request = $request->setParameter($key, $value);
 		}
 
-		FormPopulationConfig::seed($request, $engine->getDefaults());
+		$seeded = FormPopulationConfig::seed($request, $engine->getDefaults());
+		if ($seeded instanceof WebRequest) { $request = $seeded; }
 		if($config) {
-			FormPopulationConfig::merge($request, $config);
+			$merged = FormPopulationConfig::merge($request, $config);
+			if ($merged instanceof WebRequest) { $request = $merged; }
 		}
 
 		$response = new WebResponse();

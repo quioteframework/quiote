@@ -42,7 +42,8 @@ abstract class ContainerTestCase extends FragmentTestCase
 			// Inject parameters directly into request runtime for downstream usage.
 			try {
 				$request = $context->getRequest();
-				foreach ($arguments as $k => $v) { $request->setParameter($k, $v); }
+				foreach ($arguments as $k => $v) { $request = $request->setParameter($k, $v); }
+				$context->setRequest($request);
 			} catch (\Throwable) {}
 		}
 		// Response simulation: create an empty response equivalent.

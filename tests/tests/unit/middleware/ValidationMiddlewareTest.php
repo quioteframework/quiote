@@ -29,7 +29,10 @@ class ValidationMiddlewareTest extends TestCase
         $this->context->getRequest();
         // Strict validation: seed whitelist with potential parameter names used across tests
         $req = $this->context->getRequest();
-        if($req instanceof \Quiote\Request\WebRequest) { $req->enforceValidatedParameters(['foo','existing','slug','_internal','keep']); }
+        if($req instanceof \Quiote\Request\WebRequest) {
+            $req = $req->enforceValidatedParameters(['foo','existing','slug','_internal','keep']);
+            $this->context->setRequest($req);
+        }
     }
 
     public function testValidationFailureTriggersErrorView(): void
@@ -257,7 +260,10 @@ class ValidationMiddlewareTest extends TestCase
         $validation->process($request, $final);
         // Ensure parameters added available in whitelist
         $req = $this->context->getRequest();
-        if($req instanceof \Quiote\Request\WebRequest) { $req->enforceValidatedParameters(['existing','slug','_internal']); }
+        if($req instanceof \Quiote\Request\WebRequest) {
+            $req = $req->enforceValidatedParameters(['existing','slug','_internal']);
+            $this->context->setRequest($req);
+        }
         $ctxReq = $this->context->getRequest();
         $this->assertSame('keep', $ctxReq->getParameter('existing'));
         $this->assertSame('abc', $ctxReq->getParameter('slug'));
@@ -289,7 +295,11 @@ class ValidationMiddlewareTest extends TestCase
     $validation = new ValidationMiddleware($this->context->getController());
         $final = new class implements RequestHandlerInterface { public function handle(ServerRequestInterface $r): ResponseInterface { return new Psr7Response(204); } };
         $validation->process($request, $final);
-        $r = $this->context->getRequest(); if($r instanceof \Quiote\Request\WebRequest) { $r->enforceValidatedParameters(['keep']); }
+        $r = $this->context->getRequest();
+        if($r instanceof \Quiote\Request\WebRequest) {
+            $r = $r->enforceValidatedParameters(['keep']);
+            $this->context->setRequest($r);
+        }
         $ctxReq = $this->context->getRequest();
     $this->assertSame('1', $ctxReq->getParameter('keep'), 'Expected parameter retained (simple action bypass)');
     }

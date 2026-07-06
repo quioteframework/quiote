@@ -37,7 +37,7 @@ class ValidationManagerStrictModeTest extends UnitTestCase
         // Verify by checking that parameter whitelisting is enforced
         $request = $this->_context->getRequest();
         if ($request instanceof WebRequest) {
-            $request->enforceValidatedParameters([]);
+            $request = $request->enforceValidatedParameters([]);
 
             // With strict mode, unvalidated parameters should not be accessible
             $hasException = false;
@@ -85,8 +85,8 @@ class ValidationManagerStrictModeTest extends UnitTestCase
         // Simulate validator setting exported parameter via setParameter()
         if ($request instanceof WebRequest) {
             // Before validation, set parameter (simulating validator export)
-            $request->setParameter('validator_export', 'exported_value');
-            
+            $request = $request->setParameter('validator_export', 'exported_value');
+
             // After validation pruning, exported parameters should still be accessible
             $value = $request->getParameter('validator_export');
             $this->assertEquals('exported_value', $value);
@@ -102,9 +102,9 @@ class ValidationManagerStrictModeTest extends UnitTestCase
         
         if ($request instanceof WebRequest) {
             // Set multiple runtime parameters
-            $request->setParameter('runtime_param1', 'value1');
-            $request->setParameter('runtime_param2', 'value2');
-            $request->setParameter('runtime_param3', 'value3');
+            $request = $request->setParameter('runtime_param1', 'value1');
+            $request = $request->setParameter('runtime_param2', 'value2');
+            $request = $request->setParameter('runtime_param3', 'value3');
             
             // Get keys before validation
             $keys = $request->getRuntimeParameterKeys();
@@ -148,7 +148,7 @@ class ValidationManagerStrictModeTest extends UnitTestCase
         if ($request instanceof WebRequest) {
             // Even if these don't exist yet, they should be whitelisted
             // This allows actions to check for null exported values
-            $request->enforceValidatedParameters(['export1', 'export2']);
+            $request = $request->enforceValidatedParameters(['export1', 'export2']);
             
             // Should not throw exception even though value is null
             $value = $request->getParameter('export1', 'default');
@@ -165,7 +165,7 @@ class ValidationManagerStrictModeTest extends UnitTestCase
 
         if ($request instanceof WebRequest) {
             // Enforce empty whitelist
-            $request->enforceValidatedParameters([]);
+            $request = $request->enforceValidatedParameters([]);
 
             // With explicit default: returns the default (caller acknowledged absence)
             $value = $request->getParameter('non_whitelisted', null);
@@ -181,7 +181,7 @@ class ValidationManagerStrictModeTest extends UnitTestCase
             $this->markTestSkipped('Requires WebRequest');
         }
 
-        $request->enforceValidatedParameters([]);
+        $request = $request->enforceValidatedParameters([]);
 
         $this->expectException(\Quiote\Exception\UnvalidatedParameterAccessException::class);
         $request->getParameter('no_default_unvalidated');
@@ -195,7 +195,7 @@ class ValidationManagerStrictModeTest extends UnitTestCase
             $this->markTestSkipped('Requires WebRequest');
         }
 
-        $request->enforceValidatedParameters([]);
+        $request = $request->enforceValidatedParameters([]);
 
         $this->assertNull($request->getParameter('unvalidated', null));
         $this->assertSame('fallback', $request->getParameter('unvalidated', 'fallback'));

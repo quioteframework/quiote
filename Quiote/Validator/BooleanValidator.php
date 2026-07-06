@@ -43,7 +43,7 @@ class BooleanValidator extends Validator
 				// Persist casted value back into request runtime parameters so subsequent validators/actions see normalized boolean.
 				try {
 					if(method_exists($this->validationParameters, 'setParameter')) {
-						$this->validationParameters->setParameter($this->getArgument(), $castValue);
+						$this->validationParameters = $this->validationParameters->setParameter($this->getArgument(), $castValue);
 					}
 				} catch(\Throwable) {}
 			}

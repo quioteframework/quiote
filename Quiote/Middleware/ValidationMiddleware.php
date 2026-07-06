@@ -184,7 +184,7 @@ class ValidationMiddleware implements MiddlewareInterface
                                   (is_array($bodyParams) && array_key_exists($k, $bodyParams));
                         
                         if (!$exists) {
-                            $webRequest->setParameter($k, $v);
+                            $webRequest = $webRequest->setParameter($k, $v);
                             $injected[$k] = $v;
                         }
                     }
@@ -370,6 +370,19 @@ class ValidationMiddleware implements MiddlewareInterface
             $handleErrorMethod = 'handleError';
         }
         $rawViewName = $action ? $action->$handleErrorMethod($webRequest) : 'Error';
+        // WebRequest is immutable: a handle*Error() that exports data via setParameter()
+        // (e.g. so the error view can read it back) only replaces its own local copy unless
+        // it also calls $this->getContext()->setRequest($request). Re-fetch so the error
+        // view created below sees that self-synced instance rather than the stale $webRequest
+        // captured before handle*Error() ran (mirrors ActionExecutor::doExecute()'s same
+        // re-fetch on the success path).
+        try {
+            $refreshedRequest = $this->controller?->getContext()?->getRequest();
+            if ($refreshedRequest instanceof WebRequest) {
+                $webRequest = $refreshedRequest;
+            }
+        } catch (\Throwable) {
+        }
         $resolver = new ViewNameResolver();
         [$viewModule, $viewName] = $resolver->resolve($moduleName, $actionName, $rawViewName);
         $execState->viewModule = $viewModule;

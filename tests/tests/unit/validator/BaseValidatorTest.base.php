@@ -11,7 +11,10 @@ class BaseValidatorTest extends UnitTestCase
 		$validator = $vm->createValidator($class, ['value'], $errors, $parameters);
 		$rd = $this->newWebRequest(['value' => $value]);
 		$result = $validator->execute($rd);
-		
+		// WebRequest is immutable: export()/casting inside execute() replaced the
+		// validator's own copy rather than mutating $rd in place.
+		$rd = $validator->getMutatedRequest() ?? $rd;
+
 		return [
 			'result' => $result,
 			'vm' => $vm,

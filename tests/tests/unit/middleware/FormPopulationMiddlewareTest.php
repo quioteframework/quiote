@@ -93,6 +93,10 @@ class FormPopulationMiddlewareTest extends UnitTestCase
         $response->getBody()->rewind();
         $response->getBody()->getContents(); // drain to mimic consumption
 
+    // WebRequest is immutable: the middleware's internal chain of with*()/setParameter()
+    // calls produced new instances distinct from our local $webRequest. It re-syncs the
+    // final instance into the context, so fetch it from there.
+    $webRequest = $this->context->getRequest();
     $config = FormPopulationConfig::get($webRequest);
     $this->assertArrayHasKey('force_request_uri', $config);
     $this->assertArrayHasKey('force_request_url', $config);
@@ -105,7 +109,7 @@ class FormPopulationMiddlewareTest extends UnitTestCase
         $request = new WebRequest();
         $request->initialize($this->context);
         if($validated) {
-            $request->enforceValidatedParameters($validated);
+            $request = $request->enforceValidatedParameters($validated);
         }
         return $request;
     }

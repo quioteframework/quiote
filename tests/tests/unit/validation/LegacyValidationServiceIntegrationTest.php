@@ -21,7 +21,7 @@ class LegacyValidationServiceIntegrationTest extends UnitTestCase
         $this->assertInstanceOf(Action::class, $action);
         $request = new WebRequest();
         $request->initialize($this->getContext());
-        $request->setParameter('ok', '1');
+        $request = $request->setParameter('ok', '1');
         $svc = new ValidationService();
         /** @var Action $action */
         $result = $svc->validate($action, $request);

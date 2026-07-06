@@ -640,7 +640,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 			if(method_exists($this->validationParameters, 'setParameter')) {
 				$flatName = $cp->__toString();
 				if(!str_contains($flatName, '[')) {
-					$this->validationParameters->setParameter($flatName, $value);
+					$this->validationParameters = $this->validationParameters->setParameter($flatName, $value);
 					if (($logger = \Quiote\Logging\Log::for($this))->isEnabled(\Quiote\Logging\Level::Debug)) { $logger->debug('[Validator][export][debug] stored simple name=' . $flatName . ' type=' . (get_debug_type($value))); }
 				} else {
 					// Parse root and indices: e.g. User[0] => root=User, indices=[0]
@@ -666,7 +666,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 							else { $ref[$lastIndex] = $value; }
 						}
 						// Write back updated root array into runtime parameters
-						$this->validationParameters->setParameter($root, $runtime[$root]);
+						$this->validationParameters = $this->validationParameters->setParameter($root, $runtime[$root]);
 						// PHASE 3 FIX: Remember root parameter name so we can register it as succeeded argument
 						$rootParameterName = $root;
 						if (($logger = \Quiote\Logging\Log::for($this))->isEnabled(\Quiote\Logging\Level::Debug)) { $logger->debug('[Validator][export][debug] stored bracketed root=' . $root . ' flat=' . $flatName); }
@@ -698,7 +698,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 			if(method_exists($this->validationParameters, 'enforceValidatedParameters')) {
 				$names = [$cp->__toString()];
 				if($rootParameterName) { $names[] = $rootParameterName; }
-				$this->validationParameters->enforceValidatedParameters($names);
+				$this->validationParameters = $this->validationParameters->enforceValidatedParameters($names);
 			}
 		} catch(\Throwable) { }
 	}
@@ -869,6 +869,18 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 			$this->incident = null;
 		}
 		return $res;
+	}
+
+	/**
+	 * The WebRequest this validator ended execute() with. WebRequest is
+	 * immutable, so export()'s setParameter()/enforceValidatedParameters()
+	 * calls replace $this->validationParameters with a new instance rather
+	 * than mutating it in place — callers (ValidationManager) must fetch the
+	 * final instance back out via this accessor after execute() returns.
+	 */
+	public function getMutatedRequest(): ?WebRequest
+	{
+		return $this->validationParameters instanceof WebRequest ? $this->validationParameters : null;
 	}
 
 	/**

@@ -143,7 +143,17 @@ final class ActionExecutor
         }
         foreach ($params as $k => $v) {
             try {
-                $web->setParameter($k, $v);
+                $web = $web->setParameter($k, $v);
+            } catch (\Throwable) {
+            }
+        }
+        // WebRequest is immutable: when $web was reused from the context (the common
+        // case), setParameter() above produced a new instance rather than mutating the
+        // one the context still holds a reference to. Re-sync so downstream code that
+        // reads $context->getRequest() (rather than this method's return value) sees it.
+        if ($context !== null) {
+            try {
+                $context->setRequest($web);
             } catch (\Throwable) {
             }
         }
@@ -238,6 +248,15 @@ final class ActionExecutor
         $rawView = $this->actionResolver->execute($action, $desc->method, $actionRequest);
         if ($dbg) {
             $logger->debug('[ActionExecutor] rawView=' . var_export($rawView, true));
+        }
+        // WebRequest is immutable: an execute*()/validate() method that exports data via
+        // setParameter() (e.g. so the rendered View can read it back) only replaces its own
+        // local copy unless it also calls $this->getContext()->setRequest($request). Re-fetch
+        // here so renderView() below sees that self-synced instance rather than the stale
+        // $actionRequest captured before the action ran.
+        try {
+            $actionRequest = $this->controller->getContext()->getRequest();
+        } catch (\Throwable) {
         }
         // Snapshot attributes immediately after action code runs (pre-view)
         $attributeSnapshot = [];

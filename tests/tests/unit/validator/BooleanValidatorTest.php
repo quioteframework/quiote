@@ -25,6 +25,7 @@ class BooleanValidatorTest extends UnitTestCase
 		$validator = $this->vm->createValidator(\Quiote\Validator\BooleanValidator::class, ['bool'], ['invalid argument'], []);
 		$rd = $this->newWebRequest(['bool' => $value]);
 		$result = $validator->execute($rd);
+		$rd = $validator->getMutatedRequest() ?? $rd;
 		$this->assertEquals(Validator::SUCCESS, $result, 'Failed asserting that the validation succeeded.');
 		$this->assertEquals($expectedResult, $rd->getParameter('bool'), 'Failed asserting that the validated value is the expected value');
 	}
@@ -55,6 +56,7 @@ class BooleanValidatorTest extends UnitTestCase
 		// Pre-whitelist export target so reading it after failed validation returns null instead of throwing.
 		$rd = $this->newWebRequest(['bool' => $value], ['exported']);
 		$result = $validator->execute($rd);
+		$rd = $validator->getMutatedRequest() ?? $rd;
 		$this->assertEquals(Validator::ERROR, $result, 'Failed asserting that the validation failed.');
 		$this->assertNull($rd->getParameter('exported'), 'Failed asserting that the value is not exported');
 		$this->assertEquals($value, $rd->getParameter('bool'), 'Failed asserting that the validated value is the original value');
@@ -81,6 +83,7 @@ class BooleanValidatorTest extends UnitTestCase
 			$validator = $this->vm->createValidator(\Quiote\Validator\BooleanValidator::class, ['bool'], ['invalid argument'], ['export' => 'exported']);
 			$rd = $this->newWebRequest(['bool' => $value['original']]);
 			$result = $validator->execute($rd);
+			$rd = $validator->getMutatedRequest() ?? $rd;
 			$this->assertEquals(Validator::SUCCESS, $result, 'Failed asserting that the validation succeeded.');
 			$this->assertSame($value['casted'], $rd->getParameter('exported'), 'Failed asserting that the exported value is casted');
 			$this->assertSame($value['original'], $rd->getParameter('bool'), 'Failed asserting that the validated value is untouched');
@@ -97,6 +100,7 @@ class BooleanValidatorTest extends UnitTestCase
 			$validator = $this->vm->createValidator(\Quiote\Validator\BooleanValidator::class, ['bool'], ['invalid argument']);
 			$rd = $this->newWebRequest(['bool' => $value['original']]);
 			$result = $validator->execute($rd);
+			$rd = $validator->getMutatedRequest() ?? $rd;
 			$this->assertEquals(Validator::SUCCESS, $result, 'Failed asserting that the validation succeeded.');
 			$this->assertSame($value['casted'], $rd->getParameter('bool'), 'Failed asserting that the validated value is casted');
 		}
