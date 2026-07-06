@@ -27,6 +27,7 @@
             <directory>packages/db-eloquent/tests</directory>
             <directory>packages/db-doctrine/tests</directory>
             <directory>packages/db-cycle/tests</directory>
+            <directory>packages/db-propulsion/tests</directory>
             <directory>packages/telemetry-otel/tests</directory>
             <directory>packages/telemetry-dashboard/tests</directory>
             <directory>packages/phptal/tests</directory>
@@ -86,11 +87,26 @@
             <directory>packages/db-eloquent/src</directory>
             <directory>packages/db-doctrine/src</directory>
             <directory>packages/db-cycle/src</directory>
+            <directory>packages/db-propulsion/src</directory>
             <directory>packages/telemetry-otel/src</directory>
             <directory>packages/telemetry-dashboard/src</directory>
+            <directory>packages/phptal/src</directory>
+            <directory>packages/xslt/src</directory>
+            <directory>packages/twig/src</directory>
+            <directory>packages/session-pdo/src</directory>
+            <directory>packages/session-azure/src</directory>
+            <directory>packages/session-s3/src</directory>
+            <directory>packages/session-gcs/src</directory>
         </include>
         <exclude>
         <directory>Quiote/translation/data</directory>
         </exclude>
     </source>
+    <coverage>
+        <report>
+            <html outputDirectory="coverage/html"/>
+            <clover outputFile="coverage/clover.xml"/>
+            <text outputFile="php://stdout" showUncoveredFiles="false"/>
+        </report>
+    </coverage>
 </phpunit>

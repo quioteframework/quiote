@@ -16,10 +16,17 @@ jobs:
         with:
           php-version: '8.5'
           extensions: dom, intl, xsl, tokenizer, session, pdo, pdo_sqlite, iconv, mbstring
-          coverage: none
+          coverage: pcov
 
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress
 
-      - name: Run tests
+      - name: Run tests (with coverage)
         run: vendor/bin/phpunit
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage/clover.xml
+          fail_ci_if_error: true

@@ -1,0 +1,59 @@
+name: Release
+
+# Tag-triggered: push a `v*.*.*` tag (e.g. `v1.2.0`) to run the full test
+# suite, generate a changelog with git-cliff scoped to just the commits
+# belonging to that tag, and publish a GitHub Release with that changelog as
+# its body. The release step only runs if the test suite passes, so a broken
+# build never gets released.
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          # git-cliff needs the full commit/tag history to scope the
+          # changelog to "everything since the previous tag" -- the default
+          # shallow checkout only has the tagged commit itself.
+          fetch-depth: 0
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: dom, intl, xsl, tokenizer, session, pdo, pdo_sqlite, iconv, mbstring
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress
+
+      - name: Run tests
+        run: vendor/bin/phpunit
+
+      - name: Generate changelog
+        # Downloaded standalone rather than via a third-party composite
+        # action: full control over the exact invocation instead of trusting
+        # an action's env-var/output contract.
+        # --current scopes the output to just the commits belonging to the
+        # tag that triggered this run (not the entire project history, which
+        # `--tag` alone would include on every release).
+        run: |
+          GIT_CLIFF_VERSION="2.13.1"
+          curl -sSL -o /tmp/git-cliff.tar.gz \
+            "https://github.com/orhun/git-cliff/releases/download/v${GIT_CLIFF_VERSION}/git-cliff-${GIT_CLIFF_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+          tar -xzf /tmp/git-cliff.tar.gz -C /tmp
+          "/tmp/git-cliff-${GIT_CLIFF_VERSION}/git-cliff" --current --strip header -o /tmp/release-notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: /tmp/release-notes.md
