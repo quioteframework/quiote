@@ -1,5 +1,43 @@
 # Plugin System & Extensibility Plan
 
+## Declarative plugins.xml
+
+**The correct way to register plugins is `Config/plugins.{xml,php,yaml,yml}`**
+(`Quiote\Config\PluginConfigHandler`) — a flat, ordered enable/disable list.
+Modules can drop in their own `Config/plugins.*` the same way (discovered by
+`Quiote::bootstrap()` globbing `core.module_dir`, no app wiring required) —
+app-declared plugins are compiled first, so the app always wins if the same
+class is declared by both. Per-plugin options stay in `settings.*`,
+contributed by the plugin itself via `PluginRegistrar::configDefault()`;
+`plugins.xml` only controls which plugins run and in what order.
+
+`plugins.xml` and a plain `PluginManager::add()` call both ultimately land in
+the same `plugins` config key/registry, so a `<setting name="plugins">...`
+entry (or a `'plugins' => [...]` line) inside `settings.*` happens to work
+too — that's an incidental consequence of the shared storage, not a
+supported interface. It's intentionally undocumented anywhere else and
+should not be relied on; the scaffolder and every example in this repo only
+ever write to `plugins.*`.
+
+### `#[Quiote\Plugin\Attribute\Plugin]` — required for class-string activation
+
+Naming a class in `plugins.*` (or passing a class-string to
+`PluginManager::add()`) is not, by itself, enough to activate it: the class
+must also carry `#[Plugin]`. This is a deliberate supply-chain safeguard —
+merely `composer require`-ing a package can never activate anything in it,
+even a class that implements `PluginInterface` and even if some other
+mechanism (a compromised `plugins.xml`, a scaffolding bug) ends up naming it,
+because the class itself must have already opted in at authoring time.
+`PluginManager::instantiate()` (the class-string path) checks for the
+attribute via reflection and refuses (logs, returns null) if it's absent.
+
+The check does **not** apply to `PluginManager::add(new SomePlugin())` —
+passing an already-constructed instance is itself the trust boundary, since
+the calling code named the class directly rather than routing it through a
+string that could originate from a config file. All in-tree plugin packages
+(`csrf`, `mcp`, the three ORM adapters, `whoops`, `telemetry-otel`,
+`db-propulsion`) carry the attribute.
+
 ## Status — implemented
 
 All four features shipped and are green under `composer test` (1785 tests), plus

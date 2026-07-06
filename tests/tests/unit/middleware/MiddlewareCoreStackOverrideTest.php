@@ -2,6 +2,7 @@
 
 use PHPUnit\Framework\TestCase;
 use Quiote\Context;
+use Quiote\Middleware\Config\MiddlewareConfigRegistry;
 use Quiote\Middleware\MiddlewareCatalog;
 use Quiote\Middleware\MiddlewarePipeline;
 use Quiote\Middleware\ErrorHandlingMiddleware;
@@ -23,12 +24,14 @@ class MiddlewareCoreStackOverrideTest extends TestCase
     {
         MiddlewareCatalog::initialize([]);
         MiddlewareCatalog::reset();
+        MiddlewareConfigRegistry::reset();
     }
 
     #[\Override]
     public function tearDown(): void
     {
         MiddlewareCatalog::reset();
+        MiddlewareConfigRegistry::reset();
     }
 
     private static function passthru(string $marker): callable
@@ -99,6 +102,7 @@ class MiddlewareCoreStackOverrideTest extends TestCase
             MiddlewareCatalog::REPLACE_CORE_STACK_ACKNOWLEDGEMENT
         );
         MiddlewareCatalog::reset();
+        MiddlewareConfigRegistry::reset();
         $this->assertFalse(MiddlewareCatalog::hasCoreStackOverride());
     }
 }

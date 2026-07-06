@@ -2,17 +2,68 @@
 
 Quiote builds a single PSR-15 middleware pipeline
 (`Quiote\Middleware\MiddlewarePipeline`) once per worker and reuses it across
-requests. There are two ways for an application to add its own middleware,
+requests. There are three ways for an application to add its own middleware,
 and they can be mixed freely:
 
-1. **By code** — `Quiote\Middleware\MiddlewareCatalog::register()`, giving an
+1. **By config** — a `middleware.{xml,php,yaml,yml}` file, resolved the same
+   way as any other config type (`.php` > `.yaml`/`.yml` > `.xml`). This is
+   the preferred way for most apps: no code, no bootstrap ordering to think
+   about. See [Declarative middleware.xml](#declarative-middlewarexml) below.
+2. **By code** — `Quiote\Middleware\MiddlewareCatalog::register()`, giving an
    explicit factory and `before:`/`after:`/`priority:` hints. See [API](#api)
    below.
-2. **By attribute** — decorate the class with `#[Quiote\Middleware\Attribute\Middleware(...)]`
+3. **By attribute** — decorate the class with `#[Quiote\Middleware\Attribute\Middleware(...)]`
    and call `MiddlewareCatalog::registerAttributed(YourMiddleware::class)`
    once at bootstrap. No factory needed — the class is resolved through the DI
    container, and its position is computed from the attribute instead of
    being passed explicitly. See [Attribute-based registration](#attribute-based-registration).
+
+## Declarative middleware.xml
+
+Drop a `middleware.xml` (or `.php`/`.yaml`/`.yml`) next to `settings.xml` in
+`Config/`, or inside any module's own `Config/` directory (drop-in: a module
+registers its own middleware just by containing the file, no app wiring
+required):
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<ae:configurations xmlns:ae="http://quiote.dev/quiote/config/global/envelope/1.1"
+                    xmlns="http://quiote.dev/quiote/config/parts/middleware/1.1">
+    <ae:configuration>
+        <use class="App\Middleware\HealthzMiddleware" phase="pre_routing" before="SessionMiddleware" />
+    </ae:configuration>
+</ae:configurations>
+```
+
+Or the equivalent PHP array (`Config/middleware.php`), which is exactly the
+canonical shape any format compiles to:
+
+```php
+<?php
+return [
+    ['class' => \App\Middleware\HealthzMiddleware::class, 'phase' => 'pre_routing', 'before' => 'SessionMiddleware'],
+];
+```
+
+Each `<use>` entry is resolved via the DI container (like attribute-based
+registration — no factory closures in config) and merged with any
+`#[Middleware]` attribute the class already carries: a field left unset
+(`null`) keeps the attribute's own value or the framework default; a field
+that's set overrides it. A class with no attribute at all can be declared
+purely through config — `phase` defaults to `'pre'` if omitted, same as the
+`#[Middleware]` attribute's own constructor default.
+
+**Framework middleware is protected by default.** Naming one of Quiote's own
+shipped classes (`ErrorHandlingMiddleware`, `SessionMiddleware`,
+`RoutingMiddleware`, `SecurityMiddleware`, etc. — see
+`MiddlewarePipeline::coreMiddlewareClasses()`) to change its `enabled` state
+or placement requires **both**: `override-framework="true"` on that specific
+`<use>` entry, **and** the global `core.middleware.allow_framework_overrides`
+setting set to `true`. Either alone is refused with a
+`ConfigurationException` at config-load time (not silently ignored, and not
+deferred to the first request) — this is deliberate: a config file (least of
+all one dropped in by a third-party module) shouldn't be able to silently
+disable error handling or CSRF just by declaring a `<use>` entry.
 
 ## API
 

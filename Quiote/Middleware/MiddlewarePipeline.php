@@ -7,7 +7,9 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Quiote\Context;
 use Quiote\Middleware\Compiler\MiddlewareAttributeScanner;
+use Quiote\Middleware\Compiler\MiddlewareDefinition;
 use Quiote\Middleware\Compiler\MiddlewareOrderResolver;
+use Quiote\Middleware\Config\MiddlewareConfigRegistry;
 use Quiote\Support\Compiler\Diagnostic;
 use Relay\Relay;
 
@@ -42,6 +44,35 @@ class MiddlewarePipeline implements RequestHandlerInterface
         $this->handler = null;
         $this->built = false;
         $this->debugStack = [];
+    }
+
+    /**
+     * The framework's own shipped middleware classes -- the protected set
+     * {@see \Quiote\Middleware\Config\MiddlewareConfigRegistry} guards
+     * against silent config-driven reordering/disabling. Must be kept in
+     * sync with the `$factories` map built in {@see doBuild()}.
+     * @return list<class-string<\Psr\Http\Server\MiddlewareInterface>>
+     */
+    public static function coreMiddlewareClasses(): array
+    {
+        return [
+            ErrorHandlingMiddleware::class,
+            SessionMiddleware::class,
+            TelemetryMiddleware::class,
+            TimingMiddleware::class,
+            TraceMiddleware::class,
+            PayloadParsingMiddleware::class,
+            ContentNegotiationMiddleware::class,
+            RoutingMiddleware::class,
+            OutputTypeSyncMiddleware::class,
+            SecurityMiddleware::class,
+            ValidationMiddleware::class,
+            SlotMiddleware::class,
+            DispatchMiddleware::class,
+            AssetAggregationMiddleware::class,
+            FormPopulationMiddleware::class,
+            ExecutionTimeMiddleware::class,
+        ];
     }
 
     private function doBuild(): void
@@ -159,6 +190,8 @@ class MiddlewarePipeline implements RequestHandlerInterface
                 \Quiote\Logging\Log::for($this)->{$level}('[MiddlewarePipeline] middleware scan: ' . $diagnostic->message);
             }
 
+            $definitions = $this->mergeConfigDefinitions($definitions);
+
             $resolver = new MiddlewareOrderResolver();
             $ordered = $resolver->resolve($definitions);
             foreach ($resolver->getDiagnostics() as $diagnostic) {
@@ -209,6 +242,52 @@ class MiddlewarePipeline implements RequestHandlerInterface
     public function debugStack(): array
     {
         return $this->debugStack;
+    }
+
+    /**
+     * Overlays {@see MiddlewareConfigRegistry}'s validated `middleware.*`
+     * contributions onto the attribute-scanned definitions: an entry naming
+     * an already-scanned class replaces only the fields it explicitly sets
+     * (null fields keep the scanned/default value), an entry naming a class
+     * with no attribute at all is created fresh (defaulting exactly like
+     * {@see \Quiote\Middleware\Attribute\Middleware}'s own constructor).
+     * @param MiddlewareDefinition[] $scanned
+     * @return MiddlewareDefinition[]
+     */
+    private function mergeConfigDefinitions(array $scanned): array
+    {
+        $byFqcn = [];
+        foreach ($scanned as $definition) {
+            $byFqcn[$definition->fqcn] = $definition;
+        }
+
+        foreach (MiddlewareConfigRegistry::all() as $entry) {
+            $fqcn = $entry['class'];
+            $defaultPhase = 'pre';
+            $defaultPriority = 0;
+            $defaultBefore = null;
+            $defaultAfter = null;
+            $defaultEnabled = true;
+            if (array_key_exists($fqcn, $byFqcn)) {
+                $existing = $byFqcn[$fqcn];
+                $defaultPhase = $existing->phase;
+                $defaultPriority = $existing->priority;
+                $defaultBefore = $existing->before;
+                $defaultAfter = $existing->after;
+                $defaultEnabled = $existing->enabled;
+            }
+            $byFqcn[$fqcn] = new MiddlewareDefinition(
+                $fqcn,
+                $entry['phase'] ?? $defaultPhase,
+                $entry['priority'] ?? $defaultPriority,
+                $entry['before'] ?? $defaultBefore,
+                $entry['after'] ?? $defaultAfter,
+                $entry['enabled'] ?? $defaultEnabled,
+                $entry['sourceRef'],
+            );
+        }
+
+        return array_values($byFqcn);
     }
 
     /**

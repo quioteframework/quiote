@@ -6,6 +6,7 @@ use Quiote\Context;
 use Quiote\Security\Csrf\Middleware\CsrfInjectionMiddleware;
 use Quiote\Security\Csrf\Middleware\CsrfValidationMiddleware;
 use Quiote\Plugin\PluginInterface;
+use Quiote\Plugin\Attribute\Plugin as PluginAttribute;
 use Quiote\Plugin\PluginRegistrar;
 
 /**
@@ -24,6 +25,7 @@ use Quiote\Plugin\PluginRegistrar;
  * core-default call is deleted, CSRF becomes opt-in via the `plugins` config
  * key, exactly like {@see \Quiote\Mcp\McpPlugin} already is.
  */
+#[PluginAttribute]
 final class CsrfPlugin implements PluginInterface
 {
     public function name(): string

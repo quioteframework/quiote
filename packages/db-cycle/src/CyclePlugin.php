@@ -3,6 +3,7 @@
 namespace Quiote\Database\Adapter\Cycle;
 
 use Quiote\Plugin\PluginInterface;
+use Quiote\Plugin\Attribute\Plugin as PluginAttribute;
 use Quiote\Plugin\PluginRegistrar;
 
 /**
@@ -11,6 +12,7 @@ use Quiote\Plugin\PluginRegistrar;
  *
  * Extracts to `quioteframework/quiote-cycle` unchanged.
  */
+#[PluginAttribute]
 final class CyclePlugin implements PluginInterface
 {
     public function name(): string

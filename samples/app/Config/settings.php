@@ -10,9 +10,7 @@ return array (
   'core.use_security' => false,
   'core.use_translation' => false,
   'core.default_context' => 'web',
-  // telemetry-otel is opt-in -- without this,
-  // telemetry.enabled below does nothing.
-  'plugins' => [\Quiote\Telemetry\TelemetryPlugin::class],
+  // Plugins are declared in Config/plugins.php now, not here.
   // Master telemetry gate (covers the full
   // telemetry.* family). Requires the open-telemetry/* packages to be
   // installed to have any effect -- see the plan's Dependencies section.

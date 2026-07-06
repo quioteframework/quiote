@@ -10,14 +10,18 @@ use Quiote\Util\Toolkit;
  * for the application or on a module level.
  *
  * Migrated to IArrayConfigHandler. Canonical schema is exactly
- * the `$handlers` map (plus the
- * reserved `__middleware_config` key) execute() used to build inline:
- *   ['pattern' => ['class' => ..., 'parameters' => [...], 'transformations' => [...], 'validations' => [...]],
- *    '__middleware_config' => ['Middleware\Class' => bool]]
+ * the `$handlers` map execute() used to build inline:
+ *   ['pattern' => ['class' => ..., 'parameters' => [...], 'transformations' => [...], 'validations' => [...]]]
  * Note this handler is what config_handlers.xml itself compiles through
  * -- it is NOT what the extension-agnostic handler discovery reads (that
  * would be circular); it stays the framework's own bootstrap-time handler
  * registry regardless of what format future handler configs adopt.
+ *
+ * Middleware enable/disable used to be configured inline here via a
+ * reserved `<middleware_config>` block (compiled to a `__middleware_config`
+ * array key); that's superseded by `middleware.xml`'s `<use enabled="...">`
+ * (see MiddlewareConfigHandler), which also covers registration and
+ * ordering in the same place.
  * @since      1.0.0
  * @version    1.0.0
  */
@@ -48,29 +52,18 @@ class ConfigHandlersConfigHandler extends XmlConfigHandler implements IArrayConf
 
 		// init our data arrays
 		$handlers = [];
-		$middlewareEnabledMap = [];
 
 		foreach ($document->getConfigurationElements() as $configuration) {
-			// Capture middleware_config irrespective of handlers presence
-			if ($configuration->has('middleware_config')) {
-				foreach ($configuration->get('middleware_config') as $mwConfig) {
-					foreach ($mwConfig->get('middleware') as $mw) {
-						$class = $mw->getAttribute('class');
-						$enabledAttr = strtolower((string)$mw->getAttribute('enabled', 'true'));
-						$enabled = !in_array($enabledAttr, ['0', 'false', 'off', 'no'], true);
-						$middlewareEnabledMap[$class] = $enabled;
-					}
-				}
-			}
 			if (!$configuration->has('handlers')) {
 				continue;
 			}
 
 			// let's do our fancy work
 			foreach ($configuration->get('handlers') as $handler) {
-				$pattern = $handler->getAttribute('pattern');
+				// XSD requires "pattern"; the (string) cast reflects that guarantee to PHPStan.
+				$pattern = (string) $handler->getAttribute('pattern');
 
-				$category = Toolkit::normalizePath(Toolkit::expandDirectives($pattern));
+				$category = Toolkit::normalizePath((string) Toolkit::expandDirectives($pattern));
 
 				$class = $handler->getAttribute('class');
 
@@ -81,7 +74,7 @@ class ConfigHandlersConfigHandler extends XmlConfigHandler implements IArrayConf
 				if ($handler->has('transformations')) {
 					foreach ($handler->get('transformations') as $transformation) {
 						$path = (string) Toolkit::literalize($transformation->getValue());
-						$for = $transformation->getAttribute('for', XmlConfigParser::STAGE_SINGLE);
+						$for = (string) $transformation->getAttribute('for', XmlConfigParser::STAGE_SINGLE);
 						$transformations[$for][] = $path;
 					}
 				}
@@ -127,14 +120,13 @@ class ConfigHandlersConfigHandler extends XmlConfigHandler implements IArrayConf
 				if ($handler->has('validations')) {
 					foreach ($handler->get('validations') as $validation) {
 						$path = (string) Toolkit::literalize($validation->getValue());
-						$type = null;
 						if (!$validation->hasAttribute('type')) {
 							$type = $this->guessValidationType($path);
 						} else {
-							$type = $validation->getAttribute('type');
+							$type = (string) $validation->getAttribute('type');
 						}
-						$for = $validation->getAttribute('for', XmlConfigParser::STAGE_SINGLE);
-						$step = $validation->getAttribute('step', XmlConfigParser::STEP_TRANSFORMATIONS_AFTER);
+						$for = (string) $validation->getAttribute('for', XmlConfigParser::STAGE_SINGLE);
+						$step = (string) $validation->getAttribute('step', XmlConfigParser::STEP_TRANSFORMATIONS_AFTER);
 						$validations[$for][$step][$type][] = $path;
 					}
 				}
@@ -149,12 +141,6 @@ class ConfigHandlersConfigHandler extends XmlConfigHandler implements IArrayConf
 					'validations' => $validations,
 				];
 			}
-			// also re-process middleware_config inside same configuration (already handled above)
-		}
-
-		// Expose middleware enable map under reserved key so bootstrap can import it
-		if ($middlewareEnabledMap) {
-			$handlers['__middleware_config'] = $middlewareEnabledMap;
 		}
 
 		return $handlers;

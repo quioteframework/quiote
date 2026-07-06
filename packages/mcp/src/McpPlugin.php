@@ -10,6 +10,7 @@ use Quiote\Mcp\Middleware\McpAuthMiddleware;
 use Quiote\Mcp\Middleware\McpEndpointMiddleware;
 use Quiote\Middleware\SecurityMiddleware;
 use Quiote\Plugin\PluginInterface;
+use Quiote\Plugin\Attribute\Plugin as PluginAttribute;
 use Quiote\Plugin\PluginRegistrar;
 
 /**
@@ -20,6 +21,7 @@ use Quiote\Plugin\PluginRegistrar;
  * package this plugin (and `Quiote\Mcp\*`) move to `quioteframework/quiote-mcp`
  * unchanged, mirroring the ORM adapter plugins.
  */
+#[PluginAttribute]
 final class McpPlugin implements PluginInterface
 {
     public function name(): string

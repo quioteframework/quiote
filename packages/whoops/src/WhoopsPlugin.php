@@ -3,6 +3,7 @@
 namespace Quiote\Exception\Rendering\Whoops;
 
 use Quiote\Plugin\PluginInterface;
+use Quiote\Plugin\Attribute\Plugin as PluginAttribute;
 use Quiote\Plugin\PluginRegistrar;
 
 /**
@@ -19,6 +20,7 @@ use Quiote\Plugin\PluginRegistrar;
  * simply absent, so it follows the same fully opt-in model as
  * {@see \Quiote\Mcp\McpPlugin} and the ORM adapter plugins.
  */
+#[PluginAttribute]
 final class WhoopsPlugin implements PluginInterface
 {
     public function name(): string

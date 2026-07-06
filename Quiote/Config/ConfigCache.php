@@ -225,6 +225,23 @@ class ConfigCache
 	}
 	
 	/**
+	 * Whether a config file exists in any supported format, given its
+	 * canonical (typically `.xml`) logical path -- e.g.
+	 * `exists('%core.config_dir%/plugins.xml')` is true if `plugins.php`,
+	 * `.yaml`, `.yml`, or `.xml` exists alongside it. Used for genuinely
+	 * optional config files (unlike `settings.xml`, which is mandatory and
+	 * so just lets {@see checkConfig()} throw if absent).
+	 * @since      1.0.0
+	 */
+	public static function exists(string $config): bool
+	{
+		$config = Toolkit::normalizePath($config);
+		$filename = Toolkit::isPathAbsolute($config) ? $config : Toolkit::normalizePath(Config::getString('core.app_dir')) . '/' . $config;
+
+		return is_readable(self::resolveConfigFormat($filename));
+	}
+
+	/**
 	 * Check to see if a configuration file has been modified and if so
 	 * recompile the cache file associated with it.
 	 * If the configuration file path is relative, the path itself is relative
@@ -578,10 +595,6 @@ class ConfigCache
 			$loaded = eval('?>' . substr($result, 5));
 		} else {
 			$loaded = include($result);
-		}
-		if(is_array($loaded) && isset($loaded['__middleware_config'])) {
-			\Quiote\Middleware\MiddlewareCatalog::initialize($loaded['__middleware_config']);
-			unset($loaded['__middleware_config']);
 		}
 		self::$handlers = (array)self::$handlers + (array)$loaded;
 	}

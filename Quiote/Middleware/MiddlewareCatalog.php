@@ -5,9 +5,15 @@ namespace Quiote\Middleware;
 use Quiote\Context;
 
 /**
- * MiddlewareCatalog stores enable/disable flags for middleware FQCNs as parsed
- * from <middleware_config> so the runtime pipeline builder can cheaply skip
- * optional middlewares. Unknown classes default to enabled (backwards compatible).
+ * MiddlewareCatalog stores enable/disable flags for middleware FQCNs, settable
+ * programmatically via {@see initialize()} (tests, app bootstrap code), so the
+ * runtime pipeline builder can cheaply skip optional middlewares. Unknown
+ * classes default to enabled (backwards compatible). Declarative
+ * `middleware.xml` enable/disable is a separate, higher-level mechanism (see
+ * {@see \Quiote\Middleware\Config\MiddlewareConfigRegistry}) that merges into
+ * a {@see \Quiote\Middleware\Compiler\MiddlewareDefinition}'s own `enabled`
+ * field rather than this map -- this map still wins when both are present
+ * (see the precedence check in {@see MiddlewarePipeline::doBuild()}).
  */
 class MiddlewareCatalog
 {
@@ -59,7 +65,7 @@ class MiddlewareCatalog
         return self::$enabledMap[$fqcn] ?? true;
     }
 
-    /** Whether $fqcn has an explicit enabled/disabled entry from <middleware_config>. */
+    /** Whether $fqcn has an explicit enabled/disabled entry via {@see initialize()}. */
     public static function hasOverride(string $fqcn): bool
     {
         return array_key_exists($fqcn, self::$enabledMap);

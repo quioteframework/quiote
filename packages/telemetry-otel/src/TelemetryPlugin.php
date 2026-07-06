@@ -5,6 +5,7 @@ namespace Quiote\Telemetry;
 use Quiote\Event\Lifecycle\KernelBootEvent;
 use Quiote\Event\Lifecycle\WorkerRequestCompletedEvent;
 use Quiote\Plugin\PluginInterface;
+use Quiote\Plugin\Attribute\Plugin as PluginAttribute;
 use Quiote\Plugin\PluginRegistrar;
 
 /**
@@ -30,6 +31,7 @@ use Quiote\Plugin\PluginRegistrar;
  * core-default call is deleted and this plugin (unchanged) is registered via
  * the `plugins` config key instead, exactly like {@see \Quiote\Mcp\McpPlugin}.
  */
+#[PluginAttribute]
 final class TelemetryPlugin implements PluginInterface
 {
     public function name(): string

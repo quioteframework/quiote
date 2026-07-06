@@ -4,14 +4,14 @@ use Quiote\Testing\PhpUnitTestCase;
 use Quiote\Config\Config;
 use Quiote\Config\ConfigHandlersConfigHandler;
 use Quiote\Config\Format\FormatDriverRegistry;
-use Quiote\Middleware\MiddlewareCatalog;
 
 /**
- * Proves the <middleware_config> enable/disable mechanism (consumed by
- * MiddlewareCatalog::initialize()) compiles identically whether the source
- * file is XML, a plain PHP array, or YAML -- the same "greenfield code can
- * use or not use XML" guarantee already covered for settings.xml (see
- * SettingConfigHandlerFormatDriverTest), applied to config_handlers.xml.
+ * config_handlers.xml itself compiles identically whether the source file
+ * is XML, a plain PHP array, or YAML -- the same "greenfield code can use
+ * or not use XML" guarantee already covered for settings.xml (see
+ * SettingConfigHandlerFormatDriverTest). Middleware enable/disable used to
+ * be configured inline here via a reserved `<middleware_config>` block;
+ * that's covered separately now by MiddlewareConfigHandlerFormatDriverTest.
  */
 class ConfigHandlersConfigHandlerFormatDriverTest extends PhpUnitTestCase
 {
@@ -31,44 +31,40 @@ class ConfigHandlersConfigHandlerFormatDriverTest extends PhpUnitTestCase
 			unlink($f);
 		}
 		rmdir($this->dir);
-		MiddlewareCatalog::reset();
-		MiddlewareCatalog::initialize([]);
 		parent::tearDown();
 	}
 
-	private function expectedMap(): array
+	private function expectedHandlers(): array
 	{
 		return [
-			'Quiote\\Middleware\\ExecutionTimeMiddleware' => false,
-			'Quiote\\Middleware\\TimingMiddleware' => true,
+			Config::getString('core.config_dir') . '/settings.xml' => [
+				'class' => 'Quiote\\Config\\SettingConfigHandler',
+				'parameters' => [],
+				'transformations' => ['single' => [], 'compilation' => []],
+				'validations' => [
+					'single' => [
+						'transformations_before' => ['relax_ng' => [], 'schematron' => [], 'xml_schema' => []],
+						'transformations_after' => ['relax_ng' => [], 'schematron' => [], 'xml_schema' => []],
+					],
+					'compilation' => [
+						'transformations_before' => ['relax_ng' => [], 'schematron' => [], 'xml_schema' => []],
+						'transformations_after' => ['relax_ng' => [], 'schematron' => [], 'xml_schema' => []],
+					],
+				],
+			],
 		];
 	}
 
-	private function assertCompilesToExpectedMiddlewareMap(array $config): void
-	{
-		$this->assertArrayHasKey('__middleware_config', $config);
-		$this->assertSame($this->expectedMap(), $config['__middleware_config']);
-
-		// Close the loop: this is exactly what ConfigCache::loadConfigHandlersFile()
-		// does with the compiled array at runtime.
-		MiddlewareCatalog::initialize($config['__middleware_config']);
-		$this->assertFalse(MiddlewareCatalog::isEnabled('Quiote\\Middleware\\ExecutionTimeMiddleware'));
-		$this->assertTrue(MiddlewareCatalog::isEnabled('Quiote\\Middleware\\TimingMiddleware'));
-		// Unknown/unlisted classes default to enabled.
-		$this->assertTrue(MiddlewareCatalog::isEnabled('Some\\Unlisted\\Middleware'));
-	}
-
-	public function testXmlMiddlewareConfigCompiles(): void
+	public function testXmlHandlerRegistrationCompiles(): void
 	{
 		file_put_contents($this->dir . '/config_handlers.xml', <<<'XML'
 <?xml version="1.0" encoding="UTF-8"?>
 <ae:configurations xmlns:ae="http://quiote.dev/quiote/config/global/envelope/1.1"
                     xmlns="http://quiote.dev/quiote/config/parts/config_handlers/1.1">
     <ae:configuration>
-        <middleware_config>
-            <middleware class="Quiote\Middleware\ExecutionTimeMiddleware" enabled="false" />
-            <middleware class="Quiote\Middleware\TimingMiddleware" enabled="true" />
-        </middleware_config>
+        <handlers>
+            <handler pattern="%core.config_dir%/settings.xml" class="Quiote\Config\SettingConfigHandler" />
+        </handlers>
     </ae:configuration>
 </ae:configurations>
 XML);
@@ -82,20 +78,12 @@ XML);
 
 		$config = $registry->load($this->dir . '/config_handlers.xml', 'test');
 
-		$this->assertCompilesToExpectedMiddlewareMap($config);
+		$this->assertSame($this->expectedHandlers(), $config);
 	}
 
-	public function testPhpArrayMiddlewareConfigCompilesThroughTheSameHandler(): void
+	public function testPhpArrayHandlerRegistrationCompilesThroughTheSameHandler(): void
 	{
-		file_put_contents($this->dir . '/config_handlers.php', <<<'PHP'
-<?php
-return [
-    '__middleware_config' => [
-        'Quiote\\Middleware\\ExecutionTimeMiddleware' => false,
-        'Quiote\\Middleware\\TimingMiddleware' => true,
-    ],
-];
-PHP);
+		file_put_contents($this->dir . '/config_handlers.php', '<?php return ' . var_export($this->expectedHandlers(), true) . ';');
 
 		$handler = new ConfigHandlersConfigHandler();
 		$handler->initialize(null, []);
@@ -103,29 +91,12 @@ PHP);
 
 		$config = $registry->load($this->dir . '/config_handlers.php', 'test');
 
-		$this->assertCompilesToExpectedMiddlewareMap($config);
+		$this->assertSame($this->expectedHandlers(), $config);
 	}
 
-	public function testYamlMiddlewareConfigCompilesThroughTheSameHandler(): void
+	public function testExecuteArrayGeneratesLoadablePhp(): void
 	{
-		file_put_contents($this->dir . '/config_handlers.yaml', <<<'YAML'
-__middleware_config:
-  'Quiote\Middleware\ExecutionTimeMiddleware': false
-  'Quiote\Middleware\TimingMiddleware': true
-YAML);
-
-		$handler = new ConfigHandlersConfigHandler();
-		$handler->initialize(null, []);
-		$registry = FormatDriverRegistry::forHandler($handler);
-
-		$config = $registry->load($this->dir . '/config_handlers.yaml', 'test');
-
-		$this->assertCompilesToExpectedMiddlewareMap($config);
-	}
-
-	public function testExecuteArrayGeneratesLoadablePhpForAllThreeSources(): void
-	{
-		$config = ['__middleware_config' => $this->expectedMap()];
+		$config = $this->expectedHandlers();
 
 		$handler = new ConfigHandlersConfigHandler();
 		$handler->initialize(null, []);

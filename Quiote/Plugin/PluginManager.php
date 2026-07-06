@@ -6,6 +6,7 @@ use Quiote\Config\Config;
 use Quiote\DI\Container;
 use Quiote\Http\Client\HttpClientFactory;
 use Quiote\Logging\Log;
+use Quiote\Plugin\Attribute\Plugin as PluginAttribute;
 
 /**
  * Process-global registry + lifecycle for {@see PluginInterface}s, mirroring the
@@ -184,10 +185,26 @@ final class PluginManager
         \Quiote\Exception\Rendering\ExceptionRendererRegistry::reset();
     }
 
+    /**
+     * Turns a plugin class-string (from `plugins.*` or a string passed to
+     * {@see add()}) into an instance -- the one path that requires the class
+     * to carry {@see PluginAttribute}, since the string could originate from
+     * a config file rather than code the caller wrote directly. An
+     * already-constructed instance passed to {@see add()} skips this check
+     * entirely (see that attribute's own docblock for why).
+     */
     private static function instantiate(string $class): ?PluginInterface
     {
         if (!class_exists($class) || !is_subclass_of($class, PluginInterface::class)) {
             Log::for(self::class)->error('[PluginManager] configured plugin "' . $class . '" is not a ' . PluginInterface::class);
+            return null;
+        }
+        if (!(new \ReflectionClass($class))->getAttributes(PluginAttribute::class)) {
+            Log::for(self::class)->error(
+                '[PluginManager] configured plugin "' . $class . '" does not carry #[' . PluginAttribute::class . '] '
+                . '-- a class-string activation source (plugins.* or an add() call) requires the class to have '
+                . 'deliberately opted in with this attribute; refusing to register it.'
+            );
             return null;
         }
         return new $class();

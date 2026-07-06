@@ -7,7 +7,9 @@ use Quiote\Config\Config;
 use Quiote\DI\Container;
 use Quiote\Event\Events;
 use Quiote\Http\Client\HttpClientFactory;
+use Quiote\Middleware\Config\MiddlewareConfigRegistry;
 use Quiote\Middleware\MiddlewareCatalog;
+use Quiote\Plugin\Attribute\Plugin as PluginAttribute;
 use Quiote\Plugin\PluginInterface;
 use Quiote\Plugin\PluginManager;
 use Quiote\Plugin\PluginRegistrar;
@@ -25,6 +27,7 @@ class PluginManagerTest extends TestCase
     {
         PluginManager::reset();
         MiddlewareCatalog::reset();
+        MiddlewareConfigRegistry::reset();
         Events::reset();
         Config::remove('plugins');
         Config::remove('demo.setting');
@@ -179,8 +182,31 @@ class PluginManagerTest extends TestCase
 
         $this->assertCount(0, PluginManager::registeredPlugins());
     }
+
+    public function testClassStringActivationRefusesAPluginInterfaceClassWithoutTheAttribute(): void
+    {
+        // A real PluginInterface implementation, but with no #[Plugin] attribute:
+        // naming it in a class-string source (plugins.* or an add() string) must
+        // not be enough to activate it -- that's the whole point of the attribute
+        // gate (see Quiote\Plugin\Attribute\Plugin's docblock).
+        Config::set('plugins', [UnattributedPlugin::class], true);
+        PluginManager::bootFromConfig();
+
+        $this->assertCount(0, PluginManager::registeredPlugins());
+    }
+
+    public function testObjectInstanceActivationBypassesTheAttributeGate(): void
+    {
+        // The caller already wrote `new UnattributedPlugin()` themselves --
+        // that's the trust boundary, so the attribute isn't required here.
+        PluginManager::add(new UnattributedPlugin());
+        PluginManager::bootFromConfig();
+
+        $this->assertArrayHasKey(UnattributedPlugin::class, PluginManager::registeredPlugins());
+    }
 }
 
+#[PluginAttribute]
 final class RecordingPlugin implements PluginInterface
 {
     public function name(): string
@@ -202,6 +228,7 @@ final class RecordingPlugin implements PluginInterface
     }
 }
 
+#[PluginAttribute]
 final class SecondConfigPlugin implements PluginInterface
 {
     public function name(): string
@@ -215,6 +242,7 @@ final class SecondConfigPlugin implements PluginInterface
     }
 }
 
+#[PluginAttribute]
 final class CountingPlugin implements PluginInterface
 {
     public int $registerCalls = 0;
@@ -232,4 +260,17 @@ final class CountingPlugin implements PluginInterface
 
 final class DemoPluginEvent extends \Quiote\Event\Event
 {
+}
+
+// Deliberately NOT #[PluginAttribute] -- see testClassStringActivationRefusesAPluginInterfaceClassWithoutTheAttribute().
+final class UnattributedPlugin implements PluginInterface
+{
+    public function name(): string
+    {
+        return 'unattributed';
+    }
+
+    public function register(PluginRegistrar $r): void
+    {
+    }
 }

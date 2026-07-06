@@ -3,6 +3,7 @@
 use PHPUnit\Framework\TestCase;
 use Quiote\Context;
 use Quiote\Middleware\MiddlewarePipeline;
+use Quiote\Middleware\Config\MiddlewareConfigRegistry;
 use Quiote\Middleware\MiddlewareCatalog;
 use Quiote\Middleware\ErrorHandlingMiddleware;
 use Quiote\Middleware\SessionMiddleware;
@@ -41,6 +42,7 @@ class MiddlewareAttributeOrderingTest extends TestCase
     {
         MiddlewareCatalog::initialize([]);
         MiddlewareCatalog::reset();
+        MiddlewareConfigRegistry::reset();
         // CSRF middleware are no longer in MiddlewarePipeline's own $factories
         // map -- this test builds a pipeline via Context::getInstance() directly,
         // without going through
@@ -53,6 +55,7 @@ class MiddlewareAttributeOrderingTest extends TestCase
     public function tearDown(): void
     {
         MiddlewareCatalog::reset();
+        MiddlewareConfigRegistry::reset();
     }
 
     /** Build the pipeline and return its ordered debug stack of labels. */

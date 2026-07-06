@@ -64,6 +64,14 @@
 				<!-- 1.0 to 1.1 -->
 				<transformation>%core.quiote_dir%/Config/xsl/translation.xsl</transformation>
 			</handler>
+
+			<handler pattern="%core.config_dir%/plugins.xml" class="Quiote\Config\PluginConfigHandler">
+				<validation>%core.quiote_dir%/Config/xsd/plugins.xsd</validation>
+			</handler>
+
+			<handler pattern="%core.config_dir%/middleware.xml" class="Quiote\Config\MiddlewareConfigHandler">
+				<validation>%core.quiote_dir%/Config/xsd/middleware.xsd</validation>
+			</handler>
 		<handler pattern="%core.testing_dir%/Config/suites.xml" class="Quiote\Config\TestSuitesConfigHandler">
 			<!-- <validation>%core.quiote_dir%/Config/xsd/module.xsd</validation>-->
 			<!-- 1.0 to 1.1 -->
@@ -95,6 +103,21 @@
 				<transformation>%core.quiote_dir%/Config/xsl/validators.xsl</transformation>
 				<!-- 1.0 to 1.1 -->
 				<transformation>%core.quiote_dir%/Config/xsl/validators.xsl</transformation>
+			</handler>
+
+			<!--
+				Drop-in module contributions: a module directory (whether shipped
+				with the app or dropped in by a third party) can register its own
+				plugins and/or middleware just by containing these files, no app
+				wiring required. See Quiote::bootstrap()'s module-config glob and
+				Quiote\Middleware\Config\MiddlewareConfigRegistry.
+			-->
+			<handler pattern="%core.module_dir%/*/Config/plugins.xml" class="Quiote\Config\PluginConfigHandler">
+				<validation>%core.quiote_dir%/Config/xsd/plugins.xsd</validation>
+			</handler>
+
+			<handler pattern="%core.module_dir%/*/Config/middleware.xml" class="Quiote\Config\MiddlewareConfigHandler">
+				<validation>%core.quiote_dir%/Config/xsd/middleware.xsd</validation>
 			</handler>
 		</handlers>
 	</ae:configuration>

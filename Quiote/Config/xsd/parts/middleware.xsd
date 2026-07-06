@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema
+	xmlns:xs="http://www.w3.org/2001/XMLSchema"
+	xmlns:types_1_0="http://quiote.dev/quiote/config/global/types/1.0"
+	xmlns="http://quiote.dev/quiote/config/parts/middleware/1.1"
+	targetNamespace="http://quiote.dev/quiote/config/parts/middleware/1.1"
+	elementFormDefault="qualified"
+	version="$Id$">
+
+	<xs:import namespace="http://quiote.dev/quiote/config/global/types/1.0"
+	           schemaLocation="../_types.xsd" />
+
+	<xs:simpleType name="phase">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="bootstrap" />
+			<xs:enumeration value="pre_routing" />
+			<xs:enumeration value="pre" />
+			<xs:enumeration value="routing" />
+			<xs:enumeration value="before_action" />
+			<xs:enumeration value="action" />
+			<xs:enumeration value="after_action" />
+			<xs:enumeration value="finalize" />
+		</xs:restriction>
+	</xs:simpleType>
+
+	<!--
+		A single middleware contribution. `class` is the only required attribute;
+		everything else is an override of that class's own #[Middleware]
+		attribute (if any) or, for a class with no attribute at all, the value
+		used outright. `override-framework` must be "true" (in addition to the
+		global `core.middleware.allow_framework_overrides` setting) before this
+		entry is allowed to touch one of the framework's own shipped middleware
+		classes; see Quiote\Middleware\Config\MiddlewareConfigRegistry.
+	-->
+	<xs:complexType name="use">
+		<xs:attribute name="class" type="types_1_0:php_class" use="required" />
+		<xs:attribute name="phase" type="phase" use="optional" />
+		<xs:attribute name="priority" type="xs:int" use="optional" />
+		<xs:attribute name="before" type="xs:string" use="optional" />
+		<xs:attribute name="after" type="xs:string" use="optional" />
+		<xs:attribute name="enabled" type="types_1_0:boolean" use="optional" />
+		<xs:attribute name="override-framework" type="types_1_0:boolean" use="optional" default="false" />
+	</xs:complexType>
+
+	<xs:group name="configuration">
+		<xs:sequence>
+			<xs:element name="use" type="use"
+			            minOccurs="0" maxOccurs="unbounded" />
+		</xs:sequence>
+	</xs:group>
+
+</xs:schema>

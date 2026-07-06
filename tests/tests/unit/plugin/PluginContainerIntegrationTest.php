@@ -7,6 +7,7 @@ use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use Quiote\Context;
 use Quiote\DI\Container;
 use Quiote\Http\Client\HttpClientFactory;
+use Quiote\Plugin\Attribute\Plugin as PluginAttribute;
 use Quiote\Plugin\PluginInterface;
 use Quiote\Plugin\PluginManager;
 use Quiote\Plugin\PluginRegistrar;
@@ -66,6 +67,7 @@ class PluginContainerIntegrationTest extends TestCase
     }
 }
 
+#[PluginAttribute]
 final class ContainerDemoPlugin implements PluginInterface
 {
     public function name(): string

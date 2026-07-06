@@ -112,6 +112,16 @@ final class Quiote
 
 			// compile.xml aggregation removed; rely on autoload + opcache.
 
+			// Declarative plugins.*/middleware.* config: the app's own
+			// %core.config_dir%/{plugins,middleware}.* (if present -- both are
+			// optional, unlike settings.xml) plus every module's own
+			// Config/{plugins,middleware}.* (drop-in: a module registers its own
+			// plugins/middleware just by containing these files, no app wiring
+			// required). Must run before PluginManager::bootFromConfig() (which
+			// reads the `plugins` key these compile into) and before the
+			// pipeline's first build (which reads MiddlewareConfigRegistry).
+			self::loadDeclaredExtensionConfig();
+
 			// Plugin registration lives exactly here — after settings have loaded
 			// (so app config wins over plugin defaults) and before any Context is
 			// created (so plugins can contribute config/services/middleware/routes
@@ -240,6 +250,49 @@ final class Quiote
 				'Quiote::bootstrap() failed: ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine()
 			);
 			throw $e;
+		}
+	}
+
+	/**
+	 * Loads the app's own `plugins.*`/`middleware.*` (if present -- both are
+	 * optional) plus every module's `Config/plugins.*`/`Config/middleware.*`
+	 * (drop-in contributions, discovered by globbing `core.module_dir`
+	 * subdirectories in sorted-name order for determinism). Each compiled
+	 * file appends to shared state (the `plugins` config key, or
+	 * {@see \Quiote\Middleware\Config\MiddlewareConfigRegistry}) rather than
+	 * replacing it, so app-then-modules ordering here is what gives the app
+	 * "first occurrence wins" precedence over a module declaring the same
+	 * plugin/middleware class.
+	 * @since      1.0.0
+	 */
+	private static function loadDeclaredExtensionConfig(): void
+	{
+		$useApcu = defined('QUIOTE_USE_APCU_CONFIG_CACHE') && QUIOTE_USE_APCU_CONFIG_CACHE;
+		$loader = $useApcu ? APCuConfigCache::class : ConfigCache::class;
+
+		$appPaths = [
+			Config::getString('core.config_dir') . '/plugins.xml',
+			Config::getString('core.config_dir') . '/middleware.xml',
+		];
+		foreach ($appPaths as $path) {
+			if (ConfigCache::exists($path)) {
+				$loader::load($path);
+			}
+		}
+
+		$moduleDir = Config::getString('core.module_dir');
+		if (!is_dir($moduleDir)) {
+			return;
+		}
+		$moduleDirs = glob($moduleDir . '/*', GLOB_ONLYDIR) ?: [];
+		sort($moduleDirs);
+		foreach ($moduleDirs as $dir) {
+			foreach (['plugins.xml', 'middleware.xml'] as $file) {
+				$path = $dir . '/Config/' . $file;
+				if (ConfigCache::exists($path)) {
+					$loader::load($path);
+				}
+			}
 		}
 	}
 

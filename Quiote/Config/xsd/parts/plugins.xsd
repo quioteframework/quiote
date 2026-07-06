@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema
+	xmlns:xs="http://www.w3.org/2001/XMLSchema"
+	xmlns:types_1_0="http://quiote.dev/quiote/config/global/types/1.0"
+	xmlns="http://quiote.dev/quiote/config/parts/plugins/1.1"
+	targetNamespace="http://quiote.dev/quiote/config/parts/plugins/1.1"
+	elementFormDefault="qualified"
+	version="$Id$">
+
+	<xs:import namespace="http://quiote.dev/quiote/config/global/types/1.0"
+	           schemaLocation="../_types.xsd" />
+
+	<xs:complexType name="plugin">
+		<xs:attribute name="class" type="types_1_0:php_class" use="required" />
+		<xs:attribute name="enabled" type="types_1_0:boolean" use="optional" default="true" />
+	</xs:complexType>
+
+	<xs:complexType name="plugins">
+		<xs:sequence>
+			<xs:element name="plugin" type="plugin"
+			            minOccurs="0" maxOccurs="unbounded" />
+		</xs:sequence>
+	</xs:complexType>
+
+	<xs:group name="plugins">
+		<xs:choice>
+			<xs:element name="plugins" type="plugins"
+			            minOccurs="0" maxOccurs="1" />
+			<xs:element name="plugin" type="plugin"
+			            minOccurs="0" maxOccurs="unbounded" />
+		</xs:choice>
+	</xs:group>
+
+	<xs:group name="configuration">
+		<xs:sequence>
+			<xs:group ref="plugins" minOccurs="0" maxOccurs="unbounded" />
+		</xs:sequence>
+	</xs:group>
+
+</xs:schema>

@@ -3,6 +3,7 @@
 use PHPUnit\Framework\TestCase;
 use Quiote\Context;
 use Quiote\Middleware\MiddlewarePipeline;
+use Quiote\Middleware\Config\MiddlewareConfigRegistry;
 use Quiote\Middleware\MiddlewareCatalog;
 use Quiote\Middleware\SessionMiddleware;
 use Quiote\Middleware\RoutingMiddleware;
@@ -26,6 +27,7 @@ class MiddlewareRegistrationTest extends TestCase
     {
         MiddlewareCatalog::initialize([]); // all enabled
         MiddlewareCatalog::reset();        // no registrations leaking in
+        MiddlewareConfigRegistry::reset();
     }
 
     #[\Override]
@@ -34,6 +36,7 @@ class MiddlewareRegistrationTest extends TestCase
         // Registrations are process-global static state; clear them so they do
         // not pollute other pipeline tests.
         MiddlewareCatalog::reset();
+        MiddlewareConfigRegistry::reset();
     }
 
     /** A no-op pass-through middleware factory (label is what shows in debugStack). */
