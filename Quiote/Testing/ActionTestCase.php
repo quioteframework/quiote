@@ -226,7 +226,7 @@ abstract class ActionTestCase extends FragmentTestCase
 							$childs = $vm->getChilds();
 							$names = [];
 							foreach ($childs as $cv) {
-								$names[] = method_exists($cv, 'getName') ? $cv->getName() : 'unknown';
+								$names[] = $cv->getName();
 							}
 							$logger->debug('[TestDebug][ValidatorsRegistered] ' . implode(',', $names));
 							$report = $vm->getReport();
@@ -248,7 +248,7 @@ abstract class ActionTestCase extends FragmentTestCase
 							$logger->debug('[TestDebug][ValidatorDumpException] ' . $ie->getMessage());
 						}
 					}
-					if (!$this->validationSuccess && method_exists($vm, 'getReport') && $vm->getReport()) {
+					if (!$this->validationSuccess && $vm->getReport()) {
 						$errs = $vm->getReport()->getErrors();
 						$lines = [];
 						foreach ($errs as $err) {

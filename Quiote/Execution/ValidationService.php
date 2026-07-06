@@ -125,9 +125,9 @@ class ValidationService
                     } else {
                         require($incFile);
                     }
-                    if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) { 
-                        try { 
-                            $statLine = '[ValidationService][probe] post-require APCu childCount=' . (is_array($validationManager->getChilds())?count($validationManager->getChilds()):'na');
+                    if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+                        try {
+                            $statLine = '[ValidationService][probe] post-require APCu childCount=' . count($validationManager->getChilds());
                             if (file_exists($incFile)) { $statLine .= ' real=' . realpath($incFile) . ' mtime=' . filemtime($incFile) . ' size=' . filesize($incFile); }
                             $logger->debug($statLine);
                         } catch(\Throwable) {}
@@ -136,9 +136,9 @@ class ValidationService
                     $incFile = ConfigCache::checkConfig($configFile, $this->currentContext->getName());
                     if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) { $logger->debug('[ValidationService][probe] disk checkConfig returned ' . $incFile . ' exists=' . (file_exists($incFile)?'1':'0')); }
                     require($incFile);
-                    if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) { 
-                        try { 
-                            $statLine = '[ValidationService][probe] post-require disk childCount=' . (is_array($validationManager->getChilds())?count($validationManager->getChilds()):'na');
+                    if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+                        try {
+                            $statLine = '[ValidationService][probe] post-require disk childCount=' . count($validationManager->getChilds());
                             if (file_exists($incFile)) { 
                                 $real = realpath($incFile); $mtime = @filemtime($incFile); $size = @filesize($incFile);
                                 $contents = @file_get_contents($incFile);
@@ -204,7 +204,7 @@ class ValidationService
             try {
                 $childs = $validationManager->getChilds();
                 $names = [];
-                foreach ($childs as $cv) { $names[] = method_exists($cv,'getName') ? $cv->getName() : 'unknown'; }
+                foreach ($childs as $cv) { $names[] = $cv->getName(); }
                 $logger->debug('[ValidationService][validate] executeResult=' . ($ok?'1':'0') . ' childCount=' . count($names) . ' names=' . implode(',', $names));
             } catch(\Throwable) {}
         }

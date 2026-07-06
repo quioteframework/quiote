@@ -2,7 +2,6 @@
 namespace Quiote\Routing;
 
 use Quiote\Context;
-use Quiote\Exception\QuioteException;
 use Quiote\Response\WebResponse;
 use Quiote\Util\Toolkit;
 
@@ -114,9 +113,6 @@ class HttpRedirectRoutingCallback extends RoutingCallback
 		
 		// create response and set redirect
 		$response = $this->getContext()->createInstanceFor('response');
-		if(!($response instanceof WebResponse)) {
-			throw new QuioteException('HttpRedirectRoutingCallback can only be used in combination with WebResponse.');
-		}
 		$response->setRedirect($url, $this->getParameter('code', 302));
 		return $response;
 	}

@@ -9,7 +9,7 @@ use Quiote\DI\Container;
 use Quiote\Exception\DisabledModuleException;
 use Quiote\Exception\QuioteException;
 use Quiote\Request\WebRequest;
-use Quiote\Response\Response;
+use Quiote\Response\WebResponse;
 use Quiote\Routing\Routing;
 use Quiote\Translation\TranslationManager;
 use Quiote\User\ISecurityUser;
@@ -242,7 +242,7 @@ class Context implements \Stringable, ResetInterface
    * Factory for frequently used classes from factories.xml
    * @template T of string
    * @param      T $for The factory identifier.
-   * @return     (T is 'validation_manager' ? ValidationManager : (T is 'translation_manager' ? TranslationManager : (T is 'controller' ? Controller : (T is 'response' ? Response : object))))
+   * @return     (T is 'validation_manager' ? ValidationManager : (T is 'translation_manager' ? TranslationManager : (T is 'controller' ? Controller : (T is 'response' ? WebResponse : object))))
    *             An instance, already initialized with parameters.
    * @throws     QuioteException If no such identifier exists.
    * @since      1.0.0

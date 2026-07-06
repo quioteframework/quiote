@@ -1223,15 +1223,6 @@ final class FormPopulationEngine
 				return new ParameterHolder($params);
 			}
 		}
-		if(class_exists('Quiote\\Request\\WebRequestDataHolder') && is_a($request, 'Quiote\\Request\\WebRequestDataHolder')) {
-			$params = $request->getParameters();
-			if($params instanceof ParameterHolder) {
-				return $params;
-			}
-			if(is_array($params)) {
-				return new ParameterHolder($params);
-			}
-		}
 		return null;
 	}
 

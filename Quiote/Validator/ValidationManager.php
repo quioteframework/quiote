@@ -34,7 +34,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 	protected $context = null;
 
 	/**
-	 * @var        ValidationReport The report container storing the validation results.
+	 * @var        ?ValidationReport The report container storing the validation results, or null before the first validation run.
 	 */
 	protected $report = null;
 
@@ -97,7 +97,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 	
 	/**
 	 * Retrieve the validation result report container of the last validation run.
-	 * @return     ValidationReport The result report container.
+	 * @return     ?ValidationReport The result report container, or null before the first validation run.
 	 * @since      1.0.0
 	 */
 	public function getReport()
