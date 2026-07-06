@@ -148,8 +148,13 @@ class MiddlewarePipeline implements RequestHandlerInterface
                 }),
                 SessionMiddleware::class => fn() => new SessionMiddleware($controller),
                 TelemetryMiddleware::class => fn() => new TelemetryMiddleware(),
-                TimingMiddleware::class => fn() => new TimingMiddleware(false),
-                TraceMiddleware::class => fn() => new TraceMiddleware(false),
+                TimingMiddleware::class => fn() => new TimingMiddleware(
+                    \Quiote\Config\Config::getBool('middleware.timing.emit_header', false)
+                ),
+                TraceMiddleware::class => fn() => new TraceMiddleware(
+                    \Quiote\Config\Config::getBool('middleware.trace.emit_header', false),
+                    \Quiote\Config\Config::getString('middleware.trace.header_name', 'X-Quiote-Trace')
+                ),
                 PayloadParsingMiddleware::class => fn() => new PayloadParsingMiddleware(),
                 ContentNegotiationMiddleware::class => fn() => new ContentNegotiationMiddleware(),
                 RoutingMiddleware::class => fn() => new RoutingMiddleware($routing, $controller),

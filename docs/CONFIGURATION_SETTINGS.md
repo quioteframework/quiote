@@ -604,14 +604,18 @@ Whether *session storage itself* actually persists anything depends on the stora
 | Setting | Default | How to set | What it does |
 |---|---|---|---|
 | Enable/disable via `MiddlewareCatalog` | enabled (unknown FQCN defaults to `true`) | `config_handlers.xml`: `<middleware_config><middleware class="Quiote\Middleware\TimingMiddleware" enabled="false"/></middleware_config>` (see `MiddlewareCatalog` section further below for the full mechanism) | If disabled, the pipeline skips constructing `TimingMiddleware` entirely — no timing metrics/header. |
-
-The `emitHeader` constructor parameter (default `false`) controls the `X-Quiote-Timing` header, but this is **not** wired through any config: the default pipeline hardcodes `new TimingMiddleware(false)`, so the header can never be turned on without a custom pipeline.
+| `middleware.timing.emit_header` | `false` | `settings.php`/`.xml`/`.yml`/`.yaml` | Passed straight to the `emitHeader` constructor argument; set `true` to emit the `X-Quiote-Timing` response header. |
 
 ### TraceMiddleware
 
 `Quiote/Middleware/TraceMiddleware.php` — appends its own class name to `ExecutionState::$metrics['trace']` (a running list of executed middleware), optionally emitting a trace header.
 
-Same enable/disable mechanism as `TimingMiddleware` (`MiddlewareCatalog`/`<middleware_config>`). Constructor params `emitHeader` (default `false`) and `headerName` (default `'X-Quiote-Trace'`) are likewise **hardcoded in the default pipeline** (`new TraceMiddleware(false)`) — `headerName` is never overridden there, so it always stays at its class default.
+Same enable/disable mechanism as `TimingMiddleware` (`MiddlewareCatalog`/`<middleware_config>`).
+
+| Setting | Default | How to set | What it does |
+|---|---|---|---|
+| `middleware.trace.emit_header` | `false` | `settings.php`/`.xml`/`.yml`/`.yaml` | Passed to the `emitHeader` constructor argument; set `true` to emit the trace header. |
+| `middleware.trace.header_name` | `'X-Quiote-Trace'` | `settings.php`/`.xml`/`.yml`/`.yaml` | Passed to the `headerName` constructor argument; overrides the response header's name. |
 
 ### PayloadParsingMiddleware
 
@@ -753,7 +757,7 @@ Worker-mode selection itself is **not** config-driven: `Kernel::selectWorkerAdap
 
 ### Isolated test-bootstrap env vars (`Quiote/Testing/scripts/IsolatedBootstrap.php`)
 
-The actual read site for the vars referenced in `tests/config/phpunit.xml`. Environment variables, not `Config`, with a cross-process temp-file fallback for PHPUnit process isolation.
+The actual read site for the vars referenced in `phpunit.xml`. Environment variables, not `Config`, with a cross-process temp-file fallback for PHPUnit process isolation.
 
 | Env var | Default | What it does |
 |---|---|---|
@@ -1308,7 +1312,7 @@ A real OTel Collector plus the real sample app served by real FrankenPHP
 worker mode (not a unit-test simulation) — see
 `docs/OPENTELEMETRY_E2E_VERIFICATION.md`. Run with `composer test:e2e`;
 **excluded from `composer test`/CI** via `#[Group('e2e')]`
-(`tests/config/phpunit.xml`, same mechanism as the APCu tests) since it needs
+(`phpunit.xml`, same mechanism as the APCu tests) since it needs
 Docker and real wall-clock time. Its own `tests/e2e/Dockerfile` installs
 `require-dev` plus a locally-added `symfony/http-client` (the PSR-18 client
 the OTLP exporter needs) — neither touches the repo's committed
