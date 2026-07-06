@@ -16,6 +16,14 @@ use Psr\Http\Message\ResponseInterface;
 use Nyholm\Psr7\ServerRequest;
 use Quiote\Execution\ActionDescriptor;
 
+/**
+ * Run in a separate process: setUpBeforeClass() bootstraps with a real
+ * environment name, which Quiote::bootstrap() locks core.environment
+ * read-only to for the rest of the process (see DispatchMiddlewareDeeperCoverageTest's
+ * docblock for the full story). #[RunTestsInSeparateProcesses] contains that
+ * lock to this class's own process.
+ */
+#[\PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses]
 final class ValidationFailureTest extends TestCase
 {
     public static function setUpBeforeClass(): void
@@ -25,7 +33,7 @@ final class ValidationFailureTest extends TestCase
         $vendorAutoload = $root . '/vendor/autoload.php';
         if (is_readable($vendorAutoload)) { require_once $vendorAutoload; }
         require_once $root . '/Quiote/Quiote.php';
-        Quiote::bootstrap('test','web', ['prewarm'=>false]);
+        Quiote::bootstrap('testing','web', ['prewarm'=>false]);
     }
 
     public function testValidationFailureInvokesHandleError(): void

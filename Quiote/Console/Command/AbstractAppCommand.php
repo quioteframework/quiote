@@ -36,9 +36,11 @@ abstract class AbstractAppCommand extends Command
 
 	protected function bootstrapApp(InputInterface $input): void
 	{
+		$appDirOption = $input->getOption('app-dir');
+		$envOption = $input->getOption('env');
 		$resolved = AppDirResolver::resolve(
-			$input->getOption('app-dir') ?: null,
-			$input->getOption('env') ?: null,
+			is_string($appDirOption) && $appDirOption !== '' ? $appDirOption : null,
+			is_string($envOption) && $envOption !== '' ? $envOption : null,
 		);
 
 		if (!Config::has('core.app_dir')) {
@@ -52,7 +54,7 @@ abstract class AbstractAppCommand extends Command
 			Config::set('core.app_dir', $resolved['appDir'], true, true);
 		}
 
-		Quiote::bootstrap($resolved['env'] ?: 'development');
+		Quiote::bootstrap($resolved['env'] ?: Config::getNullableString('core.environment') ?: 'development');
 
 		$this->registerAppNamespaceFallbackAutoloader();
 	}
