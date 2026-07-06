@@ -1,6 +1,7 @@
 <?php
 
 use Quiote\Testing\UnitTestCase;
+use Quiote\Translation\TranslationManager;
 use Quiote\Validator\ValidationManager;
 use Quiote\Validator\Validator;
 use Quiote\Validator\ValidationReportQuery;
@@ -22,6 +23,47 @@ require_once __DIR__ . '/../../../lib/validator/DummyValidator.class.php';
  */
 class AdditionalValidatorEdgeCasesTest extends UnitTestCase
 {
+    /**
+     * Several tests below enable core.use_translation and rely on a
+     * TranslationManager being wired into the shared Context singleton --
+     * previously this class had no setUp() at all and silently depended on
+     * some other test class (e.g. DateTimeValidatorTest) having already
+     * registered one earlier in the same process. When this class ran first
+     * (or alone), getTranslationManager() returned null: DateTimeValidator
+     * fatals on that outright, and NumberValidator's locale-parsing test
+     * degrades to a wrong-but-non-fatal assertion failure. Mirrors the
+     * registration dance in DateTimeValidatorTest/TranslationManagerIntlTest
+     * so this class no longer depends on suite execution order.
+     */
+    #[\Override]
+    protected function setUp(): void
+    {
+        $context = $this->getContext();
+        if ($context->getTranslationManager() === null) {
+            $info = $context->getFactoryInfo('translation_manager');
+            if ($info === null || empty($info['class'])) {
+                $context->setFactoryInfo('translation_manager', [
+                    'class' => TranslationManager::class,
+                    'parameters' => [],
+                ]);
+            }
+            /** @var TranslationManager $translationManager */
+            $translationManager = $context->createInstanceFor('translation_manager');
+            $reflection = new ReflectionObject($context);
+            $property = $reflection->getProperty('translationManager');
+            $property->setValue($context, $translationManager);
+
+            $sequenceProperty = $reflection->getProperty('shutdownSequence');
+            $sequence = $sequenceProperty->getValue($context);
+            if (is_array($sequence) && !in_array($translationManager, $sequence, true)) {
+                $sequence[] = $translationManager;
+                $sequenceProperty->setValue($context, $sequence);
+            }
+
+            $translationManager->startup();
+        }
+    }
+
     private function vm(array $params = []): ValidationManager
     {
         $vm = $this->getContext()->createInstanceFor('validation_manager');

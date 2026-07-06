@@ -156,6 +156,107 @@ class FormPopulationEngineTest extends UnitTestCase
 		$this->assertEquals(1, $xpath->query('//input[@value="bar"]')->length);
 	}
 
+	public function testIsPostFilterAlwaysReturnsTrue(): void
+	{
+		$engine = new FormPopulationEngine();
+		$this->assertTrue($engine->isPostFilter());
+	}
+
+	public function testToUtf8ConvertsFromIso88591ByDefault(): void
+	{
+		$engine = new FormPopulationEngine();
+		$latin1 = mb_convert_encoding('café', 'ISO-8859-1', 'UTF-8');
+
+		$result = $this->invokeProtected($engine, 'toUtf8', [$latin1]);
+
+		$this->assertSame('café', $result);
+	}
+
+	public function testToUtf8RecursesIntoArrays(): void
+	{
+		$engine = new FormPopulationEngine();
+		$latin1 = mb_convert_encoding('café', 'ISO-8859-1', 'UTF-8');
+
+		$result = $this->invokeProtected($engine, 'toUtf8', [['a' => $latin1, 'b' => $latin1]]);
+
+		$this->assertSame(['a' => 'café', 'b' => 'café'], $result);
+	}
+
+	public function testToUtf8ConvertsFromAnArbitraryEncoding(): void
+	{
+		$engine = new FormPopulationEngine();
+		$iso88592 = iconv('UTF-8', 'ISO-8859-2', 'čaj');
+
+		$result = $this->invokeProtected($engine, 'toUtf8', [$iso88592, 'ISO-8859-2']);
+
+		$this->assertSame('čaj', $result);
+	}
+
+	public function testFromUtf8ConvertsToIso88591ByDefault(): void
+	{
+		$engine = new FormPopulationEngine();
+
+		$result = $this->invokeProtected($engine, 'fromUtf8', ['cafe']);
+		if (!is_string($result)) {
+			throw new \RuntimeException('Expected fromUtf8() to return a string.');
+		}
+
+		$this->assertSame('cafe', mb_convert_encoding($result, 'UTF-8', 'ISO-8859-1'));
+	}
+
+	public function testFromUtf8RecursesIntoArrays(): void
+	{
+		$engine = new FormPopulationEngine();
+
+		$result = $this->invokeProtected($engine, 'fromUtf8', [['a' => 'cafe', 'b' => 'cafe']]);
+
+		$this->assertSame(['a' => 'cafe', 'b' => 'cafe'], $result);
+	}
+
+	public function testFromUtf8ConvertsToAnArbitraryEncoding(): void
+	{
+		$engine = new FormPopulationEngine();
+
+		$result = $this->invokeProtected($engine, 'fromUtf8', ['caj', 'ISO-8859-2']);
+		if (!is_string($result)) {
+			throw new \RuntimeException('Expected fromUtf8() to return a string.');
+		}
+
+		$this->assertSame('caj', iconv('ISO-8859-2', 'UTF-8', $result));
+	}
+
+	#[\PHPUnit\Framework\Attributes\DataProvider('dataNormalizeLibxmlLevel')]
+	public function testNormalizeLibxmlLevel(mixed $value, bool $isIgnoreSetting, int|false $expected): void
+	{
+		$engine = new FormPopulationEngine();
+
+		$result = $this->invokeProtected($engine, 'normalizeLibxmlLevel', [$value, $isIgnoreSetting]);
+
+		$this->assertSame($expected, $result);
+	}
+
+	/** @return array<string, array{mixed, bool, int|false}> */
+	public static function dataNormalizeLibxmlLevel(): array
+	{
+		return [
+			'ignore=true maps to FATAL' => [true, true, LIBXML_ERR_FATAL],
+			'ignore=false maps to NONE' => [false, true, LIBXML_ERR_NONE],
+			'report=true maps to WARNING' => [true, false, LIBXML_ERR_WARNING],
+			'report=false maps to false' => [false, false, false],
+			'explicit int passes through' => [LIBXML_ERR_ERROR, true, LIBXML_ERR_ERROR],
+			'string constant name is resolved' => ['LIBXML_ERR_WARNING', true, LIBXML_ERR_WARNING],
+			'unrecognized value defaults (ignore=true)' => ['bogus', true, LIBXML_ERR_ERROR],
+			'unrecognized value defaults (ignore=false)' => ['bogus', false, LIBXML_ERR_WARNING],
+		];
+	}
+
+	/** @param array<int, mixed> $args */
+	private function invokeProtected(object $object, string $method, array $args): mixed
+	{
+		$ref = new \ReflectionMethod($object, $method);
+		return $ref->invoke($object, ...$args);
+	}
+
 	public static function _errorCallback($element, array $errorStrings, array $errors): \DOMElement
 	{
 		return new \DOMElement('div', implode(',', $errorStrings));

@@ -164,7 +164,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 
 	/**
 	 * Returns the name of this validator.
-	 * @return     string The name
+	 * @return     ?string The name
 	 * @since      1.0.0
 	 */
 	public function getName()
@@ -253,7 +253,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 
 	/**
 	 * Retrieve the parent container.
-	 * @return     IValidatorContainer The parent container.
+	 * @return     ?IValidatorContainer The parent container.
 	 * @since      1.0.0
 	 */
 	public final function getParentContainer()

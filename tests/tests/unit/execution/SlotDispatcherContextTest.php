@@ -7,17 +7,6 @@ use Quiote\Execution\ActionExecutionContext;
 
 class SlotDispatcherContextTest extends UnitTestCase
 {
-    public static function setUpBeforeClass(): void
-    {
-        set_error_handler(function($errno,$errstr,$errfile,$errline){
-            fwrite(STDERR, "ERR[$errno] $errstr at $errfile:$errline\n");
-            return false; // allow normal handling too
-        });
-        register_shutdown_function(function(): void{
-            $e = error_get_last();
-            if($e) { fwrite(STDERR, "SHUTDOWN: ".json_encode($e)."\n"); }
-        });
-    }
     protected function setUp(): void
     {
         parent::setUp();

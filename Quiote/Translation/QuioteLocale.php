@@ -993,7 +993,7 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	}
 
 	/**
-	 * @return array<int|string, mixed>|null
+	 * @return array<int|string, mixed>
 	 */
 	public function getTimeZoneNames()
 	{

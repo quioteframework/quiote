@@ -156,6 +156,9 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 	public function addChild(Validator $validator)
 	{
 		$name = $validator->getName();
+		if($name === null) {
+			throw new InvalidArgumentException('Cannot add a validator with no name (was it reset without being re-initialized?)');
+		}
 		if(isset($this->children[$name])) {
 			// In testing environment, allow overwriting validators to prevent conflicts
 			if (defined('QUIOTE_TESTING') || (isset($_ENV['QUIOTE_TESTING']) && $_ENV['QUIOTE_TESTING'])) {

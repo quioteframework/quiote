@@ -6,6 +6,23 @@ use PHPUnit\Framework\Attributes\DataProvider;
 
 class ExceptionTest extends UnitTestCase
 {
+	public function testGetOriginalCodePreservesNonIntegerCode(): void
+	{
+		// The parent Exception constructor coerces non-int codes to 0, but
+		// QuioteException keeps the original value accessible separately.
+		$e = new QuioteException('message', 'CUSTOM_CODE');
+		$this->assertSame('CUSTOM_CODE', $e->getOriginalCode());
+		$this->assertSame(0, $e->getCode());
+	}
+
+	public function testGetOriginalCodeWithAnIntegerCode(): void
+	{
+		$e = new QuioteException('message', 42);
+		$this->assertSame(42, $e->getOriginalCode());
+		$this->assertSame(42, $e->getCode());
+	}
+
+
 	public static function highlightSnippets()
 	{
 		return [

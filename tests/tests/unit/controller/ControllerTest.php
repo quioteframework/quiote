@@ -145,6 +145,65 @@ class ControllerTest extends PhpUnitTestCase
 		$this->assertFalse($controller->viewExists('Bunk', 'Bunk'));
 	}
 
+	public function testModuleExists(): void
+	{
+		$controller = $this->_controller;
+		$this->assertTrue($controller->moduleExists('ControllerTests'));
+		$this->assertFalse($controller->moduleExists('NoSuchModuleAtAll'));
+	}
+
+	public function testActionExists(): void
+	{
+		$controller = $this->_controller;
+		$this->assertTrue($controller->actionExists('ControllerTests', 'ControllerTest'));
+		$this->assertFalse($controller->actionExists('ControllerTests', 'NoSuchAction'));
+	}
+
+	public function testGetOutputTypeNamesReturnsLowercasedRegisteredTypes(): void
+	{
+		$controller = $this->_controller;
+		$names = $controller->getOutputTypeNames();
+		$this->assertIsArray($names);
+		$this->assertNotEmpty($names);
+		foreach ($names as $name) {
+			if (!is_string($name)) {
+				throw new \RuntimeException('Expected an output type name to be a string.');
+			}
+			$this->assertSame(strtolower($name), $name);
+		}
+	}
+
+	public function testCountExecutionIncrementsWithoutThrowingUnderTheLimit(): void
+	{
+		$controller = $this->_controller;
+		// The execution counter isn't reset by initialize(), only by reset() (the
+		// FrankenPHP worker-mode hook) -- and the controller itself is a process-wide
+		// singleton shared across every test in this class, so a clean baseline must
+		// be established explicitly rather than assumed from execution order.
+		$controller->reset();
+		$controller->countExecution();
+		$controller->countExecution();
+		$this->addToAssertionCount(1);
+	}
+
+	public function testCountExecutionThrowsWhenLimitExceeded(): void
+	{
+		$controller = $this->_controller;
+		$controller->reset();
+		$controller->setParameter('max_executions', 2);
+		$controller->countExecution();
+		$controller->countExecution();
+		$this->expectException(\Quiote\Exception\ControllerException::class);
+		$controller->countExecution();
+	}
+
+	public function testShutdownDoesNotThrow(): void
+	{
+		$controller = $this->_controller;
+		$controller->shutdown();
+		$this->addToAssertionCount(1);
+	}
+
 	/**
 	 * createActionInstance() routes through Container::make(), so an action's
 	 * constructor-typed dependency must be autowired, and every call must

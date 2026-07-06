@@ -119,5 +119,32 @@ class SecurityUserTest extends UnitTestCase
 		$this->assertFalse($u->isAuthenticated());
 	}
 
+	public function testGetCredentialsReflectsAddAndRemove(): void
+	{
+		$u = $this->_u;
+		$u->clearCredentials();
+		$this->assertSame([], $u->getCredentials());
+
+		$u->addCredential('test1');
+		$u->addCredential('test2');
+		$this->assertSame(['test1', 'test2'], $u->getCredentials());
+
+		$u->removeCredential('test1');
+		// removeCredential() doesn't reindex the underlying array.
+		$this->assertSame([1 => 'test2'], $u->getCredentials());
+	}
+
+	public function testResetClearsAuthenticationCredentialsAndContext(): void
+	{
+		$u = $this->_u;
+		$u->setAuthenticated(true);
+		$u->addCredential('test1');
+
+		$u->reset();
+
+		$this->assertFalse($u->isAuthenticated());
+		$this->assertNull($u->getCredentials());
+	}
+
 }
 ?>

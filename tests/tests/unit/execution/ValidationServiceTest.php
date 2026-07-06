@@ -72,6 +72,12 @@ class ValidationServiceTest extends UnitTestCase
     $this->assertSame('dummy', $trace->action);
     }
 
+    public function testGetContextIsNullBeforeAnyValidation(): void
+    {
+        $svc = new ValidationService();
+        $this->assertNull($svc->getContext());
+    }
+
     public function testValidateExceptionPath(): void
     {
         // Ensure that a throwing validator is registered AFTER manager->clear() by using the action's register* method

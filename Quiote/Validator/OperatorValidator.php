@@ -117,6 +117,9 @@ abstract class OperatorValidator extends Validator implements IValidatorContaine
 	public function addChild(Validator $validator)
 	{
 		$name = $validator->getName();
+		if($name === null) {
+			throw new InvalidArgumentException('Cannot add a validator with no name (was it reset without being re-initialized?)');
+		}
 		if(isset($this->children[$name])) {
 			throw new InvalidArgumentException('A validator with the name "' . $name . '" already exists');
 		}

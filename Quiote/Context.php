@@ -9,11 +9,13 @@ use Quiote\DI\Container;
 use Quiote\Exception\DisabledModuleException;
 use Quiote\Exception\QuioteException;
 use Quiote\Request\WebRequest;
+use Quiote\Response\Response;
 use Quiote\Routing\Routing;
 use Quiote\Translation\TranslationManager;
 use Quiote\User\ISecurityUser;
 use Quiote\User\User;
 use Quiote\Util\Toolkit;
+use Quiote\Validator\ValidationManager;
 use Symfony\Contracts\Service\ResetInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -238,8 +240,10 @@ class Context implements \Stringable, ResetInterface
 
   /**
    * Factory for frequently used classes from factories.xml
-   * @param      string $for The factory identifier.
-   * @return     mixed An instance, already initialized with parameters.
+   * @template T of string
+   * @param      T $for The factory identifier.
+   * @return     (T is 'validation_manager' ? ValidationManager : (T is 'translation_manager' ? TranslationManager : (T is 'controller' ? Controller : (T is 'response' ? Response : object))))
+   *             An instance, already initialized with parameters.
    * @throws     QuioteException If no such identifier exists.
    * @since      1.0.0
    */

@@ -1,9 +1,13 @@
 # Quiote
 
-- License: LGPL-2.1
-- Latest Version: 1.0.0-pre-alpha1
-- Build: [![Tests](https://github.com/quioteframework/quiote/actions/workflows/tests.yml/badge.svg)](https://github.com/quioteframework/quiote/actions/workflows/tests.yml)
-- Homepage: [https://github.com/quioteframework/quiote/](https://github.com/quioteframework/quiote/)
+[![Tests](https://github.com/quioteframework/quiote/actions/workflows/tests.yml/badge.svg)](https://github.com/quioteframework/quiote/actions/workflows/tests.yml)
+[![codecov](https://codecov.io/gh/quioteframework/quiote/graph/badge.svg)](https://codecov.io/gh/quioteframework/quiote)
+[![Latest release](https://img.shields.io/github/v/release/quioteframework/quiote)](https://github.com/quioteframework/quiote/releases)
+[![PHP](https://img.shields.io/badge/php-%3E%3D8.5-777bb4)](composer.json)
+[![PHPStan level 6](https://img.shields.io/badge/phpstan-level%206-brightgreen)](phpstan.neon)
+[![License: LGPL-2.1-or-later](https://img.shields.io/github/license/quioteframework/quiote)](LICENSE)
+
+Homepage: [https://github.com/quioteframework/quiote/](https://github.com/quioteframework/quiote/)
 
 ## History
 

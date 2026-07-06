@@ -234,6 +234,103 @@ class DateTimeValidatorTest extends UnitTestCase
         $this->assertSame(Validator::SUCCESS, $result);
     }
 
+    public function testGetAcceptedParametersIncludesOwnAndParentKeys(): void
+    {
+        $accepted = DateTimeValidator::getAcceptedParameters();
+        $this->assertContains('formats', $accepted);
+        $this->assertContains('cast_to', $accepted);
+        $this->assertContains('min', $accepted);
+        $this->assertContains('max', $accepted);
+        $this->assertContains('locale', $accepted);
+        // inherited from the base Validator class
+        $this->assertContains('severity', $accepted);
+    }
+
+    public function testFieldBasedMinBoundaryDefinition(): void
+    {
+        $params = [
+            'formats' => [
+                ['type' => 'format', 'format' => 'yyyy-MM-dd'],
+            ],
+            'min' => ['field' => 'floor', 'format' => 'yyyy-MM-dd'],
+        ];
+        $validator = $this->vm->createValidator(
+            DateTimeValidator::class,
+            ['date'],
+            ['min' => 'min'],
+            $params
+        );
+
+        $request = $this->newWebRequest(['date' => '2025-06-15', 'floor' => '2025-01-01']);
+        $this->assertSame(Validator::SUCCESS, $validator->execute($request));
+
+        $requestTooLow = $this->newWebRequest(['date' => '2024-12-31', 'floor' => '2025-01-01']);
+        $this->assertSame(Validator::ERROR, $validator->execute($requestTooLow));
+    }
+
+    public function testBoundaryDefinitionArrayWithoutFieldThrowsConfigurationException(): void
+    {
+        $params = [
+            'formats' => [
+                ['type' => 'format', 'format' => 'yyyy-MM-dd'],
+            ],
+            'min' => ['format' => 'yyyy-MM-dd'],
+        ];
+        $validator = $this->vm->createValidator(
+            DateTimeValidator::class,
+            ['date'],
+            ['min' => 'min'],
+            $params
+        );
+
+        $request = $this->newWebRequest(['date' => '2025-06-15']);
+        $this->expectException(\Quiote\Exception\ConfigurationException::class);
+        $this->expectExceptionMessage('Boundary definition for min requires a "field" entry.');
+        $validator->execute($request);
+    }
+
+    public function testBoundaryValueAsArrayThrowsValidatorException(): void
+    {
+        $params = [
+            'formats' => [
+                ['type' => 'format', 'format' => 'yyyy-MM-dd'],
+            ],
+            'min' => ['field' => 'floor'],
+        ];
+        $validator = $this->vm->createValidator(
+            DateTimeValidator::class,
+            ['date'],
+            ['min' => 'min'],
+            $params
+        );
+
+        $request = $this->newWebRequest(['date' => '2025-06-15', 'floor' => ['2025', '01', '01']]);
+        $this->expectException(\Quiote\Exception\ValidatorException::class);
+        $this->expectExceptionMessage('Boundary values must not be arrays.');
+        $validator->execute($request);
+    }
+
+    public function testUnparsableBoundaryValueThrowsValidatorException(): void
+    {
+        $params = [
+            'formats' => [
+                ['type' => 'format', 'format' => 'yyyy-MM-dd'],
+            ],
+            'min' => 'not-a-real-date!!',
+        ];
+        $validator = $this->vm->createValidator(
+            DateTimeValidator::class,
+            ['date'],
+            ['min' => 'min'],
+            $params
+        );
+
+        $request = $this->newWebRequest(['date' => '2025-06-15']);
+        $this->expectException(\Quiote\Exception\ValidatorException::class);
+        $this->expectExceptionMessageMatches('/Unable to parse boundary value/');
+        $validator->execute($request);
+    }
+
     public function testCastToFormattedString(): void
     {
         $params = [

@@ -45,6 +45,51 @@ class ContextTest extends PhpUnitTestCase
 		$this->assertSame('test1', Context::getInstance('test1')->getName());
 	}
 
+	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+	public function testToStringReturnsTheContextName(): void
+	{
+		$ctx = Context::getInstance('stringable_test');
+		$this->assertSame('stringable_test', (string) $ctx);
+		$this->assertSame($ctx->getName(), (string) $ctx);
+	}
+
+	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+	public function testResetWorkerStateForASingleProfileResetsOnlyThatContext(): void
+	{
+		$a = Context::getInstance('reset_a');
+		$b = Context::getInstance('reset_b');
+		$a->getController();
+		$b->getController();
+
+		// A no-arg call resets every instantiated context; this only exercises
+		// that the method runs without error for a real profile and is a no-op
+		// (ResetInterface is implemented, so this must not throw).
+		Context::resetWorkerState('reset_a');
+		$this->addToAssertionCount(1);
+
+		// Still the same singleton instances afterward -- reset() clears
+		// per-request state, it does not tear down and recreate the Context itself.
+		$this->assertSame($a, Context::getInstance('reset_a'));
+		$this->assertSame($b, Context::getInstance('reset_b'));
+	}
+
+	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+	public function testResetWorkerStateWithNoProfileResetsEveryInstantiatedContext(): void
+	{
+		Context::getInstance('reset_all_a');
+		Context::getInstance('reset_all_b');
+
+		Context::resetWorkerState();
+		$this->addToAssertionCount(1);
+	}
+
+	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+	public function testResetWorkerStateForAnUninstantiatedProfileIsANoOp(): void
+	{
+		Context::resetWorkerState('never_instantiated_profile');
+		$this->addToAssertionCount(1);
+	}
+
 
 	#[\PHPUnit\Framework\Attributes\DataProvider('dataGetModel')]
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]

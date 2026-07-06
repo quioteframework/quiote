@@ -81,7 +81,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 		// Guard against that here without relying on a null check on $validator
 		// itself.
 		try {
-			$name = $validator->getName();
+			$name = $validator->getName() ?? '';
 		} catch (\Throwable) {
 			$name = '';
 		}

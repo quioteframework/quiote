@@ -41,6 +41,63 @@ class SessionStorageTest extends UnitTestCase
 	 * silently inheriting the previous user's authenticated session.
 	 */
 	#[RunInSeparateProcess]
+	public function testStoreAndRetrieveRoundTripThroughSessionSuperglobal(): void
+	{
+		$context = Context::getInstance('quiote-session-storage-test::tests-store-retrieve');
+		$storage = new SessionStorage();
+		$storage->initialize($context);
+		$storage->startup();
+
+		$this->assertTrue($storage->store('user_id', 42));
+		$this->assertSame(42, $storage->retrieve('user_id'));
+		$this->assertNull($storage->retrieve('nonexistent_key'));
+	}
+
+	#[RunInSeparateProcess]
+	public function testRemoveReturnsAndDeletesTheStoredValue(): void
+	{
+		$context = Context::getInstance('quiote-session-storage-test::tests-remove');
+		$storage = new SessionStorage();
+		$storage->initialize($context);
+		$storage->startup();
+		$storage->store('user_id', 42);
+
+		$this->assertSame(42, $storage->remove('user_id'));
+		$this->assertNull($storage->retrieve('user_id'));
+		// Removing an already-absent key is a safe no-op returning null.
+		$this->assertNull($storage->remove('user_id'));
+	}
+
+	#[RunInSeparateProcess]
+	public function testCloseWriteClosesTheActiveSession(): void
+	{
+		$context = Context::getInstance('quiote-session-storage-test::tests-close');
+		$storage = new SessionStorage();
+		$storage->initialize($context);
+		$storage->startup();
+
+		$this->assertTrue($storage->close());
+		$this->assertNotSame(PHP_SESSION_ACTIVE, session_status());
+	}
+
+	#[RunInSeparateProcess]
+	public function testRegeneratePreservesSessionDataUnderANewId(): void
+	{
+		$context = Context::getInstance('quiote-session-storage-test::tests-regenerate');
+		$storage = new SessionStorage();
+		$storage->initialize($context);
+		$storage->startup();
+		$storage->store('user_id', 42);
+		$oldId = session_id();
+
+		$result = $storage->regenerate(true);
+
+		$this->assertTrue($result);
+		$this->assertNotSame($oldId, session_id());
+		$this->assertSame(42, $storage->retrieve('user_id'));
+	}
+
+	#[RunInSeparateProcess]
 	public function testResetClearsSessionStateForWorkerReuse()
 	{
 		$context = Context::getInstance('quiote-session-storage-test::tests-worker-reset-clears-session');

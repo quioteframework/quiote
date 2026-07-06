@@ -45,6 +45,147 @@ class DecimalFormatterTest extends PhpUnitTestCase
 		];
 	}
 	
+	public function testGetFormatReturnsNullWhenNoneSet(): void
+	{
+		$df = new DecimalFormatter();
+		$this->assertNull($df->getFormat());
+	}
+
+	public function testGetFormatReturnsOriginalFormatString(): void
+	{
+		$df = new DecimalFormatter('#,##0.00');
+		$this->assertEquals('#,##0.00', $df->getFormat());
+	}
+
+	public function testSetFormatIsNoOpWhenGivenTheSameFormatTwice(): void
+	{
+		$df = new DecimalFormatter('0.00');
+		$df->setFormat('0.00');
+		$this->assertEquals('5.00', $df->formatNumber(5));
+	}
+
+	public function testFormatCurrencyInsertsCurrencySymbolAtPlaceholder(): void
+	{
+		$df = new DecimalFormatter("\u{00A4}#,##0.00");
+		$this->assertEquals('$1,234.50', $df->formatCurrency(1234.5, '$'));
+	}
+
+	public function testFormatCurrencyWithNegativeNumberUsesNegativeFormat(): void
+	{
+		$df = new DecimalFormatter("\u{00A4}#,##0.00");
+		$this->assertEquals('-$1,234.50', $df->formatCurrency(-1234.5, '$'));
+	}
+
+	public function testSetFormatHandlesQuotedLiteralPrefix(): void
+	{
+		$df = new DecimalFormatter("'USD '0.00");
+		$this->assertEquals('USD 5.00', $df->formatNumber(5));
+	}
+
+	public function testSetFormatHandlesEmptyQuoteAsLiteralQuoteChar(): void
+	{
+		$df = new DecimalFormatter("''0.00");
+		$this->assertEquals("'5.00", $df->formatNumber(5));
+	}
+
+	public function testSetFormatHandlesLiteralPercentPostfix(): void
+	{
+		$df = new DecimalFormatter('0.00%');
+		$this->assertEquals('5.00%', $df->formatNumber(5));
+	}
+
+	public function testGetSetRoundingMode(): void
+	{
+		$df = new DecimalFormatter('0.00');
+		$this->assertEquals(DecimalFormatter::ROUND_SCIENTIFIC, $df->getRoundingMode());
+
+		$df->setRoundingMode(DecimalFormatter::ROUND_FINANCIAL);
+		$this->assertEquals(DecimalFormatter::ROUND_FINANCIAL, $df->getRoundingMode());
+	}
+
+	public function testRoundingModeFinancialRoundsHalfDownAtFive(): void
+	{
+		$df = new DecimalFormatter('0.0');
+		$df->setRoundingMode(DecimalFormatter::ROUND_FINANCIAL);
+		$this->assertEquals('1.2', $df->formatNumber(1.25));
+		$this->assertEquals('1.3', $df->formatNumber(1.26));
+	}
+
+	public function testRoundingModeFloorTruncatesWithoutRoundingUp(): void
+	{
+		$df = new DecimalFormatter('0.0');
+		$df->setRoundingMode(DecimalFormatter::ROUND_FLOOR);
+		$this->assertEquals('1.2', $df->formatNumber(1.29));
+	}
+
+	public function testRoundingModeCeilAlwaysRoundsUp(): void
+	{
+		$df = new DecimalFormatter('0.0');
+		$df->setRoundingMode(DecimalFormatter::ROUND_CEIL);
+		$this->assertEquals('1.3', $df->formatNumber(1.21));
+	}
+
+	public function testRoundingModeNoneTruncatesWithoutRounding(): void
+	{
+		$df = new DecimalFormatter('0.0');
+		$df->setRoundingMode(DecimalFormatter::ROUND_NONE);
+		$this->assertEquals('1.2', $df->formatNumber(1.29));
+	}
+
+	public function testRoundingCarriesThroughNines(): void
+	{
+		$df = new DecimalFormatter('0.0');
+		$df->setRoundingMode(DecimalFormatter::ROUND_CEIL);
+		$this->assertEquals('10.0', $df->formatNumber(9.91));
+	}
+
+	#[\PHPUnit\Framework\Attributes\DataProvider('dataRoundingModeFromString')]
+	public function testGetRoundingModeFromString(string $mode, int $expected): void
+	{
+		$df = new DecimalFormatter('0.00');
+		$this->assertEquals($expected, $df->getRoundingModeFromString($mode));
+	}
+
+	/** @return array<int, array{string, int}> */
+	public static function dataRoundingModeFromString(): array
+	{
+		return [
+			['none', DecimalFormatter::ROUND_NONE],
+			['scientific', DecimalFormatter::ROUND_SCIENTIFIC],
+			['financial', DecimalFormatter::ROUND_FINANCIAL],
+			['floor', DecimalFormatter::ROUND_FLOOR],
+			['ceil', DecimalFormatter::ROUND_CEIL],
+		];
+	}
+
+	public function testGetRoundingModeFromStringThrowsOnUnknownMode(): void
+	{
+		$df = new DecimalFormatter('0.00');
+		$this->expectException(InvalidArgumentException::class);
+		$this->expectExceptionMessage('Unknown rounding mode "bogus"');
+		$df->getRoundingModeFromString('bogus');
+	}
+
+	public function testResetRestoresDefaultsAfterFormatWasSet(): void
+	{
+		$df = new DecimalFormatter('#,##0.00');
+		$df->setRoundingMode(DecimalFormatter::ROUND_CEIL);
+
+		$df->reset();
+
+		$this->assertNull($df->getFormat());
+		$this->assertEquals(DecimalFormatter::ROUND_SCIENTIFIC, $df->getRoundingMode());
+		// After reset, an empty format string means vsprintf gets no directives at all.
+		$this->assertEquals('', $df->formatNumber(5));
+	}
+
+	public function testParseReturnsFalseForNonNumericGarbage(): void
+	{
+		$hasExtraChars = false;
+		$this->assertFalse(DecimalFormatter::parse('not-a-number', null, $hasExtraChars));
+		$this->assertTrue($hasExtraChars);
+	}
+
 	#[\PHPUnit\Framework\Attributes\DataProvider('getParseData')]
 	public function testParse($input, $output, $expectExtraChars = false, $maxIcuVersion = null)
 	{

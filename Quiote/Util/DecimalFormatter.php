@@ -116,7 +116,7 @@ class DecimalFormatter implements ResetInterface
 
 	/**
 	 * Returns the format which is currently used to format numbers.
-	 * @return     string The current format.
+	 * @return     ?string The current format.
 	 * @since      1.0.0
 	 */
 	public function getFormat()
