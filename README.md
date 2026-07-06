@@ -5,7 +5,7 @@
 [![Latest release](https://img.shields.io/github/v/release/quioteframework/quiote)](https://github.com/quioteframework/quiote/releases)
 [![PHP](https://img.shields.io/badge/php-%3E%3D8.5-777bb4)](composer.json)
 [![PHPStan level 6](https://img.shields.io/badge/phpstan-level%206-brightgreen)](phpstan.neon)
-[![License: LGPL-2.1-or-later](https://img.shields.io/github/license/quioteframework/quiote)](LICENSE)
+[![License: LGPL-2.1-or-later](https://img.shields.io/github/license/quioteframework/quiote)](LICENSE-QUIOTE)
 
 Homepage: [https://github.com/quioteframework/quiote/](https://github.com/quioteframework/quiote/)
 
