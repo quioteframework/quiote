@@ -167,6 +167,26 @@ abstract class Database extends ParameterHolder implements ResetInterface
 	}
 
 	/**
+	 * Retrieve the raw PDO connection underlying this database, for callers
+	 * that need to hand-write SQL (custom queries, driver-specific
+	 * optimizations) rather than go through an ORM's query builder.
+	 * Adapters that are PDO-backed override this; adapters that cannot expose
+	 * a PDO instance (e.g. a driver that never wraps PDO) should throw
+	 * {@see DatabaseException} explaining what to use instead.
+	 * @throws     DatabaseException If this adapter does not expose a raw PDO
+	 *                                           connection.
+	 * @since      1.0.0
+	 */
+	public function getPdo(): \PDO
+	{
+		throw new DatabaseException(sprintf(
+			'%s "%s" does not expose a raw PDO connection.',
+			static::class,
+			(string) $this->getName()
+		));
+	}
+
+	/**
 	 * Probe whether the connection is still alive.
 	 * Returns true if healthy or no connection has been established yet
 	 * (lazy connect will handle it on first getConnection()). Returns false

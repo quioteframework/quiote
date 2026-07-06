@@ -37,6 +37,7 @@ class EloquentDatabaseTest extends TestCase
 
         $this->assertSame('quiote', $conn->table('t')->where('id', 1)->value('name'));
         $this->assertTrue($db->ping());
+        $this->assertSame($conn->getPdo(), $db->getPdo());
     }
 
     public function testLayerModeBorrowsPdoFromReferencedDatabase(): void

@@ -66,6 +66,7 @@ class PropulsionDatabaseTest extends TestCase
         $this->assertSame('quiote', $value);
         $this->assertSame('runtime', $db->getDatasource());
         $this->assertTrue($db->ping());
+        $this->assertSame($conn, $db->getPdo());
     }
 
     public function testResetClearsRequestScopedSessionState(): void

@@ -434,6 +434,10 @@ $em = $db->getEntityManager();
 
 Omit the name to use the default connection.
 
+Every adapter also implements `getPdo(): \PDO` for hand-written SQL — see
+`docs/DATABASE_PDO_ACCESS.md` for what it returns per adapter (some, like
+Cycle, can't expose one and throw with an alternative instead).
+
 ---
 
 ## Worker mode & connection lifecycle

@@ -145,4 +145,15 @@ class AbstractOrmDatabaseTest extends TestCase
         $db->exposeRequireLibrary(PDO::class, 'ext-pdo');
         $this->assertTrue(true); // no exception
     }
+
+    public function testGetPdoDefaultThrowsForNonPdoBackedAdapter(): void
+    {
+        $mgr = new DatabaseManager();
+        $db = new _NonPdoDatabaseDouble();
+        $db->initialize($mgr, []);
+
+        $this->expectException(DatabaseException::class);
+        $this->expectExceptionMessageMatches('/does not expose a raw PDO connection/');
+        $db->getPdo();
+    }
 }

@@ -109,6 +109,12 @@ class EloquentDatabase extends AbstractOrmDatabase
         return $this->getCapsule()->getConnection($this->connectionName());
     }
 
+    #[\Override]
+    public function getPdo(): \PDO
+    {
+        return $this->getEloquentConnection()->getPdo();
+    }
+
     // --- worker lifecycle ---------------------------------------------------
 
     #[\Override]

@@ -114,6 +114,25 @@ class CycleDatabase extends AbstractOrmDatabase
         return $this->getOrm()->getRepository($role);
     }
 
+    /**
+     * Cycle's driver never exposes its underlying PDO/PDOInterface publicly
+     * (`Driver::getPDO()` is protected, and its return type isn't even
+     * guaranteed to be `\PDO`). Write custom SQL via the Cycle database's own
+     * `query()`/`execute()` methods, or `Cycle\Database\Injection\Fragment`
+     * inside a query builder, instead of dropping to raw PDO.
+     */
+    #[\Override]
+    public function getPdo(): \PDO
+    {
+        throw new DatabaseException(sprintf(
+            'CycleDatabase "%s" does not expose a raw PDO connection. Use '
+            . 'getCycleDatabaseManager()->database()->query()/execute() for custom '
+            . 'SQL, or Cycle\Database\Injection\Fragment for raw expressions inside '
+            . 'a query builder.',
+            $this->getName()
+        ));
+    }
+
     // --- worker lifecycle ---------------------------------------------------
 
     #[\Override]

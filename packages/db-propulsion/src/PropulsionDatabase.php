@@ -131,6 +131,12 @@ class PropulsionDatabase extends Database
     }
 
     #[\Override]
+    public function getPdo(): \PDO
+    {
+        return $this->getPropulsionConnection();
+    }
+
+    #[\Override]
     public function ping(): bool
     {
         if ($this->connection === null) {

@@ -58,6 +58,28 @@ class PdoDatabaseTest extends TestCase
         ]);
     }
 
+    public function testGetPdoReturnsTheSamePdoInstance(): void
+    {
+        if(!in_array('sqlite', PDO::getAvailableDrivers(), true)) {
+            $this->markTestSkipped('pdo_sqlite driver not available in test environment');
+        }
+        $db = new PdoDatabase();
+        $db->initialize($this->makeManager(), [ 'dsn' => 'sqlite::memory:' ]);
+        $this->assertSame($db->getConnection(), $db->getPdo());
+    }
+
+    public function testGetPdoThrowsIfConnectionIsNotActuallyPdo(): void
+    {
+        // connect() always sets a real PDO, so force a corrupted state via
+        // reflection to exercise the defensive failure path.
+        $db = new PdoDatabase();
+        $db->initialize($this->makeManager(), [ 'dsn' => 'sqlite::memory:' ]);
+        (new ReflectionProperty($db, 'connection'))->setValue($db, new stdClass());
+
+        $this->expectException(DatabaseException::class);
+        $db->getPdo();
+    }
+
     public function testShutdownDisconnects(): void
     {
         if(!in_array('sqlite', PDO::getAvailableDrivers(), true)) {

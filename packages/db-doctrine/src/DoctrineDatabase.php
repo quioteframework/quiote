@@ -142,6 +142,29 @@ class DoctrineDatabase extends AbstractOrmDatabase
     }
 
     /**
+     * Only available when the configured `driver` is a `pdo_*` one (`pdo_mysql`,
+     * `pdo_pgsql`, `pdo_sqlite`, ...) — DBAL 4 also supports native drivers
+     * (`mysqli`, `pgsql`) that never construct a \PDO instance at all.
+     */
+    #[\Override]
+    public function getPdo(): \PDO
+    {
+        $native = $this->getDbalConnection()->getNativeConnection();
+        if (!$native instanceof \PDO) {
+            throw new DatabaseException(sprintf(
+                'DoctrineDatabase "%s" is configured with a native (non-PDO) DBAL '
+                . 'driver (got %s). Use a "pdo_*" driver (pdo_mysql, pdo_pgsql, '
+                . 'pdo_sqlite, ...) to get a raw PDO connection, or write custom SQL via '
+                . 'getDbalConnection()->executeQuery()/executeStatement().',
+                $this->getName(),
+                get_debug_type($native)
+            ));
+        }
+
+        return $native;
+    }
+
+    /**
      * @param class-string $entity
      */
     public function getRepository(string $entity): \Doctrine\ORM\EntityRepository

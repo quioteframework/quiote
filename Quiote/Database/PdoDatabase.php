@@ -98,6 +98,25 @@ class PdoDatabase extends Database
 	}
 
 	/**
+	 * Retrieve the underlying PDO connection.
+	 * @since      1.0.0
+	 */
+	#[\Override]
+    public function getPdo(): PDO
+	{
+		$connection = $this->getConnection();
+		if (!$connection instanceof PDO) {
+			throw new DatabaseException(sprintf(
+				'PdoDatabase "%s" expected a PDO connection, got %s.',
+				$this->getName(),
+				get_debug_type($connection)
+			));
+		}
+
+		return $connection;
+	}
+
+	/**
 	 * Execute the shutdown procedure.
 	 * @throws     DatabaseException If an error occurs while shutting
 	 *                                           down this database.
