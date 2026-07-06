@@ -6,3 +6,6 @@
 /samples/app/cache/*
 !/samples/app/cache/.gitkeep
 /tests/e2e/otel-output
+/docs
+/TODO.md
+/.phpunit.cache
