@@ -286,6 +286,14 @@ class ValidationService
         }
         // Expose the manager actually used so the error view can read its incidents.
         $this->activeManager = $validationManager;
+        // Inject the VM into the action's init context so that ValidatorBuilder::on()
+        // (called from register{Method}Validators() below) registers against the same
+        // manager instance this method executes, instead of a throwaway one lazily
+        // created by ActionInitContext::getValidationManager().
+        $initCtx = $action->getInitContext();
+        if ($initCtx !== null && method_exists($initCtx, 'setValidationManager')) {
+            $initCtx->setValidationManager($validationManager);
+        }
         $validatorsLoaded = [];
         $configFile = null;
         if ($moduleName && $actionName) {
@@ -318,6 +326,18 @@ class ValidationService
                     $logger->debug(count($validatorsLoaded) > 0 ? implode(', ', $validatorsLoaded) : 'none');
                 }
             }
+        }
+        // Manual validator registration method on action (mirrors validate()'s step 2).
+        // Without this, actions that define validators purely via register{Method}Validators()
+        // (no validators.xml file) had zero validators loaded here, so ValidationManager::execute()
+        // never called enforceValidatedParameters() and every parameter stayed unwhitelisted.
+        $registerMethod = 'register' . ucfirst($xmlMethod) . 'Validators';
+        if (!is_callable([$action, $registerMethod])) {
+            $registerMethod = 'registerValidators';
+        }
+        if (is_callable([$action, $registerMethod])) {
+            $action->$registerMethod();
+            $validatorsLoaded = array_map(fn($v) => $v->getName(), $validationManager->getChilds());
         }
         // Execute validators only
         $ok = true;

@@ -304,6 +304,129 @@ class ValidationMiddlewareTest extends TestCase
     $this->assertSame('1', $ctxReq->getParameter('keep'), 'Expected parameter retained (simple action bypass)');
     }
 
+    public function testManuallyRegisteredValidatorViaValidatorBuilderWhitelistsAndPreservesSubmittedValue(): void
+    {
+        // Regression test for the v1.0.0 release bug: an action that registers
+        // validators purely via ValidatorBuilder::on($this->getInitContext()->getValidationManager(), ...)
+        // in registerWriteValidators() (no validators.xml file) used to have those
+        // validators silently skipped by xmlOnlyValidate(), so the submitted "name"
+        // parameter stayed unwhitelisted and getParameter('name') in executeWrite()
+        // threw UnvalidatedParameterAccessException even though validation passed.
+        \Quiote\Config\Config::fromArray([
+            'modules.inputtest.enabled' => true,
+        ]);
+        $controller = $this->context->getController();
+        $actionDesc = new \Quiote\Execution\ActionDescriptor('InputTest', 'Submit', 'write', 'html', false);
+        $action = new class extends \Quiote\Action\Action {
+            public ?string $capturedName = null;
+            public function getDefaultViewName() { return 'Input'; }
+            public function executeWrite(\Quiote\Request\WebRequest $rd)
+            {
+                $this->capturedName = $rd->getParameter('name');
+                return 'Success';
+            }
+            public function handleError(\Quiote\Request\WebRequest $rd) { return 'Input'; }
+            public function registerWriteValidators(): void
+            {
+                $v = \Quiote\Validator\Compiler\Runtime\ValidatorBuilder::on(
+                    $this->getInitContext()->getValidationManager(),
+                    $this->getContext(),
+                );
+                $v->string('name', required: true)
+                    ->minLength(3)
+                    ->maxLength(7)
+                    ->error('Name must be between 3 and 7 characters long.');
+            }
+        };
+        $request = (new ServerRequest('POST', '/input-test'))
+            ->withParsedBody(['name' => 'Bob'])
+            ->withAttribute(\Quiote\Execution\ActionDescriptor::class, $actionDesc)
+            ->withAttribute('module', 'InputTest')
+            ->withAttribute('action', 'Submit');
+        $action->initialize(new \Quiote\Execution\LightweightActionInitContext(
+            $controller->getContext(),
+            'InputTest',
+            'Submit',
+            'write',
+            'html',
+            $request,
+            $controller->getGlobalResponse()
+        ));
+        $request = $request->withAttribute('quiote.preinstantiated_action', $action);
+
+        $validation = new ValidationMiddleware($controller);
+        $finalHandler = new class implements RequestHandlerInterface {
+            public function handle(ServerRequestInterface $r): ResponseInterface
+            {
+                /** @var \Quiote\Request\WebRequest $r */
+                $action = $r->getAttribute('quiote.preinstantiated_action');
+                $action->executeWrite($r);
+                return new Psr7Response(200);
+            }
+        };
+
+        $validation->process($request, $finalHandler);
+
+        $this->assertSame('Bob', $action->capturedName, 'Expected the submitted "name" value to be whitelisted and retrievable in executeWrite()');
+    }
+
+    public function testManuallyRegisteredValidatorViaValidatorBuilderFailsForInvalidValue(): void
+    {
+        \Quiote\Config\Config::fromArray([
+            'modules.inputtest2.enabled' => true,
+        ]);
+        $controller = $this->context->getController();
+        $actionDesc = new \Quiote\Execution\ActionDescriptor('InputTest2', 'Submit', 'write', 'html', false);
+        $action = new class extends \Quiote\Action\Action {
+            public function getDefaultViewName() { return 'Input'; }
+            public function executeWrite(\Quiote\Request\WebRequest $rd) { return 'Success'; }
+            public function handleError(\Quiote\Request\WebRequest $rd) { return 'Input'; }
+            public function registerWriteValidators(): void
+            {
+                $v = \Quiote\Validator\Compiler\Runtime\ValidatorBuilder::on(
+                    $this->getInitContext()->getValidationManager(),
+                    $this->getContext(),
+                );
+                $v->string('name', required: true)
+                    ->minLength(3)
+                    ->maxLength(7)
+                    ->error('Name must be between 3 and 7 characters long.');
+            }
+        };
+        // "AB" is too short (< 3 chars) -> validator must fail and route to handleError,
+        // never reaching executeWrite().
+        $request = (new ServerRequest('POST', '/input-test'))
+            ->withParsedBody(['name' => 'AB'])
+            ->withAttribute(\Quiote\Execution\ActionDescriptor::class, $actionDesc)
+            ->withAttribute('module', 'InputTest2')
+            ->withAttribute('action', 'Submit');
+        $action->initialize(new \Quiote\Execution\LightweightActionInitContext(
+            $controller->getContext(),
+            'InputTest2',
+            'Submit',
+            'write',
+            'html',
+            $request,
+            $controller->getGlobalResponse()
+        ));
+        $request = $request->withAttribute('quiote.preinstantiated_action', $action);
+
+        $validation = new ValidationMiddleware($controller);
+        $finalHandler = new class implements RequestHandlerInterface {
+            public bool $reachedDispatch = false;
+            public function handle(ServerRequestInterface $r): ResponseInterface
+            {
+                $this->reachedDispatch = true;
+                return new Psr7Response(200);
+            }
+        };
+
+        $response = $validation->process($request, $finalHandler);
+
+        $this->assertSame(400, $response->getStatusCode());
+        $this->assertFalse($finalHandler->reachedDispatch, 'Expected validation failure to short-circuit before dispatch');
+    }
+
     public function testViewCreationExceptionHandled(): void
     {
         \Quiote\Config\Config::fromArray([

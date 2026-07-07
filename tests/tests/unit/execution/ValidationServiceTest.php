@@ -72,6 +72,71 @@ class ValidationServiceTest extends UnitTestCase
     $this->assertSame('dummy', $trace->action);
     }
 
+    public function testXmlOnlyValidateInvokesManualRegistrationAndWhitelistsArgument(): void
+    {
+        // Regression test: xmlOnlyValidate() used to skip register{Method}Validators()
+        // entirely, so actions defining validators purely in PHP (no validators.xml)
+        // never had them executed -> the argument stayed unwhitelisted and
+        // getParameter() threw UnvalidatedParameterAccessException even on success.
+        $ctx = $this->getContext();
+        $manager = $ctx->createInstanceFor('validation_manager');
+        $svc = new ValidationService($manager);
+        $action = $this->newAction(true, true, $manager);
+        $req = $this->newWebRequest(); // no pre-seeded whitelist
+        $req = $req->withQueryParams(['alpha' => 'A']);
+        $ctx->setRequest($req);
+
+        $res = $svc->xmlOnlyValidate($action, $req, 'app', 'dummy', 'write');
+
+        $this->assertTrue($res->ok);
+        $trace = $res->getTrace();
+        $this->assertNotNull($trace);
+        $this->assertContains('manualReg', $trace->validatorsLoaded, 'Expected manually registered validator to be loaded');
+        $finalRequest = $ctx->getRequest();
+        $this->assertSame('A', $finalRequest->getParameter('alpha'), 'Expected argument to be whitelisted and retain its value');
+    }
+
+    public function testXmlOnlyValidateManualRegistrationFailureCapturesErrors(): void
+    {
+        $ctx = $this->getContext();
+        $manager = $ctx->createInstanceFor('validation_manager');
+        $svc = new ValidationService($manager);
+        $req = $this->newWebRequest();
+        $req = $req->withQueryParams(['alpha' => 'A']);
+        $ctx->setRequest($req);
+        $initCtx = new \Quiote\Execution\LightweightActionInitContext(
+            $ctx,
+            'app',
+            'dummy',
+            'write',
+            'html',
+            $req,
+            $ctx->getController()->getGlobalResponse()
+        );
+        // register{Method}Validators() runs inside xmlOnlyValidate() itself (after the
+        // manager is cleared), so the failing validator must be created from within it
+        // rather than pre-seeded on $manager beforehand. It reads the manager via
+        // getInitContext()->getValidationManager(), mirroring ValidatorBuilder::on() usage.
+        $action = new class($ctx, $initCtx) extends Action {
+            public function __construct($ctx, $initCtx) { $this->context = $ctx; $this->initContext = $initCtx; }
+            public function getDefaultViewName() { return 'Success'; }
+            public function executeWrite(WebRequest $req) { return 'Success'; }
+            public function handleError(WebRequest $req) { return 'Error'; }
+            public function isSecure() { return false; }
+            public function registerWriteValidators()
+            {
+                $vm = $this->getInitContext()?->getValidationManager();
+                $v = $vm->createValidator('DummyValidator', ['alpha'], [], ['name' => 'manualReg', 'severity' => 'error']);
+                $v->val_result = false;
+            }
+        };
+
+        $res = $svc->xmlOnlyValidate($action, $req, 'app', 'dummy', 'write');
+
+        $this->assertFalse($res->ok);
+        $this->assertNotEmpty($res->getErrors());
+    }
+
     public function testGetContextIsNullBeforeAnyValidation(): void
     {
         $svc = new ValidationService();

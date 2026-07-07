@@ -254,7 +254,16 @@ class ValidationMiddleware implements MiddlewareInterface
                     }
                 }
                 $trace = $xmlRes->getTrace();
-                $hasXml = $trace && property_exists($trace, 'configFile') && $trace->configFile !== null && $trace->configFile !== '';
+                // "hasXml" gates whether we clear/lock down the request below. It must
+                // also be true when validators were registered manually via
+                // register{Method}Validators() (no validators.xml file), otherwise the
+                // clearParameters() call further down wipes the parameter values that
+                // ValidationManager::execute() just whitelisted, leaving getParameter()
+                // whitelisted but returning null for a value that was actually submitted.
+                $hasXml = $trace && (
+                    (property_exists($trace, 'configFile') && $trace->configFile !== null && $trace->configFile !== '')
+                    || (property_exists($trace, 'validatorsLoaded') && !empty($trace->validatorsLoaded))
+                );
                 $ok = $xmlRes->ok;
                 if (!$ok) {
                     $errors = $xmlRes->getErrors() ?: ['validation_failed'];
@@ -299,7 +308,8 @@ class ValidationMiddleware implements MiddlewareInterface
             $request = $request->withAttribute('_original_psr_request', $originalPsr);
         }
 
-        // If no XML present treat as success but expose ZERO parameters to action (strict empty set)
+        // If no validators (XML or manually registered) ran, treat as success but expose
+        // ZERO parameters to action (strict empty set)
         if (!$hasXml && !$action?->isSimple()) {
             // Clear webRequest parameters and lock down
             try {
