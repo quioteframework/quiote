@@ -119,6 +119,14 @@ class MiddlewareCatalog
 
     /**
      * Register a custom middleware to be inserted into the pipeline.
+     *
+     * With no `$after`/`$before` hint, the middleware lands right after
+     * {@see \Quiote\Middleware\ValidationMiddleware} by default, so it always
+     * receives validated parameters. Opt into running earlier (e.g. before
+     * {@see \Quiote\Middleware\SecurityMiddleware}) only if the middleware
+     * genuinely needs to see the request before validation/security run —
+     * that should be the exception, not the default.
+     *
      * @param string        $fqcn     Fully-qualified class name (used as key + debug label)
      * @param callable      $factory  Factory that returns a PSR-15 MiddlewareInterface
      * @param string|null   $after    Insert after this middleware FQCN in the stack

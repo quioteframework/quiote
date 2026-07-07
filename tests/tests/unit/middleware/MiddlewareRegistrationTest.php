@@ -7,7 +7,7 @@ use Quiote\Middleware\Config\MiddlewareConfigRegistry;
 use Quiote\Middleware\MiddlewareCatalog;
 use Quiote\Middleware\SessionMiddleware;
 use Quiote\Middleware\RoutingMiddleware;
-use Quiote\Middleware\SecurityMiddleware;
+use Quiote\Middleware\ValidationMiddleware;
 use Nyholm\Psr7\ServerRequest;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
@@ -108,14 +108,14 @@ class MiddlewareRegistrationTest extends TestCase
         $this->assertSame($apiAuth + 1, $apiLog);
     }
 
-    public function testNoHintsFallsBackToBeforeSecurity(): void
+    public function testNoHintsFallsBackToAfterValidation(): void
     {
         MiddlewareCatalog::register('CustomDefault', self::passthru());
         $order = $this->order();
         $this->assertSame(
-            array_search(SecurityMiddleware::class, $order, true) - 1,
+            array_search(ValidationMiddleware::class, $order, true) + 1,
             array_search('CustomDefault', $order, true),
-            'no before/after hint falls back to just before SecurityMiddleware'
+            'no before/after hint falls back to just after ValidationMiddleware'
         );
     }
 

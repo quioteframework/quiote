@@ -341,7 +341,11 @@ class MiddlewarePipeline implements RequestHandlerInterface
 
     /**
      * Find the insertion index in debugStack based on after/before hints.
-     * Falls back to just before SecurityMiddleware if no hints match.
+     * Falls back to just after ValidationMiddleware if no hints match, so a
+     * custom middleware that doesn't ask for a specific placement is handed
+     * already-validated parameters by default. Opt into running earlier
+     * (e.g. before SecurityMiddleware) via explicit `after`/`before` hints on
+     * {@see MiddlewareCatalog::register()} if that's genuinely required.
      */
     private function findInsertPosition(?string $after, ?string $before): int
     {
@@ -359,10 +363,10 @@ class MiddlewarePipeline implements RequestHandlerInterface
             }
         }
 
-        // Default: before SecurityMiddleware
-        $idx = array_search(SecurityMiddleware::class, $this->debugStack, true);
+        // Default: after ValidationMiddleware
+        $idx = array_search(ValidationMiddleware::class, $this->debugStack, true);
         if ($idx !== false) {
-            return $idx;
+            return $idx + 1;
         }
 
         // Last resort: append at end
