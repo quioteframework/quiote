@@ -28,7 +28,22 @@ abstract class OperatorValidator extends Validator implements IValidatorContaine
 	 * @var        int The highest error severity in the container.
 	 */
 	protected $result = Validator::SUCCESS;
-	
+
+	/**
+	 * Per-field results reported by child validators during this group's
+	 * validate(), buffered instead of forwarded immediately -- see
+	 * addArgumentResult() for why.
+	 * @var        array<int, array{argument: ValidationArgument, result: int, validator: ?Validator}>
+	 */
+	private array $pendingArgumentResults = [];
+
+	/**
+	 * Incidents raised by child validators during this group's validate(),
+	 * buffered instead of forwarded immediately -- see addIncident().
+	 * @var        array<int, ValidationIncident>
+	 */
+	private array $pendingIncidents = [];
+
 
 	/**
 	 * Method for checking the validity of child validators.
@@ -78,7 +93,18 @@ abstract class OperatorValidator extends Validator implements IValidatorContaine
 	}
 
 	/**
-	 * Adds a intermediate result of an validator for the given argument
+	 * Adds a intermediate result of an validator for the given argument.
+	 *
+	 * Buffered rather than forwarded immediately: a child validator reports
+	 * its own individual pass/fail here as soon as IT finishes, regardless of
+	 * how the group as a whole (and(), or(), xor()...) ultimately resolves.
+	 * Forwarding it straight to the parent (as this used to do) meant a
+	 * losing sibling inside an otherwise-passing or()/xor() group still
+	 * reported the shared field as failed, and ValidationManager's
+	 * any-failure-wins pruning then wiped that field's value even though
+	 * validation, as a whole, succeeded. execute() flushes this buffer once
+	 * the group's own verdict is known, upgrading every buffered result to
+	 * SUCCESS when the group passed.
 	 * @param      ValidationArgument $argument The argument
 	 * @param      int $result The arguments result.
 	 * @param      Validator $validator The validator (if the error was caused
@@ -88,24 +114,65 @@ abstract class OperatorValidator extends Validator implements IValidatorContaine
 	 */
 	public function addArgumentResult(ValidationArgument $argument, $result, $validator = null)
 	{
-		if($this->parentContainer !== null) {
-			$this->parentContainer->addArgumentResult($argument, $result, $validator);
-		}
+		$this->pendingArgumentResults[] = ['argument' => $argument, 'result' => $result, 'validator' => $validator];
 		return null;
 	}
 
 	/**
-	 * Adds an incident to the validation result. 
+	 * Forward this group's buffered per-field child results to the real
+	 * parent container, upgrading every one of them to SUCCESS when the
+	 * group's own overall result was SUCCESS -- see addArgumentResult().
+	 * @param      int $groupResult The group's own overall validation result.
+	 */
+	private function flushPendingArgumentResults(int $groupResult): void
+	{
+		$pending = $this->pendingArgumentResults;
+		$this->pendingArgumentResults = [];
+		if($this->parentContainer === null) {
+			return;
+		}
+		foreach($pending as $entry) {
+			$result = $groupResult === Validator::SUCCESS ? Validator::SUCCESS : $entry['result'];
+			$this->parentContainer->addArgumentResult($entry['argument'], $result, $entry['validator']);
+		}
+	}
+
+	/**
+	 * Adds an incident to the validation result.
+	 *
+	 * Buffered for the same reason as addArgumentResult(): a losing child's
+	 * incident carries its own affected-argument list, and
+	 * ValidationReport::addIncident() records a per-argument failure
+	 * severity for every one of them as a side effect -- so forwarding it
+	 * immediately would contaminate the shared field's result (and the
+	 * report's own overall result) even when the group as a whole passes.
+	 * Discarded on flush if the group passed; forwarded unchanged otherwise.
 	 * @param      ValidationIncident $incident The incident.
 	 * @return     null
 	 * @since      1.0.0
 	 */
 	public function addIncident(ValidationIncident $incident)
 	{
-		if($this->parentContainer !== null) {
+		$this->pendingIncidents[] = $incident;
+		return null;
+	}
+
+	/**
+	 * Forward this group's buffered child incidents to the real parent
+	 * container, but only when the group's own overall result was a
+	 * failure -- see addIncident().
+	 * @param      int $groupResult The group's own overall validation result.
+	 */
+	private function flushPendingIncidents(int $groupResult): void
+	{
+		$pending = $this->pendingIncidents;
+		$this->pendingIncidents = [];
+		if($this->parentContainer === null || $groupResult === Validator::SUCCESS) {
+			return;
+		}
+		foreach($pending as $incident) {
 			$this->parentContainer->addIncident($incident);
 		}
-		return null;
 	}
 
 	/**
@@ -207,11 +274,14 @@ abstract class OperatorValidator extends Validator implements IValidatorContaine
 			 * one of the child validators resulted with CRITICAL
 			 * we change our operator's result to CRITICAL, too so the
 			 * surrounding validator container is aware of the critical
-			 * result and can abort further validation... 
+			 * result and can abort further validation...
 			 */
 			$result = Validator::CRITICAL;
 		}
-		
+
+		$this->flushPendingArgumentResults($result);
+		$this->flushPendingIncidents($result);
+
 		return $result;
 	}
 
@@ -223,5 +293,7 @@ abstract class OperatorValidator extends Validator implements IValidatorContaine
 		}
 		$this->children = [];
 		$this->result = Validator::SUCCESS;
+		$this->pendingArgumentResults = [];
+		$this->pendingIncidents = [];
 	}
 }

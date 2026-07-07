@@ -66,6 +66,38 @@ class XmlConfigDomDocument extends \DOMDocument
 	}
 	
 	/**
+	 * libxml error code for "Double hyphen within comment" (XML 1.0 §2.5
+	 * forbids a literal "--" anywhere inside a comment, including an
+	 * ordinary em/en-dash-style "--" used as prose punctuation, not just a
+	 * nested comment delimiter). This is an easy, silent-until-boot-time
+	 * trap for anyone writing an explanatory comment in a Config/*.xml file
+	 * the same way they would in PHP ("-- see FooView" is a very natural
+	 * phrase) -- formatLibxmlErrors() appends a hint pointing at the actual
+	 * cause instead of leaving the caller to decode a bare libxml message.
+	 */
+	private const XML_ERR_HYPHEN_IN_COMMENT = 80;
+
+	/**
+	 * Format a set of libxml errors into one string, one line per error,
+	 * appending an actionable hint for known-confusing error codes.
+	 * @param      array<int, \LibXMLError> $errors
+	 */
+	private static function formatLibxmlErrors(array $errors): string
+	{
+		$lines = [];
+		foreach($errors as $error) {
+			$line = sprintf('[%s #%d] Line %d: %s', $error->level == LIBXML_ERR_WARNING ? 'Warning' : ($error->level == LIBXML_ERR_ERROR ? 'Error' : 'Fatal'), $error->code, $error->line, $error->message);
+			if($error->code === self::XML_ERR_HYPHEN_IN_COMMENT) {
+				$line .= ' (a literal "--" is not allowed anywhere inside an XML comment, even as ordinary prose'
+					. ' punctuation like an em/en-dash -- rephrase the comment near this line, e.g. using a single'
+					. ' "-" or rewording, instead of "--")';
+			}
+			$lines[] = $line;
+		}
+		return implode("\n", $lines);
+	}
+
+	/**
 	 * Load XML from a file.
 	 * @param      string $filename The path to the XML document.
 	 * @param      int $options Bitwise OR of the libxml option constants.
@@ -84,34 +116,32 @@ class XmlConfigDomDocument extends \DOMDocument
 		libxml_clear_errors();
 
 		$result = parent::load($filename, $options);
-		
+
 		if(libxml_get_last_error() !== false) {
-			$errors = [];
-			foreach(libxml_get_errors() as $error) {
-				$errors[] = sprintf('[%s #%d] Line %d: %s', $error->level == LIBXML_ERR_WARNING ? 'Warning' : ($error->level == LIBXML_ERR_ERROR ? 'Error' : 'Fatal'), $error->code, $error->line, $error->message);
-			}
+			$errors = libxml_get_errors();
+			$formatted = self::formatLibxmlErrors($errors);
 			libxml_clear_errors();
 			libxml_use_internal_errors($luie);
 			throw new \DOMException(
 				sprintf(
 					'Error%s occurred while parsing the document: ' . "\n\n%s",
 					count($errors) > 1 ? 's' : '',
-					implode("\n", $errors)
+					$formatted
 				)
 			);
 		}
-		
+
 		libxml_use_internal_errors($luie);
-		
+
 		$this->xpath = new \DOMXPath($this);
-		
+
 		if($this->isQuioteConfiguration()) {
 			XmlConfigParser::registerQuioteNamespaces($this);
 		}
-		
+
 		return $result;
 	}
-	
+
 	/**
 	 * Load XML from a string.
 	 * @param      string $source The string containing the XML.
@@ -127,31 +157,29 @@ class XmlConfigDomDocument extends \DOMDocument
 		libxml_clear_errors();
 
 		$result = parent::loadXML($source, $options);
-		
+
 		if(libxml_get_last_error() !== false) {
-			$errors = [];
-			foreach(libxml_get_errors() as $error) {
-				$errors[] = sprintf('[%s #%d] Line %d: %s', $error->level == LIBXML_ERR_WARNING ? 'Warning' : ($error->level == LIBXML_ERR_ERROR ? 'Error' : 'Fatal'), $error->code, $error->line, $error->message);
-			}
+			$errors = libxml_get_errors();
+			$formatted = self::formatLibxmlErrors($errors);
 			libxml_clear_errors();
 			libxml_use_internal_errors($luie);
 			throw new \DOMException(
 				sprintf(
 					'Error%s occurred while parsing the document: ' . "\n\n%s",
 					count($errors) > 1 ? 's' : '',
-					implode("\n", $errors)
+					$formatted
 				)
 			);
 		}
-		
+
 		libxml_use_internal_errors($luie);
-		
+
 		$this->xpath = new \DOMXPath($this);
-		
+
 		if($this->isQuioteConfiguration()) {
 			XmlConfigParser::registerQuioteNamespaces($this);
 		}
-		
+
 		return $result;
 	}
 	

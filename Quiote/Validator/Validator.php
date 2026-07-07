@@ -419,10 +419,18 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 
 	/**
 	 * Returns all arguments which should be validated.
+	 *
+	 * Public (rather than the framework-internal default) so tooling that
+	 * introspects a live, already-registered validator tree without running
+	 * a real request -- e.g. the MCP package deriving a tool's input schema
+	 * from validators registered via the fluent {@see
+	 * \Quiote\Validator\Compiler\Runtime\ValidatorBuilder} rather than an
+	 * XML file -- can read back which request parameters a validator
+	 * targets.
 	 * @return     array<int|string, mixed> A list of input arguments names.
 	 * @since      1.0.0
 	 */
-	protected function getArguments()
+	public function getArguments()
 	{
 		return $this->arguments;
 	}

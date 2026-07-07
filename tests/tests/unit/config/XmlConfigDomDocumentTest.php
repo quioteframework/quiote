@@ -71,6 +71,31 @@ class XmlConfigDomDocumentTest extends PhpUnitTestCase
         $doc->loadXml('<root><unclosed></root>');
     }
 
+    /**
+     * XML 1.0 forbids a literal "--" anywhere inside a comment, including an
+     * ordinary em/en-dash-style "--" used as prose punctuation -- an easy,
+     * silent-until-boot-time trap for anyone writing an explanatory comment
+     * in a Config/*.xml file the same way they would in PHP. The bare libxml
+     * message alone ("Comment not terminated") gives no hint what's actually
+     * wrong; the thrown DOMException must spell it out.
+     */
+    public function testLoadXmlWithDoubleHyphenInCommentExplainsTheCause(): void
+    {
+        $doc = new XmlConfigDomDocument();
+        $this->expectException(\DOMException::class);
+        $this->expectExceptionMessageMatches('/literal "--" is not allowed anywhere inside an XML comment/');
+        $doc->loadXml('<root><!-- see FooView -- for details --></root>');
+    }
+
+    public function testLoadFileWithDoubleHyphenInCommentExplainsTheCause(): void
+    {
+        $file = $this->tempFile('.xml', '<root><!-- see FooView -- for details --></root>');
+        $doc = new XmlConfigDomDocument();
+        $this->expectException(\DOMException::class);
+        $this->expectExceptionMessageMatches('/literal "--" is not allowed anywhere inside an XML comment/');
+        $doc->load($file);
+    }
+
     public function testXincludeResolvesIncludedContent(): void
     {
         $included = $this->tempFile('.xml', '<included>hello</included>');

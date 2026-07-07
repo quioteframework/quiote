@@ -142,6 +142,56 @@ class ValidationManagerTest extends UnitTestCase
 		$this->assertNull($finalReq->getParameter('name', null), 'Value must be scrubbed from the request despite the raw snapshot retaining it');
 	}
 
+	public function testOrGroupWithLosingSiblingDoesNotPruneFieldOnOverallSuccess(): void
+	{
+		// or(passing, failing) on the same field: the group as a whole passes
+		// (one branch succeeded), but before the fix, the failing sibling
+		// leaf independently reported the field as failed straight to
+		// ValidationManager (bypassing the group's own aggregate result),
+		// and any-failure-wins pruning wiped the field's value even though
+		// validation, as a whole, succeeded.
+		$or = $this->_vm->createValidator(\Quiote\Validator\OroperatorValidator::class, [], [], ['name' => 'nameOr']);
+		$passing = new DummyValidator();
+		$passing->initialize($this->_context, ['name' => 'passingLeaf'], ['name']);
+		$passing->val_result = true;
+		$failing = new DummyValidator();
+		$failing->initialize($this->_context, ['name' => 'failingLeaf', 'severity' => 'error'], ['name']);
+		$failing->val_result = false;
+		$or->registerValidators([$passing, $failing]);
+
+		$req = $this->newWebRequest();
+		$req = $req->withQueryParams(['name' => 'Bob']);
+
+		$this->assertTrue($this->_vm->execute($req));
+
+		$finalReq = $this->_vm->getContext()->getRequest();
+		$this->assertSame('Bob', $finalReq->getParameter('name', null), 'Field must survive pruning when the operator group as a whole passed');
+	}
+
+	public function testXorGroupWithLosingSiblingDoesNotPruneFieldOnOverallSuccess(): void
+	{
+		// xor(a, b) on the same field: exactly one child succeeds, so the
+		// group passes, but the losing sibling still independently reports
+		// the field as failed unless the group's own SUCCESS verdict
+		// overrides it before forwarding.
+		$xor = $this->_vm->createValidator(\Quiote\Validator\XoroperatorValidator::class, [], [], ['name' => 'nameXor']);
+		$a = new DummyValidator();
+		$a->initialize($this->_context, ['name' => 'xorA'], ['name']);
+		$a->val_result = true;
+		$b = new DummyValidator();
+		$b->initialize($this->_context, ['name' => 'xorB', 'severity' => 'error'], ['name']);
+		$b->val_result = false;
+		$xor->registerValidators([$a, $b]);
+
+		$req = $this->newWebRequest();
+		$req = $req->withQueryParams(['name' => 'Bob']);
+
+		$this->assertTrue($this->_vm->execute($req));
+
+		$finalReq = $this->_vm->getContext()->getRequest();
+		$this->assertSame('Bob', $finalReq->getParameter('name', null), 'Field must survive pruning when the operator group as a whole passed');
+	}
+
 	public function testGetRawParameterSnapshotIsEmptyBeforeExecute(): void
 	{
 		$vm = new MyValidationManager;

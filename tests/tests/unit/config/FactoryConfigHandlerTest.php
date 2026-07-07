@@ -2,6 +2,7 @@
 
 use Quiote\Config\Config;
 use Quiote\Config\FactoryConfigHandler;
+use Quiote\Exception\ConfigurationException;
 use Quiote\User\ISecurityUser;
 use Quiote\Context;
 require_once(__DIR__ . '/ConfigHandlerTestBase.php');
@@ -171,6 +172,34 @@ class FactoryConfigHandlerTest extends ConfigHandlerTestBase
 		$this->assertSame($this, $this->routing->context);
 		$this->assertSame($paramsExpected, $this->routing->params);
 		$this->assertTrue($this->routing->suCalled);
+	}
+
+	/**
+	 * core.use_translation=true makes translation_manager conditionally
+	 * required (see FactoryConfigHandler::getFactoryDefinitions()), but a
+	 * freshly scaffolded app's factories file has no entry for it at all --
+	 * the generic "missing or incomplete entry" message alone gives no hint
+	 * that a new factory entry needs adding, or which class to point it at.
+	 */
+	public function testMissingTranslationManagerGivesActionableHint(): void
+	{
+		Config::set('core.use_translation', true);
+		$FCH = new FactoryConfigHandler();
+
+		$this->expectException(ConfigurationException::class);
+		$this->expectExceptionMessage('This entry becomes required once "core.use_translation" is enabled');
+
+		$FCH->executeArray([
+			'response' => ['class' => 'FCHTestResponse', 'params' => []],
+			'validation_manager' => ['class' => 'FCHTestValidationManager', 'params' => []],
+			'database_manager' => ['class' => 'FCHTestDBManager', 'params' => []],
+			'routing' => ['class' => 'FCHTestRouting', 'params' => []],
+			'request' => ['class' => 'FCHTestRequest', 'params' => []],
+			'controller' => ['class' => 'FCHTestController', 'params' => []],
+			'storage' => ['class' => 'FCHTestStorage', 'params' => []],
+			'user' => ['class' => 'FCHTestUser', 'params' => []],
+			// translation_manager deliberately omitted
+		], 'tests/factories.xml');
 	}
 
 }

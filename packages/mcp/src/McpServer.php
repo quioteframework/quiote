@@ -259,11 +259,26 @@ final class McpServer
         return $result;
     }
 
-    /** @return list<string>|null */
-    private function normalizeRequiredList(mixed $required): ?array
+    /**
+     * Never returns null: opis/json-schema (via {@see \Mcp\Capability\Discovery\SchemaValidator})
+     * json_encode()s the whole schema verbatim and validates the result
+     * against the JSON Schema meta-schema, which requires the "required"
+     * keyword -- when present at all -- to be an array of strings. A `null`
+     * here used to survive into the encoded schema as `"required":null`,
+     * which fails that meta-schema check unconditionally, so *every*
+     * `tools/call` against a tool whose schema had no derivable/declared
+     * `required` list (the permissive fallback schema, or any legitimately
+     * all-optional schema) failed with a `-32602` "Schema validation
+     * process failed: required must be an array of strings" error before
+     * the actual tool arguments were ever looked at. An empty array means
+     * exactly the same thing to JSON Schema ("nothing is required") while
+     * actually validating.
+     * @return list<string>
+     */
+    private function normalizeRequiredList(mixed $required): array
     {
         if (!\is_array($required)) {
-            return null;
+            return [];
         }
 
         return array_values(array_map(

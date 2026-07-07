@@ -58,6 +58,59 @@ final class ActionToolScannerTest extends PhpUnitTestCase
         );
     }
 
+    public function testPrimaryHttpMethodPrefersTheWriteVerbOverAnEarlierReadVerb(): void
+    {
+        // MultiVerbAction declares methods: ['GET', 'POST']. Before the fix,
+        // the tool bound to methods[0] unconditionally ('GET', the no-op
+        // verb) -- see resolvePrimaryHttpMethod()'s docblock.
+        $controller = Context::getInstance('mcp-action-tool-test')->getController();
+        $definitions = (new ActionToolScanner())->scan($controller);
+
+        $tool = null;
+        foreach ($definitions as $definition) {
+            if ($definition->toolName === 'multi_verb_via_action') {
+                $tool = $definition;
+                break;
+            }
+        }
+
+        $this->assertNotNull($tool);
+        $this->assertSame('POST', $tool->httpMethod);
+    }
+
+    public function testInputSchemaIsDerivedFromTheActionsFluentValidatorBuilder(): void
+    {
+        // FluentValidatorAction declares its validators via
+        // registerWriteValidators() only -- no {module}/Validate/{action}.xml
+        // file at all. Before the fix this always fell back to the
+        // permissive `properties: {}` schema.
+        $controller = Context::getInstance('mcp-action-tool-test')->getController();
+        $definitions = (new ActionToolScanner())->scan($controller);
+
+        $tool = null;
+        foreach ($definitions as $definition) {
+            if ($definition->toolName === 'fluent_via_action') {
+                $tool = $definition;
+                break;
+            }
+        }
+
+        $this->assertNotNull($tool);
+        $this->assertSame('POST', $tool->httpMethod);
+        $this->assertSame(
+            [
+                'type' => 'object',
+                'properties' => [
+                    'title' => ['type' => 'string', 'minLength' => 2, 'maxLength' => 20],
+                    'author_email' => ['type' => 'string', 'format' => 'email'],
+                ],
+                'required' => ['title'],
+                'additionalProperties' => true,
+            ],
+            $tool->inputSchema,
+        );
+    }
+
     public function testIgnoresRouteActionsWithoutMcpTool(): void
     {
         $controller = Context::getInstance('mcp-action-tool-test')->getController();

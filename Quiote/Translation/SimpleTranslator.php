@@ -32,6 +32,20 @@ class SimpleTranslator extends BasicTranslator implements ResetInterface
 
 	/**
 	 * Initialize this Translator.
+	 *
+	 * The outer key of $parameters is NOT the domain name this translator was
+	 * registered under -- it's whatever's LEFT of that domain string after
+	 * TranslationManager::getTranslators() has matched a translator against
+	 * it (see that method's docblock). For a translator with no nested
+	 * children (e.g. a bare `<translator domain="default">`), a message
+	 * looked up under domain "default" consumes the ENTIRE domain string,
+	 * leaving nothing over -- so this translator's own messages must be
+	 * keyed by the empty string `''`, not `'default'`. Only a translator
+	 * NESTED inside another (domain "default.errors" registered inside
+	 * "default") sees a non-empty leftover suffix ("errors") as its outer
+	 * key. Using the translator's own declared domain name as the outer key
+	 * here (the natural first guess) silently returns raw, untranslated
+	 * message keys with no error at all.
 	 * @param      Context $context The current application context.
 	 * @param      array<string, mixed> $parameters An associative array of initialization parameters
 	 * @return     void

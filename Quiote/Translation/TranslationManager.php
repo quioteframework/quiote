@@ -410,6 +410,20 @@ class TranslationManager implements ResetInterface
 
 	/**
 	 * Returns the translators for a given domain.
+	 *
+	 * Matches by progressively stripping trailing ".segment" parts off
+	 * $domain until a registered translator name matches, so a nested
+	 * `<translator domain="errors">` inside `<translator domain="default">`
+	 * is addressed as "default.errors". $domainExtra is whatever's LEFT of
+	 * $domain after that match, and it's THIS (not the matched translator
+	 * name) that gets passed as the domain to ITranslator::translate() --
+	 * see the caller sites (_(), _d(), _c(), _n()) below. For a top-level,
+	 * non-nested translator this is always the empty string: requesting
+	 * domain "default" against a translator registered as exactly
+	 * "default" consumes the whole string on the first match, leaving
+	 * nothing over. A translator implementation (e.g. SimpleTranslator) must
+	 * key its own messages by that leftover suffix, not by its own domain
+	 * name -- see SimpleTranslator::initialize()'s docblock.
 	 * @param      string $domain The domain.
 	 * @param      string $domainExtra The remaining part in the domain which didn't match
 	 * @param      ?string $type The type of the translator

@@ -139,6 +139,24 @@ class FactoryConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 	}
 
 	/**
+	 * Actionable, factory-specific guidance appended to the generic "missing
+	 * or incomplete entry" error. Some factories (translation_manager) only
+	 * become 'required' when a core.use_* flag is flipped on, and a freshly
+	 * scaffolded app's factories file has no entry for them at all -- the
+	 * generic message alone gives no hint that a new entry needs adding, or
+	 * what class to point it at.
+	 */
+	private function missingFactoryHint(string $factory): ?string
+	{
+		return match ($factory) {
+			'translation_manager' => 'This entry becomes required once "core.use_translation" is enabled. '
+				. 'Add a translation_manager factory pointing at Quiote\\Translation\\TranslationManager, e.g. in factories.php: '
+				. "'translation_manager' => ['class' => \\Quiote\\Translation\\TranslationManager::class, 'params' => []].",
+			default => null,
+		};
+	}
+
+	/**
 	 * @param array<string, array{class: string|null, params: array<mixed>}> $config
 	 */
 	public function executeArray(array $config, ?string $sourceRef = null): string
@@ -160,6 +178,9 @@ class FactoryConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 				if (!isset($data[$factory]) || $data[$factory]['class'] === null) {
 					$error = 'Configuration file "%s" has missing or incomplete entry "%s"';
 					$error = sprintf($error, $sourceRef, $factory);
+					if ($hint = $this->missingFactoryHint((string) $factory)) {
+						$error .= ' ' . $hint;
+					}
 					throw new ConfigurationException($error);
 				}
 

@@ -382,7 +382,23 @@ class ValidationMiddleware implements MiddlewareInterface
             }
         }
         // failure path
-        // Validation failed => 400 with errors and stash for form population
+        // Validation failed => 400 with errors and stash for form population.
+        // A validation failure is ALWAYS a 400: the view NAME handle*Error()
+        // returns (e.g. 'Success', 'Error', or literally anything an app
+        // author chooses) is presentation detail, not a signal the response
+        // stopped being an error. Nothing prevents an action from returning
+        // an arbitrary string as the view name, so branching status code on
+        // it would let that string double as an unintended status override.
+        // The one supported way to override the status is the existing,
+        // general `WebResponse::setHttpStatusCode()` convention (already
+        // honored on the success path by DispatchMiddleware::buildPsrResponse) --
+        // baseline it to 400 here so handle*Error()/the error view can
+        // explicitly opt into a different code via getGlobalResponse() if it
+        // wants to, but the default is always the correct one.
+        try {
+            $this->controller?->getGlobalResponse()?->setHttpStatusCode(400);
+        } catch (\Throwable) {
+        }
         $request = $request->withAttribute('quiote.validation.errors', $errors);
         $method = $normalizedMethod ?: 'Default';
         $handleErrorMethod = 'handle' . $method . 'Error';
@@ -408,6 +424,19 @@ class ValidationMiddleware implements MiddlewareInterface
         $execState->viewModule = $viewModule;
         $execState->viewName = $viewName;
         $request = $request->withAttribute(ExecutionState::class, $execState);
+        // The error view rendered below runs entirely inside this middleware,
+        // before the pipeline ever reaches SlotMiddleware (which normally runs
+        // AFTER ValidationMiddleware on the happy path — see
+        // MiddlewareAttributeOrderingTest). If the error view calls
+        // renderSlot(), SlotDispatcher throws "SlotStack missing from request"
+        // because nothing has attached one yet. Attach one here, mirroring
+        // SlotMiddleware::process(), so slot rendering also works on the
+        // validation-failure path.
+        $webRequest = $this->ensureSlotStack($webRequest, $request);
+        try {
+            $this->controller?->getContext()?->setRequest($webRequest);
+        } catch (\Throwable) {
+        }
         // Execute view immediately so downstream dispatch middleware can skip action logic
         if ($viewName === View::NONE) {
             $factory = new \Nyholm\Psr7\Factory\Psr17Factory();
@@ -527,6 +556,18 @@ class ValidationMiddleware implements MiddlewareInterface
             }
             $factory = new \Nyholm\Psr7\Factory\Psr17Factory();
             $resp = $factory->createResponse(400)->withHeader('X-Quiote-Validation', 'failed');
+            // Read back the status baselined to 400 above -- honors an explicit
+            // $controller->getGlobalResponse()->setHttpStatusCode() override from
+            // handle*Error()/the error view itself, mirroring the same convention
+            // DispatchMiddleware::buildPsrResponse() already honors on the success path.
+            try {
+                $globalResp = $controller->getGlobalResponse();
+                $statusCode = (int)$globalResp->getHttpStatusCode();
+                if ($statusCode >= 100) {
+                    $resp = $resp->withStatus($statusCode);
+                }
+            } catch (\Throwable) {
+            }
             if ($problemJson) {
                 // RFC 9457 media type for the synthesized Problem Details body.
                 $resp = $resp->withHeader('Content-Type', 'application/problem+json; charset=UTF-8');
@@ -649,5 +690,25 @@ class ValidationMiddleware implements MiddlewareInterface
         }
 
         return \Quiote\Http\ProblemDetails::create(status: 400, instance: $instance, errors: $errors)->toJson();
+    }
+
+    /**
+     * Attach a {@see SlotMiddleware::ATTR} SlotStack to $webRequest if one
+     * isn't already present, mirroring SlotMiddleware::process() exactly
+     * (including preserving the pre-pruning original request slots read
+     * from). Needed because the validation-failure path renders its error
+     * view before SlotMiddleware ever runs.
+     */
+    private function ensureSlotStack(WebRequest $webRequest, ServerRequestInterface $request): WebRequest
+    {
+        if ($webRequest->getAttribute(SlotMiddleware::ATTR)) {
+            return $webRequest;
+        }
+        $slotStack = new \Quiote\Execution\SlotStack();
+        $originalRequest = $request->getAttribute('_original_psr_request');
+        if ($originalRequest instanceof ServerRequestInterface) {
+            $slotStack->setOriginalRequest($originalRequest);
+        }
+        return $webRequest->withAttribute(SlotMiddleware::ATTR, $slotStack);
     }
 }

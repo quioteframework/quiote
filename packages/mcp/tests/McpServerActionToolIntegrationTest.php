@@ -116,6 +116,55 @@ final class McpServerActionToolIntegrationTest extends PhpUnitTestCase
         $this->assertSame(-32602, $response['error']['code'], 'invalid params');
     }
 
+    /**
+     * Regression guard: MultiVerbAction has no XML validator file and no
+     * fluent register*Validators() -- ActionToolScanner can't derive
+     * anything, so its tool gets the permissive fallback schema
+     * (`properties: {}`, nothing required). Before the fix,
+     * McpServer::normalizeRequiredList(null) returned null, which survived
+     * into the JSON-encoded schema as `"required":null` -- valid PHP, but
+     * invalid per the JSON Schema meta-schema opis/json-schema checks
+     * against, so *every* `tools/call` against a fallback-schema tool
+     * failed with a -32602 "required must be an array of strings" error
+     * before the actual arguments were ever looked at, regardless of what
+     * was sent.
+     */
+    public function testCallingAToolWithThePermissiveFallbackSchemaSucceeds(): void
+    {
+        Config::set('mcp.expose_actions', true, true);
+
+        $container = Context::getInstance('mcp-action-tool-test')->getContainer();
+        $server = (new McpServer($container, 'mcp-action-tool-test'))->build(McpConfig::fromConfig());
+
+        $transport = new RecordingInMemoryTransport([
+            json_encode([
+                'jsonrpc' => '2.0', 'id' => 1, 'method' => 'initialize',
+                'params' => ['protocolVersion' => '2025-11-25', 'capabilities' => [], 'clientInfo' => ['name' => 'x', 'version' => '1']],
+            ], JSON_THROW_ON_ERROR),
+            json_encode(['jsonrpc' => '2.0', 'method' => 'notifications/initialized'], JSON_THROW_ON_ERROR),
+            json_encode(['jsonrpc' => '2.0', 'id' => 2, 'method' => 'tools/list'], JSON_THROW_ON_ERROR),
+            json_encode([
+                'jsonrpc' => '2.0', 'id' => 3, 'method' => 'tools/call',
+                'params' => ['name' => 'multi_verb_via_action', 'arguments' => []],
+            ], JSON_THROW_ON_ERROR),
+        ]);
+
+        $server->run($transport);
+
+        $listResponse = json_decode($transport->sent[1], true, flags: JSON_THROW_ON_ERROR);
+        $tools = [];
+        foreach ($listResponse['result']['tools'] as $tool) {
+            $tools[$tool['name']] = $tool;
+        }
+        $this->assertArrayHasKey('multi_verb_via_action', $tools);
+        $this->assertSame([], $tools['multi_verb_via_action']['inputSchema']['properties']);
+        $this->assertSame([], $tools['multi_verb_via_action']['inputSchema']['required']);
+
+        $callResponse = json_decode($transport->sent[2], true, flags: JSON_THROW_ON_ERROR);
+        $this->assertArrayNotHasKey('error', $callResponse, 'A fallback-schema tool call must not be rejected by schema validation before dispatch');
+        $this->assertArrayHasKey('result', $callResponse, 'The call must actually dispatch to the action, not just avoid an error');
+    }
+
     public function testDisabledByDefaultMeansTheActionToolIsNotRegistered(): void
     {
         $container = Context::getInstance('mcp-action-tool-test')->getContainer();
