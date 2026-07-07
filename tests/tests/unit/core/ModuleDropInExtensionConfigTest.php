@@ -96,15 +96,10 @@ PHP);
     }
 }
 
-#[\Quiote\Plugin\Attribute\Plugin]
+#[\Quiote\Plugin\Attribute\Plugin(name: 'test/drop-in-fixture')]
 final class ModuleDropInFixturePlugin implements \Quiote\Plugin\PluginInterface
 {
     public static bool $registered = false;
-
-    public function name(): string
-    {
-        return 'test/drop-in-fixture';
-    }
 
     public function register(\Quiote\Plugin\PluginRegistrar $registrar): void
     {

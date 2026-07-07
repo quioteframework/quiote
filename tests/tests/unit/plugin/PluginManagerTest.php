@@ -10,6 +10,7 @@ use Quiote\Http\Client\HttpClientFactory;
 use Quiote\Middleware\Config\MiddlewareConfigRegistry;
 use Quiote\Middleware\MiddlewareCatalog;
 use Quiote\Plugin\Attribute\Plugin as PluginAttribute;
+use Quiote\Plugin\NamedPlugin;
 use Quiote\Plugin\PluginInterface;
 use Quiote\Plugin\PluginManager;
 use Quiote\Plugin\PluginRegistrar;
@@ -204,16 +205,28 @@ class PluginManagerTest extends TestCase
 
         $this->assertArrayHasKey(UnattributedPlugin::class, PluginManager::registeredPlugins());
     }
-}
 
-#[PluginAttribute]
-final class RecordingPlugin implements PluginInterface
-{
-    public function name(): string
+    public function testNamedPluginNameTakesPrecedenceOverAttributeName(): void
     {
-        return 'recording';
+        PluginManager::add(new NamedOverAttributePlugin());
+        PluginManager::bootFromConfig();
+
+        $this->assertSame('from-named-plugin', NamedOverAttributePlugin::$capturedPluginName);
     }
 
+    public function testPluginWithNoResolvableNameThrows(): void
+    {
+        $this->expectException(\Quiote\Exception\QuioteException::class);
+        $this->expectExceptionMessage(UnnamablePlugin::class);
+
+        PluginManager::add(new UnnamablePlugin());
+        PluginManager::bootFromConfig();
+    }
+}
+
+#[PluginAttribute(name: 'recording')]
+final class RecordingPlugin implements PluginInterface
+{
     public function register(PluginRegistrar $r): void
     {
         $r->configDefault('demo.setting', 'from-plugin')
@@ -228,29 +241,19 @@ final class RecordingPlugin implements PluginInterface
     }
 }
 
-#[PluginAttribute]
+#[PluginAttribute(name: 'second')]
 final class SecondConfigPlugin implements PluginInterface
 {
-    public function name(): string
-    {
-        return 'second';
-    }
-
     public function register(PluginRegistrar $r): void
     {
         $r->configDefault('demo.setting', 'from-second');
     }
 }
 
-#[PluginAttribute]
+#[PluginAttribute(name: 'counting')]
 final class CountingPlugin implements PluginInterface
 {
     public int $registerCalls = 0;
-
-    public function name(): string
-    {
-        return 'counting';
-    }
 
     public function register(PluginRegistrar $r): void
     {
@@ -263,13 +266,41 @@ final class DemoPluginEvent extends \Quiote\Event\Event
 }
 
 // Deliberately NOT #[PluginAttribute] -- see testClassStringActivationRefusesAPluginInterfaceClassWithoutTheAttribute().
-final class UnattributedPlugin implements PluginInterface
+// Implements NamedPlugin instead of relying on the attribute for its name.
+final class UnattributedPlugin implements NamedPlugin
 {
     public function name(): string
     {
         return 'unattributed';
     }
 
+    public function register(PluginRegistrar $r): void
+    {
+    }
+}
+
+// Carries both an attribute name and a NamedPlugin::name() -- PluginManager
+// must prefer the latter (see testNamedPluginNameTakesPrecedenceOverAttributeName).
+#[PluginAttribute(name: 'from-attribute')]
+final class NamedOverAttributePlugin implements NamedPlugin
+{
+    public static string $capturedPluginName = '';
+
+    public function name(): string
+    {
+        return 'from-named-plugin';
+    }
+
+    public function register(PluginRegistrar $r): void
+    {
+        self::$capturedPluginName = $r->pluginName();
+    }
+}
+
+// Neither NamedPlugin nor an attribute `name` argument -- see testPluginWithNoResolvableNameThrows().
+#[PluginAttribute]
+final class UnnamablePlugin implements PluginInterface
+{
     public function register(PluginRegistrar $r): void
     {
     }

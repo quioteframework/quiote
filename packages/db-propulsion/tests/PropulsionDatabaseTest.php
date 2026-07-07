@@ -61,7 +61,9 @@ class PropulsionDatabaseTest extends TestCase
         $conn = $db->getPropulsionConnection();
         $conn->exec('CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY, name TEXT NOT NULL)');
         $conn->exec("INSERT INTO items (name) VALUES ('quiote')");
-        $value = $conn->query('SELECT name FROM items WHERE id = 1')->fetchColumn();
+        $stmt = $conn->query('SELECT name FROM items WHERE id = 1');
+        $this->assertNotFalse($stmt);
+        $value = $stmt->fetchColumn();
 
         $this->assertSame('quiote', $value);
         $this->assertSame('runtime', $db->getDatasource());
@@ -90,7 +92,7 @@ class PropulsionDatabaseTest extends TestCase
     public function testPluginRegistersPropulsionAlias(): void
     {
         $plugin = new PropulsionPlugin();
-        $plugin->register(new PluginRegistrar($plugin->name()));
+        $plugin->register(new PluginRegistrar('quiote/propulsion'));
 
         $this->assertSame(PropulsionDatabase::class, DatabaseDriverRegistry::resolve('propulsion'));
     }

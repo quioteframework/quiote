@@ -25,14 +25,9 @@ use Quiote\Plugin\PluginRegistrar;
  * core-default call is deleted, CSRF becomes opt-in via the `plugins` config
  * key, exactly like {@see \Quiote\Mcp\McpPlugin} already is.
  */
-#[PluginAttribute]
+#[PluginAttribute(name: 'quiote/csrf')]
 final class CsrfPlugin implements PluginInterface
 {
-    public function name(): string
-    {
-        return 'quiote/csrf';
-    }
-
     public function register(PluginRegistrar $registrar): void
     {
         $registrar->attributedMiddleware(

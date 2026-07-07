@@ -78,17 +78,43 @@ final class PluginManager
         }
 
         foreach (self::$plugins as $plugin) {
+            $name = self::resolveName($plugin);
             try {
-                $plugin->register(new PluginRegistrar($plugin->name()));
+                $plugin->register(new PluginRegistrar($name));
             } catch (\Throwable $e) {
                 Log::for(self::class)->error(
-                    '[PluginManager] plugin "' . $plugin->name() . '" (' . $plugin::class . ') register() threw: '
+                    '[PluginManager] plugin "' . $name . '" (' . $plugin::class . ') register() threw: '
                     . $e::class . ': ' . $e->getMessage()
                 );
                 throw $e;
             }
         }
         self::$registered = true;
+    }
+
+    /**
+     * A plugin's diagnostics/logging name: {@see NamedPlugin::name()} if the
+     * plugin implements it (needed when the name can't be a compile-time
+     * constant), otherwise {@see PluginAttribute}'s `name` argument.
+     */
+    private static function resolveName(PluginInterface $plugin): string
+    {
+        if ($plugin instanceof NamedPlugin) {
+            return $plugin->name();
+        }
+
+        $attributes = (new \ReflectionClass($plugin))->getAttributes(PluginAttribute::class);
+        $name = $attributes === [] ? null : $attributes[0]->newInstance()->name;
+        if ($name === null) {
+            throw new \Quiote\Exception\QuioteException(sprintf(
+                'Plugin "%s" has no resolvable name: it does not implement %s and either carries no #[%s] '
+                . 'attribute or the attribute has no `name` argument.',
+                $plugin::class,
+                NamedPlugin::class,
+                PluginAttribute::class,
+            ));
+        }
+        return $name;
     }
 
     // --- deferred contribution stores (called by PluginRegistrar) -----------

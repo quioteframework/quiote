@@ -13,14 +13,9 @@ use Quiote\Plugin\PluginRegistrar;
  * When the adapters are extracted into standalone composer packages, this plugin
  * (and its adapter) move to `quioteframework/quiote-eloquent` unchanged.
  */
-#[PluginAttribute]
+#[PluginAttribute(name: 'quiote/eloquent')]
 final class EloquentPlugin implements PluginInterface
 {
-    public function name(): string
-    {
-        return 'quiote/eloquent';
-    }
-
     public function register(PluginRegistrar $registrar): void
     {
         $registrar->databaseDriver('eloquent', EloquentDatabase::class);

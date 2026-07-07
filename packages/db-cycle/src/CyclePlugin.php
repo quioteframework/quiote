@@ -12,14 +12,9 @@ use Quiote\Plugin\PluginRegistrar;
  *
  * Extracts to `quioteframework/quiote-cycle` unchanged.
  */
-#[PluginAttribute]
+#[PluginAttribute(name: 'quiote/cycle')]
 final class CyclePlugin implements PluginInterface
 {
-    public function name(): string
-    {
-        return 'quiote/cycle';
-    }
-
     public function register(PluginRegistrar $registrar): void
     {
         $registrar->databaseDriver('cycle', CycleDatabase::class);

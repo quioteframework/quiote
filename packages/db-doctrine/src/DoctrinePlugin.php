@@ -12,14 +12,9 @@ use Quiote\Plugin\PluginRegistrar;
  *
  * Extracts to `quioteframework/quiote-doctrine` unchanged.
  */
-#[PluginAttribute]
+#[PluginAttribute(name: 'quiote/doctrine')]
 final class DoctrinePlugin implements PluginInterface
 {
-    public function name(): string
-    {
-        return 'quiote/doctrine';
-    }
-
     public function register(PluginRegistrar $registrar): void
     {
         $registrar

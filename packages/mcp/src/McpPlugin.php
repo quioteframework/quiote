@@ -22,14 +22,9 @@ use Quiote\Plugin\PluginRegistrar;
  * package this plugin (and `Quiote\Mcp\*`) move to `quioteframework/quiote-mcp`
  * unchanged, mirroring the ORM adapter plugins.
  */
-#[PluginAttribute]
+#[PluginAttribute(name: 'quiote/mcp')]
 final class McpPlugin implements PluginInterface
 {
-    public function name(): string
-    {
-        return 'quiote/mcp';
-    }
-
     public function register(PluginRegistrar $registrar): void
     {
         $registrar->configDefault('mcp.enabled', false);

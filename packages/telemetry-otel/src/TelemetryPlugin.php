@@ -31,14 +31,9 @@ use Quiote\Plugin\PluginRegistrar;
  * core-default call is deleted and this plugin (unchanged) is registered via
  * the `plugins` config key instead, exactly like {@see \Quiote\Mcp\McpPlugin}.
  */
-#[PluginAttribute]
+#[PluginAttribute(name: 'quiote/telemetry-otel')]
 final class TelemetryPlugin implements PluginInterface
 {
-    public function name(): string
-    {
-        return 'quiote/telemetry-otel';
-    }
-
     public function register(PluginRegistrar $registrar): void
     {
         $registrar->listen(KernelBootEvent::class, static function (): void {

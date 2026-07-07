@@ -20,14 +20,9 @@ use Quiote\Plugin\PluginRegistrar;
  * simply absent, so it follows the same fully opt-in model as
  * {@see \Quiote\Mcp\McpPlugin} and the ORM adapter plugins.
  */
-#[PluginAttribute]
+#[PluginAttribute(name: 'quiote/whoops')]
 final class WhoopsPlugin implements PluginInterface
 {
-    public function name(): string
-    {
-        return 'quiote/whoops';
-    }
-
     public function register(PluginRegistrar $registrar): void
     {
         $registrar->developerExceptionRenderer(static fn() => new WhoopsRenderer());

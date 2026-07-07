@@ -48,6 +48,7 @@ class PluginContainerIntegrationTest extends TestCase
         // Fresh context in this isolated process picks up the plugin contribution.
         $container = Context::getInstance('test')->getContainer();
         $factory = $container->get(HttpClientFactory::class);
+        $this->assertInstanceOf(HttpClientFactory::class, $factory);
 
         $this->assertTrue($factory->has('demo-api'));
         $client = $factory->client('demo-api');
@@ -67,14 +68,9 @@ class PluginContainerIntegrationTest extends TestCase
     }
 }
 
-#[PluginAttribute]
+#[PluginAttribute(name: 'container-demo')]
 final class ContainerDemoPlugin implements PluginInterface
 {
-    public function name(): string
-    {
-        return 'container-demo';
-    }
-
     public function register(PluginRegistrar $r): void
     {
         $r->service('demo.container.service', fn() => new \stdClass(), Container::SCOPE_SINGLETON)

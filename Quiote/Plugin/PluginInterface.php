@@ -15,12 +15,15 @@ namespace Quiote\Plugin;
  * plugin class-strings), and {@see register()} is invoked once during
  * {@see \Quiote\Quiote::bootstrap()} — after settings load, before contexts are
  * created — in deterministic order.
+ *
+ * A diagnostics/logging name for the plugin comes from either
+ * {@see \Quiote\Plugin\Attribute\Plugin}'s `name` argument or, for a plugin
+ * whose name can't be a compile-time constant, from implementing
+ * {@see NamedPlugin} instead — see {@see PluginManager} for how the two are
+ * resolved.
  */
 interface PluginInterface
 {
-    /** A stable, human-readable identifier for diagnostics/logging. */
-    public function name(): string;
-
     /**
      * Contribute to the framework. Called exactly once at boot. Every
      * contribution routes through {@see PluginRegistrar} to an existing seam;
