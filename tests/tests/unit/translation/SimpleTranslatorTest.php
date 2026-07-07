@@ -16,6 +16,10 @@ use Quiote\Translation\SimpleTranslator;
  * declared domain name (the natural first guess) silently returns
  * untranslated message keys instead of throwing. See TranslationManager's
  * getTranslators() docblock for the matching mechanics.
+ *
+ * Also covers the flat `locale => key/translation` shape SimpleTranslator
+ * accepts as sugar for that no-sub-domain case, so config authors don't have
+ * to write out `'' => [...]` by hand -- see initialize()'s docblock.
  */
 class SimpleTranslatorTest extends UnitTestCase
 {
@@ -73,5 +77,48 @@ class SimpleTranslatorTest extends UnitTestCase
         $translator->localeChanged($this->makeLocale('en_US'));
 
         $this->assertSame('unknown_key', $translator->translate('unknown_key', ''));
+    }
+
+    public function testFlatLocaleKeyedShapeIsEquivalentToTheEmptyStringDomain(): void
+    {
+        // No '' wrapper at all: locale => key/translation directly.
+        $translator = new SimpleTranslator();
+        $translator->initialize($this->getContext(), [
+            'en_US' => ['greeting' => 'Hello!'],
+            'de_DE' => ['greeting' => 'Hallo!'],
+        ]);
+
+        $translator->localeChanged($this->makeLocale('en_US'));
+        $this->assertSame('Hello!', $translator->translate('greeting', ''));
+
+        $translator->localeChanged($this->makeLocale('de_DE'));
+        $this->assertSame('Hallo!', $translator->translate('greeting', ''));
+    }
+
+    public function testFlatShapeDetectionDoesNotMisfireOnADomainNestedConfig(): void
+    {
+        // A genuine domain name ("errors") never parses as a locale
+        // identifier, so this must still be treated as domain-nested, not
+        // misdetected as flat.
+        $translator = new SimpleTranslator();
+        $translator->initialize($this->getContext(), [
+            'errors' => ['en_US' => ['login_failed' => 'Login failed.']],
+        ]);
+        $translator->localeChanged($this->makeLocale('en_US'));
+
+        $this->assertSame('Login failed.', $translator->translate('login_failed', 'errors'));
+        // The flat-shape sugar must not also make this reachable under the
+        // empty-string domain -- "errors" is a real sub-domain, not "no
+        // sub-domain".
+        $this->assertSame('login_failed', $translator->translate('login_failed', ''));
+    }
+
+    public function testEmptyParametersDoNotThrow(): void
+    {
+        $translator = new SimpleTranslator();
+        $translator->initialize($this->getContext(), []);
+        $translator->localeChanged($this->makeLocale('en_US'));
+
+        $this->assertSame('greeting', $translator->translate('greeting', ''));
     }
 }
