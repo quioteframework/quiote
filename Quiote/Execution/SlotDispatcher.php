@@ -203,9 +203,13 @@ class SlotDispatcher
                 }
                 // Early experimental path: execute simple action without full container
                 $rd = $rdh;
-                // Execute action via resolver for method-based verbs (execute|executeXxx)
+                // Agavi heritage: isSimple() means "skip execute*() entirely,
+                // render getDefaultViewName() directly" -- this was introduced
+                // (commit f166330f4, 2007) specifically for slots, which don't
+                // need a full round of validation/business logic just to
+                // render a fragment. Do NOT call the resolver here.
                 try {
-                    $rawViewName = $this->actionResolver->execute($actionInstance, strtoupper($parentRequest->getMethod()), $rd);
+                    $rawViewName = $actionInstance->getDefaultViewName();
                 } catch (\Throwable $e) {
                     if ($logExceptions) {
                         $this->logSlotException($e, $module, $action, $parameters, 'simple_action_execute');

@@ -5,6 +5,7 @@ use Nyholm\Psr7\ServerRequest;
 use Quiote\Execution\ActionDescriptor;
 use Quiote\Middleware\DispatchMiddleware;
 use Quiote\Execution\ExecutionState;
+use Quiote\Execution\ValidationDecision;
 use Sandbox\Modules\Snapshot\Actions\SnapshotAction;
 
 class ActionAttributeSnapshotTest extends UnitTestCase
@@ -27,12 +28,18 @@ class ActionAttributeSnapshotTest extends UnitTestCase
     {
         $controller = $this->getContext()->getController();
         $descriptor = ActionDescriptor::fromController($controller,'Snapshot','SnapshotAction','GET','html');
+        // SnapshotAction is not isSimple() (it exercises a real execute() call),
+        // so DispatchMiddleware requires a validation decision -- normally set
+        // by ValidationMiddleware, which this test bypasses since it targets
+        // DispatchMiddleware in isolation.
+        $execState = new ExecutionState();
+        $execState->validationDecision = ValidationDecision::passed();
         return (new ServerRequest('GET', 'http://localhost/snapshot'))
             ->withAttribute('module','Snapshot')
             ->withAttribute('action','SnapshotAction')
             ->withAttribute('output_type','html')
             ->withAttribute(ActionDescriptor::class, $descriptor)
-            ->withAttribute(ExecutionState::class, new ExecutionState());
+            ->withAttribute(ExecutionState::class, $execState);
     }
 
     public function testSnapshotImmutable()

@@ -173,6 +173,37 @@ class ValidationManagerBehaviorTest extends UnitTestCase
         $this->assertCount(0, $files, 'Unvalidated files pruned');
     }
 
+    public function testZeroValidatorsStillPurgesAllHeaders(): void
+    {
+        // Headers are just as attacker-controlled as query/body parameters
+        // (Content-Type, Authorization, X-Forwarded-*, etc.). An action with
+        // NO validators registered at all must still get every header
+        // stripped before execute*() runs -- the same deny-by-default
+        // guarantee zero-validator params already get via clearParameters(),
+        // which previously did not extend to headers at all.
+        $vm = $this->newVm();
+        $req = $this->newWebRequest();
+        $req = $req->withHeader('authorization', 'Bearer secret')->withHeader('x-my-special-header', 'attacker-value');
+        $this->assertTrue($vm->execute($req));
+        $finalReq = $this->getContext()->getRequest();
+        $this->assertFalse($finalReq->hasHeader('authorization'), 'Authorization must be purged when no validator ran');
+        $this->assertFalse($finalReq->hasHeader('x-my-special-header'), 'Arbitrary unvalidated header must be purged when no validator ran');
+    }
+
+    public function testHeaderValidatorSurvivesEvenWithZeroOtherValidators(): void
+    {
+        $vm = $this->newVm();
+        /** @var DummyValidator $vh */
+        $vh = $vm->createValidator('DummyValidator', ['content-type'], [], ['name' => 'ct', 'severity' => 'error', 'source' => 'headers']);
+        $vh->val_result = true;
+        $req = $this->newWebRequest();
+        $req = $req->withHeader('content-type', 'application/json')->withHeader('authorization', 'Bearer secret');
+        $this->assertTrue($vm->execute($req));
+        $finalReq = $this->getContext()->getRequest();
+        $this->assertTrue($finalReq->hasHeader('content-type'), 'Validated header must survive');
+        $this->assertFalse($finalReq->hasHeader('authorization'), 'Unvalidated header must still be purged');
+    }
+
     public function testCriticalFailurePrunesAllUnvalidatedSources(): void
     {
         $vm = $this->newVm(['mode' => ValidationManager::MODE_STRICT]);

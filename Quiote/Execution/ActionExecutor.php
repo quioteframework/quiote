@@ -245,7 +245,18 @@ final class ActionExecutor
         // Executor no longer performs or enforces validation beyond trusting provided state.
 
         // ACTION EXECUTION
-        $rawView = $this->actionResolver->execute($action, $desc->method, $actionRequest);
+        // Agavi heritage (isSimple() was introduced in commit f166330f4, 2007):
+        // a "simple" action skips execute*()/validate()/registerValidators()
+        // entirely -- it never runs any business logic -- and the controller
+        // renders whatever getDefaultViewName() returns directly. This is not
+        // "run execute*() with restricted access"; it is "do not run
+        // execute*() at all". Originally meant for slots that only need a
+        // view, not a full round of validation and action logic.
+        if ($action->isSimple()) {
+            $rawView = $action->getDefaultViewName();
+        } else {
+            $rawView = $this->actionResolver->execute($action, $desc->method, $actionRequest);
+        }
         if ($dbg) {
             $logger->debug('[ActionExecutor] rawView=' . var_export($rawView, true));
         }

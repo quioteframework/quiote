@@ -8,6 +8,7 @@ use Quiote\Middleware\DispatchMiddleware;
 use Quiote\Execution\ActionDescriptor;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Quiote\Execution\ExecutionState;
+use Quiote\Execution\ValidationDecision;
 
 #[RunTestsInSeparateProcesses]
 class DispatchMiddlewareExecutionStateTest extends UnitTestCase
@@ -30,6 +31,11 @@ class DispatchMiddlewareExecutionStateTest extends UnitTestCase
     }
 
     private function req(ActionDescriptor $descriptor, ExecutionState $state) {
+        // Cache is not isSimple() (it exercises a real execute() call for
+        // caching tests), so DispatchMiddleware requires a validation
+        // decision -- normally set by ValidationMiddleware, which this test
+        // bypasses since it targets DispatchMiddleware in isolation.
+        $state->validationDecision = ValidationDecision::passed();
         $factory = new Psr17Factory();
         /** @var \Quiote\Request\WebRequest $legacyReq */
         $legacyReq = $this->getContext()->getRequest();

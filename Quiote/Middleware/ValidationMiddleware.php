@@ -125,18 +125,37 @@ class ValidationMiddleware implements MiddlewareInterface
             throw new \RuntimeException('Canonical WebRequest missing in ValidationMiddleware (must be initialized earlier).');
         }
 
-        // Simple actions declare no validators, so none of the validation
-        // machinery below applies to them. The full pipeline-request overlay
-        // (method/uri/query/body + every attribute, several immutable clones per
-        // request) is redundant for them: the canonical WebRequest is already
-        // populated from the request, and ActionExecutor::buildRequestDataFromPsr
-        // re-applies query/body downstream. Skip the overlay for simple actions,
-        // but still run route-param promotion below — that is the ONLY
-        // pre-execution source of path params like /user/{id}.
+        // isSimple() means the action needs NO parameters at all -- not "skip
+        // validation but still allow raw access". A route path segment's VALUE
+        // is just as attacker-controlled as a query/body parameter (e.g. a
+        // "slug" of "' OR 1=1;--"), so it must not reach the action either.
+        // Every parameter source (query, body, runtime, and route params) is
+        // therefore cleared unconditionally below, and route-param promotion
+        // is skipped entirely -- there is nothing for it to promote INTO.
         $isSimple = $action && method_exists($action, 'isSimple') && $action->isSimple();
 
+        if ($isSimple) {
+            try {
+                $webRequest = $webRequest->clearParameters();
+                $this->controller?->getContext()?->setRequest($webRequest);
+            } catch (\Throwable) {
+            }
+            // Clear the PSR-7 request too: DispatchMiddleware::processSimple()
+            // rebuilds a WebRequest via ActionExecutor::buildRequestDataFromPsr(),
+            // which reads THIS object's query/body directly and calls
+            // setParameter() for each -- setParameter() auto-whitelists, so a
+            // raw query/body param would otherwise resurrect and become
+            // whitelisted right after the clear above.
+            $request = $request->withQueryParams([])->withParsedBody([]);
+            $execState->validationDecision = ValidationDecision::passed();
+            $request = $request
+                ->withAttribute(ExecutionState::class, $execState)
+                ->withAttribute('quiote.request_data', $webRequest);
+            return $handler->handle($request);
+        }
+
         // If the request changed in the pipeline, sync it back to context.
-        if (!$isSimple && $request !== $webRequest) {
+        if ($request !== $webRequest) {
             if ($request instanceof WebRequest) {
                 // Already an WebRequest (e.g. a with*() clone) — use it directly.
                 $this->controller->getContext()->setRequest($request);
@@ -205,18 +224,6 @@ class ValidationMiddleware implements MiddlewareInterface
             // ignore promotion errors – validation will proceed without route params if something unexpected happens
         }
 
-        // Simple actions have nothing to validate: record a passed decision and
-        // hand straight to dispatch, skipping xmlOnlyValidate, the manual
-        // validate*/validate hooks, the post-validation re-fetch, and the
-        // strict parameter-clear. Route params were already promoted above.
-        if ($isSimple) {
-            $execState->validationDecision = ValidationDecision::passed();
-            $request = $request
-                ->withAttribute(ExecutionState::class, $execState)
-                ->withAttribute('quiote.request_data', $webRequest);
-            return $handler->handle($request);
-        }
-
         if ($vd) {
             \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleare] Already validated?');
         }
@@ -237,58 +244,61 @@ class ValidationMiddleware implements MiddlewareInterface
         $hasXml = false;
         $errors = [];
         $vs = $this->validationService;
-        try {
-            if ($action && method_exists($action, 'isSimple') && $action->isSimple()) {
-                $ok = true; // simple actions bypass validation
-                // simple action bypass
-            } else {
-                // Attempt XML-only validation first (must use lowercase token so compiled config matches)
-                $xmlRes = $vs->xmlOnlyValidate($action, $webRequest, $moduleName, $actionName, $lowerMethodToken);
-                if ($vd) {
-                    try {
-                        $t = $xmlRes->getTrace();
-                        if ($t) {
-                            \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware] trace configFile=' . ($t->configFile ?? 'null') . ' validators=' . implode(',', $t->validatorsLoaded ?? []));
-                        }
-                    } catch (\Throwable) {
+        // Deliberately uncaught: a validator or a manual validate*()/validate()
+        // hook throwing is a critical framework/app bug, not "the user submitted
+        // invalid input". ValidationService already logs it at error level before
+        // rethrowing; letting it propagate here means ErrorHandlingMiddleware
+        // turns it into a 500 instead of this middleware masquerading it as an
+        // ordinary graceful validation failure (which could also leave the
+        // request in an unpruned, unsafe state -- pruning happens inside the
+        // very execute() call that threw).
+        if ($action && method_exists($action, 'isSimple') && $action->isSimple()) {
+            $ok = true; // simple actions bypass validation
+            // simple action bypass
+        } else {
+            // Attempt XML-only validation first (must use lowercase token so compiled config matches)
+            $xmlRes = $vs->xmlOnlyValidate($action, $webRequest, $moduleName, $actionName, $lowerMethodToken);
+            if ($vd) {
+                try {
+                    $t = $xmlRes->getTrace();
+                    if ($t) {
+                        \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware] trace configFile=' . ($t->configFile ?? 'null') . ' validators=' . implode(',', $t->validatorsLoaded ?? []));
                     }
-                }
-                $trace = $xmlRes->getTrace();
-                // "hasXml" gates whether we clear/lock down the request below. It must
-                // also be true when validators were registered manually via
-                // register{Method}Validators() (no validators.xml file), otherwise the
-                // clearParameters() call further down wipes the parameter values that
-                // ValidationManager::execute() just whitelisted, leaving getParameter()
-                // whitelisted but returning null for a value that was actually submitted.
-                $hasXml = $trace && (
-                    (property_exists($trace, 'configFile') && $trace->configFile !== null && $trace->configFile !== '')
-                    || (property_exists($trace, 'validatorsLoaded') && !empty($trace->validatorsLoaded))
-                );
-                $ok = $xmlRes->ok;
-                if (!$ok) {
-                    $errors = $xmlRes->getErrors() ?: ['validation_failed'];
-                }
-                // xml validation phase complete
-                if ($ok) {
-                    // Manual action validation phase
-                    $validateMethod = 'validate' . $normalizedMethod;
-                    if (is_callable([$action, $validateMethod])) {
-                        $ok = (bool)$action->$validateMethod($webRequest);
-                    }
-                    if ($ok && is_callable([$action, 'validate'])) {
-                        $ok = (bool)$action->validate($webRequest);
-                    }
-                    if (!$ok) {
-                        $errors[] = 'manual_validation_failed';
-                    }
-                    // manual validation phase complete
+                } catch (\Throwable) {
                 }
             }
-        } catch (\Throwable $e) {
-            $ok = false;
-            $errors[] = $e->getMessage();
+            $trace = $xmlRes->getTrace();
+            // "hasXml" gates whether we clear/lock down the request below. It must
+            // also be true when validators were registered manually via
+            // register{Method}Validators() (no validators.xml file), otherwise the
+            // clearParameters() call further down wipes the parameter values that
+            // ValidationManager::execute() just whitelisted, leaving getParameter()
+            // whitelisted but returning null for a value that was actually submitted.
+            $hasXml = $trace && (
+                (property_exists($trace, 'configFile') && $trace->configFile !== null && $trace->configFile !== '')
+                || (property_exists($trace, 'validatorsLoaded') && !empty($trace->validatorsLoaded))
+            );
+            $ok = $xmlRes->ok;
+            if (!$ok) {
+                $errors = $xmlRes->getErrors() ?: ['validation_failed'];
+            }
+            // xml validation phase complete
+            if ($ok) {
+                // Manual action validation phase
+                $validateMethod = 'validate' . $normalizedMethod;
+                if (is_callable([$action, $validateMethod])) {
+                    $ok = (bool)$action->$validateMethod($webRequest);
+                }
+                if ($ok && is_callable([$action, 'validate'])) {
+                    $ok = (bool)$action->validate($webRequest);
+                }
+                if (!$ok) {
+                    $errors[] = 'manual_validation_failed';
+                }
+                // manual validation phase complete
+            }
         }
-        
+
         // CRITICAL: Re-fetch request from context after validation
         // ValidationManager may have replaced it with a pruned immutable instance
         try {
@@ -447,6 +457,68 @@ class ValidationMiddleware implements MiddlewareInterface
             } else {
                 // Legacy fallback for non-JSON output types.
                 $content = $view->execute($webRequest);
+            }
+            // Mirror ActionExecutor::renderView()'s fallback: a view that calls
+            // loadLayout()/appendLayer() and implicitly returns null expects the
+            // caller to render its configured layers instead. Without this, any
+            // HTML error view following that (framework-scaffolded) convention
+            // produced a 400 with an empty body.
+            if ($content === null && $ot !== 'json' && $view->getLayers()) {
+                $layerContent = $view->renderLayers();
+                if ($layerContent !== '') {
+                    $content = $layerContent;
+                }
+            }
+            // Repopulate the submitted values into the rendered HTML form (the
+            // "sticky form" behavior). Scoped to 'html' only: an API client
+            // (JSON/etc.) is expected to hold its own submitted state, and
+            // FormPopulationEngine's DOM rewriting only makes sense for markup
+            // output. Sourced from ValidationManager's raw pre-prune snapshot,
+            // NOT $webRequest -- a value that failed even one of several
+            // validators registered against the same field name is
+            // deliberately scrubbed from the request (see
+            // WebRequest::pruneParametersToValidated()), which is correct for
+            // business logic but would otherwise make that field render blank
+            // again on the redisplayed form instead of showing what the user
+            // actually typed.
+            if ($ot === 'html' && is_string($content) && $content !== '') {
+                try {
+                    $vm = $vs->getValidationManager();
+                    $rawSnapshot = $vm instanceof ValidationManager ? $vm->getRawParameterSnapshot() : [];
+                    if ($rawSnapshot) {
+                        $globalResponse = $controller->getGlobalResponse();
+                        $globalResponse->setContent($content);
+                        // FormPopulationEngine gates on $response->getOutputType()
+                        // (the 'output_types' config below), so the global response
+                        // must carry the negotiated output type, not whatever it
+                        // last had set (e.g. from a prior request in a long-running
+                        // worker, or none at all).
+                        $globalResponse->setOutputType($controller->getOutputType($ot));
+                        $engine = new \Quiote\Util\FormPopulationEngine();
+                        $engine->initialize($controller->getContext());
+                        try {
+                            $engine->populate($globalResponse, $webRequest, [
+                                // A ParameterHolder here (not a plain array) is used
+                                // verbatim as the global value source for every form
+                                // field on the page -- FormPopulationEngine treats a
+                                // plain array under 'populate' as a per-form-id map
+                                // instead (see resolvePopulateSource()).
+                                'populate' => new \Quiote\Util\ParameterHolder($rawSnapshot),
+                                'validation_report' => $vm->getReport(),
+                                'output_types' => ['html'],
+                            ]);
+                        } finally {
+                            $engine->reset();
+                        }
+                        $populated = $globalResponse->getContent();
+                        if (is_string($populated) && $populated !== '') {
+                            $content = $populated;
+                        }
+                    }
+                } catch (\Throwable) {
+                    // Form repopulation is a UX nicety, not correctness-critical --
+                    // never let it turn a validation-failure response into a 500.
+                }
             }
             // Stash content for DispatchMiddleware early short-circuit (non-simple container-less path)
             try {

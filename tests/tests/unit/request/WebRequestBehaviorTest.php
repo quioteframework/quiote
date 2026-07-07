@@ -63,6 +63,30 @@ class WebRequestBehaviorTest extends UnitTestCase
         $this->assertSame('runtimeVal', $all['foo']);
     }
 
+    public function testGetParametersExcludesUnvalidatedKeys(): void
+    {
+        // getParameters()/getAll() are the plural counterpart of getParameter()
+        // and must enforce the same strict-validation whitelist -- otherwise
+        // an action could read raw, unvalidated input by calling
+        // getParameters() instead of getParameter(), defeating strict mode
+        // entirely.
+        $wr = $this->newRequest([], ['validated' => 'safe', 'untouched' => "' OR 1=1;--"]);
+        $vm = $this->getContext()->createInstanceFor('validation_manager');
+        $vm->createValidator(\Quiote\Validator\EqualsValidator::class, ['validated'], [], ['value' => 'safe']);
+        $vm->execute($wr);
+        $wr = $vm->getContext()->getRequest();
+
+        $all = $wr->getParameters();
+        $this->assertArrayHasKey('validated', $all);
+        $this->assertArrayNotHasKey('untouched', $all, 'Unvalidated parameter must not leak through getParameters()');
+
+        $allAlias = $wr->getAll('parameters');
+        $this->assertArrayNotHasKey('untouched', $allAlias, 'Unvalidated parameter must not leak through getAll() either');
+
+        $runtimeAll = $wr->getParameters('runtime');
+        $this->assertArrayNotHasKey('untouched', $runtimeAll);
+    }
+
     public function testBracketPathMaterializationAndRetrieval(): void
     {
         $wr = $this->newRequest();

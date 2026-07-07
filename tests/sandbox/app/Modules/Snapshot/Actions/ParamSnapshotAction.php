@@ -5,11 +5,11 @@ use Quiote\Action\Action;
 use Quiote\Request\WebRequest;
 
 /**
- * Simple (no-validator) action used to prove end-to-end that a simple action
- * still receives both a promoted route param and a query param after
- * ValidationMiddleware's overlay is skipped for simple actions (perf A3).
- * The route param is promoted by ValidationMiddleware; the query param is
- * applied by ActionExecutor::buildRequestDataFromPsr.
+ * isSimple() action used to prove end-to-end that execute() is never invoked
+ * at all for a simple action (Agavi heritage, commit f166330f4: "skip
+ * execute*() entirely, render getDefaultViewName() directly" -- not "run
+ * execute*() with restricted access"). If execute() ran, $seenParams would be
+ * populated; it must stay empty for the whole request.
  */
 class ParamSnapshotAction extends Action
 {
@@ -18,6 +18,9 @@ class ParamSnapshotAction extends Action
 
     #[\Override]
     public function isSimple(): bool { return true; }
+
+    #[\Override]
+    public function getDefaultViewName(): string { return 'Success'; }
 
     public function execute(WebRequest $rd)
     {

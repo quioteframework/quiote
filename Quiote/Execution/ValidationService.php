@@ -193,12 +193,14 @@ class ValidationService
                 } catch(\Throwable) {}
             }
         } catch (\Throwable $e) {
-            if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
-                try {
-                    $logger->debug('[ValidationService][validate] Validators execute() threw exception: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
-                } catch(\Throwable) {}
-            }
-            return ValidationResult::failure(['exception' => $e->getMessage()]);
+            // A validator throwing is a framework/app bug, not "the user submitted
+            // invalid input" -- treating it as an ordinary validation failure would
+            // return a graceful 400 while potentially leaving the request unpruned
+            // (pruning happens later in ValidationManager::execute(), which never
+            // completed). Log it as a hard error and let it propagate to
+            // ErrorHandlingMiddleware for a 500, rather than swallowing it.
+            $logger->error('[ValidationService][validate] Validators execute() threw exception: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
+            throw $e;
         }
         if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
             try {
@@ -230,16 +232,10 @@ class ValidationService
                 } catch(\Throwable) {}
             }
         } catch (\Throwable $e) {
-            if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
-                try {
-                    $logger->debug('[ValidationService][validate] action->' . $validateMethod . '() threw exception: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
-                    $logger->debug('[ValidationService][validate] Stack trace: ' . $e->getTraceAsString());
-                } catch(\Throwable) {}
-            }
-            if (getenv('DEBUG_TESTS')) {
-                error_log('[TestDebug][ValidationService] exception in ' . $validateMethod . ': ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
-            }
-            return ValidationResult::failure(['exception' => $e->getMessage()]);
+            // Same rationale as the validator-execution catch above: a manual
+            // validate*() method throwing is a bug, not invalid user input.
+            $logger->error('[ValidationService][validate] action->' . $validateMethod . '() threw exception: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
+            throw $e;
         }
         $final = $ok && $manualOk;
         $errors = [];
@@ -349,11 +345,12 @@ class ValidationService
             }
             $ok = (bool)$validationManager->execute($request);
         } catch (\Throwable $e) {
-            if ($vd) {
-                $logger->debug('[ValidationService] execute() threw: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
-            }
-            $trace = new ValidationTrace($moduleName, $actionName, $validatorsLoaded, $configFile);
-            return ValidationResult::failure(['errors' => ['xml_exception: ' . $e->getMessage()], 'trace' => $trace]);
+            // Same rationale as validate(): a validator throwing is a critical
+            // framework/app bug, not invalid user input. Log it and let it
+            // propagate to ErrorHandlingMiddleware for a 500 instead of
+            // masquerading as a graceful validation failure.
+            $logger->error('[ValidationService] xmlOnlyValidate execute() threw: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
+            throw $e;
         }
         if ($vd) {
             // Emit a compact report snapshot for diagnostics

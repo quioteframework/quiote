@@ -35,6 +35,27 @@ class ValidationMiddlewareTest extends TestCase
         }
     }
 
+    /**
+     * Gives a test-fixture Action a real ActionInitContext, mirroring what
+     * ValidationMiddleware itself does for pre-instantiated actions in
+     * production. Without this, $action->getContext() is null and
+     * ValidationService::xmlOnlyValidate() has nothing to build a
+     * ValidationManager from.
+     */
+    private function initializeAction(\Quiote\Action\Action $action, string $module, string $actionName, string $method, \Psr\Http\Message\ServerRequestInterface $request): void
+    {
+        $controller = $this->context->getController();
+        $action->initialize(new \Quiote\Execution\LightweightActionInitContext(
+            $controller->getContext(),
+            $module,
+            $actionName,
+            $method,
+            'html',
+            $request,
+            $controller->getGlobalResponse()
+        ));
+    }
+
     public function testValidationFailureTriggersErrorView(): void
     {
         $context = $this->context;
@@ -50,11 +71,13 @@ class ValidationMiddlewareTest extends TestCase
             ->withAttribute('module','Stub')
             ->withAttribute('action','Fail');
         // Attach synthetic action for failure path
-        $action = new class {
+        $action = new class extends \Quiote\Action\Action {
             public function isSimple(): bool { return false; }
+            public function validateRead($rd) { return false; }
             public function handleError($rd) { return 'Error'; }
             public function handleReadError($rd) { return 'Error'; }
         };
+        $this->initializeAction($action, 'Stub', 'Fail', 'read', $request);
         $request = $request->withAttribute('quiote.preinstantiated_action', $action);
     $validation = new ValidationMiddleware($this->context->getController());
         $finalHandler = new class implements RequestHandlerInterface { public function handle(ServerRequestInterface $r): ResponseInterface { return new Psr7Response(200); } };
@@ -97,7 +120,7 @@ class ValidationMiddlewareTest extends TestCase
         ]);
         $actionDesc = new \Quiote\Execution\ActionDescriptor('Stub','NoXml','read','html', false);
         // Provide query param foo=1 which should be cleared (no XML validators + non-simple)
-        $action = new class {
+        $action = new class extends \Quiote\Action\Action {
             public function isSimple(): bool { return false; }
             public function validateRead($r){ return true; }
             public function validate($r){ return true; }
@@ -106,9 +129,10 @@ class ValidationMiddlewareTest extends TestCase
         };
         $request = (new ServerRequest('GET','/stub/noxml?foo=1'))
             ->withAttribute(\Quiote\Execution\ActionDescriptor::class, $actionDesc)
-            ->withAttribute('quiote.preinstantiated_action',$action)
             ->withAttribute('module','Stub')
             ->withAttribute('action','NoXml');
+        $this->initializeAction($action, 'Stub', 'NoXml', 'read', $request);
+        $request = $request->withAttribute('quiote.preinstantiated_action',$action);
     $validation = new ValidationMiddleware($this->context->getController());
         $final = new class implements RequestHandlerInterface { public function handle(ServerRequestInterface $r): ResponseInterface { return new Psr7Response(204); } };
         $response = $validation->process($request, $final);
@@ -124,7 +148,7 @@ class ValidationMiddlewareTest extends TestCase
             'modules.err.enabled' => true,
         ]);
         $actionDesc = new \Quiote\Execution\ActionDescriptor('Err','FailRead','read','html', false);
-        $action = new class {
+        $action = new class extends \Quiote\Action\Action {
             public string $chosen = '';
             public function isSimple(): bool { return false; }
             public function validateRead($r){ return false; }
@@ -133,9 +157,10 @@ class ValidationMiddlewareTest extends TestCase
         };
         $request = (new ServerRequest('GET','/err/failread'))
             ->withAttribute(\Quiote\Execution\ActionDescriptor::class, $actionDesc)
-            ->withAttribute('quiote.preinstantiated_action',$action)
             ->withAttribute('module','Err')
             ->withAttribute('action','FailRead');
+        $this->initializeAction($action, 'Err', 'FailRead', 'read', $request);
+        $request = $request->withAttribute('quiote.preinstantiated_action',$action);
     $validation = new ValidationMiddleware($this->context->getController());
         $final = new class implements RequestHandlerInterface { public function handle(ServerRequestInterface $r): ResponseInterface { return new Psr7Response(200); } };
         $response = $validation->process($request, $final);
@@ -149,7 +174,7 @@ class ValidationMiddlewareTest extends TestCase
             'modules.err2.enabled' => true,
         ]);
         $actionDesc = new \Quiote\Execution\ActionDescriptor('Err2','FailGeneric','read','html', false);
-        $action = new class {
+        $action = new class extends \Quiote\Action\Action {
             public string $chosen = '';
             public function isSimple(): bool { return false; }
             public function validateRead($r){ return false; }
@@ -158,9 +183,10 @@ class ValidationMiddlewareTest extends TestCase
         };
         $request = (new ServerRequest('GET','/err2/failgeneric'))
             ->withAttribute(\Quiote\Execution\ActionDescriptor::class, $actionDesc)
-            ->withAttribute('quiote.preinstantiated_action',$action)
             ->withAttribute('module','Err2')
             ->withAttribute('action','FailGeneric');
+        $this->initializeAction($action, 'Err2', 'FailGeneric', 'read', $request);
+        $request = $request->withAttribute('quiote.preinstantiated_action',$action);
     $validation = new ValidationMiddleware($this->context->getController());
         $final = new class implements RequestHandlerInterface { public function handle(ServerRequestInterface $r): ResponseInterface { return new Psr7Response(200); } };
         $response = $validation->process($request, $final);
@@ -174,16 +200,17 @@ class ValidationMiddlewareTest extends TestCase
             'modules.err3.enabled' => true,
         ]);
         $actionDesc = new \Quiote\Execution\ActionDescriptor('Err3','FailNone','read','html', false);
-        $action = new class {
+        $action = new class extends \Quiote\Action\Action {
             public function isSimple(): bool { return false; }
             public function validateRead($r){ return false; }
             public function handleReadError($r){ return \Quiote\View\View::NONE; }
         };
         $request = (new ServerRequest('GET','/err3/failnone'))
             ->withAttribute(\Quiote\Execution\ActionDescriptor::class, $actionDesc)
-            ->withAttribute('quiote.preinstantiated_action',$action)
             ->withAttribute('module','Err3')
             ->withAttribute('action','FailNone');
+        $this->initializeAction($action, 'Err3', 'FailNone', 'read', $request);
+        $request = $request->withAttribute('quiote.preinstantiated_action',$action);
     $validation = new ValidationMiddleware($this->context->getController());
         $final = new class implements RequestHandlerInterface { public function handle(ServerRequestInterface $r): ResponseInterface { return new Psr7Response(200); } };
         $response = $validation->process($request, $final);
@@ -197,7 +224,7 @@ class ValidationMiddlewareTest extends TestCase
             'modules.reuse.enabled' => true,
         ]);
         $actionDesc = new \Quiote\Execution\ActionDescriptor('Reuse','Act','read','html', false);
-        $action = new class {
+        $action = new class extends \Quiote\Action\Action {
             public static int $validateCalls = 0;
             public function isSimple(): bool { return false; }
             public function validateRead($r){ self::$validateCalls++; return true; }
@@ -208,10 +235,11 @@ class ValidationMiddlewareTest extends TestCase
         // First run (pending decision)
         $request1 = (new ServerRequest('GET','/reuse/act'))
             ->withAttribute(\Quiote\Execution\ActionDescriptor::class, $actionDesc)
-            ->withAttribute('quiote.preinstantiated_action',$action)
             ->withAttribute(\Quiote\Execution\ExecutionState::class, $execState)
             ->withAttribute('module','Reuse')
             ->withAttribute('action','Act');
+        $this->initializeAction($action, 'Reuse', 'Act', 'read', $request1);
+        $request1 = $request1->withAttribute('quiote.preinstantiated_action',$action);
     $validation = new ValidationMiddleware($this->context->getController());
         $final = new class implements RequestHandlerInterface { public function handle(ServerRequestInterface $r): ResponseInterface { return new Psr7Response(204); } };
     $validation->process($request1, $final);
@@ -230,23 +258,21 @@ class ValidationMiddlewareTest extends TestCase
 
     public function testRouteParamsInjection(): void
     {
+        // isSimple() means the action needs NO parameters at all -- a route
+        // path segment's VALUE is just as attacker-controlled as a query/body
+        // parameter (e.g. slug could be "' OR 1=1;--"), so simple actions must
+        // get zero parameters from any source, including route params.
         \Quiote\Config\Config::fromArray([
             'modules.routes.enabled' => true,
         ]);
         $actionDesc = new \Quiote\Execution\ActionDescriptor('Routes','Show','read','html', false);
         $action = new class {
-            public function isSimple(): bool { return true; } // simple to avoid parameter clearing when no XML
+            public function isSimple(): bool { return true; }
             public function validateRead($r){ return true; }
             public function handleReadError($r){ return 'Error'; }
             public function handleError($r){ return 'Error'; }
         };
         $routeParams = [ 'slug' => 'abc', '_internal' => 'skip', 'existing' => 'rv' ];
-        // Seed the canonical context request with the pre-existing query param.
-        // In production this is present via superglobals / ActionExecutor::
-        // buildRequestDataFromPsr; ValidationMiddleware no longer overlays the
-        // pipeline request onto the canonical one for simple actions, so the
-        // route-param promotion's "don't overwrite an existing query param"
-        // dedup reads it from here.
         $seeded = $this->context->getRequest()->withQueryParams(['existing' => 'keep']);
         $this->context->setRequest($seeded);
         $request = (new \Quiote\Request\WebRequest('GET','/routes/show'))
@@ -258,19 +284,13 @@ class ValidationMiddlewareTest extends TestCase
     $validation = new ValidationMiddleware($this->context->getController());
         $final = new class implements RequestHandlerInterface { public function handle(ServerRequestInterface $r): ResponseInterface { return new Psr7Response(204); } };
         $validation->process($request, $final);
-        // Ensure parameters added available in whitelist
-        $req = $this->context->getRequest();
-        if($req instanceof \Quiote\Request\WebRequest) {
-            $req = $req->enforceValidatedParameters(['existing','slug','_internal']);
-            $this->context->setRequest($req);
-        }
         $ctxReq = $this->context->getRequest();
-        $this->assertSame('keep', $ctxReq->getParameter('existing'));
-        $this->assertSame('abc', $ctxReq->getParameter('slug'));
-        $this->assertNull($ctxReq->getParameter('_internal'));
+        $this->assertNull($ctxReq->getParameter('existing', null), 'Simple actions must not receive pre-existing query params');
+        $this->assertNull($ctxReq->getParameter('slug', null), 'Simple actions must not receive route params');
+        $this->assertNull($ctxReq->getParameter('_internal', null));
     }
 
-    public function testXmlPresencePreservesParameters(): void
+    public function testXmlPresenceDoesNotExemptSimpleActionsFromClearing(): void
     {
         // Use sandbox Default/Index which has a minimal validators file in test/sandbox/app/Modules/Default/validate/Index.xml
         $actionDesc = new \Quiote\Execution\ActionDescriptor('Default','Index','read','html', false);
@@ -278,13 +298,14 @@ class ValidationMiddlewareTest extends TestCase
             'modules.default.enabled' => true,
         ]);
         $action = new class {
-            public function isSimple(): bool { return true; } // simple action bypasses validation clearing
+            public function isSimple(): bool { return true; }
             public function handleReadError($r){ return 'Error'; }
             public function handleError($r){ return 'Error'; }
         };
-        // Seed the canonical request with the query param (production: superglobals /
-        // ActionExecutor::buildRequestDataFromPsr). A simple action bypasses the
-        // validation strict-clear, so the param must survive to the action.
+        // Even a query param with a matching validators.xml entry elsewhere in
+        // the module must not survive for a genuinely simple action -- isSimple()
+        // means "needs no parameters", full stop, regardless of what XML config
+        // exists for the module/action pair.
         $seeded = $this->context->getRequest()->withQueryParams(['keep' => '1']);
         $this->context->setRequest($seeded);
         $request = (new ServerRequest('GET','/default/index'))
@@ -295,13 +316,8 @@ class ValidationMiddlewareTest extends TestCase
     $validation = new ValidationMiddleware($this->context->getController());
         $final = new class implements RequestHandlerInterface { public function handle(ServerRequestInterface $r): ResponseInterface { return new Psr7Response(204); } };
         $validation->process($request, $final);
-        $r = $this->context->getRequest();
-        if($r instanceof \Quiote\Request\WebRequest) {
-            $r = $r->enforceValidatedParameters(['keep']);
-            $this->context->setRequest($r);
-        }
         $ctxReq = $this->context->getRequest();
-    $this->assertSame('1', $ctxReq->getParameter('keep'), 'Expected parameter retained (simple action bypass)');
+    $this->assertNull($ctxReq->getParameter('keep', null), 'Expected parameter cleared even for a simple action');
     }
 
     public function testManuallyRegisteredValidatorViaValidatorBuilderWhitelistsAndPreservesSubmittedValue(): void
@@ -433,16 +449,17 @@ class ValidationMiddlewareTest extends TestCase
             'modules.exc.enabled' => true,
         ]);
         $actionDesc = new \Quiote\Execution\ActionDescriptor('Exc','Boom','read','html', false);
-        $action = new class {
+        $action = new class extends \Quiote\Action\Action {
             public function isSimple(): bool { return false; }
             public function validateRead($r){ return false; }
             public function handleReadError($r){ return ['InvalidMod','NoView']; } // should provoke creation failure
         };
         $request = (new ServerRequest('GET','/exc/boom'))
             ->withAttribute(\Quiote\Execution\ActionDescriptor::class, $actionDesc)
-            ->withAttribute('quiote.preinstantiated_action',$action)
             ->withAttribute('module','Exc')
             ->withAttribute('action','Boom');
+        $this->initializeAction($action, 'Exc', 'Boom', 'read', $request);
+        $request = $request->withAttribute('quiote.preinstantiated_action',$action);
     $validation = new ValidationMiddleware($this->context->getController());
         $final = new class implements RequestHandlerInterface { public function handle(ServerRequestInterface $r): ResponseInterface { return new Psr7Response(200); } };
         $response = $validation->process($request, $final);

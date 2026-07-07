@@ -9,8 +9,8 @@ class SnapshotActionAction extends Action
     public static array $initialAttributes = [];
     public static array $postMutationAttributes = [];
 
-    #[\Override]
-    public function isSimple(): bool { return true; }
+    // Deliberately NOT isSimple(): isSimple() means "skip execute*() entirely,
+    // render getDefaultViewName() directly" (Agavi heritage, commit f166330f4).
 
     public function execute(WebRequest $rd)
     {

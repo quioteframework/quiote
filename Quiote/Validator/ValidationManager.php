@@ -39,6 +39,21 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 	protected $report = null;
 
 	/**
+	 * @var array<string,mixed> Raw as-submitted request parameters, captured
+	 * at the top of execute() before any pruning happens. Deliberately NOT
+	 * reachable via WebRequest::getParameter()/getParameters() -- a value
+	 * that fails even one of several validators registered against the same
+	 * name is scrubbed from the request entirely (see
+	 * WebRequest::pruneParametersToValidated()), which is correct for
+	 * business logic but breaks redisplaying the submitted value in an HTML
+	 * form after a validation failure. This snapshot exists ONLY for that
+	 * redisplay use case (see FormPopulationEngine) and must never be used
+	 * for anything else -- it is exactly the raw, unvalidated input strict
+	 * mode exists to keep out of application code.
+	 */
+	private array $rawParameterSnapshot = [];
+
+	/**
 	 * All request variables are always available.
 	 */
 	const MODE_RELAXED = 'relaxed';
@@ -218,6 +233,20 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 	}
 
 	/**
+	 * Framework-internal escape hatch: the raw, unvalidated parameters as
+	 * submitted, captured before any pruning by execute(). NOT reachable via
+	 * WebRequest::getParameter()/getParameters() -- this exists solely so
+	 * FormPopulationEngine can redisplay a submitted value in an HTML form
+	 * after a validation failure scrubbed it from the request (see the class
+	 * docblock on $rawParameterSnapshot). Never use this for business logic.
+	 * @return array<string,mixed>
+	 */
+	public function getRawParameterSnapshot(): array
+	{
+		return $this->rawParameterSnapshot;
+	}
+
+	/**
 	 * Starts the validation process.
 	 * @param      WebRequest $request The data which should be validated.
 	 * @return     bool true, if validation succeeded.
@@ -227,6 +256,12 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 	{
 		$logger = \Quiote\Logging\Log::for($this);
 		$vd = $logger->isEnabled(\Quiote\Logging\Level::Debug);
+
+		// Capture the raw, as-submitted parameters before anything below can
+		// prune them. getQueryParams()/getParsedBody() are plain PSR-7
+		// accessors, not gated by Quiote's strict-validation whitelist, so
+		// this is genuinely raw input -- see getRawParameterSnapshot().
+		$this->rawParameterSnapshot = (array)$request->getParsedBody() + $request->getQueryParams();
 
 		// Pre-populate request validated parameters whitelist with the union of all validator argument names.
 		// This allows validators themselves to read the raw input for their declared arguments under always-on enforcement.
@@ -368,31 +403,51 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 			}
 		}
 
+		// Collect keep/failed sets per source (parameters, headers, cookies, files).
+		// Computed unconditionally (empty when $executedValidators === 0) so headers
+		// get pruned to nothing below even when no validator ran at all -- headers
+		// are just as attacker-controlled as query/body parameters (Content-Type,
+		// Authorization, X-Forwarded-*, etc.), so "no validator ran for this
+		// action" must mean "no header is readable in execute*()", the same deny-
+		// by-default guarantee params already get. Unlike the params branch above,
+		// this is NOT gated on $mode: header pruning has always run whenever ANY
+		// validator executed (see the pruneExtendedSources() call below),
+		// regardless of relaxed/conditional/strict mode, so extending it to the
+		// zero-validator case keeps that existing behavior consistent rather than
+		// carving out a new mode-based exception.
+		$failedArguments = $this->report->getFailedArguments();
+		$succeededArguments = $this->report->getSucceededArguments();
+		$keepNames = [];
+		$failedNames = [];
+		foreach($succeededArguments as $argument) {
+			$src = $argument->getSource();
+			if(!isset($keepNames[$src])) { $keepNames[$src] = []; }
+			$name = $argument->getName();
+			if($src === 'headers') { $name = strtolower((string) $name); }
+			$keepNames[$src][$name] = true;
+		}
+		foreach($failedArguments as $argument) {
+			$src = $argument->getSource();
+			if(!isset($failedNames[$src])) { $failedNames[$src] = []; }
+			$name = $argument->getName();
+			if($src === 'headers') { $name = strtolower((string) $name); }
+			$failedNames[$src][$name] = true;
+		}
+		// Prune headers/cookies/files unconditionally (deny-by-default: every
+		// entry not explicitly kept by a validator targeting that source is
+		// removed). Params are handled separately below, only when at least one
+		// validator ran, since their pruning also depends on $umap/$ma/$aa.
+		$request = $request->pruneExtendedSources(
+			$keepNames['headers'] ?? [],
+			$failedNames['headers'] ?? [],
+			$keepNames['cookies'] ?? [],
+			$failedNames['cookies'] ?? [],
+			$keepNames['files'] ?? [],
+			$failedNames['files'] ?? []
+		);
+		$this->getContext()->setRequest($request);
+
 		if($executedValidators > 0) {
-			// first, we explicitly unset failed arguments
-			// the primary purpose of this is to make sure that arrays that failed validation themselves (e.g. due to array length validation, or due to use of operator validators with an argument base) are removed
-			// that's of course only necessary if validation failed
-			$failedArguments = $this->report->getFailedArguments();
-			$succeededArguments = $this->report->getSucceededArguments();
-			
-			// Collect keep/failed sets per source (parameters, headers, cookies, files)
-			$keepNames = [];
-			$failedNames = [];
-			foreach($succeededArguments as $argument) {
-				$src = $argument->getSource();
-				if(!isset($keepNames[$src])) { $keepNames[$src] = []; }
-				$name = $argument->getName();
-				if($src === 'headers') { $name = strtolower((string) $name); }
-				$keepNames[$src][$name] = true;
-			}
-			foreach($failedArguments as $argument) {
-				$src = $argument->getSource();
-				if(!isset($failedNames[$src])) { $failedNames[$src] = []; }
-				$name = $argument->getName();
-				if($src === 'headers') { $name = strtolower((string) $name); }
-				$failedNames[$src][$name] = true;
-			}
-			
 			// Capture runtime parameter keys before pruning — these include validator exports
 			// that must remain accessible to actions after validation.
 			$preValidationRuntimeKeys = $request->getRuntimeParameterKeys();
@@ -410,15 +465,6 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 					(bool)$umap,
 					$ma,
 					$aa
-				);
-				// Provide extended pruning hints for other sources (headers/cookies/files)
-				$request = $request->pruneExtendedSources(
-					$keepNames['headers'] ?? [],
-					$failedNames['headers'] ?? [],
-					$keepNames['cookies'] ?? [],
-					$failedNames['cookies'] ?? [],
-					$keepNames['files'] ?? [],
-					$failedNames['files'] ?? []
 				);
 
 				// Update context with the pruned request so actions get the clean version

@@ -6,6 +6,7 @@ use Nyholm\Psr7\ServerRequest;
 use Quiote\Execution\ActionDescriptor;
 use Quiote\Middleware\DispatchMiddleware;
 use Quiote\Execution\ExecutionState;
+use Quiote\Execution\ValidationDecision;
 
 class DispatchMiddlewareNoContainerSimpleTest extends UnitTestCase
 {
@@ -37,7 +38,13 @@ class DispatchMiddlewareNoContainerSimpleTest extends UnitTestCase
         $controller = $this->getContext()->getController();
         $mw = new DispatchMiddleware($controller);
         $handler = new class(new Psr17Factory) implements \Psr\Http\Server\RequestHandlerInterface { public function __construct(private $f){} public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface { return $this->f->createResponse(200);} };
-    $req = $this->buildRequest()->withAttribute(ExecutionState::class,new ExecutionState());
+    // Cache is not isSimple() (it exercises a real execute() call), so
+    // DispatchMiddleware requires a validation decision -- normally set by
+    // ValidationMiddleware, which this test bypasses since it targets
+    // DispatchMiddleware in isolation.
+    $execState = new ExecutionState();
+    $execState->validationDecision = ValidationDecision::passed();
+    $req = $this->buildRequest()->withAttribute(ExecutionState::class, $execState);
         $resp = $mw->process($req,$handler);
         $this->assertFalse($resp->hasHeader('X-Quiote-Cache-Hit'), 'First request should not be a cache hit');
     $this->assertNull($req->getAttribute('_quiote_execution_container'));

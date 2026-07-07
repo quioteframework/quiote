@@ -7,6 +7,7 @@ use Quiote\Cache\CacheManager;
 use Quiote\Execution\ActionDescriptor;
 use Quiote\Execution\ActionExecutor;
 use Quiote\Execution\ExecutionState;
+use Quiote\Execution\ValidationDecision;
 use Quiote\Middleware\DispatchMiddleware;
 use Quiote\Testing\UnitTestCase;
 use Quiote\Telemetry\TelemetryBootstrap;
@@ -74,6 +75,11 @@ class TelemetryActionSpanTest extends UnitTestCase
         $controller->createActionInstance('Cache', 'Cache');
         $mw = new DispatchMiddleware($controller);
         $state = new ExecutionState();
+        // Cache is not isSimple() (it exercises a real execute() call), so
+        // DispatchMiddleware requires a validation decision -- normally set by
+        // ValidationMiddleware, which this test bypasses since it targets
+        // DispatchMiddleware/telemetry in isolation.
+        $state->validationDecision = ValidationDecision::passed();
         $handler = new class(new Psr17Factory()) implements \Psr\Http\Server\RequestHandlerInterface {
             public function __construct(private $f) {}
             public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface

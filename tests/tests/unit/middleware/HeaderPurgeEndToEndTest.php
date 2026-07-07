@@ -10,17 +10,16 @@ use Quiote\Execution\ActionDescriptor;
 use Quiote\Execution\ExecutionState;
 use Quiote\Middleware\ValidationMiddleware;
 use Quiote\Middleware\DispatchMiddleware;
-use Sandbox\Modules\Snapshot\Actions\ParamSnapshotAction;
+use Sandbox\Modules\Snapshot\Actions\HeaderSnapshotAction;
 
 /**
- * End-to-end guard: isSimple() means "skip execute*() entirely and render
- * getDefaultViewName() directly" (Agavi heritage, commit f166330f4) -- not
- * "run execute*() but with restricted/cleared parameter access". A simple
- * action's execute() must never run at all, for any reason, so there is no
- * business-logic code path left that could read a raw, attacker-controlled
- * route/query/body parameter in the first place.
+ * End-to-end guard: headers are just as attacker-controlled as query/body
+ * parameters (Content-Type, Authorization, X-Forwarded-*, custom headers,
+ * etc.). An action with no validators at all must see every header purged by
+ * the time its execute*() method runs, through the full
+ * ValidationMiddleware -> DispatchMiddleware -> ActionExecutor chain.
  */
-class SimpleActionParamPipelineTest extends UnitTestCase
+class HeaderPurgeEndToEndTest extends UnitTestCase
 {
     protected function setUp(): void
     {
@@ -31,20 +30,21 @@ class SimpleActionParamPipelineTest extends UnitTestCase
         if (!is_dir($tmpCache)) { @mkdir($tmpCache, 0777, true); }
         \Quiote\Config\Config::set('core.cache_dir', $tmpCache);
         $this->getContext()->getController()->initializeModule('Snapshot');
-        ParamSnapshotAction::$seenParams = [];
+        HeaderSnapshotAction::$seenHeaders = [];
     }
 
-    public function testSimpleActionNeverRunsExecute(): void
+    public function testUnvalidatedHeadersArePurgedBeforeExecuteRuns(): void
     {
         $controller = $this->getContext()->getController();
-        $descriptor = ActionDescriptor::fromController($controller, 'Snapshot', 'ParamSnapshotAction', 'GET', 'html');
+        $descriptor = ActionDescriptor::fromController($controller, 'Snapshot', 'HeaderSnapshotAction', 'GET', 'html');
 
-        $request = (new ServerRequest('GET', 'http://localhost/snapshot/param'))
-            ->withQueryParams(['q' => 'hello'])
+        $request = (new ServerRequest('GET', 'http://localhost/snapshot/header'))
+            ->withHeader('Content-Type', 'application/json')
+            ->withHeader('Authorization', 'Bearer secret-token')
+            ->withHeader('X-My-Special-Header', 'attacker-controlled-value')
             ->withAttribute('module', 'Snapshot')
-            ->withAttribute('action', 'ParamSnapshotAction')
+            ->withAttribute('action', 'HeaderSnapshotAction')
             ->withAttribute('output_type', 'html')
-            ->withAttribute('route_params', ['id' => '42'])
             ->withAttribute(ActionDescriptor::class, $descriptor)
             ->withAttribute(ExecutionState::class, new ExecutionState());
 
@@ -53,7 +53,6 @@ class SimpleActionParamPipelineTest extends UnitTestCase
             public function __construct(private $f) {}
             public function handle(ServerRequestInterface $r): ResponseInterface { return $this->f->createResponse(200); }
         };
-        // Chain validation -> dispatch, mirroring the real pipeline order.
         $dispatchAsHandler = new class($dispatch, $final) implements RequestHandlerInterface {
             public function __construct(private DispatchMiddleware $mw, private RequestHandlerInterface $final) {}
             public function handle(ServerRequestInterface $r): ResponseInterface { return $this->mw->process($r, $this->final); }
@@ -62,13 +61,11 @@ class SimpleActionParamPipelineTest extends UnitTestCase
         $validation = new ValidationMiddleware($controller);
         $resp = $validation->process($request, $dispatchAsHandler);
 
-        // Snapshot immediately: $seenParams is a plain static array captured once,
-        // asserted against below, so nothing later in this method can affect it.
-        $seen = ParamSnapshotAction::$seenParams;
+        $seen = HeaderSnapshotAction::$seenHeaders;
 
-        // The view still renders (via getDefaultViewName(), not execute()'s return value).
-        $this->assertSame('PARAM_OK', (string) $resp->getBody());
-        // execute() must never have run at all -- not "ran with params cleared".
-        $this->assertSame([], $seen, 'execute() must never run for a simple action');
+        $this->assertSame('HEADER_OK', (string) $resp->getBody());
+        $this->assertSame('', $seen['content-type'] ?? 'UNSET', 'Content-Type must be purged before execute*() runs');
+        $this->assertSame('', $seen['authorization'] ?? 'UNSET', 'Authorization must be purged before execute*() runs');
+        $this->assertSame('', $seen['x-my-special-header'] ?? 'UNSET', 'Arbitrary custom header must be purged before execute*() runs');
     }
 }

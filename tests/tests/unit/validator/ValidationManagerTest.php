@@ -118,6 +118,37 @@ class ValidationManagerTest extends UnitTestCase
 		$val2->clear();
 	}
 	
+	public function testGetRawParameterSnapshotSurvivesPruningOfPartiallyFailedArgument(): void
+	{
+		// A field with two validators, one passing and one failing, ends up
+		// whitelisted (isWhitelisted('name') === true) but its value is
+		// scrubbed from the request entirely -- see
+		// WebRequest::pruneParametersToValidated(): "an explicit failure
+		// always wins". getRawParameterSnapshot() exists precisely so
+		// FormPopulationEngine can still redisplay the submitted value in
+		// this scenario.
+		$passing = $this->_vm->createValidator('DummyValidator', ['name'], [], ['name' => 'lengthOk']);
+		$passing->val_result = true;
+		$failing = $this->_vm->createValidator('DummyValidator', ['name'], [], ['name' => 'notNumeric', 'severity' => 'error']);
+		$failing->val_result = false;
+
+		$req = $this->newWebRequest();
+		$req = $req->withQueryParams(['name' => '12345']);
+
+		$this->assertFalse($this->_vm->execute($req));
+		$this->assertSame(['name' => '12345'], $this->_vm->getRawParameterSnapshot());
+
+		$finalReq = $this->_vm->getContext()->getRequest();
+		$this->assertNull($finalReq->getParameter('name', null), 'Value must be scrubbed from the request despite the raw snapshot retaining it');
+	}
+
+	public function testGetRawParameterSnapshotIsEmptyBeforeExecute(): void
+	{
+		$vm = new MyValidationManager;
+		$vm->initialize($this->_context);
+		$this->assertSame([], $vm->getRawParameterSnapshot());
+	}
+
 	public function testShutdown()
 	{
 		$val = $this->_vm->createValidator('DummyValidator', []);

@@ -376,16 +376,25 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	 * Retrieve parameters. When $source is null we merge runtime parameters
 	 * over intrinsic HTTP parameters. Specific sources bypass runtime store.
 	 * Allowed $source values mirror legacy API: parameters|cookies|files|headers|attributes|runtime
+	 *
+	 * Filtered to the same strict-validation whitelist getParameter() enforces
+	 * (for the 'parameters'/null/'runtime' sources): this is the plural
+	 * counterpart of getParameter() and must not be a way to route around its
+	 * single-key guard. Framework-internal code that genuinely needs raw,
+	 * unvalidated values for a specific purpose (e.g. echoing the submitted
+	 * value back into an HTML form after a validation failure) must not use
+	 * this method -- see ValidationManager::getRawParameterSnapshot().
 	 * @return     array<array-key, mixed>
 	 */
 	public function getParameters(?string $source = null): array
 	{
 		if ($source === 'runtime') {
-			return $this->params->all();
+			return array_filter($this->params->all(), fn($k) => $this->params->isWhitelisted((string)$k), ARRAY_FILTER_USE_KEY);
 		}
 		if ($source === null || $source === 'parameters') {
 			$base = $this->getRequestParams($this, 'parameters');
-			return $this->params->all() + $base; // runtime wins
+			$merged = $this->params->all() + $base; // runtime wins
+			return array_filter($merged, fn($k) => $this->params->isWhitelisted((string)$k), ARRAY_FILTER_USE_KEY);
 		}
 		if ($source === 'files') {
 			return $this->psrRequest->getUploadedFiles();

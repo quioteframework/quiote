@@ -143,9 +143,14 @@ class ValidationServiceTest extends UnitTestCase
         $this->assertNull($svc->getContext());
     }
 
-    public function testValidateExceptionPath(): void
+    public function testValidateExceptionPathPropagatesAsCriticalFailure(): void
     {
-        // Ensure that a throwing validator is registered AFTER manager->clear() by using the action's register* method
+        // A validator throwing is a framework/app bug, not "the user submitted
+        // invalid input" -- validate() must NOT swallow it into a graceful
+        // ValidationResult::failure(). It must propagate so ErrorHandlingMiddleware
+        // turns it into a 500, since pruning (which happens later inside
+        // ValidationManager::execute()) never completed and the request could
+        // otherwise be left in an unpruned, unsafe state.
         $ctx = $this->getContext();
         $manager = $ctx->createInstanceFor('validation_manager');
         $svc = new ValidationService($manager);
@@ -159,10 +164,29 @@ class ValidationServiceTest extends UnitTestCase
             public function validateWrite(WebRequest $req) { return true; }
         };
         $req = $this->newWebRequest(['beta' => 'B']);
-        $res = $svc->validate($action, $req, 'app', 'dummy', 'write');
-        $this->assertFalse($res->ok, 'Expected validation to fail due to exception');
-        // Exception path encodes message under key "exception" (not in getErrors()).
-        $this->assertArrayHasKey('exception', $res->data);
-        $this->assertStringContainsString('boom', $res->data['exception']);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('validator boom');
+        $svc->validate($action, $req, 'app', 'dummy', 'write');
+    }
+
+    public function testXmlOnlyValidateExceptionPathPropagatesAsCriticalFailure(): void
+    {
+        $ctx = $this->getContext();
+        $manager = $ctx->createInstanceFor('validation_manager');
+        $svc = new ValidationService($manager);
+        $action = new class($ctx, $manager) extends Action {
+            public function __construct($ctx, private readonly ValidationManager $vm) { $this->context = $ctx; }
+            public function getDefaultViewName() { return 'Success'; }
+            public function executeWrite(WebRequest $req) { return 'Success'; }
+            public function handleError(WebRequest $req) { return 'Error'; }
+            public function isSecure() { return false; }
+            public function registerWriteValidators() { /** @var DummyValidator $v */ $v = $this->vm->createValidator('DummyValidator', ['beta'], [], ['name'=>'willThrow','severity'=>'error']); $v->throw_on_execute = true; }
+        };
+        $req = $this->newWebRequest(['beta' => 'B']);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('validator boom');
+        $svc->xmlOnlyValidate($action, $req, 'app', 'dummy', 'write');
     }
 }

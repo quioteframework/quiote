@@ -16,8 +16,10 @@ class TaggedAction extends Action
 
     public static int $execCount = 0;
 
-    #[\Override]
-    public function isSimple(){ return true; }
+    // Deliberately NOT isSimple(): isSimple() means "skip execute*() entirely,
+    // render getDefaultViewName() directly" (Agavi heritage, commit f166330f4).
+    // This fixture exercises slot caching around a real execute() call, so it
+    // must go through the normal (non-simple) path.
     #[\Override]
     public function getDefaultViewName(){ return 'Success'; }
 
