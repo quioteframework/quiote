@@ -23,8 +23,12 @@ class EmailValidator extends Validator
 			return false;
 		}
 		
-		return filter_var($data, FILTER_VALIDATE_EMAIL) !== false;
-		
+		if(filter_var($data, FILTER_VALIDATE_EMAIL) === false) {
+			$this->throwError();
+			return false;
+		}
+
+		return true;
 	}
 }
 
