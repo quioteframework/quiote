@@ -6,6 +6,15 @@ use Quiote\Config\Schema\SchemaValidator;
 
 class TranslationConfigHandlerSchemaTest extends PhpUnitTestCase
 {
+	/**
+	 * @return array{
+	 *   default_domain: string,
+	 *   default_locale: string,
+	 *   default_timezone: string,
+	 *   locales: array{en_US: array{name: string, params: array<empty, empty>, fallback: null, ldml_file: null}},
+	 *   translators: array{messages: array{msg: array{class: string, filters: array<empty, empty>, params: array<empty, empty>}}},
+	 * }
+	 */
 	private function cleanConfig(): array
 	{
 		return [

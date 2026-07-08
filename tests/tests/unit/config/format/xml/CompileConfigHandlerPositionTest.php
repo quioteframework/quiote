@@ -56,6 +56,7 @@ XML);
 		$result = $driver->loadWithPositions($path, 'test');
 
 		$resolved = realpath($compiledFile);
+		$this->assertIsString($resolved);
 		$this->assertArrayHasKey($resolved, $result['data']);
 		$this->assertSame($path, $result['positions'][$resolved]['file']);
 		$this->assertSame(6, $result['positions'][$resolved]['line']);

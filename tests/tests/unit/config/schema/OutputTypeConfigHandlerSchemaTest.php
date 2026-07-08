@@ -6,6 +6,27 @@ use Quiote\Config\Schema\SchemaValidator;
 
 class OutputTypeConfigHandlerSchemaTest extends PhpUnitTestCase
 {
+	/**
+	 * @return array{
+	 *   default: string,
+	 *   output_types: array{html: array{
+	 *     parameters: array<empty, empty>,
+	 *     default_renderer: string,
+	 *     renderers: array{php: array{class: string, instance: null, parameters: array<empty, empty>}},
+	 *     layouts: array{main: array{
+	 *       layers: array{content: array{
+	 *         class: string,
+	 *         parameters: array<empty, empty>,
+	 *         renderer: null,
+	 *         slots: array{body: array{action: null, module: null, output_type: null, request_method: null, parameters: array<empty, empty>}},
+	 *       }},
+	 *       parameters: array<empty, empty>,
+	 *     }},
+	 *     default_layout: string,
+	 *     exception_template: null,
+	 *   }},
+	 * }
+	 */
 	private function cleanConfig(): array
 	{
 		return [

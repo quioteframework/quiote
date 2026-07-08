@@ -6,6 +6,20 @@ use Quiote\Config\Schema\SchemaValidator;
 
 class CachingConfigHandlerSchemaTest extends PhpUnitTestCase
 {
+	/**
+	 * @return array{'*': array{
+	 *   lifetime: string,
+	 *   groups: list<array{name: string, source: string, namespace: null}>,
+	 *   views: null,
+	 *   action_attributes: array<empty, empty>,
+	 *   output_types: array{html: array{
+	 *     layers: array{main: bool},
+	 *     template_variables: array<empty, empty>,
+	 *     request_attributes: list<array{name: string, namespace: null}>,
+	 *     request_attribute_namespaces: array<empty, empty>,
+	 *   }},
+	 * }}
+	 */
 	private function cleanConfig(): array
 	{
 		return [
