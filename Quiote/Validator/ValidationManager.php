@@ -455,9 +455,12 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 		$this->getContext()->setRequest($request);
 
 		if($executedValidators > 0) {
-			// Capture runtime parameter keys before pruning — these include validator exports
-			// that must remain accessible to actions after validation.
-			$preValidationRuntimeKeys = $request->getRuntimeParameterKeys();
+			// Capture already-whitelisted runtime parameter keys before pruning -- i.e. real
+			// trusted exports (setParameter()), not values merely staged for a validator to see
+			// (setUnvalidatedParameter(), e.g. a promoted route param nobody actually validated).
+			// Using getRuntimeParameterKeys() here would re-whitelist every staged-but-unvalidated
+			// key too, defeating the point of staging it unvalidated in the first place.
+			$preValidationRuntimeKeys = $request->getValidatedRuntimeParameterKeys();
 
 			// Delegate actual pruning to the request implementation (so it can update both
 			// intrinsic PSR-7 query/body params and runtime parameters consistently).

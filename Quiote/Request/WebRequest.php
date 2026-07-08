@@ -447,6 +447,20 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	}
 
 	/**
+	 * Sets a runtime parameter's value WITHOUT whitelisting it for strict-mode
+	 * access, unlike setParameter(). Used to promote a value (e.g. a route
+	 * param) into the pipeline so validators can see and validate it, without
+	 * granting getParameter() access to a name nobody actually registered a
+	 * validator for. See RequestParameterStore::withUnvalidatedParameter().
+	 */
+	public function setUnvalidatedParameter(string $name, mixed $value): static
+	{
+		$new = clone $this;
+		$new->params = $this->params->withUnvalidatedParameter($name, $value);
+		return $new;
+	}
+
+	/**
 	 * Mark the given request parameter names as declared (whitelisted for
 	 * strict-validation access). Called by the compiled validators.xml config
 	 * artifact before any validator is instantiated, so that declared
@@ -490,6 +504,22 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	public function getRuntimeParameterKeys(): array
 	{
 		return $this->params->keys();
+	}
+
+	/**
+	 * Runtime parameter keys that are also currently whitelisted -- i.e. real
+	 * trusted exports (setParameter()), not values merely staged for
+	 * validators to see (setUnvalidatedParameter()). Used by
+	 * ValidationManager to decide which runtime keys must survive pruning
+	 * without re-whitelisting a value nobody actually validated.
+	 * @return     array<int, string>
+	 */
+	public function getValidatedRuntimeParameterKeys(): array
+	{
+		return array_values(array_filter(
+			$this->params->keys(),
+			fn(string $k): bool => $this->params->isWhitelisted($k),
+		));
 	}
 
 	/**

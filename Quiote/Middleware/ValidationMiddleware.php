@@ -190,6 +190,12 @@ class ValidationMiddleware implements MiddlewareInterface
         }
         // Promote route params (excluding internal underscore-prefixed keys) into runtime parameters
         // BEFORE validation so validators treat them like any other input (GET/POST/etc.).
+        // Uses setUnvalidatedParameter(), NOT setParameter(): the latter auto-whitelists as a
+        // trusted-export side effect, which would let a route param like {id} reach
+        // getParameter() even when no validator targets it. Promoting it unvalidated still makes
+        // the raw value visible to a validator that DOES target it (ValidationManager whitelists
+        // by validator-declared argument names before running validators); if none does, pruning
+        // removes it, matching how an un-validated query/body param is already treated.
         try {
             $routeParams = $request->getAttribute('route_params');
             if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
@@ -209,7 +215,7 @@ class ValidationMiddleware implements MiddlewareInterface
                                   (is_array($bodyParams) && array_key_exists($k, $bodyParams));
                         
                         if (!$exists) {
-                            $webRequest = $webRequest->setParameter($k, $v);
+                            $webRequest = $webRequest->setUnvalidatedParameter($k, $v);
                             $injected[$k] = $v;
                         }
                     }
