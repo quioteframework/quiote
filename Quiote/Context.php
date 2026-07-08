@@ -93,7 +93,7 @@ class Context implements \Stringable, ResetInterface
   protected $shutdownSequence = [];
 
   /**
-   * @var        array<string, mixed> An array of Context instances.
+   * @var        array<string, self> An array of Context instances.
    */
   protected static $instances = [];
 
@@ -220,7 +220,11 @@ class Context implements \Stringable, ResetInterface
       is_array($info["factory_info"]) &&
       isset($info["factory_info"]["class"])
     ) {
-      return $info["factory_info"];
+      $factoryInfo = [];
+      foreach ($info["factory_info"] as $key => $value) {
+        $factoryInfo[(string) $key] = $value;
+      }
+      return $factoryInfo;
     }
     // Fallback: normalize to expected shape.
     return [
@@ -624,17 +628,12 @@ class Context implements \Stringable, ResetInterface
       $profile = strtolower($profile);
       if (isset(self::$instances[$profile])) {
         // Reset individual context state
-        $context = self::$instances[$profile];
-        if ($context instanceof ResetInterface) {
-          $context->reset();
-        }
+        self::$instances[$profile]->reset();
       }
     } else {
       // Reset all contexts
       foreach (self::$instances as $context) {
-        if ($context instanceof ResetInterface) {
-          $context->reset();
-        }
+        $context->reset();
       }
     }
   }
@@ -711,15 +710,16 @@ class Context implements \Stringable, ResetInterface
    * Set the request object explicitly.
    * WebRequest extends ServerRequest, so this is the single source of truth.
    * @param      mixed $request The request object (a WebRequest, a PSR-7
-   *             ServerRequestInterface, a legacy non-PSR request, or null).
+   *             ServerRequestInterface, or null). Anything else is ignored --
+   *             $this->request only ever holds a WebRequest or null.
    */
   public function setRequest($request): void
   {
     // Normalize any foreign PSR-7 request into an WebRequest so getRequest()
     // ALWAYS returns an WebRequest (with the Quiote helpers like isHttps()).
     // A plain Nyholm\Psr7\ServerRequest can otherwise flow in via middleware
-    // (SlotMiddleware, ValidationMiddleware) or tests. Non-PSR requests (e.g. a
-    // console request) and existing WebRequests pass through unchanged.
+    // (SlotMiddleware, ValidationMiddleware) or tests. An existing WebRequest
+    // passes through unchanged.
     if (
       $request !== null
       && !($request instanceof \Quiote\Request\WebRequest)
@@ -727,14 +727,16 @@ class Context implements \Stringable, ResetInterface
     ) {
       $request = \Quiote\Request\WebRequest::fromPsr($request);
     }
-    $this->request = $request;
-    try {
+    if ($request === null || $request instanceof \Quiote\Request\WebRequest) {
+      $this->request = $request;
+    }
+    if (is_object($request)) {
       $message = sprintf(
         "[Context] setRequest id=%d cid=%s",
         spl_object_id($request),
         $this->correlationId,
       );
-    } catch (\Throwable) {
+    } else {
       $message =
         "[Context] setRequest (no id) cid=" . $this->correlationId;
     }
@@ -875,11 +877,12 @@ class Context implements \Stringable, ResetInterface
 
     // In FrankenPHP worker mode, we handle shutdown manually in reset()
     // to avoid double shutdown calls that could clear session data
+    $serverSoftware = $_SERVER["SERVER_SOFTWARE"] ?? null;
     $isFrankenPHP =
       function_exists('\frankenphp_request_context') ||
       getenv("FRANKENPHP_VERSION") !== false ||
-      (isset($_SERVER["SERVER_SOFTWARE"]) &&
-        stripos((string) $_SERVER["SERVER_SOFTWARE"], "frankenphp") !== false) ||
+      (is_string($serverSoftware) &&
+        stripos($serverSoftware, "frankenphp") !== false) ||
       defined("FRANKENPHP_VERSION");
 
     if (!$isFrankenPHP) {
@@ -969,7 +972,7 @@ class Context implements \Stringable, ResetInterface
         if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
           $logger->debug(
             "[Context] shutdown component error " .
-              $object::class .
+              get_debug_type($object) .
               " msg=" .
               $e->getMessage(),
           );

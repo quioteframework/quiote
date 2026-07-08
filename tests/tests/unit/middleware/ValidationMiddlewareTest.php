@@ -90,14 +90,13 @@ class ValidationMiddlewareTest extends TestCase
             'modules.stub.quiote.view.name' => '${actionName}${viewName}'
         ]);
         $actionDesc = new \Quiote\Execution\ActionDescriptor('Stub','Pass','read','html', true);
-        $action = new class {
+        $action = new class extends \Quiote\Action\Action {
             public static int $execCount = 0;
+            #[\Override]
             public function isSimple(): bool { return true; }
             public function execute(?\Quiote\Request\WebRequest $rd=null): string { self::$execCount++; return 'ActionOK'; }
             public function handleError(\Quiote\Request\WebRequest $rd): string { return 'Error'; }
             public function handleReadError(\Quiote\Request\WebRequest $rd): string { return 'Error'; }
-            /** @return array<never, never> */
-            public function getAttributes(): array { return []; }
         };
         $request = (new ServerRequest('GET','/stub/pass'))
             ->withAttribute(\Quiote\Execution\ActionDescriptor::class, $actionDesc)
@@ -265,7 +264,8 @@ class ValidationMiddlewareTest extends TestCase
             'modules.routes.enabled' => true,
         ]);
         $actionDesc = new \Quiote\Execution\ActionDescriptor('Routes','Show','read','html', false);
-        $action = new class {
+        $action = new class extends \Quiote\Action\Action {
+            #[\Override]
             public function isSimple(): bool { return true; }
             public function validateRead(\Quiote\Request\WebRequest $r): bool { return true; }
             public function handleReadError(\Quiote\Request\WebRequest $r): string { return 'Error'; }
@@ -337,7 +337,8 @@ class ValidationMiddlewareTest extends TestCase
             public function getDefaultViewName() { return 'Input'; }
             public function executeWrite(\Quiote\Request\WebRequest $rd): string
             {
-                $this->capturedName = $rd->getParameter('name');
+                $name = $rd->getParameter('name');
+                $this->capturedName = is_string($name) ? $name : null;
                 return 'Success';
             }
             public function handleError(\Quiote\Request\WebRequest $rd) { return 'Input'; }
@@ -345,11 +346,12 @@ class ValidationMiddlewareTest extends TestCase
             {
                 $initContext = $this->getInitContext();
                 $context = $this->getContext();
-                if ($initContext === null || $context === null) {
+                $validationManager = $initContext?->getValidationManager();
+                if ($initContext === null || $context === null || !$validationManager instanceof \Quiote\Validator\IValidatorContainer) {
                     throw new \RuntimeException('Action must be initialize()d before registerWriteValidators() runs.');
                 }
                 $v = \Quiote\Validator\Compiler\Runtime\ValidatorBuilder::on(
-                    $initContext->getValidationManager(),
+                    $validationManager,
                     $context,
                 );
                 $v->string('name', required: true)
@@ -380,7 +382,9 @@ class ValidationMiddlewareTest extends TestCase
             {
                 /** @var \Quiote\Request\WebRequest $r */
                 $action = $r->getAttribute('quiote.preinstantiated_action');
-                $action->executeWrite($r);
+                if ($action instanceof \Quiote\Action\Action && method_exists($action, 'executeWrite')) {
+                    $action->executeWrite($r);
+                }
                 return new Psr7Response(200);
             }
         };
@@ -405,11 +409,12 @@ class ValidationMiddlewareTest extends TestCase
             {
                 $initContext = $this->getInitContext();
                 $context = $this->getContext();
-                if ($initContext === null || $context === null) {
+                $validationManager = $initContext?->getValidationManager();
+                if ($initContext === null || $context === null || !$validationManager instanceof \Quiote\Validator\IValidatorContainer) {
                     throw new \RuntimeException('Action must be initialize()d before registerWriteValidators() runs.');
                 }
                 $v = \Quiote\Validator\Compiler\Runtime\ValidatorBuilder::on(
-                    $initContext->getValidationManager(),
+                    $validationManager,
                     $context,
                 );
                 $v->string('name', required: true)
@@ -497,7 +502,8 @@ class ValidationMiddlewareTest extends TestCase
             public function getDefaultViewName() { return 'Input'; }
             public function executeWrite(\Quiote\Request\WebRequest $rd): string
             {
-                $this->capturedName = $rd->getParameter('name');
+                $name = $rd->getParameter('name');
+                $this->capturedName = is_string($name) ? $name : null;
                 try {
                     $rd->getParameter('id');
                 } catch (\Quiote\Exception\UnvalidatedParameterAccessException $e) {
@@ -510,13 +516,14 @@ class ValidationMiddlewareTest extends TestCase
             {
                 $initContext = $this->getInitContext();
                 $context = $this->getContext();
-                if ($initContext === null || $context === null) {
+                $validationManager = $initContext?->getValidationManager();
+                if ($initContext === null || $context === null || !$validationManager instanceof \Quiote\Validator\IValidatorContainer) {
                     throw new \RuntimeException('Action must be initialize()d before registerWriteValidators() runs.');
                 }
                 // Only "name" has a registered validator -- "id" (the route param
                 // below) is never targeted by anything.
                 $v = \Quiote\Validator\Compiler\Runtime\ValidatorBuilder::on(
-                    $initContext->getValidationManager(),
+                    $validationManager,
                     $context,
                 );
                 $v->string('name', required: true)->minLength(1)->error('Name is required.');
@@ -545,7 +552,9 @@ class ValidationMiddlewareTest extends TestCase
             {
                 /** @var \Quiote\Request\WebRequest $r */
                 $action = $r->getAttribute('quiote.preinstantiated_action');
-                $action->executeWrite($r);
+                if ($action instanceof \Quiote\Action\Action && method_exists($action, 'executeWrite')) {
+                    $action->executeWrite($r);
+                }
                 return new Psr7Response(200);
             }
         };
@@ -575,7 +584,8 @@ class ValidationMiddlewareTest extends TestCase
             public function getDefaultViewName() { return 'Input'; }
             public function executeWrite(\Quiote\Request\WebRequest $rd): string
             {
-                $this->capturedId = $rd->getParameter('id');
+                $id = $rd->getParameter('id');
+                $this->capturedId = is_string($id) ? $id : null;
                 return 'Success';
             }
             public function handleError(\Quiote\Request\WebRequest $rd) { return 'Input'; }
@@ -583,11 +593,12 @@ class ValidationMiddlewareTest extends TestCase
             {
                 $initContext = $this->getInitContext();
                 $context = $this->getContext();
-                if ($initContext === null || $context === null) {
+                $validationManager = $initContext?->getValidationManager();
+                if ($initContext === null || $context === null || !$validationManager instanceof \Quiote\Validator\IValidatorContainer) {
                     throw new \RuntimeException('Action must be initialize()d before registerWriteValidators() runs.');
                 }
                 $v = \Quiote\Validator\Compiler\Runtime\ValidatorBuilder::on(
-                    $initContext->getValidationManager(),
+                    $validationManager,
                     $context,
                 );
                 $v->string('id', required: true)->minLength(1)->error('id is required.');
@@ -616,7 +627,9 @@ class ValidationMiddlewareTest extends TestCase
             {
                 /** @var \Quiote\Request\WebRequest $r */
                 $action = $r->getAttribute('quiote.preinstantiated_action');
-                $action->executeWrite($r);
+                if ($action instanceof \Quiote\Action\Action && method_exists($action, 'executeWrite')) {
+                    $action->executeWrite($r);
+                }
                 return new Psr7Response(200);
             }
         };

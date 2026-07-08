@@ -90,7 +90,9 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 				$parameters['mode'] = self::MODE_STRICT;
 			}
 			if(!in_array($parameters['mode'], [self::MODE_CONDITIONAL, self::MODE_STRICT])) {
-				throw new ConfigurationException('Invalid validation mode "' . $parameters['mode'] . '" specified');
+				$modeValue = $parameters['mode'];
+				$modeLabel = is_scalar($modeValue) ? (string) $modeValue : get_debug_type($modeValue);
+				throw new ConfigurationException('Invalid validation mode "' . $modeLabel . '" specified');
 			}
 		} else {
 			$parameters['mode'] = self::MODE_STRICT;
@@ -234,7 +236,8 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 	 */
 	public function getBase()
 	{
-		return new VirtualArrayPath($this->getParameter('base', ''));
+		$base = $this->getParameter('base', '');
+		return new VirtualArrayPath(is_string($base) || is_int($base) ? $base : '');
 	}
 
 	/**
@@ -287,7 +290,8 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 						$basePath = '';
 						try {
 							if($validator->hasParameter('base')) {
-								$basePath = (string)$validator->getParameter('base');
+								$rawBase = $validator->getParameter('base');
+								$basePath = is_scalar($rawBase) ? (string) $rawBase : '';
 							}
 						} catch(\Throwable) { }
 						foreach($args as $arg) {
@@ -387,8 +391,10 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 		$this->report->setResult($result);
 		$this->report->setDependTokens($this->getDependencyManager()->getDependTokens());
 
-		$ma = $request->getAttribute('module_accessor');
-		$aa = $request->getAttribute('action_accessor');
+		$maRaw = $request->getAttribute('module_accessor');
+		$aaRaw = $request->getAttribute('action_accessor');
+		$ma = is_string($maRaw) ? $maRaw : null;
+		$aa = is_string($aaRaw) ? $aaRaw : null;
 		$umap = $request->getAttribute('use_module_action_parameters');
 
 		$mode = $this->getParameter('mode');
@@ -396,15 +402,15 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 		if($executedValidators == 0 && $mode == self::MODE_STRICT) {
 			// strict mode and no validators executed -> clear the parameters
 			if($umap) {
-				$maParam = $request->getAttribute($ma);
-				$aaParam = $request->getParameter($aa);
+				$maParam = $ma !== null ? $request->getAttribute($ma) : null;
+				$aaParam = $aa !== null ? $request->getParameter($aa) : null;
 			}
 			$request = $request->clearParameters();
 			if($umap) {
-				if($maParam) {
+				if($maParam && $ma !== null) {
 					$request = $request->withAttribute($ma, $maParam);
 				}
-				if($aaParam) {
+				if($aaParam && $aa !== null) {
 					$request = $request->withAttribute($aa, $aaParam);
 				}
 			}
@@ -484,8 +490,11 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 			{
 				$finalWhitelist = array_keys($keepNames['parameters'] ?? []);
 				// include predeclared export names even if validation failed (they may be accessed to assert null)
-				$predeclaredExports = (array)$this->getParameter('_predeclared_exports', []);
-				foreach($predeclaredExports as $exp) { $finalWhitelist[] = $exp; }
+				$predeclaredExportsRaw = $this->getParameter('_predeclared_exports', []);
+				$predeclaredExports = is_array($predeclaredExportsRaw) ? $predeclaredExportsRaw : [];
+				foreach($predeclaredExports as $exp) {
+					if(is_string($exp)) { $finalWhitelist[] = $exp; }
+				}
 				// include all runtime parameter keys captured before pruning — these were set
 				// by validator exports via setParameter() and must remain accessible to actions
 				foreach($preValidationRuntimeKeys as $rk) { $finalWhitelist[] = $rk; }

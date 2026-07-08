@@ -41,7 +41,7 @@ class ValidationMiddleware implements MiddlewareInterface
             $request = $request->withAttribute(ExecutionState::class, $execState);
         }
         $actionDesc = $request->getAttribute(\Quiote\Execution\ActionDescriptor::class);
-        if (!$actionDesc) {
+        if (!$actionDesc instanceof \Quiote\Execution\ActionDescriptor) {
             return $handler->handle($request);
         }
         $vd = \Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug);
@@ -53,7 +53,7 @@ class ValidationMiddleware implements MiddlewareInterface
         // We keep a normalized (capitalized) variant for naming validate* / handle*Error methods, but
         // pass the lowercase token to xmlOnlyValidate so <if($method == 'read')> blocks fire.
         // Derive canonical action method via central mapper then build normalized token for legacy method names
-        $providedMethod = is_string($method) ? strtolower($method) : '';
+        $providedMethod = strtolower($method);
         if ($providedMethod !== '' && in_array($providedMethod, ['read', 'write', 'create', 'update', 'remove'], true)) {
             // Action descriptors already use legacy semantic tokens – use as-is.
             $mapped = $providedMethod;
@@ -69,7 +69,7 @@ class ValidationMiddleware implements MiddlewareInterface
         if ($vd) {
             \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware] preinstantiated_action=' . gettype($action));
         }
-        if (!$action) {
+        if (!$action instanceof \Quiote\Action\Action) {
             if ($vd) {
                 \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware]: pre-instantiated action not found');
             }
@@ -101,6 +101,12 @@ class ValidationMiddleware implements MiddlewareInterface
                 );
                 $action->initialize($initCtx);
             }
+        }
+
+        if (!$action instanceof \Quiote\Action\Action) {
+            // Could not resolve an action instance (no pre-instantiated action and no
+            // controller available to create one) -- nothing to validate against.
+            return $handler->handle($request);
         }
 
         // Reuse the context's WebRequest so that validator exports (which write into runtime parameters)
@@ -138,7 +144,7 @@ class ValidationMiddleware implements MiddlewareInterface
         // Every parameter source (query, body, runtime, and route params) is
         // therefore cleared unconditionally below, and route-param promotion
         // is skipped entirely -- there is nothing for it to promote INTO.
-        $isSimple = is_object($action) && method_exists($action, 'isSimple') && $action->isSimple();
+        $isSimple = $action->isSimple();
 
         if ($isSimple) {
             try {
@@ -264,7 +270,7 @@ class ValidationMiddleware implements MiddlewareInterface
         // ordinary graceful validation failure (which could also leave the
         // request in an unpruned, unsafe state -- pruning happens inside the
         // very execute() call that threw).
-        if (is_object($action) && method_exists($action, 'isSimple') && $action->isSimple()) {
+        if ($action->isSimple()) {
             $ok = true; // simple actions bypass validation
             // simple action bypass
         } else {
@@ -301,7 +307,7 @@ class ValidationMiddleware implements MiddlewareInterface
                 if (is_callable([$action, $validateMethod])) {
                     $ok = (bool)$action->$validateMethod($webRequest);
                 }
-                if ($ok && is_object($action) && is_callable([$action, 'validate'])) {
+                if ($ok) {
                     $ok = (bool)$action->validate($webRequest);
                 }
                 if (!$ok) {
@@ -329,7 +335,7 @@ class ValidationMiddleware implements MiddlewareInterface
 
         // If no validators (XML or manually registered) ran, treat as success but expose
         // ZERO parameters to action (strict empty set)
-        if (!$hasXml && !$action?->isSimple()) {
+        if (!$hasXml && !$action->isSimple()) {
             // Clear webRequest parameters and lock down
             try {
                 $webRequest = $webRequest->clearParameters();
@@ -373,7 +379,7 @@ class ValidationMiddleware implements MiddlewareInterface
                 }
             } catch (\Throwable) {
             }
-            \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware] decision=' . $execState->validationDecision->state . ' module=' . $moduleName . ' action=' . $actionName . ' method=' . $method . ' simple=' . ((is_object($action) && method_exists($action, 'isSimple') && $action->isSimple()) ? '1' : '0') . ' sessId=' . $sessId . ' auth=' . $auth . $errStr);
+            \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware] decision=' . $execState->validationDecision->state . ' module=' . $moduleName . ' action=' . $actionName . ' method=' . $method . ' simple=' . ($action->isSimple() ? '1' : '0') . ' sessId=' . $sessId . ' auth=' . $auth . $errStr);
         }
         if ($ok) {
             if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
@@ -414,7 +420,7 @@ class ValidationMiddleware implements MiddlewareInterface
         if (!is_callable([$action, $handleErrorMethod])) {
             $handleErrorMethod = 'handleError';
         }
-        $rawViewName = $action ? $action->$handleErrorMethod($webRequest) : 'Error';
+        $rawViewName = $action->$handleErrorMethod($webRequest);
         // WebRequest is immutable: a handle*Error() that exports data via setParameter()
         // (e.g. so the error view can read it back) only replaces its own local copy unless
         // it also calls $this->getContext()->setRequest($request). Re-fetch so the error
@@ -456,7 +462,11 @@ class ValidationMiddleware implements MiddlewareInterface
         }
         // Create view via controller and ImmutableViewInitContext
         try {
-            $controller = $action->getContext()->getController();
+            $actionContext = $action->getContext();
+            if ($actionContext === null) {
+                throw new \RuntimeException('Action must be initialized before an error view can be created.');
+            }
+            $controller = $actionContext->getController();
             $vf = new ViewFactory($controller);
             // Render the error view in the NEGOTIATED output type — the same one the
             // successful dispatch would use (ActionDescriptor->outputType, which
@@ -509,6 +519,11 @@ class ValidationMiddleware implements MiddlewareInterface
                 if ($layerContent !== '') {
                     $content = $layerContent;
                 }
+            }
+            // $content came from dynamic execute*()/execute() calls PHPStan can't type
+            // beyond mixed; normalize once here so every later use can rely on ?string.
+            if ($content !== null && !is_string($content)) {
+                $content = is_scalar($content) ? (string) $content : '';
             }
             // Repopulate the submitted values into the rendered HTML form (the
             // "sticky form" behavior). Scoped to 'html' only: an API client
@@ -601,12 +616,13 @@ class ValidationMiddleware implements MiddlewareInterface
                     // Prefer Content-Type from output_types.xml; fall back to MimeTypeRegistry autodetection.
                     $primaryMime = null;
                     try {
-                        $primaryMime = $controller->getOutputType($ot)->getParameter('http_headers[Content-Type]') ?: null;
+                        $configuredMime = $controller->getOutputType($ot)->getParameter('http_headers[Content-Type]') ?: null;
+                        $primaryMime = is_scalar($configuredMime) ? (string) $configuredMime : null;
                     } catch (\Throwable) {
                     }
                     $primaryMime ??= \Quiote\Http\MimeTypeRegistry::primaryMimeType($ot);
                     if ($primaryMime !== null) {
-                        $resp = $resp->withHeader('Content-Type', (string) $primaryMime);
+                        $resp = $resp->withHeader('Content-Type', $primaryMime);
                     }
                 }
             }
@@ -693,7 +709,7 @@ class ValidationMiddleware implements MiddlewareInterface
             // The report had no field-scoped incidents (e.g. a manual validate()
             // returning false); surface the flat messages as non-field errors.
             $messages = array_values(array_unique(array_filter(
-                array_map(static fn($m) => (string) $m, $fallback),
+                array_map(static fn($m) => is_scalar($m) ? (string) $m : '', $fallback),
                 static fn(string $m) => $m !== ''
             )));
             if ($messages !== []) {

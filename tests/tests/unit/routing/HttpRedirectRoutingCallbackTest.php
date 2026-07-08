@@ -2,6 +2,7 @@
 
 use PHPUnit\Framework\TestCase;
 use Quiote\Context;
+use Quiote\Request\WebRequest;
 use Quiote\Response\WebResponse;
 use Quiote\Routing\HttpRedirectRoutingCallback;
 
@@ -27,7 +28,7 @@ class HttpRedirectRoutingCallbackTest extends TestCase
         $this->assertInstanceOf(WebResponse::class, $response);
         $redirect = $response->getRedirect();
         $this->assertNotNull($redirect);
-        $this->assertSame('https://example.com/redirected', (string) $redirect['location']);
+        $this->assertSame('https://example.com/redirected', $redirect['location']);
     }
 
     public function testRedirectWithDiscretePartsAndUnparsableRequestUrlFallsBackToPartsOnly(): void
@@ -36,7 +37,7 @@ class HttpRedirectRoutingCallbackTest extends TestCase
         // A URL containing an invalid port makes parse_url() return false; the
         // callback must not blow up on array_merge(false, ...) and should still
         // produce a redirect built purely from the configured parts.
-        $context->setRequest($this->makeFakeRequest('http://example.com:-1/original'));
+        $context->setRequest($this->makeUnparsableUrlRequest('http://example.com:-1/original'));
 
         $callback = new HttpRedirectRoutingCallback(['scheme' => 'https', 'host' => 'redirected.example', 'path' => '/target']);
         $route = [];
@@ -48,24 +49,32 @@ class HttpRedirectRoutingCallbackTest extends TestCase
         $this->assertInstanceOf(WebResponse::class, $response);
         $redirect = $response->getRedirect();
         $this->assertNotNull($redirect);
-        $this->assertSame('https://redirected.example/target', (string) $redirect['location']);
+        $this->assertSame('https://redirected.example/target', $redirect['location']);
     }
 
-    private function makeFakeRequest(string $url): object
+    private function makeFakeRequest(string $url): WebRequest
     {
-        return new class($url) {
-            public function __construct(private readonly string $url)
+        return new WebRequest('GET', $url);
+    }
+
+    /**
+     * A WebRequest cannot be constructed with a genuinely unparsable URL --
+     * Nyholm's URI validation rejects it before the object exists. Subclass
+     * WebRequest and override getUrl() to return the raw string directly, so
+     * the callback's parse_url() fallback path can be exercised.
+     */
+    private function makeUnparsableUrlRequest(string $url): WebRequest
+    {
+        return new class($url) extends WebRequest {
+            public function __construct(private readonly string $rawUrl)
             {
+                parent::__construct('GET', 'http://placeholder.invalid/');
             }
 
+            #[\Override]
             public function getUrl(): string
             {
-                return $this->url;
-            }
-
-            public function getProtocol(): string
-            {
-                return 'HTTP/1.1';
+                return $this->rawUrl;
             }
         };
     }
