@@ -56,9 +56,24 @@ final class RoutesListCommandTest extends PhpUnitTestCase
 		$tester = $this->tester();
 		$tester->execute(['--context' => 'web', '--module' => 'Default', '--json' => true]);
 
-		$routes = json_decode($tester->getDisplay(), true, flags: JSON_THROW_ON_ERROR);
-		$names = array_column($routes, 'name');
+		$payload = json_decode($tester->getDisplay(), true, flags: JSON_THROW_ON_ERROR);
+		$this->assertArrayHasKey('routes', $payload);
+		$this->assertArrayHasKey('diagnostics', $payload);
+		$names = array_column($payload['routes'], 'name');
 		$this->assertContains('index', $names);
+	}
+
+	public function testJsonOutputEnvelopeIncludesDiagnostics(): void
+	{
+		// "routes-list-cli-test" merges in the AttrRouting fixture module,
+		// which is where the DUPLICATE_ROUTE_* fixtures used elsewhere in the
+		// suite are declared -- here we only assert the envelope shape holds
+		// even when the scan finds nothing to complain about.
+		$tester = $this->tester();
+		$tester->execute(['--context' => 'web', '--json' => true]);
+
+		$payload = json_decode($tester->getDisplay(), true, flags: JSON_THROW_ON_ERROR);
+		$this->assertIsArray($payload['diagnostics']);
 	}
 
 	public function testRejectsUnknownSortOption(): void
@@ -79,8 +94,8 @@ final class RoutesListCommandTest extends PhpUnitTestCase
 		$tester = $this->tester();
 		$tester->execute(['--context' => 'routes-list-cli-test', '--env' => 'testing', '--json' => true]);
 
-		$routes = json_decode($tester->getDisplay(), true, flags: JSON_THROW_ON_ERROR);
-		$sourceByName = array_column($routes, 'source', 'name');
+		$payload = json_decode($tester->getDisplay(), true, flags: JSON_THROW_ON_ERROR);
+		$sourceByName = array_column($payload['routes'], 'source', 'name');
 
 		$this->assertSame('File', $sourceByName['index']);
 		$this->assertSame('Attribute', $sourceByName['attr_routing.list']);

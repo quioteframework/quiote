@@ -53,13 +53,13 @@ final class RoutesListCommand extends AbstractAppCommand
 		$this->bootstrapApp($input);
 		$io = new SymfonyStyle($input, $output);
 
-		$sort = (string) $input->getOption('sort');
+		$sort = self::stringOption($input->getOption('sort'), 'name');
 		if (!in_array($sort, self::SORT_KEYS, true)) {
 			$io->error(sprintf('Unknown --sort "%s"; expected one of: %s.', $sort, implode(', ', self::SORT_KEYS)));
 			return self::FAILURE;
 		}
 
-		$context = (string) ($input->getOption('context') ?? Config::getString('core.default_context', 'web'));
+		$context = self::stringOption($input->getOption('context'), Config::getString('core.default_context', 'web'));
 		try {
 			$routing = Context::getInstance($context)->getRouting();
 		} catch (\Throwable $e) {
@@ -75,27 +75,31 @@ final class RoutesListCommand extends AbstractAppCommand
 				'name' => $name,
 				'path' => $route->getPath(),
 				'methods' => $route->getMethods(),
-				'module' => (string) ($route->getDefault('_module') ?? ''),
-				'action' => (string) ($route->getDefault('_action') ?? ''),
+				'module' => self::stringOption($route->getDefault('_module'), ''),
+				'action' => self::stringOption($route->getDefault('_action'), ''),
 				'outputType' => $route->getDefault('_output_type'),
 				'source' => in_array($name, $attributeRouteNames, true) ? 'Attribute' : 'File',
 			];
 		}
 
 		$module = $input->getOption('module');
-		if ($module !== null) {
+		if (is_string($module)) {
 			$routes = array_values(array_filter($routes, static fn(array $route) => strcasecmp($route['module'], $module) === 0));
 		}
 
 		$action = $input->getOption('action');
-		if ($action !== null) {
+		if (is_string($action)) {
 			$routes = array_values(array_filter($routes, static fn(array $route) => strcasecmp($route['action'], $action) === 0));
 		}
 
 		usort($routes, static fn(array $a, array $b) => $a[$sort] <=> $b[$sort]);
 
 		if ($input->getOption('json')) {
-			$output->writeln(json_encode($routes, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) ?: '[]');
+			$payload = [
+				'routes' => $routes,
+				'diagnostics' => array_map(static fn(Diagnostic $diagnostic) => $diagnostic->toArray(), $diagnostics),
+			];
+			$output->writeln(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) ?: '{"routes":[],"diagnostics":[]}');
 			return $this->exitCodeFor($diagnostics);
 		}
 
@@ -120,6 +124,17 @@ final class RoutesListCommand extends AbstractAppCommand
 		);
 
 		return $this->exitCodeFor($diagnostics);
+	}
+
+	/**
+	 * `InputOption::getOption()`/`Route::getDefault()` both return `mixed`;
+	 * this narrows that to a definite string without an unchecked cast, for
+	 * every option/default this command reads that fall back to a default
+	 * value when unset or not a string.
+	 */
+	private static function stringOption(mixed $value, string $default): string
+	{
+		return is_string($value) ? $value : $default;
 	}
 
 	/**

@@ -17,6 +17,10 @@ final class Diagnostic
 	public const CODE_UNRESOLVABLE_CLASS = 'UNRESOLVABLE_CLASS';
 	public const CODE_UNMAPPABLE_PARAMETER = 'UNMAPPABLE_PARAMETER';
 	public const CODE_SHADOWED_CONFIG = 'SHADOWED_CONFIG';
+	public const CODE_MISSING_ACTION_CLASS = 'MISSING_ACTION_CLASS';
+	public const CODE_MISSING_VIEW = 'MISSING_VIEW';
+	public const CODE_MISSING_TEMPLATE = 'MISSING_TEMPLATE';
+	public const CODE_MISSING_VALIDATOR = 'MISSING_VALIDATOR';
 
 	public function __construct(
 		public readonly string $severity,
@@ -29,5 +33,26 @@ final class Diagnostic
 		public readonly ?int $endColumn = null,
 		public readonly ?string $symbol = null,
 	) {
+	}
+
+	/**
+	 * JSON-ready shape shared by every console/probe consumer that surfaces
+	 * this Diagnostic, so each one doesn't hand-roll its own field mapping
+	 * (and possibly its own field names) from `where` to `file`.
+	 * @return array{severity: string, code: string, message: string, file: string, line: ?int, column: ?int, endLine: ?int, endColumn: ?int, symbol: ?string}
+	 */
+	public function toArray(): array
+	{
+		return [
+			'severity' => $this->severity,
+			'code' => $this->code,
+			'message' => $this->message,
+			'file' => $this->where,
+			'line' => $this->line,
+			'column' => $this->column,
+			'endLine' => $this->endLine,
+			'endColumn' => $this->endColumn,
+			'symbol' => $this->symbol,
+		];
 	}
 }

@@ -4,6 +4,7 @@ namespace Quiote\Console;
 use Quiote\Console\Command\AboutCommand;
 use Quiote\Console\Command\CacheWarmupCommand;
 use Quiote\Console\Command\NewCommand;
+use Quiote\Console\Command\RoutesCompileCommand;
 use Quiote\Console\Command\RoutesListCommand;
 use Quiote\Console\Command\TelemetryDashboardCommand;
 use Symfony\Component\Console\Application as SymfonyApplication;
@@ -33,6 +34,7 @@ final class Application extends SymfonyApplication
 		$this->addCommand(new NewCommand());
 		$this->addCommand(new AboutCommand());
 		$this->addCommand(new RoutesListCommand());
+		$this->addCommand(new RoutesCompileCommand());
 		$this->addCommand(new CacheWarmupCommand());
 		if (class_exists(TelemetryDashboardCommand::class)) {
 			$this->addCommand(new TelemetryDashboardCommand());
