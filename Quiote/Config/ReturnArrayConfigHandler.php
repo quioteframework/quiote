@@ -111,7 +111,7 @@ class ReturnArrayConfigHandler extends XmlConfigHandler implements IArrayConfigH
 			// The xpath query above only ever selects element nodes, and
 			// registerNodeClass() guarantees those are always XmlConfigDomElement,
 			// never a vanilla DOMNode.
-			$children = $item->ownerDocument->getXpath()->query(sprintf('*[namespace-uri() = "%s"]', $item->ownerDocument->getDefaultNamespaceUri()), $item);
+			$children = $item->ownerDocument->query(sprintf('*[namespace-uri() = "%s"]', $item->ownerDocument->getDefaultNamespaceUri()), $item);
 			foreach ($children as $child) {
 				/** @var XmlConfigDomElement $child */
 				$names[] = $child->getName();

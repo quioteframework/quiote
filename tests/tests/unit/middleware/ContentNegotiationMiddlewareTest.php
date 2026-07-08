@@ -6,16 +6,9 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Quiote\Middleware\ContentNegotiationMiddleware;
-use Quiote\Context;
 
 class ContentNegotiationMiddlewareTest extends TestCase
 {
-    private function controller(): \Quiote\Controller\Controller
-    {
-        $ctx = Context::getInstance('test');
-        return $ctx->getController();
-    }
-
     private function negotiate(ContentNegotiationMiddleware $mw, ServerRequestInterface $req): ServerRequestInterface
     {
         $final = new class implements RequestHandlerInterface { public ServerRequestInterface $last; public function handle(ServerRequestInterface $r): ResponseInterface { $this->last = $r; return new Psr7Response(200); } };

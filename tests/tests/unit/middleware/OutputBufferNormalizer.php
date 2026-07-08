@@ -12,7 +12,7 @@ class OutputBufferNormalizer
         if ($current > $this->start) {
             // Close extras
             while (ob_get_level() > $this->start) {
-                try { ob_end_clean(); } catch (\Throwable) { break; }
+                ob_end_clean();
             }
         } elseif ($current < $this->start) {
             // Re-open a dummy buffer to restore expected baseline

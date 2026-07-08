@@ -19,7 +19,7 @@ class SlotDispatcherContextTest extends UnitTestCase
         parent::tearDown();
     }
 
-    public function testDispatchWithContextSimple()
+    public function testDispatchWithContextSimple(): void
     {
         $req = (new ServerRequest('GET','http://localhost/'))
             ->withAttribute(SlotMiddleware::ATTR, new SlotStack());

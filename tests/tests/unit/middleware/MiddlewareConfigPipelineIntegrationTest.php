@@ -37,6 +37,7 @@ class MiddlewareConfigPipelineIntegrationTest extends TestCase
         MiddlewareConfigRegistry::reset();
     }
 
+    /** @return list<string> */
     private function buildDebugStack(): array
     {
         $pipeline = new MiddlewarePipeline(Context::getInstance());

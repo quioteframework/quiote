@@ -14,12 +14,15 @@ class MockStorage implements ResetInterface
     private bool $initialized = false;
     private bool $started = false;
     private bool $shutdown = false;
+    /** @var array<string, mixed> */
     public array $parameters = [];
     /**
      * Simple in-memory storage map keyed by namespace.
+     * @var array<string, mixed>
      */
     private array $data = [];
 
+    /** @param array<string, mixed> $parameters */
     public function initialize(Context $ctx, array $parameters = []): void
     {
         $this->initialized = true;
@@ -37,6 +40,19 @@ class MockStorage implements ResetInterface
     {
         $this->started = false;
         $this->shutdown = false;
+    }
+
+    public function isInitialized(): bool
+    {
+        return $this->initialized;
+    }
+    public function isStarted(): bool
+    {
+        return $this->started;
+    }
+    public function isShutdown(): bool
+    {
+        return $this->shutdown;
     }
 
     // Minimal API used by User / SecurityUser

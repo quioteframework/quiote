@@ -21,7 +21,7 @@ class SuccessFallbackAction extends Action
         return false;
     }
 
-    public function handleReadError(WebRequest $rd)
+    public function handleReadError(WebRequest $rd): string
     {
         return 'Success';
     }

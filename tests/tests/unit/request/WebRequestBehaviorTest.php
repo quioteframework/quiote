@@ -13,6 +13,14 @@ use Psr\Http\Message\UploadedFileInterface;
  */
 class WebRequestBehaviorTest extends UnitTestCase
 {
+    /**
+     * @param array<string, mixed> $server
+     * @param array<string, mixed> $query
+     * @param array<string, mixed> $body
+     * @param array<string, mixed> $cookies
+     * @param array<string, mixed> $files
+     * @param array<string, mixed> $headers
+     */
     private function newRequest(array $server = [], array $query = [], array $body = [], array $cookies = [], array $files = [], array $headers = []): WebRequest
     {
         $url = ($server['REQUEST_SCHEME'] ?? 'http') . '://' . ($server['HTTP_HOST'] ?? ($server['SERVER_NAME'] ?? 'example.test')) . ($server['REQUEST_URI'] ?? '/');
@@ -118,8 +126,10 @@ class WebRequestBehaviorTest extends UnitTestCase
     public function testUploadedFilesNormalizationSimple(): void
     {
         // Construct nested uploaded files array similar to $_FILES shape
+        $stream = fopen('php://temp', 'r');
+        $this->assertNotFalse($stream);
         $files = [
-            'upload' => new UploadedFile(fopen('php://temp','r'), 0, UPLOAD_ERR_OK, 'empty.txt', 'text/plain')
+            'upload' => new UploadedFile($stream, 0, UPLOAD_ERR_OK, 'empty.txt', 'text/plain')
         ];
         $wr = $this->newRequest([], [], [], [], $files);
         $retrieved = $wr->getUploadedFiles();

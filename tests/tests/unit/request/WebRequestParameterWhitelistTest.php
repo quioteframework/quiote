@@ -20,29 +20,27 @@ class WebRequestParameterWhitelistTest extends UnitTestCase
         $this->request->initialize($context);
     }
 
-    public function testGetRuntimeParameterKeysReturnsAllKeys()
+    public function testGetRuntimeParameterKeysReturnsAllKeys(): void
     {
         $this->request = $this->request->setParameter('foo', 'bar');
         $this->request = $this->request->setParameter('baz', 'qux');
         $this->request = $this->request->setParameter('num', 123);
         
         $keys = $this->request->getRuntimeParameterKeys();
-        
-        $this->assertIsArray($keys);
+
         $this->assertContains('foo', $keys);
         $this->assertContains('baz', $keys);
         $this->assertContains('num', $keys);
     }
 
-    public function testGetRuntimeParameterKeysReturnsEmptyArrayInitially()
+    public function testGetRuntimeParameterKeysReturnsEmptyArrayInitially(): void
     {
         $keys = $this->request->getRuntimeParameterKeys();
-        
-        $this->assertIsArray($keys);
+
         $this->assertEmpty($keys);
     }
 
-    public function testSetParameterAutoWhitelistsParameter()
+    public function testSetParameterAutoWhitelistsParameter(): void
     {
         // Enable strict validation
         $this->request = $this->request->enforceValidatedParameters([]);
@@ -55,7 +53,7 @@ class WebRequestParameterWhitelistTest extends UnitTestCase
         $this->assertEquals('value', $value);
     }
 
-    public function testSetParameterAutoWhitelistsArrayParameter()
+    public function testSetParameterAutoWhitelistsArrayParameter(): void
     {
         $this->request = $this->request->enforceValidatedParameters([]);
 
@@ -66,7 +64,7 @@ class WebRequestParameterWhitelistTest extends UnitTestCase
         $this->assertEquals($arrayData, $retrieved);
     }
 
-    public function testSetParameterWithBracketPathAutoWhitelists()
+    public function testSetParameterWithBracketPathAutoWhitelists(): void
     {
         $this->request = $this->request->enforceValidatedParameters([]);
 
@@ -85,7 +83,7 @@ class WebRequestParameterWhitelistTest extends UnitTestCase
         $this->assertContains('data', $keys);
     }
 
-    public function testMultipleSetParameterCallsAllWhitelisted()
+    public function testMultipleSetParameterCallsAllWhitelisted(): void
     {
         $this->request = $this->request->enforceValidatedParameters([]);
 
@@ -103,7 +101,7 @@ class WebRequestParameterWhitelistTest extends UnitTestCase
         $this->assertContains('param3', $keys);
     }
 
-    public function testSetParameterInValidationExportScenario()
+    public function testSetParameterInValidationExportScenario(): void
     {
         // Simulate validator export scenario
         $this->request = $this->request->enforceValidatedParameters(['input']);
@@ -116,7 +114,7 @@ class WebRequestParameterWhitelistTest extends UnitTestCase
         $this->assertEquals('processed_value', $value);
     }
 
-    public function testRuntimeParameterKeysIncludesAllSetParameters()
+    public function testRuntimeParameterKeysIncludesAllSetParameters(): void
     {
         $this->request = $this->request->setParameter('p1', 'v1');
         $this->request = $this->request->setParameter('p2', 'v2');
@@ -130,7 +128,7 @@ class WebRequestParameterWhitelistTest extends UnitTestCase
         $this->assertContains('nested', $keys);
     }
 
-    public function testSetParameterOverwritesBehavior()
+    public function testSetParameterOverwritesBehavior(): void
     {
         $this->request = $this->request->setParameter('key', 'original');
         $this->request = $this->request->setParameter('key', 'updated');

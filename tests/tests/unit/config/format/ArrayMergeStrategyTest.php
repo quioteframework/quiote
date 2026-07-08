@@ -5,14 +5,14 @@ use Quiote\Config\Format\ArrayMergeStrategy;
 
 class ArrayMergeStrategyTest extends PhpUnitTestCase
 {
-	public function testScalarOverrideReplacesBaseValue()
+	public function testScalarOverrideReplacesBaseValue(): void
 	{
 		$merger = new ArrayMergeStrategy();
 		$result = $merger->merge(['a' => 1], ['a' => 2]);
 		$this->assertSame(['a' => 2], $result);
 	}
 
-	public function testNestedAssociativeArraysMergeKeyByKey()
+	public function testNestedAssociativeArraysMergeKeyByKey(): void
 	{
 		$merger = new ArrayMergeStrategy();
 		$base = ['db' => ['host' => 'localhost', 'port' => 5432]];
@@ -23,7 +23,7 @@ class ArrayMergeStrategyTest extends PhpUnitTestCase
 		$this->assertSame(['db' => ['host' => 'localhost', 'port' => 6543]], $result);
 	}
 
-	public function testListValuesAreReplacedWholesaleNotMergedByIndex()
+	public function testListValuesAreReplacedWholesaleNotMergedByIndex(): void
 	{
 		$merger = new ArrayMergeStrategy();
 		$base = ['tags' => ['a', 'b', 'c']];
@@ -34,7 +34,7 @@ class ArrayMergeStrategyTest extends PhpUnitTestCase
 		$this->assertSame(['tags' => ['x']], $result);
 	}
 
-	public function testDoesNotMutateInputArrays()
+	public function testDoesNotMutateInputArrays(): void
 	{
 		$merger = new ArrayMergeStrategy();
 		$base = ['a' => ['b' => 1]];
@@ -46,14 +46,14 @@ class ArrayMergeStrategyTest extends PhpUnitTestCase
 		$this->assertSame(['a' => ['b' => 2]], $override);
 	}
 
-	public function testNewKeysInOverrideAreAdded()
+	public function testNewKeysInOverrideAreAdded(): void
 	{
 		$merger = new ArrayMergeStrategy();
 		$result = $merger->merge(['a' => 1], ['b' => 2]);
 		$this->assertSame(['a' => 1, 'b' => 2], $result);
 	}
 
-	public function testDeeplyNestedMergeAtMultipleLevels()
+	public function testDeeplyNestedMergeAtMultipleLevels(): void
 	{
 		$merger = new ArrayMergeStrategy();
 		$base = ['a' => ['b' => ['c' => 1, 'd' => 2]]];

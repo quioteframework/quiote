@@ -17,13 +17,19 @@ final class GettextMoReader
 	 * @return     array<string, string> The translation data.
 	 * @since      1.0.0
 	 */
-	public static function readFile($filePath)
+	public static function readFile(string $filePath): array
 	{
 		$content = file_get_contents($filePath);
+		if ($content === false) {
+			throw new QuioteException(sprintf('Unable to read .mo file "%s"', $filePath));
+		}
 
 		// WTF! php 5.1.2 (at least on my ubuntu box) returns 950412de0 (i have NO
 		// clue where the trailing 0 comes from, so cut it out again
 		$unpacked = unpack('H*', substr($content, 0, 4));
+		if ($unpacked === false) {
+			throw new QuioteException(sprintf('Unable to parse .mo file header of "%s"', $filePath));
+		}
 		$fileId = substr((string) array_pop($unpacked), 0, 8);
 
 		// little endian: V   big endian: N
@@ -38,6 +44,9 @@ final class GettextMoReader
 		}
 
 		$fileHeader = unpack($longPackChar . '*', substr($content, 4, 24));
+		if ($fileHeader === false) {
+			throw new QuioteException(sprintf('Unable to parse .mo file header of "%s"', $filePath));
+		}
 
 		$rev = $fileHeader[1];
 		$numStrings = $fileHeader[2];
@@ -54,6 +63,9 @@ final class GettextMoReader
 			$offsetLen = $numStrings * 8;
 			$origOffsets = unpack($longPackChar.'*', substr($content, $originalOffsetPos, $offsetLen));
 			$transOffsets = unpack($longPackChar.'*', substr($content, $translatedOffsetPos, $offsetLen));
+			if ($origOffsets === false || $transOffsets === false) {
+				throw new QuioteException(sprintf('Unable to parse .mo file offset table of "%s"', $filePath));
+			}
 
 			for($i = 0; $i < $numStrings; ++$i) {
 				$arrayIndex = ($i * 2) + 1;

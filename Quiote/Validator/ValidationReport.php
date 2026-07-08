@@ -78,13 +78,8 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 		// ValidationIncident::getValidator() can genuinely return null (incidents
 		// raised outside a validator, e.g. ValidationManager::setError()/setErrors()),
 		// even though its return type is documented as non-nullable elsewhere.
-		// Guard against that here without relying on a null check on $validator
-		// itself.
-		try {
-			$name = $validator->getName() ?? '';
-		} catch (\Throwable) {
-			$name = '';
-		}
+		// Guard against that explicitly here.
+		$name = $validator !== null ? ($validator->getName() ?? '') : '';
 		$this->incidents[$name][] = $incident;
 	}
 	

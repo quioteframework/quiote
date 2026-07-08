@@ -19,8 +19,7 @@ final class HtmlFormRepopulator
         $dom = new \DOMDocument();
         @$dom->loadHTML($html);
         $xpath = new \DOMXPath($dom);
-        foreach($xpath->query('//input[@name]') as $input) {
-            /** @var \DOMElement $input */
+        foreach(self::queryElements($xpath, '//input[@name]') as $input) {
             $type = strtolower($input->getAttribute('type') ?: 'text');
             $name = $input->getAttribute('name');
             if(!array_key_exists($name,$parameters)) { continue; }
@@ -31,13 +30,11 @@ final class HtmlFormRepopulator
                 $input->setAttribute('value', (string)$val);
             }
         }
-        foreach($xpath->query('//select[@name]') as $select) {
-            /** @var \DOMElement $select */
+        foreach(self::queryElements($xpath, '//select[@name]') as $select) {
             $name = $select->getAttribute('name');
             if(!array_key_exists($name,$parameters)) { continue; }
             $val = (string)$parameters[$name];
-            foreach($xpath->query('.//option', $select) as $option) {
-                /** @var \DOMElement $option */
+            foreach(self::queryElements($xpath, './/option', $select) as $option) {
                 if($option->getAttribute('value') === $val) { $option->setAttribute('selected','selected'); }
             }
         }
@@ -45,7 +42,9 @@ final class HtmlFormRepopulator
             $errors = [];
             foreach($report->getErrors() as $error) { $errors[] = $error->getMessage(); }
             if($errors) {
-                $form = $xpath->query('//form')->item(0); if($form) {
+                $forms = self::queryElements($xpath, '//form');
+                $form = $forms[0] ?? null;
+                if($form) {
                     $ul = $dom->createElement('ul');
                     foreach($errors as $e) { $li = $dom->createElement('li'); $li->appendChild($dom->createTextNode($e)); $ul->appendChild($li); }
                     $form->insertBefore($ul, $form->firstChild);
@@ -57,5 +56,27 @@ final class HtmlFormRepopulator
         $inner = '';
         foreach($body->childNodes as $child) { $inner .= $dom->saveHTML($child); }
         return '<!DOCTYPE html><html><body>' . $inner . '</body></html>';
+    }
+
+    /**
+     * Runs an XPath query and returns the matched elements as a plain array.
+     * DOMXPath::query() can return false (invalid expression) or, per its own
+     * axis support, namespace nodes; neither of those are ever produced by
+     * the element-only expressions used above, so both are filtered out here.
+     * @return array<int, \DOMElement>
+     */
+    private static function queryElements(\DOMXPath $xpath, string $expression, ?\DOMNode $contextNode = null): array
+    {
+        $result = $xpath->query($expression, $contextNode);
+        if($result === false) {
+            return [];
+        }
+        $elements = [];
+        foreach($result as $node) {
+            if($node instanceof \DOMElement) {
+                $elements[] = $node;
+            }
+        }
+        return $elements;
     }
 }

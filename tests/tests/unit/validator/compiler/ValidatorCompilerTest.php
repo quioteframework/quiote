@@ -12,7 +12,7 @@ use Quiote\Validator\Compiler\ValidatorSource;
 
 class ValidatorCompilerTest extends PhpUnitTestCase
 {
-	public function testParseBuildsPlanFromRealValidatorSource()
+	public function testParseBuildsPlanFromRealValidatorSource(): void
 	{
 		$compiler = new ValidatorCompiler();
 		$source = new ValidatorSource(Config::getString('core.module_dir') . '/Method/Validate/MethodHttp.xml', 'test');
@@ -29,7 +29,7 @@ class ValidatorCompilerTest extends PhpUnitTestCase
 		$this->assertSame(['fail'], $node->arguments);
 	}
 
-	public function testDiscoverDelegatesToLocatorWithDefaultRoots()
+	public function testDiscoverDelegatesToLocatorWithDefaultRoots(): void
 	{
 		$compiler = new ValidatorCompiler();
 		$sources = $compiler->discover();
@@ -39,7 +39,7 @@ class ValidatorCompilerTest extends PhpUnitTestCase
 		$this->assertContains('MethodHttp.xml', $paths);
 	}
 
-	public function testCompileMergesParseAndEmitDiagnostics()
+	public function testCompileMergesParseAndEmitDiagnostics(): void
 	{
 		$compiler = new ValidatorCompiler();
 		$source = new ValidatorSource(Config::getString('core.module_dir') . '/Method/Validate/MethodHttp.xml', 'test');
@@ -59,7 +59,7 @@ class ValidatorCompilerTest extends PhpUnitTestCase
 		$this->assertFalse($result->hasErrors());
 	}
 
-	public function testCompilationResultHasErrorsReflectsErrorSeverityDiagnostics()
+	public function testCompilationResultHasErrorsReflectsErrorSeverityDiagnostics(): void
 	{
 		$artifact = EmittedArtifact::fromSource('<?php', 'x.php');
 		$warnOnly = new CompilationResult($artifact, [

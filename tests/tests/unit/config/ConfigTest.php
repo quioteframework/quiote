@@ -21,7 +21,7 @@ class ConfigTest extends PhpUnitTestCase
 		Config::clear();
 	}
 
-	public function testInitiallyEmpty()
+	public function testInitiallyEmpty(): void
 	{
 		$expected = [];
 		// core.quiote_dir is set as readonly when Quiote.php is loaded
@@ -34,7 +34,7 @@ class ConfigTest extends PhpUnitTestCase
 	}
 
 	#[\PHPUnit\Framework\Attributes\DataProvider('providerGetSetStringKey')]
-	public function testGetSetStringKey(string $key, mixed $value)
+	public function testGetSetStringKey(string $key, mixed $value): void
 	{
 		$this->assertTrue(Config::set($key, $value));
 		$this->assertEquals($value, Config::getString($key));
@@ -44,7 +44,7 @@ class ConfigTest extends PhpUnitTestCase
 	}
 
 	#[\PHPUnit\Framework\Attributes\DataProvider('providerGetSetIntegerKey')]
-	public function testGetSetIntegerKey(int $key, mixed $value)
+	public function testGetSetIntegerKey(int $key, mixed $value): void
 	{
 		$this->assertTrue(Config::set($key, $value));
 		$this->assertEquals($value, Config::getString($key));
@@ -54,7 +54,7 @@ class ConfigTest extends PhpUnitTestCase
 	}
 
 	#[\PHPUnit\Framework\Attributes\DataProvider('providerGetSetOctalKey')]
-	public function testGetSetOctalKey(int $key, mixed $value)
+	public function testGetSetOctalKey(int $key, mixed $value): void
 	{
 		$this->assertTrue(Config::set($key, $value));
 		$this->assertEquals($value, Config::getString($key));
@@ -63,7 +63,10 @@ class ConfigTest extends PhpUnitTestCase
 		$this->assertTrue(Config::remove($key));
 	}
 
-	public static function providerGetSetStringKey()
+	/**
+	 * @return array<string, array{string, string}>
+	 */
+	public static function providerGetSetStringKey(): array
 	{
 		return [
 			'string key'                => ['foobar', 'baz'],
@@ -71,7 +74,10 @@ class ConfigTest extends PhpUnitTestCase
 		];
 	}
 
-	public static function providerGetSetIntegerKey()
+	/**
+	 * @return array<string, array{int, string}>
+	 */
+	public static function providerGetSetIntegerKey(): array
 	{
 		return [
 			'string key'                => [123, 'foo'],
@@ -79,7 +85,10 @@ class ConfigTest extends PhpUnitTestCase
 		];
 	}
 
-	public static function providerGetSetOctalKey()
+	/**
+	 * @return array<string, array{int, string}>
+	 */
+	public static function providerGetSetOctalKey(): array
 	{
 		return [
 			'octal number key'          => [0123, 'yay'],
@@ -87,13 +96,13 @@ class ConfigTest extends PhpUnitTestCase
 		];
 	}
 
-	public function testHas()
+	public function testHas(): void
 	{
 		Config::set('fubar', '123qwe');
 		$this->assertTrue(Config::has('fubar'));
 	}
 
-	public function testClear()
+	public function testClear(): void
 	{
 		Config::clear();
 		$expected = [];
@@ -104,7 +113,7 @@ class ConfigTest extends PhpUnitTestCase
 		$this->assertEquals($expected, Config::toArray());
 	}
 
-	public function testRemove()
+	public function testRemove(): void
 	{
 		Config::set('opa', 'yay');
 		$this->assertTrue(Config::remove('opa'));
@@ -113,7 +122,7 @@ class ConfigTest extends PhpUnitTestCase
 		$this->assertFalse(Config::has('blu'));
 	}
 
-	public function testFromArray()
+	public function testFromArray(): void
 	{
 		$data = ['foo' => 'bar', 'bar' => 'baz'];
 		Config::clear();
@@ -126,7 +135,7 @@ class ConfigTest extends PhpUnitTestCase
 		$this->assertEquals($expected, Config::toArray());
 	}
 
-	public function testFromArrayMerges()
+	public function testFromArrayMerges(): void
 	{
 		$data = ['foo' => 'bar', 'bar' => 'baz'];
 		Config::clear();
@@ -140,7 +149,7 @@ class ConfigTest extends PhpUnitTestCase
 		$this->assertEquals($expected, Config::toArray());
 	}
 
-	public function testFromArrayMergesAndOverwrites()
+	public function testFromArrayMergesAndOverwrites(): void
 	{
 		$data = ['foo' => 'bar', 'bar' => 'baz', 'baz' => 'qux'];
 		Config::clear();
@@ -154,7 +163,7 @@ class ConfigTest extends PhpUnitTestCase
 		$this->assertEquals($expected, Config::toArray());
 	}
 
-	public function testFromArrayMergesAndReindexes()
+	public function testFromArrayMergesAndReindexes(): void
 	{
 		$data = ['zomg', 'lol'];
 		Config::clear();
@@ -170,14 +179,14 @@ class ConfigTest extends PhpUnitTestCase
 		$this->assertEquals($expected, Config::toArray());
 	}
 
-	public function testHasNullValue()
+	public function testHasNullValue(): void
 	{
 		Config::set('fubar', null);
 		$this->assertTrue(Config::has('fubar'));
 		$this->assertFalse(Config::has('fubaz'));
 	}
 
-	public function testGetDefault()
+	public function testGetDefault(): void
 	{
 		Config::set('some.where', 'ohai');
 		$this->assertEquals('ohai', Config::getString('some.where'));
@@ -185,7 +194,7 @@ class ConfigTest extends PhpUnitTestCase
 		$this->assertEquals('bai', Config::getString('not.there', 'bai'));
 	}
 
-	public function testSetOverwrite()
+	public function testSetOverwrite(): void
 	{
 		Config::set('foo.bar', 'FOO');
 		$this->assertEquals('FOO', Config::getString('foo.bar'));
@@ -197,7 +206,7 @@ class ConfigTest extends PhpUnitTestCase
 		$this->assertEquals('FOOBAR', Config::getString('foo.bar'));
 	}
 
-	public function testSetReadonly()
+	public function testSetReadonly(): void
 	{
 		Config::set('bulletproof', 'abc', true, true);
 		$this->assertEquals('abc', Config::getString('bulletproof'));
@@ -209,7 +218,7 @@ class ConfigTest extends PhpUnitTestCase
 		$this->assertEquals('abc', Config::getString('bulletproof'));
 	}
 
-	public function testIsReadonly()
+	public function testIsReadonly(): void
 	{
 		Config::set('WORM', 'yay', true, true);
 		Config::set('WMRM', 'yay');
@@ -217,7 +226,7 @@ class ConfigTest extends PhpUnitTestCase
 		$this->assertFalse(Config::isReadonly('WMRM'));
 	}
 
-	public function testReadonlySurvivesClear()
+	public function testReadonlySurvivesClear(): void
 	{
 		Config::set('WORM', 'yay', true, true);
 		Config::set('WMRM', 'yay');
@@ -226,7 +235,7 @@ class ConfigTest extends PhpUnitTestCase
 		$this->assertFalse(Config::has('WMRM'));
 	}
 
-	public function testFromArrayMergesButDoesNotOverwriteReadonlies()
+	public function testFromArrayMergesButDoesNotOverwriteReadonlies(): void
 	{
 		$data = ['foo' => 'bar', 'bar' => 'baz', 'baz' => 'qux'];
 		Config::clear();
@@ -240,14 +249,14 @@ class ConfigTest extends PhpUnitTestCase
 		$this->assertEquals($expected, Config::toArray());
 	}
 
-	public function testReadonlySurvivesRemove()
+	public function testReadonlySurvivesRemove(): void
 	{
 		Config::set('bla', 'goo', true, true);
 		$this->assertFalse(Config::remove('bla'));
 		$this->assertTrue(Config::has('bla'));
 	}
 
-	public function testGetSetStringInteger() {
+	public function testGetSetStringInteger(): void {
 		Config::set('10', 'ten');
 		$this->assertEquals('ten', Config::getString(10));
 		Config::set(21, 'twentyone');

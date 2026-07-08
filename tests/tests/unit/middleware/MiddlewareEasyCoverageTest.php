@@ -46,7 +46,7 @@ class TerminalHandler implements RequestHandlerInterface {
 
 class MiddlewareEasyCoverageTest extends TestCase
 {
-    public function testExecutionTimeMiddlewareAppendsComment()
+    public function testExecutionTimeMiddlewareAppendsComment(): void
     {
         $mw = new ExecutionTimeMiddleware(true);
         $handler = new TerminalHandler();
@@ -59,7 +59,7 @@ class MiddlewareEasyCoverageTest extends TestCase
 
     // Removed builder-based pipeline construction test after refactor to context-only pipeline.
 
-    public function testHttpMethodMapperMappings()
+    public function testHttpMethodMapperMappings(): void
     {
         $this->assertSame('read', HttpMethodMapper::toActionMethod('GET'));
         $this->assertSame('write', HttpMethodMapper::toActionMethod('post'));
@@ -69,7 +69,7 @@ class MiddlewareEasyCoverageTest extends TestCase
         $this->assertSame('read', HttpMethodMapper::toActionMethod('UNKNOWN')); // default fallback
     }
 
-    public function testXsltProcessorTransformsDocument()
+    public function testXsltProcessorTransformsDocument(): void
     {
         if(!extension_loaded('xsl')) {
             $this->markTestSkipped('xsl extension not loaded');
@@ -82,6 +82,8 @@ class MiddlewareEasyCoverageTest extends TestCase
         $src->loadXML('<root><child>value</child></root>');
         $out = $proc->transformToDoc($src);
         $this->assertInstanceOf(DOMDocument::class, $out);
-        $this->assertStringContainsString('<result>value</result>', $out->saveXML());
+        $xml = $out->saveXML();
+        $this->assertNotFalse($xml, 'saveXML() must successfully serialize the transformed document');
+        $this->assertStringContainsString('<result>value</result>', $xml);
     }
 }

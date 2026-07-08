@@ -43,7 +43,11 @@ final class FormatAwareConfigCache
 		?string $environment = null,
 		?string $context = null,
 	): string {
-		$basePathWithoutExtension = Toolkit::expandDirectives($basePathWithoutExtension);
+		// Toolkit::expandDirectives() only returns null for a null input, or on
+		// a regex engine error; $basePathWithoutExtension is a known non-null
+		// string here, so fall back to it in that (effectively unreachable)
+		// failure case.
+		$basePathWithoutExtension = Toolkit::expandDirectives($basePathWithoutExtension) ?? $basePathWithoutExtension;
 		$basePathWithoutExtension = Toolkit::normalizePath($basePathWithoutExtension);
 		$base = Toolkit::isPathAbsolute($basePathWithoutExtension)
 			? $basePathWithoutExtension

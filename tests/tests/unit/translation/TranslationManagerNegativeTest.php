@@ -62,7 +62,6 @@ class TranslationManagerNegativeTest extends UnitTestCase
         // So reset() then perform a shortcut should succeed (no exception) producing a locale using default base.
         $this->tm->reset();
         $loc = $this->tm->getLocale('@timezone=UTC');
-        $this->assertNotNull($loc);
         $this->assertEquals('UTC', $loc->getLocaleTimeZone());
     }
 

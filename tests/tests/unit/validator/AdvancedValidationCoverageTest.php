@@ -18,6 +18,9 @@ require_once __DIR__ . '/../../../lib/validator/DummyValidator.class.php';
  */
 class AdvancedValidationCoverageTest extends UnitTestCase
 {
+    /**
+     * @param array<string, mixed> $params
+     */
     private function vm(array $params = []): ValidationManager
     {
         /** @var ValidationManager $vm */
@@ -140,6 +143,5 @@ class AdvancedValidationCoverageTest extends UnitTestCase
         $vm2->execute($req2); // ignore result; branch executed
         // Reset translation flag for other tests
         \Quiote\Config\Config::set('core.use_translation', false);
-        $this->assertTrue(true);
     }
 }

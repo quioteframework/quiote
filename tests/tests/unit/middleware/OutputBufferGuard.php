@@ -8,15 +8,8 @@ class OutputBufferGuard
     {
         $trace = getenv('QUIOTE_OB_TRACE');
         while(ob_get_level() > $this->level) {
-            $before = ob_get_level();
-            try {
-                ob_end_clean();
-                $after = ob_get_level();
-                if($trace) { /* tracing disabled: was FrameworkMiddlewarePipeline::addExternalTrace */ }
-            } catch(\Throwable) {
-                if($trace) { /* tracing disabled */ }
-                break;
-            }
+            ob_end_clean();
+            if($trace) { /* tracing disabled: was FrameworkMiddlewarePipeline::addExternalTrace */ }
         }
     if($trace) { /* tracing disabled */ }
     }

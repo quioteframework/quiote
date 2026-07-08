@@ -14,10 +14,14 @@ class RoutingTest extends TestCase
 {
     /**
      * Build a simple concrete routing instance for tests.
+     * @param array<string, array{pattern: string, defaults?: array<string, mixed>, parent?: string}> $routesSpec
      */
     private function makeRouting(array $routesSpec): Routing
     {
         return new class($routesSpec) extends Routing {
+            /**
+             * @param array<string, array{pattern: string, defaults?: array<string, mixed>, parent?: string}> $spec
+             */
             public function __construct(private readonly array $spec) { parent::__construct(); }
             protected function build(): array {
                 $rc = new RouteCollection();
@@ -46,7 +50,7 @@ class RoutingTest extends TestCase
 
     // Matching Scenarios --------------------------------------------------
 
-    public function testMatchSimpleStaticRoute()
+    public function testMatchSimpleStaticRoute(): void
     {
         $routing = $this->makeRouting([
             'home' => ['pattern' => '/home', 'defaults' => ['module' => 'Main', 'action' => 'Index']]
@@ -55,7 +59,7 @@ class RoutingTest extends TestCase
         $this->assertSame('Main', $m['module']);
         $this->assertSame('Index', $m['action']);
     }
-    public function testMatchRouteWithDefaults()
+    public function testMatchRouteWithDefaults(): void
     {
         $routing = $this->makeRouting([
             'user_show' => ['pattern' => '/user/{id}', 'defaults' => ['module' => 'User', 'action' => 'Show', 'id' => 42]]
@@ -66,7 +70,7 @@ class RoutingTest extends TestCase
         // When explicit value matches default ensure still present
         $this->assertSame('Show', $m['action']);
     }
-    public function testMatchOptionalTrailingPlaceholderOmitted()
+    public function testMatchOptionalTrailingPlaceholderOmitted(): void
     {
         // In current implementation placeholders without provided param become empty string on generation;
         // For matching, Symfony Route requires the segment. Simulate optional by adding default and pattern without requirement.
@@ -77,7 +81,7 @@ class RoutingTest extends TestCase
         $m = $routing->match('/login');
         $this->assertSame('', $m['type']);
     }
-    public function testMatchOptionalTrailingPlaceholderPresent()
+    public function testMatchOptionalTrailingPlaceholderPresent(): void
     {
         $routing = $this->makeRouting([
             'login' => ['pattern' => '/login/{type}', 'defaults' => ['module' => 'Auth', 'action' => 'Login', 'type' => '']] 
@@ -85,7 +89,7 @@ class RoutingTest extends TestCase
         $m = $routing->match('/login/basic');
         $this->assertSame('basic', $m['type']);
     }
-    public function testMatchWildcardLikePatternSpecificityOrdering()
+    public function testMatchWildcardLikePatternSpecificityOrdering(): void
     {
         // Add two patterns that could both match; verify the matcher returns the first registered (our simple routing add order)
         $routing = $this->makeRouting([
@@ -98,7 +102,7 @@ class RoutingTest extends TestCase
     }
 
     // Generation Scenarios ------------------------------------------------
-    public function testGenerateSimple()
+    public function testGenerateSimple(): void
     {
         $routing = $this->makeRouting([
             'user_show' => ['pattern' => '/user/{id}', 'defaults' => ['module' => 'User', 'action' => 'Show', 'id' => 99]],
@@ -106,7 +110,7 @@ class RoutingTest extends TestCase
         $url = $routing->gen('user_show', ['id' => 123]);
         $this->assertSame('/user/123', $url);
     }
-    public function testGenerateWithDefaultsMerged()
+    public function testGenerateWithDefaultsMerged(): void
     {
         $routing = $this->makeRouting([
             'user_show' => ['pattern' => '/user/{id}/{tab}', 'defaults' => ['module' => 'User', 'action' => 'Show', 'id' => 42, 'tab' => 'profile']],
@@ -115,7 +119,7 @@ class RoutingTest extends TestCase
         $url = $routing->gen('user_show', ['id' => 42]);
         $this->assertSame('/user/42/profile', $url);
     }
-    public function testGenerateOptionalElidedWhenMissing()
+    public function testGenerateOptionalElidedWhenMissing(): void
     {
         $routing = $this->makeRouting([
             'login' => ['pattern' => '/login/{type}', 'defaults' => ['module' => 'Auth', 'action' => 'Login', 'type' => '']],
@@ -123,7 +127,7 @@ class RoutingTest extends TestCase
         $url = $routing->gen('login', []);
         $this->assertSame('/login', $url);
     }
-    public function testGenerateOptionalProvided()
+    public function testGenerateOptionalProvided(): void
     {
         $routing = $this->makeRouting([
             'login' => ['pattern' => '/login/{type}', 'defaults' => ['module' => 'Auth', 'action' => 'Login', 'type' => '']],
@@ -131,7 +135,7 @@ class RoutingTest extends TestCase
         $url = $routing->gen('login', ['type' => 'basic']);
         $this->assertSame('/login/basic', $url);
     }
-    public function testGenerateOmitDefaultsOptionPrunesRightmostSegments()
+    public function testGenerateOmitDefaultsOptionPrunesRightmostSegments(): void
     {
         $routing = $this->makeRouting([
             'lang_page' => ['pattern' => '/lang/{lang}/{page}', 'defaults' => ['module' => 'Cms', 'action' => 'Index', 'lang' => 'en', 'page' => 'index']],
@@ -141,7 +145,7 @@ class RoutingTest extends TestCase
         $pruned = $routing->gen('lang_page', [], ['omit_defaults' => true]);
         $this->assertSame('/lang', $pruned);
     }
-    public function testGenerateNullRouteSelfWithParams()
+    public function testGenerateNullRouteSelfWithParams(): void
     {
         $routing = $this->makeRouting([]);
         // Set current script and input path
@@ -156,7 +160,7 @@ class RoutingTest extends TestCase
         $this->assertSame('/index.php/current/path?q=value', $url);
         if ($prevScript === null) { unset($_SERVER['SCRIPT_NAME']); } else { $_SERVER['SCRIPT_NAME'] = $prevScript; }
     }
-    public function testGeneratePercentEncodingAndUnescapedOptions()
+    public function testGeneratePercentEncodingAndUnescapedOptions(): void
     {
         $routing = $this->makeRouting([
             'file_show' => ['pattern' => '/file/{name}', 'defaults' => ['module' => 'Fs', 'action' => 'Show']],
@@ -166,26 +170,27 @@ class RoutingTest extends TestCase
     }
 
     // Hierarchy -----------------------------------------------------------
-    public function testAddRouteHierarchyConcatenation()
+    public function testAddRouteHierarchyConcatenation(): void
     {
         $routing = $this->makeRouting([]);
         $routing->addRoute('/api', ['name' => 'api_root', 'module' => 'Api', 'action' => 'Root']);
         $routing->addRoute('v1/users', ['name' => 'users', 'module' => 'Api', 'action' => 'Users'], 'api_root');
         $child = $routing->getRoute('users');
         $this->assertNotNull($child);
-        $this->assertSame('/api/v1/users', $child['pattern']);
-        $this->assertSame('api_root', $child['opt']['parent']);
+        $this->assertSame('/api/v1/users', $child['path']);
+        $this->assertSame('api_root', $child['opt']['parent'] ?? null);
     }
-    public function testAddRouteDuplicateNameSameParentAllowed()
+    public function testAddRouteDuplicateNameSameParentAllowed(): void
     {
         $routing = $this->makeRouting([]);
         $routing->addRoute('/foo/one', ['name' => 'dup', 'module' => 'M', 'action' => 'A']);
         // Overwrite with same parent (null) should succeed
         $routing->addRoute('/foo/two', ['name' => 'dup', 'module' => 'M', 'action' => 'A']);
         $r = $routing->getRoute('dup');
-        $this->assertSame('/foo/two', $r['pattern']);
+        $this->assertNotNull($r);
+        $this->assertSame('/foo/two', $r['path']);
     }
-    public function testAddRouteDuplicateNameDifferentParentThrows()
+    public function testAddRouteDuplicateNameDifferentParentThrows(): void
     {
         $routing = $this->makeRouting([]);
         $routing->addRoute('/p1', ['name' => 'p1', 'module' => 'M', 'action' => 'A']);
@@ -197,13 +202,13 @@ class RoutingTest extends TestCase
 
 
     // Negative Cases ------------------------------------------------------
-    public function testGenerateUnknownRouteThrows()
+    public function testGenerateUnknownRouteThrows(): void
     {
         $routing = $this->makeRouting([]);
         $this->expectException(InvalidArgumentException::class);
         $routing->gen('nope');
     }
-    public function testGenerateMissingRequiredParamFallsBackEmpty()
+    public function testGenerateMissingRequiredParamFallsBackEmpty(): void
     {
         $routing = $this->makeRouting([
             'user_show' => ['pattern' => '/user/{id}', 'defaults' => ['module' => 'User', 'action' => 'Show']],
@@ -212,7 +217,7 @@ class RoutingTest extends TestCase
         // Placeholder removed -> /user
         $this->assertSame('/user', $url);
     }
-    public function testMatchUnmatchedPathThrows()
+    public function testMatchUnmatchedPathThrows(): void
     {
         $routing = $this->makeRouting([
             'home' => ['pattern' => '/home', 'defaults' => ['module' => 'Main', 'action' => 'Index']],
@@ -222,13 +227,14 @@ class RoutingTest extends TestCase
     }
 
     // Constraints (if supported) -----------------------------------------
-    public function testConstraintsMethodHostSchemeNotSupported()
+    public function testConstraintsMethodHostSchemeNotSupported(): void
     {
         $routing = $this->makeRouting([
             'home' => ['pattern' => '/home', 'defaults' => ['module' => 'Main', 'action' => 'Index']],
         ]);
         $rc = $routing->getRouteCollection();
         $r = $rc->get('home');
+        $this->assertNotNull($r);
         // Symfony Route would expose host/schemes/methods if configured; they are not.
         $this->assertSame([], $r->getMethods());
         $this->assertSame('', $r->getHost());

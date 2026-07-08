@@ -26,7 +26,7 @@ class TestTemplateLayer extends TemplateLayer {
 
 class TemplateLayerSlotRenderableTest extends UnitTestCase
 {
-    public function testRenderableBypassesLegacyExecution()
+    public function testRenderableBypassesLegacyExecution(): void
     {
         $layer = new TestTemplateLayer();
         $layer->initialize($this->getContext(), []);
@@ -36,7 +36,7 @@ class TemplateLayerSlotRenderableTest extends UnitTestCase
         $this->assertSame('A_CONTENT', $result);
     }
 
-    public function testMixedLegacyAndRenderableSlots()
+    public function testMixedLegacyAndRenderableSlots(): void
     {
         // Ensure Cache module available for legacy container slot
         $this->getContext()->getController()->initializeModule('Cache');

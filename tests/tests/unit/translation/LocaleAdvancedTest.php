@@ -7,6 +7,10 @@ use PHPUnit\Framework\Attributes\DataProvider;
 
 class LocaleAdvancedTest extends TestCase
 {
+    /**
+     * @param array<string, mixed> $data
+     * @param array<string, mixed> $params
+     */
     private function makeLocale(string $identifier, array $data = [], array $params = []): QuioteLocale
     {
         $loc = new QuioteLocale();
@@ -18,8 +22,9 @@ class LocaleAdvancedTest extends TestCase
         return $loc;
     }
 
+    /** @param array<string, mixed> $exp */
     #[DataProvider('validIdentifierProvider')]
-    public function testParseLocaleIdentifierValid(string $id, array $exp)
+    public function testParseLocaleIdentifierValid(string $id, array $exp): void
     {
         $parsed = QuioteLocale::parseLocaleIdentifier($id);
         foreach ($exp as $k => $v) {
@@ -27,6 +32,7 @@ class LocaleAdvancedTest extends TestCase
         }
     }
 
+    /** @return array<int, array{0: string, 1: array<string, mixed>}> */
     public static function validIdentifierProvider(): array
     {
         return [
@@ -43,12 +49,13 @@ class LocaleAdvancedTest extends TestCase
     }
 
     #[DataProvider('invalidIdentifierProvider')]
-    public function testParseLocaleIdentifierInvalid(string $id)
+    public function testParseLocaleIdentifierInvalid(string $id): void
     {
         $this->expectException(QuioteException::class);
         QuioteLocale::parseLocaleIdentifier($id);
     }
 
+    /** @return array<int, array{0: string}> */
     public static function invalidIdentifierProvider(): array
     {
         return [
@@ -58,21 +65,21 @@ class LocaleAdvancedTest extends TestCase
         ];
     }
 
-    public function testGetLookupPathOrdering()
+    public function testGetLookupPathOrdering(): void
     {
         $this->assertSame(['en_US', 'en'], QuioteLocale::getLookupPath('en_US'));
         // Actual order from implementation places script-only path before territory path of base language
         $this->assertSame(['zh_Hant_TW', 'zh_Hant', 'zh_TW', 'zh'], QuioteLocale::getLookupPath('zh_Hant_TW'));
     }
 
-    public function testGetLookupPathZhHantTwActual()
+    public function testGetLookupPathZhHantTwActual(): void
     {
         $this->assertSame(['zh_Hant_TW', 'zh_Hant', 'zh_TW', 'zh'], QuioteLocale::getLookupPath('zh_Hant_TW'));
         $this->assertSame(['en_POSIX', 'en'], QuioteLocale::getLookupPath('en_POSIX'));
         $this->assertSame(['sr_Cyrl_RS_REVISED', 'sr_Cyrl_RS', 'sr_Cyrl', 'sr_RS_REVISED', 'sr_RS', 'sr'], QuioteLocale::getLookupPath('sr_Cyrl_RS_REVISED'));
     }
 
-    public function testGetTimeZoneOptionString()
+    public function testGetTimeZoneOptionString(): void
     {
         $dt = new DateTime('2025-01-01 00:00:00', new DateTimeZone('Europe/Berlin'));
         $this->assertSame('@timezone=Europe/Berlin', QuioteLocale::getTimeZoneOptionString($dt));
@@ -84,7 +91,7 @@ class LocaleAdvancedTest extends TestCase
         $this->assertSame(';timezone=UTC', QuioteLocale::getTimeZoneOptionString('UTC', ';'));
     }
 
-    public function testLocalePropertyPrecedence()
+    public function testLocalePropertyPrecedence(): void
     {
         $loc = $this->makeLocale('de_DE', ['locale' => ['currencyOverride' => 'CHF']], ['currency' => 'USD']);
         $this->assertSame('CHF', $loc->getLocaleCurrency()); // override beats parameters
@@ -94,7 +101,7 @@ class LocaleAdvancedTest extends TestCase
         $this->assertTrue(in_array($c, ['USD', 'EUR', 'CHF', 'GBP']) || $c === null);
     }
 
-    public function testResetClearsState()
+    public function testResetClearsState(): void
     {
         $loc = $this->makeLocale('en_US', ['locale' => ['language' => 'en']]);
         $this->assertSame('en_US', $loc->getIdentifier());

@@ -25,8 +25,9 @@ final class DirectiveExpander
 	 * "no"/etc. coercion to native bool). Non-string leaves (already-typed
 	 * YAML/PHP values -- a real bool, int, null) pass through unchanged,
 	 * exactly like literalize() already does for non-string input.
-	 * @param array<mixed> $config
-	 * @return array<mixed> A new array; $config is not mutated.
+	 * @template TKey of array-key
+	 * @param array<TKey, mixed> $config
+	 * @return array<TKey, mixed> A new array; $config is not mutated.
 	 */
 	public function expand(array $config): array
 	{

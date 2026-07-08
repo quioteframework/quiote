@@ -22,7 +22,7 @@ class ParamSnapshotAction extends Action
     #[\Override]
     public function getDefaultViewName(): string { return 'Success'; }
 
-    public function execute(WebRequest $rd)
+    public function execute(WebRequest $rd): string
     {
         self::$seenParams = [
             'id' => $rd->getParameter('id', null),

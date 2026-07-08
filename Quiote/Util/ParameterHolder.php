@@ -12,13 +12,13 @@ use Symfony\Contracts\Service\ResetInterface;
 class ParameterHolder implements ResetInterface
 {
 	/**
-	 * @var        array<string,mixed> An array of parameters
+	 * @var        array<int|string,mixed> An array of parameters
 	 */
 	protected $parameters = [];
 
 	/**
 	 * Constructor. Accepts an array of initial parameters as an argument.
-	 * @param      array<string,mixed> $parameters An array of parameters to be set right away.
+	 * @param      array<int|string,mixed> $parameters An array of parameters to be set right away.
 	 * @since      1.0.0
 	 */
 	public function __construct(array $parameters = [])
@@ -38,7 +38,7 @@ class ParameterHolder implements ResetInterface
 
 	/**
 	 * Retrieve a parameter.
-	 * @param      string $name A parameter name.
+	 * @param      int|string $name A parameter name.
 	 * @param      mixed  $default A default parameter value.
 	 * @return     mixed A parameter value, if the parameter exists, otherwise
 	 *                   null.
@@ -50,7 +50,7 @@ class ParameterHolder implements ResetInterface
 			return $this->parameters[$name];
 		}
 		try {
-			return ArrayPathDefinition::getValue($name, $this->parameters, $default);
+			return ArrayPathDefinition::getValue((string) $name, $this->parameters, $default);
 		} catch(InvalidArgumentException) {
 			return $default;
 		}
@@ -58,7 +58,7 @@ class ParameterHolder implements ResetInterface
 
 	/**
 	 * Retrieve an array of parameter names.
-	 * @return     array<int,string> An indexed array of parameter names.
+	 * @return     array<int, int|string> An indexed array of parameter names.
 	 * @since      1.0.0
 	 */
 	public function getParameterNames()
@@ -80,7 +80,7 @@ class ParameterHolder implements ResetInterface
 
 	/**
 	 * Retrieve an array of parameters.
-	 * @return     array<string,mixed> An associative array of parameters.
+	 * @return     array<int|string,mixed> An associative array of parameters.
 	 * @since      1.0.0
 	 */
 	public function &getParameters()
@@ -90,7 +90,7 @@ class ParameterHolder implements ResetInterface
 
 	/**
 	 * Indicates whether or not a parameter exists.
-	 * @param      string $name A parameter name.
+	 * @param      int|string $name A parameter name.
 	 * @return     bool true, if the parameter exists, otherwise false.
 	 * @since      1.0.0
 	 */
@@ -100,7 +100,7 @@ class ParameterHolder implements ResetInterface
 			return true;
 		}
 		try {
-			return ArrayPathDefinition::hasValue($name, $this->parameters);
+			return ArrayPathDefinition::hasValue((string) $name, $this->parameters);
 		} catch(InvalidArgumentException) {
 			return false;
 		}
@@ -108,8 +108,8 @@ class ParameterHolder implements ResetInterface
 
 	/**
 	 * Remove a parameter.
-	 * @param      string $name A parameter name.
-	 * @return     string A parameter value, if the parameter was removed,
+	 * @param      int|string $name A parameter name.
+	 * @return     mixed A parameter value, if the parameter was removed,
 	 *                    otherwise null.
 	 * @since      1.0.0
 	 */
@@ -123,7 +123,7 @@ class ParameterHolder implements ResetInterface
 		
 		$retval = null;
 		try {
-			$retval =& ArrayPathDefinition::unsetValue($name, $this->parameters);
+			$retval =& ArrayPathDefinition::unsetValue((string) $name, $this->parameters);
 		} catch(InvalidArgumentException) {
 		}
 		return $retval;
@@ -132,7 +132,7 @@ class ParameterHolder implements ResetInterface
 	/**
 	 * Set a parameter.
 	 * If a parameter with the name already exists the value will be overridden.
-	 * @param      string $name A parameter name.
+	 * @param      int|string $name A parameter name.
 	 * @param      mixed  $value A parameter value.
 	 * @return     void
 	 * @since      1.0.0
@@ -146,7 +146,7 @@ class ParameterHolder implements ResetInterface
 	 * Append a parameter.
 	 * If this parameter is already set, convert it to an array and append the
 	 * new value.  If not, set the new value like normal.
-	 * @param      string $name A parameter name.
+	 * @param      int|string $name A parameter name.
 	 * @param      mixed  $value A parameter value.
 	 * @return     void
 	 * @since      1.0.0
@@ -163,7 +163,7 @@ class ParameterHolder implements ResetInterface
 	 * Set a parameter by reference.
 	 * If a parameter with the name already exists the value will be
 	 * overridden.
-	 * @param      string $name A parameter name.
+	 * @param      int|string $name A parameter name.
 	 * @param      mixed  $value A reference to a parameter value.
 	 * @return     void
 	 * @since      1.0.0
@@ -177,7 +177,7 @@ class ParameterHolder implements ResetInterface
 	 * Append a parameter by reference.
 	 * If this parameter is already set, convert it to an array and append the
 	 * reference to the new value.  If not, set the new value like normal.
-	 * @param      string $name A parameter name.
+	 * @param      int|string $name A parameter name.
 	 * @param      mixed  $value A reference to a parameter value.
 	 * @return     void
 	 * @since      1.0.0
@@ -194,7 +194,7 @@ class ParameterHolder implements ResetInterface
 	 * Set an array of parameters.
 	 * If an existing parameter name matches any of the keys in the supplied
 	 * array, the associated value will be overridden.
-	 * @param      array<string,mixed> $parameters An associative array of parameters and their associated
+	 * @param      array<int|string,mixed> $parameters An associative array of parameters and their associated
 	 *                   values.
 	 * @return     void
 	 * @since      1.0.0
@@ -210,7 +210,7 @@ class ParameterHolder implements ResetInterface
 	 * Set an array of parameters by reference.
 	 * If an existing parameter name matches any of the keys in the supplied
 	 * array, the associated value will be overridden.
-	 * @param      array<string,mixed> $parameters An associative array of parameters and references to their
+	 * @param      array<int|string,mixed> $parameters An associative array of parameters and references to their
 	 *                   associated values.
 	 * @return     void
 	 * @since      1.0.0

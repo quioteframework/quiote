@@ -23,29 +23,31 @@ class LightweightActionInitContextEnhancementsTest extends TestCase
     private function makeResponse(): WebResponse
     {
         return new class extends WebResponse {
+            /** @var array{location: mixed, code: int|string}|null */
             protected $redirect = null;
-            private $hasRedirect = false;
-            private $headers = [];
-            
+            private bool $hasRedirect = false;
+            /** @var array<string, array<int, mixed>> */
+            private array $headers = [];
+
             public function getCookies(): array { return []; }
-            public function setRedirect($url, $statusCode = 302) { 
-                $this->redirect = ['location' => $url, 'code' => $statusCode]; 
-                $this->hasRedirect = true; 
+            public function setRedirect($url, $statusCode = 302): void {
+                $this->redirect = ['location' => $url, 'code' => $statusCode];
+                $this->hasRedirect = true;
             }
-            public function getRedirect() { return $this->redirect; }
-            public function hasRedirect() { return $this->hasRedirect; }
-            public function clearRedirect() { $this->redirect = null; $this->hasRedirect = false; }
-            public function isSent() { return false; }
-            public function send(?\Quiote\Controller\OutputType $outputType = null) {}
-            public function setHttpHeader($name, $value, $replace = true) { 
-                if($replace||!isset($this->headers[$name])){$this->headers[$name]=[];} 
-                $this->headers[$name][]=$value; 
+            public function getRedirect(): ?array { return $this->redirect; }
+            public function hasRedirect(): bool { return $this->hasRedirect; }
+            public function clearRedirect(): void { $this->redirect = null; $this->hasRedirect = false; }
+            public function isSent(): bool { return false; }
+            public function send(?\Quiote\Controller\OutputType $outputType = null): void {}
+            public function setHttpHeader($name, $value, $replace = true): void {
+                if($replace||!isset($this->headers[$name])){$this->headers[$name]=[];}
+                $this->headers[$name][]=$value;
             }
-            public function clear() { $this->clearHttpHeaders(); $this->clearRedirect(); }
+            public function clear(): void { $this->clearHttpHeaders(); $this->clearRedirect(); }
         };
     }
 
-    public function testValidationManagerGetterReturnsNull()
+    public function testValidationManagerGetterReturnsNull(): void
     {
         $context = $this->makeContext();
         $response = $this->makeResponse();
@@ -61,15 +63,11 @@ class LightweightActionInitContextEnhancementsTest extends TestCase
             $response
         );
         
-        if (method_exists($initContext, 'getValidationManager')) {
-            $vm = $initContext->getValidationManager();
-            $this->assertNull($vm);
-        } else {
-            $this->markTestSkipped('getValidationManager method not available');
-        }
+        $vm = $initContext->getValidationManager();
+        $this->assertNull($vm);
     }
 
-    public function testValidationManagerSetterAndGetter()
+    public function testValidationManagerSetterAndGetter(): void
     {
         $context = $this->makeContext();
         $response = $this->makeResponse();
@@ -85,18 +83,14 @@ class LightweightActionInitContextEnhancementsTest extends TestCase
             $response
         );
         
-        if (method_exists($initContext, 'setValidationManager') && method_exists($initContext, 'getValidationManager')) {
-            $mockVm = $this->createStub(\Quiote\Validator\ValidationManager::class);
-            $initContext->setValidationManager($mockVm);
-            
-            $retrievedVm = $initContext->getValidationManager();
-            $this->assertSame($mockVm, $retrievedVm);
-        } else {
-            $this->markTestSkipped('Validation manager methods not available');
-        }
+        $mockVm = $this->createStub(\Quiote\Validator\ValidationManager::class);
+        $initContext->setValidationManager($mockVm);
+
+        $retrievedVm = $initContext->getValidationManager();
+        $this->assertSame($mockVm, $retrievedVm);
     }
 
-    public function testPsrRequestCompatibility()
+    public function testPsrRequestCompatibility(): void
     {
         $context = $this->makeContext();
         $response = $this->makeResponse();
@@ -120,7 +114,7 @@ class LightweightActionInitContextEnhancementsTest extends TestCase
         $this->assertEquals(['key' => 'value'], $retrieved->getParsedBody());
     }
 
-    public function testUpdateMethodSupport()
+    public function testUpdateMethodSupport(): void
     {
         $context = $this->makeContext();
         $response = $this->makeResponse();
@@ -139,7 +133,7 @@ class LightweightActionInitContextEnhancementsTest extends TestCase
         $this->assertEquals('update', $initContext->getRequestMethod());
     }
 
-    public function testAllSemanticMethods()
+    public function testAllSemanticMethods(): void
     {
         $methods = ['read', 'write', 'create', 'update', 'remove'];
         

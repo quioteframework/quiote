@@ -143,7 +143,7 @@ class AbstractOrmDatabaseTest extends TestCase
         $db->initialize($mgr, []);
 
         $db->exposeRequireLibrary(PDO::class, 'ext-pdo');
-        $this->assertTrue(true); // no exception
+        $this->addToAssertionCount(1); // no exception
     }
 
     public function testGetPdoDefaultThrowsForNonPdoBackedAdapter(): void

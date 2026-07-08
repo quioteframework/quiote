@@ -4,7 +4,7 @@ use Quiote\Execution\AttributeBag;
 
 class AttributeBagTest extends TestCase
 {
-    public function testBasicGetHasAll()
+    public function testBasicGetHasAll(): void
     {
         $bag = new AttributeBag(['a'=>1,'b'=>null]);
         $this->assertTrue($bag->has('a'));
@@ -16,7 +16,7 @@ class AttributeBagTest extends TestCase
         $this->assertEquals(['a'=>1,'b'=>null], $bag->all());
     }
 
-    public function testImmutabilityWithWithoutMerge()
+    public function testImmutabilityWithWithoutMerge(): void
     {
         $bag = new AttributeBag(['x'=>10]);
         $bag2 = $bag->with('y', 20);
@@ -34,7 +34,7 @@ class AttributeBagTest extends TestCase
         $this->assertSame($bag4, $bag5);
     }
 
-    public function testArrayAccessMutationPath()
+    public function testArrayAccessMutationPath(): void
     {
         $bag = new AttributeBag(['start'=>1]);
         $bag['start'] = 2; // direct mutation allowed
@@ -45,7 +45,7 @@ class AttributeBagTest extends TestCase
         $this->assertFalse(isset($bag['start']));
     }
 
-    public function testIterationAndCount()
+    public function testIterationAndCount(): void
     {
         $bag = new AttributeBag(['a'=>1,'b'=>2,'c'=>3]);
         $found = [];

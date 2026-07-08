@@ -13,7 +13,7 @@ class MyTestConfigHandler extends ConfigHandler
 
 class ConfigHandlerTest extends PhpUnitTestCase
 {
-	protected $ch = null;
+	protected ?MyTestConfigHandler $ch = null;
 	#[\Override]
     public function setUp(): void
 	{
@@ -27,9 +27,13 @@ class ConfigHandlerTest extends PhpUnitTestCase
 		$this->ch = null;
 	}
 
-	public function testGetValidationFile()
+	public function testGetValidationFile(): void
 	{
-		$this->assertSame('MyValidationFile.mvf', $this->ch->getValidationFile());
+		$ch = $this->ch;
+		if ($ch === null) {
+			$this->fail('setUp() did not initialize the config handler under test.');
+		}
+		$this->assertSame('MyValidationFile.mvf', $ch->getValidationFile());
 	}
 
 }

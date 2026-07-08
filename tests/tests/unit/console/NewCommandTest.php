@@ -85,13 +85,16 @@ final class NewCommandTest extends TestCase
         rmdir($dir);
     }
 
+    /**
+     * @return array{0: int, 1: string}
+     */
     private function get(string $path): array
     {
         $ch = curl_init('http://127.0.0.1:' . self::$port . $path);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         $body = curl_exec($ch);
         $status = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-        return [$status, $body];
+        return [$status, is_string($body) ? $body : ''];
     }
 
     public function testIndexServesSuccessfully(): void
@@ -129,5 +132,34 @@ final class NewCommandTest extends TestCase
         [$status2, $body2] = $this->get('/');
         $this->assertSame(200, $status2);
         $this->assertStringContainsString('It works!', $body2);
+    }
+
+    /**
+     * The generated app ships its own phpstan.neon (level 9) and bootstrap so
+     * `phpstan analyse` works out of the box against a fresh scaffold -- prove
+     * that guarantee holds, not just that the files exist.
+     */
+    public function testGeneratedAppPassesPhpstanLevel9(): void
+    {
+        $phpstanBinary = dirname(__DIR__, 4) . '/vendor/bin/phpstan';
+        if (!is_file($phpstanBinary)) {
+            $this->markTestSkipped('phpstan binary not found at ' . $phpstanBinary);
+        }
+
+        $process = proc_open(
+            [$phpstanBinary, 'analyse', '--no-progress'],
+            [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+            self::$appDir,
+        );
+        $this->assertNotFalse($process, 'Could not start phpstan against the generated app');
+
+        $stdout = stream_get_contents($pipes[1]);
+        $stderr = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        $exitCode = proc_close($process);
+
+        $this->assertSame(0, $exitCode, "phpstan found issues in the generated app:\n$stdout\n$stderr");
     }
 }

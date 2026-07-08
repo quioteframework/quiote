@@ -82,8 +82,13 @@ class DateFormatter implements ITranslator, ResetInterface
 
 		$pattern = $formatter->resolvedPattern;
 		if($formatter->customFormat && $formatter->translationDomain) {
+			$translationManager = $formatter->context->getTranslationManager();
+			if($translationManager === null) {
+				throw new QuioteException('Cannot translate date format: translations are disabled or the translation manager is unavailable.');
+			}
+
 			$td = $formatter->translationDomain . ($domain ? '.' . $domain : '');
-			$format = $formatter->context->getTranslationManager()->_($formatter->customFormat, $td, $locale);
+			$format = $translationManager->_($formatter->customFormat, $td, $locale);
 			$pattern = $formatter->resolvePattern($locale, $format);
 		}
 
@@ -167,8 +172,13 @@ class DateFormatter implements ITranslator, ResetInterface
 		$dateStyle = $type !== 'time' ? self::mapStyleToIntlConstant($specifier) : IntlDateFormatter::NONE;
 		$timeStyle = $type !== 'date' ? self::mapStyleToIntlConstant($specifier) : IntlDateFormatter::NONE;
 
+		$identifier = $locale->getIdentifier();
+		if($identifier === null) {
+			throw new QuioteException('Cannot resolve a date format pattern: the locale has no identifier.');
+		}
+
 		$calendarId = $locale->getLocaleCalendar() ?? self::DEFAULT_CALENDAR;
-		$localeId = self::localeWithCalendar($locale->getIdentifier(), $calendarId);
+		$localeId = self::localeWithCalendar($identifier, $calendarId);
 		$timezone = $locale->getLocaleTimeZone() ?? date_default_timezone_get();
 		$calendarConst = (strcasecmp($calendarId, self::DEFAULT_CALENDAR) === 0) ? IntlDateFormatter::GREGORIAN : IntlDateFormatter::TRADITIONAL;
 
@@ -241,7 +251,8 @@ class DateFormatter implements ITranslator, ResetInterface
 	{
 		$tzId = $locale->getLocaleTimeZone();
 		if(!$tzId) {
-			$defaultTz = $this->context->getTranslationManager()->getDefaultTimeZone();
+			$translationManager = $this->context->getTranslationManager();
+			$defaultTz = $translationManager !== null ? $translationManager->getDefaultTimeZone() : null;
 			$tzId = $defaultTz ? $defaultTz->getName() : date_default_timezone_get();
 		}
 

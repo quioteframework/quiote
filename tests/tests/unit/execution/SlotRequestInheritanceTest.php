@@ -16,7 +16,7 @@ class SlotRequestInheritanceTest extends UnitTestCase
         $this->getContext()->getController()->createActionInstance('Cache','Cache');
     }
 
-    public function testParentHeadersAndMethodPreserved()
+    public function testParentHeadersAndMethodPreserved(): void
     {
         $parent = (new ServerRequest('POST', new Uri('https://example.org/base')))
             ->withHeader('X-Custom','123')
@@ -31,7 +31,7 @@ class SlotRequestInheritanceTest extends UnitTestCase
         $this->assertSame('value', $child->getAttribute('parentAttr'));
     }
 
-    public function testOutputTypeOverrideAttribute()
+    public function testOutputTypeOverrideAttribute(): void
     {
         $parent = (new ServerRequest('GET', 'http://localhost/'))
             ->withAttribute(SlotMiddleware::ATTR, new SlotStack());

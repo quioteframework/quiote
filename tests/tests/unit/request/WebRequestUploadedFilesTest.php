@@ -13,6 +13,7 @@ use Psr\Http\Message\UploadedFileInterface;
  */
 class WebRequestUploadedFilesTest extends UnitTestCase
 {
+    /** @param array<string, mixed> $files */
     private function newRequest(array $files): WebRequest
     {
         $wr = new WebRequest('POST', 'http://example.test/upload');
@@ -25,6 +26,23 @@ class WebRequestUploadedFilesTest extends UnitTestCase
     {
         $stream = Stream::create($content);
         return new UploadedFile($stream, $stream->getSize() ?? 0, UPLOAD_ERR_OK, $name, $mime);
+    }
+
+    /** Narrows a getUploadedFiles() leaf to a single UploadedFileInterface. */
+    private function asFile(mixed $node): UploadedFileInterface
+    {
+        $this->assertInstanceOf(UploadedFileInterface::class, $node);
+        return $node;
+    }
+
+    /**
+     * Narrows a getUploadedFiles() node to a nested array.
+     * @return array<array-key, mixed>
+     */
+    private function asFileArray(mixed $node): array
+    {
+        $this->assertIsArray($node);
+        return $node;
     }
 
     public function testSingleFileSimpleKey(): void
@@ -44,9 +62,9 @@ class WebRequestUploadedFilesTest extends UnitTestCase
             ],
         ]);
         $files = $wr->getUploadedFiles();
-        $this->assertIsArray($files['photos']);
-        $this->assertCount(2, $files['photos']);
-        $this->assertSame('a.jpg', $files['photos'][0]->getClientFilename());
+        $photos = $this->asFileArray($files['photos']);
+        $this->assertCount(2, $photos);
+        $this->assertSame('a.jpg', $this->asFile($photos[0])->getClientFilename());
     }
 
     public function testNestedAssociativeArray(): void
@@ -64,9 +82,12 @@ class WebRequestUploadedFilesTest extends UnitTestCase
         ]);
         $files = $wr->getUploadedFiles();
         $this->assertArrayHasKey('attachments', $files);
-        $this->assertArrayHasKey('invoices', $files['attachments']);
-        $this->assertInstanceOf(UploadedFileInterface::class, $files['attachments']['invoices'][0]);
-        $this->assertSame('cover.png', $files['attachments']['images']['cover']->getClientFilename());
+        $attachments = $this->asFileArray($files['attachments']);
+        $this->assertArrayHasKey('invoices', $attachments);
+        $invoices = $this->asFileArray($attachments['invoices']);
+        $this->assertInstanceOf(UploadedFileInterface::class, $this->asFile($invoices[0]));
+        $images = $this->asFileArray($attachments['images']);
+        $this->assertSame('cover.png', $this->asFile($images['cover'])->getClientFilename());
     }
 
     public function testUploadErrorCodesPreserved(): void
@@ -75,14 +96,14 @@ class WebRequestUploadedFilesTest extends UnitTestCase
         $errFile = new UploadedFile($stream, $stream->getSize() ?? 7, UPLOAD_ERR_PARTIAL, 'partial.bin', 'application/octet-stream');
         $wr = $this->newRequest(['bin' => $errFile]);
         $files = $wr->getUploadedFiles();
-        $this->assertSame(UPLOAD_ERR_PARTIAL, $files['bin']->getError());
+        $this->assertSame(UPLOAD_ERR_PARTIAL, $this->asFile($files['bin'])->getError());
     }
 
     public function testEmptyFileEntryZeroSize(): void
     {
         $empty = new UploadedFile(Stream::create(''), 0, UPLOAD_ERR_OK, 'empty.dat', 'application/octet-stream');
         $wr = $this->newRequest(['empty' => $empty]);
-        $this->assertSame(0, $wr->getUploadedFiles()['empty']->getSize());
+        $this->assertSame(0, $this->asFile($wr->getUploadedFiles()['empty'])->getSize());
     }
 
     public function testDeeplyNestedStructure(): void
@@ -91,6 +112,9 @@ class WebRequestUploadedFilesTest extends UnitTestCase
             'level1' => [ 'level2' => [ 'level3' => [ 'f' => $this->file('deep.txt','text/plain','d') ] ] ]
         ]);
         $files = $wr->getUploadedFiles();
-        $this->assertSame('deep.txt', $files['level1']['level2']['level3']['f']->getClientFilename());
+        $level2 = $this->asFileArray($files['level1']);
+        $level3 = $this->asFileArray($level2['level2']);
+        $leaf = $this->asFileArray($level3['level3']);
+        $this->assertSame('deep.txt', $this->asFile($leaf['f'])->getClientFilename());
     }
 }

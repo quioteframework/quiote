@@ -9,6 +9,9 @@ use Symfony\Component\Routing\RouteCollection;
  * Routes for module Project (4 routes; built 2025-08-18T17:53:05+00:00)
  */
 final class ProjectRoutes {
+    /**
+     * @param array<string, array{gen_path: string, cut: bool, path: string, opt?: array{parent: string|null, action: mixed}, pattern?: string, match_full?: string, match_partial?: string}> $meta
+     */
     public static function addRoutes(RouteCollection $routes, array &$meta): void {
         // DEBUG: name=project raw_path=/projects gen=/projects module=Project action=Index
         $routes->add('project', new Route('/projects', [

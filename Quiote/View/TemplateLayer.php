@@ -74,7 +74,9 @@ abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 	 */
 	public function __sleep()
 	{
-		$this->contextName = $this->context->getName();
+		if($this->context !== null) {
+			$this->contextName = $this->context->getName();
+		}
 		$arr = get_object_vars($this);
 		unset($arr['context']);
 		return array_keys($arr);
@@ -131,6 +133,9 @@ abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 		// layer. Also provide backwards-compatible aliases used by
 		// templates: moduleName/actionName.
 		$layerParams = $this->getParameters();
+		// Parameter names are always strings in practice; normalize the key type so
+		// merging with $attributes (a string-keyed map) is type-safe.
+		$layerParams = array_combine(array_map('strval', array_keys($layerParams)), $layerParams);
 		if (isset($layerParams['module']) && !isset($layerParams['moduleName'])) {
 			$layerParams['moduleName'] = $layerParams['module'];
 		}

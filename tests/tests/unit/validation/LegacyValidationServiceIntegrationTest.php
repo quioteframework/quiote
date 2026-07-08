@@ -8,7 +8,7 @@ use Quiote\Action\Action;
 
 class LegacyValidationServiceIntegrationTest extends UnitTestCase
 {
-    public function testSuccessPath()
+    public function testSuccessPath(): void
     {
         \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false, false, false);
         $controller = $this->getContext()->getController();
@@ -29,7 +29,7 @@ class LegacyValidationServiceIntegrationTest extends UnitTestCase
         $this->assertTrue($result->ok);
         $this->assertSame([], $result->getErrors());
     }
-    public function testFailurePath()
+    public function testFailurePath(): void
     {
         $controller = $this->getContext()->getController();
         $action = $controller->createActionInstance('Cache', 'CacheComplex');

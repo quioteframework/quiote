@@ -95,7 +95,7 @@ final class RoutesListCommand extends AbstractAppCommand
 		usort($routes, static fn(array $a, array $b) => $a[$sort] <=> $b[$sort]);
 
 		if ($input->getOption('json')) {
-			$output->writeln(json_encode($routes, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+			$output->writeln(json_encode($routes, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) ?: '[]');
 			return $this->exitCodeFor($diagnostics);
 		}
 

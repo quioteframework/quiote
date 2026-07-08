@@ -13,21 +13,21 @@ use Quiote\Test\Routing\TestRouting;
 if (!class_exists('TestNoOpLogger')) {
     class TestNoOpLogger
     {
-        public function debug($msg) {}
-        public function error($m) {}
-        public function notice($m) {}
-        public function warning($m) {}
+        public function debug(mixed $msg): void {}
+        public function error(mixed $m): void {}
+        public function notice(mixed $m): void {}
+        public function warning(mixed $m): void {}
     }
 }
 if (!class_exists('TestNoOpLoggerManager')) {
     class TestNoOpLoggerManager
     {
-        private $l;
+        private TestNoOpLogger $l;
         public function __construct()
         {
             $this->l = new TestNoOpLogger();
         }
-        public function getLogger()
+        public function getLogger(): TestNoOpLogger
         {
             return $this->l;
         }
@@ -50,12 +50,10 @@ class ContextExtendedCoverageTest extends TestCase
     {
         // Logging now goes through the PSR-3 Log facade; there is no per-context
         // loggerManager to inject. Keep use_logging on for any gated paths.
-        if (method_exists(Config::class, 'set')) {
-            Config::set('core.use_logging', true);
-        }
+        Config::set('core.use_logging', true);
     }
 
-    public function testHandleGeneratesCorrelationIdAndStoresRequest()
+    public function testHandleGeneratesCorrelationIdAndStoresRequest(): void
     {
         $ctx = $this->ctx();
         $req = new ServerRequest('GET', '/foo');
@@ -77,7 +75,7 @@ class ContextExtendedCoverageTest extends TestCase
         $this->assertNotNull($ctx->getCurrentPsrRequest());
     }
 
-    public function testHandleAdoptsInboundCorrelationIdHeader()
+    public function testHandleAdoptsInboundCorrelationIdHeader(): void
     {
         $ctx = $this->ctx();
         (new ReflectionObject($ctx))->getProperty('routing')->setValue($ctx, new TestRouting());
@@ -89,7 +87,7 @@ class ContextExtendedCoverageTest extends TestCase
         $this->assertSame('upstream-123', $res->getHeaderLine('X-Correlation-Id'), 'adopted id should be echoed back');
     }
 
-    public function testHandleEchoesGeneratedCorrelationIdOnResponse()
+    public function testHandleEchoesGeneratedCorrelationIdOnResponse(): void
     {
         $ctx = $this->ctx();
         (new ReflectionObject($ctx))->getProperty('routing')->setValue($ctx, new TestRouting());
@@ -100,7 +98,7 @@ class ContextExtendedCoverageTest extends TestCase
         $this->assertSame($ctx->getCorrelationId(), $res->getHeaderLine('X-Correlation-Id'));
     }
 
-    public function testHandleCapsOverlongInboundCorrelationId()
+    public function testHandleCapsOverlongInboundCorrelationId(): void
     {
         $ctx = $this->ctx();
         (new ReflectionObject($ctx))->getProperty('routing')->setValue($ctx, new TestRouting());
@@ -113,10 +111,12 @@ class ContextExtendedCoverageTest extends TestCase
         $req = (new ServerRequest('GET', '/foo'))->withHeader('X-Correlation-Id', str_repeat('x', 500));
         $ctx->handle($req);
 
-        $this->assertSame(200, mb_strlen($ctx->getCorrelationId()));
+        $correlationId = $ctx->getCorrelationId();
+        $this->assertNotNull($correlationId);
+        $this->assertSame(200, mb_strlen($correlationId));
     }
 
-    public function testHandleRespectsConfiguredHeaderNameAndExposeFlag()
+    public function testHandleRespectsConfiguredHeaderNameAndExposeFlag(): void
     {
         Config::set('core.correlation_id.header', 'Request-Id', true);
         Config::set('core.correlation_id.expose', false, true);
@@ -135,7 +135,7 @@ class ContextExtendedCoverageTest extends TestCase
         }
     }
 
-    public function testResetClearsLogContextScope()
+    public function testResetClearsLogContextScope(): void
     {
         $ctx = $this->ctx();
         $this->injectLogger($ctx);
@@ -149,7 +149,7 @@ class ContextExtendedCoverageTest extends TestCase
         );
     }
 
-    public function testHandleEnrichesLogScopeWithCorrelationId()
+    public function testHandleEnrichesLogScopeWithCorrelationId(): void
     {
         $ctx = $this->ctx();
         $ro = new ReflectionObject($ctx);
@@ -162,7 +162,7 @@ class ContextExtendedCoverageTest extends TestCase
         $this->assertSame($ctx->getCorrelationId(), $scope['rid'] ?? null, 'handle() must enrich scope with rid');
     }
 
-    public function testSingletonModelInstancesClearedOnReset()
+    public function testSingletonModelInstancesClearedOnReset(): void
     {
         $ctx = $this->ctx();
         $this->injectLogger($ctx);
@@ -172,7 +172,8 @@ class ContextExtendedCoverageTest extends TestCase
         $factories = $factoriesProp->getValue($ctx);
         // Anonymous singleton model stub
         $dummy = new class {
-            public function initialize($c, $p = []) {}
+            /** @param array<string, mixed> $p */
+            public function initialize(mixed $c, array $p = []): void {}
         };
         $dummyClass = $dummy::class;
         // Register factory info under synthetic key so createInstanceFor could use it if invoked
@@ -189,7 +190,7 @@ class ContextExtendedCoverageTest extends TestCase
         $this->assertSame([], $smProp->getValue($ctx), 'singletonModelInstances should be cleared on reset');
     }
 
-    public function testMultipleHandleCorrelationIdUniquenessAndKernelReuse()
+    public function testMultipleHandleCorrelationIdUniquenessAndKernelReuse(): void
     {
         $ctx = $this->ctx();
         $this->injectLogger($ctx);
@@ -217,7 +218,7 @@ class ContextExtendedCoverageTest extends TestCase
         $this->assertNotContains($newId, $ids, 'Correlation ID after reset should be new');
     }
 
-    public function testResetClearsRequestUserStorageAndDatabaseManager()
+    public function testResetClearsRequestUserStorageAndDatabaseManager(): void
     {
         $ctx = $this->ctx();
         $this->injectLogger($ctx);
@@ -270,7 +271,7 @@ class ContextExtendedCoverageTest extends TestCase
         $this->assertNotSame($req, $req2);
     }
 
-    public function testGetRequestThrowsIfFactoryInfoMissing()
+    public function testGetRequestThrowsIfFactoryInfoMissing(): void
     {
         $ctx = $this->ctx();
         // Inject a null requestFactoryInfo then null the request to force failure path
@@ -285,7 +286,7 @@ class ContextExtendedCoverageTest extends TestCase
         $ctx->getRequest();
     }
 
-    public function testGetRoutingFixtureProvidesAddRoute()
+    public function testGetRoutingFixtureProvidesAddRoute(): void
     {
         $ctx = $this->ctx();
         $this->injectLogger($ctx);
@@ -301,7 +302,7 @@ class ContextExtendedCoverageTest extends TestCase
         $this->assertNotNull($routing->getRoute('extra'));
     }
 
-    public function testGetUserRecreatesAndRegistersInShutdownSequence()
+    public function testGetUserRecreatesAndRegistersInShutdownSequence(): void
     {
         $ctx = $this->ctx();
         $this->injectLogger($ctx);
@@ -335,7 +336,7 @@ class ContextExtendedCoverageTest extends TestCase
         $this->assertTrue($found, 'New user should be registered in shutdown sequence');
     }
 
-    public function testSetRequestUpdatesReferenceButKeepsCorrelationId()
+    public function testSetRequestUpdatesReferenceButKeepsCorrelationId(): void
     {
         $ctx = $this->ctx();
         // Establish a correlation id via handle() first
@@ -350,6 +351,7 @@ class ContextExtendedCoverageTest extends TestCase
         // Current PSR request should be the one passed to handle (identity may be same instance)
         // Since WebRequest extends ServerRequest, getCurrentPsrRequest() returns the request
         $current1 = $ctx->getCurrentPsrRequest();
+        $this->assertNotNull($current1);
         // Allow frameworks/middleware to wrap the request; verify semantic consistency
         if ($current1 !== $req1) {
             $this->assertSame((string)$req1->getUri(), (string)$current1->getUri(), 'Current PSR request URI should match original even if instance was replaced');
@@ -361,6 +363,7 @@ class ContextExtendedCoverageTest extends TestCase
         $ctx->setRequest($req2);
         $this->assertNotSame($req1, $req2, 'Middleware modifications should produce a new immutable request instance');
         $current2 = $ctx->getCurrentPsrRequest();
+        $this->assertNotNull($current2);
         if ($current2 !== $req2) {
             $this->assertSame((string)$req2->getUri(), (string)$current2->getUri(), 'Current request URI should match replaced request');
         } else {
@@ -375,7 +378,7 @@ class ContextExtendedCoverageTest extends TestCase
         $this->assertNotSame($cid1, $cid2, 'Correlation id should change on new handle()');
     }
 
-    public function testGetSlotDispatcherLazyCreatesAndCaches()
+    public function testGetSlotDispatcherLazyCreatesAndCaches(): void
     {
         $ctx = $this->ctx();
         // Force controller + actionResolver creation paths
@@ -387,7 +390,7 @@ class ContextExtendedCoverageTest extends TestCase
         $this->assertInstanceOf(\Quiote\Execution\SlotDispatcher::class, $sd1);
     }
 
-    public function testControllerRecreatedAfterResetAndShutdownSequenceOrderMaintained()
+    public function testControllerRecreatedAfterResetAndShutdownSequenceOrderMaintained(): void
     {
         $ctx = $this->ctx();
         $this->injectLogger($ctx);
@@ -408,11 +411,9 @@ class ContextExtendedCoverageTest extends TestCase
         $controller1 = $controllerProp->getValue($ctx);
         if ($controller1 === null) {
             // Invoke createInstanceFor if factory info stored in factories array
-            if (method_exists($ctx, 'createInstanceFor')) {
-                try {
-                    $controller1 = $ctx->createInstanceFor('controller');
-                } catch (\Throwable) {
-                }
+            try {
+                $controller1 = $ctx->createInstanceFor('controller');
+            } catch (\Throwable) {
             }
             // Fallback: direct instantiation
             if ($controller1 === null) {
@@ -424,7 +425,7 @@ class ContextExtendedCoverageTest extends TestCase
                 $controllerProp->setValue($ctx, $controller1);
             }
         }
-        $this->assertNotNull($controller1, 'Controller should be created');
+        $this->assertInstanceOf(\Quiote\Controller\Controller::class, $controller1, 'Controller should be created');
         // Ensure controller registered (some contexts may add to shutdown sequence; verify stable ordering when user/storage present)
         $seqProp = $ro->getProperty('shutdownSequence');
 
@@ -455,19 +456,15 @@ class ContextExtendedCoverageTest extends TestCase
         }
     }
 
-    public function testTranslationManagerPreservedFlagAndNullWhenDisabled()
+    public function testTranslationManagerPreservedFlagAndNullWhenDisabled(): void
     {
         $ctx = $this->ctx();
         $ro = new ReflectionObject($ctx);
         // Ensure translation disabled to assert null return
-        if (method_exists(Config::class, 'set')) {
-            Config::set('core.use_translation', false);
-        }
+        Config::set('core.use_translation', false);
         $this->assertNull($ctx->getTranslationManager(), 'Translation manager should be null when translations disabled');
         // Enable translations and synthesize factory info to simulate enabled environment
-        if (method_exists(Config::class, 'set')) {
-            Config::set('core.use_translation', true);
-        }
+        Config::set('core.use_translation', true);
         // Enable logging-gated paths for this reset coverage test.
         $this->injectLogger($ctx);
         $tmProp = $ro->getProperty('translationManager');
@@ -476,9 +473,7 @@ class ContextExtendedCoverageTest extends TestCase
             // Minimal instantiation of TranslationManager
             if (class_exists(\Quiote\Translation\TranslationManager::class)) {
                 $tm = new \Quiote\Translation\TranslationManager();
-                if (is_callable($tm->initialize(...))) {
-                    $tm->initialize($ctx, []);
-                }
+                $tm->initialize($ctx, []);
                 $tmProp->setValue($ctx, $tm);
             }
         }
@@ -494,13 +489,11 @@ class ContextExtendedCoverageTest extends TestCase
         $this->assertSame($tm1, $tm2, 'Translation manager instance should persist across reset');
     }
 
-    public function testDatabaseManagerLazyRecreationFromFactoryInfo()
+    public function testDatabaseManagerLazyRecreationFromFactoryInfo(): void
     {
         $ctx = $this->ctx();
         // Enable database usage
-        if (method_exists(Config::class, 'set')) {
-            Config::set('core.use_database', true);
-        }
+        Config::set('core.use_database', true);
         $this->injectLogger($ctx);
         $ro = new ReflectionObject($ctx);
         $dbmFi = $ro->getProperty('databaseManagerFactoryInfo');
@@ -527,7 +520,7 @@ class ContextExtendedCoverageTest extends TestCase
             }
             $dbmProp->setValue($ctx, $dbm1);
         }
-        $this->assertNotNull($dbm1, 'Database manager should be created');
+        $this->assertInstanceOf(\Quiote\Database\DatabaseManager::class, $dbm1, 'Database manager should be created');
         $ctx->reset();
         // Since PHP84 performance work: reset() now calls recycleConnections() instead of
         // nulling the manager, so the same instance should stay alive across requests.
@@ -536,7 +529,7 @@ class ContextExtendedCoverageTest extends TestCase
         $this->assertSame($dbm1, $dbm2, 'Same database manager instance should persist across reset — avoids re-initialization cost');
     }
 
-    public function testStorageHeuristicRecreationUsesFactoryInfoOrSynthesizes()
+    public function testStorageHeuristicRecreationUsesFactoryInfoOrSynthesizes(): void
     {
         $ctx = $this->ctx();
         $this->injectLogger($ctx);
@@ -559,7 +552,7 @@ class ContextExtendedCoverageTest extends TestCase
         $this->assertNotSame($storage1, $storage2, 'Storage should be a fresh instance after recreation');
     }
 
-    public function testPsrKernelResetClearsMiddlewareStack()
+    public function testPsrKernelResetClearsMiddlewareStack(): void
     {
         $ctx = $this->ctx();
         $this->injectLogger($ctx);
@@ -595,7 +588,7 @@ class ContextExtendedCoverageTest extends TestCase
         $this->assertNotEmpty($kernelAfter->debugStack(), 'Kernel debug stack populated after second handle');
     }
 
-    public function testUserDuplicationAvoidedInShutdownSequenceAfterMultipleResets()
+    public function testUserDuplicationAvoidedInShutdownSequenceAfterMultipleResets(): void
     {
         $ctx = $this->ctx();
         $this->injectLogger($ctx);
@@ -618,5 +611,66 @@ class ContextExtendedCoverageTest extends TestCase
             }
         }
         $this->assertLessThanOrEqual(2, $userCount, 'Shutdown sequence should not accumulate excessive user duplicates');
+    }
+
+    public function testUserGetContextThrowsBeforeInitialize(): void
+    {
+        $user = new \Quiote\User\User();
+        $this->expectException(\Quiote\Exception\InitializationException::class);
+        $user->getContext();
+    }
+
+    public function testUserGetContextReturnsContextAfterInitialize(): void
+    {
+        $ctx = $this->ctx();
+        $storageProp = (new ReflectionObject($ctx))->getProperty('storage');
+        $storageProp->setValue($ctx, new MockStorage());
+        $user = new \Quiote\User\User();
+        $user->initialize($ctx);
+        $this->assertSame($ctx, $user->getContext());
+    }
+
+    public function testStorageGetContextThrowsBeforeInitialize(): void
+    {
+        $storage = new \Quiote\Storage\NullStorage();
+        $this->expectException(\Quiote\Exception\InitializationException::class);
+        $storage->getContext();
+    }
+
+    public function testResponseGetContextThrowsBeforeInitialize(): void
+    {
+        $response = new \Quiote\Response\WebResponse();
+        $this->expectException(\Quiote\Exception\InitializationException::class);
+        $response->getContext();
+    }
+
+    public function testDatabaseGetDatabaseManagerThrowsBeforeInitialize(): void
+    {
+        $database = new \Quiote\Database\PdoDatabase();
+        $this->expectException(\Quiote\Exception\InitializationException::class);
+        $database->getDatabaseManager();
+    }
+
+    public function testDatabaseGetNameReturnsNullBeforeInitialize(): void
+    {
+        // getName() intentionally stays nullable rather than throwing: adapters may call
+        // it purely for diagnostic messages (e.g. Database::getPdo()) before a name has
+        // been assigned, and forcing an exception there would mask the real failure.
+        $database = new \Quiote\Database\PdoDatabase();
+        $this->assertNull($database->getName());
+    }
+
+    public function testRoutingCallbackGetContextThrowsBeforeInitialize(): void
+    {
+        $callback = new class extends \Quiote\Routing\RoutingCallback {};
+        $this->expectException(\Quiote\Exception\InitializationException::class);
+        $callback->getContext();
+    }
+
+    public function testAttributeBagRejectsNonStringOffset(): void
+    {
+        $bag = new \Quiote\Execution\AttributeBag();
+        $this->expectException(\InvalidArgumentException::class);
+        $bag[null] = 'value';
     }
 }

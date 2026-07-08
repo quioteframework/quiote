@@ -6,7 +6,7 @@ use Nyholm\Psr7\Factory\Psr17Factory;
 
 class RedirectParityTest extends UnitTestCase
 {
-    public function testRedirectLocationAndStatusForwarded()
+    public function testRedirectLocationAndStatusForwarded(): void
     {
         $web = new WebResponse();
         $psrFactory = new Psr17Factory();

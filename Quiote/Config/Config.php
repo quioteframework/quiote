@@ -12,12 +12,12 @@ use Quiote\Logging\Log;
 class Config
 {
 	/**
-	 * @var        array<string, mixed>
+	 * @var        array<string|int, mixed>
 	 */
 	public static $config = [];
 
 	/**
-	 * @var        array<string, mixed>
+	 * @var        array<string|int, mixed>
 	 */
 	private static $readonlies = [];
 

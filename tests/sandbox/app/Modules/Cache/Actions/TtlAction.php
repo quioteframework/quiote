@@ -21,14 +21,14 @@ class TtlAction extends Action
     // must go through the normal (non-simple) path -- SlotDispatcher checks
     // slotCacheTtlSeconds()/slotCacheTags() on both paths regardless.
     #[\Override]
-    public function getDefaultViewName(){ return 'Success'; }
+    public function getDefaultViewName(): string { return 'Success'; }
 
     public function slotCacheTtlSeconds(): ?int
     {
         return self::$ttlSeconds;
     }
 
-    public function execute(WebRequest $rd)
+    public function execute(WebRequest $rd): string
     {
         self::$execCount++;
         return 'Success';

@@ -118,6 +118,16 @@ class OtelCollectorE2ETest extends TestCase
         return ['status' => $status, 'body' => (string) $body];
     }
 
+    /** @return list<string> */
+    private function readLines(string $file): array
+    {
+        if (!is_file($file)) {
+            return [];
+        }
+        $lines = file($file);
+        return $lines === false ? [] : $lines;
+    }
+
     /**
      * Fires a request against $path and returns only the trace/metric export
      * batches that appeared in the collector's output file AFTER that
@@ -128,24 +138,21 @@ class OtelCollectorE2ETest extends TestCase
      */
     private function requestAndCollectNewTelemetry(string $path, int $waitSeconds = 15): array
     {
-        $linesBefore = is_file(self::$outputFile) ? count(file(self::$outputFile)) : 0;
+        $linesBefore = count($this->readLines(self::$outputFile));
 
         $response = $this->request($path);
 
         $deadline = microtime(true) + $waitSeconds;
         $newLines = [];
         while (microtime(true) < $deadline) {
-            if (is_file(self::$outputFile)) {
-                $allLines = file(self::$outputFile);
-                if (count($allLines) > $linesBefore) {
-                    $newLines = array_slice($allLines, $linesBefore);
-                    // Give the batch a moment to settle in case multiple
-                    // export calls land back-to-back (traces then metrics).
-                    usleep(500_000);
-                    $settled = file(self::$outputFile);
-                    $newLines = array_slice($settled, $linesBefore);
-                    break;
-                }
+            $allLines = $this->readLines(self::$outputFile);
+            if (count($allLines) > $linesBefore) {
+                // Give the batch a moment to settle in case multiple
+                // export calls land back-to-back (traces then metrics).
+                usleep(500_000);
+                $settled = $this->readLines(self::$outputFile);
+                $newLines = array_slice($settled, $linesBefore);
+                break;
             }
             usleep(200_000);
         }
@@ -183,12 +190,15 @@ class OtelCollectorE2ETest extends TestCase
         return ['status' => $response['status'], 'body' => $response['body'], 'spans' => $spans, 'metricNames' => $metricNames];
     }
 
-    /** @param array<int,array{key:string,value:array}> $attrs */
+    /**
+     * @param array<int,array{key:string,value:array<string,mixed>}> $attrs
+     * @return array<string, mixed>
+     */
     private function flattenAttributes(array $attrs): array
     {
         $out = [];
         foreach ($attrs as $attr) {
-            $value = $attr['value'] ?? [];
+            $value = $attr['value'];
             $out[$attr['key']] = $value['stringValue']
                 ?? $value['boolValue']
                 ?? $value['intValue']
@@ -198,6 +208,10 @@ class OtelCollectorE2ETest extends TestCase
         return $out;
     }
 
+    /**
+     * @param list<array<string, mixed>> $spans
+     * @return ?array<string, mixed>
+     */
     private function findSpanByName(array $spans, string $name): ?array
     {
         foreach ($spans as $span) {

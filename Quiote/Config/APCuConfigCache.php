@@ -284,6 +284,10 @@ class APCuConfigCache extends ConfigCache
             
             // Read the compiled content
             $content = file_get_contents($cacheFile);
+            if ($content === false) {
+                $logger->warning('APCuConfigCache warmupConfig failed reading cache file', ['config' => basename($config)]);
+                return false;
+            }
             $logger->debug('APCuConfigCache warmupConfig read bytes', ['config' => basename($config), 'bytes' => strlen($content)]);
             
             // Store in APCu

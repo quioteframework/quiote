@@ -18,6 +18,9 @@ class ViewNameResolverDirectiveParityTest extends UnitTestCase
         $this->resolver = new ViewNameResolver();
     }
 
+    /**
+     * @return array<int, array{0: string, 1: string, 2: string|null}>
+     */
     public static function cases(): array
     {
         return [
@@ -30,7 +33,7 @@ class ViewNameResolverDirectiveParityTest extends UnitTestCase
     }
 
     #[\PHPUnit\Framework\Attributes\DataProvider('cases')]
-    public function testDirectiveParity(string $module, string $action, $rawViewName): void
+    public function testDirectiveParity(string $module, string $action, ?string $rawViewName): void
     {
         if($rawViewName === View::NONE) {
             [$rm,$rn] = $this->resolver->resolve($module,$action,$rawViewName);
@@ -43,7 +46,7 @@ class ViewNameResolverDirectiveParityTest extends UnitTestCase
             'quiote.view.name',
             ['actionName'=>$action,'viewName'=>$rawViewName]
         );
-        $expected = $evaluated === '' || $evaluated === null ? $rawViewName : $evaluated;
+        $expected = $evaluated === '' ? $rawViewName : $evaluated;
         $expected = Toolkit::canonicalName($expected);
         [$resolvedModule,$resolvedName] = $this->resolver->resolve($module,$action,$rawViewName);
         $this->assertSame($module, $resolvedModule);

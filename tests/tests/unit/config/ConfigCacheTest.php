@@ -11,7 +11,7 @@ use Quiote\Util\Toolkit;
 class ConfigCacheTest extends PhpUnitTestCase
 {
 	#[\PHPUnit\Framework\Attributes\DataProvider('dataGenerateCacheName')]
-	public function testGenerateCacheName($configname, $context)
+	public function testGenerateCacheName(string $configname, ?string $context): void
 	{
 		$cachename = ConfigCache::getCacheName($configname, $context);
 
@@ -46,7 +46,10 @@ class ConfigCacheTest extends PhpUnitTestCase
 		$this->assertEquals($expected, $cachename);
 	}
 
-	public static function dataGenerateCacheName()
+	/**
+	 * @return array<string, array{string, ?string}>
+	 */
+	public static function dataGenerateCacheName(): array
 	{
 		// Only provide input data, not expected values (since core.environment isn't available yet)
 		return [
@@ -62,7 +65,7 @@ class ConfigCacheTest extends PhpUnitTestCase
 	}
 
 
-	public function testWriteCacheFile()
+	public function testWriteCacheFile(): void
 	{
 		$expected = 'This is a config cache test.';
 		$config = Config::getString('core.config_dir').DIRECTORY_SEPARATOR.'foo.xml';
@@ -81,23 +84,23 @@ class ConfigCacheTest extends PhpUnitTestCase
 		$this->assertEquals($expected.$append, $content);
 	}
 
-	public function testload()
+	public function testload(): void
 	{
-		$this->assertFalse( defined('ConfigCacheImportTest_included') );
+		$this->assertArrayNotHasKey('ConfigCacheImportTest_included', get_defined_constants());
 		ConfigCache::load(Config::getString('core.config_dir') . '/tests/importtest.xml');
-		$this->assertTrue( defined('ConfigCacheImportTest_included') );
+		$this->assertArrayHasKey('ConfigCacheImportTest_included', get_defined_constants());
 
 		$GLOBALS["ConfigCacheImportTestOnce_included"] = false;
-		ConfigCache::load(Config::getString('core.config_dir') . '/tests/importtest_once.xml', true);
+		ConfigCache::load(Config::getString('core.config_dir') . '/tests/importtest_once.xml');
 		$this->assertTrue( $GLOBALS["ConfigCacheImportTestOnce_included"] );
 
 		$GLOBALS["ConfigCacheImportTestOnce_included"] = false;
-		ConfigCache::load(Config::getString('core.config_dir') . '/tests/importtest_once.xml', true);
+		ConfigCache::load(Config::getString('core.config_dir') . '/tests/importtest_once.xml');
 		$this->assertFalse( $GLOBALS["ConfigCacheImportTestOnce_included"] );
 	}
 
 
-	public function testClear()
+	public function testClear(): void
 	{
 		$cacheDir = Config::getString('core.cache_dir').DIRECTORY_SEPARATOR.'config';
 		ConfigCache::clear();
@@ -112,20 +115,21 @@ class ConfigCacheTest extends PhpUnitTestCase
 				$this->fail(sprintf('Failed asserting that the cache dir "%1$s" is empty, it contains at least "%2$s"', $cacheDir, $item->getFileName()));
 			}
 		}
-		// If directory doesn't exist, that's also a valid state after clearing
-		$this->assertTrue(true); // Test passes if we get here without failure
+		// If directory doesn't exist, that's also a valid state after clearing;
+		// reaching this point without the fail() above firing is the assertion.
+		$this->addToAssertionCount(1);
 	}
 
 	/**
 	 * this does not seem to work in isolation
 	 */
-	public function testAddNonexistantConfigHandlersFile()
+	public function testAddNonexistantConfigHandlersFile(): void
 	{
 		$this->expectException(UnreadableException::class);
 		ConfigCache::addConfigHandlersFile('does/not/exist');
 	}
 
-	public function testAddConfigHandlersFile()
+	public function testAddConfigHandlersFile(): void
 	{
 		$config = Config::getString('core.module_dir').'/Default/Config/config_handlers.xml';
 		// Other tests (or module loading) may already have registered this file in
@@ -139,7 +143,7 @@ class ConfigCacheTest extends PhpUnitTestCase
 	}
 
 
-	public function testSetupHandlers()
+	public function testSetupHandlers(): void
 	{	
 		// this is not possible to test with the quiote unit tests as this needs
 		// a really clean env with no framework bootstrapped. Need to think about that.
@@ -151,7 +155,7 @@ class ConfigCacheTest extends PhpUnitTestCase
 		$this->assertNotEquals(null, $handlers);
 	}
 
-	public function testGetHandlerInfo()
+	public function testGetHandlerInfo(): void
 	{
 		$handlerInfo = TestingConfigCache::getHandlerInfo('notregistered');
 		$this->assertEquals(null, $handlerInfo);
@@ -194,7 +198,7 @@ class ConfigCacheTest extends PhpUnitTestCase
 		$this->assertEquals($expected, $handlerInfo);
 	}
 
-	public function testTicket931()
+	public function testTicket931(): void
 	{
 		$config = 'project/foo.xml';
 		$context = 'with/slash';
@@ -209,7 +213,7 @@ class ConfigCacheTest extends PhpUnitTestCase
 		$this->assertEquals($expected, $cachename);
 	}
 
-	public function testTicket932()
+	public function testTicket932(): void
 	{
 		$config1 = 'project/foo.xml';
 		$config2 = 'project_foo.xml';

@@ -1,6 +1,7 @@
 <?php
 namespace Quiote\Validator;
 
+use Quiote\Exception\ValidatorException;
 use Quiote\Util\Toolkit;
 
 /**
@@ -42,8 +43,13 @@ class BooleanValidator extends Validator
 			} else {
 				// Persist casted value back into request runtime parameters so subsequent validators/actions see normalized boolean.
 				try {
-					if(method_exists($this->validationParameters, 'setParameter')) {
-						$this->validationParameters = $this->validationParameters->setParameter($this->getArgument(), $castValue);
+					$validationParameters = $this->validationParameters;
+					if($validationParameters === null) {
+						throw new ValidatorException('Validator "' . ($this->getName() ?? '?') . '" has no request; validate() ran before execute() supplied one.');
+					}
+					$argumentName = $this->getArgument();
+					if($argumentName !== null) {
+						$this->validationParameters = $validationParameters->setParameter($argumentName, $castValue);
 					}
 				} catch(\Throwable) {}
 			}

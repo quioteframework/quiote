@@ -59,5 +59,11 @@
 	<ae:configuration environment="nonexistent-default">
 		<databases default="test2" />
 	</ae:configuration>
-	
+
+	<ae:configuration environment="missing-name">
+		<databases>
+			<database class="DCHTestDatabase"></database>
+		</databases>
+	</ae:configuration>
+
 </ae:configurations>

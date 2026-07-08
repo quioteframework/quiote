@@ -373,7 +373,33 @@ class XmlConfigDomDocument extends \DOMDocument
 	{
 		return $this->xpath;
 	}
-	
+
+	/**
+	 * Run an XPath query against this document (or, when given, a context
+	 * node within it) and return the resulting node list.
+	 *
+	 * DOMXPath::query() returns `false` only when the expression itself is
+	 * malformed -- every expression used against this document is a fixed,
+	 * developer-authored string, never user input, so a `false` result here
+	 * signals a genuine bug in the calling code rather than a runtime
+	 * condition callers should be expected to branch on.
+	 * @param      string $expression The XPath expression to evaluate.
+	 * @param      ?\DOMNode $contextNode An optional context node to query relative to.
+	 * @return     \DOMNodeList<\DOMNode|\DOMNameSpaceNode>
+	 */
+	public function query(string $expression, ?\DOMNode $contextNode = null): \DOMNodeList
+	{
+		$result = $contextNode !== null
+			? $this->xpath->query($expression, $contextNode)
+			: $this->xpath->query($expression);
+
+		if ($result === false) {
+			throw new \LogicException(sprintf('Malformed XPath expression "%s".', $expression));
+		}
+
+		return $result;
+	}
+
 	/**
 	 * Set a default namespace that should be used when accessing elements via
 	 * convenience methods (such as magic get overload for children), and bind it
@@ -431,8 +457,9 @@ class XmlConfigDomDocument extends \DOMDocument
 	 */
 	public function getQuioteEnvelopeNamespace()
 	{
-		if($this->isQuioteConfiguration()) {
-			return $this->documentElement->namespaceURI;
+		$documentElement = $this->documentElement;
+		if($documentElement !== null && $this->isQuioteConfiguration()) {
+			return $documentElement->namespaceURI;
 		}
 
 		return null;
@@ -448,10 +475,11 @@ class XmlConfigDomDocument extends \DOMDocument
 	{
 		$retval = [];
 
-		if($this->isQuioteConfiguration()) {
+		$documentElement = $this->documentElement;
+		if($documentElement !== null && $this->isQuioteConfiguration()) {
 			$quioteNs = $this->getQuioteEnvelopeNamespace();
 
-			foreach($this->documentElement->childNodes as $node) {
+			foreach($documentElement->childNodes as $node) {
 				if($node->nodeType == XML_ELEMENT_NODE && $node->localName == 'configuration' && $node->namespaceURI == $quioteNs) {
 					// registerNodeClass() guarantees element nodes are always
 					// XmlConfigDomElement, never a vanilla DOMNode.
@@ -471,10 +499,11 @@ class XmlConfigDomDocument extends \DOMDocument
 	 */
 	public function getSandbox()
 	{
-		if($this->isQuioteConfiguration()) {
+		$documentElement = $this->documentElement;
+		if($documentElement !== null && $this->isQuioteConfiguration()) {
 			$quioteNs = $this->getQuioteEnvelopeNamespace();
 
-			foreach($this->documentElement->childNodes as $node) {
+			foreach($documentElement->childNodes as $node) {
 				if($node->nodeType == XML_ELEMENT_NODE && $node->localName == 'sandbox' && $node->namespaceURI == $quioteNs) {
 					// registerNodeClass() guarantees element nodes are always
 					// XmlConfigDomElement, never a vanilla DOMNode.

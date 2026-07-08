@@ -1,8 +1,8 @@
 <?php
 
+use Quiote\Context;
 use Quiote\Testing\UnitTestCase;
 use Quiote\Validator\ValidationManager;
-use Quiote\Request\WebRequest;
 
 /**
  * Tests ValidationManager changes:
@@ -12,7 +12,7 @@ use Quiote\Request\WebRequest;
  */
 class ValidationManagerStrictModeTest extends UnitTestCase
 {
-    private $_context = null;
+    private Context $_context;
 
     #[\Override]
     public function setUp(): void
@@ -20,13 +20,7 @@ class ValidationManagerStrictModeTest extends UnitTestCase
         $this->_context = $this->getContext();
     }
 
-    #[\Override]
-    public function tearDown(): void
-    {
-        $this->_context = null;
-    }
-
-    public function testModeRelaxedConvertedToStrict()
+    public function testModeRelaxedConvertedToStrict(): void
     {
         $vm = $this->_context->createInstanceFor('validation_manager');
 
@@ -36,90 +30,72 @@ class ValidationManagerStrictModeTest extends UnitTestCase
         // Should be converted to MODE_STRICT internally
         // Verify by checking that parameter whitelisting is enforced
         $request = $this->_context->getRequest();
-        if ($request instanceof WebRequest) {
-            $request = $request->enforceValidatedParameters([]);
+        $request = $request->enforceValidatedParameters([]);
 
-            // With strict mode, unvalidated parameters should not be accessible
-            $hasException = false;
-            try {
-                $request->getParameter('unvalidated_param');
-            } catch (\Exception) {
-                $hasException = true;
-            }
-
-            // In strict mode, accessing unvalidated parameter should throw or return null
-            $value = $request->getParameter('unvalidated_param', null);
-            $this->assertNull($value, 'Unvalidated parameter should not be accessible in strict mode');
-        }
-
-        $this->assertTrue(true); // Test passed initialization
+        // In strict mode, accessing unvalidated parameter should throw or return null
+        $value = $request->getParameter('unvalidated_param', null);
+        $this->assertNull($value, 'Unvalidated parameter should not be accessible in strict mode');
     }
 
-    public function testModeConditionalStillAccepted()
+    public function testModeConditionalStillAccepted(): void
     {
         $vm = $this->_context->createInstanceFor('validation_manager');
 
-        // MODE_CONDITIONAL should still work
+        // MODE_CONDITIONAL should still work; initialize() must not throw.
         $vm->initialize($this->_context, ['mode' => ValidationManager::MODE_CONDITIONAL]);
-
-        $this->assertTrue(true); // No exception thrown
+        $this->assertSame(ValidationManager::MODE_CONDITIONAL, $vm->getParameter('mode'));
     }
 
-    public function testModeStrictStillAccepted()
+    public function testModeStrictStillAccepted(): void
     {
         $vm = $this->_context->createInstanceFor('validation_manager');
 
-        // MODE_STRICT should still work
+        // MODE_STRICT should still work; initialize() must not throw.
         $vm->initialize($this->_context, ['mode' => ValidationManager::MODE_STRICT]);
-
-        $this->assertTrue(true); // No exception thrown
+        $this->assertSame(ValidationManager::MODE_STRICT, $vm->getParameter('mode'));
     }
 
-    public function testValidatorExportsAccessibleAfterValidation()
+    public function testValidatorExportsAccessibleAfterValidation(): void
     {
         $vm = $this->_context->createInstanceFor('validation_manager');
         $vm->initialize($this->_context, ['mode' => ValidationManager::MODE_STRICT]);
-        
+
         $request = $this->_context->getRequest();
-        
+
         // Simulate validator setting exported parameter via setParameter()
-        if ($request instanceof WebRequest) {
-            // Before validation, set parameter (simulating validator export)
-            $request = $request->setParameter('validator_export', 'exported_value');
+        // Before validation, set parameter (simulating validator export)
+        $request = $request->setParameter('validator_export', 'exported_value');
 
-            // After validation pruning, exported parameters should still be accessible
-            $value = $request->getParameter('validator_export');
-            $this->assertEquals('exported_value', $value);
-        }
+        // After validation pruning, exported parameters should still be accessible
+        $value = $request->getParameter('validator_export');
+        $this->assertEquals('exported_value', $value);
     }
 
-    public function testRuntimeParameterKeysPreservedInWhitelist()
+    public function testRuntimeParameterKeysPreservedInWhitelist(): void
     {
         $vm = $this->_context->createInstanceFor('validation_manager');
         $vm->initialize($this->_context, ['mode' => ValidationManager::MODE_STRICT]);
-        
+
         $request = $this->_context->getRequest();
-        
-        if ($request instanceof WebRequest) {
-            // Set multiple runtime parameters
-            $request = $request->setParameter('runtime_param1', 'value1');
-            $request = $request->setParameter('runtime_param2', 'value2');
-            $request = $request->setParameter('runtime_param3', 'value3');
-            
-            // Get keys before validation
-            $keys = $request->getRuntimeParameterKeys();
-            $this->assertContains('runtime_param1', $keys);
-            $this->assertContains('runtime_param2', $keys);
-            $this->assertContains('runtime_param3', $keys);
-            
-            // After validation, these should still be accessible
-            $this->assertEquals('value1', $request->getParameter('runtime_param1'));
-            $this->assertEquals('value2', $request->getParameter('runtime_param2'));
-            $this->assertEquals('value3', $request->getParameter('runtime_param3'));
-        }
+
+        // Set multiple runtime parameters
+        $request = $request->setParameter('runtime_param1', 'value1');
+        $request = $request->setParameter('runtime_param2', 'value2');
+        $request = $request->setParameter('runtime_param3', 'value3');
+
+        // Get keys before validation
+        $keys = $request->getRuntimeParameterKeys();
+        $this->assertContains('runtime_param1', $keys);
+        $this->assertContains('runtime_param2', $keys);
+        $this->assertContains('runtime_param3', $keys);
+
+        // After validation, these should still be accessible
+        $this->assertEquals('value1', $request->getParameter('runtime_param1'));
+        $this->assertEquals('value2', $request->getParameter('runtime_param2'));
+        $this->assertEquals('value3', $request->getParameter('runtime_param3'));
     }
 
-    public function testExecutedValidatorsConditionStillWorks()
+    public function testExecutedValidatorsConditionStillWorks(): void
     {
         $vm = $this->_context->createInstanceFor('validation_manager');
         $vm->initialize($this->_context, ['mode' => ValidationManager::MODE_STRICT]);
@@ -132,54 +108,46 @@ class ValidationManagerStrictModeTest extends UnitTestCase
         // Execute validation — should succeed (DummyValidator always passes)
         $result = $vm->execute($request);
 
-        $this->assertTrue((bool)$result, 'Validation manager should return success when DummyValidator passes');
+        $this->assertTrue($result, 'Validation manager should return success when DummyValidator passes');
     }
 
-    public function testPredeclaredExportsIncludedInWhitelist()
+    public function testPredeclaredExportsIncludedInWhitelist(): void
     {
         $vm = $this->_context->createInstanceFor('validation_manager');
         $vm->initialize($this->_context, ['mode' => ValidationManager::MODE_STRICT]);
-        
+
         // Set predeclared export names
         $vm->setParameter('_predeclared_exports', ['export1', 'export2']);
-        
+
         $request = $this->_context->getRequest();
-        
-        if ($request instanceof WebRequest) {
-            // Even if these don't exist yet, they should be whitelisted
-            // This allows actions to check for null exported values
-            $request = $request->enforceValidatedParameters(['export1', 'export2']);
-            
-            // Should not throw exception even though value is null
-            $value = $request->getParameter('export1', 'default');
-            $this->assertEquals('default', $value);
-        }
+
+        // Even if these don't exist yet, they should be whitelisted
+        // This allows actions to check for null exported values
+        $request = $request->enforceValidatedParameters(['export1', 'export2']);
+
+        // Should not throw exception even though value is null
+        $value = $request->getParameter('export1', 'default');
+        $this->assertEquals('default', $value);
     }
 
-    public function testStrictModeEnforcesParameterWhitelisting()
+    public function testStrictModeEnforcesParameterWhitelisting(): void
     {
         $vm = $this->_context->createInstanceFor('validation_manager');
         $vm->initialize($this->_context, ['mode' => ValidationManager::MODE_STRICT]);
 
         $request = $this->_context->getRequest();
 
-        if ($request instanceof WebRequest) {
-            // Enforce empty whitelist
-            $request = $request->enforceValidatedParameters([]);
+        // Enforce empty whitelist
+        $request = $request->enforceValidatedParameters([]);
 
-            // With explicit default: returns the default (caller acknowledged absence)
-            $value = $request->getParameter('non_whitelisted', null);
-            $this->assertNull($value);
-        }
+        // With explicit default: returns the default (caller acknowledged absence)
+        $value = $request->getParameter('non_whitelisted', null);
+        $this->assertNull($value);
     }
 
-    public function testGetParameterWithoutDefaultThrowsForUnvalidated()
+    public function testGetParameterWithoutDefaultThrowsForUnvalidated(): void
     {
         $request = $this->_context->getRequest();
-
-        if (!($request instanceof WebRequest)) {
-            $this->markTestSkipped('Requires WebRequest');
-        }
 
         $request = $request->enforceValidatedParameters([]);
 
@@ -187,13 +155,9 @@ class ValidationManagerStrictModeTest extends UnitTestCase
         $request->getParameter('no_default_unvalidated');
     }
 
-    public function testGetParameterWithDefaultReturnsDefaultForUnvalidated()
+    public function testGetParameterWithDefaultReturnsDefaultForUnvalidated(): void
     {
         $request = $this->_context->getRequest();
-
-        if (!($request instanceof WebRequest)) {
-            $this->markTestSkipped('Requires WebRequest');
-        }
 
         $request = $request->enforceValidatedParameters([]);
 

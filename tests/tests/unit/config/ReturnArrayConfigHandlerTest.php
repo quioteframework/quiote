@@ -7,7 +7,7 @@ require_once(__DIR__ . '/ConfigHandlerTestBase.php');
 
 class ReturnArrayConfigHandlerTest extends ConfigHandlerTestBase
 {
-	public function testParseMixed()
+	public function testParseMixed(): void
 	{
 		$RACH = new ReturnArrayConfigHandler();
 		$document = $this->parseConfiguration(Config::getString('core.config_dir') . '/tests/rach_mixed.xml');
@@ -21,7 +21,7 @@ class ReturnArrayConfigHandlerTest extends ConfigHandlerTestBase
 	}
 
 
-	public function testParseAttributes()
+	public function testParseAttributes(): void
 	{
 		$RACH = new ReturnArrayConfigHandler();
 		$document = $this->parseConfiguration(Config::getString('core.config_dir') . '/tests/rach_attributes.xml');
@@ -34,7 +34,7 @@ class ReturnArrayConfigHandlerTest extends ConfigHandlerTestBase
 	}
 
 
-	public function testParseTags()
+	public function testParseTags(): void
 	{
 		$RACH = new ReturnArrayConfigHandler();
 		$document = $this->parseConfiguration(Config::getString('core.config_dir') . '/tests/rach_tags.xml');
@@ -46,7 +46,7 @@ class ReturnArrayConfigHandlerTest extends ConfigHandlerTestBase
 		$this->assertSame($expected, $actual);
 	}
 
-	public function testParseComplex()
+	public function testParseComplex(): void
 	{
 		$RACH = new ReturnArrayConfigHandler();
 		$document = $this->parseConfiguration(Config::getString('core.config_dir') . '/tests/rach_complex.xml');

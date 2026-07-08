@@ -22,7 +22,7 @@ class ViewAndActionResolverTest extends UnitTestCase
         $this->actionResolver = $this->getContext()->getActionResolver();
     }
 
-    public function testResolveScalarViewName()
+    public function testResolveScalarViewName(): void
     {
     // Ensure module directives loaded
     $this->getContext()->getController()->initializeModule('Cache');
@@ -32,25 +32,25 @@ class ViewAndActionResolverTest extends UnitTestCase
     $this->assertContains($vn, [\Quiote\Util\Toolkit::canonicalName('CacheSuccess'), \Quiote\Util\Toolkit::canonicalName('Success')]);
     }
 
-    public function testResolveArrayViewName()
+    public function testResolveArrayViewName(): void
     {
         [$vm, $vn] = $this->viewResolver->resolve('Cache', 'Cache', ['Cache', 'Error']);
         $this->assertSame('Cache', $vm);
         $this->assertSame(Toolkit::canonicalName('Error'), $vn);
     }
 
-    public function testResolveNoneConstant()
+    public function testResolveNoneConstant(): void
     {
     [$vm, $vn] = $this->viewResolver->resolve('Cache', 'Cache', View::NONE);
     $this->assertNull($vm);
     $this->assertNull($vn);
     }
 
-    public function testActionResolverSelectsSpecificMethod()
+    public function testActionResolverSelectsSpecificMethod(): void
     {
         $action = new class extends Action {
-            public function executePost(ServerRequestInterface $req){ return 'PostView'; }
-            public function execute(ServerRequestInterface $req){ return 'GenericView'; }
+            public function executePost(ServerRequestInterface $req): string { return 'PostView'; }
+            public function execute(ServerRequestInterface $req): string { return 'GenericView'; }
         };
         $req = new ServerRequest('POST', '/');
         // need to initialize action with dummy container? Not required for method dispatch here.
@@ -58,10 +58,10 @@ class ViewAndActionResolverTest extends UnitTestCase
         $this->assertSame('PostView', $raw);
     }
 
-    public function testActionResolverFallsBackToGeneric()
+    public function testActionResolverFallsBackToGeneric(): void
     {
         $action = new class extends Action {
-            public function execute(ServerRequestInterface $req){ return 'GenericView'; }
+            public function execute(ServerRequestInterface $req): string { return 'GenericView'; }
         };
         $req = new ServerRequest('PUT', '/');
         $raw = $this->actionResolver->execute($action, 'Put', $req);

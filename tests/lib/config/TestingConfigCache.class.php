@@ -8,22 +8,24 @@ use Quiote\Config\ConfigCache;
  */
 class TestingConfigCache extends ConfigCache
 {
-	public static function handlersDirty()
+	public static function handlersDirty(): bool
 	{
 		return self::$handlersDirty;
 	}
-	
-	public static function getHandlerFiles()
+
+	/** @return array<string,bool> */
+	public static function getHandlerFiles(): array
 	{
 		return self::$handlerFiles;
 	}
-	
-	public static function getHandlers()
+
+	/** @return ?array<string,array<string,mixed>> */
+	public static function getHandlers(): ?array
 	{
 		return self::$handlers;
 	}
 
-	public static function resetHandlers()
+	public static function resetHandlers(): void
 	{
 		self::$handlers = null;
 	}
@@ -37,7 +39,7 @@ class TestingConfigCache extends ConfigCache
 	 * make addConfigHandlersFile() a no-op and leave the dirty flag unset. Tests
 	 * that assert on that behaviour call this first to restore a known precondition.
 	 */
-	public static function forgetHandlerFile($filename)
+	public static function forgetHandlerFile(string $filename): void
 	{
 		unset(self::$handlerFiles[$filename]);
 	}

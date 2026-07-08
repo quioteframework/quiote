@@ -24,11 +24,13 @@ class SampleResponse extends WebResponse
 	#[\Override]
     public function getRedirect()
 	{
+		return null;
 	}
-	
+
 	#[\Override]
     public function hasRedirect()
 	{
+		return false;
 	}
 	
 	#[\Override]
@@ -44,7 +46,7 @@ class SampleResponse extends WebResponse
 
 class ResponseTest extends UnitTestCase
 {
-	private $_r = null;
+	private SampleResponse $_r;
 
 	#[\Override]
     public function setUp(): void
@@ -53,14 +55,14 @@ class ResponseTest extends UnitTestCase
 		$this->_r->initialize($this->getContext());
 	}
 
-	public function testGetContext()
+	public function testGetContext(): void
 	{
 		$ctx = $this->getContext();
 		$ctx_test = $this->_r->getContext();
 		$this->assertSame($ctx, $ctx_test);
 	}
 
-	public function testSetGetContent()
+	public function testSetGetContent(): void
 	{
 		$r = $this->_r;
 		$this->assertEquals('', $r->getContent());
@@ -68,7 +70,7 @@ class ResponseTest extends UnitTestCase
 		$this->assertEquals('test1', $r->getContent());
 	}
 
-	public function testPrependContent()
+	public function testPrependContent(): void
 	{
 		$r = $this->_r;
 
@@ -77,7 +79,7 @@ class ResponseTest extends UnitTestCase
 		$this->assertEquals('content b' . 'content a', $r->getContent());
 	}
 
-	public function testAppendContent()
+	public function testAppendContent(): void
 	{
 		$r = $this->_r;
 

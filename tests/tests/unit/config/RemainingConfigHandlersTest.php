@@ -30,7 +30,7 @@ XML;
         return $doc;
     }
 
-    public function testCachingConfigHandlerMinimal()
+    public function testCachingConfigHandlerMinimal(): void
     {
         $ns = 'http://quiote.dev/quiote/config/parts/caching/1.1';
         $inner = <<<XML
@@ -52,11 +52,10 @@ XML;
         $h = new CachingConfigHandler();
         $h->initialize(null, []);
         $code = $h->execute($this->envelope($inner, 'caching.xml'));
-        $this->assertIsString($code);
         $this->assertStringContainsString('grp', $code);
     }
 
-    public function testCompileConfigHandlerAggregates()
+    public function testCompileConfigHandlerAggregates(): void
     {
     // Force non-debug mode so CompileConfigHandler inlines file contents
     \Quiote\Config\Config::set('core.debug', false, true, true);
@@ -72,12 +71,11 @@ XML;
         $h = new CompileConfigHandler();
         $h->initialize(null, []);
         $code = $h->execute($this->envelope($inner, 'compile.xml'));
-        $this->assertIsString($code);
         // In non-debug mode formatted file contents are inlined; debug mode would use require(). We only need to see our echo statement.
         $this->assertStringContainsString("echo 'X';", $code);
     }
 
-    public function testConfigHandlersConfigHandlerListsEntry()
+    public function testConfigHandlersConfigHandlerListsEntry(): void
     {
         $ns = 'http://quiote.dev/quiote/config/parts/config_handlers/1.1';
         $inner = <<<XML
@@ -88,11 +86,10 @@ XML;
         $h = new ConfigHandlersConfigHandler();
         $h->initialize(null, []);
         $code = $h->execute($this->envelope($inner, 'config_handlers.xml'));
-        $this->assertIsString($code);
         $this->assertStringContainsString('FooHandler', $code);
     }
 
-    public function testReturnArrayConfigHandlerReturnsPhpArray()
+    public function testReturnArrayConfigHandlerReturnsPhpArray(): void
     {
         $ns = 'http://quiote.dev/quiote/config/parts/return_array/1.1';
         // Use an element with children; the handler places content into associative structure.

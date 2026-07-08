@@ -6,14 +6,20 @@ use Quiote\Config\XmlConfigParser;
 
 abstract class ConfigHandlerTestBase extends PhpUnitTestCase
 {
-	protected function getIncludeFile($code)
+	protected function getIncludeFile(string $code): string
 	{
 		$file = tempnam(Config::getString('core.cache_dir'), 'cht');
+		if ($file === false) {
+			throw new \RuntimeException('Failed to create a temporary include file for the config handler test.');
+		}
 		file_put_contents($file, $code);
 		return $file;
 	}
 
-	protected function includeCode($code, $env = [])
+	/**
+	 * @param array<string, mixed> $env
+	 */
+	protected function includeCode(string $code, array $env = []): mixed
 	{
 		extract($env);
 		$file = $this->getIncludeFile($code);
@@ -21,8 +27,8 @@ abstract class ConfigHandlerTestBase extends PhpUnitTestCase
 		unlink($file);
 		return $ret;
 	}
-	
-	protected function parseConfiguration($configFile, $xslFile = null, $environment = null) {
+
+	protected function parseConfiguration(string $configFile, ?string $xslFile = null, ?string $environment = null): \Quiote\Config\Util\DOM\XmlConfigDomDocument {
 		return XmlConfigParser::run(
 			$configFile,
 			$environment ?: Config::getNullableString('core.environment'),

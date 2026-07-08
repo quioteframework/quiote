@@ -5,7 +5,7 @@ use Quiote\Config\ConfigValueHolder;
 
 class ConfigValueHolderTest extends UnitTestCase
 {
-	public function testInitialState()
+	public function testInitialState(): void
 	{
 		$vh = new ConfigValueHolder();
 		$this->assertSame('', $vh->getName());
@@ -14,7 +14,20 @@ class ConfigValueHolderTest extends UnitTestCase
 		$this->assertNull($vh->getValue());
 	}
 
-	public function testSetName()
+	public function testToStringWithNoValueSetReturnsEmptyString(): void
+	{
+		$vh = new ConfigValueHolder();
+		$this->assertSame('', (string) $vh);
+	}
+
+	public function testToStringWithValueSetReturnsThatValue(): void
+	{
+		$vh = new ConfigValueHolder();
+		$vh->setValue('hello');
+		$this->assertSame('hello', (string) $vh);
+	}
+
+	public function testSetName(): void
 	{
 		$vh = new ConfigValueHolder();
 		$vh->setName('test1');
@@ -23,7 +36,7 @@ class ConfigValueHolderTest extends UnitTestCase
 		$this->assertSame('test2', $vh->getName());
 	}
 
-	public function testAddChildren()
+	public function testAddChildren(): void
 	{
 		$vh = new ConfigValueHolder();
 		$vhChild1 = new ConfigValueHolder();
@@ -31,13 +44,13 @@ class ConfigValueHolderTest extends UnitTestCase
 
 		$vh->addChildren('child1', $vhChild1);
 		$vh->addChildren('child2', $vhChild2);
-		$this->assertSame($vhChild1, $vh->child1);
+		$this->assertSame($vhChild1, $vh->__get('child1'));
 		$this->assertSame($vhChild1, $vh['child1']);
-		$this->assertSame($vhChild2, $vh->child2);
+		$this->assertSame($vhChild2, $vh->__get('child2'));
 		$this->assertSame($vhChild2, $vh['child2']);
 	}
 
-	public function testAppendChildren()
+	public function testAppendChildren(): void
 	{
 		$vh = new ConfigValueHolder();
 		$vhChild1 = new ConfigValueHolder();
@@ -50,7 +63,7 @@ class ConfigValueHolderTest extends UnitTestCase
 		$this->assertSame($vhChild2, $a[1]);
 	}
 
-	public function testHasChildren()
+	public function testHasChildren(): void
 	{
 		$vh = new ConfigValueHolder();
 		$vhChild1 = new ConfigValueHolder();
@@ -66,7 +79,7 @@ class ConfigValueHolderTest extends UnitTestCase
 		$this->assertFalse($vh->hasChildren('child2'));
 	}
 
-	public function testGetChildren()
+	public function testGetChildren(): void
 	{
 		$vh = new ConfigValueHolder();
 		$vhChild1 = new ConfigValueHolder();
@@ -85,7 +98,7 @@ class ConfigValueHolderTest extends UnitTestCase
 		$this->assertSame($vhChild3, $childs['child3']);
 	}
 
-	public function testSetAttribute()
+	public function testSetAttribute(): void
 	{
 		$vh = new ConfigValueHolder();
 
@@ -97,7 +110,7 @@ class ConfigValueHolderTest extends UnitTestCase
 		$this->assertSame('val3', $vh->getAttribute('attr1'));
 	}
 
-	public function testHasAttribute()
+	public function testHasAttribute(): void
 	{
 		$vh = new ConfigValueHolder();
 
@@ -112,7 +125,7 @@ class ConfigValueHolderTest extends UnitTestCase
 		$this->assertTrue($vh->hasAttribute('attr2'));
 	}
 
-	public function testGetAttribute()
+	public function testGetAttribute(): void
 	{
 		$vh = new ConfigValueHolder();
 
@@ -125,7 +138,7 @@ class ConfigValueHolderTest extends UnitTestCase
 		$this->assertSame('val2', $vh->getAttribute('attr2'));
 	}
 
-	public function testGetAttributes()
+	public function testGetAttributes(): void
 	{
 		$vh = new ConfigValueHolder();
 		$vh->setAttribute('attr1', 'val1');
@@ -138,7 +151,7 @@ class ConfigValueHolderTest extends UnitTestCase
 		$this->assertSame($attr_ex, $attr);
 	}
 
-	public function testSetGetValue()
+	public function testSetGetValue(): void
 	{
 		$vh = new ConfigValueHolder();
 
@@ -148,7 +161,7 @@ class ConfigValueHolderTest extends UnitTestCase
 		$this->assertSame('newvalue', $vh->getValue());
 	}
 
-	public function testArrayInterface()
+	public function testArrayInterface(): void
 	{
 		$vh = new ConfigValueHolder();
 		$vhChild1 = new ConfigValueHolder();
@@ -166,7 +179,7 @@ class ConfigValueHolderTest extends UnitTestCase
 		$this->assertNull($vh['child1']);
 	}
 
-	public function testIteratorIterface()
+	public function testIteratorIterface(): void
 	{
 		$vh = new ConfigValueHolder();
 		$vhChild1 = new ConfigValueHolder();

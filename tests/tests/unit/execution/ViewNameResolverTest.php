@@ -6,7 +6,7 @@ use Quiote\View\View;
 
 class ViewNameResolverTest extends UnitTestCase
 {
-    public function testResolvesScalarViewName()
+    public function testResolvesScalarViewName(): void
     {
         $resolver = new ViewNameResolver();
     [$vm,$vn] = $resolver->resolve('Cache','Cache','Success');
@@ -14,7 +14,7 @@ class ViewNameResolverTest extends UnitTestCase
     $this->assertContains($vn, ['Success','CacheSuccess']);
     }
 
-    public function testResolvesArrayViewName()
+    public function testResolvesArrayViewName(): void
     {
         $resolver = new ViewNameResolver();
         [$vm,$vn] = $resolver->resolve('Cache','Cache',['Other','Alt']);
@@ -22,7 +22,7 @@ class ViewNameResolverTest extends UnitTestCase
         $this->assertSame('Alt',$vn);
     }
 
-    public function testNoneConstant()
+    public function testNoneConstant(): void
     {
         $resolver = new ViewNameResolver();
         [$vm,$vn] = $resolver->resolve('Cache','Cache',View::NONE);

@@ -31,10 +31,15 @@ class RoutingMiddlewareTest extends TestCase
         return $ctx->getController();
     }
 
-    /** Builds an Routing instance with a single route constrained to the given methods (empty = unconstrained). */
+    /**
+     * Builds an Routing instance with a single route constrained to the given methods (empty = unconstrained).
+     *
+     * @param array<int, string> $methods
+     */
     private function routingWithRoute(string $path, array $methods = []): Routing
     {
         return new class($path, $methods) extends Routing {
+            /** @param array<int, string> $methods */
             public function __construct(private readonly string $path, private readonly array $methods)
             {
                 parent::__construct();
@@ -58,14 +63,25 @@ class RoutingMiddlewareTest extends TestCase
         };
     }
 
+    /**
+     * Narrows the nullable captured request from dispatch() into a concrete
+     * ServerRequestInterface, failing loudly if the downstream handler was
+     * never reached (a genuine test-authoring mistake, not something to mask).
+     */
+    private function requireRequest(?ServerRequestInterface $request): ServerRequestInterface
+    {
+        if ($request === null) {
+            throw new \RuntimeException('Expected the downstream handler to have captured a request.');
+        }
+        return $request;
+    }
+
+    /** @return array{response: ResponseInterface, reached: bool, request: ?ServerRequestInterface} */
     private function dispatch(RoutingMiddleware $mw, ServerRequestInterface $req): array
     {
-        $handlerReached = false;
-        $finalRequest = null;
-        $final = new class($handlerReached, $finalRequest) implements RequestHandlerInterface {
+        $final = new class() implements RequestHandlerInterface {
             public bool $reached = false;
             public ?ServerRequestInterface $request = null;
-            public function __construct(bool &$reached, ?ServerRequestInterface &$request) {}
             public function handle(ServerRequestInterface $r): ResponseInterface
             {
                 $this->reached = true;
@@ -86,8 +102,9 @@ class RoutingMiddlewareTest extends TestCase
         $result = $this->dispatch($mw, $req);
 
         $this->assertTrue($result['reached'], 'downstream handler should run for a matching method');
-        $this->assertSame('TestModule', $result['request']->getAttribute('module'));
-        $this->assertSame('TestAction', $result['request']->getAttribute('action'));
+        $reqAfter = $this->requireRequest($result['request']);
+        $this->assertSame('TestModule', $reqAfter->getAttribute('module'));
+        $this->assertSame('TestAction', $reqAfter->getAttribute('action'));
     }
 
     public function testMethodMismatchNonOptionsReturns405WithAllowHeader(): void
@@ -114,7 +131,7 @@ class RoutingMiddlewareTest extends TestCase
         $result = $this->dispatch($mw, $req);
 
         $this->assertTrue($result['reached'], 'OPTIONS should fall through to downstream CORS handling, not error');
-        $this->assertNull($result['request']->getAttribute('module'), 'route should be left unmatched for OPTIONS preflight');
+        $this->assertNull($this->requireRequest($result['request'])->getAttribute('module'), 'route should be left unmatched for OPTIONS preflight');
     }
 
     public function testUnconstrainedRouteMatchesAnyMethod(): void
@@ -125,7 +142,7 @@ class RoutingMiddlewareTest extends TestCase
         foreach (['GET', 'POST', 'DELETE'] as $method) {
             $result = $this->dispatch($mw, new ServerRequest($method, '/widgets'));
             $this->assertTrue($result['reached'], "$method should match an unconstrained route");
-            $this->assertSame('TestModule', $result['request']->getAttribute('module'));
+            $this->assertSame('TestModule', $this->requireRequest($result['request'])->getAttribute('module'));
         }
     }
 
@@ -141,7 +158,7 @@ class RoutingMiddlewareTest extends TestCase
 
         $first = $this->dispatch($mw, new ServerRequest('POST', '/widgets'));
         $this->assertTrue($first['reached']);
-        $this->assertSame('TestModule', $first['request']->getAttribute('module'));
+        $this->assertSame('TestModule', $this->requireRequest($first['request'])->getAttribute('module'));
 
         $second = $this->dispatch($mw, new ServerRequest('GET', '/widgets'));
         $this->assertFalse($second['reached']);
@@ -149,7 +166,7 @@ class RoutingMiddlewareTest extends TestCase
 
         $third = $this->dispatch($mw, new ServerRequest('POST', '/widgets'));
         $this->assertTrue($third['reached']);
-        $this->assertSame('TestModule', $third['request']->getAttribute('module'));
+        $this->assertSame('TestModule', $this->requireRequest($third['request'])->getAttribute('module'));
     }
 
     public function testNonExistentPathLeavesRouteUnmatched(): void
@@ -161,6 +178,6 @@ class RoutingMiddlewareTest extends TestCase
         $result = $this->dispatch($mw, $req);
 
         $this->assertTrue($result['reached'], '404 case should still fall through to downstream handling');
-        $this->assertNull($result['request']->getAttribute('module'));
+        $this->assertNull($this->requireRequest($result['request'])->getAttribute('module'));
     }
 }

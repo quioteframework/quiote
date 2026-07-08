@@ -42,6 +42,7 @@ final class AppWriter
 
 		$this->put("cache/.gitkeep", '');
 		$this->put("log/.gitkeep", '');
+		$this->put('.gitignore', $this->gitignore());
 
 		$this->put('Config/settings.' . $this->settingsExtension(), $this->settingsContent());
 		$this->put('Config/factories.yaml', $this->factoriesYaml());
@@ -64,6 +65,9 @@ final class AppWriter
 		$this->put('Modules/Default/Templates/ContactSuccess.php', $this->templatePhp('Contact', $this->contactBody()));
 
 		$this->put('pub/index.php', $this->frontControllerPhp());
+
+		$this->put('phpstan-bootstrap.php', $this->phpstanBootstrapPhp());
+		$this->put('phpstan.neon', $this->phpstanNeon());
 	}
 
 	/**
@@ -87,6 +91,17 @@ final class AppWriter
 			}
 		}
 		return true;
+	}
+
+	private function gitignore(): string
+	{
+		return <<<'GITIGNORE'
+		/cache/*
+		!/cache/.gitkeep
+		/log/*
+		!/log/.gitkeep
+
+		GITIGNORE;
 	}
 
 	private function settingsExtension(): string
@@ -310,19 +325,19 @@ final class AppWriter
 
 		class {$name}Action extends Action
 		{
-			public function executeRead(WebRequest \$rd)
+			public function executeRead(WebRequest \$rd): string
 			{
 				return '{$defaultView}';
 			}
 
-			public function getDefaultViewName()
+			public function getDefaultViewName(): string
 			{
 				return '{$defaultView}';
 			}
 
 			// No validators configured for this scaffolded action -- skip the
 			// validation pipeline's XML-config lookup entirely.
-			public function isSimple()
+			public function isSimple(): bool
 			{
 				return true;
 			}
@@ -348,12 +363,12 @@ final class AppWriter
 		 */
 		class BoomAction extends Action
 		{
-			public function executeRead(WebRequest \$rd)
+			public function executeRead(WebRequest \$rd): never
 			{
 				throw new \\RuntimeException('Boom! This is a deliberately triggered error.');
 			}
 
-			public function getDefaultViewName()
+			public function getDefaultViewName(): string
 			{
 				return 'Success';
 			}
@@ -381,19 +396,19 @@ final class AppWriter
 		#[Route('/contact', name: 'contact', methods: ['GET'])]
 		class ContactAction extends Action
 		{
-			public function executeRead(WebRequest \$rd)
+			public function executeRead(WebRequest \$rd): string
 			{
 				return 'Success';
 			}
 
-			public function getDefaultViewName()
+			public function getDefaultViewName(): string
 			{
 				return 'Success';
 			}
 
 			// No validators configured for this scaffolded action -- skip the
 			// validation pipeline's XML-config lookup entirely.
-			public function isSimple()
+			public function isSimple(): bool
 			{
 				return true;
 			}
@@ -424,7 +439,7 @@ final class AppWriter
 				));
 			}
 
-			public function executeHtml(WebRequest \$rd)
+			public function executeHtml(WebRequest \$rd): void
 			{
 				// Populates the layers from output_types.xml's <layouts> so the "content"
 				// layer's template actually gets rendered -- without this, executeHtml()
@@ -593,5 +608,64 @@ final class AppWriter
 		])->run();
 
 		PHP;
+	}
+
+	/**
+	 * PHPStan bootstrap: same autoload dance as pub/index.php (own-namespace
+	 * autoloader + finding the framework's vendor/autoload.php), so `phpstan
+	 * analyse` can resolve both the app's own classes and Quiote's.
+	 */
+	private function phpstanBootstrapPhp(): string
+	{
+		$namespace = $this->namespace;
+		$activeAutoloadLiteral = $this->needsAbsoluteAutoloadFallback()
+			? var_export($this->activeAutoloadPath, true) . ",\n\t"
+			: '';
+		return <<<PHP
+		<?php
+
+		spl_autoload_register(static function (string \$class): void {
+			\$prefix = '{$namespace}\\\\';
+			if (!str_starts_with(\$class, \$prefix)) {
+				return;
+			}
+			\$relative = substr(\$class, strlen(\$prefix));
+			\$file = __DIR__ . '/' . str_replace('\\\\', '/', \$relative) . '.php';
+			if (is_file(\$file)) {
+				require \$file;
+			}
+		});
+
+		\$autoloadCandidates = [
+			{$activeAutoloadLiteral}
+			__DIR__ . '/vendor/autoload.php',
+			dirname(__DIR__) . '/vendor/autoload.php',
+			dirname(__DIR__, 2) . '/vendor/autoload.php',
+			dirname(__DIR__, 3) . '/vendor/autoload.php',
+			dirname(__DIR__, 4) . '/vendor/autoload.php',
+		];
+		foreach (\$autoloadCandidates as \$candidate) {
+			if (is_file(\$candidate)) {
+				require \$candidate;
+				break;
+			}
+		}
+
+		PHP;
+	}
+
+	/** Level 9 by default -- the generated app's own code is kept clean at that level. */
+	private function phpstanNeon(): string
+	{
+		return <<<NEON
+		parameters:
+			level: 9
+			bootstrapFiles:
+				- phpstan-bootstrap.php
+			paths:
+				- Modules
+				- Routing
+
+		NEON;
 	}
 }

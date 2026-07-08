@@ -15,15 +15,14 @@ use Sandbox\Modules\ContextTest\Models\Parent\Child\TestModel as ModuleChildTest
 class ContextTest extends PhpUnitTestCase
 {	
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
-	public function testGetInstance()
+	public function testGetInstance(): void
 	{
 		$instance = Context::getInstance('foo');
-		$this->assertNotNull($instance);
 		$this->assertInstanceOf(Context::class, $instance);
 	}
 	
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
-	public function testSameInstanceForSameProfile()
+	public function testSameInstanceForSameProfile(): void
 	{
 		$instance1 = Context::getInstance('foo');
 		$instance2 = Context::getInstance('foo');
@@ -31,7 +30,7 @@ class ContextTest extends PhpUnitTestCase
 	}
 	
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
-	public function testDifferentInstanceForDifferentProfile()
+	public function testDifferentInstanceForDifferentProfile(): void
 	{
 		$instance1 = Context::getInstance('foo');
 		$instance2 = Context::getInstance('bar');
@@ -39,7 +38,7 @@ class ContextTest extends PhpUnitTestCase
 	}
 	
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
-	public function testGetName()
+	public function testGetName(): void
 	{
 		$this->assertSame(Config::getNullableString('core.default_context'), Context::getInstance()->getName());
 		$this->assertSame('test1', Context::getInstance('test1')->getName());
@@ -91,9 +90,10 @@ class ContextTest extends PhpUnitTestCase
 	}
 
 
+	/** @param class-string $className */
 	#[\PHPUnit\Framework\Attributes\DataProvider('dataGetModel')]
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
-	public function testGetModel($modelName, $className, $isSingleton, $module = null)
+	public function testGetModel(string $modelName, string $className, bool $isSingleton, ?string $module = null): void
 	{
 		$ctx = Context::getInstance();
 		$model1 = $ctx->getModel($modelName, $module);
@@ -107,7 +107,8 @@ class ContextTest extends PhpUnitTestCase
 		}
 	}
 	
-	public static function dataGetModel() {
+	/** @return array<string, array{0: string, 1: class-string, 2: bool, 3?: string}> */
+	public static function dataGetModel(): array {
 		return [
 			'global normal model' => ['ContextTest', ContextTestModel::class, false],
 			'global singleton model' => ['ContextTestSingleton', ContextTestSingletonModel::class, true],
@@ -119,7 +120,7 @@ class ContextTest extends PhpUnitTestCase
 	}	
 
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
-	public function testGetFactoryInfo()
+	public function testGetFactoryInfo(): void
 	{
 		$ctx = Context::getInstance('test');
 		$expected = ['class' => \Quiote\Response\WebResponse::class, 'parameters' => []];
@@ -127,7 +128,7 @@ class ContextTest extends PhpUnitTestCase
 	}
 
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
-	public function testGetController()
+	public function testGetController(): void
 	{
 		$this->assertInstanceOf(\Quiote\Controller\Controller::class, Context::getInstance()->getController());
 	}
@@ -137,7 +138,7 @@ class ContextTest extends PhpUnitTestCase
 	 */
 	#[IsolationEnvironment('testing-use_database_off')]
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
-	public function testGetDatabaseManagerOff()
+	public function testGetDatabaseManagerOff(): void
 	{
 		$ctx = Context::getInstance();
 		$this->assertFalse(Config::getBool('core.use_database'));
@@ -146,14 +147,14 @@ class ContextTest extends PhpUnitTestCase
 
 	#[IsolationEnvironment('testing-use_database_on')]
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
-	public function testGetDatabaseManagerOn()
+	public function testGetDatabaseManagerOn(): void
 	{
 		$this->assertInstanceOf(\Quiote\Database\DatabaseManager::class, Context::getInstance()->getDatabaseManager());
 	}
 	
 	#[IsolationEnvironment('testing-use_security_off')]
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
-	public function testGetUserSecurityOff()
+	public function testGetUserSecurityOff(): void
 	{
 		$this->assertInstanceOf(\Quiote\User\User::class, Context::getInstance()->getUser());
 		$this->assertNotInstanceOf(\Quiote\User\SecurityUser::class, Context::getInstance()->getUser());
@@ -161,28 +162,28 @@ class ContextTest extends PhpUnitTestCase
 
 	#[IsolationEnvironment('testing-use_security_on')]
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
-	public function testGetUserSecurityOn()
+	public function testGetUserSecurityOn(): void
 	{
 		$this->assertInstanceOf(\Quiote\User\SecurityUser::class, Context::getInstance()->getUser());
 	}
 
 	#[IsolationEnvironment('testing-use_translation_off')]
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
-	public function testGetTranslationManagerOff()
+	public function testGetTranslationManagerOff(): void
 	{
 		$this->assertNull(Context::getInstance()->getTranslationManager());
 	}
 
 	#[IsolationEnvironment('testing-use_logging_on')]
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
-	public function testGetTranslationManagerOn()
+	public function testGetTranslationManagerOn(): void
 	{
 		$this->assertInstanceOf(\Quiote\Translation\TranslationManager::class, Context::getInstance()->getTranslationManager());
 	}
 
 
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
-	public function testGetRequest()
+	public function testGetRequest(): void
 	{
 		$ctx = Context::getInstance();
 		$this->assertInstanceOf(\Quiote\Request\WebRequest::class, $ctx->getRequest());
@@ -190,7 +191,7 @@ class ContextTest extends PhpUnitTestCase
 	}
 
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
-	public function testGetAssetRegistryReturnsSameInstanceUntilReset()
+	public function testGetAssetRegistryReturnsSameInstanceUntilReset(): void
 	{
 		$ctx = Context::getInstance('asset_registry_test');
 		$registry1 = $ctx->getAssetRegistry();
@@ -207,14 +208,14 @@ class ContextTest extends PhpUnitTestCase
 	}
 
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
-	public function testGetRouting()
+	public function testGetRouting(): void
 	{
 		$ctx = Context::getInstance();
 		$this->assertInstanceOf(\Quiote\Routing\Routing::class, $ctx->getRouting());
 	}
 
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
-	public function testGetStorage()
+	public function testGetStorage(): void
 	{
 		$ctx = Context::getInstance();
 		$this->assertInstanceOf(\Quiote\Storage\Storage::class, $ctx->getStorage());
@@ -226,7 +227,7 @@ class ContextTest extends PhpUnitTestCase
 	 * exact same instances.
 	 */
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
-	public function testContainerResolvesCoreServicesByRoleAndClass()
+	public function testContainerResolvesCoreServicesByRoleAndClass(): void
 	{
 		$ctx = Context::getInstance();
 		$container = $ctx->getContainer();
@@ -246,7 +247,7 @@ class ContextTest extends PhpUnitTestCase
 	 * serves a discarded per-request instance.
 	 */
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
-	public function testContainerResetDropsRequestScopedEntriesButKeepsSingletons()
+	public function testContainerResetDropsRequestScopedEntriesButKeepsSingletons(): void
 	{
 		$ctx = Context::getInstance();
 		$container = $ctx->getContainer();
@@ -270,7 +271,7 @@ class ContextTest extends PhpUnitTestCase
 	 * Context) resolves correctly.
 	 */
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
-	public function testGetServiceResolvesCoreServiceAndArbitraryClass()
+	public function testGetServiceResolvesCoreServiceAndArbitraryClass(): void
 	{
 		$ctx = Context::getInstance();
 		$this->assertSame($ctx->getController(), $ctx->getService('controller'));
@@ -281,7 +282,7 @@ class ContextTest extends PhpUnitTestCase
 	}
 
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
-	public function testGetServiceDefaultsToTransientForQuioteServiceInterface()
+	public function testGetServiceDefaultsToTransientForQuioteServiceInterface(): void
 	{
 		$ctx = Context::getInstance();
 		$s1 = $ctx->getService(ContextTestServiceFixture::class);

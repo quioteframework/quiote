@@ -7,7 +7,7 @@ class SampleModel extends Model {}
 
 class ModelTest extends UnitTestCase
 {
-	public function testGetContext()
+	public function testGetContext(): void
 	{
 		$context = $this->getContext();
 		$model = new SampleModel();

@@ -9,6 +9,9 @@ use Symfony\Component\Routing\RouteCollection;
  * Routes for module module3 (1 routes; built 2025-08-18T13:18:24+00:00)
  */
 final class Module3Routes {
+    /**
+     * @param array<string, array{gen_path: string, cut: bool, path: string, opt?: array{parent: string|null, action: mixed}, pattern?: string, match_full?: string, match_partial?: string}> $meta
+     */
     public static function addRoutes(RouteCollection $routes, array &$meta): void {
         $routes->add('t1child3', new Route('/anchor/child3/{bar}', [
     '_module' => 'module3',

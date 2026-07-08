@@ -8,7 +8,7 @@ use Quiote\Util\ArrayPathDefinition;
 class ParameterHolderTest extends PhpUnitTestCase
 {
 	
-	public function testConstructAndGetParameters()
+	public function testConstructAndGetParameters(): void
 	{
 		$data = ['foo' => 'bar', 'bar' => 'baz', 'baz' => 'qux'];
 		$p = new ParameterHolder($data);
@@ -22,7 +22,7 @@ class ParameterHolderTest extends PhpUnitTestCase
 		$this->assertEquals([], $p->getParameters());
 	}
 
-	public function testGetParametersIntegerIndex()
+	public function testGetParametersIntegerIndex(): void
 	{
 		$data2 = ['a' => '11', 'b' => '22', 3 => '33', '44'];
 		$p = new ParameterHolder($data2);
@@ -31,7 +31,7 @@ class ParameterHolderTest extends PhpUnitTestCase
 		$this->assertEquals([], $p->getParameters());
 	}
 
-	public function testGetParameterNames()
+	public function testGetParameterNames(): void
 	{
 		$data2 = ['a' => '11', 'b' => '22', 'c' => '33'];
 		$p = new ParameterHolder($data2);
@@ -40,7 +40,7 @@ class ParameterHolderTest extends PhpUnitTestCase
 		$this->assertEquals([], $p->getParameters());
 	}
 
-	public function testGetParameterNamesIntegerIndex()
+	public function testGetParameterNamesIntegerIndex(): void
 	{
 		$data2 = ['a' => '11', 'b' => '22', 3 => '33', '44'];
 		$p = new ParameterHolder($data2);
@@ -49,7 +49,7 @@ class ParameterHolderTest extends PhpUnitTestCase
 		$this->assertEquals([], $p->getParameters());
 	}
 
-	public function testGetFlatParameterNames()
+	public function testGetFlatParameterNames(): void
 	{
 		$data2 = ['a' => '11', 'b' => '22', 'c' => '33'];
 		$p = new ParameterHolder($data2);
@@ -58,7 +58,7 @@ class ParameterHolderTest extends PhpUnitTestCase
 		$this->assertEquals([], $p->getParameters());
 	}
 
-	public function testGetFlatParameterIntegerIndex()
+	public function testGetFlatParameterIntegerIndex(): void
 	{
 		$data2 = ['a' => '11', 'b' => '22', 3 => '33', '44'];
 		$p = new ParameterHolder($data2);
@@ -67,7 +67,7 @@ class ParameterHolderTest extends PhpUnitTestCase
 		$this->assertEquals([], $p->getParameters());
 	}
   
-	public function testGetParameter()
+	public function testGetParameter(): void
 	{
 		$data = ['stefy' => 'ecuador', 'amy' => 'florida', 'stasy' => 'ukraine', 'lalala'];
 		$p = new ParameterHolder($data);
@@ -78,7 +78,7 @@ class ParameterHolderTest extends PhpUnitTestCase
 		$this->assertEquals([], $p->getParameters());
 	}
 
-	public function testGetParameterIntegerIndex()
+	public function testGetParameterIntegerIndex(): void
 	{
 		$data = ['stefy' => 'ecuador', 0 => 'florida', 'lalala'];
 		$p = new ParameterHolder($data);
@@ -88,7 +88,7 @@ class ParameterHolderTest extends PhpUnitTestCase
 		$this->assertEquals([], $p->getParameters());
 	}
 
-	public function testHasParameter()
+	public function testHasParameter(): void
 	{
 		$data = ['stefy' => 'ecuador', 'amy' => 'florida', 'stasy' => 'ukraine', 'lalala'];
 		$p = new ParameterHolder($data);
@@ -99,7 +99,7 @@ class ParameterHolderTest extends PhpUnitTestCase
 		$this->assertEquals([], $p->getParameters());
 	}
 
-	public function testHasParameterIntegerIndex()
+	public function testHasParameterIntegerIndex(): void
 	{
 		$data = [1 => '111'];
 		$p = new ParameterHolder($data);
@@ -109,7 +109,7 @@ class ParameterHolderTest extends PhpUnitTestCase
 		$this->assertEquals([], $p->getParameters());
 	}
 
-	public function testRemoveParameter()
+	public function testRemoveParameter(): void
 	{
 		$data = ['stef' => 'ecuador', 'amy' => 'florida', 'stasy' => 'ukraine', 'lalala'];
 		$p = new ParameterHolder($data);
@@ -122,7 +122,7 @@ class ParameterHolderTest extends PhpUnitTestCase
 		$this->assertEquals([], $p->getParameters());
 	}
 
-	public function testRemoveParameterIntegerIndex()
+	public function testRemoveParameterIntegerIndex(): void
 	{
 		$data = [2 => '222', 1 => '111'];
 		$p = new ParameterHolder($data);
@@ -133,7 +133,7 @@ class ParameterHolderTest extends PhpUnitTestCase
 		$this->assertEquals([], $p->getParameters());
 	}
 
-	public function testSetParameter()
+	public function testSetParameter(): void
 	{
 		$data = ['stefy' => 'ecuador', 'amy' => 'florida', 'stasy' => 'ukraine', 'lalala'];
 		$p = new ParameterHolder($data);
@@ -145,7 +145,7 @@ class ParameterHolderTest extends PhpUnitTestCase
 		$this->assertEquals([], $p->getParameters());
 	}
 
-	public function testSetParameterIntegerIndex()
+	public function testSetParameterIntegerIndex(): void
 	{
 		$data = [0 => 'ecuador', 'lalala'];
 		$p = new ParameterHolder($data);
@@ -156,7 +156,7 @@ class ParameterHolderTest extends PhpUnitTestCase
 		$this->assertEquals([], $p->getParameters());
 	}
 
-	public function testSetParameterByRef()
+	public function testSetParameterByRef(): void
 	{
 		$data = ['stefy' => 'ecuador', 'stasy' => 'ukraine'];
 		$p = new ParameterHolder($data);
@@ -167,14 +167,14 @@ class ParameterHolderTest extends PhpUnitTestCase
 		$this->assertEquals('new york', $p->getParameter('amy'));
 	}
 
-	public function testSetGetParameterAsArray()
+	public function testSetGetParameterAsArray(): void
 	{
 		$p = new ParameterHolder();
 		$p->setParameter('foo', ['bar' => 'baz']);
 		$this->assertEquals('baz', $p->getParameter('foo[bar]'));
 	}
 
-	public function testAppendParameter()
+	public function testAppendParameter(): void
 	{
 		$data = ['stefy' => 'ecuador', 'amy' => 'florida', 'stasy' => 'ukraine', 'lalala'];
 		$p = new ParameterHolder($data);
@@ -190,7 +190,7 @@ class ParameterHolderTest extends PhpUnitTestCase
 		$this->assertEquals([], $p->getParameters());
 	}
 
-	public function testAppendParameterIntegerIndex()
+	public function testAppendParameterIntegerIndex(): void
 	{
 		$data = [0 => 'ecuador', 'lalala', 3];
 		$p = new ParameterHolder($data);
@@ -200,7 +200,7 @@ class ParameterHolderTest extends PhpUnitTestCase
 		$this->assertEquals([], $p->getParameters());
 	}
 
-	public function testAppendParameterByRef()
+	public function testAppendParameterByRef(): void
 	{
 		$data = ['stefy' => 'ecuador', 'amy' => 'florida', 'stasy' => 'ukraine'];
 		$p = new ParameterHolder($data);
@@ -217,7 +217,7 @@ class ParameterHolderTest extends PhpUnitTestCase
 		$this->assertEquals([], $p->getParameters());
 	}
 
-	public function testSetParameters()
+	public function testSetParameters(): void
 	{
 		$data = ['stefy' => 'ecuador', 'amy' => 'florida', 'stasy' => 'ukraine', 'lalala'];
 		$p = new ParameterHolder($data);
@@ -227,7 +227,7 @@ class ParameterHolderTest extends PhpUnitTestCase
 		$this->assertEquals([], $p->getParameters());
 	}
 
-	public function testSetParametersIntegerIndex()
+	public function testSetParametersIntegerIndex(): void
 	{
 		$data = [1 => 'ukraine', 'lalala'];
 		$p = new ParameterHolder($data);
@@ -238,7 +238,7 @@ class ParameterHolderTest extends PhpUnitTestCase
 		$this->assertEquals([], $p->getParameters());
 	}
 
-	public function testSetParametersByRef()
+	public function testSetParametersByRef(): void
 	{
 		$data = ['stefy' => 'ecuador', 'amy' => 'florida', 'stasy' => 'ukraine'];
 		$p = new ParameterHolder($data);
@@ -251,7 +251,7 @@ class ParameterHolderTest extends PhpUnitTestCase
 		$this->assertEquals([], $p->getParameters());
 	}
 
-	public function testClear()
+	public function testClear(): void
 	{
 		$data3 = ['a' => '11', 'b' => '22', 'c' => '33', '44'];
 		$p = new ParameterHolder($data3);
@@ -259,7 +259,7 @@ class ParameterHolderTest extends PhpUnitTestCase
 		$this->assertEquals([], $p->getParameters());
 	}
 
-	public function testGetSetStringInteger() {
+	public function testGetSetStringInteger(): void {
 		$p = new ParameterHolder();
 		$p->setParameter('10', 'ten');
 		$this->assertEquals('ten', $p->getParameter(10));
@@ -270,7 +270,7 @@ class ParameterHolderTest extends PhpUnitTestCase
 		$this->assertEquals([1 => 'one', 10 => 'ten', 21 => 'twentyone'], $p->getParameters());
 	}
 
-	public function testRemoveInvalidKeyCausesNoNotice()
+	public function testRemoveInvalidKeyCausesNoNotice(): void
 	{
 		$ph = new ParameterHolder();
 		$zomg =& $ph->removeParameter('[]foo[]');

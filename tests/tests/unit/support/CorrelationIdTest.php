@@ -49,6 +49,7 @@ class CorrelationIdTest extends TestCase
     {
         $long = str_repeat('x', 500);
         $result = CorrelationId::sanitize($long);
+        $this->assertNotNull($result);
         $this->assertSame(200, mb_strlen($result));
     }
 

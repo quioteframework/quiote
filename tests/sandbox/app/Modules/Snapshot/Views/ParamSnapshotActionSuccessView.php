@@ -6,7 +6,7 @@ use Quiote\Request\WebRequest;
 
 class ParamSnapshotActionSuccessView extends View
 {
-    public function execute(WebRequest $rd)
+    public function execute(WebRequest $rd): string
     {
         return 'PARAM_OK';
     }

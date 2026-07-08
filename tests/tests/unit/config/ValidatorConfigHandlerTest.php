@@ -9,15 +9,15 @@ require_once(__DIR__ . '/ConfigHandlerTestBase.php');
 class ValidatorConfigHandlerTest extends ConfigHandlerTestBase
 {
 
-	protected function getContext()
+	protected function getContext(): Context
 	{
 		if (Config::getNullableString('core.default_context') === null) {
 			Config::set('core.default_context', 'web', true, true);
 		}
-		
+
 		return Context::getInstance(Config::getNullableString('core.default_context'));
 	}
-	protected function createValidationManager($environment) {
+	protected function createValidationManager(?string $environment): mixed {
 		$VCH = new ValidatorConfigHandler();
 		$document = $this->parseConfiguration(
 			Config::getString('core.config_dir') . '/tests/validators.xml',
@@ -33,7 +33,7 @@ class ValidatorConfigHandlerTest extends ConfigHandlerTestBase
 		return $vm;
 	}
 	
-	public function testTranslationDomainInheritance1_0Behaviour()
+	public function testTranslationDomainInheritance1_0Behaviour(): void
 	{
 		// Enable translation for test (new intl-based manager)
 		\Quiote\Config\Config::set('core.use_translation', true, true);
@@ -47,7 +47,7 @@ class ValidatorConfigHandlerTest extends ConfigHandlerTestBase
 	}
 	
 	
-	public function testTranslationDomainInheritance()
+	public function testTranslationDomainInheritance(): void
 	{
 		\Quiote\Config\Config::set('core.use_translation', true, true);
 		$vm = $this->createValidationManager('test-translation-domain');
@@ -66,7 +66,7 @@ class ValidatorConfigHandlerTest extends ConfigHandlerTestBase
 		
 	}
 	
-	public function testErrorsDefinedByValidationDefinition() {
+	public function testErrorsDefinedByValidationDefinition(): void {
 		\Quiote\Config\Config::set('core.use_translation', true, true);
 		$vm = $this->createValidationManager('test-validator-definition-error-definition');
 		$this->assertSame(['' => 'error-generic', 'min' => 'error-min'], $vm->getChild('standalone-empty')->getErrorMessages());

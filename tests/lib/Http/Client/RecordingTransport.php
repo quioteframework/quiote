@@ -27,10 +27,10 @@ final class RecordingTransport implements ClientInterface
 
     public function __construct(ResponseInterface|int|null ...$outcomes)
     {
-        $this->script = array_map(
+        $this->script = array_values(array_map(
             static fn($o) => is_int($o) ? new Response($o) : $o,
             $outcomes ?: [new Response(200)],
-        );
+        ));
     }
 
     public function sendRequest(RequestInterface $request): ResponseInterface
@@ -46,6 +46,10 @@ final class RecordingTransport implements ClientInterface
 
     public function lastRequest(): ?RequestInterface
     {
-        return $this->requests[array_key_last($this->requests)] ?? null;
+        if ($this->requests === []) {
+            return null;
+        }
+
+        return $this->requests[array_key_last($this->requests)];
     }
 }

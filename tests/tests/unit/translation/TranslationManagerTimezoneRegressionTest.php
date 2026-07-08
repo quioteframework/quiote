@@ -44,6 +44,7 @@ class TranslationManagerTimezoneRegressionTest extends UnitTestCase
         $this->tm = $tm;
     }
 
+    /** @return array<int, array{0: string, 1: string, 2: int}> */
     public static function offsetCases(): array
     {
         return [
@@ -66,7 +67,7 @@ class TranslationManagerTimezoneRegressionTest extends UnitTestCase
         $rawOffsetId = $m ? $m[1] : '+0000';
         $canonical = $this->tm->resolveTimeZoneId($rawOffsetId);
         // Some ICU builds return GMT±HH:MM, ensure substring match for resiliency
-        $this->assertStringStartsWith(substr($expectedCanonical, 0, 4), $canonical);
+        $this->assertTrue(str_starts_with((string) $canonical, substr($expectedCanonical, 0, 4)));
         // Confirm offset in seconds aligns
         $this->assertEquals($expectedSeconds, $tz->getOffset($dt));
     }

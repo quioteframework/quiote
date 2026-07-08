@@ -22,7 +22,7 @@ class RoutingCallbackPoolTest extends TestCase
     /**
      * Test getting a callback instance from the pool
      */
-    public function testGetInstance()
+    public function testGetInstance(): void
     {
         // Since RoutingCallbackPool creates real instances,
         // we'll test with a real class that exists
@@ -33,7 +33,7 @@ class RoutingCallbackPoolTest extends TestCase
     /**
      * Test that the same instance is returned for the same parameters
      */
-    public function testInstanceReuse()
+    public function testInstanceReuse(): void
     {
         $instance1 = RoutingCallbackPool::getInstance('stdClass', ['param1' => 'value1']);
         $instance2 = RoutingCallbackPool::getInstance('stdClass', ['param1' => 'value1']);
@@ -45,7 +45,7 @@ class RoutingCallbackPoolTest extends TestCase
     /**
      * Test that different instances are returned for different parameters
      */
-    public function testDifferentInstancesForDifferentParameters()
+    public function testDifferentInstancesForDifferentParameters(): void
     {
         $instance1 = RoutingCallbackPool::getInstance('stdClass', ['param1' => 'value1']);
         $instance2 = RoutingCallbackPool::getInstance('stdClass', ['param1' => 'value2']);
@@ -57,7 +57,7 @@ class RoutingCallbackPoolTest extends TestCase
     /**
      * Test pool size management
      */
-    public function testPoolSizeManagement()
+    public function testPoolSizeManagement(): void
     {
         // Create instances up to the pool limit
         $instances = [];
@@ -79,7 +79,7 @@ class RoutingCallbackPoolTest extends TestCase
     /**
      * Test pool statistics
      */
-    public function testPoolStatistics()
+    public function testPoolStatistics(): void
     {
         // Clear pool first
         RoutingCallbackPool::clearPool();
@@ -98,7 +98,7 @@ class RoutingCallbackPoolTest extends TestCase
     /**
      * Test pool clearing
      */
-    public function testClearPool()
+    public function testClearPool(): void
     {
         // Create some instances
         RoutingCallbackPool::getInstance('stdClass', ['test' => 1]);
@@ -117,7 +117,7 @@ class RoutingCallbackPoolTest extends TestCase
     /**
      * Test configuration changes
      */
-    public function testConfiguration()
+    public function testConfiguration(): void
     {
         // Test setting max instances
         RoutingCallbackPool::setMaxInstances(50);
@@ -134,17 +134,20 @@ class RoutingCallbackPoolTest extends TestCase
     /**
      * Test callback with parameters method
      */
-    public function testCallbackWithParameters()
+    public function testCallbackWithParameters(): void
     {
         // Create a mock callback class that supports parameters
         $mockClass = new class {
-            private $parameters = [];
-            
-            public function setParameters($params) {
+            /** @var array<string, mixed> */
+            private array $parameters = [];
+
+            /** @param array<string, mixed> $params */
+            public function setParameters(array $params): void {
                 $this->parameters = $params;
             }
-            
-            public function getParameters() {
+
+            /** @return array<string, mixed> */
+            public function getParameters(): array {
                 return $this->parameters;
             }
         };
@@ -164,7 +167,7 @@ class RoutingCallbackPoolTest extends TestCase
     /**
      * Test error handling for non-existent classes
      */
-    public function testNonExistentClass()
+    public function testNonExistentClass(): void
     {
         $this->expectException(QuioteException::class);
         RoutingCallbackPool::getInstance('NonExistentCallbackClass');
@@ -173,7 +176,7 @@ class RoutingCallbackPoolTest extends TestCase
     /**
      * Test pool performance under load
      */
-    public function testPoolPerformance()
+    public function testPoolPerformance(): void
     {
         RoutingCallbackPool::clearPool();
         $startTime = microtime(true);
@@ -197,7 +200,7 @@ class RoutingCallbackPoolTest extends TestCase
     /**
      * Test memory usage optimization
      */
-    public function testMemoryOptimization()
+    public function testMemoryOptimization(): void
     {
         $initialMemory = memory_get_usage();
 

@@ -228,9 +228,6 @@ class ValidationManagerQueryApiTest extends BaseValidatorTest
     {
         $vm = $this->getContext()->createInstanceFor('validation_manager');
         $validator = $vm->createValidator(SampleShutdownTrackingValidator::class, ['a'], [], ['name' => 'tracked']);
-        if (!$validator instanceof SampleShutdownTrackingValidator) {
-            throw new \RuntimeException('Expected a SampleShutdownTrackingValidator instance.');
-        }
 
         $vm->shutdown();
 

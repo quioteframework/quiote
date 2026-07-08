@@ -7,6 +7,11 @@ use Quiote\Util\ParameterHolder;
 use Locale;
 use NumberFormatter;
 use Symfony\Contracts\Service\ResetInterface;
+use function array_slice;
+use function count;
+use function is_array;
+use function is_string;
+use function strlen;
 
 /**
  * The locale saves all kind of info about a locale
@@ -87,7 +92,7 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 
 	/**
 	 * Retrieve the current application context.
-	 * @return     Context The current Context instance.
+	 * @return     ?Context The current Context instance.
 	 * @since      1.0.0
 	 */
 	public final function getContext()
@@ -97,7 +102,7 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 
 	/**
 	 * Returns the identifier of this locale
-	 * @return     string The identifier.
+	 * @return     ?string The identifier.
 	 * @since      1.0.0
 	 */
 	public function getIdentifier()
@@ -112,8 +117,8 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	 */
 	public function getLocaleLanguage()
 	{
-		if(isset($this->data['locale']['language'])) {
-			return $this->data['locale']['language'];
+		if(isset($this->data['locale']) && is_array($this->data['locale']) && isset($this->data['locale']['language'])) {
+			return is_string($this->data['locale']['language']) ? $this->data['locale']['language'] : null;
 		}
 
 		if(class_exists(Locale::class)) {
@@ -131,8 +136,8 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	 */
 	public function getLocaleTerritory()
 	{
-		if(isset($this->data['locale']['territory'])) {
-			return $this->data['locale']['territory'];
+		if(isset($this->data['locale']) && is_array($this->data['locale']) && isset($this->data['locale']['territory'])) {
+			return is_string($this->data['locale']['territory']) ? $this->data['locale']['territory'] : null;
 		}
 
 		if(class_exists(Locale::class)) {
@@ -151,8 +156,8 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	 */
 	public function getLocaleScript()
 	{
-		if(isset($this->data['locale']['script'])) {
-			return $this->data['locale']['script'];
+		if(isset($this->data['locale']) && is_array($this->data['locale']) && isset($this->data['locale']['script'])) {
+			return is_string($this->data['locale']['script']) ? $this->data['locale']['script'] : null;
 		}
 
 		if(class_exists(Locale::class)) {
@@ -160,7 +165,7 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 				$script = Locale::getScript($this->getBaseLocaleIdentifier());
 				if($script === '') {
 					$parts = $this->getParsedLocaleParts();
-					$script = $parts['script'] ?? '';
+					$script = isset($parts['script']) && is_string($parts['script']) ? $parts['script'] : '';
 				}
 				return $script !== '' ? $script : null;
 			} catch(\Throwable) {
@@ -175,8 +180,8 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	 */
 	public function getLocaleVariant()
 	{
-		if(isset($this->data['locale']['variant'])) {
-			return $this->data['locale']['variant'];
+		if(isset($this->data['locale']) && is_array($this->data['locale']) && isset($this->data['locale']['variant'])) {
+			return is_string($this->data['locale']['variant']) ? $this->data['locale']['variant'] : null;
 		}
 
 		if(class_exists(QuioteLocale::class)) {
@@ -203,14 +208,14 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	 */
 	public function getLocaleCurrency()
 	{
-		if(isset($this->data['locale']['currency'])) {
-			return $this->data['locale']['currency'];
+		if(isset($this->data['locale']) && is_array($this->data['locale']) && isset($this->data['locale']['currency'])) {
+			return is_string($this->data['locale']['currency']) ? $this->data['locale']['currency'] : null;
 		}
-		if(isset($this->data['locale']['currencyOverride'])) {
-			return $this->data['locale']['currencyOverride'];
+		if(isset($this->data['locale']) && is_array($this->data['locale']) && isset($this->data['locale']['currencyOverride'])) {
+			return is_string($this->data['locale']['currencyOverride']) ? $this->data['locale']['currencyOverride'] : null;
 		}
 		if(isset($this->parameters['currency'])) {
-			return $this->parameters['currency'];
+			return is_string($this->parameters['currency']) ? $this->parameters['currency'] : null;
 		}
 
 		if(class_exists(NumberFormatter::class)) {
@@ -232,7 +237,13 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	 */
 	public function getLocaleCalendar()
 	{
-		return $this->data['locale']['calendar'] ?? $this->parameters['calendar'] ?? $this->getDefaultCalendar();
+		if (isset($this->data['locale']) && is_array($this->data['locale']) && isset($this->data['locale']['calendar'])) {
+			return is_string($this->data['locale']['calendar']) ? $this->data['locale']['calendar'] : null;
+		}
+		if (isset($this->parameters['calendar']) && is_string($this->parameters['calendar'])) {
+			return $this->parameters['calendar'];
+		}
+		return $this->getDefaultCalendar();
 	}
 
 	/**
@@ -240,7 +251,10 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	 */
 	public function getLocaleTimeZone()
 	{
-		return $this->data['locale']['timezone'] ?? $this->parameters['timezone'] ?? null;
+		if (isset($this->data['locale']) && is_array($this->data['locale']) && isset($this->data['locale']['timezone'])) {
+			return is_string($this->data['locale']['timezone']) ? $this->data['locale']['timezone'] : null;
+		}
+		return isset($this->parameters['timezone']) && is_string($this->parameters['timezone']) ? $this->parameters['timezone'] : null;
 	}
 
 	private function getBaseLocaleIdentifier(): string
@@ -278,17 +292,17 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	 */
 	protected function generateCountryList()
 	{
-		if(!isset($this->data['displayNames']['territories'])) {
+		if(!isset($this->data['displayNames']) || !is_array($this->data['displayNames']) || !isset($this->data['displayNames']['territories'])) {
 			return;
 		}
 
-		$terrs = $this->data['displayNames']['territories'];
+		$terrs = is_array($this->data['displayNames']['territories']) ? $this->data['displayNames']['territories'] : [];
 
 		// we assume that the territories are the first items in the list
 		$i = 0;
 		foreach($terrs as $key => $val) {
 			// territories consist of 3 letter keys while countries only consist of 2 letter keys
-			if(strlen((string) $key) == 2) {
+			if(is_string($key) && strlen($key) == 2) {
 				break;
 			}
 			++$i;
@@ -302,24 +316,38 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	 */
 	public function getCountries()
 	{
-		if(!isset($this->data['displayNames']['countries'])) {
+		if(!isset($this->data['displayNames']) || !is_array($this->data['displayNames']) || !isset($this->data['displayNames']['countries'])) {
 			$this->generateCountryList();
 		}
+		if (isset($this->data['displayNames']) && is_array($this->data['displayNames']) && isset($this->data['displayNames']['countries']) && is_array($this->data['displayNames']['countries'])) {
+			return $this->data['displayNames']['countries'];
+		}
 
-		return $this->data['displayNames']['countries'] ?? null;
+		return null;
 	}
 
 	/**
 	 * @param      string $id The country code.
 	 * @return     ?string The display name of the country.
 	 */
-	public function getCountry($id)
+	public function getCountry(string $id)
 	{
-		if(!isset($this->data['displayNames']['countries'])) {
+		if(!isset($this->data['displayNames']) ||
+		   !is_array($this->data['displayNames']) || 
+		   !isset($this->data['displayNames']['countries']) || 
+		   !is_array($this->data['displayNames']['countries']) ||
+		   !isset($this->data['displayNames']['countries'][$id]) ) {
 			$this->generateCountryList();
 		}
 
-		return $this->data['displayNames']['countries'][$id] ?? null;
+		if (isset($this->data['displayNames']) &&
+			is_array($this->data['displayNames']) &&
+			isset($this->data['displayNames']['countries']) &&
+			is_array($this->data['displayNames']['countries']) &&
+		    isset($this->data['displayNames']['countries'][$id])) {
+			return is_string($this->data['displayNames']['countries'][$id]) ? $this->data['displayNames']['countries'][$id] : null;
+		}
+		return null;
 	}
 
 	/**
@@ -327,16 +355,28 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	 */
 	public function getLanguages()
 	{
-		return $this->data['displayNames']['languages'] ?? null;
+		$returnValue = (isset($this->data['displayNames']) && 
+		                is_array($this->data['displayNames']) && 
+						isset($this->data['displayNames']['languages']) && 
+						is_array($this->data['displayNames']['languages'])) ? $this->data['displayNames']['languages'] : null;
+		return $returnValue;
 	}
 
 	/**
 	 * @param      string $id The language code.
 	 * @return     ?string The display name of the language.
 	 */
-	public function getLanguage($id)
+	public function getLanguage(string $id)
 	{
+		if (!isset($this->data['displayNames']) || 
+		    !is_array($this->data['displayNames']) || 
+			!isset($this->data['displayNames']['languages']) || 
+			!is_array($this->data['displayNames']['languages']) || 
+			!isset($this->data['displayNames']['languages'][$id]) ) {
+			return null;
+		}
 		return $this->data['displayNames']['languages'][$id] ?? null;
+		
 	}
 
 	/**
@@ -344,16 +384,25 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	 */
 	public function getScripts()
 	{
-		return $this->data['displayNames']['scripts'] ?? null;
+		$returnValue = (isset($this->data['displayNames']) && 
+		                is_array($this->data['displayNames']) && 
+						isset($this->data['displayNames']['scripts']) && 
+						is_array($this->data['displayNames']['scripts'])) ? $this->data['displayNames']['scripts'] : null;
+		return $returnValue;
 	}
 
 	/**
 	 * @param      string $id The script code.
 	 * @return     ?string The display name of the script.
 	 */
-	public function getScript($id)
+	public function getScript(string $id)
 	{
-		return $this->data['displayNames']['scripts'][$id] ?? null;
+		$returnValue = (isset($this->data['displayNames']) && 
+		                is_array($this->data['displayNames']) && 
+						isset($this->data['displayNames']['scripts']) && 
+						is_array($this->data['displayNames']['scripts']) && 
+						isset($this->data['displayNames']['scripts'][$id])) ? $this->data['displayNames']['scripts'][$id] : null;
+		return $returnValue;
 	}
 
 	/**
@@ -361,16 +410,25 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	 */
 	public function getTerritories()
 	{
-		return $this->data['displayNames']['territories'] ?? null;
+		$returnValue = (isset($this->data['displayNames']) && 
+		                is_array($this->data['displayNames']) && 
+						isset($this->data['displayNames']['territories']) && 
+						is_array($this->data['displayNames']['territories'])) ? $this->data['displayNames']['territories'] : null;	
+		return $returnValue;
 	}
 
 	/**
 	 * @param      string $id The territory code.
 	 * @return     ?string The display name of the territory.
 	 */
-	public function getTerritory($id)
+	public function getTerritory(string $id)
 	{
-		return $this->data['displayNames']['territories'][$id] ?? null;
+		$returnValue = (isset($this->data['displayNames']) && 
+		                is_array($this->data['displayNames']) && 
+						isset($this->data['displayNames']['territories']) && 
+						is_array($this->data['displayNames']['territories']) && 
+						isset($this->data['displayNames']['territories'][$id])) ? $this->data['displayNames']['territories'][$id] : null;
+		return $returnValue;
 	}
 
 	/**
@@ -378,16 +436,25 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	 */
 	public function getVariants()
 	{
-		return $this->data['displayNames']['variants'] ?? null;
+		$returnValue = (isset($this->data['displayNames']) && 
+		                is_array($this->data['displayNames']) && 
+						isset($this->data['displayNames']['variants']) && 
+						is_array($this->data['displayNames']['variants'])) ? $this->data['displayNames']['variants'] : null;
+		return $returnValue;
 	}
 
 	/**
 	 * @param      string $id The variant code.
 	 * @return     ?string The display name of the variant.
 	 */
-	public function getVariant($id)
+	public function getVariant(string $id)
 	{
-		return $this->data['displayNames']['variants'][$id] ?? null;
+		$returnValue = (isset($this->data['displayNames']) && 
+		                is_array($this->data['displayNames']) && 
+						isset($this->data['displayNames']['variants']) && 
+						is_array($this->data['displayNames']['variants']) && 
+						isset($this->data['displayNames']['variants'][$id])) ? $this->data['displayNames']['variants'][$id] : null;
+		return $returnValue;
 	}
 
 	/**
@@ -395,16 +462,26 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	 */
 	public function getMeasurementSystemNames()
 	{
-		return $this->data['displayNames']['measurementSystemNames'] ?? null;
+		$returnValue = (isset($this->data['displayNames']) && 
+		                is_array($this->data['displayNames']) && 
+						isset($this->data['displayNames']['measurementSystemNames']) && 
+						is_array($this->data['displayNames']['measurementSystemNames'])) ? $this->data['displayNames']['measurementSystemNames'] : null;
+		return $returnValue;
 	}
 
 	/**
 	 * @param      string $id The measurement system id.
 	 * @return     ?string The display name of the measurement system.
 	 */
-	public function getMeasurementSystemName($id)
+	public function getMeasurementSystemName(string $id)
 	{
-		return $this->data['displayNames']['measurementSystemNames'][$id] ?? null;
+		$returnValue = (isset($this->data['displayNames']) && 
+		                is_array($this->data['displayNames']) && 
+						isset($this->data['displayNames']['measurementSystemNames']) && 
+						is_array($this->data['displayNames']['measurementSystemNames']) && 
+						isset($this->data['displayNames']['measurementSystemNames'][$id]) && 
+						is_string($this->data['displayNames']['measurementSystemNames'][$id])) ? $this->data['displayNames']['measurementSystemNames'][$id] : null;
+		return $returnValue;
 	}
 
 	//////////////////////////////// layout /////////////////////////////////////
@@ -414,7 +491,12 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	 */
 	public function getLineOrientation()
 	{
-		return $this->data['layout']['orientation']['lines'] ?? null;
+		$returnValue = (isset($this->data['layout']) && 
+		                is_array($this->data['layout']) && 
+						isset($this->data['layout']['orientation']) && 
+						is_array($this->data['layout']['orientation']) && 
+						isset($this->data['layout']['orientation']['lines'])) ? $this->data['layout']['orientation']['lines'] : null;
+		return $returnValue;
 	}
 
 	/**
@@ -422,7 +504,12 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	 */
 	public function getCharacterOrientation()
 	{
-		return $this->data['layout']['orientation']['characters'] ?? null;
+		$returnValue = (isset($this->data['layout']) && 
+		                is_array($this->data['layout']) && 
+						isset($this->data['layout']['orientation']) && 
+						is_array($this->data['layout']['orientation']) && 
+						isset($this->data['layout']['orientation']['characters'])) ? $this->data['layout']['orientation']['characters'] : null;
+		return $returnValue;
 	}
 
 	//////////////////////////////// delimiters /////////////////////////////////
@@ -432,7 +519,11 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	 */
 	public function getQuotationStart()
 	{
-		return $this->data['delimiters']['quotationStart'] ?? null;
+		$returnValue = (isset($this->data['delimiters']) && 
+		                is_array($this->data['delimiters']) && 
+						isset($this->data['delimiters']['quotationStart']) && 
+						is_string($this->data['delimiters']['quotationStart'])) ? $this->data['delimiters']['quotationStart'] : null;
+		return $returnValue;
 	}
 
 	/**
@@ -440,7 +531,11 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	 */
 	public function getQuotationEnd()
 	{
-		return $this->data['delimiters']['quotationEnd'] ?? null;
+		$returnValue = (isset($this->data['delimiters']) && 
+		                is_array($this->data['delimiters']) && 
+						isset($this->data['delimiters']['quotationEnd']) && 
+						is_string($this->data['delimiters']['quotationEnd'])) ? $this->data['delimiters']['quotationEnd'] : null;
+		return $returnValue;
 	}
 
 	/**
@@ -448,7 +543,11 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	 */
 	public function getAlternateQuotationStart()
 	{
-		return $this->data['delimiters']['altQuotationStart'] ?? null;
+		$returnValue = (isset($this->data['delimiters']) && 
+		                is_array($this->data['delimiters']) && 
+						isset($this->data['delimiters']['altQuotationStart']) && 
+						is_string($this->data['delimiters']['altQuotationStart'])) ? $this->data['delimiters']['altQuotationStart'] : null;
+		return $returnValue;
 	}
 
 	/**
@@ -456,7 +555,11 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	 */
 	public function getAlternateQuotationEnd()
 	{
-		return $this->data['delimiters']['altQuotationEnd'] ?? null;
+		$returnValue = (isset($this->data['delimiters']) && 
+		                is_array($this->data['delimiters']) && 
+						isset($this->data['delimiters']['altQuotationEnd']) && 
+						is_string($this->data['delimiters']['altQuotationEnd'])) ? $this->data['delimiters']['altQuotationEnd'] : null;
+		return $returnValue;
 	}
 
 	//////////////////////////////// calendars //////////////////////////////////
@@ -466,7 +569,11 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	 */
 	public function getDefaultCalendar()
 	{
-		return $this->data['calendars']['default'] ?? null;
+		$returnValue = (isset($this->data['calendars']) && 
+		                is_array($this->data['calendars']) && 
+						isset($this->data['calendars']['default']) && 
+						is_string($this->data['calendars']['default'])) ? $this->data['calendars']['default'] : null;
+		return $returnValue;
 	}
 
 	/**
@@ -475,7 +582,9 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	 */
 	public function getCalendarMonthsWide($calendar)
 	{
-		return $this->data['calendars'][$calendar]['months']['format']['wide'] ?? null;
+		$returnValue = (isset($this->data['calendars'][$calendar]['months']['format']['wide']) && 
+		                is_array($this->data['calendars'][$calendar]['months']['format']['wide'])) ? $this->data['calendars'][$calendar]['months']['format']['wide'] : null;
+		return $returnValue;
 	}
 
 	/**
@@ -485,7 +594,9 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	 */
 	public function getCalendarMonthWide($calendar, $month)
 	{
-		return $this->data['calendars'][$calendar]['months']['format']['wide'][$month] ?? null;
+		$returnValue = (isset($this->data['calendars'][$calendar]['months']['format']['wide'][$month]) && 
+		                is_string($this->data['calendars'][$calendar]['months']['format']['wide'][$month])) ? $this->data['calendars'][$calendar]['months']['format']['wide'][$month] : null;
+		return $returnValue;
 	}
 
 	/**
@@ -494,7 +605,9 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	 */
 	public function getCalendarMonthsAbbreviated($calendar)
 	{
-		return $this->data['calendars'][$calendar]['months']['format']['abbreviated'] ?? null;
+		$returnValue = (isset($this->data['calendars'][$calendar]['months']['format']['abbreviated']) && 
+		                is_array($this->data['calendars'][$calendar]['months']['format']['abbreviated'])) ? $this->data['calendars'][$calendar]['months']['format']['abbreviated'] : null;
+		return $returnValue;
 	}
 
 	/**
@@ -1245,16 +1358,14 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 				// to be interpreted as a single option timezone=Europe/Berlin;currency=EUR.
 				// Accept both separators now for robustness and backward compatibility.
 				$options = preg_split('/[;,]/', $match['options']);
+				if (\is_array($options) === false) {
+					$options = [];
+				}
 				foreach($options as $option) {
 					$option = trim($option);
 					if($option === '') { continue; }
 					$optData = explode('=', $option, 2);
-					if(count($optData) === 2) {
-						$localeData['options'][$optData[0]] = $optData[1];
-					} else {
-						// Flag option without value; treat as empty string
-						$localeData['options'][$optData[0]] = '';
-					}
+					$localeData['options'][$optData[0]] = (count($optData) === 2) ? $optData[1] : '';
 				}
 			}
 

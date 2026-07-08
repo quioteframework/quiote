@@ -20,7 +20,7 @@ use Quiote\Routing\Attribute\Route;
 #[McpTool(name: 'greet_via_action', description: 'Greets someone via the actions-as-tools bridge')]
 class GreetAction extends Action
 {
-    public function executeRead()
+    public function executeRead(): string
     {
         return 'Success';
     }

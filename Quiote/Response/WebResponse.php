@@ -312,9 +312,9 @@ class WebResponse extends Response
 	 */
 	protected function getRequestProtocol($request): string
 	{
-		if ($request && method_exists($request, 'getProtocol')) {
-			return $request->getProtocol();
-		} elseif ($request && method_exists($request, 'getProtocolVersion')) {
+		if ($request instanceof WebRequest) {
+			return $request->getProtocol() ?? 'HTTP/1.1';
+		} elseif ($request instanceof \Psr\Http\Message\RequestInterface) {
 			return 'HTTP/' . $request->getProtocolVersion();
 		}
 		return 'HTTP/1.1';
@@ -331,8 +331,12 @@ class WebResponse extends Response
 	public function send(?OutputType $outputType = null)
 	{
 		if($this->redirect) {
-			$location = $this->redirect['location'];
+			$redirect = $this->redirect;
+			$location = $redirect['location'];
 			if(!preg_match('#^[^:]+://#', (string) $location)) {
+				if ($this->context === null) {
+					throw new QuioteException('WebResponse::send - cannot build a relative redirect location without an initialized Context');
+				}
 				if(isset($location[0]) && $location[0] == '/') {
 					/** @var WebRequest */
 					$rq = $this->context->getRequest();
@@ -342,7 +346,7 @@ class WebResponse extends Response
 				}
 			}
 			$this->setHttpHeader('Location', $location);
-			$this->setHttpStatusCode($this->redirect['code']);
+			$this->setHttpStatusCode($redirect['code']);
 			if($this->getParameter('send_content_length', true) && !$this->hasHttpHeader('Content-Length') && !$this->getParameter('send_redirect_content', false)) {
 				$this->setHttpHeader('Content-Length', 0);
 			}
@@ -363,7 +367,7 @@ class WebResponse extends Response
 	{
 		if(is_resource($this->content) && $this->getParameter('use_sendfile_header', false)) {
 			$info = stream_get_meta_data($this->content);
-			if($info['wrapper_type'] == 'plainfile') {
+			if($info['wrapper_type'] == 'plainfile' && isset($info['uri'])) {
 				header($this->getParameter('sendfile_header_name', 'X-Sendfile') . ': ' . $info['uri']);
 				return;
 			}
@@ -468,8 +472,8 @@ class WebResponse extends Response
 					$this->setCookie($name, $cookie['value'], $cookie['lifetime'], $cookie['path'], $cookie['domain'], $cookie['secure'], $cookie['httponly'], $cookie['encode_callback']);
 				}
 			}
-			if($otherResponse->hasRedirect() && !$this->hasRedirect()) {
-				$redirect = $otherResponse->getRedirect();
+			$redirect = $otherResponse->getRedirect();
+			if($redirect !== null && !$this->hasRedirect()) {
 				$this->setRedirect($redirect['location'], $redirect['code']);
 			}
 		}
@@ -1095,7 +1099,7 @@ class WebResponse extends Response
 	public function setRedirect($location, $code = 302)
 	{
 		if(!$this->validateHttpStatusCode($code)) {
-			$request = $this->context->getRequest();
+			$request = $this->context?->getRequest();
 			$protocol = $this->getRequestProtocol($request);
 			throw new QuioteException(sprintf('Invalid %s Redirect Status code: %s', $protocol, $code));
 		}

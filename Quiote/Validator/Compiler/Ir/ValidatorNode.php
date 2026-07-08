@@ -18,7 +18,7 @@ final class ValidatorNode
 	/**
 	 * @param string $name The validator's name (explicit or generated).
 	 * @param string $validatorClass The resolved, fully-qualified validator class.
-	 * @param array<int, mixed> $arguments Request parameter names/sub-paths this validator reads.
+	 * @param array<int|string, mixed> $arguments Request parameter names/sub-paths this validator reads.
 	 * @param string $base The base path from <arguments base="...">, or ''.
 	 * @param array<string, mixed> $parameters The fully resolved, already-checked parameter bag.
 	 * @param array<int|string, mixed> $errors Error message overrides, keyed by error index (or '').

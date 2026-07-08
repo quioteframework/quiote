@@ -13,6 +13,9 @@ use Quiote\Validator\ValidationError;
  */
 class ValidationManagerBehaviorTest extends UnitTestCase
 {
+    /**
+     * @param array<string, mixed> $params
+     */
     private function newVm(array $params = []): ValidationManager
     {
         /** @var ValidationManager $vm */
@@ -83,7 +86,7 @@ class ValidationManagerBehaviorTest extends UnitTestCase
         $vm = $this->newVm(['mode' => ValidationManager::MODE_RELAXED]);
         $incident = new ValidationIncident(null, Validator::ERROR);
         $arg = new ValidationArgument('foo');
-        $incident->addError(new ValidationError('msg1', null, [$arg]));
+        $incident->addError(new ValidationError('msg1', '', [$arg]));
         $vm->addIncident($incident);
         $this->assertTrue($vm->getReport()->isArgumentFailed($arg));
         $errors = $vm->getReport()->getIncidents();
@@ -154,7 +157,9 @@ class ValidationManagerBehaviorTest extends UnitTestCase
     $psrReq = new \Nyholm\Psr7\ServerRequest('GET', 'http://example.test/');
     $psrReq = $psrReq->withHeader('x-auth', 'ok')->withHeader('x-unvalidated', 'remove-me');
     $psrReq = $psrReq->withCookieParams(['sessionid' => 'abc', 'junk' => 'zzz']);
-    $stream = new \Nyholm\Psr7\Stream(fopen('php://temp', 'r+'));
+    $tempResource = fopen('php://temp', 'r+');
+    if ($tempResource === false) { $this->fail('Failed to open php://temp'); }
+    $stream = new \Nyholm\Psr7\Stream($tempResource);
     $stream->write('content');
     $file = new \Nyholm\Psr7\UploadedFile($stream, $stream->getSize() ?? 7, UPLOAD_ERR_OK, 'x.txt', 'text/plain');
     $psrReq = $psrReq->withUploadedFiles(['keptFile' => $file, 'tmpFile' => $file]);
@@ -214,7 +219,9 @@ class ValidationManagerBehaviorTest extends UnitTestCase
     $psrReq = new \Nyholm\Psr7\ServerRequest('POST', 'https://ex/test');
     $psrReq = $psrReq->withHeader('x-auth', 'should-remove')->withHeader('another', 'remove');
     $psrReq = $psrReq->withCookieParams(['keep' => 'n/a', 'lose' => 'x']);
-    $stream2 = new \Nyholm\Psr7\Stream(fopen('php://temp', 'r+'));
+    $tempResource2 = fopen('php://temp', 'r+');
+    if ($tempResource2 === false) { $this->fail('Failed to open php://temp'); }
+    $stream2 = new \Nyholm\Psr7\Stream($tempResource2);
     $stream2->write('data');
     $file = new \Nyholm\Psr7\UploadedFile($stream2, $stream2->getSize() ?? 4, UPLOAD_ERR_OK, 'f.bin', 'application/octet-stream');
     $psrReq = $psrReq->withUploadedFiles(['f1' => $file]);

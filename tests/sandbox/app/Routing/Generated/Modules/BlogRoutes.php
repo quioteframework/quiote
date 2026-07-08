@@ -9,6 +9,9 @@ use Symfony\Component\Routing\RouteCollection;
  * Routes for module Blog (4 routes; built 2025-08-18T17:53:05+00:00)
  */
 final class BlogRoutes {
+    /**
+     * @param array<string, array{gen_path: string, cut: bool, path: string, opt?: array{parent: string|null, action: mixed}, pattern?: string, match_full?: string, match_partial?: string}> $meta
+     */
     public static function addRoutes(RouteCollection $routes, array &$meta): void {
         // DEBUG: name=test_ticket_444_sample2 raw_path=/test_ticket_444_sample2/{name} gen=/test_ticket_444_sample2/{name} module=Blog action=
         $routes->add('test_ticket_444_sample2', new Route('/test_ticket_444_sample2/{name}', [

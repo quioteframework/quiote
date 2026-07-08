@@ -33,7 +33,7 @@ class SettingConfigHandlerFormatDriverTest extends PhpUnitTestCase
 		parent::tearDown();
 	}
 
-	public function testPhpArraySettingsFileCompilesThroughSettingConfigHandler()
+	public function testPhpArraySettingsFileCompilesThroughSettingConfigHandler(): void
 	{
 		file_put_contents($this->dir . '/settings.php', <<<'PHP'
 <?php
@@ -57,7 +57,7 @@ PHP);
 		$this->assertStringContainsString('Quiote\\Config\\Config::fromArray(', $code);
 	}
 
-	public function testYamlSettingsFileCompilesThroughTheSameHandler()
+	public function testYamlSettingsFileCompilesThroughTheSameHandler(): void
 	{
 		file_put_contents($this->dir . '/settings.yaml', <<<YAML
 core.app_name: Demo
@@ -75,7 +75,7 @@ YAML);
 		$this->assertStringContainsString("'core.app_name' => 'Demo'", $code);
 	}
 
-	public function testPhpArraySettingsCanHaveAnXmlParentDuringAStranglerMigration()
+	public function testPhpArraySettingsCanHaveAnXmlParentDuringAStranglerMigration(): void
 	{
 		// The realistic migration path: keep the framework/module defaults
 		// in XML, override just a couple of settings in a new PHP file,

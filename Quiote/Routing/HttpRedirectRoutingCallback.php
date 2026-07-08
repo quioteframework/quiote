@@ -100,11 +100,9 @@ class HttpRedirectRoutingCallback extends RoutingCallback
 			}
 			
 			if($parts) {
-				$req = $this->getContext()->getRequest();
-				/** @var mixed $req */
-				// getUrl() exists on legacy WebRequest; guard via method_exists.
-				$base = (method_exists($req,'getUrl')) ? (string)$req->getUrl() : ((($_SERVER['HTTPS'] ?? 'off') === 'on' ? 'https://' : 'http://') . ($_SERVER['HTTP_HOST'] ?? 'localhost') . ($_SERVER['REQUEST_URI'] ?? '/'));
-				$url = Toolkit::buildUrl(array_merge(parse_url($base), $parts));
+				$base = $this->getContext()->getRequest()->getUrl();
+				$baseParts = parse_url($base);
+				$url = Toolkit::buildUrl(array_merge($baseParts !== false ? $baseParts : [], $parts));
 			} else {
 				// improper configuration for whatever reason; bail out
 				return false;

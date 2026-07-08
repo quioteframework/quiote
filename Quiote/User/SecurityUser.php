@@ -46,7 +46,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 	 */
 	public function addCredential($credential)
 	{
-		if(!in_array($credential, $this->credentials)) {
+		if(!in_array($credential, $this->credentials ?? [])) {
 			$this->credentials[] = $credential;
 		}
 	}
@@ -101,7 +101,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 	 */
 	public function hasCredential($credential)
 	{
-		return in_array($credential, $this->credentials, true);
+		return in_array($credential, $this->credentials ?? [], true);
 	}
 	
 	/**
@@ -184,7 +184,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 			// we have the credential, now we have to find it
 			// let's not foreach here and do exact instance checks
 			// for future safety
-			if(($key = array_search($credential, $this->credentials, true)) !== false) {
+			if(($key = array_search($credential, $this->credentials ?? [], true)) !== false) {
 				// found it, let's nuke it
 				unset($this->credentials[$key]);
 			}
@@ -193,7 +193,10 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 
 	/**
 	 * Set the authenticated status of this user.
-	 * @param      bool $authenticated A flag indicating the authenticated status of this user.
+	 * @param      mixed $authenticated A flag indicating the authenticated status of this user.
+	 *                    Intentionally compared with `=== true` below rather than typed
+	 *                    `bool`: truthy-but-non-bool values (e.g. `1`) must be rejected, not
+	 *                    coerced.
 	 * @return     void
 	 * @since      1.0.0
 	 */
@@ -303,7 +306,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 		if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
 			try {
 				$cid = $this->getContext()->getCorrelationId() ?? 'n/a';
-				$logger->debug('[SecurityUser] Shutdown correlation id=' . $cid . ' stored auth=' . var_export($this->authenticated,true) . ' creds count=' . count($this->credentials));
+				$logger->debug('[SecurityUser] Shutdown correlation id=' . $cid . ' stored auth=' . var_export($this->authenticated,true) . ' creds count=' . count($this->credentials ?? []));
 				$logger->debug('[SecurityUser] Shutdown session snapshot', [
 					'session' => isset($_SESSION) ? array_keys($_SESSION) : [],
 					'session_id' => function_exists('session_id') ? session_id() : null,

@@ -6,16 +6,16 @@ use Quiote\Validator\Validator;
 
 class OroperatorValidatorTest extends UnitTestCase
 {
-	public function testvalidate()
+	public function testvalidate(): void
 	{
 		$vm = $this->getContext()->createInstanceFor('validation_manager');
 		$vm->clear();
 		$o = $vm->createValidator(OroperatorValidator::class, [], [], ['severity' => 'error']);
-		
+
 		$val1 = $vm->createValidator('DummyValidator', [], [], ['severity' => 'error']);
 		$val2 = $vm->createValidator('DummyValidator', [], [], ['severity' => 'error']);
 		$o->registerValidators([$val1, $val2]);
-		
+
 		// 1st test: both successful
 		$val1->val_result = true;
 		$val2->val_result = true;

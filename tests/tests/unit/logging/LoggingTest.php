@@ -22,7 +22,11 @@ class LoggingTest extends TestCase
     {
         Log::reset();
         LogContext::clear();
-        $this->buf = fopen('php://memory', 'r+');
+        $buf = fopen('php://memory', 'r+');
+        if ($buf === false) {
+            self::fail('Failed to open php://memory for the logging test buffer.');
+        }
+        $this->buf = $buf;
     }
 
     #[After]

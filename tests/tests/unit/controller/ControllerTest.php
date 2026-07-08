@@ -9,7 +9,7 @@ use Quiote\Context;
 
 class TestController extends Controller
 {
-	public function redirect($to): never
+	public function redirect(string $to): never
 	{
 		throw new Exception('N/A');
 	}
@@ -19,8 +19,8 @@ class TestController extends Controller
 // Temporarily disabled: #[\PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses]
 class ControllerTest extends PhpUnitTestCase
 {
-	protected $_controller = null;
-	protected $_context = null;
+	protected Controller $_controller;
+	protected Context $_context;
 	#[\Override]
     public function setUp(): void
 	{
@@ -30,7 +30,7 @@ class ControllerTest extends PhpUnitTestCase
 		$this->_controller->initialize($this->_context, []);
 	}
 
-	public function testNewController()
+	public function testNewController(): void
 	{
 		$controller = $this->_controller;
 		$this->assertInstanceOf(\Quiote\Controller\Controller::class, $controller);
@@ -43,7 +43,7 @@ class ControllerTest extends PhpUnitTestCase
 		$this->assertSame($ctx1, $ctx2);
 	}
 
-	public function testActionImplementsCorrectInterface()
+	public function testActionImplementsCorrectInterface(): void
 	{
 		// Test that created actions implement Action interface
 		$controller = $this->_controller;
@@ -59,7 +59,7 @@ class ControllerTest extends PhpUnitTestCase
 		$this->assertTrue($reflection->hasMethod('execute'));
 	}
 
-	public function testGetActionFromModule()
+	public function testGetActionFromModule(): void
 	{
 		// TODO: check all other existing naming schemes for actions
 
@@ -69,17 +69,41 @@ class ControllerTest extends PhpUnitTestCase
 
 	}
 
-	public function testGetInvalidActionFromModule() {
+	public function testGetInvalidActionFromModule(): void {
 		$this->expectException(\Quiote\Exception\ClassNotFoundException::class);
 		$this->_controller->createActionInstance('ControllerTests', 'NonExistant');
 	}
 
-	public function testGetContext()
+	/**
+	 * createActionInstance() must reject a resolved class that does not
+	 * implement Action rather than returning it as if it were valid — the
+	 * container only knows the requested class name, not the Action
+	 * contract, so this check is Controller's responsibility.
+	 */
+	public function testCreateActionInstanceThrowsWhenResolvedClassIsNotAnAction(): void
+	{
+		require_once __DIR__ . '/fixtures/NotAnActionAction.php';
+		$this->expectException(\Quiote\Exception\ClassNotFoundException::class);
+		$this->_controller->createActionInstance('ControllerTests', 'NotAnAction');
+	}
+
+	/**
+	 * createViewInstance() must reject a resolved class that does not
+	 * implement View, for the same reason as the Action case above.
+	 */
+	public function testCreateViewInstanceThrowsWhenResolvedClassIsNotAView(): void
+	{
+		require_once __DIR__ . '/fixtures/NotAViewView.php';
+		$this->expectException(\Quiote\Exception\ClassNotFoundException::class);
+		$this->_controller->createViewInstance('ControllerTests', 'NotAView');
+	}
+
+	public function testGetContext(): void
 	{
 		$this->assertSame(Context::getInstance(), Context::getInstance()->getController()->getContext());
 	}
 
-	public function testCreateViewInstance()
+	public function testCreateViewInstance(): void
 	{
 		$controller = $this->_controller;
 		$this->assertInstanceOf(
@@ -92,7 +116,7 @@ class ControllerTest extends PhpUnitTestCase
 		);
 	}
 
-	public function testModelImplementsCorrectInterface()
+	public function testModelImplementsCorrectInterface(): void
 	{
 		// Test that models can be loaded and implement Model interface
 		$context = $this->_context;
@@ -108,7 +132,7 @@ class ControllerTest extends PhpUnitTestCase
 		$this->assertTrue($reflection->isSubclassOf(\Quiote\Model\Model::class));
 	}
 
-	public function testModelExists()
+	public function testModelExists(): void
 	{
 		$controller = $this->_controller;
 		$this->assertTrue($controller->modelExists('ControllerTests', 'ControllerTest'));
@@ -116,7 +140,7 @@ class ControllerTest extends PhpUnitTestCase
 		$this->assertFalse($controller->modelExists('Bunk', 'Bunk'));
 	}
 
-	public function testViewImplementsCorrectInterface()
+	public function testViewImplementsCorrectInterface(): void
 	{
 		// Test that created views implement View interface
 		$controller = $this->_controller;
@@ -137,7 +161,7 @@ class ControllerTest extends PhpUnitTestCase
 		$this->assertTrue(class_exists(\Sandbox\Modules\ControllerTests\Views\ControllerTestErrorView::class));
 	}
 
-	public function testViewExists()
+	public function testViewExists(): void
 	{
 		$controller = $this->_controller;
 		$this->assertTrue($controller->viewExists('ControllerTests', 'ControllerTestSuccess'));
@@ -163,12 +187,8 @@ class ControllerTest extends PhpUnitTestCase
 	{
 		$controller = $this->_controller;
 		$names = $controller->getOutputTypeNames();
-		$this->assertIsArray($names);
 		$this->assertNotEmpty($names);
 		foreach ($names as $name) {
-			if (!is_string($name)) {
-				throw new \RuntimeException('Expected an output type name to be a string.');
-			}
 			$this->assertSame(strtolower($name), $name);
 		}
 	}
@@ -209,7 +229,7 @@ class ControllerTest extends PhpUnitTestCase
 	 * constructor-typed dependency must be autowired, and every call must
 	 * build a fresh instance (never cached like get()).
 	 */
-	public function testCreateActionInstanceAutowiresConstructorDependency()
+	public function testCreateActionInstanceAutowiresConstructorDependency(): void
 	{
 		$controller = $this->_controller;
 
@@ -218,6 +238,7 @@ class ControllerTest extends PhpUnitTestCase
 		$this->assertInstanceOf(\Sandbox\Services\ControllerTestDiService::class, $action1->service);
 
 		$action2 = $controller->createActionInstance('ControllerTests', 'ControllerTestDi');
+		$this->assertInstanceOf(\Sandbox\Modules\ControllerTests\Actions\ControllerTestDiAction::class, $action2);
 		$this->assertNotSame($action1, $action2, 'each dispatch must get its own action instance');
 		$this->assertNotSame($action1->service, $action2->service, 'ControllerTestDiService implements ServiceInterface, so it defaults to transient scope');
 	}
@@ -226,7 +247,7 @@ class ControllerTest extends PhpUnitTestCase
 	 * Same as above for createViewInstance() — the second choke point that
 	 * routes through the container.
 	 */
-	public function testCreateViewInstanceAutowiresConstructorDependency()
+	public function testCreateViewInstanceAutowiresConstructorDependency(): void
 	{
 		$controller = $this->_controller;
 
@@ -242,7 +263,7 @@ class ControllerTest extends PhpUnitTestCase
 	 * Actions/views with no constructor are unaffected by the Container::make() switch —
 	 * they still hit the plain `new $class()` branch and behave identically to before.
 	 */
-	public function testCreateActionInstanceStillWorksForActionsWithNoConstructor()
+	public function testCreateActionInstanceStillWorksForActionsWithNoConstructor(): void
 	{
 		$action1 = $this->_controller->createActionInstance('ControllerTests', 'ControllerTest');
 		$action2 = $this->_controller->createActionInstance('ControllerTests', 'ControllerTest');
@@ -252,7 +273,7 @@ class ControllerTest extends PhpUnitTestCase
 
 
 
-	public function testGetOutputTypeInfo()
+	public function testGetOutputTypeInfo(): void
 	{
 		$controller = $this->_controller;
 

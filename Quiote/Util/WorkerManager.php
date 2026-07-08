@@ -358,7 +358,10 @@ if (isset($context)) {
                 if (class_exists('Propel\\Runtime\\Propel')) {
                     $propelClass = 'Propel\\Runtime\\Propel';
                     // dynamic to avoid hard dependency during static analysis
-                    \call_user_func([$propelClass, 'close']);
+                    $closeCallback = [$propelClass, 'close'];
+                    if (is_callable($closeCallback)) {
+                        \call_user_func($closeCallback);
+                    }
                 }
                 // Add other ORMs as needed
                 break;
@@ -368,7 +371,8 @@ if (isset($context)) {
                 if (class_exists('Propel\\Runtime\\Propel')) {
                     $propelClass = 'Propel\\Runtime\\Propel';
                     try {
-                        $con = \call_user_func([$propelClass, 'getConnection']);
+                        $getConnectionCallback = [$propelClass, 'getConnection'];
+                        $con = is_callable($getConnectionCallback) ? \call_user_func($getConnectionCallback) : null;
                         if ($con && $con->inTransaction()) {
                             $con->rollback();
                             self::getLogger()->warning('Warning: Uncommitted transaction rolled back in worker');
@@ -376,7 +380,10 @@ if (isset($context)) {
                     } catch (\Exception $e) {
                         self::getLogger()->error('Propel transaction cleanup failed: ' . $e->getMessage());
                         // If reset fails, close and let it reconnect
-                        \call_user_func([$propelClass, 'close']);
+                        $closeCallback = [$propelClass, 'close'];
+                        if (is_callable($closeCallback)) {
+                            \call_user_func($closeCallback);
+                        }
                     }
                 }
                 break;

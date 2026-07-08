@@ -166,8 +166,8 @@ final class ValidatorBuilder
 	 * never loses information the way an incomplete fluent mapping could.
 	 * @param class-string<Validator> $class
 	 * @param array<int|string, mixed> $arguments
-	 * @param array<int|string, mixed> $parameters
-	 * @param array<int|string, mixed> $errors
+	 * @param array<string, mixed> $parameters
+	 * @param array<string, string> $errors
 	 * @param callable(self): void|null $children If given, and the
 	 *        created validator implements IValidatorContainer, invoked
 	 *        with a nested builder scoped to it -- for operator-like
@@ -192,8 +192,8 @@ final class ValidatorBuilder
 
 	/**
 	 * @param array<int|string, mixed> $arguments
-	 * @param array<int|string, mixed> $parameters
-	 * @param array<int|string, mixed> $errors
+	 * @param array<string, mixed> $parameters
+	 * @param array<string, string> $errors
 	 */
 	private function add(Validator $validator, array $arguments, array $parameters, array $errors = []): ValidatorSpec
 	{

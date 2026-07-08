@@ -8,7 +8,7 @@ use Quiote\Exception\QuioteException;
 class ToolkitTest extends PhpUnitTestCase
 {
 
-	public function testNormalizePath()
+	public function testNormalizePath(): void
 	{
 		$this->assertEquals('path', Toolkit::normalizePath("path"));
 		$this->assertEquals('/path/warm/hot/unbearable', Toolkit::normalizePath('/path/warm/hot/unbearable'));
@@ -16,13 +16,13 @@ class ToolkitTest extends PhpUnitTestCase
 		$this->assertEquals('/path/warm/hot//unbearable', Toolkit::normalizePath('\path\\warm\hot\\\\unbearable'));
 	}
 
-	public function testMkdir()
+	public function testMkdir(): void
 	{
 		$this->assertTrue(Toolkit::mkdir('_testing_path'));
 		rmdir('_testing_path');
 	}
 
-	public function testStringBase()
+	public function testStringBase(): void
 	{
 		$amount = 0;
 		$this->assertEquals("string", Toolkit::stringBase("stringbase", "stringother"));
@@ -32,7 +32,7 @@ class ToolkitTest extends PhpUnitTestCase
 		$this->assertEquals(NULL, Toolkit::stringBase("astringbase", "stringother"));
 	}
 
-	public function testExpandVariables()
+	public function testExpandVariables(): void
 	{
 		$string = "{bbq}";
 		$arguments = ['hehe' => 'hihi', '{bbq}' => 'soon'];
@@ -41,7 +41,7 @@ class ToolkitTest extends PhpUnitTestCase
 		$this->assertEquals('${foo}', Toolkit::expandVariables('{$foo}'));
 	}
 
-	public function testExpandDirectives()
+	public function testExpandDirectives(): void
 	{
 		Config::set('whatever', 'something');
 		$value = "whatever %directive% asdasdasd %whatever% ";
@@ -49,7 +49,7 @@ class ToolkitTest extends PhpUnitTestCase
 		$this->assertEquals($result, Toolkit::expandDirectives($value));
 	}
 
-	public function testFloorDivide()
+	public function testFloorDivide(): void
 	{
 		$rem = 0;
 		$this->assertEquals(3, Toolkit::floorDivide(10, 3, $rem));
@@ -61,19 +61,19 @@ class ToolkitTest extends PhpUnitTestCase
 	}
 
 
-	public function testFloorDivideException()
+	public function testFloorDivideException(): void
 	{
 		$this->expectException(QuioteException::class);
 		Toolkit::floorDivide(6.9, 3.4, $rem);
 	}
 
-	public function testFloorDivideByZero()
+	public function testFloorDivideByZero(): void
 	{
 		$this->expectException(DivisionByZeroError::class);
 		Toolkit::floorDivide(10, 0, $rem);
 	}
 
-	public function testIsPortNecessary()
+	public function testIsPortNecessary(): void
 	{
 		$this->assertTrue(Toolkit::isPortNecessary('some scheme', 8800));
 		$this->assertFalse(Toolkit::isPortNecessary('ftp', 21));
@@ -82,7 +82,7 @@ class ToolkitTest extends PhpUnitTestCase
 		$this->assertFalse(Toolkit::isPortNecessary('nttp', 119));
 	}
 
-	public function testGetValueByKeyList()
+	public function testGetValueByKeyList(): void
 	{
 		$array = ['one' => 'edno', 'two' => 'dve', 'three' => 'tri', 'four' => 'chetiri'];
 		$keys = ['one', 'two', 'three'];
@@ -93,7 +93,7 @@ class ToolkitTest extends PhpUnitTestCase
 		$this->assertEquals('pet', Toolkit::getValueByKeyList($array, ['five'], 'pet'));
 	}
 
-	public function testIsNotArray()
+	public function testIsNotArray(): void
 	{
 		$value1 = ['baz' => 'boo'];
 		$value2 = ['baz', 'boo'];
@@ -102,7 +102,7 @@ class ToolkitTest extends PhpUnitTestCase
 		$this->assertFalse(Toolkit::isNotArray($value2));
 	}
 
-	public function testUniqid()
+	public function testUniqid(): void
 	{
 		$id1 = Toolkit::uniqid();
 		$id2 = Toolkit::uniqid();
@@ -112,7 +112,7 @@ class ToolkitTest extends PhpUnitTestCase
 		$this->assertNotEquals($id1, $id3);
 	}
 
-	public function testUniqidWithPrefix()
+	public function testUniqidWithPrefix(): void
 	{
 		$id1 = Toolkit::uniqid('001');
 		$id2 = Toolkit::uniqid('001');
@@ -120,7 +120,7 @@ class ToolkitTest extends PhpUnitTestCase
 		$this->assertStringContainsString('001', $id1);
 	}
 
-	public function testCanonicalName()
+	public function testCanonicalName(): void
 	{
 		$this->assertEquals('path', Toolkit::canonicalName("path"));
 		$this->assertEquals('/path/warm/hot/unbearable', Toolkit::canonicalName("/path/warm/hot/unbearable"));
@@ -128,7 +128,7 @@ class ToolkitTest extends PhpUnitTestCase
 		$this->assertEquals('/path//warm/hot///unbearable', Toolkit::canonicalName(".path..warm.hot...unbearable"));
 	}
 
-	public function testEvaluateModuleDirective()
+	public function testEvaluateModuleDirective(): void
 	{
 		Config::set('replace.me', 'replaced value $foo $bar $baz');
 		Config::set('modules.foo.bar', 'value $foo %replace.me% %nonexistant%');
@@ -138,19 +138,25 @@ class ToolkitTest extends PhpUnitTestCase
 		$this->assertEquals($retval, $actual);
 	}
 	
+	/**
+	 * @param array<string, mixed> $settings
+	 */
 	#[\PHPUnit\Framework\Attributes\DataProvider('literalizeData')]
-	public function testLiteralize($rawValue, $expectedResult, $settings)
+	public function testLiteralize(mixed $rawValue, mixed $expectedResult, array $settings): void
 	{
 		foreach($settings as $key => $value) {
 			Config::set($key, $value);
 		}
-		
+
 		$literalized = Toolkit::literalize($rawValue);
-		
+
 		$this->assertEquals($expectedResult, $literalized);
 	}
-	
-	public static function literalizeData()
+
+	/**
+	 * @return array<string, array{0: mixed, 1: mixed, 2: array<string, mixed>}>
+	 */
+	public static function literalizeData(): array
 	{
 		return [
 			'null' => [null, null, []],
@@ -173,7 +179,7 @@ class ToolkitTest extends PhpUnitTestCase
 	}
 	
 	#[\PHPUnit\Framework\Attributes\DataProvider('pathData')]
-	public function testIsPathAbsolute($path, $expected)
+	public function testIsPathAbsolute(string $path, bool $expected): void
 	{
 		if($expected) {
 			$this->assertTrue(Toolkit::isPathAbsolute($path));
@@ -181,8 +187,11 @@ class ToolkitTest extends PhpUnitTestCase
 			$this->assertFalse(Toolkit::isPathAbsolute($path));
 		}
 	}
-	
-	public static function pathData()
+
+	/**
+	 * @return array<string, array{0: string, 1: bool}>
+	 */
+	public static function pathData(): array
 	{
 		$data = [
 			'c:/' => ['c:/', true],
@@ -217,13 +226,19 @@ class ToolkitTest extends PhpUnitTestCase
 		return $data;
 	}
 	
+	/**
+	 * @param array{scheme?: string, host?: string, port?: int|string, user?: string, pass?: string, path?: string, query?: string, fragment?: string} $parts
+	 */
 	#[\PHPUnit\Framework\Attributes\DataProvider('urlData')]
-	public function testBuildUrl($parts, $url)
+	public function testBuildUrl(array $parts, string $url): void
 	{
 		$this->assertEquals($url, Toolkit::buildUrl($parts));
 	}
-	
-	public static function urlData()
+
+	/**
+	 * @return array<int, array{0: array<string, mixed>, 1: string}>
+	 */
+	public static function urlData(): array
 	{
 		return [
 			[

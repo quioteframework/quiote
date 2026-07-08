@@ -28,41 +28,55 @@ class DispatchMiddlewareTest extends TestCase
             $ctx->method('getController')->willReturn($controller);
         }
     }
-    private function makeController(callable $actionFactory, array $cookies = []): Controller
+    /**
+     * @param array<string, array<string, mixed>> $cookies
+     */
+    private function makeController(\Closure $actionFactory, array $cookies = []): Controller
     {
         $ctx = $this->createStub(\Quiote\Context::class);
         $webReq = new \Quiote\Request\WebRequest();
         $ctx->method('getRequest')->willReturn($webReq);
         // Provide routing/basePath stub for cookie path logic
-        $routing = new class { public function getBasePath(){ return '/'; } };
+        $routing = new class { public function getBasePath(): string { return '/'; } };
         $ctx->method('getRouting')->willReturn($routing);
         // Minimal concrete response implementing abstract contract
         $globalResp = new class($cookies) extends \Quiote\Response\WebResponse {
-            protected $redirect = null; private $hasRedirect = false; private $sent = false; private $headers = [];
+            private bool $hasRedirect = false;
+            private bool $sent = false;
+            /** @var array<string, array<int, mixed>> */
+            private array $headers = [];
+            /**
+             * @param array<string, array<string, mixed>> $cookiesData
+             */
             public function __construct(private readonly array $cookiesData)
             {
             }
             public function getCookies(): array { return $this->cookiesData; }
-            public function setRedirect($url, $statusCode = 302) { $this->redirect = [$url,$statusCode]; $this->hasRedirect = true; }
+            public function setRedirect($url, $statusCode = 302) { $this->redirect = ['location' => $url, 'code' => $statusCode]; $this->hasRedirect = true; }
             public function getRedirect() { return $this->redirect; }
             public function hasRedirect() { return $this->hasRedirect; }
             public function clearRedirect() { $this->redirect = null; $this->hasRedirect = false; }
-            public function isSent() { return $this->sent; }
+            public function isSent(): bool { return $this->sent; }
             public function send(?\Quiote\Controller\OutputType $outputType = null) { $this->sent = true; }
             public function setHttpHeader($name, $value, $replace = true) { if($replace||!isset($this->headers[$name])){$this->headers[$name]=[];} $this->headers[$name][]=$value; }
-            public function getHttpHeader($name, $default = null) { return $this->headers[$name] ?? $default; }
+            public function getHttpHeader($name, mixed $default = null) { return $this->headers[$name] ?? $default; }
             public function hasHttpHeader($name) { return isset($this->headers[$name]); }
             public function removeHttpHeader($name) { unset($this->headers[$name]); }
             public function clearHttpHeaders() { $this->headers = []; }
             public function clear() { $this->content = null; $this->clearHttpHeaders(); $this->clearRedirect(); }
         };
         $controller = new class($actionFactory, $globalResp) extends Controller {
-            public function __construct(private $factory, private $gResp) {}
-            public function getGlobalResponse() { return $this->gResp; }
-            public function createActionInstance($moduleName, $actionName) { return ($this->factory)(); }
-            public function createViewInstance($moduleName, $viewName) {
+            public function __construct(private readonly \Closure $factory, private readonly \Quiote\Response\WebResponse $gResp) {}
+            public function getGlobalResponse(): \Quiote\Response\WebResponse { return $this->gResp; }
+            public function createActionInstance($moduleName, $actionName): \Quiote\Action\Action { return ($this->factory)(); }
+            public function createViewInstance($moduleName, $viewName): \Quiote\View\View {
                 $fqcn = 'App\\Modules\\' . $moduleName . '\\Views\\' . $viewName . 'View';
-                if(class_exists($fqcn)) { return new $fqcn(); }
+                if(class_exists($fqcn)) {
+                    $view = new $fqcn();
+                    if ($view instanceof \Quiote\View\View) {
+                        return $view;
+                    }
+                }
                 return parent::createViewInstance($moduleName, $viewName);
             }
         };
@@ -102,7 +116,7 @@ class DispatchMiddlewareTest extends TestCase
         }
     }
 
-    public function testReturns404WithoutDescriptor()
+    public function testReturns404WithoutDescriptor(): void
     {
         $controller = $this->makeController(fn()=>null);
         $mw = new DispatchMiddleware($controller);
@@ -112,15 +126,15 @@ class DispatchMiddlewareTest extends TestCase
         $this->assertSame(404, $resp->getStatusCode());
     }
 
-    public function testSimpleExecutionBasic()
+    public function testSimpleExecutionBasic(): void
     {
         // Bootstrap minimal output type so ActionExecutor can resolve it
         $action = new class extends \Quiote\Action\Action {
-            public function initialize($ctx) {}
+            public function initialize(\Quiote\Execution\ActionInitContext $ctx): void {}
             public function isCacheable(?string $outputType = null): bool { return false; }
             public function isSecure() { return false; }
             // Return the canonical view name; middleware + executor will resolve and instantiate BarView
-            public function execute($request = null) { return 'Bar'; }
+            public function execute(mixed $request = null): mixed { return 'Bar'; }
         };
         // Ensure the test fixture view class is loaded (no autoload mapping for App\\ in tests yet)
         require_once __DIR__ . '/../../../fixtures/App/Modules/Foo/Views/BarView.php';
@@ -134,14 +148,14 @@ class DispatchMiddlewareTest extends TestCase
     $this->assertSame('CONTENT', (string)$resp->getBody());
     }
 
-    public function testNonSimpleSuccess()
+    public function testNonSimpleSuccess(): void
     {
         require_once __DIR__ . '/../../../fixtures/App/Modules/Foo/Views/BarView.php';
         $action = new class extends \Quiote\Action\Action {
-            public function initialize($ctx) {}
+            public function initialize(\Quiote\Execution\ActionInitContext $ctx): void {}
             public function isCacheable(?string $outputType = null): bool { return false; }
             public function isSecure() { return false; }
-            public function execute($request = null) { return 'Bar'; }
+            public function execute(mixed $request = null): mixed { return 'Bar'; }
         };
         $controller = $this->makeController(fn()=>$action);
         $this->bootstrapOutputType($controller);
@@ -157,16 +171,16 @@ class DispatchMiddlewareTest extends TestCase
         $this->assertSame('CONTENT', (string)$resp->getBody());
     }
 
-    public function testSecurityDecisionMissingThrows()
+    public function testSecurityDecisionMissingThrows(): void
     {
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Security decision missing');
         // Secure action triggers requirement for prior security decision
         $action = new class extends \Quiote\Action\Action {
-            public function initialize($ctx) {}
+            public function initialize(\Quiote\Execution\ActionInitContext $ctx): void {}
             public function isCacheable(?string $outputType = null): bool { return false; }
             public function isSecure() { return true; }
-            public function execute($request = null) { return 'Bar'; }
+            public function execute(mixed $request = null): mixed { return 'Bar'; }
         };
         require_once __DIR__ . '/../../../fixtures/App/Modules/Foo/Views/BarView.php';
         $controller = $this->makeController(fn()=>$action);
@@ -178,13 +192,13 @@ class DispatchMiddlewareTest extends TestCase
         $mw->process($req, $this->createStub(RequestHandlerInterface::class));
     }
 
-    public function testSimpleReturnsNoneProducesEmptyBody()
+    public function testSimpleReturnsNoneProducesEmptyBody(): void
     {
         $action = new class extends \Quiote\Action\Action {
-            public function initialize($ctx) {}
+            public function initialize(\Quiote\Execution\ActionInitContext $ctx): void {}
             public function isCacheable(?string $outputType = null): bool { return false; }
             public function isSecure() { return false; }
-            public function execute($request = null) { return \Quiote\View\View::NONE; }
+            public function execute(mixed $request = null): mixed { return \Quiote\View\View::NONE; }
         };
         $controller = $this->makeController(fn()=>$action);
         $this->bootstrapOutputType($controller);
@@ -196,13 +210,13 @@ class DispatchMiddlewareTest extends TestCase
         $this->assertSame('', (string)$resp->getBody());
     }
 
-    public function testNonSimpleValidationFailure()
+    public function testNonSimpleValidationFailure(): void
     {
         $action = new class extends \Quiote\Action\Action {
-            public function initialize($ctx) {}
+            public function initialize(\Quiote\Execution\ActionInitContext $ctx): void {}
             public function isCacheable(?string $outputType = null): bool { return false; }
             public function isSecure() { return false; }
-            public function execute($request = null) { return 'CONTENT'; }
+            public function execute(mixed $request = null): mixed { return 'CONTENT'; }
         };
         $controller = $this->makeController(fn()=>$action);
         $mw = new DispatchMiddleware($controller);
@@ -217,13 +231,13 @@ class DispatchMiddlewareTest extends TestCase
         $this->assertStringContainsString('Validation Failed', (string)$resp->getBody());
     }
 
-    public function testNonSimpleMissingValidationMiddleware()
+    public function testNonSimpleMissingValidationMiddleware(): void
     {
         $action = new class extends \Quiote\Action\Action {
-            public function initialize($ctx) {}
+            public function initialize(\Quiote\Execution\ActionInitContext $ctx): void {}
             public function isCacheable(?string $outputType = null): bool { return false; }
             public function isSecure() { return false; }
-            public function execute($request = null) { return 'CONTENT'; }
+            public function execute(mixed $request = null): mixed { return 'CONTENT'; }
         };
         $controller = $this->makeController(fn()=>$action);
         $mw = new DispatchMiddleware($controller);
@@ -234,7 +248,7 @@ class DispatchMiddlewareTest extends TestCase
         $this->assertSame('validation-middleware-missing', $resp->getHeaderLine('X-Quiote-Debug'));
     }
 
-    public function testCookieBridging()
+    public function testCookieBridging(): void
     {
         // Cookie array structure as expected by DispatchMiddleware::buildPsrResponse
         $cookies = [
@@ -258,10 +272,10 @@ class DispatchMiddlewareTest extends TestCase
             ],
         ];
         $action = new class extends \Quiote\Action\Action {
-            public function initialize($ctx) {}
+            public function initialize(\Quiote\Execution\ActionInitContext $ctx): void {}
             public function isCacheable(?string $outputType = null): bool { return false; }
             public function isSecure() { return false; }
-            public function execute($request = null) { return 'Bar'; }
+            public function execute(mixed $request = null): mixed { return 'Bar'; }
         };
         require_once __DIR__ . '/../../../fixtures/App/Modules/Foo/Views/BarView.php';
         $controller = $this->makeController(fn()=>$action, $cookies);
@@ -276,14 +290,15 @@ class DispatchMiddlewareTest extends TestCase
         $this->assertTrue((bool)array_filter($setCookies, fn($h)=>str_contains((string) $h, 'prefs=light')));
     }
 
-    public function testSimpleCacheHitSkipsExecution()
+    public function testSimpleCacheHitSkipsExecution(): void
     {
         if(!class_exists(\Quiote\Cache\CacheManager::class)) { $this->markTestSkipped('Cache components missing'); }
         \Quiote\Config\Config::set('core.cache_enabled', true);
         \Quiote\Config\Config::set('core.use_cache', true);
         require_once __DIR__ . '/../../../fixtures/App/Modules/Foo/Views/BarView.php';
         $executed = 0;
-        $action = new class($executedRef =& $executed) extends \Quiote\Action\Action { private int $execs = 0; public function __construct(private &$ctr){} public function initialize($ctx) {} public function isCacheable(?string $ot=null): bool { return true; } public function isSecure(){ return false; } public function execute($r=null){ $this->ctr++; return 'Bar'; } };
+        $executedRef =& $executed;
+        $action = new class($executedRef) extends \Quiote\Action\Action { public function __construct(private int &$ctr){} public function initialize(\Quiote\Execution\ActionInitContext $ctx): void {} public function isCacheable(?string $ot=null): bool { return true; } public function isSecure(){ return false; } public function execute(mixed $r = null): mixed { $this->ctr++; return 'Bar'; } };
         $controller = $this->makeController(fn()=>$action);
         $this->bootstrapOutputType($controller);
         $mw = new DispatchMiddleware($controller);
@@ -306,7 +321,7 @@ class DispatchMiddlewareTest extends TestCase
         }
     }
 
-    public function testNonSimpleCacheHitRequiresPriorExecution()
+    public function testNonSimpleCacheHitRequiresPriorExecution(): void
     {
         // Ensure no prior executions or cached payloads interfere (statically tracked across tests)
         try {
@@ -320,7 +335,8 @@ class DispatchMiddlewareTest extends TestCase
         \Quiote\Config\Config::set('core.use_cache', true);
         require_once __DIR__ . '/../../../fixtures/App/Modules/Foo/Views/BarView.php';
         $executed = 0;
-        $action = new class($executedRef =& $executed) extends \Quiote\Action\Action { public function __construct(private &$ctr){} public function initialize($ctx) {} public function isCacheable(?string $ot=null): bool { return true; } public function isSecure(){ return false; } public function execute($r=null){ $this->ctr++; return 'Bar'; } };
+        $executedRef =& $executed;
+        $action = new class($executedRef) extends \Quiote\Action\Action { public function __construct(private int &$ctr){} public function initialize(\Quiote\Execution\ActionInitContext $ctx): void {} public function isCacheable(?string $ot=null): bool { return true; } public function isSecure(){ return false; } public function execute(mixed $r = null): mixed { $this->ctr++; return 'Bar'; } };
         $controller = $this->makeController(fn()=>$action);
         $this->bootstrapOutputType($controller);
         $mw = new DispatchMiddleware($controller);
@@ -344,10 +360,10 @@ class DispatchMiddlewareTest extends TestCase
         }
     }
 
-    public function testInvalidActionReturnTriggersViewResolutionFailure()
+    public function testInvalidActionReturnTriggersViewResolutionFailure(): void
     {
         // Return a type that is neither string nor View::NONE to exercise failure path; expect exception or empty content.
-        $action = new class extends \Quiote\Action\Action { public function initialize($ctx) {} public function isCacheable(?string $ot=null): bool { return false; } public function isSecure(){ return false; } public function execute($r=null){ return ['unexpected']; } };
+        $action = new class extends \Quiote\Action\Action { public function initialize(\Quiote\Execution\ActionInitContext $ctx): void {} public function isCacheable(?string $ot=null): bool { return false; } public function isSecure(){ return false; } public function execute(mixed $r = null): mixed { return ['unexpected']; } };
         $controller = $this->makeController(fn()=>$action);
         $this->bootstrapOutputType($controller);
         $mw = new DispatchMiddleware($controller);
@@ -357,16 +373,16 @@ class DispatchMiddlewareTest extends TestCase
             $resp = $mw->process($req, $this->createStub(RequestHandlerInterface::class));
             $this->assertSame(200, $resp->getStatusCode());
             // If it reached here without exception, body may be empty due to missing view.
-            $this->assertIsString((string)$resp->getBody());
+            $this->assertSame('', (string)$resp->getBody());
         } catch (Error|RuntimeException $e) {
             $this->assertStringContainsString('execute', $e->getMessage());
         }
     }
 
-    public function testPrePopulatedExecutionStatePreserved()
+    public function testPrePopulatedExecutionStatePreserved(): void
     {
         require_once __DIR__ . '/../../../fixtures/App/Modules/Foo/Views/BarView.php';
-        $action = new class extends \Quiote\Action\Action { public function initialize($ctx) {} public function isCacheable(?string $ot=null): bool { return false; } public function isSecure(){ return false; } public function execute($r=null){ return 'Bar'; } };
+        $action = new class extends \Quiote\Action\Action { public function initialize(\Quiote\Execution\ActionInitContext $ctx): void {} public function isCacheable(?string $ot=null): bool { return false; } public function isSecure(){ return false; } public function execute(mixed $r = null): mixed { return 'Bar'; } };
         $controller = $this->makeController(fn()=>$action);
         $this->bootstrapOutputType($controller);
         $mw = new DispatchMiddleware($controller);

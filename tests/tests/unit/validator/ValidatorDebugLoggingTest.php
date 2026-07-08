@@ -4,7 +4,9 @@ use Quiote\Testing\UnitTestCase;
 use Quiote\Logging\Log;
 use Quiote\Logging\Level;
 use Quiote\Logging\Sink\JsonStdoutSink;
+use Quiote\Validator\ValidationManager;
 use Quiote\Validator\Validator;
+use Quiote\Request\WebRequest;
 
 /**
  * Tests the type-safe debug string building in Validator::getData()
@@ -23,7 +25,11 @@ class ValidatorDebugLoggingTest extends UnitTestCase
     {
         Log::reset();
         Log::setDefaultLevel(Level::Debug);
-        Log::addSink(new JsonStdoutSink(Level::Debug, [], 'php://stdout', fopen('php://memory', 'r+')));
+        $stream = fopen('php://memory', 'r+');
+        if ($stream === false) {
+            $this->fail('Failed to open php://memory for the throwaway debug sink');
+        }
+        Log::addSink(new JsonStdoutSink(Level::Debug, [], 'php://stdout', $stream));
     }
 
     #[\Override]
@@ -32,6 +38,11 @@ class ValidatorDebugLoggingTest extends UnitTestCase
         Log::reset();
     }
 
+    /**
+     * @param class-string<Validator> $class
+     * @param array<string, mixed> $params
+     * @return array{result: int, vm: ValidationManager, rd: WebRequest}
+     */
     private function runValidator(string $class, mixed $value, array $params = []): array
     {
         $vm = $this->getContext()->createInstanceFor('validation_manager');
@@ -42,39 +53,39 @@ class ValidatorDebugLoggingTest extends UnitTestCase
         return ['result' => $result, 'vm' => $vm, 'rd' => $rd];
     }
 
-    public function testScalarStringWithDebugEnabled()
+    public function testScalarStringWithDebugEnabled(): void
     {
         $this->enableDebug();
         $res = $this->runValidator('DummyValidator', 'hello_world');
         $this->assertSame(Validator::SUCCESS, $res['result']);
     }
 
-    public function testScalarStringWithDebugDisabled()
+    public function testScalarStringWithDebugDisabled(): void
     {
         Log::reset();
         $res = $this->runValidator('DummyValidator', 'some_string');
         $this->assertSame(Validator::SUCCESS, $res['result']);
     }
 
-    public function testIntegerWithDebugEnabled()
+    public function testIntegerWithDebugEnabled(): void
     {
         $this->enableDebug();
         $res = $this->runValidator('DummyValidator', 42);
         $this->assertSame(Validator::SUCCESS, $res['result']);
     }
 
-    public function testBoolTrueWithDebugEnabled()
+    public function testBoolTrueWithDebugEnabled(): void
     {
         $this->enableDebug();
         $res = $this->runValidator('DummyValidator', true);
         $this->assertSame(Validator::SUCCESS, $res['result']);
     }
 
-    public function testValidatorFailureWithDebugEnabled()
+    public function testValidatorFailureWithDebugEnabled(): void
     {
         $this->enableDebug();
         $vm = $this->getContext()->createInstanceFor('validation_manager');
-        $validator = $vm->createValidator('DummyValidator', ['value'], ['error' => 'bad']);
+        $validator = $vm->createValidator('DummyValidator', ['value'], ['' => 'bad']);
         $validator->val_result = false;
         $rd = $this->newWebRequest(['value' => 'test']);
         $result = $validator->execute($rd);
@@ -82,21 +93,21 @@ class ValidatorDebugLoggingTest extends UnitTestCase
         $this->assertNotSame(Validator::SUCCESS, $result);
     }
 
-    public function testArrayValueWithDebugEnabled()
+    public function testArrayValueWithDebugEnabled(): void
     {
         $this->enableDebug();
         $res = $this->runValidator('DummyValidator', ['a' => 1, 'b' => 2, 'c' => 3]);
         $this->assertSame(Validator::SUCCESS, $res['result']);
     }
 
-    public function testNonEmptyStringWithDebugEnabled()
+    public function testNonEmptyStringWithDebugEnabled(): void
     {
         $this->enableDebug();
         $res = $this->runValidator('DummyValidator', 'non-empty');
         $this->assertSame(Validator::SUCCESS, $res['result']);
     }
 
-    public function testDebugOnAndOffGiveSameResult()
+    public function testDebugOnAndOffGiveSameResult(): void
     {
         $this->enableDebug();
         $resOn = $this->runValidator('DummyValidator', 'test_value');

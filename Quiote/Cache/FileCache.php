@@ -27,6 +27,7 @@ class FileCache implements CacheInterface
     private function unserialize(string $payload): mixed
     {
         $pos = strpos($payload,"\n");
+        if ($pos === false) return null;
         $exp = (int)substr($payload,0,$pos);
         if ($exp !== 0 && $exp < time()) return null;
         $data = substr($payload,$pos+1);
@@ -49,7 +50,7 @@ class FileCache implements CacheInterface
     { return @unlink($this->path($key)) || !file_exists($this->path($key)); }
     public function clear(): bool
     {
-        $ok = true; foreach (glob(rtrim($this->directory,'/').'/*.cache') as $f) { if(!@unlink($f)) $ok=false; }
+        $ok = true; foreach (glob(rtrim($this->directory,'/').'/*.cache') ?: [] as $f) { if(!@unlink($f)) $ok=false; }
         return $ok;
     }
     public function getMultiple($keys, mixed $default = null): iterable
@@ -62,5 +63,5 @@ class FileCache implements CacheInterface
     public function deleteMultiple($keys): bool
     { $ok=true; foreach($keys as $k) $ok=$this->delete($k)&&$ok; return $ok; }
     public function has(string $key): bool
-    { $f=$this->path($key); if(!is_file($f)) return false; $payload=@file_get_contents($f); if($payload===false) return false; $pos=strpos($payload,"\n"); $exp=(int)substr($payload,0,$pos); return $exp===0 || $exp>=time(); }
+    { $f=$this->path($key); if(!is_file($f)) return false; $payload=@file_get_contents($f); if($payload===false) return false; $pos=strpos($payload,"\n"); if($pos===false) return false; $exp=(int)substr($payload,0,$pos); return $exp===0 || $exp>=time(); }
 }

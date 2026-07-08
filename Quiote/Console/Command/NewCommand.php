@@ -92,7 +92,8 @@ final class NewCommand extends Command
 		$packageRoot = dirname(__DIR__, 3);
 		foreach ([$packageRoot . '/vendor/autoload.php', dirname($packageRoot, 2) . '/autoload.php'] as $candidate) {
 			if (is_file($candidate)) {
-				return realpath($candidate);
+				$resolved = realpath($candidate);
+				return $resolved !== false ? $resolved : $candidate;
 			}
 		}
 		return null;

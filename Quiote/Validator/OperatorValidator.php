@@ -1,6 +1,7 @@
 <?php
 namespace Quiote\Validator;
 
+use Quiote\Exception\ValidatorException;
 use Quiote\Request\WebRequest;
 use InvalidArgumentException;
 use Symfony\Contracts\Service\ResetInterface;
@@ -241,7 +242,28 @@ abstract class OperatorValidator extends Validator implements IValidatorContaine
     #[\Override]
     public function getDependencyManager()
 	{
-		return $this->parentContainer->getDependencyManager();
+		$parentContainer = $this->parentContainer;
+		if ($parentContainer === null) {
+			throw new ValidatorException('Operator validator "' . ($this->getName() ?? '?') . '" has no parent container; it was never added as a child (or was reset without being re-attached).');
+		}
+		return $parentContainer->getDependencyManager();
+	}
+
+	/**
+	 * Narrows $validationParameters (inherited from Validator, and typed
+	 * nullable there because it's only populated once execute() runs) to a
+	 * concrete WebRequest for dispatching to child validators. Only ever
+	 * null before this operator's own execute() has run, which validate()
+	 * always happens after.
+	 * @return     WebRequest The request supplied to this operator's execute().
+	 * @since      1.0.0
+	 */
+	protected function requireValidationParameters(): WebRequest
+	{
+		if ($this->validationParameters === null) {
+			throw new ValidatorException('Operator validator "' . ($this->getName() ?? '?') . '" has no request; validate() ran before execute() supplied one.');
+		}
+		return $this->validationParameters;
 	}
 
 	/**

@@ -24,14 +24,29 @@ class HttpClientTest extends TestCase
         return HttpClient::fromConfig($config);
     }
 
+    /**
+     * RecordingTransport::lastRequest() is nullable (nothing recorded yet);
+     * every call site in this file only reaches for it after issuing a
+     * request, so a missing recording indicates a broken test fixture
+     * rather than a case callers should silently tolerate.
+     */
+    private function recordedRequest(RecordingTransport $transport): \Psr\Http\Message\RequestInterface
+    {
+        $request = $transport->lastRequest();
+        if ($request === null) {
+            throw new \RuntimeException('Expected the transport to have recorded a request.');
+        }
+        return $request;
+    }
+
     public function testGetSendsRequestThroughTransport(): void
     {
         $transport = new RecordingTransport(new Response(200));
         $response = $this->client($transport)->get('https://example.com/thing');
 
         $this->assertSame(200, $response->getStatusCode());
-        $this->assertSame('GET', $transport->lastRequest()->getMethod());
-        $this->assertSame('https://example.com/thing', (string) $transport->lastRequest()->getUri());
+        $this->assertSame('GET', $this->recordedRequest($transport)->getMethod());
+        $this->assertSame('https://example.com/thing', (string) $this->recordedRequest($transport)->getUri());
     }
 
     public function testBaseUriIsPrependedToRelativePaths(): void
@@ -40,7 +55,7 @@ class HttpClientTest extends TestCase
         $this->client($transport, fn(HttpClientConfig $c) => $c->baseUri('https://api.example.com'))
             ->get('/users/1');
 
-        $this->assertSame('https://api.example.com/users/1', (string) $transport->lastRequest()->getUri());
+        $this->assertSame('https://api.example.com/users/1', (string) $this->recordedRequest($transport)->getUri());
     }
 
     public function testAbsoluteUriIgnoresBaseUri(): void
@@ -49,7 +64,7 @@ class HttpClientTest extends TestCase
         $this->client($transport, fn(HttpClientConfig $c) => $c->baseUri('https://api.example.com'))
             ->get('https://other.example.org/x');
 
-        $this->assertSame('https://other.example.org/x', (string) $transport->lastRequest()->getUri());
+        $this->assertSame('https://other.example.org/x', (string) $this->recordedRequest($transport)->getUri());
     }
 
     public function testDefaultHeadersAreApplied(): void
@@ -58,7 +73,7 @@ class HttpClientTest extends TestCase
         $this->client($transport, fn(HttpClientConfig $c) => $c->header('Authorization', 'Bearer t'))
             ->get('https://example.com/');
 
-        $this->assertSame('Bearer t', $transport->lastRequest()->getHeaderLine('Authorization'));
+        $this->assertSame('Bearer t', $this->recordedRequest($transport)->getHeaderLine('Authorization'));
     }
 
     public function testPerRequestHeaderOverridesDefaultHeader(): void
@@ -67,7 +82,7 @@ class HttpClientTest extends TestCase
         $this->client($transport, fn(HttpClientConfig $c) => $c->header('Accept', 'application/xml'))
             ->get('https://example.com/', ['headers' => ['Accept' => 'application/json']]);
 
-        $this->assertSame('application/json', $transport->lastRequest()->getHeaderLine('Accept'));
+        $this->assertSame('application/json', $this->recordedRequest($transport)->getHeaderLine('Accept'));
     }
 
     public function testPostSendsBody(): void
@@ -75,8 +90,8 @@ class HttpClientTest extends TestCase
         $transport = new RecordingTransport(new Response(201));
         $this->client($transport)->post('https://example.com/', ['body' => '{"a":1}']);
 
-        $this->assertSame('POST', $transport->lastRequest()->getMethod());
-        $this->assertSame('{"a":1}', (string) $transport->lastRequest()->getBody());
+        $this->assertSame('POST', $this->recordedRequest($transport)->getMethod());
+        $this->assertSame('{"a":1}', (string) $this->recordedRequest($transport)->getBody());
     }
 
     public function testRetriesOnServerErrorThenSucceeds(): void

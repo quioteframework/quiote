@@ -6,6 +6,7 @@ namespace Quiote\Response;
  * @version    1.0.0
  */
 use Quiote\Controller\OutputType;
+use Quiote\Exception\InitializationException;
 use Quiote\Util\AttributeHolder;
 use Quiote\Context;
 use Symfony\Contracts\Service\ResetInterface;
@@ -52,7 +53,7 @@ abstract class Response extends AttributeHolder implements ResetInterface
 		// Collect all current object vars first.
 		$vars = get_object_vars($this);
 		// Replace heavy object references with lightweight identifiers.
-		$this->contextName = $this->context->getName();
+		$this->contextName = $this->context?->getName();
 		unset($vars['context']); // remove context instance so it won't be serialized
 		
 		if($this->outputType) {
@@ -94,10 +95,14 @@ abstract class Response extends AttributeHolder implements ResetInterface
 	/**
 	 * Retrieve the Context instance this Response object belongs to.
 	 * @return     Context An Context instance.
+	 * @throws     InitializationException If this Response has not been initialized yet.
 	 * @since      1.0.0
 	 */
 	public final function getContext()
 	{
+		if ($this->context === null) {
+			throw new InitializationException(sprintf('%s has not been initialized; call initialize() first.', static::class));
+		}
 		return $this->context;
 	}
 	

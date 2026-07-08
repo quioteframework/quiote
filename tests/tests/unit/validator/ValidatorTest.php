@@ -1,77 +1,54 @@
 <?php
 
 use Quiote\Exception\ValidatorException;
-use Quiote\Testing\PhpUnitTestCase;
 use Quiote\Validator\Validator;
 use Quiote\Util\VirtualArrayPath;
 
+require_once(__DIR__ . '/BaseValidatorTest.base.php');
+
 class SampleValidator extends Validator
 {
-	public $bases = [];
-	public $val_result = true;
-	private $AffectedFieldNames;
+	/** @var array<int, VirtualArrayPath> */
+	public array $bases = [];
+	public bool $val_result = true;
 
-	protected function validate() { return $this->val_result; }
-	
 	#[\Override]
-    public function getBase() { return $this->curBase->__toString(); }
-	public function getParent() {return $this->parentContainer; }
-	public function getData2($parameter) { return $this->getData($parameter); }
-	public function getData3() { return $this->getData(null); }
+    protected function validate(): bool { return $this->val_result; }
+
 	#[\Override]
-    public function getArgument($name = null) { return parent::getArgument(); }
-	public function throwError2($index = 'error', $ignoreAsMessage = false, $affectedFields = null, $backupError = null)
-	{
-		$this->throwError($index, $ignoreAsMessage, $affectedFields, $backupError);
-	}
-	public function getAffectedFields2($fields) { $this->AffectedFieldNames = $fields; return $this->getAffectedFields(); }
-	public function export2($value) { $this->export($value); }
-	
-	#[\Override]
-    protected function validateInBase(VirtualArrayPath $base) { array_push($this->bases, $base); return parent::validateInBase($base); }
-	public function validateInBase2($base) { return $this->validateInBase($base); }
+    protected function validateInBase(VirtualArrayPath $base): int { array_push($this->bases, $base); return parent::validateInBase($base); }
+
+	public function getArgument($name = null): mixed { return parent::getArgument($name); }
 }
 
 class SampleValidator2 extends Validator
 {
-	public $base = '';
-	public $val_result = 0;
-	
-	protected function validate() { return true; }
+	public string $base = '';
+	public int $val_result = 0;
+
 	#[\Override]
-    protected function validateInBase(VirtualArrayPath $base) { $this->base = $base; return $this->val_result; }
+    protected function validate(): bool { return true; }
+	#[\Override]
+    protected function validateInBase(VirtualArrayPath $base): int { $this->base = (string) $base; return $this->val_result; }
 }
 
 class ExportingSampleValidator extends Validator
 {
-	protected function validate() { $this->export('test'); return true; }
+	#[\Override]
+    protected function validate(): bool { $this->export('test'); return true; }
 }
 
 class ValidatorTest extends BaseValidatorTest
 {
-	private $_vm = null;
-					
-	#[\Override]
-    public function setUp(): void
-	{
-		$this->_vm = $this->getContext()->createInstanceFor('validation_manager');
-	}
-
-	#[\Override]
-    public function tearDown(): void
-	{
-		$this->_vm = null;
-	}
-
-	public function testInitialize()
+	public function testInitialize(): void
 	{
 		$validator = new SampleValidator();
 		$validator->initialize($this->getContext());
 		$this->assertEquals($validator->getParameter('depends'), []);
 		$this->assertEquals($validator->getParameter('provides'), []);
 	}
-	
-	public function testInitializeWithParameters()
+
+	public function testInitializeWithParameters(): void
 	{
 		$parameters = [
 			'depends'	=> ['test1', 'test2', 'test3'],
@@ -83,8 +60,8 @@ class ValidatorTest extends BaseValidatorTest
 		$this->assertEquals($validator->getParameter('provides'), ['foo', 'bar']);
 		$this->assertEquals($validator->getArgument(), 'test');
 	}
-	
-	public function testMapErrorCode()
+
+	public function testMapErrorCode(): void
 	{
 		$this->assertEquals(Validator::mapErrorCode('info'), Validator::INFO);
 		$this->assertEquals(Validator::mapErrorCode('none'), Validator::NONE);
@@ -93,7 +70,7 @@ class ValidatorTest extends BaseValidatorTest
 		$this->assertEquals(Validator::mapErrorCode('error'), Validator::ERROR);
 		$this->assertEquals(Validator::mapErrorCode('critical'), Validator::CRITICAL);
 		$this->assertEquals(Validator::mapErrorCode('cRiTiCaL'), Validator::CRITICAL);
-		
+
 		try {
 			Validator::mapErrorCode('foo');
 			$this->fail();
@@ -102,23 +79,23 @@ class ValidatorTest extends BaseValidatorTest
 		}
 	}
 
-	public function testExport()
+	public function testExport(): void
 	{
-		$res = $this->executeValidator('ExportingSampleValidator', 'test', [], [
+		$res = $this->executeValidator(ExportingSampleValidator::class, 'test', [], [
 			'export' => 'foo',
 		]);
 		$this->assertEquals($res['rd']->getParameter('foo'), 'test');
 	}
 
-	public function testExportSeverity()
+	public function testExportSeverity(): void
 	{
-		$res = $this->executeValidator('ExportingSampleValidator', 'test', [], [
+		$res = $this->executeValidator(ExportingSampleValidator::class, 'test', [], [
 			'export' => 'foo',
 		]);
 		$ar = $res['vm']->getReport()->getArgumentResults();
 		$this->assertEquals($ar['parameters/foo'][0]['severity'], Validator::SUCCESS);
 
-		$res = $this->executeValidator('ExportingSampleValidator', 'test', [], [
+		$res = $this->executeValidator(ExportingSampleValidator::class, 'test', [], [
 			'export'          => 'foo',
 			'export_severity' => -1, // Use the actual value instead of a string
 		]);

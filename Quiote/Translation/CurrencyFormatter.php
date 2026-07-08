@@ -100,19 +100,28 @@ class CurrencyFormatter extends DecimalFormatter implements ITranslator, ResetIn
 			$locale = $this->locale;
 		}
 		
+		$context = $this->getContext();
+		if($context === null) {
+			throw new \LogicException('CurrencyFormatter::translate() called before initialize().');
+		}
+		$translationManager = $context->getTranslationManager();
+		if($translationManager === null) {
+			throw new \LogicException('CurrencyFormatter::translate() called without an active TranslationManager.');
+		}
+
 		if($this->customFormat && $this->translationDomain) {
 			if($fn === $this) {
 				$fn = clone $this;
 			}
-			
+
 			$td = $this->translationDomain . ($domain ? '.' . $domain : '');
-			$format = $this->getContext()->getTranslationManager()->_($this->customFormat, $td, $locale);
-			
+			$format = $translationManager->_($this->customFormat, $td, $locale);
+
 			$fn->setFormat($format);
 		}
-		
+
 		$code = $this->getCurrencyCode();
-		$fraction = $this->getContext()->getTranslationManager()->getCurrencyFraction($code);
+		$fraction = $translationManager->getCurrencyFraction($code);
 		$fn->setFractionDigits($fraction['digits']);
 		
 		if($fraction['rounding'] > 0) {
@@ -135,9 +144,10 @@ class CurrencyFormatter extends DecimalFormatter implements ITranslator, ResetIn
 		$this->locale = $newLocale;
 
 		$format = null;
-		if(class_exists(\NumberFormatter::class)) {
+		$localeIdentifier = $this->locale->getIdentifier();
+		if($localeIdentifier !== null && class_exists(\NumberFormatter::class)) {
 			try {
-				$nf = new \NumberFormatter($this->locale->getIdentifier(), \NumberFormatter::CURRENCY);
+				$nf = new \NumberFormatter($localeIdentifier, \NumberFormatter::CURRENCY);
 				$this->groupingSeparator = $nf->getSymbol(\NumberFormatter::GROUPING_SEPARATOR_SYMBOL);
 				$this->decimalSeparator = $nf->getSymbol(\NumberFormatter::DECIMAL_SEPARATOR_SYMBOL);
 				$pattern = $nf->getPattern();
@@ -170,7 +180,7 @@ class CurrencyFormatter extends DecimalFormatter implements ITranslator, ResetIn
 	{
 		$code = $this->currencyCode;
 		if(!$code && $this->locale) {
-			$code = $this->locale->getLocaleCurrency();
+			$code = $this->locale->getLocaleCurrency() ?? '';
 		}
 
 		return $code;
@@ -191,15 +201,16 @@ class CurrencyFormatter extends DecimalFormatter implements ITranslator, ResetIn
 		$symbol = $code;
 		$name = $code;
 
-		if(class_exists(\NumberFormatter::class)) {
+		$localeIdentifier = $this->locale->getIdentifier();
+		if($localeIdentifier !== null && class_exists(\NumberFormatter::class)) {
 			try {
-				$nf = new \NumberFormatter($this->locale->getIdentifier(), \NumberFormatter::CURRENCY);
+				$nf = new \NumberFormatter($localeIdentifier, \NumberFormatter::CURRENCY);
 				$nf->setTextAttribute(\NumberFormatter::CURRENCY_CODE, $code);
 				$sym = $nf->getSymbol(\NumberFormatter::CURRENCY_SYMBOL);
 				if($sym !== '') {
 					$symbol = $sym;
 				}
-				$display = self::resolveCurrencyDisplayName($this->locale->getIdentifier(), $code);
+				$display = self::resolveCurrencyDisplayName($localeIdentifier, $code);
 				if($display !== null) {
 					$name = $display;
 				}
@@ -211,7 +222,7 @@ class CurrencyFormatter extends DecimalFormatter implements ITranslator, ResetIn
 			DecimalFormatter::CURRENCY_SYMBOL => $symbol,
 			DecimalFormatter::CURRENCY_CODE => $code,
 			DecimalFormatter::CURRENCY_NAME => $name,
-			default => null,
+			default => $code,
 		};
 	}
 

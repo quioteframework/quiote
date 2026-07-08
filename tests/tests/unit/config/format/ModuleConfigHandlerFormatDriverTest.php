@@ -29,7 +29,7 @@ class ModuleConfigHandlerFormatDriverTest extends PhpUnitTestCase
 		parent::tearDown();
 	}
 
-	public function testModulePhpArrayFileCompilesThroughModuleConfigHandler()
+	public function testModulePhpArrayFileCompilesThroughModuleConfigHandler(): void
 	{
 		file_put_contents($this->dir . '/module.php', <<<'PHP'
 <?php

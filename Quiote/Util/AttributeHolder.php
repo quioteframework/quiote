@@ -12,7 +12,7 @@ use InvalidArgumentException;
 abstract class AttributeHolder extends ParameterHolder
 {
 	/**
-	 * @var        array<string, array<string, mixed>> An array of attributes
+	 * @var        array<string, array<int|string, mixed>> An array of attributes
 	 */
 	protected $attributes = [];
 
@@ -43,7 +43,7 @@ abstract class AttributeHolder extends ParameterHolder
 
 	/**
 	 * Retrieve an attribute.
-	 * @param      string $name An attribute name.
+	 * @param      int|string $name An attribute name.
 	 * @param      string $ns An attribute namespace.
 	 * @param      mixed  $default A default attribute value.
 	 * @return     mixed An attribute value, if the attribute exists, otherwise
@@ -62,7 +62,7 @@ abstract class AttributeHolder extends ParameterHolder
 			}
 
 			try {
-				return ArrayPathDefinition::getValue($name, $this->attributes[$ns], $default);
+				return ArrayPathDefinition::getValue((string) $name, $this->attributes[$ns], $default);
 			} catch(InvalidArgumentException) {
 				return $default;
 			}
@@ -74,7 +74,7 @@ abstract class AttributeHolder extends ParameterHolder
 	/**
 	 * Retrieve an array of attribute names.
 	 * @param      string $ns An attribute namespace.
-	 * @return     ?array<int, string> An indexed array of attribute names, if the namespace
+	 * @return     ?array<int, int|string> An indexed array of attribute names, if the namespace
 	 *                   exists, otherwise null.
 	 * @since      1.0.0
 	 */
@@ -116,7 +116,7 @@ abstract class AttributeHolder extends ParameterHolder
 	/**
 	 * Retrieve all attributes within a namespace.
 	 * @param      string $ns An attribute namespace.
-	 * @return     array<string, mixed> An associative array of attributes.
+	 * @return     array<int|string, mixed> An associative array of attributes.
 	 * @since      1.0.0
 	 */
 	public function &getAttributes($ns = null)
@@ -137,7 +137,7 @@ abstract class AttributeHolder extends ParameterHolder
 	/**
 	 * Retrieve all attributes within a namespace.
 	 * @param      string $ns An attribute namespace.
-	 * @return     array<string, mixed>|null An associative array of attributes if the namespace
+	 * @return     array<int|string, mixed>|null An associative array of attributes if the namespace
 	 *                   exists, otherwise null.
 	 * @since      1.0.0
 	 */
@@ -168,7 +168,7 @@ abstract class AttributeHolder extends ParameterHolder
 
 	/**
 	 * Indicates whether or not an attribute exists.
-	 * @param      string $name An attribute name.
+	 * @param      int|string $name An attribute name.
 	 * @param      string $ns An attribute namespace.
 	 * @return     bool true, if the attribute exists, otherwise false.
 	 * @since      1.0.0
@@ -185,7 +185,7 @@ abstract class AttributeHolder extends ParameterHolder
 			}
 			
 			try {
-				return ArrayPathDefinition::hasValue($name, $this->attributes[$ns]);
+				return ArrayPathDefinition::hasValue((string) $name, $this->attributes[$ns]);
 			} catch(InvalidArgumentException) {
 				return false;
 			}
@@ -207,7 +207,7 @@ abstract class AttributeHolder extends ParameterHolder
 
 	/**
 	 * Remove an attribute.
-	 * @param      string $name An attribute name.
+	 * @param      int|string $name An attribute name.
 	 * @param      string $ns An attribute namespace.
 	 * @return     mixed An attribute value, if the attribute was removed,
 	 *                   otherwise null.
@@ -227,7 +227,7 @@ abstract class AttributeHolder extends ParameterHolder
 				unset($this->attributes[$ns][$name]);
 			} else {
 				try {
-					$retval =& ArrayPathDefinition::unsetValue($name, $this->attributes[$ns]);
+					$retval =& ArrayPathDefinition::unsetValue((string) $name, $this->attributes[$ns]);
 				} catch(InvalidArgumentException) {
 				}
 			}
@@ -260,7 +260,7 @@ abstract class AttributeHolder extends ParameterHolder
 	 * Set an attribute.
 	 * If an attribute with the name already exists the value will be
 	 * overridden.
-	 * @param      string $name An attribute name.
+	 * @param      int|string $name An attribute name.
 	 * @param      mixed $value An attribute value.
 	 * @param      string $ns An attribute namespace.
 	 * @return     void
@@ -283,7 +283,7 @@ abstract class AttributeHolder extends ParameterHolder
 	 * Append an attribute.
 	 * If an attribute with the name already exists, it will be converted to an
 	 * array and the new value appended.
-	 * @param      string $name An attribute name.
+	 * @param      int|string $name An attribute name.
 	 * @param      mixed $value An attribute value.
 	 * @param      string $ns An attribute namespace.
 	 * @return     void
@@ -310,7 +310,7 @@ abstract class AttributeHolder extends ParameterHolder
 	 * Set an attribute by reference.
 	 * If an attribute with the name already exists the value will be
 	 * overridden.
-	 * @param      string $name An attribute name.
+	 * @param      int|string $name An attribute name.
 	 * @param      mixed $value A reference to an attribute value.
 	 * @param      string $ns An attribute namespace.
 	 * @return     void
@@ -333,7 +333,7 @@ abstract class AttributeHolder extends ParameterHolder
 	 * Append an attribute by reference.
 	 * If an attribute with the name already exists, it will be converted to an
 	 * array and the reference to the new value appended.
-	 * @param      string $name An attribute name.
+	 * @param      int|string $name An attribute name.
 	 * @param      mixed $value A reference to an attribute value.
 	 * @param      string $ns An attribute namespace.
 	 * @return     void
@@ -360,7 +360,7 @@ abstract class AttributeHolder extends ParameterHolder
 	 * Set an array of attributes.
 	 * If an existing attribute name matches any of the keys in the supplied
 	 * array, the associated value will be overridden.
-	 * @param      array<string, mixed> $attributes An associative array of attributes and their
+	 * @param      array<int|string, mixed> $attributes An associative array of attributes and their
 	 *                    associated values.
 	 * @param      string $ns An attribute namespace.
 	 * @return     void
@@ -385,7 +385,7 @@ abstract class AttributeHolder extends ParameterHolder
 	 * Set an array of attributes by reference.
 	 * If an existing attribute name matches any of the keys in the supplied
 	 * array, the associated value will be overridden.
-	 * @param      array<string, mixed> $attributes An associative array of attributes and references to
+	 * @param      array<int|string, mixed> $attributes An associative array of attributes and references to
 	 *                    their associated values.
 	 * @param      string $ns An attribute namespace.
 	 * @return     void

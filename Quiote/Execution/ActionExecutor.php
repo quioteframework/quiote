@@ -30,21 +30,30 @@ use Quiote\Request\WebRequest;
  */
 final class ActionExecutor
 {
+    private readonly ActionResolver $actionResolver;
+    private readonly ValidationService $validationService;
+    private readonly ViewFactory $viewFactory;
+    private readonly ViewNameResolver $viewNameResolver;
+
+    // Retained only to keep the constructor signature stable for callers that
+    // inject it (e.g. tests); nothing in this class reads it back yet.
+    private ?SecurityService $securityService = null;
+
     public function __construct(
         private readonly Controller $controller,
-        private ?ActionResolver $actionResolver = null,
-        private ?ValidationService $validationService = null,
-        private ?SecurityService $securityService = null,
-        private ?ViewFactory $viewFactory = null,
-        private ?ViewNameResolver $viewNameResolver = null,
+        ?ActionResolver $actionResolver = null,
+        ?ValidationService $validationService = null,
+        ?SecurityService $securityService = null,
+        ?ViewFactory $viewFactory = null,
+        ?ViewNameResolver $viewNameResolver = null,
         // ForwardService removed from executor (security forwards handled exclusively in SecurityMiddleware)
     ) {
-        // Initialize services
-        $this->viewNameResolver ??= new ViewNameResolver();
-        $this->actionResolver ??= new ActionResolver();
-        $this->validationService ??= new ValidationService();
-        $this->securityService ??= new SecurityService($controller);
-        $this->viewFactory ??= new ViewFactory($controller);
+        // Initialize services, falling back to defaults when not injected (e.g. in tests).
+        $this->viewNameResolver = $viewNameResolver ?? new ViewNameResolver();
+        $this->actionResolver = $actionResolver ?? new ActionResolver();
+        $this->validationService = $validationService ?? new ValidationService();
+        $this->securityService ??= $securityService ?? new SecurityService($controller);
+        $this->viewFactory = $viewFactory ?? new ViewFactory($controller);
     }
 
     /**
@@ -276,8 +285,13 @@ final class ActionExecutor
         } catch (\Throwable) {
             $attributeSnapshot = [];
         }
-        // Shallow clone to detach from holder internal storage (defensive)
-        $attributeSnapshot = array_merge([], $attributeSnapshot);
+        // Shallow clone to detach from holder internal storage (defensive). Attribute names
+        // are always strings by contract; re-key defensively so a stray int-keyed entry from
+        // AttributeHolder internals can never desync downstream string-keyed consumers.
+        $attributeSnapshot = array_combine(
+            array_map('strval', array_keys($attributeSnapshot)),
+            array_values($attributeSnapshot)
+        );
 
         [$vm, $vn] = $this->viewNameResolver->resolve($desc->module, $desc->action, $rawView);
         [$view, $content] = $this->renderView($vm, $vn, $desc, $actionRequest, $attributeSnapshot, $dbg, $logger);
@@ -308,7 +322,7 @@ final class ActionExecutor
      */
     private function renderView(?string $vm, ?string $vn, ActionDescriptor $desc, WebRequest $actionRequest, array $attributeSnapshot, bool $dbg, \Quiote\Logging\CategoryLogger $logger): array
     {
-        if ($vn === View::NONE) {
+        if ($vn === View::NONE || $vm === null) {
             if ($dbg) {
                 $logger->debug('[ActionExecutor] vn is NONE (no view)');
             }
@@ -319,7 +333,7 @@ final class ActionExecutor
             ? \Quiote\Telemetry\Trace::span('Quiote.View', $vm . ':' . $vn, ['quiote.view.module' => $vm, 'quiote.view.name' => $vn])
             : \Quiote\Telemetry\NoopSpanHandle::instance();
         try {
-            $view = $this->viewFactory?->create($vm, $vn, $desc->module, $desc->action, strtolower($this->controller->getOutputType()->getName()), $actionRequest, $attributeSnapshot, $this->validationService?->getValidationManager());
+            $view = $this->viewFactory->create($vm, $vn, $desc->module, $desc->action, strtolower($this->controller->getOutputType()->getName()), $actionRequest, $attributeSnapshot, $this->validationService->getValidationManager());
             if (!$view) {
                 $view = $this->createAndInitView($vm, $vn, $desc->module, $desc->action, $actionRequest, $attributeSnapshot);
             }
@@ -341,7 +355,7 @@ final class ActionExecutor
             }
             if ($dbg) {
                 $prefix = substr($content, 0, 120);
-                $logger->debug('[ActionExecutor] view=' . $view::class . ' method=' . $method . ' contentLen=' . strlen($content) . ' prefix=' . $prefix);
+                $logger->debug('[ActionExecutor] view=' . ($view === null ? 'none' : $view::class) . ' method=' . $method . ' contentLen=' . strlen($content) . ' prefix=' . $prefix);
             }
             return [$view, $content];
         } catch (\Throwable $e) {
@@ -373,7 +387,7 @@ final class ActionExecutor
                 actionAttributes: $attributeSnapshot,
                 response: $global,
                 psrResponse: $psr,
-                validationManager: $this->validationService?->getValidationManager()
+                validationManager: $this->validationService->getValidationManager()
             );
             $view->initialize($vic);
             return $view;

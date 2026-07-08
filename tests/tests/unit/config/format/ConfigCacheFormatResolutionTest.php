@@ -49,7 +49,7 @@ class ConfigCacheFormatResolutionTest extends PhpUnitTestCase
 		return $path;
 	}
 
-	public function testAutodetectPrefersPhpOverYamlAndXmlWhenNoOverrideIsSet()
+	public function testAutodetectPrefersPhpOverYamlAndXmlWhenNoOverrideIsSet(): void
 	{
 		$this->touch('databases.xml');
 		$this->touch('databases.yaml');
@@ -58,7 +58,7 @@ class ConfigCacheFormatResolutionTest extends PhpUnitTestCase
 		$this->assertSame($this->dir . '/databases.php', $this->resolve($this->dir . '/databases.xml'));
 	}
 
-	public function testAutodetectFallsBackToYamlWhenNoPhpFileExists()
+	public function testAutodetectFallsBackToYamlWhenNoPhpFileExists(): void
 	{
 		$this->touch('databases.xml');
 		$this->touch('databases.yaml');
@@ -66,14 +66,14 @@ class ConfigCacheFormatResolutionTest extends PhpUnitTestCase
 		$this->assertSame($this->dir . '/databases.yaml', $this->resolve($this->dir . '/databases.xml'));
 	}
 
-	public function testAutodetectFallsBackToXmlWhenItIsTheOnlyCandidate()
+	public function testAutodetectFallsBackToXmlWhenItIsTheOnlyCandidate(): void
 	{
 		$this->touch('databases.xml');
 
 		$this->assertSame($this->dir . '/databases.xml', $this->resolve($this->dir . '/databases.xml'));
 	}
 
-	public function testReturnsInputUnchangedWhenNoCandidateExistsAtAll()
+	public function testReturnsInputUnchangedWhenNoCandidateExistsAtAll(): void
 	{
 		// Neither databases.xml nor any sibling exists; the original
 		// filename is returned so the caller's normal is_readable() check
@@ -83,7 +83,7 @@ class ConfigCacheFormatResolutionTest extends PhpUnitTestCase
 		$this->assertSame($missing, $this->resolve($missing));
 	}
 
-	public function testExplicitConfigFormatXmlWinsEvenWhenPhpExists()
+	public function testExplicitConfigFormatXmlWinsEvenWhenPhpExists(): void
 	{
 		$this->touch('databases.xml');
 		$this->touch('databases.php');
@@ -92,7 +92,7 @@ class ConfigCacheFormatResolutionTest extends PhpUnitTestCase
 		$this->assertSame($this->dir . '/databases.xml', $this->resolve($this->dir . '/databases.xml'));
 	}
 
-	public function testExplicitConfigFormatPhpWinsEvenWhenXmlExists()
+	public function testExplicitConfigFormatPhpWinsEvenWhenXmlExists(): void
 	{
 		$this->touch('databases.xml');
 		$this->touch('databases.php');
@@ -101,7 +101,7 @@ class ConfigCacheFormatResolutionTest extends PhpUnitTestCase
 		$this->assertSame($this->dir . '/databases.php', $this->resolve($this->dir . '/databases.xml'));
 	}
 
-	public function testExplicitConfigFormatYamlAcceptsEitherYamlOrYmlExtension()
+	public function testExplicitConfigFormatYamlAcceptsEitherYamlOrYmlExtension(): void
 	{
 		$this->touch('databases.xml');
 		$this->touch('databases.yml');
@@ -110,7 +110,7 @@ class ConfigCacheFormatResolutionTest extends PhpUnitTestCase
 		$this->assertSame($this->dir . '/databases.yml', $this->resolve($this->dir . '/databases.xml'));
 	}
 
-	public function testExplicitConfigFormatThrowsWhenItsFileDoesNotExist()
+	public function testExplicitConfigFormatThrowsWhenItsFileDoesNotExist(): void
 	{
 		$this->touch('databases.xml');
 		Config::set('core.config_format', 'php', true);
@@ -119,7 +119,7 @@ class ConfigCacheFormatResolutionTest extends PhpUnitTestCase
 		$this->resolve($this->dir . '/databases.xml');
 	}
 
-	public function testUnknownConfigFormatValueThrows()
+	public function testUnknownConfigFormatValueThrows(): void
 	{
 		$this->touch('databases.xml');
 		Config::set('core.config_format', 'toml', true);
@@ -128,7 +128,7 @@ class ConfigCacheFormatResolutionTest extends PhpUnitTestCase
 		$this->resolve($this->dir . '/databases.xml');
 	}
 
-	public function testNonConfigExtensionIsReturnedUnchanged()
+	public function testNonConfigExtensionIsReturnedUnchanged(): void
 	{
 		// A filename with no recognized config extension at all -- nothing
 		// to resolve, format detection must be a complete no-op.
@@ -136,7 +136,7 @@ class ConfigCacheFormatResolutionTest extends PhpUnitTestCase
 		$this->assertSame($path, $this->resolve($path));
 	}
 
-	public function testEndToEndAutodetectPicksPhpSiblingOverRealSettingsXml()
+	public function testEndToEndAutodetectPicksPhpSiblingOverRealSettingsXml(): void
 	{
 		// Prove this against the ACTUAL settings.xml registered pattern
 		// (%core.config_dir%/settings.xml), not just resolveConfigFormat()

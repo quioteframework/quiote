@@ -38,8 +38,8 @@ class InarrayValidator extends Validator
 		}
 		
 		if(!$this->getParameter('case')) {
-			$value = strtolower($value);
-			$list = array_map(strtolower(...), $list);
+			$value = strtolower((string) $value);
+			$list = array_map(static fn($item) => strtolower((string) $item), $list);
 		}
 		
 		if(!in_array($value, $list, $this->getParameter('strict', false))) {

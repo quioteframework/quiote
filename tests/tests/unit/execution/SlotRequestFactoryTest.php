@@ -6,7 +6,7 @@ use Quiote\Execution\SlotStack;
 
 class SlotRequestFactoryTest extends UnitTestCase
 {
-    public function testCreatesChildRequestWithMetadata()
+    public function testCreatesChildRequestWithMetadata(): void
     {
         $base = new ServerRequest('POST', 'http://example.test/path?x=1');
         $slotReq = SlotRequestFactory::create($base, 'Foo', 'Bar', ['a' => 123], 'Html');
@@ -19,7 +19,7 @@ class SlotRequestFactoryTest extends UnitTestCase
         $this->assertNull($base->getAttribute(SlotRequestFactory::ATTR_SLOT_MODULE));
     }
 
-    public function testPreservesExistingSlotStack()
+    public function testPreservesExistingSlotStack(): void
     {
         $stack = new SlotStack();
         $base = (new ServerRequest('GET', 'http://example.test/'))

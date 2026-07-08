@@ -7,7 +7,7 @@ use Quiote\Validator\Validator;
 
 class NotoperatorValidatorTest extends UnitTestCase
 {
-	public function testvalidate()
+	public function testvalidate(): void
 	{
 		$vm = $this->getContext()->createInstanceFor('validation_manager');
 		$vm->clear();
@@ -15,7 +15,7 @@ class NotoperatorValidatorTest extends UnitTestCase
 
 		$val1 = $vm->createValidator('DummyValidator', [], [], ['severity' => 'error']);
 		$o->registerValidators([$val1]);
-		
+
 		// 1st test: successful
 		$val1->val_result = true;
 		$this->assertEquals($o->execute($this->newWebRequest()), Validator::ERROR);
@@ -35,16 +35,16 @@ class NotoperatorValidatorTest extends UnitTestCase
 		$this->assertTrue($val1->validated);
 		$val1->clear();
 	}
-	
-	public function testcheckValidSetup()
+
+	public function testcheckValidSetup(): void
 	{
 		$vm = $this->getContext()->createInstanceFor('validation_manager');
 		$vm->clear();
 		$o = $vm->createValidator(NotoperatorValidator::class, [], [], ['severity' => 'error']);
-		
+
 		$val1 = $vm->createValidator('DummyValidator', [], [], ['severity' => 'error']);
 		$val2 = $vm->createValidator('DummyValidator', [], [], ['severity' => 'error']);
-		
+
 		try {
 			$o->execute($this->newWebRequest());
 			$this->fail();
@@ -52,7 +52,7 @@ class NotoperatorValidatorTest extends UnitTestCase
 			$this->assertEquals($e->getMessage(), 'NOT allows only 1 child validator');
 		}
 		$o->addChild($val1);
-		
+
 		$o->addChild($val2);
 		try {
 			$o->execute($this->newWebRequest());

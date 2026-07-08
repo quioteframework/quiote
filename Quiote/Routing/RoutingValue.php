@@ -58,7 +58,7 @@ class RoutingValue implements IRoutingValue, ResetInterface
 	 */
 	public function __sleep()
 	{
-		$this->contextName = $this->context->getName();
+		$this->contextName = $this->context?->getName();
 		$arr = get_object_vars($this);
 		unset($arr['context']);
 		return array_keys($arr);
@@ -123,7 +123,7 @@ class RoutingValue implements IRoutingValue, ResetInterface
 	
 	/**
 	 * Retrieve the prefix.
-	 * @return     string The prefix.
+	 * @return     string|null The prefix, or null if none is set.
 	 * @since      1.0.0
 	 */
 	public function getPrefix()
@@ -155,7 +155,7 @@ class RoutingValue implements IRoutingValue, ResetInterface
 	
 	/**
 	 * Retrieve the postfix.
-	 * @return     string The postfix.
+	 * @return     string|null The postfix, or null if none is set.
 	 * @since      1.0.0
 	 */
 	public function getPostfix()

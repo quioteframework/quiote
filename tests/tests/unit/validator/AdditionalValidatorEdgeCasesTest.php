@@ -64,6 +64,9 @@ class AdditionalValidatorEdgeCasesTest extends UnitTestCase
         }
     }
 
+    /**
+     * @param array<string, mixed> $params
+     */
     private function vm(array $params = []): ValidationManager
     {
         $vm = $this->getContext()->createInstanceFor('validation_manager');
@@ -241,7 +244,6 @@ class AdditionalValidatorEdgeCasesTest extends UnitTestCase
         $req3 = $this->newWebRequest(['price'=>'12,,34x']); // add letter to ensure parse failure
         $this->assertFalse($vm3->execute($req3)); // invalid format must fail
         \Quiote\Config\Config::set('core.use_translation', false);
-        $this->assertTrue(true); // structural assertions above
     }
 
     public function testMultiTokenDependencyChain(): void

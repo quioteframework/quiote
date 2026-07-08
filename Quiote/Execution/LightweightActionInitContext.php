@@ -11,7 +11,7 @@ class LightweightActionInitContext extends AttributeHolder implements ActionInit
 {
     private ?string $viewModuleName = null;
     private ?string $viewName = null;
-    private mixed $validationManager = null;
+    private ?object $validationManager = null;
 
     public function __construct(
         private readonly Context $context,
@@ -80,10 +80,7 @@ class LightweightActionInitContext extends AttributeHolder implements ActionInit
     // Legacy shim: some legacy actions call $this->getValidationManager() on the container.
     // Cached so that the same instance is returned every time — XML validators, action
     // validate*() methods, and error-handler code all need to share a single VM.
-    /**
-     * @return mixed
-     */
-    public function getValidationManager()
+    public function getValidationManager(): ?object
     {
         if ($this->validationManager !== null) {
             return $this->validationManager;
@@ -102,7 +99,7 @@ class LightweightActionInitContext extends AttributeHolder implements ActionInit
      * XML validators were executed against, so that the action's manual
      * validate*() methods see the same errors and exports.
      */
-    public function setValidationManager(mixed $vm): void
+    public function setValidationManager(?object $vm): void
     {
         $this->validationManager = $vm;
     }

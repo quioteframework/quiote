@@ -13,7 +13,7 @@ use Quiote\Execution\ExecutionState;
 #[\Quiote\Middleware\Attribute\Middleware(phase: 'bootstrap', priority: 90)]
 class TraceMiddleware implements MiddlewareInterface
 {
-    public function __construct(private readonly bool $emitHeader = false, private readonly ?string $headerName = 'X-Quiote-Trace') {}
+    public function __construct(private readonly bool $emitHeader = false, private readonly string $headerName = 'X-Quiote-Trace') {}
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {

@@ -23,6 +23,16 @@ class SinkTest extends TestCase
         );
     }
 
+    /** @return resource */
+    private function memoryBuffer()
+    {
+        $buf = fopen('php://memory', 'r+');
+        if ($buf === false) {
+            self::fail('Failed to open php://memory for the sink test buffer.');
+        }
+        return $buf;
+    }
+
     // --- FileSink -----------------------------------------------------------
 
     public function testFileSinkCreatesMissingParentDirectory(): void
@@ -36,7 +46,9 @@ class SinkTest extends TestCase
         $sink->flush();
 
         $this->assertFileExists($path);
-        $this->assertStringContainsString('WARNING App.Test: disk is on fire', file_get_contents($path));
+        $contents = file_get_contents($path);
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('WARNING App.Test: disk is on fire', $contents);
 
         unlink($path);
         rmdir(dirname($path));
@@ -45,7 +57,7 @@ class SinkTest extends TestCase
 
     public function testFileSinkWritesPlainTextWithNoAnsiCodes(): void
     {
-        $buf = fopen('php://memory', 'r+');
+        $buf = $this->memoryBuffer();
         $sink = new FileSink('/unused', Level::Debug, [], $buf);
         $sink->emit($this->event(Level::Error, 'boom'));
         rewind($buf);
@@ -59,7 +71,7 @@ class SinkTest extends TestCase
 
     public function testAnsiSinkColorsWarningAndErrorWhenForced(): void
     {
-        $buf = fopen('php://memory', 'r+');
+        $buf = $this->memoryBuffer();
         $sink = new AnsiTextStreamSink('php://stderr', Level::Debug, [], $buf, colors: true);
 
         $sink->emit($this->event(Level::Warning, 'careful'));
@@ -76,7 +88,7 @@ class SinkTest extends TestCase
 
     public function testAnsiSinkDisablesColorsWhenForcedOff(): void
     {
-        $buf = fopen('php://memory', 'r+');
+        $buf = $this->memoryBuffer();
         $sink = new AnsiTextStreamSink('php://stderr', Level::Debug, [], $buf, colors: false);
         $sink->emit($this->event(Level::Critical, 'meltdown'));
         rewind($buf);
@@ -90,7 +102,7 @@ class SinkTest extends TestCase
     {
         putenv('NO_COLOR=1');
         try {
-            $buf = fopen('php://memory', 'r+');
+            $buf = $this->memoryBuffer();
             // No explicit $colors override: NO_COLOR must win even though a
             // resource stream isn't a TTY anyway (belt and suspenders).
             $sink = new AnsiTextStreamSink('php://stderr', Level::Debug, [], $buf);
@@ -107,7 +119,7 @@ class SinkTest extends TestCase
 
     public function testEmojiSinkPrefixesLevelIcon(): void
     {
-        $buf = fopen('php://memory', 'r+');
+        $buf = $this->memoryBuffer();
         $sink = new EmojiTextStreamSink('php://stderr', Level::Debug, [], $buf, colors: false);
         $sink->emit($this->event(Level::Error, 'broken'));
         rewind($buf);

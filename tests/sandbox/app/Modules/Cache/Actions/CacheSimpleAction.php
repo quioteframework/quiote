@@ -6,7 +6,7 @@ use Quiote\Renderer\Renderer;
 
 class CacheSimpleAction extends Action
 {
-    public function execute(?Renderer $renderer = null)
+    public function execute(?Renderer $renderer = null): string
     {
         return 'Success';
     }

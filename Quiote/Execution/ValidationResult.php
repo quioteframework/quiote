@@ -18,7 +18,7 @@ class ValidationResult
      * @return array<int|string, mixed>
      */
     public function getErrors(): array { return $this->data['errors'] ?? []; }
-    public function getTrace(): ?object { return $this->data['trace'] ?? null; }
+    public function getTrace(): ?ValidationTrace { return $this->data['trace'] ?? null; }
 
     /**
      * @param array<string, mixed> $data

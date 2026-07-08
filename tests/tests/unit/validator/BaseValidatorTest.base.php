@@ -1,11 +1,20 @@
 <?php
 
+use Quiote\Request\WebRequest;
 use Quiote\Testing\UnitTestCase;
+use Quiote\Validator\ValidationManager;
+use Quiote\Validator\Validator;
 
 // Base class for validator tests (renamed *.base.php to avoid direct PHPUnit discovery)
 class BaseValidatorTest extends UnitTestCase
 {
-	protected function executeValidator($class, $value, array $errors = [], $parameters = [])
+	/**
+	 * @param class-string<Validator> $class
+	 * @param array<string,string> $errors
+	 * @param array<string,mixed> $parameters
+	 * @return array{result: int, vm: ValidationManager, rd: WebRequest}
+	 */
+	protected function executeValidator(string $class, mixed $value, array $errors = [], array $parameters = []): array
 	{
 		$vm = $this->getContext()->createInstanceFor('validation_manager');
 		$validator = $vm->createValidator($class, ['value'], $errors, $parameters);
@@ -21,8 +30,13 @@ class BaseValidatorTest extends UnitTestCase
 			'rd' => $rd
 		];
 	}
-	
-	protected function doTestExecute($class, $value, $expectedResult, $expectedError = null, array $errors = [], array $parameters = [])
+
+	/**
+	 * @param class-string<Validator> $class
+	 * @param array<string,string> $errors
+	 * @param array<string,mixed> $parameters
+	 */
+	protected function doTestExecute(string $class, mixed $value, int $expectedResult, ?string $expectedError = null, array $errors = [], array $parameters = []): void
 	{
 		$res = $this->executeValidator($class, $value, $errors, $parameters);
 		$this->assertSame($expectedResult, $res['result']);
@@ -35,9 +49,9 @@ class BaseValidatorTest extends UnitTestCase
 		}
 	}
 
-	public function testBaseValidatorDummy()
+	public function testBaseValidatorDummy(): void
 	{
-		$this->assertTrue(true);
+		$this->addToAssertionCount(1);
 	}
 }
 

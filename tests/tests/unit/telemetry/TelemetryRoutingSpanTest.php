@@ -56,10 +56,14 @@ class TelemetryRoutingSpanTest extends TestCase
         return Context::getInstance('test')->getController();
     }
 
-    /** Mirrors RoutingMiddlewareTest's fixture: a single named route. */
+    /**
+     * Mirrors RoutingMiddlewareTest's fixture: a single named route.
+     * @param array<int, string> $methods
+     */
     private function routingWithRoute(string $path, array $methods = []): Routing
     {
         return new class($path, $methods) extends Routing {
+            /** @param array<int, string> $methods */
             public function __construct(private readonly string $path, private readonly array $methods)
             {
                 parent::__construct();
@@ -94,9 +98,14 @@ class TelemetryRoutingSpanTest extends TestCase
         return $mw->process($req, $final);
     }
 
+    /** @return array<int, mixed> */
     private function exportedSpans(): array
     {
-        return TelemetryBootstrap::inMemorySpanExporter()->getSpans();
+        $exporter = TelemetryBootstrap::inMemorySpanExporter();
+        if ($exporter === null) {
+            throw new \RuntimeException('Expected an in-memory span exporter to be configured.');
+        }
+        return $exporter->getSpans();
     }
 
     // --- happy path ---------------------------------------------------------

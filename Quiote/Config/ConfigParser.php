@@ -103,11 +103,15 @@ class ConfigParser
 	protected function convertEncoding($value)
 	{
 		if($this->encoding == 'utf-8') {
-			return $value;
+			return (string) $value;
 		} elseif($this->encoding == 'iso-8859-1') {
 			return mb_convert_encoding((string) $value, 'ISO-8859-1');
 		} elseif(function_exists('iconv')) {
-			return iconv('UTF-8', $this->encoding, (string) $value);
+			$converted = iconv('UTF-8', $this->encoding, (string) $value);
+			if($converted === false) {
+				throw new ParseException('Failed to convert configuration value to encoding "' . $this->encoding . '" for configuration file "' . $this->config . '".');
+			}
+			return $converted;
 		} else {
 			throw new ParseException('No iconv module available, configuration file "' . $this->config . '" with input encoding "' . $this->encoding . '" cannot be parsed.');
 		}

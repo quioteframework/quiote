@@ -11,13 +11,13 @@ class MyQuioteAttributeHolder extends AttributeHolder {}
 class AttributeHolderTest extends PhpUnitTestCase
 {
 	
-	public function testGetDefaultNamespace()
+	public function testGetDefaultNamespace(): void
 	{
 		$p = new MyQuioteAttributeHolder(['baz' => 'boo']);
 		$this->assertEquals('org.quiote', $p->getDefaultNamespace());
 	}
 
-	public function testClearAttributes()
+	public function testClearAttributes(): void
 	{
 		$data = ['baz' => 'boo'];
 		$p = new MyQuioteAttributeHolder();
@@ -27,7 +27,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals([], $p->getAttributes());
 	}
 
-	public function testGetAndSetAttributes()
+	public function testGetAndSetAttributes(): void
 	{
 		$data = ['baz' => 'boo'];
 		$p = new MyQuioteAttributeHolder();
@@ -35,7 +35,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals($data, $p->getAttributes());
 	}
 
-	public function testGetAndSetAttributesWithNamespace()
+	public function testGetAndSetAttributesWithNamespace(): void
 	{
 		$data = ['baz' => 'boo'];
 		$p = new MyQuioteAttributeHolder();
@@ -44,7 +44,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals($data, $p->getAttributes('mynamespace'));
 	}
 
-	public function testSetAttributesWithIntegerIndex()
+	public function testSetAttributesWithIntegerIndex(): void
 	{
 		$data = [1 => 'boo'];
 		$p = new MyQuioteAttributeHolder();
@@ -52,7 +52,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals([1 => 'boo'], $p->getAttributes());
 	}
 
-	public function testGetAttribute()
+	public function testGetAttribute(): void
 	{
 		$data = ['baz' => 'boo'];
 		$p = new MyQuioteAttributeHolder();
@@ -60,7 +60,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals('boo', $p->getAttribute('baz'));
 	}
 
-	public function testGetAttributeWithNamespace()
+	public function testGetAttributeWithNamespace(): void
 	{
 		$data = ['baz' => 'boo'];
 		$p = new MyQuioteAttributeHolder();
@@ -69,7 +69,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals(NULL, $p->getAttribute('baz'));
 	}
 
-	public function testGetAttributeFromDifferentNamespaces()
+	public function testGetAttributeFromDifferentNamespaces(): void
 	{
 		$data = ['baz' => 'boo'];
 		$data2 = ['ben' => 'jerry'];
@@ -80,7 +80,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals('jerry', $p->getAttribute('ben'));
 	}
 
-	public function testGetAttributeWithNamespaceAndDefault()
+	public function testGetAttributeWithNamespaceAndDefault(): void
 	{
 		$data = ['baz' => 'boo'];
 		$p = new MyQuioteAttributeHolder();
@@ -90,7 +90,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals('beh', $p->getAttribute('baz', 'anothernamespace', 'beh'));
 	}
 
-	public function testGetAttributeWithoutNamespaceAndDefault()
+	public function testGetAttributeWithoutNamespaceAndDefault(): void
 	{
 		$data = ['baz' => 'boo'];
 		$p = new MyQuioteAttributeHolder();
@@ -99,7 +99,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals('beh', $p->getAttribute('bla', null, 'beh'));
 	}
 
-	public function testGetAttributeWithIntegerIndex()
+	public function testGetAttributeWithIntegerIndex(): void
 	{
 		$data = [2 => 'boo'];
 		$p = new MyQuioteAttributeHolder();
@@ -107,7 +107,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals('boo', $p->getAttribute("2"));
 	}
 
-	public function testHasAttribute()
+	public function testHasAttribute(): void
 	{
 		$data = ['baz' => 'boo'];
 		$p = new MyQuioteAttributeHolder();
@@ -118,7 +118,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals([], $p->getAttributes());
 	}
 
-	public function testHasAttributeWithIntegerIndex()
+	public function testHasAttributeWithIntegerIndex(): void
 	{
 		$data = [2 => 'boo'];
 		$p = new MyQuioteAttributeHolder();
@@ -128,7 +128,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertFalse($p->hasAttribute(0));
 	}
 
-	public function testHasAttributeWithNamespace()
+	public function testHasAttributeWithNamespace(): void
 	{
 		$data = ['baz' => 'boo'];
 		$p = new MyQuioteAttributeHolder();
@@ -138,7 +138,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertFalse($p->hasAttribute('baz'));
 	}
 
-	public function testGetAttributeNames()
+	public function testGetAttributeNames(): void
 	{
 		$data = ['baz' => 'boo', 'flip' => 'flop'];
 		$p = new MyQuioteAttributeHolder();
@@ -148,7 +148,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals([], $p->getAttributes());
 	}
 
-	public function testGetAttributeNamesWithNamespace()
+	public function testGetAttributeNamesWithNamespace(): void
 	{
 		$data = ['baz' => 'boo', 'flip' => 'flop'];
 		$p = new MyQuioteAttributeHolder();
@@ -159,7 +159,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals([], $p->getAttributes());
 	}
 
-	public function testGetFlatAttributeNames()
+	public function testGetFlatAttributeNames(): void
 	{
 		$data = ['baz' => 'boo', 'flip' => 'flop'];
 		$p = new MyQuioteAttributeHolder();
@@ -167,7 +167,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals(['baz', 'flip'], $p->getFlatAttributeNames());
 	}
 
-	public function testGetFlatAttributeNamesWithNamespace()
+	public function testGetFlatAttributeNamesWithNamespace(): void
 	{
 		$data = ['baz' => 'boo', 'flip' => 'flop'];
 		$p = new MyQuioteAttributeHolder();
@@ -176,7 +176,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals(['baz', 'flip'], $p->getFlatAttributeNames('mynamespace'));
 	}
 
-	public function testGetAttributes()
+	public function testGetAttributes(): void
 	{
 		$data = ['baz' => 'boo', 'flip' => 'flop'];
 		$p = new MyQuioteAttributeHolder();
@@ -184,7 +184,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals($data, $p->getAttributes('mynamespace'));
 	}
 
-	public function testGetAttributesEmpty()
+	public function testGetAttributesEmpty(): void
 	{
 		$data = ['baz' => 'boo', 'flip' => 'flop'];
 		$p = new MyQuioteAttributeHolder();
@@ -192,7 +192,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals([], $p->getAttributes('namespace'));
 	}
 
-	public function testGetAttributeNamespace()
+	public function testGetAttributeNamespace(): void
 	{
 		$data = ['baz' => 'boo', 'flip' => 'flop'];
 		$p = new MyQuioteAttributeHolder();
@@ -200,7 +200,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals($data, $p->getAttributeNamespace('mynamespace'));
 	}
 
-	public function testGetAttributeNamespaceDefault()
+	public function testGetAttributeNamespaceDefault(): void
 	{
 		$data = ['baz' => 'boo', 'flip' => 'flop'];
 		$p = new MyQuioteAttributeHolder();
@@ -208,7 +208,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals($data, $p->getAttributeNamespace());
 	}
 
-	public function testGetAttributeNamespaceEmpty()
+	public function testGetAttributeNamespaceEmpty(): void
 	{
 		$data = ['baz' => 'boo', 'flip' => 'flop'];
 		$p = new MyQuioteAttributeHolder();
@@ -216,7 +216,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals(NULL, $p->getAttributeNamespace('namespace'));
 	}
 
-	public function testGetAttributeNamespaces()
+	public function testGetAttributeNamespaces(): void
 	{
 		$p = new MyQuioteAttributeHolder();
 		$p->setAttributes(['flip' => 'flop'], 'one');
@@ -225,7 +225,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals(['one', 'two'], $p->getAttributeNamespaces());
 	}
 
-	public function testRemoveAttribute()
+	public function testRemoveAttribute(): void
 	{
 		$data = ['baz' => 'boo'];
 		$p = new MyQuioteAttributeHolder();
@@ -236,7 +236,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals([], $p->getAttributes());
 	}
 
-	public function testRemoveAttributeWithIntegerIndex()
+	public function testRemoveAttributeWithIntegerIndex(): void
 	{
 		$data = ['2' => 'boo'];
 		$p = new MyQuioteAttributeHolder();
@@ -244,7 +244,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals('boo', $p->removeAttribute(2));
 	}
 
-	public function testRemoveAttributeWithNamespace()
+	public function testRemoveAttributeWithNamespace(): void
 	{
 		$data = ['baz' => 'boo'];
 		$p = new MyQuioteAttributeHolder();
@@ -254,7 +254,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals(NULL, $p->removeAttribute('baz'));
 	}
 
-	public function testSetAttribute()
+	public function testSetAttribute(): void
 	{
 		$p = new MyQuioteAttributeHolder();
 		$p->setAttribute('baz', 'boo');
@@ -262,7 +262,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals('boo', $p->getAttribute('baz'));
 	}
 
-	public function testSetAttributeWithIntegerIndex()
+	public function testSetAttributeWithIntegerIndex(): void
 	{
 		$p = new MyQuioteAttributeHolder();
 		$p->setAttribute(1, 'boo');
@@ -270,7 +270,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals('boo', $p->getAttribute(1));
 	}
 
-	public function testSetAttributeWithNamespace()
+	public function testSetAttributeWithNamespace(): void
 	{
 		$p = new MyQuioteAttributeHolder();
 		$p->setAttribute('baz', 'boo', 'namespace');
@@ -279,7 +279,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals('boo', $p->getAttribute('baz', 'namespace'));
 	}
 
-	public function testHasAttributeNamespace()
+	public function testHasAttributeNamespace(): void
 	{
 		$data = ['baz' => 'boo', 'flip' => 'flop'];
 		$p = new MyQuioteAttributeHolder();
@@ -288,7 +288,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertFalse($p->hasAttributeNamespace('namespace'));
 	}
 
-	public function testRemoveAttributeNamespace()
+	public function testRemoveAttributeNamespace(): void
 	{
 		$data = ['baz' => 'boo', 'flip' => 'flop'];
 		$p = new MyQuioteAttributeHolder();
@@ -299,7 +299,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals(NULL, $p->removeAttributeNamespace('mynamespace'));
 	}
 
-	public function testAppendAttribute()
+	public function testAppendAttribute(): void
 	{
 		$data = ['baz' => 'boo', 'flip' => 'flop'];
 		$p = new MyQuioteAttributeHolder();
@@ -312,7 +312,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals(['flip' => ['flap']], $p->getAttributes('none'));
 	}
 
-	public function testAppendAttributeWithNamespace()
+	public function testAppendAttributeWithNamespace(): void
 	{
 		$data = ['baz' => 'boo', 'flip' => 'flop'];
 		$p = new MyQuioteAttributeHolder();
@@ -324,7 +324,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals(['baz' => 'boo', 'flip' => 'flop', 'hakuna' => ['matata', 'tie']], $p->getAttributes('mynamespace'));
 	}
 
-	public function testSetAttributeByRef()
+	public function testSetAttributeByRef(): void
 	{
 		$p = new MyQuioteAttributeHolder();
 		$baz = 'boo';
@@ -334,7 +334,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals('safi', $p->getAttribute('baz'));
 	}
 
-	public function testSetAttributeByRefWithIntegerIndex()
+	public function testSetAttributeByRefWithIntegerIndex(): void
 	{
 		$p = new MyQuioteAttributeHolder();
 		$baz = 'boo';
@@ -344,7 +344,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals('safi', $p->getAttribute(1));
 	}
 
-	public function testSetAttributeByRefWithNamespace()
+	public function testSetAttributeByRefWithNamespace(): void
 	{
 		$p = new MyQuioteAttributeHolder();
 		$p->setAttribute('baz', 'stg', 'namespace');
@@ -356,7 +356,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals('safi', $p->getAttribute('baz', 'namespace'));
 	}
 
-	public function testAppendAttributeByRef()
+	public function testAppendAttributeByRef(): void
 	{
 		$data = ['baz' => 'boo', 'flip' => 'flop'];
 		$p = new MyQuioteAttributeHolder();
@@ -374,7 +374,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals(['flip' => ['vipi']], $p->getAttributes('none'));
 	}
 
-	public function testSetAttributesByRef()
+	public function testSetAttributesByRef(): void
 	{
 		$p = new MyQuioteAttributeHolder();
 		$baz = 'boo';
@@ -387,7 +387,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals([], $p->getAttributes());
 	}
 
-	public function testSetAttributesByRefWithNamespace()
+	public function testSetAttributesByRefWithNamespace(): void
 	{
 		$baz = 'boo';
 		$data = ['baz' => &$baz];
@@ -398,7 +398,7 @@ class AttributeHolderTest extends PhpUnitTestCase
 		$this->assertEquals('coo', $p->getAttribute('baz', 'mynamespace'));
 	}
 
-	public function testRemoveReturnsByReference()
+	public function testRemoveReturnsByReference(): void
 	{
 		$one = 'two';
 		$omg = ['foo' => 'bar', 'bar' => 'baz'];

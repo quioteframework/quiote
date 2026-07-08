@@ -15,22 +15,22 @@ class CacheComplexAction extends Action
         self::$failValidation = $failValidation; self::$requireAuth=$requireAuth; self::$requireCred=$requireCred; }
 
     #[\Override]
-    public function isSimple(){ return false; }
+    public function isSimple(): bool { return false; }
     #[\Override]
-    public function isSecure(){ return self::$requireAuth || self::$requireCred; }
-    public function getCredentials(){ return self::$requireCred ? 'complex_cred' : null; }
+    public function isSecure(): bool { return self::$requireAuth || self::$requireCred; }
+    public function getCredentials(): ?string { return self::$requireCred ? 'complex_cred' : null; }
 
     #[\Override]
-    public function validate(WebRequest $rd) {
+    public function validate(WebRequest $rd): bool {
         if($rd->hasParameter('fail') && $rd->getParameter('fail')) { return false; }
         return !self::$failValidation; }
 
     #[\Override]
-    public function handleError(WebRequest $rd) { return 'Error'; }
+    public function handleError(WebRequest $rd): string { return 'Error'; }
 
     #[\Override]
-    public function getDefaultViewName(){ return 'Success'; }
-    public function execute(WebRequest $rd){ self::$execCount++; return 'Success'; }
+    public function getDefaultViewName(): string { return 'Success'; }
+    public function execute(WebRequest $rd): string { self::$execCount++; return 'Success'; }
     #[\Override]
     public function isCacheable(?string $ot = null): bool { return true; }
     public function cacheTtlSeconds(?string $ot = null): ?int { return 60; }

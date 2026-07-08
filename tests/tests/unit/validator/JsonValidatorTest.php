@@ -7,7 +7,7 @@ require_once(__DIR__ . '/BaseValidatorTest.base.php');
 
 class JsonValidatorTest extends BaseValidatorTest
 {
-	public function testExecute()
+	public function testExecute(): void
 	{
 		$this->doTestExecute(JsonValidator::class, json_encode(['foo' => 'bar']), Validator::SUCCESS);
 		
@@ -17,7 +17,7 @@ class JsonValidatorTest extends BaseValidatorTest
 		$this->doTestExecute(JsonValidator::class, '{', Validator::ERROR, $errorMsg, $errors);
 	}
 
-	public function testExport()
+	public function testExport(): void
 	{
 		$value = ['foo' => 'bar'];
 

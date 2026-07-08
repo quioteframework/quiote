@@ -50,7 +50,7 @@ class HeaderPurgeEndToEndTest extends UnitTestCase
 
         $dispatch = new DispatchMiddleware($controller);
         $final = new class(new Psr17Factory) implements RequestHandlerInterface {
-            public function __construct(private $f) {}
+            public function __construct(private Psr17Factory $f) {}
             public function handle(ServerRequestInterface $r): ResponseInterface { return $this->f->createResponse(200); }
         };
         $dispatchAsHandler = new class($dispatch, $final) implements RequestHandlerInterface {

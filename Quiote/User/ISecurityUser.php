@@ -47,7 +47,9 @@ interface ISecurityUser
 
 	/**
 	 * Set the authenticated status of this user.
-	 * @param      bool $authenticated A flag indicating the authenticated status of this user.
+	 * @param      mixed $authenticated A flag indicating the authenticated status of this user.
+	 *                    Implementations are expected to reject truthy-but-non-bool values
+	 *                    (e.g. `1`) rather than coerce them.
 	 * @return     void
 	 * @since      1.0.0
 	 */

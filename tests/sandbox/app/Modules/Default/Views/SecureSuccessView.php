@@ -7,7 +7,7 @@ use Sandbox\Modules\Default\Lib\View\SandboxDefaultBaseView;
 
 class SecureSuccessView extends SandboxDefaultBaseView
 {
-	public function executeHtml(WebRequest $rd)
+	public function executeHtml(WebRequest $rd): string
 	{
 		$this->getResponse()->setHttpStatusCode('403');
 		// Historically this view loaded a layout and template producing a full HTML page. For container-less

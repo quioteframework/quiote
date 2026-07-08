@@ -9,7 +9,7 @@ use Quiote\Routing\Attribute\Route;
 #[Route('/dup/b', name: 'dup.same', methods: ['GET'])]
 class BAction extends Action
 {
-	public function executeRead()
+	public function executeRead(): string
 	{
 		return 'Success';
 	}

@@ -30,7 +30,9 @@ class TelemetrySamplingTest extends TestCase
         TelemetryBootstrap::reset();
         Log::reset();
         LogContext::clear();
-        $this->buf = fopen('php://memory', 'r+');
+        $buf = fopen('php://memory', 'r+');
+        $this->assertNotFalse($buf);
+        $this->buf = $buf;
         \OpenTelemetry\API\Behavior\Internal\Logging::disable();
     }
 
@@ -63,6 +65,25 @@ class TelemetrySamplingTest extends TestCase
         return new JsonStdoutSink(Level::Debug, [], 'php://stdout', $this->buf);
     }
 
+    private function spanExporter(): \OpenTelemetry\SDK\Trace\SpanExporter\InMemoryExporter
+    {
+        $exporter = TelemetryBootstrap::inMemorySpanExporter();
+        if ($exporter === null) {
+            throw new \RuntimeException('Expected an in-memory span exporter to be configured; call configure() first.');
+        }
+        return $exporter;
+    }
+
+    private function metricExporter(): \OpenTelemetry\SDK\Metrics\MetricExporter\InMemoryExporter
+    {
+        $exporter = TelemetryBootstrap::inMemoryMetricExporter();
+        if ($exporter === null) {
+            throw new \RuntimeException('Expected an in-memory metric exporter to be configured; call configure() first.');
+        }
+        return $exporter;
+    }
+
+    /** @return list<mixed> */
     private function logRecords(): array
     {
         rewind($this->buf);
@@ -83,7 +104,7 @@ class TelemetrySamplingTest extends TestCase
             Trace::span('Quiote.Test', 'op-' . $i)->end();
         }
 
-        $this->assertCount(0, TelemetryBootstrap::inMemorySpanExporter()->getSpans());
+        $this->assertCount(0, $this->spanExporter()->getSpans());
     }
 
     public function testRatioZeroStillRecordsAllMetrics(): void
@@ -97,7 +118,7 @@ class TelemetrySamplingTest extends TestCase
         Trace::metrics()->addCounter('http.server.request.count', 5);
         TelemetryBootstrap::flushAfterRequest();
 
-        $metrics = TelemetryBootstrap::inMemoryMetricExporter()->collect();
+        $metrics = $this->metricExporter()->collect();
         $names = array_map(static fn($m) => $m->name, $metrics);
         $this->assertContains('http.server.request.count', $names);
     }
@@ -110,7 +131,7 @@ class TelemetrySamplingTest extends TestCase
             Trace::span('Quiote.Test', 'op-' . $i)->end();
         }
 
-        $this->assertCount(10, TelemetryBootstrap::inMemorySpanExporter()->getSpans());
+        $this->assertCount(10, $this->spanExporter()->getSpans());
     }
 
     // --- always_on / always_off ------------------------------------------------
@@ -121,7 +142,7 @@ class TelemetrySamplingTest extends TestCase
 
         Trace::span('Quiote.Test', 'op')->end();
 
-        $this->assertCount(1, TelemetryBootstrap::inMemorySpanExporter()->getSpans());
+        $this->assertCount(1, $this->spanExporter()->getSpans());
     }
 
     public function testAlwaysOffIgnoresARatioOfOne(): void
@@ -130,7 +151,7 @@ class TelemetrySamplingTest extends TestCase
 
         Trace::span('Quiote.Test', 'op')->end();
 
-        $this->assertCount(0, TelemetryBootstrap::inMemorySpanExporter()->getSpans());
+        $this->assertCount(0, $this->spanExporter()->getSpans());
     }
 
     public function testUnknownStrategyFallsBackToParentBasedRatioWithWarning(): void
@@ -143,7 +164,7 @@ class TelemetrySamplingTest extends TestCase
         // Falls back to parentbased_traceidratio using the *configured* ratio
         // (1.0 here), not some other hardcoded behavior.
         Trace::span('Quiote.Test', 'op')->end();
-        $this->assertCount(1, TelemetryBootstrap::inMemorySpanExporter()->getSpans());
+        $this->assertCount(1, $this->spanExporter()->getSpans());
 
         $records = $this->logRecords();
         $this->assertNotEmpty($records);
@@ -159,7 +180,7 @@ class TelemetrySamplingTest extends TestCase
 
         Trace::span('Quiote.Test', 'op', ['quiote.force_sample' => true])->end();
 
-        $this->assertCount(1, TelemetryBootstrap::inMemorySpanExporter()->getSpans());
+        $this->assertCount(1, $this->spanExporter()->getSpans());
     }
 
     public function testWithoutForceSampleAttributeARatioOfZeroStillDrops(): void
@@ -168,7 +189,7 @@ class TelemetrySamplingTest extends TestCase
 
         Trace::span('Quiote.Test', 'op')->end(); // no force_sample attribute
 
-        $this->assertCount(0, TelemetryBootstrap::inMemorySpanExporter()->getSpans());
+        $this->assertCount(0, $this->spanExporter()->getSpans());
     }
 
     public function testForceSampleTruthyValueMustBeExactlyBooleanTrue(): void
@@ -181,7 +202,7 @@ class TelemetrySamplingTest extends TestCase
 
         Trace::span('Quiote.Test', 'op', ['quiote.force_sample' => '1'])->end();
 
-        $this->assertCount(0, TelemetryBootstrap::inMemorySpanExporter()->getSpans());
+        $this->assertCount(0, $this->spanExporter()->getSpans());
     }
 
     // --- acceptance: child of a sampled local parent is always sampled ---------
@@ -198,7 +219,7 @@ class TelemetrySamplingTest extends TestCase
         $child->end();
         $parent->end();
 
-        $spans = TelemetryBootstrap::inMemorySpanExporter()->getSpans();
+        $spans = $this->spanExporter()->getSpans();
         $this->assertCount(2, $spans, 'both parent (force-sampled) and child (inherits) must be exported');
 
         $names = array_map(static fn($s) => $s->getName(), $spans);
@@ -218,6 +239,6 @@ class TelemetrySamplingTest extends TestCase
         $child->end();
         $parent->end();
 
-        $this->assertCount(0, TelemetryBootstrap::inMemorySpanExporter()->getSpans());
+        $this->assertCount(0, $this->spanExporter()->getSpans());
     }
 }

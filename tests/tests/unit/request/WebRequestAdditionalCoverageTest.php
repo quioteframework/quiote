@@ -13,6 +13,12 @@ use Nyholm\Psr7\Stream;
  */
 class WebRequestAdditionalCoverageTest extends UnitTestCase
 {
+    /**
+     * @param array<string, mixed> $server
+     * @param array<string, mixed> $query
+     * @param array<string, mixed> $body
+     * @param array<string, mixed> $headers
+     */
     private function newRequest(array $server = [], array $query = [], array $body = [], array $headers = []): WebRequest
     {
         $wr = new WebRequest(

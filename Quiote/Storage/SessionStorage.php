@@ -1,6 +1,7 @@
 <?php
 namespace Quiote\Storage;
 
+use Quiote\Exception\StorageException;
 use SessionHandler;
 use SessionHandlerInterface;
 use Symfony\Contracts\Service\ResetInterface;
@@ -42,6 +43,21 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 
 	public function __construct() {
 		$this->defaultHandler = new SessionHandler();
+	}
+
+	/**
+	 * The default SessionHandler is cleared by reset() (worker mode) to avoid
+	 * calling close() twice on an already-persisted session. Lazily recreate
+	 * it on demand so a later read()/write()/destroy()/gc()/open() call after
+	 * a reset() doesn't fatal on a null handler.
+	 * @return     SessionHandler
+	 */
+	private function getSessionHandler(): SessionHandler
+	{
+		if ($this->defaultHandler === null) {
+			$this->defaultHandler = new SessionHandler();
+		}
+		return $this->defaultHandler;
 	}
 	/**
 	 * Starts the session.
@@ -96,8 +112,12 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 				session_id($staticSessionId);
 			}
 
+			if ($this->context === null) {
+				throw new StorageException('SessionStorage::startup - cannot start a session without an initialized Context');
+			}
+
 			$cookieDefaults = session_get_cookie_params();
-			
+
 			$routing = $this->context->getRouting();
 			// set path to true if the default path from php.ini is "/". this will, in startup(), trigger the base href as the path.
 			if($cookieDefaults['path'] == '/') { $cookieDefaults['path'] = true; }
@@ -107,6 +127,9 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 				$lifetime = (int) $lifetime;
 			} else {
 				$lifetime = strtotime((string) $lifetime, 0);
+				if ($lifetime === false) {
+					$lifetime = 0;
+				}
 			}
 			$path = $this->getParameter('session_cookie_path', $cookieDefaults['path']);
 			if($path === true) {
@@ -233,13 +256,13 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 	public function write(string $id, string $data): bool
 	{
 		if(\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) { \Quiote\Logging\Log::for($this)->debug('[SessionStorage] write raw sid=' . $id . ' len=' . strlen($data)); }
-		return $this->defaultHandler->write($id, $data);
+		return $this->getSessionHandler()->write($id, $data);
 	}
 
 	public function read(string $key) : string|false
 	{
 		if(\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) { \Quiote\Logging\Log::for($this)->debug('[SessionStorage] read raw key=' . $key); }
-		return $this->defaultHandler->read($key);
+		return $this->getSessionHandler()->read($key);
 	}
 
 	public function close(): bool
@@ -275,19 +298,19 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 	public function destroy($sessionId): bool
 	{
 		if(\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) { \Quiote\Logging\Log::for($this)->debug('[SessionStorage] destroy raw sid=' . $sessionId); }
-		return $this->defaultHandler->destroy($sessionId);
+		return $this->getSessionHandler()->destroy($sessionId);
 	}
 
 	public function gc(int $maxlifetime): int|false
 	{
 		if(\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) { \Quiote\Logging\Log::for($this)->debug('[SessionStorage] gc maxlifetime=' . $maxlifetime); }
-		return $this->defaultHandler->gc($maxlifetime);
+		return $this->getSessionHandler()->gc($maxlifetime);
 	}
 
 	public function open($savePath, $sessionName): bool
 	{
 		if(\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) { \Quiote\Logging\Log::for($this)->debug('[SessionStorage] open savePath=' . $savePath . ' name=' . $sessionName); }
-		return $this->defaultHandler->open($savePath, $sessionName);
+		return $this->getSessionHandler()->open($savePath, $sessionName);
 	}
 
 	#[\Override]

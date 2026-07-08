@@ -20,6 +20,9 @@ class SlotNonSimpleParityTest extends UnitTestCase
         $fresh->initialize($this->getContext());
         $this->getContext()->setRequest($fresh);
     }
+    /**
+     * @param array<string, mixed> $params
+     */
     private function dispatchWithFlag(bool $noContainer, callable $configure, array $params=[]): string
     {
         if($noContainer) { putenv('QUIOTE_SLOT_NO_CONTAINER_ALL=1'); } else { putenv('QUIOTE_SLOT_NO_CONTAINER_ALL'); }
@@ -33,7 +36,7 @@ class SlotNonSimpleParityTest extends UnitTestCase
         return $dispatcher->dispatch($slotReq, 'Cache','CacheComplex', $params);
     }
 
-    public function testSuccessParity()
+    public function testSuccessParity(): void
     {
     \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,false,false);
     $legacy = $this->dispatchWithFlag(false, fn()=>\Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,false,false));
@@ -42,21 +45,20 @@ class SlotNonSimpleParityTest extends UnitTestCase
         $this->assertSame($legacy, $noContainer, 'Success content mismatch between paths');
     }
 
-    public function testValidationErrorParity()
+    public function testValidationErrorParity(): void
     {
     \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,false,false); // ensure baseline
-    // Strict validation: whitelist parameter used in validation failure scenario
+    // Strict validation: whitelist parameter used in validation failure scenario.
+    // Context::getRequest() always returns a WebRequest, so no instanceof guard is needed.
     $ctxReq = $this->getContext()->getRequest();
-    if($ctxReq instanceof \Quiote\Request\WebRequest) {
-        $this->getContext()->setRequest($ctxReq->enforceValidatedParameters(['fail']));
-    }
+    $this->getContext()->setRequest($ctxReq->enforceValidatedParameters(['fail']));
     $legacy = $this->dispatchWithFlag(false, function(): void{ \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(true,false,false); }, ['fail'=>1]);
     $noContainer = $this->dispatchWithFlag(true, function(): void{ \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(true,false,false); }, ['fail'=>1]);
     $this->assertSame('<div>COMPLEX_ERROR</div>', $legacy);
     $this->assertSame($legacy, $noContainer, 'Validation error content mismatch between paths');
     }
 
-    public function testRequiresAuthParity()
+    public function testRequiresAuthParity(): void
     {
         // Ensure user is logged out to trigger login forward in both paths
         $user = $this->getContext()->getUser();
@@ -66,13 +68,12 @@ class SlotNonSimpleParityTest extends UnitTestCase
         // reset user again for second dispatch to avoid state carry-over from potential forward handling
         if(method_exists($user,'setAuthenticated')) { $user->setAuthenticated(false); }
         $noContainer = $this->dispatchWithFlag(true, $configure);
-    // System login forward content may differ by path; assert both produced some output (length >= 0) and leave strict parity as future enhancement.
-    $this->assertIsString($legacy);
-    $this->assertIsString($noContainer);
-    $this->assertTrue(strlen($legacy) >= 0 && strlen($noContainer) >= 0);
+        // System login forward content may differ verbatim by path, but both paths
+        // must agree on whether they suppressed content (empty) or rendered a forward view.
+        $this->assertSame($legacy === '', $noContainer === '', 'Login-forward emptiness must match between legacy and no-container paths');
     }
 
-    public function testRequiresCredentialParity()
+    public function testRequiresCredentialParity(): void
     {
         // User authenticated but missing credential should trigger secure forward parity
         $user = $this->getContext()->getUser();
@@ -84,8 +85,8 @@ class SlotNonSimpleParityTest extends UnitTestCase
         if(method_exists($user,'setAuthenticated')) { $user->setAuthenticated(true); }
         if(method_exists($user,'removeCredential')) { $user->removeCredential('complex_cred'); }
         $noContainer = $this->dispatchWithFlag(true, $configure);
-    $this->assertIsString($legacy);
-    $this->assertIsString($noContainer);
-    $this->assertTrue(strlen($legacy) >= 0 && strlen($noContainer) >= 0);
+        // Secure-forward content may differ verbatim by path, but both paths
+        // must agree on whether they suppressed content (empty) or rendered a forward view.
+        $this->assertSame($legacy === '', $noContainer === '', 'Secure-forward emptiness must match between legacy and no-container paths');
     }
 }

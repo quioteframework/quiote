@@ -127,8 +127,8 @@ class PhpRenderer extends Renderer implements IReusableRenderer, ResetInterface
 		}
 		
 		unset($this->layer, $this->attributes, $this->slots, $this->moreAssigns);
-		
-		return $retval;
+
+		return $retval !== false ? $retval : '';
 	}
 
 	#[\Override]

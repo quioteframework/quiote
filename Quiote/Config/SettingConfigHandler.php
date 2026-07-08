@@ -2,6 +2,7 @@
 namespace Quiote\Config;
 
 use Quiote\Config\Util\DOM\XmlConfigDomDocument;
+use Quiote\Exception\ParseException;
 
 /**
  * SettingConfigHandler handles the settings.xml file.
@@ -60,8 +61,17 @@ class SettingConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 			if ($cfg->has('system_actions')) {
 				foreach ($cfg->get('system_actions') as $action) {
 					$name = $action->getAttribute('name');
-					$data[sprintf('actions.%s_module', $name)] = $action->getChild('module')->getValue();
-					$data[sprintf('actions.%s_action', $name)] = $action->getChild('action')->getValue();
+					$moduleElement = $action->getChild('module');
+					$actionElement = $action->getChild('action');
+					if ($moduleElement === null || $actionElement === null) {
+						throw new ParseException(sprintf(
+							'Configuration file "%s" has a system_action "%s" missing its required <module> or <action> child element',
+							$document->documentURI,
+							$name
+						));
+					}
+					$data[sprintf('actions.%s_module', $name)] = $moduleElement->getValue();
+					$data[sprintf('actions.%s_action', $name)] = $actionElement->getValue();
 				}
 			}
 

@@ -23,11 +23,13 @@ use Quiote\Execution\ValidationDecision;
 #[\Quiote\Middleware\Attribute\Middleware(phase: 'before_action', priority: 30, after: 'RoutingMiddleware')]
 class SecurityMiddleware implements MiddlewareInterface
 {
-    private ?ForwardService $forwardService = null;
-    public function __construct(private readonly Controller $controller, private ?SecurityService $securityService = null)
+    private readonly ForwardService $forwardService;
+    private readonly SecurityService $securityService;
+
+    public function __construct(private readonly Controller $controller, ?SecurityService $securityService = null)
     {
-        $this->securityService ??= new SecurityService($controller);
-        $this->forwardService ??= new ForwardService($controller);
+        $this->securityService = $securityService ?? new SecurityService($controller);
+        $this->forwardService = new ForwardService($controller);
     }
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface

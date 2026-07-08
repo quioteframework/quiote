@@ -8,6 +8,9 @@ use Quiote\Util\Toolkit;
 use Quiote\Config\ConfigCache;
 use Quiote\Config\APCuConfigCache;
 use Quiote\Request\WebRequest;
+use Quiote\Exception\QuioteException;
+use Quiote\Context;
+use Quiote\Validator\Validator;
 
 /**
  * Tiny immutable description of what we validated (for debugging/parity tests).
@@ -62,6 +65,42 @@ class ValidationService
     }
 
     /**
+     * Retrieve the Action's Context, failing loudly if it has not been set.
+     * Validation always runs against an already-initialized action, so a
+     * missing context here indicates a caller invoked validate()/xmlOnlyValidate()
+     * before Action::initialize() ran, rather than a legitimately optional case.
+     * @throws QuioteException if the action has no Context.
+     */
+    private function requireActionContext(Action $action): Context
+    {
+        $context = $action->getContext();
+        if ($context === null) {
+            throw new QuioteException(sprintf('Cannot validate: Action "%s" has not been initialized with a Context yet.', $action::class));
+        }
+        return $context;
+    }
+
+    /**
+     * Extract the loaded validators' names as a plain string list, dropping
+     * any unnamed validator instead of letting a null name leak into the
+     * ValidationTrace (which is meant to be a simple debugging aid, not a
+     * strict record, so silently skipping an unnamed validator is safe here).
+     * @param iterable<Validator> $childs
+     * @return string[]
+     */
+    private function validatorNames(iterable $childs): array
+    {
+        $names = [];
+        foreach ($childs as $child) {
+            $name = $child->getName();
+            if ($name !== null) {
+                $names[] = $name;
+            }
+        }
+        return $names;
+    }
+
+    /**
      * Perform validation similar to ExecutionContainer::performValidation but without a container.
      * Steps:
      * 1. Load XML validation config (validators, dependencies) if present.
@@ -83,7 +122,7 @@ class ValidationService
         $validationManager = $this->manager;
         if (!$validationManager) {
             // Build a lightweight manager via context from action (container may be ActionInitContext or full container)
-            $ctx = $action->getContext();
+            $ctx = $this->requireActionContext($action);
             $validationManager = $ctx->createInstanceFor('validation_manager');
         } else {
             $validationManager->clear();
@@ -112,7 +151,7 @@ class ValidationService
             }
             if (is_readable($configFile)) {
                 // Provide expected variables & context for compiled config file
-                $this->currentContext = $action->getContext();
+                $this->currentContext = $this->requireActionContext($action);
                 if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) { $logger->debug('[ValidationService][probe] including compiled validators (pre-checkCache)'); }
                 if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
                     try { $logger->debug('[ValidationService][probe] pre-checkCache methodHex=' . bin2hex((string)$method) . ' type=' . gettype($method)); } catch(\Throwable) {}
@@ -151,7 +190,7 @@ class ValidationService
                         } catch(\Throwable) {}
                     }
                 }
-                $validatorsLoaded = array_map(fn($v) => $v->getName(), $validationManager->getChilds());
+                $validatorsLoaded = $this->validatorNames($validationManager->getChilds());
                 if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
                     try {
                         $logger->debug('[ValidationService][validate] loadedValidators=' . (empty($validatorsLoaded) ? 'none' : implode(',', $validatorsLoaded)) . ' file=' . $configFile . ' method=' . $method);
@@ -170,7 +209,7 @@ class ValidationService
         }
         if (is_callable([$action, $registerMethod])) {
             $action->$registerMethod();
-            $validatorsLoaded = array_map(fn($v) => $v->getName(), $validationManager->getChilds());
+            $validatorsLoaded = $this->validatorNames($validationManager->getChilds());
         }
 
         // NOTE: We intentionally do NOT relax strict mode when no validators are present.
@@ -214,7 +253,7 @@ class ValidationService
         // Use the context's request which may have been updated by pruneParametersToValidated()
         // during VM execute(). This ensures the action's validate method sees the post-prune
         // request and any parameters it sets via setParameter() propagate correctly.
-        $currentRequest = $action->getContext()->getRequest();
+        $currentRequest = $this->requireActionContext($action)->getRequest();
         $validateMethod = 'validate' . $normalizedMethod;
         if (!is_callable([$action, $validateMethod])) {
             $validateMethod = 'validate';
@@ -241,10 +280,7 @@ class ValidationService
         $errors = [];
         if (!$final) {
             try {
-                $report = $validationManager->getReport();
-                if ($report) {
-                    $errors = $report->getErrorMessages();
-                }
+                $errors = $validationManager->getReport()->getErrorMessages();
             } catch (\Throwable) { /* ignore */
             }
         }
@@ -275,7 +311,7 @@ class ValidationService
         }
         $validationManager = $this->manager;
         if (!$validationManager) {
-            $ctx = $action->getContext();
+            $ctx = $this->requireActionContext($action);
             $validationManager = $ctx->createInstanceFor('validation_manager');
         } else {
             $validationManager->clear();
@@ -300,8 +336,8 @@ class ValidationService
                 $logger->debug("[ValidationService] Validation config file = " . $configFile . ", is_readable=" . (is_readable($configFile) ? "1":"0"));
             }
             if (is_readable($configFile)) {
-                $this->currentContext = $action->getContext();
-                
+                $this->currentContext = $this->requireActionContext($action);
+
                 if (defined('QUIOTE_USE_APCU_CONFIG_CACHE') && QUIOTE_USE_APCU_CONFIG_CACHE) {
                     $logger->debug("[ValidationService] Loading " . $method . " validators from APCu");
                     $cacheResult = \Quiote\Config\APCuConfigCache::checkConfig($configFile, $this->currentContext->getName());
@@ -316,7 +352,7 @@ class ValidationService
                     }
                     require(\Quiote\Config\ConfigCache::checkConfig($configFile, $this->currentContext->getName()));
                 }
-                $validatorsLoaded = array_map(fn($v) => $v->getName(), $validationManager->getChilds());
+                $validatorsLoaded = $this->validatorNames($validationManager->getChilds());
                 if ($vd) {
                     $logger->debug('[ValidationService] Loaded validators: ');
                     $logger->debug(count($validatorsLoaded) > 0 ? implode(', ', $validatorsLoaded) : 'none');
@@ -333,7 +369,7 @@ class ValidationService
         }
         if (is_callable([$action, $registerMethod])) {
             $action->$registerMethod();
-            $validatorsLoaded = array_map(fn($v) => $v->getName(), $validationManager->getChilds());
+            $validatorsLoaded = $this->validatorNames($validationManager->getChilds());
         }
         // Execute validators only
         $ok = true;
@@ -363,7 +399,8 @@ class ValidationService
                 $logger->debug('[ValidationService] summary ok=' . ($ok ? '1' : '0') . ' childValidators=' . $childCount . ' mode=' . $mode . ' reportSeverity=' . $resultSev . ' incidents=' . count($incidents));
                 foreach ($incidents as $i => $incident) {
                     try {
-                        $vName = $incident->getValidator()->getName();
+                        $validator = $incident->getValidator();
+                        $vName = $validator === null ? 'null' : $validator->getName();
                     } catch (\Throwable) { $vName = 'null'; }
                     $sev = $incident->getSeverity();
                     $errs = [];
@@ -405,8 +442,9 @@ class ValidationService
                                 // consider > NOTICE as a failure contributing to decision
                                 if ($res['severity'] > \Quiote\Validator\Validator::NOTICE) {
                                     $v = $res['validator'] ?? null;
-                                    if ($v) {
-                                        $failedValidators[$v->getName()] = true;
+                                    $vName = $v?->getName();
+                                    if ($vName !== null) {
+                                        $failedValidators[$vName] = true;
                                     }
                                 }
                             }

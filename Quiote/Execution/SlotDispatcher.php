@@ -34,14 +34,40 @@ class SlotDispatcher
     public const RECURSION_LIMIT = 10; // mirrors previous static guard
     private ?ActionExecutionContext $lastContext = null;
 
-    public function __construct(private readonly Controller $controller, private ?ActionResolver $actionResolver = null, private ?SlotExecutionGuard $executionGuard = null, private ?ViewNameResolver $viewNameResolver = null, private ?ForwardService $forwardService = null, private ?ViewFactory $viewFactory = null)
+    private readonly ActionResolver $actionResolver;
+    private readonly SlotExecutionGuard $executionGuard;
+    private readonly ViewNameResolver $viewNameResolver;
+    private readonly ViewFactory $viewFactory;
+
+    // Retained only to keep the constructor signature stable for callers that
+    // inject it; nothing in this class reads it back yet.
+    private ?ForwardService $forwardService = null;
+
+    public function __construct(private readonly Controller $controller, ?ActionResolver $actionResolver = null, ?SlotExecutionGuard $executionGuard = null, ?ViewNameResolver $viewNameResolver = null, ?ForwardService $forwardService = null, ?ViewFactory $viewFactory = null)
     {
         // Initialize pure resolver
-        $this->viewNameResolver ??= new ViewNameResolver();
-        $this->actionResolver ??= new ActionResolver();
-        $this->executionGuard ??= new SlotExecutionGuard(self::RECURSION_LIMIT);
-        $this->forwardService ??= new ForwardService($controller);
-        $this->viewFactory ??= new ViewFactory($controller);
+        $this->viewNameResolver = $viewNameResolver ?? new ViewNameResolver();
+        $this->actionResolver = $actionResolver ?? new ActionResolver();
+        $this->executionGuard = $executionGuard ?? new SlotExecutionGuard(self::RECURSION_LIMIT);
+        $this->forwardService ??= $forwardService ?? new ForwardService($controller);
+        $this->viewFactory = $viewFactory ?? new ViewFactory($controller);
+    }
+
+    /**
+     * Action attribute names are always strings by contract; re-key defensively so a
+     * stray int-keyed entry from AttributeHolder internals can never desync consumers
+     * (ViewFactory::create(), ImmutableViewInitContext, ActionExecutionContext) that
+     * index this snapshot by name.
+     *
+     * @param array<int|string, mixed> $attributes
+     * @return array<string, mixed>
+     */
+    private static function normalizeAttributeKeys(array $attributes): array
+    {
+        return array_combine(
+            array_map('strval', array_keys($attributes)),
+            array_values($attributes)
+        );
     }
 
     /**
@@ -182,7 +208,13 @@ class SlotDispatcher
                     }
                     $tagSuffix = ':' . implode('.', $versions);
                 }
-                $cacheKey = 'slot:' . strtolower($module) . ':' . strtolower($action) . ':' . $normalizedOutputType . $tagSuffix . ':' . md5(json_encode($parameters));
+                $encodedParameters = json_encode($parameters);
+                // json_encode() can fail (e.g. malformed UTF-8, resources) and return false;
+                // hashing that verbatim would silently collapse every failing-encode call into
+                // the same cache key. Fall back to a per-call unique key instead so we never
+                // serve unrelated cached content when encoding fails.
+                $parametersDigest = $encodedParameters !== false ? md5($encodedParameters) : ('uncacheable:' . bin2hex(random_bytes(8)));
+                $cacheKey = 'slot:' . strtolower($module) . ':' . strtolower($action) . ':' . $normalizedOutputType . $tagSuffix . ':' . $parametersDigest;
                 try {
                     $cached = CacheManager::getCache()->get($cacheKey);
                     if (is_string($cached)) {
@@ -218,14 +250,14 @@ class SlotDispatcher
                 }
                 $attributeSnapshot = [];
                 try {
-                    $attributeSnapshot = $actionInstance->getAttributes();
+                    $attributeSnapshot = self::normalizeAttributeKeys($actionInstance->getAttributes());
                 } catch (\Throwable) {
                     $attributeSnapshot = [];
                 }
                 [$viewModule, $viewCanonical] = $this->viewNameResolver->resolve($module, $action, $rawViewName);
                 $viewInstance = null;
                 $result = '';
-                if ($viewCanonical !== View::NONE) {
+                if ($viewCanonical !== View::NONE && $viewModule !== null) {
                     try {
                         $viewInstance = $this->viewFactory->create($viewModule, $viewCanonical, $module, $action, strtolower(($outputType ?? $this->controller->getOutputType()->getName())), $rd, $attributeSnapshot);
                     } catch (\Throwable $e) {
@@ -376,9 +408,9 @@ class SlotDispatcher
                     [$vm, $vn] = $this->viewNameResolver->resolve($module, $action, $rawViewName);
                     $viewInstance = null;
                     $content = '';
-                    if ($vn !== View::NONE) {
+                    if ($vn !== View::NONE && $vm !== null) {
                         try {
-                            $viewInstance = $this->viewFactory->create($vm, $vn, $module, $action, strtolower(($outputType ?? $this->controller->getOutputType()->getName())), $rd, (array)$actionInstance->getAttributes());
+                            $viewInstance = $this->viewFactory->create($vm, $vn, $module, $action, strtolower(($outputType ?? $this->controller->getOutputType()->getName())), $rd, self::normalizeAttributeKeys($actionInstance->getAttributes()));
                         } catch (\Throwable $e) {
                             if ($logExceptions) {
                                 $this->logSlotException($e, $module, $action, $parameters, 'nonsimple_error_view_factory_create');
@@ -393,7 +425,7 @@ class SlotDispatcher
                         }
                         if ($viewInstance) {
                             try {
-                                $vic = new \Quiote\Execution\ImmutableViewInitContext($this->controller->getContext(), $vm, $vn, strtolower(($outputType ?? $this->controller->getOutputType()->getName())), $module, $action, (array)$actionInstance->getAttributes(), $this->controller->getGlobalResponse());
+                                $vic = new \Quiote\Execution\ImmutableViewInitContext($this->controller->getContext(), $vm, $vn, strtolower(($outputType ?? $this->controller->getOutputType()->getName())), $module, $action, self::normalizeAttributeKeys($actionInstance->getAttributes()), $this->controller->getGlobalResponse());
                                 $viewInstance->initialize($vic);
                             } catch (\Throwable) {
                             }
@@ -436,8 +468,8 @@ class SlotDispatcher
                 [$vm, $vn] = $this->viewNameResolver->resolve($module, $action, $rawViewName);
                 $viewInstance = null;
                 $result = '';
-                if ($vn !== View::NONE) {
-                    $attrs = (array)$actionInstance->getAttributes();
+                if ($vn !== View::NONE && $vm !== null) {
+                    $attrs = self::normalizeAttributeKeys($actionInstance->getAttributes());
                     try {
                         $viewInstance = $this->viewFactory->create($vm, $vn, $module, $action, strtolower(($outputType ?? $this->controller->getOutputType()->getName())), $rd, $attrs);
                     } catch (\Throwable $e) {
@@ -494,7 +526,7 @@ class SlotDispatcher
                     } catch (\Throwable) {
                     }
                 }
-                $attrsFinal = (array)$actionInstance->getAttributes();
+                $attrsFinal = self::normalizeAttributeKeys($actionInstance->getAttributes());
                 $ctx = new ActionExecutionContext($actionInstance, $viewInstance, $module, $action, $outputType ?? $this->controller->getOutputType()->getName(), $rd, (string)$result, $vm, $vn, $attrsFinal);
                 $this->lastContext = $ctx;
                 return $ctx->content;

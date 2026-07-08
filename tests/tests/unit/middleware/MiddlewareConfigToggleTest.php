@@ -5,7 +5,7 @@ use Quiote\Middleware\ExecutionTimeMiddleware;
 
 class MiddlewareConfigToggleTest extends TestCase
 {
-    public function testExecutionTimeMiddlewareDisabledByConfigMap()
+    public function testExecutionTimeMiddlewareDisabledByConfigMap(): void
     {
         // Simulate config map disabling ExecutionTimeMiddleware
         MiddlewareCatalog::initialize([

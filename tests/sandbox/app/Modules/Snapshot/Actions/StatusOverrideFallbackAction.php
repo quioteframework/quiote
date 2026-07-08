@@ -20,9 +20,14 @@ class StatusOverrideFallbackAction extends Action
         return false;
     }
 
-    public function handleReadError(WebRequest $rd)
+    public function handleReadError(WebRequest $rd): string
     {
-        $this->getContext()->getController()->getGlobalResponse()->setHttpStatusCode(409);
+        $context = $this->getContext();
+        if ($context === null) {
+            throw new \RuntimeException('StatusOverrideFallbackAction requires an initialized Context.');
+        }
+
+        $context->getController()->getGlobalResponse()->setHttpStatusCode(409);
 
         return 'Success';
     }

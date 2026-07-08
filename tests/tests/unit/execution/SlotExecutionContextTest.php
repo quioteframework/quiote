@@ -19,7 +19,7 @@ class SlotExecutionContextTest extends UnitTestCase
         parent::tearDown();
     }
 
-    public function testSimpleSlotReturnsContext()
+    public function testSimpleSlotReturnsContext(): void
     {
         $parent = (new ServerRequest('GET','http://localhost/'))
             ->withAttribute(SlotMiddleware::ATTR, new SlotStack());
@@ -29,7 +29,6 @@ class SlotExecutionContextTest extends UnitTestCase
     $slotCtx = $dispatcher->dispatchSlotContext($parent,'Cache','CacheComplex');
     $this->assertSame('Cache', $slotCtx->module);
     $this->assertSame('CacheComplex', $slotCtx->actionName);
-    $this->assertIsString($slotCtx->content);
     $this->assertNotSame('', $slotCtx->content);
     }
 }

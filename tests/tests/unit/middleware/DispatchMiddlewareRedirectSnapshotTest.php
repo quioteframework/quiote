@@ -40,58 +40,66 @@ class DispatchMiddlewareRedirectSnapshotTest extends TestCase
         }
     }
 
-    private function makeController(callable $actionFactory, array $cookies = [], ?array $redirectData = null): Controller
+    /**
+     * @param array<string, array<string, mixed>> $cookies
+     * @param array{location: mixed, code: int|string}|null $redirectData
+     */
+    private function makeController(\Closure $actionFactory, array $cookies = [], ?array $redirectData = null): Controller
     {
         $ctx = $this->createStub(\Quiote\Context::class);
         $webReq = new \Quiote\Request\WebRequest();
         $ctx->method('getRequest')->willReturn($webReq);
-        $routing = new class { 
-            public function getBasePath(){ return '/'; }
-            public function getBaseHref(){ return 'http://example.com/'; }
+        $routing = new class {
+            public function getBasePath(): string { return '/'; }
+            public function getBaseHref(): string { return 'http://example.com/'; }
         };
         $ctx->method('getRouting')->willReturn($routing);
-        
+
         $globalResp = new class($cookies, $redirectData) extends \Quiote\Response\WebResponse {
-            protected $redirect = null; 
-            private $hasRedirect = false; 
-            private $sent = false; 
-            private $headers = [];
-            
-            public function __construct(private readonly array $cookiesData, ?array $redirectData = null){ 
+            private bool $hasRedirect = false;
+            private bool $sent = false;
+            /** @var array<string, array<int, mixed>> */
+            private array $headers = [];
+
+            /**
+             * @param array<string, array<string, mixed>> $cookiesData
+             * @param array{location: mixed, code: int|string}|null $redirectData
+             */
+            public function __construct(private readonly array $cookiesData, ?array $redirectData = null){
                 if ($redirectData) {
                     $this->redirect = $redirectData;
                     $this->hasRedirect = true;
                 }
             }
             public function getCookies(): array { return $this->cookiesData; }
-            public function setRedirect($url, $statusCode = 302) { 
-                $this->redirect = ['location' => $url, 'code' => $statusCode]; 
-                $this->hasRedirect = true; 
+            public function setRedirect($url, $statusCode = 302) {
+                $this->redirect = ['location' => $url, 'code' => $statusCode];
+                $this->hasRedirect = true;
             }
             public function getRedirect() { return $this->redirect; }
             public function hasRedirect() { return $this->hasRedirect; }
             public function clearRedirect() { $this->redirect = null; $this->hasRedirect = false; }
-            public function isSent() { return $this->sent; }
+            public function isSent(): bool { return $this->sent; }
             public function send(?\Quiote\Controller\OutputType $outputType = null) { $this->sent = true; }
-            public function setHttpHeader($name, $value, $replace = true) { 
+            public function setHttpHeader($name, $value, $replace = true) {
                 if($replace||!isset($this->headers[$name])){
                     $this->headers[$name]=[];
-                } 
-                $this->headers[$name][]=$value; 
+                }
+                $this->headers[$name][]=$value;
             }
-            public function getHttpHeader($name, $default = null) { return $this->headers[$name] ?? $default; }
+            public function getHttpHeader($name, mixed $default = null) { return $this->headers[$name] ?? $default; }
             public function hasHttpHeader($name) { return isset($this->headers[$name]); }
             public function removeHttpHeader($name) { unset($this->headers[$name]); }
             public function clearHttpHeaders() { $this->headers = []; }
             public function clear() { $this->content = null; $this->clearHttpHeaders(); $this->clearRedirect(); }
         };
-        
+
         $controller = new class($actionFactory, $globalResp) extends Controller {
-            public function __construct(private $factory, private $gResp) {}
-            public function getGlobalResponse() { return $this->gResp; }
-            public function createActionInstance($moduleName, $actionName) { return ($this->factory)(); }
+            public function __construct(private readonly \Closure $factory, private readonly \Quiote\Response\WebResponse $gResp) {}
+            public function getGlobalResponse(): \Quiote\Response\WebResponse { return $this->gResp; }
+            public function createActionInstance($moduleName, $actionName): \Quiote\Action\Action { return ($this->factory)(); }
         };
-        
+
         $ref = new ReflectionClass($controller);
         if($ref->hasProperty('context')) {
             $p = $ref->getProperty('context');
@@ -100,12 +108,7 @@ class DispatchMiddlewareRedirectSnapshotTest extends TestCase
         return $controller;
     }
 
-    private function makeActionDescriptor(bool $simple = true): ActionDescriptor
-    {
-        return new ActionDescriptor('TestModule', 'TestAction', 'read', 'html', $simple);
-    }
-
-    public function testBuildPsrResponseWithRedirect()
+    public function testBuildPsrResponseWithRedirect(): void
     {
         // Test that buildPsrResponse accepts redirect parameter
         $redirectData = ['location' => '/test-redirect', 'code' => 302];
@@ -131,7 +134,7 @@ class DispatchMiddlewareRedirectSnapshotTest extends TestCase
         $this->assertStringContainsString('test-redirect', $response->getHeaderLine('Location'));
     }
 
-    public function testBuildPsrResponseWithNullRedirect()
+    public function testBuildPsrResponseWithNullRedirect(): void
     {
         $actionFactory = function() {
             $action = $this->createStub(\Quiote\Action\Action::class);
@@ -152,7 +155,7 @@ class DispatchMiddlewareRedirectSnapshotTest extends TestCase
         $this->assertFalse($response->hasHeader('Location'));
     }
 
-    public function testBuildPsrResponseWithAbsoluteRedirectUrl()
+    public function testBuildPsrResponseWithAbsoluteRedirectUrl(): void
     {
         $redirectData = ['location' => 'http://external.com/path', 'code' => 301];
         $actionFactory = function() {
@@ -175,7 +178,7 @@ class DispatchMiddlewareRedirectSnapshotTest extends TestCase
         $this->assertEquals('http://external.com/path', $response->getHeaderLine('Location'));
     }
 
-    public function testBuildPsrResponseWithRelativeRedirectUrl()
+    public function testBuildPsrResponseWithRelativeRedirectUrl(): void
     {
         $redirectData = ['location' => 'relative/path', 'code' => 303];
         $actionFactory = function() {

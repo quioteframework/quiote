@@ -12,7 +12,7 @@ use Symfony\Component\Routing\RouteCollection;
  */
 class GeneratedTestRouting extends Routing
 {
-    /** Map context => callable returning [RouteCollection, meta] */
+    /** @var array<string, callable> Map context => callable returning [RouteCollection, meta] */
     private static array $contextLoaders = [];
 
     public function __construct(private readonly string $activeContext)

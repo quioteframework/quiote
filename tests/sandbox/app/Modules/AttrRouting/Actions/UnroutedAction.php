@@ -7,7 +7,7 @@ use Quiote\Action\Action;
 
 class UnroutedAction extends Action
 {
-	public function executeRead()
+	public function executeRead(): string
 	{
 		return 'Success';
 	}

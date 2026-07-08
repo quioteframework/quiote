@@ -17,7 +17,7 @@ class HeaderSnapshotAction extends Action
     /** @var array<string,string> */
     public static array $seenHeaders = [];
 
-    public function execute(WebRequest $rd)
+    public function execute(WebRequest $rd): string
     {
         self::$seenHeaders = [
             'content-type' => $rd->getHeaderLine('Content-Type'),

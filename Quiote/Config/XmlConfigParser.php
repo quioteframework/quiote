@@ -88,9 +88,9 @@ class XmlConfigParser
 	protected $environment = '';
 	
 	/**
-	 * @var        ?XmlConfigDomDocument The document we're parsing here.
+	 * @var        XmlConfigDomDocument The document we're parsing here.
 	 */
-	protected final $doc = null;
+	protected final XmlConfigDomDocument $doc;
 	
 	/**
 	 * Test if the given document looks like an Quiote config file.
@@ -100,7 +100,8 @@ class XmlConfigParser
 	 */
 	public static function isQuioteConfigurationDocument(XmlConfigDomDocument $doc)
 	{
-		return $doc->documentElement && $doc->documentElement->localName == 'configurations' && self::isQuioteEnvelopeNamespace($doc->documentElement->namespaceURI);
+		$namespaceUri = $doc->documentElement?->namespaceURI;
+		return $doc->documentElement !== null && $doc->documentElement->localName == 'configurations' && $namespaceUri !== null && self::isQuioteEnvelopeNamespace($namespaceUri);
 	}
 	
 	/**
@@ -163,13 +164,13 @@ class XmlConfigParser
 	/**
 	 * @param      string  $path An absolute filesystem path to a configuration file.
 	 * @param      ?string $environment The environment name, or null to resolve it from core.environment (which may itself be unset -- see the constructor).
-	 * @param      string  $context The optional context name.
+	 * @param      ?string $context The optional context name.
 	 * @param      array<string,array<int,string>> $transformationInfo An associative array of transformation information.
 	 * @param      array<string,mixed> $validationInfo An associative array of validation information.
 	 * @return     XmlConfigDomDocument A properly merged DOMDocument.
 	 * @since      1.0.0
 	 */
-	public static function run(string $path, ?string $environment, $context = null, array $transformationInfo = [], array $validationInfo = [])
+	public static function run(string $path, ?string $environment, ?string $context = null, array $transformationInfo = [], array $validationInfo = [])
 	{
 		$isQuioteConfigFormat = true;
 		// build an array of documents (this one, and the parents)
@@ -191,8 +192,9 @@ class XmlConfigParser
 			
 			// is it an Quiote <configurations> element? does it have a parent attribute? yes? good. parse that next
 			// TODO: support future namespaces
-			if($isQuioteConfigFormat && $doc->documentElement->hasAttribute('parent')) {
-				$theNextPath = (string) Toolkit::literalize($doc->documentElement->getAttribute('parent'));
+			$docRootElement = self::requireDocumentElement($doc);
+			if($isQuioteConfigFormat && $docRootElement->hasAttribute('parent')) {
+				$theNextPath = (string) Toolkit::literalize($docRootElement->getAttribute('parent'));
 				
 				// no infinite loop plz, kthx
 				if($nextPath === $theNextPath) {
@@ -216,42 +218,44 @@ class XmlConfigParser
 		
 		if($isQuioteConfigFormat) {
 			// if it is an Quiote config, we'll create a new document with all files' <configuration> blocks inside
-			$retval->appendChild(new XmlConfigDomElement('configurations', null, self::NAMESPACE_QUIOTE_ENVELOPE_LATEST));
-			
+			$retvalRootElement = new XmlConfigDomElement('configurations', null, self::NAMESPACE_QUIOTE_ENVELOPE_LATEST);
+			$retval->appendChild($retvalRootElement);
+
 			// reverse the array - we want the parents first!
 			$docs = array_reverse($docs);
-			
+
 			$configurationElements = [];
-			
+
 			// TODO: I bet this leaks memory due to the nodes being taken out of the docs. beware circular refs!
 			foreach($docs as $doc) {
+				$docRootElement = self::requireDocumentElement($doc);
 				// iterate over all nodes (attributes, <sandbox>, <configuration> etc) inside the document element and append them to the <configurations> element in our final document
-				foreach($doc->documentElement->childNodes as $node) {
-					if($node->nodeType == XML_ELEMENT_NODE && $node->localName == 'configuration' && self::isQuioteEnvelopeNamespace($node->namespaceURI)) {
+				foreach($docRootElement->childNodes as $node) {
+					if($node->nodeType == XML_ELEMENT_NODE && $node->localName == 'configuration' && $node->namespaceURI !== null && self::isQuioteEnvelopeNamespace($node->namespaceURI)) {
 						// it's a <configuration> element - put that on a stack for processing
 						$configurationElements[] = $node;
 					} else {
 						// import the node, recursively, and store the imported node
 						$importedNode = $retval->importNode($node, true);
 						// now append it to the <configurations> element
-						$retval->documentElement->appendChild($importedNode);
+						$retvalRootElement->appendChild($importedNode);
 					}
 				}
 				// if it's a <configurations> element, then we need to copy the attributes from there
 				if($doc->isQuioteConfiguration()) {
-					$namespaces = $doc->getXPath()->query('namespace::*');
+					$namespaces = $doc->query('namespace::*');
 					foreach($namespaces as $namespace) {
-						if($namespace->localName !== 'xml' && $namespace->localName != 'xmlns') {
-							$retval->documentElement->setAttributeNS(self::NAMESPACE_XMLNS_2000, 'xmlns:' . $namespace->localName, $namespace->namespaceURI);
+						if($namespace->localName !== 'xml' && $namespace->localName != 'xmlns' && $namespace->namespaceURI !== null) {
+							$retvalRootElement->setAttributeNS(self::NAMESPACE_XMLNS_2000, 'xmlns:' . $namespace->localName, $namespace->namespaceURI);
 						}
 					}
-					foreach($doc->documentElement->attributes as $attribute) {
+					foreach($docRootElement->attributes as $attribute) {
 						// but not the "parent" attributes...
 						if($attribute->namespaceURI === null && $attribute->localName === 'parent') {
 							continue;
 						}
 						$importedAttribute = $retval->importNode($attribute, true);
-						$retval->documentElement->setAttributeNode($importedAttribute);
+						$retvalRootElement->setAttributeNode($importedAttribute);
 					}
 				}
 			}
@@ -275,16 +279,16 @@ class XmlConfigParser
 					if($element->ownerDocument->getXpath()->evaluate($xpath, $element)) {
 						// it did, so import the node and append it to the result doc
 						$importedNode = $retval->importNode($element, true);
-						$retval->documentElement->appendChild($importedNode);
+						$retvalRootElement->appendChild($importedNode);
 					}
 				}
 			}
-			
+
 			// run the compilation stage parser
 			$retval = self::executeCompilation($retval, $environment, $context, $transformationInfo[self::STAGE_COMPILATION], $validationInfo[self::STAGE_COMPILATION]);
 		} else {
 			// it's not an quiote config file. just pass it through then
-			$retval->appendChild($retval->importNode($doc->documentElement, true));
+			$retval->appendChild($retval->importNode(self::requireDocumentElement($doc), true));
 		}
 		
 		// cleanup attempt
@@ -317,13 +321,13 @@ class XmlConfigParser
      * Will make a DOMDocument instance using the given path.
      * @param      string $path The path to the configuration file.
      * @param      ?string $environment The optional name of the current environment.
-     * @param      string $context The optional name of the current context.
+     * @param      ?string $context The optional name of the current context.
      * @since      1.0.0
      */
     public function __construct($path, $environment = null, /**
-     * @var        string The name of the current context.
+     * @var        ?string The name of the current context.
      */
-    protected $context = null)
+    protected ?string $context = null)
 	{
 		// store environment...
 		if($environment === null) {
@@ -343,9 +347,16 @@ class XmlConfigParser
 		try {
 			$this->doc = new XmlConfigDomDocument();
 			$this->doc->substituteEntities = true;
-			$this->doc->load($path);
+			$loaded = $this->doc->load($path);
 		} catch(\DOMException $dome) {
 			throw new ParseException(sprintf('Configuration file "%s" could not be parsed: %s', $path, $dome->getMessage()), 0, $dome);
+		}
+
+		// load() can also fail by returning false instead of throwing (e.g. with
+		// custom libxml error handling in place); previously this went
+		// unnoticed here and surfaced later as a confusing null root element.
+		if ($loaded === false || $this->doc->documentElement === null) {
+			throw new ParseException(sprintf('Configuration file "%s" could not be parsed: the document is empty or malformed.', $path));
 		}
 	}
 	
@@ -402,13 +413,13 @@ class XmlConfigParser
 	 * Executes the parser for a compilation document.
 	 * @param      XmlConfigDomDocument $document The document to act upon.
 	 * @param      ?string $environment The environment name, or null if none is configured.
-	 * @param      string $context The context name.
+	 * @param      ?string $context The context name, or null if none is configured.
 	 * @param      array<int,string> $transformationInfo An array of XSL paths for transformation.
 	 * @param      array<string,mixed> $validationInfo An associative array of validation information.
 	 * @return     XmlConfigDomDocument The compiled document.
 	 * @since      1.0.0
 	 */
-	public static function executeCompilation(XmlConfigDomDocument $document, ?string $environment, $context, array $transformationInfo = [], array $validationInfo = [])
+	public static function executeCompilation(XmlConfigDomDocument $document, ?string $environment, ?string $context, array $transformationInfo = [], array $validationInfo = [])
 	{
 		// resolve xincludes
 		self::xinclude($document);
@@ -445,25 +456,36 @@ class XmlConfigParser
 		// see http://php.net/manual/en/class.domnodelist.php#83178
 		for($i = 0; $i < $length; $i++) {
 			$element = $elements->item($i);
+			if($element === null) {
+				continue;
+			}
 			if($element->hasAttribute('href')) {
 				$attribute = $element->getAttributeNode('href');
+				if($attribute === false) {
+					// hasAttribute() just returned true, so this can't realistically happen
+					continue;
+				}
 				$parts = explode('#', (string) $attribute->nodeValue, 2);
-				$parts[0] = str_replace('\\', '/', Toolkit::expandDirectives($parts[0]));
+				$parts[0] = str_replace('\\', '/', Toolkit::expandDirectives($parts[0]) ?? '');
 				$attribute->nodeValue = rawurlencode($parts[0]) . (isset($parts[1]) ? '#' . $parts[1] : '');
 				if(str_contains($parts[0], '*') || str_contains($parts[0], '{')) {
 					$glob = glob($parts[0], GLOB_BRACE);
 					if($glob) {
 						$glob = array_unique($glob); // it could be that someone used /path/to/{Foo,*}/burp.xml so Foo would come before all others, that's why we need to remove duplicates as the * would match Foo again
+						$parentNode = $element->parentNode;
+						if($parentNode === null) {
+							throw new ParseException(sprintf('Configuration file "%s" has an <xi:include> element with a glob href but no parent node to expand it into.', $document->documentURI));
+						}
 						foreach($glob as $path) {
 							// registerNodeClass() guarantees cloneNode() returns a
 							// XmlConfigDomElement here, never a vanilla DOMNode.
 							/** @var XmlConfigDomElement $new */
 							$new = $element->cloneNode(true);
 							$new->setAttribute('href', rawurlencode($path) . (isset($parts[1]) ? '#' . $parts[1] : ''));
-							$element->parentNode->insertBefore($new, $element);
+							$parentNode->insertBefore($new, $element);
 							++$i;
 						}
-						$element->parentNode->removeChild($element);
+						$parentNode->removeChild($element);
 					}
 				}
 			}
@@ -477,12 +499,14 @@ class XmlConfigParser
 		}
 		
 		// remove all xml:base attributes inserted by XIncludes
-		$nodes = $document->getXpath()->query('//@xml:base', $document);
+		$nodes = $document->query('//@xml:base', $document);
 		foreach($nodes as $node) {
 			// The query selects attribute nodes only, and registerNodeClass()
 			// guarantees they are always XmlConfigDomAttr, never a vanilla DOMNode.
 			/** @var \Quiote\Config\Util\DOM\XmlConfigDomAttr $node */
-			$node->ownerElement->removeAttributeNode($node);
+			if($node->ownerElement !== null) {
+				$node->ownerElement->removeAttributeNode($node);
+			}
 		}
 	}
 	
@@ -491,11 +515,11 @@ class XmlConfigParser
 	 * element that matches the given context and environment.
 	 * @param      XmlConfigDomDocument $document The document to act upon.
 	 * @param      ?string $environment The environment name, or null if none is configured.
-	 * @param      string $context The context name.
+	 * @param      ?string $context The context name, or null if none is configured.
 	 * @return     void
 	 * @since      1.0.0
 	 */
-	public static function match(XmlConfigDomDocument $document, $environment, $context)
+	public static function match(XmlConfigDomDocument $document, $environment, ?string $context)
 	{
 		if($document->isQuioteConfiguration()) {
 			// it's an quiote config, so we need to set "matched" flags on all <configuration> elements where "context" and "environment" attributes match the values below
@@ -509,7 +533,7 @@ class XmlConfigParser
 				$matched = true;
 				foreach($testAttributes as $attributeName => $attributeValue) {
 					if($configuration->hasAttribute($attributeName)) {
-						$matched = $matched && self::testPattern($configuration->getAttribute($attributeName), $attributeValue);
+						$matched = $matched && self::testPattern($configuration->getAttribute($attributeName, '') ?? '', $attributeValue);
 					}
 				}
 				if($matched) {
@@ -525,13 +549,13 @@ class XmlConfigParser
 	 * and given stylesheets.
 	 * @param      XmlConfigDomDocument $document The document to act upon.
 	 * @param      ?string $environment The environment name, or null if none is configured.
-	 * @param      string $context The context name.
+	 * @param      ?string $context The context name, or null if none is configured.
 	 * @param      array<int,string> $transformationInfo An array of transformation information.
 	 * @param      array<int,XmlConfigDomDocument> $transformations An array of XSL stylesheets in DOMDocument instances.
 	 * @return     XmlConfigDomDocument The transformed document.
 	 * @since      1.0.0
 	 */
-	public static function transform(XmlConfigDomDocument $document, $environment, $context, array $transformationInfo = [], $transformations = [])
+	public static function transform(XmlConfigDomDocument $document, $environment, ?string $context, array $transformationInfo = [], $transformations = [])
 	{
 		// loop over all the paths we found and load the files
 		foreach($transformationInfo as $href) {
@@ -609,19 +633,17 @@ class XmlConfigParser
 	 * instructions
 	 * @param      XmlConfigDomDocument $document The document to act upon.
 	 * @param      ?string $environment The environment name, or null if none is configured.
-	 * @param      string $context The context name.
+	 * @param      ?string $context The context name, or null if none is configured.
 	 * @return     XmlConfigDomDocument The transformed document.
 	 * @since      1.0.0
 	 */
-	public static function transformProcessingInstructions(XmlConfigDomDocument $document, $environment, $context)
+	public static function transformProcessingInstructions(XmlConfigDomDocument $document, $environment, ?string $context)
 	{
 		$transformations = [];
 		$transformationInfo = [];
 		
-		$xpath = $document->getXpath();
-		
 		// see if there are <?xml-stylesheet... processing instructions
-		$stylesheetProcessingInstructions = $xpath->query("//processing-instruction('xml-stylesheet')", $document);
+		$stylesheetProcessingInstructions = $document->query("//processing-instruction('xml-stylesheet')", $document);
 		foreach($stylesheetProcessingInstructions as $pi) {
 			// The query selects processing-instruction() nodes only, and
 			// registerNodeClass() guarantees they are always
@@ -637,16 +659,17 @@ class XmlConfigParser
 			$type = $firstChild->getAttribute('type');
 			// we process only the types below...
 			if(in_array($type, ['text/xml', 'text/xsl', 'application/xml', 'application/xsl+xml'])) {
-				$href = $href = $firstChild->getAttribute('href');
+				$href = $firstChild->getAttribute('href', '');
 				
 				if(str_starts_with((string) $href, '#')) {
 					// the href points to an embedded XSL stylesheet (with ID reference), so let's see if we can find it
-					$stylesheets = $xpath->query("//*[@id='" . substr((string) $href, 1) . "']", $document);
-					if($stylesheets->length) {
+					$stylesheets = $document->query("//*[@id='" . substr((string) $href, 1) . "']", $document);
+					$stylesheetNode = $stylesheets->item(0);
+					if($stylesheetNode instanceof \DOMNode) {
 						// excellent. make a new doc from that element!
 						try {
 							$xsl = new XmlConfigDomDocument();
-							$xsl->appendChild($xsl->importNode($stylesheets->item(0), true));
+							$xsl->appendChild($xsl->importNode($stylesheetNode, true));
 						} catch(\DOMException $dome) {
 							throw new ParseException(sprintf('Configuration file "%s" could not be parsed: Could not load XSL stylesheet "%s": %s', $document->documentURI, $href, $dome->getMessage()), 0, $dome);
 						}
@@ -659,11 +682,13 @@ class XmlConfigParser
 					}
 				} else {
 					// href references an xsl file, remember the path
-					$transformationInfo[] = Toolkit::expandDirectives($href);
+					$transformationInfo[] = Toolkit::expandDirectives($href) ?? '';
 				}
 				
 				// remove the processing instructions after we dealt with them
-				$pi->parentNode->removeChild($pi);
+				if($pi->parentNode !== null) {
+					$pi->parentNode->removeChild($pi);
+				}
 			}
 		}
 		
@@ -674,12 +699,12 @@ class XmlConfigParser
 	 * Perform validation on a given document.
 	 * @param      XmlConfigDomDocument $document The document to act upon.
 	 * @param      ?string $environment The environment name, or null if none is configured.
-	 * @param      string $context The context name.
+	 * @param      ?string $context The context name, or null if none is configured.
 	 * @param      array<string,mixed> $validationInfo An array of validation information.
 	 * @return     void
 	 * @since      1.0.0
 	 */
-	public static function validate(XmlConfigDomDocument $document, $environment, $context, array $validationInfo = [])
+	public static function validate(XmlConfigDomDocument $document, $environment, ?string $context, array $validationInfo = [])
 	{
 		// bail out right away if validation is disabled
 		if(Config::getBool('core.skip_config_validation', false)) {
@@ -720,7 +745,8 @@ class XmlConfigParser
 	public static function cleanup(XmlConfigDomDocument $document)
 	{
 		// remove top-level <sandbox> element
-		if($sandbox = $document->getSandbox()) {
+		$sandbox = $document->getSandbox();
+		if($sandbox !== null && $sandbox->parentNode !== null) {
 			$sandbox->parentNode->removeChild($sandbox);
 		}
 	}
@@ -735,24 +761,29 @@ class XmlConfigParser
 	public static function validateXsi(XmlConfigDomDocument $document)
 	{
 		// next, find (and validate against) XML schema instance declarations
+		$documentElement = self::requireDocumentElement($document);
 		$sources = [];
-		if($document->documentElement->hasAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'schemaLocation')) {
+		if($documentElement->hasAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'schemaLocation')) {
 			// find locations. for namespaces, they are space separated pairs of a namespace URI and a schema location
-			$locations = preg_split('/\s+/', $document->documentElement->getAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'schemaLocation'));
+			$locations = preg_split('/\s+/', $documentElement->getAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'schemaLocation') ?? '');
+			if ($locations === false) {
+				throw new ParseException(sprintf('Configuration file "%s" has a malformed xsi:schemaLocation attribute.', $document->documentURI));
+			}
 			for($i = 1; $i < count($locations); $i += 2) {
 				$sources[] = $locations[$i];
 			}
 		}
 		// no namespace? then it's only one schema location in this attribute
-		if($document->documentElement->hasAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'noNamespaceSchemaLocation')) {
-			$sources[] = $document->documentElement->getAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'noNamespaceSchemaLocation');
+		$noNamespaceLocation = $documentElement->getAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'noNamespaceSchemaLocation');
+		if($noNamespaceLocation !== null) {
+			$sources[] = $noNamespaceLocation;
 		}
 		if($sources) {
 			// we have instances to validate against...
 			$schemas = [];
 			foreach($sources as &$source) {
 				// so for each location, we need to grab the file and validate against this grabbed source code, as libxml often has a hard time retrieving stuff over HTTP
-				$source = Toolkit::expandDirectives($source);
+				$source = Toolkit::expandDirectives($source) ?? '';
 				if(parse_url($source, PHP_URL_SCHEME) === null && !Toolkit::isPathAbsolute($source)) {
 					// the schema location is relative to the XML file
 					$source = dirname((string) $document->documentURI) . DIRECTORY_SEPARATOR . $source;
@@ -834,12 +865,12 @@ class XmlConfigParser
 	 * Validate the document against the given list of Schematron files.
 	 * @param      XmlConfigDomDocument $document The document to act upon.
 	 * @param      ?string $environment The environment name, or null if none is configured.
-	 * @param      string $context The context name.
+	 * @param      ?string $context The context name, or null if none is configured.
 	 * @param      array<int,string> $validationFiles An array of file names to validate against.
 	 * @return     void
 	 * @since      1.0.0
 	 */
-	public static function validateSchematron(XmlConfigDomDocument $document, $environment, $context, array $validationFiles = [])
+	public static function validateSchematron(XmlConfigDomDocument $document, $environment, ?string $context, array $validationFiles = [])
 	{
 		if(Config::getBool('core.skip_config_transformations', false)) {
 			return;
@@ -883,16 +914,16 @@ class XmlConfigParser
 			// \DOMDocument (not an XmlConfigDomDocument), so it has no getXpath() method.
 			$xpath = new \DOMXPath($result);
 			$xpath->registerNamespace('svrl', self::NAMESPACE_SVRL_ISO);
-			
-			$results = $xpath->query('/svrl:schematron-output/svrl:failed-assert/svrl:text');
+
+			$results = self::queryOrThrow($xpath, '/svrl:schematron-output/svrl:failed-assert/svrl:text');
 			if($results->length) {
 				$errors = ['Failed assertions:'];
-				
+
 				foreach($results as $result) {
 					$errors[] = $result->nodeValue;
 				}
-				
-				$results = $xpath->query('/svrl:schematron-output/svrl:successful-report/svrl:text');
+
+				$results = self::queryOrThrow($xpath, '/svrl:schematron-output/svrl:successful-report/svrl:text');
 				if($results->length) {
 					$errors[] = '';
 					$errors[] = 'Successful reports:';
@@ -905,6 +936,43 @@ class XmlConfigParser
 			}
 		}
 	}
-}
 
-?>
+	/**
+	 * Run an XPath query and return the resulting node list.
+	 *
+	 * DOMXPath::query() returns `false` only when the expression itself is
+	 * malformed -- every expression used here is a fixed, developer-authored
+	 * string, never user input, so a `false` result signals a genuine bug
+	 * in the calling code rather than a runtime condition to branch on.
+	 * @return \DOMNodeList<\DOMNode|\DOMNameSpaceNode>
+	 */
+	private static function queryOrThrow(\DOMXPath $xpath, string $expression): \DOMNodeList
+	{
+		$result = $xpath->query($expression);
+
+		if ($result === false) {
+			throw new \LogicException(sprintf('Malformed XPath expression "%s".', $expression));
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Retrieve the document's root element, guaranteeing it is present.
+	 * A document that was actually loaded (see the constructor, which fails
+	 * fast on an unparseable file) always has a root element; this only
+	 * throws if it is ever called on a document that was never successfully
+	 * populated.
+	 * @throws \Quiote\Exception\ParseException If the document has no root element.
+	 */
+	private static function requireDocumentElement(XmlConfigDomDocument $document): XmlConfigDomElement
+	{
+		$documentElement = $document->documentElement;
+
+		if (!$documentElement instanceof XmlConfigDomElement) {
+			throw new ParseException(sprintf('Configuration file "%s" has no root element.', $document->documentURI));
+		}
+
+		return $documentElement;
+	}
+}

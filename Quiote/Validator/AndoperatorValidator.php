@@ -27,9 +27,10 @@ class AndoperatorValidator extends OperatorValidator implements ResetInterface
 	protected function validate()
 	{
 		$return = true;
-		
+		$parameters = $this->requireValidationParameters();
+
 		foreach($this->children as $child) {
-			$result = $child->execute($this->validationParameters);
+			$result = $child->execute($parameters);
 			$this->result = max($result, $this->result);
 			if($result > Validator::SUCCESS) {
 				// if one validator fails, the whole operator fails

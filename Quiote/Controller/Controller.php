@@ -211,8 +211,11 @@ class Controller extends ParameterHolder implements ResetInterface
      * @return \Quiote\Response\WebResponse The global response.
      * @since      1.0.0
      */
-    public function getGlobalResponse()
+    public function getGlobalResponse(): WebResponse
 	{
+		if ($this->response === null) {
+			throw new QuioteException('Cannot get the global response: the Controller has not been initialized yet.');
+		}
 		return $this->response;
 	}
 	
@@ -256,16 +259,16 @@ class Controller extends ParameterHolder implements ResetInterface
 	 * @throws     Exception if the action could not be found.
 	 * @since      1.0.0
 	 */
-	public function createActionInstance($moduleName, $actionName)
+	public function createActionInstance($moduleName, $actionName): Action
 	{
 		$this->initializeModule($moduleName);
-		
+
 		$actionName = Toolkit::canonicalName($actionName);
 		$longActionName = str_replace('/', '_', $actionName);
-		
+
 		// Build class names with configurable namespace pattern
 		$baseNamespace = Config::getString('core.namespace_prefix', 'App');
-		
+
 		// For namespaced classes, preserve directory structure as namespaces
 		$namespacedActionName = str_replace('/', '\\', $actionName);
 		// Avoid double suffix if developer already named class *Action
@@ -273,10 +276,10 @@ class Controller extends ParameterHolder implements ResetInterface
 		$namespacedClass = $baseNamespace . '\\Modules\\' . $moduleName . '\\Actions\\' . $namespacedActionName . $actionSuffix;
 		$oldClass = $moduleName . '_' . $longActionName . 'Action';
 		// optional debug logging removed
-		
+
 		// Try namespaced class first (autoloader will handle it)
 		if(class_exists($namespacedClass)) {
-			return $this->makeInstance($namespacedClass);
+			return $this->instantiateAction($namespacedClass);
 		}
 
 		// Fall back to old naming convention
@@ -288,11 +291,30 @@ class Controller extends ParameterHolder implements ResetInterface
 			}
 		}
 		if(class_exists($oldClass)) {
-			return $this->makeInstance($oldClass);
+			return $this->instantiateAction($oldClass);
 		}
-		
+
 		// Neither class found
 		throw new ClassNotFoundException(sprintf('Unable to find Action class "%s" or "%s" for Action "%s" in Module "%s".', $namespacedClass, $oldClass, $actionName, $moduleName));
+	}
+
+	/**
+	 * Instantiate a class through the container and verify it actually
+	 * implements Action. The container only knows the requested class name,
+	 * not the Action contract, so this is the single point that turns "the
+	 * autowired instance is the wrong type" into a clear, catchable error
+	 * instead of a confusing failure further down the execution pipeline.
+	 * @param      class-string $class A fully qualified Action class name.
+	 * @return     Action A new Action instance, with any constructor dependencies autowired.
+	 * @throws     ClassNotFoundException if the resolved class does not implement Action.
+	 */
+	private function instantiateAction(string $class): Action
+	{
+		$instance = $this->makeInstance($class);
+		if (!$instance instanceof Action) {
+			throw new ClassNotFoundException(sprintf('Class "%s" does not implement Quiote\Action\Action.', $class));
+		}
+		return $instance;
 	}
 
 	/**
@@ -300,8 +322,11 @@ class Controller extends ParameterHolder implements ResetInterface
 	 * @return     Context An Context instance.
 	 * @since      1.0.0
 	 */
-	public final function getContext()
+	public final function getContext(): Context
 	{
+		if ($this->context === null) {
+			throw new QuioteException('Cannot get the context: the Controller has not been initialized yet.');
+		}
 		return $this->context;
 	}
 
@@ -312,10 +337,10 @@ class Controller extends ParameterHolder implements ResetInterface
 	 * so every dispatch gets its own fresh instance, same as the plain `new $class()` this
 	 * replaces. A class with no constructor is unaffected — zero migration burden.
 	 * initialize($initContext) is still called by the executor after this returns, unchanged.
-	 * @param      string $class A fully qualified class name.
+	 * @param      class-string $class A fully qualified class name.
 	 * @return     object A new instance, with any constructor dependencies autowired.
 	 */
-	private function makeInstance($class)
+	private function makeInstance(string $class): object
 	{
 		return $this->getContext()->getContainer()->make($class);
 	}
@@ -361,7 +386,7 @@ class Controller extends ParameterHolder implements ResetInterface
 	 * @throws     Exception if the view could not be found.
 	 * @since      1.0.0
 	 */
-	public function createViewInstance($moduleName, $viewName)
+	public function createViewInstance($moduleName, $viewName): \Quiote\View\View
 	{
 		try {
 			$this->initializeModule($moduleName);
@@ -383,16 +408,33 @@ class Controller extends ParameterHolder implements ResetInterface
 		
 		// Try namespaced class first (autoloader will handle it)
 		if(class_exists($namespacedClass)) {
-			return $this->makeInstance($namespacedClass);
+			return $this->instantiateView($namespacedClass);
 		}
 
 		// Fall back to old naming convention
 		if(class_exists($oldClass)) {
-			return $this->makeInstance($oldClass);
+			return $this->instantiateView($oldClass);
 		}
-		
+
 		// Neither class found
 		throw new ClassNotFoundException(sprintf('Unable to find View class "%s" or "%s" for View "%s" in Module "%s".', $namespacedClass, $oldClass, $viewName, $moduleName));
+	}
+
+	/**
+	 * Instantiate a class through the container and verify it actually
+	 * implements View, for the same reason {@see instantiateAction()} does
+	 * for Action instances.
+	 * @param      class-string $class A fully qualified View class name.
+	 * @return     \Quiote\View\View A new View instance, with any constructor dependencies autowired.
+	 * @throws     ClassNotFoundException if the resolved class does not implement View.
+	 */
+	private function instantiateView(string $class): \Quiote\View\View
+	{
+		$instance = $this->makeInstance($class);
+		if (!$instance instanceof \Quiote\View\View) {
+			throw new ClassNotFoundException(sprintf('Class "%s" does not implement Quiote\View\View.', $class));
+		}
+		return $instance;
 	}
 
 	/**
@@ -421,18 +463,18 @@ class Controller extends ParameterHolder implements ResetInterface
 
 		$this->setParameters($parameters);
 
-		$this->response = $this->context->createInstanceFor('response');
+		$this->response = $context->createInstanceFor('response');
 
 		$cfg = Config::getString('core.config_dir') . '/output_types.xml';
 		if(defined('QUIOTE_USE_APCU_CONFIG_CACHE') && QUIOTE_USE_APCU_CONFIG_CACHE) {
-			$cacheResult = APCuConfigCache::checkConfig($cfg, $this->context->getName());
+			$cacheResult = APCuConfigCache::checkConfig($cfg, $context->getName());
 			if (str_starts_with($cacheResult, 'APCU:')) {
 				eval('?>' . substr($cacheResult, 5));
 			} else {
 				require($cacheResult);
 			}
 		} else {
-			require(ConfigCache::checkConfig($cfg, $this->context->getName()));
+			require(ConfigCache::checkConfig($cfg, $context->getName()));
 		}
 
 		// Legacy security/dispatch/execution filters removed

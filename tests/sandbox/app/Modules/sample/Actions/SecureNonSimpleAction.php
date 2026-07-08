@@ -9,6 +9,6 @@ if(!class_exists('sample_SecureNonSimpleAction')) {
         public function isSimple(): bool { return false; }
         #[\Override]
         public function isSecure(): bool { return true; }
-        public function executeRead() { return View::NONE; }
+        public function executeRead(): null { return View::NONE; }
     }
 }

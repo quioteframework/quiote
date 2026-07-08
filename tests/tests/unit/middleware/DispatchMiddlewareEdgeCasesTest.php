@@ -28,6 +28,10 @@ class DispatchMiddlewareEdgeCasesTest extends TestCase
 {
     private function ctx(): Context { return Context::getInstance(); }
 
+    /**
+     * @param array<string, mixed> $attrs
+     * @param array<string, string|array<int, string>> $headers
+     */
     private function makeReq(array $attrs = [], array $headers = []): ServerRequestInterface
     {
         $r = new ServerRequest('GET', 'http://localhost/edge', $headers);
@@ -40,7 +44,7 @@ class DispatchMiddlewareEdgeCasesTest extends TestCase
         \Quiote\Config\Config::set('core.environment', 'development');
     }
 
-    public function testReturns404WhenNoActionDescriptor()
+    public function testReturns404WhenNoActionDescriptor(): void
     {
         $ctx = $this->ctx();
         $mw = new DispatchMiddleware($ctx->getController());
@@ -50,7 +54,7 @@ class DispatchMiddlewareEdgeCasesTest extends TestCase
         $this->assertStringContainsString('Not Found', (string)$resp->getBody());
     }
 
-    public function testNonSimpleActionMissingValidationMiddlewareProduces500()
+    public function testNonSimpleActionMissingValidationMiddlewareProduces500(): void
     {
         $ctx = $this->ctx();
         $mw = new DispatchMiddleware($ctx->getController());
@@ -65,7 +69,7 @@ class DispatchMiddlewareEdgeCasesTest extends TestCase
         $this->assertSame('absent', $resp->getHeaderLine('X-Quiote-Validation-State'));
     }
 
-    public function testNonSimpleActionFailedValidationReturns400()
+    public function testNonSimpleActionFailedValidationReturns400(): void
     {
         $ctx = $this->ctx();
         $mw = new DispatchMiddleware($ctx->getController());

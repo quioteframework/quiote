@@ -37,6 +37,10 @@ class MiddlewarePipelineFullCoverageTest extends TestCase
         return Context::getInstance();
     }
 
+    /**
+     * @param array<string, string> $headers
+     * @param array<string, mixed> $attrs
+     */
     private function makeReq(array $headers = [], array $attrs = []): ServerRequestInterface
     {
         $r = new ServerRequest('GET', 'http://localhost/test', $headers);
@@ -53,7 +57,7 @@ class MiddlewarePipelineFullCoverageTest extends TestCase
         \Quiote\Config\Config::set('core.developer_exceptions', false);
     }
 
-    public function testPipelineBuildAndReuseAndReset()
+    public function testPipelineBuildAndReuseAndReset(): void
     {
         $ctx = $this->ctx();
         $pipeline = new MiddlewarePipeline($ctx);
@@ -79,7 +83,7 @@ class MiddlewarePipelineFullCoverageTest extends TestCase
         $this->assertEquals('__TERMINAL__', end($rebuilt));
     }
 
-    public function testOptionalMiddlewaresToggledIndependentlyAndCollectively()
+    public function testOptionalMiddlewaresToggledIndependentlyAndCollectively(): void
     {
         $ctx = $this->ctx();
         // Disable Timing only
@@ -117,7 +121,7 @@ class MiddlewarePipelineFullCoverageTest extends TestCase
         $this->assertEquals('__TERMINAL__', end($d4));
     }
 
-    public function testErrorHandlingStatusMappingsAndCorrelationHeaders()
+    public function testErrorHandlingStatusMappingsAndCorrelationHeaders(): void
     {
         $eh = new ErrorHandlingMiddleware();
         // 400 mapping; SafeRenderer is in effect (core.developer_exceptions is off by
@@ -150,7 +154,7 @@ class MiddlewarePipelineFullCoverageTest extends TestCase
         $this->assertSame(500, $r500->getStatusCode());
     }
 
-    public function testErrorHandlingJsonNegotiationViaAccept()
+    public function testErrorHandlingJsonNegotiationViaAccept(): void
     {
         $eh = new ErrorHandlingMiddleware();
         $jsonResp = $eh->process($this->makeReq(['Accept' => 'application/json']), new class implements RequestHandlerInterface {
@@ -166,7 +170,7 @@ class MiddlewarePipelineFullCoverageTest extends TestCase
         $this->assertSame(['error' => 'Internal Server Error', 'status' => 500], $payload);
     }
 
-    public function testDeveloperExceptionsOffMasksMessageRegardlessOfEnvironmentName()
+    public function testDeveloperExceptionsOffMasksMessageRegardlessOfEnvironmentName(): void
     {
         // core.developer_exceptions -- not the environment name -- is the sole signal;
         // assert this holds under an environment named "production" as well as any
@@ -185,7 +189,7 @@ class MiddlewarePipelineFullCoverageTest extends TestCase
         $this->assertStringNotContainsString('sensitive', $body, 'core.developer_exceptions off should never leak the raw message');
     }
 
-    public function testCoreDebugOnDoesNotImplyDeveloperExceptions()
+    public function testCoreDebugOnDoesNotImplyDeveloperExceptions(): void
     {
         // core.debug carries unrelated, heavy behavior (historically: reparsing every
         // config file per request) and must never be conflated with developer_exceptions.
@@ -203,7 +207,7 @@ class MiddlewarePipelineFullCoverageTest extends TestCase
         $this->assertStringNotContainsString('sensitive', $body, 'core.debug=true must not enable developer exception detail on its own');
     }
 
-    public function testDeveloperExceptionsOnRevealsMessageRegardlessOfEnvironmentName()
+    public function testDeveloperExceptionsOnRevealsMessageRegardlessOfEnvironmentName(): void
     {
         // Same environment name as the test above ("production") but with the switch
         // flipped -- proves the environment name has zero bearing on the outcome.
@@ -229,13 +233,13 @@ class MiddlewarePipelineFullCoverageTest extends TestCase
         $this->assertStringContainsString('sensitive', $body, 'core.developer_exceptions on should reveal the raw message via WhoopsRenderer');
     }
 
-    public function testTerminalSentinelThrowsWhenNoResponse()
+    public function testTerminalSentinelThrowsWhenNoResponse(): void
     {
         // Define a minimal pipeline subclass that omits all real middlewares so only sentinel exists.
         $ctx = $this->ctx();
         $testPipeline = new class($ctx) extends MiddlewarePipeline {
             // replicate constructor signature
-            public function __construct($c)
+            public function __construct(Context $c)
             {
                 parent::__construct($c);
             }

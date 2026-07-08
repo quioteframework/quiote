@@ -121,21 +121,31 @@ class ConfigCache
 	 */
 	protected static function getHandlerInfo($name)
 	{
+		// Guarantee self::$handlers is populated even if this is called
+		// without going through setupHandlers() first (loadConfigHandlers()
+		// is idempotent once handlers are loaded).
+		self::loadConfigHandlers();
+
+		// Read into a local variable: PHPStan can't narrow a static property's
+		// type across the loadConfigHandlers() call above, even though it
+		// guarantees non-null.
+		$handlers = self::$handlers ?? [];
+
 		// grab the base name of the originally requested config path
 		$basename = basename((string) $name);
 
 		$handlerInfo = null;
 
-		if(isset(self::$handlers[$name])) {
+		if(isset($handlers[$name])) {
 			// we have a handler associated with the full configuration path
-			$handlerInfo = self::$handlers[$name];
-		} elseif(isset(self::$handlers[$basename])) {
+			$handlerInfo = $handlers[$name];
+		} elseif(isset($handlers[$basename])) {
 			// we have a handler associated with the configuration base name
-			$handlerInfo = self::$handlers[$basename];
+			$handlerInfo = $handlers[$basename];
 		} else {
 			// let's see if we have any wildcard handlers registered that match
 			// this basename
-			foreach(self::$handlers as $key => $value)	{
+			foreach($handlers as $key => $value)	{
 				// Use pre-compiled pattern if available, otherwise compile and cache
 				if (!isset(self::$compiledHandlerPatterns[$key])) {
 					self::$compiledHandlerPatterns[$key] = sprintf('#%s#', str_replace('\*', '.*?', preg_quote((string) $key, '#')));
@@ -212,13 +222,18 @@ class ConfigCache
 			} catch (\Exception $e) {
 				throw new $e(sprintf("Compilation of configuration file '%s' failed for the following reason(s):\n\n%s", $config, $e->getMessage()), 0, $e);
 			}
-		} else {
+		} elseif ($handler instanceof ILegacyConfigHandler) {
 			$validationFile = null;
 			if(isset($handlerInfo['validations'][XmlConfigParser::STAGE_SINGLE][XmlConfigParser::STEP_TRANSFORMATIONS_AFTER][XmlConfigParser::VALIDATION_TYPE_XMLSCHEMA][0])) {
 				$validationFile = $handlerInfo['validations'][XmlConfigParser::STAGE_SINGLE][XmlConfigParser::STEP_TRANSFORMATIONS_AFTER][XmlConfigParser::VALIDATION_TYPE_XMLSCHEMA][0];
 			}
 			$handler->initialize($validationFile, null, $handlerInfo['parameters']);
 			$data = $handler->execute($config, $context);
+		} else {
+			throw new ConfigurationException(sprintf(
+				'"%s" does not implement IXmlConfigHandler or ILegacyConfigHandler; it cannot be used as a config handler.',
+				$handlerInfo['class']
+			));
 		}
 		
 		return $data;

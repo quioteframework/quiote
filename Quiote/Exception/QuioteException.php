@@ -37,7 +37,7 @@ class QuioteException extends \Exception
 		// fix stack trace in case it doesn't contain the exception origin as the first entry
 		$fixedTrace = $e->getTrace();
 		
-		if(!isset($fixedTrace[0]['file']) || !($fixedTrace[0]['file'] == $e->getFile() && $fixedTrace[0]['line'] == $e->getLine())) {
+		if(!isset($fixedTrace[0]['file'], $fixedTrace[0]['line']) || !($fixedTrace[0]['file'] == $e->getFile() && $fixedTrace[0]['line'] == $e->getLine())) {
 			$fixedTrace = array_merge([['file' => $e->getFile(), 'line' => $e->getLine()]], $fixedTrace);
 		}
 		
@@ -127,7 +127,11 @@ class QuioteException extends \Exception
 	 */
 	public static function highlightFile($filepath)
 	{
-		return self::highlightString(file_get_contents($filepath));
+		$code = file_get_contents($filepath);
+		if ($code === false) {
+			throw new self(sprintf('Unable to read file "%s"', $filepath));
+		}
+		return self::highlightString($code);
 	}
 	
 	/**
@@ -171,7 +175,7 @@ class QuioteException extends \Exception
 			$closingSpanPos = strpos($line, '</span>');
 			$closingSpanRPos = strrpos($line, '</span>');
 			
-			$balanced = (($openingSpanCount = preg_match_all('#<span#', $line, $matches)) == ($closingSpanCount = preg_match_all('#</span>#', $line, $matches)));
+			$balanced = (($openingSpanCount = (int) preg_match_all('#<span#', $line, $matches)) == ($closingSpanCount = (int) preg_match_all('#</span>#', $line, $matches)));
 			if($balanced && $openingSpanPos !== false && $openingSpanPos < $closingSpanPos) {
 				// already balanced, no further cleanup necessary
 				$remember = null;

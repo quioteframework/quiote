@@ -50,7 +50,7 @@ abstract class PhpUnitTestCase extends TestCase
 	
 	/**
 	 * get the environment to bootstrap in isolated tests
-	 * @return       string the name of the isolation environment
+	 * @return       ?string the name of the isolation environment, or null if none is set
 	 * @since        1.0.0
 	 */
 	public function getIsolationEnvironment()
@@ -100,7 +100,7 @@ abstract class PhpUnitTestCase extends TestCase
 	
 	/**
 	 * get the default context to use in isolated tests
-	 * @return       string the default context to use in isolated tests
+	 * @return       ?string the default context to use in isolated tests, or null if none is set
 	 * @since        1.0.0
 	 */
 	public function getIsolationDefaultContext()

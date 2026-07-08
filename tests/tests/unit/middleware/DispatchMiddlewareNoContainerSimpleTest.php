@@ -33,11 +33,11 @@ class DispatchMiddlewareNoContainerSimpleTest extends UnitTestCase
             ->withAttribute(ActionDescriptor::class, $descriptor);
     }
 
-    public function testSimpleNoContainerHeaderAndAttribute()
+    public function testSimpleNoContainerHeaderAndAttribute(): void
     {
         $controller = $this->getContext()->getController();
         $mw = new DispatchMiddleware($controller);
-        $handler = new class(new Psr17Factory) implements \Psr\Http\Server\RequestHandlerInterface { public function __construct(private $f){} public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface { return $this->f->createResponse(200);} };
+        $handler = new class(new Psr17Factory) implements \Psr\Http\Server\RequestHandlerInterface { public function __construct(private Psr17Factory $f){} public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface { return $this->f->createResponse(200);} };
     // Cache is not isSimple() (it exercises a real execute() call), so
     // DispatchMiddleware requires a validation decision -- normally set by
     // ValidationMiddleware, which this test bypasses since it targets

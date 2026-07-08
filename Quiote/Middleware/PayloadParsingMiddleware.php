@@ -73,8 +73,12 @@ class PayloadParsingMiddleware implements MiddlewareInterface
                 $factory = new Psr17Factory();
                 $resp = $factory->createResponse(400);
                 $err = ['error' => 'invalid_json', 'message' => $je->getMessage()];
+                $encoded = json_encode($err);
+                if ($encoded === false) {
+                    $encoded = '{"error":"invalid_json"}';
+                }
                 return $resp->withHeader('Content-Type', 'application/json; charset=UTF-8')
-                    ->withBody($factory->createStream(json_encode($err)));
+                    ->withBody($factory->createStream($encoded));
             }
         } catch (\Throwable $e) {
             // Do not swallow arbitrary downstream exceptions; rethrow so ErrorHandlingMiddleware can format properly.

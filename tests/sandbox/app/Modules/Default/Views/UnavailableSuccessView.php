@@ -7,7 +7,7 @@ use Sandbox\Modules\Default\Lib\View\SandboxDefaultBaseView;
 
 class UnavailableSuccessView extends SandboxDefaultBaseView
 {
-	public function executeHtml(WebRequest $rd)
+	public function executeHtml(WebRequest $rd): void
 	{
 		$this->setupHtml($rd);
 		

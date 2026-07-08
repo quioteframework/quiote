@@ -6,7 +6,7 @@ use Quiote\Action\Action;
 
 class TestAction extends Action 
 {
-    public function execute(\Quiote\Request\WebRequest $rd)
+    public function execute(\Quiote\Request\WebRequest $rd): string
     {
         return 'Success';
     }

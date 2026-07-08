@@ -84,12 +84,21 @@ class QuioteXsltProcessor extends \XSLTProcessor
 		}
 		
 		libxml_use_internal_errors($luie);
-		
-		// turn this into an instance of the class that was passed in, rather than a regular DOMDocument
-		$class = $doc instanceof \DOMDocument ? $doc : ($doc->ownerDocument ?: 'DOMDocument');
-		$document = new $class();
-		$document->loadXML($result->saveXML());
-		
+
+		// turn this into an instance of the class that was passed in, rather than a regular DOMDocument;
+		// SimpleXMLElement has no DOMDocument-compatible owner to preserve, so it always falls back to DOMDocument
+		if($doc instanceof \DOMDocument) {
+			$documentClass = $doc::class;
+			$document = new $documentClass();
+		} else {
+			$document = new \DOMDocument();
+		}
+		$serialized = $result->saveXML();
+		if($serialized === false) {
+			throw new \Exception('Failed to serialize the transformation result to XML.');
+		}
+		$document->loadXML($serialized);
+
 		// save the URI just in case
 		$document->documentURI = $result->documentURI;
 		

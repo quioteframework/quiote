@@ -6,7 +6,7 @@ use Sandbox\Modules\Default\Lib\View\SandboxDefaultBaseView;
 
 class LoginSuccessView extends SandboxDefaultBaseView
 {
-	public function executeHtml(WebRequest $rd)
+	public function executeHtml(WebRequest $rd): string
 	{
 		// Skip layout for container-less system forward path: inline marker content only.
 		$this->setAttribute('title', 'Login');

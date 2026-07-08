@@ -4,13 +4,13 @@ use Quiote\Validator\Validator;
 
 class DummyValidator extends Validator
 {
-	public $cleared = false;
-	public $val_result = true;
-	public $validated = false;
-	public $shutdown = false;
-	public $throw_on_execute = false;
-	
-	protected function validate()
+	public bool $cleared = false;
+	public bool $val_result = true;
+	public bool $validated = false;
+	public bool $shutdown = false;
+	public bool $throw_on_execute = false;
+
+	protected function validate(): bool
 	{
 		if($this->throw_on_execute) {
 			throw new \RuntimeException('validator boom');
@@ -21,10 +21,11 @@ class DummyValidator extends Validator
 		}
 		return $this->val_result;
 	}
-	public function clear() { $this->cleared = true; $this->validated = false; $this->shutdown = false;}
-	public function shutdown() { $this->shutdown = true; }
-	
-	public function getErrorMessages() {
+	public function clear(): void { $this->cleared = true; $this->validated = false; $this->shutdown = false;}
+	public function shutdown(): void { $this->shutdown = true; }
+
+	/** @return array<string, string> */
+	public function getErrorMessages(): array {
 		return $this->errorMessages;
 	}
 }

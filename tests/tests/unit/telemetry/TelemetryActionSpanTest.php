@@ -81,7 +81,7 @@ class TelemetryActionSpanTest extends UnitTestCase
         // DispatchMiddleware/telemetry in isolation.
         $state->validationDecision = ValidationDecision::passed();
         $handler = new class(new Psr17Factory()) implements \Psr\Http\Server\RequestHandlerInterface {
-            public function __construct(private $f) {}
+            public function __construct(private Psr17Factory $f) {}
             public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface
             {
                 return $this->f->createResponse(200);
@@ -90,9 +90,14 @@ class TelemetryActionSpanTest extends UnitTestCase
         $mw->process($this->buildPsr()->withAttribute(ExecutionState::class, $state), $handler);
     }
 
+    /** @return array<int, mixed> */
     private function exportedSpans(): array
     {
-        return TelemetryBootstrap::inMemorySpanExporter()->getSpans();
+        $exporter = TelemetryBootstrap::inMemorySpanExporter();
+        if ($exporter === null) {
+            throw new \RuntimeException('Expected an in-memory span exporter to be configured.');
+        }
+        return $exporter->getSpans();
     }
 
     // --- happy path: action span + nested view span ----------------------------
@@ -153,7 +158,7 @@ class TelemetryActionSpanTest extends UnitTestCase
 
         $throwingAction = new class extends \Sandbox\Modules\Cache\Actions\CacheAction {
             #[\Override]
-            public function execute(\Quiote\Request\WebRequest $rd)
+            public function execute(\Quiote\Request\WebRequest $rd): never
             {
                 throw new \RuntimeException('action blew up');
             }

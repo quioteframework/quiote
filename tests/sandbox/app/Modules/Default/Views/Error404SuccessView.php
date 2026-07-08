@@ -6,7 +6,7 @@ use Sandbox\Modules\Default\Lib\View\SandboxDefaultBaseView;
 
 class Error404SuccessView extends SandboxDefaultBaseView
 {
-	public function executeHtml(WebRequest $rd)
+	public function executeHtml(WebRequest $rd): void
 	{
 		$this->setupHtml($rd);
 

@@ -58,7 +58,10 @@ class MiddlewareAttributeOrderingTest extends TestCase
         MiddlewareConfigRegistry::reset();
     }
 
-    /** Build the pipeline and return its ordered debug stack of labels. */
+    /** Build the pipeline and return its ordered debug stack of labels.
+     *
+     * @return list<string>
+     */
     private function order(): array
     {
         $pipeline = new MiddlewarePipeline(Context::getInstance());
@@ -141,8 +144,10 @@ class MiddlewareAttributeOrderingTest extends TestCase
         );
 
         $order = $this->order();
+        $sessionIndex = array_search(SessionMiddleware::class, $order, true);
+        $this->assertNotFalse($sessionIndex, 'SessionMiddleware must be present in the pipeline order');
         $this->assertSame(
-            array_search(SessionMiddleware::class, $order, true) - 1,
+            $sessionIndex - 1,
             array_search(AttributeOrderingFixtureMiddleware::class, $order, true),
             'register() overrides the attribute-derived placement for the same FQCN'
         );

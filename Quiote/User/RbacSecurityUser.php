@@ -132,7 +132,7 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 
 		$this->loadDefinitions();
 		
-		$this->roles = (array) $this->context->getStorage()->retrieve(self::ROLES_NAMESPACE);
+		$this->roles = (array) $this->getContext()->getStorage()->retrieve(self::ROLES_NAMESPACE);
 
 		if(!$this->authenticated) {
 			$this->roles = [];
@@ -167,7 +167,7 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 		$cfg = $this->getParameter('definitions_file', Config::getString('core.config_dir') . '/rbac_definitions.xml');
 		
 		if(is_readable($cfg)) {
-			$this->definitions = include(ConfigCache::checkConfig($cfg, $this->context->getName()));
+			$this->definitions = include(ConfigCache::checkConfig($cfg, $this->getContext()->getName()));
 		}
 	}
 
@@ -183,7 +183,7 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 		if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
 			$logger->debug('RbacSecurityUser storing roles', ['class' => static::class, 'namespace' => self::ROLES_NAMESPACE, 'roles_count' => count($this->roles)]);
 		}
-		$this->context->getStorage()->store(self::ROLES_NAMESPACE, $this->roles);
+		$this->getContext()->getStorage()->store(self::ROLES_NAMESPACE, $this->roles);
 	// Note: credentials are stored by parent SecurityUser::shutdown(). If they were
 	// rebuilt during initialize, they will be persisted here.
 		

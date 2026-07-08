@@ -125,12 +125,19 @@ class FactoryConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 
 		foreach ($document->getConfigurationElements() as $configuration) {
 			foreach ($factories as $factory => $info) {
-				if (is_array($info) && $info['required'] && $configuration->hasChild($factory)) {
-					$element = $configuration->getChild($factory);
+				if (!is_string($factory) || !is_array($info)) {
+					// startup-sequence markers are stored under bare integer keys
+					// (see getFactoryDefinitions()) and carry no XML element to read.
+					continue;
+				}
 
-					$data[$factory] ??= ['class' => null, 'params' => []];
-					$data[$factory]['class'] = $element->getAttribute('class', $data[$factory]['class']);
-					$data[$factory]['params'] = $element->getQuioteParameters($data[$factory]['params']);
+				if ($info['required']) {
+					$element = $configuration->getChild($factory);
+					if ($element !== null) {
+						$data[$factory] ??= ['class' => null, 'params' => []];
+						$data[$factory]['class'] = $element->getAttribute('class', $data[$factory]['class']);
+						$data[$factory]['params'] = $element->getQuioteParameters($data[$factory]['params']);
+					}
 				}
 			}
 		}
@@ -184,13 +191,14 @@ class FactoryConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 					throw new ConfigurationException($error);
 				}
 
-				try {
-					$rc = new \ReflectionClass($data[$factory]['class']);
-				} catch (\ReflectionException $e) {
+				$class = $data[$factory]['class'];
+				if (!class_exists($class) && !interface_exists($class)) {
 					$error = 'Configuration file "%s" specifies unknown class "%s" for entry "%s"';
-					$error = sprintf($error, $sourceRef, $data[$factory]['class'], $factory);
-					throw new ConfigurationException($error, 0, $e);
+					$error = sprintf($error, $sourceRef, $class, $factory);
+					throw new ConfigurationException($error);
 				}
+
+				$rc = new \ReflectionClass($class);
 				foreach ($info['must_implement'] as $interface) {
 					if (!$rc->implementsInterface($interface)) {
 						$error = 'Class "%s" for entry "%s" does not implement interface "%s" in configuration file "%s"';
@@ -238,8 +246,13 @@ class FactoryConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 				// No close conditional block needed
 			} else {
 				// Handle startup calls
-				$varName = $factories[$info]['var'];
-				$required = $factories[$info]['required'];
+				$definition = $factories[$info] ?? null;
+				if (!is_array($definition)) {
+					// no matching factory definition for this startup marker; nothing to start up
+					continue;
+				}
+				$varName = $definition['var'];
+				$required = $definition['required'];
 
 				if ($required) {
 					$code[] = sprintf('$this->%s->startup();', $varName);

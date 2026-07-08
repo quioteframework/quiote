@@ -15,15 +15,14 @@ class SlotDispatcherSlotContentTest extends UnitTestCase
     if(class_exists(\Sandbox\Modules\Cache\Actions\CacheAction::class)) { \Sandbox\Modules\Cache\Actions\CacheAction::$execCount = 0; }
     }
 
-    public function testDispatchSlotContentReturnsValueObject()
+    public function testDispatchSlotContentReturnsValueObject(): void
     {
         $req = (new ServerRequest('GET','http://localhost/'))
             ->withAttribute(SlotMiddleware::ATTR, new SlotStack());
-        // Strict validation: whitelist slot parameters that will be set
+        // Strict validation: whitelist slot parameters that will be set.
+        // Context::getRequest() always returns a WebRequest, so no instanceof guard is needed.
         $ctxReq = $this->getContext()->getRequest();
-        if($ctxReq instanceof \Quiote\Request\WebRequest) {
-            $this->getContext()->setRequest($ctxReq->enforceValidatedParameters(['x']));
-        }
+        $this->getContext()->setRequest($ctxReq->enforceValidatedParameters(['x']));
         $dispatcher = $this->getContext()->getSlotDispatcher();
         $sc = $dispatcher->dispatchSlotContent($req, 'Cache','Cache', ['x'=>1], 'html');
         $this->assertInstanceOf(\Quiote\Execution\SlotContent::class, $sc);

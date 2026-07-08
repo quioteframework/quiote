@@ -50,7 +50,10 @@ class MiddlewareRegistrationTest extends TestCase
         };
     }
 
-    /** Build the pipeline and return its ordered debug stack of labels. */
+    /** Build the pipeline and return its ordered debug stack of labels.
+     *
+     * @return list<string>
+     */
     private function order(): array
     {
         $pipeline = new MiddlewarePipeline(Context::getInstance());
@@ -67,8 +70,10 @@ class MiddlewareRegistrationTest extends TestCase
         MiddlewareCatalog::register('CustomBefore', self::passthru(), before: SessionMiddleware::class);
         $order = $this->order();
         $this->assertContains('CustomBefore', $order);
+        $sessionIndex = array_search(SessionMiddleware::class, $order, true);
+        $this->assertNotFalse($sessionIndex, 'SessionMiddleware must be present in the pipeline order');
         $this->assertSame(
-            array_search(SessionMiddleware::class, $order, true) - 1,
+            $sessionIndex - 1,
             array_search('CustomBefore', $order, true),
             'before: places the middleware immediately before its target'
         );
@@ -79,8 +84,10 @@ class MiddlewareRegistrationTest extends TestCase
         MiddlewareCatalog::register('CustomAfter', self::passthru(), after: RoutingMiddleware::class);
         $order = $this->order();
         $this->assertContains('CustomAfter', $order);
+        $routingIndex = array_search(RoutingMiddleware::class, $order, true);
+        $this->assertNotFalse($routingIndex, 'RoutingMiddleware must be present in the pipeline order');
         $this->assertSame(
-            array_search(RoutingMiddleware::class, $order, true) + 1,
+            $routingIndex + 1,
             array_search('CustomAfter', $order, true),
             'after: places the middleware immediately after its target'
         );
@@ -99,6 +106,7 @@ class MiddlewareRegistrationTest extends TestCase
         $apiAuth = array_search('ApiAuth', $order, true);
         $apiLog = array_search('ApiLog', $order, true);
 
+        $this->assertNotFalse($routing);
         $this->assertNotFalse($jwt);
         $this->assertNotFalse($apiAuth);
         $this->assertNotFalse($apiLog);

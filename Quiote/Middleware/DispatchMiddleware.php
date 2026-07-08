@@ -34,7 +34,7 @@ use Quiote\Execution\ValidationDecision;
 #[\Quiote\Middleware\Attribute\Middleware(phase: 'action')]
 class DispatchMiddleware implements MiddlewareInterface
 {
-    private ?ActionExecutor $actionExecutor = null;
+    private readonly ActionExecutor $actionExecutor;
     /** @var array<string, bool> */
     private static array $executedNonSimpleActions = [];
 
@@ -369,7 +369,7 @@ class DispatchMiddleware implements MiddlewareInterface
             // Heuristic: presence of QUIOTE_SECURITY_DEBUG log decision=allow earlier isn't directly accessible; rely on user auth + secure action.
             try {
                 $usr = $this->controller->getContext()->getUser();
-                if ($actionInstance && method_exists($actionInstance, 'isSecure') && $actionInstance->isSecure() && method_exists($usr, 'isAuthenticated') && $usr->isAuthenticated()) {
+                if (is_object($actionInstance) && method_exists($actionInstance, 'isSecure') && $actionInstance->isSecure() && method_exists($usr, 'isAuthenticated') && $usr->isAuthenticated()) {
                     $execState->securityDecision = SecurityDecision::Allow;
                 }
             } catch (\Throwable) {
@@ -378,9 +378,9 @@ class DispatchMiddleware implements MiddlewareInterface
         $ctx = $this->actionExecutor->execute($actionDesc, $request, $execState, [], $actionInstance);
 
         if ($cacheEnabled && $isCacheable && !$execState->cacheHit) {
-            $ttl = method_exists($actionInstance, 'cacheTtlSeconds') ? $actionInstance->cacheTtlSeconds($actionDesc->outputType) : null;
+            $ttl = (is_object($actionInstance) && method_exists($actionInstance, 'cacheTtlSeconds')) ? $actionInstance->cacheTtlSeconds($actionDesc->outputType) : null;
             if ($avCache) {
-                ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, ($actionInstance && method_exists($actionInstance, 'getAttributes')) ? $actionInstance->getAttributes() : [], true, $ttl, $userFp);
+                ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, (is_object($actionInstance) && method_exists($actionInstance, 'getAttributes')) ? $actionInstance->getAttributes() : [], true, $ttl, $userFp);
             }
         }
         if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
@@ -459,8 +459,8 @@ class DispatchMiddleware implements MiddlewareInterface
         }
         self::$executedNonSimpleActions[$actionDesc->module . ':' . $actionDesc->action . ':' . $actionDesc->outputType] = true;
         if ($cacheEnabled && $isCacheable && !$execState->cacheHit && $avCache) {
-            $ttl = method_exists($actionInstance, 'cacheTtlSeconds') ? $actionInstance->cacheTtlSeconds($actionDesc->outputType) : null;
-            ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, ($actionInstance && method_exists($actionInstance, 'getAttributes')) ? $actionInstance->getAttributes() : [], false, $ttl, $userFp);
+            $ttl = (is_object($actionInstance) && method_exists($actionInstance, 'cacheTtlSeconds')) ? $actionInstance->cacheTtlSeconds($actionDesc->outputType) : null;
+            ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, (is_object($actionInstance) && method_exists($actionInstance, 'getAttributes')) ? $actionInstance->getAttributes() : [], false, $ttl, $userFp);
         }
         if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
             $rid = $request->getAttribute('quiote.rid');

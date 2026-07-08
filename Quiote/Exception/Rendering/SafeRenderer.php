@@ -25,7 +25,7 @@ final class SafeRenderer implements ExceptionRenderer
 			if ($correlationId) {
 				$payload['correlation_id'] = $correlationId;
 			}
-			return new Response($status, ['Content-Type' => 'application/json; charset=utf-8'], json_encode($payload, JSON_UNESCAPED_SLASHES));
+			return new Response($status, ['Content-Type' => 'application/json; charset=utf-8'], json_encode($payload, JSON_UNESCAPED_SLASHES) ?: '{}');
 		}
 
 		if ($this->wantsPlainText($request)) {

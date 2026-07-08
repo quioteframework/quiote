@@ -50,14 +50,14 @@ class FormatDriverRegistryTest extends PhpUnitTestCase
 		parent::tearDown();
 	}
 
-	public function testResolveThrowsWhenNoDriverSupportsThePath()
+	public function testResolveThrowsWhenNoDriverSupportsThePath(): void
 	{
 		$registry = new FormatDriverRegistry([new PhpArrayFormatDriver()]);
 		$this->expectException(ConfigurationException::class);
 		$registry->resolve('/some/file.yaml');
 	}
 
-	public function testLoadDelegatesToTheMatchingDriver()
+	public function testLoadDelegatesToTheMatchingDriver(): void
 	{
 		file_put_contents($this->dir . '/config.php', "<?php\nreturn ['foo' => 'bar'];\n");
 		$registry = new FormatDriverRegistry([new PhpArrayFormatDriver(), new YamlFormatDriver()]);
@@ -71,7 +71,7 @@ class FormatDriverRegistryTest extends PhpUnitTestCase
 		return FormatDriverRegistry::forHandler(new FakeArrayHandler());
 	}
 
-	public function testLocateFindsYamlWhenPhpIsAbsentButXmlAlsoExists()
+	public function testLocateFindsYamlWhenPhpIsAbsentButXmlAlsoExists(): void
 	{
 		file_put_contents($this->dir . '/settings.yaml', "foo: bar\n");
 		file_put_contents($this->dir . '/settings.xml', '<x/>');
@@ -81,7 +81,7 @@ class FormatDriverRegistryTest extends PhpUnitTestCase
 		$this->assertSame($this->dir . '/settings.yaml', $found, 'YAML must win over XML when PHP is absent (PHP > YAML > XML).');
 	}
 
-	public function testLocatePrefersPhpOverYamlAndXml()
+	public function testLocatePrefersPhpOverYamlAndXml(): void
 	{
 		file_put_contents($this->dir . '/settings.php', "<?php\nreturn [];\n");
 		file_put_contents($this->dir . '/settings.yaml', "foo: bar\n");
@@ -92,7 +92,7 @@ class FormatDriverRegistryTest extends PhpUnitTestCase
 		$this->assertSame($this->dir . '/settings.php', $found);
 	}
 
-	public function testLocateFallsBackToXmlWhenNeitherPhpNorYamlExists()
+	public function testLocateFallsBackToXmlWhenNeitherPhpNorYamlExists(): void
 	{
 		file_put_contents($this->dir . '/settings.xml', '<x/>');
 
@@ -101,12 +101,12 @@ class FormatDriverRegistryTest extends PhpUnitTestCase
 		$this->assertSame($this->dir . '/settings.xml', $found);
 	}
 
-	public function testLocateReturnsNullWhenNoCandidateExists()
+	public function testLocateReturnsNullWhenNoCandidateExists(): void
 	{
 		$this->assertNull($this->registryWithAllThreeFormats()->locate($this->dir . '/nonexistent'));
 	}
 
-	public function testCrossFormatParentPhpFileWithYamlParent()
+	public function testCrossFormatParentPhpFileWithYamlParent(): void
 	{
 		file_put_contents($this->dir . '/base.yaml', "core.app_name: BaseApp\ncore.debug: false\n");
 		file_put_contents($this->dir . '/child.php', "<?php\nreturn ['parent' => __DIR__ . '/base.yaml', 'core.debug' => true];\n");

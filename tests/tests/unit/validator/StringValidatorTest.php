@@ -7,7 +7,7 @@ require_once(__DIR__ . '/BaseValidatorTest.base.php');
 
 class StringValidatorTest extends BaseValidatorTest
 {
-	public function testExecute()
+	public function testExecute(): void
 	{
 		$good = [
 			'1',
@@ -20,13 +20,12 @@ class StringValidatorTest extends BaseValidatorTest
 			'1.5B',
 			'%%!@#$%#'
 		];
-		$error = '';
 		foreach ($good as &$value) {
 			$this->doTestExecute(StringValidator::class, $value, Validator::SUCCESS);
 		}
 	}
 
-	public function testExecuteMax()
+	public function testExecuteMax(): void
 	{
 		$bad = [
 			'12345',
@@ -53,7 +52,7 @@ class StringValidatorTest extends BaseValidatorTest
 		}
 	}
 
-	public function testExecuteMin()
+	public function testExecuteMin(): void
 	{
 		$bad = [
 			'5',
@@ -77,6 +76,19 @@ class StringValidatorTest extends BaseValidatorTest
 		foreach ($bad as &$value) {
 			$this->doTestExecute(StringValidator::class, $value, Validator::ERROR, $errorMsg, $errors, $parameters);
 		}
+	}
+
+	/**
+	 * Non-string scalar inputs (bool/int/float) used to reach preg_match()/
+	 * strlen() without a string cast, throwing a TypeError instead of
+	 * validating normally. Verifies they're coerced to string and validated
+	 * like any other value, both when they pass and when they fail a length
+	 * constraint.
+	 */
+	public function testExecuteWithNonStringScalarValue(): void
+	{
+		$this->doTestExecute(StringValidator::class, 12345, Validator::SUCCESS, null, [], ['min' => 3]);
+		$this->doTestExecute(StringValidator::class, true, Validator::ERROR, 'too short', ['min' => 'too short'], ['min' => 3]);
 	}
 }
 

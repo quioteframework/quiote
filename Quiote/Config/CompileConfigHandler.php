@@ -53,23 +53,32 @@ class CompileConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 			foreach ($configuration->get('compiles') as $compileFile) {
 				$file = trim((string) $compileFile->getValue());
 
-				$file = Toolkit::expandDirectives($file);
+				// Toolkit::expandDirectives() only returns null for a null input, or
+				// on a regex engine error; $file is a known non-null string here, so
+				// fall back to the pre-expansion value in that (effectively
+				// unreachable) failure case rather than widening the type downstream.
+				$file = Toolkit::expandDirectives($file) ?? $file;
 				$file = self::replacePath($file);
-				$file = realpath($file);
+				$resolvedFile = realpath($file);
 
-				if (!is_readable($file)) {
+				if ($resolvedFile === false || !is_readable($resolvedFile)) {
 					// file doesn't exist
 					$error = 'Configuration file "%s" specifies nonexistent ' . 'or unreadable file "%s"';
 					$error = sprintf($error, $config, $compileFile->getValue());
 					throw new ParseException($error);
 				}
+				$file = $resolvedFile;
 
 				if (Config::getBool('core.debug', false)) {
 					// debug mode, just require() the files, makes for nicer stack traces
 					$contents = 'require(' . var_export($file, true) . ');';
 				} else {
 					// no debug mode, so make things fast
-					$contents = $this->formatFile(file_get_contents($file));
+					$fileContents = file_get_contents($file);
+					if ($fileContents === false) {
+						throw new ParseException(sprintf('Configuration file "%s" could not read file "%s"', $config, $file));
+					}
+					$contents = $this->formatFile($fileContents);
 				}
 
 				// append file data
@@ -103,7 +112,10 @@ class CompileConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 
 		if (function_exists('token_get_all')) {
 			$tokens = token_get_all($data);
-			$tokenized = null;
+			// Start from an empty string, not null: a file consisting solely of
+			// skipped tokens (comments/doc-comments/open-close tags) would
+			// otherwise leave $tokenized as null and crash trim() below.
+			$tokenized = '';
 			// has something been written to tokenized? If so, we can optionally append whitespace.
 			$appended = false;
 
@@ -164,7 +176,10 @@ class CompileConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 		if (str_ends_with($data, '?>')) {
 			$data = substr($data, 0, -2);
 		}
-		$data = preg_replace('/\s*\?>\s*<\?(php)?\s*/', '', $data);
+		// preg_replace() only returns null on a regex engine error (e.g. backtrack/
+		// recursion limit); fall back to the pre-replacement value instead of
+		// losing the string entirely.
+		$data = preg_replace('/\s*\?>\s*<\?(php)?\s*/', '', $data) ?? $data;
 
 		return $data;
 	}

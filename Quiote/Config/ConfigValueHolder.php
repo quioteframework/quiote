@@ -249,7 +249,7 @@ class ConfigValueHolder implements \ArrayAccess, \IteratorAggregate, \Stringable
 
 	/**
 	 * Retrieves the value of this value node.
-	 * @return     string The value of this node.
+	 * @return     ?string The value of this node, or null if none has been set.
 	 * @since      1.0.0
 	 */
 	public function getValue()
@@ -335,7 +335,7 @@ class ConfigValueHolder implements \ArrayAccess, \IteratorAggregate, \Stringable
 	 */
 	public function __toString(): string
 	{
-		return $this->_value;
+		return (string) $this->_value;
 	}
 }
 

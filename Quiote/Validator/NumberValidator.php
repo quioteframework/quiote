@@ -2,6 +2,7 @@
 namespace Quiote\Validator;
 
 use Quiote\Config\Config;
+use Quiote\Exception\ValidatorException;
 use Quiote\Util\DecimalFormatter;
 
 /**
@@ -60,7 +61,7 @@ class NumberValidator extends Validator
 				}
 			}
 			
-			$parsedValue = DecimalFormatter::parse($value, $locale, $hasExtraChars);
+			$parsedValue = DecimalFormatter::parse((string) $value, $locale, $hasExtraChars);
 		} else {
 			$parsedValue = $value;
 		}
@@ -118,8 +119,13 @@ class NumberValidator extends Validator
 		} else {
 			// Persist casted numeric value back into request runtime parameters so subsequent validators/actions see normalized type.
 			try {
-				if(method_exists($this->validationParameters, 'setParameter')) {
-					$this->validationParameters = $this->validationParameters->setParameter($this->getArgument(), $parsedValue);
+				$validationParameters = $this->validationParameters;
+				if($validationParameters === null) {
+					throw new ValidatorException('Validator "' . ($this->getName() ?? '?') . '" has no request; validate() ran before execute() supplied one.');
+				}
+				$argumentName = $this->getArgument();
+				if($argumentName !== null) {
+					$this->validationParameters = $validationParameters->setParameter($argumentName, $parsedValue);
 				}
 			} catch(\Throwable) {}
 		}

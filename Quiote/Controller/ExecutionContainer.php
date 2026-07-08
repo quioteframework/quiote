@@ -25,6 +25,7 @@ use Quiote\Util\Toolkit;
 use Quiote\Config\ConfigCache;
 use Quiote\Config\APCuConfigCache;
 use Quiote\Response\WebResponse;
+use Quiote\Request\WebRequest;
 use Symfony\Contracts\Service\ResetInterface;
 
 use \Exception;
@@ -90,7 +91,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	                               // or whether it should be private (would break actiontests though)
 
 	/**
-	 * @var        ?object A pointer to the global request data.
+	 * @var        ?MergeableRequestDataHolder A pointer to the global request data.
 	 */
 	private $globalRequestData = null;
 
@@ -196,6 +197,9 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	 */
 	public function __sleep()
 	{
+		if ($this->context === null) {
+			throw new QuioteException('Cannot serialize an ExecutionContainer that has not been initialized with a Context.');
+		}
 		$this->contextName = $this->context->getName();
 		if(!empty($this->outputType)) {
 			$this->outputTypeName = $this->outputType->getName();	
@@ -261,14 +265,22 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 		$logger = \Quiote\Logging\Log::for($this);
 		$logger->debug('container.create (legacy) module=' . ($moduleName ?? 'null') . ' action=' . ($actionName ?? 'null'));
 		$container = new self();
-		$container->initialize($this->context, []);
+		$container->initialize($this->getContext(), []);
 		if($moduleName !== null) { $container->setModuleName($moduleName); }
 		if($actionName !== null) { $container->setActionName($actionName); }
 		if($arguments !== null) { $container->setArguments($arguments); }
-		if($outputType !== null) { $container->setOutputType($this->context->getController()->getOutputType($outputType)); }
+		if($outputType !== null) { $container->setOutputType($this->getContext()->getController()->getOutputType($outputType)); }
 		if($requestMethod !== null) { $container->setRequestMethod($requestMethod); }
-		// propagate selected parameters (slot/forward flags)
-		$container->setParameters($this->getParameters());
+		// propagate selected parameters (slot/forward flags). Parameters are
+		// conceptually name => value, but the holder's storage array is typed
+		// int|string => mixed; re-keying with (string) is a no-op for the real
+		// (string-named) parameters this framework ever sets, and keeps the
+		// key type honest for setParameters()'s stricter signature.
+		$parameters = [];
+		foreach ($this->getParameters() as $key => $value) {
+			$parameters[(string) $key] = $value;
+		}
+		$container->setParameters($parameters);
 		return $container;
 	}
 
@@ -310,7 +322,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 		}
 
 		try {
-			$controller = $this->context->getController();
+			$controller = $this->getContext()->getController();
 
 			$controller->countExecution();
 
@@ -362,6 +374,10 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 				$this->requestData = new $rdhc();
 			}
 		} else {
+			if ($this->globalRequestData === null) {
+				throw new QuioteException('Cannot initialize request data for a non-simple action: no global request data holder has been set on this container.');
+			}
+
 			// mmmh I smell awesomeness... clone the RD JIT, yay, that's the spirit
 			$this->requestData = clone $this->globalRequestData;
 
@@ -377,6 +393,27 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	public function ensureRequestDataInitialized(): void
 	{
 		$this->initRequestData();
+	}
+
+	/**
+	 * Non-simple action validation and execution require a full WebRequest
+	 * (ValidationManager::execute() and ActionResolver::execute() both
+	 * declare it, the latter via its ServerRequestInterface supertype).
+	 * getRequestData() is typed loosely (array|object|null) because simple
+	 * actions may populate it with a plain array, but that branch never
+	 * reaches this helper, so asserting the narrower type here catches a
+	 * misconfigured/missing request data holder with a clear error instead
+	 * of a confusing TypeError deeper in validation/execution.
+	 * @return       WebRequest
+	 * @since        1.0.0
+	 */
+	private function requireWebRequest(): WebRequest
+	{
+		$requestData = $this->getRequestData();
+		if (!$requestData instanceof WebRequest) {
+			throw new QuioteException('Non-simple action validation/execution requires the request data to be a WebRequest instance.');
+		}
+		return $requestData;
 	}
 
 	public function hasValidationPerformed(): bool { return $this->validationPerformed; }
@@ -414,8 +451,12 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 		
 		$moduleName = Config::getNullableString('actions.' . $type . '_module');
 		$actionName = Config::getNullableString('actions.' . $type . '_action');
-		
-		if(false === $this->context->getController()->checkActionFile($moduleName, $actionName)) {
+
+		if($moduleName === null || $actionName === null) {
+			throw new ConfigurationException(sprintf('Invalid configuration settings: actions.%1$s_module or actions.%1$s_action is not configured.', $type));
+		}
+
+		if(false === $this->getContext()->getController()->checkActionFile($moduleName, $actionName)) {
 			// cannot find unavailable module/action
 			$error = 'Invalid configuration settings: actions.%3$s_module "%1$s", actions.%3$s_action "%2$s"';
 			$error = sprintf($error, $moduleName, $actionName, $type);
@@ -427,11 +468,11 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 		
 		$forwardContainer->setAttributes($forwardInfoData, $forwardInfoNamespace);
 		// legacy: WebRequest has no namespaced bulk setter, so mirror each entry individually
-		$request = $this->context->getRequest();
+		$request = $this->getContext()->getRequest();
 		foreach ($forwardInfoData as $key => $value) {
 			$request = $request->setAttribute($forwardInfoNamespace . '.' . $key, $value);
 		}
-		$this->context->setRequest($request);
+		$this->getContext()->setRequest($request);
 
 		return $forwardContainer;
 	}
@@ -442,13 +483,17 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
      * @return \Quiote\Response\WebResponse The "real" response.
      * @since      1.0.0
      */
-    protected function proceed()
+    protected function proceed(): WebResponse
 	{
 		if($this->next !== null) {
 			return $this->next->execute();
-		} else {
-			return $this->getResponse();
 		}
+
+		$response = $this->getResponse();
+		if ($response === null) {
+			throw new QuioteException('Cannot proceed: this ExecutionContainer has no response instance and no "next" container was set.');
+		}
+		return $response;
 	}
 
 	/**
@@ -456,8 +501,11 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	 * @return     Context The Context.
 	 * @since      1.0.0
 	 */
-	public final function getContext()
+	public final function getContext(): Context
 	{
+		if ($this->context === null) {
+			throw new QuioteException('Cannot get the context: this ExecutionContainer has not been initialized yet.');
+		}
 		return $this->context;
 	}
 
@@ -470,7 +518,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	public function getValidationManager()
 	{
 		if($this->validationManager === null) {
-			$this->validationManager = $this->context->createInstanceFor('validation_manager');
+			$this->validationManager = $this->getContext()->createInstanceFor('validation_manager');
 		}
 		return $this->validationManager;
 	}
@@ -499,10 +547,8 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 		// get the (already formatted) request method
 		$method = $this->getRequestMethod();
 
-		$requestData = $this->getRequestData();
-
 	// Use centralized ActionResolver for method selection (preserves legacy semantics)
-	$resolver = $this->context->getActionResolver();
+	$resolver = $this->getContext()->getActionResolver();
 	$executeMethod = 'execute' . $method;
 	$useGenericMethods = !is_callable([$actionInstance, $executeMethod]);
 
@@ -513,7 +559,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 
 			// run the validation manager for non-simple actions if not already performed (early middleware may have done it)
 			if(!$actionInstance->isSimple() && !$this->hasValidationPerformed()) {
-				$success = $validationManager->execute($requestData);
+				$success = $validationManager->execute($this->requireWebRequest());
 				$this->setValidationState(true, $success);
 			}
 		} else {
@@ -522,7 +568,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 			if($validationOk) {
 				// execute the action
 				/** @var \Quiote\Action\Action $actionInstance */
-				$viewName = $resolver->execute($actionInstance, $method, $requestData);
+				$viewName = $resolver->execute($actionInstance, $method, $this->requireWebRequest());
 			} else {
 				// validation failed
 				$handleErrorMethod = 'handle' . $method . 'Error';
@@ -530,7 +576,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 					$handleErrorMethod = 'handleError';
 				}
 				/** @var \Quiote\Action\Action $actionInstance */
-				$viewName = $resolver->execute($actionInstance, $handleErrorMethod === 'handleError' ? '' : $method . 'Error', $requestData); // falls back internally
+				$viewName = $resolver->execute($actionInstance, $handleErrorMethod === 'handleError' ? '' : $method . 'Error', $this->requireWebRequest()); // falls back internally
 			}
 		}
 
@@ -565,7 +611,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 		$this->registerValidators();
 
 		// process validators
-		$validated = $validationManager->execute($requestData);
+		$validated = $validationManager->execute($this->requireWebRequest());
 		$this->setValidationState(true, $validated);
 
 		$validateMethod = 'validate' . $method;
@@ -612,14 +658,14 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 			// load validation configuration
 			// do NOT use require_once
 			if(defined('QUIOTE_USE_APCU_CONFIG_CACHE') && QUIOTE_USE_APCU_CONFIG_CACHE) {
-				$cacheResult = APCuConfigCache::checkConfig($validationConfig, $this->context->getName());
+				$cacheResult = APCuConfigCache::checkConfig($validationConfig, $this->getContext()->getName());
 				if (str_starts_with($cacheResult, 'APCU:')) {
 					eval('?>' . substr($cacheResult, 5));
 				} else {
 					require($cacheResult);
 				}
 			} else {
-				require(ConfigCache::checkConfig($validationConfig, $this->context->getName()));
+				require(ConfigCache::checkConfig($validationConfig, $this->getContext()->getName()));
 			}
 		}
 
@@ -637,8 +683,11 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	 * @return     string The request method name.
 	 * @since      1.0.0
 	 */
-	public function getRequestMethod()
+	public function getRequestMethod(): string
 	{
+		if ($this->requestMethod === null) {
+			throw new QuioteException('Cannot get the request method: none has been set on this ExecutionContainer.');
+		}
 		return $this->requestMethod;
 	}
 
@@ -665,10 +714,10 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 
 	/**
 	 * Set this container's global request data holder reference.
-	 * @param      object $rd The request data holder.
+	 * @param      MergeableRequestDataHolder $rd The request data holder.
 	 * @since      1.0.0
 	 */
-	public final function setRequestData(object $rd): void
+	public final function setRequestData(MergeableRequestDataHolder $rd): void
 	{
 		$this->globalRequestData = $rd;
 	}
@@ -720,8 +769,11 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	 * @return     OutputType The output type object.
 	 * @since      1.0.0
 	 */
-	public function getOutputType()
+	public function getOutputType(): OutputType
 	{
+		if ($this->outputType === null) {
+			throw new QuioteException('Cannot get the output type: none has been set on this ExecutionContainer.');
+		}
 		return $this->outputType;
 	}
 
@@ -762,7 +814,7 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	public function getActionInstance()
 	{
 		if($this->actionInstance === null) {
-			$controller = $this->context->getController();
+			$controller = $this->getContext()->getController();
 			
 			$moduleName = $this->getModuleName();
 			$actionName = $this->getActionName();
@@ -821,8 +873,11 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	 * @return     string A module name.
 	 * @since      1.0.0
 	 */
-	public function getModuleName()
+	public function getModuleName(): string
 	{
+		if ($this->moduleName === null) {
+			throw new QuioteException('Cannot get the module name: none has been set on this ExecutionContainer.');
+		}
 		return $this->moduleName;
 	}
 
@@ -831,8 +886,11 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	 * @return     string An action name.
 	 * @since      1.0.0
 	 */
-	public function getActionName()
+	public function getActionName(): string
 	{
+		if ($this->actionName === null) {
+			throw new QuioteException('Cannot get the action name: none has been set on this ExecutionContainer.');
+		}
 		return $this->actionName;
 	}
 
@@ -842,8 +900,11 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	 * @return     string A view module name.
 	 * @since      1.0.0
 	 */
-	public function getViewModuleName()
+	public function getViewModuleName(): string
 	{
+		if ($this->viewModuleName === null) {
+			throw new QuioteException('Cannot get the view module name: none has been set on this ExecutionContainer.');
+		}
 		return $this->viewModuleName;
 	}
 
@@ -852,8 +913,11 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 	 * @return     string A view name.
 	 * @since      1.0.0
 	 */
-	public function getViewName()
+	public function getViewName(): string
 	{
+		if ($this->viewName === null) {
+			throw new QuioteException('Cannot get the view name: none has been set on this ExecutionContainer.');
+		}
 		return $this->viewName;
 	}
 
@@ -939,10 +1003,10 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 
 	/**
 	 * Get the "next" container.
-	 * @return     ExecutionContainer The "next" container, of null if unset.
+	 * @return     ?ExecutionContainer The "next" container, of null if unset.
 	 * @since      1.0.0
 	 */
-	public function getNext()
+	public function getNext(): ?ExecutionContainer
 	{
 		return $this->next;
 	}
@@ -960,11 +1024,11 @@ class ExecutionContainer extends AttributeHolder implements ResetInterface
 
 	/**
 	 * Remove a possibly set "next" container.
-	 * @return     ExecutionContainer The removed "next" container, or null
+	 * @return     ?ExecutionContainer The removed "next" container, or null
 	 *                                     if none had been set.
 	 * @since      1.0.0
 	 */
-	public function clearNext()
+	public function clearNext(): ?ExecutionContainer
 	{
 		$retval = $this->next;
 		$this->next = null;

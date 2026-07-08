@@ -44,7 +44,7 @@ class AttributeRoutesMergeTest extends PhpUnitTestCase
 		};
 	}
 
-	public function testHandWrittenAndAttributeRoutesCoexistInOneCollection()
+	public function testHandWrittenAndAttributeRoutesCoexistInOneCollection(): void
 	{
 		$routing = $this->makeMixedRouting();
 
@@ -59,7 +59,7 @@ class AttributeRoutesMergeTest extends PhpUnitTestCase
 		$this->assertSame('42', $attributes['id']);
 	}
 
-	public function testGenWorksForBothRouteSources()
+	public function testGenWorksForBothRouteSources(): void
 	{
 		$routing = $this->makeMixedRouting();
 
@@ -67,7 +67,7 @@ class AttributeRoutesMergeTest extends PhpUnitTestCase
 		$this->assertSame('/attr-routing/42', $routing->gen('attr_routing.view', ['id' => 42]));
 	}
 
-	public function testMergeIntoSurfacesScannerDiagnostics()
+	public function testMergeIntoSurfacesScannerDiagnostics(): void
 	{
 		$routes = new RouteCollection();
 		$meta = [];

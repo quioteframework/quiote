@@ -41,11 +41,7 @@ class ValidatorAdditionalCoverageTest extends BaseValidatorTest
      */
     private function createExposingValidator(\Quiote\Validator\ValidationManager $vm, array $arguments, array $parameters): QMExposingValidator
     {
-        $validator = $vm->createValidator(QMExposingValidator::class, $arguments, [], $parameters);
-        if (!$validator instanceof QMExposingValidator) {
-            throw new \RuntimeException('Expected a QMExposingValidator instance.');
-        }
-        return $validator;
+        return $vm->createValidator(QMExposingValidator::class, $arguments, [], $parameters);
     }
 
     public function testGetParentContainerReturnsTheAssignedManager(): void

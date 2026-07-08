@@ -16,12 +16,15 @@ class TestingWebRouting extends Routing
 		return [new \Symfony\Component\Routing\RouteCollection(), []];
 	}
 
-	public function setInput($input)
+	public function setInput(string $input): void
 	{
 		$this->input = $input;
 	}
 
-	public function setRoutingSource($name, $data, $type = null)
+	/**
+	 * @param array<mixed> $data
+	 */
+	public function setRoutingSource(string $name, array $data, ?string $type = null): void
 	{
 		if(null === $type) {
 			$type = 'RoutingArraySource';
@@ -29,7 +32,10 @@ class TestingWebRouting extends Routing
 		$this->sources[$name] = new RoutingArraySource($data);
 	}
 
-	public function setInputParameters(array $parameters)
+	/**
+	 * @param array<string,mixed> $parameters
+	 */
+	public function setInputParameters(array $parameters): void
 	{
 		$this->inputParameters = $parameters;
 	}

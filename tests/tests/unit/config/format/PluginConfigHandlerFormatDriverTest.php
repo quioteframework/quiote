@@ -32,6 +32,30 @@ class PluginConfigHandlerFormatDriverTest extends PhpUnitTestCase
 		parent::tearDown();
 	}
 
+	/**
+	 * FormatDriverRegistry::load() returns array<string,mixed> generically
+	 * (the shape is format-driver-agnostic), but the fixtures in this test
+	 * always load a plain list of plugin entries -- re-validate that real
+	 * invariant here so PluginConfigHandler::executeArray() gets the
+	 * list<array{...}> shape it actually requires.
+	 * @param array<string, mixed> $config
+	 * @return list<array{class: string, enabled?: bool}>
+	 */
+	private function asPluginList(array $config): array
+	{
+		$result = [];
+		foreach ($config as $entry) {
+			if (!is_array($entry) || !isset($entry['class']) || !is_string($entry['class'])) {
+				throw new \LogicException('Expected a list of plugin entries with a string "class" key.');
+			}
+			$result[] = [
+				'class' => $entry['class'],
+				'enabled' => isset($entry['enabled']) ? (bool) $entry['enabled'] : true,
+			];
+		}
+		return $result;
+	}
+
 	private function assertCompilesAndAppendsPlugins(string $code): void
 	{
 		$file = tempnam($this->dir, 'compiled_');
@@ -61,7 +85,7 @@ XML);
 		$handler->initialize(null, []);
 		$registry = FormatDriverRegistry::forHandler($handler);
 		$config = $registry->load($this->dir . '/plugins.xml', 'test');
-		$code = $handler->executeArray($config, $this->dir . '/plugins.xml');
+		$code = $handler->executeArray($this->asPluginList($config), $this->dir . '/plugins.xml');
 
 		$this->assertCompilesAndAppendsPlugins($code);
 	}
@@ -81,7 +105,7 @@ PHP);
 		$handler->initialize(null, []);
 		$registry = FormatDriverRegistry::forHandler($handler);
 		$config = $registry->load($this->dir . '/plugins.php', 'test');
-		$code = $handler->executeArray($config, $this->dir . '/plugins.php');
+		$code = $handler->executeArray($this->asPluginList($config), $this->dir . '/plugins.php');
 
 		$this->assertCompilesAndAppendsPlugins($code);
 	}
@@ -100,7 +124,7 @@ YAML);
 		$handler->initialize(null, []);
 		$registry = FormatDriverRegistry::forHandler($handler);
 		$config = $registry->load($this->dir . '/plugins.yaml', 'test');
-		$code = $handler->executeArray($config, $this->dir . '/plugins.yaml');
+		$code = $handler->executeArray($this->asPluginList($config), $this->dir . '/plugins.yaml');
 
 		$this->assertCompilesAndAppendsPlugins($code);
 	}

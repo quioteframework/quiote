@@ -15,7 +15,7 @@ class CacheableActionTraitTest extends TestCase
     public function testDefaultActionIsNotCacheable(): void
     {
         $action = new class extends Action {
-            public function execute($rd = null) {}
+            public function execute(?\Quiote\Request\WebRequest $rd = null): void {}
         };
         $this->assertFalse($action->isCacheable());
         $this->assertNull($action->cacheTtlSeconds());
@@ -25,7 +25,7 @@ class CacheableActionTraitTest extends TestCase
     {
         $action = new class extends Action {
             use CacheableActionTrait;
-            public function execute($rd = null) {}
+            public function execute(?\Quiote\Request\WebRequest $rd = null): void {}
         };
         $this->assertTrue($action->isCacheable());
         $this->assertTrue($action->isCacheable('json'));
@@ -37,9 +37,9 @@ class CacheableActionTraitTest extends TestCase
     {
         $action = new class extends Action {
             use CacheableActionTrait;
-            public function execute($rd = null) {}
+            public function execute(?\Quiote\Request\WebRequest $rd = null): void {}
             #[\Override]
-            public function cacheTtlSeconds(?string $outputType = null): ?int
+            public function cacheTtlSeconds(?string $outputType = null): int
             {
                 // Trait methods are copied into the class, not inherited, so the
                 // override fully replaces the trait's version - it can't delegate

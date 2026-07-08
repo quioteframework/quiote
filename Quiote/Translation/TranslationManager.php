@@ -212,10 +212,10 @@ class TranslationManager implements ResetInterface
 	 * Retrieve the current locale identifier. This may not necessarily match 
 	 * what has be given to setLocale() but instead the identifier of the closest
 	 * match from the available locales.
-	 * @return     string The locale identifier.
+	 * @return     ?string The locale identifier.
 	 * @since      1.0.0
 	 */
-	public function getCurrentLocaleIdentifier()
+	public function getCurrentLocaleIdentifier(): ?string
 	{
 		return $this->currentLocaleIdentifier;
 	}
@@ -227,15 +227,20 @@ class TranslationManager implements ResetInterface
 	 */
 	public function getDefaultLocale()
 	{
-		return $this->getLocale($this->getDefaultLocaleIdentifier());
+		$identifier = $this->getDefaultLocaleIdentifier();
+		if($identifier === null) {
+			throw new QuioteException('Tried to retrieve the default locale before the translation system was initialized with a default locale.');
+		}
+
+		return $this->getLocale($identifier);
 	}
 
 	/**
 	 * Retrieve the default locale identifier.
-	 * @return     string The default locale identifier.
+	 * @return     ?string The default locale identifier.
 	 * @since      1.0.0
 	 */
-	public function getDefaultLocaleIdentifier()
+	public function getDefaultLocaleIdentifier(): ?string
 	{
 		return $this->defaultLocaleIdentifier;
 	}

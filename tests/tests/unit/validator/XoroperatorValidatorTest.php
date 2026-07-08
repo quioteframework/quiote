@@ -7,16 +7,16 @@ use Quiote\Validator\XoroperatorValidator;
 
 class XoroperatorValidatorTest extends UnitTestCase
 {
-	public function testvalidate()
+	public function testvalidate(): void
 	{
 		$vm = $this->getContext()->createInstanceFor('validation_manager');
 		$vm->clear();
 		$o = $vm->createValidator(XoroperatorValidator::class, [], [], ['severity' => 'error']);
-		
+
 		$val1 = $vm->createValidator('DummyValidator', [], [], ['severity' => 'error']);
 		$val2 = $vm->createValidator('DummyValidator', [], [], ['severity' => 'error']);
 		$o->registerValidators([$val1, $val2]);
-		
+
 		// 1st test: both successful
 		$val1->val_result = true;
 		$val2->val_result = true;
@@ -74,8 +74,8 @@ class XoroperatorValidatorTest extends UnitTestCase
 		$val1->clear();
 		$val2->clear();
 	}
-	
-	public function testcheckValidSetup()
+
+	public function testcheckValidSetup(): void
 	{
 		$vm = $this->getContext()->createInstanceFor('validation_manager');
 		$vm->clear();
@@ -84,7 +84,7 @@ class XoroperatorValidatorTest extends UnitTestCase
 		$val1 = $vm->createValidator('DummyValidator', [], [], ['severity' => 'error']);
 		$val2 = $vm->createValidator('DummyValidator', [], [], ['severity' => 'error']);
 		$val3 = $vm->createValidator('DummyValidator', [], [], ['severity' => 'error']);
-		
+
 		$o->addChild($val1);
 		try {
 			$o->execute($this->newWebRequest());
@@ -92,10 +92,10 @@ class XoroperatorValidatorTest extends UnitTestCase
 		} catch(ValidatorException $e) {
 			$this->assertEquals($e->getMessage(), 'XOR allows only exact 2 child validators');
 		}
-		
+
 		$o->addChild($val2);
 		$o->execute($this->newWebRequest());
-		
+
 		$o->addChild($val3);
 		try {
 			$o->execute($this->newWebRequest());

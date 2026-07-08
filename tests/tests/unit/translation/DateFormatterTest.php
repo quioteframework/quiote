@@ -170,6 +170,21 @@ class DateFormatterTest extends UnitTestCase
         $this->assertNotEquals('2024-03-15', $result);
     }
 
+    public function testTranslateThrowsWhenTranslationManagerUnavailable(): void
+    {
+        $ctx = $this->createStub(Context::class);
+        $ctx->method('getTranslationManager')->willReturn(null);
+
+        $df = new DateFormatter();
+        $df->initialize($ctx, ['type' => 'date', 'format' => 'short', 'translation_domain' => 'dates']);
+
+        $locale = $this->tm->getLocale('en_US@timezone=UTC');
+
+        $this->expectException(QuioteException::class);
+        $this->expectExceptionMessage('Cannot translate date format: translations are disabled or the translation manager is unavailable.');
+        $df->translate(new DateTimeImmutable('2024-03-15'), '', $locale);
+    }
+
     public function testTranslateViaTranslationManagerDefaultDomain(): void
     {
         // Exercises the <date_formatter> configured on the sandbox app's default

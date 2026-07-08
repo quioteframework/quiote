@@ -272,6 +272,9 @@ class PdoSessionStorage extends SessionStorage implements ResetInterface
 
 		if($isOracle) {
 			$sp = fopen('php://memory', 'r+');
+			if ($sp === false) {
+				throw new DatabaseException('Unable to open in-memory stream for LOB data');
+			}
 			fwrite($sp, (string) $data);
 			rewind($sp);
 		} else {

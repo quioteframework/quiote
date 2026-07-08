@@ -9,7 +9,7 @@ use Quiote\Response\WebResponse;
  */
 class ResponseHandle
 {
-    public function __construct(private readonly mixed $inner) {}
+    public function __construct(private readonly object $inner) {}
     public function getInner(): mixed { return $this->inner; }
     public function append(string $content): void { if(method_exists($this->inner,'appendContent')) { $this->inner->appendContent($content); } }
     public function set(string $content): void { if(method_exists($this->inner,'setContent')) { $this->inner->setContent($content); } }

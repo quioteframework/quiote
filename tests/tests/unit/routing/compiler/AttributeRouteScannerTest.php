@@ -6,7 +6,7 @@ use Quiote\Testing\PhpUnitTestCase;
 
 class AttributeRouteScannerTest extends PhpUnitTestCase
 {
-	public function testScanDiscoversFlatParameterizedAndNestedRoutes()
+	public function testScanDiscoversFlatParameterizedAndNestedRoutes(): void
 	{
 		$scanner = new AttributeRouteScanner();
 		$plan = $scanner->scan([Config::getString('core.module_dir')]);
@@ -34,7 +34,7 @@ class AttributeRouteScannerTest extends PhpUnitTestCase
 		$this->assertEmpty($scanner->getDiagnostics());
 	}
 
-	public function testScanIgnoresActionsWithoutRouteAttribute()
+	public function testScanIgnoresActionsWithoutRouteAttribute(): void
 	{
 		$scanner = new AttributeRouteScanner();
 		$plan = $scanner->scan([Config::getString('core.module_dir')]);
@@ -44,7 +44,7 @@ class AttributeRouteScannerTest extends PhpUnitTestCase
 		}
 	}
 
-	public function testScanFlagsDuplicateRouteNamesAsErrors()
+	public function testScanFlagsDuplicateRouteNamesAsErrors(): void
 	{
 		$scanner = new AttributeRouteScanner();
 		$scanner->scan([dirname(__DIR__, 4) . '/fixtures/RoutingDup/Modules']);
@@ -55,7 +55,7 @@ class AttributeRouteScannerTest extends PhpUnitTestCase
 		$this->assertSame(\Quiote\Support\Compiler\Diagnostic::SEVERITY_ERROR, $diagnostics[0]->severity);
 	}
 
-	public function testScanFlagsDuplicatePathAndMethodAsWarning()
+	public function testScanFlagsDuplicatePathAndMethodAsWarning(): void
 	{
 		$scanner = new AttributeRouteScanner();
 		$scanner->scan([dirname(__DIR__, 4) . '/fixtures/RoutingDupPath/Modules']);

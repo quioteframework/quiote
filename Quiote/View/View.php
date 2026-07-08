@@ -77,7 +77,11 @@ abstract class View implements ResetInterface
 			$logger->debug('[View] renderLayers count=' . count($this->layers) . ' view=' . static::class);
 		}
 		foreach ($this->layers as $layer) {
-			$attrsForLayer = $this->getAttributes();
+			$rawAttrs = $this->getAttributes();
+			// Attribute names are always strings in practice; rekey defensively so the
+			// map handed to the layer is guaranteed string-keyed (attributes are never
+			// mutated back into the view's store from here, so a copy is safe).
+			$attrsForLayer = array_combine(array_map('strval', array_keys($rawAttrs)), $rawAttrs);
 			$attrsForLayer['inner'] = $out;
 			$out = (string)$layer->execute(null, $attrsForLayer); // exceptions bubble naturally now
 			if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
@@ -115,13 +119,39 @@ abstract class View implements ResetInterface
 	}
 
 	/**
+	 * Retrieve the current Context, failing loudly if this View has not been
+	 * initialize()d yet (context/initContext are only populated there).
+	 * @throws     ViewException If this View has not been initialized.
+	 */
+	private function requireContext(): Context
+	{
+		if ($this->context === null) {
+			throw new ViewException('View has not been initialized: no Context is available');
+		}
+		return $this->context;
+	}
+
+	/**
+	 * Retrieve the current init context, failing loudly if this View has not
+	 * been initialize()d yet.
+	 * @throws     ViewException If this View has not been initialized.
+	 */
+	private function requireInitContext(): ActionInitContext|ViewInitContext
+	{
+		if ($this->initContext === null) {
+			throw new ViewException('View has not been initialized: no init context is available');
+		}
+		return $this->initContext;
+	}
+
+	/**
 	 * Retrieve the Response instance for this View.
 	 * @return     WebResponse The Response instance.
 	 * @since      1.0.0
 	 */
 	public final function getResponse()
 	{
-		return $this->initContext->getResponse();
+		return $this->requireInitContext()->getResponse();
 	}
 
 	/**
@@ -215,7 +245,7 @@ abstract class View implements ResetInterface
 	{
 		// Legacy execution container exposes getOutputType() returning OutputType directly.
 		$name = $this->initContext instanceof ActionInitContext ? $this->initContext->getOutputTypeName() : null;
-		return $this->context->getController()->getOutputType($name);
+		return $this->requireContext()->getController()->getOutputType($name);
 	}
 
 	/**
@@ -274,11 +304,15 @@ abstract class View implements ResetInterface
 		if (empty($templateParam)) {
 			$templateParam = $this->getResolvedViewName();
 		}
-		$layer->initialize($this->context, ['name' => $name, 'module' => $moduleParam, 'template' => $templateParam, 'output_type' => $this->getCurrentOutputType()->getName()]);
+		$layer->initialize($this->requireContext(), ['name' => $name, 'module' => $moduleParam, 'template' => $templateParam, 'output_type' => $this->getCurrentOutputType()->getName()]);
 		if ($renderer instanceof Renderer) {
 			$layer->setRenderer($renderer);
 		} else {
-			$layer->setRenderer($this->getCurrentOutputType()->getRenderer($renderer));
+			$resolvedRenderer = $this->getCurrentOutputType()->getRenderer($renderer);
+			if ($resolvedRenderer === null) {
+				throw new ViewException('No renderer could be resolved for the current output type');
+			}
+			$layer->setRenderer($resolvedRenderer);
 		}
 		return $layer;
 	}
@@ -306,9 +340,16 @@ abstract class View implements ResetInterface
 		if ($otherLayer === null) {
 			$dest = count($this->layers);
 		} elseif ($otherLayer === $layer) {
+			if ($pos === false) {
+				throw new ViewException('Layer "' . $layer->getName() . '" not in list');
+			}
 			$dest = $pos;
 		} else {
-			$dest = array_search($otherLayer, $this->layers, true) + 1;
+			$otherPos = array_search($otherLayer, $this->layers, true);
+			if ($otherPos === false) {
+				throw new ViewException('Layer "' . $otherLayer->getName() . '" not in list');
+			}
+			$dest = $otherPos + 1;
 		}
 		array_splice($this->layers, $dest, 0, [$layer]);
 
@@ -338,9 +379,16 @@ abstract class View implements ResetInterface
 		if ($otherLayer === null) {
 			$dest = 0;
 		} elseif ($otherLayer === $layer) {
+			if ($pos === false) {
+				throw new ViewException('Layer "' . $layer->getName() . '" not in list');
+			}
 			$dest = $pos;
 		} else {
-			$dest = array_search($otherLayer, $this->layers, true);
+			$otherPos = array_search($otherLayer, $this->layers, true);
+			if ($otherPos === false) {
+				throw new ViewException('Layer "' . $otherLayer->getName() . '" not in list');
+			}
+			$dest = $otherPos;
 		}
 		array_splice($this->layers, $dest, 0, [$layer]);
 
@@ -507,14 +555,15 @@ abstract class View implements ResetInterface
 		// Defer execution: return a SlotRenderable that will dispatch the slot
 		// only when the renderer actually requests the content. This avoids
 		// eager dispatch during layout construction and prevents recursion.
-		$dispatcher = $this->context->getSlotDispatcher();
-		$parentRequest = $this->context->getCurrentPsrRequest();
+		$context = $this->requireContext();
+		$dispatcher = $context->getSlotDispatcher();
+		$parentRequest = $context->getCurrentPsrRequest();
 		if (!$parentRequest) {
 			throw new \RuntimeException('No current PSR request available for slot dispatch');
 		}
 		// Instead of dispatching now, return a deferred renderable that will
 		// dispatch during template rendering.
-		return new \Quiote\Execution\DeferredSlotRenderable($this->context, $moduleName, $actionName, $parameters, $outputType);
+		return new \Quiote\Execution\DeferredSlotRenderable($context, $moduleName, $actionName, $parameters, $outputType);
 	}
 
 	/**
@@ -546,10 +595,11 @@ abstract class View implements ResetInterface
 		if (!in_array($name, ['login', 'secure'], true)) {
 			throw new \InvalidArgumentException('Unsupported system forward name: ' . $name);
 		}
+		$context = $this->requireContext();
 		// Reuse canonical request instance when no explicit arguments provided.
 		if ($arguments === null) {
 			try {
-				$arguments = $this->context->getRequest();
+				$arguments = $context->getRequest();
 			} catch (\Throwable) {
 				$arguments = null;
 			}
@@ -558,8 +608,8 @@ abstract class View implements ResetInterface
 			}
 		}
 		try {
-			$fs = new ForwardService($this->context->getController());
-			[$view, $vm, $vn, $content] = $fs->createSystemForwardView($name, $outputType ?? $this->context->getController()->getOutputType()->getName(), $arguments);
+			$fs = new ForwardService($context->getController());
+			[$view, $vm, $vn, $content] = $fs->createSystemForwardView($name, $outputType ?? $context->getController()->getOutputType()->getName(), $arguments);
 			return (string)$content;
 		} catch (\Throwable $e) {
 			// The legacy forward-container fallback this used to defer to
@@ -615,7 +665,9 @@ abstract class View implements ResetInterface
 	}
 
 	/**
-	 * @see        AttributeHolder::setAttributesByRef()
+	 * @see        AttributeHolder::getAttributes()
+	 * Returned by reference and aliased to localAttributes/AttributeHolder storage,
+	 * whose declared value type is array<int|string, mixed>; kept consistent with that here.
 	 * @return     array<int|string, mixed>
 	 * @since      1.0.0
 	 */
@@ -762,8 +814,8 @@ abstract class View implements ResetInterface
 	}
 
 	/**
-	 * @see        AttributeHolder::setAttributesByRef()
-	 * @param      array<int|string, mixed> $attributes
+	 * @see        AttributeHolder::setAttributes()
+	 * @param      array<string, mixed> $attributes
 	 * @return     void
 	 * @since      1.0.0
 	 */
@@ -780,6 +832,8 @@ abstract class View implements ResetInterface
 
 	/**
 	 * @see        AttributeHolder::setAttributesByRef()
+	 * The reference becomes aliased to the underlying namespace store, whose declared
+	 * value type is array<int|string, mixed>; kept consistent with that here.
 	 * @param      array<int|string, mixed> $attributes
 	 * @return     void
 	 * @since      1.0.0

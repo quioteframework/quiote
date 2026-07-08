@@ -87,7 +87,8 @@ abstract class AbstractStreamSink implements SinkInterface
     protected function handle()
     {
         if ($this->handle === null && $this->path !== null) {
-            $this->handle = @fopen($this->path, 'a');
+            $opened = @fopen($this->path, 'a');
+            $this->handle = $opened !== false ? $opened : null;
         }
         return $this->handle ?: null;
     }

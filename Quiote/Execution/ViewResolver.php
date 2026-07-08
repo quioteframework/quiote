@@ -14,7 +14,7 @@ class ViewResolver
         $this->delegate = $delegate ?? new ViewNameResolver();
     }
     /**
-     * @return array{0: string, 1: string|null}
+     * @return array{0: string|null, 1: string|null}
      */
     public function resolve(string $module, string $action, mixed $rawViewName): array
     {

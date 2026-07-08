@@ -7,14 +7,14 @@ use Sandbox\Modules\Default\Lib\Action\SandboxDefaultBaseAction;
 
 class LoginAction extends SandboxDefaultBaseAction
 {
-	public function execute(WebRequest $rd)
+	public function execute(WebRequest $rd): string
 	{
 		// Simplified for test environment: produce Success view without exception.
 		return 'Success';
 	}
 
 	#[\Override]
-    public function getDefaultViewName()
+    public function getDefaultViewName(): string
 	{
 		return 'Success';
 	}

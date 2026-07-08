@@ -108,16 +108,16 @@ class Context implements \Stringable, ResetInterface
   protected $resetInstances = [];
 
   /**
-   * @var        ?array<string, mixed> Request factory info for worker mode recreation
+   * @var        ?array{class: class-string<WebRequest>, parameters: array<string, mixed>} Request factory info for worker mode recreation
    */
   protected $requestFactoryInfo = null;
 
   /**
-   * @var        ?array<string, mixed> User factory info for worker mode recreation
+   * @var        ?array{class: class-string<User>, parameters: array<string, mixed>} User factory info for worker mode recreation
    */
   protected $userFactoryInfo = null;
   /**
-   * @var        ?array<string, mixed> Routing factory info for worker mode recreation
+   * @var        ?array{class: class-string<Routing>, parameters: array<string, mixed>} Routing factory info for worker mode recreation
    */
   protected $routingFactoryInfo = null;
 
@@ -147,12 +147,12 @@ class Context implements \Stringable, ResetInterface
   protected $assetRegistry = null;
 
   /**
-   * @var        ?array<string, mixed> Storage factory info for worker mode recreation
+   * @var        ?array{class: class-string<\Quiote\Storage\Storage>, parameters: array<string, mixed>} Storage factory info for worker mode recreation
    */
   protected $storageFactoryInfo = null;
 
   /**
-   * @var        ?array<string, mixed> Database manager factory info for worker mode recreation
+   * @var        ?array{class: class-string<\Quiote\Database\DatabaseManager>, parameters: array<string, mixed>} Database manager factory info for worker mode recreation
    */
   protected $databaseManagerFactoryInfo = null;
 
@@ -258,6 +258,9 @@ class Context implements \Stringable, ResetInterface
     }
 
     $class = new ($info["class"])();
+    if (!is_callable([$class, 'initialize'])) {
+      throw new QuioteException(sprintf('Factory class for "%s" has no initialize() method', $for));
+    }
     $class->initialize($this, $info["parameters"]);
     return $class;
   }
@@ -269,6 +272,11 @@ class Context implements \Stringable, ResetInterface
    */
   public function getController()
   {
+    if ($this->controller === null) {
+      throw new QuioteException(
+        'Controller is not available: Context::initialize() has not run (or the "controller" factory failed) for context "' . $this->name . '"',
+      );
+    }
     return $this->controller;
   }
 
@@ -449,7 +457,11 @@ class Context implements \Stringable, ResetInterface
       $profile = strtolower($profile);
       if (!isset(self::$instances[$profile])) {
         $class = Config::getString("core.context_implementation", static::class);
-        self::$instances[$profile] = new $class($profile);
+        $instance = new $class($profile);
+        if (!$instance instanceof self) {
+          throw new QuioteException(sprintf('core.context_implementation "%s" does not extend Context', $class));
+        }
+        self::$instances[$profile] = $instance;
         self::$instances[$profile]->initialize();
       }
       return self::$instances[$profile];
@@ -632,19 +644,21 @@ class Context implements \Stringable, ResetInterface
     if ($this->psrKernel === null) {
       $this->psrKernel = new \Quiote\Middleware\MiddlewarePipeline($this);
     }
+    $psrKernel = $this->psrKernel;
     // Adopt an inbound correlation ID from the configured header (e.g. an
     // upstream gateway / distributed-tracing correlation id) when present and
     // sane; otherwise generate a fresh one. The header name is configurable so
     // it can match e.g. Azure Application Gateway's own correlation header.
-    $this->correlationId = \Quiote\Support\CorrelationId::fromRequest($request, $this->correlationIdHeaderName())
+    $correlationId = \Quiote\Support\CorrelationId::fromRequest($request, $this->correlationIdHeaderName())
       ?? \Quiote\Support\CorrelationId::generate();
+    $this->correlationId = $correlationId;
 
     // Start a fresh ambient logging scope for this request so every log line is
     // correlatable by rid. clear() first is defensive: it guards against a scope
     // left behind by a prior worker request whose reset() did not run. The
     // authoritative between-request clear lives in reset().
     \Quiote\Logging\LogContext::clear();
-    \Quiote\Logging\LogContext::enrich(["rid" => $this->correlationId]);
+    \Quiote\Logging\LogContext::enrich(["rid" => $correlationId]);
 
     // Bridge: ensure a legacy WebRequest exists and attach the current PSR request for BC helpers
     try {
@@ -653,9 +667,10 @@ class Context implements \Stringable, ResetInterface
         if ($this->requestFactoryInfo) {
           $className = $this->requestFactoryInfo["class"];
           $parameters = $this->requestFactoryInfo["parameters"];
-          $this->request = new $className();
-          $this->request->initialize($this, $parameters);
-          $this->request->startup();
+          $newRequest = new $className();
+          $newRequest->initialize($this, $parameters);
+          $newRequest->startup();
+          $this->request = $newRequest;
         }
       }
       // No need to attachPsrRequest - WebRequest IS the PSR-7 request
@@ -665,8 +680,8 @@ class Context implements \Stringable, ResetInterface
     }
 
     // Propagate correlation ID so middleware can use it without re-generating (avoids redundant random_bytes()).
-    $request = $request->withAttribute("quiote.rid", $this->correlationId);
-    $response = $this->psrKernel->handle($request);
+    $request = $request->withAttribute("quiote.rid", $correlationId);
+    $response = $psrKernel->handle($request);
 
     // Echo the correlation ID back so a caller/gateway can tie its request to
     // our logs/traces (unless disabled). Only add it if the response doesn't
@@ -674,7 +689,7 @@ class Context implements \Stringable, ResetInterface
     if (Config::getBool('core.correlation_id.expose', true)) {
       $header = $this->correlationIdHeaderName();
       if (!$response->hasHeader($header)) {
-        $response = $response->withHeader($header, $this->correlationId);
+        $response = $response->withHeader($header, $correlationId);
       }
     }
 
@@ -1016,7 +1031,7 @@ class Context implements \Stringable, ResetInterface
         }
       } else {
         try {
-          $this->controller->initializeModule($moduleName);
+          $this->getController()->initializeModule($moduleName);
         } catch (DisabledModuleException) {
           // swallow, this will load the modules autoload but throw an exception
           // if the module is disabled.
@@ -1102,6 +1117,12 @@ class Context implements \Stringable, ResetInterface
       $model->initialize($this, (array) $parameters);
     }
 
+    if (!$model instanceof \Quiote\Model\Model) {
+      throw new QuioteException(
+        sprintf("Resolved class for Model %s does not extend Quiote\\Model\\Model", $origModelName),
+      );
+    }
+
     return $model;
   }
 
@@ -1136,19 +1157,21 @@ class Context implements \Stringable, ResetInterface
         $className = $this->requestFactoryInfo["class"];
         $parameters = $this->requestFactoryInfo["parameters"];
 
-        $this->request = new $className();
+        $newRequest = new $className();
         // IMPORTANT: Must call initialize() BEFORE startup() to populate request data from superglobals
         // initialize() reads from $_GET, $_POST, etc. and populates the request data holder
         // startup() clears the superglobals (when unset_input parameter is true)
-        $this->request->initialize($this, $parameters);
-        $this->request->startup();
+        $newRequest->initialize($this, $parameters);
+        $newRequest->startup();
+        $this->request = $newRequest;
 
         // No need to attachPsrRequest - WebRequest IS the PSR-7 request
 
         // Re-run controller startup so it re-caches the (new) global request data pointer
-        if ($this->controller) {
+        $controller = $this->controller;
+        if ($controller !== null) {
           try {
-            $this->controller->startup();
+            $controller->startup();
             if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
               $logger->debug(
                 "[Context] getRequest() Controller startup re-run after request recreation",
@@ -1182,6 +1205,11 @@ class Context implements \Stringable, ResetInterface
       }
     }
 
+    if ($this->request === null) {
+      throw new QuioteException(
+        "Request object is unexpectedly null after recreation",
+      );
+    }
     return $this->request;
   }
 
@@ -1216,6 +1244,11 @@ class Context implements \Stringable, ResetInterface
         );
       }
     }
+    if ($this->routing === null) {
+      throw new QuioteException(
+        "Routing object is unexpectedly null after recreation",
+      );
+    }
     return $this->routing;
   }
 
@@ -1244,9 +1277,10 @@ class Context implements \Stringable, ResetInterface
           $className = $this->databaseManagerFactoryInfo["class"];
           $parameters = $this->databaseManagerFactoryInfo["parameters"];
           try {
-            $this->databaseManager = new $className();
-            $this->databaseManager->initialize($this, $parameters);
-            $this->databaseManager->startup();
+            $newDatabaseManager = new $className();
+            $newDatabaseManager->initialize($this, $parameters);
+            $newDatabaseManager->startup();
+            $this->databaseManager = $newDatabaseManager;
             $logger->debug(
               "[Context.getStorage] - Database manager recreated successfully using factory info: " .
                 $className,
@@ -1270,10 +1304,11 @@ class Context implements \Stringable, ResetInterface
         $className = $this->storageFactoryInfo["class"];
         $parameters = $this->storageFactoryInfo["parameters"];
 
-        $this->storage = new $className();
-        $this->storage->initialize($this, $parameters);
+        $newStorage = new $className();
+        $newStorage->initialize($this, $parameters);
         // Do NOT call startup() here - SessionMiddleware will call it after mirroring PSR-7 cookies to $_COOKIE
         // Calling it here causes session loss because $_COOKIE is empty before SessionMiddleware runs
+        $this->storage = $newStorage;
 
         $logger->debug(
           "[Context.getStorage] - Storage object recreated successfully using factory info: " .
@@ -1290,6 +1325,11 @@ class Context implements \Stringable, ResetInterface
       }
     }
 
+    if ($this->storage === null) {
+      throw new QuioteException(
+        "Storage object is unexpectedly null after recreation",
+      );
+    }
     return $this->storage;
   }
 
@@ -1355,9 +1395,10 @@ class Context implements \Stringable, ResetInterface
           $className = $this->databaseManagerFactoryInfo["class"];
           $parameters = $this->databaseManagerFactoryInfo["parameters"];
           try {
-            $this->databaseManager = new $className();
-            $this->databaseManager->initialize($this, $parameters);
-            $this->databaseManager->startup();
+            $newDatabaseManager = new $className();
+            $newDatabaseManager->initialize($this, $parameters);
+            $newDatabaseManager->startup();
+            $this->databaseManager = $newDatabaseManager;
             $logger->debug(
               "[Context.getUser] - Database manager recreated successfully using factory info: " .
                 $className,
@@ -1389,15 +1430,16 @@ class Context implements \Stringable, ResetInterface
         $className = $this->userFactoryInfo["class"];
         $parameters = $this->userFactoryInfo["parameters"];
 
-        $this->user = new $className();
-        $this->user->initialize($this, $parameters);
-        $this->user->startup();
+        $newUser = new $className();
+        $newUser->initialize($this, $parameters);
+        $newUser->startup();
+        $this->user = $newUser;
         if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
           $logger->debug(
             "[Context.getUser] newUser=" .
-              $this->user::class .
+              $newUser::class .
               " oid=" .
-              spl_object_id($this->user),
+              spl_object_id($newUser),
           );
         }
 
@@ -1434,7 +1476,7 @@ class Context implements \Stringable, ResetInterface
           }
           // Insert user at calculated index (array_splice preserves order after insertion)
           array_splice($this->shutdownSequence, $firstUserIndex, 0, [
-            $this->user,
+            $newUser,
           ]);
           if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
             $logger->debug(
@@ -1443,7 +1485,7 @@ class Context implements \Stringable, ResetInterface
                 " idx=" .
                 $firstUserIndex .
                 " oid=" .
-                spl_object_id($this->user),
+                spl_object_id($newUser),
             );
           }
         } catch (\Throwable) {
@@ -1464,6 +1506,11 @@ class Context implements \Stringable, ResetInterface
       }
     }
 
+    if ($this->user === null) {
+      throw new QuioteException(
+        "User object is unexpectedly null after recreation",
+      );
+    }
     return $this->user;
   }
 }

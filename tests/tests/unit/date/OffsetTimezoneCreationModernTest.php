@@ -8,7 +8,7 @@ use Quiote\I18n\DateTimeFacade;
  */
 class OffsetTimezoneCreationModernTest extends TestCase
 {
-    public function testCustomOffsetZoneCreation()
+    public function testCustomOffsetZoneCreation(): void
     {
         $dt = DateTimeFacade::parse('2024-06-15 10:00:00', 'yyyy-MM-dd HH:mm:ss', '+0530');
         $utc = $dt->setTimezone(new DateTimeZone('UTC'));

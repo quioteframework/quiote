@@ -10,8 +10,10 @@ use Quiote\Routing\RoutingArraySource;
  */
 class TestingRouting extends Routing
 {
-	protected $forcedInput = null;
-	protected $errorActions = [];
+	protected ?string $forcedInput = null;
+
+	/** @var array<mixed> */
+	protected array $errorActions = [];
 
 	/** @return array{0: \Symfony\Component\Routing\RouteCollection, 1: array<mixed>} */
 	protected function build(): array
@@ -29,7 +31,10 @@ class TestingRouting extends Routing
 	
 
 	
-	public function setRoutingSource($name, $data, $type = null)
+	/**
+	 * @param array<mixed> $data
+	 */
+	public function setRoutingSource(string $name, array $data, ?string $type = null): void
 	{
 		if(null === $type) {
 			$type = 'RoutingArraySource';
@@ -44,14 +49,15 @@ class TestingRouting extends Routing
 	}
 	
 	/**
-	 * Override the input property for execution
+	 * Apply the forced input (if any) and delegate to match().
+	 * @return array<string,mixed>
 	 */
-	public function execute()
+	public function execute(): array
 	{
 		if ($this->forcedInput !== null) {
 			$this->input = $this->forcedInput;
 		}
-		return parent::execute();
+		return $this->match($this->input);
 	}
 }
 

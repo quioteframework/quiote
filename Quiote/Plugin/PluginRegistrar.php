@@ -52,7 +52,7 @@ final class PluginRegistrar
      */
     public function service(string $id, mixed $concrete, string $scope = Container::SCOPE_SINGLETON, string ...$aliases): self
     {
-        PluginManager::addContainerService($id, $concrete, $scope, $aliases);
+        PluginManager::addContainerService($id, $concrete, $scope, array_values($aliases));
         return $this;
     }
 

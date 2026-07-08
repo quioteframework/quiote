@@ -22,9 +22,10 @@ final class ArrayMergeStrategy
 	 * arrays present on both sides are merged recursively so a child
 	 * config can override a single nested key without having to repeat
 	 * its siblings.
-	 * @param array<int|string, mixed> $base
-	 * @param array<int|string, mixed> $override
-	 * @return array<int|string, mixed> The merged result. Neither input is mutated.
+	 * @template TKey of array-key
+	 * @param array<TKey, mixed> $base
+	 * @param array<TKey, mixed> $override
+	 * @return array<TKey, mixed> The merged result. Neither input is mutated.
 	 */
 	public function merge(array $base, array $override): array
 	{

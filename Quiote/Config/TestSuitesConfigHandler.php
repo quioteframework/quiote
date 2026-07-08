@@ -2,6 +2,7 @@
 namespace Quiote\Config;
 
 use Quiote\Config\Util\DOM\XmlConfigDomDocument;
+use Quiote\Exception\ParseException;
 
 /**
  * TestSuitesConfigHandler reads the testsuites configuration files to determine
@@ -72,7 +73,15 @@ class TestSuitesConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 					$suite['testfiles'][] = $file->textContent;
 				}
 
-				$data[$current->getAttribute('name')] = $suite;
+				$suiteName = $current->getAttribute('name');
+				if ($suiteName === null || $suiteName === '') {
+					throw new ParseException(sprintf(
+						'Configuration file "%s" has a <suite> element missing its required "name" attribute',
+						$document->documentURI
+					));
+				}
+
+				$data[$suiteName] = $suite;
 			}
 		}
 

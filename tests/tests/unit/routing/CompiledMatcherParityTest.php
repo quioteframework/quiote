@@ -35,9 +35,15 @@ class CompiledMatcherParityTest extends TestCase
         }
     }
 
+    /**
+     * @param array<string, array{pattern: string, defaults?: array<string, mixed>, requirements?: array<string, mixed>}> $spec
+     */
     private function makeRouting(array $spec): Routing
     {
         return new class($spec) extends Routing {
+            /**
+             * @param array<string, array{pattern: string, defaults?: array<string, mixed>, requirements?: array<string, mixed>}> $spec
+             */
             public function __construct(private readonly array $spec) { parent::__construct(); }
             protected function build(): array {
                 $rc = new RouteCollection();

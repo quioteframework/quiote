@@ -8,12 +8,12 @@ use Quiote\View\View;
 
 class GreetSuccessView extends View
 {
-    public function execute(WebRequest $rd)
+    public function execute(WebRequest $rd): string
     {
         return $this->executeHtml($rd);
     }
 
-    public function executeHtml(WebRequest $rd)
+    public function executeHtml(WebRequest $rd): string
     {
         $name = (string) $rd->getParameter('name', 'World');
 

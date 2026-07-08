@@ -33,10 +33,14 @@ class MiddlewarePipeline implements RequestHandlerInterface
         if (!$this->built) {
             $this->doBuild();
         }
+        $handler = $this->handler;
+        if ($handler === null) {
+            throw new \Quiote\Exception\QuioteException('MiddlewarePipeline::doBuild() did not produce a handler.');
+        }
         // Save original request before validation pruning for slot parameter access
         // Pass it through as an attribute so SlotMiddleware can inject it into SlotDispatcher
         $request = $request->withAttribute('_original_psr_request', $request);
-        return $this->handler->handle($request);
+        return $handler->handle($request);
     }
 
     public function reset(): void
@@ -297,8 +301,8 @@ class MiddlewarePipeline implements RequestHandlerInterface
 
     /**
      * Insert externally registered middleware into the stack at their requested positions.
-     * @param non-empty-list<\Psr\Http\Server\MiddlewareInterface> &$stack
-     * @param-out non-empty-list<\Psr\Http\Server\MiddlewareInterface> $stack
+     * @param list<\Psr\Http\Server\MiddlewareInterface> &$stack
+     * @param-out list<\Psr\Http\Server\MiddlewareInterface> $stack
      */
     private function insertRegistered(array &$stack): void
     {

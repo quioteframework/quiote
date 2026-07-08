@@ -38,7 +38,7 @@ class DatabaseConfigHandler extends XmlConfigHandler implements IArrayConfigHand
 	}
 
 	/**
-	 * @return array{default: string|null, databases: array<string, array{class?: string, parameters: array<string, mixed>}>}
+	 * @return array{default: string|null, databases: array<string, array{class: string, parameters: array<int|string, mixed>}>}
 	 */
 	public function toCanonicalArray(XmlConfigDomDocument $document): array
 	{
@@ -75,19 +75,29 @@ class DatabaseConfigHandler extends XmlConfigHandler implements IArrayConfigHand
 				// XmlConfigDomElement, never a vanilla DOMNode.
 				/** @var XmlConfigDomElement $database */
 				$name = $database->getAttribute('name');
+				if ($name === null) {
+					$error = 'Configuration file "%s" specifies a database with a missing or empty "name" attribute';
+					$error = sprintf($error, $document->documentURI);
+
+					throw new ParseException($error);
+				}
 
 				if (!isset($databases[$name])) {
-					$databases[$name] = ['parameters' => []];
-
-					if (!$database->hasAttribute('class')) {
+					$class = $database->hasAttribute('class') ? $database->getAttribute('class') : null;
+					if ($class === null) {
 						$error = 'Configuration file "%s" specifies database "%s" with missing class key';
 						$error = sprintf($error, $document->documentURI, $name);
 
 						throw new ParseException($error);
 					}
-				}
 
-				$databases[$name]['class'] = $database->hasAttribute('class') ? $database->getAttribute('class') : $databases[$name]['class'];
+					$databases[$name] = ['class' => $class, 'parameters' => []];
+				} elseif ($database->hasAttribute('class')) {
+					$class = $database->getAttribute('class');
+					if ($class !== null) {
+						$databases[$name]['class'] = $class;
+					}
+				}
 
 				$databases[$name]['parameters'] = $database->getQuioteParameters($databases[$name]['parameters']);
 			}
@@ -97,7 +107,7 @@ class DatabaseConfigHandler extends XmlConfigHandler implements IArrayConfigHand
 	}
 
 	/**
-	 * @param array{default?: string|null, databases?: array<string, array{class: string, parameters: array<string, mixed>}>} $config
+	 * @param array{default?: string|null, databases?: array<string, array{class: string, parameters: array<int|string, mixed>}>} $config
 	 */
 	public function executeArray(array $config, ?string $sourceRef = null): string
 	{
@@ -130,7 +140,7 @@ class DatabaseConfigHandler extends XmlConfigHandler implements IArrayConfigHand
 			$data[] = sprintf('$database->initialize($this, %s);', var_export($db['parameters'], true));
 		}
 
-		if (!isset($databases[$default])) {
+		if ($default === null || !isset($databases[$default])) {
 			$error = 'Configuration file "%s" specifies undefined default database "%s".';
 			$error = sprintf($error, $sourceRef, $default);
 			throw new ConfigurationException($error);

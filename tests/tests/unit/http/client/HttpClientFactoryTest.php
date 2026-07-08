@@ -13,6 +13,21 @@ use Quiote\Test\Http\Client\RecordingTransport;
  */
 class HttpClientFactoryTest extends TestCase
 {
+    /**
+     * RecordingTransport::lastRequest() is nullable (nothing recorded yet);
+     * this call site only reaches for it after issuing a request, so a
+     * missing recording indicates a broken test fixture rather than a case
+     * callers should silently tolerate.
+     */
+    private function recordedRequest(RecordingTransport $transport): \Psr\Http\Message\RequestInterface
+    {
+        $request = $transport->lastRequest();
+        if ($request === null) {
+            throw new \RuntimeException('Expected the transport to have recorded a request.');
+        }
+        return $request;
+    }
+
     public function testReturnsAnHttpClientForTheDefaultNameWithoutConfiguration(): void
     {
         $factory = new HttpClientFactory();
@@ -25,7 +40,7 @@ class HttpClientFactoryTest extends TestCase
     {
         $factory = new HttpClientFactory();
         $factory->setDefaultTransportFactory(fn() => new RecordingTransport());
-        $factory->configure('github', fn(HttpClientConfig $c) => $c->baseUri('https://api.github.com'));
+        $factory->configure('github', function (HttpClientConfig $c): void { $c->baseUri('https://api.github.com'); });
 
         $this->assertSame($factory->client('github'), $factory->client('github'));
     }
@@ -34,8 +49,8 @@ class HttpClientFactoryTest extends TestCase
     {
         $factory = new HttpClientFactory();
         $factory->setDefaultTransportFactory(fn() => new RecordingTransport());
-        $factory->configure('a', fn(HttpClientConfig $c) => $c->baseUri('https://a.example'));
-        $factory->configure('b', fn(HttpClientConfig $c) => $c->baseUri('https://b.example'));
+        $factory->configure('a', function (HttpClientConfig $c): void { $c->baseUri('https://a.example'); });
+        $factory->configure('b', function (HttpClientConfig $c): void { $c->baseUri('https://b.example'); });
 
         $this->assertNotSame($factory->client('a'), $factory->client('b'));
     }
@@ -60,22 +75,22 @@ class HttpClientFactoryTest extends TestCase
     {
         $factory = new HttpClientFactory();
         $transport = new RecordingTransport();
-        $factory->configure('svc', fn(HttpClientConfig $c) => $c->baseUri('https://svc.example')->transport($transport));
+        $factory->configure('svc', function (HttpClientConfig $c) use ($transport): void { $c->baseUri('https://svc.example')->transport($transport); });
 
         $factory->client('svc')->get('/ping');
 
-        $this->assertSame('https://svc.example/ping', (string) $transport->lastRequest()->getUri());
+        $this->assertSame('https://svc.example/ping', (string) $this->recordedRequest($transport)->getUri());
     }
 
     public function testReconfiguringAfterBuildTakesEffectOnlyAfterReset(): void
     {
         $factory = new HttpClientFactory();
         $factory->setDefaultTransportFactory(fn() => new RecordingTransport());
-        $factory->configure('svc', fn(HttpClientConfig $c) => $c->baseUri('https://one.example'));
+        $factory->configure('svc', function (HttpClientConfig $c): void { $c->baseUri('https://one.example'); });
         $first = $factory->client('svc');
 
         // configure() drops the memoized instance for that name, so a fresh build occurs.
-        $factory->configure('svc', fn(HttpClientConfig $c) => $c->baseUri('https://two.example'));
+        $factory->configure('svc', function (HttpClientConfig $c): void { $c->baseUri('https://two.example'); });
         $second = $factory->client('svc');
 
         $this->assertNotSame($first, $second);

@@ -42,7 +42,7 @@ class SimpleRbacSecurityUser extends RbacSecurityUser
 
 class RbacSecurityUserTest extends UnitTestCase
 {
-	private $_u = null;
+	private SimpleRbacSecurityUser $_u;
 
 	#[\Override]
     public function setUp(): void
@@ -50,8 +50,8 @@ class RbacSecurityUserTest extends UnitTestCase
 		$this->_u = new SimpleRbacSecurityUser();
 		$this->_u->initialize($this->getContext());
 	}
-	
-	public function testRoles()
+
+	public function testRoles(): void
 	{
 		$this->assertEquals($this->_u->getRoles(), []);
 		

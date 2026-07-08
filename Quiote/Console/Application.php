@@ -62,7 +62,10 @@ final class Application extends SymfonyApplication
 		}
 	}
 
-	/** Best-effort resolution of a command's configured name from its #[AsCommand] attribute, for dedupe. */
+	/**
+	 * Best-effort resolution of a command's configured name from its #[AsCommand] attribute, for dedupe.
+	 * @param class-string $fqcn
+	 */
 	private static function commandName(string $fqcn): string
 	{
 		$attrs = (new \ReflectionClass($fqcn))->getAttributes(\Symfony\Component\Console\Attribute\AsCommand::class);

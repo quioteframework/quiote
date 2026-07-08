@@ -26,7 +26,7 @@ class YamlFormatDriverTest extends PhpUnitTestCase
 		parent::tearDown();
 	}
 
-	public function testSupportsYamlAndYmlExtensions()
+	public function testSupportsYamlAndYmlExtensions(): void
 	{
 		$driver = new YamlFormatDriver();
 		$this->assertTrue($driver->supports('/a/b.yaml'));
@@ -34,7 +34,7 @@ class YamlFormatDriverTest extends PhpUnitTestCase
 		$this->assertFalse($driver->supports('/a/b.php'));
 	}
 
-	public function testParsesMappingIntoArrayWithNativeTypes()
+	public function testParsesMappingIntoArrayWithNativeTypes(): void
 	{
 		file_put_contents($this->dir . '/s.yaml', <<<YAML
 core.app_name: Demo
@@ -47,14 +47,14 @@ YAML);
 		$this->assertSame(['core.app_name' => 'Demo', 'core.debug' => true, 'core.max_items' => 10], $result);
 	}
 
-	public function testEmptyDocumentYieldsEmptyArray()
+	public function testEmptyDocumentYieldsEmptyArray(): void
 	{
 		file_put_contents($this->dir . '/empty.yaml', "");
 		$registry = new FormatDriverRegistry([new YamlFormatDriver()]);
 		$this->assertSame([], $registry->load($this->dir . '/empty.yaml', 'test'));
 	}
 
-	public function testThrowsOnMalformedYaml()
+	public function testThrowsOnMalformedYaml(): void
 	{
 		file_put_contents($this->dir . '/bad.yaml', "core:\n  - unbalanced: [1, 2\n");
 		$registry = new FormatDriverRegistry([new YamlFormatDriver()]);
@@ -62,7 +62,7 @@ YAML);
 		$registry->load($this->dir . '/bad.yaml', 'test');
 	}
 
-	public function testParentChainAndNestedMerge()
+	public function testParentChainAndNestedMerge(): void
 	{
 		file_put_contents($this->dir . '/base.yaml', <<<YAML
 db:
@@ -80,7 +80,7 @@ YAML);
 		$this->assertSame(['db' => ['host' => 'localhost', 'port' => 6543]], $result);
 	}
 
-	public function testImportsKeyMergesAdditionalFiles()
+	public function testImportsKeyMergesAdditionalFiles(): void
 	{
 		file_put_contents($this->dir . '/import.yaml', "shared: from-import\n");
 		file_put_contents($this->dir . '/main.yaml', <<<YAML

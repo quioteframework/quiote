@@ -7,9 +7,13 @@ require_once(__DIR__ . '/ConfigHandlerTestBase.php');
 
 class DCHTestDatabase
 {
-	public $params;
+	/** @var array<string, mixed> */
+	public array $params = [];
 
-	public function initialize($dbm, $params)
+	/**
+	 * @param array<string, mixed> $params
+	 */
+	public function initialize(mixed $dbm, array $params): void
 	{
 		$this->params = $params;
 	}
@@ -17,16 +21,17 @@ class DCHTestDatabase
 
 class DatabaseConfigHandlerTest extends ConfigHandlerTestBase
 {
+	/** @var array<string, DCHTestDatabase> */
 	protected $databases;
-	protected $defaultDatabaseName;
+	protected ?string $defaultDatabaseName = null;
 
 	#[\Override]
     public function setUp(): void
 	{
 		$this->databases = [];
 	}
-	
-	protected function loadTestConfig($env = null) {
+
+	protected function loadTestConfig(?string $env = null): void {
 		$DBCH = new DatabaseConfigHandler();
 		
 		$document = $this->parseConfiguration(
@@ -39,7 +44,7 @@ class DatabaseConfigHandlerTest extends ConfigHandlerTestBase
 		
 	}
 
-	public function testDatabaseConfigHandler()
+	public function testDatabaseConfigHandler(): void
 	{
 		$this->loadTestConfig();
 
@@ -51,10 +56,14 @@ class DatabaseConfigHandlerTest extends ConfigHandlerTestBase
 		];
 		$this->assertSame($paramsExpected, $this->databases['test1']->params);
 
-		$this->assertSame($this->databases['test1'], $this->databases[$this->defaultDatabaseName]);
+		$defaultDatabaseName = $this->defaultDatabaseName;
+		if ($defaultDatabaseName === null) {
+			$this->fail('DatabaseConfigHandler did not set a default database name.');
+		}
+		$this->assertSame($this->databases['test1'], $this->databases[$defaultDatabaseName]);
 	}
 
-	public function testOverwrite()
+	public function testOverwrite(): void
 	{
 		$this->loadTestConfig('env2');
 
@@ -66,31 +75,40 @@ class DatabaseConfigHandlerTest extends ConfigHandlerTestBase
 		];
 		$this->assertSame($paramsExpected, $this->databases['test1']->params);
 
-		$this->assertSame($this->databases['test2'], $this->databases[$this->defaultDatabaseName]);
+		$defaultDatabaseName = $this->defaultDatabaseName;
+		if ($defaultDatabaseName === null) {
+			$this->fail('DatabaseConfigHandler did not set a default database name.');
+		}
+		$this->assertSame($this->databases['test2'], $this->databases[$defaultDatabaseName]);
 	}
 	
-	public function testMissingDefaultDoesNotReset() {
+	public function testMissingDefaultDoesNotReset(): void {
 		// see https://github.com/quiote/quiote/issues/1533
 		$this->loadTestConfig('missing-default-does-not-reset');
 
 		$this->assertSame('test1', $this->defaultDatabaseName);
 	}
 
-	public function testDefaultDatabase() {
+	public function testDefaultDatabase(): void {
 		$this->loadTestConfig('test-default');
 		
 		$this->assertSame('test2', $this->defaultDatabaseName);
 	}
 
-	public function testDefaultDatabase1_0() {
+	public function testDefaultDatabase1_0(): void {
 		$this->loadTestConfig('test-default-1.0');
 		
 		$this->assertSame('test1', $this->defaultDatabaseName);
 	}
 	
-	public function testNonExistentDefault() {
+	public function testNonExistentDefault(): void {
 		$this->expectException(\Quiote\Exception\ConfigurationException::class);
 		$this->loadTestConfig('nonexistent-default');
+	}
+
+	public function testMissingDatabaseNameThrows(): void {
+		$this->expectException(\Quiote\Exception\ParseException::class);
+		$this->loadTestConfig('missing-name');
 	}
 }
 ?>

@@ -6,7 +6,7 @@ use Quiote\Validator\Compiler\ValidatorSourceLocator;
 
 class ValidatorSourceLocatorTest extends PhpUnitTestCase
 {
-	public function testDiscoverFindsPerActionValidatorFiles()
+	public function testDiscoverFindsPerActionValidatorFiles(): void
 	{
 		$locator = new ValidatorSourceLocator();
 		$sources = $locator->discover([Config::getString('core.module_dir') . '/*/Validate/*.xml']);
@@ -18,7 +18,7 @@ class ValidatorSourceLocatorTest extends PhpUnitTestCase
 		$this->assertContains('Welcome.xml', $paths);
 	}
 
-	public function testDiscoverIsSortedAndDeduplicated()
+	public function testDiscoverIsSortedAndDeduplicated(): void
 	{
 		$locator = new ValidatorSourceLocator();
 		$pattern = Config::getString('core.module_dir') . '/*/Validate/*.xml';
@@ -32,14 +32,14 @@ class ValidatorSourceLocatorTest extends PhpUnitTestCase
 		$this->assertSame($sorted, $paths);
 	}
 
-	public function testDiscoverReturnsEmptyForNonMatchingPattern()
+	public function testDiscoverReturnsEmptyForNonMatchingPattern(): void
 	{
 		$locator = new ValidatorSourceLocator();
 		$sources = $locator->discover([Config::getString('core.module_dir') . '/NoSuchModule*/Validate/*.xml']);
 		$this->assertSame([], $sources);
 	}
 
-	public function testDefaultRootsMatchesConfigHandlersXmlPattern()
+	public function testDefaultRootsMatchesConfigHandlersXmlPattern(): void
 	{
 		$roots = ValidatorSourceLocator::defaultRoots();
 		$this->assertCount(1, $roots);

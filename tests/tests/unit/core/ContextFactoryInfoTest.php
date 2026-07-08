@@ -17,6 +17,7 @@ class ContextFactoryInfoTest extends UnitTestCase
     $responseClass = \Quiote\Response\WebResponse::class; // base class acceptable for initialization
     $ctx->setFactoryInfo('response', ['class' => $responseClass, 'parameters' => ['x' => 1]]);
         $info = $ctx->getFactoryInfo('response');
+        $this->assertNotNull($info);
         $this->assertArrayHasKey('class', $info);
         $this->assertArrayHasKey('parameters', $info);
     $this->assertSame($responseClass, $info['class']);
@@ -27,6 +28,7 @@ class ContextFactoryInfoTest extends UnitTestCase
             'other' => 'ignored'
         ]);
         $info2 = $ctx->getFactoryInfo('validation_manager');
+        $this->assertNotNull($info2);
         $this->assertSame(\Quiote\Validator\ValidationManager::class, $info2['class']);
         $this->assertSame('strict', $info2['parameters']['mode']);
     }

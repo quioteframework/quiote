@@ -9,6 +9,9 @@ use Symfony\Component\Routing\RouteCollection;
  * Routes for module TestWithParam (2 routes; built 2025-08-18T17:53:05+00:00)
  */
 final class TestWithParamRoutes {
+    /**
+     * @param array<string, array{gen_path: string, cut: bool, path: string, opt?: array{parent: string|null, action: mixed}, pattern?: string, match_full?: string, match_partial?: string}> $meta
+     */
     public static function addRoutes(RouteCollection $routes, array &$meta): void {
         // DEBUG: name=with_param raw_path=/withparam/{number} gen=/withparam/{number} module=TestWithParam action=MatchedParam
         $routes->add('with_param', new Route('/withparam/{number}', [

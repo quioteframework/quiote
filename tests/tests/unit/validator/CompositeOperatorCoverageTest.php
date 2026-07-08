@@ -20,6 +20,9 @@ require_once __DIR__ . '/../../../lib/validator/DummyValidator.class.php';
  */
 class CompositeOperatorCoverageTest extends UnitTestCase
 {
+    /**
+     * @param array<string, mixed> $params
+     */
     private function vm(array $params = []): ValidationManager
     {
         $vm = $this->getContext()->createInstanceFor('validation_manager');

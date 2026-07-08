@@ -168,6 +168,10 @@ class GettextTranslator extends BasicTranslator implements ResetInterface
 	 */
 	public function loadDomainData($domain)
 	{
+		if($this->locale === null) {
+			throw new QuioteException('Cannot load domain data: GettextTranslator has not been prepared with a locale yet.');
+		}
+
 		$localeName = $this->locale->getIdentifier();
 		$localeNameBases = QuioteLocale::getLookupPath($localeName);
 
@@ -233,6 +237,9 @@ class GettextTranslator extends BasicTranslator implements ResetInterface
 				
 				$funcCode = rtrim($funcCode, ';');
 				$parts = preg_split('#(\?|\:)#', $funcCode, -1, PREG_SPLIT_DELIM_CAPTURE);
+				if ($parts === false) {
+					throw new \Quiote\Exception\QuioteException('Unable to parse plural forms expression: ' . $funcCode);
+				}
 				$parenthesisCount = 0;
 				$unclosedParenthesisCount = 0;
 				$firstParenthesis = true;

@@ -23,7 +23,8 @@ class ExceptionTest extends UnitTestCase
 	}
 
 
-	public static function highlightSnippets()
+	/** @return array<string, array{0: string}> */
+	public static function highlightSnippets(): array
 	{
 		return [
 			'ticket1240' => [
@@ -66,7 +67,7 @@ ob_end_clean();
 	}
 	
 	#[DataProvider('highlightSnippets')]
-	public function testHighlightStringProducesValidXml($code)
+	public function testHighlightStringProducesValidXml(string $code): void
 	{
 		$highlighted = QuioteException::highlightString($code);
 		$highlighted = "<ol>\n<li><code>" . implode("</code></li>\n<li><code>", $highlighted) . "</code></li>\n</ol>";

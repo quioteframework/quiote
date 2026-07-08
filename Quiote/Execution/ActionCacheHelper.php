@@ -64,10 +64,17 @@ final class ActionCacheHelper
      * Mutates $state (sets viewModule/viewName/cacheHit and validation flags if present).
      *
      * @param array<string, mixed> $payload
-     * @param \Quiote\Action\Action|null $actionInstance
      */
-    public static function buildContextFromPayload(array $payload, ActionDescriptor $desc, ExecutionState $state, $actionInstance, WebRequest $request, ?string $contentOverride = null): ActionExecutionContext
+    public static function buildContextFromPayload(array $payload, ActionDescriptor $desc, ExecutionState $state, ?\Quiote\Action\Action $actionInstance, WebRequest $request, ?string $contentOverride = null): ActionExecutionContext
     {
+        if ($actionInstance === null) {
+            // A cache hit is only ever recorded once the action instance has been
+            // successfully created and its isCacheable() consulted, so a null instance
+            // here means the cache/dispatch invariant was violated rather than a normal
+            // "no action yet" state. Fail loudly instead of feeding a bogus placeholder
+            // object into ActionExecutionContext, which requires a real Action.
+            throw new \RuntimeException('ActionCacheHelper::buildContextFromPayload() requires a non-null action instance for a cache hit');
+        }
         $state->viewModule = $payload['view_module'] ?? $state->viewModule;
         $state->viewName = $payload['view_name'] ?? $state->viewName;
         $state->cacheHit = true;
@@ -83,7 +90,7 @@ final class ActionCacheHelper
         }
         $content = $contentOverride ?? ($payload['response_content'] ?? '');
         return new ActionExecutionContext(
-            $actionInstance ?? (object)[],
+            $actionInstance,
             null, // view instance is not reconstructed on cache replay
             $desc->module,
             $desc->action,

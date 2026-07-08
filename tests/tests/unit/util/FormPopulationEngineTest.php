@@ -32,12 +32,20 @@ class FormPopulationEngineTest extends UnitTestCase
 		$this->context = null;
 	}
 
+	private function requireContext(): Context
+	{
+		if ($this->context === null) {
+			throw new \LogicException('Test context is not initialized; setUp() must run first.');
+		}
+		return $this->context;
+	}
+
 	public function testTextValuePopulation(): void
 	{
 		$html = '<!DOCTYPE html><html><body><form action="/"><input type="text" name="foo"></form></body></html>';
 		$content = $this->executeFormPopulationEngine($html, ['foo' => 'bar']);
 		$xpath = $this->loadXpath($content);
-		$this->assertEquals(1, $xpath->query('//input[@value="bar"]')->length);
+		$this->assertEquals(1, $this->queryCount($xpath, '//input[@value="bar"]'));
 	}
 
 	public function testCheckboxValuePopulation(): void
@@ -45,7 +53,7 @@ class FormPopulationEngineTest extends UnitTestCase
 		$html = '<!DOCTYPE html><html><body><form action="/"><input type="checkbox" name="foo" value="1"></form></body></html>';
 		$content = $this->executeFormPopulationEngine($html, ['foo' => '1']);
 		$xpath = $this->loadXpath($content);
-		$this->assertEquals(1, $xpath->query('//input[@checked]')->length);
+		$this->assertEquals(1, $this->queryCount($xpath, '//input[@checked]'));
 	}
 
 	public function testSelectValuePopulation(): void
@@ -53,7 +61,7 @@ class FormPopulationEngineTest extends UnitTestCase
 		$html = '<!DOCTYPE html><html><body><form action="/"><select name="foo"><option value="bar">bar</option></select></form></body></html>';
 		$content = $this->executeFormPopulationEngine($html, ['foo' => 'bar']);
 		$xpath = $this->loadXpath($content);
-		$this->assertEquals(1, $xpath->query('//option[@value="bar" and @selected]')->length);
+		$this->assertEquals(1, $this->queryCount($xpath, '//option[@value="bar" and @selected]'));
 	}
 
 	public function testFieldErrorMessage(): void
@@ -71,7 +79,7 @@ class FormPopulationEngineTest extends UnitTestCase
 		];
 		$content = $this->executeFormPopulationEngine($html, ['foo' => 'bar'], $config);
 		$xpath = $this->loadXpath($content);
-		$this->assertEquals(1, $xpath->query('//input/following-sibling::ul')->length);
+		$this->assertEquals(1, $this->queryCount($xpath, '//input/following-sibling::ul'));
 	}
 
 	public function testErrorMessage(): void
@@ -89,7 +97,7 @@ class FormPopulationEngineTest extends UnitTestCase
 		];
 		$content = $this->executeFormPopulationEngine($html, ['foo' => 'bar'], $config);
 		$xpath = $this->loadXpath($content);
-		$this->assertEquals('ul', $xpath->query('//form/*[1]')->item(0)->nodeName);
+		$this->assertEquals('ul', $this->queryFirst($xpath, '//form/*[1]')?->nodeName);
 	}
 
 	public function testFormsXpathSetting(): void
@@ -100,7 +108,7 @@ class FormPopulationEngineTest extends UnitTestCase
 		];
 		$content = $this->executeFormPopulationEngine($html, ['foo' => 'bar'], $config);
 		$xpath = $this->loadXpath($content);
-		$this->assertEquals(1, $xpath->query('//input[@value="bar"]')->length);
+		$this->assertEquals(1, $this->queryCount($xpath, '//input[@value="bar"]'));
 	}
 
 	public function testErrorCallbacksClosureHtml(): void
@@ -124,7 +132,7 @@ class FormPopulationEngineTest extends UnitTestCase
 		];
 		$content = $this->executeFormPopulationEngine($html, ['foo' => 'bar'], $config);
 		$xpath = $this->loadXpath($content);
-		$this->assertEquals(1, $xpath->query('//ul/li')->length);
+		$this->assertEquals(1, $this->queryCount($xpath, '//ul/li'));
 	}
 
 	public function testErrorCallbacksCallableDomElement(): void
@@ -141,7 +149,7 @@ class FormPopulationEngineTest extends UnitTestCase
 		];
 		$content = $this->executeFormPopulationEngine($html, ['foo' => 'bar'], $config);
 		$xpath = $this->loadXpath($content);
-		$this->assertEquals(1, $xpath->query('//div')->length);
+		$this->assertEquals(1, $this->queryCount($xpath, '//div'));
 	}
 
 	public function testWriteMethodAliasAllowsPost(): void
@@ -153,7 +161,7 @@ class FormPopulationEngineTest extends UnitTestCase
 		$psrRequest = new ServerRequest('POST', 'https://example.test/');
 		$content = $this->executeFormPopulationEngine($html, ['foo' => 'bar'], $config, $psrRequest);
 		$xpath = $this->loadXpath($content);
-		$this->assertEquals(1, $xpath->query('//input[@value="bar"]')->length);
+		$this->assertEquals(1, $this->queryCount($xpath, '//input[@value="bar"]'));
 	}
 
 	public function testIsPostFilterAlwaysReturnsTrue(): void
@@ -257,15 +265,24 @@ class FormPopulationEngineTest extends UnitTestCase
 		return $ref->invoke($object, ...$args);
 	}
 
-	public static function _errorCallback($element, array $errorStrings, array $errors): \DOMElement
+	/**
+	 * @param array<int, string> $errorStrings
+	 * @param array<int, \Quiote\Validator\ValidationError> $errors
+	 */
+	public static function _errorCallback(mixed $element, array $errorStrings, array $errors): \DOMElement
 	{
 		return new \DOMElement('div', implode(',', $errorStrings));
 	}
 
+	/**
+	 * @param array<string, mixed> $parameters
+	 * @param array<string, mixed> $config
+	 */
 	private function executeFormPopulationEngine(string $content, array $parameters, array $config = [], ?ServerRequest $psrRequest = null): string
 	{
+		$context = $this->requireContext();
 		$engine = new FormPopulationEngine();
-		$engine->initialize($this->context);
+		$engine->initialize($context);
 
 		$psr = $psrRequest ?? new ServerRequest('POST', 'https://example.test/');
 		$request = new WebRequest(
@@ -276,7 +293,7 @@ class FormPopulationEngineTest extends UnitTestCase
 			$psr->getProtocolVersion(),
 			$psr->getServerParams()
 		);
-		$request->initialize($this->context);
+		$request->initialize($context);
 
 		foreach($parameters as $key => $value) {
 			$request = $request->setParameter($key, $value);
@@ -290,8 +307,8 @@ class FormPopulationEngineTest extends UnitTestCase
 		}
 
 		$response = new WebResponse();
-		$response->initialize($this->context);
-		$response->setOutputType($this->context->getController()->getOutputType());
+		$response->initialize($context);
+		$response->setOutputType($context->getController()->getOutputType());
 		$response->setContent($content);
 
 		$engine->populate($response, $request);
@@ -300,6 +317,9 @@ class FormPopulationEngineTest extends UnitTestCase
 		return (string) $response->getContent();
 	}
 
+	/**
+	 * @param array<int, string|ValidationArgument> $fields
+	 */
 	private function createValidationReport(array $fields, string $message): ValidationReport
 	{
 		$incident = new ValidationIncident(null, Validator::ERROR);
@@ -323,6 +343,27 @@ class FormPopulationEngineTest extends UnitTestCase
 		$dom->recover = true;
 		$dom->loadHTML($content);
 		return new \DOMXPath($dom);
+	}
+
+	/**
+	 * DOMXPath::query() returns false on an invalid expression; none of the
+	 * expressions used in this test are ever invalid, so this just gives the
+	 * assertions below a plain int/DOMNode to work with.
+	 */
+	private function queryCount(\DOMXPath $xpath, string $expression): int
+	{
+		$result = $xpath->query($expression);
+		return $result === false ? 0 : $result->length;
+	}
+
+	private function queryFirst(\DOMXPath $xpath, string $expression): ?\DOMNode
+	{
+		$result = $xpath->query($expression);
+		if($result === false) {
+			return null;
+		}
+		$node = $result->item(0);
+		return $node instanceof \DOMNode ? $node : null;
 	}
 }
 

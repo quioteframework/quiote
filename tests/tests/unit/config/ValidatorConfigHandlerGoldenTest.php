@@ -27,7 +27,7 @@ require_once(__DIR__ . '/ConfigHandlerTestBase.php');
  */
 class ValidatorConfigHandlerGoldenTest extends ConfigHandlerTestBase
 {
-	protected function getContext()
+	protected function getContext(): Context
 	{
 		if (Config::getNullableString('core.default_context') === null) {
 			Config::set('core.default_context', 'web', true, true);
@@ -40,11 +40,14 @@ class ValidatorConfigHandlerGoldenTest extends ConfigHandlerTestBase
 		$VCH = new ValidatorConfigHandler();
 		$document = $this->parseConfiguration($configFile, $xslFile, $environment);
 		$code = $VCH->execute($document);
-		$code = preg_replace('/^\/\/ Date: .*$/m', '// Date: <normalized>', $code);
+		// preg_replace() only returns null on a regex engine error; fall back to
+		// the pre-replacement value in that (effectively unreachable) case
+		// rather than widening this method's return type.
+		$code = preg_replace('/^\/\/ Date: .*$/m', '// Date: <normalized>', $code) ?? $code;
 		// Normalize the source path too: it's a function of how the caller
 		// resolved the file (double slashes etc. are harmless), not of the
 		// compiler logic this test is meant to pin down.
-		return preg_replace('/^\/\/ Compiled from: .*$/m', '// Compiled from: <normalized>', $code);
+		return preg_replace('/^\/\/ Compiled from: .*$/m', '// Compiled from: <normalized>', $code) ?? $code;
 	}
 
 	private function assertMatchesGolden(string $goldenName, string $configFile, ?string $xslFile, string $environment): void
@@ -56,7 +59,7 @@ class ValidatorConfigHandlerGoldenTest extends ConfigHandlerTestBase
 		$this->assertSame($expected, $actual, 'Compiled output for "' . $goldenName . '" drifted from the golden fixture.');
 	}
 
-	public function testMainTranslationDomainFixture()
+	public function testMainTranslationDomainFixture(): void
 	{
 		$this->assertMatchesGolden(
 			'main_translation_domain',
@@ -66,7 +69,7 @@ class ValidatorConfigHandlerGoldenTest extends ConfigHandlerTestBase
 		);
 	}
 
-	public function testMainTranslationDomain10BehaviourFixture()
+	public function testMainTranslationDomain10BehaviourFixture(): void
 	{
 		$this->assertMatchesGolden(
 			'main_translation_domain_1_0',
@@ -76,7 +79,7 @@ class ValidatorConfigHandlerGoldenTest extends ConfigHandlerTestBase
 		);
 	}
 
-	public function testMainErrorDefinitionsFixture()
+	public function testMainErrorDefinitionsFixture(): void
 	{
 		$this->assertMatchesGolden(
 			'main_error_definitions',
@@ -86,7 +89,7 @@ class ValidatorConfigHandlerGoldenTest extends ConfigHandlerTestBase
 		);
 	}
 
-	public function testKnownParameterFixture()
+	public function testKnownParameterFixture(): void
 	{
 		$this->assertMatchesGolden(
 			'known_parameter',
@@ -96,7 +99,7 @@ class ValidatorConfigHandlerGoldenTest extends ConfigHandlerTestBase
 		);
 	}
 
-	public function testMethodHttpFixture()
+	public function testMethodHttpFixture(): void
 	{
 		$this->assertMatchesGolden(
 			'method_http',

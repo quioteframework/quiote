@@ -16,14 +16,14 @@ class RouteCollectionBuilderTest extends PhpUnitTestCase
 			}
 
 			#[\Override]
-			protected function moduleDirs(): ?iterable
+			protected function moduleDirs(): iterable
 			{
 				return [$this->moduleDir];
 			}
 		};
 	}
 
-	public function testBuiltCollectionMatchesThroughTheRealUrlMatcher()
+	public function testBuiltCollectionMatchesThroughTheRealUrlMatcher(): void
 	{
 		$routing = $this->makeAttributeRouting();
 
@@ -39,7 +39,7 @@ class RouteCollectionBuilderTest extends PhpUnitTestCase
 		$this->assertSame('html', $attributes['_output_type']);
 	}
 
-	public function testMethodConstrainedRouteRejectsWrongMethod()
+	public function testMethodConstrainedRouteRejectsWrongMethod(): void
 	{
 		$routing = $this->makeAttributeRouting();
 		$routing->getRequestContext()->setMethod('GET');
@@ -48,7 +48,7 @@ class RouteCollectionBuilderTest extends PhpUnitTestCase
 		$routing->match('/attr-routing/new');
 	}
 
-	public function testMethodConstrainedRouteAcceptsDeclaredMethod()
+	public function testMethodConstrainedRouteAcceptsDeclaredMethod(): void
 	{
 		$routing = $this->makeAttributeRouting();
 		$routing->getRequestContext()->setMethod('POST');
@@ -58,7 +58,7 @@ class RouteCollectionBuilderTest extends PhpUnitTestCase
 		$this->assertSame('Index.Add', $attributes['_action']);
 	}
 
-	public function testUnknownPathIsNotResourceFound()
+	public function testUnknownPathIsNotResourceFound(): void
 	{
 		$routing = $this->makeAttributeRouting();
 
@@ -66,7 +66,7 @@ class RouteCollectionBuilderTest extends PhpUnitTestCase
 		$routing->match('/no-such-route');
 	}
 
-	public function testGenReversesRouteToOriginalPath()
+	public function testGenReversesRouteToOriginalPath(): void
 	{
 		$routing = $this->makeAttributeRouting();
 

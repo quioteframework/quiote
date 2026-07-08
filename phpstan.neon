@@ -1,8 +1,11 @@
 parameters:
-	level: 6
+	level: 8
 	bootstrapFiles:
 		- etc/phpstan/bootstrap.php
 	dynamicConstantNames:
 		- QUIOTE_USE_APCU_CONFIG_CACHE
 	paths:
 		- Quiote
+		- tests
+	excludePaths:
+		- tests/sandbox/app/cache/*

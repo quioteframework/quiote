@@ -43,9 +43,28 @@ class TelemetryCategoryFilteringTest extends TestCase
         TelemetryBootstrap::configureFromConfig();
     }
 
+    private function spanExporter(): \OpenTelemetry\SDK\Trace\SpanExporter\InMemoryExporter
+    {
+        $exporter = TelemetryBootstrap::inMemorySpanExporter();
+        if ($exporter === null) {
+            throw new \RuntimeException('Expected an in-memory span exporter to be configured; call enable() first.');
+        }
+        return $exporter;
+    }
+
+    private function metricExporter(): \OpenTelemetry\SDK\Metrics\MetricExporter\InMemoryExporter
+    {
+        $exporter = TelemetryBootstrap::inMemoryMetricExporter();
+        if ($exporter === null) {
+            throw new \RuntimeException('Expected an in-memory metric exporter to be configured; call enable() first.');
+        }
+        return $exporter;
+    }
+
+    /** @return list<string> */
     private function exportedSpanNames(): array
     {
-        return array_map(static fn($s) => $s->getName(), TelemetryBootstrap::inMemorySpanExporter()->getSpans());
+        return array_values(array_map(static fn($s) => $s->getName(), $this->spanExporter()->getSpans()));
     }
 
     // --- basic on/off -----------------------------------------------------------
@@ -66,7 +85,7 @@ class TelemetryCategoryFilteringTest extends TestCase
         $this->assertInstanceOf(NoopSpanHandle::class, $span);
         $span->end();
 
-        $this->assertCount(0, TelemetryBootstrap::inMemorySpanExporter()->getSpans());
+        $this->assertCount(0, $this->spanExporter()->getSpans());
     }
 
     public function testExactCategoryMatchIsDisabled(): void
@@ -199,7 +218,7 @@ class TelemetryCategoryFilteringTest extends TestCase
         $skipped->end();
         $root->end();
 
-        $spans = TelemetryBootstrap::inMemorySpanExporter()->getSpans();
+        $spans = $this->spanExporter()->getSpans();
         $byName = [];
         foreach ($spans as $s) {
             $byName[$s->getName()] = $s;
@@ -240,7 +259,7 @@ class TelemetryCategoryFilteringTest extends TestCase
         Trace::metrics()->addCounter('http.server.request.count', 1);
         TelemetryBootstrap::flushAfterRequest();
 
-        $names = array_map(static fn($m) => $m->name, TelemetryBootstrap::inMemoryMetricExporter()->collect());
+        $names = array_map(static fn($m) => $m->name, $this->metricExporter()->collect());
         $this->assertContains('http.server.request.count', $names);
     }
 }

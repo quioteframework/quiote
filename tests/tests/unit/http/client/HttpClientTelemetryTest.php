@@ -54,6 +54,21 @@ class HttpClientTelemetryTest extends TestCase
         return HttpClient::fromConfig($config);
     }
 
+    /**
+     * RecordingTransport::lastRequest() is nullable (nothing recorded yet);
+     * every call site in this file only reaches for it after issuing a
+     * request, so a missing recording indicates a broken test fixture
+     * rather than a case callers should silently tolerate.
+     */
+    private function recordedRequest(RecordingTransport $transport): \Psr\Http\Message\RequestInterface
+    {
+        $request = $transport->lastRequest();
+        if ($request === null) {
+            throw new \RuntimeException('Expected the transport to have recorded a request.');
+        }
+        return $request;
+    }
+
     public function testInjectsTraceparentIntoOutboundRequestUnderAnActiveSpan(): void
     {
         $this->enableTelemetry();
@@ -67,7 +82,7 @@ class HttpClientTelemetryTest extends TestCase
             $root->end();
         }
 
-        $traceparent = $transport->lastRequest()->getHeaderLine('traceparent');
+        $traceparent = $this->recordedRequest($transport)->getHeaderLine('traceparent');
         $this->assertNotSame('', $traceparent, 'expected a traceparent header to be injected');
         // W3C format: version-traceid(32 hex)-spanid(16 hex)-flags(2 hex)
         $this->assertMatchesRegularExpression('/^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$/', $traceparent);
@@ -81,7 +96,7 @@ class HttpClientTelemetryTest extends TestCase
         $transport = new RecordingTransport(new Response(200));
         $this->client($transport)->get('https://downstream.example/api');
 
-        $this->assertSame('', $transport->lastRequest()->getHeaderLine('traceparent'));
+        $this->assertSame('', $this->recordedRequest($transport)->getHeaderLine('traceparent'));
     }
 
     public function testRequestStillSucceedsWithTelemetryOnAndNoActiveSpan(): void

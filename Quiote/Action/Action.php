@@ -154,6 +154,11 @@ abstract class Action implements ResetInterface
 			return;
 		}
 
+		$context = $this->context;
+		if ($context === null) {
+			return;
+		}
+
 		$validationManager = $initContext->getValidationManager();
 		if (!$validationManager instanceof IValidatorContainer) {
 			return;
@@ -164,7 +169,7 @@ abstract class Action implements ResetInterface
 			$initContext->getModuleName(),
 			$initContext->getActionName(),
 			$validationManager,
-			$this->context,
+			$context,
 			$initContext->getRequestMethod()
 		);
 	}
@@ -237,6 +242,8 @@ abstract class Action implements ResetInterface
 
 	/**
 	 * @see        AttributeHolder::getAttributes()
+	 * Returned by reference and aliased to the underlying namespace store, whose
+	 * declared value type is array<int|string, mixed>; kept consistent with that here.
 	 * @return     array<int|string, mixed>
 	 * @since      1.0.0
 	 */
@@ -335,7 +342,7 @@ abstract class Action implements ResetInterface
 
 	/**
 	 * @see        AttributeHolder::setAttributes()
-	 * @param      array<int|string, mixed> $attributes
+	 * @param      array<string, mixed> $attributes
 	 * @return     void
 	 * @since      1.0.0
 	 */
@@ -348,6 +355,8 @@ abstract class Action implements ResetInterface
 
 	/**
 	 * @see        AttributeHolder::setAttributesByRef()
+	 * The reference becomes aliased to the underlying namespace store, whose declared
+	 * value type is array<int|string, mixed>; kept consistent with that here.
 	 * @param      array<int|string, mixed> $attributes
 	 * @return     void
 	 * @since      1.0.0

@@ -7,7 +7,22 @@ use Quiote\Http\PsrResponseAdapter;
 
 class PsrToQuioteRoundTripTest extends UnitTestCase
 {
-    public function testPsrMutationReflectedIntoQuioteResponse()
+    /**
+     * getPsrResponse() is nullable in general (no PSR response attached
+     * yet), but every call in this test happens right after
+     * setPsrResponse(), so a null here would mean WebResponse failed to
+     * retain what it was just given.
+     */
+    private function requirePsrResponse(WebResponse $web): \Psr\Http\Message\ResponseInterface
+    {
+        $psr = $web->getPsrResponse();
+        if ($psr === null) {
+            throw new \RuntimeException('Expected WebResponse to retain the attached PSR response.');
+        }
+        return $psr;
+    }
+
+    public function testPsrMutationReflectedIntoQuioteResponse(): void
     {
         $web = new WebResponse();
         $psrFactory = new Psr17Factory();
@@ -17,12 +32,12 @@ class PsrToQuioteRoundTripTest extends UnitTestCase
         $web->setPsrResponse($psr);
 
         // WebResponse should have imported the body/status on attach; headers are accessible via getPsrResponse()
-        $this->assertEquals(200, $web->getPsrResponse()->getStatusCode());
-        $this->assertTrue($web->getPsrResponse()->hasHeader('X-From-PSR'));
+        $this->assertEquals(200, $this->requirePsrResponse($web)->getStatusCode());
+        $this->assertTrue($this->requirePsrResponse($web)->hasHeader('X-From-PSR'));
 
         // Now mutate PSR response via adapter and ensure WebResponse can reflect changes when re-wrapped
-        $psr2 = $web->getPsrResponse()->withHeader('X-New','y');
+        $psr2 = $this->requirePsrResponse($web)->withHeader('X-New','y');
         $web->setPsrResponse($psr2);
-        $this->assertTrue($web->getPsrResponse()->hasHeader('X-New'));
+        $this->assertTrue($this->requirePsrResponse($web)->hasHeader('X-New'));
     }
 }

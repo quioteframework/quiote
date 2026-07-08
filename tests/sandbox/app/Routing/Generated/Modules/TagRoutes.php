@@ -9,6 +9,9 @@ use Symfony\Component\Routing\RouteCollection;
  * Routes for module Tag (4 routes; built 2025-08-18T17:53:05+00:00)
  */
 final class TagRoutes {
+    /**
+     * @param array<string, array{gen_path: string, cut: bool, path: string, opt?: array{parent: string|null, action: mixed}, pattern?: string, match_full?: string, match_partial?: string}> $meta
+     */
     public static function addRoutes(RouteCollection $routes, array &$meta): void {
         // DEBUG: name=tag raw_path=/tags gen=/tags module=Tag action=Index
         $routes->add('tag', new Route('/tags', [

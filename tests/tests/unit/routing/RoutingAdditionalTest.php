@@ -7,9 +7,15 @@ use Symfony\Component\Routing\Route;
 
 class RoutingAdditionalTest extends TestCase
 {
+    /**
+     * @param array<string, array{pattern: string, defaults?: array<string, mixed>}> $spec
+     */
     private function routing(array $spec): Routing
     {
         return new class($spec) extends Routing {
+            /**
+             * @param array<string, array{pattern: string, defaults?: array<string, mixed>}> $spec
+             */
             public function __construct(private readonly array $spec) { parent::__construct(); }
             protected function build(): array {
                 $rc = new RouteCollection();
@@ -35,7 +41,7 @@ class RoutingAdditionalTest extends TestCase
         };
     }
 
-    public function testBaseHrefWithForwardedHeaders()
+    public function testBaseHrefWithForwardedHeaders(): void
     {
         $routing = $this->routing([]);
         $prevHost = $_SERVER['HTTP_X_FORWARDED_HOST'] ?? null;
@@ -48,7 +54,7 @@ class RoutingAdditionalTest extends TestCase
         if ($prevProto === null) { unset($_SERVER['HTTP_X_FORWARDED_PROTO']); } else { $_SERVER['HTTP_X_FORWARDED_PROTO'] = $prevProto; }
     }
 
-    public function testGenStarSuffixRefillFlagNoop()
+    public function testGenStarSuffixRefillFlagNoop(): void
     {
         $routing = $this->routing([
             'file' => ['pattern' => '/f/{name}', 'defaults' => ['name' => 'def']],
@@ -57,7 +63,7 @@ class RoutingAdditionalTest extends TestCase
         $this->assertSame('/f/abc', $url);
     }
 
-    public function testGenOmitDefaultsStopsOnNonDefaultSegment()
+    public function testGenOmitDefaultsStopsOnNonDefaultSegment(): void
     {
         $routing = $this->routing([
             'combo' => ['pattern' => '/a/{x}/{y}/{z}', 'defaults' => ['x' => 'dx', 'y' => 'dy', 'z' => 'dz']],
@@ -69,7 +75,7 @@ class RoutingAdditionalTest extends TestCase
         $this->assertSame('/a/dx/Y!/dz', $mixed, 'Non-rightmost differing segment prevents pruning of earlier defaults.');
     }
 
-    public function testParseRouteStringExtractsTokens()
+    public function testParseRouteStringExtractsTokens(): void
     {
         $routing = $this->routing([]);
         [$pattern, $orig, $vars] = $routing->parseRouteString('/file/{name}/{ext}');
@@ -78,7 +84,7 @@ class RoutingAdditionalTest extends TestCase
         $this->assertSame('/file/{name}/{ext}', $orig);
     }
 
-    public function testGenSelfMergesQueryOverrides()
+    public function testGenSelfMergesQueryOverrides(): void
     {
         $routing = $this->routing([]);
         $prevScript = $_SERVER['SCRIPT_NAME'] ?? null;

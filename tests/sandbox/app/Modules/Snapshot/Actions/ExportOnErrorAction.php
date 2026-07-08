@@ -23,10 +23,15 @@ class ExportOnErrorAction extends Action
         return false;
     }
 
-    public function handleReadError(WebRequest $rd)
+    public function handleReadError(WebRequest $rd): string
     {
+        $context = $this->getContext();
+        if ($context === null) {
+            throw new \RuntimeException('ExportOnErrorAction requires an initialized Context.');
+        }
+
         $rd = $rd->setParameter('error_export', 'exported-on-failure');
-        $this->getContext()->setRequest($rd);
+        $context->setRequest($rd);
         return 'Error';
     }
 }

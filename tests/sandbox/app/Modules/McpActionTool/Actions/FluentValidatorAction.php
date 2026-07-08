@@ -24,16 +24,22 @@ class FluentValidatorAction extends Action
     #[\Override]
     public function isSimple(): bool { return false; }
 
-    public function executeWrite()
+    public function executeWrite(): string
     {
         return 'Success';
     }
 
     public function registerWriteValidators(): void
     {
+        $initContext = $this->getInitContext();
+        $context = $this->getContext();
+        if ($initContext === null || $context === null) {
+            throw new \RuntimeException('FluentValidatorAction requires an initialized Action context.');
+        }
+
         $v = ValidatorBuilder::on(
-            $this->getInitContext()->getValidationManager(),
-            $this->getContext(),
+            $initContext->getValidationManager(),
+            $context,
         );
         $v->string('title', required: true)
             ->minLength(2)

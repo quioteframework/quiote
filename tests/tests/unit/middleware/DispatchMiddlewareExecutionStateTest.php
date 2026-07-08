@@ -30,7 +30,7 @@ class DispatchMiddlewareExecutionStateTest extends UnitTestCase
         $this->getContext()->getController()->initializeModule('Cache');
     }
 
-    private function req(ActionDescriptor $descriptor, ExecutionState $state) {
+    private function req(ActionDescriptor $descriptor, ExecutionState $state): \Psr\Http\Message\ServerRequestInterface {
         // Cache is not isSimple() (it exercises a real execute() call for
         // caching tests), so DispatchMiddleware requires a validation
         // decision -- normally set by ValidationMiddleware, which this test
@@ -49,7 +49,7 @@ class DispatchMiddlewareExecutionStateTest extends UnitTestCase
             ->withAttribute(ExecutionState::class, $state);
     }
 
-    public function testExecutionStateCacheHitFlag()
+    public function testExecutionStateCacheHitFlag(): void
     {
         $controller = $this->getContext()->getController();
         $controller->createActionInstance('Cache','Cache');
@@ -57,7 +57,7 @@ class DispatchMiddlewareExecutionStateTest extends UnitTestCase
         $mw = new DispatchMiddleware($controller);
     \Sandbox\Modules\Cache\Actions\CacheAction::$execCount = 0;
         $state1 = new ExecutionState();
-    $mw->process($this->req($d1, $state1), new class(new Psr17Factory) implements \Psr\Http\Server\RequestHandlerInterface { public function __construct(private $f){} public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface { return $this->f->createResponse(200);} });
+    $mw->process($this->req($d1, $state1), new class(new Psr17Factory) implements \Psr\Http\Server\RequestHandlerInterface { public function __construct(private Psr17Factory $f){} public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface { return $this->f->createResponse(200);} });
     $this->assertSame(1, \Sandbox\Modules\Cache\Actions\CacheAction::$execCount, 'First run should execute action');
         $this->assertFalse($state1->cacheHit, 'cacheHit should remain false on miss');
 
@@ -65,7 +65,7 @@ class DispatchMiddlewareExecutionStateTest extends UnitTestCase
         $controller->createActionInstance('Cache','Cache');
     $d2 = ActionDescriptor::fromController($controller,'Cache','Cache','GET', strtolower($controller->getOutputType()->getName()));
         $state2 = new ExecutionState();
-    $mw->process($this->req($d2, $state2), new class(new Psr17Factory) implements \Psr\Http\Server\RequestHandlerInterface { public function __construct(private $f){} public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface { return $this->f->createResponse(200);} });
+    $mw->process($this->req($d2, $state2), new class(new Psr17Factory) implements \Psr\Http\Server\RequestHandlerInterface { public function __construct(private Psr17Factory $f){} public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface { return $this->f->createResponse(200);} });
     $this->assertSame(1, \Sandbox\Modules\Cache\Actions\CacheAction::$execCount, 'Second run should not re-execute action');
         $this->assertTrue($state2->cacheHit, 'cacheHit should be true after cache replay');
     }

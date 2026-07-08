@@ -28,11 +28,7 @@ final class SecurityForwardLoopLimitTest extends UnitTestCase
         $u = $this->getContext()->getUser();
         if(method_exists($u,'setAuthenticated')) { $u->setAuthenticated(false); }
         // Ensure context has an WebRequest (required by ValidationMiddleware)
-        $ctxReq = $this->getContext()->getRequest();
-        if (!($ctxReq instanceof \Quiote\Request\WebRequest)) {
-            // Force recreation via factory if needed
-            $this->getContext()->getRequest();
-        }
+        $this->getContext()->getRequest();
     }
 
     private function buildPsr(): \Psr\Http\Message\ServerRequestInterface
@@ -57,7 +53,7 @@ final class SecurityForwardLoopLimitTest extends UnitTestCase
         $psr = $this->buildPsr()->withAttribute(ExecutionState::class, $state);
         $resp = null;
         for($i=0;$i<7;$i++) {
-            $resp = $security->process($psr, new class($validation,$dispatch) implements \Psr\Http\Server\RequestHandlerInterface { public function __construct(private $validation, private $dispatch){} public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface { return $this->validation->process($r, new class($this->dispatch) implements \Psr\Http\Server\RequestHandlerInterface { public function __construct(private $dispatch){} public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface { return $this->dispatch->process($r, new class implements \Psr\Http\Server\RequestHandlerInterface { public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface { return (new Psr17Factory())->createResponse(200); } }); } }); } });
+            $resp = $security->process($psr, new class($validation,$dispatch) implements \Psr\Http\Server\RequestHandlerInterface { public function __construct(private ValidationMiddleware $validation, private DispatchMiddleware $dispatch){} public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface { return $this->validation->process($r, new class($this->dispatch) implements \Psr\Http\Server\RequestHandlerInterface { public function __construct(private DispatchMiddleware $dispatch){} public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface { return $this->dispatch->process($r, new class implements \Psr\Http\Server\RequestHandlerInterface { public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface { return (new Psr17Factory())->createResponse(200); } }); } }); } });
             if($resp->getStatusCode() === 508) { break; }
             // Reattach mutated execution state for next pass
             $psr = $psr->withAttribute(ExecutionState::class, $state);

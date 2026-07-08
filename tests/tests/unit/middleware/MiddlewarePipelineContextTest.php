@@ -24,13 +24,14 @@ class MiddlewarePipelineContextTest extends TestCase
     private function ctx(): Context
     { return Context::getInstance(); }
 
+    /** @return list<string> */
     private function buildAndGetOrder(MiddlewarePipeline $p): array
     {
         $p->handle(new ServerRequest('GET', '/test'));
         return $p->debugStack();
     }
 
-    public function testBaselineOrderingStartsWithErrorHandlingAndHasTerminal()
+    public function testBaselineOrderingStartsWithErrorHandlingAndHasTerminal(): void
     {
         $pipeline = new MiddlewarePipeline($this->ctx());
     $order = $this->buildAndGetOrder($pipeline);
@@ -44,7 +45,7 @@ class MiddlewarePipelineContextTest extends TestCase
         $this->assertLessThan($traceIdx, $timingIdx, 'Timing should appear before Trace');
     }
 
-    public function testDisableTimingRemovesItButKeepsTrace()
+    public function testDisableTimingRemovesItButKeepsTrace(): void
     {
         MiddlewareCatalog::initialize([
             TimingMiddleware::class => false,
@@ -55,7 +56,7 @@ class MiddlewarePipelineContextTest extends TestCase
         $this->assertContains(TraceMiddleware::class, $order);
     }
 
-    public function testDisableTraceRemovesItButKeepsTiming()
+    public function testDisableTraceRemovesItButKeepsTiming(): void
     {
         MiddlewareCatalog::initialize([
             TraceMiddleware::class => false,
@@ -66,7 +67,7 @@ class MiddlewarePipelineContextTest extends TestCase
         $this->assertNotContains(TraceMiddleware::class, $order);
     }
 
-    public function testDisableBothTimingAndTrace()
+    public function testDisableBothTimingAndTrace(): void
     {
         MiddlewareCatalog::initialize([
             TimingMiddleware::class => false,
@@ -78,7 +79,7 @@ class MiddlewarePipelineContextTest extends TestCase
         $this->assertNotContains(TraceMiddleware::class, $order);
     }
 
-    public function testDisableAllOptionalRemovesExecutionTimeTimingTrace()
+    public function testDisableAllOptionalRemovesExecutionTimeTimingTrace(): void
     {
         MiddlewareCatalog::initialize([
             TimingMiddleware::class => false,

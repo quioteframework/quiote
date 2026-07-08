@@ -15,7 +15,7 @@ require_once(__DIR__ . '/ConfigHandlerTestBase.php');
  */
 class FactoryConfigHandlerGoldenTest extends ConfigHandlerTestBase
 {
-	public function testFactoriesFixtureMatchesGolden()
+	public function testFactoriesFixtureMatchesGolden(): void
 	{
 		Config::set('core.use_translation', true, true);
 
@@ -27,8 +27,10 @@ class FactoryConfigHandlerGoldenTest extends ConfigHandlerTestBase
 			'testing'
 		);
 		$code = $h->execute($document);
-		$code = preg_replace('/^\/\/ Date: .*$/m', '// Date: <normalized>', $code);
-		$code = preg_replace('/^\/\/ Compiled from: .*$/m', '// Compiled from: <normalized>', $code);
+		// preg_replace() only returns null on a regex engine error; fall back to
+		// the pre-replacement value in that (effectively unreachable) case.
+		$code = preg_replace('/^\/\/ Date: .*$/m', '// Date: <normalized>', $code) ?? $code;
+		$code = preg_replace('/^\/\/ Compiled from: .*$/m', '// Compiled from: <normalized>', $code) ?? $code;
 
 		$goldenFile = __DIR__ . '/golden/factories_default.php.golden';
 		$this->assertFileExists($goldenFile);

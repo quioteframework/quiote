@@ -42,10 +42,10 @@ class ActionAttributeSnapshotTest extends UnitTestCase
             ->withAttribute(ExecutionState::class, $execState);
     }
 
-    public function testSnapshotImmutable()
+    public function testSnapshotImmutable(): void
     {
         $mw = new DispatchMiddleware($this->getContext()->getController());
-        $handler = new class(new Psr17Factory) implements \Psr\Http\Server\RequestHandlerInterface { public function __construct(private $f){} public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface { return $this->f->createResponse(200);} };
+        $handler = new class(new Psr17Factory) implements \Psr\Http\Server\RequestHandlerInterface { public function __construct(private Psr17Factory $f){} public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface { return $this->f->createResponse(200);} };
         $resp = $mw->process($this->req(), $handler);
         $this->assertSame('SNAPSHOT_OK', (string)$resp->getBody());
     $this->assertArrayHasKey('alpha', SnapshotAction::$initialAttributes);

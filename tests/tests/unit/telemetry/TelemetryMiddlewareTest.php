@@ -59,6 +59,7 @@ class TelemetryMiddlewareTest extends TestCase
     {
         return new class($response, $onHandle) implements RequestHandlerInterface {
             public ?ServerRequestInterface $seen = null;
+            /** @param ?callable $onHandle */
             public function __construct(private ResponseInterface $response, private $onHandle) {}
             public function handle(ServerRequestInterface $request): ResponseInterface
             {
@@ -71,15 +72,32 @@ class TelemetryMiddlewareTest extends TestCase
         };
     }
 
+    /**
+     * TelemetryBootstrap::inMemorySpanExporter() is nullable (unset unless
+     * `telemetry.exporter = none` was configured via enable()); every call
+     * site in this file only reaches for it after enable(), so a missing
+     * exporter indicates a broken test fixture rather than a case callers
+     * should silently tolerate.
+     * @return array<int, mixed>
+     */
     private function exportedSpans(): array
     {
-        return TelemetryBootstrap::inMemorySpanExporter()->getSpans();
+        $exporter = TelemetryBootstrap::inMemorySpanExporter();
+        if ($exporter === null) {
+            throw new \RuntimeException('Expected an in-memory span exporter to be configured.');
+        }
+        return $exporter->getSpans();
     }
 
+    /** @return list<string> */
     private function exportedMetricNames(): array
     {
         TelemetryBootstrap::flushAfterRequest();
-        return array_map(static fn($m) => $m->name, TelemetryBootstrap::inMemoryMetricExporter()->collect());
+        $exporter = TelemetryBootstrap::inMemoryMetricExporter();
+        if ($exporter === null) {
+            throw new \RuntimeException('Expected an in-memory metric exporter to be configured.');
+        }
+        return array_values(array_map(static fn($m) => $m->name, $exporter->collect()));
     }
 
     // --- disabled: pure pass-through ------------------------------------------

@@ -11,7 +11,7 @@ use Quiote\Context;
 abstract class XmlConfigHandler extends BaseConfigHandler implements IXmlConfigHandler
 {
 	/**
-	 * @var        Context The context to work with (if available).
+	 * @var        ?Context The context to work with (if available).
 	 */
 	protected $context = null;
 	

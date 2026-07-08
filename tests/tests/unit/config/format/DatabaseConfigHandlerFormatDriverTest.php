@@ -31,7 +31,7 @@ class DatabaseConfigHandlerFormatDriverTest extends PhpUnitTestCase
 		parent::tearDown();
 	}
 
-	public function testPhpArrayDatabasesFileCompilesThroughDatabaseConfigHandler()
+	public function testPhpArrayDatabasesFileCompilesThroughDatabaseConfigHandler(): void
 	{
 		file_put_contents($this->dir . '/databases.php', <<<'PHP'
 <?php
@@ -54,7 +54,7 @@ PHP);
 		$this->assertStringContainsString("\$this->defaultDatabaseName = 'main';", $code);
 	}
 
-	public function testUndefinedDefaultDatabaseThrowsRegardlessOfSourceFormat()
+	public function testUndefinedDefaultDatabaseThrowsRegardlessOfSourceFormat(): void
 	{
 		file_put_contents($this->dir . '/databases.php', <<<'PHP'
 <?php

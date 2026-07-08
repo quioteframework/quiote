@@ -15,7 +15,7 @@ class ViewFactoryTest extends UnitTestCase
         return new ViewFactory($this->getContext()->getController());
     }
 
-    public function testCreateSimpleViewWithAttributesSnapshot()
+    public function testCreateSimpleViewWithAttributesSnapshot(): void
     {
         // Use existing sandbox Cache/Cache action (simple) which returns Success view
         $controller = $this->getContext()->getController();
@@ -32,11 +32,13 @@ class ViewFactoryTest extends UnitTestCase
         $factory = $this->makeFactory();
     $view = $factory->create($ctx->viewModuleName, $ctx->viewName, $descriptor->module, $descriptor->action, $descriptor->outputType, $this->getContext()->getRequest(), $ctx->actionAttributes);
         $this->assertNotNull($view, 'ViewFactory should create view instance');
-        $this->assertSame($ctx->viewModuleName, $view->getInitContext()->getViewModuleName());
-    $this->assertSame($ctx->viewName, $view->getInitContext()->getViewName());
+        $initContext = $view->getInitContext();
+        $this->assertNotNull($initContext, 'View should have an init context after creation');
+        $this->assertSame($ctx->viewModuleName, $initContext->getViewModuleName());
+        $this->assertSame($ctx->viewName, $initContext->getViewName());
     }
 
-    public function testCreateMissingViewReturnsNull()
+    public function testCreateMissingViewReturnsNull(): void
     {
         $factory = $this->makeFactory();
         $view = $factory->create('Cache','__DoesNotExist__','Cache','Cache','html',null,[]);

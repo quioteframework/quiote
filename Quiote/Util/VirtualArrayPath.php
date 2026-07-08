@@ -21,12 +21,12 @@ class VirtualArrayPath implements \Stringable
 	
 	/**
 	 * constructor
-	 * @param      ?string $path The path to be handled by the object
+	 * @param      string|int|null $path The path to be handled by the object
 	 * @since      1.0.0
 	 */
-	public function __construct(?string $path)
+	public function __construct(string|int|null $path)
 	{
-		if ($path == null) $path = "";
+		$path = $path === null ? "" : (string) $path;
 		if(strlen($path) == 0) {
 			$this->absolute = true;
 			return;
@@ -152,19 +152,19 @@ class VirtualArrayPath implements \Stringable
 	
 	/**
 	 * Appends one or more components to the path.
-	 * @param      string $path The components to be added.
+	 * @param      string|int $path The components to be added.
 	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function push($path)
 	{
-		$parts = ArrayPathDefinition::getPartsFromPath($path);
+		$parts = ArrayPathDefinition::getPartsFromPath((string) $path);
 		$this->parts = array_merge($this->parts, $parts['parts']);
 	}
 
 	/**
 	 * Clones this path, appends one or more components to it and returns it.
-	 * @param      string $path the components to be added.
+	 * @param      string|int $path the components to be added.
 	 * @return     static
 	 * @since      1.0.0
 	 */
@@ -201,13 +201,13 @@ class VirtualArrayPath implements \Stringable
 
 	/**
 	 * Prepends one or more components to the path.
-	 * @param      string $path The components to be prepended.
+	 * @param      string|int $path The components to be prepended.
 	 * @return     void
 	 * @since      1.0.0
 	 */
 	public function unshift($path)
 	{
-		$parts = ArrayPathDefinition::getPartsFromPath($path);
+		$parts = ArrayPathDefinition::getPartsFromPath((string) $path);
 		$this->parts = array_merge($parts['parts'], $this->parts);
 	}
 

@@ -203,6 +203,9 @@ class ActionViewCachingTest extends TestCase
         $m2_action_html = $this->cache->get('Module2', 'Action', 'html');
         $m1_action_json = $this->cache->get('Module1', 'Action', 'json');
 
+        $this->assertNotNull($m1_action_html);
+        $this->assertNotNull($m2_action_html);
+        $this->assertNotNull($m1_action_json);
         $this->assertEquals('Test', $m1_action_html['response_content']);
         $this->assertEquals('Different Module', $m2_action_html['response_content']);
         $this->assertEquals('Different OutputType', $m1_action_json['response_content']);

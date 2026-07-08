@@ -22,20 +22,7 @@ class SampleSecurityUser extends SecurityUser
 
 class SecurityUserTest extends UnitTestCase
 {
-
-	protected $context;
-	
-	public function initialize(Context $context, array $parameters = [])
-	{
-		$this->context = $context;
-		
-		if(count($parameters)) {
-			$this->setParameters($parameters);
-		}
-		$this->attributes = [];
-	}
-	
-	private $_u = null;
+	private SampleSecurityUser $_u;
 
 	#[\Override]
     public function setUp(): void
@@ -50,7 +37,7 @@ class SecurityUserTest extends UnitTestCase
 		$this->_u->clearCredentials();
 	}
 
-	public function testaddCredential()
+	public function testaddCredential(): void
 	{
 		$this->_u->clearCredentials();
 		$this->_u->addCredential('test1');
@@ -59,7 +46,7 @@ class SecurityUserTest extends UnitTestCase
 		$this->assertTrue($this->_u->hasCredentials('test2'));
 	}
 	
-	public function testhasCredentials()
+	public function testhasCredentials(): void
 	{
 		$this->_u->clearCredentials();
 		$this->_u->addCredential('test1');
@@ -76,7 +63,7 @@ class SecurityUserTest extends UnitTestCase
 		$this->assertFalse($this->_u->hasCredentials(['test1', ['test5', 'test6']]));
 	}
 	
-	public function teststrictCredentialComparison()
+	public function teststrictCredentialComparison(): void
 	{
 		$this->_u->clearCredentials();
 		$this->_u->addCredential('0');
@@ -85,7 +72,7 @@ class SecurityUserTest extends UnitTestCase
 		$this->assertFalse($this->_u->hasCredentials(false));
 	}
 
-	public function testRemoveCredential()
+	public function testRemoveCredential(): void
 	{
 		$this->_u->clearCredentials();
 		$this->_u->addCredential('test1');
@@ -103,7 +90,7 @@ class SecurityUserTest extends UnitTestCase
 		$this->assertFalse($this->_u->hasCredentials(['test3']));
 	}
 
-	public function testSetIsAuthenticated()
+	public function testSetIsAuthenticated(): void
 	{
 		$u = $this->_u;
 		$this->assertFalse($u->isAuthenticated());

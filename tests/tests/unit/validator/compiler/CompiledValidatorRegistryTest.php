@@ -2,6 +2,7 @@
 
 use Quiote\Testing\UnitTestCase;
 use Quiote\Validator\Compiler\Runtime\CompiledValidatorRegistry;
+use Quiote\Validator\Validator;
 
 class CompiledValidatorRegistryTest extends UnitTestCase
 {
@@ -45,7 +46,7 @@ class CompiledValidatorRegistryTest extends UnitTestCase
 		file_put_contents($path, $body);
 	}
 
-	public function testReturnsFalseWhenNoCandidateFileExists()
+	public function testReturnsFalseWhenNoCandidateFileExists(): void
 	{
 		$vm = $this->getContext()->createInstanceFor('validation_manager');
 		$registry = new CompiledValidatorRegistry();
@@ -55,7 +56,7 @@ class CompiledValidatorRegistryTest extends UnitTestCase
 		$this->assertCount(0, $vm->getChilds());
 	}
 
-	public function testAppliesGeneratedFileAndRegistersValidator()
+	public function testAppliesGeneratedFileAndRegistersValidator(): void
 	{
 		$this->writeValidatorFile('Demo', 'Create', '.generated.php', <<<'PHP'
 <?php
@@ -72,7 +73,7 @@ PHP);
 		$this->assertCount(1, $vm->getChilds());
 	}
 
-	public function testGeneratedFileTakesPrecedenceOverHandWrittenFile()
+	public function testGeneratedFileTakesPrecedenceOverHandWrittenFile(): void
 	{
 		$this->writeValidatorFile('Demo', 'Create', '.generated.php', <<<'PHP'
 <?php
@@ -92,10 +93,12 @@ PHP);
 
 		$childs = $vm->getChilds();
 		$this->assertCount(1, $childs);
-		$this->assertSame('from-generated', reset($childs)->getParameter('value'));
+		$child = reset($childs);
+		$this->assertInstanceOf(Validator::class, $child);
+		$this->assertSame('from-generated', $child->getParameter('value'));
 	}
 
-	public function testFallsBackToHandWrittenFileWhenNoGeneratedFileExists()
+	public function testFallsBackToHandWrittenFileWhenNoGeneratedFileExists(): void
 	{
 		$this->writeValidatorFile('Demo', 'Create', '.php', <<<'PHP'
 <?php
@@ -109,10 +112,12 @@ PHP);
 
 		$childs = $vm->getChilds();
 		$this->assertCount(1, $childs);
-		$this->assertSame('hand-written-only', reset($childs)->getParameter('value'));
+		$child = reset($childs);
+		$this->assertInstanceOf(Validator::class, $child);
+		$this->assertSame('hand-written-only', $child->getParameter('value'));
 	}
 
-	public function testDottedActionNameMapsToNestedDirectoryLikeXmlPathDoes()
+	public function testDottedActionNameMapsToNestedDirectoryLikeXmlPathDoes(): void
 	{
 		$this->writeValidatorFile('Demo', 'Nested/Action', '.generated.php', <<<'PHP'
 <?php
@@ -126,7 +131,7 @@ PHP);
 		$this->assertTrue($applied);
 	}
 
-	public function testResolvedPathIsMemoizedButSelfHealsIfFileIsRemoved()
+	public function testResolvedPathIsMemoizedButSelfHealsIfFileIsRemoved(): void
 	{
 		$this->writeValidatorFile('Demo', 'Create', '.generated.php', <<<'PHP'
 <?php
@@ -154,7 +159,7 @@ PHP);
 		);
 	}
 
-	public function testNegativeResolutionIsMemoizedForTheProcessLifetime()
+	public function testNegativeResolutionIsMemoizedForTheProcessLifetime(): void
 	{
 		// Deliberate tradeoff (documented on CompiledValidatorRegistry,
 		// mirroring ConfigCache::isModified()'s own precedent): a "no file"
@@ -178,7 +183,7 @@ PHP);
 		$this->assertTrue($registry->apply($this->moduleDir, 'Demo', 'DifferentAction', $vmHit, $this->getContext()));
 	}
 
-	public function testThrowsWhenFileDoesNotReturnCallable()
+	public function testThrowsWhenFileDoesNotReturnCallable(): void
 	{
 		$this->writeValidatorFile('Demo', 'Broken', '.generated.php', "<?php\nreturn 'not-a-callable';\n");
 

@@ -157,6 +157,9 @@ class Container implements ContainerInterface
      */
     private function getReflectionClass(string $class): \ReflectionClass
     {
+        if (!class_exists($class) && !interface_exists($class)) {
+            throw new ContainerException(sprintf('Class "%s" does not exist', $class));
+        }
         return $this->reflectionCache[$class] ??= new \ReflectionClass($class);
     }
 

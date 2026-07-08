@@ -7,8 +7,9 @@ use Nyholm\Psr7\Stream;
 
 class WebRequestTest extends UnitTestCase
 {
-	private $_r = null;
-	private $_SERVER = [];
+	private WebRequest $_r;
+	/** @var array<string, mixed> */
+	private array $_SERVER = [];
 
 	#[\Override]
     public function setUp(): void
@@ -26,38 +27,38 @@ class WebRequestTest extends UnitTestCase
 		$this->_r = $this->_r->enforceValidatedParameters(['x','y','z','a','b','k','missing']);
 	}
 	
-	public function testGetUrlScheme()
+	public function testGetUrlScheme(): void
 	{
 		$this->assertEquals('https', $this->_r->getUrlScheme());
 	}
 
-	public function testGetUrlAuthority()
+	public function testGetUrlAuthority(): void
 	{
 		$this->assertEquals('example.quiote.org:123', $this->_r->getUrlAuthority());
 	}
 
-	public function testGetUrlPath()
+	public function testGetUrlPath(): void
 	{
 		$this->assertEquals('/foo/bar/baz', $this->_r->getUrlPath());
 	}
 
-	public function testGetUrlQuery()
+	public function testGetUrlQuery(): void
 	{
 		$this->assertEquals('id=4815162342', $this->_r->getUrlQuery());
 	}
 
-	public function testGetRequestUri()
+	public function testGetRequestUri(): void
 	{
 		$this->assertEquals('/foo/bar/baz?id=4815162342', $this->_r->getRequestUri());
 	}
 
-	public function testGetUrl()
+	public function testGetUrl(): void
 	{
 		$this->assertEquals('https://example.quiote.org:123/foo/bar/baz?id=4815162342', $this->_r->getUrl());
 	}
 
 	// --- New tests for PSR-7 bridging & precedence ---
-	public function testAttachPsrRequestMergesQueryAndBodyBodyWins()
+	public function testAttachPsrRequestMergesQueryAndBodyBodyWins(): void
 	{
 		$this->_r = $this->_r
 			->withUri(new \Quiote\Http\SimpleUri('/x?x=1&y=2'))
@@ -70,7 +71,7 @@ class WebRequestTest extends UnitTestCase
 		$this->assertSame('3', $this->_r->getParameter('z'));
 	}
 
-	public function testAttachPsrRequestFormUrlEncodedRawBodyNotAutoParsed()
+	public function testAttachPsrRequestFormUrlEncodedRawBodyNotAutoParsed(): void
 	{
 		$raw = 'a=1&b=2&b=3';
 		$stream = Stream::create($raw);
@@ -84,7 +85,7 @@ class WebRequestTest extends UnitTestCase
 		$this->assertNull($this->_r->getParameter('b'));
 	}
 
-	public function testIsParameterValueEmptyAndRuntimeMutation()
+	public function testIsParameterValueEmptyAndRuntimeMutation(): void
 	{
 		$this->_r = $this->_r->enforceValidatedParameters(['missing','k']);
 		$this->assertTrue($this->_r->isParameterValueEmpty('missing'));
@@ -96,7 +97,7 @@ class WebRequestTest extends UnitTestCase
 		$this->assertTrue($this->_r->isParameterValueEmpty('k'));
 	}
 
-	public function testCookieAndHeaderEmptinessChecks()
+	public function testCookieAndHeaderEmptinessChecks(): void
 	{
 		$this->_r = $this->_r
 			->withCookieParams(['sid' => 'abc'])
@@ -107,7 +108,7 @@ class WebRequestTest extends UnitTestCase
 		$this->assertFalse($this->_r->isHeaderValueEmpty('X-Test'));
 	}
 
-	public function testAttachPsrRequestPreservesBodyRewind()
+	public function testAttachPsrRequestPreservesBodyRewind(): void
 	{
 		$raw = 'm=1';
 		$stream = Stream::create($raw);

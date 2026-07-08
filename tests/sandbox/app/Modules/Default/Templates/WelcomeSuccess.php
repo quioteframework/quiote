@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
 <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-	<base href="<?php echo $this->getContext()->getRouting()->getBaseHref(); ?>">
+	<base href="<?php echo \Quiote\Context::getInstance()->getRouting()->getBaseHref(); ?>">
 	<title>Welcome to Quiote!</title>
 	<style type="text/css">
 html {

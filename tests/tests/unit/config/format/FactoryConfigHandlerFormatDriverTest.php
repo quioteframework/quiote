@@ -32,7 +32,7 @@ class FactoryConfigHandlerFormatDriverTest extends PhpUnitTestCase
 		parent::tearDown();
 	}
 
-	public function testPhpArrayFactoriesFileCompilesThroughFactoryConfigHandler()
+	public function testPhpArrayFactoriesFileCompilesThroughFactoryConfigHandler(): void
 	{
 		file_put_contents($this->dir . '/factories.php', <<<'PHP'
 <?php
@@ -61,7 +61,7 @@ PHP);
 		$this->assertStringContainsString('$this->shutdownSequence = [', $code);
 	}
 
-	public function testMissingRequiredFactoryThrowsRegardlessOfSourceFormat()
+	public function testMissingRequiredFactoryThrowsRegardlessOfSourceFormat(): void
 	{
 		file_put_contents($this->dir . '/factories.php', "<?php\nreturn ['response' => ['class' => 'Quiote\\Response\\WebResponse', 'params' => []]];\n");
 

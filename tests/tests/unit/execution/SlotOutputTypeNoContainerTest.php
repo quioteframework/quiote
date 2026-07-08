@@ -26,11 +26,14 @@ class SlotOutputTypeNoContainerTest extends UnitTestCase
         parent::tearDown();
     }
 
+    /**
+     * @return array<int, array{0: string, 1: string|\Closure}>
+     */
     public static function outputTypeProvider(): array
     {
         return [
             ['Html','<div>CACHE_HTML</div>'],
-            ['Json', function($content): void{
+            ['Json', function(string $content): void{
                 \PHPUnit\Framework\Assert::assertJson($content);
                 $d = json_decode($content,true);
                 \PHPUnit\Framework\Assert::assertSame('json',$d['type']);
@@ -41,21 +44,21 @@ class SlotOutputTypeNoContainerTest extends UnitTestCase
     }
 
     #[\PHPUnit\Framework\Attributes\DataProvider('outputTypeProvider')]
-    public function testDispatchesExpectedOutput($outputType, $expected)
+    public function testDispatchesExpectedOutput(string $outputType, string|\Closure $expected): void
     {
         $parent = (new ServerRequest('GET','http://localhost/'))
             ->withAttribute(SlotMiddleware::ATTR, new SlotStack());
         $dispatcher = $this->getContext()->getSlotDispatcher();
         $slotReq = SlotRequestFactory::create($parent, 'Cache','Cache', [], $outputType);
         $content = $dispatcher->dispatch($slotReq, 'Cache','Cache', [], $outputType);
-        if(is_callable($expected)) {
+        if($expected instanceof \Closure) {
             $expected($content);
         } else {
             $this->assertSame($expected, $content);
         }
     }
 
-    public function testDefaultFallbackHtml()
+    public function testDefaultFallbackHtml(): void
     {
         $parent = (new ServerRequest('GET','http://localhost/'))
             ->withAttribute(SlotMiddleware::ATTR, new SlotStack());
@@ -65,7 +68,7 @@ class SlotOutputTypeNoContainerTest extends UnitTestCase
         $this->assertSame('<div>CACHE_HTML</div>', $content);
     }
 
-    public function testUnsupportedTypeFallsBack()
+    public function testUnsupportedTypeFallsBack(): void
     {
         $parent = (new ServerRequest('GET','http://localhost/'))
             ->withAttribute(SlotMiddleware::ATTR, new SlotStack());

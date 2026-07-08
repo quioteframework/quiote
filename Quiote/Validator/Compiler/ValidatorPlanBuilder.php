@@ -39,7 +39,7 @@ class ValidatorPlanBuilder
 	/**
 	 * name => [class, parameters, errors]
 	 * (definition name, not necessarily the real PHP class)
-	 * @var array<string, array{class: string, parameters: array<string, mixed>, errors: array<mixed>}>
+	 * @var array<string, array{class: string, parameters: array<int|string, mixed>, errors: array<mixed>}>
 	 */
 	protected array $classMap = [];
 
@@ -64,16 +64,16 @@ class ValidatorPlanBuilder
 				/** @var iterable<int, XmlConfigDomElement> $definitionNodes */
 				$definitionNodes = $cfg->get('validator_definitions');
 				foreach ($definitionNodes as $def) {
-					$name = $def->getAttribute('name');
+					$name = $this->requireAttribute($def, 'name', 'A <validator_definition>');
 					if (!isset($this->classMap[$name])) {
 						$this->classMap[$name] = [
-							'class' => $def->getAttribute('class'),
+							'class' => $this->requireAttribute($def, 'class', sprintf('validator_definition "%s"', $name)),
 							'parameters' => [],
 							'errors' => [],
 						];
 					}
 					// merge / override
-					$this->classMap[$name]['class'] = $def->getAttribute('class', $this->classMap[$name]['class']);
+					$this->classMap[$name]['class'] = $def->getAttribute('class', $this->classMap[$name]['class']) ?? $this->classMap[$name]['class'];
 					$this->classMap[$name]['parameters'] = $def->getQuioteParameters($this->classMap[$name]['parameters']);
 					$this->classMap[$name]['errors'] = $this->collectErrors($def, $this->classMap[$name]['errors']);
 				}
@@ -97,17 +97,16 @@ class ValidatorPlanBuilder
 	}
 
 	/**
-	 * @param XmlConfigDomElement|XmlConfigDomDocument $node
 	 * @return ValidatorNode[]
 	 */
-	protected function buildValidatorElements($node, string $defaultSeverity, ?string $defaultMethod, bool $defaultRequired, ?string $defaultTranslationDomain): array
+	protected function buildValidatorElements(XmlConfigDomElement $node, string $defaultSeverity, ?string $defaultMethod, bool $defaultRequired, ?string $defaultTranslationDomain): array
 	{
 		$nodes = [];
 		foreach ($node->get('validators') as $validator) {
 			/** @var XmlConfigDomElement $parentNode */
 			$parentNode = $validator->parentNode;
 			if ($parentNode->localName == 'validators') {
-				$severity = $parentNode->getAttribute('severity', $defaultSeverity);
+				$severity = $parentNode->getAttribute('severity', $defaultSeverity) ?? $defaultSeverity;
 				$method = $parentNode->getAttribute('method', $defaultMethod);
 				$translationDomain = $parentNode->getAttribute('translation_domain', $defaultTranslationDomain);
 			} else {
@@ -126,7 +125,7 @@ class ValidatorPlanBuilder
 	 */
 	protected function buildValidatorNode(XmlConfigDomElement $validator, string $stdSeverity, ?string $stdMethod, bool $stdRequired, ?string $stdTranslationDomain): ValidatorNode
 	{
-		[$class, $defParams, $defErrors] = $this->resolveClass($validator->getAttribute('class'));
+		[$class, $defParams, $defErrors] = $this->resolveClass($this->requireAttribute($validator, 'class', 'A <validator>'));
 
 		$parameters = array_merge($defParams, [
 			'severity' => $validator->getAttribute('severity', $stdSeverity),
@@ -146,13 +145,14 @@ class ValidatorPlanBuilder
 			// never a vanilla DOMNode.
 			/** @var XmlConfigDomElement $argument */
 			if ($argument->hasAttribute('name')) {
-				$arguments[$argument->getAttribute('name')] = $argument->getValue();
+				$arguments[$argument->getAttribute('name') ?? ''] = $argument->getValue();
 			} else {
 				$arguments[] = $argument->getValue();
 			}
 		}
-		if ($validator->hasChild('arguments')) {
-			$parameters['base'] = $validator->getChild('arguments')->getAttribute('base');
+		$argumentsChild = $validator->getChild('arguments');
+		if ($argumentsChild !== null) {
+			$parameters['base'] = $argumentsChild->getAttribute('base');
 			if (!$arguments) { $arguments[] = ''; }
 		}
 
@@ -163,11 +163,13 @@ class ValidatorPlanBuilder
 
 		$stdMethod = $validator->getAttribute('method', $stdMethod);
 		$methods = [''];
-		if (trim((string)$stdMethod)) { $methods = preg_split('/[\s]+/', (string)$stdMethod); }
+		if (trim((string)$stdMethod)) {
+			$splitMethods = preg_split('/[\s]+/', (string)$stdMethod);
+			$methods = $splitMethods !== false ? $splitMethods : [''];
+		}
 
-		if ($validator->hasAttribute('name')) {
-			$name = $validator->getAttribute('name');
-		} else {
+		$name = $validator->getAttribute('name');
+		if ($name === null || $name === '') {
 			$name = Toolkit::uniqid();
 			$validator->setAttribute('name', $name);
 		}
@@ -216,7 +218,27 @@ class ValidatorPlanBuilder
 	}
 
 	/**
-	 * @return array{0: string, 1: array<string, mixed>, 2: array<mixed>}
+	 * Reads a required XML attribute, failing loudly with a diagnosable
+	 * ConfigurationException rather than letting a missing/empty attribute
+	 * silently key an array by "" or reach a constructor as null where a
+	 * real value is required (e.g. a validator without a resolvable class).
+	 */
+	private function requireAttribute(XmlConfigDomElement $node, string $attribute, string $context): string
+	{
+		$value = $node->getAttribute($attribute);
+		if ($value === null || $value === '') {
+			throw new ConfigurationException(sprintf(
+				'%s is missing its required "%s" attribute in %s.',
+				$context,
+				$attribute,
+				$this->sourceRef ?? '?'
+			));
+		}
+		return $value;
+	}
+
+	/**
+	 * @return array{0: string, 1: array<int|string, mixed>, 2: array<mixed>}
 	 */
 	protected function resolveClass(string $declared): array
 	{
@@ -254,11 +276,11 @@ class ValidatorPlanBuilder
 			// <error for="min">bar</error> => ['min' => 'bar']
 			// <error name=...> (namespaced multi-domain form) => legacy structured branch
 			if ($element->hasAttribute('name')) {
-				$name = $element->getAttribute('name');
+				$name = $element->getAttribute('name') ?? '';
 				$domains = [];
 				foreach ($element->get('domain') as $domainElement) {
 					/** @var XmlConfigDomElement $domainElement */
-					$domains[$domainElement->getAttribute('name')] = $domainElement->getValue();
+					$domains[$domainElement->getAttribute('name') ?? ''] = $domainElement->getValue();
 				}
 				$result[$name] = [
 					'parameters' => $element->getQuioteParameters(isset($result[$name]) ? $result[$name]['parameters'] : []),
@@ -269,7 +291,7 @@ class ValidatorPlanBuilder
 			$val = $element->getValue();
 			if ($val === '') { continue; }
 			if ($element->hasAttribute('for')) {
-				$result[$element->getAttribute('for')] = $val;
+				$result[$element->getAttribute('for') ?? ''] = $val;
 			} else {
 				$result[''] = $val;
 			}
@@ -305,7 +327,7 @@ class ValidatorPlanBuilder
 	/**
 	 * Collect the effective request parameter names a validator reads.
 	 * Honors <arguments base="..."> by prepending the base path.
-	 * @param array<int, mixed> $arguments Flat list of argument values (the request
+	 * @param array<int|string, mixed> $arguments Flat list of argument values (the request
 	 *                         parameter name or sub-path the validator reads).
 	 * @param string $base Optional base path from <arguments base="...">.
 	 * @return string[] Effective parameter names to whitelist.

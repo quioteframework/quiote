@@ -6,12 +6,12 @@ use Quiote\Validator\Validator;
 
 class DummyValidator extends Validator
 {
-	public $cleared = false;
-	public $val_result = true;
-	public $validated = false;
-	public $shutdown = false;
-	
-	protected function validate()
+	public bool $cleared = false;
+	public bool $val_result = true;
+	public bool $validated = false;
+	public bool $shutdown = false;
+
+	protected function validate(): bool
 	{
 		$this->validated = true;
 		if($this->val_result == false) {
@@ -19,9 +19,9 @@ class DummyValidator extends Validator
 		}
 		return $this->val_result;
 	}
-	public function clear() { $this->cleared = true; $this->validated = false; $this->shutdown = false;}
-	public function shutdown() { $this->shutdown = true; }
-	public function checkValidSetup()
+	public function clear(): void { $this->cleared = true; $this->validated = false; $this->shutdown = false;}
+	public function shutdown(): void { $this->shutdown = true; }
+	public function checkValidSetup(): bool
 	{
 		return true;
 	}

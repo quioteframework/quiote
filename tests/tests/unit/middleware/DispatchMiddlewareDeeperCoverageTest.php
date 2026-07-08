@@ -28,6 +28,9 @@ use Quiote\Execution\ValidationDecision;
 class DispatchMiddlewareDeeperCoverageTest extends TestCase
 {
     private function ctx(): Context { return Context::getInstance(); }
+    /**
+     * @param array<string, mixed> $attrs
+     */
     private function makeReq(array $attrs = []): ServerRequestInterface { $r = new ServerRequest('GET', 'http://localhost/deeper'); foreach($attrs as $k=>$v){ $r = $r->withAttribute($k,$v);} return $r; }
 
     public function setUp(): void
@@ -37,7 +40,7 @@ class DispatchMiddlewareDeeperCoverageTest extends TestCase
         \Quiote\Config\Config::set('core.use_security', true);
     }
 
-    public function testSecureSimpleActionHeuristicSetsSecurityDecisionAllow()
+    public function testSecureSimpleActionHeuristicSetsSecurityDecisionAllow(): void
     {
         $ctx = $this->ctx();
         $user = $ctx->getUser();
@@ -55,7 +58,7 @@ class DispatchMiddlewareDeeperCoverageTest extends TestCase
         $this->assertSame(SecurityDecision::Allow, $exec->securityDecision, 'Heuristic should set securityDecision to Allow for secure action + authenticated user');
     }
 
-    public function testForwardedPendingValidationSkips500()
+    public function testForwardedPendingValidationSkips500(): void
     {
         $ctx = $this->ctx();
         $mw = new DispatchMiddleware($ctx->getController());

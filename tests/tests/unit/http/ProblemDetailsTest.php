@@ -112,13 +112,18 @@ final class ProblemDetailsTest extends TestCase
                 public function getMessage(): string { return $this->m; }
             };
             $incidents[] = new readonly class($args, $err) {
+                /** @param array<int, mixed> $args */
                 public function __construct(private array $args, private object $err) {}
+                /** @return array<int, mixed> */
                 public function getArguments(): array { return $this->args; }
+                /** @return array<int, object> */
                 public function getErrors(): array { return [$this->err]; }
             };
         }
         $report = new readonly class($incidents) {
+            /** @param array<int, object> $incidents */
             public function __construct(private array $incidents) {}
+            /** @return array<int, object> */
             public function getIncidents(): array { return $this->incidents; }
         };
         return new readonly class($report) {

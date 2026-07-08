@@ -3,6 +3,7 @@ namespace Quiote\Config;
 
 use Quiote\Config\Util\DOM\XmlConfigDomDocument;
 use Quiote\Config\Util\DOM\XmlConfigDomElement;
+use Quiote\Exception\ParseException;
 
 /**
  * RbacDefinitionConfigHandler handles RBAC role and permission definition
@@ -50,7 +51,7 @@ class RbacDefinitionConfigHandler extends XmlConfigHandler implements IArrayConf
 				continue;
 			}
 
-			$this->parseRoles($cfg->get('roles'), null, $data);
+			$this->parseRoles($cfg->get('roles'), null, $data, $document->documentURI);
 		}
 
 		return $data;
@@ -70,16 +71,24 @@ class RbacDefinitionConfigHandler extends XmlConfigHandler implements IArrayConf
 	 * @param      mixed  $roles The "roles" node (element or node list)
 	 * @param      ?string $parent The name of the parent role, or null.
 	 * @param      array<string, array{parent: ?string, permissions: array<int, mixed>}>  $data A reference to the output data array.
+	 * @param      ?string $sourceRef The config file path, used for error reporting.
 	 * @return     void
+	 * @throws     ParseException If a <role> is missing its required "name" attribute.
 	 * @since      1.0.0
 	 */
-	protected function parseRoles($roles, $parent, &$data): void
+	protected function parseRoles($roles, $parent, &$data, ?string $sourceRef = null): void
 	{
 		foreach ($roles as $role) {
 			// registerNodeClass() guarantees element nodes are always
 			// XmlConfigDomElement, never a vanilla DOMNode.
 			/** @var XmlConfigDomElement $role */
 			$name = $role->getAttribute('name');
+			if ($name === null || $name === '') {
+				throw new ParseException(sprintf(
+					'Configuration file "%s" has a <role> element missing its required "name" attribute',
+					$sourceRef ?? '(unknown)'
+				));
+			}
 			$entry = [];
 			$entry['parent'] = $parent;
 			$entry['permissions'] = [];
@@ -89,7 +98,7 @@ class RbacDefinitionConfigHandler extends XmlConfigHandler implements IArrayConf
 				}
 			}
 			if ($role->has('roles')) {
-				$this->parseRoles($role->get('roles'), $name, $data);
+				$this->parseRoles($role->get('roles'), $name, $data, $sourceRef);
 			}
 			$data[$name] = $entry;
 		}

@@ -21,7 +21,7 @@ class ActionCompiledValidatorIntegrationTest extends UnitTestCase
 	{
 		return new class extends Action {
 			public function getDefaultViewName() { return 'Success'; }
-			public function executeWrite(WebRequest $req) { return 'Success'; }
+			public function executeWrite(WebRequest $req): string { return 'Success'; }
 			public function handleError(WebRequest $req) { return 'Error'; }
 		};
 	}
@@ -35,12 +35,16 @@ class ActionCompiledValidatorIntegrationTest extends UnitTestCase
 		$action->initialize($initContext);
 	}
 
-	public function testDeclaredParameterSurvivesAndUndeclaredParameterIsPruned()
+	public function testDeclaredParameterSurvivesAndUndeclaredParameterIsPruned(): void
 	{
 		$action = $this->newAction();
 		$this->initialize($action, 'write');
 
-		$vm = $action->getInitContext()->getValidationManager();
+		$initContext = $action->getInitContext();
+		if ($initContext === null) {
+			throw new \RuntimeException('Action has no init context');
+		}
+		$vm = $initContext->getValidationManager();
 		$action->registerValidators();
 
 		$this->assertCount(1, $vm->getChilds(), 'Expected the compiled fluent validator file to register exactly one validator.');
@@ -62,12 +66,16 @@ class ActionCompiledValidatorIntegrationTest extends UnitTestCase
 		);
 	}
 
-	public function testValidationFailureIsReportedJustLikeTheXmlPath()
+	public function testValidationFailureIsReportedJustLikeTheXmlPath(): void
 	{
 		$action = $this->newAction();
 		$this->initialize($action, 'write');
 
-		$vm = $action->getInitContext()->getValidationManager();
+		$initContext = $action->getInitContext();
+		if ($initContext === null) {
+			throw new \RuntimeException('Action has no init context');
+		}
+		$vm = $initContext->getValidationManager();
 		$action->registerValidators();
 
 		$request = $this->newWebRequest(['username' => 'ab']); // shorter than minLength(3)

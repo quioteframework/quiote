@@ -50,25 +50,25 @@ class TranslationConfigHandler extends XmlConfigHandler implements IArrayConfigH
 
 		foreach ($document->getConfigurationElements() as $cfg) {
 
-			if ($cfg->hasChild('available_locales')) {
-				$availableLocales = $cfg->getChild('available_locales');
-				// TODO: is this really optional? according to the schema: yes...
-				$defaultLocale = $availableLocales->getAttribute('default_locale', $defaultLocale);
-				$defaultTimeZone = $availableLocales->getAttribute('default_timezone', $defaultTimeZone);
+			$availableLocales = $cfg->getChild('available_locales');
+			// TODO: is this really optional? according to the schema: yes...
+			if ($availableLocales !== null) {
+				$defaultLocale = $availableLocales->getAttribute('default_locale', $defaultLocale) ?? $defaultLocale;
+				$defaultTimeZone = $availableLocales->getAttribute('default_timezone', $defaultTimeZone) ?? $defaultTimeZone;
 				foreach ($availableLocales as $locale) {
-					$name = $locale->getAttribute('identifier');
+					$name = $locale->getAttribute('identifier') ?? '';
 					if (!isset($localeData[$name])) {
 						$localeData[$name] = ['name' => $name, 'params' => [], 'fallback' => null, 'ldml_file' => null];
 					}
 					$localeData[$name]['params'] = $locale->getQuioteParameters($localeData[$name]['params']);
-					$localeData[$name]['fallback'] = $locale->getAttribute('fallback', $localeData[$name]['fallback']);
-					$localeData[$name]['ldml_file'] = $locale->getAttribute('ldml_file', $localeData[$name]['ldml_file']);
+					$localeData[$name]['fallback'] = $locale->getAttribute('fallback', $localeData[$name]['fallback']) ?? $localeData[$name]['fallback'];
+					$localeData[$name]['ldml_file'] = $locale->getAttribute('ldml_file', $localeData[$name]['ldml_file']) ?? $localeData[$name]['ldml_file'];
 				}
 			}
 
-			if ($cfg->hasChild('translators')) {
-				$translators = $cfg->getChild('translators');
-				$defaultDomain = $translators->getAttribute('default_domain', $defaultDomain);
+			$translators = $cfg->getChild('translators');
+			if ($translators !== null) {
+				$defaultDomain = $translators->getAttribute('default_domain', $defaultDomain) ?? $defaultDomain;
 				$this->getTranslators($translators, $translatorData);
 			}
 		}
@@ -168,7 +168,7 @@ class TranslationConfigHandler extends XmlConfigHandler implements IArrayConfigH
 		];
 
 		foreach ($translators as $translator) {
-			$domain = $translator->getAttribute('domain');
+			$domain = $translator->getAttribute('domain') ?? '';
 			if ($parent) {
 				$domain = $parent . '.' . $domain;
 			}
@@ -183,8 +183,8 @@ class TranslationConfigHandler extends XmlConfigHandler implements IArrayConfigH
 			$domainData =& $data[$domain];
 
 			foreach (['msg' => 'message_translator', 'num' => 'number_formatter', 'cur' => 'currency_formatter', 'date' => 'date_formatter'] as $type => $nodeName) {
-				if ($translator->hasChild($nodeName)) {
-					$node = $translator->getChild($nodeName);
+				$node = $translator->getChild($nodeName);
+				if ($node !== null) {
 					if (!isset($domainData[$type])) {
 						$domainData[$type] = $defaultData[$type];
 					}
@@ -192,7 +192,7 @@ class TranslationConfigHandler extends XmlConfigHandler implements IArrayConfigH
 					if ($node->hasAttribute('translation_domain')) {
 						$domainData[$type]['params']['translation_domain'] = $node->getAttribute('translation_domain');
 					}
-					$domainData[$type]['class'] = $node->getAttribute('class', $domainData[$type]['class']);
+					$domainData[$type]['class'] = $node->getAttribute('class', $domainData[$type]['class']) ?? $domainData[$type]['class'];
 					$domainData[$type]['params'] = $node->getQuioteParameters($domainData[$type]['params']);
 					$domainData[$type]['filters'] = array_merge($domainData[$type]['filters'], $this->getFilters($node));
 				}

@@ -6,7 +6,9 @@ use Quiote\Request\WebRequest ;
 
 class SnapshotAction extends Action
 {
+    /** @var array<int|string, mixed> */
     public static array $initialAttributes = [];
+    /** @var array<int|string, mixed> */
     public static array $postMutationAttributes = [];
 
     // Deliberately NOT isSimple(): isSimple() means "skip execute*() entirely,
@@ -14,7 +16,7 @@ class SnapshotAction extends Action
     // This fixture exercises attribute snapshotting around a real execute()
     // call, so it must go through the normal (non-simple) path.
 
-    public function execute(WebRequest $rd)
+    public function execute(WebRequest $rd): string
     {
         $this->setAttribute('alpha', 'A');
         $this->setAttribute('beta', ['nested' => 1]);

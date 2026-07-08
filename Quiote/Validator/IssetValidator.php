@@ -1,6 +1,8 @@
 <?php
 namespace Quiote\Validator;
 
+use Quiote\Exception\ValidatorException;
+
 /**
  * IssetValidator verifies a parameter is set
  * The content of the input value is not verified in any manner, it is only
@@ -45,14 +47,20 @@ class IssetValidator extends Validator
 	 */
 	protected function validate()
 	{
-		$params = $this->validationParameters->getAll($this->getParameter('source'));
+		$curBase = $this->curBase;
+		$validationParameters = $this->validationParameters;
+		if ($curBase === null || $validationParameters === null) {
+			throw new ValidatorException('Validator "' . ($this->getName() ?? '?') . '" has no base path/request; validate() ran before setParentContainer()/execute() supplied them.');
+		}
+
+		$params = $validationParameters->getAll($this->getParameter('source'));
 
 		$logger = \Quiote\Logging\Log::for($this);
 		foreach($this->getArguments() as $argument) {
 			if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
-				$logger->debug('[IssetValidator][validate] argument=' . ($argument===''?'<empty>':$argument) . ' curBase=' . $this->curBase->__toString());
+				$logger->debug('[IssetValidator][validate] argument=' . ($argument===''?'<empty>':$argument) . ' curBase=' . $curBase->__toString());
 			}
-			if(!$this->curBase->hasValueByChildPath($argument, $params)) {
+			if(!$curBase->hasValueByChildPath($argument, $params)) {
 				if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
 					$logger->debug('[IssetValidator][validate] hasValueByChildPath returned FALSE');
 				}

@@ -84,7 +84,10 @@ abstract class AbstractArrayFormatDriver implements FormatDriverInterface
 			static::class . ' cannot resolve "' . $reference . '" without a FormatDriverRegistry (see setRegistry()).'
 		);
 
-		$resolved = Toolkit::expandDirectives($reference);
+		// Toolkit::expandDirectives() only returns null for a null input, or on
+		// a regex engine error; $reference is a known non-null string here, so
+		// fall back to it in that (effectively unreachable) failure case.
+		$resolved = Toolkit::expandDirectives($reference) ?? $reference;
 		if (!Toolkit::isPathAbsolute($resolved)) {
 			$resolved = dirname($fromPath) . '/' . $resolved;
 		}

@@ -18,6 +18,9 @@ class SlotOutputTypeDispatchTest extends UnitTestCase
         $controller->createActionInstance('Cache','Cache');
     }
 
+    /**
+     * @return array<int, array{0: string, 1: string|null}>
+     */
     public static function outputTypeProvider(): array
     {
         return [
@@ -28,7 +31,7 @@ class SlotOutputTypeDispatchTest extends UnitTestCase
     }
 
     #[DataProvider('outputTypeProvider')]
-    public function testSlotDispatchesCorrectViewMethod($outputType, $expected)
+    public function testSlotDispatchesCorrectViewMethod(string $outputType, ?string $expected): void
     {
         $parent = (new ServerRequest('GET','http://localhost/'))
             ->withAttribute(SlotMiddleware::ATTR, new SlotStack());
@@ -46,7 +49,7 @@ class SlotOutputTypeDispatchTest extends UnitTestCase
         }
     }
 
-    public function testFallbackOutputType()
+    public function testFallbackOutputType(): void
     {
         $parent = (new ServerRequest('GET','http://localhost/'))
             ->withAttribute(SlotMiddleware::ATTR, new SlotStack());
@@ -57,7 +60,7 @@ class SlotOutputTypeDispatchTest extends UnitTestCase
     $this->assertSame('<div>CACHE_HTML</div>', $content);
     }
     
-    public function testUnsupportedOutputTypeFallsBackToGenericExecute()
+    public function testUnsupportedOutputTypeFallsBackToGenericExecute(): void
     {
         $parent = (new ServerRequest('GET','http://localhost/'))
             ->withAttribute(SlotMiddleware::ATTR, new SlotStack());

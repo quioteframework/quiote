@@ -24,19 +24,28 @@ class FormPopulationMiddlewareTest extends UnitTestCase
         $this->controller = $this->context->getController();
 
         $globalResponse = $this->controller->getGlobalResponse();
-        if(method_exists($globalResponse, 'clear')) {
-            $globalResponse->clear();
-        }
+        $globalResponse->clear();
         $globalResponse->setContent('');
         $globalResponse->setOutputType($this->controller->getOutputType());
+    }
+
+    /**
+     * $context is reset to null in tearDown() so it's declared nullable, but
+     * every test method runs after setUp() has populated it, so a null here
+     * indicates a broken test fixture rather than a case to tolerate.
+     */
+    private function context(): Context
+    {
+        if ($this->context === null) {
+            throw new \RuntimeException('Expected setUp() to have initialized the context.');
+        }
+        return $this->context;
     }
 
     protected function tearDown(): void
     {
         $globalResponse = $this->controller->getGlobalResponse();
-        if(method_exists($globalResponse, 'clear')) {
-            $globalResponse->clear();
-        }
+        $globalResponse->clear();
         $globalResponse->setContent('');
         $this->context = null;
         unset($this->controller);
@@ -96,7 +105,7 @@ class FormPopulationMiddlewareTest extends UnitTestCase
     // WebRequest is immutable: the middleware's internal chain of with*()/setParameter()
     // calls produced new instances distinct from our local $webRequest. It re-syncs the
     // final instance into the context, so fetch it from there.
-    $webRequest = $this->context->getRequest();
+    $webRequest = $this->context()->getRequest();
     $config = FormPopulationConfig::get($webRequest);
     $this->assertArrayHasKey('force_request_uri', $config);
     $this->assertArrayHasKey('force_request_url', $config);
@@ -104,10 +113,13 @@ class FormPopulationMiddlewareTest extends UnitTestCase
     $this->assertSame('https://example.test/account/login?via=mid', $config['force_request_url']);
     }
 
+    /**
+     * @param array<int, string> $validated
+     */
     private function makeIsolatedRequest(array $validated = []): WebRequest
     {
         $request = new WebRequest();
-        $request->initialize($this->context);
+        $request->initialize($this->context());
         if($validated) {
             $request = $request->enforceValidatedParameters($validated);
         }

@@ -15,7 +15,7 @@ final class ViewNameResolver
      * @param string $actionModule Declared action module.
      * @param string $actionName Action name.
      * @param mixed $rawViewName Raw return (string|array|View::NONE)
-     * @return array{0:string,1:string|null}
+     * @return array{0:string|null,1:string|null}
      */
     public function resolve(string $actionModule, string $actionName, mixed $rawViewName): array
     {

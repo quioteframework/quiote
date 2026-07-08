@@ -9,19 +9,23 @@ require_once(__DIR__ . '/ConfigHandlerTestBase.php');
 
 class FCHTestBase
 {
-	public $context,
-	       $params,
-	       $suCalled;
-	public function initialize($ctx, array $params = [])
+	public mixed $context = null;
+	/** @var array<string, mixed> */
+	public array $params = [];
+	public ?bool $suCalled = null;
+	/**
+	 * @param array<string, mixed> $params
+	 */
+	public function initialize(mixed $ctx, array $params = []): void
 	{
 		$this->context = $ctx;
 		$this->params = $params;
 	}
-	public final function getContext()
+	public final function getContext(): mixed
 	{
 		return $this->context;
 	}
-	public function startup()
+	public function startup(): void
 	{
 		$this->suCalled = true;
 	}
@@ -43,8 +47,8 @@ class FCHTestUser               extends FCHTestBase implements ISecurityUser
 {
 	public function addCredential($credential) {}
 	public function clearCredentials() {}
-	public function hasCredentials($credential) {}
-	public function isAuthenticated() {}
+	public function hasCredentials($credential): bool { return false; }
+	public function isAuthenticated(): bool { return false; }
 	public function removeCredential($credential) {}
 	public function setAuthenticated($authenticated) {}
 }
@@ -52,27 +56,37 @@ class FCHTestUser               extends FCHTestBase implements ISecurityUser
 class FactoryConfigHandlerTest extends ConfigHandlerTestBase
 {
 	// Prevent dynamic property deprecation when generated factory code assigns $this->shutdownSequence
+	/** @var array<int, mixed> */
 	public array $shutdownSequence = [];
 	// Added to silence dynamic property creation deprecations from generated factories code
+	/** @var array<string, mixed>|null */
 	public ?array $databaseManagerFactoryInfo = null;
+	/** @var array<string, mixed>|null */
 	public ?array $translationManagerFactoryInfo = null;
+	/** @var array<string, mixed>|null */
 	public ?array $requestFactoryInfo = null;
+	/** @var array<string, mixed>|null */
 	public ?array $routingFactoryInfo = null;
+	/** @var array<string, mixed>|null */
 	public ?array $controllerFactoryInfo = null;
+	/** @var array<string, mixed>|null */
 	public ?array $storageFactoryInfo = null;
+	/** @var array<string, mixed>|null */
 	public ?array $userFactoryInfo = null;
-	protected		$conf;
+	/** @var array<string|int, mixed> */
+	protected array $conf = [];
 
-	protected		$factories;
+	/** @var array<string, mixed> */
+	protected array $factories = [];
 
-	protected		$databaseManager,
-							$request,
-							$storage,
-							$translationManager,
-							$user,
-							$controller,
-							$routing,
-							$response;
+	protected ?FCHTestDBManager $databaseManager = null;
+	protected ?FCHTestRequest $request = null;
+	protected ?FCHTestStorage $storage = null;
+	protected ?FCHTestTranslationManager $translationManager = null;
+	protected ?FCHTestUser $user = null;
+	protected ?FCHTestController $controller = null;
+	protected ?FCHTestRouting $routing = null;
+	protected ?FCHTestResponse $response = null;
 
 	public function setUp(): void
 	{
@@ -88,7 +102,24 @@ class FactoryConfigHandlerTest extends ConfigHandlerTestBase
 		Config::fromArray($this->conf);
 	}
 
-	public function testFactoryConfigHandler()
+	/**
+	 * Asserts that the given value is an instance of $class and returns it as
+	 * such, narrowing the type for static analysis without relying on the
+	 * (not installed) phpstan-phpunit extension to understand assertInstanceOf().
+	 * @template T of FCHTestBase
+	 * @param class-string<T> $class
+	 * @return T
+	 */
+	private function assertInstanceOfAndNarrow(string $class, mixed $actual): FCHTestBase
+	{
+		$this->assertInstanceOf($class, $actual);
+		if (!$actual instanceof $class) {
+			$this->fail(sprintf('Expected an instance of %s.', $class));
+		}
+		return $actual;
+	}
+
+	public function testFactoryConfigHandler(): void
 	{
 		$FCH = new FactoryConfigHandler();
 
@@ -138,40 +169,40 @@ class FactoryConfigHandlerTest extends ConfigHandlerTestBase
 			$this->factories['validation_manager']
 		);
 
-		$this->assertInstanceOf('FCHTestDBManager', $this->databaseManager);
-		$this->assertSame($this, $this->databaseManager->context);
-		$this->assertSame($paramsExpected, $this->databaseManager->params);
-		$this->assertTrue($this->databaseManager->suCalled);
+		$databaseManager = $this->assertInstanceOfAndNarrow(FCHTestDBManager::class, $this->databaseManager);
+		$this->assertSame($this, $databaseManager->context);
+		$this->assertSame($paramsExpected, $databaseManager->params);
+		$this->assertTrue($databaseManager->suCalled);
 
-		$this->assertInstanceOf('FCHTestRequest', $this->request);
-		$this->assertSame($this, $this->request->context);
-		$this->assertSame($paramsExpected, $this->request->params);
+		$request = $this->assertInstanceOfAndNarrow(FCHTestRequest::class, $this->request);
+		$this->assertSame($this, $request->context);
+		$this->assertSame($paramsExpected, $request->params);
 		// Request startup is no longer executed automatically; PSR-7 bootstrap handles initialization lazily.
-		$this->assertNull($this->request->suCalled);
+		$this->assertNull($request->suCalled);
 
-		$this->assertInstanceOf('FCHTestStorage', $this->storage);
-		$this->assertSame($this, $this->storage->context);
-		$this->assertSame($paramsExpected, $this->storage->params);
-		$this->assertTrue($this->storage->suCalled);
+		$storage = $this->assertInstanceOfAndNarrow(FCHTestStorage::class, $this->storage);
+		$this->assertSame($this, $storage->context);
+		$this->assertSame($paramsExpected, $storage->params);
+		$this->assertTrue($storage->suCalled);
 
-		$this->assertInstanceOf('FCHTestTranslationManager', $this->translationManager);
-		$this->assertSame($this, $this->translationManager->context);
-		$this->assertSame($paramsExpected, $this->translationManager->params);
-		$this->assertTrue($this->translationManager->suCalled);
+		$translationManager = $this->assertInstanceOfAndNarrow(FCHTestTranslationManager::class, $this->translationManager);
+		$this->assertSame($this, $translationManager->context);
+		$this->assertSame($paramsExpected, $translationManager->params);
+		$this->assertTrue($translationManager->suCalled);
 
-		$this->assertInstanceOf('FCHTestUser', $this->user);
-		$this->assertSame($this, $this->user->context);
-		$this->assertSame($paramsExpected, $this->user->params);
-		$this->assertTrue($this->user->suCalled);
+		$user = $this->assertInstanceOfAndNarrow(FCHTestUser::class, $this->user);
+		$this->assertSame($this, $user->context);
+		$this->assertSame($paramsExpected, $user->params);
+		$this->assertTrue($user->suCalled);
 
-		$this->assertInstanceOf('FCHTestController', $this->controller);
-		$this->assertSame($this, $this->controller->context);
-		$this->assertSame($paramsExpected, $this->controller->params);
+		$controller = $this->assertInstanceOfAndNarrow(FCHTestController::class, $this->controller);
+		$this->assertSame($this, $controller->context);
+		$this->assertSame($paramsExpected, $controller->params);
 
-		$this->assertInstanceOf('FCHTestRouting', $this->routing);
-		$this->assertSame($this, $this->routing->context);
-		$this->assertSame($paramsExpected, $this->routing->params);
-		$this->assertTrue($this->routing->suCalled);
+		$routing = $this->assertInstanceOfAndNarrow(FCHTestRouting::class, $this->routing);
+		$this->assertSame($this, $routing->context);
+		$this->assertSame($paramsExpected, $routing->params);
+		$this->assertTrue($routing->suCalled);
 	}
 
 	/**

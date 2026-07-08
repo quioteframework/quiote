@@ -9,7 +9,7 @@ use Quiote\I18n\DateTimeFacade;
  */
 class DateFormatModernTest extends TestCase
 {
-    public function testParseWithExplicitTimezone()
+    public function testParseWithExplicitTimezone(): void
     {
         $dt = DateTimeFacade::parse('2008-11-19 23:00:00', 'yyyy-MM-dd HH:mm:ss', 'Europe/Berlin');
         // Berlin offset in late 2008-11 is +01:00 (standard time)
@@ -18,7 +18,7 @@ class DateFormatModernTest extends TestCase
         $this->assertEquals('Europe/Berlin', $dt->getTimezone()->getName());
     }
 
-    public function testRoundTripFormatting()
+    public function testRoundTripFormatting(): void
     {
         $pattern = 'yyyy-MM-dd HH:mm:ss';
         $original = '2031-03-15 05:06:07';
@@ -26,7 +26,7 @@ class DateFormatModernTest extends TestCase
         $this->assertSame($original, DateTimeFacade::format($dt, $pattern));
     }
 
-    public function testTimezoneConversion()
+    public function testTimezoneConversion(): void
     {
         $utc = DateTimeFacade::parse('2025-10-01 12:00:00', 'yyyy-MM-dd HH:mm:ss', 'UTC');
         $ny = $utc->setTimezone(new DateTimeZone('America/New_York'));

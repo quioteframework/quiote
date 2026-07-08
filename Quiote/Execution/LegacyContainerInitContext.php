@@ -96,9 +96,19 @@ final class LegacyContainerInitContext extends AttributeHolder implements Action
         return $this->container->getViewName();
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function getActionAttributes(): array
     {
-        return $this->getAttributes();
+        // Attribute names are always strings by contract; re-key defensively so a stray
+        // int-keyed entry from AttributeHolder internals can never desync consumers
+        // that index this snapshot by name.
+        $attributes = $this->getAttributes();
+        return array_combine(
+            array_map('strval', array_keys($attributes)),
+            array_values($attributes)
+        );
     }
 
     /**

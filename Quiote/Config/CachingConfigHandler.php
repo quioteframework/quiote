@@ -2,6 +2,7 @@
 namespace Quiote\Config;
 
 use Quiote\Config\Util\DOM\XmlConfigDomDocument;
+use Quiote\Exception\ParseException;
 use Quiote\Util\Toolkit;
 
 /**
@@ -81,6 +82,14 @@ class CachingConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 						if ($outputType->has('layers')) {
 							$layers = [];
 							foreach ($outputType->get('layers') as $layer) {
+								$layerName = $layer->getAttribute('name');
+								if ($layerName === null || $layerName === '') {
+									throw new ParseException(sprintf(
+										'Configuration file "%s" has a <layer> element missing its required "name" attribute',
+										$document->documentURI
+									));
+								}
+
 								$include = Toolkit::literalize($layer->getAttribute('include', 'true'));
 								if (($layer->has('slots') && !$layer->hasAttribute('include')) || !$include) {
 									$slots = [];
@@ -89,9 +98,9 @@ class CachingConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 											$slots[] = $slot->getValue();
 										}
 									}
-									$layers[$layer->getAttribute('name')] = $slots;
+									$layers[$layerName] = $slots;
 								} else {
-									$layers[$layer->getAttribute('name')] = true;
+									$layers[$layerName] = true;
 								}
 							}
 						}

@@ -36,7 +36,7 @@ class ValidationMiddlewareUpdateMethodTest extends UnitTestCase
         return $action;
     }
 
-    public function testUpdateMethodIsRecognizedAsValidSemanticToken()
+    public function testUpdateMethodIsRecognizedAsValidSemanticToken(): void
     {
         $actionDesc = new ActionDescriptor('Cache', 'Cache', 'update', 'html', false);
 
@@ -66,7 +66,7 @@ class ValidationMiddlewareUpdateMethodTest extends UnitTestCase
         $this->assertTrue($action->validateUpdateCalled, 'validateUpdate should have been called for method=update');
     }
 
-    public function testUpdateMethodPassesThroughOnSuccess()
+    public function testUpdateMethodPassesThroughOnSuccess(): void
     {
         $actionDesc = new ActionDescriptor('Cache', 'Cache', 'update', 'html', false);
 
@@ -92,7 +92,7 @@ class ValidationMiddlewareUpdateMethodTest extends UnitTestCase
         $this->assertEquals(200, $response->getStatusCode());
     }
 
-    public function testAllSemanticMethodsPassWhenValidationSucceeds()
+    public function testAllSemanticMethodsPassWhenValidationSucceeds(): void
     {
         $methods = ['read', 'write', 'create', 'update', 'remove'];
 

@@ -15,23 +15,23 @@ class ActionResolverDefaultViewFallbackTest extends UnitTestCase
         $this->resolver = $this->getContext()->getActionResolver();
     }
 
-    public function testExecutesSpecificMethodWhenPresent()
+    public function testExecutesSpecificMethodWhenPresent(): void
     {
-        $action = new class extends Action { public function executeRead(ServerRequestInterface $req){ return 'Specific'; } };
+        $action = new class extends Action { public function executeRead(ServerRequestInterface $req): string { return 'Specific'; } };
         $req = new ServerRequest('GET', '/');
         $view = $this->resolver->execute($action, 'Read', $req);
         $this->assertSame('Specific', $view);
     }
 
-    public function testFallsBackToGenericExecute()
+    public function testFallsBackToGenericExecute(): void
     {
-        $action = new class extends Action { public function execute(ServerRequestInterface $req){ return 'Generic'; } };
+        $action = new class extends Action { public function execute(ServerRequestInterface $req): string { return 'Generic'; } };
         $req = new ServerRequest('POST', '/');
         $view = $this->resolver->execute($action, 'Write', $req);
         $this->assertSame('Generic', $view);
     }
 
-    public function testFallsBackToDefaultViewName()
+    public function testFallsBackToDefaultViewName(): void
     {
         $action = new class extends Action { public function getDefaultViewName(){ return 'Fallback'; } };
         $req = new ServerRequest('PATCH', '/');
@@ -39,7 +39,7 @@ class ActionResolverDefaultViewFallbackTest extends UnitTestCase
         $this->assertSame('Fallback', $view);
     }
 
-    public function testThrowsWhenNoMethodsOrDefault()
+    public function testThrowsWhenNoMethodsOrDefault(): void
     {
         $action = new class extends Action { public function getDefaultViewName(){ return ''; } };
         $req = new ServerRequest('DELETE', '/');

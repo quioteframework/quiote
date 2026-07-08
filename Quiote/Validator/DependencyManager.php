@@ -1,6 +1,7 @@
 <?php
 namespace Quiote\Validator;
 
+use Quiote\Exception\ValidatorException;
 use Quiote\Util\VirtualArrayPath;
 use Symfony\Contracts\Service\ResetInterface;
 
@@ -87,7 +88,7 @@ class DependencyManager implements ResetInterface
 	public static function populateArgumentBaseKeyRefs($string)
 	{
 		$index = 1;
-		return preg_replace_callback(
+		$result = preg_replace_callback(
 			'#\[([^\]]*)\]#',
 			function($matches) use(&$index) {
 				$index++; // always increment so static key parts are "skipped" properly
@@ -95,6 +96,10 @@ class DependencyManager implements ResetInterface
 			},
 			(string) $string
 		);
+		if ($result === null) {
+			throw new ValidatorException('Failed to populate argument base key references for "' . $string . '": ' . (preg_last_error_msg()));
+		}
+		return $result;
 	}
 	
 	/**

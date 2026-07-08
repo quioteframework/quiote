@@ -49,7 +49,7 @@ final class DatabaseContainers
      */
     public static function postgres(): array
     {
-        return self::remember('postgres', static function (): array {
+        return self::shapeConnectionInfo(self::remember('postgres', static function (): array {
             $db = 'quiote_test';
             $user = 'quiote';
             $pass = 'secret';
@@ -72,7 +72,7 @@ final class DatabaseContainers
                 $pass
             );
             return ['__container' => $container] + $info;
-        });
+        }));
     }
 
     /**
@@ -80,7 +80,7 @@ final class DatabaseContainers
      */
     public static function mysql(): array
     {
-        return self::remember('mysql', static function (): array {
+        return self::shapeConnectionInfo(self::remember('mysql', static function (): array {
             $db = 'quiote_test';
             $user = 'quiote';
             $pass = 'secret';
@@ -106,7 +106,7 @@ final class DatabaseContainers
                 $pass
             );
             return ['__container' => $container] + $info;
-        });
+        }));
     }
 
     /** Whether a given PDO driver ("pgsql", "mysql", ...) is compiled into this PHP. */
@@ -132,6 +132,30 @@ final class DatabaseContainers
     }
 
     /**
+     * @param array<string,mixed> $info
+     * @return array{host:string,port:int,database:string,username:string,password:string,root_password:string}
+     */
+    private static function shapeConnectionInfo(array $info): array
+    {
+        foreach (['host', 'database', 'username', 'password', 'root_password'] as $key) {
+            if (!isset($info[$key]) || !is_string($info[$key])) {
+                throw new \RuntimeException(sprintf('Connection info key "%s" must be a string', $key));
+            }
+        }
+        if (!isset($info['port']) || !is_int($info['port'])) {
+            throw new \RuntimeException('Connection info key "port" must be an int');
+        }
+        return [
+            'host' => $info['host'],
+            'port' => $info['port'],
+            'database' => $info['database'],
+            'username' => $info['username'],
+            'password' => $info['password'],
+            'root_password' => $info['root_password'],
+        ];
+    }
+
+    /**
      * The container's readiness probe (mysqladmin ping / pg_isready) reports the
      * server is up, but the app user/database may still be initialising — retry a
      * real PDO connection until it succeeds or the deadline passes.
@@ -152,7 +176,7 @@ final class DatabaseContainers
 
         throw new \RuntimeException(
             'Database container did not become connectable within ' . $timeoutSeconds
-            . 's: ' . ($lastError?->getMessage() ?? 'unknown error'),
+            . 's: ' . $lastError->getMessage(),
             0,
             $lastError
         );

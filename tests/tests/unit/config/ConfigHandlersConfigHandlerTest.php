@@ -23,13 +23,14 @@ class CHCHTestHandler extends ConfigHandler
 
 	public function execute($config, $context = null)
 	{
+		return '';
 	}
 }
 
 class ConfigHandlersConfigHandlerTest extends ConfigHandlerTestBase
 {
 
-	public function testConfigHandlersConfigHandler()
+	public function testConfigHandlersConfigHandler(): void
 	{
 		$hf = Toolkit::normalizePath(Config::getString('core.config_dir') . '/routing.xml');
 		$CHCH = new ConfigHandlersConfigHandler();

@@ -62,6 +62,53 @@ final class FormPopulationEngine
 	protected string $xmlnsPrefix = '';
 
 	/**
+	 * Runs an XPath query against $this->xpath and returns the matched nodes
+	 * as a plain array. DOMXPath::query() can return false (invalid
+	 * expression) or, per its own axis support, namespace nodes; neither of
+	 * those are ever produced by the element/attribute-only expressions used
+	 * throughout this class, so both are normalized away here to keep the
+	 * calling code working with plain DOMNode instances.
+	 * @return     array<int, \DOMNode>
+	 * @since      1.0.0
+	 */
+	protected function queryNodes(string $expression, ?\DOMNode $contextNode = null): array
+	{
+		if($this->xpath === null) {
+			return [];
+		}
+
+		$result = $this->xpath->query($expression, $contextNode);
+		if($result === false) {
+			return [];
+		}
+
+		$nodes = [];
+		foreach($result as $node) {
+			if($node instanceof \DOMNode) {
+				$nodes[] = $node;
+			}
+		}
+		return $nodes;
+	}
+
+	/**
+	 * Like queryNodes(), but narrowed to \DOMElement, for expressions that are
+	 * only ever expected to select elements.
+	 * @return     array<int, \DOMElement>
+	 * @since      1.0.0
+	 */
+	protected function queryElements(string $expression, ?\DOMNode $contextNode = null): array
+	{
+		$elements = [];
+		foreach($this->queryNodes($expression, $contextNode) as $node) {
+			if($node instanceof \DOMElement) {
+				$elements[] = $node;
+			}
+		}
+		return $elements;
+	}
+
+	/**
 	 * Populate the provided response content with request data and validation errors.
 	 * @param      array<string, mixed> $overrides
 	 */
@@ -80,6 +127,9 @@ final class FormPopulationEngine
 		$cfg = $this->buildConfiguration($request, $overrides);
 
 		$ot = $response->getOutputType();
+		if($ot === null) {
+			return;
+		}
 
 		if(is_array($cfg['output_types']) && !in_array($ot->getName(), $cfg['output_types'])) {
 			return;
@@ -209,8 +259,7 @@ final class FormPopulationEngine
 		libxml_use_internal_errors($luie);
 
 		$properXhtml = false;
-		/** @var \DOMElement $meta */
-		foreach($this->xpath->query(sprintf('//%1$shead/%1$smeta', $this->xmlnsPrefix)) as $meta) {
+		foreach($this->queryElements(sprintf('//%1$shead/%1$smeta', $this->xmlnsPrefix)) as $meta) {
 			if(strtolower($meta->getAttribute('http-equiv')) == 'content-type') {
 				if($this->doc->encoding === null) {
 					// media-type = type "/" subtype *( ";" parameter ), says http://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html#sec3.7
@@ -242,12 +291,9 @@ final class FormPopulationEngine
 			throw new QuioteException('No iconv module available, input encoding "' . $encoding . '" cannot be handled.');
 		}
 
-		/** @var \DOMNodeList<\DOMNode|\DOMNameSpaceNode>|false $base */
-		$base = $this->xpath->query(sprintf('/%1$shtml/%1$shead/%1$sbase[@href]', $this->xmlnsPrefix));
-		if($base->length) {
-			/** @var \DOMElement $item */
-			$item = $base->item(0);
-			$baseHref = $item->getAttribute('href');
+		$base = $this->queryElements(sprintf('/%1$shtml/%1$shead/%1$sbase[@href]', $this->xmlnsPrefix));
+		if($base) {
+			$baseHref = $base[0]->getAttribute('href');
 		} else {
 			$baseHref = '';
 		}
@@ -271,20 +317,19 @@ final class FormPopulationEngine
 				// we must assemble the array by hand as neither '//form[@id="foo"] or //form[@id="bar"]' nor '//form[@id="foo"] || //form[@id="bar"]' will order the elements as given in the query (order of element in the document is used instead and that can be a problem for error insertion, see #1461)
 				$forms = [];
 				foreach($queries as $query) {
-					$form = $this->xpath->query(sprintf('//%1$sform[%2$s]', $this->xmlnsPrefix, $query));
-					if($form->length) {
-						$forms[] = $form->item(0);
+					$form = $this->queryElements(sprintf('//%1$sform[%2$s]', $this->xmlnsPrefix, $query));
+					if($form) {
+						$forms[] = $form[0];
 					}
 				}
 			}
 		} else {
-			$forms = $this->xpath->query(Toolkit::expandVariables($cfg['forms_xpath'], ['htmlnsPrefix' => $this->xmlnsPrefix]));
+			$forms = $this->queryElements(Toolkit::expandVariables($cfg['forms_xpath'], ['htmlnsPrefix' => $this->xmlnsPrefix]));
 		}
 
 		// an array of all validation incidents; errors inserted for fields or multiple fields will be removed in here
 		$allIncidents = $vr->getIncidents();
 
-		/** @var \DOMElement $form */
 		foreach($forms as $form) {
 			if($form->tagName == 'form') {
 				if($populate instanceof ParameterHolder) {
@@ -356,8 +401,7 @@ final class FormPopulationEngine
 				);
 			}
 			
-			/** @var \DOMElement $element */
-			foreach($this->xpath->query($query, $form) as $element) {
+			foreach($this->queryElements($query, $form) as $element) {
 
 				$pname = $name = $element->getAttribute('name');
 
@@ -427,13 +471,13 @@ final class FormPopulationEngine
 					// the element itself of course
 					$errorClassElements[] = $element;
 					// all implicit labels
-					foreach($this->xpath->query(sprintf('ancestor::%1$slabel[not(@for)]', $this->xmlnsPrefix), $element) as $label) {
+					foreach($this->queryElements(sprintf('ancestor::%1$slabel[not(@for)]', $this->xmlnsPrefix), $element) as $label) {
 						$errorClassElements[] = $label;
 					}
 					// and all explicit labels
 					if(($id = $element->getAttribute('id')) != '') {
 						// we use // and not descendant: because it doesn't have to be a child of the form element
-						foreach($this->xpath->query(sprintf('//%1$slabel[@for="%2$s"]', $this->xmlnsPrefix, $id), $form) as $label) {
+						foreach($this->queryElements(sprintf('//%1$slabel[@for="%2$s"]', $this->xmlnsPrefix, $id), $form) as $label) {
 							$errorClassElements[] = $label;
 						}
 					}
@@ -443,14 +487,15 @@ final class FormPopulationEngine
 						// go over all the elements in the error class map
 						foreach($cfg['error_class_map'] as $xpathExpression => $errorClassName) {
 							// evaluate each xpath expression
-							$errorClassResults = $this->xpath->query(Toolkit::expandVariables($xpathExpression, ['htmlnsPrefix' => $this->xmlnsPrefix]), $errorClassElement);
-							if($errorClassResults && $errorClassResults->length) {
+							$errorClassResults = $this->queryElements(Toolkit::expandVariables($xpathExpression, ['htmlnsPrefix' => $this->xmlnsPrefix]), $errorClassElement);
+							if($errorClassResults) {
 								// we have results. the xpath expressions are used to locale the actual elements we set the error class on - doesn't necessarily have to be the erroneous element or the label!
-								/** @var \DOMElement $errorClassDestinationElement */
 								foreach($errorClassResults as $errorClassDestinationElement) {
-									$errorClassDestinationElement->setAttribute('class', preg_replace('/\s*$/', ' ' . $errorClassName, $errorClassDestinationElement->getAttribute('class')));
+									$existingClass = $errorClassDestinationElement->getAttribute('class');
+									$newClass = preg_replace('/\s*$/', ' ' . $errorClassName, $existingClass) ?? ($existingClass . ' ' . $errorClassName);
+									$errorClassDestinationElement->setAttribute('class', $newClass);
 								}
-								
+
 								// and break the foreach, our expression matched after all - no need to look further
 								break;
 							}
@@ -552,8 +597,7 @@ final class FormPopulationEngine
 				} elseif($element->nodeName == 'select') {
 					// select elements
 					// yes, we still use XPath because there could be OPTGROUPs
-					/** @var \DOMElement $option */
-					foreach($this->xpath->query(sprintf('descendant::%1$soption', $this->xmlnsPrefix), $element) as $option) {
+					foreach($this->queryElements(sprintf('descendant::%1$soption', $this->xmlnsPrefix), $element) as $option) {
 						$option->removeAttribute('selected');
 						if($p->hasParameter($pname) && ($option->getAttribute('value') === $value || ($multiple && is_array($value) && in_array($option->getAttribute('value'), $value)))) {
 							$option->setAttribute('selected', 'selected');
@@ -596,13 +640,14 @@ final class FormPopulationEngine
 		if($xhtml) {
 			$firstError = null;
 
-			if(!$cfg['parse_xhtml_as_xml']) {
+			if(!$cfg['parse_xhtml_as_xml'] && $this->doc->documentElement !== null) {
+				$documentElement = $this->doc->documentElement;
 				// workaround for a bug in dom or something that results in two xmlns attributes being generated for the <html> element
 				// attributes must be removed and created again
 				// and don't change the DOMNodeList in the foreach!
 				$remove = [];
 				$reset = [];
-				foreach($this->doc->documentElement->attributes as $attribute) {
+				foreach($documentElement->attributes as $attribute) {
 					// remember to remove the node
 					$remove[] = $attribute;
 					// not for the xmlns attribute itself
@@ -611,7 +656,7 @@ final class FormPopulationEngine
 						$attributeNameParts = explode(':', $attribute->nodeName);
 						if(isset($attributeNameParts[1])) {
 							// it's a namespaced node
-							$attributeNamespaceUri = $attribute->parentNode->lookupNamespaceURI($attributeNameParts[0]);
+							$attributeNamespaceUri = $attribute->parentNode?->lookupNamespaceURI($attributeNameParts[0]);
 							if($attributeNamespaceUri) {
 								// it is an attribute, for which the namespace is known internally (even though we're in HTML mode), typically xml: or xmlns:.
 								// so we need to create a new node, in the right namespace
@@ -630,20 +675,20 @@ final class FormPopulationEngine
 						$reset[] = $attributeCopy;
 					}
 				}
-				
+
 				foreach($remove as $attribute) {
-					$this->doc->documentElement->removeAttributeNode($attribute);
+					$documentElement->removeAttributeNode($attribute);
 				}
 				foreach($reset as $attribute) {
-					$this->doc->documentElement->setAttributeNode($attribute);
+					$documentElement->setAttributeNode($attribute);
 				}
 			}
-			$out = $this->doc->saveXML(null, $cfg['savexml_options']);
+			$out = (string) $this->doc->saveXML(null, $cfg['savexml_options']);
 			if((!$cfg['parse_xhtml_as_xml'] || !$properXhtml) && $cfg['cdata_fix']) {
 				// these are ugly fixes so inline style and script blocks still work. better don't use them with XHTML to avoid trouble
 				// http://www.456bereastreet.com/archive/200501/the_perils_of_using_xhtml_properly/
 				// http://www.hixie.ch/advocacy/xhtml
-				$out = preg_replace('/<style([^>]*)>\s*<!\[CDATA\[\s*?/iU' . ($utf8 ? 'u' : ''), '<style$1><!--/*--><![CDATA[/*><!--*/' . "\n", $out);
+				$out = preg_replace('/<style([^>]*)>\s*<!\[CDATA\[\s*?/iU' . ($utf8 ? 'u' : ''), '<style$1><!--/*--><![CDATA[/*><!--*/' . "\n", (string) $out);
 				// this is the first preg_* call since $firstError was reset to null above,
 				// so it always captures the error state at this point
 				$firstError = preg_last_error();
@@ -664,13 +709,13 @@ final class FormPopulationEngine
 			}
 			if($cfg['remove_auto_xml_prolog'] && !$hasXmlProlog) {
 				// there was no xml prolog in the document before, so we remove the one generated by DOM now
-				$out = preg_replace('/<\?xml.*?\?>\s+/iU' . ($utf8 ? 'u' : ''), '', $out);
+				$out = preg_replace('/<\?xml.*?\?>\s+/iU' . ($utf8 ? 'u' : ''), '', (string) $out);
 				if(!$firstError) {
 					$firstError = preg_last_error();
 				}
 			} elseif(!$cfg['parse_xhtml_as_xml']) {
 				// yes, DOM sucks and inserts another XML prolog _after_ the DOCTYPE... and it has two question marks at the end, not one, don't ask me why
-				$out = preg_replace('/<\?xml.*?\?\?>\s+/iU' . ($utf8 ? 'u' : ''), '', $out);
+				$out = preg_replace('/<\?xml.*?\?\?>\s+/iU' . ($utf8 ? 'u' : ''), '', (string) $out);
 				if(!$firstError) {
 					$firstError = preg_last_error();
 				}
@@ -730,14 +775,19 @@ final class FormPopulationEngine
 			return true;
 		}
 
+		if($this->doc === null) {
+			throw new \LogicException('insertErrorMessages() called without an active document; populate() must run first.');
+		}
+		$doc = $this->doc;
+
 		$luie = libxml_use_internal_errors(true);
 		libxml_clear_errors();
 
 		$insertSuccessful = false;
 		foreach($rules as $xpathExpression => $errorMessageInfo) {
-			$targets = $this->xpath->query(Toolkit::expandVariables($xpathExpression, ['htmlnsPrefix' => $this->xmlnsPrefix]), $element);
+			$targets = $this->queryNodes(Toolkit::expandVariables($xpathExpression, ['htmlnsPrefix' => $this->xmlnsPrefix]), $element);
 
-			if(!$targets || !$targets->length) {
+			if(!$targets) {
 				continue;
 			}
 
@@ -776,15 +826,15 @@ final class FormPopulationEngine
 						$errorElement = call_user_func($errorMarkup, $element, $error->getMessage(), $error);
 						if(is_string($errorElement)) {
 							$errorElementHtml = $errorElement;
-							$errorElement = $this->doc->createDocumentFragment();
+							$errorElement = $doc->createDocumentFragment();
 							$errorElement->appendXML($errorElementHtml);
 						} else {
-							$this->doc->importNode($errorElement, true);
+							$doc->importNode($errorElement, true);
 						}
 					} elseif(is_string($errorMarkup)) {
 						// it's a string with the HTML to insert
 						// %s is the placeholder in the HTML for the error message
-						$errorElement = $this->doc->createDocumentFragment();
+						$errorElement = $doc->createDocumentFragment();
 						$errorElement->appendXML(
 							Toolkit::expandVariables(
 								$errorMarkup,
@@ -829,15 +879,15 @@ final class FormPopulationEngine
 					$containerElement = call_user_func($errorContainer, $element, $errorStrings, $errors);
 					if(is_string($containerElement)) {
 						$containerElementHtml = $containerElement;
-						$containerElement = $this->doc->createDocumentFragment();
+						$containerElement = $doc->createDocumentFragment();
 						$containerElement->appendXML($containerElementHtml);
 					} else {
-						$this->doc->importNode($containerElement, true);
+						$doc->importNode($containerElement, true);
 					}
 				} elseif(is_string($errorContainer)) {
 					// it's a string with the HTML to insert
 					// %s is the placeholder in the HTML for the error message
-					$containerElement = $this->doc->createDocumentFragment();
+					$containerElement = $doc->createDocumentFragment();
 					$containerElement->appendXML(
 						Toolkit::expandVariables(
 							$errorContainer,
@@ -878,19 +928,25 @@ final class FormPopulationEngine
 					// in case the target yielded more than one location, we need to clone the element
 					// because the document fragment node will be corrupted after an insert
 					$clonedErrorElement = $errorElement->cloneNode(true);
-					
-					if($errorLocation == 'before') {
-						$target->parentNode->insertBefore($clonedErrorElement, $target);
+					$targetParent = $target->parentNode;
+
+					if($targetParent === null) {
+						// the target has no parent to insert relative to (e.g. it is a
+						// detached node or the document element itself), so fall back
+						// to appending the error directly onto the target
+						$target->appendChild($clonedErrorElement);
+					} elseif($errorLocation == 'before') {
+						$targetParent->insertBefore($clonedErrorElement, $target);
 					} elseif($errorLocation == 'after') {
 						// check if there is a following sibling, then insert before that one
 						// if not, append to parent
 						if($target->nextSibling) {
-							$target->parentNode->insertBefore($clonedErrorElement, $target->nextSibling);
+							$targetParent->insertBefore($clonedErrorElement, $target->nextSibling);
 						} else {
-							$target->parentNode->appendChild($clonedErrorElement);
+							$targetParent->appendChild($clonedErrorElement);
 						}
 					} elseif($errorLocation == 'replace') {
-						$target->parentNode->replaceChild($clonedErrorElement, $target);
+						$targetParent->replaceChild($clonedErrorElement, $target);
 					} else {
 						$target->appendChild($clonedErrorElement);
 					}

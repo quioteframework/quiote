@@ -19,7 +19,7 @@ class SlotDispatcherTest extends UnitTestCase
     $this->getContext()->getController()->createActionInstance('Cache','Cache');
     }
 
-    public function testSimpleSlotDispatch()
+    public function testSimpleSlotDispatch(): void
     {
         $controller = $this->getContext()->getController();
     // Ensure module initialization loads the action class
@@ -41,7 +41,7 @@ class SlotDispatcherTest extends UnitTestCase
      * must never run execute() through SlotDispatcher either, matching
      * ActionExecutor::doExecute().
      */
-    public function testSimpleActionSlotDispatchNeverRunsExecute()
+    public function testSimpleActionSlotDispatchNeverRunsExecute(): void
     {
         $controller = $this->getContext()->getController();
         $controller->initializeModule('Snapshot');
@@ -54,7 +54,7 @@ class SlotDispatcherTest extends UnitTestCase
         $this->assertSame([], ParamSnapshotAction::$seenParams, 'execute() must never run for a simple action dispatched as a slot');
     }
 
-    public function testRecursionLimit()
+    public function testRecursionLimit(): void
     {
         $controller = $this->getContext()->getController();
         $dispatcher = new SlotDispatcher($controller);

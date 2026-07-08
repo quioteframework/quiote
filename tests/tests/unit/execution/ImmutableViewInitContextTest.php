@@ -4,28 +4,29 @@ use Quiote\Execution\ImmutableViewInitContext;
 use Quiote\Context;
 // Provide a concrete minimal response stub implementing abstract methods
 class TestImmutableInitContextResponse extends \Quiote\Response\WebResponse {
+    /** @var array{location: mixed, code: int|string}|null */
     protected $redirect = null;
     #[\Override]
-    public function initialize($c,$p=[]) { parent::initialize($c,$p); }
+    public function initialize($c,$p=[]): void { parent::initialize($c,$p); }
     #[\Override]
-    public function setRedirect($location, $code = 302) { $this->redirect = $location; }
+    public function setRedirect($location, $code = 302): void { $this->redirect = ['location' => $location, 'code' => $code]; }
     #[\Override]
-    public function getRedirect() { return $this->redirect ? ['to'=>$this->redirect] : null; }
+    public function getRedirect(): ?array { return $this->redirect; }
     #[\Override]
-    public function hasRedirect() { return $this->redirect !== null; }
+    public function hasRedirect(): bool { return $this->redirect !== null; }
     #[\Override]
-    public function clearRedirect() { $this->redirect = null; }
+    public function clearRedirect(): void { $this->redirect = null; }
     #[\Override]
-    public function clear() { $this->clearContent(); $this->clearRedirect(); $this->clearAttributes(); }
+    public function clear(): void { $this->clearContent(); $this->clearRedirect(); $this->clearAttributes(); }
     #[\Override]
-    public function send(?\Quiote\Controller\OutputType $outputType = null) { /* no-op for test */ }
+    public function send(?\Quiote\Controller\OutputType $outputType = null): void { /* no-op for test */ }
 }
 
 class ImmutableViewInitContextTest extends TestCase
 {
     private function ctx(): \Quiote\Context { return Context::getInstance('default'); }
 
-    public function testBasicGettersAndAttributeSnapshot()
+    public function testBasicGettersAndAttributeSnapshot(): void
     {
         $context = $this->ctx();
         $response = new TestImmutableInitContextResponse();
@@ -43,7 +44,7 @@ class ImmutableViewInitContextTest extends TestCase
         $this->assertSame('v',$ivc->getAttribute('k'));
     }
 
-    public function testLegacyOutputTypeProxyAndModuleFallback()
+    public function testLegacyOutputTypeProxyAndModuleFallback(): void
     {
         $context = $this->ctx();
     $response = new TestImmutableInitContextResponse();
@@ -55,7 +56,7 @@ class ImmutableViewInitContextTest extends TestCase
         $this->assertSame('xml', $ot->getName());
     }
 
-    public function testLegacyParameterAndValidationManagerShims()
+    public function testLegacyParameterAndValidationManagerShims(): void
     {
         $context = $this->ctx();
     $response = new TestImmutableInitContextResponse();
@@ -67,7 +68,10 @@ class ImmutableViewInitContextTest extends TestCase
         $params = $ivc->getParameters();
         $this->assertSame([], $params);
         $vm = $ivc->getValidationManager();
-        // Either null (if factory absent) or an instance implementing initialize(). Accept both.
-        $this->assertTrue($vm === null || is_object($vm));
+        // Either null (if factory absent) or an instance implementing initialize(). Accept both,
+        // but verify the contract actually holds for the non-null case.
+        if ($vm !== null) {
+            $this->assertTrue(method_exists($vm, 'initialize'), 'Validation manager must implement initialize()');
+        }
     }
 }

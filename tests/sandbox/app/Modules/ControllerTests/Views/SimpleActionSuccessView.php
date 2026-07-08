@@ -6,7 +6,7 @@ use Sandbox\Modules\ControllerTests\Lib\View\SandboxControllerTestsBaseView;
 
 class SimpleActionSuccessView extends SandboxControllerTestsBaseView
 {
-	public function executeHtml(WebRequest $rd)
+	public function executeHtml(WebRequest $rd): void
 	{
 		$this->setupHtml($rd);
 

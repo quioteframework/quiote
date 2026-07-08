@@ -116,27 +116,49 @@ class OutputType extends ParameterHolder implements \Stringable, ResetInterface
 	 * @return     ?Renderer A Renderer instance or null if none defined.
 	 * @since      1.0.0
 	 */
-	public function getRenderer($name = null)
+	public function getRenderer($name = null): ?Renderer
 	{
 		if(count($this->renderers) == 0) {
 			return null;
 		} elseif($name === null) {
 			$name = $this->defaultRenderer;
 		}
+		if($name === null) {
+			throw new QuioteException('Cannot resolve a renderer: no renderer name was given and no default renderer is configured.');
+		}
 		if(isset($this->renderers[$name])) {
 			if($this->renderers[$name]['instance'] === null) {
-				$renderer = new $this->renderers[$name]['class']();
-				$renderer->initialize($this->context, $this->renderers[$name]['parameters']);
-				if(isset($this->renderers[$name]['extension'])) {
-					$renderer->setExtension($this->renderers[$name]['extension']);
+				if ($this->context === null) {
+					throw new QuioteException('Cannot build renderer "' . (string) $name . '": the Output Type has not been initialized with a Context yet.');
 				}
+				$rendererClass = $this->renderers[$name]['class'];
+				if (!is_string($rendererClass) || !class_exists($rendererClass)) {
+					throw new QuioteException(sprintf('Renderer "%s" declares an invalid or unknown class.', (string) $name));
+				}
+				$renderer = new $rendererClass();
+				if (!$renderer instanceof Renderer) {
+					throw new QuioteException(sprintf('Renderer class "%s" does not implement %s.', $rendererClass, Renderer::class));
+				}
+				/** @var array<string, mixed> $parameters */
+				$parameters = $this->renderers[$name]['parameters'];
+				if (isset($this->renderers[$name]['extension'])) {
+					// The Renderer contract has no setExtension() setter; the template
+					// extension is configured through the same parameters bag consumed
+					// by Renderer::initialize() (as 'default_extension').
+					$parameters['default_extension'] = $this->renderers[$name]['extension'];
+				}
+				$renderer->initialize($this->context, $parameters);
 				if($renderer instanceof IReusableRenderer) {
 					$this->renderers[$name]['instance'] = $renderer;
 				}
 				return $renderer;
-			} else {
-				return $this->renderers[$name]['instance'];
 			}
+
+			$instance = $this->renderers[$name]['instance'];
+			if (!$instance instanceof Renderer) {
+				throw new QuioteException(sprintf('Cached renderer instance for "%s" is not a %s.', (string) $name, Renderer::class));
+			}
+			return $instance;
 		} else {
 			throw new QuioteException('Unknown renderer "' . $name . '"');
 		}
@@ -144,10 +166,10 @@ class OutputType extends ParameterHolder implements \Stringable, ResetInterface
 	
 	/**
 	 * Get the name of the default layout.
-	 * @return     string The name of the default layout, or null if none defined.
+	 * @return     ?string The name of the default layout, or null if none defined.
 	 * @since      1.0.0
 	 */
-	public function getDefaultLayoutName()
+	public function getDefaultLayoutName(): ?string
 	{
 		return $this->defaultLayout;
 	}
@@ -164,7 +186,11 @@ class OutputType extends ParameterHolder implements \Stringable, ResetInterface
 		if($name === null) {
 			$name = $this->defaultLayout;
 		}
-		
+
+		if($name === null) {
+			throw new QuioteException('Cannot resolve a layout: no layout name was given and no default layout is configured.');
+		}
+
 		if(isset($this->layouts[$name])) {
 			return $this->layouts[$name];
 		} else {
@@ -174,10 +200,10 @@ class OutputType extends ParameterHolder implements \Stringable, ResetInterface
 	
 	/**
 	 * Get the exception template filename for this renderer.
-	 * @return     string A path to the exception template, or null if undefined.
+	 * @return     ?string A path to the exception template, or null if undefined.
 	 * @since      1.0.0
 	 */
-	public function getExceptionTemplate()
+	public function getExceptionTemplate(): ?string
 	{
 		return $this->exceptionTemplate;
 	}

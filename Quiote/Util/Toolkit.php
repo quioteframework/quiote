@@ -127,7 +127,7 @@ final class Toolkit
 			try {
 				foreach(new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($path), \RecursiveIteratorIterator::CHILD_FIRST) as $iterator) {
 					// omg, thanks spl for always using forward slashes ... even on windows
-					$pathname = str_replace('/', DIRECTORY_SEPARATOR, str_replace('\\', DIRECTORY_SEPARATOR, $iterator->getPathname()));
+					$pathname = strtr($iterator->getPathname(), ['\\' => DIRECTORY_SEPARATOR, '/' => DIRECTORY_SEPARATOR]);
 					$continue = false;
 					if(in_array($iterator->getFilename(), $ignores)) {
 						$continue = true;
@@ -221,6 +221,10 @@ final class Toolkit
 			'${$3}',
 			(string) $string
 		);
+		if($string === null) {
+			throw new QuioteException('Failed to expand variables: the regular expression substitution failed.');
+		}
+
 		$search = [];
 		foreach($arguments as $key => $value) {
 			$search[] = '${' . $key . '}';
@@ -300,7 +304,7 @@ final class Toolkit
 	 * This function takes the numerator and divides it through the denominator while
 	 * storing the remainder and returning the quotient.
 	 * @param      float $numerator The numerator.
-	 * @param      int $denominator The denominator.
+	 * @param      int|float $denominator The denominator; must resolve to an int value, or a QuioteException is thrown.
 	 * @param      int $remainder The remainder.
 	 * @return     int   The floored quotient.
 	 * @since      1.0.0
@@ -434,7 +438,11 @@ final class Toolkit
 					$variables
 				);
 			}
-			self::$moduleDirectiveCache[$cacheKey] = Toolkit::expandDirectives($rawDirective) ?? '';
+			$expandedDirective = Toolkit::expandDirectives($rawDirective);
+			if ($expandedDirective === null) {
+				throw new QuioteException('Failed to expand module directive "' . $directiveNameFragment . '" for module "' . $moduleName . '".');
+			}
+			self::$moduleDirectiveCache[$cacheKey] = $expandedDirective;
 		}
 		return Toolkit::expandVariables(
 			self::$moduleDirectiveCache[$cacheKey],
@@ -444,7 +452,7 @@ final class Toolkit
 	
 	/**
 	 * Counterpart of PHP's parse_url().
-	 * @param      array<string, int|string> $parts The parts of the URL as defined by parse_url()
+	 * @param      array{scheme?: string, host?: string, port?: int|string, user?: string, pass?: string, path?: string, query?: string, fragment?: string} $parts The parts of the URL as defined by parse_url()
 	 * @return     string	 */
 	public static function buildUrl(array $parts)
 	{

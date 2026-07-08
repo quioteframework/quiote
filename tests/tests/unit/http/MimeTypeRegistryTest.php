@@ -153,7 +153,6 @@ class MimeTypeRegistryTest extends TestCase
     public function testAllMimeTypesIsNonEmpty(): void
     {
         $all = MimeTypeRegistry::allMimeTypes();
-        $this->assertIsArray($all);
         $this->assertNotEmpty($all);
     }
 
@@ -181,7 +180,7 @@ class MimeTypeRegistryTest extends TestCase
     public function testAllMimeTypesAreStrings(): void
     {
         foreach (MimeTypeRegistry::allMimeTypes() as $mime) {
-            $this->assertIsString($mime);
+            $this->assertNotSame('', $mime);
         }
     }
 

@@ -13,7 +13,7 @@ class DirectiveExpanderTest extends PhpUnitTestCase
 		parent::tearDown();
 	}
 
-	public function testExpandsDirectivesInStringLeaves()
+	public function testExpandsDirectivesInStringLeaves(): void
 	{
 		// Use test-namespaced directive keys rather than real core.* ones,
 		// so this never collides with (or has to restore) framework config
@@ -26,7 +26,7 @@ class DirectiveExpanderTest extends PhpUnitTestCase
 		$this->assertSame(['path' => '/opt/quiote/Config'], $result);
 	}
 
-	public function testCoercesBooleanLikeStringsToRealBooleans()
+	public function testCoercesBooleanLikeStringsToRealBooleans(): void
 	{
 		$expander = new DirectiveExpander();
 		$result = $expander->expand(['debug' => 'true', 'strict' => 'false', 'name' => 'yes']);
@@ -36,7 +36,7 @@ class DirectiveExpanderTest extends PhpUnitTestCase
 		$this->assertTrue($result['name']);
 	}
 
-	public function testRecursesIntoNestedArrays()
+	public function testRecursesIntoNestedArrays(): void
 	{
 		Config::set('test.directive_expander_name', 'MyApp', true);
 		$expander = new DirectiveExpander();
@@ -46,7 +46,7 @@ class DirectiveExpanderTest extends PhpUnitTestCase
 		$this->assertSame(['db' => ['name' => 'MyApp_db']], $result);
 	}
 
-	public function testNonStringLeavesPassThroughUnchanged()
+	public function testNonStringLeavesPassThroughUnchanged(): void
 	{
 		$expander = new DirectiveExpander();
 		$result = $expander->expand(['count' => 5, 'ratio' => 1.5, 'enabled' => true, 'nothing' => null]);
@@ -54,7 +54,7 @@ class DirectiveExpanderTest extends PhpUnitTestCase
 		$this->assertSame(['count' => 5, 'ratio' => 1.5, 'enabled' => true, 'nothing' => null], $result);
 	}
 
-	public function testDoesNotMutateInputArray()
+	public function testDoesNotMutateInputArray(): void
 	{
 		$input = ['path' => 'plain-string'];
 		(new DirectiveExpander())->expand($input);

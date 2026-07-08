@@ -27,9 +27,10 @@ class OroperatorValidator extends OperatorValidator implements ResetInterface
 	protected function validate()
 	{
 		$return = false;
-		
+		$parameters = $this->requireValidationParameters();
+
 		foreach($this->children as $child) {
-			$result = $child->execute($this->validationParameters);
+			$result = $child->execute($parameters);
 			$this->result = max($this->result, $result);
 
 			if($result == Validator::SUCCESS) {

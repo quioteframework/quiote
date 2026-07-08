@@ -58,8 +58,15 @@ class StreamTemplateLayer extends TemplateLayer
 		
 		$args = [];
 		if(Config::getBool('core.use_translation', false)) {
+			if($this->context === null) {
+				throw new QuioteException('Template layer has not been initialized: no Context is available.');
+			}
+			$translationManager = $this->context->getTranslationManager();
+			if($translationManager === null) {
+				throw new QuioteException('Translations are enabled but no TranslationManager is available.');
+			}
 			// i18n is enabled, build a list of sprintf args with the locale identifier
-			foreach(QuioteLocale::getLookupPath($this->context->getTranslationManager()->getCurrentLocaleIdentifier()) as $identifier) {
+			foreach(QuioteLocale::getLookupPath($translationManager->getCurrentLocaleIdentifier()) as $identifier) {
 				$args[] = ['locale' => $identifier];
 			}
 		}
@@ -76,8 +83,12 @@ class StreamTemplateLayer extends TemplateLayer
 		$check = $this->getParameter('check');
 
 		$targets = (array)$this->getParameter('targets', []);
+		// Parameter names are always strings in practice; rekey defensively since
+		// ParameterHolder declares its storage as array<int|string, mixed>.
 		$scalarParams = array_filter($this->getParameters(), is_scalar(...));
+		$scalarParams = array_combine(array_map('strval', array_keys($scalarParams)), $scalarParams);
 		$nullParams = array_filter($this->getParameters(), is_null(...));
+		$nullParams = array_combine(array_map('strval', array_keys($nullParams)), $nullParams);
 
 		// Key the resolution on everything that feeds it: scheme, the target
 		// patterns, the scalar/null parameters expandVariables interpolates, and

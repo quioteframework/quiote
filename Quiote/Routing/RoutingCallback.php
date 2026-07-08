@@ -2,6 +2,7 @@
 namespace Quiote\Routing;
 
 use Quiote\Context;
+use Quiote\Exception\InitializationException;
 use Quiote\Util\ParameterHolder;
 use Symfony\Contracts\Service\ResetInterface;
 
@@ -38,10 +39,14 @@ abstract class RoutingCallback extends ParameterHolder implements ResetInterface
 	/**
 	 * Retrieve the current application context.
 	 * @return     Context An Context instance.
+	 * @throws     InitializationException If this RoutingCallback has not been initialized yet.
 	 * @since      1.0.0
 	 */
 	public final function getContext()
 	{
+		if ($this->context === null) {
+			throw new InitializationException(sprintf('%s has not been initialized; call initialize() first.', static::class));
+		}
 		return $this->context;
 	}
 

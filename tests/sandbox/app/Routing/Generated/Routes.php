@@ -26,6 +26,9 @@ use Sandbox\App\Routing\Generated\Modules\ActionsloginmoduleRoutes;
  * Source: /home/markus/Projects/quiote/tests/sandbox/app/Config/routing.xml
  */
 final class Routes {
+    /**
+     * @return array{RouteCollection, array<string, array{gen_path: string, cut: bool, path: string, opt?: array{parent: string|null, action: mixed}, pattern?: string, match_full?: string, match_partial?: string}>}
+     */
     public static function build(): array {
         $routes = new RouteCollection();
         $meta = [];

@@ -37,7 +37,7 @@ XML;
         return $doc;
     }
 
-  public function testModuleConfigHandler()
+  public function testModuleConfigHandler(): void
     {
         $ns = 'http://quiote.dev/quiote/config/parts/modules/1.1';
         $inner = <<<XML
@@ -48,11 +48,10 @@ XML;
         $h = new ModuleConfigHandler();
         $h->initialize(null, []);
         $code = $h->execute($this->wrap($inner, 'modules.xml'));
-    $this->assertIsString($code);
     $this->assertStringContainsString('ModuleConfigHandler', $code);
     }
 
-    public function testSettingConfigHandler()
+    public function testSettingConfigHandler(): void
     {
         $ns = 'http://quiote.dev/quiote/config/parts/settings/1.1';
         $inner = <<<XML
@@ -66,7 +65,7 @@ XML;
         $this->assertStringContainsString('core.use_logging', $code);
     }
 
-    public function testOutputTypeConfigHandler()
+    public function testOutputTypeConfigHandler(): void
     {
         $ns = 'http://quiote.dev/quiote/config/parts/output_types/1.1';
         $inner = <<<XML
@@ -80,7 +79,7 @@ XML;
         $this->assertStringContainsString('html', $code);
     }
 
-  public function testTranslationConfigHandler()
+  public function testTranslationConfigHandler(): void
     {
         $ns = 'http://quiote.dev/quiote/config/parts/translation/1.1';
         $inner = <<<XML
@@ -91,11 +90,10 @@ XML;
         $h = new TranslationConfigHandler();
         $h->initialize(null, []);
         $code = $h->execute($this->wrap($inner, 'translation.xml'));
-    $this->assertIsString($code);
     $this->assertStringContainsString('TranslationConfigHandler', $code);
     }
 
-    public function testDatabaseConfigHandler()
+    public function testDatabaseConfigHandler(): void
     {
         $ns = 'http://quiote.dev/quiote/config/parts/databases/1.1';
         $inner = <<<XML
@@ -109,7 +107,7 @@ XML;
         $this->assertStringContainsString('main', $code);
     }
 
-    public function testRbacDefinitionConfigHandler()
+    public function testRbacDefinitionConfigHandler(): void
     {
         $ns = 'http://quiote.dev/quiote/config/parts/rbac/1.1';
         $inner = <<<XML
@@ -120,11 +118,11 @@ XML;
         $h = new RbacDefinitionConfigHandler();
         $h->initialize(null, []);
         $code = $h->execute($this->wrap($inner, 'rbac.xml'));
-        $this->assertIsString($code);
+        $this->assertStringContainsString('RbacDefinitionConfigHandler', $code);
     }
 
 
-  public function testTestSuitesConfigHandler()
+  public function testTestSuitesConfigHandler(): void
     {
         $ns = 'http://quiote.dev/quiote/config/parts/test_suites/1.1';
         $inner = <<<XML
@@ -135,11 +133,10 @@ XML;
         $h = new TestSuitesConfigHandler();
         $h->initialize(null, []);
         $code = $h->execute($this->wrap($inner, 'testsuites.xml'));
-    $this->assertIsString($code);
     $this->assertStringContainsString('TestSuitesConfigHandler', $code);
     }
 
-    public function testValidatorConfigHandler()
+    public function testValidatorConfigHandler(): void
     {
         $ns = 'http://quiote.dev/quiote/config/parts/validators/1.1';
         $inner = <<<XML

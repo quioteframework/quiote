@@ -27,7 +27,7 @@ class PhpArrayFormatDriverTest extends PhpUnitTestCase
 		parent::tearDown();
 	}
 
-	public function testSupportsOnlyPhpExtension()
+	public function testSupportsOnlyPhpExtension(): void
 	{
 		$driver = new PhpArrayFormatDriver();
 		$this->assertTrue($driver->supports('/a/b.php'));
@@ -35,7 +35,7 @@ class PhpArrayFormatDriverTest extends PhpUnitTestCase
 		$this->assertFalse($driver->supports('/a/b.xml'));
 	}
 
-	public function testLoadReturnsFlatArrayUnchanged()
+	public function testLoadReturnsFlatArrayUnchanged(): void
 	{
 		file_put_contents($this->dir . '/c.php', "<?php\nreturn ['core.app_name' => 'Demo'];\n");
 		$registry = new FormatDriverRegistry([new PhpArrayFormatDriver()]);
@@ -43,7 +43,7 @@ class PhpArrayFormatDriverTest extends PhpUnitTestCase
 		$this->assertSame(['core.app_name' => 'Demo'], $registry->load($this->dir . '/c.php', 'test'));
 	}
 
-	public function testThrowsWhenFileDoesNotReturnAnArray()
+	public function testThrowsWhenFileDoesNotReturnAnArray(): void
 	{
 		file_put_contents($this->dir . '/c.php', "<?php\nreturn 'not-an-array';\n");
 		$registry = new FormatDriverRegistry([new PhpArrayFormatDriver()]);
@@ -52,14 +52,14 @@ class PhpArrayFormatDriverTest extends PhpUnitTestCase
 		$registry->load($this->dir . '/c.php', 'test');
 	}
 
-	public function testThrowsWhenFileDoesNotExist()
+	public function testThrowsWhenFileDoesNotExist(): void
 	{
 		$registry = new FormatDriverRegistry([new PhpArrayFormatDriver()]);
 		$this->expectException(ConfigurationException::class);
 		$registry->load($this->dir . '/missing.php', 'test');
 	}
 
-	public function testParentChainMergesAcrossMultipleGenerations()
+	public function testParentChainMergesAcrossMultipleGenerations(): void
 	{
 		file_put_contents($this->dir . '/grandparent.php', "<?php\nreturn ['a' => 1, 'b' => 1];\n");
 		file_put_contents($this->dir . '/parent.php', "<?php\nreturn ['parent' => __DIR__ . '/grandparent.php', 'b' => 2, 'c' => 2];\n");
@@ -71,7 +71,7 @@ class PhpArrayFormatDriverTest extends PhpUnitTestCase
 		$this->assertSame(['a' => 1, 'b' => 2, 'c' => 3], $result);
 	}
 
-	public function testImportsMergeBeforeParentWithChildDataWinningOverImports()
+	public function testImportsMergeBeforeParentWithChildDataWinningOverImports(): void
 	{
 		file_put_contents($this->dir . '/base.php', "<?php\nreturn ['x' => 'from-parent'];\n");
 		file_put_contents($this->dir . '/import1.php', "<?php\nreturn ['y' => 'from-import', 'z' => 'from-import'];\n");
@@ -83,7 +83,7 @@ class PhpArrayFormatDriverTest extends PhpUnitTestCase
 		$this->assertSame(['x' => 'from-parent', 'y' => 'from-import', 'z' => 'from-main'], $result);
 	}
 
-	public function testParentPathSupportsDirectiveExpansion()
+	public function testParentPathSupportsDirectiveExpansion(): void
 	{
 		\Quiote\Config\Config::set('test.php_array_driver_dir', $this->dir, true);
 		file_put_contents($this->dir . '/base.php', "<?php\nreturn ['a' => 1];\n");

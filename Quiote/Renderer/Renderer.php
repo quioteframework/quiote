@@ -61,7 +61,9 @@ abstract class Renderer extends ParameterHolder implements ResetInterface
 	 */
 	public function __sleep()
 	{
-		$this->contextName = $this->context->getName();
+		if($this->context !== null) {
+			$this->contextName = $this->context->getName();
+		}
 		$arr = get_object_vars($this);
 		unset($arr['context']);
 		return array_keys($arr);
@@ -119,10 +121,14 @@ abstract class Renderer extends ParameterHolder implements ResetInterface
 	/**
 	 * Retrieve the current application context.
 	 * @return     Context The current Context instance.
+	 * @throws     QuioteException If this Renderer has not been initialize()d yet.
 	 * @since      1.0.0
 	 */
 	public final function getContext()
 	{
+		if($this->context === null) {
+			throw new QuioteException('Renderer has not been initialized: no Context is available');
+		}
 		return $this->context;
 	}
 	

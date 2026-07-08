@@ -24,6 +24,14 @@ abstract class ActionTestCase extends FragmentTestCase
 	protected $viewModuleName;
 
 	/**
+	 * @var        ?\Quiote\Validator\ValidationManager the validation manager instance used for
+	 *             the last performed validation, kept here (rather than round-tripped through
+	 *             the lightweight test container, whose stub can't be statically typed to
+	 *             the real ValidationManager) so assertion helpers can query its report directly.
+	 */
+	protected $validationManager = null;
+
+	/**
 	 * run the action for this testcase
 	 * @return     void
 	 * @since      1.0.0
@@ -154,12 +162,11 @@ abstract class ActionTestCase extends FragmentTestCase
 		$actionName = $this->actionName;
 		try {
 			$vm = $this->getContext()->createInstanceFor('validation_manager');
-			if ($this->container && method_exists($this->container, 'setValidationManager')) {
-				if (method_exists($this->container, 'setArguments')) {
-					try {
-						$this->container->setArguments($request->getParameters('parameters'));
-					} catch (\Throwable) {
-					}
+			$this->validationManager = $vm;
+			if ($this->container) {
+				try {
+					$this->container->setArguments($request->getParameters('parameters'));
+				} catch (\Throwable) {
 				}
 				$this->container->setValidationManager($vm);
 			}
@@ -230,25 +237,23 @@ abstract class ActionTestCase extends FragmentTestCase
 							}
 							$logger->debug('[TestDebug][ValidatorsRegistered] ' . implode(',', $names));
 							$report = $vm->getReport();
-							if ($report) {
-								$argsFailed = [];
-								try {
-									foreach ($report->getFailedArguments() as $fa) {
-										$argsFailed[] = $fa->getName();
-									}
-								} catch (\Throwable) {
+							$argsFailed = [];
+							try {
+								foreach ($report->getFailedArguments() as $fa) {
+									$argsFailed[] = $fa->getName();
 								}
-								$logger->debug('[TestDebug][FailedArguments] ' . (empty($argsFailed) ? 'none' : implode(',', $argsFailed)));
-								$errs = $report->getErrorMessages();
-								if (!empty($errs)) {
-									$logger->debug('[TestDebug][ErrorMessages] ' . json_encode($errs));
-								}
+							} catch (\Throwable) {
+							}
+							$logger->debug('[TestDebug][FailedArguments] ' . (empty($argsFailed) ? 'none' : implode(',', $argsFailed)));
+							$errs = $report->getErrorMessages();
+							if (!empty($errs)) {
+								$logger->debug('[TestDebug][ErrorMessages] ' . json_encode($errs));
 							}
 						} catch (\Throwable $ie) {
 							$logger->debug('[TestDebug][ValidatorDumpException] ' . $ie->getMessage());
 						}
 					}
-					if (!$this->validationSuccess && $vm->getReport()) {
+					if (!$this->validationSuccess) {
 						$errs = $vm->getReport()->getErrors();
 						$lines = [];
 						foreach ($errs as $err) {
@@ -380,7 +385,10 @@ abstract class ActionTestCase extends FragmentTestCase
 	 */
 	protected function assertValidatedArgument($argumentName, $source = 'parameters', $message = 'Failed asserting that the argument <%1$s> is validated.')
 	{
-		$report = $this->container->getValidationManager()->getReport();
+		$report = $this->validationManager?->getReport();
+		if ($report === null) {
+			$this->fail('No validation report available; did the action run through performValidation()?');
+		}
 		$this->assertTrue($report->isArgumentValidated(new ValidationArgument($argumentName, $source)), sprintf($message, $argumentName));
 	}
 
@@ -394,7 +402,10 @@ abstract class ActionTestCase extends FragmentTestCase
 	 */
 	protected function assertFailedArgument($argumentName, $source = 'parameters', $message = 'Failed asserting that the argument <%1$s> is failed.')
 	{
-		$report = $this->container->getValidationManager()->getReport();
+		$report = $this->validationManager?->getReport();
+		if ($report === null) {
+			$this->fail('No validation report available; did the action run through performValidation()?');
+		}
 		$this->assertTrue($report->isArgumentFailed(new ValidationArgument($argumentName, $source)), sprintf($message, $argumentName));
 	}
 
@@ -408,7 +419,10 @@ abstract class ActionTestCase extends FragmentTestCase
 	 */
 	protected function assertSucceededArgument($argumentName, $source = 'parameters', $message = 'Failed asserting that the argument <%1$s> is succeeded.')
 	{
-		$report = $this->container->getValidationManager()->getReport();
+		$report = $this->validationManager?->getReport();
+		if ($report === null) {
+			$this->fail('No validation report available; did the action run through performValidation()?');
+		}
 		$success = $report->isArgumentValidated(new ValidationArgument($argumentName, $source)) && ! $report->isArgumentFailed(new ValidationArgument($argumentName, $source));
 		$this->assertTrue($success, sprintf($message, $argumentName));
 	}

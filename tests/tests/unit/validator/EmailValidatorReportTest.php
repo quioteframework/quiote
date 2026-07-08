@@ -13,7 +13,7 @@ require_once(__DIR__ . '/BaseValidatorTest.base.php');
  */
 class EmailValidatorReportTest extends BaseValidatorTest
 {
-	public function testExecuteRecordsErrorMessageOnMalformedEmail()
+	public function testExecuteRecordsErrorMessageOnMalformedEmail(): void
 	{
 		$errors = [
 			'' => $errorMsg = 'Not a valid email address',
@@ -21,7 +21,7 @@ class EmailValidatorReportTest extends BaseValidatorTest
 		$this->doTestExecute(EmailValidator::class, 'sjklsdfsfd', Validator::ERROR, $errorMsg, $errors);
 	}
 
-	public function testExecuteRecordsNoErrorMessageOnValidEmail()
+	public function testExecuteRecordsNoErrorMessageOnValidEmail(): void
 	{
 		$this->doTestExecute(EmailValidator::class, 'bob@quiote.org', Validator::SUCCESS);
 	}

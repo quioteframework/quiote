@@ -9,6 +9,9 @@ use Symfony\Component\Routing\RouteCollection;
  * Routes for module User (5 routes; built 2025-08-18T17:53:05+00:00)
  */
 final class UserRoutes {
+    /**
+     * @param array<string, array{gen_path: string, cut: bool, path: string, opt?: array{parent: string|null, action: mixed}, pattern?: string, match_full?: string, match_partial?: string}> $meta
+     */
     public static function addRoutes(RouteCollection $routes, array &$meta): void {
         // DEBUG: name=user raw_path=/user gen=/user module=User action=Index
         $routes->add('user', new Route('/user', [

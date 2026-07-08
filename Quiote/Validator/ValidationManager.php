@@ -34,7 +34,11 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 	protected $context = null;
 
 	/**
-	 * @var        ?ValidationReport The report container storing the validation results, or null before the first validation run.
+	 * @var        ValidationReport The report container storing the validation results.
+	 *                              Set eagerly in initialize()/clear()/reset() -- like
+	 *                              $context above, this is never read before initialize()
+	 *                              has run (Context::initialize() calls it immediately
+	 *                              after constructing a factory-managed service).
 	 */
 	protected $report = null;
 
@@ -112,7 +116,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 	
 	/**
 	 * Retrieve the validation result report container of the last validation run.
-	 * @return     ?ValidationReport The result report container, or null before the first validation run.
+	 * @return     ValidationReport The result report container.
 	 * @since      1.0.0
 	 */
 	public function getReport()
@@ -122,21 +126,22 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 
 	/**
 	 * Creates a new validator instance.
-	 * @param      string $class The name of the class implementing the validator.
-	 * @param      array<int,string> $arguments The argument names.
-	 * @param      array<int|string,mixed> $errors The error messages.
+	 * @template  T of Validator
+	 * @param      class-string<T> $class The name of the class implementing the validator.
+	 * @param      array<int|string,mixed> $arguments The argument names.
+	 * @param      array<string,string> $errors The error messages.
 	 * @param      array<string,mixed> $parameters The validator parameters.
-	 * @param      IValidatorContainer $parent The parent (will use the validation 
+	 * @param      ?IValidatorContainer $parent The parent (will use the validation
 	 *                                      manager if null is given)
-	 * @return     Validator
+	 * @return     T
 	 * @since      1.0.0
 	 */
-	public function createValidator($class, array $arguments, array $errors = [], $parameters = [], ?IValidatorContainer $parent = null)
+	public function createValidator(string $class, array $arguments, array $errors = [], array $parameters = [], ?IValidatorContainer $parent = null)
 	{
 		if($parent === null) {
 			$parent = $this;
 		}
-		$obj = new $class;
+		$obj = new $class();
 		$obj->initialize($this->getContext(), $parameters, $arguments, $errors);
 		$parent->addChild($obj);
 
@@ -270,7 +275,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 			$allExportNames = [];
 
 			// Helper function to recursively collect arguments from validators and their children
-			$collectArguments = function(object $validator) use (&$collectArguments, &$allArgumentNames, &$allExportNames): void {
+			$collectArguments = function(Validator $validator) use (&$collectArguments, &$allArgumentNames, &$allExportNames): void {
 				// Collect arguments from this validator
 				try {
 					$ref = new \ReflectionObject($validator);
@@ -281,7 +286,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 						// Determine declared base for the validator (if any)
 						$basePath = '';
 						try {
-							if(method_exists($validator, 'getParameter') && $validator->hasParameter('base')) {
+							if($validator->hasParameter('base')) {
 								$basePath = (string)$validator->getParameter('base');
 							}
 						} catch(\Throwable) { }
@@ -327,7 +332,9 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 						$children = $prop->getValue($validator);
 						if(is_array($children)) {
 							foreach($children as $child) {
-								$collectArguments($child);
+								if($child instanceof Validator) {
+									$collectArguments($child);
+								}
 							}
 						}
 					}
@@ -604,7 +611,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
      * "touched" by a validator null is returned.
      * @param      string $fieldname The name of the field.
      * @param      string $validatorName The Validator name
-     * @return     int The error code.
+     * @return     ?int The error code, or null if the field was never touched by a validator.
      * @since      1.0.0
      */
     #[\Deprecated(message: '1.0.0')]

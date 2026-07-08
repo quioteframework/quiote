@@ -7,7 +7,7 @@ require_once(__DIR__ . '/ConfigHandlerTestBase.php');
 
 class XmlConfigHandlerTest extends ConfigHandlerTestBase
 {
-	public function testParseXincludeSimple()
+	public function testParseXincludeSimple(): void
 	{
 		$RACH = new ReturnArrayConfigHandler();
 		$document = $this->parseConfiguration(Config::getString('core.config_dir') . '/tests/xinclude_simple.xml');
@@ -19,7 +19,7 @@ class XmlConfigHandlerTest extends ConfigHandlerTestBase
 	}
 
 
-	public function testParseXincludeGlobSimple()
+	public function testParseXincludeGlobSimple(): void
 	{
 		if(defined('HHVM_VERSION')) {
 			$this->markTestSkipped('This tests triggers a bug in HHVM. See https://github.com/facebook/hhvm/issues/4972 for details');
@@ -34,7 +34,7 @@ class XmlConfigHandlerTest extends ConfigHandlerTestBase
 	}
 
 
-	public function testParseXincludeGlobBrace()
+	public function testParseXincludeGlobBrace(): void
 	{
 		$RACH = new ReturnArrayConfigHandler();
 		$document = $this->parseConfiguration(Config::getString('core.config_dir') . '/tests/xinclude_glob_brace.xml');
@@ -46,7 +46,7 @@ class XmlConfigHandlerTest extends ConfigHandlerTestBase
 	}
 
 
-	public function testParseXincludeEncoding()
+	public function testParseXincludeEncoding(): void
 	{
 		if(defined('HHVM_VERSION')) {
 			$this->markTestSkipped('This tests triggers a bug in HHVM. See https://github.com/facebook/hhvm/issues/4972 for details');
@@ -60,7 +60,7 @@ class XmlConfigHandlerTest extends ConfigHandlerTestBase
 		$this->assertSame($expected, $actual);
 	}
 
-	public function testParseEntities()
+	public function testParseEntities(): void
 	{
 		$RACH = new ReturnArrayConfigHandler();
 		$document = $this->parseConfiguration(Config::getString('core.config_dir') . '/tests/entities.xml');

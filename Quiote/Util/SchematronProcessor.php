@@ -59,7 +59,17 @@ class SchematronProcessor extends ParameterHolder
 			throw new QuioteException('Schematron processor chain must contain at least one path name.');
 		}
 		
-		$this->chain = array_map(\Quiote\Util\Toolkit::expandDirectives(...), $chain);
+		$expandedChain = [];
+		foreach($chain as $path) {
+			$expandedPath = \Quiote\Util\Toolkit::expandDirectives($path);
+			if($expandedPath === null) {
+				throw new QuioteException('Schematron processor chain contains a path that failed to expand.');
+			}
+
+			$expandedChain[] = $expandedPath;
+		}
+
+		$this->chain = $expandedChain;
 	}
 	
 	/**
@@ -131,7 +141,7 @@ class SchematronProcessor extends ParameterHolder
 	protected function cleanupProcessor($processor)
 	{
 		foreach(array_keys($this->getParameters()) as $parameter) {
-			$processor->removeParameter('', $parameter);
+			$processor->removeParameter('', (string) $parameter);
 		}
 	}
 	
@@ -197,7 +207,11 @@ class SchematronProcessor extends ParameterHolder
 		} catch(\Exception $e) {
 			throw new ParseException(sprintf('Could not validate the document against the schema file "%s": %s', $schema->documentURI, $e->getMessage()), 0, $e);
 		}
-		
+
+		if(!$result instanceof \DOMDocument) {
+			throw new ParseException(sprintf('Validating the document against the schema file "%s" resulted in no validation document', $schema->documentURI));
+		}
+
 		return $result;
 	}
 }

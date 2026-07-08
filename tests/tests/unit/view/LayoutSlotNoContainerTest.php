@@ -25,7 +25,7 @@ class LayoutSlotNoContainerTest extends UnitTestCase
         parent::tearDown();
     }
 
-    public function testLayoutSlotsAreSlotRenderable()
+    public function testLayoutSlotsAreSlotRenderable(): void
     {
     $controller = $this->getContext()->getController();
     // Ensure Cache module/action available
@@ -36,12 +36,9 @@ class LayoutSlotNoContainerTest extends UnitTestCase
     $descriptor = \Quiote\Execution\ActionDescriptor::fromController($controller,'Cache','CacheComplex','GET', strtolower($controller->getOutputType()->getName()));
     $vic = new \Quiote\Execution\ImmutableViewInitContext($this->getContext(),'Cache','CacheComplexSuccess', strtolower($controller->getOutputType()->getName()), 'Cache','CacheComplex', [], $controller->getGlobalResponse());
     $view->initialize($vic);
-    // Ensure context has a request with SlotStack
+    // getRequest() always returns a WebRequest instance (lazily recreated if needed),
+    // so no null fallback is required here.
     $req = $this->getContext()->getRequest();
-    if (!$req) {
-        $req = new \Quiote\Request\WebRequest('GET', 'http://localhost/layout-test');
-        $req->initialize($this->getContext());
-    }
     $req = $req->withAttribute(SlotStack::class, new SlotStack());
     $this->getContext()->setRequest($req);
     // Inject synthetic layout with a slot via reflection on output type
@@ -78,7 +75,6 @@ class LayoutSlotNoContainerTest extends UnitTestCase
         foreach($layer->getSlots() as $slotObj) {
             $foundSlots++;
             $this->assertInstanceOf(SlotRenderable::class, $slotObj, 'Slot should be SlotRenderable (value object path)');
-            $this->assertTrue(is_object($slotObj), 'Slot object should be instantiated');
             $this->assertNotSame('', $slotObj->getContent(), 'Slot content should not be empty');
         }
     }

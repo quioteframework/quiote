@@ -11,7 +11,7 @@ use Quiote\Database\DatabaseManager;
 #[IsolationEnvironment('testing-use_database_on')]
 class DatabaseManagerTest extends UnitTestCase
 {
-	private $_dbm = null;
+	private DatabaseManager $_dbm;
 	
 	public function setUp(): void
 	{
@@ -19,16 +19,18 @@ class DatabaseManagerTest extends UnitTestCase
 		parent::setUp();
 		
 		$context = $this->getContext();
-		$this->_dbm = $context->getDatabaseManager();
+		$dbm = $context->getDatabaseManager();
+		$this->assertNotNull($dbm, 'core.use_database is expected to be on for this isolation environment');
+		$this->_dbm = $dbm;
 	}
 
 	#[\Override]
     public function tearDown(): void
 	{
-		$this->_dbm = null;
+		unset($this->_dbm);
 	}
 
-	public function testInitialization()
+	public function testInitialization(): void
 	{
 		$this->assertInstanceOf(DatabaseManager::class, $this->_dbm);
 	}

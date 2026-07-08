@@ -35,7 +35,7 @@ class WebResponseTest extends UnitTestCase
 		$this->_r->initialize($this->getContext());
 	}
 
-	public function testSend()
+	public function testSend(): void
 	{
 		$r = $this->_r;
 
@@ -52,7 +52,7 @@ class WebResponseTest extends UnitTestCase
 		$this->assertEquals('content', $content);
 	}
 
-	public function testExposeQuioteVersionReadsCorePrefixedKey()
+	public function testExposeQuioteVersionReadsCorePrefixedKey(): void
 	{
 		$wasSet = \Quiote\Config\Config::has('core.expose_quiote_version');
 		$original = \Quiote\Config\Config::getBool('core.expose_quiote_version');
@@ -86,7 +86,7 @@ class WebResponseTest extends UnitTestCase
 		}
 	}
 
-	public function testExposeQuioteVersionFalseHidesVersion()
+	public function testExposeQuioteVersionFalseHidesVersion(): void
 	{
 		$wasSet = \Quiote\Config\Config::has('core.expose_quiote_version');
 		$original = \Quiote\Config\Config::getBool('core.expose_quiote_version');
@@ -120,7 +120,7 @@ class WebResponseTest extends UnitTestCase
 		}
 	}
 
-	public function testClear()
+	public function testClear(): void
 	{
 		$r = $this->_r;
 
@@ -135,7 +135,7 @@ class WebResponseTest extends UnitTestCase
 		$this->assertEquals([], $r->getCookies());
 	}
 
-	public function testSetGetContentType()
+	public function testSetGetContentType(): void
 	{
 		$r = $this->_r;
 		$this->assertNull($r->getContentType());
@@ -147,7 +147,7 @@ class WebResponseTest extends UnitTestCase
 		$this->assertEquals('text/xml', $r->getContentType());
 	}
 
-	public function testSetGetHttpStatusCode()
+	public function testSetGetHttpStatusCode(): void
 	{
 		$r = $this->_r;
 
@@ -172,7 +172,7 @@ class WebResponseTest extends UnitTestCase
 		}
 	}
 
-	public function testNormalizeHttpHeaderName()
+	public function testNormalizeHttpHeaderName(): void
 	{
 		$r = $this->_r;
 
@@ -186,7 +186,7 @@ class WebResponseTest extends UnitTestCase
 		$this->assertEquals('WWW-Authenticate', $r->normalizeHttpHeaderName('WwW-auThenticate'));
 	}
 
-	public function testSetGetHasHttpHeader()
+	public function testSetGetHasHttpHeader(): void
 	{
 		$r = $this->_r;
 
@@ -206,7 +206,7 @@ class WebResponseTest extends UnitTestCase
 		$this->assertEquals(['test2', 'test3'], $r->getHttpHeader('location'));
 	}
 
-	public function testRemoveHttpHeader()
+	public function testRemoveHttpHeader(): void
 	{
 		$r = $this->_r;
 
@@ -228,7 +228,7 @@ class WebResponseTest extends UnitTestCase
 		$this->assertEquals(['test2'], $ret);
 	}
 
-	public function testClearHttpHeaders()
+	public function testClearHttpHeaders(): void
 	{
 		$r = $this->_r;
 
@@ -248,7 +248,7 @@ class WebResponseTest extends UnitTestCase
 		$this->assertEquals([], $r->getHttpHeaders());
 	}
 
-	public function testSetCookie()
+	public function testSetCookie(): void
 	{
 		$r = $this->_r;
 
@@ -274,7 +274,7 @@ class WebResponseTest extends UnitTestCase
 		$info_ex['path'] = '/foo';
 		$this->assertEquals($info_ex, $r->getCookie('cookieName'));
 
-		$r->setCookie('cookieName2', 'value 3', 1000, '', 'foo.bar', 1);
+		$r->setCookie('cookieName2', 'value 3', 1000, '', 'foo.bar', true);
 		$info_ex = [
 			'value' => 'value 3',
 			'lifetime' => 1000,
@@ -288,7 +288,7 @@ class WebResponseTest extends UnitTestCase
 		$this->assertEquals($info_ex, $r->getCookie('cookieName2'));
 	}
 	
-	public function testCookieEncoding()
+	public function testCookieEncoding(): void
 	{
 		$r = $this->_r;
 		$r->setCookie('spaceCookie',  'my value');
@@ -305,7 +305,7 @@ class WebResponseTest extends UnitTestCase
 		$this->assertEquals('my%01value', $cookies['customCookie']['value']);
 	}
 
-	public function testRawCookieEncoding()
+	public function testRawCookieEncoding(): void
 	{
 		$r = $this->_r;
 		$r->setParameter('cookie_encode_callback', 'rawurlencode');

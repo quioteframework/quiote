@@ -104,12 +104,12 @@ final class ImmutableViewInitContext extends AttributeHolder implements ViewInit
      * sometimes dereferenced $this->container->getOutputType()->getName(). We
      * can't cheaply recreate the output type object here without a controller
      * reference, so omit for now; views should use View::getCurrentOutputType().
-     * @return object An anonymous object exposing getName(): string.
+     * @return OutputTypeNameProvider An anonymous object exposing getName(): string.
      */
-    public function getOutputType(): object
+    public function getOutputType(): OutputTypeNameProvider
     {
         // Provide a tiny proxy object exposing getName() only.
-        return new readonly class($this->outputType) {
+        return new readonly class($this->outputType) implements OutputTypeNameProvider {
             public function __construct(private string $n) {}
             public function getName(): string
             {

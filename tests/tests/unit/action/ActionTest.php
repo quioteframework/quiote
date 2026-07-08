@@ -7,14 +7,14 @@ use Quiote\Util\ParameterHolder;
 use Quiote\Testing\UnitTestCase;
 
 class SampleAction extends Action {
-	public function execute(ParameterHolder $parameters)
+	public function execute(ParameterHolder $parameters): void
 	{
 	}
 }
 
 class ActionTest extends UnitTestCase
 {
-	private $_action = null;
+	private SampleAction $_action;
 
 	#[\Override]
     public function setUp(): void
@@ -39,37 +39,37 @@ class ActionTest extends UnitTestCase
 	#[\Override]
     public function tearDown(): void
 	{
-		$this->_action = null;
+		unset($this->_action);
 	}
 
-	public function testgetContext()
+	public function testgetContext(): void
 	{
 		$context = $this->getContext();
 		$actionContext = $this->_action->getContext();
 		$this->assertSame($context, $actionContext);
 	}
 
-	public function testCredentials()
+	public function testCredentials(): void
 	{
 		$this->assertNull($this->_action->getCredentials());
 	}
 
-	public function testgetDefaultViewName()
+	public function testgetDefaultViewName(): void
 	{
 		$this->assertEquals('Input', $this->_action->getDefaultViewName());
 	}
 
-	public function testhandleError()
+	public function testhandleError(): void
 	{
 		$this->assertEquals('Error', $this->_action->handleError(new WebRequest()));
 	}
 
-	public function testisSecure()
+	public function testisSecure(): void
 	{
 		$this->assertFalse($this->_action->isSecure());
 	}
 
-	public function testvalidate()
+	public function testvalidate(): void
 	{
 		$this->assertTrue($this->_action->validate(new WebRequest()));
 	}

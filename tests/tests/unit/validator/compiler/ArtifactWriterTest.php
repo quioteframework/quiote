@@ -38,7 +38,7 @@ class ArtifactWriterTest extends PhpUnitTestCase
 		rmdir($dir);
 	}
 
-	public function testWriteCreatesFileWithExactSource()
+	public function testWriteCreatesFileWithExactSource(): void
 	{
 		$artifact = EmittedArtifact::fromSource('<?php // hello', 'demo.php');
 		$target = $this->dir . '/demo.php';
@@ -49,7 +49,7 @@ class ArtifactWriterTest extends PhpUnitTestCase
 		$this->assertSame('<?php // hello', file_get_contents($target));
 	}
 
-	public function testWriteCreatesMissingParentDirectories()
+	public function testWriteCreatesMissingParentDirectories(): void
 	{
 		$artifact = EmittedArtifact::fromSource('<?php // nested', 'demo.php');
 		$target = $this->dir . '/Module/Validate/Action.generated.php';
@@ -59,7 +59,7 @@ class ArtifactWriterTest extends PhpUnitTestCase
 		$this->assertFileExists($target);
 	}
 
-	public function testWriteLeavesNoTemporaryFilesBehind()
+	public function testWriteLeavesNoTemporaryFilesBehind(): void
 	{
 		$artifact = EmittedArtifact::fromSource('<?php // clean', 'demo.php');
 		$target = $this->dir . '/demo.php';
@@ -70,7 +70,7 @@ class ArtifactWriterTest extends PhpUnitTestCase
 		$this->assertSame(['demo.php'], $entries);
 	}
 
-	public function testWriteIsIdempotentByteForByte()
+	public function testWriteIsIdempotentByteForByte(): void
 	{
 		$artifact = EmittedArtifact::fromSource('<?php // stable', 'demo.php');
 		$target = $this->dir . '/demo.php';
@@ -84,7 +84,7 @@ class ArtifactWriterTest extends PhpUnitTestCase
 		$this->assertSame('<?php // stable', file_get_contents($target));
 	}
 
-	public function testDriftCheckerReportsMismatchWhenFileMissing()
+	public function testDriftCheckerReportsMismatchWhenFileMissing(): void
 	{
 		$artifact = EmittedArtifact::fromSource('<?php // new', 'demo.php');
 		$result = (new ArtifactDriftChecker())->check($artifact, $this->dir . '/missing.php');
@@ -94,7 +94,7 @@ class ArtifactWriterTest extends PhpUnitTestCase
 		$this->assertSame($artifact->checksum, $result->expectedChecksum);
 	}
 
-	public function testDriftCheckerReportsMatchWhenContentIsIdentical()
+	public function testDriftCheckerReportsMatchWhenContentIsIdentical(): void
 	{
 		$artifact = EmittedArtifact::fromSource('<?php // same', 'demo.php');
 		$target = $this->dir . '/demo.php';
@@ -105,7 +105,7 @@ class ArtifactWriterTest extends PhpUnitTestCase
 		$this->assertSame($artifact->checksum, $result->existingChecksum);
 	}
 
-	public function testDriftCheckerReportsMismatchWhenCommittedFileWasHandEdited()
+	public function testDriftCheckerReportsMismatchWhenCommittedFileWasHandEdited(): void
 	{
 		$artifact = EmittedArtifact::fromSource('<?php // original', 'demo.php');
 		$target = $this->dir . '/demo.php';
@@ -117,7 +117,7 @@ class ArtifactWriterTest extends PhpUnitTestCase
 		$this->assertNotSame($artifact->checksum, $result->existingChecksum);
 	}
 
-	public function testDriftCheckerNeverWritesAnything()
+	public function testDriftCheckerNeverWritesAnything(): void
 	{
 		$artifact = EmittedArtifact::fromSource('<?php // untouched', 'demo.php');
 		$target = $this->dir . '/never-created.php';

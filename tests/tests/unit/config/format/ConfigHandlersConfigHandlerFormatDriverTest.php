@@ -34,6 +34,9 @@ class ConfigHandlersConfigHandlerFormatDriverTest extends PhpUnitTestCase
 		parent::tearDown();
 	}
 
+	/**
+	 * @return array<string, mixed>
+	 */
 	private function expectedHandlers(): array
 	{
 		return [

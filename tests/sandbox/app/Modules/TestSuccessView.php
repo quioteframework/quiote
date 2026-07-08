@@ -2,12 +2,17 @@
 
 namespace Sandbox;
 
+use Quiote\Request\WebRequest;
 use Quiote\View\View;
 
 class TestSuccessView extends View
 {
-    public function executeHtml(\Quiote\Request\WebRequest $rd)
+    public function execute(WebRequest $rd): void
     {
-        $this->setTitle('Test Page');
+    }
+
+    public function executeHtml(WebRequest $rd): void
+    {
+        $this->setAttribute('title', 'Test Page');
     }
 }

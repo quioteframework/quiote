@@ -23,13 +23,17 @@ class TaggedAction extends Action
     #[\Override]
     public function getDefaultViewName(){ return 'Success'; }
 
+    /**
+     * @param array<string, mixed> $parameters
+     * @return list<string>
+     */
     public function slotCacheTags(array $parameters = []): array
     {
         $group = $parameters['group'] ?? 'default';
         return ['group:' . $group];
     }
 
-    public function execute(WebRequest $rd)
+    public function execute(WebRequest $rd): string
     {
         self::$execCount++;
         return 'Success';

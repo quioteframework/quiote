@@ -12,6 +12,9 @@ require_once __DIR__ . '/../../../lib/validator/DummyValidator.class.php';
  */
 class ValidationManagerAdditionalCoverageTest extends UnitTestCase
 {
+    /**
+     * @param array<string, mixed> $params
+     */
     private function vm(array $params = []): ValidationManager
     {
         /** @var ValidationManager $vm */

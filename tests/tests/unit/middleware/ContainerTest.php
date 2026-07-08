@@ -8,7 +8,7 @@ use Symfony\Contracts\Service\Attribute\Required;
 
 class ContainerTest extends TestCase
 {
-    public function testAutoWireSimple()
+    public function testAutoWireSimple(): void
     {
         $c = new Container();
         $c->set(DateTime::class, fn()=> new DateTime('2025-01-01'));
@@ -16,7 +16,7 @@ class ContainerTest extends TestCase
         $this->assertInstanceOf(DateTime::class, $dt);
     }
 
-    public function testClosureDefinition()
+    public function testClosureDefinition(): void
     {
         $c = new Container();
         $c->set('val', fn()=> new stdClass());
@@ -25,14 +25,14 @@ class ContainerTest extends TestCase
         $this->assertSame($v1, $v2, 'Should be cached singleton');
     }
 
-    public function testClassAutowireMissingDepFallsBackNull()
+    public function testClassAutowireMissingDepFallsBackNull(): void
     {
         $this->expectException(\Quiote\DI\ContainerException::class);
         $c = new Container();
         $c->get(ContainerAutowireFixture::class);
     }
 
-    public function testAliasAndFactory()
+    public function testAliasAndFactory(): void
     {
         $c = new Container();
         $c->alias('clock', DateTimeImmutable::class);
@@ -42,7 +42,7 @@ class ContainerTest extends TestCase
         $this->assertEquals('2025-01-02T00:00:00+00:00', $dt->format('c'));
     }
 
-    public function testTransientScopeNeverCaches()
+    public function testTransientScopeNeverCaches(): void
     {
         $c = new Container();
         $c->set('val', fn() => new stdClass(), Container::SCOPE_TRANSIENT);
@@ -51,7 +51,7 @@ class ContainerTest extends TestCase
         $this->assertNotSame($v1, $v2, 'Transient scope must build a fresh instance every time');
     }
 
-    public function testRequestScopeCachesWithinRequestButNotAcrossReset()
+    public function testRequestScopeCachesWithinRequestButNotAcrossReset(): void
     {
         $c = new Container();
         $c->set('val', fn() => new stdClass(), Container::SCOPE_REQUEST);
@@ -64,7 +64,7 @@ class ContainerTest extends TestCase
         $this->assertNotSame($v1, $v3, 'reset() must drop request-scoped instances');
     }
 
-    public function testResetDoesNotAffectSingletons()
+    public function testResetDoesNotAffectSingletons(): void
     {
         $c = new Container();
         $c->set('val', fn() => new stdClass()); // default scope: singleton
@@ -74,7 +74,7 @@ class ContainerTest extends TestCase
         $this->assertSame($v1, $v2, 'reset() must not drop singleton-scoped instances');
     }
 
-    public function testParameterBindingInjectsScalarValues()
+    public function testParameterBindingInjectsScalarValues(): void
     {
         $c = new Container();
         $c->set(ContainerParamFixture::class, ContainerParamFixture::class, Container::SCOPE_SINGLETON, ['name' => 'cookie_name', 'mode' => 'strict']);
@@ -83,7 +83,7 @@ class ContainerTest extends TestCase
         $this->assertSame('strict', $obj->mode);
     }
 
-    public function testCycleDetectionThrows()
+    public function testCycleDetectionThrows(): void
     {
         $c = new Container();
         $c->set(ContainerCycleA::class, ContainerCycleA::class);
@@ -93,7 +93,7 @@ class ContainerTest extends TestCase
         $c->get(ContainerCycleA::class);
     }
 
-    public function testHasIsHonestAboutRegisteredEntriesOnly()
+    public function testHasIsHonestAboutRegisteredEntriesOnly(): void
     {
         $c = new Container();
         $this->assertFalse($c->has(DateTime::class), 'has() must not report true for a merely-autowireable class');
@@ -103,7 +103,7 @@ class ContainerTest extends TestCase
         $this->assertTrue($c->has('clock'));
     }
 
-    public function testUnregisteredAutowireableClassStillResolvesViaGet()
+    public function testUnregisteredAutowireableClassStillResolvesViaGet(): void
     {
         $c = new Container();
         $this->assertFalse($c->has(ContainerNoDepsFixture::class));
@@ -111,7 +111,7 @@ class ContainerTest extends TestCase
         $this->assertInstanceOf(ContainerNoDepsFixture::class, $obj);
     }
 
-    public function testRequiredMethodIsInvokedWithAutowiredArgs()
+    public function testRequiredMethodIsInvokedWithAutowiredArgs(): void
     {
         $c = new Container();
         $c->set('clock', fn() => new DateTimeImmutable('2025-01-02T00:00:00Z'));
@@ -120,7 +120,7 @@ class ContainerTest extends TestCase
         $this->assertInstanceOf(DateTimeImmutable::class, $obj->clock);
     }
 
-    public function testRequiredMethodNamedInitializeIsRejected()
+    public function testRequiredMethodNamedInitializeIsRejected(): void
     {
         $c = new Container();
         $this->expectException(\Quiote\DI\ContainerException::class);
@@ -128,7 +128,7 @@ class ContainerTest extends TestCase
         $c->get(ContainerRequiredInitializeFixture::class);
     }
 
-    public function testRequiredMethodTypeHintingActionInitContextIsRejectedRegardlessOfName()
+    public function testRequiredMethodTypeHintingActionInitContextIsRejectedRegardlessOfName(): void
     {
         $c = new Container();
         $this->expectException(\Quiote\DI\ContainerException::class);
@@ -136,7 +136,7 @@ class ContainerTest extends TestCase
         $c->get(ContainerRequiredWrongNameButForbiddenTypeFixture::class);
     }
 
-    public function testServiceAttributeSetsDefaultScopeForUnregisteredClass()
+    public function testServiceAttributeSetsDefaultScopeForUnregisteredClass(): void
     {
         $c = new Container();
         $v1 = $c->get(ContainerTransientServiceFixture::class);
@@ -144,7 +144,7 @@ class ContainerTest extends TestCase
         $this->assertNotSame($v1, $v2, '#[Service(scope: transient)] must be honored for an unregistered, autowired class');
     }
 
-    public function testInjectAttributeOverridesAutowiringByType()
+    public function testInjectAttributeOverridesAutowiringByType(): void
     {
         $c = new Container();
         $c->set('primary.clock', fn() => new DateTimeImmutable('2025-01-02T00:00:00Z'));
@@ -152,14 +152,14 @@ class ContainerTest extends TestCase
         $this->assertSame('2025-01-02T00:00:00+00:00', $obj->clock->format('c'));
     }
 
-    public function testAutowireAttributeInjectsLiteralValue()
+    public function testAutowireAttributeInjectsLiteralValue(): void
     {
         $c = new Container();
         $obj = $c->get(ContainerAutowireAttributeFixture::class);
         $this->assertSame('cookie_name', $obj->name);
     }
 
-    public function testQuioteServiceInterfaceDefaultsToTransientWithoutServiceAttribute()
+    public function testQuioteServiceInterfaceDefaultsToTransientWithoutServiceAttribute(): void
     {
         $c = new Container();
         $v1 = $c->get(ContainerPlainServiceFixture::class);
@@ -167,7 +167,7 @@ class ContainerTest extends TestCase
         $this->assertNotSame($v1, $v2, 'ServiceInterface implementors must default to transient scope, not singleton');
     }
 
-    public function testServiceAttributeOverridesQuioteServiceInterfaceDefault()
+    public function testServiceAttributeOverridesQuioteServiceInterfaceDefault(): void
     {
         $c = new Container();
         $v1 = $c->get(ContainerSingletonServiceFixture::class);
@@ -175,7 +175,7 @@ class ContainerTest extends TestCase
         $this->assertSame($v1, $v2, '#[Service(scope: singleton)] must override the ServiceInterface transient default');
     }
 
-    public function testMakeNeverCachesEvenForOtherwiseSingletonClass()
+    public function testMakeNeverCachesEvenForOtherwiseSingletonClass(): void
     {
         $c = new Container();
         $v1 = $c->make(ContainerNoDepsFixture::class);
@@ -183,34 +183,43 @@ class ContainerTest extends TestCase
         $this->assertNotSame($v1, $v2, 'make() must build a fresh instance every call, regardless of scope policy');
     }
 
-    public function testMakeWithNoConstructorBehavesLikePlainNew()
+    public function testMakeWithNoConstructorBehavesLikePlainNew(): void
     {
         $c = new Container();
         $obj = $c->make(ContainerNoDepsFixture::class);
         $this->assertInstanceOf(ContainerNoDepsFixture::class, $obj);
     }
 
-    public function testMakeAutowiresConstructorDependencies()
+    public function testMakeAutowiresConstructorDependencies(): void
     {
         $c = new Container();
         $c->set('clock', fn() => new DateTimeImmutable('2025-01-02T00:00:00Z'));
         $c->alias(DateTimeImmutable::class, 'clock');
         $obj = $c->make(ContainerMakeFixture::class);
+        if (!$obj instanceof ContainerMakeFixture) {
+            throw new \RuntimeException('Expected ContainerMakeFixture instance');
+        }
         $this->assertInstanceOf(DateTimeImmutable::class, $obj->clock);
     }
 
-    public function testMakeExtraParamsOverrideByParameterName()
+    public function testMakeExtraParamsOverrideByParameterName(): void
     {
         $c = new Container();
         $obj = $c->make(ContainerParamFixture::class, ['name' => 'override_name']);
+        if (!$obj instanceof ContainerParamFixture) {
+            throw new \RuntimeException('Expected ContainerParamFixture instance');
+        }
         $this->assertSame('override_name', $obj->name);
     }
 
-    public function testMakeExtraParamsOverrideByType()
+    public function testMakeExtraParamsOverrideByType(): void
     {
         $c = new Container();
         $override = new DateTimeImmutable('2030-01-01T00:00:00Z');
         $obj = $c->make(ContainerMakeFixture::class, [DateTimeImmutable::class => $override]);
+        if (!$obj instanceof ContainerMakeFixture) {
+            throw new \RuntimeException('Expected ContainerMakeFixture instance');
+        }
         $this->assertSame($override, $obj->clock);
     }
 }

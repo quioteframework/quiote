@@ -29,10 +29,8 @@ class ValidationMiddlewareTest extends TestCase
         $this->context->getRequest();
         // Strict validation: seed whitelist with potential parameter names used across tests
         $req = $this->context->getRequest();
-        if($req instanceof \Quiote\Request\WebRequest) {
-            $req = $req->enforceValidatedParameters(['foo','existing','slug','_internal','keep']);
-            $this->context->setRequest($req);
-        }
+        $req = $req->enforceValidatedParameters(['foo','existing','slug','_internal','keep']);
+        $this->context->setRequest($req);
     }
 
     /**
@@ -73,9 +71,9 @@ class ValidationMiddlewareTest extends TestCase
         // Attach synthetic action for failure path
         $action = new class extends \Quiote\Action\Action {
             public function isSimple(): bool { return false; }
-            public function validateRead($rd) { return false; }
+            public function validateRead(\Quiote\Request\WebRequest $rd): bool { return false; }
             public function handleError($rd) { return 'Error'; }
-            public function handleReadError($rd) { return 'Error'; }
+            public function handleReadError(\Quiote\Request\WebRequest $rd): string { return 'Error'; }
         };
         $this->initializeAction($action, 'Stub', 'Fail', 'read', $request);
         $request = $request->withAttribute('quiote.preinstantiated_action', $action);
@@ -95,10 +93,11 @@ class ValidationMiddlewareTest extends TestCase
         $action = new class {
             public static int $execCount = 0;
             public function isSimple(): bool { return true; }
-            public function execute($rd=null) { self::$execCount++; return 'ActionOK'; }
-            public function handleError($rd){ return 'Error'; }
-            public function handleReadError($rd){ return 'Error'; }
-            public function getAttributes(){ return []; }
+            public function execute(?\Quiote\Request\WebRequest $rd=null): string { self::$execCount++; return 'ActionOK'; }
+            public function handleError(\Quiote\Request\WebRequest $rd): string { return 'Error'; }
+            public function handleReadError(\Quiote\Request\WebRequest $rd): string { return 'Error'; }
+            /** @return array<never, never> */
+            public function getAttributes(): array { return []; }
         };
         $request = (new ServerRequest('GET','/stub/pass'))
             ->withAttribute(\Quiote\Execution\ActionDescriptor::class, $actionDesc)
@@ -122,9 +121,9 @@ class ValidationMiddlewareTest extends TestCase
         // Provide query param foo=1 which should be cleared (no XML validators + non-simple)
         $action = new class extends \Quiote\Action\Action {
             public function isSimple(): bool { return false; }
-            public function validateRead($r){ return true; }
+            public function validateRead(\Quiote\Request\WebRequest $r): bool { return true; }
             public function validate($r){ return true; }
-            public function handleReadError($r){ return 'Error'; }
+            public function handleReadError(\Quiote\Request\WebRequest $r): string { return 'Error'; }
             public function handleError($r){ return 'Error'; }
         };
         $request = (new ServerRequest('GET','/stub/noxml?foo=1'))
@@ -151,8 +150,8 @@ class ValidationMiddlewareTest extends TestCase
         $action = new class extends \Quiote\Action\Action {
             public string $chosen = '';
             public function isSimple(): bool { return false; }
-            public function validateRead($r){ return false; }
-            public function handleReadError($r){ $this->chosen = 'handleReadError'; return \Quiote\View\View::NONE; }
+            public function validateRead(\Quiote\Request\WebRequest $r): bool { return false; }
+            public function handleReadError(\Quiote\Request\WebRequest $r): null { $this->chosen = 'handleReadError'; return \Quiote\View\View::NONE; }
             public function handleError($r){ $this->chosen = 'handleError'; return \Quiote\View\View::NONE; }
         };
         $request = (new ServerRequest('GET','/err/failread'))
@@ -177,7 +176,7 @@ class ValidationMiddlewareTest extends TestCase
         $action = new class extends \Quiote\Action\Action {
             public string $chosen = '';
             public function isSimple(): bool { return false; }
-            public function validateRead($r){ return false; }
+            public function validateRead(\Quiote\Request\WebRequest $r): bool { return false; }
             // no handleReadError -> fallback
             public function handleError($r){ $this->chosen = 'handleError'; return \Quiote\View\View::NONE; }
         };
@@ -202,8 +201,8 @@ class ValidationMiddlewareTest extends TestCase
         $actionDesc = new \Quiote\Execution\ActionDescriptor('Err3','FailNone','read','html', false);
         $action = new class extends \Quiote\Action\Action {
             public function isSimple(): bool { return false; }
-            public function validateRead($r){ return false; }
-            public function handleReadError($r){ return \Quiote\View\View::NONE; }
+            public function validateRead(\Quiote\Request\WebRequest $r): bool { return false; }
+            public function handleReadError(\Quiote\Request\WebRequest $r): null { return \Quiote\View\View::NONE; }
         };
         $request = (new ServerRequest('GET','/err3/failnone'))
             ->withAttribute(\Quiote\Execution\ActionDescriptor::class, $actionDesc)
@@ -227,8 +226,8 @@ class ValidationMiddlewareTest extends TestCase
         $action = new class extends \Quiote\Action\Action {
             public static int $validateCalls = 0;
             public function isSimple(): bool { return false; }
-            public function validateRead($r){ self::$validateCalls++; return true; }
-            public function handleReadError($r){ return 'Error'; }
+            public function validateRead(\Quiote\Request\WebRequest $r): bool { self::$validateCalls++; return true; }
+            public function handleReadError(\Quiote\Request\WebRequest $r): string { return 'Error'; }
             public function handleError($r){ return 'Error'; }
         };
         $execState = new \Quiote\Execution\ExecutionState();
@@ -268,9 +267,9 @@ class ValidationMiddlewareTest extends TestCase
         $actionDesc = new \Quiote\Execution\ActionDescriptor('Routes','Show','read','html', false);
         $action = new class {
             public function isSimple(): bool { return true; }
-            public function validateRead($r){ return true; }
-            public function handleReadError($r){ return 'Error'; }
-            public function handleError($r){ return 'Error'; }
+            public function validateRead(\Quiote\Request\WebRequest $r): bool { return true; }
+            public function handleReadError(\Quiote\Request\WebRequest $r): string { return 'Error'; }
+            public function handleError(\Quiote\Request\WebRequest $r): string { return 'Error'; }
         };
         $routeParams = [ 'slug' => 'abc', '_internal' => 'skip', 'existing' => 'rv' ];
         $seeded = $this->context->getRequest()->withQueryParams(['existing' => 'keep']);
@@ -299,8 +298,8 @@ class ValidationMiddlewareTest extends TestCase
         ]);
         $action = new class {
             public function isSimple(): bool { return true; }
-            public function handleReadError($r){ return 'Error'; }
-            public function handleError($r){ return 'Error'; }
+            public function handleReadError(\Quiote\Request\WebRequest $r): string { return 'Error'; }
+            public function handleError(\Quiote\Request\WebRequest $r): string { return 'Error'; }
         };
         // Even a query param with a matching validators.xml entry elsewhere in
         // the module must not survive for a genuinely simple action -- isSimple()
@@ -336,7 +335,7 @@ class ValidationMiddlewareTest extends TestCase
         $action = new class extends \Quiote\Action\Action {
             public ?string $capturedName = null;
             public function getDefaultViewName() { return 'Input'; }
-            public function executeWrite(\Quiote\Request\WebRequest $rd)
+            public function executeWrite(\Quiote\Request\WebRequest $rd): string
             {
                 $this->capturedName = $rd->getParameter('name');
                 return 'Success';
@@ -344,9 +343,14 @@ class ValidationMiddlewareTest extends TestCase
             public function handleError(\Quiote\Request\WebRequest $rd) { return 'Input'; }
             public function registerWriteValidators(): void
             {
+                $initContext = $this->getInitContext();
+                $context = $this->getContext();
+                if ($initContext === null || $context === null) {
+                    throw new \RuntimeException('Action must be initialize()d before registerWriteValidators() runs.');
+                }
                 $v = \Quiote\Validator\Compiler\Runtime\ValidatorBuilder::on(
-                    $this->getInitContext()->getValidationManager(),
-                    $this->getContext(),
+                    $initContext->getValidationManager(),
+                    $context,
                 );
                 $v->string('name', required: true)
                     ->minLength(3)
@@ -395,13 +399,18 @@ class ValidationMiddlewareTest extends TestCase
         $actionDesc = new \Quiote\Execution\ActionDescriptor('InputTest2', 'Submit', 'write', 'html', false);
         $action = new class extends \Quiote\Action\Action {
             public function getDefaultViewName() { return 'Input'; }
-            public function executeWrite(\Quiote\Request\WebRequest $rd) { return 'Success'; }
+            public function executeWrite(\Quiote\Request\WebRequest $rd): string { return 'Success'; }
             public function handleError(\Quiote\Request\WebRequest $rd) { return 'Input'; }
             public function registerWriteValidators(): void
             {
+                $initContext = $this->getInitContext();
+                $context = $this->getContext();
+                if ($initContext === null || $context === null) {
+                    throw new \RuntimeException('Action must be initialize()d before registerWriteValidators() runs.');
+                }
                 $v = \Quiote\Validator\Compiler\Runtime\ValidatorBuilder::on(
-                    $this->getInitContext()->getValidationManager(),
-                    $this->getContext(),
+                    $initContext->getValidationManager(),
+                    $context,
                 );
                 $v->string('name', required: true)
                     ->minLength(3)
@@ -451,8 +460,9 @@ class ValidationMiddlewareTest extends TestCase
         $actionDesc = new \Quiote\Execution\ActionDescriptor('Exc','Boom','read','html', false);
         $action = new class extends \Quiote\Action\Action {
             public function isSimple(): bool { return false; }
-            public function validateRead($r){ return false; }
-            public function handleReadError($r){ return ['InvalidMod','NoView']; } // should provoke creation failure
+            public function validateRead(\Quiote\Request\WebRequest $r): bool { return false; }
+            /** @return array<int, string> */
+            public function handleReadError(\Quiote\Request\WebRequest $r): array { return ['InvalidMod','NoView']; } // should provoke creation failure
         };
         $request = (new ServerRequest('GET','/exc/boom'))
             ->withAttribute(\Quiote\Execution\ActionDescriptor::class, $actionDesc)

@@ -40,7 +40,7 @@ class FormatAwareConfigCacheTest extends PhpUnitTestCase
 		return FormatDriverRegistry::forHandler($handler, [Config::getString('core.quiote_dir') . '/Config/xsl/settings.xsl']);
 	}
 
-	public function testResolvesAndCompilesAPhpSettingsFileByBaseNameAlone()
+	public function testResolvesAndCompilesAPhpSettingsFileByBaseNameAlone(): void
 	{
 		file_put_contents($this->dir . '/settings.php', "<?php\nreturn ['core.app_name' => 'Demo'];\n");
 
@@ -53,7 +53,7 @@ class FormatAwareConfigCacheTest extends PhpUnitTestCase
 		$this->assertSame('Demo', Config::getString('core.app_name'));
 	}
 
-	public function testPrefersPhpOverYamlAndXmlWhenMultipleExist()
+	public function testPrefersPhpOverYamlAndXmlWhenMultipleExist(): void
 	{
 		file_put_contents($this->dir . '/settings.php', "<?php\nreturn ['core.app_name' => 'FromPhp'];\n");
 		file_put_contents($this->dir . '/settings.yaml', "core.app_name: FromYaml\n");
@@ -67,7 +67,7 @@ class FormatAwareConfigCacheTest extends PhpUnitTestCase
 		$this->assertSame('FromPhp', Config::getString('core.app_name'));
 	}
 
-	public function testFallsBackToYamlWhenPhpAbsent()
+	public function testFallsBackToYamlWhenPhpAbsent(): void
 	{
 		file_put_contents($this->dir . '/settings.yaml', "core.app_name: FromYaml\n");
 
@@ -79,7 +79,7 @@ class FormatAwareConfigCacheTest extends PhpUnitTestCase
 		$this->assertSame('FromYaml', Config::getString('core.app_name'));
 	}
 
-	public function testThrowsWhenNoCandidateFileExists()
+	public function testThrowsWhenNoCandidateFileExists(): void
 	{
 		$handler = new SettingConfigHandler();
 		$handler->initialize(null, []);
@@ -88,7 +88,7 @@ class FormatAwareConfigCacheTest extends PhpUnitTestCase
 		FormatAwareConfigCache::checkConfig($this->dir . '/nonexistent', $handler, $this->newRegistry($handler), 'test');
 	}
 
-	public function testDoesNotRecompileWhenSourceIsUnchanged()
+	public function testDoesNotRecompileWhenSourceIsUnchanged(): void
 	{
 		file_put_contents($this->dir . '/settings.php', "<?php\nreturn ['core.app_name' => 'Demo'];\n");
 

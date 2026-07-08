@@ -6,16 +6,23 @@ use Quiote\Util\ArrayPathDefinition;
 class ArrayPathDefinitionTest extends PhpUnitTestCase
 {
 	
+	/**
+	 * @param array{parts: array<int, string>, absolute: bool} $expected
+	 * @param class-string<Throwable>|false $expectedException
+	 */
 	#[\PHPUnit\Framework\Attributes\DataProvider('getPathPartData')]
-	public function testGetPartsFromPath($path, $expected, $expectedException)
+	public function testGetPartsFromPath(string $path, array $expected, string|false $expectedException): void
 	{
-		if(!empty($expectedException)) {
+		if($expectedException !== false) {
 			$this->expectException($expectedException);
 		}
 		$this->assertEquals($expected, ArrayPathDefinition::getPartsFromPath($path));
 	}
-	
-	public static function getPathPartData()
+
+	/**
+	 * @return array<string, array{0: string, 1: array{parts: array<int, string>, absolute: bool}, 2: string|false}>
+	 */
+	public static function getPathPartData(): array
 	{
 		return [
 			'absolute,nopath' => [

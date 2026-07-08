@@ -28,7 +28,13 @@ class AttributeBag implements ArrayAccess, IteratorAggregate, Countable
     // ArrayAccess (mutable for interoperability; callers wanting immutability use with()/without())
     public function offsetExists($offset): bool { return isset($this->data[$offset]) || array_key_exists($offset,$this->data); }
     public function offsetGet($offset): mixed { return $this->data[$offset] ?? null; }
-    public function offsetSet($offset, $value): void { $this->data[$offset] = $value; }
+    public function offsetSet($offset, $value): void
+    {
+        if (!is_string($offset)) {
+            throw new \InvalidArgumentException('AttributeBag keys must be strings, ' . get_debug_type($offset) . ' given.');
+        }
+        $this->data[$offset] = $value;
+    }
     public function offsetUnset($offset): void { unset($this->data[$offset]); }
     // Iteration / Countable
     public function getIterator(): Traversable { return new ArrayIterator($this->data); }

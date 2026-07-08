@@ -53,7 +53,10 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 		// TODO: or textContent?
 		// trimmed or not? in utf-8 or native encoding?
 		// I'd really say we only support utf-8 for the new api
-		return $this->nodeValue;
+		// nodeValue is declared nullable on DOMNode in general, but for an
+		// element node it is always the concatenated text content, which is
+		// never null (empty string at worst).
+		return $this->nodeValue ?? '';
 	}
 	
 	/**
@@ -110,13 +113,16 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 		// should only pull elements from the default ns
 		$prefix = $this->ownerDocument->getDefaultNamespacePrefix();
 		if($prefix) {
-			$result = $this->ownerDocument->getXpath()->query(sprintf('child::%s:*', $prefix), $this);
+			$result = $this->ownerDocument->query(sprintf('child::%s:*', $prefix), $this);
 		} else {
-			$result = $this->ownerDocument->getXpath()->query('child::*', $this);
+			$result = $this->ownerDocument->query('child::*', $this);
 		}
-		// query() only returns false for a malformed XPath expression, which
-		// cannot happen with the fixed expressions above.
-		return $result === false ? new \ArrayIterator([]) : $result;
+		// registerNodeClass() guarantees element nodes are always XmlConfigDomElement.
+		foreach ($result as $node) {
+			if ($node instanceof self) {
+				yield $node;
+			}
+		}
 	}
 	
 	/**
@@ -131,7 +137,11 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 	{
 		// TODO: shouldn't this be static?
 		$names = preg_split('#([_\-\.])#', (string) $name, -1, PREG_SPLIT_DELIM_CAPTURE);
-		$names[count($names) - 1] = Inflector::singularize(end($names));
+		if ($names === false) {
+			throw new \LogicException(sprintf('Failed to split element name "%s" into singular/plural parts.', $name));
+		}
+		$lastIndex = count($names) - 1;
+		$names[$lastIndex] = Inflector::singularize($names[$lastIndex]);
 		return implode('', $names);
 	}
 	
@@ -143,10 +153,10 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 	 * @param      string $namespaceUri The namespace URI. If null, the document default
 	 *                    namespace will be used. If an empty string, no namespace
 	 *                    will be used.
-	 * @return     \DOMNodeList<XmlConfigDomElement> A list of the child elements.
+	 * @return     array<int, XmlConfigDomElement> A list of the child elements.
 	 * @since      1.0.0
 	 */
-	public function get($name, $namespaceUri = null): \DOMNodeList
+	public function get($name, $namespaceUri = null): array
 	{
 		return $this->getChildren($name, $namespaceUri, true);
 	}
@@ -243,10 +253,10 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 	 *                    will be used.
 	 * @param      bool $pluralMagic Whether or not to apply automatic singular/plural
 	 *                    handling that skips plural container elements.
-	 * @return     \DOMNodeList<XmlConfigDomElement> A list of the child elements.
+	 * @return     array<int, XmlConfigDomElement> A list of the child elements.
 	 * @since      1.0.0
 	 */
-	public function getChildren($name, $namespaceUri = null, $pluralMagic = false): null|\DOMNodeList
+	public function getChildren($name, $namespaceUri = null, $pluralMagic = false): array
 	{
 		// if arg is null, then only check for elements from our default namespace
 		// if namespace uri is null, use default ns. if empty string, use no ns
@@ -276,10 +286,18 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 			}
 		}
 		
-		$retval = $this->ownerDocument->getXpath()->query(sprintf($query, $name, $singularName, $namespaceUri, $marker), $this);
-		
+		$result = $this->ownerDocument->query(sprintf($query, $name, $singularName, $namespaceUri, $marker), $this);
+
 		$this->removeAttributeNS(XmlConfigParser::NAMESPACE_QUIOTE_ANNOTATIONS_LATEST, 'quiote_annotations_latest:marker');
-		
+
+		// registerNodeClass() guarantees element nodes are always XmlConfigDomElement.
+		$retval = [];
+		foreach ($result as $node) {
+			if ($node instanceof self) {
+				$retval[] = $node;
+			}
+		}
+
 		return $retval;
 	}
 	
@@ -325,14 +343,13 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 			$query = 'self::node()[count(child::%1$s[../@quiote_annotations_latest:marker = "%3$s"]) = 1]/%1$s[../@quiote_annotations_latest:marker = "%3$s"]';
 		}
 		
-		$retval = $this->ownerDocument->getXpath()->query(sprintf($query, $name, $namespaceUri, $marker), $this)->item(0);
+		$retval = $this->ownerDocument->query(sprintf($query, $name, $namespaceUri, $marker), $this)->item(0);
 
 		$this->removeAttributeNS(XmlConfigParser::NAMESPACE_QUIOTE_ANNOTATIONS_LATEST, 'quiote_annotations_latest:marker');
 
 		// The query above only ever selects element nodes, and registerNodeClass()
 		// guarantees those are always XmlConfigDomElement, never a vanilla DOMNode.
-		/** @var ?XmlConfigDomElement $retval */
-		return $retval;
+		return $retval instanceof self ? $retval : null;
 	}
 	
 	/**
@@ -403,11 +420,17 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 	public function getAttributesNS($namespaceUri): array
 	{
 		$retval = [];
-		
-		foreach($this->ownerDocument->getXpath()->query(sprintf('@*[namespace-uri() = "%s"]', $namespaceUri), $this) as $attribute) {
+
+		foreach($this->ownerDocument->query(sprintf('@*[namespace-uri() = "%s"]', $namespaceUri), $this) as $attribute) {
+			// The query above only ever selects attribute nodes, so localName
+			// is always present; guard defensively anyway since DOMNode::$localName
+			// is nullable in general.
+			if($attribute->localName === null) {
+				continue;
+			}
 			$retval[$attribute->localName] = $attribute->nodeValue;
 		}
-		
+
 		return $retval;
 	}
 	
@@ -448,7 +471,11 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 				if(!$element->hasAttribute('name')) {
 					$result[$key = $offset++] = null;
 				} else {
-					$key = $element->getAttribute('name');
+					// getAttribute() treats an existing-but-empty "name" attribute the
+					// same as a missing one and returns null; fall back to '' so this
+					// still becomes a legal (and, for PHP arrays, equivalent) key,
+					// rather than crashing.
+					$key = $element->getAttribute('name') ?? '';
 				}
 				
 				if($element->hasQuioteParameters()) {

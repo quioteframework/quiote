@@ -5,8 +5,10 @@ use Quiote\Config\Config;
 use Quiote\Exception\ConfigurationException;
 use Quiote\Exception\ValidatorException;
 use Quiote\I18n\DateTimeFacade;
+use Quiote\Request\WebRequest;
 use Quiote\Translation\DateFormatter;
 use Quiote\Translation\QuioteLocale;
+use Quiote\Translation\TranslationManager;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -85,13 +87,23 @@ class DateTimeValidator extends Validator
 		}
 
 		$tm = $this->getContext()->getTranslationManager();
+		if($tm === null) {
+			// use_translation was just verified to be on above, but the
+			// TranslationManager itself is only handed out while that setting
+			// is on -- re-check defensively rather than assume the two calls
+			// can never observe different config states.
+			throw new ConfigurationException('The datetime validator can only be used with use_translation on');
+		}
 		$checkParam = $this->getParameter('check', true);
 		$check = filter_var($checkParam, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
 		if($check === null) {
 			$check = (bool)$checkParam;
 		}
 		$locale = $this->hasParameter('locale') ? $tm->getLocale($this->getParameter('locale')) : $tm->getCurrentLocale();
-		$timezoneId = $this->resolveTimezoneId($locale);
+		if($locale === null) {
+			throw new ConfigurationException('Unable to resolve a current locale for date/time validation; configure a default locale or supply the "locale" parameter.');
+		}
+		$timezoneId = $this->resolveTimezoneId($locale, $tm);
 
 		$dateTime = null;
 		if($this->hasMultipleArguments() && !$this->getParameter('arguments_format')) {
@@ -123,7 +135,7 @@ class DateTimeValidator extends Validator
 				return false;
 			}
 
-			$dateTime = $this->parseInputValue((string)$param, (array)$this->getParameter('formats', []), $locale, $timezoneId);
+			$dateTime = $this->parseInputValue((string)$param, (array)$this->getParameter('formats', []), $locale, $timezoneId, $tm);
 			if($dateTime === null) {
 				$this->throwError('format');
 				return false;
@@ -132,14 +144,14 @@ class DateTimeValidator extends Validator
 
 		$subjectTs = $dateTime->getTimestamp();
 		if($this->hasParameter('min')) {
-			$min = $this->resolveBoundaryDate('min', $locale, $timezoneId);
+			$min = $this->resolveBoundaryDate('min', $locale, $timezoneId, $tm);
 			if($subjectTs < $min->getTimestamp()) {
 				$this->throwError('min');
 				return false;
 			}
 		}
 		if($this->hasParameter('max')) {
-			$max = $this->resolveBoundaryDate('max', $locale, $timezoneId);
+			$max = $this->resolveBoundaryDate('max', $locale, $timezoneId, $tm);
 			if($subjectTs >= $max->getTimestamp()) {
 				$this->throwError('max');
 				return false;
@@ -314,14 +326,13 @@ class DateTimeValidator extends Validator
 		return true;
 	}
 
-	private function resolveTimezoneId(QuioteLocale $locale): string
+	private function resolveTimezoneId(QuioteLocale $locale, TranslationManager $tm): string
 	{
 		$tzId = $locale->getLocaleTimeZone();
 		if($tzId) {
 			return $tzId;
 		}
-		$tm = $this->getContext()->getTranslationManager();
-		$defaultTz = $tm !== null ? $tm->getDefaultTimeZone() : null;
+		$defaultTz = $tm->getDefaultTimeZone();
 		if($defaultTz) {
 			return $defaultTz->getName();
 		}
@@ -331,9 +342,8 @@ class DateTimeValidator extends Validator
 	/**
 	 * @param array<int|string, mixed> $formats
 	 */
-	private function parseInputValue(string $value, array $formats, QuioteLocale $defaultLocale, string $timezoneId): ?DateTimeImmutable
+	private function parseInputValue(string $value, array $formats, QuioteLocale $defaultLocale, string $timezoneId, TranslationManager $tm): ?DateTimeImmutable
 	{
-		$tm = $this->getContext()->getTranslationManager();
 		$candidates = $formats;
 		if(count($candidates) === 0) {
 			$candidates = [['type' => 'format', 'format' => 'yyyy-MM-dd HH:mm:ss']];
@@ -413,10 +423,9 @@ class DateTimeValidator extends Validator
 		return DateTimeFacade::format($date, $pattern, $locale->getIdentifier());
 	}
 
-	private function resolveBoundaryDate(string $parameterName, QuioteLocale $locale, string $timezoneId): DateTimeImmutable
+	private function resolveBoundaryDate(string $parameterName, QuioteLocale $locale, string $timezoneId, TranslationManager $tm): DateTimeImmutable
 	{
 		$definition = $this->getParameter($parameterName);
-		$tm = $this->getContext()->getTranslationManager();
 
 		if($definition instanceof DateTimeInterface) {
 			return DateTimeImmutable::createFromInterface($definition)->setTimezone(new DateTimeZone($timezoneId));
@@ -426,7 +435,11 @@ class DateTimeValidator extends Validator
 			if(empty($definition['field'])) {
 				throw new ConfigurationException('Boundary definition for ' . $parameterName . ' requires a "field" entry.');
 			}
-			$value = $this->validationParameters->getParameter($definition['field']);
+			$request = $this->validationParameters;
+			if(!$request instanceof WebRequest) {
+				throw new ConfigurationException('Boundary definition for ' . $parameterName . ' requires an active request to read field "' . $definition['field'] . '" from.');
+			}
+			$value = $request->getParameter($definition['field']);
 			$format = $definition['format'] ?? null;
 			$localeOverride = empty($definition['locale']) ? $locale : $tm->getLocale($definition['locale']);
 			return $this->coerceBoundaryValue($value, $localeOverride, $timezoneId, $format);

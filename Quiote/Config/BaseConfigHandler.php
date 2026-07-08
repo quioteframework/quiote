@@ -49,8 +49,9 @@ abstract class BaseConfigHandler extends ParameterHolder
 	
 	/**
      * Literalize a string value.
-     * @param      string $value The value to literalize.
-     * @return     string A literalized value.
+     * @param      mixed $value The value to literalize.
+     * @return     mixed A literalized value.
+     * @phpstan-return ($value is string ? null|bool|int|float|string : mixed)
      * @since      1.0.0
      */
     #[\Deprecated(message: 'Use Toolkit::expandDirectives() instead.')]
@@ -68,7 +69,10 @@ abstract class BaseConfigHandler extends ParameterHolder
     #[\Deprecated(message: 'Use Toolkit::expandDirectives() instead.')]
     public static function replaceConstants($value)
 	{
-		return Toolkit::expandDirectives($value);
+		// Toolkit::expandDirectives() only returns null for a null input, or on
+		// a regex engine error; $value is a known non-null string here, so fall
+		// back to it in that (effectively unreachable) failure case.
+		return Toolkit::expandDirectives($value) ?? $value;
 	}
 
 	/**

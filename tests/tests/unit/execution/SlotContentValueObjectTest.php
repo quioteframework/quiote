@@ -6,7 +6,7 @@ use PHPUnit\Framework\TestCase;
 
 class SlotContentValueObjectTest extends TestCase
 {
-    public function testBasicProperties()
+    public function testBasicProperties(): void
     {
         $sc = new SlotContent('Foo', 'Bar', 'html', '<p>Hi</p>', ['a' => 1]);
         $this->assertSame('Foo', $sc->getModule());
@@ -14,7 +14,9 @@ class SlotContentValueObjectTest extends TestCase
         $this->assertSame('html', $sc->getOutputType());
         $this->assertSame('<p>Hi</p>', $sc->getContent());
         $this->assertSame(['a' => 1], $sc->getArguments());
-        $this->assertStringContainsString('content_length', json_encode($sc->toArray()));
+        $encoded = json_encode($sc->toArray());
+        $this->assertIsString($encoded, 'toArray() must be JSON-encodable');
+        $this->assertStringContainsString('content_length', $encoded);
         $this->assertSame('<p>Hi</p>', (string)$sc);
     }
 }

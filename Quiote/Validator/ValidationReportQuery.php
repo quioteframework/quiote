@@ -60,19 +60,15 @@ class ValidationReportQuery implements IValidationReportQuery
 	public function byArgument($argument)
 	{
 		if(is_array($argument)) {
-			foreach($argument as &$arg) {
-				if(!($arg instanceof ValidationArgument)) {
-					$arg = new ValidationArgument($arg);
-				}
+			$normalized = [];
+			foreach($argument as $arg) {
+				$normalized[] = $arg instanceof ValidationArgument ? $arg : new ValidationArgument($arg);
 			}
 		} else {
-			if(!($argument instanceof ValidationArgument)) {
-				$argument = new ValidationArgument($argument);
-			}
-			$argument = [$argument];
+			$normalized = [$argument instanceof ValidationArgument ? $argument : new ValidationArgument($argument)];
 		}
 		$obj = clone $this;
-		$obj->argumentFilter = $argument;
+		$obj->argumentFilter = $normalized;
 		return $obj;
 	}
 	
@@ -337,9 +333,10 @@ class ValidationReportQuery implements IValidationReportQuery
 			return null;
 		} else {
 			$results = [];
-			if(count($this->argumentFilter) == 1) {
+			$argumentFilter = $this->argumentFilter;
+			if($argumentFilter !== null && count($argumentFilter) == 1) {
 				// retrieve the argument filter independent of the key
-				$argument = reset($this->argumentFilter);
+				$argument = reset($argumentFilter);
 				if($this->validatorFilter) {
 					foreach($this->validatorFilter as $validatorName) {
 						$result = $this->report->getAuthoritativeArgumentSeverity($argument, $validatorName);

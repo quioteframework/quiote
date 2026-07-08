@@ -74,8 +74,12 @@ PHP;
     {
         // Bind then immediately close to obtain a port nothing is listening on.
         $probe = stream_socket_server('tcp://127.0.0.1:0', $errno, $errstr);
+        $this->assertNotFalse($probe);
         $name = stream_socket_get_name($probe, false);
-        $port = (int) substr($name, strrpos($name, ':') + 1);
+        $this->assertNotFalse($name);
+        $colonPos = strrpos($name, ':');
+        $this->assertNotFalse($colonPos);
+        $port = (int) substr($name, $colonPos + 1);
         fclose($probe);
 
         $transport = new CurlTransport(connectTimeoutSeconds: 2.0);

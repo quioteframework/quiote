@@ -81,7 +81,10 @@ class NotoperatorValidator extends OperatorValidator implements ResetInterface
 	{
 		$children = $this->children;
 		$child = array_shift($children);
-		$result = $child->execute($this->validationParameters);
+		if ($child === null) {
+			throw new ValidatorException('NOT operator has no child validator to execute (checkValidSetup() should have rejected this setup already)');
+		}
+		$result = $child->execute($this->requireValidationParameters());
 		if($result == Validator::CRITICAL || $result == Validator::SUCCESS) {
 			$this->result = max(Validator::ERROR, $result);
 			$this->throwError(null, $child->getFullArgumentNames());

@@ -10,7 +10,7 @@ class SampleUser extends User
 
 class UserTest extends UnitTestCase
 {
-	private $_u = null;
+	private SampleUser $_u;
 
 	#[\Override]
     public function setUp(): void
@@ -20,7 +20,7 @@ class UserTest extends UnitTestCase
 		$this->_u->initialize($this->getContext());
 	}
 
-	public function testInitialize()
+	public function testInitialize(): void
 	{
 		$ctx = $this->getContext();
 		$u = $this->_u;

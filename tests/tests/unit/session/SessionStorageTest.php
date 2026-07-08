@@ -9,7 +9,7 @@ class SessionStorageTest extends UnitTestCase
 {
 	
 	#[RunInSeparateProcess]
-	public function testStartupSetsCookieSecureFlag()
+	public function testStartupSetsCookieSecureFlag(): void
 	{
 		// test for bug #1541
 		ini_set('session.cookie_secure', 0);
@@ -22,7 +22,7 @@ class SessionStorageTest extends UnitTestCase
 	}
 
 	#[RunInSeparateProcess]
-	public function testStaticSessionId()
+	public function testStaticSessionId(): void
 	{
 		$context = Context::getInstance('quiote-session-storage-test::tests-static-session-id');
 		$storage = new SessionStorage();
@@ -98,7 +98,7 @@ class SessionStorageTest extends UnitTestCase
 	}
 
 	#[RunInSeparateProcess]
-	public function testResetClearsSessionStateForWorkerReuse()
+	public function testResetClearsSessionStateForWorkerReuse(): void
 	{
 		$context = Context::getInstance('quiote-session-storage-test::tests-worker-reset-clears-session');
 		$storage = new SessionStorage();
@@ -121,6 +121,55 @@ class SessionStorageTest extends UnitTestCase
 
 		$this->assertSame([], $_SESSION, 'reset() must clear $_SESSION so the next worker request cannot inherit it');
 		$this->assertSame('', session_id(), 'reset() must clear the session id so startup() re-reads the incoming request cookie');
+	}
+
+	/**
+	 * Regression test: reset() nulls out the default SessionHandler (worker
+	 * mode), but the instance itself is reused for the next request. Before
+	 * this fix, a subsequent write()/read()/destroy()/gc()/open() call would
+	 * fatal by invoking a method on null. PHP's SessionHandler only actually
+	 * services these calls when the very same instance was registered via
+	 * session_set_save_handler() with an active session, which base
+	 * SessionStorage never does — so we can't drive this end-to-end through
+	 * a real session lifecycle without SessionHandler itself throwing
+	 * "Session is not active" / "Cannot call default session handler".
+	 * Instead we assert on the mechanism directly: the private handler is
+	 * lazily recreated (not left null) after reset(), which is what
+	 * prevents the null-pointer fatal.
+	 */
+	#[RunInSeparateProcess]
+	public function testDefaultHandlerIsLazilyRecreatedAfterReset(): void
+	{
+		$context = Context::getInstance('quiote-session-storage-test::tests-handler-after-reset');
+		$storage = new SessionStorage();
+		$storage->initialize($context);
+
+		$property = new \ReflectionProperty(SessionStorage::class, 'defaultHandler');
+		$this->assertInstanceOf(\SessionHandler::class, $property->getValue($storage));
+
+		$storage->reset();
+		$this->assertNull($property->getValue($storage), 'precondition: reset() nulls the handler');
+
+		$method = new \ReflectionMethod(SessionStorage::class, 'getSessionHandler');
+		$recreated = $method->invoke($storage);
+
+		$this->assertInstanceOf(\SessionHandler::class, $recreated, 'a fresh handler must be created on demand, not left null');
+		$this->assertInstanceOf(\SessionHandler::class, $property->getValue($storage), 'the recreated handler must be cached back onto the instance');
+	}
+
+	/**
+	 * startup() dereferences the initialized Context to read routing/request
+	 * data; calling it without initialize() must fail with a clear
+	 * StorageException instead of a null pointer error.
+	 */
+	#[RunInSeparateProcess]
+	public function testStartupWithoutInitializedContextThrows(): void
+	{
+		$storage = new SessionStorage();
+
+		$this->expectException(\Quiote\Exception\StorageException::class);
+		$this->expectExceptionMessage('cannot start a session without an initialized Context');
+		$storage->startup();
 	}
 
 }

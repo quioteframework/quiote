@@ -1,6 +1,8 @@
 <?php
 namespace Quiote\Validator;
 
+use Quiote\Exception\ValidatorException;
+
 /**
  * ArraylengthValidator verifies the length (count()) constraints for an array
  * Parameters:
@@ -36,14 +38,20 @@ class ArraylengthValidator extends Validator
 		$paramType = $this->getParameter('source');
 		$result = true;
 
+		$curBase = $this->curBase;
+		$validationParameters = $this->validationParameters;
+		if ($curBase === null || $validationParameters === null) {
+			throw new ValidatorException('Validator "' . ($this->getName() ?? '?') . '" has no base path/request; checkAllArgumentsSet() ran before setParentContainer()/execute() supplied them.');
+		}
+
 		foreach($this->getArguments() as $argument) {
-			$pName = $this->curBase->pushRetNew($argument)->__toString();
+			$pName = $curBase->pushRetNew($argument)->__toString();
 			// can't do this:
 			// if($this->validationParameters->isValueEmpty($paramType, $pName)) {
 			// Historically file value emptiness checks depended on request data holder internals.
 			// With PSR-7 migration and removal of legacy data holders, we conservatively ensure the
 			// parameter both exists and is an array before counting.
-				if(!$this->validationParameters->hasParameter($pName) || !is_array($this->validationParameters->getParameter($pName))) {
+				if(!$validationParameters->hasParameter($pName) || !is_array($validationParameters->getParameter($pName))) {
 					if($throwError && $isRequired) {
 					$this->throwError('required', $pName);
 				}

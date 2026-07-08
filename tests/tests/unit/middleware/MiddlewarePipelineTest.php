@@ -33,11 +33,7 @@ class MiddlewarePipelineTest extends TestCase
     {
         // Drain any extra buffers opened by framework code during the test
         while (ob_get_level() > $this->initialObLevel) {
-            try {
-                ob_end_clean();
-            } catch (\Throwable) {
-                break;
-            }
+            ob_end_clean();
         }
     }
 
@@ -47,7 +43,7 @@ class MiddlewarePipelineTest extends TestCase
         return Context::getInstance();
     }
 
-    public function testOrderingBaselineIncludesExecutionTime()
+    public function testOrderingBaselineIncludesExecutionTime(): void
     {
         $ctx = $this->makeContext();
         $pipeline = new MiddlewarePipeline($ctx);
@@ -62,7 +58,7 @@ class MiddlewarePipelineTest extends TestCase
         $this->assertSame($normalizer->startLevel(), $end);
     }
 
-    public function testExecutionTimeDisabledRemovedFromOrder()
+    public function testExecutionTimeDisabledRemovedFromOrder(): void
     {
         MiddlewareCatalog::initialize([ExecutionTimeMiddleware::class => false]);
         $ctx = $this->makeContext();
@@ -76,7 +72,7 @@ class MiddlewarePipelineTest extends TestCase
         $this->assertSame($normalizer->startLevel(), $end);
     }
 
-    public function testResetRebuildsWithToggledExecutionTime()
+    public function testResetRebuildsWithToggledExecutionTime(): void
     {
         $ctx = $this->makeContext();
         $pipeline = new MiddlewarePipeline($ctx);
@@ -98,7 +94,7 @@ class MiddlewarePipelineTest extends TestCase
         $this->assertSame($normalizer2->startLevel(), $end2);
     }
 
-    public function testErrorHandlingCatchesException()
+    public function testErrorHandlingCatchesException(): void
     {
         $ctx = $this->makeContext();
         $pipeline = new MiddlewarePipeline($ctx);

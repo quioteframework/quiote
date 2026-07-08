@@ -43,6 +43,9 @@ class SlotNonSimpleNoContainerTest extends UnitTestCase
         parent::tearDown();
     }
 
+    /**
+     * @param array<string, mixed> $params
+     */
     private function dispatchComplex(array $params = [], ?string $outputType = null): SlotExecutionContext
     {
         $parent = (new ServerRequest('GET', 'http://localhost/'))
@@ -52,21 +55,21 @@ class SlotNonSimpleNoContainerTest extends UnitTestCase
         return $dispatcher->dispatchSlotContext($slotReq, 'Cache', 'CacheComplex', $params, $outputType);
     }
 
-    public function testSuccessPath()
+    public function testSuccessPath(): void
     {
     \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,false,false);
     $ctx = $this->dispatchComplex();
     $this->assertSame('<div>COMPLEX_OK</div>', $ctx->content);
     }
 
-    public function testValidationFailureTriggersErrorView()
+    public function testValidationFailureTriggersErrorView(): void
     {
     \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(true,false,false);
         $ctx = $this->dispatchComplex();
     $this->assertSame('<div>COMPLEX_ERROR</div>', $ctx->content);
     }
 
-    public function testRequiresAuthRedirectsLogin()
+    public function testRequiresAuthRedirectsLogin(): void
     {
     \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,true,false);
         // ensure user logged out
@@ -77,7 +80,7 @@ class SlotNonSimpleNoContainerTest extends UnitTestCase
     $this->assertNull($ctx->view, 'No view should be rendered for security-denied slot');
     }
 
-    public function testRequiresCredentialTriggersSecureForward()
+    public function testRequiresCredentialTriggersSecureForward(): void
     {
     \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,false,true);
         // remove credential

@@ -64,6 +64,23 @@ class MiddlewareSpanDecoratorTest extends TestCase
         };
     }
 
+    /**
+     * TelemetryBootstrap::inMemorySpanExporter() is nullable (unset unless
+     * `telemetry.exporter = none` was configured via enable()); every call
+     * site in this file only reaches for it after enable(), so a missing
+     * exporter indicates a broken test fixture rather than a case callers
+     * should silently tolerate.
+     * @return array<int, mixed>
+     */
+    private function exportedSpans(): array
+    {
+        $exporter = TelemetryBootstrap::inMemorySpanExporter();
+        if ($exporter === null) {
+            throw new \RuntimeException('Expected an in-memory span exporter to be configured.');
+        }
+        return $exporter->getSpans();
+    }
+
     public function testWrappedMiddlewareStillRunsNormally(): void
     {
         $this->enable();
@@ -81,7 +98,7 @@ class MiddlewareSpanDecoratorTest extends TestCase
 
         $decorator->process(new ServerRequest('GET', '/x'), $this->terminal());
 
-        $spans = TelemetryBootstrap::inMemorySpanExporter()->getSpans();
+        $spans = $this->exportedSpans();
         $this->assertCount(1, $spans);
         $this->assertSame('App\\Middleware\\Example', $spans[0]->getName());
     }
@@ -116,7 +133,7 @@ class MiddlewareSpanDecoratorTest extends TestCase
         $this->assertNotNull($caught, 'the exception must propagate to the outer pipeline, not be swallowed');
         $this->assertSame('middleware blew up', $caught->getMessage());
 
-        $spans = TelemetryBootstrap::inMemorySpanExporter()->getSpans();
+        $spans = $this->exportedSpans();
         $this->assertCount(1, $spans, 'the span must still be exported even though the middleware failed');
         $this->assertSame('Error', $spans[0]->getStatus()->getCode());
     }
@@ -139,7 +156,7 @@ class MiddlewareSpanDecoratorTest extends TestCase
 
         $decorated->process(new ServerRequest('GET', '/x'), $this->terminal());
 
-        $spans = TelemetryBootstrap::inMemorySpanExporter()->getSpans();
+        $spans = $this->exportedSpans();
         $byName = [];
         foreach ($spans as $s) {
             $byName[$s->getName()] = $s;

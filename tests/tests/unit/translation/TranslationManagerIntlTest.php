@@ -89,6 +89,7 @@ class TranslationManagerIntlTest extends UnitTestCase
     {
         // Assume de_DE available; add timezone + currency override
         $loc = $this->tm->getLocale('de_DE@timezone=Europe/Berlin;currency=EUR');
+        $this->assertNotNull($loc->getIdentifier());
         $this->assertStringContainsString('de_DE', $loc->getIdentifier());
         $this->assertEquals('Europe/Berlin', $loc->getLocaleTimeZone());
         $this->assertEquals('EUR', $loc->getLocaleCurrency());
@@ -96,6 +97,7 @@ class TranslationManagerIntlTest extends UnitTestCase
     // Shortcut notation: reuse current locale's base (set to de_DE) add calendar option
     $this->tm->setLocale('de_DE'); // ensure currentLocaleIdentifier base is de_DE for shortcut
     $loc2 = $this->tm->getLocale('@calendar=gregorian');
+    $this->assertNotNull($loc2->getIdentifier());
     $this->assertStringContainsString('@', $loc2->getIdentifier());
     $this->assertEquals('de', $loc2->getLocaleLanguage());
     }
@@ -125,18 +127,16 @@ class TranslationManagerIntlTest extends UnitTestCase
 
     public function testTimeZoneTerritoryLookup(): void
     {
-        $hasMultiple = null;
+        $hasMultiple = false;
         $territory = $this->tm->getTimeZoneTerritory('Europe/Berlin', $hasMultiple);
         if($territory !== null) { // Some ICU builds might vary
             $this->assertEquals('DE', $territory, 'Expected DE for Europe/Berlin');
-            $this->assertIsBool($hasMultiple);
         }
     }
 
     public function testTerritoryData(): void
     {
         $data = $this->tm->getTerritoryData('US');
-        $this->assertIsArray($data);
         if(isset($data['week'])) {
             $this->assertArrayHasKey('firstDay', $data['week']);
         }
@@ -150,11 +150,9 @@ class TranslationManagerIntlTest extends UnitTestCase
         $usd = $this->tm->getCurrencyFraction('USD');
         $this->assertArrayHasKey('digits', $usd);
         $this->assertArrayHasKey('rounding', $usd);
-        $this->assertIsInt($usd['digits']);
-        $this->assertIsInt($usd['rounding']);
 
         $jpy = $this->tm->getCurrencyFraction('jpy');
-        $this->assertIsInt($jpy['digits']);
+        $this->assertArrayHasKey('digits', $jpy);
         // typical expectation is 0 fraction digits for JPY; don't assert hard requirement in case of ICU variation
     }
 
@@ -169,9 +167,37 @@ class TranslationManagerIntlTest extends UnitTestCase
     {
         // Mix semicolon and comma separators to ensure parser accepts both
         $loc = $this->tm->getLocale('en_US@timezone=Europe/Berlin;currency=EUR,calendar=gregorian');
+        $this->assertNotNull($loc->getIdentifier());
         $this->assertStringContainsString('@', $loc->getIdentifier());
         $this->assertEquals('Europe/Berlin', $loc->getLocaleTimeZone());
         $this->assertEquals('EUR', $loc->getLocaleCurrency());
         $this->assertEquals('gregorian', $loc->getLocaleCalendar());
+    }
+
+    public function testGetDefaultLocaleReturnsLocaleMatchingDefaultIdentifier(): void
+    {
+        $identifier = $this->tm->getDefaultLocaleIdentifier();
+        $this->assertNotNull($identifier);
+
+        $loc = $this->tm->getDefaultLocale();
+        $this->assertStringContainsString((string) $identifier, $loc->getIdentifier() ?? '');
+    }
+
+    public function testGetDefaultLocaleThrowsWhenNoDefaultLocaleIdentifierIsConfigured(): void
+    {
+        // Simulate a translation manager that was never fully initialized with a
+        // default locale identifier (e.g. constructed but startup() never ran).
+        $ro = new \ReflectionObject($this->tm);
+        $prop = $ro->getProperty('defaultLocaleIdentifier');
+        $original = $prop->getValue($this->tm);
+        $prop->setValue($this->tm, null);
+
+        try {
+            $this->expectException(\Quiote\Exception\QuioteException::class);
+            $this->expectExceptionMessage('Tried to retrieve the default locale before the translation system was initialized with a default locale.');
+            $this->tm->getDefaultLocale();
+        } finally {
+            $prop->setValue($this->tm, $original);
+        }
     }
 }

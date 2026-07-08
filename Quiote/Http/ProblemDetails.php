@@ -112,13 +112,13 @@ final readonly class ProblemDetails
                 foreach ($report->getIncidents() as $incident) {
                     $fields = [];
                     foreach ($incident->getArguments() as $argument) {
-                        $name = method_exists($argument, 'getName') ? $argument->getName() : null;
+                        $name = (is_object($argument) && method_exists($argument, 'getName')) ? $argument->getName() : null;
                         if (is_string($name) && $name !== '') {
                             $fields[] = $name;
                         }
                     }
                     foreach ($incident->getErrors() as $error) {
-                        $message = method_exists($error, 'getMessage') ? (string) $error->getMessage() : '';
+                        $message = (is_object($error) && method_exists($error, 'getMessage')) ? (string) $error->getMessage() : '';
                         if ($message === '') {
                             continue;
                         }

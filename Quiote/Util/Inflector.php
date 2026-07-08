@@ -133,14 +133,15 @@ final class Inflector
 		$count = 0;
 		$singularizedWord = $word;
 		foreach(self::$pluralMatches as $regexp => $replacement) {
-			$singularizedWord = preg_replace($regexp, (string) $replacement, (string) $word, 1, $count);
+			$replaced = preg_replace($regexp, (string) $replacement, (string) $word, 1, $count);
 			if($count) {
+				$singularizedWord = $replaced ?? $word;
 				break;
 			}
 		}
-		
+
 		self::$singularizeCache[$word] = $singularizedWord;
-		
+
 		return $singularizedWord;
 	}
 
@@ -159,14 +160,15 @@ final class Inflector
 		$count = 0;
 		$pluralizedWord = $word;
 		foreach(self::$singularMatches as $regexp => $replacement) {
-			$pluralizedWord = preg_replace($regexp, (string) $replacement, (string) $pluralizedWord, 1, $count);
+			$replaced = preg_replace($regexp, (string) $replacement, (string) $pluralizedWord, 1, $count);
 			if($count) {
+				$pluralizedWord = $replaced ?? $pluralizedWord;
 				break;
 			}
 		}
-		
+
 		self::$pluralizeCache[$word] = $pluralizedWord;
-		
+
 		return $pluralizedWord;
 	}
 }

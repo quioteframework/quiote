@@ -31,7 +31,7 @@ class RbacAndTestSuitesFormatDriverTest extends PhpUnitTestCase
 		parent::tearDown();
 	}
 
-	public function testRbacPhpArrayFileCompilesAndEvaluatesToTheSameShapeAsXml()
+	public function testRbacPhpArrayFileCompilesAndEvaluatesToTheSameShapeAsXml(): void
 	{
 		file_put_contents($this->dir . '/rbac.php', <<<'PHP'
 <?php
@@ -53,7 +53,7 @@ PHP);
 		$this->assertSame('guest', $evaluated['member']['parent']);
 	}
 
-	public function testTestSuitesPhpArrayFileCompilesThroughTheSameHandler()
+	public function testTestSuitesPhpArrayFileCompilesThroughTheSameHandler(): void
 	{
 		file_put_contents($this->dir . '/testsuites.php', <<<'PHP'
 <?php

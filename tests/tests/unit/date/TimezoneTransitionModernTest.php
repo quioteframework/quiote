@@ -8,7 +8,7 @@ use PHPUnit\Framework\TestCase;
  */
 class TimezoneTransitionModernTest extends TestCase
 {
-    public function testPST1997Transitions()
+    public function testPST1997Transitions(): void
     {
         $tz = new DateTimeZone('America/Los_Angeles');
         // Transitions around 1997

@@ -63,7 +63,7 @@ final class ArrayPathDefinition
 			$part = $parts[$i];
 			$last = ($i+1 == $c);
 			if($part !== null) {
-				if(is_array($a) && is_numeric($part) && !str_contains($part, '.') && !str_contains($part, ',') && (isset($a[(int)$part]) || array_key_exists((int)$part, $a))) {
+				if(is_array($a) && is_numeric($part) && !str_contains((string) $part, '.') && !str_contains((string) $part, ',') && (isset($a[(int)$part]) || array_key_exists((int)$part, $a))) {
 					$part = (int)$part;
 				}
 				if(is_array($a) && (isset($a[$part]) || array_key_exists($part, $a))) {
@@ -100,7 +100,7 @@ final class ArrayPathDefinition
 
 		foreach($parts as $part) {
 			if($part !== null) {
-				if(is_array($a) && is_numeric($part) && !str_contains($part, '.') && !str_contains($part, ',') && (isset($a[(int)$part]) || array_key_exists((int)$part, $a))) {
+				if(is_array($a) && is_numeric($part) && !str_contains((string) $part, '.') && !str_contains((string) $part, ',') && (isset($a[(int)$part]) || array_key_exists((int)$part, $a))) {
 					$part = (int)$part;
 				}
 				if(is_array($a) && (isset($a[$part]) || array_key_exists($part, $a))) {
@@ -131,7 +131,7 @@ final class ArrayPathDefinition
 
 		foreach($parts as $part) {
 			if($part !== null) {
-				if(is_array($a) && is_numeric($part) && !str_contains($part, '.') && !str_contains($part, ',') && (isset($a[(int)$part]) || array_key_exists((int)$part, $a))) {
+				if(is_array($a) && is_numeric($part) && !str_contains((string) $part, '.') && !str_contains((string) $part, ',') && (isset($a[(int)$part]) || array_key_exists((int)$part, $a))) {
 					$part = (int)$part;
 				}
 				if(is_array($a) && (isset($a[$part]) || array_key_exists($part, $a))) {
@@ -163,7 +163,7 @@ final class ArrayPathDefinition
 
 		foreach($parts as $part) {
 			if($part !== null) {
-				if(is_numeric($part) && !str_contains($part, '.') && !str_contains($part, ',') && (isset($a[(int)$part]) || array_key_exists((int)$part, $a))) {
+				if(is_numeric($part) && !str_contains((string) $part, '.') && !str_contains((string) $part, ',') && (isset($a[(int)$part]) || array_key_exists((int)$part, $a))) {
 					$part = (int)$part;
 				}
 				if(!isset($a[$part]) || !is_array($a[$part]) || !(isset($a[$part]) || array_key_exists($part, $a))) {
@@ -256,11 +256,11 @@ final class ArrayPathDefinition
 	 * Returns the flat key names of an array.
 	 * This method calls itself recursively to flatten the keys.
 	 * @param      array<int|string, mixed> $array The array which keys should be returned.
-	 * @param      string $prefix The prefix for the name (only for internal use).
+	 * @param      string|null $prefix The prefix for the name (only for internal use).
 	 * @return     array<int, string> The flattened keys.
 	 * @since      1.0.0
 	 */
-	public static function getFlatKeyNames(array $array, $prefix = null)
+	public static function getFlatKeyNames(array $array, ?string $prefix = null): array
 	{
 		$names = [];
 		foreach($array as $key => $value) {
@@ -270,7 +270,7 @@ final class ArrayPathDefinition
 					// when an empty key was used at top level, create a "relative" path, so the empty string doesn't get lost
 					$name = '[' . $key . ']';
 				} else {
-					$name = $key;
+					$name = (string) $key;
 				}
 			} else {
 				$name = $prefix . '[' . $key . ']';
@@ -291,11 +291,11 @@ final class ArrayPathDefinition
 	 * and their values from the original array as values.
 	 * This method calls itself recursively to flatten the array.
 	 * @param      array<int|string, mixed> $array The array which should be flattened.
-	 * @param      string $prefix The prefix for the key names (only for internal use).
+	 * @param      string|null $prefix The prefix for the key names (only for internal use).
 	 * @return     array<int|string, mixed> The flattened array.
 	 * @since      1.0.0
 	 */
-	public static function flatten($array, $prefix = null)
+	public static function flatten(array $array, ?string $prefix = null): array
 	{
 		$flatArray = [];
 		foreach($array as $key => $value) {
@@ -305,7 +305,7 @@ final class ArrayPathDefinition
 					// when an empty key was used at top level, create a "relative" path, so the empty string doesn't get lost
 					$name = '[' . $key . ']';
 				} else {
-					$name = $key;
+					$name = (string) $key;
 				}
 			} else {
 				$name = $prefix . '[' . $key . ']';

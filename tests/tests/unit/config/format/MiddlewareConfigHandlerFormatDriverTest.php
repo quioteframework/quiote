@@ -42,6 +42,35 @@ class MiddlewareConfigHandlerFormatDriverTest extends PhpUnitTestCase
 		parent::tearDown();
 	}
 
+	/**
+	 * FormatDriverRegistry::load() returns array<string,mixed> generically
+	 * (the shape is format-driver-agnostic), but the fixtures in this test
+	 * always load a plain list of middleware entries -- re-validate that
+	 * real invariant here so MiddlewareConfigHandler::executeArray() gets
+	 * the list<array{...}> shape it actually requires.
+	 * @param array<string, mixed> $config
+	 * @return list<array{class: string, phase?: ?string, priority?: ?int, before?: ?string, after?: ?string, enabled?: ?bool, override_framework?: bool}>
+	 */
+	private function asMiddlewareList(array $config): array
+	{
+		$result = [];
+		foreach ($config as $entry) {
+			if (!is_array($entry) || !isset($entry['class']) || !is_string($entry['class'])) {
+				throw new \LogicException('Expected a list of middleware entries with a string "class" key.');
+			}
+			$result[] = [
+				'class' => $entry['class'],
+				'phase' => isset($entry['phase']) && is_string($entry['phase']) ? $entry['phase'] : null,
+				'priority' => isset($entry['priority']) && is_int($entry['priority']) ? $entry['priority'] : null,
+				'before' => isset($entry['before']) && is_string($entry['before']) ? $entry['before'] : null,
+				'after' => isset($entry['after']) && is_string($entry['after']) ? $entry['after'] : null,
+				'enabled' => isset($entry['enabled']) ? (bool) $entry['enabled'] : null,
+				'override_framework' => isset($entry['override_framework']) && (bool) $entry['override_framework'],
+			];
+		}
+		return $result;
+	}
+
 	private function includeCompiled(string $code): void
 	{
 		$file = tempnam($this->dir, 'compiled_');
@@ -76,7 +105,7 @@ XML);
 		$handler->initialize(null, []);
 		$registry = FormatDriverRegistry::forHandler($handler);
 		$config = $registry->load($this->dir . '/middleware.xml', 'test');
-		$code = $handler->executeArray($config, $this->dir . '/middleware.xml');
+		$code = $handler->executeArray($this->asMiddlewareList($config), $this->dir . '/middleware.xml');
 
 		$this->includeCompiled($code);
 		$this->assertRegistryHasHealthzEntry();
@@ -95,7 +124,7 @@ PHP);
 		$handler->initialize(null, []);
 		$registry = FormatDriverRegistry::forHandler($handler);
 		$config = $registry->load($this->dir . '/middleware.php', 'test');
-		$code = $handler->executeArray($config, $this->dir . '/middleware.php');
+		$code = $handler->executeArray($this->asMiddlewareList($config), $this->dir . '/middleware.php');
 
 		$this->includeCompiled($code);
 		$this->assertRegistryHasHealthzEntry();
@@ -113,7 +142,7 @@ YAML);
 		$handler->initialize(null, []);
 		$registry = FormatDriverRegistry::forHandler($handler);
 		$config = $registry->load($this->dir . '/middleware.yaml', 'test');
-		$code = $handler->executeArray($config, $this->dir . '/middleware.yaml');
+		$code = $handler->executeArray($this->asMiddlewareList($config), $this->dir . '/middleware.yaml');
 
 		$this->includeCompiled($code);
 		$this->assertRegistryHasHealthzEntry();

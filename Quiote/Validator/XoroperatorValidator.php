@@ -37,17 +37,24 @@ class XoroperatorValidator extends OperatorValidator implements ResetInterface
 	protected function validate()
 	{
 		$children = $this->children;
-		
+		$parameters = $this->requireValidationParameters();
+
 		$child1 = array_shift($children);
-		$result1 = $child1->execute($this->validationParameters);
+		if ($child1 === null) {
+			throw new ValidatorException('XOR operator has no first child validator to execute (checkValidSetup() should have rejected this setup already)');
+		}
+		$result1 = $child1->execute($parameters);
 		if($result1 == Validator::CRITICAL) {
 			$this->result = $result1;
 			$this->throwError();
 			return false;
 		}
-		
+
 		$child2 = array_shift($children);
-		$result2 = $child2->execute($this->validationParameters);
+		if ($child2 === null) {
+			throw new ValidatorException('XOR operator has no second child validator to execute (checkValidSetup() should have rejected this setup already)');
+		}
+		$result2 = $child2->execute($parameters);
 		if($result2 == Validator::CRITICAL) {
 			$this->result = $result2;
 			$this->throwError();

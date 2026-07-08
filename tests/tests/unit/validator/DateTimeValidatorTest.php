@@ -7,11 +7,12 @@ use Quiote\Config\ConfigCache;
 use Quiote\Testing\UnitTestCase;
 use Quiote\Translation\TranslationManager;
 use Quiote\Validator\DateTimeValidator;
+use Quiote\Validator\ValidationManager;
 use Quiote\Validator\Validator;
 
 class DateTimeValidatorTest extends UnitTestCase
 {
-    private $vm;
+    private ValidationManager $vm;
 
     #[\Override]
     public function setUp(): void

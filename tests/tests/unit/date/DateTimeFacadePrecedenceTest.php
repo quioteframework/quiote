@@ -21,7 +21,7 @@ class DateTimeFacadePrecedenceTest extends TestCase
         date_default_timezone_set($this->originalTz);
     }
 
-    public function testSystemDefaultTimezoneAppliedWhenNoneSpecified()
+    public function testSystemDefaultTimezoneAppliedWhenNoneSpecified(): void
     {
         // System default set to UTC above
         $dt = DateTimeFacade::parse('2032-04-10 12:00:00', 'yyyy-MM-dd HH:mm:ss');
@@ -29,7 +29,7 @@ class DateTimeFacadePrecedenceTest extends TestCase
         $this->assertEquals('UTC', $dt->getTimezone()->getName());
     }
 
-    public function testExplicitTimezoneOverridesSystemDefault()
+    public function testExplicitTimezoneOverridesSystemDefault(): void
     {
         $dt = DateTimeFacade::parse('2032-04-10 12:00:00', 'yyyy-MM-dd HH:mm:ss', 'Europe/Berlin');
         $this->assertEquals('Europe/Berlin', $dt->getTimezone()->getName());
@@ -39,7 +39,7 @@ class DateTimeFacadePrecedenceTest extends TestCase
         $this->assertEquals($expectedHour, (int)$utc->format('H'));
     }
 
-    public function testExplicitOffsetTimezone()
+    public function testExplicitOffsetTimezone(): void
     {
         $dt = DateTimeFacade::parse('2032-04-10 12:00:00', 'yyyy-MM-dd HH:mm:ss', '+0200');
         $this->assertEquals('+02:00', $dt->getTimezone()->getName() === '+02:00' ? '+02:00' : $dt->getTimezone()->getName());

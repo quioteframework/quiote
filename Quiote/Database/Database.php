@@ -45,16 +45,20 @@ abstract class Database extends ParameterHolder implements ResetInterface
 	/**
 	 * Retrieve the Database Manager instance for this implementation.
 	 * @return     DatabaseManager A Database Manager instance.
+	 * @throws     InitializationException If this Database has not been initialized yet.
 	 * @since      1.0.0
 	 */
 	public function getDatabaseManager()
 	{
+		if ($this->databaseManager === null) {
+			throw new InitializationException(sprintf('%s has not been initialized; call initialize() first.', static::class));
+		}
 		return $this->databaseManager;
 	}
 
 	/**
 	 * Retrieve the name of this database connection.
-	 * @return     string The name of the database.
+	 * @return     string|null The name of the database, or null if this Database has not been initialized yet.
 	 * @since      1.0.0
 	 */
 	public function getName()

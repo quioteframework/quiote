@@ -7,7 +7,7 @@ use Quiote\Config\Config;
 
 class ConfigHandlersTest extends TestCase
 {
-    /** @var array Snapshot of Config taken in setUp() and restored in tearDown(). */
+    /** @var array<string|int, mixed> Snapshot of Config taken in setUp() and restored in tearDown(). */
     private array $configSnapshot = [];
 
     protected function setUp(): void
@@ -46,7 +46,7 @@ XML;
         return $doc;
     }
 
-    public function testFactoryConfigHandlerGeneratesInitializationCode()
+    public function testFactoryConfigHandlerGeneratesInitializationCode(): void
     {
         eval('namespace App\\Factory; class ValidationManager { function initialize(){} }');
         eval('namespace App\\Factory; class Response { function initialize(){} }');

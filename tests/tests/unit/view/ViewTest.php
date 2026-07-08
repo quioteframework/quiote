@@ -6,21 +6,18 @@ use Quiote\Request\WebRequest;
 
 class SampleView extends View
 {
-	public function execute(WebRequest $rd) {}
+	public function execute(WebRequest $rd): void {}
 }
 
 class ViewTest extends UnitTestCase
 {
-	private 
-		$_v = null, 
-		$_r = null;
+	private SampleView $_v;
 
 	#[\Override]
     public function setUp(): void
 	{
 		$ctx = $this->getContext();
 		$ctx->initialize();
-		$request = $ctx->getRequest();
 
 		$this->_v = new SampleView();
 		$controller = $ctx->getController();
@@ -35,10 +32,9 @@ class ViewTest extends UnitTestCase
 			$controller->getGlobalResponse()
 		);
 		$this->_v->initialize($init);
-		$this->_r = $controller->getGlobalResponse();
 	}
 
-	public function testInitialize()
+	public function testInitialize(): void
 	{
 		$ctx = $this->getContext();
 		$v = $this->_v;

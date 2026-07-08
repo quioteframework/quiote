@@ -6,13 +6,15 @@ use Quiote\Request\WebRequest ;
 
 class SnapshotActionAction extends Action
 {
+    /** @var array<int|string, mixed> */
     public static array $initialAttributes = [];
+    /** @var array<int|string, mixed> */
     public static array $postMutationAttributes = [];
 
     // Deliberately NOT isSimple(): isSimple() means "skip execute*() entirely,
     // render getDefaultViewName() directly" (Agavi heritage, commit f166330f4).
 
-    public function execute(WebRequest $rd)
+    public function execute(WebRequest $rd): string
     {
         // set attributes before snapshot
         $this->setAttribute('alpha', 'A');

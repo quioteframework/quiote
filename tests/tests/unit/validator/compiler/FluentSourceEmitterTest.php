@@ -14,6 +14,7 @@ use Quiote\Validator\InarrayValidator;
 use Quiote\Validator\RegexValidator;
 use Quiote\Validator\StringValidator;
 use Quiote\Validator\OroperatorValidator;
+use Quiote\Validator\ValidationManager;
 use Quiote\Validator\Validator;
 
 class FluentSourceEmitterTest extends UnitTestCase
@@ -24,7 +25,7 @@ class FluentSourceEmitterTest extends UnitTestCase
 	 * pair -- this is the real proof that generated source behaves
 	 * correctly, not just that it contains expected substrings.
 	 */
-	private function runGenerated(string $phpSource, ?string $method = null)
+	private function runGenerated(string $phpSource, ?string $method = null): ValidationManager
 	{
 		$file = tempnam(sys_get_temp_dir(), 'fse_test_');
 		file_put_contents($file, $phpSource);
@@ -42,7 +43,7 @@ class FluentSourceEmitterTest extends UnitTestCase
 		return $vm;
 	}
 
-	public function testSimpleStringValidatorUsesFluentFactory()
+	public function testSimpleStringValidatorUsesFluentFactory(): void
 	{
 		$node = new ValidatorNode(
 			'username_check',
@@ -72,7 +73,7 @@ class FluentSourceEmitterTest extends UnitTestCase
 		$this->assertFalse($vm2->execute($this->newWebRequest(['username' => 'al'])));
 	}
 
-	public function testEnumValidatorEnforcesAllowlistViaGeneratedSource()
+	public function testEnumValidatorEnforcesAllowlistViaGeneratedSource(): void
 	{
 		$node = new ValidatorNode(
 			'status_check',
@@ -98,7 +99,7 @@ class FluentSourceEmitterTest extends UnitTestCase
 		$this->assertFalse($vm2->execute($this->newWebRequest(['status' => "'; DROP TABLE users; --"])));
 	}
 
-	public function testRegexValidatorGeneratesFluentCall()
+	public function testRegexValidatorGeneratesFluentCall(): void
 	{
 		$node = new ValidatorNode(
 			'fail_param',
@@ -124,7 +125,7 @@ class FluentSourceEmitterTest extends UnitTestCase
 		$this->assertFalse($vm2->execute($this->newWebRequest(['fail' => '9'])));
 	}
 
-	public function testOperatorGroupNestsChildrenRecursively()
+	public function testOperatorGroupNestsChildrenRecursively(): void
 	{
 		$childA = new ValidatorNode('a', StringValidator::class, ['a'], '', ['required' => false, 'severity' => 'error', 'class' => 'string'], [], [''], ['a']);
 		$childB = new ValidatorNode('b', StringValidator::class, ['b'], '', ['required' => false, 'severity' => 'error', 'class' => 'string'], [], [''], ['b']);
@@ -140,10 +141,11 @@ class FluentSourceEmitterTest extends UnitTestCase
 		$childs = $vm->getChilds();
 		$this->assertCount(1, $childs);
 		$groupValidator = reset($childs);
+		$this->assertInstanceOf(\Quiote\Validator\IValidatorContainer::class, $groupValidator);
 		$this->assertCount(2, $groupValidator->getChilds());
 	}
 
-	public function testExplicitNameForcesRawFallbackWithDiagnosticButStillWorks()
+	public function testExplicitNameForcesRawFallbackWithDiagnosticButStillWorks(): void
 	{
 		$node = new ValidatorNode(
 			'named_node',
@@ -168,10 +170,12 @@ class FluentSourceEmitterTest extends UnitTestCase
 		$vm = $this->runGenerated($artifact->phpSource);
 		$this->assertTrue($vm->execute($this->newWebRequest(['username' => 'alice'])));
 		$childs = $vm->getChilds();
-		$this->assertSame('named_node', reset($childs)->getName());
+		$namedChild = reset($childs);
+		$this->assertInstanceOf(Validator::class, $namedChild);
+		$this->assertSame('named_node', $namedChild->getName());
 	}
 
-	public function testUnmappedValidatorClassFallsBackToRawAndStillWorks()
+	public function testUnmappedValidatorClassFallsBackToRawAndStillWorks(): void
 	{
 		// ArraylengthValidator has no dedicated fluent factory; must still
 		// produce fully correct, executable generated code via raw().
@@ -199,7 +203,7 @@ class FluentSourceEmitterTest extends UnitTestCase
 		$this->assertFalse($vm2->execute($this->newWebRequest(['tags' => []])));
 	}
 
-	public function testEmissionIsDeterministicAcrossRuns()
+	public function testEmissionIsDeterministicAcrossRuns(): void
 	{
 		$node = new ValidatorNode('a', StringValidator::class, ['a'], '', ['required' => true, 'severity' => 'error', 'class' => 'string'], [], [''], ['a']);
 		$plan = new ValidatorPlan([$node], 'test://determinism');
@@ -212,7 +216,7 @@ class FluentSourceEmitterTest extends UnitTestCase
 		$this->assertDoesNotMatchRegularExpression('/\b20\d\d-\d\d-\d\d\b/', $first->phpSource);
 	}
 
-	public function testEndToEndFromRealXmlSourceThroughCompiler()
+	public function testEndToEndFromRealXmlSourceThroughCompiler(): void
 	{
 		$compiler = new ValidatorCompiler();
 		$source = new ValidatorSource(Config::getString('core.config_dir') . '/tests/validators_unknown_param.xml', 'test-known-parameter');

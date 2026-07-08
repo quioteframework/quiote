@@ -73,13 +73,21 @@ class FileTemplateLayer extends StreamTemplateLayer
 		} else {
 			$directory = $this->getParameter('directory');
 		}
-		// treat the directory as sprintf format string and inject module name
-		$directory = Toolkit::expandVariables($directory, array_merge(array_filter($this->getParameters(), is_scalar(...)), array_filter($this->getParameters(), is_null(...))));
+		// treat the directory as sprintf format string and inject module name.
+		// Parameter names are always strings in practice; rekey defensively since
+		// ParameterHolder declares its storage as array<int|string, mixed>.
+		$expandArgs = array_merge(array_filter($this->getParameters(), is_scalar(...)), array_filter($this->getParameters(), is_null(...)));
+		$expandArgs = array_combine(array_map('strval', array_keys($expandArgs)), $expandArgs);
+		$directory = Toolkit::expandVariables($directory, $expandArgs);
 		
 		$this->setParameter('directory', $directory);
 		$this->setParameter('template', $template);
 		if(!$this->hasParameter('extension')) {
-			$this->setParameter('extension', $this->renderer->getDefaultExtension());
+			$renderer = $this->getRenderer();
+			if($renderer === null) {
+				throw new QuioteException('Template layer has no renderer set: cannot determine the default extension.');
+			}
+			$this->setParameter('extension', $renderer->getDefaultExtension());
 		}
 		
 		// everything set up for the parent

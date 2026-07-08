@@ -37,7 +37,8 @@ class StringValidator extends Validator
 			$this->throwError();
 			return false;
 		}
-		
+		$originalValue = (string) $originalValue;
+
 		if($this->getParameter('trim', false)) {
 			if($utf8) {
 				$pattern = '/^[\pZ\pC]*+(?P<trimmed>.*?)[\pZ\pC]*+$/usDS';

@@ -6,18 +6,21 @@ use Quiote\Util\Inflector;
 class InflectorTest extends PhpUnitTestCase
 {
 	#[\PHPUnit\Framework\Attributes\DataProvider('singularPluralTestData')]
-	public function testSingularize($singular, $plural)
+	public function testSingularize(string $singular, string $plural): void
 	{
 		$this->assertEquals($singular, Inflector::singularize($plural));
 	}
-	
+
 	#[\PHPUnit\Framework\Attributes\DataProvider('singularPluralTestData')]
-	public function testPluralize($singular, $plural)
+	public function testPluralize(string $singular, string $plural): void
 	{
 		$this->assertEquals($plural, Inflector::pluralize($singular));
 	}
-	
-	public static function singularPluralTestData()
+
+	/**
+	 * @return array<int, array{0: string, 1: string}>
+	 */
+	public static function singularPluralTestData(): array
 	{
 		return [
 			["person"      , "people"],

@@ -21,51 +21,53 @@ class PhpUnitTestCaseTest extends PhpUnitTestCase
 		parent::setUp();
 		$this->setIsolationEnvironment('testing.testIsolation'); // equivalent to the annotation @IsolationEnvironment on the testcase class
 	}
-	
-	public function testIsolationEnvironment()
+
+	public function testIsolationEnvironment(): void
 	{
 		$this->assertEquals('testing.testIsolation', Config::getString('testing.environment'));
 	}
-	
+
 	/**
 	 * Test method with method-level isolation environment attribute
 	 */
 	#[IsolationEnvironment('testing.testIsolationAnnotated')]
-	public function testIsolationEnvironmentAnnotated()
+	public function testIsolationEnvironmentAnnotated(): void
 	{
 		$this->assertEquals('testing.testIsolationAnnotated', Config::getString('testing.environment'));
 	}
-	
-	public function testIsolationDefaultContext()
+
+	public function testIsolationDefaultContext(): void
 	{
 		$this->assertEquals('web-isolated', Config::getNullableString('core.default_context'));
 	}
-	
+
 	/**
 	 * Test method with method-level isolation default context attribute
 	 */
 	#[IsolationDefaultContext('web-isolated-annotated-method')]
-	public function testIsolationDefaultContextAnnotated()
+	public function testIsolationDefaultContextAnnotated(): void
 	{
 		$this->assertEquals('web-isolated-annotated-method', Config::getNullableString('core.default_context'));
 	}
-	
+
 	/**
 	 * @preserveGlobalState enabled
 	 */
-	public function testPreserveGlobalStateOnWorks() {
-		// this test just needs to run to signal success
-		$this->assertTrue(true);
+	public function testPreserveGlobalStateOnWorks(): void {
+		// this test just needs to run to signal success; the annotation exercises
+		// PHPUnit's process-isolation state handling rather than an assertable value.
+		$this->addToAssertionCount(1);
 	}
 
 	/**
 	 * @preserveGlobalState disabled
 	 */
-	public function testPreserveGlobalStateOffWorks() {
-		// this test just needs to run to signal success
-		$this->assertTrue(true);
+	public function testPreserveGlobalStateOffWorks(): void {
+		// this test just needs to run to signal success; the annotation exercises
+		// PHPUnit's process-isolation state handling rather than an assertable value.
+		$this->addToAssertionCount(1);
 	}
-	
+
 }
 
 ?>

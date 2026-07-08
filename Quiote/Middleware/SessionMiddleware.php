@@ -17,6 +17,29 @@ class SessionMiddleware implements MiddlewareInterface
 {
     public function __construct(private readonly Controller $controller) {}
 
+    /**
+     * Parse a raw `Cookie:` header string into a name => value map.
+     * preg_split() can return false (e.g. a PCRE backtrack-limit error on a pathological
+     * header); in that case there are no usable pairs to mirror into $_COOKIE.
+     * @return array<string, string>
+     */
+    private static function parseCookieHeader(string $cookieStr): array
+    {
+        $pairs = preg_split('/;\s*/', $cookieStr);
+        if ($pairs === false) {
+            return [];
+        }
+        $result = [];
+        foreach ($pairs as $pair) {
+            $eq = strpos($pair, '=');
+            if ($eq === false) { continue; }
+            $k = trim(substr($pair, 0, $eq));
+            $v = trim(substr($pair, $eq + 1));
+            if ($k !== '') { $result[$k] = urldecode($v); }
+        }
+        return $result;
+    }
+
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         // Skip session handling entirely for JWT-authenticated requests
@@ -46,14 +69,8 @@ class SessionMiddleware implements MiddlewareInterface
                     // Fallback: parse raw Cookie header if cookie params are empty (some PSR stacks don't populate cookie params)
                     $cookieHeaders = $request->getHeader('Cookie');
                     if (!empty($cookieHeaders)) {
-                        $cookieStr = implode('; ', $cookieHeaders);
-                        $pairs = preg_split('/;\s*/', $cookieStr);
-                        foreach ($pairs as $pair) {
-                            $eq = strpos($pair, '=');
-                            if ($eq === false) { continue; }
-                            $k = trim(substr($pair, 0, $eq));
-                            $v = trim(substr($pair, $eq + 1));
-                            if ($k !== '') { $_COOKIE[$k] = urldecode($v); }
+                        foreach (self::parseCookieHeader(implode('; ', $cookieHeaders)) as $k => $v) {
+                            $_COOKIE[$k] = $v;
                         }
                     }
                 }

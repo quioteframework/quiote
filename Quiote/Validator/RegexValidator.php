@@ -35,7 +35,7 @@ class RegexValidator extends Validator
 			return false;
 		}
 		
-		$result = preg_match($this->getParameter('pattern'), $data, $matches);
+		$result = preg_match((string) $this->getParameter('pattern'), (string) $data, $matches);
 		
 		if($result != $this->getParameter('match')) {
 			$this->throwError();

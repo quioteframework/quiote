@@ -69,6 +69,17 @@ class GettextTranslatorTest extends UnitTestCase
         $translator->translate('Hello', 'unconfigured', $this->makeLocale('en_US'));
     }
 
+    public function testLoadDomainDataThrowsWhenTranslatorHasNoLocale(): void
+    {
+        $translator = new GettextTranslator();
+        $translator->initialize($this->getContext(), ['text_domains' => ['greeting' => sys_get_temp_dir()]]);
+
+        $this->expectException(QuioteException::class);
+        $this->expectExceptionMessage('Cannot load domain data: GettextTranslator has not been prepared with a locale yet.');
+        // No locale ever supplied (neither via localeChanged() nor as an argument here).
+        $translator->translate('Hi', 'greeting');
+    }
+
     public function testLocaleChangedResetsDomainDataAndPluralForm(): void
     {
         $translator = new GettextTranslator();

@@ -9,6 +9,9 @@ use Symfony\Component\Routing\RouteCollection;
  * Routes for module TestPrefixPostfix (2 routes; built 2025-08-18T17:53:05+00:00)
  */
 final class TestPrefixPostfixRoutes {
+    /**
+     * @param array<string, array{gen_path: string, cut: bool, path: string, opt?: array{parent: string|null, action: mixed}, pattern?: string, match_full?: string, match_partial?: string}> $meta
+     */
     public static function addRoutes(RouteCollection $routes, array &$meta): void {
         // DEBUG: name=with_prefix_and_postfix raw_path=/with_prefix_and_postfix/{param:.*} gen=/with_prefix_and_postfix/{param:.*} module=TestPrefixPostfix action=Matched
         $routes->add('with_prefix_and_postfix', new Route('/with_prefix_and_postfix/{param:.*}', [

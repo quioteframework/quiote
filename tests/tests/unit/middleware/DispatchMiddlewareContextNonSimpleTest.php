@@ -49,6 +49,9 @@ class DispatchMiddlewareContextNonSimpleTest extends UnitTestCase
         parent::tearDown();
     }
 
+    /**
+     * @param array<string, mixed> $query
+     */
     private function buildPsr(array $query = []): \Psr\Http\Message\ServerRequestInterface
     {
         $controller = $this->getContext()->getController();
@@ -77,7 +80,7 @@ class DispatchMiddlewareContextNonSimpleTest extends UnitTestCase
         return (string)$resp->getBody();
     }
 
-    public function testNonSimpleActionSuccess()
+    public function testNonSimpleActionSuccess(): void
     {
     \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,false,false);
     // Simulate prior ValidationMiddleware success
@@ -91,7 +94,7 @@ class DispatchMiddlewareContextNonSimpleTest extends UnitTestCase
     $this->assertTrue($state->validationDecision->isPassed());
     }
 
-    public function testValidationFailureTriggersErrorView()
+    public function testValidationFailureTriggersErrorView(): void
     {
     \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(true,false,false);
     // Simulate prior ValidationMiddleware failure (DispatchMiddleware should not be invoked in real flow)
@@ -105,7 +108,7 @@ class DispatchMiddlewareContextNonSimpleTest extends UnitTestCase
     $this->assertTrue($state->validationDecision->isFailed());
     }
 
-    public function testSecurityLoginForward()
+    public function testSecurityLoginForward(): void
     {
         \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,true,false); // require auth
         $user = $this->getContext()->getUser();
@@ -118,7 +121,7 @@ class DispatchMiddlewareContextNonSimpleTest extends UnitTestCase
         $this->assertTrue($state->forwarded, 'ExecutionState should be marked forwarded');
     }
 
-    public function testSecurityCredentialForward()
+    public function testSecurityCredentialForward(): void
     {
         \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,false,true); // require credential
         $user = $this->getContext()->getUser();

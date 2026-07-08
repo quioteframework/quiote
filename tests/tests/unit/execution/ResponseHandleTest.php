@@ -74,11 +74,11 @@ class ResponseHandleTest extends UnitTestCase
         $inner = new TestMinimalResponse();
         $h = new ResponseHandle($inner);
         $h->append('A');
-    $h->clear(); // minimal response has clearContent via inheritance; content becomes null
+    $h->clear(); // ResponseHandle::getContent() casts to string, so cleared content reads as ''
         $h->setStatusCode(500); // no-op
         $h->addHeader('X-Ignored','x'); // no-op
-    $this->assertTrue($h->getContent() === '' || $h->getContent() === null, 'Content cleared (allowed)');
+    $this->assertSame('', $h->getContent(), 'Content cleared (allowed)');
     // Further operations should not error
-    $this->assertTrue($h->getContent() === '' || $h->getContent() === null);
+    $this->assertSame('', $h->getContent());
     }
 }

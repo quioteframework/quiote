@@ -14,12 +14,12 @@ use Quiote\Util\Toolkit;
 abstract class ConfigHandler extends BaseConfigHandler implements ILegacyConfigHandler
 {
 	/**
-	 * @var        string An absolute filesystem path to a validation filename.
+	 * @var        ?string An absolute filesystem path to a validation filename.
 	 */
 	protected $validationFile = null;
 
 	/**
-	 * @var        string A class name of the class which should be used to parse
+	 * @var        ?string A class name of the class which should be used to parse
 	 *                    Input files of this config handler.
 	 */
 	protected $parser = null;
@@ -36,7 +36,7 @@ abstract class ConfigHandler extends BaseConfigHandler implements ILegacyConfigH
 	protected function getItemParameters($itemNode, $oldValues = [], $literalize = true)
 	{
 		$data = [];
-		if($itemNode->hasChildren('parameters')) {
+		if($itemNode->hasChildren('parameters') && $itemNode->parameters !== null) {
 			foreach($itemNode->parameters as $node) {
 				if(!$node->hasAttribute('name')) {
 					// create a new entry in in the array and get they key of the new
@@ -82,7 +82,7 @@ abstract class ConfigHandler extends BaseConfigHandler implements ILegacyConfigH
 	
 	/**
 	 * Retrieves the stored validation filename.
-	 * @return     string An absolute filesystem path to a validation filename.
+	 * @return     ?string An absolute filesystem path to a validation filename.
 	 * @since      1.0.0
 	 */
 	public function getValidationFile()
@@ -122,7 +122,11 @@ abstract class ConfigHandler extends BaseConfigHandler implements ILegacyConfigH
 
 		if($configurations->hasAttribute('parent')) {
 			$parent = Toolkit::literalize($configurations->getAttribute('parent'));
-			$parentConfigs = $this->orderConfigurations(ConfigCache::parseConfig($parent, $autoloadParser, $this->getValidationFile(), $this->parser)->configurations, $environment, $context, $autoloadParser);
+			$parentConfigurations = ConfigCache::parseConfig($parent, $autoloadParser, $this->getValidationFile(), $this->parser)->configurations;
+			if($parentConfigurations === null) {
+				throw new \Quiote\Exception\ConfigurationException(sprintf('Parent configuration file "%s" does not contain a "configurations" element.', $parent));
+			}
+			$parentConfigs = $this->orderConfigurations($parentConfigurations, $environment, $context, $autoloadParser);
 			$configs = array_merge($configs, $parentConfigs);
 		}
 

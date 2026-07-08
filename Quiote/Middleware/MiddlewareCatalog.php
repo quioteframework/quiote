@@ -210,6 +210,14 @@ class MiddlewareCatalog
      */
     public static function buildCoreStack(Context $context): array
     {
-        return (self::$coreStackFactory)($context);
+        $factory = self::$coreStackFactory;
+        if ($factory === null) {
+            throw new \Quiote\Exception\QuioteException(
+                'MiddlewareCatalog::buildCoreStack() called without a core stack replacement '
+                . 'installed via replaceCoreStack(); check hasCoreStackOverride() first.'
+            );
+        }
+
+        return $factory($context);
     }
 }

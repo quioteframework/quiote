@@ -20,10 +20,15 @@ use Quiote\Request\WebRequest;
  */
 class ExportParamAction extends Action
 {
-    public function execute(WebRequest $rd)
+    public function execute(WebRequest $rd): string
     {
+        $context = $this->getContext();
+        if ($context === null) {
+            throw new \RuntimeException('ExportParamAction requires an initialized Context.');
+        }
+
         $rd = $rd->setParameter('exported', 'from-action');
-        $this->getContext()->setRequest($rd);
+        $context->setRequest($rd);
         return 'Success';
     }
 }

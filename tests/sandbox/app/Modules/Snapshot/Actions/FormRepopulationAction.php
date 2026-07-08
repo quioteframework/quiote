@@ -20,21 +20,27 @@ class FormRepopulationAction extends Action
     #[\Override]
     public function isSimple(): bool { return false; }
 
-    public function executeWrite(WebRequest $rd)
+    public function executeWrite(WebRequest $rd): string
     {
         return 'Success';
     }
 
-    public function handleError(WebRequest $rd)
+    public function handleError(WebRequest $rd): string
     {
         return 'Input';
     }
 
     public function registerWriteValidators(): void
     {
+        $initContext = $this->getInitContext();
+        $context = $this->getContext();
+        if ($initContext === null || $context === null) {
+            throw new \RuntimeException('FormRepopulationAction requires an initialized Action context.');
+        }
+
         $v = ValidatorBuilder::on(
-            $this->getInitContext()->getValidationManager(),
-            $this->getContext(),
+            $initContext->getValidationManager(),
+            $context,
         );
         $v->string('name', required: true)
             ->minLength(3)

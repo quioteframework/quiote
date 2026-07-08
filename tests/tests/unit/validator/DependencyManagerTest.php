@@ -6,12 +6,12 @@ use Quiote\Validator\DependencyManager;
 
 class MyDependencyManager extends DependencyManager
 {
-	public function setDepData($data) { $this->depData = $data; }
+	public function setDepData(mixed $data): void { $this->depData = $data; }
 }
 
 class DependencyManagerTest extends UnitTestCase
 {
-	public function testclear()
+	public function testclear(): void
 	{
 		$m = new MyDependencyManager;
 		
@@ -20,7 +20,7 @@ class DependencyManagerTest extends UnitTestCase
 		$this->assertEquals($m->getDependTokens(), []);
 	}
 	
-	public function testcheckDependencies()
+	public function testcheckDependencies(): void
 	{
 		$m = new MyDependencyManager;
 		$m->setDepData(['foo' => true, 'bar' => true]);
@@ -37,7 +37,7 @@ class DependencyManagerTest extends UnitTestCase
 		$this->assertEquals($m->checkDependencies([], new VirtualArrayPath('')), true);
 	}
 	
-	public function testaddDependTokens()
+	public function testaddDependTokens(): void
 	{
 		$m = new MyDependencyManager;
 		

@@ -20,28 +20,31 @@ use Quiote\Quiote;
  * registries (PluginManager, TraceRegistry, Log's sinks) that must not leak
  * between test methods.
  */
+final class QuioteBootstrapWarningsTestCapturingSink implements SinkInterface
+{
+    /** @var list<LogEvent> */
+    public array $captured = [];
+    public function isEnabled(Level $level, string $category): bool
+    {
+        return $level->value >= Level::Warning->value;
+    }
+    public function emit(LogEvent $event): void
+    {
+        $this->captured[] = $event;
+    }
+    public function flush(): void {}
+}
+
 #[\PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses]
 final class QuioteBootstrapWarningsTest extends TestCase
 {
-    private SinkInterface $sink;
+    private QuioteBootstrapWarningsTestCapturingSink $sink;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->sink = new class implements SinkInterface {
-            /** @var list<LogEvent> */
-            public array $captured = [];
-            public function isEnabled(Level $level, string $category): bool
-            {
-                return $level->value >= Level::Warning->value;
-            }
-            public function emit(LogEvent $event): void
-            {
-                $this->captured[] = $event;
-            }
-            public function flush(): void {}
-        };
+        $this->sink = new QuioteBootstrapWarningsTestCapturingSink();
         Log::addSink($this->sink);
 
         Config::set('core.app_dir', dirname(__DIR__, 3) . '/sandbox/app', true, true);
@@ -58,7 +61,10 @@ final class QuioteBootstrapWarningsTest extends TestCase
         ));
     }
 
-    /** @param list<LogEvent> $warnings */
+    /**
+     * @param list<LogEvent> $warnings
+     * @return list<string>
+     */
     private function messages(array $warnings): array
     {
         return array_map(static fn(LogEvent $e): string => $e->renderMessage(), $warnings);

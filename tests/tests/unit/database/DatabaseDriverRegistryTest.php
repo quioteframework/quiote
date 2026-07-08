@@ -46,7 +46,14 @@ class DatabaseDriverRegistryTest extends TestCase
 
     public function testInstantiateNonDatabaseClassThrows(): void
     {
-        DatabaseDriverRegistry::register('bad', \stdClass::class);
+        // register()'s own signature requires class-string<Database>; simulate a bad
+        // alias arriving from an untyped source (e.g. a plugin or hand-edited XML
+        // config) by planting it directly rather than violating that contract here.
+        $aliases = new \ReflectionProperty(DatabaseDriverRegistry::class, 'aliases');
+        $current = $aliases->getValue();
+        $current['bad'] = \stdClass::class;
+        $aliases->setValue(null, $current);
+
         $this->expectException(DatabaseException::class);
         DatabaseDriverRegistry::instantiate('bad');
     }

@@ -30,11 +30,7 @@ final class SecurityForwardValidationResetTest extends UnitTestCase
         if(method_exists($user,'setAuthenticated')) { $user->setAuthenticated(false); }
         if(method_exists($user,'clearCredentials')) { try { $user->clearCredentials(); } catch(\Throwable) {} }
         // Ensure context has an WebRequest (required by ValidationMiddleware)
-        $ctxReq = $this->getContext()->getRequest();
-        if (!($ctxReq instanceof \Quiote\Request\WebRequest)) {
-            // Force recreation via factory if needed
-            $this->getContext()->getRequest();
-        }
+        $this->getContext()->getRequest();
     }
 
     private function buildPsr(): \Psr\Http\Message\ServerRequestInterface
@@ -70,7 +66,7 @@ final class SecurityForwardValidationResetTest extends UnitTestCase
 
         // Now run validation + dispatch using the mutated state; it should move to passed.
         $resp = $validation->process($psr, new class($dispatch) implements \Psr\Http\Server\RequestHandlerInterface {
-            public function __construct(private $dispatch){}
+            public function __construct(private DispatchMiddleware $dispatch){}
             public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface {
                 return $this->dispatch->process($r, new class implements \Psr\Http\Server\RequestHandlerInterface { public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface { return (new Psr17Factory())->createResponse(200); } });
             }

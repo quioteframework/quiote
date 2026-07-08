@@ -3,13 +3,13 @@
 use Quiote\Context;
 use Quiote\Testing\UnitTestCase;
 use Quiote\Validator\EmailValidator;
+use Quiote\Validator\ValidationManager;
 
 class EmailValidatorWrapper extends EmailValidator
 {
-	protected $data;
+	protected mixed $data = null;
 
-
-	public function setData($data)
+	public function setData(mixed $data): void
 	{
 		$this->data = $data;
 	}
@@ -30,27 +30,22 @@ class EmailValidatorWrapper extends EmailValidator
 
 class EmailValidatorTest extends UnitTestCase
 {
-	protected $_vm, $validator;
-	
+	protected ValidationManager $_vm;
+	protected EmailValidatorWrapper $validator;
+
 	#[\Override]
     public function setUp(): void
 	{
 		$this->_vm = $this->getContext()->createInstanceFor('validation_manager');
-		$this->validator = $this->_vm->createValidator('EmailValidatorWrapper', []);
+		$this->validator = $this->_vm->createValidator(EmailValidatorWrapper::class, []);
 	}
 
-	#[\Override]
-    public function tearDown(): void
+	public function testgetContext(): void
 	{
-		unset($this->validator);
+		$this->assertSame($this->getContext(), $this->validator->getContext());
 	}
 
-	public function testgetContext()
-	{
-		$this->assertTrue($this->validator->getContext() instanceof Context);
-	}
-	
-	public function testexecute()
+	public function testexecute(): void
 	{
 		$good = [
 			'bob@quiote.org',
@@ -65,7 +60,6 @@ class EmailValidatorTest extends UnitTestCase
 			'bunk@quiote info.com',
 			'sjklsdfsfd'
 		];
-		$error = '';
 		foreach ($good as &$value) {
 			$this->validator->setData($value);
 			$this->assertTrue($this->validator->validate(), "False negative: $value");

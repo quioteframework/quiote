@@ -18,12 +18,12 @@ use Quiote\Routing\Attribute\Route;
 #[McpTool(name: 'multi_verb_via_action', description: 'Exercises multi-verb primary-method resolution')]
 class MultiVerbAction extends Action
 {
-    public function executeRead()
+    public function executeRead(): string
     {
         return 'Success';
     }
 
-    public function executeWrite()
+    public function executeWrite(): string
     {
         return 'Success';
     }

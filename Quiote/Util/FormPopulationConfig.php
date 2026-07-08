@@ -22,7 +22,7 @@ final class FormPopulationConfig
      */
     public static function get(mixed $request): array
     {
-        if ($request === null) {
+        if (!is_object($request)) {
             return [];
         }
         // Legacy request with namespaced attributes
@@ -93,7 +93,7 @@ final class FormPopulationConfig
      */
     private static function store(mixed $request, array $config): mixed
     {
-        if ($request === null) {
+        if (!is_object($request)) {
             return $request;
         }
         // Legacy request supports namespaces
@@ -114,6 +114,6 @@ final class FormPopulationConfig
 
     private static function supportsNamespacedAttributes(mixed $request): bool
     {
-        return method_exists($request, 'getAttributeNamespaces') && method_exists($request, 'getAttributes') && method_exists($request, 'setAttributes');
+        return is_object($request) && method_exists($request, 'getAttributeNamespaces') && method_exists($request, 'getAttributes') && method_exists($request, 'setAttributes');
     }
 }

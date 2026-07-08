@@ -35,7 +35,7 @@ class DispatchMiddlewareContextSimpleTest extends UnitTestCase
             ->withAttribute(ActionDescriptor::class, $descriptor);
     }
 
-    public function testSimpleActionExecutedViaActionExecutor()
+    public function testSimpleActionExecutedViaActionExecutor(): void
     {
     $controller = $this->getContext()->getController();
     $controller->createActionInstance('Cache','Cache'); // ensure module loaded
@@ -46,7 +46,7 @@ class DispatchMiddlewareContextSimpleTest extends UnitTestCase
     // ValidationMiddleware, which this test bypasses since it targets
     // DispatchMiddleware in isolation.
     $state->validationDecision = ValidationDecision::passed();
-        $handler = new class(new Psr17Factory) implements \Psr\Http\Server\RequestHandlerInterface { public function __construct(private $f){} public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface { return $this->f->createResponse(200);} };
+        $handler = new class(new Psr17Factory) implements \Psr\Http\Server\RequestHandlerInterface { public function __construct(private Psr17Factory $f){} public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface { return $this->f->createResponse(200);} };
     $resp = $mw->process($this->buildPsr()->withAttribute(ExecutionState::class,$state), $handler);
     $body = (string)$resp->getBody();
     $this->assertStringContainsString('CACHE_HTML', $body, 'Expected HTML view output rendered via ActionExecutor path');

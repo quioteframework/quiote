@@ -44,7 +44,7 @@ class SlotCacheTest extends UnitTestCase
         parent::tearDown();
     }
 
-    public function testCacheHitPreventsSecondExecution()
+    public function testCacheHitPreventsSecondExecution(): void
     {
         $dispatcher = $this->getContext()->getSlotDispatcher();
         $parent = (new ServerRequest('GET','http://localhost/'))
@@ -60,7 +60,7 @@ class SlotCacheTest extends UnitTestCase
     $this->assertSame(1, \Sandbox\Modules\Cache\Actions\CacheAction::$execCount, 'Exec count should remain 1 due to cache hit');
     }
 
-    public function testDifferentParametersProduceCacheMiss()
+    public function testDifferentParametersProduceCacheMiss(): void
     {
         $dispatcher = $this->getContext()->getSlotDispatcher();
         $parent = (new ServerRequest('GET','http://localhost/'))
@@ -71,7 +71,7 @@ class SlotCacheTest extends UnitTestCase
     $this->assertSame(2, \Sandbox\Modules\Cache\Actions\CacheAction::$execCount, 'Distinct parameter sets should bypass cache and execute again');
     }
 
-    public function testCacheDisabledExecutesEachTime()
+    public function testCacheDisabledExecutesEachTime(): void
     {
         putenv('QUIOTE_SLOT_CACHE='); // disable
         CacheManager::reset();

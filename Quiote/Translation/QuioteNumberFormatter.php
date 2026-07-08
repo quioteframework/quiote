@@ -94,9 +94,15 @@ class QuioteNumberFormatter extends DecimalFormatter implements ITranslator, Res
 				$fn = clone $this;
 			}
 			
+			$context = $this->getContext();
+			$translationManager = $context !== null ? $context->getTranslationManager() : null;
+			if($translationManager === null) {
+				throw new \Quiote\Exception\QuioteException('Cannot translate number format: translations are disabled or the translation manager is unavailable.');
+			}
+
 			$td = $this->translationDomain . ($domain ? '.' . $domain : '');
-			$format = $this->getContext()->getTranslationManager()->_($this->customFormat, $td, $locale);
-			
+			$format = $translationManager->_($this->customFormat, $td, $locale);
+
 			$fn->setFormat($format);
 		}
 		
@@ -115,9 +121,10 @@ class QuioteNumberFormatter extends DecimalFormatter implements ITranslator, Res
 		$this->locale = $newLocale;
 
 		$format = null;
-		if(class_exists(\NumberFormatter::class)) {
+		$localeIdentifier = $this->locale->getIdentifier();
+		if($localeIdentifier !== null && class_exists(\NumberFormatter::class)) {
 			try {
-				$nf = new \NumberFormatter($this->locale->getIdentifier(), \NumberFormatter::DECIMAL);
+				$nf = new \NumberFormatter($localeIdentifier, \NumberFormatter::DECIMAL);
 				$this->groupingSeparator = $nf->getSymbol(\NumberFormatter::GROUPING_SEPARATOR_SYMBOL);
 				$this->decimalSeparator = $nf->getSymbol(\NumberFormatter::DECIMAL_SEPARATOR_SYMBOL);
 				$pattern = $nf->getPattern();

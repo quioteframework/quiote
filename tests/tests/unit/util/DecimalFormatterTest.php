@@ -6,13 +6,16 @@ use Quiote\Util\DecimalFormatter;
 class DecimalFormatterTest extends PhpUnitTestCase
 {
 	#[\PHPUnit\Framework\Attributes\DataProvider('dataFormatNumber')]
-	public function testFormatNumber($format, $input, $expected) {
+	public function testFormatNumber(string $format, int|float|string $input, string $expected): void {
 		$df = new DecimalFormatter($format);
 
 		$this->assertEquals($expected, $df->formatNumber($input));
 	}
-	
-	public static function dataFormatNumber() {
+
+	/**
+	 * @return array<int, array{0: string, 1: int|float|string, 2: string}>
+	 */
+	public static function dataFormatNumber(): array {
 		return [
 			['0.00', 5345.502, '5345.50'],
 			// test rounding
@@ -179,6 +182,22 @@ class DecimalFormatterTest extends PhpUnitTestCase
 		$this->assertEquals('', $df->formatNumber(5));
 	}
 
+	public function testFormatNumberThrowsWhenNoNegativeFormatConfigured(): void
+	{
+		$df = new DecimalFormatter();
+		$this->expectException(\Quiote\Exception\QuioteException::class);
+		$this->expectExceptionMessage('Cannot format a negative number: no negative format string has been configured. Call setFormat() first.');
+		$df->formatNumber(-5);
+	}
+
+	public function testFormatCurrencyThrowsWhenNoNegativeFormatConfigured(): void
+	{
+		$df = new DecimalFormatter();
+		$this->expectException(\Quiote\Exception\QuioteException::class);
+		$this->expectExceptionMessage('Cannot format a negative currency amount: no negative format string has been configured. Call setFormat() first.');
+		$df->formatCurrency(-5, '$');
+	}
+
 	public function testParseReturnsFalseForNonNumericGarbage(): void
 	{
 		$hasExtraChars = false;
@@ -187,71 +206,72 @@ class DecimalFormatterTest extends PhpUnitTestCase
 	}
 
 	#[\PHPUnit\Framework\Attributes\DataProvider('getParseData')]
-	public function testParse($input, $output, $expectExtraChars = false, $maxIcuVersion = null)
+	public function testParse(string $input, int|float|false $output, bool $expectExtraChars = false, ?string $maxIcuVersion = null): void
 	{
 		if($maxIcuVersion !== null) {
 			$icuVersion = $this->getIcuVersion();
 			if($icuVersion && version_compare($icuVersion, $maxIcuVersion, '>')) {
 				$this->markTestSkipped('ICU Version too big for this parse expectation. Version is ' . $icuVersion . ' max allowed ' . $maxIcuVersion);
-				return;
 			}
 		}
 
 		$hasExtraChars = false;
 		$parsed = DecimalFormatter::parse($input, null, $hasExtraChars);
-		
+
 		$this->assertEquals($output, $parsed);
 		$this->assertEquals($expectExtraChars, $hasExtraChars);
 	}
-	
-	protected function getIcuVersion() {
+
+	protected function getIcuVersion(): string
+	{
 		static $icuVersion = null;
-		
+
 		if(defined('INTL_ICU_VERSION')) {
-			return INTL_ICU_VERSION;
+			return (string) INTL_ICU_VERSION;
 		}
-		
+
 		if($icuVersion === null) {
-			$icuVersion = 0;
+			$icuVersion = '0';
 			$ext = new ReflectionExtension('intl');
 			ob_start();
 			$ext->info();
-			$info = ob_get_contents();
+			$info = (string) ob_get_contents();
 			if(preg_match('/ICU Version => (.*)/i', $info, $match)) {
 				$icuVersion = $match[1];
 			}
 			ob_end_clean();
 		}
-		
+
 		return $icuVersion;
 	}
 	#[\PHPUnit\Framework\Attributes\DataProvider('getParseData')]
-	public function testNumberFormatter($input, $output, $expectExtraChars = false, $maxIcuVersion = null)
+	public function testNumberFormatter(string $input, int|float|false $output, bool $expectExtraChars = false, ?string $maxIcuVersion = null): void
 	{
 		if(!class_exists('NumberFormatter')) {
 			$this->markTestSkipped('ext/intl not loaded');
-			return;
 		}
-		
+
 		$icuVersion = $this->getIcuVersion();
 		if($maxIcuVersion && version_compare($icuVersion, $maxIcuVersion, '>')) {
 			$this->markTestSkipped('ICU Version to big for this test. Version is ' . $icuVersion . ' max allowed ' . $maxIcuVersion);
-			return;
 		}
-		
-		
-		$input = trim((string) $input);
+
+
+		$input = trim($input);
 		$yay = 0;
-		
+
 		$x = new NumberFormatter("en_US", NumberFormatter::DECIMAL);
-		$x->setAttribute(NumberFormatter::LENIENT_PARSE, true);
+		$x->setAttribute(NumberFormatter::LENIENT_PARSE, 1);
 		$parsed = $x->parse($input, NumberFormatter::TYPE_DOUBLE, $yay);
-		
+
 		$this->assertEquals($output, $parsed);
 		$this->assertEquals($expectExtraChars, $yay < strlen($input));
 	}
-	
-	public static function getParseData()
+
+	/**
+	 * @return array<int, array{0: string, 1: int|float|false, 2?: bool, 3?: string}>
+	 */
+	public static function getParseData(): array
 	{
 		return [
 			[

@@ -10,7 +10,7 @@ class CacheAction extends Action
      * Legacy compatibility: some legacy code paths expected an injected $container.
      * Under container-less execution this will remain null.
      */
-    protected $container = null;
+    protected ?object $container = null;
     public static int $execCount = 0;
     // Deliberately NOT isSimple(): isSimple() means "skip execute*() entirely,
     // render getDefaultViewName() directly" (Agavi heritage, commit f166330f4).
@@ -20,7 +20,7 @@ class CacheAction extends Action
     public function isCacheable(?string $outputType = null): bool { return true; }
     #[\Override]
     public function getDefaultViewName(){ return 'Success'; }
-    public function execute(WebRequest $rd){
+    public function execute(WebRequest $rd): string{
         self::$execCount++;
     // Always set attribute now that ViewFactoryTest expects snapshot to include 'foo'.
     $this->setAttribute('foo','bar');

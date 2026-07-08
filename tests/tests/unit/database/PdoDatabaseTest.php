@@ -32,7 +32,9 @@ class PdoDatabaseTest extends TestCase
         $this->assertInstanceOf(PDO::class, $pdo);
         $this->assertSame('sqlite', $pdo->getAttribute(PDO::ATTR_DRIVER_NAME));
         // Ensure foreign_keys pragma took effect
-        $fk = $pdo->query('PRAGMA foreign_keys')->fetchColumn();
+        $stmt = $pdo->query('PRAGMA foreign_keys');
+        $this->assertNotFalse($stmt);
+        $fk = $stmt->fetchColumn();
         $this->assertEquals(1, (int)$fk);
         $db->shutdown();
         $this->assertNull((new ReflectionProperty($db, 'connection'))->getValue($db));

@@ -5,6 +5,7 @@ use Quiote\Action\Action;
 use Quiote\Context;
 use Quiote\Controller\OutputType;
 use Quiote\Util\Toolkit;
+use Quiote\Exception\QuioteException;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
@@ -45,7 +46,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	protected $validationSuccess;
 	
 	/**
-	 * @var        mixed legacy execution container (removed) no longer used
+	 * @var        ?LightweightTestContainer lightweight shim container used to satisfy legacy attribute & validation assertions
 	 */
 	protected $container;
 
@@ -74,6 +75,20 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 		parent::tearDown();
 	}
 	
+	/**
+	 * Retrieve the lightweight shim container, failing loudly if used outside
+	 * the setUp()/tearDown() window (it is only ever null before setUp() runs
+	 * or after tearDown() has released it).
+	 * @throws QuioteException if called outside the test lifecycle.
+	 */
+	private function requireContainer(): LightweightTestContainer
+	{
+		if ($this->container === null) {
+			throw new QuioteException('The lightweight test container is not available outside of setUp()/tearDown().');
+		}
+		return $this->container;
+	}
+
 	/**
 	 * Return the context defined for this test (or the default one).
 	 * @return     Context The context instance defined for this test.
@@ -209,7 +224,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	 */
 	protected function assertContainerAttributeEquals($expected, $attributeName, $namespace = null, $message = 'Failed asserting that the attribute <%1$s/%2$s> has the value <%3$s>', $delta = 0, $maxDepth = 10, $canonicalizeEol = false)
 	{
-		$this->assertEquals($expected, $this->container->getAttribute($attributeName, $namespace), sprintf($message, $namespace, $attributeName, $expected));
+		$this->assertEquals($expected, $this->requireContainer()->getAttribute($attributeName, $namespace), sprintf($message, $namespace, $attributeName, $expected));
 	}
 	
 	/**
@@ -222,7 +237,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	 */
 	protected function assertContainerAttributeExists($attributeName, $namespace = null, $message = 'Failed asserting that the container has an attribute named <%1$s/%2$s>.')
 	{
-		$this->assertTrue($this->container->hasAttribute($attributeName, $namespace), sprintf($message, $namespace, $attributeName));
+		$this->assertTrue($this->requireContainer()->hasAttribute($attributeName, $namespace), sprintf($message, $namespace, $attributeName));
 	}
 	
 	/* --- container delegates --- */
@@ -234,7 +249,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	 */
 	protected function setOutputType(OutputType $outputType)
 	{
-		$this->container->setOutputType($outputType);
+		$this->getContext()->getController()->getGlobalResponse()->setOutputType($outputType);
 	}
 
 	/**
@@ -269,7 +284,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 			if (count($arguments) === 1 && is_array(current($arguments))) {
 				$arguments = current($arguments);
 			}
-			$this->container->setArguments($arguments);
+			$this->requireContainer()->setArguments($arguments);
 		}
 	}
 
@@ -295,7 +310,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	 */
 	protected function clearAttributes()
 	{
-		$this->container->clearAttributes();
+		$this->requireContainer()->clearAttributes();
 	}
 
 	/**
@@ -307,7 +322,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	 */
 	protected function &getAttribute($name, $default = null)
 	{
-		return $this->container->getAttribute($name, null, $default);
+		return $this->requireContainer()->getAttribute($name, null, $default);
 	}
 
 	/**
@@ -317,7 +332,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	 */
 	protected function getAttributeNames()
 	{
-		return $this->container->getAttributeNames();
+		return $this->requireContainer()->getAttributeNames();
 	}
 
 	/**
@@ -327,7 +342,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	 */
 	protected function &getAttributes()
 	{
-		return $this->container->getAttributes();
+		return $this->requireContainer()->getAttributes();
 	}
 
 	/**
@@ -338,7 +353,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	 */
 	protected function hasAttribute($name)
 	{
-		return $this->container->hasAttribute($name);
+		return $this->requireContainer()->hasAttribute($name);
 	}
 
 	/**
@@ -349,7 +364,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	 */
 	protected function &removeAttribute($name)
 	{
-		return $this->container->removeAttribute($name);
+		return $this->requireContainer()->removeAttribute($name);
 	}
 
 	/**
@@ -361,7 +376,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	 */
 	protected function setAttribute($name, $value)
 	{
-		$this->container->setAttribute($name, $value);
+		$this->requireContainer()->setAttribute($name, $value);
 	}
 
 	/**
@@ -373,7 +388,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	 */
 	protected function appendAttribute($name, $value)
 	{
-		$this->container->appendAttribute($name, $value);
+		$this->requireContainer()->appendAttribute($name, $value);
 	}
 
 	/**
@@ -385,7 +400,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	 */
 	protected function setAttributeByRef($name, &$value)
 	{
-		$this->container->setAttributeByRef($name, $value);
+		$this->requireContainer()->setAttributeByRef($name, $value);
 	}
 
 	/**
@@ -397,7 +412,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	 */
 	protected function appendAttributeByRef($name, &$value)
 	{
-		$this->container->appendAttributeByRef($name, $value);
+		$this->requireContainer()->appendAttributeByRef($name, $value);
 	}
 
 	/**
@@ -408,7 +423,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	 */
 	protected function setAttributes(array $attributes)
 	{
-		$this->container->setAttributes($attributes);
+		$this->requireContainer()->setAttributes($attributes);
 	}
 
 	/**
@@ -419,7 +434,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	 */
 	protected function setAttributesByRef(array &$attributes)
 	{
-		$this->container->setAttributesByRef($attributes);
+		$this->requireContainer()->setAttributesByRef($attributes);
 	}
 
 	/**

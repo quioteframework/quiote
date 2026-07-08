@@ -172,7 +172,7 @@ class DecimalFormatter implements ResetInterface
 
 		for($i = 0; $i < $len; ++$i) {
 			$c = $format[$i];
-			$cNext = (($i + 1) < $len) ? $format[$i + 1] : 0;
+			$cNext = (($i + 1) < $len) ? $format[$i + 1] : '';
 
 			switch($state) {
 				case self::IN_POSTFIX:
@@ -299,8 +299,11 @@ class DecimalFormatter implements ResetInterface
 		}
 		$hasMinus = true;
 		$negativeFormat = preg_replace('/[' . preg_quote(implode('', $numberChars), '/') . ']+/', $formatStr, $negativeFormat);
+		if($negativeFormat === null) {
+			throw new QuioteException('Failed to build the negative number format: the regular expression substitution failed.');
+		}
 		// replace the currency specifier from the old string if it was specified extra in the negative one
-		if(($pos = strpos((string) $negativeFormat, /*'¤'*/ chr(194) . chr(164))) !== false) {
+		if(($pos = strpos($negativeFormat, /*'¤'*/ chr(194) . chr(164))) !== false) {
 			$negativeFormat = str_replace('%3$s', '', $negativeFormat);
 			$negativeFormat = str_replace(chr(194) . chr(164), '%3$s', $negativeFormat);
 		}
@@ -323,7 +326,7 @@ class DecimalFormatter implements ResetInterface
 
 	/**
 	 * Formats the given number with the information in this instance.
-	 * @param      int|float $number A number to format.
+	 * @param      int|float|string $number A number to format.
 	 * @param      string $currencySymbol A currency symbol to be used.
 	 * @return     array{0: string, 1: string, 2: string} The number and some information in the desired format.
 	 * @since      1.0.0
@@ -498,13 +501,18 @@ class DecimalFormatter implements ResetInterface
 
 	/**
 	 * Formats the given number and returns the formatted result.
-	 * @param      int|float $number The number to be formatted.
+	 * @param      int|float|string $number The number to be formatted.
 	 * @return     string    The number formatted in the desired format.
 	 * @since      1.0.0
 	 */
 	public function formatNumber($number)
 	{
-		return vsprintf(($number < 0) ? $this->negativeFormatString : $this->formatString, $this->prepareNumber($number, ''));
+		$format = ($number < 0) ? $this->negativeFormatString : $this->formatString;
+		if($format === null) {
+			throw new QuioteException('Cannot format a negative number: no negative format string has been configured. Call setFormat() first.');
+		}
+
+		return vsprintf($format, $this->prepareNumber($number, ''));
 	}
 
 	/**
@@ -516,7 +524,12 @@ class DecimalFormatter implements ResetInterface
 	 */
 	public function formatCurrency($number, $currencySymbol)
 	{
-		return vsprintf(($number < 0) ? $this->negativeFormatString : $this->formatString, $this->prepareNumber($number, $currencySymbol));
+		$format = ($number < 0) ? $this->negativeFormatString : $this->formatString;
+		if($format === null) {
+			throw new QuioteException('Cannot format a negative currency amount: no negative format string has been configured. Call setFormat() first.');
+		}
+
+		return vsprintf($format, $this->prepareNumber($number, $currencySymbol));
 	}
 
 	/**
@@ -602,31 +615,34 @@ class DecimalFormatter implements ResetInterface
 	}
 
 	/**
+	 * @param      QuioteLocale|string|null $locale An optional locale (or locale identifier) to build the regex for.
 	 * @return     string The compiled regular expression used to parse decimal numbers.
 	 * @since      1.0.0
 	 */
-	protected static function getDecimalParseRegex(?QuioteLocale $locale = null)
+	protected static function getDecimalParseRegex(QuioteLocale|string|null $locale = null)
 	{
 		static $patternCache = [];
-		
-		if($locale) {
-			$localeId = $locale->getIdentifier();
+
+		if($locale instanceof QuioteLocale) {
+			$localeId = (string) $locale->getIdentifier();
+		} elseif(is_string($locale)) {
+			$localeId = $locale;
 		} else {
 			$localeId = '';
 		}
-		
+
 		if(isset($patternCache[$localeId])) {
 			return $patternCache[$localeId];
 		}
-		
-		if($locale) {
+
+		if($localeId !== '') {
 			$decimalFormats = null;
 			$groupingSeparator = null;
 			$decimalSeparator = null;
 			$minusSign = null;
 			if(class_exists('NumberFormatter')) {
 				try {
-					$nf = new \NumberFormatter($locale->getIdentifier(), \NumberFormatter::DECIMAL);
+					$nf = new \NumberFormatter($localeId, \NumberFormatter::DECIMAL);
 					$pattern = $nf->getPattern();
 					if($pattern !== '') {
 						$decimalFormats = [$pattern];
@@ -660,7 +676,7 @@ class DecimalFormatter implements ResetInterface
 			foreach([true, false] as $withFraction):
 			foreach($decimalFormatList as $decimalFormat) {
 				// we need to make three parts: number, decimal part and minus sign
-				$decimalFormatChunks = preg_split('/([\.\-])/', $decimalFormat, 0, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
+				$decimalFormatChunks = preg_split('/([\.\-])/', $decimalFormat, 0, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY) ?: [];
 				// there is a minus sign at the beginning or end! find it!
 				$pastDecimalSeparator = false;
 				foreach($decimalFormatChunks as &$decimalFormatChunk) {
@@ -756,9 +772,11 @@ class DecimalFormatter implements ResetInterface
 
 		$pattern = self::getDecimalParseRegex($locale);
 
-		if($locale && class_exists('NumberFormatter')) {
+		$localeIdentifier = $locale instanceof QuioteLocale ? $locale->getIdentifier() : $locale;
+
+		if($localeIdentifier && class_exists('NumberFormatter')) {
 			try {
-				$nf = new \NumberFormatter($locale->getIdentifier(), \NumberFormatter::DECIMAL);
+				$nf = new \NumberFormatter($localeIdentifier, \NumberFormatter::DECIMAL);
 				$groupingSeparator = $nf->getSymbol(\NumberFormatter::GROUPING_SEPARATOR_SYMBOL);
 			} catch(\Throwable) {
 				$groupingSeparator = ',';
@@ -790,9 +808,12 @@ class DecimalFormatter implements ResetInterface
 			
 			if($num === '') {
 				$num = 0;
+			} elseif(is_numeric($num)) {
+				// don't cast to int... this here will cast the string to a float if it's too big
+				$num += 0;
+			} else {
+				$num = 0;
 			}
-			// don't cast to int... this here will cast the string to a float if it's too big
-			$num += 0;
 			
 			if($dec !== '') {
 				$num += (float) ('0.' . $dec);

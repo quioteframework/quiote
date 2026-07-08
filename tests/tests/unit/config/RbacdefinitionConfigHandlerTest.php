@@ -7,7 +7,7 @@ require_once(__DIR__ . '/ConfigHandlerTestBase.php');
 
 class RbacDefinitionConfigHandlerTest extends ConfigHandlerTestBase
 {
-	public function testHandler()
+	public function testHandler(): void
 	{
 		$document = $this->parseConfiguration(
 			Config::getString('core.config_dir') . '/tests/rbac_definitions.xml',

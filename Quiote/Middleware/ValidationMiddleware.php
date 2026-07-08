@@ -117,13 +117,19 @@ class ValidationMiddleware implements MiddlewareInterface
             } catch (\Throwable) {
             }
         }
+        if ($this->controller === null) {
+            throw new \RuntimeException('Controller missing in ValidationMiddleware (must be initialized earlier).');
+        }
         try {
-            $webRequest = $this->controller?->getContext()?->getRequest();
+            $webRequest = $this->controller->getContext()->getRequest();
         } catch (\Throwable) {
         }
         if (!($webRequest instanceof WebRequest)) {
             throw new \RuntimeException('Canonical WebRequest missing in ValidationMiddleware (must be initialized earlier).');
         }
+        // From this point on, $this->controller is known to be non-null: the
+        // throw above already guards against it being unset, and nothing in
+        // this method ever resets it back to null.
 
         // isSimple() means the action needs NO parameters at all -- not "skip
         // validation but still allow raw access". A route path segment's VALUE
@@ -132,12 +138,12 @@ class ValidationMiddleware implements MiddlewareInterface
         // Every parameter source (query, body, runtime, and route params) is
         // therefore cleared unconditionally below, and route-param promotion
         // is skipped entirely -- there is nothing for it to promote INTO.
-        $isSimple = $action && method_exists($action, 'isSimple') && $action->isSimple();
+        $isSimple = is_object($action) && method_exists($action, 'isSimple') && $action->isSimple();
 
         if ($isSimple) {
             try {
                 $webRequest = $webRequest->clearParameters();
-                $this->controller?->getContext()?->setRequest($webRequest);
+                $this->controller->getContext()->setRequest($webRequest);
             } catch (\Throwable) {
             }
             // Clear the PSR-7 request too: DispatchMiddleware::processSimple()
@@ -252,7 +258,7 @@ class ValidationMiddleware implements MiddlewareInterface
         // ordinary graceful validation failure (which could also leave the
         // request in an unpruned, unsafe state -- pruning happens inside the
         // very execute() call that threw).
-        if ($action && method_exists($action, 'isSimple') && $action->isSimple()) {
+        if (is_object($action) && method_exists($action, 'isSimple') && $action->isSimple()) {
             $ok = true; // simple actions bypass validation
             // simple action bypass
         } else {
@@ -261,8 +267,8 @@ class ValidationMiddleware implements MiddlewareInterface
             if ($vd) {
                 try {
                     $t = $xmlRes->getTrace();
-                    if ($t) {
-                        \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware] trace configFile=' . ($t->configFile ?? 'null') . ' validators=' . implode(',', $t->validatorsLoaded ?? []));
+                    if ($t instanceof \Quiote\Execution\ValidationTrace) {
+                        \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware] trace configFile=' . ($t->configFile ?? 'null') . ' validators=' . implode(',', $t->validatorsLoaded));
                     }
                 } catch (\Throwable) {
                 }
@@ -274,9 +280,9 @@ class ValidationMiddleware implements MiddlewareInterface
             // clearParameters() call further down wipes the parameter values that
             // ValidationManager::execute() just whitelisted, leaving getParameter()
             // whitelisted but returning null for a value that was actually submitted.
-            $hasXml = $trace && (
-                (property_exists($trace, 'configFile') && $trace->configFile !== null && $trace->configFile !== '')
-                || (property_exists($trace, 'validatorsLoaded') && !empty($trace->validatorsLoaded))
+            $hasXml = $trace instanceof \Quiote\Execution\ValidationTrace && (
+                ($trace->configFile !== null && $trace->configFile !== '')
+                || !empty($trace->validatorsLoaded)
             );
             $ok = $xmlRes->ok;
             if (!$ok) {
@@ -289,7 +295,7 @@ class ValidationMiddleware implements MiddlewareInterface
                 if (is_callable([$action, $validateMethod])) {
                     $ok = (bool)$action->$validateMethod($webRequest);
                 }
-                if ($ok && is_callable([$action, 'validate'])) {
+                if ($ok && is_object($action) && is_callable([$action, 'validate'])) {
                     $ok = (bool)$action->validate($webRequest);
                 }
                 if (!$ok) {
@@ -302,10 +308,7 @@ class ValidationMiddleware implements MiddlewareInterface
         // CRITICAL: Re-fetch request from context after validation
         // ValidationManager may have replaced it with a pruned immutable instance
         try {
-            $updatedRequest = $this->controller?->getContext()?->getRequest();
-            if ($updatedRequest instanceof WebRequest) {
-                $webRequest = $updatedRequest;
-            }
+            $webRequest = $this->controller->getContext()->getRequest();
         } catch (\Throwable) {
             // Keep existing reference if fetch fails
         }
@@ -337,8 +340,8 @@ class ValidationMiddleware implements MiddlewareInterface
             $errStr = !$ok ? (' errors=' . json_encode($errors)) : '';
             $sessId = 'no-sid';
             try {
-                $storage = $this->controller?->getContext()?->getStorage();
-                if ($storage && method_exists($storage, 'getId')) {
+                $storage = $this->controller->getContext()->getStorage();
+                if (method_exists($storage, 'getId')) {
                     $sidTmp = $storage->getId();
                     if (is_string($sidTmp) && $sidTmp !== '') {
                         $sessId = $sidTmp;
@@ -358,13 +361,13 @@ class ValidationMiddleware implements MiddlewareInterface
             }
             $auth = 'na';
             try {
-                $user = $this->controller?->getContext()?->getUser();
-                if ($user && method_exists($user, 'isAuthenticated')) {
+                $user = $this->controller->getContext()->getUser();
+                if (method_exists($user, 'isAuthenticated')) {
                     $auth = $user->isAuthenticated() ? '1' : '0';
                 }
             } catch (\Throwable) {
             }
-            \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware] decision=' . $execState->validationDecision->state . ' module=' . $moduleName . ' action=' . $actionName . ' method=' . $method . ' simple=' . (($action && method_exists($action, 'isSimple') && $action->isSimple()) ? '1' : '0') . ' sessId=' . $sessId . ' auth=' . $auth . $errStr);
+            \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware] decision=' . $execState->validationDecision->state . ' module=' . $moduleName . ' action=' . $actionName . ' method=' . $method . ' simple=' . ((is_object($action) && method_exists($action, 'isSimple') && $action->isSimple()) ? '1' : '0') . ' sessId=' . $sessId . ' auth=' . $auth . $errStr);
         }
         if ($ok) {
             if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
@@ -396,7 +399,7 @@ class ValidationMiddleware implements MiddlewareInterface
         // explicitly opt into a different code via getGlobalResponse() if it
         // wants to, but the default is always the correct one.
         try {
-            $this->controller?->getGlobalResponse()?->setHttpStatusCode(400);
+            $this->controller->getGlobalResponse()->setHttpStatusCode(400);
         } catch (\Throwable) {
         }
         $request = $request->withAttribute('quiote.validation.errors', $errors);
@@ -413,10 +416,7 @@ class ValidationMiddleware implements MiddlewareInterface
         // captured before handle*Error() ran (mirrors ActionExecutor::doExecute()'s same
         // re-fetch on the success path).
         try {
-            $refreshedRequest = $this->controller?->getContext()?->getRequest();
-            if ($refreshedRequest instanceof WebRequest) {
-                $webRequest = $refreshedRequest;
-            }
+            $webRequest = $this->controller->getContext()->getRequest();
         } catch (\Throwable) {
         }
         $resolver = new ViewNameResolver();
@@ -434,13 +434,19 @@ class ValidationMiddleware implements MiddlewareInterface
         // validation-failure path.
         $webRequest = $this->ensureSlotStack($webRequest, $request);
         try {
-            $this->controller?->getContext()?->setRequest($webRequest);
+            $this->controller->getContext()->setRequest($webRequest);
         } catch (\Throwable) {
         }
         // Execute view immediately so downstream dispatch middleware can skip action logic
         if ($viewName === View::NONE) {
             $factory = new \Nyholm\Psr7\Factory\Psr17Factory();
             return $factory->createResponse(400);
+        }
+        // ViewNameResolver::resolve() only ever returns a null module alongside
+        // a null view name (both set together for the View::NONE case handled
+        // above), so a non-null $viewName here guarantees a non-null module.
+        if ($viewModule === null) {
+            throw new \RuntimeException('ViewNameResolver returned a null module for a non-null view name.');
         }
         // Create view via controller and ImmutableViewInitContext
         try {
@@ -603,7 +609,10 @@ class ValidationMiddleware implements MiddlewareInterface
             // (e.g. for a trusted dev/test front-end) via:
             //   Config::set('core.expose_validation_errors_header', true)
             if (!empty($errors) && \Quiote\Config\Config::getBool('core.expose_validation_errors_header', false)) {
-                $resp = $resp->withHeader('X-Quiote-Validation-Errors', base64_encode(json_encode($errors)));
+                $encodedErrors = json_encode($errors);
+                if ($encodedErrors !== false) {
+                    $resp = $resp->withHeader('X-Quiote-Validation-Errors', base64_encode($encodedErrors));
+                }
             }
             if ($content !== null) {
                 $resp = $resp->withBody($factory->createStream((string)$content));
@@ -620,7 +629,10 @@ class ValidationMiddleware implements MiddlewareInterface
             // (e.g. for a trusted dev/test front-end) via:
             //   Config::set('core.expose_validation_errors_header', true)
             if (!empty($errors) && \Quiote\Config\Config::getBool('core.expose_validation_errors_header', false)) {
-                $resp = $resp->withHeader('X-Quiote-Validation-Errors', base64_encode(json_encode($errors)));
+                $encodedErrors = json_encode($errors);
+                if ($encodedErrors !== false) {
+                    $resp = $resp->withHeader('X-Quiote-Validation-Errors', base64_encode($encodedErrors));
+                }
             }
             return $resp->withBody($factory->createStream('Error'));
         }
@@ -666,7 +678,7 @@ class ValidationMiddleware implements MiddlewareInterface
      * validation-problem convention. Falls back to the flat message list under
      * the "" key when the report cannot be introspected.
      * @param ?object $vm       The validation manager (may be null).
-     * @param array<int, mixed> $fallback Flat list of error messages.
+     * @param array<int|string, mixed> $fallback Flat list of error messages (keys are ignored).
      */
     private function buildValidationProblemDetails($vm, array $fallback, \Psr\Http\Message\ServerRequestInterface $request): string
     {

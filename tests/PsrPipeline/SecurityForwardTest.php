@@ -36,7 +36,7 @@ final class SecurityForwardTest extends TestCase
         Config::set('actions.secure_action', 'Secure');
         try {
             $user = Quiote::context('web', true)->getUser();
-            if ($user && method_exists($user, 'setAuthenticated')) { $user->setAuthenticated(false); }
+            if (method_exists($user, 'setAuthenticated')) { $user->setAuthenticated(false); }
         } catch (\Throwable) {}
     }
 

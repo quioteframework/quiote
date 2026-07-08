@@ -2,18 +2,20 @@
 
 use Quiote\Testing\UnitTestCase;
 use Quiote\Validator\Compiler\Runtime\ValidatorBuilder;
+use Quiote\Validator\IValidatorContainer;
 use Quiote\Validator\Validator;
+use Quiote\Validator\ValidationManager;
 use Quiote\Validator\InarrayValidator;
 use Quiote\Validator\StringValidator;
 
 class ValidatorBuilderTest extends UnitTestCase
 {
-	private function newManager()
+	private function newManager(): ValidationManager
 	{
 		return $this->getContext()->createInstanceFor('validation_manager');
 	}
 
-	public function testStringRegistersImmediatelyWithChainedParameters()
+	public function testStringRegistersImmediatelyWithChainedParameters(): void
 	{
 		$vm = $this->newManager();
 		$v = ValidatorBuilder::on($vm, $this->getContext());
@@ -28,7 +30,7 @@ class ValidatorBuilderTest extends UnitTestCase
 		$this->assertTrue($spec->validator()->getParameter('required'));
 	}
 
-	public function testEnumEnforcesAllowlistEndToEnd()
+	public function testEnumEnforcesAllowlistEndToEnd(): void
 	{
 		// This is the exact guarantee the incident needed: a real, enforced
 		// allowlist reachable via a typed, autocompletable method -- not a
@@ -47,7 +49,7 @@ class ValidatorBuilderTest extends UnitTestCase
 		$this->assertFalse($vm2->execute($injected));
 	}
 
-	public function testRequiredFalseAllowsMissingArgument()
+	public function testRequiredFalseAllowsMissingArgument(): void
 	{
 		$vm = $this->newManager();
 		$v = ValidatorBuilder::on($vm, $this->getContext());
@@ -57,7 +59,7 @@ class ValidatorBuilderTest extends UnitTestCase
 		$this->assertTrue($vm->execute($request));
 	}
 
-	public function testGroupNestsValidatorsUnderOperatorContainer()
+	public function testGroupNestsValidatorsUnderOperatorContainer(): void
 	{
 		$vm = $this->newManager();
 		$v = ValidatorBuilder::on($vm, $this->getContext());
@@ -68,10 +70,12 @@ class ValidatorBuilderTest extends UnitTestCase
 		});
 
 		$this->assertCount(1, $vm->getChilds());
-		$this->assertCount(2, $group->validator()->getChilds());
+		$groupValidator = $group->validator();
+		$this->assertInstanceOf(IValidatorContainer::class, $groupValidator);
+		$this->assertCount(2, $groupValidator->getChilds());
 	}
 
-	public function testGroupRejectsUnknownOperator()
+	public function testGroupRejectsUnknownOperator(): void
 	{
 		$vm = $this->newManager();
 		$v = ValidatorBuilder::on($vm, $this->getContext());
@@ -80,7 +84,7 @@ class ValidatorBuilderTest extends UnitTestCase
 		$v->group('nand', function () {});
 	}
 
-	public function testRawEscapeHatchInstantiatesGivenClass()
+	public function testRawEscapeHatchInstantiatesGivenClass(): void
 	{
 		$vm = $this->newManager();
 		$v = ValidatorBuilder::on($vm, $this->getContext());
@@ -90,7 +94,7 @@ class ValidatorBuilderTest extends UnitTestCase
 		$this->assertSame(['a', 'b'], $spec->validator()->getParameter('values'));
 	}
 
-	public function testMethodReturnsConstructorProvidedToken()
+	public function testMethodReturnsConstructorProvidedToken(): void
 	{
 		$vm = $this->newManager();
 		$v = ValidatorBuilder::on($vm, $this->getContext(), 'write');

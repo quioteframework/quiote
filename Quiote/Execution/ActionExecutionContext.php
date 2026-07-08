@@ -2,6 +2,7 @@
 namespace Quiote\Execution;
 ;
 
+use Quiote\Action\Action;
 use Quiote\Request\WebRequest;
 use Quiote\View\View;
 use Psr\Http\Message\ServerRequestInterface;
@@ -16,7 +17,7 @@ class ActionExecutionContext
      * @param array<string, mixed>|null $redirect
      */
     public function __construct(
-        public readonly object $action,
+        public readonly Action $action,
         public ?View $view,
         public readonly string $module,
         public readonly string $actionName,

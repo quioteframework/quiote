@@ -21,7 +21,11 @@ final class AppDirResolverTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->originalCwd = getcwd();
+        $cwd = getcwd();
+        if ($cwd === false) {
+            throw new \RuntimeException('Unable to determine current working directory.');
+        }
+        $this->originalCwd = $cwd;
         $this->root = sys_get_temp_dir() . '/quiote-appdirresolver-' . bin2hex(random_bytes(6));
         mkdir($this->root, 0777, true);
         putenv('QUIOTE_APP_DIR');
