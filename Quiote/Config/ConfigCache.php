@@ -13,6 +13,12 @@ use Quiote\Util\Toolkit;
  * ConfigCache allows you to customize the format of a configuration
  * file to make it easy-to-use, yet still provide a PHP formatted result
  * for direct inclusion into your modules.
+ * @phpstan-type HandlerInfo array{
+ *     class: class-string,
+ *     parameters: array<string,mixed>,
+ *     transformations: array<string,array<int,string>>,
+ *     validations: array<string,array<string,array<string,list<string>>>>
+ * }
  * @since      1.0.0
  * @version    1.0.0
  */
@@ -21,6 +27,7 @@ class ConfigCache
 	const CACHE_SUBDIR = 'config';
 
 	/**
+	 * @phpstan-var ?array<string,HandlerInfo>
 	 * @var        ?array<string,array<string,mixed>> An array of config handler instructions.
 	 */
 	protected static $handlers = null;
@@ -62,6 +69,7 @@ class ConfigCache
 	 * @param      string $cache An absolute filesystem path to the cache file that
 	 *                    will be written.
 	 * @param      ?string $context The context which we're currently running.
+	 * @phpstan-param ?HandlerInfo $handlerInfo
 	 * @param      ?array<string,mixed> $handlerInfo Optional config handler info array.
 	 * @return     void
 	 * @throws     \Quiote\Exception\ConfigurationException If a requested configuration
@@ -116,6 +124,7 @@ class ConfigCache
 	/**
 	 * Fetch the handler information for the given filename.
 	 * @param        string $name The name of the config file (partial path).
+	 * @phpstan-return ?HandlerInfo
 	 * @return       ?array<string,mixed>  The handler info.
 	 * @since        1.0.0
 	 */
@@ -165,7 +174,12 @@ class ConfigCache
 	 * Execute the config handler for the given file.
 	 * @param        string $config The path to the config file (full path).
 	 * @param        ?string $context The context which we're currently running.
-	 * @param        array<string,mixed> $handlerInfo The config handler info.
+	 * @param        array{
+	 *                   class: class-string,
+	 *                   parameters: array<string,mixed>,
+	 *                   transformations: array<string,array<int,string>>,
+	 *                   validations: array<string,array<string,array<string,list<string>>>>
+	 *               } $handlerInfo The config handler info.
 	 * @return       string The compiled data.
 	 * @since        1.0.0
 	 */
@@ -196,7 +210,8 @@ class ConfigCache
 				try {
 					$registry = FormatDriverRegistry::forHandler(
 						$handler,
-						$handlerInfo['transformations'][XmlConfigParser::STAGE_SINGLE] ?? []
+						$handlerInfo['transformations'][XmlConfigParser::STAGE_SINGLE],
+						$handlerInfo['validations']
 					);
 					$canonical = $registry->load($config, Config::getNullableString('core.environment'), $context);
 					$data = $handler->executeArray($canonical, $config);

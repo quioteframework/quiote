@@ -50,13 +50,18 @@ final class FormatDriverRegistry
 	 * priority order extension-agnostic discovery uses (PHP > YAML > XML).
 	 * @param string[] $transformations XSL stylesheets applied to the XML
 	 *        path only (see XmlFormatDriver); irrelevant to PHP/YAML.
+	 * @param array<string,mixed> $validations The handler's declared XSD /
+	 *        RelaxNG / Schematron validations, forwarded to the XmlFormatDriver
+	 *        so XML resolved through this registry (including via
+	 *        `parent`/`imports`) is validated against its schemas exactly like
+	 *        a primary XML file; ignored by the PHP/YAML drivers.
 	 */
-	public static function forHandler(IArrayConfigHandler&IXmlConfigHandler $handler, array $transformations = []): self
+	public static function forHandler(IArrayConfigHandler&IXmlConfigHandler $handler, array $transformations = [], array $validations = []): self
 	{
 		return new self([
 			new PhpArrayFormatDriver(),
 			new YamlFormatDriver(),
-			new XmlFormatDriver($handler, $transformations),
+			new XmlFormatDriver($handler, $transformations, $validations),
 		]);
 	}
 
