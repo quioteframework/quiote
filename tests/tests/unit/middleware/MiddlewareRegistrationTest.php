@@ -19,7 +19,7 @@ use Psr\Http\Message\ResponseInterface;
  * positions in the pipeline via MiddlewareCatalog::register(..., before:/after:),
  * and that MiddlewarePipeline splices them in at the right place — including the
  * chained case where a registered middleware is positioned relative to ANOTHER
- * registered middleware (as jakamo's MiddlewareBootstrap does).
+ * registered middleware.
  */
 class MiddlewareRegistrationTest extends TestCase
 {
@@ -95,7 +95,7 @@ class MiddlewareRegistrationTest extends TestCase
 
     public function testChainedAfterReferencingAnotherRegisteredMiddleware(): void
     {
-        // Mirrors jakamo: JwtAuth after Routing, ApiAuth after JwtAuth, ApiLog after ApiAuth.
+        // Chained: Jwt after Routing, ApiAuth after Jwt, ApiLog after ApiAuth.
         MiddlewareCatalog::register('Jwt', self::passthru(), after: RoutingMiddleware::class);
         MiddlewareCatalog::register('ApiAuth', self::passthru(), after: 'Jwt');
         MiddlewareCatalog::register('ApiLog', self::passthru(), after: 'ApiAuth');

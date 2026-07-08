@@ -284,7 +284,7 @@ class Context implements \Stringable, ResetInterface
    * Retrieve (lazily create) the DI container.
    * The core services created by factories.xml
    * are registered here under their role name and concrete class name, so both
-   * `getContainer()->get('user')` and `getContainer()->get(JakamoRbacUser::class)`
+   * `getContainer()->get('user')` and `getContainer()->get(RbacSecurityUser::class)`
    * resolve to the same instance. factories.xml remains the sole construction path;
    * nothing in the framework resolves services *through* the container yet.
    */

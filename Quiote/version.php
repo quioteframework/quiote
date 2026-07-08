@@ -29,7 +29,7 @@
 	\Quiote\Config\Config::getString('quiote.version')
 );
 
-\Quiote\Config\Config::set('quiote.url', 'https://github.com/jakamoltd/quiote');
+\Quiote\Config\Config::set('quiote.url', 'https://github.com/quioteframework/quiote');
 
 \Quiote\Config\Config::set('quiote_info',
 	\Quiote\Config\Config::getString('quiote.release') . ' (' .

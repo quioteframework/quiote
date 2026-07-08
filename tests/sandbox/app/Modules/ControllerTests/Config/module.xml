@@ -10,7 +10,7 @@
 				<setting name="authors">
 					<ae:parameter name="joe.cool@peanuts.com">Snoopy</ae:parameter>
 				</setting>
-				<setting name="homepage">https://github.com/jakamoltd/quiote</setting>
+				<setting name="homepage">https://github.com/quioteframework/quiote</setting>
 				<setting name="update_url" />
 				<setting name="description">An example module</setting>
 -->

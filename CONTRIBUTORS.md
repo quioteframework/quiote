@@ -24,7 +24,7 @@ Quiote (originally Agavi) was created and maintained by many contributors over t
 - Johan Mjones <johan.mjones@ongame.com>
 - Kirila
 - Leon Weidauer
-- Markus Lervik <markus.lervik@thejakamo.com>
+- Markus Lervik <markus@saake.li>
 - Mike Vincent <mike@agavi.org>
 - Miroslaw Wrobel
 - Noah Fontes <nf@bitextender.com>

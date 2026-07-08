@@ -61,7 +61,7 @@ p.light a, p.light a:link, p.light a:visited, p.light a:active, p.light a:hover 
 		<p>&nbsp;</p>
 		<p><em>This page will appear until you remove the corresponding rule from the <code>routing.xml</code> configuration file.</em></p>
 		<p>&nbsp;</p>
-		<p><a href="https://github.com/jakamoltd/quiote/">Quiote Homepage</a> &middot; <a href="http://lists.quiote.org/mailman/listinfo">Mailing Lists</a></p>
+		<p><a href="https://github.com/quioteframework/quiote/">Quiote Homepage</a> &middot; <a href="http://lists.quiote.org/mailman/listinfo">Mailing Lists</a></p>
 	</div>
 </body>
 </html>
