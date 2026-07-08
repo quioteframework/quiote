@@ -18,7 +18,7 @@ interface UserProviderInterface
 	public function loadByIdentifier(string $identifier): ?UserIdentity;
 
 	/**
-	 * Maps validated token claims (e.g. `jakamo:legacy_user_id`) onto a
+	 * Maps validated token claims (e.g. a legacy user id claim) onto a
 	 * {@see UserIdentity}, keeping that mapping in the app's provider
 	 * rather than scattered across middleware/User subclasses.
 	 * @param      TokenClaims $claims The validated token claims (see {@see TokenValidatorInterface}).
