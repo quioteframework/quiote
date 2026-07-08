@@ -544,32 +544,30 @@ class TranslationManager implements ResetInterface
 			return [$identifier];
 		}
 		
+		// The '@key=value' option suffix is irrelevant to matching, so reduce the
+		// requested identifier to its bare language range and let ICU's RFC 4647
+		// basic filtering (Locale::filterMatches) decide which available locales
+		// fall under that range. This yields the same match set as the old
+		// property-by-property comparison — including returning several matches
+		// for an under-specified range like "nl" (nl_BE + nl_NL), which
+		// getLocaleIdentifier() then reports as ambiguous — while delegating the
+		// subtag semantics to intl instead of hand-rolled string equality.
 		$idData = QuioteLocale::parseLocaleIdentifier($identifier);
-		
+		$range = $idData['locale_str'];
+		if(!is_string($range) || $range === '') {
+			return [];
+		}
+
 		$matchingLocaleIdentifiers = [];
-		// iterate over all available locales
 		foreach($this->availableLocales as $availableLocaleIdentifier => $availableLocale) {
-			$matched = false;
-			// iterate over possible properties to compare against (all given ones must match)
-			foreach(['language', 'script', 'territory', 'variant'] as $propertyName) {
-				// only perform check if property was in $identifier
-				if(isset($idData[$propertyName])) {
-					// compare against data in locale
-					if($idData[$propertyName] == $availableLocale['identifierData'][$propertyName]) {
-						// fine, continue with next
-						$matched = true;
-					} else {
-						// failed, so we can bail out early and declare as non-matched
-						$matched = false;
-						break;
-					}
-				}
-			}
-			if($matched) {
+			$availableTag = is_array($availableLocale) && is_string($availableLocale['identifier'] ?? null)
+				? $availableLocale['identifier']
+				: (string) $availableLocaleIdentifier;
+			if(\Locale::filterMatches($availableTag, $range) === true) {
 				$matchingLocaleIdentifiers[] = $availableLocaleIdentifier;
 			}
 		}
-		
+
 		return $matchingLocaleIdentifiers;
 	}
 
