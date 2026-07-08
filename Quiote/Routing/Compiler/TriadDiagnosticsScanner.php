@@ -28,11 +28,15 @@ use ReflectionClass;
  *   {@see TriadViewResolver::templateExtensionFor()} -- the app's real
  *   renderer configuration when a `Controller` is supplied, `.php`
  *   otherwise). Convention-only, not a bug: it can only false-flag as
- *   missing, never hide a real gap, so it stays a warning. A specific
- *   `execute*()` method can opt out with
- *   `@quiote-viewmethod-has-no-template` in its own docblock, for methods
- *   whose output type returns content directly and never renders a template
- *   by design (e.g. a JSON-only `executeJson()`) --
+ *   missing, never hide a real gap, so it stays a warning. A method whose
+ *   declared return type proves it always returns non-null content is
+ *   skipped automatically ({@see TriadViewResolver::alwaysReturnsContent()}
+ *   -- per `ActionExecutor::renderView()`, a non-null return is the response
+ *   body and the template/layer path is never reached, however the method
+ *   body itself got there, e.g. via a shared base class's
+ *   `setupHtml()`/`loadLayout()`). Whatever that can't prove (untyped or
+ *   nullable return, `mixed`, `void`) falls back to an explicit opt-out via
+ *   `@quiote-viewmethod-has-no-template` in the method's own docblock --
  *   {@see TriadViewResolver::declaresNoTemplate()}.
  *
  * `getDefaultViewName()` is read via `newInstanceWithoutConstructor()`
@@ -132,7 +136,7 @@ final class TriadDiagnosticsScanner
 
 		$missing = [];
 		foreach ($this->views->executeMethodsFor(new ReflectionClass($viewClass)) as $method) {
-			if ($this->views->declaresNoTemplate($method)) {
+			if ($this->views->declaresNoTemplate($method) || $this->views->alwaysReturnsContent($method)) {
 				continue;
 			}
 			$extension = $this->views->templateExtensionFor($method, $this->controller);

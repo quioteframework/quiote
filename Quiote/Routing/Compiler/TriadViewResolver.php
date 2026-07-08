@@ -160,11 +160,66 @@ final class TriadViewResolver
 	 * so it would otherwise always false-flag a template that will never
 	 * exist. Scoped per method, not per class, since one view can freely mix
 	 * template-backed and template-less `execute*()` methods.
+	 *
+	 * Most methods that return content directly don't need this at all --
+	 * {@see alwaysReturnsContent()} detects the common case (a declared,
+	 * non-nullable return type) automatically. This annotation is the
+	 * fallback for whatever that can't prove statically, e.g. an untyped or
+	 * nullable return.
 	 */
 	public function declaresNoTemplate(ReflectionMethod $method): bool
 	{
 		$doc = $method->getDocComment();
 		return $doc !== false && str_contains($doc, '@quiote-viewmethod-has-no-template');
+	}
+
+	/**
+	 * Whether this `execute*()` method's declared return type guarantees it
+	 * always returns a non-null value on every path -- per
+	 * `ActionExecutor::renderView()`, a non-null return becomes the response
+	 * body directly and the template/layer path (`View::renderLayers()`) is
+	 * never reached, regardless of what the method body does internally
+	 * (e.g. `setupHtml()`/`loadLayout()` calls in a shared base class this
+	 * scanner has no visibility into). Deliberately conservative: no
+	 * declared return type, a nullable type, `void`, or `mixed` all count as
+	 * "can't prove it", so the caller falls back to
+	 * {@see declaresNoTemplate()} instead of guessing wrong in the direction
+	 * that would hide a real missing template.
+	 */
+	public function alwaysReturnsContent(ReflectionMethod $method): bool
+	{
+		$type = $method->getReturnType();
+		if ($type === null) {
+			return false;
+		}
+		foreach ($this->flattenReturnType($type) as $named) {
+			if ($named->allowsNull()) {
+				return false;
+			}
+			$name = strtolower($named->getName());
+			if ($name === 'void' || $name === 'null' || $name === 'mixed') {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * @return list<\ReflectionNamedType>
+	 */
+	private function flattenReturnType(\ReflectionType $type): array
+	{
+		if ($type instanceof \ReflectionNamedType) {
+			return [$type];
+		}
+		if ($type instanceof \ReflectionUnionType || $type instanceof \ReflectionIntersectionType) {
+			$flattened = [];
+			foreach ($type->getTypes() as $inner) {
+				$flattened = [...$flattened, ...$this->flattenReturnType($inner)];
+			}
+			return $flattened;
+		}
+		return [];
 	}
 
 	/**

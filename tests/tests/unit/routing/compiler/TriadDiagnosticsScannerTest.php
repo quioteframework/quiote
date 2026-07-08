@@ -38,6 +38,8 @@ final class TriadDiagnosticsScannerTest extends PhpUnitTestCase
 		require_once self::FIXTURE_MODULES . '/Widget/Views/NoTemplateOptOutSuccessView.php';
 		require_once self::FIXTURE_MODULES . '/Widget/Views/MixedSuccessView.php';
 		require_once self::FIXTURE_MODULES . '/Widget/Views/MultiMissingSuccessView.php';
+		require_once self::FIXTURE_MODULES . '/Widget/Views/AutoDetectSuccessView.php';
+		require_once self::FIXTURE_MODULES . '/Widget/Views/AmbiguousReturnSuccessView.php';
 	}
 
 	protected function tearDown(): void
@@ -101,6 +103,24 @@ final class TriadDiagnosticsScannerTest extends PhpUnitTestCase
 	public function testDoesNotFlagAViewThatOptsOutOfTheTemplateCheck(): void
 	{
 		$this->assertNull($this->findFor($this->scan(), 'Widget.NoTemplateOptOut'));
+	}
+
+	public function testDoesNotFlagAViewWhoseDeclaredReturnTypeProvesItReturnsContent(): void
+	{
+		// No @quiote-viewmethod-has-no-template annotation here at all --
+		// the non-nullable `string` return type alone must be enough.
+		$this->assertNull($this->findFor($this->scan(), 'Widget.AutoDetect'));
+	}
+
+	public function testFlagsAViewWhoseNullableReturnTypeCannotProveItSkipsTheTemplate(): void
+	{
+		// A nullable return type can't statically prove the method never
+		// renders a template, so the conservative fallback must still flag
+		// it absent an explicit opt-out.
+		$diagnostic = $this->findFor($this->scan(), 'Widget.AmbiguousReturn');
+
+		$this->assertNotNull($diagnostic);
+		$this->assertSame(Diagnostic::CODE_MISSING_TEMPLATE, $diagnostic->code);
 	}
 
 	public function testDoesNotFlagAViewWhoseUnannotatedMethodHasATemplate(): void
