@@ -1,0 +1,34 @@
+{
+	"name": "quioteframework/auth-oauth",
+	"description": "OAuth 2.1 client (auth-code + PKCE, OIDC discovery, ID-token validation) and Client Credentials (M2M) support for Quiote.",
+	"keywords": ["quiote", "auth", "oauth", "oidc", "security"],
+	"homepage": "https://github.com/quioteframework/auth-oauth",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"quioteframework/quiote": "*",
+		"quioteframework/auth": "*",
+		"quioteframework/auth-jwt": "*",
+		"league/oauth2-client": "^2.9",
+		"psr/http-client": "^1.0",
+		"psr/http-factory": "^1.1"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Security\\Auth\\": "src/"
+		}
+	},
+	"extra": {
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/auth-oauth/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}

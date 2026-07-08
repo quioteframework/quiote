@@ -22,14 +22,37 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 	const CREDENTIAL_NAMESPACE = 'org.quiote.user.BasicSecurityUser.credentials';
 
 	/**
+	 * The namespace under which the token-derived marker will be stored.
+	 */
+	const TOKEN_DERIVED_NAMESPACE = 'org.quiote.user.BasicSecurityUser.tokenDerived';
+
+	/**
+	 * Storage keys considered part of this user's "core identity" (e.g. a
+	 * legacy user id, company id, external uuid). Subclasses populate this
+	 * so {@see restoreIdentityFromStorage()} knows which attributes must
+	 * survive a FrankenPHP worker cold start.
+	 * @var        array<int, string>
+	 */
+	protected const CORE_IDENTITY_KEYS = [];
+
+	/**
 	 * @var        ?bool True if the user is authenticated, otherwise false.
 	 */
 	protected $authenticated = false;
-	
+
 	/**
 	 * @var        ?array<int, mixed> An array of user credentials.
 	 */
 	protected $credentials   = null;
+
+	/**
+	 * True when this user's identity/credentials were (re-)established from
+	 * a token (bearer/JWT/OIDC) rather than read back from the session as
+	 * the source of truth. While true, session *credential* rehydration is
+	 * skipped in {@see initialize()} -- credentials come from the token/DB
+	 * each request -- but session *attribute* storage stays live.
+	 */
+	protected bool $tokenDerived = false;
 
 	/**
 	 * Indicates an explicit downgrade to unauthenticated was requested (logout or forced).
@@ -95,7 +118,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 	
 	/**
 	 * Indicates whether or not this user has a credential.
-	 * @param      string $credential Credential data.
+	 * @param      mixed $credential Credential data.
 	 * @return     bool True if this user has the credential, otherwise false.
 	 * @since      1.0.0
 	 */
@@ -135,14 +158,20 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 
 		$storedAuth = $storage->retrieve(self::AUTH_NAMESPACE);
 		$storedCreds = $storage->retrieve(self::CREDENTIAL_NAMESPACE);
+		$storedTokenDerived = $storage->retrieve(self::TOKEN_DERIVED_NAMESPACE);
+		$this->tokenDerived = (bool)$storedTokenDerived;
 		// Preserve externally pre-set authenticated=true (e.g. test) if storage has null
 		if($storedAuth !== null) {
 			$this->authenticated = (bool)$storedAuth;
 		} elseif($this->authenticated === null) {
 			$this->authenticated = false;
 		}
-		if(is_array($storedCreds)) {
-			$this->credentials = $storedCreds;
+		if($this->tokenDerived) {
+			// Token-authenticated identities are re-derived from the token/DB every
+			// request; a stale session credential set must not be rehydrated here.
+			$this->credentials = [];
+		} elseif(is_array($storedCreds)) {
+			$this->credentials = array_values($storedCreds);
 		} elseif($this->credentials === null) {
 			$this->credentials = [];
 		}
@@ -170,6 +199,67 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 		// absence of session-ID regeneration) biased the system fail-open and made a
 		// stale/fixated session value able to resurrect authentication on a mere read.
 		return (bool)$this->authenticated;
+	}
+
+	/**
+	 * True when this user's identity was (re-)established from a token
+	 * rather than the session, per {@see $tokenDerived}.
+	 * @since      1.0.0
+	 */
+	public function isTokenDerived(): bool
+	{
+		return $this->tokenDerived;
+	}
+
+	/**
+	 * Mark (or clear) this user as token-derived. Called by a token
+	 * authenticator (e.g. `BearerTokenAuthenticator`) once it has resolved
+	 * and granted the credentials for this request; clearing it (e.g. on
+	 * logout, or a subsequent form login) restores normal session
+	 * credential rehydration.
+	 * @since      1.0.0
+	 */
+	public function markTokenDerived(bool $tokenDerived = true): void
+	{
+		$this->tokenDerived = $tokenDerived;
+		try {
+			$this->getContext()->getStorage()->store(self::TOKEN_DERIVED_NAMESPACE, $tokenDerived);
+		} catch(\Throwable) {
+		}
+	}
+
+	/**
+	 * Re-populate this user's core identity attributes (see
+	 * {@see CORE_IDENTITY_KEYS}) from storage. Framework code does not call
+	 * this automatically; it exists so a worker cold start (a fresh
+	 * FrankenPHP worker recreating this object from scratch) can restore
+	 * identity-critical attributes before a token authenticator repopulates
+	 * the request-scoped identity, without every subclass re-implementing
+	 * the same storage read.
+	 * @since      1.0.0
+	 */
+	public function restoreIdentityFromStorage(): void
+	{
+		if(static::CORE_IDENTITY_KEYS === []) {
+			return;
+		}
+		$ns = $this->getDefaultNamespace();
+		try {
+			$stored = $this->getContext()->getStorage()->retrieve($this->storageNamespace);
+		} catch(\Throwable) {
+			return;
+		}
+		if(!is_array($stored) || !isset($stored[$ns]) || !is_array($stored[$ns])) {
+			return;
+		}
+		foreach(static::CORE_IDENTITY_KEYS as $key) {
+			if($this->hasAttribute($key, $ns)) {
+				continue;
+			}
+			if(array_key_exists($key, $stored[$ns])) {
+				$this->setAttribute($key, $stored[$ns][$key], $ns);
+			}
+		}
 	}
 
 	/**
@@ -253,7 +343,12 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 		}
 		$this->authenticated = false;
 		$this->logoutIntent = true; // mark explicit downgrade
-		try { $this->getContext()->getStorage()->store(self::AUTH_NAMESPACE, false); } catch(\Throwable) {}
+		$this->tokenDerived = false;
+		try {
+			$storage = $this->getContext()->getStorage();
+			$storage->store(self::AUTH_NAMESPACE, false);
+			$storage->store(self::TOKEN_DERIVED_NAMESPACE, false);
+		} catch(\Throwable) {}
 	}
 
 	/**
@@ -330,6 +425,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 	{
 		$this->authenticated = null;
 		$this->credentials = null;
+		$this->tokenDerived = false;
 		$this->context = null;
 		$this->parameters = [];
 		// reset parent

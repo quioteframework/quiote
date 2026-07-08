@@ -1,0 +1,33 @@
+{
+	"name": "quioteframework/auth",
+	"description": "Authentication foundation (form login, HTTP Basic, password hashing, user providers, firewalls) for Quiote.",
+	"keywords": ["quiote", "auth", "authentication", "security"],
+	"homepage": "https://github.com/quioteframework/auth",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"quioteframework/quiote": "*"
+	},
+	"suggest": {
+		"quioteframework/csrf": "Adds CSRF-token verification to FormLoginAuthenticator.",
+		"quioteframework/ratelimit": "Adds LoginThrottle-based brute-force throttling to FormLoginAuthenticator."
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Security\\Auth\\": "src/"
+		}
+	},
+	"extra": {
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/auth/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}

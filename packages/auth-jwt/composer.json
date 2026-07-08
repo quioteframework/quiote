@@ -1,0 +1,34 @@
+{
+	"name": "quioteframework/auth-jwt",
+	"description": "Bearer/JWT resource-server authentication (JWS verification, JWKS, RFC 9068 client-type resolution) for Quiote, built on firebase/php-jwt.",
+	"keywords": ["quiote", "auth", "jwt", "oauth", "security"],
+	"homepage": "https://github.com/quioteframework/auth-jwt",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"quioteframework/quiote": "*",
+		"quioteframework/auth": "*",
+		"firebase/php-jwt": "^7.1",
+		"psr/cache": "^3.0",
+		"psr/http-client": "^1.0",
+		"psr/http-factory": "^1.1"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Security\\Auth\\": "src/"
+		}
+	},
+	"extra": {
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/auth-jwt/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}

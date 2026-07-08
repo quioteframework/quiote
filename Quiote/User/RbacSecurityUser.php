@@ -19,7 +19,7 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 	const ROLES_NAMESPACE = 'org.quiote.user.RbacSecurityUser.roles';
 
 	/**
-	 * @var        ?array<string, array<string, mixed>> An array of roles and permissions.
+	 * @var        ?array<string, array{permissions: array<int, string>, parent?: string}> An array of roles and permissions.
 	 */
 	protected $definitions = null;
 
@@ -131,8 +131,17 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 		parent::initialize($context, $parameters);
 
 		$this->loadDefinitions();
-		
-		$this->roles = (array) $this->getContext()->getStorage()->retrieve(self::ROLES_NAMESPACE);
+
+		if($this->isTokenDerived()) {
+			// Token-authenticated identities have their roles re-granted from
+			// fresh claims each request (see SecurityUser::$tokenDerived); a
+			// stale session role set must not be rehydrated here.
+			$this->roles = [];
+			return;
+		}
+
+		$storedRolesRaw = $this->getContext()->getStorage()->retrieve(self::ROLES_NAMESPACE);
+		$this->roles = is_array($storedRolesRaw) ? array_values(array_filter($storedRolesRaw, 'is_string')) : [];
 
 		if(!$this->authenticated) {
 			$this->roles = [];
@@ -165,8 +174,8 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 	protected function loadDefinitions()
 	{
 		$cfg = $this->getParameter('definitions_file', Config::getString('core.config_dir') . '/rbac_definitions.xml');
-		
-		if(is_readable($cfg)) {
+
+		if(is_string($cfg) && is_readable($cfg)) {
 			$this->definitions = include(ConfigCache::checkConfig($cfg, $this->getContext()->getName()));
 		}
 	}

@@ -1,5 +1,7 @@
 <?php
 
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
+use Quiote\Context;
 use Quiote\Testing\UnitTestCase;
 use Quiote\User\RbacSecurityUser;
 
@@ -80,6 +82,29 @@ class RbacSecurityUserTest extends UnitTestCase
 		$this->_u->revokeAllRoles();
 		$this->assertEquals($this->_u->getRoles(), []);
 		$this->assertEquals($this->_u->getCredentials(), []);
+	}
+
+	#[RunInSeparateProcess]
+	public function testTokenDerivedRolesAreNotRehydratedFromStaleSession(): void
+	{
+		// NullStorage (the default test storage) discards everything, so
+		// persistence across separate User instances needs a real,
+		// dedicated (SessionStorage-backed) context -- see factories.xml.
+		$context = Context::getInstance('rbac-security-user-test::tests-token-derived-persistence');
+
+		$u = new SimpleRbacSecurityUser();
+		$u->initialize($context);
+		$u->setAuthenticated(true);
+		$u->grantRole('admin');
+		$u->markTokenDerived();
+		$u->shutdown();
+
+		$fresh = new SimpleRbacSecurityUser();
+		$fresh->initialize($context);
+
+		$this->assertTrue($fresh->isTokenDerived());
+		$this->assertSame([], $fresh->getRoles());
+		$this->assertSame([], $fresh->getCredentials());
 	}
 }
 ?>
