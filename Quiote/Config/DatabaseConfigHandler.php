@@ -1,6 +1,8 @@
 <?php
 namespace Quiote\Config;
 
+use Quiote\Config\Format\Xml\ElementPositionIndex;
+use Quiote\Config\Schema\Rule;
 use Quiote\Config\Util\DOM\XmlConfigDomDocument;
 use Quiote\Config\Util\DOM\XmlConfigDomElement;
 use Quiote\Exception\ConfigurationException;
@@ -23,9 +25,28 @@ use Quiote\Exception\ParseException;
  * @since      1.0.0
  * @version    1.0.0
  */
-class DatabaseConfigHandler extends XmlConfigHandler implements IArrayConfigHandler
+class DatabaseConfigHandler extends XmlConfigHandler implements IArrayConfigHandler, ISchemaAwareConfigHandler, IPositionAwareConfigHandler
 {
 	const XML_NAMESPACE = 'http://quiote.dev/quiote/config/parts/databases/1.1';
+
+	/**
+	 * "default must exist as a key in databases" and "databases must be
+	 * non-empty" stay in executeArray() -- cross-field/non-empty checks,
+	 * not structural shape.
+	 */
+	public function schema(): Rule
+	{
+		return Rule::struct(
+			[
+				'default' => Rule::string(nullable: true),
+				'databases' => Rule::dictOf(Rule::struct([
+					'class' => Rule::phpClass(),
+					'parameters' => Rule::mixed(),
+				], required: ['class'])),
+			],
+			required: ['databases'],
+		);
+	}
 
 	/**
 	 * @throws     \Quiote\Exception\ParseException If a requested configuration file is
@@ -104,6 +125,77 @@ class DatabaseConfigHandler extends XmlConfigHandler implements IArrayConfigHand
 		}
 
 		return ['default' => $default, 'databases' => $databases];
+	}
+
+	/**
+	 * @return array{data: array{default: string|null, databases: array<string, array{class: string, parameters: array<int|string, mixed>}>}, positions: array<string, array{file: string, line: int}>}
+	 */
+	public function toCanonicalArrayWithPositions(XmlConfigDomDocument $document, ElementPositionIndex $positions): array
+	{
+		$document->setDefaultNamespace(self::XML_NAMESPACE, 'databases');
+
+		$databases = [];
+		$elementPositions = [];
+		$default = null;
+		foreach ($document->getConfigurationElements() as $configuration) {
+			if (!$configuration->hasChildren('databases')) {
+				continue;
+			}
+
+			$databasesElement = $configuration->getChild('databases');
+			/** @var XmlConfigDomElement $databasesElement */
+
+			if (!$databasesElement->hasAttribute('default') && $default === null) {
+				$error = 'Configuration file "%s" must specify a default database configuration';
+				$error = sprintf($error, $document->documentURI);
+
+				throw new ParseException($error);
+			}
+			if ($databasesElement->hasAttribute('default')) {
+				$default = $databasesElement->getAttribute('default');
+				$defaultPosition = $positions->forElement($databasesElement);
+				if ($defaultPosition !== null) {
+					$elementPositions['default'] = $defaultPosition;
+				}
+			}
+
+			foreach ($configuration->get('databases') as $database) {
+				/** @var XmlConfigDomElement $database */
+				$name = $database->getAttribute('name');
+				if ($name === null) {
+					$error = 'Configuration file "%s" specifies a database with a missing or empty "name" attribute';
+					$error = sprintf($error, $document->documentURI);
+
+					throw new ParseException($error);
+				}
+
+				if (!isset($databases[$name])) {
+					$class = $database->hasAttribute('class') ? $database->getAttribute('class') : null;
+					if ($class === null) {
+						$error = 'Configuration file "%s" specifies database "%s" with missing class key';
+						$error = sprintf($error, $document->documentURI, $name);
+
+						throw new ParseException($error);
+					}
+
+					$databases[$name] = ['class' => $class, 'parameters' => []];
+				} elseif ($database->hasAttribute('class')) {
+					$class = $database->getAttribute('class');
+					if ($class !== null) {
+						$databases[$name]['class'] = $class;
+					}
+				}
+
+				$databases[$name]['parameters'] = $database->getQuioteParameters($databases[$name]['parameters']);
+
+				$position = $positions->forElement($database);
+				if ($position !== null) {
+					$elementPositions["databases.{$name}.class"] = $position;
+				}
+			}
+		}
+
+		return ['data' => ['default' => $default, 'databases' => $databases], 'positions' => $elementPositions];
 	}
 
 	/**

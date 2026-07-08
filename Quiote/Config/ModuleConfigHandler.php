@@ -1,6 +1,8 @@
 <?php
 namespace Quiote\Config;
 
+use Quiote\Config\Format\Xml\ElementPositionIndex;
+use Quiote\Config\Schema\Rule;
 use Quiote\Config\Util\DOM\XmlConfigDomDocument;
 use Quiote\Config\Util\DOM\XmlConfigDomElement;
 use Quiote\Util\Toolkit;
@@ -21,9 +23,22 @@ use Quiote\Util\Toolkit;
  * @since      1.0.0
  * @version    1.0.0
  */
-class ModuleConfigHandler extends XmlConfigHandler implements IArrayConfigHandler
+class ModuleConfigHandler extends XmlConfigHandler implements IArrayConfigHandler, ISchemaAwareConfigHandler, IPositionAwareConfigHandler
 {
 	const XML_NAMESPACE = 'http://quiote.dev/quiote/config/parts/module/1.1';
+
+	/**
+	 * "settings" is an open, dynamically-keyed flat map (fully-prefixed
+	 * setting names -> mixed value, exactly like SettingConfigHandler's own
+	 * shape) -- only its container structure is fixed, not its key names.
+	 */
+	public function schema(): Rule
+	{
+		return Rule::struct([
+			'enabled' => Rule::bool(),
+			'settings' => Rule::dictOf(Rule::mixed()),
+		], required: ['enabled', 'settings']);
+	}
 
 	/**
 	 * @throws     \Quiote\Exception\ParseException If a requested configuration file is
@@ -86,6 +101,62 @@ class ModuleConfigHandler extends XmlConfigHandler implements IArrayConfigHandle
 		return ['enabled' => $enabled, 'settings' => $settings];
 	}
 
+	/**
+	 * @return array{data: array{enabled: bool, settings: array<string, mixed>}, positions: array<string, array{file: string, line: int}>}
+	 */
+	public function toCanonicalArrayWithPositions(XmlConfigDomDocument $document, ElementPositionIndex $positions): array
+	{
+		$document->setDefaultNamespace(self::XML_NAMESPACE, 'module');
+
+		$prefix = 'modules.${moduleName}.';
+		$enabled = false;
+		$settings = [];
+		$elementPositions = [];
+
+		foreach ($document->getConfigurationElements() as $configuration) {
+			$module = $configuration->getChild('module');
+			if (!$module) {
+				continue;
+			}
+
+			$enabled = (bool) Toolkit::literalize($module->getAttribute('enabled'));
+			$modulePosition = $positions->forElement($module);
+			if ($modulePosition !== null) {
+				$elementPositions['enabled'] = $modulePosition;
+			}
+
+			foreach ($module->get('settings') as $setting) {
+				/** @var XmlConfigDomElement $setting */
+				$localPrefix = $prefix;
+
+				/** @var XmlConfigDomElement $settingParent */
+				$settingParent = $setting->parentNode;
+				if ($settingParent->localName == 'settings') {
+					if ($settingParent->hasAttribute('prefix')) {
+						$localPrefix = $settingParent->getAttribute('prefix');
+					}
+				}
+
+				$settingName = $localPrefix . $setting->getAttribute('name');
+				if ($setting->hasQuioteParameters()) {
+					$settings[$settingName] = $setting->getQuioteParameters();
+				} else {
+					$settings[$settingName] = Toolkit::literalize($setting->getValue());
+				}
+
+				$settingPosition = $positions->forElement($setting);
+				if ($settingPosition !== null) {
+					$elementPositions["settings.{$settingName}"] = $settingPosition;
+				}
+			}
+		}
+
+		return ['data' => ['enabled' => $enabled, 'settings' => $settings], 'positions' => $elementPositions];
+	}
+
+	/**
+	 * @param array{enabled?: bool, settings?: array<string, mixed>} $config
+	 */
 	public function executeArray(array $config, ?string $sourceRef = null): string
 	{
 		$enabled = $config['enabled'] ?? false;

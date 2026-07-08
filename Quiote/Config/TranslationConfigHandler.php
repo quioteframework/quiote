@@ -1,6 +1,8 @@
 <?php
 namespace Quiote\Config;
 
+use Quiote\Config\Format\Xml\ElementPositionIndex;
+use Quiote\Config\Schema\Rule;
 use Quiote\Config\Util\DOM\XmlConfigDomDocument;
 use Quiote\Exception\ConfigurationException;
 use Quiote\Translation\QuioteLocale;
@@ -19,9 +21,40 @@ use Quiote\Translation\QuioteLocale;
  * @since      1.0.0
  * @version    1.0.0
  */
-class TranslationConfigHandler extends XmlConfigHandler implements IArrayConfigHandler
+class TranslationConfigHandler extends XmlConfigHandler implements IArrayConfigHandler, ISchemaAwareConfigHandler, IPositionAwareConfigHandler
 {
 	const XML_NAMESPACE = 'http://quiote.dev/quiote/config/parts/translation/1.1';
+
+	public function schema(): Rule
+	{
+		$translatorEntry = Rule::struct([
+			'class' => Rule::phpClass(nullable: true),
+			'filters' => Rule::listOf(Rule::mixed()),
+			'params' => Rule::mixed(),
+		], required: ['class', 'filters', 'params']);
+
+		$domain = Rule::struct([
+			'msg' => $translatorEntry,
+			'num' => $translatorEntry,
+			'cur' => $translatorEntry,
+			'date' => $translatorEntry,
+		]);
+
+		$locale = Rule::struct([
+			'name' => Rule::string(),
+			'params' => Rule::mixed(),
+			'fallback' => Rule::string(nullable: true),
+			'ldml_file' => Rule::string(nullable: true),
+		], required: ['name', 'params', 'fallback', 'ldml_file']);
+
+		return Rule::struct([
+			'default_domain' => Rule::string(),
+			'default_locale' => Rule::string(nullable: true),
+			'default_timezone' => Rule::string(nullable: true),
+			'locales' => Rule::dictOf($locale),
+			'translators' => Rule::dictOf($domain),
+		], required: ['default_domain', 'default_locale', 'default_timezone', 'locales', 'translators']);
+	}
 
 	/**
 	 * @throws     \Quiote\Exception\ParseException If a requested configuration file is
@@ -34,7 +67,13 @@ class TranslationConfigHandler extends XmlConfigHandler implements IArrayConfigH
 	}
 
 	/**
-	 * @return array<string, mixed>
+	 * @return array{
+	 *     default_domain: string,
+	 *     default_locale: ?string,
+	 *     default_timezone: ?string,
+	 *     locales: array<string, array{name: string, params: mixed, fallback: ?string, ldml_file: ?string}>,
+	 *     translators: array<string, mixed>,
+	 * }
 	 */
 	public function toCanonicalArray(XmlConfigDomDocument $document): array
 	{
@@ -83,7 +122,55 @@ class TranslationConfigHandler extends XmlConfigHandler implements IArrayConfigH
 	}
 
 	/**
-	 * @param array<string, mixed> $config
+	 * Positions are only tracked for "locales" -- a flat, single-level
+	 * walk. "translators" builds a recursive, potentially deeply-nested
+	 * domain hierarchy via getTranslators(); mirroring that faithfully for
+	 * position purposes isn't attempted here (translation.xml also has
+	 * legacy-upgrade <transformation> stylesheets configured by default, so
+	 * positions come back empty in practice anyway -- see
+	 * TranslationConfigHandlerPositionTest).
+	 * @return array{
+	 *     data: array{
+	 *         default_domain: string,
+	 *         default_locale: ?string,
+	 *         default_timezone: ?string,
+	 *         locales: array<string, array{name: string, params: mixed, fallback: ?string, ldml_file: ?string}>,
+	 *         translators: array<string, mixed>,
+	 *     },
+	 *     positions: array<string, array{file: string, line: int}>,
+	 * }
+	 */
+	public function toCanonicalArrayWithPositions(XmlConfigDomDocument $document, ElementPositionIndex $positions): array
+	{
+		$document->setDefaultNamespace(self::XML_NAMESPACE, 'translation');
+
+		$data = $this->toCanonicalArray($document);
+		$elementPositions = [];
+
+		foreach ($document->getConfigurationElements() as $cfg) {
+			$availableLocales = $cfg->getChild('available_locales');
+			if ($availableLocales !== null) {
+				foreach ($availableLocales as $locale) {
+					$name = $locale->getAttribute('identifier') ?? '';
+					$position = $positions->forElement($locale);
+					if ($position !== null) {
+						$elementPositions["locales.{$name}.name"] = $position;
+					}
+				}
+			}
+		}
+
+		return ['data' => $data, 'positions' => $elementPositions];
+	}
+
+	/**
+	 * @param array{
+	 *     default_domain?: string,
+	 *     default_locale?: ?string,
+	 *     default_timezone?: ?string,
+	 *     locales?: array<string, array{name: string, params: mixed, fallback: ?string, ldml_file: ?string}>,
+	 *     translators?: array<string, mixed>,
+	 * } $config
 	 */
 	public function executeArray(array $config, ?string $sourceRef = null): string
 	{
@@ -106,17 +193,24 @@ class TranslationConfigHandler extends XmlConfigHandler implements IArrayConfigH
 		}
 
 		foreach ($translatorData as $domain => $translator) {
+			if (!is_array($translator)) {
+				continue;
+			}
 			foreach (['msg', 'num', 'cur', 'date'] as $type) {
-				if (isset($translator[$type]['class'])) {
-					if (!class_exists($translator[$type]['class'])) {
-						throw new ConfigurationException(sprintf('The Translator or Formatter class "%s" for domain "%s" could not be found.', $translator[$type]['class'], $domain));
-					}
-					$data[] = implode("\n", [
-						sprintf('$this->translators[%s][%s] = new %s();', var_export($domain, true), var_export($type, true), $translator[$type]['class']),
-						sprintf('$this->translators[%s][%s]->initialize($this->getContext(), %s);', var_export($domain, true), var_export($type, true), var_export($translator[$type]['params'], true)),
-						sprintf('$this->translatorFilters[%s][%s] = %s;', var_export($domain, true), var_export($type, true), var_export($translator[$type]['filters'], true)),
-					]);
+				$entry = $translator[$type] ?? null;
+				if (!is_array($entry) || !isset($entry['class']) || !is_string($entry['class'])) {
+					continue;
 				}
+				$class = $entry['class'];
+
+				if (!class_exists($class)) {
+					throw new ConfigurationException(sprintf('The Translator or Formatter class "%s" for domain "%s" could not be found.', $class, $domain));
+				}
+				$data[] = implode("\n", [
+					sprintf('$this->translators[%s][%s] = new %s();', var_export($domain, true), var_export($type, true), $class),
+					sprintf('$this->translators[%s][%s]->initialize($this->getContext(), %s);', var_export($domain, true), var_export($type, true), var_export($entry['params'] ?? [], true)),
+					sprintf('$this->translatorFilters[%s][%s] = %s;', var_export($domain, true), var_export($type, true), var_export($entry['filters'] ?? [], true)),
+				]);
 			}
 		}
 
@@ -153,7 +247,7 @@ class TranslationConfigHandler extends XmlConfigHandler implements IArrayConfigH
 	/**
 	 * Build a list of translators.
 	 * @param      iterable<int, \Quiote\Config\Util\DOM\XmlConfigDomElement> $translators The translators container.
-	 * @param      array<string, mixed>   $data The destination data array.
+	 * @param      array<string, mixed> $data The destination data array.
 	 * @param      ?string                $parent The name of the parent domain.
 	 * @return     void
 	 * @since      1.0.0

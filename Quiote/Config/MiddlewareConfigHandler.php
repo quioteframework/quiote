@@ -1,6 +1,8 @@
 <?php
 namespace Quiote\Config;
 
+use Quiote\Config\Format\Xml\ElementPositionIndex;
+use Quiote\Config\Schema\Rule;
 use Quiote\Config\Util\DOM\XmlConfigDomDocument;
 use Quiote\Util\Toolkit;
 
@@ -23,9 +25,30 @@ use Quiote\Util\Toolkit;
  * in document order.
  * @since      1.0.0
  */
-class MiddlewareConfigHandler extends XmlConfigHandler implements IArrayConfigHandler
+class MiddlewareConfigHandler extends XmlConfigHandler implements IArrayConfigHandler, ISchemaAwareConfigHandler, IPositionAwareConfigHandler
 {
 	const XML_NAMESPACE = 'http://quiote.dev/quiote/config/parts/middleware/1.1';
+
+	/**
+	 * "phase" values per middleware.xsd's enum. Only "class" is required --
+	 * everything else means "don't override" when omitted, matching the
+	 * XSD's own optional attributes.
+	 */
+	public function schema(): Rule
+	{
+		return Rule::listOf(Rule::struct([
+			'class' => Rule::phpClass(),
+			'phase' => Rule::enumOf([
+				'bootstrap', 'pre_routing', 'pre', 'routing',
+				'before_action', 'action', 'after_action', 'finalize',
+			], nullable: true),
+			'priority' => Rule::int(nullable: true),
+			'before' => Rule::string(nullable: true),
+			'after' => Rule::string(nullable: true),
+			'enabled' => Rule::bool(nullable: true),
+			'override_framework' => Rule::bool(),
+		], required: ['class']));
+	}
 
 	/**
 	 * @throws     \Quiote\Exception\ParseException If a requested configuration file is
@@ -70,6 +93,47 @@ class MiddlewareConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 		}
 
 		return $entries;
+	}
+
+	/**
+	 * @return array{data: list<array{class: string, phase: ?string, priority: ?int, before: ?string, after: ?string, enabled: ?bool, override_framework: bool}>, positions: array<string, array{file: string, line: int}>}
+	 */
+	public function toCanonicalArrayWithPositions(XmlConfigDomDocument $document, ElementPositionIndex $positions): array
+	{
+		$document->setDefaultNamespace(self::XML_NAMESPACE, 'middleware');
+
+		$entries = [];
+		$elementPositions = [];
+		$index = 0;
+		foreach ($document->getConfigurationElements() as $configuration) {
+			if (!$configuration->has('use')) {
+				continue;
+			}
+
+			foreach ($configuration->get('use') as $use) {
+				$entries[] = [
+					'class' => (string) $use->getAttribute('class'),
+					'phase' => $use->hasAttribute('phase') ? $use->getAttribute('phase') : null,
+					'priority' => $use->hasAttribute('priority') ? (int) $use->getAttribute('priority') : null,
+					'before' => $use->hasAttribute('before') ? $use->getAttribute('before') : null,
+					'after' => $use->hasAttribute('after') ? $use->getAttribute('after') : null,
+					'enabled' => $use->hasAttribute('enabled')
+						? (bool) Toolkit::literalize(strtolower((string) $use->getAttribute('enabled')))
+						: null,
+					'override_framework' => $use->hasAttribute('override-framework')
+						? (bool) Toolkit::literalize(strtolower((string) $use->getAttribute('override-framework')))
+						: false,
+				];
+
+				$position = $positions->forElement($use);
+				if ($position !== null) {
+					$elementPositions["[$index].class"] = $position;
+				}
+				$index++;
+			}
+		}
+
+		return ['data' => $entries, 'positions' => $elementPositions];
 	}
 
 	/**

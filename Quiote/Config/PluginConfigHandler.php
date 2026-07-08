@@ -1,6 +1,8 @@
 <?php
 namespace Quiote\Config;
 
+use Quiote\Config\Format\Xml\ElementPositionIndex;
+use Quiote\Config\Schema\Rule;
 use Quiote\Config\Util\DOM\XmlConfigDomDocument;
 use Quiote\Util\Toolkit;
 
@@ -28,9 +30,21 @@ use Quiote\Util\Toolkit;
  * order.
  * @since      1.0.0
  */
-class PluginConfigHandler extends XmlConfigHandler implements IArrayConfigHandler
+class PluginConfigHandler extends XmlConfigHandler implements IArrayConfigHandler, ISchemaAwareConfigHandler, IPositionAwareConfigHandler
 {
 	const XML_NAMESPACE = 'http://quiote.dev/quiote/config/parts/plugins/1.1';
+
+	/**
+	 * "enabled" is not required: hand-authored PHP/YAML may omit it,
+	 * defaulting to true, matching the XSD's own default.
+	 */
+	public function schema(): Rule
+	{
+		return Rule::listOf(Rule::struct([
+			'class' => Rule::phpClass(),
+			'enabled' => Rule::bool(),
+		], required: ['class']));
+	}
 
 	/**
 	 * @throws     \Quiote\Exception\ParseException If a requested configuration file is
@@ -67,6 +81,42 @@ class PluginConfigHandler extends XmlConfigHandler implements IArrayConfigHandle
 		}
 
 		return $plugins;
+	}
+
+	/**
+	 * @return array{data: list<array{class: string, enabled: bool}>, positions: array<string, array{file: string, line: int}>}
+	 */
+	public function toCanonicalArrayWithPositions(XmlConfigDomDocument $document, ElementPositionIndex $positions): array
+	{
+		$document->setDefaultNamespace(self::XML_NAMESPACE, 'plugins');
+
+		$plugins = [];
+		$elementPositions = [];
+		$index = 0;
+		foreach ($document->getConfigurationElements() as $configuration) {
+			if (!$configuration->has('plugins')) {
+				continue;
+			}
+
+			foreach ($configuration->get('plugins') as $plugin) {
+				$enabledAttr = strtolower((string) $plugin->getAttribute('enabled', 'true'));
+				$plugins[] = [
+					'class' => (string) $plugin->getAttribute('class'),
+					'enabled' => (bool) Toolkit::literalize($enabledAttr),
+				];
+
+				$position = $positions->forElement($plugin);
+				if ($position !== null) {
+					$elementPositions["[$index].class"] = $position;
+					if ($plugin->hasAttribute('enabled')) {
+						$elementPositions["[$index].enabled"] = $position;
+					}
+				}
+				$index++;
+			}
+		}
+
+		return ['data' => $plugins, 'positions' => $elementPositions];
 	}
 
 	/**

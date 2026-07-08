@@ -1,7 +1,9 @@
 <?php
 namespace Quiote\Config\Format;
 
+use Quiote\Config\Format\Xml\ElementPositionIndex;
 use Quiote\Config\IArrayConfigHandler;
+use Quiote\Config\IPositionAwareConfigHandler;
 use Quiote\Config\IXmlConfigHandler;
 use Quiote\Config\XmlConfigParser;
 
@@ -19,7 +21,7 @@ use Quiote\Config\XmlConfigParser;
  * mix config types through a single XML driver.
  * @since      1.0.0
  */
-final class XmlFormatDriver implements FormatDriverInterface
+final class XmlFormatDriver implements FormatDriverInterface, PositionAwareFormatDriverInterface
 {
 	/**
 	 * @param IArrayConfigHandler&IXmlConfigHandler $handler
@@ -67,6 +69,41 @@ final class XmlFormatDriver implements FormatDriverInterface
 		);
 
 		return $this->handler->toCanonicalArray($document);
+	}
+
+	/**
+	 * Extension-agnostic "locating" parse mode (see
+	 * VSCODE_EXTENSION_INTEGRATION.md's config validator work item 3): same
+	 * canonical array as load(), plus a key-path -> {file, line} index for
+	 * whichever keys the bound handler could correlate back to a source
+	 * element. Falls back to an empty positions map for a handler that
+	 * hasn't implemented IPositionAwareConfigHandler yet.
+	 * @return array{data: array<mixed>, positions: array<string, array{file: string, line: int}>}
+	 */
+	public function loadWithPositions(string $path, ?string $environment, ?string $context = null): array
+	{
+		$positions = new ElementPositionIndex();
+
+		$document = XmlConfigParser::run(
+			$path,
+			$environment,
+			$context ?? '',
+			[
+				XmlConfigParser::STAGE_SINGLE => $this->transformations,
+				XmlConfigParser::STAGE_COMPILATION => [],
+			],
+			[
+				XmlConfigParser::STAGE_SINGLE => $this->stageValidations(XmlConfigParser::STAGE_SINGLE),
+				XmlConfigParser::STAGE_COMPILATION => $this->stageValidations(XmlConfigParser::STAGE_COMPILATION),
+			],
+			$positions,
+		);
+
+		if ($this->handler instanceof IPositionAwareConfigHandler) {
+			return $this->handler->toCanonicalArrayWithPositions($document, $positions);
+		}
+
+		return ['data' => $this->handler->toCanonicalArray($document), 'positions' => []];
 	}
 
 	/**

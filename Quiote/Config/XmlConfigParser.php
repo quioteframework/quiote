@@ -1,6 +1,7 @@
 <?php
 namespace Quiote\Config;
 
+use Quiote\Config\Format\Xml\ElementPositionIndex;
 use Quiote\Config\Util\DOM\XmlConfigDomDocument;
 use Quiote\Config\Util\DOM\XmlConfigDomElement;
 use Quiote\Exception\ParseException;
@@ -167,12 +168,30 @@ class XmlConfigParser
 	 * @param      ?string $context The optional context name.
 	 * @param      array<string,array<int,string>> $transformationInfo An associative array of transformation information.
 	 * @param      array<string,mixed> $validationInfo An associative array of validation information.
+	 * @param      ?ElementPositionIndex $positions When given, populated with a
+	 *                    {file, line} entry for every merged <configuration>
+	 *                    element (and its descendants) whose pre-merge source
+	 *                    node still had a real line number -- i.e. it survived
+	 *                    to the merge step without being cloned/transformed
+	 *                    away first. Left untouched (and this is a no-op) when
+	 *                    null, which is the default for every existing caller.
 	 * @return     XmlConfigDomDocument A properly merged DOMDocument.
 	 * @since      1.0.0
 	 */
-	public static function run(string $path, ?string $environment, ?string $context = null, array $transformationInfo = [], array $validationInfo = [])
+	public static function run(string $path, ?string $environment, ?string $context = null, array $transformationInfo = [], array $validationInfo = [], ?ElementPositionIndex $positions = null)
 	{
 		$isQuioteConfigFormat = true;
+		// A transformed node can retain a stale, misleading getLineNo() rather
+		// than reliably reporting 0 (some XSL constructs -- e.g. xsl:copy-of --
+		// carry a leftover line annotation through libxml's node-copy machinery
+		// that no longer corresponds to this node's real position). Checking
+		// getLineNo() > 0 alone is not enough to tell a trustworthy position
+		// from a stale one, so positions are only ever captured when no
+		// transformation stage will actually run for this parse at all --
+		// $transformationInfo is the same for every file in a parent chain, so
+		// this is computed once, not per file.
+		$singleStageTransformations = self::stringList($transformationInfo[self::STAGE_SINGLE] ?? null);
+		$transformsWillRun = $singleStageTransformations !== [] && !Config::getBool('core.skip_config_transformations', false);
 		// build an array of documents (this one, and the parents)
 		$docs = [];
 		$previousPaths = [];
@@ -180,7 +199,7 @@ class XmlConfigParser
 		while($nextPath !== null) {
 			// run the single stage parser
 			$parser = new XmlConfigParser($nextPath, $environment, $context);
-			$doc = $parser->execute($transformationInfo[self::STAGE_SINGLE], $validationInfo[self::STAGE_SINGLE]);
+			$doc = $parser->execute($singleStageTransformations, self::arrayOrEmpty($validationInfo[self::STAGE_SINGLE] ?? null));
 			
 			// put the new document in the list
 			$docs[] = $doc;
@@ -194,7 +213,7 @@ class XmlConfigParser
 			// TODO: support future namespaces
 			$docRootElement = self::requireDocumentElement($doc);
 			if($isQuioteConfigFormat && $docRootElement->hasAttribute('parent')) {
-				$theNextPath = (string) Toolkit::literalize($docRootElement->getAttribute('parent'));
+				$theNextPath = self::scalarToString(Toolkit::literalize($docRootElement->getAttribute('parent')));
 				
 				// no infinite loop plz, kthx
 				if($nextPath === $theNextPath) {
@@ -236,7 +255,7 @@ class XmlConfigParser
 						$configurationElements[] = $node;
 					} else {
 						// import the node, recursively, and store the imported node
-						$importedNode = $retval->importNode($node, true);
+						$importedNode = self::requireImportedNode($retval->importNode($node, true));
 						// now append it to the <configurations> element
 						$retvalRootElement->appendChild($importedNode);
 					}
@@ -255,6 +274,9 @@ class XmlConfigParser
 							continue;
 						}
 						$importedAttribute = $retval->importNode($attribute, true);
+						if (!$importedAttribute instanceof \DOMAttr) {
+							throw new ParseException(sprintf('Configuration file "%s" has a "%s" attribute that could not be imported.', $path, $attribute->name));
+						}
 						$retvalRootElement->setAttributeNode($importedAttribute);
 					}
 				}
@@ -278,17 +300,20 @@ class XmlConfigParser
 					// ... if the xpath matches, that is!
 					if($element->ownerDocument->getXpath()->evaluate($xpath, $element)) {
 						// it did, so import the node and append it to the result doc
-						$importedNode = $retval->importNode($element, true);
+						$importedNode = self::requireImportedNode($retval->importNode($element, true));
 						$retvalRootElement->appendChild($importedNode);
+						if ($positions !== null && !$transformsWillRun) {
+							self::correlatePosition($element, $importedNode, $positions);
+						}
 					}
 				}
 			}
 
 			// run the compilation stage parser
-			$retval = self::executeCompilation($retval, $environment, $context, $transformationInfo[self::STAGE_COMPILATION], $validationInfo[self::STAGE_COMPILATION]);
+			$retval = self::executeCompilation($retval, $environment, $context, self::stringList($transformationInfo[self::STAGE_COMPILATION] ?? null), self::arrayOrEmpty($validationInfo[self::STAGE_COMPILATION] ?? null));
 		} else {
 			// it's not an quiote config file. just pass it through then
-			$retval->appendChild($retval->importNode(self::requireDocumentElement($doc), true));
+			$retval->appendChild(self::requireImportedNode($retval->importNode(self::requireDocumentElement($doc), true)));
 		}
 		
 		// cleanup attempt
@@ -296,7 +321,7 @@ class XmlConfigParser
 		
 		// set the pseudo-document URI
 		$retval->documentURI = $path;
-		
+
 		return $retval;
 	}
 	
@@ -304,7 +329,7 @@ class XmlConfigParser
 	 * Builds a proper regular expression from the input pattern to test against
 	 * the given subject. This is for "environment" and "context" attributes of
 	 * configuration blocks in the files.
-	 * @param      string $pattern A regular expression chunk without delimiters/anchors.
+	 * @param      mixed $pattern A regular expression chunk without delimiters/anchors.
 	 * @param      mixed $subject The subject to test against the pattern.
 	 * @return     bool Whether or not the subject matched the pattern.
 	 * @since      1.0.0
@@ -312,8 +337,8 @@ class XmlConfigParser
 	public static function testPattern($pattern, $subject)
 	{
 		// four backslashes mean one literal backslash
-		$pattern = preg_replace('/\\\\+#/', '\\#', (string) $pattern);
-		return (preg_match('#^(' . implode('|', array_map(trim(...), explode(' ', (string) $pattern))) . ')$#', (string) $subject) > 0);
+		$pattern = preg_replace('/\\\\+#/', '\\#', self::scalarToString($pattern)) ?? '';
+		return (preg_match('#^(' . implode('|', array_map(trim(...), explode(' ', $pattern))) . ')$#', self::scalarToString($subject)) > 0);
 	}
 	
 	/**
@@ -384,7 +409,7 @@ class XmlConfigParser
 		self::validateXsi($this->doc);
 		
 		// validate pre-transformation
-		self::validate($this->doc, $this->environment, $this->context, $validationInfo[XmlConfigParser::STEP_TRANSFORMATIONS_BEFORE]);
+		self::validate($this->doc, $this->environment, $this->context, self::arrayOrEmpty($validationInfo[XmlConfigParser::STEP_TRANSFORMATIONS_BEFORE] ?? null));
 		
 		// mark document for merging
 		self::match($this->doc, $this->environment, $this->context);
@@ -401,7 +426,7 @@ class XmlConfigParser
 		}
 		
 		// validate post-transformation
-		self::validate($this->doc, $this->environment, $this->context, $validationInfo[XmlConfigParser::STEP_TRANSFORMATIONS_AFTER]);
+		self::validate($this->doc, $this->environment, $this->context, self::arrayOrEmpty($validationInfo[XmlConfigParser::STEP_TRANSFORMATIONS_AFTER] ?? null));
 		
 		// clean up the document
 		self::cleanup($this->doc);
@@ -423,21 +448,21 @@ class XmlConfigParser
 	{
 		// resolve xincludes
 		self::xinclude($document);
-		
+
 		// validate pre-transformation
-		self::validate($document, $environment, $context, $validationInfo[XmlConfigParser::STEP_TRANSFORMATIONS_BEFORE]);
-		
+		self::validate($document, $environment, $context, self::arrayOrEmpty($validationInfo[XmlConfigParser::STEP_TRANSFORMATIONS_BEFORE] ?? null));
+
 		if(!Config::getBool('core.skip_config_transformations', false)) {
 			// perform XSL transformations
 			$document = self::transform($document, $environment, $context, $transformationInfo);
-			
+
 			// resolve xincludes again, since transformations may have introduced some
 			self::xinclude($document);
 		}
-		
+
 		// validate post-transformation
-		self::validate($document, $environment, $context, $validationInfo[XmlConfigParser::STEP_TRANSFORMATIONS_AFTER]);
-		
+		self::validate($document, $environment, $context, self::arrayOrEmpty($validationInfo[XmlConfigParser::STEP_TRANSFORMATIONS_AFTER] ?? null));
+
 		return $document;
 	}
 	
@@ -669,7 +694,7 @@ class XmlConfigParser
 						// excellent. make a new doc from that element!
 						try {
 							$xsl = new XmlConfigDomDocument();
-							$xsl->appendChild($xsl->importNode($stylesheetNode, true));
+							$xsl->appendChild(self::requireImportedNode($xsl->importNode($stylesheetNode, true)));
 						} catch(\DOMException $dome) {
 							throw new ParseException(sprintf('Configuration file "%s" could not be parsed: Could not load XSL stylesheet "%s": %s', $document->documentURI, $href, $dome->getMessage()), 0, $dome);
 						}
@@ -717,13 +742,13 @@ class XmlConfigParser
 			try {
 				switch($type) {
 					case self::VALIDATION_TYPE_XMLSCHEMA:
-						self::validateXmlschema($document, (array) $files);
+						self::validateXmlschema($document, self::stringList($files));
 						break;
 					case self::VALIDATION_TYPE_RELAXNG:
-						self::validateRelaxng($document, (array) $files);
+						self::validateRelaxng($document, self::stringList($files));
 						break;
 					case self::VALIDATION_TYPE_SCHEMATRON:
-						self::validateSchematron($document, $environment, $context, (array) $files);
+						self::validateSchematron($document, $environment, $context, self::stringList($files));
 						break;
 				}
 			} catch(ParseException $e) {
@@ -974,5 +999,99 @@ class XmlConfigParser
 		}
 
 		return $documentElement;
+	}
+
+	/**
+	 * Records $imported's source position by walking $original (its
+	 * pre-import source) and $imported (importNode(..., true)'s structural
+	 * clone of it) in lockstep -- exact, since a deep import can only ever
+	 * produce a 1:1 shaped copy. Only records a position when the original
+	 * node itself still had a real line number ($original->getLineNo() > 0);
+	 * a node that was already a clone/XSLT-synthesized node by the time it
+	 * got here (e.g. because its handler declared legacy-upgrade
+	 * <transformation> stylesheets) is left absent from the index rather
+	 * than given a wrong or zeroed one.
+	 * @since      1.0.0
+	 */
+	private static function correlatePosition(\DOMNode $original, \DOMNode $imported, ElementPositionIndex $positions): void
+	{
+		if ($original instanceof \DOMElement && $imported instanceof \DOMElement) {
+			$line = $original->getLineNo();
+			$file = $original->ownerDocument?->documentURI;
+			if ($line > 0 && $file !== null) {
+				$positions->record($imported, $file, $line);
+			}
+		}
+
+		$originalChildren = $original->childNodes;
+		$importedChildren = $imported->childNodes;
+		$count = min($originalChildren->length, $importedChildren->length);
+		for ($i = 0; $i < $count; $i++) {
+			$originalChild = $originalChildren->item($i);
+			$importedChild = $importedChildren->item($i);
+			if ($originalChild !== null && $importedChild !== null) {
+				self::correlatePosition($originalChild, $importedChild, $positions);
+			}
+		}
+	}
+
+	/**
+	 * DOMDocument::importNode() is declared to return DOMNode|false; every
+	 * call site here immediately appends/attaches the result, which would
+	 * fail with an unclear native TypeError on `false`. Failing fast with a
+	 * ParseException here matches how the rest of this class reports
+	 * malformed-input conditions.
+	 */
+	private static function requireImportedNode(mixed $node): \DOMNode
+	{
+		if (!$node instanceof \DOMNode) {
+			throw new ParseException('A node could not be imported into the merged configuration document.');
+		}
+		return $node;
+	}
+
+	/**
+	 * Narrows a config-map value (e.g. $transformationInfo[STAGE_SINGLE] or
+	 * $validationInfo[STEP_TRANSFORMATIONS_BEFORE]) that PHPStan can only
+	 * see as mixed -- since none of these maps have array-shape literal
+	 * keys -- to a plain array, defaulting a missing/malformed entry to
+	 * empty exactly as an unguarded array access plus a native `array`
+	 * parameter type hint already required at runtime.
+	 * @return array<mixed>
+	 */
+	private static function arrayOrEmpty(mixed $value): array
+	{
+		return is_array($value) ? $value : [];
+	}
+
+	/**
+	 * Same as arrayOrEmpty(), but for the string-list shape
+	 * $transformationInfo[...]/a validation type's file list actually holds
+	 * -- filtering out any non-string entries defensively rather than
+	 * blindly casting them.
+	 * @return list<string>
+	 */
+	private static function stringList(mixed $value): array
+	{
+		if (!is_array($value)) {
+			return [];
+		}
+		return array_values(array_filter($value, 'is_string'));
+	}
+
+	/**
+	 * Reproduces PHP's native (string) cast for the scalar|null shape
+	 * Toolkit::literalize() actually returns for a string input (bool, int,
+	 * float, string, or null), without casting a genuinely non-scalar mixed
+	 * value the way PHPStan's stricter rules disallow.
+	 */
+	private static function scalarToString(mixed $value): string
+	{
+		return match (true) {
+			is_string($value) => $value,
+			is_int($value), is_float($value) => (string) $value,
+			is_bool($value) => $value ? '1' : '',
+			default => '',
+		};
 	}
 }

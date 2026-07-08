@@ -1,6 +1,8 @@
 <?php
 namespace Quiote\Config;
 
+use Quiote\Config\Format\Xml\ElementPositionIndex;
+use Quiote\Config\Schema\Rule;
 use Quiote\Config\Util\DOM\XmlConfigDomDocument;
 use Quiote\Exception\QuioteException;
 use Quiote\Util\Toolkit;
@@ -25,9 +27,25 @@ use Quiote\Util\Toolkit;
  * @since      1.0.0
  * @version    1.0.0
  */
-class ConfigHandlersConfigHandler extends XmlConfigHandler implements IArrayConfigHandler
+class ConfigHandlersConfigHandler extends XmlConfigHandler implements IArrayConfigHandler, ISchemaAwareConfigHandler, IPositionAwareConfigHandler
 {
 	const XML_NAMESPACE = 'http://quiote.dev/quiote/config/parts/config_handlers/1.1';
+
+	/**
+	 * "transformations"/"validations" are fixed-shape but deeply nested
+	 * (stage -> step -> validation-type -> file list) internal bootstrap
+	 * data, not something an app author hand-edits key-by-key -- validated
+	 * only as "present", not modeled key-by-key here.
+	 */
+	public function schema(): Rule
+	{
+		return Rule::dictOf(Rule::struct([
+			'class' => Rule::phpClass(nullable: true),
+			'parameters' => Rule::mixed(),
+			'transformations' => Rule::mixed(),
+			'validations' => Rule::mixed(),
+		], required: ['class', 'parameters', 'transformations', 'validations']));
+	}
 
 	/**
 	 * @throws     \Quiote\Exception\UnreadableException If a requested configuration
@@ -144,6 +162,33 @@ class ConfigHandlersConfigHandler extends XmlConfigHandler implements IArrayConf
 		}
 
 		return $handlers;
+	}
+
+	/**
+	 * @return array{data: array<string, mixed>, positions: array<string, array{file: string, line: int}>}
+	 */
+	public function toCanonicalArrayWithPositions(XmlConfigDomDocument $document, ElementPositionIndex $positions): array
+	{
+		$data = $this->toCanonicalArray($document);
+		$elementPositions = [];
+
+		foreach ($document->getConfigurationElements() as $configuration) {
+			if (!$configuration->has('handlers')) {
+				continue;
+			}
+
+			foreach ($configuration->get('handlers') as $handler) {
+				$pattern = (string) $handler->getAttribute('pattern');
+				$category = Toolkit::normalizePath((string) Toolkit::expandDirectives($pattern));
+
+				$position = $positions->forElement($handler);
+				if ($position !== null) {
+					$elementPositions["{$category}.class"] = $position;
+				}
+			}
+		}
+
+		return ['data' => $data, 'positions' => $elementPositions];
 	}
 
 	/**

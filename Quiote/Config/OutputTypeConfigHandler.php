@@ -1,6 +1,8 @@
 <?php
 namespace Quiote\Config;
 
+use Quiote\Config\Format\Xml\ElementPositionIndex;
+use Quiote\Config\Schema\Rule;
 use Quiote\Config\Util\DOM\XmlConfigDomDocument;
 use Quiote\Exception\ConfigurationException;
 use Quiote\Util\Toolkit;
@@ -24,9 +26,52 @@ use Quiote\Util\Toolkit;
  * @since      1.0.0
  * @version    1.0.0
  */
-class OutputTypeConfigHandler extends XmlConfigHandler implements IArrayConfigHandler
+class OutputTypeConfigHandler extends XmlConfigHandler implements IArrayConfigHandler, ISchemaAwareConfigHandler, IPositionAwareConfigHandler
 {
 	const XML_NAMESPACE = 'http://quiote.dev/quiote/config/parts/output_types/1.1';
+
+	public function schema(): Rule
+	{
+		$slot = Rule::struct([
+			'action' => Rule::string(nullable: true),
+			'module' => Rule::string(nullable: true),
+			'output_type' => Rule::string(nullable: true),
+			'request_method' => Rule::string(nullable: true),
+			'parameters' => Rule::mixed(),
+		], required: ['action', 'module', 'output_type', 'request_method', 'parameters']);
+
+		$layer = Rule::struct([
+			'class' => Rule::phpClass(),
+			'parameters' => Rule::mixed(),
+			'renderer' => Rule::string(nullable: true),
+			'slots' => Rule::dictOf($slot),
+		], required: ['class', 'parameters', 'renderer', 'slots']);
+
+		$layout = Rule::struct([
+			'layers' => Rule::dictOf($layer),
+			'parameters' => Rule::mixed(),
+		], required: ['layers', 'parameters']);
+
+		$renderer = Rule::struct([
+			'class' => Rule::phpClass(nullable: true),
+			'instance' => Rule::mixed(),
+			'parameters' => Rule::mixed(),
+		], required: ['class', 'instance', 'parameters']);
+
+		$outputType = Rule::struct([
+			'parameters' => Rule::mixed(),
+			'default_renderer' => Rule::string(nullable: true),
+			'renderers' => Rule::dictOf($renderer),
+			'layouts' => Rule::dictOf($layout),
+			'default_layout' => Rule::string(nullable: true),
+			'exception_template' => Rule::string(nullable: true),
+		], required: ['parameters', 'default_renderer', 'renderers', 'layouts', 'default_layout', 'exception_template']);
+
+		return Rule::struct([
+			'default' => Rule::string(nullable: true),
+			'output_types' => Rule::dictOf($outputType),
+		], required: ['default', 'output_types']);
+	}
 
 	/**
 	 * @throws     \Quiote\Exception\UnreadableException If a requested configuration
@@ -141,6 +186,39 @@ class OutputTypeConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 		}
 
 		return ['default' => $defaultOt, 'output_types' => $data];
+	}
+
+	/**
+	 * Positions are only tracked for each output type's own line (via its
+	 * "parameters" key, always present) -- a reasonable top-level anchor
+	 * without mirroring the full recursive renderers/layouts/layers/slots
+	 * walk above (output_types.xml also has legacy-upgrade <transformation>
+	 * stylesheets configured by default, so positions come back empty in
+	 * practice anyway -- see OutputTypeConfigHandlerPositionTest).
+	 * @return array{data: array{default: ?string, output_types: array<string, array<string, mixed>>}, positions: array<string, array{file: string, line: int}>}
+	 */
+	public function toCanonicalArrayWithPositions(XmlConfigDomDocument $document, ElementPositionIndex $positions): array
+	{
+		$document->setDefaultNamespace(self::XML_NAMESPACE, 'output_types');
+
+		$data = $this->toCanonicalArray($document);
+		$elementPositions = [];
+
+		foreach ($document->getConfigurationElements() as $cfg) {
+			if (!$cfg->has('output_types')) {
+				continue;
+			}
+
+			foreach ($cfg->get('output_types') as $outputType) {
+				$otname = (string) $outputType->getAttribute('name');
+				$position = $positions->forElement($outputType);
+				if ($position !== null && isset($data['output_types'][$otname])) {
+					$elementPositions["output_types.{$otname}.parameters"] = $position;
+				}
+			}
+		}
+
+		return ['data' => $data, 'positions' => $elementPositions];
 	}
 
 	/**

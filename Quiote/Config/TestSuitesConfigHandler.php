@@ -1,6 +1,8 @@
 <?php
 namespace Quiote\Config;
 
+use Quiote\Config\Format\Xml\ElementPositionIndex;
+use Quiote\Config\Schema\Rule;
 use Quiote\Config\Util\DOM\XmlConfigDomDocument;
 use Quiote\Exception\ParseException;
 
@@ -15,9 +17,20 @@ use Quiote\Exception\ParseException;
  * @since      1.0.0
  * @version    1.0.0
  */
-class TestSuitesConfigHandler extends XmlConfigHandler implements IArrayConfigHandler
+class TestSuitesConfigHandler extends XmlConfigHandler implements IArrayConfigHandler, ISchemaAwareConfigHandler, IPositionAwareConfigHandler
 {
 	const XML_NAMESPACE = 'http://quiote.dev/quiote/config/parts/testing/suites/1.1';
+
+	public function schema(): Rule
+	{
+		return Rule::dictOf(Rule::struct([
+			'class' => Rule::string(),
+			'base' => Rule::string(),
+			'includes' => Rule::listOf(Rule::mixed()),
+			'excludes' => Rule::listOf(Rule::mixed()),
+			'testfiles' => Rule::listOf(Rule::mixed()),
+		], required: ['class', 'base', 'includes', 'excludes', 'testfiles']));
+	}
 
 	/**
 	 * @throws     \Quiote\Exception\ParseException If a requested configuration file is
@@ -86,6 +99,68 @@ class TestSuitesConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 		}
 
 		return $data;
+	}
+
+	/**
+	 * @return array{data: array<string, array<string, mixed>>, positions: array<string, array{file: string, line: int}>}
+	 */
+	public function toCanonicalArrayWithPositions(XmlConfigDomDocument $document, ElementPositionIndex $positions): array
+	{
+		$document->setDefaultNamespace(self::XML_NAMESPACE, 'suite');
+
+		$data = [];
+		$elementPositions = [];
+
+		foreach ($document->getConfigurationElements() as $configuration) {
+			/** @var iterable<int, \Quiote\Config\Util\DOM\XmlConfigDomElement> $suites */
+			$suites = $configuration->get('suites');
+			foreach ($suites as $current) {
+				$includes = [];
+				/** @var iterable<int, \Quiote\Config\Util\DOM\XmlConfigDomElement> $includeNodes */
+				$includeNodes = $current->get('includes');
+				foreach ($includeNodes as $include) {
+					$includes[] = $include->textContent;
+				}
+
+				$excludes = [];
+				/** @var iterable<int, \Quiote\Config\Util\DOM\XmlConfigDomElement> $excludeNodes */
+				$excludeNodes = $current->get('excludes');
+				foreach ($excludeNodes as $exclude) {
+					$excludes[] = $exclude->textContent;
+				}
+
+				$suite = [
+					'class' => $current->getAttribute('class', 'TestSuite'),
+					'base' => $current->getAttribute('base', 'tests/'),
+					'includes' => $includes,
+					'excludes' => $excludes,
+				];
+
+				$suite['testfiles'] = [];
+				/** @var iterable<int, \Quiote\Config\Util\DOM\XmlConfigDomElement> $testfileNodes */
+				$testfileNodes = $current->get('testfiles');
+				foreach ($testfileNodes as $file) {
+					$suite['testfiles'][] = $file->textContent;
+				}
+
+				$suiteName = $current->getAttribute('name');
+				if ($suiteName === null || $suiteName === '') {
+					throw new ParseException(sprintf(
+						'Configuration file "%s" has a <suite> element missing its required "name" attribute',
+						$document->documentURI
+					));
+				}
+
+				$data[$suiteName] = $suite;
+
+				$position = $positions->forElement($current);
+				if ($position !== null) {
+					$elementPositions["{$suiteName}.class"] = $position;
+				}
+			}
+		}
+
+		return ['data' => $data, 'positions' => $elementPositions];
 	}
 
 	/**

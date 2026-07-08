@@ -1,6 +1,8 @@
 <?php
 namespace Quiote\Config;
 
+use Quiote\Config\Format\Xml\ElementPositionIndex;
+use Quiote\Config\Schema\Rule;
 use Quiote\Config\Util\DOM\XmlConfigDomDocument;
 use Quiote\Config\Util\DOM\XmlConfigDomElement;
 use Quiote\Exception\ParseException;
@@ -19,9 +21,17 @@ use Quiote\Exception\ParseException;
  * @since      1.0.0
  * @version    1.0.0
  */
-class RbacDefinitionConfigHandler extends XmlConfigHandler implements IArrayConfigHandler
+class RbacDefinitionConfigHandler extends XmlConfigHandler implements IArrayConfigHandler, ISchemaAwareConfigHandler, IPositionAwareConfigHandler
 {
 	const XML_NAMESPACE = 'http://quiote.dev/quiote/config/parts/rbac_definitions/1.1';
+
+	public function schema(): Rule
+	{
+		return Rule::dictOf(Rule::struct([
+			'parent' => Rule::string(nullable: true),
+			'permissions' => Rule::listOf(Rule::mixed()),
+		], required: ['parent', 'permissions']));
+	}
 
 	/**
 	 * @throws     \Quiote\Exception\UnreadableException If a requested configuration
@@ -68,7 +78,7 @@ class RbacDefinitionConfigHandler extends XmlConfigHandler implements IArrayConf
 
 	/**
 	 * Parse a 'roles' node.
-	 * @param      mixed  $roles The "roles" node (element or node list)
+	 * @param      array<int, XmlConfigDomElement> $roles The <role> elements to process.
 	 * @param      ?string $parent The name of the parent role, or null.
 	 * @param      array<string, array{parent: ?string, permissions: array<int, mixed>}>  $data A reference to the output data array.
 	 * @param      ?string $sourceRef The config file path, used for error reporting.
@@ -76,7 +86,7 @@ class RbacDefinitionConfigHandler extends XmlConfigHandler implements IArrayConf
 	 * @throws     ParseException If a <role> is missing its required "name" attribute.
 	 * @since      1.0.0
 	 */
-	protected function parseRoles($roles, $parent, &$data, ?string $sourceRef = null): void
+	protected function parseRoles(array $roles, ?string $parent, array &$data, ?string $sourceRef = null): void
 	{
 		foreach ($roles as $role) {
 			// registerNodeClass() guarantees element nodes are always
@@ -99,6 +109,65 @@ class RbacDefinitionConfigHandler extends XmlConfigHandler implements IArrayConf
 			}
 			if ($role->has('roles')) {
 				$this->parseRoles($role->get('roles'), $name, $data, $sourceRef);
+			}
+			$data[$name] = $entry;
+		}
+	}
+
+	/**
+	 * @return array{data: array<string, array{parent: ?string, permissions: array<int, mixed>}>, positions: array<string, array{file: string, line: int}>}
+	 */
+	public function toCanonicalArrayWithPositions(XmlConfigDomDocument $document, ElementPositionIndex $positions): array
+	{
+		$document->setDefaultNamespace(self::XML_NAMESPACE, 'rbac_definitions');
+
+		$data = [];
+		$elementPositions = [];
+
+		foreach ($document->getConfigurationElements() as $cfg) {
+			if (!$cfg->has('roles')) {
+				continue;
+			}
+
+			$this->parseRolesWithPositions($cfg->get('roles'), null, $data, $document->documentURI, $positions, $elementPositions);
+		}
+
+		return ['data' => $data, 'positions' => $elementPositions];
+	}
+
+	/**
+	 * @param array<int, XmlConfigDomElement> $roles
+	 * @param array<string, array{parent: ?string, permissions: array<int, mixed>}> $data
+	 * @param array<string, array{file: string, line: int}> $elementPositions
+	 */
+	private function parseRolesWithPositions(array $roles, ?string $parent, array &$data, ?string $sourceRef, ElementPositionIndex $positions, array &$elementPositions): void
+	{
+		foreach ($roles as $role) {
+			/** @var XmlConfigDomElement $role */
+			$name = $role->getAttribute('name');
+			if ($name === null || $name === '') {
+				throw new ParseException(sprintf(
+					'Configuration file "%s" has a <role> element missing its required "name" attribute',
+					$sourceRef ?? '(unknown)'
+				));
+			}
+			$entry = [];
+			$entry['parent'] = $parent;
+			$entry['permissions'] = [];
+			if ($role->has('permissions')) {
+				foreach ($role->get('permissions') as $permission) {
+					$entry['permissions'][] = $permission->getValue();
+				}
+			}
+
+			$position = $positions->forElement($role);
+			if ($position !== null) {
+				$elementPositions["{$name}.parent"] = $position;
+				$elementPositions["{$name}.permissions"] = $position;
+			}
+
+			if ($role->has('roles')) {
+				$this->parseRolesWithPositions($role->get('roles'), $name, $data, $sourceRef, $positions, $elementPositions);
 			}
 			$data[$name] = $entry;
 		}

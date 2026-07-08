@@ -1,6 +1,8 @@
 <?php
 namespace Quiote\Config;
 
+use Quiote\Config\Format\Xml\ElementPositionIndex;
+use Quiote\Config\Schema\Rule;
 use Quiote\Config\Util\DOM\XmlConfigDomDocument;
 use Quiote\Exception\ParseException;
 use Quiote\Util\Toolkit;
@@ -21,9 +23,19 @@ use Quiote\Util\Toolkit;
  * @since      1.0.0
  * @version    1.0.0
  */
-class CompileConfigHandler extends XmlConfigHandler implements IArrayConfigHandler
+class CompileConfigHandler extends XmlConfigHandler implements IArrayConfigHandler, ISchemaAwareConfigHandler, IPositionAwareConfigHandler
 {
 	const XML_NAMESPACE = 'http://quiote.dev/quiote/config/parts/compile/1.1';
+
+	/**
+	 * Keyed by resolved file path (dynamic, not a fixed key set) -- an open
+	 * map like SettingConfigHandler's, but the value type (embedded code
+	 * string) is fixed.
+	 */
+	public function schema(): Rule
+	{
+		return Rule::dictOf(Rule::string());
+	}
 
 	/**
 	 * @throws     \Quiote\Exception\ParseException If a requested configuration file is
@@ -87,6 +99,58 @@ class CompileConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 		}
 
 		return $data;
+	}
+
+	/**
+	 * @return array{data: array<string, string>, positions: array<string, array{file: string, line: int}>}
+	 */
+	public function toCanonicalArrayWithPositions(XmlConfigDomDocument $document, ElementPositionIndex $positions): array
+	{
+		$document->setDefaultNamespace(self::XML_NAMESPACE, 'compile');
+
+		$config = $document->documentURI;
+
+		$data = [];
+		$elementPositions = [];
+
+		foreach ($document->getConfigurationElements() as $configuration) {
+			if (!$configuration->has('compiles')) {
+				continue;
+			}
+
+			foreach ($configuration->get('compiles') as $compileFile) {
+				$file = trim((string) $compileFile->getValue());
+				$file = Toolkit::expandDirectives($file) ?? $file;
+				$file = self::replacePath($file);
+				$resolvedFile = realpath($file);
+
+				if ($resolvedFile === false || !is_readable($resolvedFile)) {
+					$error = 'Configuration file "%s" specifies nonexistent ' . 'or unreadable file "%s"';
+					$error = sprintf($error, $config, $compileFile->getValue());
+					throw new ParseException($error);
+				}
+				$file = $resolvedFile;
+
+				if (Config::getBool('core.debug', false)) {
+					$contents = 'require(' . var_export($file, true) . ');';
+				} else {
+					$fileContents = file_get_contents($file);
+					if ($fileContents === false) {
+						throw new ParseException(sprintf('Configuration file "%s" could not read file "%s"', $config, $file));
+					}
+					$contents = $this->formatFile($fileContents);
+				}
+
+				$data[$file] = $contents;
+
+				$position = $positions->forElement($compileFile);
+				if ($position !== null) {
+					$elementPositions[$file] = $position;
+				}
+			}
+		}
+
+		return ['data' => $data, 'positions' => $elementPositions];
 	}
 
 	public function executeArray(array $config, ?string $sourceRef = null): string

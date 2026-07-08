@@ -19,6 +19,12 @@ use Quiote\Util\Toolkit;
  * below; for a PHP/YAML source the canonical array *is* the source (there
  * is nothing left to convert), so toCanonicalArray() and executeArray()
  * are a near-trivial split here.
+ *
+ * Deliberately does not implement ISchemaAwareConfigHandler: its whole
+ * point is arbitrary, app-defined XML-to-array conversion driven by
+ * caller-supplied parameters (id_attribute/value_key/force_array_values/
+ * attribute_prefix), so there is no fixed canonical shape to describe --
+ * same reasoning as SettingConfigHandler's open, dynamically-keyed shape.
  * @since      1.0.0
  * @version    1.0.0
  */

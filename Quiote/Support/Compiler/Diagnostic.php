@@ -16,12 +16,18 @@ final class Diagnostic
 	public const CODE_UNKNOWN_PARAMETER = 'UNKNOWN_PARAMETER';
 	public const CODE_UNRESOLVABLE_CLASS = 'UNRESOLVABLE_CLASS';
 	public const CODE_UNMAPPABLE_PARAMETER = 'UNMAPPABLE_PARAMETER';
+	public const CODE_SHADOWED_CONFIG = 'SHADOWED_CONFIG';
 
 	public function __construct(
 		public readonly string $severity,
 		public readonly string $code,
 		public readonly string $message,
 		public readonly string $where,
+		public readonly ?int $line = null,
+		public readonly ?int $column = null,
+		public readonly ?int $endLine = null,
+		public readonly ?int $endColumn = null,
+		public readonly ?string $symbol = null,
 	) {
 	}
 }

@@ -53,6 +53,9 @@ class AttributeRouteScannerTest extends PhpUnitTestCase
 		$this->assertNotEmpty($diagnostics);
 		$this->assertSame(AttributeRouteScanner::CODE_DUPLICATE_ROUTE_NAME, $diagnostics[0]->code);
 		$this->assertSame(\Quiote\Support\Compiler\Diagnostic::SEVERITY_ERROR, $diagnostics[0]->severity);
+		$this->assertNotNull($diagnostics[0]->line);
+		$this->assertGreaterThan(0, $diagnostics[0]->line);
+		$this->assertNotNull($diagnostics[0]->symbol);
 	}
 
 	public function testScanFlagsDuplicatePathAndMethodAsWarning(): void

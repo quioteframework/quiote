@@ -1,6 +1,7 @@
 <?php
 namespace Quiote\Config\Format;
 
+use Quiote\Config\Format\Yaml\YamlPositionParser;
 use Quiote\Exception\ConfigurationException;
 use Symfony\Component\Yaml\Exception\ParseException;
 use Symfony\Component\Yaml\Yaml;
@@ -12,7 +13,7 @@ use Symfony\Component\Yaml\Yaml;
  * a PHP-array file, or (for a strangler migration) an XML one.
  * @since      1.0.0
  */
-final class YamlFormatDriver extends AbstractArrayFormatDriver
+final class YamlFormatDriver extends AbstractArrayFormatDriver implements PositionAwareFormatDriverInterface
 {
 	public function supports(string $path): bool
 	{
@@ -49,5 +50,28 @@ final class YamlFormatDriver extends AbstractArrayFormatDriver
 		}
 
 		return $data;
+	}
+
+	/**
+	 * @return array{data: array<string, mixed>, positions: array<string, array{file: string, line: int}>}
+	 */
+	public function loadWithPositions(string $path, ?string $environment, ?string $context = null): array
+	{
+		// "parent"/"imports" are stripped from $data by load() (they're
+		// directives, not canonical config content) -- strip their
+		// positions too, so the position map never claims a position for a
+		// key that isn't actually present in the returned data. "imports"
+		// is itself a list, so its leaf positions are "imports[0]" etc.,
+		// not a bare "imports" key -- filter by prefix, not just an exact key.
+		$positions = array_filter(
+			YamlPositionParser::parse($path),
+			static fn(string $key): bool => $key !== 'parent' && $key !== 'imports' && !str_starts_with($key, 'imports['),
+			ARRAY_FILTER_USE_KEY,
+		);
+
+		return [
+			'data' => $this->load($path, $environment, $context),
+			'positions' => $positions,
+		];
 	}
 }

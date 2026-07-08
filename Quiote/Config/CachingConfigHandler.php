@@ -1,6 +1,8 @@
 <?php
 namespace Quiote\Config;
 
+use Quiote\Config\Format\Xml\ElementPositionIndex;
+use Quiote\Config\Schema\Rule;
 use Quiote\Config\Util\DOM\XmlConfigDomDocument;
 use Quiote\Exception\ParseException;
 use Quiote\Util\Toolkit;
@@ -16,9 +18,47 @@ use Quiote\Util\Toolkit;
  * @since      1.0.0
  * @version    1.0.0
  */
-class CachingConfigHandler extends XmlConfigHandler implements IArrayConfigHandler
+class CachingConfigHandler extends XmlConfigHandler implements IArrayConfigHandler, ISchemaAwareConfigHandler, IPositionAwareConfigHandler
 {
 	const XML_NAMESPACE = 'http://quiote.dev/quiote/config/parts/caching/1.1';
+
+	/**
+	 * "layers" is a polymorphic per-layer-name map (true, or a list of slot
+	 * names) not modeled key-by-key here -- structural parity stops at the
+	 * known, fixed keys of a caching entry and an output-type entry; the
+	 * dynamic method/output-type/layer-name keys themselves are, correctly,
+	 * unconstrained (Dict), same as SettingConfigHandler's open shape.
+	 */
+	public function schema(): Rule
+	{
+		$group = Rule::struct([
+			'name' => Rule::mixed(),
+			'source' => Rule::string(nullable: true),
+			'namespace' => Rule::string(nullable: true),
+		], required: ['name', 'source', 'namespace']);
+
+		$requestAttribute = Rule::struct([
+			'name' => Rule::mixed(),
+			'namespace' => Rule::string(nullable: true),
+		], required: ['name', 'namespace']);
+
+		$outputType = Rule::struct([
+			'layers' => Rule::mixed(),
+			'template_variables' => Rule::listOf(Rule::mixed()),
+			'request_attributes' => Rule::listOf($requestAttribute),
+			'request_attribute_namespaces' => Rule::listOf(Rule::mixed()),
+		], required: ['layers', 'template_variables', 'request_attributes', 'request_attribute_namespaces']);
+
+		$caching = Rule::struct([
+			'lifetime' => Rule::string(nullable: true),
+			'groups' => Rule::listOf($group),
+			'views' => Rule::listOf(Rule::mixed(), nullable: true),
+			'action_attributes' => Rule::listOf(Rule::mixed()),
+			'output_types' => Rule::dictOf($outputType),
+		], required: ['lifetime', 'groups', 'views', 'action_attributes', 'output_types']);
+
+		return Rule::dictOf($caching);
+	}
 
 	/**
 	 * @throws     \Quiote\Exception\UnreadableException If a requested configuration
@@ -157,6 +197,44 @@ class CachingConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 		}
 
 		return $cachings;
+	}
+
+	/**
+	 * Positions are only tracked for each caching entry's own "lifetime"
+	 * key, at the <caching> element's line -- a reasonable top-level anchor
+	 * without mirroring the full recursive output_types/layers/slots walk
+	 * above, which polymorphic "layers" values (true|list<string>) don't
+	 * cleanly reduce to a single leaf position anyway.
+	 * @return array{data: array<string, array<string, mixed>>, positions: array<string, array{file: string, line: int}>}
+	 */
+	public function toCanonicalArrayWithPositions(XmlConfigDomDocument $document, ElementPositionIndex $positions): array
+	{
+		$document->setDefaultNamespace(self::XML_NAMESPACE, 'caching');
+
+		$data = $this->toCanonicalArray($document);
+		$elementPositions = [];
+
+		foreach ($document->getConfigurationElements() as $cfg) {
+			if (!$cfg->has('cachings')) {
+				continue;
+			}
+
+			foreach ($cfg->get('cachings') as $caching) {
+				$position = $positions->forElement($caching);
+				if ($position === null) {
+					continue;
+				}
+
+				$methods = array_map(trim(...), explode(' ', (string) $caching->getAttribute('method', '*')));
+				foreach ($methods as $method) {
+					if (isset($data[$method])) {
+						$elementPositions["{$method}.lifetime"] = $position;
+					}
+				}
+			}
+		}
+
+		return ['data' => $data, 'positions' => $elementPositions];
 	}
 
 	/**

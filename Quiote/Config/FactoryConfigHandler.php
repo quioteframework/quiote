@@ -1,6 +1,8 @@
 <?php
 namespace Quiote\Config;
 
+use Quiote\Config\Format\Xml\ElementPositionIndex;
+use Quiote\Config\Schema\Rule;
 use Quiote\Config\Util\DOM\XmlConfigDomDocument;
 use Quiote\Exception\ConfigurationException;
 
@@ -29,9 +31,26 @@ use Quiote\Exception\ConfigurationException;
  * @since      1.0.0
  * @version    1.0.0
  */
-class FactoryConfigHandler extends XmlConfigHandler implements IArrayConfigHandler
+class FactoryConfigHandler extends XmlConfigHandler implements IArrayConfigHandler, ISchemaAwareConfigHandler, IPositionAwareConfigHandler
 {
 	const XML_NAMESPACE = 'http://quiote.dev/quiote/config/parts/factories/1.1';
+
+	/**
+	 * No required list: which factories must be present is conditional at
+	 * runtime (translation_manager depends on core.use_translation), so
+	 * that stays a Layer-2 semantic check in executeArray(), not a static
+	 * array shape.
+	 */
+	public function schema(): Rule
+	{
+		$names = array_values(array_filter(array_keys($this->getFactoryDefinitions()), 'is_string'));
+		$entry = Rule::struct([
+			'class' => Rule::phpClass(nullable: true),
+			'params' => Rule::mixed(),
+		]);
+
+		return Rule::struct(array_combine($names, array_fill(0, count($names), $entry)));
+	}
 
 	/**
 	 * The fixed factory ordering/startup-sequence definition. Order
@@ -143,6 +162,42 @@ class FactoryConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 		}
 
 		return $data;
+	}
+
+	/**
+	 * @return array{data: array<string, array{class: string|null, params: array<mixed>}>, positions: array<string, array{file: string, line: int}>}
+	 */
+	public function toCanonicalArrayWithPositions(XmlConfigDomDocument $document, ElementPositionIndex $positions): array
+	{
+		$document->setDefaultNamespace(self::XML_NAMESPACE, 'factories');
+
+		$data = [];
+		$elementPositions = [];
+		$factories = $this->getFactoryDefinitions();
+
+		foreach ($document->getConfigurationElements() as $configuration) {
+			foreach ($factories as $factory => $info) {
+				if (!is_string($factory) || !is_array($info)) {
+					continue;
+				}
+
+				if ($info['required']) {
+					$element = $configuration->getChild($factory);
+					if ($element !== null) {
+						$data[$factory] ??= ['class' => null, 'params' => []];
+						$data[$factory]['class'] = $element->getAttribute('class', $data[$factory]['class']);
+						$data[$factory]['params'] = $element->getQuioteParameters($data[$factory]['params']);
+
+						$position = $positions->forElement($element);
+						if ($position !== null) {
+							$elementPositions["{$factory}.class"] = $position;
+						}
+					}
+				}
+			}
+		}
+
+		return ['data' => $data, 'positions' => $elementPositions];
 	}
 
 	/**

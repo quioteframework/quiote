@@ -7,6 +7,7 @@ use Quiote\Exception\CacheException;
 use Quiote\Exception\ConfigurationException;
 use Quiote\Exception\QuioteException;
 use Quiote\Exception\UnreadableException;
+use Quiote\Support\Compiler\Diagnostic;
 use Quiote\Util\Toolkit;
 
 /**
@@ -354,39 +355,102 @@ class ConfigCache
 		}
 
 		$format = Config::getNullableString('core.config_format');
+		if ($format !== null && !isset(self::CONFIG_FORMAT_EXTENSIONS[$format])) {
+			throw new ConfigurationException(sprintf(
+				'Unknown core.config_format "%s"; expected one of: %s',
+				$format,
+				implode(', ', array_keys(self::CONFIG_FORMAT_EXTENSIONS))
+			));
+		}
+
+		$candidates = self::describeConfigCandidates($filename);
+		if ($candidates['winner'] !== null) {
+			return $candidates['winner'];
+		}
+
 		if ($format !== null) {
-			$extensions = self::CONFIG_FORMAT_EXTENSIONS[$format] ?? null;
-			if ($extensions === null) {
-				throw new ConfigurationException(sprintf(
-					'Unknown core.config_format "%s"; expected one of: %s',
-					$format,
-					implode(', ', array_keys(self::CONFIG_FORMAT_EXTENSIONS))
-				));
-			}
-			foreach ($extensions as $extension) {
-				$candidate = $base . '.' . $extension;
-				if (is_file($candidate)) {
-					return $candidate;
-				}
-			}
 			throw new UnreadableException(sprintf(
 				'core.config_format is set to "%s" but no "%s.{%s}" file exists.',
 				$format,
 				$base,
-				implode(',', $extensions)
+				implode(',', self::CONFIG_FORMAT_EXTENSIONS[$format])
 			));
 		}
 
-		foreach (self::CONFIG_FORMAT_EXTENSIONS as $extensions) {
+		return $filename;
+	}
+
+	/**
+	 * Full-candidate-list counterpart to resolveConfigFormat(): reports not
+	 * just the physical file that would be loaded, but every sibling that
+	 * exists and why it lost, so callers building diagnostics (e.g. "this
+	 * settings.xml is shadowed by settings.php and will never be read") can
+	 * surface the whole picture instead of just the winner.
+	 *
+	 * @return array{
+	 *     winner: ?string,
+	 *     shadowed: list<array{path: string, reason: 'excluded_by_config_format'|'lower_precedence'}>
+	 * }
+	 */
+	public static function describeConfigCandidates(string $filename): array
+	{
+		$base = self::stripKnownConfigExtension($filename);
+		if ($base === null) {
+			return ['winner' => is_file($filename) ? $filename : null, 'shadowed' => []];
+		}
+
+		$format = Config::getNullableString('core.config_format');
+		$winner = null;
+		$shadowed = [];
+
+		foreach (self::CONFIG_FORMAT_EXTENSIONS as $formatName => $extensions) {
 			foreach ($extensions as $extension) {
 				$candidate = $base . '.' . $extension;
-				if (is_file($candidate)) {
-					return $candidate;
+				if (!is_file($candidate)) {
+					continue;
+				}
+				if ($format !== null && $formatName !== $format) {
+					$shadowed[] = ['path' => $candidate, 'reason' => 'excluded_by_config_format'];
+					continue;
+				}
+				if ($winner === null) {
+					$winner = $candidate;
+				} else {
+					$shadowed[] = ['path' => $candidate, 'reason' => 'lower_precedence'];
 				}
 			}
 		}
 
-		return $filename;
+		return ['winner' => $winner, 'shadowed' => $shadowed];
+	}
+
+	/**
+	 * Diagnostic-object counterpart to describeConfigCandidates(), for
+	 * callers (console, probe, the future extension) that want to surface
+	 * "this config is shadowed" the same way every other framework
+	 * diagnostic is reported, rather than re-deriving a message from the
+	 * raw {winner, shadowed} shape themselves.
+	 * @return list<Diagnostic>
+	 */
+	public static function describeShadowedConfigDiagnostics(string $filename): array
+	{
+		$candidates = self::describeConfigCandidates($filename);
+
+		$diagnostics = [];
+		foreach ($candidates['shadowed'] as $shadow) {
+			$message = $shadow['reason'] === 'excluded_by_config_format'
+				? sprintf('Configuration file "%s" is never read because core.config_format excludes its format.', $shadow['path'])
+				: sprintf('Configuration file "%s" is never read because "%s" takes precedence.', $shadow['path'], $candidates['winner'] ?? '(unknown)');
+
+			$diagnostics[] = new Diagnostic(
+				Diagnostic::SEVERITY_WARNING,
+				Diagnostic::CODE_SHADOWED_CONFIG,
+				$message,
+				$shadow['path'],
+			);
+		}
+
+		return $diagnostics;
 	}
 
 	/**

@@ -80,12 +80,22 @@ final class AttributeRouteScanner
 				foreach ($attributes as $attribute) {
 					$route = $this->buildRouteDefinition($attribute->newInstance(), $module, $action, $file);
 
+					// getStartLine() is the class's own declaration line, not the
+					// #[Route] attribute's exact line -- ReflectionAttribute
+					// exposes no position of its own -- but it reliably lands
+					// an editor on the right file, close to the right place,
+					// which is what matters for a "go look at this" diagnostic.
+					$line = $reflection->getStartLine();
+					$line = $line !== false ? $line : null;
+
 					if (isset($seenNames[$route->name])) {
 						$this->diagnostics[] = new Diagnostic(
 							Diagnostic::SEVERITY_ERROR,
 							self::CODE_DUPLICATE_ROUTE_NAME,
 							sprintf('Route name "%s" is declared more than once (also in %s).', $route->name, $seenNames[$route->name]),
-							$file
+							$file,
+							$line,
+							symbol: $route->name,
 						);
 					}
 					$seenNames[$route->name] = $file;
@@ -96,7 +106,9 @@ final class AttributeRouteScanner
 								Diagnostic::SEVERITY_WARNING,
 								self::CODE_DUPLICATE_ROUTE_PATH,
 								sprintf('Route "%s" duplicates path+method "%s" already declared in %s.', $route->name, $key, $seenPaths[$key]),
-								$file
+								$file,
+								$line,
+								symbol: $route->name,
 							);
 						}
 						$seenPaths[$key] = $file;
