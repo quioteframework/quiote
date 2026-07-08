@@ -4,8 +4,10 @@ declare(strict_types=1);
 namespace Quiote\Routing\Compiler;
 
 use Quiote\Action\Action;
+use Quiote\Controller\Controller;
 use Quiote\Util\Toolkit;
 use ReflectionClass;
+use ReflectionMethod;
 use Throwable;
 
 /**
@@ -76,14 +78,93 @@ final class TriadViewResolver
 		);
 	}
 
-	public function templateFileFor(ModuleActionEntry $entry, string $canonicalViewToken): string
+	public function templateFileFor(ModuleActionEntry $entry, string $canonicalViewToken, string $extension = '.php'): string
 	{
 		$directory = rtrim(Toolkit::evaluateModuleDirective(
 			$entry->module,
 			'quiote.template.directory',
 			['module' => $entry->module, 'moduleName' => $entry->module],
 		), '/');
-		return $directory . '/' . $canonicalViewToken . '.php';
+		return $directory . '/' . $canonicalViewToken . $extension;
+	}
+
+	/**
+	 * The `execute()`/`execute{OutputType}()` methods a view class declares
+	 * (own or inherited from an app-level base view), one per output type it
+	 * handles -- mirrors `ActionExecutor`'s own `'execute' . ucfirst($outputType)`
+	 * resolution convention. Each is a separate template-triad candidate: an
+	 * `executeHtml()` that renders a layout needs a template, an
+	 * `executeJson()` that returns `json_encode(...)` directly typically
+	 * doesn't, and both can coexist on the same view class.
+	 * @param ReflectionClass<object> $view
+	 * @return list<ReflectionMethod>
+	 */
+	public function executeMethodsFor(ReflectionClass $view): array
+	{
+		$methods = [];
+		foreach ($view->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
+			if ($method->isAbstract()) {
+				continue;
+			}
+			if ($method->getName() === 'execute' || preg_match('/^execute[A-Z]/', $method->getName()) === 1) {
+				$methods[] = $method;
+			}
+		}
+		return $methods;
+	}
+
+	/**
+	 * The output type name an `execute*()` method is resolved for, or null
+	 * for the bare `execute()` method, which stands in for whichever output
+	 * type is otherwise in effect (the app's configured default, absent
+	 * further context).
+	 */
+	public function outputTypeNameFor(ReflectionMethod $method): ?string
+	{
+		if ($method->getName() === 'execute') {
+			return null;
+		}
+		return lcfirst(substr($method->getName(), strlen('execute')));
+	}
+
+	/**
+	 * The template file extension (leading dot included) that a given
+	 * `execute*()` method's output type renders with, resolved from the
+	 * app's real, already-initialized output type/renderer configuration
+	 * when available. Falls back to the PHP-renderer convention (`.php`)
+	 * when no Controller is supplied, or the output type/renderer can't be
+	 * resolved (e.g. a name with no configured output type) -- the same
+	 * default this check used before per-output-type extensions existed.
+	 */
+	public function templateExtensionFor(ReflectionMethod $method, ?Controller $controller): string
+	{
+		if ($controller === null) {
+			return '.php';
+		}
+		try {
+			$extension = $controller->getOutputType($this->outputTypeNameFor($method))->getRenderer()?->getDefaultExtension();
+		} catch (Throwable) {
+			return '.php';
+		}
+		return $extension !== null && $extension !== '' ? $extension : '.php';
+	}
+
+	/**
+	 * Whether this specific `execute*()` method opts out of the
+	 * `MISSING_TEMPLATE` check via `@quiote-viewmethod-has-no-template` in
+	 * its own docblock (inherited from whichever class actually declares it,
+	 * same as ordinary method resolution). Escape hatch for a method whose
+	 * output type returns content directly (e.g. `executeJson()` returning
+	 * `json_encode(...)`) and therefore never renders a template by design
+	 * -- {@see TriadDiagnosticsScanner} has no way to see that statically,
+	 * so it would otherwise always false-flag a template that will never
+	 * exist. Scoped per method, not per class, since one view can freely mix
+	 * template-backed and template-less `execute*()` methods.
+	 */
+	public function declaresNoTemplate(ReflectionMethod $method): bool
+	{
+		$doc = $method->getDocComment();
+		return $doc !== false && str_contains($doc, '@quiote-viewmethod-has-no-template');
 	}
 
 	/**

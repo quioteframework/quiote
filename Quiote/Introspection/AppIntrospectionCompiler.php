@@ -69,7 +69,8 @@ final class AppIntrospectionCompiler
 
 		$entries = (new ModuleActionDiscovery())->discover($moduleDirs, $namespacePrefix);
 		$this->initializeModules($context, $entries);
-		foreach ((new TriadDiagnosticsScanner($this->views))->scan($entries) as $diagnostic) {
+		$scannerController = Context::getInstance($context)->getController();
+		foreach ((new TriadDiagnosticsScanner($this->views, $scannerController))->scan($entries) as $diagnostic) {
 			$diagnostics[] = $diagnostic;
 		}
 

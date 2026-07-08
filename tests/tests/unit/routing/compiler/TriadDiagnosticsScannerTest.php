@@ -2,6 +2,7 @@
 
 use Quiote\Config\Config;
 use Quiote\Context;
+use Quiote\Controller\Controller;
 use Quiote\Routing\Compiler\ModuleActionDiscovery;
 use Quiote\Routing\Compiler\TriadDiagnosticsScanner;
 use Quiote\Support\Compiler\Diagnostic;
@@ -34,6 +35,9 @@ final class TriadDiagnosticsScannerTest extends PhpUnitTestCase
 		// Action files they discover.
 		require_once self::FIXTURE_MODULES . '/Widget/Views/GoodSuccessView.php';
 		require_once self::FIXTURE_MODULES . '/Widget/Views/NoTemplateSuccessView.php';
+		require_once self::FIXTURE_MODULES . '/Widget/Views/NoTemplateOptOutSuccessView.php';
+		require_once self::FIXTURE_MODULES . '/Widget/Views/MixedSuccessView.php';
+		require_once self::FIXTURE_MODULES . '/Widget/Views/MultiMissingSuccessView.php';
 	}
 
 	protected function tearDown(): void
@@ -43,10 +47,10 @@ final class TriadDiagnosticsScannerTest extends PhpUnitTestCase
 	}
 
 	/** @return list<Diagnostic> */
-	private function scan(): array
+	private function scan(?Controller $controller = null): array
 	{
 		$entries = (new ModuleActionDiscovery())->discover([self::FIXTURE_MODULES], 'Sandbox');
-		return (new TriadDiagnosticsScanner())->scan($entries);
+		return (new TriadDiagnosticsScanner(controller: $controller))->scan($entries);
 	}
 
 	/**
@@ -92,6 +96,42 @@ final class TriadDiagnosticsScannerTest extends PhpUnitTestCase
 	public function testDoesNotFlagAnActionWithAMatchingViewAndTemplate(): void
 	{
 		$this->assertNull($this->findFor($this->scan(), 'Widget.Good'));
+	}
+
+	public function testDoesNotFlagAViewThatOptsOutOfTheTemplateCheck(): void
+	{
+		$this->assertNull($this->findFor($this->scan(), 'Widget.NoTemplateOptOut'));
+	}
+
+	public function testDoesNotFlagAViewWhoseUnannotatedMethodHasATemplate(): void
+	{
+		// executeJson()/execute() opt out and have no template; executeHtml()
+		// doesn't opt out but does have one -- the opt-out must be scoped to
+		// the specific method, not the whole view.
+		$this->assertNull($this->findFor($this->scan(), 'Widget.Mixed'));
+	}
+
+	public function testCombinesMultipleMissingExecuteMethodsIntoOneDiagnostic(): void
+	{
+		$diagnostic = $this->findFor($this->scan(), 'Widget.MultiMissing');
+
+		$this->assertNotNull($diagnostic);
+		$this->assertSame(Diagnostic::CODE_MISSING_TEMPLATE, $diagnostic->code);
+		$this->assertStringContainsString('executeHtml()', $diagnostic->message);
+		$this->assertStringContainsString('executeXml()', $diagnostic->message);
+		// execute() opts out, so it must not appear in the missing list.
+		$this->assertStringNotContainsString('execute() ->', $diagnostic->message);
+	}
+
+	public function testResolvesTemplateExtensionsViaAnExplicitController(): void
+	{
+		$controller = Context::getInstance('web')->getController();
+
+		$this->assertNull($this->findFor($this->scan($controller), 'Widget.Good'));
+
+		$diagnostic = $this->findFor($this->scan($controller), 'Widget.NoTemplate');
+		$this->assertNotNull($diagnostic);
+		$this->assertSame(Diagnostic::CODE_MISSING_TEMPLATE, $diagnostic->code);
 	}
 
 	public function testDoesNotFlagAnActionThatNeverOverridesGetDefaultViewName(): void

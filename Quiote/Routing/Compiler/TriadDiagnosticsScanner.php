@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Quiote\Routing\Compiler;
 
 use Quiote\Config\Config;
+use Quiote\Controller\Controller;
 use Quiote\Support\Compiler\Diagnostic;
 use ReflectionClass;
 
@@ -20,12 +21,19 @@ use ReflectionClass;
  *   the class its own path/namespace convention implies.
  * - `MISSING_VIEW`: `getDefaultViewName()` names a view with no matching
  *   `{Action}{ViewName}View` class and no legacy view file on disk.
- * - `MISSING_TEMPLATE`: the view exists, but the default PHP-renderer
- *   template file (`Templates/{Action}{ViewName}.php`, per
- *   `quiote.template.directory`) is absent. Convention-only, not a bug: a
- *   view using a custom renderer, extension, or an output-type-specific
- *   layer/slot override is not accounted for here -- it can only false-flag
- *   as missing, never hide a real gap, so it stays a warning.
+ * - `MISSING_TEMPLATE`: the view exists, but at least one of its
+ *   `execute()`/`execute{OutputType}()` methods (per
+ *   {@see TriadViewResolver::executeMethodsFor()}) has no matching template
+ *   file for the extension its output type renders with (per
+ *   {@see TriadViewResolver::templateExtensionFor()} -- the app's real
+ *   renderer configuration when a `Controller` is supplied, `.php`
+ *   otherwise). Convention-only, not a bug: it can only false-flag as
+ *   missing, never hide a real gap, so it stays a warning. A specific
+ *   `execute*()` method can opt out with
+ *   `@quiote-viewmethod-has-no-template` in its own docblock, for methods
+ *   whose output type returns content directly and never renders a template
+ *   by design (e.g. a JSON-only `executeJson()`) --
+ *   {@see TriadViewResolver::declaresNoTemplate()}.
  *
  * `getDefaultViewName()` is read via `newInstanceWithoutConstructor()`
  * ({@see TriadViewResolver}) so no constructor/DI side effects run; an
@@ -36,8 +44,10 @@ use ReflectionClass;
  */
 final class TriadDiagnosticsScanner
 {
-	public function __construct(private readonly TriadViewResolver $views = new TriadViewResolver())
-	{
+	public function __construct(
+		private readonly TriadViewResolver $views = new TriadViewResolver(),
+		private readonly ?Controller $controller = null,
+	) {
 	}
 
 	/**
@@ -103,12 +113,39 @@ final class TriadDiagnosticsScanner
 			)];
 		}
 
-		$templateFile = $this->views->templateFileFor($entry, $canonicalViewToken);
-		if (!is_file($templateFile)) {
+		$viewClass = $this->views->viewClassFor($entry, $canonicalViewToken, $namespacePrefix);
+		if (!class_exists($viewClass)) {
+			// Legacy (non-class) view file: no execute*() methods to reflect,
+			// so fall back to the single conventional PHP template check.
+			$templateFile = $this->views->templateFileFor($entry, $canonicalViewToken);
+			if (!is_file($templateFile)) {
+				return [new Diagnostic(
+					Diagnostic::SEVERITY_WARNING,
+					Diagnostic::CODE_MISSING_TEMPLATE,
+					sprintf('Action "%s" resolves to view "%s", but its default template "%s" was not found.', $symbol, $canonicalViewToken, $templateFile),
+					$entry->file,
+					symbol: $symbol,
+				)];
+			}
+			return [];
+		}
+
+		$missing = [];
+		foreach ($this->views->executeMethodsFor(new ReflectionClass($viewClass)) as $method) {
+			if ($this->views->declaresNoTemplate($method)) {
+				continue;
+			}
+			$extension = $this->views->templateExtensionFor($method, $this->controller);
+			$templateFile = $this->views->templateFileFor($entry, $canonicalViewToken, $extension);
+			if (!is_file($templateFile)) {
+				$missing[] = sprintf('%s() -> "%s"', $method->getName(), $templateFile);
+			}
+		}
+		if ($missing !== []) {
 			return [new Diagnostic(
 				Diagnostic::SEVERITY_WARNING,
 				Diagnostic::CODE_MISSING_TEMPLATE,
-				sprintf('Action "%s" resolves to view "%s", but its default template "%s" was not found.', $symbol, $canonicalViewToken, $templateFile),
+				sprintf('Action "%s" resolves to view "%s", but its template is missing for: %s.', $symbol, $canonicalViewToken, implode(', ', $missing)),
 				$entry->file,
 				symbol: $symbol,
 			)];
