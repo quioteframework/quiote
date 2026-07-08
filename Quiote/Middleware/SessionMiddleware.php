@@ -42,8 +42,15 @@ class SessionMiddleware implements MiddlewareInterface
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        // Skip session handling entirely for JWT-authenticated requests
-        if ($request->getAttribute('jwt.skip_session')) {
+        // Skip session handling entirely for a stateless machine/service-client
+        // request. `jwt.skip_session` is the original (Jakamo-era) attribute
+        // name; `auth.sessionless` is the generalized replacement set by
+        // Quiote\Security\Auth\Middleware\StatelessAuthenticationMiddleware
+        // (packages/auth) for a sessionless firewall or a service-typed token,
+        // which runs earlier in the pipeline (before: SessionMiddleware::class).
+        // Both are honored so neither an app still setting the legacy
+        // attribute nor packages/auth's generalized one is silently ignored.
+        if ($request->getAttribute('jwt.skip_session') || $request->getAttribute('auth.sessionless')) {
             if (!$request->getAttribute(ExecutionState::class)) {
                 $request = $request->withAttribute(ExecutionState::class, new ExecutionState());
             }
