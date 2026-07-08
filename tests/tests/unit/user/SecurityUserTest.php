@@ -1,5 +1,6 @@
 <?php
 
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use Quiote\Testing\UnitTestCase;
 use Quiote\User\SecurityUser;
 use Quiote\Context;
@@ -11,12 +12,15 @@ class SampleSecurityUser extends SecurityUser
 	{
 		parent::initialize($context, $parameters);
 		$this->context = $context;
-		
-		if(count($parameters)) {
-			$this->attributes = $parameters;
-		}
 		$this->attributes = [];
 	}
+}
+
+class SampleIdentityRestoringUser extends SecurityUser
+{
+	protected const CORE_IDENTITY_KEYS = ['legacy_user_id'];
+
+	protected $storageNamespace = 'org.quiote.user.SampleIdentityRestoringUser';
 }
 
 
@@ -131,6 +135,116 @@ class SecurityUserTest extends UnitTestCase
 
 		$this->assertFalse($u->isAuthenticated());
 		$this->assertNull($u->getCredentials());
+	}
+
+	public function testMarkTokenDerivedIsReflectedImmediately(): void
+	{
+		$u = $this->_u;
+		$this->assertFalse($u->isTokenDerived());
+
+		$u->markTokenDerived();
+		$this->assertTrue($u->isTokenDerived());
+
+		$u->markTokenDerived(false);
+		$this->assertFalse($u->isTokenDerived());
+	}
+
+	#[RunInSeparateProcess]
+	public function testTokenDerivedCredentialsAreNotRehydratedFromStaleSession(): void
+	{
+		// NullStorage (the default test storage) discards everything, so
+		// persistence across separate User instances needs a real,
+		// dedicated (SessionStorage-backed) context -- see factories.xml.
+		$context = Context::getInstance('security-user-test::tests-token-derived-persistence');
+
+		$u = new SampleSecurityUser();
+		$u->initialize($context);
+		$u->setAuthenticated(false);
+		$u->clearCredentials();
+		$u->addCredential('stale_session_credential');
+		$u->markTokenDerived();
+
+		// Simulate the next request: a fresh instance re-reads persisted storage.
+		$fresh = new SampleSecurityUser();
+		$fresh->initialize($context);
+
+		$this->assertTrue($fresh->isTokenDerived());
+		$this->assertSame([], $fresh->getCredentials());
+	}
+
+	#[RunInSeparateProcess]
+	public function testSetAuthenticatedFalseClearsTokenDerivedMarker(): void
+	{
+		$context = Context::getInstance('security-user-test::tests-token-derived-clear');
+
+		$u = new SampleSecurityUser();
+		$u->initialize($context);
+		$u->markTokenDerived();
+		$this->assertTrue($u->isTokenDerived());
+
+		$u->setAuthenticated(false);
+
+		$this->assertFalse($u->isTokenDerived());
+
+		$fresh = new SampleSecurityUser();
+		$fresh->initialize($context);
+		$this->assertFalse($fresh->isTokenDerived());
+	}
+
+	public function testResetClearsTokenDerivedMarker(): void
+	{
+		$this->_u->markTokenDerived();
+		$this->_u->reset();
+
+		$this->assertFalse($this->_u->isTokenDerived());
+	}
+
+	public function testRestoreIdentityFromStorageIsNoOpWithoutCoreIdentityKeys(): void
+	{
+		// Base SecurityUser declares no CORE_IDENTITY_KEYS; calling the hook
+		// must be a safe no-op rather than an error.
+		$this->_u->restoreIdentityFromStorage();
+
+		$this->assertFalse($this->_u->hasAttribute('legacy_user_id'));
+	}
+
+	#[RunInSeparateProcess]
+	public function testRestoreIdentityFromStorageRepopulatesDeclaredKeysAfterColdStart(): void
+	{
+		$context = Context::getInstance('security-user-test::tests-restore-identity');
+
+		$u = new SampleIdentityRestoringUser();
+		$u->initialize($context);
+		$u->setAttribute('legacy_user_id', 42);
+		$u->persistAttributesImmediate(['legacy_user_id']);
+
+		// Simulate a worker cold start via the unserialize-style restoreContext()
+		// path (not initialize(), which already re-reads storage on its own):
+		// a fresh instance with no attributes loaded yet.
+		$cold = new SampleIdentityRestoringUser();
+		$cold->restoreContext($context);
+		$this->assertFalse($cold->hasAttribute('legacy_user_id'));
+
+		$cold->restoreIdentityFromStorage();
+
+		$this->assertTrue($cold->hasAttribute('legacy_user_id'));
+		$this->assertSame(42, $cold->getAttribute('legacy_user_id'));
+	}
+
+	#[RunInSeparateProcess]
+	public function testRestoreIdentityFromStorageDoesNotOverwriteAlreadySetAttribute(): void
+	{
+		$context = Context::getInstance('security-user-test::tests-restore-identity');
+
+		$u = new SampleIdentityRestoringUser();
+		$u->initialize($context);
+		$u->setAttribute('legacy_user_id', 42);
+		$u->persistAttributesImmediate(['legacy_user_id']);
+
+		$u->setAttribute('legacy_user_id', 99);
+		$u->restoreIdentityFromStorage();
+
+		$this->assertSame(99, $u->getAttribute('legacy_user_id'));
 	}
 
 }

@@ -84,6 +84,21 @@
             "name": "session-gcs",
             "directory": "packages/session-gcs",
             "target": "git@github.com:quioteframework/session-gcs.git"
+        },
+        {
+            "name": "auth",
+            "directory": "packages/auth",
+            "target": "git@github.com:quioteframework/auth.git"
+        },
+        {
+            "name": "auth-jwt",
+            "directory": "packages/auth-jwt",
+            "target": "git@github.com:quioteframework/auth-jwt.git"
+        },
+        {
+            "name": "auth-oauth",
+            "directory": "packages/auth-oauth",
+            "target": "git@github.com:quioteframework/auth-oauth.git"
         }
     ]
 }

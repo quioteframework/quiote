@@ -28,6 +28,9 @@
                  the <groups><exclude> below still keeps them out of a plain `composer
                  test` run; `composer test:integration` runs them explicitly. -->
             <directory>packages/mcp/tests</directory>
+            <directory>packages/auth/tests</directory>
+            <directory>packages/auth-jwt/tests</directory>
+            <directory>packages/auth-oauth/tests</directory>
             <directory>packages/ratelimit/tests</directory>
             <directory>packages/csrf/tests</directory>
             <directory>packages/whoops/tests</directory>
@@ -88,6 +91,9 @@
         <include>
             <directory>Quiote</directory>
             <directory>packages/mcp/src</directory>
+            <directory>packages/auth/src</directory>
+            <directory>packages/auth-jwt/src</directory>
+            <directory>packages/auth-oauth/src</directory>
             <directory>packages/ratelimit/src</directory>
             <directory>packages/csrf/src</directory>
             <directory>packages/whoops/src</directory>

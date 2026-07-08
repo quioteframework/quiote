@@ -80,6 +80,22 @@
 		<storage class="Quiote\Storage\SessionStorage" />
 	</ae:configuration>
 
+	<ae:configuration environment="testing.*" context="security-user-test::tests-token-derived-persistence">
+		<storage class="Quiote\Storage\SessionStorage" />
+	</ae:configuration>
+
+	<ae:configuration environment="testing.*" context="security-user-test::tests-token-derived-clear">
+		<storage class="Quiote\Storage\SessionStorage" />
+	</ae:configuration>
+
+	<ae:configuration environment="testing.*" context="security-user-test::tests-restore-identity">
+		<storage class="Quiote\Storage\SessionStorage" />
+	</ae:configuration>
+
+	<ae:configuration environment="testing.*" context="rbac-security-user-test::tests-token-derived-persistence">
+		<storage class="Quiote\Storage\SessionStorage" />
+	</ae:configuration>
+
 	<ae:configuration environment="testing.*" context="routes-list-cli-test">
 		<routing class="Sandbox\App\Routing\AttributeMergedRouting" />
 	</ae:configuration>
