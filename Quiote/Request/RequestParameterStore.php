@@ -112,6 +112,25 @@ final class RequestParameterStore
     }
 
     /**
+     * Sets a runtime parameter's value WITHOUT whitelisting it, unlike
+     * withParameter(). Used for values that must be visible to validators
+     * (e.g. a route param promoted into the pipeline so it can be validated
+     * like any other input) but must not become readable via
+     * WebRequest::getParameter() unless a real validator actually targets
+     * that name -- the value sits in runtimeParameters (so
+     * getParameters('parameters')'s pre-filter merge and a validator's
+     * getKeysInCurrentBase() can see it), but isWhitelisted() stays false
+     * until ValidationManager's own enforceValidatedParameters()/pruneTo()
+     * decide it survived real validation.
+     */
+    public function withUnvalidatedParameter(string $name, mixed $value): self
+    {
+        $runtimeParameters = $this->runtimeParameters;
+        $runtimeParameters[$name] = $value;
+        return new self($runtimeParameters, $this->validatedKeys);
+    }
+
+    /**
      * Legacy append API mirrors ParameterHolder::appendParameter semantics.
      */
     public function withAppendedParameter(string $name, mixed $value): self

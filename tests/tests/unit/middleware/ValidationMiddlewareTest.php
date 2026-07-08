@@ -476,4 +476,153 @@ class ValidationMiddlewareTest extends TestCase
         $this->assertSame(400, $response->getStatusCode());
         $this->assertTrue($response->hasHeader('X-Quiote-Validation'));
     }
+
+    public function testRouteParamWithoutAValidatorIsNotAccessibleForNonSimpleAction(): void
+    {
+        // Regression test for a pre-1.0.0 finding (docs/STRICT_VALIDATION_HARDENING.md
+        // item 3): route-param promotion used to call setParameter(), which
+        // auto-whitelists as a trusted-export side effect. That let a route param
+        // like {id} reach getParameter() in a non-simple action's execute*() even
+        // though no validator was ever registered for it -- especially once some
+        // OTHER field's validator ran (so the zero-validator clearParameters() path
+        // never fires and the leaked whitelist + value both survive pruning).
+        \Quiote\Config\Config::fromArray([
+            'modules.routeparamgap.enabled' => true,
+        ]);
+        $controller = $this->context->getController();
+        $actionDesc = new \Quiote\Execution\ActionDescriptor('RouteParamGap', 'Show', 'write', 'html', false);
+        $action = new class extends \Quiote\Action\Action {
+            public ?string $capturedName = null;
+            public mixed $idAccessException = null;
+            public function getDefaultViewName() { return 'Input'; }
+            public function executeWrite(\Quiote\Request\WebRequest $rd): string
+            {
+                $this->capturedName = $rd->getParameter('name');
+                try {
+                    $rd->getParameter('id');
+                } catch (\Quiote\Exception\UnvalidatedParameterAccessException $e) {
+                    $this->idAccessException = $e;
+                }
+                return 'Success';
+            }
+            public function handleError(\Quiote\Request\WebRequest $rd) { return 'Input'; }
+            public function registerWriteValidators(): void
+            {
+                $initContext = $this->getInitContext();
+                $context = $this->getContext();
+                if ($initContext === null || $context === null) {
+                    throw new \RuntimeException('Action must be initialize()d before registerWriteValidators() runs.');
+                }
+                // Only "name" has a registered validator -- "id" (the route param
+                // below) is never targeted by anything.
+                $v = \Quiote\Validator\Compiler\Runtime\ValidatorBuilder::on(
+                    $initContext->getValidationManager(),
+                    $context,
+                );
+                $v->string('name', required: true)->minLength(1)->error('Name is required.');
+            }
+        };
+        $request = (new ServerRequest('POST', '/route-param-gap/42'))
+            ->withParsedBody(['name' => 'Bob'])
+            ->withAttribute(\Quiote\Execution\ActionDescriptor::class, $actionDesc)
+            ->withAttribute('route_params', ['id' => '42'])
+            ->withAttribute('module', 'RouteParamGap')
+            ->withAttribute('action', 'Show');
+        $action->initialize(new \Quiote\Execution\LightweightActionInitContext(
+            $controller->getContext(),
+            'RouteParamGap',
+            'Show',
+            'write',
+            'html',
+            $request,
+            $controller->getGlobalResponse()
+        ));
+        $request = $request->withAttribute('quiote.preinstantiated_action', $action);
+
+        $validation = new ValidationMiddleware($controller);
+        $finalHandler = new class implements RequestHandlerInterface {
+            public function handle(ServerRequestInterface $r): ResponseInterface
+            {
+                /** @var \Quiote\Request\WebRequest $r */
+                $action = $r->getAttribute('quiote.preinstantiated_action');
+                $action->executeWrite($r);
+                return new Psr7Response(200);
+            }
+        };
+
+        $validation->process($request, $finalHandler);
+
+        $this->assertSame('Bob', $action->capturedName, 'The validated "name" field must still be accessible');
+        $this->assertInstanceOf(
+            \Quiote\Exception\UnvalidatedParameterAccessException::class,
+            $action->idAccessException,
+            'A route param with no registered validator must not be readable via getParameter()',
+        );
+    }
+
+    public function testRouteParamWithARegisteredValidatorIsAccessibleForNonSimpleAction(): void
+    {
+        // Companion to the previous test: when a validator DOES target the route
+        // param's name, it must still be readable with its validated value --
+        // the fix must not make legitimately-validated route params inaccessible.
+        \Quiote\Config\Config::fromArray([
+            'modules.routeparamok.enabled' => true,
+        ]);
+        $controller = $this->context->getController();
+        $actionDesc = new \Quiote\Execution\ActionDescriptor('RouteParamOk', 'Show', 'write', 'html', false);
+        $action = new class extends \Quiote\Action\Action {
+            public ?string $capturedId = null;
+            public function getDefaultViewName() { return 'Input'; }
+            public function executeWrite(\Quiote\Request\WebRequest $rd): string
+            {
+                $this->capturedId = $rd->getParameter('id');
+                return 'Success';
+            }
+            public function handleError(\Quiote\Request\WebRequest $rd) { return 'Input'; }
+            public function registerWriteValidators(): void
+            {
+                $initContext = $this->getInitContext();
+                $context = $this->getContext();
+                if ($initContext === null || $context === null) {
+                    throw new \RuntimeException('Action must be initialize()d before registerWriteValidators() runs.');
+                }
+                $v = \Quiote\Validator\Compiler\Runtime\ValidatorBuilder::on(
+                    $initContext->getValidationManager(),
+                    $context,
+                );
+                $v->string('id', required: true)->minLength(1)->error('id is required.');
+            }
+        };
+        $request = (new ServerRequest('POST', '/route-param-ok/42'))
+            ->withParsedBody([])
+            ->withAttribute(\Quiote\Execution\ActionDescriptor::class, $actionDesc)
+            ->withAttribute('route_params', ['id' => '42'])
+            ->withAttribute('module', 'RouteParamOk')
+            ->withAttribute('action', 'Show');
+        $action->initialize(new \Quiote\Execution\LightweightActionInitContext(
+            $controller->getContext(),
+            'RouteParamOk',
+            'Show',
+            'write',
+            'html',
+            $request,
+            $controller->getGlobalResponse()
+        ));
+        $request = $request->withAttribute('quiote.preinstantiated_action', $action);
+
+        $validation = new ValidationMiddleware($controller);
+        $finalHandler = new class implements RequestHandlerInterface {
+            public function handle(ServerRequestInterface $r): ResponseInterface
+            {
+                /** @var \Quiote\Request\WebRequest $r */
+                $action = $r->getAttribute('quiote.preinstantiated_action');
+                $action->executeWrite($r);
+                return new Psr7Response(200);
+            }
+        };
+
+        $validation->process($request, $finalHandler);
+
+        $this->assertSame('42', $action->capturedId, 'A route param with a registered validator must remain readable with its validated value');
+    }
 }
