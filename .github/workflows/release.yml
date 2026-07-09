@@ -51,7 +51,7 @@ jobs:
         # this repo's conventional-commit convention, so git-cliff has
         # nothing usable to scope against. v1.0.0 ships hand-written release
         # notes instead; every tag after it is generated normally.
-        if: github.ref_name != 'v1.0.0'
+        if: github.ref_name != 'v1.2.0'
         run: |
           GIT_CLIFF_VERSION="2.13.1"
           curl -sSL -o /tmp/git-cliff.tar.gz \
@@ -59,9 +59,9 @@ jobs:
           tar -xzf /tmp/git-cliff.tar.gz -C /tmp
           "/tmp/git-cliff-${GIT_CLIFF_VERSION}/git-cliff" --current --strip header -o /tmp/release-notes.md
 
-      - name: Use hand-written notes for v1.0.0
+      - name: Use hand-written notes for v1.2.0
         if: github.ref_name == 'v1.0.0'
-        run: cp .github/release-notes/v1.0.0.md /tmp/release-notes.md
+        run: cp .github/release-notes/v1.2.0.md /tmp/release-notes.md
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
