@@ -55,6 +55,11 @@ jobs:
         run: |
           git config --global url."https://x-access-token:${SPLIT_TOKEN}@github.com/".insteadOf "git@github.com:"
 
+      - name: Configure git identity for tagging
+        run: |
+          git config --global user.email "ci@quioteframework.org"
+          git config --global user.name "Quiote CI"
+
       - uses: acrobat/subtree-splitter@v1.1.5
         with:
           config-path: .github/subtree-splitter-config.json
