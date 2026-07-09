@@ -37,7 +37,7 @@ jobs:
         run: composer install --prefer-dist --no-progress
 
       - name: Run tests
-        run: vendor/bin/phpunit
+        run: vendor/bin/phpunit --no-coverage
 
       - name: Generate changelog
         # Downloaded standalone rather than via a third-party composite
