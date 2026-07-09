@@ -1,7 +1,10 @@
 {
 	"name": "quioteframework/quiote",
 	"description": "Quiote is a full-featured MVC-style framework for PHP 8.5+ with a strong focus on structure, code reusability and flexibility.",
-	"keywords": ["framework", "mvc"],
+	"keywords": [
+		"framework",
+		"mvc"
+	],
 	"homepage": "https://github.com/quioteframework/quiote",
 	"type": "library",
 	"license": "LGPL-2.1-or-later",
@@ -11,7 +14,7 @@
 			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
 		},
 		{
-		  "name": "Markus Lervik <markus@saake.li>"
+			"name": "Markus Lervik <markus@saake.li>"
 		}
 	],
 	"support": {
@@ -21,7 +24,9 @@
 		{
 			"type": "path",
 			"url": "packages/*",
-			"options": { "symlink": true }
+			"options": {
+				"symlink": true
+			}
 		}
 	],
 	"require": {
@@ -59,25 +64,25 @@
 		"phpstan/phpstan": "^2.1",
 		"testcontainers/testcontainers": "^1.0",
 		"symfony/http-client": "^8.1",
-		"quioteframework/mcp": "v1.2.2",
-		"quioteframework/auth": "v1.2.2",
-		"quioteframework/auth-jwt": "v1.2.2",
-		"quioteframework/auth-oauth": "v1.2.2",
-		"quioteframework/ratelimit": "v1.2.2",
-		"quioteframework/db-eloquent": "v1.2.2",
-		"quioteframework/db-doctrine": "v1.2.2",
-		"quioteframework/db-cycle": "v1.2.2",
-		"quioteframework/whoops": "v1.2.2",
-		"quioteframework/telemetry-otel": "v1.2.2",
-		"quioteframework/telemetry-dashboard": "v1.2.2",
-		"quioteframework/phptal": "v1.2.2",
-		"quioteframework/xslt": "v1.2.2",
-		"quioteframework/twig": "v1.2.2",
-		"quioteframework/session-pdo": "v1.2.2",
-		"quioteframework/session-azure": "v1.2.2",
-		"quioteframework/session-s3": "v1.2.2",
-		"quioteframework/session-gcs": "v1.2.2",
-		"quioteframework/db-propulsion": "v1.2.2"
+		"quioteframework/mcp": "@dev",
+		"quioteframework/auth": "@dev",
+		"quioteframework/auth-jwt": "@dev",
+		"quioteframework/auth-oauth": "@dev",
+		"quioteframework/ratelimit": "@dev",
+		"quioteframework/db-eloquent": "@dev",
+		"quioteframework/db-doctrine": "@dev",
+		"quioteframework/db-cycle": "@dev",
+		"quioteframework/whoops": "@dev",
+		"quioteframework/telemetry-otel": "@dev",
+		"quioteframework/telemetry-dashboard": "@dev",
+		"quioteframework/phptal": "@dev",
+		"quioteframework/xslt": "@dev",
+		"quioteframework/twig": "@dev",
+		"quioteframework/session-pdo": "@dev",
+		"quioteframework/session-azure": "@dev",
+		"quioteframework/session-s3": "@dev",
+		"quioteframework/session-gcs": "@dev",
+		"quioteframework/db-propulsion": "@dev"
 	},
 	"suggest": {
 		"phpunit/phpunit": "Install phpunit if you want to run your tests",
@@ -121,24 +126,43 @@
 	},
 	"autoload": {
 		"psr-4": {
-			"Quiote\\": ["Quiote/"],
-			"Sandbox\\App\\": ["tests/sandbox/app/"],
-			"SandboxAppRoutingGenerated\\": ["tests/sandbox/app/Routing/Generated/"]
+			"Quiote\\": [
+				"Quiote/"
+			],
+			"Sandbox\\App\\": [
+				"tests/sandbox/app/"
+			],
+			"SandboxAppRoutingGenerated\\": [
+				"tests/sandbox/app/Routing/Generated/"
+			]
 		}
 	},
 	"autoload-dev": {
 		"psr-4": {
-			"Sandbox\\": ["tests/sandbox/app/"],
-			"Quiote\\Test\\Routing\\": ["tests/lib/routing/"],
-			"QuioteTestGeneratedTest1\\": ["tests/GeneratedRoutes/test1/"],
-			"QuioteTestGeneratedTest2\\": ["tests/GeneratedRoutes/test2/"],
-			"Quiote\\Test\\Database\\Entity\\": ["packages/db-doctrine/tests/Entity/", "packages/db-cycle/tests/Entity/"]
+			"Sandbox\\": [
+				"tests/sandbox/app/"
+			],
+			"Quiote\\Test\\Routing\\": [
+				"tests/lib/routing/"
+			],
+			"QuioteTestGeneratedTest1\\": [
+				"tests/GeneratedRoutes/test1/"
+			],
+			"QuioteTestGeneratedTest2\\": [
+				"tests/GeneratedRoutes/test2/"
+			],
+			"Quiote\\Test\\Database\\Entity\\": [
+				"packages/db-doctrine/tests/Entity/",
+				"packages/db-cycle/tests/Entity/"
+			]
 		},
 		"classmap": [
 			"tests/lib/"
 		]
 	},
-	"bin": ["bin/quiote"],
+	"bin": [
+		"bin/quiote"
+	],
 	"config": {
 		"allow-plugins": {
 			"php-http/discovery": true,
