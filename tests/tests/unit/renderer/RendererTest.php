@@ -29,5 +29,10 @@ class RendererTest extends UnitTestCase
 		$c2 = $this->_r->getContext();
 		$this->assertSame($c1, $c2);
 	}
+
+	public function testGetStarterTemplateDefaultsToNull(): void
+	{
+		$this->assertNull($this->_r->getStarterTemplate());
+	}
 }
 ?>

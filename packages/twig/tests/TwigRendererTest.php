@@ -22,10 +22,9 @@ final class TwigRendererTest extends UnitTestCase
     #[\Override]
     public function tearDown(): void
     {
-        if (file_exists($this->templateBase . '.twig'))
-            @unlink($this->templateBase . '.twig');
-        if (file_exists($this->templateBase . '-extract.twig'))
-            @unlink($this->templateBase . '-extract.twig');
+        foreach (['', '-extract', '-starter', '-starter-default', '-starter-extract'] as $suffix) {
+            @unlink($this->templateBase . $suffix . '.twig');
+        }
     }
 
     public function testRendersTemplateWithAttributes(): void
@@ -63,5 +62,59 @@ final class TwigRendererTest extends UnitTestCase
         $output = $layer->execute($renderer, $attributes);
 
         $this->assertSame('Hello, Extracted!', $output);
+    }
+
+    public function testStarterTemplateRendersTitleFromAttributes(): void
+    {
+        $renderer = new TwigRenderer();
+        $renderer->initialize($this->getContext());
+
+        $this->templateBase .= '-starter';
+        file_put_contents($this->templateBase . '.twig', $renderer->getStarterTemplate());
+
+        $layer = new FileTemplateLayer(['template' => $this->templateBase]);
+        $layer->initialize($this->getContext());
+        $layer->setRenderer($renderer);
+
+        $attributes = ['title' => 'Quiote'];
+        $output = $layer->execute($renderer, $attributes);
+
+        $this->assertStringContainsString('Quiote', $output);
+    }
+
+    public function testStarterTemplateFallsBackToDefaultWhenTitleMissing(): void
+    {
+        $renderer = new TwigRenderer();
+        $renderer->initialize($this->getContext());
+
+        $this->templateBase .= '-starter-default';
+        file_put_contents($this->templateBase . '.twig', $renderer->getStarterTemplate());
+
+        $layer = new FileTemplateLayer(['template' => $this->templateBase]);
+        $layer->initialize($this->getContext());
+        $layer->setRenderer($renderer);
+
+        $attributes = [];
+        $output = $layer->execute($renderer, $attributes);
+
+        $this->assertStringContainsString('Untitled', $output);
+    }
+
+    public function testStarterTemplateHonorsExtractVars(): void
+    {
+        $renderer = new TwigRenderer();
+        $renderer->initialize($this->getContext(), ['extract_vars' => true]);
+
+        $this->templateBase .= '-starter-extract';
+        file_put_contents($this->templateBase . '.twig', $renderer->getStarterTemplate());
+
+        $layer = new FileTemplateLayer(['template' => $this->templateBase]);
+        $layer->initialize($this->getContext());
+        $layer->setRenderer($renderer);
+
+        $attributes = ['title' => 'Extracted'];
+        $output = $layer->execute($renderer, $attributes);
+
+        $this->assertStringContainsString('Extracted', $output);
     }
 }

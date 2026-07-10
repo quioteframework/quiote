@@ -80,6 +80,13 @@ final class PhptalRenderer extends Renderer
     }
 
     #[\Override]
+    public function getStarterTemplate(): string
+    {
+        $path = $this->extractVars ? 'title' : "{$this->varName}/title";
+        return "<p tal:content=\"{$path} | default\">Untitled</p>\n";
+    }
+
+    #[\Override]
     public function reset(): void
     {
         $this->engine = null;

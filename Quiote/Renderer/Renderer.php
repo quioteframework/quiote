@@ -141,6 +141,18 @@ abstract class Renderer extends ParameterHolder implements ResetInterface
 	{
 		return $this->defaultExtension;
 	}
+
+	/**
+	 * A minimal, syntactically valid starter template in this renderer's own
+	 * templating syntax, rendering a "title" template variable -- or null if
+	 * this renderer has no sensible starter to offer (the default).
+	 * @return     ?string The starter template content, or null.
+	 * @since      1.0.0
+	 */
+	public function getStarterTemplate(): ?string
+	{
+		return null;
+	}
 	
 	/**
 	 * Build an array of "more" assigns.

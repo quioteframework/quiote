@@ -68,6 +68,13 @@ final class TwigRenderer extends Renderer implements IReusableRenderer
     }
 
     #[\Override]
+    public function getStarterTemplate(): string
+    {
+        $expr = $this->extractVars ? 'title' : "{$this->varName}.title";
+        return "<p>{{ {$expr}|default('Untitled')|e }}</p>\n";
+    }
+
+    #[\Override]
     public function reset(): void
     {
         $this->environment = null;

@@ -30,6 +30,7 @@ XSL);
     public function tearDown(): void
     {
         @unlink($this->templateBase . '.xsl');
+        @unlink($this->templateBase . '-starter.xsl');
     }
 
     public function testTransformsInnerDocumentWithParameters(): void
@@ -73,5 +74,24 @@ XSL);
         $output = $renderer->render($layer, $attributes, $slots, $moreAssigns);
 
         $this->assertStringContainsString('[widget]', $output);
+    }
+
+    public function testStarterTemplateRendersTitleFromAttributes(): void
+    {
+        $this->templateBase .= '-starter';
+        file_put_contents($this->templateBase . '.xsl', (new XsltRenderer())->getStarterTemplate());
+
+        $renderer = new XsltRenderer();
+        $renderer->initialize($this->getContext());
+
+        $layer = new FileTemplateLayer(['template' => $this->templateBase]);
+        $layer->initialize($this->getContext());
+        $layer->setRenderer($renderer);
+
+        $attributes = ['title' => 'Quiote'];
+        $moreAssigns = ['inner' => '<root/>'];
+        $output = $layer->execute($renderer, $attributes, $moreAssigns);
+
+        $this->assertStringContainsString('Quiote', $output);
     }
 }

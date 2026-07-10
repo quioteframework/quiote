@@ -22,10 +22,9 @@ final class PhptalRendererTest extends UnitTestCase
     #[\Override]
     public function tearDown(): void
     {
-        if (file_exists($this->templateBase . '.tal'))
-            @unlink($this->templateBase . '.tal');
-        if (file_exists($this->templateBase . '-extract.tal'))
-            @unlink($this->templateBase . '-extract.tal');
+        foreach (['', '-extract', '-starter', '-starter-default', '-starter-extract'] as $suffix) {
+            @unlink($this->templateBase . $suffix . '.tal');
+        }
     }
 
     public function testRendersTemplateWithAttributes(): void
@@ -60,6 +59,60 @@ final class PhptalRendererTest extends UnitTestCase
         $layer->setRenderer($renderer);
 
         $attributes = ['name' => 'Extracted'];
+        $output = $layer->execute($renderer, $attributes);
+
+        $this->assertStringContainsString('Extracted', $output);
+    }
+
+    public function testStarterTemplateRendersTitleFromAttributes(): void
+    {
+        $renderer = new PhptalRenderer();
+        $renderer->initialize($this->getContext());
+
+        $this->templateBase .= '-starter';
+        file_put_contents($this->templateBase . '.tal', $renderer->getStarterTemplate());
+
+        $layer = new FileTemplateLayer(['template' => $this->templateBase]);
+        $layer->initialize($this->getContext());
+        $layer->setRenderer($renderer);
+
+        $attributes = ['title' => 'Quiote'];
+        $output = $layer->execute($renderer, $attributes);
+
+        $this->assertStringContainsString('Quiote', $output);
+    }
+
+    public function testStarterTemplateFallsBackToDefaultWhenTitleMissing(): void
+    {
+        $renderer = new PhptalRenderer();
+        $renderer->initialize($this->getContext());
+
+        $this->templateBase .= '-starter-default';
+        file_put_contents($this->templateBase . '.tal', $renderer->getStarterTemplate());
+
+        $layer = new FileTemplateLayer(['template' => $this->templateBase]);
+        $layer->initialize($this->getContext());
+        $layer->setRenderer($renderer);
+
+        $attributes = [];
+        $output = $layer->execute($renderer, $attributes);
+
+        $this->assertStringContainsString('Untitled', $output);
+    }
+
+    public function testStarterTemplateHonorsExtractVars(): void
+    {
+        $renderer = new PhptalRenderer();
+        $renderer->initialize($this->getContext(), ['extract_vars' => true]);
+
+        $this->templateBase .= '-starter-extract';
+        file_put_contents($this->templateBase . '.tal', $renderer->getStarterTemplate());
+
+        $layer = new FileTemplateLayer(['template' => $this->templateBase]);
+        $layer->initialize($this->getContext());
+        $layer->setRenderer($renderer);
+
+        $attributes = ['title' => 'Extracted'];
         $output = $layer->execute($renderer, $attributes);
 
         $this->assertStringContainsString('Extracted', $output);

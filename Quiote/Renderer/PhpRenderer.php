@@ -132,6 +132,13 @@ class PhpRenderer extends Renderer implements IReusableRenderer, ResetInterface
 	}
 
 	#[\Override]
+	public function getStarterTemplate(): string
+	{
+		$expr = $this->extractVars ? '$title' : ('$' . $this->varName . "['title']");
+		return "<p><?php echo htmlspecialchars({$expr} ?? '', ENT_QUOTES, 'UTF-8'); ?></p>\n";
+	}
+
+	#[\Override]
     public function reset() : void {
 		$this->layer = null;
 		$this->attributes = null;
