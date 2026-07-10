@@ -6,6 +6,7 @@ namespace Quiote\Introspection;
 use Quiote\Config\Config;
 use Quiote\Config\ConfigCache;
 use Quiote\Context;
+use Quiote\Controller\Controller;
 use Quiote\Plugin\PluginManager;
 use Quiote\Routing\Compiler\AttributeRouteScanner;
 use Quiote\Routing\Compiler\ModuleActionDiscovery;
@@ -15,6 +16,7 @@ use Quiote\Routing\Compiler\TriadDiagnosticsScanner;
 use Quiote\Routing\Compiler\TriadViewResolver;
 use Quiote\Support\Compiler\Diagnostic;
 use ReflectionClass;
+use Throwable;
 
 /**
  * Builds the versioned `cache/introspection/app.json` artifact an editor
@@ -51,10 +53,11 @@ final class AppIntrospectionCompiler
 	 *     config_format: ?string,
 	 *     modules: list<array{name: string, dir: string, actions: list<string>}>,
 	 *     routes: list<array{name: string, path: string, methods: list<string>, module: string, action: string, outputType: ?string, source: string, file: ?string, line: ?int}>,
-	 *     triads: list<array{module: string, action: string, actionFile: string, viewFile: ?string, templateFile: ?string, verbs: list<array{name: string, line: ?int}>}>,
+	 *     triads: list<array{module: string, action: string, actionFile: string, viewFile: ?string, templateFiles: array<string, string>, verbs: list<array{name: string, line: ?int}>}>,
 	 *     diagnostics: list<array{severity: string, code: string, message: string, file: string, line: ?int, column: ?int, endLine: ?int, endColumn: ?int, symbol: ?string}>,
 	 *     dependencies: list<array{file: string, hash: string}>,
 	 *     shadowed: list<array{logical: string, loaded: ?string, ignored: list<string>}>,
+	 *     outputTypes: array<string, string>,
 	 * }
 	 */
 	public function compile(string $context): array
@@ -102,9 +105,10 @@ final class AppIntrospectionCompiler
 		}
 
 		$modules = $this->buildModules($entries);
-		$triads = $this->buildTriads($entries, $namespacePrefix);
+		$triads = $this->buildTriads($entries, $namespacePrefix, $scannerController);
 		$dependencies = $this->collectDependencies();
 		$shadowed = $this->collectShadowed();
+		$outputTypes = $this->buildOutputTypes($scannerController);
 
 		return [
 			'_schema_version' => self::SCHEMA_VERSION,
@@ -116,6 +120,7 @@ final class AppIntrospectionCompiler
 			'diagnostics' => array_values(array_map(static fn(Diagnostic $diagnostic) => $diagnostic->toArray(), $diagnostics)),
 			'dependencies' => $dependencies,
 			'shadowed' => $shadowed,
+			'outputTypes' => $outputTypes,
 		];
 	}
 
@@ -196,9 +201,9 @@ final class AppIntrospectionCompiler
 
 	/**
 	 * @param list<ModuleActionEntry> $entries
-	 * @return list<array{module: string, action: string, actionFile: string, viewFile: ?string, templateFile: ?string, verbs: list<array{name: string, line: ?int}>}>
+	 * @return list<array{module: string, action: string, actionFile: string, viewFile: ?string, templateFiles: array<string, string>, verbs: list<array{name: string, line: ?int}>}>
 	 */
-	private function buildTriads(array $entries, string $namespacePrefix): array
+	private function buildTriads(array $entries, string $namespacePrefix, Controller $controller): array
 	{
 		$triads = [];
 		foreach ($entries as $entry) {
@@ -223,14 +228,14 @@ final class AppIntrospectionCompiler
 				$verbs[] = ['name' => $method, 'line' => $startLine !== false ? $startLine : null];
 			}
 
-			[$viewFile, $templateFile] = $this->locateViewAndTemplate($entry, $reflection, $namespacePrefix);
+			[$viewFile, $templateFiles] = $this->locateViewAndTemplate($entry, $reflection, $namespacePrefix, $controller);
 
 			$triads[] = [
 				'module' => $entry->module,
 				'action' => $entry->action,
 				'actionFile' => $entry->file,
 				'viewFile' => $viewFile,
-				'templateFile' => $templateFile,
+				'templateFiles' => $templateFiles,
 				'verbs' => $verbs,
 			];
 		}
@@ -238,23 +243,93 @@ final class AppIntrospectionCompiler
 	}
 
 	/**
+	 * Resolves one template file per output type the view actually renders,
+	 * since a single view class can mix several `execute*()` methods (each
+	 * its own output type, per {@see TriadViewResolver::executeMethodsFor()})
+	 * that each render through a differently-configured renderer/extension
+	 * (per {@see TriadViewResolver::templateExtensionFor()}) -- collapsing
+	 * that to one `?string` silently assumed every view was PHP-rendered
+	 * HTML, so a PHPTAL/Twig/XSLT-rendered `executeHtml()` always reported
+	 * `templateFile: null` even though its real template exists on disk.
 	 * @param ReflectionClass<object> $reflection
-	 * @return array{0: ?string, 1: ?string}
+	 * @return array{0: ?string, 1: array<string, string>}
 	 */
-	private function locateViewAndTemplate(ModuleActionEntry $entry, ReflectionClass $reflection, string $namespacePrefix): array
+	private function locateViewAndTemplate(ModuleActionEntry $entry, ReflectionClass $reflection, string $namespacePrefix, Controller $controller): array
 	{
 		$viewToken = $this->views->resolveViewToken($reflection);
 		if ($viewToken === null) {
-			return [null, null];
+			return [null, []];
 		}
 
 		$canonical = $this->views->canonicalViewToken($entry, $viewToken);
 		$viewFile = $this->views->resolveExistingViewFile($entry, $canonical, $namespacePrefix);
+		if ($viewFile === null) {
+			return [null, []];
+		}
 
-		$templateFile = $this->views->templateFileFor($entry, $canonical);
-		$templateFile = is_file($templateFile) ? $templateFile : null;
+		$viewClass = $this->views->viewClassFor($entry, $canonical, $namespacePrefix);
+		if (!class_exists($viewClass)) {
+			// Legacy (non-class) view file: no execute*() methods to reflect,
+			// so fall back to the single conventional template check.
+			$templateFile = $this->views->templateFileFor($entry, $canonical);
+			$templateFiles = is_file($templateFile) ? [$this->outputTypeKeyFor(null, $controller) => $templateFile] : [];
+			return [$viewFile, $templateFiles];
+		}
 
-		return [$viewFile, $templateFile];
+		$templateFiles = [];
+		foreach ($this->views->executeMethodsFor(new ReflectionClass($viewClass)) as $method) {
+			if ($this->views->declaresNoTemplate($method) || $this->views->alwaysReturnsContent($method)) {
+				continue;
+			}
+			$extension = $this->views->templateExtensionFor($method, $controller);
+			$templateFile = $this->views->templateFileFor($entry, $canonical, $extension);
+			if (is_file($templateFile)) {
+				$templateFiles[$this->outputTypeKeyFor($this->views->outputTypeNameFor($method), $controller)] = $templateFile;
+			}
+		}
+
+		return [$viewFile, $templateFiles];
+	}
+
+	/**
+	 * The output type name to key a resolved template file under -- the
+	 * method's own explicit output type (`executeJson()` -> `'json'`), or,
+	 * for the bare `execute()` method, whichever output type the app
+	 * actually resolves as its default (mirrors `Controller::getOutputType()`
+	 * `null`-name resolution), falling back to the literal `'default'` only
+	 * if that can't be resolved either.
+	 */
+	private function outputTypeKeyFor(?string $outputTypeName, Controller $controller): string
+	{
+		if ($outputTypeName !== null) {
+			return $outputTypeName;
+		}
+		try {
+			return $controller->getOutputType(null)->getName();
+		} catch (Throwable) {
+			return 'default';
+		}
+	}
+
+	/**
+	 * @return array<string, string> output type name => its renderer's
+	 *         default template file extension, so external tooling with only
+	 *         a bare file path (no action/method context to reflect) can
+	 *         still make a best-effort guess at which extension a template
+	 *         should have.
+	 */
+	private function buildOutputTypes(Controller $controller): array
+	{
+		$outputTypes = [];
+		foreach ($controller->getOutputTypeNames() as $name) {
+			try {
+				$extension = $controller->getOutputType($name)->getRenderer()?->getDefaultExtension();
+			} catch (Throwable) {
+				continue;
+			}
+			$outputTypes[$name] = $extension !== null && $extension !== '' ? $extension : '.php';
+		}
+		return $outputTypes;
 	}
 
 	/**
