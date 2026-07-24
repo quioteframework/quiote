@@ -163,7 +163,12 @@ final class AppWriter
 		$settings = '';
 		foreach ($values as $key => $value) {
 			$name = substr($key, strlen('core.'));
-			$literal = is_bool($value) ? ($value ? 'true' : 'false') : (string) $value;
+			$literal = match (true) {
+				is_bool($value) => $value ? 'true' : 'false',
+				is_scalar($value) => (string) $value,
+				$value === null => '',
+				default => throw new ConfigurationException('Cannot render setting "' . $name . '" of type ' . get_debug_type($value) . ' as XML.'),
+			};
 			$settings .= "\t\t\t<setting name=\"$name\">$literal</setting>\n";
 		}
 
@@ -237,8 +242,8 @@ final class AppWriter
 	{
 		return <<<'XML'
 		<?xml version="1.0" encoding="UTF-8"?>
-		<configurations xmlns="http://quiote.org/quiote/1.0/config">
-			<configuration>
+		<ae:configurations xmlns:ae="http://quiote.dev/quiote/config/global/envelope/1.1" xmlns="http://quiote.dev/quiote/config/parts/output_types/1.1">
+			<ae:configuration>
 				<output_types default="html">
 					<output_type name="html">
 						<renderers default="php">
@@ -249,13 +254,13 @@ final class AppWriter
 								<layer name="content" />
 							</layout>
 						</layouts>
-						<parameter name="http_headers">
-							<parameter name="Content-Type">text/html; charset=UTF-8</parameter>
-						</parameter>
+						<ae:parameter name="http_headers">
+							<ae:parameter name="Content-Type">text/html; charset=UTF-8</ae:parameter>
+						</ae:parameter>
 					</output_type>
 				</output_types>
-			</configuration>
-		</configurations>
+			</ae:configuration>
+		</ae:configurations>
 
 		XML;
 	}

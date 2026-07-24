@@ -61,23 +61,23 @@ class ConfigParser
 	/**
 	 * Iterates through a list of nodes and stores to each node in the
 	 * ConfigValueHolder
-	 * @param      mixed $nodes An array or an object that can be iterated over
+	 * @param      iterable<\DOMNode> $nodes An array or an object that can be iterated over
 	 * @param      ConfigValueHolder $parentVh The storage for the info from the nodes
 	 * @param      bool $isSingular Whether this list is the singular form of the parent node
 	 * @return     void
 	 * @since      1.0.0
 	 */
-	protected function parseNodes($nodes, ConfigValueHolder $parentVh, $isSingular = false)
+	protected function parseNodes(iterable $nodes, ConfigValueHolder $parentVh, $isSingular = false)
 	{
 		foreach($nodes as $node) {
-			if($node->nodeType == XML_ELEMENT_NODE && (!$node->namespaceURI || $node->namespaceURI == XmlConfigParser::NAMESPACE_QUIOTE_ENVELOPE_0_11)) {
+			if($node instanceof \DOMElement && !$node->namespaceURI) {
 				$vh = new ConfigValueHolder();
 				$nodeName = $this->convertEncoding($node->localName);
 				$vh->setName($nodeName);
 				$parentVh->addChildren($nodeName, $vh);
 
 				foreach($node->attributes as $attribute) {
-					if((!$attribute->namespaceURI || $attribute->namespaceURI == XmlConfigParser::NAMESPACE_QUIOTE_ENVELOPE_0_11)) {
+					if(!$attribute->namespaceURI) {
 						$vh->setAttribute($this->convertEncoding($attribute->localName), $this->convertEncoding($attribute->nodeValue));
 					}
 				}

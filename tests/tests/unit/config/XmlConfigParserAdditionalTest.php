@@ -55,6 +55,54 @@ class XmlConfigParserAdditionalTest extends PhpUnitTestCase
         $this->assertNull(XmlConfigParser::getQuioteNamespacePrefix('http://example.com/not-a-quiote-namespace'));
     }
 
+    public function testIsLegacyEnvelopeNamespaceRecognizesDroppedNamespaces(): void
+    {
+        $this->assertTrue(XmlConfigParser::isLegacyEnvelopeNamespace('http://quiote.org/quiote/1.0/config'));
+        $this->assertTrue(XmlConfigParser::isLegacyEnvelopeNamespace('http://quiote.dev/quiote/config/global/envelope/1.0'));
+    }
+
+    public function testIsLegacyEnvelopeNamespaceRejectsCurrentAndUnknownNamespaces(): void
+    {
+        $this->assertFalse(XmlConfigParser::isLegacyEnvelopeNamespace(XmlConfigParser::NAMESPACE_QUIOTE_ENVELOPE_1_1));
+        $this->assertFalse(XmlConfigParser::isLegacyEnvelopeNamespace('http://example.com/not-a-quiote-namespace'));
+    }
+
+    public function testRunThrowsClearParseExceptionForLegacy011EnvelopeFile(): void
+    {
+        $file = $this->tempFile('.xml', '<configurations xmlns="http://quiote.org/quiote/1.0/config"><configuration><settings/></configuration></configurations>');
+
+        $this->expectException(ParseException::class);
+        $this->expectExceptionMessage('unsupported legacy Quiote envelope namespace "http://quiote.org/quiote/1.0/config"');
+        XmlConfigParser::run($file, 'testing');
+    }
+
+    public function testRunThrowsClearParseExceptionForLegacy10EnvelopeFile(): void
+    {
+        $file = $this->tempFile('.xml', '<ae:configurations xmlns:ae="http://quiote.dev/quiote/config/global/envelope/1.0"><ae:configuration/></ae:configurations>');
+
+        $this->expectException(ParseException::class);
+        $this->expectExceptionMessage('unsupported legacy Quiote envelope namespace "http://quiote.dev/quiote/config/global/envelope/1.0"');
+        XmlConfigParser::run($file, 'testing');
+    }
+
+    public function testRunAcceptsCurrentEnvelope11File(): void
+    {
+        $file = $this->tempFile('.xml', '<ae:configurations xmlns:ae="http://quiote.dev/quiote/config/global/envelope/1.1"><ae:configuration/></ae:configurations>');
+
+        $doc = XmlConfigParser::run($file, 'testing');
+        $this->assertNotNull($doc->documentElement);
+        $this->assertSame(XmlConfigParser::NAMESPACE_QUIOTE_ENVELOPE_1_1, $doc->documentElement->namespaceURI);
+    }
+
+    public function testRunPassesThroughForeignNonQuioteXmlWithoutError(): void
+    {
+        $file = $this->tempFile('.xml', '<root xmlns="http://example.com/some-foreign-namespace"><child/></root>');
+
+        $doc = XmlConfigParser::run($file, 'testing');
+        $this->assertNotNull($doc->documentElement);
+        $this->assertSame('http://example.com/some-foreign-namespace', $doc->documentElement->namespaceURI);
+    }
+
     public function testConstructorThrowsOnUnreadableFile(): void
     {
         $missing = sys_get_temp_dir() . '/xcp-does-not-exist-' . bin2hex(random_bytes(8)) . '.xml';

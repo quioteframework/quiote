@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<configurations xmlns="http://quiote.org/quiote/1.0/config">
-  <configuration>
+<ae:configurations xmlns:ae="http://quiote.dev/quiote/config/global/envelope/1.1" xmlns="http://quiote.dev/quiote/config/parts/routing/1.1">
+  <ae:configuration>
     <routes>
       <!-- Minimal, callback/source-free route set to exercise optimized router features -->
       <route name="index" pattern="^/$" module="Default" action="Index" />
@@ -20,5 +20,5 @@
       <!-- Method transformation: sets request method dynamically -->
       <route name="method_transform" pattern="^/transform/(newmethod:\\w+)$" module="Default" action="Method" method="{newmethod}" />
     </routes>
-  </configuration>
-</configurations>
+  </ae:configuration>
+</ae:configurations>

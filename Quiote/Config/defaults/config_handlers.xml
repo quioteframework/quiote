@@ -11,57 +11,36 @@
 
 			<handler pattern="%core.config_dir%/settings.xml" class="Quiote\Config\SettingConfigHandler">
 				<validation>%core.quiote_dir%/Config/xsd/settings.xsd</validation>
-				<!-- 0.11 to 1.0 -->
-				<transformation>%core.quiote_dir%/Config/xsl/settings.xsl</transformation>
-				<!-- 1.0 to 1.1 -->
 				<transformation>%core.quiote_dir%/Config/xsl/settings.xsl</transformation>
 			</handler>
 
 			<handler pattern="%core.config_dir%/factories.xml" class="Quiote\Config\FactoryConfigHandler">
 				<validation>%core.quiote_dir%/Config/xsd/factories.xsd</validation>
-				<!-- 0.11 to 1.0 -->
-				<transformation>%core.quiote_dir%/Config/xsl/factories.xsl</transformation>
-				<!-- 1.0 to 1.1 -->
 				<transformation>%core.quiote_dir%/Config/xsl/factories.xsl</transformation>
 			</handler>
 
 			<handler pattern="%core.config_dir%/databases.xml" class="Quiote\Config\DatabaseConfigHandler">
 				<validation>%core.quiote_dir%/Config/xsd/databases.xsd</validation>
-				<!-- 0.11 to 1.0 -->
-				<transformation>%core.quiote_dir%/Config/xsl/databases.xsl</transformation>
-				<!-- 1.0 to 1.1 -->
 				<transformation>%core.quiote_dir%/Config/xsl/databases.xsl</transformation>
 			</handler>
 
 			<handler pattern="%core.config_dir%/output_types.xml" class="Quiote\Config\OutputTypeConfigHandler">
 				<validation>%core.quiote_dir%/Config/xsd/output_types.xsd</validation>
-				<!-- 0.11 to 1.0 -->
-				<transformation>%core.quiote_dir%/Config/xsl/output_types.xsl</transformation>
-				<!-- 1.0 to 1.1 -->
 				<transformation>%core.quiote_dir%/Config/xsl/output_types.xsl</transformation>
 			</handler>
 
 			<handler pattern="%core.config_dir%/rbac_definitions.xml" class="Quiote\Config\RbacDefinitionConfigHandler">
 				<validation>%core.quiote_dir%/Config/xsd/rbac_definitions.xsd</validation>
-				<!-- 0.11 to 1.0 -->
-				<transformation>%core.quiote_dir%/Config/xsl/rbac_definitions.xsl</transformation>
-				<!-- 1.0 to 1.1 -->
 				<transformation>%core.quiote_dir%/Config/xsl/rbac_definitions.xsl</transformation>
 			</handler>
 
 			<handler pattern="%core.config_dir%/routing.xml" class="Quiote\Config\RoutingConfigHandler">
 				<validation>%core.quiote_dir%/Config/xsd/routing.xsd</validation>
-				<!-- 0.11 to 1.0 -->
-				<transformation>%core.quiote_dir%/Config/xsl/routing.xsl</transformation>
-				<!-- 1.0 to 1.1 -->
 				<transformation>%core.quiote_dir%/Config/xsl/routing.xsl</transformation>
 			</handler>
 
 			<handler pattern="%core.config_dir%/translation.xml" class="Quiote\Config\TranslationConfigHandler">
 				<validation>%core.quiote_dir%/Config/xsd/translation.xsd</validation>
-				<!-- 0.11 to 1.0 -->
-				<transformation>%core.quiote_dir%/Config/xsl/translation.xsl</transformation>
-				<!-- 1.0 to 1.1 -->
 				<transformation>%core.quiote_dir%/Config/xsl/translation.xsl</transformation>
 			</handler>
 
@@ -74,8 +53,7 @@
 			</handler>
 		<handler pattern="%core.testing_dir%/Config/suites.xml" class="Quiote\Config\TestSuitesConfigHandler">
 			<!-- <validation>%core.quiote_dir%/Config/xsd/module.xsd</validation>-->
-			<!-- 1.0 to 1.1 -->
-			<transformation>%core.quiote_dir%/Config/xsl/testing.suites.xsl</transformation> 
+			<transformation>%core.quiote_dir%/Config/xsl/testing.suites.xsl</transformation>
 		</handler>
 
 			<!--
@@ -91,17 +69,11 @@
 
 			<handler pattern="%core.module_dir%/*/Config/module.xml" class="Quiote\Config\ModuleConfigHandler">
 				<validation>%core.quiote_dir%/Config/xsd/module.xsd</validation>
-				<!-- 0.11 to 1.0 -->
-				<transformation>%core.quiote_dir%/Config/xsl/module.xsl</transformation>
-				<!-- 1.0 to 1.1 -->
 				<transformation>%core.quiote_dir%/Config/xsl/module.xsl</transformation>
 			</handler>
 
 			<handler pattern="%core.module_dir%/*/Validate/*.xml" class="Quiote\Config\ValidatorConfigHandler">
 				<validation>%core.quiote_dir%/Config/xsd/validators.xsd</validation>
-				<!-- 0.11 to 1.0 -->
-				<transformation>%core.quiote_dir%/Config/xsl/validators.xsl</transformation>
-				<!-- 1.0 to 1.1 -->
 				<transformation>%core.quiote_dir%/Config/xsl/validators.xsl</transformation>
 			</handler>
 

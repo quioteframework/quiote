@@ -24,28 +24,14 @@ class ValidatorConfigHandlerTest extends ConfigHandlerTestBase
 			Config::getString('core.quiote_dir') . '/Config/xsl/validators.xsl',
 			$environment
 		);
-		
+
 		$vm = $this->getContext()->createInstanceFor('validation_manager');
 		$this->includeCode($VCH->execute($document), [
 			'validationManager' => $vm
 		]);
-		
+
 		return $vm;
 	}
-	
-	public function testTranslationDomainInheritance1_0Behaviour(): void
-	{
-		// Enable translation for test (new intl-based manager)
-		\Quiote\Config\Config::set('core.use_translation', true, true);
-		$vm = $this->createValidationManager('test-translation-domain-1.0-behaviour');
-		
-		$this->assertSame('__NULL__', $vm->getChild('toplevel_simple')->getParameter('translation_domain', '__NULL__'));
-		$this->assertSame('__NULL__', $vm->getChild('toplevel_empty')->getParameter('translation_domain', '__NULL__'));
-		$this->assertSame('test-domain', $vm->getChild('toplevel_or')->getParameter('translation_domain'));
-		$this->assertSame('__NULL__', $vm->getChild('toplevel_or')->getChild('or_child')->getParameter('translation_domain', '__NULL__'));
-		$this->assertSame('test-domain', $vm->getChild('toplevel_param')->getParameter('translation_domain'));
-	}
-	
 	
 	public function testTranslationDomainInheritance(): void
 	{

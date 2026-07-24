@@ -24,19 +24,6 @@
 		</validators>
 	</ae:configuration>
 
-	<ae:configuration environment="test-translation-domain-1.0-behaviour" xmlns="http://quiote.dev/quiote/config/parts/validators/1.0">
-		<validators>
-			<validator name="toplevel_simple" class="string" />
-			<validator name="toplevel_empty" class="string" translation_domain="" />
-			<validator name="toplevel_or" class="or" translation_domain="test-domain">
-				<validator name="or_child" class="string" />
-			</validator>
-			<validator name="toplevel_param" class="string">
-				<ae:parameter name="translation_domain">test-domain</ae:parameter>
-			</validator>
-		</validators>
-	</ae:configuration>
-
 	<ae:configuration environment="test-validator-definition-error-definition">
 		<validator_definitions>
 			<validator_definition name="standalone" class="DummyValidator">

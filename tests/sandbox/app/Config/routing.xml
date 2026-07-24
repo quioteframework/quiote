@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<configurations xmlns="http://quiote.org/quiote/1.0/config">
+<ae:configurations xmlns:ae="http://quiote.dev/quiote/config/global/envelope/1.1" xmlns="http://quiote.dev/quiote/config/parts/routing/1.1">
 	<!-- Replaced with consolidated generic + original sandbox test routes -->
-	<configuration>
+	<ae:configuration>
 		<routes>
 			<!-- ================= ORIGINAL SANDBOX TEST ROUTES (merged) ================= -->
 			<!-- Authentication / environment sourced routes -->
-			<route name="user_logged_in" pattern="^1$" source="user[authenticated]" module="Auth" action="LoggedIn" />
-			<route name="server" pattern="^foo$" source="_SERVER[routing_test]" module="Server" action="Matched" />
-			<route name="testingsource" pattern="^foo$" source="testingsource[bar]" module="TestingSource" action="Matched" />
+			<route name="user_logged_in" pattern="^1$" source="user[authenticated]" module="Auth" action="LoggedIn"/>
+			<route name="server" pattern="^foo$" source="_SERVER[routing_test]" module="Server" action="Matched"/>
+			<route name="testingsource" pattern="^foo$" source="testingsource[bar]" module="TestingSource" action="Matched"/>
       
 			<!-- Parameter handling examples -->
-			<route name="with_param" pattern="^/withparam/(number:\d+)$" module="TestWithParam" action="MatchedParam" />
-			<route name="with_two_params" pattern="^/withmultipleparams/(number:\d+)/(string:\w+)$" module="TestWithParam" action="MatchedMultipleParams" />
+			<route name="with_param" pattern="^/withparam/(number:\d+)$" module="TestWithParam" action="MatchedParam"/>
+			<route name="with_two_params" pattern="^/withmultipleparams/(number:\d+)/(string:\w+)$" module="TestWithParam" action="MatchedMultipleParams"/>
 			<route name="gen_shortest_possible_url" pattern="^/gen_shortest_possible_url(/{param1:\d+})?(/{param2:\d+})?(/{param3:\d+})?">
 				<default for="param1">/{1}</default>
 				<default for="param2">/{2}</default>
@@ -20,48 +20,48 @@
 			<route name="with_prefix_and_postfix" pattern="^/with_prefix_and_postfix(/{param:.*})" module="TestPrefixPostfix" action="Matched">
 				<default for="param">/{default}</default>
 			</route>
-			<route name="with_prefix_and_postfix_auto_detected" pattern="^/with_prefix_and_postfix(/myprefix/{param:.*}/my-postfix)" module="TestPrefixPostfix" action="Matched" />
+			<route name="with_prefix_and_postfix_auto_detected" pattern="^/with_prefix_and_postfix(/myprefix/{param:.*}/my-postfix)" module="TestPrefixPostfix" action="Matched"/>
 
 			<!-- Callback heavy test tree (kept for generator parity tests) -->
 			<route name="callbacks" pattern="^/callbacks" module="Callback">
-				<route name=".nonmatching_callback" pattern="^/nonmatching_callback$" callback="NonMatchingRoutingCallback" action="NonMatching" />
-				<route name=".matching_callback" pattern="^/matching_callback$" callback="MatchingRoutingCallback" action="Matching" />
+				<route name=".nonmatching_callback" pattern="^/nonmatching_callback$" action="NonMatching"><callback class="NonMatchingRoutingCallback"/></route>
+				<route name=".matching_callback" pattern="^/matching_callback$" action="Matching"><callback class="MatchingRoutingCallback"/></route>
 				<route name=".on_not_matched" pattern="^/on_not_matched">
-					<route name=".callback" pattern="^/callback$" callback="OnNotMatchedRoutingCallback" action="NonMatching" />
-					<route name=".callback_stopper" pattern="^/callback_never_matches$" callback="OnNotMatchedRoutingCallback" action="Stopper" />
+					<route name=".callback" pattern="^/callback$" action="NonMatching"><callback class="OnNotMatchedRoutingCallback"/></route>
+					<route name=".callback_stopper" pattern="^/callback_never_matches$" action="Stopper"><callback class="OnNotMatchedRoutingCallback"/></route>
 				</route>
-				<route name=".on_not_matched_stopper" pattern="^/stopper" action="Stopper" />
-				<route name=".gen_with_param" pattern="^/(number:\d+)" callback="GenWithParamRoutingCallback" />
-				<route name=".gen_with_unescaped_param" pattern="^/(number:\d+)" callback="GenWithUnescapedParamRoutingCallback" />
-				<route name=".gen_unset_route_param" pattern="^/(number:\d+)" callback="GenUnsetRouteParamRoutingCallback" />
-				<route name=".gen_unset_route_param_with_default" pattern="^/(number:\d+)" callback="GenUnsetRouteParamRoutingCallback">
+				<route name=".on_not_matched_stopper" pattern="^/stopper" action="Stopper"/>
+				<route name=".gen_with_param" pattern="^/(number:\d+)"><callback class="GenWithParamRoutingCallback"/></route>
+				<route name=".gen_with_unescaped_param" pattern="^/(number:\d+)"><callback class="GenWithUnescapedParamRoutingCallback"/></route>
+				<route name=".gen_unset_route_param" pattern="^/(number:\d+)"><callback class="GenUnsetRouteParamRoutingCallback"/></route>
+				<route name=".gen_unset_route_param_with_default" pattern="^/(number:\d+)"><callback class="GenUnsetRouteParamRoutingCallback"/>
 					<default for="number">23</default>
 				</route>
-				<route name=".gen_unset_route_optional_param" pattern="^/optional/(number:\d+)?" callback="GenUnsetRouteParamRoutingCallback" />
-				<route name=".gen_unset_route_optional_param_with_default" pattern="^/optional/(number:\d+)?" callback="GenUnsetRouteParamRoutingCallback">
+				<route name=".gen_unset_route_optional_param" pattern="^/optional/(number:\d+)?"><callback class="GenUnsetRouteParamRoutingCallback"/></route>
+				<route name=".gen_unset_route_optional_param_with_default" pattern="^/optional/(number:\d+)?"><callback class="GenUnsetRouteParamRoutingCallback"/>
 					<default for="number">23</default>
 				</route>
-				<route name=".gen_unset_extra_param" pattern="^/(number:\d+)" callback="GenUnsetExtraParamRoutingCallback" />
-				<route name=".gen_nullify_route_param" pattern="^/(number:\d+)" callback="GenNullifyRouteParamRoutingCallback" />
-				<route name=".gen_nullify_route_param_with_default" pattern="^/(number:\d+)" callback="GenNullifyRouteParamRoutingCallback">
+				<route name=".gen_unset_extra_param" pattern="^/(number:\d+)"><callback class="GenUnsetExtraParamRoutingCallback"/></route>
+				<route name=".gen_nullify_route_param" pattern="^/(number:\d+)"><callback class="GenNullifyRouteParamRoutingCallback"/></route>
+				<route name=".gen_nullify_route_param_with_default" pattern="^/(number:\d+)"><callback class="GenNullifyRouteParamRoutingCallback"/>
 					<default for="number">23</default>
 				</route>
-				<route name=".gen_nullify_route_param_with_optional_default" pattern="^/optional/(number:\d+)?" callback="GenNullifyRouteParamRoutingCallback">
+				<route name=".gen_nullify_route_param_with_optional_default" pattern="^/optional/(number:\d+)?"><callback class="GenNullifyRouteParamRoutingCallback"/>
 					<default for="number">23</default>
 				</route>
-				<route name=".gen_nullify_extra_param" pattern="^/(number:\d+)" callback="GenNullifyExtraParamRoutingCallback" />
-				<route name=".gen_set_prefix_and_postfix" pattern="^/({number:\d+}/)" callback="GenSetPrefixAndPostfixRoutingCallback" />
-				<route name=".gen_set_prefix_and_postfix_without_default" pattern="^/(number:\d+)" callback="GenSetPrefixAndPostfixRoutingCallback" />
-				<route name=".gen_set_prefix_and_postfix_into_route" pattern="^/({number:\d+}/)" callback="GenSetPrefixAndPostfixIntoRouteRoutingCallback">
+				<route name=".gen_nullify_extra_param" pattern="^/(number:\d+)"><callback class="GenNullifyExtraParamRoutingCallback"/></route>
+				<route name=".gen_set_prefix_and_postfix" pattern="^/({number:\d+}/)"><callback class="GenSetPrefixAndPostfixRoutingCallback"/></route>
+				<route name=".gen_set_prefix_and_postfix_without_default" pattern="^/(number:\d+)"><callback class="GenSetPrefixAndPostfixRoutingCallback"/></route>
+				<route name=".gen_set_prefix_and_postfix_into_route" pattern="^/({number:\d+}/)"><callback class="GenSetPrefixAndPostfixIntoRouteRoutingCallback"/>
 					<default for="number">{23}/</default>
 				</route>
-				<route name=".gen_set_extra_param" pattern="^/foo$" callback="GenSetExtraParamRoutingCallback" />
-				<route name=".gen_set_extra_param_routing_value" pattern="^/foo$" callback="GenSetExtraParamRoutingValueRoutingCallback" />
-				<route name=".gen_change_extra_param" pattern="^/foo$" callback="GenChangeExtraParamRoutingCallback" />
-				<route name=".gen_change_extra_param_routing_value" pattern="^/foo$" callback="GenChangeExtraParamRoutingValueRoutingCallback" />
-				<route name=".gen_expect_incoming_parameter_is_encoded_and_can_be_decoded" pattern="^/(string:\s+)" callback="GenDecodeParameterCallback" />
-				<route name=".ticket_695" pattern="foo" source="bar" callback="TestTicket695RoutingCallback" />
-				<route name=".object" pattern="^/foo/(value:.+)$" callback="GenObjectRoutingCallback" />
+				<route name=".gen_set_extra_param" pattern="^/foo$"><callback class="GenSetExtraParamRoutingCallback"/></route>
+				<route name=".gen_set_extra_param_routing_value" pattern="^/foo$"><callback class="GenSetExtraParamRoutingValueRoutingCallback"/></route>
+				<route name=".gen_change_extra_param" pattern="^/foo$"><callback class="GenChangeExtraParamRoutingCallback"/></route>
+				<route name=".gen_change_extra_param_routing_value" pattern="^/foo$"><callback class="GenChangeExtraParamRoutingValueRoutingCallback"/></route>
+				<route name=".gen_expect_incoming_parameter_is_encoded_and_can_be_decoded" pattern="^/(string:\s+)"><callback class="GenDecodeParameterCallback"/></route>
+				<route name=".ticket_695" pattern="foo" source="bar"><callback class="TestTicket695RoutingCallback"/></route>
+				<route name=".object" pattern="^/foo/(value:.+)$"><callback class="GenObjectRoutingCallback"/></route>
 			</route>
 
 			<!-- Ticket / regression patterns -->
@@ -77,8 +77,8 @@
 				<default for="page">{1}/</default>
 			</route>
 			<route name="test_ticket_444_sample2" pattern="^/test_ticket_444_sample2/(name:[^/]+)" module="Blog">
-				<route name=".index" pattern="^/$" action="Index" />
-				<route name=".entry" pattern="^/(id:\d+).html$" action="Entry" />
+				<route name=".index" pattern="^/$" action="Index"/>
+				<route name=".entry" pattern="^/(id:\d+).html$" action="Entry"/>
 				<!--
 					This file is historical documentation only: nothing parses routing.xml at
 					runtime; the actual routes live in the committed
@@ -98,98 +98,98 @@
 					<default for="day">{1}/</default>
 				</route>
 			</route>
-			<route name="test_ticket_444_sample2_external" pattern="^/test_ticket_444_sample2_external/(name:[^/]+)/$" />
-			<route name="test_ticket_464" pattern="^/test_ticket_464(/{type:[^/]+})?(/{page:\d+})?$" module="Portal" action='Index'>
+			<route name="test_ticket_444_sample2_external" pattern="^/test_ticket_444_sample2_external/(name:[^/]+)/$"/>
+			<route name="test_ticket_464" pattern="^/test_ticket_464(/{type:[^/]+})?(/{page:\d+})?$" module="Portal" action="Index">
 				<default for="type">/{0}</default>
 				<default for="page">/{1}</default>
 			</route>
-			<route name="test_ticket_713" pattern="^/test_ticket_713(/{zomg:(zomg|lol)})?" module="Default" action="Index" callback="TestTicket713RoutingCallback">
+			<route name="test_ticket_713" pattern="^/test_ticket_713(/{zomg:(zomg|lol)})?" module="Default" action="Index"><callback class="TestTicket713RoutingCallback"/>
 				<default for="zomg">/{zomg}</default>
 			</route>
-			<route name="test_ticket_609" pattern="^/test_ticket_609(/{page:\d+})?(/{order:(name|date)})?(/{set:(DESC|ASC)})?$" />
-			<route name="test_ticket_698" pattern="^/test_ticket_698/(overwritten_by_callback:\w+)?$" module="Portal" action="Index" callback="TestTicket698RoutingCallback" />
+			<route name="test_ticket_609" pattern="^/test_ticket_609(/{page:\d+})?(/{order:(name|date)})?(/{set:(DESC|ASC)})?$"/>
+			<route name="test_ticket_698" pattern="^/test_ticket_698/(overwritten_by_callback:\w+)?$" module="Portal" action="Index"><callback class="TestTicket698RoutingCallback"/></route>
 			<route name="test_ticket_764" pattern="^/test_ticket_764" module="Default" action="Foo">
 				<route pattern="^/dummy">
-					<route name=".child" pattern="^/child" action=".Bar" />
+					<route name=".child" pattern="^/child" action=".Bar"/>
 				</route>
 			</route>
-			<route name="ticket_1051" pattern="^/ticket_1051$" callback="Ticket1051RoutingCallback" />
-			<route name="ticket_1294" pattern="^/ticket_1294$" />
+			<route name="ticket_1051" pattern="^/ticket_1051$"><callback class="Ticket1051RoutingCallback"/></route>
+			<route name="ticket_1294" pattern="^/ticket_1294$"/>
 			<route name="empty_default_value" pattern="^/empty_default_value$">
 				<default for="value">0</default>
 			</route>
-			<route name="index" pattern="^/$" module="%actions.default_module%" action="%actions.default_action%" />
+			<route name="index" pattern="^/$" module="%actions.default_module%" action="%actions.default_action%"/>
 
 			<!-- ================= END ORIGINAL SANDBOX TEST ROUTES ================= -->
 
 			<!-- ================= CONSOLIDATED GENERIC COVERAGE ROUTES ================= -->
-			<route name="root" pattern="^$" module="Core" action="Home" stop="true" />
-			<route name="health" pattern="^healthz$" module="Core" action="Health" />
+			<route name="root" pattern="^$" module="Core" action="Home" stop="true"/>
+			<route name="health" pattern="^healthz$" module="Core" action="Health"/>
 
-			<route name="locale_prefix" pattern="^/({locale:[a-z]{2}(_[A-Z]{2})?})/" cut="true" imply="false" stop="false" locale="${locale}" />
+			<route name="locale_prefix" pattern="^/({locale:[a-z]{2}(_[A-Z]{2})?})/" cut="true" imply="false" stop="false" locale="${locale}"/>
 
 			<route name="auth" pattern="^auth" module="Auth" action="Index">
-				<route name=".login" pattern="^/login(/{method:\w+})?$" action=".Login" />
-				<route name=".logout" pattern="^/logout$" action=".Logout" />
-				<route name=".token" pattern="^/token$" action=".Token" />
+				<route name=".login" pattern="^/login(/{method:\w+})?$" action=".Login"/>
+				<route name=".logout" pattern="^/logout$" action=".Logout"/>
+				<route name=".token" pattern="^/token$" action=".Token"/>
 			</route>
 
 			<route name="user" pattern="^user" module="User" action="Index">
-				<route name=".profile" pattern="^/(user_id:\d+)$" action=".Profile" />
-				<route name=".settings" pattern="^/(user_id:\d+)/settings$" action=".Settings" />
-				<route name=".avatar" pattern="^/(user_id:\d+)/avatar(/{image_id:\d+})?$" action=".Avatar" />
-				<route name=".search" pattern="^/search(/{query:\w+})?$" action=".Search" />
+				<route name=".profile" pattern="^/(user_id:\d+)$" action=".Profile"/>
+				<route name=".settings" pattern="^/(user_id:\d+)/settings$" action=".Settings"/>
+				<route name=".avatar" pattern="^/(user_id:\d+)/avatar(/{image_id:\d+})?$" action=".Avatar"/>
+				<route name=".search" pattern="^/search(/{query:\w+})?$" action=".Search"/>
 			</route>
 
 			<route name="item" pattern="^item" module="Item" action="Index">
-				<route name=".view" pattern="^/(item_id:\d+)$" action=".View" />
-				<route name=".edit" pattern="^/(item_id:\d+)/edit$" action=".Edit" />
-				<route name=".comment" pattern="^/(item_id:\d+)/comment(/{comment_id:\d+})?$" action=".Comment" />
-				<route name=".attachments" pattern="^/(item_id:\d+)/attachments(/{file_id:\d+})?$" action=".Attachments" />
-				<route name=".tasks" pattern="^/(item_id:\d+)/tasks$" action=".Tasks" />
-				<route name=".tasks.edit" pattern="^/(item_id:\d+)/tasks/(task_id:\d+)/edit$" action=".TaskEdit" />
+				<route name=".view" pattern="^/(item_id:\d+)$" action=".View"/>
+				<route name=".edit" pattern="^/(item_id:\d+)/edit$" action=".Edit"/>
+				<route name=".comment" pattern="^/(item_id:\d+)/comment(/{comment_id:\d+})?$" action=".Comment"/>
+				<route name=".attachments" pattern="^/(item_id:\d+)/attachments(/{file_id:\d+})?$" action=".Attachments"/>
+				<route name=".tasks" pattern="^/(item_id:\d+)/tasks$" action=".Tasks"/>
+				<route name=".tasks.edit" pattern="^/(item_id:\d+)/tasks/(task_id:\d+)/edit$" action=".TaskEdit"/>
 			</route>
 
 			<route name="project" pattern="^projects" module="Project" action="Index">
-				<route name=".new" pattern="^/new(/{template_id:\d+})?$" action=".New" />
-				<route name=".view" pattern="^/(project_id:\d+)$" action=".View" />
-				<route name=".stats" pattern="^/(project_id:\d+)/stats$" action=".Stats" />
+				<route name=".new" pattern="^/new(/{template_id:\d+})?$" action=".New"/>
+				<route name=".view" pattern="^/(project_id:\d+)$" action=".View"/>
+				<route name=".stats" pattern="^/(project_id:\d+)/stats$" action=".Stats"/>
 			</route>
 
 			<route name="tag" pattern="^tags" module="Tag" action="Index">
-				<route name=".add" pattern="^/new$" action=".Add" />
-				<route name=".remove" pattern="^/(tag_id:\d+)$" action=".Remove" />
-				<route name=".list" pattern="^/list$" action=".List" />
+				<route name=".add" pattern="^/new$" action=".Add"/>
+				<route name=".remove" pattern="^/(tag_id:\d+)$" action=".Remove"/>
+				<route name=".list" pattern="^/list$" action=".List"/>
 			</route>
 
 			<route name="admin" pattern="^admin" module="Admin" action="Index">
-				<route name=".companies" pattern="^/companies$" action=".Companies" />
-				<route name=".companies.view" pattern="^/company/(company_id:\d+)$" action=".Company" />
-				<route name=".company.edit" pattern="^/company/(company_id:\d+)/edit$" action=".CompanyEdit" />
-				<route name=".company.stats" pattern="^/company/(company_id:\d+)/stats$" action=".CompanyStats" />
+				<route name=".companies" pattern="^/companies$" action=".Companies"/>
+				<route name=".companies.view" pattern="^/company/(company_id:\d+)$" action=".Company"/>
+				<route name=".company.edit" pattern="^/company/(company_id:\d+)/edit$" action=".CompanyEdit"/>
+				<route name=".company.stats" pattern="^/company/(company_id:\d+)/stats$" action=".CompanyStats"/>
 				<!--
 					"{year:\d{4}}" was never valid Symfony route syntax (only "{name}" plus a
 					separate requirement is), and it broke UrlMatcher compilation outright.
 					See Routing/Generated/Modules/AdminRoutes.php (not this file, which nothing
 					parses at runtime) for the hand-fixed placeholder + requirement equivalent.
 				-->
-				<route name=".reports" pattern="^/reports(/{year:\d\d\d\d})?$" action=".Reports" />
+				<route name=".reports" pattern="^/reports(/{year:\d\d\d\d})?$" action=".Reports"/>
 			</route>
 
 			<route name="files" pattern="^files" module="File" action="Index">
-				<route name=".download" pattern="^/(file_id:\d+)/download$" action=".Download" />
-				<route name=".preview" pattern="^/(file_id:\d+)/preview$" action=".Preview" />
+				<route name=".download" pattern="^/(file_id:\d+)/download$" action=".Download"/>
+				<route name=".preview" pattern="^/(file_id:\d+)/preview$" action=".Preview"/>
 			</route>
 
 			<route name="integration" pattern="^integrate" module="Integration" action="Index">
-				<route name=".resource" pattern="^/(integration_id:\d+)/(resource_id:\w+)$" action=".Resource" />
-				<route name=".resource.tmp" pattern="^/tmp/(token:\w+)$" action=".ResourceTmp" />
+				<route name=".resource" pattern="^/(integration_id:\d+)/(resource_id:\w+)$" action=".Resource"/>
+				<route name=".resource.tmp" pattern="^/tmp/(token:\w+)$" action=".ResourceTmp"/>
 			</route>
 
 			<route name="report" pattern="^reports" module="Report" action="Index">
-				<route name=".export" pattern="^/export(/{format:(csv|xls)})?$" action=".Export" />
+				<route name=".export" pattern="^/export(/{format:(csv|xls)})?$" action=".Export"/>
 			</route>
 	<!-- ================= END GENERIC COVERAGE ROUTES ================= -->
 		</routes>
-	</configuration>
-</configurations>
+	</ae:configuration>
+</ae:configurations>

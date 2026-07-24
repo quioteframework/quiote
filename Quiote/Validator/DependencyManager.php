@@ -79,7 +79,6 @@ class DependencyManager implements ResetInterface
 	 * Populate key references in an argument base string if necessary.
 	 * Fills only empty bracket positions with an sprintf() offset placeholder.
 	 * Example: foo[][bar][] as input will return foo[%2$s][bar][%4$s] as output.
-	 * This is used in validate.xsl to convert pre-1.1 provides/depends behavior.
 	 * @param      string $string The argument base string.
 	 * @return     string The argument base string with empty brackets filled with
 	 *                    correct sprintf() position specifiers.

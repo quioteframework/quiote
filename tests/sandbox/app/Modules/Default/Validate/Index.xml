@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<configurations xmlns="http://quiote.org/quiote/1.0/config">
-	<configuration>
+<ae:configurations xmlns:ae="http://quiote.dev/quiote/config/global/envelope/1.1" xmlns="http://quiote.dev/quiote/config/parts/validators/1.1">
+	<ae:configuration>
 		<validators>
 		</validators>
-	</configuration>
-</configurations>
+	</ae:configuration>
+</ae:configurations>

@@ -9,9 +9,8 @@ require_once(__DIR__ . '/ConfigHandlerTestBase.php');
 /**
  * Locks in the compiled PHP that ValidatorConfigHandler produces for a
  * representative corpus of validators.xml fixtures (operator nesting,
- * translation-domain inheritance across both envelope versions, error
- * message inheritance/override, and a real runtime validator with
- * arguments/errors/parameters).
+ * translation-domain inheritance, error message inheritance/override, and a
+ * real runtime validator with arguments/errors/parameters).
  *
  * ValidatorConfigHandler::execute() is now a thin adapter over
  * ValidatorPlanBuilder (XML -> IR) and RuntimeArrayEmitter (IR -> runtime
@@ -66,16 +65,6 @@ class ValidatorConfigHandlerGoldenTest extends ConfigHandlerTestBase
 			Config::getString('core.config_dir') . '/tests/validators.xml',
 			Config::getString('core.quiote_dir') . '/Config/xsl/validators.xsl',
 			'test-translation-domain'
-		);
-	}
-
-	public function testMainTranslationDomain10BehaviourFixture(): void
-	{
-		$this->assertMatchesGolden(
-			'main_translation_domain_1_0',
-			Config::getString('core.config_dir') . '/tests/validators.xml',
-			Config::getString('core.quiote_dir') . '/Config/xsl/validators.xsl',
-			'test-translation-domain-1.0-behaviour'
 		);
 	}
 

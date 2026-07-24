@@ -19,13 +19,21 @@ use Quiote\Util\QuioteXsltProcessor;
  */
 class XmlConfigParser
 {
-	const NAMESPACE_QUIOTE_ENVELOPE_0_11 = 'http://quiote.org/quiote/1.0/config';
-	
-	const NAMESPACE_QUIOTE_ENVELOPE_1_0 = 'http://quiote.dev/quiote/config/global/envelope/1.0';
-	
 	const NAMESPACE_QUIOTE_ENVELOPE_1_1 = 'http://quiote.dev/quiote/config/global/envelope/1.1';
-	
+
 	const NAMESPACE_QUIOTE_ENVELOPE_LATEST = self::NAMESPACE_QUIOTE_ENVELOPE_1_1;
+
+	/**
+	 * @var        array<int,string> Envelope namespace URIs that Quiote used
+	 *                   prior to 1.1 and no longer supports. Kept only so a
+	 *                   config file still written against one of them can be
+	 *                   rejected with a clear error instead of silently being
+	 *                   treated as a foreign (non-Quiote) XML document.
+	 */
+	private const LEGACY_ENVELOPE_NAMESPACES = [
+		'http://quiote.org/quiote/1.0/config',
+		'http://quiote.dev/quiote/config/global/envelope/1.0',
+	];
 	
 	const NAMESPACE_QUIOTE_ANNOTATIONS_1_0 = 'http://quiote.dev/quiote/config/global/annotations/1.0';
 	
@@ -62,18 +70,14 @@ class XmlConfigParser
 	 *                   keys and their associated XPath namespace prefix (value).
 	 */
 	public static $quioteEnvelopeNamespaces = [
-		self::NAMESPACE_QUIOTE_ENVELOPE_0_11 => 'quiote_envelope_0_11',
-		self::NAMESPACE_QUIOTE_ENVELOPE_1_0 => 'quiote_envelope_1_0',
 		self::NAMESPACE_QUIOTE_ENVELOPE_1_1 => 'quiote_envelope_1_1',
 	];
-	
+
 	/**
 	 * @var        array<string,string> A list of all XML namespaces that are used internally by
 	 *                   the configuration parser.
 	 */
 	public static $quioteNamespaces = [
-		self::NAMESPACE_QUIOTE_ENVELOPE_0_11 => 'quiote_envelope_0_11',
-		self::NAMESPACE_QUIOTE_ENVELOPE_1_0 => 'quiote_envelope_1_0',
 		self::NAMESPACE_QUIOTE_ENVELOPE_1_1 => 'quiote_envelope_1_1',
 		self::NAMESPACE_QUIOTE_ANNOTATIONS_1_0 => 'quiote_annotations_1_0',
 	];
@@ -114,6 +118,18 @@ class XmlConfigParser
 	public static function isQuioteEnvelopeNamespace($namespaceUri)
 	{
 		return isset(self::$quioteEnvelopeNamespaces[$namespaceUri]);
+	}
+
+	/**
+	 * Check if the given namespace URI is a Quiote envelope namespace that
+	 * used to be supported (pre-1.1) but has since been dropped.
+	 * @param      string $namespaceUri The namespace URI.
+	 * @return     bool True, if the given URI is a legacy envelope namespace, false otherwise.
+	 * @since      1.0.0
+	 */
+	public static function isLegacyEnvelopeNamespace($namespaceUri)
+	{
+		return in_array($namespaceUri, self::LEGACY_ENVELOPE_NAMESPACES, true);
 	}
 	
 	/**
@@ -203,12 +219,12 @@ class XmlConfigParser
 			
 			// put the new document in the list
 			$docs[] = $doc;
-			
+
 			// make sure it (still) is a <configurations> file with the proper Quiote namespace
 			if($isQuioteConfigFormat) {
 				$isQuioteConfigFormat = self::isQuioteConfigurationDocument($doc);
 			}
-			
+
 			// is it an Quiote <configurations> element? does it have a parent attribute? yes? good. parse that next
 			// TODO: support future namespaces
 			$docRootElement = self::requireDocumentElement($doc);
@@ -402,9 +418,22 @@ class XmlConfigParser
 	 */
 	public function execute(array $transformationInfo = [], array $validationInfo = [])
 	{
+		// a document written against a namespace Quiote used to support (pre-1.1) is not a
+		// "foreign" document to silently pass through -- it's a Quiote config file that needs
+		// migrating by hand, so fail loudly instead of mis-parsing it
+		$rootNamespaceUri = $this->doc->documentElement?->namespaceURI;
+		if($rootNamespaceUri !== null && self::isLegacyEnvelopeNamespace($rootNamespaceUri)) {
+			throw new ParseException(sprintf(
+				'Configuration file "%s" uses the unsupported legacy Quiote envelope namespace "%s". Update it to use the current envelope namespace "%s".',
+				$this->path,
+				$rootNamespaceUri,
+				self::NAMESPACE_QUIOTE_ENVELOPE_LATEST
+			));
+		}
+
 		// resolve xincludes
 		self::xinclude($this->doc);
-		
+
 		// validate XMLSchema-instance declarations
 		self::validateXsi($this->doc);
 		
