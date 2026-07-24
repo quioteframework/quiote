@@ -78,7 +78,7 @@ class Context implements \Stringable, ResetInterface
   protected $storage = null;
 
   /**
-   * @var        TranslationManager A TranslationManager instance.
+   * @var        ?TranslationManager A TranslationManager instance.
    */
   protected $translationManager = null;
 
@@ -586,9 +586,15 @@ class Context implements \Stringable, ResetInterface
     }
 
     // CRITICAL: Reset routing object to prevent cache corruption in worker mode
-    if ($this->routing && $this->routing instanceof ResetInterface) {
+    if ($this->routing) {
       $this->routing->reset();
       $logger->debug("[Context.reset] routing object reset");
+    }
+
+    // CRITICAL: Reset translation manager to prevent locale bleed across requests in worker mode
+    if ($this->translationManager) {
+      $this->translationManager->reset();
+      $logger->debug("[Context.reset] translationManager object reset");
     }
 
     // Reset request object (it will be recreated for the next request)

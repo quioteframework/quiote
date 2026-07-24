@@ -302,6 +302,54 @@ class ContextExtendedCoverageTest extends TestCase
         $this->assertNotNull($routing->getRoute('extra'));
     }
 
+    public function testResetClearsRoutingCompatibilityState(): void
+    {
+        $ctx = $this->ctx();
+        $this->injectLogger($ctx);
+        $ro = new ReflectionObject($ctx);
+        $routingProp = $ro->getProperty('routing');
+        $routing = new TestRouting();
+        $routingProp->setValue($ctx, $routing);
+
+        $routingRo = new ReflectionObject($routing);
+        $inputProp = $routingRo->getProperty('input');
+        $inputProp->setValue($routing, '/leaked-from-previous-request');
+        $initializedProp = $routingRo->getProperty('initialized');
+        $initializedProp->setValue($routing, true);
+
+        $ctx->reset();
+
+        $this->assertSame('', $inputProp->getValue($routing), 'routing input should not leak across worker requests');
+        $this->assertFalse($initializedProp->getValue($routing), 'routing initialized flag should be cleared by reset');
+    }
+
+    public function testResetClearsTranslationManagerLocale(): void
+    {
+        $ctx = $this->ctx();
+        $this->injectLogger($ctx);
+        Config::set('core.use_translation', true, true);
+        $tm = $ctx->getTranslationManager();
+        if ($tm === null) {
+            $info = $ctx->getFactoryInfo('translation_manager');
+            if ($info === null || empty($info['class'])) {
+                $ctx->setFactoryInfo('translation_manager', [
+                    'class' => \Quiote\Translation\TranslationManager::class,
+                    'parameters' => [],
+                ]);
+            }
+            /** @var \Quiote\Translation\TranslationManager $tm */
+            $tm = $ctx->createInstanceFor('translation_manager');
+            (new ReflectionObject($ctx))->getProperty('translationManager')->setValue($ctx, $tm);
+        }
+        $this->assertNotNull($tm, 'translation manager should be available once core.use_translation is enabled');
+        $tm->setLocale('de_DE');
+        $this->assertNotNull($tm->getCurrentLocaleIdentifier());
+
+        $ctx->reset();
+
+        $this->assertNull($tm->getCurrentLocaleIdentifier(), 'locale set by a previous request must not leak into the next one');
+    }
+
     public function testGetUserRecreatesAndRegistersInShutdownSequence(): void
     {
         $ctx = $this->ctx();

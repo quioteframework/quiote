@@ -14,8 +14,9 @@ use Symfony\Component\Routing\Matcher\UrlMatcher;
 use Symfony\Component\Routing\RequestContext;
 use Symfony\Component\Routing\RouteCollection;
 use Symfony\Component\Routing\Route;
+use Symfony\Contracts\Service\ResetInterface;
 
-abstract class Routing
+abstract class Routing implements ResetInterface
 {
 	private RouteCollection $routes;
 	/** @var array<string,array{gen_path:string,cut:bool,path:string,opt?:array{parent:string|null,action:mixed},pattern?:string,match_full?:string,match_partial?:string}> */
