@@ -32,6 +32,19 @@ use Quiote\Request\WebRequest;
 class SlotDispatcher
 {
     public const RECURSION_LIMIT = 10; // mirrors previous static guard
+
+    /**
+     * Marker prefixed to slot cache payloads that carry an explicit TTL (via
+     * slotCacheTtlSeconds()). The backend (Symfony's FilesystemAdapter/ApcuAdapter)
+     * computes its own expiry from two independent wall-clock time() reads
+     * (write time + lifetime, compared against read time) — non-monotonic, so a
+     * backward wall-clock step (observed on this host under load) can make an
+     * actually-expired entry still read back as "fresh". For entries with an
+     * explicit TTL we additionally stamp a monotonic (hrtime) expiry and honor
+     * that instead, so slot cache freshness never depends on the wall clock.
+     */
+    private const MONO_TTL_MARKER = "\x00SCTTL1\x00";
+
     private ?ActionExecutionContext $lastContext = null;
 
     private readonly ActionResolver $actionResolver;
@@ -217,9 +230,10 @@ class SlotDispatcher
                 $cacheKey = 'slot:' . strtolower($module) . ':' . strtolower($action) . ':' . $normalizedOutputType . $tagSuffix . ':' . $parametersDigest;
                 try {
                     $cached = CacheManager::getCache()->get($cacheKey);
-                    if (is_string($cached)) {
+                    $decoded = $this->decodeSlotCachePayload($cached);
+                    if ($decoded !== null) {
                         $cacheHit = true;
-                        return $cached;
+                        return $decoded;
                     }
                 } catch (\Throwable) {
                 }
@@ -310,7 +324,7 @@ class SlotDispatcher
                         }
                     }
                     try {
-                        CacheManager::getCache()->set($cacheKey, $result, $ttl ?: null);
+                        CacheManager::getCache()->set($cacheKey, $this->encodeSlotCachePayload($result, $ttl), $ttl ?: null);
                     } catch (\Throwable) {
                     }
                 }
@@ -522,7 +536,7 @@ class SlotDispatcher
                         }
                     }
                     try {
-                        CacheManager::getCache()->set($cacheKey, $result, $ttl ?: null);
+                        CacheManager::getCache()->set($cacheKey, $this->encodeSlotCachePayload($result, $ttl), $ttl ?: null);
                     } catch (\Throwable) {
                     }
                 }
@@ -557,6 +571,54 @@ class SlotDispatcher
             }
             $this->executionGuard->leave($stack);
         }
+    }
+
+    /**
+     * Encode a slot cache payload. When an explicit positive TTL is given, the
+     * content is wrapped with a monotonic (hrtime) expiry stamp so freshness
+     * can be verified independently of the cache backend's wall-clock-based
+     * expiry (see MONO_TTL_MARKER doc comment). Without an explicit TTL, the
+     * raw content is stored as before and the backend's own default expiry
+     * applies untouched.
+     */
+    private function encodeSlotCachePayload(string $result, ?int $ttl): string
+    {
+        if ($ttl === null || $ttl <= 0) {
+            return $result;
+        }
+        $encoded = json_encode(['c' => $result, 'e' => hrtime(true) + ($ttl * 1_000_000_000)]);
+        if ($encoded === false) {
+            // Content isn't representable as JSON (e.g. invalid UTF-8); fall back
+            // to storing it raw rather than dropping the cache entry entirely.
+            return $result;
+        }
+        return self::MONO_TTL_MARKER . $encoded;
+    }
+
+    /**
+     * Decode a slot cache payload previously written by encodeSlotCachePayload().
+     * Returns the cached content on a genuine hit, or null on a miss/expiry so
+     * the caller re-executes the action. Plain (unwrapped) strings are always
+     * treated as hits, matching pre-existing behavior for TTL-less entries.
+     */
+    private function decodeSlotCachePayload(mixed $cached): ?string
+    {
+        if (!is_string($cached)) {
+            return null;
+        }
+        if (!str_starts_with($cached, self::MONO_TTL_MARKER)) {
+            return $cached;
+        }
+        $decoded = json_decode(substr($cached, strlen(self::MONO_TTL_MARKER)), true);
+        if (!is_array($decoded) || !isset($decoded['c'], $decoded['e']) || !is_string($decoded['c']) || !is_int($decoded['e'])) {
+            return null;
+        }
+        if (hrtime(true) > $decoded['e']) {
+            // Monotonically expired, even if the backend's own wall-clock check
+            // would have still called it fresh.
+            return null;
+        }
+        return $decoded['c'];
     }
 
     /**
