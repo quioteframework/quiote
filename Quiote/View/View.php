@@ -312,7 +312,7 @@ abstract class View implements ResetInterface
 		if ($renderer instanceof Renderer) {
 			$layer->setRenderer($renderer);
 		} else {
-			$resolvedRenderer = $this->getCurrentOutputType()->getRenderer($renderer);
+			$resolvedRenderer = $this->getCurrentOutputType()->getRenderer(is_string($renderer) ? $renderer : null);
 			if ($resolvedRenderer === null) {
 				throw new ViewException('No renderer could be resolved for the current output type');
 			}
@@ -463,18 +463,54 @@ abstract class View implements ResetInterface
 
 		$this->clearLayers();
 
-		foreach ($layout['layers'] as $name => $layer) {
-			$l = $this->createLayer($layer['class'], $name, $layer['renderer']);
-			$l->setParameters($layer['parameters']);
-			foreach ($layer['slots'] as $slotName => $slot) {
-				// Use new slot content API (container-less). Legacy createSlotContainer() is deprecated.
-				// request_method currently ignored in fast path; legacy path handled it for HTTP verb overrides.
-				$l->setSlot($slotName, $this->createSlotContent($slot['module'], $slot['action'], $slot['parameters'], $slot['output_type']));
+		// getLayout() returns compiled-config data typed as array<string, mixed>,
+		// so each nested field is narrowed defensively here; malformed entries are
+		// skipped rather than fataling on a bad type.
+		$layers = $layout['layers'] ?? null;
+		if (is_array($layers)) {
+			foreach ($layers as $name => $layer) {
+				if (!is_array($layer)) {
+					continue;
+				}
+				$class = $layer['class'] ?? null;
+				if (!is_string($class)) {
+					continue;
+				}
+				$rendererName = $layer['renderer'] ?? null;
+				$l = $this->createLayer($class, (string) $name, is_string($rendererName) ? $rendererName : null);
+				$parameters = $layer['parameters'] ?? null;
+				if (is_array($parameters)) {
+					$l->setParameters($parameters);
+				}
+				$slots = $layer['slots'] ?? null;
+				if (is_array($slots)) {
+					foreach ($slots as $slotName => $slot) {
+						if (!is_array($slot)) {
+							continue;
+						}
+						$slotModule = $slot['module'] ?? null;
+						$slotAction = $slot['action'] ?? null;
+						if (!is_string($slotModule) || !is_string($slotAction)) {
+							continue;
+						}
+						$slotParameters = $slot['parameters'] ?? null;
+						$slotOutputType = $slot['output_type'] ?? null;
+						// Use new slot content API (container-less). Legacy createSlotContainer() is deprecated.
+						// request_method currently ignored in fast path; legacy path handled it for HTTP verb overrides.
+						$l->setSlot((string) $slotName, $this->createSlotContent(
+							$slotModule,
+							$slotAction,
+							is_array($slotParameters) ? $slotParameters : null,
+							is_string($slotOutputType) ? $slotOutputType : null
+						));
+					}
+				}
+				$this->appendLayer($l);
 			}
-			$this->appendLayer($l);
 		}
 
-		return $layout['parameters'];
+		$parameters = $layout['parameters'] ?? [];
+		return is_array($parameters) ? $parameters : [];
 	}
 
 	/**
@@ -540,7 +576,7 @@ abstract class View implements ResetInterface
 			try {
 				$am = $this->getAttribute('moduleName', null);
 				$aa = $this->getAttribute('actionName', null);
-				if ($am !== null && $aa !== null) {
+				if (is_string($am) && is_string($aa)) {
 					$currentModule = $am;
 					$currentAction = $aa;
 				}

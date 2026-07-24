@@ -121,17 +121,17 @@ class WebResponse extends Response
 	protected $httpStatusCode = '200';
 
 	/**
-	 * @var        array<string, array<int, mixed>> The HTTP headers scheduled to be sent with the response.
+	 * @var        array<string, list<string>> The HTTP headers scheduled to be sent with the response.
 	 */
 	protected $httpHeaders = [];
 
 	/**
-	 * @var        array<string, array<string, mixed>> The Cookies scheduled to be sent with the response.
+	 * @var        array<string, array{value: mixed, lifetime: int|string|null, path: string|null, domain: string|null, secure: bool, httponly: bool, encode_callback: callable|false, samesite: string|null}> The Cookies scheduled to be sent with the response.
 	 */
 	protected $cookies = [];
 
 	/**
-	 * @var        ?array{location: mixed, code: int|string} An array of redirect information, or null if no redirect.
+	 * @var        ?array{location: string, code: int|string} An array of redirect information, or null if no redirect.
 	 */
 	protected $redirect = null;
 
@@ -188,7 +188,7 @@ class WebResponse extends Response
 				return false;
 			}
 		} else {
-			return strlen((string) $this->content);
+			return strlen(self::toStringOrEmpty($this->content));
 		}
 	}
 
@@ -201,13 +201,13 @@ class WebResponse extends Response
 	#[\Override]
     public function prependContent($content)
 	{
-		$this->setContent($content . $this->getContent());
+		$this->setContent(self::toStringOrEmpty($content) . self::toStringOrEmpty($this->getContent()));
 	}
 
 	#[\Override]
     public function appendContent($content)
 	{
-		$this->setContent($this->getContent() . $content);
+		$this->setContent(self::toStringOrEmpty($this->getContent()) . self::toStringOrEmpty($content));
 	}
 
 	#[\Override]
@@ -371,7 +371,9 @@ class WebResponse extends Response
 		if(is_resource($this->content) && $this->getParameter('use_sendfile_header', false)) {
 			$info = stream_get_meta_data($this->content);
 			if($info['wrapper_type'] == 'plainfile' && isset($info['uri'])) {
-				header($this->getParameter('sendfile_header_name', 'X-Sendfile') . ': ' . $info['uri']);
+				$sendfileHeader = $this->getParameter('sendfile_header_name', 'X-Sendfile');
+				$sendfileHeader = is_string($sendfileHeader) && $sendfileHeader !== '' ? $sendfileHeader : 'X-Sendfile';
+				header($sendfileHeader . ': ' . self::toStringOrEmpty($info['uri']));
 				return;
 			}
 		}
@@ -380,10 +382,10 @@ class WebResponse extends Response
 			fpassthru($this->content);
 			fclose($this->content);
 		} else {
-			echo $this->content;
+			echo self::toStringOrEmpty($this->content);
 			if($this->psrResponse !== null) {
 				try {
-					$this->psrResponse = $this->psrResponse->withBody(SimpleStream::fromString((string)$this->content));
+					$this->psrResponse = $this->psrResponse->withBody(SimpleStream::fromString(self::toStringOrEmpty($this->content)));
 				} catch(\Throwable) {}
 			}
 		}
@@ -562,7 +564,7 @@ class WebResponse extends Response
 	/**
 	 * Retrieve the HTTP header values set for the response.
 	 * @param      string $name A HTTP header field name.
-	 * @return     ?array<int, mixed> All values set for that header, or null if no headers set
+	 * @return     ?list<string> All values set for that header, or null if no headers set
 	 * @since      1.0.0
 	 */
 	public function getHttpHeader($name)
@@ -577,12 +579,26 @@ class WebResponse extends Response
 
 	/**
 	 * Retrieve the HTTP headers set for the response.
-	 * @return     array<string, array<int, mixed>> An associative array of HTTP header names and values.
+	 * @return     array<string, list<string>> An associative array of HTTP header names and values.
 	 * @since      1.0.0
 	 */
 	public function getHttpHeaders()
 	{
 		return $this->httpHeaders;
+	}
+
+	/**
+	 * Normalize a value to its string form for output (HTTP header value, cookie
+	 * value, response body). Scalars and Stringables convert directly; anything
+	 * else (array, non-Stringable object) yields an empty string rather than a
+	 * type error.
+	 */
+	private static function toStringOrEmpty(mixed $value): string
+	{
+		if (is_scalar($value) || $value instanceof \Stringable) {
+			return (string) $value;
+		}
+		return '';
 	}
 
 	/**
@@ -613,7 +629,11 @@ class WebResponse extends Response
 	public function setHttpHeader($name, $value, $replace = true)
 	{
 		$name = $this->normalizeHttpHeaderName($name);
-		$newValues = is_array($value) ? array_values($value) : [$value];
+		// HTTP header values are strings on the wire; normalize scalars (e.g. an
+		// int Content-Length) so the stored representation is always list<string>.
+		$newValues = is_array($value)
+			? array_map(self::toStringOrEmpty(...), array_values($value))
+			: [self::toStringOrEmpty($value)];
 		if(!isset($this->httpHeaders[$name]) || $replace) {
 			$this->httpHeaders[$name] = $newValues;
 		} else {
@@ -645,7 +665,7 @@ class WebResponse extends Response
 	}
 
 	/**
-	 * @param array<string, mixed> $cookie
+	 * @param array{value: mixed, lifetime: int|string|null, path: string|null, domain: string|null, secure: bool, httponly: bool, encode_callback: callable|false, samesite: string|null} $cookie
 	 * @return array{
 	 *   value: string,
 	 *   expires: ?int,
@@ -718,7 +738,7 @@ class WebResponse extends Response
 			$samesite = null;
 		}
 		return [
-			'value' => (string)$value,
+			'value' => self::toStringOrEmpty($value),
 			'expires' => $expires,
 			'max_age' => $maxAge,
 			'path' => $path,
@@ -887,18 +907,19 @@ class WebResponse extends Response
 		$samesite ??= $this->getParameter('cookie_samesite');
 
 		if($encodeCallback !== false && !is_callable($encodeCallback)) {
-			throw new QuioteException(sprintf('setCookie() $encodeCallback argument is not callable: %s', $encodeCallback));
+			throw new QuioteException(sprintf('setCookie() $encodeCallback argument is not callable: %s', get_debug_type($encodeCallback)));
 		}
 
+		// Normalize the config-sourced (mixed) attributes to the stored cookie shape.
 		$this->cookies[$name] = [
 			'value' => $value,
-			'lifetime' => $lifetime,
-			'path' => $path,
-			'domain' => $domain,
+			'lifetime' => (is_int($lifetime) || is_string($lifetime)) ? $lifetime : null,
+			'path' => is_string($path) ? $path : null,
+			'domain' => is_string($domain) ? $domain : null,
 			'secure' => $secure,
 			'httponly' => $httponly,
 			'encode_callback' => $encodeCallback,
-			'samesite' => $samesite
+			'samesite' => is_string($samesite) ? $samesite : null,
 		];
 		$this->logCookieDebug('setCookie', [
 			'name' => $name,
@@ -984,7 +1005,7 @@ class WebResponse extends Response
 
 	/**
 	 * Get a list of cookies set for later sending.
-	 * @return     array<string, array<string, mixed>> An associative array of cookie names (key) and cookie
+	 * @return     array<string, array{value: mixed, lifetime: int|string|null, path: string|null, domain: string|null, secure: bool, httponly: bool, encode_callback: callable|false, samesite: string|null}> An associative array of cookie names (key) and cookie
 	 *                   information (value, associative array).
 	 * @since      1.0.0
 	 */
@@ -1104,14 +1125,17 @@ class WebResponse extends Response
 		if(!$this->validateHttpStatusCode($code)) {
 			$request = $this->context?->getRequest();
 			$protocol = $this->getRequestProtocol($request);
-			throw new QuioteException(sprintf('Invalid %s Redirect Status code: %s', $protocol, $code));
+			throw new QuioteException(sprintf('Invalid %s Redirect Status code: %s', $protocol, (string) $code));
 		}
-		$this->redirect = ['location' => $location, 'code' => $code];
+		$this->redirect = [
+			'location' => self::toStringOrEmpty($location),
+			'code' => is_int($code) ? $code : self::toStringOrEmpty($code),
+		];
 	}
 
 	/**
 	 * Get info about the set redirect.
-	 * @return     ?array{location: mixed, code: int|string} An assoc array of redirect info, or null if none set.
+	 * @return     ?array{location: string, code: int|string} An assoc array of redirect info, or null if none set.
 	 * @since      1.0.0
 	 */
 	public function getRedirect()
