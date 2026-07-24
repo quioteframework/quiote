@@ -123,16 +123,13 @@ class QuioteNumberFormatter extends DecimalFormatter implements ITranslator, Res
 		$format = null;
 		$localeIdentifier = $this->locale->getIdentifier();
 		if($localeIdentifier !== null && class_exists(\NumberFormatter::class)) {
-			try {
-				$nf = new \NumberFormatter($localeIdentifier, \NumberFormatter::DECIMAL);
-				$this->groupingSeparator = $nf->getSymbol(\NumberFormatter::GROUPING_SEPARATOR_SYMBOL);
-				$this->decimalSeparator = $nf->getSymbol(\NumberFormatter::DECIMAL_SEPARATOR_SYMBOL);
-				$pattern = $nf->getPattern();
-				if($pattern !== '') {
-					$format = $pattern;
+			$symbols = self::decimalSymbolsFor($localeIdentifier);
+			if($symbols !== null) {
+				$this->groupingSeparator = $symbols['grouping'];
+				$this->decimalSeparator = $symbols['decimal'];
+				if($symbols['pattern'] !== '') {
+					$format = $symbols['pattern'];
 				}
-			} catch(\Throwable) {
-				// fall back to defaults below
 			}
 		}
 
@@ -156,8 +153,35 @@ class QuioteNumberFormatter extends DecimalFormatter implements ITranslator, Res
 		$this->locale = null;
 		$this->customFormat = null;
 		$this->translationDomain = null;
-		
+
 		parent::reset();
+	}
+
+	/**
+	 * Locale-scoped decimal grouping/decimal separators and base pattern, read
+	 * from a NumberFormatter once per locale and memoized for the process
+	 * lifetime. ICU locale data is immutable at runtime and keyed by the full
+	 * locale identifier, so this static cache is worker-safe (it intentionally
+	 * survives reset()) and removes the per-call NumberFormatter construction
+	 * that ran on every locale-scoped _n().
+	 * @return array{grouping: string, decimal: string, pattern: string}|null
+	 */
+	private static function decimalSymbolsFor(string $localeIdentifier): ?array
+	{
+		static $cache = [];
+		if(array_key_exists($localeIdentifier, $cache)) {
+			return $cache[$localeIdentifier];
+		}
+		try {
+			$nf = new \NumberFormatter($localeIdentifier, \NumberFormatter::DECIMAL);
+			return $cache[$localeIdentifier] = [
+				'grouping' => $nf->getSymbol(\NumberFormatter::GROUPING_SEPARATOR_SYMBOL),
+				'decimal' => $nf->getSymbol(\NumberFormatter::DECIMAL_SEPARATOR_SYMBOL),
+				'pattern' => $nf->getPattern(),
+			];
+		} catch(\Throwable) {
+			return $cache[$localeIdentifier] = null;
+		}
 	}
 }
 

@@ -182,12 +182,22 @@ class DateFormatter implements ITranslator, ResetInterface
 		$timezone = $locale->getLocaleTimeZone() ?? date_default_timezone_get();
 		$calendarConst = (strcasecmp($calendarId, self::DEFAULT_CALENDAR) === 0) ? IntlDateFormatter::GREGORIAN : IntlDateFormatter::TRADITIONAL;
 
+		// The resolved pattern is a pure function of these ICU inputs, so it is
+		// memoized for the process lifetime (worker-safe: ICU data is immutable
+		// at runtime and the key captures every input). Removes the per-call
+		// IntlDateFormatter construction previously done just to read a pattern.
+		static $patternCache = [];
+		$cacheKey = $localeId . '|' . $dateStyle . '|' . $timeStyle . '|' . $calendarConst . '|' . $timezone;
+		if(array_key_exists($cacheKey, $patternCache)) {
+			return $patternCache[$cacheKey];
+		}
+
 		try {
 			$formatter = new IntlDateFormatter($localeId, $dateStyle, $timeStyle, $timezone, $calendarConst);
 			$pattern = $formatter->getPattern();
-			return $pattern !== false ? $pattern : null;
+			return $patternCache[$cacheKey] = ($pattern !== false ? $pattern : null);
 		} catch(\Throwable) {
-			return null;
+			return $patternCache[$cacheKey] = null;
 		}
 	}
 
@@ -264,15 +274,8 @@ class DateFormatter implements ITranslator, ResetInterface
 		$timezone = $this->resolveTimezone($locale);
 		$immutable = DateTimeImmutable::createFromInterface($dt)->setTimezone($timezone);
 
-		if(class_exists(IntlDateFormatter::class)) {
-			$formatter = new IntlDateFormatter(
-				$locale->getIdentifier(),
-				IntlDateFormatter::NONE,
-				IntlDateFormatter::NONE,
-				$timezone->getName(),
-				IntlDateFormatter::GREGORIAN,
-				$pattern
-			);
+		$formatter = self::patternFormatterFor($locale->getIdentifier(), $pattern, $timezone->getName());
+		if($formatter !== null) {
 			$formatter->setTimeZone($timezone);
 			$result = $formatter->format($immutable);
 			if($result !== false) {
@@ -285,6 +288,37 @@ class DateFormatter implements ITranslator, ResetInterface
 			return DateTimeFacade::format($immutable, $pattern, $locale->getIdentifier());
 		} catch(\Throwable $e) {
 			throw new QuioteException('Failed to format date using pattern "' . $pattern . '".', 0, $e);
+		}
+	}
+
+	/**
+	 * A pattern-only IntlDateFormatter for a (locale, pattern, timezone) triple,
+	 * constructed once and memoized for the process lifetime. format() does not
+	 * mutate the formatter's configuration, so the instance is safely reused
+	 * across calls; the caller still sets the timezone explicitly before each
+	 * format. Removes the per-call IntlDateFormatter construction from _d().
+	 */
+	private static function patternFormatterFor(?string $identifier, string $pattern, string $tzName): ?IntlDateFormatter
+	{
+		if(!class_exists(IntlDateFormatter::class)) {
+			return null;
+		}
+		static $cache = [];
+		$key = ($identifier ?? '') . '|' . $pattern . '|' . $tzName;
+		if(array_key_exists($key, $cache)) {
+			return $cache[$key];
+		}
+		try {
+			return $cache[$key] = new IntlDateFormatter(
+				$identifier,
+				IntlDateFormatter::NONE,
+				IntlDateFormatter::NONE,
+				$tzName,
+				IntlDateFormatter::GREGORIAN,
+				$pattern
+			);
+		} catch(\Throwable) {
+			return $cache[$key] = null;
 		}
 	}
 }

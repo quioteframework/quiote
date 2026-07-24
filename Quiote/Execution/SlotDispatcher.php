@@ -55,6 +55,9 @@ class SlotDispatcher
     // Retained only to keep the constructor signature stable for callers that
     // inject it; nothing in this class reads it back yet.
     private ?ForwardService $forwardService = null;
+    // Reused across slot dispatches: SecurityService is stateless (only a readonly
+    // Controller reference), so a fresh instance per dispatch was pure allocation.
+    private ?SecurityService $securityService = null;
 
     public function __construct(private readonly Controller $controller, ?ActionResolver $actionResolver = null, ?SlotExecutionGuard $executionGuard = null, ?ViewNameResolver $viewNameResolver = null, ?ForwardService $forwardService = null, ?ViewFactory $viewFactory = null)
     {
@@ -135,6 +138,12 @@ class SlotDispatcher
         $this->executionGuard->enter($stack, $key);
         try {
             $start = microtime(true);
+            // Resolve the effective output type once for the whole dispatch; the raw
+            // and lowercased forms are referenced many times below (view creation,
+            // init contexts, execute-method name, execution context) and previously
+            // re-ran getOutputType()->getName() + strtolower() at each site.
+            $resolvedOutputType = $outputType ?? $this->controller->getOutputType()->getName();
+            $resolvedOutputTypeLower = strtolower($resolvedOutputType);
             $cacheEnabled = Config::getBool('core.use_cache', false) && (bool)getenv('QUIOTE_SLOT_CACHE');
             $cacheKey = null;
             $cacheHit = false;
@@ -273,7 +282,7 @@ class SlotDispatcher
                 $result = '';
                 if ($viewCanonical !== View::NONE && $viewModule !== null) {
                     try {
-                        $viewInstance = $this->viewFactory->create($viewModule, $viewCanonical, $module, $action, strtolower(($outputType ?? $this->controller->getOutputType()->getName())), $rd, $attributeSnapshot);
+                        $viewInstance = $this->viewFactory->create($viewModule, $viewCanonical, $module, $action, $resolvedOutputTypeLower, $rd, $attributeSnapshot);
                     } catch (\Throwable $e) {
                         if ($logExceptions) {
                             $this->logSlotException($e, $module, $action, $parameters, 'simple_view_factory_create');
@@ -287,13 +296,13 @@ class SlotDispatcher
                         }
                         if ($viewInstance) {
                             try {
-                                $vic = new \Quiote\Execution\ImmutableViewInitContext($this->controller->getContext(), $viewModule, $viewCanonical, strtolower(($outputType ?? $this->controller->getOutputType()->getName())), $module, $action, (array)$attributeSnapshot, $this->controller->getGlobalResponse());
+                                $vic = new \Quiote\Execution\ImmutableViewInitContext($this->controller->getContext(), $viewModule, $viewCanonical, $resolvedOutputTypeLower, $module, $action, (array)$attributeSnapshot, $this->controller->getGlobalResponse());
                                 $viewInstance->initialize($vic);
                             } catch (\Throwable) {
                             }
                         }
                     }
-                    $method = 'execute' . ($outputType ?? $this->controller->getOutputType()->getName());
+                    $method = 'execute' . ($resolvedOutputType);
                     if (!$viewInstance || !is_callable([$viewInstance, $method])) {
                         $method = 'execute';
                     }
@@ -330,7 +339,7 @@ class SlotDispatcher
                 }
                 // Build execution context (presently unused by caller, but enables future hooks)
                 // Build context but only return content (use dispatchWithContext() for caller access)
-                $viewOutputType = $outputType ?? $this->controller->getOutputType()->getName();
+                $viewOutputType = $resolvedOutputType;
                 $ctx = new ActionExecutionContext(
                     action: $actionInstance,
                     view: $viewInstance,
@@ -352,7 +361,7 @@ class SlotDispatcher
                         $module,
                         $action,
                         strtoupper($parentRequest->getMethod()),
-                        strtolower(($outputType ?? $this->controller->getOutputType()->getName())),
+                        $resolvedOutputTypeLower,
                         $rd,
                         $this->controller->getGlobalResponse()
                     );
@@ -370,7 +379,7 @@ class SlotDispatcher
                 } catch (\Throwable $e) {
                     $logger->debug('[SlotDispatcher] Failed to set is_slot attribute: ' . $e->getMessage());
                 }
-                $securityService = new SecurityService($this->controller);
+                $securityService = $this->securityService ??= new SecurityService($this->controller);
                 $decision = $securityService->decide($actionInstance);
                 if ($decision !== SecurityDecision::Allow) {
                     // Security denied for slot execution. Rendering the full system
@@ -384,7 +393,7 @@ class SlotDispatcher
                         $logger->debug(sprintf('[SlotDisp] security denied for slot %s/%s during slot dispatch - returning empty content', $module, $action));
                     } catch (\Throwable) {
                     }
-                    $ctx = new ActionExecutionContext($actionInstance, null, $module, $action, $outputType ?? $this->controller->getOutputType()->getName(), $rd, '');
+                    $ctx = new ActionExecutionContext($actionInstance, null, $module, $action, $resolvedOutputType, $rd, '');
                     $this->lastContext = $ctx;
                     return $ctx->content;
                 }
@@ -424,7 +433,7 @@ class SlotDispatcher
                     $content = '';
                     if ($vn !== View::NONE && $vm !== null) {
                         try {
-                            $viewInstance = $this->viewFactory->create($vm, $vn, $module, $action, strtolower(($outputType ?? $this->controller->getOutputType()->getName())), $rd, self::normalizeAttributeKeys($actionInstance->getAttributes()));
+                            $viewInstance = $this->viewFactory->create($vm, $vn, $module, $action, $resolvedOutputTypeLower, $rd, self::normalizeAttributeKeys($actionInstance->getAttributes()));
                         } catch (\Throwable $e) {
                             if ($logExceptions) {
                                 $this->logSlotException($e, $module, $action, $parameters, 'nonsimple_error_view_factory_create');
@@ -439,12 +448,12 @@ class SlotDispatcher
                         }
                         if ($viewInstance) {
                             try {
-                                $vic = new \Quiote\Execution\ImmutableViewInitContext($this->controller->getContext(), $vm, $vn, strtolower(($outputType ?? $this->controller->getOutputType()->getName())), $module, $action, self::normalizeAttributeKeys($actionInstance->getAttributes()), $this->controller->getGlobalResponse());
+                                $vic = new \Quiote\Execution\ImmutableViewInitContext($this->controller->getContext(), $vm, $vn, $resolvedOutputTypeLower, $module, $action, self::normalizeAttributeKeys($actionInstance->getAttributes()), $this->controller->getGlobalResponse());
                                 $viewInstance->initialize($vic);
                             } catch (\Throwable) {
                             }
                         }
-                        $methodExec = 'execute' . ($outputType ?? $this->controller->getOutputType()->getName());
+                        $methodExec = 'execute' . ($resolvedOutputType);
                         if (!$viewInstance || !is_callable([$viewInstance, $methodExec])) {
                             $methodExec = 'execute';
                         }
@@ -465,7 +474,7 @@ class SlotDispatcher
                             }
                         }
                     }
-                    $ctx = new ActionExecutionContext($actionInstance, $viewInstance, $module, $action, $outputType ?? $this->controller->getOutputType()->getName(), $rd, (string)$content, $vm, $vn);
+                    $ctx = new ActionExecutionContext($actionInstance, $viewInstance, $module, $action, $resolvedOutputType, $rd, (string)$content, $vm, $vn);
                     $this->lastContext = $ctx;
                     return $ctx->content;
                 }
@@ -485,7 +494,7 @@ class SlotDispatcher
                 if ($vn !== View::NONE && $vm !== null) {
                     $attrs = self::normalizeAttributeKeys($actionInstance->getAttributes());
                     try {
-                        $viewInstance = $this->viewFactory->create($vm, $vn, $module, $action, strtolower(($outputType ?? $this->controller->getOutputType()->getName())), $rd, $attrs);
+                        $viewInstance = $this->viewFactory->create($vm, $vn, $module, $action, $resolvedOutputTypeLower, $rd, $attrs);
                     } catch (\Throwable $e) {
                         if ($logExceptions) {
                             $this->logSlotException($e, $module, $action, $parameters, 'nonsimple_view_factory_create');
@@ -500,12 +509,12 @@ class SlotDispatcher
                     }
                     if ($viewInstance) {
                         try {
-                            $vic = new \Quiote\Execution\ImmutableViewInitContext($this->controller->getContext(), $vm, $vn, strtolower(($outputType ?? $this->controller->getOutputType()->getName())), $module, $action, $attrs, $this->controller->getGlobalResponse());
+                            $vic = new \Quiote\Execution\ImmutableViewInitContext($this->controller->getContext(), $vm, $vn, $resolvedOutputTypeLower, $module, $action, $attrs, $this->controller->getGlobalResponse());
                             $viewInstance->initialize($vic);
                         } catch (\Throwable) {
                         }
                     }
-                    $methodExec = 'execute' . ($outputType ?? $this->controller->getOutputType()->getName());
+                    $methodExec = 'execute' . ($resolvedOutputType);
                     if (!$viewInstance || !is_callable([$viewInstance, $methodExec])) {
                         $methodExec = 'execute';
                     }
@@ -541,7 +550,7 @@ class SlotDispatcher
                     }
                 }
                 $attrsFinal = self::normalizeAttributeKeys($actionInstance->getAttributes());
-                $ctx = new ActionExecutionContext($actionInstance, $viewInstance, $module, $action, $outputType ?? $this->controller->getOutputType()->getName(), $rd, (string)$result, $vm, $vn, $attrsFinal);
+                $ctx = new ActionExecutionContext($actionInstance, $viewInstance, $module, $action, $resolvedOutputType, $rd, (string)$result, $vm, $vn, $attrsFinal);
                 $this->lastContext = $ctx;
                 return $ctx->content;
             }

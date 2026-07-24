@@ -447,6 +447,24 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	}
 
 	/**
+	 * Bulk counterpart to setParameter(): set many runtime parameters at once.
+	 * Semantically identical to calling setParameter() for each entry, but clones
+	 * the request once and rebuilds the parameter store once instead of per key --
+	 * avoiding the O(n) clone/array-copy churn of a per-key setParameter() loop
+	 * when promoting query + body + route params into the request each request.
+	 * @param array<array-key, mixed> $params
+	 */
+	public function withParameters(array $params): static
+	{
+		if ($params === []) {
+			return $this;
+		}
+		$new = clone $this;
+		$new->params = $this->params->withParameters($params);
+		return $new;
+	}
+
+	/**
 	 * Sets a runtime parameter's value WITHOUT whitelisting it for strict-mode
 	 * access, unlike setParameter(). Used to promote a value (e.g. a route
 	 * param) into the pipeline so validators can see and validate it, without

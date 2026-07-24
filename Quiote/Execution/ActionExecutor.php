@@ -150,10 +150,17 @@ final class ActionExecutor
                 $params[$attr] = $val;
             }
         }
-        foreach ($params as $k => $v) {
-            try {
-                $web = $web->setParameter($k, $v);
-            } catch (\Throwable) {
+        // Promote all merged parameters in one shot (single clone + one store
+        // rebuild). Fall back to the per-key loop only if the bulk path throws,
+        // preserving the previous best-effort "skip the offending key" behavior.
+        try {
+            $web = $web->withParameters($params);
+        } catch (\Throwable) {
+            foreach ($params as $k => $v) {
+                try {
+                    $web = $web->setParameter($k, $v);
+                } catch (\Throwable) {
+                }
             }
         }
         // WebRequest is immutable: when $web was reused from the context (the common

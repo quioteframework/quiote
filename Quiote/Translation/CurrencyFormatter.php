@@ -146,15 +146,13 @@ class CurrencyFormatter extends DecimalFormatter implements ITranslator, ResetIn
 		$format = null;
 		$localeIdentifier = $this->locale->getIdentifier();
 		if($localeIdentifier !== null && class_exists(\NumberFormatter::class)) {
-			try {
-				$nf = new \NumberFormatter($localeIdentifier, \NumberFormatter::CURRENCY);
-				$this->groupingSeparator = $nf->getSymbol(\NumberFormatter::GROUPING_SEPARATOR_SYMBOL);
-				$this->decimalSeparator = $nf->getSymbol(\NumberFormatter::DECIMAL_SEPARATOR_SYMBOL);
-				$pattern = $nf->getPattern();
-				if($pattern !== '') {
-					$format = $pattern;
+			$symbols = self::currencySymbolsFor($localeIdentifier);
+			if($symbols !== null) {
+				$this->groupingSeparator = $symbols['grouping'];
+				$this->decimalSeparator = $symbols['decimal'];
+				if($symbols['pattern'] !== '') {
+					$format = $symbols['pattern'];
 				}
-			} catch(\Throwable) {
 			}
 		}
 
@@ -203,19 +201,9 @@ class CurrencyFormatter extends DecimalFormatter implements ITranslator, ResetIn
 
 		$localeIdentifier = $this->locale->getIdentifier();
 		if($localeIdentifier !== null && class_exists(\NumberFormatter::class)) {
-			try {
-				$nf = new \NumberFormatter($localeIdentifier, \NumberFormatter::CURRENCY);
-				$nf->setTextAttribute(\NumberFormatter::CURRENCY_CODE, $code);
-				$sym = $nf->getSymbol(\NumberFormatter::CURRENCY_SYMBOL);
-				if($sym !== '') {
-					$symbol = $sym;
-				}
-				$display = self::resolveCurrencyDisplayName($localeIdentifier, $code);
-				if($display !== null) {
-					$name = $display;
-				}
-			} catch(\Throwable) {
-			}
+			$display = self::currencyDisplayFor($localeIdentifier, $code);
+			$symbol = $display['symbol'] !== '' ? $display['symbol'] : $code;
+			$name = $display['name'] !== '' ? $display['name'] : $code;
 		}
 
 		return match ($this->currencyType) {
@@ -224,6 +212,63 @@ class CurrencyFormatter extends DecimalFormatter implements ITranslator, ResetIn
 			DecimalFormatter::CURRENCY_NAME => $name,
 			default => $code,
 		};
+	}
+
+	/**
+	 * Locale-scoped currency grouping/decimal separators and base pattern, read
+	 * from a NumberFormatter once per locale and memoized for the process
+	 * lifetime (ICU data is immutable at runtime; keyed by the full locale
+	 * identifier, so it is worker-safe and intentionally survives reset()).
+	 * @return array{grouping: string, decimal: string, pattern: string}|null
+	 */
+	private static function currencySymbolsFor(string $localeIdentifier): ?array
+	{
+		static $cache = [];
+		if(array_key_exists($localeIdentifier, $cache)) {
+			return $cache[$localeIdentifier];
+		}
+		try {
+			$nf = new \NumberFormatter($localeIdentifier, \NumberFormatter::CURRENCY);
+			return $cache[$localeIdentifier] = [
+				'grouping' => $nf->getSymbol(\NumberFormatter::GROUPING_SEPARATOR_SYMBOL),
+				'decimal' => $nf->getSymbol(\NumberFormatter::DECIMAL_SEPARATOR_SYMBOL),
+				'pattern' => $nf->getPattern(),
+			];
+		} catch(\Throwable) {
+			return $cache[$localeIdentifier] = null;
+		}
+	}
+
+	/**
+	 * Currency symbol + display name for a (locale, currency code) pair, resolved
+	 * via ICU once and memoized for the process lifetime. Replaces the
+	 * NumberFormatter construction plus ResourceBundle::create() lookup that ran
+	 * on every _c() call. Keyed by locale identifier + currency code.
+	 * @return array{symbol: string, name: string}
+	 */
+	private static function currencyDisplayFor(string $localeIdentifier, string $code): array
+	{
+		static $cache = [];
+		$key = $localeIdentifier . '|' . $code;
+		if(isset($cache[$key])) {
+			return $cache[$key];
+		}
+		$symbol = '';
+		$name = '';
+		try {
+			$nf = new \NumberFormatter($localeIdentifier, \NumberFormatter::CURRENCY);
+			$nf->setTextAttribute(\NumberFormatter::CURRENCY_CODE, $code);
+			$sym = $nf->getSymbol(\NumberFormatter::CURRENCY_SYMBOL);
+			if($sym !== '') {
+				$symbol = $sym;
+			}
+			$display = self::resolveCurrencyDisplayName($localeIdentifier, $code);
+			if($display !== null) {
+				$name = $display;
+			}
+		} catch(\Throwable) {
+		}
+		return $cache[$key] = ['symbol' => $symbol, 'name' => $name];
 	}
 
 	private static function resolveCurrencyDisplayName(string $localeId, string $code): ?string

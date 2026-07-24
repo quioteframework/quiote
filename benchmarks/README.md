@@ -28,6 +28,11 @@ php benchmarks/run.php compare baseline tier1
 | `webresponse_construct` | `WebResponse` construction (status-code table allocation) |
 | `view_render_layers` | `View::renderLayers()` per-layer attribute-map rebuild (4 layers, 25 attrs) |
 | `gettext_read_mo` | `GettextMoReader::readFile()` .mo catalog read + unpack (500 entries) |
+| `currency_format` | `_c()` currency formatting (ICU NumberFormatter + ResourceBundle) |
+| `number_format` | `_n()` decimal formatting (ICU NumberFormatter) |
+| `date_format` | `_d()` date formatting (ICU IntlDateFormatter) |
+| `webrequest_params_loop` | per-key `setParameter()` loop applying 20 params (old path) |
+| `webrequest_params_bulk` | `withParameters()` applying 20 params (new path) |
 
 ## Tier 1 results (PHP 8.5.8, min ns/op)
 
@@ -45,3 +50,19 @@ Notes:
   zval copy-on-write; the larger benefit there is reduced per-instance memory,
   which a timing benchmark does not capture.
 - Absolute numbers are machine-dependent; the *relative* change is the signal.
+
+## Tier 2 results (PHP 8.5.8, min ns/op)
+
+| benchmark | before | after | change |
+|---|---:|---:|---:|
+| `date_format` | 71159.0 | 11249.4 | −84.2% |
+| `currency_format` | 57279.4 | 22424.5 | −60.9% |
+| `number_format` | 12891.5 | 7419.5 | −42.4% |
+| `webrequest_params` (loop → bulk) | 14410.2 | 8233.6 | −43% |
+
+Notes:
+- Formatter gains come from caching the immutable, locale-keyed ICU objects
+  (`NumberFormatter` / `IntlDateFormatter` / `ResourceBundle`) for the worker
+  lifetime instead of rebuilding them on every `_c()` / `_n()` / `_d()` call.
+- `webrequest_params` compares the old per-key `setParameter()` loop against the
+  new bulk `withParameters()` path now used by `ActionExecutor`.

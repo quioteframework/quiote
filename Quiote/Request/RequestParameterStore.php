@@ -61,7 +61,41 @@ final class RequestParameterStore
     {
         $runtimeParameters = $this->runtimeParameters;
         $validatedKeys = $this->validatedKeys;
+        self::applyParameter($runtimeParameters, $validatedKeys, $name, $value);
+        return new self($runtimeParameters, $validatedKeys);
+    }
 
+    /**
+     * Bulk counterpart to withParameter(): apply many runtime parameters in one
+     * shot. Each key carries the same semantics (auto-whitelisting, bracket-path
+     * notation, root-array materialization), but the runtime/whitelist arrays are
+     * copied once and a single new store is constructed, instead of cloning the
+     * store (and copying both arrays) once per key -- the O(n) allocation churn
+     * the per-key setParameter() loop incurred on every request.
+     * @param array<array-key, mixed> $params
+     */
+    public function withParameters(array $params): self
+    {
+        if ($params === []) {
+            return $this;
+        }
+        $runtimeParameters = $this->runtimeParameters;
+        $validatedKeys = $this->validatedKeys;
+        foreach ($params as $name => $value) {
+            self::applyParameter($runtimeParameters, $validatedKeys, (string) $name, $value);
+        }
+        return new self($runtimeParameters, $validatedKeys);
+    }
+
+    /**
+     * Apply a single runtime parameter to the given runtime/whitelist arrays
+     * in place. Shared by withParameter() and withParameters() so the mutation
+     * semantics stay identical regardless of how many parameters are set at once.
+     * @param array<array-key, mixed> $runtimeParameters
+     * @param array<array-key, bool> $validatedKeys
+     */
+    private static function applyParameter(array &$runtimeParameters, array &$validatedKeys, string $name, mixed $value): void
+    {
         // Support legacy bracket notation when tests or legacy code call setParameter.
         $firstBracket = strpos($name, '[');
         if ($firstBracket !== false) {
@@ -91,7 +125,7 @@ final class RequestParameterStore
                     // Do not additionally store the fully qualified bracket path to avoid duplication.
                     $validatedKeys[$root] = true;
                     $validatedKeys[$name] = true;
-                    return new self($runtimeParameters, $validatedKeys);
+                    return;
                 }
             }
         }
@@ -103,12 +137,10 @@ final class RequestParameterStore
         // that pass data to execute*() via setParameter() would be blocked.
         $validatedKeys[$name] = true;
 
-        $store = new self($runtimeParameters, $validatedKeys);
         // If setting a root array (e.g. data => [[...]]), synthesize bracket keys (data[0][Field]).
-        if (is_array($value) && $store->shouldMaterializeBracketPaths($name, $value)) {
-            $store = $store->materializeBracketPaths($name, $value);
+        if (is_array($value) && self::shouldMaterializeBracketPaths($name, $value)) {
+            self::materializeBracketPaths($runtimeParameters, $name, $value);
         }
-        return $store;
     }
 
     /**
@@ -276,7 +308,7 @@ final class RequestParameterStore
      * structures (>200 elements) for performance.
      * @param array<mixed> $value
      */
-    private function shouldMaterializeBracketPaths(string $root, array $value): bool
+    private static function shouldMaterializeBracketPaths(string $root, array $value): bool
     {
         if ($root === '') {
             return false;
@@ -287,12 +319,13 @@ final class RequestParameterStore
 
     /**
      * For a structure like ['data' => [ ['Application' => 'orders', 'Enabled' => true] ] ]
-     * create flattened bracketed entries: data[0][Application], data[0][Enabled].
+     * create flattened bracketed entries: data[0][Application], data[0][Enabled],
+     * writing them into the given runtime-parameter array in place.
+     * @param array<array-key, mixed> $runtimeParameters
      * @param array<int|string, mixed> $list
      */
-    private function materializeBracketPaths(string $root, array $list): self
+    private static function materializeBracketPaths(array &$runtimeParameters, string $root, array $list): void
     {
-        $runtimeParameters = $this->runtimeParameters;
         foreach ($list as $idx => $row) {
             if (!is_array($row)) {
                 continue;
@@ -305,7 +338,6 @@ final class RequestParameterStore
                 }
             }
         }
-        return new self($runtimeParameters, $this->validatedKeys);
     }
 
     /**

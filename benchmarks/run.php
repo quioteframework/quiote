@@ -31,6 +31,35 @@ Config::set('core.cache_dir', sys_get_temp_dir());
 Config::set('core.system_config_dir', $srcDir . '/Config/defaults/');
 Config::set('core.environment', 'prod');
 Config::set('core.default_context', 'web');
+Config::set('core.use_translation', true, true);
+// Sets core.quiote_dir (and other core constants) needed by the translation stack.
+require_once __DIR__ . '/../Quiote/Quiote.php';
+
+/**
+ * Lazily build (once) a started TranslationManager for the formatter benchmarks.
+ */
+function translationManager(): \Quiote\Translation\TranslationManager
+{
+    static $tm = null;
+    if ($tm !== null) {
+        return $tm;
+    }
+    $ctx = \Quiote\Context::getInstance();
+    $existing = $ctx->getTranslationManager();
+    if ($existing instanceof \Quiote\Translation\TranslationManager) {
+        return $tm = $existing;
+    }
+    $ctx->setFactoryInfo('translation_manager', [
+        'class' => \Quiote\Translation\TranslationManager::class,
+        'parameters' => [],
+    ]);
+    $built = $ctx->createInstanceFor('translation_manager');
+    if (!$built instanceof \Quiote\Translation\TranslationManager) {
+        throw new RuntimeException('Could not build a TranslationManager for the benchmark.');
+    }
+    $built->startup();
+    return $tm = $built;
+}
 
 // ---------------------------------------------------------------------------
 // Benchmark harness
@@ -190,6 +219,58 @@ function benchmarks(): array
             writeMoFile($path, $pairs);
             return bench(static fn() => \Quiote\Translation\Gettext\GettextMoReader::readFile($path), 1000, 15, 200);
         },
+
+        // Tier 2 #5: ICU currency formatting (NumberFormatter + ResourceBundle per call).
+        'currency_format' => static function (): array {
+            $tm = translationManager();
+            $loc = $tm->getLocale('en_US');
+            return bench(static fn() => $tm->_c(1234.56, null, $loc), 2000, 15, 500);
+        },
+
+        // Tier 2 #5: ICU decimal formatting (NumberFormatter per call).
+        'number_format' => static function (): array {
+            $tm = translationManager();
+            $loc = $tm->getLocale('en_US');
+            return bench(static fn() => $tm->_n(1234567.89, null, $loc), 2000, 15, 500);
+        },
+
+        // Tier 2 #5: ICU date formatting (IntlDateFormatter per call).
+        'date_format' => static function (): array {
+            $tm = translationManager();
+            $loc = $tm->getLocale('en_US');
+            $dt = new \DateTimeImmutable('2024-03-15 12:00:00');
+            return bench(static fn() => $tm->_d($dt, null, $loc), 2000, 15, 500);
+        },
+
+        // Tier 2 #6: applying route/query/body params onto the immutable WebRequest.
+        // The per-key setParameter() loop is what ActionExecutor/Kernel do today;
+        // the bulk withParameters() path is measured too when available.
+        'webrequest_params_loop' => static function (): array {
+            $params = [];
+            for ($i = 0; $i < 20; $i++) {
+                $params['param_' . $i] = 'value_' . $i;
+            }
+            return bench(static function () use ($params): void {
+                $req = new \Quiote\Request\WebRequest();
+                foreach ($params as $k => $v) {
+                    $req = $req->setParameter($k, $v);
+                }
+            }, 3000, 15, 500);
+        },
+
+        'webrequest_params_bulk' => static function (): ?array {
+            if (!method_exists(\Quiote\Request\WebRequest::class, 'withParameters')) {
+                return null; // not implemented yet (baseline run)
+            }
+            $params = [];
+            for ($i = 0; $i < 20; $i++) {
+                $params['param_' . $i] = 'value_' . $i;
+            }
+            return bench(static function () use ($params): void {
+                $req = new \Quiote\Request\WebRequest();
+                $req->withParameters($params);
+            }, 3000, 15, 500);
+        },
     ];
 }
 
@@ -214,6 +295,9 @@ function runAll(string $label): void
     printf("%s\n", str_repeat('-', 74));
     foreach (benchmarks() as $name => $fn) {
         $r = $fn();
+        if ($r === null) {
+            continue; // benchmark not applicable in this run (e.g. API not yet implemented)
+        }
         $results[$name] = $r;
         printf("%-28s %14.1f %14.1f %14.1f\n", $name, $r['min'], $r['median'], $r['mean']);
     }
