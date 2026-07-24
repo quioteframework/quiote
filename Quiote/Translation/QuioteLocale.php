@@ -23,6 +23,15 @@ use function is_string;
 class QuioteLocale extends ParameterHolder implements ResetInterface
 {
 	/**
+	 * Compiled locale-identifier pattern. Built once as a constant rather than
+	 * re-concatenated from its base/options sub-patterns on every
+	 * parseLocaleIdentifier() call. The forward assertion in the script group
+	 * stops it from matching the first character of the territory.
+	 */
+	private const string LOCALE_IDENTIFIER_REGEX =
+		'#^((?P<language>[^_@]{2,3})(?:_(?P<script>[^_@](?=@|_|$)|[^_@]{4,}))?(?:_(?P<territory>[^_@]{2,3}))?(?:_(?P<variant>[^@]+))?)(@(?P<options>.*))?$#';
+
+	/**
 	 * @var        ?Context An Context instance.
 	 */
 	protected $context = null;
@@ -293,12 +302,15 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	 */
 	public static function parseLocaleIdentifier($identifier)
 	{
-		// the only important thing here is the forward assertion which is needed
-		// so it doesn't match the first character of the territory
-		$baseLocaleRx = '(?P<language>[^_@]{2,3})(?:_(?P<script>[^_@](?=@|_|$)|[^_@]{4,}))?(?:_(?P<territory>[^_@]{2,3}))?(?:_(?P<variant>[^@]+))?';
-		$optionsRx = '@(?P<options>.*)';
-
-		$localeRx = '#^(' . $baseLocaleRx . ')(' . $optionsRx . ')?$#';
+		// Parsing is a pure function of the identifier, so memoize the result for
+		// the process lifetime -- parseLocaleIdentifier() is called several times
+		// per locale switch (TranslationManager::setLocale/getLocale, per-key in
+		// SimpleTranslator, etc.).
+		static $cache = [];
+		$cacheKey = (string) $identifier;
+		if(isset($cache[$cacheKey])) {
+			return $cache[$cacheKey];
+		}
 
 		$localeData = [
 			'language' => null,
@@ -310,7 +322,7 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 			'option_str' => null,
 		];
 
-		if(preg_match($localeRx, (string) $identifier, $match)) {
+		if(preg_match(self::LOCALE_IDENTIFIER_REGEX, (string) $identifier, $match)) {
 			$localeData['language'] = $match['language'];
 			if(!empty($match['script'])) {
 				$localeData['script'] = $match['script'];
@@ -344,10 +356,11 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 
 			$localeData['locale_str'] = substr((string) $identifier, 0, strcspn((string) $identifier, '@'));
 		} else {
+			// Invalid identifiers are not cached (they throw, and are rare).
 			throw new QuioteException('Invalid locale identifier (' . $identifier . ') specified');
 		}
 
-		return $localeData;
+		return $cache[$cacheKey] = $localeData;
 	}
 
 	/**

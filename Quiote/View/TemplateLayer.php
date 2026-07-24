@@ -58,12 +58,26 @@ abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 	 */
 	public function __call($name, array $args)
 	{
-		$matches = [];
-		if(preg_match('/^(has|get|set|remove)(.+)$/', (string) $name, $matches)) {
-			$method = $matches[1] . 'Parameter';
-			// transform "FooBarBaz" (from "setTemplateDir" etc) to "foo_bar_baz"
-			$parameter = strtolower((string) preg_replace('/((?<!\A)[A-Z])/u', '_$1', $matches[2]));
-			return call_user_func_array([$this, $method], array_merge([$parameter], $args));
+		// The method name -> (target method, parameter name) decomposition is a
+		// deterministic function of $name, so memoize it for the process lifetime
+		// instead of running two regexes on every magic accessor call.
+		/** @var array<string, array{method: 'hasParameter'|'getParameter'|'setParameter'|'removeParameter', parameter: string}|null> $decomposed */
+		static $decomposed = [];
+		$key = (string) $name;
+		if(!array_key_exists($key, $decomposed)) {
+			$decomposed[$key] = null;
+			$matches = [];
+			if(preg_match('/^(has|get|set|remove)(.+)$/', $key, $matches)) {
+				$decomposed[$key] = [
+					'method' => $matches[1] . 'Parameter',
+					// transform "FooBarBaz" (from "setTemplateDir" etc) to "foo_bar_baz"
+					'parameter' => strtolower((string) preg_replace('/((?<!\A)[A-Z])/u', '_$1', $matches[2])),
+				];
+			}
+		}
+		$parts = $decomposed[$key];
+		if($parts !== null) {
+			return call_user_func_array([$this, $parts['method']], array_merge([$parts['parameter']], $args));
 		}
 	}
 	

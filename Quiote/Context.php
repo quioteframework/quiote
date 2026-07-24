@@ -736,17 +736,22 @@ class Context implements \Stringable, ResetInterface
     if ($request === null || $request instanceof \Quiote\Request\WebRequest) {
       $this->request = $request;
     }
-    if (is_object($request)) {
-      $message = sprintf(
-        "[Context] setRequest id=%d cid=%s",
-        spl_object_id($request),
-        $this->correlationId,
-      );
-    } else {
-      $message =
-        "[Context] setRequest (no id) cid=" . $this->correlationId;
+    // setRequest() runs several times per request; only build the diagnostic
+    // string (sprintf + spl_object_id) when debug logging is actually enabled.
+    $logger = \Quiote\Logging\Log::for($this);
+    if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+      if (is_object($request)) {
+        $message = sprintf(
+          "[Context] setRequest id=%d cid=%s",
+          spl_object_id($request),
+          $this->correlationId,
+        );
+      } else {
+        $message =
+          "[Context] setRequest (no id) cid=" . $this->correlationId;
+      }
+      $logger->debug($message);
     }
-    \Quiote\Logging\Log::for($this)->debug($message);
   }
 
   /**

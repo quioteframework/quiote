@@ -33,6 +33,9 @@ php benchmarks/run.php compare baseline tier1
 | `date_format` | `_d()` date formatting (ICU IntlDateFormatter) |
 | `webrequest_params_loop` | per-key `setParameter()` loop applying 20 params (old path) |
 | `webrequest_params_bulk` | `withParameters()` applying 20 params (new path) |
+| `header_normalize` | `WebResponse::normalizeHttpHeaderName()` over 5 header names |
+| `templatelayer_call` | two `TemplateLayer` magic accessor calls |
+| `locale_parse` | `QuioteLocale::parseLocaleIdentifier()` on a locale with options |
 
 ## Tier 1 results (PHP 8.5.8, min ns/op)
 
@@ -66,3 +69,18 @@ Notes:
   lifetime instead of rebuilding them on every `_c()` / `_n()` / `_d()` call.
 - `webrequest_params` compares the old per-key `setParameter()` loop against the
   new bulk `withParameters()` path now used by `ActionExecutor`.
+
+## Tier 3 results (PHP 8.5.8, min ns/op)
+
+| benchmark | before | after | change |
+|---|---:|---:|---:|
+| `locale_parse` | 1565.8 | 127.0 | −91.9% |
+| `header_normalize` | 1872.1 | 595.9 | −68.2% |
+| `templatelayer_call` | 1479.7 | 1024.7 | −30.7% |
+
+Notes:
+- These are micro-operations, but each runs many times per request (header
+  normalization on every header access, locale parsing on each locale switch,
+  magic accessors during layout construction), so the memoization compounds.
+- `Context::setRequest()` also skips building its debug string unless debug
+  logging is enabled; not separately benchmarked.

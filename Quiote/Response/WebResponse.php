@@ -552,13 +552,23 @@ class WebResponse extends Response
 	 */
 	public function normalizeHttpHeaderName($name)
 	{
-		if(strtolower((string) $name) == "etag") {
-			return "ETag";
-		} elseif(strtolower((string) $name) == "www-authenticate") {
-			return "WWW-Authenticate";
-		} else {
-			return str_replace(' ', '-', ucwords(str_replace('-', ' ', strtolower((string) $name))));
+		// HTTP header names form a small closed set; the raw -> normalized mapping
+		// is pure, so memoize it for the process lifetime rather than re-running the
+		// strtolower/ucwords/str_replace pipeline on every header access.
+		static $cache = [];
+		$key = (string) $name;
+		if(isset($cache[$key])) {
+			return $cache[$key];
 		}
+		$lower = strtolower($key);
+		if($lower === "etag") {
+			$normalized = "ETag";
+		} elseif($lower === "www-authenticate") {
+			$normalized = "WWW-Authenticate";
+		} else {
+			$normalized = str_replace(' ', '-', ucwords(str_replace('-', ' ', $lower)));
+		}
+		return $cache[$key] = $normalized;
 	}
 
 	/**

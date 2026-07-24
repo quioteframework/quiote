@@ -258,6 +258,36 @@ function benchmarks(): array
             }, 3000, 15, 500);
         },
 
+        // Tier 3: HTTP header-name normalization (memoized).
+        'header_normalize' => static function (): array {
+            $resp = new \Quiote\Response\WebResponse();
+            $names = ['content-type', 'X-Forwarded-For', 'etag', 'cache-control', 'set-cookie'];
+            return bench(static function () use ($resp, $names): void {
+                foreach ($names as $n) {
+                    $resp->normalizeHttpHeaderName($n);
+                }
+            }, 5000, 15, 1000);
+        },
+
+        // Tier 3: TemplateLayer magic accessor decomposition (memoized).
+        'templatelayer_call' => static function (): array {
+            $layer = new BenchLayer(['name' => 'bench']);
+            return bench(static function () use ($layer): void {
+                $layer->getName();
+                $layer->getTemplate();
+            }, 5000, 15, 1000);
+        },
+
+        // Tier 3: locale identifier parsing (regex hoisted + result memoized).
+        'locale_parse' => static function (): array {
+            return bench(
+                static fn() => \Quiote\Translation\QuioteLocale::parseLocaleIdentifier('de_DE@timezone=Europe/Berlin;currency=EUR'),
+                5000,
+                15,
+                1000
+            );
+        },
+
         'webrequest_params_bulk' => static function (): ?array {
             if (!method_exists(\Quiote\Request\WebRequest::class, 'withParameters')) {
                 return null; // not implemented yet (baseline run)
