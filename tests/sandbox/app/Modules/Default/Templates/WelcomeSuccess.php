@@ -59,7 +59,7 @@ p.light a, p.light a:link, p.light a:visited, p.light a:active, p.light a:hover 
 		<p>To get started, refer to the Quiote manual, or play around with the sample application that was included with this distribution.</p>
 		<p>If you have any questions, join us in <b>#quiote</b> on <b>irc.freenode.net</b> or consult the "users" mailing list.</p>
 		<p>&nbsp;</p>
-		<p><em>This page will appear until you remove the corresponding rule from the <code>routing.xml</code> configuration file.</em></p>
+		<p><em>This page will appear until you remove the corresponding rule from the app's routing configuration.</em></p>
 		<p>&nbsp;</p>
 		<p><a href="https://github.com/quioteframework/quiote/">Quiote Homepage</a> &middot; <a href="http://lists.quiote.org/mailman/listinfo">Mailing Lists</a></p>
 	</div>

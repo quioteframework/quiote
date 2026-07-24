@@ -19,8 +19,8 @@ final class SandboxRouting extends Routing
     }
 
     /**
-     * Export current routes + meta structure for legacy config handler compatibility.
-     * RoutingConfigHandler expects exportRoutes() returning a spec suitable for importRoutes().
+     * Expose the built route collection and its meta structure so
+     * RoutingMiddleware can wire them up for dispatch.
      */
     #[\Override]
     public function exportRoutes(): array

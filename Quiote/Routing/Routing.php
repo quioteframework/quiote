@@ -97,9 +97,7 @@ abstract class Routing
 
 	/**
 	 * Import an entire RouteCollection + meta array, replacing current state.
-	 * Accepts either the tuple [RouteCollection, meta] or the legacy serialized
-	 * form returned by RoutingConfigHandler (which already supplies those
-	 * two elements after unserialize()).
+	 * Accepts the tuple [RouteCollection, meta] as produced by exportRoutes().
 	 * @param array<int,mixed> $spec
 	 */
 	public function importRoutes(array $spec): void
@@ -115,8 +113,9 @@ abstract class Routing
 	}
 
 	/**
-	 * Export current routing definition (RouteCollection + meta) for config caching.
-	 * Signature kept compatible with RoutingConfigHandler expectations.
+	 * Export current routing definition (RouteCollection + meta) so
+	 * RoutingMiddleware can wire it up for dispatch, and so it can be
+	 * round-tripped back through importRoutes().
 	 * @return array{0:RouteCollection,1:array<string,array{gen_path:string,cut:bool,path:string,opt?:array{parent:string|null,action:mixed},pattern?:string,match_full?:string,match_partial?:string}>}
 	 */
 	public function exportRoutes(): array

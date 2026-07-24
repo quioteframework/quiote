@@ -437,6 +437,40 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 	}
 
 	// ---------------------------------------------------------------
+	// Regression: warmup() must not crash or produce write-only routing
+	// data when a routing.xml happens to exist in core.config_dir. There is
+	// no live ConfigCache handler for routing.xml (routing is the Routing
+	// class's job), so warmup() must simply skip it rather than attempt to
+	// compile it.
+	// ---------------------------------------------------------------
+
+	public function testWarmupCompletesWithoutCrashingWhenRoutingXmlExists(): void
+	{
+		$configDir = Config::getString('core.config_dir');
+		$routingXmlPath = $configDir . '/routing.xml';
+		$createdRoutingXml = !file_exists($routingXmlPath);
+
+		if ($createdRoutingXml) {
+			file_put_contents($routingXmlPath, "<?xml version=\"1.0\"?>\n<routing />\n");
+		}
+
+		try {
+			$stats = APCuConfigCache::warmup(['tests/importtest.xml'], 'testing');
+
+			$this->assertSame([], $stats['errors'], 'warmup() should not report errors just because routing.xml exists');
+			$this->assertFalse($stats['routing_warmed'], 'routing_warmed must stay false: there is no live routing.xml warmup path');
+			$this->assertFalse(
+				apcu_fetch('quiote_routing_data'),
+				'warmup() must not write routing data to APCu: nothing ever reads it back'
+			);
+		} finally {
+			if ($createdRoutingXml && file_exists($routingXmlPath)) {
+				unlink($routingXmlPath);
+			}
+		}
+	}
+
+	// ---------------------------------------------------------------
 	// Regression: a nested compile must not clobber the pending context,
 	// which would store the outer config under the wrong (null) key and
 	// then fall back to a non-existent filesystem path

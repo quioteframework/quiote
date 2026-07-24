@@ -5,7 +5,6 @@ use Quiote\Config\CachingConfigHandler;
 use Quiote\Config\CompileConfigHandler;
 use Quiote\Config\ConfigHandlersConfigHandler;
 use Quiote\Config\ReturnArrayConfigHandler;
-use Quiote\Config\RoutingConfigHandler;
 use Quiote\Config\Util\DOM\XmlConfigDomDocument;
 use Quiote\Config\Config;
 use Quiote\Context;

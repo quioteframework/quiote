@@ -33,11 +33,6 @@ class APCuConfigCache extends ConfigCache
     private static $routingPrefix = 'quiote_routing_';
     
     /**
-     * @var string APCu key for routing serialized data
-     */
-    private static $routingDataKey = 'quiote_routing_data';
-    
-    /**
      * @var string APCu key for compilation metadata
      */
     private static $metaKey = 'quiote_warmup_meta';
@@ -205,20 +200,24 @@ class APCuConfigCache extends ConfigCache
         
         $stats = [
             'configs_warmed' => 0,
+            // Always false: there is no live config-cache handler for routing
+            // data (routing is the Routing class's job, not a warmable config
+            // file -- see the note on getDefaultConfigs()), so this stat is
+            // kept only for backward compatibility with callers that read it.
             'routing_warmed' => false,
             'memory_used' => 0,
             'start_time' => microtime(true),
             'errors' => []
         ];
-        
+
         try {
             // Auto-detect common config files if none provided
             if (empty($configs)) {
                 $configs = self::getDefaultConfigs();
             }
-            
+
             $configDir = Config::getString('core.config_dir');
-            
+
             // Warm up configuration files in the correct dependency order
             foreach ($configs as $config) {
                 try {
@@ -230,16 +229,7 @@ class APCuConfigCache extends ConfigCache
                     $stats['errors'][] = "Config {$config}: " . $e->getMessage();
                 }
             }
-            
-            // Warm up routing data
-            try {
-                if (self::warmupRouting($context)) {
-                    $stats['routing_warmed'] = true;
-                }
-            } catch (\Exception $e) {
-                $stats['errors'][] = "Routing: " . $e->getMessage();
-            }
-            
+
             // Store metadata about this warmup
             $meta = [
                 'timestamp' => time(),
@@ -311,40 +301,6 @@ class APCuConfigCache extends ConfigCache
             // Restore APCu availability
             self::$apcuAvailable = $apcuWasAvailable;
         }
-    }
-    
-    /**
-     * Warm up routing configuration
-     */
-    private static function warmupRouting(?string $context): bool
-    {
-        $routingConfig = Config::getString('core.config_dir') . '/routing.xml';
-        if (!is_readable($routingConfig)) {
-            return false;
-        }
-        
-        try {
-            // Get the compiled routing cache
-            $cacheFile = parent::checkConfig($routingConfig, $context);
-            
-            if (is_readable($cacheFile)) {
-                // Read the serialized routing data
-                $routingData = file_get_contents($cacheFile);
-                
-                // Store routing data in APCu
-                \apcu_store(self::$routingDataKey, $routingData, self::$ttl);
-                
-                // Also warm up the routing config file itself
-                self::warmupConfig($routingConfig, $context);
-                
-                return true;
-            }
-        } catch (\Exception) {
-            // Continue even if routing warmup fails
-            return false;
-        }
-        
-        return false;
     }
     
     /**
@@ -532,7 +488,7 @@ class APCuConfigCache extends ConfigCache
         } else {
             // Fallback: try to delete known keys
             $cleared = 0;
-            $knownKeys = [self::$metaKey, self::$routingDataKey, self::$routingPrefix . 'trie'];
+            $knownKeys = [self::$metaKey, self::$routingPrefix . 'trie'];
             foreach ($knownKeys as $key) {
                 if (\apcu_delete($key)) {
                     $cleared++;

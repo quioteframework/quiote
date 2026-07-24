@@ -34,11 +34,6 @@
 				<transformation>%core.quiote_dir%/Config/xsl/rbac_definitions.xsl</transformation>
 			</handler>
 
-			<handler pattern="%core.config_dir%/routing.xml" class="Quiote\Config\RoutingConfigHandler">
-				<validation>%core.quiote_dir%/Config/xsd/routing.xsd</validation>
-				<transformation>%core.quiote_dir%/Config/xsl/routing.xsl</transformation>
-			</handler>
-
 			<handler pattern="%core.config_dir%/translation.xml" class="Quiote\Config\TranslationConfigHandler">
 				<validation>%core.quiote_dir%/Config/xsd/translation.xsd</validation>
 				<transformation>%core.quiote_dir%/Config/xsl/translation.xsl</transformation>
