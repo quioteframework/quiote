@@ -22,9 +22,12 @@ class WebResponse extends Response
 
 
 	/**
+	 * Shared status-code tables. Static (not per-instance) so the ~35- and
+	 * ~40-entry literal maps are materialized once for the process rather than
+	 * rebuilt for every WebResponse — at least one is allocated per request.
 	 * @var        array<int, string> An array of all HTTP 1.0 status codes and their message.
 	 */
-	protected $http10StatusCodes = [
+	protected static $http10StatusCodes = [
 		'200' => "HTTP/1.0 200 OK",
 		'201' => "HTTP/1.0 201 Created",
 		'202' => "HTTP/1.0 202 Accepted",
@@ -64,7 +67,7 @@ class WebResponse extends Response
 	/**
 	 * @var        array<int, string> An array of all HTTP 1.1 status codes and their message.
 	 */
-	protected $http11StatusCodes = [
+	protected static $http11StatusCodes = [
 		'100' => "HTTP/1.1 100 Continue",
 		'101' => "HTTP/1.1 101 Switching Protocols",
 		'200' => "HTTP/1.1 200 OK",
@@ -298,9 +301,9 @@ class WebResponse extends Response
 			$protocol = 'HTTP/1.1';
 		}
 		$this->httpStatusCodes = match ($protocol) {
-			'HTTP/2' => $this->http11StatusCodes,
-			'HTTP/1.1' => $this->http11StatusCodes,
-			default => $this->http10StatusCodes,
+			'HTTP/2' => static::$http11StatusCodes,
+			'HTTP/1.1' => static::$http11StatusCodes,
+			default => static::$http10StatusCodes,
 		};
 	}
 
@@ -501,7 +504,7 @@ class WebResponse extends Response
 	public function validateHttpStatusCode($code)
 	{
 		$code = (string)$code;
-		$codes = $this->httpStatusCodes ?? $this->http11StatusCodes;
+		$codes = $this->httpStatusCodes ?? static::$http11StatusCodes;
 		return isset($codes[$code]);
 	}
 

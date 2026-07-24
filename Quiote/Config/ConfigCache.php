@@ -363,9 +363,27 @@ class ConfigCache
 			));
 		}
 
+		// The physical file a logical config name resolves to is stable for a
+		// worker's lifetime, so memoizing the resolved path removes up to four
+		// is_file() probes per config lookup from the steady-state per-request hot
+		// path (checkConfig()/load() run this on every request in worker mode).
+		// Only a real, existing winner is cached, and each hit re-verifies the file
+		// still exists (one is_file() vs the full candidate sweep) -- the same
+		// "memoize then re-check existence" pattern isModified() uses, so a file
+		// deleted out from under the cache re-resolves instead of returning a stale
+		// path. Keyed by filename + format so a format switch resolves afresh.
+		$memoKey = $filename . '|' . ($format ?? '');
+		if (isset(self::$formatResolveMemo[$memoKey])) {
+			$cached = self::$formatResolveMemo[$memoKey];
+			if (is_file($cached)) {
+				return $cached;
+			}
+			unset(self::$formatResolveMemo[$memoKey]);
+		}
+
 		$candidates = self::describeConfigCandidates($filename);
 		if ($candidates['winner'] !== null) {
-			return $candidates['winner'];
+			return self::$formatResolveMemo[$memoKey] = $candidates['winner'];
 		}
 
 		if ($format !== null) {
@@ -377,8 +395,17 @@ class ConfigCache
 			));
 		}
 
+		// Not memoized: the "no candidate exists" path is an error/sentinel result,
+		// so it must keep re-probing (a matching file may appear later).
 		return $filename;
 	}
+
+	/**
+	 * Memoized results of resolveConfigFormat(), keyed by "$filename|$format".
+	 * Only successful resolutions are cached (never the thrown error paths).
+	 * @var array<string, string>
+	 */
+	private static array $formatResolveMemo = [];
 
 	/**
 	 * Full-candidate-list counterpart to resolveConfigFormat(): reports not
@@ -515,6 +542,7 @@ class ConfigCache
 	{
 		Toolkit::clearCache(self::CACHE_SUBDIR);
 		self::$modifiedCache = [];
+		self::$formatResolveMemo = [];
 	}
 
 	/**

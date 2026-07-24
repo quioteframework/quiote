@@ -11,6 +11,19 @@ use Quiote\Exception\QuioteException;
 final class GettextMoReader
 {
 	/**
+	 * Process-lifetime cache of parsed catalogs, keyed by "path|mtime|size".
+	 * A .mo file's contents are immutable for a given mtime+size, so a worker
+	 * (FrankenPHP) that serves many requests reads and unpacks each catalog once
+	 * instead of on every request -- GettextTranslator::reset()/localeChanged()
+	 * drop the translator's own per-request $domainData, so without this the full
+	 * file_get_contents() + unpack() offset-table walk re-ran for every request.
+	 * The mtime+size component invalidates the entry automatically when the file
+	 * changes on disk.
+	 * @var array<string, array<string, string>>
+	 */
+	private static array $catalogCache = [];
+
+	/**
 	 * Parses a .mo file and returns the data as an array.
 	 * For the format see the gettext manual
 	 * @param      string $filePath Full path to the .mo file.
@@ -19,7 +32,17 @@ final class GettextMoReader
 	 */
 	public static function readFile(string $filePath): array
 	{
-		$content = file_get_contents($filePath);
+		$stat = @stat($filePath);
+		$cacheKey = $stat !== false
+			? $filePath . '|' . $stat['mtime'] . '|' . $stat['size']
+			: null;
+		if ($cacheKey !== null && isset(self::$catalogCache[$cacheKey])) {
+			return self::$catalogCache[$cacheKey];
+		}
+
+		// Suppress the raw open warning: an unreadable file is already reported
+		// as a QuioteException below, which is this method's documented contract.
+		$content = @file_get_contents($filePath);
 		if ($content === false) {
 			throw new QuioteException(sprintf('Unable to read .mo file "%s"', $filePath));
 		}
@@ -71,6 +94,10 @@ final class GettextMoReader
 				$arrayIndex = ($i * 2) + 1;
 				$strings[substr($content, $origOffsets[$arrayIndex + 1], $origOffsets[$arrayIndex])] = substr($content, $transOffsets[$arrayIndex + 1], $transOffsets[$arrayIndex]);
 			}
+		}
+
+		if ($cacheKey !== null) {
+			self::$catalogCache[$cacheKey] = $strings;
 		}
 
 		return $strings;

@@ -76,12 +76,16 @@ abstract class View implements ResetInterface
 		if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
 			$logger->debug('[View] renderLayers count=' . count($this->layers) . ' view=' . static::class);
 		}
+		// Attribute names are always strings in practice; rekey defensively so the
+		// map handed to the layer is guaranteed string-keyed (attributes are never
+		// mutated back into the view's store from here, so a copy is safe). Built
+		// once before the loop: the only thing that changes per layer is 'inner', so
+		// re-fetching getAttributes() and rebuilding the string-keyed map on every
+		// iteration was pure waste (O(attributes) per layer).
+		$rawAttrs = $this->getAttributes();
+		$baseAttrs = array_combine(array_map('strval', array_keys($rawAttrs)), $rawAttrs);
 		foreach ($this->layers as $layer) {
-			$rawAttrs = $this->getAttributes();
-			// Attribute names are always strings in practice; rekey defensively so the
-			// map handed to the layer is guaranteed string-keyed (attributes are never
-			// mutated back into the view's store from here, so a copy is safe).
-			$attrsForLayer = array_combine(array_map('strval', array_keys($rawAttrs)), $rawAttrs);
+			$attrsForLayer = $baseAttrs;
 			$attrsForLayer['inner'] = $out;
 			$out = (string)$layer->execute(null, $attrsForLayer); // exceptions bubble naturally now
 			if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
