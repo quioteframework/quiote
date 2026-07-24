@@ -47,6 +47,8 @@
             <directory>packages/session-azure/tests</directory>
             <directory>packages/session-s3/tests</directory>
             <directory>packages/session-gcs/tests</directory>
+            <directory>packages/queue/tests</directory>
+            <directory>packages/queue-db/tests</directory>
         </testsuite>
         <testsuite name="flow">
             <directory>tests/tests/flow</directory>
@@ -110,6 +112,8 @@
             <directory>packages/session-azure/src</directory>
             <directory>packages/session-s3/src</directory>
             <directory>packages/session-gcs/src</directory>
+            <directory>packages/queue/src</directory>
+            <directory>packages/queue-db/src</directory>
         </include>
         <exclude>
         <directory>Quiote/translation/data</directory>

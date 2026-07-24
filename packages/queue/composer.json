@@ -1,0 +1,33 @@
+{
+	"name": "quioteframework/queue",
+	"description": "Background job/queue abstraction (job interface, sync driver, retry/dead-letter handling, queue:work console command) for Quiote.",
+	"keywords": ["quiote", "queue", "jobs", "background"],
+	"homepage": "https://github.com/quioteframework/queue",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"quioteframework/quiote": "*",
+		"psr/log": "^3.0"
+	},
+	"suggest": {
+		"quioteframework/queue-db": "Adds a DB-backed queue driver (Quiote\\Queue\\Db\\DbQueueDriver) for out-of-process workers."
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Queue\\": "src/"
+		}
+	},
+	"extra": {
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/queue/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}

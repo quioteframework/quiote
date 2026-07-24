@@ -1,0 +1,31 @@
+{
+	"name": "quioteframework/queue-db",
+	"description": "DB-backed queue driver and dead-letter store for Quiote's queue subsystem, using the app's own database via PDO.",
+	"keywords": ["quiote", "queue", "jobs", "database"],
+	"homepage": "https://github.com/quioteframework/queue-db",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"ext-pdo": "*",
+		"quioteframework/quiote": "*",
+		"quioteframework/queue": "*"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Queue\\Db\\": "src/"
+		}
+	},
+	"extra": {
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/queue-db/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}

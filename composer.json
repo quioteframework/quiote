@@ -82,7 +82,9 @@
 		"quioteframework/session-azure": "@dev",
 		"quioteframework/session-s3": "@dev",
 		"quioteframework/session-gcs": "@dev",
-		"quioteframework/db-propulsion": "@dev"
+		"quioteframework/db-propulsion": "@dev",
+		"quioteframework/queue": "@dev",
+		"quioteframework/queue-db": "@dev"
 	},
 	"suggest": {
 		"phpunit/phpunit": "Install phpunit if you want to run your tests",
@@ -110,7 +112,9 @@
 		"quioteframework/session-azure": "Azure Blob Storage session backend (Quiote\\Storage\\Azure\\AzureBlobSessionPersistence)",
 		"quioteframework/session-s3": "AWS S3 session backend (Quiote\\Storage\\S3\\S3SessionPersistence)",
 		"quioteframework/session-gcs": "Google Cloud Storage session backend (Quiote\\Storage\\Gcs\\GcsSessionPersistence)",
-		"quioteframework/db-propulsion": "Enables the 'propulsion' database driver (Quiote\\Database\\Adapter\\Propulsion)"
+		"quioteframework/db-propulsion": "Enables the 'propulsion' database driver (Quiote\\Database\\Adapter\\Propulsion)",
+		"quioteframework/queue": "Background job/queue abstraction: job interface, sync driver, retry/dead-letter handling, `queue:work` (Quiote\\Queue\\QueuePlugin)",
+		"quioteframework/queue-db": "Enables the 'db' queue driver, backed by the app's own database (Quiote\\Queue\\Db\\DbQueueDriver)"
 	},
 	"scripts": {
 		"test": "php -d apc.enable_cli=0 vendor/bin/phpunit --no-coverage",
