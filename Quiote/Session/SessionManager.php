@@ -51,10 +51,10 @@ class SessionManager
     public function __construct(SessionPersistenceInterface $persistence, array $parameters = [])
     {
         $this->persistence = $persistence;
-        if (isset($parameters['cookie_name'])) {
+        if (isset($parameters['cookie_name']) && (is_string($parameters['cookie_name']) || is_numeric($parameters['cookie_name']))) {
             $this->cookieName = (string)$parameters['cookie_name'];
         }
-        if (isset($parameters['session_cookie_lifetime'])) {
+        if (isset($parameters['session_cookie_lifetime']) && (is_int($parameters['session_cookie_lifetime']) || is_string($parameters['session_cookie_lifetime']))) {
             $this->lifetime = (int)$parameters['session_cookie_lifetime'];
         }
         if (isset($parameters['session_cookie_httponly'])) {
@@ -64,9 +64,16 @@ class SessionManager
             $this->secure = (bool)$parameters['session_cookie_secure'];
         }
         if (array_key_exists('session_cookie_samesite', $parameters)) {
-            $this->samesite = $parameters['session_cookie_samesite'];
+            $samesite = $parameters['session_cookie_samesite'];
+            if ($samesite === null) {
+                $this->samesite = null;
+            } elseif (is_string($samesite)) {
+                $this->samesite = $samesite;
+            } elseif (is_scalar($samesite)) {
+                $this->samesite = (string)$samesite;
+            }
         }
-        if (isset($parameters['session_migration_grace_seconds'])) {
+        if (isset($parameters['session_migration_grace_seconds']) && (is_int($parameters['session_migration_grace_seconds']) || is_string($parameters['session_migration_grace_seconds']))) {
             $this->migrationGraceSeconds = (int)$parameters['session_migration_grace_seconds'];
         }
     }
@@ -97,11 +104,26 @@ class SessionManager
      */
     private function resolveRedirect(array $data): ?Session
     {
-        $age = time() - (int)($data[self::REDIRECT_AT_KEY] ?? 0);
-        if ($age > $this->migrationGraceSeconds) {
+        $redirectAt = $data[self::REDIRECT_AT_KEY] ?? 0;
+        $age = time() - (is_int($redirectAt) || is_string($redirectAt) ? (int)$redirectAt : 0);
+        // time() is wall-clock (CLOCK_REALTIME), not monotonic: NTP steps and,
+        // notably, VM/hypervisor clock resyncs (observed on WSL2 under CPU load)
+        // can move it backward between the migrateOld() write and this read,
+        // producing a negative age. Treat that the same as an expired window
+        // rather than as "still fresh" -- erring toward re-expiring a redirect
+        // too early is harmless, while erring toward extending it past its
+        // intended grace period undermines the fixation defense it exists for.
+        if ($age < 0 || $age > $this->migrationGraceSeconds) {
             return null;
         }
-        $target = (string)$data[self::REDIRECT_KEY];
+        $redirectTarget = $data[self::REDIRECT_KEY];
+        if (is_string($redirectTarget)) {
+            $target = $redirectTarget;
+        } elseif (is_scalar($redirectTarget)) {
+            $target = (string)$redirectTarget;
+        } else {
+            return null;
+        }
         $targetData = $this->persistence->load($target);
         if ($targetData === null || isset($targetData[self::REDIRECT_KEY])) {
             return null;
