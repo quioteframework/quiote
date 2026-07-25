@@ -5,6 +5,7 @@ use Quiote\Exception\QuioteException;
 use Quiote\Testing\UnitTestCase;
 use Quiote\Translation\GettextTranslator;
 use Quiote\Translation\QuioteLocale;
+use Quiote\Util\Toolkit;
 
 /**
  * Happy + failure path coverage for GettextTranslator, which previously had
@@ -109,6 +110,71 @@ class GettextTranslatorTest extends UnitTestCase
         // exactly like a never-configured domain would.
         $this->expectException(QuioteException::class);
         $translator->translate('Hi', 'greeting', $this->makeLocale('en_US'));
+    }
+
+    /**
+     * Write a minimal valid little-endian .mo file with the given msgid => msgstr map.
+     * @param array<string, string> $pairs
+     */
+    private function writeMo(string $path, array $pairs): void
+    {
+        $ids = array_keys($pairs);
+        sort($ids, SORT_STRING);
+        $n = count($ids);
+
+        $headerSize = 28;
+        $offset = $headerSize + $n * 8 * 2;
+
+        $origData = '';
+        $origTable = '';
+        foreach ($ids as $id) {
+            $len = strlen($id);
+            $origTable .= pack('VV', $len, $offset);
+            $origData .= $id . "\0";
+            $offset += $len + 1;
+        }
+        $transData = '';
+        $transTable = '';
+        foreach ($ids as $id) {
+            $str = $pairs[$id];
+            $len = strlen($str);
+            $transTable .= pack('VV', $len, $offset);
+            $transData .= $str . "\0";
+            $offset += $len + 1;
+        }
+
+        $mo = pack('V', 0x950412de)
+            . pack('V', 0)
+            . pack('V', $n)
+            . pack('V', $headerSize)
+            . pack('V', $headerSize + $n * 8)
+            . pack('V', 0)
+            . pack('V', 0)
+            . $origTable . $transTable . $origData . $transData;
+
+        file_put_contents($path, $mo);
+    }
+
+    public function testTranslatePluralFormsHeaderSelectsCorrectPluralIndex(): void
+    {
+        $domainDir = sys_get_temp_dir() . '/gt-plural-' . bin2hex(random_bytes(8));
+        Toolkit::mkdir($domainDir, 0777, true);
+        $this->dirsToDelete[] = $domainDir;
+
+        $this->writeMo($domainDir . '/en_US.mo', [
+            '' => "Plural-Forms: nplurals=2; plural=n != 1;\n",
+            "one item\0many items" => "singular form\0plural form",
+        ]);
+
+        $translator = new GettextTranslator();
+        $translator->initialize($this->getContext(), ['text_domains' => ['greeting' => $domainDir]]);
+
+        $singular = $translator->translate(['one item', 'many items', 1], 'greeting', $this->makeLocale('en_US'));
+        $plural = $translator->translate(['one item', 'many items', 5], 'greeting', $this->makeLocale('en_US'));
+
+        // n=1 -> "n != 1" is false (0) -> singular form; n=5 -> true (1) -> plural form.
+        $this->assertSame('singular form', $singular);
+        $this->assertSame('plural form', $plural);
     }
 
     public function testStoreCallsWritesGettextCallLogForDevelMode(): void

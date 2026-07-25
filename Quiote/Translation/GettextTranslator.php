@@ -65,15 +65,17 @@ class GettextTranslator extends BasicTranslator implements ResetInterface
 
 		if(isset($parameters['text_domains']) && is_array($parameters['text_domains'])) {
 			foreach($parameters['text_domains'] as $domain => $path) {
-				$this->domainPaths[$domain] = $path;
+				if(is_string($domain) && is_string($path)) {
+					$this->domainPaths[$domain] = $path;
+				}
 			}
 		}
 
-		if(isset($parameters['text_domain_pattern'])) {
+		if(isset($parameters['text_domain_pattern']) && is_string($parameters['text_domain_pattern'])) {
 			$this->domainPathPattern = $parameters['text_domain_pattern'];
 		}
-		
-		if(isset($parameters['store_calls'])) {
+
+		if(isset($parameters['store_calls']) && is_string($parameters['store_calls'])) {
 			$this->storeTranslationCalls = true;
 			$this->translationCallStoreDir = $parameters['store_calls'];
 			Toolkit::mkdir($parameters['store_calls'], 0777, true);
@@ -89,7 +91,7 @@ class GettextTranslator extends BasicTranslator implements ResetInterface
 	 * @return     string The translated message.
 	 * @since      1.0.0
 	 */
-	public function translate($message, $domain, ?QuioteLocale $locale = null)
+	public function translate($message, $domain, ?QuioteLocale $locale = null): string
 	{
 		if($locale) {
 			$oldDomainData = $this->domainData;
@@ -106,9 +108,12 @@ class GettextTranslator extends BasicTranslator implements ResetInterface
 			$singularMsg = $message[0];
 			$pluralMsg = $message[1];
 			$count = $message[2];
+			if(!is_string($singularMsg) || !is_string($pluralMsg) || !is_int($count)) {
+				throw new QuioteException('Plural message array must be [string $singular, string $plural, int $count]');
+			}
 			if($this->pluralFormFunc) {
 				$funcName = $this->pluralFormFunc;
-				$msgId = (int) $funcName($count);
+				$msgId = $funcName($count);
 			} else {
 				$msgId = ($count == 1) ? 0 : 1;
 			}
@@ -122,6 +127,9 @@ class GettextTranslator extends BasicTranslator implements ResetInterface
 				$data = ($msgId == 0) ? $singularMsg : $pluralMsg;
 			}
 		} else {
+			if(!is_string($message)) {
+				throw new QuioteException('Singular message must be a string');
+			}
 			$data = $this->domainData[$domain]['msgs'][$message] ?? $message;
 		}
 
@@ -272,11 +280,8 @@ class GettextTranslator extends BasicTranslator implements ResetInterface
 					// add the missing top level parenthesis
 					$funcCode .= str_repeat(')', $parenthesisCount);
 				}
-				$funcCode .= ';';
-				$funcCode = 'return ' . str_replace('n', '$n', $funcCode);
-				$this->pluralFormFunc = function ($n) use ($funcCode): void {
-                    eval($funcCode);
-                };
+				$funcCode = str_replace('n', '$n', $funcCode);
+				$this->pluralFormFunc = eval('return static fn(int $n): int => ' . $funcCode . ';');
 			}
 		}
 
