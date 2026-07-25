@@ -36,6 +36,10 @@ class FormPopulationMiddleware implements MiddlewareInterface
 
         $response = $handler->handle($request);
 
+        if (!$this->isHtmlResponse($response)) {
+            return $response;
+        }
+
         $content = $this->extractBody($response);
         if ($content === '') {
             return $response;
@@ -46,9 +50,20 @@ class FormPopulationMiddleware implements MiddlewareInterface
             return $response;
         }
 
-        $globalResponse->setContent($content);
-
         $webRequest = $this->applyRuntimeConfig($webRequest, $request);
+        // Re-sync now: previously this only happened as a side effect of
+        // engine->populate() reaching its 'orphaned_errors' bookkeeping, which
+        // never ran when population was skipped below.
+        $this->controller->getContext()->setRequest($webRequest);
+
+        // Skip the DOM round-trip entirely when there's no form to populate --
+        // the overwhelmingly common case for plain GETs -- instead of paying for
+        // a full DOMDocument::loadHTML/loadXML + XPath pass just to find nothing.
+        if (stripos($content, '<form') === false) {
+            return $response;
+        }
+
+        $globalResponse->setContent($content);
 
         try {
             $this->engine->populate($globalResponse, $webRequest);
@@ -83,24 +98,21 @@ class FormPopulationMiddleware implements MiddlewareInterface
         if (!$rd instanceof WebRequest) {
             throw new \RuntimeException('Canonical WebRequest not initialized before FormPopulationMiddleware (unexpected).');
         }
-        // No need to attachPsrRequest - WebRequest IS the PSR-7 request
-        $query = $request->getQueryParams();
-        foreach ($query as $k => $v) {
-            $rd = $rd->setParameter($k, $v);
-        }
+        // No need to attachPsrRequest - WebRequest IS the PSR-7 request.
+        // Merge query + body + route params into one array (later sources win on
+        // key conflict, same precedence as the old sequential setParameter() loop)
+        // and apply them in a single withParameters() call instead of cloning the
+        // request and rebuilding its parameter store once per key.
+        $params = $request->getQueryParams();
         $body = $request->getParsedBody();
         if (is_array($body)) {
-            foreach ($body as $k => $v) {
-                $rd = $rd->setParameter($k, $v);
-            }
+            $params = array_merge($params, $body);
         }
         $routeParams = $request->getAttribute('route_params');
         if (is_array($routeParams)) {
-            foreach ($routeParams as $k => $v) {
-                $rd = $rd->setParameter($k, $v);
-            }
+            $params = array_merge($params, $routeParams);
         }
-        return $rd;
+        return $rd->withParameters($params);
     }
 
     private function ensureDefaultConfig(WebRequest $request): WebRequest
@@ -129,6 +141,23 @@ class FormPopulationMiddleware implements MiddlewareInterface
             $webRequest = $updated instanceof WebRequest ? $updated : $webRequest;
         }
         return $webRequest;
+    }
+
+    /**
+     * Cheap pre-body-read gate: skip the full body copy (extractBody() +
+     * setContent()) for responses that plainly aren't HTML, so a large JSON or
+     * binary response doesn't pay for two full-body string materializations
+     * for nothing. Absent a Content-Type header we can't tell either way, so
+     * fall through and let the engine's own gates decide, same as before this
+     * check existed.
+     */
+    private function isHtmlResponse(ResponseInterface $response): bool
+    {
+        $contentType = $response->getHeaderLine('Content-Type');
+        if ($contentType === '') {
+            return true;
+        }
+        return stripos($contentType, 'html') !== false;
     }
 
     private function extractBody(ResponseInterface $response): string

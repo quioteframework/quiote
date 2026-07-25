@@ -164,6 +164,29 @@ class FormPopulationEngineTest extends UnitTestCase
 		$this->assertEquals(1, $this->queryCount($xpath, '//input[@value="bar"]'));
 	}
 
+	/**
+	 * buildConfiguration() memoizes the (already-normalized) default parameter
+	 * set and skips re-normalizing when a request carries nothing beyond those
+	 * defaults. A scalar 'methods' override (not yet cast to an array) must
+	 * still take the un-memoized, fully-normalized path so the write/read
+	 * aliasing in resolvePopulateSource() keeps working per request.
+	 */
+	public function testMethodsConfigOverrideAsScalarStillNormalizesPerRequest(): void
+	{
+		$html = '<!DOCTYPE html><html><body><form action="/"><input type="text" name="foo"></form></body></html>';
+		$config = [
+			'methods' => 'write',
+		];
+
+		$postContent = $this->executeFormPopulationEngine($html, ['foo' => 'bar'], $config, new ServerRequest('POST', 'https://example.test/'));
+		$xpath = $this->loadXpath($postContent);
+		$this->assertEquals(1, $this->queryCount($xpath, '//input[@value="bar"]'));
+
+		$getContent = $this->executeFormPopulationEngine($html, ['foo' => 'bar'], $config, new ServerRequest('GET', 'https://example.test/'));
+		$xpath = $this->loadXpath($getContent);
+		$this->assertEquals(0, $this->queryCount($xpath, '//input[@value="bar"]'));
+	}
+
 	public function testIsPostFilterAlwaysReturnsTrue(): void
 	{
 		$engine = new FormPopulationEngine();

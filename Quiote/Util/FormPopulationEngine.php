@@ -109,6 +109,41 @@ final class FormPopulationEngine
 	}
 
 	/**
+	 * Narrow a mixed config value to bool, falling back to the given default
+	 * when the configured value isn't actually a bool (e.g. misconfigured
+	 * 'dom_*' switches).
+	 */
+	private function cfgBool(mixed $value, bool $default): bool
+	{
+		return is_bool($value) ? $value : $default;
+	}
+
+	/**
+	 * Narrow a mixed config value to int, falling back to the given default.
+	 */
+	private function cfgInt(mixed $value, int $default): int
+	{
+		return is_int($value) ? $value : $default;
+	}
+
+	/**
+	 * Coerce a mixed value (config value, DOM/document content, etc.) to a
+	 * string using the same scalar/Stringable rule PHP's own (string) cast
+	 * uses, falling back to $default for values that can't be meaningfully
+	 * stringified (arrays, non-Stringable objects).
+	 */
+	private function toScalarString(mixed $value, string $default = ''): string
+	{
+		if(is_string($value)) {
+			return $value;
+		}
+		if(is_scalar($value) || $value instanceof \Stringable) {
+			return (string) $value;
+		}
+		return $default;
+	}
+
+	/**
 	 * Populate the provided response content with request data and validation errors.
 	 * @param      array<string, mixed> $overrides
 	 */
@@ -140,23 +175,34 @@ final class FormPopulationEngine
 			return;
 		}
 
-		$skip = null;
-		if($cfg['skip'] instanceof ParameterHolder) {
-			$cfg['skip'] = $cfg['skip']->getParameters();
-		} elseif($cfg['skip'] !== null && !is_array($cfg['skip'])) {
-			$cfg['skip'] = null;
+		$skipRaw = $cfg['skip'];
+		if($skipRaw instanceof ParameterHolder) {
+			$skipRaw = $skipRaw->getParameters();
+		} elseif($skipRaw !== null && !is_array($skipRaw)) {
+			$skipRaw = null;
 		}
-		if($cfg['skip'] !== null && count($cfg['skip'])) {
-			$skip = '/(\A' . str_replace('\[\]', '\[[^\]]*\]', implode('|\A', array_map(preg_quote(...), $cfg['skip'], array_fill(0, count($cfg['skip']), '/')))) . ')/';
+		$skip = null;
+		if(is_array($skipRaw) && count($skipRaw)) {
+			$skipList = [];
+			foreach($skipRaw as $skipValue) {
+				if(is_scalar($skipValue)) {
+					$skipList[] = (string) $skipValue;
+				}
+			}
+			if($skipList) {
+				$skip = '/(\A' . str_replace('\[\]', '\[[^\]]*\]', implode('|\A', array_map(static fn(string $s): string => preg_quote($s, '/'), $skipList))) . ')/';
+			}
 		}
 
-		if($cfg['force_request_uri'] !== false) {
-			$ruri = $cfg['force_request_uri'];
+		$forceRequestUri = $cfg['force_request_uri'];
+		if($forceRequestUri !== false && is_string($forceRequestUri)) {
+			$ruri = $forceRequestUri;
 		} else {
 			$ruri = $this->resolveRequestUri($request);
 		}
-		if($cfg['force_request_url'] !== false) {
-			$rurl = $cfg['force_request_url'];
+		$forceRequestUrl = $cfg['force_request_url'];
+		if($forceRequestUrl !== false && is_string($forceRequestUrl)) {
+			$rurl = $forceRequestUrl;
 		} else {
 			$rurl = $this->resolveRequestUrl($request, $ruri);
 		}
@@ -185,25 +231,28 @@ final class FormPopulationEngine
 
 		$this->doc = new \DOMDocument();
 
-		$this->doc->substituteEntities = $cfg['dom_substitute_entities'];
-		$this->doc->resolveExternals   = $cfg['dom_resolve_externals'];
-		$this->doc->validateOnParse    = $cfg['dom_validate_on_parse'];
-		$this->doc->preserveWhiteSpace = $cfg['dom_preserve_white_space'];
-		$this->doc->formatOutput       = $cfg['dom_format_output'];
+		$this->doc->substituteEntities = $this->cfgBool($cfg['dom_substitute_entities'], false);
+		$this->doc->resolveExternals   = $this->cfgBool($cfg['dom_resolve_externals'], false);
+		$this->doc->validateOnParse    = $this->cfgBool($cfg['dom_validate_on_parse'], false);
+		$this->doc->preserveWhiteSpace = $this->cfgBool($cfg['dom_preserve_white_space'], true);
+		$this->doc->formatOutput       = $this->cfgBool($cfg['dom_format_output'], false);
 
-		$xhtml = (preg_match('/<!DOCTYPE[^>]+XHTML[^>]+/', (string) $output) > 0 && strtolower((string) $cfg['force_output_mode']) != 'html') || strtolower((string) $cfg['force_output_mode']) == 'xhtml';
+		$outputStr = $this->toScalarString($output);
+		$forceOutputMode = strtolower($this->toScalarString($cfg['force_output_mode']));
+
+		$xhtml = (preg_match('/<!DOCTYPE[^>]+XHTML[^>]+/', $outputStr) > 0 && $forceOutputMode != 'html') || $forceOutputMode == 'xhtml';
 
 		$hasXmlProlog = false;
-		if($xhtml && preg_match('/^<\?xml[^\?]*\?>/', (string) $output)) {
+		if($xhtml && preg_match('/^<\?xml[^\?]*\?>/', $outputStr)) {
 			$hasXmlProlog = true;
-		} elseif($xhtml && preg_match('/;\s*charset=(")?(?P<charset>.+?(?(1)(?=(?<!\\\\)")|($|(?=[;\s]))))(?(1)")/i', (string) $ot->getParameter('http_headers[Content-Type]'), $matches)) {
+		} elseif($xhtml && preg_match('/;\s*charset=(")?(?P<charset>.+?(?(1)(?=(?<!\\\\)")|($|(?=[;\s]))))(?(1)")/i', $this->toScalarString($ot->getParameter('http_headers[Content-Type]')), $matches)) {
 			// media-type = type "/" subtype *( ";" parameter ), says http://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html#sec3.7
 			// add an XML prolog with the char encoding, works around issues with ISO-8859-1 etc
-			$output = "<?xml version='1.0' encoding='" . $matches['charset'] . "' ?>\n" . $output;
+			$outputStr = "<?xml version='1.0' encoding='" . $this->toScalarString($matches['charset']) . "' ?>\n" . $outputStr;
 		}
 
 		if($xhtml && $cfg['parse_xhtml_as_xml']) {
-			$this->doc->loadXML($output);
+			$this->doc->loadXML($outputStr);
 			$this->xpath = new \DomXPath($this->doc);
 			if($this->doc->documentElement && $this->doc->documentElement->namespaceURI) {
 				$this->xpath->registerNamespace('html', $this->doc->documentElement->namespaceURI);
@@ -212,7 +261,7 @@ final class FormPopulationEngine
 				$this->xmlnsPrefix = '';
 			}
 		} else {
-			$this->doc->loadHTML($output);
+			$this->doc->loadHTML($outputStr);
 			$this->xpath = new \DomXPath($this->doc);
 			$this->xmlnsPrefix = '';
 		}
@@ -236,7 +285,7 @@ final class FormPopulationEngine
 				implode("\n", $errors)
 			);
 			if(Config::getBool('core.use_logging', false) && $cfg['log_parse_errors'] !== false && $maxError >= $cfg['log_parse_errors']) {
-				$lmsg = $emsg . "\n\nResponse content:\n\n" . $response->getContent();
+				$lmsg = $emsg . "\n\nResponse content:\n\n" . $this->toScalarString($response->getContent());
 				$logger = \Quiote\Logging\Log::for($this);
 				match ($maxError) {
                     LIBXML_ERR_WARNING => $logger->warning($lmsg),
@@ -276,16 +325,19 @@ final class FormPopulationEngine
 			}
 		}
 
-		if(($encoding = $cfg['force_encoding']) === false) {
+		$forceEncoding = $cfg['force_encoding'];
+		if($forceEncoding === false) {
 			if($this->doc->encoding) { // doc->actualEncoding is deprecated in PHP 8.4
 				$encoding = $this->doc->encoding;
 			} else {
-				$encoding = $this->doc->encoding = self::ENCODING_UTF_8;
+				$encoding = self::ENCODING_UTF_8;
+				$this->doc->encoding = $encoding;
 			}
 		} else {
+			$encoding = $this->toScalarString($forceEncoding, self::ENCODING_UTF_8);
 			$this->doc->encoding = $encoding;
 		}
-		$encoding = strtolower((string) $encoding);
+		$encoding = strtolower($encoding);
 		$utf8 = $encoding == self::ENCODING_UTF_8;
 		if(!$utf8 && $encoding != self::ENCODING_ISO_8859_1 && !function_exists('iconv')) {
 			throw new QuioteException('No iconv module available, input encoding "' . $encoding . '" cannot be handled.');
@@ -324,7 +376,7 @@ final class FormPopulationEngine
 				}
 			}
 		} else {
-			$forms = $this->queryElements(Toolkit::expandVariables($cfg['forms_xpath'], ['htmlnsPrefix' => $this->xmlnsPrefix]));
+			$forms = $this->queryElements(Toolkit::expandVariables($this->toScalarString($cfg['forms_xpath']), ['htmlnsPrefix' => $this->xmlnsPrefix]));
 		}
 
 		// an array of all validation incidents; errors inserted for fields or multiple fields will be removed in here
@@ -450,7 +502,7 @@ final class FormPopulationEngine
 				}
 
 				if(!$utf8) {
-					$pname = $this->fromUtf8($pname, $encoding);
+					$pname = $this->toScalarString($this->fromUtf8($pname, $encoding), $pname);
 				}
 
 				if($skip !== null && preg_match($skip, $pname . ($checkValue ? '[]' : ''))) {
@@ -483,16 +535,18 @@ final class FormPopulationEngine
 					}
 
 					// now loop over all those elements and assign the class
+					$errorClassMap = is_array($cfg['error_class_map']) ? $cfg['error_class_map'] : [];
 					foreach($errorClassElements as $errorClassElement) {
 						// go over all the elements in the error class map
-						foreach($cfg['error_class_map'] as $xpathExpression => $errorClassName) {
+						foreach($errorClassMap as $xpathExpression => $errorClassName) {
 							// evaluate each xpath expression
-							$errorClassResults = $this->queryElements(Toolkit::expandVariables($xpathExpression, ['htmlnsPrefix' => $this->xmlnsPrefix]), $errorClassElement);
+							$errorClassResults = $this->queryElements(Toolkit::expandVariables($this->toScalarString($xpathExpression), ['htmlnsPrefix' => $this->xmlnsPrefix]), $errorClassElement);
 							if($errorClassResults) {
 								// we have results. the xpath expressions are used to locale the actual elements we set the error class on - doesn't necessarily have to be the erroneous element or the label!
+								$errorClassNameStr = $this->toScalarString($errorClassName);
 								foreach($errorClassResults as $errorClassDestinationElement) {
 									$existingClass = $errorClassDestinationElement->getAttribute('class');
-									$newClass = preg_replace('/\s*$/', ' ' . $errorClassName, $existingClass) ?? ($existingClass . ' ' . $errorClassName);
+									$newClass = preg_replace('/\s*$/', ' ' . $errorClassNameStr, $existingClass) ?? ($existingClass . ' ' . $errorClassNameStr);
 									$errorClassDestinationElement->setAttribute('class', $newClass);
 								}
 
@@ -550,9 +604,9 @@ final class FormPopulationEngine
 					$value = $this->toUtf8($value, $encoding);
 				} else {
 					if(is_array($value)) {
-						$value = array_map(strval(...), $value);
+						$value = array_map(fn(mixed $v): string => $this->toScalarString($v), $value);
 					} else {
-						$value = (string) $value;
+						$value = $this->toScalarString($value);
 					}
 				}
 
@@ -589,7 +643,7 @@ final class FormPopulationEngine
 							
 							// and set a new one if it's there and unless it's a password field (or we actually want to refill those)
 							if($p->hasParameter($pname) && ($cfg['include_password_inputs'] || $inputType != 'password')) {
-								$element->setAttribute('value', $value);
+								$element->setAttribute('value', $this->toScalarString($value));
 							}
 						}
 					}
@@ -613,9 +667,9 @@ final class FormPopulationEngine
 					}
 					// append a new text node
 					if($xhtml && $properXhtml) {
-						$element->appendChild($this->doc->createCDATASection($value));
+						$element->appendChild($this->doc->createCDATASection($this->toScalarString($value)));
 					} else {
-						$element->appendChild($this->doc->createTextNode($value));
+						$element->appendChild($this->doc->createTextNode($this->toScalarString($value)));
 					}
 				}
 
@@ -683,7 +737,7 @@ final class FormPopulationEngine
 					$documentElement->setAttributeNode($attribute);
 				}
 			}
-			$out = (string) $this->doc->saveXML(null, $cfg['savexml_options']);
+			$out = (string) $this->doc->saveXML(null, $this->cfgInt($cfg['savexml_options'], 0));
 			if((!$cfg['parse_xhtml_as_xml'] || !$properXhtml) && $cfg['cdata_fix']) {
 				// these are ugly fixes so inline style and script blocks still work. better don't use them with XHTML to avoid trouble
 				// http://www.456bereastreet.com/archive/200501/the_perils_of_using_xhtml_properly/
@@ -979,7 +1033,7 @@ final class FormPopulationEngine
 					$val = $this->toUtf8($val, $encoding);
 				}
 			} else {
-				$value = mb_convert_encoding((string) $value, 'UTF-8', 'ISO-8859-1');
+				$value = mb_convert_encoding($this->toScalarString($value), 'UTF-8', 'ISO-8859-1');
 			}
 		} else {
 			if(is_array($value)) {
@@ -987,7 +1041,7 @@ final class FormPopulationEngine
 					$val = $this->toUtf8($val, $encoding);
 				}
 			} else {
-				$value = iconv((string) $encoding, self::ENCODING_UTF_8, (string) $value);
+				$value = iconv((string) $encoding, self::ENCODING_UTF_8, $this->toScalarString($value));
 			}
 		}
 
@@ -1009,7 +1063,7 @@ final class FormPopulationEngine
 					$val = $this->fromUtf8($val, $encoding);
 				}
 			} else {
-				$value = mb_convert_encoding((string) $value, 'ISO-8859-1');
+				$value = mb_convert_encoding($this->toScalarString($value), 'ISO-8859-1');
 			}
 		} else {
 			if(is_array($value)) {
@@ -1017,7 +1071,7 @@ final class FormPopulationEngine
 					$val = $this->fromUtf8($val, $encoding);
 				}
 			} else {
-				$value = iconv(self::ENCODING_UTF_8, (string) $encoding, (string) $value);
+				$value = iconv(self::ENCODING_UTF_8, (string) $encoding, $this->toScalarString($value));
 			}
 		}
 
@@ -1128,7 +1182,7 @@ final class FormPopulationEngine
 			if(is_numeric($option)) {
 				$savexmlOptions |= (int) $option;
 			} elseif(is_string($option) && defined($option)) {
-				$savexmlOptions |= constant($option);
+				$savexmlOptions |= $this->cfgInt(constant($option), 0);
 			}
 		}
 		$parameters['savexml_options'] = $savexmlOptions;
@@ -1174,6 +1228,15 @@ final class FormPopulationEngine
 		$config = array_replace($this->parameters, FormPopulationConfig::get($request));
 		if($overrides) {
 			$config = array_replace($config, $overrides);
+		}
+		// $this->parameters was already normalized once in initialize(). The
+		// common case -- no overrides, and the request carries nothing beyond
+		// the seeded defaults -- leaves $config identical to it, so
+		// re-running normalizeParameters() on every populate() call would just
+		// recompute the same result. Only pay for it when something actually
+		// differs from the memoized defaults.
+		if($config === $this->parameters) {
+			return $config;
 		}
 		return $this->normalizeParameters($config);
 	}
