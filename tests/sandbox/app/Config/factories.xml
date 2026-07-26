@@ -80,6 +80,18 @@
 		<storage class="Quiote\Storage\SessionStorage" />
 	</ae:configuration>
 
+	<ae:configuration environment="testing.*" context="quiote-session-storage-test::tests-lazy-retrieve">
+		<storage class="Quiote\Storage\SessionStorage" />
+	</ae:configuration>
+
+	<ae:configuration environment="testing.*" context="session-middleware-lazy-start-test::tests-cookieless">
+		<storage class="Quiote\Storage\SessionStorage" />
+	</ae:configuration>
+
+	<ae:configuration environment="testing.*" context="session-middleware-lazy-start-test::tests-with-cookie">
+		<storage class="Quiote\Storage\SessionStorage" />
+	</ae:configuration>
+
 	<ae:configuration environment="testing.*" context="security-user-test::tests-token-derived-persistence">
 		<storage class="Quiote\Storage\SessionStorage" />
 	</ae:configuration>

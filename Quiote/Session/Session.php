@@ -16,12 +16,26 @@ final class Session
 {
     /**
      * @param array<string, mixed> $data
+     * @param bool $new Whether this session was freshly generated for this
+     *                  request rather than loaded from persistence. Tracked
+     *                  separately from $dirty so SessionManager can tell "an
+     *                  untouched brand-new session, nothing to persist or
+     *                  cookie yet" apart from "an existing session with
+     *                  nothing changed this request" -- the latter still
+     *                  needs its cookie refreshed (sliding expiration) even
+     *                  though there's nothing new to write to storage.
      */
     public function __construct(
         private string $sid,
         private array $data,
         private bool $dirty,
+        private bool $new = false,
     ) {
+    }
+
+    public function isNew(): bool
+    {
+        return $this->new;
     }
 
     public function getId(): string

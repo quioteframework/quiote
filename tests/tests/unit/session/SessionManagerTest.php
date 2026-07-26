@@ -30,14 +30,17 @@ final class InMemorySessionPersistence implements SessionPersistenceInterface
 
 class SessionManagerTest extends UnitTestCase
 {
-    public function testStartFromRequestWithNoCookieCreatesNewSession(): void
+    public function testStartFromRequestWithNoCookieCreatesNewCleanSession(): void
     {
         $manager = new SessionManager(new InMemorySessionPersistence());
         $session = $manager->startFromRequest(new ServerRequest('GET', '/'));
 
         $this->assertInstanceOf(Session::class, $session);
         $this->assertNotEmpty($session->getId());
-        $this->assertTrue($session->isDirty());
+        // Clean, not dirty: a fresh anonymous session that's never written to
+        // must not cost a persisted row or a Set-Cookie -- see
+        // testPersistAndBakeCookiesSkipsPersistAndCookieForUntouchedNewSession.
+        $this->assertFalse($session->isDirty());
         $this->assertSame([], $session->all());
     }
 
@@ -115,7 +118,9 @@ class SessionManagerTest extends UnitTestCase
 
         $this->assertNotSame($oldId, $resolved->getId());
         $this->assertNotSame($newId, $resolved->getId());
-        $this->assertTrue($resolved->isDirty());
+        // A brand-new fallback session (the redirect didn't resolve) is
+        // clean, not dirty -- see testStartFromRequestWithNoCookieCreatesNewCleanSession.
+        $this->assertFalse($resolved->isDirty());
     }
 
     public function testRegenerateRedirectDoesNotResolveWhenClockJumpsBackward(): void
@@ -144,7 +149,9 @@ class SessionManagerTest extends UnitTestCase
 
         $this->assertNotSame($oldId, $resolved->getId());
         $this->assertNotSame($newId, $resolved->getId());
-        $this->assertTrue($resolved->isDirty());
+        // A brand-new fallback session (the redirect didn't resolve) is
+        // clean, not dirty -- see testStartFromRequestWithNoCookieCreatesNewCleanSession.
+        $this->assertFalse($resolved->isDirty());
     }
 
     /**
@@ -186,13 +193,51 @@ class SessionManagerTest extends UnitTestCase
         $this->assertTrue($session->isDirty());
     }
 
-    public function testPersistAndBakeCookiesSetsCookieHeader(): void
+    public function testPersistAndBakeCookiesSetsCookieHeaderWhenSessionWasWrittenTo(): void
     {
         $manager = new SessionManager(new InMemorySessionPersistence());
         $session = $manager->startFromRequest(new ServerRequest('GET', '/'));
+        $session->set('user_id', 42);
 
         $response = $manager->persistAndBakeCookies($session, new Response());
 
         $this->assertStringContainsString('QSID=' . $session->getId(), $response->getHeaderLine('Set-Cookie'));
+    }
+
+    /**
+     * Covers item 4c of PERF_PLAN.md: a brand-new, never-written-to session
+     * (the common case for bots/API clients/first-time visitors) must not
+     * cost a persisted row or a Set-Cookie -- there's no session for the
+     * client to carry yet.
+     */
+    public function testPersistAndBakeCookiesSkipsPersistAndCookieForUntouchedNewSession(): void
+    {
+        $persistence = new InMemorySessionPersistence();
+        $manager = new SessionManager($persistence);
+        $session = $manager->startFromRequest(new ServerRequest('GET', '/'));
+
+        $response = $manager->persistAndBakeCookies($session, new Response());
+
+        $this->assertNull($persistence->load($session->getId()));
+        $this->assertFalse($response->hasHeader('Set-Cookie'));
+    }
+
+    /**
+     * An existing session's cookie is still refreshed (sliding expiration)
+     * on every response even when nothing changed this request -- only the
+     * DB/persistence write is skipped, not the cookie.
+     */
+    public function testPersistAndBakeCookiesRefreshesCookieForUnchangedExistingSession(): void
+    {
+        $persistence = new InMemorySessionPersistence();
+        $persistence->save('an-existing-session-id-1234567890', ['user_id' => 42]);
+        $manager = new SessionManager($persistence);
+        $request = (new ServerRequest('GET', '/'))->withCookieParams(['QSID' => 'an-existing-session-id-1234567890']);
+        $session = $manager->startFromRequest($request);
+        $this->assertFalse($session->isDirty(), 'precondition: nothing changed this request');
+
+        $response = $manager->persistAndBakeCookies($session, new Response());
+
+        $this->assertStringContainsString('QSID=an-existing-session-id-1234567890', $response->getHeaderLine('Set-Cookie'));
     }
 }

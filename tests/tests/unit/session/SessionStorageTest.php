@@ -75,6 +75,10 @@ class SessionStorageTest extends UnitTestCase
 		$storage = new SessionStorage();
 		$storage->initialize($context);
 		$storage->startup();
+		// startup() now defers the actual session_start() for a cookieless
+		// request (see SessionStorage::startup()); store() triggers its own
+		// lazy start so there's an active session for close() to end.
+		$storage->store('user_id', 42);
 
 		$this->assertTrue($storage->close());
 		$this->assertNotSame(PHP_SESSION_ACTIVE, session_status());
@@ -170,6 +174,96 @@ class SessionStorageTest extends UnitTestCase
 		$this->expectException(\Quiote\Exception\StorageException::class);
 		$this->expectExceptionMessage('cannot start a session without an initialized Context');
 		$storage->startup();
+	}
+
+	/**
+	 * Covers item 4b of PERF_PLAN.md: a cookieless request (bot, API client,
+	 * first-time visitor) has no session to load, so retrieve()/remove()
+	 * must not eagerly session_start() just to look for one -- it can only
+	 * ever come back empty. startup() itself must defer the actual
+	 * session_start() the same way (see testCloseWriteClosesTheActiveSession,
+	 * which now writes first to get an active session at all).
+	 */
+	#[RunInSeparateProcess]
+	public function testRetrieveWithoutIncomingCookieReturnsNullWithoutStartingASession(): void
+	{
+		$context = Context::getInstance('quiote-session-storage-test::tests-lazy-retrieve');
+		$storage = new SessionStorage();
+		$storage->initialize($context);
+		$storage->startup();
+
+		$this->assertNotSame(PHP_SESSION_ACTIVE, session_status(), 'precondition: startup() must not have eagerly started a session');
+		$this->assertNull($storage->retrieve('user_id'));
+		$this->assertNotSame(PHP_SESSION_ACTIVE, session_status(), 'retrieve() on a cookieless request must not start a session either');
+	}
+
+	#[RunInSeparateProcess]
+	public function testRemoveWithoutIncomingCookieReturnsNullWithoutStartingASession(): void
+	{
+		$context = Context::getInstance('quiote-session-storage-test::tests-lazy-retrieve');
+		$storage = new SessionStorage();
+		$storage->initialize($context);
+		$storage->startup();
+
+		$this->assertNull($storage->remove('user_id'));
+		$this->assertNotSame(PHP_SESSION_ACTIVE, session_status(), 'remove() on a cookieless request must not start a session either');
+	}
+
+	/**
+	 * store() is the one operation that must always start a session even
+	 * without an incoming cookie -- the caller is explicitly writing
+	 * something, so a first-time visitor still gets a session created (and,
+	 * in the real request cycle, a Set-Cookie for it).
+	 */
+	#[RunInSeparateProcess]
+	public function testStoreStartsASessionEvenWithoutIncomingCookie(): void
+	{
+		$context = Context::getInstance('quiote-session-storage-test::tests-lazy-retrieve');
+		$storage = new SessionStorage();
+		$storage->initialize($context);
+		$storage->startup();
+		$this->assertNotSame(PHP_SESSION_ACTIVE, session_status(), 'precondition: no session yet');
+
+		$this->assertTrue($storage->store('user_id', 42));
+
+		$this->assertSame(PHP_SESSION_ACTIVE, session_status());
+		$this->assertSame(42, $storage->retrieve('user_id'));
+	}
+
+	/**
+	 * Covers item 4d of PERF_PLAN.md: SessionMiddleware calls
+	 * storage->shutdown() after the handler; in FrankenPHP worker mode,
+	 * Context::reset() calls storage->shutdown() again on the same instance
+	 * as part of its manual shutdown sequence. shutdown() is just
+	 * session_write_close(), so this verifies PHP's own session module
+	 * genuinely no-ops a second close instead of writing the session data to
+	 * the backing store twice.
+	 */
+	#[RunInSeparateProcess]
+	public function testShutdownCalledTwiceDoesNotWriteToTheBackingStoreTwice(): void
+	{
+		$handler = new class implements \SessionHandlerInterface {
+			public int $writeCalls = 0;
+			public function open($path, $name): bool { return true; }
+			public function close(): bool { return true; }
+			public function read($id): string|false { return ''; }
+			public function write($id, $data): bool { $this->writeCalls++; return true; }
+			public function destroy($id): bool { return true; }
+			public function gc($max): int|false { return 0; }
+		};
+		session_set_save_handler($handler);
+
+		session_start();
+		$_SESSION['user_id'] = 42;
+
+		$storage = new SessionStorage();
+
+		$storage->shutdown();
+		$this->assertSame(1, $handler->writeCalls, 'first shutdown() must persist exactly once');
+		$this->assertNotSame(PHP_SESSION_ACTIVE, session_status());
+
+		$storage->shutdown();
+		$this->assertSame(1, $handler->writeCalls, 'a second shutdown() on an already-closed session must not write again');
 	}
 
 }

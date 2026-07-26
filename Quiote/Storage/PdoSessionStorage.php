@@ -39,6 +39,32 @@ class PdoSessionStorage extends SessionStorage implements ResetInterface
 	protected $connection;
 
 	/**
+	 * @var ?string Memoized PDO::ATTR_DRIVER_NAME probe, invalidated in open()
+	 *              whenever the connection instance changes.
+	 */
+	private ?string $driverName = null;
+
+	/**
+	 * @var ?\PDOStatement Cached read() statement, rebuilt only when the
+	 *                     connection changes (open()).
+	 */
+	private ?\PDOStatement $readStmt = null;
+
+	/**
+	 * @var ?\PDOStatement Cached write() statement (native upsert, or the
+	 *                     UPDATE half of the UPDATE-first fallback for
+	 *                     drivers without a verified native upsert).
+	 */
+	private ?\PDOStatement $writeStmt = null;
+
+	/**
+	 * @var ?\PDOStatement Cached INSERT statement used only by the
+	 *                     UPDATE-first fallback path, when the UPDATE
+	 *                     affected no rows.
+	 */
+	private ?\PDOStatement $writeInsertStmt = null;
+
+	/**
 	 * Initialize this Storage.
 	 * @param      Context $context An Context instance.
 	 * @param      array<string, mixed> $parameters An associative array of initialization parameters.
@@ -95,8 +121,8 @@ class PdoSessionStorage extends SessionStorage implements ResetInterface
 		}
 		
 		// get table/column
-		$db_table  = $this->getParameter('db_table');
-		$db_id_col = $this->getParameter('db_id_col', 'sess_id');
+		$db_table  = $this->stringParameter('db_table');
+		$db_id_col = $this->stringParameter('db_id_col', 'sess_id');
 
 		// delete the record associated with this id
 		$sql = sprintf('DELETE FROM %s WHERE %s = ?', $db_table, $db_id_col);
@@ -105,10 +131,7 @@ class PdoSessionStorage extends SessionStorage implements ResetInterface
 			$stmt = $this->connection->prepare($sql);
 			$result = $stmt->execute([$id]);
 			if(!$result) {
-				$errorInfo = $stmt->errorInfo();
-				$e = new \PDOException($errorInfo[2], $errorInfo[0]);
-				$e->errorInfo = $errorInfo;
-				throw $e;
+				$this->throwPdoError($stmt);
 			}
 			return true;
 		} catch(\PDOException $e) {
@@ -134,11 +157,11 @@ class PdoSessionStorage extends SessionStorage implements ResetInterface
 		
 		// determine deletable session time
 		$time = time() - $lifetime;
-		$time = date($this->getParameter('date_format', 'U'), $time);
+		$time = date($this->stringParameter('date_format', 'U'), $time);
 
 		// get table/column
-		$db_table    = $this->getParameter('db_table');
-		$db_time_col = $this->getParameter('db_time_col', 'sess_time');
+		$db_table    = $this->stringParameter('db_table');
+		$db_time_col = $this->stringParameter('db_time_col', 'sess_time');
 
 		// delete the records that are expired
 		$sql = sprintf('DELETE FROM %s WHERE %s < :time', $db_table, $db_time_col);
@@ -152,12 +175,9 @@ class PdoSessionStorage extends SessionStorage implements ResetInterface
 				$stmt->bindValue(':time', $time, \PDO::PARAM_STR);
 			}
 			$result = $stmt->execute();
-			
+
 			if(!$result) {
-				$errorInfo = $stmt->errorInfo();
-				$e = new \PDOException($errorInfo[2], $errorInfo[0]);
-				$e->errorInfo = $errorInfo;
-				throw $e;
+				$this->throwPdoError($stmt);
 			}
 
 			return $stmt->rowCount();
@@ -182,16 +202,102 @@ class PdoSessionStorage extends SessionStorage implements ResetInterface
     public function open($path, $name) : bool
 	{
 		// what database are we using?
-		$database = $this->getParameter('database', null);
+		$databaseParam = $this->getParameter('database', null);
+		$database = is_string($databaseParam) ? $databaseParam : null;
 
 		/** @phan-suppress-next-line UnusedSuppression */
-		$this->connection = $this->getContext()->getDatabaseConnection($database);
-		if($this->connection === null || !$this->connection instanceof \PDO) {
-			$error = 'Database connection "' . $database . '" could not be found or is not a PDO database connection.';
+		$connection = $this->getContext()->getDatabaseConnection($database);
+		if($connection === null || !$connection instanceof \PDO) {
+			$error = 'Database connection "' . ($database ?? '') . '" could not be found or is not a PDO database connection.';
 			throw new DatabaseException($error);
 		}
 
+		if($connection !== $this->connection) {
+			// A prepared statement is bound to the PDO connection it was
+			// prepared against; when the connection changes (or on first use)
+			// every cached statement/driver probe is stale.
+			$this->driverName = null;
+			$this->readStmt = null;
+			$this->writeStmt = null;
+			$this->writeInsertStmt = null;
+		}
+		$this->connection = $connection;
+
 		return true;
+	}
+
+	/**
+	 * Memoized PDO::ATTR_DRIVER_NAME probe. Only called from read()/write(),
+	 * both of which already guard on $this->connection being non-null.
+	 */
+	private function driverName(): string
+	{
+		if($this->driverName === null) {
+			$connection = $this->connection;
+			$this->driverName = $connection instanceof \PDO ? $this->scalarToString($connection->getAttribute(\PDO::ATTR_DRIVER_NAME)) : '';
+		}
+		return $this->driverName;
+	}
+
+	/**
+	 * Build the single write() statement for a given driver: a native
+	 * one-round-trip upsert for drivers it's verified against, or the UPDATE
+	 * half of the UPDATE-first fallback for everything else (see write()).
+	 */
+	private function buildWriteSql(string $driver, string $table, string $idCol, string $dataCol, string $timeCol): string
+	{
+		return match($driver) {
+			'mysql' => sprintf(
+				'INSERT INTO %1$s (%2$s, %3$s, %4$s) VALUES (:id, :data, :time) ON DUPLICATE KEY UPDATE %3$s = VALUES(%3$s), %4$s = VALUES(%4$s)',
+				$table, $idCol, $dataCol, $timeCol
+			),
+			'pgsql', 'sqlite' => sprintf(
+				'INSERT INTO %1$s (%2$s, %3$s, %4$s) VALUES (:id, :data, :time) ON CONFLICT (%2$s) DO UPDATE SET %3$s = EXCLUDED.%3$s, %4$s = EXCLUDED.%4$s',
+				$table, $idCol, $dataCol, $timeCol
+			),
+			'oracle' => sprintf(
+				'UPDATE %s SET %s = EMPTY_BLOB(), %s = :time WHERE %s = :id RETURNING %s INTO :data',
+				$table, $dataCol, $timeCol, $idCol, $dataCol
+			),
+			default => sprintf(
+				'UPDATE %s SET %s = :data, %s = :time WHERE %s = :id',
+				$table, $dataCol, $timeCol, $idCol
+			),
+		};
+	}
+
+	private function throwPdoError(\PDOStatement $stmt): never
+	{
+		$errorInfo = $stmt->errorInfo();
+		$e = new \PDOException((string) ($errorInfo[2] ?? ''), 0);
+		$e->errorInfo = $errorInfo;
+		throw $e;
+	}
+
+	/**
+	 * Narrow a config parameter (db_table, db_id_col, date_format, ...) to
+	 * string, falling back to $default for a misconfigured non-string value.
+	 */
+	private function stringParameter(string $name, string $default = ''): string
+	{
+		$value = $this->getParameter($name, $default);
+		return is_string($value) ? $value : $default;
+	}
+
+	/**
+	 * Coerce a mixed DB column value to string using the same scalar rule
+	 * PHP's own (string) cast uses, falling back to '' for values that can't
+	 * be meaningfully stringified.
+	 */
+	private function scalarToString(mixed $value): string
+	{
+		if(is_string($value)) {
+			return $value;
+		}
+		if(is_scalar($value) || $value instanceof \Stringable) {
+			return (string) $value;
+		}
+		return '';
 	}
 
 	/**
@@ -207,33 +313,31 @@ class PdoSessionStorage extends SessionStorage implements ResetInterface
 		if(!$this->connection) {
 			return false;
 		}
-		
-		// get table/columns
-		$db_table    = $this->getParameter('db_table');
-		$db_data_col = $this->getParameter('db_data_col', 'sess_data');
-		$db_id_col   = $this->getParameter('db_id_col', 'sess_id');
-		$db_time_col = $this->getParameter('db_time_col', 'sess_time');
 
 		try {
-			$sql = sprintf('SELECT %s FROM %s WHERE %s = ?', $db_data_col, $db_table, $db_id_col);
-
-			$stmt = $this->connection->prepare($sql);
-			$result = $stmt->execute([$id]);
-			
-			if(!$result) {
-				$errorInfo = $stmt->errorInfo();
-				$e = new \PDOException($errorInfo[2], $errorInfo[0]);
-				$e->errorInfo = $errorInfo;
-				throw $e;
+			if($this->readStmt === null) {
+				$db_table    = $this->stringParameter('db_table');
+				$db_data_col = $this->stringParameter('db_data_col', 'sess_data');
+				$db_id_col   = $this->stringParameter('db_id_col', 'sess_id');
+				$sql = sprintf('SELECT %s FROM %s WHERE %s = ?', $db_data_col, $db_table, $db_id_col);
+				$this->readStmt = $this->connection->prepare($sql);
 			}
-			
-			if($result = $stmt->fetch(\PDO::FETCH_NUM)) {
-				$result = $result[0];
+			$stmt = $this->readStmt;
+			$result = $stmt->execute([$id]);
+
+			if(!$result) {
+				$this->throwPdoError($stmt);
+			}
+
+			$row = $stmt->fetch(\PDO::FETCH_NUM);
+			if(is_array($row) && array_key_exists(0, $row)) {
+				$value = $row[0];
 				// pdo is returning the LOB as stream, so check if we had a lob (this seems to differ from db to db)
-				if(is_resource($result)) {
-					$result = stream_get_contents($result);
+				if(is_resource($value)) {
+					$contents = stream_get_contents($value);
+					return $contents === false ? '' : $contents;
 				}
-				return $result;
+				return $this->scalarToString($value);
 			}
 
 			return '';
@@ -259,14 +363,9 @@ class PdoSessionStorage extends SessionStorage implements ResetInterface
 		if(!$this->connection) {
 			return false;
 		}
-		
-		// get table/column
-		$db_table    = $this->getParameter('db_table');
-		$db_data_col = $this->getParameter('db_data_col', 'sess_data');
-		$db_id_col   = $this->getParameter('db_id_col', 'sess_id');
-		$db_time_col = $this->getParameter('db_time_col', 'sess_time');
 
-		$isOracle = $this->connection->getAttribute(\PDO::ATTR_DRIVER_NAME) == 'oracle';
+		$driver = $this->driverName();
+		$isOracle = $driver === 'oracle';
 		$useLob = $this->getParameter('data_as_lob', true);
 		$columnType = ($isOracle || $useLob) ? \PDO::PARAM_LOB : \PDO::PARAM_STR;
 
@@ -275,22 +374,28 @@ class PdoSessionStorage extends SessionStorage implements ResetInterface
 			if ($sp === false) {
 				throw new DatabaseException('Unable to open in-memory stream for LOB data');
 			}
-			fwrite($sp, (string) $data);
+			fwrite($sp, $data);
 			rewind($sp);
 		} else {
 			$sp = $data;
 		}
 
-		$ts = date($this->getParameter('date_format', 'U'));
+		$ts = date($this->stringParameter('date_format', 'U'));
 		if(is_numeric($ts)) {
 			$ts = (int)$ts;
 		}
 
 		try {
-			// pretend the session does not exist and attempt to create it first
-			$sql = sprintf('INSERT INTO %s (%s, %s, %s) VALUES (:id, :data, :time)', $db_table, $db_id_col, $db_data_col, $db_time_col);
-
-			$stmt = $this->connection->prepare($sql);
+			if($this->writeStmt === null) {
+				$db_table    = $this->stringParameter('db_table');
+				$db_data_col = $this->stringParameter('db_data_col', 'sess_data');
+				$db_id_col   = $this->stringParameter('db_id_col', 'sess_id');
+				$db_time_col = $this->stringParameter('db_time_col', 'sess_time');
+				$this->writeStmt = $this->connection->prepare(
+					$this->buildWriteSql($driver, $db_table, $db_id_col, $db_data_col, $db_time_col)
+				);
+			}
+			$stmt = $this->writeStmt;
 			$stmt->bindParam(':id', $id);
 			$stmt->bindParam(':data', $sp, $columnType);
 			if(is_int($ts)) {
@@ -298,59 +403,49 @@ class PdoSessionStorage extends SessionStorage implements ResetInterface
 			} else {
 				$stmt->bindValue(':time', $ts, \PDO::PARAM_STR);
 			}
-			$this->connection->beginTransaction();
 			if(!$stmt->execute()) {
-				$errorInfo = $stmt->errorInfo();
-				$e = new \PDOException($errorInfo[2], $errorInfo[0]);
-				$e->errorInfo = $errorInfo;
-				throw $e;
-			}
-			if(!$this->connection->commit()) {
-				$errorInfo = $stmt->errorInfo();
-				$e = new \PDOException($errorInfo[2], $errorInfo[0]);
-				$e->errorInfo = $errorInfo;
-				throw $e;
-			}
-		} catch(\PDOException $e) {
-			// something went wrong; probably a key collision, which means this session already exists
-			$this->connection->rollback();
-
-			if($isOracle) {
-				$sql = sprintf('UPDATE %s SET %s = EMPTY_BLOB(), %s = :time WHERE %s = :id RETURNING %s INTO :data', $db_table, $db_data_col, $db_time_col, $db_id_col, $db_data_col);
-			} else {
-				$sql = sprintf('UPDATE %s SET %s = :data, %s = :time WHERE %s = :id', $db_table, $db_data_col, $db_time_col, $db_id_col);
+				$this->throwPdoError($stmt);
 			}
 
-			try {
-				$stmt = $this->connection->prepare($sql);
-				$stmt->bindParam(':data', $sp, $columnType);
+			if($driver === 'mysql' || $driver === 'pgsql' || $driver === 'sqlite') {
+				// Single-statement native upsert: the common case (writing an
+				// existing session) never pays for a failed INSERT + caught
+				// exception + rollback + retry.
+				return true;
+			}
+
+			// Drivers without a verified native upsert (Oracle, SQL Server,
+			// unrecognized): UPDATE-first -- an existing session is still the
+			// common case -- and only pay for a second round trip (INSERT)
+			// when the row doesn't exist yet.
+			if($stmt->rowCount() === 0) {
+				if($this->writeInsertStmt === null) {
+					$db_table    = $this->stringParameter('db_table');
+					$db_data_col = $this->stringParameter('db_data_col', 'sess_data');
+					$db_id_col   = $this->stringParameter('db_id_col', 'sess_id');
+					$db_time_col = $this->stringParameter('db_time_col', 'sess_time');
+					$this->writeInsertStmt = $this->connection->prepare(
+						sprintf('INSERT INTO %s (%s, %s, %s) VALUES (:id, :data, :time)', $db_table, $db_id_col, $db_data_col, $db_time_col)
+					);
+				}
+				$insertStmt = $this->writeInsertStmt;
+				$insertStmt->bindParam(':id', $id);
+				$insertStmt->bindParam(':data', $sp, $columnType);
 				if(is_int($ts)) {
-					$stmt->bindValue(':time', $ts, \PDO::PARAM_INT);
+					$insertStmt->bindValue(':time', $ts, \PDO::PARAM_INT);
 				} else {
-					$stmt->bindValue(':time', $ts, \PDO::PARAM_STR);
+					$insertStmt->bindValue(':time', $ts, \PDO::PARAM_STR);
 				}
-				$stmt->bindParam(':id', $id);
-				$this->connection->beginTransaction();
-				if(!$stmt->execute()) {
-					$errorInfo = $stmt->errorInfo();
-					$e = new \PDOException($errorInfo[2], $errorInfo[0]);
-					$e->errorInfo = $errorInfo;
-					throw $e;
+				if(!$insertStmt->execute()) {
+					$this->throwPdoError($insertStmt);
 				}
-				if(!$this->connection->commit()) {
-					$errorInfo = $stmt->errorInfo();
-					$e = new \PDOException($errorInfo[2], $errorInfo[0]);
-					$e->errorInfo = $errorInfo;
-					throw $e;
-				}
-			} catch(\PDOException $e) {
-				$this->connection->rollback();
-				$error = sprintf('PDOException was thrown when trying to manipulate session data. Message: "%s"', $e->getMessage());
-				throw new DatabaseException($error, 0, $e);
 			}
+
+			return true;
+		} catch(\PDOException $e) {
+			$error = sprintf('PDOException was thrown when trying to manipulate session data. Message: "%s"', $e->getMessage());
+			throw new DatabaseException($error, 0, $e);
 		}
-		
-		return true;
 	}
 
 }

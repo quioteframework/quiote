@@ -60,6 +60,65 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 		return $this->defaultHandler;
 	}
 	/**
+	 * Whether this request has anything to actually load from a session: the
+	 * configured session cookie is present, or a specific session id is
+	 * forced via the 'session_id' parameter. False means there's no session
+	 * to find -- used to defer the actual session_start() (an I/O-bearing
+	 * call against the backing store) in startup()/retrieve()/remove() for a
+	 * cookieless request, instead of eagerly creating an empty session no
+	 * one asked for.
+	 */
+	private function hasIncomingSessionOrStaticId(): bool
+	{
+		if($this->getParameter('session_id')) {
+			return true;
+		}
+		$sessionName = $this->paramString('session_name', 'Quiote') ?? 'Quiote';
+		return isset($_COOKIE[$sessionName]) && $_COOKIE[$sessionName] !== '';
+	}
+
+	/**
+	 * Narrow a session_* config parameter to string, falling back to
+	 * $default for a misconfigured non-string value.
+	 */
+	private function paramString(string $name, ?string $default = null): ?string
+	{
+		$value = $this->getParameter($name, $default);
+		return is_string($value) ? $value : $default;
+	}
+
+	/**
+	 * Narrow a session_* config parameter to int, falling back to $default.
+	 */
+	private function paramInt(string $name, ?int $default = null): ?int
+	{
+		$value = $this->getParameter($name, $default);
+		if(is_int($value)) {
+			return $value;
+		}
+		if(is_numeric($value)) {
+			return (int) $value;
+		}
+		return $default;
+	}
+
+	/**
+	 * Coerce a mixed value (superglobal entries, config) to string using the
+	 * same scalar rule PHP's own (string) cast uses, falling back to '' for
+	 * values that can't be meaningfully stringified.
+	 */
+	private function scalarToString(mixed $value): string
+	{
+		if(is_string($value)) {
+			return $value;
+		}
+		if(is_scalar($value) || $value instanceof \Stringable) {
+			return (string) $value;
+		}
+		return '';
+	}
+
+	/**
 	 * Starts the session.
 	 * The method must be called after initialize().
 	 * This code cannot be run in initialize(), because initialization has to
@@ -76,37 +135,37 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 		$dbg = $logger->isEnabled(\Quiote\Logging\Level::Debug);
 		if($dbg) { $logger->debug('[SessionStorage] startup enter status=' . session_status() . ' currentSid=' . (function_exists('session_id')?session_id():'') ); }
 		if($this->hasParameter('session_cache_expire')) {
-			session_cache_expire($this->getParameter('session_cache_expire'));
+			session_cache_expire($this->paramInt('session_cache_expire'));
 		}
-		
+
 		if($this->hasParameter('session_cache_limiter')) {
-			session_cache_limiter($this->getParameter('session_cache_limiter'));
+			session_cache_limiter($this->paramString('session_cache_limiter'));
 		}
-		
+
 		if($this->hasParameter('session_module_name')) {
-			session_module_name($this->getParameter('session_module_name'));
+			session_module_name($this->paramString('session_module_name'));
 		}
-		
+
 		if($this->hasParameter('session_save_path')) {
-			session_save_path($this->getParameter('session_save_path'));
+			session_save_path($this->paramString('session_save_path'));
 		}
-		
+
 		if(session_status() === PHP_SESSION_NONE) {
-			$desiredName = $this->getParameter('session_name', 'Quiote');
+			$desiredName = $this->paramString('session_name', 'Quiote') ?? 'Quiote';
 			if($dbg) { $logger->debug('[SessionStorage] setting session_name=' . $desiredName); }
 			session_name($desiredName);
 		}
 		// Diagnostic: log raw incoming cookies before starting session
 		if($dbg) {
-			$rawCookieHeader = $_SERVER['HTTP_COOKIE'] ?? '';
-			$rawQuiote = $_COOKIE[session_name()] ?? '(none)';
+			$rawCookieHeader = $this->scalarToString($_SERVER['HTTP_COOKIE'] ?? '');
+			$rawQuiote = $this->scalarToString($_COOKIE[session_name()] ?? '(none)');
 						$logger->debug('[SessionStorage] pre-start cookies rawHeader=' . $rawCookieHeader);
 						$logger->debug('[SessionStorage] pre-start $_COOKIE[' . session_name() . ']=' . $rawQuiote);
 						$logger->debug('[SessionStorage] ini session.use_cookies=' . ini_get('session.use_cookies') . ' use_only_cookies=' . ini_get('session.use_only_cookies') . ' cookie_samesite=' . ini_get('session.cookie_samesite'));
 		}
-		
+
 		$sessionId = session_id();
-		$staticSessionId = $this->getParameter('session_id');
+		$staticSessionId = $this->paramString('session_id');
 		if($sessionId === '' || ($staticSessionId && $sessionId !== $staticSessionId)) {
 			if($staticSessionId) {
 				session_id($staticSessionId);
@@ -122,14 +181,14 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 			// set path to true if the default path from php.ini is "/". this will, in startup(), trigger the base href as the path.
 			if($cookieDefaults['path'] == '/') { $cookieDefaults['path'] = true; }
 			
-			$lifetime = $this->getParameter('session_cookie_lifetime', $cookieDefaults['lifetime']);
-			if(is_numeric($lifetime)) {
-				$lifetime = (int) $lifetime;
+			$lifetimeParam = $this->getParameter('session_cookie_lifetime', $cookieDefaults['lifetime']);
+			if(is_numeric($lifetimeParam)) {
+				$lifetime = (int) $lifetimeParam;
+			} elseif(is_string($lifetimeParam)) {
+				$parsed = strtotime($lifetimeParam, 0);
+				$lifetime = $parsed === false ? 0 : $parsed;
 			} else {
-				$lifetime = strtotime((string) $lifetime, 0);
-				if ($lifetime === false) {
-					$lifetime = 0;
-				}
+				$lifetime = 0;
 			}
 			$path = $this->getParameter('session_cookie_path', $cookieDefaults['path']);
 			if($path === true) {
@@ -140,7 +199,8 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 				if($dbg) { $logger->debug('[SessionStorage] overriding cookie path ' . var_export($path,true) . ' -> "/" for global visibility'); }
 				$path = '/';
 			}
-			$domain = $this->getParameter('session_cookie_domain', $cookieDefaults['domain']);
+			$domainParam = $this->getParameter('session_cookie_domain', $cookieDefaults['domain']);
+			$domain = is_string($domainParam) ? $domainParam : $cookieDefaults['domain'];
 			
 			$secure = $cookieDefaults['secure'];
 			if($this->hasParameter('session_cookie_secure')) {
@@ -163,17 +223,34 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 			$httpOnly = (bool) $this->getParameter('session_cookie_httponly', $cookieDefaults['httponly']);
 			
 			session_set_cookie_params($lifetime, $path, $domain, $secure, $httpOnly);
-			
+
 			// Ensure SameSite is set through ini so PHP's own Set-Cookie includes it; avoid manual duplicate cookie.
 			if(!ini_get('session.cookie_samesite')) {
 				ini_set('session.cookie_samesite', 'Lax');
 				if($dbg) { $logger->debug('[SessionStorage] set ini session.cookie_samesite=Lax'); }
 			}
+
+			// Cookie/security configuration above is cheap (no I/O) and always
+			// applied so a session started later (see below) is correctly
+			// configured either way. The actual session_start() is the
+			// expensive part -- for a database-backed storage it's a real
+			// read against the backing store -- so it's the one thing gated:
+			// only pay for it when the request might already have a session
+			// (it carries the cookie, or a specific id is forced). A
+			// cookieless request (bot, API client, first-time visitor) is the
+			// overwhelmingly common case and has nothing to load; if the
+			// action actually writes to the session, store()'s own lazy
+			// @session_start() fallback creates one at that point instead,
+			// inheriting the cookie params configured just above.
+			if($this->hasIncomingSessionOrStaticId()) {
 				if($dbg) { $logger->debug('[SessionStorage] starting session idPre=' . session_id()); }
-			session_start();
+				session_start();
 				if($dbg) { $logger->debug('[SessionStorage] session started sid=' . session_id()); }
-			// Rely on PHP's built-in session cookie emission (session.use_cookies=1). Manual setcookie removed to prevent duplicate headers.
+				// Rely on PHP's built-in session cookie emission (session.use_cookies=1). Manual setcookie removed to prevent duplicate headers.
 				if($dbg) { $logger->debug('[SessionStorage] relying on PHP for Set-Cookie (no manual duplicate) lifetime=' . $lifetime . ' path=' . $path); }
+			} elseif($dbg) {
+				$logger->debug('[SessionStorage] session_start() deferred: no incoming session cookie and no static session_id configured');
+			}
 		}
 		elseif($dbg) { $logger->debug('[SessionStorage] startup skipped existing sid=' . session_id()); }
 		if($dbg) { $logger->debug('[SessionStorage] startup exit sid=' . session_id()); }
@@ -190,6 +267,13 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 	public function retrieve($key)
 	{
 		if(session_status() !== PHP_SESSION_ACTIVE) {
+			if(!$this->hasIncomingSessionOrStaticId()) {
+				// No cookie means no session was ever created for this client,
+				// so there's nothing to find; starting one here would just
+				// create an empty session for a read that can only come back
+				// null anyway.
+				return null;
+			}
 				if(\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) { \Quiote\Logging\Log::for($this)->debug('[SessionStorage] lazy-start before retrieve key=' . $key); }
 			@session_start();
 				if(\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) { \Quiote\Logging\Log::for($this)->debug('[SessionStorage] lazy-start after retrieve sid=' . session_id()); }
@@ -208,6 +292,11 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 	public function remove($key)
 	{
 		if(session_status() !== PHP_SESSION_ACTIVE) {
+			if(!$this->hasIncomingSessionOrStaticId()) {
+				// No session was ever created for this client, so there's
+				// nothing stored under $key to remove.
+				return null;
+			}
 				if(\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) { \Quiote\Logging\Log::for($this)->debug('[SessionStorage] lazy-start before remove key=' . $key); }
 			@session_start();
 				if(\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) { \Quiote\Logging\Log::for($this)->debug('[SessionStorage] lazy-start after remove sid=' . session_id()); }

@@ -96,7 +96,10 @@ class SessionManager
                 }
             }
         }
-        return new Session($this->generateSid(), [], true);
+        // Clean, not dirty: a brand-new anonymous session (bot, API client,
+        // first-time visitor) that never gets written to shouldn't cost a
+        // persisted row or a Set-Cookie -- see persistAndBakeCookies().
+        return new Session($this->generateSid(), [], false, true);
     }
 
     /**
@@ -136,7 +139,16 @@ class SessionManager
         if ($session->isDirty()) {
             $this->persistence->save($session->getId(), $session->all());
         }
-        return $response->withAddedHeader('Set-Cookie', $this->buildCookieHeader($session->getId()));
+        // A brand-new session nothing was ever written to has no data worth
+        // the client carrying -- skip the Set-Cookie (and, per above, the
+        // persisted row) entirely rather than emitting both for every
+        // anonymous/bot/API-client hit. An existing session's cookie is
+        // still refreshed on every response (sliding expiration) even when
+        // its data didn't change this request.
+        if ($session->isDirty() || !$session->isNew()) {
+            $response = $response->withAddedHeader('Set-Cookie', $this->buildCookieHeader($session->getId()));
+        }
+        return $response;
     }
 
     /**
