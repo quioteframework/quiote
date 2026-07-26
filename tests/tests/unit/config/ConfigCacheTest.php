@@ -222,4 +222,75 @@ class ConfigCacheTest extends PhpUnitTestCase
 	}
 
     // Removed obsolete autoload.xml and pre-bootstrap handler tests (PSR-4 migration)
+
+	// ---------------------------------------------------------------
+	// isModified() / core.config_check_freshness -- item 7 of PERF_PLAN.md:
+	// under classic PHP-FPM, isModified()'s per-worker memoization resets
+	// every request, so every config resolution pays a filemtime() stat pair.
+	// core.config_check_freshness=false ("trust the cache" prod mode) skips
+	// that stat pair entirely once a cache file exists.
+	// ---------------------------------------------------------------
+
+	/** @var list<string> */
+	private array $isModifiedFilesToDelete = [];
+
+	#[\Override]
+	protected function tearDown(): void
+	{
+		Config::remove('core.config_check_freshness');
+		foreach ($this->isModifiedFilesToDelete as $file) {
+			@unlink($file);
+		}
+		$this->isModifiedFilesToDelete = [];
+		parent::tearDown();
+	}
+
+	/**
+	 * @return array{0: string, 1: string} [$sourceFile, $cacheFile], with the
+	 * source file's mtime set strictly newer than the cache file's (the
+	 * "cache is stale" precondition every test below starts from).
+	 */
+	private function makeStaleSourceAndCachePair(): array
+	{
+		$dir = sys_get_temp_dir();
+		$suffix = bin2hex(random_bytes(8));
+		$source = $dir . '/config_cache_freshness_source_' . $suffix . '.xml';
+		$cache = $dir . '/config_cache_freshness_cache_' . $suffix . '.php';
+		file_put_contents($cache, '<?php // stale cache');
+		file_put_contents($source, '<xml/>');
+		touch($cache, time() - 100);
+		touch($source, time());
+		$this->isModifiedFilesToDelete[] = $source;
+		$this->isModifiedFilesToDelete[] = $cache;
+		return [$source, $cache];
+	}
+
+	public function testIsModifiedDetectsStaleCacheByDefault(): void
+	{
+		[$source, $cache] = $this->makeStaleSourceAndCachePair();
+
+		$this->assertTrue(ConfigCache::isModified($source, $cache));
+	}
+
+	public function testIsModifiedSkipsStatCallsWhenFreshnessCheckDisabled(): void
+	{
+		[$source, $cache] = $this->makeStaleSourceAndCachePair();
+		Config::set('core.config_check_freshness', false);
+
+		// The source is genuinely newer than the cache (see precondition
+		// helper), but with freshness checking disabled the mtime comparison
+		// must never run -- an existing cache file is trusted outright.
+		$this->assertFalse(ConfigCache::isModified($source, $cache));
+	}
+
+	public function testIsModifiedStillReportsMissingCacheWhenFreshnessCheckDisabled(): void
+	{
+		[$source, $cache] = $this->makeStaleSourceAndCachePair();
+		unlink($cache);
+		Config::set('core.config_check_freshness', false);
+
+		// "Trust the cache" only applies once a cache file exists; a
+		// genuinely missing cache must still compile.
+		$this->assertTrue(ConfigCache::isModified($source, $cache));
+	}
 }

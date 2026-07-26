@@ -513,6 +513,19 @@ class ConfigCache
 	 */
 	public static function isModified($filename, $cachename)
 	{
+		if (!Config::getBool('core.config_check_freshness', true)) {
+			// "Trust the cache" prod mode: skip the filemtime() stat pair
+			// entirely once a cache file exists. Per-worker memoization below
+			// already makes this free in FrankenPHP's steady state, but under
+			// classic PHP-FPM every request rebuilds $modifiedCache from
+			// scratch, so this is otherwise a stat() pair per config per
+			// request (settings, factories, output_types, each module.xml,
+			// each action's validators.xml, databases, translation -- the
+			// classic Agavi stat storm). Meant to be set false in production
+			// after `cache:warmup`, mirroring Symfony's debug=false ConfigCache.
+			return !is_readable($cachename);
+		}
+
 		$cacheKey = $filename . '|' . $cachename;
 		if (isset(self::$modifiedCache[$cacheKey])) {
 			// Verify cache file still exists — it may have been deleted
