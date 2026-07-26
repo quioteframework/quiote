@@ -50,7 +50,8 @@ final class CacheWarmupCommand extends AbstractAppCommand
         $this->bootstrapApp($input);
         $io = new SymfonyStyle($input, $output);
 
-        $context = (string) ($input->getOption('context') ?? Config::getString('core.default_context', 'web'));
+        $contextOption = $input->getOption('context');
+        $context = is_string($contextOption) ? $contextOption : Config::getString('core.default_context', 'web');
 
         if ($input->getOption('check')) {
             return $this->checkRoutingDrift($context, $io);
@@ -64,12 +65,15 @@ final class CacheWarmupCommand extends AbstractAppCommand
 
         if ($useApcu) {
             $stats = APCuConfigCache::warmup($configs, $context);
-            $io->writeln(sprintf('Configs warmed: <info>%d</info>', $stats['configs_warmed']));
-            $io->writeln(sprintf('Routing (APCu) warmed: <info>%s</info>', $stats['routing_warmed'] ? 'yes' : 'no'));
-            foreach ($stats['errors'] as $err) {
-                $io->warning($err);
+            $configsWarmed = is_int($stats['configs_warmed'] ?? null) ? $stats['configs_warmed'] : 0;
+            $io->writeln(sprintf('Configs warmed: <info>%d</info>', $configsWarmed));
+            $io->writeln(sprintf('Routing (APCu) warmed: <info>%s</info>', ($stats['routing_warmed'] ?? false) ? 'yes' : 'no'));
+            $errors = is_array($stats['errors'] ?? null) ? $stats['errors'] : [];
+            foreach ($errors as $err) {
+                $io->warning(is_string($err) ? $err : 'Unknown warmup error.');
             }
-            $io->writeln(sprintf('APCu config cache warmed in <info>%.1f ms</info>.', ($stats['duration'] ?? 0) * 1000));
+            $durationSeconds = is_numeric($stats['duration'] ?? null) ? (float) $stats['duration'] : 0.0;
+            $io->writeln(sprintf('APCu config cache warmed in <info>%.1f ms</info>.', $durationSeconds * 1000));
         } else {
             $configDir = Config::getString('core.config_dir');
             $warmed = 0;
@@ -95,10 +99,45 @@ final class CacheWarmupCommand extends AbstractAppCommand
             $io->writeln(sprintf('Warmed <info>%d</info> config file(s) into %s/config%s.', $warmed, Config::getString('core.cache_dir'), $skipped ? sprintf(' (%d optional file(s) absent)', count($skipped)) : ''));
         }
 
+        $this->dumpRoutingIr($context, $io);
         $this->dumpCompiledMatcher($context, $io);
 
         $io->success('Cache warmed.');
         return self::SUCCESS;
+    }
+
+    /**
+     * Dump the routing IR (AttributeRouteScanner's scan result) so
+     * AttributeRouting::build() can skip the live scan entirely under
+     * core.routing.trust_compiled_ir. Only applies to attribute-based routing
+     * (a generated-routes Routing subclass has no scan to skip); non-fatal
+     * either way.
+     */
+    private function dumpRoutingIr(string $context, SymfonyStyle $io): void
+    {
+        try {
+            $routing = Context::getInstance($context)->getRouting();
+        } catch (\Throwable $e) {
+            $io->warning('Skipped routing IR: ' . $e->getMessage());
+            return;
+        }
+        if (!$routing instanceof \Quiote\Routing\AttributeRouting) {
+            $io->writeln('Routing IR: <comment>skipped (not attribute-based routing)</comment>.');
+            return;
+        }
+        try {
+            // Re-scan directly with the default inputs (moduleDirs=null):
+            // the same default AttributeRouting::build() falls back to, and
+            // the only case RoutingIrDumper's fixed target key covers.
+            $scanner = new \Quiote\Routing\Compiler\AttributeRouteScanner();
+            $plan = $scanner->scan(null);
+            $artifact = \Quiote\Routing\Compiler\RoutingIrDumper::emit($plan);
+            (new FilesystemArtifactWriter())->write($artifact, $artifact->targetHint);
+        } catch (\Throwable $e) {
+            $io->warning('Skipped routing IR: ' . $e->getMessage());
+            return;
+        }
+        $io->writeln(sprintf('Routing IR: <info>%d route(s)</info> -> %s', count($plan->routes), $artifact->targetHint));
     }
 
     /**

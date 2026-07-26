@@ -378,6 +378,33 @@ function benchmarks(): array
             return bench(static fn() => $runner->runCached('bench-key', ['field_a', 'field_b'], 'read'), 2000, 15, 500);
         },
 
+        // Item 6: AttributeRouteScanner's live scan (recursive glob() per
+        // module Actions/ tree, require_once + ReflectionClass per action
+        // class, on every Routing construction) -- old/always-on behavior.
+        'routing_scan_live' => static function (): array {
+            \Quiote\Config\Config::set('core.namespace_prefix', 'Sandbox', true);
+            \Quiote\Config\Config::set('core.module_dir', \Quiote\Config\Config::getString('core.app_dir') . '/Modules', true);
+            return bench(static function (): void {
+                (new \Quiote\Routing\Compiler\AttributeRouteScanner())->scan(null);
+            }, 200, 15, 50);
+        },
+
+        // Item 6: loading the same routes from a pre-dumped routing IR
+        // artifact (RoutingIrDumper), as AttributeRouting::build() does under
+        // core.routing.trust_compiled_ir -- new behavior.
+        'routing_scan_compiled_ir' => static function (): array {
+            \Quiote\Config\Config::set('core.namespace_prefix', 'Sandbox', true);
+            \Quiote\Config\Config::set('core.module_dir', \Quiote\Config\Config::getString('core.app_dir') . '/Modules', true);
+            $plan = (new \Quiote\Routing\Compiler\AttributeRouteScanner())->scan(null);
+            $artifact = \Quiote\Routing\Compiler\RoutingIrDumper::emit($plan);
+            $dir = dirname($artifact->targetHint);
+            if (!is_dir($dir)) {
+                mkdir($dir, 0777, true);
+            }
+            file_put_contents($artifact->targetHint, $artifact->phpSource);
+            return bench(static fn() => \Quiote\Routing\Compiler\RoutingIrDumper::load(), 200, 15, 50);
+        },
+
         'webrequest_params_bulk' => static function (): ?array {
             if (!method_exists(\Quiote\Request\WebRequest::class, 'withParameters')) {
                 return null; // not implemented yet (baseline run)

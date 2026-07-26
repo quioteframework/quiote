@@ -3,8 +3,10 @@ declare(strict_types=1);
 
 namespace Quiote\Routing;
 
+use Quiote\Config\Config;
 use Quiote\Routing\Compiler\AttributeRouteScanner;
 use Quiote\Routing\Compiler\RouteCollectionBuilder;
+use Quiote\Routing\Compiler\RoutingIrDumper;
 use Quiote\Support\Compiler\Diagnostic;
 
 /**
@@ -28,8 +30,20 @@ class AttributeRouting extends Routing
 	#[\Override]
 	protected function build(): array
 	{
+		$moduleDirs = $this->moduleDirs();
+		// The compiled IR only covers AttributeRouteScanner's own default
+		// scan inputs (see RoutingIrDumper::targetFor()); a subclass
+		// overriding moduleDirs() to something custom is never represented
+		// in it, so always fall through to a live scan in that case.
+		if ($moduleDirs === null && Config::getBool('core.routing.trust_compiled_ir', false)) {
+			$plan = RoutingIrDumper::load();
+			if ($plan !== null) {
+				return (new RouteCollectionBuilder())->build($plan);
+			}
+		}
+
 		$scanner = new AttributeRouteScanner();
-		$plan = $scanner->scan($this->moduleDirs());
+		$plan = $scanner->scan($moduleDirs);
 		$this->diagnostics = $scanner->getDiagnostics();
 
 		return (new RouteCollectionBuilder())->build($plan);

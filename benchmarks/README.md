@@ -38,6 +38,8 @@ php benchmarks/run.php compare baseline tier1
 | `locale_parse` | `QuioteLocale::parseLocaleIdentifier()` on a locale with options |
 | `apcu_validator_eval_per_call` | `ValidationService`'s old APCu path: `eval()` of a compiled validators.xml snippet on every call |
 | `apcu_validator_closure_cached` | new path: same snippet compiled into a `Closure` once, reused via `Closure::call()` |
+| `routing_scan_live` | `AttributeRouteScanner::scan()`: recursive `glob()` + `require_once` + `ReflectionClass` per action, over the sandbox's module tree |
+| `routing_scan_compiled_ir` | `RoutingIrDumper::load()`: the same routes loaded from a pre-dumped `return [...]` PHP artifact |
 
 ## Tier 1 results (PHP 8.5.8, min ns/op)
 
@@ -110,3 +112,29 @@ Notes:
   (method-gated block, a few validator instantiations, a
   `$this->getContext()` call) rather than exercising the full framework
   dispatch path, to isolate the eval()-vs-cached-closure mechanism itself.
+
+## Item 6 results (PHP 8.5.8, min ns/op)
+
+| benchmark | before | after | change |
+|---|---:|---:|---:|
+| `routing_scan` (live scan → compiled IR load) | 378401.8 | 38655.0 | −89.8% |
+
+Notes:
+- `AttributeRouting::build()` used to run `AttributeRouteScanner::scan()` on
+  every `Routing` construction -- a recursive `glob()` per module `Actions/`
+  tree plus a `require_once` + `new ReflectionClass` + attribute read per
+  action class. In worker mode that's a one-time boot cost; under classic
+  PHP-FPM it's a per-request cost. `core.routing.trust_compiled_ir` (default
+  false) lets `build()` load the same routes from a `return [...]` artifact
+  dumped by `quiote cache:warmup` instead, skipping the scan (and the
+  `require_once`/reflection it forces on every action class, dispatched or
+  not) entirely.
+- Both cases run against the real sandbox module tree (via the real
+  `AttributeRouteScanner`/`RoutingIrDumper`, not a synthetic stand-in), so the
+  absolute numbers scale with however many `#[Route]`-attributed action
+  classes a given app has.
+- `Routing::__construct()` still computes `CompiledMatcherDumper`'s
+  signature over the resulting `RouteCollection` afterward either way (to
+  locate a compiled-matcher dump) -- that's comparatively cheap in-memory
+  hashing over already-built routes, not filesystem I/O, so it's unaffected
+  by (and not part of) this benchmark.
