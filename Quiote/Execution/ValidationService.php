@@ -51,7 +51,48 @@ class ValidationService
      */
     private ?ValidationManager $activeManager = null;
 
+    /**
+     * Per-worker cache of compiled validator-registration closures, keyed by
+     * "(configFile)|(context)". A validators.xml file compiles to a snippet of
+     * plain PHP statements (see RuntimeArrayEmitter) meant to run inline in the
+     * caller's scope, referencing the free variables $validationManager/$method
+     * and calling $this->getContext(). The APCu path used to re-eval() that raw
+     * source on every single dispatch -- eval()'d code is never opcache-cached,
+     * so every request paid a full lex/parse/compile of the same source. Wrapping
+     * it in a closure once and reusing the already-compiled Closure (rebinding
+     * $this per call via Closure::call() instead of relying on however it was
+     * bound when first compiled) keeps the per-request cost to just invoking an
+     * already-compiled closure.
+     * @var array<string, \Closure>
+     */
+    private static array $compiledApcuValidatorClosures = [];
+
     public function __construct(private readonly ?ValidationManager $manager = null) {}
+
+    /**
+     * Run a compiled validator-registration snippet fetched from APCu (the raw
+     * PHP source following the 'APCU:' marker stripped by the caller), caching
+     * the compiled Closure per $cacheKey so only the first call for that key
+     * pays eval()'s lex/parse/compile cost.
+     */
+    private function runCachedApcuValidatorSnippet(string $apcuContent, string $cacheKey, ValidationManager $validationManager, string $method): void
+    {
+        $closure = self::$compiledApcuValidatorClosures[$cacheKey] ?? null;
+        if (!$closure instanceof \Closure) {
+            $built = eval('return function($validationManager, $method) { ?>' . $apcuContent . ' };');
+            if (!$built instanceof \Closure) {
+                throw new QuioteException('Compiled validator config for "' . $cacheKey . '" did not evaluate to a closure.');
+            }
+            $closure = $built;
+            self::$compiledApcuValidatorClosures[$cacheKey] = $closure;
+        }
+        // Rebind to $this on every call: the closure is cached across requests
+        // (and across ValidationService instances), but the compiled snippet's
+        // $this->getContext() call must always resolve against the instance
+        // actually running *this* validation, not whichever instance happened
+        // to trigger the first, cache-populating eval().
+        $closure->call($this, $validationManager, $method);
+    }
 
     public function getValidationManager(): ?ValidationManager
     {
@@ -78,6 +119,23 @@ class ValidationService
             throw new QuioteException(sprintf('Cannot validate: Action "%s" has not been initialized with a Context yet.', $action::class));
         }
         return $context;
+    }
+
+    /**
+     * Coerce a mixed value (validator/manager config parameter) to string for
+     * debug-log interpolation, using the same scalar rule PHP's own (string)
+     * cast uses, falling back to '' for values that can't be meaningfully
+     * stringified (arrays, non-Stringable objects).
+     */
+    private function scalarToString(mixed $value): string
+    {
+        if (is_string($value)) {
+            return $value;
+        }
+        if (is_scalar($value) || $value instanceof \Stringable) {
+            return (string) $value;
+        }
+        return '';
     }
 
     /**
@@ -160,7 +218,7 @@ class ValidationService
                     $incFile = APCuConfigCache::checkConfig($configFile, $this->currentContext->getName());
                     if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) { $logger->debug('[ValidationService][probe] APCu checkConfig returned ' . (str_starts_with($incFile, 'APCU:') ? 'APCU:...' : $incFile)); }
                     if (str_starts_with($incFile, 'APCU:')) {
-                        eval('?>' . substr($incFile, 5));
+                        $this->runCachedApcuValidatorSnippet(substr($incFile, 5), $configFile . '|' . $this->currentContext->getName(), $validationManager, $method);
                     } else {
                         require($incFile);
                     }
@@ -342,7 +400,7 @@ class ValidationService
                     $logger->debug("[ValidationService] Loading " . $method . " validators from APCu");
                     $cacheResult = \Quiote\Config\APCuConfigCache::checkConfig($configFile, $this->currentContext->getName());
                     if (str_starts_with($cacheResult, 'APCU:')) {
-                        eval('?>' . substr($cacheResult, 5));
+                        $this->runCachedApcuValidatorSnippet(substr($cacheResult, 5), $configFile . '|' . $this->currentContext->getName(), $validationManager, $method);
                     } else {
                         require($cacheResult);
                     }
@@ -376,7 +434,7 @@ class ValidationService
         try {
             /** @var ValidationManager $validationManager */
             if ($vd) {
-                $modeDbg = $validationManager->getParameter('mode', 'strict');
+                $modeDbg = $this->scalarToString($validationManager->getParameter('mode', 'strict'));
                 $logger->debug("[ValidationService] Running validation (mode=" . $modeDbg . ")");
             }
             $ok = (bool)$validationManager->execute($request);
@@ -395,7 +453,7 @@ class ValidationService
                 $resultSev = $report->getResult();
                 $incidents = $report->getIncidents();
                 $childCount = count($validationManager->getChilds());
-                $mode = $validationManager->getParameter('mode');
+                $mode = $this->scalarToString($validationManager->getParameter('mode'));
                 $logger->debug('[ValidationService] summary ok=' . ($ok ? '1' : '0') . ' childValidators=' . $childCount . ' mode=' . $mode . ' reportSeverity=' . $resultSev . ' incidents=' . count($incidents));
                 foreach ($incidents as $i => $incident) {
                     try {
@@ -413,9 +471,9 @@ class ValidationService
                 foreach ($validationManager->getChilds() as $v) {
                     try {
                         $name = $v->getName();
-                        $source = $v->getParameter('source');
+                        $source = $this->scalarToString($v->getParameter('source'));
                         $required = var_export($v->getParameter('required', true), true);
-                        $base = (string)$v->getParameter('base', '');
+                        $base = $this->scalarToString($v->getParameter('base', ''));
                         $logger->debug('[ValidationService] validator cfg name=' . $name . ' source=' . $source . ' required=' . $required . ' base=' . $base);
                     } catch (\Throwable) { /* ignore */ }
                 }

@@ -36,6 +36,8 @@ php benchmarks/run.php compare baseline tier1
 | `header_normalize` | `WebResponse::normalizeHttpHeaderName()` over 5 header names |
 | `templatelayer_call` | two `TemplateLayer` magic accessor calls |
 | `locale_parse` | `QuioteLocale::parseLocaleIdentifier()` on a locale with options |
+| `apcu_validator_eval_per_call` | `ValidationService`'s old APCu path: `eval()` of a compiled validators.xml snippet on every call |
+| `apcu_validator_closure_cached` | new path: same snippet compiled into a `Closure` once, reused via `Closure::call()` |
 
 ## Tier 1 results (PHP 8.5.8, min ns/op)
 
@@ -84,3 +86,27 @@ Notes:
   magic accessors during layout construction), so the memoization compounds.
 - `Context::setRequest()` also skips building its debug string unless debug
   logging is enabled; not separately benchmarked.
+
+## Item 3 results (PHP 8.5.8, min ns/op)
+
+| benchmark | before | after | change |
+|---|---:|---:|---:|
+| `apcu_validator` (eval per call → closure cached) | 7270.9 | 518.6 | −92.9% |
+
+Notes:
+- `ValidationService`'s APCu path used to `eval()` the raw compiled
+  validators.xml source on every single dispatch — `eval()`'d code is never
+  opcache-cached, so every request paid a full lex/parse/compile of the same
+  source. It's now compiled into a `Closure` once per `(configFile, context)`
+  key and reused via `Closure::call()` (which rebinds `$this` per call, so the
+  cached closure's `$this->getContext()` still resolves against whichever
+  `ValidationService` instance is actually running, not whichever one
+  happened to trigger the first, cache-populating `eval()`).
+- `bench()`'s warmup already primes the cache before the timed rounds, so
+  `apcu_validator_closure_cached`'s number is the steady-state (warmed worker)
+  cost, matching how the other cache-driven benchmarks in this suite are
+  read.
+- The benchmark snippet mirrors `RuntimeArrayEmitter`'s real output shape
+  (method-gated block, a few validator instantiations, a
+  `$this->getContext()` call) rather than exercising the full framework
+  dispatch path, to isolate the eval()-vs-cached-closure mechanism itself.

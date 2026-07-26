@@ -130,6 +130,49 @@ class BenchView extends \Quiote\View\View
 }
 
 /**
+ * Models ValidationService's two eval() strategies for a compiled
+ * validators.xml snippet fetched from APCu (item 3 of PERF_PLAN.md): the old
+ * per-dispatch eval('?>' . $content), versus compiling the snippet into a
+ * Closure once per cache key and reusing it via Closure::call() on every
+ * subsequent call. $content intentionally mirrors RuntimeArrayEmitter's real
+ * output shape (free variables $validationManager/$method, $this->getContext()).
+ */
+final class BenchApcuValidatorRunner
+{
+    /** @var array<string, \Closure> */
+    private static array $cachedClosures = [];
+
+    public function __construct(private readonly string $content)
+    {
+    }
+
+    public function getContext(): string
+    {
+        return 'bench-context';
+    }
+
+    /** Old path: eval() the raw compiled snippet fresh on every call -- never opcache-cached. */
+    public function runUncached(array $validationManager, string $method): void
+    {
+        $content = $this->content;
+        eval('?>' . $content);
+    }
+
+    /** New path: compile once per $cacheKey, reuse the already-compiled Closure. */
+    public function runCached(string $cacheKey, array $validationManager, string $method): void
+    {
+        $closure = self::$cachedClosures[$cacheKey] ?? null;
+        if (!$closure instanceof \Closure) {
+            $content = $this->content;
+            $built = eval('return function($validationManager, $method) { ?>' . $content . ' };');
+            $closure = $built;
+            self::$cachedClosures[$cacheKey] = $closure;
+        }
+        $closure->call($this, $validationManager, $method);
+    }
+}
+
+/**
  * Write a minimal valid little-endian .mo file with the given msgid => msgstr map.
  * @param array<string, string> $pairs
  */
@@ -171,6 +214,37 @@ function writeMoFile(string $path, array $pairs): void
         . $origTable . $transTable . $origData . $transData;
 
     file_put_contents($path, $mo);
+}
+
+/**
+ * A representative compiled validators.xml snippet -- same shape
+ * RuntimeArrayEmitter produces (declareParameters + a method-gated block of a
+ * few validator instantiations addChild()'d onto $validationManager, plus a
+ * $this->getContext() call), sized like a small-to-medium real validators.xml.
+ */
+function apcuValidatorBenchSnippet(): string
+{
+    // Real compiled configs always start with an opening PHP tag (see
+    // BaseConfigHandler::generate()) -- matching that here matters: eval()
+    // re-enters PHP mode via this leading tag after its own close-tag prefix.
+    return <<<'PHP'
+<?php
+if ($method == 'read') {
+    ${'_validator_field_a'} = new stdClass();
+    ${'_validator_field_a'}->name = 'field_a';
+    ${'_validator_field_a'}->params = ['required' => true, 'min' => 1, 'max' => 255];
+    $validationManager[] = ${'_validator_field_a'};
+    ${'_validator_field_b'} = new stdClass();
+    ${'_validator_field_b'}->name = 'field_b';
+    ${'_validator_field_b'}->params = ['required' => false, 'pattern' => '/^[a-z0-9_-]+$/'];
+    $validationManager[] = ${'_validator_field_b'};
+    ${'_validator_field_c'} = new stdClass();
+    ${'_validator_field_c'}->name = 'field_c';
+    ${'_validator_field_c'}->params = ['required' => false];
+    $validationManager[] = ${'_validator_field_c'};
+}
+$ctx = $this->getContext();
+PHP;
 }
 
 // ---------------------------------------------------------------------------
@@ -286,6 +360,22 @@ function benchmarks(): array
                 15,
                 1000
             );
+        },
+
+        // Item 3: compiled validators.xml snippet from APCu, eval()'d fresh on
+        // every dispatch (old behavior) -- never opcache-cached.
+        'apcu_validator_eval_per_call' => static function (): array {
+            $content = apcuValidatorBenchSnippet();
+            $runner = new BenchApcuValidatorRunner($content);
+            return bench(static fn() => $runner->runUncached(['field_a', 'field_b'], 'read'), 2000, 15, 500);
+        },
+
+        // Item 3: same snippet, compiled into a Closure once and reused via
+        // Closure::call() on every subsequent call (new behavior).
+        'apcu_validator_closure_cached' => static function (): array {
+            $content = apcuValidatorBenchSnippet();
+            $runner = new BenchApcuValidatorRunner($content);
+            return bench(static fn() => $runner->runCached('bench-key', ['field_a', 'field_b'], 'read'), 2000, 15, 500);
         },
 
         'webrequest_params_bulk' => static function (): ?array {
