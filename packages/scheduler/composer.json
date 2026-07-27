@@ -1,0 +1,31 @@
+{
+	"name": "quioteframework/scheduler",
+	"description": "Cron-expression task scheduling (schedule:run console command) layered on the queue package, for Quiote.",
+	"keywords": ["quiote", "scheduler", "cron", "jobs"],
+	"homepage": "https://github.com/quioteframework/scheduler",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"quioteframework/quiote": "*",
+		"quioteframework/queue": "*",
+		"dragonmantank/cron-expression": "^3.4"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Scheduler\\": "src/"
+		}
+	},
+	"extra": {
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/scheduler/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}

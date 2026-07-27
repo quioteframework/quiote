@@ -51,6 +51,7 @@
             <directory>packages/session-gcs/tests</directory>
             <directory>packages/queue/tests</directory>
             <directory>packages/queue-db/tests</directory>
+            <directory>packages/scheduler/tests</directory>
         </testsuite>
         <testsuite name="flow">
             <directory>tests/tests/flow</directory>
@@ -118,6 +119,7 @@
             <directory>packages/session-gcs/src</directory>
             <directory>packages/queue/src</directory>
             <directory>packages/queue-db/src</directory>
+            <directory>packages/scheduler/src</directory>
         </include>
         <exclude>
         <directory>Quiote/translation/data</directory>

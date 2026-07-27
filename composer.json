@@ -86,7 +86,8 @@
 		"quioteframework/session-gcs": "@dev",
 		"quioteframework/db-propulsion": "@dev",
 		"quioteframework/queue": "@dev",
-		"quioteframework/queue-db": "@dev"
+		"quioteframework/queue-db": "@dev",
+		"quioteframework/scheduler": "@dev"
 	},
 	"suggest": {
 		"phpunit/phpunit": "Install phpunit if you want to run your tests",
@@ -118,7 +119,8 @@
 		"quioteframework/session-gcs": "Google Cloud Storage session backend (Quiote\\Storage\\Gcs\\GcsSessionPersistence)",
 		"quioteframework/db-propulsion": "Enables the 'propulsion' database driver (Quiote\\Database\\Adapter\\Propulsion)",
 		"quioteframework/queue": "Background job/queue abstraction: job interface, sync driver, retry/dead-letter handling, `queue:work` (Quiote\\Queue\\QueuePlugin)",
-		"quioteframework/queue-db": "Enables the 'db' queue driver, backed by the app's own database (Quiote\\Queue\\Db\\DbQueueDriver)"
+		"quioteframework/queue-db": "Enables the 'db' queue driver, backed by the app's own database (Quiote\\Queue\\Db\\DbQueueDriver)",
+		"quioteframework/scheduler": "Cron-expression task scheduling, `schedule:run` (Quiote\\Scheduler\\SchedulerPlugin), layered on the queue package"
 	},
 	"scripts": {
 		"test": "php -d apc.enable_cli=0 vendor/bin/phpunit --no-coverage",
