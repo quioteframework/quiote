@@ -11,6 +11,8 @@ namespace Quiote\Action;
 use Quiote\Config\Config;
 use Quiote\Context;
 use Quiote\Execution\ActionInitContext;
+use Quiote\Request\RequestDtoRegistry;
+use Quiote\Request\Compiler\RequestDtoScanner;
 use Quiote\Request\WebRequest;
 use Quiote\Validator\Compiler\Runtime\CompiledValidatorRegistry;
 use Quiote\Validator\IValidatorContainer;
@@ -172,6 +174,28 @@ abstract class Action implements ResetInterface
 			$context,
 			$initContext->getRequestMethod()
 		);
+
+		$this->registerMapRequestValidators($initContext, $validationManager, $context);
+	}
+
+	/**
+	 * If the execute*() method matching the current request declares a
+	 * #[Quiote\Request\Attribute\MapRequest] DTO parameter, register that
+	 * DTO's derived validators onto the same ValidationManager -- see
+	 * RequestDtoScanner. ActionResolver constructs and injects the actual
+	 * DTO instance later, once validation (including these validators) has
+	 * passed.
+	 * @return void
+	 */
+	private function registerMapRequestValidators(ActionInitContext $initContext, IValidatorContainer $validationManager, Context $context): void
+	{
+		$methodName = 'execute' . ucfirst($initContext->getRequestMethod());
+		$dtoClass = RequestDtoRegistry::dtoClassForMethod(static::class, $methodName);
+		if ($dtoClass === null) {
+			return;
+		}
+
+		RequestDtoScanner::registerValidators($dtoClass, $validationManager, $context, $initContext->getRequestMethod());
 	}
 
 	/**

@@ -111,6 +111,43 @@ final class ActionToolScannerTest extends PhpUnitTestCase
         );
     }
 
+    public function testInputSchemaIsDerivedFromAMapRequestDto(): void
+    {
+        // MapRequestToolAction declares no validators of its own at all --
+        // its executeWrite() second parameter is a #[MapRequest] DTO whose
+        // constraint attributes (Quiote\Request\Attribute\Constraint\*) feed
+        // Action::registerValidators() automatically (see
+        // RequestDtoScanner::registerValidators()). This proves that path
+        // lands in the exact same fluent-fallback ActionToolScanner already
+        // uses for hand-written registerWriteValidators() -- no separate
+        // schema-derivation code was needed for #[MapRequest].
+        $controller = Context::getInstance('mcp-action-tool-test')->getController();
+        $definitions = (new ActionToolScanner())->scan($controller);
+
+        $tool = null;
+        foreach ($definitions as $definition) {
+            if ($definition->toolName === 'map_request_via_action') {
+                $tool = $definition;
+                break;
+            }
+        }
+
+        $this->assertNotNull($tool);
+        $this->assertSame('POST', $tool->httpMethod);
+        $this->assertSame(
+            [
+                'type' => 'object',
+                'properties' => [
+                    'title' => ['type' => 'string', 'minLength' => 2, 'maxLength' => 20],
+                    'authorEmail' => ['type' => 'string', 'format' => 'email'],
+                ],
+                'required' => ['title'],
+                'additionalProperties' => true,
+            ],
+            $tool->inputSchema,
+        );
+    }
+
     public function testIgnoresRouteActionsWithoutMcpTool(): void
     {
         $controller = Context::getInstance('mcp-action-tool-test')->getController();
