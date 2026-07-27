@@ -123,8 +123,39 @@ class ArrayPathDefinitionTest extends PhpUnitTestCase
 				],
 				false,
 			],
-			
+
 		];
+	}
+
+	/**
+	 * The memo cache stores results keyed by the raw path string; repeated
+	 * calls with the same path must keep returning an equal (independent)
+	 * result, and calls with a broken path must not poison the cache with a
+	 * partial/incorrect entry.
+	 */
+	public function testGetPartsFromPathIsIdempotentAcrossRepeatedCalls(): void
+	{
+		$first = ArrayPathDefinition::getPartsFromPath('data[0][Field]');
+		$second = ArrayPathDefinition::getPartsFromPath('data[0][Field]');
+
+		$this->assertSame($first, $second);
+	}
+
+	public function testGetPartsFromPathThrowsConsistentlyOnRepeatedBrokenPath(): void
+	{
+		$this->expectException(\InvalidArgumentException::class);
+		ArrayPathDefinition::getPartsFromPath('absolute[broken');
+	}
+
+	public function testGetPartsFromPathThrowsAgainAfterPriorException(): void
+	{
+		try {
+			ArrayPathDefinition::getPartsFromPath('absolute[broken');
+		} catch (\InvalidArgumentException) {
+		}
+
+		$this->expectException(\InvalidArgumentException::class);
+		ArrayPathDefinition::getPartsFromPath('absolute[broken');
 	}
 }
 

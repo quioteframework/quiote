@@ -366,4 +366,38 @@ class ValidationServiceTest extends UnitTestCase
 
         unset($GLOBALS['rcavs_rebindContext']);
     }
+
+    /**
+     * getLogger() must memoize Log::for($this) on the instance instead of
+     * re-resolving the category on every call within the same
+     * validate()/xmlOnlyValidate() invocation.
+     */
+    public function testGetLoggerMemoizesAcrossCalls(): void
+    {
+        $svc = new ValidationService();
+        $method = new ReflectionMethod(ValidationService::class, 'getLogger');
+
+        $first = $method->invoke($svc);
+        $second = $method->invoke($svc);
+
+        $this->assertSame($first, $second);
+    }
+
+    public function testGetLoggerIsIsolatedPerInstance(): void
+    {
+        $svcA = new ValidationService();
+        $svcB = new ValidationService();
+        $method = new ReflectionMethod(ValidationService::class, 'getLogger');
+
+        // Same underlying CategoryLogger (Log::for() itself is memoized by
+        // category), but each instance must resolve/cache it independently
+        // rather than sharing static state that could leak across instances.
+        $loggerA = $method->invoke($svcA);
+        $loggerB = $method->invoke($svcB);
+        $this->assertSame($loggerA, $loggerB);
+
+        $prop = new ReflectionProperty(ValidationService::class, 'loggerCache');
+        $this->assertSame($loggerA, $prop->getValue($svcA));
+        $this->assertSame($loggerB, $prop->getValue($svcB));
+    }
 }

@@ -59,6 +59,23 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 		}
 		return $this->defaultHandler;
 	}
+
+	/**
+	 * @var ?\Quiote\Logging\CategoryLogger
+	 */
+	private $loggerCache = null;
+
+	/**
+	 * Cached Log::for($this) -- session ops (retrieve/store/remove) run
+	 * several times per request (SecurityUser alone does multiple
+	 * retrieves/stores at init/shutdown), each guarding a debug() call with
+	 * an isEnabled() check; avoids re-resolving the category logger twice
+	 * per guarded call site.
+	 */
+	private function logger(): \Quiote\Logging\CategoryLogger
+	{
+		return $this->loggerCache ??= \Quiote\Logging\Log::for($this);
+	}
 	/**
 	 * Whether this request has anything to actually load from a session: the
 	 * configured session cookie is present, or a specific session id is
@@ -131,7 +148,7 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 	 */
 	public function startup()
 	{
-		$logger = \Quiote\Logging\Log::for($this);
+		$logger = $this->logger();
 		$dbg = $logger->isEnabled(\Quiote\Logging\Level::Debug);
 		if($dbg) { $logger->debug('[SessionStorage] startup enter status=' . session_status() . ' currentSid=' . (function_exists('session_id')?session_id():'') ); }
 		if($this->hasParameter('session_cache_expire')) {
@@ -274,9 +291,9 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 				// null anyway.
 				return null;
 			}
-				if(\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) { \Quiote\Logging\Log::for($this)->debug('[SessionStorage] lazy-start before retrieve key=' . $key); }
+				if($this->logger()->isEnabled(\Quiote\Logging\Level::Debug)) { $this->logger()->debug('[SessionStorage] lazy-start before retrieve key=' . $key); }
 			@session_start();
-				if(\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) { \Quiote\Logging\Log::for($this)->debug('[SessionStorage] lazy-start after retrieve sid=' . session_id()); }
+				if($this->logger()->isEnabled(\Quiote\Logging\Level::Debug)) { $this->logger()->debug('[SessionStorage] lazy-start after retrieve sid=' . session_id()); }
 		}
 		return $_SESSION[$key] ?? null;
 	}
@@ -297,9 +314,9 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 				// nothing stored under $key to remove.
 				return null;
 			}
-				if(\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) { \Quiote\Logging\Log::for($this)->debug('[SessionStorage] lazy-start before remove key=' . $key); }
+				if($this->logger()->isEnabled(\Quiote\Logging\Level::Debug)) { $this->logger()->debug('[SessionStorage] lazy-start before remove key=' . $key); }
 			@session_start();
-				if(\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) { \Quiote\Logging\Log::for($this)->debug('[SessionStorage] lazy-start after remove sid=' . session_id()); }
+				if($this->logger()->isEnabled(\Quiote\Logging\Level::Debug)) { $this->logger()->debug('[SessionStorage] lazy-start after remove sid=' . session_id()); }
 		}
 		$retval = null;
 
@@ -318,7 +335,7 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 	 */
 	public function shutdown()
 	{
-		if(\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) { \Quiote\Logging\Log::for($this)->debug('[SessionStorage] shutdown sid=' . (function_exists('session_id')?session_id():'') ); }
+		if($this->logger()->isEnabled(\Quiote\Logging\Level::Debug)) { $this->logger()->debug('[SessionStorage] shutdown sid=' . (function_exists('session_id')?session_id():'') ); }
 		session_write_close();
 	}
 
@@ -333,24 +350,24 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 	public function store(string $id, mixed $data): bool
 	{
 		if(session_status() !== PHP_SESSION_ACTIVE) {
-				if(\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) { \Quiote\Logging\Log::for($this)->debug('[SessionStorage] lazy-start before store key=' . $id); }
+				if($this->logger()->isEnabled(\Quiote\Logging\Level::Debug)) { $this->logger()->debug('[SessionStorage] lazy-start before store key=' . $id); }
 			@session_start();
-				if(\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) { \Quiote\Logging\Log::for($this)->debug('[SessionStorage] lazy-start after store sid=' . session_id()); }
+				if($this->logger()->isEnabled(\Quiote\Logging\Level::Debug)) { $this->logger()->debug('[SessionStorage] lazy-start after store sid=' . session_id()); }
 		}
-		if(\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) { \Quiote\Logging\Log::for($this)->debug('[SessionStorage] store key=' . $id . ' type=' . gettype($data) . ' sid=' . session_id()); }
+		if($this->logger()->isEnabled(\Quiote\Logging\Level::Debug)) { $this->logger()->debug('[SessionStorage] store key=' . $id . ' type=' . gettype($data) . ' sid=' . session_id()); }
 		$_SESSION[$id] = $data;
 		return true;
 	}
 
 	public function write(string $id, string $data): bool
 	{
-		if(\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) { \Quiote\Logging\Log::for($this)->debug('[SessionStorage] write raw sid=' . $id . ' len=' . strlen($data)); }
+		if($this->logger()->isEnabled(\Quiote\Logging\Level::Debug)) { $this->logger()->debug('[SessionStorage] write raw sid=' . $id . ' len=' . strlen($data)); }
 		return $this->getSessionHandler()->write($id, $data);
 	}
 
 	public function read(string $key) : string|false
 	{
-		if(\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) { \Quiote\Logging\Log::for($this)->debug('[SessionStorage] read raw key=' . $key); }
+		if($this->logger()->isEnabled(\Quiote\Logging\Level::Debug)) { $this->logger()->debug('[SessionStorage] read raw key=' . $key); }
 		return $this->getSessionHandler()->read($key);
 	}
 
@@ -378,27 +395,27 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 		}
 		$old = function_exists('session_id') ? session_id() : '';
 		$result = session_regenerate_id($deleteOldSession);
-		if(\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
-			\Quiote\Logging\Log::for($this)->debug('[SessionStorage] regenerate old=' . $old . ' new=' . session_id() . ' deleteOld=' . (int)$deleteOldSession);
+		if($this->logger()->isEnabled(\Quiote\Logging\Level::Debug)) {
+			$this->logger()->debug('[SessionStorage] regenerate old=' . $old . ' new=' . session_id() . ' deleteOld=' . (int)$deleteOldSession);
 		}
 		return $result;
 	}
 
 	public function destroy($sessionId): bool
 	{
-		if(\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) { \Quiote\Logging\Log::for($this)->debug('[SessionStorage] destroy raw sid=' . $sessionId); }
+		if($this->logger()->isEnabled(\Quiote\Logging\Level::Debug)) { $this->logger()->debug('[SessionStorage] destroy raw sid=' . $sessionId); }
 		return $this->getSessionHandler()->destroy($sessionId);
 	}
 
 	public function gc(int $maxlifetime): int|false
 	{
-		if(\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) { \Quiote\Logging\Log::for($this)->debug('[SessionStorage] gc maxlifetime=' . $maxlifetime); }
+		if($this->logger()->isEnabled(\Quiote\Logging\Level::Debug)) { $this->logger()->debug('[SessionStorage] gc maxlifetime=' . $maxlifetime); }
 		return $this->getSessionHandler()->gc($maxlifetime);
 	}
 
 	public function open($savePath, $sessionName): bool
 	{
-		if(\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) { \Quiote\Logging\Log::for($this)->debug('[SessionStorage] open savePath=' . $savePath . ' name=' . $sessionName); }
+		if($this->logger()->isEnabled(\Quiote\Logging\Level::Debug)) { $this->logger()->debug('[SessionStorage] open savePath=' . $savePath . ' name=' . $sessionName); }
 		return $this->getSessionHandler()->open($savePath, $sessionName);
 	}
 
@@ -425,8 +442,8 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 			if (session_id() !== '') {
 				session_id('');
 			}
-			if(\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
-				\Quiote\Logging\Log::for($this)->debug('[SessionStorage] reset cleared $_SESSION and session id for next worker request');
+			if($this->logger()->isEnabled(\Quiote\Logging\Level::Debug)) {
+				$this->logger()->debug('[SessionStorage] reset cleared $_SESSION and session id for next worker request');
 			}
 		}
 	}

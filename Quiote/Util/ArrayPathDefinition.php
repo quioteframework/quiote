@@ -177,6 +177,18 @@ final class ArrayPathDefinition
 	}
 
 	/**
+	 * Memoized path => {parts, absolute} results, keyed by the raw path string.
+	 * Most paths recur every request (validator argument/base paths come from
+	 * compiled validators.xml config), but some callers pass paths built from
+	 * request-controlled array indices (e.g. "items[42][name]"), so the cache
+	 * is capped and dropped wholesale on overflow rather than left unbounded.
+	 * @var        array<string, array{parts: array<int, string>, absolute: bool}>
+	 */
+	private static array $partsCache = [];
+
+	private const MAX_PARTS_CACHE = 2000;
+
+	/**
 	 * Returns an array with the single parts of the given path.
 	 * @param      string $path The path.
 	 * @return     array{parts: array<int, string>, absolute: bool} The parts of the given path.
@@ -189,6 +201,10 @@ final class ArrayPathDefinition
 			return ['parts' => [], 'absolute' => true];
 		}
 
+		if(isset(self::$partsCache[$pathStr])) {
+			return self::$partsCache[$pathStr];
+		}
+
 		$parts = [];
 		$absolute = ($pathStr[0] != '[');
 		if(($pos = strpos($pathStr, '[')) === false) {
@@ -199,7 +215,9 @@ final class ArrayPathDefinition
 		} else {
 			$state = 0;
 			$cur = '';
-			foreach(str_split($pathStr) as $c) {
+			$len = strlen($pathStr);
+			for($i = 0; $i < $len; $i++) {
+				$c = $pathStr[$i];
 				// this is the fastest way to loop over an string
 				switch($state) {
 					// the order is significant for performance
@@ -214,7 +232,7 @@ final class ArrayPathDefinition
 						} else {
 							$cur .= $c;
 						}
-						
+
 						break;
 
 					case 0:
@@ -248,7 +266,13 @@ final class ArrayPathDefinition
 			}
 		}
 
-		return ['parts' => $parts, 'absolute' => $absolute];
+		$result = ['parts' => $parts, 'absolute' => $absolute];
+		if(count(self::$partsCache) >= self::MAX_PARTS_CACHE) {
+			self::$partsCache = [];
+		}
+		self::$partsCache[$pathStr] = $result;
+
+		return $result;
 	}
 
 

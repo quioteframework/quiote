@@ -25,7 +25,35 @@ trait Psr7DelegationTrait
     {
         $new = clone $this;
         $new->psrRequest = $psrRequest;
+        $new->parametersCache = null;
         return $new;
+    }
+
+    /**
+     * Bulk counterpart to withoutHeader(): removes many headers with a single
+     * PSR-7 message clone instead of one clone per header (each
+     * withoutHeader() call clones the whole wrapped request). Reaches into
+     * Nyholm\Psr7\ServerRequest's private header maps via a bound closure --
+     * the same end state withoutHeader() produces, just batched.
+     * @param array<int, string> $names
+     */
+    private function withoutHeaders(array $names): static
+    {
+        if ($names === []) {
+            return $this;
+        }
+        $newPsr = clone $this->psrRequest;
+        $mutate = \Closure::bind(function (array $names): void {
+            foreach ($names as $header) {
+                $normalized = \strtr($header, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz');
+                if (isset($this->headerNames[$normalized])) {
+                    $orig = $this->headerNames[$normalized];
+                    unset($this->headers[$orig], $this->headerNames[$normalized]);
+                }
+            }
+        }, $newPsr, \Nyholm\Psr7\ServerRequest::class);
+        $mutate($names);
+        return $this->withPsrRequest($newPsr);
     }
 
     #[\Override]

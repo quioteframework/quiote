@@ -14,6 +14,17 @@ use Quiote\Util\Toolkit;
 class FileTemplateLayer extends StreamTemplateLayer
 {
 	/**
+	 * Per-worker cache of the expanded "directory" value, keyed by the raw
+	 * directory pattern plus the scalar/null parameters expandVariables()
+	 * interpolates. getResourceStreamIdentifier() ran its own array_filter +
+	 * array_combine + expandVariables() pass on every call, entirely before
+	 * delegating to the parent's own (already cached) resolution -- so the
+	 * parent's cache never covered this work.
+	 * @var        array<string, string>
+	 */
+	private static array $directoryCache = [];
+
+	/**
 	 * Constructor.
 	 * @param      array<string, mixed> $parameters Initial parameters.
 	 * @since      1.0.0
@@ -76,9 +87,21 @@ class FileTemplateLayer extends StreamTemplateLayer
 		// treat the directory as sprintf format string and inject module name.
 		// Parameter names are always strings in practice; rekey defensively since
 		// ParameterHolder declares its storage as array<int|string, mixed>.
-		$expandArgs = array_merge(array_filter($this->getParameters(), is_scalar(...)), array_filter($this->getParameters(), is_null(...)));
-		$expandArgs = array_combine(array_map('strval', array_keys($expandArgs)), $expandArgs);
-		$directory = Toolkit::expandVariables($directory, $expandArgs);
+		$scalarParams = array_filter($this->getParameters(), is_scalar(...));
+		$nullParams = array_filter($this->getParameters(), is_null(...));
+
+		$cacheKey = is_scalar($directory) ? (string) $directory : '';
+		foreach ($scalarParams as $k => $v) { $cacheKey .= "\0s:$k=$v"; }
+		foreach ($nullParams as $k => $v) { $cacheKey .= "\0n:$k"; }
+
+		if (isset(self::$directoryCache[$cacheKey])) {
+			$directory = self::$directoryCache[$cacheKey];
+		} else {
+			$expandArgs = array_merge($scalarParams, $nullParams);
+			$expandArgs = array_combine(array_map('strval', array_keys($expandArgs)), $expandArgs);
+			$directory = Toolkit::expandVariables($directory, $expandArgs);
+			self::$directoryCache[$cacheKey] = $directory;
+		}
 		
 		$this->setParameter('directory', $directory);
 		$this->setParameter('template', $template);

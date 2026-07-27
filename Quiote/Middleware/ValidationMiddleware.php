@@ -191,7 +191,7 @@ class ValidationMiddleware implements MiddlewareInterface
             }
         }
         
-        if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
+        if ($vd) {
             \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware][debug] using context WebRequest (shared)');
         }
         // Promote route params (excluding internal underscore-prefixed keys) into runtime parameters
@@ -204,7 +204,7 @@ class ValidationMiddleware implements MiddlewareInterface
         // removes it, matching how an un-validated query/body param is already treated.
         try {
             $routeParams = $request->getAttribute('route_params');
-            if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
+            if ($vd) {
                 try {
                     \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware][debug] route_params=' . json_encode($routeParams, JSON_UNESCAPED_SLASHES));
                 } catch (\Throwable) {
@@ -212,23 +212,23 @@ class ValidationMiddleware implements MiddlewareInterface
             }
             if (is_array($routeParams) && $routeParams) {
                 $injected = [];
+                $queryParams = $webRequest->getQueryParams();
+                $bodyParams = $webRequest->getParsedBody();
                 foreach ($routeParams as $k => $v) {
                     if ($k !== '' && $k[0] !== '_' && !is_array($v)) {
                         // Check if param already exists in query/body (don't overwrite)
-                        $queryParams = $webRequest->getQueryParams();
-                        $bodyParams = $webRequest->getParsedBody();
-                        $exists = array_key_exists($k, $queryParams) || 
+                        $exists = array_key_exists($k, $queryParams) ||
                                   (is_array($bodyParams) && array_key_exists($k, $bodyParams));
-                        
+
                         if (!$exists) {
-                            $webRequest = $webRequest->setUnvalidatedParameter($k, $v);
                             $injected[$k] = $v;
                         }
                     }
                 }
                 if ($injected) {
+                    $webRequest = $webRequest->withUnvalidatedParameters($injected);
                     // Also merge into raw query params so validators reading query directly see them.
-                    if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
+                    if ($vd) {
                         try {
                             \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware][debug] injected_route_params_runtime=' . json_encode($injected, JSON_UNESCAPED_SLASHES));
                         } catch (\Throwable) {
@@ -382,7 +382,7 @@ class ValidationMiddleware implements MiddlewareInterface
             \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware] decision=' . $execState->validationDecision->state . ' module=' . $moduleName . ' action=' . $actionName . ' method=' . $method . ' simple=' . ($action->isSimple() ? '1' : '0') . ' sessId=' . $sessId . ' auth=' . $auth . $errStr);
         }
         if ($ok) {
-            if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
+            if ($vd) {
                 try {
                     \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware][debug] post-validation SUCCESS');
                 } catch (\Throwable) {
@@ -390,7 +390,7 @@ class ValidationMiddleware implements MiddlewareInterface
             }
             return $handler->handle($request);
         }
-        if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
+        if ($vd) {
             try {
                 \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware][debug] post-validation FAILURE');
             } catch (\Throwable) {
@@ -478,7 +478,7 @@ class ValidationMiddleware implements MiddlewareInterface
             $view = $vf->create($viewModule, $viewName, $moduleName, $actionName, $ot, $webRequest, [], $vs->getValidationManager());
             if (!$view) {
                 $factory = new \Nyholm\Psr7\Factory\Psr17Factory();
-                if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
+                if ($vd) {
                     \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware] view creation returned null for ' . $viewModule . ':' . $viewName);
                 }
                 $resp = $factory->createResponse(400)->withHeader('X-Quiote-Validation', 'failed')->withHeader('X-Quiote-Validation-Reason', 'view_not_created');
@@ -641,7 +641,7 @@ class ValidationMiddleware implements MiddlewareInterface
             }
             return $resp;
         } catch (\Throwable $e) {
-            if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
+            if ($vd) {
                 \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware] exception during view creation: ' . $e->getMessage());
             }
             $factory = new \Nyholm\Psr7\Factory\Psr17Factory();

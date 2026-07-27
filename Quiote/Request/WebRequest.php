@@ -37,6 +37,17 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	private RequestParameterStore $params;
 
 	/**
+	 * Memoized result of getParameters(null|'parameters'): the whitelist-filtered
+	 * merge of runtime + intrinsic params, invalidated whenever the params store
+	 * or the wrapped PSR-7 request (query/body) changes. Callers (validator
+	 * argument reads, checkAllArgumentsSet, getKeysInCurrentBase) invoke
+	 * getParameters() once per argument per validator, so this avoids
+	 * O(params x validator arguments) closure calls per request.
+	 * @var        array<array-key, mixed>|null
+	 */
+	private ?array $parametersCache = null;
+
+	/**
 	 * @param      string $method
 	 * @param      string|UriInterface|null $uri
 	 * @param      array<string, string|string[]> $headers
@@ -392,9 +403,14 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 			return array_filter($this->params->all(), fn($k) => $this->params->isWhitelisted((string)$k), ARRAY_FILTER_USE_KEY);
 		}
 		if ($source === null || $source === 'parameters') {
+			if ($this->parametersCache !== null) {
+				return $this->parametersCache;
+			}
 			$base = $this->getRequestParams($this, 'parameters');
 			$merged = $this->params->all() + $base; // runtime wins
-			return array_filter($merged, fn($k) => $this->params->isWhitelisted((string)$k), ARRAY_FILTER_USE_KEY);
+			$filtered = array_filter($merged, fn($k) => $this->params->isWhitelisted((string)$k), ARRAY_FILTER_USE_KEY);
+			$this->parametersCache = $filtered;
+			return $filtered;
 		}
 		if ($source === 'files') {
 			return $this->psrRequest->getUploadedFiles();
@@ -420,6 +436,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 		if ($source === 'runtime') {
 			$new = clone $this;
 			$new->params = $this->params->withRemovedParameter($name);
+			$new->parametersCache = null;
 			return $new;
 		}
 
@@ -443,6 +460,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	{
 		$new = clone $this;
 		$new->params = $this->params->withParameter($name, $value);
+		$new->parametersCache = null;
 		return $new;
 	}
 
@@ -461,6 +479,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 		}
 		$new = clone $this;
 		$new->params = $this->params->withParameters($params);
+		$new->parametersCache = null;
 		return $new;
 	}
 
@@ -475,6 +494,24 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	{
 		$new = clone $this;
 		$new->params = $this->params->withUnvalidatedParameter($name, $value);
+		$new->parametersCache = null;
+		return $new;
+	}
+
+	/**
+	 * Bulk counterpart to setUnvalidatedParameter(): promote many values at
+	 * once (e.g. a whole batch of route params), cloning the request once
+	 * instead of once per key.
+	 * @param array<array-key, mixed> $params
+	 */
+	public function withUnvalidatedParameters(array $params): static
+	{
+		if ($params === []) {
+			return $this;
+		}
+		$new = clone $this;
+		$new->params = $this->params->withUnvalidatedParameters($params);
+		$new->parametersCache = null;
 		return $new;
 	}
 
@@ -491,6 +528,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	{
 		$new = clone $this;
 		$new->params = $this->params->withDeclaredParameters($names);
+		$new->parametersCache = null;
 		return $new;
 	}
 
@@ -503,6 +541,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	{
 		$new = clone $this;
 		$new->params = $this->params->withDeclaredParameter($name);
+		$new->parametersCache = null;
 		return $new;
 	}
 
@@ -513,6 +552,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	{
 		$new = clone $this;
 		$new->params = $this->params->withAppendedParameter($name, $value);
+		$new->parametersCache = null;
 		return $new;
 	}
 
@@ -549,6 +589,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	{
 		$new = clone $this;
 		$new->params = $this->params->withEnforcedValidatedParameters($keys);
+		$new->parametersCache = null;
 		return $new;
 	}
 
@@ -636,14 +677,18 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 		$new = $this;
 
 		$headers = $new->getHeaders();
+		$headersToRemove = [];
 		foreach (array_keys($headers) as $h) {
 			$l = strtolower((string)$h);
 			$remove = true;
 			if (isset($headerKeep[$h]) || isset($headerKeep[$l])) { $remove = false; }
 			if (isset($headerFail[$h]) || isset($headerFail[$l])) { $remove = true; }
 			if ($remove) {
-				$new = $new->withoutHeader($h);
+				$headersToRemove[] = $h;
 			}
+		}
+		if ($headersToRemove !== []) {
+			$new = $new->withoutHeaders($headersToRemove);
 		}
 
 		$cookies = $new->getCookieParams();

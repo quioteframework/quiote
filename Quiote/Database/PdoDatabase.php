@@ -141,8 +141,12 @@ class PdoDatabase extends Database
 		if ($this->connection === null) {
 			return true; // will connect lazily on first getConnection()
 		}
+		if ($this->wasRecentlyVerified()) {
+			return true;
+		}
 		try {
 			$this->connection->query('SELECT 1');
+			$this->lastUsedAt = microtime(true);
 			return true;
 		} catch (\PDOException) {
 			// Connection lost — null it so getConnection() reconnects lazily.

@@ -15,7 +15,12 @@ use Quiote\Execution\ExecutionState;
 #[\Quiote\Middleware\Attribute\Middleware(phase: 'bootstrap', priority: 900)]
 class SessionMiddleware implements MiddlewareInterface
 {
-    public function __construct(private readonly Controller $controller) {}
+    private \Quiote\Logging\CategoryLogger $logger;
+
+    public function __construct(private readonly Controller $controller)
+    {
+        $this->logger = \Quiote\Logging\Log::for($this);
+    }
 
     /**
      * Parse a raw `Cookie:` header string into a name => value map.
@@ -58,13 +63,14 @@ class SessionMiddleware implements MiddlewareInterface
         }
 
         // Start session storage if not yet started for this request lifecycle.
+        $vd = $this->logger->isEnabled(\Quiote\Logging\Level::Debug);
         try {
             $storage = $this->controller->getContext()->getStorage();
             // Debug: show PSR cookie params and raw Cookie header
-            if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
+            if ($vd) {
                 try {
-                    \Quiote\Logging\Log::for($this)->debug('[SessionMiddleware] PSR cookie params=' . var_export($request->getCookieParams(), true));
-                    \Quiote\Logging\Log::for($this)->debug('[SessionMiddleware] Cookie header=' . var_export($request->getHeader('Cookie'), true));
+                    $this->logger->debug('[SessionMiddleware] PSR cookie params=' . var_export($request->getCookieParams(), true));
+                    $this->logger->debug('[SessionMiddleware] Cookie header=' . var_export($request->getHeader('Cookie'), true));
                 } catch (\Throwable) {}
             }
             // If PSR cookie params are available, mirror them into $_COOKIE so legacy adapter fallback can read them.
@@ -82,17 +88,17 @@ class SessionMiddleware implements MiddlewareInterface
                     }
                 }
             } catch (\Throwable) {}
-            if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
-                try { \Quiote\Logging\Log::for($this)->debug('[SessionMiddleware] mirrored $_COOKIE=' . var_export($_COOKIE, true)); } catch (\Throwable) {}
+            if ($vd) {
+                try { $this->logger->debug('[SessionMiddleware] mirrored $_COOKIE=' . var_export($_COOKIE, true)); } catch (\Throwable) {}
             }
             if (session_status() !== PHP_SESSION_ACTIVE) {
-                if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) { \Quiote\Logging\Log::for($this)->debug('[SessionMiddleware] calling storage->startup()'); }
+                if ($vd) { $this->logger->debug('[SessionMiddleware] calling storage->startup()'); }
                 $storage->startup();
-                if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) { \Quiote\Logging\Log::for($this)->debug('[SessionMiddleware] storage->startup() returned; session id=' . var_export(method_exists($storage,'getId') ? $storage->getId() : null, true)); }
+                if ($vd) { $this->logger->debug('[SessionMiddleware] storage->startup() returned; session id=' . var_export(method_exists($storage,'getId') ? $storage->getId() : null, true)); }
             }
         } catch (\Throwable $t) {
-            if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
-                \Quiote\Logging\Log::for($this)->debug('[SessionMiddleware] startup error: ' . $t->getMessage());
+            if ($vd) {
+                $this->logger->debug('[SessionMiddleware] startup error: ' . $t->getMessage());
             }
         }
         // Ensure ExecutionState exists.
@@ -118,7 +124,7 @@ class SessionMiddleware implements MiddlewareInterface
                 } catch (\Throwable) {}
             }
         } catch (\Throwable $t) {
-            if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) { \Quiote\Logging\Log::for($this)->debug('[SessionMiddleware] shutdown error: ' . $t->getMessage()); }
+            if ($this->logger->isEnabled(\Quiote\Logging\Level::Debug)) { $this->logger->debug('[SessionMiddleware] shutdown error: ' . $t->getMessage()); }
         }
 
         return $response;

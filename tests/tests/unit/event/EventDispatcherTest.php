@@ -143,6 +143,82 @@ class EventDispatcherTest extends TestCase
         Events::reset();
         $this->assertFalse(Events::hasListeners(SampleEvent::class));
     }
+
+    public function testEmitLazyDoesNotConstructEventWithoutListeners(): void
+    {
+        $factoryCalled = false;
+        $result = Events::emitLazy(SampleEvent::class, function () use (&$factoryCalled): SampleEvent {
+            $factoryCalled = true;
+            return new SampleEvent('x');
+        });
+
+        $this->assertFalse($factoryCalled, 'the factory must not run when nothing listens');
+        $this->assertNull($result);
+    }
+
+    public function testEmitLazyConstructsAndDispatchesWhenListenerExists(): void
+    {
+        $seen = null;
+        Events::listen(SampleEvent::class, function (SampleEvent $e) use (&$seen): void {
+            $seen = $e->value;
+        });
+
+        $factoryCalled = false;
+        $result = Events::emitLazy(SampleEvent::class, function () use (&$factoryCalled): SampleEvent {
+            $factoryCalled = true;
+            return new SampleEvent('lazy');
+        });
+
+        $this->assertTrue($factoryCalled);
+        $this->assertSame('lazy', $seen);
+        $this->assertInstanceOf(SampleEvent::class, $result);
+    }
+
+    public function testEmitLazyMatchesViaBaseClassListener(): void
+    {
+        $seen = false;
+        Events::listen(Event::class, function () use (&$seen): void { $seen = true; });
+
+        Events::emitLazy(SampleEvent::class, fn() => new SampleEvent('x'));
+
+        $this->assertTrue($seen);
+    }
+
+    public function testEmitLazySwallowsListenerExceptionAndReturnsEvent(): void
+    {
+        Events::listen(SampleEvent::class, function (): void {
+            throw new \RuntimeException('boom');
+        });
+
+        $result = Events::emitLazy(SampleEvent::class, fn() => new SampleEvent('x'));
+
+        $this->assertInstanceOf(SampleEvent::class, $result);
+    }
+
+    public function testHasListenersForIsMemoizedButReflectsNewRegistrations(): void
+    {
+        $provider = new \Quiote\Event\ListenerProvider();
+
+        $this->assertFalse($provider->hasListenersFor(SampleEvent::class));
+        // Repeated calls must keep returning the memoized (still-false) result.
+        $this->assertFalse($provider->hasListenersFor(SampleEvent::class));
+
+        $provider->listen(SampleEvent::class, fn() => null);
+
+        // listen() must invalidate the memo, not leave the earlier false cached.
+        $this->assertTrue($provider->hasListenersFor(SampleEvent::class));
+    }
+
+    public function testHasListenersForCacheIsClearedByReset(): void
+    {
+        $provider = new \Quiote\Event\ListenerProvider();
+        $provider->listen(SampleEvent::class, fn() => null);
+        $this->assertTrue($provider->hasListenersFor(SampleEvent::class));
+
+        $provider->reset();
+
+        $this->assertFalse($provider->hasListenersFor(SampleEvent::class));
+    }
 }
 
 final class SampleEvent extends Event

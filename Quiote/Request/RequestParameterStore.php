@@ -163,6 +163,25 @@ final class RequestParameterStore
     }
 
     /**
+     * Bulk counterpart to withUnvalidatedParameter(): apply many unvalidated
+     * runtime parameters in one shot, copying the runtime array once instead
+     * of once per key -- used to promote a whole batch of route params into
+     * the pipeline (see ValidationMiddleware) without an O(n) clone loop.
+     * @param array<array-key, mixed> $params
+     */
+    public function withUnvalidatedParameters(array $params): self
+    {
+        if ($params === []) {
+            return $this;
+        }
+        $runtimeParameters = $this->runtimeParameters;
+        foreach ($params as $name => $value) {
+            $runtimeParameters[(string) $name] = $value;
+        }
+        return new self($runtimeParameters, $this->validatedKeys);
+    }
+
+    /**
      * Legacy append API mirrors ParameterHolder::appendParameter semantics.
      */
     public function withAppendedParameter(string $name, mixed $value): self

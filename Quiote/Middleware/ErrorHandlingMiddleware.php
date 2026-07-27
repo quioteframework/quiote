@@ -27,20 +27,30 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
     /** @var callable|null */
     private $logger;
 
+    private \Quiote\Logging\CategoryLogger $categoryLogger;
+
     /** @param callable(Throwable $e, ServerRequestInterface $r):void|null $logger */
     public function __construct(?callable $logger = null)
     {
         $this->logger = $logger;
-        \Quiote\Logging\Log::for($this)->debug('[ErrorHandlingMiddleware] initialized');
+        $this->categoryLogger = \Quiote\Logging\Log::for($this);
+        if ($this->categoryLogger->isEnabled(\Quiote\Logging\Level::Debug)) {
+            $this->categoryLogger->debug('[ErrorHandlingMiddleware] initialized');
+        }
     }
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         try {
-            \Quiote\Logging\Log::for($this)->debug('[ErrorHandlingMiddleware] processing request ' . (string)$request->getUri());
+            // This middleware is outermost and always runs, even with debug off,
+            // so the getUri()/string-cast/concat cost must stay behind the gate
+            // rather than only the eventual sink write.
+            if ($this->categoryLogger->isEnabled(\Quiote\Logging\Level::Debug)) {
+                $this->categoryLogger->debug('[ErrorHandlingMiddleware] processing request ' . (string)$request->getUri());
+            }
             return $handler->handle($request);
         } catch (Throwable $e) {
-            \Quiote\Logging\Log::for($this)->error($this->buildDiagnosticLogLine($e, $request));
+            $this->categoryLogger->error($this->buildDiagnosticLogLine($e, $request));
             return $this->renderExceptionResponse($request, $e);
         }
     }
@@ -83,7 +93,7 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
     {
         Events::emit(new ExceptionCaughtEvent($e, $request));
 
-        if ($this->logger && \Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
+        if ($this->logger && $this->categoryLogger->isEnabled(\Quiote\Logging\Level::Debug)) {
             try {
                 ($this->logger)($e, $request);
             } catch (Throwable) { /* ignore */
@@ -117,7 +127,9 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
         $cid = $cid ?: null;
 
         $renderer = $this->resolveRenderer();
-        \Quiote\Logging\Log::for($this)->debug(sprintf('[ErrorHandlingMiddleware] rendering via %s, status=%d', $renderer::class, $status));
+        if ($this->categoryLogger->isEnabled(\Quiote\Logging\Level::Debug)) {
+            $this->categoryLogger->debug(sprintf('[ErrorHandlingMiddleware] rendering via %s, status=%d', $renderer::class, $status));
+        }
 
         return $renderer->render($e, $request, $status, $cid);
     }

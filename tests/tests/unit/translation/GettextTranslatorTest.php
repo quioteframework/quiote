@@ -177,6 +177,54 @@ class GettextTranslatorTest extends UnitTestCase
         $this->assertSame('plural form', $plural);
     }
 
+    public function testDomainDataCacheIsReusedAcrossInstancesForSameLocaleDomainAndPath(): void
+    {
+        $domainDir = sys_get_temp_dir() . '/gt-cache-shared-' . bin2hex(random_bytes(8));
+        Toolkit::mkdir($domainDir, 0777, true);
+        $this->dirsToDelete[] = $domainDir;
+        $this->writeMo($domainDir . '/en_US.mo', ['' => '', 'Hello' => 'Bonjour']);
+
+        $first = new GettextTranslator();
+        $first->initialize($this->getContext(), ['text_domains' => ['greeting' => $domainDir]]);
+        $this->assertSame('Bonjour', $first->translate('Hello', 'greeting', $this->makeLocale('en_US')));
+
+        // Overwrite the .mo file with different content: a second instance
+        // sharing (locale, domain, resolved path) must still see the FIRST
+        // instance's cached result rather than re-reading disk, proving the
+        // per-worker cache -- not just per-instance state -- was hit.
+        $this->writeMo($domainDir . '/en_US.mo', ['' => '', 'Hello' => 'CHANGED']);
+
+        $second = new GettextTranslator();
+        $second->initialize($this->getContext(), ['text_domains' => ['greeting' => $domainDir]]);
+        $this->assertSame('Bonjour', $second->translate('Hello', 'greeting', $this->makeLocale('en_US')));
+    }
+
+    public function testDomainDataCacheIsIsolatedByResolvedBasePath(): void
+    {
+        $dirA = sys_get_temp_dir() . '/gt-cache-a-' . bin2hex(random_bytes(8));
+        $dirB = sys_get_temp_dir() . '/gt-cache-b-' . bin2hex(random_bytes(8));
+        Toolkit::mkdir($dirA, 0777, true);
+        Toolkit::mkdir($dirB, 0777, true);
+        $this->dirsToDelete[] = $dirA;
+        $this->dirsToDelete[] = $dirB;
+        $this->writeMo($dirA . '/en_US.mo', ['' => '', 'Hello' => 'FromA']);
+        $this->writeMo($dirB . '/en_US.mo', ['' => '', 'Hello' => 'FromB']);
+
+        // Same domain name ('greeting'), same locale, but two instances
+        // configure it to different filesystem paths -- must not collide in
+        // the shared static cache (the bug this test guards against: keying
+        // the cache by locale+domain alone conflated distinct configurations).
+        $translatorA = new GettextTranslator();
+        $translatorA->initialize($this->getContext(), ['text_domains' => ['greeting' => $dirA]]);
+        $translatorB = new GettextTranslator();
+        $translatorB->initialize($this->getContext(), ['text_domains' => ['greeting' => $dirB]]);
+
+        $this->assertSame('FromA', $translatorA->translate('Hello', 'greeting', $this->makeLocale('en_US')));
+        $this->assertSame('FromB', $translatorB->translate('Hello', 'greeting', $this->makeLocale('en_US')));
+        // Re-check A again after B loaded, to prove B's load didn't clobber A's cache entry.
+        $this->assertSame('FromA', $translatorA->translate('Hello', 'greeting', $this->makeLocale('en_US')));
+    }
+
     public function testStoreCallsWritesGettextCallLogForDevelMode(): void
     {
         $storeDir = sys_get_temp_dir() . '/gt-store-' . bin2hex(random_bytes(8));

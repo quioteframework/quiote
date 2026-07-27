@@ -181,6 +181,37 @@ class TranslationManagerAdditionalTest extends UnitTestCase
         $this->assertNull($this->tm->getDomainTranslator('totally_unknown_domain', TranslationManager::MESSAGE));
     }
 
+    public function testGetDomainTranslatorPrefixMatchIsConsistentAcrossRepeatedCalls(): void
+    {
+        // Registered under the parent domain only; a longer requested domain
+        // ('recording_domain5.extra.parts') must resolve by walking up to the
+        // longest matching prefix -- and repeated calls (which now hit the
+        // memoized lookup) must keep resolving the SAME translator/prefix,
+        // not just the first call.
+        $translator = new RecordingTestTranslator();
+        $this->registerTranslator('recording_domain5', TranslationManager::MESSAGE, $translator);
+
+        $first = $this->tm->getDomainTranslator('recording_domain5.extra.parts', TranslationManager::MESSAGE);
+        $second = $this->tm->getDomainTranslator('recording_domain5.extra.parts', TranslationManager::MESSAGE);
+
+        $this->assertSame($translator, $first);
+        $this->assertSame($translator, $second);
+    }
+
+    public function testGetDomainTranslatorCacheDoesNotCollideAcrossDifferentTypes(): void
+    {
+        $messageTranslator = new RecordingTestTranslator();
+        $numberTranslator = new RecordingTestTranslator();
+        $this->registerTranslator('recording_domain6', TranslationManager::MESSAGE, $messageTranslator);
+        $this->registerTranslator('recording_domain6', TranslationManager::NUMBER, $numberTranslator);
+
+        $resolvedMessage = $this->tm->getDomainTranslator('recording_domain6', TranslationManager::MESSAGE);
+        $resolvedNumber = $this->tm->getDomainTranslator('recording_domain6', TranslationManager::NUMBER);
+
+        $this->assertSame($messageTranslator, $resolvedMessage);
+        $this->assertSame($numberTranslator, $resolvedNumber);
+    }
+
     public function testSetDefaultTimeZoneAcceptsStringOrDateTimeZone(): void
     {
         $this->tm->setDefaultTimeZone('UTC');

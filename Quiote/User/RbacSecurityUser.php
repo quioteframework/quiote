@@ -29,6 +29,17 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 	protected $roles = null;
 
 	/**
+	 * Per-worker cache of loaded RBAC definitions, keyed by "(resolved config
+	 * path)|(context name)". The user object is recreated every request
+	 * (Context.php), so loadDefinitions() otherwise pays is_readable() +
+	 * ConfigCache::checkConfig()'s own stat checks + a fresh include() of the
+	 * compiled definitions array on every single request for data that is
+	 * fixed for the life of the worker.
+	 * @var        array<string, array<string, array{permissions: array<int, string>, parent?: string}>>
+	 */
+	private static array $definitionsCache = [];
+
+	/**
 	 * Set a role membership for this user.
 	 * @param      string $role The role name to add to this user.
 	 * @return     void
@@ -175,8 +186,19 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 	{
 		$cfg = $this->getParameter('definitions_file', Config::getString('core.config_dir') . '/rbac_definitions.xml');
 
-		if(is_string($cfg) && is_readable($cfg)) {
+		if(!is_string($cfg)) {
+			return;
+		}
+
+		$cacheKey = $cfg . '|' . $this->getContext()->getName();
+		if(isset(self::$definitionsCache[$cacheKey])) {
+			$this->definitions = self::$definitionsCache[$cacheKey];
+			return;
+		}
+
+		if(is_readable($cfg)) {
 			$this->definitions = include(ConfigCache::checkConfig($cfg, $this->getContext()->getName()));
+			self::$definitionsCache[$cacheKey] = $this->definitions;
 		}
 	}
 

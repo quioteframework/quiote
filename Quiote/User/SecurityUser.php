@@ -46,6 +46,53 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 	protected $credentials   = null;
 
 	/**
+	 * Keyed-set index of scalar credentials (scalarCredentialKey() => true),
+	 * used by addCredential()/hasCredential() for O(1) lookups instead of an
+	 * O(n) in_array() scan per call -- RbacSecurityUser::initialize() rebuilds
+	 * credentials via grantRole() -> per-permission addCredential() every
+	 * authenticated request, which was O(roles x perms x existing creds).
+	 * Null means "stale, rebuild from $credentials on next use" -- every site
+	 * that mutates $credentials directly (bypassing addCredential()) resets
+	 * this to null instead of trying to keep it in sync inline.
+	 * @var        ?array<string, true>
+	 */
+	protected ?array $credentialIndex = null;
+
+	/**
+	 * (Re)build the scalar-credential index from the current $credentials list.
+	 * Non-scalar credentials (arrays/objects) have no fast-path entry and stay
+	 * on the in_array() fallback in addCredential()/hasCredential().
+	 * @return     array<string, true>
+	 */
+	private function buildCredentialIndex(): array
+	{
+		$index = [];
+		foreach ($this->credentials ?? [] as $existing) {
+			if (is_scalar($existing)) {
+				$index[self::scalarCredentialKey($existing)] = true;
+			}
+		}
+		return $index;
+	}
+
+	/**
+	 * Type-preserving key for a scalar credential, matching hasCredential()'s
+	 * existing strict (===) comparison semantics: a plain (string) cast would
+	 * collide distinct-but-loosely-equal values across types (e.g. int 0,
+	 * float 0.0 and string "0" all cast to "0"), which strict comparison
+	 * treats as different credentials.
+	 */
+	private static function scalarCredentialKey(int|float|string|bool $credential): string
+	{
+		return match (true) {
+			is_bool($credential) => 'bool:' . ($credential ? '1' : '0'),
+			is_int($credential) => 'int:' . $credential,
+			is_float($credential) => 'float:' . $credential,
+			default => 'string:' . $credential,
+		};
+	}
+
+	/**
 	 * True when this user's identity/credentials were (re-)established from
 	 * a token (bearer/JWT/OIDC) rather than read back from the session as
 	 * the source of truth. While true, session *credential* rehydration is
@@ -69,7 +116,17 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 	 */
 	public function addCredential($credential)
 	{
-		if(!in_array($credential, $this->credentials ?? [])) {
+		if (is_scalar($credential)) {
+			$this->credentialIndex ??= $this->buildCredentialIndex();
+			$key = self::scalarCredentialKey($credential);
+			if (isset($this->credentialIndex[$key])) {
+				return;
+			}
+			$this->credentialIndex[$key] = true;
+			$this->credentials[] = $credential;
+			return;
+		}
+		if (!in_array($credential, $this->credentials ?? [], true)) {
 			$this->credentials[] = $credential;
 		}
 	}
@@ -83,6 +140,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 	{
 		$this->credentials = null;
 		$this->credentials = [];
+		$this->credentialIndex = [];
 	}
 
 	/**
@@ -124,6 +182,10 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 	 */
 	public function hasCredential($credential)
 	{
+		if (is_scalar($credential)) {
+			$this->credentialIndex ??= $this->buildCredentialIndex();
+			return isset($this->credentialIndex[self::scalarCredentialKey($credential)]);
+		}
 		return in_array($credential, $this->credentials ?? [], true);
 	}
 	
@@ -175,6 +237,9 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 		} elseif($this->credentials === null) {
 			$this->credentials = [];
 		}
+		// $credentials was just replaced wholesale above; the index no longer
+		// matches and is rebuilt lazily on the next addCredential()/hasCredential().
+		$this->credentialIndex = null;
 		$logger = \Quiote\Logging\Log::for($this);
 		if($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
 			try {
@@ -277,6 +342,9 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 			if(($key = array_search($credential, $this->credentials ?? [], true)) !== false) {
 				// found it, let's nuke it
 				unset($this->credentials[$key]);
+				if ($this->credentialIndex !== null && is_scalar($credential)) {
+					unset($this->credentialIndex[self::scalarCredentialKey($credential)]);
+				}
 			}
 		}
 	}
@@ -425,6 +493,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 	{
 		$this->authenticated = null;
 		$this->credentials = null;
+		$this->credentialIndex = null;
 		$this->tokenDerived = false;
 		$this->context = null;
 		$this->parameters = [];

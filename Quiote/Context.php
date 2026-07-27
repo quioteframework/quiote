@@ -103,6 +103,17 @@ class Context implements \Stringable, ResetInterface
   protected $singletonModelInstances = [];
 
   /**
+   * Per-worker cache of getModel()'s class-name resolution + reflection
+   * probe, keyed by "(moduleName ?? '')|(modelName)". The naming-convention
+   * probing chain (class_exists() across namespace/legacy candidates, plus
+   * manual file requires) and the ReflectionClass construction it feeds are
+   * pure functions of (modelName, moduleName) once the class exists -- same
+   * pattern as ActionDescriptor::$isSimpleCache and Container::$reflectionCache.
+   * @var        array<string, array{class: class-string, singleton: bool, hasCtor: bool}>
+   */
+  private static array $modelResolutionCache = [];
+
+  /**
    * @var        array<int, mixed> Reset instances for FrankenPHP worker mode
    */
   protected $resetInstances = [];
@@ -490,6 +501,7 @@ class Context implements \Stringable, ResetInterface
   public function reset(): void
   {
     $logger = \Quiote\Logging\Log::for($this);
+    $vd = $logger->isEnabled(\Quiote\Logging\Level::Debug);
 
     // Reset singleton model instances
     $this->singletonModelInstances = [];
@@ -497,29 +509,33 @@ class Context implements \Stringable, ResetInterface
     $this->assetRegistry = null; // rebuild per request (worker-mode safe)
 
     // Log user state before reset
-    if ($this->user) {
-      $userClass = $this->user::class;
-      if ($this->user instanceof \Quiote\User\ISecurityUser) {
-        $isAuthenticated = $this->user->isAuthenticated() ? "YES" : "NO";
+    if ($vd) {
+      if ($this->user) {
+        $userClass = $this->user::class;
+        if ($this->user instanceof \Quiote\User\ISecurityUser) {
+          $isAuthenticated = $this->user->isAuthenticated() ? "YES" : "NO";
+        } else {
+          $isAuthenticated = "N/A";
+        }
+        $logger->debug(
+          "[Context.reset] user class=$userClass authenticated=$isAuthenticated",
+        );
       } else {
-        $isAuthenticated = "N/A";
+        $logger->debug("[Context.reset] no user object");
       }
-      $logger->debug(
-        "[Context.reset] user class=$userClass authenticated=$isAuthenticated",
-      );
-    } else {
-      $logger->debug("[Context.reset] no user object");
     }
 
     // Reset the controller state if it exists
     if ($this->controller) {
       $this->controller->reset();
-      $logger->debug("context.reset controller reset");
+      if ($vd) {
+        $logger->debug("context.reset controller reset");
+      }
     }
 
     // CRITICAL: Manually execute the shutdown sequence in correct order for FrankenPHP
     // This ensures session data is saved properly before clearing state
-    if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+    if ($vd) {
       $logger->debug("context.reset manual shutdown sequence");
     }
 
@@ -527,10 +543,14 @@ class Context implements \Stringable, ResetInterface
     // But skip components that don't need shutdown or would interfere with worker mode
     foreach ($this->shutdownSequence as $component) {
       if ($component === $this->user && $component !== null) {
-        $logger->debug("context.reset shutdown user");
+        if ($vd) {
+          $logger->debug("context.reset shutdown user");
+        }
         $component->shutdown();
       } elseif ($component === $this->storage && $component !== null) {
-        $logger->debug("context.reset shutdown storage");
+        if ($vd) {
+          $logger->debug("context.reset shutdown storage");
+        }
 
         // CRITICAL: Must call shutdown() BEFORE reset() to ensure session data is persisted
         // shutdown() persists dirty session data to database/storage
@@ -538,14 +558,14 @@ class Context implements \Stringable, ResetInterface
         $component->shutdown(); // This persists session data
 
         // Reset storage connections after shutdown
-        if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+        if ($vd) {
           $logger->debug("[Context] calling storage reset()");
         }
         $component->reset();
       } elseif ($component === $this->databaseManager && $component !== null) {
         // Recycle (ping + null dead connections) instead of full shutdown so the manager
         // stays alive across requests, avoiding re-initialization cost.
-        if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+        if ($vd) {
           $logger->debug(
             "context.reset recycleConnections databaseManager - id=" .
               spl_object_id($component),
@@ -557,7 +577,7 @@ class Context implements \Stringable, ResetInterface
       // as they're not needed for session persistence and might interfere with worker mode
     }
 
-    if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+    if ($vd) {
       $logger->debug("context.reset shutdown complete");
     }
 
@@ -565,13 +585,13 @@ class Context implements \Stringable, ResetInterface
     // In worker mode, null the storage so it gets recreated with fresh startup() call
     // This ensures session_start() is called properly on each request
     $this->storage = null;
-    if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+    if ($vd) {
       $logger->debug("context.reset storage nulled");
     }
 
     // Reset user object (it will be recreated with clean session state)
     $this->user = null;
-    if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+    if ($vd) {
       $logger->debug("[Context.reset] user cleared");
     }
 
@@ -581,26 +601,30 @@ class Context implements \Stringable, ResetInterface
         $instance->reset();
       }
     }
-    if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+    if ($vd) {
       $logger->debug("[Context.reset] routing reset instances");
     }
 
     // CRITICAL: Reset routing object to prevent cache corruption in worker mode
     if ($this->routing) {
       $this->routing->reset();
-      $logger->debug("[Context.reset] routing object reset");
+      if ($vd) {
+        $logger->debug("[Context.reset] routing object reset");
+      }
     }
 
     // CRITICAL: Reset translation manager to prevent locale bleed across requests in worker mode
     if ($this->translationManager) {
       $this->translationManager->reset();
-      $logger->debug("[Context.reset] translationManager object reset");
+      if ($vd) {
+        $logger->debug("[Context.reset] translationManager object reset");
+      }
     }
 
     // Reset request object (it will be recreated for the next request)
     $this->request = null;
     // Reset PSR middleware kernel for worker mode safety
-    if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+    if ($vd) {
       $logger->debug("[Context.reset] request nulled");
     }
 
@@ -614,7 +638,7 @@ class Context implements \Stringable, ResetInterface
     // leak class as the session state cleared elsewhere in this reset).
     \Quiote\Logging\LogContext::clear();
 
-    if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+    if ($vd) {
       $logger->debug("[Context.reset] completed");
     }
   }
@@ -700,7 +724,7 @@ class Context implements \Stringable, ResetInterface
 
     // Last hook that sees the full request + response together.
     // No-op with no listeners.
-    \Quiote\Event\Events::emit(new \Quiote\Event\Lifecycle\ResponseSendingEvent($request, $response));
+    \Quiote\Event\Events::emitLazy(\Quiote\Event\Lifecycle\ResponseSendingEvent::class, static fn() => new \Quiote\Event\Lifecycle\ResponseSendingEvent($request, $response));
 
     return $response;
   }
@@ -1009,120 +1033,138 @@ class Context implements \Stringable, ResetInterface
     ?array $parameters = null,
   ) {
     $origModelName = $modelName;
-    $class = null;
-    $file = null;
-    $rc = null;
 
-    // Check if this is a fully qualified namespaced class name
-    if (str_contains((string) $modelName, "\\")) {
-      // This is a namespaced class, try it directly first
-      $class = $modelName;
-      // Also try with 'Model' suffix if it doesn't already end with 'Model'
-      if (!str_ends_with($class, "Model")) {
-        $class .= "Model";
+    // Module bootstrapping (autoload/config + the disabled-module check) has
+    // real per-request side effects and must run every call regardless of
+    // whether the class resolution below is cache-hit -- initializeModule()
+    // already has its own fast path for the already-initialized case.
+    if ($moduleName !== null) {
+      try {
+        $this->getController()->initializeModule($moduleName);
+      } catch (DisabledModuleException) {
+        // swallow, this will load the modules autoload but throw an exception
+        // if the module is disabled.
       }
+    }
 
-      if (!class_exists($class)) {
-        // Try without the 'Model' suffix
+    $cacheKey = ($moduleName ?? "") . "|" . $modelName;
+    $resolved = self::$modelResolutionCache[$cacheKey] ?? null;
+
+    if ($resolved === null) {
+      $class = null;
+      $file = null;
+
+      // Check if this is a fully qualified namespaced class name
+      if (str_contains((string) $modelName, "\\")) {
+        // This is a namespaced class, try it directly first
         $class = $modelName;
-      }
-    } else {
-      // Try namespaced approach first with configurable namespace prefix
-      $baseNamespace = Config::getString("core.namespace_prefix", "App");
-      $modelName = Toolkit::canonicalName($modelName);
-      $longModelName = str_replace("/", "_", $modelName);
-      $namespacedModelName = str_replace("/", "\\", $modelName);
+        // Also try with 'Model' suffix if it doesn't already end with 'Model'
+        if (!str_ends_with($class, "Model")) {
+          $class .= "Model";
+        }
 
-      if ($moduleName === null) {
-        // Global model - try namespaced version first
-        $namespacedClass =
-          $baseNamespace . "\\Models\\" . $namespacedModelName . "Model";
-        if (class_exists($namespacedClass)) {
-          $class = $namespacedClass;
-        } else {
-          // Fall back to old naming convention
-          $class = $longModelName . "Model";
+        if (!class_exists($class)) {
+          // Try without the 'Model' suffix
+          $class = $modelName;
         }
       } else {
-        try {
-          $this->getController()->initializeModule($moduleName);
-        } catch (DisabledModuleException) {
-          // swallow, this will load the modules autoload but throw an exception
-          // if the module is disabled.
-        }
+        // Try namespaced approach first with configurable namespace prefix
+        $baseNamespace = Config::getString("core.namespace_prefix", "App");
+        $modelName = Toolkit::canonicalName($modelName);
+        $longModelName = str_replace("/", "_", $modelName);
+        $namespacedModelName = str_replace("/", "\\", $modelName);
 
-        // Module model - try namespaced version first
-        $namespacedClass =
-          $baseNamespace .
-          "\\Modules\\" .
-          $moduleName .
-          "\\Models\\" .
-          $namespacedModelName .
-          "Model";
-        if (class_exists($namespacedClass)) {
-          $class = $namespacedClass;
-        } else {
-          // Fall back to old naming convention
-          $class = $moduleName . "_" . $longModelName . "Model";
-        }
-      }
-
-      // If still no class found, try manual file loading (legacy approach)
-      if (!class_exists($class)) {
         if ($moduleName === null) {
-          $file =
-            Config::getString("core.model_dir") . "/" . $modelName . "Model.php";
+          // Global model - try namespaced version first
+          $namespacedClass =
+            $baseNamespace . "\\Models\\" . $namespacedModelName . "Model";
+          if (class_exists($namespacedClass)) {
+            $class = $namespacedClass;
+          } else {
+            // Fall back to old naming convention
+            $class = $longModelName . "Model";
+          }
         } else {
-          $file =
-            Config::getString("core.module_dir") .
-            "/" .
+          // Module model - try namespaced version first
+          $namespacedClass =
+            $baseNamespace .
+            "\\Modules\\" .
             $moduleName .
-            "/Models/" .
-            $modelName .
-            "Model.php";
+            "\\Models\\" .
+            $namespacedModelName .
+            "Model";
+          if (class_exists($namespacedClass)) {
+            $class = $namespacedClass;
+          } else {
+            // Fall back to old naming convention
+            $class = $moduleName . "_" . $longModelName . "Model";
+          }
         }
 
-        if (is_readable($file)) {
-          require $file;
+        // If still no class found, try manual file loading (legacy approach)
+        if (!class_exists($class)) {
+          if ($moduleName === null) {
+            $file =
+              Config::getString("core.model_dir") . "/" . $modelName . "Model.php";
+          } else {
+            $file =
+              Config::getString("core.module_dir") .
+              "/" .
+              $moduleName .
+              "/Models/" .
+              $modelName .
+              "Model.php";
+          }
+
+          if (is_readable($file)) {
+            require $file;
+          }
         }
       }
+
+      if (!class_exists($class)) {
+        // it's not there.
+        throw new QuioteException(
+          sprintf("Couldn't find class for Model %s", $origModelName),
+        );
+      }
+
+      // so if we're here, we found something, right? good.
+
+      $rc = new \ReflectionClass($class);
+      $resolved = [
+        "class" => $class,
+        "singleton" => $rc->implementsInterface(\Quiote\Model\ISingletonModel::class),
+        "hasCtor" => $rc->getConstructor() !== null,
+      ];
+      self::$modelResolutionCache[$cacheKey] = $resolved;
     }
 
-    if (!class_exists($class)) {
-      // it's not there.
-      throw new QuioteException(
-        sprintf("Couldn't find class for Model %s", $origModelName),
-      );
-    }
+    $class = $resolved["class"];
+    $hasCtor = $resolved["hasCtor"];
 
-    // so if we're here, we found something, right? good.
-
-    $rc = new \ReflectionClass($class);
-
-    if ($rc->implementsInterface(\Quiote\Model\ISingletonModel::class)) {
+    if ($resolved["singleton"]) {
       // it's a singleton
       if (!isset($this->singletonModelInstances[$class])) {
         // no instance yet, so we create one
 
-        if ($parameters === null || $rc->getConstructor() === null) {
+        if ($parameters === null || !$hasCtor) {
           // it has an initialize() method, or no parameters were given, so we don't hand arguments to the constructor
           $this->singletonModelInstances[$class] = new $class();
         } else {
           // we use this approach so we can pass constructor params or if it doesn't have an initialize() method
-          $this->singletonModelInstances[$class] = $rc->newInstanceArgs(
-            $parameters,
-          );
+          $this->singletonModelInstances[$class] = new $class(...$parameters);
         }
       }
       $model = $this->singletonModelInstances[$class];
     } else {
       // create an instance
-      if ($parameters === null || $rc->getConstructor() === null) {
+      if ($parameters === null || !$hasCtor) {
         // it has an initialize() method, or no parameters were given, so we don't hand arguments to the constructor
         $model = new $class();
       } else {
         // we use this approach so we can pass constructor params or if it doesn't have an initialize() method
-        $model = $rc->newInstanceArgs($parameters);
+        $model = new $class(...$parameters);
       }
     }
 
@@ -1237,17 +1279,22 @@ class Context implements \Stringable, ResetInterface
     // Lazy initialization for worker mode - recreate routing object if null after reset
     if ($this->routing === null) {
       $logger = \Quiote\Logging\Log::for($this);
-      $logger->debug(
-        "Context::getRouting() - Routing object is null, recreating...",
-      );
+      $vd = $logger->isEnabled(\Quiote\Logging\Level::Debug);
+      if ($vd) {
+        $logger->debug(
+          "Context::getRouting() - Routing object is null, recreating...",
+        );
+      }
       // Recreate from factory info if available
       if ($this->routingFactoryInfo !== null) {
         $className = $this->routingFactoryInfo["class"];
         $this->routing = new $className();
-        $logger->debug(
-          "Context::getRouting() - Routing (compat) object recreated via factory info: " .
-            $className,
-        );
+        if ($vd) {
+          $logger->debug(
+            "Context::getRouting() - Routing (compat) object recreated via factory info: " .
+              $className,
+          );
+        }
         $this->registerCoreService('routing', $this->routing);
       } else {
         $logger->error(
@@ -1276,17 +1323,22 @@ class Context implements \Stringable, ResetInterface
     // Lazy initialization for worker mode - recreate storage object if null after reset
     if ($this->storage === null) {
       $logger = \Quiote\Logging\Log::for($this);
-      $logger->debug(
-        "[Context.getStorage] - Storage object is null, recreating...",
-      );
+      $vd = $logger->isEnabled(\Quiote\Logging\Level::Debug);
+      if ($vd) {
+        $logger->debug(
+          "[Context.getStorage] - Storage object is null, recreating...",
+        );
+      }
       // Ensure database manager is available if database use is enabled BEFORE creating storage (storage may need DB)
       if (
         Config::getBool("core.use_database", false) &&
         $this->databaseManager === null
       ) {
-        $logger->debug(
-          "[Context.getStorage] - Database manager is null, attempting recreation...",
-        );
+        if ($vd) {
+          $logger->debug(
+            "[Context.getStorage] - Database manager is null, attempting recreation...",
+          );
+        }
         if ($this->databaseManagerFactoryInfo !== null) {
           $className = $this->databaseManagerFactoryInfo["class"];
           $parameters = $this->databaseManagerFactoryInfo["parameters"];
@@ -1295,10 +1347,12 @@ class Context implements \Stringable, ResetInterface
             $newDatabaseManager->initialize($this, $parameters);
             $newDatabaseManager->startup();
             $this->databaseManager = $newDatabaseManager;
-            $logger->debug(
-              "[Context.getStorage] - Database manager recreated successfully using factory info: " .
-                $className,
-            );
+            if ($vd) {
+              $logger->debug(
+                "[Context.getStorage] - Database manager recreated successfully using factory info: " .
+                  $className,
+              );
+            }
             $this->registerCoreService('databaseManager', $this->databaseManager);
           } catch (\Throwable $e) {
             $logger->error(
@@ -1324,10 +1378,12 @@ class Context implements \Stringable, ResetInterface
         // Calling it here causes session loss because $_COOKIE is empty before SessionMiddleware runs
         $this->storage = $newStorage;
 
-        $logger->debug(
-          "[Context.getStorage] - Storage object recreated successfully using factory info: " .
-            $className,
-        );
+        if ($vd) {
+          $logger->debug(
+            "[Context.getStorage] - Storage object recreated successfully using factory info: " .
+              $className,
+          );
+        }
         $this->registerCoreService('storage', $this->storage, Container::SCOPE_REQUEST);
       } else {
         $logger->error(
@@ -1374,7 +1430,8 @@ class Context implements \Stringable, ResetInterface
     if ($this->user === null) {
       // (Simplified) No serialized snapshot restore; always build fresh user below.
       $logger = \Quiote\Logging\Log::for($this);
-      if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+      $vd = $logger->isEnabled(\Quiote\Logging\Level::Debug);
+      if ($vd) {
         try {
           $bt = [];
           $rawBt = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 12);
@@ -1393,18 +1450,20 @@ class Context implements \Stringable, ResetInterface
           );
         } catch (\Throwable) {
         }
+        $logger->debug(
+          "[Context.getUser] - User object is null, recreating...",
+        );
       }
-      $logger->debug(
-        "[Context.getUser] - User object is null, recreating...",
-      );
       // Ensure database manager is available if database use is enabled BEFORE creating user (user may need storage->db)
       if (
         Config::getBool("core.use_database", false) &&
         $this->databaseManager === null
       ) {
-        $logger->debug(
-          "[Context.getUser] - Database manager is null, attempting recreation before user...",
-        );
+        if ($vd) {
+          $logger->debug(
+            "[Context.getUser] - Database manager is null, attempting recreation before user...",
+          );
+        }
         if ($this->databaseManagerFactoryInfo !== null) {
           $className = $this->databaseManagerFactoryInfo["class"];
           $parameters = $this->databaseManagerFactoryInfo["parameters"];
@@ -1413,10 +1472,12 @@ class Context implements \Stringable, ResetInterface
             $newDatabaseManager->initialize($this, $parameters);
             $newDatabaseManager->startup();
             $this->databaseManager = $newDatabaseManager;
-            $logger->debug(
-              "[Context.getUser] - Database manager recreated successfully using factory info: " .
-                $className,
-            );
+            if ($vd) {
+              $logger->debug(
+                "[Context.getUser] - Database manager recreated successfully using factory info: " .
+                  $className,
+              );
+            }
             $this->registerCoreService('databaseManager', $this->databaseManager);
           } catch (\Throwable $e) {
             $logger->error(
@@ -1433,9 +1494,11 @@ class Context implements \Stringable, ResetInterface
 
       // Ensure storage is available before creating user (user initialization needs storage)
       if ($this->storage === null) {
-        $logger->debug(
-          "[Context.getUser] - Storage is null, recreating storage first...",
-        );
+        if ($vd) {
+          $logger->debug(
+            "[Context.getUser] - Storage is null, recreating storage first...",
+          );
+        }
         $this->getStorage(); // This will recreate storage if needed
       }
 
@@ -1448,7 +1511,7 @@ class Context implements \Stringable, ResetInterface
         $newUser->initialize($this, $parameters);
         $newUser->startup();
         $this->user = $newUser;
-        if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+        if ($vd) {
           $logger->debug(
             "[Context.getUser] newUser=" .
               $newUser::class .
@@ -1492,7 +1555,7 @@ class Context implements \Stringable, ResetInterface
           array_splice($this->shutdownSequence, $firstUserIndex, 0, [
             $newUser,
           ]);
-          if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+          if ($vd) {
             $logger->debug(
               "[Context.getUser] registered user in shutdownSequence replaced=" .
                 ($removedAny ? 1 : 0) .
@@ -1505,10 +1568,12 @@ class Context implements \Stringable, ResetInterface
         } catch (\Throwable) {
         }
 
-        $logger->debug(
-          "[Context.getUser] - User object recreated successfully using factory info: " .
-            $className,
-        );
+        if ($vd) {
+          $logger->debug(
+            "[Context.getUser] - User object recreated successfully using factory info: " .
+              $className,
+          );
+        }
         $this->registerCoreService('user', $this->user, Container::SCOPE_REQUEST);
       } else {
         $logger->error(

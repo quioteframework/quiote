@@ -266,4 +266,41 @@ class SessionStorageTest extends UnitTestCase
 		$this->assertSame(1, $handler->writeCalls, 'a second shutdown() on an already-closed session must not write again');
 	}
 
+	#[RunInSeparateProcess]
+	public function testLoggerHelperCachesCategoryLoggerAcrossCalls(): void
+	{
+		$storage = new SessionStorage();
+		$method = new ReflectionMethod(SessionStorage::class, 'logger');
+
+		$first = $method->invoke($storage);
+		$second = $method->invoke($storage);
+
+		$this->assertInstanceOf(\Quiote\Logging\CategoryLogger::class, $first);
+		$this->assertSame($first, $second);
+		$this->assertSame($first, \Quiote\Logging\Log::for($storage));
+	}
+
+	#[RunInSeparateProcess]
+	public function testStartupStillWorksWhenDebugLoggingIsEnabled(): void
+	{
+		// Guards the isEnabled()-gated debug() calls added throughout
+		// startup()/retrieve()/store(): with debug on, those branches now run
+		// for real (string building, ini_get() calls, etc.) instead of being
+		// skipped, so a real session must still start successfully.
+		\Quiote\Logging\Log::setDefaultLevel(\Quiote\Logging\Level::Debug);
+		try {
+			// Reuses the 'tests-static-session-id' context, which configures a
+			// static session_id parameter -- hasIncomingSessionOrStaticId()
+			// needs that (or an incoming cookie) for startup() to actually
+			// start a session rather than deferring it.
+			$context = Context::getInstance('quiote-session-storage-test::tests-static-session-id');
+			$storage = new SessionStorage();
+			$storage->initialize($context);
+			$storage->startup();
+			$this->assertSame(PHP_SESSION_ACTIVE, session_status());
+		} finally {
+			\Quiote\Logging\Log::reset();
+		}
+	}
+
 }

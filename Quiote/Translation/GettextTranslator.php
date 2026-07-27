@@ -41,6 +41,19 @@ class GettextTranslator extends BasicTranslator implements ResetInterface
 	protected $pluralFormFunc = null;
 
 	/**
+	 * Per-worker cache of the assembled domain data, keyed by
+	 * "(locale identifier)|(domain)" instead of just domain: translate() with
+	 * an explicit $locale wipes and reloads $domainData on every single call
+	 * (localeChanged() clears it, then restores the PREVIOUS domainData
+	 * afterward, discarding the freshly parsed one) even though the header
+	 * parse + full plural-form pipeline is a pure function of (locale,
+	 * domain) once the .mo file is loaded. Only the .mo file read itself was
+	 * cached before this.
+	 * @var        array<string, array{headers: array<string, string>, msgs: array<string, string>, pluralFormFunc: ?\Closure}>
+	 */
+	private static array $domainDataCache = [];
+
+	/**
 	 * @var        bool Whether or not to write a file with all used translations
 	 *                  that can be parsed using xgettext.
 	 */
@@ -181,7 +194,6 @@ class GettextTranslator extends BasicTranslator implements ResetInterface
 		}
 
 		$localeName = $this->locale->getIdentifier();
-		$localeNameBases = QuioteLocale::getLookupPath($localeName);
 
 		if(!isset($this->domainPaths[$domain])) {
 			if(!$this->domainPathPattern) {
@@ -194,6 +206,19 @@ class GettextTranslator extends BasicTranslator implements ResetInterface
 		}
 
 		$basePath = Toolkit::expandVariables($basePath, ['domain' => $domain]);
+
+		// Keyed by the resolved base path (not just locale+domain name): two
+		// translator instances can configure the same domain name to
+		// different filesystem locations, and must not share a cache entry.
+		$cacheKey = $localeName . '|' . $domain . '|' . $basePath;
+		$cached = self::$domainDataCache[$cacheKey] ?? null;
+		if($cached !== null) {
+			$this->domainData[$domain] = ['headers' => $cached['headers'], 'msgs' => $cached['msgs']];
+			$this->pluralFormFunc = $cached['pluralFormFunc'];
+			return;
+		}
+
+		$localeNameBases = QuioteLocale::getLookupPath($localeName);
 
 		$data = [];
 
@@ -286,6 +311,7 @@ class GettextTranslator extends BasicTranslator implements ResetInterface
 		}
 
 		$this->domainData[$domain] = ['headers' => $headers, 'msgs' => $data];
+		self::$domainDataCache[$cacheKey] = ['headers' => $headers, 'msgs' => $data, 'pluralFormFunc' => $this->pluralFormFunc];
 	}
 
 	#[\Override]

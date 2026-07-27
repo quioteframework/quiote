@@ -131,6 +131,55 @@ class LoggingTest extends TestCase
         $this->assertFalse(Log::create('X')->isEnabled(Level::Error), 'no sink => nothing emitted');
     }
 
+    public function testIsEnabledMemoizesResultPerLevel(): void
+    {
+        Log::setDefaultLevel(Level::Info);
+        Log::addSink($this->sink(Level::Info));
+        $log = Log::create('App');
+
+        $first = $log->isEnabled(Level::Warning);
+        $second = $log->isEnabled(Level::Warning);
+        $this->assertTrue($first);
+        $this->assertTrue($second);
+
+        $cacheProp = new ReflectionProperty($log, 'enabledCache');
+        /** @var array<int, bool> $cache */
+        $cache = $cacheProp->getValue($log);
+        $this->assertArrayHasKey(Level::Warning->value, $cache);
+        $this->assertTrue($cache[Level::Warning->value]);
+    }
+
+    public function testIsEnabledMemoizesFalseResultDistinctlyFromUnset(): void
+    {
+        Log::setDefaultLevel(Level::Warning);
+        Log::addSink($this->sink(Level::Warning));
+        $log = Log::create('App');
+
+        $this->assertFalse($log->isEnabled(Level::Info));
+
+        $cacheProp = new ReflectionProperty($log, 'enabledCache');
+        /** @var array<int, bool> $cache */
+        $cache = $cacheProp->getValue($log);
+        $this->assertArrayHasKey(Level::Info->value, $cache, 'a memoized false must still be stored, not treated as unset');
+        $this->assertFalse($cache[Level::Info->value]);
+    }
+
+    public function testIsEnabledCachesIndependentlyPerLevel(): void
+    {
+        Log::setDefaultLevel(Level::Info);
+        Log::addSink($this->sink(Level::Info));
+        $log = Log::create('App');
+
+        $this->assertFalse($log->isEnabled(Level::Debug));
+        $this->assertTrue($log->isEnabled(Level::Warning));
+
+        $cacheProp = new ReflectionProperty($log, 'enabledCache');
+        /** @var array<int, bool> $cache */
+        $cache = $cacheProp->getValue($log);
+        $this->assertFalse($cache[Level::Debug->value]);
+        $this->assertTrue($cache[Level::Warning->value]);
+    }
+
     public function testSinkMinLevelFiltersIndependently(): void
     {
         Log::setDefaultLevel(Level::Debug);         // category allows debug

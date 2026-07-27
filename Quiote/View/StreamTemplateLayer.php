@@ -76,10 +76,6 @@ class StreamTemplateLayer extends TemplateLayer
 		}
 		
 		$scheme = $this->getParameter('scheme');
-		// FIXME: a simple workaround for broken ubuntu and debian packages (fixed already), we can remove that for final 0.11
-		if($scheme != 'file' && !in_array($scheme, stream_get_wrappers())) {
-			throw new QuioteException('Unknown stream wrapper "' . $scheme . '", must be one of "' . implode('", "', stream_get_wrappers()) . '".');
-		}
 		$check = $this->getParameter('check');
 
 		$targets = (array)$this->getParameter('targets', []);
@@ -100,6 +96,14 @@ class StreamTemplateLayer extends TemplateLayer
 		foreach($args as $arg) { foreach($arg as $k => $v) { $cacheKey .= "\0a:$k=$v"; } }
 		if(isset(self::$resolvedCache[$cacheKey])) {
 			return self::$resolvedCache[$cacheKey];
+		}
+
+		// FIXME: a simple workaround for broken ubuntu and debian packages (fixed already), we can remove that for final 0.11
+		// Only paid on a cache miss: a cache hit above means this (scheme,
+		// targets, params) combination already resolved successfully once,
+		// so the wrapper must already be valid.
+		if($scheme != 'file' && !in_array($scheme, stream_get_wrappers())) {
+			throw new QuioteException('Unknown stream wrapper "' . $scheme . '", must be one of "' . implode('", "', stream_get_wrappers()) . '".');
 		}
 
 		$attempts = [];

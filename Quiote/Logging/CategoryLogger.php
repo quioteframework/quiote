@@ -18,6 +18,17 @@ final class CategoryLogger implements LoggerInterface
 
     private ?Level $threshold = null;
 
+    /**
+     * Memoized isEnabled() result per Level, keyed by Level::value. Logging
+     * config (threshold + registered sinks) is immutable for the worker
+     * lifetime, same invariant $threshold already relies on -- this avoids
+     * reallocating the array_any() closure and re-scanning all sinks on
+     * every isEnabled() call, of which there are dozens per request on the
+     * happy path (guarding debug() calls).
+     * @var array<int, bool>
+     */
+    private array $enabledCache = [];
+
     public function __construct(private readonly string $category) {}
 
     public function category(): string
@@ -36,6 +47,11 @@ final class CategoryLogger implements LoggerInterface
      * nothing; safe to call per request on the hot path.
      */
     public function isEnabled(Level $level): bool
+    {
+        return $this->enabledCache[$level->value] ??= $this->computeEnabled($level);
+    }
+
+    private function computeEnabled(Level $level): bool
     {
         if (!$level->passes($this->threshold())) {
             return false;

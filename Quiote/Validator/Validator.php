@@ -489,22 +489,33 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	/**
 	 * Returns whether all arguments are set in the validation input parameters.
 	 * Set means anything but empty string.
-	 * @param      bool $throwError Whether an error should be thrown for each missing 
+	 * @param      bool $throwError Whether an error should be thrown for each missing
 	 *                  argument if this validator is required.
+	 * @param      ?array<int, string> $fullArgumentNames Precomputed full path per
+	 *                  argument (same order as getArguments()), e.g. already produced
+	 *                  by getFullArgumentNames() by the caller -- avoids resolving the
+	 *                  same base+argument path twice per validator run. Computed
+	 *                  locally when omitted.
 	 * @return     bool Whether the arguments are set.
 	 * @since      1.0.0
 	 */
-	protected function checkAllArgumentsSet($throwError = true)
+	protected function checkAllArgumentsSet($throwError = true, ?array $fullArgumentNames = null)
 	{
 		$isRequired = $this->getParameter('required', true);
 		$paramType = $this->getParameter('source');
 		$result = true;
 		$request = $this->requireRequest();
 		$base = $this->requireCurBase();
+		$fullArgumentNames ??= $this->getFullArgumentNames();
 
+		// getFullArgumentNames() builds its list positionally (sequential 0..n-1),
+		// independent of getArguments()'s own keys, so we walk both in lockstep
+		// by position rather than by the (possibly non-sequential) argument key.
+		$i = 0;
 		foreach($this->getArguments() as $argument) {
 			// Empty argument means current base element when using base paths (e.g. base="User[]" + <argument></argument>)
-			$pName = ($argument === '' ? $base->__toString() : $base->pushRetNew($argument)->__toString());
+			$pName = $fullArgumentNames[$i] ?? ($argument === '' ? $base->__toString() : $base->pushRetNew($argument)->__toString());
+			$i++;
 			$logger = \Quiote\Logging\Log::for($this);
 			if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) { $logger->debug('[Validator][debug][checkAllArgumentsSet] validator=' . $this->getName() . ' argumentRaw=' . ($argument===''?'<empty>':$argument) . ' resolvedName=' . $pName); }
 			$empty = null;
@@ -789,7 +800,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 			$result = self::SUCCESS;
 			$errorCode = self::mapErrorCode($this->getParameter('severity', 'error'));
 
-			$allArgsSet = $this->checkAllArgumentsSet(false);
+			$allArgsSet = $this->checkAllArgumentsSet(false, $this->affectedArguments);
 			if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
 				$logger->debug('[Validator][debug][postCheckAllArgs] validator=' . $this->getName() . ' allArgsSet=' . ($allArgsSet ? 'true' : 'false'));
 			}

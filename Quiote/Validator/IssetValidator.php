@@ -20,7 +20,7 @@ class IssetValidator extends Validator
 	 * @since      1.0.0
 	 */
 	#[\Override]
-    protected function checkAllArgumentsSet($throwError = true)
+    protected function checkAllArgumentsSet($throwError = true, ?array $fullArgumentNames = null)
 	{
 		$logger = \Quiote\Logging\Log::for($this);
 		if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
@@ -32,7 +32,7 @@ class IssetValidator extends Validator
 			}
 			return true;
 		} else {
-			$result = parent::checkAllArgumentsSet($throwError);
+			$result = parent::checkAllArgumentsSet($throwError, $fullArgumentNames);
 			if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
 				$logger->debug('[IssetValidator][checkAllArgumentsSet] parent returned ' . var_export($result, true));
 			}

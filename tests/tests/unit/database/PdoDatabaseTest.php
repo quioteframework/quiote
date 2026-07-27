@@ -97,4 +97,64 @@ class PdoDatabaseTest extends TestCase
         $this->assertInstanceOf(PDO::class, $new);
         $this->assertNotSame($pdo, $new);
     }
+
+    public function testPingReturnsTrueWithoutConnection(): void
+    {
+        $db = new PdoDatabase();
+        $db->initialize($this->makeManager(), [ 'dsn' => 'sqlite::memory:' ]);
+        $this->assertTrue($db->ping());
+    }
+
+    public function testPingReturnsTrueForFreshlyUsedConnectionWithoutRoundTrip(): void
+    {
+        if(!in_array('sqlite', PDO::getAvailableDrivers(), true)) {
+            $this->markTestSkipped('pdo_sqlite driver not available in test environment');
+        }
+        $db = new PdoDatabase();
+        $db->initialize($this->makeManager(), [ 'dsn' => 'sqlite::memory:' ]);
+        $db->getConnection(); // stamps lastUsedAt
+
+        // Corrupt the connection so an actual round trip would fail; ping()
+        // must still return true because the idle threshold hasn't elapsed,
+        // proving the round trip was skipped rather than accidentally passing.
+        (new ReflectionProperty($db, 'connection'))->setValue($db, new stdClass());
+
+        $this->assertTrue($db->ping());
+    }
+
+    public function testPingActuallyProbesAfterIdleThresholdElapsed(): void
+    {
+        if(!in_array('sqlite', PDO::getAvailableDrivers(), true)) {
+            $this->markTestSkipped('pdo_sqlite driver not available in test environment');
+        }
+        $db = new PdoDatabase();
+        $db->initialize($this->makeManager(), [ 'dsn' => 'sqlite::memory:' ]);
+        $db->getConnection();
+
+        // Simulate having gone idle past the threshold.
+        (new ReflectionProperty($db, 'lastUsedAt'))->setValue($db, microtime(true) - 3600);
+
+        $this->assertTrue($db->ping());
+    }
+
+    public function testPingReturnsFalseAndNullsConnectionAfterIdleThresholdWhenBroken(): void
+    {
+        $db = new PdoDatabase();
+        $db->initialize($this->makeManager(), [ 'dsn' => 'sqlite::memory:' ]);
+        $db->getConnection();
+
+        // Force the connection into a broken state (a stand-in that fails the
+        // same way a dead PDO connection would) and mark it as stale.
+        $broken = new class {
+            public function query(string $sql): never
+            {
+                throw new PDOException('gone away');
+            }
+        };
+        (new ReflectionProperty($db, 'connection'))->setValue($db, $broken);
+        (new ReflectionProperty($db, 'lastUsedAt'))->setValue($db, microtime(true) - 3600);
+
+        $this->assertFalse($db->ping());
+        $this->assertNull((new ReflectionProperty($db, 'connection'))->getValue($db));
+    }
 }

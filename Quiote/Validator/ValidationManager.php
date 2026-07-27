@@ -280,45 +280,38 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 			// Helper function to recursively collect arguments from validators and their children
 			$collectArguments = function(Validator $validator) use (&$collectArguments, &$allArgumentNames, &$allExportNames): void {
 				// Collect arguments from this validator
+				$args = $validator->getArguments();
+				// Determine declared base for the validator (if any)
+				$basePath = '';
 				try {
-					$ref = new \ReflectionObject($validator);
-					if($ref->hasProperty('arguments')) {
-						$prop = $ref->getProperty('arguments');
-						// $prop->setAccessible(true); // Deprecated, not needed in PHP 8.1+
-						$args = (array)$prop->getValue($validator);
-						// Determine declared base for the validator (if any)
-						$basePath = '';
-						try {
-							if($validator->hasParameter('base')) {
-								$rawBase = $validator->getParameter('base');
-								$basePath = is_scalar($rawBase) ? (string) $rawBase : '';
-							}
-						} catch(\Throwable) { }
-						foreach($args as $arg) {
-							if(!is_string($arg)) {
-								continue;
-							}
-							$argName = (string)$arg;
-							if($argName !== '') {
-								$allArgumentNames[$argName] = true;
-								if($basePath !== '') {
-									try {
-										$base = new VirtualArrayPath($basePath);
-										$fullPath = $base->pushRetNew($argName)->__toString();
-										if($fullPath !== '') {
-											$allArgumentNames[$fullPath] = true;
-										}
-									} catch(\Throwable) { }
-								}
-							} else {
-								if($basePath !== '') {
-									$allArgumentNames[$basePath] = true;
-								}
-							}
-						}
+					if($validator->hasParameter('base')) {
+						$rawBase = $validator->getParameter('base');
+						$basePath = is_scalar($rawBase) ? (string) $rawBase : '';
 					}
 				} catch(\Throwable) { }
-				
+				foreach($args as $arg) {
+					if(!is_string($arg)) {
+						continue;
+					}
+					$argName = (string)$arg;
+					if($argName !== '') {
+						$allArgumentNames[$argName] = true;
+						if($basePath !== '') {
+							try {
+								$base = new VirtualArrayPath($basePath);
+								$fullPath = $base->pushRetNew($argName)->__toString();
+								if($fullPath !== '') {
+									$allArgumentNames[$fullPath] = true;
+								}
+							} catch(\Throwable) { }
+						}
+					} else {
+						if($basePath !== '') {
+							$allArgumentNames[$basePath] = true;
+						}
+					}
+				}
+
 				// Also include explicit export target if configured
 				try {
 					if($validator->hasParameter('export')) {
@@ -326,23 +319,13 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 						if(is_string($exp) && $exp !== '') { $allArgumentNames[$exp] = true; $allExportNames[$exp] = true; }
 					}
 				} catch(\Throwable) { }
-				
+
 				// Recursively collect from child validators (for OR, AND, etc.)
-				try {
-					$ref = new \ReflectionObject($validator);
-					if($ref->hasProperty('children')) {
-						$prop = $ref->getProperty('children');
-						// $prop->setAccessible(true); // Deprecated, not needed in PHP 8.1+
-						$children = $prop->getValue($validator);
-						if(is_array($children)) {
-							foreach($children as $child) {
-								if($child instanceof Validator) {
-									$collectArguments($child);
-								}
-							}
-						}
+				if($validator instanceof OperatorValidator) {
+					foreach($validator->getChilds() as $child) {
+						$collectArguments($child);
 					}
-				} catch(\Throwable) { }
+				}
 			};
 			
 			foreach($this->children as $validator) {

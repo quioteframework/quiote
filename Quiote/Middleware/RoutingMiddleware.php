@@ -84,7 +84,7 @@ class RoutingMiddleware implements MiddlewareInterface
                 // Events::emit gates on hasListeners and swallows listener errors,
                 // so a no-listener app pays only a lookup and a bad listener can't
                 // break routing.
-                \Quiote\Event\Events::emit(new \Quiote\Event\Lifecycle\RequestMatchedEvent(
+                \Quiote\Event\Events::emitLazy(\Quiote\Event\Lifecycle\RequestMatchedEvent::class, static fn() => new \Quiote\Event\Lifecycle\RequestMatchedEvent(
                     $request, (string) $module, (string) $action, $attributes['_route'] ?? null, $outputType
                 ));
             } else {

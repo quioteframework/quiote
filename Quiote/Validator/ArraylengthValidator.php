@@ -31,7 +31,7 @@ class ArraylengthValidator extends Validator
 	 * @since      1.0.0
 	 */
 	#[\Override]
-    protected function checkAllArgumentsSet($throwError = true)
+    protected function checkAllArgumentsSet($throwError = true, ?array $fullArgumentNames = null)
 	{
 		// copied from Validator::checkAllArgumentsSet()
 		$isRequired = $this->getParameter('required', true);

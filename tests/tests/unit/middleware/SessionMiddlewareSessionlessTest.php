@@ -83,4 +83,33 @@ final class SessionMiddlewareSessionlessTest extends TestCase
         $this->assertSame(200, $response->getStatusCode());
         $this->assertTrue($handler->called);
     }
+
+    public function testLoggerIsCachedOnConstructionNotReResolvedPerCall(): void
+    {
+        $mw = $this->middleware();
+        $prop = new ReflectionProperty(SessionMiddleware::class, 'logger');
+        $logger = $prop->getValue($mw);
+        $this->assertInstanceOf(\Quiote\Logging\CategoryLogger::class, $logger);
+        $this->assertSame($logger, \Quiote\Logging\Log::for($mw));
+    }
+
+    public function testProcessStillWorksWhenDebugLoggingIsEnabled(): void
+    {
+        // Guards the debug()-argument-construction gate added around cookie
+        // dumping/session-start tracing: with debug on, those branches now
+        // execute for real instead of being skipped, so this must still not
+        // break the request.
+        \Quiote\Logging\Log::setDefaultLevel(\Quiote\Logging\Level::Debug);
+        try {
+            $handler = $this->trackingHandler();
+            $request = new \Nyholm\Psr7\ServerRequest('GET', '/web/page');
+
+            $response = $this->middleware()->process($request, $handler);
+
+            $this->assertSame(200, $response->getStatusCode());
+            $this->assertTrue($handler->called);
+        } finally {
+            \Quiote\Logging\Log::reset();
+        }
+    }
 }

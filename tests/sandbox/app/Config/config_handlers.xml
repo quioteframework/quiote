@@ -8,6 +8,10 @@
 			</handler>
 			<handler pattern="%core.config_dir%/tests/importtest.xml" class="ImportTestHandler" />
 			<handler pattern="%core.config_dir%/tests/importtest_once.xml" class="ImportTestOnceHandler" />
+			<handler pattern="%core.config_dir%/tests/rbac_definitions.xml" class="Quiote\Config\RbacDefinitionConfigHandler">
+				<validation>%core.quiote_dir%/Config/xsd/rbac_definitions.xsd</validation>
+				<transformation>%core.quiote_dir%/Config/xsl/rbac_definitions.xsl</transformation>
+			</handler>
 		</handlers>
 	</ae:configuration>
 </ae:configurations>

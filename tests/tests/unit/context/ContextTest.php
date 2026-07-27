@@ -107,6 +107,62 @@ class ContextTest extends PhpUnitTestCase
 		}
 	}
 	
+	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+	public function testGetModelPopulatesResolutionCacheKeyedByModuleAndModel(): void
+	{
+		$ctx = Context::getInstance();
+		$ctx->getModel('ContextTest');
+		$ctx->getModel('Test', 'ContextTest');
+
+		/** @var array<string, array{class: class-string, singleton: bool, hasCtor: bool}> $cache */
+		$cache = (new ReflectionProperty(Context::class, 'modelResolutionCache'))->getValue();
+
+		$this->assertArrayHasKey('|ContextTest', $cache);
+		$this->assertArrayHasKey('ContextTest|Test', $cache);
+		$this->assertSame(ContextTestModel::class, $cache['|ContextTest']['class']);
+		$this->assertSame(TestModel::class, $cache['ContextTest|Test']['class']);
+		$this->assertFalse($cache['|ContextTest']['singleton']);
+	}
+
+	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+	public function testGetModelReusesCachedResolutionOnSecondCall(): void
+	{
+		$ctx = Context::getInstance();
+		$ctx->getModel('ContextTestSingleton');
+
+		/** @var array<string, array{class: class-string, singleton: bool, hasCtor: bool}> $cacheAfterFirstCall */
+		$cacheAfterFirstCall = (new ReflectionProperty(Context::class, 'modelResolutionCache'))->getValue();
+		$cachedAfterFirstCall = $cacheAfterFirstCall['|ContextTestSingleton'];
+
+		// A second call must reuse the cached resolution (same array contents),
+		// not recompute or corrupt it -- and must still produce a working model.
+		$model = $ctx->getModel('ContextTestSingleton');
+		/** @var array<string, array{class: class-string, singleton: bool, hasCtor: bool}> $cacheAfterSecondCall */
+		$cacheAfterSecondCall = (new ReflectionProperty(Context::class, 'modelResolutionCache'))->getValue();
+		$cachedAfterSecondCall = $cacheAfterSecondCall['|ContextTestSingleton'];
+
+		$this->assertSame($cachedAfterFirstCall, $cachedAfterSecondCall);
+		$this->assertInstanceOf(ContextTestSingletonModel::class, $model);
+		$this->assertTrue($cachedAfterSecondCall['singleton']);
+	}
+
+	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+	public function testGetModelThrowsForUnresolvableModelWithoutPoisoningCache(): void
+	{
+		$ctx = Context::getInstance();
+
+		try {
+			$ctx->getModel('ThisModelDoesNotExistAnywhere');
+			$this->fail('Expected QuioteException for an unresolvable model name.');
+		} catch (\Quiote\Exception\QuioteException) {
+			// expected
+		}
+
+		/** @var array<string, array{class: class-string, singleton: bool, hasCtor: bool}> $cache */
+		$cache = (new ReflectionProperty(Context::class, 'modelResolutionCache'))->getValue();
+		$this->assertArrayNotHasKey('|ThisModelDoesNotExistAnywhere', $cache);
+	}
+
 	/** @return array<string, array{0: string, 1: class-string, 2: bool, 3?: string}> */
 	public static function dataGetModel(): array {
 		return [

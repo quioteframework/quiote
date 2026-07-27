@@ -35,6 +35,27 @@ abstract class Database extends ParameterHolder implements ResetInterface
 	protected $resource = null;
 
 	/**
+	 * Timestamp (microtime(true)) of the last time this connection was
+	 * confirmed alive -- either by an actual getConnection() use or by a
+	 * ping() round trip. Used by ping() to skip the round trip entirely when
+	 * the connection was verified recently (see PING_IDLE_THRESHOLD_SECONDS):
+	 * recycleConnections() runs once per request between every worker
+	 * request, so under steady traffic a live connection would otherwise pay
+	 * a network round trip to every configured database on every single
+	 * request even though nothing has gone idle.
+	 * @var        ?float
+	 */
+	protected ?float $lastUsedAt = null;
+
+	/**
+	 * How long a connection can go unverified before ping() actually probes
+	 * it again. Chosen to comfortably outlast typical request-to-request
+	 * gaps under load while still catching a connection dropped during a
+	 * genuine idle period (e.g. a laptop sleeping between test runs).
+	 */
+	protected const PING_IDLE_THRESHOLD_SECONDS = 30.0;
+
+	/**
 	 * Connect to the database.
 	 * @throws     DatabaseException If a connection could not be created.
 	 * @return     void
@@ -89,10 +110,12 @@ abstract class Database extends ParameterHolder implements ResetInterface
 			$this->connect();
 		}
 
+		$this->lastUsedAt = microtime(true);
+
 		if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
 			$logger->debug('[Database] getConnection() returning connection_id=' . spl_object_id($this->connection) . ' type=' . $this->connection::class);
 		}
-		
+
 		return $this->connection;
 	}
 
@@ -204,9 +227,23 @@ abstract class Database extends ParameterHolder implements ResetInterface
 			// No connection yet — lazy connect will create it on first use.
 			return true;
 		}
+		if ($this->wasRecentlyVerified()) {
+			return true;
+		}
 		// Unknown driver — conservatively treat as potentially dead so we force
 		// a reconnect rather than silently using a broken connection.
 		return false;
+	}
+
+	/**
+	 * Whether this connection was used or successfully pinged within
+	 * PING_IDLE_THRESHOLD_SECONDS. Subclasses' ping() overrides should check
+	 * this before paying an actual round trip.
+	 */
+	protected function wasRecentlyVerified(): bool
+	{
+		return $this->lastUsedAt !== null
+			&& (microtime(true) - $this->lastUsedAt) < static::PING_IDLE_THRESHOLD_SECONDS;
 	}
 }
 

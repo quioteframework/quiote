@@ -24,23 +24,35 @@ final class ListenerProvider implements ListenerProviderInterface
     /** @var array<string, list<callable>> memoized resolved listener lists per concrete event class */
     private array $resolved = [];
 
+    /** @var array<string, bool> memoized hasListenersFor() result per concrete event class */
+    private array $hasListenersCache = [];
+
     public function listen(string $eventClass, callable $listener, int $priority = 0): void
     {
         $this->listeners[$eventClass][] = ['listener' => $listener, 'priority' => $priority, 'seq' => $this->seq++];
         $this->resolved = [];
+        $this->hasListenersCache = [];
     }
 
     /**
      * Whether any registered listener would fire for this event class (matching
      * the same subclass/interface/parent rules {@see getListenersForEvent()}
      * uses). Cheap gate for hot-path emit sites so a no-listener app pays only
-     * this lookup, not an event-object allocation.
+     * this lookup, not an event-object allocation. Memoized per event class:
+     * every Events::emit() call site pays this (~5-6 lifecycle emits per
+     * request), and typeChain() otherwise allocates two arrays
+     * (class_parents()/class_implements()) on every single call.
      */
     public function hasListenersFor(string $eventClass): bool
     {
         if ($this->listeners === []) {
             return false;
         }
+        return $this->hasListenersCache[$eventClass] ??= $this->computeHasListenersFor($eventClass);
+    }
+
+    private function computeHasListenersFor(string $eventClass): bool
+    {
         foreach ($this->typeChain($eventClass) as $type) {
             if (!empty($this->listeners[$type])) {
                 return true;
@@ -59,6 +71,7 @@ final class ListenerProvider implements ListenerProviderInterface
     {
         $this->listeners = [];
         $this->resolved = [];
+        $this->hasListenersCache = [];
         $this->seq = 0;
     }
 

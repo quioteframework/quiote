@@ -67,7 +67,19 @@ class ValidationService
      */
     private static array $compiledApcuValidatorClosures = [];
 
+    /**
+     * Per-instance cache for Log::for($this) -- avoids repeating the
+     * class-name normalization + category cache lookup on every call within
+     * the same validate()/xmlOnlyValidate() invocation.
+     */
+    private ?\Quiote\Logging\CategoryLogger $loggerCache = null;
+
     public function __construct(private readonly ?ValidationManager $manager = null) {}
+
+    private function getLogger(): \Quiote\Logging\CategoryLogger
+    {
+        return $this->loggerCache ??= \Quiote\Logging\Log::for($this);
+    }
 
     /**
      * Run a compiled validator-registration snippet fetched from APCu (the raw
@@ -168,7 +180,8 @@ class ValidationService
      */
     public function validate(Action $action, WebRequest $request, string $moduleName = '', string $actionName = '', string $method = ''): ValidationResult
     {
-        $logger = \Quiote\Logging\Log::for($this);
+        $logger = $this->getLogger();
+        $vd = $logger->isEnabled(\Quiote\Logging\Level::Debug);
 
         // Normalize method tokens:
         //  - $xmlMethod (lowercase) is what compiled validator config compares against (if($method == 'read')).
@@ -204,25 +217,26 @@ class ValidationService
                 'moduleName' => $moduleName,
                 'actionName' => $actionNamePath,
             ]);
-            if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
-                try { $logger->debug('[ValidationService][probe] resolve configFile=' . $configFile . ' readable=' . (is_readable($configFile)?'1':'0') . ' methodToken=' . $method . ' module=' . $moduleName . ' action=' . $actionName); } catch(\Throwable) {}
+            $configReadable = is_readable($configFile);
+            if ($vd) {
+                try { $logger->debug('[ValidationService][probe] resolve configFile=' . $configFile . ' readable=' . ($configReadable?'1':'0') . ' methodToken=' . $method . ' module=' . $moduleName . ' action=' . $actionName); } catch(\Throwable) {}
             }
-            if (is_readable($configFile)) {
+            if ($configReadable) {
                 // Provide expected variables & context for compiled config file
                 $this->currentContext = $this->requireActionContext($action);
-                if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) { $logger->debug('[ValidationService][probe] including compiled validators (pre-checkCache)'); }
-                if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+                if ($vd) { $logger->debug('[ValidationService][probe] including compiled validators (pre-checkCache)'); }
+                if ($vd) {
                     try { $logger->debug('[ValidationService][probe] pre-checkCache methodHex=' . bin2hex((string)$method) . ' type=' . gettype($method)); } catch(\Throwable) {}
                 }
                 if (defined('QUIOTE_USE_APCU_CONFIG_CACHE') && QUIOTE_USE_APCU_CONFIG_CACHE) {
                     $incFile = APCuConfigCache::checkConfig($configFile, $this->currentContext->getName());
-                    if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) { $logger->debug('[ValidationService][probe] APCu checkConfig returned ' . (str_starts_with($incFile, 'APCU:') ? 'APCU:...' : $incFile)); }
+                    if ($vd) { $logger->debug('[ValidationService][probe] APCu checkConfig returned ' . (str_starts_with($incFile, 'APCU:') ? 'APCU:...' : $incFile)); }
                     if (str_starts_with($incFile, 'APCU:')) {
                         $this->runCachedApcuValidatorSnippet(substr($incFile, 5), $configFile . '|' . $this->currentContext->getName(), $validationManager, $method);
                     } else {
                         require($incFile);
                     }
-                    if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+                    if ($vd) {
                         try {
                             $statLine = '[ValidationService][probe] post-require APCu childCount=' . count($validationManager->getChilds());
                             if (file_exists($incFile)) { $statLine .= ' real=' . realpath($incFile) . ' mtime=' . filemtime($incFile) . ' size=' . filesize($incFile); }
@@ -231,9 +245,9 @@ class ValidationService
                     }
                 } else {
                     $incFile = ConfigCache::checkConfig($configFile, $this->currentContext->getName());
-                    if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) { $logger->debug('[ValidationService][probe] disk checkConfig returned ' . $incFile . ' exists=' . (file_exists($incFile)?'1':'0')); }
+                    if ($vd) { $logger->debug('[ValidationService][probe] disk checkConfig returned ' . $incFile . ' exists=' . (file_exists($incFile)?'1':'0')); }
                     require($incFile);
-                    if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+                    if ($vd) {
                         try {
                             $statLine = '[ValidationService][probe] post-require disk childCount=' . count($validationManager->getChilds());
                             if (file_exists($incFile)) { 
@@ -249,13 +263,13 @@ class ValidationService
                     }
                 }
                 $validatorsLoaded = $this->validatorNames($validationManager->getChilds());
-                if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+                if ($vd) {
                     try {
                         $logger->debug('[ValidationService][validate] loadedValidators=' . (empty($validatorsLoaded) ? 'none' : implode(',', $validatorsLoaded)) . ' file=' . $configFile . ' method=' . $method);
                     } catch(\Throwable) {}
                 }
             } else {
-                if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+                if ($vd) {
                     try { $logger->debug('[ValidationService][validate] no readable config file at ' . $configFile); } catch(\Throwable) {}
                 }
             }
@@ -277,14 +291,14 @@ class ValidationService
 
         // 3. Execute validators
         $ok = true;
-        if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+        if ($vd) {
             try {
                 $logger->debug('[ValidationService][validate] About to execute validators, childCount=' . count($validationManager->getChilds()));
             } catch(\Throwable) {}
         }
         try {
             $ok = (bool)$validationManager->execute($request);
-            if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+            if ($vd) {
                 try {
                     $logger->debug('[ValidationService][validate] Validators execute() returned: ' . ($ok ? 'true' : 'false'));
                 } catch(\Throwable) {}
@@ -299,7 +313,7 @@ class ValidationService
             $logger->error('[ValidationService][validate] Validators execute() threw exception: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
             throw $e;
         }
-        if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+        if ($vd) {
             try {
                 $childs = $validationManager->getChilds();
                 $names = [];
@@ -316,14 +330,14 @@ class ValidationService
         if (!is_callable([$action, $validateMethod])) {
             $validateMethod = 'validate';
         }
-        if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+        if ($vd) {
             try {
                 $logger->debug('[ValidationService][validate] About to call action->' . $validateMethod . '() on ' . $action::class);
             } catch(\Throwable) {}
         }
         try {
             $manualOk = (bool)$action->$validateMethod($currentRequest);
-            if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+            if ($vd) {
                 try {
                     $logger->debug('[ValidationService][validate] action->' . $validateMethod . '() returned ' . ($manualOk ? 'true' : 'false'));
                 } catch(\Throwable) {}
@@ -350,7 +364,7 @@ class ValidationService
     /** Execute only XML + registered validators (skip action validate* methods). */
     public function xmlOnlyValidate(Action $action, WebRequest $request, string $moduleName, string $actionName, string $method = ''): ValidationResult
     {
-        $logger = \Quiote\Logging\Log::for($this);
+        $logger = $this->getLogger();
         // NOTE: Compiled validator configuration files gate validator registration using
         //   if($method == 'write') { ... }
         // Historically ExecutionContainer set a local $method variable before including
@@ -390,14 +404,17 @@ class ValidationService
             // Convert dots to slashes for file system paths (e.g., Resources.Data -> Resources/Data)
             $actionNamePath = str_replace('.', '/', $actionName);
             $configFile = \Quiote\Util\Toolkit::evaluateModuleDirective($moduleName, 'quiote.validate.path', ['moduleName' => $moduleName, 'actionName' => $actionNamePath]);
+            $configReadable = is_readable($configFile);
             if ($vd) {
-                $logger->debug("[ValidationService] Validation config file = " . $configFile . ", is_readable=" . (is_readable($configFile) ? "1":"0"));
+                $logger->debug("[ValidationService] Validation config file = " . $configFile . ", is_readable=" . ($configReadable ? "1":"0"));
             }
-            if (is_readable($configFile)) {
+            if ($configReadable) {
                 $this->currentContext = $this->requireActionContext($action);
 
                 if (defined('QUIOTE_USE_APCU_CONFIG_CACHE') && QUIOTE_USE_APCU_CONFIG_CACHE) {
-                    $logger->debug("[ValidationService] Loading " . $method . " validators from APCu");
+                    if ($vd) {
+                        $logger->debug("[ValidationService] Loading " . $method . " validators from APCu");
+                    }
                     $cacheResult = \Quiote\Config\APCuConfigCache::checkConfig($configFile, $this->currentContext->getName());
                     if (str_starts_with($cacheResult, 'APCU:')) {
                         $this->runCachedApcuValidatorSnippet(substr($cacheResult, 5), $configFile . '|' . $this->currentContext->getName(), $validationManager, $method);

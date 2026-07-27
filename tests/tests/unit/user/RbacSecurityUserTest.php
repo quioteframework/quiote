@@ -106,5 +106,61 @@ class RbacSecurityUserTest extends UnitTestCase
 		$this->assertSame([], $fresh->getRoles());
 		$this->assertSame([], $fresh->getCredentials());
 	}
+
+	#[RunInSeparateProcess]
+	public function testLoadDefinitionsReadsFromDiskOnFirstCallAndCachesPerWorker(): void
+	{
+		// Must match core.config_dir + '/tests/rbac_definitions.xml' exactly
+		// (including the config system's own path concatenation quirks) since
+		// ConfigCache resolves handlers by exact-string key against the
+		// compiled config_handlers.xml, not a normalized/realpath()'d path.
+		$path = \Quiote\Config\Config::getString('core.config_dir') . '/tests/rbac_definitions.xml';
+		$u = new RbacSecurityUser();
+		$u->initialize($this->getContext());
+		$u->setParameter('definitions_file', $path);
+
+		$method = new ReflectionMethod(RbacSecurityUser::class, 'loadDefinitions');
+		$method->invoke($u);
+
+		$definitionsProp = new ReflectionProperty(RbacSecurityUser::class, 'definitions');
+		$definitions = $definitionsProp->getValue($u);
+		$this->assertIsArray($definitions);
+		$this->assertArrayHasKey('guest', $definitions);
+
+		$cacheProp = new ReflectionProperty(RbacSecurityUser::class, 'definitionsCache');
+		$cacheKey = $path . '|' . $this->getContext()->getName();
+		/** @var array<string, mixed> $cache */
+		$cache = $cacheProp->getValue();
+		$this->assertArrayHasKey($cacheKey, $cache);
+	}
+
+	#[RunInSeparateProcess]
+	public function testLoadDefinitionsReusesPerWorkerCacheInsteadOfRereadingDisk(): void
+	{
+		// Must match core.config_dir + '/tests/rbac_definitions.xml' exactly
+		// (including the config system's own path concatenation quirks) since
+		// ConfigCache resolves handlers by exact-string key against the
+		// compiled config_handlers.xml, not a normalized/realpath()'d path.
+		$path = \Quiote\Config\Config::getString('core.config_dir') . '/tests/rbac_definitions.xml';
+		$cacheKey = $path . '|' . $this->getContext()->getName();
+
+		// Seed the static cache directly with a sentinel value distinct from
+		// what the real XML file would parse to; a fresh instance sharing the
+		// same (path, context) key must come back with this sentinel rather
+		// than reparsing the file, proving the cache path was actually taken.
+		$sentinel = ['sentinel-role' => ['permissions' => ['sentinel.permission']]];
+		$cacheProp = new ReflectionProperty(RbacSecurityUser::class, 'definitionsCache');
+		$cacheProp->setValue(null, [$cacheKey => $sentinel]);
+
+		$u = new RbacSecurityUser();
+		$u->initialize($this->getContext());
+		$u->setParameter('definitions_file', $path);
+
+		$method = new ReflectionMethod(RbacSecurityUser::class, 'loadDefinitions');
+		$method->invoke($u);
+
+		$definitionsProp = new ReflectionProperty(RbacSecurityUser::class, 'definitions');
+		$this->assertSame($sentinel, $definitionsProp->getValue($u));
+	}
 }
 ?>

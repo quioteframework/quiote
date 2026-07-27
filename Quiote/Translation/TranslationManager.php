@@ -37,6 +37,17 @@ class TranslationManager implements ResetInterface
 	protected $translators = [];
 
 	/**
+	 * Memoized getTranslators() domain-prefix resolution, keyed by
+	 * "(requested domain)|(type or '')". $translators is populated once at
+	 * setup and never mutated afterward (see TranslationConfigHandler), so
+	 * the longest-matching-prefix walk (explode/implode + isset probes per
+	 * candidate) is a pure function of (domain, type, $translators) -- every
+	 * _()/_d()/_c()/_n() call was re-deriving it from scratch.
+	 * @var        array<string, array{0: string, 1: string}>
+	 */
+	private array $translatorLookupCache = [];
+
+	/**
 	 * @var        ?QuioteLocale The current locale.
 	 */
 	protected $currentLocale = null;
@@ -441,6 +452,14 @@ class TranslationManager implements ResetInterface
 			$domain = $this->defaultDomain . $domain;
 		}
 
+		$cacheKey = $domain . '|' . ($type ?? '');
+		$cached = $this->translatorLookupCache[$cacheKey] ?? null;
+		if($cached !== null) {
+			[$td, $domainExtra] = $cached;
+			$domain = $td;
+			return $type ? $this->translators[$td][$type] : $this->translators[$td];
+		}
+
 		$domainParts = explode('.', (string) $domain);
 
 		do {
@@ -452,6 +471,7 @@ class TranslationManager implements ResetInterface
 		} while(!isset($this->translators[$td]) || ($type && !isset($this->translators[$td][$type])));
 
 		$domainExtra = substr((string) $domain, strlen($td) + 1);
+		$this->translatorLookupCache[$cacheKey] = [$td, $domainExtra];
 		$domain = $td;
 		return $type ? $this->translators[$td][$type] : $this->translators[$td];
 	}
@@ -921,5 +941,6 @@ class TranslationManager implements ResetInterface
 		$this->canonicalTimeZoneCache = [];
 		$this->currencyFractionCache = [];
 		$this->territoryDataCache = [];
+		$this->translatorLookupCache = [];
 	}
 }

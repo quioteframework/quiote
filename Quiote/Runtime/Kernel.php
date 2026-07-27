@@ -108,7 +108,7 @@ class Kernel
             // that needs flushing between requests -- Kernel names no concrete
             // plugin class here. Core's own
             // telemetry-exporter default registers its listener a few lines below.
-            \Quiote\Event\Events::emit(new \Quiote\Event\Lifecycle\WorkerRequestCompletedEvent($context));
+            \Quiote\Event\Events::emitLazy(\Quiote\Event\Lifecycle\WorkerRequestCompletedEvent::class, static fn() => new \Quiote\Event\Lifecycle\WorkerRequestCompletedEvent($context));
         };
 
         $adapter->run($handle, $reset);

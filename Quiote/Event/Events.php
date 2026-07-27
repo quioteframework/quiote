@@ -69,6 +69,32 @@ final class Events
         }
     }
 
+    /**
+     * Like {@see emit()}, but the event object itself is only constructed when
+     * a listener actually exists for $eventClass -- emit(new SomeEvent(...))
+     * still builds SomeEvent before emit() gets a chance to gate on
+     * hasListeners(), which defeats the "no allocation when nothing listens"
+     * point of the gate for every hot lifecycle emit site (dispatch,
+     * routing match, request handling, ...). Listener exceptions are handled
+     * the same way emit() handles them.
+     * @param \Closure(): object $factory
+     */
+    public static function emitLazy(string $eventClass, \Closure $factory): ?object
+    {
+        if (!self::hasListeners($eventClass)) {
+            return null;
+        }
+        $event = $factory();
+        try {
+            return self::dispatch($event);
+        } catch (\Throwable $e) {
+            Log::for(self::class)->error(
+                '[Events] listener for ' . $event::class . ' threw: ' . $e::class . ': ' . $e->getMessage()
+            );
+            return $event;
+        }
+    }
+
     public static function reset(): void
     {
         self::$dispatcher?->provider()->reset();

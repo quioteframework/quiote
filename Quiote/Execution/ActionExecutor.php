@@ -203,10 +203,10 @@ final class ActionExecutor
             ])
             : \Quiote\Telemetry\NoopSpanHandle::instance();
         // Lifecycle hook: about to run the action.
-        \Quiote\Event\Events::emit(new \Quiote\Event\Lifecycle\ActionBeforeEvent($desc));
+        \Quiote\Event\Events::emitLazy(\Quiote\Event\Lifecycle\ActionBeforeEvent::class, static fn() => new \Quiote\Event\Lifecycle\ActionBeforeEvent($desc));
         try {
             $result = $this->doExecute($desc, $state, $preInstantiatedAction, $dbg, $logger);
-            \Quiote\Event\Events::emit(new \Quiote\Event\Lifecycle\ActionAfterEvent($desc, $result));
+            \Quiote\Event\Events::emitLazy(\Quiote\Event\Lifecycle\ActionAfterEvent::class, static fn() => new \Quiote\Event\Lifecycle\ActionAfterEvent($desc, $result));
             return $result;
         } catch (\Throwable $e) {
             $span->recordException($e)->setStatusError($e->getMessage());
