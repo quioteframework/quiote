@@ -7,7 +7,7 @@
 [![PHPStan level 8](https://img.shields.io/badge/phpstan-level%208-brightgreen)](phpstan.neon)
 [![License: LGPL-2.1-or-later](https://img.shields.io/github/license/quioteframework/quiote)](LICENSE-QUIOTE)
 
-Homepage: [https://github.com/quioteframework/quiote/](https://github.com/quioteframework/quiote/)
+Homepage: [https://quiote.dev](https://quiote.dev)
 
 ## History
 
@@ -60,7 +60,7 @@ page and extract it or see the [downloads page] on the homepage.
 
 ## Documentation
 
-TBD
+[https://quiote.dev](https://quiote.dev)
 
 ## Contribution
 
@@ -77,7 +77,7 @@ See the [Open Source Initiative](http://opensource.org/licenses/LGPL-2.1)
 and [this FAQ entry](https://github.com/quiote/quiote/wiki/FAQ#wiki-can-i-use-quiote-in-a-proprietary-commercial-application)
 for details. All relevant licenses and details can be found in the [LICENSE](LICENSE) file.
 
-- Total Composer downloads: [![Composer Downloads](https://poser.pugx.org/quiote/quiote/d/total.png)](https://packagist.org/packages/quiote/quiote)
+- Total Composer downloads: [![Composer Downloads](https://poser.pugx.org/quiote/quiote/d/total.png)](https://packagist.org/packages/quioteframework/quiote)
 
 [downloads page]: https://github.com/quioteframework/quiote/download
 [github releases]: https://github.com/quiote/quiote/releases
