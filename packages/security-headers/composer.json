@@ -1,0 +1,29 @@
+{
+	"name": "quioteframework/security-headers",
+	"description": "Security response headers (CSP, X-Frame-Options, HSTS, etc.) middleware for Quiote.",
+	"keywords": ["quiote", "security", "csp", "headers"],
+	"homepage": "https://github.com/quioteframework/security-headers",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"quioteframework/quiote": "*"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Security\\Headers\\": "src/"
+		}
+	},
+	"extra": {
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/security-headers/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}

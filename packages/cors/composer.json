@@ -1,0 +1,29 @@
+{
+	"name": "quioteframework/cors",
+	"description": "CORS middleware (preflight handling + response headers) for Quiote.",
+	"keywords": ["quiote", "cors", "security"],
+	"homepage": "https://github.com/quioteframework/cors",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"quioteframework/quiote": "*"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Security\\Cors\\": "src/"
+		}
+	},
+	"extra": {
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/cors/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}

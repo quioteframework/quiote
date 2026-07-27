@@ -32,6 +32,8 @@
             <directory>packages/auth-jwt/tests</directory>
             <directory>packages/auth-oauth/tests</directory>
             <directory>packages/ratelimit/tests</directory>
+            <directory>packages/cors/tests</directory>
+            <directory>packages/security-headers/tests</directory>
             <directory>packages/csrf/tests</directory>
             <directory>packages/whoops/tests</directory>
             <directory>packages/db-eloquent/tests</directory>
@@ -97,6 +99,8 @@
             <directory>packages/auth-jwt/src</directory>
             <directory>packages/auth-oauth/src</directory>
             <directory>packages/ratelimit/src</directory>
+            <directory>packages/cors/src</directory>
+            <directory>packages/security-headers/src</directory>
             <directory>packages/csrf/src</directory>
             <directory>packages/whoops/src</directory>
             <directory>packages/db-eloquent/src</directory>
