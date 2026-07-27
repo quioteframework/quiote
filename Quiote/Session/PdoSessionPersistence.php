@@ -6,6 +6,7 @@ namespace Quiote\Session;
 
 use PDO;
 use PDOException;
+use PDOStatement;
 use Throwable;
 use Quiote\Exception\StorageException;
 
@@ -26,6 +27,16 @@ class PdoSessionPersistence implements SessionPersistenceInterface
     private string $table;
 
     /**
+     * Prepared statements cached per instance: $this->table is fixed at
+     * construction and the PDO connection lives for the worker's lifetime,
+     * so re-preparing the same SQL on every load()/save()/delete() call
+     * was pure waste.
+     */
+    private ?PDOStatement $loadStmt = null;
+    private ?PDOStatement $saveStmt = null;
+    private ?PDOStatement $deleteStmt = null;
+
+    /**
      * @param array<string, mixed> $parameters
      */
     public function __construct(PDO $pdo, array $parameters = [])
@@ -34,10 +45,28 @@ class PdoSessionPersistence implements SessionPersistenceInterface
         $this->table = (string)($parameters['table'] ?? 'session');
     }
 
+    private function loadStatement(): PDOStatement
+    {
+        return $this->loadStmt ??= $this->pdo->prepare("SELECT sess_data FROM {$this->table} WHERE sess_id = ?");
+    }
+
+    private function saveStatement(): PDOStatement
+    {
+        return $this->saveStmt ??= $this->pdo->prepare(
+            "INSERT INTO {$this->table} (sess_id, sess_data, sess_time) VALUES (?, ?, NOW()) "
+            . "ON CONFLICT (sess_id) DO UPDATE SET sess_data = EXCLUDED.sess_data, sess_time = EXCLUDED.sess_time"
+        );
+    }
+
+    private function deleteStatement(): PDOStatement
+    {
+        return $this->deleteStmt ??= $this->pdo->prepare("DELETE FROM {$this->table} WHERE sess_id = ?");
+    }
+
     public function load(string $sid): ?array
     {
         try {
-            $stmt = $this->pdo->prepare("SELECT sess_data FROM {$this->table} WHERE sess_id = ?");
+            $stmt = $this->loadStatement();
             $stmt->execute([$sid]);
             $blob = $stmt->fetchColumn();
             if (in_array($blob, [false, null, ''], true)) {
@@ -46,7 +75,12 @@ class PdoSessionPersistence implements SessionPersistenceInterface
             if (!is_string($blob)) {
                 return null;
             }
-            if (function_exists('igbinary_unserialize')) {
+            // JSON payloads always start with '{' or '[', which igbinary's
+            // binary format never does -- check the (cheap) shape first so a
+            // JSON blob skips the igbinary_unserialize() attempt entirely,
+            // instead of paying for a doomed decode attempt on every load().
+            $looksLikeJson = str_starts_with($blob, '{') || str_starts_with($blob, '[');
+            if (!$looksLikeJson && function_exists('igbinary_unserialize')) {
                 try {
                     $decoded = @igbinary_unserialize($blob);
                     if (is_array($decoded)) {
@@ -55,7 +89,7 @@ class PdoSessionPersistence implements SessionPersistenceInterface
                 } catch (Throwable) {
                 }
             }
-            if (str_starts_with($blob, '{') || str_starts_with($blob, '[')) {
+            if ($looksLikeJson) {
                 $decoded = json_decode($blob, true, 512, JSON_THROW_ON_ERROR);
                 if (is_array($decoded)) {
                     return $decoded;
@@ -81,9 +115,7 @@ class PdoSessionPersistence implements SessionPersistenceInterface
             if ($payload === null) {
                 $payload = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
             }
-            $sql = "INSERT INTO {$this->table} (sess_id, sess_data, sess_time) VALUES (?, ?, NOW()) "
-                . "ON CONFLICT (sess_id) DO UPDATE SET sess_data = EXCLUDED.sess_data, sess_time = EXCLUDED.sess_time";
-            $stmt = $this->pdo->prepare($sql);
+            $stmt = $this->saveStatement();
             $stmt->bindParam(1, $sid, PDO::PARAM_STR);
             $stmt->bindParam(2, $payload, PDO::PARAM_LOB);
             $stmt->execute();
@@ -95,7 +127,7 @@ class PdoSessionPersistence implements SessionPersistenceInterface
     public function delete(string $sid): void
     {
         try {
-            $this->pdo->prepare("DELETE FROM {$this->table} WHERE sess_id = ?")->execute([$sid]);
+            $this->deleteStatement()->execute([$sid]);
         } catch (PDOException) {
             // best-effort
         }

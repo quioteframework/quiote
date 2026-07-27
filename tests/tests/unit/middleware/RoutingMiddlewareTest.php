@@ -180,4 +180,71 @@ class RoutingMiddlewareTest extends TestCase
         $this->assertTrue($result['reached'], '404 case should still fall through to downstream handling');
         $this->assertNull($this->requireRequest($result['request'])->getAttribute('module'));
     }
+
+    public function testMatchingStillWorksWithRouteSpansDisabled(): void
+    {
+        // recordMatch() (which resolves the route pattern for the span/root
+        // rename) must be skipped entirely when spans are off, not just make
+        // the span handles no-ops -- verify routing itself is unaffected.
+        \Quiote\Config\Config::set('telemetry.spans.route', false);
+        try {
+            $routing = $this->routingWithRoute('/widgets', ['POST']);
+            $mw = new RoutingMiddleware($routing, $this->controller());
+            $req = new ServerRequest('POST', '/widgets');
+
+            $result = $this->dispatch($mw, $req);
+
+            $this->assertTrue($result['reached']);
+            $this->assertSame('TestModule', $this->requireRequest($result['request'])->getAttribute('module'));
+        } finally {
+            \Quiote\Config\Config::set('telemetry.spans.route', true);
+        }
+    }
+
+    public function testRoutePatternCacheIsPopulatedAndReusedOnSecondMatch(): void
+    {
+        \Quiote\Config\Config::set('telemetry.spans.route', true);
+        $routing = $this->routingWithRoute('/widgets', ['POST']);
+        $mw = new RoutingMiddleware($routing, $this->controller());
+
+        $this->dispatch($mw, new ServerRequest('POST', '/widgets'));
+
+        $cacheProp = new ReflectionProperty(RoutingMiddleware::class, 'routePatternCache');
+        /** @var array<string, ?string> $cache */
+        $cache = $cacheProp->getValue($mw);
+        $this->assertArrayHasKey('test_route', $cache);
+        $this->assertSame('/widgets', $cache['test_route']);
+
+        // Seed a sentinel value in place of the real pattern; a second match
+        // for the same route name must return the sentinel, proving the
+        // cache -- not a fresh RouteCollection::get() lookup -- was used.
+        $cache['test_route'] = '/sentinel-cached-pattern';
+        $cacheProp->setValue($mw, $cache);
+
+        $method = new ReflectionMethod(RoutingMiddleware::class, 'resolveRoutePattern');
+        $this->assertSame('/sentinel-cached-pattern', $method->invoke($mw, 'test_route'));
+    }
+
+    public function testRoutePatternCacheIsPerInstanceNotSharedAcrossDifferentRoutingTables(): void
+    {
+        // Two RoutingMiddleware instances wrapping DIFFERENT route tables must
+        // not collide even if a route name happens to match in both --
+        // guards against the cache being (re)introduced as a static property.
+        $routingA = $this->routingWithRoute('/a-path', ['POST']);
+        $routingB = $this->routingWithRoute('/b-path', ['POST']);
+        $mwA = new RoutingMiddleware($routingA, $this->controller());
+        $mwB = new RoutingMiddleware($routingB, $this->controller());
+
+        $this->dispatch($mwA, new ServerRequest('POST', '/a-path'));
+        $this->dispatch($mwB, new ServerRequest('POST', '/b-path'));
+
+        $cacheProp = new ReflectionProperty(RoutingMiddleware::class, 'routePatternCache');
+        /** @var array<string, ?string> $cacheA */
+        $cacheA = $cacheProp->getValue($mwA);
+        /** @var array<string, ?string> $cacheB */
+        $cacheB = $cacheProp->getValue($mwB);
+
+        $this->assertSame('/a-path', $cacheA['test_route']);
+        $this->assertSame('/b-path', $cacheB['test_route']);
+    }
 }

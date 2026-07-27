@@ -146,10 +146,14 @@ abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 		// so templates (which expect $t) receive the values defined on the
 		// layer. Also provide backwards-compatible aliases used by
 		// templates: moduleName/actionName.
-		$layerParams = $this->getParameters();
 		// Parameter names are always strings in practice; normalize the key type so
-		// merging with $attributes (a string-keyed map) is type-safe.
-		$layerParams = array_combine(array_map('strval', array_keys($layerParams)), $layerParams);
+		// merging with $attributes (a string-keyed map) is type-safe. Built in a
+		// single pass instead of array_keys()+array_map('strval')+array_combine()
+		// (three traversals plus two intermediate arrays) for the same result.
+		$layerParams = [];
+		foreach ($this->getParameters() as $paramKey => $paramValue) {
+			$layerParams[(string) $paramKey] = $paramValue;
+		}
 		if (isset($layerParams['module']) && !isset($layerParams['moduleName'])) {
 			$layerParams['moduleName'] = $layerParams['module'];
 		}

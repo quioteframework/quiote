@@ -41,6 +41,25 @@ class ToolkitTest extends PhpUnitTestCase
 		$this->assertEquals('${foo}', Toolkit::expandVariables('{$foo}'));
 	}
 
+	public function testExpandVariablesSubstitutesArguments(): void
+	{
+		$this->assertEquals('value=hi', Toolkit::expandVariables('value=${foo}', ['foo' => 'hi']));
+		$this->assertEquals('value=${foo}', Toolkit::expandVariables('value=$foo', ['bar' => 'hi']));
+	}
+
+	public function testExpandVariablesFastPathReturnsPlainStringsUnchanged(): void
+	{
+		// No '$' at all -- the fast path added alongside the regex/replace
+		// pass must return the string as-is, args or not.
+		$this->assertSame('plain text', Toolkit::expandVariables('plain text'));
+		$this->assertSame('plain text', Toolkit::expandVariables('plain text', ['foo' => 'bar']));
+	}
+
+	public function testExpandVariablesCoercesNullToEmptyString(): void
+	{
+		$this->assertSame('', Toolkit::expandVariables(null));
+	}
+
 	public function testExpandDirectives(): void
 	{
 		Config::set('whatever', 'something');

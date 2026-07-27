@@ -119,8 +119,19 @@ class Controller extends ParameterHolder implements ResetInterface
 	 */
 	private function ensureModuleDirectiveDefaults($lowerModuleName)
 	{
+		// Cheap sentinel check: the 6 keys below are always set as one atomic
+		// group by this method, so the first key's presence stands in for
+		// "already ensured" without paying for the other 5 concatenations +
+		// Config::has() calls on the hot (already-ensured) path. Still
+		// correctly re-applies everything if Config was cleared in the
+		// meantime (the sentinel goes missing along with the rest), unlike a
+		// static "ensured" set keyed only by module name would.
+		$sentinelKey = 'modules.' . $lowerModuleName . '.quiote.action.path';
+		if (Config::has($sentinelKey)) {
+			return;
+		}
 		$defaults = [
-			'modules.' . $lowerModuleName . '.quiote.action.path' => '%core.module_dir%/${moduleName}/Actions/${actionName}Action.php',
+			$sentinelKey => '%core.module_dir%/${moduleName}/Actions/${actionName}Action.php',
 			'modules.' . $lowerModuleName . '.quiote.cache.path' => '%core.module_dir%/${moduleName}/cache/${actionName}.xml',
 			'modules.' . $lowerModuleName . '.quiote.template.directory' => '%core.module_dir%/${module}/Templates',
 			'modules.' . $lowerModuleName . '.quiote.validate.path' => '%core.module_dir%/${moduleName}/Validate/${actionName}.xml',

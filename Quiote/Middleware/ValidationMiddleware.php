@@ -451,7 +451,7 @@ class ValidationMiddleware implements MiddlewareInterface
         }
         // Execute view immediately so downstream dispatch middleware can skip action logic
         if ($viewName === View::NONE) {
-            $factory = new \Nyholm\Psr7\Factory\Psr17Factory();
+            $factory = \Quiote\Http\Psr17::factory();
             return $factory->createResponse(400);
         }
         // ViewNameResolver::resolve() only ever returns a null module alongside
@@ -477,7 +477,7 @@ class ValidationMiddleware implements MiddlewareInterface
             $ot = $this->resolveErrorOutputType($request, $controller);
             $view = $vf->create($viewModule, $viewName, $moduleName, $actionName, $ot, $webRequest, [], $vs->getValidationManager());
             if (!$view) {
-                $factory = new \Nyholm\Psr7\Factory\Psr17Factory();
+                $factory = \Quiote\Http\Psr17::factory();
                 if ($vd) {
                     \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware] view creation returned null for ' . $viewModule . ':' . $viewName);
                 }
@@ -581,7 +581,7 @@ class ValidationMiddleware implements MiddlewareInterface
                 $request = $request->withAttribute('validation.error.content', (string)$content);
             } catch (\Throwable) {
             }
-            $factory = new \Nyholm\Psr7\Factory\Psr17Factory();
+            $factory = \Quiote\Http\Psr17::factory();
             $resp = $factory->createResponse(400)->withHeader('X-Quiote-Validation', 'failed');
             // Read back the status baselined to 400 above -- honors an explicit
             // $controller->getGlobalResponse()->setHttpStatusCode() override from
@@ -644,7 +644,7 @@ class ValidationMiddleware implements MiddlewareInterface
             if ($vd) {
                 \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware] exception during view creation: ' . $e->getMessage());
             }
-            $factory = new \Nyholm\Psr7\Factory\Psr17Factory();
+            $factory = \Quiote\Http\Psr17::factory();
             $resp = $factory->createResponse(400)->withHeader('X-Quiote-Validation', 'failed')->withHeader('X-Quiote-Validation-Reason', 'view_creation_exception');
             // The X-Quiote-Validation-Errors header leaks internal field/validator
             // structure to the client, so it is opt-in and OFF by default. Enable it

@@ -22,7 +22,6 @@ use Quiote\Cache\ActionViewCache;
 use Quiote\Execution\ActionCacheHelper;
 use Quiote\Exception\QuioteException;
 // UncacheableException no longer referenced here after container removal.
-use Nyholm\Psr7\Factory\Psr17Factory;
 use Quiote\Execution\ValidationDecision;
 
 /**
@@ -109,7 +108,7 @@ class DispatchMiddleware implements MiddlewareInterface
     private function buildPsrResponse(string $content, string $outputType, bool $cacheHit, bool $containerUsed, ?array $redirectSnapshot = null): ResponseInterface
     {
 
-        $factory = new Psr17Factory();
+        $factory = \Quiote\Http\Psr17::factory();
         $status = 200;
 
         // TODO: propagate status from global response once unified interface available
@@ -248,7 +247,7 @@ class DispatchMiddleware implements MiddlewareInterface
         $actionDesc = $request->getAttribute(ActionDescriptor::class);
 
         if (!$actionDesc) {
-            $factory = new Psr17Factory();
+            $factory = \Quiote\Http\Psr17::factory();
             return $factory->createResponse(404)->withBody($factory->createStream('Not Found'));
         }
 
@@ -288,12 +287,12 @@ class DispatchMiddleware implements MiddlewareInterface
             if (!$execState->validationDecision || $execState->validationDecision->isPending()) {
                 // Let execution proceed only if forwarded AND validation pipeline will run earlier (ensured by pipeline order); otherwise error.
                 if (!$execState->forwarded) {
-                    $factory = new Psr17Factory();
+                    $factory = \Quiote\Http\Psr17::factory();
                     $resp = $factory->createResponse(500)->withBody($factory->createStream('Validation middleware missing'));
                     return $resp->withHeader('X-Quiote-Validation-State', $execState->validationDecision->state ?? 'absent')->withHeader('X-Quiote-Debug', 'validation-middleware-missing');
                 }
             } elseif ($execState->validationDecision->isFailed()) {
-                $factory = new Psr17Factory();
+                $factory = \Quiote\Http\Psr17::factory();
                 return $factory->createResponse(400)->withBody($factory->createStream('<div>Validation Failed</div>'));
             }
         }
@@ -313,7 +312,6 @@ class DispatchMiddleware implements MiddlewareInterface
     private function processSimple(ServerRequestInterface $request, ActionDescriptor $actionDesc): ResponseInterface
     {
 
-        $webRequest = ActionExecutor::buildRequestDataFromPsr($request, $this->controller->getContext());
         // Reuse existing ExecutionState if provided so prior middleware decisions (e.g., security) persist.
         $execState = $request->getAttribute(ExecutionState::class);
         if (!$execState) {
@@ -360,6 +358,7 @@ class DispatchMiddleware implements MiddlewareInterface
             }
         }
         if ($cacheHitPayload) {
+            $webRequest = ActionExecutor::buildRequestDataFromPsr($request, $this->controller->getContext());
             $ctx = ActionCacheHelper::buildContextFromPayload($cacheHitPayload, $actionDesc, $execState, $actionInstance, $webRequest);
             $execState->cacheHit = true;
             return $this->buildPsrResponse($ctx->content, $actionDesc->outputType, true, false);
@@ -400,7 +399,7 @@ class DispatchMiddleware implements MiddlewareInterface
         // Security decision must have been established by SecurityMiddleware. If missing and security disabled, executor will allow; otherwise treat as logic gap.
         if ($execState->validationDecision->isFailed() && $execState->viewName) {
             $content = (string)($request->getAttribute('validation.error.content') ?? '<div>Validation Failed</div>');
-            $factory = new Psr17Factory();
+            $factory = \Quiote\Http\Psr17::factory();
             return $factory->createResponse(400)->withBody($factory->createStream($content));
         }
         $avCache = null;

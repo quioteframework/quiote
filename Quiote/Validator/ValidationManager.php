@@ -337,8 +337,12 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 			$this->setParameter('_predeclared_exports', array_keys($allExportNames));
 		}
 
+		// $this->report is already a fresh ValidationReport from
+		// initialize()/clear()/reset() -- every execute() call site either
+		// obtains a freshly-initialized manager or calls clear()/reset()
+		// immediately beforehand, so building another one here just to
+		// immediately discard it was pure waste.
 		$success = true;
-		$this->report = new ValidationReport();
 		$result = Validator::SUCCESS;
 
 		$executedValidators = 0;

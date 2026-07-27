@@ -298,8 +298,90 @@ class ControllerTest extends PhpUnitTestCase
 		}
 	}
 
+	public function testEnsureModuleDirectiveDefaultsSetsAllSixKeysOnFirstCall(): void
+	{
+		$module = 'controllertestsmoduledefaults' . bin2hex(random_bytes(4));
+		$keys = [
+			"modules.$module.quiote.action.path",
+			"modules.$module.quiote.cache.path",
+			"modules.$module.quiote.template.directory",
+			"modules.$module.quiote.validate.path",
+			"modules.$module.quiote.view.path",
+			"modules.$module.quiote.view.name",
+		];
+		foreach ($keys as $key) {
+			$this->assertFalse(Config::has($key), "precondition: $key must not be set yet");
+		}
 
-/* 
+		$method = new ReflectionMethod(Controller::class, 'ensureModuleDirectiveDefaults');
+		$method->invoke($this->_controller, $module);
+
+		foreach ($keys as $key) {
+			$this->assertTrue(Config::has($key), "$key must be set after ensureModuleDirectiveDefaults()");
+		}
+	}
+
+	public function testEnsureModuleDirectiveDefaultsFastPathDoesNotOverwriteCustomValues(): void
+	{
+		$module = 'controllertestsmodulefastpath' . bin2hex(random_bytes(4));
+		$method = new ReflectionMethod(Controller::class, 'ensureModuleDirectiveDefaults');
+		$method->invoke($this->_controller, $module);
+
+		// Simulate an app/module overriding one of the derived defaults.
+		Config::set("modules.$module.quiote.view.name", 'CustomViewName', true);
+
+		// A second call must take the sentinel fast path and leave the
+		// override alone, not recompute and clobber it.
+		$method->invoke($this->_controller, $module);
+
+		$this->assertSame('CustomViewName', Config::getString("modules.$module.quiote.view.name"));
+	}
+
+	public function testEnsureModuleDirectiveDefaultsReappliesAllKeysAfterConfigCleared(): void
+	{
+		// Regression guard: the fast path is a sentinel-key presence check,
+		// not a static "already ensured" set -- if Config::clear() (or a
+		// worker reset) wipes the sentinel along with the rest, the next
+		// call must fully re-derive every key, not silently skip based on
+		// stale in-process state.
+		$module = 'controllertestsmoduleclear' . bin2hex(random_bytes(4));
+		$keys = [
+			"modules.$module.quiote.action.path",
+			"modules.$module.quiote.cache.path",
+			"modules.$module.quiote.template.directory",
+			"modules.$module.quiote.validate.path",
+			"modules.$module.quiote.view.path",
+			"modules.$module.quiote.view.name",
+		];
+		$method = new ReflectionMethod(Controller::class, 'ensureModuleDirectiveDefaults');
+		$method->invoke($this->_controller, $module);
+		foreach ($keys as $key) {
+			$this->assertTrue(Config::has($key));
+		}
+
+		// Simulate a config clear wiping just this module's derived keys
+		// (Config::clear() itself resets everything process-wide, which
+		// would be too disruptive to run mid-suite).
+		$configRef = new ReflectionProperty(Config::class, 'config');
+		/** @var array<string, mixed> $configData */
+		$configData = $configRef->getValue();
+		foreach ($keys as $key) {
+			unset($configData[$key]);
+		}
+		$configRef->setValue(null, $configData);
+		foreach ($keys as $key) {
+			$this->assertFalse(Config::has($key), "precondition: $key must be cleared");
+		}
+
+		$method->invoke($this->_controller, $module);
+
+		foreach ($keys as $key) {
+			$this->assertTrue(Config::has($key), "$key must be re-derived after being cleared");
+		}
+	}
+
+
+/*
 	// TODO: moved to Response
 	public function testsetContentType()
 	{

@@ -172,7 +172,7 @@ class SecurityMiddleware implements MiddlewareInterface
                 $execState->forwarded = true;
                 $execState->forwardCount++;
                 if ($execState->forwardCount > 5) {
-                    $factory = new \Nyholm\Psr7\Factory\Psr17Factory();
+                    $factory = \Quiote\Http\Psr17::factory();
                     return $factory->createResponse(508)->withBody($factory->createStream('Too many forwards'));
                 }
                 $execState->viewName = null;
@@ -191,7 +191,7 @@ class SecurityMiddleware implements MiddlewareInterface
                 // CRITICAL: If we cannot create a forward descriptor, we MUST NOT pass through
                 // with the original action — that would bypass security entirely.
                 \Quiote\Logging\Log::for($this)->error('[SecurityMiddleware][' . $rid . '] forward descriptor creation FAILED (returning 403): ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
-                $factory = new \Nyholm\Psr7\Factory\Psr17Factory();
+                $factory = \Quiote\Http\Psr17::factory();
                 return $factory->createResponse(403)->withBody($factory->createStream('Access Denied'));
             }
         }

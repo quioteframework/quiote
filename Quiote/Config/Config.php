@@ -22,6 +22,16 @@ class Config
 	private static $readonlies = [];
 
 	/**
+	 * Directives that have already logged the get() deprecation warning.
+	 * Keyed by directive rather than call site so a repeat get() for the
+	 * same directive skips debug_backtrace() entirely (not just the log
+	 * write) -- any app/plugin still on get() pays this at most once per
+	 * directive per process instead of on every single call.
+	 * @var        array<string|int, true>
+	 */
+	private static array $warnedGetDirectives = [];
+
+	/**
 	 * Get a configuration value.
 	 * Untyped and impossible to check at the call site -- prefer the typed
 	 * getString()/getInt()/getFloat()/getBool()/getArray() accessors instead,
@@ -36,15 +46,18 @@ class Config
 	 */
 	public static function get(string|int $name, $default = null)
 	{
-		$caller = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 1)[0] ?? [];
-		Log::create('Quiote.Config.Config')->warning(
-			'Config::get("{name}") is untyped; use getString(), getInt(), getFloat(), getBool() or getArray() instead. Called from {file}:{line}',
-			[
-				'name' => $name,
-				'file' => $caller['file'] ?? 'unknown',
-				'line' => $caller['line'] ?? 0,
-			],
-		);
+		if (!isset(self::$warnedGetDirectives[$name])) {
+			self::$warnedGetDirectives[$name] = true;
+			$caller = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 1)[0] ?? [];
+			Log::create('Quiote.Config.Config')->warning(
+				'Config::get("{name}") is untyped; use getString(), getInt(), getFloat(), getBool() or getArray() instead. Called from {file}:{line}',
+				[
+					'name' => $name,
+					'file' => $caller['file'] ?? 'unknown',
+					'line' => $caller['line'] ?? 0,
+				],
+			);
+		}
 		return self::retrieve($name, $default);
 	}
 

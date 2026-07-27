@@ -6,7 +6,6 @@ use Quiote\Controller\Controller;
 use Quiote\Request\WebRequest;
 use Quiote\Util\FormPopulationConfig;
 use Quiote\Util\FormPopulationEngine;
-use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
@@ -76,7 +75,7 @@ class FormPopulationMiddleware implements MiddlewareInterface
             return $response;
         }
 
-        $factory = new Psr17Factory();
+        $factory = \Quiote\Http\Psr17::factory();
         $response = $response->withBody($factory->createStream($updated));
         if ($response->hasHeader('Content-Length')) {
             $response = $response->withoutHeader('Content-Length');

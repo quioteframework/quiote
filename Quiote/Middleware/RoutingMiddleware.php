@@ -29,6 +29,19 @@ use Nyholm\Psr7\Response;
 #[\Quiote\Middleware\Attribute\Middleware(phase: 'routing', priority: 0)]
 class RoutingMiddleware implements MiddlewareInterface
 {
+    /**
+     * Cache of routeName => raw path pattern (RouteCollection::get() lookup
+     * result). Instance-level (not static): this middleware is constructed
+     * once per Context and bound to that Context's own Routing/route table,
+     * persisting across requests in worker mode, so the cache never sees a
+     * routeName that belongs to a different route table -- a static cache
+     * keyed by routeName alone would risk exactly that collision when
+     * multiple Context profiles (and therefore route tables) coexist in one
+     * process.
+     * @var array<string, ?string>
+     */
+    private array $routePatternCache = [];
+
     public function __construct(private readonly Routing $routing, private readonly Controller $controller) {}
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
@@ -72,7 +85,9 @@ class RoutingMiddleware implements MiddlewareInterface
                 if ($dbg) {
                     \Quiote\Logging\Log::for($this)->debug('[RoutingMiddleware] matched path=' . $path . ' module=' . $module . ' action=' . $action . ' outputType=' . $outputType . ' preNegotiated=' . var_export($preNegotiated, true) . ' routeName=' . ($attributes['_route'] ?? ''));
                 }
-                $this->recordMatch($span, $root, $httpMethod, $path, $attributes['_route'] ?? null);
+                if ($spansEnabled) {
+                    $this->recordMatch($span, $root, $httpMethod, $path, $attributes['_route'] ?? null);
+                }
                 $request = $request
                     ->withAttribute('module', $module)
                     ->withAttribute('action', $action)
@@ -145,11 +160,14 @@ class RoutingMiddleware implements MiddlewareInterface
         if ($routeName === null) {
             return null;
         }
+        if (array_key_exists($routeName, $this->routePatternCache)) {
+            return $this->routePatternCache[$routeName];
+        }
         try {
             [$routes] = $this->routing->exportRoutes();
-            return $routes->get($routeName)?->getPath();
+            return $this->routePatternCache[$routeName] = $routes->get($routeName)?->getPath();
         } catch (\Throwable) {
-            return null;
+            return $this->routePatternCache[$routeName] = null;
         }
     }
 }

@@ -34,6 +34,35 @@ final class DateTimeFacade
     ];
 
     /**
+     * Per-worker cache of IntlDateFormatter instances keyed by
+     * "locale|tz|pattern". Constructing one loads ICU locale data every
+     * time; reuse is safe since setLenient(false) (the only mutable knob we
+     * touch) is applied identically to every cached instance regardless of
+     * whether the caller is formatting or parsing -- it only affects
+     * parse() leniency, format() ignores it.
+     * @var array<string, IntlDateFormatter>
+     */
+    private static array $formatterCache = [];
+
+    private static function getFormatter(string $locale, string $intlTz, string $icuPattern): IntlDateFormatter
+    {
+        $key = $locale . '|' . $intlTz . '|' . $icuPattern;
+        if (isset(self::$formatterCache[$key])) {
+            return self::$formatterCache[$key];
+        }
+        $formatter = new IntlDateFormatter(
+            $locale,
+            IntlDateFormatter::NONE,
+            IntlDateFormatter::NONE,
+            $intlTz,
+            IntlDateFormatter::GREGORIAN,
+            $icuPattern
+        );
+        $formatter->setLenient(false);
+        return self::$formatterCache[$key] = $formatter;
+    }
+
+    /**
      * Format a DateTime using a legacy-style pattern.
      */
     public static function format(DateTimeInterface $dt, string $pattern, ?string $locale = null): string
@@ -44,14 +73,7 @@ final class DateTimeFacade
         if (class_exists(IntlDateFormatter::class)) {
             $tzName = $dt->getTimezone()->getName();
             $intlTz = self::normalizeIntlTimezoneId($tzName);
-            $formatter = new IntlDateFormatter(
-                $locale ?? \Locale::getDefault(),
-                IntlDateFormatter::NONE,
-                IntlDateFormatter::NONE,
-                $intlTz,
-                IntlDateFormatter::GREGORIAN,
-                $icuPattern
-            );
+            $formatter = self::getFormatter($locale ?? \Locale::getDefault(), $intlTz, $icuPattern);
             $result = $formatter->format($dt);
             if ($result === false) {
                 throw new RuntimeException('IntlDateFormatter failed to format datetime');
@@ -75,15 +97,7 @@ final class DateTimeFacade
         $icuPattern = self::toIcuPattern($pattern);
         if (class_exists(IntlDateFormatter::class)) {
             $intlTz = self::normalizeIntlTimezoneId($tz->getName());
-            $formatter = new IntlDateFormatter(
-                $locale ?? \Locale::getDefault(),
-                IntlDateFormatter::NONE,
-                IntlDateFormatter::NONE,
-                $intlTz,
-                IntlDateFormatter::GREGORIAN,
-                $icuPattern
-            );
-            $formatter->setLenient(false); // Enforce strict parsing
+            $formatter = self::getFormatter($locale ?? \Locale::getDefault(), $intlTz, $icuPattern);
             $pos = 0;
             $ts = $formatter->parse($value, $pos);
             if ($ts === false || $pos !== strlen($value)) {

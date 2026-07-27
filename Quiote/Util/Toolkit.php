@@ -214,12 +214,19 @@ final class Toolkit
 	 */
 	public static function expandVariables($string, array $arguments = [])
 	{
+		$string = (string) $string;
+		// Fast path: skip both the normalization regex and the replacement
+		// pass entirely when there's no '$' to expand -- called several
+		// times per layer render and per gettext domain load.
+		if (!str_contains($string, '$')) {
+			return $string;
+		}
 		// replacing the other two forms is faster than using three different search values in the str_replace
 		// also, if we had three search patterns, ${foo} with an argument {foo} would be replaced...
 		$string = preg_replace(
 			'/((\{\$)|\$)([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)(?(2)\}|)/',
 			'${$3}',
-			(string) $string
+			$string
 		);
 		if($string === null) {
 			throw new QuioteException('Failed to expand variables: the regular expression substitution failed.');

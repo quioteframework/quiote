@@ -198,6 +198,56 @@ class RoutingCallbackPoolTest extends TestCase
     }
 
     /**
+     * No-parameters lookups must key on the class name alone (skipping
+     * serialize()+md5() for the common case), which we can observe directly
+     * via the pool's internal key.
+     */
+    public function testNoParametersUsesClassNameAloneAsPoolKey(): void
+    {
+        RoutingCallbackPool::clearPool();
+        RoutingCallbackPool::getInstance('stdClass');
+
+        $reflection = new ReflectionClass(\Quiote\Routing\RoutingCallbackPool::class);
+        /** @var array<string, object> $instances */
+        $instances = $reflection->getStaticPropertyValue('instances');
+
+        $this->assertArrayHasKey('stdClass', $instances);
+    }
+
+    public function testNoParametersReturnsSameInstanceAcrossCalls(): void
+    {
+        $instance1 = RoutingCallbackPool::getInstance('stdClass');
+        $instance2 = RoutingCallbackPool::getInstance('stdClass');
+
+        $this->assertSame($instance1, $instance2);
+    }
+
+    public function testNoParametersInstanceDiffersFromWithParametersInstance(): void
+    {
+        RoutingCallbackPool::clearPool();
+        $bare = RoutingCallbackPool::getInstance('stdClass');
+        $withParams = RoutingCallbackPool::getInstance('stdClass', ['id' => 1]);
+
+        $this->assertNotSame($bare, $withParams);
+    }
+
+    public function testRemoveInstanceWithNoParametersUsesTheSameKeyAsGetInstance(): void
+    {
+        RoutingCallbackPool::clearPool();
+        RoutingCallbackPool::getInstance('stdClass');
+        $withParams = RoutingCallbackPool::getInstance('stdClass', ['id' => 1]);
+
+        RoutingCallbackPool::removeInstance('stdClass');
+
+        $reflection = new ReflectionClass(\Quiote\Routing\RoutingCallbackPool::class);
+        /** @var array<string, object> $instances */
+        $instances = $reflection->getStaticPropertyValue('instances');
+
+        $this->assertArrayNotHasKey('stdClass', $instances, 'the no-params entry must be removed');
+        $this->assertContains($withParams, $instances, 'the with-params entry must be untouched');
+    }
+
+    /**
      * Test memory usage optimization
      */
     public function testMemoryOptimization(): void

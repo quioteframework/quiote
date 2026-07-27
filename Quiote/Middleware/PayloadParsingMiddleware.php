@@ -8,7 +8,6 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Middlewares\JsonPayload; // JSON parsing
 use Middlewares\Utils\Dispatcher; // utility to run stack manually
-use Nyholm\Psr7\Factory\Psr17Factory;
 
 /**
  * Unified body parsing leveraging middlewares/payload.
@@ -70,7 +69,7 @@ class PayloadParsingMiddleware implements MiddlewareInterface
         } catch (\JsonException | \Middlewares\Utils\HttpErrorException $je) {
             \Quiote\Logging\Log::for($this)->debug('[PPM] PayloadParsingMiddleware invalid_json: ' . $je->getMessage());
             if ($this->strict) {
-                $factory = new Psr17Factory();
+                $factory = \Quiote\Http\Psr17::factory();
                 $resp = $factory->createResponse(400);
                 $err = ['error' => 'invalid_json', 'message' => $je->getMessage()];
                 $encoded = json_encode($err);

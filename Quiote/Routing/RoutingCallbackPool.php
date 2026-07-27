@@ -44,6 +44,21 @@ class RoutingCallbackPool implements ResetInterface
     }
     
     /**
+     * Pool key for a (className, parameters) pair. The overwhelming common
+     * case is no parameters at all, in which case the class name alone is
+     * already a unique, collision-free key -- skip the serialize()+md5()
+     * per lookup entirely for it.
+     * @param array<string, mixed> $parameters Callback parameters
+     */
+    private static function poolKey(string $className, array $parameters): string
+    {
+        if ($parameters === []) {
+            return $className;
+        }
+        return $className . '_' . md5(serialize($parameters));
+    }
+
+    /**
      * Get or create callback instance from pool
      * @param string $className Callback class name
      * @param array<string, mixed> $parameters Callback parameters
@@ -51,8 +66,8 @@ class RoutingCallbackPool implements ResetInterface
      */
     public static function getInstance($className, $parameters = [])
     {
-        $key = $className . '_' . md5(serialize($parameters));
-        
+        $key = self::poolKey($className, $parameters);
+
         if (!isset(self::$instances[$key])) {
             if (count(self::$instances) >= self::$maxInstances) {
                 // Remove oldest instance (FIFO)
@@ -130,7 +145,7 @@ class RoutingCallbackPool implements ResetInterface
      */
     public static function removeInstance($className, $parameters = [])
     {
-        $key = $className . '_' . md5(serialize($parameters));
+        $key = self::poolKey($className, $parameters);
         unset(self::$instances[$key]);
     }
 
