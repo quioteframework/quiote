@@ -99,6 +99,11 @@
             "name": "auth-oauth",
             "directory": "packages/auth-oauth",
             "target": "git@github.com:quioteframework/auth-oauth.git"
+        },
+        {
+            "name": "worker-roadrunner",
+            "directory": "packages/worker-roadrunner",
+            "target": "git@github.com:quioteframework/worker-roadrunner.git"
         }
     ]
 }

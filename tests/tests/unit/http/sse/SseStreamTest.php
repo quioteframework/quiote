@@ -91,6 +91,19 @@ class SseStreamTest extends TestCase
         $this->assertLessThan(3, $produced);
     }
 
+    public function testReadStopsAtTheEventBoundaryEvenWhenMoreWouldFit(): void
+    {
+        $stream = new SseStream(['ab', 'cd']);
+
+        // A generous length must not batch both events into one read: a chunked
+        // consumer forwards whatever it gets, so returning two events at once
+        // would delay the first until the second exists.
+        $this->assertSame("data: ab\n\n", $stream->read(4096));
+        $this->assertFalse($stream->eof());
+        $this->assertSame("data: cd\n\n", $stream->read(4096));
+        $this->assertTrue($stream->eof());
+    }
+
     public function testReadRejectsANegativeLength(): void
     {
         $stream = new SseStream(['x']);

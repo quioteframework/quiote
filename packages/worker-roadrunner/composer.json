@@ -1,0 +1,35 @@
+{
+	"name": "quioteframework/worker-roadrunner",
+	"description": "RoadRunner worker runtime for Quiote, turning `Kernel::run()` into a RoadRunner PSR-7 worker loop.",
+	"keywords": ["quiote", "roadrunner", "worker", "runtime", "psr-7"],
+	"homepage": "https://github.com/quioteframework/worker-roadrunner",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"nyholm/psr7": "^1.8",
+		"quioteframework/quiote": "*",
+		"spiral/roadrunner-http": "^3.5",
+		"spiral/roadrunner-worker": "^3.6"
+	},
+	"suggest": {
+		"spiral/roadrunner-cli": "Provides `vendor/bin/rr get-binary` to download the RoadRunner server itself"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Runtime\\RoadRunner\\": "src/"
+		}
+	},
+	"extra": {
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/worker-roadrunner/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}

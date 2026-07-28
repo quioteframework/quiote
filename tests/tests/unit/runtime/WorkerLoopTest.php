@@ -24,17 +24,24 @@ final class WorkerLoopTest extends TestCase
     /** @var array<string, mixed> */
     private array $savedServer = [];
 
+    private string $savedUseCookies = '1';
+
     #[Before]
-    public function captureServer(): void
+    public function captureProcessState(): void
     {
         $this->savedServer = $_SERVER;
+        // bootWorker() disables ext/session's own Set-Cookie emission for an
+        // off-SAPI runtime, which is a process-global ini change.
+        $current = ini_get('session.use_cookies');
+        $this->savedUseCookies = is_string($current) ? $current : '1';
     }
 
     #[After]
-    public function restoreServer(): void
+    public function restoreProcessState(): void
     {
         $_SERVER = $this->savedServer;
         $_GET = $_POST = $_COOKIE = $_REQUEST = $_FILES = [];
+        ini_set('session.use_cookies', $this->savedUseCookies);
         Config::remove('core.worker.stray_output');
     }
 

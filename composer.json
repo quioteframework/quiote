@@ -93,7 +93,8 @@
 		"quioteframework/filesystem-s3": "@dev",
 		"quioteframework/filesystem-gcs": "@dev",
 		"quioteframework/filesystem-azure": "@dev",
-		"predis/predis": "^3.0"
+		"predis/predis": "^3.0",
+		"quioteframework/worker-roadrunner": "@dev"
 	},
 	"suggest": {
 		"phpunit/phpunit": "Install phpunit if you want to run your tests",
@@ -132,6 +133,7 @@
 		"quioteframework/filesystem-s3": "Enables the 's3' filesystem disk (Quiote\\Filesystem\\S3\\S3FilesystemPlugin), built on quioteframework/session-s3's S3Client",
 		"quioteframework/filesystem-gcs": "Enables the 'gcs' filesystem disk (Quiote\\Filesystem\\Gcs\\GcsFilesystemPlugin), built on quioteframework/session-gcs's GcsClient",
 		"quioteframework/filesystem-azure": "Enables the 'azure' filesystem disk (Quiote\\Filesystem\\Azure\\AzureFilesystemPlugin), built on quioteframework/session-azure's AzureBlobClient",
+		"quioteframework/worker-roadrunner": "Runs the app as a RoadRunner PSR-7 worker (Quiote\\Runtime\\RoadRunner\\WorkerRoadRunnerPlugin), enabling the 'roadrunner' worker runtime",
 		"predis/predis": "Pure-PHP Redis client, enables the 'redis' cache backend (core.cache_backend), the 'redis' queue driver, Redis session persistence, and Redis-backed HTTP rate-limit storage"
 	},
 	"scripts": {

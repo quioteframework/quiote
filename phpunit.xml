@@ -57,6 +57,7 @@
             <directory>packages/filesystem-s3/tests</directory>
             <directory>packages/filesystem-gcs/tests</directory>
             <directory>packages/filesystem-azure/tests</directory>
+            <directory>packages/worker-roadrunner/tests</directory>
         </testsuite>
         <testsuite name="flow">
             <directory>tests/tests/flow</directory>
@@ -130,6 +131,7 @@
             <directory>packages/filesystem-s3/src</directory>
             <directory>packages/filesystem-gcs/src</directory>
             <directory>packages/filesystem-azure/src</directory>
+            <directory>packages/worker-roadrunner/src</directory>
         </include>
         <exclude>
         <directory>Quiote/translation/data</directory>

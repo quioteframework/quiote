@@ -179,7 +179,12 @@ final class SseStream implements StreamInterface
 
         $this->cursor ??= $this->openCursor();
 
-        while (strlen($this->buffer) < $length && !$this->exhausted) {
+        // At most one event per call, even when $length would hold several.
+        // PSR-7 allows a short read, and stopping at the event boundary is what
+        // lets a chunk-oriented consumer forward each event the moment it is
+        // produced instead of batching until $length is full -- which for an SSE
+        // stream would defeat the point.
+        if ($this->buffer === '' && !$this->exhausted) {
             $this->pullNext();
         }
 
