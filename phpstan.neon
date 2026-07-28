@@ -2,9 +2,13 @@ parameters:
 	level: 8
 	bootstrapFiles:
 		- etc/phpstan/bootstrap.php
-	stubFiles:
-		- etc/phpstan/worker-runtimes.stub
-		- etc/phpstan/swoole.stub
+	# scanFiles, not stubFiles: these declare symbols that genuinely do not exist
+	# in this install (a worker host's own functions, ext-swoole). stubFiles only
+	# augments the types of classes PHPStan can already see, so for an absent
+	# class its method signatures would be ignored.
+	scanFiles:
+		- etc/phpstan/worker-runtime-functions.php
+		- etc/phpstan/swoole-classes.php
 	dynamicConstantNames:
 		- QUIOTE_USE_APCU_CONFIG_CACHE
 	paths:

@@ -4,15 +4,18 @@
  * The slice of ext-swoole that packages/worker-swoole touches. The extension is
  * a `suggest` rather than a `require` (a hard ext dependency would break
  * `composer install` for every contributor), so analysis needs these declared.
+ *
+ * Pulled in via `scanFiles` rather than `stubFiles`, which only augments classes
+ * that already exist. Never loaded at runtime.
  */
 
 namespace Swoole\Http;
 
 class Request
 {
-    /** @var array<string, mixed> */
+    /** @var array<string, mixed>|null */
     public $server;
-    /** @var array<string, string> */
+    /** @var array<string, string>|null */
     public $header;
     /** @var array<string, mixed>|null */
     public $get;

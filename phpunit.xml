@@ -58,6 +58,7 @@
             <directory>packages/filesystem-gcs/tests</directory>
             <directory>packages/filesystem-azure/tests</directory>
             <directory>packages/worker-roadrunner/tests</directory>
+            <directory>packages/worker-swoole/tests</directory>
         </testsuite>
         <testsuite name="flow">
             <directory>tests/tests/flow</directory>
@@ -132,6 +133,7 @@
             <directory>packages/filesystem-gcs/src</directory>
             <directory>packages/filesystem-azure/src</directory>
             <directory>packages/worker-roadrunner/src</directory>
+            <directory>packages/worker-swoole/src</directory>
         </include>
         <exclude>
         <directory>Quiote/translation/data</directory>

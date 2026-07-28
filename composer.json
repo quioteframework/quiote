@@ -94,7 +94,8 @@
 		"quioteframework/filesystem-gcs": "@dev",
 		"quioteframework/filesystem-azure": "@dev",
 		"predis/predis": "^3.0",
-		"quioteframework/worker-roadrunner": "@dev"
+		"quioteframework/worker-roadrunner": "@dev",
+		"quioteframework/worker-swoole": "@dev"
 	},
 	"suggest": {
 		"phpunit/phpunit": "Install phpunit if you want to run your tests",
@@ -134,6 +135,8 @@
 		"quioteframework/filesystem-gcs": "Enables the 'gcs' filesystem disk (Quiote\\Filesystem\\Gcs\\GcsFilesystemPlugin), built on quioteframework/session-gcs's GcsClient",
 		"quioteframework/filesystem-azure": "Enables the 'azure' filesystem disk (Quiote\\Filesystem\\Azure\\AzureFilesystemPlugin), built on quioteframework/session-azure's AzureBlobClient",
 		"quioteframework/worker-roadrunner": "Runs the app as a RoadRunner PSR-7 worker (Quiote\\Runtime\\RoadRunner\\WorkerRoadRunnerPlugin), enabling the 'roadrunner' worker runtime",
+		"quioteframework/worker-swoole": "Runs the app from an embedded Swoole HTTP server (Quiote\\Runtime\\Swoole\\WorkerSwoolePlugin), enabling the 'swoole' worker runtime; needs ext-swoole",
+		"ext-swoole": "Required by quioteframework/worker-swoole to actually serve requests (5.1 or newer)",
 		"predis/predis": "Pure-PHP Redis client, enables the 'redis' cache backend (core.cache_backend), the 'redis' queue driver, Redis session persistence, and Redis-backed HTTP rate-limit storage"
 	},
 	"scripts": {

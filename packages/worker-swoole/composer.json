@@ -1,0 +1,35 @@
+{
+	"name": "quioteframework/worker-swoole",
+	"description": "Swoole worker runtime for Quiote, serving the app from an embedded Swoole HTTP server.",
+	"keywords": ["quiote", "swoole", "worker", "runtime", "psr-7"],
+	"homepage": "https://github.com/quioteframework/worker-swoole",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"nyholm/psr7": "^1.8",
+		"quioteframework/quiote": "*",
+		"symfony/console": "^8.0",
+		"symfony/process": "^8.0"
+	},
+	"suggest": {
+		"ext-swoole": "Required to actually serve requests (5.1 or newer). Not a hard requirement so the package can be installed and analysed without it."
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Runtime\\Swoole\\": "src/"
+		}
+	},
+	"extra": {
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/worker-swoole/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}

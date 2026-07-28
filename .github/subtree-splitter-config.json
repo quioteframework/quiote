@@ -104,6 +104,11 @@
             "name": "worker-roadrunner",
             "directory": "packages/worker-roadrunner",
             "target": "git@github.com:quioteframework/worker-roadrunner.git"
+        },
+        {
+            "name": "worker-swoole",
+            "directory": "packages/worker-swoole",
+            "target": "git@github.com:quioteframework/worker-swoole.git"
         }
     ]
 }
