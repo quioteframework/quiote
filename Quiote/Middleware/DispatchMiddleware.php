@@ -220,6 +220,25 @@ class DispatchMiddleware implements MiddlewareInterface
         return $resp;
     }
 
+    /**
+     * Short-circuits the normal Action/View/cache pipeline for actions that
+     * stream Server-Sent Events -- there is nothing here to cache, validate,
+     * or bridge redirects/cookies for; the action produces its own event
+     * iterable directly.
+     */
+    private function buildSseResponse(\Quiote\Http\Sse\SseStreamingAction $action, ServerRequestInterface $request): ResponseInterface
+    {
+        $webRequest = ActionExecutor::buildRequestDataFromPsr($request, $this->controller->getContext());
+        $stream = new \Quiote\Http\Sse\SseStream($action->streamEvents($webRequest));
+        $factory = \Quiote\Http\Psr17::factory();
+        return $factory->createResponse(200)
+            ->withBody($stream)
+            ->withHeader('Content-Type', 'text/event-stream')
+            ->withHeader('Cache-Control', 'no-cache')
+            ->withHeader('Connection', 'keep-alive')
+            ->withHeader('X-Accel-Buffering', 'no');
+    }
+
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $dbg = \Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug);
@@ -349,6 +368,9 @@ class DispatchMiddleware implements MiddlewareInterface
             $userFp = $this->computeUserFingerprint($actionInstance);
         } catch (\Throwable) {
         }
+        if ($actionInstance instanceof \Quiote\Http\Sse\SseStreamingAction) {
+            return $this->buildSseResponse($actionInstance, $request);
+        }
         if ($cacheEnabled && $isCacheable && !$request->getAttribute('quiote.cache.bypass')) {
             $cacheHitPayload = $avCache ? ActionCacheHelper::read($avCache, $actionDesc, $userFp) : null;
             if ($cacheHitPayload) {
@@ -425,6 +447,9 @@ class DispatchMiddleware implements MiddlewareInterface
             $isCacheable = (bool)$actionInstance->isCacheable($actionDesc->outputType);
             $userFp = $this->computeUserFingerprint($actionInstance);
         } catch (\Throwable) {
+        }
+        if ($actionInstance instanceof \Quiote\Http\Sse\SseStreamingAction) {
+            return $this->buildSseResponse($actionInstance, $request);
         }
         $cacheEnabled = Config::getBool('core.cache_enabled', false);
         if ($cacheEnabled && $isCacheable && !$request->getAttribute('quiote.cache.bypass')) {
