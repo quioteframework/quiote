@@ -8,6 +8,7 @@ use Quiote\Console\Command\MakeJobCommand;
 use Quiote\Console\Command\MakeMiddlewareCommand;
 use Quiote\Console\Command\MakeModuleCommand;
 use Quiote\Console\Command\NewCommand;
+use Quiote\Console\Command\OpenapiGenerateCommand;
 use Quiote\Console\Command\RoutesCompileCommand;
 use Quiote\Console\Command\RoutesListCommand;
 use Quiote\Console\Command\ServeCommand;
@@ -40,6 +41,7 @@ final class Application extends SymfonyApplication
 		$this->addCommand(new AboutCommand());
 		$this->addCommand(new RoutesListCommand());
 		$this->addCommand(new RoutesCompileCommand());
+		$this->addCommand(new OpenapiGenerateCommand());
 		$this->addCommand(new CacheWarmupCommand());
 		$this->addCommand(new MakeActionCommand());
 		$this->addCommand(new MakeModuleCommand());

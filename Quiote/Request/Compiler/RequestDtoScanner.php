@@ -34,7 +34,8 @@ use ReflectionParameter;
  *    FluentValidatorAction) -- registering real Validator objects on the
  *    action's ValidationManager, so DTO-derived constraints get identical
  *    ValidationReport/ProblemDetails failure handling, and remain visible to
- *    ActionToolScanner::toValidatorNodes() for MCP JSON Schema derivation.
+ *    Quiote\Validator\Compiler\JsonSchema\ActionInputSchemaResolver for JSON
+ *    Schema derivation (MCP tool inputSchema, OpenAPI operation parameters).
  *  - scan(): a pure RequestDtoDefinition used by RequestDtoMapper to
  *    instantiate the DTO once validation has passed.
  *

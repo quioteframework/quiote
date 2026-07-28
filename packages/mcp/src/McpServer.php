@@ -227,7 +227,7 @@ final class McpServer
      * than a rarely-used edge case of an already-optional, author-supplied
      * schema warrants -- the output schema just becomes correspondingly more
      * permissive by omission, the same graceful degradation
-     * {@see \Quiote\Mcp\Compiler\ValidatorSchemaMapper} applies to unmappable
+     * {@see \Quiote\Validator\Compiler\JsonSchema\ValidatorSchemaMapper} applies to unmappable
      * input validator rules.
      *
      * @param array<string, mixed>|null $schema
