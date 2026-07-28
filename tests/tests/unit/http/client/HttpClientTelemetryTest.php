@@ -1,8 +1,6 @@
 <?php
 
 use PHPUnit\Framework\TestCase;
-use PHPUnit\Framework\Attributes\After;
-use PHPUnit\Framework\Attributes\Before;
 use Nyholm\Psr7\Response;
 use Quiote\Config\Config;
 use Quiote\Http\Client\HttpClient;
@@ -20,14 +18,12 @@ use Quiote\Test\Http\Client\RecordingTransport;
  */
 class HttpClientTelemetryTest extends TestCase
 {
-    #[Before]
     public function setUp(): void
     {
         TelemetryBootstrap::reset();
         Trace::reset();
     }
 
-    #[After]
     public function tearDown(): void
     {
         TelemetryBootstrap::reset();
