@@ -1,0 +1,26 @@
+services:
+  roadrunner:
+    build:
+      context: ../../..
+      dockerfile: tests/integration/worker/Dockerfile.roadrunner
+    ports:
+      - "8281:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "php -r 'exit(@file_get_contents(\"http://127.0.0.1:8080/\") === false ? 1 : 0);'"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+  swoole:
+    build:
+      context: ../../..
+      dockerfile: tests/integration/worker/Dockerfile.swoole
+    ports:
+      - "8282:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "php -r 'exit(@file_get_contents(\"http://127.0.0.1:8080/\") === false ? 1 : 0);'"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s

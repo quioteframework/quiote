@@ -757,13 +757,33 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	}
 
 	/**
+	 * Whether clearing the input superglobals is the right default.
+	 *
+	 * It is under a SAPI: the arrays are the SAPI's own copy of the request, and
+	 * emptying them is a register-globals-era defence against code reading input
+	 * from anywhere but the request object.
+	 *
+	 * It is not under a runtime that doesn't populate them (RoadRunner, Swoole).
+	 * There, {@see \Quiote\Runtime\Superglobals\SuperglobalBridge} hydrated them
+	 * from the PSR-7 request moments earlier precisely so the legacy readers that
+	 * still need them keep working, and wiping them mid-request would defeat
+	 * that. Clearing at the request boundary is the bridge's own job.
+	 *
+	 * An explicit `unset_input` attribute still wins either way.
+	 */
+	private static function shouldUnsetInput(): bool
+	{
+		return \Quiote\Runtime\Worker\WorkerRuntimeInfo::capabilities()->populatesSuperglobals;
+	}
+
+	/**
 	 * Do any necessary startup work after initialization.
 	 * This method is not called directly after initialize().
 	 */
 	public function startup(): void
 	{
 		// WebRequest IS the PSR-7 request now
-		if ($this->psrRequest->getAttribute('unset_input', true)) {
+		if ($this->psrRequest->getAttribute('unset_input', self::shouldUnsetInput())) {
 			// register_long_arrays (and $HTTP_*_VARS) was removed in PHP 5.4; ini_get()
 			// always reports it disabled on PHP 8.5, so that branch is permanently dead.
 			$_GET = $_POST = $_COOKIE = $_REQUEST = $_FILES = [];
@@ -778,7 +798,7 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	}
 
 	/**
-	 * Reset web request state for FrankenPHP worker compatibility.
+	 * Reset web request state between requests in a persistent worker.
 	 * Clears web-specific request properties that could leak between requests.
 	 */
 	public function reset(): void

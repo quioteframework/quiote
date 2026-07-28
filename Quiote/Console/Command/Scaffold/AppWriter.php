@@ -21,11 +21,19 @@ use Quiote\Exception\ConfigurationException;
  */
 final class AppWriter
 {
+	/**
+	 * @param string|null $workerRuntime Alias of a persistent worker runtime to
+	 *        scaffold an entrypoint for ("roadrunner", "swoole"). Null (the
+	 *        default) writes only pub/index.php, which already covers php-fpm,
+	 *        `php -S` and FrankenPHP worker mode -- writing every runtime's
+	 *        files unconditionally would just clutter a fresh app.
+	 */
 	public function __construct(
 		private readonly string $path,
 		private readonly string $namespace,
 		private readonly string $format,
 		private readonly ?string $activeAutoloadPath = null,
+		private readonly ?string $workerRuntime = null,
 	) {}
 
 	public function write(): void
@@ -65,6 +73,16 @@ final class AppWriter
 		$this->put('Modules/Default/Templates/ContactSuccess.php', $this->templatePhp('Contact', $this->contactBody()));
 
 		$this->put('pub/index.php', $this->frontControllerPhp());
+
+		// A CLI-hosted server starts the app itself, so its entrypoint lives in
+		// the application root rather than pub/ -- it must not be reachable
+		// through the document root.
+		if ($this->workerRuntime === 'roadrunner') {
+			$this->put('worker.php', $this->workerEntrypointPhp('roadrunner'));
+			$this->put('.rr.yaml', $this->roadRunnerYaml());
+		} elseif ($this->workerRuntime === 'swoole') {
+			$this->put('swoole.php', $this->workerEntrypointPhp('swoole'));
+		}
 
 		$this->put('phpstan-bootstrap.php', $this->phpstanBootstrapPhp());
 		$this->put('phpstan.neon', $this->phpstanNeon());
@@ -566,7 +584,8 @@ final class AppWriter
 		<?php
 
 		/**
-		 * Front controller / FrankenPHP worker entrypoint.
+		 * Front controller. Serves the app under php-fpm, `php -S` and FrankenPHP
+		 * worker mode alike -- the runtime is detected, not configured here.
 		 *
 		 * Self-contained: registers its own PSR-4-ish autoloader for the app's own
 		 * namespace so this app doesn't need its own composer.json, then finds
@@ -613,6 +632,101 @@ final class AppWriter
 		])->run();
 
 		PHP;
+	}
+
+	/**
+	 * Entrypoint for a server that runs the app itself rather than serving a
+	 * document root: RoadRunner spawns it, Swoole is started by it.
+	 *
+	 * Same self-contained autoload dance as pub/index.php, but resolved from the
+	 * application root rather than pub/, so the relative candidates are one level
+	 * shallower. The runtime is pinned rather than detected: an explicitly named
+	 * runtime that turns out not to be hosting the process fails at startup,
+	 * instead of quietly degrading to one-request-per-process.
+	 */
+	private function workerEntrypointPhp(string $runtime): string
+	{
+		$namespace = $this->namespace;
+		$activeAutoloadLiteral = $this->needsAbsoluteAutoloadFallback()
+			? var_export($this->activeAutoloadPath, true) . ",\n\t\t\t"
+			: '';
+		return <<<PHP
+		<?php
+
+		/**
+		 * {$runtime} worker entrypoint. Deliberately outside pub/: this must not be
+		 * reachable through the document root.
+		 */
+
+		spl_autoload_register(static function (string \$class): void {
+			\$prefix = '{$namespace}\\\\';
+			if (!str_starts_with(\$class, \$prefix)) {
+				return;
+			}
+			\$relative = substr(\$class, strlen(\$prefix));
+			\$file = __DIR__ . '/' . str_replace('\\\\', '/', \$relative) . '.php';
+			if (is_file(\$file)) {
+				require \$file;
+			}
+		});
+
+		\$autoloadCandidates = [
+			{$activeAutoloadLiteral}
+			__DIR__ . '/vendor/autoload.php',
+			dirname(__DIR__) . '/vendor/autoload.php',
+			dirname(__DIR__, 2) . '/vendor/autoload.php',
+			dirname(__DIR__, 3) . '/vendor/autoload.php',
+			dirname(__DIR__, 4) . '/vendor/autoload.php',
+		];
+		foreach (\$autoloadCandidates as \$candidate) {
+			if (is_file(\$candidate)) {
+				require \$candidate;
+				break;
+			}
+		}
+		if (!class_exists(Quiote\\Runtime\\Kernel::class)) {
+			fwrite(STDERR, "Could not find a vendor/autoload.php with quioteframework/quiote installed.\\n");
+			exit(1);
+		}
+
+		Quiote\\Runtime\\Kernel::create([
+			'app_dir' => __DIR__,
+			'env' => getenv('QUIOTE_ENV') ?: 'production',
+			'context' => 'web',
+			'worker_runtime' => '{$runtime}',
+		])->run();
+
+		PHP;
+	}
+
+	/**
+	 * RoadRunner server config. Worker recycling is left to the server
+	 * (pool.max_jobs) rather than to `core.worker.max_requests`: stopping the
+	 * loop from PHP mid-pool looks like a crashed worker to RoadRunner.
+	 */
+	private function roadRunnerYaml(): string
+	{
+		return <<<YAML
+		version: "3"
+
+		server:
+		  command: "php worker.php"
+
+		http:
+		  address: "0.0.0.0:8080"
+		  middleware: ["static", "gzip"]
+		  static:
+		    dir: "pub"
+		    forbid: [".php"]
+		  pool:
+		    # 0 = one worker per CPU.
+		    num_workers: 0
+		    max_jobs: 1000
+
+		logs:
+		  mode: production
+
+		YAML;
 	}
 
 	/**

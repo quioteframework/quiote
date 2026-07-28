@@ -107,31 +107,45 @@ final class NativeSessionCookieBridgeTest extends TestCase
     }
 
     #[RunInSeparateProcess]
-    public function testAClosedSessionDoesNotProduceACookie(): void
+    public function testAClosedSessionStillGetsItsCookie(): void
     {
         session_name('QSESSID');
         session_id('abc123');
         session_start();
         session_write_close();
 
-        // session_id() still reports the id after close, so PHP_SESSION_ACTIVE is
-        // the check that matters -- a finished session has already had its cookie
-        // dealt with.
+        // This is the normal case, not an edge one: the session is written and
+        // closed while the response is still being built, and the client needs
+        // the cookie regardless. Requiring PHP_SESSION_ACTIVE here meant no
+        // cookie was ever emitted for a real request.
+        $result = (new NativeSessionCookieBridge())->apply((new Psr17Factory())->createResponse(200));
+
+        $this->assertStringStartsWith('QSESSID=abc123', $result->getHeaderLine('Set-Cookie'));
+    }
+
+    #[RunInSeparateProcess]
+    public function testASessionThatWasNeverStartedProducesNoCookie(): void
+    {
+        session_name('QSESSID');
+
+        // An empty session id is the one signal that means "no session exists".
         $result = (new NativeSessionCookieBridge())->apply((new Psr17Factory())->createResponse(200));
 
         $this->assertSame([], $result->getHeader('Set-Cookie'));
     }
 
     #[RunInSeparateProcess]
-    public function testDisableNativeEmissionTurnsOffPhpsOwnSetCookie(): void
+    public function testDisableNativeEmissionLeavesSessionUseCookiesAlone(): void
     {
         ini_set('session.use_cookies', '1');
 
         (new NativeSessionCookieBridge())->disableNativeEmission();
 
-        // Off-SAPI PHP's own emission goes through a dead header() call, so it has
-        // to be switched off or the cookie is simply lost.
-        $this->assertSame('0', ini_get('session.use_cookies'));
+        // Turning it off would make SessionStorage::startup() warn on every
+        // request ("Session cookies cannot be used when session.use_cookies is
+        // disabled"), and buys nothing: header() is already a no-op under the CLI
+        // SAPI, so there is no duplicate cookie to suppress.
+        $this->assertSame('1', ini_get('session.use_cookies'));
     }
 
     #[RunInSeparateProcess]

@@ -114,7 +114,7 @@ class Context implements \Stringable, ResetInterface
   private static array $modelResolutionCache = [];
 
   /**
-   * @var        array<int, mixed> Reset instances for FrankenPHP worker mode
+   * @var        array<int, mixed> Reset instances for persistent worker runtimes
    */
   protected $resetInstances = [];
 
@@ -493,9 +493,9 @@ class Context implements \Stringable, ResetInterface
   }
 
   /**
-   * Reset context state for FrankenPHP worker mode.
+   * Reset context state between requests in a persistent worker.
    * This method clears request-specific state while preserving the context configuration.
-   * Called automatically by FrankenPHP between requests when using worker mode.
+   * Called from the worker request boundary; see WorkerManager::resetForNextRequest().
    * @since      1.0.0
    */
   public function reset(): void
@@ -533,7 +533,7 @@ class Context implements \Stringable, ResetInterface
       }
     }
 
-    // CRITICAL: Manually execute the shutdown sequence in correct order for FrankenPHP
+    // CRITICAL: Manually execute the shutdown sequence in correct order for worker mode
     // This ensures session data is saved properly before clearing state
     if ($vd) {
       $logger->debug("context.reset manual shutdown sequence");
@@ -644,7 +644,7 @@ class Context implements \Stringable, ResetInterface
   }
 
   /**
-	 * Reset context state for FrankenPHP worker mode.
+	 * Reset context state between requests in a persistent worker.
 	 * This method clears request-specific state while preserving the context configuration.
 	// We intentionally DO NOT reset *FactoryInfo properties as these are immutable across
 	// requests and used for lazy recreation (request/user/routing/storage/databaseManager).
@@ -907,7 +907,7 @@ class Context implements \Stringable, ResetInterface
       }
     }
 
-    // Register reset instances for FrankenPHP worker mode
+    // Register reset instances for persistent worker runtimes
     $this->initializeResetInstances();
 
     // Under a persistent worker runtime we handle shutdown manually in reset()
@@ -977,8 +977,8 @@ class Context implements \Stringable, ResetInterface
   }
 
   /**
-   * Initialize reset instances for FrankenPHP worker mode
-   * These instances will be automatically reset by FrankenPHP between requests
+   * Initialize reset instances for persistent worker runtimes
+   * These instances are automatically reset between requests
    * @return     void
    */
   protected function initializeResetInstances(): void

@@ -1,0 +1,23 @@
+# Integration-only image: the probe app served by a real Swoole server.
+# ext-swoole is only a composer `suggest`, so it is installed here explicitly.
+FROM php:8.5-cli
+
+# libbrotli-dev/libssl-dev: swoole's pecl build enables brotli and TLS by
+# default and fails configure without their headers.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git unzip libicu-dev libxslt1-dev libbrotli-dev libssl-dev \
+    && docker-php-ext-install intl xsl sockets \
+    && pecl install swoole \
+    && docker-php-ext-enable swoole \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+WORKDIR /app
+COPY . /app/
+RUN composer install --no-interaction --no-progress --prefer-dist
+
+WORKDIR /app/tests/integration/worker
+EXPOSE 8080
+ENV QUIOTE_WORKER_RUNTIME=swoole
+CMD ["php", "swoole.php"]

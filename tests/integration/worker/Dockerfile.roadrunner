@@ -1,0 +1,25 @@
+# Integration-only image: the probe app served by a real RoadRunner server.
+# Never used outside tests/integration/worker/docker-compose.yml.
+# The server binary comes from the official image rather than
+# `vendor/bin/rr get-binary`, which hits the GitHub releases API and gets
+# rate-limited (HTTP 403) on shared/CI networks.
+FROM ghcr.io/roadrunner-server/roadrunner:2025 AS rr
+
+FROM php:8.5-cli
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git unzip libicu-dev libxslt1-dev \
+    && docker-php-ext-install intl xsl sockets \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+WORKDIR /app
+COPY . /app/
+RUN composer install --no-interaction --no-progress --prefer-dist
+
+COPY --from=rr /usr/bin/rr /usr/local/bin/rr
+
+WORKDIR /app/tests/integration/worker
+EXPOSE 8080
+CMD ["rr", "serve", "-c", ".rr.yaml"]

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ae:configurations xmlns:ae="http://quiote.dev/quiote/config/global/envelope/1.1" xmlns="http://quiote.dev/quiote/config/parts/databases/1.1">
+	<ae:configuration>
+		<databases default="default">
+			<!-- core.use_database is false, so this connection is never opened. DatabaseManager
+			     is still a required factory regardless (see Quiote\Config\FactoryConfigHandler). -->
+			<database name="default" class="Quiote\Database\PdoDatabase">
+				<ae:parameter name="dsn">sqlite::memory:</ae:parameter>
+			</database>
+		</databases>
+	</ae:configuration>
+</ae:configurations>

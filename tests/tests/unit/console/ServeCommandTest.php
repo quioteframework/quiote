@@ -49,4 +49,78 @@ final class ServeCommandTest extends TestCase
         $this->assertSame(1, $exitCode);
     }
 
+    public function testAnUnknownRuntimeIsRejectedAndTheChoicesAreListed(): void
+    {
+        $appDir = $this->makeAppDirWithPub();
+
+        try {
+            $application = new Application();
+            $tester = new CommandTester($application->find('serve'));
+            $exitCode = $tester->execute(['--app-dir' => $appDir, '--runtime' => 'nginx']);
+
+            $this->assertSame(1, $exitCode);
+            $display = $tester->getDisplay();
+            $this->assertStringContainsString('Unknown --runtime "nginx"', $display);
+            $this->assertStringContainsString('roadrunner', $display);
+            $this->assertStringContainsString('swoole', $display);
+        } finally {
+            $this->removeAppDir($appDir);
+        }
+    }
+
+    public function testRoadRunnerNeedsAnRrYamlBeforeItWillStart(): void
+    {
+        $appDir = $this->makeAppDirWithPub();
+
+        try {
+            $application = new Application();
+            $tester = new CommandTester($application->find('serve'));
+            $exitCode = $tester->execute(['--app-dir' => $appDir, '--runtime' => 'roadrunner']);
+
+            // Either the binary is missing or the config is -- both are reported
+            // rather than starting a server that cannot work. No server is spawned
+            // in either case, which is why this is safe in-process.
+            $this->assertSame(1, $exitCode);
+            $this->assertMatchesRegularExpression(
+                '/(rr binary was not found|\.rr\.yaml" does not exist)/',
+                $tester->getDisplay(),
+            );
+        } finally {
+            $this->removeAppDir($appDir);
+        }
+    }
+
+    public function testSwooleNeedsItsEntrypointOrTheExtensionBeforeItWillStart(): void
+    {
+        $appDir = $this->makeAppDirWithPub();
+
+        try {
+            $application = new Application();
+            $tester = new CommandTester($application->find('serve'));
+            $exitCode = $tester->execute(['--app-dir' => $appDir, '--runtime' => 'swoole']);
+
+            $this->assertSame(1, $exitCode);
+            $this->assertMatchesRegularExpression(
+                '/(ext-swoole is not installed|swoole\.php" does not exist)/',
+                $tester->getDisplay(),
+            );
+        } finally {
+            $this->removeAppDir($appDir);
+        }
+    }
+
+    /** An app-shaped directory, enough for ServeCommand to get past locating pub/. */
+    private function makeAppDirWithPub(): string
+    {
+        $appDir = sys_get_temp_dir() . '/quiote-serve-runtime-test-' . uniqid();
+        mkdir($appDir . '/pub', 0777, true);
+
+        return $appDir;
+    }
+
+    private function removeAppDir(string $appDir): void
+    {
+        @rmdir($appDir . '/pub');
+        @rmdir($appDir);
+    }
 }

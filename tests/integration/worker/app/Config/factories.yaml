@@ -1,0 +1,31 @@
+controller:
+  class: Quiote\Controller\Controller
+  params: []
+response:
+  class: Quiote\Response\WebResponse
+  params: []
+database_manager:
+  class: Quiote\Database\DatabaseManager
+  params: []
+routing:
+  class: WorkerProbe\Routing\ProbeRouting
+  params: []
+request:
+  class: Quiote\Request\WebRequest
+  params: []
+# The legacy ext/session storage on purpose: it is the path that relies on PHP
+# emitting Set-Cookie itself, which is a no-op off-SAPI and is what
+# NativeSessionCookieBridge exists to repair.
+storage:
+  class: Quiote\Storage\SessionStorage
+  params:
+    session_name: WORKERPROBE
+    session_cookie_path: /
+    session_cookie_secure: false
+    session_cookie_httponly: true
+user:
+  class: Quiote\User\User
+  params: []
+validation_manager:
+  class: Quiote\Validator\ValidationManager
+  params: []

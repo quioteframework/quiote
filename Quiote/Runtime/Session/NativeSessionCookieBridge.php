@@ -28,16 +28,21 @@ use Psr\Http\Message\ResponseInterface;
 final class NativeSessionCookieBridge
 {
     /**
-     * Stops ext/session emitting a Set-Cookie through the dead SAPI header
-     * path, so the one this class appends is the only one. Called once per
-     * worker process (including per forked child), not per request.
+     * Nothing to do: `session.use_cookies` is deliberately left alone.
+     *
+     * Turning it off looks right -- stop PHP emitting a cookie we are about to
+     * emit ourselves -- but it isn't. Under the CLI SAPI (which is what hosts
+     * RoadRunner and Swoole) `header()` is already a no-op, so there is no
+     * duplicate to prevent; meanwhile `session_set_cookie_params()` raises
+     * "Session cookies cannot be used when session.use_cookies is disabled"
+     * every time SessionStorage configures itself, which under RoadRunner lands
+     * in the server's log on every single request.
+     *
+     * Kept as an explicit no-op rather than removed so the loop has one place to
+     * hook if a future host needs it.
      */
     public function disableNativeEmission(): void
     {
-        if (!function_exists('session_status')) {
-            return;
-        }
-        @ini_set('session.use_cookies', '0');
     }
 
     /**
@@ -51,11 +56,14 @@ final class NativeSessionCookieBridge
             return $response;
         }
 
+        // Keyed on "a session exists", not "a session is still open". By the time
+        // a response is ready the session has usually been written and closed
+        // already (SessionStorage::shutdown() -> session_write_close()), and the
+        // client still needs the cookie to send the id back next time. An id that
+        // is empty means no session was ever started, which is the only case
+        // where there is nothing to emit.
         $sid = session_id();
         if ($sid === false || $sid === '') {
-            return $response;
-        }
-        if (session_status() !== PHP_SESSION_ACTIVE) {
             return $response;
         }
 

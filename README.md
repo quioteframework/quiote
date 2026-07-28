@@ -23,6 +23,7 @@ A lot of things had changed during the 20 years since Agavi's inception. There w
 - **A config system that isn't XML-only anymore**: `settings`, `factories`, `databases` and most other config types can be written as plain PHP arrays or YAML instead of XML, mixed and matched per file, with autodetection or an explicit `core.config_format` override, and full `parent`/`imports` inheritance across formats.
 - **A validator compiler**: XML `validators.xml` files still work, but validators can now be declared directly in PHP via a fluent builder
 - **Symfony components** for routing, caching (including APCu-backed config caching for persistent workers like FrankenPHP), rate limiting, and YAML parsing, instead of Agavi's homegrown equivalents.
+- **Runtime-agnostic worker mode**: the same application code runs under php-fpm, `php -S`, FrankenPHP worker mode, RoadRunner or Swoole, selected by `core.worker_runtime` or detected automatically (`Quiote\Runtime\Worker\WorkerRuntimeInterface`). Leaving the SAPI behind is handled by the framework rather than the app — superglobals are hydrated per request and cleared after, stray output is kept out of the server's protocol channel, and ext/session's `Set-Cookie` is synthesised onto the PSR-7 response.
 - **A modern PHP 8.5 codebase**: typed properties, enums, readonly properties, first-class callable syntax, and attributes throughout, in place of the PHP 5-era code Agavi started with.
 
 Quiote is the flower that blooms from the agave plant at the end of it's life.

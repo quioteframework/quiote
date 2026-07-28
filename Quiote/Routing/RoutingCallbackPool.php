@@ -150,8 +150,8 @@ class RoutingCallbackPool implements ResetInterface
     }
 
     /**
-     * Reset callback pool state for FrankenPHP worker mode.
-     * Called automatically by FrankenPHP between requests.
+     * Reset callback pool state between requests in a persistent worker.
+     * Called from the worker request boundary; see WorkerManager::resetForNextRequest().
      * In worker mode, we typically want to preserve pooled instances for performance,
      * but reset statistics.
      */
