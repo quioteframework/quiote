@@ -1,0 +1,30 @@
+{
+	"name": "quioteframework/filesystem-s3",
+	"description": "AWS S3 filesystem adapter for Quiote — a Quiote\\Filesystem\\FilesystemAdapterInterface implementation for FilesystemManager, built on the S3Client from quioteframework/session-s3.",
+	"keywords": ["quiote", "filesystem", "s3", "aws", "storage"],
+	"homepage": "https://github.com/quioteframework/filesystem-s3",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"quioteframework/quiote": "*",
+		"quioteframework/session-s3": "*"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Filesystem\\S3\\": "src/"
+		}
+	},
+	"extra": {
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/filesystem-s3/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}

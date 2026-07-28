@@ -1,0 +1,30 @@
+{
+	"name": "quioteframework/filesystem-gcs",
+	"description": "Google Cloud Storage filesystem adapter for Quiote — a Quiote\\Filesystem\\FilesystemAdapterInterface implementation for FilesystemManager, built on the GcsClient from quioteframework/session-gcs.",
+	"keywords": ["quiote", "filesystem", "gcs", "google-cloud", "storage"],
+	"homepage": "https://github.com/quioteframework/filesystem-gcs",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"quioteframework/quiote": "*",
+		"quioteframework/session-gcs": "*"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Filesystem\\Gcs\\": "src/"
+		}
+	},
+	"extra": {
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/filesystem-gcs/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}

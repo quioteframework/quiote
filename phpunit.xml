@@ -54,6 +54,9 @@
             <directory>packages/queue-redis/tests</directory>
             <directory>packages/session-redis/tests</directory>
             <directory>packages/scheduler/tests</directory>
+            <directory>packages/filesystem-s3/tests</directory>
+            <directory>packages/filesystem-gcs/tests</directory>
+            <directory>packages/filesystem-azure/tests</directory>
         </testsuite>
         <testsuite name="flow">
             <directory>tests/tests/flow</directory>
@@ -124,6 +127,9 @@
             <directory>packages/queue-redis/src</directory>
             <directory>packages/session-redis/src</directory>
             <directory>packages/scheduler/src</directory>
+            <directory>packages/filesystem-s3/src</directory>
+            <directory>packages/filesystem-gcs/src</directory>
+            <directory>packages/filesystem-azure/src</directory>
         </include>
         <exclude>
         <directory>Quiote/translation/data</directory>

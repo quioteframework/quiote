@@ -1,0 +1,30 @@
+{
+	"name": "quioteframework/filesystem-azure",
+	"description": "Azure Blob Storage filesystem adapter for Quiote — a Quiote\\Filesystem\\FilesystemAdapterInterface implementation for FilesystemManager, built on the AzureBlobClient from quioteframework/session-azure.",
+	"keywords": ["quiote", "filesystem", "azure", "blob", "storage"],
+	"homepage": "https://github.com/quioteframework/filesystem-azure",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"quioteframework/quiote": "*",
+		"quioteframework/session-azure": "*"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Filesystem\\Azure\\": "src/"
+		}
+	},
+	"extra": {
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/filesystem-azure/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}

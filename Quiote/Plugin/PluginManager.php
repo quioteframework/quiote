@@ -209,6 +209,7 @@ final class PluginManager
         self::$httpClientConfigs = [];
         \Quiote\Database\DatabaseDriverRegistry::reset();
         \Quiote\Exception\Rendering\ExceptionRendererRegistry::reset();
+        \Quiote\Filesystem\FilesystemDriverRegistry::reset();
     }
 
     /**
