@@ -1,3 +1,9 @@
+## [2.0.1] - 2026-07-28
+
+### 🐛 Bug Fixes
+
+- *(scheduler)* Rebind the default schedule per test to stop cross-test leakage
+- *(http-client)* Drop redundant Before/After attributes on setUp/tearDown
 ## [2.0.0] - 2026-07-28
 
 ### 🚀 Features
