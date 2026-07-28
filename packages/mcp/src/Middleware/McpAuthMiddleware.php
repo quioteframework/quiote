@@ -2,7 +2,7 @@
 
 namespace Quiote\Mcp\Middleware;
 
-use Nyholm\Psr7\Factory\Psr17Factory;
+use Quiote\Http\Psr17;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
@@ -53,9 +53,25 @@ final class McpAuthMiddleware implements MiddlewareInterface
 
     private function authenticator(): McpAuthenticatorInterface
     {
-        return $this->authenticator ??= Context::getInstance($this->contextName)
+        if ($this->authenticator !== null) {
+            return $this->authenticator;
+        }
+
+        $resolved = Context::getInstance($this->contextName)
             ->getContainer()
             ->get(McpAuthenticatorInterface::class);
+        if (!$resolved instanceof McpAuthenticatorInterface) {
+            // PSR-11 get() is typed mixed; a container registration that answers
+            // this id with something else is a wiring bug, and saying so beats a
+            // TypeError from the authenticate() call one line later.
+            throw new \RuntimeException(sprintf(
+                'The service registered for %s is a %s, which does not implement it.',
+                McpAuthenticatorInterface::class,
+                get_debug_type($resolved),
+            ));
+        }
+
+        return $this->authenticator = $resolved;
     }
 
     private function unauthorized(ServerRequestInterface $request, string $detail): ResponseInterface
@@ -66,7 +82,7 @@ final class McpAuthMiddleware implements MiddlewareInterface
             instance: (string) $request->getUri()->getPath(),
         );
 
-        $factory = new Psr17Factory();
+        $factory = Psr17::factory();
 
         return $factory->createResponse(401)
             ->withHeader('Content-Type', ProblemDetails::MEDIA_TYPE)

@@ -70,8 +70,16 @@ class RoutingCallbackPool implements ResetInterface
 
         if (!isset(self::$instances[$key])) {
             if (count(self::$instances) >= self::$maxInstances) {
-                // Remove oldest instance (FIFO)
-                array_shift(self::$instances);
+                // Evict the oldest instance (FIFO -- PHP arrays keep insertion
+                // order). unset() on the first key rather than array_shift(),
+                // which walks and rebuilds the whole hash to renumber keys it
+                // doesn't even have here (they're all pool keys), turning a
+                // constant-time eviction into an O(n) one at exactly the point
+                // the pool is at its fullest.
+                $oldestKey = array_key_first(self::$instances);
+                if ($oldestKey !== null) {
+                    unset(self::$instances[$oldestKey]);
+                }
             }
             
             if (class_exists($className)) {

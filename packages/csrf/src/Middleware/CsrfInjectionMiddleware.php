@@ -4,7 +4,7 @@ namespace Quiote\Security\Csrf\Middleware;
 
 use Quiote\Controller\Controller;
 use Quiote\Security\Csrf\CsrfManager;
-use Nyholm\Psr7\Factory\Psr17Factory;
+use Quiote\Http\Psr17;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
@@ -81,7 +81,7 @@ class CsrfInjectionMiddleware implements MiddlewareInterface
         if ($injectForms) {
             $newHtml = $this->inject($html, $csrf->fieldName(), $token);
             if ($newHtml !== $html) {
-                $factory = new Psr17Factory();
+                $factory = Psr17::factory();
                 $response = $response->withBody($factory->createStream($newHtml));
             }
         }
@@ -112,7 +112,7 @@ class CsrfInjectionMiddleware implements MiddlewareInterface
     private function hasSessionCookie(ServerRequestInterface $request): bool
     {
         $cookies = $request->getCookieParams();
-        if (!is_array($cookies) || $cookies === []) {
+        if ($cookies === []) {
             return false;
         }
         $name = session_name();
@@ -140,6 +140,7 @@ class CsrfInjectionMiddleware implements MiddlewareInterface
      */
     private function inject(string $html, string $field, string $token): string
     {
+        $original = $html;
         // Self-closing tags: valid HTML5 (the trailing slash on void elements is
         // ignored) AND well-formed when the document is XHTML parsed as XML — so a
         // single form works for both text/html and application/xhtml+xml responses.
@@ -147,7 +148,7 @@ class CsrfInjectionMiddleware implements MiddlewareInterface
 
         $html = preg_replace_callback(
             '/<form\b[^>]*>/i',
-            function (array $m) use ($field, $hidden): string {
+            function (array $m) use ($hidden): string {
                 $tag = $m[0];
                 // method: default GET when omitted; only protect state-changing forms.
                 $method = 'get';
@@ -167,8 +168,11 @@ class CsrfInjectionMiddleware implements MiddlewareInterface
         );
 
         if ($html === null) {
-            // preg error (e.g. PCRE backtrack limit on huge input): leave untouched.
-            return $token === '' ? '' : $html ?? '';
+            // Defensive: a preg error (backtrack/recursion limit) on a subject
+            // this pattern can't actually backtrack much on. Hand back the body
+            // exactly as it came in -- the previous version returned '' here,
+            // which would have served a blank page over a PCRE limit.
+            return $original;
         }
 
         // Add a meta tag for JS clients (once), if a <head> exists and none present.

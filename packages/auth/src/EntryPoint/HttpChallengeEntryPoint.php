@@ -1,7 +1,7 @@
 <?php
 namespace Quiote\Security\Auth\EntryPoint;
 
-use Nyholm\Psr7\Factory\Psr17Factory;
+use Quiote\Http\Psr17;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Quiote\Http\ProblemDetails;
@@ -45,7 +45,7 @@ final class HttpChallengeEntryPoint implements EntryPointInterface
 			$challenge .= sprintf(' realm="%s"', $this->realm);
 		}
 
-		$factory = new Psr17Factory();
+		$factory = Psr17::factory();
 
 		return $factory->createResponse(401)
 			->withHeader('Content-Type', ProblemDetails::MEDIA_TYPE)

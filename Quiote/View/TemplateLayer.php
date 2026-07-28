@@ -32,7 +32,10 @@ abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 	protected $renderer = null;
 
 	/**
-	 * @var        array<string, mixed> An associative array of execution containers for slots.
+	 * Slots are always {@see \Quiote\Execution\SlotRenderable}s: setSlot() is
+	 * the only writer and rejects anything else outright (the legacy
+	 * execution-container form is gone).
+	 * @var        array<string, \Quiote\Execution\SlotRenderable> An associative array of slot renderables, keyed by slot name.
 	 */
 	protected $slots = [];
 
@@ -134,38 +137,44 @@ abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 		$output = [];
 		
 		foreach($this->getSlots() as $slotName => $slotContainer) {
-			if($slotContainer instanceof \Quiote\Execution\SlotRenderable) {
-				$output[$slotName] = $slotContainer->getContent();
-				continue;
-			}
-			$slotResponse = $slotContainer->execute();
-			$output[$slotName] = $slotResponse->getContent();
+			$output[$slotName] = $slotContainer->getContent();
 		}
 		
 		// Merge this layer's configured parameters into the template attributes
 		// so templates (which expect $t) receive the values defined on the
-		// layer. Also provide backwards-compatible aliases used by
-		// templates: moduleName/actionName.
-		// Parameter names are always strings in practice; normalize the key type so
-		// merging with $attributes (a string-keyed map) is type-safe. Built in a
-		// single pass instead of array_keys()+array_map('strval')+array_combine()
-		// (three traversals plus two intermediate arrays) for the same result.
-		$layerParams = [];
-		foreach ($this->getParameters() as $paramKey => $paramValue) {
-			$layerParams[(string) $paramKey] = $paramValue;
+		// layer, plus the backwards-compatible moduleName/actionName aliases
+		// templates use. Layer parameters are defaults: anything the caller
+		// already put in $attributes wins, which is what the array-union
+		// semantics below preserve (a key already present is never overwritten,
+		// null values included).
+		//
+		// Written as a direct merge rather than building a normalized copy of
+		// the parameters first: the copy existed only to string-key the
+		// parameter names for a type-safe union, and it was rebuilt on every
+		// layer execution. Hoisting that copy to layer-init instead was
+		// rejected -- ParameterHolder's by-ref setters (setParameterByRef(),
+		// setParametersByRef()) let a caller mutate parameters after the fact
+		// without going through any method, so a cached copy has no sound
+		// invalidation point. $attributes is assigned into in place so that
+		// templates (which receive $t by reference) keep mutating the same
+		// underlying array instead of a copy.
+		$layerParams = $this->getParameters();
+		foreach ($layerParams as $paramKey => $paramValue) {
+			$paramKey = (string) $paramKey;
+			if (!array_key_exists($paramKey, $attributes)) {
+				$attributes[$paramKey] = $paramValue;
+			}
 		}
-		if (isset($layerParams['module']) && !isset($layerParams['moduleName'])) {
-			$layerParams['moduleName'] = $layerParams['module'];
+		// The aliases derive from the *layer's* module/template, not from
+		// whatever the caller may have passed under those keys, and only when
+		// the layer doesn't declare the alias itself -- matching the order the
+		// previous build-then-union did it in.
+		if (isset($layerParams['module']) && !isset($layerParams['moduleName']) && !array_key_exists('moduleName', $attributes)) {
+			$attributes['moduleName'] = $layerParams['module'];
 		}
-		if (isset($layerParams['template']) && !isset($layerParams['actionName'])) {
-			$layerParams['actionName'] = $layerParams['template'];
+		if (isset($layerParams['template']) && !isset($layerParams['actionName']) && !array_key_exists('actionName', $attributes)) {
+			$attributes['actionName'] = $layerParams['template'];
 		}
-	// Merge: layer parameters provide defaults which can be overridden by
-	// the caller via the $attributes argument. Use in-place addition to
-	// preserve the reference of the $attributes array passed in so that
-	// templates (which receive $t by reference) continue to mutate the
-	// same underlying array instead of getting a copy.
-	$attributes += $layerParams;
 
 		if($renderer === null) {
 			$renderer = $this->getRenderer();
@@ -232,7 +241,7 @@ abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 	/**
      * Get the execution container for a slot.
      * @param      string $name The name of the slot.
-     * @return \Quiote\Controller\ExecutionContainer|\Quiote\Execution\SlotRenderable|null The slot's container or renderable surrogate, or null if no slot with that name is set.
+     * @return \Quiote\Execution\SlotRenderable|null The slot's renderable, or null if no slot with that name is set.
      * @since      1.0.0
      */
     public function getSlot($name)
@@ -246,7 +255,7 @@ abstract class TemplateLayer extends ParameterHolder implements ResetInterface
 	
 	/**
 	 * Get all slots.
-	 * @return     array<string, mixed> An associative array of slot names and exec containers.
+	 * @return     array<string, \Quiote\Execution\SlotRenderable> An associative array of slot renderables, keyed by slot name.
 	 * @since      1.0.0
 	 */
 	public function getSlots()

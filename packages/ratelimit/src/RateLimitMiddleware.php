@@ -2,7 +2,7 @@
 
 namespace Quiote\Security\RateLimit;
 
-use Nyholm\Psr7\Factory\Psr17Factory;
+use Quiote\Http\Psr17;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
@@ -54,7 +54,7 @@ final class RateLimitMiddleware implements MiddlewareInterface
                 status: 429,
                 detail: 'Too many requests. Retry after ' . $retryAfter . ' second(s).',
             );
-            $psr17 = new Psr17Factory();
+            $psr17 = Psr17::factory();
             return $psr17->createResponse(429)
                 ->withHeader('Content-Type', ProblemDetails::MEDIA_TYPE)
                 ->withHeader('Retry-After', (string) $retryAfter)

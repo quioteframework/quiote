@@ -1,7 +1,7 @@
 <?php
 namespace Quiote\Security\Auth\EntryPoint;
 
-use Nyholm\Psr7\Factory\Psr17Factory;
+use Quiote\Http\Psr17;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Quiote\Security\Auth\AuthenticationException;
@@ -40,7 +40,7 @@ final class LoginRedirectEntryPoint implements EntryPointInterface
 		$separator = str_contains($this->loginPath, '?') ? '&' : '?';
 		$location = $this->loginPath . $separator . $this->errorQueryParameter . '=1';
 
-		$factory = new Psr17Factory();
+		$factory = Psr17::factory();
 
 		return $factory->createResponse(302)->withHeader('Location', $location);
 	}

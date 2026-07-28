@@ -4,7 +4,7 @@ namespace Quiote\Security\Csrf\Middleware;
 
 use Quiote\Controller\Controller;
 use Quiote\Security\Csrf\CsrfManager;
-use Nyholm\Psr7\Factory\Psr17Factory;
+use Quiote\Http\Psr17;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
@@ -73,7 +73,7 @@ class CsrfValidationMiddleware implements MiddlewareInterface
             if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
                 \Quiote\Logging\Log::for($this)->debug('[CsrfValidationMiddleware] rejected ' . $request->getMethod() . ' ' . $request->getUri()->getPath() . ' (token ' . ($submitted === null ? 'missing' : 'invalid') . ')');
             }
-            $factory = new Psr17Factory();
+            $factory = Psr17::factory();
             return $factory->createResponse(403)
                 ->withHeader('X-Quiote-Csrf', 'failed')
                 ->withBody($factory->createStream('CSRF token validation failed.'));
@@ -103,7 +103,7 @@ class CsrfValidationMiddleware implements MiddlewareInterface
     private function hasSessionCookie(ServerRequestInterface $request): bool
     {
         $cookies = $request->getCookieParams();
-        if (!is_array($cookies) || empty($cookies)) {
+        if ($cookies === []) {
             return false;
         }
         $name = session_name();

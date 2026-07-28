@@ -12,12 +12,52 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 
+/** A handler that records it was reached and returns 200. */
+final class CsrfRecordingHandler implements RequestHandlerInterface
+{
+    public bool $called = false;
+
+    public function handle(ServerRequestInterface $request): ResponseInterface
+    {
+        $this->called = true;
+
+        return new Psr7Response(200);
+    }
+}
+
+/**
+ * In-memory stand-in for the context storage: the testing.* environment wires
+ * the no-op NullStorage, so CSRF tokens would never persist.
+ */
+final class CsrfArrayStorage
+{
+    /** @var array<string, mixed> */
+    private array $data = [];
+
+    public function store(string $id, mixed $data): bool
+    {
+        $this->data[$id] = $data;
+
+        return true;
+    }
+
+    public function retrieve(string $key): mixed
+    {
+        return $this->data[$key] ?? null;
+    }
+
+    public function remove(string $key): void
+    {
+        unset($this->data[$key]);
+    }
+}
+
 /**
  * Covers the CSRF token manager, validation middleware and injection middleware.
  */
 class CsrfTest extends UnitTestCase
 {
-    /** @var object|null Original context storage, restored in tearDown(). */
+    /** @var mixed Original context storage, restored in tearDown(). */
     private $originalStorage;
 
     /** @var mixed Original core.csrf.enabled value, restored in tearDown(). */
@@ -38,12 +78,7 @@ class CsrfTest extends UnitTestCase
         $ro = new \ReflectionObject($ctx);
         $prop = $ro->getProperty('storage');
         $this->originalStorage = $prop->getValue($ctx);
-        $prop->setValue($ctx, new class {
-            private array $data = [];
-            public function store(string $id, mixed $data): bool { $this->data[$id] = $data; return true; }
-            public function retrieve($key) { return $this->data[$key] ?? null; }
-            public function remove($key) { unset($this->data[$key]); }
-        });
+        $prop->setValue($ctx, new CsrfArrayStorage());
     }
 
     protected function tearDown(): void
@@ -64,22 +99,14 @@ class CsrfTest extends UnitTestCase
         return new CsrfManager($this->getContext());
     }
 
-    private function controller()
+    private function controller(): \Quiote\Controller\Controller
     {
         return $this->getContext()->getController();
     }
 
-    /** A handler that records it was reached and returns 200. */
-    private function okHandler(): RequestHandlerInterface
+    private function okHandler(): CsrfRecordingHandler
     {
-        return new class implements RequestHandlerInterface {
-            public bool $called = false;
-            public function handle(ServerRequestInterface $r): ResponseInterface
-            {
-                $this->called = true;
-                return new Psr7Response(200);
-            }
-        };
+        return new CsrfRecordingHandler();
     }
 
     // --- CsrfManager ---
@@ -238,9 +265,24 @@ class CsrfTest extends UnitTestCase
         // meta tag for JS clients
         $this->assertStringContainsString('name="csrf-token"', $body);
         // and the injected token must validate
-        preg_match('/name="_csrf_token" value="([^"]+)"/', $body, $m);
-        $this->assertNotEmpty($m[1] ?? '');
+        if (preg_match('/name="_csrf_token" value="([^"]+)"/', $body, $m) !== 1) {
+            $this->fail('the injected hidden field must carry a token value');
+        }
         $this->assertTrue($this->manager()->isValid(html_entity_decode($m[1])));
+    }
+
+    /**
+     * An HTML response with nothing to rewrite -- no form to protect and no
+     * <head> to hold the meta tag -- must come back byte-for-byte, not
+     * emptied or otherwise disturbed.
+     */
+    public function testHtmlWithNothingToInjectComesBackUnchanged(): void
+    {
+        $mw = new CsrfInjectionMiddleware($this->controller());
+        $html = '<div><p>no forms here</p></div>';
+        $resp = $mw->process(new ServerRequest('GET', 'http://localhost/'), $this->htmlHandler($html));
+
+        $this->assertSame($html, (string) $resp->getBody());
     }
 
     public function testDoesNotInjectIntoGetForm(): void

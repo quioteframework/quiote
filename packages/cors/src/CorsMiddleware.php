@@ -2,7 +2,7 @@
 
 namespace Quiote\Security\Cors;
 
-use Nyholm\Psr7\Factory\Psr17Factory;
+use Quiote\Http\Psr17;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
@@ -39,7 +39,7 @@ class CorsMiddleware implements MiddlewareInterface
             && $request->hasHeader('Access-Control-Request-Method');
 
         if ($isPreflight) {
-            $factory = new Psr17Factory();
+            $factory = Psr17::factory();
             $response = $factory->createResponse(204);
             return $this->decorate($response, $allowedOrigin, $request->getHeaderLine('Access-Control-Request-Headers'), preflight: true);
         }

@@ -5,7 +5,7 @@ namespace Quiote\Mcp\Bridge;
 use Mcp\Exception\ToolCallException;
 use Mcp\Server\ClientGateway;
 use Mcp\Server\Handler\ToolHandlerInterface;
-use Nyholm\Psr7\Factory\Psr17Factory;
+use Quiote\Http\Psr17;
 use Nyholm\Psr7\ServerRequest;
 use Quiote\Context;
 use Symfony\Component\Routing\Generator\UrlGenerator;
@@ -89,7 +89,7 @@ final class ActionToolAdapter implements ToolHandlerInterface
             return $request->withQueryParams($extraParams);
         }
 
-        $factory = new Psr17Factory();
+        $factory = Psr17::factory();
 
         return $request
             ->withHeader('Content-Type', 'application/json')

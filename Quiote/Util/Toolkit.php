@@ -126,6 +126,12 @@ final class Toolkit
 		} else {
 			try {
 				foreach(new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($path), \RecursiveIteratorIterator::CHILD_FIRST) as $iterator) {
+					if(!$iterator instanceof \SplFileInfo) {
+						// RecursiveDirectoryIterator only ever yields SplFileInfo; the
+						// guard is what tells a static analyser that, since the SPL
+						// iterators carry no value type of their own.
+						continue;
+					}
 					// omg, thanks spl for always using forward slashes ... even on windows
 					$pathname = strtr($iterator->getPathname(), ['\\' => DIRECTORY_SEPARATOR, '/' => DIRECTORY_SEPARATOR]);
 					$continue = false;
@@ -232,11 +238,27 @@ final class Toolkit
 			throw new QuioteException('Failed to expand variables: the regular expression substitution failed.');
 		}
 
-		$search = [];
+		// strtr() over a '${key}' => value map instead of str_replace() over two
+		// parallel arrays: one pass over the subject instead of one per argument,
+		// and no intermediate search array. The placeholder delimiters make the
+		// keys non-overlapping, so strtr()'s longest-match rule and
+		// str_replace()'s sequential rule agree -- the one difference is that
+		// strtr() never re-scans what it just substituted, so a replacement
+		// value that itself contains '${other}' is left alone instead of being
+		// expanded by a later argument. Not re-expanding substituted input is
+		// the safer of the two.
+		$map = [];
 		foreach($arguments as $key => $value) {
-			$search[] = '${' . $key . '}';
+			// Only values PHP can stringify without a warning take part; an
+			// array/resource/non-Stringable object would previously have been
+			// substituted as the literal 'Array' etc. plus a conversion warning,
+			// so leaving the placeholder untouched is strictly more useful.
+			if(is_scalar($value) || $value === null || $value instanceof \Stringable) {
+				$map['${' . $key . '}'] = (string) $value;
+			}
 		}
-		return str_replace($search, $arguments, $string);
+
+		return $map === [] ? $string : strtr($string, $map);
 	}
 	
 	/** @var array<string, bool> */

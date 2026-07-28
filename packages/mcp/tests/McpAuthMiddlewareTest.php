@@ -106,6 +106,34 @@ final class McpAuthMiddlewareTest extends PhpUnitTestCase
         $this->assertSame(200, $response->getStatusCode());
     }
 
+    /**
+     * PSR-11 get() is typed mixed, so a container binding that answers the
+     * authenticator id with something else would otherwise blow up on the
+     * authenticate() call with a bare TypeError. The middleware names the
+     * offending service instead, and never lets the request through.
+     */
+    public function testServiceThatIsNotAnAuthenticatorIsReported(): void
+    {
+        Config::set('mcp.enabled', true, true);
+        Context::getInstance('web')->getContainer()->set(McpAuthenticatorInterface::class, new stdClass());
+
+        $middleware = new McpAuthMiddleware('web');
+        $next = new McpAuthMiddlewarePassthroughHandler();
+        $request = (new Psr17Factory())->createServerRequest('POST', '/mcp')->withHeader('Authorization', 'Bearer secret');
+
+        try {
+            $middleware->process($request, $next);
+            $this->fail('a mis-registered authenticator service must not be used');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString(McpAuthenticatorInterface::class, $e->getMessage());
+            $this->assertStringContainsString('stdClass', $e->getMessage());
+        } finally {
+            $this->bindAuthenticator('secret');
+        }
+
+        $this->assertFalse($next->called);
+    }
+
     public function testAuthNoneDelegatesWithoutCheckingAuth(): void
     {
         Config::set('mcp.enabled', true, true);

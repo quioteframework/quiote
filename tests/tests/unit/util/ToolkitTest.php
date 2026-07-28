@@ -55,6 +55,50 @@ class ToolkitTest extends PhpUnitTestCase
 		$this->assertSame('plain text', Toolkit::expandVariables('plain text', ['foo' => 'bar']));
 	}
 
+	public function testExpandVariablesSubstitutesEveryFormAndArgumentType(): void
+	{
+		// All three spellings normalize to ${name} and then substitute from the
+		// same argument map, whatever scalar type the value has.
+		$this->assertSame('a=1 b=1 c=1', Toolkit::expandVariables('a=$v b=${v} c={$v}', ['v' => 1]));
+		$this->assertSame('t=1 f=', Toolkit::expandVariables('t=${t} f=${f}', ['t' => true, 'f' => false]));
+		$this->assertSame('n=', Toolkit::expandVariables('n=${n}', ['n' => null]));
+		$this->assertSame('pi=3.5', Toolkit::expandVariables('pi=${pi}', ['pi' => 3.5]));
+		$this->assertSame('s=str', Toolkit::expandVariables('s=${s}', ['s' => new class implements \Stringable {
+			public function __toString(): string { return 'str'; }
+		}]));
+		// Several placeholders, several arguments, repeated occurrences.
+		$this->assertSame(
+			'/modules/Foo/Templates/Foo/bar',
+			Toolkit::expandVariables('/modules/${mod}/Templates/${mod}/${tpl}', ['mod' => 'Foo', 'tpl' => 'bar']),
+		);
+	}
+
+	public function testExpandVariablesLeavesPlaceholdersForUnstringifiableArguments(): void
+	{
+		// An array or a plain object can't be substituted without a conversion
+		// warning, so the placeholder is left in place rather than becoming the
+		// literal 'Array'. Other arguments in the same call still substitute.
+		$this->assertSame('a=${a} b=ok', Toolkit::expandVariables('a=${a} b=${b}', ['a' => ['x'], 'b' => 'ok']));
+		$this->assertSame('o=${o}', Toolkit::expandVariables('o=${o}', ['o' => new \stdClass()]));
+	}
+
+	public function testExpandVariablesDoesNotReExpandSubstitutedValues(): void
+	{
+		// One pass: a value that itself looks like a placeholder is inserted
+		// verbatim, not expanded again by another argument.
+		$this->assertSame(
+			'${b}',
+			Toolkit::expandVariables('${a}', ['a' => '${b}', 'b' => 'expanded']),
+		);
+	}
+
+	public function testExpandVariablesWithoutArgumentsStillNormalizesPlaceholders(): void
+	{
+		// No arguments to substitute, but the normalization pass is observable.
+		$this->assertSame('${foo} ${bar}', Toolkit::expandVariables('$foo {$bar}'));
+		$this->assertSame('${foo}', Toolkit::expandVariables('${foo}', ['other' => 'x']));
+	}
+
 	public function testExpandVariablesCoercesNullToEmptyString(): void
 	{
 		$this->assertSame('', Toolkit::expandVariables(null));

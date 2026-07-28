@@ -132,6 +132,67 @@ class RoutingCallbackPoolTest extends TestCase
     }
 
     /**
+     * Eviction is FIFO on insertion order and drops exactly one entry per
+     * insert past the limit. Guards the switch from array_shift() (which walks
+     * and rebuilds the whole hash) to unset() on the first key: the cheaper
+     * removal has to keep the same oldest-first semantics.
+     */
+    public function testEvictionDropsTheOldestEntryFirst(): void
+    {
+        $reflection = new ReflectionClass(RoutingCallbackPool::class);
+        $previousMax = $reflection->getStaticPropertyValue('maxInstances');
+        try {
+            RoutingCallbackPool::setMaxInstances(3);
+
+            $first = RoutingCallbackPool::getInstance('stdClass', ['id' => 1]);
+            RoutingCallbackPool::getInstance('stdClass', ['id' => 2]);
+            RoutingCallbackPool::getInstance('stdClass', ['id' => 3]);
+            $this->assertSame(3, RoutingCallbackPool::getPoolSize());
+
+            // Fourth distinct key: the pool is full, so id=1 (the oldest) goes.
+            RoutingCallbackPool::getInstance('stdClass', ['id' => 4]);
+            $this->assertSame(3, RoutingCallbackPool::getPoolSize());
+
+            /** @var array<string, object> $instances */
+            $instances = $reflection->getStaticPropertyValue('instances');
+            $keys = array_keys($instances);
+            $this->assertCount(3, $keys);
+
+            $keyFor = static fn(int $id): string => 'stdClass_' . md5(serialize(['id' => $id]));
+            $this->assertArrayNotHasKey($keyFor(1), $instances, 'the oldest entry must be the one evicted');
+            $this->assertArrayHasKey($keyFor(2), $instances);
+            $this->assertArrayHasKey($keyFor(3), $instances);
+            $this->assertArrayHasKey($keyFor(4), $instances);
+            // Insertion order survives the unset(), so the next eviction takes id=2.
+            $this->assertSame([$keyFor(2), $keyFor(3), $keyFor(4)], $keys);
+
+            // Asking for the evicted key again rebuilds it as a new instance.
+            $rebuilt = RoutingCallbackPool::getInstance('stdClass', ['id' => 1]);
+            $this->assertNotSame($first, $rebuilt);
+            $this->assertSame(3, RoutingCallbackPool::getPoolSize());
+        } finally {
+            $reflection->setStaticPropertyValue('maxInstances', $previousMax);
+        }
+    }
+
+    /**
+     * A parameterless callback keys on the class name alone, so it neither
+     * collides with nor is displaced by the parameterized variants.
+     */
+    public function testParameterlessLookupKeysOnTheClassNameAlone(): void
+    {
+        $bare = RoutingCallbackPool::getInstance('stdClass');
+
+        $reflection = new ReflectionClass(RoutingCallbackPool::class);
+        /** @var array<string, object> $instances */
+        $instances = $reflection->getStaticPropertyValue('instances');
+        $this->assertArrayHasKey('stdClass', $instances);
+
+        $this->assertSame($bare, RoutingCallbackPool::getInstance('stdClass'));
+        $this->assertNotSame($bare, RoutingCallbackPool::getInstance('stdClass', ['id' => 1]));
+    }
+
+    /**
      * Test callback with parameters method
      */
     public function testCallbackWithParameters(): void
