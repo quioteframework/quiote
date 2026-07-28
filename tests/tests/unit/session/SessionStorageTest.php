@@ -231,6 +231,103 @@ class SessionStorageTest extends UnitTestCase
 	}
 
 	/**
+	 * 'auto_start' is documented on SessionStorage and must actually be read:
+	 * with it off, startup() configures the session (the static session_id
+	 * below included) but starts nothing, even for a request that would
+	 * otherwise start one -- a configured 'session_id' is exactly what
+	 * hasIncomingSessionOrStaticId() treats as "there is a session to load".
+	 * The cookieless 'tests-lazy-retrieve' context is used so nothing has
+	 * started a session before startup() runs.
+	 */
+	#[RunInSeparateProcess]
+	public function testAutoStartOffDefersTheSessionStartInStartup(): void
+	{
+		$context = Context::getInstance('quiote-session-storage-test::tests-lazy-retrieve');
+		$storage = new SessionStorage();
+		$storage->initialize($context);
+		$storage->setParameter('session_id', 'autostartoff');
+		$storage->setParameter('auto_start', 'false');
+		$this->assertNotSame(PHP_SESSION_ACTIVE, session_status(), 'precondition: no session before startup()');
+
+		$storage->startup();
+
+		$this->assertNotSame(PHP_SESSION_ACTIVE, session_status(), 'auto_start=false must leave the session unstarted');
+		// The configured static id is still applied, so the deferred start uses it.
+		$this->assertSame('autostartoff', session_id());
+	}
+
+	/**
+	 * ...and the deferred session still materializes on demand, under the
+	 * configured id, so auto_start=false costs nothing but the eager start.
+	 */
+	#[RunInSeparateProcess]
+	public function testAutoStartOffStillStartsTheSessionOnFirstStore(): void
+	{
+		$context = Context::getInstance('quiote-session-storage-test::tests-lazy-retrieve');
+		$storage = new SessionStorage();
+		$storage->initialize($context);
+		$storage->setParameter('session_id', 'autostartoff');
+		$storage->setParameter('auto_start', 'false');
+		$storage->startup();
+
+		$this->assertTrue($storage->store('user_id', 42));
+
+		$this->assertSame(PHP_SESSION_ACTIVE, session_status());
+		$this->assertSame('autostartoff', session_id());
+		$this->assertSame(42, $storage->retrieve('user_id'));
+	}
+
+	/**
+	 * The complement: the default (and an explicit auto_start=true) still
+	 * starts the session in startup() for the same setup.
+	 */
+	#[RunInSeparateProcess]
+	public function testAutoStartOnStartsTheSessionInStartup(): void
+	{
+		$context = Context::getInstance('quiote-session-storage-test::tests-lazy-retrieve');
+		$storage = new SessionStorage();
+		$storage->initialize($context);
+		$storage->setParameter('session_id', 'autostarton');
+		$storage->setParameter('auto_start', 'true');
+
+		$storage->startup();
+
+		$this->assertSame(PHP_SESSION_ACTIVE, session_status());
+		$this->assertSame('autostarton', session_id());
+	}
+
+	/**
+	 * paramBool() has to cope with the string spellings XML-declared
+	 * parameters arrive as, and fall back to the default for anything it
+	 * can't make sense of (an absent parameter included).
+	 */
+	#[RunInSeparateProcess]
+	public function testParamBoolReadsStringSpellingsAndFallsBackToTheDefault(): void
+	{
+		$storage = new SessionStorage();
+		$method = new ReflectionMethod(SessionStorage::class, 'paramBool');
+
+		$this->assertTrue($method->invoke($storage, 'auto_start', true), 'an absent parameter must use the default');
+		$this->assertFalse($method->invoke($storage, 'auto_start', false), 'an absent parameter must use the default');
+
+		foreach (['false', 'off', 'no', '0', 'FALSE'] as $falsey) {
+			$storage->setParameter('auto_start', $falsey);
+			$this->assertFalse($method->invoke($storage, 'auto_start', true), $falsey . ' must read as false');
+		}
+
+		foreach (['true', 'on', 'yes', '1'] as $truthy) {
+			$storage->setParameter('auto_start', $truthy);
+			$this->assertTrue($method->invoke($storage, 'auto_start', false), $truthy . ' must read as true');
+		}
+
+		$storage->setParameter('auto_start', false);
+		$this->assertFalse($method->invoke($storage, 'auto_start', true), 'a real bool must be honoured');
+
+		$storage->setParameter('auto_start', ['not', 'a', 'bool']);
+		$this->assertTrue($method->invoke($storage, 'auto_start', true), 'an unintelligible value must fall back to the default');
+	}
+
+	/**
 	 * Covers item 4d of PERF_PLAN.md: SessionMiddleware calls
 	 * storage->shutdown() after the handler; in FrankenPHP worker mode,
 	 * Context::reset() calls storage->shutdown() again on the same instance
@@ -246,10 +343,10 @@ class SessionStorageTest extends UnitTestCase
 			public int $writeCalls = 0;
 			public function open($path, $name): bool { return true; }
 			public function close(): bool { return true; }
-			public function read($id): string|false { return ''; }
+			public function read($id): string { return ''; }
 			public function write($id, $data): bool { $this->writeCalls++; return true; }
 			public function destroy($id): bool { return true; }
-			public function gc($max): int|false { return 0; }
+			public function gc($max): int { return 0; }
 		};
 		session_set_save_handler($handler);
 

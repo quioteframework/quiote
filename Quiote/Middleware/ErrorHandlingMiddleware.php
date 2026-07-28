@@ -91,7 +91,7 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
      */
     public function renderExceptionResponse(ServerRequestInterface $request, Throwable $e): ResponseInterface
     {
-        Events::emit(new ExceptionCaughtEvent($e, $request));
+        Events::emitLazy(ExceptionCaughtEvent::class, static fn() => new ExceptionCaughtEvent($e, $request));
 
         if ($this->logger && $this->categoryLogger->isEnabled(\Quiote\Logging\Level::Debug)) {
             try {

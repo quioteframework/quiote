@@ -10,8 +10,11 @@ use Symfony\Contracts\Service\ResetInterface;
  * SessionStorage is the interface used by Quiote to store session data from
  * the User object in a PHP session.
  * <b>Optional parameters:</b>
- * # <b>auto_start</b>              - [true]  - Should session_start() be called
- *                                              automatically?
+ * # <b>auto_start</b>              - [true]  - Should startup() start the session
+ *                                              itself? With false, nothing is
+ *                                              started until the first
+ *                                              store()/retrieve()/remove() that
+ *                                              actually needs a session.
  * # <b>session_cache_limiter</b>   - []      - The session cache limiter value.
  * # <b>session_cache_expire</b>    - []      - The expire value for the cache
  *                                              limiter header.
@@ -115,6 +118,26 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 		}
 		if(is_numeric($value)) {
 			return (int) $value;
+		}
+		return $default;
+	}
+
+	/**
+	 * Narrow a config parameter to bool, accepting the string spellings
+	 * ('off', 'no', 'false', '0', ...) that XML-declared parameters arrive as,
+	 * and falling back to $default for an absent or unintelligible value.
+	 */
+	private function paramBool(string $name, bool $default): bool
+	{
+		if(!$this->hasParameter($name)) {
+			return $default;
+		}
+		$value = \Quiote\Util\Toolkit::literalize($this->getParameter($name));
+		if(is_bool($value)) {
+			return $value;
+		}
+		if(is_int($value) || is_float($value)) {
+			return $value != 0;
 		}
 		return $default;
 	}
@@ -259,7 +282,15 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 			// action actually writes to the session, store()'s own lazy
 			// @session_start() fallback creates one at that point instead,
 			// inheriting the cookie params configured just above.
-			if($this->hasIncomingSessionOrStaticId()) {
+			//
+			// 'auto_start' is the app-level version of that same decision: with
+			// it off, startup() configures the session but never starts one, so
+			// even a request that *does* carry the cookie only pays the read
+			// once something asks for session data. The lazy start in
+			// retrieve()/remove()/store() is the mechanism either way.
+			if(!$this->paramBool('auto_start', true)) {
+				if($dbg) { $logger->debug('[SessionStorage] session_start() deferred: auto_start is off'); }
+			} elseif($this->hasIncomingSessionOrStaticId()) {
 				if($dbg) { $logger->debug('[SessionStorage] starting session idPre=' . session_id()); }
 				session_start();
 				if($dbg) { $logger->debug('[SessionStorage] session started sid=' . session_id()); }
