@@ -56,6 +56,20 @@ final class ScheduleRunCommandTest extends PhpUnitTestCase
         \Quiote\Quiote::bootstrap('testing');
         $container = Context::getInstance(Config::getString('core.default_context', 'web'))->getContainer();
         PluginManager::configureContainer($container);
+
+        // `Context::getInstance()` caches its `Container` for the life of the
+        // process, and `configureContainer()` only registers a service if it's
+        // still absent -- so a `Schedule::class` bound by an earlier test in
+        // this class (or in `depends,defects` reordering, an earlier test
+        // altogether) would otherwise still be resolved here. Rebind the
+        // default no-op schedule unconditionally so every test starts clean;
+        // tests that need a specific schedule call `$container->set()` again
+        // afterwards, which overrides this.
+        $container->set(Schedule::class, new class extends Schedule {
+            protected function define(): void
+            {
+            }
+        });
         $container->set(FailedJobStoreInterface::class, new LogFailedJobStore());
         $container->set(SchedulerLock::class, new SchedulerLock(new Psr16Cache(new ArrayAdapter())));
 
