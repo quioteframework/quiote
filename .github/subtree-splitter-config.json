@@ -21,6 +21,51 @@
             "target": "git@github.com:quioteframework/ratelimit.git"
         },
         {
+            "name": "cors",
+            "directory": "packages/cors",
+            "target": "git@github.com:quioteframework/cors.git"
+        },
+        {
+            "name": "security-headers",
+            "directory": "packages/security-headers",
+            "target": "git@github.com:quioteframework/security-headers.git"
+        },
+        {
+            "name": "queue",
+            "directory": "packages/queue",
+            "target": "git@github.com:quioteframework/queue.git"
+        },
+        {
+            "name": "queue-db",
+            "directory": "packages/queue-db",
+            "target": "git@github.com:quioteframework/queue-db.git"
+        },
+        {
+            "name": "queue-redis",
+            "directory": "packages/queue-redis",
+            "target": "git@github.com:quioteframework/queue-redis.git"
+        },
+        {
+            "name": "session-redis",
+            "directory": "packages/session-redis",
+            "target": "git@github.com:quioteframework/session-redis.git"
+        },
+        {
+            "name": "filesystem-azure",
+            "directory": "packages/filesystem-azure",
+            "target": "git@github.com:quioteframework/filesystem-azure.git"
+        },
+        {
+            "name": "filesystem-gcs",
+            "directory": "packages/filesystem-gcs",
+            "target": "git@github.com:quioteframework/filesystem-gcs.git"
+        },
+        {
+            "name": "filesystem-s3",
+            "directory": "packages/filesystem-s3",
+            "target": "git@github.com:quioteframework/filesystem-s3.git"
+        },
+        {
             "name": "db-eloquent",
             "directory": "packages/db-eloquent",
             "target": "git@github.com:quioteframework/db-eloquent.git"
