@@ -9,6 +9,7 @@ use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Quiote\Security\Auth\AuthenticationException;
 use Quiote\Security\Auth\IntrospectionClient;
+use Quiote\Security\Auth\OidcDiscoveryDocument;
 
 class RespondingHttpClient implements ClientInterface
 {
@@ -38,6 +39,31 @@ class IntrospectionClientTest extends TestCase
 	private function factory(): Psr17Factory
 	{
 		return new Psr17Factory();
+	}
+
+	public function testFromDiscoveryUsesTheDiscoveredIntrospectionEndpoint(): void
+	{
+		$httpClient = new RespondingHttpClient(new Response(200, ['Content-Type' => 'application/json'], (string) json_encode(['active' => true, 'sub' => 'user-1'])));
+		$document = OidcDiscoveryDocument::fromArray([
+			'issuer' => 'https://idp.example.com',
+			'introspection_endpoint' => 'https://idp.example.com/oauth2/introspect',
+		]);
+
+		$client = IntrospectionClient::fromDiscovery($document, $httpClient, $this->factory(), $this->factory(), 'client-id', 'client-secret');
+		$result = $client->introspect('some-token');
+
+		$this->assertTrue($result['active']);
+		$this->assertNotNull($httpClient->lastRequest);
+		$this->assertSame('https://idp.example.com/oauth2/introspect', (string) $httpClient->lastRequest->getUri());
+	}
+
+	public function testFromDiscoveryThrowsWhenTheProviderAdvertisesNoIntrospectionEndpoint(): void
+	{
+		$document = OidcDiscoveryDocument::fromArray(['issuer' => 'https://idp.example.com']);
+
+		$this->expectException(AuthenticationException::class);
+		$this->expectExceptionMessage('introspection_endpoint');
+		IntrospectionClient::fromDiscovery($document, new ThrowingHttpClient(), $this->factory(), $this->factory(), 'client-id', 'client-secret');
 	}
 
 	public function testIntrospectReturnsClaimsForAnActiveToken(): void

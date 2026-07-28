@@ -42,6 +42,29 @@ final class ClientCredentialsClient
 	}
 
 	/**
+	 * Builds a client from a provider's discovery document (see
+	 * {@see OidcDiscoveryClient}) instead of a hand-copied token-endpoint
+	 * URL.
+	 * @param      OidcDiscoveryDocument $document The provider's metadata.
+	 * @param      string $clientId The OAuth client id.
+	 * @param      string $clientSecret The OAuth client secret.
+	 * @param      array<int, string> $scopes The scopes to request.
+	 * @param      ?ClientInterface $httpClient A Guzzle HTTP client override (e.g. for testing); defaults to a real Guzzle client.
+	 * @return     self A client wired to the discovered token endpoint.
+	 * @throws     AuthenticationException If the document does not advertise a token endpoint.
+	 * @since      1.2.5
+	 */
+	public static function fromDiscovery(
+		OidcDiscoveryDocument $document,
+		string $clientId,
+		string $clientSecret,
+		array $scopes = [],
+		?ClientInterface $httpClient = null,
+	): self {
+		return new self($clientId, $clientSecret, $document->getTokenEndpoint(), $scopes, $httpClient);
+	}
+
+	/**
 	 * @return     AccessTokenInterface The M2M access token, for the app to present to another service.
 	 * @since      1.0.0
 	 */

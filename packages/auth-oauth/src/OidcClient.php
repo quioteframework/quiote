@@ -53,6 +53,46 @@ final class OidcClient
 	}
 
 	/**
+	 * Builds a client from a provider's discovery document (see
+	 * {@see OidcDiscoveryClient}) instead of hand-copied endpoint URLs.
+	 * Rejects a provider that advertises code-challenge methods without
+	 * `S256`, since PKCE S256 is hardcoded here and the authorization
+	 * request would be rejected at the provider instead -- one hop later
+	 * and with a much worse error.
+	 * @param      OidcDiscoveryDocument $document The provider's metadata.
+	 * @param      string $clientId The OAuth client id.
+	 * @param      string $clientSecret The OAuth client secret.
+	 * @param      string $redirectUri This app's callback URL, registered with the authorization server.
+	 * @param      array<int, string> $scopes The scopes to request.
+	 * @param      ?ClientInterface $httpClient A Guzzle HTTP client override (e.g. for testing); defaults to a real Guzzle client.
+	 * @return     self A client wired to the discovered authorization and token endpoints.
+	 * @throws     AuthenticationException If the document lacks an authorization or token endpoint, or rules out PKCE S256.
+	 * @since      1.2.5
+	 */
+	public static function fromDiscovery(
+		OidcDiscoveryDocument $document,
+		string $clientId,
+		string $clientSecret,
+		string $redirectUri,
+		array $scopes = ['openid'],
+		?ClientInterface $httpClient = null,
+	): self {
+		if(!$document->supportsPkceS256()) {
+			throw new AuthenticationException(sprintf('OIDC provider "%s" does not support the S256 PKCE method, which OAuth 2.1 requires.', $document->getIssuer()));
+		}
+
+		return new self(
+			$clientId,
+			$clientSecret,
+			$redirectUri,
+			$document->getAuthorizationEndpoint(),
+			$document->getTokenEndpoint(),
+			$scopes,
+			$httpClient,
+		);
+	}
+
+	/**
 	 * Generates state/PKCE-verifier/nonce and builds the authorization
 	 * redirect URL. The caller persists the returned state (e.g. via
 	 * {@see OidcStateStorage::store()}) before redirecting the browser.

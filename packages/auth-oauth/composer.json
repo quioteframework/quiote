@@ -20,6 +20,7 @@
 		"quioteframework/auth": "*",
 		"quioteframework/auth-jwt": "*",
 		"league/oauth2-client": "^2.9",
+		"psr/cache": "^3.0",
 		"psr/http-client": "^1.0",
 		"psr/http-factory": "^1.1"
 	},

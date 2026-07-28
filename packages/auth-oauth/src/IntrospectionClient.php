@@ -34,6 +34,38 @@ final class IntrospectionClient
 	}
 
 	/**
+	 * Builds a client from a provider's discovery document (see
+	 * {@see OidcDiscoveryClient}). Introspection metadata comes from RFC
+	 * 8414 rather than OIDC Discovery, and plenty of providers omit it, so
+	 * a missing `introspection_endpoint` is reported here rather than
+	 * turning into a POST to an empty URL.
+	 * @param      OidcDiscoveryDocument $document The provider's metadata.
+	 * @param      ClientInterface $httpClient A PSR-18 HTTP client.
+	 * @param      RequestFactoryInterface $requestFactory A PSR-17 request factory.
+	 * @param      StreamFactoryInterface $streamFactory A PSR-17 stream factory, for the POST body.
+	 * @param      string $clientId The OAuth client id, sent via HTTP Basic per RFC 7662 §2.1.
+	 * @param      string $clientSecret The OAuth client secret, sent via HTTP Basic per RFC 7662 §2.1.
+	 * @return     self A client wired to the discovered introspection endpoint.
+	 * @throws     AuthenticationException If the document does not advertise an introspection endpoint.
+	 * @since      1.2.5
+	 */
+	public static function fromDiscovery(
+		OidcDiscoveryDocument $document,
+		ClientInterface $httpClient,
+		RequestFactoryInterface $requestFactory,
+		StreamFactoryInterface $streamFactory,
+		string $clientId,
+		string $clientSecret,
+	): self {
+		$endpoint = $document->getIntrospectionEndpoint();
+		if($endpoint === null) {
+			throw new AuthenticationException(sprintf('OIDC provider "%s" does not advertise an "introspection_endpoint".', $document->getIssuer()));
+		}
+
+		return new self($httpClient, $requestFactory, $streamFactory, $endpoint, $clientId, $clientSecret);
+	}
+
+	/**
 	 * @param      string $token The token to introspect.
 	 * @return     array<string, mixed> The introspection response.
 	 * @throws     AuthenticationException If the request fails, the response is malformed, or the token is not active.
