@@ -3,8 +3,10 @@ namespace Quiote\Cache;
 
 use Quiote\Config\Config;
 use Psr\SimpleCache\CacheInterface;
+use RuntimeException;
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 use Symfony\Component\Cache\Adapter\ApcuAdapter;
+use Symfony\Component\Cache\Adapter\RedisAdapter;
 use Symfony\Component\Cache\Psr16Cache;
 
 class CacheManager
@@ -26,6 +28,9 @@ class CacheManager
             if ($backendCfg === 'apcu' && self::apcuAvailable()) {
                 $pool = new ApcuAdapter();
                 self::$backend = 'apcu';
+            } elseif ($backendCfg === 'redis') {
+                $pool = new RedisAdapter(self::createRedisConnection());
+                self::$backend = 'redis';
             } else {
                 $baseDir = Config::getString('core.cache_dir');
                 if(empty($baseDir)) {
@@ -56,6 +61,9 @@ class CacheManager
                 if(is_dir($psrDir)) {
                     $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($psrDir, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::CHILD_FIRST);
                     foreach($it as $f) {
+                        if (!$f instanceof \SplFileInfo) {
+                            continue;
+                        }
                         try { $f->isDir() ? @rmdir($f->getPathname()) : @unlink($f->getPathname()); } catch(\Throwable) {}
                     }
                 }
@@ -66,6 +74,25 @@ class CacheManager
 
     private static function apcuAvailable(): bool
     { return function_exists('apcu_enabled') && apcu_enabled(); }
+
+    /** @return \Redis|\RedisArray|\RedisCluster|\Predis\ClientInterface|\Relay\Relay|\Relay\Cluster */
+    private static function createRedisConnection(): object
+    {
+        if (
+            !extension_loaded('redis')
+            && !extension_loaded('relay')
+            && !interface_exists(\Predis\ClientInterface::class)
+        ) {
+            throw new RuntimeException(
+                'core.cache_backend is "redis" but no Redis client is available. Install ext-redis, ext-relay, or predis/predis (e.g. `composer require predis/predis`).',
+            );
+        }
+
+        $dsn = Config::getString('core.redis_dsn', 'redis://127.0.0.1:6379');
+        /** @var \Redis|\RedisArray|\RedisCluster|\Predis\ClientInterface|\Relay\Relay|\Relay\Cluster $connection */
+        $connection = RedisAdapter::createConnection($dsn);
+        return $connection;
+    }
 
     private static function versionCacheKey(string $namespace): string
     { return 'nsver:' . $namespace; }

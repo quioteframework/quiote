@@ -87,7 +87,10 @@
 		"quioteframework/db-propulsion": "@dev",
 		"quioteframework/queue": "@dev",
 		"quioteframework/queue-db": "@dev",
-		"quioteframework/scheduler": "@dev"
+		"quioteframework/queue-redis": "@dev",
+		"quioteframework/session-redis": "@dev",
+		"quioteframework/scheduler": "@dev",
+		"predis/predis": "^3.0"
 	},
 	"suggest": {
 		"phpunit/phpunit": "Install phpunit if you want to run your tests",
@@ -120,19 +123,22 @@
 		"quioteframework/db-propulsion": "Enables the 'propulsion' database driver (Quiote\\Database\\Adapter\\Propulsion)",
 		"quioteframework/queue": "Background job/queue abstraction: job interface, sync driver, retry/dead-letter handling, `queue:work` (Quiote\\Queue\\QueuePlugin)",
 		"quioteframework/queue-db": "Enables the 'db' queue driver, backed by the app's own database (Quiote\\Queue\\Db\\DbQueueDriver)",
-		"quioteframework/scheduler": "Cron-expression task scheduling, `schedule:run` (Quiote\\Scheduler\\SchedulerPlugin), layered on the queue package"
+		"quioteframework/queue-redis": "Enables the 'redis' queue driver (Quiote\\Queue\\Redis\\RedisQueueDriver), built on predis/predis",
+		"quioteframework/session-redis": "Redis session backend (Quiote\\Session\\Redis\\RedisSessionPersistence), built on predis/predis",
+		"quioteframework/scheduler": "Cron-expression task scheduling, `schedule:run` (Quiote\\Scheduler\\SchedulerPlugin), layered on the queue package",
+		"predis/predis": "Pure-PHP Redis client, enables the 'redis' cache backend (core.cache_backend), the 'redis' queue driver, Redis session persistence, and Redis-backed HTTP rate-limit storage"
 	},
 	"scripts": {
 		"test": "php -d apc.enable_cli=0 vendor/bin/phpunit --no-coverage",
 		"test:apcu": "php -d apc.enable_cli=1 vendor/bin/phpunit --no-coverage --group apcu",
 		"test:e2e": "vendor/bin/phpunit --no-coverage tests/e2e --group e2e",
-		"test:integration": "vendor/bin/phpunit --no-coverage packages/db-eloquent/tests packages/db-doctrine/tests packages/db-cycle/tests --group integration"
+		"test:integration": "vendor/bin/phpunit --no-coverage packages/db-eloquent/tests packages/db-doctrine/tests packages/db-cycle/tests packages/queue-redis/tests packages/session-redis/tests packages/ratelimit/tests tests/tests/unit/cache --group integration"
 	},
 	"scripts-descriptions": {
 		"test": "Run the full test suite with APCu disabled (default, deterministic).",
 		"test:apcu": "Run only the APCu config-cache tests with apc.enable_cli=1.",
 		"test:e2e": "Run the Docker-based end-to-end tests (real OTel Collector + real FrankenPHP). Requires Docker; not run in CI.",
-		"test:integration": "Run the Docker-based database integration tests against real DBs via Testcontainers (Doctrine, Eloquent, Cycle). Requires Docker; not run in CI."
+		"test:integration": "Run the Docker-based integration tests against real DBs and Redis via Testcontainers (Doctrine, Eloquent, Cycle, queue-redis, session-redis, ratelimit, cache). Requires Docker; not run in CI."
 	},
 	"autoload": {
 		"psr-4": {

@@ -31,10 +31,13 @@ $throttle = new LoginThrottle(new PdoRateLimiterStorage($pdo));
 - `ratelimit.http.trust_forwarded_for` — trust `X-Forwarded-For` for the client key instead of `REMOTE_ADDR`, default `false` (only enable behind a trusted reverse proxy)
 
 Limiter state defaults to an in-memory store (`Symfony\Component\RateLimiter\Storage\InMemoryStorage`,
-reset every process/worker restart). Bind `PdoRateLimiterStorage` as the
-`Symfony\Component\RateLimiter\Storage\StorageInterface` service instead for
-state shared across workers and processes. An over-limit request gets a 429
-`application/problem+json` response with a `Retry-After` header.
+reset every process/worker restart). Set `ratelimit.storage` to `redis` for
+state shared across workers and processes via a Redis connection
+(`ratelimit.redis.dsn`, default `redis://127.0.0.1:6379`) — requires a Redis
+client (`predis/predis`, `ext-redis`, or `ext-relay`). Bind `PdoRateLimiterStorage`
+as the `Symfony\Component\RateLimiter\Storage\StorageInterface` service
+instead for state shared without a Redis dependency. An over-limit request
+gets a 429 `application/problem+json` response with a `Retry-After` header.
 
 ## License
 

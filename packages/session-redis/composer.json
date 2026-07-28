@@ -1,0 +1,30 @@
+{
+	"name": "quioteframework/session-redis",
+	"description": "Redis-backed session storage for Quiote: a SessionPersistenceInterface implementation for SessionManager, built on predis/predis.",
+	"keywords": ["quiote", "session", "redis", "storage"],
+	"homepage": "https://github.com/quioteframework/session-redis",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"predis/predis": "^3.0",
+		"quioteframework/quiote": "*"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Session\\Redis\\": "src/"
+		}
+	},
+	"extra": {
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/session-redis/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}
