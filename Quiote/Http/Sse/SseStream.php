@@ -10,15 +10,35 @@ use RuntimeException;
  * string) items, typically a generator produced by an
  * SseStreamingAction::streamEvents() implementation.
  *
- * HttpEmitter recognises this type and flushes each formatted event to the
- * client as it's produced via writeTo(); everything else that merely reads
- * the body as a PSR-7 StreamInterface (dev-exception rendering, HttpTestCase
- * assertions, etc.) gets the fully-buffered content via __toString()/
- * getContents(), which drains the iterable in one pass.
+ * There are three ways to drain it, and only one may be used per instance:
+ *  - writeTo(), a push loop that hands each formatted event to a sink and stops
+ *    early when the sink reports the client is gone. SapiEmitter uses this.
+ *  - read()/eof(), an incremental pull for consumers whose only streaming API
+ *    is chunk-at-a-time (the RoadRunner responder).
+ *  - __toString()/getContents(), which buffers everything in one pass, for
+ *    anything treating the body as an ordinary string (dev-exception
+ *    rendering, HttpTestCase assertions).
+ *
+ * Mixing them throws rather than silently dropping events, since the backing
+ * iterable can only be traversed once.
  */
 final class SseStream implements StreamInterface
 {
     private bool $consumed = false;
+
+    /**
+     * Formatted bytes produced by the iterable but not yet returned from
+     * read(), for the incremental path only -- writeTo() never uses it.
+     */
+    private string $buffer = '';
+
+    /**
+     * Lazily created by read(); null until the incremental path is first used.
+     * @var \Iterator<mixed, SseEvent|string>|null
+     */
+    private ?\Iterator $cursor = null;
+
+    private bool $exhausted = false;
 
     /**
      * @param iterable<SseEvent|string> $events
@@ -53,6 +73,9 @@ final class SseStream implements StreamInterface
      */
     public function writeTo(callable $sink): void
     {
+        if ($this->cursor !== null) {
+            throw new RuntimeException('SseStream has already started producing events via read().');
+        }
         foreach ($this->events as $item) {
             $event = $item instanceof SseEvent ? $item : SseEvent::of((string)$item);
             if ($sink($event->format()) === false) {
@@ -86,6 +109,9 @@ final class SseStream implements StreamInterface
 
     public function eof(): bool
     {
+        if ($this->cursor !== null) {
+            return $this->exhausted && $this->buffer === '';
+        }
         return $this->consumed;
     }
 
@@ -99,9 +125,17 @@ final class SseStream implements StreamInterface
         throw new RuntimeException('SseStream is not seekable.');
     }
 
+    /**
+     * Tolerated as a no-op while nothing has been consumed yet, because that is
+     * how PSR-7 consumers conventionally open a body they are about to read
+     * (RoadRunner's chunked responder does exactly this). Once events have
+     * started flowing there is nothing to rewind to.
+     */
     public function rewind(): void
     {
-        throw new RuntimeException('SseStream is not seekable.');
+        if ($this->consumed || $this->cursor !== null) {
+            throw new RuntimeException('SseStream is not seekable; it has already started producing events.');
+        }
     }
 
     public function isWritable(): bool
@@ -119,9 +153,77 @@ final class SseStream implements StreamInterface
         return true;
     }
 
+    /**
+     * Pulls events on demand, returning at most $length bytes and keeping the
+     * remainder for the next call. Blocks in the underlying generator exactly as
+     * long as the next event takes to produce, so a consumer that reads in a
+     * loop streams rather than buffers -- which is what makes SSE work on a
+     * runtime whose only streaming API is "give me a chunk at a time"
+     * (RoadRunner) rather than a write callback (the SAPI emitter, which uses
+     * writeTo() instead).
+     *
+     * Mutually exclusive with writeTo()/getContents(): an iterable can only be
+     * drained once, so mixing the two throws rather than silently losing events.
+     */
     public function read($length): string
     {
-        throw new RuntimeException('SseStream does not support byte-oriented reads; use getContents() or writeTo().');
+        if ($length < 0) {
+            throw new RuntimeException('SseStream::read() length must not be negative.');
+        }
+        if ($this->cursor === null && $this->consumed) {
+            throw new RuntimeException('SseStream has already been drained via writeTo()/getContents().');
+        }
+        if ($length === 0) {
+            return '';
+        }
+
+        $this->cursor ??= $this->openCursor();
+
+        while (strlen($this->buffer) < $length && !$this->exhausted) {
+            $this->pullNext();
+        }
+
+        $chunk = substr($this->buffer, 0, $length);
+        $this->buffer = substr($this->buffer, strlen($chunk));
+        if ($this->exhausted && $this->buffer === '') {
+            $this->consumed = true;
+        }
+        return $chunk;
+    }
+
+    /** @return \Iterator<mixed, SseEvent|string> */
+    private function openCursor(): \Iterator
+    {
+        $events = $this->events;
+        if ($events instanceof \Iterator) {
+            return $events;
+        }
+        if ($events instanceof \IteratorAggregate) {
+            /** @var \Iterator<mixed, SseEvent|string> $inner */
+            $inner = $events->getIterator();
+            return $inner;
+        }
+        return new \ArrayIterator(is_array($events) ? $events : iterator_to_array($events, false));
+    }
+
+    private function pullNext(): void
+    {
+        $cursor = $this->cursor;
+        if ($cursor === null) {
+            $this->exhausted = true;
+            return;
+        }
+        if (!$cursor->valid()) {
+            $this->exhausted = true;
+            return;
+        }
+        $item = $cursor->current();
+        $event = $item instanceof SseEvent ? $item : SseEvent::of((string)$item);
+        $this->buffer .= $event->format();
+        $cursor->next();
+        if (!$cursor->valid()) {
+            $this->exhausted = true;
+        }
     }
 
     public function getMetadata($key = null): mixed

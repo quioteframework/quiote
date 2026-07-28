@@ -1,0 +1,77 @@
+<?php
+
+/**
+ * The slice of ext-swoole that packages/worker-swoole touches. The extension is
+ * a `suggest` rather than a `require` (a hard ext dependency would break
+ * `composer install` for every contributor), so analysis needs these declared.
+ */
+
+namespace Swoole\Http;
+
+class Request
+{
+    /** @var array<string, mixed> */
+    public $server;
+    /** @var array<string, string> */
+    public $header;
+    /** @var array<string, mixed>|null */
+    public $get;
+    /** @var array<string, mixed>|null */
+    public $post;
+    /** @var array<string, string>|null */
+    public $cookie;
+    /** @var array<string, mixed>|null */
+    public $files;
+
+    public function rawContent(): string|false
+    {
+    }
+}
+
+class Response
+{
+    public function status(int $statusCode, string $reason = ''): bool
+    {
+    }
+
+    /**
+     * @param string|array<int, string> $value
+     */
+    public function header(string $key, $value, bool $format = true): bool
+    {
+    }
+
+    public function write(string $content): bool
+    {
+    }
+
+    public function end(string $content = ''): bool
+    {
+    }
+}
+
+class Server
+{
+    public function __construct(string $host, int $port = 0, int $mode = 0, int $sockType = 1)
+    {
+    }
+
+    /**
+     * @param array<string, mixed> $settings
+     */
+    public function set(array $settings): bool
+    {
+    }
+
+    public function on(string $eventName, callable $callback): bool
+    {
+    }
+
+    public function start(): bool
+    {
+    }
+
+    public function shutdown(): bool
+    {
+    }
+}

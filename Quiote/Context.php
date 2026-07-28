@@ -910,47 +910,47 @@ class Context implements \Stringable, ResetInterface
     // Register reset instances for FrankenPHP worker mode
     $this->initializeResetInstances();
 
-    // In FrankenPHP worker mode, we handle shutdown manually in reset()
-    // to avoid double shutdown calls that could clear session data
-    $serverSoftware = $_SERVER["SERVER_SOFTWARE"] ?? null;
-    $isFrankenPHP =
-      function_exists('\frankenphp_request_context') ||
-      getenv("FRANKENPHP_VERSION") !== false ||
-      (is_string($serverSoftware) &&
-        stripos($serverSoftware, "frankenphp") !== false) ||
-      defined("FRANKENPHP_VERSION");
+    // Under a persistent worker runtime we handle shutdown manually in reset()
+    // to avoid double shutdown calls that could clear session data. Asked of
+    // WorkerRuntimeInfo rather than sniffed from the environment, so this holds
+    // for every worker host, not just FrankenPHP.
+    $isPersistentWorker = \Quiote\Runtime\Worker\WorkerRuntimeInfo::isPersistent();
 
-    if (!$isFrankenPHP) {
+    if (!$isPersistentWorker) {
       register_shutdown_function([$this, "shutdown"]);
       $logger->debug(
-        "Context registered shutdown function (not FrankenPHP)",
+        "Context registered shutdown function (single-request runtime)",
       );
     } else {
       $logger->debug(
-        "Context skipping shutdown function registration (FrankenPHP worker mode)",
+        "Context skipping shutdown function registration (persistent worker runtime)",
       );
     }
 
-    // Worker-mode bootstrap happens before the first real HTTP request. At that time
-    // superglobals like $_COOKIE and $_SERVER['REQUEST_METHOD'] are not yet populated
-    // with the inbound request, but factories.xml has already eagerly created
-    // storage + user and invoked storage->startup() and user->initialize(). Because
-    // no cookie is visible yet, storage->startup() defers (sid=null) and user->initialize()
-    // reads null auth => authenticated=false gets latched. Later, when the first
-    // real request arrives, code that consults isAuthenticated() or user attributes
-    // may observe this false before any lazy promotion can occur (e.g. redirect logic),
-    // effectively logging a previously authenticated user out after a container restart.
+    // Worker-mode bootstrap happens before the first real HTTP request, but
+    // factories.xml has already eagerly created storage + user and invoked
+    // storage->startup() and user->initialize(). No session cookie is visible
+    // yet, so storage->startup() defers (sid=null) and user->initialize() reads
+    // null auth => authenticated=false gets latched. Later, when the first real
+    // request arrives, code that consults isAuthenticated() or user attributes
+    // may observe that false before any lazy promotion can occur (e.g. redirect
+    // logic), effectively logging a previously authenticated user out after a
+    // container restart.
     //
-    // Mitigation: In FrankenPHP worker mode, if we are still in pre-request bootstrap
-    // (no REQUEST_METHOD), discard the eagerly created user so that the first access
-    // to getUser() after the real request starts will recreate the user *after* storage
-    // has a chance to see the incoming cookie and load the persisted auth state.
+    // Mitigation: while still in pre-request bootstrap, discard the eagerly
+    // created user so the first getUser() after the real request starts
+    // recreates it *after* storage has had a chance to see the incoming cookie.
     //
-    // This is intentionally narrow in scope (FrankenPHP + no REQUEST_METHOD) to avoid
-    // impacting CLI or non-worker environments.
+    // "Still in bootstrap" is read as "the Kernel has not installed a runtime
+    // yet", which it does immediately after Quiote::bootstrap() returns and
+    // before any request. The previous test for this was
+    // !isset($_SERVER['REQUEST_METHOD']), which cannot work on a runtime that
+    // doesn't populate superglobals until mid-request (RoadRunner, Swoole):
+    // there the key is absent during *every* Context::initialize(), so the
+    // deferral would fire on requests it was never meant to touch.
     if (
-      $isFrankenPHP &&
-      !isset($_SERVER["REQUEST_METHOD"]) &&
+      $isPersistentWorker &&
+      !\Quiote\Runtime\Worker\WorkerRuntimeInfo::isInstalled() &&
       $this->user !== null
     ) {
       try {

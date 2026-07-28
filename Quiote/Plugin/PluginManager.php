@@ -210,6 +210,8 @@ final class PluginManager
         \Quiote\Database\DatabaseDriverRegistry::reset();
         \Quiote\Exception\Rendering\ExceptionRendererRegistry::reset();
         \Quiote\Filesystem\FilesystemDriverRegistry::reset();
+        \Quiote\Runtime\Worker\WorkerRuntimeRegistry::reset();
+        \Quiote\Runtime\Worker\WorkerRuntimeInfo::reset();
     }
 
     /**

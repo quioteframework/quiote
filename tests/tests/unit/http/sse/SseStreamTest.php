@@ -60,11 +60,70 @@ class SseStreamTest extends TestCase
         $stream->seek(0);
     }
 
-    public function testReadIsNotSupported(): void
+    public function testReadPullsEventsIncrementallyAndRespectsTheRequestedLength(): void
     {
-        $stream = new SseStream([]);
+        $stream = new SseStream(['ab', 'cd']);
+
+        // "data: ab\n\n" is 10 bytes; a 4-byte read must not drain the second event.
+        $this->assertSame('data', $stream->read(4));
+        $this->assertFalse($stream->eof());
+        $this->assertSame(": ab\n\n", $stream->read(6));
+        $this->assertSame("data: cd\n\n", $stream->read(64));
+        $this->assertTrue($stream->eof());
+        $this->assertSame('', $stream->read(64));
+    }
+
+    public function testReadOnlyProducesEventsAsTheyAreAskedFor(): void
+    {
+        $produced = 0;
+        $generator = (static function () use (&$produced): iterable {
+            foreach (['one', 'two', 'three'] as $value) {
+                $produced++;
+                yield $value;
+            }
+        })();
+
+        $stream = new SseStream($generator);
+        $stream->read(1);
+
+        // Streaming, not buffering: asking for one byte must not drain the generator.
+        // The cursor sits one event ahead because it has to test validity to know eof().
+        $this->assertLessThan(3, $produced);
+    }
+
+    public function testReadRejectsANegativeLength(): void
+    {
+        $stream = new SseStream(['x']);
+        $this->expectException(RuntimeException::class);
+        $stream->read(-1);
+    }
+
+    public function testReadAfterDrainingViaGetContentsThrows(): void
+    {
+        $stream = new SseStream(['x']);
+        $stream->getContents();
+
         $this->expectException(RuntimeException::class);
         $stream->read(10);
+    }
+
+    public function testWriteToAfterReadThrowsRatherThanLosingEvents(): void
+    {
+        $stream = new SseStream(['x', 'y']);
+        $stream->read(1);
+
+        $this->expectException(RuntimeException::class);
+        $stream->writeTo(static fn(): bool => true);
+    }
+
+    public function testRewindIsAllowedBeforeAnythingHasBeenProducedAndRefusedAfter(): void
+    {
+        $stream = new SseStream(['x']);
+        $stream->rewind();
+        $this->assertSame("data: x\n\n", $stream->read(64));
+
+        $this->expectException(RuntimeException::class);
+        $stream->rewind();
     }
 
     public function testCloseAndDetachMarkStreamAsConsumed(): void

@@ -1,22 +1,36 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Quiote\Runtime;
 
-use Quiote\Quiote;
-use Quiote\Middleware\ErrorHandlingMiddleware;
-use Quiote\Request\WebRequest;
 use Quiote\Config\Config;
+use Quiote\Quiote;
+use Quiote\Runtime\Request\WorkerRequestFactory;
+use Quiote\Runtime\Session\NativeSessionCookieBridge;
+use Quiote\Runtime\Superglobals\SuperglobalBridge;
+use Quiote\Runtime\Worker\WorkerLoop;
+use Quiote\Runtime\Worker\WorkerRuntimeInfo;
+use Quiote\Runtime\Worker\WorkerRuntimeInterface;
+use Quiote\Runtime\Worker\WorkerRuntimeRegistry;
 use Quiote\Util\WorkerManager;
-use Quiote\Runtime\Worker\FrankenPhpWorkerAdapter;
-use Quiote\Runtime\Worker\SingleRequestAdapter;
-use Quiote\Runtime\Worker\WorkerAdapterInterface;
+use RuntimeException;
 
+/**
+ * Boots the framework and hands the request loop to a worker runtime.
+ *
+ * The Kernel deliberately knows nothing about how requests arrive or responses
+ * leave: that is the selected {@see WorkerRuntimeInterface}'s job, and
+ * everything in between is {@see WorkerLoop}'s. Its own remit is the three
+ * steps around that -- bootstrap, pick the runtime, start it.
+ */
 class Kernel
 {
     private ?string $appDir = null;
     private bool $prewarm = false;
     /** @var array<int, string> */
     private array $extraContexts = [];
+    private WorkerRuntimeInterface|string|null $runtimeOverride = null;
 
     private function __construct(
         private readonly string $env,
@@ -28,27 +42,33 @@ class Kernel
      * Options:
      *  - env: string environment
      *  - context: string primary context name
-     *  - psr: bool enable PSR pipeline
      *  - app_dir: string application root (contains Config/, Modules/, etc.)
-     *  - autoload_paths: string|array additional composer autoload files to require (app first)
      *  - prewarm: bool force prewarm
      *  - contexts: array additional contexts to pre-create
+     *  - worker_runtime: string alias ("frankenphp", "roadrunner", ...), a
+     *    fully-qualified WorkerRuntimeInterface class name, or an instance.
+     *    Takes precedence over $QUIOTE_WORKER_RUNTIME and `core.worker_runtime`.
      * @param array<string, mixed> $options
      */
     public static function create(array $options = []): self
     {
-
         $env = $options['env'] ?? getenv('QUIOTE_ENV') ?: 'prod';
         $context = $options['context'] ?? getenv('QUIOTE_CONTEXT') ?: 'web';
-        $kernel = new self($env, $context);
-        if (isset($options['app_dir'])) {
+        $kernel = new self(is_string($env) ? $env : 'prod', is_string($context) ? $context : 'web');
+        if (isset($options['app_dir']) && is_string($options['app_dir'])) {
             $kernel->appDir = $options['app_dir'];
         }
         if (isset($options['prewarm'])) {
             $kernel->prewarm = (bool)$options['prewarm'];
         }
         if (isset($options['contexts']) && is_array($options['contexts'])) {
-            $kernel->extraContexts = $options['contexts'];
+            /** @var array<int, string> $contexts */
+            $contexts = array_values(array_filter($options['contexts'], 'is_string'));
+            $kernel->extraContexts = $contexts;
+        }
+        $runtime = $options['worker_runtime'] ?? null;
+        if ($runtime instanceof WorkerRuntimeInterface || (is_string($runtime) && $runtime !== '')) {
+            $kernel->runtimeOverride = $runtime;
         }
         return $kernel;
     }
@@ -56,62 +76,30 @@ class Kernel
     public function run(): void
     {
         $this->bootstrap();
+
         $context = Quiote::context($this->contextName, true);
-        $adapter = $this->selectWorkerAdapter();
-        $emitter = new HttpEmitter();
+        $runtime = $this->selectRuntime();
+        WorkerRuntimeInfo::install($runtime);
 
-        $handle = function () use ($context, $emitter) {
-            try {
-                $request = $this->buildRequestFromGlobals();
-                $response = $context->handle($request);
-                $emitter->emit($response);
-            } catch (\Throwable $e) {
-                // Log basic diagnostics
-                \Quiote\Logging\Log::for($this)->debug('[Kernel] Uncaught during handle bootstrap: '.$e::class.': '.$e->getMessage().' @ '.$e->getFile().':'.$e->getLine());
-                // Backstop for a pre-pipeline failure — TelemetryMiddleware never got a chance to run, so
-                // whatever span (if any) is active gets the exception recorded here.
-                \Quiote\Telemetry\Trace::current()->recordException($e)->setStatusError($e->getMessage());
-                // Attempt unified error rendering via ErrorHandlingMiddleware helper.
-                try {
-                    $err = new ErrorHandlingMiddleware(function(\Throwable $ex, \Psr\Http\Message\ServerRequestInterface $r): void {
-                        \Quiote\Logging\Log::for($this)->debug('[Kernel][late] '.$ex::class.': '.$ex->getMessage());
-                    });
-                    // If original PSR request not built (rare), synthesize minimal one.
-                    if(!isset($request)) {
-                        $psr17 = new \Nyholm\Psr7\Factory\Psr17Factory();
-                        $request = $psr17->createServerRequest('GET', '/error');
-                    }
-                    $resp = $err->renderExceptionResponse($request, $e);
-                    $emitter->emit($resp);
-                } catch(\Throwable) {
-                    // Only emit a raw fallback header if no Content-Type header has been sent/queued.
-                    // Duplicate Content-Type headers were observed; guard against re-emission.
-                    if (!headers_sent()) {
-                        // Attempt to detect if any output buffering already contains an HTTP header by scanning headers_list()
-                        $existing = function_exists('headers_list') ? headers_list() : [];
-                        $hasCt = array_any($existing, fn($h) => stripos($h, 'Content-Type:') === 0);
-                        if (!$hasCt) {
-                            header('Content-Type: text/plain; charset=utf-8', true, 500);
-                        }
-                    }
-                    echo 'Internal Server Error';
-                }
-            }
-            return true; // continue loop
-        };
+        $capabilities = $runtime->capabilities();
+        if ($capabilities->persistent) {
+            WorkerManager::configure([
+                'max_requests_before_cleanup' => $this->cleanupInterval(),
+                'preserve_callback_pool' => true,
+                'reset_stats' => true,
+            ]);
+        }
 
-        $reset = function () use ($context): void {
-            if (class_exists(WorkerManager::class)) {
-                WorkerManager::resetForNextRequest($context->getName());
-            }
-            // Per-request-boundary hook for plugins holding worker-lifetime state
-            // that needs flushing between requests -- Kernel names no concrete
-            // plugin class here. Core's own
-            // telemetry-exporter default registers its listener a few lines below.
-            \Quiote\Event\Events::emitLazy(\Quiote\Event\Lifecycle\WorkerRequestCompletedEvent::class, static fn() => new \Quiote\Event\Lifecycle\WorkerRequestCompletedEvent($context));
-        };
-
-        $adapter->run($handle, $reset);
+        $runtime->run(new WorkerLoop(
+            context: $context,
+            requestFactory: new WorkerRequestFactory(),
+            superglobals: new SuperglobalBridge(),
+            output: new OutputCapture(),
+            errors: new ErrorResponseFactory(),
+            sessionCookies: new NativeSessionCookieBridge(),
+            capabilities: $capabilities,
+            maxRequests: $capabilities->persistent ? $this->maxRequests() : 0,
+        ));
     }
 
     private function bootstrap(): void
@@ -140,205 +128,91 @@ class Kernel
         Quiote::bootstrap($this->env, $contextsToPreCreate, ['prewarm' => $this->prewarm]);
     }
 
-    private function selectWorkerAdapter(): WorkerAdapterInterface
-    {
-        if (FrankenPhpWorkerAdapter::isSupported()) {
-            WorkerManager::configure([
-                'max_requests_before_cleanup' => (int)(getenv('QUIOTE_MAX_REQUESTS') ?: 1000),
-                'preserve_route_cache' => true,
-                'preserve_route_trie' => true,
-                'preserve_callback_pool' => true,
-                'reset_stats' => true,
-            ]);
-            return new FrankenPhpWorkerAdapter();
-        }
-        return new SingleRequestAdapter();
-    }
-
-    private function buildRequestFromGlobals(): \Psr\Http\Message\ServerRequestInterface
-    {
-        // Apply reverse proxy adjustments to $_SERVER BEFORE creating PSR-7 request
-        // so that the server params snapshot includes the corrected values
-        $this->preAdjustServerGlobalsForProxy($_SERVER);
-        
-        // Build a spec-compliant ServerRequest via Nyholm factories, then wrap directly in WebRequest.
-        static $creator = null;
-        if ($creator === null) {
-            $psr17 = new \Nyholm\Psr7\Factory\Psr17Factory();
-            $creator = new \Nyholm\Psr7Server\ServerRequestCreator($psr17, $psr17, $psr17, $psr17);
-        }
-        $base = $creator->fromGlobals(); // Body parsing/JSON handled later by middleware.
-        
-        // Create WebRequest from PSR-7 request (WebRequest extends ServerRequest)
-        $quioteReq = new WebRequest(
-            $base->getMethod(),
-            $base->getUri(),
-            $base->getHeaders(),
-            $base->getBody(),
-            $base->getProtocolVersion(),
-            $base->getServerParams()
-        );
-        $quioteReq = $quioteReq
-            ->withQueryParams($base->getQueryParams())
-            ->withCookieParams($base->getCookieParams())
-            ->withParsedBody($base->getParsedBody())
-            ->withUploadedFiles($base->getUploadedFiles());
-        foreach ($base->getAttributes() as $name => $value) {
-            $quioteReq = $quioteReq->withAttribute($name, $value);
-        }
-        return $quioteReq;
-    }
-    
     /**
-     * Pre-adjust $_SERVER globals based on X-Forwarded-* headers before PSR-7 request creation
-     * @param array<string, mixed> $server
+     * Resolution order, highest first: the create() option, $QUIOTE_WORKER_RUNTIME,
+     * `core.worker_runtime`, then auto-detection.
+     *
+     * An explicitly named runtime that doesn't claim this process is a hard
+     * error rather than a fall back to `sapi`: silently downgrading a
+     * production RoadRunner deployment to one-request-per-process is a far
+     * worse outcome than refusing to start.
      */
-    private function preAdjustServerGlobalsForProxy(array $server): void
+    private function selectRuntime(): WorkerRuntimeInterface
     {
-        $forwardedHostRaw = $this->resolveForwardedValue($server, ['HTTP_X_ORIGINAL_HOST', 'HTTP_X_FORWARDED_HOST'], 'host');
-        $forwardedProtoRaw = $this->resolveForwardedValue($server, ['HTTP_X_FORWARDED_PROTO'], 'proto');
-        $forwardedPortRaw = $this->resolveForwardedValue($server, ['HTTP_X_FORWARDED_PORT'], 'port');
-
-        if ($forwardedHostRaw === null && $forwardedProtoRaw === null && $forwardedPortRaw === null) {
-            return;
+        if ($this->runtimeOverride instanceof WorkerRuntimeInterface) {
+            return $this->runtimeOverride;
         }
 
-        [$hostOverride, $portFromHost, $hostPortExplicit] = $this->parseHostAndPort($forwardedHostRaw);
-        $schemeOverride = $this->normaliseScheme($this->firstHeaderToken($forwardedProtoRaw));
-        $portOverride = $portFromHost;
-        $portExplicit = $hostPortExplicit;
+        $requested = $this->runtimeOverride;
+        $source = 'the "worker_runtime" kernel option';
 
-        if ($portOverride === null && $forwardedPortRaw !== null) {
-            $token = $this->firstHeaderToken($forwardedPortRaw);
-            if ($token !== null && $token !== '' && is_numeric($token)) {
-                $portOverride = (int) $token;
-                $portExplicit = true;
+        if ($requested === null) {
+            $fromEnv = getenv('QUIOTE_WORKER_RUNTIME');
+            if (is_string($fromEnv) && $fromEnv !== '') {
+                $requested = $fromEnv;
+                $source = '$QUIOTE_WORKER_RUNTIME';
             }
         }
 
-        // Update $_SERVER globals directly
-        if ($schemeOverride !== null && $schemeOverride !== '') {
-            $_SERVER['REQUEST_SCHEME'] = $schemeOverride;
-            if ($schemeOverride === 'https') {
-                $_SERVER['HTTPS'] = 'on';
+        if ($requested === null) {
+            $fromConfig = Config::getString('core.worker_runtime', 'auto');
+            if ($fromConfig !== '' && $fromConfig !== 'auto') {
+                $requested = $fromConfig;
+                $source = 'the "core.worker_runtime" setting';
             }
         }
 
-        if ($hostOverride !== null && $hostOverride !== '') {
-            $authorityHost = $this->formatAuthorityHost($hostOverride);
-            // Only include port in HTTP_HOST if it's non-default
-            if ($portOverride !== null && $this->isPortNonDefault($schemeOverride ?? 'http', $portOverride)) {
-                $authorityHost .= ':' . $portOverride;
-            }
-            $_SERVER['HTTP_HOST'] = $authorityHost;
-            $_SERVER['SERVER_NAME'] = $hostOverride;
+        if ($requested === null || $requested === 'auto') {
+            $class = WorkerRuntimeRegistry::detect();
+            return new $class();
         }
 
-        if ($portOverride !== null) {
-            $_SERVER['SERVER_PORT'] = (string) $portOverride;
+        $class = WorkerRuntimeRegistry::instantiateClassFor($requested);
+        if (!$class::isSupported()) {
+            throw new RuntimeException(sprintf(
+                'Worker runtime "%s" was requested via %s, but it reports that it is not hosting this process. '
+                . 'Check that the app is being started by that server (%s). Use "auto" to detect the runtime instead.',
+                $requested,
+                $source,
+                self::detectionHintFor($class::alias()),
+            ));
         }
+
+        return new $class();
+    }
+
+    private static function detectionHintFor(string $alias): string
+    {
+        return match ($alias) {
+            'frankenphp' => 'FrankenPHP worker mode defines frankenphp_handle_request()',
+            'roadrunner' => 'RoadRunner sets $RR_MODE=http for its workers',
+            'swoole' => 'the Swoole runtime needs ext-swoole, the CLI SAPI, and $QUIOTE_WORKER_RUNTIME=swoole',
+            default => 'see that runtime\'s isSupported()',
+        };
     }
 
     /**
-     * Prefer explicit reverse-proxy headers for scheme/host/port while still respecting RFC 7239 Forwarded.
-     * @param array<string,mixed> $server
-     * @param string[] $headerKeys
+     * How many requests one worker process handles before the loop stops and
+     * lets the supervisor start a fresh one. 0 (the default) disables the
+     * budget, which is what RoadRunner and Swoole want -- both recycle workers
+     * themselves via max_jobs/max_request, and a PHP-side stop mid-pool looks
+     * to them like a crashed worker.
      */
-    private function resolveForwardedValue(array $server, array $headerKeys, string $forwardedParam): ?string
+    private function maxRequests(): int
     {
-        foreach ($headerKeys as $key) {
-            if (!empty($server[$key])) {
-                return (string) $server[$key];
-            }
-        }
-
-        if (empty($server['HTTP_FORWARDED'])) {
-            return null;
-        }
-
-        return $this->extractFromForwardedHeader((string) $server['HTTP_FORWARDED'], $forwardedParam);
-    }
-
-    private function extractFromForwardedHeader(string $header, string $field): ?string
-    {
-        $entries = explode(',', $header);
-        foreach ($entries as $entry) {
-            $pairs = preg_split('/\s*;\s*/', trim($entry)) ?: [];
-            foreach ($pairs as $pair) {
-                if ($pair === '') {
-                    continue;
-                }
-                $kv = explode('=', $pair, 2);
-                if (count($kv) !== 2) {
-                    continue;
-                }
-                if (strcasecmp(trim($kv[0]), $field) === 0) {
-                    return trim($kv[1], "\" \t");
-                }
-            }
-        }
-        return null;
-    }
-
-    private function firstHeaderToken(?string $value): ?string
-    {
-        if ($value === null) {
-            return null;
-        }
-        $parts = explode(',', $value);
-        foreach ($parts as $part) {
-            $trimmed = trim($part);
-            if ($trimmed !== '') {
-                return $trimmed;
-            }
-        }
-        return null;
+        return max(0, (int) Config::getInt('core.worker.max_requests', 0));
     }
 
     /**
-     * @return array{0: ?string, 1: ?int, 2: bool}
+     * How often WorkerManager does its deep cleanup pass. $QUIOTE_MAX_REQUESTS
+     * has always driven this (rather than terminating the loop) and keeps doing so.
      */
-    private function parseHostAndPort(?string $raw): array
+    private function cleanupInterval(): int
     {
-        $token = $this->firstHeaderToken($raw);
-        if ($token === null || $token === '') {
-            return [null, null, false];
+        $fromEnv = getenv('QUIOTE_MAX_REQUESTS');
+        if (is_string($fromEnv) && $fromEnv !== '' && is_numeric($fromEnv)) {
+            return max(1, (int) $fromEnv);
         }
-        $authority = '//' . ltrim($token, '/');
-        $host = parse_url($authority, PHP_URL_HOST);
-        $port = parse_url($authority, PHP_URL_PORT);
-        if (!is_string($host) || $host === '') {
-            return [null, null, false];
-        }
-        $explicit = $port !== null && $port !== false;
-        return [$host, $explicit ? (int) $port : null, $explicit];
-    }
-
-    private function normaliseScheme(?string $scheme): ?string
-    {
-        if ($scheme === null || $scheme === '') {
-            return null;
-        }
-        return strtolower($scheme);
-    }
-
-    private function formatAuthorityHost(string $host): string
-    {
-        if (str_contains($host, ':') && !str_starts_with($host, '[')) {
-            return '[' . $host . ']';
-        }
-        return $host;
-    }
-
-    private function isPortNonDefault(?string $scheme, int $port): bool
-    {
-        $scheme = strtolower((string) $scheme);
-        if ($scheme === 'http' && $port === 80) {
-            return false;
-        }
-        if ($scheme === 'https' && $port === 443) {
-            return false;
-        }
-        return true;
+        return max(1, (int) Config::getInt('core.worker.cleanup_interval', 1000));
     }
 }

@@ -2,6 +2,9 @@ parameters:
 	level: 8
 	bootstrapFiles:
 		- etc/phpstan/bootstrap.php
+	stubFiles:
+		- etc/phpstan/worker-runtimes.stub
+		- etc/phpstan/swoole.stub
 	dynamicConstantNames:
 		- QUIOTE_USE_APCU_CONFIG_CACHE
 	paths:

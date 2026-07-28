@@ -1,6 +1,6 @@
 # FrankenPHP worker-mode Caddyfile for the samples/app sample application.
 # Worker mode keeps the app bootstrapped in memory between requests (see
-# Quiote\Runtime\Kernel + Quiote\Runtime\Worker\FrankenPhpWorkerAdapter) --
+# Quiote\Runtime\Kernel + Quiote\Runtime\Worker\FrankenPhpRuntime) --
 # this is the deployment shape Quiote mainly targets.
 {
 	frankenphp {

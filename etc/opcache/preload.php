@@ -3,10 +3,11 @@
 declare(strict_types=1);
 
 /**
- * OPcache preload script for the FrankenPHP worker deployment.
+ * OPcache preload script for a persistent worker deployment.
  *
  * Worker mode already keeps the app bootstrapped in memory between requests
- * (see Quiote\Runtime\Worker\FrankenPhpWorkerAdapter), but each new worker
+ * (see Quiote\Runtime\Worker\WorkerRuntimeInterface and its implementations),
+ * but each new worker
  * process still pays autoloading + reflection-based autowiring for the
  * Quiote\* core classes on its first request. Preloading compiles those
  * classes into the shared OPcache SHM arena once, at PHP process startup,

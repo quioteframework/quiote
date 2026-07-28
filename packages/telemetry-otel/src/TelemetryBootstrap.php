@@ -4,7 +4,7 @@ namespace Quiote\Telemetry;
 
 use Quiote\Config\Config;
 use Quiote\Logging\Log;
-use Quiote\Runtime\Worker\FrankenPhpWorkerAdapter;
+use Quiote\Runtime\Worker\WorkerRuntimeInfo;
 
 /**
  * Builds the worker-lifetime TracerProvider/MeterProvider from `telemetry.*`
@@ -176,9 +176,16 @@ final class TelemetryBootstrap
         );
     }
 
+    /**
+     * Batching only pays off when the process outlives the request. This runs as
+     * a KernelBootEvent listener, i.e. before the Kernel has selected a runtime,
+     * so WorkerRuntimeInfo answers from auto-detection here rather than from an
+     * installed runtime -- which is correct, since plugins (including any that
+     * contribute a runtime) have already registered by then.
+     */
     private static function isWorkerMode(): bool
     {
-        return FrankenPhpWorkerAdapter::isSupported();
+        return WorkerRuntimeInfo::isPersistent();
     }
 
     private static function buildTracerProvider(\OpenTelemetry\SDK\Resource\ResourceInfo $resource): \OpenTelemetry\SDK\Trace\TracerProviderInterface
@@ -321,7 +328,16 @@ final class TelemetryBootstrap
         if ($headers !== []) {
             $encoded = [];
             foreach ($headers as $key => $value) {
-                $encoded[] = $key . '=' . $value;
+                // Config values are mixed; a header can only carry a scalar, and a
+                // nested array here is a config mistake worth ignoring rather than
+                // turning into "Array" in an OTLP header.
+                if (!is_scalar($value)) {
+                    Log::for(self::class)->warning(
+                        '[TelemetryBootstrap] ignoring non-scalar telemetry.otlp.headers entry "' . $key . '".'
+                    );
+                    continue;
+                }
+                $encoded[] = $key . '=' . (is_bool($value) ? ($value ? '1' : '0') : (string) $value);
             }
             putenv('OTEL_EXPORTER_OTLP_HEADERS=' . implode(',', $encoded));
         }
