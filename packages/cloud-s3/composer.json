@@ -1,0 +1,37 @@
+{
+	"name": "quioteframework/cloud-s3",
+	"description": "Minimal AWS S3 REST client for Quiote \u2014 SigV4-signed get/put/delete against a single bucket, with no aws-sdk-php dependency. Shared by the S3 session and filesystem backends.",
+	"keywords": [
+		"quiote",
+		"s3",
+		"aws",
+		"storage",
+		"client"
+	],
+	"homepage": "https://github.com/quioteframework/cloud-s3",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"psr/http-client": "^1.0",
+		"psr/http-message": "^2.0",
+		"nyholm/psr7": "^1.8"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Storage\\S3\\": "src/"
+		}
+	},
+	"extra": {
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/cloud-s3/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}

@@ -52,10 +52,15 @@ final class GcsFilesystemPlugin implements PluginInterface
 
     private static function resolveHttpClient(Container $container): ClientInterface
     {
-        $client = $container->get(ClientInterface::class);
+        // tryGet(), not get(): the container throws for an unregistered,
+        // non-autowireable service, so the instanceof check below could never
+        // actually run and the caller saw an autowiring error instead of the
+        // message that tells them what to bind.
+        $client = $container->tryGet(ClientInterface::class);
         if (!$client instanceof ClientInterface) {
             throw new RuntimeException(sprintf(
-                'The "gcs" filesystem disk requires a %s bound in the container — none found.',
+                'The "gcs" filesystem disk requires a %s bound in the container — none found. '
+                . 'Bind your PSR-18 client before enabling this disk.',
                 ClientInterface::class,
             ));
         }

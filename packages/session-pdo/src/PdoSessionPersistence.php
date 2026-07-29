@@ -36,16 +36,38 @@ final class PdoSessionPersistence implements SessionPersistenceInterface
     #[\Override]
     public function load(string $sid): ?array
     {
+        $statement = null;
+
         try {
-            $statement = $this->pdo->prepare("SELECT sess_data FROM {$this->table} WHERE sess_id = ?");
+            // Narrowed through a separate variable so $statement -- which the
+            // finally below dereferences -- is only ever PDOStatement|null.
+            $prepared = $this->pdo->prepare("SELECT sess_data FROM {$this->table} WHERE sess_id = ?");
+            if ($prepared === false) {
+                return null;
+            }
+            $statement = $prepared;
             $statement->execute([$sid]);
-            $payload = $statement->fetchColumn();
+            // fetch() rather than fetchColumn(): a LOB column comes back as a
+            // stream on some drivers, and only the row form is typed loosely
+            // enough to say so.
+            $row = $statement->fetch(PDO::FETCH_NUM);
+            $payload = is_array($row) && array_key_exists(0, $row) ? $row[0] : null;
+
+            if (is_resource($payload)) {
+                // Drain it while the cursor is still open.
+                $contents = stream_get_contents($payload);
+                $payload = $contents === false ? null : $contents;
+            }
         } catch (PDOException $e) {
             throw new StorageException('Failed loading session row: ' . $e->getMessage(), (int) $e->getCode(), $e);
-        }
-
-        if (is_resource($payload)) {
-            $payload = stream_get_contents($payload);
+        } finally {
+            // Release the cursor. A fetched-but-unclosed statement keeps the
+            // connection inside an implicit read transaction holding a shared
+            // lock, which on SQLite blocks every *other* connection from
+            // writing -- so in a worker runtime one worker's load() makes the
+            // next worker's save() fail with SQLITE_BUSY. busy_timeout does not
+            // cover the shared-to-exclusive upgrade.
+            $statement?->closeCursor();
         }
 
         if (!is_string($payload) || $payload === '') {
@@ -84,11 +106,15 @@ final class PdoSessionPersistence implements SessionPersistenceInterface
         }
     }
 
+    /** @param array<string, mixed> $data */
     private function encode(array $data): string
     {
         if (function_exists('igbinary_serialize')) {
             try {
-                return igbinary_serialize($data);
+                $packed = igbinary_serialize($data);
+                if (is_string($packed)) {
+                    return $packed;
+                }
             } catch (Throwable) {
                 // fall through to JSON
             }
@@ -103,7 +129,7 @@ final class PdoSessionPersistence implements SessionPersistenceInterface
         if (function_exists('igbinary_unserialize') && !str_starts_with($payload, '{') && !str_starts_with($payload, '[')) {
             try {
                 $decoded = igbinary_unserialize($payload);
-                return is_array($decoded) ? $decoded : null;
+                return self::asSessionData($decoded);
             } catch (Throwable) {
                 return null;
             }
@@ -115,6 +141,32 @@ final class PdoSessionPersistence implements SessionPersistenceInterface
             return null;
         }
 
-        return is_array($decoded) ? $decoded : null;
+        return self::asSessionData($decoded);
     }
+
+    /**
+     * Narrow a decoded payload to the string-keyed shape a session is. A JSON
+     * list, or an igbinary payload holding one, decodes to integer keys: that is
+     * not session data, and handing it back would make the caller's key lookups
+     * silently miss.
+     *
+     * @return array<string, mixed>|null
+     */
+    private static function asSessionData(mixed $decoded): ?array
+    {
+        if (!is_array($decoded)) {
+            return null;
+        }
+
+        $result = [];
+        foreach ($decoded as $key => $value) {
+            if (!is_string($key)) {
+                return null;
+            }
+            $result[$key] = $value;
+        }
+
+        return $result;
+    }
+
 }

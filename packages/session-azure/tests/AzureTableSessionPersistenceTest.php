@@ -37,7 +37,9 @@ final class FakeAzureTableTransport implements ClientInterface
             'POST' => $this->psr17->createResponse(201),
             'PUT' => $this->handleUpsert($request, $path),
             'GET' => isset($this->entities[$path])
-                ? $this->psr17->createResponse(200)->withBody($this->psr17->createStream(json_encode($this->entities[$path])))
+                ? $this->psr17->createResponse(200)->withBody(
+                    $this->psr17->createStream(json_encode($this->entities[$path], JSON_THROW_ON_ERROR)),
+                )
                 : $this->psr17->createResponse(404),
             'DELETE' => $this->handleDelete($path),
             default => $this->psr17->createResponse(400),
@@ -46,7 +48,12 @@ final class FakeAzureTableTransport implements ClientInterface
 
     private function handleUpsert(RequestInterface $request, string $path): ResponseInterface
     {
-        $this->entities[$path] = json_decode((string) $request->getBody(), true);
+        $decoded = json_decode((string) $request->getBody(), true, flags: JSON_THROW_ON_ERROR);
+        $entity = [];
+        foreach (is_array($decoded) ? $decoded : [] as $key => $value) {
+            $entity[(string) $key] = $value;
+        }
+        $this->entities[$path] = $entity;
 
         return $this->psr17->createResponse(204);
     }

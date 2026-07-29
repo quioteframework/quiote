@@ -1,7 +1,13 @@
 {
 	"name": "quioteframework/session-s3",
-	"description": "AWS S3 session backend for Quiote — a SessionPersistenceInterface implementation for SessionManager, backed by a minimal SigV4 REST client (no aws-sdk-php dependency).",
-	"keywords": ["quiote", "session", "s3", "aws", "storage"],
+	"description": "AWS S3 session backend for Quiote \u2014 a SessionPersistenceInterface implementation for SessionManager, backed by a minimal SigV4 REST client (no aws-sdk-php dependency).",
+	"keywords": [
+		"quiote",
+		"session",
+		"s3",
+		"aws",
+		"storage"
+	],
 	"homepage": "https://github.com/quioteframework/session-s3",
 	"type": "library",
 	"license": "MIT",
@@ -17,9 +23,7 @@
 	"require": {
 		"php": ">=8.5.0",
 		"quioteframework/quiote": "*",
-		"psr/http-client": "^1.0",
-		"psr/http-message": "^2.0",
-		"nyholm/psr7": "^1.8"
+		"quioteframework/cloud-s3": "*"
 	},
 	"autoload": {
 		"psr-4": {

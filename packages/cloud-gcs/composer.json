@@ -1,0 +1,37 @@
+{
+	"name": "quioteframework/cloud-gcs",
+	"description": "Minimal Google Cloud Storage client for Quiote \u2014 HMAC-signed get/put/delete against a single bucket via the S3-compatible interoperability API. Shared by the GCS session and filesystem backends.",
+	"keywords": [
+		"quiote",
+		"gcs",
+		"google-cloud",
+		"storage",
+		"client"
+	],
+	"homepage": "https://github.com/quioteframework/cloud-gcs",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Quiote Contributors",
+			"homepage": "https://github.com/quioteframework/quiote/graphs/contributors"
+		}
+	],
+	"support": {
+		"issues": "https://github.com/quioteframework/quiote/issues"
+	},
+	"require": {
+		"php": ">=8.5.0",
+		"psr/http-client": "^1.0",
+		"psr/http-message": "^2.0",
+		"nyholm/psr7": "^1.8"
+	},
+	"autoload": {
+		"psr-4": {
+			"Quiote\\Storage\\Gcs\\": "src/"
+		}
+	},
+	"extra": {
+		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/cloud-gcs/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
+	}
+}

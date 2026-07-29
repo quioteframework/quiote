@@ -114,6 +114,32 @@ class Container implements ContainerInterface
     }
 
     /**
+     * Resolve $id, or null when it cannot be resolved.
+     *
+     * get() throws for an unregistered, non-autowireable service, which makes
+     * the natural-looking
+     *
+     *     $client = $container->get(ClientInterface::class);
+     *     if (!$client instanceof ClientInterface) { ... }
+     *
+     * a trap: the guard never runs, because get() has already thrown a
+     * ContainerException with a message about autowiring rather than about the
+     * thing the caller actually needs. Optional dependencies -- "use the app's
+     * PSR-18 client if it bound one" -- should ask with this instead, and say
+     * something useful when the answer is no.
+     *
+     * @since      3.0.0
+     */
+    public function tryGet(string $id): mixed
+    {
+        try {
+            return $this->get($id);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
      * PSR-11 has(): reflects only explicitly registered entries (definitions/aliases),
      * not autowireable classes. Use canAutowire() for the internal autowiring path.
      */

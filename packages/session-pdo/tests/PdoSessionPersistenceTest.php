@@ -35,7 +35,7 @@ final class PdoSessionPersistenceTest extends TestCase
         $this->persistence->save('sid-1', ['a' => 2]);
 
         $this->assertSame(['a' => 2], $this->persistence->load('sid-1'));
-        $this->assertSame(1, (int) $this->pdo->query('SELECT COUNT(*) FROM session')->fetchColumn());
+        $this->assertSame(1, self::column($this->pdo, 'SELECT COUNT(*) FROM session'));
     }
 
     public function testDeleteRemovesRow(): void
@@ -51,4 +51,15 @@ final class PdoSessionPersistenceTest extends TestCase
         $this->persistence->delete('never-existed');
         $this->addToAssertionCount(1);
     }
+    /** PDO::query() is typed PDOStatement|false; narrow it once here. */
+    private static function column(PDO $pdo, string $sql): int
+    {
+        $statement = $pdo->query($sql);
+        self::assertNotFalse($statement);
+
+        $value = $statement->fetchColumn();
+
+        return is_numeric($value) ? (int) $value : 0;
+    }
+
 }

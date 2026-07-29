@@ -88,7 +88,10 @@ final class AzureBlobClient
         return $this->endpoint ?? "https://{$this->accountName}.blob.core.windows.net";
     }
 
-    /** @param array<string, string> $query @param array<string, string> $headers */
+    /**
+     * @param array<string, string> $query
+     * @param array<string, string> $headers
+     */
     private function send(string $method, string $path, array $query = [], array $headers = [], ?string $body = null): ResponseInterface
     {
         $lastResponse = null;
@@ -127,7 +130,29 @@ final class AzureBlobClient
             usleep(self::RETRY_BASE_DELAY_MS * 1000 * $attempt);
         }
 
+        if ($lastResponse === null) {
+            // Unreachable while RETRY_MAX_ATTEMPTS >= 1, but the loop bound is a
+            // constant somebody could lower; better a named failure than a
+            // TypeError on the way out.
+            throw new AzureStorageException('No response from Azure Storage: the retry loop ran zero attempts.');
+        }
+
         return $lastResponse;
+    }
+
+    /**
+     * The storage account key is base64 in every Azure surface that hands it
+     * out, but it arrives here as untrusted configuration; hash_hmac() needs a
+     * string, not base64_decode()'s false.
+     */
+    private static function decodedAccountKey(string $accountKey): string
+    {
+        $decoded = base64_decode($accountKey, true);
+        if ($decoded === false) {
+            throw new AzureStorageException('The Azure storage account key is not valid base64.');
+        }
+
+        return $decoded;
     }
 
     private function isTransient(int $status): bool
@@ -135,7 +160,10 @@ final class AzureBlobClient
         return $status === 408 || $status === 429 || $status >= 500;
     }
 
-    /** @param array<string, string> $query @param array<string, string> $headers */
+    /**
+     * @param array<string, string> $query
+     * @param array<string, string> $headers
+     */
     private function sign(string $method, string $path, array $query, array $headers): string
     {
         $contentLength = $headers['Content-Length'] ?? '';
@@ -159,7 +187,7 @@ final class AzureBlobClient
             $this->canonicalizedHeaders($headers) . $this->canonicalizedResource($path, $query),
         ]);
 
-        $signature = base64_encode(hash_hmac('sha256', $stringToSign, base64_decode($this->accountKey, true), true));
+        $signature = base64_encode(hash_hmac('sha256', $stringToSign, self::decodedAccountKey($this->accountKey), true));
 
         return "SharedKey {$this->accountName}:{$signature}";
     }

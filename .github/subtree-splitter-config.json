@@ -1,159 +1,174 @@
 {
-    "subtree-splits": [
-        {
-            "name": "mcp",
-            "directory": "packages/mcp",
-            "target": "git@github.com:quioteframework/mcp.git"
-        },
-        {
-            "name": "csrf",
-            "directory": "packages/csrf",
-            "target": "git@github.com:quioteframework/csrf.git"
-        },
-        {
-            "name": "whoops",
-            "directory": "packages/whoops",
-            "target": "git@github.com:quioteframework/whoops.git"
-        },
-        {
-            "name": "ratelimit",
-            "directory": "packages/ratelimit",
-            "target": "git@github.com:quioteframework/ratelimit.git"
-        },
-        {
-            "name": "cors",
-            "directory": "packages/cors",
-            "target": "git@github.com:quioteframework/cors.git"
-        },
-        {
-            "name": "security-headers",
-            "directory": "packages/security-headers",
-            "target": "git@github.com:quioteframework/security-headers.git"
-        },
-        {
-            "name": "queue",
-            "directory": "packages/queue",
-            "target": "git@github.com:quioteframework/queue.git"
-        },
-        {
-            "name": "queue-db",
-            "directory": "packages/queue-db",
-            "target": "git@github.com:quioteframework/queue-db.git"
-        },
-        {
-            "name": "queue-redis",
-            "directory": "packages/queue-redis",
-            "target": "git@github.com:quioteframework/queue-redis.git"
-        },
-        {
-            "name": "session-redis",
-            "directory": "packages/session-redis",
-            "target": "git@github.com:quioteframework/session-redis.git"
-        },
-        {
-            "name": "filesystem-azure",
-            "directory": "packages/filesystem-azure",
-            "target": "git@github.com:quioteframework/filesystem-azure.git"
-        },
-        {
-            "name": "filesystem-gcs",
-            "directory": "packages/filesystem-gcs",
-            "target": "git@github.com:quioteframework/filesystem-gcs.git"
-        },
-        {
-            "name": "filesystem-s3",
-            "directory": "packages/filesystem-s3",
-            "target": "git@github.com:quioteframework/filesystem-s3.git"
-        },
-        {
-            "name": "db-eloquent",
-            "directory": "packages/db-eloquent",
-            "target": "git@github.com:quioteframework/db-eloquent.git"
-        },
-        {
-            "name": "db-doctrine",
-            "directory": "packages/db-doctrine",
-            "target": "git@github.com:quioteframework/db-doctrine.git"
-        },
-        {
-            "name": "db-cycle",
-            "directory": "packages/db-cycle",
-            "target": "git@github.com:quioteframework/db-cycle.git"
-        },
-        {
-            "name": "db-propulsion",
-            "directory": "packages/db-propulsion",
-            "target": "git@github.com:quioteframework/db-propulsion.git"
-        },
-        {
-            "name": "telemetry-otel",
-            "directory": "packages/telemetry-otel",
-            "target": "git@github.com:quioteframework/telemetry-otel.git"
-        },
-        {
-            "name": "telemetry-dashboard",
-            "directory": "packages/telemetry-dashboard",
-            "target": "git@github.com:quioteframework/telemetry-dashboard.git"
-        },
-        {
-            "name": "phptal",
-            "directory": "packages/phptal",
-            "target": "git@github.com:quioteframework/phptal.git"
-        },
-        {
-            "name": "xslt",
-            "directory": "packages/xslt",
-            "target": "git@github.com:quioteframework/xslt.git"
-        },
-        {
-            "name": "twig",
-            "directory": "packages/twig",
-            "target": "git@github.com:quioteframework/twig.git"
-        },
-        {
-            "name": "session-pdo",
-            "directory": "packages/session-pdo",
-            "target": "git@github.com:quioteframework/session-pdo.git"
-        },
-        {
-            "name": "session-azure",
-            "directory": "packages/session-azure",
-            "target": "git@github.com:quioteframework/session-azure.git"
-        },
-        {
-            "name": "session-s3",
-            "directory": "packages/session-s3",
-            "target": "git@github.com:quioteframework/session-s3.git"
-        },
-        {
-            "name": "session-gcs",
-            "directory": "packages/session-gcs",
-            "target": "git@github.com:quioteframework/session-gcs.git"
-        },
-        {
-            "name": "auth",
-            "directory": "packages/auth",
-            "target": "git@github.com:quioteframework/auth.git"
-        },
-        {
-            "name": "auth-jwt",
-            "directory": "packages/auth-jwt",
-            "target": "git@github.com:quioteframework/auth-jwt.git"
-        },
-        {
-            "name": "auth-oauth",
-            "directory": "packages/auth-oauth",
-            "target": "git@github.com:quioteframework/auth-oauth.git"
-        },
-        {
-            "name": "worker-roadrunner",
-            "directory": "packages/worker-roadrunner",
-            "target": "git@github.com:quioteframework/worker-roadrunner.git"
-        },
-        {
-            "name": "worker-swoole",
-            "directory": "packages/worker-swoole",
-            "target": "git@github.com:quioteframework/worker-swoole.git"
-        }
-    ]
+	"subtree-splits": [
+		{
+			"name": "mcp",
+			"directory": "packages/mcp",
+			"target": "git@github.com:quioteframework/mcp.git"
+		},
+		{
+			"name": "csrf",
+			"directory": "packages/csrf",
+			"target": "git@github.com:quioteframework/csrf.git"
+		},
+		{
+			"name": "whoops",
+			"directory": "packages/whoops",
+			"target": "git@github.com:quioteframework/whoops.git"
+		},
+		{
+			"name": "ratelimit",
+			"directory": "packages/ratelimit",
+			"target": "git@github.com:quioteframework/ratelimit.git"
+		},
+		{
+			"name": "cors",
+			"directory": "packages/cors",
+			"target": "git@github.com:quioteframework/cors.git"
+		},
+		{
+			"name": "security-headers",
+			"directory": "packages/security-headers",
+			"target": "git@github.com:quioteframework/security-headers.git"
+		},
+		{
+			"name": "queue",
+			"directory": "packages/queue",
+			"target": "git@github.com:quioteframework/queue.git"
+		},
+		{
+			"name": "queue-db",
+			"directory": "packages/queue-db",
+			"target": "git@github.com:quioteframework/queue-db.git"
+		},
+		{
+			"name": "queue-redis",
+			"directory": "packages/queue-redis",
+			"target": "git@github.com:quioteframework/queue-redis.git"
+		},
+		{
+			"name": "session-redis",
+			"directory": "packages/session-redis",
+			"target": "git@github.com:quioteframework/session-redis.git"
+		},
+		{
+			"name": "filesystem-azure",
+			"directory": "packages/filesystem-azure",
+			"target": "git@github.com:quioteframework/filesystem-azure.git"
+		},
+		{
+			"name": "filesystem-gcs",
+			"directory": "packages/filesystem-gcs",
+			"target": "git@github.com:quioteframework/filesystem-gcs.git"
+		},
+		{
+			"name": "filesystem-s3",
+			"directory": "packages/filesystem-s3",
+			"target": "git@github.com:quioteframework/filesystem-s3.git"
+		},
+		{
+			"name": "db-eloquent",
+			"directory": "packages/db-eloquent",
+			"target": "git@github.com:quioteframework/db-eloquent.git"
+		},
+		{
+			"name": "db-doctrine",
+			"directory": "packages/db-doctrine",
+			"target": "git@github.com:quioteframework/db-doctrine.git"
+		},
+		{
+			"name": "db-cycle",
+			"directory": "packages/db-cycle",
+			"target": "git@github.com:quioteframework/db-cycle.git"
+		},
+		{
+			"name": "db-propulsion",
+			"directory": "packages/db-propulsion",
+			"target": "git@github.com:quioteframework/db-propulsion.git"
+		},
+		{
+			"name": "telemetry-otel",
+			"directory": "packages/telemetry-otel",
+			"target": "git@github.com:quioteframework/telemetry-otel.git"
+		},
+		{
+			"name": "telemetry-dashboard",
+			"directory": "packages/telemetry-dashboard",
+			"target": "git@github.com:quioteframework/telemetry-dashboard.git"
+		},
+		{
+			"name": "phptal",
+			"directory": "packages/phptal",
+			"target": "git@github.com:quioteframework/phptal.git"
+		},
+		{
+			"name": "xslt",
+			"directory": "packages/xslt",
+			"target": "git@github.com:quioteframework/xslt.git"
+		},
+		{
+			"name": "twig",
+			"directory": "packages/twig",
+			"target": "git@github.com:quioteframework/twig.git"
+		},
+		{
+			"name": "session-pdo",
+			"directory": "packages/session-pdo",
+			"target": "git@github.com:quioteframework/session-pdo.git"
+		},
+		{
+			"name": "session-azure",
+			"directory": "packages/session-azure",
+			"target": "git@github.com:quioteframework/session-azure.git"
+		},
+		{
+			"name": "cloud-azure",
+			"directory": "packages/cloud-azure",
+			"target": "git@github.com:quioteframework/cloud-azure.git"
+		},
+		{
+			"name": "session-s3",
+			"directory": "packages/session-s3",
+			"target": "git@github.com:quioteframework/session-s3.git"
+		},
+		{
+			"name": "cloud-s3",
+			"directory": "packages/cloud-s3",
+			"target": "git@github.com:quioteframework/cloud-s3.git"
+		},
+		{
+			"name": "session-gcs",
+			"directory": "packages/session-gcs",
+			"target": "git@github.com:quioteframework/session-gcs.git"
+		},
+		{
+			"name": "cloud-gcs",
+			"directory": "packages/cloud-gcs",
+			"target": "git@github.com:quioteframework/cloud-gcs.git"
+		},
+		{
+			"name": "auth",
+			"directory": "packages/auth",
+			"target": "git@github.com:quioteframework/auth.git"
+		},
+		{
+			"name": "auth-jwt",
+			"directory": "packages/auth-jwt",
+			"target": "git@github.com:quioteframework/auth-jwt.git"
+		},
+		{
+			"name": "auth-oauth",
+			"directory": "packages/auth-oauth",
+			"target": "git@github.com:quioteframework/auth-oauth.git"
+		},
+		{
+			"name": "worker-roadrunner",
+			"directory": "packages/worker-roadrunner",
+			"target": "git@github.com:quioteframework/worker-roadrunner.git"
+		},
+		{
+			"name": "worker-swoole",
+			"directory": "packages/worker-swoole",
+			"target": "git@github.com:quioteframework/worker-swoole.git"
+		}
+	]
 }

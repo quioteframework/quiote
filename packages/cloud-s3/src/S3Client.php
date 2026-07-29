@@ -113,7 +113,11 @@ final class S3Client
 
         $request = $this->psr17->createRequest($method, $this->origin() . $canonicalUri);
         foreach ($headers as $name => $value) {
-            $request = $request->withHeader($name, $value);
+            // The signing map is assembled from optional pieces, so a value can
+            // legitimately be absent; an absent header is simply not sent.
+            if (is_string($value)) {
+                $request = $request->withHeader($name, $value);
+            }
         }
         $request = $request->withHeader('Authorization', $authorization);
         if ($body !== null) {

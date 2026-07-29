@@ -57,11 +57,7 @@ final class GcsSessionFactory implements SessionFactoryInterface
 
     private static function httpClient(Context $context): ClientInterface
     {
-        try {
-            $client = $context->getContainer()->get(ClientInterface::class);
-        } catch (\Throwable) {
-            $client = null;
-        }
+        $client = $context->getContainer()->tryGet(ClientInterface::class);
 
         if (!$client instanceof ClientInterface) {
             throw new RuntimeException(sprintf(
