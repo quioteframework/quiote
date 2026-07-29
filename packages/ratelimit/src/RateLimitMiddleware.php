@@ -25,7 +25,9 @@ use Symfony\Component\RateLimiter\Storage\StorageInterface;
  * (`$_SERVER['REMOTE_ADDR']`), not `X-Forwarded-For`, unless
  * `ratelimit.http.trust_forwarded_for` is explicitly enabled — trusting a
  * client-supplied header by default would let any caller spoof a fresh key
- * and bypass the limit entirely. */
+ * and bypass the limit entirely. When it is enabled, the address is read from the
+ * right of the header per `ratelimit.http.trusted_proxy_hops` (default 1), which
+ * is the part a trusted proxy wrote rather than the part the client did. */
 #[\Quiote\Middleware\Attribute\Middleware(phase: 'pre_routing', priority: 10)]
 final class RateLimitMiddleware implements MiddlewareInterface
 {
@@ -64,12 +66,35 @@ final class RateLimitMiddleware implements MiddlewareInterface
         return $handler->handle($request);
     }
 
+    /**
+     * The key this request is throttled under.
+     *
+     * With `trust_forwarded_for` on, the address is taken from the RIGHT of
+     * `X-Forwarded-For`, skipping `ratelimit.http.trusted_proxy_hops` entries (one
+     * by default). A proxy appends the peer it saw, so the list reads
+     * `client, proxy1, proxy2` with the trustworthy entries at the end: taking the
+     * leftmost value meant taking the one the client wrote, which an attacker just
+     * varies per request -- enabling the option bought exactly zero throttling.
+     * Counting from the right yields the address the outermost proxy we trust
+     * actually observed.
+     */
     private function clientKey(ServerRequestInterface $request): string
     {
         if (Config::getBool('ratelimit.http.trust_forwarded_for', false)) {
             $forwarded = $request->getHeaderLine('X-Forwarded-For');
             if ($forwarded !== '') {
-                return trim(explode(',', $forwarded)[0]);
+                $hops = max(1, Config::getInt('ratelimit.http.trusted_proxy_hops', 1));
+                $parts = array_values(array_filter(
+                    array_map('trim', explode(',', $forwarded)),
+                    static fn(string $part): bool => $part !== '',
+                ));
+                if ($parts !== []) {
+                    // One trusted hop => the last entry was written by that proxy and
+                    // names its peer, so it is the rightmost value we can believe.
+                    $index = count($parts) - $hops;
+
+                    return $parts[max(0, $index)];
+                }
             }
         }
 

@@ -21,6 +21,7 @@ final class RateLimitMiddlewareTest extends TestCase
         'ratelimit.http.window',
         'ratelimit.http.policy',
         'ratelimit.http.trust_forwarded_for',
+        'ratelimit.http.trusted_proxy_hops',
     ];
 
     /** @var array<string, mixed> */
@@ -119,20 +120,98 @@ final class RateLimitMiddlewareTest extends TestCase
         $this->assertSame(200, $b->getStatusCode(), 'a different client must not share the first client\'s bucket');
     }
 
-    public function testTrustsForwardedForOnlyWhenExplicitlyEnabled(): void
+    public function testIgnoresForwardedForUnlessExplicitlyEnabled(): void
+    {
+        // Default (disabled): the header is not consulted at all, so two requests
+        // from the same peer share a bucket no matter what they claim.
+        Config::set('ratelimit.http.max_requests', 1);
+        $mw = new RateLimitMiddleware(new InMemoryStorage());
+        $handler = $this->okHandler();
+
+        $first = $mw->process($this->requestFrom('9.9.9.9')->withHeader('X-Forwarded-For', '3.3.3.3'), $handler);
+        $second = $mw->process($this->requestFrom('9.9.9.9')->withHeader('X-Forwarded-For', '4.4.4.4'), $handler);
+
+        $this->assertSame(200, $first->getStatusCode());
+        $this->assertSame(429, $second->getStatusCode(), 'a client-supplied header must not mint a fresh bucket');
+    }
+
+    public function testTrustedForwardedForSharesABucketAcrossPeerAddresses(): void
+    {
+        // With one trusted proxy the rightmost entry is the one that proxy wrote,
+        // so it identifies the caller even as the connecting peer varies.
+        Config::set('ratelimit.http.max_requests', 1);
+        Config::set('ratelimit.http.trust_forwarded_for', true);
+        $mw = new RateLimitMiddleware(new InMemoryStorage());
+        $handler = $this->okHandler();
+
+        $first = $mw->process($this->requestFrom('9.9.9.9')->withHeader('X-Forwarded-For', '3.3.3.3'), $handler);
+        $second = $mw->process($this->requestFrom('8.8.8.8')->withHeader('X-Forwarded-For', '3.3.3.3'), $handler);
+
+        $this->assertSame(200, $first->getStatusCode());
+        $this->assertSame(429, $second->getStatusCode());
+    }
+
+    public function testSpoofedForwardedForEntriesCannotMintFreshBuckets(): void
+    {
+        // The regression this whole change exists for. The middleware used to take
+        // the LEFTMOST entry, which is the part the client itself wrote: prepending
+        // a different value per request rotated the throttle key, so enabling
+        // trust_forwarded_for bought no protection whatsoever. Behind one trusted
+        // proxy the believable entry is the rightmost one, which the attacker
+        // cannot influence.
+        Config::set('ratelimit.http.max_requests', 1);
+        Config::set('ratelimit.http.trust_forwarded_for', true);
+        $mw = new RateLimitMiddleware(new InMemoryStorage());
+        $handler = $this->okHandler();
+
+        $first = $mw->process(
+            $this->requestFrom('10.0.0.1')->withHeader('X-Forwarded-For', 'spoof-1, 3.3.3.3'),
+            $handler,
+        );
+        $second = $mw->process(
+            $this->requestFrom('10.0.0.1')->withHeader('X-Forwarded-For', 'spoof-2, 3.3.3.3'),
+            $handler,
+        );
+
+        $this->assertSame(200, $first->getStatusCode());
+        $this->assertSame(429, $second->getStatusCode(), 'rotating the client-written entry must not escape the bucket');
+    }
+
+    public function testTrustedProxyHopsReachesFurtherLeft(): void
+    {
+        // Two trusted proxies in front: the last two entries were written by them,
+        // so the caller is two from the right.
+        Config::set('ratelimit.http.max_requests', 1);
+        Config::set('ratelimit.http.trust_forwarded_for', true);
+        Config::set('ratelimit.http.trusted_proxy_hops', 2);
+        $mw = new RateLimitMiddleware(new InMemoryStorage());
+        $handler = $this->okHandler();
+
+        $first = $mw->process(
+            $this->requestFrom('10.0.0.1')->withHeader('X-Forwarded-For', '3.3.3.3, 10.0.0.9'),
+            $handler,
+        );
+        $second = $mw->process(
+            $this->requestFrom('10.0.0.2')->withHeader('X-Forwarded-For', '3.3.3.3, 10.0.0.8'),
+            $handler,
+        );
+
+        $this->assertSame(200, $first->getStatusCode());
+        $this->assertSame(429, $second->getStatusCode(), 'the caller two hops from the right is the same in both');
+    }
+
+    public function testFallsBackToRemoteAddrWhenForwardedForIsEmpty(): void
     {
         Config::set('ratelimit.http.max_requests', 1);
         Config::set('ratelimit.http.trust_forwarded_for', true);
         $mw = new RateLimitMiddleware(new InMemoryStorage());
         $handler = $this->okHandler();
 
-        $req = $this->requestFrom('9.9.9.9')->withHeader('X-Forwarded-For', '3.3.3.3, 10.0.0.1');
-        $first = $mw->process($req, $handler);
-        // Same forwarded IP, different REMOTE_ADDR -> still the same bucket.
-        $second = $mw->process($this->requestFrom('8.8.8.8')->withHeader('X-Forwarded-For', '3.3.3.3'), $handler);
+        $first = $mw->process($this->requestFrom('7.7.7.7')->withHeader('X-Forwarded-For', ' , '), $handler);
+        $second = $mw->process($this->requestFrom('7.7.7.7'), $handler);
 
         $this->assertSame(200, $first->getStatusCode());
-        $this->assertSame(429, $second->getStatusCode());
+        $this->assertSame(429, $second->getStatusCode(), 'a header with no usable entries must not bypass the limit');
     }
 }
 
