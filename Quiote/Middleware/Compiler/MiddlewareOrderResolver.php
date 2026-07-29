@@ -25,9 +25,32 @@ final class MiddlewareOrderResolver
     private array $diagnostics = [];
 
     /**
+     * FQCNs whose ordering constraints are guarantees rather than preferences: an
+     * unresolvable `before`/`after` on one of these throws instead of degrading to
+     * a diagnostic. See {@see MiddlewareOrderException}.
+     * @var list<string>
+     */
+    private readonly array $guardedClasses;
+
+    /**
+     * @param ?list<string> $guardedClasses Defaults to the framework's own guarded set;
+     *        pass an explicit list (including `[]`) to override, e.g. in unit tests that
+     *        exercise the lenient path.
+     */
+    public function __construct(?array $guardedClasses = null)
+    {
+        // Resolved here rather than as a parameter default (PHP cannot call a method
+        // there), so the safe behaviour is what you get by default and leniency has
+        // to be asked for.
+        $this->guardedClasses = $guardedClasses
+            ?? \Quiote\Middleware\MiddlewarePipeline::guardedMiddlewareClasses();
+    }
+
+    /**
      * @param MiddlewareDefinition[] $definitions
      * @return MiddlewareDefinition[] Same definitions, reordered.
-     * @throws MiddlewareOrderException if before/after constraints cycle.
+     * @throws MiddlewareOrderException if before/after constraints cycle, or if a
+     *         guarded (framework) middleware's constraint cannot be resolved.
      */
     public function resolve(array $definitions): array
     {
@@ -96,39 +119,57 @@ final class MiddlewareOrderResolver
     {
         if (str_contains($reference, '\\')) {
             if (!array_key_exists($reference, $fqcnMap)) {
-                $this->diagnostics[] = new Diagnostic(
-                    Diagnostic::SEVERITY_ERROR,
-                    self::CODE_UNRESOLVED_REFERENCE,
-                    sprintf('Middleware "%s" references unknown middleware "%s"; ignoring the constraint.', $from->fqcn, $reference),
-                    $from->fqcn
-                );
-                return null;
+                return $this->unresolvable($from, $reference, self::CODE_UNRESOLVED_REFERENCE, 'is not among the scanned middleware');
             }
             return $fqcnMap[$reference];
         }
 
         if (!array_key_exists($reference, $shortNameMap)) {
-            $this->diagnostics[] = new Diagnostic(
-                Diagnostic::SEVERITY_ERROR,
-                self::CODE_UNRESOLVED_REFERENCE,
-                sprintf('Middleware "%s" references unknown middleware "%s"; ignoring the constraint.', $from->fqcn, $reference),
-                $from->fqcn
-            );
-            return null;
+            return $this->unresolvable($from, $reference, self::CODE_UNRESOLVED_REFERENCE, 'is not among the scanned middleware');
         }
 
         $index = $shortNameMap[$reference];
         if ($index === false) {
-            $this->diagnostics[] = new Diagnostic(
-                Diagnostic::SEVERITY_ERROR,
+            return $this->unresolvable(
+                $from,
+                $reference,
                 self::CODE_AMBIGUOUS_REFERENCE,
-                sprintf('Middleware "%s" references "%s", which matches more than one scanned class; use a fully-qualified class name.', $from->fqcn, $reference),
-                $from->fqcn
+                'matches more than one scanned class (use a fully-qualified class name)'
             );
-            return null;
         }
 
         return $index;
+    }
+
+    /**
+     * Record — or, for guarded middleware, refuse — a constraint that cannot be
+     * resolved.
+     *
+     * Guarded middleware throws: a framework security middleware whose anchor has
+     * gone missing must not quietly fall back to phase/priority ordering, because
+     * the anchor is the only thing that made its position a guarantee. Everything
+     * else keeps degrading to a diagnostic, since `before:` an optional package's
+     * middleware is a legitimate thing to write and that package may not be
+     * installed.
+     *
+     * @return null Always null, when it returns at all — the caller propagates that
+     *         as "no constraint", so this exists to be used in a `return` position.
+     * @throws MiddlewareOrderException If $from is a guarded class.
+     */
+    private function unresolvable(MiddlewareDefinition $from, string $reference, string $code, string $why): null
+    {
+        if (in_array($from->fqcn, $this->guardedClasses, true)) {
+            throw MiddlewareOrderException::unresolvedGuardedReference($from->fqcn, $reference, $why);
+        }
+
+        $this->diagnostics[] = new Diagnostic(
+            Diagnostic::SEVERITY_ERROR,
+            $code,
+            sprintf('Middleware "%s" references "%s", which %s; ignoring the constraint.', $from->fqcn, $reference, $why),
+            $from->fqcn
+        );
+
+        return null;
     }
 
     /**

@@ -106,4 +106,73 @@ class MiddlewareOrderResolverTest extends TestCase
             self::def('App\\B', 'pre', before: 'A'),
         ]);
     }
+
+    // --- guarded middleware: constraints are guarantees, not preferences ---
+
+    public function testUnresolvedReferenceOnGuardedMiddlewareThrows(): void
+    {
+        // A framework middleware's before/after edge is the only thing fixing its
+        // position; dropping it silently would leave e.g. "CSRF validation runs
+        // before dispatch" true only by accident of the current priorities.
+        $this->expectException(MiddlewareOrderException::class);
+        $this->expectExceptionMessageMatches('/cannot be dropped/');
+
+        $resolver = new MiddlewareOrderResolver(['Guarded\\Security']);
+        $resolver->resolve([
+            self::def('Guarded\\Security', 'before_action', before: 'DoesNotExist'),
+        ]);
+    }
+
+    public function testAmbiguousReferenceOnGuardedMiddlewareThrows(): void
+    {
+        $this->expectException(MiddlewareOrderException::class);
+
+        $resolver = new MiddlewareOrderResolver(['Guarded\\Security']);
+        $resolver->resolve([
+            self::def('Guarded\\Security', 'before_action', after: 'Duplicate'),
+            self::def('One\\Duplicate', 'pre'),
+            self::def('Two\\Duplicate', 'pre'),
+        ]);
+    }
+
+    public function testUnguardedMiddlewareStillDegradesToADiagnostic(): void
+    {
+        // Anchoring to an optional package's middleware is legitimate, and that
+        // package may not be installed. Such a middleware falls back to its own
+        // phase/priority rather than failing the whole pipeline build.
+        $resolver = new MiddlewareOrderResolver(['Guarded\\Security']);
+        $ordered = $resolver->resolve([
+            self::def('App\\Optional', 'pre', after: 'MaybeNotInstalled'),
+        ]);
+
+        $this->assertCount(1, $ordered);
+        $this->assertCount(1, $resolver->getDiagnostics());
+    }
+
+    public function testGuardedMiddlewareWithAResolvableReferenceIsFine(): void
+    {
+        $resolver = new MiddlewareOrderResolver(['Guarded\\Security']);
+        $ordered = $resolver->resolve([
+            self::def('Guarded\\Security', 'before_action', after: 'Routing'),
+            self::def('Core\\Routing', 'routing'),
+        ]);
+
+        $this->assertSame(
+            ['Core\\Routing', 'Guarded\\Security'],
+            array_map(static fn($d) => $d->fqcn, $ordered),
+        );
+        $this->assertSame([], $resolver->getDiagnostics());
+    }
+
+    public function testTheRealFrameworkGuardedSetIsUsedByDefault(): void
+    {
+        // The default must be the safe one: leniency has to be asked for explicitly,
+        // or a caller that forgets the argument silently loses the guarantee.
+        $this->expectException(MiddlewareOrderException::class);
+
+        $resolver = new MiddlewareOrderResolver();
+        $resolver->resolve([
+            self::def(\Quiote\Middleware\SecurityMiddleware::class, 'before_action', after: 'NotScanned'),
+        ]);
+    }
 }
