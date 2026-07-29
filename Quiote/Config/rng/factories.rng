@@ -63,6 +63,15 @@
 					<ref name="content-factory" />
 				</element>
 			</optional>
+			<!-- PSR-7-native session backend; required only when
+			     core.use_modern_session is on. Note this file is NOT derived
+			     from FactoryConfigHandler::getFactoryDefinitions() the way the
+			     XSD is, so a new slot has to be added here by hand. -->
+			<optional>
+				<element name="session">
+					<ref name="content-factory" />
+				</element>
+			</optional>
 		</interleave>
 	</define>
 	

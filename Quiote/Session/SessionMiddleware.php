@@ -31,14 +31,36 @@ use Psr\Http\Message\ResponseInterface;
  */
 class SessionMiddleware implements MiddlewareInterface
 {
-    public function __construct(private readonly SessionManager $sessionManager) {}
+    /**
+     * @param ?\Quiote\Context $context When given, this request's session is
+     *        also installed as the context's {@see SessionBagInterface}, so the
+     *        framework's own consumers -- the User hierarchy, CSRF token
+     *        storage, OIDC state -- run against this session instead of the
+     *        legacy `storage` slot. Without it the two remain independent, and
+     *        an application gets two sessions and two cookies.
+     */
+    public function __construct(
+        private readonly SessionManager $sessionManager,
+        private readonly ?\Quiote\Context $context = null,
+    ) {
+    }
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $session = $this->sessionManager->startFromRequest($request);
         $request = $request->withAttribute(self::class, $session);
 
-        $response = $handler->handle($request);
+        $this->context?->setSessionBag(new QuioteSessionBag($this->sessionManager, $session, $request));
+
+        try {
+            $response = $handler->handle($request);
+        } finally {
+            // Persist the user before the session is written out, in the same
+            // order and for the same reason as the legacy path: the user is the
+            // only writer of roles and credentials, and a write after the
+            // session has been serialized is a write nobody reads back.
+            $this->context?->flushRequestState();
+        }
 
         return $this->sessionManager->persistAndBakeCookies($session, $response);
     }

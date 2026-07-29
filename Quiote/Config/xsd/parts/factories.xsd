@@ -40,6 +40,9 @@
 			<xs:element type="factory" minOccurs="0" name="database_manager" />
 			<!-- legacy security_filter removed (replaced by middleware) -->
 			<xs:element type="factory" minOccurs="0" name="translation_manager" />
+			<!-- PSR-7-native session backend; required only when
+			     core.use_modern_session is on. -->
+			<xs:element type="factory" minOccurs="0" name="session" />
 		</xs:all>
 	</xs:group>
 

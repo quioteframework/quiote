@@ -109,6 +109,18 @@ class FactoryConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 				'must_implement' => [],
 			],
 			'storage', // startup()
+			// The PSR-7-native session backend, opt-in via core.use_modern_session
+			// (same pattern as translation_manager above). 'var' is deliberately
+			// null: the codegen's instantiating branch emits
+			// new $class(); $obj->initialize($context, $params), and no
+			// SessionPersistenceInterface implementation has that shape --
+			// SessionFactoryInterface exists precisely to bridge that, and is
+			// reached through the factory-info branch instead.
+			'session' => [
+				'required' => Config::getBool('core.use_modern_session', false),
+				'var' => null,
+				'must_implement' => [\Quiote\Session\SessionFactoryInterface::class],
+			],
 			'user' => [
 				'required' => true,
 				'var' => 'user',
@@ -214,6 +226,9 @@ class FactoryConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 			'translation_manager' => 'This entry becomes required once "core.use_translation" is enabled. '
 				. 'Add a translation_manager factory pointing at Quiote\\Translation\\TranslationManager, e.g. in factories.php: '
 				. "'translation_manager' => ['class' => \\Quiote\\Translation\\TranslationManager::class, 'params' => []].",
+			'session' => 'This entry becomes required once "core.use_modern_session" is enabled. '
+				. 'Add a session factory pointing at a Quiote\\Session\\SessionFactoryInterface implementation, e.g. in factories.php: '
+				. "'session' => ['class' => \\Quiote\\Session\\FileSessionFactory::class, 'params' => ['dir' => '%core.app_dir%/cache/sessions']].",
 			default => null,
 		};
 	}

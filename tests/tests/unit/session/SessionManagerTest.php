@@ -3,30 +3,11 @@
 use Quiote\Testing\UnitTestCase;
 use Quiote\Session\Session;
 use Quiote\Session\SessionManager;
-use Quiote\Session\SessionPersistenceInterface;
 use Nyholm\Psr7\ServerRequest;
 use Nyholm\Psr7\Response;
 
-final class InMemorySessionPersistence implements SessionPersistenceInterface
-{
-    /** @var array<string, array<string, mixed>> */
-    public array $rows = [];
-
-    public function load(string $sid): ?array
-    {
-        return $this->rows[$sid] ?? null;
-    }
-
-    public function save(string $sid, array $data): void
-    {
-        $this->rows[$sid] = $data;
-    }
-
-    public function delete(string $sid): void
-    {
-        unset($this->rows[$sid]);
-    }
-}
+// InMemorySessionPersistence lives in tests/lib so the session-bag suites can
+// use it too, rather than depending on this file happening to be loaded.
 
 class SessionManagerTest extends UnitTestCase
 {
@@ -101,6 +82,10 @@ class SessionManagerTest extends UnitTestCase
         $manager = new SessionManager($persistence, ['session_migration_grace_seconds' => 0]);
         $session = $manager->startFromRequest(new ServerRequest('GET', '/'));
         $oldId = $session->getId();
+        // A session with contents: regenerating an *empty* one deletes the old
+        // id outright rather than leaving a redirect marker, so there would be
+        // no grace window here to expire.
+        $session->set('user_id', 7);
 
         $manager->regenerate($session, true);
         $newId = $session->getId();
@@ -135,6 +120,9 @@ class SessionManagerTest extends UnitTestCase
         $manager = new SessionManager($persistence, ['session_migration_grace_seconds' => 15]);
         $session = $manager->startFromRequest(new ServerRequest('GET', '/'));
         $oldId = $session->getId();
+        // See the note in the grace-expiry test: an empty session leaves no
+        // redirect marker to skew the timestamp of.
+        $session->set('user_id', 7);
 
         $manager->regenerate($session, true);
         $newId = $session->getId();
@@ -239,5 +227,101 @@ class SessionManagerTest extends UnitTestCase
         $response = $manager->persistAndBakeCookies($session, new Response());
 
         $this->assertStringContainsString('QSID=an-existing-session-id-1234567890', $response->getHeaderLine('Set-Cookie'));
+    }
+
+    // ------------------------------------------------- fixation hardening
+
+    /**
+     * The grace window exists to rescue a request already in flight with the
+     * pre-regeneration cookie, and that is a single request. Leaving the
+     * tombstone resolvable for the rest of the window hands an attacker who
+     * fixed the old id a way in; consuming it on first use collapses the
+     * window to exactly the one request it was created for.
+     */
+    public function testARedirectMarkerResolvesOnlyOnce(): void
+    {
+        $persistence = new InMemorySessionPersistence();
+        $manager = new SessionManager($persistence, ['session_migration_grace_seconds' => 300]);
+        $session = $manager->startFromRequest(new ServerRequest('GET', '/'));
+        $oldId = $session->getId();
+        $session->set('user_id', 7);
+        $manager->regenerate($session, true);
+        $newId = $session->getId();
+
+        $raced = (new ServerRequest('GET', '/'))->withCookieParams(['QSID' => $oldId]);
+        $first = $manager->startFromRequest($raced);
+        $this->assertSame($newId, $first->getId(), 'the in-flight request is still rescued');
+
+        // Second attempt on the same id, well inside the grace window.
+        $second = $manager->startFromRequest($raced);
+
+        $this->assertNotSame($newId, $second->getId(), 'a replay must not reach the regenerated session');
+        $this->assertNull($persistence->load($oldId), 'the tombstone is consumed, not left lying around');
+    }
+
+    /**
+     * The tombstone is bound to the client that caused the migration, so it
+     * cannot be ridden from a different browser during the window.
+     */
+    public function testARedirectMarkerDoesNotResolveForADifferentUserAgent(): void
+    {
+        $persistence = new InMemorySessionPersistence();
+        $manager = new SessionManager($persistence, ['session_migration_grace_seconds' => 300]);
+        $victim = (new ServerRequest('GET', '/'))->withHeader('User-Agent', 'VictimBrowser/1.0');
+        $session = $manager->startFromRequest($victim);
+        $oldId = $session->getId();
+        $session->set('user_id', 7);
+
+        $manager->regenerate($session, true, $victim);
+        $newId = $session->getId();
+
+        $attacker = (new ServerRequest('GET', '/'))
+            ->withHeader('User-Agent', 'AttackerBrowser/9.9')
+            ->withCookieParams(['QSID' => $oldId]);
+        $resolved = $manager->startFromRequest($attacker);
+
+        $this->assertNotSame($newId, $resolved->getId());
+        $this->assertNotSame($oldId, $resolved->getId());
+    }
+
+    public function testARedirectMarkerStillResolvesForTheSameUserAgent(): void
+    {
+        $persistence = new InMemorySessionPersistence();
+        $manager = new SessionManager($persistence, ['session_migration_grace_seconds' => 300]);
+        $client = (new ServerRequest('GET', '/'))->withHeader('User-Agent', 'VictimBrowser/1.0');
+        $session = $manager->startFromRequest($client);
+        $oldId = $session->getId();
+        $session->set('user_id', 7);
+
+        $manager->regenerate($session, true, $client);
+        $newId = $session->getId();
+
+        $raced = $client->withCookieParams(['QSID' => $oldId]);
+        $resolved = $manager->startFromRequest($raced);
+
+        $this->assertSame($newId, $resolved->getId());
+        $this->assertSame(7, $resolved->get('user_id'));
+    }
+
+    /**
+     * The anonymous-to-authenticated login case: there is nothing in flight
+     * worth preserving, so the old id is deleted outright and there is no
+     * fixation window at all -- matching session_regenerate_id(true).
+     */
+    public function testRegeneratingAnEmptySessionDeletesTheOldIdOutright(): void
+    {
+        $persistence = new InMemorySessionPersistence();
+        $manager = new SessionManager($persistence, ['session_migration_grace_seconds' => 300]);
+        $session = $manager->startFromRequest(new ServerRequest('GET', '/'));
+        $oldId = $session->getId();
+        $persistence->save($oldId, []);
+
+        $manager->regenerate($session, true);
+        $newId = $session->getId();
+
+        $this->assertNull($persistence->load($oldId), 'no tombstone for a session that held nothing');
+
+        $raced = (new ServerRequest('GET', '/'))->withCookieParams(['QSID' => $oldId]);
+        $this->assertNotSame($newId, $manager->startFromRequest($raced)->getId());
     }
 }

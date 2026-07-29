@@ -36,6 +36,7 @@ class SessionManager
 {
     private const REDIRECT_KEY = '__quiote_session_redirect_to__';
     private const REDIRECT_AT_KEY = '__quiote_session_redirect_at__';
+    private const REDIRECT_UA_KEY = '__quiote_session_redirect_ua__';
 
     private SessionPersistenceInterface $persistence;
     private string $cookieName = 'QSID';
@@ -43,7 +44,12 @@ class SessionManager
     private bool $httponly = true;
     private bool $secure = true;
     private ?string $samesite = 'Lax';
-    private int $migrationGraceSeconds = 15;
+    /**
+     * How long the pre-regeneration id keeps resolving to the new one. This is
+     * a fixation window, so it is kept short and is further narrowed by the
+     * one-shot and user-agent checks in resolveRedirect(); see migrateOld().
+     */
+    private int $migrationGraceSeconds = 5;
 
     /**
      * @param array<string, mixed> $parameters
@@ -86,8 +92,15 @@ class SessionManager
             $data = $this->persistence->load($sid);
             if ($data !== null) {
                 if (isset($data[self::REDIRECT_KEY])) {
-                    $resolved = $this->resolveRedirect($data);
+                    $resolved = $this->resolveRedirect($data, $request);
                     if ($resolved !== null) {
+                        // One-shot: the legitimate in-flight request has now
+                        // consumed the tombstone, so an attacker polling the
+                        // fixed id finds nothing on the very next try. This
+                        // collapses the fixation window from the full grace
+                        // period to a single request.
+                        $this->persistence->delete($sid);
+
                         return $resolved;
                     }
                     // Grace window expired or target gone: fall through to a fresh session.
@@ -105,8 +118,16 @@ class SessionManager
     /**
      * @param array<string, mixed> $data
      */
-    private function resolveRedirect(array $data): ?Session
+    private function resolveRedirect(array $data, ServerRequestInterface $request): ?Session
     {
+        // Bound to the client that triggered the migration. An attacker polling
+        // a fixed id from their own browser will not match, so the grace window
+        // only ever helps the request it was created for.
+        $boundUa = $data[self::REDIRECT_UA_KEY] ?? null;
+        if (is_string($boundUa) && $boundUa !== '' && $boundUa !== $this->userAgentFingerprint($request)) {
+            return null;
+        }
+
         $redirectAt = $data[self::REDIRECT_AT_KEY] ?? 0;
         $age = time() - (is_int($redirectAt) || is_string($redirectAt) ? (int)$redirectAt : 0);
         // time() is wall-clock (CLOCK_REALTIME), not monotonic: NTP steps and,
@@ -170,9 +191,10 @@ class SessionManager
      * $deleteOld is true, the old id is migrated (not deleted outright) via
      * migrateOld() — see the class docblock for why.
      */
-    public function regenerate(Session $session, bool $deleteOld = false): void
+    public function regenerate(Session $session, bool $deleteOld = false, ?ServerRequestInterface $request = null): void
     {
         $old = $session->getId();
+        $wasEmpty = $session->all() === [];
         $new = $this->generateSid();
         $session->replaceId($new);
         $session->markDirty();
@@ -184,7 +206,16 @@ class SessionManager
             // "storage is currently out of sync".
             $this->persistence->save($new, $session->all());
             if ($deleteOld) {
-                $this->migrateOld($old, $new);
+                if ($wasEmpty) {
+                    // Nothing was in flight worth preserving -- the usual
+                    // anonymous-to-authenticated login case. Delete outright
+                    // rather than leaving a tombstone an attacker could ride:
+                    // this is the same zero-length window
+                    // session_regenerate_id(true) gives.
+                    $this->persistence->delete($old);
+                } else {
+                    $this->migrateOld($old, $new, $request);
+                }
             }
         }
     }
@@ -197,18 +228,35 @@ class SessionManager
      * After the window elapses the old id stops resolving to anything — which is
      * what actually defeats a fixation attempt.
      */
-    public function migrateOld(string $old, string $new): void
+    public function migrateOld(string $old, string $new, ?ServerRequestInterface $request = null): void
     {
         if ($old === '' || $old === $new) {
             return;
         }
         try {
-            $this->persistence->save($old, [
+            $marker = [
                 self::REDIRECT_KEY => $new,
                 self::REDIRECT_AT_KEY => time(),
-            ]);
+            ];
+            if ($request !== null) {
+                $marker[self::REDIRECT_UA_KEY] = $this->userAgentFingerprint($request);
+            }
+            $this->persistence->save($old, $marker);
         } catch (Throwable) {
         }
+    }
+
+    /**
+     * A cheap binding for the redirect tombstone. Not an authentication
+     * control -- a User-Agent is attacker-controlled -- but it costs nothing
+     * and removes the trivially opportunistic case where a fixed id is polled
+     * from a different client during the grace window.
+     */
+    private function userAgentFingerprint(ServerRequestInterface $request): string
+    {
+        $ua = $request->getHeaderLine('User-Agent');
+
+        return hash('sha256', $ua);
     }
 
     public function destroy(Session $session): void

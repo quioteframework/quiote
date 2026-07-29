@@ -233,5 +233,92 @@ class FactoryConfigHandlerTest extends ConfigHandlerTestBase
 		], 'tests/factories.xml');
 	}
 
+	/**
+	 * @return array<string, array{class: string, params: array<mixed>}>
+	 */
+	private function baseFactories(): array
+	{
+		return [
+			'response' => ['class' => 'FCHTestResponse', 'params' => []],
+			'validation_manager' => ['class' => 'FCHTestValidationManager', 'params' => []],
+			'database_manager' => ['class' => 'FCHTestDBManager', 'params' => []],
+			'routing' => ['class' => 'FCHTestRouting', 'params' => []],
+			'request' => ['class' => 'FCHTestRequest', 'params' => []],
+			'controller' => ['class' => 'FCHTestController', 'params' => []],
+			'storage' => ['class' => 'FCHTestStorage', 'params' => []],
+			'user' => ['class' => 'FCHTestUser', 'params' => []],
+			// Present regardless of core.use_translation, so these tests assert
+			// on the session slot rather than on an unrelated global flag.
+			'translation_manager' => ['class' => 'FCHTestTranslationManager', 'params' => []],
+		];
+	}
+
+	public function testSessionSlotIsIgnoredWhileModernSessionsAreOff(): void
+	{
+		Config::set('core.use_modern_session', false);
+		$FCH = new FactoryConfigHandler();
+
+		$code = $FCH->executeArray($this->baseFactories(), 'tests/factories.xml');
+
+		$this->assertStringNotContainsString("'session'", $code, 'an unconfigured, disabled slot must emit nothing');
+	}
+
+	public function testMissingSessionFactoryGivesActionableHintOnceEnabled(): void
+	{
+		Config::set('core.use_modern_session', true);
+		$FCH = new FactoryConfigHandler();
+
+		try {
+			$this->expectException(ConfigurationException::class);
+			$this->expectExceptionMessage('This entry becomes required once "core.use_modern_session" is enabled');
+
+			$FCH->executeArray($this->baseFactories(), 'tests/factories.xml');
+		} finally {
+			Config::set('core.use_modern_session', false);
+		}
+	}
+
+	public function testSessionSlotEmitsFactoryInfoForTheConfiguredBackend(): void
+	{
+		Config::set('core.use_modern_session', true);
+		$FCH = new FactoryConfigHandler();
+
+		try {
+			$code = $FCH->executeArray($this->baseFactories() + [
+				'session' => ['class' => \Quiote\Session\FileSessionFactory::class, 'params' => ['dir' => '/tmp/quiote-sessions']],
+			], 'tests/factories.xml');
+
+			// factory_info, not an instantiating assignment: no
+			// SessionPersistenceInterface has the initialize($context, $params)
+			// shape the var branch emits.
+			$this->assertStringContainsString("\$this->factories['session']", $code);
+			$this->assertStringContainsString('FileSessionFactory', $code);
+			$this->assertStringNotContainsString('$this->session = new', $code);
+		} finally {
+			Config::set('core.use_modern_session', false);
+		}
+	}
+
+	/**
+	 * The session slot is the first to carry a must_implement constraint, so
+	 * this is also the first exercise of that check against a real interface.
+	 */
+	public function testSessionSlotRejectsAClassThatIsNotASessionFactory(): void
+	{
+		Config::set('core.use_modern_session', true);
+		$FCH = new FactoryConfigHandler();
+
+		try {
+			$this->expectException(ConfigurationException::class);
+			$this->expectExceptionMessage('does not implement interface');
+
+			$FCH->executeArray($this->baseFactories() + [
+				'session' => ['class' => 'FCHTestStorage', 'params' => []],
+			], 'tests/factories.xml');
+		} finally {
+			Config::set('core.use_modern_session', false);
+		}
+	}
+
 }
 ?>
