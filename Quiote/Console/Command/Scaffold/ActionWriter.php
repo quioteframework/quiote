@@ -3,12 +3,21 @@ declare(strict_types=1);
 
 namespace Quiote\Console\Command\Scaffold;
 
+use Quiote\Context;
 use Quiote\Exception\ConfigurationException;
+use Quiote\Renderer\Renderer;
 
 /**
  * Writes the files for `make:action`: the Action class itself, and
- * (optionally) a matching View + Template. Follows the same "heredoc per
- * file" convention as `AppWriter` -- no template-file/engine mechanism.
+ * (optionally) a matching View + Template. The two PHP classes follow the
+ * same "heredoc per file" convention as `AppWriter`.
+ *
+ * The *template* is the exception: its content and extension come from the
+ * renderer the app actually configures for the `html` output type, via
+ * {@see Renderer::getStarterTemplate()} -- each renderer knows its own
+ * syntax, so this generator never hardcodes one. A PHPTAL/Twig/XSLT app
+ * gets a `.tal`/`.twig`/`.xsl` starter rather than a `.php` file full of
+ * PHP tags it would never execute.
  *
  * HTTP-verb -> execute{X}() naming mirrors
  * {@see \Quiote\Execution\HttpMethodMapper}'s canonical map (the single
@@ -66,15 +75,71 @@ final class ActionWriter
             GeneratorSupport::writeFile($viewPath, $this->viewPhp($viewPrefix, $outputTypes));
 
             if (in_array('html', $outputTypes, true)) {
-                $templatePath = "{$this->appDir}/Modules/{$this->moduleDir}/Templates/{$viewPrefix}.php";
-                GeneratorSupport::guardOverwrite($templatePath, $force);
-                GeneratorSupport::writeFile($templatePath, $this->templatePhp($name));
+                $warning = $this->writeTemplate($viewPrefix, $name, $force);
+                if ($warning !== null) {
+                    $warnings[] = $warning;
+                }
             }
 
-            $warnings = $this->ensureOutputTypesConfigured($outputTypes);
+            $warnings = array_merge($warnings, $this->ensureOutputTypesConfigured($outputTypes));
         }
 
         return $warnings;
+    }
+
+    /**
+     * Writes the `html` template using the configured renderer's own starter,
+     * and returns a warning instead of writing when that renderer has none to
+     * offer -- guessing PHP syntax for a renderer we know isn't PHP would
+     * write a file the app can never render, which is worse than writing
+     * nothing and saying so.
+     *
+     * @return string|null a warning for the caller to surface, or null on success
+     */
+    private function writeTemplate(string $viewPrefix, string $name, bool $force): ?string
+    {
+        $base = "{$this->appDir}/Modules/{$this->moduleDir}/Templates/{$viewPrefix}";
+        $renderer = $this->htmlRenderer();
+
+        if ($renderer === null) {
+            // The output type couldn't be resolved at all (no bootstrapped
+            // context, no html output type configured, ...). Fall back to the
+            // built-in PHP starter, which is what this generator always wrote.
+            GeneratorSupport::guardOverwrite($base . '.php', $force);
+            GeneratorSupport::writeFile($base . '.php', $this->templatePhp($name));
+
+            return null;
+        }
+
+        $extension = $renderer->getDefaultExtension() ?: '.php';
+        $starter = $renderer->getStarterTemplate();
+
+        if ($starter === null) {
+            return sprintf(
+                'This app renders "html" via %s, which has no starter template to offer -- '
+                . 'create "%s" yourself.',
+                $renderer::class,
+                $base . $extension,
+            );
+        }
+
+        GeneratorSupport::guardOverwrite($base . $extension, $force);
+        GeneratorSupport::writeFile($base . $extension, $starter);
+
+        return null;
+    }
+
+    /**
+     * The renderer the app's live output-type configuration resolves for
+     * `html`, or null if that can't be determined.
+     */
+    private function htmlRenderer(): ?Renderer
+    {
+        try {
+            return Context::getInstance()->getController()->getOutputType('html')->getRenderer();
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**
@@ -265,6 +330,12 @@ class {$viewClassPrefix}View extends View
 PHP;
     }
 
+    /**
+     * Fallback starter for when no renderer could be resolved. Prefer
+     * {@see \Quiote\Renderer\PhpRenderer::getStarterTemplate()}, which
+     * additionally honours the renderer's configured `varName`/`extractVars`
+     * rather than assuming `$template[...]` as this does.
+     */
     private function templatePhp(string $name): string
     {
         return <<<HTML
