@@ -84,4 +84,53 @@ class DispatchMiddlewareEdgeCasesTest extends TestCase
         $body = (string)$resp->getBody();
         $this->assertStringContainsString('Validation Failed', $body);
     }
+
+    /**
+     * A client negotiated (or was forced into, e.g. via a login forward
+     * that inherited the negotiated output type) a 'json' ActionDescriptor
+     * must never get the legacy HTML `<div>Validation Failed</div>`
+     * fragment -- it should get an RFC 9457 Problem Details body instead.
+     */
+    public function testNonSimpleActionFailedValidationWithJsonOutputTypeReturnsProblemDetails(): void
+    {
+        $ctx = $this->ctx();
+        $mw = new DispatchMiddleware($ctx->getController());
+        $desc = new ActionDescriptor('sample', 'FailedValidation', 'execute', 'json', false);
+        $execState = new ExecutionState();
+        $execState->validationDecision = ValidationDecision::failed(['e1']);
+        $execState->viewName = 'Error';
+        $req = $this->makeReq([ExecutionState::class => $execState, ActionDescriptor::class => $desc]);
+        $resp = $mw->process($req, new class implements RequestHandlerInterface { public function handle(ServerRequestInterface $r): ResponseInterface { throw new RuntimeException('Handler invoked unexpectedly'); } });
+        $this->assertSame(400, $resp->getStatusCode());
+        $this->assertSame('application/problem+json', $resp->getHeaderLine('Content-Type'));
+        $body = (string)$resp->getBody();
+        $this->assertStringNotContainsString('<div>', $body);
+        $decoded = json_decode($body, true);
+        $this->assertIsArray($decoded);
+        $this->assertSame(400, $decoded['status']);
+    }
+
+    /**
+     * Same as above, but with an 'html' ActionDescriptor whose caller
+     * explicitly asked for JSON only via the Accept header (e.g. the
+     * unauthenticated-JSON-API-client scenario) -- content negotiation
+     * still must not render the HTML fragment.
+     */
+    public function testNonSimpleActionFailedValidationHonorsAcceptHeaderWhenOutputTypeUnresolved(): void
+    {
+        $ctx = $this->ctx();
+        $mw = new DispatchMiddleware($ctx->getController());
+        $desc = new ActionDescriptor('sample', 'FailedValidation', 'execute', '', false);
+        $execState = new ExecutionState();
+        $execState->validationDecision = ValidationDecision::failed(['e1']);
+        $execState->viewName = 'Error';
+        $req = $this->makeReq(
+            [ExecutionState::class => $execState, ActionDescriptor::class => $desc],
+            ['Accept' => 'application/json'],
+        );
+        $resp = $mw->process($req, new class implements RequestHandlerInterface { public function handle(ServerRequestInterface $r): ResponseInterface { throw new RuntimeException('Handler invoked unexpectedly'); } });
+        $this->assertSame(400, $resp->getStatusCode());
+        $this->assertSame('application/problem+json', $resp->getHeaderLine('Content-Type'));
+        $this->assertStringNotContainsString('<div>', (string)$resp->getBody());
+    }
 }

@@ -316,8 +316,7 @@ class DispatchMiddleware implements MiddlewareInterface
                     return $resp->withHeader('X-Quiote-Validation-State', $execState->validationDecision->state ?? 'absent')->withHeader('X-Quiote-Debug', 'validation-middleware-missing');
                 }
             } elseif ($execState->validationDecision->isFailed()) {
-                $factory = \Quiote\Http\Psr17::factory();
-                return $factory->createResponse(400)->withBody($factory->createStream('<div>Validation Failed</div>'));
+                return $this->validationFailedResponse($request, $actionDesc, null);
             }
         }
         $resp = $actionDesc->isSimple ? $this->processSimple($request, $actionDesc) : $this->processNonSimple($request, $actionDesc);
@@ -458,6 +457,62 @@ class DispatchMiddleware implements MiddlewareInterface
         }
     }
 
+    /**
+     * Builds the 400 response for a failed validation decision reached here
+     * without ValidationMiddleware having already rendered/short-circuited
+     * (the normal path never reaches this; this is the container-less
+     * pipeline's last-resort fallback). $providedContent, when given, is
+     * rendered as-is (its Content-Type is still corrected for a JSON client);
+     * otherwise a body is synthesized -- Problem Details for a client that
+     * negotiated JSON, the legacy HTML fragment otherwise. A client that asked
+     * for JSON and not HTML never receives the HTML fragment; see
+     * {@see negotiatedJson()} for what counts as asking.
+     */
+    private function validationFailedResponse(ServerRequestInterface $request, ActionDescriptor $actionDesc, ?string $providedContent): ResponseInterface
+    {
+        $factory = \Quiote\Http\Psr17::factory();
+        $wantsJson = $this->negotiatedJson($request, $actionDesc);
+        if ($providedContent !== null) {
+            $resp = $factory->createResponse(400)->withBody($factory->createStream($providedContent));
+            return $wantsJson ? $resp->withHeader('Content-Type', \Quiote\Http\ProblemDetails::MEDIA_TYPE) : $resp;
+        }
+        if ($wantsJson) {
+            $problem = \Quiote\Http\ProblemDetails::create(status: 400, detail: 'Validation failed.', instance: $request->getUri()->getPath());
+            return $factory->createResponse(400)
+                ->withHeader('Content-Type', \Quiote\Http\ProblemDetails::MEDIA_TYPE)
+                ->withBody($factory->createStream($problem->toJson()));
+        }
+        return $factory->createResponse(400)->withBody($factory->createStream('<div>Validation Failed</div>'));
+    }
+
+    /**
+     * Whether the client negotiated (or is asking for, via Accept) a JSON
+     * response rather than HTML. Trusts the already-negotiated
+     * ActionDescriptor->outputType first; falls back to the raw Accept
+     * header when outputType wasn't resolved to 'html'/'json' specifically.
+     *
+     * The Accept fallback deliberately requires application/json AND the absence
+     * of text/html, so HTML is what everything ambiguous gets: no Accept header
+     * at all, `*​/*`, or a browser-style list naming both. That is the safe
+     * default for the case we cannot distinguish -- a plain curl and a browser
+     * look identical here -- and an application that wants otherwise says so per
+     * action via its output type rather than having it inferred. Do not "fix"
+     * this into preferring JSON for an absent Accept header: that is the chosen
+     * behaviour, not an oversight.
+     */
+    private function negotiatedJson(ServerRequestInterface $request, ActionDescriptor $actionDesc): bool
+    {
+        $outputType = strtolower($actionDesc->outputType);
+        if ($outputType === 'json') {
+            return true;
+        }
+        if ($outputType === 'html') {
+            return false;
+        }
+        $accept = strtolower($request->getHeaderLine('Accept'));
+        return str_contains($accept, 'application/json') && !str_contains($accept, 'text/html');
+    }
+
     private function processNonSimple(ServerRequestInterface $request, ActionDescriptor $actionDesc): ResponseInterface
     {
         //$rd = ActionExecutor::buildRequestDataFromPsr($request);
@@ -469,9 +524,8 @@ class DispatchMiddleware implements MiddlewareInterface
         // Security decision must have been established by SecurityMiddleware. If missing and security disabled, executor will allow; otherwise treat as logic gap.
         if ($execState->validationDecision->isFailed() && $execState->viewName) {
             $contentRaw = $request->getAttribute('validation.error.content');
-            $content = is_string($contentRaw) && $contentRaw !== '' ? $contentRaw : '<div>Validation Failed</div>';
-            $factory = \Quiote\Http\Psr17::factory();
-            return $factory->createResponse(400)->withBody($factory->createStream($content));
+            $content = is_string($contentRaw) && $contentRaw !== '' ? $contentRaw : null;
+            return $this->validationFailedResponse($request, $actionDesc, $content);
         }
         $avCache = null;
         $cacheHitPayload = null;
