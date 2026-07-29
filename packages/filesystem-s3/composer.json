@@ -1,6 +1,6 @@
 {
 	"name": "quioteframework/filesystem-s3",
-	"description": "AWS S3 filesystem adapter for Quiote \u2014 a Quiote\\Filesystem\\FilesystemAdapterInterface implementation for FilesystemManager, built on the S3Client from quioteframework/session-s3.",
+	"description": "AWS S3 filesystem adapter for Quiote \u2014 a Quiote\\Filesystem\\FilesystemAdapterInterface implementation for FilesystemManager, built on the S3Client from quioteframework/cloud-s3.",
 	"keywords": [
 		"quiote",
 		"filesystem",

@@ -1,6 +1,6 @@
 {
 	"name": "quioteframework/filesystem-gcs",
-	"description": "Google Cloud Storage filesystem adapter for Quiote \u2014 a Quiote\\Filesystem\\FilesystemAdapterInterface implementation for FilesystemManager, built on the GcsClient from quioteframework/session-gcs.",
+	"description": "Google Cloud Storage filesystem adapter for Quiote \u2014 a Quiote\\Filesystem\\FilesystemAdapterInterface implementation for FilesystemManager, built on the GcsClient from quioteframework/cloud-gcs.",
 	"keywords": [
 		"quiote",
 		"filesystem",

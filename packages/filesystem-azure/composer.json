@@ -1,6 +1,6 @@
 {
 	"name": "quioteframework/filesystem-azure",
-	"description": "Azure Blob Storage filesystem adapter for Quiote \u2014 a Quiote\\Filesystem\\FilesystemAdapterInterface implementation for FilesystemManager, built on the AzureBlobClient from quioteframework/session-azure.",
+	"description": "Azure Blob Storage filesystem adapter for Quiote \u2014 a Quiote\\Filesystem\\FilesystemAdapterInterface implementation for FilesystemManager, built on the AzureBlobClient from quioteframework/cloud-azure.",
 	"keywords": [
 		"quiote",
 		"filesystem",
