@@ -16,6 +16,9 @@ use Psr\Http\Message\ServerRequestInterface;
  */
 final class BearerTokenAuthenticator implements AuthenticatorInterface
 {
+	/** The RFC 6750 auth scheme this authenticator answers to. */
+	private const SCHEME = 'Bearer';
+
 	/**
 	 * @param      TokenValidatorInterface $validator Verifies the token's signature and `iss`/`aud`/time claims.
 	 * @param      ClientTypeResolverInterface $clientTypeResolver Derives human-vs-machine from the validated claims.
@@ -36,7 +39,13 @@ final class BearerTokenAuthenticator implements AuthenticatorInterface
 	 */
 	public function supports(ServerRequestInterface $request): bool
 	{
-		return str_starts_with($request->getHeaderLine('Authorization'), 'Bearer ');
+		// Matches both "Bearer <token>" and a bare "Bearer" (no token) -- a client
+		// sending an empty credential still declared the Bearer scheme and must get
+		// a 401 challenge from authenticate()/the entry point, not silently fall
+		// through as "unauthenticated" (which surfaces as a system login forward
+		// instead). {@see AuthorizationHeader} handles the scheme case-insensitively
+		// and tolerates extra whitespace, both of which RFC 9110 allows.
+		return AuthorizationHeader::declares($request, self::SCHEME);
 	}
 
 	/**
@@ -47,9 +56,8 @@ final class BearerTokenAuthenticator implements AuthenticatorInterface
 	 */
 	public function authenticate(ServerRequestInterface $request): Passport
 	{
-		$header = $request->getHeaderLine('Authorization');
-		$token = substr($header, strlen('Bearer '));
-		if($token === '') {
+		$token = AuthorizationHeader::credential($request, self::SCHEME);
+		if($token === null || $token === '') {
 			throw new AuthenticationException('Missing bearer token.');
 		}
 
