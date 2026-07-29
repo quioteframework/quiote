@@ -24,3 +24,16 @@ services:
       timeout: 3s
       retries: 20
       start_period: 5s
+
+  frankenphp:
+    build:
+      context: ../../..
+      dockerfile: tests/integration/worker/Dockerfile.frankenphp
+    ports:
+      - "8283:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "php -r 'exit(@file_get_contents(\"http://127.0.0.1:8080/\") === false ? 1 : 0);'"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s

@@ -17,8 +17,12 @@ use PHPUnit\Framework\TestCase;
  * Set-Cookie headers survive, whether a stray echo corrupts the protocol stream,
  * and whether the worker is still alive after a request has failed.
  *
- * Every assertion runs against BOTH runtimes from the same data provider, so the
- * two cannot silently diverge.
+ * Every assertion runs against ALL THREE runtimes from the same data provider,
+ * so they cannot silently diverge. FrankenPHP matters most -- it is what this
+ * framework mainly targets in production -- and it is also the odd one out:
+ * it reports itself as a SAPI, so header() works, PHP emits the session cookie
+ * itself, and NativeSessionCookieBridge is deliberately skipped. Nothing proven
+ * against RoadRunner or Swoole transfers to it for free.
  *
  * #[Group('integration')]: excluded from the default `composer test` run --
  * needs Docker and real wall-clock time to build and boot containers. Run with
@@ -30,6 +34,11 @@ final class WorkerRuntimeIntegrationTest extends TestCase
     private const URLS = [
         'roadrunner' => 'http://127.0.0.1:8281',
         'swoole' => 'http://127.0.0.1:8282',
+        // The runtime this framework mainly targets in production, and the only
+        // one of the three that reports itself as a SAPI -- so it takes a
+        // different cookie and output path from the other two and cannot be
+        // assumed equivalent to them.
+        'frankenphp' => 'http://127.0.0.1:8283',
     ];
 
     private static string $composeFile;
@@ -46,7 +55,7 @@ final class WorkerRuntimeIntegrationTest extends TestCase
         self::compose('down -v');
         self::compose('up -d --build');
         self::$started = true;
-        self::waitForBothRuntimes();
+        self::waitForAllRuntimes();
     }
 
     public static function tearDownAfterClass(): void
@@ -64,12 +73,29 @@ final class WorkerRuntimeIntegrationTest extends TestCase
         }
     }
 
+    /**
+     * Whether a runtime reports itself as a real SAPI
+     * ({@see \Quiote\Runtime\Worker\WorkerRuntimeCapabilities::sapi()}).
+     *
+     * On a SAPI the loop skips superglobal hydration, because PHP already
+     * refilled $_SERVER/$_GET/... itself -- and WebRequest::startup() then
+     * clears $_GET/$_POST/$_COOKIE/$_FILES and strips HTTP_* from $_SERVER, the
+     * register-globals-era input defence that also applies under php-fpm.
+     * Empty superglobals there are correct behaviour, not a missing bridge, so
+     * the hydration assertions below only apply to the CLI-hosted runtimes.
+     */
+    private static function populatesSuperglobalsItself(string $runtime): bool
+    {
+        return $runtime === 'frankenphp';
+    }
+
     /** @return array<string, array{0: string}> */
     public static function runtimes(): array
     {
         return [
             'roadrunner' => ['roadrunner'],
             'swoole' => ['swoole'],
+            'frankenphp' => ['frankenphp'],
         ];
     }
 
@@ -111,6 +137,15 @@ final class WorkerRuntimeIntegrationTest extends TestCase
 
         $server = self::subMap($echo, 'server');
         $this->assertSame('GET', $server['REQUEST_METHOD']);
+        if (self::populatesSuperglobalsItself($runtime)) {
+            // See populatesSuperglobalsItself(): the framework deliberately
+            // clears request input here, so there is nothing further to assert
+            // beyond the entries WebRequest::startup() leaves alone.
+            $this->assertNotNull($server['SCRIPT_NAME']);
+            $this->assertTrue($server['REQUEST_TIME_FLOAT_IS_SET']);
+
+            return;
+        }
         // Routing generates URLs off SCRIPT_NAME, and neither RoadRunner nor
         // Swoole supplies one, so it has to be synthesised.
         $this->assertNotNull($server['SCRIPT_NAME']);
@@ -132,6 +167,9 @@ final class WorkerRuntimeIntegrationTest extends TestCase
 
         $this->assertSame(200, $status);
         $this->assertSame('POST', $echo['method']);
+        if (self::populatesSuperglobalsItself($runtime)) {
+            return;
+        }
         // CONTENT_TYPE, not HTTP_CONTENT_TYPE: WebRequest reads the bare CGI name.
         $contentType = self::subMap($echo, 'server')['CONTENT_TYPE'] ?? null;
         $this->assertIsString($contentType);
@@ -384,11 +422,17 @@ final class WorkerRuntimeIntegrationTest extends TestCase
     #[DataProvider('runtimes')]
     public function testStateDoesNotBleedAcrossManySequentialRequests(string $runtime): void
     {
+        $expectSuperglobals = !self::populatesSuperglobalsItself($runtime);
+
         for ($i = 0; $i < 25; $i++) {
             [$status, $body] = self::get($runtime, '/echoback?i=' . $i);
             $this->assertSame(200, $status);
-            // A superglobal left over from an earlier request would show up here.
-            $this->assertSame(['i' => (string) $i], self::json($body)['get']);
+            $echo = self::json($body);
+            $this->assertSame('/echoback', $echo['path'], 'request ' . $i . ' saw the wrong path');
+            if ($expectSuperglobals) {
+                // A superglobal left over from an earlier request would show up here.
+                $this->assertSame(['i' => (string) $i], $echo['get']);
+            }
         }
     }
 
@@ -516,7 +560,7 @@ final class WorkerRuntimeIntegrationTest extends TestCase
         }
     }
 
-    private static function waitForBothRuntimes(): void
+    private static function waitForAllRuntimes(): void
     {
         foreach (array_keys(self::URLS) as $runtime) {
             $deadline = microtime(true) + 120;

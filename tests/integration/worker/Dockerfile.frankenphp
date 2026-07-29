@@ -1,0 +1,28 @@
+# Integration-only image: the probe app served by a real FrankenPHP in worker
+# mode. Never used outside tests/integration/worker/docker-compose.yml.
+#
+# FrankenPHP is the runtime this framework mainly targets in production, and it
+# is the only one of the three that reports itself as a SAPI
+# (WorkerRuntimeCapabilities::sapi) -- so header() works, PHP emits the session
+# cookie itself, and NativeSessionCookieBridge is deliberately not applied. That
+# is a materially different path from RoadRunner and Swoole, which is exactly
+# why it needs its own coverage rather than being assumed equivalent.
+FROM dunglas/frankenphp:1-php8.5
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git unzip libicu-dev libxslt1-dev \
+    && docker-php-ext-install intl xsl sockets \
+    && rm -rf /var/lib/apt/lists/*
+# sockets is not needed by FrankenPHP itself -- it satisfies the monorepo's
+# spiral/roadrunner-worker dev dependency, which composer install resolves here
+# because this image builds from the repository root.
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+WORKDIR /app
+COPY . /app/
+RUN composer install --no-interaction --no-progress --prefer-dist
+
+COPY tests/integration/worker/Caddyfile /etc/frankenphp/Caddyfile
+
+EXPOSE 8080

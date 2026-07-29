@@ -1,0 +1,21 @@
+# Integration-only Caddyfile: the probe app served by a real FrankenPHP in
+# worker mode. Never used outside tests/integration/worker/docker-compose.yml.
+#
+# Two workers on purpose. A single worker hides every cross-request defect in
+# this suite -- session state carried over in one process looks identical to
+# state that was correctly persisted and reloaded, and the failure frequency of
+# the SQLite lock contention tracked worker count. Production runs several.
+{
+	auto_https off
+	frankenphp {
+		worker {
+			file /app/tests/integration/worker/app/pub/index.php
+			num 2
+		}
+	}
+}
+
+:8080 {
+	root * /app/tests/integration/worker/app/pub
+	php_server
+}
