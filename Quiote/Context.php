@@ -1470,6 +1470,24 @@ class Context implements \Stringable, ResetInterface
   }
 
   /**
+   * Install the session manager directly, bypassing the `session` factory slot.
+   *
+   * The slot is how an application configures its session backend; this is for
+   * callers that already hold a built manager -- tests exercising cookie-name or
+   * regeneration behaviour, and embedding code that constructs the backend
+   * itself. Pass null to drop it so the next getSessionManager() rebuilds from
+   * the slot.
+   *
+   * @param      ?\Quiote\Session\SessionManager $manager
+   * @return     void
+   * @since      3.0.3
+   */
+  public function setSessionManager(?\Quiote\Session\SessionManager $manager): void
+  {
+    $this->sessionManager = $manager;
+  }
+
+  /**
    * Install the session bag for this request, replacing the lazy default.
    *
    * Pass null to drop it, which forces the next getSessionBag() to rebuild --

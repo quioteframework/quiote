@@ -21,12 +21,20 @@ use Psr\Http\Server\RequestHandlerInterface;
  * automatically-attached session cookie. Two classes of request fall outside
  * that threat model and are exempted automatically, without needing a
  * per-route opt-out:
- *   - Requests carrying an Authorization header. A cross-site attacker page
- *     cannot read or attach the caller's bearer/basic credential the way a
- *     browser auto-attaches a session cookie, so token/signature-authenticated
- *     callers (JWT, API keys, OAuth2 bearer tokens) are never forgeable.
+ *   - Requests an authenticator already resolved from a caller-supplied
+ *     credential (JWT, API key, OAuth2 bearer token), signalled by the
+ *     `auth.stateless`/`auth.sessionless` request attributes. Such a caller's
+ *     identity does not come from an ambient cookie, so it is not forgeable
+ *     cross-site. Note this is deliberately NOT "an Authorization header is
+ *     present": that header can be attached alongside a session cookie, so
+ *     presence alone proved nothing and made the exemption a bypass.
  *   - Requests with no session cookie at all. With no ambient session-backed
- *     credential present, there is nothing for an attacker to ride.
+ *     credential present, there is nothing for an attacker to ride. The cookie
+ *     name comes from the configured SessionManager via
+ *     {@see CsrfManager::hasSessionCookie()}, never from ext/session's
+ *     session_name() -- the modern session mechanism does not use ext/session,
+ *     so session_name() named a cookie Quiote never sets and this exemption
+ *     matched every request.
  * Routes that still need protecting despite one of the above (rare) can force
  * the check by adding an `_csrf => true` default; routes that need to opt out
  * for any other reason can add `_csrf => false`.
@@ -35,8 +43,17 @@ use Psr\Http\Server\RequestHandlerInterface;
 #[\Quiote\Middleware\Attribute\Middleware(phase: 'before_action', priority: 40, after: 'RoutingMiddleware', before: 'DispatchMiddleware')]
 class CsrfValidationMiddleware implements MiddlewareInterface
 {
+    /** One warning per process, not per request; see isExemptFromCsrf(). */
+    private static bool $warnedAboutMissingSession = false;
+
     public function __construct(private readonly Controller $controller)
     {
+    }
+
+    /** Test isolation: re-arm the once-per-process missing-session warning. */
+    public static function resetWarnings(): void
+    {
+        self::$warnedAboutMissingSession = false;
     }
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
@@ -60,7 +77,7 @@ class CsrfValidationMiddleware implements MiddlewareInterface
             return $handler->handle($request);
         }
 
-        if (!$forced && $this->isExemptFromCsrf($request)) {
+        if (!$forced && $this->isExemptFromCsrf($request, $csrf)) {
             if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
                 \Quiote\Logging\Log::for($this)->debug('[CsrfValidationMiddleware] exempt ' . $request->getMethod() . ' ' . $request->getUri()->getPath() . ' (no ambient session credential)');
             }
@@ -83,31 +100,55 @@ class CsrfValidationMiddleware implements MiddlewareInterface
     }
 
     /**
-     * Whether this request falls outside the CSRF threat model: either it carries its own
-     * credential (Authorization header) rather than relying on an ambient session cookie, or
-     * it has no session cookie at all so there is no ambient credential to ride.
+     * Whether this request falls outside the CSRF threat model: either it was
+     * authenticated by its own non-ambient credential rather than by a session
+     * cookie, or it has no session cookie at all so there is no ambient
+     * credential to ride.
      */
-    private function isExemptFromCsrf(ServerRequestInterface $request): bool
+    private function isExemptFromCsrf(ServerRequestInterface $request, CsrfManager $csrf): bool
     {
-        if ($request->hasHeader('Authorization')) {
+        if ($this->isStatelesslyAuthenticated($request)) {
             return true;
         }
 
-        return !$this->hasSessionCookie($request);
+        if ($csrf->hasSessionCookie($request)) {
+            return false;
+        }
+
+        // No session cookie. Genuinely nothing to ride -- but if the application
+        // has no session mechanism at all then EVERY request looks like this and
+        // CSRF is effectively off, which an operator who enabled it deserves to
+        // hear about. Once per process, not per request.
+        if (!self::$warnedAboutMissingSession && !$csrf->hasSessionMechanism()) {
+            self::$warnedAboutMissingSession = true;
+            \Quiote\Logging\Log::for($this)->warning(
+                '[CsrfValidationMiddleware] CSRF is enabled (core.csrf.enabled) but this context has no '
+                . 'session factory slot configured, so no request ever carries a session cookie and every '
+                . 'request is exempt -- CSRF is not protecting anything. Configure a "session" factory, or '
+                . 'set core.csrf.enabled to false to make the intent explicit.'
+            );
+        }
+
+        return true;
     }
 
     /**
-     * Whether the request carries the configured session cookie (set via session_name()
-     * once SessionMiddleware has started storage for this request).
+     * Whether the request was authenticated by a credential the caller supplied
+     * itself (bearer/JWT/API key) rather than by an ambient session cookie.
+     *
+     * Keyed off the request attributes the auth packages set once they have
+     * actually validated such a credential -- NOT off the mere presence of an
+     * `Authorization` header. A header is trivially attachable alongside a
+     * session cookie (a permissive CORS allowlist is enough), and treating its
+     * presence as proof of non-ambient authentication turned the exemption into
+     * a CSRF bypass: `Authorization: Bearer <garbage>` plus a valid session
+     * cookie authenticated via the session and skipped the token check.
      */
-    private function hasSessionCookie(ServerRequestInterface $request): bool
+    private function isStatelesslyAuthenticated(ServerRequestInterface $request): bool
     {
-        $cookies = $request->getCookieParams();
-        if ($cookies === []) {
-            return false;
-        }
-        $name = session_name();
-        return isset($cookies[$name]) && $cookies[$name] !== '';
+        return $request->getAttribute('auth.stateless') === true
+            || $request->getAttribute('auth.sessionless') === true
+            || $request->getAttribute('jwt.skip_session') === true;
     }
 
     /**

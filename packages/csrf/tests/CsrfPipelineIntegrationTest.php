@@ -55,9 +55,16 @@ final class CsrfPipelineIntegrationTest extends TestCase
         return new MiddlewarePipeline($this->context());
     }
 
+    /**
+     * Resolved the way production resolves it rather than hardcoded to
+     * session_name(): that hardcoding is what let the middleware probe for a
+     * cookie the framework never sets while this test still passed.
+     */
     private function sessionCookieRequest(string $method, string $uri): ServerRequest
     {
-        return (new ServerRequest($method, $uri))->withCookieParams([session_name() => 'fake-session-id']);
+        $name = (new CsrfManager($this->context()))->sessionCookieName();
+
+        return (new ServerRequest($method, $uri))->withCookieParams([$name => 'fake-session-id']);
     }
 
     public function testUnsafeRequestWithoutTokenIsRejectedByTheRealPipeline(): void

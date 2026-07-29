@@ -84,6 +84,22 @@ class SessionManager
         }
     }
 
+    /**
+     * The name of the cookie this manager reads the session id from and bakes
+     * it back onto the response as (`cookie_name`, default `QSID`).
+     *
+     * Exposed because consumers have to be able to ask "does this request carry
+     * a session?" against the name actually in use. Reaching for ext/session's
+     * session_name() instead is wrong here: this class deliberately does not use
+     * ext/session at all (see the class docblock), so session_name() answers
+     * with an unrelated default -- which is exactly how CSRF validation came to
+     * exempt every request.
+     */
+    public function getCookieName(): string
+    {
+        return $this->cookieName;
+    }
+
     public function startFromRequest(ServerRequestInterface $request): Session
     {
         $cookies = $request->getCookieParams();

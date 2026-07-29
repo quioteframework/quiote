@@ -51,7 +51,7 @@ class CsrfInjectionMiddleware implements MiddlewareInterface
         // session (the ambient-credential case CSRF actually protects). This is
         // the only channel a decoupled same-origin SPA has, so it applies to all
         // content types, not just HTML.
-        $setCookie = $this->hasSessionCookie($request);
+        $setCookie = $csrf->hasSessionCookie($request);
 
         // Form/meta injection applies to HTML and XHTML responses. XHTML is
         // frequently served as text/html, but pages that set the proper XML type
@@ -104,19 +104,6 @@ class CsrfInjectionMiddleware implements MiddlewareInterface
         }
         // Deliberately NOT HttpOnly: the SPA must read this from document.cookie.
         return $response->withAddedHeader('Set-Cookie', implode('; ', $parts));
-    }
-
-    /**
-     * Whether the request carries the configured session cookie.
-     */
-    private function hasSessionCookie(ServerRequestInterface $request): bool
-    {
-        $cookies = $request->getCookieParams();
-        if ($cookies === []) {
-            return false;
-        }
-        $name = session_name();
-        return isset($cookies[$name]) && $cookies[$name] !== '';
     }
 
     private function isHttps(ServerRequestInterface $request): bool

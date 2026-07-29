@@ -55,6 +55,16 @@ final class StatelessAuthenticationMiddleware implements MiddlewareInterface
 			return $firewall->getEntryPoint()->start($request, $exception);
 		}
 
+		if($passport !== null) {
+			// This request's identity was re-derived from a credential the caller
+			// supplied itself, not read back from an ambient session cookie.
+			// Consumers that need to distinguish those two cases key off this --
+			// notably packages/csrf, whose exemption must not be based on the mere
+			// presence of an Authorization header (attachable alongside a session
+			// cookie, and therefore no proof of anything).
+			$request = $request->withAttribute('auth.stateless', true);
+		}
+
 		$isServiceToken = $passport?->getClaims()?->isService() ?? false;
 		if($firewall->isSessionless() || $isServiceToken) {
 			$request = $request->withAttribute('auth.sessionless', true);

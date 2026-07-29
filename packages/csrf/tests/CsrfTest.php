@@ -78,9 +78,13 @@ class CsrfTest extends UnitTestCase
     protected function tearDown(): void
     {
         Config::set('core.csrf.enabled', $this->originalCsrfEnabled);
+        CsrfValidationMiddleware::resetWarnings();
         try {
             $ctx = $this->getContext();
             $ctx->setSessionBag(null);
+            // A manager installed by withSessionManager() would otherwise change
+            // cookie-name resolution for every later test in the process.
+            $ctx->setSessionManager(null);
         } catch (\Throwable) {
         }
         parent::tearDown();
@@ -130,10 +134,16 @@ class CsrfTest extends UnitTestCase
         $this->assertTrue($handler->called);
     }
 
-    /** A request bearing the configured session cookie, simulating a real browser session. */
+    /**
+     * A request bearing the configured session cookie, simulating a real browser
+     * session. The name is resolved the same way production resolves it rather
+     * than hardcoded: hardcoding session_name() here is what let the middleware
+     * look for a cookie the framework never sets while these tests still passed.
+     */
     private function sessionCookieRequest(string $method, string $uri): ServerRequest
     {
-        return (new ServerRequest($method, $uri))->withCookieParams([session_name() => 'fake-session-id']);
+        return (new ServerRequest($method, $uri))
+            ->withCookieParams([$this->manager()->sessionCookieName() => 'fake-session-id']);
     }
 
     public function testUnsafeMethodWithoutTokenRejected(): void
@@ -193,31 +203,152 @@ class CsrfTest extends UnitTestCase
         $this->assertTrue($handler->called);
     }
 
-    public function testRequestWithAuthorizationHeaderBypassesValidationEvenWithSessionCookie(): void
+    public function testStatelesslyAuthenticatedRequestBypassesValidationEvenWithSessionCookie(): void
     {
-        // A caller presenting its own credential (Bearer/Basic/JWT) cannot be forged by a
-        // cross-site attacker the way an ambient session cookie can, regardless of whether a
-        // session cookie also happens to be present.
+        // A caller whose identity an authenticator already re-derived from its own
+        // credential (JWT/API key) cannot be forged by a cross-site attacker the way
+        // an ambient session cookie can. The signal is the request attribute the auth
+        // package sets after validating, not the raw header.
         $mw = new CsrfValidationMiddleware($this->controller());
         $handler = $this->okHandler();
         $req = $this->sessionCookieRequest('POST', 'http://localhost/x')
-            ->withHeader('Authorization', 'Bearer some.jwt.token');
+            ->withHeader('Authorization', 'Bearer some.jwt.token')
+            ->withAttribute('auth.stateless', true);
         $resp = $mw->process($req, $handler);
         $this->assertSame(200, $resp->getStatusCode());
         $this->assertTrue($handler->called);
     }
 
-    public function testForcedCsrfRouteStillValidatesDespiteAuthorizationHeader(): void
+    public function testSessionlessAttributeAlsoBypassesValidation(): void
+    {
+        // The machine-client signal set by StatelessAuthenticationMiddleware for a
+        // sessionless firewall / service token exempts too.
+        $mw = new CsrfValidationMiddleware($this->controller());
+        $handler = $this->okHandler();
+        $req = $this->sessionCookieRequest('POST', 'http://localhost/x')
+            ->withAttribute('auth.sessionless', true);
+        $resp = $mw->process($req, $handler);
+        $this->assertSame(200, $resp->getStatusCode());
+        $this->assertTrue($handler->called);
+    }
+
+    public function testBareAuthorizationHeaderDoesNotBypassValidation(): void
+    {
+        // Regression: header presence alone used to exempt the request. It proves
+        // nothing -- an attacker can attach `Authorization: Bearer <garbage>` while
+        // the request still authenticates via the ambient session cookie, which made
+        // the exemption a CSRF bypass. Without a validated-credential attribute the
+        // token is still required.
+        $mw = new CsrfValidationMiddleware($this->controller());
+        $handler = $this->okHandler();
+        $req = $this->sessionCookieRequest('POST', 'http://localhost/x')
+            ->withHeader('Authorization', 'Bearer some.jwt.token');
+        $resp = $mw->process($req, $handler);
+        $this->assertSame(403, $resp->getStatusCode());
+        $this->assertFalse($handler->called);
+    }
+
+    public function testForcedCsrfRouteStillValidatesDespiteStatelessAuth(): void
     {
         // `_csrf => true` overrides the automatic exemption for routes that need it anyway.
         $mw = new CsrfValidationMiddleware($this->controller());
         $handler = $this->okHandler();
         $req = $this->sessionCookieRequest('POST', 'http://localhost/x')
             ->withHeader('Authorization', 'Bearer some.jwt.token')
+            ->withAttribute('auth.stateless', true)
             ->withAttribute('route_params', ['_module' => 'X', '_action' => 'Y', '_csrf' => true]);
         $resp = $mw->process($req, $handler);
         $this->assertSame(403, $resp->getStatusCode());
         $this->assertFalse($handler->called);
+    }
+
+    // --- Session cookie name resolution (the exemption's actual predicate) ---
+
+    /**
+     * Install a real SessionManager so cookie-name resolution follows the
+     * production path. Dropped again in tearDown().
+     * @param array<string, mixed> $parameters
+     */
+    private function withSessionManager(array $parameters = []): \Quiote\Session\SessionManager
+    {
+        $persistence = new class implements \Quiote\Session\SessionPersistenceInterface {
+            /** @var array<string, array<string, mixed>> */
+            private array $rows = [];
+
+            public function load(string $sid): ?array
+            {
+                return $this->rows[$sid] ?? null;
+            }
+
+            public function save(string $sid, array $data): void
+            {
+                $this->rows[$sid] = $data;
+            }
+
+            public function delete(string $sid): void
+            {
+                unset($this->rows[$sid]);
+            }
+        };
+
+        $manager = new \Quiote\Session\SessionManager($persistence, $parameters);
+        $this->getContext()->setSessionManager($manager);
+
+        return $manager;
+    }
+
+    public function testSessionCookieNameComesFromTheSessionManagerNotExtSession(): void
+    {
+        // Regression: the exemption used to probe for a cookie named session_name()
+        // ('PHPSESSID'), which SessionManager never sets -- so hasSessionCookie() was
+        // always false, every request was exempt and CSRF validated nothing.
+        $this->withSessionManager();
+        $this->assertSame('QSID', $this->manager()->sessionCookieName());
+        $this->assertNotSame(session_name(), $this->manager()->sessionCookieName());
+    }
+
+    public function testConfiguredCookieNameIsHonoured(): void
+    {
+        $this->withSessionManager(['cookie_name' => 'MYAPPSID']);
+        $this->assertSame('MYAPPSID', $this->manager()->sessionCookieName());
+
+        $req = (new ServerRequest('POST', 'http://localhost/x'))
+            ->withCookieParams(['MYAPPSID' => 'abc']);
+        $this->assertTrue($this->manager()->hasSessionCookie($req));
+    }
+
+    public function testRealSessionCookieIsValidatedNotExempted(): void
+    {
+        // The end-to-end shape of the bug: a browser carrying the framework's own
+        // session cookie posting without a token must be rejected.
+        $this->withSessionManager();
+        $mw = new CsrfValidationMiddleware($this->controller());
+        $handler = $this->okHandler();
+        $req = (new ServerRequest('POST', 'http://localhost/x'))
+            ->withCookieParams(['QSID' => 'fake-session-id']);
+        $resp = $mw->process($req, $handler);
+        $this->assertSame(403, $resp->getStatusCode());
+        $this->assertFalse($handler->called);
+    }
+
+    public function testExtSessionNameCookieDoesNotCountAsASession(): void
+    {
+        // The mirror image: with a SessionManager configured, a stray PHPSESSID
+        // cookie is not this application's session and must not make the request
+        // look session-bearing.
+        $this->withSessionManager();
+        $req = (new ServerRequest('POST', 'http://localhost/x'))
+            ->withCookieParams(['PHPSESSID' => 'not-ours']);
+        $this->assertFalse($this->manager()->hasSessionCookie($req));
+    }
+
+    public function testFallsBackToExtSessionNameWithoutASessionManager(): void
+    {
+        // No session factory slot => the legacy storage/native-$_SESSION path, where
+        // ext/session genuinely owns the cookie.
+        $this->getContext()->setSessionManager(null);
+        $this->assertFalse($this->manager()->hasSessionMechanism());
+        $this->assertSame(session_name(), $this->manager()->sessionCookieName());
     }
 
     public function testDisabledConfigBypassesValidation(): void
