@@ -10,6 +10,7 @@
 /benchmarks/results
 /docs
 /TODO.md
+/DOCS_TODO.md
 /.phpunit.cache
 
 # AI agent instructions/config (contributor-local, not part of the release)
