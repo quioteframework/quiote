@@ -64,18 +64,22 @@ final readonly class PdoRateLimiterStorage implements StorageInterface
         $stmt->bindValue(':id', $id);
         $stmt->execute();
         $row = $stmt->fetch(\PDO::FETCH_ASSOC);
-        if ($row === false) {
+        if (!is_array($row)) {
             return null;
         }
 
-        $expiresAt = $row['expires_at'];
-        if ($expiresAt !== null && (int) $expiresAt < time()) {
+        $expiresAt = $row['expires_at'] ?? null;
+        if ((is_int($expiresAt) || is_string($expiresAt)) && (int) $expiresAt < time()) {
             // Expired window — drop it and behave as if absent.
             $this->delete($limiterStateId);
             return null;
         }
 
-        $decoded = base64_decode((string) $row['state'], true);
+        $state = $row['state'] ?? null;
+        if (!is_string($state)) {
+            return null;
+        }
+        $decoded = base64_decode($state, true);
         if ($decoded === false) {
             return null;
         }

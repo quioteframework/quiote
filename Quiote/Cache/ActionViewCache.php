@@ -15,17 +15,37 @@ class ActionViewCache
     private function key(string $module, string $action, string $outputType, ?string $fingerprint = null): string
     {
         // Compose key using module + action specific namespace versions for targeted invalidation.
-        $modVer = CacheManager::getNamespaceVersion('avmod:' . $module);
-        $actVer = CacheManager::getNamespaceVersion('avact:' . $module . ':' . $action);
-        $fpPart = $fingerprint ? (':u:' . $fingerprint) : '';
-        return 'av:' . $modVer . ':' . $actVer . ':' . $module . ':' . $action . ':' . $outputType . $fpPart;
+        $modVer = CacheManager::getNamespaceVersion(CacheManager::key('avmod', $module));
+        $actVer = CacheManager::getNamespaceVersion(CacheManager::key('avact', $module, $action));
+        $parts = ['av', (string)$modVer, (string)$actVer, $module, $action, $outputType];
+        if ($fingerprint) {
+            $parts[] = 'u';
+            $parts[] = $fingerprint;
+        }
+        return CacheManager::key(...$parts);
     }
 
     /**
      * @return array<string, mixed>|null
      */
     public function get(string $module, string $action, string $outputType, ?string $fingerprint = null): ?array
-    { return $this->cache->get($this->key($module,$action,$outputType,$fingerprint)); }
+    {
+        // PSR-16 get() is typed mixed: a cache holding something other than a
+        // payload array (a stale entry from an older format, or a key collision
+        // with app code sharing the pool) reads as a miss rather than being
+        // handed to a caller expecting an array.
+        $cached = $this->cache->get($this->key($module, $action, $outputType, $fingerprint));
+        if (!is_array($cached)) {
+            return null;
+        }
+        // Payload keys are strings by contract (see set()); re-key so a stray
+        // int-keyed entry from an older serialization can't desync consumers.
+        $payload = [];
+        foreach ($cached as $name => $value) {
+            $payload[(string)$name] = $value;
+        }
+        return $payload;
+    }
 
     /**
      * @param array<string, mixed> $payload

@@ -83,4 +83,24 @@ class SlotCacheTest extends UnitTestCase
         $dispatcher->dispatch($parent, 'Cache','Cache');
     $this->assertSame(2, \Sandbox\Modules\Cache\Actions\CacheAction::$execCount, 'Without cache flag executions should not be short-circuited');
     }
+
+    /**
+     * The slot cache key used to be composed with ':' separators, which PSR-16
+     * §1.3 reserves. symfony/cache rejects such a key, but from behind an
+     * assert() — so the slot cache worked with zend.assertions=-1 and threw with
+     * =1, which is how the illegal key survived a green suite.
+     */
+    public function testSlotCacheKeysAreLegalUnderPsr16(): void
+    {
+        $spy = new \Quiote\Test\Cache\Psr16KeyRecordingCache();
+        CacheManager::setCache($spy, 'spy');
+
+        $dispatcher = $this->getContext()->getSlotDispatcher();
+        $parent = (new ServerRequest('GET', 'http://localhost/'))
+            ->withAttribute(SlotMiddleware::ATTR, new SlotStack());
+        $dispatcher->dispatch($parent, 'Cache', 'Cache', ['k' => 'v']);
+
+        $this->assertNotEmpty($spy->recordedKeys(), 'the slot cache should have been consulted');
+        $this->assertSame([], $spy->illegalKeys());
+    }
 }

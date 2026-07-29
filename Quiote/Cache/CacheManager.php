@@ -94,8 +94,33 @@ class CacheManager
         return $connection;
     }
 
+    /**
+     * PSR-16 §1.3 reserves `{}()/\@:` in cache keys: a conforming
+     * implementation may reject any key containing one, and symfony/cache does
+     * — either by throwing (`zend.assertions=1`) or, with assertions compiled
+     * out in production, by letting a key through that another backend would
+     * refuse. Colon is the obvious separator to reach for and is exactly the
+     * one that is off-limits, so every framework cache key is composed here
+     * instead of by inline concatenation.
+     * Reserved characters inside a part are replaced rather than escaped, so
+     * two parts differing only in reserved characters map to the same key —
+     * fine for the module/action/tag/version parts this is used with, but not
+     * a general-purpose escaping scheme.
+     * @param      string ...$parts The key segments, outermost namespace first.
+     * @return     string A key legal for any PSR-16 implementation.
+     * @since      3.0.2
+     */
+    public static function key(string ...$parts): string
+    {
+        $safe = array_map(
+            static fn(string $part): string => str_replace(['{', '}', '(', ')', '/', '\\', '@', ':'], '_', $part),
+            $parts,
+        );
+        return implode('.', $safe);
+    }
+
     private static function versionCacheKey(string $namespace): string
-    { return 'nsver:' . $namespace; }
+    { return self::key('nsver', $namespace); }
 
     public static function getNamespaceVersion(string $namespace): int
     {
@@ -122,13 +147,28 @@ class CacheManager
 
     // Invalidate all action/view cache entries for a module by bumping module namespace version.
     public static function invalidateModule(string $moduleName): void
-    { self::bumpNamespace('avmod:' . $moduleName); }
+    { self::bumpNamespace(self::key('avmod', $moduleName)); }
 
     // Future extension: invalidate a single action by a dedicated namespace combining module+action.
     public static function invalidateAction(string $moduleName, string $actionName): void
-    { self::bumpNamespace('avact:' . $moduleName . ':' . $actionName); }
+    { self::bumpNamespace(self::key('avact', $moduleName, $actionName)); }
 
     // Invalidate all slot cache entries referencing a given tag
     public static function invalidateSlotTag(string $tag): void
-    { self::bumpNamespace('slot_tag:' . preg_replace('/[^a-z0-9:_-]/i','_', $tag)); }
+    { self::bumpNamespace(self::slotTagNamespace($tag)); }
+
+    /**
+     * The namespace whose version invalidates every slot cache entry carrying
+     * `$tag`. Shared with SlotDispatcher, which composes the same namespace
+     * when it builds a slot's cache key — the two must agree exactly or a
+     * tag bump invalidates nothing.
+     * @param      string $tag The slot cache tag.
+     * @return     string The namespace name to pass to {@see getNamespaceVersion()}.
+     * @since      3.0.2
+     */
+    public static function slotTagNamespace(string $tag): string
+    {
+        $normalized = preg_replace('/[^a-z0-9_-]/i', '_', $tag) ?? $tag;
+        return self::key('slot_tag', $normalized);
+    }
 }

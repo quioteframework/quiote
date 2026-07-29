@@ -10,13 +10,20 @@ use Quiote\Config\Config;
 
 /**
  * Adds standard hardening response headers (CSP, X-Content-Type-Options,
- * X-Frame-Options, Referrer-Policy, Permissions-Policy, HSTS). Runs after the
- * action so the response body/status are already final; only sets a header
- * when the response doesn't already carry one, so an action can still
+ * X-Frame-Options, Referrer-Policy, Permissions-Policy, HSTS). Only sets a
+ * header when the response doesn't already carry one, so an action can still
  * override any of these on a per-route basis. HSTS is only added for https
  * requests — sending it over plain http is meaningless and, if the request
- * is deployed for local http development, actively unhelpful. */
-#[\Quiote\Middleware\Attribute\Middleware(phase: 'after_action', priority: 10, after: 'DispatchMiddleware')]
+ * is deployed for local http development, actively unhelpful.
+ *
+ * Placement matters and is not negotiable: DispatchMiddleware is the terminal
+ * middleware — it never calls `$handler->handle()` and builds its response
+ * from the rendered view instead — so any middleware ordered after it decorates
+ * a response nobody returns. This sits at the very outside of the pipeline, one
+ * step further out than ErrorHandlingMiddleware, so the headers also land on
+ * error and 404 responses that ErrorHandlingMiddleware renders in place of the
+ * action's. */
+#[\Quiote\Middleware\Attribute\Middleware(phase: 'bootstrap', priority: 1100)]
 class SecurityHeadersMiddleware implements MiddlewareInterface
 {
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface

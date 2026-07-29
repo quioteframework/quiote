@@ -4,6 +4,7 @@ use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Quiote\Cache\CacheManager;
 use Quiote\Config\Config;
+use Quiote\Test\Cache\Psr16KeyRecordingCache;
 use Quiote\Test\Redis\RedisContainers;
 
 final class CacheManagerTest extends TestCase
@@ -52,6 +53,61 @@ final class CacheManagerTest extends TestCase
         $this->expectExceptionMessage('no Redis client is available');
 
         CacheManager::getCache();
+    }
+
+    public function testKeyJoinsPartsWithALegalSeparator(): void
+    {
+        $this->assertSame('nsver.avmod.blog', CacheManager::key('nsver', 'avmod', 'blog'));
+    }
+
+    public function testKeyReplacesEveryCharacterPsr16Reserves(): void
+    {
+        $key = CacheManager::key('ns', 'a:b{c}d(e)f/g\\h@i');
+
+        $this->assertSame('ns.a_b_c_d_e_f_g_h_i', $key);
+        $this->assertFalse(strpbrk($key, '{}()/\\@:'), 'key() must not emit a reserved character');
+    }
+
+    /**
+     * The namespace-version keys used to be built as 'nsver:' . $namespace.
+     * PSR-16 §1.3 reserves ':', and symfony/cache rejects it — but only behind
+     * an assert(), so the failure appears with zend.assertions=1 (development)
+     * and vanishes with -1 (production), which is how this survived so long.
+     */
+    public function testNamespaceVersionKeysAreLegalUnderPsr16(): void
+    {
+        $spy = new Psr16KeyRecordingCache();
+        CacheManager::setCache($spy, 'spy');
+
+        CacheManager::getNamespaceVersion(CacheManager::key('avmod', 'blog'));
+        CacheManager::bumpNamespace(CacheManager::key('avmod', 'blog'));
+
+        $this->assertNotEmpty($spy->recordedKeys());
+        $this->assertSame([], $spy->illegalKeys());
+    }
+
+    public function testInvalidationHelpersProduceLegalKeys(): void
+    {
+        $spy = new Psr16KeyRecordingCache();
+        CacheManager::setCache($spy, 'spy');
+
+        CacheManager::invalidateModule('blog');
+        CacheManager::invalidateAction('blog', 'Index');
+        // A tag an app is free to write with a colon in it must not leak one
+        // through into the key.
+        CacheManager::invalidateSlotTag('post:42');
+
+        $this->assertNotEmpty($spy->recordedKeys());
+        $this->assertSame([], $spy->illegalKeys());
+    }
+
+    public function testSlotTagNamespaceIsStableForTheSameTag(): void
+    {
+        $this->assertSame(
+            CacheManager::slotTagNamespace('post:42'),
+            CacheManager::slotTagNamespace('post:42'),
+        );
+        $this->assertFalse(strpbrk(CacheManager::slotTagNamespace('post:42'), '{}()/\\@:'));
     }
 
     #[Group('integration')]

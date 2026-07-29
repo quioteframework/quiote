@@ -30,13 +30,18 @@ final class RateLimitTest extends TestCase
         $t = $this->throttle(new InMemoryStorage(), 3);
         $key = 'ip-a';
 
-        // Not blocked initially.
-        $this->assertNull($t->retryAfter($key));
+        // Not blocked initially. Each call's result goes through a local: an
+        // assertion on the call expression itself narrows that expression's type
+        // for the rest of the method, which then makes the later
+        // "now it is blocked" assertions look statically impossible.
+        $initial = $t->retryAfter($key);
+        $this->assertNull($initial);
 
         // Three failures are within the allowance.
-        $this->assertNull($t->registerFailure($key));
-        $this->assertNull($t->registerFailure($key));
-        $this->assertNull($t->registerFailure($key));
+        for ($i = 0; $i < 3; $i++) {
+            $withinAllowance = $t->registerFailure($key);
+            $this->assertNull($withinAllowance, 'failure ' . ($i + 1) . ' should be within the allowance');
+        }
 
         // Now exhausted: a peek reports a wait, and a further failure is rejected.
         $retry = $t->retryAfter($key);
@@ -103,19 +108,26 @@ final class RateLimitTest extends TestCase
         $this->assertNotNull($t2->retryAfter($key), 'state must persist in the database, not just in memory');
     }
 
+    private function countRows(\PDO $pdo): int
+    {
+        $statement = $pdo->query('SELECT COUNT(*) FROM quiote_rate_limit');
+        $this->assertNotFalse($statement);
+        return (int) $statement->fetchColumn();
+    }
+
     public function testPdoPurgeExpiredRemovesStaleRows(): void
     {
         $pdo = $this->sqlitePdo();
         $storage = new PdoRateLimiterStorage($pdo);
         $t = $this->throttle($storage, 3);
         $t->registerFailure('ip-gc');
-        $this->assertSame(1, (int) $pdo->query('SELECT COUNT(*) FROM quiote_rate_limit')->fetchColumn());
+        $this->assertSame(1, $this->countRows($pdo));
 
         // Force the row to be expired, then purge.
         $pdo->exec('UPDATE quiote_rate_limit SET expires_at = ' . (time() - 10));
         $deleted = $storage->purgeExpired();
         $this->assertSame(1, $deleted);
-        $this->assertSame(0, (int) $pdo->query('SELECT COUNT(*) FROM quiote_rate_limit')->fetchColumn());
+        $this->assertSame(0, $this->countRows($pdo));
     }
 
     public function testInvalidTableNameRejected(): void

@@ -1,25 +1,30 @@
 <?php
 /**
  * Version initialization script.
+ * Keep the major/minor/micro values here in step with the release tag and
+ * CHANGELOG.md — `quiote.version` is what the `about` command reports and what
+ * APCuConfigCache stamps into a cached config, so a stale value here surfaces
+ * as a wrong framework version at runtime.
  * @since      1.0.0
- * @version    1.0.0
+ * @version    3.0.2
  */
-
- use Quiote\Config\Config;
 
 \Quiote\Config\Config::set('quiote.name', 'Quiote');
 
-\Quiote\Config\Config::set('quiote.major_version', '1');
-\Quiote\Config\Config::set('quiote.minor_version', '2');
-\Quiote\Config\Config::set('quiote.micro_version', '4');
+\Quiote\Config\Config::set('quiote.major_version', '3');
+\Quiote\Config\Config::set('quiote.minor_version', '0');
+\Quiote\Config\Config::set('quiote.micro_version', '2');
 \Quiote\Config\Config::set('quiote.status', '');
 \Quiote\Config\Config::set('quiote.branch', 'main');
 
+// Config::has() is true for a directive set to '', and a stable release leaves
+// quiote.status empty — test the value, not its presence, or every version
+// string comes out with a trailing '-'.
 \Quiote\Config\Config::set('quiote.version',
 	\Quiote\Config\Config::getString('quiote.major_version') . '.' .
 	\Quiote\Config\Config::getString('quiote.minor_version') . '.' .
 	\Quiote\Config\Config::getString('quiote.micro_version') .
-	(\Quiote\Config\Config::has('quiote.status')
+	(\Quiote\Config\Config::getString('quiote.status') !== ''
 		? '-' . \Quiote\Config\Config::getString('quiote.status')
 		: '')
 );

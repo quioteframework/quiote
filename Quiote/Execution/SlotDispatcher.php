@@ -217,26 +217,28 @@ class SlotDispatcher
                         $tags = [];
                     }
                 }
-                $tagSuffix = '';
+                // Cache keys are composed through CacheManager::key() rather than
+                // concatenated with ':' — PSR-16 reserves that character.
+                $keyParts = ['slot', strtolower($module), strtolower($action), $normalizedOutputType];
                 if ($tags) {
                     $versions = [];
                     foreach ($tags as $t) {
-                        $safe = preg_replace('/[^a-z0-9:_-]/i', '_', (string)$t);
                         try {
-                            $versions[] = CacheManager::getNamespaceVersion('slot_tag:' . $safe);
+                            $versions[] = (string)CacheManager::getNamespaceVersion(CacheManager::slotTagNamespace((string)$t));
                         } catch (\Throwable) {
                             $versions[] = '0';
                         }
                     }
-                    $tagSuffix = ':' . implode('.', $versions);
+                    $keyParts[] = implode('-', $versions);
                 }
                 $encodedParameters = json_encode($parameters);
                 // json_encode() can fail (e.g. malformed UTF-8, resources) and return false;
                 // hashing that verbatim would silently collapse every failing-encode call into
                 // the same cache key. Fall back to a per-call unique key instead so we never
                 // serve unrelated cached content when encoding fails.
-                $parametersDigest = $encodedParameters !== false ? md5($encodedParameters) : ('uncacheable:' . bin2hex(random_bytes(8)));
-                $cacheKey = 'slot:' . strtolower($module) . ':' . strtolower($action) . ':' . $normalizedOutputType . $tagSuffix . ':' . $parametersDigest;
+                $parametersDigest = $encodedParameters !== false ? md5($encodedParameters) : ('uncacheable-' . bin2hex(random_bytes(8)));
+                $keyParts[] = $parametersDigest;
+                $cacheKey = CacheManager::key(...$keyParts);
                 try {
                     $cached = CacheManager::getCache()->get($cacheKey);
                     $decoded = $this->decodeSlotCachePayload($cached);

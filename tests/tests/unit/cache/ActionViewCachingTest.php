@@ -7,6 +7,7 @@ use Quiote\Config\Config;
 use Quiote\Execution\ActionDescriptor;
 use Quiote\Execution\ExecutionState;
 use Psr\SimpleCache\CacheInterface;
+use Quiote\Test\Cache\Psr16KeyRecordingCache;
 
 /**
  * Unit test to verify that ActionViewCache works correctly for caching rendered actions/views.
@@ -141,6 +142,7 @@ class ActionViewCachingTest extends TestCase
         // Retrieve and verify state was preserved
         $retrieved = $this->cache->get($module, $action, $outputType);
         $this->assertNotNull($retrieved);
+        $this->assertIsArray($retrieved['state']);
         $this->assertEquals('passed', $retrieved['state']['validationDecision']);
         $this->assertEquals('Allow', $retrieved['state']['securityDecision']);
         $this->assertEquals('TestModule', $retrieved['state']['viewModule']);
@@ -209,5 +211,40 @@ class ActionViewCachingTest extends TestCase
         $this->assertEquals('Test', $m1_action_html['response_content']);
         $this->assertEquals('Different Module', $m2_action_html['response_content']);
         $this->assertEquals('Different OutputType', $m1_action_json['response_content']);
+    }
+
+    /**
+     * The composed key used to be 'av:' . $modVer . ':' . ... — every ':' of
+     * which PSR-16 §1.3 reserves. symfony/cache rejects such a key, but behind
+     * an assert(), so this only surfaced with zend.assertions=1 and the cache
+     * silently worked in production-configured PHP.
+     */
+    public function testComposedKeysAreLegalUnderPsr16(): void
+    {
+        $spy = new Psr16KeyRecordingCache();
+        CacheManager::setCache($spy, 'spy');
+        $cache = new ActionViewCache($spy, 300);
+
+        $cache->set('TestModule', 'Index', 'html', ['response_content' => 'x']);
+        $cache->get('TestModule', 'Index', 'html');
+        $cache->get('TestModule', 'Index', 'html', 'fingerprint-abc');
+        $cache->delete('TestModule', 'Index', 'html');
+
+        $this->assertNotEmpty($spy->recordedKeys());
+        $this->assertSame([], $spy->illegalKeys());
+    }
+
+    public function testFingerprintedAndUnfingerprintedKeysStayDistinct(): void
+    {
+        $this->cache->set('M', 'A', 'html', ['response_content' => 'anon']);
+        $this->cache->set('M', 'A', 'html', ['response_content' => 'user'], null, 'fp-1');
+
+        $anon = $this->cache->get('M', 'A', 'html');
+        $user = $this->cache->get('M', 'A', 'html', 'fp-1');
+
+        $this->assertNotNull($anon);
+        $this->assertNotNull($user);
+        $this->assertSame('anon', $anon['response_content']);
+        $this->assertSame('user', $user['response_content']);
     }
 }

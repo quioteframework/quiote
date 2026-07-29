@@ -90,6 +90,31 @@ class OidcClientTest extends TestCase
 		$this->assertSame($expectedChallenge, $query['code_challenge']);
 	}
 
+	/**
+	 * RFC 6749 §3.3 makes `scope` space-delimited. league/oauth2-client's
+	 * AbstractProvider defaults the separator to a comma, which Google,
+	 * Microsoft Entra ID and Okta all reject or read as one unknown scope --
+	 * and only after the browser has left this app.
+	 */
+	public function testAuthorizationUrlDelimitsScopesWithSpaces(): void
+	{
+		$client = new OidcClient(
+			'client-id',
+			'client-secret',
+			'https://app.example.com/callback',
+			'https://idp.example.com/authorize',
+			'https://idp.example.com/token',
+			['openid', 'profile', 'email'],
+		);
+
+		$url = $client->buildAuthorizationRequest()->getAuthorizationUrl();
+		parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+
+		$this->assertSame('openid profile email', $query['scope']);
+		$this->assertStringContainsString('scope=openid%20profile%20email', $url);
+		$this->assertStringNotContainsString('%2C', $url);
+	}
+
 	public function testBuildAuthorizationRequestGeneratesAFreshStateEachCall(): void
 	{
 		$client = new OidcClient('id', 'secret', 'https://app.example.com/callback', 'https://idp.example.com/authorize', 'https://idp.example.com/token');

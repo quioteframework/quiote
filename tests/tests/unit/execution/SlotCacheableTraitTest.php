@@ -114,8 +114,12 @@ class SlotCacheableTraitTest extends UnitTestCase
         $dispatcher->dispatch($parent, 'Cache', 'Tagged', ['group' => 'B']);
         $this->assertSame(2, TaggedAction::$execCount);
 
-        // Bumping group A's tag namespace invalidates only slot cache entries tagged group:A.
-        CacheManager::bumpNamespace('slot_tag:group:A');
+        // Invalidating group A's tag affects only slot cache entries tagged
+        // group:A. Go through invalidateSlotTag() rather than hand-composing the
+        // namespace: the tag-to-namespace mapping is CacheManager's
+        // (it has to sanitize characters PSR-16 reserves) and SlotDispatcher
+        // composes the same one when it builds a slot key.
+        CacheManager::invalidateSlotTag('group:A');
 
         $dispatcher->dispatch($parent, 'Cache', 'Tagged', ['group' => 'A']);
         $this->assertSame(3, TaggedAction::$execCount, 'Tag bump should invalidate group A and force re-execution');

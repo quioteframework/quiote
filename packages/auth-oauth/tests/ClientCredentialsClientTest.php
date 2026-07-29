@@ -34,6 +34,37 @@ class ClientCredentialsClientTest extends TestCase
 		$this->assertSame('https://idp.example.com/oauth2/v2/token', (string) $mock->getLastRequest()->getUri());
 	}
 
+	/**
+	 * RFC 6749 §3.3: `scope` is space-delimited. league/oauth2-client's default
+	 * separator is a comma, which real authorization servers reject or read as
+	 * a single unknown scope.
+	 */
+	public function testTokenRequestDelimitsScopesWithSpaces(): void
+	{
+		$mock = new MockHandler([
+			new Response(200, ['Content-Type' => 'application/json'], (string) json_encode([
+				'access_token' => 'm2m-access-token',
+				'token_type' => 'Bearer',
+				'expires_in' => 3600,
+			])),
+		]);
+		$httpClient = new Client(['handler' => HandlerStack::create($mock)]);
+
+		$client = new ClientCredentialsClient(
+			'client-id',
+			'client-secret',
+			'https://idp.example.com/token',
+			['api://target/.default', 'offline_access'],
+			$httpClient,
+		);
+		$client->getAccessToken();
+
+		$lastRequest = $mock->getLastRequest();
+		$this->assertNotNull($lastRequest);
+		parse_str((string) $lastRequest->getBody(), $body);
+		$this->assertSame('api://target/.default offline_access', $body['scope']);
+	}
+
 	public function testFromDiscoveryThrowsWhenTheProviderAdvertisesNoTokenEndpoint(): void
 	{
 		$document = OidcDiscoveryDocument::fromArray(['issuer' => 'https://idp.example.com']);

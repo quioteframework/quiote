@@ -3,12 +3,13 @@ namespace Quiote\Security\Auth;
 
 use GuzzleHttp\ClientInterface;
 use League\OAuth2\Client\Provider\AbstractProvider;
-use League\OAuth2\Client\Provider\GenericProvider;
 use League\OAuth2\Client\Token\AccessTokenInterface;
 use Throwable;
 
 /**
- * Wraps `league/oauth2-client`'s `GenericProvider` for the OIDC
+ * Wraps `league/oauth2-client`'s generic provider (via
+ * {@see SpaceDelimitedScopeProvider}, which fixes the library's
+ * comma-delimited `scope` parameter) for the OIDC
  * Authorization Code flow. PKCE (S256) is hardcoded, not an
  * app-configurable option, since OAuth 2.1 mandates it for the
  * Authorization Code grant. The `nonce` authorization-request parameter
@@ -19,7 +20,7 @@ use Throwable;
  */
 final class OidcClient
 {
-	private readonly GenericProvider $provider;
+	private readonly SpaceDelimitedScopeProvider $provider;
 
 	/**
 	 * @param      string $clientId The OAuth client id.
@@ -40,7 +41,7 @@ final class OidcClient
 		array $scopes = ['openid'],
 		?ClientInterface $httpClient = null,
 	) {
-		$this->provider = new GenericProvider([
+		$this->provider = new SpaceDelimitedScopeProvider([
 			'clientId' => $clientId,
 			'clientSecret' => $clientSecret,
 			'redirectUri' => $redirectUri,

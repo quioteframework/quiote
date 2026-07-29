@@ -9,6 +9,9 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Quiote\Config\Config;
+use Quiote\Middleware\Compiler\MiddlewareAttributeScanner;
+use Quiote\Middleware\Compiler\MiddlewareDefinition;
+use Quiote\Middleware\Compiler\MiddlewareOrderResolver;
 use Quiote\Security\Headers\SecurityHeadersMiddleware;
 
 final class SecurityHeadersTest extends TestCase
@@ -116,6 +119,59 @@ final class SecurityHeadersTest extends TestCase
         $resp = $mw->process(new ServerRequest('GET', 'https://localhost/x'), $this->plainHandler());
         $this->assertFalse($resp->hasHeader('Content-Security-Policy'));
         $this->assertFalse($resp->hasHeader('X-Frame-Options'));
+    }
+
+    /**
+     * The whole middleware is a no-op unless it sits *outside*
+     * DispatchMiddleware: Dispatch is terminal — it never calls
+     * `$handler->handle()` and builds its response from the rendered view — so
+     * anything ordered after it decorates a response that is thrown away. Every
+     * process()-level test above passes with the wrong placement, so assert the
+     * resolved pipeline order directly against the real attributes.
+     */
+    public function testResolvesOutsideDispatchAndErrorHandling(): void
+    {
+        $scanner = new MiddlewareAttributeScanner();
+        $definitions = $scanner->scan([
+            SecurityHeadersMiddleware::class,
+            \Quiote\Middleware\DispatchMiddleware::class,
+            \Quiote\Middleware\ErrorHandlingMiddleware::class,
+            \Quiote\Middleware\RoutingMiddleware::class,
+        ]);
+        $this->assertSame([], $scanner->getDiagnostics());
+
+        $order = array_map(
+            static fn(MiddlewareDefinition $d): string => $d->fqcn,
+            (new MiddlewareOrderResolver())->resolve($definitions),
+        );
+
+        $securityHeaders = array_search(SecurityHeadersMiddleware::class, $order, true);
+        $dispatch = array_search(\Quiote\Middleware\DispatchMiddleware::class, $order, true);
+        $errorHandling = array_search(\Quiote\Middleware\ErrorHandlingMiddleware::class, $order, true);
+
+        $this->assertIsInt($securityHeaders);
+        $this->assertIsInt($dispatch);
+        $this->assertIsInt($errorHandling);
+        $this->assertLessThan($dispatch, $securityHeaders, 'Headers set deeper than DispatchMiddleware are discarded.');
+        $this->assertLessThan($errorHandling, $securityHeaders, 'Error responses must carry the headers too.');
+    }
+
+    public function testHeadersAreAppliedToAnErrorResponseRenderedDownstream(): void
+    {
+        $mw = new SecurityHeadersMiddleware();
+        $handler = new class implements RequestHandlerInterface {
+            public function handle(ServerRequestInterface $r): ResponseInterface
+            {
+                // Stands in for ErrorHandlingMiddleware turning a throwable into
+                // a response: the response this middleware decorates was never
+                // the action's.
+                return new Psr7Response(500);
+            }
+        };
+        $resp = $mw->process(new ServerRequest('GET', 'http://localhost/boom'), $handler);
+        $this->assertSame(500, $resp->getStatusCode());
+        $this->assertSame("default-src 'self'", $resp->getHeaderLine('Content-Security-Policy'));
+        $this->assertSame('DENY', $resp->getHeaderLine('X-Frame-Options'));
     }
 
     public function testExistingResponseHeaderIsNotClobbered(): void

@@ -2,7 +2,6 @@
 namespace Quiote\Security\Auth;
 
 use GuzzleHttp\ClientInterface;
-use League\OAuth2\Client\Provider\GenericProvider;
 use League\OAuth2\Client\Token\AccessTokenInterface;
 
 /**
@@ -14,7 +13,16 @@ use League\OAuth2\Client\Token\AccessTokenInterface;
  */
 final class ClientCredentialsClient
 {
-	private readonly GenericProvider $provider;
+	private readonly SpaceDelimitedScopeProvider $provider;
+
+	/**
+	 * The requested scopes, kept because league/oauth2-client only applies a
+	 * provider's default `scopes` to the authorization URL — a
+	 * `client_credentials` token request has to carry `scope` explicitly or the
+	 * configured scopes are silently dropped.
+	 * @var array<int, string>
+	 */
+	private readonly array $scopes;
 
 	/**
 	 * @param      string $clientId The OAuth client id.
@@ -31,7 +39,7 @@ final class ClientCredentialsClient
 		array $scopes = [],
 		?ClientInterface $httpClient = null,
 	) {
-		$this->provider = new GenericProvider([
+		$this->provider = new SpaceDelimitedScopeProvider([
 			'clientId' => $clientId,
 			'clientSecret' => $clientSecret,
 			'urlAuthorize' => '',
@@ -39,6 +47,7 @@ final class ClientCredentialsClient
 			'urlResourceOwnerDetails' => '',
 			'scopes' => $scopes,
 		], $httpClient !== null ? ['httpClient' => $httpClient] : []);
+		$this->scopes = array_values($scopes);
 	}
 
 	/**
@@ -70,6 +79,13 @@ final class ClientCredentialsClient
 	 */
 	public function getAccessToken(): AccessTokenInterface
 	{
-		return $this->provider->getAccessToken('client_credentials');
+		$options = [];
+		if ($this->scopes !== []) {
+			// Space-delimited per RFC 6749 §3.3, joined here rather than left to
+			// the library — which would send it comma-delimited.
+			$options['scope'] = implode(' ', $this->scopes);
+		}
+
+		return $this->provider->getAccessToken('client_credentials', $options);
 	}
 }
