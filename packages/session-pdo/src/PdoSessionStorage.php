@@ -28,6 +28,19 @@ final class PdoSessionStorage extends SessionStorage
 {
     private ?PDO $connection = null;
 
+    /**
+     * Parameters arrive untyped from factories config, so every one that ends
+     * up interpolated into SQL or passed to a typed function is narrowed here
+     * rather than cast at the use site. Mirrors the same helper on
+     * {@see \Quiote\Storage\PdoSessionStorage}.
+     */
+    private function stringParameter(string $name, string $default = ''): string
+    {
+        $value = $this->getParameter($name, $default);
+
+        return is_string($value) ? $value : $default;
+    }
+
     #[\Override]
     public function initialize(Context $context, array $parameters = [])
     {
@@ -43,12 +56,14 @@ final class PdoSessionStorage extends SessionStorage
     #[\Override]
     public function open($savePath, $sessionName): bool
     {
-        $connection = $this->getContext()->getDatabaseConnection($this->getParameter('database'));
+        $database = $this->getParameter('database');
+        $name = is_string($database) ? $database : null;
+        $connection = $this->getContext()->getDatabaseConnection($name);
 
         if (!$connection instanceof PDO) {
             throw new DatabaseException(sprintf(
                 'Database connection "%s" could not be found or is not a PDO connection.',
-                (string) $this->getParameter('database'),
+                $name ?? '(default)',
             ));
         }
 
@@ -66,48 +81,72 @@ final class PdoSessionStorage extends SessionStorage
     #[\Override]
     public function read(string $key): string|false
     {
-        if ($this->connection === null) {
+        $connection = $this->connection;
+        if ($connection === null) {
             return false;
         }
 
         $sql = sprintf(
             'SELECT %s FROM %s WHERE %s = ?',
-            $this->getParameter('db_data_col', 'sess_data'),
-            $this->getParameter('db_table'),
-            $this->getParameter('db_id_col', 'sess_id'),
+            $this->stringParameter('db_data_col', 'sess_data'),
+            $this->stringParameter('db_table'),
+            $this->stringParameter('db_id_col', 'sess_id'),
         );
 
+        $statement = null;
+
         try {
-            $statement = $this->connection->prepare($sql);
+            // Narrowed through a separate variable so $statement -- which the
+            // finally below dereferences -- is only ever PDOStatement|null.
+            $prepared = $connection->prepare($sql);
+            if ($prepared === false) {
+                return false;
+            }
+            $statement = $prepared;
             $statement->execute([$key]);
             $row = $statement->fetch(PDO::FETCH_NUM);
+
+            if (!is_array($row) || !array_key_exists(0, $row)) {
+                return '';
+            }
+
+            $data = $row[0];
+
+            // Drain a LOB stream here, while the cursor is still open.
+            if (is_resource($data)) {
+                $contents = stream_get_contents($data);
+
+                return $contents === false ? '' : $contents;
+            }
+
+            return is_scalar($data) || $data instanceof \Stringable ? (string) $data : '';
         } catch (PDOException $e) {
             throw $this->wrap($e);
+        } finally {
+            // Release the cursor: a fetched-but-unclosed statement keeps the connection
+            // inside an implicit read transaction holding a shared lock, and write()
+            // opens an explicit transaction whose shared -> exclusive upgrade SQLite then
+            // refuses immediately with SQLITE_BUSY (busy_timeout does not cover upgrades).
+            // $statement is null when prepare() itself threw.
+            $statement?->closeCursor();
         }
-
-        if ($row === false) {
-            return '';
-        }
-
-        $data = $row[0];
-
-        return is_resource($data) ? stream_get_contents($data) : (string) $data;
     }
 
     #[\Override]
     public function write(string $id, string $data): bool
     {
-        if ($this->connection === null) {
+        $connection = $this->connection;
+        if ($connection === null) {
             return false;
         }
 
-        $table = $this->getParameter('db_table');
-        $idCol = $this->getParameter('db_id_col', 'sess_id');
-        $dataCol = $this->getParameter('db_data_col', 'sess_data');
-        $timeCol = $this->getParameter('db_time_col', 'sess_time');
+        $table = $this->stringParameter('db_table');
+        $idCol = $this->stringParameter('db_id_col', 'sess_id');
+        $dataCol = $this->stringParameter('db_data_col', 'sess_data');
+        $timeCol = $this->stringParameter('db_time_col', 'sess_time');
         $useLob = (bool) $this->getParameter('data_as_lob', true);
-        $timestamp = date($this->getParameter('date_format', 'U'));
-        $timestamp = is_numeric($timestamp) ? (int) $timestamp : $timestamp;
+        $timestampRaw = date($this->stringParameter('date_format', 'U'));
+        $timestamp = is_numeric($timestampRaw) ? (int) $timestampRaw : $timestampRaw;
 
         $bind = static function (\PDOStatement $statement) use ($data, $timestamp, $useLob): void {
             $statement->bindValue(':data', $data, $useLob ? PDO::PARAM_LOB : PDO::PARAM_STR);
@@ -115,41 +154,47 @@ final class PdoSessionStorage extends SessionStorage
         };
 
         try {
-            $insert = $this->connection->prepare(sprintf(
+            $insert = $connection->prepare(sprintf(
                 'INSERT INTO %s (%s, %s, %s) VALUES (:id, :data, :time)',
                 $table,
                 $idCol,
                 $dataCol,
                 $timeCol,
             ));
+            if ($insert === false) {
+                return false;
+            }
             $insert->bindValue(':id', $id);
             $bind($insert);
-            $this->connection->beginTransaction();
+            $connection->beginTransaction();
             $insert->execute();
-            $this->connection->commit();
+            $connection->commit();
 
             return true;
         } catch (PDOException) {
-            $this->connection->rollBack();
+            $connection->rollBack();
         }
 
         try {
-            $update = $this->connection->prepare(sprintf(
+            $update = $connection->prepare(sprintf(
                 'UPDATE %s SET %s = :data, %s = :time WHERE %s = :id',
                 $table,
                 $dataCol,
                 $timeCol,
                 $idCol,
             ));
+            if ($update === false) {
+                return false;
+            }
             $update->bindValue(':id', $id);
             $bind($update);
-            $this->connection->beginTransaction();
+            $connection->beginTransaction();
             $update->execute();
-            $this->connection->commit();
+            $connection->commit();
 
             return true;
         } catch (PDOException $e) {
-            $this->connection->rollBack();
+            $connection->rollBack();
             throw $this->wrap($e);
         }
     }
@@ -157,18 +202,23 @@ final class PdoSessionStorage extends SessionStorage
     #[\Override]
     public function destroy($sessionId): bool
     {
-        if ($this->connection === null) {
+        $connection = $this->connection;
+        if ($connection === null) {
             return false;
         }
 
         $sql = sprintf(
             'DELETE FROM %s WHERE %s = ?',
-            $this->getParameter('db_table'),
-            $this->getParameter('db_id_col', 'sess_id'),
+            $this->stringParameter('db_table'),
+            $this->stringParameter('db_id_col', 'sess_id'),
         );
 
         try {
-            $this->connection->prepare($sql)->execute([$sessionId]);
+            $statement = $connection->prepare($sql);
+            if ($statement === false) {
+                return false;
+            }
+            $statement->execute([$sessionId]);
 
             return true;
         } catch (PDOException $e) {
@@ -179,19 +229,23 @@ final class PdoSessionStorage extends SessionStorage
     #[\Override]
     public function gc(int $maxlifetime): int|false
     {
-        if ($this->connection === null) {
+        $connection = $this->connection;
+        if ($connection === null) {
             return false;
         }
 
-        $cutoff = date($this->getParameter('date_format', 'U'), time() - $maxlifetime);
+        $cutoff = date($this->stringParameter('date_format', 'U'), time() - $maxlifetime);
         $sql = sprintf(
             'DELETE FROM %s WHERE %s < :time',
-            $this->getParameter('db_table'),
-            $this->getParameter('db_time_col', 'sess_time'),
+            $this->stringParameter('db_table'),
+            $this->stringParameter('db_time_col', 'sess_time'),
         );
 
         try {
-            $statement = $this->connection->prepare($sql);
+            $statement = $connection->prepare($sql);
+            if ($statement === false) {
+                return false;
+            }
             $statement->bindValue(':time', is_numeric($cutoff) ? (int) $cutoff : $cutoff, is_numeric($cutoff) ? PDO::PARAM_INT : PDO::PARAM_STR);
             $statement->execute();
 

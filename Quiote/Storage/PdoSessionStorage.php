@@ -323,6 +323,12 @@ class PdoSessionStorage extends SessionStorage implements ResetInterface
 				$this->readStmt = $this->connection->prepare($sql);
 			}
 			$stmt = $this->readStmt;
+		} catch(\PDOException $e) {
+			$error = sprintf('PDOException was thrown when trying to manipulate session data. Message: "%s"', $e->getMessage());
+			throw new DatabaseException($error, 0, $e);
+		}
+
+		try {
 			$result = $stmt->execute([$id]);
 
 			if(!$result) {
@@ -330,20 +336,34 @@ class PdoSessionStorage extends SessionStorage implements ResetInterface
 			}
 
 			$row = $stmt->fetch(\PDO::FETCH_NUM);
+			$retval = '';
 			if(is_array($row) && array_key_exists(0, $row)) {
 				$value = $row[0];
-				// pdo is returning the LOB as stream, so check if we had a lob (this seems to differ from db to db)
+				// pdo is returning the LOB as stream, so check if we had a lob (this seems to differ from db to db).
+				// Drain it here, while the cursor is still open — the finally below closes it.
 				if(is_resource($value)) {
 					$contents = stream_get_contents($value);
-					return $contents === false ? '' : $contents;
+					$retval = $contents === false ? '' : $contents;
+				} else {
+					$retval = $this->scalarToString($value);
 				}
-				return $this->scalarToString($value);
 			}
 
-			return '';
+			return $retval;
 		} catch(\PDOException $e) {
 			$error = sprintf('PDOException was thrown when trying to manipulate session data. Message: "%s"', $e->getMessage());
 			throw new DatabaseException($error, 0, $e);
+		} finally {
+			// Release the cursor. A statement fetched from but never exhausted or closed
+			// leaves the connection inside an implicit read transaction holding a shared
+			// lock; write()'s upsert then has to upgrade shared -> exclusive, which SQLite
+			// refuses immediately with SQLITE_BUSY rather than waiting (busy_timeout does
+			// not apply to upgrades, which is why raising it never helped). The cached
+			// $readStmt makes it worse: re-executing a statement whose cursor is still open
+			// is "bad parameter or other API misuse" (SQLSTATE HY000 / 21).
+			// In a finally so a throwing read cannot wedge the connection for the
+			// remaining life of a worker process.
+			$stmt->closeCursor();
 		}
 	}
 
