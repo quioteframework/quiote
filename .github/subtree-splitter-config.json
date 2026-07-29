@@ -46,6 +46,11 @@
 			"target": "git@github.com:quioteframework/queue-redis.git"
 		},
 		{
+			"name": "scheduler",
+			"directory": "packages/scheduler",
+			"target": "git@github.com:quioteframework/scheduler.git"
+		},
+		{
 			"name": "session-redis",
 			"directory": "packages/session-redis",
 			"target": "git@github.com:quioteframework/session-redis.git"
