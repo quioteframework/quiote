@@ -6,14 +6,13 @@
  * APCuConfigCache stamps into a cached config, so a stale value here surfaces
  * as a wrong framework version at runtime.
  * @since      1.0.0
- * @version    3.0.2
  */
 
 \Quiote\Config\Config::set('quiote.name', 'Quiote');
 
 \Quiote\Config\Config::set('quiote.major_version', '3');
-\Quiote\Config\Config::set('quiote.minor_version', '0');
-\Quiote\Config\Config::set('quiote.micro_version', '2');
+\Quiote\Config\Config::set('quiote.minor_version', '1');
+\Quiote\Config\Config::set('quiote.micro_version', '0');
 \Quiote\Config\Config::set('quiote.status', '');
 \Quiote\Config\Config::set('quiote.branch', 'main');
 

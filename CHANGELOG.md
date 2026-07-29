@@ -1,3 +1,28 @@
+## [3.1.0] - 2026-07-29
+
+### 🐛 Bug Fixes
+
+- *(ci)* Bump action-gh-release to v3 for Node 24 runtime
+- *(csrf)* Validate against the real session cookie and a proven credential
+- *(worker)* Never let a failed context reset leak the previous user
+- *(security)* Fail closed when an action's security cannot be evaluated
+- *(session)* Delete the old id outright on a privilege transition
+- *(console)* Scaffold a session slot so a new app actually enforces CSRF
+- *(middleware)* Extend the framework-override guard to the CSRF middleware
+- *(middleware)* Refuse to drop a framework middleware's ordering constraint
+- *(auth)* Close the login enumeration oracle and throttle per client
+- *(auth)* Reject unusable firewall patterns and match the normalized path
+- *(queue)* Verify the job class before constructing it
+- *(cors)* Never emit a wildcard origin alongside credentials
+- *(ratelimit)* Read the trusted end of X-Forwarded-For, not the client's
+- *(mcp)* Fail a tool call that was forwarded instead of returning the login page
+- *(auth)* Parse the Authorization scheme case-insensitively
+- *(auth-jwt)* Claim a bare Bearer header and parse the scheme per RFC 9110
+- *(middleware)* Negotiate the validation-failure representation
+
+### 📚 Documentation
+
+- *(auth-oauth)* State the real single-use guarantee for OIDC state
 ## [3.0.2] - 2026-07-29
 
 ### 🚀 Features
