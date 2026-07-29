@@ -86,23 +86,92 @@ final class FormLoginAuthenticator implements AuthenticatorInterface
 			}
 		}
 
-		$throttleKey = 'form_login:' . strtolower($identifier);
+		// Two keys, not one. Keying only on the identifier throttles vertical
+		// brute force against a single account but does nothing about horizontal
+		// credential stuffing (one attempt each across thousands of accounts), and
+		// it hands an attacker a lockout primitive against a known victim. The
+		// client key bounds the attacker; the identifier key bounds the account.
+		$throttleKeys = ['form_login:' . strtolower($identifier)];
+		$clientKey = $this->clientKey($request);
+		if($clientKey !== null) {
+			$throttleKeys[] = 'form_login_client:' . $clientKey;
+		}
+
 		if($this->throttle !== null) {
-			$retryAfter = $this->throttle->retryAfter($throttleKey);
-			if($retryAfter !== null) {
-				throw new AuthenticationException(sprintf('Too many attempts; retry after %d seconds.', $retryAfter));
+			foreach($throttleKeys as $key) {
+				$retryAfter = $this->throttle->retryAfter($key);
+				if($retryAfter !== null) {
+					throw new AuthenticationException(sprintf('Too many attempts; retry after %d seconds.', $retryAfter));
+				}
 			}
 		}
 
 		$identity = $this->userProvider->loadByIdentifier($identifier);
-		if(!$identity instanceof PasswordProtectedUserIdentity || !$this->passwordHasher->verify($password, $identity->getPasswordHash())) {
-			$this->throttle?->registerFailure($throttleKey);
+
+		// Verify unconditionally, even with no identity to verify against. Letting
+		// PHP short-circuit the `||` here made an unknown identifier return after a
+		// single indexed SELECT while a known one paid a full argon2id verification
+		// -- a timing oracle worth tens of milliseconds, i.e. a reliable account
+		// enumeration primitive. Both paths now cost one KDF.
+		$hash = $identity instanceof PasswordProtectedUserIdentity ? $identity->getPasswordHash() : self::dummyHash();
+		$passwordMatches = $this->passwordHasher->verify($password, $hash);
+
+		if(!$identity instanceof PasswordProtectedUserIdentity || !$passwordMatches) {
+			if($this->throttle !== null) {
+				foreach($throttleKeys as $key) {
+					$this->throttle->registerFailure($key);
+				}
+			}
 			throw new AuthenticationException('Invalid credentials.');
 		}
 
-		$this->throttle?->reset($throttleKey);
+		if($this->throttle !== null) {
+			foreach($throttleKeys as $key) {
+				$this->throttle->reset($key);
+			}
+		}
 
 		return new Passport($identity, $identity->getRoles(), stateless: false);
+	}
+
+	/**
+	 * A valid hash of a value no submitted password can match, used to spend the
+	 * same KDF time on an unknown identifier as on a known one.
+	 *
+	 * Computed once per process and cached: it must be a real hash in the
+	 * configured algorithm's own format so verify() does the full derivation
+	 * rather than bailing on a malformed hash, which would defeat the point.
+	 * @return     string
+	 * @since      3.0.3
+	 */
+	private static function dummyHash(): string
+	{
+		static $hash = null;
+		if($hash === null) {
+			$hash = password_hash(
+				base64_encode(random_bytes(32)),
+				defined('PASSWORD_ARGON2ID') ? PASSWORD_ARGON2ID : PASSWORD_BCRYPT,
+			);
+		}
+
+		return $hash;
+	}
+
+	/**
+	 * A stable per-caller throttle key, or null when the peer address is unknown.
+	 *
+	 * Deliberately the connecting peer (`REMOTE_ADDR`) and never a
+	 * client-supplied forwarding header: a spoofable key lets an attacker rotate
+	 * it per request, which is indistinguishable from no throttling at all.
+	 * @param      ServerRequestInterface $request The incoming login request.
+	 * @return     ?string
+	 * @since      3.0.3
+	 */
+	private function clientKey(ServerRequestInterface $request): ?string
+	{
+		$remote = $request->getServerParams()['REMOTE_ADDR'] ?? null;
+
+		return is_string($remote) && $remote !== '' ? $remote : null;
 	}
 
 	/**
