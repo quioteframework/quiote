@@ -14,9 +14,14 @@ use Psr\Http\Message\ResponseInterface;
  * deliberately not built on the official `microsoft/azure-storage-blob` SDK
  * (Microsoft stopped actively developing it; a hand-rolled client against
  * the documented REST + signing algorithm has proven more maintainable in
- * production). Only the four operations {@see AzureBlobSessionPersistence}
- * needs: ensure-container, get, put, delete. No chunked upload, snapshots,
- * or listing — session payloads are small enough for a single PUT.
+ * production). Only the operations the session and filesystem backends need:
+ * ensure-container, get, put, delete and get-properties. No chunked upload,
+ * snapshots, or listing.
+ *
+ * Those absent operations are still reachable: {@see request()} performs the
+ * Shared Key signing and hands back the raw PSR-7 response, so a caller can
+ * implement List Blobs (or anything else) without reimplementing the
+ * signature.
  *
  * @see https://learn.microsoft.com/en-us/rest/api/storageservices/authorize-with-shared-key
  */
@@ -74,6 +79,48 @@ final class AzureBlobClient
         if ($response->getStatusCode() >= 400 && $response->getStatusCode() !== 404) {
             throw $this->unexpectedStatus($response);
         }
+    }
+
+    /**
+     * Blob properties without transferring the body (Get Blob Properties), or
+     * null if the blob does not exist.
+     */
+    public function head(string $container, string $blob): ?BlobMetadata
+    {
+        $response = $this->send('HEAD', $this->blobPath($container, $blob));
+        if ($response->getStatusCode() === 404) {
+            return null;
+        }
+        if ($response->getStatusCode() >= 400) {
+            throw $this->unexpectedStatus($response);
+        }
+
+        return BlobMetadata::fromResponse($response);
+    }
+
+    /**
+     * Send an arbitrary signed request and return the raw response, for
+     * operations this class does not model itself. The canonical use is
+     * listing:
+     *
+     *     $response = $client->request('GET', '/my-container', [
+     *         'restype' => 'container', 'comp' => 'list', 'delimiter' => '/',
+     *     ]);
+     *     $xml = simplexml_load_string((string) $response->getBody());
+     *
+     * $path is the full account-relative path, so `/{container}` addresses a
+     * container and `/{container}/{blob}` a blob. Unlike {@see get()} and
+     * friends this does not interpret the status code: a 404 or a 500 comes
+     * back as a response, not as an exception, and only a transport-level
+     * failure throws {@see AzureStorageException}. The retry-on-transient
+     * behaviour of every other operation still applies.
+     *
+     * @param array<string, string> $query signed as part of the canonicalized resource
+     * @param array<string, string> $headers
+     */
+    public function request(string $method, string $path, array $query = [], array $headers = [], ?string $body = null): ResponseInterface
+    {
+        return $this->send($method, $path, $query, $headers, $body);
     }
 
     private function blobPath(string $container, string $blob): string

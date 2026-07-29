@@ -9,18 +9,19 @@ use Quiote\Filesystem\FileNotFoundStorageException;
 use Quiote\Filesystem\FilesystemAdapterInterface;
 use Quiote\Filesystem\FilesystemStorageException;
 use Quiote\Storage\Gcs\GcsClient;
+use Quiote\Storage\Gcs\ObjectMetadata;
 use Quiote\Storage\Gcs\GcsStorageException;
 
 /**
  * {@see FilesystemAdapterInterface} wrapping the existing {@see GcsClient}
  * (HMAC interop-key REST client, no google/cloud-storage) as its transport.
  *
- * The underlying client only supports get/put/delete on a single object — no
- * HEAD or list-bucket operation — so {@see size()}, {@see lastModified()},
- * and {@see listContents()} always throw. See
- * `Quiote\Filesystem\S3\S3FilesystemAdapter`'s docblock for the same
- * reasoning; extending GcsClient with those operations is a separate,
- * larger follow-up.
+ * The underlying client has no list-bucket operation, so {@see listContents()}
+ * always throws — see `Quiote\Filesystem\S3\S3FilesystemAdapter`'s docblock
+ * for the reasoning. Applications that need a listing should keep it in their
+ * own database beside the record that owns the files, or drive
+ * {@see GcsClient::request()} — which signs an arbitrary request and returns
+ * the raw response — directly.
  */
 final readonly class GcsFilesystemAdapter implements FilesystemAdapterInterface
 {
@@ -63,25 +64,35 @@ final readonly class GcsFilesystemAdapter implements FilesystemAdapterInterface
     #[\Override]
     public function exists(string $path): bool
     {
-        return $this->fetch($path) !== null;
+        return $this->head($path) !== null;
     }
 
     #[\Override]
     public function size(string $path): int
     {
-        throw new FilesystemStorageException('size() is not supported by the GCS filesystem adapter in v1 — the underlying GcsClient has no HEAD endpoint.');
+        $size = $this->metadata($path)->contentLength;
+        if ($size === null) {
+            throw new FilesystemStorageException(sprintf('GCS returned no Content-Length for file "%s".', $path));
+        }
+
+        return $size;
     }
 
     #[\Override]
     public function lastModified(string $path): DateTimeImmutable
     {
-        throw new FilesystemStorageException('lastModified() is not supported by the GCS filesystem adapter in v1 — the underlying GcsClient has no HEAD endpoint.');
+        $lastModified = $this->metadata($path)->lastModified;
+        if ($lastModified === null) {
+            throw new FilesystemStorageException(sprintf('GCS returned no usable Last-Modified for file "%s".', $path));
+        }
+
+        return $lastModified;
     }
 
     #[\Override]
     public function listContents(string $path = ''): array
     {
-        throw new FilesystemStorageException('listContents() is not supported by the GCS filesystem adapter in v1 — the underlying GcsClient has no list-bucket endpoint.');
+        throw new FilesystemStorageException('listContents() is not supported by the GCS filesystem adapter — the underlying GcsClient has no list-bucket endpoint. Track listings yourself, or build one on GcsClient::request().');
     }
 
     private function fetch(string $path): ?string
@@ -91,6 +102,26 @@ final readonly class GcsFilesystemAdapter implements FilesystemAdapterInterface
         } catch (GcsStorageException $e) {
             throw new FilesystemStorageException(sprintf('Failed reading file "%s": %s', $path, $e->getMessage()), 0, $e);
         }
+    }
+
+    private function head(string $path): ?ObjectMetadata
+    {
+        try {
+            return $this->client->head($this->key($path));
+        } catch (GcsStorageException $e) {
+            throw new FilesystemStorageException(sprintf('Failed reading metadata of file "%s": %s', $path, $e->getMessage()), 0, $e);
+        }
+    }
+
+    /** @throws FileNotFoundStorageException if $path does not exist. */
+    private function metadata(string $path): ObjectMetadata
+    {
+        $metadata = $this->head($path);
+        if ($metadata === null) {
+            throw new FileNotFoundStorageException(sprintf('File "%s" does not exist.', $path));
+        }
+
+        return $metadata;
     }
 
     private function key(string $path): string

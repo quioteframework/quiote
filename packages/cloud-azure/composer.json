@@ -1,6 +1,6 @@
 {
 	"name": "quioteframework/cloud-azure",
-	"description": "Minimal Azure Blob and Table Storage clients for Quiote \u2014 SharedKey-signed REST access with no azure-sdk dependency. Shared by the Azure session and filesystem backends.",
+	"description": "Minimal Azure Blob and Table Storage clients for Quiote \u2014 SharedKey-signed REST access with no azure-sdk dependency, plus a signed-request method for operations they do not model themselves. Shared by the Azure session and filesystem backends.",
 	"keywords": [
 		"quiote",
 		"azure",

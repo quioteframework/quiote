@@ -1,6 +1,6 @@
 {
 	"name": "quioteframework/cloud-gcs",
-	"description": "Minimal Google Cloud Storage client for Quiote \u2014 HMAC-signed get/put/delete against a single bucket via the S3-compatible interoperability API. Shared by the GCS session and filesystem backends.",
+	"description": "Minimal Google Cloud Storage client for Quiote \u2014 HMAC-signed get/put/delete/head against a single bucket via the S3-compatible interoperability API, plus a signed-request method for operations it does not model itself. Shared by the GCS session and filesystem backends.",
 	"keywords": [
 		"quiote",
 		"gcs",

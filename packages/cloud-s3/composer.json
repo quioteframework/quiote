@@ -1,6 +1,6 @@
 {
 	"name": "quioteframework/cloud-s3",
-	"description": "Minimal AWS S3 REST client for Quiote \u2014 SigV4-signed get/put/delete against a single bucket, with no aws-sdk-php dependency. Shared by the S3 session and filesystem backends.",
+	"description": "Minimal AWS S3 REST client for Quiote \u2014 SigV4-signed get/put/delete/head against a single bucket, with no aws-sdk-php dependency, plus a signed-request method for operations it does not model itself. Shared by the S3 session and filesystem backends.",
 	"keywords": [
 		"quiote",
 		"s3",

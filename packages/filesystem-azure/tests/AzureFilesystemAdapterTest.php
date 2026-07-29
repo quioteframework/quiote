@@ -24,6 +24,9 @@ final class FakeAzureFilesystemTransport implements ClientInterface
     /** Persists across all of AzureBlobClient's internal retry attempts (unlike a one-shot flag). */
     public ?int $failWith = null;
 
+    /** Simulates a server (or proxy) answering a HEAD without the metadata headers. */
+    public bool $omitMetadataHeaders = false;
+
     private Psr17Factory $psr17;
 
     public function __construct()
@@ -46,9 +49,25 @@ final class FakeAzureFilesystemTransport implements ClientInterface
             'GET' => isset($this->blobs[$path])
                 ? $this->psr17->createResponse(200)->withBody($this->psr17->createStream($this->blobs[$path]))
                 : $this->psr17->createResponse(404),
+            'HEAD' => $this->handleHead($path),
             'DELETE' => $this->handleDelete($path),
             default => $this->psr17->createResponse(400),
         };
+    }
+
+    private function handleHead(string $path): ResponseInterface
+    {
+        if (!isset($this->blobs[$path])) {
+            return $this->psr17->createResponse(404);
+        }
+        if ($this->omitMetadataHeaders) {
+            return $this->psr17->createResponse(200);
+        }
+
+        return $this->psr17->createResponse(200)
+            ->withHeader('Content-Length', (string) strlen($this->blobs[$path]))
+            ->withHeader('Last-Modified', 'Wed, 21 Oct 2015 07:28:00 GMT')
+            ->withHeader('ETag', '"' . md5($this->blobs[$path]) . '"');
     }
 
     private function handlePut(RequestInterface $request, string $path): ResponseInterface
@@ -149,17 +168,73 @@ final class AzureFilesystemAdapterTest extends TestCase
         $this->assertArrayHasKey('/my-container/files/report.csv', $this->transport->blobs);
     }
 
-    public function testSizeIsNotSupported(): void
+    public function testExistsUsesHeadRatherThanDownloadingTheBody(): void
     {
+        $this->adapter->write('report.csv', 'data');
+        $this->transport->requests = [];
+
+        $this->adapter->exists('report.csv');
+
+        $this->assertSame(['HEAD'], array_map(
+            static fn (RequestInterface $request): string => $request->getMethod(),
+            $this->transport->requests,
+        ));
+    }
+
+    public function testSizeReturnsTheContentLength(): void
+    {
+        $this->adapter->write('report.csv', 'a,b,c');
+
+        $this->assertSame(5, $this->adapter->size('report.csv'));
+    }
+
+    public function testSizeOfMissingFileThrowsFileNotFound(): void
+    {
+        $this->expectException(FileNotFoundStorageException::class);
+        $this->adapter->size('missing.csv');
+    }
+
+    public function testSizeThrowsWhenTheResponseCarriesNoContentLength(): void
+    {
+        $this->adapter->write('report.csv', 'a,b,c');
+        $this->transport->omitMetadataHeaders = true;
+
         $this->expectException(FilesystemStorageException::class);
-        $this->expectExceptionMessageMatches('/not supported/');
+        $this->expectExceptionMessageMatches('/Content-Length/');
         $this->adapter->size('report.csv');
     }
 
-    public function testLastModifiedIsNotSupported(): void
+    public function testSizeServerErrorThrowsFilesystemStorageException(): void
     {
+        $this->transport->failWith = 500;
+
         $this->expectException(FilesystemStorageException::class);
-        $this->expectExceptionMessageMatches('/not supported/');
+        $this->adapter->size('report.csv');
+    }
+
+    public function testLastModifiedReturnsTheParsedHeader(): void
+    {
+        $this->adapter->write('report.csv', 'a,b,c');
+
+        $this->assertSame(
+            '2015-10-21T07:28:00+00:00',
+            $this->adapter->lastModified('report.csv')->format(DATE_ATOM),
+        );
+    }
+
+    public function testLastModifiedOfMissingFileThrowsFileNotFound(): void
+    {
+        $this->expectException(FileNotFoundStorageException::class);
+        $this->adapter->lastModified('missing.csv');
+    }
+
+    public function testLastModifiedThrowsWhenTheResponseCarriesNoTimestamp(): void
+    {
+        $this->adapter->write('report.csv', 'a,b,c');
+        $this->transport->omitMetadataHeaders = true;
+
+        $this->expectException(FilesystemStorageException::class);
+        $this->expectExceptionMessageMatches('/Last-Modified/');
         $this->adapter->lastModified('report.csv');
     }
 
