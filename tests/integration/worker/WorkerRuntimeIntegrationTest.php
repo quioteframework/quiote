@@ -202,6 +202,131 @@ final class WorkerRuntimeIntegrationTest extends TestCase
         }
     }
 
+    /**
+     * The end-to-end form of the defect the unit suites cannot reach.
+     *
+     * At login the user is authenticated (written eagerly) and granted a role
+     * (written only at the request boundary). That boundary used to run from
+     * Context::reset(), *after* the response had been emitted, where
+     * SessionStorage::store()'s lazy @session_start() fails silently because
+     * headers are already sent. The next request then found
+     * authenticated=true with no roles and no credentials -- an authenticated
+     * user who is denied everything, i.e. a permanent 403.
+     *
+     * It needs a real server and more than one request in the same worker
+     * process to reproduce, which is exactly what this harness provides.
+     */
+    #[DataProvider('runtimes')]
+    public function testRolesAndCredentialsGrantedAtLoginSurviveLaterRequests(string $runtime): void
+    {
+        $jar = tempnam(sys_get_temp_dir(), 'quiote-worker-identity');
+        self::assertIsString($jar);
+
+        try {
+            $login = self::json(self::get($runtime, '/login', [], $jar)[1]);
+            $this->assertTrue($login['authenticated'], 'precondition: the login request itself authenticates');
+            $this->assertSame(['administrator'], $login['roles']);
+
+            // Every following request re-reads the user from the session. Three
+            // of them, because which worker serves each one varies.
+            foreach ([1, 2, 3] as $attempt) {
+                $seen = self::json(self::get($runtime, '/identity', [], $jar)[1]);
+
+                $this->assertTrue($seen['authenticated'], "request $attempt lost authentication");
+                $this->assertSame(['administrator'], $seen['roles'], "request $attempt lost its roles");
+                $this->assertContains(
+                    'probe.admin',
+                    $seen['credentials'],
+                    "request $attempt is authenticated but has no credentials -- the 403 loop",
+                );
+                $this->assertSame('Ada', $seen['display_name'], "request $attempt lost its user attributes");
+            }
+        } finally {
+            @unlink($jar);
+        }
+    }
+
+    /**
+     * Logging out must invalidate the session id itself, not merely record
+     * authenticated=false: the pre-logout id used to stay valid and replayable.
+     */
+    #[DataProvider('runtimes')]
+    public function testLogoutInvalidatesTheSessionForLaterRequests(string $runtime): void
+    {
+        $jar = tempnam(sys_get_temp_dir(), 'quiote-worker-identity');
+        self::assertIsString($jar);
+
+        try {
+            self::get($runtime, '/login', [], $jar);
+            self::get($runtime, '/logout', [], $jar);
+
+            $after = self::json(self::get($runtime, '/identity', [], $jar)[1]);
+
+            $this->assertFalse($after['authenticated']);
+            $this->assertSame([], $after['roles']);
+            $this->assertSame([], $after['credentials']);
+        } finally {
+            @unlink($jar);
+        }
+    }
+
+    /**
+     * A request that touches nothing must cost nothing. Every request that
+     * reached the framework used to leave a session row behind and hand out a
+     * cookie, because the user hierarchy wrote its empty state unconditionally
+     * at the request boundary -- health checks and bot traffic included. That
+     * write volume is also what made the SQLite lock contention fire.
+     */
+    #[DataProvider('runtimes')]
+    public function testARequestThatTouchesNothingGetsNoSessionCookie(string $runtime): void
+    {
+        foreach ([1, 2, 3] as $attempt) {
+            [$status, $body, $headers] = self::request($runtime, '/quiet');
+
+            $this->assertSame(200, $status);
+            $this->assertTrue(self::json($body)['quiet']);
+
+            $sessionCookies = array_values(array_filter(
+                $headers,
+                static fn(string $line): bool => stripos($line, 'set-cookie: WORKERPROBE=') === 0,
+            ));
+            $this->assertSame(
+                [],
+                $sessionCookies,
+                "request $attempt created a session nobody asked for: " . implode(' | ', $headers),
+            );
+        }
+    }
+
+    /**
+     * The counterpart, and the case that must keep working: an anonymous
+     * visitor who actually writes something does get a session, and it sticks.
+     * Setting a preference is a deliberate write, so this is unaffected by the
+     * dirty tracking that silences the case above.
+     */
+    #[DataProvider('runtimes')]
+    public function testAnAnonymousVisitorThatWritesStillGetsAPersistentSession(string $runtime): void
+    {
+        $jar = tempnam(sys_get_temp_dir(), 'quiote-worker-anon');
+        self::assertIsString($jar);
+
+        try {
+            [, , $headers] = self::request($runtime, '/session', [], null, null, $jar);
+            $this->assertNotSame(
+                [],
+                array_values(array_filter(
+                    $headers,
+                    static fn(string $line): bool => stripos($line, 'set-cookie: WORKERPROBE=') === 0,
+                )),
+                'a deliberate session write must still produce a cookie',
+            );
+
+            $this->assertSame(2, self::json(self::get($runtime, '/session', [], $jar)[1])['hits']);
+        } finally {
+            @unlink($jar);
+        }
+    }
+
     #[DataProvider('runtimes')]
     public function testRepeatedSetCookieHeadersAllReachTheClient(string $runtime): void
     {

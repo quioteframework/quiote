@@ -23,6 +23,10 @@ final class ProbeRouting extends Routing
 			'stream' => ['/stream', 'Stream'],
 			'cookies' => ['/cookies', 'Cookies'],
 			'boom' => ['/boom', 'Boom'],
+			'identity' => ['/identity', 'Identity'],
+			'login' => ['/login', 'Login'],
+			'logout' => ['/logout', 'Logout'],
+			'quiet' => ['/quiet', 'Quiet'],
 		] as $name => [$path, $action]) {
 			$routes->add($name, new Route($path, ['_module' => 'Probe', '_action' => $action]));
 			$meta[$name] = ['gen_path' => $path, 'path' => $path, 'cut' => false];

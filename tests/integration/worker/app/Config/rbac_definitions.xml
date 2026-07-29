@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ae:configurations xmlns:ae="http://quiote.dev/quiote/config/global/envelope/1.1" xmlns="http://quiote.dev/quiote/config/parts/rbac_definitions/1.1">
+	<ae:configuration>
+		<roles>
+			<role name="administrator">
+				<permissions>
+					<permission>probe.admin</permission>
+				</permissions>
+			</role>
+		</roles>
+	</ae:configuration>
+</ae:configurations>

@@ -23,9 +23,13 @@ storage:
     session_cookie_path: /
     session_cookie_secure: false
     session_cookie_httponly: true
+# RbacSecurityUser rather than the bare User: the identity probe asserts that
+# roles and credentials granted at login survive to the next request, which is
+# the whole point of persisting the user before the session is closed.
 user:
-  class: Quiote\User\User
-  params: []
+  class: Quiote\User\RbacSecurityUser
+  params:
+    definitions_file: '%core.config_dir%/rbac_definitions.xml'
 validation_manager:
   class: Quiote\Validator\ValidationManager
   params: []
