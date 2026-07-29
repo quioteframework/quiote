@@ -53,13 +53,29 @@ class CorsMiddleware implements MiddlewareInterface
         return $this->decorate($response, $allowedOrigin, '', preflight: false);
     }
 
-    /** @return string|null The value to echo back as Access-Control-Allow-Origin, or null if $origin isn't allowed. */
+    /**
+     * @return string|null The value to echo back as Access-Control-Allow-Origin, or null if $origin isn't allowed.
+     *
+     * A configured `*` normally answers `*`. The one exception is a credentialed
+     * configuration: `Access-Control-Allow-Origin: *` together with
+     * `Access-Control-Allow-Credentials: true` is a combination the fetch spec
+     * forbids, so browsers reject the response outright and every credentialed
+     * cross-origin request silently fails. Reflecting the caller's own origin (and
+     * adding `Vary: Origin`, which decorate() does for any non-`*` value) is the
+     * only way to express "any origin, with credentials", and it is what the
+     * operator asking for both plainly meant.
+     *
+     * Note this is not a weakening: reflecting an origin under `*` grants exactly
+     * the access `*` was already configured to grant. The alternative -- emitting
+     * both headers and letting the browser reject them -- protects nobody while
+     * still exposing the response to any non-browser client that honours them.
+     */
     private function negotiateOrigin(string $origin): ?string
     {
         $allowed = Config::getStringList('cors.allowed_origins', []);
 
         if (in_array('*', $allowed, true)) {
-            return '*';
+            return Config::getBool('cors.allow_credentials', false) ? $origin : '*';
         }
 
         return in_array($origin, $allowed, true) ? $origin : null;
