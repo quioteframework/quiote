@@ -21,11 +21,6 @@ class LegacyPdoSessionPersistenceTest extends TestCase
         }
         $this->pdo = new Pdo\Sqlite('sqlite::memory:');
         $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        // PdoSessionPersistence's INSERT targets Postgres-style NOW() +
-        // ON CONFLICT; sqlite supports the ON CONFLICT upsert syntax but has
-        // no built-in NOW(), so register one rather than changing the
-        // production SQL just to accommodate the test driver.
-        $this->pdo->createFunction('NOW', static fn(): string => date('Y-m-d H:i:s'));
         $this->pdo->exec('CREATE TABLE session (sess_id VARCHAR(64) PRIMARY KEY, sess_data TEXT NOT NULL, sess_time TIMESTAMP NOT NULL)');
         $this->persistence = new PdoSessionPersistence($this->pdo);
     }
@@ -123,6 +118,24 @@ class LegacyPdoSessionPersistenceTest extends TestCase
         $this->assertSame($first, $deleteProp->getValue($this->persistence));
     }
 
+    /**
+     * The upsert used to be Postgres-only (NOW() + ON CONFLICT), which SQLite
+     * cannot parse and MySQL rejects the ON CONFLICT half of. That made this
+     * backend unusable for anyone not on Postgres, so the whole modern session
+     * stack was too. The SQL is now chosen per driver.
+     */
+    public function testTheUpsertWorksOnSqliteWithoutAnyNowShim(): void
+    {
+        $this->persistence->save('sid1', ['a' => 1]);
+        $this->persistence->save('sid1', ['a' => 2]);
+
+        $this->assertSame(['a' => 2], $this->persistence->load('sid1'));
+
+        $stmt = $this->pdo->query('SELECT sess_time FROM session WHERE sess_id = ' . $this->pdo->quote('sid1'));
+        $this->assertNotFalse($stmt);
+        $this->assertNotEmpty($stmt->fetchColumn(), 'sess_time must be populated by the driver, not left null');
+    }
+
     public function testCustomTableNameIsHonored(): void
     {
         $this->pdo->exec('CREATE TABLE custom_sessions (sess_id VARCHAR(64) PRIMARY KEY, sess_data TEXT NOT NULL, sess_time TIMESTAMP NOT NULL)');
@@ -132,5 +145,80 @@ class LegacyPdoSessionPersistenceTest extends TestCase
 
         $this->assertSame(['x' => 1], $persistence->load('sid1'));
         $this->assertNull($this->persistence->load('sid1'), 'the default-table persistence must not see the custom table\'s row');
+    }
+
+    /**
+     * load() uses fetchColumn(), which does not exhaust the result set, so the
+     * statement stays open and — on SQLite — keeps the connection inside an
+     * implicit read transaction holding a shared lock. That blocks every other
+     * connection from writing until the cursor is released, which in a worker
+     * runtime means one worker's load() makes the next worker's save() fail
+     * with SQLITE_BUSY. busy_timeout does not cover the lock upgrade.
+     * Needs a file-backed database: ':memory:' is private per connection.
+     */
+    public function testLoadClosesItsCursorSoAnotherConnectionCanStillSave(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'quiote-session-persistence-lock-');
+        $this->assertIsString($path);
+
+        try {
+            $reader = new PdoSessionPersistence($this->fileBackedPdo($path, seed: true));
+            $writer = new PdoSessionPersistence($this->fileBackedPdo($path));
+
+            $this->assertSame(['seeded' => true], $reader->load('sid1'));
+
+            $writer->save('sid2', ['written_by' => 'another worker']);
+
+            $this->assertSame(['written_by' => 'another worker'], $reader->load('sid2'));
+        } finally {
+            @unlink($path);
+        }
+    }
+
+    /**
+     * The cursor is released in a finally, so a throwing load does not wedge
+     * the connection for the remaining life of a worker process.
+     */
+    public function testAFailingLoadStillReleasesItsCursor(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'quiote-session-persistence-lock-');
+        $this->assertIsString($path);
+
+        try {
+            $pdo = $this->fileBackedPdo($path, seed: true);
+            $persistence = new PdoSessionPersistence($pdo);
+            $other = $this->fileBackedPdo($path);
+
+            // Prime and cache $loadStmt, then drop the table so re-executing
+            // that same cached statement fails inside load().
+            $persistence->load('sid1');
+            $other->exec('DROP TABLE session');
+
+            $this->expectException(\Quiote\Exception\StorageException::class);
+
+            try {
+                $persistence->load('sid1');
+            } finally {
+                // Whatever happened, the reader must not still be holding the
+                // database against another connection.
+                $other->exec('CREATE TABLE session (sess_id VARCHAR(64) PRIMARY KEY, sess_data TEXT NOT NULL, sess_time TIMESTAMP NOT NULL)');
+            }
+        } finally {
+            @unlink($path);
+        }
+    }
+
+    private function fileBackedPdo(string $path, bool $seed = false): PDO
+    {
+        $pdo = new Pdo\Sqlite('sqlite:' . $path);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $pdo->exec('PRAGMA busy_timeout=2000');
+
+        if ($seed) {
+            $pdo->exec('CREATE TABLE session (sess_id VARCHAR(64) PRIMARY KEY, sess_data TEXT NOT NULL, sess_time TIMESTAMP NOT NULL)');
+            (new PdoSessionPersistence($pdo))->save('sid1', ['seeded' => true]);
+        }
+
+        return $pdo;
     }
 }
