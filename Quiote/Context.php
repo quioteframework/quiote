@@ -78,6 +78,37 @@ class Context implements \Stringable, ResetInterface
   protected $storage = null;
 
   /**
+   * @var        bool True once this request's user->storage flush has run.
+   *             Reset per request in handle() and at the end of reset().
+   *             See flushRequestState().
+   */
+  private bool $requestStateFlushed = false;
+
+  /**
+   * @var        ?\Quiote\Session\SessionBagInterface The request's session bag.
+   *             Null until asked for, and nulled again by reset(): holding one
+   *             across a worker request boundary would serve the previous
+   *             request's session to the next one.
+   */
+  private ?\Quiote\Session\SessionBagInterface $sessionBag = null;
+
+  /**
+   * @var        bool Whether $sessionBag is the lazily built default wrapper
+   *             rather than one installed by setSessionBag(). Only the default
+   *             is re-derived when storage changes underneath it; an installed
+   *             bag owns its own backend and is left alone.
+   */
+  private bool $sessionBagIsDefault = false;
+
+  /**
+   * @var        ?\Quiote\Session\SessionManager Built once per process from the
+   *             `session` factory slot; null when that slot is unconfigured.
+   *             Unlike storage this survives the request boundary -- it holds
+   *             no per-request state, only cookie configuration.
+   */
+  private ?\Quiote\Session\SessionManager $sessionManager = null;
+
+  /**
    * @var        ?TranslationManager A TranslationManager instance.
    */
   protected $translationManager = null;
@@ -498,6 +529,67 @@ class Context implements \Stringable, ResetInterface
    * Called from the worker request boundary; see WorkerManager::resetForNextRequest().
    * @since      1.0.0
    */
+  /**
+   * Persist request-scoped state that lives in the session, in the only order
+   * that is correct: the user first (it writes into the session), storage
+   * second (it closes the session).
+   *
+   * Idempotent per request -- the first caller wins. SessionMiddleware claims
+   * it on the pipeline unwind, while the response has not been emitted and the
+   * session can still be written; reset() and shutdown() call it as a backstop
+   * for requests that never reached SessionMiddleware (CLI, a failure before
+   * the bootstrap phase, a test driving Context directly).
+   *
+   * This ordering is the invariant the whole session-persistence path depends
+   * on. It previously held only by accident of the generated shutdownSequence's
+   * declaration order, and it silently broke whenever the session was closed on
+   * the pipeline unwind while the user was still shut down afterwards, from
+   * reset(), after the response had been emitted: the user's roles and
+   * credentials were then written into a session nothing would ever persist.
+   *
+   * Deliberately reads $this->user rather than calling getUser(): creating a
+   * user at unwind for a request that never asked for one would manufacture a
+   * session row (and a Set-Cookie) for an anonymous visitor.
+   *
+   * @param      bool $persistUser False for a sessionless request
+   *             (auth.sessionless / jwt.skip_session): there is no session to
+   *             persist into, and writing a token-derived identity into
+   *             whatever unrelated session cookie the client still carries
+   *             would be wrong. The flush is still *claimed*, so the post-emit
+   *             reset() does not attempt a late write.
+   * @return     void
+   * @since      2.1.0
+   */
+  public function flushRequestState(bool $persistUser = true): void
+  {
+    if ($this->requestStateFlushed) {
+      return;
+    }
+    $this->requestStateFlushed = true;
+
+    try {
+      if ($persistUser && $this->user !== null) {
+        $this->user->shutdown();
+      }
+    } catch (\Throwable $e) {
+      $logger = \Quiote\Logging\Log::for($this);
+      $logger->error(
+        "[Context.flushRequestState] user shutdown failed: " . $e->getMessage(),
+      );
+    } finally {
+      // The session is closed even when the user write threw, so a worker does
+      // not carry an open session into the next request.
+      try {
+        $this->storage?->shutdown();
+      } catch (\Throwable $e) {
+        $logger = \Quiote\Logging\Log::for($this);
+        $logger->error(
+          "[Context.flushRequestState] storage shutdown failed: " . $e->getMessage(),
+        );
+      }
+    }
+  }
+
   public function reset(): void
   {
     $logger = \Quiote\Logging\Log::for($this);
@@ -539,30 +631,22 @@ class Context implements \Stringable, ResetInterface
       $logger->debug("context.reset manual shutdown sequence");
     }
 
+    // Persist user -> close session. Normally a no-op here, because
+    // SessionMiddleware already claimed the flush on the pipeline unwind --
+    // which is the whole point. By the time reset() runs the response has been
+    // emitted, and a session write at that point silently goes nowhere. This
+    // call is the backstop for requests that never reached the middleware.
+    $this->flushRequestState();
+
     // Execute the shutdown sequence in the same order as would happen during normal shutdown
     // But skip components that don't need shutdown or would interfere with worker mode
     foreach ($this->shutdownSequence as $component) {
-      if ($component === $this->user && $component !== null) {
-        if ($vd) {
-          $logger->debug("context.reset shutdown user");
-        }
-        $component->shutdown();
-      } elseif ($component === $this->storage && $component !== null) {
-        if ($vd) {
-          $logger->debug("context.reset shutdown storage");
-        }
-
-        // CRITICAL: Must call shutdown() BEFORE reset() to ensure session data is persisted
-        // shutdown() persists dirty session data to database/storage
-        // reset() clears in-memory state for next request
-        $component->shutdown(); // This persists session data
-
-        // Reset storage connections after shutdown
-        if ($vd) {
-          $logger->debug("[Context] calling storage reset()");
-        }
-        $component->reset();
-      } elseif ($component === $this->databaseManager && $component !== null) {
+      if ($component === $this->user || $this->isStorageComponent($component)) {
+        // Both belong to flushRequestState(), which owns the ordering between
+        // them; shutting them down again here would double-write.
+        continue;
+      }
+      if ($component === $this->databaseManager && $component !== null) {
         // Recycle (ping + null dead connections) instead of full shutdown so the manager
         // stays alive across requests, avoiding re-initialization cost.
         if ($vd) {
@@ -581,10 +665,30 @@ class Context implements \Stringable, ResetInterface
       $logger->debug("context.reset shutdown complete");
     }
 
+    // Clear the worker-carried session state. Driven off the property rather
+    // than off a match in the loop above: identity matching there is exactly
+    // what used to fail once getStorage() recreated the object without
+    // splicing it back into the sequence, and the consequence -- session_id()
+    // and $_SESSION surviving into the next request -- is a cross-user leak.
+    // The storage factory slot carries no `must_implement` constraint, so a
+    // configured storage need not be resettable; only ask the ones that are.
+    if ($this->storage instanceof ResetInterface) {
+      if ($vd) {
+        $logger->debug("[Context] calling storage reset()");
+      }
+      $this->storage->reset();
+    }
+
     // Now reset object references for next request
     // In worker mode, null the storage so it gets recreated with fresh startup() call
     // This ensures session_start() is called properly on each request
     $this->storage = null;
+
+    // In lockstep with storage: a bag surviving the boundary would serve
+    // request N's session to request N+1 -- the same cross-user leak the
+    // storage reset above prevents, relocated one layer up.
+    $this->sessionBag = null;
+    $this->sessionBagIsDefault = false;
     if ($vd) {
       $logger->debug("context.reset storage nulled");
     }
@@ -638,6 +742,10 @@ class Context implements \Stringable, ResetInterface
     // leak class as the session state cleared elsewhere in this reset).
     \Quiote\Logging\LogContext::clear();
 
+    // Re-arm the flush for the next request. Last, so that everything above
+    // still sees this request's flush as already claimed.
+    $this->requestStateFlushed = false;
+
     if ($vd) {
       $logger->debug("[Context.reset] completed");
     }
@@ -688,6 +796,11 @@ class Context implements \Stringable, ResetInterface
     // authoritative between-request clear lives in reset().
     \Quiote\Logging\LogContext::clear();
     \Quiote\Logging\LogContext::enrich(["rid" => $correlationId]);
+
+    // Re-arm the per-request session flush. reset() does this too, but this is
+    // the authoritative anchor: it also covers a runtime that serves requests
+    // without calling reset() between them.
+    $this->requestStateFlushed = false;
 
     // Bridge: ensure a legacy WebRequest exists and attach the current PSR request for BC helpers
     try {
@@ -996,7 +1109,16 @@ class Context implements \Stringable, ResetInterface
    */
   public function shutdown(): void
   {
+    // User and storage first, in that order, through the single owner of that
+    // ordering. Without this the non-worker (register_shutdown_function) path
+    // would rely on the generated sequence's declaration order, and would also
+    // double-write whatever SessionMiddleware already flushed on the unwind.
+    $this->flushRequestState();
+
     foreach ($this->shutdownSequence as $object) {
+      if ($object === $this->user || $this->isStorageComponent($object)) {
+        continue;
+      }
       try {
         if (is_object($object) && method_exists($object, "shutdown")) {
           $object->shutdown();
@@ -1318,6 +1440,210 @@ class Context implements \Stringable, ResetInterface
    * @return     \Quiote\Storage\Storage The current Storage implementation instance.
    * @since      1.0.0
    */
+  /**
+   * Retrieve this request's session bag -- the single seam every consumer of
+   * session state goes through.
+   *
+   * With nothing configured this lazily wraps the `storage` factory slot in a
+   * {@see \Quiote\Session\StorageSessionBag}, so behaviour is identical to
+   * reaching for getStorage() directly. Middleware for a different backend
+   * installs its own bag with setSessionBag() on the way in.
+   *
+   * Pulled from the context rather than pushed into consumers, because
+   * getUser() can recreate a user *after* that middleware has run: a user built
+   * mid-request must still reach the same session as everything else.
+   *
+   * @return     \Quiote\Session\SessionBagInterface
+   * @since      2.1.0
+   */
+  public function getSessionBag(): \Quiote\Session\SessionBagInterface
+  {
+    $bag = $this->sessionBag;
+
+    // The default wrapper holds a reference to the storage object it wrapped.
+    // If storage has since been replaced -- worker recreation, or a direct
+    // assignment -- that bag points at a discarded instance, and reads and
+    // writes would silently go to the wrong session. Re-derive it.
+    if (
+      $this->sessionBagIsDefault
+      && $bag instanceof \Quiote\Session\StorageSessionBag
+      && $bag->getStorage() !== $this->storage
+    ) {
+      $bag = null;
+    }
+
+    if ($bag === null) {
+      $bag = new \Quiote\Session\StorageSessionBag($this->getStorage());
+      $this->sessionBag = $bag;
+      $this->sessionBagIsDefault = true;
+      $this->registerCoreService('sessionBag', $bag, Container::SCOPE_REQUEST);
+    }
+
+    return $bag;
+  }
+
+  /**
+   * The configured {@see \Quiote\Session\SessionManager}, or null when the
+   * `session` factory slot is not configured (i.e. `core.use_modern_session`
+   * is off and the application is on the legacy `storage` path).
+   *
+   * Built once per process from the slot's SessionFactoryInterface: the
+   * manager itself is stateless apart from cookie configuration, so unlike
+   * storage it does not need recreating per request.
+   *
+   * @return     ?\Quiote\Session\SessionManager
+   * @since      2.2.0
+   */
+  public function getSessionManager(): ?\Quiote\Session\SessionManager
+  {
+    if ($this->sessionManager !== null) {
+      return $this->sessionManager;
+    }
+
+    $info = $this->factories['session']['factory_info'] ?? $this->factories['session'] ?? null;
+    if (!is_array($info)) {
+      return null;
+    }
+
+    $className = $info['class'] ?? null;
+    $parameters = $info['parameters'] ?? [];
+    if (!is_string($className) || !class_exists($className) || !is_array($parameters)) {
+      return null;
+    }
+
+    try {
+      $factory = new $className();
+      if (!$factory instanceof \Quiote\Session\SessionFactoryInterface) {
+        return null;
+      }
+      /** @var array<string, mixed> $parameters */
+      $this->sessionManager = new \Quiote\Session\SessionManager(
+        $factory->createPersistence($this, $parameters),
+        $parameters,
+      );
+    } catch (\Throwable $e) {
+      \Quiote\Logging\Log::for($this)->error(
+        '[Context.getSessionManager] could not build the session backend: ' . $e->getMessage(),
+      );
+
+      return null;
+    }
+
+    return $this->sessionManager;
+  }
+
+  /**
+   * Install the session bag for this request, replacing the lazy default.
+   *
+   * Pass null to drop it, which forces the next getSessionBag() to rebuild --
+   * necessary whenever the underlying storage is replaced, or a stale bag would
+   * keep pointing at the previous instance.
+   *
+   * @param      ?\Quiote\Session\SessionBagInterface $bag
+   * @return     void
+   * @since      2.1.0
+   */
+  public function setSessionBag(?\Quiote\Session\SessionBagInterface $bag): void
+  {
+    $this->sessionBag = $bag;
+    $this->sessionBagIsDefault = false;
+    if ($bag !== null) {
+      $this->registerCoreService('sessionBag', $bag, Container::SCOPE_REQUEST);
+    }
+  }
+
+  /**
+   * Whether a shutdown-sequence entry is this context's storage component.
+   *
+   * Matched by base class *or* by the configured factory class name: the test
+   * double in tests/lib/MockStorage.php is duck-typed and deliberately does not
+   * extend Storage, yet it is what storageFactoryInfo names.
+   */
+  private function isStorageComponent(mixed $component): bool
+  {
+    if ($component instanceof \Quiote\Storage\Storage) {
+      return true;
+    }
+
+    $configured = $this->storageFactoryInfo['class'] ?? null;
+
+    return is_object($component)
+      && is_string($configured)
+      && $component::class === $configured;
+  }
+
+  /**
+   * Replace every stale instance of one component role in $shutdownSequence
+   * with $replacement, preserving that role's original position.
+   *
+   * Used by the lazy getUser()/getStorage() recreation paths in worker mode:
+   * reset() nulls the property but leaves the dead object in the sequence, and
+   * a component that is never spliced back in silently stops being shut down
+   * from the second request onward. Position is preserved rather than
+   * unshifting to index 0, which would move the component ahead of
+   * controller/routing and skip late mutations those may perform.
+   *
+   * @param object $replacement The freshly created component.
+   * @param callable(mixed):bool $matches Identifies instances of the role.
+   * @param callable():int $fallbackIndex Insertion point when the sequence
+   *        contained no instance of the role at all.
+   * @param string $caller Label for debug logging.
+   */
+  private function spliceIntoShutdownSequence(
+    object $replacement,
+    callable $matches,
+    callable $fallbackIndex,
+    string $caller,
+  ): void {
+    try {
+      $firstIndex = null;
+      $removedAny = false;
+      foreach ($this->shutdownSequence as $idx => $component) {
+        if ($matches($component)) {
+          if ($firstIndex === null) {
+            $firstIndex = $idx;
+          }
+          unset($this->shutdownSequence[$idx]);
+          $removedAny = true;
+        }
+      }
+      $this->shutdownSequence = array_values($this->shutdownSequence);
+
+      if ($firstIndex === null) {
+        $firstIndex = max(0, $fallbackIndex());
+      }
+      $firstIndex = min($firstIndex, count($this->shutdownSequence));
+
+      array_splice($this->shutdownSequence, $firstIndex, 0, [$replacement]);
+
+      $logger = \Quiote\Logging\Log::for($this);
+      if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+        $logger->debug(sprintf(
+          '[Context.%s] registered component in shutdownSequence replaced=%d idx=%d oid=%d',
+          $caller,
+          $removedAny ? 1 : 0,
+          $firstIndex,
+          spl_object_id($replacement),
+        ));
+      }
+    } catch (\Throwable) {
+      // Soft failure: reset()/shutdown() drive storage and user directly, so a
+      // failed splice degrades ordering for other components only.
+    }
+  }
+
+  /**
+   * Retrieve this context's storage component, recreating it from the captured
+   * factory info if a worker-mode reset() nulled it.
+   *
+   * Annotated rather than natively typed: the storage slot's factory config
+   * carries no `must_implement` constraint, so an app (or a test double) may
+   * supply a duck-typed object that does not extend Storage, and a native
+   * return type would turn that into a TypeError.
+   *
+   * @return     \Quiote\Storage\Storage The Storage instance.
+   * @throws     QuioteException If storage is null and cannot be recreated.
+   */
   public function getStorage()
   {
     // Lazy initialization for worker mode - recreate storage object if null after reset
@@ -1376,6 +1702,8 @@ class Context implements \Stringable, ResetInterface
         $newStorage->initialize($this, $parameters);
         // Do NOT call startup() here - SessionMiddleware will call it after mirroring PSR-7 cookies to $_COOKIE
         // Calling it here causes session loss because $_COOKIE is empty before SessionMiddleware runs
+        // Any lazily built bag still wraps the object being replaced here;
+        // getSessionBag() notices the mismatch and rebuilds on next use.
         $this->storage = $newStorage;
 
         if ($vd) {
@@ -1385,6 +1713,22 @@ class Context implements \Stringable, ResetInterface
           );
         }
         $this->registerCoreService('storage', $this->storage, Container::SCOPE_REQUEST);
+
+        // reset() left the previous request's (now dead) storage object in the
+        // shutdown sequence and nulled the property. Without splicing the
+        // replacement back in, the identity test in reset() stops matching from
+        // the second request onward, so storage->reset() never runs again --
+        // session_id() and $_SESSION survive into the next request and
+        // startup() then skips session_start() on a non-empty id, inheriting
+        // the previous request's session.
+        $this->spliceIntoShutdownSequence(
+          $newStorage,
+          fn(mixed $component): bool => $this->isStorageComponent($component),
+          // No storage in the sequence: append, so the session is closed after
+          // every other component (notably the user) has written to it.
+          fn(): int => count($this->shutdownSequence),
+          'getStorage',
+        );
       } else {
         $logger->error(
           "[Context.getStorage] - No storage factory info available, cannot recreate storage",
@@ -1521,52 +1865,19 @@ class Context implements \Stringable, ResetInterface
         }
 
         // Replace any stale user instances in shutdown sequence to avoid persisting outdated auth state later
-        try {
-          // Intent: eliminate stale user objects but *preserve original relative ordering*
-          // The original generated sequence already places user before storage. Unshifting
-          // the new user to index 0 (previous logic) needlessly moved it ahead of
-          // controller/routing and could skip late mutations they might perform.
-          // Strategy: capture first user index, remove all user instances, then reinsert
-          // the fresh instance at the captured index (or just before storage if none).
-          $firstUserIndex = null;
-          $removedAny = false;
-          foreach ($this->shutdownSequence as $idx => $component) {
-            if (
-              $component instanceof \Quiote\User\User ||
-              $component instanceof \Quiote\User\ISecurityUser
-            ) {
-              if ($firstUserIndex === null) {
-                $firstUserIndex = $idx;
-              }
-              unset($this->shutdownSequence[$idx]);
-              $removedAny = true;
-            }
-          }
-          $this->shutdownSequence = array_values($this->shutdownSequence);
-          if ($firstUserIndex === null) {
-            $storagePos = array_find_key($this->shutdownSequence, fn($component) => $component === $this->storage);
-            if ($storagePos === null) {
-              $firstUserIndex = 0;
-            } else {
-              $firstUserIndex = max(0, $storagePos);
-            }
-          }
-          // Insert user at calculated index (array_splice preserves order after insertion)
-          array_splice($this->shutdownSequence, $firstUserIndex, 0, [
-            $newUser,
-          ]);
-          if ($vd) {
-            $logger->debug(
-              "[Context.getUser] registered user in shutdownSequence replaced=" .
-                ($removedAny ? 1 : 0) .
-                " idx=" .
-                $firstUserIndex .
-                " oid=" .
-                spl_object_id($newUser),
-            );
-          }
-        } catch (\Throwable) {
-        }
+        $this->spliceIntoShutdownSequence(
+          $newUser,
+          static fn(mixed $component): bool =>
+            $component instanceof \Quiote\User\User ||
+            $component instanceof \Quiote\User\ISecurityUser,
+          // No user in the sequence: insert just before storage, so the user's
+          // writes land before the session is closed.
+          fn(): int => array_find_key(
+            $this->shutdownSequence,
+            fn(mixed $component): bool => $this->isStorageComponent($component),
+          ) ?? 0,
+          'getUser',
+        );
 
         if ($vd) {
           $logger->debug(

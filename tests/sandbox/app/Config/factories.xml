@@ -108,6 +108,37 @@
 		<storage class="Quiote\Storage\SessionStorage" />
 	</ae:configuration>
 
+	<!--
+		Real SessionStorage plus an RBAC user, for the request-boundary flush
+		tests: they assert what actually reaches the session backing store, so
+		NullStorage (which discards everything) cannot be used.
+	-->
+	<ae:configuration environment="testing.*" context="context-flush-test::tests-flush-persists-user">
+		<storage class="Quiote\Storage\SessionStorage" />
+		<user class="Quiote\User\RbacSecurityUser" />
+	</ae:configuration>
+
+	<ae:configuration environment="testing.*" context="context-flush-test::tests-flush-ordering">
+		<storage class="Quiote\Storage\SessionStorage" />
+		<user class="Quiote\User\RbacSecurityUser" />
+	</ae:configuration>
+
+	<!-- Dirty tracking: these assert whether a session was created at all. -->
+	<ae:configuration environment="testing.*" context="user-dirty-test::tests-anonymous">
+		<storage class="Quiote\Storage\SessionStorage" />
+		<user class="Quiote\User\RbacSecurityUser" />
+	</ae:configuration>
+
+	<ae:configuration environment="testing.*" context="user-dirty-test::tests-logout">
+		<storage class="Quiote\Storage\SessionStorage" />
+		<user class="Quiote\User\SecurityUser" />
+	</ae:configuration>
+
+	<ae:configuration environment="testing.*" context="user-dirty-test::tests-preferences">
+		<storage class="Quiote\Storage\SessionStorage" />
+		<user class="Quiote\User\SecurityUser" />
+	</ae:configuration>
+
 	<ae:configuration environment="testing.*" context="routes-list-cli-test">
 		<routing class="Sandbox\App\Routing\AttributeMergedRouting" />
 	</ae:configuration>

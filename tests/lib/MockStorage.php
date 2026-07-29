@@ -68,4 +68,12 @@ class MockStorage implements ResetInterface
     {
         return array_key_exists($ns, $this->data);
     }
+
+    public function remove(string $ns): mixed
+    {
+        $value = $this->data[$ns] ?? null;
+        unset($this->data[$ns]);
+
+        return $value;
+    }
 }

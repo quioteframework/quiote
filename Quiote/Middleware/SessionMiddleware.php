@@ -59,7 +59,18 @@ class SessionMiddleware implements MiddlewareInterface
             if (!$request->getAttribute(ExecutionState::class)) {
                 $request = $request->withAttribute(ExecutionState::class, new ExecutionState());
             }
-            return $handler->handle($request);
+            try {
+                return $handler->handle($request);
+            } finally {
+                // There is no session to persist into, so the user is not
+                // written -- a token-derived identity must not be pushed into
+                // whatever unrelated session cookie the client still carries.
+                // The flush is still claimed, so the post-emit Context::reset()
+                // does not attempt a late write of its own.
+                try {
+                    $this->controller->getContext()->flushRequestState(persistUser: false);
+                } catch (\Throwable) {}
+            }
         }
 
         // Start session storage if not yet started for this request lifecycle.
@@ -94,7 +105,7 @@ class SessionMiddleware implements MiddlewareInterface
             if (session_status() !== PHP_SESSION_ACTIVE) {
                 if ($vd) { $this->logger->debug('[SessionMiddleware] calling storage->startup()'); }
                 $storage->startup();
-                if ($vd) { $this->logger->debug('[SessionMiddleware] storage->startup() returned; session id=' . var_export(method_exists($storage,'getId') ? $storage->getId() : null, true)); }
+                if ($vd) { $this->logger->debug('[SessionMiddleware] storage->startup() returned; session id=' . $this->controller->getContext()->getSessionBag()->getId()); }
             }
         } catch (\Throwable $t) {
             if ($vd) {
@@ -105,14 +116,34 @@ class SessionMiddleware implements MiddlewareInterface
         if(!$request->getAttribute(ExecutionState::class)) {
             $request = $request->withAttribute(ExecutionState::class, new ExecutionState());
         }
-        // Let the rest of the pipeline run and capture the PSR response.
-        $response = $handler->handle($request);
-
-        // After handler completes, ensure storage shutdown/persistence runs and bridge any queued cookies
+        // Let the rest of the pipeline run and capture the PSR response. The
+        // flush below is in a finally so a throwing handler still persists and
+        // closes the session before the error middleware emits its response.
         try {
-            $storage = $this->controller->getContext()->getStorage();
-            // storage->shutdown may queue cookies into Quiote WebResponse
-            $storage->shutdown();
+            $response = $handler->handle($request);
+        } finally {
+            try {
+                // Persist the user, THEN close the session -- in that order,
+                // and here, while the response has not been emitted yet.
+                // Doing only the storage half here (and leaving the user to
+                // Context::reset(), which runs after emission) is what caused
+                // roles and credentials to be written into a session nothing
+                // would ever persist: an authenticated user with no
+                // credentials, and a 403 on every subsequent request.
+                //
+                // Note this deliberately does NOT go through getStorage():
+                // post-response, that would recreate a storage object that
+                // reset() had already nulled.
+                $this->controller->getContext()->flushRequestState();
+            } catch (\Throwable $t) {
+                if ($vd) {
+                    $this->logger->debug('[SessionMiddleware] flush error: ' . $t->getMessage());
+                }
+            }
+        }
+
+        // Bridge any cookies the request queued onto the PSR response.
+        try {
             // Bridge queued cookies from WebResponse to PSR response if present
             $globalResp = null;
             try { $globalResp = $this->controller->getGlobalResponse(); } catch (\Throwable) { $globalResp = null; }

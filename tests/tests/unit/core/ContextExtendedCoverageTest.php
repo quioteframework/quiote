@@ -170,6 +170,7 @@ class ContextExtendedCoverageTest extends TestCase
         $factoriesProp = $ro->getProperty('factories');
 
         $factories = $factoriesProp->getValue($ctx);
+        $this->assertIsArray($factories);
         // Anonymous singleton model stub
         $dummy = new class {
             /** @param array<string, mixed> $p */
@@ -183,9 +184,12 @@ class ContextExtendedCoverageTest extends TestCase
         $smProp = $ro->getProperty('singletonModelInstances');
 
         $sm = $smProp->getValue($ctx);
+        $this->assertIsArray($sm);
         $sm[$dummyClass] = $dummy;
         $smProp->setValue($ctx, $sm);
-        $this->assertArrayHasKey($dummyClass, $smProp->getValue($ctx));
+        $singletonsBefore = $smProp->getValue($ctx);
+        $this->assertIsArray($singletonsBefore);
+        $this->assertArrayHasKey($dummyClass, $singletonsBefore);
         $ctx->reset();
         $this->assertSame([], $smProp->getValue($ctx), 'singletonModelInstances should be cleared on reset');
     }
@@ -341,7 +345,11 @@ class ContextExtendedCoverageTest extends TestCase
             $tm = $ctx->createInstanceFor('translation_manager');
             (new ReflectionObject($ctx))->getProperty('translationManager')->setValue($ctx, $tm);
         }
-        $this->assertNotNull($tm, 'translation manager should be available once core.use_translation is enabled');
+        $this->assertInstanceOf(
+            \Quiote\Translation\TranslationManager::class,
+            $tm,
+            'translation manager should be available once core.use_translation is enabled',
+        );
         $tm->setLocale('de_DE');
         $this->assertNotNull($tm->getCurrentLocaleIdentifier());
 
@@ -368,14 +376,18 @@ class ContextExtendedCoverageTest extends TestCase
         $seqProp = $ro->getProperty('shutdownSequence');
 
         // Remove any user entries from sequence
-        $seq = array_values(array_filter($seqProp->getValue($ctx), fn($c) => !($c instanceof \Quiote\User\User)));
+        $rawSeq = $seqProp->getValue($ctx);
+        $this->assertIsArray($rawSeq);
+        $seq = array_values(array_filter($rawSeq, fn($c) => !($c instanceof \Quiote\User\User)));
         $seqProp->setValue($ctx, $seq);
         $user2 = $ctx->getUser();
         $this->assertInstanceOf($user1::class, $user2);
         $this->assertNotSame($user1, $user2);
         // Ensure new user present in shutdownSequence
         $found = false;
-        foreach ($seqProp->getValue($ctx) as $c) {
+        $seqWithUser = $seqProp->getValue($ctx);
+        $this->assertIsArray($seqWithUser);
+        foreach ($seqWithUser as $c) {
             if ($c === $user2) {
                 $found = true;
                 break;
@@ -466,6 +478,7 @@ class ContextExtendedCoverageTest extends TestCase
             // Fallback: direct instantiation
             if ($controller1 === null) {
                 $fi = $cfiProp->getValue($ctx);
+                $this->assertIsArray($fi);
                 $controller1 = new $fi['class']();
                 if (is_callable([$controller1, 'initialize'])) {
                     $controller1->initialize($ctx, $fi['parameters']);
@@ -489,6 +502,7 @@ class ContextExtendedCoverageTest extends TestCase
         $this->assertSame($controller1, $controller2, 'Controller instance should persist across reset (reset() called but not replaced)');
         // Sequence should still contain a user before storage
         $seqAfter = $seqProp->getValue($ctx);
+        $this->assertIsArray($seqAfter);
         $userIdx = null;
         $storageIdx = null;
         foreach ($seqAfter as $i => $comp) {
@@ -562,6 +576,7 @@ class ContextExtendedCoverageTest extends TestCase
         $dbm1 = $dbmProp->getValue($ctx);
         if (!$dbm1) {
             $fi = $dbmFi->getValue($ctx);
+            $this->assertIsArray($fi);
             $dbm1 = new $fi['class']();
             if (is_callable([$dbm1, 'initialize'])) {
                 $dbm1->initialize($ctx, $fi['parameters']);
@@ -600,6 +615,137 @@ class ContextExtendedCoverageTest extends TestCase
         $this->assertNotSame($storage1, $storage2, 'Storage should be a fresh instance after recreation');
     }
 
+    /**
+     * Mirror of testGetUserRecreatesAndRegistersInShutdownSequence for storage.
+     * getStorage() recreated the object and re-registered the container service
+     * but never spliced the replacement into the shutdown sequence, so the
+     * identity test in reset() stopped matching from the second request onward.
+     */
+    public function testGetStorageRecreatesAndRegistersInShutdownSequence(): void
+    {
+        $ctx = $this->ctx();
+        $this->injectLogger($ctx);
+        $ro = new ReflectionObject($ctx);
+        $ro->getProperty('storageFactoryInfo')->setValue($ctx, ['class' => MockStorage::class, 'parameters' => []]);
+        $storageProp = $ro->getProperty('storage');
+        $seqProp = $ro->getProperty('shutdownSequence');
+
+        $storage1 = new MockStorage();
+        $storageProp->setValue($ctx, $storage1);
+        $seqProp->setValue($ctx, [$storage1]);
+
+        $ctx->reset();
+        $storage2 = $ctx->getStorage();
+
+        $this->assertNotSame($storage1, $storage2);
+        $sequence = $seqProp->getValue($ctx);
+        $this->assertIsArray($sequence);
+        $this->assertContains($storage2, $sequence, 'the recreated storage must be registered in the shutdown sequence');
+        $this->assertNotContains($storage1, $sequence, 'the stale storage must not remain in the shutdown sequence');
+    }
+
+    /**
+     * The user writes into the session and storage closes it, so the user must
+     * come first. Both are recreated lazily and independently, and neither
+     * splice may reorder them.
+     */
+    public function testRecreatedStorageIsOrderedAfterTheUserInTheShutdownSequence(): void
+    {
+        $ctx = $this->ctx();
+        $this->injectLogger($ctx);
+        $ro = new ReflectionObject($ctx);
+        $ro->getProperty('storageFactoryInfo')->setValue($ctx, ['class' => MockStorage::class, 'parameters' => []]);
+        $ro->getProperty('storage')->setValue($ctx, new MockStorage());
+
+        $ctx->getUser();
+        $ctx->reset();
+
+        // Recreate in the "wrong" order -- storage first -- to prove the
+        // ordering comes from the splice logic, not from call order.
+        $storage = $ctx->getStorage();
+        $user = $ctx->getUser();
+
+        $rawSequence = $ro->getProperty('shutdownSequence')->getValue($ctx);
+        $this->assertIsArray($rawSequence);
+        $sequence = array_values($rawSequence);
+        $userIndex = array_search($user, $sequence, true);
+        $storageIndex = array_search($storage, $sequence, true);
+
+        $this->assertIsInt($userIndex, 'user must be in the shutdown sequence');
+        $this->assertIsInt($storageIndex, 'storage must be in the shutdown sequence');
+        $this->assertLessThan(
+            $storageIndex,
+            $userIndex,
+            'the user must shut down before storage, or its writes land after the session is closed',
+        );
+    }
+
+    /**
+     * The cross-request leak this all exists to prevent: reset() must reach the
+     * storage instance that actually served the request. It used to match by
+     * identity against an object getStorage() had already replaced, so from the
+     * second request onward storage->reset() silently stopped running --
+     * leaving session_id() and $_SESSION populated for the next request, which
+     * startup() then treats as an existing session and skips session_start().
+     */
+    public function testSecondRequestStorageIsResetSoTheSessionIdDoesNotLeak(): void
+    {
+        $ctx = $this->ctx();
+        $this->injectLogger($ctx);
+        $ro = new ReflectionObject($ctx);
+        $ro->getProperty('storageFactoryInfo')->setValue($ctx, ['class' => RecordingStorage::class, 'parameters' => []]);
+
+        RecordingStorage::resetLog();
+
+        // Request 1: the bootstrap-created instance.
+        $first = new RecordingStorage();
+        $ro->getProperty('storage')->setValue($ctx, $first);
+        $ro->getProperty('shutdownSequence')->setValue($ctx, [$first]);
+        $ctx->reset();
+
+        // Request 2: getStorage() recreates, and that instance must be the one
+        // the next reset() clears.
+        $second = $ctx->getStorage();
+        $this->assertNotSame($first, $second);
+        $ctx->reset();
+
+        $resetCallers = RecordingStorage::callersOf('storage.reset');
+        $this->assertContains(spl_object_id($first), $resetCallers, 'request 1 storage should have been reset');
+        $this->assertContains(
+            spl_object_id($second),
+            $resetCallers,
+            'request 2 storage was never reset -- session id and $_SESSION leak into request 3',
+        );
+    }
+
+    /**
+     * Same guarantee for shutdown(): the replacement, not the stale object,
+     * must be the one asked to persist.
+     */
+    public function testSecondRequestStorageIsShutDownOnReset(): void
+    {
+        $ctx = $this->ctx();
+        $this->injectLogger($ctx);
+        $ro = new ReflectionObject($ctx);
+        $ro->getProperty('storageFactoryInfo')->setValue($ctx, ['class' => RecordingStorage::class, 'parameters' => []]);
+
+        RecordingStorage::resetLog();
+
+        $first = new RecordingStorage();
+        $ro->getProperty('storage')->setValue($ctx, $first);
+        $ro->getProperty('shutdownSequence')->setValue($ctx, [$first]);
+        $ctx->reset();
+
+        $second = $ctx->getStorage();
+        $ctx->reset();
+
+        $this->assertContains(
+            spl_object_id($second),
+            RecordingStorage::callersOf('storage.shutdown'),
+            'request 2 storage was never shut down, so its session data is never persisted',
+        );
+    }
+
     public function testPsrKernelResetClearsMiddlewareStack(): void
     {
         $ctx = $this->ctx();
@@ -620,13 +766,14 @@ class ContextExtendedCoverageTest extends TestCase
         $psrKernelProp = $ro->getProperty('psrKernel');
 
         $kernel = $psrKernelProp->getValue($ctx);
-        $this->assertNotNull($kernel, 'psrKernel should be built after handle');
+        $this->assertInstanceOf(\Quiote\Middleware\MiddlewarePipeline::class, $kernel, 'psrKernel should be built after handle');
         $debugStackBefore = $kernel->debugStack();
         $this->assertNotEmpty($debugStackBefore, 'Middleware debug stack should be populated');
         $ctx->reset(); // kernel is kept alive; reset() no longer calls psrKernel->reset() (avoids pipeline rebuild)
         // Reinject mock storage after reset since reset nulls storage
         $storageProp->setValue($ctx, new MockStorage());
         $kernelAfter = $psrKernelProp->getValue($ctx);
+        $this->assertInstanceOf(\Quiote\Middleware\MiddlewarePipeline::class, $kernelAfter);
         $this->assertSame($kernel, $kernelAfter, 'Kernel instance persists across reset');
         // Since PHP84 performance work: psrKernel->reset() is no longer called, so the
         // middleware stack stays built and the debug stack retains its previous entries.
@@ -653,7 +800,9 @@ class ContextExtendedCoverageTest extends TestCase
         $ctx->reset();
         $ctx->getUser(); // recreate again
         $userCount = 0;
-        foreach ($seqProp->getValue($ctx) as $c) {
+        $sequence = $seqProp->getValue($ctx);
+        $this->assertIsArray($sequence);
+        foreach ($sequence as $c) {
             if ($c instanceof \Quiote\User\User) {
                 $userCount++;
             }
