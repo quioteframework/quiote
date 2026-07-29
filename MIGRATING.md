@@ -81,27 +81,25 @@ context that has no use for one.
 
 ### Available backends
 
-Core ships two slot factories: `Quiote\Session\FileSessionFactory` and
-`Quiote\Session\PdoSessionFactory`.
+Every backend ships a `session` slot factory. Name one and configure it; there
+is no wiring to write.
 
-`packages/session-redis`, `session-s3`, `session-gcs` and `session-azure` ship
-`SessionPersistenceInterface` implementations but **not** slot factories yet, so
-they cannot be named in the `session` slot directly. Until they grow one, wrap
-the persistence in a few lines of your own:
+| Backend | Factory | Package |
+|---|---|---|
+| Files | `Quiote\Session\FileSessionFactory` | core |
+| PDO | `Quiote\Session\PdoSessionFactory` | core |
+| Redis | `Quiote\Session\Redis\RedisSessionFactory` | `session-redis` |
+| S3 | `Quiote\Storage\S3\S3SessionFactory` | `session-s3` |
+| GCS | `Quiote\Storage\Gcs\GcsSessionFactory` | `session-gcs` |
+| Azure Blob | `Quiote\Storage\Azure\AzureBlobSessionFactory` | `session-azure` |
+| Azure Table | `Quiote\Storage\Azure\AzureTableSessionFactory` | `session-azure` |
 
-```php
-final class RedisSessionFactory implements Quiote\Session\SessionFactoryInterface
-{
-    public function createPersistence(Quiote\Context $context, array $parameters): Quiote\Session\SessionPersistenceInterface
-    {
-        return new Quiote\Session\Redis\RedisSessionPersistence($yourRedisClient, $parameters);
-    }
-}
-```
+The S3, GCS and Azure factories expect a PSR-18 client bound in the container,
+the same contract the matching `filesystem-*` packages use.
 
-A custom backend is the same shape: implement
-`Quiote\Session\SessionPersistenceInterface` (`load`/`save`/`delete`) and a
-`SessionFactoryInterface` to build it.
+A custom backend implements `Quiote\Session\SessionPersistenceInterface`
+(`load`/`save`/`delete`) plus a `Quiote\Session\SessionFactoryInterface` to
+build it, and can then be named in the slot like any other.
 
 ---
 
@@ -226,12 +224,6 @@ request argument. This breaks subclasses overriding them.
 `/etc/frankenphp/Caddyfile`, not `/etc/caddy/Caddyfile`. An image copying its
 Caddyfile to the latter has it silently ignored and starts in classic mode
 rather than worker mode. Check your own Dockerfile.
-
-**Empty superglobals on a SAPI are not a bug.** On FrankenPHP — or php-fpm, or
-any real SAPI — `WebRequest::startup()` clears `$_GET`/`$_POST`/`$_COOKIE`/
-`$_FILES` and strips `HTTP_*` from `$_SERVER`. That is the register-globals-era
-input defence doing its job, not FrankenPHP failing to populate them. Read
-request data through `WebRequest`, not the superglobals.
 
 ---
 
