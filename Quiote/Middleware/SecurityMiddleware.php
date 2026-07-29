@@ -35,8 +35,9 @@ class SecurityMiddleware implements MiddlewareInterface
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $dbg = \Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug);
-        $rid = $request->getAttribute('quiote.rid');
-        if (!$rid) {
+        $ridAttr = $request->getAttribute('quiote.rid');
+        $rid = is_string($ridAttr) && $ridAttr !== '' ? $ridAttr : '';
+        if ($rid === '') {
             try {
                 $rid = bin2hex(random_bytes(4));
             } catch (\Throwable) {
@@ -45,20 +46,19 @@ class SecurityMiddleware implements MiddlewareInterface
             $request = $request->withAttribute('quiote.rid', $rid);
         }
         // Build/initialize action for security evaluation in container-less world.
+        // instanceof, not a truthiness check: getAttribute() is typed mixed, so
+        // this is also what narrows $actionDesc for everything below.
         $actionDesc = $request->getAttribute(ActionDescriptor::class);
-        if (!$actionDesc) {
+        if (!$actionDesc instanceof ActionDescriptor) {
             return $handler->handle($request);
         }
         $userObj = null;
         $authState = 'unknown';
         $sessId = 'no-sid';
         try {
-            $storage = $this->controller->getContext()->getStorage();
-            if (method_exists($storage, 'getId')) {
-                $sidTmp = $storage->getId();
-                if (is_string($sidTmp) && $sidTmp !== '') {
-                    $sessId = $sidTmp;
-                }
+            $sidTmp = $this->controller->getContext()->getSessionBag()->getId();
+            if ($sidTmp !== '') {
+                $sessId = $sidTmp;
             }
         } catch (\Throwable) {
         }
@@ -197,7 +197,7 @@ class SecurityMiddleware implements MiddlewareInterface
         }
         if ($dbg) {
             $finalDesc = $request->getAttribute(ActionDescriptor::class);
-            if ($finalDesc) {
+            if ($finalDesc instanceof ActionDescriptor) {
                 \Quiote\Logging\Log::for($this)->debug('[SecurityMiddleware][' . $rid . '] post module=' . $finalDesc->module . ' action=' . $finalDesc->action . ' method=' . $finalDesc->method . ' forwarded=' . ($execState->forwarded ? '1' : '0'));
             }
         }

@@ -352,12 +352,9 @@ class ValidationMiddleware implements MiddlewareInterface
             $errStr = !$ok ? (' errors=' . json_encode($errors)) : '';
             $sessId = 'no-sid';
             try {
-                $storage = $this->controller->getContext()->getStorage();
-                if (method_exists($storage, 'getId')) {
-                    $sidTmp = $storage->getId();
-                    if (is_string($sidTmp) && $sidTmp !== '') {
-                        $sessId = $sidTmp;
-                    }
+                $sidTmp = $this->controller->getContext()->getSessionBag()->getId();
+                if ($sidTmp !== '') {
+                    $sessId = $sidTmp;
                 }
             } catch (\Throwable) {
                 // swallow

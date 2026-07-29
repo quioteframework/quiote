@@ -120,7 +120,16 @@ class DispatchMiddleware implements MiddlewareInterface
             $httpHeaders = $ot->getParameter('http_headers', []);
             if (is_array($httpHeaders)) {
                 foreach ($httpHeaders as $name => $value) {
-                    $resp = $resp->withHeader($name, $value);
+                    // http_headers comes from untyped output-type config; only
+                    // shapes withHeader() accepts are passed through.
+                    if (is_string($value)) {
+                        $resp = $resp->withHeader((string)$name, $value);
+                    } elseif (is_array($value)) {
+                        $lines = array_values(array_filter($value, 'is_string'));
+                        if ($lines !== []) {
+                            $resp = $resp->withHeader((string)$name, $lines);
+                        }
+                    }
                 }
             }
             if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
@@ -186,8 +195,10 @@ class DispatchMiddleware implements MiddlewareInterface
         }
         if ($redirectData !== null) {
             try {
-                $location = (string)$redirectData['location'];
-                $code = (int)($redirectData['code'] ?? 302);
+                $locationRaw = $redirectData['location'] ?? '';
+                $location = is_scalar($locationRaw) ? (string)$locationRaw : '';
+                $codeRaw = $redirectData['code'] ?? 302;
+                $code = is_numeric($codeRaw) ? (int)$codeRaw : 302;
                 // Resolve relative URLs the same way WebResponse::send() does
                 if (!preg_match('#^[^:]+://#', $location)) {
                     $quioteCtx = $this->controller->getContext();
@@ -251,21 +262,18 @@ class DispatchMiddleware implements MiddlewareInterface
         } catch (\Throwable) {
         }
         // Correlation ID (per-request) for tracing multi-request races
-        if (!$request->getAttribute('quiote.rid')) {
-            try {
-                $rid = bin2hex(random_bytes(4));
-            } catch (\Throwable) {
-                $rid = uniqid();
-            }
+        $rid = $this->correlationId($request);
+        if ($request->getAttribute('quiote.rid') === null) {
             $request = $request->withAttribute('quiote.rid', $rid);
-        } else {
-            $rid = $request->getAttribute('quiote.rid');
         }
-        $execState = $request->getAttribute(ExecutionState::class) ?? new ExecutionState();
+        // instanceof rather than a truthiness check: getAttribute() is typed
+        // mixed, so these are also what narrow the values for everything below.
+        $execStateAttr = $request->getAttribute(ExecutionState::class);
+        $execState = $execStateAttr instanceof ExecutionState ? $execStateAttr : new ExecutionState();
         $request = $request->withAttribute(ExecutionState::class, $execState);
         $actionDesc = $request->getAttribute(ActionDescriptor::class);
 
-        if (!$actionDesc) {
+        if (!$actionDesc instanceof ActionDescriptor) {
             $factory = \Quiote\Http\Psr17::factory();
             return $factory->createResponse(404)->withBody($factory->createStream('Not Found'));
         }
@@ -273,12 +281,9 @@ class DispatchMiddleware implements MiddlewareInterface
         if ($dbg) {
             $sessId = 'no-sid';
             try {
-                $storage = $this->controller->getContext()->getStorage();
-                if (method_exists($storage, 'getId')) {
-                    $sidTmp = $storage->getId();
-                    if (is_string($sidTmp) && $sidTmp !== '') {
-                        $sessId = $sidTmp;
-                    }
+                $sidTmp = $this->controller->getContext()->getSessionBag()->getId();
+                if ($sidTmp !== '') {
+                    $sessId = $sidTmp;
                 }
             } catch (\Throwable) {
             }
@@ -333,7 +338,7 @@ class DispatchMiddleware implements MiddlewareInterface
 
         // Reuse existing ExecutionState if provided so prior middleware decisions (e.g., security) persist.
         $execState = $request->getAttribute(ExecutionState::class);
-        if (!$execState) {
+        if (!$execState instanceof ExecutionState) {
             $execState = new ExecutionState();
             $request = $request->withAttribute(ExecutionState::class, $execState);
         }
@@ -350,8 +355,12 @@ class DispatchMiddleware implements MiddlewareInterface
         try {
             // Reuse the action instance already created and initialized by SecurityMiddleware to
             // avoid a redundant instantiation per request.
-            $actionInstance = $request->getAttribute('quiote.preinstantiated_action');
-            if (!($actionInstance instanceof \Quiote\Action\Action)) {
+            // Assigned only from the narrowed branches below, so $actionInstance
+            // stays ?Action for the rest of the method rather than mixed.
+            $preinstantiated = $request->getAttribute('quiote.preinstantiated_action');
+            if ($preinstantiated instanceof \Quiote\Action\Action) {
+                $actionInstance = $preinstantiated;
+            } else {
                 // SecurityMiddleware didn't set one (e.g. security disabled); create it now.
                 $actionInstance = $this->controller->createActionInstance($actionDesc->module, $actionDesc->action);
                 $actionInstance->initialize(new LightweightActionInitContext(
@@ -390,7 +399,7 @@ class DispatchMiddleware implements MiddlewareInterface
             // Heuristic: presence of QUIOTE_SECURITY_DEBUG log decision=allow earlier isn't directly accessible; rely on user auth + secure action.
             try {
                 $usr = $this->controller->getContext()->getUser();
-                if (is_object($actionInstance) && method_exists($actionInstance, 'isSecure') && $actionInstance->isSecure() && method_exists($usr, 'isAuthenticated') && $usr->isAuthenticated()) {
+                if ($actionInstance !== null && $actionInstance->isSecure() && method_exists($usr, 'isAuthenticated') && $usr->isAuthenticated()) {
                     $execState->securityDecision = SecurityDecision::Allow;
                 }
             } catch (\Throwable) {
@@ -399,28 +408,68 @@ class DispatchMiddleware implements MiddlewareInterface
         $ctx = $this->actionExecutor->execute($actionDesc, $request, $execState, [], $actionInstance);
 
         if ($cacheEnabled && $isCacheable && !$execState->cacheHit) {
-            $ttl = (is_object($actionInstance) && method_exists($actionInstance, 'cacheTtlSeconds')) ? $actionInstance->cacheTtlSeconds($actionDesc->outputType) : null;
+            $ttl = $actionInstance?->cacheTtlSeconds($actionDesc->outputType);
             if ($avCache) {
-                ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, (is_object($actionInstance) && method_exists($actionInstance, 'getAttributes')) ? $actionInstance->getAttributes() : [], true, $ttl, $userFp);
+                ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, $this->stringKeyedAttributes($actionInstance), true, $ttl, $userFp);
             }
         }
         if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
-            $rid = $request->getAttribute('quiote.rid');
+            $rid = $this->correlationId($request);
             \Quiote\Logging\Log::for($this)->debug('[DispatchMiddleware][' . $rid . '] simple contentType=' . $actionDesc->outputType . ' contentLen=' . strlen($ctx->content) . ' prefix=' . substr($ctx->content, 0, 80));
         }
         return $this->buildPsrResponse($ctx->content, $actionDesc->outputType, false, false, $ctx->redirect ?? null);
     }
 
+    /**
+     * An action's attributes narrowed to the string-keyed shape the cache
+     * helper expects, or an empty map when there is no action instance.
+     *
+     * @return array<string, mixed>
+     */
+    private function stringKeyedAttributes(?\Quiote\Action\Action $actionInstance): array
+    {
+        if ($actionInstance === null) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($actionInstance->getAttributes() as $key => $value) {
+            $result[(string)$key] = $value;
+        }
+
+        return $result;
+    }
+
+    /**
+     * This request's correlation id for log lines, generating one when the
+     * attribute is absent. Narrowed here because getAttribute() is typed mixed.
+     */
+    private function correlationId(ServerRequestInterface $request): string
+    {
+        $rid = $request->getAttribute('quiote.rid');
+        if (is_string($rid) && $rid !== '') {
+            return $rid;
+        }
+
+        try {
+            return bin2hex(random_bytes(4));
+        } catch (\Throwable) {
+            return uniqid();
+        }
+    }
+
     private function processNonSimple(ServerRequestInterface $request, ActionDescriptor $actionDesc): ResponseInterface
     {
         //$rd = ActionExecutor::buildRequestDataFromPsr($request);
-        $execState = $request->getAttribute(ExecutionState::class) ?? new ExecutionState();
+        $execStateAttr = $request->getAttribute(ExecutionState::class);
+        $execState = $execStateAttr instanceof ExecutionState ? $execStateAttr : new ExecutionState();
         if (!$execState->validationDecision) {
             $execState->validationDecision = ValidationDecision::pending();
         }
         // Security decision must have been established by SecurityMiddleware. If missing and security disabled, executor will allow; otherwise treat as logic gap.
         if ($execState->validationDecision->isFailed() && $execState->viewName) {
-            $content = (string)($request->getAttribute('validation.error.content') ?? '<div>Validation Failed</div>');
+            $contentRaw = $request->getAttribute('validation.error.content');
+            $content = is_string($contentRaw) && $contentRaw !== '' ? $contentRaw : '<div>Validation Failed</div>';
             $factory = \Quiote\Http\Psr17::factory();
             return $factory->createResponse(400)->withBody($factory->createStream($content));
         }
@@ -431,8 +480,10 @@ class DispatchMiddleware implements MiddlewareInterface
         $userFp = null;
         try {
             // Reuse the action instance already created and initialized by SecurityMiddleware.
-            $actionInstance = $request->getAttribute('quiote.preinstantiated_action');
-            if (!($actionInstance instanceof \Quiote\Action\Action)) {
+            $preinstantiated = $request->getAttribute('quiote.preinstantiated_action');
+            if ($preinstantiated instanceof \Quiote\Action\Action) {
+                $actionInstance = $preinstantiated;
+            } else {
                 $actionInstance = $this->controller->createActionInstance($actionDesc->module, $actionDesc->action);
                 $actionInstance->initialize(new LightweightActionInitContext(
                     $this->controller->getContext(),
@@ -483,11 +534,11 @@ class DispatchMiddleware implements MiddlewareInterface
         }
         self::$executedNonSimpleActions[$actionDesc->module . ':' . $actionDesc->action . ':' . $actionDesc->outputType] = true;
         if ($cacheEnabled && $isCacheable && !$execState->cacheHit && $avCache) {
-            $ttl = (is_object($actionInstance) && method_exists($actionInstance, 'cacheTtlSeconds')) ? $actionInstance->cacheTtlSeconds($actionDesc->outputType) : null;
-            ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, (is_object($actionInstance) && method_exists($actionInstance, 'getAttributes')) ? $actionInstance->getAttributes() : [], false, $ttl, $userFp);
+            $ttl = $actionInstance?->cacheTtlSeconds($actionDesc->outputType);
+            ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, $this->stringKeyedAttributes($actionInstance), false, $ttl, $userFp);
         }
         if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
-            $rid = $request->getAttribute('quiote.rid');
+            $rid = $this->correlationId($request);
             \Quiote\Logging\Log::for($this)->debug('[DispatchMiddleware][' . $rid . '] nonSimple contentType=' . $actionDesc->outputType . ' contentLen=' . strlen($ctx->content) . ' prefix=' . substr($ctx->content, 0, 80));
         }
         return $this->buildPsrResponse($ctx->content, $actionDesc->outputType, $execState->cacheHit, false, $ctx->redirect ?? null);
