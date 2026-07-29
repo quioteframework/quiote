@@ -5,6 +5,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Quiote\Security\Auth\AuthenticationException;
 use Quiote\Security\Auth\AuthenticatorInterface;
+use Quiote\Security\Auth\AuthorizationHeader;
 use Quiote\Security\Auth\Passport;
 use Quiote\Security\Auth\PasswordHasherInterface;
 use Quiote\Security\Auth\PasswordProtectedUserIdentity;
@@ -18,6 +19,9 @@ use Quiote\Security\Auth\UserProviderInterface;
  */
 final class HttpBasicAuthenticator implements AuthenticatorInterface
 {
+	/** The RFC 7617 auth scheme this authenticator answers to. */
+	private const SCHEME = 'Basic';
+
 	/**
 	 * @param      UserProviderInterface $userProvider Resolves the decoded username to an identity.
 	 * @param      PasswordHasherInterface $passwordHasher Verifies the decoded password against the identity's stored hash.
@@ -36,7 +40,7 @@ final class HttpBasicAuthenticator implements AuthenticatorInterface
 	 */
 	public function supports(ServerRequestInterface $request): bool
 	{
-		return str_starts_with($request->getHeaderLine('Authorization'), 'Basic ');
+		return AuthorizationHeader::declares($request, self::SCHEME);
 	}
 
 	/**
@@ -47,8 +51,7 @@ final class HttpBasicAuthenticator implements AuthenticatorInterface
 	 */
 	public function authenticate(ServerRequestInterface $request): Passport
 	{
-		$header = $request->getHeaderLine('Authorization');
-		$encoded = substr($header, strlen('Basic '));
+		$encoded = AuthorizationHeader::credential($request, self::SCHEME) ?? '';
 		$decoded = base64_decode($encoded, true);
 		if($decoded === false || !str_contains($decoded, ':')) {
 			throw new AuthenticationException('Malformed Basic authorization header.');

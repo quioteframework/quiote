@@ -45,6 +45,47 @@ class HttpBasicAuthenticatorTest extends TestCase
 		$this->assertTrue($passport->isStateless());
 	}
 
+	/**
+	 * RFC 9110 makes the auth-scheme case-insensitive. A case-sensitive
+	 * comparison meant `basic <creds>` declared no supported credential and the
+	 * request fell through as unauthenticated instead of being challenged.
+	 */
+	public function testSupportsAndAuthenticateAcceptTheSchemeInAnyCase(): void
+	{
+		$authenticator = $this->authenticator();
+
+		foreach(['basic', 'BASIC', 'BaSiC'] as $scheme) {
+			$request = (new Psr17Factory())->createServerRequest('GET', '/')
+				->withHeader('Authorization', $scheme . ' ' . base64_encode('alice:secret'));
+
+			$this->assertTrue($authenticator->supports($request), sprintf('"%s" declares the Basic scheme', $scheme));
+			$this->assertSame('alice', $authenticator->authenticate($request)->getIdentity()->getIdentifier());
+		}
+	}
+
+	public function testAuthenticateToleratesExtraWhitespaceAfterTheScheme(): void
+	{
+		// The separator is a run of whitespace; slicing at a fixed offset left a
+		// space on the front of the base64, which then failed to decode.
+		$authenticator = $this->authenticator();
+		$request = (new Psr17Factory())->createServerRequest('GET', '/')
+			->withHeader('Authorization', "Basic \t " . base64_encode('alice:secret'));
+
+		$this->assertSame('alice', $authenticator->authenticate($request)->getIdentity()->getIdentifier());
+	}
+
+	public function testAuthenticateThrowsOnABareBasicScheme(): void
+	{
+		$authenticator = $this->authenticator();
+		$request = (new Psr17Factory())->createServerRequest('GET', '/')->withHeader('Authorization', 'Basic');
+
+		// Claimed by supports(), so it must be rejected here and challenged rather
+		// than falling through as "no credential presented".
+		$this->assertTrue($authenticator->supports($request));
+		$this->expectException(AuthenticationException::class);
+		$authenticator->authenticate($request);
+	}
+
 	public function testAuthenticateThrowsOnMalformedBase64(): void
 	{
 		$authenticator = $this->authenticator();
