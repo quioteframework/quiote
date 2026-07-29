@@ -28,8 +28,25 @@ final readonly class JobExecutor
      */
     public function attempt(JobPayload $payload): ?ExecutionFailure
     {
+        // Checked BEFORE constructing, not after: $payload->jobClass comes from
+        // stored data (hence its plain `string` type, see JobPayload), so a queue
+        // row an attacker can influence would otherwise have any autoloadable
+        // class in the app or vendor tree instantiated with attacker-chosen
+        // constructor arguments -- object injection via a constructor side effect
+        // -- before this check ever ran. is_a() with $allow_string resolves the
+        // hierarchy without instantiating anything.
+        if (!is_a($payload->jobClass, Job::class, true)) {
+            throw new \RuntimeException(sprintf(
+                'Queue job class "%s" must implement %s.',
+                $payload->jobClass,
+                Job::class,
+            ));
+        }
+
         $job = $this->container->make($payload->jobClass, $payload->params);
         if (!$job instanceof Job) {
+            // The container is free to answer with a decorator/substitute, so the
+            // static check above does not make this redundant.
             throw new \RuntimeException(sprintf(
                 'Queue job class "%s" must implement %s, got %s.',
                 $payload->jobClass,
