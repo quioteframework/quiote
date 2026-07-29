@@ -1,3 +1,40 @@
+## [3.0.0] - 2026-07-29
+
+### 🚀 Features
+
+- *(session)* Add SessionBagInterface as the single session seam
+- *(session)* [**breaking**] Make the PSR-7 session stack selectable, and harden it
+- *(middleware)* Select the PSR-7 session stack when the slot is configured
+- *(session)* [**breaking**] Remove the ext/session storage stack
+- *(session)* Ship a slot factory for every session backend
+
+### 🐛 Bug Fixes
+
+- *(storage)* Release the read cursor in the PDO session backends
+- *(session)* Release the load cursor and make the PDO upsert portable
+- *(storage)* [**breaking**] Repair the native session lifecycle under worker runtimes
+- *(core)* [**breaking**] Persist request state before the session is closed
+- *(user)* [**breaking**] Only write session state that actually changed
+
+### 🚜 Refactor
+
+- *(middleware)* Resolve session ids through the bag, and narrow types
+- *(packages)* [**breaking**] Extract the cloud clients into cloud-* packages
+
+### 📚 Documentation
+
+- Add MIGRATING.md, and a PDO factory for the session slot
+- Target MIGRATING.md at a single 3.0 release
+
+### 🧪 Testing
+
+- *(runtime)* Prove session identity survives across worker requests
+- *(runtime)* [**breaking**] Cover FrankenPHP in the worker integration suite
+
+### ⚙️ Miscellaneous Tasks
+
+- Add scheduler to the subtree splitter
+- Keep DOCS_TODO.md contributor-local
 ## [2.0.1] - 2026-07-28
 
 ### 🐛 Bug Fixes
