@@ -79,6 +79,46 @@ class MiddlewarePipeline implements RequestHandlerInterface
         ];
     }
 
+    /**
+     * First-party security middleware that ships in its own package rather than
+     * in this map, but is still framework middleware for guard purposes.
+     *
+     * These are delivered by a plugin core enables by default (see the CSRF note
+     * in {@see doBuild()}), so they are absent from {@see coreMiddlewareClasses()}
+     * -- which is a list of classes this pipeline builds factories for. That
+     * absence used to mean {@see \Quiote\Middleware\Config\MiddlewareConfigRegistry}
+     * did not guard them at all: a single `<use>` entry in the app's, or any
+     * installed module's, `middleware.*` could disable CSRF validation with no
+     * `override-framework="true"` and no acknowledgement setting, while the
+     * guard's own error message claimed to cover CSRF.
+     *
+     * Plain FQCN strings, deliberately: the guard only ever compares them, and
+     * {@see MiddlewareConfigRegistry::assertValidClass()} has already established
+     * the class exists before the comparison happens, so naming a class from a
+     * package that isn't installed costs nothing.
+     * @return list<string>
+     */
+    public static function protectedPackageMiddlewareClasses(): array
+    {
+        return [
+            'Quiote\\Security\\Csrf\\Middleware\\CsrfValidationMiddleware',
+            'Quiote\\Security\\Csrf\\Middleware\\CsrfInjectionMiddleware',
+        ];
+    }
+
+    /**
+     * The full set {@see \Quiote\Middleware\Config\MiddlewareConfigRegistry}
+     * guards against silent config-driven reordering/disabling.
+     * @return list<string>
+     */
+    public static function guardedMiddlewareClasses(): array
+    {
+        return array_merge(
+            self::coreMiddlewareClasses(),
+            self::protectedPackageMiddlewareClasses(),
+        );
+    }
+
     private function doBuild(): void
     {
         $this->debugStack = [];

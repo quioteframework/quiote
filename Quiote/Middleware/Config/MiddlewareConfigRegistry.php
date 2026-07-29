@@ -17,7 +17,9 @@ use Quiote\Middleware\MiddlewarePipeline;
  * Contributions are validated here, at compile/bootstrap time, rather than
  * deferred to {@see MiddlewarePipeline}'s first build: a config file that
  * tries to touch one of the framework's own shipped middleware classes
- * (see {@see MiddlewarePipeline::coreMiddlewareClasses()}) without both the
+ * (see {@see MiddlewarePipeline::guardedMiddlewareClasses()}, which covers both
+ * the pipeline's own map and first-party security middleware shipped in its own
+ * package, such as CSRF) without both the
  * per-entry `override-framework="true"` attribute AND the global
  * `core.middleware.allow_framework_overrides` setting fails loudly the
  * moment that file is loaded, not on the first HTTP request.
@@ -80,7 +82,7 @@ final class MiddlewareConfigRegistry
      */
     private static function guardFrameworkOverride(array $entry, string $sourceRef): void
     {
-        if (!in_array($entry['class'], MiddlewarePipeline::coreMiddlewareClasses(), true)) {
+        if (!in_array($entry['class'], MiddlewarePipeline::guardedMiddlewareClasses(), true)) {
             return;
         }
 
