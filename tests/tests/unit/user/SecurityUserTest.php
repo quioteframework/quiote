@@ -159,9 +159,16 @@ class SecurityUserTest extends UnitTestCase
 
 		$u = new SampleSecurityUser();
 		$u->initialize($context);
-		$u->setAuthenticated(false);
+		// Establish the session the way a real request does. markTokenDerived()
+		// and setAuthenticated(false) no longer create one on their own -- a
+		// stateless token client, which is exactly what token-derived means,
+		// must not be handed a session row and a Set-Cookie per call.
+		$u->setAuthenticated(true);
 		$u->clearCredentials();
 		$u->addCredential('stale_session_credential');
+		// Persist the credential, so the next instance really does have a stale
+		// session credential available to (wrongly) rehydrate.
+		$u->shutdown();
 		$u->markTokenDerived();
 
 		// Simulate the next request: a fresh instance re-reads persisted storage.

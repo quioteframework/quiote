@@ -16,7 +16,7 @@ final class OidcStateStorage
 	private const NAMESPACE_PREFIX = 'org.quiote.security.auth.oauth.oidc_state.';
 
 	/**
-	 * @param      Context $context The current application context, used to reach its session-backed storage.
+	 * @param      Context $context The current application context, used to reach its session.
 	 * @since      1.0.0
 	 */
 	public function __construct(private readonly Context $context)
@@ -30,7 +30,7 @@ final class OidcStateStorage
 	 */
 	public function store(OidcAuthorizationState $state): void
 	{
-		$this->context->getStorage()->store(self::NAMESPACE_PREFIX . $state->getState(), [
+		$this->context->getSessionBag()->set(self::NAMESPACE_PREFIX . $state->getState(), [
 			'state' => $state->getState(),
 			'pkce_verifier' => $state->getPkceVerifier(),
 			'nonce' => $state->getNonce(),
@@ -47,9 +47,9 @@ final class OidcStateStorage
 	public function consume(string $state): ?OidcAuthorizationState
 	{
 		$key = self::NAMESPACE_PREFIX . $state;
-		$storage = $this->context->getStorage();
-		$data = $storage->retrieve($key);
-		$storage->remove($key);
+		$bag = $this->context->getSessionBag();
+		$data = $bag->get($key);
+		$bag->remove($key);
 
 		if(!is_array($data) || !isset($data['state'], $data['pkce_verifier'], $data['nonce'])
 			|| !is_string($data['state']) || !is_string($data['pkce_verifier']) || !is_string($data['nonce'])) {

@@ -27,6 +27,124 @@ class User extends AttributeHolder implements ResetInterface
 	protected $storageNamespace = 'org.quiote.user.User';
 
 	/**
+	 * @var        bool True when this request actually changed user state.
+	 *
+	 * A user that was only rehydrated from storage -- every anonymous request,
+	 * every read-only authenticated request -- is clean, and shutdown() writes
+	 * nothing. That in turn means Storage::store() is never called, so no
+	 * session is lazily created and no Set-Cookie is emitted for a visitor who
+	 * never used the session. Before this, every request that reached the
+	 * framework wrote a session row, including ones that touched nothing.
+	 *
+	 * Deliberately not on AttributeHolder: that base class is shared with
+	 * Request and others, which is a large blast radius for no benefit.
+	 *
+	 * Same vocabulary as {@see \Quiote\Session\Session::isDirty()}.
+	 */
+	protected bool $dirty = false;
+
+	/**
+	 * Whether this request changed user state that still needs persisting.
+	 * @return     bool
+	 * @since      2.1.0
+	 */
+	public function isDirty(): bool
+	{
+		return $this->dirty;
+	}
+
+	/**
+	 * Force this user to be persisted at the request boundary.
+	 *
+	 * The escape valve for a subclass that mutates $attributes, $credentials or
+	 * $roles directly instead of going through the mutators below -- those
+	 * writes are invisible to dirty tracking and would otherwise be dropped.
+	 * @return     void
+	 * @since      2.1.0
+	 */
+	public function markDirty(): void
+	{
+		$this->dirty = true;
+	}
+
+	/**
+	 * Record that in-memory state now matches what is persisted.
+	 * @return     void
+	 * @since      2.1.0
+	 */
+	public function markClean(): void
+	{
+		$this->dirty = false;
+	}
+
+	#[\Override]
+	public function clearAttributes(): void
+	{
+		parent::clearAttributes();
+		$this->dirty = true;
+	}
+
+	#[\Override]
+	public function &removeAttribute($name, $ns = null)
+	{
+		$retval =& parent::removeAttribute($name, $ns);
+		$this->dirty = true;
+
+		return $retval;
+	}
+
+	#[\Override]
+	public function removeAttributeNamespace($ns)
+	{
+		$retval = parent::removeAttributeNamespace($ns);
+		$this->dirty = true;
+
+		return $retval;
+	}
+
+	#[\Override]
+	public function setAttribute($name, $value, $ns = null): void
+	{
+		parent::setAttribute($name, $value, $ns);
+		$this->dirty = true;
+	}
+
+	#[\Override]
+	public function appendAttribute($name, $value, $ns = null): void
+	{
+		parent::appendAttribute($name, $value, $ns);
+		$this->dirty = true;
+	}
+
+	#[\Override]
+	public function setAttributeByRef($name, &$value, $ns = null): void
+	{
+		parent::setAttributeByRef($name, $value, $ns);
+		$this->dirty = true;
+	}
+
+	#[\Override]
+	public function appendAttributeByRef($name, &$value, $ns = null): void
+	{
+		parent::appendAttributeByRef($name, $value, $ns);
+		$this->dirty = true;
+	}
+
+	#[\Override]
+	public function setAttributes(array $attributes, $ns = null): void
+	{
+		parent::setAttributes($attributes, $ns);
+		$this->dirty = true;
+	}
+
+	#[\Override]
+	public function setAttributesByRef(array &$attributes, $ns = null): void
+	{
+		parent::setAttributesByRef($attributes, $ns);
+		$this->dirty = true;
+	}
+
+	/**
 	 * Retrieve the current application context.
 	 * @return     Context An Context instance.
 	 * @throws     InitializationException If this User has not been initialized yet.
@@ -63,28 +181,58 @@ class User extends AttributeHolder implements ResetInterface
 	{
 		$this->context = $context;
 
-		if (isset($parameters['default_namespace'])) {
+		// Parameters arrive untyped from factories config; a non-string here is
+		// a misconfiguration, and silently coercing it would produce a namespace
+		// nothing else in the request agrees on.
+		if (isset($parameters['default_namespace']) && is_string($parameters['default_namespace'])) {
 			$this->defaultNamespace = $parameters['default_namespace'];
 		}
 
-		if (isset($parameters['storage_namespace'])) {
+		if (isset($parameters['storage_namespace']) && is_string($parameters['storage_namespace'])) {
 			$this->storageNamespace = $parameters['storage_namespace'];
 		}
 
 		$this->setParameters($parameters);
 
 		// read data from storage
-		$this->attributes = $context->getStorage()->retrieve($this->storageNamespace);
+		$this->attributes = $this->normalizeStoredAttributes($context->getSessionBag()->get($this->storageNamespace));
 
-		// Normalize legacy/malformed payloads: ensure attributes are keyed by default namespace
-		if (is_array($this->attributes) && !array_key_exists($this->defaultNamespace, $this->attributes)) {
-			$this->attributes = [$this->defaultNamespace => $this->attributes];
+		// Rehydrating from storage is not a mutation. Last statement on
+		// purpose, so a subclass calling mutators before delegating up here
+		// cannot leave a false positive behind.
+		$this->markClean();
+	}
+
+	/**
+	 * Narrow whatever storage handed back into the namespace-keyed shape
+	 * $attributes is declared as.
+	 *
+	 * Storage implementations disagree on the "nothing stored" sentinel --
+	 * SessionStorage returns null, NullStorage returns false -- so anything
+	 * that is not an array means there is nothing to restore. An array that
+	 * lacks the default namespace key is a legacy/malformed flat attribute map
+	 * and gets wrapped under it.
+	 *
+	 * @return     array<string, array<int|string, mixed>>
+	 */
+	private function normalizeStoredAttributes(mixed $stored): array
+	{
+		if (!is_array($stored)) {
+			return [];
 		}
 
-		if ($this->attributes == null) {
-			// initialize our attributes array
-			$this->attributes = [];
+		if (!array_key_exists($this->defaultNamespace, $stored)) {
+			return [$this->defaultNamespace => $stored];
 		}
+
+		$result = [];
+		foreach ($stored as $namespace => $values) {
+			if (is_string($namespace) && is_array($values)) {
+				$result[$namespace] = $values;
+			}
+		}
+
+		return $result;
 	}
 
 	/**
@@ -102,6 +250,13 @@ class User extends AttributeHolder implements ResetInterface
 	 */
 	public function shutdown()
 	{
+		if (!$this->isDirty()) {
+			// Nothing changed this request, so writing would only re-persist
+			// what storage already holds -- and for a cookieless request it
+			// would create a session, and a Set-Cookie, that nobody asked for.
+			return;
+		}
+
 		// write attributes to the storage, but do not clobber with an empty map
 		$ns = $this->getDefaultNamespace();
 		$hasNsData = array_key_exists($ns, $this->attributes)
@@ -125,9 +280,18 @@ class User extends AttributeHolder implements ResetInterface
 				}
 			} catch (\Throwable) {
 			}
+			// This is the last link in the shutdown chain, so by now the
+			// subclasses above have written whatever they had. Nothing left to
+			// persist here means the user is clean, not still pending.
+			// (Known limitation, predating dirty tracking: this guard also
+			// means clearing the default namespace can never be persisted.)
+			$this->markClean();
 			return;
 		}
-		$this->getContext()->getStorage()->store($this->storageNamespace, $this->attributes);
+		$this->getContext()->getSessionBag()->set($this->storageNamespace, $this->attributes);
+		// Only after a successful store: if it threw, the state is still
+		// unpersisted and a later flush should retry rather than drop it.
+		$this->markClean();
 	}
 
 	/**
@@ -140,9 +304,9 @@ class User extends AttributeHolder implements ResetInterface
 	public function persistAttributesImmediate(?array $onlyKeys = null): void
 	{
 		try {
-			$storage = $this->getContext()->getStorage();
+			$bag = $this->getContext()->getSessionBag();
 			// Start from existing persisted structure (namespaced attributes map)
-			$data = $storage->retrieve($this->storageNamespace);
+			$data = $bag->get($this->storageNamespace);
 			if (!is_array($data)) {
 				$data = [];
 			}
@@ -164,10 +328,8 @@ class User extends AttributeHolder implements ResetInterface
 				$data = $this->attributes;
 			}
 
-			$storage->store($this->storageNamespace, $data);
-			if (method_exists($storage, 'flush')) {
-				$storage->flush();
-			}
+			$bag->set($this->storageNamespace, $data);
+			$this->markClean();
 			try {
 				$logger = \Quiote\Logging\Log::for($this);
 				if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
@@ -188,6 +350,8 @@ class User extends AttributeHolder implements ResetInterface
 
 	public function __sleep(): array
 	{
+		// 'dirty' is deliberately absent: a restored snapshot describes state
+		// that was already persisted, so it must come back clean.
 		return ['attributes', 'storageNamespace', 'defaultNamespace', 'parameters'];
 	}
 
@@ -202,6 +366,8 @@ class User extends AttributeHolder implements ResetInterface
 		if (!array_key_exists($this->defaultNamespace, $this->attributes)) {
 			$this->attributes = [$this->defaultNamespace => $this->attributes];
 		}
+		// Reshaping a restored snapshot is not a mutation.
+		$this->markClean();
 	}
 
 	#[\Override]
@@ -211,5 +377,6 @@ class User extends AttributeHolder implements ResetInterface
 		$this->parameters = [];
 		$this->attributes = [];
 		$this->storageNamespace = 'org.quiote.user.User';
+		$this->dirty = false;
 	}
 }

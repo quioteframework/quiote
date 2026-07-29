@@ -49,7 +49,10 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 	{
 		if(isset($this->definitions[$role]) && !in_array($role, $this->roles)) {
 			$this->roles[] = $role;
-			
+			// Only a real change dirties: an unknown role, or one already held,
+			// falls through this branch and must not trigger a session write.
+			$this->dirty = true;
+
 			$next =& $this->definitions[$role];
 			while(isset($next)) {
 				foreach($next['permissions'] as $permission) {
@@ -87,6 +90,7 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 	{
 		if(isset($this->definitions[$role]) && ($key = array_search($role, $this->roles)) !== false) {
 			unset($this->roles[$key]);
+			$this->dirty = true;
 			$this->clearCredentials();
 			foreach($this->roles as $role) {
 				$this->grantRole($role);
@@ -148,10 +152,11 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 			// fresh claims each request (see SecurityUser::$tokenDerived); a
 			// stale session role set must not be rehydrated here.
 			$this->roles = [];
+			$this->markClean();
 			return;
 		}
 
-		$storedRolesRaw = $this->getContext()->getStorage()->retrieve(self::ROLES_NAMESPACE);
+		$storedRolesRaw = $this->getContext()->getSessionBag()->get(self::ROLES_NAMESPACE);
 		$this->roles = is_array($storedRolesRaw) ? array_values(array_filter($storedRolesRaw, 'is_string')) : [];
 
 		if(!$this->authenticated) {
@@ -175,6 +180,13 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 				}
 			} catch (\Throwable) {}
 		}
+
+		// Essential, not tidying: the credential rebuild above runs
+		// clearCredentials() + grantRole() in a loop, both of which mark the
+		// user dirty. Without this the user would be dirty on *every*
+		// authenticated request and rewrite the session every time -- exactly
+		// the write amplification dirty tracking exists to remove.
+		$this->markClean();
 	}
 
 	/**
@@ -210,14 +222,41 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 	#[\Override]
     public function shutdown()
 	{
+		if (!$this->isDirty()) {
+			// See SecurityUser::shutdown(): an unchanged user writes nothing,
+			// so an anonymous request creates no session row.
+			return;
+		}
+
 		$logger = \Quiote\Logging\Log::for($this);
 		if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
 			$logger->debug('RbacSecurityUser storing roles', ['class' => static::class, 'namespace' => self::ROLES_NAMESPACE, 'roles_count' => count($this->roles)]);
 		}
-		$this->getContext()->getStorage()->store(self::ROLES_NAMESPACE, $this->roles);
+
+		$bag = $this->getContext()->getSessionBag();
+
+		// Mirror of the credentials guard in SecurityUser::shutdown(): never
+		// overwrite a stored role set with an empty one while still claiming to
+		// be authenticated. Roles were the only one of the three user keys
+		// written with no guard at all, which made them the first thing lost
+		// whenever a user initialized against a session it could not read.
+		try {
+			$storedRoles = $bag->get(self::ROLES_NAMESPACE);
+			$currentEmpty = $this->roles === [];
+			$storedNonEmpty = is_array($storedRoles) && count($storedRoles) > 0;
+			if ($this->authenticated === true && $currentEmpty && $storedNonEmpty) {
+				if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+					$logger->debug('[RbacSecurityUser] Shutdown skip roles overwrite empty over non-empty');
+				}
+			} else {
+				$bag->set(self::ROLES_NAMESPACE, $this->roles);
+			}
+		} catch (\Throwable) {
+			try { $bag->set(self::ROLES_NAMESPACE, $this->roles); } catch (\Throwable) {}
+		}
 	// Note: credentials are stored by parent SecurityUser::shutdown(). If they were
 	// rebuilt during initialize, they will be persisted here.
-		
+
 		// call the parent shutdown method
 		parent::shutdown();
 	}

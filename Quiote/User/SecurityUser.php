@@ -124,10 +124,12 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 			}
 			$this->credentialIndex[$key] = true;
 			$this->credentials[] = $credential;
+			$this->dirty = true;
 			return;
 		}
 		if (!in_array($credential, $this->credentials ?? [], true)) {
 			$this->credentials[] = $credential;
+			$this->dirty = true;
 		}
 	}
 
@@ -141,6 +143,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 		$this->credentials = null;
 		$this->credentials = [];
 		$this->credentialIndex = [];
+		$this->dirty = true;
 	}
 
 	/**
@@ -216,11 +219,11 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 		parent::initialize($context, $parameters);
 
 		// read data from storage
-		$storage = $this->getContext()->getStorage();
+		$bag = $this->getContext()->getSessionBag();
 
-		$storedAuth = $storage->retrieve(self::AUTH_NAMESPACE);
-		$storedCreds = $storage->retrieve(self::CREDENTIAL_NAMESPACE);
-		$storedTokenDerived = $storage->retrieve(self::TOKEN_DERIVED_NAMESPACE);
+		$storedAuth = $bag->get(self::AUTH_NAMESPACE);
+		$storedCreds = $bag->get(self::CREDENTIAL_NAMESPACE);
+		$storedTokenDerived = $bag->get(self::TOKEN_DERIVED_NAMESPACE);
 		$this->tokenDerived = (bool)$storedTokenDerived;
 		// Preserve externally pre-set authenticated=true (e.g. test) if storage has null
 		if($storedAuth !== null) {
@@ -247,6 +250,9 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 				$logger->debug('[SecurityUser.initialize] cid=' . $cid . ' eff auth=' . var_export($this->authenticated,true) . ' num creds=' . count($this->credentials) . ' storedAuth=' . var_export($storedAuth,true));
 			} catch(\Throwable) {}
 		}
+		// Rehydration is not mutation: a user restored from storage has nothing
+		// new to write back. Last statement, after every field above is settled.
+		$this->markClean();
 	}
 
 	/**
@@ -287,11 +293,19 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 	public function markTokenDerived(bool $tokenDerived = true): void
 	{
 		$this->tokenDerived = $tokenDerived;
+		$this->dirty = true;
 		try {
-			$this->getContext()->getStorage()->store(self::TOKEN_DERIVED_NAMESPACE, $tokenDerived);
+			$bag = $this->getContext()->getSessionBag();
+			// A token-authenticated request typically carries no session cookie.
+			// Writing this marker unconditionally would manufacture a session --
+			// and a Set-Cookie -- for a stateless API client on every call.
+			if($bag->exists()) {
+				$bag->set(self::TOKEN_DERIVED_NAMESPACE, $tokenDerived);
+			}
 		} catch(\Throwable) {
 		}
 	}
+
 
 	/**
 	 * Re-populate this user's core identity attributes (see
@@ -310,13 +324,17 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 		}
 		$ns = $this->getDefaultNamespace();
 		try {
-			$stored = $this->getContext()->getStorage()->retrieve($this->storageNamespace);
+			$stored = $this->getContext()->getSessionBag()->get($this->storageNamespace);
 		} catch(\Throwable) {
 			return;
 		}
 		if(!is_array($stored) || !isset($stored[$ns]) || !is_array($stored[$ns])) {
 			return;
 		}
+		// setAttribute() marks the user dirty, but these values came straight
+		// back out of storage -- restoring them is not a change worth writing.
+		// Preserve whatever the flag was, in both directions.
+		$wasDirty = $this->dirty;
 		foreach(static::CORE_IDENTITY_KEYS as $key) {
 			if($this->hasAttribute($key, $ns)) {
 				continue;
@@ -325,6 +343,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 				$this->setAttribute($key, $stored[$ns][$key], $ns);
 			}
 		}
+		$this->dirty = $wasDirty;
 	}
 
 	/**
@@ -345,6 +364,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 				if ($this->credentialIndex !== null && is_scalar($credential)) {
 					unset($this->credentialIndex[self::scalarCredentialKey($credential)]);
 				}
+				$this->dirty = true;
 			}
 		}
 	}
@@ -364,19 +384,25 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 			$wasAuthenticated = ($this->authenticated === true);
 			$this->authenticated = true;
 			$this->logoutIntent = false; // clear any previous logout marker
-			// immediate persistence so later initialize() pulls true
+			$this->dirty = true;
+			// Written eagerly rather than left to shutdown(): a getUser()
+			// recreation later in this request must see an authenticated user.
+			// Note this reaches $_SESSION only -- the session is written out
+			// once, at the request boundary.
 			try {
-				$storage = $this->getContext()->getStorage();
+				$bag = $this->getContext()->getSessionBag();
 				// Regenerate the session ID on the unauthenticated -> authenticated
 				// transition to defeat session fixation: any ID an attacker may have
 				// fixed in the victim's browser before login is invalidated. Only do
 				// it on the actual privilege transition (not on every re-affirmation)
 				// to avoid needless churn. $_SESSION data is preserved.
-				if(!$wasAuthenticated && method_exists($storage, 'regenerate')) {
-					$storage->regenerate(true);
+				if(!$wasAuthenticated) {
+					$bag->regenerate(true);
 				}
-				$storage->store(self::AUTH_NAMESPACE, true);
-				if (method_exists($storage, 'flush')) { $storage->flush(); }
+				// Deliberately not gated on an existing session: login is the
+				// one write that legitimately creates one, and it is how a
+				// first-time visitor gets a session at all.
+				$bag->set(self::AUTH_NAMESPACE, true);
 			} catch(\Throwable) {}
 
 			return;
@@ -396,7 +422,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 			} catch(\Throwable) { $bt[] = 'backtrace_failed'; }
 			$reqUri = $_SERVER['REQUEST_URI'] ?? 'unknown';
 			$sid = 'no-sid';
-			try { $storage = $this->getContext()->getStorage(); if(method_exists($storage,'getId')) { $tmp=$storage->getId(); if(is_string($tmp)&&$tmp!==''){ $sid=$tmp; } } } catch(\Throwable) {}
+			try { $tmp = $this->getContext()->getSessionBag()->getId(); if($tmp !== '') { $sid = $tmp; } } catch(\Throwable) {}
 			$pid = getmypid();
 			$worker = getenv('FRANKENPHP_WORKER') ?: getenv('FRANKENPHP_WORKER_ID') ?: 'n/a';
 			$tracePayload = [
@@ -409,14 +435,54 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 			];
 			$logger->debug('[SecurityUser.authFalse] ' . json_encode($tracePayload));
 		}
+		$wasAuthenticated = ($this->authenticated === true);
 		$this->authenticated = false;
 		$this->logoutIntent = true; // mark explicit downgrade
 		$this->tokenDerived = false;
+		$this->dirty = true;
 		try {
-			$storage = $this->getContext()->getStorage();
-			$storage->store(self::AUTH_NAMESPACE, false);
-			$storage->store(self::TOKEN_DERIVED_NAMESPACE, false);
+			$bag = $this->getContext()->getSessionBag();
+			// A logout on a client that has no session must not manufacture one
+			// just to record "not authenticated" -- that is the default state.
+			if(!$bag->exists()) {
+				return;
+			}
+
+			if($wasAuthenticated) {
+				// Invalidate the session id itself on the authenticated ->
+				// unauthenticated transition, mirroring what the reverse
+				// transition does above. Writing AUTH=false alone left the
+				// post-logout id valid and replayable: anyone who had captured
+				// it could keep using it, and a later login on the same id
+				// would inherit whatever the logged-out session still held.
+				$this->clearCredentials();
+				$this->destroySessionData($bag);
+			}
+
+			$bag->set(self::AUTH_NAMESPACE, false);
+			$bag->set(self::TOKEN_DERIVED_NAMESPACE, false);
 		} catch(\Throwable) {}
+	}
+
+	/**
+	 * Discard the current session's contents and move to a fresh id.
+	 *
+	 * Best-effort: a storage backend that cannot regenerate (NullStorage, an
+	 * app's own) simply has its known user keys removed instead.
+	 */
+	private function destroySessionData(\Quiote\Session\SessionBagInterface $bag): void
+	{
+		foreach([self::AUTH_NAMESPACE, self::CREDENTIAL_NAMESPACE, self::TOKEN_DERIVED_NAMESPACE, $this->storageNamespace] as $key) {
+			try {
+				$bag->remove($key);
+			} catch(\Throwable) {
+			}
+		}
+
+		try {
+			$bag->destroy();
+		} catch(\Throwable) {
+		}
 	}
 
 	/**
@@ -427,16 +493,29 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 	#[\Override]
   	public function shutdown()
 	{
+		if (!$this->isDirty()) {
+			// Nothing changed this request. Writing anyway is what made every
+			// anonymous request -- health checks, bots, read-only API calls --
+			// create a session row and a Set-Cookie.
+			return;
+		}
+
 		$logger = \Quiote\Logging\Log::for($this);
 		if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
 			$logger->debug('[SecurityUser] Shutdown storing authenticated status', ['class' => static::class, 'namespace' => self::AUTH_NAMESPACE]);
 			$logger->debug('[SecurityUser] Shutdown storing credentials', ['class' => static::class, 'namespace' => self::CREDENTIAL_NAMESPACE]);
 		}
-		$storage = $this->getContext()->getStorage();
+		$bag = $this->getContext()->getSessionBag();
 
 		// If this instance is unauthenticated but storage already has AUTH=true, avoid clobbering (stale recreated user)
+		//
+		// Second line of defence since dirty tracking landed: a stale recreated
+		// user has only run initialize(), so it is clean and returns above
+		// before ever reaching here. This still catches the case where the user
+		// is dirty for an unrelated reason but its auth/credential rehydration
+		// came back empty. Cheap ($_SESSION reads, not I/O), so it stays.
 		try {
-			$existingAuth = $storage->retrieve(self::AUTH_NAMESPACE);
+			$existingAuth = $bag->get(self::AUTH_NAMESPACE);
 			$curr = $this->authenticated;
 			$shouldSkip = ($existingAuth === true && $curr !== true && $this->logoutIntent === false);
 			if($shouldSkip) {
@@ -444,15 +523,15 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 					$logger->debug('[SecurityUser] Shutdown skip auth downgrade existing=true curr=' . var_export($curr,true) . ' logoutIntent=0');
 				}
 			} else {
-				$storage->store(self::AUTH_NAMESPACE, $curr);
+				$bag->set(self::AUTH_NAMESPACE, $curr);
 			}
 		} catch (\Throwable) {
 			// fallback
-			try { $storage->store(self::AUTH_NAMESPACE, $this->authenticated); } catch (\Throwable) {}
+			try { $bag->set(self::AUTH_NAMESPACE, $this->authenticated); } catch (\Throwable) {}
 		}
 		// Avoid clobbering non-empty stored credentials with empty ones from a fresh, not-yet-populated instance
 		try {
-			$existingCreds = $storage->retrieve(self::CREDENTIAL_NAMESPACE);
+			$existingCreds = $bag->get(self::CREDENTIAL_NAMESPACE);
 			$currEmpty = !is_array($this->credentials) || count($this->credentials) === 0;
 			$existingNonEmpty = is_array($existingCreds) && count($existingCreds) > 0;
 			if ($this->authenticated === true && $currEmpty && $existingNonEmpty) {
@@ -460,11 +539,11 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 					$logger->debug('[SecurityUser] Shutdown skip creds overwrite empty over non-empty');
 				}
 			} else {
-				$storage->store(self::CREDENTIAL_NAMESPACE, $this->credentials);
+				$bag->set(self::CREDENTIAL_NAMESPACE, $this->credentials);
 			}
 		} catch (\Throwable) {
 			// fallback
-			try { $storage->store(self::CREDENTIAL_NAMESPACE, $this->credentials); } catch (\Throwable) {}
+			try { $bag->set(self::CREDENTIAL_NAMESPACE, $this->credentials); } catch (\Throwable) {}
 		}
 		if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
 			try {
