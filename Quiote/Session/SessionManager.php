@@ -202,15 +202,41 @@ class SessionManager
     }
 
     /**
-     * Regenerate the session id, preserving the session's data. Call this on
-     * privilege transitions (e.g. login) to defeat session fixation. When
-     * $deleteOld is true, the old id is migrated (not deleted outright) via
-     * migrateOld() — see the class docblock for why.
+     * Regenerate the session id, preserving the session's data.
+     *
+     * $privilegeTransition is what distinguishes the two reasons to rotate an id,
+     * and it changes what happens to the old one:
+     *
+     *  - true (login, or any anonymous->authenticated step): the old id is DELETED
+     *    outright, giving the same zero-length window `session_regenerate_id(true)`
+     *    does. This is the anti-fixation guarantee, so it cannot be traded away for
+     *    convenience -- an id an attacker planted in the victim's browser must stop
+     *    resolving to anything the instant the victim authenticates.
+     *  - false (routine rotation): the old id is migrated via {@see migrateOld()},
+     *    keeping it resolvable for session_migration_grace_seconds so a request
+     *    already in flight with the previous cookie doesn't silently land on a fresh
+     *    anonymous session. See the class docblock.
+     *
+     * This used to be decided by whether the session happened to be empty, on the
+     * theory that an empty session meant "nothing in flight worth preserving, so
+     * this is the login case". That inverted the guarantee in practice: the CSRF
+     * token (and any flash message or locale) lives in the same session, so a real
+     * login always found a non-empty session and always took the tombstone path,
+     * leaving the fixed id rideable for the whole grace window. The zero-window
+     * branch was unreachable exactly where it mattered.
+     *
+     * @param      Session $session The session to rotate.
+     * @param      bool $deleteOld Whether to dispose of the old id at all (false leaves it alone).
+     * @param      ?ServerRequestInterface $request Used to bind a migration tombstone; irrelevant on a privilege transition.
+     * @param      bool $privilegeTransition True when this rotation is a privilege transition; forces an outright delete.
      */
-    public function regenerate(Session $session, bool $deleteOld = false, ?ServerRequestInterface $request = null): void
-    {
+    public function regenerate(
+        Session $session,
+        bool $deleteOld = false,
+        ?ServerRequestInterface $request = null,
+        bool $privilegeTransition = false,
+    ): void {
         $old = $session->getId();
-        $wasEmpty = $session->all() === [];
         $new = $this->generateSid();
         $session->replaceId($new);
         $session->markDirty();
@@ -222,12 +248,7 @@ class SessionManager
             // "storage is currently out of sync".
             $this->persistence->save($new, $session->all());
             if ($deleteOld) {
-                if ($wasEmpty) {
-                    // Nothing was in flight worth preserving -- the usual
-                    // anonymous-to-authenticated login case. Delete outright
-                    // rather than leaving a tombstone an attacker could ride:
-                    // this is the same zero-length window
-                    // session_regenerate_id(true) gives.
+                if ($privilegeTransition || $session->all() === []) {
                     $this->persistence->delete($old);
                 } else {
                     $this->migrateOld($old, $new, $request);

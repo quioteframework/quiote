@@ -79,9 +79,9 @@ final class QuioteSessionBag implements SessionBagInterface
         return $this->session->getId();
     }
 
-    public function regenerate(bool $deleteOld = true): void
+    public function regenerate(bool $deleteOld = true, bool $privilegeTransition = false): void
     {
-        $this->manager->regenerate($this->session, $deleteOld, $this->request);
+        $this->manager->regenerate($this->session, $deleteOld, $this->request, $privilegeTransition);
     }
 
     public function destroy(): void

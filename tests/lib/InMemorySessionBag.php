@@ -60,8 +60,12 @@ class InMemorySessionBag implements SessionBagInterface
         return $this->id;
     }
 
-    public function regenerate(bool $deleteOld = true): void
+    /** Records how it was called so tests can assert the privilege-transition flag. */
+    public bool $lastRegenerateWasPrivilegeTransition = false;
+
+    public function regenerate(bool $deleteOld = true, bool $privilegeTransition = false): void
     {
+        $this->lastRegenerateWasPrivilegeTransition = $privilegeTransition;
         $this->id = 'regenerated-' . $this->id;
     }
 

@@ -67,8 +67,13 @@ interface SessionBagInterface
      * @param bool $deleteOld Whether the previous id should stop resolving.
      *                        Implementations differ in how immediately they
      *                        honour that; see the implementation docs.
+     * @param bool $privilegeTransition True when this rotation accompanies a
+     *                        privilege transition (login). Implementations must
+     *                        then stop the old id resolving *immediately* rather
+     *                        than after any grace window, since that window is
+     *                        exactly what a fixation attempt rides.
      */
-    public function regenerate(bool $deleteOld = true): void;
+    public function regenerate(bool $deleteOld = true, bool $privilegeTransition = false): void;
 
     /**
      * Discard this session's contents and continue under a fresh id. Used at

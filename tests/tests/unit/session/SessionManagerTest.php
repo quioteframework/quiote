@@ -304,9 +304,65 @@ class SessionManagerTest extends UnitTestCase
     }
 
     /**
-     * The anonymous-to-authenticated login case: there is nothing in flight
-     * worth preserving, so the old id is deleted outright and there is no
-     * fixation window at all -- matching session_regenerate_id(true).
+     * A privilege transition (login) deletes the old id outright, so there is no
+     * fixation window at all -- matching session_regenerate_id(true) -- even
+     * though the session holds data.
+     *
+     * This is the regression test for the bug that made emptiness the
+     * discriminator: a real login session always holds *something* (the CSRF
+     * token at minimum, plus any flash or locale state), so it always took the
+     * tombstone path and left the id an attacker had fixed rideable for the whole
+     * grace window. The "no fixation window" guarantee was unreachable exactly
+     * where it was needed.
+     */
+    public function testAPrivilegeTransitionDeletesTheOldIdEvenWithSessionData(): void
+    {
+        $persistence = new InMemorySessionPersistence();
+        $manager = new SessionManager($persistence, ['session_migration_grace_seconds' => 300]);
+        $session = $manager->startFromRequest(new ServerRequest('GET', '/'));
+        $oldId = $session->getId();
+        // Exactly the shape a real login has: the CSRF token is already in the
+        // session, because the login form's token had to validate to get here.
+        $session->set('org.quiote.csrf.quiote_csrf', 'a-token');
+        $persistence->save($oldId, $session->all());
+
+        $manager->regenerate($session, true, null, privilegeTransition: true);
+        $newId = $session->getId();
+
+        $this->assertNull($persistence->load($oldId), 'a privilege transition leaves no tombstone to ride');
+
+        $fixated = (new ServerRequest('GET', '/'))->withCookieParams(['QSID' => $oldId]);
+        $this->assertNotSame(
+            $newId,
+            $manager->startFromRequest($fixated)->getId(),
+            'the fixed id must not resolve to the freshly authenticated session',
+        );
+    }
+
+    /**
+     * Without the privilege-transition flag a data-carrying session still gets
+     * the grace-window tombstone: that is the routine-rotation case, where a
+     * request already in flight with the previous cookie must not silently land
+     * on a fresh anonymous session.
+     */
+    public function testRoutineRotationStillMigratesADataCarryingSession(): void
+    {
+        $persistence = new InMemorySessionPersistence();
+        $manager = new SessionManager($persistence, ['session_migration_grace_seconds' => 300]);
+        $session = $manager->startFromRequest(new ServerRequest('GET', '/'));
+        $oldId = $session->getId();
+        $session->set('cart_id', 42);
+
+        $manager->regenerate($session, true);
+        $newId = $session->getId();
+
+        $raced = (new ServerRequest('GET', '/'))->withCookieParams(['QSID' => $oldId]);
+        $this->assertSame($newId, $manager->startFromRequest($raced)->getId(), 'the in-flight request is still rescued');
+    }
+
+    /**
+     * An empty session needs no tombstone either way -- there is nothing in
+     * flight worth preserving.
      */
     public function testRegeneratingAnEmptySessionDeletesTheOldIdOutright(): void
     {

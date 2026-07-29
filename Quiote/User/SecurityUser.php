@@ -395,9 +395,15 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 				// transition to defeat session fixation: any ID an attacker may have
 				// fixed in the victim's browser before login is invalidated. Only do
 				// it on the actual privilege transition (not on every re-affirmation)
-				// to avoid needless churn. $_SESSION data is preserved.
+				// to avoid needless churn. Session data is preserved.
+				//
+				// privilegeTransition: true is what makes the old id stop resolving
+				// *immediately* instead of after the migration grace window. Without
+				// it the old id stayed rideable for a few seconds after every login,
+				// which is precisely the fixation window regenerating is meant to
+				// close.
 				if(!$wasAuthenticated) {
-					$bag->regenerate(true);
+					$bag->regenerate(true, privilegeTransition: true);
 				}
 				// Deliberately not gated on an existing session: login is the
 				// one write that legitimately creates one, and it is how a

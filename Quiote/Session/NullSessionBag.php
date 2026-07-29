@@ -52,7 +52,7 @@ final class NullSessionBag implements SessionBagInterface
         return '';
     }
 
-    public function regenerate(bool $deleteOld = true): void
+    public function regenerate(bool $deleteOld = true, bool $privilegeTransition = false): void
     {
     }
 
