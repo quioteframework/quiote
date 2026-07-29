@@ -14,11 +14,21 @@ use Quiote\Runtime\Session\NativeSessionCookieBridge;
  */
 final class NativeSessionCookieBridgeTest extends TestCase
 {
+    /**
+     * These tests establish sessions with a bare session_start() rather than
+     * through SessionStorage, so the real "was a session started?" signal is
+     * never set. Supply it explicitly; testNoSessionMeansNoCookie covers the
+     * negative case on its own.
+     */
+    private static function bridge(bool $sessionWasStarted = true): NativeSessionCookieBridge
+    {
+        return new NativeSessionCookieBridge(static fn(): bool => $sessionWasStarted);
+    }
     public function testNoSessionMeansTheResponseIsUntouched(): void
     {
         $response = (new Psr17Factory())->createResponse(200);
 
-        $result = (new NativeSessionCookieBridge())->apply($response);
+        $result = (self::bridge())->apply($response);
 
         $this->assertSame($response, $result);
         $this->assertSame([], $result->getHeader('Set-Cookie'));
@@ -33,7 +43,7 @@ final class NativeSessionCookieBridgeTest extends TestCase
         session_id('abc123');
         session_start();
 
-        $result = (new NativeSessionCookieBridge())->apply((new Psr17Factory())->createResponse(200));
+        $result = (self::bridge())->apply((new Psr17Factory())->createResponse(200));
 
         $cookies = $result->getHeader('Set-Cookie');
         $this->assertCount(1, $cookies);
@@ -58,7 +68,7 @@ final class NativeSessionCookieBridgeTest extends TestCase
         session_id('abc123');
         session_start();
 
-        $cookie = (new NativeSessionCookieBridge())
+        $cookie = (self::bridge())
             ->apply((new Psr17Factory())->createResponse(200))
             ->getHeaderLine('Set-Cookie');
 
@@ -80,7 +90,7 @@ final class NativeSessionCookieBridgeTest extends TestCase
         $response = (new Psr17Factory())->createResponse(200)
             ->withHeader('Set-Cookie', 'QSESSID=set-by-someone-else; Path=/');
 
-        $result = (new NativeSessionCookieBridge())->apply($response);
+        $result = (self::bridge())->apply($response);
 
         $cookies = $result->getHeader('Set-Cookie');
         $this->assertCount(1, $cookies);
@@ -99,7 +109,7 @@ final class NativeSessionCookieBridgeTest extends TestCase
         $response = (new Psr17Factory())->createResponse(200)
             ->withHeader('Set-Cookie', 'other=1; Path=/');
 
-        $cookies = (new NativeSessionCookieBridge())->apply($response)->getHeader('Set-Cookie');
+        $cookies = (self::bridge())->apply($response)->getHeader('Set-Cookie');
 
         $this->assertCount(2, $cookies);
 
@@ -118,7 +128,7 @@ final class NativeSessionCookieBridgeTest extends TestCase
         // closed while the response is still being built, and the client needs
         // the cookie regardless. Requiring PHP_SESSION_ACTIVE here meant no
         // cookie was ever emitted for a real request.
-        $result = (new NativeSessionCookieBridge())->apply((new Psr17Factory())->createResponse(200));
+        $result = (self::bridge())->apply((new Psr17Factory())->createResponse(200));
 
         $this->assertStringStartsWith('QSESSID=abc123', $result->getHeaderLine('Set-Cookie'));
     }
@@ -129,7 +139,7 @@ final class NativeSessionCookieBridgeTest extends TestCase
         session_name('QSESSID');
 
         // An empty session id is the one signal that means "no session exists".
-        $result = (new NativeSessionCookieBridge())->apply((new Psr17Factory())->createResponse(200));
+        $result = (self::bridge())->apply((new Psr17Factory())->createResponse(200));
 
         $this->assertSame([], $result->getHeader('Set-Cookie'));
     }
@@ -139,7 +149,7 @@ final class NativeSessionCookieBridgeTest extends TestCase
     {
         ini_set('session.use_cookies', '1');
 
-        (new NativeSessionCookieBridge())->disableNativeEmission();
+        (self::bridge())->disableNativeEmission();
 
         // Turning it off would make SessionStorage::startup() warn on every
         // request ("Session cookies cannot be used when session.use_cookies is
@@ -158,7 +168,7 @@ final class NativeSessionCookieBridgeTest extends TestCase
         session_id('abc,123');
         session_start();
 
-        $cookie = (new NativeSessionCookieBridge())
+        $cookie = (self::bridge())
             ->apply((new Psr17Factory())->createResponse(200))
             ->getHeaderLine('Set-Cookie');
 

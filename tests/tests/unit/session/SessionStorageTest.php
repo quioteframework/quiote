@@ -68,20 +68,154 @@ class SessionStorageTest extends UnitTestCase
 		$this->assertNull($storage->remove('user_id'));
 	}
 
+	/**
+	 * close() is the SessionHandlerInterface callback PHP invokes from *inside*
+	 * session_write_close() and session_regenerate_id(). It used to call
+	 * session_write_close() itself, which is unbounded recursion for any
+	 * subclass registered as its own save handler. It must delegate to the
+	 * default handler instead, like read()/write()/open()/destroy()/gc() do,
+	 * and must NOT end the active session as a side effect -- shutdown() is
+	 * the write-close entry point for callers.
+	 */
 	#[RunInSeparateProcess]
-	public function testCloseWriteClosesTheActiveSession(): void
+	public function testCloseDelegatesToTheDefaultHandlerWithoutRecursing(): void
 	{
 		$context = Context::getInstance('quiote-session-storage-test::tests-close');
 		$storage = new SessionStorage();
 		$storage->initialize($context);
 		$storage->startup();
-		// startup() now defers the actual session_start() for a cookieless
-		// request (see SessionStorage::startup()); store() triggers its own
-		// lazy start so there's an active session for close() to end.
+		// startup() defers the actual session_start() for a cookieless request
+		// (see SessionStorage::startup()); store() triggers its own lazy start
+		// so there is an active session in play.
 		$storage->store('user_id', 42);
 
 		$this->assertTrue($storage->close());
+		// Delegation only: the session is still ours to write.
+		$this->assertSame(PHP_SESSION_ACTIVE, session_status());
+		$this->assertSame(42, $storage->retrieve('user_id'));
+
+		// shutdown(), not close(), is what ends the session.
+		$storage->shutdown();
 		$this->assertNotSame(PHP_SESSION_ACTIVE, session_status());
+	}
+
+	/**
+	 * A save handler that records its own close() calls, so the recursion the
+	 * old implementation would have caused is observable as a call count
+	 * rather than a stack overflow.
+	 */
+	#[RunInSeparateProcess]
+	public function testCloseIsSafeToCallRepeatedly(): void
+	{
+		$context = Context::getInstance('quiote-session-storage-test::tests-close-repeat');
+		$storage = new SessionStorage();
+		$storage->initialize($context);
+		$storage->startup();
+		$storage->store('user_id', 42);
+
+		$this->assertTrue($storage->close());
+		$this->assertTrue($storage->close());
+		$this->assertTrue($storage->close());
+		$this->assertSame(PHP_SESSION_ACTIVE, session_status());
+	}
+
+	#[RunInSeparateProcess]
+	public function testGetIdIsEmptyWhenNoSessionIsActive(): void
+	{
+		$context = Context::getInstance('quiote-session-storage-test::tests-getid-empty');
+		$storage = new SessionStorage();
+		$storage->initialize($context);
+		$storage->startup();
+
+		// Cookieless request: startup() defers session_start(), so there is no id yet.
+		$this->assertSame('', $storage->getId());
+	}
+
+	#[RunInSeparateProcess]
+	public function testGetIdReturnsTheActiveSessionId(): void
+	{
+		$context = Context::getInstance('quiote-session-storage-test::tests-getid-active');
+		$storage = new SessionStorage();
+		$storage->initialize($context);
+		$storage->startup();
+		$storage->store('user_id', 42);
+
+		$this->assertNotSame('', $storage->getId());
+		$this->assertSame(session_id(), $storage->getId());
+
+		$storage->shutdown();
+		$this->assertSame('', $storage->getId());
+	}
+
+	/**
+	 * hasSession() answers "can a write land somewhere that already exists?" --
+	 * used by callers persisting default/empty state so they do not manufacture
+	 * a session (and a Set-Cookie) for a visitor who never had one.
+	 */
+	#[RunInSeparateProcess]
+	public function testHasSessionIsFalseForACookielessRequest(): void
+	{
+		$context = Context::getInstance('quiote-session-storage-test::tests-hassession-none');
+		$storage = new SessionStorage();
+		$storage->initialize($context);
+		$storage->startup();
+
+		$this->assertFalse($storage->hasSession());
+	}
+
+	#[RunInSeparateProcess]
+	public function testHasSessionIsTrueOnceASessionIsActive(): void
+	{
+		$context = Context::getInstance('quiote-session-storage-test::tests-hassession-active');
+		$storage = new SessionStorage();
+		$storage->initialize($context);
+		$storage->startup();
+		$storage->store('user_id', 42);
+
+		$this->assertTrue($storage->hasSession());
+	}
+
+	#[RunInSeparateProcess]
+	public function testHasSessionIsTrueWhenTheRequestCarriesTheSessionCookie(): void
+	{
+		$context = Context::getInstance('quiote-session-storage-test::tests-hassession-cookie');
+		$storage = new SessionStorage();
+		$storage->initialize($context);
+		// An incoming cookie means a session exists to be lazily started, even
+		// though startup() has not started one yet.
+		$_COOKIE['Quiote'] = 'an-incoming-session-id';
+
+		$this->assertTrue($storage->hasSession());
+
+		unset($_COOKIE['Quiote']);
+	}
+
+	/**
+	 * session_regenerate_id() moves the session to a new id but leaves the
+	 * pre-rotation value in $_COOKIE. Since $_COOKIE is what gates the lazy
+	 * session_start() in retrieve()/remove(), leaving it stale makes the rest
+	 * of the request reason about an id that was just deleted -- which bites
+	 * immediately, because setAuthenticated(true) regenerates and then reads
+	 * credentials back out of storage.
+	 */
+	#[RunInSeparateProcess]
+	public function testRegenerateUpdatesTheIncomingCookieToTheNewId(): void
+	{
+		$context = Context::getInstance('quiote-session-storage-test::tests-regenerate-cookie');
+		$storage = new SessionStorage();
+		$storage->initialize($context);
+		$storage->startup();
+		$storage->store('user_id', 42);
+		$oldId = session_id();
+		$_COOKIE[session_name()] = $oldId;
+
+		$this->assertTrue($storage->regenerate(true));
+
+		$newId = session_id();
+		$this->assertNotSame($oldId, $newId);
+		$this->assertSame($newId, $_COOKIE[session_name()]);
+		// And the data is still reachable under the new id.
+		$this->assertSame(42, $storage->retrieve('user_id'));
 	}
 
 	#[RunInSeparateProcess]
@@ -124,7 +258,55 @@ class SessionStorageTest extends UnitTestCase
 		$storage->reset();
 
 		$this->assertSame([], $_SESSION, 'reset() must clear $_SESSION so the next worker request cannot inherit it');
-		$this->assertSame('', session_id(), 'reset() must clear the session id so startup() re-reads the incoming request cookie');
+
+		// The guarantee is that the previous request's id is gone, not that the
+		// id is empty. session_id('') would leave PHP's session module treating
+		// the id as explicitly set, so it stops consulting $_COOKIE and every
+		// later request in that worker silently starts a brand-new session
+		// instead of resuming the client's -- verified against real RoadRunner
+		// and Swoole workers. A fresh placeholder breaks the carry-over just as
+		// effectively, and startup() replaces it with the incoming id.
+		$this->assertNotSame(
+			'alice-leftover-session-id',
+			session_id(),
+			"reset() must drop the previous request's session id",
+		);
+		$this->assertNotSame('', session_id(), 'but must not blank it, which wedges the session module in a worker');
+	}
+
+	/**
+	 * The other half of that contract: startup() adopts whatever id the request
+	 * actually arrived with, overwriting the placeholder reset() left behind.
+	 * Without this, a worker that has served one request never resumes any
+	 * client's session again.
+	 */
+	#[RunInSeparateProcess]
+	public function testStartupAdoptsTheIncomingCookieOverALeftoverWorkerId(): void
+	{
+		$context = Context::getInstance('quiote-session-storage-test::tests-worker-reset-clears-session');
+		$storage = new SessionStorage();
+		$storage->initialize($context);
+
+		// Establish a session for "the client", then simulate the worker
+		// boundary exactly as Context::reset() does.
+		$storage->startup();
+		$storage->store('user', 'bob');
+		$clientId = session_id();
+		$storage->shutdown();
+		$storage->reset();
+
+		$this->assertNotSame($clientId, session_id(), 'precondition: the boundary dropped the id');
+
+		// Next request from the same client, in the same worker.
+		$_COOKIE['Quiote'] = $clientId;
+		$next = new SessionStorage();
+		$next->initialize($context);
+		$next->startup();
+
+		$this->assertSame($clientId, session_id(), 'the incoming cookie must win over the leftover id');
+		$this->assertSame('bob', $next->retrieve('user'), 'and the session data must come back with it');
+
+		unset($_COOKIE['Quiote']);
 	}
 
 	/**

@@ -44,6 +44,33 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 	 */
 	private $defaultHandler;
 
+	/**
+	 * @var bool True once a session has actually been started during the
+	 *      current request.
+	 *
+	 * Static because it describes ext/session, which is itself process-global,
+	 * and because the consumer -- NativeSessionCookieBridge, which decides
+	 * whether the response needs a Set-Cookie -- runs with no reference to this
+	 * instance. reset() clears it at the request boundary.
+	 *
+	 * An explicit flag rather than "is session_id() non-empty?": in a worker
+	 * the id is deliberately left non-empty between requests (see reset()), so
+	 * emptiness no longer distinguishes "never started" from "carried over",
+	 * and inferring from it hands every anonymous visitor a cookie for a
+	 * session that does not exist.
+	 */
+	private static bool $sessionStartedThisRequest = false;
+
+	/**
+	 * Whether a session has actually been started during the current request.
+	 * @return     bool
+	 * @since      2.1.0
+	 */
+	public static function sessionWasStartedThisRequest(): bool
+	{
+		return self::$sessionStartedThisRequest;
+	}
+
 	public function __construct() {
 		$this->defaultHandler = new SessionHandler();
 	}
@@ -90,11 +117,25 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 	 */
 	private function hasIncomingSessionOrStaticId(): bool
 	{
-		if($this->getParameter('session_id')) {
-			return true;
+		return $this->incomingSessionId() !== null;
+	}
+
+	/**
+	 * The session id this request arrived with: the configured static
+	 * 'session_id' parameter if set, otherwise the session cookie's value.
+	 * Null when the client presented neither.
+	 */
+	private function incomingSessionId(): ?string
+	{
+		$staticId = $this->paramString('session_id');
+		if($staticId !== null && $staticId !== '') {
+			return $staticId;
 		}
+
 		$sessionName = $this->paramString('session_name', 'Quiote') ?? 'Quiote';
-		return isset($_COOKIE[$sessionName]) && $_COOKIE[$sessionName] !== '';
+		$cookie = $_COOKIE[$sessionName] ?? null;
+
+		return is_string($cookie) && $cookie !== '' ? $cookie : null;
 	}
 
 	/**
@@ -204,9 +245,31 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 						$logger->debug('[SessionStorage] ini session.use_cookies=' . ini_get('session.use_cookies') . ' use_only_cookies=' . ini_get('session.use_only_cookies') . ' cookie_samesite=' . ini_get('session.cookie_samesite'));
 		}
 
+		// Adopt the id this request actually arrived with, before deciding
+		// whether to start.
+		//
+		// In a persistent worker the session module keeps whatever id the
+		// previous request left behind, and reset() replaces it with a fresh
+		// placeholder rather than clearing it (see reset() for why clearing is
+		// not an option). Either way session_id() is non-empty and unrelated to
+		// this client, so PHP would neither adopt the incoming cookie nor start
+		// a session at all -- the request would silently run against the
+		// previous one, or against nothing.
+		//
+		// Assigning explicitly is what PHP's session.use_strict_mode would
+		// otherwise guard, but that ini is off by default and the framework has
+		// never enabled it, so this does not change the fixation posture:
+		// session_regenerate_id() at the privilege transition is what defends
+		// against fixation here (see SecurityUser::setAuthenticated()).
+		$incomingId = $this->incomingSessionId();
+		if($incomingId !== null && $incomingId !== session_id() && session_status() !== PHP_SESSION_ACTIVE) {
+			if($dbg) { $logger->debug('[SessionStorage] adopting incoming session id=' . $incomingId . ' (was ' . session_id() . ')'); }
+			session_id($incomingId);
+		}
+
 		$sessionId = session_id();
 		$staticSessionId = $this->paramString('session_id');
-		if($sessionId === '' || ($staticSessionId && $sessionId !== $staticSessionId)) {
+		if($incomingId !== null || $sessionId === '' || ($staticSessionId && $sessionId !== $staticSessionId)) {
 			if($staticSessionId) {
 				session_id($staticSessionId);
 			}
@@ -290,9 +353,10 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 			// retrieve()/remove()/store() is the mechanism either way.
 			if(!$this->paramBool('auto_start', true)) {
 				if($dbg) { $logger->debug('[SessionStorage] session_start() deferred: auto_start is off'); }
-			} elseif($this->hasIncomingSessionOrStaticId()) {
+			} elseif($this->hasIncomingSessionOrStaticId() && session_status() !== PHP_SESSION_ACTIVE) {
 				if($dbg) { $logger->debug('[SessionStorage] starting session idPre=' . session_id()); }
 				session_start();
+				self::$sessionStartedThisRequest = true;
 				if($dbg) { $logger->debug('[SessionStorage] session started sid=' . session_id()); }
 				// Rely on PHP's built-in session cookie emission (session.use_cookies=1). Manual setcookie removed to prevent duplicate headers.
 				if($dbg) { $logger->debug('[SessionStorage] relying on PHP for Set-Cookie (no manual duplicate) lifetime=' . $lifetime . ' path=' . $path); }
@@ -323,7 +387,9 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 				return null;
 			}
 				if($this->logger()->isEnabled(\Quiote\Logging\Level::Debug)) { $this->logger()->debug('[SessionStorage] lazy-start before retrieve key=' . $key); }
-			@session_start();
+			if(@session_start()) {
+				self::$sessionStartedThisRequest = true;
+			}
 				if($this->logger()->isEnabled(\Quiote\Logging\Level::Debug)) { $this->logger()->debug('[SessionStorage] lazy-start after retrieve sid=' . session_id()); }
 		}
 		return $_SESSION[$key] ?? null;
@@ -346,7 +412,9 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 				return null;
 			}
 				if($this->logger()->isEnabled(\Quiote\Logging\Level::Debug)) { $this->logger()->debug('[SessionStorage] lazy-start before remove key=' . $key); }
-			@session_start();
+			if(@session_start()) {
+				self::$sessionStartedThisRequest = true;
+			}
 				if($this->logger()->isEnabled(\Quiote\Logging\Level::Debug)) { $this->logger()->debug('[SessionStorage] lazy-start after remove sid=' . session_id()); }
 		}
 		$retval = null;
@@ -382,7 +450,9 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 	{
 		if(session_status() !== PHP_SESSION_ACTIVE) {
 				if($this->logger()->isEnabled(\Quiote\Logging\Level::Debug)) { $this->logger()->debug('[SessionStorage] lazy-start before store key=' . $id); }
-			@session_start();
+			if(@session_start()) {
+				self::$sessionStartedThisRequest = true;
+			}
 				if($this->logger()->isEnabled(\Quiote\Logging\Level::Debug)) { $this->logger()->debug('[SessionStorage] lazy-start after store sid=' . session_id()); }
 		}
 		if($this->logger()->isEnabled(\Quiote\Logging\Level::Debug)) { $this->logger()->debug('[SessionStorage] store key=' . $id . ' type=' . gettype($data) . ' sid=' . session_id()); }
@@ -404,7 +474,58 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 
 	public function close(): bool
 	{
-		return session_write_close();
+		// SessionHandlerInterface callback: PHP invokes this from *inside*
+		// session_write_close() and session_regenerate_id(). Calling
+		// session_write_close() here would therefore recurse -- latent today
+		// only because plain SessionStorage never registers itself as a save
+		// handler (PdoSessionStorage does, and overrides this). Delegate to the
+		// default handler, exactly as read()/write()/open()/destroy()/gc() do.
+		// shutdown(), not this, is the write-close entry point for callers.
+		try {
+			return $this->getSessionHandler()->close();
+		} catch(\Error) {
+			// "Cannot call default session handler": PHP refuses SessionHandler's
+			// methods unless it is the registered handler, which is exactly the
+			// case where this object owns no open backing store to close. The
+			// same applies to the sibling delegating methods; only close() is
+			// reachable from application code, so only close() absorbs it.
+			return true;
+		}
+	}
+
+	/**
+	 * The active session id, or '' when no session is active.
+	 *
+	 * Several call sites probe for this with method_exists() before logging a
+	 * session id; until this existed those branches were permanently dead.
+	 * @return     string The active session id, or '' if there is no session.
+	 * @since      2.0.2
+	 */
+	public function getId(): string
+	{
+		if(session_status() !== PHP_SESSION_ACTIVE) {
+			return '';
+		}
+		$id = session_id();
+		return is_string($id) ? $id : '';
+	}
+
+	/**
+	 * Whether a write can land in a session that already exists, rather than
+	 * manufacturing one for a client that has none.
+	 *
+	 * True when a session is active, or when one can be lazily started from an
+	 * incoming cookie or a configured static id. Callers writing default or
+	 * empty state (a logout, a token-derived identity) use this to avoid
+	 * creating a session -- and therefore a persisted row and a Set-Cookie --
+	 * for a visitor who never had one. A deliberate write that *should* create
+	 * a session (a login) simply doesn't consult it.
+	 * @return     bool
+	 * @since      2.0.2
+	 */
+	public function hasSession(): bool
+	{
+		return session_status() === PHP_SESSION_ACTIVE || $this->hasIncomingSessionOrStaticId();
 	}
 
 	/**
@@ -419,13 +540,25 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 	public function regenerate(bool $deleteOldSession = true): bool
 	{
 		if(session_status() !== PHP_SESSION_ACTIVE) {
-			@session_start();
+			if(@session_start()) {
+				self::$sessionStartedThisRequest = true;
+			}
 		}
 		if(session_status() !== PHP_SESSION_ACTIVE) {
 			return false;
 		}
 		$old = function_exists('session_id') ? session_id() : '';
 		$result = session_regenerate_id($deleteOldSession);
+		// $_COOKIE still holds the pre-rotation id, and PHP does not update it.
+		// hasIncomingSessionOrStaticId() -- which gates the lazy session_start()
+		// in retrieve()/remove() -- reads $_COOKIE, so leaving the stale value
+		// there makes the rest of this request reason about a session id that
+		// was just deleted. That matters immediately: setAuthenticated(true)
+		// regenerates and then reads credentials back out of storage.
+		$new = session_id();
+		if(is_string($new) && $new !== '') {
+			$_COOKIE[session_name()] = $new;
+		}
 		if($this->logger()->isEnabled(\Quiote\Logging\Level::Debug)) {
 			$this->logger()->debug('[SessionStorage] regenerate old=' . $old . ' new=' . session_id() . ' deleteOld=' . (int)$deleteOldSession);
 		}
@@ -459,19 +592,30 @@ class SessionStorage extends Storage implements SessionHandlerInterface, ResetIn
 		}
 		$this->defaultHandler = null;
 
-		// FrankenPHP worker mode: the PHP process is long-lived, so PHP's session
-		// module keeps the previous request's session id and $_SESSION contents
-		// even after session_write_close() (called by shutdown() just before this).
-		// If left in place, the next request's startup() sees a non-empty
-		// session_id() and SKIPS session_start() (see startup() guard), silently
-		// inheriting the previous user's session — a cross-user auth/data leak.
-		// Clear both so the next startup() re-reads the incoming request's cookie.
+		// Worker mode: the PHP process is long-lived, so the session module keeps
+		// the previous request's session id and $_SESSION contents even after
+		// session_write_close() (called by shutdown() just before this). Left in
+		// place, the next request would silently run against the previous user's
+		// session -- a cross-user auth/data leak.
+		//
+		// $_SESSION is emptied, and the id is replaced with a fresh, unpredictable
+		// placeholder. Deliberately NOT session_id(''): an empty assignment leaves
+		// the module treating the id as explicitly set, so it stops consulting
+		// $_COOKIE and every later request in that worker starts a brand-new
+		// session instead of resuming the client's. That failure is silent, and it
+		// looks exactly like "login never sticks". The placeholder breaks the
+		// carry-over just as effectively, and startup() overwrites it with the id
+		// the next request actually arrives with.
+		//
 		// Only touch these when no session is active (the normal post-shutdown
 		// state); never stomp an active, unpersisted session.
+		self::$sessionStartedThisRequest = false;
+
 		if (session_status() !== PHP_SESSION_ACTIVE) {
 			$_SESSION = [];
 			if (session_id() !== '') {
-				session_id('');
+				$placeholder = session_create_id();
+				session_id($placeholder === false ? bin2hex(random_bytes(16)) : $placeholder);
 			}
 			if($this->logger()->isEnabled(\Quiote\Logging\Level::Debug)) {
 				$this->logger()->debug('[SessionStorage] reset cleared $_SESSION and session id for next worker request');

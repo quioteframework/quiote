@@ -27,6 +27,22 @@ use Psr\Http\Message\ResponseInterface;
  */
 final class NativeSessionCookieBridge
 {
+    /** @var callable(): bool */
+    private $sessionWasStarted;
+
+    /**
+     * @param ?callable(): bool $sessionWasStarted How to tell whether a session
+     *        was actually started during this request. Defaults to asking
+     *        {@see \Quiote\Storage\SessionStorage}, which is the only thing
+     *        that starts one on the native path; injectable so a test can
+     *        exercise this class against a hand-rolled session_start().
+     */
+    public function __construct(?callable $sessionWasStarted = null)
+    {
+        $this->sessionWasStarted = $sessionWasStarted
+            ?? static fn(): bool => \Quiote\Storage\SessionStorage::sessionWasStartedThisRequest();
+    }
+
     /**
      * Nothing to do: `session.use_cookies` is deliberately left alone.
      *
@@ -56,12 +72,22 @@ final class NativeSessionCookieBridge
             return $response;
         }
 
-        // Keyed on "a session exists", not "a session is still open". By the time
-        // a response is ready the session has usually been written and closed
-        // already (SessionStorage::shutdown() -> session_write_close()), and the
-        // client still needs the cookie to send the id back next time. An id that
-        // is empty means no session was ever started, which is the only case
-        // where there is nothing to emit.
+        // Keyed on "a session was actually started this request", not "a session
+        // is still open": by the time a response is ready the session has usually
+        // been written and closed already (SessionStorage::shutdown() ->
+        // session_write_close()), and the client still needs the cookie to send
+        // the id back next time.
+        //
+        // Note this cannot be inferred from session_id() being non-empty. In a
+        // worker, SessionStorage::reset() deliberately leaves a fresh placeholder
+        // id behind rather than blanking it -- blanking stops PHP consulting
+        // $_COOKIE for the rest of the process -- so a request that never
+        // touched the session still has an id. Emitting on that would hand every
+        // anonymous visitor a cookie for a session that does not exist.
+        if (!($this->sessionWasStarted)()) {
+            return $response;
+        }
+
         $sid = session_id();
         if ($sid === false || $sid === '') {
             return $response;
