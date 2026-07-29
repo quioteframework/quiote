@@ -7,9 +7,6 @@ correctly under long-lived worker runtimes.
 Most applications need three changes: swap one factory slot, replace
 `getStorage()` calls, and accept that everyone is logged out once.
 
-If you are on 2.x and only want the SQLite lock fix, **2.0.2** has it and is a
-plain patch release.
-
 ---
 
 ## Why
@@ -22,8 +19,18 @@ pipeline in a process that serves many requests.
 The visible symptoms were a login that returned 302, logged success, and then
 403'd on every following request; a session row written for every request that
 reached the framework, health checks and bots included; and `SQLITE_BUSY` under
-load. All three are fixed, and the first three of the four root causes are now
-structurally impossible rather than merely repaired.
+load.
+
+All three are fixed, and most of the root causes are now structurally impossible
+rather than merely repaired. There is no process-global session id, so nothing
+can leak from one worker request into the next. There is no
+`SessionHandlerInterface`, so no callback can re-enter the function that invoked
+it. `save()` is an ordinary write with no relationship to `headers_sent()`, so a
+late write lands instead of silently vanishing. And the cookie rides the PSR-7
+response rather than PHP's output layer, so nothing has to synthesise it
+off-SAPI.
+
+Verified against real RoadRunner, Swoole and FrankenPHP servers.
 
 ---
 
@@ -199,17 +206,32 @@ Audit for direct writes to those three properties before upgrading.
 
 `SessionManager::regenerate()` migrates the old id rather than deleting it
 outright, so a request already in flight with the pre-rotation cookie is not
-silently logged out. That window is now much tighter than it was:
+silently logged out. That window is much tighter than a plain grace period:
 
 - the redirect tombstone is consumed on first use, so it rescues one request
   rather than every request in the window;
 - it is bound to the requesting client;
 - it is skipped entirely when the pre-login session was empty — the ordinary
   anonymous-to-authenticated login — which therefore has no window at all;
-- the default grace drops from 15 seconds to 5 (`session_migration_grace_seconds`).
+- the default grace is 5 seconds (`session_migration_grace_seconds`).
 
 `SessionManager::regenerate()` and `migrateOld()` take an additional optional
 request argument. This breaks subclasses overriding them.
+
+---
+
+## Also in 3.0
+
+**A FrankenPHP Dockerfile fix worth copying.** `dunglas/frankenphp` reads
+`/etc/frankenphp/Caddyfile`, not `/etc/caddy/Caddyfile`. An image copying its
+Caddyfile to the latter has it silently ignored and starts in classic mode
+rather than worker mode. Check your own Dockerfile.
+
+**Empty superglobals on a SAPI are not a bug.** On FrankenPHP — or php-fpm, or
+any real SAPI — `WebRequest::startup()` clears `$_GET`/`$_POST`/`$_COOKIE`/
+`$_FILES` and strips `HTTP_*` from `$_SERVER`. That is the register-globals-era
+input defence doing its job, not FrankenPHP failing to populate them. Read
+request data through `WebRequest`, not the superglobals.
 
 ---
 
