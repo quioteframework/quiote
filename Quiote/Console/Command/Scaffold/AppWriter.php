@@ -227,8 +227,19 @@ final class AppWriter
 		storage:
 		  class: Quiote\\Storage\\NullStorage
 		  params: []
+		# The session slot is what gives this app a session cookie at all, and
+		# CSRF protection depends on it: CsrfValidationMiddleware exempts requests
+		# that carry no session cookie, because without an ambient credential
+		# there is nothing for a cross-site attacker to ride. Remove this slot and
+		# every request looks sessionless, so CSRF silently protects nothing.
+		# File-backed needs no database; swap in a PDO/Redis/object-storage
+		# factory for multi-host deployments without a shared filesystem.
+		# Cookie flags default to Secure + HttpOnly + SameSite=Lax.
+		session:
+		  class: Quiote\\Session\\FileSessionFactory
+		  params: []
 		user:
-		  class: Quiote\\User\\User
+		  class: Quiote\\User\\RbacSecurityUser
 		  params: []
 		validation_manager:
 		  class: Quiote\\Validator\\ValidationManager
