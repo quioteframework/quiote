@@ -31,12 +31,6 @@
 			</ae:parameters>
 		</routing>
 
-		<storage class="FCHTestStorage">
-			<ae:parameters>
-				<ae:parameter name="p1">v1</ae:parameter>
-				<ae:parameter name="p2">v2</ae:parameter>
-			</ae:parameters>
-		</storage>
 
 		<validation_manager class="FCHTestValidationManager">
 			<ae:parameters>

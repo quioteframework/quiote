@@ -136,9 +136,10 @@ class QuioteSessionBagTest extends UnitTestCase
         $manager = new SessionManager(new InMemorySessionPersistence());
         $middleware = new \Quiote\Session\SessionMiddleware($manager, $context);
 
-        $seen = null;
-        $handler = new class ($context, $seen) implements \Psr\Http\Server\RequestHandlerInterface {
-            public function __construct(private \Quiote\Context $context, public mixed &$seen) {}
+        $handler = new class ($context) implements \Psr\Http\Server\RequestHandlerInterface {
+            public mixed $seen = null;
+
+            public function __construct(private \Quiote\Context $context) {}
 
             public function handle(\Psr\Http\Message\ServerRequestInterface $request): \Psr\Http\Message\ResponseInterface
             {
@@ -153,35 +154,21 @@ class QuioteSessionBagTest extends UnitTestCase
         $this->assertInstanceOf(
             QuioteSessionBag::class,
             $handler->seen,
-            'framework consumers must reach the same session as the middleware, not the legacy storage slot',
+            'framework consumers must reach the same session as the middleware',
         );
 
-        // And it must not survive as the context's bag for unrelated later work.
         $context->setSessionBag(null);
     }
 
-    public function testWithoutAContextTheMiddlewareLeavesTheBagAlone(): void
+    /**
+     * With no session configured at all, consumers still get something to talk
+     * to rather than having to check first.
+     */
+    public function testAContextWithNoSessionAnswersANullBag(): void
     {
         $context = \Quiote\Context::getInstance('user-dirty-test::tests-anonymous');
         $context->setSessionBag(null);
-        (new ReflectionObject($context))->getProperty('storage')->setValue($context, new MockStorage());
 
-        $manager = new SessionManager(new InMemorySessionPersistence());
-        $middleware = new \Quiote\Session\SessionMiddleware($manager);
-
-        $handler = new class implements \Psr\Http\Server\RequestHandlerInterface {
-            public function handle(\Psr\Http\Message\ServerRequestInterface $request): \Psr\Http\Message\ResponseInterface
-            {
-                return new \Nyholm\Psr7\Response();
-            }
-        };
-
-        $middleware->process(new ServerRequest('GET', '/'), $handler);
-
-        $this->assertInstanceOf(
-            \Quiote\Session\StorageSessionBag::class,
-            $context->getSessionBag(),
-            'the opt-in wiring must stay opt-in',
-        );
+        $this->assertInstanceOf(\Quiote\Session\NullSessionBag::class, $context->getSessionBag());
     }
 }

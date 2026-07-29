@@ -7,7 +7,6 @@ namespace Quiote\Runtime;
 use Quiote\Config\Config;
 use Quiote\Quiote;
 use Quiote\Runtime\Request\WorkerRequestFactory;
-use Quiote\Runtime\Session\NativeSessionCookieBridge;
 use Quiote\Runtime\Superglobals\SuperglobalBridge;
 use Quiote\Runtime\Worker\WorkerLoop;
 use Quiote\Runtime\Worker\WorkerRuntimeInfo;
@@ -96,7 +95,6 @@ class Kernel
             superglobals: new SuperglobalBridge(),
             output: new OutputCapture(),
             errors: new ErrorResponseFactory(),
-            sessionCookies: new NativeSessionCookieBridge(),
             capabilities: $capabilities,
             maxRequests: $capabilities->persistent ? $this->maxRequests() : 0,
         ));

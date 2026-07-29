@@ -1,8 +1,9 @@
 <?php
 
-use PHPUnit\Framework\Attributes\RunInSeparateProcess;
+use Nyholm\Psr7\ServerRequest;
 use Quiote\Context;
-use Quiote\Storage\SessionStorage;
+use Quiote\Session\QuioteSessionBag;
+use Quiote\Session\SessionManager;
 use Quiote\Testing\UnitTestCase;
 use Quiote\User\RbacSecurityUser;
 use Quiote\User\SecurityUser;
@@ -10,7 +11,11 @@ use Quiote\User\SecurityUser;
 /**
  * Dirty tracking and write-on-change across SecurityUser / RbacSecurityUser,
  * including the behaviour this exists for: an anonymous request must leave no
- * session row and no Set-Cookie behind.
+ * session and no cookie behind.
+ *
+ * The session-creating cases run against a real SessionManager, because the
+ * question they ask -- "was a session actually established?" -- can only be
+ * answered by a backend. The rest use an in-memory bag.
  */
 class SecurityUserDirtyTrackingTest extends UnitTestCase
 {
@@ -24,28 +29,45 @@ class SecurityUserDirtyTrackingTest extends UnitTestCase
         return $user;
     }
 
-    private function withSessionStorage(string $name): Context
+    private function contextWithBag(string $name, \Quiote\Session\SessionBagInterface $bag): Context
     {
         $context = Context::getInstance($name);
-        $storage = new SessionStorage();
-        $storage->initialize($context);
-        (new ReflectionObject($context))->getProperty('storage')->setValue($context, $storage);
+        $context->setSessionBag($bag);
 
         return $context;
+    }
+
+    /**
+     * A context whose bag is backed by a real SessionManager, plus the
+     * persistence behind it so a test can see what was actually written.
+     *
+     * @return array{0: Context, 1: InMemorySessionPersistence, 2: QuioteSessionBag}
+     */
+    private function contextWithRealSession(string $name, bool $withCookie = false): array
+    {
+        $persistence = new InMemorySessionPersistence();
+        $manager = new SessionManager($persistence);
+
+        $request = new ServerRequest('GET', '/');
+        if ($withCookie) {
+            $persistence->save('an-existing-session-id-1234567890', ['seeded' => true]);
+            $request = $request->withCookieParams(['QSID' => 'an-existing-session-id-1234567890']);
+        }
+
+        $bag = new QuioteSessionBag($manager, $manager->startFromRequest($request), $request);
+
+        return [$this->contextWithBag($name, $bag), $persistence, $bag];
     }
 
     // ---------------------------------------------------------------- anonymous
 
     /**
      * The reproducer for the write amplification: a request that reads the user
-     * and touches nothing must not create a session.
+     * and touches nothing must not establish a session.
      */
-    #[RunInSeparateProcess]
-    public function testAnAnonymousCookielessRequestCreatesNoSession(): void
+    public function testAnAnonymousRequestCreatesNoSession(): void
     {
-        $context = $this->withSessionStorage('user-dirty-test::tests-anonymous');
-        $context->getStorage()->startup();
-        $this->assertNotSame(PHP_SESSION_ACTIVE, session_status(), 'precondition: no session yet');
+        [$context, $persistence, $bag] = $this->contextWithRealSession('user-dirty-test::tests-anonymous');
 
         $user = $this->rbacUser($context);
         $this->assertFalse($user->isDirty(), 'reading a user is not a mutation');
@@ -53,55 +75,42 @@ class SecurityUserDirtyTrackingTest extends UnitTestCase
         // The whole request boundary, exactly as flushRequestState() runs it.
         $user->shutdown();
 
-        $this->assertNotSame(
-            PHP_SESSION_ACTIVE,
-            session_status(),
-            'an untouched anonymous request must not create a session',
-        );
-        $this->assertSame('', session_id(), 'and therefore has no id to hand out in a Set-Cookie');
+        $this->assertSame([], $persistence->rows, 'an untouched anonymous request must persist nothing');
+        $this->assertFalse($bag->exists(), 'and must not count as having a session');
     }
 
     /**
-     * The counterpart the user asked about: an anonymous visitor who actually
-     * sets a preference still gets a session, because setting an attribute is a
-     * deliberate write.
+     * The counterpart: an anonymous visitor who actually sets a preference does
+     * get a session, because setting an attribute is a deliberate write.
      */
-    #[RunInSeparateProcess]
     public function testAnAnonymousVisitorSettingAPreferenceDoesGetASession(): void
     {
-        $context = $this->withSessionStorage('user-dirty-test::tests-preferences');
-        $context->getStorage()->startup();
+        [$context, , $bag] = $this->contextWithRealSession('user-dirty-test::tests-preferences');
 
         $user = new SecurityUser();
         $user->initialize($context);
         $user->setAttribute('locale', 'fi_FI');
-
         $this->assertTrue($user->isDirty());
 
         $user->shutdown();
 
-        $this->assertSame(PHP_SESSION_ACTIVE, session_status(), 'a deliberate write creates the session');
-        $sessionId = session_id();
-        $this->assertIsString($sessionId);
-        $this->assertNotSame('', $sessionId);
+        $this->assertTrue($bag->exists(), 'a deliberate write establishes the session');
 
-        // And it survives to the next request.
-        $context->getStorage()->shutdown();
-        $_SESSION = [];
-        session_id($sessionId);
-        session_start();
-
-        $fresh = new SecurityUser();
-        $fresh->initialize($context);
-        $this->assertSame('fi_FI', $fresh->getAttribute('locale'));
+        $stored = $bag->get('org.quiote.user.User');
+        $this->assertIsArray($stored, 'the attributes reached the session');
+        $namespaced = $stored[$user->getDefaultNamespace()] ?? null;
+        $this->assertIsArray($namespaced);
+        $this->assertSame('fi_FI', $namespaced['locale'] ?? null);
     }
 
     // ------------------------------------------------------------- mutators
 
     public function testAuthAndCredentialMutatorsMarkDirty(): void
     {
+        $context = $this->contextWithBag('user-dirty-test::tests-anonymous', new InMemorySessionBag());
+
         $user = new SecurityUser();
-        $user->initialize($this->getContext());
+        $user->initialize($context);
         $this->assertFalse($user->isDirty());
 
         $user->addCredential('photos.list');
@@ -122,8 +131,10 @@ class SecurityUserDirtyTrackingTest extends UnitTestCase
 
     public function testReAddingAnExistingCredentialDoesNotMarkDirty(): void
     {
+        $context = $this->contextWithBag('user-dirty-test::tests-anonymous', new InMemorySessionBag());
+
         $user = new SecurityUser();
-        $user->initialize($this->getContext());
+        $user->initialize($context);
         $user->addCredential('photos.list');
         $user->markClean();
 
@@ -134,8 +145,10 @@ class SecurityUserDirtyTrackingTest extends UnitTestCase
 
     public function testRemovingAnAbsentCredentialDoesNotMarkDirty(): void
     {
+        $context = $this->contextWithBag('user-dirty-test::tests-anonymous', new InMemorySessionBag());
+
         $user = new SecurityUser();
-        $user->initialize($this->getContext());
+        $user->initialize($context);
         $user->markClean();
 
         $user->removeCredential('never-granted');
@@ -145,7 +158,8 @@ class SecurityUserDirtyTrackingTest extends UnitTestCase
 
     public function testGrantAndRevokeMarkDirty(): void
     {
-        $user = $this->rbacUser($this->getContext());
+        $context = $this->contextWithBag('user-dirty-test::tests-anonymous', new InMemorySessionBag());
+        $user = $this->rbacUser($context);
         $this->assertFalse($user->isDirty());
 
         $user->grantRole('administrator');
@@ -158,7 +172,8 @@ class SecurityUserDirtyTrackingTest extends UnitTestCase
 
     public function testGrantingAnUnknownOrAlreadyHeldRoleDoesNotMarkDirty(): void
     {
-        $user = $this->rbacUser($this->getContext());
+        $context = $this->contextWithBag('user-dirty-test::tests-anonymous', new InMemorySessionBag());
+        $user = $this->rbacUser($context);
 
         $user->grantRole('no-such-role');
         $this->assertFalse($user->isDirty(), 'an unknown role is not a change');
@@ -171,7 +186,8 @@ class SecurityUserDirtyTrackingTest extends UnitTestCase
 
     public function testRevokingAnAbsentRoleDoesNotMarkDirty(): void
     {
-        $user = $this->rbacUser($this->getContext());
+        $context = $this->contextWithBag('user-dirty-test::tests-anonymous', new InMemorySessionBag());
+        $user = $this->rbacUser($context);
         $user->markClean();
 
         $user->revokeRole('administrator');
@@ -188,17 +204,16 @@ class SecurityUserDirtyTrackingTest extends UnitTestCase
      * authenticated request would be dirty and rewrite the session -- defeating
      * the whole mechanism on exactly the traffic that matters most.
      */
-    #[RunInSeparateProcess]
     public function testRebuildingCredentialsFromStoredRolesLeavesTheUserClean(): void
     {
-        $context = $this->withSessionStorage('user-dirty-test::tests-anonymous');
+        $context = $this->contextWithBag('user-dirty-test::tests-anonymous', new InMemorySessionBag());
 
         $first = $this->rbacUser($context);
         $first->setAuthenticated(true);
         $first->grantRole('administrator');
         $first->shutdown();
 
-        // Next request against the same (still open) session.
+        // Next request against the same session.
         $second = $this->rbacUser($context);
 
         $this->assertTrue($second->isAuthenticated());
@@ -212,10 +227,9 @@ class SecurityUserDirtyTrackingTest extends UnitTestCase
 
     public function testTokenDerivedInitializeLeavesTheUserClean(): void
     {
-        $context = Context::getInstance('user-dirty-test::tests-anonymous');
-        $storage = new MockStorage();
-        (new ReflectionObject($context))->getProperty('storage')->setValue($context, $storage);
-        $storage->store(SecurityUser::TOKEN_DERIVED_NAMESPACE, true);
+        $bag = new InMemorySessionBag();
+        $bag->set(SecurityUser::TOKEN_DERIVED_NAMESPACE, true);
+        $context = $this->contextWithBag('user-dirty-test::tests-anonymous', $bag);
 
         $user = $this->rbacUser($context);
 
@@ -225,13 +239,12 @@ class SecurityUserDirtyTrackingTest extends UnitTestCase
 
     public function testRestoreIdentityFromStoragePreservesTheDirtyFlagInBothDirections(): void
     {
-        $context = Context::getInstance('user-dirty-test::tests-anonymous');
-        (new ReflectionObject($context))->getProperty('storage')->setValue($context, new MockStorage());
+        $context = $this->contextWithBag('user-dirty-test::tests-anonymous', new InMemorySessionBag());
 
         $clean = new SecurityUser();
         $clean->initialize($context);
         $clean->restoreIdentityFromStorage();
-        $this->assertFalse($clean->isDirty(), 'restoring values read from storage is not a change');
+        $this->assertFalse($clean->isDirty(), 'restoring values read from the session is not a change');
 
         $dirty = new SecurityUser();
         $dirty->initialize($context);
@@ -243,53 +256,50 @@ class SecurityUserDirtyTrackingTest extends UnitTestCase
     // ---------------------------------------------------------------- writes
 
     /**
-     * markTokenDerived() runs on stateless API requests that carry no session
-     * cookie. Writing its marker unconditionally handed every such client a
-     * session row and a Set-Cookie.
+     * markTokenDerived() runs on stateless API requests that carry no session.
+     * Writing its marker unconditionally handed every such client a session and
+     * a cookie.
      */
-    #[RunInSeparateProcess]
-    public function testMarkTokenDerivedDoesNotCreateASessionWhenThereIsNone(): void
+    public function testMarkTokenDerivedDoesNotWriteWhenThereIsNoSession(): void
     {
-        $context = $this->withSessionStorage('user-dirty-test::tests-anonymous');
-        $context->getStorage()->startup();
+        $bag = new InMemorySessionBag(exists: false);
+        $context = $this->contextWithBag('user-dirty-test::tests-anonymous', $bag);
 
         $user = new SecurityUser();
         $user->initialize($context);
         $user->markTokenDerived();
 
         $this->assertTrue($user->isTokenDerived(), 'the in-memory state still applies to this request');
-        $this->assertNotSame(PHP_SESSION_ACTIVE, session_status(), 'but no session was manufactured for it');
+        $this->assertSame(0, $bag->writes, 'but nothing was written to a session that does not exist');
     }
 
-    #[RunInSeparateProcess]
-    public function testLogoutDoesNotCreateASessionWhenThereIsNone(): void
+    public function testLogoutDoesNotWriteWhenThereIsNoSession(): void
     {
-        $context = $this->withSessionStorage('user-dirty-test::tests-logout');
-        $context->getStorage()->startup();
+        $bag = new InMemorySessionBag(exists: false);
+        $context = $this->contextWithBag('user-dirty-test::tests-logout', $bag);
 
         $user = new SecurityUser();
         $user->initialize($context);
         $user->setAuthenticated(false);
 
-        $this->assertNotSame(PHP_SESSION_ACTIVE, session_status(), 'logging out of nothing creates nothing');
+        $this->assertSame(0, $bag->writes, 'logging out of nothing creates nothing');
     }
 
     /**
-     * Login is the one write that legitimately creates a session -- it is how a
-     * first-time visitor gets one at all.
+     * Login is the one write that legitimately establishes a session -- it is
+     * how a first-time visitor gets one at all.
      */
-    #[RunInSeparateProcess]
-    public function testLoginStillCreatesASessionForAFirstTimeVisitor(): void
+    public function testLoginStillEstablishesASessionForAFirstTimeVisitor(): void
     {
-        $context = $this->withSessionStorage('user-dirty-test::tests-logout');
-        $context->getStorage()->startup();
+        [$context, , $bag] = $this->contextWithRealSession('user-dirty-test::tests-logout');
+        $this->assertFalse($bag->exists(), 'precondition: nothing here yet');
 
         $user = new SecurityUser();
         $user->initialize($context);
         $user->setAuthenticated(true);
 
-        $this->assertSame(PHP_SESSION_ACTIVE, session_status());
-        $this->assertNotSame('', session_id());
+        $this->assertTrue($bag->exists());
+        $this->assertTrue($bag->get(SecurityUser::AUTH_NAMESPACE));
     }
 
     // ---------------------------------------------------------------- logout
@@ -297,41 +307,38 @@ class SecurityUserDirtyTrackingTest extends UnitTestCase
     /**
      * Logging out used to write AUTH=false and stop there, leaving the session
      * id valid and replayable: anyone holding it could keep using it, and a
-     * later login on the same id inherited whatever the logged-out session
-     * still contained.
+     * later login on the same id inherited whatever was still in it.
      */
-    #[RunInSeparateProcess]
     public function testLogoutInvalidatesTheSessionId(): void
     {
-        $context = $this->withSessionStorage('user-dirty-test::tests-logout');
+        [$context, , $bag] = $this->contextWithRealSession('user-dirty-test::tests-logout', withCookie: true);
 
         $user = new SecurityUser();
         $user->initialize($context);
         $user->setAuthenticated(true);
-        $loggedInId = session_id();
+        $loggedInId = $bag->getId();
         $this->assertNotSame('', $loggedInId);
 
         $user->setAuthenticated(false);
 
-        $this->assertNotSame($loggedInId, session_id(), 'the post-logout session id must not be the logged-in one');
+        $this->assertNotSame($loggedInId, $bag->getId(), 'the post-logout id must not be the logged-in one');
     }
 
-    #[RunInSeparateProcess]
     public function testLogoutDiscardsTheAuthenticatedSessionContents(): void
     {
-        $context = $this->withSessionStorage('user-dirty-test::tests-logout');
+        [$context, , $bag] = $this->contextWithRealSession('user-dirty-test::tests-logout', withCookie: true);
 
         $user = new SecurityUser();
         $user->initialize($context);
         $user->setAuthenticated(true);
         $user->addCredential('photos.list');
         $user->shutdown();
-        $this->assertNotEmpty($_SESSION[SecurityUser::CREDENTIAL_NAMESPACE] ?? []);
+        $this->assertNotEmpty($bag->get(SecurityUser::CREDENTIAL_NAMESPACE));
 
         $user->setAuthenticated(false);
 
         $this->assertEmpty(
-            $_SESSION[SecurityUser::CREDENTIAL_NAMESPACE] ?? [],
+            $bag->get(SecurityUser::CREDENTIAL_NAMESPACE, []),
             'credentials from the authenticated session must not survive logout',
         );
         $this->assertFalse($user->isAuthenticated());
@@ -346,10 +353,9 @@ class SecurityUserDirtyTrackingTest extends UnitTestCase
      */
     public function testShutdownDoesNotOverwriteStoredRolesWithAnEmptySet(): void
     {
-        $context = Context::getInstance('user-dirty-test::tests-anonymous');
-        $storage = new MockStorage();
-        (new ReflectionObject($context))->getProperty('storage')->setValue($context, $storage);
-        $storage->store(RbacSecurityUser::ROLES_NAMESPACE, ['administrator']);
+        $bag = new InMemorySessionBag();
+        $bag->set(RbacSecurityUser::ROLES_NAMESPACE, ['administrator']);
+        $context = $this->contextWithBag('user-dirty-test::tests-anonymous', $bag);
 
         $user = $this->rbacUser($context);
         // An authenticated instance that nonetheless ended up with no roles.
@@ -361,7 +367,7 @@ class SecurityUserDirtyTrackingTest extends UnitTestCase
 
         $this->assertSame(
             ['administrator'],
-            $storage->retrieve(RbacSecurityUser::ROLES_NAMESPACE),
+            $bag->get(RbacSecurityUser::ROLES_NAMESPACE),
             'an authenticated user with an empty role set must not clobber stored roles',
         );
     }

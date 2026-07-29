@@ -15,7 +15,6 @@ use Quiote\Logging\Log;
 use Quiote\Runtime\ErrorResponseFactory;
 use Quiote\Runtime\OutputCapture;
 use Quiote\Runtime\Request\WorkerRequestFactory;
-use Quiote\Runtime\Session\NativeSessionCookieBridge;
 use Quiote\Runtime\Superglobals\SuperglobalBridge;
 use Quiote\Util\WorkerManager;
 use Throwable;
@@ -40,7 +39,6 @@ final class WorkerLoop
         private readonly SuperglobalBridge $superglobals,
         private readonly OutputCapture $output,
         private readonly ErrorResponseFactory $errors,
-        private readonly NativeSessionCookieBridge $sessionCookies,
         private readonly WorkerRuntimeCapabilities $capabilities,
         private readonly int $maxRequests = 0,
     ) {
@@ -93,10 +91,6 @@ final class WorkerLoop
             $response = $this->appendStray($response, $stray);
         }
 
-        if (!$this->capabilities->sapiOutput) {
-            $response = $this->sessionCookies->apply($response);
-        }
-
         return $response;
     }
 
@@ -116,7 +110,6 @@ final class WorkerLoop
         $this->workerBooted = true;
 
         if (!$this->capabilities->sapiOutput) {
-            $this->sessionCookies->disableNativeEmission();
         }
 
         if (!$this->capabilities->forksWorkers) {

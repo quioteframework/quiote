@@ -57,9 +57,6 @@ final class CsrfArrayStorage
  */
 class CsrfTest extends UnitTestCase
 {
-    /** @var mixed Original context storage, restored in tearDown(). */
-    private $originalStorage;
-
     /** @var mixed Original core.csrf.enabled value, restored in tearDown(). */
     private $originalCsrfEnabled;
 
@@ -75,10 +72,7 @@ class CsrfTest extends UnitTestCase
         // would never persist. Inject a simple in-memory storage so the manager can
         // store and retrieve tokens within the test process.
         $ctx = $this->getContext();
-        $ro = new \ReflectionObject($ctx);
-        $prop = $ro->getProperty('storage');
-        $this->originalStorage = $prop->getValue($ctx);
-        $prop->setValue($ctx, new CsrfArrayStorage());
+        $ctx->setSessionBag(new InMemorySessionBag());
     }
 
     protected function tearDown(): void
@@ -86,9 +80,7 @@ class CsrfTest extends UnitTestCase
         Config::set('core.csrf.enabled', $this->originalCsrfEnabled);
         try {
             $ctx = $this->getContext();
-            $ro = new \ReflectionObject($ctx);
-            $prop = $ro->getProperty('storage');
-            $prop->setValue($ctx, $this->originalStorage);
+            $ctx->setSessionBag(null);
         } catch (\Throwable) {
         }
         parent::tearDown();

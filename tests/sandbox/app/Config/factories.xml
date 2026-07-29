@@ -18,7 +18,9 @@
 		
 		<!-- legacy security_filter removed -->
 		
-		<storage class="Quiote\Storage\SessionStorage" />
+		<session class="Quiote\Session\FileSessionFactory">
+			<ae:parameter name="dir">%core.app_dir%/cache/sessions</ae:parameter>
+		</session>
 		
 		<translation_manager class="Quiote\Translation\TranslationManager" />
 		
@@ -31,7 +33,6 @@
 	</ae:configuration>
 	
 	<ae:configuration environment="testing.*">
-		<storage class="Quiote\Storage\NullStorage" />
 		
 		<request class="Sandbox\Lib\Request\TestWebRequest">
 			<ae:parameter name="sources">
@@ -57,55 +58,40 @@
 		<user class="Quiote\User\User" />
 	</ae:configuration>
 	
-	<ae:configuration environment="testing.*" context="quiote-session-storage-test::tests-startup-sets-cookie-secure-flag">
-		<storage class="Quiote\Storage\SessionStorage">
-			<ae:parameter name="session_cookie_secure"></ae:parameter>
-		</storage>
-		
-		<request class="Sandbox\Lib\Request\TestWebRequest">
-			<ae:parameter name="sources">
-				<ae:parameter name="HTTPS">on</ae:parameter>
-			</ae:parameter>
-		</request>
-		
-	</ae:configuration>
-
-	<ae:configuration environment="testing.*" context="quiote-session-storage-test::tests-static-session-id">
-		<storage class="Quiote\Storage\SessionStorage">
-			<ae:parameter name="session_id">foobar</ae:parameter>
-		</storage>
-	</ae:configuration>
-
-	<ae:configuration environment="testing.*" context="quiote-session-storage-test::tests-worker-reset-clears-session">
-		<storage class="Quiote\Storage\SessionStorage" />
-	</ae:configuration>
-
-	<ae:configuration environment="testing.*" context="quiote-session-storage-test::tests-lazy-retrieve">
-		<storage class="Quiote\Storage\SessionStorage" />
-	</ae:configuration>
-
 	<ae:configuration environment="testing.*" context="session-middleware-lazy-start-test::tests-cookieless">
-		<storage class="Quiote\Storage\SessionStorage" />
+		<session class="Quiote\Session\FileSessionFactory">
+			<ae:parameter name="dir">%core.app_dir%/cache/sessions</ae:parameter>
+		</session>
 	</ae:configuration>
 
 	<ae:configuration environment="testing.*" context="session-middleware-lazy-start-test::tests-with-cookie">
-		<storage class="Quiote\Storage\SessionStorage" />
+		<session class="Quiote\Session\FileSessionFactory">
+			<ae:parameter name="dir">%core.app_dir%/cache/sessions</ae:parameter>
+		</session>
 	</ae:configuration>
 
 	<ae:configuration environment="testing.*" context="security-user-test::tests-token-derived-persistence">
-		<storage class="Quiote\Storage\SessionStorage" />
+		<session class="Quiote\Session\FileSessionFactory">
+			<ae:parameter name="dir">%core.app_dir%/cache/sessions</ae:parameter>
+		</session>
 	</ae:configuration>
 
 	<ae:configuration environment="testing.*" context="security-user-test::tests-token-derived-clear">
-		<storage class="Quiote\Storage\SessionStorage" />
+		<session class="Quiote\Session\FileSessionFactory">
+			<ae:parameter name="dir">%core.app_dir%/cache/sessions</ae:parameter>
+		</session>
 	</ae:configuration>
 
 	<ae:configuration environment="testing.*" context="security-user-test::tests-restore-identity">
-		<storage class="Quiote\Storage\SessionStorage" />
+		<session class="Quiote\Session\FileSessionFactory">
+			<ae:parameter name="dir">%core.app_dir%/cache/sessions</ae:parameter>
+		</session>
 	</ae:configuration>
 
 	<ae:configuration environment="testing.*" context="rbac-security-user-test::tests-token-derived-persistence">
-		<storage class="Quiote\Storage\SessionStorage" />
+		<session class="Quiote\Session\FileSessionFactory">
+			<ae:parameter name="dir">%core.app_dir%/cache/sessions</ae:parameter>
+		</session>
 	</ae:configuration>
 
 	<!--
@@ -114,28 +100,38 @@
 		NullStorage (which discards everything) cannot be used.
 	-->
 	<ae:configuration environment="testing.*" context="context-flush-test::tests-flush-persists-user">
-		<storage class="Quiote\Storage\SessionStorage" />
+		<session class="Quiote\Session\FileSessionFactory">
+			<ae:parameter name="dir">%core.app_dir%/cache/sessions</ae:parameter>
+		</session>
 		<user class="Quiote\User\RbacSecurityUser" />
 	</ae:configuration>
 
 	<ae:configuration environment="testing.*" context="context-flush-test::tests-flush-ordering">
-		<storage class="Quiote\Storage\SessionStorage" />
+		<session class="Quiote\Session\FileSessionFactory">
+			<ae:parameter name="dir">%core.app_dir%/cache/sessions</ae:parameter>
+		</session>
 		<user class="Quiote\User\RbacSecurityUser" />
 	</ae:configuration>
 
 	<!-- Dirty tracking: these assert whether a session was created at all. -->
 	<ae:configuration environment="testing.*" context="user-dirty-test::tests-anonymous">
-		<storage class="Quiote\Storage\SessionStorage" />
+		<session class="Quiote\Session\FileSessionFactory">
+			<ae:parameter name="dir">%core.app_dir%/cache/sessions</ae:parameter>
+		</session>
 		<user class="Quiote\User\RbacSecurityUser" />
 	</ae:configuration>
 
 	<ae:configuration environment="testing.*" context="user-dirty-test::tests-logout">
-		<storage class="Quiote\Storage\SessionStorage" />
+		<session class="Quiote\Session\FileSessionFactory">
+			<ae:parameter name="dir">%core.app_dir%/cache/sessions</ae:parameter>
+		</session>
 		<user class="Quiote\User\SecurityUser" />
 	</ae:configuration>
 
 	<ae:configuration environment="testing.*" context="user-dirty-test::tests-preferences">
-		<storage class="Quiote\Storage\SessionStorage" />
+		<session class="Quiote\Session\FileSessionFactory">
+			<ae:parameter name="dir">%core.app_dir%/cache/sessions</ae:parameter>
+		</session>
 		<user class="Quiote\User\SecurityUser" />
 	</ae:configuration>
 

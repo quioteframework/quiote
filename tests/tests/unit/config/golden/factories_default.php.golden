@@ -69,12 +69,6 @@ $this->controller->initialize($this, array (
 ));
 $this->controllerFactoryInfo = ['class' => 'Quiote\\Controller\\Controller', 'parameters' => array (
 )];
-$this->storage = new Quiote\Storage\NullStorage();
-$this->storage->initialize($this, array (
-));
-$this->storageFactoryInfo = ['class' => 'Quiote\\Storage\\NullStorage', 'parameters' => array (
-)];
-$this->storage->startup();
 $this->user = new Quiote\User\SecurityUser();
 $this->user->initialize($this, array (
 ));
@@ -88,5 +82,4 @@ $this->shutdownSequence = [$this->controller,
 $this->routing,
 $this->user,
 $this->translationManager,
-$this->storage,
 $this->databaseManager];

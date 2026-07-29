@@ -41,18 +41,8 @@ final class CsrfPipelineIntegrationTest extends TestCase
         MiddlewareCatalog::reset();
         (new CsrfPlugin())->register(new PluginRegistrar('quiote/csrf'));
 
-        // testing.* environment uses NullStorage; swap in an in-memory one so
-        // the CSRF token manager can actually persist/retrieve a token within
-        // this test.
         $ctx = $this->context();
-        $ro = new \ReflectionObject($ctx);
-        $prop = $ro->getProperty('storage');
-        $prop->setValue($ctx, new class {
-            private array $data = [];
-            public function store(string $id, mixed $data): bool { $this->data[$id] = $data; return true; }
-            public function retrieve($key) { return $this->data[$key] ?? null; }
-            public function remove($key) { unset($this->data[$key]); }
-        });
+        $ctx->setSessionBag(new InMemorySessionBag());
     }
 
     private function context(): Context

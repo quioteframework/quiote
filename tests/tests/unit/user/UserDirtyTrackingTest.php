@@ -80,8 +80,8 @@ class UserDirtyTrackingTest extends UnitTestCase
     public function testShutdownOnACleanUserWritesNothing(): void
     {
         $context = Context::getInstance('user-dirty-test::tests-anonymous');
-        $storage = new MockStorage();
-        (new ReflectionObject($context))->getProperty('storage')->setValue($context, $storage);
+        $bag = new InMemorySessionBag();
+        $context->setSessionBag($bag);
 
         $user = new User();
         $user->initialize($context);
@@ -89,14 +89,14 @@ class UserDirtyTrackingTest extends UnitTestCase
 
         $user->shutdown();
 
-        $this->assertFalse($storage->has('org.quiote.user.User'), 'a clean user must not write');
+        $this->assertFalse($bag->has('org.quiote.user.User'), 'a clean user must not write');
     }
 
     public function testShutdownOnADirtyUserWritesAndThenMarksClean(): void
     {
         $context = Context::getInstance('user-dirty-test::tests-anonymous');
-        $storage = new MockStorage();
-        (new ReflectionObject($context))->getProperty('storage')->setValue($context, $storage);
+        $bag = new InMemorySessionBag();
+        $context->setSessionBag($bag);
 
         $user = new User();
         $user->initialize($context);
@@ -104,15 +104,15 @@ class UserDirtyTrackingTest extends UnitTestCase
 
         $user->shutdown();
 
-        $this->assertTrue($storage->has('org.quiote.user.User'));
+        $this->assertTrue($bag->has('org.quiote.user.User'));
         $this->assertFalse($user->isDirty(), 'a persisted user is clean again');
     }
 
     public function testASecondShutdownAfterASuccessfulWriteIsANoOp(): void
     {
         $context = Context::getInstance('user-dirty-test::tests-anonymous');
-        $storage = new CountingStorage();
-        (new ReflectionObject($context))->getProperty('storage')->setValue($context, $storage);
+        $bag = new InMemorySessionBag();
+        $context->setSessionBag($bag);
 
         $user = new User();
         $user->initialize($context);
@@ -122,7 +122,7 @@ class UserDirtyTrackingTest extends UnitTestCase
         $user->shutdown();
         $user->shutdown();
 
-        $this->assertSame(1, $storage->storeCalls);
+        $this->assertSame(1, $bag->writes);
     }
 
     /**
@@ -132,7 +132,7 @@ class UserDirtyTrackingTest extends UnitTestCase
     public function testShutdownDoesNotMarkCleanWhenTheStoreThrows(): void
     {
         $context = Context::getInstance('user-dirty-test::tests-anonymous');
-        (new ReflectionObject($context))->getProperty('storage')->setValue($context, new ThrowingStorage());
+        $context->setSessionBag(new ThrowingSessionBag());
 
         $user = new User();
         $user->initialize($context);
@@ -188,25 +188,13 @@ class UserDirtyTrackingTest extends UnitTestCase
 }
 
 /**
- * MockStorage that counts store() calls.
+ * A bag whose writes always fail, for the "unpersisted state stays dirty" path.
  */
-class CountingStorage extends MockStorage
-{
-    public int $storeCalls = 0;
-
-    #[\Override]
-    public function store(string $ns, mixed $value): void
-    {
-        $this->storeCalls++;
-        parent::store($ns, $value);
-    }
-}
-
-class ThrowingStorage extends MockStorage
+class ThrowingSessionBag extends InMemorySessionBag
 {
     #[\Override]
-    public function store(string $ns, mixed $value): void
+    public function set(string $key, mixed $value): void
     {
-        throw new \RuntimeException('backing store is down');
+        throw new \RuntimeException('session backend is down');
     }
 }

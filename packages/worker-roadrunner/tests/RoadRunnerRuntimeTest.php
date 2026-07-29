@@ -14,7 +14,6 @@ use Quiote\Runtime\ErrorResponseFactory;
 use Quiote\Runtime\OutputCapture;
 use Quiote\Runtime\Request\WorkerRequestFactory;
 use Quiote\Runtime\RoadRunner\RoadRunnerRuntime;
-use Quiote\Runtime\Session\NativeSessionCookieBridge;
 use Quiote\Runtime\Superglobals\SuperglobalBridge;
 use Quiote\Runtime\Worker\WorkerLoop;
 use Quiote\Runtime\Worker\WorkerRuntimeCapabilities;
@@ -170,7 +169,6 @@ final class RoadRunnerRuntimeTest extends TestCase
             superglobals: new SuperglobalBridge(),
             output: new OutputCapture(OutputCapture::POLICY_APPEND),
             errors: new ErrorResponseFactory(),
-            sessionCookies: new NativeSessionCookieBridge(),
             capabilities: (new RoadRunnerRuntime(new FakePsr7Worker([])))->capabilities(),
             maxRequests: $maxRequests,
         );

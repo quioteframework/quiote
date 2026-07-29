@@ -13,12 +13,6 @@ routing:
 request:
   class: Quiote\Request\WebRequest
   params: []
-# The `storage` slot is still required, but nothing session-related uses it any
-# more -- the session comes from the `session` slot below.
-storage:
-  class: Quiote\Storage\NullStorage
-  params: []
-
 # File-backed so the probe needs no database. Two workers share the directory,
 # which is what makes this a real test of cross-worker session visibility.
 session:

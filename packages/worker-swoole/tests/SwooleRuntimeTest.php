@@ -239,7 +239,6 @@ final class SwooleRuntimeTest extends TestCase
             superglobals: new Quiote\Runtime\Superglobals\SuperglobalBridge(),
             output: new Quiote\Runtime\OutputCapture(),
             errors: new Quiote\Runtime\ErrorResponseFactory(),
-            sessionCookies: new Quiote\Runtime\Session\NativeSessionCookieBridge(),
             capabilities: (new SwooleRuntime())->capabilities(),
         );
     }

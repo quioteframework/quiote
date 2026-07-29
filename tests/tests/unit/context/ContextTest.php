@@ -271,10 +271,10 @@ class ContextTest extends PhpUnitTestCase
 	}
 
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
-	public function testGetStorage(): void
+	public function testGetSessionBag(): void
 	{
 		$ctx = Context::getInstance();
-		$this->assertInstanceOf(\Quiote\Storage\Storage::class, $ctx->getStorage());
+		$this->assertInstanceOf(\Quiote\Session\SessionBagInterface::class, $ctx->getSessionBag());
 	}
 
 	/**
@@ -292,14 +292,14 @@ class ContextTest extends PhpUnitTestCase
 		$this->assertSame($ctx->getController(), $container->get($ctx->getController()::class));
 
 		$this->assertSame($ctx->getRouting(), $container->get('routing'));
-		$this->assertSame($ctx->getStorage(), $container->get('storage'));
+		$this->assertSame($ctx->getSessionBag(), $container->get('sessionBag'));
 		$this->assertSame($ctx->getUser(), $container->get('user'));
 		$this->assertSame($ctx->getRequest(), $container->get('request'));
 	}
 
 	/**
 	 * reset() must drop request-scoped container entries in lockstep with the
-	 * request/storage/user nulling it already does, so the container never
+	 * request/session/user nulling it already does, so the container never
 	 * serves a discarded per-request instance.
 	 */
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
@@ -309,16 +309,16 @@ class ContextTest extends PhpUnitTestCase
 		$container = $ctx->getContainer();
 
 		$controllerBefore = $container->get('controller');
-		$storageBefore = $ctx->getStorage();
-		$this->assertSame($storageBefore, $container->get('storage'));
+		$bagBefore = $ctx->getSessionBag();
+		$this->assertSame($bagBefore, $container->get('sessionBag'));
 
 		$ctx->reset();
 
 		$this->assertSame($controllerBefore, $container->get('controller'), 'singleton-scoped services must survive reset()');
 
-		$storageAfter = $ctx->getStorage();
-		$this->assertNotSame($storageBefore, $storageAfter, 'storage must be recreated after reset()');
-		$this->assertSame($storageAfter, $container->get('storage'), 'container must reflect the recreated storage instance');
+		$bagAfter = $ctx->getSessionBag();
+		$this->assertNotSame($bagBefore, $bagAfter, 'the session bag must not survive reset()');
+		$this->assertSame($bagAfter, $container->get('sessionBag'), 'container must reflect the new bag');
 	}
 
 	/**

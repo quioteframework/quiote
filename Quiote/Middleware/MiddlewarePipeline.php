@@ -150,25 +150,7 @@ class MiddlewarePipeline implements RequestHandlerInterface
                     // some other span is still active.
                     \Quiote\Telemetry\Trace::current()->recordException($e)->setStatusError($e->getMessage());
                 }),
-                // One slot, two implementations. An application that configures
-                // the `session` factory slot gets the PSR-7-native stack, which
-                // also installs itself as the context's session bag so the
-                // User hierarchy, CSRF storage and OIDC state run against the
-                // same session rather than a second, independent one. With no
-                // slot configured getSessionManager() returns null and the
-                // ext/session implementation is used exactly as before.
-                //
-                // The slot keeps the legacy FQCN as its key so ordering
-                // configuration and MiddlewareConfigRegistry guards keep
-                // working across the switch.
-                SessionMiddleware::class => static function () use ($controller) {
-                    $manager = $controller->getContext()->getSessionManager();
-                    if ($manager !== null) {
-                        return new \Quiote\Session\SessionMiddleware($manager, $controller->getContext());
-                    }
-
-                    return new SessionMiddleware($controller);
-                },
+                SessionMiddleware::class => fn() => new SessionMiddleware($controller),
                 TelemetryMiddleware::class => fn() => new TelemetryMiddleware(),
                 TimingMiddleware::class => fn() => new TimingMiddleware(
                     \Quiote\Config\Config::getBool('middleware.timing.emit_header', false)

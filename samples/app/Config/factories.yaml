@@ -16,12 +16,16 @@ routing:
 request:
   class: Quiote\Request\WebRequest
   params: []
-storage:
-  class: Quiote\Storage\NullStorage
-  params: []
 user:
   class: Quiote\User\User
   params: []
 validation_manager:
   class: Quiote\Validator\ValidationManager
   params: []
+
+# File-backed sessions: no database required. Swap the class for a PDO, Redis
+# or object-storage factory to share sessions across hosts.
+session:
+  class: Quiote\Session\FileSessionFactory
+  params:
+    dir: '%core.app_dir%/cache/sessions'

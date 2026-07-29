@@ -10,18 +10,8 @@ class OidcStateStorageTest extends UnitTestCase
     protected function setUp(): void
 	{
 		parent::setUp();
-		// NullStorage (the default test storage) discards everything; a
-		// plain in-memory stand-in lets store()/consume() actually round-trip.
 		$ctx = $this->getContext();
-		$ro = new ReflectionObject($ctx);
-		$prop = $ro->getProperty('storage');
-		$prop->setValue($ctx, new class {
-			/** @var array<string, mixed> */
-			private array $data = [];
-			public function store(string $id, mixed $data): bool { $this->data[$id] = $data; return true; }
-			public function retrieve(string $key): mixed { return $this->data[$key] ?? null; }
-			public function remove(string $key): void { unset($this->data[$key]); }
-		});
+		$ctx->setSessionBag(new InMemorySessionBag());
 	}
 
 	public function testConsumeReturnsAPreviouslyStoredState(): void

@@ -12,7 +12,6 @@ use Quiote\Runtime\Emitter\ResponseEmitterInterface;
 use Quiote\Runtime\ErrorResponseFactory;
 use Quiote\Runtime\OutputCapture;
 use Quiote\Runtime\Request\WorkerRequestFactory;
-use Quiote\Runtime\Session\NativeSessionCookieBridge;
 use Quiote\Runtime\Superglobals\SuperglobalBridge;
 use Quiote\Runtime\Worker\FrankenPhpRuntime;
 use Quiote\Runtime\Worker\SapiRuntime;
@@ -81,7 +80,6 @@ final class CoreWorkerRuntimesTest extends TestCase
             superglobals: new SuperglobalBridge(),
             output: new OutputCapture(OutputCapture::POLICY_APPEND),
             errors: new ErrorResponseFactory(),
-            sessionCookies: new NativeSessionCookieBridge(),
             capabilities: $capabilities,
             maxRequests: $maxRequests,
         );

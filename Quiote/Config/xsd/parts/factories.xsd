@@ -32,7 +32,6 @@
 			<!-- New optional request factory (legacy request wrapper / worker-mode recreation) -->
 			<xs:element type="factory" minOccurs="0" name="request" />
 			<xs:element type="factory" minOccurs="0" name="routing" />
-			<xs:element type="factory" minOccurs="0" name="storage" />
 			<xs:element type="factory" minOccurs="0" name="user" />
 			<xs:element type="factory" minOccurs="0" name="validation_manager" />
 
@@ -40,8 +39,8 @@
 			<xs:element type="factory" minOccurs="0" name="database_manager" />
 			<!-- legacy security_filter removed (replaced by middleware) -->
 			<xs:element type="factory" minOccurs="0" name="translation_manager" />
-			<!-- PSR-7-native session backend; required only when
-			     core.use_modern_session is on. -->
+			<!-- Session backend. Optional: a context with no session
+			     configures nothing here. -->
 			<xs:element type="factory" minOccurs="0" name="session" />
 		</xs:all>
 	</xs:group>

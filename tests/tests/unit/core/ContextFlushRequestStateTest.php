@@ -1,52 +1,27 @@
 <?php
 
-use PHPUnit\Framework\Attributes\RunInSeparateProcess;
+use Nyholm\Psr7\ServerRequest;
 use Quiote\Context;
-use Quiote\Storage\SessionStorage;
+use Quiote\Session\QuioteSessionBag;
+use Quiote\Session\SessionManager;
 use Quiote\Testing\UnitTestCase;
 use Quiote\User\RbacSecurityUser;
 use Quiote\User\SecurityUser;
 
 /**
- * Context::flushRequestState() -- the single owner of "persist the user, then
- * close the session", and the fix for the defect where those two ran on
- * opposite sides of the response being emitted.
+ * Context::flushRequestState() -- where the user's session writes happen, and
+ * the fix for the defect that had them running on the wrong side of the
+ * response being emitted.
  *
- * The session was closed by SessionMiddleware on the pipeline unwind, but the
- * user (the only writer of roles, credentials and attributes) was shut down
- * later, from Context::reset(), after the response had gone out. Its
- * store() calls then hit SessionStorage::store()'s lazy @session_start(),
- * which fails silently once headers are sent -- so the data landed in a
- * $_SESSION nothing would ever persist. The visible symptom was a login that
- * produced authenticated=true with no roles and no credentials, and therefore
- * a 403 on every following request.
+ * The session was persisted on the pipeline unwind, but the user (the only
+ * writer of roles, credentials and attributes) was shut down later, from
+ * Context::reset(), after the response had gone out. Its writes therefore
+ * landed somewhere nothing would ever persist. The visible symptom was a login
+ * that produced authenticated=true with no roles and no credentials, and so a
+ * 403 on every following request.
  */
 class ContextFlushRequestStateTest extends UnitTestCase
 {
-    private function contextWithSessionStorage(string $name): Context
-    {
-        $context = Context::getInstance($name);
-        $storage = new SessionStorage();
-        $storage->initialize($context);
-        (new ReflectionObject($context))->getProperty('storage')->setValue($context, $storage);
-        $this->armFlush($context);
-
-        return $context;
-    }
-
-    /**
-     * Context::getInstance() hands back one shared instance per name, so the
-     * flush token survives between tests in this class. Re-arm it explicitly:
-     * in a real request that is handle()'s and reset()'s job.
-     */
-    private function armFlush(Context $context): void
-    {
-        $this->poke($context, 'requestStateFlushed', false);
-    }
-
-    /**
-     * Read a private/protected Context property.
-     */
     private function peek(Context $context, string $property): mixed
     {
         return (new ReflectionObject($context))->getProperty($property)->getValue($context);
@@ -58,27 +33,36 @@ class ContextFlushRequestStateTest extends UnitTestCase
     }
 
     /**
-     * Roles are granted after setAuthenticated(true) and are only ever written
-     * by the user's shutdown(), so they persist if and only if that shutdown
-     * happens before the session is closed.
-     *
-     * Note what this can and cannot prove. It verifies the whole login ->
-     * flush -> reload chain against the real backing store, but it cannot
-     * reproduce the original defect, whose trigger was
-     * SessionStorage::store()'s lazy @session_start() failing *because headers
-     * had already been sent* -- unreachable in a test process. The
-     * discriminating regression guard for the ordering is
-     * testFlushShutsDownTheUserBeforeTheStorage below; the end-to-end proof is
-     * the multi-request worker integration scenario.
+     * Context::getInstance() hands back one shared instance per name, so the
+     * flush token survives between tests. Re-arm it: in a real request that is
+     * handle()'s and reset()'s job.
      */
-    #[RunInSeparateProcess]
-    public function testRolesAndCredentialsSurviveTheRequestBoundaryFlush(): void
+    private function armFlush(Context $context): void
     {
-        $context = $this->contextWithSessionStorage('context-flush-test::tests-flush-persists-user');
-        $storage = $context->getStorage();
+        $this->poke($context, 'requestStateFlushed', false);
+    }
 
-        // Same definitions path the other RBAC tests use: the sandbox keeps
-        // them under Config/tests/, not at loadDefinitions()' default location.
+    private function context(string $name): Context
+    {
+        $context = Context::getInstance($name);
+        $this->armFlush($context);
+
+        return $context;
+    }
+
+    /**
+     * The whole login chain against a real session backend: the user's state
+     * has to be in the session by the time the session is persisted.
+     */
+    public function testRolesAndCredentialsReachTheSessionBeforeItIsPersisted(): void
+    {
+        $context = $this->context('context-flush-test::tests-flush-persists-user');
+        $persistence = new InMemorySessionPersistence();
+        $manager = new SessionManager($persistence);
+        $request = new ServerRequest('GET', '/');
+        $session = $manager->startFromRequest($request);
+        $context->setSessionBag(new QuioteSessionBag($manager, $session, $request));
+
         $user = new RbacSecurityUser();
         $user->initialize($context, [
             'definitions_file' => \Quiote\Config\Config::getString('core.config_dir') . '/tests/rbac_definitions.xml',
@@ -89,160 +73,102 @@ class ContextFlushRequestStateTest extends UnitTestCase
         $user->setAuthenticated(true);
         $user->grantRole('administrator');
 
-        $sessionId = session_id();
-        $this->assertIsString($sessionId);
-        $this->assertNotSame('', $sessionId, 'precondition: login must have created a session');
-
         $context->flushRequestState();
 
-        $this->assertNotSame(PHP_SESSION_ACTIVE, session_status(), 'the flush must close the session');
+        // Only now does the middleware persist the session -- which is the
+        // ordering under test.
+        $manager->persist($session);
 
-        // Drop the in-memory copy first: session_write_close() leaves $_SESSION
-        // populated, so without this the assertions below could be satisfied by
-        // data that never reached the backing store.
-        $_SESSION = [];
-
-        // Re-open the very same session id and read back what was persisted.
-        session_id($sessionId);
-        session_start();
-
-        // Read back through the storage API, the same way the next request's
-        // SecurityUser::initialize() would.
-        $this->assertTrue($storage->retrieve(SecurityUser::AUTH_NAMESPACE), 'authenticated flag must persist');
+        $stored = $persistence->load($session->getId());
+        $this->assertIsArray($stored);
+        $this->assertTrue($stored[SecurityUser::AUTH_NAMESPACE] ?? null, 'authenticated flag must persist');
         $this->assertSame(
             ['administrator'],
-            $storage->retrieve(RbacSecurityUser::ROLES_NAMESPACE),
+            $stored[RbacSecurityUser::ROLES_NAMESPACE] ?? null,
             'roles must reach the session -- their absence is what produced authenticated-and-403',
         );
         $this->assertNotEmpty(
-            $storage->retrieve(SecurityUser::CREDENTIAL_NAMESPACE),
+            $stored[SecurityUser::CREDENTIAL_NAMESPACE] ?? [],
             'credentials derived from the granted role must reach the session too',
         );
     }
 
     /**
-     * The ordering itself, observed directly: the user writes into the session,
-     * so it must be shut down before storage closes it.
+     * The ordering itself: the user writes into the session, so it must be
+     * flushed before anything persists the session.
      */
-    public function testFlushShutsDownTheUserBeforeTheStorage(): void
+    public function testFlushWritesTheUserIntoTheSession(): void
     {
-        $context = Context::getInstance('context-flush-test::tests-flush-ordering');
-        $this->armFlush($context);
-
-        RecordingStorage::resetLog();
-        $storage = new RecordingStorage();
-        $this->poke($context, 'storage', $storage);
+        $context = $this->context('context-flush-test::tests-flush-ordering');
+        RecordingSessionBag::resetLog();
+        $context->setSessionBag(new RecordingSessionBag());
         $this->poke($context, 'user', new RecordingUser());
 
         $context->flushRequestState();
 
-        $calls = array_values(array_filter(
-            RecordingStorage::calls(),
-            static fn(string $call): bool => in_array($call, ['user.shutdown', 'storage.shutdown'], true),
-        ));
-
-        $this->assertSame(['user.shutdown', 'storage.shutdown'], $calls);
+        $this->assertSame(['user.shutdown'], RecordingSessionBag::calls());
     }
 
     public function testFlushIsIdempotentWithinASingleRequest(): void
     {
-        $context = Context::getInstance('context-flush-test::tests-flush-ordering');
-        $this->armFlush($context);
-
-        RecordingStorage::resetLog();
-        $this->poke($context, 'storage', new RecordingStorage());
+        $context = $this->context('context-flush-test::tests-flush-ordering');
+        RecordingSessionBag::resetLog();
+        $context->setSessionBag(new RecordingSessionBag());
         $this->poke($context, 'user', new RecordingUser());
 
         $context->flushRequestState();
         $context->flushRequestState();
         $context->flushRequestState();
 
-        $this->assertSame(
-            1,
-            count(RecordingStorage::callersOf('storage.shutdown')),
-            'the first caller wins; later callers must not write again',
-        );
-        $this->assertSame(1, count(RecordingStorage::callersOf('user.shutdown')));
+        $this->assertSame(['user.shutdown'], RecordingSessionBag::calls(), 'the first caller wins');
     }
 
     /**
      * Creating a user at unwind for a request that never asked for one would
-     * manufacture a session row -- and a Set-Cookie -- for an anonymous
-     * visitor. flushRequestState() therefore reads the property directly and
-     * never calls getUser().
+     * establish a session -- and a cookie -- for an anonymous visitor.
+     * flushRequestState() therefore reads the property and never calls
+     * getUser().
      */
     public function testFlushDoesNotCreateAUserWhenNoneExists(): void
     {
-        $context = Context::getInstance('context-flush-test::tests-flush-ordering');
-        $this->armFlush($context);
-
-        RecordingStorage::resetLog();
-        $this->poke($context, 'storage', new RecordingStorage());
+        $context = $this->context('context-flush-test::tests-flush-ordering');
+        RecordingSessionBag::resetLog();
+        $context->setSessionBag(new RecordingSessionBag());
         $this->poke($context, 'user', null);
 
         $context->flushRequestState();
 
         $this->assertNull($this->peek($context, 'user'), 'no user must be created by the flush');
-        $this->assertSame([], RecordingStorage::callersOf('user.shutdown'));
-        $this->assertSame(1, count(RecordingStorage::callersOf('storage.shutdown')), 'storage is still closed');
+        $this->assertSame([], RecordingSessionBag::calls());
     }
 
     /**
-     * A sessionless request (auth.sessionless / jwt.skip_session) has no
-     * session to persist into, but must still claim the flush so the post-emit
-     * reset() does not attempt a late write.
+     * A sessionless request (auth.sessionless / jwt.skip_session) must still
+     * claim the flush, so the post-emit reset() does not attempt a late write.
      */
-    public function testFlushWithPersistUserFalseClosesStorageWithoutWritingTheUser(): void
+    public function testFlushWithPersistUserFalseWritesNothingButStillClaims(): void
     {
-        $context = Context::getInstance('context-flush-test::tests-flush-ordering');
-        $this->armFlush($context);
-
-        RecordingStorage::resetLog();
-        $this->poke($context, 'storage', new RecordingStorage());
+        $context = $this->context('context-flush-test::tests-flush-ordering');
+        RecordingSessionBag::resetLog();
+        $context->setSessionBag(new RecordingSessionBag());
         $this->poke($context, 'user', new RecordingUser());
 
         $context->flushRequestState(persistUser: false);
+        $this->assertSame([], RecordingSessionBag::calls());
 
-        $this->assertSame([], RecordingStorage::callersOf('user.shutdown'));
-        $this->assertSame(1, count(RecordingStorage::callersOf('storage.shutdown')));
-
-        // And the flush is claimed: a later backstop call is a no-op.
         $context->flushRequestState();
-        $this->assertSame([], RecordingStorage::callersOf('user.shutdown'));
+        $this->assertSame([], RecordingSessionBag::calls(), 'the flush was already claimed');
     }
 
     /**
-     * Failure path: if the user write throws, the session must still be closed,
-     * or a worker carries an open session into the next request.
-     */
-    public function testFlushStillClosesStorageWhenTheUserShutdownThrows(): void
-    {
-        $context = Context::getInstance('context-flush-test::tests-flush-ordering');
-        $this->armFlush($context);
-
-        RecordingStorage::resetLog();
-        $this->poke($context, 'storage', new RecordingStorage());
-        $this->poke($context, 'user', new ThrowingUser());
-
-        $context->flushRequestState();
-
-        $this->assertSame(
-            1,
-            count(RecordingStorage::callersOf('storage.shutdown')),
-            'storage must be closed even when the user write blew up',
-        );
-    }
-
-    /**
-     * And the exception does not escape into the response path.
+     * Failure path: a throwing user shutdown must not escape into the response
+     * path.
      */
     public function testAThrowingUserShutdownDoesNotPropagate(): void
     {
-        $context = Context::getInstance('context-flush-test::tests-flush-ordering');
-        $this->armFlush($context);
-
-        RecordingStorage::resetLog();
-        $this->poke($context, 'storage', new RecordingStorage());
+        $context = $this->context('context-flush-test::tests-flush-ordering');
+        RecordingSessionBag::resetLog();
+        $context->setSessionBag(new RecordingSessionBag());
         $this->poke($context, 'user', new ThrowingUser());
 
         $context->flushRequestState();
@@ -252,42 +178,50 @@ class ContextFlushRequestStateTest extends UnitTestCase
 
     public function testResetDoesNotWriteAgainWhenTheFlushAlreadyRan(): void
     {
-        $context = Context::getInstance('context-flush-test::tests-flush-ordering');
-        $this->armFlush($context);
-
-        RecordingStorage::resetLog();
-        $this->poke($context, 'storage', new RecordingStorage());
+        $context = $this->context('context-flush-test::tests-flush-ordering');
+        RecordingSessionBag::resetLog();
+        $context->setSessionBag(new RecordingSessionBag());
         $this->poke($context, 'user', new RecordingUser());
         $this->poke($context, 'shutdownSequence', []);
 
         $context->flushRequestState();
         $context->reset();
 
-        $this->assertSame(1, count(RecordingStorage::callersOf('storage.shutdown')));
-        $this->assertSame(1, count(RecordingStorage::callersOf('user.shutdown')));
+        $this->assertSame(['user.shutdown'], RecordingSessionBag::calls());
     }
 
     /**
-     * The backstop: a request that never reached SessionMiddleware still gets
-     * its state persisted, in the right order, from reset().
+     * The backstop: a request that never reached the session middleware still
+     * gets its state flushed from reset().
      */
     public function testResetFlushesWhenNothingElseDid(): void
     {
-        $context = Context::getInstance('context-flush-test::tests-flush-ordering');
-        $this->armFlush($context);
-
-        RecordingStorage::resetLog();
-        $this->poke($context, 'storage', new RecordingStorage());
+        $context = $this->context('context-flush-test::tests-flush-ordering');
+        RecordingSessionBag::resetLog();
+        $context->setSessionBag(new RecordingSessionBag());
         $this->poke($context, 'user', new RecordingUser());
         $this->poke($context, 'shutdownSequence', []);
 
         $context->reset();
 
-        $calls = array_values(array_filter(
-            RecordingStorage::calls(),
-            static fn(string $call): bool => in_array($call, ['user.shutdown', 'storage.shutdown'], true),
-        ));
-        $this->assertSame(['user.shutdown', 'storage.shutdown'], $calls);
+        $this->assertSame(['user.shutdown'], RecordingSessionBag::calls());
+    }
+
+    /**
+     * A bag surviving the request boundary would serve request N's session to
+     * request N+1 -- a cross-user leak.
+     */
+    public function testResetDropsTheSessionBag(): void
+    {
+        $context = $this->context('context-flush-test::tests-flush-ordering');
+        $bag = new RecordingSessionBag();
+        $context->setSessionBag($bag);
+        $this->poke($context, 'shutdownSequence', []);
+
+        $context->reset();
+
+        $this->assertNotSame($bag, $context->getSessionBag());
+        $this->assertInstanceOf(\Quiote\Session\NullSessionBag::class, $context->getSessionBag());
     }
 
     /**
@@ -296,11 +230,9 @@ class ContextFlushRequestStateTest extends UnitTestCase
      */
     public function testResetReArmsTheFlushForTheNextRequest(): void
     {
-        $context = Context::getInstance('context-flush-test::tests-flush-ordering');
-        $this->armFlush($context);
-
-        RecordingStorage::resetLog();
-        $this->poke($context, 'storage', new RecordingStorage());
+        $context = $this->context('context-flush-test::tests-flush-ordering');
+        RecordingSessionBag::resetLog();
+        $context->setSessionBag(new RecordingSessionBag());
         $this->poke($context, 'user', new RecordingUser());
         $this->poke($context, 'shutdownSequence', []);
 
@@ -308,27 +240,41 @@ class ContextFlushRequestStateTest extends UnitTestCase
         $context->reset();
 
         // Next request.
-        $this->poke($context, 'storage', new RecordingStorage());
+        $context->setSessionBag(new RecordingSessionBag());
         $this->poke($context, 'user', new RecordingUser());
         $context->flushRequestState();
 
-        $this->assertSame(
-            2,
-            count(RecordingStorage::callersOf('storage.shutdown')),
-            'the second request must be able to flush as well',
-        );
+        $this->assertSame(['user.shutdown', 'user.shutdown'], RecordingSessionBag::calls());
+    }
+
+    /**
+     * With no session slot configured -- a console command, a queue worker, a
+     * stateless API -- consumers still get something to talk to.
+     */
+    public function testAContextWithNoSessionConfiguredAnswersANullBag(): void
+    {
+        $context = $this->context('context-flush-test::tests-flush-ordering');
+        $context->setSessionBag(null);
+
+        $bag = $context->getSessionBag();
+
+        $this->assertInstanceOf(\Quiote\Session\NullSessionBag::class, $bag);
+        $bag->set('k', 'v');
+        $this->assertNull($bag->get('k'), 'writes are discarded');
+        $this->assertFalse($bag->exists());
+        $this->assertSame('', $bag->getId());
     }
 }
 
 /**
- * Minimal user double recording into RecordingStorage's shared log, so
- * user/storage ordering is observable in one sequence.
+ * Minimal user double recording into RecordingSessionBag's shared log, so user
+ * and session activity are observable in one ordered sequence.
  */
 class RecordingUser
 {
     public function shutdown(): void
     {
-        RecordingStorage::$log[] = ['call' => 'user.shutdown', 'oid' => spl_object_id($this)];
+        RecordingSessionBag::$log[] = 'user.shutdown';
     }
 }
 
@@ -336,8 +282,6 @@ class ThrowingUser
 {
     public function shutdown(): void
     {
-        RecordingStorage::$log[] = ['call' => 'user.shutdown', 'oid' => spl_object_id($this)];
-
         throw new \RuntimeException('user shutdown exploded');
     }
 }

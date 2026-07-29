@@ -92,6 +92,10 @@ class RbacSecurityUserTest extends UnitTestCase
 		// dedicated (SessionStorage-backed) context -- see factories.xml.
 		$context = Context::getInstance('rbac-security-user-test::tests-token-derived-persistence');
 
+		// A session that actually retains data: no middleware runs in a unit
+		// test, so the context would otherwise answer a NullSessionBag.
+		$context->setSessionBag(new InMemorySessionBag());
+
 		$u = new SimpleRbacSecurityUser();
 		$u->initialize($context);
 		$u->setAuthenticated(true);

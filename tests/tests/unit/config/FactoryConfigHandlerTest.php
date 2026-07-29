@@ -37,7 +37,6 @@ class FCHTestController         extends FCHTestBase {}
 class FCHTestRequest            extends FCHTestBase {}
 class FCHTestResponse           extends FCHTestBase {}
 class FCHTestRouting            extends FCHTestBase {}
-class FCHTestStorage            extends FCHTestBase {}
 class FCHTestTranslationManager extends FCHTestBase {}
 class FCHTestValidationManager  extends FCHTestBase {}
 class FCHTestDBManager          extends FCHTestBase {}
@@ -70,7 +69,6 @@ class FactoryConfigHandlerTest extends ConfigHandlerTestBase
 	/** @var array<string, mixed>|null */
 	public ?array $controllerFactoryInfo = null;
 	/** @var array<string, mixed>|null */
-	public ?array $storageFactoryInfo = null;
 	/** @var array<string, mixed>|null */
 	public ?array $userFactoryInfo = null;
 	/** @var array<string|int, mixed> */
@@ -81,7 +79,6 @@ class FactoryConfigHandlerTest extends ConfigHandlerTestBase
 
 	protected ?FCHTestDBManager $databaseManager = null;
 	protected ?FCHTestRequest $request = null;
-	protected ?FCHTestStorage $storage = null;
 	protected ?FCHTestTranslationManager $translationManager = null;
 	protected ?FCHTestUser $user = null;
 	protected ?FCHTestController $controller = null;
@@ -180,11 +177,6 @@ class FactoryConfigHandlerTest extends ConfigHandlerTestBase
 		// Request startup is no longer executed automatically; PSR-7 bootstrap handles initialization lazily.
 		$this->assertNull($request->suCalled);
 
-		$storage = $this->assertInstanceOfAndNarrow(FCHTestStorage::class, $this->storage);
-		$this->assertSame($this, $storage->context);
-		$this->assertSame($paramsExpected, $storage->params);
-		$this->assertTrue($storage->suCalled);
-
 		$translationManager = $this->assertInstanceOfAndNarrow(FCHTestTranslationManager::class, $this->translationManager);
 		$this->assertSame($this, $translationManager->context);
 		$this->assertSame($paramsExpected, $translationManager->params);
@@ -227,7 +219,6 @@ class FactoryConfigHandlerTest extends ConfigHandlerTestBase
 			'routing' => ['class' => 'FCHTestRouting', 'params' => []],
 			'request' => ['class' => 'FCHTestRequest', 'params' => []],
 			'controller' => ['class' => 'FCHTestController', 'params' => []],
-			'storage' => ['class' => 'FCHTestStorage', 'params' => []],
 			'user' => ['class' => 'FCHTestUser', 'params' => []],
 			// translation_manager deliberately omitted
 		], 'tests/factories.xml');
@@ -245,7 +236,6 @@ class FactoryConfigHandlerTest extends ConfigHandlerTestBase
 			'routing' => ['class' => 'FCHTestRouting', 'params' => []],
 			'request' => ['class' => 'FCHTestRequest', 'params' => []],
 			'controller' => ['class' => 'FCHTestController', 'params' => []],
-			'storage' => ['class' => 'FCHTestStorage', 'params' => []],
 			'user' => ['class' => 'FCHTestUser', 'params' => []],
 			// Present regardless of core.use_translation, so these tests assert
 			// on the session slot rather than on an unrelated global flag.
@@ -253,50 +243,29 @@ class FactoryConfigHandlerTest extends ConfigHandlerTestBase
 		];
 	}
 
-	public function testSessionSlotIsIgnoredWhileModernSessionsAreOff(): void
+	public function testAnUnconfiguredSessionSlotEmitsNothing(): void
 	{
-		Config::set('core.use_modern_session', false);
 		$FCH = new FactoryConfigHandler();
 
 		$code = $FCH->executeArray($this->baseFactories(), 'tests/factories.xml');
 
-		$this->assertStringNotContainsString("'session'", $code, 'an unconfigured, disabled slot must emit nothing');
-	}
-
-	public function testMissingSessionFactoryGivesActionableHintOnceEnabled(): void
-	{
-		Config::set('core.use_modern_session', true);
-		$FCH = new FactoryConfigHandler();
-
-		try {
-			$this->expectException(ConfigurationException::class);
-			$this->expectExceptionMessage('This entry becomes required once "core.use_modern_session" is enabled');
-
-			$FCH->executeArray($this->baseFactories(), 'tests/factories.xml');
-		} finally {
-			Config::set('core.use_modern_session', false);
-		}
+		$this->assertStringNotContainsString("'session'", $code, 'a context with no session configures nothing');
 	}
 
 	public function testSessionSlotEmitsFactoryInfoForTheConfiguredBackend(): void
 	{
-		Config::set('core.use_modern_session', true);
 		$FCH = new FactoryConfigHandler();
 
-		try {
-			$code = $FCH->executeArray($this->baseFactories() + [
+		$code = $FCH->executeArray($this->baseFactories() + [
 				'session' => ['class' => \Quiote\Session\FileSessionFactory::class, 'params' => ['dir' => '/tmp/quiote-sessions']],
 			], 'tests/factories.xml');
 
-			// factory_info, not an instantiating assignment: no
-			// SessionPersistenceInterface has the initialize($context, $params)
-			// shape the var branch emits.
-			$this->assertStringContainsString("\$this->factories['session']", $code);
-			$this->assertStringContainsString('FileSessionFactory', $code);
-			$this->assertStringNotContainsString('$this->session = new', $code);
-		} finally {
-			Config::set('core.use_modern_session', false);
-		}
+		// factory_info, not an instantiating assignment: no
+		// SessionPersistenceInterface has the initialize($context, $params)
+		// shape the var branch emits.
+		$this->assertStringContainsString("\$this->factories['session']", $code);
+		$this->assertStringContainsString('FileSessionFactory', $code);
+		$this->assertStringNotContainsString('$this->session = new', $code);
 	}
 
 	/**
@@ -305,19 +274,14 @@ class FactoryConfigHandlerTest extends ConfigHandlerTestBase
 	 */
 	public function testSessionSlotRejectsAClassThatIsNotASessionFactory(): void
 	{
-		Config::set('core.use_modern_session', true);
 		$FCH = new FactoryConfigHandler();
 
-		try {
-			$this->expectException(ConfigurationException::class);
-			$this->expectExceptionMessage('does not implement interface');
+		$this->expectException(ConfigurationException::class);
+		$this->expectExceptionMessage('does not implement interface');
 
-			$FCH->executeArray($this->baseFactories() + [
-				'session' => ['class' => 'FCHTestStorage', 'params' => []],
-			], 'tests/factories.xml');
-		} finally {
-			Config::set('core.use_modern_session', false);
-		}
+		$FCH->executeArray($this->baseFactories() + [
+			'session' => ['class' => 'FCHTestValidationManager', 'params' => []],
+		], 'tests/factories.xml');
 	}
 
 }

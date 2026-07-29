@@ -35,15 +35,7 @@ class OidcAuthenticatorTest extends UnitTestCase
 	{
 		parent::setUp();
 		$ctx = $this->getContext();
-		$ro = new ReflectionObject($ctx);
-		$prop = $ro->getProperty('storage');
-		$prop->setValue($ctx, new class {
-			/** @var array<string, mixed> */
-			private array $data = [];
-			public function store(string $id, mixed $data): bool { $this->data[$id] = $data; return true; }
-			public function retrieve(string $key): mixed { return $this->data[$key] ?? null; }
-			public function remove(string $key): void { unset($this->data[$key]); }
-		});
+		$ctx->setSessionBag(new InMemorySessionBag());
 	}
 
 	private function oidcClientReturningIdToken(string $idToken): OidcClient

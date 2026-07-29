@@ -157,12 +157,16 @@ class SecurityUserTest extends UnitTestCase
 		// dedicated (SessionStorage-backed) context -- see factories.xml.
 		$context = Context::getInstance('security-user-test::tests-token-derived-persistence');
 
+		// A session that actually retains data: no middleware runs in a unit
+		// test, so the context would otherwise answer a NullSessionBag.
+		$context->setSessionBag(new InMemorySessionBag());
+
 		$u = new SampleSecurityUser();
 		$u->initialize($context);
-		// Establish the session the way a real request does. markTokenDerived()
+		// Establish the session the way a real request does: markTokenDerived()
 		// and setAuthenticated(false) no longer create one on their own -- a
 		// stateless token client, which is exactly what token-derived means,
-		// must not be handed a session row and a Set-Cookie per call.
+		// must not be handed a session per call.
 		$u->setAuthenticated(true);
 		$u->clearCredentials();
 		$u->addCredential('stale_session_credential');
@@ -219,6 +223,10 @@ class SecurityUserTest extends UnitTestCase
 	public function testRestoreIdentityFromStorageRepopulatesDeclaredKeysAfterColdStart(): void
 	{
 		$context = Context::getInstance('security-user-test::tests-restore-identity');
+
+		// A session that actually retains data: no middleware runs in a unit
+		// test, so the context would otherwise answer a NullSessionBag.
+		$context->setSessionBag(new InMemorySessionBag());
 
 		$u = new SampleIdentityRestoringUser();
 		$u->initialize($context);
