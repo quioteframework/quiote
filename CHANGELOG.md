@@ -1,3 +1,21 @@
+## [3.0.2] - 2026-07-29
+
+### 🚀 Features
+
+- *(console)* Generate make:action templates from the configured renderer
+
+### 🐛 Bug Fixes
+
+- Repair four latent defects in headers, cache keys, OAuth scopes and rate limiting
+## [3.0.1] - 2026-07-29
+
+### 🚀 Features
+
+- *(filesystem)* Read cloud file metadata over HEAD
+
+### ⚙️ Miscellaneous Tasks
+
+- *(packages)* Credit the cloud-* packages in filesystem-* metadata
 ## [3.0.0] - 2026-07-29
 
 ### 🚀 Features
