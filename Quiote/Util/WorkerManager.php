@@ -117,11 +117,17 @@ class WorkerManager
                     $context = Context::getInstance();
                     $context->reset();
                     $logger->debug('[WorkerManager] Reset default context');
-                } catch (\Exception $e) {
+                } catch (\Throwable $e) {
                     $logger->error('[WorkerManager] Failed to get default context: ' . $e->getMessage());
                 }
             }
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            // Throwable, not Exception: a TypeError or other Error escaping a
+            // component's reset() must not propagate past this point either, or the
+            // remaining worker-state resets below are skipped for the next request.
+            // Context::reset() already guarantees its own request-scoped clears ran
+            // (they live in a finally), so continuing here is safe rather than
+            // leaving a half-reset context installed.
             $logger->error('[WorkerManager] Context reset failed: ' . $e->getMessage());
         }
         

@@ -62,8 +62,16 @@ final class FrankenPhpRuntime implements WorkerRuntimeInterface
         };
 
         do {
-            $keepRunning = ($this->handleRequest)($handler);
-            $loop->afterRequest();
+            // afterRequest() in a finally, matching SwooleRuntime/RoadRunnerRuntime:
+            // WorkerLoop::handle() catches throwables from the pipeline, but the
+            // emit() inside $handler sits outside that try, so a broken pipe or a
+            // client disconnect mid-stream would otherwise skip the request-boundary
+            // reset entirely and leak this request's state into the next one.
+            try {
+                $keepRunning = ($this->handleRequest)($handler);
+            } finally {
+                $loop->afterRequest();
+            }
         } while ($keepRunning && $loop->shouldContinue());
 
         $loop->shutdown();

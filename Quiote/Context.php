@@ -593,119 +593,167 @@ class Context implements \Stringable, ResetInterface
       }
     }
 
-    // Reset the controller state if it exists
-    if ($this->controller) {
-      $this->controller->reset();
-      if ($vd) {
-        $logger->debug("context.reset controller reset");
-      }
-    }
-
-    // CRITICAL: Manually execute the shutdown sequence in correct order for worker mode
-    // This ensures session data is saved properly before clearing state
-    if ($vd) {
-      $logger->debug("context.reset manual shutdown sequence");
-    }
-
-    // Persist user -> close session. Normally a no-op here, because
-    // SessionMiddleware already claimed the flush on the pipeline unwind --
-    // which is the whole point. By the time reset() runs the response has been
-    // emitted, and a session write at that point silently goes nowhere. This
-    // call is the backstop for requests that never reached the middleware.
-    $this->flushRequestState();
-
-    // Execute the shutdown sequence in the same order as would happen during normal shutdown
-    // But skip components that don't need shutdown or would interfere with worker mode
-    foreach ($this->shutdownSequence as $component) {
-      if ($component === $this->user) {
-        // Owned by flushRequestState(); shutting it down again would
-        // double-write.
-        continue;
-      }
-      if ($component === $this->databaseManager && $component !== null) {
-        // Recycle (ping + null dead connections) instead of full shutdown so the manager
-        // stays alive across requests, avoiding re-initialization cost.
+    // Everything from here to clearRequestScopedState() can throw -- a controller
+    // reset, a user persist, a connection recycle against a socket the peer closed
+    // at the request boundary. None of that may be allowed to skip the clears, so
+    // they run in the finally: a half-reset context that keeps request N's
+    // authenticated user installed would serve request N+1 as that user, which is
+    // a cross-user privilege leak and not merely a stale-data bug.
+    try {
+      // Reset the controller state if it exists
+      if ($this->controller) {
+        $this->controller->reset();
         if ($vd) {
-          $logger->debug(
-            "context.reset recycleConnections databaseManager - id=" .
-              spl_object_id($component),
-          );
+          $logger->debug("context.reset controller reset");
         }
-        $component->recycleConnections();
       }
-      // Skip controller, request, routing, translationManager shutdowns
-      // as they're not needed for session persistence and might interfere with worker mode
+
+      // CRITICAL: Manually execute the shutdown sequence in correct order for worker mode
+      // This ensures session data is saved properly before clearing state
+      if ($vd) {
+        $logger->debug("context.reset manual shutdown sequence");
+      }
+
+      // Persist user -> close session. Normally a no-op here, because
+      // SessionMiddleware already claimed the flush on the pipeline unwind --
+      // which is the whole point. By the time reset() runs the response has been
+      // emitted, and a session write at that point silently goes nowhere. This
+      // call is the backstop for requests that never reached the middleware.
+      // Must precede the clears below: it reads $this->user.
+      $this->flushRequestState();
+
+      // Execute the shutdown sequence in the same order as would happen during normal shutdown
+      // But skip components that don't need shutdown or would interfere with worker mode
+      foreach ($this->shutdownSequence as $component) {
+        if ($component === $this->user) {
+          // Owned by flushRequestState(); shutting it down again would
+          // double-write.
+          continue;
+        }
+        if ($component === $this->databaseManager && $component !== null) {
+          // Recycle (ping + null dead connections) instead of full shutdown so the manager
+          // stays alive across requests, avoiding re-initialization cost.
+          if ($vd) {
+            $logger->debug(
+              "context.reset recycleConnections databaseManager - id=" .
+                spl_object_id($component),
+            );
+          }
+          $component->recycleConnections();
+        }
+        // Skip controller, request, routing, translationManager shutdowns
+        // as they're not needed for session persistence and might interfere with worker mode
+      }
+
+      if ($vd) {
+        $logger->debug("context.reset shutdown complete");
+      }
+    } finally {
+      $this->clearRequestScopedState($logger, $vd);
     }
 
     if ($vd) {
-      $logger->debug("context.reset shutdown complete");
+      $logger->debug("[Context.reset] completed");
     }
+  }
 
+  /**
+   * Drop every piece of request-scoped state that must not survive into the next
+   * request served by the same worker process.
+   *
+   * Split out of {@see reset()} so it can run from a `finally` -- see the comment
+   * there. Ordered most-dangerous-first, and each individually guarded, so one
+   * component's broken reset() cannot prevent the identity clears: the session bag
+   * and user go first and unconditionally, because those two are what turn a
+   * failed reset into a cross-user authentication leak rather than stale data.
+   *
+   * @param      \Quiote\Logging\CategoryLogger $logger
+   * @param      bool $vd Whether debug logging is enabled.
+   * @return     void
+   * @since      3.0.3
+   */
+  private function clearRequestScopedState(
+    \Quiote\Logging\CategoryLogger $logger,
+    bool $vd,
+  ): void {
     // Drop this request's session. A bag surviving the boundary would serve
     // request N's session to request N+1, which is a cross-user leak; the next
     // request's middleware installs its own, and until it does getSessionBag()
     // answers a NullSessionBag.
     $this->sessionBag = null;
-    if ($vd) {
-      $logger->debug("context.reset session bag cleared");
-    }
 
-    // Reset user object (it will be recreated with clean session state)
+    // Reset user object (it will be recreated with clean session state). Nulled
+    // together with the bag and before anything that can throw: getUser() returns
+    // the existing instance rather than rebuilding from the new session, so a
+    // surviving user keeps its authenticated flag and granted roles.
     $this->user = null;
-    if ($vd) {
-      $logger->debug("[Context.reset] user cleared");
-    }
-
-    // Reset routing component instances
-    foreach ($this->resetInstances as $instance) {
-      if ($instance instanceof ResetInterface) {
-        $instance->reset();
-      }
-    }
-    if ($vd) {
-      $logger->debug("[Context.reset] routing reset instances");
-    }
-
-    // CRITICAL: Reset routing object to prevent cache corruption in worker mode
-    if ($this->routing) {
-      $this->routing->reset();
-      if ($vd) {
-        $logger->debug("[Context.reset] routing object reset");
-      }
-    }
-
-    // CRITICAL: Reset translation manager to prevent locale bleed across requests in worker mode
-    if ($this->translationManager) {
-      $this->translationManager->reset();
-      if ($vd) {
-        $logger->debug("[Context.reset] translationManager object reset");
-      }
-    }
 
     // Reset request object (it will be recreated for the next request)
     $this->request = null;
-    // Reset PSR middleware kernel for worker mode safety
+
     if ($vd) {
-      $logger->debug("[Context.reset] request nulled");
+      $logger->debug("[Context.reset] session bag, user and request cleared");
+    }
+
+    // Drop all ambient logging scopes so this request's rid/user/etc. cannot leak
+    // into the next request's log lines in a long-lived worker (same cross-request
+    // leak class as the session state cleared above).
+    try {
+      \Quiote\Logging\LogContext::clear();
+    } catch (\Throwable $e) {
+      $logger->error("[Context.reset] LogContext clear failed: " . $e->getMessage());
     }
 
     // Drop request-scoped container entries in lockstep with the request/storage/user
     // nulling above — otherwise the container would
     // keep serving a discarded per-request instance until the next lazy recreation re-registers it.
-    $this->container?->reset();
+    try {
+      $this->container?->reset();
+    } catch (\Throwable $e) {
+      $logger->error("[Context.reset] container reset failed: " . $e->getMessage());
+    }
 
-    // Drop all ambient logging scopes so this request's rid/user/etc. cannot leak
-    // into the next request's log lines in a long-lived worker (same cross-request
-    // leak class as the session state cleared elsewhere in this reset).
-    \Quiote\Logging\LogContext::clear();
+    // Reset routing component instances
+    try {
+      foreach ($this->resetInstances as $instance) {
+        if ($instance instanceof ResetInterface) {
+          $instance->reset();
+        }
+      }
+      if ($vd) {
+        $logger->debug("[Context.reset] routing reset instances");
+      }
+    } catch (\Throwable $e) {
+      $logger->error("[Context.reset] routing instance reset failed: " . $e->getMessage());
+    }
+
+    // CRITICAL: Reset routing object to prevent cache corruption in worker mode
+    try {
+      if ($this->routing) {
+        $this->routing->reset();
+        if ($vd) {
+          $logger->debug("[Context.reset] routing object reset");
+        }
+      }
+    } catch (\Throwable $e) {
+      $logger->error("[Context.reset] routing reset failed: " . $e->getMessage());
+    }
+
+    // CRITICAL: Reset translation manager to prevent locale bleed across requests in worker mode
+    try {
+      if ($this->translationManager) {
+        $this->translationManager->reset();
+        if ($vd) {
+          $logger->debug("[Context.reset] translationManager object reset");
+        }
+      }
+    } catch (\Throwable $e) {
+      $logger->error("[Context.reset] translationManager reset failed: " . $e->getMessage());
+    }
 
     // Re-arm the flush for the next request. Last, so that everything above
     // still sees this request's flush as already claimed.
     $this->requestStateFlushed = false;
-
-    if ($vd) {
-      $logger->debug("[Context.reset] completed");
-    }
   }
 
   /**
