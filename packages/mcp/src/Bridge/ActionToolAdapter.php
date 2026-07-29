@@ -59,7 +59,13 @@ final class ActionToolAdapter implements ToolHandlerInterface
             throw new ToolCallException(sprintf('Could not build a request for route "%s": %s', $this->routeName, $e->getMessage()));
         }
 
-        $request = $this->buildRequest($path, $extraParams);
+        // Attached before dispatch rather than read back afterwards: the pipeline
+        // reuses an ExecutionState it finds on the request instead of building its
+        // own, and mutates it in place. That makes this our window into what the
+        // pipeline decided -- the inner request object itself never comes back to us.
+        $executionState = new \Quiote\Execution\ExecutionState();
+        $request = $this->buildRequest($path, $extraParams)
+            ->withAttribute(\Quiote\Execution\ExecutionState::class, $executionState);
 
         try {
             $response = $context->handle($request);
@@ -70,6 +76,25 @@ final class ActionToolAdapter implements ToolHandlerInterface
         $body = (string) $response->getBody();
         if ($response->getStatusCode() >= 400) {
             throw new ToolCallException(sprintf('Action for route "%s" returned HTTP %d: %s', $this->routeName, $response->getStatusCode(), $body));
+        }
+
+        // A security forward renders the login/secure system action and returns
+        // HTTP 200, so status alone cannot distinguish "the action ran" from "the
+        // action was denied and you are looking at a login page". Returning that
+        // body as the tool result told the calling model the call succeeded and
+        // handed it markup it may well act on.
+        if ($executionState->forwarded) {
+            // Deliberately not reporting ExecutionState::$securityDecision here: on a
+            // forward SecurityMiddleware resets it to Allow for the *forwarded* action,
+            // so quoting it would report "Allow" for a request that was in fact denied.
+            // The action actually reached (login/secure) is the informative part.
+            throw new ToolCallException(sprintf(
+                'Action for route "%s" did not run: the request was forwarded to the "%s" system action. '
+                . 'An MCP tool call carries no session or interactive credential, so an action requiring '
+                . 'one cannot be invoked this way.',
+                $this->routeName,
+                (string) ($executionState->action ?? 'unknown'),
+            ));
         }
 
         return $body;
