@@ -13,14 +13,19 @@ routing:
 request:
   class: Quiote\Request\WebRequest
   params: []
-# The legacy ext/session storage on purpose: it is the path that relies on PHP
-# emitting Set-Cookie itself, which is a no-op off-SAPI and is what
-# NativeSessionCookieBridge exists to repair.
+# The `storage` slot is still required, but nothing session-related uses it any
+# more -- the session comes from the `session` slot below.
 storage:
-  class: Quiote\Storage\SessionStorage
+  class: Quiote\Storage\NullStorage
+  params: []
+
+# File-backed so the probe needs no database. Two workers share the directory,
+# which is what makes this a real test of cross-worker session visibility.
+session:
+  class: Quiote\Session\FileSessionFactory
   params:
-    session_name: WORKERPROBE
-    session_cookie_path: /
+    dir: '%core.app_dir%/cache/sessions'
+    cookie_name: WORKERPROBE
     session_cookie_secure: false
     session_cookie_httponly: true
 # RbacSecurityUser rather than the bare User: the identity probe asserts that

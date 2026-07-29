@@ -8,9 +8,8 @@ use Quiote\Action\Action;
 use Quiote\Request\WebRequest;
 
 /**
- * Reads a hit counter out of the legacy ext/session storage and increments it.
- * A client whose Set-Cookie was lost always sees hits=1, which is exactly the
- * failure NativeSessionCookieBridge exists to prevent.
+ * Reads a hit counter out of the session and increments it. A client whose
+ * Set-Cookie was lost, or whose session did not resume, always sees hits=1.
  */
 final class SessionAction extends Action
 {
@@ -20,12 +19,10 @@ final class SessionAction extends Action
 		if ($context === null) {
 			return 'Success';
 		}
-		$storage = $context->getStorage();
-		// store()/retrieve() are the app-level API; read()/write() on
-		// SessionStorage are ext/session's own handler callbacks.
-		$hits = $storage->retrieve('probe_hits');
+		$bag = $context->getSessionBag();
+		$hits = $bag->get('probe_hits');
 		$hits = is_numeric($hits) ? (int) $hits + 1 : 1;
-		$storage->store('probe_hits', $hits);
+		$bag->set('probe_hits', $hits);
 
 		$this->setAttribute('hits', $hits);
 

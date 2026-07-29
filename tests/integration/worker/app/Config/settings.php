@@ -12,6 +12,10 @@ return [
     'core.use_database' => false,
     'core.use_logging' => true,
     'core.use_security' => false,
+    // The PSR-7-native session stack. This probe is the only place it runs
+    // against real servers, which is what has to be true before the
+    // ext/session implementation can be retired.
+    'core.use_modern_session' => true,
     'core.use_translation' => false,
     'core.default_context' => 'web',
     'core.csrf.enabled' => false,

@@ -26,10 +26,10 @@ final class SessionSuccessView extends View
 		// empty body.
 		$this->loadLayout();
 		$this->getResponse()->setContentType('application/json');
-		// Read straight back out of storage rather than relying on the action's
-		// attribute bag reaching the template.
+		// Read straight back out of the session rather than relying on the
+		// action's attribute bag reaching the template.
 		$context = $this->getContext();
-		$hits = $context === null ? null : $context->getStorage()->retrieve('probe_hits');
+		$hits = $context?->getSessionBag()->get('probe_hits');
 		$this->setAttribute('hits', is_numeric($hits) ? (int) $hits : 0);
 	}
 }
