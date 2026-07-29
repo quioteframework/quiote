@@ -112,18 +112,31 @@ class SecurityMiddleware implements MiddlewareInterface
         } elseif ($action) {
             $decision = $this->securityService->decide($action);
         } else {
-            // Fail-closed: action couldn't be created. If user is authenticated, allow through.
-            // If not, forward to login.
+            // Fail-closed, and that means closed for everyone. The action instance is
+            // what carries isSecure()/getCredentials(), so without one there is no way
+            // to evaluate this action's own authorization requirements -- and
+            // "authenticated" is not a substitute for "authorized". Allowing an
+            // authenticated user through here skipped the action's credential check
+            // entirely, so any user who could make a privileged action's
+            // initialize() throw escalated to it. Note DispatchMiddleware builds its
+            // own instance, so a transient init failure here would otherwise let the
+            // action run unchecked on the retry.
+            //
+            // Which forward is right depends on whether the caller could plausibly fix
+            // it by authenticating: an anonymous caller gets the login forward, an
+            // already-authenticated one gets the secure/denied forward.
             $isAuth = false;
             try {
                 $user = $this->controller->getContext()->getUser();
                 $isAuth = method_exists($user, 'isAuthenticated') && $user->isAuthenticated();
             } catch (\Throwable) {
             }
-            $decision = $isAuth ? SecurityDecision::Allow : SecurityDecision::LoginForward;
-            if (!$isAuth) {
-                \Quiote\Logging\Log::for($this)->error('[SecurityMiddleware][' . $rid . '] fail-closed: action creation failed, user not authenticated → LoginForward');
-            }
+            $decision = $isAuth ? SecurityDecision::SecureForward : SecurityDecision::LoginForward;
+            \Quiote\Logging\Log::for($this)->error(
+                '[SecurityMiddleware][' . $rid . '] fail-closed: action creation failed, cannot evaluate '
+                . 'this action\'s security requirements → ' . $decision->name
+                . ' (authenticated=' . ($isAuth ? '1' : '0') . ')'
+            );
         }
 
         if ($dbg) {
