@@ -790,7 +790,11 @@ class ConfigCache
 		// world-writable executable PHP on a 0777 cache dir.
 		$filePerms = (0644 & ~umask()) | 0600; // owner can always read/write; never group/other write
 
-		Toolkit::mkdir($cacheDir, $dirPerms);
+		// Recursive: on a fresh deploy (or a first `cache:warmup`) core.cache_dir
+		// itself may not exist yet, and a non-recursive mkdir would fail silently
+		// here -- after which tempnam() below falls back to the system temp dir and
+		// the compiled config lands outside the cache directory entirely.
+		Toolkit::mkdir($cacheDir, $dirPerms, true);
 
 		if($append && is_readable($cache)) {
 			$data = file_get_contents($cache) . $data;
