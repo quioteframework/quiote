@@ -23,12 +23,6 @@ class LightweightActionInitContext extends AttributeHolder implements ActionInit
          * Accept WebRequest (implements ServerRequestInterface) or any PSR-7 ServerRequest.
          */
     private readonly ServerRequestInterface|null $requestData,
-        /**
-         * Use the legacy Response type here so tests and legacy code that pass
-         * Response-based shims (including TestLightweightResponse) do not
-         * trigger a TypeError. WebResponse extends Response so this
-         * remains compatible with the PSR adapter and web response code paths.
-         */
     private readonly WebResponse $response
     ) {}
 

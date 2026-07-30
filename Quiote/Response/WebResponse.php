@@ -4,20 +4,21 @@ namespace Quiote\Response;
 use Quiote\Context;
 use Quiote\Config\Config;
 use Quiote\Controller\OutputType;
+use Quiote\Exception\InitializationException;
 use Quiote\Exception\QuioteException;
 use Quiote\Request\WebRequest;
-use Quiote\Response\Response;
 use Quiote\Util\AttributeHolder;
 use Symfony\Contracts\Service\ResetInterface;
 use Psr\Http\Message\ResponseInterface;
 use Quiote\Http\SimpleStream;
 
 /**
- * WebResponse handles HTTP responses.
+ * WebResponse handles the HTTP response: status code, headers, cookies,
+ * redirects and the content sent back to the client.
  * @since      1.0.0
  * @version    1.0.0
  */
-class WebResponse extends Response
+class WebResponse extends AttributeHolder implements ResetInterface
 {
 
 
@@ -135,7 +136,6 @@ class WebResponse extends Response
 	 */
 	protected $redirect = null;
 
-	// --- Begin merged Response properties ---
 	/** @var ?Context */
 	protected $context = null;
 	/** @var mixed */
@@ -145,11 +145,106 @@ class WebResponse extends Response
 
 	/** @var ?ResponseInterface PSR-7 response attached for forwarding */
 	protected ?ResponseInterface $psrResponse = null;
-	// --- End merged Response properties ---
 
-	// --- Begin Response methods merged ---
-	#[\Override]
-    public function getContent()
+	/**
+	 * @var        ?string Context name, stand-in for the Context instance while serialized.
+	 */
+	protected final $contextName;
+
+	/**
+	 * @var        ?string Output type name, stand-in for the OutputType instance while serialized.
+	 */
+	protected final $outputTypeName;
+
+	/**
+	 * @var        ?array<string, mixed> Stream metadata, stand-in for stream content while serialized.
+	 */
+	protected final $contentStreamMeta;
+
+	/**
+	 * Pre-serialization callback.
+	 * Heavy object references (the Context, the OutputType) and the content
+	 * stream cannot be serialized, so record the identifiers needed to look
+	 * them back up in __wakeup() and leave the objects themselves out.
+	 * @return     list<string>
+	 * @since      1.0.0
+	 */
+	public function __sleep()
+	{
+		$vars = get_object_vars($this);
+
+		$this->contextName = $this->context?->getName();
+		unset($vars['context']);
+
+		if($this->outputType) {
+			$this->outputTypeName = $this->outputType->getName();
+			unset($vars['outputType']);
+		}
+
+		if(is_resource($this->content)) {
+			$this->contentStreamMeta = stream_get_meta_data($this->content);
+			unset($vars['content']);
+		}
+
+		// The PSR-7 response is request-scoped and not necessarily serializable.
+		unset($vars['psrResponse']);
+
+		return array_keys($vars);
+	}
+
+	/**
+	 * Post-unserialization callback.
+	 * Restores the Context, the OutputType and the content stream from the
+	 * identifiers recorded by __sleep().
+	 * @return     void
+	 * @since      1.0.0
+	 */
+	public function __wakeup()
+	{
+		$this->context = Context::getInstance($this->contextName);
+		unset($this->contextName);
+
+		if(isset($this->outputTypeName)) {
+			$this->outputType = $this->context->getController()->getOutputType($this->outputTypeName);
+			unset($this->outputTypeName);
+		}
+
+		if(isset($this->contentStreamMeta)) {
+			// contrary to what the documentation says, stream_get_meta_data() will not
+			// return the list of filters attached to the stream, so those cannot be restored.
+			$uri = $this->contentStreamMeta['uri'] ?? null;
+			$mode = $this->contentStreamMeta['mode'] ?? null;
+			$this->content = null;
+			if(is_string($uri) && is_string($mode)) {
+				$stream = fopen($uri, $mode);
+				if($stream !== false) {
+					$this->content = $stream;
+				}
+			}
+			unset($this->contentStreamMeta);
+		}
+	}
+
+	/**
+	 * Retrieve the Context instance this Response object belongs to.
+	 * @return     Context An Context instance.
+	 * @throws     InitializationException If this Response has not been initialized yet.
+	 * @since      1.0.0
+	 */
+	public final function getContext()
+	{
+		if ($this->context === null) {
+			throw new InitializationException(sprintf('%s has not been initialized; call initialize() first.', static::class));
+		}
+		return $this->context;
+	}
+
+	/**
+	 * Retrieve the content set for this Response.
+	 * @return     mixed The content set in this Response.
+	 * @since      1.0.0
+	 */
+	public function getContent()
 	{
 		return $this->content;
 	}
@@ -176,10 +271,10 @@ class WebResponse extends Response
 	}
 
 	/**
+	 * Retrieve the size (in bytes) of the content set for this Response.
 	 * @return int|false The content size in bytes, or false if it could not be determined.
 	 */
-	#[\Override]
-    public function getContentSize()
+	public function getContentSize()
 	{
 		if (is_resource($this->content)) {
 			if (($stat = fstat($this->content)) !== false) {
@@ -192,63 +287,101 @@ class WebResponse extends Response
 		}
 	}
 
-	#[\Override]
-    public function setContent($content)
+	/**
+	 * Set the content for this Response.
+	 * @param      mixed $content The content to be sent in this Response.
+	 * @return     void
+	 */
+	public function setContent($content)
 	{
 		$this->content = $content;
 	}
 
-	#[\Override]
-    public function prependContent($content)
+	/**
+	 * Prepend content to the existing content for this Response.
+	 * @param      mixed $content The content to be prepended to this Response.
+	 * @return     void
+	 */
+	public function prependContent($content)
 	{
 		$this->setContent(self::toStringOrEmpty($content) . self::toStringOrEmpty($this->getContent()));
 	}
 
-	#[\Override]
-    public function appendContent($content)
+	/**
+	 * Append content to the existing content for this Response.
+	 * @param      mixed $content The content to be appended to this Response.
+	 * @return     void
+	 */
+	public function appendContent($content)
 	{
 		$this->setContent(self::toStringOrEmpty($this->getContent()) . self::toStringOrEmpty($content));
 	}
 
-	#[\Override]
-    public function clearContent()
+	/**
+	 * Clear the content for this Response.
+	 * @return     void
+	 */
+	public function clearContent()
 	{
 		$this->content = null;
 	}
 
-	#[\Override]
-    public function getOutputType()
+	/**
+	 * Get the Output Type to use with this response.
+	 * @return     ?OutputType The Output Type instance associated with, or null if none is set.
+	 */
+	public function getOutputType()
 	{
 		return $this->outputType;
 	}
 
-	#[\Override]
-    public function setOutputType(OutputType $outputType)
+	/**
+	 * Set the Output Type to use with this response.
+	 * @return     void
+	 */
+	public function setOutputType(OutputType $outputType)
 	{
 		$this->outputType = $outputType;
 	}
 
-	#[\Override]
-    public function clearOutputType()
+	/**
+	 * Clear the Output Type to use with this response.
+	 * @return     void
+	 */
+	public function clearOutputType()
 	{
 		$this->outputType = null;
 	}
 
+	/**
+	 * Reset response state for worker compatibility: everything a request can
+	 * put on the response has to go, or request N's body/headers/cookies would
+	 * bleed into request N+1. The Context is deliberately kept -- it is
+	 * application-scoped, not request-scoped, and a reused response instance is
+	 * not re-initialize()d before the next request.
+	 * @since      1.0.0
+	 */
 	#[\Override]
     public function reset(): void
 	{
-		// Reset web-specific response properties
 		$this->httpStatusCode = '200';
 		$this->httpHeaders = [];
 		$this->cookies = [];
 		$this->redirect = null;
 		$this->httpStatusCodes = null;
 
-		// Clear attribute holder state
+		$this->content = null;
+		$this->outputType = null;
+		$this->psrResponse = null;
+
+		// Serialization scratch space; stale values would confuse __wakeup().
+		$this->contextName = null;
+		$this->outputTypeName = null;
+		$this->contentStreamMeta = null;
+
 		$this->clearAttributes();
 		$this->clearParameters();
 	}
-	// --- End Response methods merged ---
 
 	/**
 	 * Initialize this Response.
@@ -257,10 +390,8 @@ class WebResponse extends Response
 	 * @return     void
 	 * @since      1.0.0
 	 */
-	#[\Override]
-    public function initialize(Context $context, array $parameters = [])
+	public function initialize(Context $context, array $parameters = [])
 	{
-		// Merge legacy Response::initialize behaviour
 		$this->context = $context;
 		$this->setParameters($parameters);
 
@@ -365,8 +496,7 @@ class WebResponse extends Response
 	 * @return     void
 	 * @since      1.0.0
 	 */
-	#[\Override]
-    public function sendContent()
+	public function sendContent()
 	{
 		if(is_resource($this->content) && $this->getParameter('use_sendfile_header', false)) {
 			$info = stream_get_meta_data($this->content);
@@ -377,7 +507,6 @@ class WebResponse extends Response
 				return;
 			}
 		}
-		// Inline Response::sendContent behaviour
 		if(is_resource($this->content)) {
 			fpassthru($this->content);
 			fclose($this->content);
@@ -410,7 +539,6 @@ class WebResponse extends Response
 	 * @return     bool If any content is set, false otherwise.
 	 * @since      1.0.0
 	 */
-    #[\Override]
     public function hasContent()
 	{
 		return $this->content !== null && $this->content !== '';
@@ -443,15 +571,15 @@ class WebResponse extends Response
 	}
 
 	/**
-	 * Import response metadata (headers, cookies) from another response.
-	 * @param      Response $otherResponse The other response to import information from.
+	 * Import response metadata (attributes, headers, cookies, redirect) from
+	 * another response. Anything already set on this response wins; array-valued
+	 * attributes are merged with this response's entries taking precedence.
+	 * @param      WebResponse $otherResponse The other response to import information from.
 	 * @return     void
 	 * @since      1.0.0
 	 */
-	#[\Override]
-    public function merge($otherResponse)
+	public function merge($otherResponse)
 	{
-		// Merge attribute holder state (behaviour from Response::merge)
 		foreach($otherResponse->getAttributeNamespaces() as $namespace) {
 			foreach($otherResponse->getAttributes($namespace) as $name => $value) {
 				if(!$this->hasAttribute($name, $namespace)) {
@@ -461,44 +589,39 @@ class WebResponse extends Response
 					if(is_array($thisAttribute)) {
 						$thisAttribute = array_merge($value, $thisAttribute);
 					}
-
 				}
 			}
 		}
 
-		if($otherResponse instanceof WebResponse) {
-			foreach($otherResponse->getHttpHeaders() as $name => $value) {
-				if(!$this->hasHttpHeader($name)) {
-					$this->setHttpHeader($name, $value);
-				}
+		foreach($otherResponse->getHttpHeaders() as $name => $value) {
+			if(!$this->hasHttpHeader($name)) {
+				$this->setHttpHeader($name, $value);
 			}
-			foreach($otherResponse->getCookies() as $name => $cookie) {
-				if(!$this->hasCookie($name)) {
-					$this->setCookie($name, $cookie['value'], $cookie['lifetime'], $cookie['path'], $cookie['domain'], $cookie['secure'], $cookie['httponly'], $cookie['encode_callback']);
-				}
+		}
+		foreach($otherResponse->getCookies() as $name => $cookie) {
+			if(!$this->hasCookie($name)) {
+				$this->setCookie($name, $cookie['value'], $cookie['lifetime'], $cookie['path'], $cookie['domain'], $cookie['secure'], $cookie['httponly'], $cookie['encode_callback']);
 			}
-			$redirect = $otherResponse->getRedirect();
-			if($redirect !== null && !$this->hasRedirect()) {
-				$this->setRedirect($redirect['location'], $redirect['code']);
-			}
+		}
+		$redirect = $otherResponse->getRedirect();
+		if($redirect !== null && !$this->hasRedirect()) {
+			$this->setRedirect($redirect['location'], $redirect['code']);
 		}
 	}
 
-		/**
-		 * Determine whether the content in the response may be modified by appending
-		 * or prepending data using string operations. Typically false for streams
-		 * or responses where the content is not a string (e.g. an array).
-		 * @return     bool If the content can be treated as / changed like a string.
-		 */
-		#[\Override]
-        public function isContentMutable()
-		{
-			return !$this->hasRedirect() && !is_resource($this->content);
-		}
+	/**
+	 * Determine whether the content in the response may be modified by appending
+	 * or prepending data using string operations. Typically false for streams
+	 * or responses where the content is not a string (e.g. an array).
+	 * @return     bool If the content can be treated as / changed like a string.
+	 */
+	public function isContentMutable()
+	{
+		return !$this->hasRedirect() && !is_resource($this->content);
+	}
 
 	/**
 	 * Check if the given HTTP status code is valid.
-	public function hasContent()
 	 * @param      string|int $code A numeric HTTP status code.
 	 * @return     bool True, if the code is valid, or false otherwise.
 	 * @since      1.0.0
@@ -1173,12 +1296,6 @@ class WebResponse extends Response
 		$this->redirect = null;
 	}
 
-	/**
-	 * Reset web response state for FrankenPHP worker compatibility.
-	 * Clears web-specific response properties that could leak between requests.
-	 * @since      1.0.0
-	 */
-	// duplicate reset removed (merged earlier)
 }
 
 ?>
