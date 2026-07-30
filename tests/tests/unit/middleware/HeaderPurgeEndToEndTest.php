@@ -32,7 +32,21 @@ class HeaderPurgeEndToEndTest extends UnitTestCase
         if (!is_dir($tmpCache)) { @mkdir($tmpCache, 0777, true); }
         $this->previousCacheDir = \Quiote\Config\Config::getNullableString('core.cache_dir');
         \Quiote\Config\Config::set('core.cache_dir', $tmpCache);
+        // Start from a fresh context request. ValidationMiddleware canonicalizes
+        // whatever request it is handed onto the Context, so any test that dispatched
+        // a `quiote.preinstantiated_action` before this one leaves that attribute
+        // behind -- and the chain below would execute that leftover action instead of
+        // the Snapshot fixture, rendering the same view and silently proving nothing.
+        $fresh = new \Quiote\Request\WebRequest();
+        $fresh->initialize($this->getContext());
+        $this->getContext()->setRequest($fresh);
         $this->getContext()->getController()->initializeModule('Snapshot');
+        // Cold-start this action's cache entry: the payload is keyed by
+        // module/action and outlives the test, so one cached by another test using
+        // the same Snapshot fixture would serve this request from cache -- the
+        // action would never run, and there would be no recorded headers to assert
+        // the purge against.
+        \Quiote\Cache\CacheManager::invalidateAction('Snapshot', 'HeaderSnapshotAction');
         HeaderSnapshotAction::$seenHeaders = [];
     }
 
@@ -67,6 +81,9 @@ class HeaderPurgeEndToEndTest extends UnitTestCase
         $seen = HeaderSnapshotAction::$seenHeaders;
 
         $this->assertSame('HEADER_OK', (string) $resp->getBody());
+        // Guard the guard: if the fixture action never ran, every header assertion
+        // below would pass on its 'UNSET' fallback and prove nothing.
+        $this->assertNotSame([], $seen, 'HeaderSnapshotAction::execute() must have run');
         $this->assertSame('', $seen['content-type'] ?? 'UNSET', 'Content-Type must be purged before execute*() runs');
         $this->assertSame('', $seen['authorization'] ?? 'UNSET', 'Authorization must be purged before execute*() runs');
         $this->assertSame('', $seen['x-my-special-header'] ?? 'UNSET', 'Arbitrary custom header must be purged before execute*() runs');

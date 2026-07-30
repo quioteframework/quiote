@@ -19,8 +19,27 @@ class ValidationMiddlewareUpdateMethodTest extends UnitTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        // Reset context request to fresh instance to avoid state pollution from prior tests
-        // (withAttribute/clone gives shallow copy sharing the parameterHolder object)
+        $this->installFreshContextRequest();
+    }
+
+    /**
+     * Also runs after each test, not just before. ValidationMiddleware
+     * canonicalizes the request it is handed onto the Context, so the
+     * `quiote.preinstantiated_action` attribute these tests set would otherwise
+     * stay on the shared context request -- and the next test to dispatch through
+     * the middleware chain would execute this test's leftover action instead of
+     * its own fixture.
+     */
+    protected function tearDown(): void
+    {
+        $this->installFreshContextRequest();
+        parent::tearDown();
+    }
+
+    private function installFreshContextRequest(): void
+    {
+        // A fresh instance rather than a clone: withAttribute() gives a shallow
+        // copy that still shares the parameter holder.
         $fresh = new WebRequest();
         $fresh->initialize($this->getContext());
         $this->getContext()->setRequest($fresh);
