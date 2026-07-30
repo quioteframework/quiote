@@ -10,6 +10,8 @@ use Sandbox\Modules\Snapshot\Actions\SnapshotAction;
 
 class ActionAttributeSnapshotTest extends UnitTestCase
 {
+    private ?string $previousCacheDir = null;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -18,6 +20,7 @@ class ActionAttributeSnapshotTest extends UnitTestCase
         // Ensure writable cache directory for config cache generation
         $tmpCache = sys_get_temp_dir() . '/quiote_test_cache';
         if(!is_dir($tmpCache)) { @mkdir($tmpCache, 0777, true); }
+        $this->previousCacheDir = \Quiote\Config\Config::getNullableString('core.cache_dir');
         \Quiote\Config\Config::set('core.cache_dir', $tmpCache);
         $this->getContext()->getController()->initializeModule('Snapshot');
     SnapshotAction::$initialAttributes = [];
@@ -54,5 +57,17 @@ class ActionAttributeSnapshotTest extends UnitTestCase
     $this->assertArrayHasKey('gamma', SnapshotAction::$postMutationAttributes);
         // attribute snapshot embedded in ActionExecutionContext should reflect initial state only; fetch it via request ExecutionState not available, so repeat execute and introspect internal executor via cache? For simplicity ensure initial beta differs from post mutation.
     $this->assertNotEquals(SnapshotAction::$postMutationAttributes['beta'], SnapshotAction::$initialAttributes['beta']);
+    }
+
+    protected function tearDown(): void
+    {
+        // Put core.cache_dir back: it is a process-global directive, so leaving it
+        // pointed at this test's temp directory makes every later test compile its
+        // config cache in there -- or, once the directory is cleaned up, wherever
+        // tempnam() falls back to.
+        if ($this->previousCacheDir !== null) {
+            \Quiote\Config\Config::set('core.cache_dir', $this->previousCacheDir, true);
+        }
+        parent::tearDown();
     }
 }

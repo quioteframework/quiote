@@ -55,6 +55,14 @@ final class QueueFailedForgetCommandTest extends PhpUnitTestCase
     {
         QueueDriverRegistry::reset();
         PluginManager::reset();
+        // The command under test bootstraps the app before it resolves its
+        // container, and bootstrap restores core.default_context from the app's
+        // settings. Other tests in this process leave that directive pointing at
+        // a different context, which would bind the fake store onto one Context's
+        // container while the command reads another's -- so pin it to the context
+        // this suite runs against before touching any container.
+        Config::set('core.default_context', getenv('QUIOTE_ISOLATION_DEFAULT_CONTEXT') ?: 'web', true);
+
         // Context's Container is a process-wide singleton across the whole test
         // run, so a fake store bound by one test would otherwise leak into every
         // test that runs after it (in this file or any other).

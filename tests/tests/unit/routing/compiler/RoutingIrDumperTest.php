@@ -5,12 +5,13 @@ use Quiote\Routing\Compiler\AttributeRouteScanner;
 use Quiote\Routing\Compiler\RouteDefinition;
 use Quiote\Routing\Compiler\RoutePlan;
 use Quiote\Routing\Compiler\RoutingIrDumper;
+use Quiote\Plugin\PluginManager;
 use Quiote\Testing\PhpUnitTestCase;
 
 /**
- * Covers item 6 of PERF_PLAN.md: RoutingIrDumper::emit()/load() round-trips a
- * RoutePlan through an opcache-friendly `return [...]` PHP artifact, so
- * AttributeRouting::build() can skip AttributeRouteScanner's live scan.
+ * RoutingIrDumper::emit()/load() round-trips a RoutePlan through an
+ * opcache-friendly `return [...]` PHP artifact, so AttributeRouting::build()
+ * can skip AttributeRouteScanner's live scan.
  */
 class RoutingIrDumperTest extends PhpUnitTestCase
 {
@@ -101,21 +102,34 @@ class RoutingIrDumperTest extends PhpUnitTestCase
         $this->assertNull(RoutingIrDumper::load());
     }
 
-    public function testTargetForDiffersWhenModuleDirDiffers(): void
+    public function testTargetForDiffersWhenTheModuleDirectorySetDiffers(): void
     {
+        // The artifact path keys on the full set of module directories, so a
+        // plugin contributing one has to land on a different target than the
+        // app's own directory alone -- otherwise two differently-composed apps
+        // would fight over one cache file.
+        //
+        // Varied through PluginManager rather than by rewriting
+        // `core.module_dir`: several suites pin that directive readonly (the 4th
+        // argument to Config::set()), which is a process-lifetime latch that
+        // silently discards later writes, so this test's outcome would depend on
+        // whether one of those ran first.
         $original = RoutingIrDumper::targetFor();
 
-        Config::set('core.module_dir', Config::getString('core.module_dir') . '/does-not-exist', true);
+        $contributed = [];
+        foreach (PluginManager::moduleDirectories() as $dir) {
+            $contributed[] = $dir;
+        }
         try {
+            PluginManager::addModuleDirectory(Config::getString('core.module_dir') . '/does-not-exist');
             $differing = RoutingIrDumper::targetFor();
         } finally {
-            // Restore: Config::set() with overwrite=true just replaces, no
-            // dedicated "previous value" API, so recompute from the fixture
-            // path used everywhere else in this suite would be brittle --
-            // reconstruct it the same way tests/bootstrap.php does instead.
-            Config::set('core.module_dir', Config::getString('core.app_dir') . '/Modules', true);
+            $ro = new \ReflectionClass(PluginManager::class);
+            $prop = $ro->getProperty('moduleDirs');
+            $prop->setValue(null, $contributed);
         }
 
         $this->assertNotSame($original, $differing);
+        $this->assertSame($original, RoutingIrDumper::targetFor(), 'the original target must come back once the contribution is gone');
     }
 }

@@ -13,17 +13,21 @@ use Quiote\Execution\ValidationDecision;
 #[RunTestsInSeparateProcesses]
 class DispatchMiddlewareExecutionStateTest extends UnitTestCase
 {
+    private ?string $previousCacheDir = null;
+
     protected function setUp(): void
     {
         parent::setUp();
         Config::set('core.cache_enabled', true);
         Config::set('core.use_cache', true);
+    $this->previousCacheDir = \Quiote\Config\Config::getNullableString('core.cache_dir');
     Config::set('core.cache_dir', sys_get_temp_dir() . '/quiote_cache_test');
     $dir = Config::getString('core.cache_dir'); if(!is_dir($dir)) { @mkdir($dir, 0775, true); }
         CacheManager::reset();
         $psrDir = Config::getString('core.cache_dir') . DIRECTORY_SEPARATOR . 'psr-cache';
         if (is_dir($psrDir)) {
             $rii = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($psrDir, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::CHILD_FIRST);
+            /** @var \SplFileInfo $file */
             foreach ($rii as $file) { $file->isDir() ? @rmdir($file->getPathname()) : @unlink($file->getPathname()); }
             @rmdir($psrDir);
         }
@@ -68,5 +72,17 @@ class DispatchMiddlewareExecutionStateTest extends UnitTestCase
     $mw->process($this->req($d2, $state2), new class(new Psr17Factory) implements \Psr\Http\Server\RequestHandlerInterface { public function __construct(private Psr17Factory $f){} public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface { return $this->f->createResponse(200);} });
     $this->assertSame(1, \Sandbox\Modules\Cache\Actions\CacheAction::$execCount, 'Second run should not re-execute action');
         $this->assertTrue($state2->cacheHit, 'cacheHit should be true after cache replay');
+    }
+
+    protected function tearDown(): void
+    {
+        // Put core.cache_dir back: it is a process-global directive, so leaving it
+        // pointed at this test's temp directory makes every later test compile its
+        // config cache in there -- or, once the directory is cleaned up, wherever
+        // tempnam() falls back to.
+        if ($this->previousCacheDir !== null) {
+            \Quiote\Config\Config::set('core.cache_dir', $this->previousCacheDir, true);
+        }
+        parent::tearDown();
     }
 }

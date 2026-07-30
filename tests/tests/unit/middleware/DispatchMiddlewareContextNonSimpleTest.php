@@ -15,12 +15,15 @@ use Quiote\View\View;
  */
 class DispatchMiddlewareContextNonSimpleTest extends UnitTestCase
 {
+    private ?string $previousCacheDir = null;
+
     protected function setUp(): void
     {
         parent::setUp();
     // Ensure minimal required configuration directives for context access
     if(!Config::has('core.app_dir')) { Config::set('core.app_dir', getcwd()); }
     if(!Config::has('core.default_context')) { Config::set('core.default_context', 'web'); }
+        $this->previousCacheDir = \Quiote\Config\Config::getNullableString('core.cache_dir');
         Config::set('core.cache_dir', sys_get_temp_dir() . '/quiote_ctx_nonsimple_cache_test');
         $dir = Config::getString('core.cache_dir');
         if(!is_dir($dir)) { @mkdir($dir, 0777, true); }
@@ -47,6 +50,13 @@ class DispatchMiddlewareContextNonSimpleTest extends UnitTestCase
     {
         putenv('QUIOTE_DISPATCH_CONTEXT_NONSIMPLE');
         parent::tearDown();
+        // Put core.cache_dir back: it is a process-global directive, so leaving it
+        // pointed at this test's temp directory makes every later test compile its
+        // config cache in there -- or, once the directory is cleaned up, wherever
+        // tempnam() falls back to.
+        if ($this->previousCacheDir !== null) {
+            \Quiote\Config\Config::set('core.cache_dir', $this->previousCacheDir, true);
+        }
     }
 
     /**

@@ -14,14 +14,21 @@ class TranslationManagerNegativeTest extends UnitTestCase
 {
     private TranslationManager $tm;
 
+    private mixed $previousUseTranslation = null;
+
+    /** Whether setUp() forced a manager onto the shared Context and must take it back off. */
+    private bool $installedManager = false;
+
     #[\Override]
     protected function setUp(): void
     {
         ConfigCache::clear();
+        $this->previousUseTranslation = Config::get('core.use_translation');
         Config::set('core.use_translation', true, true);
         $ctx = Context::getInstance();
         $tm = $ctx->getTranslationManager();
         if ($tm === null) {
+            $this->installedManager = true;
             $info = $ctx->getFactoryInfo('translation_manager');
             if ($info === null || empty($info['class'])) {
                 $ctx->setFactoryInfo('translation_manager', [
@@ -38,10 +45,40 @@ class TranslationManagerNegativeTest extends UnitTestCase
             $seqProp = $ro->getProperty('shutdownSequence');
             
             $seq = $seqProp->getValue($ctx);
+            $seq = is_array($seq) ? $seq : [];
             if (!in_array($tm, $seq, true)) { $seq[] = $tm; $seqProp->setValue($ctx, $seq); }
             $tm->startup();
         }
         $this->tm = $tm;
+    }
+
+    /**
+     * Everything setUp() did reaches beyond this test class: core.use_translation
+     * is a global directive, and the manager is forced onto the shared Context by
+     * reflection. Left in place, later tests in the same process render templates
+     * with translations enabled against a manager this class also reset() --
+     * which is how a whole group of renderer tests used to fail depending on
+     * execution order.
+     */
+    #[\Override]
+    protected function tearDown(): void
+    {
+        if ($this->installedManager) {
+            $ctx = Context::getInstance();
+            $ro = new \ReflectionObject($ctx);
+            $ro->getProperty('translationManager')->setValue($ctx, null);
+            $seqProp = $ro->getProperty('shutdownSequence');
+            $seq = $seqProp->getValue($ctx);
+            if (is_array($seq)) {
+                $installed = $this->tm;
+                $seqProp->setValue($ctx, array_values(array_filter(
+                    $seq,
+                    static fn(mixed $component): bool => $component !== $installed
+                )));
+            }
+            $this->installedManager = false;
+        }
+        Config::set('core.use_translation', $this->previousUseTranslation, true);
     }
 
     public function testInvalidLocaleIdentifierThrows(): void

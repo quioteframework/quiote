@@ -21,9 +21,8 @@ final class CacheWarmupCommandTest extends PhpUnitTestCase
 
     public function testWarmsConfigIntoTheFileCache(): void
     {
-        $cacheConfigDir = Config::getString('core.cache_dir') . '/config';
         // Start from a cold cache so we prove the command actually compiles.
-        array_map('unlink', glob($cacheConfigDir . '/settings*.php') ?: []);
+        array_map('unlink', glob(Config::getString('core.cache_dir') . '/config/settings*.php') ?: []);
 
         $tester = $this->tester();
         $exitCode = $tester->execute(['--context' => 'web']);
@@ -35,8 +34,13 @@ final class CacheWarmupCommandTest extends PhpUnitTestCase
         $this->assertMatchesRegularExpression('/settings\.xml\s+compiled/', $display);
         $this->assertMatchesRegularExpression('/factories\.xml\s+compiled/', $display);
 
-        // The compiled settings cache file now exists on disk.
-        $this->assertNotEmpty(glob($cacheConfigDir . '/settings*_web_*.php'), 'expected a compiled settings cache file');
+        // Resolve the cache directory *after* the run: the command bootstraps the
+        // app, which re-reads settings.xml and so restores core.cache_dir. Plenty
+        // of tests in this suite repoint that directive at a temp dir and never
+        // put it back, so a path read before the run is not necessarily the one
+        // the command just wrote into.
+        $cacheConfigDir = Config::getString('core.cache_dir') . '/config';
+        $this->assertNotEmpty(glob($cacheConfigDir . '/settings*_web_*.php'), 'expected a compiled settings cache file in ' . $cacheConfigDir);
     }
 
     public function testWarmsCleanlyWithoutErrorLines(): void

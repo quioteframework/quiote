@@ -22,6 +22,8 @@ use Sandbox\Modules\Snapshot\Actions\ParamSnapshotAction;
  */
 class SimpleActionParamPipelineTest extends UnitTestCase
 {
+    private ?string $previousCacheDir = null;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -29,6 +31,7 @@ class SimpleActionParamPipelineTest extends UnitTestCase
         putenv('QUIOTE_DISPATCH_CONTEXT_SIMPLE=1');
         $tmpCache = sys_get_temp_dir() . '/quiote_test_cache';
         if (!is_dir($tmpCache)) { @mkdir($tmpCache, 0777, true); }
+        $this->previousCacheDir = \Quiote\Config\Config::getNullableString('core.cache_dir');
         \Quiote\Config\Config::set('core.cache_dir', $tmpCache);
         $this->getContext()->getController()->initializeModule('Snapshot');
         ParamSnapshotAction::$seenParams = [];
@@ -70,5 +73,17 @@ class SimpleActionParamPipelineTest extends UnitTestCase
         $this->assertSame('PARAM_OK', (string) $resp->getBody());
         // execute() must never have run at all -- not "ran with params cleared".
         $this->assertSame([], $seen, 'execute() must never run for a simple action');
+    }
+
+    protected function tearDown(): void
+    {
+        // Put core.cache_dir back: it is a process-global directive, so leaving it
+        // pointed at this test's temp directory makes every later test compile its
+        // config cache in there -- or, once the directory is cleaned up, wherever
+        // tempnam() falls back to.
+        if ($this->previousCacheDir !== null) {
+            \Quiote\Config\Config::set('core.cache_dir', $this->previousCacheDir, true);
+        }
+        parent::tearDown();
     }
 }

@@ -19,11 +19,14 @@ use Symfony\Component\Routing\Exception\ResourceNotFoundException;
  */
 class CompiledMatcherParityTest extends TestCase
 {
+    private ?string $previousCacheDir = null;
+
     private string $cacheDir;
 
     protected function setUp(): void
     {
         $this->cacheDir = sys_get_temp_dir() . '/quiote_compiled_matcher_test_' . getmypid();
+        $this->previousCacheDir = \Quiote\Config\Config::getNullableString('core.cache_dir');
         Config::set('core.cache_dir', $this->cacheDir);
         Config::set('core.routing.compiled_matcher', true);
     }
@@ -33,16 +36,23 @@ class CompiledMatcherParityTest extends TestCase
         foreach (glob($this->cacheDir . '/routing/*.php') ?: [] as $f) {
             @unlink($f);
         }
+        // Put core.cache_dir back: it is a process-global directive, so leaving it
+        // pointed at this test's temp directory makes every later test compile its
+        // config cache in there -- or, once the directory is cleaned up, wherever
+        // tempnam() falls back to.
+        if ($this->previousCacheDir !== null) {
+            \Quiote\Config\Config::set('core.cache_dir', $this->previousCacheDir, true);
+        }
     }
 
     /**
-     * @param array<string, array{pattern: string, defaults?: array<string, mixed>, requirements?: array<string, mixed>}> $spec
+     * @param array<string, array{pattern: string, defaults?: array<string, mixed>, requirements?: array<string, string>}> $spec
      */
     private function makeRouting(array $spec): Routing
     {
         return new class($spec) extends Routing {
             /**
-             * @param array<string, array{pattern: string, defaults?: array<string, mixed>, requirements?: array<string, mixed>}> $spec
+             * @param array<string, array{pattern: string, defaults?: array<string, mixed>, requirements?: array<string, string>}> $spec
              */
             public function __construct(private readonly array $spec) { parent::__construct(); }
             protected function build(): array {
@@ -58,7 +68,9 @@ class CompiledMatcherParityTest extends TestCase
     private function matcherOf(Routing $routing): object
     {
         $prop = new \ReflectionProperty(Routing::class, 'matcher');
-        return $prop->getValue($routing);
+        $matcher = $prop->getValue($routing);
+        $this->assertIsObject($matcher, 'the routing instance must have a matcher by now');
+        return $matcher;
     }
 
     private const SPEC = [

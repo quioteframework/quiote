@@ -29,7 +29,7 @@ class DispatchMiddlewareTest extends TestCase
         }
     }
     /**
-     * @param array<string, array<string, mixed>> $cookies
+     * @param array<string, array{value: mixed, lifetime: int|string|null, path: string|null, domain: string|null, secure: bool, httponly: bool, encode_callback: (callable(): mixed)|false, samesite: string|null}> $cookies
      */
     private function makeController(\Closure $actionFactory, array $cookies = []): Controller
     {
@@ -46,20 +46,21 @@ class DispatchMiddlewareTest extends TestCase
             /** @var array<string, array<int, mixed>> */
             private array $headers = [];
             /**
-             * @param array<string, array<string, mixed>> $cookiesData
+             * @param array<string, array{value: mixed, lifetime: int|string|null, path: string|null, domain: string|null, secure: bool, httponly: bool, encode_callback: (callable(): mixed)|false, samesite: string|null}> $cookiesData
              */
             public function __construct(private readonly array $cookiesData)
             {
             }
             public function getCookies(): array { return $this->cookiesData; }
-            public function setRedirect($url, $statusCode = 302) { $this->redirect = ['location' => $url, 'code' => $statusCode]; $this->hasRedirect = true; }
+            public function setRedirect($url, $statusCode = 302) { $this->redirect = ['location' => is_string($url) ? $url : '', 'code' => $statusCode]; $this->hasRedirect = true; }
             public function getRedirect() { return $this->redirect; }
             public function hasRedirect() { return $this->hasRedirect; }
             public function clearRedirect() { $this->redirect = null; $this->hasRedirect = false; }
             public function isSent(): bool { return $this->sent; }
             public function send(?\Quiote\Controller\OutputType $outputType = null) { $this->sent = true; }
             public function setHttpHeader($name, $value, $replace = true) { if($replace||!isset($this->headers[$name])){$this->headers[$name]=[];} $this->headers[$name][]=$value; }
-            public function getHttpHeader($name, mixed $default = null) { return $this->headers[$name] ?? $default; }
+            /** @return list<string>|null */
+            public function getHttpHeader($name, mixed $default = null) { $values = $this->headers[$name] ?? $default; if(!is_array($values)) { return null; } return array_values(array_map(static fn(mixed $v): string => is_scalar($v) || $v instanceof \Stringable ? (string) $v : '', $values)); }
             public function hasHttpHeader($name) { return isset($this->headers[$name]); }
             public function removeHttpHeader($name) { unset($this->headers[$name]); }
             public function clearHttpHeaders() { $this->headers = []; }
@@ -250,7 +251,11 @@ class DispatchMiddlewareTest extends TestCase
 
     public function testCookieBridging(): void
     {
-        // Cookie array structure as expected by DispatchMiddleware::buildPsrResponse
+        // Cookie array structure as WebResponse::setCookie() stores it, which is
+        // what DispatchMiddleware::buildPsrResponse consumes. encode_callback is
+        // false ("value already encoded") rather than null: setCookie() resolves
+        // null to the configured default before storing, so null never reaches a
+        // consumer in production.
         $cookies = [
             'sid' => [
                 'lifetime' => 3600,
@@ -259,7 +264,8 @@ class DispatchMiddlewareTest extends TestCase
                 'domain' => null,
                 'secure' => false,
                 'httponly' => true,
-                'encode_callback' => null,
+                'encode_callback' => false,
+                'samesite' => 'Lax',
             ],
             'prefs' => [
                 'lifetime' => 0,
@@ -268,7 +274,8 @@ class DispatchMiddlewareTest extends TestCase
                 'domain' => null,
                 'secure' => false,
                 'httponly' => false,
-                'encode_callback' => null,
+                'encode_callback' => false,
+                'samesite' => 'Lax',
             ],
         ];
         $action = new class extends \Quiote\Action\Action {
@@ -295,6 +302,13 @@ class DispatchMiddlewareTest extends TestCase
         if(!class_exists(\Quiote\Cache\CacheManager::class)) { $this->markTestSkipped('Cache components missing'); }
         \Quiote\Config\Config::set('core.cache_enabled', true);
         \Quiote\Config\Config::set('core.use_cache', true);
+        // Cold-start this action's cache entry. The payload is keyed by
+        // module/action and outlives the test, so one left behind by another test
+        // (testNonSimpleCacheHitRequiresPriorExecution uses the same Foo/Bar
+        // fixture) would turn the first process() below into a hit -- leaving no
+        // execution for the second one to skip, and making this test's outcome
+        // depend on the order the two ran in.
+        \Quiote\Cache\CacheManager::invalidateAction('Foo', 'Bar');
         require_once __DIR__ . '/../../../fixtures/App/Modules/Foo/Views/BarView.php';
         $executed = 0;
         $executedRef =& $executed;
@@ -323,16 +337,11 @@ class DispatchMiddlewareTest extends TestCase
 
     public function testNonSimpleCacheHitRequiresPriorExecution(): void
     {
-        // Ensure no prior executions or cached payloads interfere (statically tracked across tests)
-        try {
-            $ref = new \ReflectionClass(\Quiote\Middleware\DispatchMiddleware::class);
-            // PHP 8.4+: Calling ReflectionProperty::setValue() with a single argument is deprecated.
-            // These are static properties, so pass null as the object per new signature requirements.
-            if($ref->hasProperty('executedNonSimpleActions')) { $p=$ref->getProperty('executedNonSimpleActions'); /*  */ $p->setValue(null, []); }
-            if($ref->hasProperty('executedSimpleActions')) { $p=$ref->getProperty('executedSimpleActions'); /*  */ $p->setValue(null, []); }
-        } catch(\Throwable $e) { /* ignore */ }
         \Quiote\Config\Config::set('core.cache_enabled', true);
         \Quiote\Config\Config::set('core.use_cache', true);
+        // Same cold start as testSimpleCacheHitSkipsExecution: no payload cached
+        // for Foo/Bar by an earlier test may satisfy the first request here.
+        \Quiote\Cache\CacheManager::invalidateAction('Foo', 'Bar');
         require_once __DIR__ . '/../../../fixtures/App/Modules/Foo/Views/BarView.php';
         $executed = 0;
         $executedRef =& $executed;

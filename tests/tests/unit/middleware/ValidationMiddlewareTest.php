@@ -26,7 +26,19 @@ class ValidationMiddlewareTest extends TestCase
         $this->context = Context::getInstance('testing');
         // Force request/controller initialization for consistent sharing
         $this->context->getController();
-        $this->context->getRequest();
+
+        // Start every test from a virgin request. The strict-validation
+        // whitelist accumulates on the request object as validators declare
+        // their parameters -- correct within one request, and discarded in
+        // production because Context::reset() drops the request at each request
+        // boundary. This process never crosses one, so without this the tests
+        // here would inherit each other's whitelists: the test asserting that an
+        // unvalidated route param is unreadable would see "id" already
+        // whitelisted by the test that does validate it, depending on the order
+        // the two happened to run in. Nulling the request is what reset() does;
+        // getRequest() then rebuilds an initialized one from the factory info.
+        (new ReflectionObject($this->context))->getProperty('request')->setValue($this->context, null);
+
         // Strict validation: seed whitelist with potential parameter names used across tests
         $req = $this->context->getRequest();
         $req = $req->enforceValidatedParameters(['foo','existing','slug','_internal','keep']);

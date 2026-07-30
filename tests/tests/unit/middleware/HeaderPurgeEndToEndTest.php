@@ -21,6 +21,8 @@ use Sandbox\Modules\Snapshot\Actions\HeaderSnapshotAction;
  */
 class HeaderPurgeEndToEndTest extends UnitTestCase
 {
+    private ?string $previousCacheDir = null;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -28,6 +30,7 @@ class HeaderPurgeEndToEndTest extends UnitTestCase
         putenv('QUIOTE_DISPATCH_CONTEXT_SIMPLE=1');
         $tmpCache = sys_get_temp_dir() . '/quiote_test_cache';
         if (!is_dir($tmpCache)) { @mkdir($tmpCache, 0777, true); }
+        $this->previousCacheDir = \Quiote\Config\Config::getNullableString('core.cache_dir');
         \Quiote\Config\Config::set('core.cache_dir', $tmpCache);
         $this->getContext()->getController()->initializeModule('Snapshot');
         HeaderSnapshotAction::$seenHeaders = [];
@@ -67,5 +70,17 @@ class HeaderPurgeEndToEndTest extends UnitTestCase
         $this->assertSame('', $seen['content-type'] ?? 'UNSET', 'Content-Type must be purged before execute*() runs');
         $this->assertSame('', $seen['authorization'] ?? 'UNSET', 'Authorization must be purged before execute*() runs');
         $this->assertSame('', $seen['x-my-special-header'] ?? 'UNSET', 'Arbitrary custom header must be purged before execute*() runs');
+    }
+
+    protected function tearDown(): void
+    {
+        // Put core.cache_dir back: it is a process-global directive, so leaving it
+        // pointed at this test's temp directory makes every later test compile its
+        // config cache in there -- or, once the directory is cleaned up, wherever
+        // tempnam() falls back to.
+        if ($this->previousCacheDir !== null) {
+            \Quiote\Config\Config::set('core.cache_dir', $this->previousCacheDir, true);
+        }
+        parent::tearDown();
     }
 }

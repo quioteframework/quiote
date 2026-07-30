@@ -39,7 +39,9 @@ class ConfigCacheFormatResolutionTest extends PhpUnitTestCase
 	private function resolve(string $filename): string
 	{
 		$method = new ReflectionMethod(ConfigCache::class, 'resolveConfigFormat');
-		return $method->invoke(null, $filename);
+		$resolved = $method->invoke(null, $filename);
+		$this->assertIsString($resolved, 'resolveConfigFormat() must answer a path');
+		return $resolved;
 	}
 
 	private function touch(string $name): string
@@ -149,6 +151,14 @@ class ConfigCacheFormatResolutionTest extends PhpUnitTestCase
 		$originalAppName = Config::getNullableString('core.app_name');
 		file_put_contents($phpSibling, "<?php\nreturn ['core.app_name' => 'FromSiblingPhp'];\n");
 		try {
+			// resolveConfigFormat() memoizes settings.xml -> settings.xml for the
+			// process, on the documented assumption that the physical file behind a
+			// logical config name is stable for a worker's lifetime. Dropping a
+			// higher-priority sibling mid-process breaks that assumption, so the
+			// memo (and the compiled cache keyed off the old winner) has to go
+			// first -- otherwise this passes or fails purely on whether anything
+			// else resolved settings.xml earlier in the run.
+			ConfigCache::clear();
 			$cacheFile = ConfigCache::checkConfig($configDir . '/settings.xml', null);
 			require $cacheFile;
 			$this->assertSame('FromSiblingPhp', Config::getString('core.app_name'));
