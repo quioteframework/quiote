@@ -198,7 +198,16 @@ final class PluginManager
         return self::$registered;
     }
 
-    /** Test isolation: clears every plugin + contribution and the booted flag. */
+    /**
+     * Test isolation: clears every plugin + contribution and the booted flag.
+     *
+     * Middleware contributions are cleared with the rest. They live in their own
+     * registries rather than in this class, and leaving them behind produced a
+     * half-registered plugin: the pipeline still advertised the plugin's
+     * middleware while the container had lost the service that middleware's
+     * factory resolves, so the next dispatch died on a missing service rather
+     * than simply running without the plugin.
+     */
     public static function reset(): void
     {
         self::$plugins = [];
@@ -207,6 +216,8 @@ final class PluginManager
         self::$commands = [];
         self::$containerServices = [];
         self::$httpClientConfigs = [];
+        \Quiote\Middleware\MiddlewareCatalog::reset();
+        \Quiote\Middleware\Config\MiddlewareConfigRegistry::reset();
         \Quiote\Database\DatabaseDriverRegistry::reset();
         \Quiote\Exception\Rendering\ExceptionRendererRegistry::reset();
         \Quiote\Filesystem\FilesystemDriverRegistry::reset();
