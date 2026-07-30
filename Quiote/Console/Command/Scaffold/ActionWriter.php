@@ -157,8 +157,17 @@ final class ActionWriter
         $dom = new \DOMDocument();
         $dom->preserveWhiteSpace = false;
         $dom->formatOutput = true;
-        if (!$dom->load($configPath)) {
-            throw new ConfigurationException(sprintf('Could not parse "%s" as XML.', $configPath));
+        // Route libxml's diagnostics into the exception instead of letting them
+        // surface as a PHP warning in front of the generator's own error.
+        $previousUseErrors = libxml_use_internal_errors(true);
+        libxml_clear_errors();
+        $loaded = $dom->load($configPath);
+        $parseErrors = libxml_get_errors();
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousUseErrors);
+        if (!$loaded) {
+            $detail = $parseErrors === [] ? '.' : ': ' . trim($parseErrors[0]->message);
+            throw new ConfigurationException(sprintf('Could not parse "%s" as XML%s', $configPath, $detail));
         }
 
         $xpath = new \DOMXPath($dom);

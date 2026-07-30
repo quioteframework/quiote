@@ -61,10 +61,13 @@ final class GeneratorSupport
     public static function writeFile(string $path, string $content): void
     {
         $dir = dirname($path);
-        if (!is_dir($dir) && !mkdir($dir, 0777, true) && !is_dir($dir)) {
+        // Both calls warn on failure, and each failure is reported as a
+        // ConfigurationException right below -- a raw PHP warning on top of that
+        // just puts noise in front of the generator's own error message.
+        if (!is_dir($dir) && !@mkdir($dir, 0777, true) && !is_dir($dir)) {
             throw new ConfigurationException(sprintf('Could not create directory "%s".', $dir));
         }
-        if (file_put_contents($path, $content) === false) {
+        if (@file_put_contents($path, $content) === false) {
             throw new ConfigurationException(sprintf('Could not write file "%s".', $path));
         }
     }
