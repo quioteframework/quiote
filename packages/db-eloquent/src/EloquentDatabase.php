@@ -59,7 +59,18 @@ class EloquentDatabase extends AbstractOrmDatabase
     {
         $connection = $this->getParameter('connection');
         if (is_array($connection)) {
-            return $connection;
+            $result = [];
+            foreach ($connection as $key => $value) {
+                if (!is_string($key)) {
+                    throw new DatabaseException(sprintf(
+                        'EloquentDatabase "%s": inline "connection" array keys must be strings, got %s.',
+                        $this->getName(),
+                        get_debug_type($key)
+                    ));
+                }
+                $result[$key] = $value;
+            }
+            return $result;
         }
 
         $config = array_filter([
@@ -93,14 +104,32 @@ class EloquentDatabase extends AbstractOrmDatabase
 
     private function connectionName(): string
     {
-        return (string) $this->getParameter('connection_name', 'default');
+        $name = $this->getParameter('connection_name', 'default');
+        if (!is_string($name)) {
+            throw new DatabaseException(sprintf(
+                'EloquentDatabase "%s": "connection_name" parameter must be a string, got %s.',
+                $this->getName(),
+                get_debug_type($name)
+            ));
+        }
+
+        return $name;
     }
 
     // --- typed accessors ----------------------------------------------------
 
     public function getCapsule(): Capsule
     {
-        return $this->getConnection();
+        $connection = $this->getConnection();
+        if ($connection instanceof Capsule) {
+            return $connection;
+        }
+
+        throw new DatabaseException(sprintf(
+            'EloquentDatabase "%s" connection is not an Illuminate\Database\Capsule\Manager (got %s).',
+            $this->getName(),
+            get_debug_type($connection)
+        ));
     }
 
     /** The underlying Illuminate connection (query builder, PDO, transactions). */

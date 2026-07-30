@@ -116,8 +116,16 @@ final class McpServerTest extends TestCase
         $this->assertCount(2, $transport->sent, 'expected one response for "initialize" and one for "tools/call"');
 
         $toolCallResponse = json_decode($transport->sent[1], true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($toolCallResponse);
         $this->assertSame(2, $toolCallResponse['id']);
         $this->assertArrayNotHasKey('error', $toolCallResponse);
-        $this->assertSame('Hello, Ada!', $toolCallResponse['result']['content'][0]['text']);
+        $result = $toolCallResponse['result'];
+        self::assertIsArray($result);
+        $content = $result['content'];
+        self::assertIsArray($content);
+        self::assertArrayHasKey(0, $content);
+        $first = $content[0];
+        self::assertIsArray($first);
+        $this->assertSame('Hello, Ada!', $first['text']);
     }
 }

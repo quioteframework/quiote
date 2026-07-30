@@ -116,6 +116,7 @@ final class McpPipelineIntegrationTest extends PhpUnitTestCase
         $this->assertLessThan($securityPos, $endpointPos, "the endpoint must run before Quiote's own SecurityMiddleware");
     }
 
+    /** @param array<string, mixed> $body */
     private function jsonRpcRequest(array $body): ServerRequest
     {
         $factory = new Psr17Factory();
@@ -157,6 +158,7 @@ final class McpPipelineIntegrationTest extends PhpUnitTestCase
 
         $this->assertSame(200, $response->getStatusCode());
         $payload = json_decode((string) $response->getBody(), true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($payload);
         $this->assertArrayHasKey('result', $payload);
     }
 }

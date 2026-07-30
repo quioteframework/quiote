@@ -1,6 +1,9 @@
 <?php
 
 use PHPUnit\Framework\TestCase;
+use Google\Protobuf\Internal\GPBType;
+use Google\Protobuf\Internal\Message;
+use Google\Protobuf\Internal\RepeatedField;
 use Opentelemetry\Proto\Collector\Metrics\V1\ExportMetricsServiceRequest;
 use Opentelemetry\Proto\Collector\Trace\V1\ExportTraceServiceRequest;
 use Opentelemetry\Proto\Common\V1\AnyValue;
@@ -52,7 +55,10 @@ class OtlpDecoderTest extends TestCase
         $status->setCode(2);
         $status->setMessage('boom');
         $span->setStatus($status);
-        $span->setAttributes([$this->stringAttr('http.route', '/about'), $this->boolAttr('cache.hit', false)]);
+        $span->setAttributes($this->repeatedField(
+            [$this->stringAttr('http.route', '/about'), $this->boolAttr('cache.hit', false)],
+            KeyValue::class,
+        ));
 
         $request = $this->traceRequest([$span], ['service.name' => 'quiote-sample-app']);
         $decoded = $this->decoder->decodeTraces($request->serializeToString(), 'application/x-protobuf');
@@ -98,14 +104,14 @@ class OtlpDecoderTest extends TestCase
         $span->setName('nested');
 
         $arrayValue = new ArrayValue();
-        $arrayValue->setValues([$this->scalarAny('a'), $this->scalarAny('b')]);
+        $arrayValue->setValues($this->repeatedField([$this->scalarAny('a'), $this->scalarAny('b')], AnyValue::class));
         $arrayAny = new AnyValue();
         $arrayAny->setArrayValue($arrayValue);
         $arrayAttr = new KeyValue();
         $arrayAttr->setKey('list');
         $arrayAttr->setValue($arrayAny);
 
-        $span->setAttributes([$arrayAttr]);
+        $span->setAttributes($this->repeatedField([$arrayAttr], KeyValue::class));
 
         $request = $this->traceRequest([$span]);
         $decoded = $this->decoder->decodeTraces($request->serializeToString(), 'application/x-protobuf');
@@ -126,10 +132,13 @@ class OtlpDecoderTest extends TestCase
         $spanB->setName('b');
 
         $request = new ExportTraceServiceRequest();
-        $request->setResourceSpans([
-            $this->resourceSpans([$spanA], ['service.name' => 'svc-a']),
-            $this->resourceSpans([$spanB], ['service.name' => 'svc-b']),
-        ]);
+        $request->setResourceSpans($this->repeatedField(
+            [
+                $this->resourceSpans([$spanA], ['service.name' => 'svc-a']),
+                $this->resourceSpans([$spanB], ['service.name' => 'svc-b']),
+            ],
+            ResourceSpans::class,
+        ));
 
         $decoded = $this->decoder->decodeTraces($request->serializeToString(), 'application/x-protobuf');
 
@@ -175,7 +184,7 @@ class OtlpDecoderTest extends TestCase
         $point->setTimeUnixNano(42);
 
         $gauge = new Gauge();
-        $gauge->setDataPoints([$point]);
+        $gauge->setDataPoints($this->repeatedField([$point], NumberDataPoint::class));
 
         $metric = new Metric();
         $metric->setName('quiote.worker.memory.rss');
@@ -195,7 +204,7 @@ class OtlpDecoderTest extends TestCase
         $point->setAsInt(7);
 
         $sum = new Sum();
-        $sum->setDataPoints([$point]);
+        $sum->setDataPoints($this->repeatedField([$point], NumberDataPoint::class));
         $sum->setIsMonotonic(true);
 
         $metric = new Metric();
@@ -215,7 +224,7 @@ class OtlpDecoderTest extends TestCase
         $point->setSum(40.0);
 
         $histogram = new Histogram();
-        $histogram->setDataPoints([$point]);
+        $histogram->setDataPoints($this->repeatedField([$point], HistogramDataPoint::class));
 
         $metric = new Metric();
         $metric->setName('http.server.request.duration');
@@ -247,6 +256,22 @@ class OtlpDecoderTest extends TestCase
 
     // --- helpers -------------------------------------------------------
 
+    /**
+     * @template T of Message
+     * @param list<T> $items
+     * @param class-string<T> $class
+     * @return RepeatedField<T>
+     */
+    private function repeatedField(array $items, string $class): RepeatedField
+    {
+        $field = new RepeatedField(GPBType::MESSAGE, $class);
+        foreach ($items as $item) {
+            $field[] = $item;
+        }
+
+        return $field;
+    }
+
     private function stringAttr(string $key, string $value): KeyValue
     {
         $any = new AnyValue();
@@ -277,46 +302,55 @@ class OtlpDecoderTest extends TestCase
         return $any;
     }
 
-    /** @param Span[] $spans @param array<string,string> $resourceAttributes */
+    /**
+     * @param list<Span> $spans
+     * @param array<string, string> $resourceAttributes
+     */
     private function resourceSpans(array $spans, array $resourceAttributes = []): ResourceSpans
     {
         $scopeSpans = new ScopeSpans();
-        $scopeSpans->setSpans($spans);
+        $scopeSpans->setSpans($this->repeatedField($spans, Span::class));
 
         $resource = new Resource();
-        $resource->setAttributes(array_map(
+        $resource->setAttributes($this->repeatedField(array_map(
             fn(string $k, string $v) => $this->stringAttr($k, $v),
             array_keys($resourceAttributes),
             array_values($resourceAttributes),
-        ));
+        ), KeyValue::class));
 
         $resourceSpans = new ResourceSpans();
         $resourceSpans->setResource($resource);
-        $resourceSpans->setScopeSpans([$scopeSpans]);
+        $resourceSpans->setScopeSpans($this->repeatedField([$scopeSpans], ScopeSpans::class));
 
         return $resourceSpans;
     }
 
-    /** @param Span[] $spans @param array<string,string> $resourceAttributes */
+    /**
+     * @param list<Span> $spans
+     * @param array<string, string> $resourceAttributes
+     */
     private function traceRequest(array $spans, array $resourceAttributes = []): ExportTraceServiceRequest
     {
         $request = new ExportTraceServiceRequest();
-        $request->setResourceSpans([$this->resourceSpans($spans, $resourceAttributes)]);
+        $request->setResourceSpans($this->repeatedField(
+            [$this->resourceSpans($spans, $resourceAttributes)],
+            ResourceSpans::class,
+        ));
 
         return $request;
     }
 
-    /** @param Metric[] $metrics */
+    /** @param list<Metric> $metrics */
     private function metricsRequest(array $metrics): ExportMetricsServiceRequest
     {
         $scopeMetrics = new ScopeMetrics();
-        $scopeMetrics->setMetrics($metrics);
+        $scopeMetrics->setMetrics($this->repeatedField($metrics, Metric::class));
 
         $resourceMetrics = new ResourceMetrics();
-        $resourceMetrics->setScopeMetrics([$scopeMetrics]);
+        $resourceMetrics->setScopeMetrics($this->repeatedField([$scopeMetrics], ScopeMetrics::class));
 
         $request = new ExportMetricsServiceRequest();
-        $request->setResourceMetrics([$resourceMetrics]);
+        $request->setResourceMetrics($this->repeatedField([$resourceMetrics], ResourceMetrics::class));
 
         return $request;
     }

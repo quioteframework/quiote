@@ -67,6 +67,15 @@ class TelemetryPropagationTest extends TestCase
         return $mw->process($request, $final);
     }
 
+    private function spanExporter(): \OpenTelemetry\SDK\Trace\SpanExporter\InMemoryExporter
+    {
+        $exporter = TelemetryBootstrap::inMemorySpanExporter();
+        if (!$exporter instanceof \OpenTelemetry\SDK\Trace\SpanExporter\InMemoryExporter) {
+            self::fail('expected an in-memory span exporter to be configured');
+        }
+        return $exporter;
+    }
+
     private function withTraceparent(ServerRequestInterface $request, string $traceId = self::TRACE_ID, string $spanId = self::PARENT_SPAN_ID, string $flags = '01'): ServerRequestInterface
     {
         return $request->withHeader('traceparent', "00-$traceId-$spanId-$flags");
@@ -79,7 +88,7 @@ class TelemetryPropagationTest extends TestCase
         $this->enable();
         $this->dispatch($this->withTraceparent(new ServerRequest('GET', '/x')));
 
-        $spans = TelemetryBootstrap::inMemorySpanExporter()->getSpans();
+        $spans = $this->spanExporter()->getSpans();
         $this->assertCount(1, $spans);
         $this->assertSame(self::TRACE_ID, $spans[0]->getContext()->getTraceId());
     }
@@ -89,7 +98,7 @@ class TelemetryPropagationTest extends TestCase
         $this->enable();
         $this->dispatch($this->withTraceparent(new ServerRequest('GET', '/x')));
 
-        $spans = TelemetryBootstrap::inMemorySpanExporter()->getSpans();
+        $spans = $this->spanExporter()->getSpans();
         $this->assertSame(self::PARENT_SPAN_ID, $spans[0]->getParentSpanId());
     }
 
@@ -98,7 +107,7 @@ class TelemetryPropagationTest extends TestCase
         $this->enable();
         $this->dispatch(new ServerRequest('GET', '/x'));
 
-        $spans = TelemetryBootstrap::inMemorySpanExporter()->getSpans();
+        $spans = $this->spanExporter()->getSpans();
         $this->assertCount(1, $spans);
         $this->assertNotSame(self::TRACE_ID, $spans[0]->getContext()->getTraceId());
         $this->assertSame('0000000000000000', $spans[0]->getParentSpanId(), 'no parent for a fresh root trace');
@@ -112,7 +121,7 @@ class TelemetryPropagationTest extends TestCase
         $this->enable('parentbased_traceidratio', 1.0);
         $this->dispatch($this->withTraceparent(new ServerRequest('GET', '/x'), flags: '00'));
 
-        $this->assertCount(0, TelemetryBootstrap::inMemorySpanExporter()->getSpans());
+        $this->assertCount(0, $this->spanExporter()->getSpans());
     }
 
     // --- malformed / hostile input does not crash the request -------------------
@@ -125,7 +134,7 @@ class TelemetryPropagationTest extends TestCase
         );
 
         $this->assertSame(200, $response->getStatusCode());
-        $spans = TelemetryBootstrap::inMemorySpanExporter()->getSpans();
+        $spans = $this->spanExporter()->getSpans();
         $this->assertCount(1, $spans);
         $this->assertNotSame(self::TRACE_ID, $spans[0]->getContext()->getTraceId());
     }
@@ -138,7 +147,7 @@ class TelemetryPropagationTest extends TestCase
         );
 
         $this->assertSame(200, $response->getStatusCode());
-        $this->assertCount(1, TelemetryBootstrap::inMemorySpanExporter()->getSpans());
+        $this->assertCount(1, $this->spanExporter()->getSpans());
     }
 
     public function testEmptyTraceparentHeaderDoesNotCrash(): void
@@ -163,7 +172,7 @@ class TelemetryPropagationTest extends TestCase
         $this->enable();
         $this->dispatch($this->withTraceparent(new ServerRequest('GET', '/x')));
 
-        $spans = TelemetryBootstrap::inMemorySpanExporter()->getSpans();
+        $spans = $this->spanExporter()->getSpans();
         $current = LogContext::current();
         $this->assertSame(self::TRACE_ID, $current['trace_id']);
         $this->assertSame($spans[0]->getContext()->getSpanId(), $current['span_id']);
@@ -177,7 +186,7 @@ class TelemetryPropagationTest extends TestCase
         $this->enable('parentbased_traceidratio', 0.0);
         $this->dispatch(new ServerRequest('GET', '/x'));
 
-        $this->assertCount(0, TelemetryBootstrap::inMemorySpanExporter()->getSpans(), 'sanity check: really dropped');
+        $this->assertCount(0, $this->spanExporter()->getSpans(), 'sanity check: really dropped');
         $current = LogContext::current();
         $this->assertArrayHasKey('trace_id', $current);
         $this->assertNotEmpty($current['trace_id']);

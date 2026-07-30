@@ -37,13 +37,14 @@ use Quiote\Logging\Log;
  * explicit `->end()` call is still always honored, on any handle — this only
  * changes whether *destruction* implies ending.
  *
- * Every mutator is wrapped so a call site can never crash the request: the
- * API's own type hints (e.g. `bool|int|float|string|array|null` for
- * attribute values) are enforced by the real SDK at the call boundary, so
- * passing an object/resource/etc — a caller bug, or hostile/unexpected
- * instrumentation input — throws a TypeError there. That is swallowed and
- * logged at debug level rather than propagating, matching the no-op layer's
- * "instrumenting a call site is always safe" guarantee.
+ * Every mutator is wrapped so a call site can never crash the request:
+ * attribute keys/values are validated by {@see AttributeSanitizer} against
+ * what the SDK's own API accepts (`bool|int|float|string|array|null`,
+ * non-empty-string keys), so passing an object/resource/etc — a caller bug,
+ * or hostile/unexpected instrumentation input — throws there instead of
+ * reaching the SDK. That is swallowed and logged at debug level rather than
+ * propagating, matching the no-op layer's "instrumenting a call site is
+ * always safe" guarantee.
  */
 final class OtelSpanHandle implements SpanHandle
 {
@@ -64,13 +65,16 @@ final class OtelSpanHandle implements SpanHandle
 
     public function setAttribute(string $key, mixed $value): static
     {
-        $this->safely(fn() => $this->span->setAttribute($key, $value));
+        $this->safely(function () use ($key, $value): void {
+            [$sanitizedKey, $sanitizedValue] = AttributeSanitizer::sanitizeEntry($key, $value);
+            $this->span->setAttribute($sanitizedKey, $sanitizedValue);
+        });
         return $this;
     }
 
     public function setAttributes(array $attributes): static
     {
-        $this->safely(fn() => $this->span->setAttributes($attributes));
+        $this->safely(fn() => $this->span->setAttributes(AttributeSanitizer::sanitize($attributes)));
         return $this;
     }
 

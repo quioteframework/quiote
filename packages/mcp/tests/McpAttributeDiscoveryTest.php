@@ -52,7 +52,7 @@ final class McpAttributeDiscoveryTest extends TestCase
 
         $response = $this->call($server, 'tools/list', []);
 
-        $names = array_column($response['result']['tools'], 'name');
+        $names = array_column($this->tools($response), 'name');
         $this->assertNotContains('greet_via_discovery', $names);
     }
 
@@ -61,12 +61,12 @@ final class McpAttributeDiscoveryTest extends TestCase
         $server = (new McpServer(new Container(), 'testing'))->build($this->config(discoverAttributes: true));
 
         $listResponse = $this->call($server, 'tools/list', []);
-        $names = array_column($listResponse['result']['tools'], 'name');
+        $names = array_column($this->tools($listResponse), 'name');
         $this->assertContains('greet_via_discovery', $names);
 
         $callResponse = $this->call($server, 'tools/call', ['name' => 'greet_via_discovery', 'arguments' => ['name' => 'Ada']]);
         $this->assertArrayNotHasKey('error', $callResponse);
-        $this->assertSame('Hello from discovery, Ada!', $callResponse['result']['content'][0]['text']);
+        $this->assertSame('Hello from discovery, Ada!', $this->firstContentText($callResponse));
     }
 
     public function testWorksWithTheDiscoveryCacheEnabled(): void
@@ -80,7 +80,7 @@ final class McpAttributeDiscoveryTest extends TestCase
             $server = (new McpServer(new Container(), 'testing'))->build($this->config(discoverAttributes: true, discoveryCache: true));
 
             $callResponse = $this->call($server, 'tools/call', ['name' => 'greet_via_discovery', 'arguments' => ['name' => 'Grace']]);
-            $this->assertSame('Hello from discovery, Grace!', $callResponse['result']['content'][0]['text']);
+            $this->assertSame('Hello from discovery, Grace!', $this->firstContentText($callResponse));
         } finally {
             if ($hadPrevious) {
                 \Quiote\Config\Config::set('core.cache_dir', $previous, true);
@@ -91,7 +91,10 @@ final class McpAttributeDiscoveryTest extends TestCase
         }
     }
 
-    /** @param array<string, mixed> $params */
+    /**
+     * @param array<string, mixed> $params
+     * @return array<string, mixed>
+     */
     private function call(\Mcp\Server $server, string $method, array $params): array
     {
         $transport = new RecordingDiscoveryTransport([
@@ -119,7 +122,40 @@ final class McpAttributeDiscoveryTest extends TestCase
 
         $server->run($transport);
 
-        return json_decode($transport->sent[1], true, flags: JSON_THROW_ON_ERROR);
+        $decoded = json_decode($transport->sent[1], true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($decoded);
+
+        return $decoded;
+    }
+
+    /**
+     * @param array<string, mixed> $response
+     * @return list<mixed>
+     */
+    private function tools(array $response): array
+    {
+        $result = $response['result'];
+        self::assertIsArray($result);
+        $tools = $result['tools'];
+        self::assertIsArray($tools);
+
+        return array_values($tools);
+    }
+
+    /** @param array<string, mixed> $response */
+    private function firstContentText(array $response): string
+    {
+        $result = $response['result'];
+        self::assertIsArray($result);
+        $content = $result['content'];
+        self::assertIsArray($content);
+        self::assertArrayHasKey(0, $content);
+        $first = $content[0];
+        self::assertIsArray($first);
+        $text = $first['text'];
+        self::assertIsString($text);
+
+        return $text;
     }
 }
 

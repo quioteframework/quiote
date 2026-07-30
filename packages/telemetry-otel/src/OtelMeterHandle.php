@@ -38,7 +38,7 @@ final class OtelMeterHandle implements MeterHandle
     {
         $this->safely($name, function () use ($name, $value, $attributes): void {
             $histogram = $this->histograms[$name] ??= $this->meter->createHistogram($name);
-            $histogram->record($value, $attributes);
+            $histogram->record($value, AttributeSanitizer::sanitize($attributes));
         });
     }
 
@@ -46,7 +46,7 @@ final class OtelMeterHandle implements MeterHandle
     {
         $this->safely($name, function () use ($name, $increment, $attributes): void {
             $counter = $this->counters[$name] ??= $this->meter->createCounter($name);
-            $counter->add($increment, $attributes);
+            $counter->add($increment, AttributeSanitizer::sanitize($attributes));
         });
     }
 
@@ -54,7 +54,7 @@ final class OtelMeterHandle implements MeterHandle
     {
         $this->safely($name, function () use ($name, $value, $attributes): void {
             $gauge = $this->gauges[$name] ??= $this->meter->createGauge($name);
-            $gauge->record($value, $attributes);
+            $gauge->record($value, AttributeSanitizer::sanitize($attributes));
         });
     }
 

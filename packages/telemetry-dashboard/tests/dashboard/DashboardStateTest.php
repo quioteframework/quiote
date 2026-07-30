@@ -85,6 +85,47 @@ class DashboardStateTest extends TestCase
         $this->assertSame([], $state->snapshot(1000)->recentErrors);
     }
 
+    public function testNumericStringStatusCodeAttributeIsCoercedToInt(): void
+    {
+        $state = new DashboardState();
+        $state->ingestSpans([$this->span(statusCode: self::OK, attributes: ['http.response.status_code' => '503'])], 1000);
+
+        $snapshot = $state->snapshot(1000);
+
+        $this->assertSame(1, $snapshot->totalErrors);
+        $this->assertSame(503, $snapshot->recentSpans[0]['statusCode']);
+    }
+
+    public function testNonNumericStatusCodeAttributeIsIgnoredRatherThanCrashing(): void
+    {
+        $state = new DashboardState();
+        $state->ingestSpans([$this->span(statusCode: self::OK, attributes: ['http.response.status_code' => 'not-a-code'])], 1000);
+
+        $snapshot = $state->snapshot(1000);
+
+        $this->assertSame(0, $snapshot->totalErrors);
+        $this->assertSame(0, $snapshot->recentSpans[0]['statusCode']);
+    }
+
+    public function testNonStringRouteAttributeFallsBackToNextCandidate(): void
+    {
+        $state = new DashboardState();
+        $state->ingestSpans([$this->span(name: 'GET /widgets', attributes: ['http.route' => 42, 'route_name' => 'widgets'])], 1000);
+
+        $routes = array_column($state->snapshot(1000)->routeRows, 'route');
+
+        $this->assertContains('widgets', $routes);
+        $this->assertNotContains(42, $routes);
+    }
+
+    public function testNonBooleanCacheHitAttributeIsTreatedAsFalse(): void
+    {
+        $state = new DashboardState();
+        $state->ingestSpans([$this->span(name: 'GET /', attributes: ['quiote.cache.hit' => 'yes'])], 1000);
+
+        $this->assertEqualsWithDelta(0.0, $state->snapshot(1000)->routeRows[0]['cacheHitRate'], 0.0001);
+    }
+
     public function testRouteIsResolvedFromHttpRouteAttributeThenRouteNameThenSpanName(): void
     {
         $state = new DashboardState();
@@ -179,6 +220,7 @@ class DashboardStateTest extends TestCase
 
     // --- helpers ---------------------------------------------------------
 
+    /** @param array<string, mixed> $attributes */
     private function span(
         string $name = 'GET /',
         ?string $parentSpanId = null,
@@ -206,6 +248,7 @@ class DashboardStateTest extends TestCase
         return new ReceivedMetric($name, 'gauge', [new ReceivedDataPoint([], $value, null, 0)], []);
     }
 
+    /** @param array<string, mixed> $attributes */
     private function histogramMetric(string $name, float $sum, int $count, array $attributes = []): ReceivedMetric
     {
         return new ReceivedMetric($name, 'histogram', [new ReceivedDataPoint($attributes, $sum, $count, 0)], []);

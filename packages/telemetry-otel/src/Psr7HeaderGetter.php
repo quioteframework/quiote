@@ -13,7 +13,7 @@ use Psr\Http\Message\MessageInterface;
  */
 final class Psr7HeaderGetter implements PropagationGetterInterface
 {
-    public function keys($carrier): array
+    public function keys(mixed $carrier): array
     {
         if (!$carrier instanceof MessageInterface) {
             return [];
@@ -21,7 +21,7 @@ final class Psr7HeaderGetter implements PropagationGetterInterface
         return array_keys($carrier->getHeaders());
     }
 
-    public function get($carrier, string $key): ?string
+    public function get(mixed $carrier, string $key): ?string
     {
         if (!$carrier instanceof MessageInterface) {
             return null;

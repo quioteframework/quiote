@@ -48,7 +48,19 @@ class CycleDatabase extends AbstractOrmDatabase
     {
         $config = $this->getParameter('cycle');
         if (is_array($config)) {
-            return $config;
+            $result = [];
+            foreach ($config as $key => $value) {
+                if (!is_string($key)) {
+                    throw new DatabaseException(sprintf(
+                        'CycleDatabase "%s": "cycle" parameter array must have string keys '
+                        . '(default, databases, connections), got %s.',
+                        $this->getName(),
+                        get_debug_type($key)
+                    ));
+                }
+                $result[$key] = $value;
+            }
+            return $result;
         }
 
         throw new DatabaseException(sprintf(
@@ -97,17 +109,35 @@ class CycleDatabase extends AbstractOrmDatabase
 
     public function getOrm(): ORMInterface
     {
-        return $this->getConnection();
+        $connection = $this->getConnection();
+        if ($connection instanceof ORMInterface) {
+            return $connection;
+        }
+
+        throw new DatabaseException(sprintf(
+            'CycleDatabase "%s" connection is not an ORMInterface (got %s).',
+            $this->getName(),
+            get_debug_type($connection)
+        ));
     }
 
     public function getCycleDatabaseManager(): DatabaseProviderInterface
     {
         $this->getConnection(); // ensure connected → $this->resource populated
-        return $this->resource;
+        if ($this->resource instanceof DatabaseProviderInterface) {
+            return $this->resource;
+        }
+
+        throw new DatabaseException(sprintf(
+            'CycleDatabase "%s" resource is not a DatabaseProviderInterface (got %s).',
+            $this->getName(),
+            get_debug_type($this->resource)
+        ));
     }
 
     /**
-     * @param class-string|string $role
+     * @param class-string|non-empty-string $role
+     * @return \Cycle\ORM\RepositoryInterface<object>
      */
     public function getRepository(string $role): \Cycle\ORM\RepositoryInterface
     {

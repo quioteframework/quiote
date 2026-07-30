@@ -4,6 +4,7 @@ namespace Quiote\Renderer\Phptal;
 
 use PHPTAL;
 use Quiote\Config\Config;
+use Quiote\Exception\RenderException;
 use Quiote\Renderer\Renderer;
 use Quiote\Util\Toolkit;
 use Quiote\View\TemplateLayer;
@@ -36,15 +37,21 @@ final class PhptalRenderer extends Renderer
             return $this->engine;
         }
 
-        $cacheDir = rtrim(Config::getString('core.cache_dir'), '/\\')
+        $baseCacheDir = Config::getString('core.cache_dir');
+        $cacheDir = rtrim($baseCacheDir, '/\\')
             . DIRECTORY_SEPARATOR . self::CACHE_SUBDIR . DIRECTORY_SEPARATOR;
-        Toolkit::mkdir($cacheDir, fileperms(Config::getString('core.cache_dir')), true);
+        $baseCacheDirMode = fileperms($baseCacheDir);
+        Toolkit::mkdir($cacheDir, $baseCacheDirMode !== false ? $baseCacheDirMode : 0775, true);
 
         $engine = new PHPTAL();
         $engine->setPhpCodeDestination($cacheDir);
 
         if ($this->hasParameter('encoding')) {
-            $engine->setEncoding((string) $this->getParameter('encoding'));
+            $encoding = $this->getParameter('encoding');
+            if (!is_scalar($encoding) && !$encoding instanceof \Stringable) {
+                throw new RenderException("The 'encoding' parameter must be a string.");
+            }
+            $engine->setEncoding((string) $encoding);
         }
 
         return $this->engine = $engine;
@@ -57,7 +64,7 @@ final class PhptalRenderer extends Renderer
 
         if ($this->extractVars) {
             foreach ($attributes as $name => $value) {
-                $engine->set($name, $value);
+                $engine->set((string) $name, $value);
             }
         } else {
             $engine->set($this->varName, $attributes);
@@ -66,15 +73,19 @@ final class PhptalRenderer extends Renderer
         $engine->set($this->slotsVarName, $slots);
 
         foreach ($this->assigns as $variable => $getter) {
-            $engine->set($variable, $this->getContext()->$getter());
+            $engine->set((string) $variable, $this->getContext()->$getter());
         }
 
         $extraAssigns = self::buildMoreAssigns($moreAssigns, $this->moreAssignNames);
         foreach ($extraAssigns as $variable => $value) {
-            $engine->set($variable, $value);
+            $engine->set((string) $variable, $value);
         }
 
-        $engine->setTemplate($layer->getResourceStreamIdentifier());
+        $template = $layer->getResourceStreamIdentifier();
+        if ($template === null) {
+            throw new RenderException('No template is set on the template layer.');
+        }
+        $engine->setTemplate($template);
 
         return $engine->execute();
     }

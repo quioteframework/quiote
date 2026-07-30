@@ -33,7 +33,28 @@ if (isset($options['help'])) {
     exit(0);
 }
 
-$baseUrl = rtrim((string) ($options['base-url'] ?? 'http://127.0.0.1:8123'), '/');
+/**
+ * getopt() returns a list<string> instead of a string when a flag is passed
+ * more than once, and false for an option that requires a value that wasn't
+ * given -- neither of those cast to string cleanly.
+ *
+ * @param array<string,list<mixed>|string|false> $options
+ */
+function loadgen_option_string(array $options, string $key, string $default): string
+{
+    if (!array_key_exists($key, $options)) {
+        return $default;
+    }
+
+    $value = $options[$key];
+    if (is_array($value)) {
+        $value = end($value);
+    }
+
+    return is_string($value) ? $value : $default;
+}
+
+$baseUrl = rtrim(loadgen_option_string($options, 'base-url', 'http://127.0.0.1:8123'), '/');
 $minDelayMs = max(0, (int) ($options['min-delay-ms'] ?? 50));
 $maxDelayMs = max($minDelayMs, (int) ($options['max-delay-ms'] ?? 400));
 $burstEverySeconds = max(0.5, (float) ($options['burst-every'] ?? 15.0));
@@ -44,7 +65,7 @@ $errorRate = max(0.0, min(1.0, (float) ($options['error-rate'] ?? 0.05)));
 $baseWeights = ['/' => 0.50, '/about' => 0.25, '/contact' => 0.20];
 $remaining = 1.0 - $errorRate;
 $baseTotal = array_sum($baseWeights);
-$scale = $baseTotal > 0.0 ? $remaining / $baseTotal : 0.0;
+$scale = $remaining / $baseTotal;
 $weights = array_map(static fn(float $w): float => $w * $scale, $baseWeights);
 $weights['/boom'] = $errorRate;
 
@@ -59,6 +80,10 @@ if (function_exists('pcntl_async_signals') && defined('SIGINT')) {
 /** @param array<string,float> $weights */
 function loadgen_pick_path(array $weights): string
 {
+    if ($weights === []) {
+        throw new \InvalidArgumentException('loadgen_pick_path() requires at least one weighted path.');
+    }
+
     $roll = mt_rand() / mt_getrandmax();
     $cumulative = 0.0;
     foreach ($weights as $path => $weight) {

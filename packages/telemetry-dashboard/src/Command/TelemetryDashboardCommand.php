@@ -55,9 +55,9 @@ final class TelemetryDashboardCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
-        $host = (string) $input->getOption('host');
-        $port = (int) $input->getOption('port');
-        $configuredService = (string) $input->getOption('service');
+        $host = self::requireStringOption($input, 'host');
+        $port = self::requireIntOption($input, 'port');
+        $configuredService = self::requireStringOption($input, 'service');
 
         if ($input->getOption('self-test')) {
             return $this->selfTest($output, $configuredService, $host, $port);
@@ -128,6 +128,29 @@ final class TelemetryDashboardCommand extends Command
         $receiver->stop();
 
         return self::SUCCESS;
+    }
+
+    private static function requireStringOption(InputInterface $input, string $name): string
+    {
+        $value = $input->getOption($name);
+        if (!is_string($value)) {
+            throw new \RuntimeException(sprintf('Option "--%s" must be a string.', $name));
+        }
+
+        return $value;
+    }
+
+    private static function requireIntOption(InputInterface $input, string $name): int
+    {
+        $value = $input->getOption($name);
+        if (is_int($value)) {
+            return $value;
+        }
+        if (is_string($value) && is_numeric($value)) {
+            return (int) $value;
+        }
+
+        throw new \RuntimeException(sprintf('Option "--%s" must be numeric.', $name));
     }
 
     private function selfTest(OutputInterface $output, string $serviceName, string $host, int $port): int

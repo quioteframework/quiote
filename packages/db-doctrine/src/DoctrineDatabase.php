@@ -51,32 +51,81 @@ class DoctrineDatabase extends AbstractOrmDatabase
 
     protected function buildOrmConfiguration(): OrmConfiguration
     {
-        $paths = (array) ($this->getParameter('entity_paths') ?? []);
+        $paths = $this->entityPaths();
         $isDevMode = (bool) $this->getParameter('dev_mode', Config::getBool('core.debug', false));
-        $proxyDir = $this->getParameter('proxy_dir'); // null → system temp
+        $proxyDir = $this->proxyDir();
         $cache = $this->metadataCache();
 
-        $metadata = strtolower((string) $this->getParameter('metadata', 'attribute'));
-        $config = match ($metadata) {
+        $metadataParam = $this->getParameter('metadata', 'attribute');
+        if (!is_string($metadataParam)) {
+            throw new DatabaseException(sprintf(
+                'DoctrineDatabase "%s": "metadata" parameter must be a string ("attribute" or "xml"), got %s.',
+                $this->getName(),
+                get_debug_type($metadataParam)
+            ));
+        }
+
+        $config = match (strtolower($metadataParam)) {
             'xml'   => ORMSetup::createXMLMetadataConfiguration($paths, $isDevMode, $proxyDir, $cache),
             default => ORMSetup::createAttributeMetadataConfiguration($paths, $isDevMode, $proxyDir, $cache),
         };
 
-        if ($ns = $this->getParameter('proxy_namespace')) {
-            $config->setProxyNamespace($ns);
+        $proxyNamespace = $this->getParameter('proxy_namespace');
+        if (is_string($proxyNamespace) && $proxyNamespace !== '') {
+            $config->setProxyNamespace($proxyNamespace);
         }
 
-        // Doctrine ORM 3.x needs a lazy-proxy backend. On PHP 8.4+ prefer native
-        // lazy objects (no symfony/var-exporter dependency); Quiote targets 8.5,
-        // so default it on. Opt out with the "native_lazy_objects" parameter.
-        if (
-            method_exists($config, 'enableNativeLazyObjects')
-            && $this->getParameter('native_lazy_objects', PHP_VERSION_ID >= 80400)
-        ) {
+        // Doctrine ORM 3.x needs a lazy-proxy backend; Quiote targets PHP 8.5+,
+        // where native lazy objects (no symfony/var-exporter dependency) are
+        // always available. Opt out with the "native_lazy_objects" parameter.
+        if ($this->getParameter('native_lazy_objects', true)) {
             $config->enableNativeLazyObjects(true);
         }
 
         return $config;
+    }
+
+    /**
+     * @return array<string>
+     */
+    private function entityPaths(): array
+    {
+        $pathsParam = $this->getParameter('entity_paths') ?? [];
+        if (!is_array($pathsParam)) {
+            throw new DatabaseException(sprintf(
+                'DoctrineDatabase "%s": "entity_paths" parameter must be an array of strings, got %s.',
+                $this->getName(),
+                get_debug_type($pathsParam)
+            ));
+        }
+
+        $paths = [];
+        foreach ($pathsParam as $path) {
+            if (!is_string($path)) {
+                throw new DatabaseException(sprintf(
+                    'DoctrineDatabase "%s": "entity_paths" must contain only strings, got %s.',
+                    $this->getName(),
+                    get_debug_type($path)
+                ));
+            }
+            $paths[] = $path;
+        }
+
+        return $paths;
+    }
+
+    private function proxyDir(): ?string
+    {
+        $proxyDir = $this->getParameter('proxy_dir');
+        if ($proxyDir !== null && !is_string($proxyDir)) {
+            throw new DatabaseException(sprintf(
+                'DoctrineDatabase "%s": "proxy_dir" parameter must be a string or null, got %s.',
+                $this->getName(),
+                get_debug_type($proxyDir)
+            ));
+        }
+
+        return $proxyDir;
     }
 
     protected function resolveDbalConnection(OrmConfiguration $config): DbalConnection
@@ -98,7 +147,7 @@ class DoctrineDatabase extends AbstractOrmDatabase
             ));
         }
 
-        $params = is_array($connection) ? $connection : $this->dbalParams();
+        $params = is_array($connection) ? $this->normalizeInlineDbalParams($connection) : $this->dbalParams();
 
         if (!$params) {
             throw new DatabaseException(sprintf(
@@ -133,7 +182,16 @@ class DoctrineDatabase extends AbstractOrmDatabase
 
     public function getEntityManager(): EntityManagerInterface
     {
-        return $this->getConnection();
+        $connection = $this->getConnection();
+        if ($connection instanceof EntityManagerInterface) {
+            return $connection;
+        }
+
+        throw new DatabaseException(sprintf(
+            'DoctrineDatabase "%s" connection is not an EntityManagerInterface (got %s).',
+            $this->getName(),
+            get_debug_type($connection)
+        ));
     }
 
     public function getDbalConnection(): DbalConnection
@@ -165,7 +223,9 @@ class DoctrineDatabase extends AbstractOrmDatabase
     }
 
     /**
-     * @param class-string $entity
+     * @template T of object
+     * @param class-string<T> $entity
+     * @return \Doctrine\ORM\EntityRepository<T>
      */
     public function getRepository(string $entity): \Doctrine\ORM\EntityRepository
     {

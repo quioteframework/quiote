@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use PHPUnit\Framework\TestCase;
 use Quiote\Scheduler\Schedule;
-use Quiote\Scheduler\ScheduledTaskDefinition;
 
 final class ScheduleTest extends TestCase
 {
@@ -21,7 +20,8 @@ final class ScheduleTest extends TestCase
         $definitions = $schedule->build();
 
         $this->assertCount(2, $definitions);
-        $this->assertContainsOnlyInstancesOf(ScheduledTaskDefinition::class, $definitions);
+        $this->assertStringContainsString('0 * * * *', $definitions[0]->description());
+        $this->assertStringContainsString('0 0 * * *', $definitions[1]->description());
     }
 
     public function testBuildDoesNotAccumulateDefinitionsAcrossCalls(): void

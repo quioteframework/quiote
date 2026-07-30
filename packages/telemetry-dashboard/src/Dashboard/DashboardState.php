@@ -77,14 +77,16 @@ final class DashboardState
             $this->latencyAvg->record($second, $durationMs);
             $this->recordLatencySample($durationMs);
 
-            $statusCode = (int) ($span->attributes['http.response.status_code'] ?? 0);
+            $statusCode = self::intAttribute($span->attributes, 'http.response.status_code');
             $isError = $span->statusCode === self::ERROR_STATUS_CODE || $statusCode >= 500;
             if ($isError) {
                 $this->totalErrors++;
             }
 
-            $route = (string) ($span->attributes['http.route'] ?? $span->attributes['route_name'] ?? $span->name);
-            $cacheHit = (bool) ($span->attributes['quiote.cache.hit'] ?? false);
+            $route = self::stringAttribute($span->attributes, 'http.route')
+                ?? self::stringAttribute($span->attributes, 'route_name')
+                ?? $span->name;
+            $cacheHit = self::boolAttribute($span->attributes, 'quiote.cache.hit');
             $this->routeStats->record($route, $durationMs, $isError, $cacheHit, $second);
 
             $entry = [
@@ -160,7 +162,11 @@ final class DashboardState
         }
     }
 
-    /** @param list<mixed> $bag */
+    /**
+     * @template T
+     * @param list<T> $bag
+     * @param T $entry
+     */
     private static function pushBounded(array &$bag, mixed $entry, int $cap): void
     {
         $bag[] = $entry;
@@ -190,15 +196,52 @@ final class DashboardState
         return $sorted[$index];
     }
 
-    /** The most recent non-zero-filled value in a chronological second=>value series, or 0.0. */
+    /**
+     * The most recent non-zero-filled value in a chronological second=>value series, or 0.0.
+     *
+     * @param array<int,float> $series
+     */
     private static function lastNonDefault(array $series): float
     {
-        for (end($series); ($key = key($series)) !== null; prev($series)) {
-            if (current($series) !== 0.0) {
-                return current($series);
+        foreach (array_reverse($series) as $value) {
+            if ($value !== 0.0) {
+                return $value;
             }
         }
 
         return 0.0;
+    }
+
+    /** @param array<string,mixed> $attributes */
+    private static function intAttribute(array $attributes, string $key): int
+    {
+        $value = $attributes[$key] ?? 0;
+
+        return match (true) {
+            is_int($value) => $value,
+            is_float($value) => (int) $value,
+            is_string($value) && is_numeric($value) => (int) $value,
+            default => 0,
+        };
+    }
+
+    /** @param array<string,mixed> $attributes */
+    private static function stringAttribute(array $attributes, string $key): ?string
+    {
+        $value = $attributes[$key] ?? null;
+
+        return is_string($value) ? $value : null;
+    }
+
+    /** @param array<string,mixed> $attributes */
+    private static function boolAttribute(array $attributes, string $key): bool
+    {
+        $value = $attributes[$key] ?? false;
+
+        return match (true) {
+            is_bool($value) => $value,
+            is_int($value) => $value !== 0,
+            default => false,
+        };
     }
 }

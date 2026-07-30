@@ -37,6 +37,9 @@ final class WhoopsRendererTest extends TestCase
         $this->assertSame(400, $resp->getStatusCode());
         $this->assertStringContainsString('application/json', $resp->getHeaderLine('Content-Type'));
         $payload = json_decode((string) $resp->getBody(), true);
+        $this->assertIsArray($payload);
+        $this->assertIsArray($payload['error']);
+        $this->assertIsString($payload['error']['message']);
         $this->assertStringContainsString('json marker message', $payload['error']['message']);
         $this->assertSame('RuntimeException', $payload['error']['type']);
     }

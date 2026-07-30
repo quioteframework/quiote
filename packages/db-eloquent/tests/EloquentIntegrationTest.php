@@ -61,6 +61,8 @@ class EloquentIntegrationTest extends IntegrationTestCase
         // Eloquent is driving the very PDO the PdoDatabase opened.
         $this->assertSame($pdoDb->getConnection(), $eloquent->getEloquentConnection()->getPdo());
         // ...and it works end to end.
-        $this->assertEquals(1, $eloquent->getEloquentConnection()->selectOne('SELECT 1 AS one')->one);
+        $row = $eloquent->getEloquentConnection()->selectOne('SELECT 1 AS one');
+        $this->assertInstanceOf(stdClass::class, $row);
+        $this->assertEquals(1, $row->one);
     }
 }

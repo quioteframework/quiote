@@ -6,7 +6,7 @@ use Quiote\Request\WebRequest;
 
 class AboutAction extends Action
 {
-	public function executeRead(WebRequest $rd)
+	public function executeRead(WebRequest $rd): string
 	{
 		return 'Success';
 	}

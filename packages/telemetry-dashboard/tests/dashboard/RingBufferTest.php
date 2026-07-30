@@ -99,6 +99,10 @@ class RingBufferTest extends TestCase
         $buffer->record(1, 1.0);
 
         $this->expectException(\InvalidArgumentException::class);
-        $buffer->series(1, 'bogus');
+
+        // series()'s $aggregate is typed to a literal string union; invoking
+        // through reflection is the only way to exercise its runtime guard
+        // against a value outside that union without violating the type.
+        (new \ReflectionMethod($buffer, 'series'))->invoke($buffer, 1, 'bogus');
     }
 }

@@ -7,10 +7,15 @@ use Google\Protobuf\Internal\RepeatedField;
 use Opentelemetry\Proto\Collector\Metrics\V1\ExportMetricsServiceRequest;
 use Opentelemetry\Proto\Collector\Trace\V1\ExportTraceServiceRequest;
 use Opentelemetry\Proto\Common\V1\AnyValue;
+use Opentelemetry\Proto\Common\V1\ArrayValue;
 use Opentelemetry\Proto\Common\V1\KeyValue;
 use Opentelemetry\Proto\Metrics\V1\HistogramDataPoint;
 use Opentelemetry\Proto\Metrics\V1\Metric;
 use Opentelemetry\Proto\Metrics\V1\NumberDataPoint;
+use Opentelemetry\Proto\Metrics\V1\ResourceMetrics;
+use Opentelemetry\Proto\Metrics\V1\ScopeMetrics;
+use Opentelemetry\Proto\Trace\V1\ResourceSpans;
+use Opentelemetry\Proto\Trace\V1\ScopeSpans;
 use Opentelemetry\Proto\Trace\V1\Span;
 
 /**
@@ -38,10 +43,10 @@ final class OtlpDecoder
         $this->merge($request, $body, $contentType, 'trace');
 
         $spans = [];
-        foreach ($request->getResourceSpans() as $resourceSpans) {
+        foreach ($this->resourceSpansOf($request->getResourceSpans()) as $resourceSpans) {
             $resourceAttributes = $this->flattenAttributes($resourceSpans->getResource()?->getAttributes());
-            foreach ($resourceSpans->getScopeSpans() as $scopeSpans) {
-                foreach ($scopeSpans->getSpans() as $span) {
+            foreach ($this->scopeSpansOf($resourceSpans->getScopeSpans()) as $scopeSpans) {
+                foreach ($this->spansOf($scopeSpans->getSpans()) as $span) {
                     $spans[] = $this->decodeSpan($span, $resourceAttributes);
                 }
             }
@@ -57,10 +62,10 @@ final class OtlpDecoder
         $this->merge($request, $body, $contentType, 'metrics');
 
         $metrics = [];
-        foreach ($request->getResourceMetrics() as $resourceMetrics) {
+        foreach ($this->resourceMetricsOf($request->getResourceMetrics()) as $resourceMetrics) {
             $resourceAttributes = $this->flattenAttributes($resourceMetrics->getResource()?->getAttributes());
-            foreach ($resourceMetrics->getScopeMetrics() as $scopeMetrics) {
-                foreach ($scopeMetrics->getMetrics() as $metric) {
+            foreach ($this->scopeMetricsOf($resourceMetrics->getScopeMetrics()) as $scopeMetrics) {
+                foreach ($this->metricsOf($scopeMetrics->getMetrics()) as $metric) {
                     $decoded = $this->decodeMetric($metric, $resourceAttributes);
                     if ($decoded !== null) {
                         $metrics[] = $decoded;
@@ -70,6 +75,60 @@ final class OtlpDecoder
         }
 
         return $metrics;
+    }
+
+    /**
+     * @param RepeatedField<ResourceSpans> $list
+     * @return ResourceSpans[]
+     */
+    private function resourceSpansOf(RepeatedField $list): array
+    {
+        return iterator_to_array($list, false);
+    }
+
+    /**
+     * @param RepeatedField<ScopeSpans> $list
+     * @return ScopeSpans[]
+     */
+    private function scopeSpansOf(RepeatedField $list): array
+    {
+        return iterator_to_array($list, false);
+    }
+
+    /**
+     * @param RepeatedField<Span> $list
+     * @return Span[]
+     */
+    private function spansOf(RepeatedField $list): array
+    {
+        return iterator_to_array($list, false);
+    }
+
+    /**
+     * @param RepeatedField<ResourceMetrics> $list
+     * @return ResourceMetrics[]
+     */
+    private function resourceMetricsOf(RepeatedField $list): array
+    {
+        return iterator_to_array($list, false);
+    }
+
+    /**
+     * @param RepeatedField<ScopeMetrics> $list
+     * @return ScopeMetrics[]
+     */
+    private function scopeMetricsOf(RepeatedField $list): array
+    {
+        return iterator_to_array($list, false);
+    }
+
+    /**
+     * @param RepeatedField<Metric> $list
+     * @return Metric[]
+     */
+    private function metricsOf(RepeatedField $list): array
+    {
+        return iterator_to_array($list, false);
     }
 
     private function merge(Message $message, string $body, string $contentType, string $kind): void
@@ -88,6 +147,7 @@ final class OtlpDecoder
         }
     }
 
+    /** @param array<string,mixed> $resourceAttributes */
     private function decodeSpan(Span $span, array $resourceAttributes): ReceivedSpan
     {
         $parentSpanId = $span->getParentSpanId();
@@ -99,8 +159,8 @@ final class OtlpDecoder
             parentSpanId: $parentSpanId !== '' ? bin2hex($parentSpanId) : null,
             name: $span->getName(),
             kind: $span->getKind(),
-            startTimeUnixNano: $span->getStartTimeUnixNano(),
-            endTimeUnixNano: $span->getEndTimeUnixNano(),
+            startTimeUnixNano: self::toInt($span->getStartTimeUnixNano()),
+            endTimeUnixNano: self::toInt($span->getEndTimeUnixNano()),
             statusCode: $status?->getCode() ?? 0,
             statusMessage: $status?->getMessage() ?? '',
             attributes: $this->flattenAttributes($span->getAttributes()),
@@ -108,13 +168,29 @@ final class OtlpDecoder
         );
     }
 
+    /**
+     * `fixed64` protobuf fields (nanosecond timestamps here) decode to
+     * `int|string` in this library -- a `string` only on platforms where
+     * `PHP_INT_SIZE` can't hold the full unsigned 64-bit value. Dashboard
+     * timestamps are always well within `int` range in practice, so a plain
+     * numeric conversion is exact.
+     */
+    private static function toInt(int|string $value): int
+    {
+        return is_int($value) ? $value : (int) $value;
+    }
+
     /** @param array<string,mixed> $resourceAttributes */
     private function decodeMetric(Metric $metric, array $resourceAttributes): ?ReceivedMetric
     {
+        $gauge = $metric->getGauge();
+        $sum = $metric->getSum();
+        $histogram = $metric->getHistogram();
+
         [$type, $dataPoints] = match (true) {
-            $metric->hasGauge() => ['gauge', $this->decodeNumberDataPoints($metric->getGauge()->getDataPoints())],
-            $metric->hasSum() => ['sum', $this->decodeNumberDataPoints($metric->getSum()->getDataPoints())],
-            $metric->hasHistogram() => ['histogram', $this->decodeHistogramDataPoints($metric->getHistogram()->getDataPoints())],
+            $gauge !== null => ['gauge', $this->decodeNumberDataPoints($gauge->getDataPoints())],
+            $sum !== null => ['sum', $this->decodeNumberDataPoints($sum->getDataPoints())],
+            $histogram !== null => ['histogram', $this->decodeHistogramDataPoints($histogram->getDataPoints())],
             default => [null, []],
         };
 
@@ -138,7 +214,7 @@ final class OtlpDecoder
                 attributes: $this->flattenAttributes($point->getAttributes()),
                 value: $value,
                 count: null,
-                timeUnixNano: $point->getTimeUnixNano(),
+                timeUnixNano: self::toInt($point->getTimeUnixNano()),
             );
         }
 
@@ -157,7 +233,7 @@ final class OtlpDecoder
                 attributes: $this->flattenAttributes($point->getAttributes()),
                 value: $point->getSum(),
                 count: (int) $point->getCount(),
-                timeUnixNano: $point->getTimeUnixNano(),
+                timeUnixNano: self::toInt($point->getTimeUnixNano()),
             );
         }
 
@@ -188,19 +264,39 @@ final class OtlpDecoder
             return null;
         }
 
+        $arrayValue = $value->getArrayValue();
+        $kvListValue = $value->getKvlistValue();
+
         return match (true) {
             $value->hasStringValue() => $value->getStringValue(),
             $value->hasBoolValue() => $value->getBoolValue(),
             $value->hasIntValue() => $value->getIntValue(),
             $value->hasDoubleValue() => $value->getDoubleValue(),
             $value->hasBytesValue() => bin2hex($value->getBytesValue()),
-            $value->hasArrayValue() => array_map(
-                fn(AnyValue $v) => $this->anyValueToScalar($v, $depth + 1),
-                iterator_to_array($value->getArrayValue()->getValues()),
-            ),
-            $value->hasKvlistValue() => $this->flattenKvList($value->getKvlistValue()->getValues(), $depth + 1),
+            $arrayValue !== null => $this->flattenArrayValue($arrayValue, $depth + 1),
+            $kvListValue !== null => $this->flattenKvList($kvListValue->getValues(), $depth + 1),
             default => null,
         };
+    }
+
+    /** @return list<mixed> */
+    private function flattenArrayValue(ArrayValue $arrayValue, int $depth): array
+    {
+        $result = [];
+        foreach ($this->anyValuesOf($arrayValue->getValues()) as $item) {
+            $result[] = $this->anyValueToScalar($item, $depth);
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param RepeatedField<AnyValue> $list
+     * @return AnyValue[]
+     */
+    private function anyValuesOf(RepeatedField $list): array
+    {
+        return iterator_to_array($list, false);
     }
 
     /**

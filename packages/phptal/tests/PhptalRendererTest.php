@@ -1,5 +1,6 @@
 <?php
 
+use Quiote\Exception\RenderException;
 use Quiote\Renderer\Phptal\PhptalRenderer;
 use Quiote\Testing\UnitTestCase;
 use Quiote\View\FileTemplateLayer;
@@ -116,5 +117,37 @@ final class PhptalRendererTest extends UnitTestCase
         $output = $layer->execute($renderer, $attributes);
 
         $this->assertStringContainsString('Extracted', $output);
+    }
+
+    public function testRenderThrowsWhenNoTemplateIsSet(): void
+    {
+        $renderer = new PhptalRenderer();
+        $renderer->initialize($this->getContext());
+
+        $layer = new FileTemplateLayer();
+        $layer->initialize($this->getContext());
+        $layer->setRenderer($renderer);
+
+        $this->expectException(RenderException::class);
+        $this->expectExceptionMessage('No template is set on the template layer.');
+
+        $attributes = [];
+        $layer->execute($renderer, $attributes);
+    }
+
+    public function testRenderThrowsWhenEncodingParameterIsNotStringCompatible(): void
+    {
+        $renderer = new PhptalRenderer();
+        $renderer->initialize($this->getContext(), ['encoding' => ['not', 'a', 'string']]);
+
+        $layer = new FileTemplateLayer(['template' => $this->templateBase]);
+        $layer->initialize($this->getContext());
+        $layer->setRenderer($renderer);
+
+        $this->expectException(RenderException::class);
+        $this->expectExceptionMessage("The 'encoding' parameter must be a string.");
+
+        $attributes = ['name' => 'Quiote'];
+        $layer->execute($renderer, $attributes);
     }
 }

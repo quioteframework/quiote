@@ -24,7 +24,7 @@ class DoctrineDbalDatabase extends AbstractOrmDatabase
         $this->requireLibrary(DriverManager::class, 'doctrine/dbal');
 
         $connection = $this->getParameter('connection');
-        $params = is_array($connection) ? $connection : $this->dbalParams();
+        $params = is_array($connection) ? $this->normalizeInlineDbalParams($connection) : $this->dbalParams();
 
         if (!$params) {
             throw new DatabaseException(sprintf(
@@ -47,7 +47,16 @@ class DoctrineDbalDatabase extends AbstractOrmDatabase
 
     public function getDbalConnection(): DbalConnection
     {
-        return $this->getConnection();
+        $connection = $this->getConnection();
+        if ($connection instanceof DbalConnection) {
+            return $connection;
+        }
+
+        throw new DatabaseException(sprintf(
+            'DoctrineDbalDatabase "%s" connection is not a Doctrine\DBAL\Connection (got %s).',
+            $this->getName(),
+            get_debug_type($connection)
+        ));
     }
 
     public function getQueryBuilder(): \Doctrine\DBAL\Query\QueryBuilder

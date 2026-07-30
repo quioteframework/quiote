@@ -16,13 +16,29 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
  * Runs this app as an MCP server over stdio -- the transport local clients
- * (Claude Desktop, IDEs) launch as a subprocess,
- * and the fastest end-to-end path for the capability (phase 1: no HTTP/auth
- * surface). Registered via {@see \Quiote\Mcp\McpPlugin}.
+ * (Claude Desktop, IDEs) launch as a subprocess, with no HTTP/auth surface.
+ * Registered via {@see \Quiote\Mcp\McpPlugin}.
  */
 #[AsCommand(name: 'mcp:serve', description: 'Run this app as an MCP server over stdio')]
 final class McpServeCommand extends AbstractAppCommand
 {
+    /**
+     * `$stdioInput`/`$stdioOutput` default to null (real STDIN/STDOUT in
+     * production) -- the parameters exist only so tests can hand
+     * `runStdio()` throwaway in-memory streams instead of the process's real
+     * stdio, which {@see McpServer::runStdio()}'s docblock explains the need
+     * for.
+     *
+     * @param resource|null $stdioInput
+     * @param resource|null $stdioOutput
+     */
+    public function __construct(
+        private readonly mixed $stdioInput = null,
+        private readonly mixed $stdioOutput = null,
+    ) {
+        parent::__construct();
+    }
+
     protected function configure(): void
     {
         $this->configureAppOptions();
@@ -40,7 +56,10 @@ final class McpServeCommand extends AbstractAppCommand
             return self::FAILURE;
         }
 
-        $contextName = (string) ($input->getOption('context') ?? Config::getString('core.default_context', 'web'));
+        $contextOption = $input->getOption('context');
+        $contextName = is_string($contextOption) && $contextOption !== ''
+            ? $contextOption
+            : Config::getString('core.default_context', 'web');
         try {
             $container = Context::getInstance($contextName)->getContainer();
         } catch (\Throwable $e) {
@@ -49,7 +68,7 @@ final class McpServeCommand extends AbstractAppCommand
         }
 
         try {
-            return (new McpServer($container, $contextName))->runStdio($config);
+            return (new McpServer($container, $contextName))->runStdio($config, $this->stdioInput, $this->stdioOutput);
         } catch (\Throwable $e) {
             $io->error($e->getMessage());
             return self::FAILURE;

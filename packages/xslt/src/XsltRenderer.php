@@ -31,6 +31,9 @@ final class XsltRenderer extends Renderer implements IReusableRenderer
     public function render(TemplateLayer $layer, array &$attributes = [], array &$slots = [], array &$moreAssigns = [])
     {
         $stylesheetPath = $layer->getResourceStreamIdentifier();
+        if ($stylesheetPath === null) {
+            throw new RenderException('No stylesheet template is set on the template layer.');
+        }
 
         try {
             $stylesheet = $this->loadXmlFromFile($stylesheetPath);
@@ -47,11 +50,34 @@ final class XsltRenderer extends Renderer implements IReusableRenderer
             }
         }
 
-        $document = $this->getParameter('envelope', true)
-            ? $this->buildEnvelope($moreAssigns['inner'] ?? null, $slots, $layer)
-            : $this->documentFrom($moreAssigns['inner'] ?? null);
+        $inner = $this->asDocumentSource($moreAssigns['inner'] ?? null);
 
-        return $processor->transformToXML($document);
+        $document = $this->getParameter('envelope', true)
+            ? $this->buildEnvelope($inner, $slots, $layer)
+            : $this->documentFrom($inner);
+
+        $result = $processor->transformToXML($document);
+        if ($result === false) {
+            throw new RenderException("Unable to transform document with stylesheet '{$stylesheetPath}'.");
+        }
+
+        return $result ?? '';
+    }
+
+    private function asDocumentSource(mixed $value): DOMDocument|string|null
+    {
+        if ($value === null || $value instanceof DOMDocument || is_string($value)) {
+            return $value;
+        }
+
+        if (is_scalar($value) || $value instanceof \Stringable) {
+            return (string) $value;
+        }
+
+        throw new RenderException(sprintf(
+            "The 'inner' assign must be a DOMDocument, string, or null, %s given.",
+            get_debug_type($value),
+        ));
     }
 
     #[\Override]
@@ -70,27 +96,35 @@ final class XsltRenderer extends Renderer implements IReusableRenderer
 XSL;
     }
 
+    /**
+     * @param array<int|string, mixed> $slots
+     */
     private function buildEnvelope(DOMDocument|string|null $inner, array $slots, TemplateLayer $layer): DOMDocument
     {
         $envelope = new DOMDocument();
         $envelope->appendChild($root = $envelope->createElementNS(self::ENVELOPE_NAMESPACE, 'envelope'));
 
         $root->appendChild($innerWrapper = $envelope->createElementNS(self::ENVELOPE_NAMESPACE, 'inner'));
-        $innerWrapper->appendChild($envelope->importNode($this->documentFrom($inner)->documentElement, true));
+        $innerWrapper->appendChild($envelope->importNode($this->documentElementOf($this->documentFrom($inner)), true));
 
         $root->appendChild($slotsWrapper = $envelope->createElementNS(self::ENVELOPE_NAMESPACE, 'slots'));
         foreach (ArrayPathDefinition::flatten($slots) as $slotName => $slotContent) {
             try {
-                $slotDocument = $this->documentFrom($slotContent);
+                $slotDocument = $this->documentFrom($this->asDocumentSource($slotContent));
             } catch (DOMException $e) {
                 throw new RenderException("Unable to load contents for slot '{$slotName}'." . "\n\n" . $e->getMessage(), 0, $e);
             }
             $slotsWrapper->appendChild($slotWrapper = $envelope->createElementNS(self::ENVELOPE_NAMESPACE, 'slot'));
-            $slotWrapper->setAttribute('name', $slotName);
-            $slotWrapper->appendChild($envelope->importNode($slotDocument->documentElement, true));
+            $slotWrapper->setAttribute('name', (string) $slotName);
+            $slotWrapper->appendChild($envelope->importNode($this->documentElementOf($slotDocument), true));
         }
 
         return $envelope;
+    }
+
+    private function documentElementOf(DOMDocument $document): \DOMElement
+    {
+        return $document->documentElement ?? throw new RenderException('The document has no root element.');
     }
 
     private function documentFrom(DOMDocument|string|null $source): DOMDocument

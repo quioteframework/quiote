@@ -47,6 +47,7 @@ final class McpEndpointMiddlewareTest extends PhpUnitTestCase
         Config::remove('mcp.path');
     }
 
+    /** @param array<string, mixed> $body */
     private function jsonRpcRequest(string $path, array $body): ServerRequestInterface
     {
         $factory = new Psr17Factory();
@@ -102,9 +103,14 @@ final class McpEndpointMiddlewareTest extends PhpUnitTestCase
         $this->assertFalse($next->called);
         $this->assertSame(200, $response->getStatusCode());
         $payload = json_decode((string) $response->getBody(), true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($payload);
         $this->assertSame(1, $payload['id']);
         $this->assertArrayHasKey('result', $payload);
-        $this->assertNotEmpty($payload['result']['serverInfo']['name']);
+        $result = $payload['result'];
+        self::assertIsArray($result);
+        $serverInfo = $result['serverInfo'];
+        self::assertIsArray($serverInfo);
+        $this->assertNotEmpty($serverInfo['name']);
     }
 
     public function testCustomPathIsHonored(): void

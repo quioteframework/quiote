@@ -1,5 +1,6 @@
 <?php
 
+use Quiote\Exception\RenderException;
 use Quiote\Renderer\Twig\TwigRenderer;
 use Quiote\Testing\UnitTestCase;
 use Quiote\View\FileTemplateLayer;
@@ -116,5 +117,21 @@ final class TwigRendererTest extends UnitTestCase
         $output = $layer->execute($renderer, $attributes);
 
         $this->assertStringContainsString('Extracted', $output);
+    }
+
+    public function testRenderThrowsWhenNoTemplateIsSet(): void
+    {
+        $renderer = new TwigRenderer();
+        $renderer->initialize($this->getContext());
+
+        $layer = new FileTemplateLayer();
+        $layer->initialize($this->getContext());
+        $layer->setRenderer($renderer);
+
+        $this->expectException(RenderException::class);
+        $this->expectExceptionMessage('No template is set on the template layer.');
+
+        $attributes = [];
+        $layer->execute($renderer, $attributes);
     }
 }

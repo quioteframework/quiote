@@ -98,14 +98,29 @@ final class OtlpReceiver
     /** The actual bound port -- useful when constructed with port 0 (OS-assigned), e.g. in tests. */
     public function boundPort(): int
     {
+        if ($this->server === null) {
+            throw new \LogicException('Cannot determine the bound port before start() has been called.');
+        }
+
         $name = stream_socket_get_name($this->server, false);
+        if ($name === false) {
+            throw new \RuntimeException('Could not resolve the local name of the OTLP receiver socket.');
+        }
+
         $colon = strrpos($name, ':');
+        if ($colon === false) {
+            throw new \RuntimeException(sprintf('Unexpected socket name "%s" -- no port separator found.', $name));
+        }
 
         return (int) substr($name, $colon + 1);
     }
 
     private function acceptConnection(): void
     {
+        if ($this->server === null) {
+            return;
+        }
+
         $connection = @stream_socket_accept($this->server, 0);
         if ($connection === false) {
             return;
@@ -148,6 +163,7 @@ final class OtlpReceiver
         $this->closeConnection($connection, $id);
     }
 
+    /** @param resource $connection */
     private function handleRequest($connection, ParsedHttpRequest $request): void
     {
         if ($request->method !== 'POST') {

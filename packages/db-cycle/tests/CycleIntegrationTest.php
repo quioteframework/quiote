@@ -29,11 +29,11 @@ class CycleIntegrationTest extends IntegrationTestCase
             'connections' => [
                 'pg' => new PostgresDriverConfig(
                     connection: new TcpConnectionConfig(
-                        database: $pg['database'],
-                        host: $pg['host'],
-                        port: (int) $pg['port'],
-                        user: $pg['username'],
-                        password: $pg['password'],
+                        database: self::nonEmptyString($pg['database']),
+                        host: self::nonEmptyString($pg['host']),
+                        port: self::positiveInt($pg['port']),
+                        user: self::nonEmptyString($pg['username']),
+                        password: self::nonEmptyString($pg['password']),
                     ),
                 ),
             ],
@@ -82,5 +82,23 @@ class CycleIntegrationTest extends IntegrationTestCase
         $this->assertSame('grace', $reloaded->name);
 
         $this->assertTrue($db->ping());
+    }
+
+    /** @return non-empty-string */
+    private static function nonEmptyString(string $value): string
+    {
+        if ($value === '') {
+            throw new \RuntimeException('Expected a non-empty connection-info string');
+        }
+        return $value;
+    }
+
+    /** @return int<1, max> */
+    private static function positiveInt(int $value): int
+    {
+        if ($value < 1) {
+            throw new \RuntimeException('Expected a positive connection-info port');
+        }
+        return $value;
     }
 }

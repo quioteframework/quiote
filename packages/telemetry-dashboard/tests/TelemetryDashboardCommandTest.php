@@ -48,4 +48,12 @@ final class TelemetryDashboardCommandTest extends TestCase
 
         $this->assertStringContainsString('0.0.0.0:9999', $tester->getDisplay());
     }
+
+    public function testNonNumericPortFailsInsteadOfSilentlyCoercingToZero(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Option "--port" must be numeric.');
+
+        $this->tester()->execute(['--self-test' => true, '--port' => 'not-a-port']);
+    }
 }

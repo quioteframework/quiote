@@ -26,9 +26,11 @@ final class RouteStats
             $route = self::OTHER_LABEL;
         }
 
-        $entry = &$this->routes[$route];
-        $entry ??= ['count' => 0, 'errorCount' => 0, 'totalMs' => 0.0, 'cacheHits' => 0, 'lastSeenSecond' => $second];
+        if (!isset($this->routes[$route])) {
+            $this->routes[$route] = ['count' => 0, 'errorCount' => 0, 'totalMs' => 0.0, 'cacheHits' => 0, 'lastSeenSecond' => $second];
+        }
 
+        $entry = &$this->routes[$route];
         $entry['count']++;
         $entry['totalMs'] += $durationMs;
         $entry['lastSeenSecond'] = $second;

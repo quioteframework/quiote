@@ -37,7 +37,9 @@ class DoctrineDatabaseTest extends TestCase
         $this->assertInstanceOf(PDO::class, $pdo);
         $pdo->exec('CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT)');
         $pdo->exec("INSERT INTO t (name) VALUES ('quiote')");
-        $this->assertSame('quiote', $pdo->query('SELECT name FROM t WHERE id = 1')->fetchColumn());
+        $stmt = $pdo->query('SELECT name FROM t WHERE id = 1');
+        $this->assertInstanceOf(PDOStatement::class, $stmt);
+        $this->assertSame('quiote', $stmt->fetchColumn());
     }
 
     public function testGetPdoThrowsWithNativeSqlite3Driver(): void
@@ -55,5 +57,65 @@ class DoctrineDatabaseTest extends TestCase
         $this->expectException(DatabaseException::class);
         $this->expectExceptionMessageMatches('/native \(non-PDO\)/');
         $db->getPdo();
+    }
+
+    public function testEntityPathsRejectsNonStringElement(): void
+    {
+        $db = new DoctrineDatabase();
+        $db->initialize(new DatabaseManager(), [
+            'connection'   => ['driver' => 'pdo_sqlite', 'memory' => true],
+            'entity_paths' => ['a/valid/path', 123],
+            'dev_mode'     => true,
+        ]);
+
+        $this->expectException(DatabaseException::class);
+        $this->expectExceptionMessageMatches('/"entity_paths" must contain only strings/');
+        $db->getConnection();
+    }
+
+    public function testProxyDirRejectsNonStringType(): void
+    {
+        $db = new DoctrineDatabase();
+        $db->initialize(new DatabaseManager(), [
+            'connection' => ['driver' => 'pdo_sqlite', 'memory' => true],
+            'proxy_dir'  => 123,
+            'dev_mode'   => true,
+        ]);
+
+        $this->expectException(DatabaseException::class);
+        $this->expectExceptionMessageMatches('/"proxy_dir" parameter must be a string or null/');
+        $db->getConnection();
+    }
+
+    public function testMetadataRejectsNonStringType(): void
+    {
+        $db = new DoctrineDatabase();
+        $db->initialize(new DatabaseManager(), [
+            'connection' => ['driver' => 'pdo_sqlite', 'memory' => true],
+            'metadata'   => ['xml'],
+            'dev_mode'   => true,
+        ]);
+
+        $this->expectException(DatabaseException::class);
+        $this->expectExceptionMessageMatches('/"metadata" parameter must be a string/');
+        $db->getConnection();
+    }
+
+    public function testGetRepositoryReturnsTypedEntityRepository(): void
+    {
+        if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) {
+            $this->markTestSkipped('pdo_sqlite driver not available');
+        }
+
+        $db = new DoctrineDatabase();
+        $db->initialize(new DatabaseManager(), [
+            'connection'   => ['driver' => 'pdo_sqlite', 'memory' => true],
+            'entity_paths' => [__DIR__ . '/Entity'],
+            'dev_mode'     => true,
+        ]);
+
+        $repository = $db->getRepository(\Quiote\Test\Database\Entity\DoctrineUser::class);
+
+        $this->assertInstanceOf(\Doctrine\ORM\EntityRepository::class, $repository);
     }
 }

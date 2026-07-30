@@ -60,7 +60,9 @@ class RouteStatsTest extends TestCase
         $this->assertContains('(other)', $routeNames);
         $this->assertLessThanOrEqual(201, count($rows));
 
-        $other = $rows[array_search('(other)', $routeNames, true)];
+        $otherIndex = array_search('(other)', $routeNames, true);
+        $this->assertNotFalse($otherIndex);
+        $other = $rows[$otherIndex];
         $this->assertGreaterThan(0, $other['count']);
     }
 
@@ -76,7 +78,9 @@ class RouteStatsTest extends TestCase
         $stats->record('GET /overflow-b', 1.0, false, false, 1);
 
         $rows = $stats->rows(limit: 1000);
-        $other = $rows[array_search('(other)', array_column($rows, 'route'), true)];
+        $otherIndex = array_search('(other)', array_column($rows, 'route'), true);
+        $this->assertNotFalse($otherIndex);
+        $other = $rows[$otherIndex];
 
         $this->assertSame(2, $other['count']);
     }

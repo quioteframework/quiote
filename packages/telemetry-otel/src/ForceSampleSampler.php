@@ -31,6 +31,9 @@ final class ForceSampleSampler implements SamplerInterface
     ) {
     }
 
+    /**
+     * @param AttributesInterface<non-empty-string, array|bool|float|int|string|null> $attributes
+     */
     public function shouldSample(
         ContextInterface $parentContext,
         string $traceId,

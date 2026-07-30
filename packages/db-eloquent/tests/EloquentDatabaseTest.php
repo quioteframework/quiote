@@ -4,6 +4,7 @@ use PHPUnit\Framework\TestCase;
 use Quiote\Database\Adapter\Eloquent\EloquentDatabase;
 use Quiote\Database\DatabaseManager;
 use Quiote\Database\PdoDatabase;
+use Quiote\Exception\DatabaseException;
 use Illuminate\Database\Capsule\Manager as Capsule;
 
 /**
@@ -53,5 +54,42 @@ class EloquentDatabaseTest extends TestCase
 
         // The Eloquent connection should be driving the very PDO the PdoDatabase opened.
         $this->assertSame($under->getConnection(), $orm->getEloquentConnection()->getPdo());
+    }
+
+    public function testInlineConnectionArrayIsAcceptedAsIs(): void
+    {
+        $mgr = new DatabaseManager();
+        $db = new EloquentDatabase();
+        $db->initialize($mgr, [
+            'connection' => ['driver' => 'sqlite', 'database' => ':memory:'],
+        ]);
+
+        $this->assertInstanceOf(Capsule::class, $db->getCapsule());
+    }
+
+    public function testConnectionNameRejectsNonStringType(): void
+    {
+        $mgr = new DatabaseManager();
+        $db = new EloquentDatabase();
+        $db->initialize($mgr, [
+            'driver'          => 'sqlite',
+            'database'        => ':memory:',
+            'connection_name' => ['not', 'a', 'string'],
+        ]);
+
+        $this->expectException(DatabaseException::class);
+        $this->expectExceptionMessageMatches('/"connection_name" parameter must be a string/');
+        $db->getCapsule();
+    }
+
+    public function testMissingDriverThrows(): void
+    {
+        $mgr = new DatabaseManager();
+        $db = new EloquentDatabase();
+        $db->initialize($mgr, ['database' => ':memory:']);
+
+        $this->expectException(DatabaseException::class);
+        $this->expectExceptionMessageMatches('/requires a "driver" parameter/');
+        $db->getCapsule();
     }
 }

@@ -3,6 +3,7 @@
 use PHPUnit\Framework\TestCase;
 use Quiote\Telemetry\Dashboard\HttpMessageParser;
 use Quiote\Telemetry\Dashboard\MalformedRequestException;
+use Quiote\Telemetry\Dashboard\ParsedHttpRequest;
 
 /**
  * Covers the bounded, OTLP/HTTP-only parser the dashboard's receiver uses
@@ -67,6 +68,8 @@ class HttpMessageParserTest extends TestCase
         $second = $parser->tryParse();
         $third = $parser->tryParse();
 
+        $this->assertInstanceOf(ParsedHttpRequest::class, $first);
+        $this->assertInstanceOf(ParsedHttpRequest::class, $second);
         $this->assertSame('aa', $first->body);
         $this->assertSame('bb', $second->body);
         $this->assertNull($third);
@@ -79,6 +82,7 @@ class HttpMessageParserTest extends TestCase
 
         $request = $parser->tryParse();
 
+        $this->assertInstanceOf(ParsedHttpRequest::class, $request);
         $this->assertSame('Value', $request->headers['x-custom-header']);
     }
 

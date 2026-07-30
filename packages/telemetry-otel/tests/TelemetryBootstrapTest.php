@@ -36,7 +36,11 @@ class TelemetryBootstrapTest extends TestCase
         TelemetryBootstrap::reset();
         Log::reset();
         LogContext::clear();
-        $this->buf = fopen('php://memory', 'r+');
+        $buf = fopen('php://memory', 'r+');
+        if ($buf === false) {
+            self::fail('failed to open an in-memory stream for the log sink');
+        }
+        $this->buf = $buf;
         \OpenTelemetry\API\Behavior\Internal\Logging::disable();
     }
 
@@ -73,9 +77,38 @@ class TelemetryBootstrapTest extends TestCase
         }
         $records = [];
         foreach (explode("\n", $out) as $line) {
-            $records[] = json_decode($line, true);
+            $decoded = json_decode($line, true);
+            if (!is_array($decoded)) {
+                self::fail('each log line must decode to a JSON object');
+            }
+            $record = [];
+            foreach ($decoded as $key => $value) {
+                if (!is_string($key)) {
+                    self::fail('log record keys must be strings');
+                }
+                $record[$key] = $value;
+            }
+            $records[] = $record;
         }
         return $records;
+    }
+
+    private function spanExporter(): \OpenTelemetry\SDK\Trace\SpanExporter\InMemoryExporter
+    {
+        $exporter = TelemetryBootstrap::inMemorySpanExporter();
+        if (!$exporter instanceof \OpenTelemetry\SDK\Trace\SpanExporter\InMemoryExporter) {
+            self::fail('expected an in-memory span exporter to be configured');
+        }
+        return $exporter;
+    }
+
+    private function metricExporter(): \OpenTelemetry\SDK\Metrics\MetricExporter\InMemoryExporter
+    {
+        $exporter = TelemetryBootstrap::inMemoryMetricExporter();
+        if (!$exporter instanceof \OpenTelemetry\SDK\Metrics\MetricExporter\InMemoryExporter) {
+            self::fail('expected an in-memory metric exporter to be configured');
+        }
+        return $exporter;
     }
 
     private function enableInMemory(string $mode = 'simple'): void
@@ -139,7 +172,7 @@ class TelemetryBootstrapTest extends TestCase
 
         Trace::span('Quiote.Routing', 'match', ['http.route' => '/orders/{id}'])->end();
 
-        $spans = TelemetryBootstrap::inMemorySpanExporter()->getSpans();
+        $spans = $this->spanExporter()->getSpans();
         $this->assertCount(1, $spans);
         $attrs = iterator_to_array($spans[0]->getAttributes());
         $this->assertSame('match', $spans[0]->getName());
@@ -160,7 +193,7 @@ class TelemetryBootstrapTest extends TestCase
 
         TelemetryBootstrap::flushAfterRequest();
 
-        $metrics = TelemetryBootstrap::inMemoryMetricExporter()->collect();
+        $metrics = $this->metricExporter()->collect();
         $names = array_map(static fn($m) => $m->name, $metrics);
         $this->assertContains('http.server.request.duration', $names);
         $this->assertContains('quiote.cache.hits', $names);
@@ -221,7 +254,7 @@ class TelemetryBootstrapTest extends TestCase
 
         $this->assertSame($tracerProvider, TraceRegistry::tracerProvider());
         $this->assertSame($meterProvider, TraceRegistry::meterProvider());
-        $this->assertCount(5, TelemetryBootstrap::inMemorySpanExporter()->getSpans());
+        $this->assertCount(5, $this->spanExporter()->getSpans());
     }
 
     public function testResetAllowsRebuildingAFreshProvider(): void
@@ -293,12 +326,16 @@ class TelemetryBootstrapTest extends TestCase
         // it degrades to the safe local in-memory exporter instead.
         $this->assertTrue(TelemetryBootstrap::configureFromConfig());
         $this->assertTrue(Trace::enabled());
-        $this->assertNotNull(TelemetryBootstrap::inMemorySpanExporter());
+        self::assertInstanceOf(\OpenTelemetry\SDK\Trace\SpanExporter\InMemoryExporter::class, TelemetryBootstrap::inMemorySpanExporter());
 
         $records = $this->logRecords();
         $this->assertNotEmpty($records);
+        $message = $records[0]['message'];
+        if (!is_string($message)) {
+            self::fail('the log record message must be a string');
+        }
         $this->assertSame('warning', $records[0]['level']);
-        $this->assertStringContainsString('not-a-real-exporter', $records[0]['message']);
+        $this->assertStringContainsString('not-a-real-exporter', $message);
     }
 
     public function testHostileAttributeValuesDoNotCrashARealSpan(): void
@@ -314,8 +351,47 @@ class TelemetryBootstrapTest extends TestCase
         $span->setAttributes(['ok' => 'fine', 'also_bad_array' => [1, 'two']]);
         $span->end();
 
-        $spans = TelemetryBootstrap::inMemorySpanExporter()->getSpans();
+        $spans = $this->spanExporter()->getSpans();
         $this->assertCount(1, $spans, 'the span itself must still be exported despite bad attribute values');
+    }
+
+    public function testHostileAttributesAreDroppedButValidOnesStillReachTheExportedSpan(): void
+    {
+        $this->enableInMemory();
+        TelemetryBootstrap::configureFromConfig();
+
+        $span = Trace::span('Quiote.Test', 'op');
+        $span->setAttribute('bad', new stdClass());
+        $span->setAttribute('good', 'kept');
+        // setAttributes() validates the whole batch before applying any of
+        // it, so one bad entry drops the entire call -- 'also_good' is lost
+        // along with 'also_bad_array', not applied individually.
+        $span->setAttributes(['also_bad_array' => [1, 'two'], 'also_good' => 42]);
+        $span->end();
+
+        $spans = $this->spanExporter()->getSpans();
+        $attrs = iterator_to_array($spans[0]->getAttributes());
+        $this->assertSame('kept', $attrs['good']);
+        $this->assertArrayNotHasKey('bad', $attrs);
+        $this->assertArrayNotHasKey('also_bad_array', $attrs);
+        $this->assertArrayNotHasKey('also_good', $attrs);
+    }
+
+    public function testHostileMetricAttributesDoNotCrashRecording(): void
+    {
+        $this->enableInMemory();
+        TelemetryBootstrap::configureFromConfig();
+
+        $meter = Trace::metrics();
+        // Neither the unsupported value type nor the heterogeneous array may
+        // propagate out of the handle; a rejected attribute set means that
+        // one recording is skipped, not that the request crashes.
+        $meter->recordHistogram('http.server.request.duration', 12.5, ['bad' => new stdClass()]);
+        $meter->addCounter('quiote.cache.hits', 3, ['mixed' => [1, 'two']]);
+        $meter->recordGauge('quiote.worker.memory.rss', 1048576.0, ['ok' => 'fine']);
+        TelemetryBootstrap::flushAfterRequest();
+
+        $this->addToAssertionCount(1);
     }
 
     public function testRecordExceptionOnRealSpanDoesNotThrowForAnyThrowableSubtype(): void
@@ -339,7 +415,7 @@ class TelemetryBootstrapTest extends TestCase
         $span->end();
         $span->end(); // must not throw, must not export twice
 
-        $this->assertCount(1, TelemetryBootstrap::inMemorySpanExporter()->getSpans());
+        $this->assertCount(1, $this->spanExporter()->getSpans());
     }
 
     public function testEmptyCategoryAndNameDoNotCrashRealSpanCreation(): void
@@ -350,7 +426,7 @@ class TelemetryBootstrapTest extends TestCase
         $span = Trace::span('', '');
         $span->end();
 
-        $this->assertCount(1, TelemetryBootstrap::inMemorySpanExporter()->getSpans());
+        $this->assertCount(1, $this->spanExporter()->getSpans());
     }
 
     // --- regression: Trace::current() must be a non-owning borrowed reference ---
@@ -383,7 +459,7 @@ class TelemetryBootstrapTest extends TestCase
         $span->setAttribute('owner.finished', true);
         $span->end();
 
-        $spans = TelemetryBootstrap::inMemorySpanExporter()->getSpans();
+        $spans = $this->spanExporter()->getSpans();
         $this->assertCount(1, $spans, 'exactly one span: the borrower must not have triggered a premature/duplicate export');
         $attrs = iterator_to_array($spans[0]->getAttributes());
         $this->assertTrue($attrs['touched.by.borrower'], 'the borrower\'s own mutation must still have taken effect');
@@ -420,7 +496,7 @@ class TelemetryBootstrapTest extends TestCase
             $span->end();
         }
 
-        $spans = TelemetryBootstrap::inMemorySpanExporter()->getSpans();
+        $spans = $this->spanExporter()->getSpans();
         $this->assertCount(1, $spans);
         $this->assertSame('Error', $spans[0]->getStatus()->getCode(), 'the owner\'s error status must survive even though a borrower\'s reference to the same span was destructed first');
         $this->assertNotEmpty($spans[0]->getEvents(), 'recordException() must still have taken effect');
@@ -440,6 +516,6 @@ class TelemetryBootstrapTest extends TestCase
 
         $current->end();
 
-        $this->assertCount(1, TelemetryBootstrap::inMemorySpanExporter()->getSpans(), 'explicit end() via a borrowed handle must still export the span');
+        $this->assertCount(1, $this->spanExporter()->getSpans(), 'explicit end() via a borrowed handle must still export the span');
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Quiote\Renderer\Twig;
 
 use Quiote\Config\Config;
+use Quiote\Exception\RenderException;
 use Quiote\Renderer\IReusableRenderer;
 use Quiote\Renderer\Renderer;
 use Quiote\Util\Toolkit;
@@ -31,7 +32,8 @@ final class TwigRenderer extends Renderer implements IReusableRenderer
 
         $cacheDir = Config::getString('core.cache_dir');
         $compileDir = rtrim($cacheDir, '/\\') . DIRECTORY_SEPARATOR . self::CACHE_SUBDIR;
-        Toolkit::mkdir($compileDir, fileperms($cacheDir), true);
+        $cacheDirMode = fileperms($cacheDir);
+        Toolkit::mkdir($compileDir, $cacheDirMode !== false ? $cacheDirMode : 0775, true);
 
         return $this->environment = new Environment(new TemplateLayerLoader(), [
             'cache' => $compileDir,
@@ -64,7 +66,12 @@ final class TwigRenderer extends Renderer implements IReusableRenderer
             $vars[$name] = $value;
         }
 
-        return $this->environment()->render($layer->getResourceStreamIdentifier(), $vars);
+        $template = $layer->getResourceStreamIdentifier();
+        if ($template === null) {
+            throw new RenderException('No template is set on the template layer.');
+        }
+
+        return $this->environment()->render($template, $vars);
     }
 
     #[\Override]

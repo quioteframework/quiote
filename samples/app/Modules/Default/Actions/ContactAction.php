@@ -13,7 +13,7 @@ use Quiote\Routing\Attribute\Route;
 #[Route('/contact', name: 'contact', methods: ['GET'])]
 class ContactAction extends Action
 {
-	public function executeRead(WebRequest $rd)
+	public function executeRead(WebRequest $rd): string
 	{
 		return 'Success';
 	}

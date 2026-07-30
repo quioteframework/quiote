@@ -50,6 +50,7 @@ class DoctrineOrmIntegrationTest extends IntegrationTestCase
         // everything, so a re-find hydrates a fresh instance from the DB.
         $em->clear();
         $reloaded = $em->find(DoctrineUser::class, $id);
+        $this->assertInstanceOf(DoctrineUser::class, $reloaded);
         $this->assertNotSame($user, $reloaded);
         $this->assertSame('ada', $reloaded->name);
 

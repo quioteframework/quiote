@@ -16,7 +16,7 @@ class AboutSuccessView extends View
 		));
 	}
 
-	public function executeHtml(WebRequest $rd)
+	public function executeHtml(WebRequest $rd): void
 	{
 		// Populates the layers from output_types.xml's <layouts> so the "content"
 		// layer's template actually gets rendered -- without this, executeHtml()

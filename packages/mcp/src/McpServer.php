@@ -290,10 +290,21 @@ final class McpServer
     /**
      * Run the stdio transport loop (blocks until the client disconnects or the
      * process is signalled). Returns the process exit code.
+     *
+     * `$input`/`$output` default to the process's real STDIN/STDOUT, matching
+     * real CLI usage. The override exists solely so tests can hand
+     * `StdioTransport` throwaway in-memory streams: the SDK's `Server::run()`
+     * unconditionally `fclose()`s whatever streams the transport holds once
+     * `listen()` returns, and that is the *real* STDIN/STDOUT unless we swap
+     * them out here -- closing the test process's actual stdio out from under
+     * the rest of the suite.
+     *
+     * @param resource|null $input
+     * @param resource|null $output
      */
-    public function runStdio(McpConfig $config): int
+    public function runStdio(McpConfig $config, mixed $input = null, mixed $output = null): int
     {
-        return $this->build($config)->run(new StdioTransport());
+        return $this->build($config)->run(new StdioTransport($input ?? \STDIN, $output ?? \STDOUT));
     }
 
     /**

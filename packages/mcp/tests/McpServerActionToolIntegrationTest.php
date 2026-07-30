@@ -51,8 +51,9 @@ final class McpServerActionToolIntegrationTest extends PhpUnitTestCase
 
         $this->assertCount(2, $transport->sent);
         $response = json_decode($transport->sent[1], true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($response);
         $this->assertArrayNotHasKey('error', $response);
-        $this->assertSame('Hello, Ada!', $response['result']['content'][0]['text']);
+        $this->assertSame('Hello, Ada!', $this->firstContentText($response));
     }
 
     public function testDerivedSchemaListsTheToolWithItsValidatorConstraints(): void
@@ -74,17 +75,22 @@ final class McpServerActionToolIntegrationTest extends PhpUnitTestCase
         $server->run($transport);
 
         $response = json_decode($transport->sent[1], true, flags: JSON_THROW_ON_ERROR);
-        $tools = [];
-        foreach ($response['result']['tools'] as $tool) {
-            $tools[$tool['name']] = $tool;
-        }
+        self::assertIsArray($response);
+        $tools = $this->toolsByName($response);
 
         $this->assertArrayHasKey('greet_via_action', $tools);
         $schema = $tools['greet_via_action']['inputSchema'];
-        $this->assertSame('string', $schema['properties']['name']['type']);
-        $this->assertSame(2, $schema['properties']['name']['minLength']);
-        $this->assertSame(50, $schema['properties']['name']['maxLength']);
-        $this->assertContains('name', $schema['required']);
+        self::assertIsArray($schema);
+        $properties = $schema['properties'];
+        self::assertIsArray($properties);
+        $nameProperty = $properties['name'];
+        self::assertIsArray($nameProperty);
+        $this->assertSame('string', $nameProperty['type']);
+        $this->assertSame(2, $nameProperty['minLength']);
+        $this->assertSame(50, $nameProperty['maxLength']);
+        $required = $schema['required'];
+        self::assertIsArray($required);
+        $this->assertContains('name', $required);
     }
 
     public function testCallViolatingTheDerivedSchemaIsRejectedBeforeDispatch(): void
@@ -112,8 +118,11 @@ final class McpServerActionToolIntegrationTest extends PhpUnitTestCase
         $server->run($transport);
 
         $response = json_decode($transport->sent[1], true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($response);
         $this->assertArrayHasKey('error', $response);
-        $this->assertSame(-32602, $response['error']['code'], 'invalid params');
+        $error = $response['error'];
+        self::assertIsArray($error);
+        $this->assertSame(-32602, $error['code'], 'invalid params');
     }
 
     /**
@@ -152,15 +161,16 @@ final class McpServerActionToolIntegrationTest extends PhpUnitTestCase
         $server->run($transport);
 
         $listResponse = json_decode($transport->sent[1], true, flags: JSON_THROW_ON_ERROR);
-        $tools = [];
-        foreach ($listResponse['result']['tools'] as $tool) {
-            $tools[$tool['name']] = $tool;
-        }
+        self::assertIsArray($listResponse);
+        $tools = $this->toolsByName($listResponse);
         $this->assertArrayHasKey('multi_verb_via_action', $tools);
-        $this->assertSame([], $tools['multi_verb_via_action']['inputSchema']['properties']);
-        $this->assertSame([], $tools['multi_verb_via_action']['inputSchema']['required']);
+        $multiVerbSchema = $tools['multi_verb_via_action']['inputSchema'];
+        self::assertIsArray($multiVerbSchema);
+        $this->assertSame([], $multiVerbSchema['properties']);
+        $this->assertSame([], $multiVerbSchema['required']);
 
         $callResponse = json_decode($transport->sent[2], true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($callResponse);
         $this->assertArrayNotHasKey('error', $callResponse, 'A fallback-schema tool call must not be rejected by schema validation before dispatch');
         $this->assertArrayHasKey('result', $callResponse, 'The call must actually dispatch to the action, not just avoid an error');
     }
@@ -185,6 +195,45 @@ final class McpServerActionToolIntegrationTest extends PhpUnitTestCase
         $server->run($transport);
 
         $response = json_decode($transport->sent[1], true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($response);
         $this->assertArrayHasKey('error', $response, 'expose_actions defaults to false, so the tool should not exist');
+    }
+
+    /**
+     * @param array<string, mixed> $response
+     * @return array<string, array<string, mixed>>
+     */
+    private function toolsByName(array $response): array
+    {
+        $result = $response['result'];
+        self::assertIsArray($result);
+        $rawTools = $result['tools'];
+        self::assertIsArray($rawTools);
+
+        $tools = [];
+        foreach ($rawTools as $tool) {
+            self::assertIsArray($tool);
+            $name = $tool['name'];
+            self::assertIsString($name);
+            $tools[$name] = $tool;
+        }
+
+        return $tools;
+    }
+
+    /** @param array<string, mixed> $response */
+    private function firstContentText(array $response): string
+    {
+        $result = $response['result'];
+        self::assertIsArray($result);
+        $content = $result['content'];
+        self::assertIsArray($content);
+        self::assertArrayHasKey(0, $content);
+        $first = $content[0];
+        self::assertIsArray($first);
+        $text = $first['text'];
+        self::assertIsString($text);
+
+        return $text;
     }
 }

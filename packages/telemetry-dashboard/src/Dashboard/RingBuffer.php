@@ -48,7 +48,7 @@ final class RingBuffer
         return $series;
     }
 
-    /** @param float[] $values */
+    /** @param non-empty-array<float> $values */
     private function aggregate(array $values, string $aggregate): float
     {
         return match ($aggregate) {

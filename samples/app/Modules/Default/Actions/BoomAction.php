@@ -11,7 +11,7 @@ use Quiote\Request\WebRequest;
  */
 class BoomAction extends Action
 {
-	public function executeRead(WebRequest $rd)
+	public function executeRead(WebRequest $rd): never
 	{
 		throw new \RuntimeException('Boom! This is a deliberately triggered error.');
 	}

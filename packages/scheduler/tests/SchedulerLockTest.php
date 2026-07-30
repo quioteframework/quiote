@@ -38,6 +38,6 @@ final class SchedulerLockTest extends TestCase
 
         $lock->release('never-acquired');
 
-        $this->assertTrue(true);
+        $this->assertTrue($lock->acquire('never-acquired', 60));
     }
 }

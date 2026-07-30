@@ -1,5 +1,6 @@
 <?php
 
+use Quiote\Exception\RenderException;
 use Quiote\Renderer\Xslt\XsltRenderer;
 use Quiote\Testing\UnitTestCase;
 use Quiote\View\FileTemplateLayer;
@@ -93,5 +94,41 @@ XSL);
         $output = $layer->execute($renderer, $attributes, $moreAssigns);
 
         $this->assertStringContainsString('Quiote', $output);
+    }
+
+    public function testRenderThrowsWhenNoTemplateIsSet(): void
+    {
+        $renderer = new XsltRenderer();
+        $renderer->initialize($this->getContext());
+
+        $layer = new FileTemplateLayer();
+        $layer->initialize($this->getContext());
+        $layer->setRenderer($renderer);
+
+        $this->expectException(RenderException::class);
+        $this->expectExceptionMessage('No stylesheet template is set on the template layer.');
+
+        $attributes = [];
+        $slots = [];
+        $moreAssigns = ['inner' => '<root/>'];
+        $renderer->render($layer, $attributes, $slots, $moreAssigns);
+    }
+
+    public function testRenderThrowsWhenInnerAssignIsNotDocumentSourceCompatible(): void
+    {
+        $renderer = new XsltRenderer();
+        $renderer->initialize($this->getContext());
+
+        $layer = new FileTemplateLayer(['template' => $this->templateBase]);
+        $layer->initialize($this->getContext());
+        $layer->setRenderer($renderer);
+
+        $this->expectException(RenderException::class);
+        $this->expectExceptionMessage("The 'inner' assign must be a DOMDocument, string, or null, array given.");
+
+        $attributes = ['name' => 'Quiote'];
+        $slots = [];
+        $moreAssigns = ['inner' => ['not', 'a', 'document']];
+        $renderer->render($layer, $attributes, $slots, $moreAssigns);
     }
 }
