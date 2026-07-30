@@ -3,7 +3,6 @@ namespace Quiote\Execution;
 
 /**
  * Marker interface for renderable slot results.
- * Future slot system will use this instead of ExecutionContainer.
  */
 interface SlotRenderable
 {

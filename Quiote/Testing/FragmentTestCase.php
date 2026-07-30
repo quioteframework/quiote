@@ -123,31 +123,8 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	}
 
 	/**
-	 * create an executionfilter for the test
-	 * the configured executionfilter class will be wrapped in a testing
-	 * extension to provide advanced capabilities required for testing 
-	 * only
-	 * @return     never
-	 * @since      1.0.0
-	 */
-	protected function createExecutionFilter() { throw new \RuntimeException('Legacy execution filter removed – tests should use middleware pipeline.'); }
-
-	/**
-	 * legacy: create a container for the test (removed)
-	 * legacy container class reference removed
-	 * extension to provide advanced capabilities required for testing
-	 * only
-	 * @param      mixed $arguments
-	 * @param      mixed $outputType
-	 * @param      mixed $requestMethod
-	 * @return     mixed
-	 * @since      1.0.0
-	 */
-	protected function createExecutionContainer($arguments = null, $outputType = null, $requestMethod = null) { return null; }
-
-	/**
-	 * creates an Action instance and initializes it with this testcases
-	 * container
+	 * creates an Action instance and initializes it with this testcase's
+	 * init context
 	 * @return     Action
 	 * @since      1.0.0
 	 */
@@ -210,7 +187,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	
 	
 	/**
-	 * assert that the exectionContainer has a given attribute with the expected value
+	 * assert that the test container has a given attribute with the expected value
 	 * @param      mixed $expected the expected attribute value
 	 * @param      string $attributeName the attribute name
 	 * @param      string $namespace the attribute namespace
@@ -224,7 +201,9 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	 */
 	protected function assertContainerAttributeEquals($expected, $attributeName, $namespace = null, $message = 'Failed asserting that the attribute <%1$s/%2$s> has the value <%3$s>', $delta = 0, $maxDepth = 10, $canonicalizeEol = false)
 	{
-		$this->assertEquals($expected, $this->requireContainer()->getAttribute($attributeName, $namespace), sprintf($message, $namespace, $attributeName, $expected));
+		// $expected is mixed, so render it for the failure message rather than
+		// handing a possible array/object to sprintf().
+		$this->assertEquals($expected, $this->requireContainer()->getAttribute($attributeName, $namespace), sprintf($message, $namespace, $attributeName, var_export($expected, true)));
 	}
 	
 	/**

@@ -652,13 +652,8 @@ abstract class View implements ResetInterface
 			[$view, $vm, $vn, $content] = $fs->createSystemForwardView($name, $outputType ?? $context->getController()->getOutputType()->getName(), $arguments);
 			return (string)$content;
 		} catch (\Throwable $e) {
-			// The legacy forward-container fallback this used to defer to
-			// returned an ExecutionContainer with getViewInstance()/getRequestData()/
-			// getOutputType(); createForwardContainer() was migrated to the
-			// container-less pipeline and now returns a SlotRenderable, which
-			// exposes none of those methods. There is no functional legacy
-			// path left to fall back to, so surface the original failure
-			// instead of silently faulting on undefined method calls.
+			// There is no alternative forward path to fall back to, so surface
+			// the original failure rather than masking it.
 			throw new \RuntimeException('System forward "' . $name . '" failed: ' . $e->getMessage(), 0, $e);
 		}
 	}

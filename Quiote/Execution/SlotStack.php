@@ -2,7 +2,8 @@
 namespace Quiote\Execution;
 
 /**
- * Stack tracking nested slot/sub-action executions to replace implicit recursion in ExecutionContainer.
+ * Stack tracking nested slot/sub-action executions, so recursion depth is
+ * explicit and boundable rather than implicit in the call stack.
  */
 final class SlotStack
 {

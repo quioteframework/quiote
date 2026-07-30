@@ -3,10 +3,8 @@ namespace Quiote\Execution;
 
 /**
  * Immutable value object representing rendered slot content plus metadata.
- * This is the migration target replacing ad hoc ExecutionContainer based
- * slot handling. It intentionally carries only the data needed by template
- * layers and renderers; heavy lifecycle & parameter APIs stay with the legacy
- * container path until fully removed.
+ * It intentionally carries only the data needed by template layers and
+ * renderers, not a full execution lifecycle.
  */
 final readonly class SlotContent implements SlotRenderable, \Stringable
 {

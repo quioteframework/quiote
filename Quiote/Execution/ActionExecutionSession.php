@@ -3,8 +3,7 @@ namespace Quiote\Execution;
 
 /**
  * Aggregates mutable ExecutionState with the immutable ActionExecutionContext
- * produced by container-less execution. Transitional abstraction replacing
- * ExecutionContainer for top-level dispatch in no-container paths.
+ * for one top-level dispatch.
  */
 final class ActionExecutionSession
 {

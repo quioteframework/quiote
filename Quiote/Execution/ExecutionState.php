@@ -2,7 +2,7 @@
 namespace Quiote\Execution;
 
 /**
- * Mutable per-execution state (will eventually replace ExecutionContainer's mutable fields).
+ * Mutable per-execution state for one action execution.
  */
 final class ExecutionState
 {

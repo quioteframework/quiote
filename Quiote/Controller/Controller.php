@@ -74,7 +74,9 @@ class Controller extends ParameterHolder implements ResetInterface
 	protected $configuredDefaultOutputType = null;
 	
 	/**
-	 * @var        array<string, mixed> An array of registered Output Types.
+	 * Populated by the compiled output_types.xml config, which only ever assigns
+	 * initialized OutputType instances -- see OutputTypeConfigHandler.
+	 * @var        array<string, OutputType> An array of registered Output Types, keyed by name.
 	 */
 	protected $outputTypes = [];
 
@@ -103,10 +105,6 @@ class Controller extends ParameterHolder implements ResetInterface
 			throw new ControllerException('Too many execution runs have been detected for this Context.');
 		}
 	}
-	
-	// Legacy createExecutionContainer* helpers removed – the PSR-15 middleware
-	// pipeline now resolves and executes actions directly using descriptors &
-	// ExecutionState without allocating ExecutionContainer instances.
 	
 	/**
 	 * Ensure the deterministic per-module directive defaults are present.
@@ -237,7 +235,7 @@ class Controller extends ParameterHolder implements ResetInterface
 	 * check whether the file actually contains the proper class
 	 * @param      string $moduleName A module name.
 	 * @param      string $actionName An action name.
-	 * @return     mixed  the path to the action file if the action file 
+	 * @return     string|false  the path to the action file if the action file
 	 *                    exists and is readable, false in any other case
 	 * @since      1.0.0
 	 */

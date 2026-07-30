@@ -171,7 +171,7 @@ class ValidationService
     }
 
     /**
-     * Perform validation similar to ExecutionContainer::performValidation but without a container.
+     * Perform validation for an action execution.
      * Steps:
      * 1. Load XML validation config (validators, dependencies) if present.
      * 2. Allow action to register manual validators via register[Method]Validators().
@@ -367,8 +367,8 @@ class ValidationService
         $logger = $this->getLogger();
         // NOTE: Compiled validator configuration files gate validator registration using
         //   if($method == 'write') { ... }
-        // Historically ExecutionContainer set a local $method variable before including
-        // the compiled config. The validate() method already reproduces this behavior, but
+        // The compiled config is included with a local $method variable in scope.
+        // The validate() method already does this, but
         // xmlOnlyValidate previously forgot to normalize and overwrite the local $method.
         // As a result, all validators with method attributes (e.g. method="write") were skipped
         // because the condition evaluated against an empty or incorrect value.

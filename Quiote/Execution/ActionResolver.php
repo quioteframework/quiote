@@ -10,7 +10,8 @@ use Psr\Http\Message\ServerRequestInterface;
 
 /**
  * Resolves which execute* method to call and invokes action, returning raw view token.
- * Centralizes logic currently duplicated in SlotDispatcher and ExecutionContainer.
+ * Single place where that selection happens, shared by top-level dispatch and
+ * slot rendering.
  */
 class ActionResolver
 {

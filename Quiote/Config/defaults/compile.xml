@@ -6,7 +6,6 @@
 			<compile>%core.quiote_dir%/Action/QuioteAction.php</compile>
 			<compile>%core.quiote_dir%/QuioteContext.php</compile>
 			<compile>%core.quiote_dir%/Controller/QuioteController.php</compile>
-			<compile>%core.quiote_dir%/Controller/QuioteExecutionContainer.php</compile>
 			<compile>%core.quiote_dir%/Controller/QuioteOutputType.php</compile>
 			<!-- Legacy filter system removed: QuioteIFilter, QuioteIGlobalFilter, QuioteIActionFilter, QuioteFilter, QuioteDispatchFilter, QuioteExecutionFilter, QuioteFilterChain -->
 			<compile>%core.quiote_dir%/Renderer/QuioteRenderer.php</compile>

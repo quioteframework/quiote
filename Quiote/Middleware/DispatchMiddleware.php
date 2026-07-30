@@ -21,14 +21,11 @@ use Quiote\Cache\CacheManager;
 use Quiote\Cache\ActionViewCache;
 use Quiote\Execution\ActionCacheHelper;
 use Quiote\Exception\QuioteException;
-// UncacheableException no longer referenced here after container removal.
 use Quiote\Execution\ValidationDecision;
 
 /**
- * DispatchMiddleware replaces the legacy global filter chain + dispatch filter.
- * Legacy ExecutionContainer execution path has been removed. All actions run through
- * the container-less ActionExecutor (simple and non-simple). Caching operates solely on
- * executor output; no legacy container response objects are produced anymore.
+ * DispatchMiddleware runs the requested action. Simple and non-simple actions
+ * alike go through ActionExecutor, and caching operates on executor output.
  */
 #[\Quiote\Middleware\Attribute\Middleware(phase: 'action')]
 class DispatchMiddleware implements MiddlewareInterface
