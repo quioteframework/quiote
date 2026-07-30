@@ -73,6 +73,14 @@ class CsrfTest extends UnitTestCase
         // store and retrieve tokens within the test process.
         $ctx = $this->getContext();
         $ctx->setSessionBag(new InMemorySessionBag());
+
+        // Every test in this file used to run with no session manager at all, so
+        // CsrfManager::sessionCookieName() took its legacy ext/session fallback and
+        // the QSID cookie a real deployment carries was never exercised by anything.
+        // Install the production path by default; the one test that needs the
+        // fallback drops it explicitly.
+        $this->installTestSessionManager();
+        $this->assertSessionMechanismConfigured();
     }
 
     protected function tearDown(): void
@@ -82,7 +90,7 @@ class CsrfTest extends UnitTestCase
         try {
             $ctx = $this->getContext();
             $ctx->setSessionBag(null);
-            // A manager installed by withSessionManager() would otherwise change
+            // A manager installed in setUp() would otherwise change
             // cookie-name resolution for every later test in the process.
             $ctx->setSessionManager(null);
         } catch (\Throwable) {
@@ -264,52 +272,24 @@ class CsrfTest extends UnitTestCase
 
     // --- Session cookie name resolution (the exemption's actual predicate) ---
 
-    /**
-     * Install a real SessionManager so cookie-name resolution follows the
-     * production path. Dropped again in tearDown().
-     * @param array<string, mixed> $parameters
-     */
-    private function withSessionManager(array $parameters = []): \Quiote\Session\SessionManager
-    {
-        $persistence = new class implements \Quiote\Session\SessionPersistenceInterface {
-            /** @var array<string, array<string, mixed>> */
-            private array $rows = [];
-
-            public function load(string $sid): ?array
-            {
-                return $this->rows[$sid] ?? null;
-            }
-
-            public function save(string $sid, array $data): void
-            {
-                $this->rows[$sid] = $data;
-            }
-
-            public function delete(string $sid): void
-            {
-                unset($this->rows[$sid]);
-            }
-        };
-
-        $manager = new \Quiote\Session\SessionManager($persistence, $parameters);
-        $this->getContext()->setSessionManager($manager);
-
-        return $manager;
-    }
-
     public function testSessionCookieNameComesFromTheSessionManagerNotExtSession(): void
     {
         // Regression: the exemption used to probe for a cookie named session_name()
         // ('PHPSESSID'), which SessionManager never sets -- so hasSessionCookie() was
         // always false, every request was exempt and CSRF validated nothing.
-        $this->withSessionManager();
+        //
+        // The literal 'QSID' is deliberate. sessionCookieRequest() below asks
+        // production how the cookie is named, which keeps the rest of this file
+        // tracking reality but means those tests cannot detect the name resolution
+        // itself regressing. This test and the next two are what pin that down, so
+        // do not "simplify" them to call sessionCookieName() on both sides.
         $this->assertSame('QSID', $this->manager()->sessionCookieName());
         $this->assertNotSame(session_name(), $this->manager()->sessionCookieName());
     }
 
     public function testConfiguredCookieNameIsHonoured(): void
     {
-        $this->withSessionManager(['cookie_name' => 'MYAPPSID']);
+        $this->installTestSessionManager(['cookie_name' => 'MYAPPSID']);
         $this->assertSame('MYAPPSID', $this->manager()->sessionCookieName());
 
         $req = (new ServerRequest('POST', 'http://localhost/x'))
@@ -321,7 +301,6 @@ class CsrfTest extends UnitTestCase
     {
         // The end-to-end shape of the bug: a browser carrying the framework's own
         // session cookie posting without a token must be rejected.
-        $this->withSessionManager();
         $mw = new CsrfValidationMiddleware($this->controller());
         $handler = $this->okHandler();
         $req = (new ServerRequest('POST', 'http://localhost/x'))
@@ -336,7 +315,6 @@ class CsrfTest extends UnitTestCase
         // The mirror image: with a SessionManager configured, a stray PHPSESSID
         // cookie is not this application's session and must not make the request
         // look session-bearing.
-        $this->withSessionManager();
         $req = (new ServerRequest('POST', 'http://localhost/x'))
             ->withCookieParams(['PHPSESSID' => 'not-ours']);
         $this->assertFalse($this->manager()->hasSessionCookie($req));
