@@ -137,6 +137,78 @@ class PdoDatabaseTest extends TestCase
         $this->assertTrue($db->ping());
     }
 
+    public function testInitializeRejectsNonStringDsn(): void
+    {
+        $this->expectException(DatabaseException::class);
+        $db = new PdoDatabase();
+        $db->initialize($this->makeManager(), [ 'dsn' => ['not', 'a', 'string'] ]);
+    }
+
+    public function testConnectRejectsNonStringMethod(): void
+    {
+        $this->expectException(DatabaseException::class);
+        $db = new PdoDatabase();
+        $db->initialize($this->makeManager(), [ 'dsn' => 'sqlite::memory:', 'method' => ['bad'] ]);
+        $db->getConnection();
+    }
+
+    public function testConnectRejectsNonStringUsername(): void
+    {
+        $this->expectException(DatabaseException::class);
+        $db = new PdoDatabase();
+        $db->initialize($this->makeManager(), [ 'dsn' => 'sqlite::memory:', 'username' => 123 ]);
+        $db->getConnection();
+    }
+
+    public function testConnectRejectsNonStringPassword(): void
+    {
+        $this->expectException(DatabaseException::class);
+        $db = new PdoDatabase();
+        $db->initialize($this->makeManager(), [ 'dsn' => 'sqlite::memory:', 'password' => ['bad'] ]);
+        $db->getConnection();
+    }
+
+    public function testConnectRejectsNonStringInitQuery(): void
+    {
+        $this->expectException(DatabaseException::class);
+        $db = new PdoDatabase();
+        $db->initialize($this->makeManager(), [ 'dsn' => 'sqlite::memory:', 'init_queries' => [ ['not a string'] ] ]);
+        $db->getConnection();
+    }
+
+    public function testConnectRejectsUndefinedOptionConstant(): void
+    {
+        $this->expectException(DatabaseException::class);
+        $db = new PdoDatabase();
+        $db->initialize($this->makeManager(), [
+            'dsn' => 'sqlite::memory:',
+            'options' => [ 'PDO::DOES_NOT_EXIST_CONST' => true ],
+        ]);
+        $db->getConnection();
+    }
+
+    public function testConnectRejectsNonIntAttributeKey(): void
+    {
+        $this->expectException(DatabaseException::class);
+        $db = new PdoDatabase();
+        $db->initialize($this->makeManager(), [
+            'dsn' => 'sqlite::memory:',
+            'attributes' => [ 'not_a_class_const_ref' => true ],
+        ]);
+        $db->getConnection();
+    }
+
+    public function testConnectRejectsOptionKeyConstantThatIsNotIntOrString(): void
+    {
+        $this->expectException(DatabaseException::class);
+        $db = new PdoDatabase();
+        $db->initialize($this->makeManager(), [
+            'dsn' => 'sqlite::memory:',
+            'options' => [ \Quiote\Test\Database\NonScalarConstHolder::class . '::ARR' => true ],
+        ]);
+        $db->getConnection();
+    }
+
     public function testPingReturnsFalseAndNullsConnectionAfterIdleThresholdWhenBroken(): void
     {
         $db = new PdoDatabase();

@@ -95,5 +95,43 @@ class PhpArrayFormatDriverTest extends PhpUnitTestCase
 		$this->assertSame(['a' => 1, 'b' => 2], $result);
 		\Quiote\Config\Config::remove('test.php_array_driver_dir');
 	}
+
+	public function testThrowsWhenImportsDirectiveIsNotAnArray(): void
+	{
+		file_put_contents($this->dir . '/c.php', "<?php\nreturn ['imports' => 'not-an-array'];\n");
+		$registry = new FormatDriverRegistry([new PhpArrayFormatDriver()]);
+
+		$this->expectException(ConfigurationException::class);
+		$registry->load($this->dir . '/c.php', 'test');
+	}
+
+	public function testThrowsWhenImportsDirectiveContainsNonStringEntry(): void
+	{
+		file_put_contents($this->dir . '/c.php', "<?php\nreturn ['imports' => [['not', 'a', 'path']]];\n");
+		$registry = new FormatDriverRegistry([new PhpArrayFormatDriver()]);
+
+		$this->expectException(ConfigurationException::class);
+		$registry->load($this->dir . '/c.php', 'test');
+	}
+
+	public function testThrowsWhenParentDirectiveIsNotAString(): void
+	{
+		file_put_contents($this->dir . '/c.php', "<?php\nreturn ['parent' => ['not', 'a', 'path']];\n");
+		$registry = new FormatDriverRegistry([new PhpArrayFormatDriver()]);
+
+		$this->expectException(ConfigurationException::class);
+		$registry->load($this->dir . '/c.php', 'test');
+	}
+
+	public function testAllowsAListWithIntegerKeysAlongsideStringDirectives(): void
+	{
+		// Config files aren't restricted to string keys -- e.g. middleware.php /
+		// plugins.php files are legitimately a plain numerically-indexed list of
+		// definitions.
+		file_put_contents($this->dir . '/c.php', "<?php\nreturn [['name' => 'first'], ['name' => 'second']];\n");
+		$registry = new FormatDriverRegistry([new PhpArrayFormatDriver()]);
+
+		$this->assertSame([['name' => 'first'], ['name' => 'second']], $registry->load($this->dir . '/c.php', 'test'));
+	}
 }
 ?>

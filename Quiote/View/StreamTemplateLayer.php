@@ -50,12 +50,15 @@ class StreamTemplateLayer extends TemplateLayer
 	public function getResourceStreamIdentifier()
 	{
 		$template = $this->getParameter('template');
-		
+
 		if($template === null) {
 			// no template set, we return null so nothing gets rendered
 			return null;
 		}
-		
+		if(!is_string($template)) {
+			throw new QuioteException('The "template" parameter must be a string.');
+		}
+
 		$args = [];
 		if(Config::getBool('core.use_translation', false)) {
 			if($this->context === null) {
@@ -76,9 +79,22 @@ class StreamTemplateLayer extends TemplateLayer
 		}
 		
 		$scheme = $this->getParameter('scheme');
+		if($scheme !== null && !is_string($scheme)) {
+			throw new QuioteException('The "scheme" parameter must be a string.');
+		}
 		$check = $this->getParameter('check');
 
-		$targets = (array)$this->getParameter('targets', []);
+		$targetsRaw = $this->getParameter('targets', []);
+		if(!is_array($targetsRaw)) {
+			throw new QuioteException('The "targets" parameter must be an array.');
+		}
+		$targets = [];
+		foreach($targetsRaw as $targetPattern) {
+			if(!is_string($targetPattern)) {
+				throw new QuioteException('Each item of the "targets" parameter must be a string.');
+			}
+			$targets[] = $targetPattern;
+		}
 		// Parameter names are always strings in practice; rekey defensively since
 		// ParameterHolder declares its storage as array<int|string, mixed>.
 		$scalarParams = array_filter($this->getParameters(), is_scalar(...));

@@ -29,6 +29,32 @@ class ModuleConfigHandlerFormatDriverTest extends PhpUnitTestCase
 		parent::tearDown();
 	}
 
+	/**
+	 * ModuleConfigHandler::executeArray() declares a precise array shape
+	 * for $config, but FormatDriverRegistry::load() only knows how to
+	 * promise array<string, mixed> since it is shared across every config
+	 * type. Narrow the registry's generic result back into the shape the
+	 * handler expects.
+	 * @param array<string, mixed> $config
+	 * @return array{enabled?: bool, settings?: array<string, mixed>}
+	 */
+	private function shapeModuleConfig(array $config): array
+	{
+		$shaped = [];
+
+		if (array_key_exists('enabled', $config)) {
+			self::assertIsBool($config['enabled']);
+			$shaped['enabled'] = $config['enabled'];
+		}
+
+		if (array_key_exists('settings', $config)) {
+			self::assertIsArray($config['settings']);
+			$shaped['settings'] = $config['settings'];
+		}
+
+		return $shaped;
+	}
+
 	public function testModulePhpArrayFileCompilesThroughModuleConfigHandler(): void
 	{
 		file_put_contents($this->dir . '/module.php', <<<'PHP'
@@ -43,7 +69,7 @@ PHP);
 		$handler->initialize(null, []);
 		$registry = FormatDriverRegistry::forHandler($handler);
 
-		$config = $registry->load($this->dir . '/module.php', 'test');
+		$config = $this->shapeModuleConfig($registry->load($this->dir . '/module.php', 'test'));
 		$code = $handler->executeArray($config, $this->dir . '/module.php');
 
 		$this->assertStringContainsString('$lcModuleName = strtolower($moduleName);', $code);

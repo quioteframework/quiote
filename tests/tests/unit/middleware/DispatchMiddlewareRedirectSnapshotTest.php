@@ -1,6 +1,7 @@
 <?php
 
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Nyholm\Psr7\ServerRequest;
@@ -41,8 +42,8 @@ class DispatchMiddlewareRedirectSnapshotTest extends TestCase
     }
 
     /**
-     * @param array<string, array<string, mixed>> $cookies
-     * @param array{location: mixed, code: int|string}|null $redirectData
+     * @param array<string, array{value: mixed, lifetime: int|string|null, path: string|null, domain: string|null, secure: bool, httponly: bool, encode_callback: (callable(): mixed)|false, samesite: string|null}> $cookies
+     * @param array{location: string, code: int|string}|null $redirectData
      */
     private function makeController(\Closure $actionFactory, array $cookies = [], ?array $redirectData = null): Controller
     {
@@ -58,12 +59,12 @@ class DispatchMiddlewareRedirectSnapshotTest extends TestCase
         $globalResp = new class($cookies, $redirectData) extends \Quiote\Response\WebResponse {
             private bool $hasRedirect = false;
             private bool $sent = false;
-            /** @var array<string, array<int, mixed>> */
+            /** @var array<string, list<string>> */
             private array $headers = [];
 
             /**
-             * @param array<string, array<string, mixed>> $cookiesData
-             * @param array{location: mixed, code: int|string}|null $redirectData
+             * @param array<string, array{value: mixed, lifetime: int|string|null, path: string|null, domain: string|null, secure: bool, httponly: bool, encode_callback: (callable(): mixed)|false, samesite: string|null}> $cookiesData
+             * @param array{location: string, code: int|string}|null $redirectData
              */
             public function __construct(private readonly array $cookiesData, ?array $redirectData = null){
                 if ($redirectData) {
@@ -71,9 +72,13 @@ class DispatchMiddlewareRedirectSnapshotTest extends TestCase
                     $this->hasRedirect = true;
                 }
             }
+            private static function stringify(mixed $value): string
+            {
+                return (is_scalar($value) || $value instanceof \Stringable) ? (string) $value : '';
+            }
             public function getCookies(): array { return $this->cookiesData; }
             public function setRedirect($url, $statusCode = 302) {
-                $this->redirect = ['location' => $url, 'code' => $statusCode];
+                $this->redirect = ['location' => self::stringify($url), 'code' => $statusCode];
                 $this->hasRedirect = true;
             }
             public function getRedirect() { return $this->redirect; }
@@ -85,9 +90,13 @@ class DispatchMiddlewareRedirectSnapshotTest extends TestCase
                 if($replace||!isset($this->headers[$name])){
                     $this->headers[$name]=[];
                 }
-                $this->headers[$name][]=$value;
+                $this->headers[$name][] = is_array($value) ? implode(',', array_map(self::stringify(...), $value)) : self::stringify($value);
             }
-            public function getHttpHeader($name, mixed $default = null) { return $this->headers[$name] ?? $default; }
+            /**
+             * @param list<string>|null $default
+             * @return list<string>|null
+             */
+            public function getHttpHeader($name, ?array $default = null): ?array { return $this->headers[$name] ?? $default; }
             public function hasHttpHeader($name) { return isset($this->headers[$name]); }
             public function removeHttpHeader($name) { unset($this->headers[$name]); }
             public function clearHttpHeaders() { $this->headers = []; }
@@ -128,7 +137,8 @@ class DispatchMiddlewareRedirectSnapshotTest extends TestCase
         $method = $ref->getMethod('buildPsrResponse');
         
         $response = $method->invoke($middleware, 'content', 'html', false, false, $redirectData);
-        
+        $this->assertInstanceOf(ResponseInterface::class, $response);
+
         $this->assertEquals(302, $response->getStatusCode());
         $this->assertTrue($response->hasHeader('Location'));
         $this->assertStringContainsString('test-redirect', $response->getHeaderLine('Location'));
@@ -150,7 +160,8 @@ class DispatchMiddlewareRedirectSnapshotTest extends TestCase
         $method = $ref->getMethod('buildPsrResponse');
         
         $response = $method->invoke($middleware, 'content', 'html', false, false, null);
-        
+        $this->assertInstanceOf(ResponseInterface::class, $response);
+
         $this->assertEquals(200, $response->getStatusCode());
         $this->assertFalse($response->hasHeader('Location'));
     }
@@ -172,7 +183,8 @@ class DispatchMiddlewareRedirectSnapshotTest extends TestCase
         $method = $ref->getMethod('buildPsrResponse');
         
         $response = $method->invoke($middleware, 'content', 'html', false, false, $redirectData);
-        
+        $this->assertInstanceOf(ResponseInterface::class, $response);
+
         $this->assertEquals(301, $response->getStatusCode());
         $this->assertTrue($response->hasHeader('Location'));
         $this->assertEquals('http://external.com/path', $response->getHeaderLine('Location'));
@@ -195,7 +207,8 @@ class DispatchMiddlewareRedirectSnapshotTest extends TestCase
         $method = $ref->getMethod('buildPsrResponse');
         
         $response = $method->invoke($middleware, 'content', 'html', false, false, $redirectData);
-        
+        $this->assertInstanceOf(ResponseInterface::class, $response);
+
         $this->assertEquals(303, $response->getStatusCode());
         $this->assertTrue($response->hasHeader('Location'));
         $location = $response->getHeaderLine('Location');

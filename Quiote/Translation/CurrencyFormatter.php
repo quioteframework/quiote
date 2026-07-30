@@ -59,14 +59,23 @@ class CurrencyFormatter extends DecimalFormatter implements ITranslator, ResetIn
 	{
 		$this->context = $context;
 		if(!empty($parameters['rounding_mode'])) {
+			if(!is_string($parameters['rounding_mode'])) {
+				throw new \Quiote\Exception\QuioteException('CurrencyFormatter::initialize() expects the "rounding_mode" parameter to be a string, ' . get_debug_type($parameters['rounding_mode']) . ' given.');
+			}
 			$this->setRoundingMode($this->getRoundingModeFromString($parameters['rounding_mode']));
 		} else {
 			$this->setRoundingMode(DecimalFormatter::ROUND_NONE);
 		}
 		if(isset($parameters['translation_domain'])) {
+			if(!is_string($parameters['translation_domain'])) {
+				throw new \Quiote\Exception\QuioteException('CurrencyFormatter::initialize() expects the "translation_domain" parameter to be a string, ' . get_debug_type($parameters['translation_domain']) . ' given.');
+			}
 			$this->translationDomain = $parameters['translation_domain'];
 		}
 		if(isset($parameters['format'])) {
+			if(!is_array($parameters['format']) && !is_string($parameters['format'])) {
+				throw new \Quiote\Exception\QuioteException('CurrencyFormatter::initialize() expects the "format" parameter to be an array or a string, ' . get_debug_type($parameters['format']) . ' given.');
+			}
 			$this->customFormat = $parameters['format'];
 			if(is_array($this->customFormat)) {
 				// it's an array, so it contains the translations already, DOMAIN MUST NOT BE SET
@@ -77,6 +86,9 @@ class CurrencyFormatter extends DecimalFormatter implements ITranslator, ResetIn
 			}
 		}
 		if(isset($parameters['currency_code'])) {
+			if(!is_string($parameters['currency_code'])) {
+				throw new \Quiote\Exception\QuioteException('CurrencyFormatter::initialize() expects the "currency_code" parameter to be a string, ' . get_debug_type($parameters['currency_code']) . ' given.');
+			}
 			$this->currencyCode = $parameters['currency_code'];
 		}
 	}
@@ -92,6 +104,10 @@ class CurrencyFormatter extends DecimalFormatter implements ITranslator, ResetIn
 	 */
 	public function translate($message, $domain, ?QuioteLocale $locale = null)
 	{
+		if(!is_int($message) && !is_float($message)) {
+			throw new \Quiote\Exception\QuioteException('CurrencyFormatter::translate() expects $message to be an int or a float, ' . get_debug_type($message) . ' given.');
+		}
+
 		if($locale) {
 			$fn = clone $this;
 			$fn->localeChanged($locale);
@@ -165,7 +181,11 @@ class CurrencyFormatter extends DecimalFormatter implements ITranslator, ResetIn
 		} elseif($this->customFormat) {
 			$format = $this->customFormat;
 		}
-		
+
+		if(!is_string($format)) {
+			throw new \Quiote\Exception\QuioteException('CurrencyFormatter::localeChanged() resolved a non-string currency format for locale "' . ($this->locale->getIdentifier() ?? '') . '".');
+		}
+
 		$this->setFormat($format);
 	}
 

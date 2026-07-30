@@ -2,6 +2,7 @@
 
 use Quiote\Config\Config;
 use Quiote\Config\ReturnArrayConfigHandler;
+use Quiote\Exception\ConfigurationException;
 
 require_once(__DIR__ . '/ConfigHandlerTestBase.php');
 
@@ -98,6 +99,39 @@ class ReturnArrayConfigHandlerTest extends ConfigHandlerTestBase
 			],
 		];
 		$this->assertEquals($expected, $actual);
+	}
+
+	/**
+	 * Exercises the two bucketing paths in convertToArray(): duplicate child
+	 * elements that carry an id attribute get keyed into a synthetic pluralized
+	 * container (id_attribute path), while duplicates without one get appended
+	 * into a synthetic pluralized list (append path).
+	 */
+	public function testParseGroupsDuplicateChildrenIntoSyntheticBuckets(): void
+	{
+		$RACH = new ReturnArrayConfigHandler();
+		$document = $this->parseConfiguration(Config::getString('core.config_dir') . '/tests/rach_buckets.xml');
+		$actual = $this->includeCode($RACH->execute($document));
+		$expected = [
+			'container' => [
+				'solo' => 'lonely',
+				'items' => ['a' => 1, 'b' => 2],
+			],
+			'duplicates' => [
+				'entries' => ['first', 'second'],
+			],
+		];
+		$this->assertSame($expected, $actual);
+	}
+
+	public function testConvertToArrayThrowsWhenIdAttributeParameterIsNotAString(): void
+	{
+		$RACH = new ReturnArrayConfigHandler();
+		$RACH->setParameter('id_attribute', ['not', 'a', 'string']);
+		$document = $this->parseConfiguration(Config::getString('core.config_dir') . '/tests/rach_mixed.xml');
+
+		$this->expectException(ConfigurationException::class);
+		$RACH->execute($document);
 	}
 }
 ?>

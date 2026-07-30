@@ -92,24 +92,50 @@ abstract class Renderer extends ParameterHolder implements ResetInterface
 		$this->context = $context;
 		
 		$this->setParameters($parameters);
-		
-		$this->varName = $this->getParameter('var_name', $this->varName);
-		$this->slotsVarName = $this->getParameter('slots_var_name', $this->slotsVarName);
-		$this->extractVars = $this->getParameter('extract_vars', $this->extractVars);
-		
-		$this->defaultExtension = $this->getParameter('default_extension', $this->defaultExtension);
-		
+
+		$varName = $this->getParameter('var_name', $this->varName);
+		if(!is_string($varName)) {
+			throw new QuioteException('The "var_name" parameter must be a string.');
+		}
+		$this->varName = $varName;
+
+		$slotsVarName = $this->getParameter('slots_var_name', $this->slotsVarName);
+		if(!is_string($slotsVarName)) {
+			throw new QuioteException('The "slots_var_name" parameter must be a string.');
+		}
+		$this->slotsVarName = $slotsVarName;
+
+		$extractVars = $this->getParameter('extract_vars', $this->extractVars);
+		if(!is_bool($extractVars)) {
+			throw new QuioteException('The "extract_vars" parameter must be a boolean.');
+		}
+		$this->extractVars = $extractVars;
+
+		$defaultExtension = $this->getParameter('default_extension', $this->defaultExtension);
+		if(!is_string($defaultExtension)) {
+			throw new QuioteException('The "default_extension" parameter must be a string.');
+		}
+		$this->defaultExtension = $defaultExtension;
+
 		if(!$this->extractVars && $this->varName == $this->slotsVarName) {
 			throw new QuioteException('Template and Slots container variable names cannot be identical.');
 		}
-		
-		foreach($this->getParameter('assigns', []) as $item => $var) {
-			$getter = 'get' . str_replace('_', '', $item);
+
+		$assigns = $this->getParameter('assigns', []);
+		if(!is_array($assigns)) {
+			throw new QuioteException('The "assigns" parameter must be an array.');
+		}
+
+		foreach($assigns as $item => $var) {
+			$getter = 'get' . str_replace('_', '', (string) $item);
 			if(is_callable([$this->context, $getter])) {
 				if($var === null) {
 					// the name is null, which means this one should not be assigned
 					// we do this in here, not for the moreAssignNames, since those are checked later in the renderer
 					continue;
+				}
+				if(!is_int($var) && !is_string($var)) {
+					throw new QuioteException('An assign name must be a string or an integer.');
 				}
 				$this->assigns[$var] = $getter;
 			} else {
@@ -167,7 +193,11 @@ abstract class Renderer extends ParameterHolder implements ResetInterface
 		
 		foreach($moreAssigns as $name => &$value) {
 			if(isset($moreAssignNames[$name])) {
-				$name = $moreAssignNames[$name];
+				$mappedName = $moreAssignNames[$name];
+				if(!is_int($mappedName) && !is_string($mappedName)) {
+					throw new QuioteException('A "more assign" name must be a string or an integer.');
+				}
+				$name = $mappedName;
 			} elseif(array_key_exists($name, $moreAssignNames)) {
 				// the name is null, which means this one should not be assigned
 				continue;

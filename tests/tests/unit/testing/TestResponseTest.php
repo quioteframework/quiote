@@ -19,9 +19,29 @@ class TestResponseTest extends TestCase
         parent::tearDown();
     }
 
+    /** @param array<string, string> $headers */
     private function make(int $status = 200, array $headers = [], string $body = ''): TestResponse
     {
         return new TestResponse(new Response($status, $headers, $body));
+    }
+
+    /** @param array<mixed> $data */
+    private function encode(array $data): string
+    {
+        $json = json_encode($data);
+        self::assertIsString($json);
+        return $json;
+    }
+
+    /**
+     * Widens a literal method name to a plain (non-constant) string so
+     * dynamic calls below are analysed as genuinely unknown method names,
+     * matching the runtime behaviour under test: __call() dispatch to
+     * assertion extensions that may or may not be registered.
+     */
+    private function extensionMethodName(string $name): string
+    {
+        return $name;
     }
 
     public function testAssertOkPassesOn200(): void
@@ -71,7 +91,7 @@ class TestResponseTest extends TestCase
 
     public function testJsonDecodesBody(): void
     {
-        $response = $this->make(200, [], json_encode(['a' => 1]));
+        $response = $this->make(200, [], $this->encode(['a' => 1]));
         $this->assertSame(['a' => 1], $response->json());
     }
 
@@ -83,7 +103,7 @@ class TestResponseTest extends TestCase
 
     public function testAssertJsonMatchesSubset(): void
     {
-        $response = $this->make(200, [], json_encode(['a' => 1, 'b' => ['c' => 2]]));
+        $response = $this->make(200, [], $this->encode(['a' => 1, 'b' => ['c' => 2]]));
         $response->assertJson(['a' => 1]);
         $response->assertJson(['b' => ['c' => 2]]);
     }
@@ -91,25 +111,25 @@ class TestResponseTest extends TestCase
     public function testAssertJsonFailsWhenKeyMissing(): void
     {
         $this->expectException(\PHPUnit\Framework\AssertionFailedError::class);
-        $this->make(200, [], json_encode(['a' => 1]))->assertJson(['b' => 2]);
+        $this->make(200, [], $this->encode(['a' => 1]))->assertJson(['b' => 2]);
     }
 
     public function testAssertJsonEqualsRequiresExactMatch(): void
     {
         $this->expectException(\PHPUnit\Framework\AssertionFailedError::class);
-        $this->make(200, [], json_encode(['a' => 1, 'b' => 2]))->assertJsonEquals(['a' => 1]);
+        $this->make(200, [], $this->encode(['a' => 1, 'b' => 2]))->assertJsonEquals(['a' => 1]);
     }
 
     public function testAssertJsonFragmentMatchesAnyListItem(): void
     {
-        $response = $this->make(200, [], json_encode([['id' => 1], ['id' => 2, 'name' => 'x']]));
+        $response = $this->make(200, [], $this->encode([['id' => 1], ['id' => 2, 'name' => 'x']]));
         $response->assertJsonFragment(['name' => 'x']);
     }
 
     public function testAssertJsonFragmentFailsWhenNotPresent(): void
     {
         $this->expectException(\PHPUnit\Framework\AssertionFailedError::class);
-        $response = $this->make(200, [], json_encode([['id' => 1], ['id' => 2]]));
+        $response = $this->make(200, [], $this->encode([['id' => 1], ['id' => 2]]));
         $response->assertJsonFragment(['name' => 'nope']);
     }
 
@@ -152,17 +172,19 @@ class TestResponseTest extends TestCase
 
     public function testExtendRegistersCustomAssertion(): void
     {
-        TestResponse::extend('assertBodyLength', function (int $expected): void {
+        TestResponse::extend('assertBodyLength', \Closure::bind(function (int $expected): void {
             \PHPUnit\Framework\Assert::assertSame($expected, strlen($this->getContent()));
-        });
+        }, $this->make(), TestResponse::class));
         $this->assertTrue(TestResponse::hasExtension('assertBodyLength'));
-        $this->make(200, [], 'abcde')->assertBodyLength(5);
+        $method = $this->extensionMethodName('assertBodyLength');
+        $this->make(200, [], 'abcde')->$method(5);
     }
 
     public function testUnregisteredExtensionThrowsQuioteException(): void
     {
         $this->expectException(QuioteException::class);
-        $this->make(200)->assertSomethingNotRegistered();
+        $method = $this->extensionMethodName('assertSomethingNotRegistered');
+        $this->make(200)->$method();
     }
 
     public function testClearExtensionsRemovesRegistration(): void
@@ -171,13 +193,15 @@ class TestResponseTest extends TestCase
         TestResponse::clearExtensions();
         $this->assertFalse(TestResponse::hasExtension('assertAlwaysPasses'));
         $this->expectException(QuioteException::class);
-        $this->make(200)->assertAlwaysPasses();
+        $method = $this->extensionMethodName('assertAlwaysPasses');
+        $this->make(200)->$method();
     }
 
     public function testReRegisteringExtensionOverwritesPreviousCallback(): void
     {
         TestResponse::extend('assertMarker', function (): string { return 'first'; });
         TestResponse::extend('assertMarker', function (): string { return 'second'; });
-        $this->assertSame('second', $this->make(200)->assertMarker());
+        $method = $this->extensionMethodName('assertMarker');
+        $this->assertSame('second', $this->make(200)->$method());
     }
 }

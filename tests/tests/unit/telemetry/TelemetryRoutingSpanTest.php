@@ -9,6 +9,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Quiote\Config\Config;
+use OpenTelemetry\SDK\Trace\SpanDataInterface;
 use Quiote\Context;
 use Quiote\Middleware\RoutingMiddleware;
 use Quiote\Routing\Routing;
@@ -98,14 +99,19 @@ class TelemetryRoutingSpanTest extends TestCase
         return $mw->process($req, $final);
     }
 
-    /** @return array<int, mixed> */
+    /** @return list<SpanDataInterface> */
     private function exportedSpans(): array
     {
         $exporter = TelemetryBootstrap::inMemorySpanExporter();
         if ($exporter === null) {
             throw new \RuntimeException('Expected an in-memory span exporter to be configured.');
         }
-        return $exporter->getSpans();
+        $spans = [];
+        foreach ($exporter->getSpans() as $span) {
+            self::assertInstanceOf(SpanDataInterface::class, $span);
+            $spans[] = $span;
+        }
+        return $spans;
     }
 
     // --- happy path ---------------------------------------------------------

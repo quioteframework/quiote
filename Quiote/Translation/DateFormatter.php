@@ -45,6 +45,9 @@ class DateFormatter implements ITranslator, ResetInterface
 		$this->type = 'datetime';
 
 		if(isset($parameters['translation_domain'])) {
+			if(!is_string($parameters['translation_domain'])) {
+				throw new QuioteException('DateFormatter::initialize() expects the "translation_domain" parameter to be a string, ' . get_debug_type($parameters['translation_domain']) . ' given.');
+			}
 			$this->translationDomain = $parameters['translation_domain'];
 		}
 
@@ -109,6 +112,10 @@ class DateFormatter implements ITranslator, ResetInterface
 			$format = Toolkit::getValueByKeyList($this->customFormat, QuioteLocale::getLookupPath($newLocale->getIdentifier()));
 		} elseif($this->customFormat && !$this->translationDomain) {
 			$format = $this->customFormat;
+		}
+
+		if($format !== null && !is_string($format)) {
+			throw new QuioteException('DateFormatter::localeChanged() resolved a non-string date format for locale "' . ($newLocale->getIdentifier() ?? '') . '".');
 		}
 
 		$this->resolvedPattern = $this->resolvePattern($newLocale, $format);

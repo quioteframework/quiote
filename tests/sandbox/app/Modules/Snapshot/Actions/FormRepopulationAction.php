@@ -4,6 +4,7 @@ namespace Sandbox\Modules\Snapshot\Actions;
 use Quiote\Action\Action;
 use Quiote\Request\WebRequest;
 use Quiote\Validator\Compiler\Runtime\ValidatorBuilder;
+use Quiote\Validator\IValidatorContainer;
 
 /**
  * Regression fixture for the v1.0.0 release "sticky form" bug: a field with
@@ -38,8 +39,13 @@ class FormRepopulationAction extends Action
             throw new \RuntimeException('FormRepopulationAction requires an initialized Action context.');
         }
 
+        $validationManager = $initContext->getValidationManager();
+        if (!$validationManager instanceof IValidatorContainer) {
+            throw new \RuntimeException('FormRepopulationAction requires an IValidatorContainer validation manager.');
+        }
+
         $v = ValidatorBuilder::on(
-            $initContext->getValidationManager(),
+            $validationManager,
             $context,
         );
         $v->string('name', required: true)

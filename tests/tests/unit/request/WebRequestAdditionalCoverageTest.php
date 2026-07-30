@@ -13,17 +13,24 @@ use Nyholm\Psr7\Stream;
  */
 class WebRequestAdditionalCoverageTest extends UnitTestCase
 {
+    /** @param array<string, mixed> $server */
+    private function serverString(array $server, string $key, string $default): string
+    {
+        $value = $server[$key] ?? $default;
+        return is_string($value) ? $value : $default;
+    }
+
     /**
      * @param array<string, mixed> $server
      * @param array<string, mixed> $query
      * @param array<string, mixed> $body
-     * @param array<string, mixed> $headers
+     * @param array<string, array<string>|string> $headers
      */
     private function newRequest(array $server = [], array $query = [], array $body = [], array $headers = []): WebRequest
     {
         $wr = new WebRequest(
-            $server['REQUEST_METHOD'] ?? 'GET',
-            ($server['REQUEST_SCHEME'] ?? 'http') . '://' . ($server['HTTP_HOST'] ?? 'example.test') . ($server['REQUEST_URI'] ?? '/'),
+            $this->serverString($server, 'REQUEST_METHOD', 'GET'),
+            $this->serverString($server, 'REQUEST_SCHEME', 'http') . '://' . $this->serverString($server, 'HTTP_HOST', 'example.test') . $this->serverString($server, 'REQUEST_URI', '/'),
             $headers,
             null,
             '1.1',
@@ -45,6 +52,8 @@ class WebRequestAdditionalCoverageTest extends UnitTestCase
         $all = $wr->getParameters('runtime');
         $this->assertArrayHasKey('user', $all);
         $this->assertArrayNotHasKey('user[profile][name]', $all, 'Bracket path should not be flattened into explicit key');
+        self::assertIsArray($all['user']);
+        self::assertIsArray($all['user']['profile']);
         $this->assertSame('alice', $all['user']['profile']['name']);
     }
 

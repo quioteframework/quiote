@@ -10,18 +10,20 @@ use Quiote\Response\WebResponse;
 // Minimal response implementation without optional methods for negative path testing
 if(!class_exists('TestMinimalResponse')) {
     class TestMinimalResponse extends \Quiote\Response\WebResponse {
+        /** @var string */
         protected $content = '';
+        /** @var array{location: string, code: int|string}|null */
         protected $redirect = null;
         #[\Override]
         public function initialize($context, array $parameters = []) {}
         #[\Override]
-        public function appendContent($content) { $this->content .= $content; }
+        public function appendContent($content) { $this->content .= is_scalar($content) || $content instanceof \Stringable ? (string) $content : ''; }
         #[\Override]
-        public function setContent($content) { $this->content = $content; }
+        public function setContent($content) { $this->content = is_scalar($content) || $content instanceof \Stringable ? (string) $content : ''; }
         #[\Override]
         public function getContent() { return $this->content; }
         #[\Override]
-        public function setRedirect($location, $code = 302) { $this->redirect = ['location'=>$location,'code'=>$code]; }
+        public function setRedirect($location, $code = 302) { $this->redirect = ['location' => is_scalar($location) || $location instanceof \Stringable ? (string) $location : '', 'code' => $code]; }
         #[\Override]
         public function getRedirect() { return $this->redirect; }
         #[\Override]

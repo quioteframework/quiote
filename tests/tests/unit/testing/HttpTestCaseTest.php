@@ -86,7 +86,9 @@ class HttpTestCaseTest extends HttpTestCase
         $body = $response->json();
         $this->assertSame('POST', $body['method']);
         $this->assertSame('application/x-www-form-urlencoded', $body['contentType']);
-        parse_str($body['body'], $decoded);
+        $encodedBody = $body['body'];
+        $this->assertIsString($encodedBody);
+        parse_str($encodedBody, $decoded);
         $this->assertSame(['name' => 'Ada', 'role' => 'engineer'], $decoded);
     }
 
@@ -105,7 +107,9 @@ class HttpTestCaseTest extends HttpTestCase
         $response = $this->json('POST', '/attr-routing', ['name' => 'Ada']);
         $body = $response->json();
         $this->assertSame('application/json', $body['contentType']);
-        $this->assertSame(['name' => 'Ada'], json_decode($body['body'], true));
+        $encodedBody = $body['body'];
+        $this->assertIsString($encodedBody);
+        $this->assertSame(['name' => 'Ada'], json_decode($encodedBody, true));
     }
 
     public function testCustomHeadersAreSent(): void

@@ -25,7 +25,7 @@ class ValidationError implements ResetInterface
      * Constructor
      * @param      string $message The message of this error.
      * @param      string $name The name of the message.
-     * @param      array<int, mixed> $arguments The arguments affected by this error.
+     * @param      array<int, ValidationArgument|string> $arguments The arguments affected by this error.
      * @since      1.0.0
      */
     public function __construct(/**

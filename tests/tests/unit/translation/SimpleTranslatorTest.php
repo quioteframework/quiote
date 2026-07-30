@@ -1,6 +1,7 @@
 <?php
 
 use Quiote\Context;
+use Quiote\Exception\QuioteException;
 use Quiote\Testing\UnitTestCase;
 use Quiote\Translation\QuioteLocale;
 use Quiote\Translation\SimpleTranslator;
@@ -120,5 +121,39 @@ class SimpleTranslatorTest extends UnitTestCase
         $translator->localeChanged($this->makeLocale('en_US'));
 
         $this->assertSame('greeting', $translator->translate('greeting', ''));
+    }
+
+    public function testTranslateThrowsOnNonStringNonArrayMessage(): void
+    {
+        $translator = new SimpleTranslator();
+        $translator->initialize($this->getContext(), [
+            '' => ['en_US' => ['greeting' => 'Hello!']],
+        ]);
+        $translator->localeChanged($this->makeLocale('en_US'));
+
+        $this->expectException(QuioteException::class);
+        $this->expectExceptionMessage('SimpleTranslator::translate() expects $message to be a string, int given.');
+        $translator->translate(42, '');
+    }
+
+    public function testInitializeThrowsWhenAnExplicitFromToEntryHasANonScalarFromKey(): void
+    {
+        $translator = new SimpleTranslator();
+        $this->expectException(QuioteException::class);
+        $this->expectExceptionMessage('SimpleTranslator::initialize() expects a translation entry\'s "from" key to be an int or a string, array given.');
+        $translator->initialize($this->getContext(), [
+            '' => ['en_US' => [['from' => ['not', 'scalar'], 'to' => 'Hello!']]],
+        ]);
+    }
+
+    public function testInitializeAcceptsAnExplicitFromToEntry(): void
+    {
+        $translator = new SimpleTranslator();
+        $translator->initialize($this->getContext(), [
+            '' => ['en_US' => [['from' => 'greeting', 'to' => 'Hello!']]],
+        ]);
+        $translator->localeChanged($this->makeLocale('en_US'));
+
+        $this->assertSame('Hello!', $translator->translate('greeting', ''));
     }
 }

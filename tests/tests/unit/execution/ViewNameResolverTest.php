@@ -29,4 +29,18 @@ class ViewNameResolverTest extends UnitTestCase
         $this->assertNull($vn);
         $this->assertNull($vm);
     }
+
+    public function testRejectsNonStringViewModuleFromArrayForm(): void
+    {
+        $resolver = new ViewNameResolver();
+        $this->expectException(\UnexpectedValueException::class);
+        $resolver->resolve('Cache', 'Cache', [123, 'Alt']);
+    }
+
+    public function testRejectsNonStringViewNameFromArrayForm(): void
+    {
+        $resolver = new ViewNameResolver();
+        $this->expectException(\UnexpectedValueException::class);
+        $resolver->resolve('Cache', 'Cache', ['Other', 123]);
+    }
 }

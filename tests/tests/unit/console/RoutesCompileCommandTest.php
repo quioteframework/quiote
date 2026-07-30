@@ -42,6 +42,8 @@ final class RoutesCompileCommandTest extends PhpUnitTestCase
 		$printed = json_decode($tester->getDisplay(), true, flags: JSON_THROW_ON_ERROR);
 		$written = json_decode((string) file_get_contents($this->artifactPath()), true, flags: JSON_THROW_ON_ERROR);
 
+		self::assertIsArray($printed);
+		self::assertIsArray($written);
 		$this->assertSame($written['routes'], $printed['routes']);
 		$this->assertSame($written['modules'], $printed['modules']);
 		$this->assertArrayHasKey('generated_at', $printed);
@@ -56,7 +58,10 @@ final class RoutesCompileCommandTest extends PhpUnitTestCase
 		// warning (missing views/templates on feature-test-only fixture
 		// modules) -- exit code must stay SUCCESS, not FAILURE, for warnings.
 		$artifact = json_decode((string) file_get_contents($this->artifactPath()), true, flags: JSON_THROW_ON_ERROR);
+		self::assertIsArray($artifact);
+		self::assertIsArray($artifact['diagnostics']);
 		foreach ($artifact['diagnostics'] as $diagnostic) {
+			self::assertIsArray($diagnostic);
 			$this->assertNotSame(\Quiote\Support\Compiler\Diagnostic::SEVERITY_ERROR, $diagnostic['severity']);
 		}
 	}

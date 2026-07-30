@@ -28,25 +28,46 @@ class InarrayValidator extends Validator
 	{
 		$list = $this->getParameter('values');
 		if(!is_array($list)) {
-			$list = explode($this->getParameter('sep'), (string) $list);
+			if(!is_string($list)) {
+				throw $this->invalidParameterType('values', 'an array or a string', $list);
+			}
+			$sep = $this->getParameter('sep');
+			if(!is_string($sep) || $sep === '') {
+				throw $this->invalidParameterType('sep', 'a non-empty string', $sep);
+			}
+			$list = explode($sep, $list);
 		}
+
+		$scalarList = [];
+		foreach($list as $item) {
+			if(!is_scalar($item)) {
+				throw $this->invalidParameterType('values', 'a list of scalar values', $item);
+			}
+			$scalarList[] = $item;
+		}
+
 		$value = $this->getData($this->getArgument());
-		
+
 		if(!is_scalar($value)) {
 			$this->throwError();
 			return false;
 		}
-		
+
 		if(!$this->getParameter('case')) {
 			$value = strtolower((string) $value);
-			$list = array_map(static fn($item) => strtolower((string) $item), $list);
+			$scalarList = array_map(static fn($item) => strtolower((string) $item), $scalarList);
 		}
-		
-		if(!in_array($value, $list, $this->getParameter('strict', false))) {
+
+		$strict = $this->getParameter('strict', false);
+		if(!is_bool($strict)) {
+			throw $this->invalidParameterType('strict', 'a boolean', $strict);
+		}
+
+		if(!in_array($value, $scalarList, $strict)) {
 			$this->throwError();
 			return false;
 		}
-		
+
 		return true;
 	}
 }

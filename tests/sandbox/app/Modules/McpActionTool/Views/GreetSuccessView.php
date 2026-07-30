@@ -15,7 +15,10 @@ class GreetSuccessView extends View
 
     public function executeHtml(WebRequest $rd): string
     {
-        $name = (string) $rd->getParameter('name', 'World');
+        $name = $rd->getParameter('name', 'World');
+        if (!is_scalar($name) && !$name instanceof \Stringable) {
+            throw new \InvalidArgumentException('GreetSuccessView expects a stringable "name" parameter.');
+        }
 
         return "Hello, {$name}!";
     }

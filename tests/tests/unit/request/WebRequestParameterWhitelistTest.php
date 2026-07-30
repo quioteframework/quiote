@@ -76,6 +76,7 @@ class WebRequestParameterWhitelistTest extends UnitTestCase
         // Should be accessible
         $data = $this->request->getParameter('data');
         $this->assertIsArray($data);
+        $this->assertIsArray($data[0]);
         $this->assertEquals('value1', $data[0]['field1']);
         
         // Root should be whitelisted

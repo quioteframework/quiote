@@ -6,7 +6,8 @@ use Quiote\Validator\DependencyManager;
 
 class MyDependencyManager extends DependencyManager
 {
-	public function setDepData(mixed $data): void { $this->depData = $data; }
+	/** @param array<int|string, mixed> $data */
+	public function setDepData(array $data): void { $this->depData = $data; }
 }
 
 class DependencyManagerTest extends UnitTestCase

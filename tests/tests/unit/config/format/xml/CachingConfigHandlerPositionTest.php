@@ -50,7 +50,9 @@ XML);
 		$driver = new XmlFormatDriver($handler);
 		$result = $driver->loadWithPositions($path, 'test');
 
-		$this->assertSame('3600', $result['data']['GET']['lifetime']);
+		$get = $result['data']['GET'];
+		self::assertIsArray($get);
+		$this->assertSame('3600', $get['lifetime']);
 		$this->assertSame($path, $result['positions']['GET.lifetime']['file']);
 		$this->assertSame(6, $result['positions']['GET.lifetime']['line']);
 	}

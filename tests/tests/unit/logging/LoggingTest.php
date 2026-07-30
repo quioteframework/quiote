@@ -88,6 +88,34 @@ class LoggingTest extends TestCase
         $this->assertTrue(Level::Info->passes(Level::Info));
     }
 
+    // --- PSR-3 $level acceptance -------------------------------------------
+
+    public function testLogAcceptsAStringifiablePsrLevel(): void
+    {
+        Log::setDefaultLevel(Level::Debug);
+        Log::addSink($this->sink(Level::Debug));
+
+        $stringable = new class implements \Stringable {
+            public function __toString(): string
+            {
+                return 'warning';
+            }
+        };
+        Log::create('App')->log($stringable, 'via stringable');
+
+        $r = $this->records()[0];
+        $this->assertSame('warning', $r['level']);
+    }
+
+    public function testLogRejectsANonStringNonLevelLevel(): void
+    {
+        Log::setDefaultLevel(Level::Debug);
+        Log::addSink($this->sink(Level::Debug));
+
+        $this->expectException(\Psr\Log\InvalidArgumentException::class);
+        Log::create('App')->log(['warning'], 'bad level');
+    }
+
     // --- Category resolution ---------------------------------------------
 
     public function testLongestPrefixWins(): void
@@ -218,7 +246,9 @@ class LoggingTest extends TestCase
         $this->assertSame('app', $r['src']);
         $this->assertSame(42, $r['id']);        // property flattened
         $this->assertSame('req-123', $r['rid']); // scope merged
-        $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/', $r['ts']);
+        $ts = $r['ts'];
+        $this->assertIsString($ts);
+        $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/', $ts);
     }
 
     public function testExceptionCaptured(): void
@@ -230,11 +260,19 @@ class LoggingTest extends TestCase
         Log::create('App')->error('failed', ['exception' => $e]);
 
         $r = $this->records()[0];
-        $this->assertArrayNotHasKey('exception', $r['exception'] ?? [], 'exception key not left in properties');
-        $this->assertSame('RuntimeException', $r['exception']['chain'][0]['class']);
-        $this->assertSame(7, $r['exception']['chain'][0]['code']);
-        $this->assertSame('LogicException', $r['exception']['chain'][1]['class'], 'cause chain flattened');
-        $this->assertIsString($r['exception']['trace']);
+        $exception = $r['exception'] ?? [];
+        $this->assertIsArray($exception);
+        $this->assertArrayNotHasKey('exception', $exception, 'exception key not left in properties');
+        $chain = $exception['chain'];
+        $this->assertIsArray($chain);
+        $chain0 = $chain[0];
+        $this->assertIsArray($chain0);
+        $this->assertSame('RuntimeException', $chain0['class']);
+        $this->assertSame(7, $chain0['code']);
+        $chain1 = $chain[1];
+        $this->assertIsArray($chain1);
+        $this->assertSame('LogicException', $chain1['class'], 'cause chain flattened');
+        $this->assertIsString($exception['trace']);
     }
 
     public function testReservedKeysWinOverUserProperties(): void

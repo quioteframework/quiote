@@ -26,7 +26,7 @@ class QMExposingValidator extends Validator
         return $this->result;
     }
 
-    /** @param array<int, mixed> $arguments */
+    /** @param array<int, string> $arguments */
     public function setAffectedArguments2(array $arguments): void
     {
         $this->setAffectedArguments($arguments);

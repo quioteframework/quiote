@@ -112,7 +112,7 @@ abstract class Database extends ParameterHolder implements ResetInterface
 
 		$this->lastUsedAt = microtime(true);
 
-		if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+		if ($logger->isEnabled(\Quiote\Logging\Level::Debug) && is_object($this->connection)) {
 			$logger->debug('[Database] getConnection() returning connection_id=' . spl_object_id($this->connection) . ' type=' . $this->connection::class);
 		}
 

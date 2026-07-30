@@ -578,10 +578,10 @@ class DecimalFormatter implements ResetInterface
 	
 	/**
 	 * @param      QuioteLocale|string|null $locale An optional locale to get the formatter for.
-	 * @return     mixed A cached NumberFormatter instance, or null if unavailable.
+	 * @return     \NumberFormatter|null A cached NumberFormatter instance, or null if unavailable.
 	 * @since      1.0.0
 	 */
-	protected static function getNumberFormatterInstance($locale)
+	protected static function getNumberFormatterInstance($locale): ?\NumberFormatter
 	{
 		static $formatterCache = [];
 
@@ -741,28 +741,26 @@ class DecimalFormatter implements ResetInterface
 					$hasExtraChars = true;
 				}
 
-				if(is_float($parsed)) {
-					$rounded = round($parsed);
-					$groupingSymbol = $formatter->getSymbol(\NumberFormatter::GROUPING_SEPARATOR_SYMBOL);
-					$decimalSymbol = $formatter->getSymbol(\NumberFormatter::DECIMAL_SEPARATOR_SYMBOL);
-					$consumed = substr($string, 0, $position);
-					$hasFractionDigits = false;
-					if($decimalSymbol !== null && $decimalSymbol !== '') {
-						$decimalPos = strpos($consumed, (string) $decimalSymbol);
-						if($decimalPos !== false) {
-							$fractionPart = substr($consumed, $decimalPos + strlen((string) $decimalSymbol));
-							if($groupingSymbol !== null && $groupingSymbol !== '') {
-								$fractionPart = str_replace($groupingSymbol, '', $fractionPart);
-							}
-							if(preg_match('/\d/', $fractionPart)) {
-								$hasFractionDigits = true;
-							}
+				$rounded = round($parsed);
+				$groupingSymbol = $formatter->getSymbol(\NumberFormatter::GROUPING_SEPARATOR_SYMBOL);
+				$decimalSymbol = $formatter->getSymbol(\NumberFormatter::DECIMAL_SEPARATOR_SYMBOL);
+				$consumed = substr($string, 0, $position);
+				$hasFractionDigits = false;
+				if($decimalSymbol !== '') {
+					$decimalPos = strpos($consumed, $decimalSymbol);
+					if($decimalPos !== false) {
+						$fractionPart = substr($consumed, $decimalPos + strlen($decimalSymbol));
+						if($groupingSymbol !== '') {
+							$fractionPart = str_replace($groupingSymbol, '', $fractionPart);
+						}
+						if(preg_match('/\d/', $fractionPart)) {
+							$hasFractionDigits = true;
 						}
 					}
+				}
 
-					if(!$hasFractionDigits && $rounded == $parsed && $rounded <= PHP_INT_MAX && $rounded >= -PHP_INT_MAX) {
-						$parsed = (int) $rounded;
-					}
+				if(!$hasFractionDigits && $rounded == $parsed && $rounded <= PHP_INT_MAX && $rounded >= -PHP_INT_MAX) {
+					$parsed = (int) $rounded;
 				}
 
 				return $parsed;

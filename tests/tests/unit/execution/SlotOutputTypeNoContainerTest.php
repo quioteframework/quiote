@@ -36,6 +36,7 @@ class SlotOutputTypeNoContainerTest extends UnitTestCase
             ['Json', function(string $content): void{
                 \PHPUnit\Framework\Assert::assertJson($content);
                 $d = json_decode($content,true);
+                \PHPUnit\Framework\Assert::assertIsArray($d);
                 \PHPUnit\Framework\Assert::assertSame('json',$d['type']);
                 \PHPUnit\Framework\Assert::assertSame('cache',$d['variant']);
             }],

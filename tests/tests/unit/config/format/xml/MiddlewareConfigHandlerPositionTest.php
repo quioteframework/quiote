@@ -47,7 +47,9 @@ XML);
 		$driver = new XmlFormatDriver($handler);
 		$result = $driver->loadWithPositions($path, 'test');
 
-		$this->assertSame('App\\Middleware\\One', $result['data'][0]['class']);
+		$first = $result['data'][0];
+		self::assertIsArray($first);
+		$this->assertSame('App\\Middleware\\One', $first['class']);
 		$this->assertSame($path, $result['positions']['[0].class']['file']);
 		$this->assertSame(5, $result['positions']['[0].class']['line']);
 		$this->assertSame(6, $result['positions']['[1].class']['line']);

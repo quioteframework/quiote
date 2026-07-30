@@ -37,9 +37,21 @@ class JsonValidator extends Validator
 	protected function validate()
 	{
 		$json = $this->getData($this->getArgument());
-		
-		$ret = json_decode((string) $json, $this->getParameter('assoc', true));
-		
+
+		if(!is_scalar($json)) {
+			// non scalar values would cause notices
+			$this->throwError();
+			return false;
+		}
+		$json = (string) $json;
+
+		$assoc = $this->getParameter('assoc', true);
+		if(!is_bool($assoc)) {
+			throw $this->invalidParameterType('assoc', 'a boolean', $assoc);
+		}
+
+		$ret = json_decode($json, $assoc);
+
 		if($json !== '' && $ret === null) {
 			$jsonError = json_last_error();
 			foreach($this->jsonErrors as $errorName) {

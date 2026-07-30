@@ -290,10 +290,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 					}
 				} catch(\Throwable) { }
 				foreach($args as $arg) {
-					if(!is_string($arg)) {
-						continue;
-					}
-					$argName = (string)$arg;
+					$argName = $arg;
 					if($argName !== '') {
 						$allArgumentNames[$argName] = true;
 						if($basePath !== '') {

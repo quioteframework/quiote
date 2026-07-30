@@ -22,8 +22,13 @@ class PdoDatabase extends Database
     public function initialize(DatabaseManager $databaseManager, array $parameters = [])
 	{
 		parent::initialize($databaseManager, $parameters);
-		
-		if($this->getParameter('warn_mysql_charset', true) && str_starts_with((string) $this->getParameter('dsn'), 'mysql:')) {
+
+		$dsn = $this->getParameter('dsn');
+		if ($dsn !== null && !is_string($dsn)) {
+			throw new DatabaseException(sprintf('Database configuration parameter "dsn" must be a string, %s given.', get_debug_type($dsn)));
+		}
+
+		if($this->getParameter('warn_mysql_charset', true) && is_string($dsn) && str_starts_with($dsn, 'mysql:')) {
 			if($matches = preg_grep('/^\s*SET\s+NAMES\b/i', (array)$this->getParameter('init_queries'))) {
 				throw new DatabaseException(sprintf(
 					'Depending on your MySQL server configuration, it may not be safe to use "SET NAMES" to configure the connection encoding, as the underlying MySQL client library will not be aware of the changed character set.' .
@@ -47,6 +52,9 @@ class PdoDatabase extends Database
 	{
 		// determine how to get our parameters
 		$method = $this->getParameter('method', 'dsn');
+		if (!is_string($method)) {
+			throw new DatabaseException(sprintf('Database configuration parameter "method" must be a string, %s given.', get_debug_type($method)));
+		}
 
 		// get parameters
 		switch($method) {
@@ -57,6 +65,9 @@ class PdoDatabase extends Database
 					$error = 'Database configuration specifies method "dsn", but is missing dsn parameter';
 					throw new DatabaseException($error);
 				}
+				if (!is_string($dsn)) {
+					throw new DatabaseException(sprintf('Database configuration parameter "dsn" must be a string, %s given.', get_debug_type($dsn)));
+				}
 				break;
 			default :
 				throw new DatabaseException(sprintf('Database configuration specifies unsupported connection method "%s"', $method));
@@ -64,13 +75,20 @@ class PdoDatabase extends Database
 
 		try {
 			$username = $this->getParameter('username');
+			if ($username !== null && !is_string($username)) {
+				throw new DatabaseException(sprintf('Database configuration parameter "username" must be a string, %s given.', get_debug_type($username)));
+			}
 			$password = $this->getParameter('password');
+			if ($password !== null && !is_string($password)) {
+				throw new DatabaseException(sprintf('Database configuration parameter "password" must be a string, %s given.', get_debug_type($password)));
+			}
 
 			$options = [];
 
 			if($this->hasParameter('options')) {
 				foreach((array)$this->getParameter('options') as $key => $value) {
-					$options[is_string($key) && strpos($key, '::') ? constant($key) : $key] = is_string($value) && strpos($value, '::') ? constant($value) : $value;
+					[$optionKey, $optionValue] = self::resolveConstantPair($key, $value);
+					$options[$optionKey] = $optionValue;
 				}
 			}
 
@@ -83,18 +101,56 @@ class PdoDatabase extends Database
 			];
 			if($this->hasParameter('attributes')) {
 				foreach((array)$this->getParameter('attributes') as $key => $value) {
-					$attributes[is_string($key) && strpos($key, '::') ? constant($key) : $key] = is_string($value) && strpos($value, '::') ? constant($value) : $value;
+					[$attributeKey, $attributeValue] = self::resolveConstantPair($key, $value);
+					$attributes[$attributeKey] = $attributeValue;
 				}
 			}
 			foreach($attributes as $key => $value) {
+				if (!is_int($key)) {
+					throw new DatabaseException(sprintf('PDO connection attribute keys must resolve to a PDO::ATTR_* int constant, got string "%s".', $key));
+				}
 				$this->connection->setAttribute($key, $value);
 			}
 			foreach((array)$this->getParameter('init_queries') as $query) {
+				if (!is_string($query)) {
+					throw new DatabaseException(sprintf('Database configuration parameter "init_queries" entries must be strings, %s given.', get_debug_type($query)));
+				}
 				$this->connection->exec($query);
 			}
 		} catch(\PDOException $e) {
 			throw new DatabaseException($e->getMessage(), 0, $e);
 		}
+	}
+
+	/**
+	 * Resolve a raw options/attributes key/value pair, translating "Class::CONST"
+	 * style string references (as written in databases.xml) to their actual
+	 * constant values.
+	 * @return array{0:int|string,1:mixed}
+	 */
+	private static function resolveConstantPair(mixed $key, mixed $value): array
+	{
+		if (is_string($key) && strpos($key, '::')) {
+			if (!defined($key)) {
+				throw new DatabaseException(sprintf('Database configuration references undefined constant "%s".', $key));
+			}
+			$resolvedKey = constant($key);
+			if (!is_int($resolvedKey) && !is_string($resolvedKey)) {
+				throw new DatabaseException(sprintf('Constant "%s" must resolve to an int or string to be used as an array key, %s given.', $key, get_debug_type($resolvedKey)));
+			}
+			$key = $resolvedKey;
+		} elseif (!is_int($key) && !is_string($key)) {
+			throw new DatabaseException(sprintf('Database configuration option/attribute keys must be int or string, %s given.', get_debug_type($key)));
+		}
+
+		if (is_string($value) && strpos($value, '::')) {
+			if (!defined($value)) {
+				throw new DatabaseException(sprintf('Database configuration references undefined constant "%s".', $value));
+			}
+			$value = constant($value);
+		}
+
+		return [$key, $value];
 	}
 
 	/**
@@ -145,6 +201,12 @@ class PdoDatabase extends Database
 			return true;
 		}
 		try {
+			if (!$this->connection instanceof PDO) {
+				// A PdoDatabase's connection is only ever set to a real PDO instance
+				// by connect(); anything else means corrupted internal state, which
+				// we treat the same as a dead connection rather than crash here.
+				throw new \PDOException(sprintf('Expected a PDO connection, got %s.', get_debug_type($this->connection)));
+			}
 			$this->connection->query('SELECT 1');
 			$this->lastUsedAt = microtime(true);
 			return true;

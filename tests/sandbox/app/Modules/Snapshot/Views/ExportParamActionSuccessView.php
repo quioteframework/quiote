@@ -8,6 +8,10 @@ class ExportParamActionSuccessView extends View
 {
     public function execute(WebRequest $rd)
     {
-        return 'EXPORTED:' . $rd->getParameter('exported', 'MISSING');
+        $value = $rd->getParameter('exported', 'MISSING');
+        if (!is_scalar($value) && !$value instanceof \Stringable) {
+            throw new \InvalidArgumentException('ExportParamActionSuccessView expects a stringable "exported" parameter.');
+        }
+        return 'EXPORTED:' . $value;
     }
 }

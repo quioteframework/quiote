@@ -35,15 +35,25 @@ final class CookieSerializer
         }
 
         foreach ($cookies as $name => $values) {
+            if (!is_array($values)) {
+                continue;
+            }
+
             try {
                 // Determine expiration timestamp
-                if (is_string($values['lifetime'])) {
-                    $expire = strtotime($values['lifetime']);
+                $lifetime = $values['lifetime'] ?? 0;
+                if (is_string($lifetime)) {
+                    $parsed = strtotime($lifetime);
+                    $expire = $parsed === false ? 0 : $parsed;
+                } elseif (is_int($lifetime) || is_float($lifetime)) {
+                    $expire = ($lifetime != 0) ? time() + (int) $lifetime : 0;
                 } else {
-                    $expire = ($values['lifetime'] != 0) ? time() + (int)$values['lifetime'] : 0;
+                    throw new \InvalidArgumentException(sprintf('Cookie "lifetime" must be a string or number, got "%s".', get_debug_type($lifetime)));
                 }
+
+                $rawValue = $values['value'] ?? null;
                 // Deleted/cleared cookie: expire in the past
-                if ($values['value'] === false || $values['value'] === null || $values['value'] === '') {
+                if ($rawValue === false || $rawValue === null || $rawValue === '') {
                     $expire = time() - 3600 * 24;
                 }
 
@@ -51,33 +61,35 @@ final class CookieSerializer
                 // provided we URL-encode by default so a value cannot inject extra
                 // cookie attributes (e.g. "; Domain=evil.com") or control characters.
                 // An explicit `encode_callback === false` opts out (value pre-encoded).
-                $val = $values['value'];
+                $val = $rawValue;
                 if ($val !== null) {
                     $cb = $values['encode_callback'] ?? 'rawurlencode';
                     if ($cb === false) {
                         // Caller asserts the value is already encoded; leave as-is.
+                        $val = self::toCookieString($val, 'value');
                     } elseif (is_callable($cb)) {
-                        $val = call_user_func($cb, $val);
+                        $val = self::toCookieString(call_user_func($cb, $val), 'value');
                     } else {
-                        $val = rawurlencode((string) $val);
+                        $val = rawurlencode(self::toCookieString($val, 'value'));
                     }
                 }
 
                 $path = $values['path'] ?? $basePath;
+                $path = is_string($path) ? $path : $basePath;
 
                 if ($val === null) {
                     continue;
                 }
 
                 // Build Set-Cookie string
-                $cookieStr = $name . '=' . (string)$val;
+                $cookieStr = $name . '=' . $val;
                 if ($expire > 0) {
                     $cookieStr .= '; Expires=' . gmdate('D, d-M-Y H:i:s T', $expire)
                         . '; Max-Age=' . max(0, $expire - time());
                 }
-                $cookieStr .= '; Path=' . ($path ?: '/');
+                $cookieStr .= '; Path=' . ($path !== '' ? $path : '/');
                 if (!empty($values['domain'])) {
-                    $cookieStr .= '; Domain=' . $values['domain'];
+                    $cookieStr .= '; Domain=' . self::toCookieString($values['domain'], 'domain');
                 }
                 if (!empty($values['secure'])) {
                     $cookieStr .= '; Secure';
@@ -86,7 +98,7 @@ final class CookieSerializer
                     $cookieStr .= '; HttpOnly';
                 }
                 if (!empty($values['samesite'])) {
-                    $cookieStr .= '; SameSite=' . ucfirst(strtolower((string)$values['samesite']));
+                    $cookieStr .= '; SameSite=' . ucfirst(strtolower(self::toCookieString($values['samesite'], 'samesite')));
                 }
 
                 // Avoid duplicate Set-Cookie headers for the same cookie string
@@ -100,5 +112,30 @@ final class CookieSerializer
         }
 
         return $response;
+    }
+
+    /**
+     * Coerce a cookie attribute value into a string, rejecting anything that
+     * cannot represent a cookie value/attribute unambiguously.
+     */
+    private static function toCookieString(mixed $value, string $attribute): string
+    {
+        if (is_string($value)) {
+            return $value;
+        }
+
+        if (is_int($value) || is_float($value)) {
+            return (string) $value;
+        }
+
+        if (is_bool($value)) {
+            return $value ? '1' : '0';
+        }
+
+        if ($value instanceof \Stringable) {
+            return (string) $value;
+        }
+
+        throw new \InvalidArgumentException(sprintf('Cookie attribute "%s" must be stringable, got "%s".', $attribute, get_debug_type($value)));
     }
 }

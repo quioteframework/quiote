@@ -21,6 +21,9 @@ class NoValHttpAction extends Action
     {
         $present = $rd->hasParameter('fail');
         $val = $present ? $rd->getParameter('fail') : null;
+        if ($present && !is_scalar($val) && !$val instanceof \Stringable) {
+            throw new \InvalidArgumentException('NoValHttpAction expects a stringable "fail" parameter.');
+        }
         self::$last = 'validatePost:' . ($present ? (string) $val : 'missing');
         // Should always return true if parameter list was stripped (present=false)
         // If present (unexpected under strict mode with zero validators), return false to highlight leak.

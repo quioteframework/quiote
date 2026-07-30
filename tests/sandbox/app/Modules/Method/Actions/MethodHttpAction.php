@@ -16,6 +16,9 @@ class MethodHttpAction extends Action
     {
         $present = $rd->hasParameter('fail');
         $val = $present ? $rd->getParameter('fail') : null;
+        if ($present && !is_scalar($val) && !$val instanceof \Stringable) {
+            throw new \InvalidArgumentException('MethodHttpAction expects a stringable "fail" parameter.');
+        }
         self::$last = 'validatePost:' . ($present ? (string) $val : 'missing');
         if (!$present) {
             return true;

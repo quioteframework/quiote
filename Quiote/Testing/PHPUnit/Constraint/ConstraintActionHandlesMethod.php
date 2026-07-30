@@ -39,12 +39,26 @@ class ConstraintActionHandlesMethod extends BaseConstraintBecausePhpunitSucksAtB
 	#[\Override]
     public function matches($other): bool
 	{
+		$other = $this->requireMethodName($other);
 		$executeMethod = 'execute' . $other;
 		if(is_callable([$this->actionInstance, $executeMethod]) || ($this->acceptGeneric && is_callable([$this->actionInstance, 'execute']))) {
 			return true;
 		}
-		
+
 		return false;
+	}
+
+	/**
+	 * @param      mixed $other The value passed to matches()/customFailureDescription().
+	 * @throws     \Quiote\Exception\QuioteException if $other is not a method name string.
+	 */
+	private function requireMethodName($other): string
+	{
+		if (!is_string($other)) {
+			throw new \Quiote\Exception\QuioteException(sprintf('%s expects a string method name, %s given.', self::class, get_debug_type($other)));
+		}
+
+		return $other;
 	}
 	
 	/**
@@ -70,6 +84,7 @@ class ConstraintActionHandlesMethod extends BaseConstraintBecausePhpunitSucksAtB
 	 */
 	protected function customFailureDescription($other, $description, $not)
 	{
+		$other = $this->requireMethodName($other);
 		if($not) {
 			return sprintf(
 				'Failed asserting that %1$s does not handle method "%2$s".',

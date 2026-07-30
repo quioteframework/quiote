@@ -6,7 +6,7 @@ use Quiote\Exception\QuioteException;
 use Quiote\Response\WebResponse;
 use Quiote\Util\Toolkit;
 use Quiote\View\View;
-use ConstraintViewHandlesOutputType;
+use Quiote\Testing\PHPUnit\Constraint\ConstraintViewHandlesOutputType;
 
 /**
  * ViewTestCase is the base class for all view testcases and provides
@@ -235,7 +235,7 @@ abstract class ViewTestCase extends FragmentTestCase
 	protected function assertViewResponseHasContent($expected, $message = 'Failed asserting that the response has content <%1$s>.')
 	{
 		$response = $this->getViewResponse();
-		$this->assertEquals($expected, $response->getContent(), sprintf($message, $expected));
+		$this->assertEquals($expected, $response->getContent(), sprintf($message, var_export($expected, true)));
 	}
 
 	/**
@@ -247,7 +247,7 @@ abstract class ViewTestCase extends FragmentTestCase
 	*/
 	protected function assertViewResultEquals($expected, $message = 'Failed asserting the expected view result.')
 	{
-		$this->assertEquals($expected, $this->viewResult, sprintf($message, $expected));
+		$this->assertEquals($expected, $this->viewResult, sprintf($message, var_export($expected, true)));
 	}
 
 	/**

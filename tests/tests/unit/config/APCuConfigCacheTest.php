@@ -4,6 +4,8 @@ use Quiote\Testing\PhpUnitTestCase;
 use Quiote\Config\Config;
 use Quiote\Config\ConfigCache;
 use Quiote\Config\APCuConfigCache;
+use Quiote\Exception\CacheException;
+use Quiote\Exception\ConfigurationException;
 
 /**
  * Tests for APCuConfigCache — exercises the APCu code path.
@@ -79,6 +81,7 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 		// pendingContext will be set when called through checkConfig; for direct
 		// writeCacheFile calls it's null (verified by examining the static property)
 		$key = $method->invoke(null, $config, null);
+		self::assertIsString($key);
 
 		$stored = apcu_fetch($key);
 		$this->assertNotFalse($stored, 'Data should be stored in APCu');
@@ -98,6 +101,7 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 		$reflection = new ReflectionClass(APCuConfigCache::class);
 		$method = $reflection->getMethod('getConfigKey');
 		$key = $method->invoke(null, $config, null);
+		self::assertIsString($key);
 
 		$stored = apcu_fetch($key);
 		$this->assertSame($part1 . $part2, $stored, 'Appended data should be concatenated in APCu');
@@ -115,6 +119,7 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 		$reflection = new ReflectionClass(APCuConfigCache::class);
 		$method = $reflection->getMethod('getConfigKey');
 		$key = $method->invoke(null, $config, null);
+		self::assertIsString($key);
 
 		$uniqueConst = 'APCU_CHECK_CONFIG_TEST_' . mt_rand();
 		$phpContent = "<?php\ndefine('{$uniqueConst}', true);\n?>";
@@ -137,6 +142,7 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 		$reflection = new ReflectionClass(APCuConfigCache::class);
 		$method = $reflection->getMethod('getConfigKey');
 		$key = $method->invoke(null, $config, null);
+		self::assertIsString($key);
 		apcu_delete($key);
 
 		// Cold path: parent compiles the config, writeCacheFile() stores it in APCu
@@ -166,6 +172,7 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 		$reflection = new ReflectionClass(APCuConfigCache::class);
 		$method = $reflection->getMethod('getConfigKey');
 		$keyWithContext = $method->invoke(null, $config, $context);
+		self::assertIsString($keyWithContext);
 		$keyWithoutContext = $method->invoke(null, $config, null);
 
 		$this->assertNotFalse(
@@ -205,6 +212,7 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 		$reflection = new ReflectionClass(APCuConfigCache::class);
 		$method = $reflection->getMethod('getConfigKey');
 		$key = $method->invoke(null, $config, null);
+		self::assertIsString($key);
 
 		$globalKey = 'apcu_load_test_' . mt_rand();
 		$phpContent = "<?php\n\$GLOBALS['{$globalKey}'] = 'loaded_from_apcu';\n?>";
@@ -225,6 +233,7 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 		$reflection = new ReflectionClass(APCuConfigCache::class);
 		$method = $reflection->getMethod('getConfigKey');
 		$key = $method->invoke(null, $config, null);
+		self::assertIsString($key);
 
 		$globalKey = 'apcu_load_once_counter_' . mt_rand();
 		$phpContent = "<?php\nif(!isset(\$GLOBALS['{$globalKey}'])) \$GLOBALS['{$globalKey}']=0; \$GLOBALS['{$globalKey}']++;\n?>";
@@ -243,6 +252,7 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 		$reflection = new ReflectionClass(APCuConfigCache::class);
 		$method = $reflection->getMethod('getConfigKey');
 		$key = $method->invoke(null, $config, null);
+		self::assertIsString($key);
 
 		$globalKey = 'apcu_load_multi_counter_' . mt_rand();
 		$phpContent = "<?php\nif(!isset(\$GLOBALS['{$globalKey}'])) \$GLOBALS['{$globalKey}']=0; \$GLOBALS['{$globalKey}']++;\n?>";
@@ -279,6 +289,7 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 		$reflection = new ReflectionClass(APCuConfigCache::class);
 		$method = $reflection->getMethod('getConfigKey');
 		$key = $method->invoke(null, $config, null);
+		self::assertIsString($key);
 
 		$globalKey = 'apcu_clear_reload_' . mt_rand();
 		$phpContent = "<?php\nif(!isset(\$GLOBALS['{$globalKey}'])) \$GLOBALS['{$globalKey}']=0; \$GLOBALS['{$globalKey}']++;\n?>";
@@ -332,12 +343,83 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 
 		$method = $reflection->getMethod('getConfigKey');
 		$key = $method->invoke(null, $config, null);
+		self::assertIsString($key);
 
 		$this->assertStringStartsWith('custom_pfx_', $key, 'configure() should change the key prefix');
 
 		// Restore default
 		APCuConfigCache::configure(['config_prefix' => 'quiote_config_']);
 		$keyCacheProp->setValue(null, []);
+	}
+
+	public function testConfigureThrowsWhenConfigPrefixIsNotAString(): void
+	{
+		$this->expectException(ConfigurationException::class);
+		APCuConfigCache::configure(['config_prefix' => 123]);
+	}
+
+	public function testConfigureThrowsWhenRoutingPrefixIsNotAString(): void
+	{
+		$this->expectException(ConfigurationException::class);
+		APCuConfigCache::configure(['routing_prefix' => ['not', 'a', 'string']]);
+	}
+
+	public function testConfigureThrowsWhenTtlIsNotIntOrNumericString(): void
+	{
+		$this->expectException(ConfigurationException::class);
+		APCuConfigCache::configure(['ttl' => ['not', 'a', 'ttl']]);
+	}
+
+	public function testConfigureAcceptsNumericStringTtl(): void
+	{
+		APCuConfigCache::configure(['ttl' => '3600']);
+		$this->addToAssertionCount(1);
+		// Restore default
+		APCuConfigCache::configure(['ttl' => 0]);
+	}
+
+	// ---------------------------------------------------------------
+	// Corrupted APCu entries must fail loudly rather than silently
+	// misbehave (e.g. concatenating a non-string, or eval'ing garbage).
+	// ---------------------------------------------------------------
+
+	public function testWriteCacheFileAppendThrowsWhenExistingEntryIsNotAString(): void
+	{
+		$config = Config::getString('core.config_dir') . '/tests/importtest.xml';
+		$cacheName = ConfigCache::getCacheName($config);
+
+		$reflection = new ReflectionClass(APCuConfigCache::class);
+		$method = $reflection->getMethod('getConfigKey');
+		$key = $method->invoke(null, $config, null);
+		self::assertIsString($key);
+
+		apcu_store($key, ['not' => 'a string']);
+
+		$this->expectException(CacheException::class);
+		APCuConfigCache::writeCacheFile($config, $cacheName, '// more', true);
+	}
+
+	public function testCheckConfigThrowsWhenCachedEntryIsNotAString(): void
+	{
+		$config = Config::getString('core.config_dir') . '/tests/importtest.xml';
+
+		$reflection = new ReflectionClass(APCuConfigCache::class);
+		$method = $reflection->getMethod('getConfigKey');
+		$key = $method->invoke(null, $config, null);
+		self::assertIsString($key);
+
+		apcu_store($key, 12345);
+
+		$this->expectException(CacheException::class);
+		APCuConfigCache::checkConfig($config);
+	}
+
+	public function testGetStatusThrowsWhenWarmupMetadataIsMalformed(): void
+	{
+		apcu_store('quiote_warmup_meta', ['configs' => ['a.xml']]); // missing 'timestamp'
+
+		$this->expectException(CacheException::class);
+		APCuConfigCache::getStatus();
 	}
 
 	// ---------------------------------------------------------------
@@ -352,6 +434,7 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 		$reflection = new ReflectionClass(APCuConfigCache::class);
 		$method = $reflection->getMethod('getConfigKey');
 		$key = $method->invoke(null, $config, null);
+		self::assertIsString($key);
 		apcu_delete($key);
 
 		// Delete filesystem cache too
@@ -368,6 +451,7 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 		// Verify data is now in APCu
 		$stored = apcu_fetch($key);
 		$this->assertNotFalse($stored, 'After first checkConfig, compiled data should be in APCu');
+		self::assertIsString($stored);
 		$this->assertStringContainsString('<?php', $stored, 'Stored data should be valid PHP');
 
 		// Second call: should hit APCu directly
@@ -464,7 +548,7 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 				'warmup() must not write routing data to APCu: nothing ever reads it back'
 			);
 		} finally {
-			if ($createdRoutingXml && file_exists($routingXmlPath)) {
+			if ($createdRoutingXml && is_file($routingXmlPath)) {
 				unlink($routingXmlPath);
 			}
 		}

@@ -17,8 +17,23 @@ class ValidationResult
     /**
      * @return array<int|string, mixed>
      */
-    public function getErrors(): array { return $this->data['errors'] ?? []; }
-    public function getTrace(): ?ValidationTrace { return $this->data['trace'] ?? null; }
+    public function getErrors(): array
+    {
+        $errors = $this->data['errors'] ?? [];
+        if (!is_array($errors)) {
+            throw new \UnexpectedValueException(sprintf('ValidationResult "errors" entry must be an array, %s given.', get_debug_type($errors)));
+        }
+        return $errors;
+    }
+
+    public function getTrace(): ?ValidationTrace
+    {
+        $trace = $this->data['trace'] ?? null;
+        if ($trace !== null && !$trace instanceof ValidationTrace) {
+            throw new \UnexpectedValueException(sprintf('ValidationResult "trace" entry must be a ValidationTrace instance, %s given.', get_debug_type($trace)));
+        }
+        return $trace;
+    }
 
     /**
      * @param array<string, mixed> $data

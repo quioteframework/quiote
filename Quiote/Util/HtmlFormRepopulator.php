@@ -1,6 +1,7 @@
 <?php
 namespace Quiote\Util;
 
+use InvalidArgumentException;
 use Quiote\Validator\ValidationReport;
 
 /**
@@ -23,17 +24,17 @@ final class HtmlFormRepopulator
             $type = strtolower($input->getAttribute('type') ?: 'text');
             $name = $input->getAttribute('name');
             if(!array_key_exists($name,$parameters)) { continue; }
-            $val = $parameters[$name];
+            $val = self::toStringValue($parameters[$name], $name);
             if(in_array($type, ['checkbox','radio'], true)) {
-                if((string)$input->getAttribute('value') === (string)$val) { $input->setAttribute('checked','checked'); }
+                if($input->getAttribute('value') === $val) { $input->setAttribute('checked','checked'); }
             } else {
-                $input->setAttribute('value', (string)$val);
+                $input->setAttribute('value', $val);
             }
         }
         foreach(self::queryElements($xpath, '//select[@name]') as $select) {
             $name = $select->getAttribute('name');
             if(!array_key_exists($name,$parameters)) { continue; }
-            $val = (string)$parameters[$name];
+            $val = self::toStringValue($parameters[$name], $name);
             foreach(self::queryElements($xpath, './/option', $select) as $option) {
                 if($option->getAttribute('value') === $val) { $option->setAttribute('selected','selected'); }
             }
@@ -56,6 +57,26 @@ final class HtmlFormRepopulator
         $inner = '';
         foreach($body->childNodes as $child) { $inner .= $dom->saveHTML($child); }
         return '<!DOCTYPE html><html><body>' . $inner . '</body></html>';
+    }
+
+    /**
+     * Coerces a repopulation value to a string, the same way it will end up
+     * being written into a "value"/"checked" HTML attribute.
+     * @throws InvalidArgumentException when the value has no meaningful string representation
+     */
+    private static function toStringValue(mixed $value, string $name): string
+    {
+        if(is_string($value)) {
+            return $value;
+        }
+        if(is_scalar($value) || $value instanceof \Stringable) {
+            return (string) $value;
+        }
+        throw new InvalidArgumentException(sprintf(
+            'Cannot repopulate field "%s": expected a scalar or Stringable value, got %s',
+            $name,
+            get_debug_type($value)
+        ));
     }
 
     /**

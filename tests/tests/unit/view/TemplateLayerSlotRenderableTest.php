@@ -12,8 +12,8 @@ class StubSlotRenderable implements SlotRenderable {
 
 // Minimal renderer stub
 class StubRenderer extends Renderer {
+    /** @param array<string, string> $slots */
     public function render(TemplateLayer $layer, array &$attributes = [], array &$slots = [], array &$moreAssigns = []) {
-        // Return slots joined by '|'
         ksort($slots);
         return implode('|', $slots);
     }

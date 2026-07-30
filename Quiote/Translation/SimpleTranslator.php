@@ -75,7 +75,11 @@ class SimpleTranslator extends BasicTranslator implements ResetInterface
 			foreach((array)$locales as $locale => $translations) {
 				foreach((array)$translations as $key => $translation) {
 					if(is_array($translation)) {
-						$domainData[$locale][$domain][$translation['from']] = $translation['to'];
+						$from = $translation['from'] ?? null;
+						if(!is_int($from) && !is_string($from)) {
+							throw new QuioteException('SimpleTranslator::initialize() expects a translation entry\'s "from" key to be an int or a string, ' . get_debug_type($from) . ' given.');
+						}
+						$domainData[$locale][$domain][$from] = $translation['to'];
 					} else {
 						$domainData[$locale][$domain][$key] = $translation;
 					}
@@ -129,13 +133,25 @@ class SimpleTranslator extends BasicTranslator implements ResetInterface
 
 		if(is_array($message)) {
 			throw new QuioteException('The simple translator doesn\'t support pluralized input');
-		} else {
-			$data = $this->currentData[(string)$domain][$message] ?? $message;
 		}
+
+		if(!is_string($message)) {
+			throw new QuioteException('SimpleTranslator::translate() expects $message to be a string, ' . get_debug_type($message) . ' given.');
+		}
+
+		$catalog = $this->currentData[(string)$domain] ?? [];
+		if(!is_array($catalog)) {
+			throw new QuioteException('SimpleTranslator has corrupt translation data for domain "' . $domain . '": expected an array, got ' . get_debug_type($catalog) . '.');
+		}
+		$data = $catalog[$message] ?? $message;
 
 		if($switchedLocale) {
 			$this->currentData = $oldCurrentData;
 			$this->locale = $oldLocale;
+		}
+
+		if(!is_string($data)) {
+			throw new QuioteException('SimpleTranslator resolved a non-string translation for key "' . $message . '" in domain "' . $domain . '".');
 		}
 
 		return $data;
@@ -152,7 +168,19 @@ class SimpleTranslator extends BasicTranslator implements ResetInterface
     public function localeChanged(QuioteLocale $newLocale)
 	{
 		$this->locale = $newLocale;
-		$this->currentData = Toolkit::getValueByKeyList($this->domainData, QuioteLocale::getLookupPath($this->locale->getIdentifier()), []);
+		$resolved = Toolkit::getValueByKeyList($this->domainData, QuioteLocale::getLookupPath($this->locale->getIdentifier()), []);
+		if(!is_array($resolved)) {
+			throw new QuioteException('SimpleTranslator resolved non-array translation data for locale "' . ($this->locale->getIdentifier() ?? '') . '".');
+		}
+
+		$currentData = [];
+		foreach($resolved as $key => $value) {
+			if(!is_string($key)) {
+				throw new QuioteException('SimpleTranslator resolved translation data with a non-string domain key for locale "' . ($this->locale->getIdentifier() ?? '') . '".');
+			}
+			$currentData[$key] = $value;
+		}
+		$this->currentData = $currentData;
 	}
 
 	#[\Override]

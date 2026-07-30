@@ -106,7 +106,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	protected $validationParameters = null;
 
 	/**
-	 * @var        array<int|string, mixed> The name of the request parameters serving as argument to
+	 * @var        array<int|string, string> The name of the request parameters serving as argument to
 	 *                   this validator.
 	 */
 	protected $arguments = [];
@@ -122,7 +122,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	protected $incident = null;
 	
 	/**
-	 * @var        array<int, mixed> The affected arguments of this validation run.
+	 * @var        array<int, string> The affected arguments of this validation run.
 	 */
 	protected $affectedArguments = [];
 
@@ -227,14 +227,29 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	{
 		$this->context = $context;
 
+		foreach($arguments as $argument) {
+			if(!is_string($argument)) {
+				throw new ConfigurationException('Validator argument names must be strings, ' . get_debug_type($argument) . ' given.');
+			}
+		}
 		$this->arguments = $arguments;
 		$this->errorMessages = $errors;
 
-		if(!isset($parameters['depends']) || !is_array($parameters['depends'])) {
-			$parameters['depends'] = (!empty($parameters['depends'])) ? explode(' ', (string) $parameters['depends']) : [];
-		}
-		if(!isset($parameters['provides']) || !is_array($parameters['provides'])) {
-			$parameters['provides'] = (!empty($parameters['provides'])) ? explode(' ', (string) $parameters['provides']) : [];
+		foreach(['depends', 'provides'] as $listParam) {
+			if(isset($parameters[$listParam]) && is_array($parameters[$listParam])) {
+				continue;
+			}
+			$rawValue = $parameters[$listParam] ?? null;
+			if(empty($rawValue)) {
+				$parameters[$listParam] = [];
+			} elseif(!is_string($rawValue)) {
+				throw new ConfigurationException(sprintf(
+					'Validator parameter "%s" must be a string or an array of strings, %s given.',
+					$listParam, get_debug_type($rawValue)
+				));
+			} else {
+				$parameters[$listParam] = explode(' ', $rawValue);
+			}
 		}
 
 		if(!isset($parameters['source'])) {
@@ -243,7 +258,137 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 
 		$this->setParameters($parameters);
 
-		$this->name = $this->getParameter('name', Toolkit::uniqid());
+		$name = $this->getParameter('name', Toolkit::uniqid());
+		if(!is_string($name)) {
+			throw new ConfigurationException('Validator parameter "name" must be a string, ' . get_debug_type($name) . ' given.');
+		}
+		$this->name = $name;
+	}
+
+	/**
+	 * Builds a ConfigurationException for a validator parameter whose runtime
+	 * value doesn't match the type the validator requires.
+	 * @since      1.0.0
+	 */
+	protected function invalidParameterType(string $paramName, string $expectedType, mixed $value): ConfigurationException
+	{
+		return new ConfigurationException(sprintf(
+			'Validator "%s" parameter "%s" must be %s, %s given.',
+			$this->name ?? '?', $paramName, $expectedType, get_debug_type($value)
+		));
+	}
+
+	/**
+	 * Returns the 'source' parameter (the request data holder to validate
+	 * against, e.g. "parameters", "files", "headers", "cookies"), narrowed to
+	 * string. initialize() always seeds a string default, so a non-string
+	 * here means something set the parameter after the fact with the wrong
+	 * type.
+	 * @since      1.0.0
+	 */
+	protected function getSourceParameter(): string
+	{
+		$value = $this->getParameter('source');
+		if(!is_string($value)) {
+			throw $this->invalidParameterType('source', 'a string', $value);
+		}
+		return $value;
+	}
+
+	/**
+	 * Returns the 'required' parameter narrowed to bool.
+	 * @since      1.0.0
+	 */
+	protected function isRequiredParameter(): bool
+	{
+		$value = $this->getParameter('required', true);
+		if(!is_bool($value)) {
+			throw $this->invalidParameterType('required', 'a boolean', $value);
+		}
+		return $value;
+	}
+
+	/**
+	 * Returns the 'severity' parameter narrowed to string.
+	 * @since      1.0.0
+	 */
+	protected function getSeverityParameter(): string
+	{
+		$value = $this->getParameter('severity', 'error');
+		if(!is_string($value)) {
+			throw $this->invalidParameterType('severity', 'a string', $value);
+		}
+		return $value;
+	}
+
+	/**
+	 * Returns the 'depends' parameter narrowed to a list of strings.
+	 * initialize() always normalizes it to an array; this only re-validates
+	 * the element types.
+	 * @return     array<int, string>
+	 * @since      1.0.0
+	 */
+	protected function getDependsParameter(): array
+	{
+		return $this->getStringListParameter('depends');
+	}
+
+	/**
+	 * Returns the 'provides' parameter narrowed to a list of strings.
+	 * @return     array<int, string>
+	 * @since      1.0.0
+	 */
+	protected function getProvidesParameter(): array
+	{
+		return $this->getStringListParameter('provides');
+	}
+
+	/**
+	 * @return     array<int, string>
+	 */
+	private function getStringListParameter(string $paramName): array
+	{
+		$value = $this->getParameter($paramName, []);
+		if(!is_array($value)) {
+			throw $this->invalidParameterType($paramName, 'an array', $value);
+		}
+		foreach($value as $item) {
+			if(!is_string($item)) {
+				throw $this->invalidParameterType($paramName, 'an array of strings', $item);
+			}
+		}
+		/** @var array<int, string> $value */
+		return $value;
+	}
+
+	/**
+	 * Returns the 'translation_domain' parameter narrowed to string|null.
+	 * @since      1.0.0
+	 */
+	protected function getTranslationDomainParameter(): ?string
+	{
+		if(!$this->hasParameter('translation_domain')) {
+			return null;
+		}
+		$value = $this->getParameter('translation_domain');
+		if($value !== null && !is_string($value)) {
+			throw $this->invalidParameterType('translation_domain', 'a string or null', $value);
+		}
+		return $value;
+	}
+
+	/**
+	 * Returns the 'base' parameter narrowed to the type VirtualArrayPath's
+	 * constructor accepts.
+	 * @since      1.0.0
+	 */
+	protected function getBaseParameter(): string|int|null
+	{
+		$value = $this->getParameter('base');
+		if($value !== null && !is_string($value) && !is_int($value)) {
+			throw $this->invalidParameterType('base', 'a string, integer, or null', $value);
+		}
+		return $value;
 	}
 
 	/**
@@ -367,7 +512,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	 */
 	protected function getData(?string $paramName)
 	{
-		$paramType = $this->getParameter('source');
+		$paramType = $this->getSourceParameter();
 		$request = $this->requireRequest();
 		$base = $this->requireCurBase();
 		// NOTE: Parameters are fetched by value from PSR-7 request; mutation will not write back.
@@ -393,7 +538,17 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 				}
 			}
 			if (is_array($value)) {
-				$value = implode(', ', $value);
+				$stringParts = [];
+				foreach ($value as $headerPart) {
+					if (!is_string($headerPart)) {
+						throw new ValidatorException(sprintf(
+							'Validator "%s" received a non-string header value part (%s) for header "%s".',
+							$this->name ?? '?', get_debug_type($headerPart), $paramName ?? '?'
+						));
+					}
+					$stringParts[] = $headerPart;
+				}
+				$value = implode(', ', $stringParts);
 			}
 		}
 		// Fallback: if source==parameters and value is still null, attempt direct runtime lookup
@@ -446,7 +601,8 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 		if($name === null) {
 			$argNames = $this->arguments;
 			reset($argNames);
-			return current($argNames);
+			$first = current($argNames);
+			return $first === false ? null : $first;
 		} else {
 			if(isset($this->arguments[$name])) {
 				return $this->arguments[$name];
@@ -466,7 +622,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	 * \Quiote\Validator\Compiler\Runtime\ValidatorBuilder} rather than an
 	 * XML file -- can read back which request parameters a validator
 	 * targets.
-	 * @return     array<int|string, mixed> A list of input arguments names.
+	 * @return     array<int|string, string> A list of input arguments names.
 	 * @since      1.0.0
 	 */
 	public function getArguments()
@@ -477,11 +633,11 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	/**
 	 * Sets the arguments which should be flagged with the result of the
 	 * validator
-	 * @param      array<int, mixed> $arguments A list of (absolute) argument names
+	 * @param      array<int, string> $arguments A list of (absolute) argument names
 	 * @return     void
 	 * @since      1.0.0
 	 */
-	protected function setAffectedArguments($arguments)
+	protected function setAffectedArguments(array $arguments)
 	{
 		$this->affectedArguments = $arguments;
 	}
@@ -501,8 +657,8 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	 */
 	protected function checkAllArgumentsSet($throwError = true, ?array $fullArgumentNames = null)
 	{
-		$isRequired = $this->getParameter('required', true);
-		$paramType = $this->getParameter('source');
+		$isRequired = $this->isRequiredParameter();
+		$paramType = $this->getSourceParameter();
 		$result = true;
 		$request = $this->requireRequest();
 		$base = $this->requireCurBase();
@@ -588,7 +744,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	 * error. The error will be appended to the current incident.
 	 * @param      string $index The name of the error parameter to fetch the message 
 	 *                    from.
-	 * @param      string|array<int, mixed> $affectedArgument The arguments which are affected by this error.
+	 * @param      string|array<int, string>|null $affectedArgument The arguments which are affected by this error.
 	 *                          If null is given it will affect all fields.
 	 * @param      boolean $argumentsRelative Whether the argument names in $affectedArgument are
 	 *                     relative or absolute.
@@ -622,15 +778,15 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 			if ($tm === null) {
 				throw new ConfigurationException('Validator "' . ($this->name ?? '?') . '" specifies a translation_domain but translations are not enabled (core.use_translation).');
 			}
-			$error = $tm->_($error, $this->getParameter('translation_domain'));
+			$error = $tm->_($error, $this->getTranslationDomainParameter());
 		}
 
 		if(!$this->incident) {
-			$this->incident = new ValidationIncident($this, self::mapErrorCode($this->getParameter('severity', 'error')));
+			$this->incident = new ValidationIncident($this, self::mapErrorCode($this->getSeverityParameter()));
 		}
 
 		foreach($affectedArguments as &$argument) {
-			$argument = new ValidationArgument($argument, $this->getParameter('source'));
+			$argument = new ValidationArgument($argument, $this->getSourceParameter());
 		}
 
 		if($error !== null || count($affectedArguments) != 0) {
@@ -648,25 +804,36 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	 * the request because it pays attention to paths and otherwise you could
 	 * overwrite stuff you don't want to.
 	 * @param      mixed $value The value to be exported.
-	 * @param      mixed $argument An optional parameter name which should be used for
+	 * @param      ValidationArgument|string|null $argument An optional parameter name which should be used for
 	 *                   exporting instead of the "export" attribute value, or an
 	 *                   ValidationArgument object if the value should be
 	 *                   exported to a different source.
-	 * @param      int $result The result status code to use for the exported value.
+	 * @param      ?int $result The result status code to use for the exported value.
 	 *                   Defaults to Validator::SUCCESS.
 	 * @return     void
 	 * @since      1.0.0
 	 */
-	protected function export($value, $argument = null, $result = null)
+	protected function export($value, string|ValidationArgument|null $argument = null, ?int $result = null)
 	{
 		if($argument === null) {
-			$argument = $this->getParameter('export');
+			$configuredArgument = $this->getParameter('export');
+			$argument = is_string($configuredArgument) ? $configuredArgument : null;
 		}
-		
+
 		if($result === null) {
-			$result = $this->getParameter('export_severity', Validator::SUCCESS);
-			if(!is_numeric($result) && defined($result)) {
-				$result = constant($result);
+			$raw = $this->getParameter('export_severity', Validator::SUCCESS);
+			if(is_int($raw)) {
+				$result = $raw;
+			} elseif(is_string($raw) && is_numeric($raw)) {
+				$result = (int) $raw;
+			} elseif(is_string($raw) && defined($raw)) {
+				$const = constant($raw);
+				if(!is_int($const)) {
+					throw $this->invalidParameterType('export_severity', 'a constant name resolving to an int', $const);
+				}
+				$result = $const;
+			} else {
+				throw $this->invalidParameterType('export_severity', 'an int, numeric string, or defined constant name', $raw);
 			}
 		}
 
@@ -678,7 +845,14 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 			$source = $argument->getSource();
 			$name = $argument->getName();
 		} else {
-			$source = $this->getParameter('export_to_source', $this->getParameter('source'));
+			$exportToSource = $this->getParameter('export_to_source');
+			if($exportToSource === null) {
+				$source = $this->getSourceParameter();
+			} elseif(!is_string($exportToSource)) {
+				throw $this->invalidParameterType('export_to_source', 'a string', $exportToSource);
+			} else {
+				$source = $exportToSource;
+			}
 			$name = $argument;
 		}
 
@@ -733,7 +907,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 					}
 					// Write back updated root array into runtime parameters
 					$request = $request->setParameter($root, $runtime[$root]);
-					// PHASE 3 FIX: Remember root parameter name so we can register it as succeeded argument
+					// Remember root parameter name so we can register it as succeeded argument
 					$rootParameterName = $root;
 					if (($logger = \Quiote\Logging\Log::for($this))->isEnabled(\Quiote\Logging\Level::Debug)) { $logger->debug('[Validator][export][debug] stored bracketed root=' . $root . ' flat=' . $flatName); }
 				}
@@ -751,7 +925,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 			}
 			$parentContainer->addArgumentResult(new ValidationArgument($cp->__toString(), $source), $result, $this);
 
-			// PHASE 3 FIX: Also register the root parameter (e.g. 'User') as a succeeded argument
+			// Also register the root parameter (e.g. 'User') as a succeeded argument
 			// when we export to bracketed names (e.g. 'User[0]'). This prevents the pruning logic
 			// from removing the root array parameter that we just created.
 			if($rootParameterName !== null) {
@@ -790,7 +964,8 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 				foreach($argList as $a){ $argExport[] = $a === '' ? "<empty>" : $a; }
 				$logger->debug('[Validator][debug][pre-validate] name=' . $this->getName() . ' curBase=' . $curBase->__toString() . ' args=' . implode(',', $argExport));
 			}
-			if($this->getDependencyManager() && (count($this->getParameter('depends')) > 0 && !$this->getDependencyManager()->checkDependencies($this->getParameter('depends'), $curBase))) {
+			$dependsTokens = $this->getDependsParameter();
+			if($this->getDependencyManager() && (count($dependsTokens) > 0 && !$this->getDependencyManager()->checkDependencies($dependsTokens, $curBase))) {
 				// dependencies not met, exit with success
 				return self::NOT_PROCESSED;
 			}
@@ -798,7 +973,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 			$this->affectedArguments = $this->getFullArgumentNames();
 
 			$result = self::SUCCESS;
-			$errorCode = self::mapErrorCode($this->getParameter('severity', 'error'));
+			$errorCode = self::mapErrorCode($this->getSeverityParameter());
 
 			$allArgsSet = $this->checkAllArgumentsSet(false, $this->affectedArguments);
 			if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
@@ -824,7 +999,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 					$result = $errorCode;
 				}
 			} else {
-				if($this->getParameter('required', true)) {
+				if($this->isRequiredParameter()) {
 					$this->throwError('required');
 					$result = $errorCode;
 				} else {
@@ -837,7 +1012,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 			$parentContainer = $this->parentContainer;
 			if($parentContainer !== null) {
 				foreach($this->affectedArguments as $fieldname) {
-					$parentContainer->addArgumentResult(new ValidationArgument($fieldname, $this->getParameter('source')), $result, $this);
+					$parentContainer->addArgumentResult(new ValidationArgument($fieldname, $this->getSourceParameter()), $result, $this);
 				}
 
 				if($this->incident) {
@@ -847,8 +1022,9 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 
 			$this->incident = null;
 			// put dependencies provided by this validator into manager
-			if($this->getDependencyManager() && ($result == self::SUCCESS && count($this->getParameter('provides')) > 0)) {
-				$this->getDependencyManager()->addDependTokens($this->getParameter('provides'), $curBase);
+			$providesTokens = $this->getProvidesParameter();
+			if($this->getDependencyManager() && $result == self::SUCCESS && count($providesTokens) > 0) {
+				$this->getDependencyManager()->addDependTokens($providesTokens, $curBase);
 			}
 			return $result;
 
@@ -880,16 +1056,17 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 			// if the names array is empty this means we need to throw an error since
 			// this means the input doesn't exist
 			if(count($names) == 0) {
-				if($this->getDependencyManager() && (count($this->getParameter('depends')) > 0 && !$this->getDependencyManager()->checkDependencies($this->getParameter('depends'), $curBase))) {
+				$dependsTokens = $this->getDependsParameter();
+				if($this->getDependencyManager() && (count($dependsTokens) > 0 && !$this->getDependencyManager()->checkDependencies($dependsTokens, $curBase))) {
 					// since the dependencies are only ever checked if the base gets empty (which happens when
 					// the validation is about to validate an argument), but we are already bailing out in an earlier
 					// stage, lets do the dependency check so the validator doesn't accidently return an error even
 					// if it's dependencies aren't met
 					return self::NOT_PROCESSED;
 				} else {
-					if($this->getParameter('required', true)) {
+					if($this->isRequiredParameter()) {
 						$this->throwError('required');
-						return self::mapErrorCode($this->getParameter('severity', 'error'));
+						return self::mapErrorCode($this->getSeverityParameter());
 					} else {
 						return self::NOT_PROCESSED;
 					}
@@ -927,12 +1104,13 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 	 */
 	public function execute(WebRequest $parameters)
 	{
-		if($this->getParameter('source') != "parameters" && !in_array($this->getParameter('source'), ["parameters", "files", "headers", "cookies"])) {
-			throw new ConfigurationException('Unknown source "' . $this->getParameter('source') . '" specified in validator ' . $this->getName());
+		$source = $this->getSourceParameter();
+		if($source != "parameters" && !in_array($source, ["parameters", "files", "headers", "cookies"], true)) {
+			throw new ConfigurationException('Unknown source "' . $source . '" specified in validator ' . $this->getName());
 		}
 
 		$this->validationParameters = $parameters;
-		$base = new VirtualArrayPath($this->getParameter('base'));
+		$base = new VirtualArrayPath($this->getBaseParameter());
 
 		$res = $this->validateInBase($base);
 		if($this->incident && $this->parentContainer) {
@@ -982,12 +1160,12 @@ abstract class Validator extends ParameterHolder implements ResetInterface
 
 	/**
 	 * Returns all available keys in the currently set base.
-	 * @return     array<int, mixed> The available keys.
+	 * @return     array<int, int|string> The available keys.
 	 * @since      1.0.0
 	 */
 	protected function getKeysInCurrentBase()
 	{
-		$paramType = $this->getParameter('source');
+		$paramType = $this->getSourceParameter();
 		$base = $this->requireCurBase();
 
 		$array = $this->requireRequest()->getParameters($paramType);

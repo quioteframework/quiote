@@ -41,9 +41,24 @@ final class ArrayPathDefinition
 			}
 			return $parts;
 		}
-		
+
 	}
-	
+
+	/**
+	 * Validates a single path part before it is used as an array key.
+	 * @param      mixed $part The raw path part.
+	 * @return     int|string The validated path part.
+	 * @throws     InvalidArgumentException when the part is not an int or string
+	 * @since      1.0.0
+	 */
+	private static function assertValidPathPart($part): int|string
+	{
+		if(!is_int($part) && !is_string($part)) {
+			throw new InvalidArgumentException('A path part must be an int or string, got ' . get_debug_type($part));
+		}
+		return $part;
+	}
+
 	/**
 	 * Unsets a value at the given path.
 	 * @param      array<int, mixed>|string $partsArrayOrPathString The path string or an array containing the path
@@ -63,6 +78,7 @@ final class ArrayPathDefinition
 			$part = $parts[$i];
 			$last = ($i+1 == $c);
 			if($part !== null) {
+				$part = self::assertValidPathPart($part);
 				if(is_array($a) && is_numeric($part) && !str_contains((string) $part, '.') && !str_contains((string) $part, ',') && (isset($a[(int)$part]) || array_key_exists((int)$part, $a))) {
 					$part = (int)$part;
 				}
@@ -100,6 +116,7 @@ final class ArrayPathDefinition
 
 		foreach($parts as $part) {
 			if($part !== null) {
+				$part = self::assertValidPathPart($part);
 				if(is_array($a) && is_numeric($part) && !str_contains((string) $part, '.') && !str_contains((string) $part, ',') && (isset($a[(int)$part]) || array_key_exists((int)$part, $a))) {
 					$part = (int)$part;
 				}
@@ -131,13 +148,13 @@ final class ArrayPathDefinition
 
 		foreach($parts as $part) {
 			if($part !== null) {
+				$part = self::assertValidPathPart($part);
 				if(is_array($a) && is_numeric($part) && !str_contains((string) $part, '.') && !str_contains((string) $part, ',') && (isset($a[(int)$part]) || array_key_exists((int)$part, $a))) {
 					$part = (int)$part;
 				}
 				if(is_array($a) && (isset($a[$part]) || array_key_exists($part, $a))) {
 					$a = &$a[$part];
 				} else {
-					//throw new \Exception('The part: ' . $part . ' does not exist in the given array');
 					return $default;
 				}
 			}
@@ -163,6 +180,7 @@ final class ArrayPathDefinition
 
 		foreach($parts as $part) {
 			if($part !== null) {
+				$part = self::assertValidPathPart($part);
 				if(is_numeric($part) && !str_contains((string) $part, '.') && !str_contains((string) $part, ',') && (isset($a[(int)$part]) || array_key_exists((int)$part, $a))) {
 					$part = (int)$part;
 				}

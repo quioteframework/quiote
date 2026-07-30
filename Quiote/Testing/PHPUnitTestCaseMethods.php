@@ -116,12 +116,12 @@ trait PHPUnitTestCaseMethods
                 $annotationName = lcfirst($match[1]); // Convert IsolationEnvironment -> isolationEnvironment
                 $annotationValue = trim($match[2]);
                 
-                if (!isset($target[$annotationName])) {
+                if (!isset($target[$annotationName]) || !is_array($target[$annotationName])) {
                     $target[$annotationName] = [];
                 }
-                
+
                 $target[$annotationName][] = $annotationValue;
-                
+
                 // Also add with the quiote prefix for backward compatibility
                 $fullName = 'quiote' . $match[1];
                 if (!isset($target[$fullName])) {
@@ -138,10 +138,10 @@ trait PHPUnitTestCaseMethods
                 $annotationName = $match[1];
                 $annotationValue = trim($match[2]);
                 
-                if (!isset($target[$annotationName])) {
+                if (!isset($target[$annotationName]) || !is_array($target[$annotationName])) {
                     $target[$annotationName] = [];
                 }
-                
+
                 $target[$annotationName][] = $annotationValue;
             }
         }

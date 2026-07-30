@@ -57,8 +57,10 @@ final class RoutesListCommandTest extends PhpUnitTestCase
 		$tester->execute(['--context' => 'web', '--module' => 'Default', '--json' => true]);
 
 		$payload = json_decode($tester->getDisplay(), true, flags: JSON_THROW_ON_ERROR);
+		self::assertIsArray($payload);
 		$this->assertArrayHasKey('routes', $payload);
 		$this->assertArrayHasKey('diagnostics', $payload);
+		self::assertIsArray($payload['routes']);
 		$names = array_column($payload['routes'], 'name');
 		$this->assertContains('index', $names);
 	}
@@ -73,6 +75,7 @@ final class RoutesListCommandTest extends PhpUnitTestCase
 		$tester->execute(['--context' => 'web', '--json' => true]);
 
 		$payload = json_decode($tester->getDisplay(), true, flags: JSON_THROW_ON_ERROR);
+		self::assertIsArray($payload);
 		$this->assertIsArray($payload['diagnostics']);
 	}
 
@@ -95,6 +98,8 @@ final class RoutesListCommandTest extends PhpUnitTestCase
 		$tester->execute(['--context' => 'routes-list-cli-test', '--env' => 'testing', '--json' => true]);
 
 		$payload = json_decode($tester->getDisplay(), true, flags: JSON_THROW_ON_ERROR);
+		self::assertIsArray($payload);
+		self::assertIsArray($payload['routes']);
 		$sourceByName = array_column($payload['routes'], 'source', 'name');
 
 		$this->assertSame('File', $sourceByName['index']);

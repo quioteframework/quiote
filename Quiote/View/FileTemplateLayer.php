@@ -57,8 +57,12 @@ class FileTemplateLayer extends StreamTemplateLayer
 	#[\Override]
     public function initialize(Context $context, array $parameters = [])
 	{
-		$this->setParameter('directory', Toolkit::evaluateModuleDirective($parameters['module'] ?? '', 'quiote.template.directory'));
-		
+		$module = $parameters['module'] ?? '';
+		if(!is_string($module)) {
+			throw new QuioteException('The "module" parameter must be a string.');
+		}
+		$this->setParameter('directory', Toolkit::evaluateModuleDirective($module, 'quiote.template.directory'));
+
 		parent::initialize($context, $parameters);
 	}
 	
@@ -77,12 +81,20 @@ class FileTemplateLayer extends StreamTemplateLayer
 		if($template === null) {
 			// no template set, we return null so nothing gets rendered
 			return null;
-		} elseif(Toolkit::isPathAbsolute($template)) {
+		}
+		if(!is_string($template)) {
+			throw new QuioteException('The "template" parameter must be a string.');
+		}
+
+		if(Toolkit::isPathAbsolute($template)) {
 			// the template is an absolute path, ignore the dir
-			$directory = dirname((string) $template);
-			$template = basename((string) $template);
+			$directory = dirname($template);
+			$template = basename($template);
 		} else {
 			$directory = $this->getParameter('directory');
+		}
+		if($directory !== null && !is_string($directory)) {
+			throw new QuioteException('The "directory" parameter must be a string.');
 		}
 		// treat the directory as sprintf format string and inject module name.
 		// Parameter names are always strings in practice; rekey defensively since

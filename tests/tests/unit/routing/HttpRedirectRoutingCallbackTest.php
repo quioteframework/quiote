@@ -2,6 +2,7 @@
 
 use PHPUnit\Framework\TestCase;
 use Quiote\Context;
+use Quiote\Exception\ConfigurationException;
 use Quiote\Request\WebRequest;
 use Quiote\Response\WebResponse;
 use Quiote\Routing\HttpRedirectRoutingCallback;
@@ -50,6 +51,69 @@ class HttpRedirectRoutingCallbackTest extends TestCase
         $redirect = $response->getRedirect();
         $this->assertNotNull($redirect);
         $this->assertSame('https://redirected.example/target', $redirect['location']);
+    }
+
+    public function testRedirectWithNonStringUrlThrowsConfigurationException(): void
+    {
+        $context = Context::getInstance('http_redirect_callback_test_bad_url');
+        $context->setRequest($this->makeFakeRequest('https://example.com/original/path'));
+
+        $callback = new HttpRedirectRoutingCallback(['url' => ['not', 'a', 'string']]);
+        $route = [];
+        $callback->initialize($context, $route);
+
+        $this->expectException(ConfigurationException::class);
+        $this->expectExceptionMessage('HttpRedirectRoutingCallback parameter "url" must be a string.');
+
+        $parameters = [];
+        $callback->onMatched($parameters);
+    }
+
+    public function testRedirectWithNonStringRouteThrowsConfigurationException(): void
+    {
+        $context = Context::getInstance('http_redirect_callback_test_bad_route');
+        $context->setRequest($this->makeFakeRequest('https://example.com/original/path'));
+
+        $callback = new HttpRedirectRoutingCallback(['route' => 42]);
+        $route = [];
+        $callback->initialize($context, $route);
+
+        $this->expectException(ConfigurationException::class);
+        $this->expectExceptionMessage('HttpRedirectRoutingCallback parameter "route" must be a string.');
+
+        $parameters = [];
+        $callback->onMatched($parameters);
+    }
+
+    public function testRedirectWithNonIntNonStringPortThrowsConfigurationException(): void
+    {
+        $context = Context::getInstance('http_redirect_callback_test_bad_port');
+        $context->setRequest($this->makeFakeRequest('https://example.com/original/path'));
+
+        $callback = new HttpRedirectRoutingCallback(['host' => 'example.org', 'port' => ['not', 'valid']]);
+        $route = [];
+        $callback->initialize($context, $route);
+
+        $this->expectException(ConfigurationException::class);
+        $this->expectExceptionMessage('HttpRedirectRoutingCallback parameter "port" must be an int or string.');
+
+        $parameters = [];
+        $callback->onMatched($parameters);
+    }
+
+    public function testRedirectWithNoConfiguredPartsReturnsFalse(): void
+    {
+        $context = Context::getInstance('http_redirect_callback_test_no_parts');
+        $context->setRequest($this->makeFakeRequest('https://example.com/original/path'));
+
+        $callback = new HttpRedirectRoutingCallback([]);
+        $route = [];
+        $callback->initialize($context, $route);
+
+        $parameters = [];
+        $result = $callback->onMatched($parameters);
+
+        $this->assertFalse($result);
     }
 
     private function makeFakeRequest(string $url): WebRequest

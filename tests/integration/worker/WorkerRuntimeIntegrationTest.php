@@ -272,9 +272,11 @@ final class WorkerRuntimeIntegrationTest extends TestCase
 
                 $this->assertTrue($seen['authenticated'], "request $attempt lost authentication");
                 $this->assertSame(['administrator'], $seen['roles'], "request $attempt lost its roles");
+                $credentials = $seen['credentials'];
+                self::assertIsArray($credentials);
                 $this->assertContains(
                     'probe.admin',
-                    $seen['credentials'],
+                    $credentials,
                     "request $attempt is authenticated but has no credentials -- the 403 loop",
                 );
                 $this->assertSame('Ada', $seen['display_name'], "request $attempt lost its user attributes");

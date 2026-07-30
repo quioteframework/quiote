@@ -65,13 +65,17 @@ class RoutingMiddleware implements MiddlewareInterface
             : NoopSpanHandle::instance();
         try {
             $attributes = $this->routing->match($path);
-            $module = $attributes['_module'] ?? null;
-            $action = $attributes['_action'] ?? null;
+            $moduleRaw = $attributes['_module'] ?? null;
+            $actionRaw = $attributes['_action'] ?? null;
+            $module = is_string($moduleRaw) ? $moduleRaw : null;
+            $action = is_string($actionRaw) ? $actionRaw : null;
+            $routeNameRaw = $attributes['_route'] ?? null;
+            $routeName = is_string($routeNameRaw) ? $routeNameRaw : null;
             // Preserve pre-routing negotiation if route does not specify an output_type
             $preNegotiated = $request->getAttribute('output_type');
             $outputType = $attributes['_output_type'] ?? $preNegotiated ?? 'html';
             $outputType = is_string($outputType) ? strtolower($outputType) : 'html';
-            if ($module && $action) {
+            if ($module !== null && $action !== null) {
                 $httpMethod = $request->getMethod();
                 // Centralized mapping
                 $method = HttpMethodMapper::toActionMethod($httpMethod); // TODO: create rector rule to change executeRead to executeGet etc
@@ -83,24 +87,24 @@ class RoutingMiddleware implements MiddlewareInterface
                     $descriptor = new ActionDescriptor($module, $action, $method, $outputType, false);
                 }
                 if ($dbg) {
-                    \Quiote\Logging\Log::for($this)->debug('[RoutingMiddleware] matched path=' . $path . ' module=' . $module . ' action=' . $action . ' outputType=' . $outputType . ' preNegotiated=' . var_export($preNegotiated, true) . ' routeName=' . ($attributes['_route'] ?? ''));
+                    \Quiote\Logging\Log::for($this)->debug('[RoutingMiddleware] matched path=' . $path . ' module=' . $module . ' action=' . $action . ' outputType=' . $outputType . ' preNegotiated=' . var_export($preNegotiated, true) . ' routeName=' . ($routeName ?? ''));
                 }
                 if ($spansEnabled) {
-                    $this->recordMatch($span, $root, $httpMethod, $path, $attributes['_route'] ?? null);
+                    $this->recordMatch($span, $root, $httpMethod, $path, $routeName);
                 }
                 $request = $request
                     ->withAttribute('module', $module)
                     ->withAttribute('action', $action)
                     ->withAttribute('output_type', $outputType)
                     ->withAttribute(ActionDescriptor::class, $descriptor)
-                    ->withAttribute('route_name', $attributes['_route'] ?? null)
+                    ->withAttribute('route_name', $routeName)
                     ->withAttribute('route_params', $attributes);
                 // Lifecycle hook: route matched.
                 // Events::emit gates on hasListeners and swallows listener errors,
                 // so a no-listener app pays only a lookup and a bad listener can't
                 // break routing.
                 \Quiote\Event\Events::emitLazy(\Quiote\Event\Lifecycle\RequestMatchedEvent::class, static fn() => new \Quiote\Event\Lifecycle\RequestMatchedEvent(
-                    $request, (string) $module, (string) $action, $attributes['_route'] ?? null, $outputType
+                    $request, $module, $action, $routeName, $outputType
                 ));
             } else {
                 if ($dbg) {

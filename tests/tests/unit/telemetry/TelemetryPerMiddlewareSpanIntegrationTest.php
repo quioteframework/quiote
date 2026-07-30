@@ -3,6 +3,7 @@
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use Nyholm\Psr7\ServerRequest;
+use OpenTelemetry\SDK\Trace\SpanDataInterface;
 use Quiote\Config\Config;
 use Quiote\Context;
 use Quiote\Middleware\MiddlewarePipeline;
@@ -47,7 +48,7 @@ class TelemetryPerMiddlewareSpanIntegrationTest extends TestCase
      * site in this file only reaches for it after enable(), so a missing
      * exporter indicates a broken test fixture rather than a case callers
      * should silently tolerate.
-     * @return array<int, mixed>
+     * @return list<SpanDataInterface>
      */
     private function exportedSpans(): array
     {
@@ -55,7 +56,12 @@ class TelemetryPerMiddlewareSpanIntegrationTest extends TestCase
         if ($exporter === null) {
             throw new \RuntimeException('Expected an in-memory span exporter to be configured.');
         }
-        return $exporter->getSpans();
+        $spans = [];
+        foreach ($exporter->getSpans() as $span) {
+            self::assertInstanceOf(SpanDataInterface::class, $span);
+            $spans[] = $span;
+        }
+        return $spans;
     }
 
     public function testDefaultProducesNoPerMiddlewareSpans(): void

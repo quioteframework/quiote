@@ -6,6 +6,7 @@ use Nyholm\Psr7\Response as Psr7Response;
 use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
+use Quiote\Execution\ExecutionState;
 use Quiote\Middleware\TimingMiddleware;
 
 /**
@@ -46,5 +47,28 @@ final class TimingMiddlewareTest extends TestCase
         };
         $resp = $mw->process($req, $handler);
         $this->assertFalse($resp->hasHeader('X-Quiote-Timing'));
+    }
+
+    /**
+     * A pre-set ExecutionState attribute of the wrong type (e.g. seeded by
+     * misbehaving app code) must be discarded in favor of a fresh
+     * ExecutionState, not fatal when TimingMiddleware writes ->metrics onto it.
+     */
+    public function testNonExecutionStateAttributeIsReplacedNotFatal(): void
+    {
+        $mw = new TimingMiddleware(true);
+        $req = (new ServerRequest('GET', '/'))->withAttribute(ExecutionState::class, 'garbage');
+        $handler = new class implements RequestHandlerInterface {
+            public ?ServerRequestInterface $seen = null;
+            public function handle(ServerRequestInterface $request): ResponseInterface
+            {
+                $this->seen = $request;
+                return new Psr7Response(200);
+            }
+        };
+        $resp = $mw->process($req, $handler);
+
+        $this->assertTrue($resp->hasHeader('X-Quiote-Timing'));
+        $this->assertInstanceOf(ExecutionState::class, $handler->seen?->getAttribute(ExecutionState::class));
     }
 }

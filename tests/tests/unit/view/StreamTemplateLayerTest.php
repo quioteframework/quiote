@@ -73,4 +73,49 @@ class StreamTemplateLayerTest extends UnitTestCase
 
         $this->assertNull($layer->getResourceStreamIdentifier());
     }
+
+    public function testNonStringTemplateThrows(): void
+    {
+        $layer = new StreamTemplateLayer(['template' => ['not', 'a', 'string']]);
+
+        $this->expectException(\Quiote\Exception\QuioteException::class);
+        $this->expectExceptionMessageMatches('/"template"/');
+        $layer->getResourceStreamIdentifier();
+    }
+
+    public function testNonStringSchemeThrows(): void
+    {
+        $layer = new StreamTemplateLayer([
+            'scheme' => ['not', 'a', 'string'],
+            'template' => 'whatever',
+        ]);
+
+        $this->expectException(\Quiote\Exception\QuioteException::class);
+        $this->expectExceptionMessageMatches('/"scheme"/');
+        $layer->getResourceStreamIdentifier();
+    }
+
+    public function testNonArrayTargetsThrows(): void
+    {
+        $layer = new StreamTemplateLayer([
+            'targets' => 'not-an-array',
+            'template' => 'whatever',
+        ]);
+
+        $this->expectException(\Quiote\Exception\QuioteException::class);
+        $this->expectExceptionMessageMatches('/"targets"/');
+        $layer->getResourceStreamIdentifier();
+    }
+
+    public function testNonStringTargetItemThrows(): void
+    {
+        $layer = new StreamTemplateLayer([
+            'targets' => [['nested', 'array']],
+            'template' => 'whatever',
+        ]);
+
+        $this->expectException(\Quiote\Exception\QuioteException::class);
+        $this->expectExceptionMessageMatches('/"targets"/');
+        $layer->getResourceStreamIdentifier();
+    }
 }

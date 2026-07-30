@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ae:configurations xmlns:ae="http://quiote.dev/quiote/config/global/envelope/1.1">
+	<ae:configuration>
+		<container>
+			<solo>lonely</solo>
+			<item name="a">1</item>
+			<item name="b">2</item>
+		</container>
+		<duplicates>
+			<entry>first</entry>
+			<entry>second</entry>
+		</duplicates>
+	</ae:configuration>
+</ae:configurations>

@@ -112,11 +112,9 @@ class LightweightTestContainer
                 public function __construct()
                 {
                     $this->report = new class {
-                        /** @param mixed $arg */
-                        public function isArgumentValidated($arg): bool { return false; }
-                        /** @param mixed $arg */
-                        public function isArgumentFailed($arg): bool { return false; }
-                        /** @return array<int, mixed> */
+                        public function isArgumentValidated(mixed $arg): bool { return false; }
+                        public function isArgumentFailed(mixed $arg): bool { return false; }
+                        /** @return array<int, string> */
                         public function getErrorMessages(): array { return []; }
                     };
                 }

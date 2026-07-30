@@ -264,7 +264,7 @@ class RoutingValue implements IRoutingValue, ResetInterface
 	 */
 	public function offsetExists($offset): bool
 	{
-		return isset(self::$arrayMap[$offset]);
+		return is_string($offset) && isset(self::$arrayMap[$offset]);
 	}
 	
 	/**
@@ -275,7 +275,7 @@ class RoutingValue implements IRoutingValue, ResetInterface
 	 */
 	public function offsetGet($offset): mixed
 	{
-		if(isset(self::$arrayMap[$offset])) {
+		if(is_string($offset) && isset(self::$arrayMap[$offset])) {
 			return $this->{self::$arrayMap[$offset]};
 		}
 		return null;
@@ -289,7 +289,7 @@ class RoutingValue implements IRoutingValue, ResetInterface
 	 */
 	public function offsetSet($offset, $value): void
 	{
-		if(isset(self::$arrayMap[$offset])) {
+		if(is_string($offset) && isset(self::$arrayMap[$offset])) {
 			$this->{self::$arrayMap[$offset]} = $value;
 		}
 	}
@@ -301,7 +301,7 @@ class RoutingValue implements IRoutingValue, ResetInterface
 	 */
 	public function offsetUnset($offset): void
 	{
-		if(isset(self::$arrayMap[$offset])) {
+		if(is_string($offset) && isset(self::$arrayMap[$offset])) {
 			$this->{self::$arrayMap[$offset]} = null;
 		}
 	}
@@ -313,7 +313,15 @@ class RoutingValue implements IRoutingValue, ResetInterface
 	 */
 	public function __toString(): string
 	{
-		$value = (string) $this->value;
+		if(is_scalar($this->value)) {
+			$value = (string) $this->value;
+		} elseif($this->value instanceof \Stringable) {
+			$value = (string) $this->value;
+		} elseif($this->value === null) {
+			$value = '';
+		} else {
+			throw new \Quiote\Exception\QuioteException(sprintf('RoutingValue cannot be converted to string: value of type %s is not scalar or Stringable.', get_debug_type($this->value)));
+		}
 		return $this->valueNeedsEncoding ? rawurlencode($value) : $value;
 	}
 

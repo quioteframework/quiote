@@ -68,11 +68,11 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 	 * when computing the literal value. This way, users can control the trimming
 	 * and the literalization of values.
 	 * AEP-100 has a list of all the conversion rules that apply.
-	 * @return     mixed The element content converted according to the rules
-	 *                   defined in AEP-100.
+	 * @return     null|bool|int|float|string The element content converted according
+	 *                   to the rules defined in AEP-100.
 	 * @since      1.0.0
 	 */
-	public function getLiteralValue(): mixed
+	public function getLiteralValue(): null|bool|int|float|string
 	{
 		$value = $this->getValue();
 		// XML specifies [\x9\xA\xD\x20] as whitespace
@@ -220,11 +220,20 @@ class XmlConfigDomElement extends \DOMElement implements \IteratorAggregate, \St
 			}
 		}
 		
-		$retval = (int)$this->ownerDocument->getXpath()->evaluate(sprintf($query, $name, $singularName, $namespaceUri, $marker), $this);
-		
+		$count = $this->ownerDocument->getXpath()->evaluate(sprintf($query, $name, $singularName, $namespaceUri, $marker), $this);
+
 		$this->removeAttributeNS(XmlConfigParser::NAMESPACE_QUIOTE_ANNOTATIONS_LATEST, 'quiote_annotations_latest:marker');
-		
-		return $retval;
+
+		// A count(...) XPath expression always evaluates to a float; anything
+		// else means the query above is malformed.
+		if(!is_float($count) && !is_int($count) && !is_string($count)) {
+			throw new \Quiote\Exception\ConfigurationException(sprintf(
+				'Expected the "count(...)" XPath expression to evaluate to a number, got %s.',
+				get_debug_type($count)
+			));
+		}
+
+		return (int) $count;
 	}
 	
 	/**

@@ -1,4 +1,5 @@
 <?php
+namespace Quiote\Testing\PHPUnit\Constraint;
 
 use Quiote\Testing\BaseConstraintBecausePhpunitSucksAtBackwardsCompatibility;
 use Quiote\View\View;
@@ -40,12 +41,26 @@ class ConstraintViewHandlesOutputType extends BaseConstraintBecausePhpunitSucksA
 	#[\Override]
     public function matches($other): bool
 	{
+		$other = $this->requireOutputTypeName($other);
 		$executeMethod = 'execute' . $other;
 		if(is_callable([$this->viewInstance, $executeMethod]) || $this->acceptGeneric) {
 			return true;
 		}
 
 		return false;
+	}
+
+	/**
+	 * @param      mixed $other The value passed to matches()/customFailureDescription().
+	 * @throws     \Quiote\Exception\QuioteException if $other is not an output type name string.
+	 */
+	private function requireOutputTypeName($other): string
+	{
+		if (!is_string($other)) {
+			throw new \Quiote\Exception\QuioteException(sprintf('%s expects a string output type name, %s given.', self::class, get_debug_type($other)));
+		}
+
+		return $other;
 	}
 	
 	/**
@@ -72,6 +87,7 @@ class ConstraintViewHandlesOutputType extends BaseConstraintBecausePhpunitSucksA
 	 */
 	protected function customFailureDescription($other, $description, $not)
 	{
+		$other = $this->requireOutputTypeName($other);
 		if($not) {
 			return sprintf(
 				'Failed asserting that %1$s does not handle output type "%2$s".',

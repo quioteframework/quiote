@@ -53,20 +53,32 @@ class NumberValidator extends Validator
 				// locale-less parsing instead of fataling on a null method call.
 				$tm = $this->getContext()->getTranslationManager();
 				if($tm !== null) {
-					if($locale = $this->getParameter('in_locale')) {
-						$locale = $tm->getLocale($locale);
+					$inLocale = $this->getParameter('in_locale');
+					if($inLocale !== null && $inLocale !== '' && $inLocale !== false) {
+						if(!is_string($inLocale)) {
+							throw $this->invalidParameterType('in_locale', 'a string', $inLocale);
+						}
+						$locale = $tm->getLocale($inLocale);
 					} else {
 						$locale = $tm->getCurrentLocale();
 					}
 				}
 			}
-			
+
 			$parsedValue = DecimalFormatter::parse((string) $value, $locale, $hasExtraChars);
+			if($parsedValue !== false && !is_int($parsedValue) && !is_float($parsedValue)) {
+				throw new ValidatorException('DecimalFormatter::parse() returned an unexpected ' . get_debug_type($parsedValue) . ' value.');
+			}
 		} else {
 			$parsedValue = $value;
 		}
-		
-		switch(strtolower((string) $this->getParameter('type'))) {
+
+		$type = $this->getParameter('type', '');
+		if(!is_string($type)) {
+			throw $this->invalidParameterType('type', 'a string', $type);
+		}
+
+		switch(strtolower($type)) {
 			case 'int':
 			case 'integer':
 				if(!is_int($parsedValue) || $hasExtraChars) {
@@ -102,7 +114,12 @@ class NumberValidator extends Validator
 			return false;
 		}
 		
-		switch(strtolower((string) $this->getParameter('cast_to', $this->getParameter('type')))) {
+		$castTo = $this->getParameter('cast_to', $type);
+		if(!is_string($castTo)) {
+			throw $this->invalidParameterType('cast_to', 'a string', $castTo);
+		}
+
+		switch(strtolower($castTo)) {
 			case 'int':
 			case 'integer':
 				$parsedValue = (int) $parsedValue;

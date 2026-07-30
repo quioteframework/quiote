@@ -23,7 +23,7 @@ class LightweightActionInitContextEnhancementsTest extends TestCase
     private function makeResponse(): WebResponse
     {
         return new class extends WebResponse {
-            /** @var array{location: mixed, code: int|string}|null */
+            /** @var array{location: string, code: int|string}|null */
             protected $redirect = null;
             private bool $hasRedirect = false;
             /** @var array<string, array<int, mixed>> */
@@ -31,7 +31,7 @@ class LightweightActionInitContextEnhancementsTest extends TestCase
 
             public function getCookies(): array { return []; }
             public function setRedirect($url, $statusCode = 302): void {
-                $this->redirect = ['location' => $url, 'code' => $statusCode];
+                $this->redirect = ['location' => is_scalar($url) || $url instanceof \Stringable ? (string) $url : '', 'code' => $statusCode];
                 $this->hasRedirect = true;
             }
             public function getRedirect(): ?array { return $this->redirect; }

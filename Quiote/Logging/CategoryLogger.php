@@ -65,7 +65,17 @@ final class CategoryLogger implements LoggerInterface
      */
     public function log($level, string|\Stringable $message, array $context = []): void
     {
-        $lvl = $level instanceof Level ? $level : Level::fromPsr((string) $level);
+        if ($level instanceof Level) {
+            $lvl = $level;
+        } elseif (is_string($level) || $level instanceof \Stringable) {
+            $lvl = Level::fromPsr((string) $level);
+        } else {
+            throw new \Psr\Log\InvalidArgumentException(sprintf(
+                'CategoryLogger::log() expects $level to be a string, Stringable or %s instance, %s given.',
+                Level::class,
+                get_debug_type($level),
+            ));
+        }
 
         // Resolve enabled sinks first; skip all work (event construction,
         // scope merge, interpolation) when nothing will consume the event.

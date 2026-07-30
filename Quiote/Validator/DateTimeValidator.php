@@ -99,7 +99,15 @@ class DateTimeValidator extends Validator
 		if($check === null) {
 			$check = (bool)$checkParam;
 		}
-		$locale = $this->hasParameter('locale') ? $tm->getLocale($this->getParameter('locale')) : $tm->getCurrentLocale();
+		$localeParam = $this->getParameter('locale');
+		if($this->hasParameter('locale')) {
+			if(!is_string($localeParam)) {
+				throw $this->invalidParameterType('locale', 'a string', $localeParam);
+			}
+			$locale = $tm->getLocale($localeParam);
+		} else {
+			$locale = $tm->getCurrentLocale();
+		}
 		if($locale === null) {
 			throw new ConfigurationException('Unable to resolve a current locale for date/time validation; configure a default locale or supply the "locale" parameter.');
 		}
@@ -115,10 +123,19 @@ class DateTimeValidator extends Validator
 			}
 		} else {
 			$param = null;
-			if($argFormat = $this->getParameter('arguments_format')) {
+			$argFormat = $this->getParameter('arguments_format');
+			if($argFormat) {
+				if(!is_string($argFormat)) {
+					throw $this->invalidParameterType('arguments_format', 'a string', $argFormat);
+				}
 				$values = [];
 				foreach($this->getArguments() as $field) {
-					$values[] = $this->getData($field);
+					$fieldValue = $this->getData($field);
+					if(!is_scalar($fieldValue) && $fieldValue !== null) {
+						$this->throwError('format');
+						return false;
+					}
+					$values[] = $fieldValue;
 				}
 				try {
 					$param = vsprintf($argFormat, $values);
@@ -159,17 +176,24 @@ class DateTimeValidator extends Validator
 		}
 
 		$value = $dateTime;
-		if($cast = $this->getParameter('cast_to')) {
+		$cast = $this->getParameter('cast_to');
+		if($cast) {
 			if(is_array($cast)) {
 				$type = $cast['type'] ?? 'format';
+				if(!is_string($type)) {
+					throw $this->invalidParameterType('cast_to.type', 'a string', $type);
+				}
+				$format = $cast['format'] ?? null;
+				if($format !== null && !is_string($format)) {
+					throw $this->invalidParameterType('cast_to.format', 'a string or null', $format);
+				}
 				if($type === 'format') {
-					$pattern = $cast['format'] ?? null;
-					if($pattern === null) {
+					if($format === null) {
 						throw new ConfigurationException('cast_to format requires a "format" value.');
 					}
-					$value = $this->formatPattern($dateTime, $pattern, $locale);
+					$value = $this->formatPattern($dateTime, $format, $locale);
 				} elseif(in_array($type, ['time', 'date', 'datetime'], true)) {
-					$pattern = DateFormatter::resolveFormat($cast['format'] ?? null, $locale, $type);
+					$pattern = DateFormatter::resolveFormat($format, $locale, $type);
 					if($pattern === null) {
 						throw new ConfigurationException('Unable to resolve cast_to pattern for type "' . $type . '".');
 					}
@@ -178,7 +202,10 @@ class DateTimeValidator extends Validator
 					throw new ConfigurationException('Unknown cast_to type "' . $type . '" supplied to DateTimeValidator.');
 				}
 			} else {
-				$cast = strtolower((string)$cast);
+				if(!is_string($cast)) {
+					throw $this->invalidParameterType('cast_to', 'a string or an array', $cast);
+				}
+				$cast = strtolower($cast);
 				switch($cast) {
 					case 'unix':
 						$value = $subjectTs;
@@ -201,6 +228,9 @@ class DateTimeValidator extends Validator
 			$exportParam = $this->getParameter('export');
 			if(is_array($exportParam)) {
 				foreach($exportParam as $fieldKey => $target) {
+					if(!is_string($target)) {
+						throw $this->invalidParameterType('export', 'a map of field names to argument name strings', $target);
+					}
 					$component = $this->resolveExportComponent($dateTime, $fieldKey, $timezoneId);
 					$this->export($component, $target);
 				}
@@ -231,7 +261,7 @@ class DateTimeValidator extends Validator
 			if($rawValue === null || $rawValue === '') {
 				continue;
 			}
-			if(is_array($rawValue) || is_object($rawValue)) {
+			if(!is_scalar($rawValue)) {
 				continue;
 			}
 			$mapping = $this->normalizeFieldKey($rawKey);
@@ -352,13 +382,27 @@ class DateTimeValidator extends Validator
 			if(!is_array($item)) {
 				$item = [is_int($key) ? 'format' : $key => $item];
 			}
-			$type = $item['type'] ?? 'format';
-			$pattern = null;
-			$itemLocale = empty($item['locale']) ? $defaultLocale : $tm->getLocale($item['locale']);
 			try {
+				$type = $item['type'] ?? 'format';
+				if(!is_string($type)) {
+					throw new ConfigurationException('Date format entry "type" must be a string, ' . get_debug_type($type) . ' given.');
+				}
+				$itemFormat = $item['format'] ?? null;
+				if($itemFormat !== null && !is_string($itemFormat)) {
+					throw new ConfigurationException('Date format entry "format" must be a string, ' . get_debug_type($itemFormat) . ' given.');
+				}
+				$localeRaw = $item['locale'] ?? null;
+				if(empty($localeRaw)) {
+					$itemLocale = $defaultLocale;
+				} else {
+					if(!is_string($localeRaw)) {
+						throw new ConfigurationException('Date format entry "locale" must be a string, ' . get_debug_type($localeRaw) . ' given.');
+					}
+					$itemLocale = $tm->getLocale($localeRaw);
+				}
 				switch($type) {
 					case 'format':
-						$pattern = (string)($item['format'] ?? '');
+						$pattern = $itemFormat ?? '';
 						if($pattern === '') {
 							throw new ConfigurationException('Date format entry requires a "format" value.');
 						}
@@ -367,17 +411,24 @@ class DateTimeValidator extends Validator
 					case 'time':
 					case 'date':
 					case 'datetime':
-						$pattern = DateFormatter::resolveFormat($item['format'] ?? null, $itemLocale, $type);
+						$pattern = DateFormatter::resolveFormat($itemFormat, $itemLocale, $type);
 						if($pattern === null) {
 							throw new ConfigurationException('Unable to resolve ' . $type . ' format for locale ' . $itemLocale->getIdentifier());
 						}
 						$dt = $this->parsePatternValue($value, $pattern, $itemLocale, $timezoneId);
 						break;
 					case 'translation_domain':
-						if(empty($item['translation_domain'])) {
+						$translationDomain = $item['translation_domain'] ?? null;
+						if(empty($translationDomain)) {
 							throw new ConfigurationException('translation_domain format requires a translation_domain value.');
 						}
-						$pattern = $tm->_($item['format'], $item['translation_domain'], $itemLocale);
+						if(!is_string($translationDomain)) {
+							throw new ConfigurationException('Date format entry "translation_domain" must be a string, ' . get_debug_type($translationDomain) . ' given.');
+						}
+						if($itemFormat === null) {
+							throw new ConfigurationException('translation_domain format requires a "format" value.');
+						}
+						$pattern = $tm->_($itemFormat, $translationDomain, $itemLocale);
 						$dt = $this->parsePatternValue($value, $pattern, $itemLocale, $timezoneId);
 						break;
 					case 'unix':
@@ -432,16 +483,31 @@ class DateTimeValidator extends Validator
 		}
 
 		if(is_array($definition)) {
-			if(empty($definition['field'])) {
+			$field = $definition['field'] ?? null;
+			if(empty($field)) {
 				throw new ConfigurationException('Boundary definition for ' . $parameterName . ' requires a "field" entry.');
+			}
+			if(!is_string($field)) {
+				throw $this->invalidParameterType($parameterName . '.field', 'a string', $field);
 			}
 			$request = $this->validationParameters;
 			if(!$request instanceof WebRequest) {
-				throw new ConfigurationException('Boundary definition for ' . $parameterName . ' requires an active request to read field "' . $definition['field'] . '" from.');
+				throw new ConfigurationException('Boundary definition for ' . $parameterName . ' requires an active request to read field "' . $field . '" from.');
 			}
-			$value = $request->getParameter($definition['field']);
+			$value = $request->getParameter($field);
 			$format = $definition['format'] ?? null;
-			$localeOverride = empty($definition['locale']) ? $locale : $tm->getLocale($definition['locale']);
+			if($format !== null && !is_string($format)) {
+				throw $this->invalidParameterType($parameterName . '.format', 'a string or null', $format);
+			}
+			$localeName = $definition['locale'] ?? null;
+			if(empty($localeName)) {
+				$localeOverride = $locale;
+			} else {
+				if(!is_string($localeName)) {
+					throw $this->invalidParameterType($parameterName . '.locale', 'a string', $localeName);
+				}
+				$localeOverride = $tm->getLocale($localeName);
+			}
 			return $this->coerceBoundaryValue($value, $localeOverride, $timezoneId, $format);
 		}
 
@@ -459,20 +525,24 @@ class DateTimeValidator extends Validator
 		if(is_array($value)) {
 			throw new ValidatorException('Boundary values must not be arrays.');
 		}
+		if(!is_scalar($value)) {
+			throw new ValidatorException('Boundary values must be scalar, ' . get_debug_type($value) . ' given.');
+		}
+		$stringValue = (string) $value;
 		if($format !== null) {
-			$dt = $this->parsePatternValue((string)$value, $format, $locale, $timezoneId);
+			$dt = $this->parsePatternValue($stringValue, $format, $locale, $timezoneId);
 			if($dt === null) {
-				throw new ValidatorException('Unable to parse boundary value "' . $value . '" using format "' . $format . '".');
+				throw new ValidatorException('Unable to parse boundary value "' . $stringValue . '" using format "' . $format . '".');
 			}
 			return $dt;
 		}
-		if($this->isWholeNumber((string)$value)) {
-			return (new DateTimeImmutable('@' . $value))->setTimezone(new DateTimeZone($timezoneId));
+		if($this->isWholeNumber($stringValue)) {
+			return (new DateTimeImmutable('@' . $stringValue))->setTimezone(new DateTimeZone($timezoneId));
 		}
 		try {
-			return new DateTimeImmutable((string)$value, new DateTimeZone($timezoneId));
+			return new DateTimeImmutable($stringValue, new DateTimeZone($timezoneId));
 		} catch(Throwable $e) {
-			throw new ValidatorException('Unable to parse boundary value "' . $value . '".', 0, $e);
+			throw new ValidatorException('Unable to parse boundary value "' . $stringValue . '".', 0, $e);
 		}
 	}
 

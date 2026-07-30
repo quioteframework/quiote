@@ -2,6 +2,7 @@
 namespace Quiote\Routing;
 
 use Quiote\Context;
+use Quiote\Exception\ConfigurationException;
 use Quiote\Response\WebResponse;
 use Quiote\Util\Toolkit;
 
@@ -56,28 +57,42 @@ class HttpRedirectRoutingCallback extends RoutingCallback
 		if($this->hasParameter('route')) {
 			// generate a route
 			$route = $this->getParameter('route');
-			
-			$arguments = (array)$this->getParameter('arguments');
-			// expand ${foo} in arguments using incoming parameters, this enables basic rewriting of arguments
-			array_walk_recursive($arguments, function(&$argument) use($parameters): void { $argument = Toolkit::expandVariables($argument, $parameters); });
-			
-			$options = $this->getParameter('options', []);
-			// prepare options; make sure URLs are absolute and separator is "&" by default
-			if(is_array($options)) {
-				// it's an array of options, not a gen options preset name; set our defaults
-				if(!isset($options['separator'])) {
-					$options['separator'] = '&';
-				}
-				if(!isset($options['relative'])) {
-					$options['relative'] = false;
-				}
+			if($route !== null && !is_string($route)) {
+				throw new ConfigurationException('HttpRedirectRoutingCallback parameter "route" must be a string.');
 			}
-			
+
+			$rawArguments = $this->getParameter('arguments');
+			if($rawArguments !== null && !is_array($rawArguments)) {
+				throw new ConfigurationException('HttpRedirectRoutingCallback parameter "arguments" must be an array.');
+			}
+			/** @var array<string, mixed> $arguments */
+			$arguments = (array)$rawArguments;
+			// expand ${foo} in arguments using incoming parameters, this enables basic rewriting of arguments
+			array_walk_recursive($arguments, function(&$argument) use($parameters): void { $argument = Toolkit::expandVariables(is_scalar($argument) ? (string)$argument : null, $parameters); });
+
+			$options = $this->getParameter('options', []);
+			if(!is_array($options)) {
+				throw new ConfigurationException('HttpRedirectRoutingCallback parameter "options" must be an array.');
+			}
+			/** @var array<string, mixed> $options */
+			// prepare options; make sure URLs are absolute and separator is "&" by default
+			// it's an array of options, not a gen options preset name; set our defaults
+			if(!isset($options['separator'])) {
+				$options['separator'] = '&';
+			}
+			if(!isset($options['relative'])) {
+				$options['relative'] = false;
+			}
+
 			$url = $routing->gen($route, $arguments, $options);
 		} elseif($this->hasParameter('url')) {
+			$urlTemplate = $this->getParameter('url');
+			if(!is_string($urlTemplate)) {
+				throw new ConfigurationException('HttpRedirectRoutingCallback parameter "url" must be a string.');
+			}
 			// just a plain URL to redirect to, but we still expand arguments
 			$url = Toolkit::expandVariables(
-				$this->getParameter('url'),
+				$urlTemplate,
 				array_map(
 					function($value) {
 						if(is_scalar($value)) {
@@ -92,27 +107,78 @@ class HttpRedirectRoutingCallback extends RoutingCallback
 				)
 			);
 		} else {
-			$parts = [];
-			foreach(['scheme', 'host', 'port', 'user', 'pass', 'path', 'query', 'fragment'] as $part) {
-				if(($value = $this->getParameter($part)) !== null) {
-					$parts[$part] = $value;
-				}
-			}
-			
-			if($parts) {
-				$base = $this->getContext()->getRequest()->getUrl();
-				$baseParts = parse_url($base);
-				$url = Toolkit::buildUrl(array_merge($baseParts !== false ? $baseParts : [], $parts));
-			} else {
+			$scheme = $this->stringPartParameter('scheme');
+			$host = $this->stringPartParameter('host');
+			$port = $this->portPartParameter();
+			$user = $this->stringPartParameter('user');
+			$pass = $this->stringPartParameter('pass');
+			$path = $this->stringPartParameter('path');
+			$query = $this->stringPartParameter('query');
+			$fragment = $this->stringPartParameter('fragment');
+
+			if($scheme === null && $host === null && $port === null && $user === null && $pass === null && $path === null && $query === null && $fragment === null) {
 				// improper configuration for whatever reason; bail out
 				return false;
 			}
+
+			$base = $this->getContext()->getRequest()->getUrl();
+			$baseParts = parse_url($base);
+			$parts = $baseParts !== false ? $baseParts : [];
+			if($scheme !== null) { $parts['scheme'] = $scheme; }
+			if($host !== null) { $parts['host'] = $host; }
+			if($port !== null) { $parts['port'] = $port; }
+			if($user !== null) { $parts['user'] = $user; }
+			if($pass !== null) { $parts['pass'] = $pass; }
+			if($path !== null) { $parts['path'] = $path; }
+			if($query !== null) { $parts['query'] = $query; }
+			if($fragment !== null) { $parts['fragment'] = $fragment; }
+			$url = Toolkit::buildUrl($parts);
 		}
 		
 		// create response and set redirect
 		$response = $this->getContext()->createInstanceFor('response');
-		$response->setRedirect($url, $this->getParameter('code', 302));
+		$code = $this->getParameter('code', 302);
+		if(!is_int($code) && !is_string($code)) {
+			throw new ConfigurationException('HttpRedirectRoutingCallback parameter "code" must be an int or string.');
+		}
+		$response->setRedirect($url, $code);
 		return $response;
+	}
+
+	/**
+	 * Reads a URL-part configuration parameter, requiring it to be a string
+	 * when present.
+	 * @throws     ConfigurationException If the parameter is set but not a string.
+	 * @since      1.0.0
+	 */
+	private function stringPartParameter(string $name): ?string
+	{
+		$value = $this->getParameter($name);
+		if($value === null) {
+			return null;
+		}
+		if(!is_string($value)) {
+			throw new ConfigurationException(sprintf('HttpRedirectRoutingCallback parameter "%s" must be a string.', $name));
+		}
+		return $value;
+	}
+
+	/**
+	 * Reads the "port" configuration parameter, requiring it to be an int or
+	 * string when present.
+	 * @throws     ConfigurationException If the parameter is set but not an int or string.
+	 * @since      1.0.0
+	 */
+	private function portPartParameter(): int|string|null
+	{
+		$value = $this->getParameter('port');
+		if($value === null) {
+			return null;
+		}
+		if(!is_int($value) && !is_string($value)) {
+			throw new ConfigurationException('HttpRedirectRoutingCallback parameter "port" must be an int or string.');
+		}
+		return $value;
 	}
 }
 

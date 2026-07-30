@@ -134,7 +134,7 @@ class OtelCollectorE2ETest extends TestCase
      * request — sidesteps ambiguity with the docker-compose healthcheck's own
      * periodic `GET /` hits (which would otherwise share a span name with a
      * real test request to `/`).
-     * @return array{status:int, body:string, spans:list<array>, metricNames:list<string>}
+     * @return array{status:int, body:string, spans:list<array<string, mixed>>, metricNames:list<string>}
      */
     private function requestAndCollectNewTelemetry(string $path, int $waitSeconds = 15): array
     {
@@ -168,22 +168,11 @@ class OtelCollectorE2ETest extends TestCase
             if (!is_array($decoded)) {
                 continue;
             }
-            foreach ($decoded['resourceSpans'] ?? [] as $rs) {
-                $resourceAttrs = $this->flattenAttributes($rs['resource']['attributes'] ?? []);
-                foreach ($rs['scopeSpans'] ?? [] as $ss) {
-                    foreach ($ss['spans'] ?? [] as $span) {
-                        $span['_resource'] = $resourceAttrs;
-                        $span['_attrs'] = $this->flattenAttributes($span['attributes'] ?? []);
-                        $spans[] = $span;
-                    }
-                }
+            foreach ($this->extractSpans($decoded) as $span) {
+                $spans[] = $span;
             }
-            foreach ($decoded['resourceMetrics'] ?? [] as $rm) {
-                foreach ($rm['scopeMetrics'] ?? [] as $sm) {
-                    foreach ($sm['metrics'] ?? [] as $metric) {
-                        $metricNames[] = $metric['name'];
-                    }
-                }
+            foreach ($this->extractMetricNames($decoded) as $metricName) {
+                $metricNames[] = $metricName;
             }
         }
 
@@ -191,21 +180,150 @@ class OtelCollectorE2ETest extends TestCase
     }
 
     /**
-     * @param array<int,array{key:string,value:array<string,mixed>}> $attrs
-     * @return array<string, mixed>
+     * Validates and flattens one decoded OTLP export line's resourceSpans
+     * into the span shape the tests assert against, tagging each span with
+     * its resource attributes (`_resource`) and its own flattened
+     * attributes (`_attrs`).
+     * @param array<int|string, mixed> $decoded
+     * @return list<array<string, mixed>>
      */
-    private function flattenAttributes(array $attrs): array
+    private function extractSpans(array $decoded): array
+    {
+        $spans = [];
+        foreach ($this->asList($decoded['resourceSpans'] ?? [], 'resourceSpans') as $rs) {
+            $rs = $this->asMap($rs, 'resourceSpans[]');
+            $resource = $this->asMap($rs['resource'] ?? [], 'resourceSpans[].resource');
+            $resourceAttrs = $this->flattenAttributes($resource['attributes'] ?? []);
+            foreach ($this->asList($rs['scopeSpans'] ?? [], 'scopeSpans') as $ss) {
+                $ss = $this->asMap($ss, 'scopeSpans[]');
+                foreach ($this->asList($ss['spans'] ?? [], 'spans') as $span) {
+                    $span = $this->asMap($span, 'spans[]');
+                    $span['_resource'] = $resourceAttrs;
+                    $span['_attrs'] = $this->flattenAttributes($span['attributes'] ?? []);
+                    $spans[] = $span;
+                }
+            }
+        }
+        return $spans;
+    }
+
+    /**
+     * @param array<int|string, mixed> $decoded
+     * @return list<string>
+     */
+    private function extractMetricNames(array $decoded): array
+    {
+        $metricNames = [];
+        foreach ($this->asList($decoded['resourceMetrics'] ?? [], 'resourceMetrics') as $rm) {
+            $rm = $this->asMap($rm, 'resourceMetrics[]');
+            foreach ($this->asList($rm['scopeMetrics'] ?? [], 'scopeMetrics') as $sm) {
+                $sm = $this->asMap($sm, 'scopeMetrics[]');
+                foreach ($this->asList($sm['metrics'] ?? [], 'metrics') as $metric) {
+                    $metric = $this->asMap($metric, 'metrics[]');
+                    $name = $metric['name'] ?? null;
+                    if (!is_string($name)) {
+                        self::fail('expected an OTLP metric name to be a string, got: ' . var_export($name, true));
+                    }
+                    $metricNames[] = $name;
+                }
+            }
+        }
+        return $metricNames;
+    }
+
+    /** @return list<mixed> */
+    private function asList(mixed $value, string $context): array
+    {
+        if (!is_array($value)) {
+            self::fail("expected \"$context\" to be a JSON array, got: " . var_export($value, true));
+        }
+        return array_values($value);
+    }
+
+    /** @return array<string, mixed> */
+    private function asMap(mixed $value, string $context): array
+    {
+        if (!is_array($value)) {
+            self::fail("expected \"$context\" to be a JSON object, got: " . var_export($value, true));
+        }
+        $map = [];
+        foreach ($value as $key => $item) {
+            if (!is_string($key)) {
+                self::fail("expected \"$context\" to be a JSON object with string keys, got a numeric key");
+            }
+            $map[$key] = $item;
+        }
+        return $map;
+    }
+
+    /** @return array<string, mixed> */
+    private function flattenAttributes(mixed $attrs): array
     {
         $out = [];
-        foreach ($attrs as $attr) {
-            $value = $attr['value'];
-            $out[$attr['key']] = $value['stringValue']
+        foreach ($this->asList($attrs, 'attributes') as $attr) {
+            $attr = $this->asMap($attr, 'attributes[]');
+            $key = $attr['key'] ?? null;
+            if (!is_string($key)) {
+                self::fail('expected an OTLP attribute key to be a string, got: ' . var_export($key, true));
+            }
+            $value = $this->asMap($attr['value'] ?? [], 'attributes[].value');
+            $out[$key] = $value['stringValue']
                 ?? $value['boolValue']
                 ?? $value['intValue']
                 ?? $value['doubleValue']
                 ?? null;
         }
         return $out;
+    }
+
+    /**
+     * @param array<string, mixed> $span
+     */
+    private function attributeString(array $span, string $bucket, string $key): string
+    {
+        $bucketValue = $this->asMap($span[$bucket] ?? [], "span.$bucket");
+        $value = $bucketValue[$key] ?? null;
+        if (!is_string($value)) {
+            self::fail("expected span.$bucket.$key to be a string, got: " . var_export($value, true));
+        }
+        return $value;
+    }
+
+    /**
+     * @param array<string, mixed> $span
+     */
+    private function spanStatusCode(array $span): ?int
+    {
+        $status = $span['status'] ?? null;
+        if ($status === null) {
+            return null;
+        }
+        $status = $this->asMap($status, 'span.status');
+        $code = $status['code'] ?? null;
+        if ($code === null) {
+            return null;
+        }
+        if (!is_int($code)) {
+            self::fail('expected span.status.code to be an int, got: ' . var_export($code, true));
+        }
+        return $code;
+    }
+
+    /**
+     * @param array<string, mixed> $span
+     */
+    private function spanStatusMessage(array $span): string
+    {
+        $status = $span['status'] ?? null;
+        if ($status === null) {
+            return '';
+        }
+        $status = $this->asMap($status, 'span.status');
+        $message = $status['message'] ?? '';
+        if (!is_string($message)) {
+            self::fail('expected span.status.message to be a string, got: ' . var_export($message, true));
+        }
+        return $message;
     }
 
     /**
@@ -241,9 +359,9 @@ class OtelCollectorE2ETest extends TestCase
         $this->assertNotNull($view, 'view span missing');
 
         // Real resource detection ran for real -- not a hardcoded fixture.
-        $this->assertSame('quiote-e2e-frankenphp', $root['_resource']['service.name']);
-        $this->assertSame('opentelemetry', $root['_resource']['telemetry.sdk.name']);
-        $this->assertSame('php', $root['_resource']['telemetry.sdk.language']);
+        $this->assertSame('quiote-e2e-frankenphp', $this->attributeString($root, '_resource', 'service.name'));
+        $this->assertSame('opentelemetry', $this->attributeString($root, '_resource', 'telemetry.sdk.name'));
+        $this->assertSame('php', $this->attributeString($root, '_resource', 'telemetry.sdk.language'));
 
         $traceId = $root['traceId'];
         $this->assertSame($traceId, $match['traceId']);
@@ -263,8 +381,8 @@ class OtelCollectorE2ETest extends TestCase
 
         $root = $this->findSpanByName($result['spans'], 'GET /about');
         $this->assertNotNull($root, 'RoutingMiddleware must rename the root span to "GET {route}" once a route matches');
-        $this->assertSame('/about', $root['_attrs']['http.route']);
-        $this->assertSame('about', $root['_attrs']['route_name']);
+        $this->assertSame('/about', $this->attributeString($root, '_attrs', 'http.route'));
+        $this->assertSame('about', $this->attributeString($root, '_attrs', 'route_name'));
     }
 
     public function testBoomRequestRecordsErrorStatusOnTheRootSpanUnderRealWorkerMode(): void
@@ -287,9 +405,9 @@ class OtelCollectorE2ETest extends TestCase
         $this->assertNotNull($action);
 
         // OTLP JSON status code 2 == STATUS_CODE_ERROR.
-        $this->assertSame(2, $root['status']['code'] ?? null, 'root span must carry Error status, not Unset');
-        $this->assertStringContainsString('Boom!', $root['status']['message'] ?? '');
-        $this->assertSame(2, $action['status']['code'] ?? null, 'action span must also carry Error status');
+        $this->assertSame(2, $this->spanStatusCode($root), 'root span must carry Error status, not Unset');
+        $this->assertStringContainsString('Boom!', $this->spanStatusMessage($root));
+        $this->assertSame(2, $this->spanStatusCode($action), 'action span must also carry Error status');
     }
 
     public function testFourOhFourIsNotTreatedAsASpanError(): void
@@ -299,7 +417,7 @@ class OtelCollectorE2ETest extends TestCase
 
         $root = $this->findSpanByName($result['spans'], 'GET /this-route-does-not-exist');
         $this->assertNotNull($root);
-        $this->assertNotSame(2, $root['status']['code'] ?? null, 'a 404 is an expected outcome, not a span-level error');
+        $this->assertNotSame(2, $this->spanStatusCode($root), 'a 404 is an expected outcome, not a span-level error');
     }
 
     public function testMetricsAreExportedAlongsideTraces(): void

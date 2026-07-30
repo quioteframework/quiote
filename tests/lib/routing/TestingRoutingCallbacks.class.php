@@ -47,7 +47,9 @@ class TestGenWithUnescapedParamRoutingCallback extends RoutingCallback
     public function onGenerate(array $defaultParameters, array &$userParameters, array &$userOptions)
     {
         $userParameters['callback_param'] = 'added/by/callback';
-        $userOptions['quiote.routing.unescape'][] = 'callback_param';
+        $unescape = is_array($userOptions['quiote.routing.unescape'] ?? null) ? $userOptions['quiote.routing.unescape'] : [];
+        $unescape[] = 'callback_param';
+        $userOptions['quiote.routing.unescape'] = $unescape;
         return true;
     }
 }
@@ -108,7 +110,7 @@ class TestGenSetPrefixAndPostfixIntoRouteRoutingCallback extends RoutingCallback
     #[\Override]
     public function onGenerate(array $defaultParameters, array &$userParameters, array &$userOptions)
     {
-        if (isset($userParameters['number'])) {
+        if (isset($userParameters['number']) && (is_string($userParameters['number']) || is_int($userParameters['number']) || is_float($userParameters['number']))) {
             $userParameters['number'] = 'prefix/' . $userParameters['number'] . '/postfix';
         }
         return true;

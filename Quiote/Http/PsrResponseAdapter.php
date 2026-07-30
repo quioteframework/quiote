@@ -37,6 +37,19 @@ class PsrResponseAdapter implements ResponseInterface
     public function withoutHeader($name): static { $this->legacy->removeHttpHeader($name); return $this; }
 
     // Body
-    public function getBody(): StreamInterface { if(!$this->body) { $this->body = SimpleStream::fromString((string)$this->legacy->getContent()); } return $this->body; }
+    public function getBody(): StreamInterface
+    {
+        if (!$this->body) {
+            $content = $this->legacy->getContent();
+            $this->body = match (true) {
+                is_resource($content) => new SimpleStream($content),
+                $content === null => SimpleStream::fromString(''),
+                is_string($content) => SimpleStream::fromString($content),
+                is_scalar($content) => SimpleStream::fromString((string) $content),
+                default => throw new \RuntimeException(sprintf('Cannot convert WebResponse content of type "%s" into a PSR-7 stream body.', get_debug_type($content))),
+            };
+        }
+        return $this->body;
+    }
     public function withBody(StreamInterface $body): static { $this->body = $body; return $this; }
 }

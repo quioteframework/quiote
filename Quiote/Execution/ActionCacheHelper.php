@@ -75,20 +75,52 @@ final class ActionCacheHelper
             // object into ActionExecutionContext, which requires a real Action.
             throw new \RuntimeException('ActionCacheHelper::buildContextFromPayload() requires a non-null action instance for a cache hit');
         }
-        $state->viewModule = $payload['view_module'] ?? $state->viewModule;
-        $state->viewName = $payload['view_name'] ?? $state->viewName;
+        $viewModule = $payload['view_module'] ?? $state->viewModule;
+        if ($viewModule !== null && !is_string($viewModule)) {
+            throw new \UnexpectedValueException(sprintf('Cached "view_module" must be a string or null, %s given.', get_debug_type($viewModule)));
+        }
+        $state->viewModule = $viewModule;
+
+        $viewName = $payload['view_name'] ?? $state->viewName;
+        if ($viewName !== null && !is_string($viewName)) {
+            throw new \UnexpectedValueException(sprintf('Cached "view_name" must be a string or null, %s given.', get_debug_type($viewName)));
+        }
+        $state->viewName = $viewName;
+
         $state->cacheHit = true;
         if(isset($payload['state']) && is_array($payload['state'])) {
             if(isset($payload['state']['validationDecision'])) {
+                $validationErrors = $payload['state']['validationErrors'] ?? [];
+                if (!is_array($validationErrors)) {
+                    throw new \UnexpectedValueException(sprintf('Cached "validationErrors" must be an array, %s given.', get_debug_type($validationErrors)));
+                }
                 $state->validationDecision = match($payload['state']['validationDecision']) {
                     'passed' => ValidationDecision::passed(),
-                    'failed' => ValidationDecision::failed($payload['state']['validationErrors'] ?? []),
+                    'failed' => ValidationDecision::failed($validationErrors),
                     default => ValidationDecision::pending(),
                 };
             }
-            $state->securityDecision = $payload['state']['securityDecision'] ?? $state->securityDecision;
+            $securityDecision = $payload['state']['securityDecision'] ?? $state->securityDecision;
+            if ($securityDecision !== null && !$securityDecision instanceof SecurityDecision) {
+                throw new \UnexpectedValueException(sprintf('Cached "securityDecision" must be a SecurityDecision or null, %s given.', get_debug_type($securityDecision)));
+            }
+            $state->securityDecision = $securityDecision;
         }
         $content = $contentOverride ?? ($payload['response_content'] ?? '');
+        if (!is_string($content)) {
+            throw new \UnexpectedValueException(sprintf('Cached "response_content" must be a string, %s given.', get_debug_type($content)));
+        }
+        $rawActionAttributes = $payload['action_attributes'] ?? [];
+        if (!is_array($rawActionAttributes)) {
+            throw new \UnexpectedValueException(sprintf('Cached "action_attributes" must be an array, %s given.', get_debug_type($rawActionAttributes)));
+        }
+        $actionAttributes = [];
+        foreach ($rawActionAttributes as $attributeKey => $attributeValue) {
+            if (!is_string($attributeKey)) {
+                throw new \UnexpectedValueException(sprintf('Cached "action_attributes" keys must be strings, %s given.', get_debug_type($attributeKey)));
+            }
+            $actionAttributes[$attributeKey] = $attributeValue;
+        }
         return new ActionExecutionContext(
             $actionInstance,
             null, // view instance is not reconstructed on cache replay
@@ -96,10 +128,10 @@ final class ActionCacheHelper
             $desc->action,
             $desc->outputType,
             $request,
-            (string)$content,
+            $content,
             $state->viewModule,
             $state->viewName,
-            $payload['action_attributes'] ?? []
+            $actionAttributes
         );
     }
 }

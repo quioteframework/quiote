@@ -8,6 +8,7 @@ use Quiote\Action\Action;
 use Quiote\Request\WebRequest;
 use Quiote\Routing\Attribute\Route;
 use Quiote\Validator\Compiler\Runtime\ValidatorBuilder;
+use Quiote\Validator\IValidatorContainer;
 
 /**
  * Regression fixture for ActionToolScanner's fluent-ValidatorBuilder schema
@@ -37,8 +38,13 @@ class FluentValidatorAction extends Action
             throw new \RuntimeException('FluentValidatorAction requires an initialized Action context.');
         }
 
+        $validationManager = $initContext->getValidationManager();
+        if (!$validationManager instanceof IValidatorContainer) {
+            throw new \RuntimeException('FluentValidatorAction requires an IValidatorContainer validation manager.');
+        }
+
         $v = ValidatorBuilder::on(
-            $initContext->getValidationManager(),
+            $validationManager,
             $context,
         );
         $v->string('title', required: true)

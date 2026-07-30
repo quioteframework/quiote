@@ -65,6 +65,7 @@ class RoutingTest extends TestCase
             'user_show' => ['pattern' => '/user/{id}', 'defaults' => ['module' => 'User', 'action' => 'Show', 'id' => 42]]
         ]);
         $m = $routing->match('/user/42');
+        $this->assertIsScalar($m['id']);
         $this->assertSame('42', (string)$m['id']);
         $this->assertSame('User', $m['module']);
         // When explicit value matches default ensure still present

@@ -31,6 +31,51 @@ class RbacAndTestSuitesFormatDriverTest extends PhpUnitTestCase
 		parent::tearDown();
 	}
 
+	/**
+	 * RbacDefinitionConfigHandler::executeArray() declares a precise array
+	 * shape for $config, but FormatDriverRegistry::load() only knows how to
+	 * promise array<string, mixed> since it is shared across every config
+	 * type. Narrow the registry's generic result back into the shape the
+	 * handler expects.
+	 * @param array<string, mixed> $config
+	 * @return array<string, array{parent: ?string, permissions: array<int, mixed>}>
+	 */
+	private function shapeRbacConfig(array $config): array
+	{
+		$shaped = [];
+
+		foreach ($config as $name => $role) {
+			self::assertIsArray($role);
+			self::assertArrayHasKey('parent', $role);
+			$parent = $role['parent'];
+			self::assertTrue($parent === null || is_string($parent));
+			self::assertArrayHasKey('permissions', $role);
+			self::assertIsArray($role['permissions']);
+			$shaped[$name] = [
+				'parent' => $parent,
+				'permissions' => array_values($role['permissions']),
+			];
+		}
+
+		return $shaped;
+	}
+
+	/**
+	 * @param array<string, mixed> $config
+	 * @return array<string, array<string, mixed>>
+	 */
+	private function shapeTestSuitesConfig(array $config): array
+	{
+		$shaped = [];
+
+		foreach ($config as $name => $suite) {
+			self::assertIsArray($suite);
+			$shaped[$name] = $suite;
+		}
+
+		return $shaped;
+	}
+
 	public function testRbacPhpArrayFileCompilesAndEvaluatesToTheSameShapeAsXml(): void
 	{
 		file_put_contents($this->dir . '/rbac.php', <<<'PHP'
@@ -45,10 +90,11 @@ PHP);
 		$handler->initialize(null, []);
 		$registry = FormatDriverRegistry::forHandler($handler);
 
-		$config = $registry->load($this->dir . '/rbac.php', 'test');
+		$config = $this->shapeRbacConfig($registry->load($this->dir . '/rbac.php', 'test'));
 		$code = $handler->executeArray($config, $this->dir . '/rbac.php');
 
 		$evaluated = eval(substr($code, strlen('<?php')));
+		self::assertIsArray($evaluated);
 		$this->assertSame($config, $evaluated);
 		$this->assertSame('guest', $evaluated['member']['parent']);
 	}
@@ -66,7 +112,7 @@ PHP);
 		$handler->initialize(null, []);
 		$registry = FormatDriverRegistry::forHandler($handler);
 
-		$config = $registry->load($this->dir . '/testsuites.php', 'test');
+		$config = $this->shapeTestSuitesConfig($registry->load($this->dir . '/testsuites.php', 'test'));
 		$code = $handler->executeArray($config, $this->dir . '/testsuites.php');
 
 		$this->assertStringContainsString("'unit'", $code);

@@ -8,6 +8,7 @@ use Nyholm\Psr7\ServerRequest;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use OpenTelemetry\SDK\Trace\SpanDataInterface;
 use Quiote\Config\Config;
 use Quiote\Execution\ExecutionState;
 use Quiote\Middleware\TelemetryMiddleware;
@@ -78,7 +79,7 @@ class TelemetryMiddlewareTest extends TestCase
      * site in this file only reaches for it after enable(), so a missing
      * exporter indicates a broken test fixture rather than a case callers
      * should silently tolerate.
-     * @return array<int, mixed>
+     * @return list<SpanDataInterface>
      */
     private function exportedSpans(): array
     {
@@ -86,7 +87,12 @@ class TelemetryMiddlewareTest extends TestCase
         if ($exporter === null) {
             throw new \RuntimeException('Expected an in-memory span exporter to be configured.');
         }
-        return $exporter->getSpans();
+        $spans = [];
+        foreach ($exporter->getSpans() as $span) {
+            self::assertInstanceOf(SpanDataInterface::class, $span);
+            $spans[] = $span;
+        }
+        return $spans;
     }
 
     /** @return list<string> */
@@ -199,7 +205,9 @@ class TelemetryMiddlewareTest extends TestCase
         // handler (not a PSR-7 request attribute, which downstream mutations
         // to a cloned request would never propagate back up).
         $handler = $this->terminal(new Psr7Response(200), function (ServerRequestInterface $req): void {
-            $req->getAttribute(ExecutionState::class)->cacheHit = true;
+            $execState = $req->getAttribute(ExecutionState::class);
+            self::assertInstanceOf(ExecutionState::class, $execState);
+            $execState->cacheHit = true;
         });
 
         $mw->process(new ServerRequest('GET', '/x'), $handler);
@@ -341,6 +349,46 @@ class TelemetryMiddlewareTest extends TestCase
 
         $attrs = iterator_to_array($this->exportedSpans()[0]->getAttributes());
         $this->assertTrue($attrs['quiote.cache.hit']);
+    }
+
+    public function testNonExecutionStateAttributeIsReplacedWithFreshState(): void
+    {
+        $this->enable();
+        $mw = new TelemetryMiddleware();
+        $request = (new ServerRequest('GET', '/x'))->withAttribute(ExecutionState::class, 'not-an-execution-state');
+
+        $handler = $this->terminal(new Psr7Response(200), function (ServerRequestInterface $req): void {
+            \PHPUnit\Framework\Assert::assertInstanceOf(ExecutionState::class, $req->getAttribute(ExecutionState::class));
+        });
+
+        $mw->process($request, $handler);
+
+        $attrs = iterator_to_array($this->exportedSpans()[0]->getAttributes());
+        $this->assertFalse($attrs['quiote.cache.hit'], 'a garbage attribute must be discarded, not fed through as-is');
+    }
+
+    public function testMalformedRequestTimeFloatFallsBackToMicrotimeInsteadOfCasting(): void
+    {
+        $this->enable();
+        $original = $_SERVER['REQUEST_TIME_FLOAT'] ?? null;
+        $_SERVER['REQUEST_TIME_FLOAT'] = 'not-a-timestamp';
+        try {
+            $mw = new TelemetryMiddleware();
+
+            $mw->process(new ServerRequest('GET', '/x'), $this->terminal(new Psr7Response(200)));
+
+            $attrs = iterator_to_array($this->exportedSpans()[0]->getAttributes());
+            $this->assertArrayHasKey('quiote.duration_ms', $attrs);
+            // (float) 'not-a-timestamp' casts to 0.0, which would make duration_ms
+            // spuriously equal roughly the current unix timestamp in milliseconds.
+            $this->assertLessThan(1000, $attrs['quiote.duration_ms'], 'a non-numeric REQUEST_TIME_FLOAT must not be blindly cast to float');
+        } finally {
+            if ($original === null) {
+                unset($_SERVER['REQUEST_TIME_FLOAT']);
+            } else {
+                $_SERVER['REQUEST_TIME_FLOAT'] = $original;
+            }
+        }
     }
 
     // --- sampling integration through the middleware --------------------------

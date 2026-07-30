@@ -28,8 +28,9 @@ class ContextFactoryInfoTest extends UnitTestCase
             'other' => 'ignored'
         ]);
         $info2 = $ctx->getFactoryInfo('validation_manager');
-        $this->assertNotNull($info2);
+        $this->assertIsArray($info2);
         $this->assertSame(\Quiote\Validator\ValidationManager::class, $info2['class']);
+        $this->assertIsArray($info2['parameters']);
         $this->assertSame('strict', $info2['parameters']['mode']);
     }
 

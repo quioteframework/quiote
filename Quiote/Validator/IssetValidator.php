@@ -24,9 +24,9 @@ class IssetValidator extends Validator
 	{
 		$logger = \Quiote\Logging\Log::for($this);
 		if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
-			$logger->debug('[IssetValidator][checkAllArgumentsSet] required=' . var_export($this->getParameter('required', true), true));
+			$logger->debug('[IssetValidator][checkAllArgumentsSet] required=' . var_export($this->isRequiredParameter(), true));
 		}
-		if($this->getParameter('required', true)) {
+		if($this->isRequiredParameter()) {
 			if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
 				$logger->debug('[IssetValidator][checkAllArgumentsSet] returning TRUE (required)');
 			}
@@ -53,7 +53,7 @@ class IssetValidator extends Validator
 			throw new ValidatorException('Validator "' . ($this->getName() ?? '?') . '" has no base path/request; validate() ran before setParentContainer()/execute() supplied them.');
 		}
 
-		$params = $validationParameters->getAll($this->getParameter('source'));
+		$params = $validationParameters->getAll($this->getSourceParameter());
 
 		$logger = \Quiote\Logging\Log::for($this);
 		foreach($this->getArguments() as $argument) {

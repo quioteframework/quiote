@@ -45,6 +45,7 @@ class ActionCompiledValidatorIntegrationTest extends UnitTestCase
 			throw new \RuntimeException('Action has no init context');
 		}
 		$vm = $initContext->getValidationManager();
+		$this->assertInstanceOf(\Quiote\Validator\ValidationManager::class, $vm);
 		$action->registerValidators();
 
 		$this->assertCount(1, $vm->getChilds(), 'Expected the compiled fluent validator file to register exactly one validator.');
@@ -76,6 +77,7 @@ class ActionCompiledValidatorIntegrationTest extends UnitTestCase
 			throw new \RuntimeException('Action has no init context');
 		}
 		$vm = $initContext->getValidationManager();
+		$this->assertInstanceOf(\Quiote\Validator\ValidationManager::class, $vm);
 		$action->registerValidators();
 
 		$request = $this->newWebRequest(['username' => 'ab']); // shorter than minLength(3)

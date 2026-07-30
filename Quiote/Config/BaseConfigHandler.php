@@ -23,16 +23,31 @@ abstract class BaseConfigHandler extends ParameterHolder
 	protected function generate($code, $path = null)
 	{
 		if(is_array($code)) {
+			foreach($code as $line) {
+				if(!is_string($line)) {
+					throw new \Quiote\Exception\ConfigurationException(sprintf(
+						'%s::generate() expects an array of strings, found a %s entry.',
+						static::class,
+						get_debug_type($line)
+					));
+				}
+			}
 			$code = implode("\n", $code);
+		} elseif(!is_string($code)) {
+			throw new \Quiote\Exception\ConfigurationException(sprintf(
+				'%s::generate() expects a string or an array of strings, got %s.',
+				static::class,
+				get_debug_type($code)
+			));
 		}
-		
+
 		// Intentionally omit the closing PHP tag to avoid accidental whitespace output
 		// which can break header operations (e.g., session_start, setcookie) in worker mode.
 		// We previously always appended an extra semicolon, which resulted in ';;' when the
 		// provided code already ended with a semicolon (common, e.g. 'return array(...);').
 		// Only append a semicolon if the last non-whitespace character is not one that
 		// normally terminates a PHP statement or block.
-		$trimmed = rtrim((string) $code);
+		$trimmed = rtrim($code);
 		if($trimmed !== '' && !preg_match('/[;}\]]$/', $trimmed)) {
 			$code = $trimmed . ';';
 		} else {

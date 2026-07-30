@@ -331,7 +331,17 @@ class Config
 	 */
 	public static function clear(): void
 	{
-		$restore = array_intersect_assoc(self::$readonlies, self::$config);
+		// array_intersect_assoc() casts values to string for comparison, which
+		// would make any two array-valued config directives compare equal
+		// ("Array" == "Array") regardless of their actual contents. Config
+		// directives are frequently arrays, so compare with strict equality
+		// on matching keys instead.
+		$restore = [];
+		foreach(self::$readonlies as $key => $value) {
+			if(array_key_exists($key, self::$config) && self::$config[$key] === $value) {
+				$restore[$key] = $value;
+			}
+		}
 		self::$config = $restore;
 	}
 

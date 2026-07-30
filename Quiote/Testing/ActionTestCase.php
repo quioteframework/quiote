@@ -1,6 +1,7 @@
 <?php
 namespace Quiote\Testing;
 
+use Quiote\Execution\ValidationResult;
 use Quiote\Execution\ValidationService;
 use Quiote\Testing\PHPUnit\Constraint\ConstraintActionHandlesMethod;
 use Quiote\Validator\ValidationArgument;
@@ -66,6 +67,9 @@ abstract class ActionTestCase extends FragmentTestCase
 			}
 			$this->viewModuleName = $this->moduleName;
 			$raw = $resultView ?? 'Error';
+			if (!is_string($raw)) {
+				throw new \Quiote\Exception\QuioteException(sprintf('%s::%s() must return a string view name, got %s.', $action::class, $errorHandler, get_debug_type($raw)));
+			}
 			$this->viewName = $this->normalizeViewName($raw);
 			return; // Skip normal execution path
 		}
@@ -103,6 +107,9 @@ abstract class ActionTestCase extends FragmentTestCase
 		$this->viewModuleName = $this->moduleName;
 		// Store raw result (short view name as returned by action). If null assume Success.
 		$raw = $resultView ?? 'Success';
+		if (!is_string($raw)) {
+			throw new \Quiote\Exception\QuioteException(sprintf('%s::%s() must return a string view name, got %s.', $action::class, $execMethod, get_debug_type($raw)));
+		}
 		if ($logger->isEnabled(\Quiote\Logging\Level::Debug) || getenv('DEBUG_TESTS')) {
 			try {
 				$logger->debug('[TestDebug][runAction] preNormalizeRaw=' . $raw);
@@ -200,12 +207,12 @@ abstract class ActionTestCase extends FragmentTestCase
 					$logger->debug('[TestDebug][ValidateException] ' . $e::class . ': ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
 				}
 				// Create a failed result
-				$result = (object)['ok' => false, 'data' => []];
+				$result = ValidationResult::failure();
 			}
-			$this->validationSuccess = (bool)$result->ok;
-			$trace = $result->data['trace'] ?? null;
-			if ($trace) {
-				$loaded = $trace->validatorsLoaded ?? [];
+			$this->validationSuccess = $result->ok;
+			$trace = $result->getTrace();
+			if ($trace !== null) {
+				$loaded = $trace->validatorsLoaded;
 			}
 			if (empty($loaded) && $alternativeName) {
 				try {
@@ -213,11 +220,11 @@ abstract class ActionTestCase extends FragmentTestCase
 						$logger->debug('[TestDebug][ValidationFallback] retry dotted=' . $alternativeName);
 					}
 					$result = $service->validate($action, $request, $module, $alternativeName, $methodToken);
-					$this->validationSuccess = (bool)$result->ok;
+					$this->validationSuccess = $result->ok;
 					try {
-						$trace = $result->data['trace'] ?? null;
-						if ($trace) {
-							$loaded = $trace->validatorsLoaded ?? [];
+						$trace = $result->getTrace();
+						if ($trace !== null) {
+							$loaded = $trace->validatorsLoaded;
 						}
 					} catch (\Throwable) {
 					}

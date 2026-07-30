@@ -1,5 +1,6 @@
 <?php
 
+use Quiote\Exception\ConfigurationException;
 use Quiote\Testing\UnitTestCase;
 use Quiote\Validator\NumberValidator;
 use Quiote\Validator\ValidationManager;
@@ -32,7 +33,7 @@ class NumberValidatorTest extends UnitTestCase
 			$seqProp = $ro->getProperty('shutdownSequence');
 
 			$seq = $seqProp->getValue($ctx);
-			if(!in_array($tm, $seq, true)) { $seq[] = $tm; $seqProp->setValue($ctx, $seq); }
+			if(is_array($seq) && !in_array($tm, $seq, true)) { $seq[] = $tm; $seqProp->setValue($ctx, $seq); }
 			$tm->startup();
 		}
 		$this->vm = $ctx->createInstanceFor('validation_manager');
@@ -191,6 +192,30 @@ class NumberValidatorTest extends UnitTestCase
 		$rd = $this->newWebRequest(['number' => false]);
 		$result = $validator->execute($rd);
 		$this->assertEquals(Validator::ERROR, $result);
+	}
+
+	/**
+	 * "type" is a validator configuration value, not user input, so a
+	 * non-string value is a misconfiguration and must fail loudly.
+	 */
+	public function testNonStringTypeParameterThrows(): void
+	{
+		$this->expectException(ConfigurationException::class);
+		$validator = $this->vm->createValidator(NumberValidator::class, ['number'], [], ['type' => ['int']]);
+		$rd = $this->newWebRequest(['number' => '1']);
+		$validator->execute($rd);
+	}
+
+	/**
+	 * "cast_to" is a validator configuration value; a non-string value is a
+	 * misconfiguration.
+	 */
+	public function testNonStringCastToParameterThrows(): void
+	{
+		$this->expectException(ConfigurationException::class);
+		$validator = $this->vm->createValidator(NumberValidator::class, ['number'], [], ['type' => 'int', 'cast_to' => 123]);
+		$rd = $this->newWebRequest(['number' => '1']);
+		$validator->execute($rd);
 	}
 
 }

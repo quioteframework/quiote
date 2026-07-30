@@ -32,6 +32,35 @@ class FactoryConfigHandlerFormatDriverTest extends PhpUnitTestCase
 		parent::tearDown();
 	}
 
+	/**
+	 * FactoryConfigHandler::executeArray() declares a precise array shape
+	 * for $config, but FormatDriverRegistry::load() only knows how to
+	 * promise array<string, mixed> since it is shared across every config
+	 * type. Narrow the registry's generic result back into the shape the
+	 * handler expects.
+	 * @param array<string, mixed> $config
+	 * @return array<string, array{class: string|null, params: array<mixed>}>
+	 */
+	private function shapeFactoryConfig(array $config): array
+	{
+		$shaped = [];
+
+		foreach ($config as $name => $factory) {
+			self::assertIsArray($factory);
+			self::assertArrayHasKey('class', $factory);
+			$class = $factory['class'];
+			self::assertTrue($class === null || is_string($class));
+			self::assertArrayHasKey('params', $factory);
+			self::assertIsArray($factory['params']);
+			$shaped[$name] = [
+				'class' => $class,
+				'params' => $factory['params'],
+			];
+		}
+
+		return $shaped;
+	}
+
 	public function testPhpArrayFactoriesFileCompilesThroughFactoryConfigHandler(): void
 	{
 		file_put_contents($this->dir . '/factories.php', <<<'PHP'
@@ -53,7 +82,7 @@ PHP);
 		$handler->initialize(null, []);
 		$registry = FormatDriverRegistry::forHandler($handler);
 
-		$config = $registry->load($this->dir . '/factories.php', 'test');
+		$config = $this->shapeFactoryConfig($registry->load($this->dir . '/factories.php', 'test'));
 		$code = $handler->executeArray($config, $this->dir . '/factories.php');
 
 		$this->assertStringContainsString('$this->databaseManager = new Quiote\Database\DatabaseManager();', $code);
@@ -68,7 +97,7 @@ PHP);
 		$handler = new FactoryConfigHandler();
 		$handler->initialize(null, []);
 		$registry = FormatDriverRegistry::forHandler($handler);
-		$config = $registry->load($this->dir . '/factories.php', 'test');
+		$config = $this->shapeFactoryConfig($registry->load($this->dir . '/factories.php', 'test'));
 
 		$this->expectException(\Quiote\Exception\ConfigurationException::class);
 		$handler->executeArray($config, $this->dir . '/factories.php');

@@ -64,7 +64,9 @@ XML);
 		$driver = new XmlFormatDriver($handler, [$this->xsl, $this->xsl]);
 		$result = $driver->loadWithPositions($path, 'test');
 
-		$this->assertArrayHasKey('html', $result['data']['output_types']);
+		$outputTypes = $result['data']['output_types'];
+		self::assertIsArray($outputTypes);
+		$this->assertArrayHasKey('html', $outputTypes);
 		$this->assertSame([], $result['positions']);
 	}
 

@@ -31,6 +31,48 @@ class DatabaseConfigHandlerFormatDriverTest extends PhpUnitTestCase
 		parent::tearDown();
 	}
 
+	/**
+	 * DatabaseConfigHandler::executeArray() declares a precise array shape
+	 * for $config, but FormatDriverRegistry::load() only knows how to
+	 * promise array<string, mixed> since it is shared across every config
+	 * type. Narrow the registry's generic result back into the shape the
+	 * handler expects, the same way a real caller relying on a fixed schema
+	 * would.
+	 * @param array<string, mixed> $config
+	 * @return array{default?: string|null, databases?: array<string, array{class: string, parameters: array<int|string, mixed>}>}
+	 */
+	private function shapeDatabaseConfig(array $config): array
+	{
+		$shaped = [];
+
+		if (array_key_exists('default', $config)) {
+			$default = $config['default'];
+			self::assertTrue($default === null || is_string($default));
+			$shaped['default'] = $default;
+		}
+
+		if (array_key_exists('databases', $config)) {
+			$databases = $config['databases'];
+			self::assertIsArray($databases);
+			$shapedDatabases = [];
+			foreach ($databases as $name => $database) {
+				self::assertIsString($name);
+				self::assertIsArray($database);
+				self::assertArrayHasKey('class', $database);
+				self::assertIsString($database['class']);
+				self::assertArrayHasKey('parameters', $database);
+				self::assertIsArray($database['parameters']);
+				$shapedDatabases[$name] = [
+					'class' => $database['class'],
+					'parameters' => $database['parameters'],
+				];
+			}
+			$shaped['databases'] = $shapedDatabases;
+		}
+
+		return $shaped;
+	}
+
 	public function testPhpArrayDatabasesFileCompilesThroughDatabaseConfigHandler(): void
 	{
 		file_put_contents($this->dir . '/databases.php', <<<'PHP'
@@ -47,7 +89,7 @@ PHP);
 		$handler->initialize(null, []);
 		$registry = FormatDriverRegistry::forHandler($handler);
 
-		$config = $registry->load($this->dir . '/databases.php', 'test');
+		$config = $this->shapeDatabaseConfig($registry->load($this->dir . '/databases.php', 'test'));
 		$code = $handler->executeArray($config, $this->dir . '/databases.php');
 
 		$this->assertStringContainsString('new Quiote\Database\PdoDatabase();', $code);
@@ -69,7 +111,7 @@ PHP);
 		$handler = new DatabaseConfigHandler();
 		$handler->initialize(null, []);
 		$registry = FormatDriverRegistry::forHandler($handler);
-		$config = $registry->load($this->dir . '/databases.php', 'test');
+		$config = $this->shapeDatabaseConfig($registry->load($this->dir . '/databases.php', 'test'));
 
 		$this->expectException(\Quiote\Exception\ConfigurationException::class);
 		$handler->executeArray($config, $this->dir . '/databases.php');

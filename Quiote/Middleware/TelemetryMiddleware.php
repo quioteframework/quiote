@@ -57,12 +57,14 @@ class TelemetryMiddleware implements MiddlewareInterface
             return $handler->handle($request);
         }
 
-        $exec = $request->getAttribute(ExecutionState::class) ?? new ExecutionState();
+        $execAttribute = $request->getAttribute(ExecutionState::class);
+        $exec = $execAttribute instanceof ExecutionState ? $execAttribute : new ExecutionState();
         $request = $request->withAttribute(ExecutionState::class, $exec);
 
         $propagationScope = self::extractInboundContext($request);
 
-        $wallStart = (float) ($_SERVER['REQUEST_TIME_FLOAT'] ?? microtime(true));
+        $requestTimeFloat = $_SERVER['REQUEST_TIME_FLOAT'] ?? null;
+        $wallStart = is_int($requestTimeFloat) || is_float($requestTimeFloat) ? (float) $requestTimeFloat : microtime(true);
         $cpuStart = self::cpuTimes();
         if (function_exists('memory_reset_peak_usage')) {
             // Worker mode: memory_get_peak_usage() is monotonic for the process

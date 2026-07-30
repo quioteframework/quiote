@@ -302,7 +302,7 @@ class ValidationReport implements IValidationReportQuery, ResetInterface
 	/**
 	 * Returns a new IValidationReportQuery which returns only the incidents
 	 * for the given argument (and the other existing filter rules).
-	 * @param      ValidationArgument|string|array<int, mixed> $argument The argument instance, or
+	 * @param      ValidationArgument|string|array<int, ValidationArgument|string> $argument The argument instance, or
 	 *                                                  a parameter name, or an
 	 *                                                  array of these elements.
 	 * @return     IValidationReportQuery

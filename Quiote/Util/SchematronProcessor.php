@@ -125,8 +125,25 @@ class SchematronProcessor extends ParameterHolder
 	 */
 	protected function prepareProcessor($processor)
 	{
-		// ensure everything is a string to make hhvm happy
-		$processor->setParameter('', array_map(strval(...), $this->getParameters()));
+		$processor->setParameter('', array_map(self::toParameterString(...), $this->getParameters()));
+	}
+
+	/**
+	 * Coerces a Schematron/XSLT parameter value to a string.
+	 * @param      mixed $value The parameter value.
+	 * @return     string The stringified parameter value.
+	 * @throws     QuioteException when the value has no meaningful string representation
+	 * @since      1.0.0
+	 */
+	private static function toParameterString($value): string
+	{
+		if(is_string($value)) {
+			return $value;
+		}
+		if(is_scalar($value) || $value instanceof \Stringable) {
+			return (string) $value;
+		}
+		throw new QuioteException('Schematron processor parameters must be scalar or Stringable, got ' . get_debug_type($value) . '.');
 	}
 	
 	/**

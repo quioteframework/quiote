@@ -16,7 +16,10 @@ class GenDecodeParameterCallback extends RoutingCallback
 	#[\Override]
     public function onGenerate(array $defaultParameters, array &$userParameters, array &$userOptions)
 	{
-		$userParameters['string'] = rawurldecode((string) $userParameters['string']);
+		if (!isset($userParameters['string']) || !is_string($userParameters['string'])) {
+			throw new \InvalidArgumentException('GenDecodeParameterCallback expects a string "string" parameter.');
+		}
+		$userParameters['string'] = rawurldecode($userParameters['string']);
 		return true;
 	}
 }

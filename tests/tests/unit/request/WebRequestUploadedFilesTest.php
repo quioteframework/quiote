@@ -13,7 +13,7 @@ use Psr\Http\Message\UploadedFileInterface;
  */
 class WebRequestUploadedFilesTest extends UnitTestCase
 {
-    /** @param array<string, mixed> $files */
+    /** @param array<string, array<int|string, mixed>|UploadedFileInterface> $files */
     private function newRequest(array $files): WebRequest
     {
         $wr = new WebRequest('POST', 'http://example.test/upload');

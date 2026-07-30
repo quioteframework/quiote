@@ -33,8 +33,11 @@ class EqualsValidator extends Validator
 		// individual arguments that failed
 		if($this->hasParameter('value')) {
 			$value = $this->getParameter('value');
-			if($this->getParameter('asparam', false)) { 
-				$value = $this->getData($value); 
+			if($this->getParameter('asparam', false)) {
+				if(!is_string($value)) {
+					throw $this->invalidParameterType('value', 'a string (a parameter name) when "asparam" is set', $value);
+				}
+				$value = $this->getData($value);
 			}
 		} else {
 			$value = $this->getData($this->getArgument());

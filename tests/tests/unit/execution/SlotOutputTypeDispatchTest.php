@@ -42,6 +42,7 @@ class SlotOutputTypeDispatchTest extends UnitTestCase
     if($outputType === 'json') {
             $this->assertJson($content);
             $decoded = json_decode((string) $content, true);
+            $this->assertIsArray($decoded);
             $this->assertSame('json', $decoded['type']);
             $this->assertSame('cache', $decoded['variant']);
         } else {

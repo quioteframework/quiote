@@ -1,5 +1,6 @@
 <?php
 
+use Quiote\Exception\ConfigurationException;
 use Quiote\Validator\RegexValidator;
 use Quiote\Validator\Validator;
 
@@ -50,6 +51,31 @@ class RegexValidatorTest extends BaseValidatorTest
 		$errors = ['' => $errorMsg = 'Some other error'];
 		$this->doTestExecute(RegexValidator::class, 12345, Validator::SUCCESS, null, $errors, $parameters);
 		$this->doTestExecute(RegexValidator::class, false, Validator::ERROR, $errorMsg, $errors, $parameters);
+	}
+
+	/**
+	 * "pattern" is a validator configuration value, not user input; a
+	 * non-string pattern is a misconfiguration and must fail loudly rather
+	 * than being silently cast.
+	 */
+	public function testNonStringPatternParameterThrows(): void
+	{
+		$this->expectException(ConfigurationException::class);
+		$this->executeValidator(RegexValidator::class, 'abc', [], ['pattern' => ['not', 'a', 'string'], 'match' => true]);
+	}
+
+	/**
+	 * "export" as an array maps subpattern names to argument names; a
+	 * non-string argument name in that map is a misconfiguration.
+	 */
+	public function testNonStringExportMapEntryThrows(): void
+	{
+		$this->expectException(ConfigurationException::class);
+		$this->executeValidator(RegexValidator::class, 'nbb', [], [
+			'pattern' => '/^(?<sub>[n]{1,3}bb)$/',
+			'match' => true,
+			'export' => ['sub' => 123],
+		]);
 	}
 }
 

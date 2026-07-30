@@ -157,6 +157,73 @@ class ArrayPathDefinitionTest extends PhpUnitTestCase
 		$this->expectException(\InvalidArgumentException::class);
 		ArrayPathDefinition::getPartsFromPath('absolute[broken');
 	}
+
+	public function testGetValueAcceptsIntAndStringPathParts(): void
+	{
+		$array = ['level1' => [0 => 'found']];
+
+		$value = ArrayPathDefinition::getValue(['level1', 0], $array);
+
+		$this->assertSame('found', $value);
+	}
+
+	public function testGetValueRejectsNonIntOrStringPathPart(): void
+	{
+		$array = ['level1' => 'value'];
+
+		$this->expectException(\InvalidArgumentException::class);
+		ArrayPathDefinition::getValue([['level1']], $array);
+	}
+
+	public function testHasValueAcceptsIntAndStringPathParts(): void
+	{
+		$array = ['level1' => [0 => 'found']];
+
+		$this->assertTrue(ArrayPathDefinition::hasValue(['level1', 0], $array));
+	}
+
+	public function testHasValueRejectsNonIntOrStringPathPart(): void
+	{
+		$array = ['level1' => 'value'];
+
+		$this->expectException(\InvalidArgumentException::class);
+		ArrayPathDefinition::hasValue([['level1']], $array);
+	}
+
+	public function testSetValueAcceptsIntAndStringPathParts(): void
+	{
+		$array = [];
+
+		ArrayPathDefinition::setValue(['level1', 0], $array, 'found');
+
+		$this->assertSame(['level1' => [0 => 'found']], $array);
+	}
+
+	public function testSetValueRejectsNonIntOrStringPathPart(): void
+	{
+		$array = [];
+
+		$this->expectException(\InvalidArgumentException::class);
+		ArrayPathDefinition::setValue([['level1']], $array, 'value');
+	}
+
+	public function testUnsetValueAcceptsIntAndStringPathParts(): void
+	{
+		$array = ['level1' => [0 => 'found']];
+
+		$old =& ArrayPathDefinition::unsetValue(['level1', 0], $array);
+
+		$this->assertSame('found', $old);
+		$this->assertSame(['level1' => []], $array);
+	}
+
+	public function testUnsetValueRejectsNonIntOrStringPathPart(): void
+	{
+		$array = ['level1' => 'value'];
+
+		$this->expectException(\InvalidArgumentException::class);
+		ArrayPathDefinition::unsetValue([['level1']], $array);
+	}
 }
 
 

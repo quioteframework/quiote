@@ -13,19 +13,26 @@ use Psr\Http\Message\UploadedFileInterface;
  */
 class WebRequestBehaviorTest extends UnitTestCase
 {
+    /** @param array<string, mixed> $server */
+    private function serverString(array $server, string $key, string $default): string
+    {
+        $value = $server[$key] ?? $default;
+        return is_string($value) ? $value : $default;
+    }
+
     /**
      * @param array<string, mixed> $server
      * @param array<string, mixed> $query
      * @param array<string, mixed> $body
      * @param array<string, mixed> $cookies
-     * @param array<string, mixed> $files
-     * @param array<string, mixed> $headers
+     * @param array<string, array<int|string, mixed>|UploadedFileInterface> $files
+     * @param array<string, array<string>|string> $headers
      */
     private function newRequest(array $server = [], array $query = [], array $body = [], array $cookies = [], array $files = [], array $headers = []): WebRequest
     {
-        $url = ($server['REQUEST_SCHEME'] ?? 'http') . '://' . ($server['HTTP_HOST'] ?? ($server['SERVER_NAME'] ?? 'example.test')) . ($server['REQUEST_URI'] ?? '/');
+        $url = $this->serverString($server, 'REQUEST_SCHEME', 'http') . '://' . $this->serverString($server, 'HTTP_HOST', $this->serverString($server, 'SERVER_NAME', 'example.test')) . $this->serverString($server, 'REQUEST_URI', '/');
         $wr = new WebRequest(
-            $server['REQUEST_METHOD'] ?? 'GET',
+            $this->serverString($server, 'REQUEST_METHOD', 'GET'),
             $url,
             $headers,
             $body ? http_build_query($body) : null,

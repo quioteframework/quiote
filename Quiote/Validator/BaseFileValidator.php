@@ -103,11 +103,21 @@ abstract class BaseFileValidator extends Validator
 			if($this->hasParameter('extension')) {
 				$name = $file->getClientFilename() ?? '';
 				$fileinfo = pathinfo($name) + ['extension' => ''];
-				$extensions = $this->getParameter('extension', []);
-				if(!is_array($extensions)) {
-					$extensions = explode(' ', (string) $this->getParameter('extension'));
+				$extensionsRaw = $this->getParameter('extension', []);
+				if(is_array($extensionsRaw)) {
+					$extensions = $extensionsRaw;
+				} else {
+					if(!is_string($extensionsRaw)) {
+						throw $this->invalidParameterType('extension', 'a string or an array', $extensionsRaw);
+					}
+					$extensions = explode(' ', $extensionsRaw);
 				}
-                $extOk = array_any($extensions, fn($extension) => strtolower((string)$extension) === strtolower($fileinfo['extension']));
+				$extOk = array_any($extensions, function($extension) use ($fileinfo) {
+					if(!is_string($extension)) {
+						throw $this->invalidParameterType('extension', 'a list of strings', $extension);
+					}
+					return strtolower($extension) === strtolower($fileinfo['extension']);
+				});
 				if(!$extOk) {
 					$this->throwError('extension');
 					return false;
@@ -115,6 +125,10 @@ abstract class BaseFileValidator extends Validator
 			}
 
 			if($this->hasParameter('mime_type')) {
+				$mimeTypePattern = $this->getParameter('mime_type');
+				if(!is_string($mimeTypePattern)) {
+					throw $this->invalidParameterType('mime_type', 'a string', $mimeTypePattern);
+				}
 				$includeCharset = $this->getParameter('mime_type_include_charset', false);
 				$target = '';
 				try {
@@ -127,7 +141,7 @@ abstract class BaseFileValidator extends Validator
 				} catch (\Throwable) {
 					$target = '';
 				}
-				if(!preg_match($this->getParameter('mime_type'), $target)) {
+				if(!preg_match($mimeTypePattern, $target)) {
 					$this->throwError('mime_type');
 					return false;
 				}

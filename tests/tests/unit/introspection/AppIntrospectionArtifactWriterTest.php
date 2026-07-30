@@ -30,6 +30,7 @@ final class AppIntrospectionArtifactWriterTest extends PhpUnitTestCase
 
 		$this->assertFileExists($this->target);
 		$decoded = json_decode((string) file_get_contents($this->target), true, flags: JSON_THROW_ON_ERROR);
+		self::assertIsArray($decoded);
 		$this->assertSame(1, $decoded['_schema_version']);
 		$this->assertSame([], $decoded['routes']);
 	}
@@ -41,6 +42,7 @@ final class AppIntrospectionArtifactWriterTest extends PhpUnitTestCase
 		$writer->write(['_schema_version' => 2], $this->target);
 
 		$decoded = json_decode((string) file_get_contents($this->target), true, flags: JSON_THROW_ON_ERROR);
+		self::assertIsArray($decoded);
 		$this->assertSame(2, $decoded['_schema_version']);
 
 		// No leftover .tmp-* files from the write-then-rename.

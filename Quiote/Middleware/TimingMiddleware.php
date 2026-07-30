@@ -18,7 +18,8 @@ class TimingMiddleware implements MiddlewareInterface
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $start = microtime(true);
-        $exec = $request->getAttribute(ExecutionState::class) ?? new ExecutionState();
+        $execAttribute = $request->getAttribute(ExecutionState::class);
+        $exec = $execAttribute instanceof ExecutionState ? $execAttribute : new ExecutionState();
         $exec->metrics ??= [];
         $request = $request->withAttribute(ExecutionState::class, $exec);
         $response = $handler->handle($request);

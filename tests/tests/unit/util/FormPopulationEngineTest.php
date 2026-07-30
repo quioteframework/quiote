@@ -337,7 +337,9 @@ class FormPopulationEngineTest extends UnitTestCase
 		$engine->populate($response, $request);
 		$engine->reset();
 
-		return (string) $response->getContent();
+		$content = $response->getContent();
+
+		return is_string($content) ? $content : (string) json_encode($content);
 	}
 
 	/**

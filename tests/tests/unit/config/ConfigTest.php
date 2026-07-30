@@ -263,4 +263,35 @@ class ConfigTest extends PhpUnitTestCase
 		$this->assertEquals('twentyone', Config::getString('21'));
 	}
 
+	public function testReadonlyArraySurvivesClear(): void
+	{
+		Config::set('ARR_RO', ['a' => 1, 'b' => 2], true, true);
+		Config::clear();
+		$this->assertTrue(Config::has('ARR_RO'));
+		$this->assertSame(['a' => 1, 'b' => 2], Config::getArray('ARR_RO'));
+	}
+
+	public function testClearWithArrayValuedReadonlyDoesNotEmitArrayToStringWarning(): void
+	{
+		// Regression: clear() used to run the readonly/config arrays through
+		// array_intersect_assoc(), which casts every value to a string for
+		// comparison and emits an "Array to string conversion" warning for any
+		// array-valued readonly directive.
+		Config::set('ARR_RO2', ['x' => 'y'], true, true);
+
+		$warnings = [];
+		set_error_handler(static function (int $errno, string $errstr) use (&$warnings): bool {
+			$warnings[] = $errstr;
+			return true;
+		}, E_WARNING);
+		try {
+			Config::clear();
+		} finally {
+			restore_error_handler();
+		}
+
+		$this->assertSame([], $warnings, 'Config::clear() must not emit "Array to string conversion" warnings.');
+		$this->assertSame(['x' => 'y'], Config::getArray('ARR_RO2'));
+	}
+
 }

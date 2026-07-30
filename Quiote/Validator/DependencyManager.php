@@ -29,7 +29,7 @@ class DependencyManager implements ResetInterface
 	
 	/**
 	 * Checks whether a list of dependencies is met.
-	 * @param      array<int, mixed> $tokens The list of dependencies that have to meet.
+	 * @param      array<int, string> $tokens The list of dependencies that have to meet.
 	 * @param      VirtualArrayPath $base The base path to which all tokens are
 	 *                                   appended.
 	 * @return     bool all dependencies are met
@@ -39,11 +39,11 @@ class DependencyManager implements ResetInterface
 	{
 		$currentParts = $base->getParts();
 		foreach($tokens as $token) {
-			if($currentParts && str_contains((string) $token, '%')) { 
-				// the depends attribute contains sprintf syntax 
-				$token = vsprintf($token, $currentParts); 
+			if($currentParts && str_contains($token, '%')) {
+				// the depends attribute contains sprintf syntax
+				$token = vsprintf($token, $currentParts);
 			}
-			
+
 			$path = new VirtualArrayPath($token);
 			if(!$path->getValue($this->depData)) {
 				return false;
@@ -55,7 +55,7 @@ class DependencyManager implements ResetInterface
 	
 	/**
 	 * Puts a list of tokens into the dependency cache.
-	 * @param      array<int, mixed> $tokens The list of new tokens.
+	 * @param      array<int, string> $tokens The list of new tokens.
 	 * @param      VirtualArrayPath $base The base path to which all tokens are
 	 *                                   appended.
 	 * @return     void
@@ -65,11 +65,11 @@ class DependencyManager implements ResetInterface
 	{
 		$currentParts = $base->getParts();
 		foreach($tokens as $token) {
-			if($currentParts && str_contains((string) $token, '%')) { 
-				// the depends attribute contains sprintf syntax 
-				$token = vsprintf($token, $currentParts); 
+			if($currentParts && str_contains($token, '%')) {
+				// the depends attribute contains sprintf syntax
+				$token = vsprintf($token, $currentParts);
 			}
-			
+
 			$path = new VirtualArrayPath($token);
 			$path->setValue($this->depData, true);
 		}

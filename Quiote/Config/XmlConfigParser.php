@@ -938,8 +938,8 @@ class XmlConfigParser
 		// we could use "quiote:context" etc, that does work even without such a prefix being declared in the stylesheet, but that would be completely non-XML-ish, confusing, and against the spec. so we use dots instead.
 		$schematron->setParameters([
 			'quiote.config_path' => $document->documentURI,
-			'quiote.environment' => $environment,
-			'quiote.context' => $context,
+			'quiote.environment' => (string) $environment,
+			'quiote.context' => (string) $context,
 		]);
 		
 		// loop over all validation files. those are .sch schematron schemas, which we transform to an XSL document that is then used to validate the source document :)

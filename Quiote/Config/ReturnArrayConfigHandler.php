@@ -40,7 +40,7 @@ class ReturnArrayConfigHandler extends XmlConfigHandler implements IArrayConfigH
 
 	public function toCanonicalArray(XmlConfigDomDocument $document): array
 	{
-		$document->setDefaultNamespace($this->getParameter('namespace_uri', ''));
+		$document->setDefaultNamespace($this->getStringParameter('namespace_uri', ''));
 
 		$data = [];
 		foreach ($document->getConfigurationElements() as $cfg) {
@@ -57,19 +57,98 @@ class ReturnArrayConfigHandler extends XmlConfigHandler implements IArrayConfigH
 	}
 
 	/**
-	 * Converts an XmlConfigDomElement into an array.
-	 * @param      XmlConfigDomElement $item The configuration element to convert.
-	 * @param      bool                     $topLevel Whether this is a top level element.
-	 * @return     array<int|string, mixed> The configuration values as an array.
+	 * Retrieve a string-valued handler parameter.
+	 * @throws     \Quiote\Exception\ConfigurationException If the parameter is set but isn't a string.
 	 * @since      1.0.0
 	 */
-	protected function convertToArray(XmlConfigDomElement $item, $topLevel = false)
+	private function getStringParameter(string $name, string $default): string
 	{
-		$idAttribute = $this->getParameter('id_attribute', 'name');
-		$valueKey = $this->getParameter('value_key', 'value');
-		$forceArrayValues = $this->getParameter('force_array_values', false);
-		$attributePrefix = $this->getParameter('attribute_prefix', '');
-		$literalize = $this->getParameter('literalize', true);
+		$value = $this->getParameter($name, $default);
+		if (!is_string($value)) {
+			throw new \Quiote\Exception\ConfigurationException(sprintf(
+				'The "%s" parameter of %s must be a string, got %s.',
+				$name,
+				static::class,
+				get_debug_type($value)
+			));
+		}
+		return $value;
+	}
+
+	/**
+	 * Retrieve a bool-valued handler parameter.
+	 * @throws     \Quiote\Exception\ConfigurationException If the parameter is set but isn't a bool.
+	 * @since      1.0.0
+	 */
+	private function getBoolParameter(string $name, bool $default): bool
+	{
+		$value = $this->getParameter($name, $default);
+		if (!is_bool($value)) {
+			throw new \Quiote\Exception\ConfigurationException(sprintf(
+				'The "%s" parameter of %s must be a bool, got %s.',
+				$name,
+				static::class,
+				get_debug_type($value)
+			));
+		}
+		return $value;
+	}
+
+	/**
+	 * Assign a converted child's value to $data, optionally nested one level
+	 * deep under $bucketKey (the pluralized container key for repeated/duplicate
+	 * child element names).
+	 * @param      array<int|string, mixed> $data
+	 * @since      1.0.0
+	 */
+	private function setConvertedChild(array &$data, ?string $bucketKey, int|string $key, mixed $value): void
+	{
+		if ($bucketKey === null) {
+			$data[$key] = $value;
+			return;
+		}
+		$bucket = is_array($data[$bucketKey] ?? null) ? $data[$bucketKey] : [];
+		$bucket[$key] = $value;
+		$data[$bucketKey] = $bucket;
+	}
+
+	/**
+	 * Append a converted child's value to $data, optionally nested one level
+	 * deep under $bucketKey.
+	 * @param      array<int|string, mixed> $data
+	 * @since      1.0.0
+	 */
+	private function appendConvertedChild(array &$data, ?string $bucketKey, mixed $value): void
+	{
+		if ($bucketKey === null) {
+			$data[] = $value;
+			return;
+		}
+		$bucket = is_array($data[$bucketKey] ?? null) ? $data[$bucketKey] : [];
+		$bucket[] = $value;
+		$data[$bucketKey] = $bucket;
+	}
+
+	/**
+	 * Converts an XmlConfigDomElement into an array.
+	 * A top-level element always yields an array; a non-top-level leaf element
+	 * with no attributes yields its own scalar value directly instead of being
+	 * wrapped in a single-entry array.
+	 * @param      XmlConfigDomElement $item The configuration element to convert.
+	 * @param      bool                     $topLevel Whether this is a top level element.
+	 * @return     array<int|string, mixed>|bool|int|float|string The configuration
+	 *                   values as an array, or the element's own scalar value when
+	 *                   it is a leaf node with no attributes.
+	 * @phpstan-return ($topLevel is true ? array<int|string, mixed> : array<int|string, mixed>|bool|int|float|string)
+	 * @since      1.0.0
+	 */
+	protected function convertToArray(XmlConfigDomElement $item, bool $topLevel = false)
+	{
+		$idAttribute = $this->getStringParameter('id_attribute', 'name');
+		$valueKey = $this->getStringParameter('value_key', 'value');
+		$forceArrayValues = $this->getBoolParameter('force_array_values', false);
+		$attributePrefix = $this->getStringParameter('attribute_prefix', '');
+		$literalize = $this->getBoolParameter('literalize', true);
 
 		$singularParentName = Inflector::singularize($item->getName());
 
@@ -77,7 +156,7 @@ class ReturnArrayConfigHandler extends XmlConfigHandler implements IArrayConfigH
 
 		$attribs = $item->getAttributes();
 		$numAttribs = count($attribs);
-		if ($idAttribute && $item->hasAttribute($idAttribute)) {
+		if ($idAttribute !== '' && $item->hasAttribute($idAttribute)) {
 			$numAttribs--;
 		}
 
@@ -86,16 +165,22 @@ class ReturnArrayConfigHandler extends XmlConfigHandler implements IArrayConfigH
 				continue;
 			}
 
-			if ($literalize) {
-				$value = Toolkit::literalize($value);
-			}
+			$literalValue = $literalize ? Toolkit::literalize($value) : $value;
 
 			if (!isset($data[$name])) {
-				$data[$attributePrefix . $name] = $value;
+				$data[$attributePrefix . $name] = $literalValue;
 			}
 		}
 
-		if (!(int)$item->ownerDocument->getXpath()->evaluate(sprintf('count(*[namespace-uri() = "%s"])', $item->ownerDocument->getDefaultNamespaceUri()), $item)) {
+		$childElementCount = $item->ownerDocument->getXpath()->evaluate(sprintf('count(*[namespace-uri() = "%s"])', $item->ownerDocument->getDefaultNamespaceUri()), $item);
+		if (!is_float($childElementCount) && !is_int($childElementCount) && !is_string($childElementCount)) {
+			throw new \Quiote\Exception\ConfigurationException(sprintf(
+				'Expected the "count(...)" XPath expression to evaluate to a number, got %s.',
+				get_debug_type($childElementCount)
+			));
+		}
+
+		if (!(int) $childElementCount) {
 			if ($literalize) {
 				$val = $item->getLiteralValue();
 			} else {
@@ -109,7 +194,7 @@ class ReturnArrayConfigHandler extends XmlConfigHandler implements IArrayConfigH
 			if (!$topLevel && ($numAttribs || $forceArrayValues)) {
 				$data[$valueKey] = $val;
 			} elseif (!$topLevel) {
-				$data = $val;
+				return $val;
 			}
 
 		} else {
@@ -126,33 +211,35 @@ class ReturnArrayConfigHandler extends XmlConfigHandler implements IArrayConfigH
 			foreach (array_unique(array_diff_assoc($names, array_unique($names))) as $name) {
 				$dupes[] = $name;
 			}
-			foreach ($children as $key => $child) {
+			foreach ($children as $child) {
 				/** @var XmlConfigDomElement $child */
-				$hasId = ($idAttribute && $child->hasAttribute($idAttribute));
+				$hasId = ($idAttribute !== '' && $child->hasAttribute($idAttribute));
 				$isDupe = in_array($child->getName(), $dupes);
 				$hasParent = $child->getName() == $singularParentName && $item->getName() != $singularParentName;
+
+				$bucketKey = null;
 				if (($hasId || $isDupe) && !$hasParent) {
 					// it's one of multiple tags in this level without the respective plural form as the parent node
-					if (!isset($data[$idx = Inflector::pluralize($child->getName())])) {
-						$data[$idx] = [];
+					$bucketKey = Inflector::pluralize($child->getName());
+					if (!isset($data[$bucketKey])) {
+						$data[$bucketKey] = [];
 					}
 					$hasParent = true;
-					$to =& $data[$idx];
-				} else {
-					$to =& $data;
 				}
 
+				$childValue = $this->convertToArray($child);
+
 				if ($hasId) {
-					$key = $child->getAttribute($idAttribute);
+					$childKey = $child->getAttribute($idAttribute) ?? '';
 					if ($literalize) {
 						// no literalize, just constants!
-						$key = Toolkit::expandDirectives($key);
+						$childKey = Toolkit::expandDirectives($childKey) ?? $childKey;
 					}
-					$to[$key] = $this->convertToArray($child);
+					$this->setConvertedChild($data, $bucketKey, $childKey, $childValue);
 				} elseif ($hasParent) {
-					$to[] = $this->convertToArray($child);
+					$this->appendConvertedChild($data, $bucketKey, $childValue);
 				} else {
-					$to[$child->getName()] = $this->convertToArray($child);
+					$this->setConvertedChild($data, $bucketKey, $child->getName(), $childValue);
 				}
 			}
 		}

@@ -43,9 +43,17 @@ abstract class ConfigHandler extends BaseConfigHandler implements ILegacyConfigH
 					// created entry (the last in the array). The value doesn't matter
 					// since it will be overwritten anyways
 					$data[] = 0;
+					// $data was just appended to above, so it is never empty here.
 					$name = array_key_last($data);
 				} else {
-					$name = $node->getAttribute('name');
+					$attributeName = $node->getAttribute('name');
+					if(!is_string($attributeName) && !is_int($attributeName)) {
+						throw new \Quiote\Exception\ConfigurationException(sprintf(
+							'The "name" attribute of a parameter element must be a string or an int, got %s.',
+							get_debug_type($attributeName)
+						));
+					}
+					$name = $attributeName;
 				}
 				if($node->hasChildren('parameters')) {
 					$data[$name] = (isset($oldValues[$name]) && is_array($oldValues[$name])) ? $oldValues[$name] : [];
@@ -106,6 +114,28 @@ abstract class ConfigHandler extends BaseConfigHandler implements ILegacyConfigH
 	}
 
 	/**
+	 * Retrieve a required attribute, enforcing that it holds a string.
+	 * @param      ConfigValueHolder $node The element to read the attribute from.
+	 * @param      string $name The attribute name.
+	 * @return     string The attribute value.
+	 * @throws     \Quiote\Exception\ConfigurationException If the attribute is not a string.
+	 * @since      1.0.0
+	 */
+	private static function getStringAttribute(ConfigValueHolder $node, string $name): string
+	{
+		$value = $node->getAttribute($name);
+		if(!is_string($value)) {
+			throw new \Quiote\Exception\ConfigurationException(sprintf(
+				'The "%s" attribute of a "%s" configuration element must be a string, got %s.',
+				$name,
+				$node->getName(),
+				get_debug_type($value)
+			));
+		}
+		return $value;
+	}
+
+	/**
 	 * Returns a properly ordered array of ConfigValueHolder configuration
 	 * elements for given env and context.
 	 * @param      ConfigValueHolder $configurations The root config element
@@ -121,7 +151,14 @@ abstract class ConfigHandler extends BaseConfigHandler implements ILegacyConfigH
 		$configs = [];
 
 		if($configurations->hasAttribute('parent')) {
-			$parent = Toolkit::literalize($configurations->getAttribute('parent'));
+			$parent = Toolkit::literalize(self::getStringAttribute($configurations, 'parent'));
+			if(!is_string($parent)) {
+				throw new \Quiote\Exception\ConfigurationException(sprintf(
+					'The "parent" attribute of a "%s" configuration element must literalize to a string, got %s.',
+					$configurations->getName(),
+					get_debug_type($parent)
+				));
+			}
 			$parentConfigurations = ConfigCache::parseConfig($parent, $autoloadParser, $this->getValidationFile(), $this->parser)->configurations;
 			if($parentConfigurations === null) {
 				throw new \Quiote\Exception\ConfigurationException(sprintf('Parent configuration file "%s" does not contain a "configurations" element.', $parent));
@@ -136,17 +173,17 @@ abstract class ConfigHandler extends BaseConfigHandler implements ILegacyConfigH
 			}
 		}
 		foreach($configurations as $cfg) {
-			if($environment !== null && $cfg->hasAttribute('environment') && self::testPattern($cfg->getAttribute('environment'), $environment) && !$cfg->hasAttribute('context')) {
+			if($environment !== null && $cfg->hasAttribute('environment') && self::testPattern(self::getStringAttribute($cfg, 'environment'), $environment) && !$cfg->hasAttribute('context')) {
 				$configs[] = $cfg;
 			}
 		}
 		foreach($configurations as $cfg) {
-			if(!$cfg->hasAttribute('environment') && $context !== null && $cfg->hasAttribute('context') && self::testPattern($cfg->getAttribute('context'), $context)) {
+			if(!$cfg->hasAttribute('environment') && $context !== null && $cfg->hasAttribute('context') && self::testPattern(self::getStringAttribute($cfg, 'context'), $context)) {
 				$configs[] = $cfg;
 			}
 		}
 		foreach($configurations as $cfg) {
-			if($environment !== null && $cfg->hasAttribute('environment') && self::testPattern($cfg->getAttribute('environment'), $environment) && $context !== null && $cfg->hasAttribute('context') && self::testPattern($cfg->getAttribute('context'), $context)) {
+			if($environment !== null && $cfg->hasAttribute('environment') && self::testPattern(self::getStringAttribute($cfg, 'environment'), $environment) && $context !== null && $cfg->hasAttribute('context') && self::testPattern(self::getStringAttribute($cfg, 'context'), $context)) {
 				$configs[] = $cfg;
 			}
 		}

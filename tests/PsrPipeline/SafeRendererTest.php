@@ -41,6 +41,7 @@ final class SafeRendererTest extends TestCase
         $this->assertFalse($resp->hasHeader('X-Quiote-Error-Type'));
 
         $payload = json_decode((string) $resp->getBody(), true);
+        self::assertIsArray($payload);
         $this->assertSame(['error', 'status', 'correlation_id'], array_keys($payload));
         $this->assertSame('Request Error', $payload['error']);
         $this->assertSame(400, $payload['status']);
@@ -54,6 +55,7 @@ final class SafeRendererTest extends TestCase
         $resp = $renderer->render(new \RuntimeException('boom'), $req, 500, null);
 
         $payload = json_decode((string) $resp->getBody(), true);
+        self::assertIsArray($payload);
         $this->assertSame(['error', 'status'], array_keys($payload));
         $this->assertSame('Internal Server Error', $payload['error']);
     }

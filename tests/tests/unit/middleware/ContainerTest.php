@@ -79,6 +79,7 @@ class ContainerTest extends TestCase
         $c = new Container();
         $c->set(ContainerParamFixture::class, ContainerParamFixture::class, Container::SCOPE_SINGLETON, ['name' => 'cookie_name', 'mode' => 'strict']);
         $obj = $c->get(ContainerParamFixture::class);
+        $this->assertInstanceOf(ContainerParamFixture::class, $obj);
         $this->assertSame('cookie_name', $obj->name);
         $this->assertSame('strict', $obj->mode);
     }
@@ -117,6 +118,7 @@ class ContainerTest extends TestCase
         $c->set('clock', fn() => new DateTimeImmutable('2025-01-02T00:00:00Z'));
         $c->alias(DateTimeImmutable::class, 'clock');
         $obj = $c->get(ContainerRequiredSetterFixture::class);
+        $this->assertInstanceOf(ContainerRequiredSetterFixture::class, $obj);
         $this->assertInstanceOf(DateTimeImmutable::class, $obj->clock);
     }
 
@@ -149,6 +151,7 @@ class ContainerTest extends TestCase
         $c = new Container();
         $c->set('primary.clock', fn() => new DateTimeImmutable('2025-01-02T00:00:00Z'));
         $obj = $c->get(ContainerInjectFixture::class);
+        $this->assertInstanceOf(ContainerInjectFixture::class, $obj);
         $this->assertSame('2025-01-02T00:00:00+00:00', $obj->clock->format('c'));
     }
 
@@ -156,6 +159,7 @@ class ContainerTest extends TestCase
     {
         $c = new Container();
         $obj = $c->get(ContainerAutowireAttributeFixture::class);
+        $this->assertInstanceOf(ContainerAutowireAttributeFixture::class, $obj);
         $this->assertSame('cookie_name', $obj->name);
     }
 

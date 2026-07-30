@@ -158,7 +158,15 @@ class ValidatorPlanBuilder
 
 		$errors = $this->collectErrors($validator, $defErrors);
 		if ($validator->hasAttribute('required')) {
-			$stdRequired = $parameters['required'] = Toolkit::literalize($validator->getAttribute('required'));
+			$requiredLiteral = Toolkit::literalize($validator->getAttribute('required'));
+			if (!is_bool($requiredLiteral)) {
+				throw new ConfigurationException(sprintf(
+					'The "required" attribute of validator "%s" must literalize to a boolean, got %s.',
+					$validator->getAttribute('name') ?? $class,
+					get_debug_type($requiredLiteral)
+				));
+			}
+			$stdRequired = $parameters['required'] = $requiredLiteral;
 		}
 
 		$stdMethod = $validator->getAttribute('method', $stdMethod);
@@ -282,8 +290,12 @@ class ValidatorPlanBuilder
 					/** @var XmlConfigDomElement $domainElement */
 					$domains[$domainElement->getAttribute('name') ?? ''] = $domainElement->getValue();
 				}
+				$existingParameters = [];
+				if (isset($result[$name]) && is_array($result[$name]) && is_array($result[$name]['parameters'] ?? null)) {
+					$existingParameters = $result[$name]['parameters'];
+				}
 				$result[$name] = [
-					'parameters' => $element->getQuioteParameters(isset($result[$name]) ? $result[$name]['parameters'] : []),
+					'parameters' => $element->getQuioteParameters($existingParameters),
 					'domains' => $domains,
 				];
 				continue;

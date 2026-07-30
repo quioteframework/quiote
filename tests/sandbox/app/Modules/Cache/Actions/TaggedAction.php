@@ -30,6 +30,9 @@ class TaggedAction extends Action
     public function slotCacheTags(array $parameters = []): array
     {
         $group = $parameters['group'] ?? 'default';
+        if (!is_scalar($group) && !$group instanceof \Stringable) {
+            throw new \InvalidArgumentException('TaggedAction expects a stringable "group" parameter.');
+        }
         return ['group:' . $group];
     }
 

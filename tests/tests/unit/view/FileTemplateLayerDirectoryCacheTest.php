@@ -95,4 +95,33 @@ class FileTemplateLayerDirectoryCacheTest extends UnitTestCase
         $cacheProp->setValue(null, []);
         $this->assertSame($this->templateDir . '/greeting.php', $first);
     }
+
+    public function testInitializeRejectsNonStringModuleParameter(): void
+    {
+        $layer = new FileTemplateLayer();
+
+        $this->expectException(\Quiote\Exception\QuioteException::class);
+        $this->expectExceptionMessageMatches('/"module"/');
+        $layer->initialize($this->getContext(), ['module' => ['not', 'a', 'string']]);
+    }
+
+    public function testGetResourceStreamIdentifierRejectsNonStringTemplateParameter(): void
+    {
+        $layer = $this->makeLayer();
+        $layer->setParameter('template', 123);
+
+        $this->expectException(\Quiote\Exception\QuioteException::class);
+        $this->expectExceptionMessageMatches('/"template"/');
+        $layer->getResourceStreamIdentifier();
+    }
+
+    public function testGetResourceStreamIdentifierRejectsNonStringDirectoryParameter(): void
+    {
+        $layer = $this->makeLayer();
+        $layer->setParameter('directory', ['not', 'a', 'string']);
+
+        $this->expectException(\Quiote\Exception\QuioteException::class);
+        $this->expectExceptionMessageMatches('/"directory"/');
+        $layer->getResourceStreamIdentifier();
+    }
 }

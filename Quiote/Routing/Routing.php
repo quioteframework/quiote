@@ -106,7 +106,7 @@ abstract class Routing implements ResetInterface
 		if (isset($spec[0]) && $spec[0] instanceof RouteCollection) {
 			[$routes, $meta] = $spec;
 			$this->routes = $routes;
-			$this->meta = $meta;
+			$this->meta = $this->assertValidMeta($meta);
 			$this->matcher = new UrlMatcher($this->routes, $this->requestContext);
 		} else {
 			// Defensive: ignore invalid import silently to avoid fatal during early bootstrap
@@ -137,7 +137,11 @@ abstract class Routing implements ResetInterface
 	 */
 	public function addRoute(string $pattern, array $opts = [], ?string $parent = null): string
 	{
-		$name = $opts['name'] ?? ('r' . (count($this->meta) + 1));
+		$rawName = $opts['name'] ?? null;
+		if ($rawName !== null && !is_string($rawName)) {
+			throw new QuioteException("Route option 'name' must be a string.");
+		}
+		$name = $rawName ?? ('r' . (count($this->meta) + 1));
 		if (isset($this->meta[$name])) {
 			$existingParent = $this->meta[$name]['opt']['parent'] ?? null;
 			if ($existingParent !== $parent) {
@@ -161,7 +165,17 @@ abstract class Routing implements ResetInterface
 		if ($joined === '') { $joined = '/'; }
 
 		// Collect defaults (module/action + explicit defaults key)
-		$defaults = $opts['defaults'] ?? [];
+		$rawDefaults = $opts['defaults'] ?? [];
+		if (!is_array($rawDefaults)) {
+			throw new QuioteException("Route option 'defaults' must be an array.");
+		}
+		$defaults = [];
+		foreach ($rawDefaults as $defaultKey => $defaultValue) {
+			if (!is_string($defaultKey)) {
+				throw new QuioteException("Route option 'defaults' keys must be strings.");
+			}
+			$defaults[$defaultKey] = $defaultValue;
+		}
 		foreach (['module','action','locale','output_type'] as $k) {
 			if (isset($opts[$k]) && !isset($defaults[$k])) { $defaults[$k] = $opts[$k]; }
 		}
@@ -213,7 +227,7 @@ abstract class Routing implements ResetInterface
 			$route = substr($route, 0, -1);
 		}
 		if ($route === null) {
-			$script = $_SERVER['SCRIPT_NAME'] ?? '';
+			$script = $this->serverScriptName();
 			if ($script && $script[0] !== '/') { $script = '/' . $script; }
 			$inputPath = $this->input ?: ($this->requestContext->getPathInfo() ?: '/');
 			if ($script && str_starts_with($inputPath, (string) $script)) { $path = $inputPath; }
@@ -233,9 +247,9 @@ abstract class Routing implements ResetInterface
 			$hasParam = array_key_exists($p, $params);
 			$hasDefault = array_key_exists($p, $defaults);
 			if (!$hasParam && !$hasDefault) { return ''; }
-			$val = $hasParam ? $params[$p] : $defaults[$p];
+			$val = $this->stringifyRouteValue($hasParam ? $params[$p] : $defaults[$p]);
 			if ($val === null || $val === '') { return ''; }
-			$enc = rawurlencode((string)$val);
+			$enc = rawurlencode($val);
 			return str_replace('%21', '!', $enc);
 		}, $genPath);
 		$genPath = preg_replace('#//+#', '/', (string) $genPath) ?? $genPath;
@@ -258,7 +272,7 @@ abstract class Routing implements ResetInterface
 			return $this->gen($routeName, $params);
 		}
 		// Mirror null-route generation logic in gen()
-		$script = $_SERVER['SCRIPT_NAME'] ?? '';
+		$script = $this->serverScriptName();
 		if ($script && $script[0] !== '/') {
 			$script = '/' . $script;
 		}
@@ -329,24 +343,27 @@ abstract class Routing implements ResetInterface
 		}
 
 		if ($host === null || $host === '') {
-			[$fallbackHost, $fallbackPort, $fallbackExplicit] = $this->parseHostAndPortHeader($server['HTTP_HOST'] ?? null);
+			[$fallbackHost, $fallbackPort, $fallbackExplicit] = $this->parseHostAndPortHeader($this->serverStringValue($server, 'HTTP_HOST'));
+			$serverName = $this->serverStringValue($server, 'SERVER_NAME');
+			$serverAddr = $this->serverStringValue($server, 'SERVER_ADDR');
 			if ($fallbackHost !== null && $fallbackHost !== '') {
 				$host = $fallbackHost;
 				if ($port === null && $fallbackPort !== null) {
 					$port = $fallbackPort;
 					$explicitPort = $explicitPort || $fallbackExplicit;
 				}
-			} elseif (!empty($server['SERVER_NAME'])) {
-				$host = (string) $server['SERVER_NAME'];
-			} elseif (!empty($server['SERVER_ADDR'])) {
-				$host = (string) $server['SERVER_ADDR'];
+			} elseif ($serverName !== null && $serverName !== '') {
+				$host = $serverName;
+			} elseif ($serverAddr !== null && $serverAddr !== '') {
+				$host = $serverAddr;
 			} else {
 				$host = 'localhost';
 			}
 		}
 
-		if ($port === null && !empty($server['SERVER_PORT']) && is_numeric((string) $server['SERVER_PORT'])) {
-			$port = (int) $server['SERVER_PORT'];
+		$serverPort = $this->serverStringValue($server, 'SERVER_PORT');
+		if ($port === null && $serverPort !== null && $serverPort !== '' && is_numeric($serverPort)) {
+			$port = (int) $serverPort;
 		}
 
 		$scheme = $scheme ?: 'http';
@@ -394,10 +411,9 @@ abstract class Routing implements ResetInterface
 		foreach ($patternSegments as $seg) {
 			if (preg_match('#^\{([a-zA-Z_][a-zA-Z0-9_-]*)(?::[^}]*)?\}$#', $seg, $m)) {
 				$n = $m[1];
-				$val = $params[$n] ?? ($defaults[$n] ?? null);
-				$val = $val === null ? null : (string)$val;
+				$val = $this->stringifyRouteValue($params[$n] ?? ($defaults[$n] ?? null));
 				$enc = ($val !== null && $val !== '') ? str_replace('%21', '!', rawurlencode($val)) : null;
-				$phs[] = ['name' => $n, 'default' => isset($defaults[$n]) ? (string)$defaults[$n] : null, 'used' => $val, 'present' => $enc !== null, 'index' => null];
+				$phs[] = ['name' => $n, 'default' => isset($defaults[$n]) ? $this->stringifyRouteValue($defaults[$n]) : null, 'used' => $val, 'present' => $enc !== null, 'index' => null];
 			}
 		}
 		$idx = 0;
@@ -421,20 +437,114 @@ abstract class Routing implements ResetInterface
 	}
 
 	/**
+	 * Validates and normalizes a route meta array as produced by
+	 * exportRoutes(), throwing on any malformed entry rather than trusting
+	 * the caller's tuple.
+	 * @throws     QuioteException If $meta is not shaped as expected.
+	 * @return     array<string,array{gen_path:string,cut:bool,path:string,opt?:array{parent:string|null,action:mixed},pattern?:string,match_full?:string,match_partial?:string}>
+	 */
+	private function assertValidMeta(mixed $meta): array
+	{
+		if (!is_array($meta)) {
+			throw new QuioteException('Route meta must be an array.');
+		}
+		$result = [];
+		foreach ($meta as $name => $entry) {
+			if (!is_string($name)) {
+				throw new QuioteException('Route meta keys must be strings.');
+			}
+			if (!is_array($entry)) {
+				throw new QuioteException("Route meta entry for '$name' must be an array.");
+			}
+			$genPath = $entry['gen_path'] ?? null;
+			$cut = $entry['cut'] ?? null;
+			$path = $entry['path'] ?? null;
+			if (!is_string($genPath) || !is_bool($cut) || !is_string($path)) {
+				throw new QuioteException("Route meta entry for '$name' has invalid or missing required fields.");
+			}
+			$normalized = ['gen_path' => $genPath, 'cut' => $cut, 'path' => $path];
+			if (array_key_exists('opt', $entry)) {
+				$opt = $entry['opt'];
+				if (!is_array($opt) || !array_key_exists('parent', $opt) || !array_key_exists('action', $opt)) {
+					throw new QuioteException("Route meta entry for '$name' has an invalid 'opt' field.");
+				}
+				$parent = $opt['parent'];
+				if ($parent !== null && !is_string($parent)) {
+					throw new QuioteException("Route meta entry for '$name' has an invalid 'opt.parent' field.");
+				}
+				$normalized['opt'] = ['parent' => $parent, 'action' => $opt['action']];
+			}
+			foreach (['pattern', 'match_full', 'match_partial'] as $optionalKey) {
+				if (array_key_exists($optionalKey, $entry)) {
+					$value = $entry[$optionalKey];
+					if (!is_string($value)) {
+						throw new QuioteException("Route meta entry for '$name' has an invalid '$optionalKey' field.");
+					}
+					$normalized[$optionalKey] = $value;
+				}
+			}
+			$result[$name] = $normalized;
+		}
+		return $result;
+	}
+
+	/**
+	 * Converts a route parameter or default value to a string suitable for
+	 * URL generation.
+	 * @throws     QuioteException If the value is neither scalar nor Stringable.
+	 */
+	private function stringifyRouteValue(mixed $value): ?string
+	{
+		if ($value === null) {
+			return null;
+		}
+		if (is_scalar($value)) {
+			return (string) $value;
+		}
+		if ($value instanceof \Stringable) {
+			return (string) $value;
+		}
+		throw new QuioteException(sprintf('Route parameter value must be scalar or Stringable, %s given.', get_debug_type($value)));
+	}
+
+	private function serverScriptName(): string
+	{
+		$value = $_SERVER['SCRIPT_NAME'] ?? '';
+		return is_string($value) ? $value : '';
+	}
+
+	/**
+	 * @param array<string,mixed> $server
+	 */
+	private function serverStringValue(array $server, string $key): ?string
+	{
+		$value = $server[$key] ?? null;
+		if (is_string($value)) {
+			return $value;
+		}
+		if (is_int($value) || is_float($value)) {
+			return (string) $value;
+		}
+		return null;
+	}
+
+	/**
 	 * @param array<string,mixed> $server
 	 * @param string[] $headerKeys
 	 */
 	private function resolveForwardedServerValue(array $server, array $headerKeys, string $forwardedParam): ?string
 	{
 		foreach ($headerKeys as $key) {
-			if (!empty($server[$key])) {
-				return (string) $server[$key];
+			$value = $this->serverStringValue($server, $key);
+			if ($value !== null && $value !== '') {
+				return $value;
 			}
 		}
-		if (empty($server['HTTP_FORWARDED'])) {
+		$forwardedHeader = $this->serverStringValue($server, 'HTTP_FORWARDED');
+		if ($forwardedHeader === null || $forwardedHeader === '') {
 			return null;
 		}
-		return $this->extractFromForwardedHeader((string) $server['HTTP_FORWARDED'], $forwardedParam);
+		return $this->extractFromForwardedHeader($forwardedHeader, $forwardedParam);
 	}
 
 	private function extractFromForwardedHeader(string $header, string $field): ?string
@@ -505,8 +615,9 @@ abstract class Routing implements ResetInterface
 	 */
 	private function detectSchemeFromServer(array $server): string
 	{
-		if (!empty($server['REQUEST_SCHEME'])) {
-			return strtolower((string) $server['REQUEST_SCHEME']);
+		$requestScheme = $this->serverStringValue($server, 'REQUEST_SCHEME');
+		if ($requestScheme !== null && $requestScheme !== '') {
+			return strtolower($requestScheme);
 		}
 		$https = $server['HTTPS'] ?? null;
 		if (is_string($https)) {
@@ -520,7 +631,8 @@ abstract class Routing implements ResetInterface
 		} elseif ($https === true) {
 			return 'https';
 		}
-		if (!empty($server['SERVER_PORT']) && (int) $server['SERVER_PORT'] === 443) {
+		$serverPort = $this->serverStringValue($server, 'SERVER_PORT');
+		if ($serverPort !== null && $serverPort !== '' && is_numeric($serverPort) && (int) $serverPort === 443) {
 			return 'https';
 		}
 		return 'http';

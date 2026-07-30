@@ -92,6 +92,36 @@ class HtmlFormRepopulatorTest extends PhpUnitTestCase
 		$this->assertStringStartsWith('<!DOCTYPE html>', $out);
 	}
 
+	public function testRepopulatesInputWithStringableParameterValue(): void
+	{
+		$html = '<html><body><form><input type="text" name="foo" value="" /></form></body></html>';
+		$value = new class implements \Stringable {
+			public function __toString(): string { return 'bar'; }
+		};
+
+		$out = HtmlFormRepopulator::repopulate($html, ['foo' => $value]);
+
+		$this->assertStringContainsString('value="bar"', $out);
+	}
+
+	public function testThrowsWhenInputParameterValueIsNotStringable(): void
+	{
+		$html = '<html><body><form><input type="text" name="foo" value="" /></form></body></html>';
+
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('Cannot repopulate field "foo": expected a scalar or Stringable value, got array');
+		HtmlFormRepopulator::repopulate($html, ['foo' => ['not', 'stringable']]);
+	}
+
+	public function testThrowsWhenSelectParameterValueIsNotStringable(): void
+	{
+		$html = '<html><body><form><select name="foo"><option value="a">A</option></select></form></body></html>';
+
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('Cannot repopulate field "foo": expected a scalar or Stringable value, got array');
+		HtmlFormRepopulator::repopulate($html, ['foo' => ['not', 'stringable']]);
+	}
+
 	private function createValidationReport(string $message): ValidationReport
 	{
 		$incident = new ValidationIncident(null, Validator::ERROR);

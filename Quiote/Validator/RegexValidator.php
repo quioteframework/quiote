@@ -35,19 +35,27 @@ class RegexValidator extends Validator
 			return false;
 		}
 		
-		$result = preg_match((string) $this->getParameter('pattern'), (string) $data, $matches);
-		
+		$pattern = $this->getParameter('pattern');
+		if(!is_string($pattern)) {
+			throw $this->invalidParameterType('pattern', 'a string', $pattern);
+		}
+
+		$result = preg_match($pattern, (string) $data, $matches);
+
 		if($result != $this->getParameter('match')) {
 			$this->throwError();
 			return false;
 		}
-		
+
 		if($this->hasParameter('export')) {
 			$export = $this->getParameter('export');
 			// if the result was positive (makes no sense for negative matches) and "export" is an array...
 			if($result && is_array($export)) {
 				// ...treat it as a map of subpattern names and argument names for exporting parts of the value
 				foreach($export as $subpattern => $argument) {
+					if(!is_string($argument)) {
+						throw $this->invalidParameterType('export', 'a map of subpattern names to argument name strings', $argument);
+					}
 					if(isset($matches[$subpattern])) {
 						$this->export($matches[$subpattern], $argument);
 					}

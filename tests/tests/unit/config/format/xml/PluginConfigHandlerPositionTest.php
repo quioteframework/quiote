@@ -85,7 +85,10 @@ XML);
 		// producing a non-bool "enabled" -- the diagnostic's keyPath must be
 		// something the positions map can resolve back to a real line.
 		$malformed = $result['data'];
-		$malformed[0]['enabled'] = 'true';
+		$firstEntry = $malformed[0];
+		self::assertIsArray($firstEntry);
+		$firstEntry['enabled'] = 'true';
+		$malformed[0] = $firstEntry;
 
 		$diagnostics = SchemaValidator::validate($handler->schema(), $malformed);
 

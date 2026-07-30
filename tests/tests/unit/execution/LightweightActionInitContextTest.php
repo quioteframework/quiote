@@ -4,12 +4,12 @@ use Quiote\Execution\LightweightActionInitContext;
 use Nyholm\Psr7\ServerRequest;
 // Concrete response stub implementing abstract methods
 class TestLightweightResponse extends \Quiote\Response\WebResponse {
-    /** @var array{location: mixed, code: int|string}|null */
+    /** @var array{location: string, code: int|string}|null */
     protected $redirect = null;
     #[\Override]
     public function initialize($c,$p=[]): void { parent::initialize($c,$p); }
     #[\Override]
-    public function setRedirect($location, $code = 302): void { $this->redirect = ['location' => $location, 'code' => $code]; }
+    public function setRedirect($location, $code = 302): void { $this->redirect = ['location' => is_scalar($location) || $location instanceof \Stringable ? (string) $location : '', 'code' => $code]; }
     #[\Override]
     public function getRedirect(): ?array { return $this->redirect; }
     #[\Override]

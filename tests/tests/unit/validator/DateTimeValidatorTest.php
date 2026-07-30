@@ -43,7 +43,7 @@ class DateTimeValidatorTest extends UnitTestCase
             $sequenceProperty = $reflection->getProperty('shutdownSequence');
             
             $sequence = $sequenceProperty->getValue($context);
-            if (!in_array($translationManager, $sequence, true)) {
+            if (is_array($sequence) && !in_array($translationManager, $sequence, true)) {
                 $sequence[] = $translationManager;
                 $sequenceProperty->setValue($context, $sequence);
             }
@@ -373,6 +373,54 @@ class DateTimeValidatorTest extends UnitTestCase
 
         $this->assertSame(Validator::SUCCESS, $result);
         $this->assertSame('2025/03/10', $request->getParameter('formatted'));
+    }
+
+    /**
+     * "cast_to" as an array configures post-processing; a non-string
+     * "type" key is a validator misconfiguration and must fail loudly.
+     */
+    public function testCastToArrayWithNonStringTypeThrows(): void
+    {
+        $params = [
+            'formats' => [
+                ['type' => 'format', 'format' => 'yyyy-MM-dd'],
+            ],
+            'cast_to' => ['type' => 123],
+        ];
+        $validator = $this->vm->createValidator(
+            DateTimeValidator::class,
+            ['date'],
+            [],
+            $params
+        );
+
+        $request = $this->newWebRequest(['date' => '2025-06-15']);
+        $this->expectException(\Quiote\Exception\ConfigurationException::class);
+        $validator->execute($request);
+    }
+
+    /**
+     * The "locale" parameter must be a string identifier; anything else is
+     * a misconfiguration.
+     */
+    public function testNonStringLocaleParameterThrows(): void
+    {
+        $params = [
+            'formats' => [
+                ['type' => 'format', 'format' => 'yyyy-MM-dd'],
+            ],
+            'locale' => ['en_US'],
+        ];
+        $validator = $this->vm->createValidator(
+            DateTimeValidator::class,
+            ['date'],
+            [],
+            $params
+        );
+
+        $request = $this->newWebRequest(['date' => '2025-06-15']);
+        $this->expectException(\Quiote\Exception\ConfigurationException::class);
+        $validator->execute($request);
     }
 }
 

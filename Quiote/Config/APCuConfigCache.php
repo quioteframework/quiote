@@ -80,6 +80,13 @@ class APCuConfigCache extends ConfigCache
 
             if ($append && \apcu_exists($key)) {
                 $existingData = \apcu_fetch($key);
+                if (!is_string($existingData)) {
+                    throw new \Quiote\Exception\CacheException(sprintf(
+                        'APCu cache entry "%s" was expected to hold a compiled config string, got %s.',
+                        $key,
+                        get_debug_type($existingData)
+                    ));
+                }
                 $data = $existingData . $data;
             }
 
@@ -113,7 +120,7 @@ class APCuConfigCache extends ConfigCache
             $content = \apcu_fetch($key);
 
             if ($content !== false) {
-                return 'APCU:' . $content;
+                return 'APCU:' . self::assertCachedContentIsString($key, $content);
             }
         }
 
@@ -141,7 +148,7 @@ class APCuConfigCache extends ConfigCache
                 $key = self::getConfigKey($config, $context);
                 $content = \apcu_fetch($key);
                 if ($content !== false) {
-                    return 'APCU:' . $content;
+                    return 'APCU:' . self::assertCachedContentIsString($key, $content);
                 }
             }
 
@@ -317,7 +324,9 @@ class APCuConfigCache extends ConfigCache
             $iterator = new \APCUIterator('/^quiote_/');
             
             foreach ($iterator as $value) {
-                $totalSize += $value['mem_size'] ?? 0;
+                if (is_array($value) && isset($value['mem_size']) && is_int($value['mem_size'])) {
+                    $totalSize += $value['mem_size'];
+                }
             }
         }
         
@@ -331,14 +340,32 @@ class APCuConfigCache extends ConfigCache
     public static function configure(array $options): void
     {
         if (isset($options['config_prefix'])) {
+            if (!is_string($options['config_prefix'])) {
+                throw new \Quiote\Exception\ConfigurationException(sprintf(
+                    'The "config_prefix" option must be a string, got %s.',
+                    get_debug_type($options['config_prefix'])
+                ));
+            }
             self::$configPrefix = $options['config_prefix'];
         }
-        
+
         if (isset($options['routing_prefix'])) {
+            if (!is_string($options['routing_prefix'])) {
+                throw new \Quiote\Exception\ConfigurationException(sprintf(
+                    'The "routing_prefix" option must be a string, got %s.',
+                    get_debug_type($options['routing_prefix'])
+                ));
+            }
             self::$routingPrefix = $options['routing_prefix'];
         }
-        
+
         if (isset($options['ttl'])) {
+            if (!is_int($options['ttl']) && !is_string($options['ttl'])) {
+                throw new \Quiote\Exception\ConfigurationException(sprintf(
+                    'The "ttl" option must be an int or a numeric string, got %s.',
+                    get_debug_type($options['ttl'])
+                ));
+            }
             self::$ttl = (int)$options['ttl'];
         }
     }
@@ -373,6 +400,23 @@ class APCuConfigCache extends ConfigCache
      * is always the full absolute path).
      * Memoized to avoid repeated normalization and md5() hashing on the hot path.
      */
+    /**
+     * Validate that a value fetched from APCu under a config key is the
+     * compiled PHP string writeCacheFile() stored there.
+     * @throws \Quiote\Exception\CacheException If the stored value isn't a string.
+     */
+    private static function assertCachedContentIsString(string $key, mixed $content): string
+    {
+        if (!is_string($content)) {
+            throw new \Quiote\Exception\CacheException(sprintf(
+                'APCu cache entry "%s" was expected to hold a compiled config string, got %s.',
+                $key,
+                get_debug_type($content)
+            ));
+        }
+        return $content;
+    }
+
     /**
      * @var array<string, string>
      */
@@ -518,6 +562,13 @@ class APCuConfigCache extends ConfigCache
         ];
         
         if ($meta !== false) {
+            if (!is_array($meta) || !isset($meta['timestamp']) || !is_int($meta['timestamp'])) {
+                throw new \Quiote\Exception\CacheException(sprintf(
+                    'APCu warmup metadata entry "%s" was expected to be an array with an int "timestamp" key, got %s.',
+                    self::$metaKey,
+                    get_debug_type($meta)
+                ));
+            }
             $status = array_merge($status, $meta);
             $status['age_seconds'] = time() - $meta['timestamp'];
         }

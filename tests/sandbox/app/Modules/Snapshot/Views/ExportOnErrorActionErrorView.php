@@ -8,6 +8,10 @@ class ExportOnErrorActionErrorView extends View
 {
     public function execute(WebRequest $rd)
     {
-        return 'ERROR_EXPORTED:' . $rd->getParameter('error_export', 'MISSING');
+        $value = $rd->getParameter('error_export', 'MISSING');
+        if (!is_scalar($value) && !$value instanceof \Stringable) {
+            throw new \InvalidArgumentException('ExportOnErrorActionErrorView expects a stringable "error_export" parameter.');
+        }
+        return 'ERROR_EXPORTED:' . $value;
     }
 }

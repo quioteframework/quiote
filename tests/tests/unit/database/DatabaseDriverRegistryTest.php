@@ -51,6 +51,7 @@ class DatabaseDriverRegistryTest extends TestCase
         // config) by planting it directly rather than violating that contract here.
         $aliases = new \ReflectionProperty(DatabaseDriverRegistry::class, 'aliases');
         $current = $aliases->getValue();
+        $this->assertIsArray($current);
         $current['bad'] = \stdClass::class;
         $aliases->setValue(null, $current);
 

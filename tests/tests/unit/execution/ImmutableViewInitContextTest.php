@@ -4,12 +4,12 @@ use Quiote\Execution\ImmutableViewInitContext;
 use Quiote\Context;
 // Provide a concrete minimal response stub implementing abstract methods
 class TestImmutableInitContextResponse extends \Quiote\Response\WebResponse {
-    /** @var array{location: mixed, code: int|string}|null */
+    /** @var array{location: string, code: int|string}|null */
     protected $redirect = null;
     #[\Override]
     public function initialize($c,$p=[]): void { parent::initialize($c,$p); }
     #[\Override]
-    public function setRedirect($location, $code = 302): void { $this->redirect = ['location' => $location, 'code' => $code]; }
+    public function setRedirect($location, $code = 302): void { $this->redirect = ['location' => is_scalar($location) || $location instanceof \Stringable ? (string) $location : '', 'code' => $code]; }
     #[\Override]
     public function getRedirect(): ?array { return $this->redirect; }
     #[\Override]

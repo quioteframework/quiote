@@ -3,6 +3,8 @@ namespace Quiote\Util;
 
 use RecursiveDirectoryIterator;
 use RecursiveFilterIterator;
+use RuntimeException;
+use SplFileInfo;
 
 /**
  * RecursiveDirectoryFilterIterator filters a RecursiveDirectoryIterator
@@ -29,6 +31,14 @@ class RecursiveDirectoryFilterIterator extends RecursiveFilterIterator
 	protected $includes = [];
 
 	/**
+	 * The decorated directory iterator, kept typed here because
+	 * RecursiveFilterIterator::current() is declared as mixed by the
+	 * Iterator interface it implements.
+	 * @var          RecursiveDirectoryIterator
+	 */
+	private RecursiveDirectoryIterator $directoryIterator;
+
+	/**
 	 * Creates a new RecursiveDirectoryFilterIterator.
 	 * @param        RecursiveDirectoryIterator $iterator the directory iterator to decorate
 	 * @param        array<int, string> $includes the list of include patterns (regular expressions)
@@ -37,6 +47,7 @@ class RecursiveDirectoryFilterIterator extends RecursiveFilterIterator
 	 */
 	public function __construct(RecursiveDirectoryIterator $iterator, array $includes = [], array $excludes = [], $noDefaultExcludes = false)
 	{
+		$this->directoryIterator = $iterator;
 		parent::__construct($iterator);
 		if(!$noDefaultExcludes) {
 			$this->excludes = array_merge($excludes, self::$defaultExcludes);
@@ -76,24 +87,40 @@ class RecursiveDirectoryFilterIterator extends RecursiveFilterIterator
 		if(empty($this->includes)) {
 			return true;
 		}
-		if($this->current()->isDir()) {
+		if($this->currentFileInfo()->isDir()) {
 			return true;
 		}
 		foreach($this->includes as $pattern) {
-			if(preg_match($pattern, (string) $this->current()->getPathName())) {
+			if(preg_match($pattern, $this->currentFileInfo()->getPathName())) {
 				return true;
 			}
 		}
-		
+
 		return false;
 	}
-	
+
 	/**
 	 * Checks whether the item is matched by any of the exclude expressions.
 	 * @return       boolean true if the items name equals an exclude pattern.
 	 */
 	protected function isExcluded() {
-		return in_array($this->current()->getFilename(), $this->excludes);
+		return in_array($this->currentFileInfo()->getFilename(), $this->excludes);
+	}
+
+	/**
+	 * Returns the current item as a SplFileInfo instance.
+	 * RecursiveDirectoryIterator::current() can also return a plain pathname
+	 * string when constructed with the CURRENT_AS_PATHNAME flag; this class
+	 * relies on the default flags, so anything else indicates misuse.
+	 * @throws       RuntimeException when the current item isn't a SplFileInfo
+	 */
+	private function currentFileInfo(): SplFileInfo
+	{
+		$current = $this->directoryIterator->current();
+		if(!$current instanceof SplFileInfo) {
+			throw new RuntimeException('Expected the decorated RecursiveDirectoryIterator to yield SplFileInfo instances; got ' . get_debug_type($current) . '. Was it constructed with the CURRENT_AS_PATHNAME flag?');
+		}
+		return $current;
 	}
 	
 	/**

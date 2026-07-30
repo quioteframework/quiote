@@ -2,6 +2,7 @@
 
 use Quiote\Testing\PhpUnitTestCase;
 use Quiote\Config\Config;
+use Quiote\Exception\ConfigurationException;
 use Quiote\Support\Compiler\Diagnostic;
 use Quiote\Support\Compiler\EmittedArtifact;
 use Quiote\Validator\Compiler\CompilationResult;
@@ -27,6 +28,21 @@ class ValidatorCompilerTest extends PhpUnitTestCase
 		$this->assertSame('fail_param', $node->name);
 		$this->assertSame('Quiote\Validator\RegexValidator', $node->validatorClass);
 		$this->assertSame(['fail'], $node->arguments);
+	}
+
+	/**
+	 * The "required" attribute is literalized (Toolkit::literalize()) into a
+	 * bool at plan-build time; a value that doesn't literalize to a boolean
+	 * (e.g. "banana") is a malformed config and must fail loudly instead of
+	 * silently propagating a non-bool through the compiled plan.
+	 */
+	public function testParseRejectsNonBooleanRequiredAttribute(): void
+	{
+		$compiler = new ValidatorCompiler();
+		$source = new ValidatorSource(dirname(__DIR__, 4) . '/fixtures/ValidatorPlanBuilder/invalid_required.xml', 'test');
+
+		$this->expectException(ConfigurationException::class);
+		$compiler->parse($source);
 	}
 
 	public function testDiscoverDelegatesToLocatorWithDefaultRoots(): void

@@ -53,12 +53,21 @@ class QuioteNumberFormatter extends DecimalFormatter implements ITranslator, Res
 	{
 		$this->context = $context;
 		if(!empty($parameters['rounding_mode'])) {
+			if(!is_string($parameters['rounding_mode'])) {
+				throw new \Quiote\Exception\QuioteException('QuioteNumberFormatter::initialize() expects the "rounding_mode" parameter to be a string, ' . get_debug_type($parameters['rounding_mode']) . ' given.');
+			}
 			$this->setRoundingMode($this->getRoundingModeFromString($parameters['rounding_mode']));
 		}
 		if(isset($parameters['translation_domain'])) {
+			if(!is_string($parameters['translation_domain'])) {
+				throw new \Quiote\Exception\QuioteException('QuioteNumberFormatter::initialize() expects the "translation_domain" parameter to be a string, ' . get_debug_type($parameters['translation_domain']) . ' given.');
+			}
 			$this->translationDomain = $parameters['translation_domain'];
 		}
 		if(isset($parameters['format'])) {
+			if(!is_array($parameters['format']) && !is_string($parameters['format'])) {
+				throw new \Quiote\Exception\QuioteException('QuioteNumberFormatter::initialize() expects the "format" parameter to be an array or a string, ' . get_debug_type($parameters['format']) . ' given.');
+			}
 			$this->customFormat = $parameters['format'];
 			if(is_array($this->customFormat)) {
 				// it's an array, so it contains the translations already, DOMAIN MUST NOT BE SET
@@ -81,6 +90,10 @@ class QuioteNumberFormatter extends DecimalFormatter implements ITranslator, Res
 	 */
 	public function translate($message, $domain, ?QuioteLocale $locale = null)
 	{
+		if(!is_int($message) && !is_float($message) && !is_string($message)) {
+			throw new \Quiote\Exception\QuioteException('QuioteNumberFormatter::translate() expects $message to be an int, float or string, ' . get_debug_type($message) . ' given.');
+		}
+
 		if($locale) {
 			$fn = clone $this;
 			$fn->localeChanged($locale);
@@ -142,7 +155,11 @@ class QuioteNumberFormatter extends DecimalFormatter implements ITranslator, Res
 		} elseif($this->customFormat) {
 			$format = $this->customFormat;
 		}
-		
+
+		if(!is_string($format)) {
+			throw new \Quiote\Exception\QuioteException('QuioteNumberFormatter::localeChanged() resolved a non-string number format for locale "' . ($this->locale->getIdentifier() ?? '') . '".');
+		}
+
 		$this->setFormat($format);
 	}
 

@@ -60,7 +60,9 @@ XML);
 		$driver = new XmlFormatDriver($handler, [$this->xsl, $this->xsl]);
 		$result = $driver->loadWithPositions($path, 'test');
 
-		$this->assertArrayHasKey('en_US', $result['data']['locales']);
+		$locales = $result['data']['locales'];
+		self::assertIsArray($locales);
+		$this->assertArrayHasKey('en_US', $locales);
 		$this->assertSame([], $result['positions']);
 	}
 

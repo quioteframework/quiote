@@ -39,7 +39,13 @@ final class ViewNameResolver
             $raw = View::NONE;
         }
         if($raw !== View::NONE) {
+            if (!is_string($raw)) {
+                throw new \UnexpectedValueException(sprintf('View name must resolve to a string, %s given.', get_debug_type($raw)));
+            }
             $raw = Toolkit::canonicalName($raw);
+        }
+        if ($viewModule !== null && !is_string($viewModule)) {
+            throw new \UnexpectedValueException(sprintf('View module must resolve to a string or null, %s given.', get_debug_type($viewModule)));
         }
         return [$viewModule, $raw];
     }

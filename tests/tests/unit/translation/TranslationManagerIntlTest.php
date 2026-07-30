@@ -48,6 +48,7 @@ class TranslationManagerIntlTest extends UnitTestCase
             $seqProp = $ro->getProperty('shutdownSequence');
 
             $seq = $seqProp->getValue($ctx);
+            self::assertIsArray($seq);
             if (!in_array($tm, $seq, true)) {
                 $seq[] = $tm;
                 $seqProp->setValue($ctx, $seq);
@@ -138,6 +139,7 @@ class TranslationManagerIntlTest extends UnitTestCase
     {
         $data = $this->tm->getTerritoryData('US');
         if(isset($data['week'])) {
+            self::assertIsArray($data['week']);
             $this->assertArrayHasKey('firstDay', $data['week']);
         }
         // caching path

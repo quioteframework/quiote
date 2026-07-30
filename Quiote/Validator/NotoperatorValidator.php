@@ -93,7 +93,7 @@ class NotoperatorValidator extends OperatorValidator implements ResetInterface
 			// lets mark the fields of the child validator all as successful
 			$affectedFields = $child->getFullArgumentNames();
 			foreach($affectedFields as $field) {
-				parent::addArgumentResult(new ValidationArgument($field, $this->getParameter('source')), Validator::SUCCESS, $this);
+				parent::addArgumentResult(new ValidationArgument($field, $this->getSourceParameter()), Validator::SUCCESS, $this);
 			}
 			return true;
 		}

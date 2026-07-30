@@ -60,7 +60,9 @@ XML);
 		$driver = new XmlFormatDriver($handler, [$this->xsl, $this->xsl]);
 		$result = $driver->loadWithPositions($path, 'test');
 
-		$this->assertSame('Quiote\\Response\\WebResponse', $result['data']['response']['class']);
+		$response = $result['data']['response'];
+		self::assertIsArray($response);
+		$this->assertSame('Quiote\\Response\\WebResponse', $response['class']);
 		$this->assertSame([], $result['positions']);
 	}
 
@@ -73,7 +75,9 @@ XML);
 		$driver = new XmlFormatDriver($handler, [$this->xsl, $this->xsl]);
 		$result = $driver->loadWithPositions($path, 'test');
 
-		$this->assertSame('Quiote\\Response\\WebResponse', $result['data']['response']['class']);
+		$response = $result['data']['response'];
+		self::assertIsArray($response);
+		$this->assertSame('Quiote\\Response\\WebResponse', $response['class']);
 		$this->assertSame($path, $result['positions']['response.class']['file']);
 		$this->assertSame(5, $result['positions']['response.class']['line']);
 	}

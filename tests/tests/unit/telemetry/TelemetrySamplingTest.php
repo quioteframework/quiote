@@ -168,8 +168,13 @@ class TelemetrySamplingTest extends TestCase
 
         $records = $this->logRecords();
         $this->assertNotEmpty($records);
-        $this->assertSame('warning', $records[0]['level']);
-        $this->assertStringContainsString('not-a-real-strategy', $records[0]['message']);
+        $record = $records[0];
+        self::assertIsArray($record);
+        self::assertArrayHasKey('level', $record);
+        self::assertArrayHasKey('message', $record);
+        $this->assertSame('warning', $record['level']);
+        self::assertIsString($record['message']);
+        $this->assertStringContainsString('not-a-real-strategy', $record['message']);
     }
 
     // --- force-sample escape hatch ----------------------------------------------

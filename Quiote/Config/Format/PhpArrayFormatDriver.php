@@ -18,6 +18,9 @@ final class PhpArrayFormatDriver extends AbstractArrayFormatDriver implements Po
 		return str_ends_with(strtolower($path), '.php');
 	}
 
+	/**
+	 * @return array<int|string, mixed>
+	 */
 	protected function parse(string $path): array
 	{
 		if (!is_file($path)) {
@@ -38,7 +41,7 @@ final class PhpArrayFormatDriver extends AbstractArrayFormatDriver implements Po
 	}
 
 	/**
-	 * @return array{data: array<string, mixed>, positions: array<string, array{file: string, line: int}>}
+	 * @return array{data: array<int|string, mixed>, positions: array<string, array{file: string, line: int}>}
 	 */
 	public function loadWithPositions(string $path, ?string $environment, ?string $context = null): array
 	{

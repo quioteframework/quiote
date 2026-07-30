@@ -119,6 +119,24 @@ class DateFormatterTest extends UnitTestCase
         $this->assertEquals('yyyy-MM-dd', $pattern);
     }
 
+    public function testInitializeThrowsWhenTranslationDomainIsNotAString(): void
+    {
+        $df = new DateFormatter();
+        $this->expectException(QuioteException::class);
+        $this->expectExceptionMessage('DateFormatter::initialize() expects the "translation_domain" parameter to be a string, int given.');
+        $df->initialize($this->getContext(), ['translation_domain' => 42]);
+    }
+
+    public function testLocaleChangedThrowsWhenResolvedFormatIsNotAString(): void
+    {
+        $df = new DateFormatter();
+        $df->initialize($this->getContext(), ['format' => 42]);
+        $locale = $this->tm->getLocale('en_US@timezone=UTC');
+        $this->expectException(QuioteException::class);
+        $this->expectExceptionMessageMatches('/resolved a non-string date format/');
+        $df->translate(new DateTimeImmutable('2024-03-15'), '', $locale);
+    }
+
     public function testGetContextReturnsInitializedContext(): void
     {
         $df = new DateFormatter();

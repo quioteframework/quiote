@@ -225,6 +225,32 @@ class RoutingMiddlewareTest extends TestCase
         $this->assertSame('/sentinel-cached-pattern', $method->invoke($mw, 'test_route'));
     }
 
+    /**
+     * Regression/PHPStan-driven: route defaults come back as array<string,
+     * mixed> from Symfony's matcher, so a misconfigured route with a
+     * non-string `_module`/`_action` default must be treated as unmatched
+     * rather than passed straight into ActionDescriptor::fromController().
+     */
+    public function testNonStringModuleOrActionDefaultsLeaveRouteUnmatched(): void
+    {
+        $routing = new class extends Routing {
+            protected function build(): array
+            {
+                $rc = new RouteCollection();
+                $rc->add('bad_route', new Route('/bad', ['_module' => 123, '_action' => 'TestAction']));
+                return [$rc, ['bad_route' => ['gen_path' => '/bad', 'cut' => false, 'path' => '/bad']]];
+            }
+        };
+        $mw = new RoutingMiddleware($routing, $this->controller());
+        $req = new ServerRequest('GET', '/bad');
+
+        $result = $this->dispatch($mw, $req);
+
+        $this->assertTrue($result['reached'], 'a malformed default must fall through as unmatched, not crash');
+        $this->assertNull($this->requireRequest($result['request'])->getAttribute('module'));
+        $this->assertNull($this->requireRequest($result['request'])->getAttribute('action'));
+    }
+
     public function testRoutePatternCacheIsPerInstanceNotSharedAcrossDifferentRoutingTables(): void
     {
         // Two RoutingMiddleware instances wrapping DIFFERENT route tables must

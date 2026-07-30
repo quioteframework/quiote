@@ -46,7 +46,12 @@ class ConfigCacheFormatResolutionMemoTest extends PhpUnitTestCase
 	private function resolve(string $filename): string
 	{
 		$method = new ReflectionMethod(ConfigCache::class, 'resolveConfigFormat');
-		return (string) $method->invoke(null, $filename);
+		$result = $method->invoke(null, $filename);
+		if (!is_string($result)) {
+			throw new \RuntimeException('resolveConfigFormat() must return a string.');
+		}
+
+		return $result;
 	}
 
 	private function touch(string $name): string

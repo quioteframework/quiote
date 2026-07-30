@@ -7,6 +7,7 @@ namespace WorkerProbe\Modules\Probe;
 use Quiote\Action\Action;
 use Quiote\User\RbacSecurityUser;
 use Quiote\User\SecurityUser;
+use Quiote\User\User;
 
 /**
  * Shared payload for the three identity probe endpoints, so /identity, /login
@@ -27,6 +28,6 @@ trait IdentityPayload
         $action->setAttribute('authenticated', $user instanceof SecurityUser && $user->isAuthenticated());
         $action->setAttribute('roles', $user instanceof RbacSecurityUser ? $user->getRoles() : []);
         $action->setAttribute('credentials', $user instanceof SecurityUser ? ($user->getCredentials() ?? []) : []);
-        $action->setAttribute('display_name', $user?->getAttribute('display_name'));
+        $action->setAttribute('display_name', $user instanceof User ? $user->getAttribute('display_name') : null);
     }
 }

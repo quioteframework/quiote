@@ -1,6 +1,8 @@
 <?php
 namespace Quiote\Validator;
 
+use Psr\Http\Message\UploadedFileInterface;
+
 /**
  * ImageFileValidator verifies a parameter is an uploaded image
  * Parameters:
@@ -44,7 +46,22 @@ class ImageFileValidator  extends BaseFileValidator
 
 		$file = $this->getData($this->getArgument());
 
-		$type = @getimagesize($file->getTmpName());
+		if(!($file instanceof UploadedFileInterface)) {
+			$this->throwError('no_image');
+			return false;
+		}
+
+		try {
+			$stream = $file->getStream();
+			$pos = $stream->tell();
+			$contents = $stream->getContents();
+			$stream->seek($pos);
+		} catch (\Throwable) {
+			$this->throwError('no_image');
+			return false;
+		}
+
+		$type = @getimagesizefromstring($contents);
 		if($type === false) {
 			$this->throwError('no_image');
 			return false;
@@ -83,14 +100,22 @@ class ImageFileValidator  extends BaseFileValidator
 		];
 		$ext = image_type_to_extension($imageType, false);
 		
-		$format = $this->getParameter('format', []);
-		
-		if(!is_array($format)) {
-			$format = explode(' ', (string) $this->getParameter('format'));
+		$formatRaw = $this->getParameter('format', []);
+
+		if(is_array($formatRaw)) {
+			$format = $formatRaw;
+		} else {
+			if(!is_string($formatRaw)) {
+				throw $this->invalidParameterType('format', 'a string or an array', $formatRaw);
+			}
+			$format = explode(' ', $formatRaw);
 		}
-		
+
 		foreach($format as $name) {
-			$lName = strtolower((string) $name);
+			if(!is_string($name)) {
+				throw $this->invalidParameterType('format', 'a list of strings', $name);
+			}
+			$lName = strtolower($name);
 			if($ext == $lName) {
 				return true;
 			} elseif(isset($aliases[$imageType]) && $aliases[$imageType] == $name) {

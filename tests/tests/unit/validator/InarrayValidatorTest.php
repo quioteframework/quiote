@@ -1,5 +1,6 @@
 <?php
 
+use Quiote\Exception\ConfigurationException;
 use Quiote\Testing\UnitTestCase;
 use Quiote\Validator\InarrayValidator;
 use Quiote\Validator\ValidationManager;
@@ -55,6 +56,43 @@ class InarrayValidatorTest extends UnitTestCase
 		$rd = $this->newWebRequest(['choice' => 4]);
 		$result = $validator->execute($rd);
 		$this->assertEquals(Validator::ERROR, $result, 'Failed asserting that the validation failed for a non-string scalar value.');
+	}
+
+	public function testSplitsValuesFromDelimitedString(): void
+	{
+		$validator = $this->vm->createValidator(InarrayValidator::class, ['choice'], ['' => 'invalid choice'], ['values' => 'red,green,blue', 'sep' => ',']);
+		$rd = $this->newWebRequest(['choice' => 'green']);
+		$result = $validator->execute($rd);
+		$this->assertEquals(Validator::SUCCESS, $result, 'Failed asserting that a delimited "values" string is split and matched.');
+	}
+
+	/**
+	 * "values" must be an array or a delimitable string. A non-array,
+	 * non-string value (e.g. an int) is a validator misconfiguration, not
+	 * a validation-time input problem, so it must fail loudly.
+	 */
+	public function testRejectsNonArrayNonStringValuesParameter(): void
+	{
+		$this->expectException(ConfigurationException::class);
+		$validator = $this->vm->createValidator(InarrayValidator::class, ['choice'], ['' => 'invalid choice'], ['values' => 42]);
+		$rd = $this->newWebRequest(['choice' => 'red']);
+		$validator->execute($rd);
+	}
+
+	public function testRejectsNonStringSepParameter(): void
+	{
+		$this->expectException(ConfigurationException::class);
+		$validator = $this->vm->createValidator(InarrayValidator::class, ['choice'], ['' => 'invalid choice'], ['values' => 'red,green', 'sep' => 5]);
+		$rd = $this->newWebRequest(['choice' => 'red']);
+		$validator->execute($rd);
+	}
+
+	public function testRejectsNonBooleanStrictParameter(): void
+	{
+		$this->expectException(ConfigurationException::class);
+		$validator = $this->vm->createValidator(InarrayValidator::class, ['choice'], ['' => 'invalid choice'], ['values' => ['red', 'green'], 'strict' => 'yes']);
+		$rd = $this->newWebRequest(['choice' => 'red']);
+		$validator->execute($rd);
 	}
 }
 

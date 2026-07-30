@@ -1,5 +1,6 @@
 <?php
 
+use Quiote\Exception\ConfigurationException;
 use Quiote\Exception\ValidatorException;
 use Quiote\Validator\Validator;
 use Quiote\Util\VirtualArrayPath;
@@ -38,6 +39,23 @@ class ExportingSampleValidator extends Validator
     protected function validate(): bool { $this->export('test'); return true; }
 }
 
+/**
+ * Minimal IValidatorContainer stand-in so tests exercising
+ * Validator::execute()/validateInBase() don't need a fully bootstrapped
+ * ValidationManager (which requires config compilation) just to supply a
+ * base path.
+ */
+class MinimalValidatorContainer implements \Quiote\Validator\IValidatorContainer
+{
+	public function addChild(\Quiote\Validator\Validator $validator) {}
+	public function addArgumentResult(\Quiote\Validator\ValidationArgument $argument, $result, $validator = null) {}
+	public function addIncident(\Quiote\Validator\ValidationIncident $incident) {}
+	public function getChild($name) { return new SampleValidator(); }
+	public function getChilds() { return []; }
+	public function getDependencyManager() { return new \Quiote\Validator\DependencyManager(); }
+	public function getBase() { return new VirtualArrayPath(null); }
+}
+
 class ValidatorTest extends BaseValidatorTest
 {
 	public function testInitialize(): void
@@ -59,6 +77,54 @@ class ValidatorTest extends BaseValidatorTest
 		$this->assertEquals($validator->getParameter('depends'), ['test1', 'test2', 'test3']);
 		$this->assertEquals($validator->getParameter('provides'), ['foo', 'bar']);
 		$this->assertEquals($validator->getArgument(), 'test');
+	}
+
+	/**
+	 * Argument names come out of config/compiled sources as strings; a
+	 * non-string entry is a misconfiguration and must fail loudly instead
+	 * of silently propagating a wrong type through getArgument().
+	 */
+	public function testInitializeRejectsNonStringArgument(): void
+	{
+		$this->expectException(ConfigurationException::class);
+		$validator = new SampleValidator();
+		$validator->initialize($this->getContext(), [], [123]);
+	}
+
+	/**
+	 * "depends"/"provides" must literalize to arrays of strings. A pre-built
+	 * array with a non-string entry is only rejected once the validator
+	 * actually reads it (getDependsParameter(), reached via execute() -&gt;
+	 * validateInBase()), matching how every other typed parameter accessor
+	 * on Validator validates lazily at the point of use.
+	 */
+	public function testExecuteRejectsNonStringDependsEntry(): void
+	{
+		$validator = new SampleValidator();
+		$validator->initialize($this->getContext(), ['depends' => [123]], ['test']);
+		$validator->setParentContainer(new MinimalValidatorContainer());
+
+		$this->expectException(ConfigurationException::class);
+		$validator->execute($this->newWebRequest(['test' => 'value']));
+	}
+
+	public function testExecuteRejectsNonScalarDependsValue(): void
+	{
+		$validator = new SampleValidator();
+		$validator->initialize($this->getContext(), ['depends' => ['ok', new \stdClass()]], ['test']);
+		$validator->setParentContainer(new MinimalValidatorContainer());
+
+		$this->expectException(ConfigurationException::class);
+		$validator->execute($this->newWebRequest(['test' => 'value']));
+	}
+
+	public function testExecuteRejectsUnknownSource(): void
+	{
+		$this->expectException(\Quiote\Exception\ConfigurationException::class);
+		$validator = new SampleValidator();
+		$validator->initialize($this->getContext(), ['source' => 'not-a-real-source'], ['test']);
+		$validator->setParentContainer(new MinimalValidatorContainer());
+		$validator->execute($this->newWebRequest(['test' => 'value']));
 	}
 
 	public function testMapErrorCode(): void

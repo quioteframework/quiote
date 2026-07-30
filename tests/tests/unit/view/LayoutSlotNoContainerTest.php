@@ -47,6 +47,7 @@ class LayoutSlotNoContainerTest extends UnitTestCase
     $prop = $r->getProperty('layouts');
     // $prop->setAccessible(true); // Deprecated, not needed in PHP 8.1+
     $layouts = $prop->getValue($ot);
+    self::assertIsArray($layouts);
     $layouts['testlayout'] = [
         'layers' => [
             'decorator' => [

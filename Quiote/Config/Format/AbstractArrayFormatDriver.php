@@ -57,12 +57,33 @@ abstract class AbstractArrayFormatDriver implements FormatDriverInterface
 
 		$importPaths = $raw['imports'] ?? [];
 		unset($raw['imports']);
+		if (!is_array($importPaths)) {
+			throw new ConfigurationException(sprintf(
+				'The "imports" directive in "%s" must be an array of paths, got %s.',
+				$path,
+				get_debug_type($importPaths)
+			));
+		}
 		$parentRef = $raw['parent'] ?? null;
 		unset($raw['parent']);
+		if ($parentRef !== null && !is_string($parentRef) && !is_int($parentRef) && !is_float($parentRef)) {
+			throw new ConfigurationException(sprintf(
+				'The "parent" directive in "%s" must be a string path, got %s.',
+				$path,
+				get_debug_type($parentRef)
+			));
+		}
 
 		$own = $this->expander->expand($raw);
 
 		foreach ($importPaths as $importPath) {
+			if (!is_string($importPath) && !is_int($importPath) && !is_float($importPath)) {
+				throw new ConfigurationException(sprintf(
+					'The "imports" directive in "%s" must contain only string paths, got %s.',
+					$path,
+					get_debug_type($importPath)
+				));
+			}
 			$imported = $this->loadReference((string) $importPath, $path, $environment, $context);
 			$own = $this->merger->merge($imported, $own);
 		}

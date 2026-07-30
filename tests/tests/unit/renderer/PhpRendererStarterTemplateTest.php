@@ -31,7 +31,6 @@ final class PhpRendererStarterTemplateTest extends UnitTestCase
         $renderer->initialize($this->getContext());
 
         $starter = $renderer->getStarterTemplate();
-        $this->assertNotNull($starter);
         file_put_contents($this->templateBase . '.php', $starter);
 
         $layer = new FileTemplateLayer(['template' => $this->templateBase]);
