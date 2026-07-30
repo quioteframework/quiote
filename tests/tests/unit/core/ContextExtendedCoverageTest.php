@@ -319,10 +319,11 @@ class ContextExtendedCoverageTest extends TestCase
         $this->assertFalse($initializedProp->getValue($routing), 'routing initialized flag should be cleared by reset');
     }
 
-    public function testResetClearsTranslationManagerLocale(): void
+    public function testResetRestoresTheDefaultLocaleOnTheTranslationManager(): void
     {
         $ctx = $this->ctx();
         $this->injectLogger($ctx);
+        $previousUseTranslation = Config::get('core.use_translation');
         Config::set('core.use_translation', true, true);
         $tm = $ctx->getTranslationManager();
         if ($tm === null) {
@@ -342,12 +343,24 @@ class ContextExtendedCoverageTest extends TestCase
             $tm,
             'translation manager should be available once core.use_translation is enabled',
         );
+        $default = $tm->getDefaultLocaleIdentifier();
+        $this->assertNotNull($default, 'the sandbox app configures a default locale');
         $tm->setLocale('de_DE');
-        $this->assertNotNull($tm->getCurrentLocaleIdentifier());
+        $this->assertSame('de_DE', $tm->getCurrentLocaleIdentifier());
 
-        $ctx->reset();
+        try {
+            $ctx->reset();
 
-        $this->assertNull($tm->getCurrentLocaleIdentifier(), 'locale set by a previous request must not leak into the next one');
+            // Both halves of the contract: the locale this "request" selected is
+            // gone, and the manager is left on its configured default rather than
+            // on no locale at all -- the same instance serves the next request
+            // without a second initialize(), and an empty identifier would make
+            // its first template lookup throw.
+            $this->assertNotSame('de_DE', $tm->getCurrentLocaleIdentifier(), 'locale set by a previous request must not leak into the next one');
+            $this->assertSame($default, $tm->getCurrentLocaleIdentifier(), 'reset must leave the manager usable for the next request');
+        } finally {
+            Config::set('core.use_translation', $previousUseTranslation, true);
+        }
     }
 
     public function testGetUserRecreatesAndRegistersInShutdownSequence(): void

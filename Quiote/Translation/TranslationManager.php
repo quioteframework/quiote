@@ -73,13 +73,16 @@ class TranslationManager implements ResetInterface
 	protected $defaultDomain = null;
 
 	/**
-	 * @var        array<string, mixed> The available locales which have been defined in the
-	 *                   translation.xml config file.
+	 * Populated only by the compiled translation.xml config, which always writes
+	 * this exact shape -- see TranslationConfigHandler.
+	 * @var        array<string, array{identifier: string, identifierData: array{language: ?string, script: ?string, territory: ?string, variant: ?string, options: array<string, string>, locale_str: ?string, option_str: ?string}, parameters: array<string, mixed>}> The available locales which have been
+	 *                   defined in the translation.xml config file.
 	 */
 	protected $availableConfigLocales = [];
 
 	/**
-	 * @var        array<string, mixed> All available locales. Just stores the info for lazyload.
+	 * @var        array<string, array{identifier: string, identifierData: array{language: ?string, script: ?string, territory: ?string, variant: ?string, options: array<string, string>, locale_str: ?string, option_str: ?string}, parameters: array<string, mixed>}> All available locales. Just stores the
+	 *                   info for lazyload.
 	 */
 	protected $availableLocales = [];
 
@@ -185,7 +188,7 @@ class TranslationManager implements ResetInterface
 
 	/**
 	 * Returns the list of available locales.
-	 * @return     array<string, mixed>
+	 * @return     array<string, array{identifier: string, identifierData: array{language: ?string, script: ?string, territory: ?string, variant: ?string, options: array<string, string>, locale_str: ?string, option_str: ?string}, parameters: array<string, mixed>}>
 	 * @since      1.0.0
 	 */
 	public function getAvailableLocales()
@@ -371,6 +374,30 @@ class TranslationManager implements ResetInterface
 	}
 
 	/**
+	 * Narrow caller-supplied sprintf arguments to what vsprintf() accepts.
+	 * The parameter arrays reach us as mixed (they come straight from
+	 * application code), and an array or non-Stringable object would be a
+	 * TypeError rather than a formatted value; render those as the empty string
+	 * so a bad argument cannot take down a translated message.
+	 * @param      array<int, mixed> $parameters
+	 * @return     array<int, bool|float|int|string|null>
+	 */
+	private static function sprintfValues(array $parameters): array
+	{
+		$values = [];
+		foreach($parameters as $parameter) {
+			if($parameter === null || is_bool($parameter) || is_int($parameter) || is_float($parameter) || is_string($parameter)) {
+				$values[] = $parameter;
+			} elseif($parameter instanceof \Stringable) {
+				$values[] = (string) $parameter;
+			} else {
+				$values[] = '';
+			}
+		}
+		return $values;
+	}
+
+	/**
 	 * Translate a message into the current locale.
 	 * @param      mixed $message The message.
 	 * @param      ?string $domain The domain in which the translation should be done.
@@ -397,8 +424,8 @@ class TranslationManager implements ResetInterface
 		$translator = $this->getTranslators($domain, $domainExtra, self::MESSAGE);
 
 		$retval = $translator->translate($message, $domainExtra, $locale);
-		if(is_array($parameters)) {
-			$retval = vsprintf($retval, $parameters);
+		if($parameters !== null) {
+			$retval = vsprintf($retval, self::sprintfValues($parameters));
 		}
 		
 		$retval = $this->applyFilters($retval, $domain, self::MESSAGE);
@@ -580,9 +607,7 @@ class TranslationManager implements ResetInterface
 
 		$matchingLocaleIdentifiers = [];
 		foreach($this->availableLocales as $availableLocaleIdentifier => $availableLocale) {
-			$availableTag = is_array($availableLocale) && is_string($availableLocale['identifier'] ?? null)
-				? $availableLocale['identifier']
-				: (string) $availableLocaleIdentifier;
+			$availableTag = $availableLocale['identifier'];
 			if(\Locale::filterMatches($availableTag, $range) === true) {
 				$matchingLocaleIdentifiers[] = $availableLocaleIdentifier;
 			}
@@ -930,6 +955,18 @@ class TranslationManager implements ResetInterface
 		return $this->currencyFractionCache[$currency] = ['digits' => $digits, 'rounding' => $rounding];
 	}
 
+	/**
+	 * Reset per-request locale state for worker compatibility.
+	 *
+	 * A request that called setLocale() must not influence the next one, so the
+	 * selected locale is dropped. It is restored to the configured default
+	 * rather than left empty: Context::reset() calls this between requests and
+	 * the manager is reused as-is, without a second initialize(), so a manager
+	 * with no locale at all would make the next request's first locale-dependent
+	 * lookup fail -- e.g. StreamTemplateLayer asking for the current identifier
+	 * to build its template lookup path, which rejects an empty one.
+	 * @since      1.0.0
+	 */
 	public function reset(): void {
 		$this->localeCache = [];
 		$this->localeIdentifierCache = [];
@@ -942,5 +979,11 @@ class TranslationManager implements ResetInterface
 		$this->currencyFractionCache = [];
 		$this->territoryDataCache = [];
 		$this->translatorLookupCache = [];
+
+		// Null before initialize() has run (or when no default is configured);
+		// there is no baseline to go back to in that case.
+		if($this->defaultLocaleIdentifier !== null) {
+			$this->setLocale($this->defaultLocaleIdentifier);
+		}
 	}
 }
