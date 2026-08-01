@@ -314,16 +314,20 @@ class GettextTranslator extends BasicTranslator implements ResetInterface
 		self::$domainDataCache[$cacheKey] = ['headers' => $headers, 'msgs' => $data, 'pluralFormFunc' => $this->pluralFormFunc];
 	}
 
+	/**
+	 * Reset per-request locale state for worker compatibility. Only clears
+	 * what localeChanged()/loadDomainData() derive from the current locale --
+	 * context, domainPathPattern, domainPaths and the store-calls settings are
+	 * configured once from initialize() parameters and never restored
+	 * afterward, so clearing them here would silently break every subsequent
+	 * request's translations for the rest of the worker's lifetime.
+	 * @since      1.0.0
+	 */
 	#[\Override]
     public function reset() : void
 	{
-		$this->context = null;
-		$this->domainPathPattern = null;
-		$this->domainPaths = [];
 		$this->domainData = [];
 		$this->locale = null;
 		$this->pluralFormFunc = null;
-		$this->storeTranslationCalls = false;
-		$this->translationCallStoreDir = null;
 	}
 }

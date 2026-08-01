@@ -369,6 +369,60 @@ class DispatchMiddlewareTest extends TestCase
         }
     }
 
+    public function testSimpleCacheBypassSkipsBothReadAndWrite(): void
+    {
+        if(!class_exists(\Quiote\Cache\CacheManager::class)) { $this->markTestSkipped('Cache components missing'); }
+        \Quiote\Config\Config::set('core.cache_enabled', true);
+        \Quiote\Config\Config::set('core.use_cache', true);
+        \Quiote\Cache\CacheManager::invalidateAction('Foo', 'Bar');
+        require_once __DIR__ . '/../../../fixtures/App/Modules/Foo/Views/BarView.php';
+        $executed = 0;
+        $executedRef =& $executed;
+        $action = new class($executedRef) extends \Quiote\Action\Action {
+            public function __construct(private int &$ctr){}
+            public function initialize(\Quiote\Execution\ActionInitContext $ctx): void {}
+            public function isCacheable(?string $ot=null): bool { return true; }
+            public function isSecure(){ return false; }
+            public function execute(mixed $r = null): mixed { $this->ctr++; return 'Bar'; }
+            /** @return array<string, mixed> */
+            public function &getAttributes() { $attrs = ['seq' => (string)$this->ctr]; return $attrs; }
+        };
+        $controller = $this->makeController(fn()=>$action);
+        $this->bootstrapOutputType($controller);
+        $mw = new DispatchMiddleware($controller);
+        $ad = new ActionDescriptor('Foo','Bar','execute','html', true);
+        $avCache = new \Quiote\Cache\ActionViewCache(\Quiote\Cache\CacheManager::getCache());
+
+        try {
+            // First request: cache disabled/miss, executes and populates the cache with seq=1.
+            $req1 = (new ServerRequest('GET','/'))->withAttribute(ActionDescriptor::class,$ad);
+            $mw->process($req1, $this->createStub(RequestHandlerInterface::class));
+            $this->assertSame(1, $executed);
+            $payloadAfterFirst = $avCache->get('Foo', 'Bar', 'html');
+            if ($payloadAfterFirst === null) {
+                $this->markTestSkipped('First request did not populate the cache under this bootstrap; cannot verify bypass semantics.');
+            }
+            $this->assertSame(['seq' => '1'], $payloadAfterFirst['action_attributes'] ?? null);
+
+            // Second request: bypass set. Must skip the read (executes again, seq=2)
+            // AND skip the write (the seq=1 payload must survive untouched) --
+            // bypass means "don't touch the cache this request", not "refresh it".
+            $req2 = (new ServerRequest('GET','/'))->withAttribute(ActionDescriptor::class,$ad)->withAttribute('quiote.cache.bypass', true);
+            $mw->process($req2, $this->createStub(RequestHandlerInterface::class));
+            $this->assertSame(2, $executed, 'Bypass must skip the cache read and execute fresh');
+            $payloadAfterBypass = $avCache->get('Foo', 'Bar', 'html');
+            $this->assertSame(['seq' => '1'], $payloadAfterBypass['action_attributes'] ?? null, 'Bypass must not overwrite the cache with the freshly computed result');
+
+            // Third request: no bypass. Must be a cache hit against the untouched seq=1 entry, not seq=2.
+            $req3 = (new ServerRequest('GET','/'))->withAttribute(ActionDescriptor::class,$ad);
+            $resp3 = $mw->process($req3, $this->createStub(RequestHandlerInterface::class));
+            $this->assertSame(2, $executed, 'A subsequent non-bypass request must be served from the untouched cache entry');
+            $this->assertSame('1', $resp3->getHeaderLine(\Quiote\Config\Config::getString('core.cache-hit-header','X-Quiote-Cache-Hit')));
+        } catch (RuntimeException $e) {
+            $this->markTestSkipped('Skipping cache bypass test due to bootstrap constraints: ' . $e->getMessage());
+        }
+    }
+
     public function testInvalidActionReturnTriggersViewResolutionFailure(): void
     {
         // Return a type that is neither string nor View::NONE to exercise failure path; expect exception or empty content.

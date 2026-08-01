@@ -247,4 +247,49 @@ class ActionViewCachingTest extends TestCase
         $this->assertSame('anon', $anon['response_content']);
         $this->assertSame('user', $user['response_content']);
     }
+
+    /**
+     * A cached response is specific to the locale it was rendered in. Without
+     * locale in the key, two requests differing only by locale would collide
+     * on the same entry -- whichever locale populated the cache first would
+     * be served to every subsequent request regardless of its own locale.
+     */
+    public function testDifferentLocalesDoNotCollideOnTheSameCacheEntry(): void
+    {
+        $this->cache->set('M', 'A', 'html', ['response_content' => 'Hello'], null, null, 'en_US');
+        $this->cache->set('M', 'A', 'html', ['response_content' => 'Bonjour'], null, null, 'fr_FR');
+
+        $en = $this->cache->get('M', 'A', 'html', null, 'en_US');
+        $fr = $this->cache->get('M', 'A', 'html', null, 'fr_FR');
+
+        $this->assertNotNull($en);
+        $this->assertNotNull($fr);
+        $this->assertSame('Hello', $en['response_content']);
+        $this->assertSame('Bonjour', $fr['response_content']);
+    }
+
+    public function testLocaleScopedAndLocaleAgnosticKeysStayDistinct(): void
+    {
+        $this->cache->set('M', 'A', 'html', ['response_content' => 'no-locale']);
+        $this->cache->set('M', 'A', 'html', ['response_content' => 'en-locale'], null, null, 'en_US');
+
+        $withoutLocale = $this->cache->get('M', 'A', 'html');
+        $withLocale = $this->cache->get('M', 'A', 'html', null, 'en_US');
+
+        $this->assertNotNull($withoutLocale);
+        $this->assertNotNull($withLocale);
+        $this->assertSame('no-locale', $withoutLocale['response_content']);
+        $this->assertSame('en-locale', $withLocale['response_content']);
+    }
+
+    public function testLocaleAndFingerprintKeysComposeIndependently(): void
+    {
+        $this->cache->set('M', 'A', 'html', ['response_content' => 'en-guest'], null, null, 'en_US');
+        $this->cache->set('M', 'A', 'html', ['response_content' => 'en-user'], null, 'fp-1', 'en_US');
+        $this->cache->set('M', 'A', 'html', ['response_content' => 'fr-user'], null, 'fp-1', 'fr_FR');
+
+        $this->assertSame('en-guest', $this->cache->get('M', 'A', 'html', null, 'en_US')['response_content'] ?? null);
+        $this->assertSame('en-user', $this->cache->get('M', 'A', 'html', 'fp-1', 'en_US')['response_content'] ?? null);
+        $this->assertSame('fr-user', $this->cache->get('M', 'A', 'html', 'fp-1', 'fr_FR')['response_content'] ?? null);
+    }
 }

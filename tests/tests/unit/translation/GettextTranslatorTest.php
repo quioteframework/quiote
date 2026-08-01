@@ -97,7 +97,27 @@ class GettextTranslatorTest extends UnitTestCase
         $this->assertSame('Hi', $result);
     }
 
-    public function testResetClearsAllInternalState(): void
+    public function testResetClearsLocaleAndDomainDataButPreservesConfiguration(): void
+    {
+        $translator = new GettextTranslator();
+        $translator->initialize($this->getContext(), ['text_domains' => ['greeting' => sys_get_temp_dir()]]);
+        $translator->localeChanged($this->makeLocale('en_US'));
+        $translator->translate('Hi', 'greeting');
+
+        $translator->reset();
+
+        // Context and the configured domain paths are set once at
+        // initialize() time and never restored between requests in worker
+        // mode, so reset() must not touch them.
+        $this->assertNotNull($translator->getContext());
+        // locale was cleared, so translate() without an explicit locale must
+        // fail loudly rather than silently reuse the previous request's locale.
+        $this->expectException(QuioteException::class);
+        $this->expectExceptionMessage('GettextTranslator has not been prepared with a locale yet.');
+        $translator->translate('Hi', 'greeting');
+    }
+
+    public function testResetPreservesDomainConfigurationForExplicitLocale(): void
     {
         $translator = new GettextTranslator();
         $translator->initialize($this->getContext(), ['text_domains' => ['greeting' => sys_get_temp_dir()]]);
@@ -105,11 +125,11 @@ class GettextTranslatorTest extends UnitTestCase
 
         $translator->reset();
 
-        $this->assertNull($translator->getContext());
-        // After reset, the domain path config is gone too, so this now throws
-        // exactly like a never-configured domain would.
-        $this->expectException(QuioteException::class);
-        $translator->translate('Hi', 'greeting', $this->makeLocale('en_US'));
+        // The domain path configuration must survive reset(); a request
+        // supplying its own locale explicitly must still resolve normally
+        // afterward instead of hitting a "no path specified" error.
+        $result = $translator->translate('Hi', 'greeting', $this->makeLocale('en_US'));
+        $this->assertSame('Hi', $result);
     }
 
     /**

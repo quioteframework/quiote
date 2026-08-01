@@ -167,4 +167,43 @@ class ActionCacheHelperTest extends UnitTestCase
             $this->getContext()->getRequest()
         );
     }
+
+    /**
+     * store()/read() must plumb the locale through to ActionViewCache so that
+     * two requests differing only by locale don't collide on the same
+     * payload -- see ActionViewCachingTest for key-composition coverage.
+     */
+    public function testStoreAndReadRoundTripPerLocale(): void
+    {
+        \Quiote\Config\Config::set('core.cache_enabled', true);
+        $adapter = new \Symfony\Component\Cache\Adapter\ArrayAdapter();
+        $cache = new \Quiote\Cache\ActionViewCache(new \Symfony\Component\Cache\Psr16Cache($adapter));
+        $desc = $this->makeDescriptor();
+        $state = new ExecutionState();
+
+        ActionCacheHelper::store($cache, $desc, $state, 'English body', [], true, null, null, 'en_US');
+        ActionCacheHelper::store($cache, $desc, $state, 'French body', [], true, null, null, 'fr_FR');
+
+        $en = ActionCacheHelper::read($cache, $desc, null, 'en_US');
+        $fr = ActionCacheHelper::read($cache, $desc, null, 'fr_FR');
+
+        $this->assertNotNull($en);
+        $this->assertNotNull($fr);
+        $this->assertSame('English body', $en['response_content']);
+        $this->assertSame('French body', $fr['response_content']);
+    }
+
+    public function testReadWithoutMatchingLocaleIsAMiss(): void
+    {
+        \Quiote\Config\Config::set('core.cache_enabled', true);
+        $adapter = new \Symfony\Component\Cache\Adapter\ArrayAdapter();
+        $cache = new \Quiote\Cache\ActionViewCache(new \Symfony\Component\Cache\Psr16Cache($adapter));
+        $desc = $this->makeDescriptor();
+        $state = new ExecutionState();
+
+        ActionCacheHelper::store($cache, $desc, $state, 'English body', [], true, null, null, 'en_US');
+
+        $this->assertNull(ActionCacheHelper::read($cache, $desc, null, 'fr_FR'));
+        $this->assertNull(ActionCacheHelper::read($cache, $desc, null, null));
+    }
 }

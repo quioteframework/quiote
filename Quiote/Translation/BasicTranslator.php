@@ -49,9 +49,15 @@ abstract class BasicTranslator implements ITranslator, ResetInterface
 	{
 	}
 
+	/**
+	 * Reset per-request state for worker compatibility. Context is set once at
+	 * initialize() time and nothing re-initializes a translator between
+	 * requests, so it is deliberately left alone here; subclasses override
+	 * this to clear whatever locale-derived state they hold.
+	 * @since      1.0.0
+	 */
 	public function reset() : void
 	{
-		$this->context = null;
 	}
 }
 

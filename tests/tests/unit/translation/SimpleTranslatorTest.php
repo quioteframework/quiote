@@ -156,4 +156,22 @@ class SimpleTranslatorTest extends UnitTestCase
 
         $this->assertSame('Hello!', $translator->translate('greeting', ''));
     }
+
+    public function testResetClearsLocaleButPreservesConfiguredCatalog(): void
+    {
+        $translator = new SimpleTranslator();
+        $translator->initialize($this->getContext(), [
+            '' => ['en_US' => ['greeting' => 'Hello!']],
+        ]);
+        $translator->localeChanged($this->makeLocale('en_US'));
+
+        $translator->reset();
+
+        // The parsed catalog (domainData) is built once at initialize() time
+        // and never restored between requests in worker mode, so reset() must
+        // not discard it; re-establishing the locale must resolve normally
+        // again instead of resolving to the untranslated key.
+        $translator->localeChanged($this->makeLocale('en_US'));
+        $this->assertSame('Hello!', $translator->translate('greeting', ''));
+    }
 }

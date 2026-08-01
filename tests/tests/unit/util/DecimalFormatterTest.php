@@ -177,7 +177,11 @@ class DecimalFormatterTest extends PhpUnitTestCase
 		$df->reset();
 
 		$this->assertNull($df->getFormat());
-		$this->assertEquals(DecimalFormatter::ROUND_SCIENTIFIC, $df->getRoundingMode());
+		// roundingMode is configured once (via setRoundingMode(), driven by
+		// initialize()'s "rounding_mode" parameter in real translator usage)
+		// and never restored between requests in worker mode, so reset() must
+		// not discard it.
+		$this->assertEquals(DecimalFormatter::ROUND_CEIL, $df->getRoundingMode());
 		// After reset, an empty format string means vsprintf gets no directives at all.
 		$this->assertEquals('', $df->formatNumber(5));
 	}

@@ -8,6 +8,7 @@ use Quiote\Translation\SimpleTranslator;
 use Quiote\Translation\TranslationManager;
 use Quiote\Config\Config;
 use Quiote\Config\ConfigCache;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * A minimal ITranslator double for exercising TranslationManager::_()/__() in
@@ -43,6 +44,40 @@ class RecordingTestTranslator implements ITranslator
 
     public function localeChanged(QuioteLocale $newLocale)
     {
+    }
+}
+
+/**
+ * An ITranslator double that also implements ResetInterface, so
+ * TranslationManager::reset() propagation to registered translators can be
+ * exercised without depending on GettextTranslator's/SimpleTranslator's own
+ * reset() logic.
+ */
+class RecordingResettableTestTranslator implements ITranslator, ResetInterface
+{
+    public bool $resetCalled = false;
+
+    public function getContext()
+    {
+        return null;
+    }
+
+    public function initialize(Context $context, array $parameters = [])
+    {
+    }
+
+    public function translate($message, $domain, ?QuioteLocale $locale = null)
+    {
+        return is_scalar($message) ? (string) $message : get_debug_type($message);
+    }
+
+    public function localeChanged(QuioteLocale $newLocale)
+    {
+    }
+
+    public function reset(): void
+    {
+        $this->resetCalled = true;
     }
 }
 
@@ -227,5 +262,31 @@ class TranslationManagerAdditionalTest extends UnitTestCase
     {
         $this->tm->setDefaultTimeZone('UTC');
         $this->assertSame('Etc/UTC', $this->tm->getCurrentTimeZone()?->getName());
+    }
+
+    public function testResetPropagatesToRegisteredResettableTranslators(): void
+    {
+        $resettable = new RecordingResettableTestTranslator();
+        $this->registerTranslator('recording_domain_reset', TranslationManager::MESSAGE, $resettable);
+
+        $this->assertFalse($resettable->resetCalled);
+        $this->tm->reset();
+
+        // Context::reset() delegates to TranslationManager::reset() to
+        // prevent locale bleed across requests in worker mode; that guarantee
+        // only holds if every registered translator also gets a chance to
+        // drop its own per-request locale/domain state.
+        $this->assertTrue($resettable->resetCalled, 'reset() must propagate to every registered ResetInterface translator');
+    }
+
+    public function testResetDoesNotErrorOnTranslatorsWithoutResetInterface(): void
+    {
+        $nonResettable = new RecordingTestTranslator();
+        $this->registerTranslator('recording_domain_reset2', TranslationManager::MESSAGE, $nonResettable);
+
+        // RecordingTestTranslator does not implement ResetInterface; reset()
+        // must simply skip it rather than erroring.
+        $this->tm->reset();
+        $this->addToAssertionCount(1);
     }
 }

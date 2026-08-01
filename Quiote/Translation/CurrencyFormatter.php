@@ -324,6 +324,24 @@ class CurrencyFormatter extends DecimalFormatter implements ITranslator, ResetIn
 	{
 		$this->maxShowedFractionals = $this->minShowedFractionals = $count;
 	}
+
+	/**
+	 * Reset per-request locale state for worker compatibility. context,
+	 * customFormat, currencyCode and translationDomain are configured once
+	 * from initialize() parameters and never restored afterward -- clearing
+	 * them here would silently lose the configured currency/format for every
+	 * subsequent request. Only locale (and the derived format fields cleared
+	 * by parent::reset(), which localeChanged() always recomputes) are
+	 * per-request.
+	 * @since      1.0.0
+	 */
+	#[\Override]
+    public function reset() : void
+	{
+		$this->locale = null;
+
+		parent::reset();
+	}
 }
 
 ?>

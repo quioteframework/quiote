@@ -98,4 +98,26 @@ class QuioteNumberFormatterTest extends UnitTestCase
         $result = $nf->translate(1234.5, '', $locale);
         $this->assertStringContainsString('1,234.5', $result);
     }
+
+    public function testResetClearsLocaleButPreservesConfiguredFormat(): void
+    {
+        $locale = $this->tm->getLocale('en_US@timezone=UTC');
+        $nf = new QuioteNumberFormatter();
+        $nf->initialize($this->getContext(), ['format' => ['en_US' => '#,##0.0']]);
+        $nf->localeChanged($locale);
+        $before = $nf->translate(1234, '', $locale);
+
+        $nf->reset();
+
+        // context and the configured per-locale custom format are set once at
+        // initialize() time and never restored between requests in worker
+        // mode, so reset() must not discard them.
+        $this->assertNotNull($nf->getContext());
+        $after = $nf->translate(1234, '', $locale);
+        $this->assertSame($before, $after);
+
+        $ro = new ReflectionObject($nf);
+        $localeProp = $ro->getProperty('locale');
+        $this->assertNull($localeProp->getValue($nf), 'reset() must clear the directly-set locale to prevent cross-request bleed');
+    }
 }

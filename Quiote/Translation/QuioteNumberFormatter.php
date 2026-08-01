@@ -163,13 +163,20 @@ class QuioteNumberFormatter extends DecimalFormatter implements ITranslator, Res
 		$this->setFormat($format);
 	}
 
+	/**
+	 * Reset per-request locale state for worker compatibility. context,
+	 * customFormat and translationDomain are configured once from initialize()
+	 * parameters and never restored afterward -- clearing them here would
+	 * silently fall back to the hardcoded default number format for every
+	 * subsequent request. Only locale (and the derived format fields cleared
+	 * by parent::reset(), which localeChanged() always recomputes) are
+	 * per-request.
+	 * @since      1.0.0
+	 */
 	#[\Override]
     public function reset() : void
 	{
-		$this->context = null;
 		$this->locale = null;
-		$this->customFormat = null;
-		$this->translationDomain = null;
 
 		parent::reset();
 	}

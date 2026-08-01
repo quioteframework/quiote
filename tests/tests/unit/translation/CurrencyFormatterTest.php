@@ -113,4 +113,28 @@ class CurrencyFormatterTest extends UnitTestCase
         $result = $cf->translate(10.5, '', $locale);
         $this->assertStringContainsString('10.5', $result);
     }
+
+    public function testResetClearsLocaleButPreservesCurrencyConfiguration(): void
+    {
+        $locale = $this->tm->getLocale('en_US@timezone=UTC');
+        $cf = new CurrencyFormatter();
+        $cf->initialize($this->getContext(), ['currency_code' => 'USD']);
+        $cf->localeChanged($locale);
+        $before = $cf->translate(1000, '', $locale);
+
+        $cf->reset();
+
+        // context and currency_code are configured once at initialize() time
+        // and never restored between requests in worker mode -- previously
+        // CurrencyFormatter had no reset() override at all, so nothing here
+        // was ever cleared, including the locale itself.
+        $this->assertNotNull($cf->getContext());
+        $this->assertSame('USD', $cf->getCurrencyCode());
+        $after = $cf->translate(1000, '', $locale);
+        $this->assertSame($before, $after);
+
+        $ro = new ReflectionObject($cf);
+        $localeProp = $ro->getProperty('locale');
+        $this->assertNull($localeProp->getValue($cf), 'reset() must clear the directly-set locale to prevent cross-request bleed');
+    }
 }

@@ -965,6 +965,14 @@ class TranslationManager implements ResetInterface
 	 * with no locale at all would make the next request's first locale-dependent
 	 * lookup fail -- e.g. StreamTemplateLayer asking for the current identifier
 	 * to build its template lookup path, which rejects an empty one.
+	 *
+	 * Every registered translator is reset too, unconditionally: setLocale()
+	 * above notifies translators of the new locale via loadCurrentLocale(),
+	 * but only when there IS a default locale to fall back to and only once
+	 * loadCurrentLocale() next runs. Without a default locale (or before that
+	 * lazy re-check happens), translators would otherwise keep serving the
+	 * previous request's locale/domain data -- the exact cross-request bleed
+	 * this method exists to prevent.
 	 * @since      1.0.0
 	 */
 	public function reset(): void {
@@ -979,6 +987,14 @@ class TranslationManager implements ResetInterface
 		$this->currencyFractionCache = [];
 		$this->territoryDataCache = [];
 		$this->translatorLookupCache = [];
+
+		foreach($this->translators as $translatorList) {
+			foreach($translatorList as $translator) {
+				if($translator instanceof ResetInterface) {
+					$translator->reset();
+				}
+			}
+		}
 
 		// Null before initialize() has run (or when no default is configured);
 		// there is no baseline to go back to in that case.

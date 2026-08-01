@@ -12,7 +12,7 @@ final class ActionCacheHelper
      *
      * @param array<string, mixed> $actionAttributes
      */
-    public static function store(ActionViewCache $cache, ActionDescriptor $desc, ExecutionState $state, string $content, array $actionAttributes, bool $isSimple, ?int $ttl = null, ?string $userFingerprint = null): void
+    public static function store(ActionViewCache $cache, ActionDescriptor $desc, ExecutionState $state, string $content, array $actionAttributes, bool $isSimple, ?int $ttl = null, ?string $userFingerprint = null, ?string $locale = null): void
     {
     // Master switch: disable all action/view caching globally when core.cache_enabled = false (default off)
     if(!\Quiote\Config\Config::getBool('core.cache_enabled', false)) { return; }
@@ -37,7 +37,7 @@ final class ActionCacheHelper
                     'securityDecision' => $state->securityDecision,
                 ],
                 'user_fingerprint' => $userFingerprint,
-            ], $ttl, $userFingerprint);
+            ], $ttl, $userFingerprint, $locale);
         } catch(\Throwable) { /* ignore cache write errors */ }
     }
 
@@ -46,16 +46,16 @@ final class ActionCacheHelper
      *
      * @return array<string, mixed>|null
      */
-    public static function read(ActionViewCache $cache, ActionDescriptor $desc, ?string $userFingerprint = null): ?array
+    public static function read(ActionViewCache $cache, ActionDescriptor $desc, ?string $userFingerprint = null, ?string $locale = null): ?array
     {
     if(!\Quiote\Config\Config::getBool('core.cache_enabled', false)) { return null; }
         try {
             // Attempt fingerprint-specific first; fallback to global if none.
             if($userFingerprint) {
-                $payload = $cache->get($desc->module, $desc->action, $desc->outputType, $userFingerprint);
+                $payload = $cache->get($desc->module, $desc->action, $desc->outputType, $userFingerprint, $locale);
                 if($payload) { return $payload; }
             }
-            return $cache->get($desc->module, $desc->action, $desc->outputType) ?: null;
+            return $cache->get($desc->module, $desc->action, $desc->outputType, null, $locale) ?: null;
         } catch(\Throwable) { return null; }
     }
 

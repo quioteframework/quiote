@@ -183,11 +183,18 @@ class SimpleTranslator extends BasicTranslator implements ResetInterface
 		$this->currentData = $currentData;
 	}
 
+	/**
+	 * Reset per-request locale state for worker compatibility. domainData is
+	 * the parsed config catalog built once in initialize() and never restored
+	 * afterward -- clearing it here would leave every subsequent request's
+	 * translations resolving to their untranslated key for the rest of the
+	 * worker's lifetime. Only currentData/locale, which localeChanged()
+	 * re-derives from domainData for the active locale, are per-request.
+	 * @since      1.0.0
+	 */
 	#[\Override]
     public function reset() : void
 	{
-		$this->context = null;
-		$this->domainData = [];
 		$this->currentData = [];
 		$this->locale = null;
 	}

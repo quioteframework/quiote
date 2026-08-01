@@ -844,7 +844,12 @@ class DecimalFormatter implements ResetInterface
 		$this->groupingDistances = [];
 		$this->groupingSeparator = ',';
 		$this->decimalSeparator = '.';
-		$this->roundingMode = self::ROUND_SCIENTIFIC;
+		// roundingMode is deliberately NOT reset here: it's set once from
+		// config at initialize() time (setRoundingMode()) and never touched by
+		// setFormat()/localeChanged(), unlike every other field above. Nothing
+		// re-initializes a translator between requests in worker mode, so
+		// clearing it would silently discard the configured rounding mode for
+		// the rest of the worker's lifetime.
 	}
 }
 

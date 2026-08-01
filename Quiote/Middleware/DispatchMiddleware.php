@@ -344,6 +344,8 @@ class DispatchMiddleware implements MiddlewareInterface
         $cacheEnabled = Config::getBool('core.cache_enabled', false);
         $useCache = $cacheEnabled && \Quiote\Config\Config::getBool('core.use_cache', false);
         $avCache = ($cacheEnabled && $useCache) ? new ActionViewCache(CacheManager::getCache()) : null;
+        $cacheBypass = (bool)$request->getAttribute('quiote.cache.bypass');
+        $locale = $this->currentCacheLocale();
         $cacheHitPayload = null;
         $isCacheable = false;
         $actionInstance = null;
@@ -376,8 +378,8 @@ class DispatchMiddleware implements MiddlewareInterface
         if ($actionInstance instanceof \Quiote\Http\Sse\SseStreamingAction) {
             return $this->buildSseResponse($actionInstance, $request);
         }
-        if ($cacheEnabled && $isCacheable && !$request->getAttribute('quiote.cache.bypass')) {
-            $cacheHitPayload = $avCache ? ActionCacheHelper::read($avCache, $actionDesc, $userFp) : null;
+        if ($cacheEnabled && $isCacheable && !$cacheBypass) {
+            $cacheHitPayload = $avCache ? ActionCacheHelper::read($avCache, $actionDesc, $userFp, $locale) : null;
             if ($cacheHitPayload) {
                 if ($this->dynamicFlagsActive($actionInstance)) {
                     $cacheHitPayload = null;
@@ -403,10 +405,10 @@ class DispatchMiddleware implements MiddlewareInterface
         }
         $ctx = $this->actionExecutor->execute($actionDesc, $request, $execState, [], $actionInstance);
 
-        if ($cacheEnabled && $isCacheable && !$execState->cacheHit) {
+        if ($cacheEnabled && $isCacheable && !$execState->cacheHit && !$cacheBypass) {
             $ttl = $actionInstance?->cacheTtlSeconds($actionDesc->outputType);
             if ($avCache) {
-                ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, $this->stringKeyedAttributes($actionInstance), true, $ttl, $userFp);
+                ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, $this->stringKeyedAttributes($actionInstance), true, $ttl, $userFp, $locale);
             }
         }
         if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
@@ -414,6 +416,21 @@ class DispatchMiddleware implements MiddlewareInterface
             \Quiote\Logging\Log::for($this)->debug('[DispatchMiddleware][' . $rid . '] simple contentType=' . $actionDesc->outputType . ' contentLen=' . strlen($ctx->content) . ' prefix=' . substr($ctx->content, 0, 80));
         }
         return $this->buildPsrResponse($ctx->content, $actionDesc->outputType, false, false, $ctx->redirect ?? null);
+    }
+
+    /**
+     * The current locale identifier for cache key purposes, or null when
+     * translations are disabled/uninitialized. A cached action/view result is
+     * specific to the locale it was rendered in, so this must factor into the
+     * cache key -- see ActionViewCache::key().
+     */
+    private function currentCacheLocale(): ?string
+    {
+        try {
+            return $this->controller->getContext()->getTranslationManager()?->getCurrentLocaleIdentifier();
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**
@@ -554,10 +571,12 @@ class DispatchMiddleware implements MiddlewareInterface
             return $this->buildSseResponse($actionInstance, $request);
         }
         $cacheEnabled = Config::getBool('core.cache_enabled', false);
-        if ($cacheEnabled && $isCacheable && !$request->getAttribute('quiote.cache.bypass')) {
+        $cacheBypass = (bool)$request->getAttribute('quiote.cache.bypass');
+        $locale = $this->currentCacheLocale();
+        if ($cacheEnabled && $isCacheable && !$cacheBypass) {
             $useCache = \Quiote\Config\Config::getBool('core.use_cache', false);
             $avCache = $useCache ? new ActionViewCache(CacheManager::getCache()) : null;
-            $cacheHitPayload = $avCache ? ActionCacheHelper::read($avCache, $actionDesc, $userFp) : null;
+            $cacheHitPayload = $avCache ? ActionCacheHelper::read($avCache, $actionDesc, $userFp, $locale) : null;
             if ($cacheHitPayload) {
                 $key = $actionDesc->module . ':' . $actionDesc->action . ':' . $actionDesc->outputType;
                 if (!isset(self::$executedNonSimpleActions[$key])) {
@@ -584,9 +603,9 @@ class DispatchMiddleware implements MiddlewareInterface
             $ctx = $this->actionExecutor->execute($actionDesc, $request, $execState, [], $actionInstance);
         }
         self::$executedNonSimpleActions[$actionDesc->module . ':' . $actionDesc->action . ':' . $actionDesc->outputType] = true;
-        if ($cacheEnabled && $isCacheable && !$execState->cacheHit && $avCache) {
+        if ($cacheEnabled && $isCacheable && !$execState->cacheHit && !$cacheBypass && $avCache) {
             $ttl = $actionInstance?->cacheTtlSeconds($actionDesc->outputType);
-            ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, $this->stringKeyedAttributes($actionInstance), false, $ttl, $userFp);
+            ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, $this->stringKeyedAttributes($actionInstance), false, $ttl, $userFp, $locale);
         }
         if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
             $rid = $this->correlationId($request);

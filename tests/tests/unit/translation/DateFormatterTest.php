@@ -174,7 +174,7 @@ class DateFormatterTest extends UnitTestCase
         $this->assertNotEmpty($result);
     }
 
-    public function testResetRestoresDefaults(): void
+    public function testResetPreservesConfiguredFormatForExplicitLocale(): void
     {
         $df = new DateFormatter();
         $df->initialize($this->getContext(), ['type' => 'date', 'format' => 'yyyy-MM-dd']);
@@ -183,9 +183,30 @@ class DateFormatterTest extends UnitTestCase
 
         $df->reset();
 
-        // After reset, the custom format is gone; formatting falls back to the default "medium" specifier pattern.
+        // The configured custom format is set once at initialize() time and
+        // never restored between requests in worker mode, so reset() must not
+        // discard it; a request supplying its own locale explicitly must still
+        // resolve to the same format afterward.
         $result = $df->translate(new DateTimeImmutable('2024-03-15'), '', $locale);
-        $this->assertNotEquals('2024-03-15', $result);
+        $this->assertEquals('2024-03-15', $result);
+    }
+
+    public function testResetClearsLocaleForImplicitTranslate(): void
+    {
+        $df = new DateFormatter();
+        $df->initialize($this->getContext(), ['type' => 'date', 'format' => 'yyyy-MM-dd']);
+        $locale = $this->tm->getLocale('en_US@timezone=UTC');
+        $df->localeChanged($locale);
+        $this->assertEquals('2024-03-15', $df->translate(new DateTimeImmutable('2024-03-15'), ''));
+
+        $df->reset();
+
+        // locale was cleared, so a caller relying on the previously set
+        // locale (no $locale argument) must fail loudly rather than silently
+        // reuse the previous request's locale.
+        $this->expectException(QuioteException::class);
+        $this->expectExceptionMessage('DateFormatter has not been prepared with a locale yet.');
+        $df->translate(new DateTimeImmutable('2024-03-15'), '');
     }
 
     public function testTranslateThrowsWhenTranslationManagerUnavailable(): void

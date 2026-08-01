@@ -146,12 +146,19 @@ class DateFormatter implements ITranslator, ResetInterface
 		return in_array($format, $specifiers, true);
 	}
 
+	/**
+	 * Reset per-request locale state for worker compatibility. type,
+	 * customFormat and translationDomain are configured once from
+	 * initialize() parameters and never restored afterward -- clearing them
+	 * here would silently revert to the default 'datetime' type/format for
+	 * every subsequent request. Only locale and resolvedPattern, which
+	 * localeChanged() always recomputes for the active locale, are
+	 * per-request.
+	 * @since      1.0.0
+	 */
 	public function reset() : void
 	{
 		$this->locale = null;
-		$this->type = 'datetime';
-		$this->customFormat = null;
-		$this->translationDomain = null;
 		$this->resolvedPattern = null;
 	}
 
