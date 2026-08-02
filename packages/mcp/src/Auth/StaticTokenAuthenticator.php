@@ -10,11 +10,11 @@ namespace Quiote\Mcp\Auth;
  */
 final class StaticTokenAuthenticator implements McpAuthenticatorInterface
 {
-    public function __construct(private readonly ?string $expectedToken)
+    public function __construct(#[\SensitiveParameter] private readonly ?string $expectedToken)
     {
     }
 
-    public function authenticate(string $token): bool
+    public function authenticate(#[\SensitiveParameter] string $token): bool
     {
         if ($this->expectedToken === null || $this->expectedToken === '' || $token === '') {
             return false;

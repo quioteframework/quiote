@@ -71,7 +71,7 @@ final class IntrospectionClient
 	 * @throws     AuthenticationException If the request fails, the response is malformed, or the token is not active.
 	 * @since      1.0.0
 	 */
-	public function introspect(string $token): array
+	public function introspect(#[\SensitiveParameter] string $token): array
 	{
 		$body = http_build_query(['token' => $token]);
 		$request = $this->requestFactory->createRequest('POST', $this->introspectionEndpoint)

@@ -38,7 +38,7 @@ final class DefaultPasswordHasher implements PasswordHasherInterface
 	 * @return     string The resulting hash, suitable for storage.
 	 * @since      1.0.0
 	 */
-	public function hash(string $plaintext): string
+	public function hash(#[\SensitiveParameter] string $plaintext): string
 	{
 		return password_hash($plaintext, $this->algorithm, $this->options);
 	}
@@ -49,7 +49,7 @@ final class DefaultPasswordHasher implements PasswordHasherInterface
 	 * @return     bool True if $plaintext matches $hash, otherwise false.
 	 * @since      1.0.0
 	 */
-	public function verify(string $plaintext, string $hash): bool
+	public function verify(#[\SensitiveParameter] string $plaintext, #[\SensitiveParameter] string $hash): bool
 	{
 		return password_verify($plaintext, $hash);
 	}
@@ -59,7 +59,7 @@ final class DefaultPasswordHasher implements PasswordHasherInterface
 	 * @return     bool True if $hash was produced with weaker-than-current-default parameters, otherwise false.
 	 * @since      1.0.0
 	 */
-	public function needsRehash(string $hash): bool
+	public function needsRehash(#[\SensitiveParameter] string $hash): bool
 	{
 		return password_needs_rehash($hash, $this->algorithm, $this->options);
 	}

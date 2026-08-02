@@ -91,6 +91,23 @@ class CsrfExemptionAdversaryTest extends UnitTestCase
     }
 
     /**
+     * A request carrying NO session cookie -- the shape a login POST has, since
+     * a first-time visitor has nothing to send yet.
+     *
+     * This is the shape the sessionless exemption was written for, and the shape
+     * login CSRF exploits: the attacker is not riding the victim's session, they
+     * are creating one, by making the victim's browser submit the *attacker's*
+     * credentials. Everything the victim then does happens in the attacker's
+     * account.
+     */
+    private function sessionlessRequest(string $origin, string $method = 'POST'): ServerRequest
+    {
+        $request = new ServerRequest($method, 'http://localhost/login');
+
+        return $origin === '' ? $request : $request->withHeader('Origin', $origin);
+    }
+
+    /**
      * @return array{0: CsrfValidationMiddleware, 1: CsrfAdversaryHandler}
      */
     private function middleware(): array
@@ -205,7 +222,106 @@ class CsrfExemptionAdversaryTest extends UnitTestCase
                 fn(self $t) => $t->victimRequest()
                     ->withAttribute('route_params', ['_module' => 'X', '_action' => 'Y', '_csrf' => null]),
             ],
+            // Login CSRF. The sessionless exemption is correct about the request
+            // it inspects -- there really is no ambient credential on it -- but a
+            // login POST looks exactly the same, and letting it through let an
+            // attacker authenticate the victim AS the attacker. The Origin is what
+            // separates the two, and a browser always attaches it cross-site.
+            'sessionless POST from a foreign origin' => [
+                'login CSRF: no session to ride because the attacker is creating one',
+                fn(self $t) => $t->sessionlessRequest('https://evil.example'),
+            ],
+            'sessionless POST from a look-alike origin' => [
+                'a hostname that merely contains ours is not ours',
+                fn(self $t) => $t->sessionlessRequest('https://localhost.evil.example'),
+            ],
+            'sessionless POST from an opaque origin' => [
+                'a sandboxed iframe sends Origin: null, which is never same-origin',
+                fn(self $t) => $t->sessionlessRequest('null'),
+            ],
+            'sessionless POST from an unparseable origin' => [
+                'if same-origin cannot be established, it was not established',
+                fn(self $t) => $t->sessionlessRequest('not a url'),
+            ],
+            'sessionless PUT from a foreign origin' => [
+                'the same, on the other unsafe methods',
+                fn(self $t) => $t->sessionlessRequest('https://evil.example', 'PUT'),
+            ],
         ];
+    }
+
+    /**
+     * The sessionless exemption must keep exempting the callers it exists for.
+     *
+     * Non-browser clients -- curl, an SDK, a server-to-server job -- send no
+     * Origin, and cannot be made to carry a victim's ambient cookie in the first
+     * place. If the origin check turned those away it would have traded a CSRF
+     * hole for an outage on every API surface that relies on the exemption.
+     */
+    public function testSessionlessNonBrowserAndSameOriginRequestsStillPass(): void
+    {
+        foreach ([
+            'no Origin at all (non-browser client)' => $this->sessionlessRequest(''),
+            'our own origin'                        => $this->sessionlessRequest('http://localhost'),
+            'our own origin, different scheme'      => $this->sessionlessRequest('https://localhost'),
+            'our own origin, explicit port'         => $this->sessionlessRequest('https://localhost:8443'),
+            'our own origin, different case'        => $this->sessionlessRequest('http://LOCALHOST'),
+        ] as $label => $request) {
+            [$middleware, $handler] = $this->middleware();
+            $response = $middleware->process($request, $handler);
+
+            $this->assertTrue($handler->called, $label . ' must reach the action');
+            $this->assertSame(200, $response->getStatusCode(), $label);
+        }
+    }
+
+    /**
+     * The split-origin deployment: a browser hits a host this process never sees
+     * under that name (a proxy rewrote Host, or the SPA is served elsewhere), so
+     * the request's own host cannot vouch for the Origin and the operator has to.
+     */
+    public function testAConfiguredTrustedOriginIsAcceptedAsOurOwn(): void
+    {
+        $previous = Config::getArray('core.csrf.trusted_origins', []);
+        Config::set('core.csrf.trusted_origins', ['https://app.example.com']);
+
+        try {
+            [$middleware, $handler] = $this->middleware();
+            $response = $middleware->process($this->sessionlessRequest('https://app.example.com'), $handler);
+
+            $this->assertTrue($handler->called, 'a configured trusted origin must reach the action');
+            $this->assertSame(200, $response->getStatusCode());
+
+            // ...and only that origin. The entry is matched whole, so it must not
+            // widen into siblings of the same domain.
+            [$middleware, $handler] = $this->middleware();
+            $response = $middleware->process($this->sessionlessRequest('https://other.example.com'), $handler);
+
+            $this->assertFalse($handler->called, 'an unlisted origin must still be rejected');
+            $this->assertSame(403, $response->getStatusCode());
+        } finally {
+            Config::set('core.csrf.trusted_origins', $previous);
+        }
+    }
+
+    /**
+     * A foreign Origin is only decisive where the token check cannot run. Once a
+     * session cookie is present the token is what decides, and a valid one from a
+     * cross-origin caller (a CORS-permitted fetch from an allowed origin) must
+     * still be honoured -- otherwise enabling CORS would silently break writes.
+     */
+    public function testAForeignOriginDoesNotOverrideAValidToken(): void
+    {
+        $token = (new CsrfManager($this->getContext()))->getTokenValue();
+
+        [$middleware, $handler] = $this->middleware();
+        $response = $middleware->process(
+            $this->victimRequest()->withHeader('Origin', 'https://partner.example')->withHeader('X-CSRF-Token', $token),
+            $handler,
+        );
+
+        $this->assertTrue($handler->called);
+        $this->assertSame(200, $response->getStatusCode());
     }
 
     /**

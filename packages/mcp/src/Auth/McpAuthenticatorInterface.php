@@ -12,5 +12,5 @@ namespace Quiote\Mcp\Auth;
 interface McpAuthenticatorInterface
 {
     /** @return bool whether $token is valid */
-    public function authenticate(string $token): bool;
+    public function authenticate(#[\SensitiveParameter] string $token): bool;
 }

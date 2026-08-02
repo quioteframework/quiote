@@ -130,10 +130,74 @@ final class RateLimitTest extends TestCase
         $this->assertSame(0, $this->countRows($pdo));
     }
 
+    /**
+     * `fetch()` deserializes a value read back from a table, and a table is
+     * reachable by anything else holding that database. With
+     * `['allowed_classes' => true]` any autoloadable class could be
+     * materialized, and its `__wakeup()`/`__destruct()` would run *before* the
+     * `instanceof LimiterStateInterface` check could reject it -- which is what
+     * makes an allow-list, rather than that check, the thing doing the work.
+     */
+    public function testFetchRefusesToInstantiateAClassOutsideTheAllowList(): void
+    {
+        $pdo = $this->sqlitePdo();
+        $storage = new PdoRateLimiterStorage($pdo);
+
+        $planted = new RateLimitDeserializationCanary();
+        $this->plantState($pdo, 'canary-key', $planted);
+
+        RateLimitDeserializationCanary::$awoken = 0;
+        $fetched = $storage->fetch('canary-key');
+
+        $this->assertNull($fetched, 'a non-limiter payload must not be handed back');
+        $this->assertSame(0, RateLimitDeserializationCanary::$awoken, '__wakeup() must never have run');
+    }
+
+    /** The other half: legitimate limiter states must still round-trip. */
+    public function testFetchStillRestoresAllowedLimiterStates(): void
+    {
+        $pdo = $this->sqlitePdo();
+        $storage = new PdoRateLimiterStorage($pdo);
+
+        $state = new \Symfony\Component\RateLimiter\Policy\SlidingWindow('allowed-key', 3600);
+        $state->add(1);
+        $storage->save($state);
+
+        $fetched = $storage->fetch('allowed-key');
+
+        $this->assertInstanceOf(\Symfony\Component\RateLimiter\Policy\SlidingWindow::class, $fetched);
+        $this->assertSame('allowed-key', $fetched->getId());
+    }
+
+    /** Writes a raw serialized payload the way save() would, bypassing its typing. */
+    private function plantState(\PDO $pdo, string $id, object $value): void
+    {
+        $statement = $pdo->prepare('INSERT INTO quiote_rate_limit (id, state, expires_at) VALUES (:id, :state, NULL)');
+        $statement->execute([
+            'id' => sha1($id),
+            'state' => base64_encode(serialize($value)),
+        ]);
+    }
+
     public function testInvalidTableNameRejected(): void
     {
         $this->expectException(\InvalidArgumentException::class);
         $storage = new PdoRateLimiterStorage($this->sqlitePdo(), 'bad name; DROP TABLE x');
         $storage->fetch('anything');
+    }
+}
+
+/**
+ * Stands in for a deserialization gadget: it records whether unserialize()
+ * reached its wake-up hook. A real gadget chain would do something useful to an
+ * attacker there; the assertion is simply that the hook never runs.
+ */
+final class RateLimitDeserializationCanary
+{
+    public static int $awoken = 0;
+
+    public function __wakeup(): void
+    {
+        self::$awoken++;
     }
 }

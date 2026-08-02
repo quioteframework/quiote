@@ -15,7 +15,7 @@ interface PasswordHasherInterface
 	 * @return     string The resulting hash, suitable for storage.
 	 * @since      1.0.0
 	 */
-	public function hash(string $plaintext): string;
+	public function hash(#[\SensitiveParameter] string $plaintext): string;
 
 	/**
 	 * @param      string $plaintext The plaintext password to check.
@@ -23,7 +23,7 @@ interface PasswordHasherInterface
 	 * @return     bool True if $plaintext matches $hash, otherwise false.
 	 * @since      1.0.0
 	 */
-	public function verify(string $plaintext, string $hash): bool;
+	public function verify(#[\SensitiveParameter] string $plaintext, #[\SensitiveParameter] string $hash): bool;
 
 	/**
 	 * True if $hash was produced with weaker-than-current-default
@@ -33,5 +33,5 @@ interface PasswordHasherInterface
 	 * @return     bool True if $hash should be re-hashed, otherwise false.
 	 * @since      1.0.0
 	 */
-	public function needsRehash(string $hash): bool;
+	public function needsRehash(#[\SensitiveParameter] string $hash): bool;
 }

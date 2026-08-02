@@ -38,7 +38,7 @@ final class JwtTokenValidator implements TokenValidatorInterface
 	 * @throws     AuthenticationException If the token is malformed, expired, or fails signature/iss/aud checks.
 	 * @since      1.0.0
 	 */
-	public function validate(string $token): array
+	public function validate(#[\SensitiveParameter] string $token): array
 	{
 		$previousLeeway = JWT::$leeway;
 		JWT::$leeway = $this->leeway;

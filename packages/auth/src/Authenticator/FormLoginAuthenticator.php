@@ -5,6 +5,8 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Quiote\Security\Auth\AuthenticationException;
 use Quiote\Security\Auth\AuthenticatorInterface;
+use Quiote\Security\Auth\ClientAddress;
+use Quiote\Security\Auth\Hasher\DummyPasswordHash;
 use Quiote\Security\Auth\Passport;
 use Quiote\Security\Auth\PasswordHasherInterface;
 use Quiote\Security\Auth\PasswordProtectedUserIdentity;
@@ -92,7 +94,7 @@ final class FormLoginAuthenticator implements AuthenticatorInterface
 		// it hands an attacker a lockout primitive against a known victim. The
 		// client key bounds the attacker; the identifier key bounds the account.
 		$throttleKeys = ['form_login:' . strtolower($identifier)];
-		$clientKey = $this->clientKey($request);
+		$clientKey = ClientAddress::fromRequest($request);
 		if($clientKey !== null) {
 			$throttleKeys[] = 'form_login_client:' . $clientKey;
 		}
@@ -113,7 +115,9 @@ final class FormLoginAuthenticator implements AuthenticatorInterface
 		// single indexed SELECT while a known one paid a full argon2id verification
 		// -- a timing oracle worth tens of milliseconds, i.e. a reliable account
 		// enumeration primitive. Both paths now cost one KDF.
-		$hash = $identity instanceof PasswordProtectedUserIdentity ? $identity->getPasswordHash() : self::dummyHash();
+		$hash = $identity instanceof PasswordProtectedUserIdentity
+			? $identity->getPasswordHash()
+			: DummyPasswordHash::for($this->passwordHasher);
 		$passwordMatches = $this->passwordHasher->verify($password, $hash);
 
 		if(!$identity instanceof PasswordProtectedUserIdentity || !$passwordMatches) {
@@ -132,46 +136,6 @@ final class FormLoginAuthenticator implements AuthenticatorInterface
 		}
 
 		return new Passport($identity, $identity->getRoles(), stateless: false);
-	}
-
-	/**
-	 * A valid hash of a value no submitted password can match, used to spend the
-	 * same KDF time on an unknown identifier as on a known one.
-	 *
-	 * Computed once per process and cached: it must be a real hash in the
-	 * configured algorithm's own format so verify() does the full derivation
-	 * rather than bailing on a malformed hash, which would defeat the point.
-	 * @return     string
-	 * @since      3.0.3
-	 */
-	private static function dummyHash(): string
-	{
-		static $hash = null;
-		if($hash === null) {
-			$hash = password_hash(
-				base64_encode(random_bytes(32)),
-				defined('PASSWORD_ARGON2ID') ? PASSWORD_ARGON2ID : PASSWORD_BCRYPT,
-			);
-		}
-
-		return $hash;
-	}
-
-	/**
-	 * A stable per-caller throttle key, or null when the peer address is unknown.
-	 *
-	 * Deliberately the connecting peer (`REMOTE_ADDR`) and never a
-	 * client-supplied forwarding header: a spoofable key lets an attacker rotate
-	 * it per request, which is indistinguishable from no throttling at all.
-	 * @param      ServerRequestInterface $request The incoming login request.
-	 * @return     ?string
-	 * @since      3.0.3
-	 */
-	private function clientKey(ServerRequestInterface $request): ?string
-	{
-		$remote = $request->getServerParams()['REMOTE_ADDR'] ?? null;
-
-		return is_string($remote) && $remote !== '' ? $remote : null;
 	}
 
 	/**

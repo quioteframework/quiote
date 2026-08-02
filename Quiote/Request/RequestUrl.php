@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Quiote\Request;
 
 use Psr\Http\Message\UriInterface;
-use Quiote\Config\Config;
 use Quiote\Util\Toolkit;
 
 /**
@@ -189,35 +188,11 @@ final class RequestUrl
             $port = $scheme === 'https' ? 443 : 80;
         }
 
-        // Trusted-host validation. The Host header is attacker-controlled and feeds
-        // generated absolute URLs (base href, redirect Location for "/"-relative
-        // targets, password-reset links, ...), so an unvalidated value enables
-        // host-header poisoning / cache poisoning. When core.trusted_hosts is set
-        // (array of exact hostnames and/or "/regex/" patterns), a Host matching none
-        // of them is replaced with the first literal trusted host (safe
-        // canonicalization). Empty/unset preserves the previous behavior (no
-        // restriction) for backwards compatibility — set it in production.
-        $trustedHosts = Config::getArray('core.trusted_hosts', []);
-        if ($trustedHosts !== [] && $host !== '') {
-            $matched = false;
-            $firstLiteral = null;
-            foreach ($trustedHosts as $th) {
-                if (!is_string($th) || $th === '') {
-                    continue;
-                }
-                $isRegex = (strlen($th) > 1 && $th[0] === '/' && str_ends_with($th, '/'));
-                if ($firstLiteral === null && !$isRegex) {
-                    $firstLiteral = $th;
-                }
-                if ($isRegex ? (bool)@preg_match($th, $host) : (strcasecmp($th, $host) === 0)) {
-                    $matched = true;
-                    break;
-                }
-            }
-            if (!$matched && $firstLiteral !== null) {
-                $host = $firstLiteral;
-            }
-        }
+        // Trusted-host validation; see {@see TrustedHosts} for the rule and why it
+        // is shared rather than inlined here. Empty/unset core.trusted_hosts
+        // applies no restriction, preserving pre-setting behaviour — set it in
+        // production.
+        $host = TrustedHosts::filter($host);
 
         // Build request URI, path, and query pieces.
         $requestUri = self::toStr($server['REQUEST_URI'] ?? '');

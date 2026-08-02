@@ -19,7 +19,7 @@ final class InMemoryUserIdentity implements PasswordProtectedUserIdentity
 	 */
 	public function __construct(
 		private readonly string $identifier,
-		private readonly string $passwordHash,
+		#[\SensitiveParameter] private readonly string $passwordHash,
 		private readonly array $roles = [],
 	) {
 	}

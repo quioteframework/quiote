@@ -23,6 +23,36 @@ use Symfony\Component\RateLimiter\Storage\StorageInterface;
  *   ); */
 final readonly class PdoRateLimiterStorage implements StorageInterface
 {
+    /**
+     * The complete object graph a serialized limiter state can legitimately
+     * contain, passed to `unserialize()` as an allow-list.
+     *
+     * `['allowed_classes' => true]` -- permitting every autoloadable class --
+     * was wrong here even though this row is written by {@see save()} and never
+     * by a caller: `fetch()` reads back from a table, and a table is reachable
+     * by anything else holding that database (a second application, a
+     * misgranted role, an injection flaw elsewhere). Deserialization runs
+     * `__wakeup()`/`__destruct()` on whatever it materializes, so the
+     * `instanceof` check one line below happens strictly *after* any gadget
+     * would already have fired. The allow-list is what makes that check
+     * meaningful rather than decorative.
+     *
+     * `Rate` and `DateTimeImmutable` are not limiter states themselves; they
+     * are the nested values `TokenBucket` and `CalendarAlignedWindow` hold, and
+     * omitting them would make those two states unrestorable (they come back as
+     * `__PHP_Incomplete_Class` and fail the `instanceof`).
+     *
+     * @var list<class-string>
+     */
+    private const array ALLOWED_STATE_CLASSES = [
+        \Symfony\Component\RateLimiter\Policy\Window::class,
+        \Symfony\Component\RateLimiter\Policy\SlidingWindow::class,
+        \Symfony\Component\RateLimiter\Policy\TokenBucket::class,
+        \Symfony\Component\RateLimiter\Policy\CalendarAlignedWindow::class,
+        \Symfony\Component\RateLimiter\Policy\Rate::class,
+        \DateTimeImmutable::class,
+    ];
+
     public function __construct(
         private \PDO $pdo,
         private string $table = 'quiote_rate_limit'
@@ -83,7 +113,7 @@ final readonly class PdoRateLimiterStorage implements StorageInterface
         if ($decoded === false) {
             return null;
         }
-        $value = @unserialize($decoded, ['allowed_classes' => true]);
+        $value = @unserialize($decoded, ['allowed_classes' => self::ALLOWED_STATE_CLASSES]);
         return $value instanceof LimiterStateInterface ? $value : null;
     }
 

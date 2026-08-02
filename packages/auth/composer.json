@@ -20,7 +20,7 @@
 	},
 	"suggest": {
 		"quioteframework/csrf": "Adds CSRF-token verification to FormLoginAuthenticator.",
-		"quioteframework/ratelimit": "Adds LoginThrottle-based brute-force throttling to FormLoginAuthenticator."
+		"quioteframework/ratelimit": "Adds LoginThrottle-based brute-force throttling to FormLoginAuthenticator and HttpBasicAuthenticator."
 	},
 	"autoload": {
 		"psr-4": {

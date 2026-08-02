@@ -55,6 +55,58 @@ class RoutingAdditionalTest extends TestCase
         if ($prevProto === null) { unset($_SERVER['HTTP_X_FORWARDED_PROTO']); } else { $_SERVER['HTTP_X_FORWARDED_PROTO'] = $prevProto; }
     }
 
+    /**
+     * X-Forwarded-Host is a request header like any other -- nothing in this
+     * process can tell one a proxy wrote from one a client did -- and the value
+     * becomes the origin of generated absolute URLs, including the Location
+     * WebResponse::send() builds for a "/"-relative redirect. This branch used
+     * to skip the core.trusted_hosts allow-list that the WebRequest path
+     * applies, so an application that had configured the setting was still
+     * poisonable through here.
+     */
+    public function testBaseHrefAppliesTheTrustedHostAllowListToForwardedHeaders(): void
+    {
+        $routing = $this->routing([]);
+        $prevHost = $_SERVER['HTTP_X_FORWARDED_HOST'] ?? null;
+        $prevProto = $_SERVER['HTTP_X_FORWARDED_PROTO'] ?? null;
+        $prevTrusted = \Quiote\Config\Config::getArray('core.trusted_hosts', []);
+
+        $_SERVER['HTTP_X_FORWARDED_HOST'] = 'evil.example';
+        $_SERVER['HTTP_X_FORWARDED_PROTO'] = 'https';
+        \Quiote\Config\Config::set('core.trusted_hosts', ['app.example.com']);
+
+        try {
+            $this->assertSame('https://app.example.com', $routing->getBaseHref());
+
+            // The same header, now naming a host the operator did trust, must
+            // still come through untouched.
+            $_SERVER['HTTP_X_FORWARDED_HOST'] = 'app.example.com';
+            $this->assertSame('https://app.example.com', $routing->getBaseHref());
+        } finally {
+            \Quiote\Config\Config::set('core.trusted_hosts', $prevTrusted);
+            if ($prevHost === null) { unset($_SERVER['HTTP_X_FORWARDED_HOST']); } else { $_SERVER['HTTP_X_FORWARDED_HOST'] = $prevHost; }
+            if ($prevProto === null) { unset($_SERVER['HTTP_X_FORWARDED_PROTO']); } else { $_SERVER['HTTP_X_FORWARDED_PROTO'] = $prevProto; }
+        }
+    }
+
+    /** The plain Host header reaches the same branch and must be filtered too. */
+    public function testBaseHrefAppliesTheTrustedHostAllowListToThePlainHostHeader(): void
+    {
+        $routing = $this->routing([]);
+        $prevHost = $_SERVER['HTTP_HOST'] ?? null;
+        $prevTrusted = \Quiote\Config\Config::getArray('core.trusted_hosts', []);
+
+        $_SERVER['HTTP_HOST'] = 'evil.example';
+        \Quiote\Config\Config::set('core.trusted_hosts', ['app.example.com']);
+
+        try {
+            $this->assertSame('http://app.example.com', $routing->getBaseHref());
+        } finally {
+            \Quiote\Config\Config::set('core.trusted_hosts', $prevTrusted);
+            if ($prevHost === null) { unset($_SERVER['HTTP_HOST']); } else { $_SERVER['HTTP_HOST'] = $prevHost; }
+        }
+    }
+
     public function testBaseHrefIgnoresNonStringServerHostValueAndFallsBackToLocalhost(): void
     {
         $routing = $this->routing([]);

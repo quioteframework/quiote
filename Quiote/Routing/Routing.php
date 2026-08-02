@@ -7,6 +7,7 @@ namespace Quiote\Routing;
 use Quiote\Config\Config;
 use Quiote\Context;
 use Quiote\Exception\QuioteException;
+use Quiote\Request\TrustedHosts;
 use Quiote\Routing\Compiler\CompiledMatcherDumper;
 use Quiote\Util\Toolkit;
 use Symfony\Component\Routing\Matcher\CompiledUrlMatcher;
@@ -367,6 +368,16 @@ abstract class Routing implements ResetInterface
 		}
 
 		$scheme = $scheme ?: 'http';
+		// Every candidate above is attacker-supplied: X-Forwarded-Host and
+		// X-Original-Host and Forwarded are read straight off the request (this
+		// process cannot tell a proxy-written header from a client-written one),
+		// and HTTP_HOST is the client's own. This value becomes the origin of
+		// generated absolute URLs -- notably the Location that
+		// WebResponse::send() builds for a "/"-relative redirect -- so it has to
+		// pass the same core.trusted_hosts allow-list the WebRequest path applies.
+		// It previously did not, which left an application that had configured
+		// the setting poisonable through this branch anyway.
+		$host = TrustedHosts::filter($host);
 		$authority = $this->buildAuthority($host, $port, $scheme, $explicitPort);
 		return rtrim($scheme . '://' . $authority, '/');
 	}

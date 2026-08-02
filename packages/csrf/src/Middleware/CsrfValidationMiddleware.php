@@ -28,13 +28,18 @@ use Psr\Http\Server\RequestHandlerInterface;
  *     cross-site. Note this is deliberately NOT "an Authorization header is
  *     present": that header can be attached alongside a session cookie, so
  *     presence alone proved nothing and made the exemption a bypass.
- *   - Requests with no session cookie at all. With no ambient session-backed
- *     credential present, there is nothing for an attacker to ride. The cookie
- *     name comes from the configured SessionManager via
- *     {@see CsrfManager::hasSessionCookie()}, never from ext/session's
- *     session_name() -- the modern session mechanism does not use ext/session,
- *     so session_name() named a cookie Quiote never sets and this exemption
- *     matched every request.
+ *   - Requests with no session cookie at all AND no foreign `Origin`. With no
+ *     ambient session-backed credential present there is nothing for an
+ *     attacker to ride, but that is only true of the request itself -- a login
+ *     POST also arrives without a session, and exempting it on that basis made
+ *     login CSRF work. So the sessionless exemption additionally requires that
+ *     the request is not a browser request from another origin; see
+ *     {@see CsrfManager::isCrossOriginBrowserRequest()}. Non-browser callers
+ *     send no `Origin` and stay exempt. The cookie name comes from the
+ *     configured SessionManager via {@see CsrfManager::hasSessionCookie()},
+ *     never from ext/session's session_name() -- the modern session mechanism
+ *     does not use ext/session, so session_name() named a cookie Quiote never
+ *     sets and this exemption matched every request.
  * Routes that still need protecting despite one of the above (rare) can force
  * the check by adding an `_csrf => true` default; routes that need to opt out
  * for any other reason can add `_csrf => false`.
@@ -115,10 +120,29 @@ class CsrfValidationMiddleware implements MiddlewareInterface
             return false;
         }
 
-        // No session cookie. Genuinely nothing to ride -- but if the application
-        // has no session mechanism at all then EVERY request looks like this and
-        // CSRF is effectively off, which an operator who enabled it deserves to
-        // hear about. Once per process, not per request.
+        // No session cookie -- but "no session yet" is precisely the state a
+        // login POST arrives in, and exempting it made login CSRF work: an
+        // attacker's page posts their own credentials to /login, the victim's
+        // browser has no session to ride so the check is skipped, and the victim
+        // ends up authenticated as the attacker, with everything they then do
+        // recorded in the attacker's account.
+        //
+        // Requiring a token instead is not an option here -- there is no session
+        // to have stored one in, so a genuine first-time visitor would be
+        // rejected too. What separates the two callers is the origin: the
+        // legitimate POST comes from a page this application served, the
+        // attacker's does not. Only browsers send Origin, and only browsers
+        // attach ambient credentials, so keying off it costs non-browser clients
+        // nothing (see isCrossOriginBrowserRequest()).
+        if ($csrf->isCrossOriginBrowserRequest($request)) {
+            return false;
+        }
+
+        // Sessionless and same-origin (or not a browser at all): genuinely
+        // nothing to ride. But if the application has no session mechanism at
+        // all then EVERY request looks like this and CSRF is effectively off,
+        // which an operator who enabled it deserves to hear about. Once per
+        // process, not per request.
         if (!self::$warnedAboutMissingSession && !$csrf->hasSessionMechanism()) {
             self::$warnedAboutMissingSession = true;
             \Quiote\Logging\Log::for($this)->warning(

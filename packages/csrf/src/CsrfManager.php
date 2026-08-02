@@ -110,6 +110,76 @@ final readonly class CsrfManager
     }
 
     /**
+     * Origins accepted as this application's own, beyond the request's own host.
+     *
+     * Only needed where the host a browser used and the host this process sees
+     * genuinely differ -- a proxy that rewrites `Host`, or a deliberately
+     * split-origin deployment. Each entry is compared whole
+     * (`https://app.example.com`), not by suffix, so a value here cannot widen
+     * into sibling hosts the way a bare-domain match would.
+     *
+     * @return string[]
+     */
+    public function trustedOrigins(): array
+    {
+        return Config::getStringList('core.csrf.trusted_origins', []);
+    }
+
+    /**
+     * Whether $request was initiated by a browser from some *other* origin.
+     *
+     * This is what distinguishes the two callers that both arrive without a
+     * session cookie: a legitimate first-time visitor posting a login form from
+     * this application's own page, and an attacker's page posting the same form
+     * cross-site. Both lack the ambient credential the token check keys off, so
+     * only the origin tells them apart.
+     *
+     * An absent `Origin` means "not a browser" -- curl, a server-to-server
+     * caller, an SDK -- and returns false. That is not a loophole an attacker
+     * can take: the header is attached by the browser and is not settable from
+     * page script, so a cross-site request cannot suppress it. A literal `null`
+     * origin (sandboxed iframe, opaque origin) is the opposite case and counts
+     * as foreign.
+     *
+     * The comparison is host-only, deliberately, and not scheme+host+port. This
+     * runs behind TLS-terminating proxies where the request's own scheme is
+     * `http` and its port is an internal one, while the browser's `Origin` says
+     * `https` on 443; comparing those would reject legitimate same-site
+     * requests on every such deployment. What that concedes is an attacker who
+     * already controls another port or the plaintext scheme on this very
+     * hostname -- a position from which the session cookie is reachable
+     * regardless, so the token check was never what stood in the way.
+     */
+    public function isCrossOriginBrowserRequest(\Psr\Http\Message\ServerRequestInterface $request): bool
+    {
+        $origin = trim($request->getHeaderLine('Origin'));
+        if ($origin === '') {
+            return false;
+        }
+
+        if (strcasecmp($origin, 'null') === 0) {
+            return true;
+        }
+
+        foreach ($this->trustedOrigins() as $trusted) {
+            if ($trusted !== '' && strcasecmp(rtrim($trusted, '/'), rtrim($origin, '/')) === 0) {
+                return false;
+            }
+        }
+
+        $originHost = parse_url($origin, PHP_URL_HOST);
+        $requestHost = $request->getUri()->getHost();
+        if (!is_string($originHost) || $originHost === '' || $requestHost === '') {
+            // An Origin that will not parse, or no host to compare it against.
+            // Neither can establish same-origin, and the safe reading of "cannot
+            // establish" is "did not".
+            return true;
+        }
+
+        return strcasecmp($originHost, $requestHost) !== 0;
+    }
+
+    /**
      * HTTP methods that are NOT CSRF-checked (safe / idempotent by convention).
      * @return string[] Upper-cased method names.
      */
