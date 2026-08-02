@@ -91,6 +91,71 @@ final class McpServerActionToolIntegrationTest extends PhpUnitTestCase
         $required = $schema['required'];
         self::assertIsArray($required);
         $this->assertContains('name', $required);
+        $this->assertSame(true, $schema['additionalProperties'], 'A derived input schema is always permissive, and must say so on the wire, not just in behavior');
+    }
+
+    /**
+     * McpServer::buildToolOutputSchema() must forward a nested-schema
+     * `additionalProperties` (not just a plain bool) verbatim: the SDK's
+     * own `ToolOutputSchema` type allows `bool|array<string, mixed>`
+     * there, and this is an author-supplied, already-optional schema, not
+     * one this class validates recursively.
+     */
+    public function testOutputSchemaForwardsANestedAdditionalPropertiesSchema(): void
+    {
+        Config::set('mcp.expose_actions', true, true);
+
+        $container = Context::getInstance('mcp-action-tool-test')->getContainer();
+        $server = (new McpServer($container, 'mcp-action-tool-test'))->build(McpConfig::fromConfig());
+
+        $transport = new RecordingInMemoryTransport([
+            json_encode([
+                'jsonrpc' => '2.0', 'id' => 1, 'method' => 'initialize',
+                'params' => ['protocolVersion' => '2025-11-25', 'capabilities' => [], 'clientInfo' => ['name' => 'x', 'version' => '1']],
+            ], JSON_THROW_ON_ERROR),
+            json_encode(['jsonrpc' => '2.0', 'method' => 'notifications/initialized'], JSON_THROW_ON_ERROR),
+            json_encode(['jsonrpc' => '2.0', 'id' => 2, 'method' => 'tools/list'], JSON_THROW_ON_ERROR),
+        ]);
+
+        $server->run($transport);
+
+        $response = json_decode($transport->sent[1], true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($response);
+        $tools = $this->toolsByName($response);
+
+        $this->assertArrayHasKey('output_schema_via_action', $tools);
+        $outputSchema = $tools['output_schema_via_action']['outputSchema'];
+        self::assertIsArray($outputSchema);
+        $this->assertSame(['type' => 'string'], $outputSchema['additionalProperties']);
+    }
+
+    /** Regression guard: a plain bool must keep working alongside the nested-schema case above. */
+    public function testOutputSchemaStillForwardsAPlainBoolAdditionalProperties(): void
+    {
+        Config::set('mcp.expose_actions', true, true);
+
+        $container = Context::getInstance('mcp-action-tool-test')->getContainer();
+        $server = (new McpServer($container, 'mcp-action-tool-test'))->build(McpConfig::fromConfig());
+
+        $transport = new RecordingInMemoryTransport([
+            json_encode([
+                'jsonrpc' => '2.0', 'id' => 1, 'method' => 'initialize',
+                'params' => ['protocolVersion' => '2025-11-25', 'capabilities' => [], 'clientInfo' => ['name' => 'x', 'version' => '1']],
+            ], JSON_THROW_ON_ERROR),
+            json_encode(['jsonrpc' => '2.0', 'method' => 'notifications/initialized'], JSON_THROW_ON_ERROR),
+            json_encode(['jsonrpc' => '2.0', 'id' => 2, 'method' => 'tools/list'], JSON_THROW_ON_ERROR),
+        ]);
+
+        $server->run($transport);
+
+        $response = json_decode($transport->sent[1], true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($response);
+        $tools = $this->toolsByName($response);
+
+        $this->assertArrayHasKey('bool_output_schema_via_action', $tools);
+        $outputSchema = $tools['bool_output_schema_via_action']['outputSchema'];
+        self::assertIsArray($outputSchema);
+        $this->assertSame(false, $outputSchema['additionalProperties']);
     }
 
     public function testCallViolatingTheDerivedSchemaIsRejectedBeforeDispatch(): void
@@ -173,6 +238,38 @@ final class McpServerActionToolIntegrationTest extends PhpUnitTestCase
         self::assertIsArray($callResponse);
         $this->assertArrayNotHasKey('error', $callResponse, 'A fallback-schema tool call must not be rejected by schema validation before dispatch');
         $this->assertArrayHasKey('result', $callResponse, 'The call must actually dispatch to the action, not just avoid an error');
+    }
+
+    /**
+     * A derived input schema's `additionalProperties: true` (now forwarded
+     * on the wire, see {@see testDerivedSchemaListsTheToolWithItsValidatorConstraints})
+     * must actually mean what it says: an undeclared extra argument must
+     * not be rejected before dispatch.
+     */
+    public function testCallWithAnUndeclaredExtraArgumentIsStillAcceptedByThePermissiveSchema(): void
+    {
+        Config::set('mcp.expose_actions', true, true);
+
+        $container = Context::getInstance('mcp-action-tool-test')->getContainer();
+        $server = (new McpServer($container, 'mcp-action-tool-test'))->build(McpConfig::fromConfig());
+
+        $transport = new RecordingInMemoryTransport([
+            json_encode([
+                'jsonrpc' => '2.0', 'id' => 1, 'method' => 'initialize',
+                'params' => ['protocolVersion' => '2025-11-25', 'capabilities' => [], 'clientInfo' => ['name' => 'x', 'version' => '1']],
+            ], JSON_THROW_ON_ERROR),
+            json_encode(['jsonrpc' => '2.0', 'method' => 'notifications/initialized'], JSON_THROW_ON_ERROR),
+            json_encode([
+                'jsonrpc' => '2.0', 'id' => 2, 'method' => 'tools/call',
+                'params' => ['name' => 'greet_via_action', 'arguments' => ['name' => 'Ada', 'unexpected' => 'ignored']],
+            ], JSON_THROW_ON_ERROR),
+        ]);
+
+        $server->run($transport);
+
+        $response = json_decode($transport->sent[1], true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($response);
+        $this->assertArrayNotHasKey('error', $response, 'additionalProperties: true must not reject an undeclared extra argument');
     }
 
     public function testDisabledByDefaultMeansTheActionToolIsNotRegistered(): void

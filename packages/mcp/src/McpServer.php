@@ -195,12 +195,14 @@ final class McpServer
      * permissive schema -- real enforcement happens on dispatch either way, so
      * the fallback loses precision, not safety.
      *
-     * Drops an incoming `additionalProperties` key rather than forwarding it:
-     * `ToolInputSchema` doesn't carry one, but JSON Schema already treats a
-     * missing key the same as `additionalProperties: true` -- and
-     * `ValidatorSchemaMapper` (and this method's own fallback) never produce
-     * `false` -- so omitting it changes nothing about how a `tools/call` is
-     * actually validated.
+     * Forwards `additionalProperties: true` explicitly rather than omitting
+     * it: `ValidatorSchemaMapper` (and this method's own fallback) never
+     * produce `false`, so a missing key and an explicit `true` mean the same
+     * thing to `opis/json-schema` -- but an MCP client reading the schema
+     * off `tools/list` (rather than relying on server-side validation) sees
+     * the permissiveness directly instead of having to infer it from
+     * absence, which the 2026-07-28 spec's wider JSON Schema vocabulary
+     * expects schemas to state explicitly.
      *
      * @param array<string, mixed>|null $schema
      * @return ToolInputSchema
@@ -211,6 +213,7 @@ final class McpServer
             'type' => 'object',
             'properties' => \is_array($schema['properties'] ?? null) ? $schema['properties'] : [],
             'required' => $this->normalizeRequiredList($schema['required'] ?? null),
+            'additionalProperties' => true,
         ];
     }
 
@@ -222,13 +225,11 @@ final class McpServer
      * `Tool::fromArray()` itself would otherwise have performed on the raw array.
      *
      * A nested-schema `additionalProperties` (as opposed to a plain bool) is
-     * dropped rather than forwarded: preserving it would need to recursively
-     * validate it's itself a well-formed JSON Schema, which is more machinery
-     * than a rarely-used edge case of an already-optional, author-supplied
-     * schema warrants -- the output schema just becomes correspondingly more
-     * permissive by omission, the same graceful degradation
-     * {@see \Quiote\Validator\Compiler\JsonSchema\ValidatorSchemaMapper} applies to unmappable
-     * input validator rules.
+     * forwarded verbatim, same as a bool: `ToolOutputSchema` itself types the
+     * key as `bool|array<string, mixed>`, and this method already trusts
+     * `properties` entries to be well-formed JSON Schema fragments without
+     * recursively validating them -- `additionalProperties` gets the same
+     * trust level, not a stricter one.
      *
      * @param array<string, mixed>|null $schema
      * @return ToolOutputSchema|null
@@ -249,8 +250,9 @@ final class McpServer
             'required' => $this->normalizeRequiredList($schema['required'] ?? null),
         ];
 
-        if (\is_bool($schema['additionalProperties'] ?? null)) {
-            $result['additionalProperties'] = $schema['additionalProperties'];
+        $additionalProperties = $this->normalizeAdditionalProperties($schema['additionalProperties'] ?? null);
+        if ($additionalProperties !== null) {
+            $result['additionalProperties'] = $additionalProperties;
         }
         if (\is_string($schema['description'] ?? null)) {
             $result['description'] = $schema['description'];
@@ -285,6 +287,32 @@ final class McpServer
             static fn (mixed $entry): string => \is_scalar($entry) ? (string) $entry : '',
             $required,
         ));
+    }
+
+    /**
+     * A plain bool is forwarded as-is; a nested schema is trusted verbatim
+     * (its keys stringified) the same way this class already trusts
+     * `properties` entries -- no recursive JSON-Schema validation is
+     * performed here or anywhere else in this class.
+     *
+     * @return bool|array<string, mixed>|null
+     */
+    private function normalizeAdditionalProperties(mixed $additionalProperties): bool|array|null
+    {
+        if (\is_bool($additionalProperties)) {
+            return $additionalProperties;
+        }
+
+        if (!\is_array($additionalProperties)) {
+            return null;
+        }
+
+        $normalized = [];
+        foreach ($additionalProperties as $key => $value) {
+            $normalized[(string) $key] = $value;
+        }
+
+        return $normalized;
     }
 
     /**
