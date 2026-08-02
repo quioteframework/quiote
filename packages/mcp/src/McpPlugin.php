@@ -40,6 +40,11 @@ final class McpPlugin implements PluginInterface
         $registrar->configDefault('mcp.module_dirs', []);
         $registrar->configDefault('mcp.discover_attributes', false);
         $registrar->configDefault('mcp.discovery_cache', true);
+        $registrar->configDefault('mcp.oauth.issuer', null);
+        $registrar->configDefault('mcp.oauth.audience', null);
+        $registrar->configDefault('mcp.oauth.jwks_uri', null);
+        $registrar->configDefault('mcp.oauth.scopes_supported', []);
+        $registrar->configDefault('mcp.oauth.cache_ttl', 3600);
 
         $registrar->command(McpServeCommand::class);
         $registrar->command(McpWarmupCommand::class);
@@ -63,7 +68,12 @@ final class McpPlugin implements PluginInterface
                 before: SecurityMiddleware::class,
             );
 
-            if (Config::getString('mcp.auth', 'bearer') !== 'none') {
+            // 'none' has no auth at all; 'oauth2' is enforced inside the SDK's own
+            // StreamableHttpTransport middleware stack (see McpServer::handleHttp()),
+            // not this framework-level PSR-15 pipeline -- registering McpAuthMiddleware
+            // too would just add a second, static-token-only check in front of it.
+            $mcpAuth = Config::getString('mcp.auth', 'bearer');
+            if ($mcpAuth !== 'none' && $mcpAuth !== 'oauth2') {
                 $registrar->middleware(
                     McpAuthMiddleware::class,
                     fn() => new McpAuthMiddleware($contextName),

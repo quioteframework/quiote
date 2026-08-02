@@ -17,8 +17,11 @@
 	"require": {
 		"php": ">=8.5.0",
 		"quioteframework/quiote": "*",
-		"mcp/sdk": "^0.6.0",
+		"mcp/sdk": "^0.7.0",
 		"symfony/finder": "^7.0 || ^8.0"
+	},
+	"suggest": {
+		"firebase/php-jwt": "Required when mcp.auth is 'oauth2', for JWKS-backed JWT validation (Mcp\\Server\\Transport\\Http\\OAuth\\JwtTokenValidator)."
 	},
 	"autoload": {
 		"psr-4": {

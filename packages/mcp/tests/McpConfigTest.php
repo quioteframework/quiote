@@ -13,6 +13,8 @@ final class McpConfigTest extends TestCase
         'mcp.stateless', 'mcp.server_name', 'mcp.server_version', 'mcp.auth',
         'mcp.expose_actions', 'mcp.module_dirs', 'mcp.discover_attributes',
         'mcp.discovery_cache', 'core.app_name',
+        'mcp.oauth.issuer', 'mcp.oauth.audience', 'mcp.oauth.jwks_uri',
+        'mcp.oauth.scopes_supported', 'mcp.oauth.cache_ttl',
     ];
 
     #[Before]
@@ -40,6 +42,11 @@ final class McpConfigTest extends TestCase
         $this->assertSame([], $config->moduleDirs);
         $this->assertFalse($config->discoverAttributes);
         $this->assertTrue($config->discoveryCache);
+        $this->assertNull($config->oauthIssuer);
+        $this->assertNull($config->oauthAudience);
+        $this->assertNull($config->oauthJwksUri);
+        $this->assertSame([], $config->oauthScopesSupported);
+        $this->assertSame(3600, $config->oauthCacheTtl);
     }
 
     public function testServerNameFallsBackToCoreAppName(): void
@@ -72,5 +79,44 @@ final class McpConfigTest extends TestCase
         $this->assertTrue($config->exposeActions);
         $this->assertTrue($config->discoverAttributes);
         $this->assertFalse($config->discoveryCache);
+    }
+
+    public function testOauthOverridesAreHonored(): void
+    {
+        Config::set('mcp.auth', 'oauth2', true);
+        Config::set('mcp.oauth.issuer', 'https://auth.example.test', true);
+        Config::set('mcp.oauth.audience', 'mcp-api', true);
+        Config::set('mcp.oauth.jwks_uri', 'https://auth.example.test/jwks', true);
+        Config::set('mcp.oauth.scopes_supported', ['mcp:read', 'mcp:write'], true);
+        Config::set('mcp.oauth.cache_ttl', 60, true);
+
+        $config = McpConfig::fromConfig();
+
+        $this->assertSame('oauth2', $config->auth);
+        $this->assertSame('https://auth.example.test', $config->oauthIssuer);
+        $this->assertSame('mcp-api', $config->oauthAudience);
+        $this->assertSame('https://auth.example.test/jwks', $config->oauthJwksUri);
+        $this->assertSame(['mcp:read', 'mcp:write'], $config->oauthScopesSupported);
+        $this->assertSame(60, $config->oauthCacheTtl);
+    }
+
+    public function testOauth2AuthWithoutIssuerThrows(): void
+    {
+        Config::set('mcp.auth', 'oauth2', true);
+        Config::set('mcp.oauth.audience', 'mcp-api', true);
+
+        $this->expectException(\Quiote\Exception\QuioteException::class);
+
+        McpConfig::fromConfig();
+    }
+
+    public function testOauth2AuthWithoutAudienceThrows(): void
+    {
+        Config::set('mcp.auth', 'oauth2', true);
+        Config::set('mcp.oauth.issuer', 'https://auth.example.test', true);
+
+        $this->expectException(\Quiote\Exception\QuioteException::class);
+
+        McpConfig::fromConfig();
     }
 }

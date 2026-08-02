@@ -43,6 +43,11 @@ final class McpAttributeDiscoveryTest extends TestCase
             moduleDirs: [self::SANDBOX_MODULES],
             discoverAttributes: $discoverAttributes,
             discoveryCache: $discoveryCache,
+            oauthIssuer: null,
+            oauthAudience: null,
+            oauthJwksUri: null,
+            oauthScopesSupported: [],
+            oauthCacheTtl: 3600,
         );
     }
 

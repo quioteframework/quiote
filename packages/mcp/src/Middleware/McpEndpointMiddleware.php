@@ -2,6 +2,7 @@
 
 namespace Quiote\Mcp\Middleware;
 
+use Mcp\Server\Transport\Http\OAuth\ProtectedResourceMetadata;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
@@ -13,11 +14,15 @@ use Quiote\Mcp\McpServer;
 
 /**
  * The Streamable-HTTP transport: matches the configured `mcp.path` (default
- * `/mcp`) and delegates everything else to the
- * rest of the pipeline unchanged. Registered by {@see \Quiote\Mcp\McpPlugin}
- * *before* `SecurityMiddleware` (MCP does its own auth, not session/CSRF), so
- * it still inherits earlier bootstrap middleware (tracing, payload parsing)
- * but never reaches MVC dispatch.
+ * `/mcp`) -- plus, when `mcp.auth` is `'oauth2'`, a GET to the RFC 9728
+ * well-known metadata path, since that also has to reach
+ * {@see McpServer::handleHttp()} for the SDK's own
+ * `ProtectedResourceMetadataMiddleware` (composed there) to serve it -- and
+ * delegates everything else to the rest of the pipeline unchanged.
+ * Registered by {@see \Quiote\Mcp\McpPlugin} *before* `SecurityMiddleware`
+ * (MCP does its own auth, not session/CSRF), so it still inherits earlier
+ * bootstrap middleware (tracing, payload parsing) but never reaches MVC
+ * dispatch.
  *
  * Resolves the DI container from a single named {@see Context} (default
  * `core.default_context`) rather than "whichever context is handling this
@@ -36,8 +41,14 @@ final class McpEndpointMiddleware implements MiddlewareInterface
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $config = McpConfig::fromConfig();
+        $path = $request->getUri()->getPath();
 
-        if (!$config->enabled || $request->getUri()->getPath() !== $config->path) {
+        $matchesMcpPath = $path === $config->path;
+        $matchesOauthMetadataPath = $config->auth === 'oauth2'
+            && $request->getMethod() === 'GET'
+            && $path === ProtectedResourceMetadata::DEFAULT_METADATA_PATH;
+
+        if (!$config->enabled || !($matchesMcpPath || $matchesOauthMetadataPath)) {
             return $handler->handle($request);
         }
 

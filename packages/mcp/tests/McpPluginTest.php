@@ -36,6 +36,11 @@ final class McpPluginTest extends TestCase
         Config::remove('mcp.module_dirs');
         Config::remove('mcp.discover_attributes');
         Config::remove('mcp.discovery_cache');
+        Config::remove('mcp.oauth.issuer');
+        Config::remove('mcp.oauth.audience');
+        Config::remove('mcp.oauth.jwks_uri');
+        Config::remove('mcp.oauth.scopes_supported');
+        Config::remove('mcp.oauth.cache_ttl');
     }
 
     public function testDefaultsAreOptInSafe(): void
@@ -75,6 +80,19 @@ final class McpPluginTest extends TestCase
         $registered = MiddlewareCatalog::getRegistered();
         $this->assertArrayHasKey(McpEndpointMiddleware::class, $registered);
         $this->assertArrayNotHasKey(McpAuthMiddleware::class, $registered);
+    }
+
+    public function testAuthOauth2SkipsTheAuthMiddlewareButKeepsTheEndpoint(): void
+    {
+        Config::set('mcp.transports', ['http'], true);
+        Config::set('mcp.auth', 'oauth2', true);
+
+        PluginManager::add(new McpPlugin());
+        PluginManager::bootFromConfig();
+
+        $registered = MiddlewareCatalog::getRegistered();
+        $this->assertArrayHasKey(McpEndpointMiddleware::class, $registered, 'oauth2 enforcement lives inside McpServer::handleHttp(), but the endpoint still has to be reached');
+        $this->assertArrayNotHasKey(McpAuthMiddleware::class, $registered, 'oauth2 is enforced by the SDK transport middleware stack, not this framework middleware');
     }
 
     public function testStdioOnlyDoesNotRegisterAnyMiddleware(): void

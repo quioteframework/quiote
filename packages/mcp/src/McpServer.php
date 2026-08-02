@@ -5,10 +5,19 @@ namespace Quiote\Mcp;
 use Mcp\Schema\Enum\ProtocolVersion;
 use Mcp\Schema\Tool;
 use Mcp\Server as SdkServer;
+use Mcp\Server\Transport\Http\Middleware\AuthorizationMiddleware;
+use Mcp\Server\Transport\Http\Middleware\OAuthRequestMetaMiddleware;
+use Mcp\Server\Transport\Http\Middleware\ProtectedResourceMetadataMiddleware;
+use Mcp\Server\Transport\Http\OAuth\JwksProvider;
+use Mcp\Server\Transport\Http\OAuth\JwtTokenValidator;
+use Mcp\Server\Transport\Http\OAuth\OidcDiscovery;
+use Mcp\Server\Transport\Http\OAuth\ProtectedResourceMetadata;
 use Mcp\Server\Transport\StdioTransport;
 use Mcp\Server\Transport\StreamableHttpTransport;
+use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
 use Psr\SimpleCache\CacheInterface;
 use Quiote\Config\Config;
 use Quiote\Context;
@@ -37,7 +46,17 @@ final class McpServer
 {
     private ?SdkServer $server = null;
 
-    public function __construct(private readonly Container $container, private readonly string $contextName) {}
+    /**
+     * `$oauthHttpClient` overrides the PSR-18 client `OidcDiscovery`/`JwksProvider`
+     * (see {@see buildHttpMiddleware()}) would otherwise auto-discover via
+     * `php-http/discovery`. Production code always omits it; tests use it to
+     * stub OIDC discovery/JWKS responses without a real network call.
+     */
+    public function __construct(
+        private readonly Container $container,
+        private readonly string $contextName,
+        private readonly ?ClientInterface $oauthHttpClient = null,
+    ) {}
 
     /** Assemble (and cache) the SDK server from the current {@see McpCatalog} contents. */
     public function build(McpConfig $config): SdkServer
@@ -357,7 +376,72 @@ final class McpServer
             $request = $request->withBody($factory->createStream(json_encode($parsedBody, JSON_THROW_ON_ERROR)));
         }
 
-        return $this->build($config)->run(new StreamableHttpTransport($request));
+        return $this->build($config)->run(new StreamableHttpTransport($request, middleware: $this->buildHttpMiddleware($config)));
+    }
+
+    /**
+     * `null` (the SDK's own secure defaults: CORS, DNS-rebinding protection,
+     * protocol-version validation) unless `mcp.auth` is `'oauth2'`, in which
+     * case the OAuth2 resource-server stack is appended: RFC 9728 metadata
+     * at the well-known path, bearer-token enforcement via JWKS-verified
+     * JWTs (discovered from `mcp.oauth.issuer`, or fetched from an explicit
+     * `mcp.oauth.jwks_uri`), and propagation of the resulting `oauth.*`
+     * claims into JSON-RPC `_meta.oauth` for tool handlers.
+     *
+     * All SDK OAuth classes used here are effectively ready-made: they
+     * auto-discover a PSR-18 client/PSR-17 factories via `php-http/discovery`
+     * and need no Quiote-specific adapter, which is why this is composition,
+     * not new integration code.
+     *
+     * @return list<MiddlewareInterface>|null
+     */
+    private function buildHttpMiddleware(McpConfig $config): ?array
+    {
+        if ($config->auth !== 'oauth2') {
+            return null;
+        }
+
+        // McpConfig's own constructor already enforces this invariant -- unreachable in
+        // practice -- but re-checking here narrows both properties from ?string to
+        // string for PHPStan, since it can't see across McpConfig's constructor guard.
+        if ($config->oauthIssuer === null || $config->oauthAudience === null) {
+            throw new QuioteException('mcp.auth is "oauth2" but "mcp.oauth.issuer"/"mcp.oauth.audience" are missing.');
+        }
+
+        $cache = $this->buildOauthCache($config);
+        $discovery = new OidcDiscovery(httpClient: $this->oauthHttpClient, cache: $cache, cacheTtl: $config->oauthCacheTtl);
+        $jwksProvider = new JwksProvider($discovery, httpClient: $this->oauthHttpClient, cache: $cache, cacheTtl: $config->oauthCacheTtl);
+        $validator = new JwtTokenValidator(
+            issuer: $config->oauthIssuer,
+            audience: $config->oauthAudience,
+            jwksProvider: $jwksProvider,
+            jwksUri: $config->oauthJwksUri,
+        );
+        $resourceMetadata = new ProtectedResourceMetadata(
+            authorizationServers: [$config->oauthIssuer],
+            scopesSupported: $config->oauthScopesSupported !== [] ? $config->oauthScopesSupported : null,
+        );
+
+        return [
+            ...StreamableHttpTransport::defaultMiddleware(),
+            new ProtectedResourceMetadataMiddleware($resourceMetadata),
+            new AuthorizationMiddleware($validator, $resourceMetadata),
+            new OAuthRequestMetaMiddleware(),
+        ];
+    }
+
+    /**
+     * Same file-backed PSR-16 cache pattern as {@see buildDiscoveryCache()},
+     * own namespace so OIDC discovery documents and JWKS responses don't
+     * collide with the tool-discovery cache -- both `OidcDiscovery` and
+     * `JwksProvider` accept it optionally and degrade to uncached (a fresh
+     * HTTP round trip per request) when null.
+     */
+    private function buildOauthCache(McpConfig $config): CacheInterface
+    {
+        $cacheDir = rtrim(Config::getString('core.cache_dir', sys_get_temp_dir()), '/') . '/mcp-oauth';
+
+        return new Psr16Cache(new FilesystemAdapter(namespace: '', defaultLifetime: 0, directory: $cacheDir));
     }
 
     private function requireSdk(): void

@@ -3,6 +3,7 @@
 namespace Quiote\Mcp;
 
 use Quiote\Config\Config;
+use Quiote\Exception\QuioteException;
 
 /**
  * Typed snapshot of the `mcp.*` settings family.
@@ -16,6 +17,7 @@ final class McpConfig
     /**
      * @param list<string> $transports
      * @param list<string> $moduleDirs
+     * @param list<string> $oauthScopesSupported
      */
     public function __construct(
         public readonly bool $enabled,
@@ -30,7 +32,19 @@ final class McpConfig
         public readonly array $moduleDirs,
         public readonly bool $discoverAttributes,
         public readonly bool $discoveryCache,
-    ) {}
+        public readonly ?string $oauthIssuer,
+        public readonly ?string $oauthAudience,
+        public readonly ?string $oauthJwksUri,
+        public readonly array $oauthScopesSupported,
+        public readonly int $oauthCacheTtl,
+    ) {
+        if ($this->auth === 'oauth2' && ($this->oauthIssuer === null || $this->oauthAudience === null)) {
+            throw new QuioteException(
+                'mcp.auth is "oauth2" but "mcp.oauth.issuer" and/or "mcp.oauth.audience" are missing. '
+                . 'Both are required to validate tokens against an external OAuth2/OIDC provider.'
+            );
+        }
+    }
 
     public static function fromConfig(): self
     {
@@ -47,6 +61,11 @@ final class McpConfig
             moduleDirs: array_values(Config::getStringList('mcp.module_dirs', [])),
             discoverAttributes: Config::getBool('mcp.discover_attributes', false),
             discoveryCache: Config::getBool('mcp.discovery_cache', true),
+            oauthIssuer: Config::getNullableString('mcp.oauth.issuer'),
+            oauthAudience: Config::getNullableString('mcp.oauth.audience'),
+            oauthJwksUri: Config::getNullableString('mcp.oauth.jwks_uri'),
+            oauthScopesSupported: array_values(Config::getStringList('mcp.oauth.scopes_supported', [])),
+            oauthCacheTtl: (int) Config::getInt('mcp.oauth.cache_ttl', 3600),
         );
     }
 }
