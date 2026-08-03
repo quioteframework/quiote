@@ -10,6 +10,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Quiote\Config\Config;
+use Quiote\Exception\ConfigurationException;
 use Quiote\Security\Cors\CorsMiddleware;
 
 final class CorsTest extends TestCase
@@ -101,6 +102,78 @@ final class CorsTest extends TestCase
         $resp = $mw->process($req, $handler);
         $this->assertSame('*', $resp->getHeaderLine('Access-Control-Allow-Origin'));
         $this->assertSame('', $resp->getHeaderLine('Vary'));
+    }
+
+    /**
+     * The pair cannot be sent (the fetch spec forbids it) and must not be
+     * worked around by reflecting the caller's origin, which would grant every
+     * site credentialed read access to authenticated responses. Refusing is
+     * what is left.
+     */
+    public function testWildcardWithCredentialsIsRefusedOutright(): void
+    {
+        Config::set('cors.allowed_origins', ['*']);
+        Config::set('cors.allow_credentials', true);
+        $mw = new CorsMiddleware();
+        $req = (new ServerRequest('GET', 'http://localhost/x'))->withHeader('Origin', 'https://evil.example');
+
+        $this->expectException(ConfigurationException::class);
+        $this->expectExceptionMessageMatches('/cors\.allow_credentials/');
+        $mw->process($req, $this->okHandler());
+    }
+
+    /**
+     * Every request, not only cross-origin ones: the check sits ahead of the
+     * Origin test so a misconfigured deployment fails on its first request
+     * rather than on whichever later one happens to come from a browser.
+     */
+    public function testWildcardWithCredentialsIsRefusedEvenWithoutAnOriginHeader(): void
+    {
+        Config::set('cors.allowed_origins', ['*']);
+        Config::set('cors.allow_credentials', true);
+        $mw = new CorsMiddleware();
+
+        $this->expectException(ConfigurationException::class);
+        $mw->process(new ServerRequest('GET', 'http://localhost/x'), $this->okHandler());
+    }
+
+    public function testWildcardWithCredentialsIsNotCheckedWhileCorsIsDisabled(): void
+    {
+        // The setting pair is only contradictory once CORS is actually serving.
+        // Refusing to boot an app that merely has it lying around, disabled,
+        // would be a failure the operator cannot act on.
+        Config::set('cors.enabled', false);
+        Config::set('cors.allowed_origins', ['*']);
+        Config::set('cors.allow_credentials', true);
+        $mw = new CorsMiddleware();
+        $handler = $this->okHandler();
+
+        $resp = $mw->process((new ServerRequest('GET', 'http://localhost/x'))->withHeader('Origin', 'https://a.example'), $handler);
+
+        $this->assertTrue($handler->called);
+        $this->assertSame(200, $resp->getStatusCode());
+    }
+
+    /** Each half on its own stays legal; only the combination is refused. */
+    public function testWildcardWithoutCredentialsAndCredentialsWithoutWildcardBothStillWork(): void
+    {
+        Config::set('cors.allowed_origins', ['*']);
+        Config::set('cors.allow_credentials', false);
+        $resp = (new CorsMiddleware())->process(
+            (new ServerRequest('GET', 'http://localhost/x'))->withHeader('Origin', 'https://anything.example'),
+            $this->okHandler(),
+        );
+        $this->assertSame('*', $resp->getHeaderLine('Access-Control-Allow-Origin'));
+        $this->assertSame('', $resp->getHeaderLine('Access-Control-Allow-Credentials'));
+
+        Config::set('cors.allowed_origins', ['https://a.example']);
+        Config::set('cors.allow_credentials', true);
+        $resp = (new CorsMiddleware())->process(
+            (new ServerRequest('GET', 'http://localhost/x'))->withHeader('Origin', 'https://a.example'),
+            $this->okHandler(),
+        );
+        $this->assertSame('https://a.example', $resp->getHeaderLine('Access-Control-Allow-Origin'));
+        $this->assertSame('true', $resp->getHeaderLine('Access-Control-Allow-Credentials'));
     }
 
     public function testCredentialsHeaderOnlySetWhenConfigured(): void

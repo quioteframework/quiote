@@ -8,6 +8,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Quiote\Config\Config;
+use Quiote\Exception\ConfigurationException;
 
 /**
  * Cross-Origin Resource Sharing (CORS) handling. Preflight (`OPTIONS` with an
@@ -27,6 +28,8 @@ class CorsMiddleware implements MiddlewareInterface
         if (!Config::getBool('cors.enabled', false)) {
             return $handler->handle($request);
         }
+
+        self::assertCredentialPolicyIsExpressible();
 
         $origin = $request->getHeaderLine('Origin');
         if ($origin === '') {
@@ -54,28 +57,59 @@ class CorsMiddleware implements MiddlewareInterface
     }
 
     /**
+     * Refuse to serve a wildcard-plus-credentials configuration.
+     *
+     * The fetch specification forbids `Access-Control-Allow-Origin: *` together
+     * with `Access-Control-Allow-Credentials: true`, so the pair cannot be sent.
+     * The apparent workaround -- reflecting the caller's own origin, which
+     * satisfies the spec and makes credentialed requests succeed -- must not be
+     * taken: it grants every origin on the internet credentialed read access to
+     * authenticated responses. CORS constrains browsers and nothing else, so a
+     * browser refusing the pair is the protection, not an obstacle to route
+     * around.
+     *
+     * That leaves refusing the configuration. A hard error rather than a
+     * warning because there is no correct behaviour to fall back to, and
+     * because `*` tends to be set before credentials are thought about -- the
+     * two settings are often written at different times by different people,
+     * which is exactly the case a log line gets missed for. The fix is to
+     * enumerate the origins that genuinely need credentialed access, or to drop
+     * credentials.
+     *
+     * @throws     ConfigurationException If `cors.allowed_origins` contains `*` while `cors.allow_credentials` is on.
+     */
+    private static function assertCredentialPolicyIsExpressible(): void
+    {
+        if (!Config::getBool('cors.allow_credentials', false)) {
+            return;
+        }
+        if (!in_array('*', Config::getStringList('cors.allowed_origins', []), true)) {
+            return;
+        }
+
+        throw new ConfigurationException(
+            'cors.allowed_origins contains "*" while cors.allow_credentials is true. That pair cannot be '
+            . 'sent: the fetch specification forbids Access-Control-Allow-Origin: * together with '
+            . 'Access-Control-Allow-Credentials: true, and browsers reject it. Reflecting the caller\'s '
+            . 'origin instead would make it work, which is worse -- it grants every origin on the internet '
+            . 'credentialed read access to authenticated responses. Enumerate the origins that need '
+            . 'credentialed access in cors.allowed_origins, or set cors.allow_credentials to false.'
+        );
+    }
+
+    /**
      * @return string|null The value to echo back as Access-Control-Allow-Origin, or null if $origin isn't allowed.
      *
-     * A configured `*` normally answers `*`. The one exception is a credentialed
-     * configuration: `Access-Control-Allow-Origin: *` together with
-     * `Access-Control-Allow-Credentials: true` is a combination the fetch spec
-     * forbids, so browsers reject the response outright and every credentialed
-     * cross-origin request silently fails. Reflecting the caller's own origin (and
-     * adding `Vary: Origin`, which decorate() does for any non-`*` value) is the
-     * only way to express "any origin, with credentials", and it is what the
-     * operator asking for both plainly meant.
-     *
-     * Note this is not a weakening: reflecting an origin under `*` grants exactly
-     * the access `*` was already configured to grant. The alternative -- emitting
-     * both headers and letting the browser reject them -- protects nobody while
-     * still exposing the response to any non-browser client that honours them.
+     * A configured `*` answers `*`, never the caller's own origin. The
+     * credentialed variant of that configuration never reaches here at all --
+     * see {@see assertCredentialPolicyIsExpressible()}.
      */
     private function negotiateOrigin(string $origin): ?string
     {
         $allowed = Config::getStringList('cors.allowed_origins', []);
 
         if (in_array('*', $allowed, true)) {
-            return Config::getBool('cors.allow_credentials', false) ? $origin : '*';
+            return '*';
         }
 
         return in_array($origin, $allowed, true) ? $origin : null;
