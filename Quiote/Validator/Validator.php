@@ -28,7 +28,7 @@ use Symfony\Contracts\Service\ResetInterface;
  * @since      1.0.0
  * @version    1.0.0
  */
-abstract class Validator extends ParameterHolder implements ResetInterface
+abstract class Validator extends ParameterHolder implements ResetInterface, ValidatorInterface
 {
 	/**
 	 * validator field success flag

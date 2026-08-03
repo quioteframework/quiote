@@ -18,7 +18,7 @@ use Quiote\Http\SimpleStream;
  * @since      1.0.0
  * @version    1.0.0
  */
-class WebResponse extends AttributeHolder implements ResetInterface
+class WebResponse extends AttributeHolder implements ResetInterface, WebResponseInterface
 {
 
 

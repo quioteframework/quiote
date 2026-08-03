@@ -29,7 +29,7 @@ use Psr\Http\Message\ResponseInterface;
  * @since      1.0.0
  * @version    1.0.0
  */
-class Context implements \Stringable, ResetInterface
+class Context implements \Stringable, ResetInterface, ContextInterface
 {
   // Debug: Log when this class version is loaded
   /** @var bool */
@@ -354,7 +354,25 @@ class Context implements \Stringable, ResetInterface
     $container = $this->getContainer();
     $container->set($role, $instance, $scope);
     $container->set($instance::class, $instance, $scope);
+
+    // Also bind the seam interface a core service implements, so a consumer can depend on
+    // the contract rather than the concrete class. Registered per instance rather than from
+    // a fixed map, so a replaced implementation is what the interface resolves to.
+    foreach (self::SEAM_INTERFACES as $interface) {
+      if ($instance instanceof $interface) {
+        $container->set($interface, $instance, $scope);
+      }
+    }
   }
+
+  /**
+   * Contracts a core service may implement, bound alongside it in the container by
+   * {@see registerCoreService()}.
+   */
+  private const array SEAM_INTERFACES = [
+    \Quiote\Controller\ControllerInterface::class,
+    \Quiote\Response\WebResponseInterface::class,
+  ];
 
   /**
    * Register the full set of core services (as they currently stand) into the container.
@@ -373,6 +391,9 @@ class Context implements \Stringable, ResetInterface
     if (static::class !== self::class) {
       $container->alias(self::class, static::class);
     }
+    // The seam interfaces resolve to the same instances as their concrete classes, so new
+    // code can constructor-inject the interface and get the request's real collaborator.
+    $container->alias(ContextInterface::class, static::class);
 
     $this->registerCoreService('controller', $this->controller);
     $this->registerCoreService('databaseManager', $this->databaseManager);

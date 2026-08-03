@@ -26,7 +26,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use \Exception;
 use Psr\Http\Message\ResponseInterface;
 
-class Controller extends ParameterHolder implements ResetInterface
+class Controller extends ParameterHolder implements ResetInterface, ControllerInterface
 {
 	/** Enable verbose controller lifecycle logging (worker diagnostics). */
 	public const DEBUG = false; // set true for deep debugging
