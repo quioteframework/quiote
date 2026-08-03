@@ -30,7 +30,7 @@ class ActionCacheUserPartitionTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        Config::$config['core.cache_enabled'] = true;
+        Config::set('core.cache_enabled', true);
         $adapter = new \Symfony\Component\Cache\Adapter\ArrayAdapter();
         $this->cache = new ActionViewCache(new \Symfony\Component\Cache\Psr16Cache($adapter), 300);
     }
@@ -38,7 +38,7 @@ class ActionCacheUserPartitionTest extends TestCase
     #[\Override]
     protected function tearDown(): void
     {
-        unset(Config::$config['core.cache_enabled']);
+        Config::remove('core.cache_enabled');
         parent::tearDown();
     }
 

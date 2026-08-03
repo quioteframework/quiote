@@ -395,6 +395,11 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     // code can constructor-inject the interface and get the request's real collaborator.
     $container->alias(ContextInterface::class, static::class);
 
+    // The configuration as an injectable collaborator, so a service can declare a
+    // ConfigRepository dependency instead of reaching for the Config facade.
+    $container->set(\Quiote\Config\ConfigRepository::class, Config::repository());
+    $container->alias('config', \Quiote\Config\ConfigRepository::class);
+
     $this->registerCoreService('controller', $this->controller);
     $this->registerCoreService('databaseManager', $this->databaseManager);
     $this->registerCoreService('translationManager', $this->translationManager);

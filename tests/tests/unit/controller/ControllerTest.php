@@ -362,13 +362,9 @@ class ControllerTest extends PhpUnitTestCase
 		// Simulate a config clear wiping just this module's derived keys
 		// (Config::clear() itself resets everything process-wide, which
 		// would be too disruptive to run mid-suite).
-		$configRef = new ReflectionProperty(Config::class, 'config');
-		/** @var array<string, mixed> $configData */
-		$configData = $configRef->getValue();
 		foreach ($keys as $key) {
-			unset($configData[$key]);
+			Config::remove($key);
 		}
-		$configRef->setValue(null, $configData);
 		foreach ($keys as $key) {
 			$this->assertFalse(Config::has($key), "precondition: $key must be cleared");
 		}

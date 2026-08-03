@@ -1,25 +1,25 @@
 <?php
 namespace Quiote\Config;
 
-use Quiote\Exception\ConfigurationException;
 use Quiote\Logging\Log;
 
 /**
- * Config acts as global registry of quiote related configuration settings
+ * Static facade over the application's configuration.
+ *
+ * The behaviour lives in {@see ConfigRepository}; this is the process-wide entry point every
+ * call site already uses. Code that can accept a collaborator should take a ConfigRepository
+ * instead -- it is injectable, swappable and testable in isolation -- and reach for this only
+ * where threading one through is not practical.
+ *
  * @since      1.0.0
  * @version    1.0.0
  */
 class Config
 {
 	/**
-	 * @var        array<string|int, mixed>
+	 * The repository every static call delegates to.
 	 */
-	public static $config = [];
-
-	/**
-	 * @var        array<string|int, mixed>
-	 */
-	private static $readonlies = [];
+	private static ?ConfigRepository $repository = null;
 
 	/**
 	 * Directives that have already logged the get() deprecation warning.
@@ -30,6 +30,33 @@ class Config
 	 * @var        array<string|int, true>
 	 */
 	private static array $warnedGetDirectives = [];
+
+	/**
+	 * The repository backing the facade, created on first use.
+	 */
+	public static function repository(): ConfigRepository
+	{
+		return self::$repository ??= new ConfigRepository();
+	}
+
+	/**
+	 * Install a repository for the facade to delegate to.
+	 *
+	 * The seam for a test that needs a configuration of its own, and for embedding code that
+	 * builds its configuration separately. Pass null to drop the current one, so the next
+	 * access starts from an empty repository.
+	 *
+	 * @return     ?ConfigRepository The repository that was installed before this call, so a
+	 *             caller can restore it.
+	 * @since      3.2.0
+	 */
+	public static function useRepository(?ConfigRepository $repository): ?ConfigRepository
+	{
+		$previous = self::$repository;
+		self::$repository = $repository;
+
+		return $previous;
+	}
 
 	/**
 	 * Get a configuration value.
@@ -58,25 +85,7 @@ class Config
 				],
 			);
 		}
-		return self::retrieve($name, $default);
-	}
-
-	/**
-	 * Look up a configuration value without warning about the untyped access -- used internally
-	 * by the typed getters, which perform their own type checking on the result.
-	 * @param      string|int $name The name of the configuration directive.
-	 * @param      mixed  $default The value to return if the directive is not set.
-	 * @return     mixed The value of the directive, or the default if not set.
-	 * @since      1.0.0
-	 * @phpstan-impure
-	 */
-	private static function retrieve(string|int$name, $default)
-	{
-		if(isset(self::$config[$name]) || \array_key_exists($name, self::$config)) {
-			return self::$config[$name];
-		} else {
-			return $default;
-		}
+		return self::repository()->get($name, $default);
 	}
 
 	/**
@@ -86,23 +95,13 @@ class Config
 	 * @param      string|int  $name The name of the configuration directive.
 	 * @param      ?string $default The value to return if the directive is not set.
 	 * @return     string The value of the directive, as a string.
-	 * @throws     ConfigurationException If the directive is unset with no default given, or holds an array.
+	 * @throws     \Quiote\Exception\ConfigurationException If the directive is unset with no default given, or holds an array.
 	 * @since      1.0.0
 	 * @phpstan-impure
 	 */
 	public static function getString(string|int $name, ?string $default = null): string
 	{
-		$value = self::retrieve($name, $default);
-		if($value === null) {
-			throw new ConfigurationException(\sprintf('Config directive "%s" is not set and no default was given.', $name));
-		}
-		if(\is_string($value)) {
-			return $value;
-		}
-		if(\is_scalar($value)) {
-			return (string) $value;
-		}
-		throw new ConfigurationException(\sprintf('Config directive "%s" is not convertible to string, got %s.', $name, get_debug_type($value)));
+		return self::repository()->getString($name, $default);
 	}
 
 	/**
@@ -112,23 +111,13 @@ class Config
 	 * @param      string|int $name The name of the configuration directive.
 	 * @param      ?string $default The value to return if the directive is not set.
 	 * @return     ?string The value of the directive, as a string, or null.
-	 * @throws     ConfigurationException If the directive holds a non-scalar value.
+	 * @throws     \Quiote\Exception\ConfigurationException If the directive holds a non-scalar value.
 	 * @since      1.0.0
 	 * @phpstan-impure
 	 */
 	public static function getNullableString(string|int $name, ?string $default = null): ?string
 	{
-		$value = self::retrieve($name, $default);
-		if($value === null) {
-			return null;
-		}
-		if(\is_string($value)) {
-			return $value;
-		}
-		if(\is_scalar($value)) {
-			return (string) $value;
-		}
-		throw new ConfigurationException(\sprintf('Config directive "%s" is not convertible to string, got %s.', $name, get_debug_type($value)));
+		return self::repository()->getNullableString($name, $default);
 	}
 
 	/**
@@ -138,16 +127,14 @@ class Config
 	 * @param      ?int     $default The value to return if the directive is not set.
 	 * @param      AsString $asString Whether to return the value as its string representation instead of an int.
 	 * @return     (AsString is true ? string : int)
-	 * @throws     ConfigurationException If the directive is unset with no default given, or does not hold an int.
+	 * @throws     \Quiote\Exception\ConfigurationException If the directive is unset with no default given, or does not hold an int.
 	 * @since      1.0.0
 	 * @phpstan-impure
 	 */
 	public static function getInt(string|int $name, ?int $default = null, bool $asString = false): int|string
 	{
-		$value = self::retrieve($name, $default);
-		if(!\is_int($value)) {
-			throw new ConfigurationException(\sprintf('Config directive "%s" is not a valid int, got %s.', $name, get_debug_type($value)));
-		}
+		$value = self::repository()->getInt($name, $default);
+
 		return $asString ? (string) $value : $value;
 	}
 
@@ -159,18 +146,14 @@ class Config
 	 * @param      ?float   $default The value to return if the directive is not set.
 	 * @param      AsString $asString Whether to return the value as its string representation instead of a float.
 	 * @return     (AsString is true ? string : float)
-	 * @throws     ConfigurationException If the directive is unset with no default given, or does not hold a float.
+	 * @throws     \Quiote\Exception\ConfigurationException If the directive is unset with no default given, or does not hold a float.
 	 * @since      1.0.0
 	 * @phpstan-impure
 	 */
 	public static function getFloat(string|int $name, ?float $default = null, bool $asString = false): float|string
 	{
-		$value = self::retrieve($name, $default);
-		if(\is_int($value)) {
-			$value = (float) $value;
-		} elseif(!\is_float($value)) {
-			throw new ConfigurationException(\sprintf('Config directive "%s" is not a valid float, got %s.', $name, get_debug_type($value)));
-		}
+		$value = self::repository()->getFloat($name, $default);
+
 		return $asString ? (string) $value : $value;
 	}
 
@@ -179,17 +162,13 @@ class Config
 	 * @param      string|int $name The name of the configuration directive.
 	 * @param      bool  $default The value to return if the directive is not set. Defaults to false.
 	 * @return     bool The value of the directive.
-	 * @throws     ConfigurationException If the directive is set but does not hold a bool.
+	 * @throws     \Quiote\Exception\ConfigurationException If the directive is set but does not hold a bool.
 	 * @since      1.0.0
 	 * @phpstan-impure
 	 */
 	public static function getBool(string|int $name, bool $default = false): bool
 	{
-		$value = self::retrieve($name, $default);
-		if(!\is_bool($value)) {
-			throw new ConfigurationException(\sprintf('Config directive "%s" is not a valid bool, got %s.', $name, get_debug_type($value)));
-		}
-		return $value;
+		return self::repository()->getBool($name, $default);
 	}
 
 	/**
@@ -197,17 +176,13 @@ class Config
 	 * @param      string|int             $name The name of the configuration directive.
 	 * @param      ?array<mixed>      $default The value to return if the directive is not set.
 	 * @return     array<mixed> The value of the directive.
-	 * @throws     ConfigurationException If the directive is unset with no default given, or does not hold an array.
+	 * @throws     \Quiote\Exception\ConfigurationException If the directive is unset with no default given, or does not hold an array.
 	 * @since      1.0.0
 	 * @phpstan-impure
 	 */
 	public static function getArray(string|int $name, ?array $default = null): array
 	{
-		$value = self::retrieve($name, $default);
-		if(!\is_array($value)) {
-			throw new ConfigurationException(\sprintf('Config directive "%s" is not a valid array, got %s.', $name, get_debug_type($value)));
-		}
-		return $value;
+		return self::repository()->getArray($name, $default);
 	}
 
 	/**
@@ -217,28 +192,13 @@ class Config
 	 * @param      string|int        $name The name of the configuration directive.
 	 * @param      array<string> $default The value to return if the directive is not set.
 	 * @return     array<int, string> The value of the directive, normalized to a list of strings.
-	 * @throws     ConfigurationException If the directive holds something other than a string or an array of scalars.
+	 * @throws     \Quiote\Exception\ConfigurationException If the directive holds something other than a string or an array of scalars.
 	 * @since      1.0.0
 	 * @phpstan-impure
 	 */
 	public static function getStringList(string|int $name, array $default = []): array
 	{
-		$value = self::retrieve($name, $default);
-		if($value === null) {
-			return [];
-		}
-		if(\is_string($value)) {
-			return $value === '' ? [] : [$value];
-		}
-		if(\is_array($value)) {
-			return array_map(static function ($item) use ($name) {
-				if(!\is_scalar($item)) {
-					throw new ConfigurationException(\sprintf('Config directive "%s" contains a non-scalar entry, got %s.', $name, get_debug_type($item)));
-				}
-				return (string) $item;
-			}, array_values($value));
-		}
-		throw new ConfigurationException(\sprintf('Config directive "%s" is not a valid string or array of strings, got %s.', $name, get_debug_type($value)));
+		return self::repository()->getStringList($name, $default);
 	}
 
 	/**
@@ -249,7 +209,7 @@ class Config
 	 */
 	public static function has(string|int $name): bool
 	{
-		return isset(self::$config[$name]) || \array_key_exists($name, self::$config);
+		return self::repository()->has($name);
 	}
 
 	/**
@@ -260,12 +220,12 @@ class Config
 	 */
 	public static function isReadonly(string|int $name): bool
 	{
-		return isset(self::$readonlies[$name]);
+		return self::repository()->isReadonly($name);
 	}
 
 	/**
 	 * Set a configuration value.
-	 * @param      string $name The name of the configuration directive.
+	 * @param      string|int $name The name of the configuration directive.
 	 * @param      mixed  $value The configuration value.
 	 * @param      bool   $overwrite Whether or not an existing value should be overwritten.
 	 * @param      bool   $readonly Whether or not this value should be read-only once set.
@@ -274,15 +234,7 @@ class Config
 	 */
 	public static function set(string|int $name, $value, bool $overwrite = true, bool $readonly = false): bool
 	{
-		$retval = false;
-		if(($overwrite || !(isset(self::$config[$name]) || \array_key_exists($name, self::$config))) && !isset(self::$readonlies[$name])) {
-			self::$config[$name] = $value;
-			if($readonly) {
-				self::$readonlies[$name] = $value;
-			}
-			$retval = true;
-		}
-		return $retval;
+		return self::repository()->set($name, $value, $overwrite, $readonly);
 	}
 
 	/**
@@ -293,12 +245,7 @@ class Config
 	 */
 	public static function remove(string|int $name): bool
 	{
-		$retval = false;
-		if((isset(self::$config[$name]) || \array_key_exists($name, self::$config)) && !isset(self::$readonlies[$name])) {
-			unset(self::$config[$name]);
-			$retval = true;
-		}
-		return $retval;
+		return self::repository()->remove($name);
 	}
 
 	/**
@@ -309,9 +256,7 @@ class Config
 	 */
 	public static function fromArray(array $data): void
 	{
-		// array_merge would reindex numeric keys, so we use the + operator
-		// mind the operand order: keys that exist in the left one aren't overridden
-		self::$config = self::$readonlies + $data + self::$config;
+		self::repository()->fromArray($data);
 	}
 
 	/**
@@ -321,7 +266,7 @@ class Config
 	 */
 	public static function toArray(): array
 	{
-		return self::$config;
+		return self::repository()->toArray();
 	}
 
 	/**
@@ -331,18 +276,7 @@ class Config
 	 */
 	public static function clear(): void
 	{
-		// array_intersect_assoc() casts values to string for comparison, which
-		// would make any two array-valued config directives compare equal
-		// ("Array" == "Array") regardless of their actual contents. Config
-		// directives are frequently arrays, so compare with strict equality
-		// on matching keys instead.
-		$restore = [];
-		foreach(self::$readonlies as $key => $value) {
-			if(array_key_exists($key, self::$config) && self::$config[$key] === $value) {
-				$restore[$key] = $value;
-			}
-		}
-		self::$config = $restore;
+		self::repository()->clear();
 	}
 
 	/**
@@ -354,32 +288,6 @@ class Config
 	 */
 	public static function resetWorkerState(array $preserveKeys = []): void
 	{
-		// Preserve readonly config and specified keys
-		$preserve = [];
-
-		// Keep readonly config
-		foreach (self::$readonlies as $key => $dummy) {
-			if (isset(self::$config[$key])) {
-				$preserve[$key] = self::$config[$key];
-			}
-		}
-
-		// Keep explicitly preserved keys
-		foreach ($preserveKeys as $key) {
-			if ($key === 'modules') {
-				// Special handling for modules: preserve all module.* configurations
-				foreach (self::$config as $configKey => $configValue) {
-					if (str_starts_with((string) $configKey, 'modules.')) {
-						$preserve[$configKey] = $configValue;
-					}
-				}
-			} elseif (isset(self::$config[$key])) {
-				$preserve[$key] = self::$config[$key];
-			}
-		}
-
-		// Reset config to preserved values
-		self::$config = $preserve;
+		self::repository()->resetWorkerState($preserveKeys);
 	}
 }
-?>
