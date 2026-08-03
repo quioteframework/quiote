@@ -6,8 +6,10 @@ use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
+use Quiote\Action\Action;
+use Quiote\Controller\Controller;
+use Quiote\Execution\ActionDescriptor;
 use Quiote\Validator\ValidationManager;
-use Quiote\Http\PsrResponseAdapter;
 use Quiote\View\View;
 use Quiote\Execution\ValidationService;
 use Quiote\Execution\ValidationDecision;
@@ -18,8 +20,9 @@ use Quiote\Execution\HttpMethodMapper;
 use Quiote\Request\WebRequest;
 
 /**
- * Executes validation early (before action execution) and enforces strict access to validated params only.
- * If validation fails, converts flow to handleError view resolution path similar to legacy performValidation().
+ * Runs validation before the action executes, and enforces that only validated parameters
+ * are reachable afterwards. A failure is turned into the action's handle*Error() view,
+ * rendered here rather than by dispatch.
  */
 #[\Quiote\Middleware\Attribute\Middleware(phase: 'before_action', priority: 20, after: 'SecurityMiddleware', before: 'DispatchMiddleware')]
 class ValidationMiddleware implements MiddlewareInterface
@@ -27,7 +30,7 @@ class ValidationMiddleware implements MiddlewareInterface
     /** Stateless; built once per worker instead of per request. */
     private readonly ValidationService $validationService;
 
-    public function __construct(private ?\Quiote\Controller\Controller $controller = null)
+    public function __construct(private readonly Controller $controller)
     {
         $this->validationService = new ValidationService();
     }
@@ -35,620 +38,735 @@ class ValidationMiddleware implements MiddlewareInterface
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $execState = $request->getAttribute(ExecutionState::class);
-        // Always ensure we have an ExecutionState so downstream code can rely on it
         if (!$execState instanceof ExecutionState) {
             $execState = new ExecutionState();
             $request = $request->withAttribute(ExecutionState::class, $execState);
         }
-        $actionDesc = $request->getAttribute(\Quiote\Execution\ActionDescriptor::class);
-        if (!$actionDesc instanceof \Quiote\Execution\ActionDescriptor) {
-            return $handler->handle($request);
-        }
-        $vd = \Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug);
-        $moduleName = $actionDesc->module;
-        $actionName = $actionDesc->action;
-        $method = $actionDesc->method;
-        // Map HTTP verbs or custom indicators to legacy semantic method names (Read|Write).
-        // IMPORTANT: The compiled validator config files compare against lowercase tokens 'read' / 'write'.
-        // We keep a normalized (capitalized) variant for naming validate* / handle*Error methods, but
-        // pass the lowercase token to xmlOnlyValidate so <if($method == 'read')> blocks fire.
-        // Derive canonical action method via central mapper then build normalized token for legacy method names
-        $providedMethod = strtolower($method);
-        if ($providedMethod !== '' && in_array($providedMethod, ['read', 'write', 'create', 'update', 'remove'], true)) {
-            // Action descriptors already use legacy semantic tokens – use as-is.
-            $mapped = $providedMethod;
-        } else {
-            $mapped = HttpMethodMapper::toActionMethod($method ?: 'GET'); // normalize HTTP verbs to legacy tokens
-        }
-        $normalizedMethod = ucfirst($mapped);
-        $lowerMethodToken = $mapped; // used for XML config inclusion conditions
-        // Create the action instance (descriptor holds metadata only).
-        $action = $request->getAttribute('quiote.preinstantiated_action');
-        /* 
-        We should always have a preinstantiated action        */
-        if ($vd) {
-            \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware] preinstantiated_action=' . gettype($action));
-        }
-        if (!$action instanceof \Quiote\Action\Action) {
-            if ($vd) {
-                \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware]: pre-instantiated action not found');
-            }
-            $controller = $this->controller;
-            if (!$controller) {
-                try {
-                    $controller = \Quiote\Quiote::context('web', true)->getController();
-                } catch (\Throwable) {
-                }
-            }
-            if ($controller) {
-                // Let exceptions bubble to ErrorHandlingMiddleware – failure is a hard error.
-                $action = $controller->createActionInstance($moduleName, $actionName);
-                // Use the PSR request for type compatibility; action methods still receive WebRequest param from dispatcher later.
-                $initCtx = new \Quiote\Execution\LightweightActionInitContext(
-                    $controller->getContext(),
-                    $moduleName,
-                    $actionName,
-                    $actionDesc->method,
-                    $actionDesc->outputType,
-                    $request,
-                    $controller->getGlobalResponse()
-                );
-                $action->initialize($initCtx);
-            }
-        }
 
-        if (!$action instanceof \Quiote\Action\Action) {
-            // Could not resolve an action instance (no pre-instantiated action and no
-            // controller available to create one) -- nothing to validate against.
+        $actionDesc = $request->getAttribute(ActionDescriptor::class);
+        if (!$actionDesc instanceof ActionDescriptor) {
             return $handler->handle($request);
         }
 
-        // Reuse the context's WebRequest so that validator exports (which write into runtime parameters)
-        // are later visible to the action and views. Creating a fresh instance would isolate exports.
-        // Always obtain (and thus materialize if needed) the context request so we mutate the
-        // exact instance actions/views will later read. Creating an ad-hoc WebRequest would
-        // isolate validator exports from downstream code because Context::getRequest() would
-        // lazily create a different instance afterwards.
-        $webRequest = null;
-        // Ensure we resolve a controller reference early so context reuse works even if constructor passed null
-        if ($this->controller === null) {
-            try {
-                $this->controller = \Quiote\Quiote::context('web', true)->getController();
-            } catch (\Throwable) {
-            }
-        }
-        if ($this->controller === null) {
-            throw new \RuntimeException('Controller missing in ValidationMiddleware (must be initialized earlier).');
-        }
-        try {
-            $webRequest = $this->controller->getContext()->getRequest();
-        } catch (\Throwable) {
-        }
-        if (!($webRequest instanceof WebRequest)) {
-            throw new \RuntimeException('Canonical WebRequest missing in ValidationMiddleware (must be initialized earlier).');
-        }
-        // From this point on, $this->controller is known to be non-null: the
-        // throw above already guards against it being unset, and nothing in
-        // this method ever resets it back to null.
+        $action = $this->resolveAction($request, $actionDesc);
+        $webRequest = $this->canonicalWebRequest();
 
-        // isSimple() means the action needs NO parameters at all -- not "skip
-        // validation but still allow raw access". A route path segment's VALUE
-        // is just as attacker-controlled as a query/body parameter (e.g. a
-        // "slug" of "' OR 1=1;--"), so it must not reach the action either.
-        // Every parameter source (query, body, runtime, and route params) is
-        // therefore cleared unconditionally below, and route-param promotion
-        // is skipped entirely -- there is nothing for it to promote INTO.
-        $isSimple = $action->isSimple();
-
-        if ($isSimple) {
-            try {
-                $webRequest = $webRequest->clearParameters();
-                $this->controller->getContext()->setRequest($webRequest);
-            } catch (\Throwable) {
-            }
-            // Clear the PSR-7 request too: DispatchMiddleware::processSimple()
-            // rebuilds a WebRequest via ActionExecutor::buildRequestDataFromPsr(),
-            // which reads THIS object's query/body directly and calls
-            // setParameter() for each -- setParameter() auto-whitelists, so a
-            // raw query/body param would otherwise resurrect and become
-            // whitelisted right after the clear above.
-            $request = $request->withQueryParams([])->withParsedBody([]);
-            $execState->validationDecision = ValidationDecision::passed();
-            $request = $request
-                ->withAttribute(ExecutionState::class, $execState)
-                ->withAttribute('quiote.request_data', $webRequest);
-            return $handler->handle($request);
-        }
-
-        // If the request changed in the pipeline, sync it back to context.
-        if ($request !== $webRequest) {
-            if ($request instanceof WebRequest) {
-                // Already an WebRequest (e.g. a with*() clone) — use it directly.
-                $this->controller->getContext()->setRequest($request);
-                $webRequest = $request;
-            } else {
-                // Generic PSR-7 request: overlay its pipeline state onto the canonical
-                // WebRequest rather than replacing it, so the request's
-                // Quiote-specific validation state (validatedKeys whitelist, runtime
-                // parameters) is preserved. A fresh WebRequest::fromPsr($request)
-                // would reset that state — the pipeline request doesn't carry it —
-                // and break strict unvalidated-parameter access.
-                $webRequest = $webRequest
-                    ->withMethod($request->getMethod())
-                    ->withUri($request->getUri())
-                    ->withQueryParams($request->getQueryParams())
-                    ->withParsedBody($request->getParsedBody());
-                foreach ($request->getAttributes() as $name => $value) {
-                    $webRequest = $webRequest->withAttribute($name, $value);
-                }
-                $this->controller->getContext()->setRequest($webRequest);
-            }
-        }
-        
-        if ($vd) {
-            \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware][debug] using context WebRequest (shared)');
-        }
-        // Promote route params (excluding internal underscore-prefixed keys) into runtime parameters
-        // BEFORE validation so validators treat them like any other input (GET/POST/etc.).
-        // Uses setUnvalidatedParameter(), NOT setParameter(): the latter auto-whitelists as a
-        // trusted-export side effect, which would let a route param like {id} reach
-        // getParameter() even when no validator targets it. Promoting it unvalidated still makes
-        // the raw value visible to a validator that DOES target it (ValidationManager whitelists
-        // by validator-declared argument names before running validators); if none does, pruning
-        // removes it, matching how an un-validated query/body param is already treated.
-        try {
-            $routeParams = $request->getAttribute('route_params');
-            if ($vd) {
-                try {
-                    \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware][debug] route_params=' . json_encode($routeParams, JSON_UNESCAPED_SLASHES));
-                } catch (\Throwable) {
-                }
-            }
-            if (is_array($routeParams) && $routeParams) {
-                $injected = [];
-                $queryParams = $webRequest->getQueryParams();
-                $bodyParams = $webRequest->getParsedBody();
-                foreach ($routeParams as $k => $v) {
-                    if ($k !== '' && $k[0] !== '_' && !is_array($v)) {
-                        // Check if param already exists in query/body (don't overwrite)
-                        $exists = array_key_exists($k, $queryParams) ||
-                                  (is_array($bodyParams) && array_key_exists($k, $bodyParams));
-
-                        if (!$exists) {
-                            $injected[$k] = $v;
-                        }
-                    }
-                }
-                if ($injected) {
-                    $webRequest = $webRequest->withUnvalidatedParameters($injected);
-                    // Also merge into raw query params so validators reading query directly see them.
-                    if ($vd) {
-                        try {
-                            \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware][debug] injected_route_params_runtime=' . json_encode($injected, JSON_UNESCAPED_SLASHES));
-                        } catch (\Throwable) {
-                        }
-                    }
-                    // Update context with the modified request (has route params in runtime parameters)
-                    $this->controller->getContext()->setRequest($webRequest);
-                }
-            }
-        } catch (\Throwable) {
-            // ignore promotion errors – validation will proceed without route params if something unexpected happens
-        }
-
-        if ($vd) {
-            \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleare] Already validated?');
-        }
-        // Skip if already validated
-        // Re-run only if not yet decided; SecurityMiddleware may reset validationPerformed on forward.
-        if ($execState->validationDecision && !$execState->validationDecision->isPending()) {
-            if ($vd) {
-                \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware] YES');
-            }
-            return $handler->handle($request);
-        }
-
-        if ($vd) {
-            \Quiote\Logging\Log::for($this)->debug('[ValidationMiddlware] NO');
-        }
-
-        $ok = true;
-        $hasXml = false;
-        $errors = [];
-        $vs = $this->validationService;
-        // Deliberately uncaught: a validator or a manual validate*()/validate()
-        // hook throwing is a critical framework/app bug, not "the user submitted
-        // invalid input". ValidationService already logs it at error level before
-        // rethrowing; letting it propagate here means ErrorHandlingMiddleware
-        // turns it into a 500 instead of this middleware masquerading it as an
-        // ordinary graceful validation failure (which could also leave the
-        // request in an unpruned, unsafe state -- pruning happens inside the
-        // very execute() call that threw).
         if ($action->isSimple()) {
-            $ok = true; // simple actions bypass validation
-            // simple action bypass
-        } else {
-            // Attempt XML-only validation first (must use lowercase token so compiled config matches)
-            $xmlRes = $vs->xmlOnlyValidate($action, $webRequest, $moduleName, $actionName, $lowerMethodToken);
-            if ($vd) {
-                try {
-                    $t = $xmlRes->getTrace();
-                    if ($t instanceof \Quiote\Execution\ValidationTrace) {
-                        \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware] trace configFile=' . ($t->configFile ?? 'null') . ' validators=' . implode(',', $t->validatorsLoaded));
-                    }
-                } catch (\Throwable) {
-                }
-            }
-            $trace = $xmlRes->getTrace();
-            // "hasXml" gates whether we clear/lock down the request below. It must
-            // also be true when validators were registered manually via
-            // register{Method}Validators() (no validators.xml file), otherwise the
-            // clearParameters() call further down wipes the parameter values that
-            // ValidationManager::execute() just whitelisted, leaving getParameter()
-            // whitelisted but returning null for a value that was actually submitted.
-            $hasXml = $trace instanceof \Quiote\Execution\ValidationTrace && (
-                ($trace->configFile !== null && $trace->configFile !== '')
-                || !empty($trace->validatorsLoaded)
-            );
-            $ok = $xmlRes->ok;
-            if (!$ok) {
-                $errors = $xmlRes->getErrors() ?: ['validation_failed'];
-            }
-            // xml validation phase complete
-            if ($ok) {
-                // Manual action validation phase
-                $validateMethod = 'validate' . $normalizedMethod;
-                if (is_callable([$action, $validateMethod])) {
-                    $ok = (bool)$action->$validateMethod($webRequest);
-                }
-                if ($ok) {
-                    $ok = (bool)$action->validate($webRequest);
-                }
-                if (!$ok) {
-                    $errors[] = 'manual_validation_failed';
-                }
-                // manual validation phase complete
-            }
+            return $this->handleSimpleAction($request, $handler, $execState, $webRequest);
         }
 
-        // CRITICAL: Re-fetch request from context after validation
-        // ValidationManager may have replaced it with a pruned immutable instance
-        try {
-            $webRequest = $this->controller->getContext()->getRequest();
-        } catch (\Throwable) {
-            // Keep existing reference if fetch fails
+        $webRequest = $this->adoptPipelineRequest($request, $webRequest);
+        $webRequest = $this->promoteRouteParams($request, $webRequest);
+
+        // SecurityMiddleware resets the decision to pending on a forward, so a decided
+        // state here means validation already ran for this request.
+        if ($execState->validationDecision && !$execState->validationDecision->isPending()) {
+            return $handler->handle($request);
         }
 
-        // Keep the PSR request in sync with the canonical WebRequest so downstream
-        // middleware (e.g. FormPopulation) continue working on the pruned/whitelisted payload.
+        $tokens = self::methodTokens($actionDesc->method);
+        $outcome = $this->runValidation($action, $webRequest, $actionDesc, $tokens['config']);
+
+        // ValidationManager may have replaced the context's request with a pruned instance.
+        $webRequest = $this->canonicalWebRequest($webRequest);
+
+        // Carry the pipeline request forward as the canonical WebRequest, so downstream
+        // middleware (FormPopulation among them) work on the pruned, whitelisted payload.
         $originalPsr = $request->getAttribute('_original_psr_request');
         $request = $webRequest;
         if ($originalPsr instanceof ServerRequestInterface) {
             $request = $request->withAttribute('_original_psr_request', $originalPsr);
         }
 
-        // If no validators (XML or manually registered) ran, treat as success but expose
-        // ZERO parameters to action (strict empty set)
-        if (!$hasXml && !$action->isSimple()) {
-            // Clear webRequest parameters and lock down
-            try {
-                $webRequest = $webRequest->clearParameters();
-                $this->controller->getContext()->setRequest($webRequest);
-            } catch (\Throwable) {
-            }
-            // no xml => params cleared
+        if (!$outcome['hasValidators']) {
+            // No validators ran at all, so no parameter has been vetted: expose none.
+            $webRequest = $this->clearParameters($webRequest);
         }
-        $execState->validationDecision = $ok ? ValidationDecision::passed() : ValidationDecision::failed($errors);
+
+        $execState->validationDecision = $outcome['ok']
+            ? ValidationDecision::passed()
+            : ValidationDecision::failed($outcome['errors']);
         $request = $request
             ->withAttribute(ExecutionState::class, $execState)
             ->withAttribute('quiote.request_data', $webRequest);
-        if ($vd) {
-            $errStr = !$ok ? (' errors=' . json_encode($errors)) : '';
-            $sessId = 'no-sid';
-            try {
-                $sidTmp = $this->controller->getContext()->getSessionBag()->getId();
-                if ($sidTmp !== '') {
-                    $sessId = $sidTmp;
-                }
-            } catch (\Throwable) {
-                // swallow
-            }
-            if ($sessId === 'no-sid' && function_exists('session_id')) {
-                try {
-                    $sidNative = session_id();
-                    if (is_string($sidNative) && $sidNative !== '') {
-                        $sessId = $sidNative;
-                    }
-                } catch (\Throwable) {
-                }
-            }
-            $auth = 'na';
-            try {
-                $user = $this->controller->getContext()->getUser();
-                if (method_exists($user, 'isAuthenticated')) {
-                    $auth = $user->isAuthenticated() ? '1' : '0';
-                }
-            } catch (\Throwable) {
-            }
-            \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware] decision=' . $execState->validationDecision->state . ' module=' . $moduleName . ' action=' . $actionName . ' method=' . $method . ' simple=' . ($action->isSimple() ? '1' : '0') . ' sessId=' . $sessId . ' auth=' . $auth . $errStr);
-        }
-        if ($ok) {
-            if ($vd) {
-                try {
-                    \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware][debug] post-validation SUCCESS');
-                } catch (\Throwable) {
-                }
-            }
+
+        $this->logDecision($execState->validationDecision, $actionDesc, $outcome);
+
+        if ($outcome['ok']) {
             return $handler->handle($request);
         }
-        if ($vd) {
-            try {
-                \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware][debug] post-validation FAILURE');
-            } catch (\Throwable) {
+
+        return $this->renderValidationFailure($request, $action, $actionDesc, $tokens, $outcome, $webRequest);
+    }
+
+    /**
+     * Semantic method tokens derived from the descriptor's method.
+     *
+     * The compiled validator config compares against lowercase tokens ('read'/'write'), so
+     * `<if($method == 'read')>` blocks need the 'config' form, while the validate*() and
+     * handle*Error() method names are built from the capitalized 'suffix' form.
+     *
+     * @return     array{config: string, suffix: string}
+     */
+    private static function methodTokens(string $method): array
+    {
+        $provided = strtolower($method);
+        $mapped = in_array($provided, ['read', 'write', 'create', 'update', 'remove'], true)
+            // Descriptors already carrying a semantic token are used as-is.
+            ? $provided
+            : HttpMethodMapper::toActionMethod($method !== '' ? $method : 'GET');
+
+        return ['config' => $mapped, 'suffix' => ucfirst($mapped)];
+    }
+
+    /**
+     * The action to validate against: the instance dispatch pre-built when present,
+     * otherwise one created and initialized here.
+     */
+    private function resolveAction(ServerRequestInterface $request, ActionDescriptor $actionDesc): Action
+    {
+        $action = $request->getAttribute('quiote.preinstantiated_action');
+        if ($action instanceof Action) {
+            return $action;
+        }
+
+        // Exceptions from here bubble to ErrorHandlingMiddleware: an action that exists but
+        // cannot be built is a hard error, not a reason to skip validation.
+        $action = $this->controller->createActionInstance($actionDesc->module, $actionDesc->action);
+        $action->initialize(new \Quiote\Execution\LightweightActionInitContext(
+            $this->controller->getContext(),
+            $actionDesc->module,
+            $actionDesc->action,
+            $actionDesc->method,
+            $actionDesc->outputType,
+            $request,
+            $this->controller->getGlobalResponse()
+        ));
+
+        return $action;
+    }
+
+    /**
+     * The context's canonical WebRequest -- the instance validator exports write into and
+     * actions and views later read. Building an ad-hoc one instead would isolate those
+     * exports, because the context would still hand out its own.
+     *
+     * $fallback is returned when the context cannot produce one, for the re-fetch after
+     * validation where losing the request would be worse than keeping a slightly stale
+     * reference to it.
+     */
+    private function canonicalWebRequest(?WebRequest $fallback = null): WebRequest
+    {
+        try {
+            $webRequest = $this->controller->getContext()->getRequest();
+        } catch (\Throwable $e) {
+            if ($fallback !== null) {
+                \Quiote\Logging\Log::for($this)->warning(
+                    '[ValidationMiddleware] could not re-read the canonical request, keeping the previous instance: '
+                    . $e->getMessage()
+                );
+
+                return $fallback;
+            }
+
+            throw new \RuntimeException(
+                'Canonical WebRequest missing in ValidationMiddleware (must be initialized earlier).',
+                0,
+                $e
+            );
+        }
+
+        return $webRequest;
+    }
+
+    /**
+     * A simple action declares that it needs no parameters at all, so every source is
+     * cleared and route-param promotion is skipped -- there is nothing to promote into.
+     *
+     * A route path segment's value is as attacker-controlled as a query or body parameter,
+     * so "needs no parameters" has to mean none of them reach the action either. The PSR-7
+     * query and body are cleared alongside the runtime store because
+     * DispatchMiddleware::processSimple() rebuilds a WebRequest from this object via
+     * ActionExecutor::buildRequestDataFromPsr(), whose setParameter() calls would
+     * re-whitelist anything left behind.
+     */
+    private function handleSimpleAction(
+        ServerRequestInterface $request,
+        RequestHandlerInterface $handler,
+        ExecutionState $execState,
+        WebRequest $webRequest,
+    ): ResponseInterface {
+        $webRequest = $this->clearParameters($webRequest);
+        $request = $request->withQueryParams([])->withParsedBody([]);
+
+        $execState->validationDecision = ValidationDecision::passed();
+        $request = $request
+            ->withAttribute(ExecutionState::class, $execState)
+            ->withAttribute('quiote.request_data', $webRequest);
+
+        return $handler->handle($request);
+    }
+
+    /**
+     * Drop every runtime parameter and publish the result as the context's request.
+     */
+    private function clearParameters(WebRequest $webRequest): WebRequest
+    {
+        $cleared = $webRequest->clearParameters();
+        $this->publish($cleared);
+
+        return $cleared;
+    }
+
+    /**
+     * Install $webRequest as the context's canonical request.
+     *
+     * WebRequest is immutable, so every with*()/set*() above produced a new instance that
+     * the context does not yet know about; without this, code reading
+     * Context::getRequest() would keep seeing the pre-modification one.
+     */
+    private function publish(WebRequest $webRequest): void
+    {
+        $this->controller->getContext()->setRequest($webRequest);
+    }
+
+    /**
+     * Fold whatever the pipeline did to the request into the canonical WebRequest.
+     *
+     * A foreign PSR-7 request's state is overlaid rather than replacing the canonical
+     * instance: a fresh WebRequest::fromPsr() would discard the validated-parameter
+     * whitelist and runtime parameters the pipeline request never carried, which strict
+     * unvalidated-access checking depends on.
+     */
+    private function adoptPipelineRequest(ServerRequestInterface $request, WebRequest $webRequest): WebRequest
+    {
+        if ($request === $webRequest) {
+            return $webRequest;
+        }
+
+        if ($request instanceof WebRequest) {
+            $this->publish($request);
+
+            return $request;
+        }
+
+        $webRequest = $webRequest
+            ->withMethod($request->getMethod())
+            ->withUri($request->getUri())
+            ->withQueryParams($request->getQueryParams())
+            ->withParsedBody($request->getParsedBody());
+        foreach ($request->getAttributes() as $name => $value) {
+            $webRequest = $webRequest->withAttribute($name, $value);
+        }
+        $this->publish($webRequest);
+
+        return $webRequest;
+    }
+
+    /**
+     * Make route parameters visible to validators as ordinary input, before validation runs.
+     *
+     * Promoted with setUnvalidatedParameter() rather than setParameter(): the latter
+     * auto-whitelists as a trusted-export side effect, which would let a route param like
+     * {id} reach getParameter() with no validator targeting it. Promoted unvalidated, the
+     * raw value is still visible to a validator that does target it -- ValidationManager
+     * whitelists by validator-declared argument name before running them -- and pruning
+     * removes it otherwise, exactly as for an unvalidated query or body parameter.
+     *
+     * Underscore-prefixed keys are internal routing metadata, and a name already present in
+     * query or body is left alone rather than overwritten.
+     */
+    private function promoteRouteParams(ServerRequestInterface $request, WebRequest $webRequest): WebRequest
+    {
+        $routeParams = $request->getAttribute('route_params');
+        if (!is_array($routeParams) || $routeParams === []) {
+            return $webRequest;
+        }
+
+        $queryParams = $webRequest->getQueryParams();
+        $bodyParams = $webRequest->getParsedBody();
+        $injected = [];
+        foreach ($routeParams as $name => $value) {
+            if ($name === '' || $name[0] === '_' || is_array($value)) {
+                continue;
+            }
+            $alreadyPresent = array_key_exists($name, $queryParams)
+                || (is_array($bodyParams) && array_key_exists($name, $bodyParams));
+            if (!$alreadyPresent) {
+                $injected[$name] = $value;
             }
         }
-        // failure path
-        // Validation failed => 400 with errors and stash for form population.
-        // A validation failure is ALWAYS a 400: the view NAME handle*Error()
-        // returns (e.g. 'Success', 'Error', or literally anything an app
-        // author chooses) is presentation detail, not a signal the response
-        // stopped being an error. Nothing prevents an action from returning
-        // an arbitrary string as the view name, so branching status code on
-        // it would let that string double as an unintended status override.
-        // The one supported way to override the status is the existing,
-        // general `WebResponse::setHttpStatusCode()` convention (already
-        // honored on the success path by DispatchMiddleware::buildPsrResponse) --
-        // baseline it to 400 here so handle*Error()/the error view can
-        // explicitly opt into a different code via getGlobalResponse() if it
-        // wants to, but the default is always the correct one.
-        try {
-            $this->controller->getGlobalResponse()->setHttpStatusCode(400);
-        } catch (\Throwable) {
+
+        if ($injected === []) {
+            return $webRequest;
         }
+
+        $webRequest = $webRequest->withUnvalidatedParameters($injected);
+        $this->publish($webRequest);
+
+        return $webRequest;
+    }
+
+    /**
+     * Run the XML-configured validators, then the action's manual validate*() hooks.
+     *
+     * Deliberately uncaught: a validator or a manual hook throwing is a framework or
+     * application bug, not invalid user input. ValidationService logs it before rethrowing,
+     * and letting it propagate means ErrorHandlingMiddleware turns it into a 500 rather than
+     * this middleware presenting it as an ordinary validation failure -- which would also
+     * leave the request unpruned, since pruning happens inside the execute() call that threw.
+     *
+     * 'hasValidators' reports whether anything actually vetted the input, counting both a
+     * validators config file and validators registered through register{Method}Validators().
+     * Without the second case the caller's parameter clear would wipe values
+     * ValidationManager::execute() had just whitelisted, leaving getParameter() permitted
+     * but answering null for a value the client did submit.
+     *
+     * @return     array{ok: bool, hasValidators: bool, errors: list<string>}
+     */
+    private function runValidation(
+        Action $action,
+        WebRequest $webRequest,
+        ActionDescriptor $actionDesc,
+        string $configMethodToken,
+    ): array {
+        $xmlResult = $this->validationService->xmlOnlyValidate(
+            $action,
+            $webRequest,
+            $actionDesc->module,
+            $actionDesc->action,
+            $configMethodToken
+        );
+
+        $trace = $xmlResult->getTrace();
+        $hasValidators = $trace instanceof \Quiote\Execution\ValidationTrace && (
+            ($trace->configFile !== null && $trace->configFile !== '')
+            || !empty($trace->validatorsLoaded)
+        );
+
+        if (!$xmlResult->ok) {
+            /** @var list<string> $errors */
+            $errors = $xmlResult->getErrors() ?: ['validation_failed'];
+
+            return ['ok' => false, 'hasValidators' => $hasValidators, 'errors' => $errors];
+        }
+
+        $suffix = self::methodTokens($actionDesc->method)['suffix'];
+        $ok = true;
+        $validateMethod = 'validate' . $suffix;
+        if (is_callable([$action, $validateMethod])) {
+            $ok = (bool) $action->$validateMethod($webRequest);
+        }
+        if ($ok) {
+            $ok = (bool) $action->validate($webRequest);
+        }
+
+        return [
+            'ok' => $ok,
+            'hasValidators' => $hasValidators,
+            'errors' => $ok ? [] : ['manual_validation_failed'],
+        ];
+    }
+
+    /**
+     * @param array{ok: bool, hasValidators: bool, errors: list<string>} $outcome
+     */
+    private function logDecision(ValidationDecision $decision, ActionDescriptor $actionDesc, array $outcome): void
+    {
+        $logger = \Quiote\Logging\Log::for($this);
+        if (!$logger->isEnabled(\Quiote\Logging\Level::Debug)) {
+            return;
+        }
+
+        $errStr = $outcome['ok'] ? '' : (' errors=' . json_encode($outcome['errors']));
+        $logger->debug(
+            '[ValidationMiddleware] decision=' . $decision->state
+            . ' module=' . $actionDesc->module
+            . ' action=' . $actionDesc->action
+            . ' method=' . $actionDesc->method
+            . ' sessId=' . $this->diagnosticSessionId()
+            . ' auth=' . $this->diagnosticAuthState()
+            . $errStr
+        );
+    }
+
+    /** Session id for a debug line only; never a decision input. */
+    private function diagnosticSessionId(): string
+    {
+        try {
+            $sid = $this->controller->getContext()->getSessionBag()->getId();
+            if ($sid !== '') {
+                return $sid;
+            }
+        } catch (\Throwable) {
+            // Falls through to the native session below.
+        }
+
+        if (function_exists('session_id')) {
+            $native = session_id();
+            if (is_string($native) && $native !== '') {
+                return $native;
+            }
+        }
+
+        return 'no-sid';
+    }
+
+    /** Authentication state for a debug line only; never a decision input. */
+    private function diagnosticAuthState(): string
+    {
+        try {
+            $user = $this->controller->getContext()->getUser();
+            if ($user instanceof \Quiote\User\ISecurityUser) {
+                return $user->isAuthenticated() ? '1' : '0';
+            }
+        } catch (\Throwable) {
+            // Reported as unavailable below.
+        }
+
+        return 'na';
+    }
+
+    /**
+     * Turn a validation failure into a response: baseline 400, run the action's
+     * handle*Error() hook, render the view it names, and repopulate the submitted values
+     * into an HTML form.
+     *
+     * @param array{config: string, suffix: string} $tokens
+     * @param array{ok: bool, hasValidators: bool, errors: list<string>} $outcome
+     */
+    private function renderValidationFailure(
+        ServerRequestInterface $request,
+        Action $action,
+        ActionDescriptor $actionDesc,
+        array $tokens,
+        array $outcome,
+        WebRequest $webRequest,
+    ): ResponseInterface {
+        $errors = $outcome['errors'];
+
+        // A validation failure is always a 400. The view name handle*Error() returns is
+        // presentation detail an app author picks freely, so branching status on it would
+        // let an arbitrary string double as an unintended status override. The supported
+        // override is WebResponse::setHttpStatusCode(), read back when the response is
+        // assembled -- the same convention DispatchMiddleware honours on the success path.
+        $this->controller->getGlobalResponse()->setHttpStatusCode(400);
+
         $request = $request->withAttribute('quiote.validation.errors', $errors);
-        $method = $normalizedMethod ?: 'Default';
-        $handleErrorMethod = 'handle' . $method . 'Error';
+
+        $handleErrorMethod = 'handle' . ($tokens['suffix'] !== '' ? $tokens['suffix'] : 'Default') . 'Error';
         if (!is_callable([$action, $handleErrorMethod])) {
             $handleErrorMethod = 'handleError';
         }
         $rawViewName = $action->$handleErrorMethod($webRequest);
-        // WebRequest is immutable: a handle*Error() that exports data via setParameter()
-        // (e.g. so the error view can read it back) only replaces its own local copy unless
-        // it also calls $this->getContext()->setRequest($request). Re-fetch so the error
-        // view created below sees that self-synced instance rather than the stale $webRequest
-        // captured before handle*Error() ran (mirrors ActionExecutor::doExecute()'s same
-        // re-fetch on the success path).
-        try {
-            $webRequest = $this->controller->getContext()->getRequest();
-        } catch (\Throwable) {
+
+        // A handle*Error() that exports data via setParameter() only changed its own copy
+        // unless it also published it to the context, so re-read rather than reusing the
+        // instance captured before the hook ran.
+        $webRequest = $this->canonicalWebRequest($webRequest);
+
+        [$viewModule, $viewName] = (new ViewNameResolver())->resolve($actionDesc->module, $actionDesc->action, $rawViewName);
+
+        $execState = $request->getAttribute(ExecutionState::class);
+        if ($execState instanceof ExecutionState) {
+            $execState->viewModule = $viewModule;
+            $execState->viewName = $viewName;
+            $request = $request->withAttribute(ExecutionState::class, $execState);
         }
-        $resolver = new ViewNameResolver();
-        [$viewModule, $viewName] = $resolver->resolve($moduleName, $actionName, $rawViewName);
-        $execState->viewModule = $viewModule;
-        $execState->viewName = $viewName;
-        $request = $request->withAttribute(ExecutionState::class, $execState);
-        // The error view rendered below runs entirely inside this middleware,
-        // before the pipeline ever reaches SlotMiddleware (which normally runs
-        // AFTER ValidationMiddleware on the happy path — see
-        // MiddlewareAttributeOrderingTest). If the error view calls
-        // renderSlot(), SlotDispatcher throws "SlotStack missing from request"
-        // because nothing has attached one yet. Attach one here, mirroring
-        // SlotMiddleware::process(), so slot rendering also works on the
-        // validation-failure path.
+
+        // The error view renders inside this middleware, before the pipeline reaches
+        // SlotMiddleware, so nothing has attached a SlotStack yet and a view calling
+        // renderSlot() would fail. Attach one here, as SlotMiddleware would.
         $webRequest = $this->ensureSlotStack($webRequest, $request);
-        try {
-            $this->controller->getContext()->setRequest($webRequest);
-        } catch (\Throwable) {
-        }
-        // Execute view immediately so downstream dispatch middleware can skip action logic
+        $this->publish($webRequest);
+
         if ($viewName === View::NONE) {
-            $factory = \Quiote\Http\Psr17::factory();
-            return $factory->createResponse(400);
+            return \Quiote\Http\Psr17::factory()->createResponse(400);
         }
-        // ViewNameResolver::resolve() only ever returns a null module alongside
-        // a null view name (both set together for the View::NONE case handled
-        // above), so a non-null $viewName here guarantees a non-null module.
+
+        // ViewNameResolver only returns a null module alongside a null view name, which is
+        // the View::NONE case handled above.
         if ($viewModule === null) {
             throw new \RuntimeException('ViewNameResolver returned a null module for a non-null view name.');
         }
-        // Create view via controller and ImmutableViewInitContext
+
         try {
-            $actionContext = $action->getContext();
-            if ($actionContext === null) {
-                throw new \RuntimeException('Action must be initialized before an error view can be created.');
-            }
-            $controller = $actionContext->getController();
-            $vf = new ViewFactory($controller);
-            // Render the error view in the NEGOTIATED output type — the same one the
-            // successful dispatch would use (ActionDescriptor->outputType, which
-            // RoutingMiddleware derives from the route or the content-negotiated
-            // type), NOT the controller's default. Otherwise an Accept:
-            // application/json request that fails validation would run executeHtml
-            // and return an HTML/blank body.
-            $ot = $this->resolveErrorOutputType($request, $controller);
-            $view = $vf->create($viewModule, $viewName, $moduleName, $actionName, $ot, $webRequest, [], $vs->getValidationManager());
-            if (!$view) {
-                $factory = \Quiote\Http\Psr17::factory();
-                if ($vd) {
-                    \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware] view creation returned null for ' . $viewModule . ':' . $viewName);
-                }
-                $resp = $factory->createResponse(400)->withHeader('X-Quiote-Validation', 'failed')->withHeader('X-Quiote-Validation-Reason', 'view_not_created');
-                return $resp->withBody($factory->createStream($viewName));
-            }
-            $otMethod = 'execute' . ucfirst($ot);
-            $hasOtMethod = is_callable([$view, $otMethod]);
-            $problemJson = false;
-            if ($ot === 'json') {
-                // JSON validation-error response. Decision tree:
-                //   - error view has NO executeJson()        -> Problem Details
-                //   - executeJson() returns null             -> Problem Details
-                //   - executeJson() returns a value          -> use it verbatim
-                // An RFC 9457 Problem Details document is synthesized from the
-                // validation report in the first two cases. A view that DOES render
-                // a JSON body is left untouched — its shape is an API contract we
-                // must not silently rewrite. An explicit empty string from
-                // executeJson() is a deliberate "no body" choice and is respected
-                // (blank 400), since only a NULL return triggers the fallback.
-                $content = $hasOtMethod ? $view->$otMethod($webRequest) : null;
-                if ($content === null) {
-                    $content = $this->buildValidationProblemDetails($vs->getValidationManager(), $errors, $request);
-                    $problemJson = true;
-                }
-            } elseif ($hasOtMethod) {
-                $content = $view->$otMethod($webRequest);
-            } else {
-                // Legacy fallback for non-JSON output types.
-                $content = $view->execute($webRequest);
-            }
-            // Mirror ActionExecutor::renderView()'s fallback: a view that calls
-            // loadLayout()/appendLayer() and implicitly returns null expects the
-            // caller to render its configured layers instead. Without this, any
-            // HTML error view following that (framework-scaffolded) convention
-            // produced a 400 with an empty body.
-            if ($content === null && $ot !== 'json' && $view->getLayers()) {
-                $layerContent = $view->renderLayers();
-                if ($layerContent !== '') {
-                    $content = $layerContent;
-                }
-            }
-            // $content came from dynamic execute*()/execute() calls PHPStan can't type
-            // beyond mixed; normalize once here so every later use can rely on ?string.
-            if ($content !== null && !is_string($content)) {
-                $content = is_scalar($content) ? (string) $content : '';
-            }
-            // Repopulate the submitted values into the rendered HTML form (the
-            // "sticky form" behavior). Scoped to 'html' only: an API client
-            // (JSON/etc.) is expected to hold its own submitted state, and
-            // FormPopulationEngine's DOM rewriting only makes sense for markup
-            // output. Sourced from ValidationManager's raw pre-prune snapshot,
-            // NOT $webRequest -- a value that failed even one of several
-            // validators registered against the same field name is
-            // deliberately scrubbed from the request (see
-            // WebRequest::pruneParametersToValidated()), which is correct for
-            // business logic but would otherwise make that field render blank
-            // again on the redisplayed form instead of showing what the user
-            // actually typed.
-            if ($ot === 'html' && is_string($content) && $content !== '') {
-                try {
-                    $vm = $vs->getValidationManager();
-                    $rawSnapshot = $vm instanceof ValidationManager ? $vm->getRawParameterSnapshot() : [];
-                    if ($rawSnapshot) {
-                        $globalResponse = $controller->getGlobalResponse();
-                        $globalResponse->setContent($content);
-                        // FormPopulationEngine gates on $response->getOutputType()
-                        // (the 'output_types' config below), so the global response
-                        // must carry the negotiated output type, not whatever it
-                        // last had set (e.g. from a prior request in a long-running
-                        // worker, or none at all).
-                        $globalResponse->setOutputType($controller->getOutputType($ot));
-                        $engine = new \Quiote\Util\FormPopulationEngine();
-                        $engine->initialize($controller->getContext());
-                        try {
-                            $engine->populate($globalResponse, $webRequest, [
-                                // A ParameterHolder here (not a plain array) is used
-                                // verbatim as the global value source for every form
-                                // field on the page -- FormPopulationEngine treats a
-                                // plain array under 'populate' as a per-form-id map
-                                // instead (see resolvePopulateSource()).
-                                'populate' => new \Quiote\Util\ParameterHolder($rawSnapshot),
-                                'validation_report' => $vm->getReport(),
-                                'output_types' => ['html'],
-                            ]);
-                        } finally {
-                            $engine->reset();
-                        }
-                        $populated = $globalResponse->getContent();
-                        if (is_string($populated) && $populated !== '') {
-                            $content = $populated;
-                        }
-                    }
-                } catch (\Throwable) {
-                    // Form repopulation is a UX nicety, not correctness-critical --
-                    // never let it turn a validation-failure response into a 500.
-                }
-            }
-            // Stash content for DispatchMiddleware early short-circuit (non-simple container-less path)
-            try {
-                $request = $request->withAttribute('validation.error.content', (string)$content);
-            } catch (\Throwable) {
-            }
-            $factory = \Quiote\Http\Psr17::factory();
-            $resp = $factory->createResponse(400)->withHeader('X-Quiote-Validation', 'failed');
-            // Read back the status baselined to 400 above -- honors an explicit
-            // $controller->getGlobalResponse()->setHttpStatusCode() override from
-            // handle*Error()/the error view itself, mirroring the same convention
-            // DispatchMiddleware::buildPsrResponse() already honors on the success path.
-            try {
-                $globalResp = $controller->getGlobalResponse();
-                $statusCode = (int)$globalResp->getHttpStatusCode();
-                if ($statusCode >= 100) {
-                    $resp = $resp->withStatus($statusCode);
-                }
-            } catch (\Throwable) {
-            }
-            if ($problemJson) {
-                // RFC 9457 media type for the synthesized Problem Details body.
-                $resp = $resp->withHeader('Content-Type', 'application/problem+json; charset=UTF-8');
-            } else {
-                // Respect a Content-Type the view explicitly set — notably
-                // application/problem+json when the view used
-                // returnProblemDetailsFromValidationIncidents().
-                $viewContentType = null;
-                try {
-                    $ct = $controller->getGlobalResponse()->getContentType();
-                    if (is_string($ct) && $ct !== '') {
-                        $viewContentType = $ct;
-                    }
-                } catch (\Throwable) {
-                }
-                if ($viewContentType !== null) {
-                    $resp = $resp->withHeader('Content-Type', $viewContentType);
-                } else {
-                    // Prefer Content-Type from output_types.xml; fall back to MimeTypeRegistry autodetection.
-                    $primaryMime = null;
-                    try {
-                        $configuredMime = $controller->getOutputType($ot)->getParameter('http_headers[Content-Type]') ?: null;
-                        $primaryMime = is_scalar($configuredMime) ? (string) $configuredMime : null;
-                    } catch (\Throwable) {
-                    }
-                    $primaryMime ??= \Quiote\Http\MimeTypeRegistry::primaryMimeType($ot);
-                    if ($primaryMime !== null) {
-                        $resp = $resp->withHeader('Content-Type', $primaryMime);
-                    }
-                }
-            }
-            // The X-Quiote-Validation-Errors header leaks internal field/validator
-            // structure to the client, so it is opt-in and OFF by default. Enable it
-            // (e.g. for a trusted dev/test front-end) via:
-            //   Config::set('core.expose_validation_errors_header', true)
-            if (!empty($errors) && \Quiote\Config\Config::getBool('core.expose_validation_errors_header', false)) {
-                $encodedErrors = json_encode($errors);
-                if ($encodedErrors !== false) {
-                    $resp = $resp->withHeader('X-Quiote-Validation-Errors', base64_encode($encodedErrors));
-                }
-            }
-            if ($content !== null) {
-                $resp = $resp->withBody($factory->createStream((string)$content));
-            }
-            return $resp;
+            return $this->renderErrorView($request, $action, $actionDesc, $viewModule, $viewName, $errors, $webRequest);
         } catch (\Throwable $e) {
-            if ($vd) {
-                \Quiote\Logging\Log::for($this)->debug('[ValidationMiddleware] exception during view creation: ' . $e->getMessage());
-            }
+            \Quiote\Logging\Log::for($this)->error(
+                '[ValidationMiddleware] error view rendering failed for ' . $viewModule . ':' . $viewName
+                . ': ' . $e::class . ': ' . $e->getMessage()
+            );
+
             $factory = \Quiote\Http\Psr17::factory();
-            $resp = $factory->createResponse(400)->withHeader('X-Quiote-Validation', 'failed')->withHeader('X-Quiote-Validation-Reason', 'view_creation_exception');
-            // The X-Quiote-Validation-Errors header leaks internal field/validator
-            // structure to the client, so it is opt-in and OFF by default. Enable it
-            // (e.g. for a trusted dev/test front-end) via:
-            //   Config::set('core.expose_validation_errors_header', true)
-            if (!empty($errors) && \Quiote\Config\Config::getBool('core.expose_validation_errors_header', false)) {
-                $encodedErrors = json_encode($errors);
-                if ($encodedErrors !== false) {
-                    $resp = $resp->withHeader('X-Quiote-Validation-Errors', base64_encode($encodedErrors));
-                }
-            }
-            return $resp->withBody($factory->createStream('Error'));
+            $resp = $factory->createResponse(400)
+                ->withHeader('X-Quiote-Validation', 'failed')
+                ->withHeader('X-Quiote-Validation-Reason', 'view_creation_exception');
+
+            return $this->withErrorDetailHeader($resp, $errors)->withBody($factory->createStream('Error'));
         }
+    }
+
+    /**
+     * Render the named error view and assemble the failure response around its output.
+     *
+     * @param list<string> $errors
+     */
+    private function renderErrorView(
+        ServerRequestInterface $request,
+        Action $action,
+        ActionDescriptor $actionDesc,
+        string $viewModule,
+        string $viewName,
+        array $errors,
+        WebRequest $webRequest,
+    ): ResponseInterface {
+        $actionContext = $action->getContext();
+        if ($actionContext === null) {
+            throw new \RuntimeException('Action must be initialized before an error view can be created.');
+        }
+        $controller = $actionContext->getController();
+        $validationManager = $this->validationService->getValidationManager();
+
+        // Render in the negotiated output type dispatch would have used, not the
+        // controller default: an Accept: application/json request that fails validation
+        // must not run executeHtml and answer with markup.
+        $outputType = $this->resolveErrorOutputType($request, $controller);
+
+        $view = (new ViewFactory($controller))->create(
+            $viewModule,
+            $viewName,
+            $actionDesc->module,
+            $actionDesc->action,
+            $outputType,
+            $webRequest,
+            [],
+            $validationManager
+        );
+
+        $factory = \Quiote\Http\Psr17::factory();
+        if (!$view) {
+            \Quiote\Logging\Log::for($this)->warning(
+                '[ValidationMiddleware] view creation returned null for ' . $viewModule . ':' . $viewName
+            );
+            $resp = $factory->createResponse(400)
+                ->withHeader('X-Quiote-Validation', 'failed')
+                ->withHeader('X-Quiote-Validation-Reason', 'view_not_created');
+
+            return $resp->withBody($factory->createStream($viewName));
+        }
+
+        [$content, $problemJson] = $this->executeErrorView($view, $outputType, $webRequest, $errors, $request);
+
+        if ($outputType === 'html' && is_string($content) && $content !== '') {
+            $content = $this->repopulateForm($content, $outputType, $controller, $webRequest);
+        }
+
+        $request = $request->withAttribute('validation.error.content', (string) $content);
+
+        return $this->buildFailureResponse($factory, $controller, $outputType, $content, $problemJson, $errors);
+    }
+
+    /**
+     * Invoke the view's output-type method and normalize what it produced.
+     *
+     * For JSON, an RFC 9457 Problem Details document stands in when the view has no
+     * executeJson() or its executeJson() returns null. A view that does render a JSON body
+     * is left untouched -- its shape is an API contract. An explicit empty string is a
+     * deliberate "no body" choice and is respected, since only null triggers the fallback.
+     *
+     * @param      list<string> $errors
+     * @return     array{0: ?string, 1: bool} [content, whether it is a synthesized problem document]
+     */
+    private function executeErrorView(
+        View $view,
+        string $outputType,
+        WebRequest $webRequest,
+        array $errors,
+        ServerRequestInterface $request,
+    ): array {
+        $method = 'execute' . ucfirst($outputType);
+        $hasMethod = is_callable([$view, $method]);
+        $problemJson = false;
+
+        if ($outputType === 'json') {
+            $content = $hasMethod ? $view->$method($webRequest) : null;
+            if ($content === null) {
+                $content = $this->buildValidationProblemDetails(
+                    $this->validationService->getValidationManager(),
+                    $errors,
+                    $request
+                );
+                $problemJson = true;
+            }
+        } elseif ($hasMethod) {
+            $content = $view->$method($webRequest);
+        } else {
+            $content = $view->execute($webRequest);
+        }
+
+        // A view that calls loadLayout()/appendLayer() and returns null expects its
+        // configured layers to be rendered by the caller, as ActionExecutor does.
+        if ($content === null && $outputType !== 'json' && $view->getLayers()) {
+            $layerContent = $view->renderLayers();
+            if ($layerContent !== '') {
+                $content = $layerContent;
+            }
+        }
+
+        // Dynamic execute*() calls are untypeable beyond mixed; normalize once here.
+        if ($content !== null && !is_string($content)) {
+            $content = is_scalar($content) ? (string) $content : '';
+        }
+
+        return [$content, $problemJson];
+    }
+
+    /**
+     * Write the submitted values back into the rendered form (the sticky-form behaviour).
+     *
+     * Sourced from ValidationManager's raw pre-prune snapshot rather than the request: a
+     * value that failed even one of several validators registered against the same field is
+     * scrubbed from the request by design, which is right for business logic but would
+     * redisplay the field blank instead of showing what the user typed.
+     *
+     * HTML only -- an API client holds its own submitted state, and the DOM rewriting this
+     * performs only makes sense for markup.
+     */
+    private function repopulateForm(
+        string $content,
+        string $outputType,
+        Controller $controller,
+        WebRequest $webRequest,
+    ): string {
+        try {
+            $vm = $this->validationService->getValidationManager();
+            $rawSnapshot = $vm instanceof ValidationManager ? $vm->getRawParameterSnapshot() : [];
+            if (!$rawSnapshot) {
+                return $content;
+            }
+
+            $globalResponse = $controller->getGlobalResponse();
+            $globalResponse->setContent($content);
+            // FormPopulationEngine gates on the response's output type (via the
+            // 'output_types' option below), so it must carry the negotiated one rather than
+            // whatever it last held -- which under a long-running worker may be a previous
+            // request's, or nothing at all.
+            $globalResponse->setOutputType($controller->getOutputType($outputType));
+
+            $engine = new \Quiote\Util\FormPopulationEngine();
+            $engine->initialize($controller->getContext());
+            try {
+                $engine->populate($globalResponse, $webRequest, [
+                    // A ParameterHolder is used verbatim as the global value source for
+                    // every field on the page; a plain array under 'populate' is instead
+                    // read as a per-form-id map.
+                    'populate' => new \Quiote\Util\ParameterHolder($rawSnapshot),
+                    'validation_report' => $vm->getReport(),
+                    'output_types' => ['html'],
+                ]);
+            } finally {
+                $engine->reset();
+            }
+
+            $populated = $globalResponse->getContent();
+
+            return is_string($populated) && $populated !== '' ? $populated : $content;
+        } catch (\Throwable $e) {
+            // Repopulation is a UX nicety: never let it turn a validation failure into a 500.
+            \Quiote\Logging\Log::for($this)->warning(
+                '[ValidationMiddleware] form repopulation failed, serving the unpopulated body: ' . $e->getMessage()
+            );
+
+            return $content;
+        }
+    }
+
+    /**
+     * Assemble the failure response: status, content type, diagnostic headers, body.
+     *
+     * @param list<string> $errors
+     */
+    private function buildFailureResponse(
+        \Psr\Http\Message\ResponseFactoryInterface&\Psr\Http\Message\StreamFactoryInterface $factory,
+        Controller $controller,
+        string $outputType,
+        ?string $content,
+        bool $problemJson,
+        array $errors,
+    ): ResponseInterface {
+        $resp = $factory->createResponse(400)->withHeader('X-Quiote-Validation', 'failed');
+
+        // Honour an explicit setHttpStatusCode() from handle*Error() or the error view,
+        // over the 400 baselined before the hook ran.
+        $statusCode = (int) $controller->getGlobalResponse()->getHttpStatusCode();
+        if ($statusCode >= 100) {
+            $resp = $resp->withStatus($statusCode);
+        }
+
+        $resp = $resp->withHeader('Content-Type', $this->failureContentType($controller, $outputType, $problemJson));
+        $resp = $this->withErrorDetailHeader($resp, $errors);
+
+        if ($content !== null) {
+            $resp = $resp->withBody($factory->createStream($content));
+        }
+
+        return $resp;
+    }
+
+    /**
+     * The Content-Type for a validation-failure body: the RFC 9457 media type for a
+     * synthesized problem document, else one the view set explicitly, else the type
+     * configured for the output type, else whatever the mime registry knows about it.
+     */
+    private function failureContentType(Controller $controller, string $outputType, bool $problemJson): string
+    {
+        if ($problemJson) {
+            return 'application/problem+json; charset=UTF-8';
+        }
+
+        $viewContentType = $controller->getGlobalResponse()->getContentType();
+        if (is_string($viewContentType) && $viewContentType !== '') {
+            return $viewContentType;
+        }
+
+        $configuredMime = null;
+        try {
+            $configured = $controller->getOutputType($outputType)->getParameter('http_headers[Content-Type]') ?: null;
+            $configuredMime = is_scalar($configured) ? (string) $configured : null;
+        } catch (\Throwable $e) {
+            \Quiote\Logging\Log::for($this)->debug(
+                '[ValidationMiddleware] no configured Content-Type for output type "' . $outputType
+                . '", falling back to the mime registry: ' . $e->getMessage()
+            );
+        }
+
+        return $configuredMime
+            ?? \Quiote\Http\MimeTypeRegistry::primaryMimeType($outputType)
+            ?? 'text/plain';
+    }
+
+    /**
+     * Attach the validation-error detail header when explicitly enabled.
+     *
+     * Off by default: it exposes internal field and validator structure to the client.
+     * Enable for a trusted dev or test front-end with
+     * `Config::set('core.expose_validation_errors_header', true)`.
+     *
+     * @param list<string> $errors
+     */
+    private function withErrorDetailHeader(ResponseInterface $resp, array $errors): ResponseInterface
+    {
+        if ($errors === [] || !\Quiote\Config\Config::getBool('core.expose_validation_errors_header', false)) {
+            return $resp;
+        }
+
+        $encoded = json_encode($errors);
+        if ($encoded === false) {
+            return $resp;
+        }
+
+        return $resp->withHeader('X-Quiote-Validation-Errors', base64_encode($encoded));
     }
 
     /**
