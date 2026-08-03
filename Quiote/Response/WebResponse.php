@@ -767,6 +767,10 @@ class WebResponse extends AttributeHolder implements ResetInterface
 		$newValues = is_array($value)
 			? array_map(self::toStringOrEmpty(...), array_values($value))
 			: [self::toStringOrEmpty($value)];
+		// Captured before mutating so a PSR-7 rejection below can put the header
+		// back exactly as it was, rather than dropping values that were already
+		// set and perfectly legal.
+		$previous = $this->httpHeaders[$name] ?? null;
 		if(!isset($this->httpHeaders[$name]) || $replace) {
 			$this->httpHeaders[$name] = $newValues;
 		} else {
@@ -775,6 +779,7 @@ class WebResponse extends AttributeHolder implements ResetInterface
 			}
 		}
 		if($this->psrResponse !== null) {
+			$psrBefore = $this->psrResponse;
 			try {
 				if($replace) {
 					$this->psrResponse = $this->psrResponse->withHeader($name, $this->httpHeaders[$name]);
@@ -783,7 +788,25 @@ class WebResponse extends AttributeHolder implements ResetInterface
 						$this->psrResponse = $this->psrResponse->withAddedHeader($name, $v);
 					}
 				}
-			} catch(\Throwable) {}
+			} catch(\Throwable $e) {
+				// PSR-7 rejected the name or value (illegal characters, CR/LF).
+				// Swallowing this silently left the two representations of the same
+				// response disagreeing: the value stayed in $httpHeaders and so was
+				// still emitted by send()'s header() path under a classic SAPI, while
+				// the PSR-7 response a worker runtime returns never carried it. Roll
+				// both back to their pre-call state and say so, instead of emitting a
+				// header on one runtime and not the other.
+				$this->psrResponse = $psrBefore;
+				if($previous === null) {
+					unset($this->httpHeaders[$name]);
+				} else {
+					$this->httpHeaders[$name] = $previous;
+				}
+				\Quiote\Logging\Log::for($this)->warning(
+					'[WebResponse] rejected HTTP header "' . $name . '": ' . $e->getMessage()
+					. ' -- not set on this response.'
+				);
+			}
 		}
 	}
 

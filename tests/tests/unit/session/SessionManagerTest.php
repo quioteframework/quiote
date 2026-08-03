@@ -538,4 +538,55 @@ class SessionManagerTest extends UnitTestCase
         $raced = (new ServerRequest('GET', '/'))->withCookieParams(['QSID' => $oldId]);
         $this->assertNotSame($newId, $manager->startFromRequest($raced)->getId());
     }
+
+    /**
+     * Resolving a migration redirect must not be a way around server-side
+     * expiry. The redirect branch returns before the hasExpired() check that
+     * every other loaded session goes through, so an aged-out target used to be
+     * resurrected by arriving with the pre-regeneration cookie.
+     */
+    public function testARedirectDoesNotResurrectAnExpiredTargetSession(): void
+    {
+        $persistence = new InMemorySessionPersistence();
+        $manager = new SessionManager($persistence, [
+            'session_idle_timeout' => 900,
+            'session_migration_grace_seconds' => 300,
+        ]);
+
+        $newId = 'migration-target-id-1234567890';
+        $oldId = 'migration-source-id-1234567890';
+        // The target is real but has aged out.
+        $persistence->save($newId, ['user_id' => 42, self::SEEN_AT => time() - 3600]);
+        $manager->migrateOld($oldId, $newId);
+
+        $raced = (new ServerRequest('GET', '/'))->withCookieParams(['QSID' => $oldId]);
+        $resolved = $manager->startFromRequest($raced);
+
+        $this->assertNotSame($newId, $resolved->getId(), 'an expired target must not be resolved');
+        $this->assertNull($resolved->get('user_id'));
+        $this->assertNull($persistence->load($newId), 'the expired target is dropped from storage');
+    }
+
+    public function testARedirectStillResolvesAnUnexpiredTargetAndCountsAsActivity(): void
+    {
+        $persistence = new InMemorySessionPersistence();
+        $manager = new SessionManager($persistence, [
+            'session_idle_timeout' => 900,
+            'session_migration_grace_seconds' => 300,
+        ]);
+
+        $newId = 'migration-target-id-0987654321';
+        $oldId = 'migration-source-id-0987654321';
+        $persistence->save($newId, ['user_id' => 42, self::SEEN_AT => time() - 60]);
+        $manager->migrateOld($oldId, $newId);
+
+        $raced = (new ServerRequest('GET', '/'))->withCookieParams(['QSID' => $oldId]);
+        $resolved = $manager->startFromRequest($raced);
+
+        $this->assertSame($newId, $resolved->getId());
+        $this->assertSame(42, $resolved->get('user_id'));
+        // touch()ed like any other resolved session, so this request counts
+        // against the idle timeout instead of silently not counting.
+        $this->assertSame(time(), $resolved->get(self::SEEN_AT));
+    }
 }

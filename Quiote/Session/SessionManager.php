@@ -287,7 +287,17 @@ class SessionManager
         if ($targetData === null || isset($targetData[self::REDIRECT_KEY])) {
             return null;
         }
-        return new Session($target, $targetData, false);
+        // The target is subject to the same server-side expiry as any other
+        // loaded session: resolving a redirect must not be a way to keep using a
+        // session that has aged out.
+        if ($this->hasExpired($targetData)) {
+            $this->persistence->delete($target);
+
+            return null;
+        }
+        // touch()ed like any other resolved session, so this request counts as
+        // activity against the idle timeout rather than silently not counting.
+        return $this->touch(new Session($target, $targetData, false));
     }
 
     public function persistAndBakeCookies(Session $session, ResponseInterface $response): ResponseInterface
