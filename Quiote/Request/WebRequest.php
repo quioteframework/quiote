@@ -650,8 +650,12 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 		foreach (array_keys($intrinsic) as $name) {
 			$remove = true;
 			if (isset($keepSet[$name])) { $remove = false; }
-			if (isset($failedSet[$name])) { $remove = true; }
 			if (isset($preserve[$name])) { $remove = false; }
+			// Failure checked last so it beats every reason to keep, matching
+			// RequestParameterStore::pruneTo(). Only reachable for a module/action
+			// accessor that a validator also failed on, but the two sources must
+			// not disagree about what "failed" means.
+			if (isset($failedSet[$name])) { $remove = true; }
 			if ($remove) {
 				unset($query[$name], $body[$name]);
 			}

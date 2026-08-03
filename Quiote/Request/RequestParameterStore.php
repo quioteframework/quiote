@@ -304,15 +304,25 @@ final class RequestParameterStore
             if (isset($keepSet[$rName])) {
                 $remove = false;
             }
-            if (isset($failedSet[$rName])) {
-                $remove = true;
-            }
             if (isset($preserve[$rName])) {
                 $remove = false;
             }
             // Keep parameters that were explicitly whitelisted by validator exports.
             if (isset($this->validatedKeys[$rName])) {
                 $remove = false;
+            }
+            // Last, so an explicit failure beats every reason to keep above --
+            // including the whitelist. ValidationManager pre-declares the union of
+            // every validator's argument names BEFORE running any of them, so
+            // validatedKeys always contains the name of an argument that is about
+            // to fail; checking it after the failure meant a value that failed
+            // validation stayed readable via WebRequest::getParameter(). That hit
+            // runtime-staged values specifically -- a route param promoted by
+            // ValidationMiddleware -- while the same value arriving as a query or
+            // body param was correctly scrubbed by
+            // WebRequest::pruneParametersToValidated().
+            if (isset($failedSet[$rName])) {
+                $remove = true;
             }
             if ($remove) {
                 unset($prunedRuntime[$rName]);
