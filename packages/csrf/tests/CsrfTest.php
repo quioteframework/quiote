@@ -418,6 +418,29 @@ class CsrfTest extends UnitTestCase
         $this->assertStringNotContainsString('_csrf_token', (string) $resp->getBody());
     }
 
+    /**
+     * A response with no declared Content-Type used to count as HTML, so any
+     * body that merely contained the characters "<form" got an <input> spliced
+     * into it -- corrupting, for instance, a JSON payload that forgot its type
+     * header. Injection now requires a declared HTML/XHTML type.
+     */
+    public function testResponseWithNoContentTypeIsNotTreatedAsHtml(): void
+    {
+        $mw = new CsrfInjectionMiddleware($this->controller());
+        $handler = new class implements RequestHandlerInterface {
+            public function handle(ServerRequestInterface $r): ResponseInterface
+            {
+                $factory = new Psr17Factory();
+                return (new Psr7Response(200))->withBody($factory->createStream('{"form":"<form method=post>"}'));
+            }
+        };
+
+        $resp = $mw->process(new ServerRequest('GET', 'http://localhost/'), $handler);
+
+        $this->assertSame('{"form":"<form method=post>"}', (string) $resp->getBody());
+        $this->assertStringNotContainsString('_csrf_token', (string) $resp->getBody());
+    }
+
     public function testInjectsIntoXhtmlAndStaysWellFormed(): void
     {
         $mw = new CsrfInjectionMiddleware($this->controller());

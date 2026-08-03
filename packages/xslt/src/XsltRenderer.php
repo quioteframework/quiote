@@ -42,6 +42,16 @@ final class XsltRenderer extends Renderer implements IReusableRenderer
         }
 
         $processor = new XSLTProcessor();
+        // Read access is not needed by a template and is the one capability left
+        // enabled by PHP's own defaults (which already block the write/create
+        // prefs). Without this, `document('/etc/passwd')` or
+        // `document('http://169.254.169.254/...')` inside a stylesheet reads the
+        // file or makes the request and folds the result into the output --
+        // turning any control over a stylesheet, or over anything a stylesheet
+        // interpolates into a document() argument, into arbitrary file read and
+        // SSRF. `registerPHPFunctions()` is deliberately never called, so
+        // php:function stays unavailable as well.
+        $processor->setSecurityPrefs(XSL_SECPREF_READ_FILE | XSL_SECPREF_WRITE_FILE | XSL_SECPREF_CREATE_DIRECTORY | XSL_SECPREF_READ_NETWORK | XSL_SECPREF_WRITE_NETWORK);
         $processor->importStylesheet($stylesheet);
 
         foreach ($attributes as $name => $value) {
@@ -140,7 +150,11 @@ XSL;
     {
         return $this->withInternalErrors(function () use ($xml) {
             $document = new DOMDocument();
-            $loaded = @$document->loadXML($xml);
+            // LIBXML_NONET, never LIBXML_NOENT: the same pairing
+            // Quiote\Config\Util\DOM\XmlConfigDomDocument forces. The inner
+            // document can carry application data, so a DTD in it must not be
+            // able to reach the network.
+            $loaded = @$document->loadXML($xml, LIBXML_NONET);
             return [$loaded ? $document : null, $loaded];
         });
     }
@@ -149,7 +163,7 @@ XSL;
     {
         return $this->withInternalErrors(function () use ($path) {
             $document = new DOMDocument();
-            $loaded = @$document->load($path);
+            $loaded = @$document->load($path, LIBXML_NONET);
             return [$loaded ? $document : null, $loaded];
         });
     }

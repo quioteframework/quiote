@@ -15,6 +15,12 @@ use Quiote\Exception\QuioteException;
 final class McpConfig
 {
     /**
+     * The accepted values of `mcp.auth`.
+     * @var list<string>
+     */
+    public const array AUTH_MODES = ['none', 'bearer', 'oauth2'];
+
+    /**
      * @param list<string> $transports
      * @param list<string> $moduleDirs
      * @param list<string> $oauthScopesSupported
@@ -38,6 +44,19 @@ final class McpConfig
         public readonly array $oauthScopesSupported,
         public readonly int $oauthCacheTtl,
     ) {
+        // An unrecognised mode currently degrades to static-token auth, which
+        // fails closed -- but silently, and against the wrong credential store.
+        // A typo ("oauth", "OAuth2", a stray space) would leave an operator who
+        // configured an issuer and audience believing the endpoint validates
+        // JWTs while it is really demanding an mcp.auth_token they never set.
+        if (!in_array($this->auth, self::AUTH_MODES, true)) {
+            throw new QuioteException(sprintf(
+                'mcp.auth is "%s", which is not a recognised mode. Expected one of: %s.',
+                $this->auth,
+                implode(', ', self::AUTH_MODES),
+            ));
+        }
+
         if ($this->auth === 'oauth2' && ($this->oauthIssuer === null || $this->oauthAudience === null)) {
             throw new QuioteException(
                 'mcp.auth is "oauth2" but "mcp.oauth.issuer" and/or "mcp.oauth.audience" are missing. '

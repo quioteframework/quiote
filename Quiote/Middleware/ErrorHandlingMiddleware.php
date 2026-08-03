@@ -13,6 +13,7 @@ use Quiote\Exception\Rendering\SafeRenderer;
 use Throwable;
 use Quiote\Config\Config;
 use Quiote\Event\Events;
+use Quiote\Support\CorrelationId;
 use Quiote\Event\Lifecycle\ExceptionCaughtEvent;
 use Symfony\Component\Routing\Exception\MethodNotAllowedException;
 
@@ -109,22 +110,22 @@ class ErrorHandlingMiddleware implements MiddlewareInterface
             }
         }
 
-        // Correlation id: adopt standard 'Correlation-Id' primary, fallback legacy 'X-Correlation-ID'
-        $cid = $request->getHeaderLine('Correlation-Id');
-        if (!$cid) {
-            $cid = $request->getHeaderLine('X-Correlation-ID');
-        }
-        if (!$cid && function_exists('apache_request_headers')) {
+        // Correlation id: adopt standard 'Correlation-Id' primary, fallback legacy
+        // 'X-Correlation-ID'. Every candidate goes through CorrelationId::sanitize()
+        // -- the value is client-supplied and ends up in a log line and a rendered
+        // body, so control bytes (CR/LF, the log-injection vector) are stripped and
+        // the length is capped. This path used to adopt the raw header.
+        $cid = CorrelationId::sanitize($request->getHeaderLine('Correlation-Id'))
+            ?? CorrelationId::sanitize($request->getHeaderLine('X-Correlation-ID'));
+        if ($cid === null && function_exists('apache_request_headers')) {
             $h = apache_request_headers();
             if ($h) {
-                if (isset($h['Correlation-Id'])) {
-                    $cid = $h['Correlation-Id'];
-                } elseif (isset($h['X-Correlation-ID'])) {
-                    $cid = $h['X-Correlation-ID'];
+                $raw = $h['Correlation-Id'] ?? $h['X-Correlation-ID'] ?? null;
+                if (is_string($raw)) {
+                    $cid = CorrelationId::sanitize($raw);
                 }
             }
         }
-        $cid = $cid ?: null;
 
         $renderer = $this->resolveRenderer();
         if ($this->categoryLogger->isEnabled(\Quiote\Logging\Level::Debug)) {

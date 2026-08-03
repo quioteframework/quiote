@@ -50,7 +50,14 @@ class CorsMiddleware implements MiddlewareInterface
         $response = $handler->handle($request);
 
         if ($allowedOrigin === null) {
-            return $response;
+            // Vary even though nothing was added. Whether this response carries
+            // CORS headers depends on the request's Origin, so a shared cache
+            // that keys without Origin can serve this un-decorated body to an
+            // allowed origin (breaking it) or, with the entries the other way
+            // round, serve a decorated one to a rejected origin. The header
+            // belongs on every response whose content depends on Origin, not
+            // only the ones that ended up with an Access-Control-Allow-Origin.
+            return $response->withAddedHeader('Vary', 'Origin');
         }
 
         return $this->decorate($response, $allowedOrigin, '', preflight: false);

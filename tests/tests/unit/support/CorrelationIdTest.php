@@ -62,4 +62,29 @@ class CorrelationIdTest extends TestCase
         // URL/log-safe: no +/= from the base64 alphabet.
         $this->assertDoesNotMatchRegularExpression('/[+\/=]/', $a);
     }
+
+    /**
+     * base64url output. `strtr($b64, '+/=', 'ABC')` collided the three
+     * non-alphanumeric characters onto genuine A/B/C output, discarding entropy
+     * for no reason, and it consumed the padding itself -- leaving the following
+     * rtrim($x, '=') with nothing to strip and literal Cs on the end of every id.
+     */
+    public function testGenerateProducesUnpaddedBase64Url(): void
+    {
+        for ($i = 0; $i < 20; $i++) {
+            $id = CorrelationId::generate();
+
+            $this->assertMatchesRegularExpression('/^[A-Za-z0-9_-]+$/', $id, 'URL- and log-safe alphabet only');
+            $this->assertStringNotContainsString('=', $id, 'padding must be stripped, not remapped');
+        }
+    }
+
+    public function testGeneratedIdsSurviveSanitizationUnchanged(): void
+    {
+        // A generated id has to be adoptable as an inbound one without being
+        // altered, or a correlation id would not correlate across a hop.
+        $id = CorrelationId::generate();
+
+        $this->assertSame($id, CorrelationId::sanitize($id));
+    }
 }

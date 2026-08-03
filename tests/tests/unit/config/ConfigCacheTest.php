@@ -84,6 +84,61 @@ class ConfigCacheTest extends PhpUnitTestCase
 		$this->assertEquals($expected.$append, $content);
 	}
 
+	/**
+	 * The config cache holds PHP that this process include()s and eval()s, and
+	 * *directory* permissions -- not file permissions -- decide who may replace
+	 * an entry: on a world-writable directory without the sticky bit, any local
+	 * user can unlink a 0600 cache file and drop their own PHP in its place. A
+	 * `chmod -R 777` deployment (depressingly common) would otherwise propagate
+	 * straight into the mode of the directory created here.
+	 */
+	public function testCreatedCacheDirectoryIsNeverWorldWritable(): void
+	{
+		$base = sys_get_temp_dir() . '/quiote-cachedir-perm-test-' . getmypid();
+		$this->removeRecursively($base);
+		mkdir($base, 0777, true);
+		chmod($base, 0777);
+
+		$previous = Config::getString('core.cache_dir');
+		Config::set('core.cache_dir', $base);
+
+		try {
+			$config = Config::getString('core.config_dir') . DIRECTORY_SEPARATOR . 'perm.xml';
+			ConfigCache::writeCacheFile($config, ConfigCache::getCacheName($config), '<?php // test');
+
+			$configDir = $base . DIRECTORY_SEPARATOR . 'config';
+			$this->assertDirectoryExists($configDir);
+			$perms = fileperms($configDir) & 0777;
+			$this->assertSame(0, $perms & 0002, sprintf('mode %04o must not be world-writable', $perms));
+			$this->assertNotSame(0, $perms & 0700, sprintf('mode %04o must stay usable by the owner', $perms));
+		} finally {
+			Config::set('core.cache_dir', $previous);
+			$this->removeRecursively($base);
+		}
+	}
+
+	private function removeRecursively(string $path): void
+	{
+		if (is_file($path)) {
+			@unlink($path);
+			return;
+		}
+		if (!is_dir($path)) {
+			return;
+		}
+		$items = new \RecursiveIteratorIterator(
+			new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS),
+			\RecursiveIteratorIterator::CHILD_FIRST,
+		);
+		foreach ($items as $item) {
+			if (!$item instanceof \SplFileInfo) {
+				continue;
+			}
+			$item->isDir() ? @rmdir($item->getPathname()) : @unlink($item->getPathname());
+		}
+		@rmdir($path);
+	}
+
 	public function testload(): void
 	{
 		$this->assertArrayNotHasKey('ConfigCacheImportTest_included', get_defined_constants());

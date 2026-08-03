@@ -71,7 +71,7 @@ class APCuConfigCache extends ConfigCache
      * @return void
      */
     #[\Override]
-    public static function writeCacheFile($config, $cache, $data, $append = false)
+    public static function writeCacheFile(string $config, string $cache, string $data, bool $append = false): void
     {
         // If APCu is available, store ONLY in APCu (no filesystem writes)
         if (self::isAvailable()) {

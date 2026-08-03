@@ -89,6 +89,33 @@ final class SecurityHeadersTest extends TestCase
         $this->assertSame('max-age=3600; includeSubDomains', $resp->getHeaderLine('Strict-Transport-Security'));
     }
 
+    /**
+     * The ordinary production shape: TLS terminates at a proxy, so the request
+     * this process sees is plain HTTP. Deciding on the URI scheme alone meant
+     * HSTS was never emitted in exactly the deployment it is for.
+     */
+    public function testHstsSentBehindATlsTerminatingProxy(): void
+    {
+        Config::set('security_headers.hsts_max_age', 3600);
+        $mw = new SecurityHeadersMiddleware();
+        $req = (new ServerRequest('GET', 'http://localhost/x'))->withHeader('X-Forwarded-Proto', 'https');
+
+        $resp = $mw->process($req, $this->plainHandler());
+
+        $this->assertSame('max-age=3600; includeSubDomains', $resp->getHeaderLine('Strict-Transport-Security'));
+    }
+
+    public function testHstsNotSentOnAPlainHttpRequest(): void
+    {
+        // Over plaintext the header is meaningless, and on a local http dev
+        // setup it actively gets in the way.
+        $mw = new SecurityHeadersMiddleware();
+
+        $resp = $mw->process(new ServerRequest('GET', 'http://localhost/x'), $this->plainHandler());
+
+        $this->assertFalse($resp->hasHeader('Strict-Transport-Security'));
+    }
+
     public function testHstsCanBeDisabled(): void
     {
         Config::set('security_headers.hsts', false);

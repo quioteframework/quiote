@@ -200,6 +200,45 @@ final class RateLimitMiddlewareTest extends TestCase
         $this->assertSame(429, $second->getStatusCode(), 'the caller two hops from the right is the same in both');
     }
 
+    /**
+     * A chain shorter than trusted_proxy_hops -- a miscounted hop setting, or a
+     * request that did not traverse every expected proxy -- makes the clamp land
+     * on a client-written entry. That value keys the limiter, so accepting
+     * arbitrary text would let a caller mint a fresh bucket per request (no
+     * throttling at all) and grow the storage without bound.
+     */
+    public function testANonAddressForwardedEntryFallsBackToThePeerAddress(): void
+    {
+        Config::set('ratelimit.http.max_requests', 1);
+        Config::set('ratelimit.http.trust_forwarded_for', true);
+        Config::set('ratelimit.http.trusted_proxy_hops', 2);
+        $mw = new RateLimitMiddleware(new InMemoryStorage());
+        $handler = $this->okHandler();
+
+        // Only one entry, but two hops configured: the clamp lands on the
+        // client-written value, which is not an address and must be refused.
+        $first = $mw->process($this->requestFrom('10.0.0.1')->withHeader('X-Forwarded-For', 'not-an-ip-1'), $handler);
+        $second = $mw->process($this->requestFrom('10.0.0.1')->withHeader('X-Forwarded-For', 'not-an-ip-2'), $handler);
+
+        $this->assertSame(200, $first->getStatusCode());
+        $this->assertSame(429, $second->getStatusCode(), 'rotating a junk entry must not mint a fresh bucket');
+    }
+
+    public function testIpv6ForwardedEntriesAreAccepted(): void
+    {
+        // The validation must not reject legitimate addresses along with junk.
+        Config::set('ratelimit.http.max_requests', 1);
+        Config::set('ratelimit.http.trust_forwarded_for', true);
+        $mw = new RateLimitMiddleware(new InMemoryStorage());
+        $handler = $this->okHandler();
+
+        $first = $mw->process($this->requestFrom('10.0.0.1')->withHeader('X-Forwarded-For', '2001:db8::1'), $handler);
+        $second = $mw->process($this->requestFrom('10.0.0.2')->withHeader('X-Forwarded-For', '2001:db8::1'), $handler);
+
+        $this->assertSame(200, $first->getStatusCode());
+        $this->assertSame(429, $second->getStatusCode(), 'the same IPv6 caller must share a bucket');
+    }
+
     public function testFallsBackToRemoteAddrWhenForwardedForIsEmpty(): void
     {
         Config::set('ratelimit.http.max_requests', 1);

@@ -39,6 +39,164 @@ class SessionManagerTest extends UnitTestCase
         $this->assertFalse($session->isDirty());
     }
 
+    // --- Server-side expiry -------------------------------------------------
+    //
+    // The session cookie's own Max-Age cannot do this job: it is a hint to the
+    // browser, and an attacker replaying a captured id simply ignores it. Without
+    // a server-side limit a stolen id stays valid for as long as the record
+    // survives in storage.
+
+    private const SEEN_AT = '__quiote_session_seen_at__';
+    private const CREATED_AT = '__quiote_session_created_at__';
+
+    public function testIdleTimeoutExpiresAnInactiveSession(): void
+    {
+        $persistence = new InMemorySessionPersistence();
+        $persistence->save('idle-session-id-1234567890abcd', [
+            'user_id' => 42,
+            self::SEEN_AT => time() - 3600,
+        ]);
+        $manager = new SessionManager($persistence, ['session_idle_timeout' => 900]);
+
+        $request = (new ServerRequest('GET', '/'))->withCookieParams(['QSID' => 'idle-session-id-1234567890abcd']);
+        $session = $manager->startFromRequest($request);
+
+        $this->assertNotSame('idle-session-id-1234567890abcd', $session->getId(), 'a fresh session, not the expired one');
+        $this->assertSame([], $session->all());
+        $this->assertNull($persistence->load('idle-session-id-1234567890abcd'), 'the expired record must be dropped');
+    }
+
+    public function testIdleTimeoutLeavesARecentlySeenSessionAlone(): void
+    {
+        $persistence = new InMemorySessionPersistence();
+        $persistence->save('active-session-id-1234567890ab', [
+            'user_id' => 42,
+            self::SEEN_AT => time() - 10,
+        ]);
+        $manager = new SessionManager($persistence, ['session_idle_timeout' => 900]);
+
+        $request = (new ServerRequest('GET', '/'))->withCookieParams(['QSID' => 'active-session-id-1234567890ab']);
+        $session = $manager->startFromRequest($request);
+
+        $this->assertSame('active-session-id-1234567890ab', $session->getId());
+        $this->assertSame(42, $session->get('user_id'));
+    }
+
+    /**
+     * An idle timeout alone never expires a session an attacker keeps warm by
+     * polling it, so a long-lived stolen id stays valid indefinitely. The
+     * absolute limit is the ceiling that stops that.
+     */
+    public function testAbsoluteTimeoutExpiresAnActiveButOldSession(): void
+    {
+        $persistence = new InMemorySessionPersistence();
+        $persistence->save('old-session-id-1234567890abcd', [
+            'user_id' => 42,
+            self::SEEN_AT => time(),
+            self::CREATED_AT => time() - 90000,
+        ]);
+        $manager = new SessionManager($persistence, [
+            'session_idle_timeout' => 900,
+            'session_absolute_timeout' => 86400,
+        ]);
+
+        $request = (new ServerRequest('GET', '/'))->withCookieParams(['QSID' => 'old-session-id-1234567890abcd']);
+        $session = $manager->startFromRequest($request);
+
+        $this->assertNotSame('old-session-id-1234567890abcd', $session->getId());
+        $this->assertSame([], $session->all());
+    }
+
+    public function testNoTimeoutsConfiguredMeansNoExpiryAndNoExtraWrites(): void
+    {
+        // The default. A session with no timestamps and no configured limits must
+        // behave exactly as before -- in particular it must stay clean, or every
+        // request would persist a row and refresh a cookie.
+        $persistence = new InMemorySessionPersistence();
+        $persistence->save('ancient-session-id-1234567890', ['user_id' => 42, self::SEEN_AT => 1]);
+        $manager = new SessionManager($persistence);
+
+        $request = (new ServerRequest('GET', '/'))->withCookieParams(['QSID' => 'ancient-session-id-1234567890']);
+        $session = $manager->startFromRequest($request);
+
+        $this->assertSame('ancient-session-id-1234567890', $session->getId());
+        $this->assertFalse($session->isDirty());
+    }
+
+    /**
+     * Turning a timeout on must not sign every current user out at once: a
+     * session stored before the setting existed has no timestamps, so it is
+     * treated as not-yet-expired and stamped on this request instead.
+     */
+    public function testASessionWithoutTimestampsIsAdoptedRatherThanExpired(): void
+    {
+        $persistence = new InMemorySessionPersistence();
+        $persistence->save('pre-existing-session-id-12345', ['user_id' => 42]);
+        $manager = new SessionManager($persistence, ['session_idle_timeout' => 900]);
+
+        $request = (new ServerRequest('GET', '/'))->withCookieParams(['QSID' => 'pre-existing-session-id-12345']);
+        $session = $manager->startFromRequest($request);
+
+        $this->assertSame('pre-existing-session-id-12345', $session->getId());
+        $this->assertSame(42, $session->get('user_id'));
+        $this->assertIsInt($session->get(self::SEEN_AT), 'the activity stamp is recorded on adoption');
+        $this->assertTrue($session->isDirty(), 'so it must be written back');
+    }
+
+    /**
+     * A brand-new session is never loaded, so touch() cannot stamp it. Without
+     * stamping at write time it would reach storage with no creation time and the
+     * absolute timeout would only start counting from its second request.
+     */
+    public function testANewSessionIsStampedWhenItIsFirstWritten(): void
+    {
+        $persistence = new InMemorySessionPersistence();
+        $manager = new SessionManager($persistence, ['session_absolute_timeout' => 86400]);
+
+        $session = $manager->startFromRequest(new ServerRequest('GET', '/'));
+        $session->set('user_id', 42);
+        $manager->persistAndBakeCookies($session, new Response());
+
+        $stored = $persistence->load($session->getId());
+        $this->assertIsArray($stored);
+        $this->assertIsInt($stored[self::CREATED_AT] ?? null, 'creation time recorded on the first write');
+    }
+
+    public function testAnUntouchedNewSessionIsStillNotPersistedWithTimeoutsOn(): void
+    {
+        // The lazy-session guarantee must survive the feature: a bot or API hit
+        // that writes nothing costs neither a row nor a Set-Cookie.
+        $persistence = new InMemorySessionPersistence();
+        $manager = new SessionManager($persistence, ['session_idle_timeout' => 900]);
+
+        $session = $manager->startFromRequest(new ServerRequest('GET', '/'));
+        $response = $manager->persistAndBakeCookies($session, new Response());
+
+        $this->assertFalse($session->isDirty());
+        $this->assertNull($persistence->load($session->getId()));
+        $this->assertFalse($response->hasHeader('Set-Cookie'));
+    }
+
+    /**
+     * time() is wall-clock: an NTP step or a VM resync can move it backwards, so
+     * a stamp can read as being in the future. Expiring early is harmless;
+     * treating it as "fresh for longer than configured" would undermine the limit.
+     */
+    public function testAFutureTimestampExpiresRatherThanExtending(): void
+    {
+        $persistence = new InMemorySessionPersistence();
+        $persistence->save('skewed-session-id-1234567890a', [
+            'user_id' => 42,
+            self::SEEN_AT => time() + 100000,
+        ]);
+        $manager = new SessionManager($persistence, ['session_idle_timeout' => 900]);
+
+        $request = (new ServerRequest('GET', '/'))->withCookieParams(['QSID' => 'skewed-session-id-1234567890a']);
+        $session = $manager->startFromRequest($request);
+
+        $this->assertNotSame('skewed-session-id-1234567890a', $session->getId());
+    }
+
     public function testRegeneratePreservesDataUnderNewId(): void
     {
         $persistence = new InMemorySessionPersistence();

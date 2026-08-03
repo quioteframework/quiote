@@ -119,4 +119,32 @@ final class McpConfigTest extends TestCase
 
         McpConfig::fromConfig();
     }
+
+    /**
+     * An unrecognised mode silently degraded to static-token auth. That fails
+     * closed, but against the wrong credential store: an operator who set an
+     * issuer and audience and typo'd the mode would believe the endpoint
+     * validated JWTs while it really demanded an mcp.auth_token they never set.
+     */
+    public function testAnUnrecognisedAuthModeIsRejected(): void
+    {
+        Config::set('mcp.auth', 'oauth');
+
+        $this->expectException(\Quiote\Exception\QuioteException::class);
+        $this->expectExceptionMessageMatches('/not a recognised mode/');
+        McpConfig::fromConfig();
+    }
+
+    public function testEveryDocumentedAuthModeIsAccepted(): void
+    {
+        foreach (['none', 'bearer'] as $mode) {
+            Config::set('mcp.auth', $mode);
+            $this->assertSame($mode, McpConfig::fromConfig()->auth);
+        }
+
+        Config::set('mcp.auth', 'oauth2');
+        Config::set('mcp.oauth.issuer', 'https://issuer.example');
+        Config::set('mcp.oauth.audience', 'https://api.example');
+        $this->assertSame('oauth2', McpConfig::fromConfig()->auth);
+    }
 }

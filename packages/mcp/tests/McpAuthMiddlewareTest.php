@@ -93,6 +93,59 @@ final class McpAuthMiddlewareTest extends PhpUnitTestCase
         $this->assertSame(200, $response->getStatusCode());
     }
 
+    /**
+     * RFC 9110 makes the auth-scheme case-insensitive and the separator a run of
+     * whitespace. A `str_starts_with($header, 'Bearer ')` test rejected the legal
+     * `bearer <token>` some clients and proxies emit, and a fixed-offset substr()
+     * left leading whitespace on the token when more than one space was sent --
+     * the same two bugs Quiote\Security\Auth\AuthorizationHeader exists to fix,
+     * which this middleware now uses.
+     */
+    public function testTheSchemeIsMatchedCaseInsensitivelyAndExtraWhitespaceIsTolerated(): void
+    {
+        foreach (['bearer secret', 'BEARER secret', "Bearer \t  secret"] as $header) {
+            Config::set('mcp.enabled', true, true);
+            $this->bindAuthenticator('secret');
+
+            $middleware = new McpAuthMiddleware('web');
+            $next = new McpAuthMiddlewarePassthroughHandler();
+            $request = (new Psr17Factory())->createServerRequest('POST', '/mcp')->withHeader('Authorization', $header);
+            $response = $middleware->process($request, $next);
+
+            $this->assertTrue($next->called, sprintf('"%s" must authenticate', $header));
+            $this->assertSame(200, $response->getStatusCode(), $header);
+        }
+    }
+
+    public function testABareBearerSchemeIsRejected(): void
+    {
+        Config::set('mcp.enabled', true, true);
+        $this->bindAuthenticator('secret');
+
+        $middleware = new McpAuthMiddleware('web');
+        $next = new McpAuthMiddlewarePassthroughHandler();
+        $request = (new Psr17Factory())->createServerRequest('POST', '/mcp')->withHeader('Authorization', 'Bearer');
+        $response = $middleware->process($request, $next);
+
+        $this->assertFalse($next->called);
+        $this->assertSame(401, $response->getStatusCode());
+    }
+
+    public function testADifferentSchemeIsRejected(): void
+    {
+        // Declaring Basic is not declaring Bearer; it must not be read as one.
+        Config::set('mcp.enabled', true, true);
+        $this->bindAuthenticator('secret');
+
+        $middleware = new McpAuthMiddleware('web');
+        $next = new McpAuthMiddlewarePassthroughHandler();
+        $request = (new Psr17Factory())->createServerRequest('POST', '/mcp')->withHeader('Authorization', 'Basic secret');
+        $response = $middleware->process($request, $next);
+
+        $this->assertFalse($next->called);
+        $this->assertSame(401, $response->getStatusCode());
+    }
+
     public function testNonMatchingPathDelegatesWithoutCheckingAuth(): void
     {
         Config::set('mcp.enabled', true, true);

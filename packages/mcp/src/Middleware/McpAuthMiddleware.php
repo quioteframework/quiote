@@ -11,6 +11,7 @@ use Quiote\Context;
 use Quiote\Http\ProblemDetails;
 use Quiote\Mcp\Auth\McpAuthenticatorInterface;
 use Quiote\Mcp\McpConfig;
+use Quiote\Security\Auth\AuthorizationHeader;
 
 /**
  * Bearer-token auth for the MCP HTTP endpoint. Registered by
@@ -38,12 +39,16 @@ final class McpAuthMiddleware implements MiddlewareInterface
             return $handler->handle($request);
         }
 
-        $header = $request->getHeaderLine('Authorization');
-        if (!str_starts_with($header, 'Bearer ')) {
+        // Via AuthorizationHeader rather than str_starts_with($header, 'Bearer '):
+        // RFC 9110 makes the scheme case-insensitive and the separator a run of
+        // whitespace, so the literal-prefix test rejected the legal `bearer <tok>`
+        // some clients and proxies emit, and a fixed-offset substr() left leading
+        // whitespace on the token when more than one space was sent.
+        $token = AuthorizationHeader::credential($request, 'Bearer');
+        if ($token === null || $token === '') {
             return $this->unauthorized($request, 'Missing bearer token.');
         }
 
-        $token = substr($header, strlen('Bearer '));
         if (!$this->authenticator()->authenticate($token)) {
             return $this->unauthorized($request, 'Invalid bearer token.');
         }

@@ -48,7 +48,26 @@ class PdoSessionPersistence implements SessionPersistenceInterface
         $table = $parameters['table'] ?? null;
         // Interpolated straight into SQL below, so anything that isn't a plain
         // string is rejected rather than coerced.
-        $this->table = is_string($table) && $table !== '' ? $table : 'session';
+        $this->table = self::assertValidTableName(is_string($table) && $table !== '' ? $table : 'session');
+    }
+
+    /**
+     * Table names are interpolated into SQL (an identifier cannot be bound as a
+     * parameter), so the value is restricted to a plain SQL identifier. It comes
+     * from operator config rather than from a request, so this guards a
+     * configuration mistake rather than an attacker -- the same allow-list
+     * {@see \Quiote\Security\Auth\Provider\PdoUserProvider} and the queue /
+     * rate-limit storages already apply to theirs.
+     *
+     * @throws     \InvalidArgumentException If $table is not a valid SQL identifier.
+     */
+    private static function assertValidTableName(string $table): string
+    {
+        if (preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $table) !== 1) {
+            throw new \InvalidArgumentException(sprintf('Invalid session table name "%s".', $table));
+        }
+
+        return $table;
     }
 
     private function loadStatement(): PDOStatement

@@ -25,6 +25,13 @@ use Psr\Http\Message\ResponseInterface;
  * reaches the browser after the regenerating response's Set-Cookie — makes the
  * user appear logged out right after logging in.
  *
+ * Server-side expiry is available via `session_idle_timeout` and
+ * `session_absolute_timeout` (both seconds, both 0/off by default; see
+ * {@see hasExpired()}). The cookie's own Max-Age cannot stand in for these --
+ * it is a hint to the browser, and an attacker replaying a captured id ignores
+ * it -- so without one of them set a stolen session id stays valid for as long
+ * as the record survives in storage.
+ *
  * Usage: construct one instance per app (it's stateless aside from config), call
  * startFromRequest() at the top of a request to get a Session, mutate it via
  * set()/remove(), call regenerate() on privilege transitions (e.g. login) to
@@ -37,6 +44,10 @@ class SessionManager
     private const REDIRECT_KEY = '__quiote_session_redirect_to__';
     private const REDIRECT_AT_KEY = '__quiote_session_redirect_at__';
     private const REDIRECT_UA_KEY = '__quiote_session_redirect_ua__';
+    /** When the session was first created; drives the absolute timeout. */
+    private const CREATED_AT_KEY = '__quiote_session_created_at__';
+    /** When the session was last seen; drives the idle timeout. */
+    private const SEEN_AT_KEY = '__quiote_session_seen_at__';
 
     private SessionPersistenceInterface $persistence;
     private string $cookieName = 'QSID';
@@ -50,6 +61,16 @@ class SessionManager
      * one-shot and user-agent checks in resolveRedirect(); see migrateOld().
      */
     private int $migrationGraceSeconds = 5;
+    /**
+     * Seconds of inactivity after which a session stops resolving, or 0 for no
+     * idle timeout. See {@see hasExpired()}.
+     */
+    private int $idleTimeout = 0;
+    /**
+     * Seconds after creation at which a session stops resolving regardless of
+     * activity, or 0 for no absolute timeout. See {@see hasExpired()}.
+     */
+    private int $absoluteTimeout = 0;
 
     /**
      * @param array<string, mixed> $parameters
@@ -81,6 +102,12 @@ class SessionManager
         }
         if (isset($parameters['session_migration_grace_seconds']) && (is_int($parameters['session_migration_grace_seconds']) || is_string($parameters['session_migration_grace_seconds']))) {
             $this->migrationGraceSeconds = (int)$parameters['session_migration_grace_seconds'];
+        }
+        if (isset($parameters['session_idle_timeout']) && (is_int($parameters['session_idle_timeout']) || is_string($parameters['session_idle_timeout']))) {
+            $this->idleTimeout = max(0, (int)$parameters['session_idle_timeout']);
+        }
+        if (isset($parameters['session_absolute_timeout']) && (is_int($parameters['session_absolute_timeout']) || is_string($parameters['session_absolute_timeout']))) {
+            $this->absoluteTimeout = max(0, (int)$parameters['session_absolute_timeout']);
         }
     }
 
@@ -120,8 +147,14 @@ class SessionManager
                         return $resolved;
                     }
                     // Grace window expired or target gone: fall through to a fresh session.
+                } elseif ($this->hasExpired($data)) {
+                    // Server-side expiry, so a stolen id stops working on a clock
+                    // this process controls. The cookie's own Max-Age cannot do
+                    // this job: it is a hint to the browser, and an attacker
+                    // replaying a captured id simply does not honour it.
+                    $this->persistence->delete($sid);
                 } else {
-                    return new Session($sid, $data, false);
+                    return $this->touch(new Session($sid, $data, false));
                 }
             }
         }
@@ -129,6 +162,92 @@ class SessionManager
         // first-time visitor) that never gets written to shouldn't cost a
         // persisted row or a Set-Cookie -- see persistAndBakeCookies().
         return new Session($this->generateSid(), [], false, true);
+    }
+
+    /**
+     * Whether a loaded session has aged out.
+     *
+     * Two independent limits, both off by default (0):
+     *
+     *  - `session_idle_timeout` -- seconds since the session was last seen. This
+     *    is the one that bounds an abandoned session on a shared machine, and a
+     *    captured id lifted from a log or a proxy.
+     *  - `session_absolute_timeout` -- seconds since the session was created,
+     *    regardless of activity. An idle timeout alone never expires a session
+     *    an attacker keeps warm by polling it, so a long-lived stolen id stays
+     *    valid indefinitely; this is the ceiling that stops that.
+     *
+     * Both default off because turning either on logs users out, and how long
+     * an application's users should stay signed in is a policy decision this
+     * class has no basis for making. A session predating the setting has no
+     * timestamps recorded, and is treated as not-yet-expired rather than as
+     * infinitely old -- switching the setting on must not sign every current
+     * user out at once. {@see touch()} stamps it on its first request.
+     *
+     * @param      array<string, mixed> $data The loaded session data.
+     * @return     bool True if the session must not be resolved.
+     */
+    private function hasExpired(array $data): bool
+    {
+        $now = time();
+
+        if ($this->idleTimeout > 0) {
+            $seenAt = self::timestamp($data[self::SEEN_AT_KEY] ?? null);
+            // A future timestamp means the clock moved backwards (an NTP step, a
+            // VM resync) rather than that the session is fresh for longer than
+            // it should be. Expiring early is the harmless direction.
+            if ($seenAt !== null && ($now - $seenAt < 0 || $now - $seenAt > $this->idleTimeout)) {
+                return true;
+            }
+        }
+
+        if ($this->absoluteTimeout > 0) {
+            $createdAt = self::timestamp($data[self::CREATED_AT_KEY] ?? null);
+            if ($createdAt !== null && ($now - $createdAt < 0 || $now - $createdAt > $this->absoluteTimeout)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Record that the session was seen now, and when it was created if that is
+     * not yet known.
+     *
+     * A no-op unless a timeout is configured: the write marks the session dirty,
+     * and dirtying every request would persist a row and refresh a cookie for
+     * traffic the lazy-session design deliberately keeps free of both.
+     *
+     * The idle stamp is only rewritten once a whole second has passed, so
+     * several requests within the same second do not each mark the session dirty
+     * for a value that would not change.
+     */
+    private function touch(Session $session): Session
+    {
+        if ($this->idleTimeout <= 0 && $this->absoluteTimeout <= 0) {
+            return $session;
+        }
+
+        $now = time();
+        if (self::timestamp($session->get(self::CREATED_AT_KEY)) === null) {
+            $session->set(self::CREATED_AT_KEY, $now);
+        }
+        if (self::timestamp($session->get(self::SEEN_AT_KEY)) !== $now) {
+            $session->set(self::SEEN_AT_KEY, $now);
+        }
+
+        return $session;
+    }
+
+    /** A stored timestamp as an int, or null when absent/unusable. */
+    private static function timestamp(mixed $value): ?int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+
+        return is_string($value) && $value !== '' && ctype_digit($value) ? (int)$value : null;
     }
 
     /**
@@ -174,6 +293,7 @@ class SessionManager
     public function persistAndBakeCookies(Session $session, ResponseInterface $response): ResponseInterface
     {
         if ($session->isDirty()) {
+            $this->stampBeforeWrite($session);
             $this->persistence->save($session->getId(), $session->all());
         }
         // A brand-new session nothing was ever written to has no data worth
@@ -196,8 +316,35 @@ class SessionManager
     public function persist(Session $session): void
     {
         if ($session->isDirty()) {
+            $this->stampBeforeWrite($session);
             $this->persistence->save($session->getId(), $session->all());
             $session->markClean();
+        }
+    }
+
+    /**
+     * Stamp the timeout timestamps onto a session that is about to be written.
+     *
+     * {@see touch()} covers sessions that were *loaded*, but a brand-new one is
+     * never loaded -- it is created empty and, if something writes to it,
+     * persisted at the end of the same request. Without this it would reach
+     * storage with no creation time, and the absolute timeout would only start
+     * counting from its second request.
+     *
+     * Only ever called on an already-dirty session, so it cannot cause the write
+     * it is preparing for.
+     */
+    private function stampBeforeWrite(Session $session): void
+    {
+        if ($this->idleTimeout <= 0 && $this->absoluteTimeout <= 0) {
+            return;
+        }
+        $now = time();
+        if (self::timestamp($session->get(self::CREATED_AT_KEY)) === null) {
+            $session->set(self::CREATED_AT_KEY, $now);
+        }
+        if (self::timestamp($session->get(self::SEEN_AT_KEY)) === null) {
+            $session->set(self::SEEN_AT_KEY, $now);
         }
     }
 

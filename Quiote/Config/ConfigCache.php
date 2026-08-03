@@ -763,7 +763,57 @@ class ConfigCache
 	 * @throws     \Quiote\Exception\CacheException If the cache file cannot be written.
 	 * @since      1.0.0
 	 */
-	public static function writeCacheFile($config, $cache, $data, $append = false)
+	/**
+	 * Directories already reported by {@see warnIfCacheDirectoryIsWorldWritable()}.
+	 * @var        array<string, true>
+	 */
+	private static array $worldWritableWarned = [];
+
+	/**
+	 * Warn when the config cache directory is world-writable.
+	 *
+	 * The mode clamp in {@see writeCacheFile()} only governs directories this
+	 * process creates. One that already exists -- typically from a `chmod -R
+	 * 777` during deployment -- keeps whatever mode it has, and silently
+	 * chmod()ing an operator's directory out from under them is not this code's
+	 * call to make. Saying so is, because the contents are PHP that gets
+	 * include()d and eval()d: any local user who can write this directory can
+	 * replace a cache entry and have the web process execute it.
+	 *
+	 * Once per directory per process, not per write -- a warmup compiles many
+	 * files and would otherwise emit the same line for each.
+	 *
+	 * @param      string $cacheDir The directory the compiled config is written to.
+	 * @return     void
+	 * @since      3.0.4
+	 */
+	private static function warnIfCacheDirectoryIsWorldWritable(string $cacheDir): void
+	{
+		if(isset(self::$worldWritableWarned[$cacheDir])) {
+			return;
+		}
+		$perms = @fileperms($cacheDir);
+		if($perms === false || ($perms & 0002) === 0) {
+			return;
+		}
+		self::$worldWritableWarned[$cacheDir] = true;
+		\Quiote\Logging\Log::for(self::class)->warning(sprintf(
+			'[ConfigCache] The config cache directory "%s" is world-writable (mode %04o). Its contents are '
+			. 'PHP that this process include()s, and directory permissions -- not file permissions -- decide '
+			. 'who may replace an entry, so any local user can execute code as the web process. Restrict it '
+			. 'to the user (and, if needed, group) that runs the application.',
+			$cacheDir,
+			$perms & 0777,
+		));
+	}
+
+	/** Test isolation: re-arm the once-per-directory world-writable warning. */
+	public static function resetWorldWritableWarnings(): void
+	{
+		self::$worldWritableWarned = [];
+	}
+
+	public static function writeCacheFile(string $config, string $cache, string $data, bool $append = false): void
 	{
 		$baseCacheDir = Config::getString('core.cache_dir');
 		if(empty($baseCacheDir)) {
@@ -773,13 +823,24 @@ class ConfigCache
 		$cacheDir = $baseCacheDir . DIRECTORY_SEPARATOR . self::CACHE_SUBDIR;
 
 		// Directory mode: derive from the existing cache dir (or a umask-respecting
-		// default). The directory may legitimately be group/other accessible.
+		// default). The directory may legitimately be group-accessible.
+		//
+		// `& 0777` rather than `^ 0x4000`: the XOR only strips S_IFDIR if the bit
+		// is actually set, so on anything that is not a directory (S_IFREG, a
+		// symlink, a socket) it *adds* 0x4000 instead and hands chmod() a mode in
+		// the 0xC000 range. Masking keeps the permission bits whatever the file
+		// type turns out to be.
 		$detectedPerms = @fileperms($baseCacheDir);
-		if($detectedPerms === false) {
-			$dirPerms = 0777 & ~umask();
-		} else {
-			$dirPerms = $detectedPerms ^ 0x4000; // strip S_IFDIR, keep the dir's permission bits
-		}
+		$dirPerms = $detectedPerms === false ? (0777 & ~umask()) : ($detectedPerms & 0777);
+
+		// ...but never world-writable, whatever the parent looks like. File
+		// permissions alone do not protect these files: deleting and recreating a
+		// directory entry is governed by the *directory's* mode, so on a
+		// world-writable cache dir without the sticky bit any local user can
+		// unlink a 0600 cache file and drop their own PHP in its place -- which
+		// the web process then include()s. A deployment that did `chmod -R 777`
+		// on its cache dir would otherwise propagate that here.
+		$dirPerms &= ~0002;
 
 		// File mode: cache files are PHP that gets include()'d (and eval()'d on the
 		// APCu path), so they must NEVER be group/other-writable — otherwise any
@@ -795,6 +856,7 @@ class ConfigCache
 		// here -- after which tempnam() below falls back to the system temp dir and
 		// the compiled config lands outside the cache directory entirely.
 		Toolkit::mkdir($cacheDir, $dirPerms, true);
+		self::warnIfCacheDirectoryIsWorldWritable($cacheDir);
 
 		if($append && is_readable($cache)) {
 			$data = file_get_contents($cache) . $data;

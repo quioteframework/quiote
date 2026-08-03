@@ -92,8 +92,18 @@ final class RateLimitMiddleware implements MiddlewareInterface
                     // One trusted hop => the last entry was written by that proxy and
                     // names its peer, so it is the rightmost value we can believe.
                     $index = count($parts) - $hops;
+                    $candidate = $parts[max(0, $index)];
 
-                    return $parts[max(0, $index)];
+                    // Only if it is actually an address. Entries to the left of the
+                    // trusted hops are client-written, and a chain shorter than
+                    // trusted_proxy_hops (a misconfigured hop count, or a request
+                    // that did not traverse every expected proxy) makes the clamp
+                    // above land on one of them. That value goes straight into a
+                    // limiter cache key, so accepting arbitrary text lets a caller
+                    // mint unbounded distinct keys and exhaust the storage backend.
+                    if (filter_var($candidate, FILTER_VALIDATE_IP) !== false) {
+                        return $candidate;
+                    }
                 }
             }
         }

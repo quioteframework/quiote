@@ -186,6 +186,24 @@ final class CorsTest extends TestCase
         $this->assertSame('true', $resp->getHeaderLine('Access-Control-Allow-Credentials'));
     }
 
+    /**
+     * Whether a response carries CORS headers depends on the request's Origin,
+     * so it varies on Origin whether or not the origin was allowed. Omitting
+     * the header on the reject path lets a shared cache key the entry without
+     * Origin and then serve it to the wrong caller.
+     */
+    public function testRejectedOriginStillGetsVaryOrigin(): void
+    {
+        Config::set('cors.allowed_origins', ['https://a.example']);
+        $mw = new CorsMiddleware();
+        $req = (new ServerRequest('GET', 'http://localhost/x'))->withHeader('Origin', 'https://evil.example');
+
+        $resp = $mw->process($req, $this->okHandler());
+
+        $this->assertFalse($resp->hasHeader('Access-Control-Allow-Origin'));
+        $this->assertSame('Origin', $resp->getHeaderLine('Vary'));
+    }
+
     public function testExposedHeadersSentOnSimpleRequest(): void
     {
         Config::set('cors.allowed_origins', ['https://a.example']);

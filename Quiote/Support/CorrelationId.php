@@ -41,11 +41,20 @@ final class CorrelationId
         return mb_substr($clean, 0, self::MAX_LENGTH);
     }
 
-    /** A fresh high-entropy correlation ID (URL/log-safe), with a non-crypto fallback. */
+    /**
+     * A fresh high-entropy correlation ID (URL/log-safe), with a non-crypto
+     * fallback.
+     *
+     * base64url, not `strtr($b64, '+/=', 'ABC')`: mapping the three non-alphanumeric
+     * characters onto `A`/`B`/`C` collides them with genuine `A`/`B`/`C` output,
+     * which throws away entropy for no reason -- and it consumed the padding
+     * itself, leaving the following `rtrim($x, '=')` with nothing to strip and
+     * literal `C`s on the end of every id.
+     */
     public static function generate(): string
     {
         try {
-            return rtrim(strtr(base64_encode(random_bytes(10)), '+/=', 'ABC'), '=');
+            return rtrim(strtr(base64_encode(random_bytes(10)), '+/', '-_'), '=');
         } catch (\Throwable) {
             return uniqid('req', true);
         }

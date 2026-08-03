@@ -221,4 +221,24 @@ class LegacyPdoSessionPersistenceTest extends TestCase
 
         return $pdo;
     }
+
+    /**
+     * The table name is interpolated into SQL (an identifier cannot be bound),
+     * so it is restricted to a plain identifier -- the same allow-list
+     * PdoUserProvider and the queue / rate-limit storages already apply. It
+     * comes from operator config, so this catches a configuration mistake
+     * rather than an attacker.
+     */
+    public function testAnInvalidTableNameIsRejected(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        new \Quiote\Session\PdoSessionPersistence($this->pdo, ['table' => 'sessions; DROP TABLE users']);
+    }
+
+    public function testAValidTableNameIsAccepted(): void
+    {
+        $persistence = new \Quiote\Session\PdoSessionPersistence($this->pdo, ['table' => 'my_sessions']);
+
+        $this->assertInstanceOf(\Quiote\Session\PdoSessionPersistence::class, $persistence);
+    }
 }

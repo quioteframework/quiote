@@ -7,6 +7,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Quiote\Config\Config;
+use Quiote\Http\RequestScheme;
 
 /**
  * Adds standard hardening response headers (CSP, X-Content-Type-Options,
@@ -44,7 +45,7 @@ class SecurityHeadersMiddleware implements MiddlewareInterface
             $response = $this->withDefaultHeader($response, 'Permissions-Policy', $permissionsPolicy);
         }
 
-        if (Config::getBool('security_headers.hsts', true) && strtolower($request->getUri()->getScheme()) === 'https') {
+        if (Config::getBool('security_headers.hsts', true) && RequestScheme::isHttps($request)) {
             $maxAge = Config::getInt('security_headers.hsts_max_age', 15_552_000);
             $response = $this->withDefaultHeader($response, 'Strict-Transport-Security', 'max-age=' . $maxAge . '; includeSubDomains');
         }

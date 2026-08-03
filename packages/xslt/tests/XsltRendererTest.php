@@ -131,4 +131,50 @@ XSL);
         $moreAssigns = ['inner' => ['not', 'a', 'document']];
         $renderer->render($layer, $attributes, $slots, $moreAssigns);
     }
+
+    /**
+     * `document()` is the XSLT read primitive. PHP's own default security prefs
+     * already block writes, but leave reads enabled, so a stylesheet -- or
+     * anything a stylesheet interpolates into a document() argument -- could
+     * pull an arbitrary local file into the output, or reach a URL (cloud
+     * metadata endpoints being the usual target). setSecurityPrefs() closes it.
+     */
+    public function testDocumentCannotReadALocalFile(): void
+    {
+        $secret = sys_get_temp_dir() . '/quiote-xslt-renderer-test/secret.xml';
+        file_put_contents($secret, '<secret>TOP-SECRET-VALUE</secret>');
+
+        try {
+            file_put_contents($this->templateBase . '.xsl', sprintf(<<<'XSL'
+<?xml version="1.0" encoding="UTF-8"?>
+<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+    <xsl:output method="text" />
+    <xsl:template match="/">[<xsl:value-of select="document('%s')/secret" />]</xsl:template>
+</xsl:stylesheet>
+XSL, $secret));
+
+            $renderer = new XsltRenderer();
+            $renderer->initialize($this->getContext());
+            $layer = new FileTemplateLayer(['template' => $this->templateBase]);
+            $layer->initialize($this->getContext());
+            $layer->setRenderer($renderer);
+
+            $attributes = [];
+            $moreAssigns = ['inner' => '<root/>'];
+
+            // libxslt treats the refused read as a hard transform failure rather
+            // than as an empty node-set, so the expected outcome is a
+            // RenderException. Either way the assertion that matters is the same:
+            // the file's contents never reach the output.
+            $output = '';
+            try {
+                $output = @$layer->execute($renderer, $attributes, $moreAssigns);
+            } catch (RenderException) {
+            }
+
+            $this->assertStringNotContainsString('TOP-SECRET-VALUE', $output, 'document() must not read local files');
+        } finally {
+            @unlink($secret);
+        }
+    }
 }

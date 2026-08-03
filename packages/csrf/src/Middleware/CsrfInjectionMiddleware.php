@@ -5,6 +5,7 @@ namespace Quiote\Security\Csrf\Middleware;
 use Quiote\Controller\Controller;
 use Quiote\Security\Csrf\CsrfManager;
 use Quiote\Http\Psr17;
+use Quiote\Http\RequestScheme;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
@@ -26,9 +27,11 @@ use Psr\Http\Server\RequestHandlerInterface;
  *     HTTPS and SameSite=Lax, and deliberately NOT HttpOnly so JS can read it —
  *     which is safe because a cross-origin attacker cannot read our cookies and
  *     the SameSite policy keeps them off cross-site requests.
- * Runs in the after_action phase; it wraps the response, so even a 403 from
- * CsrfValidationMiddleware carries a fresh token cookie for the client to retry
- * with. Operates on the serialized HTML independently of the Form Population
+ * Ordered ahead of CsrfValidationMiddleware (priority 45 against its 40, and
+ * priority sorts descending) so it sits outside it and decorates the response on
+ * the way back out -- which is what lets even a 403 from that middleware carry a
+ * fresh token cookie for the client to retry with. Operates on the serialized
+ * HTML independently of the Form Population
  * filter (which only runs when there is data to repopulate), so fresh forms get
  * a token too. */
 #[\Quiote\Middleware\Attribute\Middleware(phase: 'before_action', priority: 45)]
@@ -56,9 +59,12 @@ class CsrfInjectionMiddleware implements MiddlewareInterface
         // Form/meta injection applies to HTML and XHTML responses. XHTML is
         // frequently served as text/html, but pages that set the proper XML type
         // (application/xhtml+xml) must be caught too, or their forms get no token.
+        // A declared HTML/XHTML type only. An absent Content-Type used to count as
+        // HTML, which meant rewriting the body of any response that had not set
+        // one -- a JSON payload that happens to contain the characters "<form"
+        // would have had an <input> spliced into it, corrupting it.
         $contentType = $response->getHeaderLine('Content-Type');
-        $isHtml = $contentType === ''
-            || stripos($contentType, 'text/html') !== false
+        $isHtml = stripos($contentType, 'text/html') !== false
             || stripos($contentType, 'application/xhtml+xml') !== false;
         $html = null;
         $injectForms = false;
@@ -99,27 +105,11 @@ class CsrfInjectionMiddleware implements MiddlewareInterface
             'Path=/',
             'SameSite=Lax',
         ];
-        if ($this->isHttps($request)) {
+        if (RequestScheme::isHttps($request)) {
             $parts[] = 'Secure';
         }
         // Deliberately NOT HttpOnly: the SPA must read this from document.cookie.
         return $response->withAddedHeader('Set-Cookie', implode('; ', $parts));
-    }
-
-    private function isHttps(ServerRequestInterface $request): bool
-    {
-        try {
-            if (strtolower((string) $request->getUri()->getScheme()) === 'https') {
-                return true;
-            }
-        } catch (\Throwable) {
-        }
-        $server = $request->getServerParams();
-        if (isset($server['HTTPS']) && $server['HTTPS'] !== '' && strtolower((string) $server['HTTPS']) !== 'off') {
-            return true;
-        }
-        $xfp = strtolower(trim($request->getHeaderLine('X-Forwarded-Proto')));
-        return $xfp !== '' && str_starts_with($xfp, 'https');
     }
 
     /**
