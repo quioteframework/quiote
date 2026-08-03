@@ -5,7 +5,6 @@ use Quiote\Context;
 use Quiote\Util\ArrayPathDefinition;
 use InvalidArgumentException;
 use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Message\UploadedFileInterface;
 use Psr\Http\Message\UriInterface;
 use Symfony\Contracts\Service\ResetInterface;
 
@@ -136,17 +135,9 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 		}
 		$this->url = $bootstrapped;
 
-		$contentType = $_SERVER['CONTENT_TYPE'] ?? '';
-		$imported = JsonBodyIngestor::ingest(
-			$this->getMethod(),
-			is_string($contentType) ? $contentType : '',
-			fn (): ?UploadedFileInterface => $this->getUploadedFile('put_file'),
-			static fn (): string => (string)file_get_contents('php://input'),
-		);
-		foreach ($imported as $key => $value) {
-			$param = is_string($key) ? $key : (string)$key;
-			$this->params = $this->params->withParameter($param, $value);
-		}
+		// No JSON body decoding here: PayloadParsingMiddleware owns that, and it
+		// works off the PSR-7 body rather than php://input -- which is empty on a
+		// runtime that never went through a SAPI (RoadRunner, Swoole).
 	}
 
 	#[\Deprecated(message: 'No longer needed - WebRequest IS the PSR-7 request')]
