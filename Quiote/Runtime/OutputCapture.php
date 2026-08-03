@@ -31,6 +31,7 @@ final class OutputCapture
     public const POLICY_THROW = 'throw';
 
     private int $baseLevel = 0;
+    private int $ownLevel = 0;
     private bool $active = false;
 
     public function __construct(private readonly ?string $policy = null)
@@ -44,6 +45,12 @@ final class OutputCapture
         }
         $this->baseLevel = ob_get_level();
         ob_start();
+        // Our own buffer's level, not the level beneath it. Application code can
+        // close more buffers than it opened (an over-eager ob_end_clean() in a
+        // renderer's error path), which would take ours with it; comparing against
+        // the level we actually own lets finish() notice that rather than
+        // silently reporting no stray output while it escapes to the relay.
+        $this->ownLevel = ob_get_level();
         $this->active = true;
     }
 
@@ -61,6 +68,21 @@ final class OutputCapture
             return '';
         }
         $this->active = false;
+
+        if (ob_get_level() < $this->ownLevel) {
+            // Application code closed past our own buffer, so whatever it wrote has
+            // already gone wherever an unbuffered write goes on this runtime -- the
+            // RoadRunner relay, the Swoole console. Nothing left to collect, but
+            // saying so beats reporting a clean request.
+            Log::for($this)->warning(sprintf(
+                '[OutputCapture] the application closed more output buffers than it opened '
+                . '(level %d, expected at least %d); any output written outside the response body '
+                . 'for this request has escaped uncaptured.',
+                ob_get_level(),
+                $this->ownLevel,
+            ));
+            return '';
+        }
 
         $chunks = [];
         while (ob_get_level() > $this->baseLevel) {

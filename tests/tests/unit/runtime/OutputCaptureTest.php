@@ -32,6 +32,30 @@ final class OutputCaptureTest extends TestCase
         $this->assertSame('leaked', $capture->finish());
     }
 
+    /**
+     * The mirror image of the left-open case: application code closing more buffers
+     * than it opened takes ours with it. finish() must not walk down past the
+     * caller's own buffers trying to reclaim one that is already gone.
+     */
+    public function testApplicationClosingPastOurBufferDoesNotConsumeTheCallersOwn(): void
+    {
+        ob_start();
+        echo 'belongs-to-the-caller';
+
+        $capture = new OutputCapture(OutputCapture::POLICY_APPEND);
+        $capture->start();
+        echo 'lost';
+        // An over-eager cleanup in a renderer's error path.
+        ob_end_clean();
+
+        $this->assertSame('', $capture->finish(), 'nothing is recoverable once our buffer is gone');
+        $this->assertSame(
+            'belongs-to-the-caller',
+            ob_get_clean(),
+            'the buffer the caller opened before start() must still be intact',
+        );
+    }
+
     public function testBuffersTheApplicationLeftOpenAreUnwoundInWriteOrder(): void
     {
         $capture = new OutputCapture(OutputCapture::POLICY_APPEND);

@@ -851,8 +851,16 @@ class Context implements \Stringable, ResetInterface
       }
       // No need to attachPsrRequest - WebRequest IS the PSR-7 request
       // If needed, ensure context's request is same instance as pipeline request
-    } catch (\Throwable) {
-      // ignore
+    } catch (\Throwable $e) {
+      // Recoverable: getRequest() retries this same construction lazily, so the
+      // request is not lost. Logged rather than swallowed because if the retry
+      // fails too, getRequest() reports "no factory info available for
+      // recreation" -- which names the wrong cause. This is the only place the
+      // real one is visible.
+      \Quiote\Logging\Log::for($this)->error(
+        '[Context.handle] eager request construction failed, deferring to getRequest(): '
+          . $e::class . ': ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine(),
+      );
     }
 
     // Propagate correlation ID so middleware can use it without re-generating (avoids redundant random_bytes()).
