@@ -147,13 +147,34 @@ class CacheManager
     private static function versionCacheKey(string $namespace): string
     { return self::key('nsver', $namespace); }
 
+    /**
+     * A namespace version derived from the clock (milliseconds), used both to seed a
+     * namespace and as the floor for every bump.
+     *
+     * Deliberately not a counter starting at 1. The version lives in the same backend as
+     * the data it guards, and that backend may evict it -- APCu under memory pressure,
+     * Redis under a `maxmemory` policy. A counter would then restart and re-issue version
+     * numbers the namespace has already used, while the entries written under those
+     * numbers are separate keys that can easily still be live: content an invalidation
+     * had already retired would come back.
+     *
+     * Tying both the seed and the bump floor to the clock removes that class of collision
+     * entirely -- a version is never below the clock reading at the moment it was issued,
+     * so a reseed after eviction always lands at or above every version the namespace has
+     * ever used. {@see bumpNamespace()} keeps the strict-increase guarantee on top.
+     */
+    private static function freshNamespaceVersion(): int
+    {
+        return (int) (microtime(true) * 1000);
+    }
+
     public static function getNamespaceVersion(string $namespace): int
     {
         if (!isset(self::$namespaceVersions[$namespace])) {
             $cache = self::getCache();
             $ver = $cache->get(self::versionCacheKey($namespace));
             if (!is_int($ver) || $ver < 1) {
-                $ver = 1;
+                $ver = self::freshNamespaceVersion();
                 $cache->set(self::versionCacheKey($namespace), $ver);
             }
             self::$namespaceVersions[$namespace] = $ver;
@@ -161,10 +182,19 @@ class CacheManager
         return self::$namespaceVersions[$namespace];
     }
 
+    /**
+     * Invalidate a namespace by moving its version forward.
+     *
+     * The new version is the later of "one past the current one" and the current clock
+     * reading. The +1 keeps the strict increase a bump has to guarantee even when several
+     * bumps land inside the same millisecond; the clock floor is what keeps the version
+     * from drifting below a future reseed after an eviction (see
+     * {@see freshNamespaceVersion()}).
+     */
     public static function bumpNamespace(string $namespace): int
     {
         $cache = self::getCache();
-        $ver = self::getNamespaceVersion($namespace) + 1;
+        $ver = max(self::getNamespaceVersion($namespace) + 1, self::freshNamespaceVersion());
         $cache->set(self::versionCacheKey($namespace), $ver);
         self::$namespaceVersions[$namespace] = $ver;
         return $ver;

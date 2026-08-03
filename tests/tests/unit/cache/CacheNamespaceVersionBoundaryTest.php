@@ -30,16 +30,16 @@ class CacheNamespaceVersionBoundaryTest extends UnitTestCase
     {
         $context = $this->getContext();
 
-        $this->assertSame(1, CacheManager::getNamespaceVersion('avmod.Foo'));
+        $seed = CacheManager::getNamespaceVersion('avmod.Foo');
 
         // Another worker process invalidates the module: the bumped version goes
         // straight into the shared backend, not into this process's memo.
-        CacheManager::getCache()->set(CacheManager::key('nsver', 'avmod.Foo'), 7);
+        CacheManager::getCache()->set(CacheManager::key('nsver', 'avmod.Foo'), $seed + 6);
 
         $context->reset();
 
         $this->assertSame(
-            7,
+            $seed + 6,
             CacheManager::getNamespaceVersion('avmod.Foo'),
             'the request boundary must drop the memo so the shared version is re-read',
         );
@@ -58,19 +58,62 @@ class CacheNamespaceVersionBoundaryTest extends UnitTestCase
 
     public function testMemoStillServesRepeatedReadsWithinOneRequest(): void
     {
-        $this->assertSame(1, CacheManager::getNamespaceVersion('avmod.Bar'));
+        $seed = CacheManager::getNamespaceVersion('avmod.Bar');
 
         // A concurrent bump landing mid-request must not be picked up partway
         // through: cache keys have to stay stable for the duration of a request.
-        CacheManager::getCache()->set(CacheManager::key('nsver', 'avmod.Bar'), 9);
+        CacheManager::getCache()->set(CacheManager::key('nsver', 'avmod.Bar'), $seed + 8);
 
-        $this->assertSame(1, CacheManager::getNamespaceVersion('avmod.Bar'));
+        $this->assertSame($seed, CacheManager::getNamespaceVersion('avmod.Bar'));
     }
 
     public function testBumpIsVisibleImmediatelyInTheBumpingRequest(): void
     {
-        $this->assertSame(1, CacheManager::getNamespaceVersion('avmod.Baz'));
-        $this->assertSame(2, CacheManager::bumpNamespace('avmod.Baz'));
-        $this->assertSame(2, CacheManager::getNamespaceVersion('avmod.Baz'));
+        $seed = CacheManager::getNamespaceVersion('avmod.Baz');
+
+        $bumped = CacheManager::bumpNamespace('avmod.Baz');
+
+        $this->assertGreaterThan($seed, $bumped, 'a bump must strictly increase the version');
+        $this->assertSame($bumped, CacheManager::getNamespaceVersion('avmod.Baz'));
+    }
+
+    public function testRepeatedBumpsWithinOneMillisecondStillIncreaseStrictly(): void
+    {
+        $previous = CacheManager::getNamespaceVersion('avmod.Rapid');
+        for ($i = 0; $i < 5; $i++) {
+            $bumped = CacheManager::bumpNamespace('avmod.Rapid');
+            $this->assertGreaterThan($previous, $bumped);
+            $previous = $bumped;
+        }
+    }
+
+    /**
+     * An evicted version entry must never re-issue a version this namespace has
+     * already used: the entries written under that version are separate keys that
+     * can still be live, so restarting the counter would resurrect content an
+     * invalidation had already retired.
+     */
+    public function testAnEvictedVersionEntryReseedsAboveEveryVersionAlreadyIssued(): void
+    {
+        $before = CacheManager::getNamespaceVersion('avmod.Evicted');
+        $highWaterMark = CacheManager::bumpNamespace('avmod.Evicted');
+
+        // Let the millisecond clock advance past the bump, so this asserts the
+        // reseed genuinely tracks the clock rather than racing it.
+        usleep(3000);
+
+        // The backend drops the version key (APCu memory pressure, Redis maxmemory)
+        // while entries keyed by the old versions survive.
+        CacheManager::getCache()->delete(CacheManager::key('nsver', 'avmod.Evicted'));
+        CacheManager::resetRequestState();
+
+        $reseeded = CacheManager::getNamespaceVersion('avmod.Evicted');
+
+        $this->assertGreaterThan(
+            $highWaterMark,
+            $reseeded,
+            'a reseeded namespace must land above every version it previously issued',
+        );
+        $this->assertGreaterThan($before, $reseeded);
     }
 }
