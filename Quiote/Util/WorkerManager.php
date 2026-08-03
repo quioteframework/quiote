@@ -101,26 +101,20 @@ class WorkerManager
     $logger->debug('WorkerManager: Resetting context using getInstance approach');
         
         try {
-            if ($contextProfile !== null) {
-                // Reset specific context profile
-                // Ensure contextProfile is string; if not, treat as default
-                if(!is_string($contextProfile) || $contextProfile === '') {
-                    $contextProfile = Config::getString('core.default_context', 'web');
-                }
-                $context = Context::getInstance($contextProfile);
-                $context->reset();
-                $logger->debug("[WorkerManager] Reset context profile: $contextProfile");
-            } else {
-                // Reset all available contexts - we'll need to get the default context
-                // Since we don't have access to all instances, reset the default context
-                try {
-                    $context = Context::getInstance();
-                    $context->reset();
-                    $logger->debug('[WorkerManager] Reset default context');
-                } catch (\Throwable $e) {
-                    $logger->error('[WorkerManager] Failed to get default context: ' . $e->getMessage());
-                }
+            // Every live context, not just this request's: another context that
+            // was resolved during the request still holds its own sessionBag and
+            // user, and those must not survive into the next request. $contextProfile
+            // only prioritises which one is cleared first.
+            //
+            // resetWorkerState() also guards each context individually and never
+            // instantiates one that does not already exist -- unlike the previous
+            // Context::getInstance()->reset(), which built a whole context at the
+            // request boundary just to reset it.
+            if(!is_string($contextProfile) || $contextProfile === '') {
+                $contextProfile = null;
             }
+            Context::resetWorkerState($contextProfile);
+            $logger->debug('[WorkerManager] Reset live contexts (first: ' . ($contextProfile ?? 'default') . ')');
         } catch (\Throwable $e) {
             // Throwable, not Exception: a TypeError or other Error escaping a
             // component's reset() must not propagate past this point either, or the

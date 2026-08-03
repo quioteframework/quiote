@@ -14,7 +14,14 @@ class CacheManager
     /** @var CacheInterface|null */
     private static ?CacheInterface $instance = null;
     /**
-     * in-memory cache of namespace versions for current request
+     * In-memory cache of namespace versions for the current request. Dropped at
+     * the request boundary by {@see resetRequestState()}, which Context::reset()
+     * calls -- it must be, or it is a per-process memo rather than a per-request
+     * one: a version bumped by another worker process (or by another request in
+     * this one) would never be re-read, so invalidateModule()/invalidateAction()/
+     * invalidateSlotTag() would silently stop invalidating anything for the rest
+     * of the process lifetime while it kept serving cached output under the old
+     * version.
      * @var array<string, int>
      */
     private static array $namespaceVersions = [];
@@ -47,6 +54,24 @@ class CacheManager
 
     public static function setCache(CacheInterface $cache, string $backendName = 'custom'): void
     { self::$instance = $cache; self::$backend = $backendName; }
+
+    /**
+     * Request-boundary clear for a persistent worker: drops the per-request
+     * namespace-version memo so the next request re-reads versions from the
+     * shared backend and therefore observes invalidations performed elsewhere.
+     *
+     * Deliberately narrower than {@see reset()}: the configured cache instance
+     * and the selected backend survive (rebuilding the pool per request would
+     * throw away exactly the connection reuse worker mode exists for), and
+     * nothing on disk is touched.
+     *
+     * @return     void
+     * @since      3.1.1
+     */
+    public static function resetRequestState(): void
+    {
+        self::$namespaceVersions = [];
+    }
 
     public static function reset(): void
     {

@@ -109,9 +109,6 @@ final class WorkerLoop
         }
         $this->workerBooted = true;
 
-        if (!$this->capabilities->sapiOutput) {
-        }
-
         if (!$this->capabilities->forksWorkers) {
             return;
         }

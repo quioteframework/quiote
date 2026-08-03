@@ -713,6 +713,16 @@ class Context implements \Stringable, ResetInterface
       $logger->error("[Context.reset] container reset failed: " . $e->getMessage());
     }
 
+    // Drop the cache namespace-version memo. Without this it is a per-process
+    // memo, and a version bumped by another worker process is never observed —
+    // so this process keeps serving cached action/view/slot output that has
+    // already been invalidated, for as long as it lives.
+    try {
+      \Quiote\Cache\CacheManager::resetRequestState();
+    } catch (\Throwable $e) {
+      $logger->error("[Context.reset] cache request-state reset failed: " . $e->getMessage());
+    }
+
     // Reset routing component instances
     try {
       foreach ($this->resetInstances as $instance) {
@@ -767,16 +777,35 @@ class Context implements \Stringable, ResetInterface
 	 */
   public static function resetWorkerState($profile = null): void
   {
-    if ($profile !== null) {
+    // Every live context is reset, not just $profile. A context other than the
+    // one serving the request still holds request-scoped state -- its own
+    // sessionBag and user -- and clearRequestScopedState() exists precisely
+    // because carrying those across a request boundary is a cross-user
+    // authentication leak rather than a stale-data annoyance.
+    //
+    // $profile only decides what goes FIRST, so the context that actually served
+    // the request is cleared even if some other context's reset() throws.
+    $ordered = [];
+    if (is_string($profile) && $profile !== '') {
       $profile = strtolower($profile);
       if (isset(self::$instances[$profile])) {
-        // Reset individual context state
-        self::$instances[$profile]->reset();
+        $ordered[$profile] = self::$instances[$profile];
       }
-    } else {
-      // Reset all contexts
-      foreach (self::$instances as $context) {
+    }
+    foreach (self::$instances as $name => $context) {
+      $ordered[$name] ??= $context;
+    }
+
+    // Guarded individually: one context's broken reset() must not skip the rest.
+    // Deliberately not reached via getInstance(), which would INSTANTIATE a
+    // context at the request boundary just to reset it.
+    foreach ($ordered as $name => $context) {
+      try {
         $context->reset();
+      } catch (\Throwable $e) {
+        \Quiote\Logging\Log::for(static::class)->error(
+          "[Context::resetWorkerState] reset of context '$name' failed: " . $e->getMessage(),
+        );
       }
     }
   }
