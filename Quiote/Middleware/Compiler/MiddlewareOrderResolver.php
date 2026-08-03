@@ -43,7 +43,7 @@ final class MiddlewareOrderResolver
         // there), so the safe behaviour is what you get by default and leniency has
         // to be asked for.
         $this->guardedClasses = $guardedClasses
-            ?? \Quiote\Middleware\MiddlewarePipeline::guardedMiddlewareClasses();
+            ?? \Quiote\Middleware\CoreMiddlewareRegistry::guardedClasses();
     }
 
     /**

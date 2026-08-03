@@ -51,72 +51,33 @@ class MiddlewarePipeline implements RequestHandlerInterface
     }
 
     /**
-     * The framework's own shipped middleware classes -- the protected set
-     * {@see \Quiote\Middleware\Config\MiddlewareConfigRegistry} guards
-     * against silent config-driven reordering/disabling. Must be kept in
-     * sync with the `$factories` map built in {@see doBuild()}.
+     * The framework's own shipped middleware classes.
+     * @deprecated 3.2.0 Read {@see CoreMiddlewareRegistry::CORE} instead.
      * @return list<class-string<\Psr\Http\Server\MiddlewareInterface>>
      */
     public static function coreMiddlewareClasses(): array
     {
-        return [
-            ErrorHandlingMiddleware::class,
-            SessionMiddleware::class,
-            TelemetryMiddleware::class,
-            TimingMiddleware::class,
-            TraceMiddleware::class,
-            PayloadParsingMiddleware::class,
-            ContentNegotiationMiddleware::class,
-            RoutingMiddleware::class,
-            OutputTypeSyncMiddleware::class,
-            SecurityMiddleware::class,
-            ValidationMiddleware::class,
-            SlotMiddleware::class,
-            DispatchMiddleware::class,
-            AssetAggregationMiddleware::class,
-            FormPopulationMiddleware::class,
-            ExecutionTimeMiddleware::class,
-        ];
+        return CoreMiddlewareRegistry::CORE;
     }
 
     /**
-     * First-party security middleware that ships in its own package rather than
-     * in this map, but is still framework middleware for guard purposes.
-     *
-     * These are delivered by a plugin core enables by default (see the CSRF note
-     * in {@see doBuild()}), so they are absent from {@see coreMiddlewareClasses()}
-     * -- which is a list of classes this pipeline builds factories for. That
-     * absence used to mean {@see \Quiote\Middleware\Config\MiddlewareConfigRegistry}
-     * did not guard them at all: a single `<use>` entry in the app's, or any
-     * installed module's, `middleware.*` could disable CSRF validation with no
-     * `override-framework="true"` and no acknowledgement setting, while the
-     * guard's own error message claimed to cover CSRF.
-     *
-     * Plain FQCN strings, deliberately: the guard only ever compares them, and
-     * {@see MiddlewareConfigRegistry::assertValidClass()} has already established
-     * the class exists before the comparison happens, so naming a class from a
-     * package that isn't installed costs nothing.
+     * First-party middleware that ships in its own package rather than being built by core.
+     * @deprecated 3.2.0 Use {@see CoreMiddlewareRegistry::pluginProvidedClasses()} instead.
      * @return list<string>
      */
     public static function protectedPackageMiddlewareClasses(): array
     {
-        return [
-            'Quiote\\Security\\Csrf\\Middleware\\CsrfValidationMiddleware',
-            'Quiote\\Security\\Csrf\\Middleware\\CsrfInjectionMiddleware',
-        ];
+        return CoreMiddlewareRegistry::pluginProvidedClasses();
     }
 
     /**
-     * The full set {@see \Quiote\Middleware\Config\MiddlewareConfigRegistry}
-     * guards against silent config-driven reordering/disabling.
+     * The full set {@see \Quiote\Middleware\Config\MiddlewareConfigRegistry} guards against
+     * silent config-driven reordering or disabling.
      * @return list<string>
      */
     public static function guardedMiddlewareClasses(): array
     {
-        return array_merge(
-            self::coreMiddlewareClasses(),
-            self::protectedPackageMiddlewareClasses(),
-        );
+        return CoreMiddlewareRegistry::guardedClasses();
     }
 
     private function doBuild(): void
@@ -170,47 +131,7 @@ class MiddlewarePipeline implements RequestHandlerInterface
                 $this->debugStack[] = $label;
             };
 
-            // CSRF middleware are NOT in this map — they're registered by
-            // Quiote\Security\Csrf\CsrfPlugin via
-            // PluginRegistrar::attributedMiddleware(), which core runs by default
-            // today (see the "core default" note in Quiote::bootstrap()) so
-            // this map staying free of them costs nothing while they're still
-            // in-tree, and needs no further change when they actually move to
-            // their own package.
-            $factories = [
-                ErrorHandlingMiddleware::class => fn() => new ErrorHandlingMiddleware(function (\Throwable $e, ServerRequestInterface $r): void {
-                    $first = $e->getFile() . ':' . $e->getLine();
-                    $snippet = substr(str_replace("\n", ' | ', $e->getTraceAsString()), 0, 500);
-                    \Quiote\Logging\Log::for($this)->error('[MiddlewarePipeline] ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $first . ' trace=' . $snippet);
-                    // Backstop: TelemetryMiddleware
-                    // already records+ends the root span on its own way out (it sits
-                    // inside this middleware), so by the time we get here Trace::current()
-                    // is normally back to a no-op — this only matters if TelemetryMiddleware
-                    // itself never ran (e.g. a stack replaced via replaceCoreStack()) while
-                    // some other span is still active.
-                    \Quiote\Telemetry\Trace::current()->recordException($e)->setStatusError($e->getMessage());
-                }),
-                SessionMiddleware::class => fn() => new SessionMiddleware($controller),
-                TelemetryMiddleware::class => fn() => new TelemetryMiddleware(),
-                TimingMiddleware::class => fn() => new TimingMiddleware(
-                    \Quiote\Config\Config::getBool('middleware.timing.emit_header', false)
-                ),
-                TraceMiddleware::class => fn() => new TraceMiddleware(
-                    \Quiote\Config\Config::getBool('middleware.trace.emit_header', false),
-                    \Quiote\Config\Config::getString('middleware.trace.header_name', 'X-Quiote-Trace')
-                ),
-                PayloadParsingMiddleware::class => fn() => new PayloadParsingMiddleware(),
-                ContentNegotiationMiddleware::class => fn() => new ContentNegotiationMiddleware(),
-                RoutingMiddleware::class => fn() => new RoutingMiddleware($routing, $controller),
-                OutputTypeSyncMiddleware::class => fn() => new OutputTypeSyncMiddleware($controller),
-                SecurityMiddleware::class => fn() => new SecurityMiddleware($controller),
-                ValidationMiddleware::class => fn() => new ValidationMiddleware($controller),
-                SlotMiddleware::class => fn() => new SlotMiddleware($this->context),
-                DispatchMiddleware::class => fn() => new DispatchMiddleware($controller),
-                AssetAggregationMiddleware::class => fn() => new AssetAggregationMiddleware(),
-                FormPopulationMiddleware::class => fn() => new FormPopulationMiddleware($controller),
-                ExecutionTimeMiddleware::class => fn() => new ExecutionTimeMiddleware(),
-            ];
+            $factories = CoreMiddlewareRegistry::factories($context);
 
             // Order is derived from each class's #[Middleware] attribute (phase +
             // before/after + priority), not a hand-maintained sequence. App middleware opts in
