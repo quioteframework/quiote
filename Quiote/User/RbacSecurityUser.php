@@ -24,7 +24,14 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 	protected $definitions = null;
 
 	/**
-	 * @var        array<int, string> An array of roles the user is assigned to.
+	 * Roles the user is assigned to.
+	 *
+	 * Nullable, and every read guards with `?? []`: the property is only
+	 * populated by initialize(), and hasRole()/grantRole()/getRoles() are public
+	 * API that a caller can reach before that -- an unguarded in_array() against
+	 * null is a TypeError, not a "no roles" answer. Mirrors how
+	 * SecurityUser::$credentials is handled.
+	 * @var        ?array<int, string>
 	 */
 	protected $roles = null;
 
@@ -47,7 +54,7 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 	 */
 	public function grantRole($role)
 	{
-		if(isset($this->definitions[$role]) && !in_array($role, $this->roles)) {
+		if(isset($this->definitions[$role]) && !in_array($role, $this->roles ?? [], true)) {
 			$this->roles[] = $role;
 			// Only a real change dirties: an unknown role, or one already held,
 			// falls through this branch and must not trigger a session write.
@@ -88,13 +95,30 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 	 */
 	public function revokeRole($role)
 	{
-		if(isset($this->definitions[$role]) && ($key = array_search($role, $this->roles)) !== false) {
-			unset($this->roles[$key]);
-			$this->dirty = true;
+		if(isset($this->definitions[$role]) && ($key = array_search($role, $this->roles ?? [], true)) !== false) {
+			$survivors = $this->roles ?? [];
+			unset($survivors[$key]);
+			$survivors = array_values($survivors);
+
+			// Credentials are derived from the whole role set (including inherited
+			// parents), so revoking one role means re-deriving from the survivors
+			// rather than subtracting the revoked role's permissions -- two roles
+			// may grant the same permission.
+			//
+			// The role list must be emptied BEFORE re-granting: grantRole() bails
+			// out for a role already in $this->roles, so re-granting over a
+			// still-populated list added nothing, leaving every surviving role
+			// held but stripped of its permissions. initialize() documents the
+			// same trap for the session-rehydration path; this path had it too.
+			$this->roles = [];
 			$this->clearCredentials();
-			foreach($this->roles as $role) {
-				$this->grantRole($role);
+			foreach($survivors as $survivor) {
+				$this->grantRole($survivor);
 			}
+			// Set last: grantRole() only dirties when it actually grants, so
+			// revoking the final role would otherwise leave the user clean and
+			// never persist the revocation.
+			$this->dirty = true;
 		}
 	}
 	
@@ -106,7 +130,7 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 	 */
 	public function hasRole($role)
 	{
-		return in_array($role, $this->roles);
+		return in_array($role, $this->roles ?? [], true);
 	}
 	
 	/**
@@ -116,7 +140,7 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 	 */
 	public function getRoles()
 	{
-		return $this->roles;
+		return $this->roles ?? [];
 	}
 	
 	/**
@@ -126,7 +150,10 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 	 */
 	public function revokeAllRoles()
 	{
-		foreach($this->roles as $role) {
+		// Snapshot: revokeRole() rebuilds $this->roles on every call, so iterating
+		// the property directly would be iterating a list that is being replaced
+		// underneath the loop.
+		foreach($this->roles ?? [] as $role) {
 			$this->revokeRole($role);
 		}
 	}
@@ -176,7 +203,7 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 			try {
 				$logger = \Quiote\Logging\Log::for($this);
 				if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
-					$logger->debug('[RbacSecurityUser.initialize] rebuilt creds rolesIn=' . count($storedRoles) . ' rolesNow=' . count($this->roles) . ' credsNow=' . count($this->credentials ?? []));
+					$logger->debug('[RbacSecurityUser.initialize] rebuilt creds rolesIn=' . count($storedRoles) . ' rolesNow=' . count($this->roles ?? []) . ' credsNow=' . count($this->credentials ?? []));
 				}
 			} catch (\Throwable) {}
 		}
@@ -230,7 +257,7 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 
 		$logger = \Quiote\Logging\Log::for($this);
 		if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
-			$logger->debug('RbacSecurityUser storing roles', ['class' => static::class, 'namespace' => self::ROLES_NAMESPACE, 'roles_count' => count($this->roles)]);
+			$logger->debug('RbacSecurityUser storing roles', ['class' => static::class, 'namespace' => self::ROLES_NAMESPACE, 'roles_count' => count($this->roles ?? [])]);
 		}
 
 		$bag = $this->getContext()->getSessionBag();
@@ -240,19 +267,24 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 		// be authenticated. Roles were the only one of the three user keys
 		// written with no guard at all, which made them the first thing lost
 		// whenever a user initialized against a session it could not read.
+		// Normalized once: an uninitialized $roles is null, and `null === []` is
+		// false, so the guard below would read "not empty" for a user that holds
+		// no roles at all -- and then persist null over a good stored role set,
+		// which is precisely what the guard exists to prevent.
+		$currentRoles = $this->roles ?? [];
 		try {
 			$storedRoles = $bag->get(self::ROLES_NAMESPACE);
-			$currentEmpty = $this->roles === [];
+			$currentEmpty = $currentRoles === [];
 			$storedNonEmpty = is_array($storedRoles) && count($storedRoles) > 0;
 			if ($this->authenticated === true && $currentEmpty && $storedNonEmpty) {
 				if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
 					$logger->debug('[RbacSecurityUser] Shutdown skip roles overwrite empty over non-empty');
 				}
 			} else {
-				$bag->set(self::ROLES_NAMESPACE, $this->roles);
+				$bag->set(self::ROLES_NAMESPACE, $currentRoles);
 			}
 		} catch (\Throwable) {
-			try { $bag->set(self::ROLES_NAMESPACE, $this->roles); } catch (\Throwable) {}
+			try { $bag->set(self::ROLES_NAMESPACE, $currentRoles); } catch (\Throwable) {}
 		}
 	// Note: credentials are stored by parent SecurityUser::shutdown(). If they were
 	// rebuilt during initialize, they will be persisted here.

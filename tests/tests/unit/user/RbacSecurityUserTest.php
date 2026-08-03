@@ -63,21 +63,30 @@ class RbacSecurityUserTest extends UnitTestCase
 		
 		$this->_u->revokeRole('admin');
 		$this->assertEquals($this->_u->getRoles(), []);
-		
+
+		// The role list stays a gap-free list across revocations. It used to be
+		// asserted here as [1 => 'member'], [1 => 'member', 'guest'] and
+		// [2 => 'guest'] -- index gaps left behind by revokeRole()'s unset(), which
+		// leaked an internal artifact into the public getRoles() contract (declared
+		// array<int, string>). revokeRole() now re-derives the surviving set, so the
+		// keys are sequential.
 		$this->_u->grantRole('member');
-		$this->assertEquals($this->_u->getRoles(), [1 => 'member']);
-		
+		$this->assertEquals($this->_u->getRoles(), ['member']);
+
 		$this->assertTrue($this->_u->hasCredentials(['products.rate', 'products.view']));
 		$this->assertFalse($this->_u->hasCredentials('products.edit'));
-		
+
 		$this->_u->grantRole('guest');
-		$this->assertEquals($this->_u->getRoles(), [1 => 'member', 'guest']);
+		$this->assertEquals($this->_u->getRoles(), ['member', 'guest']);
 		$this->assertTrue($this->_u->hasCredentials('products.list'));
 		$this->assertFalse($this->_u->hasCredentials('products.add'));
 
 		$this->_u->revokeRole('member');
-		$this->assertEquals($this->_u->getRoles(), [2 => 'guest']);
+		$this->assertEquals($this->_u->getRoles(), ['guest']);
+		// 'guest' is a parent of 'member', so revoking 'member' must keep guest's
+		// own permissions while dropping the ones only 'member' granted.
 		$this->assertFalse($this->_u->hasCredentials('products.rate'));
+		$this->assertTrue($this->_u->hasCredentials(['products.list', 'products.view']));
 		
 		$this->_u->revokeAllRoles();
 		$this->assertEquals($this->_u->getRoles(), []);
