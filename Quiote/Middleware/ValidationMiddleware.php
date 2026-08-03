@@ -80,12 +80,6 @@ class ValidationMiddleware implements MiddlewareInterface
                 } catch (\Throwable) {
                 }
             }
-            if (!$controller) {
-                try {
-                    $controller = \Quiote\Quiote::context('web', true)->getController();
-                } catch (\Throwable) {
-                }
-            }
             if ($controller) {
                 // Let exceptions bubble to ErrorHandlingMiddleware – failure is a hard error.
                 $action = $controller->createActionInstance($moduleName, $actionName);

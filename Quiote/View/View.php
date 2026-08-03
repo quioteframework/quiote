@@ -32,10 +32,15 @@ abstract class View implements ResetInterface
 	protected $initContext = null;
 
 	/**
-	 * @var array<int|string, mixed>|null Mutable attribute store for this view. Populated from
-	 *                action attribute snapshot (ImmutableViewInitContext) or
-	 *                from an attribute holder. Ensures view-set attributes
-	 *                are visible to the renderer via getAttributes().
+	 * This view's mutable attribute store, seeded by {@see initialize()} from the action
+	 * attribute snapshot (ImmutableViewInitContext) or from the init context's own holder,
+	 * and read by the renderer through {@see getAttributes()}.
+	 *
+	 * It is the single rule the whole attribute facade below follows: reads answer from
+	 * this store first and fall back to the init context's holder, and writes land here
+	 * whenever it exists. Null means the view was never initialized, in which case the
+	 * facade works directly against the holder.
+	 * @var array<int|string, mixed>|null
 	 */
 	protected $localAttributes = null;
 
@@ -665,6 +670,9 @@ abstract class View implements ResetInterface
 	 */
 	public function clearAttributes()
 	{
+		if ($this->localAttributes !== null) {
+			$this->localAttributes = [];
+		}
 		if ($this->initContext instanceof \Quiote\Util\AttributeHolder) {
 			$this->initContext->clearAttributes();
 		}
@@ -679,24 +687,27 @@ abstract class View implements ResetInterface
 	 */
 	public function &getAttribute($name, $default = null)
 	{
+		if ($this->localAttributes !== null && array_key_exists($name, $this->localAttributes)) {
+			return $this->localAttributes[$name];
+		}
 		if ($this->initContext instanceof \Quiote\Util\AttributeHolder) {
 			return $this->initContext->getAttribute($name, null, $default);
 		}
-		$null = null;
-		return $null;
+		return $default;
 	}
 
 	/**
-	 * @see        AttributeHolder::setAttributesByRef()
-	 * @return     array<int, int|string>|null
+	 * @see        AttributeHolder::getAttributeNames()
+	 * @return     array<int, int|string>
 	 * @since      1.0.0
 	 */
 	public function getAttributeNames()
 	{
+		$names = $this->localAttributes !== null ? array_keys($this->localAttributes) : [];
 		if ($this->initContext instanceof \Quiote\Util\AttributeHolder) {
-			return $this->initContext->getAttributeNames();
+			$names = array_merge($names, $this->initContext->getAttributeNames() ?? []);
 		}
-		return [];
+		return array_values(array_unique($names));
 	}
 
 	/**
@@ -728,6 +739,9 @@ abstract class View implements ResetInterface
 	 */
 	public function hasAttribute($name)
 	{
+		if ($this->localAttributes !== null && array_key_exists($name, $this->localAttributes)) {
+			return true;
+		}
 		if ($this->initContext instanceof \Quiote\Util\AttributeHolder) {
 			return $this->initContext->hasAttribute($name);
 		}
@@ -742,11 +756,18 @@ abstract class View implements ResetInterface
 	 */
 	public function &removeAttribute($name)
 	{
-		if ($this->initContext instanceof \Quiote\Util\AttributeHolder) {
-			return $this->initContext->removeAttribute($name);
+		$removed = null;
+		if ($this->localAttributes !== null && array_key_exists($name, $this->localAttributes)) {
+			$removed = $this->localAttributes[$name];
+			unset($this->localAttributes[$name]);
 		}
-		$null = null;
-		return $null;
+		if ($this->initContext instanceof \Quiote\Util\AttributeHolder) {
+			$fromHolder = &$this->initContext->removeAttribute($name);
+			if ($removed === null) {
+				return $fromHolder;
+			}
+		}
+		return $removed;
 	}
 
 	/**
@@ -783,6 +804,15 @@ abstract class View implements ResetInterface
 	 */
 	public function appendAttribute($name, $value)
 	{
+		if ($this->localAttributes !== null) {
+			if (!isset($this->localAttributes[$name]) || !is_array($this->localAttributes[$name])) {
+				$this->localAttributes[$name] = isset($this->localAttributes[$name])
+					? [$this->localAttributes[$name]]
+					: [];
+			}
+			$this->localAttributes[$name][] = $value;
+			return;
+		}
 		if ($this->initContext instanceof \Quiote\Execution\ViewInitContext) {
 			\Quiote\Util\DeprecationSilencer::triggerOnce('appendAttribute() ignored under immutable snapshot');
 			return;
@@ -821,6 +851,10 @@ abstract class View implements ResetInterface
 	 */
 	public function setAttributeByRef($name, &$value)
 	{
+		if ($this->localAttributes !== null) {
+			$this->localAttributes[$name] = &$value;
+			return;
+		}
 		if ($this->initContext instanceof \Quiote\Execution\ViewInitContext) {
 			\Quiote\Util\DeprecationSilencer::triggerOnce('setAttributeByRef() ignored under immutable snapshot');
 			return;
@@ -839,6 +873,15 @@ abstract class View implements ResetInterface
 	 */
 	public function appendAttributeByRef($name, &$value)
 	{
+		if ($this->localAttributes !== null) {
+			if (!isset($this->localAttributes[$name]) || !is_array($this->localAttributes[$name])) {
+				$this->localAttributes[$name] = isset($this->localAttributes[$name])
+					? [$this->localAttributes[$name]]
+					: [];
+			}
+			$this->localAttributes[$name][] = &$value;
+			return;
+		}
 		if ($this->initContext instanceof \Quiote\Execution\ViewInitContext) {
 			\Quiote\Util\DeprecationSilencer::triggerOnce('appendAttributeByRef() ignored under immutable snapshot');
 			return;
@@ -856,6 +899,12 @@ abstract class View implements ResetInterface
 	 */
 	public function setAttributes(array $attributes)
 	{
+		if ($this->localAttributes !== null) {
+			foreach ($attributes as $name => $value) {
+				$this->localAttributes[$name] = $value;
+			}
+			return;
+		}
 		if ($this->initContext instanceof \Quiote\Execution\ViewInitContext) {
 			\Quiote\Util\DeprecationSilencer::triggerOnce('setAttributes() ignored under immutable snapshot');
 			return;
@@ -875,6 +924,12 @@ abstract class View implements ResetInterface
 	 */
 	public function setAttributesByRef(array &$attributes)
 	{
+		if ($this->localAttributes !== null) {
+			foreach (array_keys($attributes) as $name) {
+				$this->localAttributes[$name] = &$attributes[$name];
+			}
+			return;
+		}
 		if ($this->initContext instanceof \Quiote\Execution\ViewInitContext) {
 			\Quiote\Util\DeprecationSilencer::triggerOnce('setAttributesByRef() ignored under immutable snapshot');
 			return;
