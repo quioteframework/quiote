@@ -27,6 +27,8 @@ use Quiote\Request\WebRequest;
 #[\Quiote\Middleware\Attribute\Middleware(phase: 'before_action', priority: 20, after: 'SecurityMiddleware', before: 'DispatchMiddleware')]
 class ValidationMiddleware implements MiddlewareInterface
 {
+    use RequestDiagnostics;
+
     /** Stateless; built once per worker instead of per request. */
     private readonly ValidationService $validationService;
 
@@ -388,43 +390,6 @@ class ValidationMiddleware implements MiddlewareInterface
             . ' auth=' . $this->diagnosticAuthState()
             . $errStr
         );
-    }
-
-    /** Session id for a debug line only; never a decision input. */
-    private function diagnosticSessionId(): string
-    {
-        try {
-            $sid = $this->controller->getContext()->getSessionBag()->getId();
-            if ($sid !== '') {
-                return $sid;
-            }
-        } catch (\Throwable) {
-            // Falls through to the native session below.
-        }
-
-        if (function_exists('session_id')) {
-            $native = session_id();
-            if (is_string($native) && $native !== '') {
-                return $native;
-            }
-        }
-
-        return 'no-sid';
-    }
-
-    /** Authentication state for a debug line only; never a decision input. */
-    private function diagnosticAuthState(): string
-    {
-        try {
-            $user = $this->controller->getContext()->getUser();
-            if ($user instanceof \Quiote\User\ISecurityUser) {
-                return $user->isAuthenticated() ? '1' : '0';
-            }
-        } catch (\Throwable) {
-            // Reported as unavailable below.
-        }
-
-        return 'na';
     }
 
     /**

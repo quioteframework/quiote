@@ -134,6 +134,53 @@ class ValidationService
     }
 
     /**
+     * A compact multi-line snapshot of the validation report and the validator configuration
+     * behind it, for a debug line.
+     *
+     * Assembled in one place and invoked through {@see \Quiote\Logging\CategoryLogger::debugWith()},
+     * which is where the "diagnostics never affect the request" rule is enforced -- so the
+     * traversals below can read whatever they need without each one guarding itself.
+     */
+    private function reportSnapshot(\Quiote\Validator\ValidationManager $validationManager, bool $ok): string
+    {
+        $report = $validationManager->getReport();
+        $incidents = $report->getIncidents();
+        $lines = [
+            '[ValidationService] summary ok=' . ($ok ? '1' : '0')
+                . ' childValidators=' . count($validationManager->getChilds())
+                . ' mode=' . $this->scalarToString($validationManager->getParameter('mode'))
+                . ' reportSeverity=' . $report->getResult()
+                . ' incidents=' . count($incidents),
+        ];
+
+        foreach ($incidents as $i => $incident) {
+            $validator = $incident->getValidator();
+            $messages = array_map(
+                static fn($error): string => (string) $error->getMessage(),
+                array_values($incident->getErrors())
+            );
+            $args = array_map(
+                static fn($argument): string => (string) $argument->getName(),
+                array_values($incident->getArguments())
+            );
+            $lines[] = '[ValidationService] incident#' . $i
+                . ' validator=' . ($validator === null ? 'null' : $validator->getName())
+                . ' severity=' . $incident->getSeverity()
+                . ' args=' . implode(',', $args)
+                . ' messages=' . json_encode($messages);
+        }
+
+        foreach ($validationManager->getChilds() as $v) {
+            $lines[] = '[ValidationService] validator cfg name=' . $v->getName()
+                . ' source=' . $this->scalarToString($v->getParameter('source'))
+                . ' required=' . var_export($v->getParameter('required', true), true)
+                . ' base=' . $this->scalarToString($v->getParameter('base', ''));
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
      * Coerce a mixed value (validator/manager config parameter) to string for
      * debug-log interpolation, using the same scalar rule PHP's own (string)
      * cast uses, falling back to '' for values that can't be meaningfully
@@ -219,14 +266,14 @@ class ValidationService
             ]);
             $configReadable = is_readable($configFile);
             if ($vd) {
-                try { $logger->debug('[ValidationService][probe] resolve configFile=' . $configFile . ' readable=' . ($configReadable?'1':'0') . ' methodToken=' . $method . ' module=' . $moduleName . ' action=' . $actionName); } catch(\Throwable) {}
+                try { $logger->debug('[ValidationService][probe] resolve configFile=' . $configFile . ' readable=' . ($configReadable?'1':'0') . ' methodToken=' . $method . ' module=' . $moduleName . ' action=' . $actionName); } catch(\Throwable $diagFailure) { $logger->debug('[diagnostics] debug line could not be assembled: ' . $diagFailure->getMessage()); }
             }
             if ($configReadable) {
                 // Provide expected variables & context for compiled config file
                 $this->currentContext = $this->requireActionContext($action);
                 if ($vd) { $logger->debug('[ValidationService][probe] including compiled validators (pre-checkCache)'); }
                 if ($vd) {
-                    try { $logger->debug('[ValidationService][probe] pre-checkCache methodHex=' . bin2hex((string)$method) . ' type=' . gettype($method)); } catch(\Throwable) {}
+                    try { $logger->debug('[ValidationService][probe] pre-checkCache methodHex=' . bin2hex((string)$method) . ' type=' . gettype($method)); } catch(\Throwable $diagFailure) { $logger->debug('[diagnostics] debug line could not be assembled: ' . $diagFailure->getMessage()); }
                 }
                 if (defined('QUIOTE_USE_APCU_CONFIG_CACHE') && QUIOTE_USE_APCU_CONFIG_CACHE) {
                     $incFile = APCuConfigCache::checkConfig($configFile, $this->currentContext->getName());
@@ -241,7 +288,7 @@ class ValidationService
                             $statLine = '[ValidationService][probe] post-require APCu childCount=' . count($validationManager->getChilds());
                             if (file_exists($incFile)) { $statLine .= ' real=' . realpath($incFile) . ' mtime=' . filemtime($incFile) . ' size=' . filesize($incFile); }
                             $logger->debug($statLine);
-                        } catch(\Throwable) {}
+                        } catch(\Throwable $diagFailure) { $logger->debug('[diagnostics] debug line could not be assembled: ' . $diagFailure->getMessage()); }
                     }
                 } else {
                     $incFile = ConfigCache::checkConfig($configFile, $this->currentContext->getName());
@@ -259,18 +306,18 @@ class ValidationService
                                 $statLine .= ' real=' . $real . ' mtime=' . $mtime . ' size=' . $size . ' sha1=' . $hash . ' head=' . $snippet;
                             }
                             $logger->debug($statLine);
-                        } catch(\Throwable) {}
+                        } catch(\Throwable $diagFailure) { $logger->debug('[diagnostics] debug line could not be assembled: ' . $diagFailure->getMessage()); }
                     }
                 }
                 $validatorsLoaded = $this->validatorNames($validationManager->getChilds());
                 if ($vd) {
                     try {
                         $logger->debug('[ValidationService][validate] loadedValidators=' . (empty($validatorsLoaded) ? 'none' : implode(',', $validatorsLoaded)) . ' file=' . $configFile . ' method=' . $method);
-                    } catch(\Throwable) {}
+                    } catch(\Throwable $diagFailure) { $logger->debug('[diagnostics] debug line could not be assembled: ' . $diagFailure->getMessage()); }
                 }
             } else {
                 if ($vd) {
-                    try { $logger->debug('[ValidationService][validate] no readable config file at ' . $configFile); } catch(\Throwable) {}
+                    try { $logger->debug('[ValidationService][validate] no readable config file at ' . $configFile); } catch(\Throwable $diagFailure) { $logger->debug('[diagnostics] debug line could not be assembled: ' . $diagFailure->getMessage()); }
                 }
             }
         }
@@ -294,14 +341,14 @@ class ValidationService
         if ($vd) {
             try {
                 $logger->debug('[ValidationService][validate] About to execute validators, childCount=' . count($validationManager->getChilds()));
-            } catch(\Throwable) {}
+            } catch(\Throwable $diagFailure) { $logger->debug('[diagnostics] debug line could not be assembled: ' . $diagFailure->getMessage()); }
         }
         try {
             $ok = (bool)$validationManager->execute($request);
             if ($vd) {
                 try {
                     $logger->debug('[ValidationService][validate] Validators execute() returned: ' . ($ok ? 'true' : 'false'));
-                } catch(\Throwable) {}
+                } catch(\Throwable $diagFailure) { $logger->debug('[diagnostics] debug line could not be assembled: ' . $diagFailure->getMessage()); }
             }
         } catch (\Throwable $e) {
             // A validator throwing is a framework/app bug, not "the user submitted
@@ -319,7 +366,7 @@ class ValidationService
                 $names = [];
                 foreach ($childs as $cv) { $names[] = $cv->getName(); }
                 $logger->debug('[ValidationService][validate] executeResult=' . ($ok?'1':'0') . ' childCount=' . count($names) . ' names=' . implode(',', $names));
-            } catch(\Throwable) {}
+            } catch(\Throwable $diagFailure) { $logger->debug('[diagnostics] debug line could not be assembled: ' . $diagFailure->getMessage()); }
         }
         // 4. Manual action validation (validate[Method])
         // Use the context's request which may have been updated by pruneParametersToValidated()
@@ -333,14 +380,14 @@ class ValidationService
         if ($vd) {
             try {
                 $logger->debug('[ValidationService][validate] About to call action->' . $validateMethod . '() on ' . $action::class);
-            } catch(\Throwable) {}
+            } catch(\Throwable $diagFailure) { $logger->debug('[diagnostics] debug line could not be assembled: ' . $diagFailure->getMessage()); }
         }
         try {
             $manualOk = (bool)$action->$validateMethod($currentRequest);
             if ($vd) {
                 try {
                     $logger->debug('[ValidationService][validate] action->' . $validateMethod . '() returned ' . ($manualOk ? 'true' : 'false'));
-                } catch(\Throwable) {}
+                } catch(\Throwable $diagFailure) { $logger->debug('[diagnostics] debug line could not be assembled: ' . $diagFailure->getMessage()); }
             }
         } catch (\Throwable $e) {
             // Same rationale as the validator-execution catch above: a manual
@@ -353,7 +400,13 @@ class ValidationService
         if (!$final) {
             try {
                 $errors = $validationManager->getReport()->getErrorMessages();
-            } catch (\Throwable) { /* ignore */
+            } catch (\Throwable $e) {
+                // The failure stands; only the explanation is missing. Say so and hand back a
+                // stable marker, rather than reporting a failure with no reason at all.
+                $logger->warning(
+                    '[ValidationService][validate] could not read error messages from the report: ' . $e->getMessage()
+                );
+                $errors = ['validation_failed'];
             }
         }
         // Embed trace metadata for debugging (caller can ignore)
@@ -463,39 +516,7 @@ class ValidationService
             $logger->error('[ValidationService] xmlOnlyValidate execute() threw: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
             throw $e;
         }
-        if ($vd) {
-            // Emit a compact report snapshot for diagnostics
-            try {
-                $report = $validationManager->getReport();
-                $resultSev = $report->getResult();
-                $incidents = $report->getIncidents();
-                $childCount = count($validationManager->getChilds());
-                $mode = $this->scalarToString($validationManager->getParameter('mode'));
-                $logger->debug('[ValidationService] summary ok=' . ($ok ? '1' : '0') . ' childValidators=' . $childCount . ' mode=' . $mode . ' reportSeverity=' . $resultSev . ' incidents=' . count($incidents));
-                foreach ($incidents as $i => $incident) {
-                    try {
-                        $validator = $incident->getValidator();
-                        $vName = $validator === null ? 'null' : $validator->getName();
-                    } catch (\Throwable) { $vName = 'null'; }
-                    $sev = $incident->getSeverity();
-                    $errs = [];
-                    try { foreach($incident->getErrors() as $e) { $errs[] = $e->getMessage(); } } catch (\Throwable) {}
-                    $args = [];
-                    try { foreach($incident->getArguments() as $a) { $args[] = $a->getName(); } } catch (\Throwable) {}
-                    $logger->debug('[ValidationService] incident#' . $i . ' validator=' . $vName . ' severity=' . $sev . ' args=' . implode(',', $args) . ' messages=' . json_encode($errs));
-                }
-                // Also print a quick view of validator config (name -> key params)
-                foreach ($validationManager->getChilds() as $v) {
-                    try {
-                        $name = $v->getName();
-                        $source = $this->scalarToString($v->getParameter('source'));
-                        $required = var_export($v->getParameter('required', true), true);
-                        $base = $this->scalarToString($v->getParameter('base', ''));
-                        $logger->debug('[ValidationService] validator cfg name=' . $name . ' source=' . $source . ' required=' . $required . ' base=' . $base);
-                    } catch (\Throwable) { /* ignore */ }
-                }
-            } catch (\Throwable) { /* ignore */ }
-        }
+        $logger->debugWith(fn(): string => $this->reportSnapshot($validationManager, $ok));
         // Collect detailed error messages from the validation report when available
         $errors = [];
     if (!$ok) {
@@ -531,37 +552,39 @@ class ValidationService
                         if (!empty($fv)) {
                             $errors[] = 'failed_validators: ' . implode(',', $fv);
                         }
-                    } catch (\Throwable) {
-                        // ignore synthesis failure
+                    } catch (\Throwable $e) {
+                        // The summary is a convenience over the report; without it the
+                        // 'xml_failed' fallback below still names the outcome.
+                        $logger->warning(
+                            '[ValidationService] could not synthesize a failure summary from the report: ' . $e->getMessage()
+                        );
                     }
                 }
             } catch (\Throwable $te) {
-                // Fallback to a generic marker if report extraction fails
-                if ($vd) { $logger->debug('[ValidationService] report extraction failed: ' . $te->getMessage()); }
+                $logger->warning('[ValidationService] report extraction failed: ' . $te->getMessage());
                 $errors = ['xml_failed'];
             }
             if (empty($errors)) {
                 // Keep a stable, non-empty fallback so callers can surface a reason
                 $errors = ['xml_failed'];
             }
-            // Always emit a concise failure summary for tracing
-            try {
-                $report ??= $validationManager->getReport();
-                $sev = $report->getResult();
-                $failedArgs = [];
-                try { foreach($report->getFailedArguments() as $arg) { $failedArgs[] = $arg->getName(); } } catch (\Throwable) {}
-                $vNames = [];
-                try { foreach($validationManager->getChilds() as $v) { $vNames[] = $v->getName(); } } catch (\Throwable) {}
-                $logger->debug('[ValidationService] FAIL module=' . $moduleName . ' action=' . $actionName . ' method=' . $method . ' severity=' . $sev . ' failedArgs=' . implode(',', $failedArgs) . ' validators=' . implode(',', $vNames) . ' errors=' . json_encode($errors));
-            } catch (\Throwable) { /* ignore */ }
-            if ($vd) {
-                try {
-                    $resSev = $report->getResult() ?? 'null';
-                } catch (\Throwable) {
-                    $resSev = 'exception';
-                }
-                $logger->debug('[ValidationService] xmlOnlyValidate failed: resultSeverity=' . $resSev . ' errors=' . json_encode($errors));
-            }
+            $logger->debugWith(function () use ($validationManager, $moduleName, $actionName, $method, $errors): string {
+                $report = $validationManager->getReport();
+                $failedArgs = array_map(
+                    static fn($arg): string => (string) $arg->getName(),
+                    iterator_to_array($report->getFailedArguments(), false)
+                );
+                $validatorNames = array_map(
+                    static fn($v): string => (string) $v->getName(),
+                    array_values($validationManager->getChilds())
+                );
+
+                return '[ValidationService] FAIL module=' . $moduleName . ' action=' . $actionName
+                    . ' method=' . $method . ' severity=' . $report->getResult()
+                    . ' failedArgs=' . implode(',', $failedArgs)
+                    . ' validators=' . implode(',', $validatorNames)
+                    . ' errors=' . json_encode($errors);
+            });
         }
         $trace = new ValidationTrace($moduleName, $actionName, $validatorsLoaded, $configFile);
         return new ValidationResult($ok, ['errors' => $errors, 'trace' => $trace]);

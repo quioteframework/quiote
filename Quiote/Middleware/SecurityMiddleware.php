@@ -23,6 +23,8 @@ use Quiote\Execution\ValidationDecision;
 #[\Quiote\Middleware\Attribute\Middleware(phase: 'before_action', priority: 30, after: 'RoutingMiddleware')]
 class SecurityMiddleware implements MiddlewareInterface
 {
+    use RequestDiagnostics;
+
     private readonly ForwardService $forwardService;
     private readonly SecurityService $securityService;
 
@@ -52,35 +54,11 @@ class SecurityMiddleware implements MiddlewareInterface
         if (!$actionDesc instanceof ActionDescriptor) {
             return $handler->handle($request);
         }
-        $userObj = null;
-        $authState = 'unknown';
-        $sessId = 'no-sid';
-        try {
-            $sidTmp = $this->controller->getContext()->getSessionBag()->getId();
-            if ($sidTmp !== '') {
-                $sessId = $sidTmp;
-            }
-        } catch (\Throwable) {
-        }
-        if ($sessId === 'no-sid' && function_exists('session_id')) {
-            try {
-                $sidNative = session_id();
-                if (is_string($sidNative) && $sidNative !== '') {
-                    $sessId = $sidNative;
-                }
-            } catch (\Throwable) {
-            }
-        }
-        try {
-            $userObj = $this->controller->getContext()->getUser();
-            if (method_exists($userObj, 'isAuthenticated')) {
-                $authState = $userObj->isAuthenticated() ? '1' : '0';
-            }
-        } catch (\Throwable) {
-        }
-        if ($dbg) {
-            \Quiote\Logging\Log::for($this)->debug('[SecurityMiddleware][' . $rid . '] pre module=' . $actionDesc->module . ' action=' . $actionDesc->action . ' method=' . $actionDesc->method . ' sessId=' . $sessId . ' auth=' . $authState);
-        }
+        \Quiote\Logging\Log::for($this)->debugWith(
+            fn(): string => '[SecurityMiddleware][' . $rid . '] pre module=' . $actionDesc->module
+                . ' action=' . $actionDesc->action . ' method=' . $actionDesc->method
+                . ' sessId=' . $this->diagnosticSessionId() . ' auth=' . $this->diagnosticAuthState()
+        );
 
         // Try to create and initialize the action instance
         $action = null;
@@ -96,10 +74,7 @@ class SecurityMiddleware implements MiddlewareInterface
                 $this->controller->getGlobalResponse()
             );
             $action->initialize($lwCtx);
-            try {
-                $request = $request->withAttribute('quiote.preinstantiated_action', $action);
-            } catch (\Throwable) {
-            }
+            $request = $request->withAttribute('quiote.preinstantiated_action', $action);
         } catch (\Throwable $initEx) {
             \Quiote\Logging\Log::for($this)->error('[SecurityMiddleware][' . $rid . '] action init FAILED: ' . $initEx::class . ': ' . $initEx->getMessage() . ' @ ' . $initEx->getFile() . ':' . $initEx->getLine());
             $action = null;
@@ -125,12 +100,9 @@ class SecurityMiddleware implements MiddlewareInterface
             // Which forward is right depends on whether the caller could plausibly fix
             // it by authenticating: an anonymous caller gets the login forward, an
             // already-authenticated one gets the secure/denied forward.
-            $isAuth = false;
-            try {
-                $user = $this->controller->getContext()->getUser();
-                $isAuth = method_exists($user, 'isAuthenticated') && $user->isAuthenticated();
-            } catch (\Throwable) {
-            }
+            // Anything other than a definite '1' is treated as anonymous, which is the
+            // conservative reading when the user cannot be consulted at all.
+            $isAuth = $this->diagnosticAuthState() === '1';
             $decision = $isAuth ? SecurityDecision::SecureForward : SecurityDecision::LoginForward;
             \Quiote\Logging\Log::for($this)->error(
                 '[SecurityMiddleware][' . $rid . '] fail-closed: action creation failed, cannot evaluate '
@@ -139,9 +111,10 @@ class SecurityMiddleware implements MiddlewareInterface
             );
         }
 
-        if ($dbg) {
-            \Quiote\Logging\Log::for($this)->debug('[SecurityMiddleware][' . $rid . '] decision=' . $decision->name . ' authAfter=' . ($userObj && method_exists($userObj, 'isAuthenticated') && $userObj->isAuthenticated() ? '1' : '0'));
-        }
+        \Quiote\Logging\Log::for($this)->debugWith(
+            fn(): string => '[SecurityMiddleware][' . $rid . '] decision=' . $decision->name
+                . ' authAfter=' . $this->diagnosticAuthState()
+        );
         $execState = $request->getAttribute(ExecutionState::class);
         if ($execState instanceof ExecutionState) {
             $execState->securityDecision = $decision;
@@ -156,13 +129,11 @@ class SecurityMiddleware implements MiddlewareInterface
                 SecurityDecision::LoginForward => 'login',
                 SecurityDecision::SecureForward => 'secure',
             };
-            if($dbg) {
-                try {
-                    $orig = $actionDesc;
-                    $sidLog = $sessId;
-                    \Quiote\Logging\Log::for($this)->debug('[SecurityMiddleware]['.$rid.'] non-allow decision='.$decision->name.' orig='.$orig->module.':'.$orig->action.':'.$orig->method.' sid='.$sidLog.' auth='.$authState);
-                } catch(\Throwable) {}
-            }
+            \Quiote\Logging\Log::for($this)->debugWith(
+                fn(): string => '[SecurityMiddleware][' . $rid . '] non-allow decision=' . $decision->name
+                    . ' orig=' . $actionDesc->module . ':' . $actionDesc->action . ':' . $actionDesc->method
+                    . ' sid=' . $this->diagnosticSessionId() . ' auth=' . $this->diagnosticAuthState()
+            );
             // Produce a replacement ActionDescriptor for the system action based on HTTP verb.
             $httpMethod = $request->getMethod();
             // Safely resolve output type name — fall back to 'html' if not yet configured

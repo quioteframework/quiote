@@ -60,6 +60,42 @@ final class CategoryLogger implements LoggerInterface
     }
 
     /**
+     * Emit a debug message built by $build, but only when debug logging is on, and never let
+     * building it affect the caller.
+     *
+     * A diagnostic line frequently has to reach into state that may not be there -- an
+     * incident's validator, a report's failed arguments, a session id -- and the traversal
+     * can throw. Guarding each such block with its own empty catch hides genuine failures
+     * inside diagnostics and reads as though the swallow were about the surrounding logic.
+     * This states the rule once: diagnostics never change what the request does, and a
+     * diagnostic that could not be assembled says so instead of vanishing.
+     *
+     * $build is not called at all when debug logging is off, so an expensive message costs
+     * nothing in production.
+     *
+     * @param      callable(): string $build Returns the message; the empty string emits nothing.
+     * @since      3.2.0
+     */
+    public function debugWith(callable $build): void
+    {
+        if (!$this->isEnabled(Level::Debug)) {
+            return;
+        }
+
+        try {
+            $message = $build();
+        } catch (\Throwable $e) {
+            $this->debug('[diagnostics] message could not be assembled: ' . $e::class . ': ' . $e->getMessage());
+
+            return;
+        }
+
+        if ($message !== '') {
+            $this->debug($message);
+        }
+    }
+
+    /**
      * @param mixed $level A PSR-3 level string or a {@see Level}.
      * @param array<string,mixed> $context
      */

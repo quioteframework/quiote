@@ -30,6 +30,8 @@ use Quiote\Execution\ValidationDecision;
 #[\Quiote\Middleware\Attribute\Middleware(phase: 'action')]
 class DispatchMiddleware implements MiddlewareInterface
 {
+    use RequestDiagnostics;
+
     private readonly ActionExecutor $actionExecutor;
     /** @var array<string, bool> */
     private static array $executedNonSimpleActions = [];
@@ -192,7 +194,13 @@ class DispatchMiddleware implements MiddlewareInterface
         $globalResp = null;
         try {
             $globalResp = $this->controller->getGlobalResponse();
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            // Without it there is no status override, no headers and no cookies to carry
+            // over -- the body still goes out, but say what was lost.
+            \Quiote\Logging\Log::for($this)->warning(
+                '[DispatchMiddleware] global response unavailable; status, headers and cookies '
+                . 'set on it will not reach this response: ' . $e->getMessage()
+            );
         }
         if (is_object($globalResp)) {
             // An action that called WebResponse::send() has already materialized the
@@ -209,13 +217,20 @@ class DispatchMiddleware implements MiddlewareInterface
                 if ($statusCode >= 100) {
                     $resp = $resp->withStatus($statusCode);
                 }
-            } catch (\Throwable) {
+            } catch (\Throwable $e) {
+                \Quiote\Logging\Log::for($this)->warning(
+                    '[DispatchMiddleware] could not apply the status set on the global response; '
+                    . 'serving ' . $resp->getStatusCode() . ': ' . $e->getMessage()
+                );
             }
             try {
                 foreach ((array)$globalResp->getHttpHeaders() as $name => $value) {
                     $resp = $resp->withHeader($name, $value);
                 }
-            } catch (\Throwable) {
+            } catch (\Throwable $e) {
+                \Quiote\Logging\Log::for($this)->warning(
+                    '[DispatchMiddleware] could not carry the global response headers over: ' . $e->getMessage()
+                );
             }
         }
 
@@ -245,7 +260,14 @@ class DispatchMiddleware implements MiddlewareInterface
             // Fallback: covers cache-hit and simple paths where no per-execution snapshot exists.
             try {
                 $redirectData = $globalResp->getRedirect();
-            } catch (\Throwable) {}
+            } catch (\Throwable $e) {
+                // A dropped redirect renders the page instead of navigating away, which is a
+                // visible behaviour change rather than a cosmetic one.
+                \Quiote\Logging\Log::for($this)->warning(
+                    '[DispatchMiddleware] could not read the queued redirect; the response will not '
+                    . 'redirect: ' . $e->getMessage()
+                );
+            }
         }
         if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
             \Quiote\Logging\Log::for($this)->debug('[DispatchMiddleware.buildPsrResponse] isRedirect=' . ($redirectData !== null ? 'true' : 'false'));
@@ -283,7 +305,14 @@ class DispatchMiddleware implements MiddlewareInterface
                 $routing = $this->controller->getContext()->getRouting();
                 $basePath = $routing->getBasePath();
                 $resp = \Quiote\Http\CookieSerializer::bridge($globalResp, $resp, $basePath);
-            } catch (\Throwable) {}
+            } catch (\Throwable $e) {
+                // Losing a Set-Cookie silently costs the client its session or CSRF token, so
+                // this is reported even though the response itself is still serviceable.
+                \Quiote\Logging\Log::for($this)->error(
+                    '[DispatchMiddleware] cookies queued on the global response could not be '
+                    . 'bridged onto the PSR response: ' . $e->getMessage()
+                );
+            }
         }
         return $resp;
     }
@@ -316,7 +345,12 @@ class DispatchMiddleware implements MiddlewareInterface
         try {
             $globalResp = $this->controller->getGlobalResponse();
             $globalResp->clear();
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            // A response not cleared may still carry the previous request's status or headers
+            // under a persistent worker, which is worth knowing about.
+            \Quiote\Logging\Log::for($this)->warning(
+                '[DispatchMiddleware] could not clear the global response before dispatch: ' . $e->getMessage()
+            );
         }
         // Correlation ID (per-request) for tracing multi-request races
         $rid = $this->correlationId($request);
@@ -335,34 +369,15 @@ class DispatchMiddleware implements MiddlewareInterface
             return $factory->createResponse(404)->withBody($factory->createStream('Not Found'));
         }
 
-        if ($dbg) {
-            $sessId = 'no-sid';
-            try {
-                $sidTmp = $this->controller->getContext()->getSessionBag()->getId();
-                if ($sidTmp !== '') {
-                    $sessId = $sidTmp;
-                }
-            } catch (\Throwable) {
-            }
-            if ($sessId === 'no-sid' && function_exists('session_id')) {
-                try {
-                    $sidNative = session_id();
-                    if (is_string($sidNative) && $sidNative !== '') {
-                        $sessId = $sidNative;
-                    }
-                } catch (\Throwable) {
-                }
-            }
-            $auth = 'na';
-            try {
-                $u = $this->controller->getContext()->getUser();
-                if (method_exists($u, 'isAuthenticated')) {
-                    $auth = $u->isAuthenticated() ? '1' : '0';
-                }
-            } catch (\Throwable) {
-            }
-            \Quiote\Logging\Log::for($this)->debug('[DispatchMiddleware][' . $rid . '] action=' . $actionDesc->module . ':' . $actionDesc->action . ' method=' . $actionDesc->method . ' simple=' . ($actionDesc->isSimple ? '1' : '0') . ' vd=' . ($execState->validationDecision->state ?? 'null') . ' sec=' . ($execState->securityDecision->name ?? 'null') . ' sessId=' . $sessId . ' auth=' . $auth);
-        }
+        \Quiote\Logging\Log::for($this)->debugWith(
+            fn(): string => '[DispatchMiddleware][' . $rid . '] action=' . $actionDesc->module . ':' . $actionDesc->action
+                . ' method=' . $actionDesc->method
+                . ' simple=' . ($actionDesc->isSimple ? '1' : '0')
+                . ' vd=' . ($execState->validationDecision->state ?? 'null')
+                . ' sec=' . ($execState->securityDecision->name ?? 'null')
+                . ' sessId=' . $this->diagnosticSessionId()
+                . ' auth=' . $this->diagnosticAuthState()
+        );
         // Non-simple actions require validation; allow pending if this is a forwarded target (ValidationMiddleware should run earlier in pipeline).
         if (!$actionDesc->isSimple) {
             if (!$execState->validationDecision || $execState->validationDecision->isPending()) {
