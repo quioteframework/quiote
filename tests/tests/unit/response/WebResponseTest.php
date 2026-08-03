@@ -191,11 +191,63 @@ class WebResponseTest extends UnitTestCase
 		}
 
 		try {
-			$r->setHttpStatusCode('507');
+			$r->setHttpStatusCode('600');
 			$this->fail('Expected Exception was not thrown!');
 		} catch (\Exception) {
 			$this->assertEquals('400', $r->getHttpStatusCode());
 		}
+
+		try {
+			$r->setHttpStatusCode('not-a-code');
+			$this->fail('Expected Exception was not thrown!');
+		} catch (\Exception) {
+			$this->assertEquals('400', $r->getHttpStatusCode());
+		}
+	}
+
+	/**
+	 * Codes an API framework has to be able to emit: RFC 9110 additions and the
+	 * WebDAV/rate-limit range.
+	 */
+	public function testSetHttpStatusCodeAcceptsTheFullValidRange(): void
+	{
+		$r = $this->_r;
+
+		foreach (['422', '429', '308', '451', '507', '511', '100', '599'] as $code) {
+			$r->setHttpStatusCode($code);
+			$this->assertEquals($code, $r->getHttpStatusCode());
+		}
+	}
+
+	public function testSetRedirectAcceptsPermanentRedirect(): void
+	{
+		$r = $this->_r;
+
+		$r->setRedirect('/moved', 308);
+
+		$this->assertSame(['location' => '/moved', 'code' => 308], $r->getRedirect());
+	}
+
+	public function testSetRedirectRejectsOutOfRangeCode(): void
+	{
+		$this->expectException(QuioteException::class);
+
+		$this->_r->setRedirect('/moved', 999);
+	}
+
+	/**
+	 * A subclass may still narrow what its responses are allowed to emit by populating
+	 * the httpStatusCodes property; the framework never does.
+	 */
+	public function testSubclassCanNarrowTheAcceptedCodes(): void
+	{
+		$narrowed = new class extends WebResponse {
+			/** @var ?array<int, string> */
+			protected $httpStatusCodes = ['200' => 'OK', '404' => 'Not Found'];
+		};
+
+		$this->assertTrue($narrowed->validateHttpStatusCode(404));
+		$this->assertFalse($narrowed->validateHttpStatusCode(422));
 	}
 
 	public function testNormalizeHttpHeaderName(): void

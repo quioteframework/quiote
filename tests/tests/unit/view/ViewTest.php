@@ -7,6 +7,14 @@ use Quiote\Request\WebRequest;
 class SampleView extends View
 {
 	public function execute(WebRequest $rd): void {}
+
+	/**
+	 * @param array<string, mixed> $extensions
+	 */
+	public function callReturnProblemDetails(int $status, array $extensions = []): string
+	{
+		return $this->returnProblemDetailsFromValidationIncidents(status: $status, extensions: $extensions);
+	}
 }
 
 class ViewTest extends UnitTestCase
@@ -43,6 +51,31 @@ class ViewTest extends UnitTestCase
 		$this->assertSame($ctx, $ctx_test);
 	}
 
+	/**
+	 * The problem-details helper must put the status it reports in the document onto the
+	 * response as well, including the 4xx codes conventional for API validation failures.
+	 */
+	public function testReturnProblemDetailsAppliesTheStatusToTheResponse(): void
+	{
+		$response = $this->getContext()->getController()->getGlobalResponse();
 
+		$json = $this->_v->callReturnProblemDetails(422);
+
+		$this->assertEquals('422', $response->getHttpStatusCode());
+		$this->assertSame(\Quiote\Http\ProblemDetails::MEDIA_TYPE, $response->getContentType());
+
+		$decoded = json_decode($json, true);
+		$this->assertIsArray($decoded);
+		$this->assertSame(422, $decoded['status']);
+	}
+
+	public function testReturnProblemDetailsAppliesRateLimitStatus(): void
+	{
+		$response = $this->getContext()->getController()->getGlobalResponse();
+
+		$this->_v->callReturnProblemDetails(429);
+
+		$this->assertEquals('429', $response->getHttpStatusCode());
+	}
 }
 ?>

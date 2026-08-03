@@ -23,9 +23,11 @@ class WebResponse extends AttributeHolder implements ResetInterface
 
 
 	/**
-	 * Shared status-code tables. Static (not per-instance) so the ~35- and
-	 * ~40-entry literal maps are materialized once for the process rather than
-	 * rebuilt for every WebResponse — at least one is allocated per request.
+	 * Per-protocol status tables kept as protected API for application subclasses that read
+	 * them. The framework consults neither: {@see validateHttpStatusCode()} asks
+	 * {@see \Quiote\Http\HttpStatus}, and the status line is built by the runtime emitter
+	 * from the PSR-7 response.
+	 * @deprecated 3.2.0 Use {@see \Quiote\Http\HttpStatus} instead.
 	 * @var        array<int, string> An array of all HTTP 1.0 status codes and their message.
 	 */
 	protected static $http10StatusCodes = [
@@ -66,6 +68,7 @@ class WebResponse extends AttributeHolder implements ResetInterface
 	];
 
 	/**
+	 * @deprecated 3.2.0 Use {@see \Quiote\Http\HttpStatus} instead.
 	 * @var        array<int, string> An array of all HTTP 1.1 status codes and their message.
 	 */
 	protected static $http11StatusCodes = [
@@ -112,8 +115,14 @@ class WebResponse extends AttributeHolder implements ResetInterface
 	];
 
 	/**
-		* @var        ?array<int, string> The array with the HTTP status codes to be used here.
-		*/
+	 * An optional NARROWING whitelist of acceptable status codes.
+	 *
+	 * Null -- the default -- means "anything {@see \Quiote\Http\HttpStatus} considers a
+	 * valid status code", which is the whole 100-599 range. An application that genuinely
+	 * wants to constrain what its responses may emit can populate this in a subclass and
+	 * {@see validateHttpStatusCode()} will honour it. The framework never sets it.
+	 * @var        ?array<int, string> The array with the HTTP status codes to be used here.
+	 */
 	protected $httpStatusCodes = null;
 
 	/**
@@ -436,21 +445,15 @@ class WebResponse extends AttributeHolder implements ResetInterface
 			'cookie_samesite' => $parameters['cookie_samesite'] ?? 'Lax',
 		]);
 
-		if ($request) {
-			$protocol = $request->getProtocol();
-		} else {
-			$protocol = 'HTTP/1.1';
-		}
-		$this->httpStatusCodes = match ($protocol) {
-			'HTTP/2' => static::$http11StatusCodes,
-			'HTTP/1.1' => static::$http11StatusCodes,
-			default => static::$http10StatusCodes,
-		};
+		// No status whitelist is installed: validity is a property of the status code,
+		// not of the protocol version carrying it, so validateHttpStatusCode() answers
+		// from Quiote\Http\HttpStatus for every request regardless of protocol.
 	}
 
 	/**
 	 * Get the HTTP protocol string from a request object.
 	 * Supports both WebRequest::getProtocol() and PSR-7 getProtocolVersion().
+	 * Protected API for application subclasses; the framework itself has no caller.
 	 * @param      mixed $request A request object or null.
 	 * @return     string The HTTP protocol (e.g., "HTTP/1.1").
 	 */
@@ -713,15 +716,19 @@ class WebResponse extends AttributeHolder implements ResetInterface
 
 	/**
 	 * Check if the given HTTP status code is valid.
+	 *
+	 * Delegates to {@see \Quiote\Http\HttpStatus::isValid()} -- the full 100-599 range --
+	 * unless a subclass has populated {@see $httpStatusCodes} to narrow it further.
 	 * @param      string|int $code A numeric HTTP status code.
 	 * @return     bool True, if the code is valid, or false otherwise.
 	 * @since      1.0.0
 	 */
 	public function validateHttpStatusCode($code)
 	{
-		$code = (string)$code;
-		$codes = $this->httpStatusCodes ?? static::$http11StatusCodes;
-		return isset($codes[$code]);
+		if($this->httpStatusCodes !== null) {
+			return isset($this->httpStatusCodes[(string)$code]);
+		}
+		return \Quiote\Http\HttpStatus::isValid(is_int($code) ? $code : (string)$code);
 	}
 
 	/**
@@ -741,9 +748,12 @@ class WebResponse extends AttributeHolder implements ResetInterface
 				} catch(\Throwable) {}
 			}
 		} else {
-			$request = $this->context?->getRequest();
-			$protocol = $this->getRequestProtocol($request);
-			throw new QuioteException(sprintf('Invalid %s Status code: %s', $protocol, $code));
+			throw new QuioteException(sprintf(
+				'Invalid HTTP status code: %s (expected %d-%d)',
+				$code,
+				\Quiote\Http\HttpStatus::MIN,
+				\Quiote\Http\HttpStatus::MAX,
+			));
 		}
 	}
 
@@ -1371,9 +1381,12 @@ class WebResponse extends AttributeHolder implements ResetInterface
 	public function setRedirect($location, $code = 302)
 	{
 		if(!$this->validateHttpStatusCode($code)) {
-			$request = $this->context?->getRequest();
-			$protocol = $this->getRequestProtocol($request);
-			throw new QuioteException(sprintf('Invalid %s Redirect Status code: %s', $protocol, (string) $code));
+			throw new QuioteException(sprintf(
+				'Invalid HTTP redirect status code: %s (expected %d-%d)',
+				(string) $code,
+				\Quiote\Http\HttpStatus::MIN,
+				\Quiote\Http\HttpStatus::MAX,
+			));
 		}
 		$this->redirect = [
 			'location' => self::toStringOrEmpty($location),
