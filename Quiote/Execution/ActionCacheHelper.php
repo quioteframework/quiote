@@ -44,18 +44,19 @@ final class ActionCacheHelper
     /**
      * Raw read of cached payload (no hydration) – returns array payload or null.
      *
+     * Reads exactly the partition it was asked for. There used to be a fallback
+     * to the unpartitioned entry when the per-user lookup missed, which meant a
+     * partitioned read could still be answered with content rendered for a
+     * different identity -- defeating the partitioning on every cold miss.
+     * A miss in a partition is a miss.
+     *
      * @return array<string, mixed>|null
      */
     public static function read(ActionViewCache $cache, ActionDescriptor $desc, ?string $userFingerprint = null, ?string $locale = null): ?array
     {
     if(!\Quiote\Config\Config::getBool('core.cache_enabled', false)) { return null; }
         try {
-            // Attempt fingerprint-specific first; fallback to global if none.
-            if($userFingerprint) {
-                $payload = $cache->get($desc->module, $desc->action, $desc->outputType, $userFingerprint, $locale);
-                if($payload) { return $payload; }
-            }
-            return $cache->get($desc->module, $desc->action, $desc->outputType, null, $locale) ?: null;
+            return $cache->get($desc->module, $desc->action, $desc->outputType, $userFingerprint, $locale) ?: null;
         } catch(\Throwable) { return null; }
     }
 

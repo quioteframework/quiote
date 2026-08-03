@@ -50,26 +50,54 @@ class DispatchMiddleware implements MiddlewareInterface
     }
 
     /**
-     * @param object|null $actionInstance
+     * The cache partition for this action's output, as a three-way answer:
+     *
+     *  - null   -- no partitioning needed; one entry is shared by every caller.
+     *  - string -- the partition key; only callers resolving to the same key
+     *              may see each other's cached output.
+     *  - false  -- the identity this output belongs to could not be established;
+     *              the caller must neither read nor write the cache.
+     *
+     * A secure action renders for one specific identity, so its entry has to be
+     * bound to that identity. This used to reduce to sha1('auth:1') for every
+     * authenticated user -- one shared entry holding whichever user rendered
+     * first, served to all the others.
+     *
+     * The binding is the session id, hashed. It is the only identity handle the
+     * framework guarantees: {@see \Quiote\User\ISecurityUser} exposes no user id,
+     * and roles/credentials do not identify a user (two users with identical
+     * roles still see different content). Partitioning per session rather than
+     * per user costs a duplicate entry for a user with two sessions, which is the
+     * harmless direction.
+     *
+     * @param      object|null $actionInstance The action whose output would be cached.
+     * @param      ?string $outputType The output type being rendered, or null.
+     * @return     string|false|null The partition key, false to skip caching, or null for a shared entry.
      */
-    private function computeUserFingerprint($actionInstance): ?string
+    private function computeUserFingerprint($actionInstance, ?string $outputType = null): string|false|null
     {
         try {
             if (!$actionInstance || !method_exists($actionInstance, 'isSecure') || !$actionInstance->isSecure()) {
                 return null;
             }
-            $user = $this->controller->getContext()->getUser();
-            $bits = [];
-            if (method_exists($user, 'isAuthenticated')) {
-                $bits[] = $user->isAuthenticated() ? 'auth:1' : 'auth:0';
+            if (
+                method_exists($actionInstance, 'cacheVaryByUser')
+                && !$actionInstance->cacheVaryByUser($outputType)
+            ) {
+                // The action asserts its output does not depend on which user is
+                // looking at it. See Action::cacheVaryByUser().
+                return null;
             }
-            // Removed credential fingerprinting due to container elimination and interface variability.
-            if (!$bits) {
-                return 'anon';
+            // '' is what NullSessionBag answers, i.e. "no session installed".
+            $sessionId = $this->controller->getContext()->getSessionBag()->getId();
+            if ($sessionId === '') {
+                // Fail closed: no identity handle means no way to keep this
+                // user's output out of another user's response.
+                return false;
             }
-            return sha1(implode('|', $bits));
+            return hash('sha256', 'quiote.avcache.user' . "\0" . $sessionId);
         } catch (\Throwable) {
-            return null;
+            return false;
         }
     }
 
@@ -349,7 +377,9 @@ class DispatchMiddleware implements MiddlewareInterface
         $cacheHitPayload = null;
         $isCacheable = false;
         $actionInstance = null;
-        $userFp = null;
+        // false, not null: null means "share one entry", so a failure to get as far
+        // as computeUserFingerprint() must not fall through to the shared entry.
+        $userFp = false;
         try {
             // Reuse the action instance already created and initialized by SecurityMiddleware to
             // avoid a redundant instantiation per request.
@@ -372,14 +402,18 @@ class DispatchMiddleware implements MiddlewareInterface
                 ));
             }
             $isCacheable = (bool)$actionInstance->isCacheable($actionDesc->outputType);
-            $userFp = $this->computeUserFingerprint($actionInstance);
+            $userFp = $this->computeUserFingerprint($actionInstance, $actionDesc->outputType);
         } catch (\Throwable) {
         }
         if ($actionInstance instanceof \Quiote\Http\Sse\SseStreamingAction) {
             return $this->buildSseResponse($actionInstance, $request);
         }
-        if ($cacheEnabled && $isCacheable && !$cacheBypass) {
-            $cacheHitPayload = $avCache ? ActionCacheHelper::read($avCache, $actionDesc, $userFp, $locale) : null;
+        // $userFp === false means the identity this output belongs to is unknown,
+        // so neither reading nor writing the cache is safe.
+        $cacheUsable = $isCacheable && $userFp !== false;
+        $fingerprint = $userFp === false ? null : $userFp;
+        if ($cacheEnabled && $cacheUsable && !$cacheBypass) {
+            $cacheHitPayload = $avCache ? ActionCacheHelper::read($avCache, $actionDesc, $fingerprint, $locale) : null;
             if ($cacheHitPayload) {
                 if ($this->dynamicFlagsActive($actionInstance)) {
                     $cacheHitPayload = null;
@@ -405,10 +439,10 @@ class DispatchMiddleware implements MiddlewareInterface
         }
         $ctx = $this->actionExecutor->execute($actionDesc, $request, $execState, [], $actionInstance);
 
-        if ($cacheEnabled && $isCacheable && !$execState->cacheHit && !$cacheBypass) {
+        if ($cacheEnabled && $cacheUsable && !$execState->cacheHit && !$cacheBypass) {
             $ttl = $actionInstance?->cacheTtlSeconds($actionDesc->outputType);
             if ($avCache) {
-                ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, $this->stringKeyedAttributes($actionInstance), true, $ttl, $userFp, $locale);
+                ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, $this->stringKeyedAttributes($actionInstance), true, $ttl, $fingerprint, $locale);
             }
         }
         if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
@@ -545,7 +579,9 @@ class DispatchMiddleware implements MiddlewareInterface
         $cacheHitPayload = null;
         $isCacheable = false;
         $actionInstance = null;
-        $userFp = null;
+        // See the simple path: false rather than null so a failure before the
+        // fingerprint is computed cannot fall through to the shared cache entry.
+        $userFp = false;
         try {
             // Reuse the action instance already created and initialized by SecurityMiddleware.
             $preinstantiated = $request->getAttribute('quiote.preinstantiated_action');
@@ -564,7 +600,7 @@ class DispatchMiddleware implements MiddlewareInterface
                 ));
             }
             $isCacheable = (bool)$actionInstance->isCacheable($actionDesc->outputType);
-            $userFp = $this->computeUserFingerprint($actionInstance);
+            $userFp = $this->computeUserFingerprint($actionInstance, $actionDesc->outputType);
         } catch (\Throwable) {
         }
         if ($actionInstance instanceof \Quiote\Http\Sse\SseStreamingAction) {
@@ -573,10 +609,12 @@ class DispatchMiddleware implements MiddlewareInterface
         $cacheEnabled = Config::getBool('core.cache_enabled', false);
         $cacheBypass = (bool)$request->getAttribute('quiote.cache.bypass');
         $locale = $this->currentCacheLocale();
-        if ($cacheEnabled && $isCacheable && !$cacheBypass) {
+        $cacheUsable = $isCacheable && $userFp !== false;
+        $fingerprint = $userFp === false ? null : $userFp;
+        if ($cacheEnabled && $cacheUsable && !$cacheBypass) {
             $useCache = \Quiote\Config\Config::getBool('core.use_cache', false);
             $avCache = $useCache ? new ActionViewCache(CacheManager::getCache()) : null;
-            $cacheHitPayload = $avCache ? ActionCacheHelper::read($avCache, $actionDesc, $userFp, $locale) : null;
+            $cacheHitPayload = $avCache ? ActionCacheHelper::read($avCache, $actionDesc, $fingerprint, $locale) : null;
             if ($cacheHitPayload) {
                 $key = $actionDesc->module . ':' . $actionDesc->action . ':' . $actionDesc->outputType;
                 if (!isset(self::$executedNonSimpleActions[$key])) {
@@ -603,9 +641,9 @@ class DispatchMiddleware implements MiddlewareInterface
             $ctx = $this->actionExecutor->execute($actionDesc, $request, $execState, [], $actionInstance);
         }
         self::$executedNonSimpleActions[$actionDesc->module . ':' . $actionDesc->action . ':' . $actionDesc->outputType] = true;
-        if ($cacheEnabled && $isCacheable && !$execState->cacheHit && !$cacheBypass && $avCache) {
+        if ($cacheEnabled && $cacheUsable && !$execState->cacheHit && !$cacheBypass && $avCache) {
             $ttl = $actionInstance?->cacheTtlSeconds($actionDesc->outputType);
-            ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, $this->stringKeyedAttributes($actionInstance), false, $ttl, $userFp, $locale);
+            ActionCacheHelper::store($avCache, $actionDesc, $execState, $ctx->content, $this->stringKeyedAttributes($actionInstance), false, $ttl, $fingerprint, $locale);
         }
         if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
             $rid = $this->correlationId($request);

@@ -131,6 +131,27 @@ abstract class Action implements ResetInterface
 	}
 
 	/**
+	 * Whether cached output for this action must be partitioned per user.
+	 *
+	 * Only consulted for a secure action (see {@see isSecure()}); a non-secure
+	 * action has no authenticated identity to vary on and always shares one
+	 * entry. Defaults to true, which is the only safe default: a secure action
+	 * renders for a specific identity, so a shared cache entry hands one user's
+	 * rendered page to the next. Override to false ONLY when the output is
+	 * genuinely identical for every user who is allowed to reach it -- an
+	 * authenticated-only page whose content does not depend on *which* user is
+	 * looking at it.
+	 *
+	 * @param      ?string $outputType The output type being rendered, or null.
+	 * @return     bool True to partition the cache per user.
+	 * @since      3.1.1
+	 */
+	public function cacheVaryByUser(?string $outputType = null): bool
+	{
+		return true;
+	}
+
+	/**
 	 * Manually register validators for this action.
 	 *
 	 * The default implementation loads a compiled/hand-written PHP
