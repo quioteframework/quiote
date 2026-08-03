@@ -522,64 +522,70 @@ class WebResponse extends AttributeHolder implements ResetInterface
 	public function toPsrResponse(?OutputType $outputType = null): ResponseInterface
 	{
 		if($this->redirect) {
-			$redirect = $this->redirect;
-			$location = $redirect['location'];
-			if(!preg_match('#^[^:]+://#', (string) $location)) {
-				if ($this->context === null) {
-					throw new QuioteException('WebResponse::toPsrResponse - cannot build a relative redirect location without an initialized Context');
-				}
-				if(isset($location[0]) && $location[0] == '/') {
-					/** @var WebRequest */
-					$rq = $this->context->getRequest();
-					$location = $rq->getUrlScheme() . '://' . $rq->getUrlAuthority() . $location;
-				} else {
-					$location = $this->context->getRouting()->getBaseHref() . $location;
-				}
-			}
-			$this->setHttpHeader('Location', $location);
-			$this->setHttpStatusCode($redirect['code']);
-			if($this->getParameter('send_content_length', true) && !$this->hasHttpHeader('Content-Length') && !$this->getParameter('send_redirect_content', false)) {
-				$this->setHttpHeader('Content-Length', 0);
-			}
+			$this->applyRedirectHeaders();
 		}
 
 		$this->prepareHttpResponseHeaders($outputType);
 
-		$withBody = !$this->redirect || $this->getParameter('send_redirect_content', false);
-		$response = \Quiote\Http\Psr17::factory()->createResponse((int) $this->httpStatusCode);
+		return (new PsrResponseBuilder())->build(
+			(int) $this->httpStatusCode,
+			$this->httpHeaders,
+			$this->buildSetCookieHeaders(),
+			$this->content,
+			!$this->redirect || (bool) $this->getParameter('send_redirect_content', false),
+			$this->sendfileHeaderName(),
+		);
+	}
 
-		foreach($this->httpHeaders as $name => $values) {
-			$response = $response->withHeader((string) $name, $values);
-		}
-		foreach($this->buildSetCookieHeaders() as $line) {
-			$response = $response->withAddedHeader('Set-Cookie', $line);
+	/**
+	 * Turn a queued redirect into a Location header and status code.
+	 *
+	 * A relative location is made absolute first: a path-rooted one against the current
+	 * request's scheme and authority, anything else against the routing base href. Both need
+	 * an initialized Context, so a relative redirect without one is refused rather than
+	 * emitted as a Location the client cannot resolve.
+	 *
+	 * @throws     QuioteException If a relative redirect is set with no initialized Context.
+	 */
+	private function applyRedirectHeaders(): void
+	{
+		$redirect = $this->redirect;
+		if($redirect === null) {
+			return;
 		}
 
-		if(!$withBody) {
-			return $response;
-		}
-
-		// A file-backed body the front-end server should serve itself: hand over the
-		// path and send no body, exactly as the X-Sendfile contract expects.
-		if(is_resource($this->content) && $this->getParameter('use_sendfile_header', false)) {
-			$info = stream_get_meta_data($this->content);
-			if($info['wrapper_type'] == 'plainfile' && isset($info['uri'])) {
-				$sendfileHeader = $this->getParameter('sendfile_header_name', 'X-Sendfile');
-				$sendfileHeader = is_string($sendfileHeader) && $sendfileHeader !== '' ? $sendfileHeader : 'X-Sendfile';
-				return $response->withHeader($sendfileHeader, self::toStringOrEmpty($info['uri']));
+		$location = $redirect['location'];
+		if(!preg_match('#^[^:]+://#', (string) $location)) {
+			if($this->context === null) {
+				throw new QuioteException('WebResponse::toPsrResponse - cannot build a relative redirect location without an initialized Context');
+			}
+			if(isset($location[0]) && $location[0] == '/') {
+				$rq = $this->context->getRequest();
+				$location = $rq->getUrlScheme() . '://' . $rq->getUrlAuthority() . $location;
+			} else {
+				$location = $this->context->getRouting()->getBaseHref() . $location;
 			}
 		}
 
-		if(is_resource($this->content)) {
-			// Wrapped rather than read into a string: the emitter can drain it
-			// incrementally, where the old fpassthru() had already committed the
-			// whole file to memory-or-socket by this point.
-			return $response->withBody(
-				\Quiote\Http\Psr17::factory()->createStreamFromResource($this->content),
-			);
+		$this->setHttpHeader('Location', $location);
+		$this->setHttpStatusCode($redirect['code']);
+		if($this->getParameter('send_content_length', true) && !$this->hasHttpHeader('Content-Length') && !$this->getParameter('send_redirect_content', false)) {
+			$this->setHttpHeader('Content-Length', 0);
 		}
+	}
 
-		return $response->withBody(SimpleStream::fromString(self::toStringOrEmpty($this->content)));
+	/**
+	 * The header name a file-backed body's path should be handed to the front-end server
+	 * through, or null when this response does not use the sendfile contract.
+	 */
+	private function sendfileHeaderName(): ?string
+	{
+		if(!$this->getParameter('use_sendfile_header', false)) {
+			return null;
+		}
+		$name = $this->getParameter('sendfile_header_name', 'X-Sendfile');
+
+		return is_string($name) && $name !== '' ? $name : 'X-Sendfile';
 	}
 
 	/**
@@ -922,131 +928,24 @@ class WebResponse extends AttributeHolder implements ResetInterface
 	}
 
 	/**
-	 * @param array{value: mixed, lifetime: int|string|null, path: string|null, domain: string|null, secure: bool, httponly: bool, encode_callback: callable|false, samesite: string|null} $cookie
-	 * @return array{
-	 *   value: string,
-	 *   expires: ?int,
-	 *   max_age: ?int,
-	 *   path: string,
-	 *   domain: ?string,
-	 *   secure: bool,
-	 *   httponly: bool,
-	 *   samesite: ?string
-	 * }
+	 * The serializer for this response's cookies, built with the routing base path so a
+	 * cookie that declares no path of its own inherits the application's.
 	 */
-	private function normalizeCookieForSend(string $name, array $cookie): array
+	private function cookieSerializer(): CookieSerializer
 	{
-		$now = time();
-		$value = $cookie['value'];
-		$encodeCallback = $cookie['encode_callback'];
-		$shouldDelete = ($value === false || $value === null || $value === '');
-		if(!$shouldDelete && $encodeCallback) {
-			try {
-				$value = call_user_func($encodeCallback, $value);
-			} catch(\Throwable) {
-				// Fall back to raw value on encoding failure
+		$path = '/';
+		try {
+			$base = $this->context?->getRouting()?->getBasePath();
+			if(is_string($base) && $base !== '') {
+				$path = $base;
 			}
+		} catch(\Throwable $e) {
+			\Quiote\Logging\Log::for($this)->debug(
+				'[WebResponse] routing base path unavailable for cookie scoping, using "/": ' . $e->getMessage()
+			);
 		}
-		if($shouldDelete) {
-			$value = '';
-			$expires = $now - 86400;
-			$maxAge = 0;
-		} else {
-			$expires = null;
-			$lifetime = $cookie['lifetime'];
-			if(is_string($lifetime) && $lifetime !== '') {
-				$parsed = strtotime($lifetime);
-				if($parsed !== false) {
-					$expires = $parsed;
-				}
-			} elseif(is_numeric($lifetime)) {
-				$lifetime = (int)$lifetime;
-				if($lifetime > 0) {
-					$expires = $now + $lifetime;
-				}
-			}
-			$maxAge = $expires !== null ? max(0, $expires - $now) : null;
-		}
-		$path = $cookie['path'];
-		if($path === null) {
-			$path = '/';
-			try {
-				$routing = $this->context?->getRouting();
-				if($routing) {
-					$base = $routing->getBasePath();
-					if($base !== '') {
-						$path = $base;
-					}
-				}
-			} catch(\Throwable) {
-				// ignore routing lookup failures
-			}
-		}
-		if($path === '') {
-			$path = '/';
-		}
-		$domain = $cookie['domain'] ?? null;
-		$secure = !empty($cookie['secure']);
-		$httponly = !empty($cookie['httponly']);
-		$samesite = $cookie['samesite'] ?? null;
-		if(is_string($samesite) && $samesite !== '') {
-			$samesite = ucfirst(strtolower($samesite));
-		} else {
-			$samesite = null;
-		}
-		return [
-			'value' => self::toStringOrEmpty($value),
-			'expires' => $expires,
-			'max_age' => $maxAge,
-			'path' => $path,
-			'domain' => $domain !== '' ? $domain : null,
-			'secure' => $secure,
-			'httponly' => $httponly,
-			'samesite' => $samesite,
-		];
-	}
 
-	/**
-	 * @param array{
-	 *   value: string,
-	 *   expires: ?int,
-	 *   max_age: ?int,
-	 *   path: string,
-	 *   domain: ?string,
-	 *   secure: bool,
-	 *   httponly: bool,
-	 *   samesite: ?string
-	 * } $normalized
-	 */
-	private function buildSetCookieHeader(string $name, array $normalized): string
-	{
-		$parts = [];
-		$parts[] = $name . '=' . $normalized['value'];
-		if($normalized['expires'] !== null) {
-			$parts[] = 'Expires=' . gmdate('D, d-M-Y H:i:s T', $normalized['expires']);
-			$maxAge = $normalized['max_age'];
-			if($maxAge !== null) {
-				$parts[] = 'Max-Age=' . $maxAge;
-			}
-		} elseif($normalized['max_age'] === 0) {
-			$parts[] = 'Max-Age=0';
-		}
-		if($normalized['path'] !== '') {
-			$parts[] = 'Path=' . $normalized['path'];
-		}
-		if($normalized['domain']) {
-			$parts[] = 'Domain=' . $normalized['domain'];
-		}
-		if($normalized['secure']) {
-			$parts[] = 'Secure';
-		}
-		if($normalized['httponly']) {
-			$parts[] = 'HttpOnly';
-		}
-		if($normalized['samesite']) {
-			$parts[] = 'SameSite=' . $normalized['samesite'];
-		}
-		return implode('; ', $parts);
+		return new CookieSerializer($path);
 	}
 
 	/**
@@ -1183,16 +1082,15 @@ class WebResponse extends AttributeHolder implements ResetInterface
 			'raw' => $this->cookies[$name],
 		]);
 		if($this->psrResponse !== null) {
-			try {
-				$normalized = $this->normalizeCookieForSend($name, $this->cookies[$name]);
-				$header = $this->buildSetCookieHeader($name, $normalized);
-				$this->psrResponse = $this->psrResponse->withAddedHeader('Set-Cookie', $header);
-				$this->logCookieDebug('psrResponseSetCookie', [
-					'name' => $name,
-					'normalized' => $normalized,
-					'header' => $header,
-				]);
-			} catch(\Throwable) {}
+			$serializer = $this->cookieSerializer();
+			$normalized = $serializer->normalize($name, $this->cookies[$name]);
+			$header = $serializer->header($name, $normalized);
+			$this->psrResponse = $this->psrResponse->withAddedHeader('Set-Cookie', $header);
+			$this->logCookieDebug('psrResponseSetCookie', [
+				'name' => $name,
+				'normalized' => $normalized,
+				'header' => $header,
+			]);
 		}
 	}
 
@@ -1357,10 +1255,11 @@ class WebResponse extends AttributeHolder implements ResetInterface
 	 */
 	private function buildSetCookieHeaders(): array
 	{
+		$serializer = $this->cookieSerializer();
 		$lines = [];
 		foreach($this->cookies as $name => $values) {
-			$normalized = $this->normalizeCookieForSend($name, $values);
-			$headerValue = $this->buildSetCookieHeader($name, $normalized);
+			$normalized = $serializer->normalize($name, $values);
+			$headerValue = $serializer->header($name, $normalized);
 			$lines[] = $headerValue;
 			$this->logCookieDebug('sendCookieHeader', [
 				'name' => $name,

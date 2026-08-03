@@ -21,6 +21,8 @@ use Quiote\Response\WebResponse;
 
 abstract class View implements ResetInterface
 {
+	use \Quiote\Util\InitContextAttributeAccess;
+
 	/**
 	 * @since      1.0.0
 	 */
@@ -30,19 +32,6 @@ abstract class View implements ResetInterface
 	 * @var ActionInitContext|ViewInitContext|null Initialization context (container-less pipeline).
 	 */
 	protected $initContext = null;
-
-	/**
-	 * This view's mutable attribute store, seeded by {@see initialize()} from the action
-	 * attribute snapshot (ImmutableViewInitContext) or from the init context's own holder,
-	 * and read by the renderer through {@see getAttributes()}.
-	 *
-	 * It is the single rule the whole attribute facade below follows: reads answer from
-	 * this store first and fall back to the init context's holder, and writes land here
-	 * whenever it exists. Null means the view was never initialized, in which case the
-	 * facade works directly against the holder.
-	 * @var array<int|string, mixed>|null
-	 */
-	protected $localAttributes = null;
 
 	/**
 	 * @var        ?Context The Context instance this View belongs to.
@@ -664,165 +653,6 @@ abstract class View implements ResetInterface
 	}
 
 	/**
-	 * @see        AttributeHolder::setAttributesByRef()
-	 * @return     void
-	 * @since      1.0.0
-	 */
-	public function clearAttributes()
-	{
-		if ($this->localAttributes !== null) {
-			$this->localAttributes = [];
-		}
-		if ($this->initContext instanceof \Quiote\Util\AttributeHolder) {
-			$this->initContext->clearAttributes();
-		}
-	}
-
-	/**
-	 * @see        AttributeHolder::setAttributesByRef()
-	 * @param      string $name An attribute name.
-	 * @param      mixed  $default A default attribute value.
-	 * @return     mixed
-	 * @since      1.0.0
-	 */
-	public function &getAttribute($name, $default = null)
-	{
-		if ($this->localAttributes !== null && array_key_exists($name, $this->localAttributes)) {
-			return $this->localAttributes[$name];
-		}
-		if ($this->initContext instanceof \Quiote\Util\AttributeHolder) {
-			return $this->initContext->getAttribute($name, null, $default);
-		}
-		return $default;
-	}
-
-	/**
-	 * @see        AttributeHolder::getAttributeNames()
-	 * @return     array<int, int|string>
-	 * @since      1.0.0
-	 */
-	public function getAttributeNames()
-	{
-		$names = $this->localAttributes !== null ? array_keys($this->localAttributes) : [];
-		if ($this->initContext instanceof \Quiote\Util\AttributeHolder) {
-			$names = array_merge($names, $this->initContext->getAttributeNames() ?? []);
-		}
-		return array_values(array_unique($names));
-	}
-
-	/**
-	 * @see        AttributeHolder::getAttributes()
-	 * Returned by reference and aliased to localAttributes/AttributeHolder storage,
-	 * whose declared value type is array<int|string, mixed>; kept consistent with that here.
-	 * @return     array<int|string, mixed>
-	 * @since      1.0.0
-	 */
-	public function &getAttributes()
-	{
-		// Prefer the local mutable store if prepared; otherwise fall back to
-		// the initContext attribute holder for legacy containers.
-		if ($this->localAttributes !== null) {
-			return $this->localAttributes;
-		}
-		if ($this->initContext instanceof \Quiote\Util\AttributeHolder) {
-			return $this->initContext->getAttributes();
-		}
-		$empty = [];
-		return $empty;
-	}
-
-	/**
-	 * @see        AttributeHolder::setAttributesByRef()
-	 * @param      string $name An attribute name.
-	 * @return     bool
-	 * @since      1.0.0
-	 */
-	public function hasAttribute($name)
-	{
-		if ($this->localAttributes !== null && array_key_exists($name, $this->localAttributes)) {
-			return true;
-		}
-		if ($this->initContext instanceof \Quiote\Util\AttributeHolder) {
-			return $this->initContext->hasAttribute($name);
-		}
-		return false;
-	}
-
-	/**
-	 * @see        AttributeHolder::setAttributesByRef()
-	 * @param      string $name An attribute name.
-	 * @return     mixed
-	 * @since      1.0.0
-	 */
-	public function &removeAttribute($name)
-	{
-		$removed = null;
-		if ($this->localAttributes !== null && array_key_exists($name, $this->localAttributes)) {
-			$removed = $this->localAttributes[$name];
-			unset($this->localAttributes[$name]);
-		}
-		if ($this->initContext instanceof \Quiote\Util\AttributeHolder) {
-			$fromHolder = &$this->initContext->removeAttribute($name);
-			if ($removed === null) {
-				return $fromHolder;
-			}
-		}
-		return $removed;
-	}
-
-	/**
-	 * @see        AttributeHolder::setAttributesByRef()
-	 * @param      string $name An attribute name.
-	 * @param      mixed  $value An attribute value.
-	 * @return     void
-	 * @since      1.0.0
-	 */
-	public function setAttribute($name, $value)
-	{
-		// If we have a local mutable attribute store (typical in container-less
-		// pipeline), write into it so templates see the updated value. If the
-		// initContext is a mutable AttributeHolder (legacy), forward to it.
-		if ($this->localAttributes !== null) {
-			$this->localAttributes[$name] = $value;
-			return;
-		}
-		if ($this->initContext instanceof \Quiote\Execution\ViewInitContext) {
-			\Quiote\Util\DeprecationSilencer::triggerOnce('setAttribute() ignored: immutable ViewInitContext snapshot');
-			return;
-		}
-		if ($this->initContext instanceof \Quiote\Util\AttributeHolder) {
-			$this->initContext->setAttribute($name, $value);
-		}
-	}
-
-	/**
-	 * @see        AttributeHolder::setAttributesByRef()
-	 * @param      string $name An attribute name.
-	 * @param      mixed  $value An attribute value.
-	 * @return     void
-	 * @since      1.0.0
-	 */
-	public function appendAttribute($name, $value)
-	{
-		if ($this->localAttributes !== null) {
-			if (!isset($this->localAttributes[$name]) || !is_array($this->localAttributes[$name])) {
-				$this->localAttributes[$name] = isset($this->localAttributes[$name])
-					? [$this->localAttributes[$name]]
-					: [];
-			}
-			$this->localAttributes[$name][] = $value;
-			return;
-		}
-		if ($this->initContext instanceof \Quiote\Execution\ViewInitContext) {
-			\Quiote\Util\DeprecationSilencer::triggerOnce('appendAttribute() ignored under immutable snapshot');
-			return;
-		}
-		if ($this->initContext instanceof \Quiote\Util\AttributeHolder) {
-			$this->initContext->appendAttribute($name, $value);
-		}
-	}
-
-	/**
 	 * Register a stylesheet for this page's render tree. Unlike
 	 * appendAttribute(), this reaches Context::getAssetRegistry() directly,
 	 * so it works from a top-level view or a slot-nested one alike, and is
@@ -840,103 +670,6 @@ abstract class View implements ResetInterface
 	public function addJavascript(string $src): void
 	{
 		$this->getContext()?->getAssetRegistry()->addJavascript($src);
-	}
-
-	/**
-	 * @see        AttributeHolder::setAttributesByRef()
-	 * @param      string $name An attribute name.
-	 * @param      mixed  $value A reference to an attribute value.
-	 * @return     void
-	 * @since      1.0.0
-	 */
-	public function setAttributeByRef($name, &$value)
-	{
-		if ($this->localAttributes !== null) {
-			$this->localAttributes[$name] = &$value;
-			return;
-		}
-		if ($this->initContext instanceof \Quiote\Execution\ViewInitContext) {
-			\Quiote\Util\DeprecationSilencer::triggerOnce('setAttributeByRef() ignored under immutable snapshot');
-			return;
-		}
-		if ($this->initContext instanceof \Quiote\Util\AttributeHolder) {
-			$this->initContext->setAttributeByRef($name, $value);
-		}
-	}
-
-	/**
-	 * @see        AttributeHolder::setAttributesByRef()
-	 * @param      string $name An attribute name.
-	 * @param      mixed  $value A reference to an attribute value.
-	 * @return     void
-	 * @since      1.0.0
-	 */
-	public function appendAttributeByRef($name, &$value)
-	{
-		if ($this->localAttributes !== null) {
-			if (!isset($this->localAttributes[$name]) || !is_array($this->localAttributes[$name])) {
-				$this->localAttributes[$name] = isset($this->localAttributes[$name])
-					? [$this->localAttributes[$name]]
-					: [];
-			}
-			$this->localAttributes[$name][] = &$value;
-			return;
-		}
-		if ($this->initContext instanceof \Quiote\Execution\ViewInitContext) {
-			\Quiote\Util\DeprecationSilencer::triggerOnce('appendAttributeByRef() ignored under immutable snapshot');
-			return;
-		}
-		if ($this->initContext instanceof \Quiote\Util\AttributeHolder) {
-			$this->initContext->appendAttributeByRef($name, $value);
-		}
-	}
-
-	/**
-	 * @see        AttributeHolder::setAttributes()
-	 * @param      array<string, mixed> $attributes
-	 * @return     void
-	 * @since      1.0.0
-	 */
-	public function setAttributes(array $attributes)
-	{
-		if ($this->localAttributes !== null) {
-			foreach ($attributes as $name => $value) {
-				$this->localAttributes[$name] = $value;
-			}
-			return;
-		}
-		if ($this->initContext instanceof \Quiote\Execution\ViewInitContext) {
-			\Quiote\Util\DeprecationSilencer::triggerOnce('setAttributes() ignored under immutable snapshot');
-			return;
-		}
-		if ($this->initContext instanceof \Quiote\Util\AttributeHolder) {
-			$this->initContext->setAttributes($attributes);
-		}
-	}
-
-	/**
-	 * @see        AttributeHolder::setAttributesByRef()
-	 * The reference becomes aliased to the underlying namespace store, whose declared
-	 * value type is array<int|string, mixed>; kept consistent with that here.
-	 * @param      array<int|string, mixed> $attributes
-	 * @return     void
-	 * @since      1.0.0
-	 */
-	public function setAttributesByRef(array &$attributes)
-	{
-		if ($this->localAttributes !== null) {
-			foreach (array_keys($attributes) as $name) {
-				$this->localAttributes[$name] = &$attributes[$name];
-			}
-			return;
-		}
-		if ($this->initContext instanceof \Quiote\Execution\ViewInitContext) {
-			\Quiote\Util\DeprecationSilencer::triggerOnce('setAttributesByRef() ignored under immutable snapshot');
-			return;
-		}
-		if ($this->initContext instanceof \Quiote\Util\AttributeHolder) {
-			$this->initContext->setAttributesByRef($attributes);
-		}
 	}
 
 	public function reset(): void

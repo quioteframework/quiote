@@ -3,16 +3,25 @@
 namespace Quiote\Http;
 
 use Psr\Http\Message\ResponseInterface;
+use Quiote\Response\CookieSerializer as Serializer;
 
 /**
- * Bridges cookies queued on an WebResponse into PSR-7 Set-Cookie headers.
- * Previously the ~35-line serialization block was copy-pasted verbatim in both
- * SessionMiddleware and DispatchMiddleware, meaning it ran twice per response.
- * This class centralises the logic; callers add it at exactly one point. */
+ * Bridges cookies queued on a Quiote response onto a PSR-7 response's `Set-Cookie` headers.
+ *
+ * The response is duck-typed rather than declared, so a middleware can hand over whatever
+ * the controller gave it without first proving it is a {@see \Quiote\Response\WebResponse}.
+ * The serialization itself belongs to {@see \Quiote\Response\CookieSerializer}, which is the
+ * one implementation of the `Set-Cookie` format in the framework; this class only locates the
+ * cookies and merges the resulting lines.
+ */
 final class CookieSerializer
 {
     /**
-     * Append Set-Cookie headers from $globalResp (WebResponse) to $response.
+     * Append Set-Cookie headers from $globalResp to $response.
+     *
+     * A cookie whose serialized form is already present is not added twice, so a response
+     * that passed through more than one bridging point carries each cookie once.
+     *
      * @param  object            $globalResp  Quiote web response object (duck-typed).
      * @param  ResponseInterface $response    PSR-7 response to append headers to.
      * @param  string            $basePath    Default path for cookies without explicit path.
@@ -34,80 +43,23 @@ final class CookieSerializer
             return $response;
         }
 
+        $serializer = new Serializer($basePath);
         foreach ($cookies as $name => $values) {
-            if (!is_array($values)) {
+            if (!is_array($values) || !self::isSendable($values)) {
                 continue;
             }
 
             try {
-                // Determine expiration timestamp
-                $lifetime = $values['lifetime'] ?? 0;
-                if (is_string($lifetime)) {
-                    $parsed = strtotime($lifetime);
-                    $expire = $parsed === false ? 0 : $parsed;
-                } elseif (is_int($lifetime) || is_float($lifetime)) {
-                    $expire = ($lifetime != 0) ? time() + (int) $lifetime : 0;
-                } else {
-                    throw new \InvalidArgumentException(sprintf('Cookie "lifetime" must be a string or number, got "%s".', get_debug_type($lifetime)));
-                }
+                $line = $serializer->header((string) $name, $serializer->normalize((string) $name, $values));
+            } catch (\Throwable $e) {
+                \Quiote\Logging\Log::create(self::class)->warning(
+                    '[CookieSerializer] skipping cookie "' . $name . '": ' . $e->getMessage()
+                );
+                continue;
+            }
 
-                $rawValue = $values['value'] ?? null;
-                // Deleted/cleared cookie: expire in the past
-                if ($rawValue === false || $rawValue === null || $rawValue === '') {
-                    $expire = time() - 3600 * 24;
-                }
-
-                // Apply encode callback when value is non-null. When no callback is
-                // provided we URL-encode by default so a value cannot inject extra
-                // cookie attributes (e.g. "; Domain=evil.com") or control characters.
-                // An explicit `encode_callback === false` opts out (value pre-encoded).
-                $val = $rawValue;
-                if ($val !== null) {
-                    $cb = $values['encode_callback'] ?? 'rawurlencode';
-                    if ($cb === false) {
-                        // Caller asserts the value is already encoded; leave as-is.
-                        $val = self::toCookieString($val, 'value');
-                    } elseif (is_callable($cb)) {
-                        $val = self::toCookieString(call_user_func($cb, $val), 'value');
-                    } else {
-                        $val = rawurlencode(self::toCookieString($val, 'value'));
-                    }
-                }
-
-                $path = $values['path'] ?? $basePath;
-                $path = is_string($path) ? $path : $basePath;
-
-                if ($val === null) {
-                    continue;
-                }
-
-                // Build Set-Cookie string
-                $cookieStr = $name . '=' . $val;
-                if ($expire > 0) {
-                    $cookieStr .= '; Expires=' . gmdate('D, d-M-Y H:i:s T', $expire)
-                        . '; Max-Age=' . max(0, $expire - time());
-                }
-                $cookieStr .= '; Path=' . ($path !== '' ? $path : '/');
-                if (!empty($values['domain'])) {
-                    $cookieStr .= '; Domain=' . self::toCookieString($values['domain'], 'domain');
-                }
-                if (!empty($values['secure'])) {
-                    $cookieStr .= '; Secure';
-                }
-                if (!empty($values['httponly'])) {
-                    $cookieStr .= '; HttpOnly';
-                }
-                if (!empty($values['samesite'])) {
-                    $cookieStr .= '; SameSite=' . ucfirst(strtolower(self::toCookieString($values['samesite'], 'samesite')));
-                }
-
-                // Avoid duplicate Set-Cookie headers for the same cookie string
-                $existing = $response->getHeader('Set-Cookie');
-                if (!in_array($cookieStr, $existing, true)) {
-                    $response = $response->withAddedHeader('Set-Cookie', $cookieStr);
-                }
-            } catch (\Throwable) {
-                // Ignore per-cookie formatting errors
+            if (!in_array($line, $response->getHeader('Set-Cookie'), true)) {
+                $response = $response->withAddedHeader('Set-Cookie', $line);
             }
         }
 
@@ -115,27 +67,30 @@ final class CookieSerializer
     }
 
     /**
-     * Coerce a cookie attribute value into a string, rejecting anything that
-     * cannot represent a cookie value/attribute unambiguously.
+     * Whether a duck-typed cookie definition is well-formed enough to send.
+     *
+     * This boundary accepts whatever a response object happens to hold, so a definition it
+     * cannot make sense of is dropped rather than guessed at. A null value is a definition
+     * that never got one, not a deletion request -- deletion is expressed as `false` or the
+     * empty string, which {@see \Quiote\Response\WebResponse::unsetCookie()} uses.
+     *
+     * @param array<array-key, mixed> $values
      */
-    private static function toCookieString(mixed $value, string $attribute): string
+    private static function isSendable(array $values): bool
     {
-        if (is_string($value)) {
-            return $value;
+        $value = $values['value'] ?? null;
+        if ($value === null) {
+            return false;
+        }
+        if (!is_scalar($value) && !$value instanceof \Stringable) {
+            return false;
         }
 
-        if (is_int($value) || is_float($value)) {
-            return (string) $value;
+        if (!array_key_exists('lifetime', $values)) {
+            return true;
         }
+        $lifetime = $values['lifetime'];
 
-        if (is_bool($value)) {
-            return $value ? '1' : '0';
-        }
-
-        if ($value instanceof \Stringable) {
-            return (string) $value;
-        }
-
-        throw new \InvalidArgumentException(sprintf('Cookie attribute "%s" must be stringable, got "%s".', $attribute, get_debug_type($value)));
+        return $lifetime === null || is_int($lifetime) || is_float($lifetime) || is_string($lifetime);
     }
 }
