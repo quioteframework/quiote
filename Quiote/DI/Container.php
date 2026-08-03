@@ -215,7 +215,7 @@ class Container implements ContainerInterface
                     throw new ContainerException("Error while invoking factory for '$requestedId': " . $e->getMessage(), 0, $e);
                 }
             } elseif (is_string($concrete) && class_exists($concrete)) {
-                $obj = $this->autoWire($concrete, $params, $requestedId);
+                $obj = $this->autoWire($concrete, $params, $requestedId, null, $scope);
             } else {
                 $obj = $concrete; // instance or scalar
             }
@@ -225,7 +225,8 @@ class Container implements ContainerInterface
 
         if ($this->canAutowire($lookupId)) {
             $rc = $this->getReflectionClass($lookupId);
-            return [$this->autoWire($lookupId, [], $requestedId, $rc), $this->resolveDefaultScope($rc)];
+            $scope = $this->resolveDefaultScope($rc);
+            return [$this->autoWire($lookupId, [], $requestedId, $rc, $scope), $scope];
         }
 
         throw new NotFoundException("Service '$requestedId' not found and no autowireable class/alias exists");
@@ -236,8 +237,16 @@ class Container implements ContainerInterface
      * present; otherwise a class implementing ServiceInterface defaults to
      * transient — services are transient today (as models, none are
      * ISingletonModel), and silently promoting one to a process singleton under
-     * FrankenPHP is a latent cross-request bug. Anything else defaults to singleton, matching
-     * this container's pre-Phase-3 autowire-fallback behavior.
+     * FrankenPHP is a latent cross-request bug.
+     *
+     * Anything else defaults to REQUEST. Singleton was the pre-Phase-3 fallback, but it
+     * is the wrong default for a class nobody has vetted: under a persistent worker an
+     * unregistered class that happens to hold per-request state (or captures something
+     * that does) silently serves request N's data to request N+1. Request scope makes
+     * the unvetted case safe by construction — the instance is dropped by reset() at the
+     * request boundary — and matches the documented rule of thumb that singleton is for
+     * objects you have *confirmed* hold no per-request state. Opt back in explicitly with
+     * #[Service(scope: Container::SCOPE_SINGLETON)] or an explicit set() registration.
      */
     /**
      * @param \ReflectionClass<object> $rc
@@ -251,15 +260,92 @@ class Container implements ContainerInterface
         if ($rc->implementsInterface(\Quiote\Service\ServiceInterface::class)) {
             return self::SCOPE_TRANSIENT;
         }
-        return self::SCOPE_SINGLETON;
+        return self::SCOPE_REQUEST;
     }
 
     /**
+     * The scope $id was *explicitly* given, or null when nothing declared one.
+     *
+     * Deliberately distinct from {@see resolveDefaultScope()}, which always answers with
+     * something. The captive-dependency guard must only fire on a scope somebody actually
+     * asked for: treating the inferred request-scope default as a declaration would make
+     * every singleton that autowires an ordinary unregistered helper class throw.
+     */
+    private function declaredScopeOf(string $id): ?string
+    {
+        $lookupId = $this->aliases[$id] ?? $id;
+
+        if (array_key_exists($lookupId, $this->definitions)) {
+            return $this->definitions[$lookupId]['scope'];
+        }
+
+        if (class_exists($lookupId)) {
+            $serviceAttr = $this->getReflectionClass($lookupId)->getAttributes(\Quiote\DI\Attribute\Service::class);
+            if ($serviceAttr) {
+                return $serviceAttr[0]->newInstance()->scope;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Refuse to inject a request-scoped service into a singleton — the "captive
+     * dependency" problem.
+     *
+     * A singleton is constructed once and never rebuilt, so whatever it is handed at
+     * construction it keeps forever. {@see reset()} drops the container's own reference
+     * to a request-scoped instance at the request boundary, but it cannot reach into a
+     * singleton that already captured one. Under a persistent worker the singleton then
+     * serves request 1's instance to every later request.
+     *
+     * For the services Context registers request-scoped — `request`, `user`, `sessionBag`,
+     * and their concrete class names — that is a cross-user identity leak, exactly the
+     * failure {@see \Quiote\Context::clearRequestScopedState()} exists to prevent. It is
+     * the one path into that state the context's own clearing cannot cover, so it is
+     * refused at wiring time rather than detected later.
+     */
+    private function guardCaptiveDependency(
+        string $dependencyId,
+        ?string $consumerScope,
+        string $class,
+        string $paramName,
+    ): void {
+        if ($consumerScope !== self::SCOPE_SINGLETON) {
+            return;
+        }
+        if ($this->declaredScopeOf($dependencyId) !== self::SCOPE_REQUEST) {
+            return;
+        }
+
+        throw new ContainerException(sprintf(
+            "Cannot autowire '%s': it is singleton-scoped but parameter $%s depends on '%s', which is "
+            . 'request-scoped. The singleton would capture one request\'s instance and keep serving it to every '
+            . 'later request in a persistent worker. Give %s request or transient scope, or inject a factory '
+            . 'and resolve %s per call.',
+            $class,
+            $paramName,
+            $dependencyId,
+            $class,
+            $dependencyId,
+        ));
+    }
+
+    /**
+     * $consumerScope is the scope the finished object will be cached under, threaded in so
+     * {@see guardCaptiveDependency()} can refuse a request-scoped dependency for a singleton.
+     * Null means "not container-cached at all" — the {@see make()} path for actions and
+     * views, which are per-execution and may freely depend on request-scoped services.
      * @param array<string, mixed> $params
      * @param \ReflectionClass<object>|null $rc
      */
-    private function autoWire(string $class, array $params, ?string $requestedId = null, ?\ReflectionClass $rc = null): object
-    {
+    private function autoWire(
+        string $class,
+        array $params,
+        ?string $requestedId = null,
+        ?\ReflectionClass $rc = null,
+        ?string $consumerScope = null,
+    ): object {
         $rc ??= $this->getReflectionClass($class);
         $plan = $this->classPlan($class, $rc);
 
@@ -268,7 +354,7 @@ class Container implements ContainerInterface
         } else {
             $args = [];
             foreach ($plan['ctorParams'] as $p) {
-                $args[] = $this->resolveParamValue($p, $params, $class, $requestedId);
+                $args[] = $this->resolveParamValue($p, $params, $class, $requestedId, $consumerScope);
             }
             try {
                 $obj = $rc->newInstanceArgs($args);
@@ -280,7 +366,7 @@ class Container implements ContainerInterface
         foreach ($plan['required'] as $req) {
             $args = [];
             foreach ($req['params'] as $p) {
-                $args[] = $this->resolveParamValue($p, [], $class, null);
+                $args[] = $this->resolveParamValue($p, [], $class, null, $consumerScope);
             }
             $req['method']->invoke($obj, ...$args);
         }
@@ -330,8 +416,13 @@ class Container implements ContainerInterface
     /**
      * @param array<string, mixed> $params
      */
-    private function resolveParamValue(\ReflectionParameter $p, array $params, string $class, ?string $requestedId): mixed
-    {
+    private function resolveParamValue(
+        \ReflectionParameter $p,
+        array $params,
+        string $class,
+        ?string $requestedId,
+        ?string $consumerScope = null,
+    ): mixed {
         $name = $p->getName();
         if (array_key_exists($name, $params)) {
             return $params[$name];
@@ -344,7 +435,9 @@ class Container implements ContainerInterface
 
         $injectAttrs = $p->getAttributes(Inject::class);
         if ($injectAttrs) {
-            return $this->get($injectAttrs[0]->newInstance()->id);
+            $injectId = $injectAttrs[0]->newInstance()->id;
+            $this->guardCaptiveDependency($injectId, $consumerScope, $class, $name);
+            return $this->get($injectId);
         }
 
         $autowireAttrs = $p->getAttributes(Autowire::class);
@@ -355,6 +448,7 @@ class Container implements ContainerInterface
         if ($type instanceof \ReflectionNamedType && !$type->isBuiltin()) {
             $dep = $type->getName();
             if ($this->canAutowire($dep)) {
+                $this->guardCaptiveDependency($dep, $consumerScope, $class, $name);
                 return $this->get($dep);
             }
             if ($p->isDefaultValueAvailable()) {

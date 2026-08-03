@@ -179,6 +179,77 @@ class ContainerTest extends TestCase
         $this->assertSame($v1, $v2, '#[Service(scope: singleton)] must override the ServiceInterface transient default');
     }
 
+    public function testUnregisteredAutowiredClassDefaultsToRequestScope(): void
+    {
+        $c = new Container();
+        $v1 = $c->get(ContainerNoDepsFixture::class);
+        $this->assertSame($v1, $c->get(ContainerNoDepsFixture::class), 'within one request the instance is reused');
+
+        $c->reset();
+        $this->assertNotSame(
+            $v1,
+            $c->get(ContainerNoDepsFixture::class),
+            'an unvetted autowired class must not survive the request boundary as a process singleton',
+        );
+    }
+
+    /**
+     * The captive-dependency leak: before this guard, a singleton constructed once with
+     * request 1's user kept handing that user to every later request in the worker, which
+     * Container::reset() cannot undo because the reference lives inside the singleton.
+     */
+    public function testSingletonCannotCaptureRequestScopedDependency(): void
+    {
+        $c = new Container();
+        $c->set(ContainerRequestScopedFixture::class, new ContainerRequestScopedFixture(), Container::SCOPE_REQUEST);
+        $c->set(ContainerCaptiveFixture::class, ContainerCaptiveFixture::class, Container::SCOPE_SINGLETON);
+
+        $this->expectException(\Quiote\DI\ContainerException::class);
+        $this->expectExceptionMessageMatches('/singleton-scoped but parameter \$req depends on .*which is request-scoped/');
+        $c->get(ContainerCaptiveFixture::class);
+    }
+
+    public function testSingletonCannotCaptureRequestScopedDependencyViaInjectAttribute(): void
+    {
+        $c = new Container();
+        $c->set('scoped.thing', new ContainerRequestScopedFixture(), Container::SCOPE_REQUEST);
+        $c->set(ContainerCaptiveInjectFixture::class, ContainerCaptiveInjectFixture::class, Container::SCOPE_SINGLETON);
+
+        $this->expectException(\Quiote\DI\ContainerException::class);
+        $this->expectExceptionMessageMatches("/depends on 'scoped\.thing'/");
+        $c->get(ContainerCaptiveInjectFixture::class);
+    }
+
+    /**
+     * The guard keys off a *declared* request scope, never the inferred default — otherwise
+     * every singleton depending on an ordinary unregistered helper would throw.
+     */
+    public function testSingletonMayDependOnAnOrdinaryUnregisteredClass(): void
+    {
+        $c = new Container();
+        $c->set(ContainerCaptiveFixture::class, ContainerCaptiveFixture::class, Container::SCOPE_SINGLETON);
+        $this->assertInstanceOf(ContainerCaptiveFixture::class, $c->get(ContainerCaptiveFixture::class));
+    }
+
+    public function testRequestScopedConsumerMayDependOnRequestScopedDependency(): void
+    {
+        $c = new Container();
+        $c->set(ContainerRequestScopedFixture::class, new ContainerRequestScopedFixture(), Container::SCOPE_REQUEST);
+        $c->set(ContainerCaptiveFixture::class, ContainerCaptiveFixture::class, Container::SCOPE_REQUEST);
+        $this->assertInstanceOf(ContainerCaptiveFixture::class, $c->get(ContainerCaptiveFixture::class));
+    }
+
+    /**
+     * Actions and views go through make(), are never container-cached, and so may freely
+     * depend on request-scoped services.
+     */
+    public function testMakeMayDependOnRequestScopedDependency(): void
+    {
+        $c = new Container();
+        $c->set(ContainerRequestScopedFixture::class, new ContainerRequestScopedFixture(), Container::SCOPE_REQUEST);
+        $this->assertInstanceOf(ContainerCaptiveFixture::class, $c->make(ContainerCaptiveFixture::class));
+    }
+
     public function testMakeNeverCachesEvenForOtherwiseSingletonClass(): void
     {
         $c = new Container();
@@ -310,4 +381,20 @@ class ContainerSingletonServiceFixture implements \Quiote\Service\ServiceInterfa
 class ContainerMakeFixture
 {
     public function __construct(public DateTimeImmutable $clock) {}
+}
+
+class ContainerRequestScopedFixture
+{
+}
+
+class ContainerCaptiveFixture
+{
+    public function __construct(public ContainerRequestScopedFixture $req) {}
+}
+
+class ContainerCaptiveInjectFixture
+{
+    public function __construct(
+        #[Inject('scoped.thing')] public ContainerRequestScopedFixture $req,
+    ) {}
 }
