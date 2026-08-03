@@ -246,6 +246,74 @@ class ContextTest extends PhpUnitTestCase
 		$this->assertInstanceOf(\Psr\Http\Message\ServerRequestInterface::class, $ctx->getRequest());
 	}
 
+	/**
+	 * The request, routing and user are nulled at the worker request boundary and rebuilt
+	 * from captured factory metadata on next access. The rebuilt instance must be a
+	 * different object, and the container must serve it rather than the discarded one.
+	 */
+	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+	public function testRequestIsRebuiltAfterResetAndReRegisteredInTheContainer(): void
+	{
+		$ctx = Context::getInstance('rebuild_request_test');
+		$first = $ctx->getRequest();
+		$this->assertSame($first, $ctx->getContainer()->get('request'));
+
+		$ctx->reset();
+
+		$second = $ctx->getRequest();
+		$this->assertNotSame($first, $second);
+		$this->assertInstanceOf(\Quiote\Request\WebRequest::class, $second);
+		$this->assertSame($second, $ctx->getContainer()->get('request'));
+	}
+
+	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+	public function testUserIsRebuiltAfterResetAndReRegisteredInTheContainer(): void
+	{
+		$ctx = Context::getInstance('rebuild_user_test');
+		$first = $ctx->getUser();
+		$this->assertSame($first, $ctx->getContainer()->get('user'));
+
+		$ctx->reset();
+
+		$second = $ctx->getUser();
+		$this->assertNotSame($first, $second);
+		$this->assertSame($second, $ctx->getContainer()->get('user'));
+	}
+
+	/**
+	 * Routing is rebuilt without the initialize()/startup() pair, so a repeat access must
+	 * still hand back the same instance rather than constructing one per call.
+	 */
+	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+	public function testRoutingIsMemoizedAcrossCalls(): void
+	{
+		$ctx = Context::getInstance('rebuild_routing_test');
+
+		$this->assertSame($ctx->getRouting(), $ctx->getRouting());
+	}
+
+	/**
+	 * Without captured factory metadata there is nothing to rebuild from, and the failure
+	 * has to name the component rather than surfacing as a null dereference later.
+	 */
+	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+	public function testRebuildWithoutFactoryInfoThrowsNamingTheComponent(): void
+	{
+		$ctx = Context::getInstance('rebuild_missing_info_test');
+		$ctx->getRequest();
+
+		$reflection = new \ReflectionObject($ctx);
+		$request = $reflection->getProperty('request');
+		$request->setValue($ctx, null);
+		$info = $reflection->getProperty('requestFactoryInfo');
+		$info->setValue($ctx, null);
+
+		$this->expectException(\Quiote\Exception\QuioteException::class);
+		$this->expectExceptionMessage('Request object is null and no factory info available');
+
+		$ctx->getRequest();
+	}
+
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
 	public function testGetAssetRegistryReturnsSameInstanceUntilReset(): void
 	{

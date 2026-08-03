@@ -17,7 +17,7 @@ use Symfony\Component\Routing\RouteCollection;
 use Symfony\Component\Routing\Route;
 use Symfony\Contracts\Service\ResetInterface;
 
-abstract class Routing implements ResetInterface
+abstract class Routing implements ResetInterface, \Quiote\ContextComponentInterface
 {
 	private RouteCollection $routes;
 	/** @var array<string,array{gen_path:string,cut:bool,path:string,opt?:array{parent:string|null,action:mixed},pattern?:string,match_full?:string,match_partial?:string}> */

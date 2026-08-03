@@ -29,7 +29,7 @@ use Symfony\Contracts\Service\ResetInterface;
  * are never at the mercy of a future Nyholm release changing its with*()
  * methods away from clone-based immutability.
  */
-class WebRequest implements ServerRequestInterface, ResetInterface
+class WebRequest implements ServerRequestInterface, ResetInterface, \Quiote\ContextComponentInterface
 {
 	use Psr7DelegationTrait;
 	use Psr7RequestTrait;

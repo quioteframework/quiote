@@ -14,7 +14,7 @@ use Quiote\Exception\DatabaseException;
  * @since      1.0.0
  * @version    1.0.0
  */
-class DatabaseManager
+class DatabaseManager implements \Quiote\ContextComponentInterface
 {
 	/**
 	 * @var        string The name of the default database.

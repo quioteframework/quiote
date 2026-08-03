@@ -1356,79 +1356,100 @@ class Context implements \Stringable, ResetInterface
   }
 
   /**
+   * Rebuild a core component from the factory metadata captured at initialize().
+   *
+   * The request, routing, user and database manager are all nulled at the worker request
+   * boundary by {@see clearRequestScopedState()} and rebuilt on first access, and every
+   * one of them needs the same sequence: refuse without factory metadata, construct,
+   * optionally run the initialize()/startup() lifecycle pair, and re-register the fresh
+   * instance in the container so it stops serving the discarded one. This is that
+   * sequence, in one place.
+   *
+   * $runLifecycle is false for a component whose constructor is its whole setup (routing);
+   * where the pair does run, initialize() must precede startup(), because startup() acts on
+   * state initialize() populates.
+   *
+   * @template   T of ContextComponentInterface
+   * @param      string $role The container role name, also used in diagnostics.
+   * @param      ?array{class: class-string<T>, parameters: array<string, mixed>} $info
+   * @param      string $scope The container scope to register the instance under.
+   * @param      bool $runLifecycle Whether to call initialize() then startup().
+   * @return     T
+   * @throws     QuioteException When no factory metadata was captured for $role.
+   * @since      3.2.0
+   */
+  private function rebuildFromFactoryInfo(
+    string $role,
+    ?array $info,
+    string $scope = Container::SCOPE_SINGLETON,
+    bool $runLifecycle = true,
+  ): object {
+    $logger = \Quiote\Logging\Log::for($this);
+    $vd = $logger->isEnabled(\Quiote\Logging\Level::Debug);
+
+    if ($info === null) {
+      $logger->error(
+        "[Context] cannot rebuild '$role': no factory info was captured at initialize()",
+      );
+      throw new QuioteException(
+        ucfirst($role) .
+          " object is null and no factory info available for recreation in worker mode",
+      );
+    }
+
+    if ($vd) {
+      $logger->debug("[Context] rebuilding '$role' from factory info");
+    }
+
+    $className = $info["class"];
+    $instance = new $className();
+    if ($runLifecycle) {
+      $instance->initialize($this, $info["parameters"]);
+      $instance->startup();
+    }
+
+    $this->registerCoreService($role, $instance, $scope);
+
+    if ($vd) {
+      $logger->debug(
+        "[Context] rebuilt '$role' using factory info: " . $className .
+          " oid=" . spl_object_id($instance),
+      );
+    }
+
+    return $instance;
+  }
+
+  /**
    * Retrieve the request.
    * @return     WebRequest The current Request implementation instance.
    * @since      1.0.0
    */
   public function getRequest()
   {
-    // Lazy initialization for worker mode - recreate request object if null after reset
     if ($this->request === null) {
-      $logger = \Quiote\Logging\Log::for($this);
-      if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
-        $logger->debug(
-          "[Context] getRequest() Request object is null, recreating...",
-        );
-      }
-
-      if ($this->requestFactoryInfo !== null) {
-        // Recreate the request object using captured factory info
-        $className = $this->requestFactoryInfo["class"];
-        $parameters = $this->requestFactoryInfo["parameters"];
-
-        $newRequest = new $className();
-        // IMPORTANT: Must call initialize() BEFORE startup() to populate request data from superglobals
-        // initialize() reads from $_GET, $_POST, etc. and populates the request data holder
-        // startup() clears the superglobals (when unset_input parameter is true)
-        $newRequest->initialize($this, $parameters);
-        $newRequest->startup();
-        $this->request = $newRequest;
-
-        // No need to attachPsrRequest - WebRequest IS the PSR-7 request
-
-        // Re-run controller startup so it re-caches the (new) global request data pointer
-        $controller = $this->controller;
-        if ($controller !== null) {
-          try {
-            $controller->startup();
-            if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
-              $logger->debug(
-                "[Context] getRequest() Controller startup re-run after request recreation",
-              );
-            }
-          } catch (\Throwable $e) {
-            if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
-              $logger->debug(
-                "[Context] getRequest() Controller startup failed after request recreation: " .
-                  $e->getMessage(),
-              );
-            }
-          }
-        }
-        if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
-          $logger->debug(
-            "[Context] getRequest() Request object recreated successfully using factory info: " .
-              $className,
-          );
-        }
-        $this->registerCoreService('request', $this->request, Container::SCOPE_REQUEST);
-      } else {
-        if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
-          $logger->debug(
-            "[Context] getRequest() No request factory info available, cannot recreate request",
-          );
-        }
-        throw new QuioteException(
-          "Request object is null and no factory info available for recreation in worker mode",
-        );
-      }
-    }
-
-    if ($this->request === null) {
-      throw new QuioteException(
-        "Request object is unexpectedly null after recreation",
+      $this->request = $this->rebuildFromFactoryInfo(
+        'request',
+        $this->requestFactoryInfo,
+        Container::SCOPE_REQUEST,
       );
+
+      // Re-run controller startup so it re-caches the pointer to the new request's
+      // global data. Guarded: a controller that cannot restart is a degraded request,
+      // not a reason to withhold the request that was just built.
+      $controller = $this->controller;
+      if ($controller !== null) {
+        try {
+          $controller->startup();
+        } catch (\Throwable $e) {
+          \Quiote\Logging\Log::for($this)->error(
+            "[Context.getRequest] controller startup failed after request recreation: " .
+              $e->getMessage(),
+          );
+        }
+      }
     }
+
     return $this->request;
   }
 
@@ -1439,40 +1460,15 @@ class Context implements \Stringable, ResetInterface
    */
   public function getRouting()
   {
-    // Lazy initialization for worker mode - recreate routing object if null after reset
-    if ($this->routing === null) {
-      $logger = \Quiote\Logging\Log::for($this);
-      $vd = $logger->isEnabled(\Quiote\Logging\Level::Debug);
-      if ($vd) {
-        $logger->debug(
-          "Context::getRouting() - Routing object is null, recreating...",
-        );
-      }
-      // Recreate from factory info if available
-      if ($this->routingFactoryInfo !== null) {
-        $className = $this->routingFactoryInfo["class"];
-        $this->routing = new $className();
-        if ($vd) {
-          $logger->debug(
-            "Context::getRouting() - Routing (compat) object recreated via factory info: " .
-              $className,
-          );
-        }
-        $this->registerCoreService('routing', $this->routing);
-      } else {
-        $logger->error(
-          "Context::getRouting() - No routing factory info available, cannot recreate routing",
-        );
-        throw new QuioteException(
-          "Routing object is null and no factory info available for recreation in worker mode",
-        );
-      }
-    }
-    if ($this->routing === null) {
-      throw new QuioteException(
-        "Routing object is unexpectedly null after recreation",
-      );
-    }
+    // Routing's constructor is its whole setup, so the initialize()/startup() pair is
+    // deliberately skipped here.
+    $this->routing ??= $this->rebuildFromFactoryInfo(
+      'routing',
+      $this->routingFactoryInfo,
+      Container::SCOPE_SINGLETON,
+      runLifecycle: false,
+    );
+
     return $this->routing;
   }
 
@@ -1674,124 +1670,48 @@ class Context implements \Stringable, ResetInterface
    */
   public function getUser()
   {
-    // Lazy initialization for worker mode - recreate user object if null after reset
     if ($this->user === null) {
-      // (Simplified) No serialized snapshot restore; always build fresh user below.
-      $logger = \Quiote\Logging\Log::for($this);
-      $vd = $logger->isEnabled(\Quiote\Logging\Level::Debug);
-      if ($vd) {
+      // The user may read through storage to the database, so the database manager has
+      // to exist first. Failure to rebuild it is logged and tolerated: a user that then
+      // cannot reach the database fails on its own terms with a better message than one
+      // withheld here.
+      if (Config::getBool("core.use_database", false) && $this->databaseManager === null) {
         try {
-          $bt = [];
-          $rawBt = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 12);
-          foreach ($rawBt as $f) {
-            $bt[] =
-              ($f["file"] ?? "nofile") .
-              ":" .
-              ($f["line"] ?? 0) .
-              " " .
-              (($f["class"] ?? "") .
-                ($f["type"] ?? "") .
-                $f["function"]);
-          }
-          $logger->debug(
-            "[getUser] user null, recreating trace=" . json_encode($bt),
+          $this->databaseManager = $this->rebuildFromFactoryInfo(
+            'databaseManager',
+            $this->databaseManagerFactoryInfo,
           );
-        } catch (\Throwable) {
-        }
-        $logger->debug(
-          "[Context.getUser] - User object is null, recreating...",
-        );
-      }
-      // Ensure database manager is available if database use is enabled BEFORE creating user (user may need storage->db)
-      if (
-        Config::getBool("core.use_database", false) &&
-        $this->databaseManager === null
-      ) {
-        if ($vd) {
-          $logger->debug(
-            "[Context.getUser] - Database manager is null, attempting recreation before user...",
-          );
-        }
-        if ($this->databaseManagerFactoryInfo !== null) {
-          $className = $this->databaseManagerFactoryInfo["class"];
-          $parameters = $this->databaseManagerFactoryInfo["parameters"];
-          try {
-            $newDatabaseManager = new $className();
-            $newDatabaseManager->initialize($this, $parameters);
-            $newDatabaseManager->startup();
-            $this->databaseManager = $newDatabaseManager;
-            if ($vd) {
-              $logger->debug(
-                "[Context.getUser] - Database manager recreated successfully using factory info: " .
-                  $className,
-              );
-            }
-            $this->registerCoreService('databaseManager', $this->databaseManager);
-          } catch (\Throwable $e) {
-            $logger->error(
-              "[Context.getUser] - Failed to recreate database manager: " .
-                $e->getMessage(),
-            );
-          }
-        } else {
-          $logger->warning(
-            "[Context.getUser] - Database manager factory info missing, cannot recreate",
+        } catch (\Throwable $e) {
+          \Quiote\Logging\Log::for($this)->error(
+            "[Context.getUser] could not rebuild the database manager before the user: " .
+              $e->getMessage(),
           );
         }
       }
 
-      if ($this->userFactoryInfo !== null) {
-        // Recreate the user object using captured factory info
-        $className = $this->userFactoryInfo["class"];
-        $parameters = $this->userFactoryInfo["parameters"];
-
-        $newUser = new $className();
-        $newUser->initialize($this, $parameters);
-        $newUser->startup();
-        $this->user = $newUser;
-        if ($vd) {
-          $logger->debug(
-            "[Context.getUser] newUser=" .
-              $newUser::class .
-              " oid=" .
-              spl_object_id($newUser),
-          );
-        }
-
-        // Replace any stale user instances in shutdown sequence to avoid persisting outdated auth state later
-        $this->spliceIntoShutdownSequence(
-          $newUser,
-          static fn(mixed $component): bool =>
-            $component instanceof \Quiote\User\User ||
-            $component instanceof \Quiote\User\ISecurityUser,
-          // No user in the sequence: put it first, so its writes land before
-          // anything else the sequence shuts down.
-          static fn(): int => 0,
-          'getUser',
-        );
-
-        if ($vd) {
-          $logger->debug(
-            "[Context.getUser] - User object recreated successfully using factory info: " .
-              $className,
-          );
-        }
-        $this->registerCoreService('user', $this->user, Container::SCOPE_REQUEST);
-      } else {
-        $logger->error(
-          "[Context.getUser] - No user factory info available, cannot recreate user",
-        );
-        throw new QuioteException(
-          "User object is null and no factory info available for recreation in worker mode",
-        );
-      }
-    }
-
-    if ($this->user === null) {
-      throw new QuioteException(
-        "User object is unexpectedly null after recreation",
+      $newUser = $this->rebuildFromFactoryInfo(
+        'user',
+        $this->userFactoryInfo,
+        Container::SCOPE_REQUEST,
       );
+      $this->user = $newUser;
+
+      // Replace any stale user instances in the shutdown sequence, so an outdated auth
+      // state is not the thing that gets persisted.
+      $this->spliceIntoShutdownSequence(
+        $newUser,
+        static fn(mixed $component): bool =>
+          $component instanceof \Quiote\User\User ||
+          $component instanceof \Quiote\User\ISecurityUser,
+        // No user in the sequence: put it first, so its writes land before
+        // anything else the sequence shuts down.
+        static fn(): int => 0,
+        'getUser',
+      );
+
+      return $newUser;
     }
+
     return $this->user;
   }
 }

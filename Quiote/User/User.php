@@ -14,7 +14,7 @@ use Symfony\Contracts\Service\ResetInterface;
  * @since      1.0.0
  * @version    1.0.0
  */
-class User extends AttributeHolder implements ResetInterface
+class User extends AttributeHolder implements ResetInterface, \Quiote\ContextComponentInterface
 {
 	/**
 	 * @var        ?Context An Context instance.
