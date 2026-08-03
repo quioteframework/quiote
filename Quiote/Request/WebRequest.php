@@ -12,12 +12,17 @@ use Symfony\Contracts\Service\ResetInterface;
  * WebRequest provides additional support for web-only client requests
  * such as cookie and file manipulation.
  *
- * WebRequest is fully immutable: every mutator (setParameter, appendParameter,
+ * WebRequest is immutable: every mutator (setParameter, appendParameter,
  * removeParameter, declareParameter(s), enforceValidatedParameters,
- * clearParameters, setAttribute, appendAttribute, and every inherited PSR-7
- * with*() method) returns a NEW WebRequest instance. Callers must capture and
- * propagate the return value; a discarded return value is a no-op, not a bug
- * in WebRequest.
+ * clearParameters, setAttribute, appendAttribute, withUrlScheme and its siblings,
+ * and every inherited PSR-7 with*() method) returns a NEW WebRequest instance.
+ * Callers must capture and propagate the return value; a discarded return value is
+ * a no-op, not a bug in WebRequest.
+ *
+ * The one exception is the deprecated setUrlScheme()/setUrlHost()/setUrlPort()/
+ * setRequestUri()/setUrlPath()/setUrlQuery()/setProtocol() family, which changes
+ * this instance in place and returns void. Prefer the with*() counterparts; the
+ * setters exist for application code written against the pre-immutability API.
  *
  * Composes a Nyholm\Psr7\ServerRequest to implement PSR-7 rather than extending
  * it: Nyholm marks its request classes @final, and composition also means we
@@ -215,59 +220,193 @@ class WebRequest implements ServerRequestInterface, ResetInterface
 	}
 
 	/**
+	 * Project $url onto the wrapped PSR-7 request's URI, returning a new instance whose
+	 * two views of the URL agree.
+	 *
+	 * The URL metadata and the wrapped request are separate representations of the same
+	 * thing, so any change to one has to be mirrored onto the other: otherwise
+	 * getUrlHost() and getUri()->getHost() can answer differently, and a host- or
+	 * scheme-based check reads whichever of the two the caller happened to reach for.
+	 */
+	private function withUrlMetadata(RequestUrl $url): static
+	{
+		$uri = $this->psrRequest->getUri()
+			->withScheme($url->scheme)
+			->withHost($url->host)
+			->withPath($url->path)
+			->withQuery($url->query);
+
+		// RequestUrl carries the scheme's default port as a concrete number; PSR-7 wants
+		// null for a default port so it stays out of the authority.
+		$port = $url->port;
+		$isDefaultPort = ($url->scheme === 'https' && $port === 443) || ($url->scheme === 'http' && $port === 80);
+		$uri = $uri->withPort($port === 0 || $isDefaultPort ? null : $port);
+
+		$psr = $this->psrRequest->withUri($uri, false);
+
+		// getProtocol() is the full protocol string ("HTTP/1.1"); PSR-7 tracks the bare
+		// version. Keep them aligned when the string is well-formed, and leave the
+		// version alone when it is not.
+		if ($url->protocol !== null && preg_match('#^HTTP/(\d+(?:\.\d+)?)$#i', $url->protocol, $m) === 1) {
+			$psr = $psr->withProtocolVersion($m[1]);
+		}
+
+		$new = $this->withPsrRequest($psr);
+		$new->url = $url;
+
+		return $new;
+	}
+
+	/**
 	 * @param      string $scheme
 	 */
-	public function setUrlScheme($scheme): void
+	public function withUrlScheme($scheme): static
 	{
-		$this->url = $this->url->withScheme($scheme);
+		return $this->withUrlMetadata($this->url->withScheme((string)$scheme));
 	}
 
 	/**
 	 * @param      string $host
 	 */
-	public function setUrlHost($host): void
+	public function withUrlHost($host): static
 	{
-		$this->url = $this->url->withHost($host);
+		return $this->withUrlMetadata($this->url->withHost((string)$host));
 	}
 
 	/**
 	 * @param      int $port
 	 */
-	public function setUrlPort($port): void
+	public function withUrlPort($port): static
 	{
-		$this->url = $this->url->withPort((int)$port);
+		return $this->withUrlMetadata($this->url->withPort((int)$port));
 	}
 
 	/**
+	 * Set path and query together from a combined request URI ("/path?a=b"), keeping the
+	 * separately addressable path and query components consistent with it.
 	 * @param      string $uri
 	 */
-	public function setRequestUri($uri): void
+	public function withRequestUri($uri): static
 	{
-		$this->url = $this->url->withRequestUri($uri);
+		$uri = (string)$uri;
+		$queryPos = strpos($uri, '?');
+		$path = $queryPos === false ? $uri : substr($uri, 0, $queryPos);
+		$query = $queryPos === false ? '' : substr($uri, $queryPos + 1);
+
+		return $this->withUrlMetadata(
+			$this->url->withRequestUri($uri)->withPath($path)->withQuery($query)
+		);
 	}
 
 	/**
 	 * @param      string $urlPath
 	 */
-	public function setUrlPath($urlPath): void
+	public function withUrlPath($urlPath): static
 	{
-		$this->url = $this->url->withPath($urlPath);
+		$urlPath = (string)$urlPath;
+		$query = $this->url->query;
+
+		return $this->withUrlMetadata(
+			$this->url->withPath($urlPath)->withRequestUri($urlPath . ($query !== '' ? '?' . $query : ''))
+		);
 	}
 
 	/**
 	 * @param      string $urlQuery
 	 */
-	public function setUrlQuery($urlQuery): void
+	public function withUrlQuery($urlQuery): static
 	{
-		$this->url = $this->url->withQuery($urlQuery);
+		$urlQuery = (string)$urlQuery;
+		$path = $this->url->path;
+
+		return $this->withUrlMetadata(
+			$this->url->withQuery($urlQuery)->withRequestUri($path . ($urlQuery !== '' ? '?' . $urlQuery : ''))
+		);
 	}
 
 	/**
 	 * @param      ?string $protocol
 	 */
+	public function withProtocol($protocol): static
+	{
+		return $this->withUrlMetadata($this->url->withProtocol($protocol === null ? null : (string)$protocol));
+	}
+
+	/**
+	 * @deprecated 3.2.0 Use withUrlScheme(), which returns a new request.
+	 * @param      string $scheme
+	 */
+	public function setUrlScheme($scheme): void
+	{
+		$this->adoptUrlMetadata($this->withUrlScheme($scheme));
+	}
+
+	/**
+	 * @deprecated 3.2.0 Use withUrlHost(), which returns a new request.
+	 * @param      string $host
+	 */
+	public function setUrlHost($host): void
+	{
+		$this->adoptUrlMetadata($this->withUrlHost($host));
+	}
+
+	/**
+	 * @deprecated 3.2.0 Use withUrlPort(), which returns a new request.
+	 * @param      int $port
+	 */
+	public function setUrlPort($port): void
+	{
+		$this->adoptUrlMetadata($this->withUrlPort($port));
+	}
+
+	/**
+	 * @deprecated 3.2.0 Use withRequestUri(), which returns a new request.
+	 * @param      string $uri
+	 */
+	public function setRequestUri($uri): void
+	{
+		$this->adoptUrlMetadata($this->withRequestUri($uri));
+	}
+
+	/**
+	 * @deprecated 3.2.0 Use withUrlPath(), which returns a new request.
+	 * @param      string $urlPath
+	 */
+	public function setUrlPath($urlPath): void
+	{
+		$this->adoptUrlMetadata($this->withUrlPath($urlPath));
+	}
+
+	/**
+	 * @deprecated 3.2.0 Use withUrlQuery(), which returns a new request.
+	 * @param      string $urlQuery
+	 */
+	public function setUrlQuery($urlQuery): void
+	{
+		$this->adoptUrlMetadata($this->withUrlQuery($urlQuery));
+	}
+
+	/**
+	 * @deprecated 3.2.0 Use withProtocol(), which returns a new request.
+	 * @param      ?string $protocol
+	 */
 	public function setProtocol($protocol): void
 	{
-		$this->url = $this->url->withProtocol($protocol);
+		$this->adoptUrlMetadata($this->withProtocol($protocol));
+	}
+
+	/**
+	 * Copy $source's URL state onto this instance, for the deprecated void setters above.
+	 *
+	 * Those setters are the one place a WebRequest changes in place, so the URL metadata
+	 * and the wrapped PSR-7 request are copied together -- a caller holding this instance
+	 * must never see the two disagree, whichever API mutated it.
+	 */
+	private function adoptUrlMetadata(self $source): void
+	{
+		$this->url = $source->url;
+		$this->psrRequest = $source->psrRequest;
+		$this->parametersCache = null;
 	}
 
 	#[\Override]
