@@ -24,7 +24,9 @@ class PsrQuioteParityTest extends UnitTestCase
         $web->setCookie('T', 'v', 0, '/', 'example.test', false, true, false);
         $web->setContent('hello');
 
-        // sendContent should update the PSR body; capture output to avoid PHPUnit marking the test as risky
+        // sendContent() now stages instead of echoing (transport belongs to the
+        // runtime's emitter), but must still reflect the body onto the attached
+        // PSR response.
         ob_start();
         $web->sendContent();
         $out = ob_get_clean();
@@ -35,6 +37,24 @@ class PsrQuioteParityTest extends UnitTestCase
         $this->assertTrue($psr2->hasHeader('X-Test-Header'));
         $this->assertStringContainsString('T=v', $psr2->getHeaderLine('Set-Cookie'));
         $this->assertEquals('hello', (string) $psr2->getBody());
-        $this->assertEquals('hello', $out, 'sendContent should have echoed the content');
+        $this->assertSame('', $out, 'nothing may be written to an output channel directly');
+    }
+
+    public function testStagedResponseCarriesTheSameStatusHeadersAndCookies(): void
+    {
+        $web = new WebResponse();
+        $web->setHttpStatusCode(201);
+        $web->setHttpHeader('X-Test-Header', 'value');
+        $web->setCookie('T', 'v', 0, '/', 'example.test', false, true, false);
+        $web->setContent('hello');
+
+        $web->send();
+
+        $staged = $web->getStagedResponse();
+        $this->assertNotNull($staged);
+        $this->assertSame(201, $staged->getStatusCode());
+        $this->assertSame('value', $staged->getHeaderLine('X-Test-Header'));
+        $this->assertStringContainsString('T=v', $staged->getHeaderLine('Set-Cookie'));
+        $this->assertSame('hello', (string) $staged->getBody());
     }
 }

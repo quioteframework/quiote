@@ -14,7 +14,7 @@ class RedirectContentLengthTest extends UnitTestCase
         $web->setPsrResponse($psr);
         $web->initialize($this->getContext(), []);
 
-        // default behaviour: redirect present -> no content echoed and Content-Length set to 0
+        // default behaviour: redirect present -> no body staged and Content-Length set to 0
         $web->setRedirect('/out', 302);
         ob_start();
         $web->send();
@@ -24,6 +24,10 @@ class RedirectContentLengthTest extends UnitTestCase
         $this->assertNotNull($psr2);
         $this->assertEquals(0, $psr2->getBody()->getSize() ?: 0);
         $this->assertEquals('', $out);
+        $staged = $web->getStagedResponse();
+        $this->assertNotNull($staged);
+        $this->assertSame('', (string) $staged->getBody());
+        $this->assertSame('0', $staged->getHeaderLine('Content-Length'));
     }
 
     public function testRedirectSendsContentWhenConfigured(): void
@@ -44,6 +48,9 @@ class RedirectContentLengthTest extends UnitTestCase
         $psr2 = $web->getPsrResponse();
         $this->assertNotNull($psr2);
         $this->assertEquals('body-redirect', (string) $psr2->getBody());
-        $this->assertEquals('body-redirect', $out);
+        $this->assertSame('', $out, 'the body is staged for the emitter, never echoed');
+        $staged = $web->getStagedResponse();
+        $this->assertNotNull($staged);
+        $this->assertSame('body-redirect', (string) $staged->getBody());
     }
 }

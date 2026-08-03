@@ -6,50 +6,76 @@ use Quiote\Testing\UnitTestCase;
 use Quiote\Response\WebResponse;
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 
-class TestQuioteWebResponse extends WebResponse
-{
-	#[\Override]
-    protected function sendHttpResponseHeaders(?OutputType $outputType = null)
-	{
-		// suppress errors when headers cannot be sent
-		set_error_handler(fn($errNo, $errStr) => stripos((string) $errStr, 'headers already sent') !== false, E_WARNING);
-		
-		parent::sendHttpResponseHeaders($outputType);
-		
-		restore_error_handler();
-	}
-}
-
 class WebResponseTest extends UnitTestCase
 {
-	
+
 	/**
-	 * @var \TestQuioteWebResponse
+	 * @var \Quiote\Response\WebResponse
 	 */
 	private $_r = null;
 
 	#[\Override]
     public function setUp(): void
 	{
-		$this->_r = new TestQuioteWebResponse();
+		$this->_r = new WebResponse();
 		$this->_r->initialize($this->getContext());
 	}
 
-	public function testSend(): void
+	/**
+	 * send() stages rather than emits, so the content is reachable on the staged
+	 * PSR-7 response instead of on the output buffer. Previously this class needed a
+	 * WebResponse subclass just to swallow the "headers already sent" warnings that
+	 * send()'s header() calls produced under PHPUnit -- there is nothing left to
+	 * swallow now that transport belongs to the runtime's emitter.
+	 */
+	public function testSendStagesThePsrResponseInsteadOfEmitting(): void
 	{
 		$r = $this->_r;
 
 		$r->setContent('content');
-		ob_start();
-		try {
-			$r->send();
-		} catch (\Exception) {
-			// discard exception about headers already sent
-		}
-		$content = ob_get_contents();
-		ob_end_clean();
 
-		$this->assertEquals('content', $content);
+		ob_start();
+		$r->send();
+		$echoed = ob_get_clean();
+
+		$this->assertSame('', $echoed, 'send() must not write to any output channel of its own');
+		$this->assertTrue($r->hasStagedResponse());
+		$staged = $r->getStagedResponse();
+		$this->assertNotNull($staged);
+		$this->assertSame('content', (string) $staged->getBody());
+	}
+
+	public function testToPsrResponseCarriesStatusHeadersAndCookies(): void
+	{
+		$r = $this->_r;
+
+		$r->setContent('body');
+		$r->setHttpStatusCode(404);
+		$r->setHttpHeader('X-Thing', 'value');
+		$r->setCookie('sid', 'abc');
+
+		$psr = $r->toPsrResponse();
+
+		$this->assertSame(404, $psr->getStatusCode());
+		$this->assertSame('value', $psr->getHeaderLine('X-Thing'));
+		$this->assertSame('body', (string) $psr->getBody());
+		$this->assertNotSame([], $psr->getHeader('Set-Cookie'));
+		$this->assertStringStartsWith('sid=abc', $psr->getHeader('Set-Cookie')[0]);
+	}
+
+	public function testStagedResponseIsClearedByReset(): void
+	{
+		$r = $this->_r;
+		$r->setContent('content');
+		$r->send();
+		$this->assertTrue($r->hasStagedResponse());
+
+		$r->reset();
+
+		$this->assertFalse(
+			$r->hasStagedResponse(),
+			'a staged response must not survive into the next request a worker serves',
+		);
 	}
 
 	public function testExposeQuioteVersionReadsCorePrefixedKey(): void

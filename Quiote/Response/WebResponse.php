@@ -147,6 +147,13 @@ class WebResponse extends AttributeHolder implements ResetInterface
 	protected ?ResponseInterface $psrResponse = null;
 
 	/**
+	 * @var ?ResponseInterface The response staged by {@see send()}, awaiting emission
+	 *      by the runtime's emitter. Request-scoped: cleared by clear()/reset() so a
+	 *      staged response cannot be emitted again for the next request in a worker.
+	 */
+	protected ?ResponseInterface $stagedResponse = null;
+
+	/**
 	 * @var        ?string Context name, stand-in for the Context instance while serialized.
 	 */
 	protected final $contextName;
@@ -186,8 +193,8 @@ class WebResponse extends AttributeHolder implements ResetInterface
 			unset($vars['content']);
 		}
 
-		// The PSR-7 response is request-scoped and not necessarily serializable.
-		unset($vars['psrResponse']);
+		// The PSR-7 responses are request-scoped and not necessarily serializable.
+		unset($vars['psrResponse'], $vars['stagedResponse']);
 
 		return array_keys($vars);
 	}
@@ -373,6 +380,9 @@ class WebResponse extends AttributeHolder implements ResetInterface
 		$this->content = null;
 		$this->outputType = null;
 		$this->psrResponse = null;
+		// Request-scoped: a response staged by send() must never be emitted again
+		// for the next request this worker serves.
+		$this->stagedResponse = null;
 
 		// Serialization scratch space; stale values would confuse __wakeup().
 		$this->contextName = null;
@@ -455,7 +465,23 @@ class WebResponse extends AttributeHolder implements ResetInterface
 	}
 
 	/**
-	 * Send all response data to the client.
+	 * Stage this response for emission.
+	 *
+	 * Deliberately does no transport of its own. Transport is the one thing that
+	 * genuinely differs between hosts -- header()/echo reaches the client under
+	 * php-fpm and FrankenPHP, but under RoadRunner header() is a no-op and echo
+	 * lands on the protocol relay -- so it belongs to the runtime's
+	 * {@see \Quiote\Runtime\Emitter\ResponseEmitterInterface} and nowhere else.
+	 * This method materializes the response ({@see toPsrResponse()}) and hands it
+	 * to the pipeline, which returns it to {@see \Quiote\Runtime\Worker\WorkerLoop}
+	 * for that one emitter to send. One owner of emission, identical on every
+	 * runtime.
+	 *
+	 * The visible change against the pre-3.1.2 behaviour is timing, not content:
+	 * the bytes are no longer flushed at the call site, they go out when the
+	 * pipeline unwinds. Nothing is lost -- {@see \Quiote\Middleware\DispatchMiddleware}
+	 * prefers a staged response over the one it would otherwise build.
+	 *
 	 * @param      OutputType $outputType An optional Output Type object with information
 	 *                             the response can use to send additional data,
 	 *                             such as HTTP headers
@@ -464,12 +490,40 @@ class WebResponse extends AttributeHolder implements ResetInterface
 	 */
 	public function send(?OutputType $outputType = null)
 	{
+		$this->stagedResponse = $this->toPsrResponse($outputType);
+
+		// Keep the separately-attached "PSR response for forwarding" in step. Status,
+		// headers and cookies already mirror onto it as they are set; the body only
+		// ever did so from sendContent(), so reflect it here to preserve that.
+		if($this->psrResponse !== null) {
+			try {
+				$this->psrResponse = $this->psrResponse->withBody($this->stagedResponse->getBody());
+			} catch(\Throwable) {}
+		}
+	}
+
+	/**
+	 * Materialize this response as PSR-7: status, prepared headers, queued
+	 * cookies and body, with no side effects on any output channel.
+	 *
+	 * This is the conversion every runtime shares -- what used to be spread across
+	 * send()/sendHttpResponseHeaders()/sendContent() as a pile of header() and echo
+	 * calls that only worked under a SAPI.
+	 *
+	 * @param      ?OutputType $outputType Output type whose http_headers to fold in;
+	 *                         defaults to this response's own.
+	 * @return     ResponseInterface
+	 * @throws     QuioteException If a relative redirect is set with no initialized Context.
+	 * @since      3.1.2
+	 */
+	public function toPsrResponse(?OutputType $outputType = null): ResponseInterface
+	{
 		if($this->redirect) {
 			$redirect = $this->redirect;
 			$location = $redirect['location'];
 			if(!preg_match('#^[^:]+://#', (string) $location)) {
 				if ($this->context === null) {
-					throw new QuioteException('WebResponse::send - cannot build a relative redirect location without an initialized Context');
+					throw new QuioteException('WebResponse::toPsrResponse - cannot build a relative redirect location without an initialized Context');
 				}
 				if(isset($location[0]) && $location[0] == '/') {
 					/** @var WebRequest */
@@ -485,39 +539,75 @@ class WebResponse extends AttributeHolder implements ResetInterface
 				$this->setHttpHeader('Content-Length', 0);
 			}
 		}
-		$this->sendHttpResponseHeaders($outputType);
-		if(!$this->redirect || $this->getParameter('send_redirect_content', false)) {
-			$this->sendContent();
-		}
-	}
 
-	/**
-	 * Send the content for this response
-	 * @return     void
-	 * @since      1.0.0
-	 */
-	public function sendContent()
-	{
+		$this->prepareHttpResponseHeaders($outputType);
+
+		$withBody = !$this->redirect || $this->getParameter('send_redirect_content', false);
+		$response = \Quiote\Http\Psr17::factory()->createResponse((int) $this->httpStatusCode);
+
+		foreach($this->httpHeaders as $name => $values) {
+			$response = $response->withHeader((string) $name, $values);
+		}
+		foreach($this->buildSetCookieHeaders() as $line) {
+			$response = $response->withAddedHeader('Set-Cookie', $line);
+		}
+
+		if(!$withBody) {
+			return $response;
+		}
+
+		// A file-backed body the front-end server should serve itself: hand over the
+		// path and send no body, exactly as the X-Sendfile contract expects.
 		if(is_resource($this->content) && $this->getParameter('use_sendfile_header', false)) {
 			$info = stream_get_meta_data($this->content);
 			if($info['wrapper_type'] == 'plainfile' && isset($info['uri'])) {
 				$sendfileHeader = $this->getParameter('sendfile_header_name', 'X-Sendfile');
 				$sendfileHeader = is_string($sendfileHeader) && $sendfileHeader !== '' ? $sendfileHeader : 'X-Sendfile';
-				header($sendfileHeader . ': ' . self::toStringOrEmpty($info['uri']));
-				return;
+				return $response->withHeader($sendfileHeader, self::toStringOrEmpty($info['uri']));
 			}
 		}
+
 		if(is_resource($this->content)) {
-			fpassthru($this->content);
-			fclose($this->content);
-		} else {
-			echo self::toStringOrEmpty($this->content);
-			if($this->psrResponse !== null) {
-				try {
-					$this->psrResponse = $this->psrResponse->withBody(SimpleStream::fromString(self::toStringOrEmpty($this->content)));
-				} catch(\Throwable) {}
-			}
+			// Wrapped rather than read into a string: the emitter can drain it
+			// incrementally, where the old fpassthru() had already committed the
+			// whole file to memory-or-socket by this point.
+			return $response->withBody(
+				\Quiote\Http\Psr17::factory()->createStreamFromResource($this->content),
+			);
 		}
+
+		return $response->withBody(SimpleStream::fromString(self::toStringOrEmpty($this->content)));
+	}
+
+	/**
+	 * Whether {@see send()} has staged a response awaiting emission.
+	 * @since      3.1.2
+	 */
+	public function hasStagedResponse(): bool
+	{
+		return $this->stagedResponse !== null;
+	}
+
+	/**
+	 * The response staged by {@see send()}, or null if send() was never called.
+	 * @since      3.1.2
+	 */
+	public function getStagedResponse(): ?ResponseInterface
+	{
+		return $this->stagedResponse;
+	}
+
+	/**
+	 * Send the content for this response.
+	 * @deprecated Call send() instead; this no longer echoes, because emission
+	 *             belongs to the runtime's emitter. Kept so existing callers still
+	 *             get their content to the client rather than silently losing it.
+	 * @return     void
+	 * @since      1.0.0
+	 */
+	public function sendContent()
+	{
+		$this->send();
 	}
 
 	/**
@@ -532,6 +622,7 @@ class WebResponse extends AttributeHolder implements ResetInterface
 		$this->httpHeaders = [];
 		$this->cookies = [];
 		$this->redirect = null;
+		$this->stagedResponse = null;
 	}
 
 	/**
@@ -1201,19 +1292,21 @@ class WebResponse extends AttributeHolder implements ResetInterface
 	}
 
 	/**
-	 * Sends HTTP Status code, headers and cookies
+	 * Fold the output type's headers, Content-Length and X-Powered-By into
+	 * $this->httpHeaders, ready to be materialized onto a PSR-7 response.
+	 *
+	 * Preparation only: this used to call header() and so was the transport step
+	 * as well, which is exactly what made it work on a SAPI and silently do
+	 * nothing anywhere else. Transport now belongs to the runtime's
+	 * {@see \Quiote\Runtime\Emitter\ResponseEmitterInterface}, reached via
+	 * {@see toPsrResponse()}.
 	 * @return     void
 	 * @since      1.0.0
 	 */
-	protected function sendHttpResponseHeaders(?OutputType $outputType = null)
+	protected function prepareHttpResponseHeaders(?OutputType $outputType = null)
 	{
 		if($outputType === null) {
 			$outputType = $this->getOutputType();
-		}
-
-		// send HTTP status code
-		if(isset($this->httpStatusCodes[$this->httpStatusCode])) {
-			header($this->httpStatusCodes[$this->httpStatusCode]);
 		}
 
 		if($outputType !== null) {
@@ -1245,28 +1338,27 @@ class WebResponse extends AttributeHolder implements ResetInterface
 			$this->setHttpHeader('X-Powered-By', $xpbh);
 		}
 
-		// send cookies
+	}
+
+	/**
+	 * The Set-Cookie header lines for every cookie queued on this response.
+	 * @return     list<string>
+	 * @since      3.1.2
+	 */
+	private function buildSetCookieHeaders(): array
+	{
+		$lines = [];
 		foreach($this->cookies as $name => $values) {
 			$normalized = $this->normalizeCookieForSend($name, $values);
 			$headerValue = $this->buildSetCookieHeader($name, $normalized);
-			header('Set-Cookie: ' . $headerValue, false);
+			$lines[] = $headerValue;
 			$this->logCookieDebug('sendCookieHeader', [
 				'name' => $name,
 				'normalized' => $normalized,
 				'header' => $headerValue,
 			]);
 		}
-
-		// send headers
-		foreach($this->httpHeaders as $name => $values) {
-			foreach($values as $key => $value) {
-				if($key == 0) {
-					header($name . ': ' . $value);
-				} else {
-					header($name . ': ' . $value, false);
-				}
-			}
-		}
+		return $lines;
 	}
 
 	/**

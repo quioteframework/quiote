@@ -128,6 +128,29 @@ class DispatchMiddleware implements MiddlewareInterface
     }
 
     /**
+     * The response an action staged via WebResponse::send(), or null if it never
+     * called it. Duck-typed like the rest of this method's global-response access,
+     * so a custom response class that doesn't implement the staging API simply
+     * falls through to the rebuild path.
+     */
+    private function stagedResponseFrom(object $globalResp): ?ResponseInterface
+    {
+        if (!method_exists($globalResp, 'hasStagedResponse') || !method_exists($globalResp, 'getStagedResponse')) {
+            return null;
+        }
+        try {
+            if ($globalResp->hasStagedResponse() !== true) {
+                return null;
+            }
+            $staged = $globalResp->getStagedResponse();
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return $staged instanceof ResponseInterface ? $staged : null;
+    }
+
+    /**
      * @param array<string, mixed>|null $redirectSnapshot
      */
     private function buildPsrResponse(string $content, string $outputType, bool $cacheHit, bool $containerUsed, ?array $redirectSnapshot = null): ResponseInterface
@@ -172,6 +195,15 @@ class DispatchMiddleware implements MiddlewareInterface
         } catch (\Throwable) {
         }
         if (is_object($globalResp)) {
+            // An action that called WebResponse::send() has already materialized the
+            // exact response it wants -- status, headers, cookies and body. Prefer it
+            // wholesale rather than rebuilding a near-copy: send() no longer performs
+            // transport of its own (that belongs to the runtime's emitter), so this is
+            // the point at which what it staged rejoins the pipeline.
+            $staged = $this->stagedResponseFrom($globalResp);
+            if ($staged !== null) {
+                return $staged;
+            }
             try {
                 $statusCode = (int)$globalResp->getHttpStatusCode();
                 if ($statusCode >= 100) {
