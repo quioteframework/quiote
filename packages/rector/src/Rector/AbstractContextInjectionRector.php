@@ -10,8 +10,10 @@ use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Expr\PropertyFetch;
 use PhpParser\Node\Expr\StaticCall;
 use PhpParser\Node\Expr\Variable;
+use PhpParser\Node\Identifier;
 use PhpParser\Node\Name;
 use PhpParser\Node\Stmt\Class_;
+use PhpParser\Node\Stmt\ClassMethod;
 use PHPStan\Type\ObjectType;
 use Quiote\Rector\NodeAnalyzer\ContextCallAnalyzer;
 use Rector\NodeManipulator\ClassDependencyManipulator;
@@ -102,9 +104,126 @@ abstract class AbstractContextInjectionRector extends AbstractRector
             );
         }
 
+        $this->dropParentPromotedParams($node);
         $this->orderConstructorParams($node);
 
         return $node;
+    }
+
+    /**
+     * Strip promotion from a constructor parameter whose property the parent already declares.
+     *
+     * When the class being rewritten has no constructor of its own, the dependency manipulator
+     * synthesizes one -- and to keep the parent reachable it re-declares the parent's parameters and
+     * forwards them, copying their promotion along with them:
+     *
+     *     public function __construct(protected readonly Context $context, private readonly Routing $routing)
+     *     {
+     *         parent::__construct($context);
+     *     }
+     *
+     * That is a fatal. The child's promotion assigns `$this->context`, then `parent::__construct()`
+     * assigns it a second time, and a readonly property cannot be written twice: the class
+     * *declaration* compiles, and construction throws `Cannot modify readonly property`. Every
+     * `Service` subclass would have been rewritten this way, because {@see \Quiote\Service\Service}
+     * promotes its context.
+     *
+     * The repair is to leave the parameter in place but unpromoted, so the parent's constructor
+     * remains the only writer of the property it owns.
+     *
+     * Only applied to a constructor that really does call `parent::__construct()`. Without that
+     * call, dropping the promotion would drop the only assignment the property ever gets and trade
+     * a loud fatal for a silently uninitialized collaborator.
+     *
+     * @since      4.0.0
+     */
+    private function dropParentPromotedParams(Class_ $class): void
+    {
+        $constructor = $class->getMethod('__construct');
+        if ($constructor === null || $constructor->params === []) {
+            return;
+        }
+
+        if (!$this->callsParentConstructor($constructor)) {
+            return;
+        }
+
+        $promotedByParent = $this->parentPromotedParamNames($class);
+        if ($promotedByParent === []) {
+            return;
+        }
+
+        foreach ($constructor->params as $param) {
+            if ($param->flags === 0 || !$param->var instanceof Variable || !is_string($param->var->name)) {
+                continue;
+            }
+
+            if (in_array($param->var->name, $promotedByParent, true)) {
+                $param->flags = 0;
+            }
+        }
+    }
+
+    /**
+     * The names of the constructor parameters the declared parent promotes to properties.
+     *
+     * Read through reflection on the parent, which {@see isInjectableClass()} has already loaded by
+     * the time any rewriting happens. The class being rewritten is not necessarily loadable itself,
+     * but its parent always is.
+     *
+     * @return     array<int, string>
+     * @since      4.0.0
+     */
+    private function parentPromotedParamNames(Class_ $class): array
+    {
+        if (!$class->extends instanceof Name) {
+            return [];
+        }
+
+        $parent = $class->extends->toString();
+        if (!class_exists($parent)) {
+            return [];
+        }
+
+        $parentConstructor = (new \ReflectionClass($parent))->getConstructor();
+        if ($parentConstructor === null) {
+            return [];
+        }
+
+        $names = [];
+        foreach ($parentConstructor->getParameters() as $parentParam) {
+            if ($parentParam->isPromoted()) {
+                $names[] = $parentParam->getName();
+            }
+        }
+
+        return $names;
+    }
+
+    /**
+     * Whether this constructor delegates to its parent's.
+     *
+     * @since      4.0.0
+     */
+    private function callsParentConstructor(ClassMethod $constructor): bool
+    {
+        $found = false;
+
+        $this->traverseNodesWithCallable($constructor->stmts ?? [], function (Node $node) use (&$found): null {
+            if (
+                $node instanceof StaticCall
+                && $node->class instanceof Name
+                && $node->class->toLowerString() === 'parent'
+                && $node->name instanceof Identifier
+                && strcasecmp($node->name->toString(), '__construct') === 0
+            ) {
+                $found = true;
+            }
+
+            return null;
+        });
+
+        return $found;
     }
 
     /**
