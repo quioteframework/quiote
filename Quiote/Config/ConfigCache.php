@@ -556,6 +556,74 @@ class ConfigCache
 		Toolkit::clearCache(self::CACHE_SUBDIR);
 		self::$modifiedCache = [];
 		self::$formatResolveMemo = [];
+		self::$cacheNameMemo = [];
+	}
+
+	/**
+	 * @var        ?string Memoized framework fingerprint; see {@see frameworkFingerprint()}.
+	 */
+	private static ?string $frameworkFingerprint = null;
+
+	/**
+	 * A short token identifying the framework build that compiles a config cache.
+	 *
+	 * Part of every cache key, because otherwise nothing invalidates a compiled config when the
+	 * framework changes. Freshness is decided by comparing the *source* config's mtime against the
+	 * cache file's, and upgrading the framework changes neither -- so a cache compiled by an older
+	 * version is reused indefinitely, even though the handler that produced it may now generate a
+	 * completely different shape. That failure lands at boot, and reports whatever the stale cache's
+	 * contents happen to break first rather than the staleness itself.
+	 *
+	 * Composer's installed reference is the useful part: for a released install it is the dist
+	 * reference, and for a `dev-` install it is the commit hash, so it changes on every framework
+	 * commit. That covers developing against an unreleased framework, which a version string alone
+	 * does not. It is asked of `quioteframework/quiote` whether the framework is a dependency or the
+	 * root package.
+	 *
+	 * `core.config_cache_fingerprint` is mixed in when set, so a build pipeline can force a rebuild
+	 * without touching any config file.
+	 *
+	 * Memoized: this is consulted for every config in every context.
+	 *
+	 * @since      4.0.0
+	 */
+	public static function frameworkFingerprint(): string
+	{
+		if (self::$frameworkFingerprint !== null) {
+			return self::$frameworkFingerprint;
+		}
+
+		$parts = [
+			Config::getString('quiote.version', 'unknown'),
+			Config::getString('core.config_cache_fingerprint', ''),
+		];
+
+		if (class_exists(\Composer\InstalledVersions::class)) {
+			try {
+				$parts[] = (string) \Composer\InstalledVersions::getReference('quioteframework/quiote');
+			} catch (\OutOfBoundsException $e) {
+				// Not installed under that name -- a path repository under another name, or a
+				// vendor-less checkout. The version string alone then has to carry it, so a build in
+				// that layout should set core.config_cache_fingerprint.
+				\Quiote\Logging\Log::for(self::class)->debug(
+					'ConfigCache could not read the framework package reference, falling back to the '
+					. 'version string for the cache fingerprint: ' . $e->getMessage()
+				);
+			}
+		}
+
+		return self::$frameworkFingerprint = substr(sha1(implode('|', $parts)), 0, 12);
+	}
+
+	/**
+	 * Drop the memoized framework fingerprint. For tests that change what it is derived from.
+	 *
+	 * @since      4.0.0
+	 */
+	public static function resetFrameworkFingerprint(): void
+	{
+		self::$frameworkFingerprint = null;
+		self::$cacheNameMemo = [];
 	}
 
 	/**
@@ -595,10 +663,11 @@ class ConfigCache
 			),
 			sha1(
 				sprintf(
-					'%1$s_%2$s_%3$s',
+					'%1$s_%2$s_%3$s_%4$s',
 					$config,
 					$environment,
-					$context
+					$context,
+					self::frameworkFingerprint()
 				)
 			)
 		);

@@ -12,18 +12,39 @@ In progress. 4.0 breaks `Context` into the collaborators it was standing in for.
 Nothing in this section requires application changes yet — the accessors still
 exist and still work — with one exception, which is first because it fails hard.
 
-## Clear the generated config cache
+## The config cache now invalidates itself on a framework change
 
-**Required.** `ConfigCache` decides freshness by comparing the source config
-file's mtime against the cache file's. Upgrading the framework changes neither,
-so a cache compiled by 3.x is reused as-is — and the compiled `factories` file
-has a completely different shape now (see below).
+**Fixed, and it removes a whole class of upgrade hazard.** `ConfigCache` decided
+freshness purely by comparing the source config file's mtime against the cache
+file's. Upgrading the framework changes neither, so a cache compiled by an older
+version was reused indefinitely — even when the handler that produced it now
+generates a completely different shape. The failure landed at boot and reported
+whatever the stale contents happened to break first, rather than the staleness.
 
-A stale `factories.*` cache fails at boot with a message telling you to clear the
-cache. Delete the cache directory (`core.cache_dir`, plus the system-temp fallback
-if `core.cache_dir` was unset) or run `cache:warmup`. Worth doing as a deploy step
-for any framework upgrade; this release is the one where skipping it is fatal
-rather than harmless.
+Every cache key — both `ConfigCache`'s filenames and `APCuConfigCache`'s keys — now
+includes a short framework fingerprint. It is derived from `quiote.version` plus
+Composer's installed reference for `quioteframework/quiote`, which is the dist
+reference for a released install and the **commit hash** for a `dev-` install. So it
+changes on every framework commit, which covers developing against an unreleased
+framework — something a version string alone does not.
+
+A framework upgrade therefore recompiles automatically. Old cache files are left on
+disk unused; `cache:clear` removes them.
+
+`core.config_cache_fingerprint` is mixed in when set, so a build pipeline can force
+a rebuild without touching a config file.
+
+One layout is not covered automatically: a framework installed under a different
+package name (a path repository, a vendor-less checkout), where Composer cannot be
+asked for a reference. The version string alone then has to carry it, so set
+`core.config_cache_fingerprint` in that case.
+
+### Still clear the cache once, upgrading *to* 4.0
+
+The fingerprint cannot retroactively invalidate a cache compiled before it existed.
+Delete the cache directory (`core.cache_dir`, plus the system-temp fallback if
+`core.cache_dir` was unset) or run `cache:warmup` once when upgrading from 3.x. From
+4.0 onward it is automatic.
 
 ## The compiled `factories` file is data, not code
 

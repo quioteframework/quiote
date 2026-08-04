@@ -437,7 +437,11 @@ class APCuConfigCache extends ConfigCache
         // APCu under this key until TTL expiry, since the APCu-hit fast path
         // never re-checks the filesystem at all.
         $normalized = self::resolveConfigFormat($normalized);
-        $cacheKey = $normalized . '|' . ($context ?? '');
+        // The framework fingerprint is part of the key for the same reason it is part of
+        // ConfigCache's filename: nothing else invalidates a compiled config when the framework
+        // changes, and an APCu hit never re-checks the filesystem at all, so a stale entry here
+        // survives until TTL expiry rather than until the next request.
+        $cacheKey = $normalized . '|' . ($context ?? '') . '|' . ConfigCache::frameworkFingerprint();
         return self::$keyCache[$cacheKey] ??= self::$configPrefix . md5($cacheKey);
     }
     

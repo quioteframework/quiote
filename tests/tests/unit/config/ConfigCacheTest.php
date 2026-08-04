@@ -33,10 +33,11 @@ class ConfigCacheTest extends PhpUnitTestCase
 			),
 			sha1(
 				sprintf(
-					'%1$s_%2$s_%3$s',
+					'%1$s_%2$s_%3$s_%4$s',
 					$configname,
 					$environment,
-					$context
+					$context,
+					ConfigCache::frameworkFingerprint()
 				)
 			)
 		);
@@ -263,7 +264,10 @@ class ConfigCacheTest extends PhpUnitTestCase
 		$expected .= 'foo.xml';
 		$expected .= '_'.preg_replace('/[^\w_-]/i', '_', (string) Config::getNullableString('core.environment'));
 		$expected .= '_'.preg_replace('/[^\w_-]/i', '_', $context).'_';
-		$expected .= sha1($config.'_'.Config::getNullableString('core.environment').'_'.$context).'.php'; 
+		$expected .= sha1(
+			$config.'_'.Config::getNullableString('core.environment').'_'.$context
+			.'_'.ConfigCache::frameworkFingerprint()
+		).'.php';
 
 		$this->assertEquals($expected, $cachename);
 	}
@@ -347,5 +351,84 @@ class ConfigCacheTest extends PhpUnitTestCase
 		// "Trust the cache" only applies once a cache file exists; a
 		// genuinely missing cache must still compile.
 		$this->assertTrue(ConfigCache::isModified($source, $cache));
+	}
+
+	// ---------------------------------------------------------------
+	// Framework fingerprint
+	// ---------------------------------------------------------------
+
+	public function testTheFingerprintIsStableWithinAProcess(): void
+	{
+		$this->assertSame(ConfigCache::frameworkFingerprint(), ConfigCache::frameworkFingerprint());
+	}
+
+	public function testTheFingerprintIsAShortHexToken(): void
+	{
+		$this->assertMatchesRegularExpression('/^[0-9a-f]{12}$/', ConfigCache::frameworkFingerprint());
+	}
+
+	/**
+	 * The whole point. Freshness is decided by comparing the source config's mtime against the cache
+	 * file's, and upgrading the framework changes neither -- so without the fingerprint in the key, a
+	 * cache compiled by an older framework is reused indefinitely, and the failure lands at boot
+	 * reporting whatever the stale contents break first.
+	 */
+	public function testADifferentFrameworkVersionYieldsADifferentCacheName(): void
+	{
+		$config = 'project/foo.xml';
+		$before = ConfigCache::getCacheName($config, 'web');
+		$previousVersion = Config::getString('quiote.version', 'unknown');
+
+		Config::set('quiote.version', $previousVersion . '-nextrelease', true);
+		ConfigCache::resetFrameworkFingerprint();
+		try {
+			$after = ConfigCache::getCacheName($config, 'web');
+		} finally {
+			Config::set('quiote.version', $previousVersion, true);
+			ConfigCache::resetFrameworkFingerprint();
+		}
+
+		$this->assertNotSame($before, $after);
+		$this->assertSame($before, ConfigCache::getCacheName($config, 'web'), 'and back again');
+	}
+
+	/**
+	 * The knob a build pipeline can turn to force a rebuild without touching a config file.
+	 */
+	public function testTheConfigCacheFingerprintSettingChangesTheCacheName(): void
+	{
+		$config = 'project/foo.xml';
+		$before = ConfigCache::getCacheName($config, 'web');
+
+		Config::set('core.config_cache_fingerprint', 'build-1234', true);
+		ConfigCache::resetFrameworkFingerprint();
+		try {
+			$after = ConfigCache::getCacheName($config, 'web');
+		} finally {
+			Config::remove('core.config_cache_fingerprint');
+			ConfigCache::resetFrameworkFingerprint();
+		}
+
+		$this->assertNotSame($before, $after);
+	}
+
+	/**
+	 * Two configs must still be told apart, and the same config must still resolve to one name --
+	 * the fingerprint is a component of the key, not a replacement for it.
+	 */
+	public function testTheFingerprintDoesNotCollapseDistinctConfigs(): void
+	{
+		$this->assertNotSame(
+			ConfigCache::getCacheName('project/foo.xml', 'web'),
+			ConfigCache::getCacheName('project/bar.xml', 'web'),
+		);
+		$this->assertNotSame(
+			ConfigCache::getCacheName('project/foo.xml', 'web'),
+			ConfigCache::getCacheName('project/foo.xml', 'console'),
+		);
+		$this->assertSame(
+			ConfigCache::getCacheName('project/foo.xml', 'web'),
+			ConfigCache::getCacheName('project/foo.xml', 'web'),
+		);
 	}
 }
