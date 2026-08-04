@@ -81,12 +81,14 @@ class PropulsionDatabaseTest extends TestCase
         $ref->setValue($manager, ['propulsion' => $db]);
         $db->initialize($manager, ['config' => $runtimeConfig, 'datasource' => 'runtime']);
 
-        Propulsion::getSession()->addPooledInstance('TestPeer', '1', (object) ['id' => 1]);
-        $this->assertNotNull(Propulsion::getSession()->getPooledInstance('TestPeer', '1'));
+        // stdClass rather than an invented 'TestPeer': the pool keys on the class name only, and a
+        // real class-string is what Propulsion's signature asks for.
+        Propulsion::getSession()->addPooledInstance(\stdClass::class, '1', (object) ['id' => 1]);
+        $this->assertNotNull(Propulsion::getSession()->getPooledInstance(\stdClass::class, '1'));
 
         $db->reset();
 
-        $this->assertNull(Propulsion::getSession()->getPooledInstance('TestPeer', '1'));
+        $this->assertNull(Propulsion::getSession()->getPooledInstance(\stdClass::class, '1'));
     }
 
     public function testPluginRegistersPropulsionAlias(): void
@@ -108,8 +110,11 @@ class PropulsionDatabaseTest extends TestCase
                 'runtime' => [
                     'adapter' => 'sqlite',
                     'connection' => [
+                        // No 'classname': the adapter's getDefaultPdoClass() picks the driver's
+                        // connection class. PropulsionPDO itself is an interface, so naming it here
+                        // fails class_exists(), and naming a concrete driver class would couple this
+                        // test to Propulsion's internal class layout for no gain.
                         'dsn' => 'sqlite:' . $sqlitePath,
-                        'classname' => 'PropulsionPDO',
                     ],
                 ],
             ],
