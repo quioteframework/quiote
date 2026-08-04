@@ -8,6 +8,7 @@ use PhpParser\Node;
 use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Expr\PropertyFetch;
+use PhpParser\Node\Expr\StaticCall;
 use PhpParser\Node\Expr\Variable;
 use PhpParser\Node\Name;
 use PhpParser\Node\Stmt\Class_;
@@ -63,6 +64,18 @@ abstract class AbstractContextInjectionRector extends AbstractRector
         $injected = [];
 
         $this->traverseNodesWithCallable($node->stmts, function (Node $subNode) use (&$injected): ?Expr {
+            if ($subNode instanceof StaticCall) {
+                $injectable = $this->resolveInjectableForStaticCall($subNode);
+                if ($injectable === null) {
+                    return null;
+                }
+
+                $propertyName = $this->propertyNameFor($injectable, $injected);
+                $injected[$injectable] = $propertyName;
+
+                return $this->buildReplacementForStaticCall($subNode, $propertyName);
+            }
+
             if (!$subNode instanceof MethodCall) {
                 return null;
             }
@@ -214,6 +227,32 @@ abstract class AbstractContextInjectionRector extends AbstractRector
      * @since      4.0.0
      */
     protected function buildReplacement(MethodCall $methodCall, string $propertyName): Expr
+    {
+        return new PropertyFetch(new Variable('this'), $propertyName);
+    }
+
+    /**
+     * The static-call equivalent of {@see resolveInjectable()}, for the one rule that rewrites a
+     * static reach rather than an instance call.
+     *
+     * A separate hook rather than widening {@see resolveInjectable()}'s parameter, because widening
+     * it would force every other rule to accept a node type it has nothing to say about -- and PHP's
+     * contravariance rules would make each of them a fatal error until they did.
+     *
+     * @return     ?class-string
+     * @since      4.0.0
+     */
+    protected function resolveInjectableForStaticCall(StaticCall $staticCall): ?string
+    {
+        return null;
+    }
+
+    /**
+     * The expression that replaces a rewritten static call. See {@see buildReplacement()}.
+     *
+     * @since      4.0.0
+     */
+    protected function buildReplacementForStaticCall(StaticCall $staticCall, string $propertyName): Expr
     {
         return new PropertyFetch(new Variable('this'), $propertyName);
     }

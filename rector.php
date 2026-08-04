@@ -37,4 +37,5 @@ return RectorConfig::configure()
         \Quiote\Rector\Rector\ContextAccessorToConstructorInjectionRector::class,
         \Quiote\Rector\Rector\ContextRequestToRequestStateRector::class,
         \Quiote\Rector\Rector\ContextGetModelToLocatorRector::class,
+        \Quiote\Rector\Rector\ContextGetInstanceToRegistryRector::class,
     ]);
