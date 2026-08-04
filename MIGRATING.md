@@ -7,13 +7,15 @@ This file covers each release that needs migration work, newest first.
 
 # Migrating to Quiote 3.2
 
-3.2 tightens four contracts that were quietly wrong: a response could not emit
-half the status codes it needed, a request could report two different hosts, a
-PSR-7 response mutated when you copied it, and configuration was a public global
-array.
+3.2 tightens contracts that were quietly wrong: a response could not emit half the
+status codes it needed, a request could report two different hosts, a PSR-7 response
+mutated when you copied it, configuration was a public global array, a filesystem
+interface declared an operation three of its four implementations refused, and the
+session wire format had seven implementations that disagreed with each other.
 
-Most applications need no changes. The two worth grepping for are
-`Config::$config` and `with*()` calls on a `PsrResponseAdapter`.
+Most applications need no changes. The three worth grepping for are
+`Config::$config`, `with*()` calls on a `PsrResponseAdapter`, and imports of a
+provider-local `ObjectMetadata`.
 
 ---
 
@@ -215,6 +217,123 @@ silent no-op. Convert with the assignment or leave the setters alone.
 
 ---
 
+## 6. The session wire format has one codec
+
+Seven backends serialized session payloads their own way, and the three that used
+igbinary disagreed on how to recognise it coming back: core's file backend sniffed
+igbinary's format header, while `session-pdo` and `session-redis` tested for the
+payload not starting with `{` or `[`. A payload satisfying one test and not the other
+was read differently depending on which backend held it. The other four
+(`session-s3`, `session-gcs`, both Azure backends) were JSON-only with no stated
+reason.
+
+`Quiote\Session\SessionCodec`, behind `SessionCodecInterface`, is now the single
+implementation. One discriminator: a payload beginning with `{` or `[` is JSON,
+anything else is offered to igbinary. Decoding accepts both formats whichever it
+writes, so a payload written by one backend stays readable by another.
+
+**No change if you configure sessions through the `session` factory slot.** Each
+backend defaults to the codec appropriate for it — igbinary for file and database
+stores, JSON for object stores, where the round-trip dominates and a readable stored
+object is worth more than a compact one.
+
+**If you construct a persistence backend directly**, the codec is the last
+constructor argument, and it defaults:
+
+```php
+use Quiote\Session\SessionCodec;
+
+// session-pdo (Quiote\Session\Pdo\PdoSessionPersistence)
+new PdoSessionPersistence($pdo, 'session');                            // unchanged
+new PdoSessionPersistence($pdo, 'session', SessionCodec::portable());  // explicit
+
+// core (Quiote\Session\PdoSessionPersistence) — takes a parameter array
+new PdoSessionPersistence($pdo, ['table' => 'session']);
+new PdoSessionPersistence($pdo, ['table' => 'session'], SessionCodec::portable());
+```
+
+Only positional arguments *past* the documented ones are affected.
+
+Implement `SessionCodecInterface` to change the stored form — encryption at rest, a
+compressed envelope, a format an external consumer already reads — and hand it to the
+backend.
+
+One pre-existing limitation is now explicit: a top-level session key that PHP coerces
+to an integer (`$bag->set('0', …)`) cannot round-trip, because the decoded array is
+then a list rather than session data. That is a property of PHP's array keys, not of
+the encoding, and every previous implementation behaved the same way. Session keys
+have to be non-numeric strings.
+
+---
+
+## 7. `listContents()` is no longer on `FilesystemAdapterInterface`
+
+The interface declared it and three of four implementations threw from it
+unconditionally: the S3, GCS and Azure adapters are built on single-object REST calls
+with no list endpoint. Code holding the interface could not call the method without
+knowing which adapter it actually had.
+
+It moves to `Quiote\Filesystem\ListableFilesystemInterface`, which extends the base
+contract. `LocalFilesystemAdapter` implements it; the cloud adapters no longer declare
+a method they cannot honour.
+
+| Before | After |
+|---|---|
+| `$adapter->listContents()` on a `FilesystemAdapterInterface` | type-hint `ListableFilesystemInterface` |
+| — | or `$manager->listContents()` / `$manager->listableDisk()` |
+
+`FilesystemManager::listableDisk()` resolves the configured driver narrowed to the
+listable contract and, when it is not one, fails naming the disk alias and the driver
+class — at the point the disk is resolved rather than from inside the call.
+
+**If you implement `FilesystemAdapterInterface` yourself**, nothing breaks; you may
+now drop `listContents()`. **If your adapter does support listing**, declare
+`ListableFilesystemInterface` so `FilesystemManager` can resolve it.
+
+This is the same shape `Quiote\Queue\PollableQueueDriverInterface` already uses: not
+every driver can poll, not every store can enumerate.
+
+---
+
+## 8. One `ObjectMetadata` for every object store
+
+`S3Client`, `GcsClient` and `AzureBlobClient` exposed the same operation set as three
+classes sharing no interface, so nearly everything downstream was written three times
+— including three byte-identical metadata value objects differing only in namespace.
+
+`Quiote\Storage` now holds the shared contract: `ObjectStoreClientInterface`, one
+`ObjectMetadata`, and `ObjectStoreException` as the supertype of each provider's own
+exception.
+
+| Removed | Use |
+|---|---|
+| `Quiote\Storage\S3\ObjectMetadata` | `Quiote\Storage\ObjectMetadata` |
+| `Quiote\Storage\Gcs\ObjectMetadata` | `Quiote\Storage\ObjectMetadata` |
+| `Quiote\Storage\Azure\BlobMetadata` | `Quiote\Storage\ObjectMetadata` |
+
+The class is otherwise identical — same constructor, same `fromResponse()`, same three
+nullable fields — so a `use` statement is the whole migration. Mechanically
+rewritable, and a good Rector target. `AzureBlobClient::head()` returns the shared
+type.
+
+**The provider exceptions still exist and still narrow.** `S3StorageException`,
+`GcsStorageException` and `AzureStorageException` now extend `ObjectStoreException`, so
+`catch (S3StorageException)` keeps working *and* code written against the interface can
+catch one type across providers.
+
+**The six provider adapters keep their names, namespaces and constructor signatures** —
+`S3FilesystemAdapter`, `GcsFilesystemAdapter`, `AzureFilesystemAdapter`,
+`S3SessionPersistence`, `GcsSessionPersistence`, `AzureBlobSessionPersistence`. Driver
+aliases, `session` slot config and DI bindings are untouched; the shared behaviour
+moved to `Quiote\Filesystem\ObjectStoreFilesystemAdapter` and
+`Quiote\Session\ObjectStoreSessionPersistence` behind them.
+
+New: `AzureBlobContainerClient` binds an `AzureBlobClient` to one container so it
+satisfies `ObjectStoreClientInterface` like the other two, since Azure takes the
+container per call.
+
+---
+
 ## Behaviour changes that need no code edit, but will be noticed
 
 **A view's attributes now converge on one store.** `View::initialize()` always
@@ -260,6 +379,28 @@ All of it is additive. No existing signature changed, and the interfaces declare
 no PHP return types where the implementations declare none, so subclasses stay
 compatible whether or not they declare one.
 
+### `TelemetryBootstrap` is decomposed, with its API unchanged
+
+Settings resolution, exporter construction and provider assembly move out of the
+static bootstrap module into `TelemetryConfig`, `TelemetryExporterFactory` and
+`TelemetryProviderFactory`. `TelemetryBootstrap` keeps only what has to be
+process-wide — configured-once, the registered shutdown function, request-boundary
+flushing, and `reset()`.
+
+Its whole public static API is unchanged, so `Kernel::bootstrap()` and any code
+calling `configureFromConfig()`, `flushAfterRequest()`, `shutdown()`, `reset()`,
+`inMemorySpanExporter()` or `inMemoryMetricExporter()` needs no edit. What is new is
+that provider assembly can be exercised directly, over an in-memory exporter, without
+OTLP configuration or bootstrap state:
+
+```php
+$config = new TelemetryConfig(/* … */ exporter: 'none', /* … */);
+$exporters = new TelemetryExporterFactory($config);
+$providers = new TelemetryProviderFactory($config, $exporters);
+
+$tracerProvider = $providers->tracerProvider($providers->resource());
+```
+
 ---
 
 ## Checklist
@@ -272,7 +413,16 @@ compatible whether or not they declare one.
 - [ ] Pass a `Controller` if you construct `ValidationMiddleware` yourself
 - [ ] Check host- or scheme-based checks that read `getUri()` after a
       `setUrl*()` call
-- [ ] Expect new warning-level log lines on the dispatch path
+- [ ] Rewrite `Quiote\Storage\{S3,Gcs}\ObjectMetadata` and
+      `Quiote\Storage\Azure\BlobMetadata` imports to `Quiote\Storage\ObjectMetadata`
+- [ ] Type-hint `ListableFilesystemInterface` (or use
+      `FilesystemManager::listContents()`) anywhere you call `listContents()`
+- [ ] Declare `ListableFilesystemInterface` on your own adapters that support listing
+- [ ] Check for positional arguments past the documented ones if you construct a
+      session persistence backend directly
+- [ ] Check for session keys that PHP coerces to integers (`'0'`, `'1'`)
+- [ ] Expect new warning-level log lines on the dispatch path and at the worker
+      request boundary (ORM cleanup, object-store failures)
 
 ---
 
