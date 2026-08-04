@@ -7,15 +7,7 @@ namespace Quiote\Rector\Rector;
 use PhpParser\Node;
 use PhpParser\Node\Expr\ClassConstFetch;
 use PhpParser\Node\Expr\MethodCall;
-use PhpParser\Node\Expr\PropertyFetch;
-use PhpParser\Node\Expr\Variable;
 use PhpParser\Node\Identifier;
-use PhpParser\Node\Stmt\Class_;
-use PHPStan\Type\ObjectType;
-use Quiote\Rector\NodeAnalyzer\ContextCallAnalyzer;
-use Rector\NodeManipulator\ClassDependencyManipulator;
-use Rector\PostRector\ValueObject\PropertyMetadata;
-use Rector\Rector\AbstractRector;
 
 /**
  * `$this->getContext()->getService(Foo::class)` to an injected `Foo`.
@@ -57,71 +49,16 @@ use Rector\Rector\AbstractRector;
  *
  * @since      4.0.0
  */
-final class ContextServiceToConstructorInjectionRector extends AbstractRector
+final class ContextServiceToConstructorInjectionRector extends AbstractContextInjectionRector
 {
-    public function __construct(
-        private readonly ContextCallAnalyzer $contextCallAnalyzer,
-        private readonly ClassDependencyManipulator $classDependencyManipulator,
-    ) {}
-
-    /**
-     * Refactors at class level rather than at the call, because injecting a dependency needs the
-     * class: the constructor to add a parameter to, and the existing properties to avoid a name
-     * collision with.
-     *
-     * @return     array<class-string<Node>>
-     */
-    public function getNodeTypes(): array
-    {
-        return [Class_::class];
-    }
-
-    public function refactor(Node $node): ?Node
-    {
-        if (!$node instanceof Class_ || $node->isAbstract() || $node->isAnonymous()) {
-            // An anonymous class has no name to derive a property from and is usually a test
-            // double; an abstract one may be extended by something that already injects.
-            return null;
-        }
-
-        $injected = [];
-        $this->traverseNodesWithCallable($node->stmts, function (Node $subNode) use (&$injected): ?Node {
-            if (!$subNode instanceof MethodCall) {
-                return null;
-            }
-
-            $serviceClass = $this->resolveServiceClass($subNode);
-            if ($serviceClass === null) {
-                return null;
-            }
-
-            $propertyName = $this->propertyNameFor($serviceClass, $injected);
-            $injected[$serviceClass] = $propertyName;
-
-            return new PropertyFetch(new Variable('this'), $propertyName);
-        });
-
-        if ($injected === []) {
-            return null;
-        }
-
-        foreach ($injected as $serviceClass => $propertyName) {
-            $this->classDependencyManipulator->addConstructorDependency(
-                $node,
-                new PropertyMetadata($propertyName, new ObjectType($serviceClass), Class_::MODIFIER_PRIVATE),
-            );
-        }
-
-        return $node;
-    }
-
     /**
      * The service class a `getService()` call names, or null when this is not such a call or the
      * argument is not a `::class` fetch.
      *
+     * @return     ?class-string
      * @since      4.0.0
      */
-    private function resolveServiceClass(MethodCall $methodCall): ?string
+    protected function resolveInjectable(MethodCall $methodCall): ?string
     {
         if (!$this->contextCallAnalyzer->isContextCall($methodCall, 'getService')) {
             return null;
@@ -145,42 +82,15 @@ final class ContextServiceToConstructorInjectionRector extends AbstractRector
 
         $className = $argument->class->toString();
 
-        return $className === 'self' || $className === 'static' || $className === 'parent'
-            ? null
-            : $className;
-    }
-
-    /**
-     * A property name for a service class: its short name, lower-camel-cased.
-     *
-     * Reuses the name already chosen for the same class in this pass, so two call sites for one
-     * service share one injected property rather than adding two.
-     *
-     * @param      array<string, string> $injected Already-assigned class => property name.
-     * @since      4.0.0
-     */
-    private function propertyNameFor(string $serviceClass, array $injected): string
-    {
-        if (isset($injected[$serviceClass])) {
-            return $injected[$serviceClass];
+        if ($className === 'self' || $className === 'static' || $className === 'parent') {
+            // Relative names would resolve against the file being rewritten, not the service.
+            return null;
         }
 
-        $shortName = str_contains($serviceClass, '\\')
-            ? substr($serviceClass, strrpos($serviceClass, '\\') + 1)
-            : $serviceClass;
-
-        $candidate = lcfirst($shortName);
-        $taken = array_values($injected);
-
-        // A distinct class whose short name collides with one already injected -- two different
-        // TagService classes from different namespaces -- gets a suffix rather than silently
-        // reusing the other one's property.
-        $name = $candidate;
-        $suffix = 2;
-        while (in_array($name, $taken, true)) {
-            $name = $candidate . $suffix++;
-        }
-
-        return $name;
+        // A ::class fetch names something that may not exist -- a typo, or a class removed since the
+        // call was written. Declining is right: injecting a type nothing can resolve turns a working
+        // service lookup into a wiring failure.
+        return class_exists($className) || interface_exists($className) ? $className : null;
     }
+
 }

@@ -2,10 +2,11 @@
 
 namespace Quiote\Rector\Tests\Fixture;
 
+use Quiote\Action\Action;
 use Quiote\Context;
-use Quiote\Rector\Tests\Fixture\Source\TagService;
+use Quiote\Rector\Tests\Rector\ContextServiceToConstructorInjectionRector\Source\TagService;
 
-final class SingleService
+final class SingleService extends Action
 {
     public function run(Context $context): string
     {
@@ -19,10 +20,11 @@ final class SingleService
 
 namespace Quiote\Rector\Tests\Fixture;
 
+use Quiote\Action\Action;
 use Quiote\Context;
-use Quiote\Rector\Tests\Fixture\Source\TagService;
+use Quiote\Rector\Tests\Rector\ContextServiceToConstructorInjectionRector\Source\TagService;
 
-final class SingleService
+final class SingleService extends Action
 {
     public function __construct(private readonly TagService $tagService)
     {

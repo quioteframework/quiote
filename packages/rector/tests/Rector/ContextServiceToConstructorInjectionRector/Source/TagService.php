@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Quiote\Rector\Tests\Fixture\Source;
+namespace Quiote\Rector\Tests\Rector\ContextServiceToConstructorInjectionRector\Source;
 
 final class TagService
 {

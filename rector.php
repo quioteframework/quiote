@@ -34,4 +34,5 @@ return RectorConfig::configure()
     // dependencies are written fully qualified; tidy them per-commit instead.
     ->withRules([
         \Quiote\Rector\Rector\ContextServiceToConstructorInjectionRector::class,
+        \Quiote\Rector\Rector\ContextAccessorToConstructorInjectionRector::class,
     ]);

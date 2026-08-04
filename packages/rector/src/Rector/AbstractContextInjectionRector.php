@@ -1,0 +1,236 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Quiote\Rector\Rector;
+
+use PhpParser\Node;
+use PhpParser\Node\Expr;
+use PhpParser\Node\Expr\MethodCall;
+use PhpParser\Node\Expr\PropertyFetch;
+use PhpParser\Node\Expr\Variable;
+use PhpParser\Node\Name;
+use PhpParser\Node\Stmt\Class_;
+use PHPStan\Type\ObjectType;
+use Quiote\Rector\NodeAnalyzer\ContextCallAnalyzer;
+use Rector\NodeManipulator\ClassDependencyManipulator;
+use Rector\PostRector\ValueObject\PropertyMetadata;
+use Rector\Rector\AbstractRector;
+
+/**
+ * Shared machinery for the rules that replace a Context accessor with an injected collaborator.
+ *
+ * All of them do the same four things: find the accessor calls in a class, decide what to inject for
+ * each, rewrite the calls to a property fetch, and add the constructor parameters. Only the third
+ * step differs between rules, so only that is abstract.
+ *
+ * Rewriting happens at class level rather than at the call, because injecting a dependency needs the
+ * class -- the constructor to add a parameter to, and the properties already there to avoid
+ * colliding with.
+ *
+ * @since      4.0.0
+ */
+abstract class AbstractContextInjectionRector extends AbstractRector
+{
+    public function __construct(
+        protected readonly ContextCallAnalyzer $contextCallAnalyzer,
+        private readonly ClassDependencyManipulator $classDependencyManipulator,
+    ) {}
+
+    /**
+     * @return     array<class-string<Node>>
+     */
+    public function getNodeTypes(): array
+    {
+        return [Class_::class];
+    }
+
+    public function refactor(Node $node): ?Node
+    {
+        if (!$node instanceof Class_ || $node->isAbstract() || $node->isAnonymous()) {
+            // An anonymous class has no name to derive anything from and is usually a test double;
+            // an abstract one may be extended by something that already injects what it needs.
+            return null;
+        }
+
+        if (!$this->isInjectableClass($node)) {
+            return null;
+        }
+
+        /** @var array<string, string> $injected class => property name */
+        $injected = [];
+
+        $this->traverseNodesWithCallable($node->stmts, function (Node $subNode) use (&$injected): ?Expr {
+            if (!$subNode instanceof MethodCall) {
+                return null;
+            }
+
+            $injectable = $this->resolveInjectable($subNode);
+            if ($injectable === null) {
+                return null;
+            }
+
+            $propertyName = $this->propertyNameFor($injectable, $injected);
+            $injected[$injectable] = $propertyName;
+
+            return new PropertyFetch(new Variable('this'), $propertyName);
+        });
+
+        if ($injected === []) {
+            return null;
+        }
+
+        foreach ($injected as $injectableClass => $propertyName) {
+            $this->classDependencyManipulator->addConstructorDependency(
+                $node,
+                new PropertyMetadata($propertyName, new ObjectType($injectableClass), Class_::MODIFIER_PRIVATE),
+            );
+        }
+
+        $this->orderConstructorParams($node);
+
+        return $node;
+    }
+
+    /**
+     * Move parameters without defaults ahead of parameters with them.
+     *
+     * The dependency manipulator appends, which produces invalid PHP as soon as the existing
+     * constructor had an optional parameter:
+     *
+     *     public function __construct(array $parameters = [], private readonly Routing $routing)
+     *
+     * A required parameter cannot follow an optional one. Relative order is preserved within each
+     * group, so the only movement is optional parameters shifting right.
+     *
+     * This does change the constructor's positional signature, which is safe here and would not be
+     * everywhere: the classes these rules inject into are built by the container from their type
+     * hints, not positionally. A class constructed with an explicit `new` and positional arguments
+     * must not be rewritten at all -- see {@see isInjectableClass()}.
+     *
+     * @since      4.0.0
+     */
+    private function orderConstructorParams(Class_ $class): void
+    {
+        $constructor = $class->getMethod('__construct');
+        if ($constructor === null || count($constructor->params) < 2) {
+            return;
+        }
+
+        $required = [];
+        $optional = [];
+        foreach ($constructor->params as $param) {
+            if ($param->default === null && !$param->variadic) {
+                $required[] = $param;
+            } else {
+                $optional[] = $param;
+            }
+        }
+
+        $reordered = [...$required, ...$optional];
+        if ($reordered !== $constructor->params) {
+            $constructor->params = $reordered;
+        }
+    }
+
+    /**
+     * Whether the container actually constructs this class, and so whether a constructor dependency
+     * added to it would ever be supplied.
+     *
+     * This is not a refinement, it is a correctness requirement, and running the rules against the
+     * framework is what surfaced it. `Quiote\Routing\HttpRedirectRoutingCallback` reaches
+     * `getRouting()` and looks like an ideal candidate -- but `RoutingCallbackPool` builds callbacks
+     * with a bare `new $className()`, so an injected parameter is never passed and the class fatals
+     * on construction. The same is true of models, config handlers and most of the framework's own
+     * infrastructure.
+     *
+     * Only four hierarchies are built through the container and may therefore be injected into.
+     * Everything else is `new`'d by name somewhere, which is also what makes reordering the
+     * constructor safe here and unsafe generally: a positional caller would be silently broken.
+     *
+     * Resolved from the declared parent rather than from the class itself. The class being rewritten
+     * need not be autoloadable -- a Rector fixture never is, and PHPStan's reflection provider does
+     * not know it -- but its *parent* is ordinary framework or application code that loads fine, and
+     * `is_a()` on the parent walks the rest of the hierarchy. A class with no parent, or a parent that
+     * cannot be loaded, is declined: "unknown" must not mean "assume injectable".
+     *
+     * @since      4.0.0
+     */
+    protected function isInjectableClass(Class_ $class): bool
+    {
+        if (!$class->extends instanceof Name) {
+            return false;
+        }
+
+        $parent = $class->extends->toString();
+        if (!class_exists($parent)) {
+            return false;
+        }
+
+        foreach (self::CONTAINER_BUILT_HIERARCHIES as $base) {
+            if (is_a($parent, $base, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The class hierarchies the container constructs, and so the only ones a constructor dependency
+     * can be added to. See {@see isInjectableClass()}.
+     *
+     * @var        array<int, class-string>
+     */
+    private const array CONTAINER_BUILT_HIERARCHIES = [
+        \Quiote\Action\Action::class,
+        \Quiote\View\View::class,
+        \Quiote\Service\Service::class,
+        \Quiote\Validator\Validator::class,
+    ];
+
+    /**
+     * The class to inject in place of this call, or null to leave the call alone.
+     *
+     * Returning null is the default answer and the safe one: a rule that cannot determine its target
+     * with certainty must decline, so the site reaches the residue reporter instead of being
+     * rewritten to a guess.
+     *
+     * @return     ?class-string
+     * @since      4.0.0
+     */
+    abstract protected function resolveInjectable(MethodCall $methodCall): ?string;
+
+    /**
+     * A property name for an injected class: its short name, lower-camel-cased.
+     *
+     * Reuses the name already chosen for the same class in this pass, so several call sites for one
+     * collaborator share one injected property rather than adding one each.
+     *
+     * @param      array<string, string> $injected Already-assigned class => property name.
+     * @since      4.0.0
+     */
+    protected function propertyNameFor(string $injectableClass, array $injected): string
+    {
+        if (isset($injected[$injectableClass])) {
+            return $injected[$injectableClass];
+        }
+
+        $shortName = str_contains($injectableClass, '\\')
+            ? substr($injectableClass, strrpos($injectableClass, '\\') + 1)
+            : $injectableClass;
+
+        $candidate = lcfirst($shortName);
+        $taken = array_values($injected);
+
+        // Two distinct classes whose short names collide -- a TagService from two namespaces --
+        // get separate properties rather than one quietly serving both.
+        $name = $candidate;
+        $suffix = 2;
+        while (in_array($name, $taken, true)) {
+            $name = $candidate . $suffix++;
+        }
+
+        return $name;
+    }
+}

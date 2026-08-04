@@ -185,6 +185,9 @@
 			"QuioteTestGeneratedTest2\\": [
 				"tests/GeneratedRoutes/test2/"
 			],
+			"Quiote\\Rector\\Tests\\": [
+				"packages/rector/tests/"
+			],
 			"Quiote\\Test\\Database\\Entity\\": [
 				"packages/db-doctrine/tests/Entity/",
 				"packages/db-cycle/tests/Entity/"

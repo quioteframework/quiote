@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Quiote\Rector\Rector\ContextAccessorToConstructorInjectionRector;
 use Quiote\Rector\Rector\ContextServiceToConstructorInjectionRector;
 use Rector\Config\RectorConfig;
 
@@ -15,12 +16,13 @@ use Rector\Config\RectorConfig;
  * `importNames()` is set here rather than left to the caller: without it every injected dependency
  * is written fully qualified, which is correct but unreadable across hundreds of call sites.
  *
- * Rules land here as they are written and proven. Only rule 1 is present so far -- see the plan's
- * "Prove the rules first" gate. Running an incomplete set is safe; it simply leaves the accessors
+ * Rules land here as they are written and proven. Rules 1 and 2 are present so far -- see the
+ * plan's "Prove the rules first" gate. Running an incomplete set is safe; it simply leaves the accessors
  * it does not cover alone.
  */
 return static function (RectorConfig $rectorConfig): void {
     $rectorConfig->importNames();
 
     $rectorConfig->rule(ContextServiceToConstructorInjectionRector::class);
+    $rectorConfig->rule(ContextAccessorToConstructorInjectionRector::class);
 };
