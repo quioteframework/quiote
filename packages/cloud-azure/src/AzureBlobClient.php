@@ -8,6 +8,7 @@ use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\ResponseInterface;
+use Quiote\Storage\ObjectMetadata;
 
 /**
  * Minimal Azure Blob Storage REST client using Shared Key authentication —
@@ -85,7 +86,7 @@ final class AzureBlobClient
      * Blob properties without transferring the body (Get Blob Properties), or
      * null if the blob does not exist.
      */
-    public function head(string $container, string $blob): ?BlobMetadata
+    public function head(string $container, string $blob): ?ObjectMetadata
     {
         $response = $this->send('HEAD', $this->blobPath($container, $blob));
         if ($response->getStatusCode() === 404) {
@@ -95,7 +96,7 @@ final class AzureBlobClient
             throw $this->unexpectedStatus($response);
         }
 
-        return BlobMetadata::fromResponse($response);
+        return ObjectMetadata::fromResponse($response);
     }
 
     /**

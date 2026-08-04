@@ -2,21 +2,25 @@
 
 declare(strict_types=1);
 
-namespace Quiote\Storage\Gcs;
+namespace Quiote\Storage;
 
 use DateTimeImmutable;
 use Exception;
 use Psr\Http\Message\ResponseInterface;
 
 /**
- * The subset of an object's HEAD response worth typing: everything else the
- * XML API returns (storage class, generation, custom metadata headers) is
- * available from the raw response via {@see GcsClient::request()} for callers
- * that need it.
+ * The subset of a stored object's HEAD response worth typing: everything else a provider returns
+ * (storage class, versioning, generation, SSE and custom metadata headers) is available from the
+ * raw response via the client's own `request()` method for callers that need it.
  *
- * Every field is nullable because a HEAD response is not contractually
- * obliged to carry it, and callers that require a value should say so with
- * their own error rather than get a silently invented zero.
+ * Every field is nullable because a HEAD response is not contractually obliged to carry it -- a
+ * proxy or an S3-compatible server may omit Content-Length or ETag, and callers that require a
+ * value should say so with their own error rather than get a silently invented zero.
+ *
+ * Shared across providers: the three fields and their parsing are HTTP semantics, not provider
+ * semantics, so S3, GCS and Azure describe an object the same way.
+ *
+ * @since      3.2.0
  */
 final readonly class ObjectMetadata
 {
@@ -40,9 +44,9 @@ final readonly class ObjectMetadata
     }
 
     /**
-     * Last-Modified is an IMF-fixdate, which DateTimeImmutable parses
-     * natively (including the GMT zone). A malformed value is treated as an
-     * absent one — a timestamp nobody can trust is worse than none.
+     * Last-Modified is an IMF-fixdate, which DateTimeImmutable parses natively (including the GMT
+     * zone). A malformed value is treated as an absent one -- a timestamp nobody can trust is
+     * worse than none.
      */
     private static function parseHttpDate(string $value): ?DateTimeImmutable
     {

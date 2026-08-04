@@ -4,65 +4,29 @@ declare(strict_types=1);
 
 namespace Quiote\Storage\Azure;
 
-use Quiote\Session\SessionCodec;
+use Quiote\Session\ObjectStoreSessionPersistence;
 use Quiote\Session\SessionCodecInterface;
-use Quiote\Session\SessionPersistenceInterface;
 
 /**
- * {@see SessionPersistenceInterface} storing one JSON blob per session id
+ * {@see \Quiote\Session\SessionPersistenceInterface} storing one JSON blob per session id
  * (named `<sid>.json`) in a single Azure Blob container.
+ *
+ * Azure takes the container per call, so the client is wrapped in an
+ * {@see AzureBlobContainerClient} that binds it and creates it on first write. Everything after
+ * that is the shared behaviour in {@see ObjectStoreSessionPersistence}.
  */
-final class AzureBlobSessionPersistence implements SessionPersistenceInterface
+final class AzureBlobSessionPersistence extends ObjectStoreSessionPersistence
 {
-    private bool $containerEnsured = false;
-
     public function __construct(
-        private readonly AzureBlobClient $client,
-        private readonly string $container = 'quiote-sessions',
-        private readonly SessionCodecInterface $codec = new SessionCodec(preferBinary: false),
+        AzureBlobClient $client,
+        string $container = 'quiote-sessions',
+        ?SessionCodecInterface $codec = null,
     ) {
-    }
-
-    #[\Override]
-    public function load(string $sid): ?array
-    {
-        $payload = $this->client->get($this->container, $this->blobName($sid));
-        if ($payload === null || $payload === '') {
-            return null;
-        }
-
-        return $this->codec->decode($payload);
-    }
-
-    /** @param array<string, mixed> $data */
-    #[\Override]
-    public function save(string $sid, array $data): void
-    {
-        $this->ensureContainer();
-        $this->client->put(
-            $this->container,
-            $this->blobName($sid),
-            $this->codec->encode($data),
+        parent::__construct(
+            new AzureBlobContainerClient($client, $container),
+            '',
+            '.json',
+            $codec ?? new \Quiote\Session\SessionCodec(preferBinary: false),
         );
     }
-
-    #[\Override]
-    public function delete(string $sid): void
-    {
-        $this->client->delete($this->container, $this->blobName($sid));
-    }
-
-    private function ensureContainer(): void
-    {
-        if (!$this->containerEnsured) {
-            $this->client->ensureContainerExists($this->container);
-            $this->containerEnsured = true;
-        }
-    }
-
-    private function blobName(string $sid): string
-    {
-        return "{$sid}.json";
-    }
-
 }

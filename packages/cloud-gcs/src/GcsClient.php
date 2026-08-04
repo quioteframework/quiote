@@ -8,6 +8,8 @@ use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\ResponseInterface;
+use Quiote\Storage\ObjectMetadata;
+use Quiote\Storage\ObjectStoreClientInterface;
 
 /**
  * Minimal Google Cloud Storage REST client authenticating with an HMAC key
@@ -25,7 +27,7 @@ use Psr\Http\Message\ResponseInterface;
  * @see https://cloud.google.com/storage/docs/authentication/hmackeys
  * @see https://cloud.google.com/storage/docs/migrating#migration-simple
  */
-final class GcsClient
+final class GcsClient implements ObjectStoreClientInterface
 {
     public function __construct(
         private readonly ClientInterface $httpClient,

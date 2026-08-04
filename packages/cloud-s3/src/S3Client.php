@@ -8,6 +8,8 @@ use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\ResponseInterface;
+use Quiote\Storage\ObjectMetadata;
+use Quiote\Storage\ObjectStoreClientInterface;
 
 /**
  * Minimal S3 REST client using AWS Signature Version 4 — deliberately not
@@ -25,7 +27,7 @@ use Psr\Http\Message\ResponseInterface;
  *
  * @see https://docs.aws.amazon.com/IAM/latest/UserGuide/create-signed-request.html
  */
-final class S3Client
+final class S3Client implements ObjectStoreClientInterface
 {
     private const string ALGORITHM = 'AWS4-HMAC-SHA256';
 

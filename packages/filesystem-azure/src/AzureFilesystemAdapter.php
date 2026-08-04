@@ -4,123 +4,26 @@ declare(strict_types=1);
 
 namespace Quiote\Filesystem\Azure;
 
-use DateTimeImmutable;
-use Quiote\Filesystem\FileNotFoundStorageException;
-use Quiote\Filesystem\FilesystemAdapterInterface;
-use Quiote\Filesystem\FilesystemStorageException;
+use Quiote\Filesystem\ObjectStoreFilesystemAdapter;
 use Quiote\Storage\Azure\AzureBlobClient;
-use Quiote\Storage\Azure\AzureStorageException;
-use Quiote\Storage\Azure\BlobMetadata;
+use Quiote\Storage\Azure\AzureBlobContainerClient;
 
 /**
- * {@see FilesystemAdapterInterface} wrapping the existing {@see AzureBlobClient}
- * (Shared-Key REST client) as its transport, against a fixed container (Azure
- * has no bucket-equivalent bound to the client itself, unlike S3/GCS).
+ * {@see \Quiote\Filesystem\FilesystemAdapterInterface} over {@see AzureBlobClient}
+ * (Shared-Key REST client), against a fixed container.
+ *
+ * Azure takes the container per call where S3 and GCS bind the bucket to the client, so the
+ * client is wrapped in an {@see AzureBlobContainerClient} that binds it. Everything after that --
+ * the path-to-key mapping, the error translation, container creation on first write -- is the
+ * shared behaviour in {@see ObjectStoreFilesystemAdapter} and the container facade.
  *
  * Not a {@see \Quiote\Filesystem\ListableFilesystemInterface}: the client has no list-blobs
  * operation — see `Quiote\Filesystem\S3\S3FilesystemAdapter`'s docblock for the reasoning.
- * Applications that need a listing should keep it in their own database beside the record that
- * owns the files, or drive {@see AzureBlobClient::request()} — which signs an arbitrary request
- * and returns the raw response — directly.
  */
-final readonly class AzureFilesystemAdapter implements FilesystemAdapterInterface
+final readonly class AzureFilesystemAdapter extends ObjectStoreFilesystemAdapter
 {
-    public function __construct(
-        private AzureBlobClient $client,
-        private string $container,
-        private string $keyPrefix = '',
-    ) {
-    }
-
-    #[\Override]
-    public function read(string $path): string
+    public function __construct(AzureBlobClient $client, string $container, string $keyPrefix = '')
     {
-        $body = $this->fetch($path);
-        if ($body === null) {
-            throw new FileNotFoundStorageException(sprintf('File "%s" does not exist.', $path));
-        }
-        return $body;
-    }
-
-    #[\Override]
-    public function write(string $path, string $contents): void
-    {
-        try {
-            $this->client->put($this->container, $this->key($path), $contents);
-        } catch (AzureStorageException $e) {
-            throw new FilesystemStorageException(sprintf('Failed writing file "%s": %s', $path, $e->getMessage()), 0, $e);
-        }
-    }
-
-    #[\Override]
-    public function delete(string $path): void
-    {
-        try {
-            $this->client->delete($this->container, $this->key($path));
-        } catch (AzureStorageException $e) {
-            throw new FilesystemStorageException(sprintf('Failed deleting file "%s": %s', $path, $e->getMessage()), 0, $e);
-        }
-    }
-
-    #[\Override]
-    public function exists(string $path): bool
-    {
-        return $this->head($path) !== null;
-    }
-
-    #[\Override]
-    public function size(string $path): int
-    {
-        $size = $this->metadata($path)->contentLength;
-        if ($size === null) {
-            throw new FilesystemStorageException(sprintf('Azure returned no Content-Length for file "%s".', $path));
-        }
-
-        return $size;
-    }
-
-    #[\Override]
-    public function lastModified(string $path): DateTimeImmutable
-    {
-        $lastModified = $this->metadata($path)->lastModified;
-        if ($lastModified === null) {
-            throw new FilesystemStorageException(sprintf('Azure returned no usable Last-Modified for file "%s".', $path));
-        }
-
-        return $lastModified;
-    }
-
-    private function fetch(string $path): ?string
-    {
-        try {
-            return $this->client->get($this->container, $this->key($path));
-        } catch (AzureStorageException $e) {
-            throw new FilesystemStorageException(sprintf('Failed reading file "%s": %s', $path, $e->getMessage()), 0, $e);
-        }
-    }
-
-    private function head(string $path): ?BlobMetadata
-    {
-        try {
-            return $this->client->head($this->container, $this->key($path));
-        } catch (AzureStorageException $e) {
-            throw new FilesystemStorageException(sprintf('Failed reading metadata of file "%s": %s', $path, $e->getMessage()), 0, $e);
-        }
-    }
-
-    /** @throws FileNotFoundStorageException if $path does not exist. */
-    private function metadata(string $path): BlobMetadata
-    {
-        $metadata = $this->head($path);
-        if ($metadata === null) {
-            throw new FileNotFoundStorageException(sprintf('File "%s" does not exist.', $path));
-        }
-
-        return $metadata;
-    }
-
-    private function key(string $path): string
-    {
-        return $this->keyPrefix . $path;
+        parent::__construct(new AzureBlobContainerClient($client, $container), 'Azure', $keyPrefix);
     }
 }

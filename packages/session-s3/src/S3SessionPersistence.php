@@ -4,53 +4,28 @@ declare(strict_types=1);
 
 namespace Quiote\Storage\S3;
 
-use Quiote\Session\SessionCodec;
+use Quiote\Session\ObjectStoreSessionPersistence;
 use Quiote\Session\SessionCodecInterface;
-use Quiote\Session\SessionPersistenceInterface;
 
 /**
- * {@see SessionPersistenceInterface} storing one JSON object per session id
+ * {@see \Quiote\Session\SessionPersistenceInterface} storing one JSON object per session id
  * (key `<prefix><sid>.json`) in a single S3 bucket.
+ *
+ * The storage behaviour is {@see ObjectStoreSessionPersistence}, shared with the other
+ * object-store session backends; this class supplies the client.
  */
-final class S3SessionPersistence implements SessionPersistenceInterface
+final class S3SessionPersistence extends ObjectStoreSessionPersistence
 {
     public function __construct(
-        private readonly S3Client $client,
-        private readonly string $keyPrefix = 'sessions/',
-        private readonly SessionCodecInterface $codec = new SessionCodec(preferBinary: false),
+        S3Client $client,
+        string $keyPrefix = 'sessions/',
+        ?SessionCodecInterface $codec = null,
     ) {
-    }
-
-    #[\Override]
-    public function load(string $sid): ?array
-    {
-        $payload = $this->client->get($this->key($sid));
-        if ($payload === null || $payload === '') {
-            return null;
-        }
-
-        return $this->codec->decode($payload);
-    }
-
-    /** @param array<string, mixed> $data */
-    #[\Override]
-    public function save(string $sid, array $data): void
-    {
-        $this->client->put(
-            $this->key($sid),
-            $this->codec->encode($data),
+        parent::__construct(
+            $client,
+            $keyPrefix,
+            '.json',
+            $codec ?? new \Quiote\Session\SessionCodec(preferBinary: false),
         );
     }
-
-    #[\Override]
-    public function delete(string $sid): void
-    {
-        $this->client->delete($this->key($sid));
-    }
-
-    private function key(string $sid): string
-    {
-        return "{$this->keyPrefix}{$sid}.json";
-    }
-
 }
