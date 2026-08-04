@@ -192,8 +192,13 @@ class CycleDatabase extends AbstractOrmDatabase
         if ($this->connection instanceof ORMInterface) {
             try {
                 $this->connection->getHeap()->clean();
-            } catch (\Throwable) {
-                // best-effort
+            } catch (\Throwable $e) {
+                // The heap keeps this request's hydrated entities, so the next request served by
+                // this worker can read stale ones -- which is the whole reason this runs.
+                \Quiote\Logging\Log::for($this)->warning(
+                    '[CycleDatabase] could not clean the ORM heap at the request boundary; entities '
+                    . 'from this request may leak into the next: ' . $e->getMessage()
+                );
             }
         }
         parent::reset();
@@ -205,8 +210,11 @@ class CycleDatabase extends AbstractOrmDatabase
         if ($this->connection instanceof ORMInterface) {
             try {
                 $this->connection->getHeap()->clean();
-            } catch (\Throwable) {
-                // best-effort
+            } catch (\Throwable $e) {
+                // Shutdown continues either way; the heap is dropped with the connection below.
+                \Quiote\Logging\Log::for($this)->debug(
+                    '[CycleDatabase] could not clean the ORM heap on shutdown: ' . $e->getMessage()
+                );
             }
         }
         $this->connection = $this->resource = null;

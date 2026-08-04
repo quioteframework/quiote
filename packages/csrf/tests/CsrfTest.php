@@ -93,7 +93,13 @@ class CsrfTest extends UnitTestCase
             // A manager installed in setUp() would otherwise change
             // cookie-name resolution for every later test in the process.
             $ctx->setSessionManager(null);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            // Session state left installed changes cookie-name resolution for every later test in
+            // this process, so a failed teardown is worth naming rather than hiding.
+            \Quiote\Logging\Log::for($this)->warning(
+                '[' . static::class . '] could not reset the session state in tearDown; later tests '
+                . 'in this process may see it: ' . $e->getMessage()
+            );
         }
         parent::tearDown();
     }

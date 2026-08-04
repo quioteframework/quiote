@@ -63,8 +63,12 @@ final class RedisSessionPersistence implements SessionPersistenceInterface
                 if (is_string($serialized)) {
                     return $serialized;
                 }
-            } catch (Throwable) {
-                // fall through to JSON
+            } catch (Throwable $e) {
+                // Falls through to JSON below, which every build can read.
+                \Quiote\Logging\Log::for($this)->debug(
+                    '[RedisSessionPersistence] igbinary could not encode the session payload, '
+                    . 'using JSON: ' . $e->getMessage()
+                );
             }
         }
 

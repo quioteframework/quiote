@@ -70,7 +70,13 @@ class CsrfExemptionAdversaryTest extends UnitTestCase
         try {
             $this->getContext()->setSessionBag(null);
             $this->getContext()->setSessionManager(null);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            // Session state left installed changes cookie-name resolution for every later test in
+            // this process, so a failed teardown is worth naming rather than hiding.
+            \Quiote\Logging\Log::for($this)->warning(
+                '[' . static::class . '] could not reset the session state in tearDown; later tests '
+                . 'in this process may see it: ' . $e->getMessage()
+            );
         }
         parent::tearDown();
     }

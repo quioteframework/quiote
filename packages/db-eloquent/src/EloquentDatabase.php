@@ -170,13 +170,23 @@ class EloquentDatabase extends AbstractOrmDatabase
                 if ($conn->transactionLevel() > 0) {
                     $conn->rollBack(0);
                 }
-            } catch (\Throwable) {
-                // best-effort cleanup
+            } catch (\Throwable $e) {
+                // Shutdown continues either way, but an un-rolled-back transaction can hold locks
+                // and, under a persistent worker, be inherited by the next request on this
+                // connection.
+                \Quiote\Logging\Log::for($this)->warning(
+                    '[EloquentDatabase] could not roll back the open transaction on shutdown: '
+                    . $e->getMessage()
+                );
             }
             try {
                 $this->connection->getDatabaseManager()->purge($this->connectionName());
-            } catch (\Throwable) {
-                // best-effort cleanup
+            } catch (\Throwable $e) {
+                // The connection stays in the manager, so the next request may reuse one whose
+                // state was never cleaned.
+                \Quiote\Logging\Log::for($this)->warning(
+                    '[EloquentDatabase] could not purge the connection on shutdown: ' . $e->getMessage()
+                );
             }
         }
         $this->connection = $this->resource = null;

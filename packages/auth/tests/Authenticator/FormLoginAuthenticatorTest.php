@@ -142,8 +142,9 @@ class FormLoginAuthenticatorTest extends UnitTestCase
 		try {
 			$authenticator->authenticate($badRequest);
 			$this->fail('Expected an AuthenticationException for the wrong password.');
-		} catch(AuthenticationException) {
-			// expected: this is the failure that exhausts the 1-attempt budget
+		} catch(AuthenticationException $e) {
+			// Expected: this is the failure that exhausts the 1-attempt budget.
+			$this->assertNotSame('', $e->getMessage(), 'the rejection must carry a reason');
 		}
 
 		$goodRequest = (new Psr17Factory())->createServerRequest('POST', '/login')

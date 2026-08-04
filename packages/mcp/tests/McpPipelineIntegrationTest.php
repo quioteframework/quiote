@@ -100,8 +100,10 @@ final class McpPipelineIntegrationTest extends PhpUnitTestCase
         $pipeline = $this->pipeline();
         try {
             $pipeline->handle(new ServerRequest('GET', 'http://localhost/not-mcp'));
-        } catch (\Throwable) {
-            // debugStack is populated during build, before the stack runs.
+        } catch (\Throwable $e) {
+            // Irrelevant to this test: debugStack is populated during build, before the stack
+            // runs, so whether the request itself completes does not matter here.
+            $this->assertNotSame('', $e->getMessage());
         }
 
         $order = $pipeline->debugStack();

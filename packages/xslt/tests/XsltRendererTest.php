@@ -169,7 +169,10 @@ XSL, $secret));
             $output = '';
             try {
                 $output = @$layer->execute($renderer, $attributes, $moreAssigns);
-            } catch (RenderException) {
+            } catch (RenderException $e) {
+                // The refused read surfacing as a transform failure is one of the two acceptable
+                // outcomes described above; $output stays empty and the assertion below still holds.
+                $this->assertNotSame('', $e->getMessage());
             }
 
             $this->assertStringNotContainsString('TOP-SECRET-VALUE', $output, 'document() must not read local files');

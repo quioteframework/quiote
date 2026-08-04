@@ -111,8 +111,13 @@ class DoctrineDbalDatabase extends AbstractOrmDatabase
                     $this->connection->rollBack();
                 }
                 $this->connection->close();
-            } catch (\Throwable) {
-                // best-effort cleanup
+            } catch (\Throwable $e) {
+                // Shutdown continues either way, but an un-rolled-back transaction can hold locks
+                // and an unclosed connection leaks for the worker's lifetime.
+                \Quiote\Logging\Log::for($this)->warning(
+                    '[DoctrineDbalDatabase] could not roll back and close the connection on shutdown: '
+                    . $e->getMessage()
+                );
             }
         }
         $this->connection = $this->resource = null;

@@ -121,8 +121,14 @@ final class PdoSessionPersistence implements SessionPersistenceInterface
     {
         try {
             $this->pdo->prepare("DELETE FROM {$this->table} WHERE sess_id = ?")->execute([$sid]);
-        } catch (PDOException) {
-            // best-effort: a missing row (or a dead connection during shutdown) isn't worth failing the request over
+        } catch (PDOException $e) {
+            // Not worth failing the request over -- a missing row, or a connection already torn
+            // down at shutdown, are both ordinary. But the row surviving means the session it
+            // holds can still be loaded until it expires, which matters when this is a logout.
+            \Quiote\Logging\Log::for($this)->error(
+                '[PdoSessionPersistence] could not delete session row "' . $sid
+                . '"; the session data survives: ' . $e->getMessage()
+            );
         }
     }
 
@@ -135,8 +141,12 @@ final class PdoSessionPersistence implements SessionPersistenceInterface
                 if (is_string($packed)) {
                     return $packed;
                 }
-            } catch (Throwable) {
-                // fall through to JSON
+            } catch (Throwable $e) {
+                // Falls through to JSON below, which every build can read.
+                \Quiote\Logging\Log::for($this)->debug(
+                    '[PdoSessionPersistence] igbinary could not encode the session payload, '
+                    . 'using JSON: ' . $e->getMessage()
+                );
             }
         }
 

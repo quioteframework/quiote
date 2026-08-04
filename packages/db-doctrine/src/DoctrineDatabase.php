@@ -259,8 +259,13 @@ class DoctrineDatabase extends AbstractOrmDatabase
         if ($this->connection instanceof EntityManagerInterface) {
             try {
                 $this->connection->clear();
-            } catch (\Throwable) {
-                // best-effort
+            } catch (\Throwable $e) {
+                // The identity map keeps this request's entities, so the next request served by
+                // this worker can read stale managed objects.
+                \Quiote\Logging\Log::for($this)->warning(
+                    '[DoctrineDatabase] could not clear the entity manager at the request boundary; '
+                    . 'entities from this request may leak into the next: ' . $e->getMessage()
+                );
             }
         }
         parent::reset();
@@ -276,8 +281,13 @@ class DoctrineDatabase extends AbstractOrmDatabase
                     $conn->rollBack();
                 }
                 $conn->close();
-            } catch (\Throwable) {
-                // best-effort
+            } catch (\Throwable $e) {
+                // Shutdown continues either way, but an un-rolled-back transaction can hold locks
+                // and an unclosed connection leaks for the worker's lifetime.
+                \Quiote\Logging\Log::for($this)->warning(
+                    '[DoctrineDatabase] could not roll back and close the connection on shutdown: '
+                    . $e->getMessage()
+                );
             }
         }
         $this->connection = $this->resource = null;

@@ -193,7 +193,8 @@ class HttpBasicAuthenticatorTest extends TestCase
 		try {
 			$authenticator->authenticate($this->basicRequest('nobody:secret'));
 			$this->fail('an unknown identifier must not authenticate');
-		} catch(AuthenticationException) {
+		} catch(AuthenticationException $e) {
+			$this->assertNotSame('', $e->getMessage(), 'the rejection must carry a reason');
 		}
 		$unknownCalls = $hasher->verifyCalls;
 
@@ -201,7 +202,8 @@ class HttpBasicAuthenticatorTest extends TestCase
 		try {
 			$authenticator->authenticate($this->basicRequest('alice:wrong'));
 			$this->fail('a wrong password must not authenticate');
-		} catch(AuthenticationException) {
+		} catch(AuthenticationException $e) {
+			$this->assertNotSame('', $e->getMessage(), 'the rejection must carry a reason');
 		}
 		$knownCalls = $hasher->verifyCalls;
 
@@ -271,7 +273,10 @@ class HttpBasicAuthenticatorTest extends TestCase
 
 		try {
 			$authenticator->authenticate($this->basicRequest('someone:wrong'));
-		} catch(AuthenticationException) {
+			$this->fail('a wrong password must not authenticate');
+		} catch(AuthenticationException $e) {
+			// The rejection is the precondition; what this test measures is below.
+			$this->assertNotSame('', $e->getMessage());
 		}
 
 		$this->expectException(AuthenticationException::class);
@@ -286,7 +291,10 @@ class HttpBasicAuthenticatorTest extends TestCase
 
 		try {
 			$authenticator->authenticate($this->basicRequest('alice:wrong'));
-		} catch(AuthenticationException) {
+			$this->fail('a wrong password must not authenticate');
+		} catch(AuthenticationException $e) {
+			// The rejection is the precondition; what this test measures is below.
+			$this->assertNotSame('', $e->getMessage());
 		}
 
 		$this->assertSame('alice', $authenticator->authenticate($this->basicRequest('alice:secret'))->getIdentity()->getIdentifier());
