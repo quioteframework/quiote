@@ -6,6 +6,8 @@ namespace Quiote\Session\Redis;
 
 use JsonException;
 use Predis\ClientInterface;
+use Quiote\Session\SessionCodec;
+use Quiote\Session\SessionCodecInterface;
 use Quiote\Session\SessionPersistenceInterface;
 use Throwable;
 
@@ -21,6 +23,7 @@ final class RedisSessionPersistence implements SessionPersistenceInterface
         private readonly ClientInterface $redis,
         private readonly string $prefix = 'session:',
         private readonly int $ttl = 1440,
+        private readonly SessionCodecInterface $codec = new SessionCodec(preferBinary: true),
     ) {
     }
 
@@ -33,14 +36,14 @@ final class RedisSessionPersistence implements SessionPersistenceInterface
             return null;
         }
 
-        return $this->decode($payload);
+        return $this->codec->decode($payload);
     }
 
     /** @param array<string, mixed> $data */
     #[\Override]
     public function save(string $sid, array $data): void
     {
-        $this->redis->setex($this->key($sid), $this->ttl, $this->encode($data));
+        $this->redis->setex($this->key($sid), $this->ttl, $this->codec->encode($data));
     }
 
     #[\Override]
@@ -54,58 +57,4 @@ final class RedisSessionPersistence implements SessionPersistenceInterface
         return $this->prefix . $sid;
     }
 
-    /** @param array<string, mixed> $data */
-    private function encode(array $data): string
-    {
-        if (function_exists('igbinary_serialize')) {
-            try {
-                $serialized = igbinary_serialize($data);
-                if (is_string($serialized)) {
-                    return $serialized;
-                }
-            } catch (Throwable $e) {
-                // Falls through to JSON below, which every build can read.
-                \Quiote\Logging\Log::for($this)->debug(
-                    '[RedisSessionPersistence] igbinary could not encode the session payload, '
-                    . 'using JSON: ' . $e->getMessage()
-                );
-            }
-        }
-
-        return json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
-    }
-
-    /** @return array<string, mixed>|null */
-    private function decode(string $payload): ?array
-    {
-        if (function_exists('igbinary_unserialize') && !str_starts_with($payload, '{') && !str_starts_with($payload, '[')) {
-            try {
-                $decoded = igbinary_unserialize($payload);
-                return is_array($decoded) ? $this->stringKeyed($decoded) : null;
-            } catch (Throwable) {
-                return null;
-            }
-        }
-
-        try {
-            $decoded = json_decode($payload, true, flags: JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            return null;
-        }
-
-        return is_array($decoded) ? $this->stringKeyed($decoded) : null;
-    }
-
-    /**
-     * @param array<mixed, mixed> $data
-     * @return array<string, mixed>
-     */
-    private function stringKeyed(array $data): array
-    {
-        $result = [];
-        foreach ($data as $key => $value) {
-            $result[(string) $key] = $value;
-        }
-        return $result;
-    }
 }

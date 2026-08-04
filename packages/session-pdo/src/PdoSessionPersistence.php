@@ -8,6 +8,8 @@ use JsonException;
 use PDO;
 use PDOException;
 use Quiote\Exception\StorageException;
+use Quiote\Session\SessionCodec;
+use Quiote\Session\SessionCodecInterface;
 use Quiote\Session\SessionPersistenceInterface;
 use Throwable;
 
@@ -30,6 +32,7 @@ final class PdoSessionPersistence implements SessionPersistenceInterface
     public function __construct(
         private readonly PDO $pdo,
         private readonly string $table = 'session',
+        private readonly SessionCodecInterface $codec = new SessionCodec(preferBinary: true),
     ) {
         self::assertValidTableName($table);
     }
@@ -94,14 +97,14 @@ final class PdoSessionPersistence implements SessionPersistenceInterface
             return null;
         }
 
-        return $this->decode($payload);
+        return $this->codec->decode($payload);
     }
 
     /** @param array<string, mixed> $data */
     #[\Override]
     public function save(string $sid, array $data): void
     {
-        $payload = $this->encode($data);
+        $payload = $this->codec->encode($data);
 
         try {
             $statement = $this->pdo->prepare(
@@ -130,73 +133,6 @@ final class PdoSessionPersistence implements SessionPersistenceInterface
                 . '"; the session data survives: ' . $e->getMessage()
             );
         }
-    }
-
-    /** @param array<string, mixed> $data */
-    private function encode(array $data): string
-    {
-        if (function_exists('igbinary_serialize')) {
-            try {
-                $packed = igbinary_serialize($data);
-                if (is_string($packed)) {
-                    return $packed;
-                }
-            } catch (Throwable $e) {
-                // Falls through to JSON below, which every build can read.
-                \Quiote\Logging\Log::for($this)->debug(
-                    '[PdoSessionPersistence] igbinary could not encode the session payload, '
-                    . 'using JSON: ' . $e->getMessage()
-                );
-            }
-        }
-
-        return json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
-    }
-
-    /** @return array<string, mixed>|null */
-    private function decode(string $payload): ?array
-    {
-        if (function_exists('igbinary_unserialize') && !str_starts_with($payload, '{') && !str_starts_with($payload, '[')) {
-            try {
-                $decoded = igbinary_unserialize($payload);
-                return self::asSessionData($decoded);
-            } catch (Throwable) {
-                return null;
-            }
-        }
-
-        try {
-            $decoded = json_decode($payload, true, flags: JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            return null;
-        }
-
-        return self::asSessionData($decoded);
-    }
-
-    /**
-     * Narrow a decoded payload to the string-keyed shape a session is. A JSON
-     * list, or an igbinary payload holding one, decodes to integer keys: that is
-     * not session data, and handing it back would make the caller's key lookups
-     * silently miss.
-     *
-     * @return array<string, mixed>|null
-     */
-    private static function asSessionData(mixed $decoded): ?array
-    {
-        if (!is_array($decoded)) {
-            return null;
-        }
-
-        $result = [];
-        foreach ($decoded as $key => $value) {
-            if (!is_string($key)) {
-                return null;
-            }
-            $result[$key] = $value;
-        }
-
-        return $result;
     }
 
 }

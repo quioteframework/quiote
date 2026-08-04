@@ -33,7 +33,6 @@ use Throwable;
 class FileSessionPersistence implements SessionPersistenceInterface
 {
     private const FILE_SUFFIX = '.sess';
-    private const IGBINARY_HEADER = "\x00\x00\x00\x02";
 
     private string $directory;
     private int $idleTtl = 1440;
@@ -45,8 +44,11 @@ class FileSessionPersistence implements SessionPersistenceInterface
      *
      * @throws StorageException if the directory cannot be created or written to.
      */
-    public function __construct(string $directory, array $parameters = [])
-    {
+    public function __construct(
+        string $directory,
+        array $parameters = [],
+        private readonly SessionCodecInterface $codec = new SessionCodec(preferBinary: true),
+    ) {
         if (isset($parameters['idle_ttl']) && (is_int($parameters['idle_ttl']) || is_string($parameters['idle_ttl']))) {
             $this->idleTtl = max(0, (int)$parameters['idle_ttl']);
         }
@@ -91,12 +93,12 @@ class FileSessionPersistence implements SessionPersistenceInterface
         if ($blob === false || $blob === '') {
             return null;
         }
-        return $this->decode($blob);
+        return $this->codec->decode($blob);
     }
 
     public function save(string $sid, array $data): void
     {
-        $payload = $this->encode($data);
+        $payload = $this->codec->encode($data);
         $file = $this->fileFor($sid);
         $tmp = $this->directory . DIRECTORY_SEPARATOR . uniqid('.tmp-', true);
 
@@ -162,61 +164,4 @@ class FileSessionPersistence implements SessionPersistenceInterface
         return $this->directory . DIRECTORY_SEPARATOR . hash('sha256', $sid) . self::FILE_SUFFIX;
     }
 
-    /**
-     * @param array<string, mixed> $data
-     */
-    private function encode(array $data): string
-    {
-        if (function_exists('igbinary_serialize')) {
-            try {
-                $payload = igbinary_serialize($data);
-                if (is_string($payload)) {
-                    return $payload;
-                }
-            } catch (Throwable $e) {
-                // Falls through to the portable codec below.
-                \Quiote\Logging\Log::for($this)->debug(
-                    '[FileSessionPersistence] igbinary could not encode the session payload, '
-                    . 'using the portable codec: ' . $e->getMessage()
-                );
-            }
-        }
-        return json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
-    }
-
-    /**
-     * @return array<string, mixed>|null
-     */
-    private function decode(string $blob): ?array
-    {
-        if (str_starts_with($blob, self::IGBINARY_HEADER) && function_exists('igbinary_unserialize')) {
-            try {
-                $decoded = @igbinary_unserialize($blob);
-                if (is_array($decoded)) {
-                    /** @var array<string, mixed> $decoded */
-                    return $decoded;
-                }
-            } catch (Throwable $e) {
-                // Falls through to the portable codec below: a file written by a build without
-                // igbinary decodes the other way.
-                \Quiote\Logging\Log::for($this)->debug(
-                    '[FileSessionPersistence] igbinary could not decode the session payload, '
-                    . 'trying the portable codec: ' . $e->getMessage()
-                );
-            }
-            return null;
-        }
-        if (str_starts_with($blob, '{') || str_starts_with($blob, '[')) {
-            try {
-                $decoded = json_decode($blob, true, 512, JSON_THROW_ON_ERROR);
-            } catch (\JsonException) {
-                return null;
-            }
-            if (is_array($decoded)) {
-                /** @var array<string, mixed> $decoded */
-                return $decoded;
-            }
-        }
-        return null;
-    }
 }

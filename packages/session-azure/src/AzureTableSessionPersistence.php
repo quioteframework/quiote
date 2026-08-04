@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Quiote\Storage\Azure;
 
-use JsonException;
+use Quiote\Session\SessionCodec;
+use Quiote\Session\SessionCodecInterface;
 use Quiote\Session\SessionPersistenceInterface;
 
 /**
@@ -23,6 +24,7 @@ final class AzureTableSessionPersistence implements SessionPersistenceInterface
     public function __construct(
         private readonly AzureTableClient $client,
         private readonly string $table = 'sessions',
+        private readonly SessionCodecInterface $codec = new SessionCodec(preferBinary: false),
     ) {
     }
 
@@ -34,13 +36,7 @@ final class AzureTableSessionPersistence implements SessionPersistenceInterface
             return null;
         }
 
-        try {
-            $decoded = json_decode($entity['Data'], true, flags: JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            return null;
-        }
-
-        return self::asSessionData($decoded);
+        return $this->codec->decode($entity['Data']);
     }
 
     /** @param array<string, mixed> $data */
@@ -49,7 +45,7 @@ final class AzureTableSessionPersistence implements SessionPersistenceInterface
     {
         $this->ensureTable();
         $this->client->upsert($this->table, self::PARTITION_KEY, $sid, [
-            'Data' => json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+            'Data' => $this->codec->encode($data),
         ]);
     }
 
@@ -65,31 +61,6 @@ final class AzureTableSessionPersistence implements SessionPersistenceInterface
             $this->client->ensureTableExists($this->table);
             $this->tableEnsured = true;
         }
-    }
-
-    /**
-     * Narrow a decoded payload to the string-keyed shape a session is. A JSON
-     * list, or an igbinary payload holding one, decodes to integer keys: that is
-     * not session data, and handing it back would make the caller's key lookups
-     * silently miss.
-     *
-     * @return array<string, mixed>|null
-     */
-    private static function asSessionData(mixed $decoded): ?array
-    {
-        if (!is_array($decoded)) {
-            return null;
-        }
-
-        $result = [];
-        foreach ($decoded as $key => $value) {
-            if (!is_string($key)) {
-                return null;
-            }
-            $result[$key] = $value;
-        }
-
-        return $result;
     }
 
 }

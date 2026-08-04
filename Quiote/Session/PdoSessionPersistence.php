@@ -42,8 +42,11 @@ class PdoSessionPersistence implements SessionPersistenceInterface
     /**
      * @param array<string, mixed> $parameters
      */
-    public function __construct(PDO $pdo, array $parameters = [])
-    {
+    public function __construct(
+        PDO $pdo,
+        array $parameters = [],
+        private readonly SessionCodecInterface $codec = new SessionCodec(preferBinary: true),
+    ) {
         $this->pdo = $pdo;
         $table = $parameters['table'] ?? null;
         // Interpolated straight into SQL below, so anything that isn't a plain
@@ -118,31 +121,6 @@ class PdoSessionPersistence implements SessionPersistenceInterface
         return $this->deleteStmt ??= $this->pdo->prepare("DELETE FROM {$this->table} WHERE sess_id = ?");
     }
 
-    /**
-     * Narrow a decoded blob to the string-keyed shape load() promises. A JSON
-     * array (`[1,2]`) or an igbinary payload holding a list decodes to integer
-     * keys, which is not session data -- treat it as unreadable rather than
-     * handing back something the caller's key lookups will silently miss.
-     *
-     * @return array<string, mixed>|null
-     */
-    private function asSessionData(mixed $decoded): ?array
-    {
-        if (!is_array($decoded)) {
-            return null;
-        }
-
-        $result = [];
-        foreach ($decoded as $key => $value) {
-            if (!is_string($key)) {
-                return null;
-            }
-            $result[$key] = $value;
-        }
-
-        return $result;
-    }
-
     public function load(string $sid): ?array
     {
         $stmt = null;
@@ -157,33 +135,8 @@ class PdoSessionPersistence implements SessionPersistenceInterface
             if (!is_string($blob)) {
                 return null;
             }
-            // JSON payloads always start with '{' or '[', which igbinary's
-            // binary format never does -- check the (cheap) shape first so a
-            // JSON blob skips the igbinary_unserialize() attempt entirely,
-            // instead of paying for a doomed decode attempt on every load().
-            $looksLikeJson = str_starts_with($blob, '{') || str_starts_with($blob, '[');
-            if (!$looksLikeJson && function_exists('igbinary_unserialize')) {
-                try {
-                    $decoded = $this->asSessionData(@igbinary_unserialize($blob));
-                    if ($decoded !== null) {
-                        return $decoded;
-                    }
-                } catch (Throwable $e) {
-                    // Falls through to the other codec below: a row written before igbinary was
-                    // available, or by a build without it, decodes the other way.
-                    \Quiote\Logging\Log::for($this)->debug(
-                        '[PdoSessionPersistence] igbinary could not decode the session payload, '
-                        . 'trying the alternative codec: ' . $e->getMessage()
-                    );
-                }
-            }
-            if ($looksLikeJson) {
-                $decoded = $this->asSessionData(json_decode($blob, true, 512, JSON_THROW_ON_ERROR));
-                if ($decoded !== null) {
-                    return $decoded;
-                }
-            }
-            return null;
+
+            return $this->codec->decode($blob);
         } catch (PDOException $e) {
             throw new StorageException('Failed loading session row: ' . $e->getMessage(), (int)$e->getCode(), $e);
         } finally {
@@ -201,17 +154,7 @@ class PdoSessionPersistence implements SessionPersistenceInterface
     public function save(string $sid, array $data): void
     {
         try {
-            $payload = null;
-            if (function_exists('igbinary_serialize')) {
-                try {
-                    $payload = igbinary_serialize($data);
-                } catch (Throwable) {
-                    $payload = null;
-                }
-            }
-            if ($payload === null) {
-                $payload = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
-            }
+            $payload = $this->codec->encode($data);
             $stmt = $this->saveStatement();
             $stmt->bindParam(1, $sid, PDO::PARAM_STR);
             $stmt->bindParam(2, $payload, PDO::PARAM_LOB);
