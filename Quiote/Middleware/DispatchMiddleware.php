@@ -124,7 +124,13 @@ class DispatchMiddleware implements MiddlewareInterface
                     }
                 }
             }
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            // Cached as "no dynamic flags", which is the ordinary answer for a class that
+            // declares none.
+            \Quiote\Logging\Log::for($this)->debug(
+                '[DispatchMiddleware] could not scan ' . $cls . ' for dynamic test flags: '
+                . $e->getMessage()
+            );
         }
         return self::$dynamicFlagsCache[$cls] = false;
     }
@@ -450,7 +456,13 @@ class DispatchMiddleware implements MiddlewareInterface
             }
             $isCacheable = (bool)$actionInstance->isCacheable($actionDesc->outputType);
             $userFp = $this->computeUserFingerprint($actionInstance, $actionDesc->outputType);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            // $isCacheable and $userFp keep their conservative defaults, so this dispatch runs
+            // uncached rather than risking a wrongly-partitioned entry.
+            \Quiote\Logging\Log::for($this)->warning(
+                '[DispatchMiddleware] could not prepare the action for ' . $actionDesc->module . ':'
+                . $actionDesc->action . '; dispatching uncached: ' . $e->getMessage()
+            );
         }
         if ($actionInstance instanceof \Quiote\Http\Sse\SseStreamingAction) {
             return $this->buildSseResponse($actionInstance, $request);
@@ -481,7 +493,13 @@ class DispatchMiddleware implements MiddlewareInterface
                 if ($actionInstance !== null && $actionInstance->isSecure() && method_exists($usr, 'isAuthenticated') && $usr->isAuthenticated()) {
                     $execState->securityDecision = SecurityDecision::Allow;
                 }
-            } catch (\Throwable) {
+            } catch (\Throwable $e) {
+                // The decision is left as it was, which is the closed direction: this heuristic
+                // only ever promotes to Allow.
+                \Quiote\Logging\Log::for($this)->debug(
+                    '[DispatchMiddleware] could not consult the user for the secure-action '
+                    . 'allowance heuristic; leaving the decision unchanged: ' . $e->getMessage()
+                );
             }
         }
         $ctx = $this->actionExecutor->execute($actionDesc, $request, $execState, [], $actionInstance);
@@ -648,7 +666,13 @@ class DispatchMiddleware implements MiddlewareInterface
             }
             $isCacheable = (bool)$actionInstance->isCacheable($actionDesc->outputType);
             $userFp = $this->computeUserFingerprint($actionInstance, $actionDesc->outputType);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            // $isCacheable and $userFp keep their conservative defaults, so this dispatch runs
+            // uncached rather than risking a wrongly-partitioned entry.
+            \Quiote\Logging\Log::for($this)->warning(
+                '[DispatchMiddleware] could not prepare the action for ' . $actionDesc->module . ':'
+                . $actionDesc->action . '; dispatching uncached: ' . $e->getMessage()
+            );
         }
         if ($actionInstance instanceof \Quiote\Http\Sse\SseStreamingAction) {
             return $this->buildSseResponse($actionInstance, $request);

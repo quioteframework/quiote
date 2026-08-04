@@ -61,8 +61,14 @@ final class ErrorResponseFactory
     {
         try {
             Log::for($this)->error('[Kernel] error rendering failed: ' . $e::class . ': ' . $e->getMessage());
-        } catch (Throwable) {
-            // Logging itself is unavailable; the response still has to go out.
+        } catch (Throwable $logFailure) {
+            // The logging subsystem is the thing that just failed, so it cannot be used to
+            // report its own failure. PHP's error log has no dependency on ours, and the 500
+            // below goes out either way -- an unrenderable error must still reach the client.
+            \error_log(
+                '[Kernel] error rendering failed and could not be logged: ' . $logFailure->getMessage()
+                . ' (original: ' . $e::class . ': ' . $e->getMessage() . ')'
+            );
         }
 
         return $this->psr17->createResponse(500)

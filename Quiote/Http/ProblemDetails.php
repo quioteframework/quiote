@@ -132,7 +132,13 @@ final readonly class ProblemDetails
                     }
                 }
             }
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            // Whatever was collected before the failure is returned; the document then carries a
+            // partial (or empty) errors member rather than none at all.
+            \Quiote\Logging\Log::create(self::class)->warning(
+                '[ProblemDetails] could not read the whole validation report; the errors member may '
+                . 'be incomplete: ' . $e->getMessage()
+            );
         }
 
         return $errorsByField;

@@ -124,7 +124,12 @@ class ParameterHolder implements ResetInterface
 		$retval = null;
 		try {
 			$retval =& ArrayPathDefinition::unsetValue((string) $name, $this->parameters);
-		} catch(InvalidArgumentException) {
+		} catch(InvalidArgumentException $e) {
+			// Not a resolvable path expression, so there is nothing at that name to remove and
+			// $retval stays null.
+			\Quiote\Logging\Log::create(self::class)->debug(
+				'[ParameterHolder] "' . $name . '" is not a removable path: ' . $e->getMessage()
+			);
 		}
 		return $retval;
 	}

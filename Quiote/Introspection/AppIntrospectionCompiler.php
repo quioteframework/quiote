@@ -146,8 +146,13 @@ final class AppIntrospectionCompiler
 		foreach (array_keys($modules) as $module) {
 			try {
 				$controller->initializeModule($module);
-			} catch (\Throwable) {
-				// Defaults are already set as a side effect; nothing more to do.
+			} catch (\Throwable $e) {
+				// The module's directive defaults are set as a side effect before the failure, so
+				// introspection continues with what it has -- a disabled module is the usual case.
+				\Quiote\Logging\Log::for($this)->debug(
+					'[AppIntrospectionCompiler] module "' . $module . '" did not initialize; '
+					. 'continuing with its defaults: ' . $e->getMessage()
+				);
 			}
 		}
 	}

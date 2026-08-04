@@ -89,7 +89,16 @@ class CacheManager
                         if (!$f instanceof \SplFileInfo) {
                             continue;
                         }
-                        try { $f->isDir() ? @rmdir($f->getPathname()) : @unlink($f->getPathname()); } catch(\Throwable) {}
+                        try {
+                            $f->isDir() ? @rmdir($f->getPathname()) : @unlink($f->getPathname());
+                        } catch(\Throwable $e) {
+                            // A path that vanished between listing and removal is the ordinary race
+                            // when two workers clear the same directory; the sweep continues.
+                            \Quiote\Logging\Log::create(self::class)->debug(
+                                '[CacheManager] could not remove "' . $f->getPathname() . '" while clearing: '
+                                . $e->getMessage()
+                            );
+                        }
                     }
                 }
             } catch(\Throwable) { /* ignore purge errors */ }

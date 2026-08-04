@@ -89,20 +89,19 @@ abstract class ActionTestCase extends FragmentTestCase
 				}
 				$logger = \Quiote\Logging\Log::for($this);
 				if ($logger->isEnabled(\Quiote\Logging\Level::Debug) || getenv('DEBUG_TESTS')) {
-					try {
-						$logger->debug('[TestDebug][runAction][Exception] ' . $e::class . ': ' . $e->getMessage());
-					} catch (\Throwable) {
-					}
+					$logger->debugWith(
+						fn(): string => '[TestDebug][runAction][Exception] ' . $e::class . ': ' . $e->getMessage()
+					);
 				}
 				$resultView = 'Error';
 			}
 		}
 		$logger = \Quiote\Logging\Log::for($this);
 		if ($logger->isEnabled(\Quiote\Logging\Level::Debug) || getenv('DEBUG_TESTS')) {
-			try {
-				$logger->debug('[TestDebug][runAction] rawResult=' . var_export($resultView, true) . ' method=' . $execMethod . ' validationSuccess=1');
-			} catch (\Throwable) {
-			}
+			$logger->debugWith(
+				fn(): string => '[TestDebug][runAction] rawResult=' . var_export($resultView, true)
+					. ' method=' . $execMethod . ' validationSuccess=1'
+			);
 		}
 		$this->viewModuleName = $this->moduleName;
 		// Store raw result (short view name as returned by action). If null assume Success.
@@ -111,19 +110,13 @@ abstract class ActionTestCase extends FragmentTestCase
 			throw new \Quiote\Exception\QuioteException(sprintf('%s::%s() must return a string view name, got %s.', $action::class, $execMethod, get_debug_type($raw)));
 		}
 		if ($logger->isEnabled(\Quiote\Logging\Level::Debug) || getenv('DEBUG_TESTS')) {
-			try {
-				$logger->debug('[TestDebug][runAction] preNormalizeRaw=' . $raw);
-			} catch (\Throwable) {
-			}
+			$logger->debugWith(fn(): string => '[TestDebug][runAction] preNormalizeRaw=' . $raw);
 		}
 		// Normalize using shared logic (applies module directive + canonicalization) so that
 		// legacy semantics <ActionName><ShortViewName> are preserved without ad-hoc prefixing.
 		$this->viewName = $this->normalizeViewName($raw);
 		if ($logger->isEnabled(\Quiote\Logging\Level::Debug) || getenv('DEBUG_TESTS')) {
-			try {
-				$logger->debug('[TestDebug][runAction] normalizedView=' . $this->viewName);
-			} catch (\Throwable) {
-			}
+			$logger->debugWith(fn(): string => '[TestDebug][runAction] normalizedView=' . $this->viewName);
 		}
 	}
 
@@ -144,10 +137,10 @@ abstract class ActionTestCase extends FragmentTestCase
 		$logger = \Quiote\Logging\Log::for($this);
 		$dbg = ($logger->isEnabled(\Quiote\Logging\Level::Debug) || getenv('DEBUG_TESTS'));
 		if ($dbg) {
-			try {
-				$logger->debug('[TestDebug][performValidation] methodToken=' . $methodToken . ' reqId=' . spl_object_id($request));
-			} catch (\Throwable) {
-			}
+			$logger->debugWith(
+				fn(): string => '[TestDebug][performValidation] methodToken=' . $methodToken
+					. ' reqId=' . spl_object_id($request)
+			);
 		}
 		// Controlled debug: only emit pre-validation parameter dump when explicitly enabled
 		if ($dbg) {
@@ -159,10 +152,9 @@ abstract class ActionTestCase extends FragmentTestCase
 				}
 				$logger->debug('[TestDebug][PreValidation] action=' . $this->actionName . ' method=' . $methodToken . ' keys=' . implode(',', $flat) . ' raw=' . json_encode($rawParams));
 			} catch (\Throwable $e) {
-				try {
-					$logger->debug('[TestDebug][PreValidation] exception dumping params: ' . $e->getMessage());
-				} catch (\Throwable) {
-				}
+				$logger->debugWith(
+					fn(): string => '[TestDebug][PreValidation] exception dumping params: ' . $e->getMessage()
+				);
 			}
 		}
 		$module = $this->moduleName;
@@ -173,16 +165,21 @@ abstract class ActionTestCase extends FragmentTestCase
 			if ($this->container) {
 				try {
 					$this->container->setArguments($request->getParameters('parameters'));
-				} catch (\Throwable) {
+				} catch (\Throwable $e) {
+					// The container keeps whatever arguments it already had, so a test reading them
+					// back sees the pre-validation set.
+					$logger->warning(
+						'[ActionTestCase] could not hand the validated parameters to the container: '
+						. $e->getMessage()
+					);
 				}
 				$this->container->setValidationManager($vm);
 			}
 			if ($dbg) {
-				try {
-					$rp = $request->getParameters('runtime');
-					$logger->debug('[TestDebug][RuntimeBeforeValidation] keys=' . implode(',', array_keys($rp)));
-				} catch (\Throwable) {
-				}
+				$logger->debugWith(
+					fn(): string => '[TestDebug][RuntimeBeforeValidation] keys='
+						. implode(',', array_keys($request->getParameters('runtime')))
+				);
 			}
 			$service = new ValidationService($vm);
 			$loaded = [];
@@ -221,14 +218,15 @@ abstract class ActionTestCase extends FragmentTestCase
 					}
 					$result = $service->validate($action, $request, $module, $alternativeName, $methodToken);
 					$this->validationSuccess = $result->ok;
-					try {
-						$trace = $result->getTrace();
-						if ($trace !== null) {
-							$loaded = $trace->validatorsLoaded;
-						}
-					} catch (\Throwable) {
+					$trace = $result->getTrace();
+					if ($trace !== null) {
+						$loaded = $trace->validatorsLoaded;
 					}
-				} catch (\Throwable) {
+				} catch (\Throwable $e) {
+					// $loaded keeps its default, so the diagnostic below names no validators.
+					$logger->debug(
+						'[ActionTestCase] could not read the validation trace: ' . $e->getMessage()
+					);
 				}
 			}
 			if ($dbg) {
@@ -249,7 +247,11 @@ abstract class ActionTestCase extends FragmentTestCase
 								foreach ($report->getFailedArguments() as $fa) {
 									$argsFailed[] = $fa->getName();
 								}
-							} catch (\Throwable) {
+							} catch (\Throwable $e) {
+								// Partial list; the assertion message below is less specific.
+								$logger->debug(
+									'[ActionTestCase] could not enumerate failed arguments: ' . $e->getMessage()
+								);
 							}
 							$logger->debug('[TestDebug][FailedArguments] ' . (empty($argsFailed) ? 'none' : implode(',', $argsFailed)));
 							$errs = $report->getErrorMessages();
@@ -266,14 +268,23 @@ abstract class ActionTestCase extends FragmentTestCase
 						foreach ($errs as $err) {
 							try {
 								$lines[] = ($err->getName() ? $err->getName() . ': ' : '') . $err->getMessage();
-							} catch (\Throwable) {
+							} catch (\Throwable $e) {
+								// This message is omitted from the assembled failure text.
+								$logger->debug(
+									'[ActionTestCase] could not read a validation error message: ' . $e->getMessage()
+								);
 							}
 						}
 						if (!empty($lines)) {
 							$logger->debug('[TestDebug][ValidationErrors] ' . implode(' | ', $lines));
 						}
 					}
-				} catch (\Throwable) {
+				} catch (\Throwable $e) {
+					// The assembled diagnostic is dropped; the assertion still reports the failure.
+					$logger->debug(
+						'[ActionTestCase] could not assemble the validation failure diagnostic: '
+						. $e->getMessage()
+					);
 				}
 			}
 		} catch (\Throwable) {

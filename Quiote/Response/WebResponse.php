@@ -277,7 +277,13 @@ class WebResponse extends AttributeHolder implements ResetInterface, WebResponse
 				if($body !== '') {
 					$this->setContent($body);
 				}
-			} catch(\Throwable) {}
+			} catch(\Throwable $e) {
+				// The attached response's body never made it across, so this response keeps
+				// whatever content it already had -- possibly none.
+				\Quiote\Logging\Log::for($this)->warning(
+					'[WebResponse] could not read the attached PSR-7 body: ' . $e->getMessage()
+				);
+			}
 		}
 	}
 
@@ -501,7 +507,14 @@ class WebResponse extends AttributeHolder implements ResetInterface, WebResponse
 		if($this->psrResponse !== null) {
 			try {
 				$this->psrResponse = $this->psrResponse->withBody($this->stagedResponse->getBody());
-			} catch(\Throwable) {}
+			} catch(\Throwable $e) {
+				// Only the separately-attached forwarding response is out of step; the staged
+				// response the runtime emits already carries the body.
+				\Quiote\Logging\Log::for($this)->warning(
+					'[WebResponse] could not mirror the staged body onto the attached PSR-7 response: '
+					. $e->getMessage()
+				);
+			}
 		}
 	}
 
@@ -751,7 +764,14 @@ class WebResponse extends AttributeHolder implements ResetInterface, WebResponse
 			if($this->psrResponse !== null) {
 				try {
 					$this->psrResponse = $this->psrResponse->withStatus((int)$code);
-				} catch(\Throwable) {}
+				} catch(\Throwable $e) {
+					// This response holds the new status either way; only the attached PSR-7
+					// response still reports the old one.
+					\Quiote\Logging\Log::for($this)->warning(
+						'[WebResponse] could not mirror status ' . $code
+						. ' onto the attached PSR-7 response: ' . $e->getMessage()
+					);
+				}
 			}
 		} else {
 			throw new QuioteException(sprintf(
@@ -1005,7 +1025,14 @@ class WebResponse extends AttributeHolder implements ResetInterface, WebResponse
 				if (strtolower((string) $request->getUri()->getScheme()) === 'https') {
 					return true;
 				}
-			} catch (\Throwable) {
+			} catch (\Throwable $e) {
+				// Falls through to the forwarded-proto check below. Reported because this
+				// answer decides cookie_secure: read as not-HTTPS, a cookie goes out without
+				// the Secure attribute and can then travel in clear.
+				\Quiote\Logging\Log::create(self::class)->warning(
+					'[WebResponse] could not read the request scheme for HTTPS detection; '
+					. 'cookies may not be marked Secure: ' . $e->getMessage()
+				);
 			}
 		}
 
@@ -1027,7 +1054,13 @@ class WebResponse extends AttributeHolder implements ResetInterface, WebResponse
 				if ($xfp !== '' && str_starts_with($xfp, 'https')) {
 					return true;
 				}
-			} catch (\Throwable) {
+			} catch (\Throwable $e) {
+				// Last HTTPS signal available; without it this request is treated as plain HTTP
+				// and its cookies are not marked Secure.
+				\Quiote\Logging\Log::create(self::class)->warning(
+					'[WebResponse] could not read X-Forwarded-Proto for HTTPS detection; '
+					. 'cookies may not be marked Secure: ' . $e->getMessage()
+				);
 			}
 		}
 
@@ -1184,7 +1217,16 @@ class WebResponse extends AttributeHolder implements ResetInterface, WebResponse
 			unset($this->httpHeaders[$name]);
 		}
 		if($this->psrResponse !== null) {
-			try { $this->psrResponse = $this->psrResponse->withoutHeader($name); } catch(\Throwable) {}
+			try {
+				$this->psrResponse = $this->psrResponse->withoutHeader($name);
+			} catch(\Throwable $e) {
+				// Removed here but still present on the attached PSR-7 response, so a forwarded
+				// response can keep sending a header this one dropped.
+				\Quiote\Logging\Log::for($this)->warning(
+					'[WebResponse] could not remove header "' . $name
+					. '" from the attached PSR-7 response: ' . $e->getMessage()
+				);
+			}
 		}
 		return $retval;
 	}

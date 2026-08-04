@@ -158,8 +158,12 @@ final class Toolkit
 						@unlink($pathname);
 					}
 				}
-			} catch(\Exception) {
-				// ignore all exceptions in case the path didn't exist anymore
+			} catch(\Exception $e) {
+				// A path that vanished between listing and unlinking is the ordinary race when
+				// two processes clear the same cache; the rest of the sweep continues.
+				\Quiote\Logging\Log::create(self::class)->debug(
+					'[Toolkit] cache entry disappeared while clearing: ' . $e->getMessage()
+				);
 			}
 		}
 	}

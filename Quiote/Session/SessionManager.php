@@ -436,7 +436,13 @@ class SessionManager
                 $marker[self::REDIRECT_UA_KEY] = $this->userAgentFingerprint($request);
             }
             $this->persistence->save($old, $marker);
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            // Without the marker the pre-rotation id stops resolving immediately, so a request
+            // already in flight with the old cookie is logged out instead of being carried over.
+            \Quiote\Logging\Log::for($this)->warning(
+                '[SessionManager] could not write the redirect marker for the rotated session; a '
+                . 'request in flight with the previous cookie will not be carried over: ' . $e->getMessage()
+            );
         }
     }
 

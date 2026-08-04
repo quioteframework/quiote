@@ -687,7 +687,13 @@ final class FormPopulationEngine
 			$request = $updatedRequest;
 			try {
 				$this->context->setRequest($request);
-			} catch (\Throwable) {
+			} catch (\Throwable $e) {
+				// The repopulated request never reached the context, so anything reading it
+				// afterwards sees the pre-population values.
+				\Quiote\Logging\Log::for($this)->warning(
+					'[FormPopulationEngine] could not publish the repopulated request to the context: '
+					. $e->getMessage()
+				);
 			}
 		}
 
@@ -1303,9 +1309,9 @@ final class FormPopulationEngine
 
 		$requestMethod = null;
 		if(is_object($request) && method_exists($request, 'getMethod')) {
-			try {
-				$requestMethod = strtoupper((string) $request->getMethod());
-			} catch(\Throwable) {
+			$probed = $this->probe('getMethod', fn(): string => strtoupper((string) $request->getMethod()));
+			if($probed !== null) {
+				$requestMethod = $probed;
 			}
 		}
 		$methodAllowed = $allowAllMethods ? true : ($requestMethod !== null && in_array($requestMethod, $methods, true));
@@ -1359,31 +1365,56 @@ final class FormPopulationEngine
 	protected function resolveRequestUri($request): string
 	{
 		if($request instanceof WebRequest) {
-			try {
-				$uri = (string) $request->getRequestUri();
-				if($uri !== '') {
-					return $uri;
-				}
-			} catch(\Throwable) {
-			}
-			try {
-				$path = (string) $request->getUrlPath();
-				if($path !== '') {
-					return $path;
-				}
-			} catch(\Throwable) {
-			}
+			return $this->probe('getRequestUri', fn(): string => (string) $request->getRequestUri())
+				?? $this->probe('getUrlPath', fn(): string => (string) $request->getUrlPath())
+				?? $this->probeAttribute($request, 'request_uri')
+				?? '/';
 		}
-		if(is_object($request) && method_exists($request, 'getAttribute')) {
-			try {
-				$attr = $request->getAttribute('request_uri');
-				if(is_string($attr) && $attr !== '') {
-					return $attr;
-				}
-			} catch(\Throwable) {
-			}
+
+		return $this->probeAttribute($request, 'request_uri') ?? '/';
+	}
+
+	/**
+	 * The value $source produces, or null when it is empty or could not be read.
+	 *
+	 * These resolvers walk a cascade of places a request URI or URL might live, and "this one
+	 * did not answer" is the ordinary case that moves to the next candidate -- so a failure is
+	 * recorded at debug level rather than raised. Without the record, a request whose every
+	 * candidate throws silently populates forms against "/" and the reason is invisible.
+	 *
+	 * @param      callable(): string $source
+	 */
+	private function probe(string $label, callable $source): ?string
+	{
+		try {
+			$value = $source();
+		} catch(\Throwable $e) {
+			\Quiote\Logging\Log::for($this)->debug(
+				'[FormPopulationEngine] request source "' . $label . '" unavailable, trying the next: '
+				. $e->getMessage()
+			);
+
+			return null;
 		}
-		return '/';
+
+		return $value !== '' ? $value : null;
+	}
+
+	/**
+	 * A string request attribute, or null when absent, empty or unreadable.
+	 * @param      mixed $request
+	 */
+	private function probeAttribute($request, string $name): ?string
+	{
+		if(!is_object($request) || !method_exists($request, 'getAttribute')) {
+			return null;
+		}
+
+		return $this->probe('attribute:' . $name, function () use ($request, $name): string {
+			$attr = $request->getAttribute($name);
+
+			return is_string($attr) ? $attr : '';
+		});
 	}
 
 	/**
@@ -1392,24 +1423,13 @@ final class FormPopulationEngine
 	protected function resolveRequestUrl($request, string $fallbackUri): string
 	{
 		if($request instanceof WebRequest) {
-			try {
-				$url = (string) $request->getUrl();
-				if($url !== '') {
-					return $url;
-				}
-			} catch(\Throwable) {
+			$url = $this->probe('getUrl', fn(): string => (string) $request->getUrl());
+			if($url !== null) {
+				return $url;
 			}
 		}
-		if(is_object($request) && method_exists($request, 'getAttribute')) {
-			try {
-				$attr = $request->getAttribute('request_url');
-				if(is_string($attr) && $attr !== '') {
-					return $attr;
-				}
-			} catch(\Throwable) {
-			}
-		}
-		return $fallbackUri;
+
+		return $this->probeAttribute($request, 'request_url') ?? $fallbackUri;
 	}
 }
 

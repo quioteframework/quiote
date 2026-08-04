@@ -182,7 +182,11 @@ abstract class View implements ResetInterface
 			if ($request !== null) {
 				$instance = $request->getRequestUri();
 			}
-		} catch (\Throwable) {
+		} catch (\Throwable $e) {
+			// The document simply omits its "instance" member, which RFC 9457 allows.
+			\Quiote\Logging\Log::for($this)->debug(
+				'[View] request URI unavailable for the problem-details instance member: ' . $e->getMessage()
+			);
 		}
 
 		$problem = \Quiote\Http\ProblemDetails::fromValidationManager(
@@ -199,7 +203,14 @@ abstract class View implements ResetInterface
 			$response = $this->getResponse();
 			$response->setHttpStatusCode($status);
 			$response->setContentType(\Quiote\Http\ProblemDetails::MEDIA_TYPE);
-		} catch (\Throwable) {
+		} catch (\Throwable $e) {
+			// The returned document still reports $status, so a failure here means the body and
+			// the actual response status disagree -- a client reading the status sees success
+			// while the body describes an error.
+			\Quiote\Logging\Log::for($this)->error(
+				'[View] could not apply status ' . $status . ' and the problem-details content type '
+				. 'to the response; the body and the response status now disagree: ' . $e->getMessage()
+			);
 		}
 
 		return $problem->toJson();
@@ -574,8 +585,12 @@ abstract class View implements ResetInterface
 					$currentModule = $am;
 					$currentAction = $aa;
 				}
-			} catch (\Throwable) {
-				// ignore attribute lookup failures and fall back to resolved names
+			} catch (\Throwable $e) {
+				// Falls back to the resolved names below.
+				\Quiote\Logging\Log::for($this)->debug(
+					'[View] could not read moduleName/actionName attributes, using the resolved names: '
+					. $e->getMessage()
+				);
 			}
 		}
 		if (

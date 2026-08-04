@@ -416,7 +416,12 @@ final class OpenApiGenerator
             if (is_scalar($configured) && (string) $configured !== '') {
                 $mime = (string) $configured;
             }
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            // $mime keeps the caller's default.
+            \Quiote\Logging\Log::for($this)->debug(
+                '[OpenApiGenerator] no configured Content-Type for output type "' . $outputType
+                . '", using the default: ' . $e->getMessage()
+            );
         }
 
         if ($mime === null && $outputType !== null && $outputType !== '') {

@@ -144,7 +144,15 @@ class NumberValidator extends Validator
 				if($argumentName !== null) {
 					$this->validationParameters = $validationParameters->setParameter($argumentName, $parsedValue);
 				}
-			} catch(\Throwable) {}
+			} catch(\Throwable $e) {
+				// Validation still succeeded; what is lost is the normalized numeric value
+				// replacing the submitted string, so the action reads the raw input instead.
+				\Quiote\Logging\Log::for($this)->error(
+					'[NumberValidator] could not write back the parsed value for "'
+					. ($this->getArgument() ?? '?') . '"; the action will read the unparsed input: '
+					. $e->getMessage()
+				);
+			}
 		}
 		
 		return true;

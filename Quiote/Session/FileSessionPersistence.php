@@ -173,7 +173,12 @@ class FileSessionPersistence implements SessionPersistenceInterface
                 if (is_string($payload)) {
                     return $payload;
                 }
-            } catch (Throwable) {
+            } catch (Throwable $e) {
+                // Falls through to the portable codec below.
+                \Quiote\Logging\Log::for($this)->debug(
+                    '[FileSessionPersistence] igbinary could not encode the session payload, '
+                    . 'using the portable codec: ' . $e->getMessage()
+                );
             }
         }
         return json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
@@ -191,7 +196,13 @@ class FileSessionPersistence implements SessionPersistenceInterface
                     /** @var array<string, mixed> $decoded */
                     return $decoded;
                 }
-            } catch (Throwable) {
+            } catch (Throwable $e) {
+                // Falls through to the portable codec below: a file written by a build without
+                // igbinary decodes the other way.
+                \Quiote\Logging\Log::for($this)->debug(
+                    '[FileSessionPersistence] igbinary could not decode the session payload, '
+                    . 'trying the portable codec: ' . $e->getMessage()
+                );
             }
             return null;
         }

@@ -650,7 +650,12 @@ class DecimalFormatter implements ResetInterface
 					$groupingSeparator = $nf->getSymbol(\NumberFormatter::GROUPING_SEPARATOR_SYMBOL);
 					$decimalSeparator = $nf->getSymbol(\NumberFormatter::DECIMAL_SEPARATOR_SYMBOL);
 					$minusSign = $nf->getSymbol(\NumberFormatter::MINUS_SIGN_SYMBOL);
-				} catch(\Throwable) {
+				} catch(\Throwable $e) {
+					// The already-resolved defaults stand in for whatever ICU did not supply.
+					\Quiote\Logging\Log::create(self::class)->debug(
+						'[DecimalFormatter] ICU declined decimal symbols for "' . $localeId
+						. '", using the defaults: ' . $e->getMessage()
+					);
 				}
 			}
 			$decimalFormats ??= ['#,##0.###'];

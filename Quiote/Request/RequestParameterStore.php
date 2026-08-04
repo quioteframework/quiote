@@ -208,7 +208,12 @@ final class RequestParameterStore
         }
         try {
             ArrayPathDefinition::unsetValue($name, $runtimeParameters);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            // The parameter stays in the store, so a caller that asked for its removal can still
+            // read it.
+            \Quiote\Logging\Log::create(self::class)->warning(
+                '[RequestParameterStore] could not remove parameter "' . $name . '": ' . $e->getMessage()
+            );
         }
         return new self($runtimeParameters, $this->validatedKeys);
     }

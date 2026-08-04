@@ -44,7 +44,15 @@ abstract class ContainerTestCase extends FragmentTestCase
 				$request = $context->getRequest();
 				foreach ($arguments as $k => $v) { $request = $request->setParameter($k, $v); }
 				$context->setRequest($request);
-			} catch (\Throwable) {}
+			} catch (\Throwable $e) {
+				// The arguments never reached the request, so the fragment under test runs without
+				// them -- which surfaces as a confusing assertion failure rather than an error, so
+				// it is worth naming here.
+				\Quiote\Logging\Log::for($this)->warning(
+					'[ContainerTestCase] could not seed the request with the given arguments: '
+					. $e->getMessage()
+				);
+			}
 		}
 		// Response simulation: create an empty response equivalent.
 		$this->response = $context->getController()->getGlobalResponse();

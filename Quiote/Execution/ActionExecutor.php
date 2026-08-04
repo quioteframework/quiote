@@ -120,7 +120,12 @@ final class ActionExecutor
                         $stream->rewind();
                         $raw = (string)$stream;
                     }
-                } catch (\Throwable) {
+                } catch (\Throwable $e) {
+                    // $raw stays empty and the superglobal below is the remaining candidate.
+                    \Quiote\Logging\Log::create('Quiote.Execution.ActionExecutor')->warning(
+                        '[ActionExecutor] could not read the request body for form parsing; '
+                        . 'falling back to the input superglobal: ' . $e->getMessage()
+                    );
                 }
                 if ($raw === '' && $_POST) {
                     $body = $_POST;
@@ -159,7 +164,13 @@ final class ActionExecutor
             foreach ($params as $k => $v) {
                 try {
                     $web = $web->setParameter($k, $v);
-                } catch (\Throwable) {
+                } catch (\Throwable $e) {
+                    // Skip the offending key and keep promoting the rest; the action simply
+                    // will not see this one.
+                    \Quiote\Logging\Log::create('Quiote.Execution.ActionExecutor')->warning(
+                        '[ActionExecutor] could not promote parameter "' . $k . '" into the request: '
+                        . $e->getMessage()
+                    );
                 }
             }
         }
@@ -170,7 +181,13 @@ final class ActionExecutor
         if ($context !== null) {
             try {
                 $context->setRequest($web);
-            } catch (\Throwable) {
+            } catch (\Throwable $e) {
+                // The caller still receives $web, but code reading Context::getRequest() will
+                // see the instance from before the parameters were promoted.
+                \Quiote\Logging\Log::create('Quiote.Execution.ActionExecutor')->warning(
+                    '[ActionExecutor] could not publish the built request to the context: '
+                    . $e->getMessage()
+                );
             }
         }
         return $web;
@@ -225,9 +242,11 @@ final class ActionExecutor
         $actionRequest = null;
         try {
             $actionRequest = $this->controller->getContext()->getRequest();
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            // The throw below is the real outcome; chain the cause so it names why the request
+            // was missing instead of only that it was.
+            throw new \RuntimeException('Canonical WebRequest missing in ActionExecutor::execute', 0, $e);
         }
-        if (!($actionRequest instanceof WebRequest)) { throw new \RuntimeException('Canonical WebRequest missing in ActionExecutor::execute'); }
         // No need to attachPsrRequest - WebRequest IS the PSR-7 request
 
         // Initialize action with lightweight context
@@ -283,7 +302,13 @@ final class ActionExecutor
         // $actionRequest captured before the action ran.
         try {
             $actionRequest = $this->controller->getContext()->getRequest();
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            // Keeps the instance captured before the action ran, so an export the action made
+            // via setParameter() may not be visible to the view.
+            \Quiote\Logging\Log::for($this)->warning(
+                '[ActionExecutor] could not re-read the request after the action ran; the view may '
+                . 'not see its exports: ' . $e->getMessage()
+            );
         }
         // Snapshot attributes immediately after action code runs (pre-view)
         $attributeSnapshot = [];

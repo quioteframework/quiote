@@ -200,12 +200,11 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 			foreach ($storedRoles as $role) {
 				$this->grantRole($role);
 			}
-			try {
-				$logger = \Quiote\Logging\Log::for($this);
-				if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
-					$logger->debug('[RbacSecurityUser.initialize] rebuilt creds rolesIn=' . count($storedRoles) . ' rolesNow=' . count($this->roles ?? []) . ' credsNow=' . count($this->credentials ?? []));
-				}
-			} catch (\Throwable) {}
+			\Quiote\Logging\Log::for($this)->debugWith(
+				fn(): string => '[RbacSecurityUser.initialize] rebuilt creds rolesIn=' . count($storedRoles)
+					. ' rolesNow=' . count($this->roles ?? [])
+					. ' credsNow=' . count($this->credentials ?? [])
+			);
 		}
 
 		// Essential, not tidying: the credential rebuild above runs
@@ -284,7 +283,16 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 				$bag->set(self::ROLES_NAMESPACE, $currentRoles);
 			}
 		} catch (\Throwable) {
-			try { $bag->set(self::ROLES_NAMESPACE, $currentRoles); } catch (\Throwable) {}
+			try {
+				$bag->set(self::ROLES_NAMESPACE, $currentRoles);
+			} catch (\Throwable $e) {
+				// Roles drive authorization, so a stale set on the next request can grant or
+				// deny more than it should.
+				$logger->error(
+					'[RbacSecurityUser] could not persist roles on shutdown; the next request will read '
+					. 'a stale set: ' . $e->getMessage()
+				);
+			}
 		}
 	// Note: credentials are stored by parent SecurityUser::shutdown(). If they were
 	// rebuilt during initialize, they will be persisted here.

@@ -135,7 +135,8 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 		if(class_exists(Locale::class)) {
 			try {
 				return Locale::getPrimaryLanguage($this->getBaseLocaleIdentifier()) ?: null;
-			} catch(\Throwable) {
+			} catch(\Throwable $e) {
+				$this->logIcuProbeFailure('getPrimaryLanguage', $e);
 			}
 		}
 
@@ -155,7 +156,8 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 			try {
 				$region = Locale::getRegion($this->getBaseLocaleIdentifier());
 				return $region !== '' ? $region : null;
-			} catch(\Throwable) {
+			} catch(\Throwable $e) {
+				$this->logIcuProbeFailure('getRegion', $e);
 			}
 		}
 
@@ -179,7 +181,8 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 					$script = isset($parts['script']) && is_string($parts['script']) ? $parts['script'] : '';
 				}
 				return $script !== '' ? $script : null;
-			} catch(\Throwable) {
+			} catch(\Throwable $e) {
+				$this->logIcuProbeFailure('getScript', $e);
 			}
 		}
 
@@ -206,7 +209,8 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 			if($variants) {
 				return implode('_', $variants);
 			}
-		} catch(\Throwable) {
+		} catch(\Throwable $e) {
+			$this->logIcuProbeFailure('parseLocale/variants', $e);
 		}
 
 		return null;
@@ -234,7 +238,8 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 				if($code !== '') {
 					return $code;
 				}
-			} catch(\Throwable) {
+			} catch(\Throwable $e) {
+				$this->logIcuProbeFailure('NumberFormatter/CURRENCY_CODE', $e);
 			}
 		}
 
@@ -421,5 +426,21 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 		$this->data = [];
 		$this->identifier = null;
 		$this->parameters = [];
+	}
+
+	/**
+	 * Record an ICU lookup that did not answer, so the fallback below it is traceable.
+	 *
+	 * These accessors each try ICU first and derive the value another way when it declines --
+	 * an incomplete intl build, or a locale tag ICU will not parse, are the ordinary reasons.
+	 * Debug level because falling back is the designed behaviour, not a fault; recorded because
+	 * a locale silently resolving to its fallbacks is otherwise impossible to explain.
+	 */
+	private function logIcuProbeFailure(string $probe, \Throwable $e): void
+	{
+		\Quiote\Logging\Log::for($this)->debug(
+			'[QuioteLocale] ICU ' . $probe . ' declined for "' . $this->getBaseLocaleIdentifier()
+			. '", using the fallback: ' . $e->getMessage()
+		);
 	}
 }

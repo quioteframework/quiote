@@ -168,7 +168,13 @@ class PdoSessionPersistence implements SessionPersistenceInterface
                     if ($decoded !== null) {
                         return $decoded;
                     }
-                } catch (Throwable) {
+                } catch (Throwable $e) {
+                    // Falls through to the other codec below: a row written before igbinary was
+                    // available, or by a build without it, decodes the other way.
+                    \Quiote\Logging\Log::for($this)->debug(
+                        '[PdoSessionPersistence] igbinary could not decode the session payload, '
+                        . 'trying the alternative codec: ' . $e->getMessage()
+                    );
                 }
             }
             if ($looksLikeJson) {
@@ -219,8 +225,13 @@ class PdoSessionPersistence implements SessionPersistenceInterface
     {
         try {
             $this->deleteStatement()->execute([$sid]);
-        } catch (PDOException) {
-            // best-effort
+        } catch (PDOException $e) {
+            // The row survives, so the session it holds can still be loaded until it expires --
+            // which matters most when the delete is a logout.
+            \Quiote\Logging\Log::for($this)->error(
+                '[PdoSessionPersistence] could not delete session row "' . $sid
+                . '"; the session data survives: ' . $e->getMessage()
+            );
         }
     }
 }

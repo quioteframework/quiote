@@ -66,7 +66,14 @@ class SessionMiddleware implements MiddlewareInterface
                 // attempt a late write of its own.
                 try {
                     $context->flushRequestState(persistUser: false);
-                } catch (\Throwable) {}
+                } catch (\Throwable $e) {
+                    // The flush is what claims this request's persistence slot; unclaimed, the
+                    // post-emit reset() attempts a late write that goes nowhere.
+                    \Quiote\Logging\Log::for($this)->warning(
+                        '[SessionMiddleware] could not claim the sessionless request flush: '
+                        . $e->getMessage()
+                    );
+                }
             }
         }
 

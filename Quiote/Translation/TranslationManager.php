@@ -801,7 +801,8 @@ class TranslationManager implements ResetInterface
 			if(!is_string($territory) || $territory === '') {
 				$territory = null;
 			}
-		} catch(\Throwable) {
+		} catch(\Throwable $e) {
+			$this->logIcuProbeFailure('IntlTimeZone::getRegion', $e);
 			$territory = null;
 		}
 		if($territory !== null) {
@@ -810,7 +811,9 @@ class TranslationManager implements ResetInterface
 				if(count($zones) > 1) {
 					$hasMultipleZones = true;
 				}
-			} catch(\Throwable) {}
+			} catch(\Throwable $e) {
+				$this->logIcuProbeFailure('DateTimeZone::listIdentifiers(' . $territory . ')', $e);
+			}
 		}
 		$this->timeZoneTerritoryCache[$resolved] = ['territory' => $territory, 'hasMultiple' => $hasMultipleZones];
 		return $territory;
@@ -852,7 +855,9 @@ class TranslationManager implements ResetInterface
 			if(is_string($canonical) && $canonical !== '') {
 				return $this->canonicalTimeZoneCache[$id] = $canonical;
 			}
-		} catch(\Throwable) {}
+		} catch(\Throwable $e) {
+			$this->logIcuProbeFailure('IntlTimeZone::getCanonicalID(' . $candidate . ')', $e);
+		}
 		return $this->canonicalTimeZoneCache[$id] = $candidate;
 	}
 	
@@ -891,7 +896,9 @@ class TranslationManager implements ResetInterface
 				$tz = new \DateTimeZone($candidate);
 				if($cache) { $this->timeZoneCache[$id] = $tz; }
 				return $tz;
-			} catch(\Throwable) {}
+			} catch(\Throwable $e) {
+				$this->logIcuProbeFailure('new DateTimeZone(' . $candidate . ')', $e);
+			}
 		}
 		return null;
 	}
@@ -927,7 +934,9 @@ class TranslationManager implements ResetInterface
 			$md = $cal->getMinimalDaysInFirstWeek();
 			if($fd > 0) { $data['week']['firstDay'] = $fd; }
 			if($md > 0) { $data['week']['minDays'] = $md; }
-		} catch(\Throwable) {}
+		} catch(\Throwable $e) {
+			$this->logIcuProbeFailure('IntlCalendar for und_' . $country, $e);
+		}
 		return $this->territoryDataCache[$country] = $data;
 	}
 
@@ -951,7 +960,9 @@ class TranslationManager implements ResetInterface
 			if($fd >= 0) { $digits = (int) $fd; }
 			$ri = $fmt->getAttribute(\NumberFormatter::ROUNDING_INCREMENT);
 			if($ri > 0) { $rounding = (int) round($ri * 10 ** $digits); }
-		} catch(\Throwable) {}
+		} catch(\Throwable $e) {
+			$this->logIcuProbeFailure('NumberFormatter fraction digits for ' . $currency, $e);
+		}
 		return $this->currencyFractionCache[$currency] = ['digits' => $digits, 'rounding' => $rounding];
 	}
 
@@ -1001,5 +1012,20 @@ class TranslationManager implements ResetInterface
 		if($this->defaultLocaleIdentifier !== null) {
 			$this->setLocale($this->defaultLocaleIdentifier);
 		}
+	}
+
+	/**
+	 * Record an ICU lookup that did not answer, so the fallback below it is traceable.
+	 *
+	 * Each of these consults ICU and derives the value another way when it declines -- an
+	 * incomplete intl build, or an identifier ICU will not recognise, are the ordinary reasons.
+	 * Debug level because falling back is the designed behaviour; recorded because locale data
+	 * silently resolving to defaults is otherwise impossible to explain.
+	 */
+	private function logIcuProbeFailure(string $probe, \Throwable $e): void
+	{
+		\Quiote\Logging\Log::for($this)->debug(
+			'[TranslationManager] ICU ' . $probe . ' declined, using the fallback: ' . $e->getMessage()
+		);
 	}
 }

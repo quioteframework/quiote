@@ -103,15 +103,14 @@ class SlotDispatcher
         $logger = \Quiote\Logging\Log::for($this);
         $logExceptions = $logger->isEnabled(\Quiote\Logging\Level::Debug);
         $dbg = $logger->isEnabled(\Quiote\Logging\Level::Debug);
-        if ($dbg) {
-            try {
-                $pid = spl_object_id($parentRequest);
-                $has = $stack ? '1' : '0';
-                $logger->debug(sprintf('[SlotDisp] dispatch parentRequest id=%d slotstack=%s key=%s', $pid, $has, $key));
-            } catch (\Throwable) {
-                $logger->debug('[SlotDisp] dispatch (no request id available)');
-            }
-        }
+        $logger->debugWith(
+            fn(): string => sprintf(
+                '[SlotDisp] dispatch parentRequest id=%d slotstack=%s key=%s',
+                spl_object_id($parentRequest),
+                $stack ? '1' : '0',
+                $key
+            )
+        );
         if (!$stack) {
             throw new QuioteException('SlotStack missing from request; ensure SlotMiddleware is registered.');
         }
@@ -121,19 +120,24 @@ class SlotDispatcher
             if ($this->executionGuard->wouldExceed($stack, $key)) {
                 if (!$stack->hasWarned($key)) {
                     $stack->markWarned($key);
-                    if ($dbg) {
-                        try {
-                            $logger->debug(sprintf('[SlotDisp] recursion guard triggered for key=%s parentRequest id=%d', $key, spl_object_id($parentRequest)));
-                        } catch (\Throwable) {
-                            $logger->debug('[SlotDisp] recursion guard triggered for key=' . $key);
-                        }
-                    }
+                    $logger->debugWith(
+                        fn(): string => sprintf(
+                            '[SlotDisp] recursion guard triggered for key=%s parentRequest id=%d',
+                            $key,
+                            spl_object_id($parentRequest)
+                        )
+                    );
                 }
                 // Fail closed: return empty content instead of throwing to keep rendering going.
                 return '';
             }
-        } catch (\Throwable) {
-            // If guard check fails for any reason, continue and let enter() enforce the hard limit.
+        } catch (\Throwable $e) {
+            // enter() still enforces the hard limit below, so rendering continues -- but a
+            // guard that cannot evaluate its own soft limit is worth knowing about.
+            $logger->warning(
+                '[SlotDisp] recursion soft-guard check failed for key=' . $key
+                . '; relying on the hard limit: ' . $e->getMessage()
+            );
         }
         $this->executionGuard->enter($stack, $key);
         try {
@@ -185,10 +189,10 @@ class SlotDispatcher
                 // (former temporary GuidanceSection instrumentation removed)
                 $overlayApplied = true;
                 if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
-                    try {
-                        $logger->debug('[SlotDisp] overlay_applied key=' . $key . ' params=' . json_encode($parameters, JSON_UNESCAPED_SLASHES));
-                    } catch (\Throwable) {
-                    }
+                    $logger->debugWith(
+                        fn(): string => '[SlotDisp] overlay_applied key=' . $key
+                            . ' params=' . json_encode($parameters, JSON_UNESCAPED_SLASHES)
+                    );
                 }
             }
             // Normalize output type to lowercase as configuration keys are lowercase
@@ -246,7 +250,14 @@ class SlotDispatcher
                         $cacheHit = true;
                         return $decoded;
                     }
-                } catch (\Throwable) {
+                } catch (\Throwable $e) {
+                    // Treated as a miss: the slot renders below, so the page is correct and
+                    // only slower. Reported because a cache that cannot be read at all is a
+                    // silent performance cliff.
+                    $logger->warning(
+                        '[SlotDisp] slot cache read failed for key=' . $key . '; rendering uncached: '
+                        . $e->getMessage()
+                    );
                 }
             }
             if ($actionInstance->isSimple()) {
@@ -294,13 +305,24 @@ class SlotDispatcher
                     if (!$viewInstance) {
                         try {
                             $viewInstance = $this->controller->createViewInstance($viewModule, $viewCanonical);
-                        } catch (\Throwable) {
+                        } catch (\Throwable $e) {
+                            // Left null; the caller falls through to rendering without a view.
+                            $logger->warning(
+                                '[SlotDisp] could not create view ' . $viewModule . ':' . $viewCanonical
+                                . ' for slot ' . $key . ': ' . $e->getMessage()
+                            );
                         }
                         if ($viewInstance) {
                             try {
                                 $vic = new \Quiote\Execution\ImmutableViewInitContext($this->controller->getContext(), $viewModule, $viewCanonical, $resolvedOutputTypeLower, $module, $action, (array)$attributeSnapshot, $this->controller->getGlobalResponse());
                                 $viewInstance->initialize($vic);
-                            } catch (\Throwable) {
+                            } catch (\Throwable $e) {
+                                // An uninitialized view renders without its init context rather
+                                // than aborting the whole page.
+                                $logger->warning(
+                                    '[SlotDisp] could not initialize the view for slot ' . $key . ': '
+                                    . $e->getMessage()
+                                );
                             }
                         }
                     }
@@ -336,7 +358,11 @@ class SlotDispatcher
                     }
                     try {
                         CacheManager::getCache()->set($cacheKey, $this->encodeSlotCachePayload($result, $ttl), $ttl ?: null);
-                    } catch (\Throwable) {
+                    } catch (\Throwable $e) {
+                        // The rendered output is already correct; only the caching of it failed.
+                        $logger->warning(
+                            '[SlotDisp] slot cache write failed for key=' . $key . ': ' . $e->getMessage()
+                        );
                     }
                 }
                 // Build execution context (presently unused by caller, but enables future hooks)
@@ -391,10 +417,13 @@ class SlotDispatcher
                     // For slot dispatches we fail closed: return empty content and
                     // record a small diagnostic context so callers can inspect the
                     // lastContext if needed.
-                    try {
-                        $logger->debug(sprintf('[SlotDisp] security denied for slot %s/%s during slot dispatch - returning empty content', $module, $action));
-                    } catch (\Throwable) {
-                    }
+                    $logger->debugWith(
+                        fn(): string => sprintf(
+                            '[SlotDisp] security denied for slot %s/%s during slot dispatch - returning empty content',
+                            $module,
+                            $action
+                        )
+                    );
                     $ctx = new ActionExecutionContext($actionInstance, null, $module, $action, $resolvedOutputType, $rd, '');
                     $this->lastContext = $ctx;
                     return $ctx->content;
@@ -445,14 +474,25 @@ class SlotDispatcher
                         if (!$viewInstance) {
                             try {
                                 $viewInstance = $this->controller->createViewInstance($vm, $vn);
-                            } catch (\Throwable) {
+                            } catch (\Throwable $e) {
+                                // Left null; the caller falls through to rendering without a view.
+                                $logger->warning(
+                                    '[SlotDisp] could not create view ' . $vm . ':' . $vn
+                                    . ' for slot ' . $key . ': ' . $e->getMessage()
+                                );
                             }
                         }
                         if ($viewInstance) {
                             try {
                                 $vic = new \Quiote\Execution\ImmutableViewInitContext($this->controller->getContext(), $vm, $vn, $resolvedOutputTypeLower, $module, $action, self::normalizeAttributeKeys($actionInstance->getAttributes()), $this->controller->getGlobalResponse());
                                 $viewInstance->initialize($vic);
-                            } catch (\Throwable) {
+                            } catch (\Throwable $e) {
+                                // An uninitialized view renders without its init context rather
+                                // than aborting the whole page.
+                                $logger->warning(
+                                    '[SlotDisp] could not initialize the view for slot ' . $key . ': '
+                                    . $e->getMessage()
+                                );
                             }
                         }
                         $methodExec = 'execute' . ($resolvedOutputType);
@@ -506,14 +546,25 @@ class SlotDispatcher
                     if (!$viewInstance) {
                         try {
                             $viewInstance = $this->controller->createViewInstance($vm, $vn);
-                        } catch (\Throwable) {
+                        } catch (\Throwable $e) {
+                            // Left null; the caller falls through to rendering without a view.
+                            $logger->warning(
+                                '[SlotDisp] could not create view ' . $vm . ':' . $vn
+                                . ' for slot ' . $key . ': ' . $e->getMessage()
+                            );
                         }
                     }
                     if ($viewInstance) {
                         try {
                             $vic = new \Quiote\Execution\ImmutableViewInitContext($this->controller->getContext(), $vm, $vn, $resolvedOutputTypeLower, $module, $action, $attrs, $this->controller->getGlobalResponse());
                             $viewInstance->initialize($vic);
-                        } catch (\Throwable) {
+                        } catch (\Throwable $e) {
+                            // An uninitialized view renders without its init context rather
+                            // than aborting the whole page.
+                            $logger->warning(
+                                '[SlotDisp] could not initialize the view for slot ' . $key . ': '
+                                . $e->getMessage()
+                            );
                         }
                     }
                     $methodExec = 'execute' . ($resolvedOutputType);
@@ -548,7 +599,11 @@ class SlotDispatcher
                     }
                     try {
                         CacheManager::getCache()->set($cacheKey, $this->encodeSlotCachePayload($result, $ttl), $ttl ?: null);
-                    } catch (\Throwable) {
+                    } catch (\Throwable $e) {
+                        // The rendered output is already correct; only the caching of it failed.
+                        $logger->warning(
+                            '[SlotDisp] slot cache write failed for key=' . $key . ': ' . $e->getMessage()
+                        );
                     }
                 }
                 $attrsFinal = self::normalizeAttributeKeys($actionInstance->getAttributes());
@@ -566,18 +621,36 @@ class SlotDispatcher
                         // Safer: remove unconditionally when original null and key exists.
                         try {
                             $rdh = $rdh->removeParameter($k);
-                        } catch (\Throwable) {
+                        } catch (\Throwable $e) {
+                            // A parameter the overlay introduced is still on the request, so the
+                            // rest of the page can read a value that belonged to this slot alone.
+                            $logger->error(
+                                '[SlotDisp] could not remove overlay parameter "' . $k . '" after slot '
+                                . $key . '; it remains visible to the parent request: ' . $e->getMessage()
+                            );
                         }
                     } else {
                         try {
                             $rdh = $rdh->setParameter($k, $v);
-                        } catch (\Throwable) {
+                        } catch (\Throwable $e) {
+                            // The parent's original value could not be put back, so the slot's
+                            // value stands in for it for the rest of the render.
+                            $logger->error(
+                                '[SlotDisp] could not restore parameter "' . $k . '" after slot ' . $key
+                                . '; the parent request keeps the slot value: ' . $e->getMessage()
+                            );
                         }
                     }
                 }
                 try {
                     $this->controller->getContext()->setRequest($rdh);
-                } catch (\Throwable) {
+                } catch (\Throwable $e) {
+                    // The restored request never reached the context, so everything after this
+                    // slot reads the overlaid one.
+                    $logger->error(
+                        '[SlotDisp] could not publish the restored request after slot ' . $key
+                        . '; the parent request keeps the slot overlay: ' . $e->getMessage()
+                    );
                 }
             }
             $this->executionGuard->leave($stack);
@@ -649,8 +722,15 @@ class SlotDispatcher
                 'time' => date('c'),
             ]);
             \error_log('SLOT_EXCEPTION ' . $payload);
-        } catch (\Throwable) {
-            // Never mask original exception
+        } catch (\Throwable $dumpFailure) {
+            // This is the exception reporter itself, so there is nowhere better to escalate to:
+            // the original throwable is what matters and must not be displaced by a failure to
+            // describe it. Recorded without the payload it could not build.
+            \error_log(
+                'SLOT_EXCEPTION could not be serialized for ' . $module . '/' . $action . ' in phase '
+                . $phase . ': ' . $dumpFailure->getMessage() . ' (original: ' . $e::class . ': '
+                . $e->getMessage() . ')'
+            );
         }
     }
 

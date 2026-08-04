@@ -794,7 +794,12 @@ class ValidationMiddleware implements MiddlewareInterface
         $instance = null;
         try {
             $instance = $request->getUri()->getPath();
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            // The document omits its "instance" member, which RFC 9457 allows.
+            \Quiote\Logging\Log::for($this)->debug(
+                '[ValidationMiddleware] request path unavailable for the problem-details instance '
+                . 'member: ' . $e->getMessage()
+            );
         }
 
         return \Quiote\Http\ProblemDetails::create(status: 400, instance: $instance, errors: $errors)->toJson();

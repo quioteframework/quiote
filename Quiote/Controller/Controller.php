@@ -399,8 +399,14 @@ class Controller extends ParameterHolder implements ResetInterface, ControllerIn
 	{
 		try {
 			$this->initializeModule($moduleName);
-		} catch(DisabledModuleException) {
-			// views from disabled modules should be usable by definition
+		} catch(DisabledModuleException $e) {
+			// Deliberate and typed: initializeModule() loads the module's autoload before it
+			// rejects a disabled module, and a view from a disabled module stays usable by
+			// definition -- error pages live in modules an app may well have disabled.
+			\Quiote\Logging\Log::for($this)->debug(
+				'[Controller] module "' . $moduleName . '" is disabled; its view remains usable: '
+				. $e->getMessage()
+			);
 			// swallow
 		}
 		

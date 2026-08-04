@@ -76,8 +76,13 @@ abstract class PhpUnitTestCase extends TestCase
 					$environmentName = $this->isolationEnvironment;
 				}
 			}
-		} catch (\Exception) {
-			// Fallback to property if reflection fails
+		} catch (\Exception $e) {
+			// Falls back to the plain property below: a test class with no attribute is the
+			// ordinary case, and so is one whose attribute cannot be reflected.
+			\Quiote\Logging\Log::for($this)->debug(
+				'[PhpUnitTestCase] attribute reflection failed, reading the property instead: '
+				. $e->getMessage()
+			);
 			if (!empty($this->isolationEnvironment)) {
 				$environmentName = $this->isolationEnvironment;
 			}
@@ -125,8 +130,13 @@ abstract class PhpUnitTestCase extends TestCase
 					$ctxName = $this->isolationDefaultContext;
 				}
 			}
-		} catch (\Exception) {
-			// Fallback to property if reflection fails
+		} catch (\Exception $e) {
+			// Falls back to the plain property below: a test class with no attribute is the
+			// ordinary case, and so is one whose attribute cannot be reflected.
+			\Quiote\Logging\Log::for($this)->debug(
+				'[PhpUnitTestCase] attribute reflection failed, reading the property instead: '
+				. $e->getMessage()
+			);
 			if (!empty($this->isolationDefaultContext)) {
 				$ctxName = $this->isolationDefaultContext;
 			}
@@ -171,8 +181,13 @@ abstract class PhpUnitTestCase extends TestCase
 					$flag = true;
 				}
 			}
-		} catch (\Exception) {
-			// Fallback to property if reflection fails
+		} catch (\Exception $e) {
+			// Falls back to the plain property below: a test class with no attribute is the
+			// ordinary case, and so is one whose attribute cannot be reflected.
+			\Quiote\Logging\Log::for($this)->debug(
+				'[PhpUnitTestCase] attribute reflection failed, reading the property instead: '
+				. $e->getMessage()
+			);
 		}
 		
 		return $flag;
@@ -300,8 +315,12 @@ abstract class PhpUnitTestCase extends TestCase
 					$flag = $attribute->bootstrap;
 				}
 			}
-		} catch (\Exception) {
-			// Keep default flag = true if reflection fails
+		} catch (\Exception $e) {
+			// Keeps the default of true.
+			\Quiote\Logging\Log::for($this)->debug(
+				'[PhpUnitTestCase] attribute reflection failed, keeping the default flag: '
+				. $e->getMessage()
+			);
 		}
 		
 		return $flag;

@@ -559,7 +559,14 @@ abstract class Validator extends ParameterHolder implements ResetInterface, Vali
 				if (array_key_exists($paramName, $merged)) {
 					$value = $merged[$paramName];
 				}
-			} catch (\Throwable) {}
+			} catch (\Throwable $e) {
+				// $value keeps whatever the caller resolved, so validation proceeds against the
+				// unmerged view of the parameter.
+				\Quiote\Logging\Log::for($this)->warning(
+					'[Validator] could not merge runtime parameters while reading "' . $paramName . '": '
+					. $e->getMessage()
+				);
+			}
 		}
 		$logger = \Quiote\Logging\Log::for($this);
 		if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
@@ -912,7 +919,14 @@ abstract class Validator extends ParameterHolder implements ResetInterface, Vali
 					if (($logger = \Quiote\Logging\Log::for($this))->isEnabled(\Quiote\Logging\Level::Debug)) { $logger->debug('[Validator][export][debug] stored bracketed root=' . $root . ' flat=' . $flatName); }
 				}
 			}
-		} catch(\Throwable) {}
+		} catch(\Throwable $e) {
+			// $request keeps whatever was written before the failure, so a partially exported
+			// value can reach the action while the rest of the export is missing.
+			\Quiote\Logging\Log::for($this)->error(
+				'[Validator] export failed for validator "' . ($this->getName() ?? '?') . '": '
+				. $e->getMessage()
+			);
+		}
 		$this->validationParameters = $request;
 		$parentContainer = $this->parentContainer;
 		if($parentContainer !== null) {
@@ -939,7 +953,14 @@ abstract class Validator extends ParameterHolder implements ResetInterface, Vali
 			$names = [$cp->__toString()];
 			if($rootParameterName) { $names[] = $rootParameterName; }
 			$request = $request->enforceValidatedParameters($names);
-		} catch(\Throwable) { }
+		} catch(\Throwable $e) {
+			// The exported name is not marked validated, so strict access to the value this
+			// validator just produced is denied.
+			\Quiote\Logging\Log::for($this)->error(
+				'[Validator] could not whitelist the exported parameter of validator "'
+				. ($this->getName() ?? '?') . '"; it will not be readable: ' . $e->getMessage()
+			);
+		}
 		$this->validationParameters = $request;
 	}
 

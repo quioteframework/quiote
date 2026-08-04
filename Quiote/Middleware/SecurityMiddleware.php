@@ -141,8 +141,12 @@ class SecurityMiddleware implements MiddlewareInterface
             try {
                 $ot = $this->controller->getOutputType();
                 $outputTypeName = $ot->getName();
-            } catch (\Throwable) {
-                // Output types not yet loaded; use default
+            } catch (\Throwable $e) {
+                // Output types not yet loaded; the 'html' default above stands.
+                \Quiote\Logging\Log::for($this)->debug(
+                    '[SecurityMiddleware] output type unavailable for the forward, using html: '
+                    . $e->getMessage()
+                );
             }
             try {
                 $newDesc = $this->forwardService->createSystemForwardActionDescriptor($key, $httpMethod, $outputTypeName);

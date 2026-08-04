@@ -1145,8 +1145,13 @@ class Context implements \Stringable, ResetInterface, ContextInterface
         }
         $this->shutdownSequence = array_values($this->shutdownSequence);
         $this->user = null; // force lazy recreation in getUser()
-      } catch (\Throwable) {
-        // swallow – failing to defer is a soft failure
+      } catch (\Throwable $e) {
+        // The eagerly built user stays installed, so the first real request may observe the
+        // authenticated=false latched before any session cookie was visible.
+        $logger->warning(
+          '[Context.initialize] could not defer the pre-request user; the first request may see a '
+          . 'stale authentication state: ' . $e->getMessage()
+        );
       }
     }
 
@@ -1230,9 +1235,14 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     if ($moduleName !== null) {
       try {
         $this->getController()->initializeModule($moduleName);
-      } catch (DisabledModuleException) {
-        // swallow, this will load the modules autoload but throw an exception
-        // if the module is disabled.
+      } catch (DisabledModuleException $e) {
+        // Deliberate and typed: initializeModule() loads the module's autoload before it
+        // rejects a disabled module, and that autoload is the whole reason for calling it
+        // here. Resolving a model from a disabled module stays legal.
+        \Quiote\Logging\Log::for($this)->debug(
+          '[Context.getModel] module "' . $moduleName . '" is disabled; its autoload is loaded '
+          . 'and model resolution continues: ' . $e->getMessage()
+        );
       }
     }
 
@@ -1667,9 +1677,13 @@ class Context implements \Stringable, ResetInterface, ContextInterface
           spl_object_id($replacement),
         ));
       }
-    } catch (\Throwable) {
-      // Soft failure: reset()/shutdown() drive storage and user directly, so a
-      // failed splice degrades ordering for other components only.
+    } catch (\Throwable $e) {
+      // reset()/shutdown() drive the user directly, so its own persistence is unaffected; what
+      // degrades is the order other components are shut down in relative to it.
+      \Quiote\Logging\Log::for($this)->warning(
+        '[Context.' . $caller . '] could not splice the component into the shutdown sequence; '
+        . 'shutdown ordering for other components may be wrong: ' . $e->getMessage()
+      );
     }
   }
 

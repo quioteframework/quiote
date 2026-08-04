@@ -468,7 +468,12 @@ class WebRequest implements ServerRequestInterface, ResetInterface, \Quiote\Cont
 		try {
 			$merged = $this->params->all() + $this->getRequestParams($this, 'parameters');
 			$ref = ArrayPathDefinition::getValue($name, $merged, null);
-		} catch (\Throwable) { }
+		} catch (\Throwable $e) {
+			// $ref stays null and the bracket-path fallback below is the remaining candidate.
+			\Quiote\Logging\Log::for($this)->debug(
+				'[WebRequest] nested path resolution declined for "' . $name . '": ' . $e->getMessage()
+			);
+		}
 		if ($ref !== null) {
 			return $ref;
 		}
@@ -506,7 +511,12 @@ class WebRequest implements ServerRequestInterface, ResetInterface, \Quiote\Cont
 		try {
 			$merged = $this->params->all() + $this->getRequestParams($this, 'parameters');
 			$has = ArrayPathDefinition::hasValue($name, $merged);
-		} catch (\Throwable) { }
+		} catch (\Throwable $e) {
+			// $has stays false and the bracket-path fallback below is the remaining candidate.
+			\Quiote\Logging\Log::for($this)->debug(
+				'[WebRequest] nested path lookup declined for "' . $name . '": ' . $e->getMessage()
+			);
+		}
 		if ($has) {
 			return true;
 		}

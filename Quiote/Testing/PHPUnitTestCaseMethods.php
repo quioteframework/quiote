@@ -77,8 +77,12 @@ trait PHPUnitTestCaseMethods
                         $annotations['method'][$quioteName] = $annotations['method'][$shortName];
                     }
                 }
-            } catch (\ReflectionException) {
-                // Method not found, ignore
+            } catch (\ReflectionException $e) {
+                // A method the test class does not declare simply contributes no annotations;
+                // absence is the expected case here, not a fault.
+                \Quiote\Logging\Log::for($this)->debug(
+                    '[PHPUnitTestCaseMethods] no such method to read annotations from: ' . $e->getMessage()
+                );
             }
         }
         
@@ -89,8 +93,11 @@ trait PHPUnitTestCaseMethods
             try {
                 $method = $reflector->getMethod($methodName);
                 $this->parseDocBlockAnnotations($method, $annotations['method']);
-            } catch (\ReflectionException) {
-                // Method not found, ignore
+            } catch (\ReflectionException $e) {
+                // As above: the method is simply not declared, so it contributes nothing.
+                \Quiote\Logging\Log::for($this)->debug(
+                    '[PHPUnitTestCaseMethods] no such method to read annotations from: ' . $e->getMessage()
+                );
             }
         }
         

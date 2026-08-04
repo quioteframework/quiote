@@ -286,7 +286,12 @@ class CurrencyFormatter extends DecimalFormatter implements ITranslator, ResetIn
 			if($display !== null) {
 				$name = $display;
 			}
-		} catch(\Throwable) {
+		} catch(\Throwable $e) {
+			// $symbol and $name keep the currency code as their fallback.
+			\Quiote\Logging\Log::create(self::class)->debug(
+				'[CurrencyFormatter] ICU declined symbol/name for ' . $code . ', using the code itself: '
+				. $e->getMessage()
+			);
 		}
 		return $cache[$key] = ['symbol' => $symbol, 'name' => $name];
 	}
@@ -308,7 +313,11 @@ class CurrencyFormatter extends DecimalFormatter implements ITranslator, ResetIn
 					}
 				}
 			}
-		} catch(\Throwable) {
+		} catch(\Throwable $e) {
+			\Quiote\Logging\Log::create(self::class)->debug(
+				'[CurrencyFormatter] ICU currency resource bundle unavailable for ' . $code . ': '
+				. $e->getMessage()
+			);
 		}
 
 		return null;

@@ -228,7 +228,12 @@ abstract class AttributeHolder extends ParameterHolder
 			} else {
 				try {
 					$retval =& ArrayPathDefinition::unsetValue((string) $name, $this->attributes[$ns]);
-				} catch(InvalidArgumentException) {
+				} catch(InvalidArgumentException $e) {
+					// Not a resolvable path expression, so there is nothing at that name to remove
+					// and $retval stays null.
+					\Quiote\Logging\Log::create(self::class)->debug(
+						'[AttributeHolder] "' . $name . '" is not a removable path: ' . $e->getMessage()
+					);
 				}
 			}
 		}

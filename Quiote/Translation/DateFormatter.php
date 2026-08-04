@@ -238,7 +238,11 @@ class DateFormatter implements ITranslator, ResetInterface
 				if(is_string($canon)) {
 					return $canon;
 				}
-			} catch(\Throwable) {
+			} catch(\Throwable $e) {
+				// The normalized tag is used as-is below.
+				\Quiote\Logging\Log::create(self::class)->debug(
+					'[DateFormatter] Locale::canonicalize declined "' . $normalized . '": ' . $e->getMessage()
+				);
 			}
 		}
 

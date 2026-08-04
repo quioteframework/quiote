@@ -288,7 +288,15 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 						$rawBase = $validator->getParameter('base');
 						$basePath = is_scalar($rawBase) ? (string) $rawBase : '';
 					}
-				} catch(\Throwable) { }
+				} catch(\Throwable $e) {
+					// $basePath stays empty, so this validator's arguments are whitelisted at the
+					// root instead of under their configured base -- getParameter() will then
+					// deny the based names the validator actually targets.
+					\Quiote\Logging\Log::for($this)->warning(
+						'[ValidationManager] could not read the "base" parameter of validator "'
+						. $validator->getName() . '"; whitelisting its arguments unbased: ' . $e->getMessage()
+					);
+				}
 				foreach($args as $arg) {
 					$argName = $arg;
 					if($argName !== '') {
@@ -300,7 +308,14 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 								if($fullPath !== '') {
 									$allArgumentNames[$fullPath] = true;
 								}
-							} catch(\Throwable) { }
+							} catch(\Throwable $e) {
+								// The based name is not whitelisted, so strict access to it is denied
+								// even though a validator targets it.
+								\Quiote\Logging\Log::for($this)->warning(
+									'[ValidationManager] could not resolve argument "' . $argName . '" under base "'
+									. $basePath . '"; it will not be whitelisted: ' . $e->getMessage()
+								);
+							}
 						}
 					} else {
 						if($basePath !== '') {
@@ -315,7 +330,14 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 						$exp = $validator->getParameter('export');
 						if(is_string($exp) && $exp !== '') { $allArgumentNames[$exp] = true; $allExportNames[$exp] = true; }
 					}
-				} catch(\Throwable) { }
+				} catch(\Throwable $e) {
+					// The export name is not whitelisted, so the value this validator exports is
+					// unreachable through getParameter() and gets pruned.
+					\Quiote\Logging\Log::for($this)->warning(
+						'[ValidationManager] could not read the "export" parameter of validator "'
+						. $validator->getName() . '": ' . $e->getMessage()
+					);
+				}
 
 				// Recursively collect from child validators (for OR, AND, etc.)
 				if($validator instanceof OperatorValidator) {
@@ -500,15 +522,13 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 		if ($vd) {
 			$logger->debug('[ValidationManager] finalSuccess=' . ($success? '1':'0') . ' highestResult=' . $result . ' executedValidators=' . $executedValidators);
 		}
-		// Also emit a short, unconditional trace of the final outcome and severity when validation fails
-		/*if (!$success) {
-			try {
-				$sev = $this->report?->getResult();
-				$names = [];
-				foreach ($this->children as $c) { $names[] = method_exists($c, 'getName') ? $c->getName() : 'unknown'; }
-				$logger->debug('[ValidationManager] FAIL sev=' . (is_null($sev) ? 'null' : $sev) . ' validators=' . implode(',', $names));
-			} catch (\Throwable) {}
-		}*/
+		if (!$success) {
+			$logger->debugWith(fn(): string => '[ValidationManager] FAIL sev=' . $this->report->getResult()
+				. ' validators=' . implode(',', array_map(
+					static fn($c): string => (string) $c->getName(),
+					array_values($this->children)
+				)));
+		}
 		return $success;
 	}
 

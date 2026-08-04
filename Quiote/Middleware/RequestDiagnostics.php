@@ -26,8 +26,11 @@ trait RequestDiagnostics
             if ($sid !== '') {
                 return $sid;
             }
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
             // No session bag to ask; the native session below is the remaining source.
+            \Quiote\Logging\Log::create(self::class)->debug(
+                '[RequestDiagnostics] session bag unavailable: ' . $e->getMessage()
+            );
         }
 
         if (function_exists('session_id')) {
@@ -51,8 +54,11 @@ trait RequestDiagnostics
             if ($user instanceof \Quiote\User\ISecurityUser) {
                 return $user->isAuthenticated() ? '1' : '0';
             }
-        } catch (\Throwable) {
-            // Reported as unavailable below.
+        } catch (\Throwable $e) {
+            // Answered as unavailable below.
+            \Quiote\Logging\Log::create(self::class)->debug(
+                '[RequestDiagnostics] user unavailable: ' . $e->getMessage()
+            );
         }
 
         return 'na';

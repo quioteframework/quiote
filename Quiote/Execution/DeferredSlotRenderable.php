@@ -55,8 +55,14 @@ class DeferredSlotRenderable implements SlotRenderable, \Stringable
                         'time' => date('c'),
                     ]);
                     \error_log('SLOT_EXCEPTION ' . $payload);
-                } catch(\Throwable) {
-                    // swallow logging errors to not mask original exception
+                } catch(\Throwable $logFailure) {
+                    // The original throwable is what matters and must not be displaced by a failure
+                    // to record it, so this cannot escalate through the logger it just lost. Noted
+                    // through PHP's own error log, which does not depend on ours.
+                    \error_log(
+                        '[DeferredSlotRenderable] could not log a slot render failure: '
+                        . $logFailure->getMessage()
+                    );
                 }
             }
             throw $e; // rethrow so global middleware handles it

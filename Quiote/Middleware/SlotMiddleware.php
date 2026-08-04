@@ -42,15 +42,22 @@ class SlotMiddleware implements MiddlewareInterface
             if ($this->context !== null) {
                 try {
                     $this->context->setRequest($request);
-                } catch (\Throwable) {
+                } catch (\Throwable $e) {
+                    // The request carrying the SlotStack never reached the context, so a slot
+                    // rendered from code reading Context::getRequest() cannot find one.
+                    \Quiote\Logging\Log::for($this)->warning(
+                        '[SlotMW] could not publish the request carrying the SlotStack: ' . $e->getMessage()
+                    );
                 }
             }
         } else {
             if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
-                try {
-                    \Quiote\Logging\Log::for($this)->debug(sprintf('[SlotMW] SlotStack already present on request id=%d', spl_object_id($request)));
-                } catch (\Throwable) {
-                }
+                \Quiote\Logging\Log::for($this)->debugWith(
+                    fn(): string => sprintf(
+                        '[SlotMW] SlotStack already present on request id=%d',
+                        spl_object_id($request)
+                    )
+                );
             }
         }
         return $handler->handle($request);

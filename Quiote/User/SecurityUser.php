@@ -245,10 +245,12 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 		$this->credentialIndex = null;
 		$logger = \Quiote\Logging\Log::for($this);
 		if($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
-			try {
-				$cid = $this->getContext()->getCorrelationId() ?? 'n/a';
-				$logger->debug('[SecurityUser.initialize] cid=' . $cid . ' eff auth=' . var_export($this->authenticated,true) . ' num creds=' . count($this->credentials) . ' storedAuth=' . var_export($storedAuth,true));
-			} catch(\Throwable) {}
+			$logger->debugWith(
+				fn(): string => '[SecurityUser.initialize] cid=' . ($this->getContext()->getCorrelationId() ?? 'n/a')
+					. ' eff auth=' . var_export($this->authenticated, true)
+					. ' num creds=' . count($this->credentials)
+					. ' storedAuth=' . var_export($storedAuth, true)
+			);
 		}
 		// Rehydration is not mutation: a user restored from storage has nothing
 		// new to write back. Last statement, after every field above is settled.
@@ -302,7 +304,13 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 			if($bag->exists()) {
 				$bag->set(self::TOKEN_DERIVED_NAMESPACE, $tokenDerived);
 			}
-		} catch(\Throwable) {
+		} catch(\Throwable $e) {
+			// The marker is what tells a later request this identity came from a token rather
+			// than the session, so losing it can make a token-authenticated caller look
+			// session-authenticated on the next request.
+			\Quiote\Logging\Log::for($this)->error(
+				'[SecurityUser] could not record the token-derived marker in the session: ' . $e->getMessage()
+			);
 		}
 	}
 
@@ -409,7 +417,17 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 				// one write that legitimately creates one, and it is how a
 				// first-time visitor gets a session at all.
 				$bag->set(self::AUTH_NAMESPACE, true);
-			} catch(\Throwable) {}
+			} catch(\Throwable $e) {
+				// Reported at error level rather than thrown, so a session backend outage does
+				// not turn a successful authentication into a 500 -- but this request is
+				// authenticated and the next one will not be, and if regenerate() is what
+				// failed the pre-login id may still resolve. Both are security-relevant.
+				\Quiote\Logging\Log::for($this)->error(
+					'[SecurityUser] could not persist authentication to the session; this login will '
+					. 'not survive the request and session fixation may not have been closed: '
+					. $e->getMessage()
+				);
+			}
 
 			return;
 		}
@@ -428,7 +446,15 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 			} catch(\Throwable) { $bt[] = 'backtrace_failed'; }
 			$reqUri = $_SERVER['REQUEST_URI'] ?? 'unknown';
 			$sid = 'no-sid';
-			try { $tmp = $this->getContext()->getSessionBag()->getId(); if($tmp !== '') { $sid = $tmp; } } catch(\Throwable) {}
+			try {
+				$tmp = $this->getContext()->getSessionBag()->getId();
+				if($tmp !== '') { $sid = $tmp; }
+			} catch(\Throwable $e) {
+				// Diagnostic only; $sid keeps its placeholder.
+				\Quiote\Logging\Log::for($this)->debug(
+					'[SecurityUser] session id unavailable for diagnostics: ' . $e->getMessage()
+				);
+			}
 			$pid = getmypid();
 			$worker = getenv('FRANKENPHP_WORKER') ?: getenv('FRANKENPHP_WORKER_ID') ?: 'n/a';
 			$tracePayload = [
@@ -467,7 +493,14 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 
 			$bag->set(self::AUTH_NAMESPACE, false);
 			$bag->set(self::TOKEN_DERIVED_NAMESPACE, false);
-		} catch(\Throwable) {}
+		} catch(\Throwable $e) {
+			// A logout that did not land leaves a session that still authenticates, which is
+			// the most consequential failure in this class.
+			$logger->error(
+				'[SecurityUser] could not record the logout in the session; the session may still '
+				. 'authenticate: ' . $e->getMessage()
+			);
+		}
 	}
 
 	/**
@@ -481,13 +514,23 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 		foreach([self::AUTH_NAMESPACE, self::CREDENTIAL_NAMESPACE, self::TOKEN_DERIVED_NAMESPACE, $this->storageNamespace] as $key) {
 			try {
 				$bag->remove($key);
-			} catch(\Throwable) {
+			} catch(\Throwable $e) {
+				// Continue clearing the remaining keys: stopping here would leave more of the
+				// logged-out session intact than pressing on does.
+				\Quiote\Logging\Log::for($this)->error(
+					'[SecurityUser] could not clear session key "' . $key . '" during logout: '
+					. $e->getMessage()
+				);
 			}
 		}
 
 		try {
 			$bag->destroy();
-		} catch(\Throwable) {
+		} catch(\Throwable $e) {
+			\Quiote\Logging\Log::for($this)->error(
+				'[SecurityUser] could not destroy the session during logout; its contents may '
+				. 'survive: ' . $e->getMessage()
+			);
 		}
 	}
 
@@ -533,7 +576,14 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 			}
 		} catch (\Throwable) {
 			// fallback
-			try { $bag->set(self::AUTH_NAMESPACE, $this->authenticated); } catch (\Throwable) {}
+			try {
+				$bag->set(self::AUTH_NAMESPACE, $this->authenticated);
+			} catch (\Throwable $e) {
+				$logger->error(
+					'[SecurityUser] could not persist the authentication flag on shutdown; the next '
+					. 'request will read a stale value: ' . $e->getMessage()
+				);
+			}
 		}
 		// Avoid clobbering non-empty stored credentials with empty ones from a fresh, not-yet-populated instance
 		try {
@@ -549,19 +599,22 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 			}
 		} catch (\Throwable) {
 			// fallback
-			try { $bag->set(self::CREDENTIAL_NAMESPACE, $this->credentials); } catch (\Throwable) {}
+			try {
+				$bag->set(self::CREDENTIAL_NAMESPACE, $this->credentials);
+			} catch (\Throwable $e) {
+				$logger->error(
+					'[SecurityUser] could not persist credentials on shutdown; the next request will '
+					. 'read a stale set: ' . $e->getMessage()
+				);
+			}
 		}
 		if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
-			try {
-				$cid = $this->getContext()->getCorrelationId() ?? 'n/a';
-				$logger->debug('[SecurityUser] Shutdown correlation id=' . $cid . ' stored auth=' . var_export($this->authenticated,true) . ' creds count=' . count($this->credentials ?? []));
-				$logger->debug('[SecurityUser] Shutdown session snapshot', [
-					'session' => isset($_SESSION) ? array_keys($_SESSION) : [],
-					'session_id' => function_exists('session_id') ? session_id() : null,
-					'session_status' => function_exists('session_status') ? session_status() : null,
-				]);	
-
-			} catch(\Throwable) {}
+			$logger->debugWith(
+				fn(): string => '[SecurityUser] Shutdown correlation id='
+					. ($this->getContext()->getCorrelationId() ?? 'n/a')
+					. ' stored auth=' . var_export($this->authenticated, true)
+					. ' creds count=' . count($this->credentials ?? [])
+			);
 		}
 
 		// Debug: Check what's in the session after storing

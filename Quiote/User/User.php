@@ -261,25 +261,18 @@ class User extends AttributeHolder implements ResetInterface, \Quiote\ContextCom
 		$ns = $this->getDefaultNamespace();
 		$hasNsData = array_key_exists($ns, $this->attributes)
 			&& count($this->attributes[$ns]) > 0;
-		try {
-			$keys = [];
-			if (isset($this->attributes[$ns])) {
-				$keys = array_keys($this->attributes[$ns]);
-			}
-			$logger = \Quiote\Logging\Log::for($this);
-			if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
-				$logger->debug('[User.shutdown.debug] oid=' . spl_object_id($this) . ' ns=' . $ns . ' hasNsData=' . ($hasNsData ? 1 : 0) . ' keyCount=' . count($keys) . ' keysSample=' . json_encode(array_slice($keys, 0, 12)));
-			}
-		} catch (\Throwable) {
-		}
+		\Quiote\Logging\Log::for($this)->debugWith(function () use ($ns, $hasNsData): string {
+			$keys = isset($this->attributes[$ns]) ? array_keys($this->attributes[$ns]) : [];
+
+			return '[User.shutdown.debug] oid=' . spl_object_id($this) . ' ns=' . $ns
+				. ' hasNsData=' . ($hasNsData ? 1 : 0)
+				. ' keyCount=' . count($keys)
+				. ' keysSample=' . json_encode(array_slice($keys, 0, 12));
+		});
 		if (!$hasNsData) {
-			try {
-				$logger = \Quiote\Logging\Log::for($this);
-				if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
-					$logger->debug('[User.shutdown] skip store (no data) for ' . $this->storageNamespace);
-				}
-			} catch (\Throwable) {
-			}
+			\Quiote\Logging\Log::for($this)->debugWith(
+				fn(): string => '[User.shutdown] skip store (no data) for ' . $this->storageNamespace
+			);
 			// This is the last link in the shutdown chain, so by now the
 			// subclasses above have written whatever they had. Nothing left to
 			// persist here means the user is clean, not still pending.
@@ -330,21 +323,19 @@ class User extends AttributeHolder implements ResetInterface, \Quiote\ContextCom
 
 			$bag->set($this->storageNamespace, $data);
 			$this->markClean();
-			try {
-				$logger = \Quiote\Logging\Log::for($this);
-				if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
-					$logger->debug('[User.persistAttributesImmediate] persisted ns=' . $ns . ' keys=' . ($onlyKeys ? json_encode($onlyKeys) : 'ALL'));
-				}
-			} catch (\Throwable) {
-			}
+			\Quiote\Logging\Log::for($this)->debugWith(
+				fn(): string => '[User.persistAttributesImmediate] persisted ns=' . $ns
+					. ' keys=' . ($onlyKeys ? json_encode($onlyKeys) : 'ALL')
+			);
 		} catch (\Throwable $e) {
-			try {
-				$logger = \Quiote\Logging\Log::for($this);
-				if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
-					$logger->debug('[User.persistAttributesImmediate] ERROR ' . $e->getMessage());
-				}
-			} catch (\Throwable) {
-			}
+			// An immediate persist is a best-effort optimisation over the shutdown write, so a
+			// failure here is not fatal -- but it means the value is only in memory until then.
+			// Named by storage namespace rather than attribute namespace: the latter is
+			// resolved inside the try and may not have been reached.
+			\Quiote\Logging\Log::for($this)->warning(
+				'[User.persistAttributesImmediate] could not persist "' . $this->storageNamespace
+				. '" immediately; deferring to shutdown: ' . $e->getMessage()
+			);
 		}
 	}
 

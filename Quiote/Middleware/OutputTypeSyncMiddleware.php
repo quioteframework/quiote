@@ -24,8 +24,13 @@ class OutputTypeSyncMiddleware implements MiddlewareInterface
             try {
                 // Calling getOutputType with a name mutates controller internal selection
                 $this->controller->getOutputType($attr);
-            } catch(\Throwable) {
-                // Ignore invalid output type names
+            } catch(\Throwable $e) {
+                // An unknown name leaves the controller's current selection in place, which is
+                // the right outcome for a request naming an output type the app does not define.
+                \Quiote\Logging\Log::for($this)->debug(
+                    '[OutputTypeSyncMiddleware] request named an unknown output type; keeping the '
+                    . 'current selection: ' . $e->getMessage()
+                );
             }
         }
         return $handler->handle($request);

@@ -51,7 +51,15 @@ class BooleanValidator extends Validator
 					if($argumentName !== null) {
 						$this->validationParameters = $validationParameters->setParameter($argumentName, $castValue);
 					}
-				} catch(\Throwable) {}
+				} catch(\Throwable $e) {
+					// Validation still succeeded; what is lost is the cast boolean replacing the
+					// submitted string, so the action reads the raw input instead.
+					\Quiote\Logging\Log::for($this)->error(
+						'[BooleanValidator] could not write back the cast value for "'
+						. ($this->getArgument() ?? '?') . '"; the action will read the uncast input: '
+						. $e->getMessage()
+					);
+				}
 			}
 			return true;
 		}

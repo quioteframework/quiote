@@ -152,8 +152,14 @@ final class HttpClient implements ClientInterface
         try {
             \OpenTelemetry\API\Trace\Propagation\TraceContextPropagator::getInstance()
                 ->inject($request, new \Quiote\Telemetry\Psr7HeaderSetter());
-        } catch (\Throwable) {
-            // Propagation is best-effort; a failure here must never break the request.
+        } catch (\Throwable $e) {
+            // Propagation is best-effort; a failure here must never break the request. The
+            // outgoing call still happens, just without a trace parent, so the remote span is
+            // orphaned rather than missing.
+            \Quiote\Logging\Log::for($this)->debug(
+                '[HttpClient] could not inject trace context into the outgoing request: '
+                . $e->getMessage()
+            );
         }
         return $request;
     }

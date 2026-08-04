@@ -255,7 +255,15 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 		if (is_object($arguments)) {
 			// Try common extraction patterns; ignore on failure.
 			if (method_exists($arguments, 'getParameters')) {
-				try { $maybe = $arguments->getParameters('parameters'); if (is_array($maybe)) { $arguments = $maybe; } } catch(\Throwable) {}
+				try {
+					$maybe = $arguments->getParameters('parameters');
+					if (is_array($maybe)) { $arguments = $maybe; }
+				} catch(\Throwable $e) {
+					// $arguments stays the request object, which the caller below also accepts.
+					\Quiote\Logging\Log::for($this)->debug(
+						'[FragmentTestCase] could not flatten the request parameters: ' . $e->getMessage()
+					);
+				}
 			}
 		}
 		if (is_array($arguments)) {
