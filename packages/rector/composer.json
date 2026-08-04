@@ -3,7 +3,7 @@
 	"description": "Rector rules for migrating an application off Quiote's Context accessors onto injected collaborators.",
 	"keywords": ["quiote", "rector", "migration", "upgrade"],
 	"homepage": "https://github.com/quioteframework/rector",
-	"type": "rector-extension",
+	"type": "library",
 	"license": "MIT",
 	"authors": [
 		{

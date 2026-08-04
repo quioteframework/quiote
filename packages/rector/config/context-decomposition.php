@@ -13,7 +13,13 @@ use Rector\Config\RectorConfig;
 /**
  * The Context-decomposition rule set.
  *
- * Include this from an application's own rector.php:
+ * **Not published yet.** `quioteframework/rector` is developed in-tree and is listed for the subtree
+ * split, but the standalone repo and its Packagist registration do not exist, so
+ * `composer require --dev quioteframework/rector` cannot resolve outside this monorepo. Until it is
+ * published, an application reaches these rules by pointing Composer at a path or VCS repository, or
+ * by running them from a checkout of the monorepo.
+ *
+ * Once published, include this from an application's own rector.php:
  *
  *     $rectorConfig->import(__DIR__ . '/vendor/quioteframework/rector/config/context-decomposition.php');
  *
