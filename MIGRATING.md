@@ -1,3 +1,281 @@
+This file covers each release that needs migration work, newest first.
+
+- [Migrating to Quiote 3.2](#migrating-to-quiote-32) — response, request, config and PSR-7 adapter contracts
+- [Migrating to Quiote 3.0](#migrating-to-quiote-30) — the session subsystem
+
+---
+
+# Migrating to Quiote 3.2
+
+3.2 tightens four contracts that were quietly wrong: a response could not emit
+half the status codes it needed, a request could report two different hosts, a
+PSR-7 response mutated when you copied it, and configuration was a public global
+array.
+
+Most applications need no changes. The two worth grepping for are
+`Config::$config` and `with*()` calls on a `PsrResponseAdapter`.
+
+---
+
+## 1. `WebResponse` accepts the full status range
+
+`validateHttpStatusCode()` tested membership of a hardcoded ~35-entry
+per-protocol table, and `setHttpStatusCode()` threw on a miss. 422, 429, 308,
+451, 507 and 511 were unsettable, so any code composing a response through
+`WebResponse` could not emit them. `View::returnProblemDetailsFromValidationIncidents()`
+is the case that bit: called with 422 it produced a document reporting 422 and
+served it as `200 OK` with no `application/problem+json` content type, because the
+setter threw and its catch swallowed it.
+
+Validity now comes from `Quiote\Http\HttpStatus`: any code in 100–599.
+
+**If you relied on rejection**, narrow it explicitly in a subclass. The framework
+never sets this property:
+
+```php
+class StrictResponse extends WebResponse
+{
+    /** @var ?array<int, string> */
+    protected $httpStatusCodes = ['200' => 'OK', '404' => 'Not Found'];
+}
+```
+
+**If you match on the exception message**, it changed and no longer names a
+protocol:
+
+| Before | After |
+|---|---|
+| `Invalid HTTP/1.1 Status code: 999` | `Invalid HTTP status code: 999 (expected 100-599)` |
+| `Invalid HTTP/1.1 Redirect Status code: 999` | `Invalid HTTP redirect status code: 999 (expected 100-599)` |
+
+The protocol-derived table selection is gone entirely. It fell through to the
+HTTP/1.0 list for anything that was not literally `HTTP/1.1` or `HTTP/2`, so on
+HTTP/3 — or whenever `getProtocol()` answered null — ordinary codes like 303 and
+307 were unsettable.
+
+`WebResponse::$http10StatusCodes` and `$http11StatusCodes` are deprecated and no
+longer consulted. They remain as protected properties for subclasses that read
+them.
+
+---
+
+## 2. `PsrResponseAdapter` is immutable
+
+**This is the change most likely to affect application code.**
+
+Every `with*()` method used to mutate the wrapped `WebResponse` and return
+`$this`. The adapter is handed to views and actions by `ViewFactory`,
+`ActionExecutor` and `ImmutableViewInitContext`, so the ordinary PSR-7 idiom
+silently changed the shared response — and a caller holding the original to
+compare against found it altered.
+
+`with*()` now clones and leaves both the adapter and the `WebResponse`
+untouched, as `ResponseInterface` requires.
+
+**Before** — worked by side effect, return value discarded:
+
+```php
+public function executeJson(WebRequest $rd)
+{
+    $psr = $this->getInitContext()->getPsrResponse();
+    $psr->withHeader('X-Thing', '1');   // now a no-op
+}
+```
+
+**After** — write to the response that gets sent:
+
+```php
+public function executeJson(WebRequest $rd)
+{
+    $this->getResponse()->setHttpHeader('X-Thing', '1');
+}
+```
+
+From code holding an adapter rather than a view, `getLegacy()` is still the
+mutable response:
+
+```php
+$adapter->getLegacy()->setHttpHeader('X-Thing', '1');
+```
+
+Two smaller corrections in the same class: `withStatus()` validates the code and
+throws `InvalidArgumentException` as PSR-7 mandates (it previously threw
+`QuioteException`, which is not an `InvalidArgumentException`), and
+`getReasonPhrase()` returns the real phrase instead of the empty string.
+
+A discarded `with*()` return value is now a no-op rather than a hidden mutation,
+which is exactly the failure this fixes — so grep for `->with` on anything
+reached through `getPsrResponse()`.
+
+---
+
+## 3. `Config::$config` is private
+
+Configuration was a `public static` array, so anything could write to it and no
+consumer could be handed a different one. `Quiote\Config\ConfigRepository` now
+holds the behaviour as an ordinary object; `Config` keeps its whole static API
+and delegates.
+
+**Every `Config::get*()`, `set()`, `has()`, `remove()`, `fromArray()`,
+`toArray()`, `clear()` and `resetWorkerState()` call is unchanged.** Only direct
+property access breaks:
+
+| Before | After |
+|---|---|
+| `Config::$config['k'] = $v` | `Config::set('k', $v)` |
+| `unset(Config::$config['k'])` | `Config::remove('k')` |
+| `Config::$config['k'] ?? $d` | `Config::getString('k', $d)` (or the matching typed accessor) |
+| `isset(Config::$config['k'])` | `Config::has('k')` |
+| `foreach (Config::$config as ...)` | `foreach (Config::toArray() as ...)` |
+| `new ReflectionProperty(Config::class, 'config')` | the accessors above |
+
+This is mechanically rewritable and a good Rector target.
+
+Two things the object buys you. A service can declare the dependency instead of
+reaching for the facade — the container binds it under `config` and its class
+name:
+
+```php
+final class Thing
+{
+    public function __construct(private readonly ConfigRepository $config) {}
+}
+```
+
+And a test can install a configuration of its own and put back what was there:
+
+```php
+$previous = Config::useRepository(new ConfigRepository(['core.debug' => true]));
+try {
+    // ...
+} finally {
+    Config::useRepository($previous);
+}
+```
+
+One documentation correction while we were in there: `fromArray()`'s precedence
+is a read-only directive first, then the imported data, then an existing
+directive the import does not mention. The old comment described the operand
+order the other way round. The behaviour did not change.
+
+---
+
+## 4. `ValidationMiddleware` requires a `Controller`
+
+The constructor took `?Controller $controller = null` and then resolved one from
+the `'web'` context by name when it was absent — which pinned the framework to a
+single context profile, and wrote to a property on an instance the pipeline
+caches for the worker's lifetime, so the first request's controller was reused by
+every later one.
+
+```php
+// Before
+new ValidationMiddleware();
+new ValidationMiddleware(null);
+
+// After
+new ValidationMiddleware($controller);
+```
+
+Only relevant if you construct the middleware yourself. The pipeline already
+passes one.
+
+---
+
+## 5. `WebRequest` URL mutators
+
+The seven `setUrlScheme()`, `setUrlHost()`, `setUrlPort()`, `setRequestUri()`,
+`setUrlPath()`, `setUrlQuery()` and `setProtocol()` methods wrote only
+`WebRequest`'s own URL metadata and left the wrapped PSR-7 URI alone. After
+`setUrlHost('other.test')`, `getUrlHost()` and `getUri()->getHost()` answered
+differently — so a host- or scheme-based check passed or failed depending on
+which of the two the caller happened to read.
+
+**All seven keep working and keep their `void` signature.** They now also rewrite
+the wrapped URI, so `getUri()` reflects the change where it previously did not.
+If you have a check reading `getUri()` after one of these calls, it now sees the
+new value.
+
+They are deprecated in favour of `with*()` counterparts that return a new
+instance:
+
+| Deprecated | Preferred |
+|---|---|
+| `$r->setUrlScheme('https')` | `$r = $r->withUrlScheme('https')` |
+| `$r->setUrlHost('h')` | `$r = $r->withUrlHost('h')` |
+| `$r->setUrlPort(8443)` | `$r = $r->withUrlPort(8443)` |
+| `$r->setRequestUri('/p?a=b')` | `$r = $r->withRequestUri('/p?a=b')` |
+| `$r->setUrlPath('/p')` | `$r = $r->withUrlPath('/p')` |
+| `$r->setUrlQuery('a=b')` | `$r = $r->withUrlQuery('a=b')` |
+| `$r->setProtocol('HTTP/1.0')` | `$r = $r->withProtocol('HTTP/1.0')` |
+
+Rewritable by Rector, but the rewrite has to capture the return value — a
+mechanical `set` → `with` rename that drops it turns a working call into a
+silent no-op. Convert with the assignment or leave the setters alone.
+
+---
+
+## Behaviour changes that need no code edit, but will be noticed
+
+**A view's attributes now converge on one store.** `View::initialize()` always
+populated an internal attribute store, but only `setAttribute()` and
+`getAttributes()` read it; every other accessor went to the init context's
+holder. The two never merged, so `setAttribute('k', $v)` was invisible to
+`getAttribute('k')`, `appendAttribute()` silently did nothing under the modern
+execution path, and `getAttribute('k', $default)` returned null instead of
+`$default`. All of that now behaves as the names promise. Code that worked around
+the old split — reading a value back through `getAttributes()` because
+`getAttribute()` returned nothing — still works, but the workaround is no longer
+needed.
+
+**`Set-Cookie` serialization has one implementation.** Two divergent ones existed
+(the response's own and `Quiote\Http\CookieSerializer`), differing in default
+value encoding, deletion handling and date formatting. Cookies queued on a
+`WebResponse` are unaffected — that path's semantics were kept. The bridging path
+used by `DispatchMiddleware` keeps its defensive skipping of a malformed cookie
+definition, so nothing there changes either.
+
+**Failures on the dispatch path are logged instead of vanishing.** Status,
+headers, redirects and cookies dropped while bridging the global response onto
+the PSR-7 response now log a warning, and a lost `Set-Cookie` logs at error
+level. Expect new log lines where something was already going wrong silently.
+
+---
+
+## New contracts, no migration required
+
+`ContextInterface`, `ControllerInterface`, `WebResponseInterface` and
+`ValidatorInterface` are implemented by `Context`, `Controller`, `WebResponse`
+and `Validator`, and bound in the container so a service can type-hint the
+contract:
+
+```php
+public function __construct(private readonly ContextInterface $context) {}
+```
+
+`Quiote\ContextComponentInterface` types the `initialize()`/`startup()` pair on
+`WebRequest`, `User`, `Routing` and `DatabaseManager`.
+
+All of it is additive. No existing signature changed, and the interfaces declare
+no PHP return types where the implementations declare none, so subclasses stay
+compatible whether or not they declare one.
+
+---
+
+## Checklist
+
+- [ ] Grep for `Config::$config` and rewrite to the accessors
+- [ ] Grep for `->with*()` on anything from `getPsrResponse()` or a
+      `PsrResponseAdapter`; move the intent to `getResponse()`/`getLegacy()`
+- [ ] Grep for `catch` blocks matching on `Invalid HTTP/1.1 Status code`
+- [ ] Check subclasses reading `$http10StatusCodes` / `$http11StatusCodes`
+- [ ] Pass a `Controller` if you construct `ValidationMiddleware` yourself
+- [ ] Check host- or scheme-based checks that read `getUri()` after a
+      `setUrl*()` call
+- [ ] Expect new warning-level log lines on the dispatch path
+
+---
+
 # Migrating to Quiote 3.0
 
 3.0 replaces the session subsystem. The ext/session–backed `storage` component
