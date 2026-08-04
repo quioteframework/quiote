@@ -68,6 +68,26 @@ would serve request 1's request or user to every later request in a worker. Inje
 `RequestState` or `CurrentUser` there. Both resolve through on every call and hold
 nothing.
 
+## New: plugins can hook the worker request boundary
+
+Anything holding request-scoped state of its own — a per-request cache, a memo
+keyed on the current user — previously had no way to clear it between requests in
+a persistent worker, so that state survived into the next request.
+
+```php
+PluginManager::addRequestBoundaryClear('my per-request cache', function (): void {
+    MyCache::forgetRequestState();
+});
+```
+
+Contributed clears run after the framework's own, so a plugin cannot displace the
+identity clears (session bag, user, request) that go first. Each clear is
+independently guarded: one that throws is logged and stepped over, and every other
+clear still runs.
+
+`Context::getRequestBoundaryCleanup()` exposes the same seam for a host driving the
+context directly.
+
 ## Validators can declare constructor dependencies
 
 Validator construction goes through the container, so a validator may take

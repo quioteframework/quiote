@@ -47,6 +47,9 @@ final class PluginManager
     /** @var array<string, callable> named HTTP client configurators */
     private static array $httpClientConfigs = [];
 
+    /** @var array<string, \Closure(): void> contributed request-boundary clears, keyed by label */
+    private static array $requestBoundaryClears = [];
+
     private function __construct() {}
 
     /** Register a plugin (instance or class-string). De-duped by class; declared order preserved. */
@@ -156,6 +159,23 @@ final class PluginManager
         self::$httpClientConfigs[$name] = $configurator;
     }
 
+    /**
+     * Contribute a clear that runs at every worker request boundary.
+     *
+     * For a plugin holding request-scoped state of its own -- a per-request cache, a memo keyed on
+     * the current user. Without this there is no way to hook the boundary, and such state survives
+     * into the next request served by the process.
+     *
+     * Keyed by $label, so registering the same label twice replaces rather than clearing twice.
+     *
+     * @param      \Closure(): void $clear
+     * @since      4.0.0
+     */
+    public static function addRequestBoundaryClear(string $label, \Closure $clear): void
+    {
+        self::$requestBoundaryClears[$label] = $clear;
+    }
+
     // --- application phases -------------------------------------------------
 
     /**
@@ -184,6 +204,20 @@ final class PluginManager
             if (!$factory->has($name) || $name === HttpClientFactory::DEFAULT) {
                 $factory->configure($name, $configurator);
             }
+        }
+    }
+
+    /**
+     * Append plugin-contributed clears to a context's request-boundary cleanup, after the
+     * framework's own -- the identity clears must not be displaced by a plugin.
+     *
+     * @since      4.0.0
+     */
+    public static function configureRequestBoundaryCleanup(
+        \Quiote\RequestBoundaryCleanup $cleanup,
+    ): void {
+        foreach (self::$requestBoundaryClears as $label => $clear) {
+            $cleanup->add($label, $clear);
         }
     }
 
@@ -216,6 +250,7 @@ final class PluginManager
         self::$commands = [];
         self::$containerServices = [];
         self::$httpClientConfigs = [];
+        self::$requestBoundaryClears = [];
         \Quiote\Middleware\MiddlewareCatalog::reset();
         \Quiote\Middleware\Config\MiddlewareConfigRegistry::reset();
         \Quiote\Database\DatabaseDriverRegistry::reset();
