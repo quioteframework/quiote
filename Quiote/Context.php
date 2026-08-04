@@ -26,6 +26,11 @@ use Psr\Http\Message\ResponseInterface;
  * It also serves as a gateway to the core pieces of the framework, allowing
  * objects with access to the context, to access other useful objects such as
  * the current controller, request, user, database manager etc.
+ *
+ * A subclass named by `core.context_implementation` must keep the constructor signature: the
+ * registry builds it knowing only the profile name.
+ *
+ * @phpstan-consistent-constructor
  * @since      1.0.0
  * @version    1.0.0
  */
@@ -111,11 +116,6 @@ class Context implements \Stringable, ResetInterface, ContextInterface
    * @var        array<int, mixed> The array used for the shutdown sequence.
    */
   protected $shutdownSequence = [];
-
-  /**
-   * @var        array<string, self> An array of Context instances.
-   */
-  protected static $instances = [];
 
   /**
    * @var        ?\Quiote\Model\ModelLocator Resolves and hands out this context's models.
@@ -204,6 +204,26 @@ class Context implements \Stringable, ResetInterface, ContextInterface
      */
     protected $name,
   ) {}
+
+  /**
+   * Build an uninitialized context for a profile.
+   *
+   * The named constructor {@see ContextRegistry} uses. The registry is what guarantees one
+   * context per profile, so it needs a way in that the constructor's protected visibility does
+   * not give it -- but going through here rather than opening the constructor keeps `new
+   * Context()` from being written casually, since an unregistered context is not the one anything
+   * else in the process will find.
+   *
+   * initialize() is deliberately not called: the registry has to record the instance before
+   * initialization runs, so a context reaching back for its own profile mid-initialize finds
+   * itself instead of recursing into a second one.
+   *
+   * @since      4.0.0
+   */
+  public static function create(string $profile): static
+  {
+    return new static($profile);
+  }
 
   /**
    * __toString overload, returns the name of the Context.
@@ -385,6 +405,11 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     // code can constructor-inject the interface and get the request's real collaborator.
     $container->alias(ContextInterface::class, static::class);
 
+    // The registry as an injectable collaborator, so code that genuinely needs a *named* profile
+    // can declare that dependency instead of reaching for Context::getInstance().
+    $container->set(ContextRegistry::class, ContextRegistry::shared());
+    $container->alias('contexts', ContextRegistry::class);
+
     // The configuration as an injectable collaborator, so a service can declare a
     // ConfigRepository dependency instead of reaching for the Config facade.
     $container->set(\Quiote\Config\ConfigRepository::class, Config::repository());
@@ -511,6 +536,11 @@ class Context implements \Stringable, ResetInterface, ContextInterface
    * Retrieve the Context instance.
    * If you don't supply a profile name this will try to return the context
    * specified in the <kbd>core.default_context</kbd> setting.
+   *
+   * Answers from the process-wide {@see ContextRegistry}, which owns the one-context-per-profile
+   * guarantee. Constructor-inject that registry in new code; a static reach for a named profile
+   * hides whether the caller wants a specific profile or just the current one.
+   *
    * @param      string $profile A name corresponding to a section of the config
    * @return     Context An context instance initialized with the
    *                          settings of the requested context name
@@ -518,31 +548,10 @@ class Context implements \Stringable, ResetInterface, ContextInterface
    */
   public static function getInstance($profile = null)
   {
-    try {
-      if ($profile === null) {
-        $profile = Config::getString("core.default_context");
-      }
-      $profile = strtolower($profile);
-      if (!isset(self::$instances[$profile])) {
-        $class = Config::getString("core.context_implementation", static::class);
-        $instance = new $class($profile);
-        if (!$instance instanceof self) {
-          throw new QuioteException(sprintf('core.context_implementation "%s" does not extend Context', $class));
-        }
-        self::$instances[$profile] = $instance;
-        self::$instances[$profile]->initialize();
-      }
-      return self::$instances[$profile];
-    } catch (\Exception $e) {
-      // Bootstrap-time failure (no PSR-15 pipeline exists yet to catch this via
-      // ErrorHandlingMiddleware): log and propagate rather than rendering an
-      // ad-hoc template and exit()ing, which would kill a persistent worker
-      // process outright instead of just failing the request that triggered it.
-      \Quiote\Logging\Log::for(self::class)->error(
-        'Context::getInstance() failed: ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine()
-      );
-      throw $e;
-    }
+    return ContextRegistry::shared()->get(
+      $profile === null ? null : (string) $profile,
+      static::class,
+    );
   }
 
   /**
@@ -806,47 +815,21 @@ class Context implements \Stringable, ResetInterface, ContextInterface
   }
 
   /**
-	 * Reset context state between requests in a persistent worker.
-	 * This method clears request-specific state while preserving the context configuration.
-	// We intentionally DO NOT reset *FactoryInfo properties as these are immutable across
-	// requests and used for lazy recreation (request/user/routing/storage/databaseManager).
-	 * @param      ?string $profile The named context profile to reset, or null to reset all.
-	 * @return     void
-	 * @since      1.0.0
-	 */
+   * Reset every live context's request-scoped state at a persistent worker's request boundary,
+   * preserving each context's configuration. See {@see ContextRegistry::resetAll()}, which owns
+   * the ordering and the per-context guarding.
+   *
+   * The *FactoryInfo properties are deliberately not reset: they are immutable across requests
+   * and are what the lazy request/user/routing/databaseManager recreation rebuilds from.
+   *
+   * @param      ?string $profile The profile that served the request; it is reset first, but
+   *             every other live context is reset too.
+   * @return     void
+   * @since      1.0.0
+   */
   public static function resetWorkerState($profile = null): void
   {
-    // Every live context is reset, not just $profile. A context other than the
-    // one serving the request still holds request-scoped state -- its own
-    // sessionBag and user -- and clearRequestScopedState() exists precisely
-    // because carrying those across a request boundary is a cross-user
-    // authentication leak rather than a stale-data annoyance.
-    //
-    // $profile only decides what goes FIRST, so the context that actually served
-    // the request is cleared even if some other context's reset() throws.
-    $ordered = [];
-    if (is_string($profile) && $profile !== '') {
-      $profile = strtolower($profile);
-      if (isset(self::$instances[$profile])) {
-        $ordered[$profile] = self::$instances[$profile];
-      }
-    }
-    foreach (self::$instances as $name => $context) {
-      $ordered[$name] ??= $context;
-    }
-
-    // Guarded individually: one context's broken reset() must not skip the rest.
-    // Deliberately not reached via getInstance(), which would INSTANTIATE a
-    // context at the request boundary just to reset it.
-    foreach ($ordered as $name => $context) {
-      try {
-        $context->reset();
-      } catch (\Throwable $e) {
-        \Quiote\Logging\Log::for(static::class)->error(
-          "[Context::resetWorkerState] reset of context '$name' failed: " . $e->getMessage(),
-        );
-      }
-    }
+    ContextRegistry::shared()->resetAll(is_string($profile) ? $profile : null);
   }
 
   public function handle(ServerRequestInterface $request): ResponseInterface
