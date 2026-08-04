@@ -30,6 +30,9 @@
 		}
 	},
 	"extra": {
+		"branch-alias": {
+			"dev-main": "4.0.x-dev"
+		},
 		"quiote-monorepo-note": "Developed in-tree under quioteframework/quiote's packages/worker-roadrunner/; split to this standalone repo via splitsh/lite on tag push. PRs go to the monorepo, not here."
 	}
 }

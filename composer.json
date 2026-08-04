@@ -206,6 +206,11 @@
 			"tbachert/spi": true
 		}
 	},
+	"extra": {
+		"branch-alias": {
+			"dev-main": "4.0.x-dev"
+		}
+	},
 	"minimum-stability": "dev",
 	"prefer-stable": true
 }
