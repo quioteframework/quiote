@@ -4,40 +4,41 @@ namespace Quiote\Telemetry;
 
 use Quiote\Config\Config;
 use Quiote\Logging\Log;
-use Quiote\Runtime\Worker\WorkerRuntimeInfo;
 
 /**
- * Builds the worker-lifetime TracerProvider/MeterProvider from `telemetry.*`
- * settings, exactly once per worker process. Called unconditionally from
- * `Kernel::bootstrap()` — this class
- * itself decides whether there is anything to do, so callers never need a
- * feature-flag check of their own.
+ * Owns the telemetry lifecycle for a process: build the providers once, flush at each request
+ * boundary, and shut down on exit. Called unconditionally from `Kernel::bootstrap()` -- this class
+ * decides whether there is anything to do, so callers never need a feature-flag check of their own.
  *
- * Every path that can fail — telemetry disabled, the open-telemetry/sdk
- * package not installed, a bad exporter/endpoint config — degrades to
- * "telemetry stays off" rather than throwing, matching the plan's "not a hard
- * dependency" requirement. The OTLP exporter no longer needs an externally
- * installed PSR-18 client: it is handed Quiote's own zero-dependency
- * {@see \Quiote\Http\Client\CurlTransport} (see {@see otlpTransportFactory()}),
- * so `telemetry.exporter = otlp` works out of the box.
+ * Construction is delegated: {@see TelemetryConfig} resolves the settings,
+ * {@see TelemetryExporterFactory} builds the exporters, and {@see TelemetryProviderFactory}
+ * assembles the providers around them. What remains here is the part that genuinely has to be
+ * process-wide -- "configured once", the registered shutdown function, and the handles the
+ * registry hands out.
+ *
+ * Every path that can fail -- telemetry disabled, the open-telemetry/sdk package not installed, a
+ * bad exporter or endpoint configuration -- degrades to "telemetry stays off" rather than throwing.
+ * It is not a hard dependency.
  */
 final class TelemetryBootstrap
 {
     private static bool $configured = false;
     private static bool $shutdownRegistered = false;
 
-    private static ?\OpenTelemetry\SDK\Trace\SpanExporter\InMemoryExporter $inMemorySpanExporter = null;
-    private static ?\OpenTelemetry\SDK\Metrics\MetricExporter\InMemoryExporter $inMemoryMetricExporter = null;
+    /**
+     * The exporter factory from the most recent successful configuration, kept so the in-memory
+     * exporter accessors below can answer after the fact.
+     */
+    private static ?TelemetryExporterFactory $exporters = null;
 
     private function __construct() {}
 
     /**
-     * Build the providers from config. Idempotent: a second call (e.g. a
-     * second Kernel::bootstrap() in the same process) is a no-op and simply
-     * reports whether a real provider is already active. Call {@see reset()}
-     * first to force a rebuild (test isolation / simulating a fresh worker).
+     * Build the providers from config. Idempotent: a second call (a second `Kernel::bootstrap()` in
+     * the same process) is a no-op that reports whether a real provider is already active. Call
+     * {@see reset()} first to force a rebuild, for test isolation or to simulate a fresh worker.
      *
-     * @return bool true if a real, usable provider is now wired up.
+     * @return     bool True if a real, usable provider is now wired up.
      */
     public static function configureFromConfig(): bool
     {
@@ -55,16 +56,19 @@ final class TelemetryBootstrap
                 'telemetry.enabled is true but the open-telemetry/sdk package is not installed; '
                 . 'telemetry stays disabled.'
             );
+
             return false;
         }
 
         try {
-            $resource = self::buildResource();
-            $tracerProvider = self::buildTracerProvider($resource);
-            $meterProvider = self::buildMeterProvider($resource);
+            $config = TelemetryConfig::fromConfig();
+            $exporters = new TelemetryExporterFactory($config);
+            $providers = new TelemetryProviderFactory($config, $exporters);
 
-            TraceRegistry::setProviders($tracerProvider, $meterProvider);
+            $resource = $providers->resource();
+            TraceRegistry::setProviders($providers->tracerProvider($resource), $providers->meterProvider($resource));
             TraceRegistry::setEnabled(true);
+            self::$exporters = $exporters;
             self::registerShutdown();
 
             return true;
@@ -74,15 +78,15 @@ final class TelemetryBootstrap
                 . $e::class . ': ' . $e->getMessage()
             );
             TraceRegistry::setEnabled(false);
+
             return false;
         }
     }
 
     /**
-     * Force-flush the active providers. Called at every worker request
-     * boundary (Kernel's post-request reset closure) so each request's spans
-     * and metrics are exported without tearing down the provider. Safe to
-     * call when telemetry isn't configured (no-op).
+     * Force-flush the active providers. Called at every worker request boundary (the Kernel's
+     * post-request reset closure) so each request's spans and metrics are exported without tearing
+     * the provider down. A no-op when telemetry is not configured.
      */
     public static function flushAfterRequest(): void
     {
@@ -104,10 +108,9 @@ final class TelemetryBootstrap
     }
 
     /**
-     * Final flush + shutdown. Registered once via `register_shutdown_function`
-     * so single-shot mode (no persistent worker loop, no per-request reset
-     * closure) still exports its one request's telemetry before the process
-     * exits, and worker mode gets a last-chance flush when the worker itself
+     * Final flush and shutdown. Registered once through `register_shutdown_function`, so single-shot
+     * mode (no persistent worker loop, no per-request reset closure) still exports its one request's
+     * telemetry before the process exits, and worker mode gets a last-chance flush when the worker
      * terminates.
      */
     public static function shutdown(): void
@@ -126,238 +129,30 @@ final class TelemetryBootstrap
     }
 
     /**
-     * Reset all bootstrap + registry state. For test isolation (simulating a
-     * fresh worker); not used on the request path. Does not (and cannot)
-     * un-register a previously scheduled `register_shutdown_function`
-     * callback — that callback re-reads {@see TraceRegistry} when the process
-     * actually exits, so it is a safe no-op once the provider has been
-     * cleared by this call.
+     * Reset all bootstrap and registry state, for test isolation or to simulate a fresh worker. Not
+     * used on the request path.
+     *
+     * Cannot un-register a previously scheduled `register_shutdown_function` callback, and does not
+     * need to: that callback re-reads {@see TraceRegistry} when the process actually exits, so it is
+     * a safe no-op once this call has cleared the provider.
      */
     public static function reset(): void
     {
         self::$configured = false;
-        self::$inMemorySpanExporter = null;
-        self::$inMemoryMetricExporter = null;
+        self::$exporters = null;
         TraceRegistry::reset();
     }
 
     /** The in-memory span exporter, when `telemetry.exporter = none` was used. For tests. */
     public static function inMemorySpanExporter(): ?\OpenTelemetry\SDK\Trace\SpanExporter\InMemoryExporter
     {
-        return self::$inMemorySpanExporter;
+        return self::$exporters?->inMemorySpanExporter();
     }
 
     /** The in-memory metric exporter, when `telemetry.exporter = none` was used. For tests. */
     public static function inMemoryMetricExporter(): ?\OpenTelemetry\SDK\Metrics\MetricExporter\InMemoryExporter
     {
-        return self::$inMemoryMetricExporter;
-    }
-
-    // --- construction --------------------------------------------------------
-
-    private static function buildResource(): \OpenTelemetry\SDK\Resource\ResourceInfo
-    {
-        $serviceName = Config::getString('telemetry.service.name', '') ?: Config::getString('core.app_name', 'quiote-app');
-        $attributes = [\OpenTelemetry\SemConv\ResourceAttributes::SERVICE_NAME => $serviceName];
-
-        $namespace = Config::getString('telemetry.service.namespace', '');
-        if ($namespace) {
-            $attributes[\OpenTelemetry\SemConv\ResourceAttributes::SERVICE_NAMESPACE] = $namespace;
-        }
-
-        foreach (Config::getArray('telemetry.resource', []) as $key => $value) {
-            $attributes[$key] = $value;
-        }
-
-        return \OpenTelemetry\SDK\Resource\ResourceInfoFactory::defaultResource()->merge(
-            \OpenTelemetry\SDK\Resource\ResourceInfo::create(
-                \OpenTelemetry\SDK\Common\Attribute\Attributes::create($attributes)
-            )
-        );
-    }
-
-    /**
-     * Batching only pays off when the process outlives the request. This runs as
-     * a KernelBootEvent listener, i.e. before the Kernel has selected a runtime,
-     * so WorkerRuntimeInfo answers from auto-detection here rather than from an
-     * installed runtime -- which is correct, since plugins (including any that
-     * contribute a runtime) have already registered by then.
-     */
-    private static function isWorkerMode(): bool
-    {
-        return WorkerRuntimeInfo::isPersistent();
-    }
-
-    private static function buildTracerProvider(\OpenTelemetry\SDK\Resource\ResourceInfo $resource): \OpenTelemetry\SDK\Trace\TracerProviderInterface
-    {
-        $exporter = self::buildSpanExporter();
-        $mode = Config::getString('telemetry.export.mode', self::isWorkerMode() ? 'batch' : 'simple');
-
-        $processor = $mode === 'simple'
-            ? new \OpenTelemetry\SDK\Trace\SpanProcessor\SimpleSpanProcessor($exporter)
-            : (new \OpenTelemetry\SDK\Trace\SpanProcessor\BatchSpanProcessorBuilder($exporter))->build();
-
-        return (new \OpenTelemetry\SDK\Trace\TracerProviderBuilder())
-            ->addSpanProcessor($processor)
-            ->setResource($resource)
-            ->setSampler(self::buildSampler())
-            ->build();
-    }
-
-    /**
-     * Head-based sampling. Metrics are never sampled — this only ever affects
-     * the TracerProvider.
-     */
-    private static function buildSampler(): \OpenTelemetry\SDK\Trace\SamplerInterface
-    {
-        $strategy = strtolower(Config::getString('telemetry.sampling.strategy', 'parentbased_traceidratio'));
-        $ratio = Config::getFloat('telemetry.sampling.ratio', 0.1);
-
-        $base = match ($strategy) {
-            'always_on' => new \OpenTelemetry\SDK\Trace\Sampler\AlwaysOnSampler(),
-            'always_off' => new \OpenTelemetry\SDK\Trace\Sampler\AlwaysOffSampler(),
-            'parentbased_traceidratio' => new \OpenTelemetry\SDK\Trace\Sampler\ParentBased(
-                new \OpenTelemetry\SDK\Trace\Sampler\TraceIdRatioBasedSampler($ratio)
-            ),
-            default => self::fallbackSampler($strategy, $ratio),
-        };
-
-        return new ForceSampleSampler($base);
-    }
-
-    private static function fallbackSampler(string $strategy, float $ratio): \OpenTelemetry\SDK\Trace\SamplerInterface
-    {
-        Log::for(self::class)->warning('[TelemetryBootstrap] unknown telemetry.sampling.strategy "' . $strategy . '", falling back to "parentbased_traceidratio".');
-        return new \OpenTelemetry\SDK\Trace\Sampler\ParentBased(
-            new \OpenTelemetry\SDK\Trace\Sampler\TraceIdRatioBasedSampler($ratio)
-        );
-    }
-
-    private static function buildMeterProvider(\OpenTelemetry\SDK\Resource\ResourceInfo $resource): \OpenTelemetry\SDK\Metrics\MeterProviderInterface
-    {
-        $reader = new \OpenTelemetry\SDK\Metrics\MetricReader\ExportingReader(self::buildMetricExporter());
-
-        return (new \OpenTelemetry\SDK\Metrics\MeterProviderBuilder())
-            ->addReader($reader)
-            ->setResource($resource)
-            ->build();
-    }
-
-    private static function buildSpanExporter(): \OpenTelemetry\SDK\Trace\SpanExporterInterface
-    {
-        $exporter = strtolower(Config::getString('telemetry.exporter', 'otlp'));
-
-        return match ($exporter) {
-            'none' => self::$inMemorySpanExporter = new \OpenTelemetry\SDK\Trace\SpanExporter\InMemoryExporter(),
-            'console' => (new \OpenTelemetry\SDK\Trace\SpanExporter\ConsoleSpanExporterFactory())->create(),
-            'otlp' => self::buildOtlpSpanExporter(),
-            default => self::fallbackSpanExporter($exporter),
-        };
-    }
-
-    private static function buildMetricExporter(): \OpenTelemetry\SDK\Metrics\MetricExporterInterface
-    {
-        $exporter = strtolower(Config::getString('telemetry.exporter', 'otlp'));
-
-        return match ($exporter) {
-            'none' => self::$inMemoryMetricExporter = new \OpenTelemetry\SDK\Metrics\MetricExporter\InMemoryExporter(),
-            'console' => (new \OpenTelemetry\SDK\Metrics\MetricExporter\ConsoleMetricExporterFactory())->create(),
-            'otlp' => self::buildOtlpMetricExporter(),
-            default => self::fallbackMetricExporter($exporter),
-        };
-    }
-
-    private static function buildOtlpSpanExporter(): \OpenTelemetry\SDK\Trace\SpanExporterInterface
-    {
-        self::applyOtlpEnv();
-        return (new \OpenTelemetry\Contrib\Otlp\SpanExporterFactory(self::otlpTransportFactory()))->create();
-    }
-
-    private static function buildOtlpMetricExporter(): \OpenTelemetry\SDK\Metrics\MetricExporterInterface
-    {
-        self::applyOtlpEnv();
-        return (new \OpenTelemetry\Contrib\Otlp\MetricExporterFactory(self::otlpTransportFactory()))->create();
-    }
-
-    /**
-     * The transport factory the OTLP exporter factories use to send data.
-     *
-     * The SDK's exporter factories otherwise resolve a PSR-18 client via
-     * `php-http/discovery`, which fails hard when no PSR-18 implementation is
-     * installed — the historical reason `telemetry.exporter = otlp` silently
-     * degraded to disabled unless the app also pulled in a client package. Now
-     * that Quiote ships its own zero-dependency PSR-18 client
-     * ({@see \Quiote\Http\Client\CurlTransport}), we hand it to the SDK
-     * explicitly so OTLP export works out of the box with no extra Composer
-     * package (this is the egress seam the HTTP client abstraction unblocked).
-     * The SDK factory still owns
-     * endpoint resolution (appending `/v1/traces` etc.), protocol → content
-     * type, headers, compression, and retries — we only supply the client.
-     *
-     * If ext-curl is somehow unavailable, we fall back to `null` so the SDK's
-     * own discovery runs (and telemetry degrades to disabled if that finds
-     * nothing, exactly as before) rather than fataling here.
-     */
-    private static function otlpTransportFactory(): ?\OpenTelemetry\SDK\Common\Export\TransportFactoryInterface
-    {
-        if (!\function_exists('curl_init')) {
-            return null;
-        }
-        $psr17 = new \Nyholm\Psr7\Factory\Psr17Factory();
-        return new \OpenTelemetry\SDK\Common\Export\Http\PsrTransportFactory(
-            new \Quiote\Http\Client\CurlTransport($psr17, $psr17),
-            $psr17,
-            $psr17,
-        );
-    }
-
-    /**
-     * Bridges telemetry.otlp.* config into the OTEL_EXPORTER_OTLP_* env vars
-     * the OTLP exporter factories read internally (via the SDK's own
-     * `Configuration` singleton) — simpler and far less error-prone than
-     * hand-building a Transport by reaching into `Registry` internals
-     * ourselves. Process-wide, but only ever set when telemetry is enabled
-     * with the otlp exporter, and the values don't change per-request.
-     */
-    private static function applyOtlpEnv(): void
-    {
-        putenv('OTEL_EXPORTER_OTLP_ENDPOINT=' . Config::getString('telemetry.otlp.endpoint', 'http://localhost:4318'));
-        putenv('OTEL_EXPORTER_OTLP_PROTOCOL=' . Config::getString('telemetry.otlp.protocol', 'http/protobuf'));
-
-        $headers = Config::getArray('telemetry.otlp.headers', []);
-        if ($headers !== []) {
-            $encoded = [];
-            foreach ($headers as $key => $value) {
-                // Config values are mixed; a header can only carry a scalar, and a
-                // nested array here is a config mistake worth ignoring rather than
-                // turning into "Array" in an OTLP header.
-                if (!is_scalar($value)) {
-                    Log::for(self::class)->warning(
-                        '[TelemetryBootstrap] ignoring non-scalar telemetry.otlp.headers entry "' . $key . '".'
-                    );
-                    continue;
-                }
-                $encoded[] = $key . '=' . (is_bool($value) ? ($value ? '1' : '0') : (string) $value);
-            }
-            putenv('OTEL_EXPORTER_OTLP_HEADERS=' . implode(',', $encoded));
-        }
-    }
-
-    /**
-     * telemetry.exporter has an unrecognized value: rather than fail the whole
-     * provider (and thus disable telemetry entirely over a typo), fall back to
-     * the safe local in-memory exporter and log why.
-     */
-    private static function fallbackSpanExporter(string $exporter): \OpenTelemetry\SDK\Trace\SpanExporterInterface
-    {
-        Log::for(self::class)->warning('[TelemetryBootstrap] unknown telemetry.exporter "' . $exporter . '", falling back to "none".');
-        return self::$inMemorySpanExporter = new \OpenTelemetry\SDK\Trace\SpanExporter\InMemoryExporter();
-    }
-
-    private static function fallbackMetricExporter(string $exporter): \OpenTelemetry\SDK\Metrics\MetricExporterInterface
-    {
-        Log::for(self::class)->warning('[TelemetryBootstrap] unknown telemetry.exporter "' . $exporter . '", falling back to "none".');
-        return self::$inMemoryMetricExporter = new \OpenTelemetry\SDK\Metrics\MetricExporter\InMemoryExporter();
+        return self::$exporters?->inMemoryMetricExporter();
     }
 
     private static function registerShutdown(): void
