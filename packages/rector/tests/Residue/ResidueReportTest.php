@@ -86,6 +86,35 @@ final class ResidueReportTest extends PhpUnitTestCase
     }
 
     /**
+     * The property the worker fix depends on: two collectors -- which is what two Rector worker
+     * processes are -- must both survive in the file, not overwrite each other.
+     */
+    public function testWritesFromSeveralCollectorsAccumulate(): void
+    {
+        $path = sys_get_temp_dir() . '/quiote-residue-append-' . getmypid() . '.txt';
+        @unlink($path);
+        putenv('QUIOTE_RECTOR_RESIDUE=' . $path);
+
+        try {
+            $first = new ResidueReport();
+            $first->add('/app/A.php', 1, 'getUser', ResidueReport::REASON_UNHANDLED);
+            $first->write();
+
+            $second = new ResidueReport();
+            $second->add('/app/B.php', 2, 'getRouting', ResidueReport::REASON_NOT_CONTAINER_BUILT);
+            $second->write();
+
+            $written = (string) file_get_contents($path);
+            $this->assertStringContainsString('/app/A.php', $written);
+            $this->assertStringContainsString('/app/B.php', $written);
+            $this->assertSame(2, substr_count($written, "\n"));
+        } finally {
+            putenv('QUIOTE_RECTOR_RESIDUE');
+            @unlink($path);
+        }
+    }
+
+    /**
      * A run that finds nothing must leave no file. An empty report on disk reads as a clean result,
      * which is exactly the confusion this whole reporter exists to prevent.
      */
@@ -104,6 +133,11 @@ final class ResidueReportTest extends PhpUnitTestCase
         }
     }
 
+    /**
+     * write() emits one tab-separated line per site rather than the rendered report, because it
+     * appends: Rector runs parallel workers and each writes its own findings, so the file has to be
+     * a mergeable site list rather than N summaries. render() is for reading it back.
+     */
     public function testWriteGoesToTheConfiguredPath(): void
     {
         $path = sys_get_temp_dir() . '/quiote-residue-' . getmypid() . '.txt';
@@ -116,7 +150,10 @@ final class ResidueReportTest extends PhpUnitTestCase
             $report->write();
 
             $this->assertFileExists($path);
-            $this->assertStringContainsString('/app/Foo.php:7  getUser', (string) file_get_contents($path));
+            $this->assertSame(
+                "unhandled-accessor\t7\tgetUser\t/app/Foo.php\n",
+                (string) file_get_contents($path),
+            );
         } finally {
             putenv('QUIOTE_RECTOR_RESIDUE');
             @unlink($path);

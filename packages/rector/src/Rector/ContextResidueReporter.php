@@ -17,22 +17,12 @@ use Rector\Rector\AbstractRector;
 /**
  * Reports the Context call sites the rewriting rules cannot touch, with a reason for each.
  *
- * **NOT REGISTERED YET. Known gap: static calls are not reported.**
- *
- * The instance-call half works and was run against the framework: 25 sites, all
- * `not-container-built`, which corroborates from the other direction why every rewriting rule finds
- * nothing there. The static half does not fire at all -- `Quiote\Config\ConfigCache` has two real
- * `Context::getInstance()` calls and neither is recorded, and `recordStaticCall()` is not reached.
- * Not yet diagnosed.
- *
- * Left unregistered because of what this rule is for. A reporter that silently omits a whole
- * category produces a list that reads as complete and is not, which is worse than no list: the
- * entire argument for having it is that silence must not be mistaken for "no sites here". Fix the
- * static path, verify it against `ConfigCache`, then register it.
- *
- * (A caution for whoever picks this up: rule 5 shares this class-name check, and its zero-changes
- * result against the framework was attributed to the container-built guard. Confirm that is
- * actually why, and not the same gap.)
+ * There is no static-call gap, despite an earlier commit here claiming one. Both halves work. What
+ * looked like a rule that would not fire was {@see ResidueReport} overwriting its output once per
+ * Rector worker process, so the file held one worker's partial view. That is fixed there, by
+ * appending under a lock. The lesson is recorded because the false diagnosis was reached from absent
+ * debug output, and STDERR from a Rector worker does not reach the terminal -- so absent output is
+ * not evidence of absent execution.
  *
  * Does not rewrite. Its entire output is a report, so the remaining work is a finite list rather
  * than a discovery exercise -- which is the point: a migration that leaves an unknown quantity of

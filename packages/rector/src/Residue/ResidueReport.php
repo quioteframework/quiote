@@ -8,9 +8,16 @@ namespace Quiote\Rector\Residue;
  * Collects the Context call sites no rewriting rule could handle, and writes them out once.
  *
  * A Rector rule has no reporting channel: it either changes a node or it does not. So the reporter
- * rule records into this, and this writes a file at process shutdown -- registered on the first
- * recorded site, so a run that finds nothing writes nothing rather than leaving an empty file that
- * reads as a clean result.
+ * rule records into this, and this writes at process shutdown -- registered on the first recorded
+ * site, so a run that finds nothing writes nothing rather than leaving an empty file that reads as a
+ * clean result.
+ *
+ * **Appends, under a lock, one line per site.** Rector runs parallel worker processes by default, so
+ * this class is instantiated once per worker and each worker's shutdown function fires separately.
+ * Overwriting made the report one worker's partial view with last-writer-wins -- which looked exactly
+ * like a rule that was not firing, and was misdiagnosed as such once already. Appending is what makes
+ * the file the union of what every worker saw. It also means the file must be removed between runs;
+ * stale lines from a previous run would otherwise read as current residue.
  *
  * Kept separate from the rule so the collection is testable without Rector's container, and so the
  * rule stays about recognising sites rather than about formatting and file handling.
@@ -130,7 +137,12 @@ final class ResidueReport
             $path = getcwd() . '/context-residue.txt';
         }
 
-        if (@file_put_contents($path, $this->render()) === false) {
+        $lines = '';
+        foreach ($this->sites() as $site) {
+            $lines .= sprintf("%s\t%d\t%s\t%s\n", $site['reason'], $site['line'], $site['accessor'], $site['file']);
+        }
+
+        if (@file_put_contents($path, $lines, FILE_APPEND | LOCK_EX) === false) {
             fwrite(STDERR, sprintf(
                 '[ContextResidueReporter] could not write the residue report to "%s"; %d site(s) '
                 . "were found and are not recorded anywhere.\n",

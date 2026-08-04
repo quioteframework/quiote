@@ -38,4 +38,5 @@ return RectorConfig::configure()
         \Quiote\Rector\Rector\ContextRequestToRequestStateRector::class,
         \Quiote\Rector\Rector\ContextGetModelToLocatorRector::class,
         \Quiote\Rector\Rector\ContextGetInstanceToRegistryRector::class,
+        \Quiote\Rector\Rector\ContextResidueReporter::class,
     ]);

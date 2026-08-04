@@ -1,9 +1,0 @@
-# Context decomposition residue
-
-1 site(s) no rewriting rule could handle.
-
-  unhandled-accessor       1
-
-
-## unhandled-accessor
-/app/Foo.php:7  getUser
