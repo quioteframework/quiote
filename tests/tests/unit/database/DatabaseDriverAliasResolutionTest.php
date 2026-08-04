@@ -29,8 +29,9 @@ class DatabaseDriverAliasResolutionTest extends TestCase
             ],
         ], 'test');
 
-        $this->assertStringContainsString('new Quiote\Database\PdoDatabase();', $code);
-        $this->assertStringNotContainsString('new myorm();', $code);
+        // The alias resolves at compile time, so the declaration names the concrete adapter.
+        $this->assertStringContainsString("'class' => 'Quiote\\\\Database\\\\PdoDatabase'", $code);
+        $this->assertStringNotContainsString('myorm', $code);
     }
 
     public function testFullyQualifiedClassPassesThroughUnchanged(): void
@@ -45,6 +46,6 @@ class DatabaseDriverAliasResolutionTest extends TestCase
             ],
         ], 'test');
 
-        $this->assertStringContainsString('new Quiote\Database\PdoDatabase();', $code);
+        $this->assertStringContainsString("'class' => 'Quiote\\\\Database\\\\PdoDatabase'", $code);
     }
 }

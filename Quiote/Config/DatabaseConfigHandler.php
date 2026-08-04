@@ -213,23 +213,21 @@ class DatabaseConfigHandler extends XmlConfigHandler implements IArrayConfigHand
 			throw new ConfigurationException($error);
 		}
 
-		$data = [];
+		$declared = [];
 
 		foreach ($databases as $name => $db) {
 			// Resolve a short driver alias (e.g. "eloquent") to its adapter class
 			// at compile time; a fully-qualified class name passes through
 			// unchanged. Aliases are contributed by plugins during bootstrap,
 			// which runs before any config is compiled. Resolution happens here
-			// (not at runtime) to keep the generated code a plain `new <FQCN>()`.
+			// (not at runtime) so the declaration names a concrete class.
 			// NOTE: if the set of registered aliases can change between compiles,
 			// fold \Quiote\Database\DatabaseDriverRegistry::aliases() into the
 			// config-cache key.
-			$class = \Quiote\Database\DatabaseDriverRegistry::resolve($db['class']);
-
-			// append new data
-			$data[] = sprintf('$database = new %s();', $class);
-			$data[] = sprintf('$this->databases[%s] = $database;', var_export($name, true));
-			$data[] = sprintf('$database->initialize($this, %s);', var_export($db['parameters'], true));
+			$declared[$name] = [
+				'class' => \Quiote\Database\DatabaseDriverRegistry::resolve($db['class']),
+				'parameters' => $db['parameters'],
+			];
 		}
 
 		if ($default === null || !isset($databases[$default])) {
@@ -238,9 +236,12 @@ class DatabaseConfigHandler extends XmlConfigHandler implements IArrayConfigHand
 			throw new ConfigurationException($error);
 		}
 
-		$data[] = sprintf('$this->defaultDatabaseName = %s;', var_export($default, true));
-
-		return $this->generate($data, $sourceRef);
+		// Data, not statements. The compiled file returns a declaration that
+		// DatabaseManager reads; it cannot reach into whatever includes it.
+		return $this->generate(
+			'return ' . var_export(['databases' => $declared, 'default' => $default], true) . ';',
+			$sourceRef
+		);
 	}
 }
 

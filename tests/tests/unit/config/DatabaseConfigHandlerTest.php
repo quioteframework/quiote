@@ -5,110 +5,117 @@ use Quiote\Config\DatabaseConfigHandler;
 
 require_once(__DIR__ . '/ConfigHandlerTestBase.php');
 
-class DCHTestDatabase
-{
-	/** @var array<string, mixed> */
-	public array $params = [];
-
-	/**
-	 * @param array<string, mixed> $params
-	 */
-	public function initialize(mixed $dbm, array $params): void
-	{
-		$this->params = $params;
-	}
-}
-
+/**
+ * The handler's contract is the declaration it emits. It no longer generates statements that
+ * assign into whatever includes them, so these read the returned value instead of inspecting
+ * properties on a test case standing in for a DatabaseManager.
+ *
+ * Validating a declaration -- rejecting a missing class, a class that is not a Database, a default
+ * naming a connection that was not declared -- belongs to DatabaseDefinitions and is tested there.
+ */
 class DatabaseConfigHandlerTest extends ConfigHandlerTestBase
 {
-	/** @var array<string, DCHTestDatabase> */
-	protected $databases;
-	protected ?string $defaultDatabaseName = null;
-
-	#[\Override]
-    public function setUp(): void
+	/**
+	 * @return array{databases: array<string, array{class: string, parameters: array<string, mixed>}>, default: string}
+	 */
+	protected function loadTestConfig(?string $env = null): array
 	{
-		$this->databases = [];
-	}
-
-	protected function loadTestConfig(?string $env = null): void {
 		$DBCH = new DatabaseConfigHandler();
-		
+
 		$document = $this->parseConfiguration(
 			Config::getString('core.config_dir') . '/tests/databases.xml',
 			Config::getString('core.quiote_dir') . '/Config/xsl/databases.xsl',
 			$env
 		);
 
-		$this->includeCode($DBCH->execute($document));
-		
+		$compiled = $this->includeCode($DBCH->execute($document));
+		$this->assertIsArray($compiled);
+		$this->assertArrayHasKey('databases', $compiled);
+		$this->assertArrayHasKey('default', $compiled);
+		$this->assertIsArray($compiled['databases']);
+		$this->assertIsString($compiled['default']);
+
+		/** @var array{databases: array<string, array{class: string, parameters: array<string, mixed>}>, default: string} $compiled */
+		return $compiled;
 	}
 
-	public function testDatabaseConfigHandler(): void
+	public function testDatabaseConfigHandlerDeclaresEachConnection(): void
 	{
-		$this->loadTestConfig();
+		$compiled = $this->loadTestConfig();
 
-		$this->assertInstanceOf('DCHTestDatabase', $this->databases['test1']);
-		$paramsExpected = [
-			'host' => 'localhost1',
-			'user' => 'username1',
-			'config' => Config::getString('core.app_dir') . '/Config/project-conf.php',
-		];
-		$this->assertSame($paramsExpected, $this->databases['test1']->params);
-
-		$defaultDatabaseName = $this->defaultDatabaseName;
-		if ($defaultDatabaseName === null) {
-			$this->fail('DatabaseConfigHandler did not set a default database name.');
-		}
-		$this->assertSame($this->databases['test1'], $this->databases[$defaultDatabaseName]);
+		$this->assertSame(
+			[
+				'host' => 'localhost1',
+				'user' => 'username1',
+				'config' => Config::getString('core.app_dir') . '/Config/project-conf.php',
+			],
+			$compiled['databases']['test1']['parameters'],
+		);
+		$this->assertSame('test1', $compiled['default']);
+		$this->assertArrayHasKey($compiled['default'], $compiled['databases']);
 	}
 
 	public function testOverwrite(): void
 	{
-		$this->loadTestConfig('env2');
+		$compiled = $this->loadTestConfig('env2');
 
-		$this->assertInstanceOf('DCHTestDatabase', $this->databases['test1']);
-		$paramsExpected = [
-			'host' => 'localhost1',
-			'user' => 'testuser1',
-			'config' => Config::getString('core.app_dir') . '/Config/project-conf.php',
-		];
-		$this->assertSame($paramsExpected, $this->databases['test1']->params);
-
-		$defaultDatabaseName = $this->defaultDatabaseName;
-		if ($defaultDatabaseName === null) {
-			$this->fail('DatabaseConfigHandler did not set a default database name.');
-		}
-		$this->assertSame($this->databases['test2'], $this->databases[$defaultDatabaseName]);
+		$this->assertSame(
+			[
+				'host' => 'localhost1',
+				'user' => 'testuser1',
+				'config' => Config::getString('core.app_dir') . '/Config/project-conf.php',
+			],
+			$compiled['databases']['test1']['parameters'],
+		);
+		$this->assertSame('test2', $compiled['default']);
+		$this->assertArrayHasKey($compiled['default'], $compiled['databases']);
 	}
-	
-	public function testMissingDefaultDoesNotReset(): void {
+
+	public function testMissingDefaultDoesNotReset(): void
+	{
 		// see https://github.com/quiote/quiote/issues/1533
-		$this->loadTestConfig('missing-default-does-not-reset');
-
-		$this->assertSame('test1', $this->defaultDatabaseName);
+		$this->assertSame('test1', $this->loadTestConfig('missing-default-does-not-reset')['default']);
 	}
 
-	public function testDefaultDatabase(): void {
-		$this->loadTestConfig('test-default');
-		
-		$this->assertSame('test2', $this->defaultDatabaseName);
+	public function testDefaultDatabase(): void
+	{
+		$this->assertSame('test2', $this->loadTestConfig('test-default')['default']);
 	}
 
-	public function testDefaultDatabase1_0(): void {
-		$this->loadTestConfig('test-default-1.0');
-		
-		$this->assertSame('test1', $this->defaultDatabaseName);
+	public function testDefaultDatabase1_0(): void
+	{
+		$this->assertSame('test1', $this->loadTestConfig('test-default-1.0')['default']);
 	}
-	
-	public function testNonExistentDefault(): void {
+
+	public function testNonExistentDefault(): void
+	{
 		$this->expectException(\Quiote\Exception\ConfigurationException::class);
 		$this->loadTestConfig('nonexistent-default');
 	}
 
-	public function testMissingDatabaseNameThrows(): void {
+	public function testMissingDatabaseNameThrows(): void
+	{
 		$this->expectException(\Quiote\Exception\ParseException::class);
 		$this->loadTestConfig('missing-name');
 	}
+
+	/**
+	 * The property the redesign exists for: the compiled output cannot reach into whatever
+	 * includes it.
+	 */
+	public function testTheCompiledOutputNeverAssignsIntoItsIncluder(): void
+	{
+		$DBCH = new DatabaseConfigHandler();
+
+		$code = $DBCH->executeArray([
+			'default' => 'main',
+			'databases' => [
+				'main' => ['class' => \Quiote\Database\PdoDatabase::class, 'parameters' => ['dsn' => 'sqlite::memory:']],
+			],
+		], 'tests/databases.xml');
+
+		$this->assertStringNotContainsString('$this->', $code);
+		$this->assertStringNotContainsString('$database = new', $code);
+		$this->assertStringContainsString('return ', $code);
+	}
 }
-?>

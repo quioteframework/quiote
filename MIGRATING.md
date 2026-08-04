@@ -77,8 +77,21 @@ on `Context` (`requestFactoryInfo`, `userFactoryInfo`, …), replaced by the
 declaration the lazy worker-mode rebuilds now read from, and any reliance on the
 compiled file assigning into its includer.
 
-`databases.xml` still compiles to `$this`-mutating code inside
-`DatabaseManager::initialize()`. Same pattern, not yet converted.
+`databases.xml` is converted the same way: the compiled file returns
+`['databases' => [name => ['class' => …, 'parameters' => …]], 'default' => name]`,
+`DatabaseDefinitions` validates it, and `DatabaseManager::initialize()` builds the
+connections itself. Registration still happens before each connection's
+`initialize()` runs, so a connection reaching for a sibling by name still finds it.
+
+Two compiled configurations still mutate their includer and are **not** converted:
+
+- `translation.xml` → `TranslationManager` (`$this->translators`,
+  `$this->availableConfigLocales`, and a generated `$this->getContext()` call)
+- `output_types.xml` → `Controller` (`$this->outputTypes`,
+  `$this->defaultOutputType`)
+
+Both work as before. They are the same pattern and the same hazard, so a rename in
+either consumer will still break a stale cache at runtime.
 
 ## `Context` is growing seams, not losing accessors
 

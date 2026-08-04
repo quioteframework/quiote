@@ -116,21 +116,49 @@ class DatabaseManager implements \Quiote\ContextComponentInterface
 
 		$this->context = $context;
 
-		// load database configuration
-		if(defined('\QUIOTE_USE_APCU_CONFIG_CACHE') && \QUIOTE_USE_APCU_CONFIG_CACHE) {
-			$cacheResult = APCuConfigCache::checkConfig(Config::getString('core.config_dir') . '/databases.xml');
-			if (str_starts_with($cacheResult, 'APCU:')) {
-				eval('?>' . substr($cacheResult, 5));
-			} else {
-				require($cacheResult);
-			}
-		} else {
-			require(ConfigCache::checkConfig(Config::getString('core.config_dir') . '/databases.xml'));
+		$definitions = DatabaseDefinitions::fromCompiled($this->loadCompiledDatabases());
+
+		foreach ($definitions->databases as $name => $definition) {
+			$class = $definition['class'];
+			$database = new $class();
+			// Registered before initialize() runs, so a connection whose initialization reaches for
+			// a sibling by name finds it. The compiled statements this replaced had the same order.
+			$this->databases[$name] = $database;
+			$database->initialize($this, $definition['parameters']);
 		}
+
+		$this->defaultDatabaseName = $definitions->default;
 
 		if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
 			$logger->debug('[DatabaseManager] initialize() completed - databases loaded: ' . implode(', ', array_keys($this->databases)));
 		}
+	}
+
+	/**
+	 * Read the compiled databases configuration and return what it declared.
+	 *
+	 * The compiled file returns a declaration rather than assigning into this object, so this
+	 * returns a value instead of relying on what a `require` did to `$this` on the way past. The
+	 * APCu branch holds compiled source rather than a path, so it is evaluated; the `return` inside
+	 * it is what the eval answers.
+	 *
+	 * @return     mixed Whatever the compiled file returned; validated by the caller.
+	 * @since      4.0.0
+	 */
+	private function loadCompiledDatabases(): mixed
+	{
+		$path = Config::getString('core.config_dir') . '/databases.xml';
+
+		if(defined('\QUIOTE_USE_APCU_CONFIG_CACHE') && \QUIOTE_USE_APCU_CONFIG_CACHE) {
+			$cacheResult = APCuConfigCache::checkConfig($path);
+			if (str_starts_with($cacheResult, 'APCU:')) {
+				return eval('?>' . substr($cacheResult, 5));
+			}
+
+			return require($cacheResult);
+		}
+
+		return require(ConfigCache::checkConfig($path));
 	}
 
 	/**

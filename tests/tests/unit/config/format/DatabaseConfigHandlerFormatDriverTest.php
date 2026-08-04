@@ -92,8 +92,8 @@ PHP);
 		$config = $this->shapeDatabaseConfig($registry->load($this->dir . '/databases.php', 'test'));
 		$code = $handler->executeArray($config, $this->dir . '/databases.php');
 
-		$this->assertStringContainsString('new Quiote\Database\PdoDatabase();', $code);
-		$this->assertStringContainsString("\$this->defaultDatabaseName = 'main';", $code);
+		$this->assertStringContainsString("'class' => 'Quiote\\\\Database\\\\PdoDatabase'", $code);
+		$this->assertStringContainsString("'default' => 'main'", $code);
 	}
 
 	public function testUndefinedDefaultDatabaseThrowsRegardlessOfSourceFormat(): void
