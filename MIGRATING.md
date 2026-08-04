@@ -68,6 +68,36 @@ would serve request 1's request or user to every later request in a worker. Inje
 `RequestState` or `CurrentUser` there. Both resolve through on every call and hold
 nothing.
 
+## Validators can declare constructor dependencies
+
+Validator construction goes through the container, so a validator may take
+collaborators like anything else:
+
+```php
+final class VatNumberValidator extends Validator
+{
+    public function __construct(private readonly VatLookupService $lookup) {}
+
+    protected function validate(): bool { /* ... */ }
+}
+```
+
+Purely additive. A validator with no constructor — every validator the framework
+ships, and every one written before this — is `new`'d directly, so nothing about
+the existing path changes.
+
+Parameters, argument names and error messages still arrive through
+`initialize()`. Those are per-declaration *data* read out of a config file, not
+collaborators, so there is nothing for the container to resolve them from.
+
+A validator is built per validation and never cached, so it may also depend on
+request-scoped state (`WebRequest`, the user) directly — unlike a singleton
+service, which cannot.
+
+`Container::make()`, `ValidationManager::createValidator()` and
+`ValidatorFactory::create()` are now generic in the class they are given, so a
+caller naming a concrete class gets that type back instead of `object`.
+
 ## Fixed: injecting `WebRequest` or `User` gave you a fresh, empty one
 
 A defect, not a rename. The container bound each core service under its role name

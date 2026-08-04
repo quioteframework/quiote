@@ -17,6 +17,7 @@ use Quiote\Validator\OroperatorValidator;
 use Quiote\Validator\RegexValidator;
 use Quiote\Validator\StringValidator;
 use Quiote\Validator\Validator;
+use Quiote\Validator\ValidatorFactory;
 use Quiote\Validator\XoroperatorValidator;
 
 /**
@@ -140,7 +141,8 @@ final class ValidatorBuilder
 	 * the outer validation manager.
 	 * @param string $operator One of 'and', 'or', 'not', 'xor' — not enforced by
 	 *                the native `string` param type, so callers can pass an
-	 *                invalid value at runtime; the check below is load-bearing.
+	 *                invalid value at runtime, which is what the check below
+	 *                catches.
 	 */
 	public function group(string $operator, callable $configure): ValidatorSpec
 	{
@@ -148,7 +150,10 @@ final class ValidatorBuilder
 			'Unknown validator group operator "' . $operator . '"; expected one of: ' . implode(', ', array_keys(self::OPERATORS))
 		);
 
-		$validator = new $class();
+		// No IValidatorContainer check here, unlike raw(): OPERATORS names four concrete operator
+		// validators, and create() is generic in the class it is given, so the container-ness of
+		// what comes back is proven statically rather than asserted at runtime.
+		$validator = $this->validatorFactory()->create($class);
 		$validator->initialize($this->context, [], [], []);
 		$this->container->addChild($validator);
 
@@ -158,7 +163,7 @@ final class ValidatorBuilder
 	}
 
 	/**
-	 * Escape hatch for any validator class without a dedicated fluent
+	 * The general form, for any validator class without a dedicated fluent
 	 * method above (custom app validators, or framework validators this
 	 * builder hasn't grown a helper for yet -- see FluentSourceEmitter's
 	 * UNMAPPABLE_PARAMETER passthrough). Always behaviorally complete:
@@ -177,7 +182,7 @@ final class ValidatorBuilder
 	 */
 	public function raw(string $class, array $arguments, array $parameters = [], array $errors = [], ?callable $children = null): ValidatorSpec
 	{
-		$spec = $this->add(new $class(), $arguments, $parameters, $errors);
+		$spec = $this->add($this->validatorFactory()->create($class), $arguments, $parameters, $errors);
 
 		if ($children !== null) {
 			$validator = $spec->validator();
@@ -201,4 +206,16 @@ final class ValidatorBuilder
 		$this->container->addChild($validator);
 		return new ValidatorSpec($validator);
 	}
+
+	/**
+	 * Builds validators named by class string, so an application validator reached through
+	 * {@see raw()} or {@see group()} can declare constructor dependencies. The fluent methods above
+	 * name their framework validator directly and have nothing to resolve.
+	 */
+	private function validatorFactory(): ValidatorFactory
+	{
+		return $this->validatorFactory ??= new ValidatorFactory($this->context);
+	}
+
+	private ?ValidatorFactory $validatorFactory = null;
 }

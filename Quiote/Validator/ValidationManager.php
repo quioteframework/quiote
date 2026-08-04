@@ -128,14 +128,19 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 
 	/**
 	 * Creates a new validator instance.
-	 * @template  T of Validator
+	 *
+	 * Construction goes through {@see ValidatorFactory}, so a validator may declare constructor
+	 * dependencies. Its parameters, arguments and errors are configuration data rather than
+	 * collaborators, so they keep arriving through initialize().
+	 *
+	 * @template   T of object
 	 * @param      class-string<T> $class The name of the class implementing the validator.
 	 * @param      array<int|string,mixed> $arguments The argument names.
 	 * @param      array<string,string> $errors The error messages.
 	 * @param      array<string,mixed> $parameters The validator parameters.
 	 * @param      ?IValidatorContainer $parent The parent (will use the validation
 	 *                                      manager if null is given)
-	 * @return     T
+	 * @return     T&Validator
 	 * @since      1.0.0
 	 */
 	public function createValidator(string $class, array $arguments, array $errors = [], array $parameters = [], ?IValidatorContainer $parent = null)
@@ -143,12 +148,29 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 		if($parent === null) {
 			$parent = $this;
 		}
-		$obj = new $class();
+		$obj = $this->validatorFactory()->create($class);
 		$obj->initialize($this->getContext(), $parameters, $arguments, $errors);
 		$parent->addChild($obj);
 
 		return $obj;
 	}
+
+	/**
+	 * The validator factory for this manager's context. Built on first use rather than injected,
+	 * because the manager itself is created by the `validation_manager` factory slot, which hands
+	 * it a context and nothing else.
+	 *
+	 * @since      4.0.0
+	 */
+	private function validatorFactory(): ValidatorFactory
+	{
+		return $this->validatorFactory ??= new ValidatorFactory($this->getContext());
+	}
+
+	/**
+	 * @var        ?ValidatorFactory Built on first createValidator() call.
+	 */
+	private ?ValidatorFactory $validatorFactory = null;
 
 	/**
 	 * Clears the validation manager for reuse

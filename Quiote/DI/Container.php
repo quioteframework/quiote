@@ -169,9 +169,15 @@ class Container implements ContainerInterface
      * #[Inject]/#[Autowire] attributes and type-hinted autowiring.
      * A class with no constructor is `new`'d directly — zero behavior change and zero
      * migration burden for the untouched majority of actions/views.
-     */
-    /**
-     * @param array<string, mixed> $extraParams
+     *
+     * Not container-cached at all, which is also what makes it the safe way to build something
+     * needing request-scoped collaborators: the captive-dependency guard has nothing to refuse,
+     * because the result is never held past the call.
+     *
+     * @template   T of object
+     * @param      class-string<T> $class
+     * @param      array<string, mixed> $extraParams
+     * @return     T
      */
     public function make(string $class, array $extraParams = []): object
     {
@@ -179,6 +185,11 @@ class Container implements ContainerInterface
     }
 
     /**
+     * Reflect $class, or refuse. The assertion states what the throw already guarantees: past this
+     * call the name is known to be a real class, which is what lets the autowiring path below be
+     * typed generically.
+     *
+     * @phpstan-assert class-string $class
      * @return \ReflectionClass<object>
      */
     private function getReflectionClass(string $class): \ReflectionClass
@@ -363,8 +374,11 @@ class Container implements ContainerInterface
      * {@see guardCaptiveDependency()} can refuse a request-scoped dependency for a singleton.
      * Null means "not container-cached at all" — the {@see make()} path for actions and
      * views, which are per-execution and may freely depend on request-scoped services.
-     * @param array<string, mixed> $params
-     * @param \ReflectionClass<object>|null $rc
+     * @template   T of object
+     * @param      class-string<T> $class
+     * @param      array<string, mixed> $params
+     * @param      \ReflectionClass<object>|null $rc
+     * @return     T
      */
     private function autoWire(
         string $class,
@@ -384,7 +398,10 @@ class Container implements ContainerInterface
                 $args[] = $this->resolveParamValue($p, $params, $class, $requestedId, $consumerScope);
             }
             try {
-                $obj = $rc->newInstanceArgs($args);
+                // `new $class(...)` rather than $rc->newInstanceArgs(): identical for the public
+                // constructor this path requires, and it is what makes the instance provably an
+                // instance of $class rather than a bare object.
+                $obj = new $class(...$args);
             } catch (\Throwable $e) {
                 throw new ContainerException("Failed constructing '$class': " . $e->getMessage(), 0, $e);
             }
