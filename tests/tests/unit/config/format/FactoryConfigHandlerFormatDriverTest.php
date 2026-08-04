@@ -87,7 +87,7 @@ PHP);
 
 		$this->assertStringContainsString('$this->databaseManager = new Quiote\Database\DatabaseManager();', $code);
 		$this->assertStringContainsString("\$this->factories['validation_manager'] = array (", $code);
-		$this->assertStringContainsString('$this->shutdownSequence = [', $code);
+		$this->assertStringContainsString('$this->getShutdownSequence()->replaceAll([', $code);
 	}
 
 	public function testMissingRequiredFactoryThrowsRegardlessOfSourceFormat(): void

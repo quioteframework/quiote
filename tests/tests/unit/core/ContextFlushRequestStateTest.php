@@ -182,7 +182,7 @@ class ContextFlushRequestStateTest extends UnitTestCase
         RecordingSessionBag::resetLog();
         $context->setSessionBag(new RecordingSessionBag());
         $this->poke($context, 'user', new RecordingUser());
-        $this->poke($context, 'shutdownSequence', []);
+        $context->getShutdownSequence()->replaceAll([]);
 
         $context->flushRequestState();
         $context->reset();
@@ -200,7 +200,7 @@ class ContextFlushRequestStateTest extends UnitTestCase
         RecordingSessionBag::resetLog();
         $context->setSessionBag(new RecordingSessionBag());
         $this->poke($context, 'user', new RecordingUser());
-        $this->poke($context, 'shutdownSequence', []);
+        $context->getShutdownSequence()->replaceAll([]);
 
         $context->reset();
 
@@ -216,7 +216,7 @@ class ContextFlushRequestStateTest extends UnitTestCase
         $context = $this->context('context-flush-test::tests-flush-ordering');
         $bag = new RecordingSessionBag();
         $context->setSessionBag($bag);
-        $this->poke($context, 'shutdownSequence', []);
+        $context->getShutdownSequence()->replaceAll([]);
 
         $context->reset();
 
@@ -234,7 +234,7 @@ class ContextFlushRequestStateTest extends UnitTestCase
         RecordingSessionBag::resetLog();
         $context->setSessionBag(new RecordingSessionBag());
         $this->poke($context, 'user', new RecordingUser());
-        $this->poke($context, 'shutdownSequence', []);
+        $context->getShutdownSequence()->replaceAll([]);
 
         $context->flushRequestState();
         $context->reset();

@@ -75,7 +75,7 @@ XML;
         $code = $handler->execute($doc);
         $this->assertStringContainsString('ValidationManager', $code);
         $this->assertStringContainsString('$this->controller->startup();', $code);
-        $this->assertStringContainsString('$this->shutdownSequence', $code);
+        $this->assertStringContainsString('$this->getShutdownSequence()->replaceAll(', $code);
     }
 
 }

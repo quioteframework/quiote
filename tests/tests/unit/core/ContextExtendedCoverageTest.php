@@ -370,27 +370,18 @@ class ContextExtendedCoverageTest extends TestCase
         $userProp = $ro->getProperty('user');
 
         $userProp->setValue($ctx, null);
-        $seqProp = $ro->getProperty('shutdownSequence');
+        $sequence = $ctx->getShutdownSequence();
 
-        // Remove any user entries from sequence
-        $rawSeq = $seqProp->getValue($ctx);
-        $this->assertIsArray($rawSeq);
-        $seq = array_values(array_filter($rawSeq, fn($c) => !($c instanceof \Quiote\User\User)));
-        $seqProp->setValue($ctx, $seq);
+        // Remove any user entries from the sequence, so the recreation has to splice its own in.
+        $sequence->remove(static fn(object $c): bool => $c instanceof \Quiote\User\User);
+
         $user2 = $ctx->getUser();
         $this->assertInstanceOf($user1::class, $user2);
         $this->assertNotSame($user1, $user2);
-        // Ensure new user present in shutdownSequence
-        $found = false;
-        $seqWithUser = $seqProp->getValue($ctx);
-        $this->assertIsArray($seqWithUser);
-        foreach ($seqWithUser as $c) {
-            if ($c === $user2) {
-                $found = true;
-                break;
-            }
-        }
-        $this->assertTrue($found, 'New user should be registered in shutdown sequence');
+        $this->assertTrue(
+            $sequence->has($user2),
+            'New user should be registered in shutdown sequence',
+        );
     }
 
     public function testSetRequestUpdatesReferenceButKeepsCorrelationId(): void
@@ -484,27 +475,20 @@ class ContextExtendedCoverageTest extends TestCase
             }
         }
         $this->assertInstanceOf(\Quiote\Controller\Controller::class, $controller1, 'Controller should be created');
-        // Ensure controller registered (some contexts may add to shutdown sequence; verify stable ordering when user/storage present)
-        $seqProp = $ro->getProperty('shutdownSequence');
-
-        $seqBefore = $seqProp->getValue($ctx);
-        // Trigger user/storage to populate sequence ordering
-
+        // Populate the sequence ordering by making the user exist.
         $ctx->getUser();
         $ctx->reset();
-        // After reset controller object should remain (not nulled in reset) but may be reset()
+        // After reset the controller object should remain (not nulled in reset) but may be reset()
         $controller2 = $controllerProp->getValue($ctx);
         $this->assertSame($controller1, $controller2, 'Controller instance should persist across reset (reset() called but not replaced)');
-        // The user must still be in the shutdown sequence after the reset.
-        $seqAfter = $seqProp->getValue($ctx);
-        $this->assertIsArray($seqAfter);
-        $userIdx = null;
-        foreach ($seqAfter as $i => $comp) {
-            if ($comp instanceof \Quiote\User\User) {
-                $userIdx = $i;
-            }
-        }
-        $this->assertNotNull($userIdx, 'the recreated user must be registered in the shutdown sequence');
+
+        // A user must still be registered in the sequence after the reset -- reset() nulls the
+        // context's property but leaves the entry, which is what getUser() then splices over.
+        $users = array_filter(
+            $ctx->getShutdownSequence()->all(),
+            static fn(object $component): bool => $component instanceof \Quiote\User\User,
+        );
+        $this->assertNotEmpty($users, 'the user must be registered in the shutdown sequence');
     }
 
     public function testTranslationManagerPreservedFlagAndNullWhenDisabled(): void
@@ -610,22 +594,21 @@ class ContextExtendedCoverageTest extends TestCase
         $this->injectLogger($ctx);
         $ro = new ReflectionObject($ctx);
 
-        $user1 = $ctx->getUser();
-        $seqProp = $ro->getProperty('shutdownSequence');
+        $ctx->getUser();
 
         $ctx->reset();
         $ctx->getUser(); // recreate user
         $ctx->reset();
         $ctx->getUser(); // recreate again
-        $userCount = 0;
-        $sequence = $seqProp->getValue($ctx);
-        $this->assertIsArray($sequence);
-        foreach ($sequence as $c) {
-            if ($c instanceof \Quiote\User\User) {
-                $userCount++;
-            }
-        }
-        $this->assertLessThanOrEqual(2, $userCount, 'Shutdown sequence should not accumulate excessive user duplicates');
+
+        // Exactly one, not "not too many": replaceRole() removes every instance of the role before
+        // splicing the replacement in, so a stale user can never sit alongside the live one and be
+        // the thing whose authentication state gets persisted.
+        $users = array_filter(
+            $ctx->getShutdownSequence()->all(),
+            static fn(object $component): bool => $component instanceof \Quiote\User\User,
+        );
+        $this->assertCount(1, $users, 'the shutdown sequence must hold exactly one user');
     }
 
     public function testUserGetContextThrowsBeforeInitialize(): void

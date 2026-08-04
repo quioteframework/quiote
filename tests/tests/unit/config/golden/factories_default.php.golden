@@ -78,8 +78,8 @@ $this->translationManager->startup();
 $this->user->startup();
 $this->routing->startup();
 $this->controller->startup();
-$this->shutdownSequence = [$this->controller,
+$this->getShutdownSequence()->replaceAll([$this->controller,
 $this->routing,
 $this->user,
 $this->translationManager,
-$this->databaseManager];
+$this->databaseManager]);

@@ -42,11 +42,7 @@ class TranslationManagerNegativeTest extends UnitTestCase
             $prop = $ro->getProperty('translationManager');
             
             $prop->setValue($ctx, $tm);
-            $seqProp = $ro->getProperty('shutdownSequence');
-            
-            $seq = $seqProp->getValue($ctx);
-            $seq = is_array($seq) ? $seq : [];
-            if (!in_array($tm, $seq, true)) { $seq[] = $tm; $seqProp->setValue($ctx, $seq); }
+            $ctx->getShutdownSequence()->append($tm);
             $tm->startup();
         }
         $this->tm = $tm;
@@ -67,15 +63,10 @@ class TranslationManagerNegativeTest extends UnitTestCase
             $ctx = Context::getInstance();
             $ro = new \ReflectionObject($ctx);
             $ro->getProperty('translationManager')->setValue($ctx, null);
-            $seqProp = $ro->getProperty('shutdownSequence');
-            $seq = $seqProp->getValue($ctx);
-            if (is_array($seq)) {
-                $installed = $this->tm;
-                $seqProp->setValue($ctx, array_values(array_filter(
-                    $seq,
-                    static fn(mixed $component): bool => $component !== $installed
-                )));
-            }
+            $installed = $this->tm;
+            $ctx->getShutdownSequence()->remove(
+                static fn(object $component): bool => $component === $installed
+            );
             $this->installedManager = false;
         }
         Config::set('core.use_translation', $this->previousUseTranslation, true);

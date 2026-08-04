@@ -54,9 +54,14 @@ class FCHTestUser               extends FCHTestBase implements ISecurityUser
 
 class FactoryConfigHandlerTest extends ConfigHandlerTestBase
 {
-	// Prevent dynamic property deprecation when generated factory code assigns $this->shutdownSequence
-	/** @var array<int, mixed> */
-	public array $shutdownSequence = [];
+	// The generated factory code installs the shutdown sequence through this accessor, exactly as
+	// a real Context provides it.
+	public \Quiote\ShutdownSequence $shutdownSequence;
+
+	public function getShutdownSequence(): \Quiote\ShutdownSequence
+	{
+		return $this->shutdownSequence ??= new \Quiote\ShutdownSequence();
+	}
 	// Added to silence dynamic property creation deprecations from generated factories code
 	/** @var array<string, mixed>|null */
 	public ?array $databaseManagerFactoryInfo = null;

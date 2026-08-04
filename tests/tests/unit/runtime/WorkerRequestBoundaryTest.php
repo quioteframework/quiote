@@ -65,7 +65,7 @@ class WorkerRequestBoundaryTest extends TestCase
         parent::tearDown();
     }
 
-    /** @var array<int, mixed>|null */
+    /** @var array<int, object>|null */
     private ?array $savedShutdownSequence = null;
 
     /**
@@ -82,18 +82,11 @@ class WorkerRequestBoundaryTest extends TestCase
      * Splice a component into the context's shutdown sequence whose reset throws,
      * standing in for the real-world case: a database manager whose
      * recycleConnections() hits a socket the peer closed between requests.
-     *
-     * Reflection because there is no seam for this, and adding one purely for a
-     * test would be a worse trade than reaching in -- ContextTest already uses
-     * ReflectionProperty on this class for the same reason.
      */
     private function injectFaultyShutdownComponent(\Throwable $toThrow): void
     {
-        $property = new ReflectionProperty(Context::class, 'shutdownSequence');
-        if ($this->savedShutdownSequence === null) {
-            $existing = $property->getValue($this->context);
-            $this->savedShutdownSequence = is_array($existing) ? array_values($existing) : [];
-        }
+        $sequence = $this->context->getShutdownSequence();
+        $this->savedShutdownSequence ??= $sequence->all();
 
         $faulty = new class($toThrow) {
             public function __construct(private readonly \Throwable $toThrow)
@@ -113,7 +106,7 @@ class WorkerRequestBoundaryTest extends TestCase
 
         // Prepended, so it runs before anything else in the sequence and the abort
         // happens as early as possible -- the worst case for the clears.
-        $property->setValue($this->context, array_merge([$faulty], $this->savedShutdownSequence));
+        $sequence->replaceAll([$faulty, ...$this->savedShutdownSequence]);
 
         // The loop only calls recycleConnections() on the component it recognises as
         // the database manager, so point that at the faulty one too.
@@ -128,8 +121,7 @@ class WorkerRequestBoundaryTest extends TestCase
     private function restoreShutdownSequence(): void
     {
         if ($this->savedShutdownSequence !== null) {
-            (new ReflectionProperty(Context::class, 'shutdownSequence'))
-                ->setValue($this->context, $this->savedShutdownSequence);
+            $this->context->getShutdownSequence()->replaceAll($this->savedShutdownSequence);
             $this->savedShutdownSequence = null;
         }
         if ($this->savedDatabaseManagerCaptured) {

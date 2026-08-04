@@ -45,14 +45,7 @@ class TranslationManagerIntlTest extends UnitTestCase
 
             $prop->setValue($ctx, $tm);
             // Ensure added to shutdown sequence
-            $seqProp = $ro->getProperty('shutdownSequence');
-
-            $seq = $seqProp->getValue($ctx);
-            self::assertIsArray($seq);
-            if (!in_array($tm, $seq, true)) {
-                $seq[] = $tm;
-                $seqProp->setValue($ctx, $seq);
-            }
+            $ctx->getShutdownSequence()->append($tm);
             $tm->startup();
         }
         $this->tm = $tm;

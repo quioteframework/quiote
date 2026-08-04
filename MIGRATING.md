@@ -1,7 +1,56 @@
 This file covers each release that needs migration work, newest first.
 
+- [Migrating to Quiote 4.0](#migrating-to-quiote-40) — decomposing `Context`
 - [Migrating to Quiote 3.2](#migrating-to-quiote-32) — response, request, config and PSR-7 adapter contracts
 - [Migrating to Quiote 3.0](#migrating-to-quiote-30) — the session subsystem
+
+---
+
+# Migrating to Quiote 4.0
+
+In progress. 4.0 breaks `Context` into the collaborators it was standing in for.
+Nothing in this section requires application changes yet — the accessors still
+exist and still work — with one exception, which is first because it fails hard.
+
+## Clear the generated config cache
+
+**Required.** `ConfigCache` decides freshness by comparing the source config
+file's mtime against the cache file's. Upgrading the framework changes neither,
+so a cache compiled by 3.x is reused as-is — and the factory config handler now
+generates different code.
+
+A stale `factories.*` cache fails with:
+
+```
+TypeError: Cannot assign array to property Quiote\Context::$shutdownSequence
+of type Quiote\ShutdownSequence
+```
+
+Delete the cache directory (`core.cache_dir`, plus the system-temp fallback if
+`core.cache_dir` was unset) or run `cache:warmup`. Worth doing as a deploy step
+for any framework upgrade; this release is the one where skipping it is fatal
+rather than harmless.
+
+## `Context` is growing seams, not losing accessors
+
+Three collaborators are now separate classes, each bound in the container so new
+code can constructor-inject it instead of reaching through the context:
+
+| Instead of | Inject | Notes |
+|---|---|---|
+| `$context->getModel(…)` | `Quiote\Model\ModelLocator` | `getModel()` still works and delegates here |
+| `Context::getInstance('web')` | `Quiote\ContextRegistry` | `getInstance()` still works and answers from the shared registry |
+| — | `Quiote\ShutdownSequence` | reached via `$context->getShutdownSequence()` |
+
+Two things that were private are now public API, because a test or an embedding
+host had no honest way to reach them:
+
+- `Context::getShutdownSequence()` replaces reflection on the `$shutdownSequence`
+  property, which is no longer an array. Use `append()`, `remove()`,
+  `replaceRole()` and `all()`.
+- `Context::create()` is the named constructor `ContextRegistry` builds through. A
+  subclass named by `core.context_implementation` must keep the constructor
+  signature — that was always true, and is now declared.
 
 ---
 
@@ -549,7 +598,7 @@ Two differences worth knowing:
 - **`get()` normalizes "missing".** `SessionStorage::retrieve()` answered `null`
   and `NullStorage::retrieve()` answered `false`; code only survived that through
   loose comparison. `get()` returns your `$default` for both.
-- **`exists()` is new and load-bearing.** It answers "can a write land in a
+- **`exists()` is new, and consulting it matters.** It answers "can a write land in a
   session that already exists?" Consult it before persisting default or empty
   state, so an anonymous or stateless request does not acquire a session it never
   asked for. A deliberate write — a login, a user preference — should not consult

@@ -113,9 +113,9 @@ class Context implements \Stringable, ResetInterface, ContextInterface
   protected $user = null;
 
   /**
-   * @var        array<int, mixed> The array used for the shutdown sequence.
+   * @var        ShutdownSequence The components to shut down, in order.
    */
-  protected $shutdownSequence = [];
+  protected ShutdownSequence $shutdownSequence;
 
   /**
    * @var        ?\Quiote\Model\ModelLocator Resolves and hands out this context's models.
@@ -203,7 +203,9 @@ class Context implements \Stringable, ResetInterface, ContextInterface
      * @var        string The name of the Context.
      */
     protected $name,
-  ) {}
+  ) {
+    $this->shutdownSequence = new ShutdownSequence();
+  }
 
   /**
    * Build an uninitialized context for a profile.
@@ -670,15 +672,15 @@ class Context implements \Stringable, ResetInterface, ContextInterface
       // Must precede the clears below: it reads $this->user.
       $this->flushRequestState();
 
-      // Execute the shutdown sequence in the same order as would happen during normal shutdown
-      // But skip components that don't need shutdown or would interfere with worker mode
-      foreach ($this->shutdownSequence as $component) {
+      // Walk the sequence in shutdown order, but shut nothing down: at a worker request boundary
+      // only the database manager needs anything, and a full shutdown of the rest would either be
+      // pointless (controller, request, routing, translation manager) or a double-write (the user,
+      // which flushRequestState() above owns).
+      foreach ($this->shutdownSequence->all() as $component) {
         if ($component === $this->user) {
-          // Owned by flushRequestState(); shutting it down again would
-          // double-write.
           continue;
         }
-        if ($component === $this->databaseManager && $component !== null) {
+        if ($component === $this->databaseManager) {
           // Recycle (ping + null dead connections) instead of full shutdown so the manager
           // stays alive across requests, avoiding re-initialization cost.
           if ($vd) {
@@ -1133,13 +1135,12 @@ class Context implements \Stringable, ResetInterface, ContextInterface
         $logger->debug(
           "Context.initialize pre-request: deferring user creation until first real request",
         );
-        // Remove existing user from shutdown sequence (keep order of remaining components)
-        foreach ($this->shutdownSequence as $idx => $obj) {
-          if ($obj === $this->user) {
-            unset($this->shutdownSequence[$idx]);
-          }
-        }
-        $this->shutdownSequence = array_values($this->shutdownSequence);
+        // Drop the discarded user from the shutdown sequence too, keeping the order of the
+        // remaining components; getUser() splices its replacement back in at the same position.
+        $deferred = $this->user;
+        $this->shutdownSequence->remove(
+          static fn(object $component): bool => $component === $deferred,
+        );
         $this->user = null; // force lazy recreation in getUser()
       } catch (\Throwable $e) {
         // The eagerly built user stays installed, so the first real request may observe the
@@ -1183,27 +1184,20 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     // double-write whatever SessionMiddleware already flushed on the unwind.
     $this->flushRequestState();
 
-    foreach ($this->shutdownSequence as $object) {
-      if ($object === $this->user) {
-        continue;
-      }
-      try {
-        if (is_object($object) && method_exists($object, "shutdown")) {
-          $object->shutdown();
-        }
-      } catch (\Throwable $e) {
-        // swallow shutdown errors to avoid masking original execution context
-        $logger = \Quiote\Logging\Log::for($this);
-        if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
-          $logger->debug(
-            "[Context] shutdown component error " .
-              get_debug_type($object) .
-              " msg=" .
-              $e->getMessage(),
-          );
-        }
-      }
-    }
+    $this->shutdownSequence->shutdownAll(skip: $this->user);
+  }
+
+  /**
+   * The components this context shuts down, in order.
+   *
+   * The generated factory cache installs the sequence through here, and the lazy component
+   * recreation paths splice replacements back into it.
+   *
+   * @since      4.0.0
+   */
+  public function getShutdownSequence(): ShutdownSequence
+  {
+    return $this->shutdownSequence;
   }
 
   /**
@@ -1489,70 +1483,6 @@ class Context implements \Stringable, ResetInterface, ContextInterface
   }
 
   /**
-   * Replace every stale instance of one component role in $shutdownSequence
-   * with $replacement, preserving that role's original position.
-   *
-   * Used by the lazy getUser() recreation path in worker mode:
-   * reset() nulls the property but leaves the dead object in the sequence, and
-   * a component that is never spliced back in silently stops being shut down
-   * from the second request onward. Position is preserved rather than
-   * unshifting to index 0, which would move the component ahead of
-   * controller/routing and skip late mutations those may perform.
-   *
-   * @param object $replacement The freshly created component.
-   * @param callable(mixed):bool $matches Identifies instances of the role.
-   * @param callable():int $fallbackIndex Insertion point when the sequence
-   *        contained no instance of the role at all.
-   * @param string $caller Label for debug logging.
-   */
-  private function spliceIntoShutdownSequence(
-    object $replacement,
-    callable $matches,
-    callable $fallbackIndex,
-    string $caller,
-  ): void {
-    try {
-      $firstIndex = null;
-      $removedAny = false;
-      foreach ($this->shutdownSequence as $idx => $component) {
-        if ($matches($component)) {
-          if ($firstIndex === null) {
-            $firstIndex = $idx;
-          }
-          unset($this->shutdownSequence[$idx]);
-          $removedAny = true;
-        }
-      }
-      $this->shutdownSequence = array_values($this->shutdownSequence);
-
-      if ($firstIndex === null) {
-        $firstIndex = max(0, $fallbackIndex());
-      }
-      $firstIndex = min($firstIndex, count($this->shutdownSequence));
-
-      array_splice($this->shutdownSequence, $firstIndex, 0, [$replacement]);
-
-      $logger = \Quiote\Logging\Log::for($this);
-      if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
-        $logger->debug(sprintf(
-          '[Context.%s] registered component in shutdownSequence replaced=%d idx=%d oid=%d',
-          $caller,
-          $removedAny ? 1 : 0,
-          $firstIndex,
-          spl_object_id($replacement),
-        ));
-      }
-    } catch (\Throwable $e) {
-      // reset()/shutdown() drive the user directly, so its own persistence is unaffected; what
-      // degrades is the order other components are shut down in relative to it.
-      \Quiote\Logging\Log::for($this)->warning(
-        '[Context.' . $caller . '] could not splice the component into the shutdown sequence; '
-        . 'shutdown ordering for other components may be wrong: ' . $e->getMessage()
-      );
-    }
-  }
-
-  /**
    * Retrieve the translation manager.
    * @return     ?TranslationManager The current TranslationManager
    *                                          implementation instance or null if
@@ -1603,15 +1533,15 @@ class Context implements \Stringable, ResetInterface, ContextInterface
 
       // Replace any stale user instances in the shutdown sequence, so an outdated auth
       // state is not the thing that gets persisted.
-      $this->spliceIntoShutdownSequence(
+      $this->shutdownSequence->replaceRole(
         $newUser,
-        static fn(mixed $component): bool =>
+        static fn(object $component): bool =>
           $component instanceof \Quiote\User\User ||
           $component instanceof \Quiote\User\ISecurityUser,
         // No user in the sequence: put it first, so its writes land before
         // anything else the sequence shuts down.
-        static fn(): int => 0,
-        'getUser',
+        fallbackIndex: 0,
+        caller: 'getUser',
       );
 
       return $newUser;

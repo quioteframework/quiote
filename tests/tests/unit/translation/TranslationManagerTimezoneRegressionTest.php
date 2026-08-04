@@ -35,11 +35,7 @@ class TranslationManagerTimezoneRegressionTest extends UnitTestCase
             $prop = $ro->getProperty('translationManager');
             
             $prop->setValue($ctx, $tm);
-            $seqProp = $ro->getProperty('shutdownSequence');
-            
-            $seq = $seqProp->getValue($ctx);
-            self::assertIsArray($seq);
-            if(!in_array($tm, $seq, true)) { $seq[] = $tm; $seqProp->setValue($ctx, $seq); }
+            $ctx->getShutdownSequence()->append($tm);
             $tm->startup();
         }
         $this->tm = $tm;

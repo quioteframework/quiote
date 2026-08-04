@@ -30,10 +30,7 @@ class NumberValidatorTest extends UnitTestCase
 			$prop = $ro->getProperty('translationManager');
 
 			$prop->setValue($ctx, $tm);
-			$seqProp = $ro->getProperty('shutdownSequence');
-
-			$seq = $seqProp->getValue($ctx);
-			if(is_array($seq) && !in_array($tm, $seq, true)) { $seq[] = $tm; $seqProp->setValue($ctx, $seq); }
+			$ctx->getShutdownSequence()->append($tm);
 			$tm->startup();
 		}
 		$this->vm = $ctx->createInstanceFor('validation_manager');

@@ -40,13 +40,7 @@ class DateTimeValidatorTest extends UnitTestCase
             
             $property->setValue($context, $translationManager);
 
-            $sequenceProperty = $reflection->getProperty('shutdownSequence');
-            
-            $sequence = $sequenceProperty->getValue($context);
-            if (is_array($sequence) && !in_array($translationManager, $sequence, true)) {
-                $sequence[] = $translationManager;
-                $sequenceProperty->setValue($context, $sequence);
-            }
+            $context->getShutdownSequence()->append($translationManager);
 
             $translationManager->startup();
         }

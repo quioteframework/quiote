@@ -327,8 +327,12 @@ class FactoryConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 			}
 		}
 
-		// Set the shutdown sequence
-		$code[] = sprintf('$this->shutdownSequence = [%s];', implode(",\n", $shutdownSequence));
+		// Install the shutdown sequence. Built back-to-front above, so the order here is the order
+		// components are shut down in, and ShutdownSequence preserves it from then on.
+		$code[] = sprintf(
+			'$this->getShutdownSequence()->replaceAll([%s]);',
+			implode(",\n", $shutdownSequence)
+		);
 
 		return $this->generate($code, $sourceRef);
 	}
