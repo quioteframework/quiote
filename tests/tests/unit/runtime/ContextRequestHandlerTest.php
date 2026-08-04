@@ -171,14 +171,16 @@ class ContextRequestHandlerTest extends PhpUnitTestCase
 	public function testBeginRequestArmsTheStateFlush(): void
 	{
 		$context = $this->ctx();
-		$flushed = (new ReflectionObject($context))->getProperty('requestStateFlushed');
 
 		$context->flushRequestState();
-		$this->assertTrue($flushed->getValue($context), 'the flush is claimed');
+		$this->assertTrue(
+			$context->getLifecycle()->requestStateFlushClaimed(),
+			'the flush is claimed',
+		);
 
 		$context->beginRequest();
 
-		$this->assertFalse($flushed->getValue($context));
+		$this->assertFalse($context->getLifecycle()->requestStateFlushClaimed());
 	}
 
 	public function testTheAmbientLoggingScopeIsFreshPerRequest(): void

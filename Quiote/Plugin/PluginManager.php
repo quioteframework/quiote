@@ -47,8 +47,8 @@ final class PluginManager
     /** @var array<string, callable> named HTTP client configurators */
     private static array $httpClientConfigs = [];
 
-    /** @var array<string, \Closure(): void> contributed request-boundary clears, keyed by label */
-    private static array $requestBoundaryClears = [];
+    /** @var array<string, \Closure(): void> contributed end-of-request clears, keyed by label */
+    private static array $requestEndClears = [];
 
     private function __construct() {}
 
@@ -160,7 +160,7 @@ final class PluginManager
     }
 
     /**
-     * Contribute a clear that runs at every worker request boundary.
+     * Contribute a clear that runs when a request on any context ends.
      *
      * For a plugin holding request-scoped state of its own -- a per-request cache, a memo keyed on
      * the current user. Without this there is no way to hook the boundary, and such state survives
@@ -171,9 +171,9 @@ final class PluginManager
      * @param      \Closure(): void $clear
      * @since      4.0.0
      */
-    public static function addRequestBoundaryClear(string $label, \Closure $clear): void
+    public static function addRequestEndClear(string $label, \Closure $clear): void
     {
-        self::$requestBoundaryClears[$label] = $clear;
+        self::$requestEndClears[$label] = $clear;
     }
 
     // --- application phases -------------------------------------------------
@@ -208,16 +208,15 @@ final class PluginManager
     }
 
     /**
-     * Append plugin-contributed clears to a context's request-boundary cleanup, after the
-     * framework's own -- the identity clears must not be displaced by a plugin.
+     * Append plugin-contributed clears to a context's lifecycle, after the framework's own -- the
+     * identity clears must not be displaced by a plugin.
      *
      * @since      4.0.0
      */
-    public static function configureRequestBoundaryCleanup(
-        \Quiote\RequestBoundaryCleanup $cleanup,
-    ): void {
-        foreach (self::$requestBoundaryClears as $label => $clear) {
-            $cleanup->add($label, $clear);
+    public static function configureLifecycle(\Quiote\ContextLifecycle $lifecycle): void
+    {
+        foreach (self::$requestEndClears as $label => $clear) {
+            $lifecycle->onRequestEnd($label, $clear);
         }
     }
 
@@ -250,7 +249,7 @@ final class PluginManager
         self::$commands = [];
         self::$containerServices = [];
         self::$httpClientConfigs = [];
-        self::$requestBoundaryClears = [];
+        self::$requestEndClears = [];
         \Quiote\Middleware\MiddlewareCatalog::reset();
         \Quiote\Middleware\Config\MiddlewareConfigRegistry::reset();
         \Quiote\Database\DatabaseDriverRegistry::reset();

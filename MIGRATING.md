@@ -161,14 +161,23 @@ would serve request 1's request or user to every later request in a worker. Inje
 `RequestState` or `CurrentUser` there. Both resolve through on every call and hold
 nothing.
 
-## New: plugins can hook the worker request boundary
+## New: `ContextLifecycle`, and plugins can hook the end of a request
+
+`Quiote\ContextLifecycle` owns a context's per-request state machine — armed,
+claimed, cleared, armed again. Reach it with `Context::getLifecycle()`.
+
+It holds two things that only make sense together: the **state-flush claim**
+(exactly one caller per request persists the session-backed state; the first wins
+and the rest are no-ops rather than double writes) and the **end-of-request
+clears** that drop everything which must not survive into the next request served
+by the same process.
 
 Anything holding request-scoped state of its own — a per-request cache, a memo
-keyed on the current user — previously had no way to clear it between requests in
-a persistent worker, so that state survived into the next request.
+keyed on the current user — previously had no way to clear it, so that state
+survived into the next request in a persistent worker:
 
 ```php
-PluginManager::addRequestBoundaryClear('my per-request cache', function (): void {
+PluginManager::addRequestEndClear('my per-request cache', function (): void {
     MyCache::forgetRequestState();
 });
 ```
@@ -176,10 +185,8 @@ PluginManager::addRequestBoundaryClear('my per-request cache', function (): void
 Contributed clears run after the framework's own, so a plugin cannot displace the
 identity clears (session bag, user, request) that go first. Each clear is
 independently guarded: one that throws is logged and stepped over, and every other
-clear still runs.
-
-`Context::getRequestBoundaryCleanup()` exposes the same seam for a host driving the
-context directly.
+clear still runs — including the re-arm afterwards, so a broken clear cannot cost
+the next request its claim.
 
 ## Validators can declare constructor dependencies
 

@@ -39,7 +39,7 @@ class ContextFlushRequestStateTest extends UnitTestCase
      */
     private function armFlush(Context $context): void
     {
-        $this->poke($context, 'requestStateFlushed', false);
+        $context->beginRequest();
     }
 
     private function context(string $name): Context

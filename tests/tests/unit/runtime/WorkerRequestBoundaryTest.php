@@ -239,7 +239,7 @@ class WorkerRequestBoundaryTest extends TestCase
         }
 
         $this->assertFalse(
-            (new ReflectionProperty(Context::class, 'requestStateFlushed'))->getValue($this->context),
+            $this->context->getLifecycle()->requestStateFlushClaimed(),
             'the next request must be able to claim its own flush'
         );
     }

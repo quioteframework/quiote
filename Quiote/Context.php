@@ -76,12 +76,6 @@ class Context implements \Stringable, ResetInterface, ContextInterface
   protected $routing = null;
 
 
-  /**
-   * @var        bool True once this request's user->storage flush has run.
-   *             Reset per request in handle() and at the end of reset().
-   *             See flushRequestState().
-   */
-  private bool $requestStateFlushed = false;
 
   /**
    * @var        ?\Quiote\Session\SessionBagInterface The request's session bag.
@@ -122,10 +116,10 @@ class Context implements \Stringable, ResetInterface, ContextInterface
   protected ?\Quiote\Config\Factory\FactoryDefinitions $factoryDefinitions = null;
 
   /**
-   * @var        RequestBoundaryCleanup The clears that run at a worker request boundary.
-   *             Populated by registerRequestBoundaryCleanup() during initialize().
+   * @var        ContextLifecycle This context's per-request state machine: the flush claim and the
+   *             clears that run when a request ends. Populated by registerLifecycleClears().
    */
-  protected RequestBoundaryCleanup $requestBoundaryCleanup;
+  protected ContextLifecycle $lifecycle;
 
   /**
    * @var        ?\Quiote\Model\ModelLocator Resolves and hands out this context's models.
@@ -175,7 +169,7 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     protected $name,
   ) {
     $this->shutdownSequence = new ShutdownSequence();
-    $this->requestBoundaryCleanup = new RequestBoundaryCleanup();
+    $this->lifecycle = new ContextLifecycle();
   }
 
   /**
@@ -686,10 +680,9 @@ class Context implements \Stringable, ResetInterface, ContextInterface
    */
   public function flushRequestState(bool $persistUser = true): void
   {
-    if ($this->requestStateFlushed) {
+    if (!$this->lifecycle->claimRequestStateFlush()) {
       return;
     }
-    $this->requestStateFlushed = true;
 
     try {
       if ($persistUser && $this->user !== null) {
@@ -786,11 +779,8 @@ class Context implements \Stringable, ResetInterface, ContextInterface
         $logger->debug("context.reset shutdown complete");
       }
     } finally {
-      $this->requestBoundaryCleanup->run($logger);
-
-      // Re-arm the flush for the next request, after every clear, so each of them still saw this
-      // request's flush as already claimed.
-      $this->requestStateFlushed = false;
+      // Runs every clear, guarded, then re-arms for the next request.
+      $this->lifecycle->endRequest($logger);
     }
 
     if ($vd) {
@@ -799,59 +789,59 @@ class Context implements \Stringable, ResetInterface, ContextInterface
   }
 
   /**
-   * Register the clears that must happen at a worker request boundary.
+   * Register the clears that must happen when a request on this context ends.
    *
    * Order is meaningful and this is where it is decided: the session bag, the user and the request
-   * go first, because those three are what turn a failed reset into a cross-user authentication
-   * leak rather than stale data. {@see RequestBoundaryCleanup} guarantees the rest run even if one
-   * of them throws.
+   * go first, because those three are what turn a failed reset into a cross-user authentication leak
+   * rather than stale data. {@see ContextLifecycle} guarantees the rest run even if one of them
+   * throws.
    *
    * @return     void
    * @since      4.0.0
    */
-  private function registerRequestBoundaryCleanup(): void
+  private function registerLifecycleClears(): void
   {
-    $cleanup = $this->requestBoundaryCleanup;
-    $cleanup->clear();
+    $cleanup = $this->lifecycle;
+    $cleanup->forgetSteps();
 
     // Drop this request's session. A bag surviving the boundary would serve request N's session to
     // request N+1; the next request's middleware installs its own, and until it does
     // getSessionBag() answers a NullSessionBag.
-    $cleanup->add('the session bag', function (): void {
+    $cleanup->onRequestEnd('the session bag', function (): void {
       $this->sessionBag = null;
     });
 
     // Dropped together with the bag and before anything that can throw: getUser() returns the
     // existing instance rather than rebuilding from the new session, so a surviving user keeps its
     // authenticated flag and granted roles.
-    $cleanup->add('the user', function (): void {
+    $cleanup->onRequestEnd('the user', function (): void {
       $this->user = null;
     });
 
-    $cleanup->add('the request', function (): void {
+    $cleanup->onRequestEnd('the request', function (): void {
       $this->request = null;
     });
 
     // Drop all ambient logging scopes, so this request's rid/user cannot leak into the next
     // request's log lines -- the same cross-request leak class as the state cleared above.
-    $cleanup->add('the ambient logging scope', static function (): void {
+    $cleanup->onRequestEnd('the ambient logging scope', static function (): void {
       \Quiote\Logging\LogContext::clear();
     });
 
     // In lockstep with the nulling above: otherwise the container keeps serving a discarded
     // per-request instance until the next lazy recreation re-registers it.
-    $cleanup->add('request-scoped container entries', function (): void {
+    $cleanup->onRequestEnd('request-scoped container entries', function (): void {
       $this->container?->reset();
     });
 
     // Drop the cache namespace-version memo. Without this it is a per-process memo, so a version
     // bumped by another worker process is never observed and this process keeps serving
     // action/view/slot output that has already been invalidated, for as long as it lives.
-    $cleanup->add('the cache request state', static function (): void {
+    $cleanup->onRequestEnd('the cache request state', static function (): void {
       \Quiote\Cache\CacheManager::resetRequestState();
     });
 
-    $cleanup->add('the registered reset instances', function (): void {
+    $cleanup->onRequestEnd('the registered reset instances', function (): void {
       foreach ($this->resetInstances as $instance) {
         if ($instance instanceof ResetInterface) {
           $instance->reset();
@@ -860,17 +850,17 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     });
 
     // Routing holds compiled-route caches that corrupt if carried across a request.
-    $cleanup->add('the routing component', function (): void {
+    $cleanup->onRequestEnd('the routing component', function (): void {
       $this->routing?->reset();
     });
 
     // The translation manager holds the request's locale, which would otherwise bleed.
-    $cleanup->add('the translation manager', function (): void {
+    $cleanup->onRequestEnd('the translation manager', function (): void {
       $this->translationManager?->reset();
     });
 
     // Plugin-contributed clears, after the framework's own.
-    \Quiote\Plugin\PluginManager::configureRequestBoundaryCleanup($cleanup);
+    \Quiote\Plugin\PluginManager::configureLifecycle($cleanup);
   }
 
   /**
@@ -917,14 +907,14 @@ class Context implements \Stringable, ResetInterface, ContextInterface
    * Arm this context for a new request.
    *
    * Re-arms the per-request state flush so the next flushRequestState() actually runs. Called by the
-   * request handler on the way in; the request-boundary cleanup does it too, on the way out, and
-   * this covers a runtime that serves requests without a reset between them.
+   * request handler on the way in; {@see ContextLifecycle::endRequest()} does it too, on the way
+   * out, and this covers a runtime that serves requests without a reset between them.
    *
    * @since      4.0.0
    */
   public function beginRequest(): void
   {
-    $this->requestStateFlushed = false;
+    $this->lifecycle->beginRequest();
   }
 
 
@@ -1200,9 +1190,9 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     // nothing resolves services through the container yet.
     $this->registerCoreServicesInContainer();
 
-    // Declare what a worker request boundary clears. After the container registration, so a plugin
-    // contributing a clear has already had its services bound.
-    $this->registerRequestBoundaryCleanup();
+    // Declare what happens when a request on this context ends. After the container registration,
+    // so a plugin contributing a clear has already had its services bound.
+    $this->registerLifecycleClears();
   }
 
   /**
@@ -1248,16 +1238,16 @@ class Context implements \Stringable, ResetInterface, ContextInterface
   }
 
   /**
-   * The clears that run at a worker request boundary.
+   * This context's per-request lifecycle -- the flush claim and the end-of-request clears.
    *
-   * Exposed so a host that drives the context itself can add a clear of its own without going
+   * Exposed so a host that drives the context itself can register a clear of its own without going
    * through the plugin registry, and so what a context clears is assertable.
    *
    * @since      4.0.0
    */
-  public function getRequestBoundaryCleanup(): RequestBoundaryCleanup
+  public function getLifecycle(): ContextLifecycle
   {
-    return $this->requestBoundaryCleanup;
+    return $this->lifecycle;
   }
 
   /**
@@ -1314,7 +1304,7 @@ class Context implements \Stringable, ResetInterface, ContextInterface
    * Rebuild a core component from the factory metadata captured at initialize().
    *
    * The request, routing, user and database manager are all nulled at the worker request
-   * boundary by {@see registerRequestBoundaryCleanup()}'s clears and rebuilt on first access, and every
+   * boundary by {@see registerLifecycleClears()}'s clears and rebuilt on first access, and every
    * one of them needs the same sequence: refuse without factory metadata, construct,
    * optionally run the initialize()/startup() lifecycle pair, and re-register the fresh
    * instance in the container so it stops serving the discarded one. This is that
