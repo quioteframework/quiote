@@ -36,7 +36,9 @@ abstract class Model implements IModel
 	/**
 	 * Initialize this model.
 	 * @param      Context $context The current application context.
-	 * @param      array<string, mixed> $parameters An associative array of initialization parameters.
+	 * @param      array<array-key, mixed> $parameters Initialization parameters. The same array
+	 *             the locator spreads into the constructor when the class declares one, so it is
+	 *             positional as often as it is associative.
 	 * @return     void
 	 * @since      1.0.0
 	 */

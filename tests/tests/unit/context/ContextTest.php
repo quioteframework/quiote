@@ -108,59 +108,45 @@ class ContextTest extends PhpUnitTestCase
 	}
 	
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
-	public function testGetModelPopulatesResolutionCacheKeyedByModuleAndModel(): void
+	public function testGetModelThrowsForAnUnresolvableModelName(): void
 	{
-		$ctx = Context::getInstance();
-		$ctx->getModel('ContextTest');
-		$ctx->getModel('Test', 'ContextTest');
-
-		/** @var array<string, array{class: class-string, singleton: bool, hasCtor: bool}> $cache */
-		$cache = (new ReflectionProperty(Context::class, 'modelResolutionCache'))->getValue();
-
-		$this->assertArrayHasKey('|ContextTest', $cache);
-		$this->assertArrayHasKey('ContextTest|Test', $cache);
-		$this->assertSame(ContextTestModel::class, $cache['|ContextTest']['class']);
-		$this->assertSame(TestModel::class, $cache['ContextTest|Test']['class']);
-		$this->assertFalse($cache['|ContextTest']['singleton']);
+		$this->expectException(\Quiote\Exception\QuioteException::class);
+		Context::getInstance()->getModel('ThisModelDoesNotExistAnywhere');
 	}
 
+	/**
+	 * getModel() and the container must reach the same locator, so a model resolved through an
+	 * injected ModelLocator shares the singleton instances with one resolved through the context.
+	 */
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
-	public function testGetModelReusesCachedResolutionOnSecondCall(): void
+	public function testTheContainerResolvesTheSameModelLocatorTheContextUses(): void
 	{
 		$ctx = Context::getInstance();
-		$ctx->getModel('ContextTestSingleton');
+		$locator = $ctx->getModelLocator();
 
-		/** @var array<string, array{class: class-string, singleton: bool, hasCtor: bool}> $cacheAfterFirstCall */
-		$cacheAfterFirstCall = (new ReflectionProperty(Context::class, 'modelResolutionCache'))->getValue();
-		$cachedAfterFirstCall = $cacheAfterFirstCall['|ContextTestSingleton'];
-
-		// A second call must reuse the cached resolution (same array contents),
-		// not recompute or corrupt it -- and must still produce a working model.
-		$model = $ctx->getModel('ContextTestSingleton');
-		/** @var array<string, array{class: class-string, singleton: bool, hasCtor: bool}> $cacheAfterSecondCall */
-		$cacheAfterSecondCall = (new ReflectionProperty(Context::class, 'modelResolutionCache'))->getValue();
-		$cachedAfterSecondCall = $cacheAfterSecondCall['|ContextTestSingleton'];
-
-		$this->assertSame($cachedAfterFirstCall, $cachedAfterSecondCall);
-		$this->assertInstanceOf(ContextTestSingletonModel::class, $model);
-		$this->assertTrue($cachedAfterSecondCall['singleton']);
+		$this->assertSame($locator, $ctx->getModelLocator(), 'the locator is built once per context');
+		$this->assertSame($locator, $ctx->getContainer()->get(\Quiote\Model\ModelLocator::class));
+		$this->assertSame($locator, $ctx->getContainer()->get('modelLocator'));
+		$this->assertSame(
+			$ctx->getModel('ContextTestSingleton'),
+			$locator->get('ContextTestSingleton'),
+			'both paths answer the same singleton instance',
+		);
 	}
 
+	/**
+	 * reset() runs at the worker request boundary, and a singleton model holding request N's
+	 * data must not be handed to request N+1.
+	 */
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
-	public function testGetModelThrowsForUnresolvableModelWithoutPoisoningCache(): void
+	public function testResetDropsSingletonModelInstances(): void
 	{
 		$ctx = Context::getInstance();
+		$before = $ctx->getModel('ContextTestSingleton');
 
-		try {
-			$ctx->getModel('ThisModelDoesNotExistAnywhere');
-			$this->fail('Expected QuioteException for an unresolvable model name.');
-		} catch (\Quiote\Exception\QuioteException) {
-			// expected
-		}
+		$ctx->reset();
 
-		/** @var array<string, array{class: class-string, singleton: bool, hasCtor: bool}> $cache */
-		$cache = (new ReflectionProperty(Context::class, 'modelResolutionCache'))->getValue();
-		$this->assertArrayNotHasKey('|ThisModelDoesNotExistAnywhere', $cache);
+		$this->assertNotSame($before, $ctx->getModel('ContextTestSingleton'));
 	}
 
 	/** @return array<string, array{0: string, 1: class-string, 2: bool, 3?: string}> */

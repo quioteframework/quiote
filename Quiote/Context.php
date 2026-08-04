@@ -118,20 +118,10 @@ class Context implements \Stringable, ResetInterface, ContextInterface
   protected static $instances = [];
 
   /**
-   * @var        array<class-string, object> An array of SingletonModel instances.
+   * @var        ?\Quiote\Model\ModelLocator Resolves and hands out this context's models.
+   *             Built on first use; see getModelLocator().
    */
-  protected $singletonModelInstances = [];
-
-  /**
-   * Per-worker cache of getModel()'s class-name resolution + reflection
-   * probe, keyed by "(moduleName ?? '')|(modelName)". The naming-convention
-   * probing chain (class_exists() across namespace/legacy candidates, plus
-   * manual file requires) and the ReflectionClass construction it feeds are
-   * pure functions of (modelName, moduleName) once the class exists -- same
-   * pattern as ActionDescriptor::$isSimpleCache and Container::$reflectionCache.
-   * @var        array<string, array{class: class-string, singleton: bool, hasCtor: bool}>
-   */
-  private static array $modelResolutionCache = [];
+  private ?\Quiote\Model\ModelLocator $modelLocator = null;
 
   /**
    * @var        array<int, mixed> Reset instances for persistent worker runtimes
@@ -329,12 +319,12 @@ class Context implements \Stringable, ResetInterface, ContextInterface
 
   /**
    * Retrieve a service from the container.
-   * The locator escape hatch for legacy call sites
-   * and lazy/conditional access (the `IServiceProvider`-injection equivalent from .NET).
+   * The service-locator path, for call sites that cannot declare a dependency and for
+   * lazy/conditional access (the `IServiceProvider`-injection equivalent from .NET).
    * The preferred path for new code is constructor injection; both resolve through the
    * same container. Thin wrapper — exceptions from the container propagate as-is.
-   * Deliberately does not touch getModel(): services and models remain separate
-   * conventions.
+   * Deliberately separate from {@see \Quiote\Model\ModelLocator}: services and models remain
+   * separate conventions.
    */
   public function getService(string $id): mixed
   {
@@ -408,6 +398,7 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     $this->registerCoreService('user', $this->user, Container::SCOPE_REQUEST);
     $this->registerTelemetryServicesInContainer();
     $this->registerHttpClientFactory();
+    $this->registerModelLocator();
     // Plugin-contributed DI services (register-if-absent, so core/app bindings
     // above win).
     \Quiote\Plugin\PluginManager::configureContainer($container);
@@ -431,6 +422,27 @@ class Context implements \Stringable, ResetInterface, ContextInterface
       return $factory;
     }, Container::SCOPE_SINGLETON);
     $container->alias('http_client_factory', \Quiote\Http\Client\HttpClientFactory::class);
+  }
+
+  /**
+   * Bind the model locator so a service can constructor-inject
+   * {@see \Quiote\Model\ModelLocator} instead of reaching through the context for a model.
+   *
+   * A factory rather than an instance, so nothing that never asks for a model pays for one,
+   * and so the container and getModel() share the single per-context locator.
+   */
+  private function registerModelLocator(): void
+  {
+    $container = $this->getContainer();
+    if ($container->has(\Quiote\Model\ModelLocator::class)) {
+      return;
+    }
+    $container->setFactory(
+      \Quiote\Model\ModelLocator::class,
+      fn(): \Quiote\Model\ModelLocator => $this->getModelLocator(),
+      Container::SCOPE_SINGLETON,
+    );
+    $container->alias('modelLocator', \Quiote\Model\ModelLocator::class);
   }
 
   /**
@@ -597,8 +609,9 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     $logger = \Quiote\Logging\Log::for($this);
     $vd = $logger->isEnabled(\Quiote\Logging\Level::Debug);
 
-    // Reset singleton model instances
-    $this->singletonModelInstances = [];
+    // Drop the shared singleton models; a model holding this request's data must not
+    // serve the next one.
+    $this->modelLocator?->reset();
     $this->slotDispatcher = null; // rebuild per request
     $this->assetRegistry = null; // rebuild per request (worker-mode safe)
 
@@ -1211,6 +1224,22 @@ class Context implements \Stringable, ResetInterface, ContextInterface
   }
 
   /**
+   * Retrieve (lazily create) this context's model locator.
+   *
+   * The locator owns model resolution and model lifetimes; the context only owns the fact that
+   * there is one per context. Constructor-inject {@see \Quiote\Model\ModelLocator} in new code.
+   *
+   * @since      4.0.0
+   */
+  public function getModelLocator(): \Quiote\Model\ModelLocator
+  {
+    return $this->modelLocator ??= new \Quiote\Model\ModelLocator(
+      $this,
+      new \Quiote\Model\ModelClassResolver(),
+    );
+  }
+
+  /**
    * Retrieve a Model implementation instance.
    * @param      string $modelName A model name or fully qualified class name.
    * @param      string $moduleName A module name, if the requested model is a module model,
@@ -1226,160 +1255,13 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     $moduleName = null,
     ?array $parameters = null,
   ) {
-    $origModelName = $modelName;
-
-    // Module bootstrapping (autoload/config + the disabled-module check) has
-    // real per-request side effects and must run every call regardless of
-    // whether the class resolution below is cache-hit -- initializeModule()
-    // already has its own fast path for the already-initialized case.
-    if ($moduleName !== null) {
-      try {
-        $this->getController()->initializeModule($moduleName);
-      } catch (DisabledModuleException $e) {
-        // Deliberate and typed: initializeModule() loads the module's autoload before it
-        // rejects a disabled module, and that autoload is the whole reason for calling it
-        // here. Resolving a model from a disabled module stays legal.
-        \Quiote\Logging\Log::for($this)->debug(
-          '[Context.getModel] module "' . $moduleName . '" is disabled; its autoload is loaded '
-          . 'and model resolution continues: ' . $e->getMessage()
-        );
-      }
-    }
-
-    $cacheKey = ($moduleName ?? "") . "|" . $modelName;
-    $resolved = self::$modelResolutionCache[$cacheKey] ?? null;
-
-    if ($resolved === null) {
-      $class = null;
-      $file = null;
-
-      // Check if this is a fully qualified namespaced class name
-      if (str_contains((string) $modelName, "\\")) {
-        // This is a namespaced class, try it directly first
-        $class = $modelName;
-        // Also try with 'Model' suffix if it doesn't already end with 'Model'
-        if (!str_ends_with($class, "Model")) {
-          $class .= "Model";
-        }
-
-        if (!class_exists($class)) {
-          // Try without the 'Model' suffix
-          $class = $modelName;
-        }
-      } else {
-        // Try namespaced approach first with configurable namespace prefix
-        $baseNamespace = Config::getString("core.namespace_prefix", "App");
-        $modelName = Toolkit::canonicalName($modelName);
-        $longModelName = str_replace("/", "_", $modelName);
-        $namespacedModelName = str_replace("/", "\\", $modelName);
-
-        if ($moduleName === null) {
-          // Global model - try namespaced version first
-          $namespacedClass =
-            $baseNamespace . "\\Models\\" . $namespacedModelName . "Model";
-          if (class_exists($namespacedClass)) {
-            $class = $namespacedClass;
-          } else {
-            // Fall back to old naming convention
-            $class = $longModelName . "Model";
-          }
-        } else {
-          // Module model - try namespaced version first
-          $namespacedClass =
-            $baseNamespace .
-            "\\Modules\\" .
-            $moduleName .
-            "\\Models\\" .
-            $namespacedModelName .
-            "Model";
-          if (class_exists($namespacedClass)) {
-            $class = $namespacedClass;
-          } else {
-            // Fall back to old naming convention
-            $class = $moduleName . "_" . $longModelName . "Model";
-          }
-        }
-
-        // If still no class found, try manual file loading (legacy approach)
-        if (!class_exists($class)) {
-          if ($moduleName === null) {
-            $file =
-              Config::getString("core.model_dir") . "/" . $modelName . "Model.php";
-          } else {
-            $file =
-              Config::getString("core.module_dir") .
-              "/" .
-              $moduleName .
-              "/Models/" .
-              $modelName .
-              "Model.php";
-          }
-
-          if (is_readable($file)) {
-            require $file;
-          }
-        }
-      }
-
-      if (!class_exists($class)) {
-        // it's not there.
-        throw new QuioteException(
-          sprintf("Couldn't find class for Model %s", $origModelName),
-        );
-      }
-
-      // so if we're here, we found something, right? good.
-
-      $rc = new \ReflectionClass($class);
-      $resolved = [
-        "class" => $class,
-        "singleton" => $rc->implementsInterface(\Quiote\Model\ISingletonModel::class),
-        "hasCtor" => $rc->getConstructor() !== null,
-      ];
-      self::$modelResolutionCache[$cacheKey] = $resolved;
-    }
-
-    $class = $resolved["class"];
-    $hasCtor = $resolved["hasCtor"];
-
-    if ($resolved["singleton"]) {
-      // it's a singleton
-      if (!isset($this->singletonModelInstances[$class])) {
-        // no instance yet, so we create one
-
-        if ($parameters === null || !$hasCtor) {
-          // it has an initialize() method, or no parameters were given, so we don't hand arguments to the constructor
-          $this->singletonModelInstances[$class] = new $class();
-        } else {
-          // we use this approach so we can pass constructor params or if it doesn't have an initialize() method
-          $this->singletonModelInstances[$class] = new $class(...$parameters);
-        }
-      }
-      $model = $this->singletonModelInstances[$class];
-    } else {
-      // create an instance
-      if ($parameters === null || !$hasCtor) {
-        // it has an initialize() method, or no parameters were given, so we don't hand arguments to the constructor
-        $model = new $class();
-      } else {
-        // we use this approach so we can pass constructor params or if it doesn't have an initialize() method
-        $model = new $class(...$parameters);
-      }
-    }
-
-    if (is_callable([$model, "initialize"])) {
-      // pass the constructor params again. dual use for the win
-      $model->initialize($this, (array) $parameters);
-    }
-
-    if (!$model instanceof \Quiote\Model\Model) {
-      throw new QuioteException(
-        sprintf("Resolved class for Model %s does not extend Quiote\\Model\\Model", $origModelName),
-      );
-    }
-
-    return $model;
+    return $this->getModelLocator()->get(
+      (string) $modelName,
+      $moduleName === null ? null : (string) $moduleName,
+      $parameters,
+    );
   }
+
 
   /**
    * Retrieve the name of this Context.

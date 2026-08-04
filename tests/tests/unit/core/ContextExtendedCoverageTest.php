@@ -161,36 +161,30 @@ class ContextExtendedCoverageTest extends TestCase
         $this->assertSame($ctx->getCorrelationId(), $scope['rid'] ?? null, 'handle() must enrich scope with rid');
     }
 
+    /**
+     * The singleton-model cache lives in the ModelLocator now, so reset() has to reach it there.
+     * A cache that survived the worker request boundary would serve request N's model, holding
+     * request N's data, to request N+1.
+     */
     public function testSingletonModelInstancesClearedOnReset(): void
     {
         $ctx = $this->ctx();
         $this->injectLogger($ctx);
-        $ro = new ReflectionObject($ctx);
-        $factoriesProp = $ro->getProperty('factories');
 
-        $factories = $factoriesProp->getValue($ctx);
-        $this->assertIsArray($factories);
-        // Anonymous singleton model stub
-        $dummy = new class {
-            /** @param array<string, mixed> $p */
-            public function initialize(mixed $c, array $p = []): void {}
-        };
-        $dummyClass = $dummy::class;
-        // Register factory info under synthetic key so createInstanceFor could use it if invoked
-        $factories['dummy_singleton'] = ['factory_info' => ['class' => $dummyClass, 'parameters' => []]];
-        $factoriesProp->setValue($ctx, $factories);
-        // Manually register singleton instance (simulate earlier usage)
-        $smProp = $ro->getProperty('singletonModelInstances');
+        $before = $ctx->getModel(\Sandbox\Models\ContextTestSingletonModel::class);
+        $this->assertSame(
+            $before,
+            $ctx->getModel(\Sandbox\Models\ContextTestSingletonModel::class),
+            'a singleton model is shared within the request',
+        );
 
-        $sm = $smProp->getValue($ctx);
-        $this->assertIsArray($sm);
-        $sm[$dummyClass] = $dummy;
-        $smProp->setValue($ctx, $sm);
-        $singletonsBefore = $smProp->getValue($ctx);
-        $this->assertIsArray($singletonsBefore);
-        $this->assertArrayHasKey($dummyClass, $singletonsBefore);
         $ctx->reset();
-        $this->assertSame([], $smProp->getValue($ctx), 'singletonModelInstances should be cleared on reset');
+
+        $this->assertNotSame(
+            $before,
+            $ctx->getModel(\Sandbox\Models\ContextTestSingletonModel::class),
+            'the singleton model cache should be cleared on reset',
+        );
     }
 
     public function testMultipleHandleCorrelationIdUniquenessAndKernelReuse(): void
