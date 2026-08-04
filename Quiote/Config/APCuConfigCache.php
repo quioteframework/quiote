@@ -36,6 +36,12 @@ class APCuConfigCache extends ConfigCache
      * @var string APCu key for compilation metadata
      */
     private static $metaKey = 'quiote_warmup_meta';
+
+    /**
+     * Suffix distinguishing a compiled config's cached *value* from its cached source. Appended to
+     * the source's own key so the two can never disagree about what they describe.
+     */
+    private const string VALUE_KEY_SUFFIX = ':value';
     
     /**
      * @var int Cache TTL (0 = never expire, good for immutable deployments)
@@ -159,6 +165,86 @@ class APCuConfigCache extends ConfigCache
         }
     }
     
+    /**
+     * The value a compiled configuration returns, served from shared memory as data.
+     *
+     * A compiled config reaches APCu as PHP source, so something has to compile it once. What this
+     * avoids is compiling it *again on every load*: eval()'d code is never opcache-cached, so the
+     * source path pays a full lex/parse/compile on each request for a config that has not changed.
+     * Storing the resulting value under its own key means the first caller after a flush compiles,
+     * and every caller after that reads an array.
+     *
+     * The value key is derived from the config key, so everything that invalidates the source
+     * invalidates the value with it -- the framework fingerprint, the resolved source format and the
+     * context are all already folded into {@see getConfigKey()} -- and {@see clear()} matches on the
+     * shared `quiote_` prefix, so it drops both.
+     *
+     * Only values that survive shared memory faithfully are stored; see {@see isStorable()}. A config
+     * that returns anything else still works, it simply keeps compiling.
+     *
+     * @param      string $config An absolute or relative filesystem path to a configuration file.
+     * @param      string|null $context An optional context name.
+     * @return     mixed The compiled configuration's return value.
+     * @since      4.0.0
+     */
+    #[\Override]
+    public static function loadValue(string $config, ?string $context = null): mixed
+    {
+        if (!self::isAvailable()) {
+            return parent::loadValue($config, $context);
+        }
+
+        $valueKey = self::getConfigKey($config, $context) . self::VALUE_KEY_SUFFIX;
+
+        // The out-parameter, not a false return: a compiled config is entitled to return null or
+        // false, and treating that as a miss would recompile it on every single load.
+        $found = false;
+        $value = \apcu_fetch($valueKey, $found);
+        if ($found === true) {
+            return $value;
+        }
+
+        $result = self::checkConfig($config, $context);
+        if (str_starts_with($result, 'APCU:')) {
+            $value = eval('?>' . substr($result, 5));
+        } else {
+            $value = include $result;
+        }
+
+        if (self::isStorable($value)) {
+            \apcu_store($valueKey, $value);
+        }
+
+        return $value;
+    }
+
+    /**
+     * Whether a compiled config's value round-trips through shared memory unchanged.
+     *
+     * APCu serializes what it stores, so an object comes back as a different instance and a closure
+     * cannot be stored at all. The compiled configs this cache serves are `return <array>;` of scalars
+     * by construction, so this should always answer true -- it is here so that a handler that starts
+     * emitting something richer degrades to recompiling rather than silently serving a broken clone.
+     *
+     * @since      4.0.0
+     */
+    private static function isStorable(mixed $value): bool
+    {
+        if (is_object($value) || is_resource($value)) {
+            return false;
+        }
+
+        if (is_array($value)) {
+            foreach ($value as $item) {
+                if (!self::isStorable($item)) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
     /**
      * Drop-in replacement for ConfigCache::load
      * Loads directly from APCu if available, otherwise falls back to normal loading

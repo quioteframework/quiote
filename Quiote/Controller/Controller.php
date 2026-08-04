@@ -11,6 +11,7 @@ use Quiote\Util\ParameterHolder;
 use Quiote\Exception\ControllerException;
 use Quiote\Config\Config;
 use Quiote\Config\ConfigCache;
+use Quiote\Config\CompiledConfig;
 use Quiote\Config\APCuConfigCache;
 use Quiote\Exception\DisabledModuleException;
 use Quiote\Response\WebResponse;
@@ -518,16 +519,7 @@ class Controller extends ParameterHolder implements ResetInterface, ControllerIn
 	{
 		$cfg = Config::getString('core.config_dir') . '/output_types.xml';
 
-		if(defined('QUIOTE_USE_APCU_CONFIG_CACHE') && QUIOTE_USE_APCU_CONFIG_CACHE) {
-			$cacheResult = APCuConfigCache::checkConfig($cfg, $context->getName());
-			if (str_starts_with($cacheResult, 'APCU:')) {
-				return eval('?>' . substr($cacheResult, 5));
-			}
-
-			return require($cacheResult);
-		}
-
-		return require(ConfigCache::checkConfig($cfg, $context->getName()));
+		return CompiledConfig::value($cfg, $context->getName());
 	}
 
 	/**

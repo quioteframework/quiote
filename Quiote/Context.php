@@ -2,8 +2,7 @@
 namespace Quiote;
 
 use Quiote\Config\Config;
-use Quiote\Config\ConfigCache;
-use Quiote\Config\APCuConfigCache;
+use Quiote\Config\CompiledConfig;
 use Quiote\Controller\Controller;
 use Quiote\DI\Container;
 use Quiote\Exception\DisabledModuleException;
@@ -1016,22 +1015,9 @@ class Context implements \Stringable, ResetInterface, ContextInterface
   {
     $path = Config::getString("core.config_dir") . "/factories.xml";
 
-    if (defined("QUIOTE_USE_APCU_CONFIG_CACHE") && QUIOTE_USE_APCU_CONFIG_CACHE) {
-      $logger->debug("Context using APCu config cache for factories.xml");
-      $cacheResult = APCuConfigCache::checkConfig($path, $this->name);
+    $logger->debug("Context reading the compiled factories.xml");
 
-      if (str_starts_with($cacheResult, "APCU:")) {
-        $logger->debug("Context reading factories.xml directly from APCu (no file I/O)");
-
-        return eval("?>" . substr($cacheResult, 5));
-      }
-
-      return include $cacheResult;
-    }
-
-    $logger->debug("Context using regular config cache for factories.xml");
-
-    return include ConfigCache::checkConfig($path, $this->name);
+    return CompiledConfig::value($path, $this->name);
   }
 
   /**

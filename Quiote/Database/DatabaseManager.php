@@ -3,8 +3,7 @@ namespace Quiote\Database;
 
 use Quiote\Context;
 use Quiote\Config\Config;
-use Quiote\Config\ConfigCache;
-use Quiote\Config\APCuConfigCache;
+use Quiote\Config\CompiledConfig;
 use Quiote\Exception\DatabaseException;
 
 /**
@@ -149,16 +148,7 @@ class DatabaseManager implements \Quiote\ContextComponentInterface
 	{
 		$path = Config::getString('core.config_dir') . '/databases.xml';
 
-		if(defined('\QUIOTE_USE_APCU_CONFIG_CACHE') && \QUIOTE_USE_APCU_CONFIG_CACHE) {
-			$cacheResult = APCuConfigCache::checkConfig($path);
-			if (str_starts_with($cacheResult, 'APCU:')) {
-				return eval('?>' . substr($cacheResult, 5));
-			}
-
-			return require($cacheResult);
-		}
-
-		return require(ConfigCache::checkConfig($path));
+		return CompiledConfig::value($path);
 	}
 
 	/**

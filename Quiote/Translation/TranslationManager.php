@@ -3,8 +3,7 @@ namespace Quiote\Translation;
 
 use Quiote\Context;
 use Quiote\Config\Config;
-use Quiote\Config\ConfigCache;
-use Quiote\Config\APCuConfigCache;
+use Quiote\Config\CompiledConfig;
 use Quiote\Exception\QuioteException;
 use Symfony\Contracts\Service\ResetInterface;
 
@@ -474,16 +473,7 @@ class TranslationManager implements ResetInterface
 	{
 		$path = Config::getString('core.config_dir') . '/translation.xml';
 
-		if(defined('\QUIOTE_USE_APCU_CONFIG_CACHE') && \QUIOTE_USE_APCU_CONFIG_CACHE) {
-			$cacheResult = APCuConfigCache::checkConfig($path);
-			if (str_starts_with($cacheResult, 'APCU:')) {
-				return eval('?>' . substr($cacheResult, 5));
-			}
-
-			return include($cacheResult);
-		}
-
-		return include(ConfigCache::checkConfig($path));
+		return CompiledConfig::value($path);
 	}
 
 	/**

@@ -775,6 +775,28 @@ class ConfigCache
 	}
 	
 	/**
+	 * The value a compiled configuration returns.
+	 *
+	 * A caller wants the compiled config's return value, not the mechanics of where the cache keeps
+	 * it. Holding the storage format behind one method is what lets the APCu implementation stop
+	 * handing raw PHP back to every call site to be eval()'d there -- see
+	 * {@see APCuConfigCache::loadValue()}. Use {@see CompiledConfig::value()} to reach whichever
+	 * implementation is active rather than naming one here.
+	 *
+	 * Calls static::checkConfig(), not self::: the non-forwarding form resets late static binding to
+	 * this class, which would compile to disk even with APCu enabled.
+	 *
+	 * @param      string $config An absolute or relative filesystem path to a configuration file.
+	 * @param      string|null $context An optional context name.
+	 * @return     mixed The compiled configuration's return value.
+	 * @since      4.0.0
+	 */
+	public static function loadValue(string $config, ?string $context = null): mixed
+	{
+		return include static::checkConfig($config, $context);
+	}
+
+	/**
 	 * Load the config handlers from the given config file.
 	 * Existing handlers will not be overwritten.
 	 * @param      string $cfg The path to a config_handlers.xml file.
@@ -783,24 +805,86 @@ class ConfigCache
 	 */
 	protected static function loadConfigHandlersFile($cfg)
 	{
-		// Use static::checkConfig() (a forwarding call) rather than the explicit
-		// ConfigCache::checkConfig(). The explicit class name is NON-forwarding
+		// Use static::loadValue() (a forwarding call) rather than the explicit
+		// ConfigCache::loadValue(). The explicit class name is NON-forwarding
 		// and resets late static binding to ConfigCache, so when this runs as a
 		// side effect of a cold compile under APCuConfigCache, the subsequent
 		// writeCacheFile() would resolve to the base (filesystem) implementation and
 		// leak a config_handlers cache file to disk even though APCu is enabled.
 		// Preserving LSB keeps the whole chain on the APCu store.
-		$result = static::checkConfig($cfg);
-		if (str_starts_with($result, 'APCU:')) {
-			// APCu hit/cold-store: the marker carries the compiled PHP directly.
-			// eval()ing it (after a close-tag prefix) returns the compiled file's
-			// return value, i.e. the handlers array, exactly as include() of the
-			// equivalent cache file would.
-			$loaded = eval('?>' . substr($result, 5));
-		} else {
-			$loaded = include($result);
+		$loaded = static::loadValue($cfg);
+		self::assertHandlerInfoMap($loaded, $cfg);
+		self::$handlers = (array)self::$handlers + $loaded;
+	}
+
+	/**
+	 * Verify that a compiled config-handlers artifact has the shape the handler pipeline expects.
+	 *
+	 * The artifact was previously cast straight into self::$handlers, which promises
+	 * array<string,HandlerInfo>. Nothing checked that it delivered one; a truncated write, a partially
+	 * populated shared-memory entry or a hand-edited cache file would flow into
+	 * {@see getHandlerInfo()} and surface much later as an undefined-key or bad-callable error a long
+	 * way from the cause.
+	 *
+	 * Runs once per handlers file, so the cost is a load-time check rather than a per-lookup one.
+	 *
+	 * @param      mixed $loaded The value the compiled artifact returned.
+	 * @param      string $cfg The artifact's source config file, for the error message.
+	 * @phpstan-assert array<string,HandlerInfo> $loaded
+	 * @return     void
+	 * @throws     ConfigurationException When the artifact does not describe config handlers.
+	 * @since      4.0.0
+	 */
+	private static function assertHandlerInfoMap(mixed $loaded, string $cfg): void
+	{
+		$reject = static function(string $why) use ($cfg): never {
+			throw new ConfigurationException(sprintf(
+				'The compiled config handlers from "%s" are not usable: %s. '
+				. 'Clear the configuration cache to force a recompile.',
+				$cfg,
+				$why
+			));
+		};
+
+		if(!is_array($loaded)) {
+			$reject('it did not return an array, but ' . get_debug_type($loaded));
 		}
-		self::$handlers = (array)self::$handlers + (array)$loaded;
+
+		foreach($loaded as $pattern => $handlerInfo) {
+			if(!is_string($pattern)) {
+				$reject(sprintf('the entry at key %s is not keyed by a config-file pattern', var_export($pattern, true)));
+			}
+
+			if(!is_array($handlerInfo)) {
+				$reject(sprintf('the entry for "%s" is %s, not an array', $pattern, get_debug_type($handlerInfo)));
+			}
+
+			// Shape only, deliberately not class_exists(): a handlers file is loaded before the
+			// classes it names are necessarily autoloadable, and one of them may be registered later
+			// or supplied by a test. Whether the class resolves is settled when the handler is
+			// instantiated, which reports the name that failed.
+			if(!isset($handlerInfo['class']) || !is_string($handlerInfo['class']) || $handlerInfo['class'] === '') {
+				$reject(sprintf('the entry for "%s" names no handler class', $pattern));
+			}
+
+			foreach(['parameters', 'transformations', 'validations'] as $key) {
+				if(!isset($handlerInfo[$key]) || !is_array($handlerInfo[$key])) {
+					$reject(sprintf('the entry for "%s" is missing its "%s" array', $pattern, $key));
+				}
+			}
+
+			foreach($handlerInfo['transformations'] as $from => $to) {
+				if(!is_string($from) || !is_array($to) || array_filter($to, 'is_string') !== $to) {
+					$reject(sprintf('the entry for "%s" has a malformed transformation', $pattern));
+				}
+			}
+
+			foreach($handlerInfo['validations'] as $group) {
+				if(!is_array($group)) {
+					$reject(sprintf('the entry for "%s" has a malformed validation group', $pattern));
+				}
+			}
+		}
 	}
 
 	/**
