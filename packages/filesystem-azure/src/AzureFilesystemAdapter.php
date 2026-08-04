@@ -17,12 +17,11 @@ use Quiote\Storage\Azure\BlobMetadata;
  * (Shared-Key REST client) as its transport, against a fixed container (Azure
  * has no bucket-equivalent bound to the client itself, unlike S3/GCS).
  *
- * The underlying client has no list-blobs operation, so {@see listContents()}
- * always throws — see `Quiote\Filesystem\S3\S3FilesystemAdapter`'s docblock
- * for the reasoning. Applications that need a listing should keep it in their
- * own database beside the record that owns the files, or drive
- * {@see AzureBlobClient::request()} — which signs an arbitrary request and
- * returns the raw response — directly.
+ * Not a {@see \Quiote\Filesystem\ListableFilesystemInterface}: the client has no list-blobs
+ * operation — see `Quiote\Filesystem\S3\S3FilesystemAdapter`'s docblock for the reasoning.
+ * Applications that need a listing should keep it in their own database beside the record that
+ * owns the files, or drive {@see AzureBlobClient::request()} — which signs an arbitrary request
+ * and returns the raw response — directly.
  */
 final readonly class AzureFilesystemAdapter implements FilesystemAdapterInterface
 {
@@ -89,12 +88,6 @@ final readonly class AzureFilesystemAdapter implements FilesystemAdapterInterfac
         }
 
         return $lastModified;
-    }
-
-    #[\Override]
-    public function listContents(string $path = ''): array
-    {
-        throw new FilesystemStorageException('listContents() is not supported by the Azure filesystem adapter — the underlying AzureBlobClient has no list-blobs endpoint. Track listings yourself, or build one on AzureBlobClient::request().');
     }
 
     private function fetch(string $path): ?string

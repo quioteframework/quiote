@@ -15,9 +15,12 @@ use DateTimeImmutable;
  *
  * Deliberately out of scope for v1: visibility/ACLs, mime-type detection,
  * streaming read/write, directory-as-first-class-object semantics beyond what
- * a driver needs internally, copy/move, checksums/ETags. Some drivers (the
- * cloud adapters) cannot implement {@see size()}, {@see lastModified()}, or
- * {@see listContents()} at all — see their own class docblocks.
+ * a driver needs internally, copy/move, checksums/ETags.
+ *
+ * Enumeration is not here: a store built on single-object calls cannot offer it, so it lives on
+ * {@see ListableFilesystemInterface} and a driver opts in by implementing that instead.
+ * {@see size()} and {@see lastModified()} are supported by every shipped driver, though a cloud
+ * provider that omits the corresponding response header makes them fail at runtime.
  */
 interface FilesystemAdapterInterface
 {
@@ -36,7 +39,4 @@ interface FilesystemAdapterInterface
 
     /** @throws FileNotFoundStorageException if $path does not exist. */
     public function lastModified(string $path): DateTimeImmutable;
-
-    /** @return list<string> relative paths, non-recursive. */
-    public function listContents(string $path = ''): array;
 }

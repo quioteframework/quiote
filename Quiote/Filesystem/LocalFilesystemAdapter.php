@@ -21,7 +21,7 @@ use Throwable;
  * (same atomic pattern as {@see \Quiote\Session\FileSessionPersistence::save()}),
  * so readers never observe a partially written file.
  */
-final class LocalFilesystemAdapter implements FilesystemAdapterInterface
+final class LocalFilesystemAdapter implements ListableFilesystemInterface
 {
     private readonly string $root;
 

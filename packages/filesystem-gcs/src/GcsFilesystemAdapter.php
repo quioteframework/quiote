@@ -16,12 +16,11 @@ use Quiote\Storage\Gcs\GcsStorageException;
  * {@see FilesystemAdapterInterface} wrapping the existing {@see GcsClient}
  * (HMAC interop-key REST client, no google/cloud-storage) as its transport.
  *
- * The underlying client has no list-bucket operation, so {@see listContents()}
- * always throws — see `Quiote\Filesystem\S3\S3FilesystemAdapter`'s docblock
- * for the reasoning. Applications that need a listing should keep it in their
- * own database beside the record that owns the files, or drive
- * {@see GcsClient::request()} — which signs an arbitrary request and returns
- * the raw response — directly.
+ * Not a {@see \Quiote\Filesystem\ListableFilesystemInterface}: the client has no list-bucket
+ * operation — see `Quiote\Filesystem\S3\S3FilesystemAdapter`'s docblock for the reasoning.
+ * Applications that need a listing should keep it in their own database beside the record that
+ * owns the files, or drive {@see GcsClient::request()} — which signs an arbitrary request and
+ * returns the raw response — directly.
  */
 final readonly class GcsFilesystemAdapter implements FilesystemAdapterInterface
 {
@@ -87,12 +86,6 @@ final readonly class GcsFilesystemAdapter implements FilesystemAdapterInterface
         }
 
         return $lastModified;
-    }
-
-    #[\Override]
-    public function listContents(string $path = ''): array
-    {
-        throw new FilesystemStorageException('listContents() is not supported by the GCS filesystem adapter — the underlying GcsClient has no list-bucket endpoint. Track listings yourself, or build one on GcsClient::request().');
     }
 
     private function fetch(string $path): ?string

@@ -9,7 +9,9 @@ use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Quiote\Filesystem\Azure\AzureFilesystemAdapter;
 use Quiote\Filesystem\FileNotFoundStorageException;
+use Quiote\Filesystem\FilesystemAdapterInterface;
 use Quiote\Filesystem\FilesystemStorageException;
+use Quiote\Filesystem\ListableFilesystemInterface;
 use Quiote\Storage\Azure\AzureBlobClient;
 
 /** Mirrors packages/filesystem-s3/tests/S3FilesystemAdapterTest.php's fake transport. */
@@ -238,10 +240,14 @@ final class AzureFilesystemAdapterTest extends TestCase
         $this->adapter->lastModified('report.csv');
     }
 
-    public function testListContentsIsNotSupported(): void
+    /**
+     * The store has no list operation, so this adapter deliberately does not claim to be
+     * listable. A consumer that needs enumeration finds that out from the type rather than from a
+     * thrown exception at the point of use.
+     */
+    public function testAdapterIsNotListable(): void
     {
-        $this->expectException(FilesystemStorageException::class);
-        $this->expectExceptionMessageMatches('/not supported/');
-        $this->adapter->listContents();
+        $this->assertInstanceOf(FilesystemAdapterInterface::class, $this->adapter);
+        $this->assertNotInstanceOf(ListableFilesystemInterface::class, $this->adapter);
     }
 }

@@ -16,14 +16,13 @@ use Quiote\Storage\S3\S3StorageException;
  * {@see FilesystemAdapterInterface} wrapping the existing {@see S3Client}
  * (SigV4 REST client, no aws-sdk-php) as its transport.
  *
- * The underlying client has no list-bucket operation, so {@see listContents()}
- * always throws: a listing means paging ListObjectsV2 and folding
- * CommonPrefixes back into relative paths, which is both more than this
- * adapter should decide on a caller's behalf and, on a large prefix, more
- * round-trips than the interface's flat return value admits to. Applications
- * that need one should keep the listing in their own database beside the
- * record that owns the files, or drive {@see S3Client::request()} — which
- * signs an arbitrary request and returns the raw response — directly.
+ * Not a {@see \Quiote\Filesystem\ListableFilesystemInterface}: the client has no list-bucket
+ * operation, and a listing would mean paging ListObjectsV2 and folding CommonPrefixes back into
+ * relative paths — both more than this adapter should decide on a caller's behalf and, on a large
+ * prefix, more round-trips than a flat return value admits to. Applications that need a listing
+ * should keep it in their own database beside the record that owns the files, or drive
+ * {@see S3Client::request()} — which signs an arbitrary request and returns the raw response —
+ * directly.
  */
 final readonly class S3FilesystemAdapter implements FilesystemAdapterInterface
 {
@@ -89,12 +88,6 @@ final readonly class S3FilesystemAdapter implements FilesystemAdapterInterface
         }
 
         return $lastModified;
-    }
-
-    #[\Override]
-    public function listContents(string $path = ''): array
-    {
-        throw new FilesystemStorageException('listContents() is not supported by the S3 filesystem adapter — the underlying S3Client has no list-bucket endpoint. Track listings yourself, or build one on S3Client::request().');
     }
 
     private function fetch(string $path): ?string

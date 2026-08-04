@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use PHPUnit\Framework\TestCase;
 use Quiote\Filesystem\FilesystemAdapterInterface;
+use Quiote\Filesystem\ListableFilesystemInterface;
 use Quiote\Filesystem\FilesystemDriverRegistry;
 use Quiote\Filesystem\LocalFilesystemAdapter;
 
@@ -70,7 +71,7 @@ final class FilesystemDriverRegistryTest extends TestCase
     }
 }
 
-final class FilesystemDriverRegistryFakeAdapter implements FilesystemAdapterInterface
+final class FilesystemDriverRegistryFakeAdapter implements ListableFilesystemInterface
 {
     public function read(string $path): string
     {

@@ -8,7 +8,9 @@ use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Quiote\Filesystem\FileNotFoundStorageException;
+use Quiote\Filesystem\FilesystemAdapterInterface;
 use Quiote\Filesystem\FilesystemStorageException;
+use Quiote\Filesystem\ListableFilesystemInterface;
 use Quiote\Filesystem\S3\S3FilesystemAdapter;
 use Quiote\Storage\S3\S3Client;
 
@@ -241,10 +243,14 @@ final class S3FilesystemAdapterTest extends TestCase
         $this->adapter->lastModified('report.csv');
     }
 
-    public function testListContentsIsNotSupported(): void
+    /**
+     * The store has no list operation, so this adapter deliberately does not claim to be
+     * listable. A consumer that needs enumeration finds that out from the type rather than from a
+     * thrown exception at the point of use.
+     */
+    public function testAdapterIsNotListable(): void
     {
-        $this->expectException(FilesystemStorageException::class);
-        $this->expectExceptionMessageMatches('/not supported/');
-        $this->adapter->listContents();
+        $this->assertInstanceOf(FilesystemAdapterInterface::class, $this->adapter);
+        $this->assertNotInstanceOf(ListableFilesystemInterface::class, $this->adapter);
     }
 }

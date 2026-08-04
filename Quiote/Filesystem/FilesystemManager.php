@@ -58,4 +58,42 @@ final readonly class FilesystemManager
     {
         return $this->disk()->exists($path);
     }
+
+    /**
+     * The configured disk, narrowed to one that can enumerate its contents.
+     *
+     * Not every store can: the object-store drivers are built on single-object calls with no list
+     * endpoint. Asking here rather than discovering it from a thrown exception means the failure
+     * names the disk that cannot do it and the driver behind it.
+     *
+     * @throws     RuntimeException If the resolved driver is not listable.
+     * @since      3.2.0
+     */
+    public function listableDisk(?string $alias = null): ListableFilesystemInterface
+    {
+        $adapter = $this->disk($alias);
+        if (!$adapter instanceof ListableFilesystemInterface) {
+            throw new RuntimeException(sprintf(
+                'Filesystem disk "%s" cannot list its contents: driver %s does not implement %s. '
+                . 'Its underlying store has no list operation — keep the listing alongside the '
+                . 'records that own the files, or use a listable driver such as %s.',
+                $alias ?? $this->config->defaultDisk,
+                $adapter::class,
+                ListableFilesystemInterface::class,
+                LocalFilesystemAdapter::class,
+            ));
+        }
+
+        return $adapter;
+    }
+
+    /**
+     * @return     list<string> Relative paths directly under $path, non-recursive.
+     * @throws     RuntimeException If the configured driver cannot enumerate.
+     * @since      3.2.0
+     */
+    public function listContents(string $path = ''): array
+    {
+        return $this->listableDisk()->listContents($path);
+    }
 }
