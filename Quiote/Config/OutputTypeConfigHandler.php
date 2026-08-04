@@ -237,7 +237,7 @@ class OutputTypeConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 
 		$defaultLayerClass = $this->getParameter('default_layer_class', \Quiote\View\FileTemplateLayer::class);
 
-		$code = [];
+		$declared = [];
 		foreach ($data as $outputTypeName => $outputType) {
 			$outputType += [
 				'parameters' => [],
@@ -292,22 +292,22 @@ class OutputTypeConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 				$layouts[$layoutName] = $layout;
 			}
 
-			$code[] = '$ot = new Quiote\Controller\OutputType();';
-			$code[] = sprintf(
-				'$ot->initialize($this->context, %s, %s, %s, %s, %s, %s, %s);',
-				var_export($outputType['parameters'], true),
-				var_export($outputTypeName, true),
-				var_export($renderers, true),
-				var_export($outputType['default_renderer'], true),
-				var_export($layouts, true),
-				var_export($outputType['default_layout'], true),
-				var_export($outputType['exception_template'], true)
-			);
-			$code[] = sprintf('$this->outputTypes[%s] = $ot;', var_export($outputTypeName, true));
+			$declared[$outputTypeName] = [
+				'parameters' => $outputType['parameters'],
+				'renderers' => $renderers,
+				'defaultRenderer' => $outputType['default_renderer'],
+				'layouts' => $layouts,
+				'defaultLayout' => $outputType['default_layout'],
+				'exceptionTemplate' => $outputType['exception_template'],
+			];
 		}
-		$code[] = sprintf('$this->defaultOutputType = %s;', var_export($defaultOt, true));
 
-		return $this->generate($code, $sourceRef);
+		// Data, not statements. The compiled file returns a declaration that Controller reads and
+		// builds from; it cannot reach into whatever includes it.
+		return $this->generate(
+			'return ' . var_export(['outputTypes' => $declared, 'default' => $defaultOt], true) . ';',
+			$sourceRef
+		);
 	}
 }
 

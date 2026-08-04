@@ -38,7 +38,7 @@ class OutputTypeConfigHandlerFormatDriverTest extends PhpUnitTestCase
 
 		$this->assertStringContainsString('html', $code);
 		$this->assertStringContainsString('PhpRenderer', $code);
-		$this->assertStringContainsString('$this->defaultOutputType', $code);
+		$this->assertStringContainsString("'default' =>", $code);
 	}
 
 	public function testAbsentOptionalKeysDefaultToEmptyArraysAndNulls(): void
@@ -62,7 +62,7 @@ class OutputTypeConfigHandlerFormatDriverTest extends PhpUnitTestCase
 		// default_layout defaults to null
 		$this->assertStringContainsString('NULL', $code);
 		// exception_template defaults to null
-		$this->assertStringContainsString('$this->defaultOutputType = \'json\'', $code);
+		$this->assertStringContainsString("'default' => 'json'", $code);
 	}
 
 	public function testRendererWithoutInstanceKeyGetsNullDefault(): void
@@ -164,6 +164,28 @@ class OutputTypeConfigHandlerFormatDriverTest extends PhpUnitTestCase
 		$this->assertStringContainsString("'html'", $code);
 		$this->assertStringContainsString("'json'", $code);
 		$this->assertStringContainsString('text/html', $code);
+	}
+
+	/**
+	 * The property the redesign exists for: the compiled output cannot reach into whatever
+	 * includes it.
+	 */
+	public function testTheCompiledOutputNeverAssignsIntoItsIncluder(): void
+	{
+		$code = $this->handler->executeArray([
+			'default' => 'html',
+			'output_types' => [
+				'html' => [
+					'renderers' => ['php' => ['class' => 'Quiote\\Renderer\\PhpRenderer']],
+					'default_renderer' => 'php',
+					'parameters' => ['Content-Type' => 'text/html'],
+				],
+			],
+		], 'output_types.php');
+
+		$this->assertStringNotContainsString('$this->', $code);
+		$this->assertStringNotContainsString('new Quiote\\Controller\\OutputType()', $code);
+		$this->assertStringContainsString('return ', $code);
 	}
 }
 ?>

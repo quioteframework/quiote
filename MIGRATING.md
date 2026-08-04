@@ -83,15 +83,18 @@ compiled file assigning into its includer.
 connections itself. Registration still happens before each connection's
 `initialize()` runs, so a connection reaching for a sibling by name still finds it.
 
-Two compiled configurations still mutate their includer and are **not** converted:
+`output_types.xml` is converted too: the compiled file returns
+`['outputTypes' => [name => [...]], 'default' => name]`, `OutputTypeDefinitions`
+validates it, and `Controller::initialize()` constructs each `OutputType` itself. A
+null `default` stays legal — a configuration may declare types without electing one.
 
-- `translation.xml` → `TranslationManager` (`$this->translators`,
-  `$this->availableConfigLocales`, and a generated `$this->getContext()` call)
-- `output_types.xml` → `Controller` (`$this->outputTypes`,
-  `$this->defaultOutputType`)
-
-Both work as before. They are the same pattern and the same hazard, so a rename in
-either consumer will still break a stale cache at runtime.
+One compiled configuration still mutates its includer and is **not** converted:
+`translation.xml` → `TranslationManager` (`$this->translators`,
+`$this->availableConfigLocales`, and a generated `$this->getContext()` call). It is
+the only one that emits a method *call chain* through its consumer rather than
+plain assignments, so converting it means deciding where translator construction
+belongs — a design question, not a mechanical move. It works as before, with the
+same hazard: a rename in `TranslationManager` will break a stale cache at runtime.
 
 ## `Context` is growing seams, not losing accessors
 

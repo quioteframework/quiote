@@ -480,21 +480,55 @@ class Controller extends ParameterHolder implements ResetInterface, ControllerIn
 
 		$this->response = $context->createInstanceFor('response');
 
-		$cfg = Config::getString('core.config_dir') . '/output_types.xml';
-		if(defined('QUIOTE_USE_APCU_CONFIG_CACHE') && QUIOTE_USE_APCU_CONFIG_CACHE) {
-			$cacheResult = APCuConfigCache::checkConfig($cfg, $context->getName());
-			if (str_starts_with($cacheResult, 'APCU:')) {
-				eval('?>' . substr($cacheResult, 5));
-			} else {
-				require($cacheResult);
-			}
-		} else {
-			require(ConfigCache::checkConfig($cfg, $context->getName()));
+		$definitions = OutputTypeDefinitions::fromCompiled($this->loadCompiledOutputTypes($context));
+
+		foreach ($definitions->outputTypes as $name => $declaration) {
+			$outputType = new OutputType();
+			$outputType->initialize(
+				$context,
+				$declaration['parameters'],
+				$name,
+				$declaration['renderers'],
+				$declaration['defaultRenderer'],
+				$declaration['layouts'],
+				$declaration['defaultLayout'],
+				$declaration['exceptionTemplate'],
+			);
+			$this->outputTypes[$name] = $outputType;
 		}
+
+		$this->defaultOutputType = $definitions->default;
 
 		// Legacy security/dispatch/execution filters removed
 	}
 	
+
+	/**
+	 * Read the compiled output_types configuration and return what it declared.
+	 *
+	 * The compiled file returns a declaration rather than constructing output types and assigning
+	 * them into this object, so this returns a value instead of relying on what a `require` did to
+	 * `$this` on the way past. The APCu branch holds compiled source rather than a path, so it is
+	 * evaluated; the `return` inside it is what the eval answers.
+	 *
+	 * @return     mixed Whatever the compiled file returned; validated by the caller.
+	 * @since      4.0.0
+	 */
+	private function loadCompiledOutputTypes(Context $context): mixed
+	{
+		$cfg = Config::getString('core.config_dir') . '/output_types.xml';
+
+		if(defined('QUIOTE_USE_APCU_CONFIG_CACHE') && QUIOTE_USE_APCU_CONFIG_CACHE) {
+			$cacheResult = APCuConfigCache::checkConfig($cfg, $context->getName());
+			if (str_starts_with($cacheResult, 'APCU:')) {
+				return eval('?>' . substr($cacheResult, 5));
+			}
+
+			return require($cacheResult);
+		}
+
+		return require(ConfigCache::checkConfig($cfg, $context->getName()));
+	}
 
 	/**
 	 * Indicates whether or not a module has a specific model.
