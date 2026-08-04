@@ -56,12 +56,12 @@
 		"symfony/mime": "^8.0",
 		"symfony/yaml": "^8.0",
 		"symfony/console": "^8.0",
-		"quioteframework/csrf": "@dev",
-		"quioteframework/rector": "@dev"
+		"quioteframework/csrf": "@dev"
 	},
 	"require-dev": {
 		"phpunit/phpunit": "^12.0 || ^13.0",
 		"rector/rector": "^2.3",
+		"quioteframework/rector": "@dev",
 		"phpstan/phpstan": "^2.1",
 		"testcontainers/testcontainers": "^1.0",
 		"symfony/http-client": "^8.1",
