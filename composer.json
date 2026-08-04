@@ -56,7 +56,8 @@
 		"symfony/mime": "^8.0",
 		"symfony/yaml": "^8.0",
 		"symfony/console": "^8.0",
-		"quioteframework/csrf": "@dev"
+		"quioteframework/csrf": "@dev",
+		"quioteframework/rector": "@dev"
 	},
 	"require-dev": {
 		"phpunit/phpunit": "^12.0 || ^13.0",

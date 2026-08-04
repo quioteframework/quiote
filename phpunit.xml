@@ -28,6 +28,7 @@
                  the <groups><exclude> below still keeps them out of a plain `composer
                  test` run; `composer test:integration` runs them explicitly. -->
             <directory>packages/mcp/tests</directory>
+            <directory>packages/rector/tests</directory>
             <directory>packages/auth/tests</directory>
             <directory>packages/auth-jwt/tests</directory>
             <directory>packages/auth-oauth/tests</directory>
