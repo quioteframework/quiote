@@ -35,4 +35,5 @@ return RectorConfig::configure()
     ->withRules([
         \Quiote\Rector\Rector\ContextServiceToConstructorInjectionRector::class,
         \Quiote\Rector\Rector\ContextAccessorToConstructorInjectionRector::class,
+        \Quiote\Rector\Rector\ContextRequestToRequestStateRector::class,
     ]);

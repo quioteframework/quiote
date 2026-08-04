@@ -4,12 +4,12 @@ namespace Quiote\Rector\Tests\Fixture;
 
 use Quiote\Context;
 
-final class HasNoRequestParameter
+final class NothingConstructsThis
 {
     public function run(Context $context): mixed
     {
-        // RequestState::current() is the target for these; inventing a variable name here would
-        // produce code that does not compile.
+        // Not an Action/View/Service/Validator, so nothing would ever supply the injected
+        // RequestState -- the class would fatal on construction.
         return $context->getRequest()->getParameter('id');
     }
 }

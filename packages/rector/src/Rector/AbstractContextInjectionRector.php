@@ -57,6 +57,8 @@ abstract class AbstractContextInjectionRector extends AbstractRector
             return null;
         }
 
+        $this->prepare($node);
+
         /** @var array<string, string> $injected class => property name */
         $injected = [];
 
@@ -73,7 +75,7 @@ abstract class AbstractContextInjectionRector extends AbstractRector
             $propertyName = $this->propertyNameFor($injectable, $injected);
             $injected[$injectable] = $propertyName;
 
-            return new PropertyFetch(new Variable('this'), $propertyName);
+            return $this->buildReplacement($subNode, $propertyName);
         });
 
         if ($injected === []) {
@@ -188,6 +190,33 @@ abstract class AbstractContextInjectionRector extends AbstractRector
         \Quiote\Service\Service::class,
         \Quiote\Validator\Validator::class,
     ];
+
+    /**
+     * Hook for work a rule needs to do once per class, before any call is examined.
+     *
+     * Rule 3 uses it to find the discarded-mutation statements: that has to be decided by looking
+     * *down* from a statement, which is not possible from the call node alone.
+     *
+     * @since      4.0.0
+     */
+    protected function prepare(Class_ $class): void
+    {
+    }
+
+    /**
+     * The expression that replaces the rewritten call.
+     *
+     * Defaults to a bare property fetch, which is what the accessor-to-dependency rules want:
+     * `getService(Foo::class)` becomes `$this->foo`. A rule whose injected collaborator is an
+     * accessor rather than the collaborator itself overrides this -- `getRequest()` becomes
+     * `$this->requestState->current()`, not `$this->requestState`.
+     *
+     * @since      4.0.0
+     */
+    protected function buildReplacement(MethodCall $methodCall, string $propertyName): Expr
+    {
+        return new PropertyFetch(new Variable('this'), $propertyName);
+    }
 
     /**
      * The class to inject in place of this call, or null to leave the call alone.

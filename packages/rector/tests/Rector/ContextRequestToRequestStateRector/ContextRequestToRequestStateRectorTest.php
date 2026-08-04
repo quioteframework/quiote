@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Quiote\Rector\Tests\Rector\ContextRequestToParameterRector;
+namespace Quiote\Rector\Tests\Rector\ContextRequestToRequestStateRector;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use Rector\Testing\PHPUnit\AbstractRectorTestCase;
 
-final class ContextRequestToParameterRectorTest extends AbstractRectorTestCase
+final class ContextRequestToRequestStateRectorTest extends AbstractRectorTestCase
 {
     #[DataProvider('provideData')]
     public function test(string $filePath): void
