@@ -40,7 +40,51 @@ code can constructor-inject it instead of reaching through the context:
 |---|---|---|
 | `$context->getModel(…)` | `Quiote\Model\ModelLocator` | `getModel()` still works and delegates here |
 | `Context::getInstance('web')` | `Quiote\ContextRegistry` | `getInstance()` still works and answers from the shared registry |
+| `$context->getRequest()` / `setRequest()` | `Quiote\Request\RequestState` | `current()` / `publish()`; resolves per call |
+| `$context->getUser()` | `Quiote\User\CurrentUser` | only needed in a singleton — see below |
 | — | `Quiote\ShutdownSequence` | reached via `$context->getShutdownSequence()` |
+
+### Which one to inject for the request and the user
+
+They look alike and are not.
+
+**The user is stable within a request.** It is replaced only at the worker request
+boundary, never mid-request, so anything built per execution — an action, a view —
+can inject `SecurityUser` (or `User`, or `ISecurityUser`) and hold it:
+
+```php
+public function __construct(private readonly SecurityUser $user) {}
+```
+
+**The request is not.** `WebRequest` is immutable, so every mutation produces a new
+instance and the request is replaced many times per request — validation alone
+replaces it. A held request is a snapshot, and a construction-time snapshot is the
+*pre-validation* one, so reading a parameter from it bypasses the strict-validation
+whitelist. Inside an action or view use the `WebRequest` parameter already passed to
+`execute*()`; it is current by construction.
+
+**A singleton can hold neither**, and the container refuses that wiring outright: it
+would serve request 1's request or user to every later request in a worker. Inject
+`RequestState` or `CurrentUser` there. Both resolve through on every call and hold
+nothing.
+
+## Fixed: injecting `WebRequest` or `User` gave you a fresh, empty one
+
+A defect, not a rename. The container bound each core service under its role name
+and its *concrete* class only. An application configures a `request` or `user`
+subclass, so the natural type-hint — `WebRequest`, `User` — was unregistered, and the
+container autowired a brand-new instance for it. A consumer asking for the request
+got one carrying none of the request's parameters, headers or body; one asking for
+the user got an unauthenticated stranger. Silently, in both cases.
+
+The base classes are now bound alongside the concrete class, so `WebRequest`, `User`,
+`ISecurityUser`, `Routing`, `TranslationManager` and `DatabaseManager` all resolve to
+the request's real instance.
+
+If you worked around this — resolving `'request'` by string, or type-hinting the
+subclass to get the real object — those still work and can now be simplified. If you
+type-hinted the base class in a **singleton**, that wiring was silently broken and
+now throws at wiring time, naming the accessor to use instead.
 
 Two things that were private are now public API, because a test or an embedding
 host had no honest way to reach them:

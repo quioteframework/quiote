@@ -367,23 +367,37 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     $container->set($role, $instance, $scope);
     $container->set($instance::class, $instance, $scope);
 
-    // Also bind the seam interface a core service implements, so a consumer can depend on
-    // the contract rather than the concrete class. Registered per instance rather than from
-    // a fixed map, so a replaced implementation is what the interface resolves to.
-    foreach (self::SEAM_INTERFACES as $interface) {
-      if ($instance instanceof $interface) {
-        $container->set($interface, $instance, $scope);
+    // Also bind the seam contracts a core service satisfies, so a consumer can depend on the
+    // contract rather than the concrete class. Registered per instance rather than from a fixed
+    // map, so a replaced implementation is what the contract resolves to.
+    foreach (self::SEAM_CONTRACTS as $contract) {
+      if ($instance instanceof $contract) {
+        $container->set($contract, $instance, $scope);
       }
     }
   }
 
   /**
-   * Contracts a core service may implement, bound alongside it in the container by
+   * Contracts a core service may satisfy, bound alongside it in the container by
    * {@see registerCoreService()}.
+   *
+   * Base classes as well as interfaces, and the base classes matter more than they look. An
+   * application configures a `request` or `user` subclass, so binding only the concrete class left
+   * the natural type-hint -- `WebRequest`, `User` -- unregistered. The container then autowired a
+   * brand-new instance for it: a consumer asking for the request got an empty one carrying none of
+   * the request's parameters, headers or body, and one asking for the user got an unauthenticated
+   * stranger. Both silently. Binding the base classes is also what lets the captive-dependency
+   * guard see those type-hints as request-scoped and refuse them in a singleton.
    */
-  private const array SEAM_INTERFACES = [
+  private const array SEAM_CONTRACTS = [
     \Quiote\Controller\ControllerInterface::class,
     \Quiote\Response\WebResponseInterface::class,
+    WebRequest::class,
+    User::class,
+    ISecurityUser::class,
+    Routing::class,
+    TranslationManager::class,
+    \Quiote\Database\DatabaseManager::class,
   ];
 
   /**
@@ -426,6 +440,7 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     $this->registerTelemetryServicesInContainer();
     $this->registerHttpClientFactory();
     $this->registerModelLocator();
+    $this->registerRequestScopeAccessors();
     // Plugin-contributed DI services (register-if-absent, so core/app bindings
     // above win).
     \Quiote\Plugin\PluginManager::configureContainer($container);
@@ -470,6 +485,36 @@ class Context implements \Stringable, ResetInterface, ContextInterface
       Container::SCOPE_SINGLETON,
     );
     $container->alias('modelLocator', \Quiote\Model\ModelLocator::class);
+  }
+
+  /**
+   * Bind the two accessors that reach request-scoped state without capturing it.
+   *
+   * Singleton-scoped deliberately, and that is the whole point: the container refuses to inject
+   * the `request` and `user` services into a singleton, because a singleton would keep one
+   * request's instance forever. These hold nothing and resolve on every call, so they are safe to
+   * capture and are what a singleton injects instead.
+   */
+  private function registerRequestScopeAccessors(): void
+  {
+    $container = $this->getContainer();
+    if ($container->has(\Quiote\Request\RequestState::class)) {
+      return;
+    }
+
+    $container->setFactory(
+      \Quiote\Request\RequestState::class,
+      fn(): \Quiote\Request\RequestState => new \Quiote\Request\RequestState($this),
+      Container::SCOPE_SINGLETON,
+    );
+    $container->alias('requestState', \Quiote\Request\RequestState::class);
+
+    $container->setFactory(
+      \Quiote\User\CurrentUser::class,
+      fn(): \Quiote\User\CurrentUser => new \Quiote\User\CurrentUser($this),
+      Container::SCOPE_SINGLETON,
+    );
+    $container->alias('currentUser', \Quiote\User\CurrentUser::class);
   }
 
   /**

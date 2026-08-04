@@ -321,14 +321,41 @@ class Container implements ContainerInterface
         throw new ContainerException(sprintf(
             "Cannot autowire '%s': it is singleton-scoped but parameter $%s depends on '%s', which is "
             . 'request-scoped. The singleton would capture one request\'s instance and keep serving it to every '
-            . 'later request in a persistent worker. Give %s request or transient scope, or inject a factory '
-            . 'and resolve %s per call.',
+            . 'later request in a persistent worker.%s Failing that, give %s request or transient scope, or '
+            . 'inject a factory and resolve %s per call.',
             $class,
             $paramName,
             $dependencyId,
+            $this->captiveDependencyHint($dependencyId),
             $class,
             $dependencyId,
         ));
+    }
+
+    /**
+     * Name the accessor to inject instead, for the request-scoped services that have one.
+     *
+     * The guard is correct but says nothing about what to do about it, and for the request and the
+     * user the answer is specific: an accessor that resolves per call rather than capturing. Worth
+     * putting in the message, because this is a wiring-time failure someone hits once and has to
+     * guess their way out of.
+     */
+    private function captiveDependencyHint(string $dependencyId): string
+    {
+        $accessor = match (true) {
+            $dependencyId === 'request'
+                || is_a($dependencyId, \Quiote\Request\WebRequest::class, true)
+                => \Quiote\Request\RequestState::class,
+            $dependencyId === 'user'
+                || is_a($dependencyId, \Quiote\User\User::class, true)
+                || is_a($dependencyId, \Quiote\User\ISecurityUser::class, true)
+                => \Quiote\User\CurrentUser::class,
+            default => null,
+        };
+
+        return $accessor === null
+            ? ''
+            : sprintf(' Inject %s instead; it resolves per call and holds nothing.', $accessor);
     }
 
     /**

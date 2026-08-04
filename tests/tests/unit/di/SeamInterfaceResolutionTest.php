@@ -117,6 +117,83 @@ class SeamInterfaceResolutionTest extends PhpUnitTestCase
         $this->assertSame(['yes'], $contract->getHttpHeader('X-Contract'));
         $this->assertSame(201, $contract->toPsrResponse()->getStatusCode());
     }
+
+    /**
+     * Base classes are seam contracts too, and this is the case that made it matter.
+     *
+     * An application configures a `request` subclass, so binding only the concrete class left
+     * `WebRequest` -- the natural type-hint -- unregistered. The container happily autowired a
+     * brand-new one for it, so a consumer asking for the request got an empty request carrying
+     * none of this request's parameters, headers or body, and nothing said so.
+     *
+     * @return array<string, array{0: class-string}>
+     */
+    public static function dataRequestScopedBaseContracts(): array
+    {
+        return [
+            'request base class' => [\Quiote\Request\WebRequest::class],
+            'user base class' => [\Quiote\User\User::class],
+        ];
+    }
+
+    /** @param class-string $contract */
+    #[\PHPUnit\Framework\Attributes\DataProvider('dataRequestScopedBaseContracts')]
+    #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+    public function testABaseContractResolvesToTheRequestsInstanceNotAFreshOne(string $contract): void
+    {
+        $ctx = Context::getInstance();
+        // Force both components to exist, since they are built lazily.
+        $ctx->getRequest();
+        $ctx->getUser();
+
+        $resolved = $ctx->getContainer()->get($contract);
+
+        $this->assertInstanceOf($contract, $resolved);
+        $this->assertTrue(
+            $resolved === $ctx->getRequest() || $resolved === $ctx->getUser(),
+            "$contract must resolve to the request's own instance, not a freshly autowired one",
+        );
+    }
+
+    /**
+     * The configured subclass and its base must be the same object, not two.
+     */
+    #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+    public function testTheBaseContractAndTheConcreteClassResolveToOneInstance(): void
+    {
+        $ctx = Context::getInstance();
+        $request = $ctx->getRequest();
+        $container = $ctx->getContainer();
+
+        $this->assertSame($request, $container->get($request::class));
+        $this->assertSame($request, $container->get(\Quiote\Request\WebRequest::class));
+        $this->assertSame($request, $container->get('request'));
+    }
+
+    /**
+     * Binding the base classes is also what lets the captive-dependency guard see the natural
+     * type-hint as request-scoped, instead of letting a singleton capture one.
+     */
+    #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+    public function testTheRequestBaseContractIsRequestScopedSoASingletonCannotCaptureIt(): void
+    {
+        $ctx = Context::getInstance();
+        $ctx->getRequest();
+        $container = $ctx->getContainer();
+        $container->set(
+            SeamRequestCapturingSingleton::class,
+            SeamRequestCapturingSingleton::class,
+            \Quiote\DI\Container::SCOPE_SINGLETON,
+        );
+
+        $this->expectException(\Quiote\DI\ContainerException::class);
+        $container->get(SeamRequestCapturingSingleton::class);
+    }
+}
+
+class SeamRequestCapturingSingleton
+{
+    public function __construct(public readonly \Quiote\Request\WebRequest $request) {}
 }
 
 class SeamInterfaceConsumer
