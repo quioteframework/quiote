@@ -1,6 +1,7 @@
 <?php
 namespace Quiote\Config;
 
+use Quiote\Config\Factory\FactoryDefinitions;
 use Quiote\Config\Format\Xml\ElementPositionIndex;
 use Quiote\Config\Schema\Rule;
 use Quiote\Config\Util\DOM\XmlConfigDomDocument;
@@ -234,8 +235,9 @@ class FactoryConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 		$factories = $this->getFactoryDefinitions();
 		$data = $config;
 
-		$code = [];
-		$shutdownSequence = [];
+		$operations = [];
+		$factorySlots = [];
+		$shutdownOrder = [];
 
 		foreach ($factories as $factory => $info) {
 			if (is_array($info)) {
@@ -274,67 +276,54 @@ class FactoryConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 				}
 
 				if ($info['var'] !== null) {
-					// we have to make an instance
-					$code[] = sprintf(
-						'$this->%1$s = new %2$s();' . "\n" . '$this->%1$s->initialize($this, %3$s);',
-						$info['var'],
-						$data[$factory]['class'],
-						var_export($data[$factory]['params'], true)
-					);
-					// Capture factory info immediately for worker-mode lazy recreation safety (now for all var-based factories)
-					$code[] = sprintf(
-						'$this->%1$sFactoryInfo = [\'class\' => %2$s, \'parameters\' => %3$s];',
-						$info['var'],
-						var_export($data[$factory]['class'], true),
-						var_export($data[$factory]['params'], true)
-					);
+					// Built eagerly by ComponentInstaller. The role, not $info['var'], is what
+					// travels: the compiled file names configuration roles and never a property.
+					$operations[] = [
+						'op' => FactoryDefinitions::OP_BUILD,
+						'role' => (string) $factory,
+						'class' => $class,
+						'parameters' => $data[$factory]['params'],
+					];
 				} else {
-					// it's a factory info
-					$code[] = sprintf(
-						'$this->factories[%1$s] = %2$s;',
-						var_export($factory, true),
-						var_export([
-							'class' => $data[$factory]['class'],
-							'parameters' => $data[$factory]['params'],
-						], true)
-					);
-					// Provide explicit factory info array for compatibility with createInstanceFor() callers
-					$code[] = sprintf(
-						'$this->factories[%1$s][\'factory_info\'] = %2$s;',
-						var_export($factory, true),
-						var_export([
-							'class' => $data[$factory]['class'],
-							'parameters' => $data[$factory]['params'],
-						], true)
-					);
+					// Instantiated on demand rather than at boot.
+					$factorySlots[(string) $factory] = [
+						'class' => $class,
+						'parameters' => $data[$factory]['params'],
+					];
 				}
-
-				// No close conditional block needed
 			} else {
-				// Handle startup calls
+				// A bare string is a "start this role up now" marker, interleaved with the
+				// declarations because the order matters -- the database manager has to be up
+				// before the user that reads through it is built.
 				$definition = $factories[$info] ?? null;
 				if (!is_array($definition)) {
 					// no matching factory definition for this startup marker; nothing to start up
 					continue;
 				}
-				$varName = $definition['var'];
-				$required = $definition['required'] && $varName !== null;
-
-				if ($required) {
-					$code[] = sprintf('$this->%s->startup();', $varName);
-					array_unshift($shutdownSequence, sprintf('$this->%s', $varName));
+				if (!$definition['required'] || $definition['var'] === null) {
+					continue;
 				}
+
+				$operations[] = [
+					'op' => FactoryDefinitions::OP_STARTUP,
+					'role' => (string) $info,
+				];
+				// Shutdown is the reverse of startup.
+				array_unshift($shutdownOrder, (string) $info);
 			}
 		}
 
-		// Install the shutdown sequence. Built back-to-front above, so the order here is the order
-		// components are shut down in, and ShutdownSequence preserves it from then on.
-		$code[] = sprintf(
-			'$this->getShutdownSequence()->replaceAll([%s]);',
-			implode(",\n", $shutdownSequence)
-		);
+		// Data, not statements. The compiled file returns a declaration; ComponentInstaller
+		// carries it out. It has no access to whatever includes it, which is the whole point --
+		// the previous form assigned into Context's private properties and broke whenever one
+		// of them was renamed.
+		$definitions = [
+			'operations' => $operations,
+			'factories' => $factorySlots,
+			'shutdownOrder' => $shutdownOrder,
+		];
 
-		return $this->generate($code, $sourceRef);
+		return $this->generate('return ' . var_export($definitions, true) . ';', $sourceRef);
 	}
 }
 

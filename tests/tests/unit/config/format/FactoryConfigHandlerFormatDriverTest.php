@@ -85,9 +85,9 @@ PHP);
 		$config = $this->shapeFactoryConfig($registry->load($this->dir . '/factories.php', 'test'));
 		$code = $handler->executeArray($config, $this->dir . '/factories.php');
 
-		$this->assertStringContainsString('$this->databaseManager = new Quiote\Database\DatabaseManager();', $code);
-		$this->assertStringContainsString("\$this->factories['validation_manager'] = array (", $code);
-		$this->assertStringContainsString('$this->getShutdownSequence()->replaceAll([', $code);
+		$this->assertStringContainsString("'class' => 'Quiote\\\\Database\\\\DatabaseManager'", $code);
+		$this->assertStringContainsString("'validation_manager' => ", $code);
+		$this->assertStringContainsString("'shutdownOrder'", $code);
 	}
 
 	public function testMissingRequiredFactoryThrowsRegardlessOfSourceFormat(): void

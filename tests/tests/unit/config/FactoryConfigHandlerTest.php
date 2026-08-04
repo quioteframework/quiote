@@ -1,6 +1,7 @@
 <?php
 
 use Quiote\Config\Config;
+use Quiote\Config\Factory\FactoryDefinitions;
 use Quiote\Config\FactoryConfigHandler;
 use Quiote\Exception\ConfigurationException;
 use Quiote\User\ISecurityUser;
@@ -54,47 +55,13 @@ class FCHTestUser               extends FCHTestBase implements ISecurityUser
 
 class FactoryConfigHandlerTest extends ConfigHandlerTestBase
 {
-	// The generated factory code installs the shutdown sequence through this accessor, exactly as
-	// a real Context provides it.
-	public \Quiote\ShutdownSequence $shutdownSequence;
-
-	public function getShutdownSequence(): \Quiote\ShutdownSequence
-	{
-		return $this->shutdownSequence ??= new \Quiote\ShutdownSequence();
-	}
-	// Added to silence dynamic property creation deprecations from generated factories code
-	/** @var array<string, mixed>|null */
-	public ?array $databaseManagerFactoryInfo = null;
-	/** @var array<string, mixed>|null */
-	public ?array $translationManagerFactoryInfo = null;
-	/** @var array<string, mixed>|null */
-	public ?array $requestFactoryInfo = null;
-	/** @var array<string, mixed>|null */
-	public ?array $routingFactoryInfo = null;
-	/** @var array<string, mixed>|null */
-	public ?array $controllerFactoryInfo = null;
-	/** @var array<string, mixed>|null */
-	/** @var array<string, mixed>|null */
-	public ?array $userFactoryInfo = null;
 	/** @var array<string|int, mixed> */
 	protected array $conf = [];
-
-	/** @var array<string, mixed> */
-	protected array $factories = [];
-
-	protected ?FCHTestDBManager $databaseManager = null;
-	protected ?FCHTestRequest $request = null;
-	protected ?FCHTestTranslationManager $translationManager = null;
-	protected ?FCHTestUser $user = null;
-	protected ?FCHTestController $controller = null;
-	protected ?FCHTestRouting $routing = null;
-	protected ?FCHTestResponse $response = null;
 
 	public function setUp(): void
 	{
 		parent::setUp();
 		$this->conf = Config::toArray();
-		$this->factories = [];
 	}
 
 	#[\Override]
@@ -104,24 +71,7 @@ class FactoryConfigHandlerTest extends ConfigHandlerTestBase
 		Config::fromArray($this->conf);
 	}
 
-	/**
-	 * Asserts that the given value is an instance of $class and returns it as
-	 * such, narrowing the type for static analysis without relying on the
-	 * (not installed) phpstan-phpunit extension to understand assertInstanceOf().
-	 * @template T of FCHTestBase
-	 * @param class-string<T> $class
-	 * @return T
-	 */
-	private function assertInstanceOfAndNarrow(string $class, mixed $actual): FCHTestBase
-	{
-		$this->assertInstanceOf($class, $actual);
-		if (!$actual instanceof $class) {
-			$this->fail(sprintf('Expected an instance of %s.', $class));
-		}
-		return $actual;
-	}
-
-	public function testFactoryConfigHandler(): void
+	public function testFactoryConfigHandlerEmitsADeclarationNotStatements(): void
 	{
 		$FCH = new FactoryConfigHandler();
 
@@ -138,68 +88,96 @@ class FactoryConfigHandlerTest extends ConfigHandlerTestBase
 			Config::getString('core.config_dir') . '/tests/factories.xml',
 			Config::getString('core.quiote_dir') . '/Config/xsl/factories.xsl'
 		);
-		$this->includeCode($FCH->execute($document));
 
-
-
-	// Legacy filters removed – no assertions
-
-		// Response (now includes factory_info metadata)
-		$this->assertSame(
-			[
-				'class' => 'FCHTestResponse',
-				'parameters' => $paramsExpected,
-				'factory_info' => [
-					'class' => 'FCHTestResponse',
-					'parameters' => $paramsExpected,
-				],
-			],
-			$this->factories['response']
-		);
-		
-
-		// Validation Manager (includes factory_info)
-		$this->assertSame(
-			[
-				'class' => 'FCHTestValidationManager',
-				'parameters' => $paramsExpected,
-				'factory_info' => [
-					'class' => 'FCHTestValidationManager',
-					'parameters' => $paramsExpected,
-				],
-			],
-			$this->factories['validation_manager']
+		// The compiled file returns its declaration. It no longer assigns into whatever included
+		// it, which is why this reads the value instead of inspecting properties on $this.
+		$definitions = FactoryDefinitions::fromCompiled(
+			$this->includeCode($FCH->execute($document)),
+			'the test fixture',
 		);
 
-		$databaseManager = $this->assertInstanceOfAndNarrow(FCHTestDBManager::class, $this->databaseManager);
-		$this->assertSame($this, $databaseManager->context);
-		$this->assertSame($paramsExpected, $databaseManager->params);
-		$this->assertTrue($databaseManager->suCalled);
+		// On-demand slots: not built at boot, instantiated when asked for.
+		$this->assertSame(
+			[
+				'validation_manager' => ['class' => 'FCHTestValidationManager', 'parameters' => $paramsExpected],
+				'response' => ['class' => 'FCHTestResponse', 'parameters' => $paramsExpected],
+			],
+			$definitions->factories,
+		);
 
-		$request = $this->assertInstanceOfAndNarrow(FCHTestRequest::class, $this->request);
-		$this->assertSame($this, $request->context);
-		$this->assertSame($paramsExpected, $request->params);
-		// Request startup is no longer executed automatically; PSR-7 bootstrap handles initialization lazily.
-		$this->assertNull($request->suCalled);
+		// Eagerly built roles, in construction order. The order is the contract: the database
+		// manager exists before the user that may read through it.
+		$this->assertSame(
+			['database_manager', 'translation_manager', 'routing', 'request', 'controller', 'user'],
+			$definitions->builtRoles(),
+		);
 
-		$translationManager = $this->assertInstanceOfAndNarrow(FCHTestTranslationManager::class, $this->translationManager);
-		$this->assertSame($this, $translationManager->context);
-		$this->assertSame($paramsExpected, $translationManager->params);
-		$this->assertTrue($translationManager->suCalled);
+		foreach ([
+			'database_manager' => 'FCHTestDBManager',
+			'translation_manager' => 'FCHTestTranslationManager',
+			'routing' => 'FCHTestRouting',
+			'request' => 'FCHTestRequest',
+			'controller' => 'FCHTestController',
+			'user' => 'FCHTestUser',
+		] as $role => $class) {
+			$this->assertSame(
+				['class' => $class, 'parameters' => $paramsExpected],
+				$definitions->buildInfo($role),
+				"declaration for $role",
+			);
+		}
 
-		$user = $this->assertInstanceOfAndNarrow(FCHTestUser::class, $this->user);
-		$this->assertSame($this, $user->context);
-		$this->assertSame($paramsExpected, $user->params);
-		$this->assertTrue($user->suCalled);
+		// Shutdown is the reverse of startup order.
+		$this->assertSame(
+			['controller', 'routing', 'user', 'translation_manager', 'database_manager'],
+			$definitions->shutdownOrder,
+		);
+	}
 
-		$controller = $this->assertInstanceOfAndNarrow(FCHTestController::class, $this->controller);
-		$this->assertSame($this, $controller->context);
-		$this->assertSame($paramsExpected, $controller->params);
+	/**
+	 * The interleaving that a flat "build all, then start all" would lose: the database manager
+	 * starts up before the components built after it, because they may read through it.
+	 */
+	public function testTheEmittedOperationsInterleaveBuildsAndStartups(): void
+	{
+		Config::set('core.use_database', true);
+		Config::set('core.use_translation', true);
+		$FCH = new FactoryConfigHandler();
 
-		$routing = $this->assertInstanceOfAndNarrow(FCHTestRouting::class, $this->routing);
-		$this->assertSame($this, $routing->context);
-		$this->assertSame($paramsExpected, $routing->params);
-		$this->assertTrue($routing->suCalled);
+		$definitions = FactoryDefinitions::fromCompiled(
+			$this->includeCode($FCH->executeArray($this->baseFactories(), 'tests/factories.xml')),
+			'the test fixture',
+		);
+
+		$sequence = array_map(
+			static fn(array $op): string => $op['op'] . ':' . $op['role'],
+			$definitions->operations,
+		);
+
+		$dbStartup = array_search('startup:database_manager', $sequence, true);
+		$userBuild = array_search('build:user', $sequence, true);
+		$this->assertIsInt($dbStartup);
+		$this->assertIsInt($userBuild);
+		$this->assertLessThan(
+			$userBuild,
+			$dbStartup,
+			'the database manager must be started up before the user is built',
+		);
+	}
+
+	/**
+	 * The compiled output must not be executable against its includer any more. This is the
+	 * property the redesign exists for, so it is asserted rather than assumed.
+	 */
+	public function testTheCompiledOutputNeverAssignsIntoItsIncluder(): void
+	{
+		Config::set('core.use_translation', true);
+		$FCH = new FactoryConfigHandler();
+
+		$code = $FCH->executeArray($this->baseFactories(), 'tests/factories.xml');
+
+		$this->assertStringNotContainsString('$this->', $code);
+		$this->assertStringContainsString('return ', $code);
 	}
 
 	/**
@@ -261,16 +239,22 @@ class FactoryConfigHandlerTest extends ConfigHandlerTestBase
 	{
 		$FCH = new FactoryConfigHandler();
 
-		$code = $FCH->executeArray($this->baseFactories() + [
+		$definitions = FactoryDefinitions::fromCompiled($this->includeCode(
+			$FCH->executeArray($this->baseFactories() + [
 				'session' => ['class' => \Quiote\Session\FileSessionFactory::class, 'params' => ['dir' => '/tmp/quiote-sessions']],
-			], 'tests/factories.xml');
+			], 'tests/factories.xml'),
+		), 'the test fixture');
 
-		// factory_info, not an instantiating assignment: no
-		// SessionPersistenceInterface has the initialize($context, $params)
-		// shape the var branch emits.
-		$this->assertStringContainsString("\$this->factories['session']", $code);
-		$this->assertStringContainsString('FileSessionFactory', $code);
-		$this->assertStringNotContainsString('$this->session = new', $code);
+		// An on-demand slot, not an eagerly built component: no SessionPersistenceInterface has the
+		// initialize($context, $params) shape the build operation calls.
+		$this->assertSame(
+			[
+				'class' => \Quiote\Session\FileSessionFactory::class,
+				'parameters' => ['dir' => '/tmp/quiote-sessions'],
+			],
+			$definitions->factories['session'] ?? null,
+		);
+		$this->assertNotContains('session', $definitions->builtRoles());
 	}
 
 	/**

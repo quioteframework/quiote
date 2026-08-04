@@ -45,6 +45,23 @@ class ContextExtendedCoverageTest extends TestCase
         return Context::getInstance('default');
     }
 
+    /**
+     * The class/parameters the compiled factories configuration declares for a role -- what the
+     * lazy worker-mode rebuild reads. Replaces reaching for the per-component *FactoryInfo
+     * properties, which no longer exist now that the compiled file is a declaration.
+     *
+     * @return array{class: string, parameters: array<string, mixed>}
+     */
+    private function declarationFor(Context $ctx, string $role): array
+    {
+        $definitions = (new ReflectionObject($ctx))->getProperty('factoryDefinitions')->getValue($ctx);
+        $this->assertInstanceOf(\Quiote\Config\Factory\FactoryDefinitions::class, $definitions);
+        $info = $definitions->buildInfo($role);
+        $this->assertIsArray($info, "the factories configuration should declare $role");
+
+        return $info;
+    }
+
     private function injectLogger(Context $ctx): void
     {
         // Logging now goes through the PSR-3 Log facade; there is no per-context
@@ -219,27 +236,16 @@ class ContextExtendedCoverageTest extends TestCase
         $this->injectLogger($ctx);
         $ro = new ReflectionObject($ctx);
 
-        // Ensure requestFactoryInfo is captured so post-reset lazy recreation works.
-        $rfiProp = $ro->getProperty('requestFactoryInfo');
-
-        if ($rfiProp->getValue($ctx) === null) {
-            // Synthesize factory info using default WebRequest implementation
-            $rfiProp->setValue($ctx, [
-                'class' => \Quiote\Request\WebRequest::class,
-                'parameters' => []
-            ]);
-        }
         $req = $ctx->getRequest();
         $user = $ctx->getUser();
         $dbm = null;
         if (Config::getBool('core.use_database', false)) {
             $dbm = $ctx->getDatabaseManager();
         }
-        // If requestFactoryInfo missing (unlikely in initialized context) skip rather than inject fake info
-        $ro = new ReflectionObject($ctx);
-        $rfi = $ro->getProperty('requestFactoryInfo');
-
-        $this->assertNotNull($rfi->getValue($ctx), 'requestFactoryInfo should be present');
+        // The declaration the post-reset lazy recreation rebuilds from must be present.
+        $definitions = (new ReflectionObject($ctx))->getProperty('factoryDefinitions')->getValue($ctx);
+        $this->assertInstanceOf(\Quiote\Config\Factory\FactoryDefinitions::class, $definitions);
+        $this->assertNotNull($definitions->buildInfo('request'), 'the request declaration should be present');
         $ctx->reset();
         // After reset, request and user should be null until lazy accessed
         $ro = new ReflectionObject($ctx);
@@ -261,17 +267,14 @@ class ContextExtendedCoverageTest extends TestCase
         $this->assertNotSame($req, $req2);
     }
 
-    public function testGetRequestThrowsIfFactoryInfoMissing(): void
+    public function testGetRequestThrowsWhenThereIsNoFactoryDeclaration(): void
     {
         $ctx = $this->ctx();
-        // Inject a null requestFactoryInfo then null the request to force failure path
+        // Drop the declarations, then the request, to force the failure path.
         $ro = new ReflectionObject($ctx);
-        $rfi = $ro->getProperty('requestFactoryInfo');
+        $ro->getProperty('factoryDefinitions')->setValue($ctx, null);
+        $ro->getProperty('request')->setValue($ctx, null);
 
-        $rfi->setValue($ctx, null);
-        $reqProp = $ro->getProperty('request');
-
-        $reqProp->setValue($ctx, null);
         $this->expectException(QuioteException::class);
         $ctx->getRequest();
     }
@@ -443,16 +446,6 @@ class ContextExtendedCoverageTest extends TestCase
         $ctx = $this->ctx();
         $this->injectLogger($ctx);
         $ro = new ReflectionObject($ctx);
-        // Capture controller factory info if missing (synthesize minimal info)
-        $cfiProp = $ro->getProperty('controllerFactoryInfo');
-
-        if ($cfiProp->getValue($ctx) === null) {
-            // Use base Controller implementation
-            $cfiProp->setValue($ctx, [
-                'class' => \Quiote\Controller\Controller::class,
-                'parameters' => []
-            ]);
-        }
         // Force controller creation via internal initialize path if not created yet
         $controllerProp = $ro->getProperty('controller');
 
@@ -465,8 +458,7 @@ class ContextExtendedCoverageTest extends TestCase
             }
             // Fallback: direct instantiation
             if ($controller1 === null) {
-                $fi = $cfiProp->getValue($ctx);
-                $this->assertIsArray($fi);
+                $fi = $this->declarationFor($ctx, 'controller');
                 $controller1 = new $fi['class']();
                 if (is_callable([$controller1, 'initialize'])) {
                     $controller1->initialize($ctx, $fi['parameters']);
@@ -528,20 +520,12 @@ class ContextExtendedCoverageTest extends TestCase
         Config::set('core.use_database', true);
         $this->injectLogger($ctx);
         $ro = new ReflectionObject($ctx);
-        $dbmFi = $ro->getProperty('databaseManagerFactoryInfo');
-
-        if ($dbmFi->getValue($ctx) === null) {
-            $dbmFi->setValue($ctx, ['class' => \Quiote\Database\DatabaseManager::class, 'parameters' => []]);
-        }
-
-
         // Force initial creation (may still be null if not requested previously)
         $dbmProp = $ro->getProperty('databaseManager');
 
         $dbm1 = $dbmProp->getValue($ctx);
         if (!$dbm1) {
-            $fi = $dbmFi->getValue($ctx);
-            $this->assertIsArray($fi);
+            $fi = $this->declarationFor($ctx, 'database_manager');
             $dbm1 = new $fi['class']();
             if (is_callable([$dbm1, 'initialize'])) {
                 $dbm1->initialize($ctx, $fi['parameters']);

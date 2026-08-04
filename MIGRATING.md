@@ -16,20 +16,69 @@ exist and still work — with one exception, which is first because it fails har
 
 **Required.** `ConfigCache` decides freshness by comparing the source config
 file's mtime against the cache file's. Upgrading the framework changes neither,
-so a cache compiled by 3.x is reused as-is — and the factory config handler now
-generates different code.
+so a cache compiled by 3.x is reused as-is — and the compiled `factories` file
+has a completely different shape now (see below).
 
-A stale `factories.*` cache fails with:
-
-```
-TypeError: Cannot assign array to property Quiote\Context::$shutdownSequence
-of type Quiote\ShutdownSequence
-```
-
-Delete the cache directory (`core.cache_dir`, plus the system-temp fallback if
-`core.cache_dir` was unset) or run `cache:warmup`. Worth doing as a deploy step
+A stale `factories.*` cache fails at boot with a message telling you to clear the
+cache. Delete the cache directory (`core.cache_dir`, plus the system-temp fallback
+if `core.cache_dir` was unset) or run `cache:warmup`. Worth doing as a deploy step
 for any framework upgrade; this release is the one where skipping it is fatal
 rather than harmless.
+
+## The compiled `factories` file is data, not code
+
+This is the change the cache clear is for, and it is worth understanding if you
+have anything reading or generating compiled config.
+
+The compiled `factories` file used to be executable PHP that was `include`d
+*inside* `Context::initialize()`:
+
+```php
+$this->user = new SecurityUser();
+$this->user->initialize($this, [...]);
+$this->userFactoryInfo = ['class' => ..., 'parameters' => ...];
+$this->getShutdownSequence()->replaceAll([$this->controller, ...]);
+```
+
+Included code takes on the scope it is included into, so that file had full
+private access to the context, and nothing anywhere declared which properties it
+was allowed to touch. Renaming or retyping any of them broke a cached file at
+runtime, in the boot path, with an error naming the property rather than the stale
+cache. It also meant the properties had to stay mutable and `protected`, and that
+the generated output could only be tested by executing it against a stand-in
+object.
+
+It now returns a declaration:
+
+```php
+return [
+    'operations' => [
+        ['op' => 'build',   'role' => 'database_manager', 'class' => '...', 'parameters' => [...]],
+        ['op' => 'startup', 'role' => 'database_manager'],
+        // ...
+    ],
+    'factories' => ['response' => ['class' => '...', 'parameters' => [...]]],
+    'shutdownOrder' => ['controller', 'routing', 'user', ...],
+];
+```
+
+`ComponentInstaller` carries that out and hands the components back by role;
+`Context` assigns them itself, by name and against a declared type. The compiled
+file names configuration *roles* and cannot reach a property at all.
+
+The operation list is ordered and the interleaving is meaningful — the database
+manager starts up before the user that reads through it is built — so it is one
+list rather than a list of components plus a list of startups.
+
+**What this changes for you.** Nothing, unless you read the compiled file
+directly or generated one yourself. The `factories.{xml,yaml,php}` source format
+is untouched. Two internals are gone: the per-component `*FactoryInfo` properties
+on `Context` (`requestFactoryInfo`, `userFactoryInfo`, …), replaced by the
+declaration the lazy worker-mode rebuilds now read from, and any reliance on the
+compiled file assigning into its includer.
+
+`databases.xml` still compiles to `$this`-mutating code inside
+`DatabaseManager::initialize()`. Same pattern, not yet converted.
 
 ## `Context` is growing seams, not losing accessors
 

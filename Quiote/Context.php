@@ -118,6 +118,12 @@ class Context implements \Stringable, ResetInterface, ContextInterface
   protected ShutdownSequence $shutdownSequence;
 
   /**
+   * @var        ?\Quiote\Config\Factory\FactoryDefinitions What the compiled factories
+   *             configuration declared. The source the lazy worker-mode rebuilds read from.
+   */
+  protected ?\Quiote\Config\Factory\FactoryDefinitions $factoryDefinitions = null;
+
+  /**
    * @var        RequestBoundaryCleanup The clears that run at a worker request boundary.
    *             Populated by registerRequestBoundaryCleanup() during initialize().
    */
@@ -134,29 +140,9 @@ class Context implements \Stringable, ResetInterface, ContextInterface
    */
   protected $resetInstances = [];
 
-  /**
-   * @var        ?array{class: class-string<WebRequest>, parameters: array<string, mixed>} Request factory info for worker mode recreation
-   */
-  protected $requestFactoryInfo = null;
 
-  /**
-   * @var        ?array{class: class-string<User>, parameters: array<string, mixed>} User factory info for worker mode recreation
-   */
-  protected $userFactoryInfo = null;
-  /**
-   * @var        ?array{class: class-string<Routing>, parameters: array<string, mixed>} Routing factory info for worker mode recreation
-   */
-  protected $routingFactoryInfo = null;
 
-  /**
-   * @var        ?array<string, mixed> Controller factory info for worker mode recreation (prevent dynamic property creation)
-   */
-  protected $controllerFactoryInfo = null;
 
-  /**
-   * @var        ?array<string, mixed> TranslationManager factory info for worker mode recreation (prevent dynamic property creation)
-   */
-  protected $translationManagerFactoryInfo = null;
   /**
    * @var        ?\Quiote\Middleware\MiddlewarePipeline Per-instance (not shared across
    *             named Context profiles -- see handle()); safe for worker reuse across requests
@@ -174,10 +160,6 @@ class Context implements \Stringable, ResetInterface, ContextInterface
   protected $assetRegistry = null;
 
 
-  /**
-   * @var        ?array{class: class-string<\Quiote\Database\DatabaseManager>, parameters: array<string, mixed>} Database manager factory info for worker mode recreation
-   */
-  protected $databaseManagerFactoryInfo = null;
 
   /**
    * @var        ?Container DI container.
@@ -842,8 +824,8 @@ class Context implements \Stringable, ResetInterface, ContextInterface
    * preserving each context's configuration. See {@see ContextRegistry::resetAll()}, which owns
    * the ordering and the per-context guarding.
    *
-   * The *FactoryInfo properties are deliberately not reset: they are immutable across requests
-   * and are what the lazy request/user/routing/databaseManager recreation rebuilds from.
+   * The compiled factory declarations are deliberately not reset: they are immutable across
+   * requests and are what the lazy request/user/routing/databaseManager recreation rebuilds from.
    *
    * @param      ?string $profile The profile that served the request; it is reset first, but
    *             every other live context is reset too.
@@ -884,15 +866,12 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     // Bridge: ensure a legacy WebRequest exists and attach the current PSR request for BC helpers
     try {
       if (!$this->request) {
-        // try to create immediately so later getRequest() in rendering doesn't need lazy recreation
-        if ($this->requestFactoryInfo) {
-          $className = $this->requestFactoryInfo["class"];
-          $parameters = $this->requestFactoryInfo["parameters"];
-          $newRequest = new $className();
-          $newRequest->initialize($this, $parameters);
-          $newRequest->startup();
-          $this->request = $newRequest;
-        }
+        // Built now so a later getRequest() during rendering does not need the lazy path.
+        $this->request = $this->rebuildFromFactoryInfo(
+          'request',
+          WebRequest::class,
+          Container::SCOPE_REQUEST,
+        );
       }
       // No need to attachPsrRequest - WebRequest IS the PSR-7 request
       // If needed, ensure context's request is same instance as pipeline request
@@ -1030,6 +1009,60 @@ class Context implements \Stringable, ResetInterface, ContextInterface
 
 
   /**
+   * Read the compiled factories configuration for this context, and return what it declared.
+   *
+   * The compiled file returns a declaration -- see {@see \Quiote\Config\Factory\FactoryDefinitions}
+   * -- so this returns a value rather than relying on what an include did to `$this` on the way
+   * past. The APCu branch holds the compiled source rather than a path, so it is evaluated; the
+   * `return` inside it is what the eval answers.
+   *
+   * @return     mixed Whatever the compiled file returned; validated by the caller.
+   * @since      4.0.0
+   */
+  private function loadCompiledFactories(\Quiote\Logging\CategoryLogger $logger): mixed
+  {
+    $path = Config::getString("core.config_dir") . "/factories.xml";
+
+    if (defined("QUIOTE_USE_APCU_CONFIG_CACHE") && QUIOTE_USE_APCU_CONFIG_CACHE) {
+      $logger->debug("Context using APCu config cache for factories.xml");
+      $cacheResult = APCuConfigCache::checkConfig($path, $this->name);
+
+      if (str_starts_with($cacheResult, "APCU:")) {
+        $logger->debug("Context reading factories.xml directly from APCu (no file I/O)");
+
+        return eval("?>" . substr($cacheResult, 5));
+      }
+
+      return include $cacheResult;
+    }
+
+    $logger->debug("Context using regular config cache for factories.xml");
+
+    return include ConfigCache::checkConfig($path, $this->name);
+  }
+
+  /**
+   * The live component for a configuration role, or null when this context has none.
+   *
+   * The one place role names are mapped to the properties holding them. The compiled configuration
+   * names only roles, so this mapping lives in code that a rename breaks visibly.
+   *
+   * @since      4.0.0
+   */
+  private function componentForRole(string $role): ?object
+  {
+    return match ($role) {
+      'database_manager' => $this->databaseManager,
+      'translation_manager' => $this->translationManager,
+      'routing' => $this->routing,
+      'request' => $this->request,
+      'controller' => $this->controller,
+      'user' => $this->user,
+      default => null,
+    };
+  }
+
+  /**
    * (re)Initialize the Context instance.
    * @return     void
    * @since      1.0.0
@@ -1039,43 +1072,49 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     $logger = null;
     try {
       $logger = \Quiote\Logging\Log::for($this);
-      if (
-        defined("QUIOTE_USE_APCU_CONFIG_CACHE") &&
-        QUIOTE_USE_APCU_CONFIG_CACHE
-      ) {
-        $logger->debug(
-          "Context using APCu config cache for factories.xml",
-        );
-        $cacheResult = APCuConfigCache::checkConfig(
-          Config::getString("core.config_dir") . "/factories.xml",
-          $this->name,
-        );
+      $definitions = \Quiote\Config\Factory\FactoryDefinitions::fromCompiled(
+        $this->loadCompiledFactories($logger),
+        'the compiled factories cache for context "' . $this->name . '"',
+      );
+      $this->factoryDefinitions = $definitions;
 
-        if (str_starts_with($cacheResult, "APCU:")) {
-          $logger->debug(
-            "Context executing factories.xml directly from APCu (no file I/O)",
-          );
-          eval("?>" . substr($cacheResult, 5));
-        } else {
-          include $cacheResult;
-        }
-      } else {
-        $logger->debug(
-          "Context using regular config cache for factories.xml (constant defined: " .
-            (defined("QUIOTE_USE_APCU_CONFIG_CACHE") ? "yes" : "no") .
-            ", value: " .
-            (defined("QUIOTE_USE_APCU_CONFIG_CACHE")
-              ? (QUIOTE_USE_APCU_CONFIG_CACHE
-                ? "true"
-                : "false")
-              : "undefined") .
-            ")",
-        );
-        include ConfigCache::checkConfig(
-          Config::getString("core.config_dir") . "/factories.xml",
-          $this->name,
+      // The on-demand slots (response, validation_manager, session), in the shape
+      // getFactoryInfo()/createInstanceFor() already read. Before the components are built, not
+      // after: Controller::initialize() reaches for the `response` slot while it is being built.
+      foreach ($definitions->factories as $role => $info) {
+        $this->factories[$role] = [
+          'class' => $info['class'],
+          'parameters' => $info['parameters'],
+          'factory_info' => ['class' => $info['class'], 'parameters' => $info['parameters']],
+        ];
+      }
+
+      // Build the components the definitions declare, then take them by role. Assigning here,
+      // by name and against a declared type, is the point of the compiled file being data: a
+      // renamed or retyped property below is a static error, where the previous form -- generated
+      // statements assigning into these same properties from inside an include -- only failed at
+      // runtime, in the boot path, against a stale cache.
+      $installed = (new \Quiote\Config\Factory\ComponentInstaller($this))->install($definitions);
+
+      $this->databaseManager = $installed->optional('database_manager', \Quiote\Database\DatabaseManager::class);
+      if ($this->databaseManager === null && Config::getBool("core.use_database", false)) {
+        // Configured to use a database and given no database manager: the lazy rebuild path would
+        // fail later, further from the cause.
+        throw new QuioteException(
+          'Context initialization failed for "' . $this->name . '": core.use_database is on but the '
+          . 'factories configuration declares no database_manager.',
         );
       }
+      $this->translationManager = $installed->optional('translation_manager', TranslationManager::class);
+      $this->routing = $installed->need('routing', Routing::class);
+      $this->request = $installed->need('request', WebRequest::class);
+      $this->controller = $installed->need('controller', Controller::class);
+      $this->user = $installed->need('user', User::class);
+
+      $this->shutdownSequence->replaceAll(array_map(
+        fn(string $role): ?object => $this->componentForRole($role),
+        $definitions->shutdownOrder,
+      ));
     } catch (\Exception $e) {
       // Same reasoning as Context::getInstance(): this runs before any PSR-15
       // pipeline exists, so there is no ErrorHandlingMiddleware to hand off to
@@ -1084,26 +1123,6 @@ class Context implements \Stringable, ResetInterface, ContextInterface
         'Context::initialize() failed for context "' . $this->name . '": ' . $e::class . ': ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine()
       );
       throw $e;
-    }
-
-    // Invariants: factory info for core components must be present now (set by generated factories cache)
-    $invariantList = [
-      "userFactoryInfo" => "user",
-      "routingFactoryInfo" => "routing",
-      "requestFactoryInfo" => "request",
-    ];
-    if (Config::getBool("core.use_database", false)) {
-      $invariantList["databaseManagerFactoryInfo"] = "databaseManager";
-    }
-    foreach ($invariantList as $prop => $label) {
-      if ($this->$prop === null) {
-        $logger->error(
-          "Context invariant failed: missing $prop after initialize() (component '$label')",
-        );
-        throw new QuioteException(
-          "Context initialization failed: missing factory metadata for '$label'",
-        );
-      }
     }
 
     // Register reset instances for persistent worker runtimes
@@ -1302,9 +1321,9 @@ class Context implements \Stringable, ResetInterface, ContextInterface
    * where the pair does run, initialize() must precede startup(), because startup() acts on
    * state initialize() populates.
    *
-   * @template   T of ContextComponentInterface
-   * @param      string $role The container role name, also used in diagnostics.
-   * @param      ?array{class: class-string<T>, parameters: array<string, mixed>} $info
+   * @template   T of object
+   * @param      string $role The configuration role name, also used in diagnostics.
+   * @param      class-string<T> $expected The type the caller is assigning into.
    * @param      string $scope The container scope to register the instance under.
    * @param      bool $runLifecycle Whether to call initialize() then startup().
    * @return     T
@@ -1313,20 +1332,21 @@ class Context implements \Stringable, ResetInterface, ContextInterface
    */
   private function rebuildFromFactoryInfo(
     string $role,
-    ?array $info,
+    string $expected,
     string $scope = Container::SCOPE_SINGLETON,
     bool $runLifecycle = true,
   ): object {
     $logger = \Quiote\Logging\Log::for($this);
     $vd = $logger->isEnabled(\Quiote\Logging\Level::Debug);
 
+    $info = $this->factoryDefinitions?->buildInfo($role);
     if ($info === null) {
       $logger->error(
-        "[Context] cannot rebuild '$role': no factory info was captured at initialize()",
+        "[Context] cannot rebuild '$role': the factories configuration declares no such component",
       );
       throw new QuioteException(
         ucfirst($role) .
-          " object is null and no factory info available for recreation in worker mode",
+          " object is null and no factory declaration is available for recreation in worker mode",
       );
     }
 
@@ -1335,10 +1355,31 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     }
 
     $className = $info["class"];
+    if (!class_exists($className)) {
+      throw new QuioteException(sprintf(
+        'Cannot rebuild "%s": the factories configuration declares class "%s", which does not '
+        . 'exist. If it was renamed, clear the configuration cache.',
+        $role,
+        $className,
+      ));
+    }
+
     $instance = new $className();
-    if ($runLifecycle) {
+    if (!$instance instanceof $expected) {
+      throw new QuioteException(sprintf(
+        'Cannot rebuild "%s": the factories configuration declares %s, which is not a %s.',
+        $role,
+        $className,
+        $expected,
+      ));
+    }
+    // Duck-typed for the same reason ComponentInstaller is: not every core component implements
+    // ContextComponentInterface yet, though all of them have the two methods.
+    if ($runLifecycle && method_exists($instance, 'initialize')) {
       $instance->initialize($this, $info["parameters"]);
-      $instance->startup();
+      if (method_exists($instance, 'startup')) {
+        $instance->startup();
+      }
     }
 
     $this->registerCoreService($role, $instance, $scope);
@@ -1363,7 +1404,7 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     if ($this->request === null) {
       $this->request = $this->rebuildFromFactoryInfo(
         'request',
-        $this->requestFactoryInfo,
+        WebRequest::class,
         Container::SCOPE_REQUEST,
       );
 
@@ -1397,7 +1438,7 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     // deliberately skipped here.
     $this->routing ??= $this->rebuildFromFactoryInfo(
       'routing',
-      $this->routingFactoryInfo,
+      Routing::class,
       Container::SCOPE_SINGLETON,
       runLifecycle: false,
     );
@@ -1551,8 +1592,8 @@ class Context implements \Stringable, ResetInterface, ContextInterface
       if (Config::getBool("core.use_database", false) && $this->databaseManager === null) {
         try {
           $this->databaseManager = $this->rebuildFromFactoryInfo(
-            'databaseManager',
-            $this->databaseManagerFactoryInfo,
+            'database_manager',
+            \Quiote\Database\DatabaseManager::class,
           );
         } catch (\Throwable $e) {
           \Quiote\Logging\Log::for($this)->error(
@@ -1564,7 +1605,7 @@ class Context implements \Stringable, ResetInterface, ContextInterface
 
       $newUser = $this->rebuildFromFactoryInfo(
         'user',
-        $this->userFactoryInfo,
+        User::class,
         Container::SCOPE_REQUEST,
       );
       $this->user = $newUser;

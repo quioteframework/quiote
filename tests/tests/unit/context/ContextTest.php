@@ -245,23 +245,23 @@ class ContextTest extends PhpUnitTestCase
 	}
 
 	/**
-	 * Without captured factory metadata there is nothing to rebuild from, and the failure
-	 * has to name the component rather than surfacing as a null dereference later.
+	 * Without a factory declaration there is nothing to rebuild from, and the failure has to name
+	 * the component rather than surfacing as a null dereference later.
 	 */
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
-	public function testRebuildWithoutFactoryInfoThrowsNamingTheComponent(): void
+	public function testRebuildWithoutAFactoryDeclarationThrowsNamingTheComponent(): void
 	{
 		$ctx = Context::getInstance('rebuild_missing_info_test');
 		$ctx->getRequest();
 
 		$reflection = new \ReflectionObject($ctx);
-		$request = $reflection->getProperty('request');
-		$request->setValue($ctx, null);
-		$info = $reflection->getProperty('requestFactoryInfo');
-		$info->setValue($ctx, null);
+		$reflection->getProperty('request')->setValue($ctx, null);
+		// Drop the declarations the rebuild reads from, which is what a context that never
+		// completed initialize() looks like.
+		$reflection->getProperty('factoryDefinitions')->setValue($ctx, null);
 
 		$this->expectException(\Quiote\Exception\QuioteException::class);
-		$this->expectExceptionMessage('Request object is null and no factory info available');
+		$this->expectExceptionMessage('Request object is null and no factory declaration is available');
 
 		$ctx->getRequest();
 	}
