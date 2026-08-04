@@ -248,7 +248,8 @@ class Container implements ContainerInterface
      * present; otherwise a class implementing ServiceInterface defaults to
      * transient — services are transient today (as models, none are
      * ISingletonModel), and silently promoting one to a process singleton under
-     * FrankenPHP is a latent cross-request bug.
+     * FrankenPHP is a latent cross-request bug. A bare #[Service] answers transient
+     * too, so declaring a service by attribute and declaring one by interface agree.
      *
      * Anything else defaults to REQUEST. Singleton was the pre-Phase-3 fallback, but it
      * is the wrong default for a class nobody has vetted: under a persistent worker an

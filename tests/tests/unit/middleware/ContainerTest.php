@@ -146,6 +146,32 @@ class ContainerTest extends TestCase
         $this->assertNotSame($v1, $v2, '#[Service(scope: transient)] must be honored for an unregistered, autowired class');
     }
 
+    public function testBareServiceAttributeDefaultsToTransientScope(): void
+    {
+        $c = new Container();
+        $v1 = $c->get(ContainerBareServiceAttributeFixture::class);
+        $v2 = $c->get(ContainerBareServiceAttributeFixture::class);
+        $this->assertNotSame(
+            $v1,
+            $v2,
+            'a bare #[Service] must default to transient: process lifetime is a claim to make explicitly, '
+            . 'since a singleton default would serve one request\'s state to the next under a worker',
+        );
+    }
+
+    /**
+     * The attribute takes precedence over the ServiceInterface check, so its default has to agree with
+     * what the interface infers. Otherwise adding #[Service] to an existing service for discoverability
+     * would silently promote it to process lifetime.
+     */
+    public function testBareServiceAttributeDoesNotPromoteAServiceInterfaceImplementor(): void
+    {
+        $c = new Container();
+        $v1 = $c->get(ContainerBareServiceAttributeOnInterfaceFixture::class);
+        $v2 = $c->get(ContainerBareServiceAttributeOnInterfaceFixture::class);
+        $this->assertNotSame($v1, $v2, 'a bare #[Service] must not override the ServiceInterface transient default');
+    }
+
     public function testInjectAttributeOverridesAutowiringByType(): void
     {
         $c = new Container();
@@ -271,9 +297,6 @@ class ContainerTest extends TestCase
         $c->set('clock', fn() => new DateTimeImmutable('2025-01-02T00:00:00Z'));
         $c->alias(DateTimeImmutable::class, 'clock');
         $obj = $c->make(ContainerMakeFixture::class);
-        if (!$obj instanceof ContainerMakeFixture) {
-            throw new \RuntimeException('Expected ContainerMakeFixture instance');
-        }
         $this->assertInstanceOf(DateTimeImmutable::class, $obj->clock);
     }
 
@@ -281,9 +304,6 @@ class ContainerTest extends TestCase
     {
         $c = new Container();
         $obj = $c->make(ContainerParamFixture::class, ['name' => 'override_name']);
-        if (!$obj instanceof ContainerParamFixture) {
-            throw new \RuntimeException('Expected ContainerParamFixture instance');
-        }
         $this->assertSame('override_name', $obj->name);
     }
 
@@ -292,9 +312,6 @@ class ContainerTest extends TestCase
         $c = new Container();
         $override = new DateTimeImmutable('2030-01-01T00:00:00Z');
         $obj = $c->make(ContainerMakeFixture::class, [DateTimeImmutable::class => $override]);
-        if (!$obj instanceof ContainerMakeFixture) {
-            throw new \RuntimeException('Expected ContainerMakeFixture instance');
-        }
         $this->assertSame($override, $obj->clock);
     }
 }
@@ -352,6 +369,16 @@ class ContainerRequiredWrongNameButForbiddenTypeFixture
 
 #[Service(scope: Container::SCOPE_TRANSIENT)]
 class ContainerTransientServiceFixture
+{
+}
+
+#[Service]
+class ContainerBareServiceAttributeFixture
+{
+}
+
+#[Service]
+class ContainerBareServiceAttributeOnInterfaceFixture implements \Quiote\Service\ServiceInterface
 {
 }
 
