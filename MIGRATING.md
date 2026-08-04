@@ -88,13 +88,17 @@ connections itself. Registration still happens before each connection's
 validates it, and `Controller::initialize()` constructs each `OutputType` itself. A
 null `default` stays legal — a configuration may declare types without electing one.
 
-One compiled configuration still mutates its includer and is **not** converted:
-`translation.xml` → `TranslationManager` (`$this->translators`,
-`$this->availableConfigLocales`, and a generated `$this->getContext()` call). It is
-the only one that emits a method *call chain* through its consumer rather than
-plain assignments, so converting it means deciding where translator construction
-belongs — a design question, not a mechanical move. It works as before, with the
-same hazard: a rename in `TranslationManager` will break a stale cache at runtime.
+`translation.xml` is converted too, and it was the last one. Its compiled file also
+*called* a method on its includer (`$this->getContext()`), not just assigned to it —
+which turned out to be the manager passing its own context to a translator, so the
+manager simply does that itself now. The compiled file returns
+`['defaultDomain' => …, 'defaultLocale' => …, 'defaultTimeZone' => …, 'locales' => …,
+'translators' => …]`, `TranslationDefinitions` validates it, and
+`TranslationManager::initialize()` builds its translators from it. Parsed locale
+identifiers are still precomputed at compile time.
+
+**No config handler emits code that touches its includer any more.** Every compiled
+configuration is now data.
 
 ## `Context` is growing seams, not losing accessors
 

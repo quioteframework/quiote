@@ -73,8 +73,8 @@ class TranslationManager implements ResetInterface
 	protected $defaultDomain = null;
 
 	/**
-	 * Populated only by the compiled translation.xml config, which always writes
-	 * this exact shape -- see TranslationConfigHandler.
+	 * Populated from the compiled translation declaration, which carries this exact shape --
+	 * see TranslationDefinitions.
 	 * @var        array<string, array{identifier: string, identifierData: array{language: ?string, script: ?string, territory: ?string, variant: ?string, options: array<string, string>, locale_str: ?string, option_str: ?string}, parameters: array<string, mixed>}> The available locales which have been
 	 *                   defined in the translation.xml config file.
 	 */
@@ -114,8 +114,8 @@ class TranslationManager implements ResetInterface
     protected $territoryDataCache = [];
 
 	/**
-	 * @var        string The default time zone. If not set the timezone php 
-	 *                    will be used as default.
+	 * @var        ?string The default time zone. Null until initialize() resolves it: the compiled
+	 *             configuration may declare none, in which case PHP's own default is adopted.
 	 */
 	protected $defaultTimeZone = null;
 
@@ -130,15 +130,23 @@ class TranslationManager implements ResetInterface
 	{
 		$this->context = $context;
 
-		if(defined('\QUIOTE_USE_APCU_CONFIG_CACHE') && \QUIOTE_USE_APCU_CONFIG_CACHE) {
-			$cacheResult = APCuConfigCache::checkConfig(Config::getString('core.config_dir') . '/translation.xml');
-			if (str_starts_with($cacheResult, 'APCU:')) {
-				eval('?>' . substr($cacheResult, 5));
-			} else {
-				include($cacheResult);
+		$definitions = TranslationDefinitions::fromCompiled($this->loadCompiledTranslation());
+
+		$this->defaultDomain = $definitions->defaultDomain;
+		$this->defaultLocaleIdentifier = $definitions->defaultLocale;
+		$this->defaultTimeZone = $definitions->defaultTimeZone;
+		$this->availableConfigLocales = $definitions->locales;
+
+		foreach($definitions->translators as $domain => $types) {
+			foreach($types as $type => $declaration) {
+				$class = $declaration['class'];
+				$translator = new $class();
+				// Installed before initialize() runs -- the order the compiled statements had -- so a
+				// translator whose initialization reaches for a sibling finds it.
+				$this->translators[$domain][$type] = $translator;
+				$translator->initialize($context, $declaration['parameters']);
+				$this->translatorFilters[$domain][$type] = $declaration['filters'];
 			}
-		} else {
-			include(ConfigCache::checkConfig(Config::getString('core.config_dir') . '/translation.xml'));
 		}
 		// CLDR XML loading removed; rely on ext/intl for locale, timezone, currency metadata
 		$this->loadAvailableLocales();
@@ -449,6 +457,33 @@ class TranslationManager implements ResetInterface
 	public function __($singularMessage, $pluralMessage, $amount, $domain = null, $locale = null, ?array $parameters = null)
 	{
 		return $this->_([$singularMessage, $pluralMessage, $amount], $domain, $locale, $parameters);
+	}
+
+	/**
+	 * Read the compiled translation configuration and return what it declared.
+	 *
+	 * The compiled file returns a declaration rather than assigning into this object and calling
+	 * getContext() on it, so this returns a value instead of relying on what an `include` did to
+	 * `$this` on the way past. The APCu branch holds compiled source rather than a path, so it is
+	 * evaluated; the `return` inside it is what the eval answers.
+	 *
+	 * @return     mixed Whatever the compiled file returned; validated by the caller.
+	 * @since      4.0.0
+	 */
+	private function loadCompiledTranslation(): mixed
+	{
+		$path = Config::getString('core.config_dir') . '/translation.xml';
+
+		if(defined('\QUIOTE_USE_APCU_CONFIG_CACHE') && \QUIOTE_USE_APCU_CONFIG_CACHE) {
+			$cacheResult = APCuConfigCache::checkConfig($path);
+			if (str_starts_with($cacheResult, 'APCU:')) {
+				return eval('?>' . substr($cacheResult, 5));
+			}
+
+			return include($cacheResult);
+		}
+
+		return include(ConfigCache::checkConfig($path));
 	}
 
 	/**

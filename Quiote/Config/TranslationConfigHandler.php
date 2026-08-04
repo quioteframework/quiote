@@ -180,18 +180,19 @@ class TranslationConfigHandler extends XmlConfigHandler implements IArrayConfigH
 		$localeData = $config['locales'] ?? [];
 		$translatorData = $config['translators'] ?? [];
 
-		$data = [];
-
-		$data[] = sprintf('$this->defaultDomain = %s;', var_export($defaultDomain, true));
-		$data[] = sprintf('$this->defaultLocaleIdentifier = %s;', var_export($defaultLocale, true));
-		$data[] = sprintf('$this->defaultTimeZone = %s;', var_export($defaultTimeZone, true));
-
+		$locales = [];
 		foreach ($localeData as $locale) {
 			// TODO: fallback stuff
-
-			$data[] = sprintf('$this->availableConfigLocales[%s] = array(\'identifier\' => %s, \'identifierData\' => %s, \'parameters\' => %s);', var_export($locale['name'], true), var_export($locale['name'], true), var_export(QuioteLocale::parseLocaleIdentifier($locale['name']), true), var_export($locale['params'], true));
+			// The parsed identifier is precomputed here rather than at every boot: it is a pure
+			// function of the locale name.
+			$locales[$locale['name']] = [
+				'identifier' => $locale['name'],
+				'identifierData' => QuioteLocale::parseLocaleIdentifier($locale['name']),
+				'parameters' => $locale['params'],
+			];
 		}
 
+		$translators = [];
 		foreach ($translatorData as $domain => $translator) {
 			if (!is_array($translator)) {
 				continue;
@@ -206,15 +207,27 @@ class TranslationConfigHandler extends XmlConfigHandler implements IArrayConfigH
 				if (!class_exists($class)) {
 					throw new ConfigurationException(sprintf('The Translator or Formatter class "%s" for domain "%s" could not be found.', $class, $domain));
 				}
-				$data[] = implode("\n", [
-					sprintf('$this->translators[%s][%s] = new %s();', var_export($domain, true), var_export($type, true), $class),
-					sprintf('$this->translators[%s][%s]->initialize($this->getContext(), %s);', var_export($domain, true), var_export($type, true), var_export($entry['params'] ?? [], true)),
-					sprintf('$this->translatorFilters[%s][%s] = %s;', var_export($domain, true), var_export($type, true), var_export($entry['filters'] ?? [], true)),
-				]);
+
+				$translators[$domain][$type] = [
+					'class' => $class,
+					'parameters' => $entry['params'] ?? [],
+					'filters' => $entry['filters'] ?? [],
+				];
 			}
 		}
 
-		return $this->generate($data, $sourceRef);
+		// Data, not statements. The compiled file returns a declaration that TranslationManager reads
+		// and builds its translators from; it cannot reach into whatever includes it.
+		return $this->generate(
+			'return ' . var_export([
+				'defaultDomain' => $defaultDomain,
+				'defaultLocale' => $defaultLocale,
+				'defaultTimeZone' => $defaultTimeZone,
+				'locales' => $locales,
+				'translators' => $translators,
+			], true) . ';',
+			$sourceRef
+		);
 	}
 
 	/**
