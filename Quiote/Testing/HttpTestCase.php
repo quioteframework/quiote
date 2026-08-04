@@ -30,19 +30,14 @@ abstract class HttpTestCase extends PhpUnitTestCase
     }
 
     /**
-     * Context::handle() lazily builds a MiddlewarePipeline once and caches it
-     * for the Context singleton's lifetime (worker-mode optimization) -- a
-     * MiddlewareCatalog change (e.g. replaceCoreStack()) made by one test
-     * would otherwise have no effect on the next test in the same process,
-     * since Context::getInstance() returns the same singleton across tests.
-     * Same precedent as FragmentTestCase::clearSingletonModels(): reflection
-     * into Context's protected state, for test isolation only.
+     * The middleware pipeline is built once and reused for the context's lifetime, so a
+     * MiddlewareCatalog change (e.g. replaceCoreStack()) made by one test would otherwise have no
+     * effect on the next test in the same process -- Context::getInstance() answers the same
+     * instance across tests.
      */
     private function resetCachedPipeline(): void
     {
-        $context = $this->getContext();
-        $property = new \ReflectionProperty($context, 'psrKernel');
-        $property->setValue($context, null);
+        $this->getContext()->getRequestHandler()->forgetPipeline();
     }
 
     protected function tearDown(): void

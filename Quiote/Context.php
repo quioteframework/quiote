@@ -41,12 +41,10 @@ class Context implements \Stringable, ResetInterface, ContextInterface
   static $debugLoaded = true;
 
   /**
-   * Per-request correlation ID, resolved each handle(): adopted from the
-   * configured inbound header (core.correlation_id.header, default
-   * X-Correlation-Id) when present and sane, else generated. Echoed back on the
-   * response unless core.correlation_id.expose is false.
+   * @var        ?\Quiote\Runtime\ContextRequestHandler Serves requests against this context.
+   *             Built on first use; see getRequestHandler().
    */
-  protected ?string $correlationId = null;
+  private ?\Quiote\Runtime\ContextRequestHandler $requestHandler = null;
 
   /**
    * @var        ?Controller A Controller instance.
@@ -142,22 +140,6 @@ class Context implements \Stringable, ResetInterface, ContextInterface
 
 
 
-
-  /**
-   * @var        ?\Quiote\Middleware\MiddlewarePipeline Per-instance (not shared across
-   *             named Context profiles -- see handle()); safe for worker reuse across requests
-   *             within the lifetime of this specific Context instance.
-   */
-  protected $psrKernel = null;
-
-  /** @var ?\Quiote\Execution\SlotDispatcher */
-  protected $slotDispatcher = null;
-
-  /** @var ?\Quiote\Execution\ActionResolver */
-  protected $actionResolver = null;
-
-  /** @var ?\Quiote\Asset\AssetRegistry */
-  protected $assetRegistry = null;
 
 
 
@@ -430,6 +412,7 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     $this->registerHttpClientFactory();
     $this->registerModelLocator();
     $this->registerRequestScopeAccessors();
+    $this->registerExecutionHelpers();
     // Plugin-contributed DI services (register-if-absent, so core/app bindings
     // above win).
     \Quiote\Plugin\PluginManager::configureContainer($container);
@@ -453,6 +436,77 @@ class Context implements \Stringable, ResetInterface, ContextInterface
       return $factory;
     }, Container::SCOPE_SINGLETON);
     $container->alias('http_client_factory', \Quiote\Http\Client\HttpClientFactory::class);
+  }
+
+  /**
+   * Resolve a container service, checked against the type the caller expects.
+   *
+   * The container answers `mixed`, and every accessor below declares a concrete return type. The
+   * check is not ceremony: an application may rebind any of these, and a rebinding to the wrong
+   * type should say so here rather than as a type error in the caller.
+   *
+   * @template   T of object
+   * @param      class-string<T> $id
+   * @return     T
+   * @throws     QuioteException When the container resolves $id to something else.
+   * @since      4.0.0
+   */
+  private function service(string $id): object
+  {
+    $service = $this->getContainer()->get($id);
+
+    if (!$service instanceof $id) {
+      throw new QuioteException(sprintf(
+        'The container resolves "%s" to %s, which is not a %s.',
+        $id,
+        get_debug_type($service),
+        $id,
+      ));
+    }
+
+    return $service;
+  }
+
+  /**
+   * Bind the per-execution helpers the render tree shares.
+   *
+   * Their lifetimes are the interesting part, and binding them makes those lifetimes declared
+   * rather than maintained by hand. The action resolver is stateless and lives for the process. The
+   * asset registry and slot dispatcher are request-scoped, so the container drops them at the
+   * request boundary -- which is what two manual nulls in reset() used to do.
+   */
+  private function registerExecutionHelpers(): void
+  {
+    $container = $this->getContainer();
+    if ($container->has(\Quiote\Execution\ActionResolver::class)) {
+      return;
+    }
+
+    $container->setFactory(
+      \Quiote\Execution\ActionResolver::class,
+      static fn(): \Quiote\Execution\ActionResolver => new \Quiote\Execution\ActionResolver(),
+      Container::SCOPE_SINGLETON,
+    );
+    $container->alias('actionResolver', \Quiote\Execution\ActionResolver::class);
+
+    $container->setFactory(
+      \Quiote\Asset\AssetRegistry::class,
+      static fn(): \Quiote\Asset\AssetRegistry => new \Quiote\Asset\AssetRegistry(),
+      Container::SCOPE_REQUEST,
+    );
+    $container->alias('assetRegistry', \Quiote\Asset\AssetRegistry::class);
+
+    // Depends on the controller, so it is built lazily rather than eagerly: getController() throws
+    // before initialize() has run, and this registration happens during it.
+    $container->setFactory(
+      \Quiote\Execution\SlotDispatcher::class,
+      fn(): \Quiote\Execution\SlotDispatcher => new \Quiote\Execution\SlotDispatcher(
+        $this->getController(),
+        $this->getActionResolver(),
+      ),
+      Container::SCOPE_REQUEST,
+    );
+    $container->alias('slotDispatcher', \Quiote\Execution\SlotDispatcher::class);
   }
 
   /**
@@ -657,8 +711,8 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     // Drop the shared singleton models; a model holding this request's data must not
     // serve the next one.
     $this->modelLocator?->reset();
-    $this->slotDispatcher = null; // rebuild per request
-    $this->assetRegistry = null; // rebuild per request (worker-mode safe)
+    // The slot dispatcher and asset registry are request-scoped container services now, so the
+    // container's own reset in the request-boundary cleanup is what drops them.
 
     // Log user state before reset
     if ($vd) {
@@ -837,83 +891,42 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     ContextRegistry::shared()->resetAll(is_string($profile) ? $profile : null);
   }
 
+  /**
+   * Serve a request against this context.
+   *
+   * Delegates to {@see \Quiote\Runtime\ContextRequestHandler}, which owns the middleware pipeline
+   * and the per-request setup. Kept because it is what every runtime already calls; new code can
+   * hold the handler directly, and it is a real PSR-15 RequestHandlerInterface.
+   */
   public function handle(ServerRequestInterface $request): ResponseInterface
   {
-    if ($this->psrKernel === null) {
-      $this->psrKernel = new \Quiote\Middleware\MiddlewarePipeline($this);
-    }
-    $psrKernel = $this->psrKernel;
-    // Adopt an inbound correlation ID from the configured header (e.g. an
-    // upstream gateway / distributed-tracing correlation id) when present and
-    // sane; otherwise generate a fresh one. The header name is configurable so
-    // it can match e.g. Azure Application Gateway's own correlation header.
-    $correlationId = \Quiote\Support\CorrelationId::fromRequest($request, $this->correlationIdHeaderName())
-      ?? \Quiote\Support\CorrelationId::generate();
-    $this->correlationId = $correlationId;
-
-    // Start a fresh ambient logging scope for this request so every log line is
-    // correlatable by rid. clear() first is defensive: it guards against a scope
-    // left behind by a prior worker request whose reset() did not run. The
-    // authoritative between-request clear lives in reset().
-    \Quiote\Logging\LogContext::clear();
-    \Quiote\Logging\LogContext::enrich(["rid" => $correlationId]);
-
-    // Re-arm the per-request session flush. reset() does this too, but this is
-    // the authoritative anchor: it also covers a runtime that serves requests
-    // without calling reset() between them.
-    $this->requestStateFlushed = false;
-
-    // Bridge: ensure a legacy WebRequest exists and attach the current PSR request for BC helpers
-    try {
-      if (!$this->request) {
-        // Built now so a later getRequest() during rendering does not need the lazy path.
-        $this->request = $this->rebuildFromFactoryInfo(
-          'request',
-          WebRequest::class,
-          Container::SCOPE_REQUEST,
-        );
-      }
-      // No need to attachPsrRequest - WebRequest IS the PSR-7 request
-      // If needed, ensure context's request is same instance as pipeline request
-    } catch (\Throwable $e) {
-      // Recoverable: getRequest() retries this same construction lazily, so the
-      // request is not lost. Logged rather than swallowed because if the retry
-      // fails too, getRequest() reports "no factory info available for
-      // recreation" -- which names the wrong cause. This is the only place the
-      // real one is visible.
-      \Quiote\Logging\Log::for($this)->error(
-        '[Context.handle] eager request construction failed, deferring to getRequest(): '
-          . $e::class . ': ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine(),
-      );
-    }
-
-    // Propagate correlation ID so middleware can use it without re-generating (avoids redundant random_bytes()).
-    $request = $request->withAttribute("quiote.rid", $correlationId);
-    $response = $psrKernel->handle($request);
-
-    // Echo the correlation ID back so a caller/gateway can tie its request to
-    // our logs/traces (unless disabled). Only add it if the response doesn't
-    // already carry the header (e.g. an action set it explicitly).
-    if (Config::getBool('core.correlation_id.expose', true)) {
-      $header = $this->correlationIdHeaderName();
-      if (!$response->hasHeader($header)) {
-        $response = $response->withHeader($header, $correlationId);
-      }
-    }
-
-    // Last hook that sees the full request + response together.
-    // No-op with no listeners.
-    \Quiote\Event\Events::emitLazy(\Quiote\Event\Lifecycle\ResponseSendingEvent::class, static fn() => new \Quiote\Event\Lifecycle\ResponseSendingEvent($request, $response));
-
-    return $response;
+    return $this->getRequestHandler()->handle($request);
   }
 
-  /** The configured inbound/outbound correlation-ID header name. */
-  private function correlationIdHeaderName(): string
+  /**
+   * This context's request handler, built on first use.
+   *
+   * @since      4.0.0
+   */
+  public function getRequestHandler(): \Quiote\Runtime\ContextRequestHandler
   {
-    $name = Config::getString('core.correlation_id.header', \Quiote\Support\CorrelationId::DEFAULT_HEADER);
-    return $name !== '' ? $name : \Quiote\Support\CorrelationId::DEFAULT_HEADER;
+    return $this->requestHandler ??= new \Quiote\Runtime\ContextRequestHandler($this);
   }
+
+  /**
+   * Arm this context for a new request.
+   *
+   * Re-arms the per-request state flush so the next flushRequestState() actually runs. Called by the
+   * request handler on the way in; the request-boundary cleanup does it too, on the way out, and
+   * this covers a runtime that serves requests without a reset between them.
+   *
+   * @since      4.0.0
+   */
+  public function beginRequest(): void
+  {
+    $this->requestStateFlushed = false;
+  }
+
 
   /**
    * Set the request object explicitly.
@@ -947,11 +960,11 @@ class Context implements \Stringable, ResetInterface, ContextInterface
         $message = sprintf(
           "[Context] setRequest id=%d cid=%s",
           spl_object_id($request),
-          $this->correlationId,
+          $this->getCorrelationId(),
         );
       } else {
         $message =
-          "[Context] setRequest (no id) cid=" . $this->correlationId;
+          "[Context] setRequest (no id) cid=" . $this->getCorrelationId();
       }
       $logger->debug($message);
     }
@@ -962,7 +975,7 @@ class Context implements \Stringable, ResetInterface, ContextInterface
    */
   public function getCorrelationId(): ?string
   {
-    return $this->correlationId;
+    return $this->requestHandler?->correlationId();
   }
 
   /**
@@ -970,14 +983,7 @@ class Context implements \Stringable, ResetInterface, ContextInterface
    */
   public function getSlotDispatcher(): \Quiote\Execution\SlotDispatcher
   {
-    if ($this->slotDispatcher === null) {
-      // New signature: (controller, actionResolver?, executionGuard?, viewNameResolver?)
-      $this->slotDispatcher = new \Quiote\Execution\SlotDispatcher(
-        $this->getController(),
-        $this->getActionResolver(),
-      );
-    }
-    return $this->slotDispatcher;
+    return $this->service(\Quiote\Execution\SlotDispatcher::class);
   }
 
   /**
@@ -986,15 +992,12 @@ class Context implements \Stringable, ResetInterface, ContextInterface
    */
   public function getAssetRegistry(): \Quiote\Asset\AssetRegistry
   {
-    return $this->assetRegistry ??= new \Quiote\Asset\AssetRegistry();
+    return $this->service(\Quiote\Asset\AssetRegistry::class);
   }
 
   public function getActionResolver(): \Quiote\Execution\ActionResolver
   {
-    if ($this->actionResolver === null) {
-      $this->actionResolver = new \Quiote\Execution\ActionResolver();
-    }
-    return $this->actionResolver;
+    return $this->service(\Quiote\Execution\ActionResolver::class);
   }
 
   /**

@@ -210,7 +210,7 @@ class ContextExtendedCoverageTest extends TestCase
         $this->injectLogger($ctx);
         $ro = new ReflectionObject($ctx);
         $routingProp = $ro->getProperty('routing');$routingProp->setValue($ctx, new TestRouting());
-        $psrKernelProp = $ro->getProperty('psrKernel');
+        $handler = $ctx->getRequestHandler();
         $ids = [];
         for ($i = 0; $i < 5; $i++) {
             $ctx->handle(new ServerRequest('GET', '/seq' . $i));
@@ -218,14 +218,13 @@ class ContextExtendedCoverageTest extends TestCase
         }
         $this->assertCount(5, $ids);
         $this->assertSame(count($ids), count(array_unique($ids)), 'Correlation IDs should be unique per handle()');
-        $kernelBefore = $psrKernelProp->getValue($ctx);
-        $this->assertNotNull($kernelBefore);
+        $this->assertTrue($handler->hasPipeline(), 'the pipeline is built by the first handle()');
+        $kernelBefore = $handler->pipeline();
         $ctx->reset();
         // Reinject dependencies after reset
         $routingProp->setValue($ctx, new TestRouting());
         $ctx->handle(new ServerRequest('GET', '/afterReset'));
-        $kernelAfter = $psrKernelProp->getValue($ctx);
-        $this->assertSame($kernelBefore, $kernelAfter, 'Kernel instance should persist across reset');
+        $this->assertSame($kernelBefore, $handler->pipeline(), 'Kernel instance should persist across reset');
         $newId = $ctx->getCorrelationId();
         $this->assertNotContains($newId, $ids, 'Correlation ID after reset should be new');
     }
@@ -552,17 +551,18 @@ class ContextExtendedCoverageTest extends TestCase
         $routingProp->setValue($ctx, new TestRouting());
 
 
-        $ctx->handle(new ServerRequest('GET', '/kernel')); // builds pipeline
-        $psrKernelProp = $ro->getProperty('psrKernel');
+        $handler = $ctx->getRequestHandler();
+        $this->assertFalse($handler->hasPipeline(), 'no pipeline before the first handle()');
 
-        $kernel = $psrKernelProp->getValue($ctx);
-        $this->assertInstanceOf(\Quiote\Middleware\MiddlewarePipeline::class, $kernel, 'psrKernel should be built after handle');
+        $ctx->handle(new ServerRequest('GET', '/kernel')); // builds pipeline
+
+        $this->assertTrue($handler->hasPipeline(), 'the pipeline is built by handle()');
+        $kernel = $handler->pipeline();
         $debugStackBefore = $kernel->debugStack();
         $this->assertNotEmpty($debugStackBefore, 'Middleware debug stack should be populated');
         $ctx->reset(); // kernel is kept alive; reset() no longer calls psrKernel->reset() (avoids pipeline rebuild)
         // Reinject mock storage after reset since reset nulls storage
-        $kernelAfter = $psrKernelProp->getValue($ctx);
-        $this->assertInstanceOf(\Quiote\Middleware\MiddlewarePipeline::class, $kernelAfter);
+        $kernelAfter = $handler->pipeline();
         $this->assertSame($kernel, $kernelAfter, 'Kernel instance persists across reset');
         // Since PHP84 performance work: psrKernel->reset() is no longer called, so the
         // middleware stack stays built and the debug stack retains its previous entries.

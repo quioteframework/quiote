@@ -108,6 +108,34 @@ code can constructor-inject it instead of reaching through the context:
 | `$context->getRequest()` / `setRequest()` | `Quiote\Request\RequestState` | `current()` / `publish()`; resolves per call |
 | `$context->getUser()` | `Quiote\User\CurrentUser` | only needed in a singleton — see below |
 | — | `Quiote\ShutdownSequence` | reached via `$context->getShutdownSequence()` |
+| — | `Quiote\Runtime\ContextRequestHandler` | reached via `$context->getRequestHandler()` |
+
+### `Context::handle()` moved behind a real PSR-15 handler
+
+`Context::handle()` still works and is what every runtime calls. The per-request work
+— owning the middleware pipeline, resolving the correlation id, opening the ambient
+logging scope, arming the request-state flush, emitting `ResponseSendingEvent` — now
+lives in `ContextRequestHandler`, which **declares** `RequestHandlerInterface` rather
+than merely matching its signature.
+
+Two internals moved with it:
+
+- `Context::$psrKernel` is gone. Reach the pipeline with
+  `$context->getRequestHandler()->pipeline()`, and drop a stale one with
+  `forgetPipeline()` — needed by anything that reconfigures `MiddlewareCatalog`
+  after a request has been served, since the pipeline is composed once and reused.
+  `HttpTestCase` used reflection for this and now uses the seam.
+- `Context::$correlationId` is gone; `getCorrelationId()` reads it from the handler.
+
+### The execution helpers are container-scoped now
+
+`getSlotDispatcher()`, `getAssetRegistry()` and `getActionResolver()` resolve through
+the container instead of lazy properties, so their lifetimes are declared rather than
+maintained by hand: the action resolver is a process-lifetime singleton, and the asset
+registry and slot dispatcher are request-scoped, so the container drops them at the
+request boundary — which two manual nulls in `reset()` used to do. All three are also
+injectable now (`AssetRegistry`, `SlotDispatcher`, `ActionResolver`, or `assetRegistry`
+/ `slotDispatcher` / `actionResolver`).
 
 ### Which one to inject for the request and the user
 
