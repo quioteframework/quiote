@@ -50,7 +50,11 @@ class SessionMiddleware implements MiddlewareInterface
         $session = $this->sessionManager->startFromRequest($request);
         $request = $request->withAttribute(self::class, $session);
 
-        $this->context?->setSessionBag(new QuioteSessionBag($this->sessionManager, $session, $request));
+        $this->context?->getContainer()->set(
+            \Quiote\Session\SessionBagInterface::class,
+            new QuioteSessionBag($this->sessionManager, $session, $request),
+            \Quiote\DI\Container::SCOPE_REQUEST,
+        );
 
         try {
             $response = $handler->handle($request);

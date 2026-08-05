@@ -85,8 +85,13 @@ class ActionCacheUserPartitionTest extends TestCase
         $bag = $this->createStub(SessionBagInterface::class);
         $bag->method('getId')->willReturn($sessionId);
 
+        // The bag is reached through the container now, so that is what gets the stub. getContainer()
+        // is not final, unlike Controller::getContext() below.
+        $container = new \Quiote\DI\Container();
+        $container->set(SessionBagInterface::class, $bag, \Quiote\DI\Container::SCOPE_REQUEST);
+
         $context = $this->createStub(\Quiote\Context::class);
-        $context->method('getSessionBag')->willReturn($bag);
+        $context->method('getContainer')->willReturn($container);
 
         // Controller::getContext() is final, so the backing property is set
         // directly rather than stubbed.

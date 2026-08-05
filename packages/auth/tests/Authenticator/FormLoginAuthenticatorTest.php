@@ -176,6 +176,6 @@ class FormLoginAuthenticatorTest extends UnitTestCase
 	private function injectInMemoryStorage(): void
 	{
 		$ctx = $this->getContext();
-		$ctx->setSessionBag(new InMemorySessionBag());
+		$ctx->getContainer()->set(\Quiote\Session\SessionBagInterface::class, new InMemorySessionBag(), \Quiote\DI\Container::SCOPE_REQUEST);
 	}
 }

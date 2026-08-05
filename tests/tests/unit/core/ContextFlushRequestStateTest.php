@@ -61,7 +61,7 @@ class ContextFlushRequestStateTest extends UnitTestCase
         $manager = new SessionManager($persistence);
         $request = new ServerRequest('GET', '/');
         $session = $manager->startFromRequest($request);
-        $context->setSessionBag(new QuioteSessionBag($manager, $session, $request));
+        $context->getContainer()->set(\Quiote\Session\SessionBagInterface::class, new QuioteSessionBag($manager, $session, $request), \Quiote\DI\Container::SCOPE_REQUEST);
 
         $user = new RbacSecurityUser();
         $user->initialize($context, [
@@ -101,7 +101,7 @@ class ContextFlushRequestStateTest extends UnitTestCase
     {
         $context = $this->context('context-flush-test::tests-flush-ordering');
         RecordingSessionBag::resetLog();
-        $context->setSessionBag(new RecordingSessionBag());
+        $context->getContainer()->set(\Quiote\Session\SessionBagInterface::class, new RecordingSessionBag(), \Quiote\DI\Container::SCOPE_REQUEST);
         $this->poke($context, 'user', new RecordingUser());
 
         $context->flushRequestState();
@@ -113,7 +113,7 @@ class ContextFlushRequestStateTest extends UnitTestCase
     {
         $context = $this->context('context-flush-test::tests-flush-ordering');
         RecordingSessionBag::resetLog();
-        $context->setSessionBag(new RecordingSessionBag());
+        $context->getContainer()->set(\Quiote\Session\SessionBagInterface::class, new RecordingSessionBag(), \Quiote\DI\Container::SCOPE_REQUEST);
         $this->poke($context, 'user', new RecordingUser());
 
         $context->flushRequestState();
@@ -133,7 +133,7 @@ class ContextFlushRequestStateTest extends UnitTestCase
     {
         $context = $this->context('context-flush-test::tests-flush-ordering');
         RecordingSessionBag::resetLog();
-        $context->setSessionBag(new RecordingSessionBag());
+        $context->getContainer()->set(\Quiote\Session\SessionBagInterface::class, new RecordingSessionBag(), \Quiote\DI\Container::SCOPE_REQUEST);
         $this->poke($context, 'user', null);
 
         $context->flushRequestState();
@@ -150,7 +150,7 @@ class ContextFlushRequestStateTest extends UnitTestCase
     {
         $context = $this->context('context-flush-test::tests-flush-ordering');
         RecordingSessionBag::resetLog();
-        $context->setSessionBag(new RecordingSessionBag());
+        $context->getContainer()->set(\Quiote\Session\SessionBagInterface::class, new RecordingSessionBag(), \Quiote\DI\Container::SCOPE_REQUEST);
         $this->poke($context, 'user', new RecordingUser());
 
         $context->flushRequestState(persistUser: false);
@@ -168,7 +168,7 @@ class ContextFlushRequestStateTest extends UnitTestCase
     {
         $context = $this->context('context-flush-test::tests-flush-ordering');
         RecordingSessionBag::resetLog();
-        $context->setSessionBag(new RecordingSessionBag());
+        $context->getContainer()->set(\Quiote\Session\SessionBagInterface::class, new RecordingSessionBag(), \Quiote\DI\Container::SCOPE_REQUEST);
         $this->poke($context, 'user', new ThrowingUser());
 
         $context->flushRequestState();
@@ -180,7 +180,7 @@ class ContextFlushRequestStateTest extends UnitTestCase
     {
         $context = $this->context('context-flush-test::tests-flush-ordering');
         RecordingSessionBag::resetLog();
-        $context->setSessionBag(new RecordingSessionBag());
+        $context->getContainer()->set(\Quiote\Session\SessionBagInterface::class, new RecordingSessionBag(), \Quiote\DI\Container::SCOPE_REQUEST);
         $this->poke($context, 'user', new RecordingUser());
         $context->getShutdownSequence()->replaceAll([]);
 
@@ -198,7 +198,7 @@ class ContextFlushRequestStateTest extends UnitTestCase
     {
         $context = $this->context('context-flush-test::tests-flush-ordering');
         RecordingSessionBag::resetLog();
-        $context->setSessionBag(new RecordingSessionBag());
+        $context->getContainer()->set(\Quiote\Session\SessionBagInterface::class, new RecordingSessionBag(), \Quiote\DI\Container::SCOPE_REQUEST);
         $this->poke($context, 'user', new RecordingUser());
         $context->getShutdownSequence()->replaceAll([]);
 
@@ -215,13 +215,13 @@ class ContextFlushRequestStateTest extends UnitTestCase
     {
         $context = $this->context('context-flush-test::tests-flush-ordering');
         $bag = new RecordingSessionBag();
-        $context->setSessionBag($bag);
+        $context->getContainer()->set(\Quiote\Session\SessionBagInterface::class, $bag, \Quiote\DI\Container::SCOPE_REQUEST);
         $context->getShutdownSequence()->replaceAll([]);
 
         $context->reset();
 
-        $this->assertNotSame($bag, $context->getSessionBag());
-        $this->assertInstanceOf(\Quiote\Session\NullSessionBag::class, $context->getSessionBag());
+        $this->assertNotSame($bag, $context->getContainer()->get(\Quiote\Session\SessionBagInterface::class));
+        $this->assertInstanceOf(\Quiote\Session\NullSessionBag::class, $context->getContainer()->get(\Quiote\Session\SessionBagInterface::class));
     }
 
     /**
@@ -232,7 +232,7 @@ class ContextFlushRequestStateTest extends UnitTestCase
     {
         $context = $this->context('context-flush-test::tests-flush-ordering');
         RecordingSessionBag::resetLog();
-        $context->setSessionBag(new RecordingSessionBag());
+        $context->getContainer()->set(\Quiote\Session\SessionBagInterface::class, new RecordingSessionBag(), \Quiote\DI\Container::SCOPE_REQUEST);
         $this->poke($context, 'user', new RecordingUser());
         $context->getShutdownSequence()->replaceAll([]);
 
@@ -240,7 +240,7 @@ class ContextFlushRequestStateTest extends UnitTestCase
         $context->reset();
 
         // Next request.
-        $context->setSessionBag(new RecordingSessionBag());
+        $context->getContainer()->set(\Quiote\Session\SessionBagInterface::class, new RecordingSessionBag(), \Quiote\DI\Container::SCOPE_REQUEST);
         $this->poke($context, 'user', new RecordingUser());
         $context->flushRequestState();
 
@@ -254,9 +254,9 @@ class ContextFlushRequestStateTest extends UnitTestCase
     public function testAContextWithNoSessionConfiguredAnswersANullBag(): void
     {
         $context = $this->context('context-flush-test::tests-flush-ordering');
-        $context->setSessionBag(null);
+        $context->getContainer()->setFactory(\Quiote\Session\SessionBagInterface::class, static fn(): \Quiote\Session\SessionBagInterface => new \Quiote\Session\NullSessionBag(), \Quiote\DI\Container::SCOPE_REQUEST);
 
-        $bag = $context->getSessionBag();
+        $bag = $context->getContainer()->get(\Quiote\Session\SessionBagInterface::class);
 
         $this->assertInstanceOf(\Quiote\Session\NullSessionBag::class, $bag);
         $bag->set('k', 'v');

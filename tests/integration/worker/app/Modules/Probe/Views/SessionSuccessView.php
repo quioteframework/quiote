@@ -29,7 +29,7 @@ final class SessionSuccessView extends View
 		// Read straight back out of the session rather than relying on the
 		// action's attribute bag reaching the template.
 		$context = $this->getContext();
-		$hits = $context?->getSessionBag()->get('probe_hits');
+		$hits = $context?->getContainer()->get(\Quiote\Session\SessionBagInterface::class)->get('probe_hits');
 		$this->setAttribute('hits', is_numeric($hits) ? (int) $hits : 0);
 	}
 }

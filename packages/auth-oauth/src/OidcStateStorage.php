@@ -53,7 +53,7 @@ final class OidcStateStorage
 	 */
 	public function store(OidcAuthorizationState $state): void
 	{
-		$this->context->getSessionBag()->set(self::NAMESPACE_PREFIX . $state->getState(), [
+		$this->context->getContainer()->get(\Quiote\Session\SessionBagInterface::class)->set(self::NAMESPACE_PREFIX . $state->getState(), [
 			'state' => $state->getState(),
 			'pkce_verifier' => $state->getPkceVerifier(),
 			'nonce' => $state->getNonce(),
@@ -79,7 +79,7 @@ final class OidcStateStorage
 	public function consume(string $state): ?OidcAuthorizationState
 	{
 		$key = self::NAMESPACE_PREFIX . $state;
-		$bag = $this->context->getSessionBag();
+		$bag = $this->context->getContainer()->get(\Quiote\Session\SessionBagInterface::class);
 		$data = $bag->get($key);
 		$bag->remove($key);
 

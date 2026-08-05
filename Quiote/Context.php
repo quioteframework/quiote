@@ -68,23 +68,6 @@ class Context implements \Stringable, ResetInterface, ContextInterface
 
 
   /**
-   * @var        ?\Quiote\Session\SessionBagInterface The request's session bag.
-   *             Null until asked for, and nulled again by reset(): holding one
-   *             across a worker request boundary would serve the previous
-   *             request's session to the next one.
-   */
-  private ?\Quiote\Session\SessionBagInterface $sessionBag = null;
-
-
-  /**
-   * @var        ?\Quiote\Session\SessionManager Built once per process from the
-   *             `session` factory slot; null when that slot is unconfigured.
-   *             Unlike storage this survives the request boundary -- it holds
-   *             no per-request state, only cookie configuration.
-   */
-  private ?\Quiote\Session\SessionManager $sessionManager = null;
-
-  /**
    * @var        ?TranslationManager A TranslationManager instance.
    */
   protected $translationManager = null;
@@ -268,16 +251,15 @@ class Context implements \Stringable, ResetInterface, ContextInterface
         continue;
       }
 
-      $build = function () use ($class, $parameters, $role): object {
+      $build = function () use ($class, $parameters): object {
         $instance = new $class();
-        if (!is_callable([$instance, 'initialize'])) {
-          throw new QuioteException(sprintf(
-            'The class declared for the "%s" slot, %s, has no initialize() method.',
-            $role,
-            $class,
-          ));
+
+        // Only when the slot takes its configuration that way. A `session` slot is a
+        // SessionFactoryInterface, which is handed the context and its parameters at
+        // createPersistence() time instead -- createInstanceFor() used to throw for exactly that slot.
+        if (is_callable([$instance, 'initialize'])) {
+          $instance->initialize($this, $parameters);
         }
-        $instance->initialize($this, $parameters);
 
         return $instance;
       };
@@ -286,6 +268,64 @@ class Context implements \Stringable, ResetInterface, ContextInterface
         $container->setFactory($id, $build, Container::SCOPE_TRANSIENT);
       }
     }
+
+    $this->registerSessionServices($definitions);
+  }
+
+  /**
+   * Bind the session manager and the session bag.
+   *
+   * Both were accessors on this class. They are different lifetimes and that is why they are bound
+   * differently: the manager is stateless apart from cookie configuration, so it is built once per
+   * process, while the bag belongs to one request and the container drops it at the boundary.
+   *
+   * The manager is only bound when the `session` slot is declared. That is what makes
+   * `tryGet(SessionManager::class)` answer null for an application with no session configured,
+   * without anyone having to ask a separate question first.
+   *
+   * The bag's default is a {@see \Quiote\Session\NullSessionBag}: reading session state before
+   * SessionMiddleware has installed the real bag has to answer something, and answering "empty" is
+   * what every consumer already expects. SessionMiddleware replaces the binding per request.
+   *
+   * @since      4.0.0
+   */
+  private function registerSessionServices(\Quiote\Config\Factory\FactoryDefinitions $definitions): void
+  {
+    $container = $this->getContainer();
+
+    $container->setFactory(
+      \Quiote\Session\SessionBagInterface::class,
+      static fn(): \Quiote\Session\SessionBagInterface => new \Quiote\Session\NullSessionBag(),
+      Container::SCOPE_REQUEST,
+    );
+    $container->alias('sessionBag', \Quiote\Session\SessionBagInterface::class);
+
+    if (!isset($definitions->factories['session'])) {
+      return;
+    }
+
+    $container->setFactory(
+      \Quiote\Session\SessionManager::class,
+      function () use ($container): \Quiote\Session\SessionManager {
+        $factory = $container->get('session');
+        if (!$factory instanceof \Quiote\Session\SessionFactoryInterface) {
+          throw new QuioteException(sprintf(
+            'The class declared for the "session" slot, %s, is not a %s.',
+            get_debug_type($factory),
+            \Quiote\Session\SessionFactoryInterface::class,
+          ));
+        }
+
+        $parameters = $this->factoryDefinitions?->factories['session']['parameters'] ?? [];
+
+        return new \Quiote\Session\SessionManager(
+          $factory->createPersistence($this, $parameters),
+          $parameters,
+        );
+      },
+      Container::SCOPE_SINGLETON,
+    );
+    $container->alias('sessionManager', \Quiote\Session\SessionManager::class);
   }
 
   /**
@@ -758,10 +798,15 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     $cleanup->forgetSteps();
 
     // Drop this request's session. A bag surviving the boundary would serve request N's session to
-    // request N+1; the next request's middleware installs its own, and until it does
-    // getSessionBag() answers a NullSessionBag.
+    // request N+1; the next request's middleware installs its own, and until it does the container's
+    // default answers a NullSessionBag. The binding is request-scoped, so re-registering the default
+    // factory is what discards the resolved bag.
     $cleanup->onRequestEnd('the session bag', function (): void {
-      $this->sessionBag = null;
+      $this->getContainer()->setFactory(
+        \Quiote\Session\SessionBagInterface::class,
+        static fn(): \Quiote\Session\SessionBagInterface => new \Quiote\Session\NullSessionBag(),
+        Container::SCOPE_REQUEST,
+      );
     });
 
     // Dropped together with the bag and before anything that can throw: getUser() returns the
@@ -1323,120 +1368,9 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     return $this->routing;
   }
 
-  /**
-   * Retrieve this request's session bag -- the single seam every consumer of
-   * session state goes through.
-   *
-   * SessionMiddleware installs the request's real bag on the way in. Until it
-   * does, and for a context with no `session` factory slot configured at all
-   * (a console command, a queue worker, a stateless API), this answers a
-   * {@see \Quiote\Session\NullSessionBag}: reads return their default and
-   * writes are discarded, so consumers never have to ask whether a session
-   * exists before touching one.
-   *
-   * Pulled from the context rather than pushed into consumers, because
-   * getUser() can recreate a user *after* the middleware has run: a user built
-   * mid-request must still reach the same session as everything else.
-   *
-   * @return     \Quiote\Session\SessionBagInterface
-   * @since      2.1.0
-   */
-  public function getSessionBag(): \Quiote\Session\SessionBagInterface
-  {
-    if ($this->sessionBag === null) {
-      $this->setSessionBag(new \Quiote\Session\NullSessionBag());
-    }
 
-    /** @var \Quiote\Session\SessionBagInterface */
-    return $this->sessionBag;
-  }
 
-  /**
-   * The configured {@see \Quiote\Session\SessionManager}, or null when the
-   * `session` factory slot is not configured (i.e. `core.use_modern_session`
-   * is off and the application is on the legacy `storage` path).
-   *
-   * Built once per process from the slot's SessionFactoryInterface: the
-   * manager itself is stateless apart from cookie configuration, so unlike
-   * storage it does not need recreating per request.
-   *
-   * @return     ?\Quiote\Session\SessionManager
-   * @since      2.2.0
-   */
-  public function getSessionManager(): ?\Quiote\Session\SessionManager
-  {
-    if ($this->sessionManager !== null) {
-      return $this->sessionManager;
-    }
 
-    $info = $this->factoryDefinitions?->factories['session'] ?? null;
-    if (!is_array($info)) {
-      return null;
-    }
-
-    $className = $info['class'];
-    $parameters = $info['parameters'];
-    if (!class_exists($className)) {
-      return null;
-    }
-
-    try {
-      $factory = new $className();
-      if (!$factory instanceof \Quiote\Session\SessionFactoryInterface) {
-        return null;
-      }
-      /** @var array<string, mixed> $parameters */
-      $this->sessionManager = new \Quiote\Session\SessionManager(
-        $factory->createPersistence($this, $parameters),
-        $parameters,
-      );
-    } catch (\Throwable $e) {
-      \Quiote\Logging\Log::for($this)->error(
-        '[Context.getSessionManager] could not build the session backend: ' . $e->getMessage(),
-      );
-
-      return null;
-    }
-
-    return $this->sessionManager;
-  }
-
-  /**
-   * Install the session manager directly, bypassing the `session` factory slot.
-   *
-   * The slot is how an application configures its session backend; this is for
-   * callers that already hold a built manager -- tests exercising cookie-name or
-   * regeneration behaviour, and embedding code that constructs the backend
-   * itself. Pass null to drop it so the next getSessionManager() rebuilds from
-   * the slot.
-   *
-   * @param      ?\Quiote\Session\SessionManager $manager
-   * @return     void
-   * @since      3.0.3
-   */
-  public function setSessionManager(?\Quiote\Session\SessionManager $manager): void
-  {
-    $this->sessionManager = $manager;
-  }
-
-  /**
-   * Install the session bag for this request, replacing the lazy default.
-   *
-   * Pass null to drop it, which forces the next getSessionBag() to rebuild --
-   * necessary whenever the underlying storage is replaced, or a stale bag would
-   * keep pointing at the previous instance.
-   *
-   * @param      ?\Quiote\Session\SessionBagInterface $bag
-   * @return     void
-   * @since      2.1.0
-   */
-  public function setSessionBag(?\Quiote\Session\SessionBagInterface $bag): void
-  {
-    $this->sessionBag = $bag;
-    if ($bag !== null) {
-      $this->registerCoreService('sessionBag', $bag, Container::SCOPE_REQUEST);
-    }
-  }
 
   /**
    * Retrieve the translation manager.

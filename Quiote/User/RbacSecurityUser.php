@@ -185,7 +185,7 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 			return;
 		}
 
-		$storedRolesRaw = $this->getContext()->getSessionBag()->get(self::ROLES_NAMESPACE);
+		$storedRolesRaw = $this->getContext()->getContainer()->get(\Quiote\Session\SessionBagInterface::class)->get(self::ROLES_NAMESPACE);
 		$this->roles = is_array($storedRolesRaw) ? array_values(array_filter($storedRolesRaw, 'is_string')) : [];
 
 		if(!$this->authenticated) {
@@ -363,7 +363,7 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 			$logger->debug('RbacSecurityUser storing roles', ['class' => static::class, 'namespace' => self::ROLES_NAMESPACE, 'roles_count' => count($this->roles ?? [])]);
 		}
 
-		$bag = $this->getContext()->getSessionBag();
+		$bag = $this->getContext()->getContainer()->get(\Quiote\Session\SessionBagInterface::class);
 
 		// Mirror of the credentials guard in SecurityUser::shutdown(): never
 		// overwrite a stored role set with an empty one while still claiming to

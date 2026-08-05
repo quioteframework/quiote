@@ -24,7 +24,7 @@ final readonly class SessionTokenStorage implements TokenStorageInterface
 
     private function bag(): SessionBagInterface
     {
-        return $this->context->getSessionBag();
+        return $this->context->getContainer()->get(\Quiote\Session\SessionBagInterface::class);
     }
 
     public function getToken(string $tokenId): string

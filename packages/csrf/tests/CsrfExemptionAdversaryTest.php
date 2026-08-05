@@ -56,7 +56,7 @@ class CsrfExemptionAdversaryTest extends UnitTestCase
         parent::setUp();
         $this->originalCsrfEnabled = Config::getBool('core.csrf.enabled');
         Config::set('core.csrf.enabled', true);
-        $this->getContext()->setSessionBag(new InMemorySessionBag());
+        $this->getContext()->getContainer()->set(\Quiote\Session\SessionBagInterface::class, new InMemorySessionBag(), \Quiote\DI\Container::SCOPE_REQUEST);
         // The production path: a real session manager, so the session cookie under
         // test is the QSID one a deployment actually issues.
         $this->installTestSessionManager();
@@ -68,8 +68,8 @@ class CsrfExemptionAdversaryTest extends UnitTestCase
         Config::set('core.csrf.enabled', $this->originalCsrfEnabled);
         CsrfValidationMiddleware::resetWarnings();
         try {
-            $this->getContext()->setSessionBag(null);
-            $this->getContext()->setSessionManager(null);
+            $this->getContext()->getContainer()->setFactory(\Quiote\Session\SessionBagInterface::class, static fn(): \Quiote\Session\SessionBagInterface => new \Quiote\Session\NullSessionBag(), \Quiote\DI\Container::SCOPE_REQUEST);
+            $this->getContext()->getContainer()->unset(\Quiote\Session\SessionManager::class);
         } catch (\Throwable $e) {
             // Session state left installed changes cookie-name resolution for every later test in
             // this process, so a failed teardown is worth naming rather than hiding.

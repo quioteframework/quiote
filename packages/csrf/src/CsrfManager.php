@@ -68,7 +68,7 @@ final readonly class CsrfManager
      */
     public function sessionCookieName(): string
     {
-        $manager = $this->context->getSessionManager();
+        $manager = $this->context->getContainer()->tryGet(\Quiote\Session\SessionManager::class);
         if ($manager !== null) {
             return $manager->getCookieName();
         }
@@ -106,7 +106,7 @@ final readonly class CsrfManager
      */
     public function hasSessionMechanism(): bool
     {
-        return $this->context->getSessionManager() !== null;
+        return $this->context->getContainer()->tryGet(\Quiote\Session\SessionManager::class) !== null;
     }
 
     /**

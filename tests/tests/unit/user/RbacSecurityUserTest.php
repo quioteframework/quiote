@@ -103,7 +103,7 @@ class RbacSecurityUserTest extends UnitTestCase
 
 		// A session that actually retains data: no middleware runs in a unit
 		// test, so the context would otherwise answer a NullSessionBag.
-		$context->setSessionBag(new InMemorySessionBag());
+		$context->getContainer()->set(\Quiote\Session\SessionBagInterface::class, new InMemorySessionBag(), \Quiote\DI\Container::SCOPE_REQUEST);
 
 		$u = new SimpleRbacSecurityUser();
 		$u->initialize($context);

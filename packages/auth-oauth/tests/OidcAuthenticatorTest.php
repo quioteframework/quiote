@@ -35,7 +35,7 @@ class OidcAuthenticatorTest extends UnitTestCase
 	{
 		parent::setUp();
 		$ctx = $this->getContext();
-		$ctx->setSessionBag(new InMemorySessionBag());
+		$ctx->getContainer()->set(\Quiote\Session\SessionBagInterface::class, new InMemorySessionBag(), \Quiote\DI\Container::SCOPE_REQUEST);
 	}
 
 	private function oidcClientReturningIdToken(string $idToken): OidcClient

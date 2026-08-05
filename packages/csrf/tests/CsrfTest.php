@@ -72,7 +72,7 @@ class CsrfTest extends UnitTestCase
         // would never persist. Inject a simple in-memory storage so the manager can
         // store and retrieve tokens within the test process.
         $ctx = $this->getContext();
-        $ctx->setSessionBag(new InMemorySessionBag());
+        $ctx->getContainer()->set(\Quiote\Session\SessionBagInterface::class, new InMemorySessionBag(), \Quiote\DI\Container::SCOPE_REQUEST);
 
         // Every test in this file used to run with no session manager at all, so
         // CsrfManager::sessionCookieName() took its legacy ext/session fallback and
@@ -89,10 +89,10 @@ class CsrfTest extends UnitTestCase
         CsrfValidationMiddleware::resetWarnings();
         try {
             $ctx = $this->getContext();
-            $ctx->setSessionBag(null);
+            $ctx->getContainer()->setFactory(\Quiote\Session\SessionBagInterface::class, static fn(): \Quiote\Session\SessionBagInterface => new \Quiote\Session\NullSessionBag(), \Quiote\DI\Container::SCOPE_REQUEST);
             // A manager installed in setUp() would otherwise change
             // cookie-name resolution for every later test in the process.
-            $ctx->setSessionManager(null);
+            $ctx->getContainer()->unset(\Quiote\Session\SessionManager::class);
         } catch (\Throwable $e) {
             // Session state left installed changes cookie-name resolution for every later test in
             // this process, so a failed teardown is worth naming rather than hiding.
@@ -330,7 +330,7 @@ class CsrfTest extends UnitTestCase
     {
         // No session factory slot => the legacy storage/native-$_SESSION path, where
         // ext/session genuinely owns the cookie.
-        $this->getContext()->setSessionManager(null);
+        $this->getContext()->getContainer()->unset(\Quiote\Session\SessionManager::class);
         $this->assertFalse($this->manager()->hasSessionMechanism());
         $this->assertSame(session_name(), $this->manager()->sessionCookieName());
     }

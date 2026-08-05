@@ -32,7 +32,7 @@ class SecurityUserDirtyTrackingTest extends UnitTestCase
     private function contextWithBag(string $name, \Quiote\Session\SessionBagInterface $bag): Context
     {
         $context = Context::getInstance($name);
-        $context->setSessionBag($bag);
+        $context->getContainer()->set(\Quiote\Session\SessionBagInterface::class, $bag, \Quiote\DI\Container::SCOPE_REQUEST);
 
         return $context;
     }

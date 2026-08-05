@@ -53,7 +53,7 @@ class SessionMiddleware implements MiddlewareInterface
         // which runs earlier (before: SessionMiddleware::class). Both are
         // honored so neither is silently ignored.
         $sessionless = (bool) ($request->getAttribute('jwt.skip_session') || $request->getAttribute('auth.sessionless'));
-        $manager = $sessionless ? null : $context->getSessionManager();
+        $manager = $sessionless ? null : $context->getContainer()->tryGet(\Quiote\Session\SessionManager::class);
 
         if ($manager === null) {
             try {
@@ -78,7 +78,7 @@ class SessionMiddleware implements MiddlewareInterface
         }
 
         $session = $manager->startFromRequest($request);
-        $context->setSessionBag(new QuioteSessionBag($manager, $session, $request));
+        $context->getContainer()->set(\Quiote\Session\SessionBagInterface::class, new QuioteSessionBag($manager, $session, $request), \Quiote\DI\Container::SCOPE_REQUEST);
 
         try {
             $response = $handler->handle($request);

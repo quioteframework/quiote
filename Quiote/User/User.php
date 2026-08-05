@@ -195,7 +195,7 @@ class User extends AttributeHolder implements ResetInterface, \Quiote\ContextCom
 		$this->setParameters($parameters);
 
 		// read data from storage
-		$this->attributes = $this->normalizeStoredAttributes($context->getSessionBag()->get($this->storageNamespace));
+		$this->attributes = $this->normalizeStoredAttributes($context->getContainer()->get(\Quiote\Session\SessionBagInterface::class)->get($this->storageNamespace));
 
 		// Rehydrating from storage is not a mutation. Last statement on
 		// purpose, so a subclass calling mutators before delegating up here
@@ -281,7 +281,7 @@ class User extends AttributeHolder implements ResetInterface, \Quiote\ContextCom
 			$this->markClean();
 			return;
 		}
-		$this->getContext()->getSessionBag()->set($this->storageNamespace, $this->attributes);
+		$this->getContext()->getContainer()->get(\Quiote\Session\SessionBagInterface::class)->set($this->storageNamespace, $this->attributes);
 		// Only after a successful store: if it threw, the state is still
 		// unpersisted and a later flush should retry rather than drop it.
 		$this->markClean();
@@ -297,7 +297,7 @@ class User extends AttributeHolder implements ResetInterface, \Quiote\ContextCom
 	public function persistAttributesImmediate(?array $onlyKeys = null): void
 	{
 		try {
-			$bag = $this->getContext()->getSessionBag();
+			$bag = $this->getContext()->getContainer()->get(\Quiote\Session\SessionBagInterface::class);
 			// Start from existing persisted structure (namespaced attributes map)
 			$data = $bag->get($this->storageNamespace);
 			if (!is_array($data)) {

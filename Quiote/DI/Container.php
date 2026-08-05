@@ -67,6 +67,24 @@ class Container implements ContainerInterface
         unset($this->singletonResolved[$id], $this->requestResolved[$id]);
     }
 
+    /**
+     * Forget a binding, and any instance already resolved from it.
+     *
+     * The counterpart to {@see set()}, and needed because binding null is not the same thing: an id
+     * naming a class promises an instance of it, so `set($id, null)` is refused on the way out rather
+     * than quietly answering null. "There is no session manager configured" has to be the *absence*
+     * of a binding, which is what {@see tryGet()} answers null for.
+     *
+     * Mostly a test concern -- `Context::setSessionManager(null)` used to be how a suite dropped one
+     * -- but it is the honest primitive for it either way.
+     *
+     * @since      4.0.0
+     */
+    public function unset(string $id): void
+    {
+        unset($this->definitions[$id], $this->singletonResolved[$id], $this->requestResolved[$id], $this->aliases[$id]);
+    }
+
     public function alias(string $abstract, string $concrete): void
     {
         $this->aliases[$abstract] = $concrete;
@@ -179,6 +197,14 @@ class Container implements ContainerInterface
      * PSR-18 client if it bound one" -- should ask with this instead, and say
      * something useful when the answer is no.
      *
+     * Carries {@see get()}'s conditional return type, so an optional dependency asked for by class
+     * name is typed too -- `?SessionManager` rather than `mixed`.
+     *
+     * @template T of object
+     * @param      string $id A class name, an interface name, or a role alias.
+     * @phpstan-param class-string<T>|string $id
+     * @return     mixed The resolved service, or null.
+     * @phpstan-return ($id is class-string<T> ? T|null : mixed)
      * @since      3.0.0
      */
     public function tryGet(string $id): mixed

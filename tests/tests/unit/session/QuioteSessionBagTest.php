@@ -143,7 +143,7 @@ class QuioteSessionBagTest extends UnitTestCase
 
             public function handle(\Psr\Http\Message\ServerRequestInterface $request): \Psr\Http\Message\ResponseInterface
             {
-                $this->seen = $this->context->getSessionBag();
+                $this->seen = $this->context->getContainer()->get(\Quiote\Session\SessionBagInterface::class);
 
                 return new \Nyholm\Psr7\Response();
             }
@@ -157,7 +157,7 @@ class QuioteSessionBagTest extends UnitTestCase
             'framework consumers must reach the same session as the middleware',
         );
 
-        $context->setSessionBag(null);
+        $context->getContainer()->setFactory(\Quiote\Session\SessionBagInterface::class, static fn(): \Quiote\Session\SessionBagInterface => new \Quiote\Session\NullSessionBag(), \Quiote\DI\Container::SCOPE_REQUEST);
     }
 
     /**
@@ -167,8 +167,8 @@ class QuioteSessionBagTest extends UnitTestCase
     public function testAContextWithNoSessionAnswersANullBag(): void
     {
         $context = \Quiote\Context::getInstance('user-dirty-test::tests-anonymous');
-        $context->setSessionBag(null);
+        $context->getContainer()->setFactory(\Quiote\Session\SessionBagInterface::class, static fn(): \Quiote\Session\SessionBagInterface => new \Quiote\Session\NullSessionBag(), \Quiote\DI\Container::SCOPE_REQUEST);
 
-        $this->assertInstanceOf(\Quiote\Session\NullSessionBag::class, $context->getSessionBag());
+        $this->assertInstanceOf(\Quiote\Session\NullSessionBag::class, $context->getContainer()->get(\Quiote\Session\SessionBagInterface::class));
     }
 }

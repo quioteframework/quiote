@@ -246,11 +246,19 @@ class ContextExtendedCoverageTest extends TestCase
         $ctx->reset();
         // After reset, request and user should be null until lazy accessed
         $ro = new ReflectionObject($ctx);
-        foreach (['request', 'user', 'sessionBag'] as $prop) {
+        foreach (['request', 'user'] as $prop) {
             $p = $ro->getProperty($prop);
 
             $this->assertNull($p->getValue($ctx), $prop . ' should be nulled by reset');
         }
+
+        // The session bag lives in the container now rather than in a property, so what reset() has to
+        // achieve is that the next read answers a fresh default rather than the previous request's bag.
+        $this->assertInstanceOf(
+            \Quiote\Session\NullSessionBag::class,
+            $ctx->getContainer()->get(\Quiote\Session\SessionBagInterface::class),
+            'the session bag should not survive the request boundary',
+        );
         if ($dbm) {
             $p = $ro->getProperty('databaseManager');
             // reset() intentionally keeps the databaseManager alive (calls

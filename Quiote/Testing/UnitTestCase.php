@@ -31,10 +31,10 @@ abstract class UnitTestCase extends PhpUnitTestCase implements IUnitTestCase
 	 * Install a real {@see \Quiote\Session\SessionManager} on this test's context,
 	 * backed by in-memory persistence.
 	 *
-	 * Exists because the default `testing` context declares no `session` factory
-	 * slot: getSessionManager() answers null there and getSessionBag() answers a
-	 * NullSessionBag. Anything whose behaviour depends on a session therefore runs
-	 * against a configuration no real application uses unless it asks for this.
+	 * Exists because the default `testing` context declares no `session` factory slot: nothing binds a
+	 * SessionManager there, so `tryGet()` answers null and the session bag stays the default
+	 * NullSessionBag. Anything whose behaviour depends on a session therefore runs against a
+	 * configuration no real application uses unless it asks for this.
 	 *
 	 * That gap was not hypothetical. Every CSRF test ran without a session manager,
 	 * so all of them took the legacy ext/session fallback in
@@ -43,9 +43,8 @@ abstract class UnitTestCase extends PhpUnitTestCase implements IUnitTestCase
 	 * suite. Use this, plus {@see assertSessionMechanismConfigured()}, in any suite
 	 * whose subject reads or writes a session.
 	 *
-	 * Dropped again by passing null to `Context::setSessionManager()`, which tests
-	 * should do in tearDown so the manager does not leak into later tests in the
-	 * same process.
+	 * Dropped again with `$context->getContainer()->unset(SessionManager::class)`, which tests should
+	 * do in tearDown so the manager does not leak into later tests in the same process.
 	 *
 	 * @param      array<string, mixed> $parameters Passed to the SessionManager constructor
 	 *             (`cookie_name`, `session_migration_grace_seconds`, ...). Defaults produce
@@ -56,7 +55,7 @@ abstract class UnitTestCase extends PhpUnitTestCase implements IUnitTestCase
 	protected function installTestSessionManager(array $parameters = []): \Quiote\Session\SessionManager
 	{
 		$manager = new \Quiote\Session\SessionManager(new \InMemorySessionPersistence(), $parameters);
-		$this->getContext()->setSessionManager($manager);
+		$this->getContext()->getContainer()->set(\Quiote\Session\SessionManager::class, $manager);
 
 		return $manager;
 	}
@@ -123,7 +122,7 @@ abstract class UnitTestCase extends PhpUnitTestCase implements IUnitTestCase
 	protected function assertSessionMechanismConfigured(): void
 	{
 		$this->assertNotNull(
-			$this->getContext()->getSessionManager(),
+			$this->getContext()->getContainer()->tryGet(\Quiote\Session\SessionManager::class),
 			'This suite depends on a session; without one it exercises the sessionless fallback path '
 			. 'instead of its subject and proves nothing. Call installTestSessionManager() in setUp(), '
 			. 'or configure a "session" factory slot for this context.'

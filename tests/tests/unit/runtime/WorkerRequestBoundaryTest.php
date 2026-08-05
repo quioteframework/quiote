@@ -47,8 +47,8 @@ class WorkerRequestBoundaryTest extends TestCase
     {
         parent::setUp();
         $this->context = Context::getInstance();
-        $this->context->setSessionManager(new SessionManager(new InMemorySessionPersistence()));
-        $this->context->setSessionBag(new InMemorySessionBag());
+        $this->context->getContainer()->set(\Quiote\Session\SessionManager::class, new SessionManager(new InMemorySessionPersistence()));
+        $this->context->getContainer()->set(\Quiote\Session\SessionBagInterface::class, new InMemorySessionBag(), \Quiote\DI\Container::SCOPE_REQUEST);
     }
 
     protected function tearDown(): void
@@ -60,7 +60,7 @@ class WorkerRequestBoundaryTest extends TestCase
             $this->context->reset();
         } catch (\Throwable) {
         }
-        $this->context->setSessionManager(null);
+        $this->context->getContainer()->unset(\Quiote\Session\SessionManager::class);
         LogContext::clear();
         parent::tearDown();
     }
@@ -161,7 +161,7 @@ class WorkerRequestBoundaryTest extends TestCase
         }
         $this->assertInstanceOf(
             \Quiote\Session\NullSessionBag::class,
-            $this->context->getSessionBag(),
+            $this->context->getContainer()->get(\Quiote\Session\SessionBagInterface::class),
             'the next request must not inherit the previous request\'s session bag: ' . $because
         );
     }

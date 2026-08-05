@@ -305,7 +305,7 @@ class ContextTest extends PhpUnitTestCase
 	public function testGetSessionBag(): void
 	{
 		$ctx = Context::getInstance();
-		$this->assertInstanceOf(\Quiote\Session\SessionBagInterface::class, $ctx->getSessionBag());
+		$this->assertInstanceOf(\Quiote\Session\SessionBagInterface::class, $ctx->getContainer()->get(\Quiote\Session\SessionBagInterface::class));
 	}
 
 	/**
@@ -323,7 +323,7 @@ class ContextTest extends PhpUnitTestCase
 		$this->assertSame($ctx->getController(), $container->get($ctx->getController()::class));
 
 		$this->assertSame($ctx->getRouting(), $container->get('routing'));
-		$this->assertSame($ctx->getSessionBag(), $container->get('sessionBag'));
+		$this->assertSame($ctx->getContainer()->get(\Quiote\Session\SessionBagInterface::class), $container->get('sessionBag'));
 		$this->assertSame($ctx->getUser(), $container->get('user'));
 		$this->assertSame($ctx->getRequest(), $container->get('request'));
 	}
@@ -340,14 +340,14 @@ class ContextTest extends PhpUnitTestCase
 		$container = $ctx->getContainer();
 
 		$controllerBefore = $container->get('controller');
-		$bagBefore = $ctx->getSessionBag();
+		$bagBefore = $ctx->getContainer()->get(\Quiote\Session\SessionBagInterface::class);
 		$this->assertSame($bagBefore, $container->get('sessionBag'));
 
 		$ctx->reset();
 
 		$this->assertSame($controllerBefore, $container->get('controller'), 'singleton-scoped services must survive reset()');
 
-		$bagAfter = $ctx->getSessionBag();
+		$bagAfter = $ctx->getContainer()->get(\Quiote\Session\SessionBagInterface::class);
 		$this->assertNotSame($bagBefore, $bagAfter, 'the session bag must not survive reset()');
 		$this->assertSame($bagAfter, $container->get('sessionBag'), 'container must reflect the new bag');
 	}

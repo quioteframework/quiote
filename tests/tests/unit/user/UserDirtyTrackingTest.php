@@ -81,7 +81,7 @@ class UserDirtyTrackingTest extends UnitTestCase
     {
         $context = Context::getInstance('user-dirty-test::tests-anonymous');
         $bag = new InMemorySessionBag();
-        $context->setSessionBag($bag);
+        $context->getContainer()->set(\Quiote\Session\SessionBagInterface::class, $bag, \Quiote\DI\Container::SCOPE_REQUEST);
 
         $user = new User();
         $user->initialize($context);
@@ -96,7 +96,7 @@ class UserDirtyTrackingTest extends UnitTestCase
     {
         $context = Context::getInstance('user-dirty-test::tests-anonymous');
         $bag = new InMemorySessionBag();
-        $context->setSessionBag($bag);
+        $context->getContainer()->set(\Quiote\Session\SessionBagInterface::class, $bag, \Quiote\DI\Container::SCOPE_REQUEST);
 
         $user = new User();
         $user->initialize($context);
@@ -112,7 +112,7 @@ class UserDirtyTrackingTest extends UnitTestCase
     {
         $context = Context::getInstance('user-dirty-test::tests-anonymous');
         $bag = new InMemorySessionBag();
-        $context->setSessionBag($bag);
+        $context->getContainer()->set(\Quiote\Session\SessionBagInterface::class, $bag, \Quiote\DI\Container::SCOPE_REQUEST);
 
         $user = new User();
         $user->initialize($context);
@@ -132,7 +132,7 @@ class UserDirtyTrackingTest extends UnitTestCase
     public function testShutdownDoesNotMarkCleanWhenTheStoreThrows(): void
     {
         $context = Context::getInstance('user-dirty-test::tests-anonymous');
-        $context->setSessionBag(new ThrowingSessionBag());
+        $context->getContainer()->set(\Quiote\Session\SessionBagInterface::class, new ThrowingSessionBag(), \Quiote\DI\Container::SCOPE_REQUEST);
 
         $user = new User();
         $user->initialize($context);

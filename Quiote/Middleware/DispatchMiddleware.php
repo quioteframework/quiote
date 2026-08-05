@@ -91,7 +91,7 @@ class DispatchMiddleware implements MiddlewareInterface
                 return null;
             }
             // '' is what NullSessionBag answers, i.e. "no session installed".
-            $sessionId = $this->controller->getContext()->getSessionBag()->getId();
+            $sessionId = $this->controller->getContext()->getContainer()->get(\Quiote\Session\SessionBagInterface::class)->getId();
             if ($sessionId === '') {
                 // Fail closed: no identity handle means no way to keep this
                 // user's output out of another user's response.

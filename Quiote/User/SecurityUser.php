@@ -219,7 +219,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 		parent::initialize($context, $parameters);
 
 		// read data from storage
-		$bag = $this->getContext()->getSessionBag();
+		$bag = $this->getContext()->getContainer()->get(\Quiote\Session\SessionBagInterface::class);
 
 		$storedAuth = $bag->get(self::AUTH_NAMESPACE);
 		$storedCreds = $bag->get(self::CREDENTIAL_NAMESPACE);
@@ -297,7 +297,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 		$this->tokenDerived = $tokenDerived;
 		$this->dirty = true;
 		try {
-			$bag = $this->getContext()->getSessionBag();
+			$bag = $this->getContext()->getContainer()->get(\Quiote\Session\SessionBagInterface::class);
 			// A token-authenticated request typically carries no session cookie.
 			// Writing this marker unconditionally would manufacture a session --
 			// and a Set-Cookie -- for a stateless API client on every call.
@@ -332,7 +332,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 		}
 		$ns = $this->getDefaultNamespace();
 		try {
-			$stored = $this->getContext()->getSessionBag()->get($this->storageNamespace);
+			$stored = $this->getContext()->getContainer()->get(\Quiote\Session\SessionBagInterface::class)->get($this->storageNamespace);
 		} catch(\Throwable) {
 			return;
 		}
@@ -398,7 +398,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 			// Note this reaches $_SESSION only -- the session is written out
 			// once, at the request boundary.
 			try {
-				$bag = $this->getContext()->getSessionBag();
+				$bag = $this->getContext()->getContainer()->get(\Quiote\Session\SessionBagInterface::class);
 				// Regenerate the session ID on the unauthenticated -> authenticated
 				// transition to defeat session fixation: any ID an attacker may have
 				// fixed in the victim's browser before login is invalidated. Only do
@@ -447,7 +447,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 			$reqUri = $_SERVER['REQUEST_URI'] ?? 'unknown';
 			$sid = 'no-sid';
 			try {
-				$tmp = $this->getContext()->getSessionBag()->getId();
+				$tmp = $this->getContext()->getContainer()->get(\Quiote\Session\SessionBagInterface::class)->getId();
 				if($tmp !== '') { $sid = $tmp; }
 			} catch(\Throwable $e) {
 				// Diagnostic only; $sid keeps its placeholder.
@@ -473,7 +473,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 		$this->tokenDerived = false;
 		$this->dirty = true;
 		try {
-			$bag = $this->getContext()->getSessionBag();
+			$bag = $this->getContext()->getContainer()->get(\Quiote\Session\SessionBagInterface::class);
 			// A logout on a client that has no session must not manufacture one
 			// just to record "not authenticated" -- that is the default state.
 			if(!$bag->exists()) {
@@ -554,7 +554,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 			$logger->debug('[SecurityUser] Shutdown storing authenticated status', ['class' => static::class, 'namespace' => self::AUTH_NAMESPACE]);
 			$logger->debug('[SecurityUser] Shutdown storing credentials', ['class' => static::class, 'namespace' => self::CREDENTIAL_NAMESPACE]);
 		}
-		$bag = $this->getContext()->getSessionBag();
+		$bag = $this->getContext()->getContainer()->get(\Quiote\Session\SessionBagInterface::class);
 
 		// If this instance is unauthenticated but storage already has AUTH=true, avoid clobbering (stale recreated user)
 		//

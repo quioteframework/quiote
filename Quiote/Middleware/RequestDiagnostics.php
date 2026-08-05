@@ -22,7 +22,7 @@ trait RequestDiagnostics
     private function diagnosticSessionId(): string
     {
         try {
-            $sid = $this->controller->getContext()->getSessionBag()->getId();
+            $sid = $this->controller->getContext()->getContainer()->get(\Quiote\Session\SessionBagInterface::class)->getId();
             if ($sid !== '') {
                 return $sid;
             }

@@ -42,7 +42,7 @@ final class CsrfPipelineIntegrationTest extends TestCase
         (new CsrfPlugin())->register(new PluginRegistrar('quiote/csrf'));
 
         $ctx = $this->context();
-        $ctx->setSessionBag(new InMemorySessionBag());
+        $ctx->getContainer()->set(\Quiote\Session\SessionBagInterface::class, new InMemorySessionBag(), \Quiote\DI\Container::SCOPE_REQUEST);
     }
 
     private function context(): Context

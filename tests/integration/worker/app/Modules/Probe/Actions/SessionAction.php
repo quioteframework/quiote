@@ -19,7 +19,7 @@ final class SessionAction extends Action
 		if ($context === null) {
 			return 'Success';
 		}
-		$bag = $context->getSessionBag();
+		$bag = $context->getContainer()->get(\Quiote\Session\SessionBagInterface::class);
 		$hits = $bag->get('probe_hits');
 		$hits = is_numeric($hits) ? (int) $hits + 1 : 1;
 		$bag->set('probe_hits', $hits);
