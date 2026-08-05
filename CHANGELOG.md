@@ -1,3 +1,13 @@
+## [4.0.0-RC2] - 2026-08-05
+
+### 🐛 Bug Fixes
+
+- *(packages)* [**breaking**] Require the framework by version, not by "*"
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* Regenerate the 4.0.0-RC1 changelog section
+
 ## [4.0.0-RC1] - 2026-08-05
 
 ### 🚀 Features
@@ -54,7 +64,6 @@
 - *(rector)* Never add a constructor to a class other classes extend
 - *(renderer)* Call the assign resolvers in the Twig and PHPTAL renderers
 - *(rector)* Stop reporting the methods Context still declares as residue
-- *(packages)* [**breaking**] Require the framework by version, not by "*"
 
 ### 💼 Other
 

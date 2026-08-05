@@ -8,13 +8,17 @@ This file covers each release that needs migration work, newest first.
 
 # Migrating to Quiote 4.0
 
-**4.0.0-RC1.** The breaking changes below are complete and the framework's suite is green
+**4.0.0-RC2.** The breaking changes below are complete and the framework's suite is green
 against them; the release candidate is for finding what this document does not cover yet.
-Install it explicitly — a release candidate is not what a default stability resolves to:
+Install it explicitly — a release candidate is not what a default stability resolves to, and
+take the first-party packages with it:
 
 ```
-composer require quioteframework/quiote:^4.0@RC
+composer require quioteframework/quiote:^4.0@RC quioteframework/csrf:^4.0@RC
 ```
+
+RC1 shipped without the constraint that makes a mismatched package a resolution error rather
+than a runtime one; see [the next section](#upgrade-the-first-party-packages-in-lockstep-with-the-framework).
 
 4.0 breaks `Context` into the collaborators it was standing in for, and its accessors are
 deleted rather than deprecated — an application reaching a service through the context has
@@ -42,10 +46,11 @@ its own Composer package — so an application that upgrades `quioteframework/qu
 that surfaces first because `Quiote::bootstrap()` registers its plugin unconditionally, so the failure
 is not limited to the requests that use the feature.
 
-Every first-party package now requires `"quioteframework/quiote": "^4.0"` instead of `"*"`, so
-Composer refuses the combination rather than installing it. That guard only exists from 4.0 onward:
-the packages already installed with `"*"` will happily pair with 4.0, and this is what that looks
-like when they do.
+From 4.0.0-RC2 every first-party package requires `"quioteframework/quiote": "^4.0"` instead of
+`"*"`, so Composer refuses the combination rather than installing it. Two limits on that guard:
+4.0.0-RC1 shipped without it, and no constraint published in 3.x can be changed retroactively — a
+package already installed with `"*"` pairs happily with 4.0, and this is what that looks like when
+it does.
 
 **Upgrade them together.** Every package is tagged with the same version as the framework:
 
