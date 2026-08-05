@@ -60,7 +60,7 @@ final class QueueDbPlugin implements PluginInterface
     {
         $connection = Config::getString('queue.db.connection', 'main');
         $context = Context::getInstance(Config::getString('core.default_context', 'web'));
-        $databaseManager = $context->getDatabaseManager();
+        $databaseManager = $context->getContainer()->tryGet(\Quiote\Database\DatabaseManager::class);
         if ($databaseManager === null) {
             throw new RuntimeException('quioteframework/queue-db requires a DatabaseManager on the current Context; is databases.xml configured?');
         }

@@ -79,7 +79,7 @@ abstract class UnitTestCase extends PhpUnitTestCase implements IUnitTestCase
 	protected function installTestTranslationManager(array $parameters = []): \Quiote\Translation\TranslationManager
 	{
 		$context = $this->getContext();
-		$existing = $context->getTranslationManager();
+		$existing = $context->getContainer()->tryGet(\Quiote\Translation\TranslationManager::class);
 		if ($existing !== null) {
 			return $existing;
 		}

@@ -526,7 +526,7 @@ class DispatchMiddleware implements MiddlewareInterface
     private function currentCacheLocale(): ?string
     {
         try {
-            return $this->controller->getContext()->getTranslationManager()?->getCurrentLocaleIdentifier();
+            return $this->controller->getContext()->getContainer()->tryGet(\Quiote\Translation\TranslationManager::class)?->getCurrentLocaleIdentifier();
         } catch (\Throwable) {
             return null;
         }

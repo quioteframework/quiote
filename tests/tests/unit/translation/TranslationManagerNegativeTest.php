@@ -26,7 +26,7 @@ class TranslationManagerNegativeTest extends UnitTestCase
         $this->previousUseTranslation = Config::get('core.use_translation');
         Config::set('core.use_translation', true, true);
         $ctx = Context::getInstance();
-        $tm = $ctx->getTranslationManager();
+        $tm = $ctx->getContainer()->tryGet(\Quiote\Translation\TranslationManager::class);
         if ($tm === null) {
             $this->installedManager = true;
             $tm = $this->installTestTranslationManager();

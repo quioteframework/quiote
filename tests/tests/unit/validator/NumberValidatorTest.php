@@ -16,7 +16,7 @@ class NumberValidatorTest extends UnitTestCase
 	{
 		$ctx = $this->getContext();
 		// Ensure translation manager is initialized so numeric formatting side paths don't fail later.
-		$tm = $ctx->getTranslationManager();
+		$tm = $ctx->getContainer()->tryGet(\Quiote\Translation\TranslationManager::class);
 		if($tm === null) {
 			$tm = $this->installTestTranslationManager();
 			$tm->startup();

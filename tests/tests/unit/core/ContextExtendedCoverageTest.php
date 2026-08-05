@@ -237,7 +237,7 @@ class ContextExtendedCoverageTest extends TestCase
         $user = $ctx->getUser();
         $dbm = null;
         if (Config::getBool('core.use_database', false)) {
-            $dbm = $ctx->getDatabaseManager();
+            $dbm = $ctx->getContainer()->tryGet(\Quiote\Database\DatabaseManager::class);
         }
         // The declaration the post-reset lazy recreation rebuilds from must be present.
         $definitions = (new ReflectionObject($ctx))->getProperty('factoryDefinitions')->getValue($ctx);
@@ -327,7 +327,7 @@ class ContextExtendedCoverageTest extends TestCase
         $this->injectLogger($ctx);
         $previousUseTranslation = Config::get('core.use_translation');
         Config::set('core.use_translation', true, true);
-        $tm = $ctx->getTranslationManager();
+        $tm = $ctx->getContainer()->tryGet(\Quiote\Translation\TranslationManager::class);
         if ($tm === null) {
             // An on-demand slot is a transient container binding now, so arranging one is a binding
             // rather than a factory-info write.
@@ -493,7 +493,7 @@ class ContextExtendedCoverageTest extends TestCase
         $ro = new ReflectionObject($ctx);
         // Ensure translation disabled to assert null return
         Config::set('core.use_translation', false);
-        $this->assertNull($ctx->getTranslationManager(), 'Translation manager should be null when translations disabled');
+        $this->assertNull($ctx->getContainer()->tryGet(\Quiote\Translation\TranslationManager::class), 'Translation manager should be null when translations disabled');
         // Enable translations and synthesize factory info to simulate enabled environment
         Config::set('core.use_translation', true);
         // Enable logging-gated paths for this reset coverage test.

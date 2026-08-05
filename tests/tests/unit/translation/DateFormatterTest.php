@@ -22,7 +22,7 @@ class DateFormatterTest extends UnitTestCase
         ConfigCache::clear();
         Config::set('core.use_translation', true, true);
         $ctx = Context::getInstance();
-        $tm = $ctx->getTranslationManager();
+        $tm = $ctx->getContainer()->tryGet(\Quiote\Translation\TranslationManager::class);
         if ($tm === null) {
             $tm = $this->installTestTranslationManager();
             $tm->startup();
@@ -194,8 +194,10 @@ class DateFormatterTest extends UnitTestCase
 
     public function testTranslateThrowsWhenTranslationManagerUnavailable(): void
     {
+        // Reached through the container now, and an unconfigured translation manager is the absence of
+        // a binding rather than a null return.
         $ctx = $this->createStub(Context::class);
-        $ctx->method('getTranslationManager')->willReturn(null);
+        $ctx->method('getContainer')->willReturn(new \Quiote\DI\Container());
 
         $df = new DateFormatter();
         $df->initialize($ctx, ['type' => 'date', 'format' => 'short', 'translation_domain' => 'dates']);

@@ -19,7 +19,7 @@ class DatabaseManagerTest extends UnitTestCase
 		parent::setUp();
 		
 		$context = $this->getContext();
-		$dbm = $context->getDatabaseManager();
+		$dbm = $context->getContainer()->tryGet(\Quiote\Database\DatabaseManager::class);
 		$this->assertNotNull($dbm, 'core.use_database is expected to be on for this isolation environment');
 		$this->_dbm = $dbm;
 	}

@@ -25,13 +25,13 @@ class DateTimeValidatorTest extends UnitTestCase
             Config::set('core.cldr_dir', $cldrDir, true, true);
         }
         $context = $this->getContext();
-        if ($context->getTranslationManager() === null) {
+        if ($context->getContainer()->tryGet(\Quiote\Translation\TranslationManager::class) === null) {
             $translationManager = $this->installTestTranslationManager();
             $translationManager->startup();
         }
         $this->vm = $context->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         // Ensure a default locale has been instantiated so shortcut option identifiers work in downstream tests.
-        $context->getTranslationManager()?->getCurrentLocale();
+        $context->getContainer()->tryGet(\Quiote\Translation\TranslationManager::class)?->getCurrentLocale();
     }
 
     public function testParsesLegacyPatternAndExportsDateTime(): void

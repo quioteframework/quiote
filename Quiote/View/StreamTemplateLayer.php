@@ -64,7 +64,7 @@ class StreamTemplateLayer extends TemplateLayer
 			if($this->context === null) {
 				throw new QuioteException('Template layer has not been initialized: no Context is available.');
 			}
-			$translationManager = $this->context->getTranslationManager();
+			$translationManager = $this->context->getContainer()->tryGet(\Quiote\Translation\TranslationManager::class);
 			if($translationManager === null) {
 				throw new QuioteException('Translations are enabled but no TranslationManager is available.');
 			}

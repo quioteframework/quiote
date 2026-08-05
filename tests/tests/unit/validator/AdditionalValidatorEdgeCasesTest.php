@@ -39,7 +39,7 @@ class AdditionalValidatorEdgeCasesTest extends UnitTestCase
     protected function setUp(): void
     {
         $context = $this->getContext();
-        if ($context->getTranslationManager() === null) {
+        if ($context->getContainer()->tryGet(\Quiote\Translation\TranslationManager::class) === null) {
             $translationManager = $this->installTestTranslationManager();
             $translationManager->startup();
         }

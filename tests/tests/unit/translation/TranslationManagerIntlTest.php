@@ -27,7 +27,7 @@ class TranslationManagerIntlTest extends UnitTestCase
         Config::set('core.use_translation', true, true);
 
         $ctx = Context::getInstance();
-        $tm = $ctx->getTranslationManager();
+        $tm = $ctx->getContainer()->tryGet(\Quiote\Translation\TranslationManager::class);
         if ($tm === null) {
             // If factory info missing, register translation manager class
             $tm = $this->installTestTranslationManager();

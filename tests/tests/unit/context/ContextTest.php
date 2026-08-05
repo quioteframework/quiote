@@ -161,14 +161,14 @@ class ContextTest extends PhpUnitTestCase
 	{
 		$ctx = Context::getInstance();
 		$this->assertFalse(Config::getBool('core.use_database'));
-		$this->assertInstanceOf(\Quiote\Database\DatabaseManager::class, $ctx->getDatabaseManager());
+		$this->assertInstanceOf(\Quiote\Database\DatabaseManager::class, $ctx->getContainer()->tryGet(\Quiote\Database\DatabaseManager::class));
 	}
 
 	#[IsolationEnvironment('testing-use_database_on')]
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
 	public function testGetDatabaseManagerOn(): void
 	{
-		$this->assertInstanceOf(\Quiote\Database\DatabaseManager::class, Context::getInstance()->getDatabaseManager());
+		$this->assertInstanceOf(\Quiote\Database\DatabaseManager::class, Context::getInstance()->getContainer()->tryGet(\Quiote\Database\DatabaseManager::class));
 	}
 	
 	#[IsolationEnvironment('testing-use_security_off')]
@@ -190,14 +190,14 @@ class ContextTest extends PhpUnitTestCase
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
 	public function testGetTranslationManagerOff(): void
 	{
-		$this->assertNull(Context::getInstance()->getTranslationManager());
+		$this->assertNull(Context::getInstance()->getContainer()->tryGet(\Quiote\Translation\TranslationManager::class));
 	}
 
 	#[IsolationEnvironment('testing-use_logging_on')]
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
 	public function testGetTranslationManagerOn(): void
 	{
-		$this->assertInstanceOf(\Quiote\Translation\TranslationManager::class, Context::getInstance()->getTranslationManager());
+		$this->assertInstanceOf(\Quiote\Translation\TranslationManager::class, Context::getInstance()->getContainer()->tryGet(\Quiote\Translation\TranslationManager::class));
 	}
 
 

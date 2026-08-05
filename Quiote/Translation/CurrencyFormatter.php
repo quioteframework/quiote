@@ -120,7 +120,7 @@ class CurrencyFormatter extends DecimalFormatter implements ITranslator, ResetIn
 		if($context === null) {
 			throw new \LogicException('CurrencyFormatter::translate() called before initialize().');
 		}
-		$translationManager = $context->getTranslationManager();
+		$translationManager = $context->getContainer()->tryGet(\Quiote\Translation\TranslationManager::class);
 		if($translationManager === null) {
 			throw new \LogicException('CurrencyFormatter::translate() called without an active TranslationManager.');
 		}

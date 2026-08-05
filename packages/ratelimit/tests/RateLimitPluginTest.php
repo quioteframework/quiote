@@ -79,7 +79,7 @@ final class RateLimitPluginTest extends TestCase
         }
 
         $context = Context::getInstance(Config::getString('core.default_context', 'web'));
-        $manager = $context->getDatabaseManager();
+        $manager = $context->getContainer()->tryGet(\Quiote\Database\DatabaseManager::class);
         if ($manager === null) {
             $this->markTestSkipped('The test context has no DatabaseManager to register a connection on.');
         }

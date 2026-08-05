@@ -209,6 +209,15 @@ class Container implements ContainerInterface
      */
     public function tryGet(string $id): mixed
     {
+        // has(), not a try/catch around get(): an unregistered *interface* cannot be autowired and so
+        // came back null, but an unregistered concrete class with no required constructor arguments was
+        // silently fabricated -- a brand-new, uninitialized TranslationManager with no locales loaded,
+        // answering an optional dependency that nobody configured. "Not bound" has to mean absent, or
+        // every caller of this method has to know which of the two shapes it asked for.
+        if (!$this->has($id)) {
+            return null;
+        }
+
         try {
             return $this->get($id);
         } catch (\Throwable) {

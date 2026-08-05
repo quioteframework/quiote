@@ -781,7 +781,7 @@ abstract class Validator extends ParameterHolder implements ResetInterface, Vali
 		$error = $this->getErrorMessage($index);
 
 		if($this->hasParameter('translation_domain')) {
-			$tm = $this->getContext()->getTranslationManager();
+			$tm = $this->getContext()->getContainer()->tryGet(\Quiote\Translation\TranslationManager::class);
 			if ($tm === null) {
 				throw new ConfigurationException('Validator "' . ($this->name ?? '?') . '" specifies a translation_domain but translations are not enabled (core.use_translation).');
 			}

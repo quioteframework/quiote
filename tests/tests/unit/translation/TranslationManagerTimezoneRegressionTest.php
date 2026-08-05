@@ -20,7 +20,7 @@ class TranslationManagerTimezoneRegressionTest extends UnitTestCase
         ConfigCache::clear();
         Config::set('core.use_translation', true, true);
         $ctx = Context::getInstance();
-        $tm = $ctx->getTranslationManager();
+        $tm = $ctx->getContainer()->tryGet(\Quiote\Translation\TranslationManager::class);
         if($tm === null) {
             $tm = $this->installTestTranslationManager();
             $tm->startup();

@@ -598,16 +598,6 @@ class Context implements \Stringable, ResetInterface, ContextInterface
   }
 
 
-  /**
-   * Retrieve the database manager.
-   * @return     ?\Quiote\Database\DatabaseManager The current DatabaseManager instance
-   *                                       or null if database support is disabled.
-   * @since      1.0.0
-   */
-  public function getDatabaseManager()
-  {
-    return $this->databaseManager;
-  }
 
   /**
    * Retrieve the Context instance.
@@ -1372,21 +1362,6 @@ class Context implements \Stringable, ResetInterface, ContextInterface
 
 
 
-  /**
-   * Retrieve the translation manager.
-   * @return     ?TranslationManager The current TranslationManager
-   *                                          implementation instance or null if
-   *                                          translations are disabled.
-   * @since      1.0.0
-   */
-  public function getTranslationManager()
-  {
-    // Check if translations are enabled at runtime
-    if (!Config::getBool("core.use_translation", false)) {
-      return null;
-    }
-    return $this->translationManager;
-  }
 
   /**
    * Retrieve the user.

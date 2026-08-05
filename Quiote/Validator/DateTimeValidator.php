@@ -86,7 +86,7 @@ class DateTimeValidator extends Validator
 			throw new ConfigurationException('The datetime validator can only be used with use_translation on');
 		}
 
-		$tm = $this->getContext()->getTranslationManager();
+		$tm = $this->getContext()->getContainer()->tryGet(\Quiote\Translation\TranslationManager::class);
 		if($tm === null) {
 			// use_translation was just verified to be on above, but the
 			// TranslationManager itself is only handed out while that setting

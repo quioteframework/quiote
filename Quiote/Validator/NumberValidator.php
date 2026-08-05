@@ -51,7 +51,7 @@ class NumberValidator extends Validator
 				// actually being wired into the context (e.g. it was switched on
 				// after bootstrap). Guard against a null manager so we degrade to
 				// locale-less parsing instead of fataling on a null method call.
-				$tm = $this->getContext()->getTranslationManager();
+				$tm = $this->getContext()->getContainer()->tryGet(\Quiote\Translation\TranslationManager::class);
 				if($tm !== null) {
 					$inLocale = $this->getParameter('in_locale');
 					if($inLocale !== null && $inLocale !== '' && $inLocale !== false) {

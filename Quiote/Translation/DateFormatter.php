@@ -85,7 +85,7 @@ class DateFormatter implements ITranslator, ResetInterface
 
 		$pattern = $formatter->resolvedPattern;
 		if($formatter->customFormat && $formatter->translationDomain) {
-			$translationManager = $formatter->context->getTranslationManager();
+			$translationManager = $formatter->context->getContainer()->tryGet(\Quiote\Translation\TranslationManager::class);
 			if($translationManager === null) {
 				throw new QuioteException('Cannot translate date format: translations are disabled or the translation manager is unavailable.');
 			}
@@ -279,7 +279,7 @@ class DateFormatter implements ITranslator, ResetInterface
 	{
 		$tzId = $locale->getLocaleTimeZone();
 		if(!$tzId) {
-			$translationManager = $this->context->getTranslationManager();
+			$translationManager = $this->context->getContainer()->tryGet(\Quiote\Translation\TranslationManager::class);
 			$defaultTz = $translationManager !== null ? $translationManager->getDefaultTimeZone() : null;
 			$tzId = $defaultTz ? $defaultTz->getName() : date_default_timezone_get();
 		}

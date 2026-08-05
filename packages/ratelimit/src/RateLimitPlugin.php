@@ -45,16 +45,9 @@ final class RateLimitPlugin implements PluginInterface
         $registrar->attributedMiddleware(
             RateLimitMiddleware::class,
             static function (Context $context): RateLimitMiddleware {
-                $storage = $context->getContainer()->get(StorageInterface::class);
-                if (!$storage instanceof StorageInterface) {
-                    throw new \RuntimeException(sprintf(
-                        'The "%s" service must resolve to a %s, got %s.',
-                        StorageInterface::class,
-                        StorageInterface::class,
-                        get_debug_type($storage),
-                    ));
-                }
-                return new RateLimitMiddleware($storage);
+                // The container refuses a binding that is not an instance of the id asked for, so the
+                // guard this used to carry here is held one level down now.
+                return new RateLimitMiddleware($context->getContainer()->get(StorageInterface::class));
             },
         );
     }
@@ -110,7 +103,7 @@ final class RateLimitPlugin implements PluginInterface
     {
         $connectionName = Config::getString('ratelimit.pdo.connection', 'main');
         $context = Context::getInstance(Config::getString('core.default_context', 'web'));
-        $databaseManager = $context->getDatabaseManager();
+        $databaseManager = $context->getContainer()->tryGet(\Quiote\Database\DatabaseManager::class);
         if ($databaseManager === null) {
             throw new \RuntimeException(
                 'ratelimit.storage is "pdo" but the current Context has no DatabaseManager; is databases.xml configured?',

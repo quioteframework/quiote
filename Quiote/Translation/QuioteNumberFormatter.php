@@ -108,7 +108,7 @@ class QuioteNumberFormatter extends DecimalFormatter implements ITranslator, Res
 			}
 			
 			$context = $this->getContext();
-			$translationManager = $context !== null ? $context->getTranslationManager() : null;
+			$translationManager = $context?->getContainer()->tryGet(\Quiote\Translation\TranslationManager::class);
 			if($translationManager === null) {
 				throw new \Quiote\Exception\QuioteException('Cannot translate number format: translations are disabled or the translation manager is unavailable.');
 			}
