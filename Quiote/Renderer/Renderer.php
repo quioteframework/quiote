@@ -153,11 +153,20 @@ abstract class Renderer extends ParameterHolder implements ResetInterface
 	 * How to resolve one `assigns` entry, or null when the name means nothing here.
 	 *
 	 * The entry is a name from `output_types.*`: `'request' => 'req'` puts this request into a template
-	 * as `$req`. A Context getter is tried first -- `getCorrelationId()` for `correlation_id` -- and
-	 * then a container id, which is what the role names the configuration writes (`request`, `user`,
-	 * `routing`, `controller`) resolve through.
+	 * as `$req`. Three spellings are tried, because the configuration writes a role in snake_case while
+	 * the container binds it in camelCase, and a Context method is neither:
 	 *
-	 * A closure rather than a method name, because those two paths are not the same call.
+	 * 1. a Context method -- `correlation_id` reaching `getCorrelationId()`;
+	 * 2. the id as written -- `request`, `user`, `routing`, `controller` are bound under exactly that;
+	 * 3. the id camel-cased -- `translation_manager` reaching `translationManager`,
+	 *    `asset_registry` reaching `assetRegistry`.
+	 *
+	 * The third is not a nicety. `translation_manager` matched a Context accessor by name alone while
+	 * one existed, so an application's existing `assigns` kept working through spelling (1); without
+	 * (3) the same entry silently becomes a template variable nobody assigns, and the template sees
+	 * null on a line that used to hold the manager.
+	 *
+	 * A closure rather than a method name, because those paths are not the same call.
 	 *
 	 * @return     ?\Closure(): mixed
 	 * @since      4.0.0
@@ -174,12 +183,23 @@ abstract class Renderer extends ParameterHolder implements ResetInterface
 			return static fn(): mixed => $context->$getter();
 		}
 
-		// Role names as the configuration writes them: `request`, `user`, `routing`, `controller`.
-		if($context->getContainer()->has($item)) {
-			return static fn(): mixed => $context->getContainer()->get($item);
+		foreach([$item, self::camelCase($item)] as $id) {
+			if($context->getContainer()->has($id)) {
+				return static fn(): mixed => $context->getContainer()->get($id);
+			}
 		}
 
 		return null;
+	}
+
+	/**
+	 * A snake_case configuration name as the camelCase id the container binds a role under.
+	 *
+	 * @since      4.0.0
+	 */
+	private static function camelCase(string $name): string
+	{
+		return lcfirst(str_replace(' ', '', ucwords(str_replace('_', ' ', $name))));
 	}
 
 	/**

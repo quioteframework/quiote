@@ -110,5 +110,50 @@ class RendererTest extends UnitTestCase
 		$this->assertArrayHasKey('some_unknown_thing', $moreAssignNames);
 		$this->assertSame('unknownAlias', $moreAssignNames['some_unknown_thing']);
 	}
+
+	/**
+	 * A configuration writes a role in snake_case and the container binds it in camelCase, so the two
+	 * spellings have to meet somewhere. They used to meet by accident: `getTranslationManager` matched
+	 * `translation_manager` because PHP method names are case-insensitive. With the accessors gone, an
+	 * assign that does not resolve becomes a template variable nobody assigns -- the template reads
+	 * null on the line that held the manager, and nothing reports it.
+	 */
+	public function testSnakeCaseAssignsResolveToTheCamelCaseContainerRole(): void
+	{
+		$this->installTestTranslationManager();
+
+		$r = new TRTestSampleRenderer();
+		$r->initialize($this->getContext(), [
+			'assigns' => [
+				'translation_manager' => 'tm',
+				'asset_registry' => 'assets',
+			],
+		]);
+
+		$assigns = (new \ReflectionProperty(\Quiote\Renderer\Renderer::class, 'assigns'))->getValue($r);
+		self::assertIsArray($assigns);
+		$this->assertArrayHasKey('tm', $assigns, 'translation_manager must resolve, not fall through');
+		$this->assertArrayHasKey('assets', $assigns, 'asset_registry must resolve, not fall through');
+
+		$tm = $assigns['tm'];
+		$assetRegistry = $assigns['assets'];
+		self::assertInstanceOf(\Closure::class, $tm);
+		self::assertInstanceOf(\Closure::class, $assetRegistry);
+		$this->assertInstanceOf(\Quiote\Translation\TranslationManager::class, $tm());
+		$this->assertInstanceOf(\Quiote\Asset\AssetRegistry::class, $assetRegistry());
+	}
+
+	/**
+	 * A Context method still wins, and it is reached by the same snake_case spelling.
+	 */
+	public function testAContextMethodIsStillReachedBySnakeCaseName(): void
+	{
+		$r = new TRTestSampleRenderer();
+		$r->initialize($this->getContext(), ['assigns' => ['correlation_id' => 'rid']]);
+
+		$assigns = (new \ReflectionProperty(\Quiote\Renderer\Renderer::class, 'assigns'))->getValue($r);
+		self::assertIsArray($assigns);
+		$this->assertArrayHasKey('rid', $assigns);
+	}
 }
 ?>
