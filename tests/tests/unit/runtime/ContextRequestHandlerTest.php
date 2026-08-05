@@ -26,8 +26,8 @@ class ContextRequestHandlerTest extends PhpUnitTestCase
 	}
 
 	/**
-	 * Context::handle() always had this signature without declaring the interface, so anything
-	 * composing PSR-15 handlers had to take it on faith.
+	 * The context serves requests through a PSR-15 handler, so anything composing handlers can take
+	 * one straight from it.
 	 */
 	public function testTheHandlerIsARealPsr15RequestHandler(): void
 	{
@@ -41,12 +41,12 @@ class ContextRequestHandlerTest extends PhpUnitTestCase
 		$this->assertSame($context->getRequestHandler(), $context->getRequestHandler());
 	}
 
-	public function testContextHandleDelegatesToTheHandler(): void
+	public function testTheContextReadsItsCorrelationIdFromTheHandler(): void
 	{
 		$context = $this->ctx();
-		$handler = $context->getRequestHandler();
+		$handler = $this->requestHandlerOf($context);
 
-		$context->handle(new ServerRequest('GET', '/delegated'));
+		$context->getRequestHandler()->handle(new ServerRequest('GET', '/delegated'));
 
 		$this->assertNotNull($handler->correlationId());
 		$this->assertSame(
@@ -58,7 +58,7 @@ class ContextRequestHandlerTest extends PhpUnitTestCase
 
 	public function testTheHandlerCanBeDrivenDirectly(): void
 	{
-		$handler = $this->ctx()->getRequestHandler();
+		$handler = $this->requestHandlerOf($this->ctx());
 
 		$response = $handler->handle(new ServerRequest('GET', '/direct'));
 
@@ -68,7 +68,7 @@ class ContextRequestHandlerTest extends PhpUnitTestCase
 
 	public function testAnInboundCorrelationIdIsAdoptedAndEchoed(): void
 	{
-		$handler = $this->ctx()->getRequestHandler();
+		$handler = $this->requestHandlerOf($this->ctx());
 
 		$response = $handler->handle(
 			(new ServerRequest('GET', '/adopt'))->withHeader('X-Correlation-Id', 'upstream-7'),
@@ -80,7 +80,7 @@ class ContextRequestHandlerTest extends PhpUnitTestCase
 
 	public function testEachRequestGetsItsOwnCorrelationId(): void
 	{
-		$handler = $this->ctx()->getRequestHandler();
+		$handler = $this->requestHandlerOf($this->ctx());
 
 		$ids = [];
 		for ($i = 0; $i < 3; $i++) {
@@ -97,7 +97,7 @@ class ContextRequestHandlerTest extends PhpUnitTestCase
 	 */
 	public function testThePipelineIsBuiltOnceAndReused(): void
 	{
-		$handler = $this->ctx()->getRequestHandler();
+		$handler = $this->requestHandlerOf($this->ctx());
 
 		$this->assertFalse($handler->hasPipeline(), 'nothing is built before it is needed');
 
@@ -117,7 +117,7 @@ class ContextRequestHandlerTest extends PhpUnitTestCase
 	 */
 	public function testForgetPipelineForcesARebuild(): void
 	{
-		$handler = $this->ctx()->getRequestHandler();
+		$handler = $this->requestHandlerOf($this->ctx());
 		$handler->handle(new ServerRequest('GET', '/before'));
 		$before = $handler->pipeline();
 
@@ -135,7 +135,7 @@ class ContextRequestHandlerTest extends PhpUnitTestCase
 	{
 		Config::set('core.correlation_id.expose', false, true);
 		try {
-			$handler = $this->ctx()->getRequestHandler();
+			$handler = $this->requestHandlerOf($this->ctx());
 
 			$response = $handler->handle(new ServerRequest('GET', '/quiet'));
 
@@ -150,7 +150,7 @@ class ContextRequestHandlerTest extends PhpUnitTestCase
 	{
 		Config::set('core.correlation_id.header', 'Request-Id', true);
 		try {
-			$handler = $this->ctx()->getRequestHandler();
+			$handler = $this->requestHandlerOf($this->ctx());
 
 			$response = $handler->handle(
 				(new ServerRequest('GET', '/named'))->withHeader('Request-Id', 'rid-42'),
@@ -262,6 +262,19 @@ class ContextRequestHandlerTest extends PhpUnitTestCase
 		$this->expectExceptionMessage('which is not a');
 
 		$context->getContainer()->get(AssetRegistry::class);
+	}
+
+
+	/**
+	 * The context's request handler, narrowed to the concrete one whose pipeline and correlation id
+	 * these tests inspect. The getter answers the PSR contract, which does not carry either.
+	 */
+	private function requestHandlerOf(Context $context): ContextRequestHandler
+	{
+		$handler = $context->getRequestHandler();
+		$this->assertInstanceOf(ContextRequestHandler::class, $handler);
+
+		return $handler;
 	}
 
 }

@@ -17,6 +17,7 @@ use Quiote\Runtime\Request\WorkerRequestFactory;
 use Quiote\Runtime\Superglobals\SuperglobalBridge;
 use Quiote\Runtime\Worker\WorkerLoop;
 use Quiote\Runtime\Worker\WorkerRuntimeCapabilities;
+use Psr\Http\Server\RequestHandlerInterface;
 
 final class WorkerLoopTest extends TestCase
 {
@@ -57,7 +58,10 @@ final class WorkerLoopTest extends TestCase
 
         $context = $this->createStub(Context::class);
         $context->method('getName')->willReturn('web');
-        $context->method('handle')->willReturnCallback($handler);
+        // The context delegates to its request handler now, so that is what the stub answers with.
+        $requestHandler = $this->createStub(RequestHandlerInterface::class);
+        $requestHandler->method('handle')->willReturnCallback($handler);
+        $context->method('getRequestHandler')->willReturn($requestHandler);
 
         return new WorkerLoop(
             context: $context,

@@ -37,7 +37,10 @@ abstract class HttpTestCase extends PhpUnitTestCase
      */
     private function resetCachedPipeline(): void
     {
-        $this->getContext()->getRequestHandler()->forgetPipeline();
+        $handler = $this->getContext()->getRequestHandler();
+        if ($handler instanceof \Quiote\Runtime\ContextRequestHandler) {
+            $handler->forgetPipeline();
+        }
     }
 
     protected function tearDown(): void
@@ -123,13 +126,13 @@ abstract class HttpTestCase extends PhpUnitTestCase
     private function dispatch(string $method, string $uri, array $headers): TestResponse
     {
         $request = new ServerRequest($method, $uri, $headers);
-        return new TestResponse($this->getContext()->handle($request));
+        return new TestResponse($this->getContext()->getRequestHandler()->handle($request));
     }
 
     /** @param array<string, string> $headers */
     private function dispatchWithBody(string $method, string $uri, \Psr\Http\Message\StreamInterface $body, array $headers): TestResponse
     {
         $request = (new ServerRequest($method, $uri, $headers))->withBody($body);
-        return new TestResponse($this->getContext()->handle($request));
+        return new TestResponse($this->getContext()->getRequestHandler()->handle($request));
     }
 }

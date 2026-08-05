@@ -28,7 +28,7 @@ class HttpTestCaseTest extends HttpTestCase
      */
     private function handleRaw(ServerRequestInterface $request): ResponseInterface
     {
-        return $this->getContext()->handle($request);
+        return $this->getContext()->getRequestHandler()->handle($request);
     }
     #[\Override]
     protected function setUp(): void

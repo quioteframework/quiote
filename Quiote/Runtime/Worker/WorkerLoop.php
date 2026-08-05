@@ -80,7 +80,7 @@ final class WorkerLoop
         }
 
         try {
-            $response = $this->context->handle($this->requestFactory->fromPsr($request));
+            $response = $this->context->getRequestHandler()->handle($this->requestFactory->fromPsr($request));
         } catch (Throwable $e) {
             $response = $this->errors->fromThrowable($e, $request);
         } finally {

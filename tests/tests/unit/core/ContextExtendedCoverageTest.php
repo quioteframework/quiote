@@ -7,6 +7,7 @@ use Nyholm\Psr7\ServerRequest;
 use Quiote\Config\Config;
 use Quiote\Exception\QuioteException;
 use Quiote\Test\Routing\TestRouting;
+use Quiote\Runtime\ContextRequestHandler;
 
 // Helper stubs outside test class to avoid nested class fatal
 if (!class_exists('TestNoOpLogger')) {
@@ -78,12 +79,12 @@ class ContextExtendedCoverageTest extends TestCase
         $routingProp = $ro->getProperty('routing');
 
         $routingProp->setValue($ctx, new TestRouting());
-        $res1 = $ctx->handle($req); // first handle
+        $res1 = $ctx->getRequestHandler()->handle($req); // first handle
         $cid1 = $ctx->getCorrelationId();
         $this->assertNotEmpty($cid1);
         // Second request should generate a new correlation id
         $req2 = new ServerRequest('GET', '/bar');
-        $res2 = $ctx->handle($req2);
+        $res2 = $ctx->getRequestHandler()->handle($req2);
         $cid2 = $ctx->getCorrelationId();
         $this->assertNotEmpty($cid2);
         $this->assertNotSame($cid1, $cid2, 'Correlation ID should refresh per handle call');
@@ -95,7 +96,7 @@ class ContextExtendedCoverageTest extends TestCase
         (new ReflectionObject($ctx))->getProperty('routing')->setValue($ctx, new TestRouting());
 
         $req = (new ServerRequest('GET', '/foo'))->withHeader('X-Correlation-Id', 'upstream-123');
-        $res = $ctx->handle($req);
+        $res = $ctx->getRequestHandler()->handle($req);
 
         $this->assertSame('upstream-123', $ctx->getCorrelationId(), 'inbound correlation id should be adopted');
         $this->assertSame('upstream-123', $res->getHeaderLine('X-Correlation-Id'), 'adopted id should be echoed back');
@@ -106,7 +107,7 @@ class ContextExtendedCoverageTest extends TestCase
         $ctx = $this->ctx();
         (new ReflectionObject($ctx))->getProperty('routing')->setValue($ctx, new TestRouting());
 
-        $res = $ctx->handle(new ServerRequest('GET', '/foo'));
+        $res = $ctx->getRequestHandler()->handle(new ServerRequest('GET', '/foo'));
 
         $this->assertNotSame('', $res->getHeaderLine('X-Correlation-Id'));
         $this->assertSame($ctx->getCorrelationId(), $res->getHeaderLine('X-Correlation-Id'));
@@ -123,7 +124,7 @@ class ContextExtendedCoverageTest extends TestCase
         // even construct a request with a CRLF header value, so that vector can't
         // reach handle() through a normal request in the first place.)
         $req = (new ServerRequest('GET', '/foo'))->withHeader('X-Correlation-Id', str_repeat('x', 500));
-        $ctx->handle($req);
+        $ctx->getRequestHandler()->handle($req);
 
         $correlationId = $ctx->getCorrelationId();
         $this->assertNotNull($correlationId);
@@ -139,7 +140,7 @@ class ContextExtendedCoverageTest extends TestCase
             (new ReflectionObject($ctx))->getProperty('routing')->setValue($ctx, new TestRouting());
 
             $req = (new ServerRequest('GET', '/foo'))->withHeader('Request-Id', 'rid-9');
-            $res = $ctx->handle($req);
+            $res = $ctx->getRequestHandler()->handle($req);
 
             $this->assertSame('rid-9', $ctx->getCorrelationId());
             $this->assertFalse($res->hasHeader('Request-Id'), 'expose=false must suppress the response header');
@@ -170,7 +171,7 @@ class ContextExtendedCoverageTest extends TestCase
         $ro->getProperty('routing')->setValue($ctx, new TestRouting());
         // Leftover scope from a prior request must not survive into this one.
         \Quiote\Logging\LogContext::enrich(['stale' => 'from-prior-request']);
-        $ctx->handle(new ServerRequest('GET', '/foo'));
+        $ctx->getRequestHandler()->handle(new ServerRequest('GET', '/foo'));
         $scope = \Quiote\Logging\LogContext::current();
         $this->assertArrayNotHasKey('stale', $scope, 'handle() must start a fresh scope');
         $this->assertSame($ctx->getCorrelationId(), $scope['rid'] ?? null, 'handle() must enrich scope with rid');
@@ -208,10 +209,10 @@ class ContextExtendedCoverageTest extends TestCase
         $this->injectLogger($ctx);
         $ro = new ReflectionObject($ctx);
         $routingProp = $ro->getProperty('routing');$routingProp->setValue($ctx, new TestRouting());
-        $handler = $ctx->getRequestHandler();
+        $handler = $this->requestHandlerOf($ctx);
         $ids = [];
         for ($i = 0; $i < 5; $i++) {
-            $ctx->handle(new ServerRequest('GET', '/seq' . $i));
+            $ctx->getRequestHandler()->handle(new ServerRequest('GET', '/seq' . $i));
             $ids[] = $ctx->getCorrelationId();
         }
         $this->assertCount(5, $ids);
@@ -221,7 +222,7 @@ class ContextExtendedCoverageTest extends TestCase
         $ctx->reset();
         // Reinject dependencies after reset
         $routingProp->setValue($ctx, new TestRouting());
-        $ctx->handle(new ServerRequest('GET', '/afterReset'));
+        $ctx->getRequestHandler()->handle(new ServerRequest('GET', '/afterReset'));
         $this->assertSame($kernelBefore, $handler->pipeline(), 'Kernel instance should persist across reset');
         $newId = $ctx->getCorrelationId();
         $this->assertNotContains($newId, $ids, 'Correlation ID after reset should be new');
@@ -408,7 +409,7 @@ class ContextExtendedCoverageTest extends TestCase
 
         $routingProp->setValue($ctx, new TestRouting());
         $req1 = new ServerRequest('GET', '/initial');
-        $ctx->handle($req1);
+        $ctx->getRequestHandler()->handle($req1);
         $cid1 = $ctx->getCorrelationId();
         $this->assertNotEmpty($cid1);
         // The request the context answers is the one handle() was given, wrapped as a WebRequest --
@@ -428,7 +429,7 @@ class ContextExtendedCoverageTest extends TestCase
         $this->assertSame($cid1, $ctx->getCorrelationId(), 'Correlation id should not change on setRequest');
         // A new handle() should regenerate correlation id
         $req3 = new ServerRequest('GET', '/next');
-        $ctx->handle($req3);
+        $ctx->getRequestHandler()->handle($req3);
         $cid2 = $ctx->getCorrelationId();
         $this->assertNotSame($cid1, $cid2, 'Correlation id should change on new handle()');
     }
@@ -556,10 +557,10 @@ class ContextExtendedCoverageTest extends TestCase
         $routingProp->setValue($ctx, new TestRouting());
 
 
-        $handler = $ctx->getRequestHandler();
+        $handler = $this->requestHandlerOf($ctx);
         $this->assertFalse($handler->hasPipeline(), 'no pipeline before the first handle()');
 
-        $ctx->handle(new ServerRequest('GET', '/kernel')); // builds pipeline
+        $ctx->getRequestHandler()->handle(new ServerRequest('GET', '/kernel')); // builds pipeline
 
         $this->assertTrue($handler->hasPipeline(), 'the pipeline is built by handle()');
         $kernel = $handler->pipeline();
@@ -573,7 +574,7 @@ class ContextExtendedCoverageTest extends TestCase
         // middleware stack stays built and the debug stack retains its previous entries.
         $this->assertNotEmpty($kernelAfter->debugStack(), 'Kernel debug stack persists across reset (no rebuild needed)');
         // Re-handle reuses the same already-built stack
-        $ctx->handle(new ServerRequest('GET', '/kernel2'));
+        $ctx->getRequestHandler()->handle(new ServerRequest('GET', '/kernel2'));
         $this->assertNotEmpty($kernelAfter->debugStack(), 'Kernel debug stack populated after second handle');
     }
 
@@ -651,4 +652,17 @@ class ContextExtendedCoverageTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $bag[null] = 'value';
     }
+
+    /**
+     * The context's request handler, narrowed to the concrete one whose pipeline and correlation id
+     * these tests inspect. The getter answers the PSR contract, which does not carry either.
+     */
+    private function requestHandlerOf(Context $context): ContextRequestHandler
+    {
+        $handler = $context->getRequestHandler();
+        $this->assertInstanceOf(ContextRequestHandler::class, $handler);
+
+        return $handler;
+    }
+
 }

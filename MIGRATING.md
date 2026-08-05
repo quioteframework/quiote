@@ -8,9 +8,14 @@ This file covers each release that needs migration work, newest first.
 
 # Migrating to Quiote 4.0
 
-In progress. 4.0 breaks `Context` into the collaborators it was standing in for.
-Nothing in this section requires application changes yet — the accessors still
-exist and still work — with one exception, which is first because it fails hard.
+In progress. 4.0 breaks `Context` into the collaborators it was standing in for, and
+its accessors are deleted rather than deprecated — an application reaching a service
+through the context has to be migrated. See
+[`Context`'s accessors are gone](#breaking-contexts-accessors-are-gone) for the full
+table and the Rector rules that do most of it mechanically.
+
+Clear the config cache once when upgrading; that item is first here because it fails
+hard.
 
 ## The config cache now invalidates itself on a framework change
 
@@ -234,36 +239,71 @@ removes the last `eval()` from the configuration cache. Consequences:
 **What this changes for you.** Nothing, unless you ship a config handler or call
 `writeCacheFile()`/`APCuConfigCache::checkConfig()` directly.
 
-## `Context` is growing seams, not losing accessors
+## BREAKING: `Context`'s accessors are gone
 
-Three collaborators are now separate classes, each bound in the container so new
-code can constructor-inject it instead of reaching through the context:
+`ContextInterface` declares two methods — `getName()` and `getContainer()` — where 3.2
+declared seventeen, and `Context` itself is down from 39 public methods to 17. Every
+accessor that answered "some other service" has been deleted. A class that needs the
+routing, the user or a service says so in its constructor and lets the container hand it
+over; the ones that genuinely cannot be wired statically resolve through
+`getContainer()`.
 
-| Instead of | Inject | Notes |
+Each row's target is bound in the container under the class name shown, so
+`__construct(private readonly Routing $routing)` is the migration for most of them.
+
+| Deleted | Inject | Notes |
 |---|---|---|
-| `$context->getModel(…)` | `Quiote\Model\ModelLocator` | `getModel()` still works and delegates here |
-| `Context::getInstance('web')` | `Quiote\ContextRegistry` | `getInstance()` still works and answers from the shared registry |
-| `$context->getRequest()` / `setRequest()` | `Quiote\Request\RequestState` | `current()` / `publish()`; resolves per call |
-| `$context->getUser()` | `Quiote\User\CurrentUser` | only needed in a singleton — see below |
-| — | `Quiote\ShutdownSequence` | reached via `$context->getShutdownSequence()` |
-| — | `Quiote\Runtime\ContextRequestHandler` | reached via `$context->getRequestHandler()` |
+| `getRouting()` | `Quiote\Routing\Routing` | rebuilt on demand in a worker, as the accessor did |
+| `getController()` | `Quiote\Controller\Controller` | resolving one before `initialize()` throws, as before |
+| `getRequest()` / `setRequest()` | `Quiote\Request\RequestState` | `current()` / `publish()`; resolves per call — see below |
+| `getUser()` | `Quiote\User\User`, or `Quiote\User\CurrentUser` | which one depends on the holder's lifetime — see below |
+| `getService($id)` | the service's own class | the container resolves it; there is no by-name lookup left |
+| `getModel(…)` | `Quiote\Model\ModelLocator` | also `$context->getModelLocator()` |
+| `getDatabaseManager()` / `getDatabaseConnection()` | `Quiote\Database\DatabaseManager` | `getConnection()` on the manager |
+| `getTranslationManager()` | `Quiote\Translation\TranslationManager` | |
+| `getSessionManager()` / `setSessionManager()` | `Quiote\Session\SessionManager` | `Container::set()` / `unset()` to replace or drop one |
+| `getSessionBag()` / `setSessionBag()` | `Quiote\Session\SessionBagInterface` | defaults to `NullSessionBag` when no session is configured |
+| `getSlotDispatcher()` | `Quiote\Execution\SlotDispatcher` | request-scoped |
+| `getAssetRegistry()` | `Quiote\Asset\AssetRegistry` | request-scoped |
+| `getActionResolver()` | `Quiote\Execution\ActionResolver` | process-lifetime singleton |
+| `getCurrentPsrRequest()` | `Quiote\Request\RequestState` | `current()` |
+| `createInstanceFor()` | `Container::make()` | generic in the class it is given |
+| `getFactoryInfo()` / `setFactoryInfo()` | — | the compiled factories declaration is internal now |
+| `handle()` | `getRequestHandler()->handle()` | see below |
 
-### `Context::handle()` moved behind a real PSR-15 handler
+`Quiote\Rector\Set\ContextDecompositionSetList` mechanically rewrites the common call
+shapes — the routing, the request, the user, the translation manager, the database
+manager and `getService()` — and reports every site it declines in a residue file for a
+human to look at. Run it before migrating by hand.
 
-`Context::handle()` still works and is what every runtime calls. The per-request work
-— owning the middleware pipeline, resolving the correlation id, opening the ambient
-logging scope, arming the request-state flush, emitting `ResponseSendingEvent` — now
-lives in `ContextRequestHandler`, which **declares** `RequestHandlerInterface` rather
-than merely matching its signature.
+### `Context::handle()` is gone; take the PSR-15 handler instead
+
+```php
+$response = $context->getRequestHandler()->handle($request);
+```
+
+The per-request work — owning the middleware pipeline, resolving the correlation id,
+opening the ambient logging scope, arming the request-state flush, emitting
+`ResponseSendingEvent` — lives in `Quiote\Runtime\ContextRequestHandler`, which
+**declares** `RequestHandlerInterface` rather than merely matching its signature.
+`getRequestHandler()` is typed as that PSR interface, so a runtime can serve a context
+through a handler of its own by wiring rather than by subclassing.
 
 Two internals moved with it:
 
-- `Context::$psrKernel` is gone. Reach the pipeline with
-  `$context->getRequestHandler()->pipeline()`, and drop a stale one with
-  `forgetPipeline()` — needed by anything that reconfigures `MiddlewareCatalog`
-  after a request has been served, since the pipeline is composed once and reused.
-  `HttpTestCase` used reflection for this and now uses the seam.
+- `Context::$psrKernel` is gone. Reach the pipeline with `pipeline()` on the handler,
+  and drop a stale one with `forgetPipeline()` — needed by anything that reconfigures
+  `MiddlewareCatalog` after a request has been served, since the pipeline is composed
+  once and reused. Both live on `ContextRequestHandler`, so narrow to it first.
 - `Context::$correlationId` is gone; `getCorrelationId()` reads it from the handler.
+
+### What `Context` still answers
+
+Its own identity and lifecycle, which were never anyone else's: `getName()`,
+`getContainer()`, `getInstance()`, `create()`, `initialize()`, `shutdown()`, `reset()`,
+`resetWorkerState()`, `beginRequest()`, `flushRequestState()`, `getCorrelationId()`,
+`getRequestHandler()`, `getLifecycle()`, `getShutdownSequence()` and
+`getModelLocator()`.
 
 ### The execution helpers are container-scoped now
 

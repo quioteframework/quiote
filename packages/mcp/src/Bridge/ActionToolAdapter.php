@@ -68,7 +68,7 @@ final class ActionToolAdapter implements ToolHandlerInterface
             ->withAttribute(\Quiote\Execution\ExecutionState::class, $executionState);
 
         try {
-            $response = $context->handle($request);
+            $response = $context->getRequestHandler()->handle($request);
         } catch (\Throwable $e) {
             throw new ToolCallException(sprintf('Action for route "%s" threw: %s', $this->routeName, $e->getMessage()), 0, $e);
         }

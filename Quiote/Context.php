@@ -16,8 +16,6 @@ use Quiote\User\User;
 use Quiote\Util\Toolkit;
 use Quiote\Validator\ValidationManager;
 use Symfony\Contracts\Service\ResetInterface;
-use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Message\ResponseInterface;
 
 /**
  * Context provides information about the current application context,
@@ -967,24 +965,17 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     ContextRegistry::shared()->resetAll(is_string($profile) ? $profile : null);
   }
 
-  /**
-   * Serve a request against this context.
-   *
-   * Delegates to {@see \Quiote\Runtime\ContextRequestHandler}, which owns the middleware pipeline
-   * and the per-request setup. Kept because it is what every runtime already calls; new code can
-   * hold the handler directly, and it is a real PSR-15 RequestHandlerInterface.
-   */
-  public function handle(ServerRequestInterface $request): ResponseInterface
-  {
-    return $this->getRequestHandler()->handle($request);
-  }
 
   /**
    * This context's request handler, built on first use.
    *
+   * Declared as the PSR contract rather than as {@see \Quiote\Runtime\ContextRequestHandler}: every
+   * caller outside the handler's own tests wants nothing but handle(), and a runtime that serves a
+   * context through a handler of its own is then wiring, not a subclass.
+   *
    * @since      4.0.0
    */
-  public function getRequestHandler(): \Quiote\Runtime\ContextRequestHandler
+  public function getRequestHandler(): \Psr\Http\Server\RequestHandlerInterface
   {
     return $this->requestHandler ??= new \Quiote\Runtime\ContextRequestHandler($this);
   }

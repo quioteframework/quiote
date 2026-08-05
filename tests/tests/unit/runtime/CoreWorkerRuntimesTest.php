@@ -17,6 +17,7 @@ use Quiote\Runtime\Worker\FrankenPhpRuntime;
 use Quiote\Runtime\Worker\SapiRuntime;
 use Quiote\Runtime\Worker\WorkerLoop;
 use Quiote\Runtime\Worker\WorkerRuntimeCapabilities;
+use Psr\Http\Server\RequestHandlerInterface;
 
 /** Records what a runtime handed it, so the loop's shape can be asserted. */
 final class RecordingEmitter implements ResponseEmitterInterface
@@ -72,7 +73,10 @@ final class CoreWorkerRuntimesTest extends TestCase
 
         $context = $this->createStub(Context::class);
         $context->method('getName')->willReturn('web');
-        $context->method('handle')->willReturnCallback($handler);
+        // The context delegates to its request handler now, so that is what the stub answers with.
+        $requestHandler = $this->createStub(RequestHandlerInterface::class);
+        $requestHandler->method('handle')->willReturnCallback($handler);
+        $context->method('getRequestHandler')->willReturn($requestHandler);
 
         return new WorkerLoop(
             context: $context,

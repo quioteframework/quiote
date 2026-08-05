@@ -19,6 +19,7 @@ use Quiote\Runtime\Worker\WorkerLoop;
 use Quiote\Runtime\Worker\WorkerRuntimeCapabilities;
 use Spiral\RoadRunner\Http\PSR7WorkerInterface;
 use Spiral\RoadRunner\WorkerInterface;
+use Psr\Http\Server\RequestHandlerInterface;
 
 /** Collects whatever the runtime reports back to the server. */
 final class ErrorCollectingWorker implements WorkerInterface
@@ -161,7 +162,10 @@ final class RoadRunnerRuntimeTest extends TestCase
 
         $context = $this->createStub(Context::class);
         $context->method('getName')->willReturn('web');
-        $context->method('handle')->willReturnCallback($handler);
+        // The context delegates to its request handler now, so that is what the stub answers with.
+        $requestHandler = $this->createStub(RequestHandlerInterface::class);
+        $requestHandler->method('handle')->willReturnCallback($handler);
+        $context->method('getRequestHandler')->willReturn($requestHandler);
 
         return new WorkerLoop(
             context: $context,
