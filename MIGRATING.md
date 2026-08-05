@@ -395,6 +395,18 @@ Its own identity and lifecycle, which were never anyone else's: `getName()`,
 `getRequestHandler()`, `getLifecycle()`, `getShutdownSequence()` and
 `getModelLocator()`.
 
+### `assigns` in `output_types` keeps working, in both spellings
+
+An `assigns` entry names a role — `translation_manager`, `asset_registry`, `user` — and those used to
+be resolved as Context accessors. They resolve through the container now, and both the configuration's
+snake_case spelling and the container's camelCase id are accepted, so an existing `output_types`
+configuration needs no change.
+
+Worth knowing because the failure mode is silent: an assign that resolves to nothing becomes an
+ordinary template variable instead, and the template sees `null` where it expected the collaborator.
+If a template starts reporting a call on null, check that its `assigns` name is a role the container
+actually binds.
+
 ### The execution helpers are container-scoped now
 
 `getSlotDispatcher()`, `getAssetRegistry()` and `getActionResolver()` resolve through
