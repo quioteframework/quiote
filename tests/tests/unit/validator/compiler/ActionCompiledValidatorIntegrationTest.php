@@ -30,7 +30,7 @@ class ActionCompiledValidatorIntegrationTest extends UnitTestCase
 	{
 		$ctx = $this->getContext();
 		$resp = $ctx->getContainer()->get(\Quiote\Controller\Controller::class)->getGlobalResponse();
-		$req = $ctx->getRequest();
+		$req = $ctx->getContainer()->get(\Quiote\Request\WebRequest::class);
 		$initContext = new LightweightActionInitContext($ctx, 'ControllerTests', 'CompiledFluentDemo', $method, 'html', $req, $resp);
 		$action->initialize($initContext);
 	}
@@ -58,7 +58,7 @@ class ActionCompiledValidatorIntegrationTest extends UnitTestCase
 		$ok = $vm->execute($request);
 		$this->assertTrue($ok);
 
-		$pruned = $this->getContext()->getRequest();
+		$pruned = $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
 		$this->assertTrue($pruned->hasParameter('username'));
 		$this->assertSame('alice', $pruned->getParameter('username'));
 		$this->assertFalse(

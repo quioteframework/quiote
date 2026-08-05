@@ -28,7 +28,7 @@ class ExportParamAction extends Action
         }
 
         $rd = $rd->setParameter('exported', 'from-action');
-        $context->setRequest($rd);
+        $context->getContainer()->get(\Quiote\Request\RequestState::class)->publish($rd);
         return 'Success';
     }
 }

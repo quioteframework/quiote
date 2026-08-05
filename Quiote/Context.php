@@ -206,8 +206,12 @@ class Context implements \Stringable, ResetInterface, ContextInterface
    * belong to the binding now, so a consumer resolving `Routing::class` gets the rebuild and one
    * resolving `Controller::class` gets the explanation.
    *
-   * Registered as factories rather than instances so the closure runs per resolution, and the
-   * container memoizes the answer at singleton scope exactly as the property did.
+   * Registered as factories rather than instances, so the closure -- and the property it memoizes into
+   * -- decides what the answer is. The routing and the controller are transient in container terms
+   * because that property is the cache; the request and the user stay request-scoped, because the
+   * captive-dependency guard refuses a singleton that captures a request-scoped service and that
+   * refusal is worth more than avoiding a second memo. What it costs is that a write has to invalidate
+   * the memo: see {@see installRequest()}.
    *
    * @since      4.0.0
    */
@@ -227,7 +231,7 @@ class Context implements \Stringable, ResetInterface, ContextInterface
           runLifecycle: false,
         );
       },
-      Container::SCOPE_SINGLETON,
+      Container::SCOPE_TRANSIENT,
     );
     $container->alias('routing', Routing::class);
 
@@ -243,18 +247,49 @@ class Context implements \Stringable, ResetInterface, ContextInterface
 
         return $this->controller;
       },
-      Container::SCOPE_SINGLETON,
+      Container::SCOPE_TRANSIENT,
     );
     $container->alias('controller', \Quiote\Controller\Controller::class);
     $container->alias(\Quiote\Controller\ControllerInterface::class, \Quiote\Controller\Controller::class);
 
-    // Request-scoped: the user belongs to one request, and the container drops it at the boundary
-    // exactly where the property was nulled. Bound under the base class and the security contract too,
-    // so an application's own subclass is reachable as the type a consumer type-hints -- the same
-    // reason SEAM_CONTRACTS exists for the eagerly-built components.
-    $container->setFactory('user', fn(): object => $this->buildUser(), Container::SCOPE_REQUEST);
+    // Bound under the base class and the security contract too, so an application's own subclass is
+    // reachable as the type a consumer type-hints -- the same reason SEAM_CONTRACTS exists for the
+    // eagerly-built components.
+    $container->setFactory('user', fn(): object => $this->aliasConcrete('user', $this->buildUser()), Container::SCOPE_REQUEST);
     $container->alias(User::class, 'user');
     $container->alias(\Quiote\User\ISecurityUser::class, 'user');
+
+    $container->setFactory(
+      'request',
+      function (): WebRequest {
+        $request = $this->buildRequest();
+        $this->aliasConcrete('request', $request);
+
+        return $request;
+      },
+      Container::SCOPE_REQUEST,
+    );
+    $container->alias(WebRequest::class, 'request');
+  }
+
+  /**
+   * Alias a built component's own class to its role, and answer the component.
+   *
+   * An application configures a `request` or `user` subclass, and `registerCoreService()` bound that
+   * concrete class alongside the role so `get($instance::class)` reached the same object. A factory
+   * binding cannot do that up front -- the class is not known until the closure runs -- so it is done
+   * on the way out, once, per built instance.
+   *
+   * @since      4.0.0
+   */
+  private function aliasConcrete(string $role, object $instance): object
+  {
+    $container = $this->getContainer();
+    if ($instance::class !== $role && !$container->has($instance::class)) {
+      $container->alias($instance::class, $role);
+    }
+
+    return $instance;
   }
 
   /**
@@ -408,7 +443,7 @@ class Context implements \Stringable, ResetInterface, ContextInterface
    * @var        array<int, string>
    * @since      4.0.0
    */
-  private const array FACTORY_BOUND_ROLES = ['routing', 'controller', 'user'];
+  private const array FACTORY_BOUND_ROLES = ['routing', 'controller', 'user', 'request'];
 
   /**
    * Contracts a core service may satisfy, bound alongside it in the container by
@@ -470,7 +505,6 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     $this->registerLazyCoreComponents();
     $this->registerCoreService('databaseManager', $this->databaseManager);
     $this->registerCoreService('translationManager', $this->translationManager);
-    $this->registerCoreService('request', $this->request, Container::SCOPE_REQUEST);
     $this->registerTelemetryServicesInContainer();
     $this->registerHttpClientFactory();
     $this->registerModelLocator();
@@ -610,7 +644,12 @@ class Context implements \Stringable, ResetInterface, ContextInterface
 
     $container->setFactory(
       \Quiote\Request\RequestState::class,
-      fn(): \Quiote\Request\RequestState => new \Quiote\Request\RequestState($this),
+      fn(): \Quiote\Request\RequestState => new \Quiote\Request\RequestState(
+        fn(): WebRequest => $this->getContainer()->get(WebRequest::class),
+        function (WebRequest|\Psr\Http\Message\ServerRequestInterface $request): void {
+          $this->installRequest($request);
+        },
+      ),
       Container::SCOPE_SINGLETON,
     );
     $container->alias('requestState', \Quiote\Request\RequestState::class);
@@ -966,46 +1005,42 @@ class Context implements \Stringable, ResetInterface, ContextInterface
 
 
   /**
-   * Set the request object explicitly.
-   * WebRequest extends ServerRequest, so this is the single source of truth.
-   * @param      mixed $request The request object (a WebRequest, a PSR-7
-   *             ServerRequestInterface, or null). Anything else is ignored --
-   *             $this->request only ever holds a WebRequest or null.
+   * Install a replacement request, for {@see \Quiote\Request\RequestState::publish()}.
+   *
+   * This was `setRequest()`. A foreign PSR-7 request is normalized into a WebRequest on the way in,
+   * so what the container answers is always one.
+   *
+   * @since      4.0.0
    */
-  public function setRequest($request): void
+  private function installRequest(WebRequest|\Psr\Http\Message\ServerRequestInterface $request): void
   {
-    // Normalize any foreign PSR-7 request into an WebRequest so getRequest()
-    // ALWAYS returns an WebRequest (with the Quiote helpers like isHttps()).
+    // Normalize any foreign PSR-7 request into a WebRequest, so what the container answers is always
+    // one (with the Quiote helpers like isHttps()).
     // A plain Nyholm\Psr7\ServerRequest can otherwise flow in via middleware
     // (SlotMiddleware, ValidationMiddleware) or tests. An existing WebRequest
     // passes through unchanged.
-    if (
-      $request !== null
-      && !($request instanceof \Quiote\Request\WebRequest)
-      && $request instanceof \Psr\Http\Message\ServerRequestInterface
-    ) {
-      $request = \Quiote\Request\WebRequest::fromPsr($request);
+    if (!$request instanceof WebRequest) {
+      $request = WebRequest::fromPsr($request);
     }
-    if ($request === null || $request instanceof \Quiote\Request\WebRequest) {
-      $this->request = $request;
-    }
-    // setRequest() runs several times per request; only build the diagnostic
-    // string (sprintf + spl_object_id) when debug logging is actually enabled.
+
+    $this->request = $request;
+    // The container memoizes the request at request scope, so the memo is what a later resolution
+    // would answer with. Dropping the resolved entry -- not the binding -- is what makes the
+    // replacement visible while leaving the rebuild factory in place.
+    $this->container?->forgetResolved('request');
+
+    // This runs several times per request; only build the diagnostic string (sprintf +
+    // spl_object_id) when debug logging is actually enabled.
     $logger = \Quiote\Logging\Log::for($this);
     if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
-      if (is_object($request)) {
-        $message = sprintf(
-          "[Context] setRequest id=%d cid=%s",
-          spl_object_id($request),
-          $this->getCorrelationId(),
-        );
-      } else {
-        $message =
-          "[Context] setRequest (no id) cid=" . $this->getCorrelationId();
-      }
-      $logger->debug($message);
+      $logger->debug(sprintf(
+        "[Context] installRequest id=%d cid=%s",
+        spl_object_id($request),
+        $this->getCorrelationId(),
+      ));
     }
   }
+
 
   /**
    * Retrieve current correlation ID (may be null outside a handled request).
@@ -1372,11 +1407,17 @@ class Context implements \Stringable, ResetInterface, ContextInterface
   }
 
   /**
-   * Retrieve the request.
-   * @return     WebRequest The current Request implementation instance.
-   * @since      1.0.0
+   * Build or reuse this request's WebRequest, for the container binding in
+   * {@see registerLazyCoreComponents()}.
+   *
+   * This was `getRequest()`. Like the user it rebuilds after a worker request boundary dropped the
+   * instance, and it restarts the controller afterwards so the controller re-caches its pointer to the
+   * new request's global data.
+   *
+   * @return     WebRequest
+   * @since      4.0.0
    */
-  public function getRequest()
+  private function buildRequest(): WebRequest
   {
     if ($this->request === null) {
       $this->request = $this->rebuildFromFactoryInfo(
@@ -1403,6 +1444,7 @@ class Context implements \Stringable, ResetInterface, ContextInterface
 
     return $this->request;
   }
+
 
 
 

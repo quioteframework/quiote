@@ -40,9 +40,9 @@ class ValidationMiddlewareTest extends TestCase
         (new ReflectionObject($this->context))->getProperty('request')->setValue($this->context, null);
 
         // Strict validation: seed whitelist with potential parameter names used across tests
-        $req = $this->context->getRequest();
+        $req = $this->context->getContainer()->get(\Quiote\Request\WebRequest::class);
         $req = $req->enforceValidatedParameters(['foo','existing','slug','_internal','keep']);
-        $this->context->setRequest($req);
+        $this->context->getContainer()->get(\Quiote\Request\RequestState::class)->publish($req);
     }
 
     /**
@@ -148,7 +148,7 @@ class ValidationMiddlewareTest extends TestCase
         $response = $validation->process($request, $final);
     $this->assertContains($response->getStatusCode(), [204,400], 'Expected pass-through or failure status when no XML present');
         // After processing, parameters should be cleared on canonical request instance
-        $ctxReq = $this->context->getRequest();
+        $ctxReq = $this->context->getContainer()->get(\Quiote\Request\WebRequest::class);
         $this->assertNull($ctxReq->getParameter('foo'), 'Expected foo parameter cleared when no XML validators present');
     }
 
@@ -284,8 +284,8 @@ class ValidationMiddlewareTest extends TestCase
             public function handleError(\Quiote\Request\WebRequest $r): string { return 'Error'; }
         };
         $routeParams = [ 'slug' => 'abc', '_internal' => 'skip', 'existing' => 'rv' ];
-        $seeded = $this->context->getRequest()->withQueryParams(['existing' => 'keep']);
-        $this->context->setRequest($seeded);
+        $seeded = $this->context->getContainer()->get(\Quiote\Request\WebRequest::class)->withQueryParams(['existing' => 'keep']);
+        $this->context->getContainer()->get(\Quiote\Request\RequestState::class)->publish($seeded);
         $request = (new \Quiote\Request\WebRequest('GET','/routes/show'))
             ->withAttribute(\Quiote\Execution\ActionDescriptor::class, $actionDesc)
             ->withAttribute('route_params', $routeParams)
@@ -295,7 +295,7 @@ class ValidationMiddlewareTest extends TestCase
     $validation = new ValidationMiddleware($this->context->getContainer()->get(\Quiote\Controller\Controller::class));
         $final = new class implements RequestHandlerInterface { public function handle(ServerRequestInterface $r): ResponseInterface { return new Psr7Response(204); } };
         $validation->process($request, $final);
-        $ctxReq = $this->context->getRequest();
+        $ctxReq = $this->context->getContainer()->get(\Quiote\Request\WebRequest::class);
         $this->assertNull($ctxReq->getParameter('existing', null), 'Simple actions must not receive pre-existing query params');
         $this->assertNull($ctxReq->getParameter('slug', null), 'Simple actions must not receive route params');
         $this->assertNull($ctxReq->getParameter('_internal', null));
@@ -317,8 +317,8 @@ class ValidationMiddlewareTest extends TestCase
         // the module must not survive for a genuinely simple action -- isSimple()
         // means "needs no parameters", full stop, regardless of what XML config
         // exists for the module/action pair.
-        $seeded = $this->context->getRequest()->withQueryParams(['keep' => '1']);
-        $this->context->setRequest($seeded);
+        $seeded = $this->context->getContainer()->get(\Quiote\Request\WebRequest::class)->withQueryParams(['keep' => '1']);
+        $this->context->getContainer()->get(\Quiote\Request\RequestState::class)->publish($seeded);
         $request = (new ServerRequest('GET','/default/index'))
             ->withAttribute(\Quiote\Execution\ActionDescriptor::class, $actionDesc)
             ->withAttribute('quiote.preinstantiated_action',$action)
@@ -327,7 +327,7 @@ class ValidationMiddlewareTest extends TestCase
     $validation = new ValidationMiddleware($this->context->getContainer()->get(\Quiote\Controller\Controller::class));
         $final = new class implements RequestHandlerInterface { public function handle(ServerRequestInterface $r): ResponseInterface { return new Psr7Response(204); } };
         $validation->process($request, $final);
-        $ctxReq = $this->context->getRequest();
+        $ctxReq = $this->context->getContainer()->get(\Quiote\Request\WebRequest::class);
     $this->assertNull($ctxReq->getParameter('keep', null), 'Expected parameter cleared even for a simple action');
     }
 

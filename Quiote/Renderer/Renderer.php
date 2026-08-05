@@ -45,7 +45,12 @@ abstract class Renderer extends ParameterHolder implements ResetInterface
 	protected $extractVars = false;
 	
 	/**
-	 * @var        array<int|string, string> An array of objects to be exported for use in templates.
+	 * How to resolve each template variable the `assigns` parameter names, keyed by the variable name.
+	 *
+	 * Closures rather than Context method names: the components these used to name are container
+	 * services now, so the two spellings resolve differently. See {@see resolverFor()}.
+	 *
+	 * @var        array<int|string, \Closure(): mixed>
 	 */
 	protected $assigns = [];
 
@@ -127,8 +132,8 @@ abstract class Renderer extends ParameterHolder implements ResetInterface
 		}
 
 		foreach($assigns as $item => $var) {
-			$getter = 'get' . str_replace('_', '', (string) $item);
-			if(is_callable([$this->context, $getter])) {
+			$resolver = $this->resolverFor((string) $item);
+			if($resolver !== null) {
 				if($var === null) {
 					// the name is null, which means this one should not be assigned
 					// we do this in here, not for the moreAssignNames, since those are checked later in the renderer
@@ -137,13 +142,46 @@ abstract class Renderer extends ParameterHolder implements ResetInterface
 				if(!is_int($var) && !is_string($var)) {
 					throw new QuioteException('An assign name must be a string or an integer.');
 				}
-				$this->assigns[$var] = $getter;
+				$this->assigns[$var] = $resolver;
 			} else {
 				$this->moreAssignNames[$item] = $var;
 			}
 		}
 	}
 	
+	/**
+	 * How to resolve one `assigns` entry, or null when the name means nothing here.
+	 *
+	 * The entry is a name from `output_types.*`: `'request' => 'req'` puts this request into a template
+	 * as `$req`. It used to be resolved as a Context getter -- `getRequest()` -- and the components
+	 * those getters answered are container services now, so a container id is tried too. Both
+	 * spellings keep working, and an application's existing output_types configuration does not change.
+	 *
+	 * A closure rather than a method name, because the two paths are not the same call.
+	 *
+	 * @return     ?\Closure(): mixed
+	 * @since      4.0.0
+	 */
+	private function resolverFor(string $item): ?\Closure
+	{
+		$context = $this->context;
+		if($context === null) {
+			return null;
+		}
+
+		$getter = 'get' . str_replace('_', '', $item);
+		if(is_callable([$context, $getter])) {
+			return static fn(): mixed => $context->$getter();
+		}
+
+		// Role names as the configuration writes them: `request`, `user`, `routing`, `controller`.
+		if($context->getContainer()->has($item)) {
+			return static fn(): mixed => $context->getContainer()->get($item);
+		}
+
+		return null;
+	}
+
 	/**
 	 * Retrieve the current application context.
 	 * @return     Context The current Context instance.

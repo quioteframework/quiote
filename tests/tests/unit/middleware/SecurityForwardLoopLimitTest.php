@@ -28,7 +28,7 @@ final class SecurityForwardLoopLimitTest extends UnitTestCase
         $u = $this->getContext()->getContainer()->get(\Quiote\User\User::class);
         if(method_exists($u,'setAuthenticated')) { $u->setAuthenticated(false); }
         // Ensure context has an WebRequest (required by ValidationMiddleware)
-        $this->getContext()->getRequest();
+        $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
     }
 
     private function buildPsr(): \Psr\Http\Message\ServerRequestInterface

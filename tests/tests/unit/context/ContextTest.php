@@ -205,8 +205,8 @@ class ContextTest extends PhpUnitTestCase
 	public function testGetRequest(): void
 	{
 		$ctx = Context::getInstance();
-		$this->assertInstanceOf(\Quiote\Request\WebRequest::class, $ctx->getRequest());
-		$this->assertInstanceOf(\Psr\Http\Message\ServerRequestInterface::class, $ctx->getRequest());
+		$this->assertInstanceOf(\Quiote\Request\WebRequest::class, $ctx->getContainer()->get(\Quiote\Request\WebRequest::class));
+		$this->assertInstanceOf(\Psr\Http\Message\ServerRequestInterface::class, $ctx->getContainer()->get(\Quiote\Request\WebRequest::class));
 	}
 
 	/**
@@ -218,12 +218,12 @@ class ContextTest extends PhpUnitTestCase
 	public function testRequestIsRebuiltAfterResetAndReRegisteredInTheContainer(): void
 	{
 		$ctx = Context::getInstance('rebuild_request_test');
-		$first = $ctx->getRequest();
+		$first = $ctx->getContainer()->get(\Quiote\Request\WebRequest::class);
 		$this->assertSame($first, $ctx->getContainer()->get('request'));
 
 		$ctx->reset();
 
-		$second = $ctx->getRequest();
+		$second = $ctx->getContainer()->get(\Quiote\Request\WebRequest::class);
 		$this->assertNotSame($first, $second);
 		$this->assertInstanceOf(\Quiote\Request\WebRequest::class, $second);
 		$this->assertSame($second, $ctx->getContainer()->get('request'));
@@ -263,18 +263,22 @@ class ContextTest extends PhpUnitTestCase
 	public function testRebuildWithoutAFactoryDeclarationThrowsNamingTheComponent(): void
 	{
 		$ctx = Context::getInstance('rebuild_missing_info_test');
-		$ctx->getRequest();
+		$ctx->getContainer()->get(\Quiote\Request\WebRequest::class);
 
 		$reflection = new \ReflectionObject($ctx);
 		$reflection->getProperty('request')->setValue($ctx, null);
 		// Drop the declarations the rebuild reads from, which is what a context that never
 		// completed initialize() looks like.
 		$reflection->getProperty('factoryDefinitions')->setValue($ctx, null);
+		// And the request the container already answered with, or the memo is what comes back rather
+		// than the rebuild attempt this test is about.
+		$reflection->getProperty('request')->setValue($ctx, null);
+		$ctx->getContainer()->forgetResolved('request');
 
 		$this->expectException(\Quiote\Exception\QuioteException::class);
 		$this->expectExceptionMessage('Request object is null and no factory declaration is available');
 
-		$ctx->getRequest();
+		$ctx->getContainer()->get(\Quiote\Request\WebRequest::class);
 	}
 
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
@@ -325,7 +329,7 @@ class ContextTest extends PhpUnitTestCase
 		$this->assertSame($ctx->getContainer()->get(\Quiote\Routing\Routing::class), $container->get('routing'));
 		$this->assertSame($ctx->getContainer()->get(\Quiote\Session\SessionBagInterface::class), $container->get('sessionBag'));
 		$this->assertSame($ctx->getContainer()->get(\Quiote\User\User::class), $container->get('user'));
-		$this->assertSame($ctx->getRequest(), $container->get('request'));
+		$this->assertSame($ctx->getContainer()->get(\Quiote\Request\WebRequest::class), $container->get('request'));
 	}
 
 	/**

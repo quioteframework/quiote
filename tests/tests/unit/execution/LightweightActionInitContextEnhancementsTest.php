@@ -16,7 +16,9 @@ class LightweightActionInitContextEnhancementsTest extends TestCase
     {
         $ctx = $this->createStub(Context::class);
         $request = new \Quiote\Request\WebRequest();
-        $ctx->method('getRequest')->willReturn($request);
+        $container = new \Quiote\DI\Container();
+        $container->set(\Quiote\Request\WebRequest::class, $request, \Quiote\DI\Container::SCOPE_REQUEST);
+        $ctx->method('getContainer')->willReturn($container);
         return $ctx;
     }
 

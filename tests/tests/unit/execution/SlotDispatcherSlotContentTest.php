@@ -21,8 +21,8 @@ class SlotDispatcherSlotContentTest extends UnitTestCase
             ->withAttribute(SlotMiddleware::ATTR, new SlotStack());
         // Strict validation: whitelist slot parameters that will be set.
         // Context::getRequest() always returns a WebRequest, so no instanceof guard is needed.
-        $ctxReq = $this->getContext()->getRequest();
-        $this->getContext()->setRequest($ctxReq->enforceValidatedParameters(['x']));
+        $ctxReq = $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
+        $this->getContext()->getContainer()->get(\Quiote\Request\RequestState::class)->publish($ctxReq->enforceValidatedParameters(['x']));
         $dispatcher = $this->getContext()->getContainer()->get(\Quiote\Execution\SlotDispatcher::class);
         $sc = $dispatcher->dispatchSlotContent($req, 'Cache','Cache', ['x'=>1], 'html');
         $this->assertInstanceOf(\Quiote\Execution\SlotContent::class, $sc);

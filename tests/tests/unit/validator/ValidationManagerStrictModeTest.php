@@ -29,7 +29,7 @@ class ValidationManagerStrictModeTest extends UnitTestCase
 
         // Should be converted to MODE_STRICT internally
         // Verify by checking that parameter whitelisting is enforced
-        $request = $this->_context->getRequest();
+        $request = $this->_context->getContainer()->get(\Quiote\Request\WebRequest::class);
         $request = $request->enforceValidatedParameters([]);
 
         // In strict mode, accessing unvalidated parameter should throw or return null
@@ -60,7 +60,7 @@ class ValidationManagerStrictModeTest extends UnitTestCase
         $vm = $this->_context->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $vm->initialize($this->_context, ['mode' => ValidationManager::MODE_STRICT]);
 
-        $request = $this->_context->getRequest();
+        $request = $this->_context->getContainer()->get(\Quiote\Request\WebRequest::class);
 
         // Simulate validator setting exported parameter via setParameter()
         // Before validation, set parameter (simulating validator export)
@@ -76,7 +76,7 @@ class ValidationManagerStrictModeTest extends UnitTestCase
         $vm = $this->_context->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $vm->initialize($this->_context, ['mode' => ValidationManager::MODE_STRICT]);
 
-        $request = $this->_context->getRequest();
+        $request = $this->_context->getContainer()->get(\Quiote\Request\WebRequest::class);
 
         // Set multiple runtime parameters
         $request = $request->setParameter('runtime_param1', 'value1');
@@ -119,7 +119,7 @@ class ValidationManagerStrictModeTest extends UnitTestCase
         // Set predeclared export names
         $vm->setParameter('_predeclared_exports', ['export1', 'export2']);
 
-        $request = $this->_context->getRequest();
+        $request = $this->_context->getContainer()->get(\Quiote\Request\WebRequest::class);
 
         // Even if these don't exist yet, they should be whitelisted
         // This allows actions to check for null exported values
@@ -135,7 +135,7 @@ class ValidationManagerStrictModeTest extends UnitTestCase
         $vm = $this->_context->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $vm->initialize($this->_context, ['mode' => ValidationManager::MODE_STRICT]);
 
-        $request = $this->_context->getRequest();
+        $request = $this->_context->getContainer()->get(\Quiote\Request\WebRequest::class);
 
         // Enforce empty whitelist
         $request = $request->enforceValidatedParameters([]);
@@ -147,7 +147,7 @@ class ValidationManagerStrictModeTest extends UnitTestCase
 
     public function testGetParameterWithoutDefaultThrowsForUnvalidated(): void
     {
-        $request = $this->_context->getRequest();
+        $request = $this->_context->getContainer()->get(\Quiote\Request\WebRequest::class);
 
         $request = $request->enforceValidatedParameters([]);
 
@@ -157,7 +157,7 @@ class ValidationManagerStrictModeTest extends UnitTestCase
 
     public function testGetParameterWithDefaultReturnsDefaultForUnvalidated(): void
     {
-        $request = $this->_context->getRequest();
+        $request = $this->_context->getContainer()->get(\Quiote\Request\WebRequest::class);
 
         $request = $request->enforceValidatedParameters([]);
 

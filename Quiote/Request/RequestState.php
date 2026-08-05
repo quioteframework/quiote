@@ -3,7 +3,6 @@
 namespace Quiote\Request;
 
 use Psr\Http\Message\ServerRequestInterface;
-use Quiote\Context;
 
 /**
  * The seam onto the request that is current *now*.
@@ -32,7 +31,18 @@ use Quiote\Context;
  */
 final class RequestState
 {
-    public function __construct(private readonly Context $context) {}
+    /**
+     * @param      \Closure(): WebRequest $read Answers the request as of now.
+     * @param      \Closure(WebRequest|ServerRequestInterface): void $write Installs a replacement.
+     *
+     * Two closures rather than the Context itself, because `Context::getRequest()`/`setRequest()` are
+     * gone: the read and the write are what this class needs, and taking exactly those means nothing
+     * else on the context is reachable through it.
+     */
+    public function __construct(
+        private readonly \Closure $read,
+        private readonly \Closure $write,
+    ) {}
 
     /**
      * The request as of this call, built from the factory metadata if the worker request boundary
@@ -42,7 +52,7 @@ final class RequestState
      */
     public function current(): WebRequest
     {
-        return $this->context->getRequest();
+        return ($this->read)();
     }
 
     /**
@@ -59,6 +69,6 @@ final class RequestState
      */
     public function publish(WebRequest|ServerRequestInterface $request): void
     {
-        $this->context->setRequest($request);
+        ($this->write)($request);
     }
 }

@@ -31,7 +31,7 @@ class ExportOnErrorAction extends Action
         }
 
         $rd = $rd->setParameter('error_export', 'exported-on-failure');
-        $context->setRequest($rd);
+        $context->getContainer()->get(\Quiote\Request\RequestState::class)->publish($rd);
         return 'Error';
     }
 }

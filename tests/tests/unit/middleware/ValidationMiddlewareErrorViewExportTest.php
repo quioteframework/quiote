@@ -19,7 +19,7 @@ use Sandbox\Modules\Snapshot\Actions\StatusOverrideFallbackAction;
  * Regression guard for ValidationMiddleware's post-handle*Error() re-fetch.
  * WebRequest is immutable: handle*Error() exports a value via setParameter(),
  * which only replaces its own local copy of the request unless it also
- * self-syncs via $this->getContext()->setRequest($request). Without the
+ * self-syncs via $this->getContext()->getContainer()->get(\Quiote\Request\RequestState::class)->publish($request). Without the
  * re-fetch this middleware performs right after calling handle*Error() (and
  * before creating the error view), the rendered error view would see the
  * stale pre-export request instead (see ExportOnErrorAction/
@@ -47,10 +47,10 @@ class ValidationMiddlewareErrorViewExportTest extends UnitTestCase
     protected function tearDown(): void
     {
         try {
-            $request = $this->getContext()->getRequest()
+            $request = $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class)
                 ->withoutAttribute('quiote.preinstantiated_action')
                 ->withoutAttribute(\Quiote\Middleware\SlotMiddleware::ATTR);
-            $this->getContext()->setRequest($request);
+            $this->getContext()->getContainer()->get(\Quiote\Request\RequestState::class)->publish($request);
         } catch (\Throwable) {
         }
         parent::tearDown();

@@ -73,7 +73,7 @@ class ValidationFailurePruningTest extends UnitTestCase
         $request = $request->setUnvalidatedParameter('slug', '../../etc/passwd');
 
         $succeeded = $manager->execute($request);
-        $final = $context->getRequest();
+        $final = $context->getContainer()->get(\Quiote\Request\WebRequest::class);
 
         $this->assertTrue($succeeded, 'notice severity leaves validation successful');
         $this->assertContains(
@@ -99,7 +99,7 @@ class ValidationFailurePruningTest extends UnitTestCase
         $request = $request->withQueryParams(['slug' => '../../etc/passwd']);
 
         $this->assertFalse($manager->execute($request));
-        $this->assertNull($context->getRequest()->getParameter('slug', null));
+        $this->assertNull($context->getContainer()->get(\Quiote\Request\WebRequest::class)->getParameter('slug', null));
     }
 
     public function testValidValueStillReachesTheAction(): void
@@ -114,6 +114,6 @@ class ValidationFailurePruningTest extends UnitTestCase
         $request = $request->setUnvalidatedParameter('slug', 'ok');
 
         $this->assertTrue($manager->execute($request));
-        $this->assertSame('ok', $context->getRequest()->getParameter('slug'));
+        $this->assertSame('ok', $context->getContainer()->get(\Quiote\Request\WebRequest::class)->getParameter('slug'));
     }
 }

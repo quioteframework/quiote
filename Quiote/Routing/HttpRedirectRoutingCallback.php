@@ -121,7 +121,7 @@ class HttpRedirectRoutingCallback extends RoutingCallback
 				return false;
 			}
 
-			$base = $this->getContext()->getRequest()->getUrl();
+			$base = $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class)->getUrl();
 			$baseParts = parse_url($base);
 			$parts = $baseParts !== false ? $baseParts : [];
 			if($scheme !== null) { $parts['scheme'] = $scheme; }

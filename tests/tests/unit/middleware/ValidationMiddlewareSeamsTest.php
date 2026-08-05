@@ -179,7 +179,7 @@ class ValidationMiddlewareSeamsTest extends UnitTestCase
         $this->assertInstanceOf(WebRequest::class, $cleared);
 
         $this->assertSame([], $cleared->getParameters('runtime'));
-        $this->assertSame($cleared, $this->getContext()->getRequest());
+        $this->assertSame($cleared, $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class));
     }
 
     /**

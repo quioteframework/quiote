@@ -30,7 +30,7 @@ class FormPopulationMiddleware implements MiddlewareInterface
     {
         $webRequest = $this->resolveWebRequest($request);
         $webRequest = $this->ensureDefaultConfig($webRequest);
-        $this->controller->getContext()->setRequest($webRequest);
+        $this->controller->getContext()->getContainer()->get(\Quiote\Request\RequestState::class)->publish($webRequest);
         $request = $request->withAttribute('quiote.request_data', $webRequest);
 
         $response = $handler->handle($request);
@@ -53,7 +53,7 @@ class FormPopulationMiddleware implements MiddlewareInterface
         // Re-sync now: previously this only happened as a side effect of
         // engine->populate() reaching its 'orphaned_errors' bookkeeping, which
         // never ran when population was skipped below.
-        $this->controller->getContext()->setRequest($webRequest);
+        $this->controller->getContext()->getContainer()->get(\Quiote\Request\RequestState::class)->publish($webRequest);
 
         // Skip the DOM round-trip entirely when there's no form to populate --
         // the overwhelmingly common case for plain GETs -- instead of paying for
@@ -89,7 +89,7 @@ class FormPopulationMiddleware implements MiddlewareInterface
         $rd = $request->getAttribute('quiote.request_data');
         if (!$rd instanceof WebRequest) {
             try {
-                $rd = $this->controller->getContext()->getRequest();
+                $rd = $this->controller->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
             } catch (\Throwable) {
                 $rd = null;
             }

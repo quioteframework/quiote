@@ -78,7 +78,7 @@ final class ActionExecutor
     // Reuse the current context's own request if available; otherwise create WebRequest from the PSR-7 request
     $web = null;
     if ($context !== null) {
-        try { $web = $context->getRequest(); } catch (\Throwable) { $web = null; }
+        try { $web = $context->getContainer()->get(\Quiote\Request\WebRequest::class); } catch (\Throwable) { $web = null; }
     }
     if (!($web instanceof WebRequest)) {
         // Create WebRequest from PSR-7 request (WebRequest extends ServerRequest)
@@ -177,10 +177,10 @@ final class ActionExecutor
         // WebRequest is immutable: when $web was reused from the context (the common
         // case), setParameter() above produced a new instance rather than mutating the
         // one the context still holds a reference to. Re-sync so downstream code that
-        // reads $context->getRequest() (rather than this method's return value) sees it.
+        // reads $context->getContainer()->get(\Quiote\Request\WebRequest::class) (rather than this method's return value) sees it.
         if ($context !== null) {
             try {
-                $context->setRequest($web);
+                $context->getContainer()->get(\Quiote\Request\RequestState::class)->publish($web);
             } catch (\Throwable $e) {
                 // The caller still receives $web, but code reading Context::getRequest() will
                 // see the instance from before the parameters were promoted.
@@ -241,7 +241,7 @@ final class ActionExecutor
         // validator exports are visible to action and later to the view without copying.
         $actionRequest = null;
         try {
-            $actionRequest = $this->controller->getContext()->getRequest();
+            $actionRequest = $this->controller->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
         } catch (\Throwable $e) {
             // The throw below is the real outcome; chain the cause so it names why the request
             // was missing instead of only that it was.
@@ -297,11 +297,11 @@ final class ActionExecutor
         }
         // WebRequest is immutable: an execute*()/validate() method that exports data via
         // setParameter() (e.g. so the rendered View can read it back) only replaces its own
-        // local copy unless it also calls $this->getContext()->setRequest($request). Re-fetch
+        // local copy unless it also calls $this->getContext()->getContainer()->get(\Quiote\Request\RequestState::class)->publish($request). Re-fetch
         // here so renderView() below sees that self-synced instance rather than the stale
         // $actionRequest captured before the action ran.
         try {
-            $actionRequest = $this->controller->getContext()->getRequest();
+            $actionRequest = $this->controller->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
         } catch (\Throwable $e) {
             // Keeps the instance captured before the action ran, so an export the action made
             // via setParameter() may not be visible to the view.

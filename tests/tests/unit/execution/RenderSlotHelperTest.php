@@ -25,15 +25,15 @@ class RenderSlotHelperTest extends UnitTestCase
         // Ensure context request has the SlotStack attribute for slot execution.
         // Context::getRequest() always returns a WebRequest instance (lazily
         // re-initialized when null), so no null-guard is needed here.
-        $ctxReq = $this->getContext()->getRequest();
+        $ctxReq = $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
         if (!$ctxReq->getAttribute(\Quiote\Execution\SlotStack::class)) {
             $ctxReq = $ctxReq->withAttribute(\Quiote\Execution\SlotStack::class, new \Quiote\Execution\SlotStack());
-            $this->getContext()->setRequest($ctxReq);
+            $this->getContext()->getContainer()->get(\Quiote\Request\RequestState::class)->publish($ctxReq);
         }
         // Strict validation: pre-whitelist potential slot argument names used in tests
         try {
-            $ctxReq = $this->getContext()->getRequest();
-            $this->getContext()->setRequest($ctxReq->enforceValidatedParameters(['foo','alpha','x','fail']));
+            $ctxReq = $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
+            $this->getContext()->getContainer()->get(\Quiote\Request\RequestState::class)->publish($ctxReq->enforceValidatedParameters(['foo','alpha','x','fail']));
         } catch(\Throwable) {}
         return $view;
     }

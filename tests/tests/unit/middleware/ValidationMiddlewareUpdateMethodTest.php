@@ -42,14 +42,14 @@ class ValidationMiddlewareUpdateMethodTest extends UnitTestCase
         // copy that still shares the parameter holder.
         $fresh = new WebRequest();
         $fresh->initialize($this->getContext());
-        $this->getContext()->setRequest($fresh);
+        $this->getContext()->getContainer()->get(\Quiote\Request\RequestState::class)->publish($fresh);
     }
 
     private function makeInitializedAction(Action $action, string $method, string $module, string $actionName): Action
     {
         $ctx  = $this->getContext();
         $resp = $ctx->getContainer()->get(\Quiote\Controller\Controller::class)->getGlobalResponse();
-        $req  = $ctx->getRequest();
+        $req  = $ctx->getContainer()->get(\Quiote\Request\WebRequest::class);
         $initCtx = new LightweightActionInitContext($ctx, $module, $actionName, $method, 'html', $req, $resp);
         $action->initialize($initCtx);
         return $action;
@@ -72,7 +72,7 @@ class ValidationMiddlewareUpdateMethodTest extends UnitTestCase
         };
         $this->makeInitializedAction($action, 'update', 'Cache', 'Cache');
 
-        $request = $this->getContext()->getRequest()
+        $request = $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class)
             ->withAttribute(ActionDescriptor::class, $actionDesc)
             ->withAttribute('quiote.preinstantiated_action', $action);
 
@@ -98,7 +98,7 @@ class ValidationMiddlewareUpdateMethodTest extends UnitTestCase
         };
         $this->makeInitializedAction($action, 'update', 'Cache', 'Cache');
 
-        $request = $this->getContext()->getRequest()
+        $request = $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class)
             ->withAttribute(ActionDescriptor::class, $actionDesc)
             ->withAttribute('quiote.preinstantiated_action', $action);
 
@@ -126,7 +126,7 @@ class ValidationMiddlewareUpdateMethodTest extends UnitTestCase
             };
             $this->makeInitializedAction($action, $method, 'Cache', 'Cache');
 
-            $request = $this->getContext()->getRequest()
+            $request = $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class)
                 ->withAttribute(ActionDescriptor::class, $actionDesc)
                 ->withAttribute('quiote.preinstantiated_action', $action);
 

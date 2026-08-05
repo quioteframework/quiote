@@ -30,7 +30,7 @@ final class SecurityForwardValidationResetTest extends UnitTestCase
         if(method_exists($user,'setAuthenticated')) { $user->setAuthenticated(false); }
         if(method_exists($user,'clearCredentials')) { try { $user->clearCredentials(); } catch(\Throwable) {} }
         // Ensure context has an WebRequest (required by ValidationMiddleware)
-        $this->getContext()->getRequest();
+        $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
     }
 
     private function buildPsr(): \Psr\Http\Message\ServerRequestInterface

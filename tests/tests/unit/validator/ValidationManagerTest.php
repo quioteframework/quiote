@@ -136,7 +136,7 @@ class ValidationManagerTest extends UnitTestCase
 		$this->assertFalse($this->_vm->execute($req));
 		$this->assertSame(['name' => '12345'], $this->_vm->getRawParameterSnapshot());
 
-		$finalReq = $this->_vm->getContext()->getRequest();
+		$finalReq = $this->_vm->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
 		$this->assertNull($finalReq->getParameter('name', null), 'Value must be scrubbed from the request despite the raw snapshot retaining it');
 	}
 
@@ -162,7 +162,7 @@ class ValidationManagerTest extends UnitTestCase
 
 		$this->assertTrue($this->_vm->execute($req));
 
-		$finalReq = $this->_vm->getContext()->getRequest();
+		$finalReq = $this->_vm->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
 		$this->assertSame('Bob', $finalReq->getParameter('name', null), 'Field must survive pruning when the operator group as a whole passed');
 	}
 
@@ -186,7 +186,7 @@ class ValidationManagerTest extends UnitTestCase
 
 		$this->assertTrue($this->_vm->execute($req));
 
-		$finalReq = $this->_vm->getContext()->getRequest();
+		$finalReq = $this->_vm->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
 		$this->assertSame('Bob', $finalReq->getParameter('name', null), 'Field must survive pruning when the operator group as a whole passed');
 	}
 

@@ -38,9 +38,9 @@ class LayoutSlotNoContainerTest extends UnitTestCase
     $view->initialize($vic);
     // getRequest() always returns a WebRequest instance (lazily recreated if needed),
     // so no null fallback is required here.
-    $req = $this->getContext()->getRequest();
+    $req = $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
     $req = $req->withAttribute(SlotStack::class, new SlotStack());
-    $this->getContext()->setRequest($req);
+    $this->getContext()->getContainer()->get(\Quiote\Request\RequestState::class)->publish($req);
     // Inject synthetic layout with a slot via reflection on output type
     $ot = $controller->getOutputType();
     $r = new ReflectionObject($ot);

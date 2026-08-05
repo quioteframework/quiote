@@ -686,7 +686,7 @@ final class FormPopulationEngine
 		if ($updatedRequest instanceof WebRequest) {
 			$request = $updatedRequest;
 			try {
-				$this->context->setRequest($request);
+				$this->context->getContainer()->get(\Quiote\Request\RequestState::class)->publish($request);
 			} catch (\Throwable $e) {
 				// The repopulated request never reached the context, so anything reading it
 				// afterwards sees the pre-population values.

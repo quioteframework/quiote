@@ -146,7 +146,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 		// Use the canonical WebRequest (PSR-7) rather than a RequestDataHolder – the init context
 		// now expects a ServerRequestInterface. This preserves single-request invariant for tests.
 		/** @var \Psr\Http\Message\ServerRequestInterface $canonicalRequest */
-		$canonicalRequest = $this->getContext()->getRequest();
+		$canonicalRequest = $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
 		$lw = new \Quiote\Execution\LightweightActionInitContext(
 			$this->getContext(),
 			$this->moduleName,
@@ -442,7 +442,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	 */
 	protected function applyRequestParameters(array $parameters, bool $clearFirst = false): void
 	{
-		try { $req = $this->getContext()->getRequest(); } catch(\Throwable) { $req = null; }
+		try { $req = $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class); } catch(\Throwable) { $req = null; }
 		if (!$req) { return; }
 		if ($clearFirst) {
 			$req = $req->clearParameters();
@@ -450,7 +450,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 		foreach ($parameters as $k => $v) {
 			$req = $req->setParameter($k, $v);
 		}
-		$this->getContext()->setRequest($req);
+		$this->getContext()->getContainer()->get(\Quiote\Request\RequestState::class)->publish($req);
 	}
 }
 

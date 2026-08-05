@@ -68,7 +68,7 @@ class ValidatorFactoryTest extends PhpUnitTestCase
 
 		$validator = $this->factory()->create(RequestScopedDependencyValidator::class);
 
-		$this->assertSame($ctx->getRequest(), $validator->request);
+		$this->assertSame($ctx->getContainer()->get(\Quiote\Request\WebRequest::class), $validator->request);
 	}
 
 	/**

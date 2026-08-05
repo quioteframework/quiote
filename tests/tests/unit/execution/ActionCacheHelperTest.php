@@ -43,7 +43,7 @@ class ActionCacheHelperTest extends UnitTestCase
             $this->makeDescriptor(),
             $state,
             $this->makeActionInstance(),
-            $this->getContext()->getRequest()
+            $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class)
         );
 
         $this->assertTrue($state->cacheHit);
@@ -65,7 +65,7 @@ class ActionCacheHelperTest extends UnitTestCase
             $this->makeDescriptor(),
             $state,
             $this->makeActionInstance(),
-            $this->getContext()->getRequest(),
+            $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class),
             'override content'
         );
 
@@ -80,7 +80,7 @@ class ActionCacheHelperTest extends UnitTestCase
             $this->makeDescriptor(),
             new ExecutionState(),
             null,
-            $this->getContext()->getRequest()
+            $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class)
         );
     }
 
@@ -92,7 +92,7 @@ class ActionCacheHelperTest extends UnitTestCase
             $this->makeDescriptor(),
             new ExecutionState(),
             $this->makeActionInstance(),
-            $this->getContext()->getRequest()
+            $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class)
         );
     }
 
@@ -104,7 +104,7 @@ class ActionCacheHelperTest extends UnitTestCase
             $this->makeDescriptor(),
             new ExecutionState(),
             $this->makeActionInstance(),
-            $this->getContext()->getRequest()
+            $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class)
         );
     }
 
@@ -116,7 +116,7 @@ class ActionCacheHelperTest extends UnitTestCase
             $this->makeDescriptor(),
             new ExecutionState(),
             $this->makeActionInstance(),
-            $this->getContext()->getRequest()
+            $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class)
         );
     }
 
@@ -128,7 +128,7 @@ class ActionCacheHelperTest extends UnitTestCase
             $this->makeDescriptor(),
             new ExecutionState(),
             $this->makeActionInstance(),
-            $this->getContext()->getRequest()
+            $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class)
         );
     }
 
@@ -140,7 +140,7 @@ class ActionCacheHelperTest extends UnitTestCase
             $this->makeDescriptor(),
             new ExecutionState(),
             $this->makeActionInstance(),
-            $this->getContext()->getRequest()
+            $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class)
         );
     }
 
@@ -152,7 +152,7 @@ class ActionCacheHelperTest extends UnitTestCase
             $this->makeDescriptor(),
             new ExecutionState(),
             $this->makeActionInstance(),
-            $this->getContext()->getRequest()
+            $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class)
         );
     }
 
@@ -164,7 +164,7 @@ class ActionCacheHelperTest extends UnitTestCase
             $this->makeDescriptor(),
             new ExecutionState(),
             $this->makeActionInstance(),
-            $this->getContext()->getRequest()
+            $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class)
         );
     }
 

@@ -61,7 +61,7 @@ class ValidationManagerBehaviorTest extends UnitTestCase
         // No validators registered -> strict mode should clear parameters
         $this->assertTrue($vm->execute($req));
         // Get the pruned request from context after validation
-        $req = $this->getContext()->getRequest();
+        $req = $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
         $this->assertFalse($req->hasParameter('unvalidated'));
     }
 
@@ -75,7 +75,7 @@ class ValidationManagerBehaviorTest extends UnitTestCase
         $req = $this->newWebRequest(['field' => 'abc', 'other' => 'keep?']);
         $this->assertFalse($vm->execute($req));
         // Get the pruned request from context after validation
-        $req = $this->getContext()->getRequest();
+        $req = $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
         // After pruning logic: failed argument 'field' removed, unvalidated 'other' also pruned in strict mode.
         $this->assertFalse($req->hasParameter('field'), 'Failed argument should be pruned');
         $this->assertFalse($req->hasParameter('other'), 'Unvalidated argument should be pruned');
@@ -136,7 +136,7 @@ class ValidationManagerBehaviorTest extends UnitTestCase
         // Only 'alpha' is validated; since validation overall succeeds, 'beta' (unvalidated) should be pruned in strict mode.
         $this->assertTrue($vm->execute($req));
         // Get the pruned request from context after validation
-        $req = $this->getContext()->getRequest();
+        $req = $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
         $this->assertTrue($req->hasParameter('alpha'));
         $this->assertFalse($req->hasParameter('beta'), 'Unvalidated parameter pruned on success in strict mode');
     }
@@ -168,7 +168,7 @@ class ValidationManagerBehaviorTest extends UnitTestCase
         $req = $req->withUploadedFiles(['keptFile' => $file, 'tmpFile' => $file]);
         $this->assertTrue($vm->execute($req));
         // Get the pruned request from context after validation
-        $req = $this->getContext()->getRequest();
+        $req = $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
         // Validated header retained; unvalidated header removed.
         $this->assertTrue($req->hasHeader('x-auth'));
         $this->assertFalse($req->hasHeader('x-unvalidated'));
@@ -190,7 +190,7 @@ class ValidationManagerBehaviorTest extends UnitTestCase
         $req = $this->newWebRequest();
         $req = $req->withHeader('authorization', 'Bearer secret')->withHeader('x-my-special-header', 'attacker-value');
         $this->assertTrue($vm->execute($req));
-        $finalReq = $this->getContext()->getRequest();
+        $finalReq = $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
         $this->assertFalse($finalReq->hasHeader('authorization'), 'Authorization must be purged when no validator ran');
         $this->assertFalse($finalReq->hasHeader('x-my-special-header'), 'Arbitrary unvalidated header must be purged when no validator ran');
     }
@@ -204,7 +204,7 @@ class ValidationManagerBehaviorTest extends UnitTestCase
         $req = $this->newWebRequest();
         $req = $req->withHeader('content-type', 'application/json')->withHeader('authorization', 'Bearer secret');
         $this->assertTrue($vm->execute($req));
-        $finalReq = $this->getContext()->getRequest();
+        $finalReq = $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
         $this->assertTrue($finalReq->hasHeader('content-type'), 'Validated header must survive');
         $this->assertFalse($finalReq->hasHeader('authorization'), 'Unvalidated header must still be purged');
     }
@@ -230,7 +230,7 @@ class ValidationManagerBehaviorTest extends UnitTestCase
         $req = $req->withUploadedFiles(['f1' => $file]);
         $this->assertFalse($vm->execute($req));
         // Get the pruned request from context after validation
-        $req = $this->getContext()->getRequest();
+        $req = $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
         $this->assertFalse($req->hasHeader('x-auth'));
         $this->assertFalse($req->hasHeader('another'));
         $this->assertSame([], $req->getCookieParams());

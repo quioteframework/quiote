@@ -18,7 +18,7 @@ class SlotNonSimpleParityTest extends UnitTestCase
         // Reset context request to avoid state pollution from prior tests
         $fresh = new \Quiote\Request\WebRequest();
         $fresh->initialize($this->getContext());
-        $this->getContext()->setRequest($fresh);
+        $this->getContext()->getContainer()->get(\Quiote\Request\RequestState::class)->publish($fresh);
     }
     /**
      * @param array<string, mixed> $params
@@ -50,8 +50,8 @@ class SlotNonSimpleParityTest extends UnitTestCase
     \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,false,false); // ensure baseline
     // Strict validation: whitelist parameter used in validation failure scenario.
     // Context::getRequest() always returns a WebRequest, so no instanceof guard is needed.
-    $ctxReq = $this->getContext()->getRequest();
-    $this->getContext()->setRequest($ctxReq->enforceValidatedParameters(['fail']));
+    $ctxReq = $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
+    $this->getContext()->getContainer()->get(\Quiote\Request\RequestState::class)->publish($ctxReq->enforceValidatedParameters(['fail']));
     $legacy = $this->dispatchWithFlag(false, function(): void{ \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(true,false,false); }, ['fail'=>1]);
     $noContainer = $this->dispatchWithFlag(true, function(): void{ \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(true,false,false); }, ['fail'=>1]);
     $this->assertSame('<div>COMPLEX_ERROR</div>', $legacy);

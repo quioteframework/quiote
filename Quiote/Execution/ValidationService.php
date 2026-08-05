@@ -334,7 +334,7 @@ class ValidationService
         // Use the context's request which may have been updated by pruneParametersToValidated()
         // during VM execute(). This ensures the action's validate method sees the post-prune
         // request and any parameters it sets via setParameter() propagate correctly.
-        $currentRequest = $this->requireActionContext($action)->getRequest();
+        $currentRequest = $this->requireActionContext($action)->getContainer()->get(\Quiote\Request\WebRequest::class);
         $validateMethod = 'validate' . $normalizedMethod;
         if (!is_callable([$action, $validateMethod])) {
             $validateMethod = 'validate';

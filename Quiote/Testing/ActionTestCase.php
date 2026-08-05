@@ -48,7 +48,7 @@ abstract class ActionTestCase extends FragmentTestCase
 		if (!$hasSpecific) {
 			$execMethod = 'execute';
 		}
-		$request = $this->getContext()->getRequest();
+		$request = $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
 		$resultView = null;
 
 		// If validation already determined to have failed, emulate framework behavior by invoking
@@ -133,7 +133,7 @@ abstract class ActionTestCase extends FragmentTestCase
 		// We still need Ucfirst variant inside ValidationService when constructing validate* methods.
 		$methodToken = strtolower($this->requestMethod);
 		// Acquire canonical WebRequest (it already holds parameters injected via helpers)
-		$request = $this->getContext()->getRequest();
+		$request = $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
 		$logger = \Quiote\Logging\Log::for($this);
 		$dbg = ($logger->isEnabled(\Quiote\Logging\Level::Debug) || getenv('DEBUG_TESTS'));
 		if ($dbg) {

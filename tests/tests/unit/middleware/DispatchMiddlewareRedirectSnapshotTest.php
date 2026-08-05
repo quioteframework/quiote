@@ -49,10 +49,10 @@ class DispatchMiddlewareRedirectSnapshotTest extends TestCase
     {
         $ctx = $this->createStub(\Quiote\Context::class);
         $webReq = new \Quiote\Request\WebRequest();
-        $ctx->method('getRequest')->willReturn($webReq);
         // Routing comes from the container now, and the container type-checks its bindings, so this is
         // a real Routing subclass rather than an anonymous object with the two methods.
         $container = new \Quiote\DI\Container();
+        $container->set(\Quiote\Request\WebRequest::class, $webReq, \Quiote\DI\Container::SCOPE_REQUEST);
         $container->set(\Quiote\Routing\Routing::class, new RedirectSnapshotTestRouting());
         $ctx->method('getContainer')->willReturn($container);
 

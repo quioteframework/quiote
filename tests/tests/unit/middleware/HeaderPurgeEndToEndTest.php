@@ -39,7 +39,7 @@ class HeaderPurgeEndToEndTest extends UnitTestCase
         // the Snapshot fixture, rendering the same view and silently proving nothing.
         $fresh = new \Quiote\Request\WebRequest();
         $fresh->initialize($this->getContext());
-        $this->getContext()->setRequest($fresh);
+        $this->getContext()->getContainer()->get(\Quiote\Request\RequestState::class)->publish($fresh);
         $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->initializeModule('Snapshot');
         // Cold-start this action's cache entry: the payload is keyed by
         // module/action and outlives the test, so one cached by another test using

@@ -77,16 +77,16 @@ class PhpRenderer extends Renderer implements IReusableRenderer, ResetInterface
 		
 		${$this->slotsVarName} =& $this->slots; 
 		
-		foreach($this->assigns as $name => $getter) {
-			${$name} = $this->context->$getter();
+		foreach($this->assigns as $name => $resolve) {
+			${$name} = $resolve();
 		}
-		unset($name, $getter);
+		unset($name, $resolve);
 		
-		extract($this->moreAssigns, EXTR_REFS | EXTR_PREFIX_INVALID, '_');
+		extract($this->moreAssigns ?? [], EXTR_REFS | EXTR_PREFIX_INVALID, '_');
 		// Provide backwards-compatible template variables: ensure moduleName
 		// and actionName are present in the attributes array. These keys are
 		// expected by many templates (available as $t['moduleName'] etc).
-		$layerParams = $this->layer->getParameters();
+		$layerParams = $this->layer?->getParameters() ?? [];
 		if (!isset($this->attributes['moduleName']) && isset($layerParams['module'])) {
 			$this->attributes['moduleName'] = $layerParams['module'];
 		}
@@ -101,7 +101,7 @@ class PhpRenderer extends Renderer implements IReusableRenderer, ResetInterface
 		// Some layer implementations may return null to indicate "no template".
 		// Requiring an empty path causes a PHP warning/fatal: normalize that
 		// case to an empty render result to keep rendering soft-failure safe.
-		$resource = $this->layer->getResourceStreamIdentifier();
+		$resource = $this->layer?->getResourceStreamIdentifier();
 		if ($resource === null || $resource === '') {
 			// nothing to render for this layer
 			$retval = '';
@@ -114,7 +114,7 @@ class PhpRenderer extends Renderer implements IReusableRenderer, ResetInterface
 		// contain the main content (combined layers/slots). Populate $inner from
 		// the attributes array if present to preserve backward compatibility.
 		$inner = null;
-		if (array_key_exists('inner', $this->attributes)) {
+		if (array_key_exists('inner', $this->attributes ?? [])) {
 			$inner = $this->attributes['inner'];
 		}
 		try {

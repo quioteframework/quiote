@@ -486,7 +486,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 			$keepNames['files'] ?? [],
 			$failedNames['files'] ?? []
 		);
-		$this->getContext()->setRequest($request);
+		$this->getContext()->getContainer()->get(\Quiote\Request\RequestState::class)->publish($request);
 
 		if($executedValidators > 0) {
 			// Capture already-whitelisted runtime parameter keys before pruning -- i.e. real
@@ -512,7 +512,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 				);
 
 				// Update context with the pruned request so actions get the clean version
-				$this->getContext()->setRequest($request);
+				$this->getContext()->getContainer()->get(\Quiote\Request\RequestState::class)->publish($request);
 			}
 			// After pruning, merge whitelist with all succeeded parameter names and any exported roots
 			{
@@ -539,7 +539,7 @@ class ValidationManager extends ParameterHolder implements IValidatorContainer, 
 		// Ensure the context always reflects the final request state, regardless of which
 		// branch above mutated it (executedValidators==0 clears params without an explicit
 		// setRequest() call above; the executedValidators>0 branch already re-syncs mid-flow).
-		$this->getContext()->setRequest($request);
+		$this->getContext()->getContainer()->get(\Quiote\Request\RequestState::class)->publish($request);
 
 		if ($vd) {
 			$logger->debug('[ValidationManager] finalSuccess=' . ($success? '1':'0') . ' highestResult=' . $result . ' executedValidators=' . $executedValidators);

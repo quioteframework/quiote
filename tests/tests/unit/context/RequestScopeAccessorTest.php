@@ -34,22 +34,22 @@ class RequestScopeAccessorTest extends PhpUnitTestCase
 	public function testCurrentAnswersTheContextsRequest(): void
 	{
 		$ctx = Context::getInstance();
-		$state = new RequestState($ctx);
+		$state = $ctx->getContainer()->get(RequestState::class);
 
-		$this->assertSame($ctx->getRequest(), $state->current());
+		$this->assertSame($ctx->getContainer()->get(\Quiote\Request\WebRequest::class), $state->current());
 	}
 
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
 	public function testPublishReplacesTheCurrentRequest(): void
 	{
 		$ctx = Context::getInstance();
-		$state = new RequestState($ctx);
+		$state = $ctx->getContainer()->get(RequestState::class);
 		$replacement = $state->current()->withAttribute('published.marker', 'yes');
 
 		$state->publish($replacement);
 
 		$this->assertSame($replacement, $state->current());
-		$this->assertSame($replacement, $ctx->getRequest(), 'the context sees it too');
+		$this->assertSame($replacement, $ctx->getContainer()->get(\Quiote\Request\WebRequest::class), 'the context sees it too');
 		$this->assertSame('yes', $state->current()->getAttribute('published.marker'));
 	}
 
@@ -60,7 +60,7 @@ class RequestScopeAccessorTest extends PhpUnitTestCase
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
 	public function testPublishNormalizesAForeignPsrRequest(): void
 	{
-		$state = new RequestState(Context::getInstance());
+		$state = Context::getInstance()->getContainer()->get(RequestState::class);
 
 		$state->publish(new ServerRequest('GET', '/foreign'));
 
@@ -76,7 +76,7 @@ class RequestScopeAccessorTest extends PhpUnitTestCase
 	public function testRequestStateResolvesPerCallRatherThanMemoizing(): void
 	{
 		$ctx = Context::getInstance();
-		$state = new RequestState($ctx);
+		$state = $ctx->getContainer()->get(RequestState::class);
 
 		$first = $state->current();
 		$second = $first->withAttribute('generation', 2);

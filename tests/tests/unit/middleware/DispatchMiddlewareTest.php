@@ -33,10 +33,10 @@ class DispatchMiddlewareTest extends TestCase
     {
         $ctx = $this->createStub(\Quiote\Context::class);
         $webReq = new \Quiote\Request\WebRequest();
-        $ctx->method('getRequest')->willReturn($webReq);
         // Routing comes from the container now. A real Routing subclass rather than an anonymous
         // look-alike, because the container refuses a binding that is not an instance of the id.
         $container = new \Quiote\DI\Container();
+        $container->set(\Quiote\Request\WebRequest::class, $webReq, \Quiote\DI\Container::SCOPE_REQUEST);
         $container->set(\Quiote\Routing\Routing::class, new DispatchMiddlewareTestRouting());
         $ctx->method('getContainer')->willReturn($container);
         // Minimal concrete response implementing abstract contract

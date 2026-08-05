@@ -233,7 +233,7 @@ class ContextExtendedCoverageTest extends TestCase
         $this->injectLogger($ctx);
         $ro = new ReflectionObject($ctx);
 
-        $req = $ctx->getRequest();
+        $req = $ctx->getContainer()->get(\Quiote\Request\WebRequest::class);
         $user = $ctx->getContainer()->get(\Quiote\User\User::class);
         $dbm = null;
         if (Config::getBool('core.use_database', false)) {
@@ -268,7 +268,7 @@ class ContextExtendedCoverageTest extends TestCase
             $this->assertSame($dbm, $p->getValue($ctx), 'Same databaseManager instance should persist across reset');
         }
         // Lazy recreation works
-        $req2 = $ctx->getRequest();
+        $req2 = $ctx->getContainer()->get(\Quiote\Request\WebRequest::class);
         $this->assertNotSame($req, $req2);
     }
 
@@ -281,7 +281,7 @@ class ContextExtendedCoverageTest extends TestCase
         $ro->getProperty('request')->setValue($ctx, null);
 
         $this->expectException(QuioteException::class);
-        $ctx->getRequest();
+        $ctx->getContainer()->get(\Quiote\Request\WebRequest::class);
     }
 
     public function testGetRoutingFixtureProvidesAddRoute(): void
@@ -413,15 +413,15 @@ class ContextExtendedCoverageTest extends TestCase
         $this->assertNotEmpty($cid1);
         // The request the context answers is the one handle() was given, wrapped as a WebRequest --
         // middleware is free to replace the instance, so the URI is what has to survive.
-        $current1 = $ctx->getRequest();
+        $current1 = $ctx->getContainer()->get(\Quiote\Request\WebRequest::class);
         $this->assertSame((string)$req1->getUri(), (string)$current1->getUri(), 'the handled request URI should be what the context answers');
         // Simulate middleware replacing request (e.g., adding attribute)
         $req2 = $req1->withAttribute('x', 'y');
-        $ctx->setRequest($req2);
+        $ctx->getContainer()->get(\Quiote\Request\RequestState::class)->publish($req2);
         $this->assertNotSame($req1, $req2, 'Middleware modifications should produce a new immutable request instance');
         // Not an identity assertion: setRequest() may wrap a plain PSR request as a WebRequest, so
         // what has to hold is that the republished request's own state is what the context answers.
-        $current2 = $ctx->getRequest();
+        $current2 = $ctx->getContainer()->get(\Quiote\Request\WebRequest::class);
         $this->assertSame((string)$req2->getUri(), (string)$current2->getUri());
         $this->assertSame('y', $current2->getAttribute('x'), 'the middleware attribute should survive');
         // Correlation id remains the same for the same pipeline execution

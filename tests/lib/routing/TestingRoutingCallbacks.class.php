@@ -26,8 +26,8 @@ class TestOnNotMatchedRoutingCallback extends RoutingCallback
     {
         // Mark attribute directly via context routing callbacks pool if needed
         $context = $this->getContext();
-        $request = $context->getRequest();
-        $context->setRequest($request->setAttribute('quiote.routing.callbacks.on_not_matched', true));
+        $request = $context->getContainer()->get(\Quiote\Request\WebRequest::class);
+        $context->getContainer()->get(\Quiote\Request\RequestState::class)->publish($request->setAttribute('quiote.routing.callbacks.on_not_matched', true));
     }
 }
 

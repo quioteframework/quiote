@@ -288,7 +288,7 @@ class DispatchMiddleware implements MiddlewareInterface
                 if (!preg_match('#^[^:]+://#', $location)) {
                     $quioteCtx = $this->controller->getContext();
                     if (isset($location[0]) && $location[0] === '/') {
-                        $rq = $quioteCtx->getRequest();
+                        $rq = $quioteCtx->getContainer()->get(\Quiote\Request\WebRequest::class);
                         $location = $rq->getUrlScheme() . '://' . $rq->getUrlAuthority() . $location;
                     } else {
                         $location = $quioteCtx->getContainer()->get(\Quiote\Routing\Routing::class)->getBaseHref() . $location;

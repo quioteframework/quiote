@@ -27,7 +27,7 @@ class DeferredSlotRenderable implements SlotRenderable, \Stringable
         // getRequest() rather than the removed getCurrentPsrRequest(): the same object, and it
         // rebuilds one if the request-scoped instance was cleared, which is strictly better here than
         // the exception the null case used to raise.
-        $parentRequest = $this->context->getRequest();
+        $parentRequest = $this->context->getContainer()->get(\Quiote\Request\WebRequest::class);
         try {
             $pid = spl_object_id($parentRequest);
             $has = $parentRequest->getAttribute(\Quiote\Execution\SlotStack::class) ? '1' : '0';

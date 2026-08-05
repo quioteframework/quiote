@@ -86,13 +86,13 @@ class ValidatorDeclarationTest extends UnitTestCase
 		$this->assertSame(['username'], $this->bucketOf($declaration)['declaredParameters']);
 
 		$context = $this->getContext();
-		$original = $context->getRequest();
+		$original = $context->getContainer()->get(\Quiote\Request\WebRequest::class);
 		try {
-			$context->setRequest($original->setUnvalidatedParameter('username', 'ada'));
+			$context->getContainer()->get(\Quiote\Request\RequestState::class)->publish($original->setUnvalidatedParameter('username', 'ada'));
 			$vm = $this->applyTo($declaration);
-			$this->assertSame('ada', $vm->getContext()->getRequest()->getParameter('username'));
+			$this->assertSame('ada', $vm->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class)->getParameter('username'));
 		} finally {
-			$context->setRequest($original);
+			$context->getContainer()->get(\Quiote\Request\RequestState::class)->publish($original);
 		}
 	}
 

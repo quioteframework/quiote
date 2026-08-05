@@ -68,6 +68,23 @@ class Container implements ContainerInterface
     }
 
     /**
+     * Forget an instance already resolved for $id, keeping the binding that produced it.
+     *
+     * The narrow counterpart to {@see unset()}, for a factory-backed service whose answer has changed
+     * underneath the container. Publishing a replacement request is the case it exists for: the
+     * request is request-scoped so the captive-dependency guard refuses a singleton that captures it,
+     * which means the container *does* memoize it -- and the memo has to be dropped, not the binding,
+     * or the factory would be replaced by whatever was published and the rebuild path would be gone.
+     *
+     * @since      4.0.0
+     */
+    public function forgetResolved(string $id): void
+    {
+        $lookupId = $this->aliases[$id] ?? $id;
+        unset($this->singletonResolved[$lookupId], $this->requestResolved[$lookupId]);
+    }
+
+    /**
      * Forget a binding, and any instance already resolved from it.
      *
      * The counterpart to {@see set()}, and needed because binding null is not the same thing: an id
@@ -308,6 +325,12 @@ class Container implements ContainerInterface
             if ($concrete instanceof \Closure || (is_callable($concrete) && !is_string($concrete))) {
                 try {
                     $obj = $concrete($this);
+                } catch (\Quiote\Exception\QuioteException $e) {
+                    // Not wrapped: a framework exception out of a factory is the framework explaining
+                    // itself, and a caller catching QuioteException around a resolution -- "this
+                    // component cannot be rebuilt" -- should still catch it rather than a container
+                    // error mentioning a factory it never wrote.
+                    throw $e;
                 } catch (\Throwable $e) {
                     throw new ContainerException("Error while invoking factory for '$requestedId': " . $e->getMessage(), 0, $e);
                 }

@@ -34,7 +34,7 @@ class ValidationManagerConditionalModeTest extends UnitTestCase
         $req = $this->newWebRequest(['alpha' => 'A', 'beta' => 'B']);
         $this->assertTrue($vm->execute($req));
         // Get the pruned request from context after validation
-        $req = $this->getContext()->getRequest();
+        $req = $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
         $this->assertTrue($req->hasParameter('alpha'));
         $this->assertFalse($req->hasParameter('beta'), 'Unvalidated parameter pruned when at least one validator present in conditional mode');
     }

@@ -17,7 +17,7 @@ class HttpRedirectRoutingCallbackTest extends TestCase
     public function testRedirectWithDiscretePartsAndParsableRequestUrlMergesHostIntoRedirect(): void
     {
         $context = Context::getInstance('http_redirect_callback_test_happy');
-        $context->setRequest($this->makeFakeRequest('https://example.com/original/path'));
+        $context->getContainer()->get(\Quiote\Request\RequestState::class)->publish($this->makeFakeRequest('https://example.com/original/path'));
 
         $callback = new HttpRedirectRoutingCallback(['path' => '/redirected']);
         $route = [];
@@ -38,7 +38,7 @@ class HttpRedirectRoutingCallbackTest extends TestCase
         // A URL containing an invalid port makes parse_url() return false; the
         // callback must not blow up on array_merge(false, ...) and should still
         // produce a redirect built purely from the configured parts.
-        $context->setRequest($this->makeUnparsableUrlRequest('http://example.com:-1/original'));
+        $context->getContainer()->get(\Quiote\Request\RequestState::class)->publish($this->makeUnparsableUrlRequest('http://example.com:-1/original'));
 
         $callback = new HttpRedirectRoutingCallback(['scheme' => 'https', 'host' => 'redirected.example', 'path' => '/target']);
         $route = [];
@@ -56,7 +56,7 @@ class HttpRedirectRoutingCallbackTest extends TestCase
     public function testRedirectWithNonStringUrlThrowsConfigurationException(): void
     {
         $context = Context::getInstance('http_redirect_callback_test_bad_url');
-        $context->setRequest($this->makeFakeRequest('https://example.com/original/path'));
+        $context->getContainer()->get(\Quiote\Request\RequestState::class)->publish($this->makeFakeRequest('https://example.com/original/path'));
 
         $callback = new HttpRedirectRoutingCallback(['url' => ['not', 'a', 'string']]);
         $route = [];
@@ -72,7 +72,7 @@ class HttpRedirectRoutingCallbackTest extends TestCase
     public function testRedirectWithNonStringRouteThrowsConfigurationException(): void
     {
         $context = Context::getInstance('http_redirect_callback_test_bad_route');
-        $context->setRequest($this->makeFakeRequest('https://example.com/original/path'));
+        $context->getContainer()->get(\Quiote\Request\RequestState::class)->publish($this->makeFakeRequest('https://example.com/original/path'));
 
         $callback = new HttpRedirectRoutingCallback(['route' => 42]);
         $route = [];
@@ -88,7 +88,7 @@ class HttpRedirectRoutingCallbackTest extends TestCase
     public function testRedirectWithNonIntNonStringPortThrowsConfigurationException(): void
     {
         $context = Context::getInstance('http_redirect_callback_test_bad_port');
-        $context->setRequest($this->makeFakeRequest('https://example.com/original/path'));
+        $context->getContainer()->get(\Quiote\Request\RequestState::class)->publish($this->makeFakeRequest('https://example.com/original/path'));
 
         $callback = new HttpRedirectRoutingCallback(['host' => 'example.org', 'port' => ['not', 'valid']]);
         $route = [];
@@ -104,7 +104,7 @@ class HttpRedirectRoutingCallbackTest extends TestCase
     public function testRedirectWithNoConfiguredPartsReturnsFalse(): void
     {
         $context = Context::getInstance('http_redirect_callback_test_no_parts');
-        $context->setRequest($this->makeFakeRequest('https://example.com/original/path'));
+        $context->getContainer()->get(\Quiote\Request\RequestState::class)->publish($this->makeFakeRequest('https://example.com/original/path'));
 
         $callback = new HttpRedirectRoutingCallback([]);
         $route = [];

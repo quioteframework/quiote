@@ -141,14 +141,14 @@ class SeamInterfaceResolutionTest extends PhpUnitTestCase
     {
         $ctx = Context::getInstance();
         // Force both components to exist, since they are built lazily.
-        $ctx->getRequest();
+        $ctx->getContainer()->get(\Quiote\Request\WebRequest::class);
         $ctx->getContainer()->get(\Quiote\User\User::class);
 
         $resolved = $ctx->getContainer()->get($contract);
 
         $this->assertInstanceOf($contract, $resolved);
         $this->assertTrue(
-            $resolved === $ctx->getRequest() || $resolved === $ctx->getContainer()->get(\Quiote\User\User::class),
+            $resolved === $ctx->getContainer()->get(\Quiote\Request\WebRequest::class) || $resolved === $ctx->getContainer()->get(\Quiote\User\User::class),
             "$contract must resolve to the request's own instance, not a freshly autowired one",
         );
     }
@@ -160,7 +160,7 @@ class SeamInterfaceResolutionTest extends PhpUnitTestCase
     public function testTheBaseContractAndTheConcreteClassResolveToOneInstance(): void
     {
         $ctx = Context::getInstance();
-        $request = $ctx->getRequest();
+        $request = $ctx->getContainer()->get(\Quiote\Request\WebRequest::class);
         $container = $ctx->getContainer();
 
         $this->assertSame($request, $container->get($request::class));
@@ -176,7 +176,7 @@ class SeamInterfaceResolutionTest extends PhpUnitTestCase
     public function testTheRequestBaseContractIsRequestScopedSoASingletonCannotCaptureIt(): void
     {
         $ctx = Context::getInstance();
-        $ctx->getRequest();
+        $ctx->getContainer()->get(\Quiote\Request\WebRequest::class);
         $container = $ctx->getContainer();
         $container->set(
             SeamRequestCapturingSingleton::class,

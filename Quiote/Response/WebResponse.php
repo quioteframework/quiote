@@ -423,7 +423,7 @@ class WebResponse extends AttributeHolder implements ResetInterface, WebResponse
 		/** @var ?WebRequest */
 		$request = null;
 		try {
-			$request = $context->getRequest();
+			$request = $context->getContainer()->get(\Quiote\Request\WebRequest::class);
 		} catch (\Exception $e) {
 			\Quiote\Logging\Log::for($this)->debug('WebResponse::initialize - request not available during bootstrap: ' . $e->getMessage());
 			$request = null;
@@ -573,7 +573,7 @@ class WebResponse extends AttributeHolder implements ResetInterface, WebResponse
 				throw new QuioteException('WebResponse::toPsrResponse - cannot build a relative redirect location without an initialized Context');
 			}
 			if(isset($location[0]) && $location[0] == '/') {
-				$rq = $this->context->getRequest();
+				$rq = $this->context->getContainer()->get(\Quiote\Request\WebRequest::class);
 				$location = $rq->getUrlScheme() . '://' . $rq->getUrlAuthority() . $location;
 			} else {
 				$location = $this->context->getContainer()->get(\Quiote\Routing\Routing::class)->getBaseHref() . $location;

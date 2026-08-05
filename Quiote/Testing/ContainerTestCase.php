@@ -41,9 +41,9 @@ abstract class ContainerTestCase extends FragmentTestCase
 		if (is_array($arguments)) {
 			// Inject parameters directly into request runtime for downstream usage.
 			try {
-				$request = $context->getRequest();
+				$request = $context->getContainer()->get(\Quiote\Request\WebRequest::class);
 				foreach ($arguments as $k => $v) { $request = $request->setParameter($k, $v); }
-				$context->setRequest($request);
+				$context->getContainer()->get(\Quiote\Request\RequestState::class)->publish($request);
 			} catch (\Throwable $e) {
 				// The arguments never reached the request, so the fragment under test runs without
 				// them -- which surfaces as a confusing assertion failure rather than an error, so

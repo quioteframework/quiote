@@ -16,7 +16,7 @@ use Quiote\Middleware\DispatchMiddleware;
  * from Context after the action's execute*() method runs. WebRequest is
  * immutable: a value exported via setParameter() only replaces the action's
  * own local copy of the request, so it must self-sync via
- * $this->getContext()->setRequest($request), AND ActionExecutor must re-fetch
+ * $this->getContext()->getContainer()->get(\Quiote\Request\RequestState::class)->publish($request), AND ActionExecutor must re-fetch
  * before rendering the view -- both halves are required, or the exported
  * value never reaches the view (see ExportParamAction/ExportParamActionSuccessView).
  */

@@ -161,7 +161,7 @@ final class ValidatorDeclarationApplier
     private static function declareParameters(ValidationManager $validationManager, array $names): void
     {
         $context = $validationManager->getContext();
-        $context->setRequest($context->getRequest()->declareParameters($names));
+        $context->getContainer()->get(\Quiote\Request\RequestState::class)->publish($context->getContainer()->get(\Quiote\Request\WebRequest::class)->declareParameters($names));
     }
 
     /**

@@ -41,7 +41,7 @@ class SlotMiddleware implements MiddlewareInterface
             // Inform context about the request instance change so it stays in sync
             if ($this->context !== null) {
                 try {
-                    $this->context->setRequest($request);
+                    $this->context->getContainer()->get(\Quiote\Request\RequestState::class)->publish($request);
                 } catch (\Throwable $e) {
                     // The request carrying the SlotStack never reached the context, so a slot
                     // rendered from code reading Context::getRequest() cannot find one.

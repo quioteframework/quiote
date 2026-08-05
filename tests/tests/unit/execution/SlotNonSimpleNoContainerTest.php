@@ -27,7 +27,7 @@ class SlotNonSimpleNoContainerTest extends UnitTestCase
         // in via the shared context request and trip CacheComplexAction::validate().
         $fresh = new \Quiote\Request\WebRequest();
         $fresh->initialize($this->getContext());
-        $this->getContext()->setRequest($fresh);
+        $this->getContext()->getContainer()->get(\Quiote\Request\RequestState::class)->publish($fresh);
         putenv('QUIOTE_SLOT_NO_CONTAINER_ALL=1');
         // Ensure user has credential for baseline success
         $user = $this->getContext()->getContainer()->get(\Quiote\User\User::class);

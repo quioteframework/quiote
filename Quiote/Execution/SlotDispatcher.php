@@ -157,7 +157,7 @@ class SlotDispatcher
             $originals = [];
             if ($parameters) {
                 try {
-                    $rdh = $this->controller->getContext()->getRequest();
+                    $rdh = $this->controller->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
                 } catch (\Throwable) {
                     $rdh = null;
                 }
@@ -185,7 +185,7 @@ class SlotDispatcher
                     }
                     $rdh = $rdh->setParameter($k, $v);
                 }
-                $this->controller->getContext()->setRequest($rdh);
+                $this->controller->getContext()->getContainer()->get(\Quiote\Request\RequestState::class)->publish($rdh);
                 // (former temporary GuidanceSection instrumentation removed)
                 $overlayApplied = true;
                 if ($logger->isEnabled(\Quiote\Logging\Level::Debug)) {
@@ -202,7 +202,7 @@ class SlotDispatcher
             // Hard break: container path removed. Always container-less execution.
             if (!$rdh) {
                 try {
-                    $rdh = $this->controller->getContext()->getRequest();
+                    $rdh = $this->controller->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
                 } catch (\Throwable) {
                     $rdh = null;
                 }
@@ -643,7 +643,7 @@ class SlotDispatcher
                     }
                 }
                 try {
-                    $this->controller->getContext()->setRequest($rdh);
+                    $this->controller->getContext()->getContainer()->get(\Quiote\Request\RequestState::class)->publish($rdh);
                 } catch (\Throwable $e) {
                     // The restored request never reached the context, so everything after this
                     // slot reads the overlaid one.
@@ -755,7 +755,7 @@ class SlotDispatcher
         // Fallback: synthesize minimal context when container path used
         $sharedRequest = null;
         try {
-            $sharedRequest = $this->controller->getContext()->getRequest();
+            $sharedRequest = $this->controller->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
         } catch (\Throwable) {
             $sharedRequest = null;
         }

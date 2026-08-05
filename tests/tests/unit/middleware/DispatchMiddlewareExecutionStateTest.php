@@ -42,7 +42,7 @@ class DispatchMiddlewareExecutionStateTest extends UnitTestCase
         $state->validationDecision = ValidationDecision::passed();
         $factory = new Psr17Factory();
         /** @var \Quiote\Request\WebRequest $legacyReq */
-        $legacyReq = $this->getContext()->getRequest();
+        $legacyReq = $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
         $psr = $legacyReq
             ->withUri($factory->createUri('http://localhost/cache'))
             ->withMethod('GET');

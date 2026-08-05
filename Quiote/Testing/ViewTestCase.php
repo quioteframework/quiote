@@ -75,7 +75,7 @@ abstract class ViewTestCase extends FragmentTestCase
 		// Container-based execution removed; directly instantiate view and invoke execute method.
 		$view = $this->createViewInstance();
 		// Modern request no longer exposes a separate requestData holder; pass parameter array for legacy execute signatures if needed.
-		$req = $this->getContext()->getRequest();
+		$req = $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
 		$rd = $req->getParameters('parameters');
 		$method = 'execute' . ucfirst($otName ?? $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->getOutputType()->getName());
 		if(!is_callable([$view,$method])) { $method = 'execute'; }

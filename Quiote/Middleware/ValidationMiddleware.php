@@ -160,7 +160,7 @@ class ValidationMiddleware implements MiddlewareInterface
     private function canonicalWebRequest(?WebRequest $fallback = null): WebRequest
     {
         try {
-            $webRequest = $this->controller->getContext()->getRequest();
+            $webRequest = $this->controller->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
         } catch (\Throwable $e) {
             if ($fallback !== null) {
                 \Quiote\Logging\Log::for($this)->warning(
@@ -229,7 +229,7 @@ class ValidationMiddleware implements MiddlewareInterface
      */
     private function publish(WebRequest $webRequest): void
     {
-        $this->controller->getContext()->setRequest($webRequest);
+        $this->controller->getContext()->getContainer()->get(\Quiote\Request\RequestState::class)->publish($webRequest);
     }
 
     /**

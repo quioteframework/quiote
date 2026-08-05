@@ -21,7 +21,9 @@ class DispatchMiddlewareStagedResponseTest extends TestCase
     private function makeController(WebResponse $globalResp): Controller
     {
         $ctx = $this->createStub(\Quiote\Context::class);
-        $ctx->method('getRequest')->willReturn(new \Quiote\Request\WebRequest());
+        $container = new \Quiote\DI\Container();
+        $container->set(\Quiote\Request\WebRequest::class, new \Quiote\Request\WebRequest(), \Quiote\DI\Container::SCOPE_REQUEST);
+        $ctx->method('getContainer')->willReturn($container);
 
         $controller = new class($globalResp) extends Controller {
             public function __construct(private readonly WebResponse $gResp) {}

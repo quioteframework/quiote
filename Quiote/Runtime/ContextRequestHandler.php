@@ -123,7 +123,7 @@ final class ContextRequestHandler implements RequestHandlerInterface
     private function warmRequest(): void
     {
         try {
-            $this->context->getRequest();
+            $this->context->getContainer()->get(\Quiote\Request\WebRequest::class);
         } catch (\Throwable $e) {
             Log::for($this)->error(
                 '[ContextRequestHandler] eager request construction failed, deferring to '

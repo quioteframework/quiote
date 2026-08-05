@@ -318,7 +318,7 @@ abstract class Routing implements ResetInterface, \Quiote\ContextComponentInterf
 		// Prefer data from the Quiote web request if available
 		if ($this->context) {
 			try {
-				$rq = $this->context->getRequest();
+				$rq = $this->context->getContainer()->get(\Quiote\Request\WebRequest::class);
 				$scheme = $rq->getUrlScheme();
 				$auth = $rq->getUrlAuthority();
 				if ($auth) {

@@ -87,7 +87,7 @@ class ValidationServiceTest extends UnitTestCase
         $action = $this->newAction(true, true, $manager);
         $req = $this->newWebRequest(); // no pre-seeded whitelist
         $req = $req->withQueryParams(['alpha' => 'A']);
-        $ctx->setRequest($req);
+        $ctx->getContainer()->get(\Quiote\Request\RequestState::class)->publish($req);
 
         $res = $svc->xmlOnlyValidate($action, $req, 'app', 'dummy', 'write');
 
@@ -95,7 +95,7 @@ class ValidationServiceTest extends UnitTestCase
         $trace = $res->getTrace();
         $this->assertNotNull($trace);
         $this->assertContains('manualReg', $trace->validatorsLoaded, 'Expected manually registered validator to be loaded');
-        $finalRequest = $ctx->getRequest();
+        $finalRequest = $ctx->getContainer()->get(\Quiote\Request\WebRequest::class);
         $this->assertSame('A', $finalRequest->getParameter('alpha'), 'Expected argument to be whitelisted and retain its value');
     }
 
@@ -106,7 +106,7 @@ class ValidationServiceTest extends UnitTestCase
         $svc = new ValidationService($manager);
         $req = $this->newWebRequest();
         $req = $req->withQueryParams(['alpha' => 'A']);
-        $ctx->setRequest($req);
+        $ctx->getContainer()->get(\Quiote\Request\RequestState::class)->publish($req);
         $initCtx = new \Quiote\Execution\LightweightActionInitContext(
             $ctx,
             'app',

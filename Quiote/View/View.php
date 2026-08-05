@@ -178,7 +178,7 @@ abstract class View implements ResetInterface
 
 		$instance = null;
 		try {
-			$request = $this->getContext()?->getRequest();
+			$request = $this->getContext()?->getContainer()->get(\Quiote\Request\WebRequest::class);
 			if ($request !== null) {
 				$instance = $request->getRequestUri();
 			}
@@ -607,7 +607,7 @@ abstract class View implements ResetInterface
 		$context = $this->requireContext();
 		// getRequest() rather than the removed getCurrentPsrRequest(): the same object, and it rebuilds
 		// one if the request-scoped instance was cleared.
-		$parentRequest = $context->getRequest();
+		$parentRequest = $context->getContainer()->get(\Quiote\Request\WebRequest::class);
 		// Instead of dispatching now, return a deferred renderable that will
 		// dispatch during template rendering.
 		return new \Quiote\Execution\DeferredSlotRenderable($context, $moduleName, $actionName, $parameters, $outputType);
@@ -646,7 +646,7 @@ abstract class View implements ResetInterface
 		// Reuse canonical request instance when no explicit arguments provided.
 		if ($arguments === null) {
 			try {
-				$arguments = $context->getRequest();
+				$arguments = $context->getContainer()->get(\Quiote\Request\WebRequest::class);
 			} catch (\Throwable) {
 				$arguments = null;
 			}

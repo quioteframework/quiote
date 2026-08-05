@@ -78,7 +78,7 @@ class MapRequestActionResolverIntegrationTest extends UnitTestCase
         $vm = $this->requireValidationManager($initCtx);
         $this->assertTrue($vm->execute($request));
 
-        $validatedRequest = $this->getContext()->getRequest();
+        $validatedRequest = $this->getContext()->getContainer()->get(\Quiote\Request\WebRequest::class);
         $this->assertInstanceOf(WebRequest::class, $validatedRequest);
 
         $resolver = $this->getContext()->getContainer()->get(\Quiote\Execution\ActionResolver::class);
