@@ -425,15 +425,16 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	}
 
 	/**
+	 * Drop the shared model instances, so a test that mutated one does not hand it to the next.
+	 *
+	 * The model locator owns those instances and clears them itself at a worker request boundary, so
+	 * this asks it rather than reaching into the context.
+	 *
 	 * @return     void
 	 */
 	protected function clearSingletonModels()
 	{
-		$context = $this->getContext();
-		$reflection = new \ReflectionClass($context);
-		$property = $reflection->getProperty('singletonModelInstances');
-		// $property->setAccessible(true); // Deprecated, not needed in PHP 8.1+
-		$property->setValue($context, []);
+		$this->getContext()->getModelLocator()->reset();
 	}
 
 	/**
