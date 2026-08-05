@@ -132,6 +132,45 @@ class PluginManagerTest extends TestCase
         $this->assertSame($container->get('demo.service'), $container->get('demo.alias'));
     }
 
+    /**
+     * A plugin's declared scope has to reach the container, because omitting one no longer means
+     * process lifetime: `service()` passes null through and the container decides from what is being
+     * bound, which for a factory is request scope. A plugin whose service must outlive the request --
+     * the rate limiter's counters are the case where it is a security property -- says so, and this is
+     * the seam that carries it.
+     */
+    public function testAPluginsDeclaredScopeReachesTheContainer(): void
+    {
+        PluginManager::add(new RecordingPlugin());
+        PluginManager::bootFromConfig();
+
+        $container = new Container();
+        PluginManager::configureContainer($container);
+
+        $first = $container->get('demo.service');
+        $container->reset();
+
+        $this->assertSame($first, $container->get('demo.service'), 'declared singleton, so reset() keeps it');
+    }
+
+    /**
+     * And a contribution that names no scope gets the container's own default for a factory, which is
+     * request scope rather than the process lifetime it used to be.
+     */
+    public function testAnUndeclaredScopeFallsToTheContainersDefault(): void
+    {
+        PluginManager::addContainerService('demo.unscoped', fn(): \stdClass => new \stdClass(), null, []);
+
+        $container = new Container();
+        PluginManager::configureContainer($container);
+
+        $first = $container->get('demo.unscoped');
+        $this->assertSame($first, $container->get('demo.unscoped'), 'shared within the request');
+
+        $container->reset();
+        $this->assertNotSame($first, $container->get('demo.unscoped'), 'and dropped at the boundary');
+    }
+
     public function testServiceContributionDoesNotOverrideExistingBinding(): void
     {
         PluginManager::add(new RecordingPlugin());

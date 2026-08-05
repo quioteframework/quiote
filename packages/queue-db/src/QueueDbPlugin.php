@@ -11,6 +11,7 @@ use Quiote\Plugin\PluginInterface;
 use Quiote\Plugin\PluginRegistrar;
 use Quiote\Queue\QueueDriverRegistry;
 use RuntimeException;
+use Quiote\DI\Container;
 
 /**
  * Registers the `db` queue driver alias and publishes `queue.db.*` config
@@ -45,6 +46,7 @@ final class QueueDbPlugin implements PluginInterface
                 self::resolvePdo(),
                 Config::getString('queue.db.table', 'quiote_queue_jobs'),
             ),
+            Container::SCOPE_SINGLETON,
         );
 
         $registrar->service(
@@ -53,6 +55,7 @@ final class QueueDbPlugin implements PluginInterface
                 self::resolvePdo(),
                 Config::getString('queue.db.failed_table', 'quiote_queue_failed_jobs'),
             ),
+            Container::SCOPE_SINGLETON,
         );
     }
 

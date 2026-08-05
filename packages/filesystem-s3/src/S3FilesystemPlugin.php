@@ -49,6 +49,7 @@ final class S3FilesystemPlugin implements PluginInterface
                 ),
                 Config::getString('filesystem.disks.s3.key_prefix', ''),
             ),
+            Container::SCOPE_SINGLETON,
         );
     }
 

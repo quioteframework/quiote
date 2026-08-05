@@ -47,6 +47,7 @@ final class AzureFilesystemPlugin implements PluginInterface
                 Config::getString('filesystem.disks.azure.container', ''),
                 Config::getString('filesystem.disks.azure.key_prefix', ''),
             ),
+            Container::SCOPE_SINGLETON,
         );
     }
 

@@ -4,6 +4,7 @@ namespace Quiote\Security\Auth;
 use Quiote\Plugin\Attribute\Plugin as PluginAttribute;
 use Quiote\Plugin\PluginInterface;
 use Quiote\Plugin\PluginRegistrar;
+use Quiote\DI\Container;
 
 /**
  * Registers the default {@see ClientTypeResolverInterface} (the RFC 9068
@@ -25,6 +26,10 @@ final class JwtAuthPlugin implements PluginInterface
 	 */
 	public function register(PluginRegistrar $registrar): void
 	{
-		$registrar->service(ClientTypeResolverInterface::class, static fn() => new ClientTypeResolver());
+		$registrar->service(
+			ClientTypeResolverInterface::class,
+			static fn() => new ClientTypeResolver(),
+			Container::SCOPE_SINGLETON,
+		);
 	}
 }

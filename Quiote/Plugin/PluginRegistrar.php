@@ -50,7 +50,7 @@ final class PluginRegistrar
      * $concrete is anything {@see Container::set()} accepts (instance, class-string,
      * or factory closure). Extra $aliases are bound to $id if not already present.
      */
-    public function service(string $id, mixed $concrete, string $scope = Container::SCOPE_SINGLETON, string ...$aliases): self
+    public function service(string $id, mixed $concrete, ?string $scope = null, string ...$aliases): self
     {
         PluginManager::addContainerService($id, $concrete, $scope, array_values($aliases));
         return $this;

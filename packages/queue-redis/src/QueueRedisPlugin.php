@@ -10,6 +10,7 @@ use Quiote\Plugin\Attribute\Plugin as PluginAttribute;
 use Quiote\Plugin\PluginInterface;
 use Quiote\Plugin\PluginRegistrar;
 use Quiote\Queue\QueueDriverRegistry;
+use Quiote\DI\Container;
 
 /**
  * Registers the `redis` queue driver alias and publishes `queue.redis.*`
@@ -33,6 +34,7 @@ final class QueueRedisPlugin implements PluginInterface
                 new Client(Config::getString('queue.redis.dsn', 'redis://127.0.0.1:6379')),
                 Config::getString('queue.redis.prefix', 'quiote_queue'),
             ),
+            Container::SCOPE_SINGLETON,
         );
     }
 }

@@ -13,6 +13,7 @@ use Quiote\Middleware\SecurityMiddleware;
 use Quiote\Plugin\PluginInterface;
 use Quiote\Plugin\Attribute\Plugin as PluginAttribute;
 use Quiote\Plugin\PluginRegistrar;
+use Quiote\DI\Container;
 
 /**
  * Opt-in entry point for the MCP server capability. Adding this class to the
@@ -52,6 +53,7 @@ final class McpPlugin implements PluginInterface
         $registrar->service(
             McpAuthenticatorInterface::class,
             fn() => new StaticTokenAuthenticator(Config::getNullableString('mcp.auth_token')),
+            Container::SCOPE_SINGLETON,
         );
 
         $transports = Config::getArray('mcp.transports', ['stdio']);

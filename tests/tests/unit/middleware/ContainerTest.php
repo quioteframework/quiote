@@ -67,11 +67,90 @@ class ContainerTest extends TestCase
     public function testResetDoesNotAffectSingletons(): void
     {
         $c = new Container();
-        $c->set('val', fn() => new stdClass()); // default scope: singleton
+        // Named, not defaulted: a factory defaults to request scope, and this test is about what
+        // reset() does to a singleton.
+        $c->set('val', fn() => new stdClass(), Container::SCOPE_SINGLETON);
         $v1 = $c->get('val');
         $c->reset();
         $v2 = $c->get('val');
         $this->assertSame($v1, $v2, 'reset() must not drop singleton-scoped instances');
+    }
+
+    /**
+     * An explicit registration must not change a class's lifetime.
+     *
+     * `set()` defaulted to `SCOPE_SINGLETON`, so the lifetime depended on *how* a class was registered
+     * rather than on what the class declares: autowired, `ContainerSingletonServiceFixture` is a
+     * singleton and `ContainerPlainServiceFixture` is transient, but registering either -- often just to
+     * give it a second name -- promoted it to the process lifetime. Under a worker that is one request's
+     * state served to every request after it.
+     */
+    public function testRegisteringAClassKeepsTheScopeTheClassDeclares(): void
+    {
+        $c = new Container();
+        $c->set('singleton.alias', ContainerSingletonServiceFixture::class);
+        $c->set('transient.alias', ContainerPlainServiceFixture::class);
+        $c->set('request.alias', ContainerRequestScopedFixture::class);
+
+        $this->assertSame(
+            $c->get('singleton.alias'),
+            $c->get('singleton.alias'),
+            '#[Service(scope: singleton)] still means singleton when the class is registered',
+        );
+        $this->assertNotSame(
+            $c->get('transient.alias'),
+            $c->get('transient.alias'),
+            'a ServiceInterface implementor stays transient when registered',
+        );
+
+        $first = $c->get('request.alias');
+        $this->assertSame($first, $c->get('request.alias'), 'request scope is shared within a request');
+        $c->reset();
+        $this->assertNotSame($first, $c->get('request.alias'), 'and dropped at the boundary');
+    }
+
+    /**
+     * A factory declares no lifetime, so request scope is what it gets: the answer that cannot outlive
+     * its inputs, and the one the captive-dependency guard can still catch a singleton holding.
+     */
+    public function testAFactoryDefaultsToRequestScope(): void
+    {
+        $c = new Container();
+        $c->setFactory('built', fn(): stdClass => new stdClass());
+
+        $first = $c->get('built');
+        $this->assertSame($first, $c->get('built'), 'shared within one request');
+
+        $c->reset();
+        $this->assertNotSame($first, $c->get('built'), 'and not across the boundary');
+    }
+
+    /**
+     * An instance is one object the caller made and handed over, so there is no lifetime for the
+     * container to choose -- and being a singleton is what lets a singleton hold it.
+     */
+    public function testAnInstanceDefaultsToSingletonScope(): void
+    {
+        $c = new Container();
+        $instance = new stdClass();
+        $c->set('given', $instance);
+
+        $this->assertSame($instance, $c->get('given'));
+        $c->reset();
+        $this->assertSame($instance, $c->get('given'), 'reset() does not drop what it was handed');
+    }
+
+    /**
+     * A bound value is not a service: it survives the request boundary like an instance does.
+     */
+    public function testAScalarDefaultsToSingletonScope(): void
+    {
+        $c = new Container();
+        $c->set('cookie_name', 'JKSID');
+
+        $c->reset();
+
+        $this->assertSame('JKSID', $c->get('cookie_name'));
     }
 
     public function testParameterBindingInjectsScalarValues(): void

@@ -13,7 +13,6 @@ use Quiote\Plugin\PluginRegistrar;
 use Quiote\Security\Auth\Hasher\DefaultPasswordHasher;
 use Quiote\Security\Auth\Middleware\SessionAuthenticationMiddleware;
 use Quiote\Security\Auth\Middleware\StatelessAuthenticationMiddleware;
-use RuntimeException;
 
 /**
  * Registers the authentication foundation: a default
@@ -42,13 +41,20 @@ final class AuthPlugin implements PluginInterface
 	 */
 	public function register(PluginRegistrar $registrar): void
 	{
-		$registrar->service(PasswordHasherInterface::class, static fn() => new DefaultPasswordHasher());
+		$registrar->service(
+			PasswordHasherInterface::class,
+			static fn() => new DefaultPasswordHasher(),
+			Container::SCOPE_SINGLETON,
+		);
 
-		$registrar->service(FirewallMap::class, static fn() => new FirewallMap([]));
+		// The map is configuration an application replaces or adds to at boot; rebuilding it per request
+		// would drop whatever was added to it.
+		$registrar->service(FirewallMap::class, static fn() => new FirewallMap([]), Container::SCOPE_SINGLETON);
 
 		$registrar->service(
 			AuthenticationManager::class,
 			static fn(Container $container) => new AuthenticationManager(self::resolveController($container)),
+			Container::SCOPE_SINGLETON,
 		);
 
 		$registrar->middleware(
@@ -74,45 +80,32 @@ final class AuthPlugin implements PluginInterface
 	/**
 	 * @param      Container $container The context's DI container.
 	 * @return     Controller The container's `Controller` service.
-	 * @throws     RuntimeException If the container's `Controller` service is missing or of the wrong type.
 	 * @since      1.0.0
 	 */
 	private static function resolveController(Container $container): Controller
 	{
-		$controller = $container->get(Controller::class);
-		if(!$controller instanceof Controller) {
-			throw new RuntimeException(sprintf('Expected "%s" service to be a Controller, got %s.', Controller::class, get_debug_type($controller)));
-		}
-		return $controller;
+		// No type guard: the container refuses to answer a class name with anything that is not an
+		// instance of it, so a wrong binding throws there and says which id it was.
+		return $container->get(Controller::class);
 	}
 
 	/**
 	 * @param      Container $container The context's DI container.
 	 * @return     FirewallMap The container's `FirewallMap` service.
-	 * @throws     RuntimeException If the container's `FirewallMap` service is missing or of the wrong type.
 	 * @since      1.0.0
 	 */
 	private static function resolveFirewallMap(Container $container): FirewallMap
 	{
-		$firewallMap = $container->get(FirewallMap::class);
-		if(!$firewallMap instanceof FirewallMap) {
-			throw new RuntimeException(sprintf('Expected "%s" service to be a FirewallMap, got %s.', FirewallMap::class, get_debug_type($firewallMap)));
-		}
-		return $firewallMap;
+		return $container->get(FirewallMap::class);
 	}
 
 	/**
 	 * @param      Container $container The context's DI container.
 	 * @return     AuthenticationManager The container's `AuthenticationManager` service.
-	 * @throws     RuntimeException If the container's `AuthenticationManager` service is missing or of the wrong type.
 	 * @since      1.0.0
 	 */
 	private static function resolveAuthenticationManager(Container $container): AuthenticationManager
 	{
-		$manager = $container->get(AuthenticationManager::class);
-		if(!$manager instanceof AuthenticationManager) {
-			throw new RuntimeException(sprintf('Expected "%s" service to be an AuthenticationManager, got %s.', AuthenticationManager::class, get_debug_type($manager)));
-		}
-		return $manager;
+		return $container->get(AuthenticationManager::class);
 	}
 }

@@ -59,12 +59,72 @@ class Container implements ContainerInterface
     private array $planCache = [];
 
     /**
-     * @param array<string, mixed> $params
+     * Bind something under an id.
+     *
+     * `$scope` omitted means "whatever this thing declares for itself", resolved by
+     * {@see resolveScopeFor()} -- not process lifetime. Defaulting to `SCOPE_SINGLETON` made the
+     * lifetime depend on *how* a class was registered rather than on what the class says: an
+     * unregistered class the container autowires gets its `#[Service(scope: ...)]` scope, or request
+     * scope, while the same class registered here -- often only to give it a second name -- was
+     * silently promoted to the process lifetime, and under a worker that is one request's state served
+     * to every later request.
+     *
+     * A second name for something already bound wants {@see alias()}, which has no lifetime of its own
+     * to get wrong.
+     *
+     * @param      mixed $concrete An instance, a class name to autowire, or a factory callable.
+     * @param      ?string $scope One of the SCOPE_* constants, or null to let the binding decide.
+     * @param      array<string, mixed> $params Constructor parameters, for a class name.
      */
-    public function set(string $id, mixed $concrete, string $scope = self::SCOPE_SINGLETON, array $params = []): void
+    public function set(string $id, mixed $concrete, ?string $scope = null, array $params = []): void
     {
-        $this->definitions[$id] = ['concrete' => $concrete, 'scope' => $scope, 'params' => $params];
+        $this->definitions[$id] = [
+            'concrete' => $concrete,
+            'scope' => $scope ?? $this->resolveScopeFor($concrete),
+            'params' => $params,
+        ];
         unset($this->singletonResolved[$id], $this->requestResolved[$id]);
+    }
+
+    /**
+     * The scope a binding gets when its registration did not name one.
+     *
+     * Decided by what is being bound, because that is what determines whether the container is
+     * choosing a lifetime at all:
+     *
+     * - **An already-constructed object** is one object the caller made and handed over. There is no
+     *   lifetime to choose -- every resolution answers that same instance whatever the scope says -- so
+     *   it is a singleton, which is also what makes it injectable into one.
+     * - **A class name** answers with its own `#[Service(scope: ...)]`, or transient for a
+     *   `ServiceInterface`, or request scope: exactly what an unregistered class resolves to. A
+     *   registration for the sake of an alias no longer changes the class's lifetime.
+     * - **A factory** gets request scope. Nobody declared a lifetime, the container builds the thing,
+     *   and request scope is the answer that cannot outlive its inputs -- a factory that must be a
+     *   process singleton says so.
+     * - **A scalar or an array** is a bound value rather than a service; it is a singleton for the same
+     *   reason an instance is.
+     *
+     * @since      4.0.0
+     */
+    private function resolveScopeFor(mixed $concrete): string
+    {
+        if ($concrete instanceof \Closure || (is_object($concrete) && is_callable($concrete))) {
+            return self::SCOPE_REQUEST;
+        }
+
+        if (is_object($concrete)) {
+            return self::SCOPE_SINGLETON;
+        }
+
+        if (is_string($concrete) && class_exists($concrete)) {
+            return $this->resolveDefaultScope($this->getReflectionClass($concrete));
+        }
+
+        if (is_array($concrete) && is_callable($concrete)) {
+            return self::SCOPE_REQUEST;
+        }
+
+        return self::SCOPE_SINGLETON;
     }
 
     /**
@@ -107,7 +167,15 @@ class Container implements ContainerInterface
         $this->aliases[$abstract] = $concrete;
     }
 
-    public function setFactory(string $id, callable $factory, string $scope = self::SCOPE_SINGLETON): void
+    /**
+     * Bind a factory under an id.
+     *
+     * `$scope` omitted means request scope, not process lifetime -- see {@see set()} for why the
+     * default changed and {@see resolveScopeFor()} for what each kind of binding defaults to.
+     *
+     * @param      ?string $scope One of the SCOPE_* constants, or null for the default.
+     */
+    public function setFactory(string $id, callable $factory, ?string $scope = null): void
     {
         $this->set($id, $factory, $scope);
     }

@@ -47,6 +47,7 @@ final class GcsFilesystemPlugin implements PluginInterface
                 ),
                 Config::getString('filesystem.disks.gcs.key_prefix', ''),
             ),
+            Container::SCOPE_SINGLETON,
         );
     }
 

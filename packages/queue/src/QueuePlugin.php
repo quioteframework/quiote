@@ -10,7 +10,6 @@ use Quiote\Queue\Console\QueueFailedForgetCommand;
 use Quiote\Queue\Console\QueueFailedListCommand;
 use Quiote\Queue\Console\QueueFailedRetryCommand;
 use Quiote\Queue\Console\QueueWorkCommand;
-use RuntimeException;
 
 /**
  * Registers the queue subsystem: `queue.*` setting defaults (`sync` driver,
@@ -32,9 +31,13 @@ final class QueuePlugin implements PluginInterface
         $registrar->configDefault('queue.retry.max_attempts', 3);
         $registrar->configDefault('queue.retry.backoff_seconds', 5);
 
-        $registrar->service(FailedJobStoreInterface::class, static fn() => new LogFailedJobStore());
+        $registrar->service(
+            FailedJobStoreInterface::class,
+            static fn() => new LogFailedJobStore(),
+            Container::SCOPE_SINGLETON,
+        );
 
-        $registrar->service(QueueConfig::class, static fn() => QueueConfig::fromConfig());
+        $registrar->service(QueueConfig::class, static fn() => QueueConfig::fromConfig(), Container::SCOPE_SINGLETON);
 
         $registrar->service(
             JobExecutor::class,
@@ -44,16 +47,19 @@ final class QueuePlugin implements PluginInterface
                 self::resolveQueueConfig($container)->retryMaxAttempts,
                 self::resolveQueueConfig($container)->retryBackoffSeconds,
             ),
+            Container::SCOPE_SINGLETON,
         );
 
         $registrar->service(
             QueueWorker::class,
             static fn(Container $container) => new QueueWorker(self::resolveJobExecutor($container)),
+            Container::SCOPE_SINGLETON,
         );
 
         $registrar->service(
             QueueManager::class,
             static fn(Container $container) => new QueueManager($container, self::resolveQueueConfig($container)),
+            Container::SCOPE_SINGLETON,
         );
 
         $registrar->command(QueueWorkCommand::class);
@@ -64,28 +70,18 @@ final class QueuePlugin implements PluginInterface
 
     private static function resolveFailedJobStore(Container $container): FailedJobStoreInterface
     {
-        $store = $container->get(FailedJobStoreInterface::class);
-        if (!$store instanceof FailedJobStoreInterface) {
-            throw new RuntimeException(sprintf('Expected "%s" service to be a FailedJobStoreInterface, got %s.', FailedJobStoreInterface::class, get_debug_type($store)));
-        }
-        return $store;
+        // No type guard here or below: the container refuses to answer a class or interface name with
+        // anything that is not an instance of it, so a wrong binding throws there naming the id.
+        return $container->get(FailedJobStoreInterface::class);
     }
 
     private static function resolveQueueConfig(Container $container): QueueConfig
     {
-        $config = $container->get(QueueConfig::class);
-        if (!$config instanceof QueueConfig) {
-            throw new RuntimeException(sprintf('Expected "%s" service to be a QueueConfig, got %s.', QueueConfig::class, get_debug_type($config)));
-        }
-        return $config;
+        return $container->get(QueueConfig::class);
     }
 
     private static function resolveJobExecutor(Container $container): JobExecutor
     {
-        $executor = $container->get(JobExecutor::class);
-        if (!$executor instanceof JobExecutor) {
-            throw new RuntimeException(sprintf('Expected "%s" service to be a JobExecutor, got %s.', JobExecutor::class, get_debug_type($executor)));
-        }
-        return $executor;
+        return $container->get(JobExecutor::class);
     }
 }

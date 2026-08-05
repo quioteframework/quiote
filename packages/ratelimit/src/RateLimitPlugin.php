@@ -12,6 +12,7 @@ use Symfony\Component\Cache\Adapter\RedisAdapter;
 use Symfony\Component\RateLimiter\Storage\CacheStorage;
 use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
 use Symfony\Component\RateLimiter\Storage\StorageInterface;
+use Quiote\DI\Container;
 
 /**
  * Registers {@see RateLimitMiddleware} through the generic plugin seam,
@@ -40,7 +41,10 @@ final class RateLimitPlugin implements PluginInterface
         $registrar->configDefault('ratelimit.pdo.connection', 'main');
         $registrar->configDefault('ratelimit.pdo.table', 'quiote_rate_limit');
 
-        $registrar->service(StorageInterface::class, static fn() => self::makeStorage());
+        // Singleton, and this one is a security property rather than a cost: InMemoryStorage counts
+        // per process, so a request-scoped binding would reset every counter on every request and the
+        // throttle would stop throttling.
+        $registrar->service(StorageInterface::class, static fn() => self::makeStorage(), Container::SCOPE_SINGLETON);
 
         $registrar->attributedMiddleware(
             RateLimitMiddleware::class,

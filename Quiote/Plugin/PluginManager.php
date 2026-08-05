@@ -41,7 +41,7 @@ final class PluginManager
     /** @var list<string> contributed console command FQCNs */
     private static array $commands = [];
 
-    /** @var list<array{id: string, concrete: mixed, scope: string, aliases: list<string>}> deferred DI services */
+    /** @var list<array{id: string, concrete: mixed, scope: ?string, aliases: list<string>}> deferred DI services */
     private static array $containerServices = [];
 
     /** @var array<string, callable> named HTTP client configurators */
@@ -149,7 +149,7 @@ final class PluginManager
     }
 
     /** @param list<string> $aliases */
-    public static function addContainerService(string $id, mixed $concrete, string $scope, array $aliases): void
+    public static function addContainerService(string $id, mixed $concrete, ?string $scope, array $aliases): void
     {
         self::$containerServices[] = ['id' => $id, 'concrete' => $concrete, 'scope' => $scope, 'aliases' => $aliases];
     }

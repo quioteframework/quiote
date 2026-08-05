@@ -407,6 +407,54 @@ ordinary template variable instead, and the template sees `null` where it expect
 If a template starts reporting a call on null, check that its `assigns` name is a role the container
 actually binds.
 
+## BREAKING: an omitted container scope no longer means process lifetime
+
+`Container::set()`, `setFactory()` and `PluginRegistrar::service()` defaulted to
+`SCOPE_SINGLETON`. That made a service's lifetime depend on *how* it was registered rather than on
+what it declares:
+
+```php
+// autowired, never registered: request scope, or whatever #[Service(scope: ...)] says
+$container->get(TagService::class);
+
+// registered -- often only to give it a second name -- and silently a process singleton
+$container->set('tags', TagService::class);
+```
+
+Under a persistent worker the second one serves request 1's state to every request after it, which is
+the failure the request-scoped default exists to prevent. Nothing said so anywhere.
+
+**The scope argument is now nullable, and omitting it means "whatever this binding declares":**
+
+| What you bind | Default scope |
+|---|---|
+| A class name | its own `#[Service(scope: …)]`, or transient for a `ServiceInterface`, else **request** — the same answer autowiring gives |
+| A factory / closure | **request** — nobody declared a lifetime, so the answer that cannot outlive its inputs |
+| An already-constructed instance | **singleton** — one object was handed over; there is no lifetime to choose, and this is what lets a singleton hold it |
+| A scalar or array | **singleton** — a bound value, not a service |
+
+Passing a scope explicitly does exactly what it always did. If you only want a second name for
+something, use `alias()`, which has no lifetime of its own to get wrong.
+
+### If you ship a plugin, declare the scope
+
+This is where it bites hardest. `PluginRegistrar::service()` is nearly always called with a closure, so
+a contribution that named no scope **was a process singleton and is now request-scoped**. For a
+stateless collaborator that is a rebuild per request and nothing more. For anything holding state
+between requests it is a behaviour change:
+
+```php
+// before: a process singleton by default
+$registrar->service(StorageInterface::class, static fn() => self::makeStorage());
+
+// after: say it
+$registrar->service(StorageInterface::class, static fn() => self::makeStorage(), Container::SCOPE_SINGLETON);
+```
+
+Every first-party plugin now declares its scope. The rate limiter is the one where the difference is a
+security property rather than a cost: `InMemoryStorage` counts per process, so a request-scoped binding
+would reset every counter on every request and the throttle would quietly stop throttling.
+
 ### The execution helpers are container-scoped now
 
 `getSlotDispatcher()`, `getAssetRegistry()` and `getActionResolver()` resolve through
