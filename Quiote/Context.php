@@ -408,9 +408,57 @@ class Context implements \Stringable, ResetInterface, ContextInterface
   }
 
   /**
+   * Bind a core service that the configuration may legitimately not declare.
+   *
+   * The translation manager and the database manager are optional, and leaving their bindings out
+   * when they are absent is not a safe way to say so: both classes are instantiable with no required
+   * constructor arguments, so the container would autowire a brand-new, uninitialized one for a
+   * consumer that asked -- a translation manager with no locales, a database manager with no
+   * connections, and no indication that anything was wrong.
+   *
+   * So the binding always exists. When the component is absent it is a factory that explains which
+   * configuration would have declared it, which turns a silent empty stand-in into a message naming
+   * the cause. That is what makes `__construct(private TranslationManager $t)` a safe thing for an
+   * application to write.
+   *
+   * @param      string $role The container role name.
+   * @param      class-string $class The class a consumer type-hints.
+   * @param      ?object $instance The component, or null when the configuration declared none.
+   * @param      string $declaredBy What would have declared it, for the message.
+   * @since      4.0.0
+   */
+  private function registerOptionalCoreService(
+    string $role,
+    string $class,
+    ?object $instance,
+    string $declaredBy,
+  ): void {
+    if ($instance !== null) {
+      $this->registerCoreService($role, $instance);
+
+      return;
+    }
+
+    $name = $this->name;
+    $container = $this->getContainer();
+    $container->setFactory(
+      $class,
+      static function () use ($class, $name, $declaredBy): never {
+        throw new \Quiote\Exception\ConfigurationException(sprintf(
+          'Context "%s" has no %s: %s. A class depending on it cannot be built in this context.',
+          $name,
+          $class,
+          $declaredBy,
+        ));
+      },
+      Container::SCOPE_TRANSIENT,
+    );
+    $container->alias($role, $class);
+  }
+
+  /**
    * Register an already-constructed core service instance into the container
-   * under its role name and concrete class name. No-op if $instance is null
-   * (e.g. databaseManager/translationManager when disabled by config).
+   * under its role name and concrete class name.
    */
   private function registerCoreService(string $role, ?object $instance, string $scope = Container::SCOPE_SINGLETON): void
   {
@@ -501,8 +549,18 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     // binding the instance here would win over the factory and pin whatever existed at initialize(),
     // which is precisely what the lazy rebuild has to be able to replace.
     $this->registerLazyCoreComponents();
-    $this->registerCoreService('databaseManager', $this->databaseManager);
-    $this->registerCoreService('translationManager', $this->translationManager);
+    $this->registerOptionalCoreService(
+      'databaseManager',
+      \Quiote\Database\DatabaseManager::class,
+      $this->databaseManager,
+      'core.use_database is off, or the factories configuration declares no database_manager',
+    );
+    $this->registerOptionalCoreService(
+      'translationManager',
+      TranslationManager::class,
+      $this->translationManager,
+      'the factories configuration declares no translation_manager',
+    );
     $this->registerTelemetryServicesInContainer();
     $this->registerHttpClientFactory();
     $this->registerModelLocator();

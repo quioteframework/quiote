@@ -40,8 +40,8 @@ use Rector\Rector\AbstractRector;
  *
  * - `not-container-built` — the class is outside the four hierarchies the container constructs, so
  *   no dependency can be injected into it. Much the largest category in the framework's own tree.
- * - `nullable-accessor` — `getTranslationManager()`/`getDatabaseManager()`, which are null when
- *   their subsystem is off and whose classes autowire to a fresh empty instance if injected.
+ * - `nullable-accessor` — `getDatabaseConnection()`, whose replacement is a call on an injected
+ *   database manager rather than the manager itself, so it is not a mapping entry in rule 2.
  * - `discarded-mutation` — a statement-level chain rooted in `getRequest()`. Already a no-op since
  *   the request became immutable; needs `FormPopulationConfig` and a `publish()`, which is a change
  *   of meaning.
@@ -73,8 +73,8 @@ final class ContextResidueReporter extends AbstractRector
      * @var        array<string, string>
      */
     private const array UNHANDLED_ACCESSORS = [
-        'getTranslationManager' => ResidueReport::REASON_NULLABLE_ACCESSOR,
-        'getDatabaseManager' => ResidueReport::REASON_NULLABLE_ACCESSOR,
+        'getTranslationManager' => ResidueReport::REASON_UNHANDLED,
+        'getDatabaseManager' => ResidueReport::REASON_UNHANDLED,
         'getDatabaseConnection' => ResidueReport::REASON_NULLABLE_ACCESSOR,
         'getUser' => ResidueReport::REASON_UNHANDLED,
         'getSessionBag' => ResidueReport::REASON_UNHANDLED,

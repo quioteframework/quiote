@@ -332,19 +332,19 @@ class ContextExtendedCoverageTest extends TestCase
         if ($tm === null) {
             // An on-demand slot is a transient container binding now, so arranging one is a binding
             // rather than a factory-info write.
+            // A context with no translation_manager binds a factory that explains the absence, so a
+            // test that needs one replaces that binding rather than filling a gap.
             $container = $ctx->getContainer();
-            if (!$container->has(\Quiote\Translation\TranslationManager::class)) {
-                $container->setFactory(
-                    \Quiote\Translation\TranslationManager::class,
-                    function () use ($ctx): \Quiote\Translation\TranslationManager {
-                        $manager = new \Quiote\Translation\TranslationManager();
-                        $manager->initialize($ctx, []);
+            $container->setFactory(
+                \Quiote\Translation\TranslationManager::class,
+                function () use ($ctx): \Quiote\Translation\TranslationManager {
+                    $manager = new \Quiote\Translation\TranslationManager();
+                    $manager->initialize($ctx, []);
 
-                        return $manager;
-                    },
-                    \Quiote\DI\Container::SCOPE_TRANSIENT,
-                );
-            }
+                    return $manager;
+                },
+                \Quiote\DI\Container::SCOPE_SINGLETON,
+            );
             $tm = $container->get(\Quiote\Translation\TranslationManager::class);
             (new ReflectionObject($ctx))->getProperty('translationManager')->setValue($ctx, $tm);
         }

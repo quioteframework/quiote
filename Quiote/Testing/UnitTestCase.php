@@ -64,10 +64,8 @@ abstract class UnitTestCase extends PhpUnitTestCase implements IUnitTestCase
 	 * Install a translation manager on this test's context, and answer it.
 	 *
 	 * A suite whose subject formats or translates needs one, and a context built without
-	 * `core.use_translation` has none. Eight suites each carried the same six lines to arrange it --
-	 * read the factory declaration, declare one if absent, build it, assign it by reflection -- through
-	 * `Context::getFactoryInfo()`/`setFactoryInfo()`, which no longer exist: an on-demand slot is a
-	 * transient container binding now.
+	 * `core.use_translation` has none -- what such a context binds is a factory that explains the
+	 * absence, so this replaces that binding rather than filling a gap.
 	 *
 	 * Idempotent, and returns the manager the context will hand out, so a suite can configure it
 	 * further.
@@ -85,18 +83,16 @@ abstract class UnitTestCase extends PhpUnitTestCase implements IUnitTestCase
 		}
 
 		$container = $context->getContainer();
-		if (!$container->has(\Quiote\Translation\TranslationManager::class)) {
-			$container->setFactory(
-				\Quiote\Translation\TranslationManager::class,
-				function () use ($context, $parameters): \Quiote\Translation\TranslationManager {
-					$manager = new \Quiote\Translation\TranslationManager();
-					$manager->initialize($context, $parameters);
+		$container->setFactory(
+			\Quiote\Translation\TranslationManager::class,
+			function () use ($context, $parameters): \Quiote\Translation\TranslationManager {
+				$manager = new \Quiote\Translation\TranslationManager();
+				$manager->initialize($context, $parameters);
 
-					return $manager;
-				},
-				\Quiote\DI\Container::SCOPE_TRANSIENT,
-			);
-		}
+				return $manager;
+			},
+			\Quiote\DI\Container::SCOPE_SINGLETON,
+		);
 
 		$manager = $container->get(\Quiote\Translation\TranslationManager::class);
 

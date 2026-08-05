@@ -259,8 +259,8 @@ Each row's target is bound in the container under the class name shown, so
 | `getUser()` | `Quiote\User\User`, or `Quiote\User\CurrentUser` | which one depends on the holder's lifetime — see below |
 | `getService($id)` | the service's own class | the container resolves it; there is no by-name lookup left |
 | `getModel(…)` | `Quiote\Model\ModelLocator` | also `$context->getModelLocator()` |
-| `getDatabaseManager()` / `getDatabaseConnection()` | `Quiote\Database\DatabaseManager` | `getConnection()` on the manager |
-| `getTranslationManager()` | `Quiote\Translation\TranslationManager` | |
+| `getDatabaseManager()` / `getDatabaseConnection()` | `Quiote\Database\DatabaseManager` | `getConnection()` on the manager; optional — see below |
+| `getTranslationManager()` | `Quiote\Translation\TranslationManager` | optional — see below |
 | `getSessionManager()` / `setSessionManager()` | `Quiote\Session\SessionManager` | `Container::set()` / `unset()` to replace or drop one |
 | `getSessionBag()` / `setSessionBag()` | `Quiote\Session\SessionBagInterface` | defaults to `NullSessionBag` when no session is configured |
 | `getSlotDispatcher()` | `Quiote\Execution\SlotDispatcher` | request-scoped |
@@ -275,6 +275,28 @@ Each row's target is bound in the container under the class name shown, so
 shapes — the routing, the request, the user, the translation manager, the database
 manager and `getService()` — and reports every site it declines in a residue file for a
 human to look at. Run it before migrating by hand.
+
+### The two optional components are injectable, and their absence explains itself
+
+`getTranslationManager()` and `getDatabaseManager()` answered null in a context that configures
+neither, so call sites guard with `?->`. Both are now bound in the container either way: to the
+component when the configuration declares one, and otherwise to a factory that throws naming what
+would have declared it —
+
+```
+Context "web" has no Quiote\Translation\TranslationManager: the factories configuration declares
+no translation_manager. A class depending on it cannot be built in this context.
+```
+
+That is the reason the injection is safe. Both classes are instantiable with no required constructor
+arguments, so a container asked for an unbound one would previously have autowired a brand-new,
+uninitialized instance — a translation manager with no locales, a database manager with no
+connections — and a `?->` guard rewritten to a property fetch would have sailed straight past it.
+
+For an *optional* dependency, `Container::tryGet()` still answers null rather than throwing.
+
+A `?->` at the call site keeps working after the rewrite; the branch it guards has simply become
+unreachable, so collapsing it to `->` is a tidy-up rather than a fix.
 
 ### `Context::handle()` is gone; take the PSR-15 handler instead
 
