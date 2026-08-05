@@ -47,7 +47,13 @@ use Rector\Rector\AbstractRector;
  *   of meaning.
  * - `unresolvable-argument` — `getService($id)` with a variable or a plain string, where the target
  *   would have to be guessed.
- * - `unhandled-accessor` — a Context accessor no rule covers yet.
+ * - `unhandled-accessor` — a Context accessor no rule covers yet. `getUser` stays on that list even
+ *   though a rule handles it now: a site the rule rewrites is gone before this one sees it, so what
+ *   remains is genuinely the sites it declined.
+ * - `foreign-receiver` — shaped like a Context call, but the receiver is something else. Not work to
+ *   do; work confirmed not to be needed, which a report has to distinguish from silence.
+ * - `not-an-accessor` — the receiver is a Context and the method is not one it declares, which in
+ *   practice means a PHPUnit mock builder on a mocked Context.
  *
  * Written to `core.cache_dir`'s sibling by default, or wherever `QUIOTE_RECTOR_RESIDUE` points, on
  * process shutdown. A Rector rule has no reporting channel of its own, and printing into the diff
@@ -126,11 +132,13 @@ final class ContextResidueReporter extends AbstractRector
 
     private function recordMethodCall(MethodCall $methodCall, string $filePath, bool $injectable): void
     {
+        $accessor = $methodCall->name instanceof Identifier ? $methodCall->name->toString() : '(dynamic)';
+
         if (!$this->contextCallAnalyzer->isAnyContextCall($methodCall)) {
+            $this->recordLookalike($methodCall, $filePath, $accessor);
+
             return;
         }
-
-        $accessor = $methodCall->name instanceof Identifier ? $methodCall->name->toString() : '(dynamic)';
 
         // The class cannot take an injected dependency at all, which subsumes every other reason:
         // no rule could have rewritten this whatever the accessor was.
@@ -147,6 +155,60 @@ final class ContextResidueReporter extends AbstractRector
                 return;
             }
         }
+    }
+
+    /**
+     * Record a call that looks like a Context call but is not one.
+     *
+     * Two shapes qualify, and both are named in the report rather than passed over. A rule that
+     * declines a site leaves no trace, so a reader cannot tell "the rules considered this and were
+     * right to refuse" from "the rules never looked here" -- and the whole value of the report is
+     * that the remaining work is a known quantity.
+     *
+     * A call is only a lookalike if its *receiver* reads like a Context: a `getContext()` call, or a
+     * variable or property named `context`. Keying on the method name instead was tried and produces
+     * a useless report -- `getName()` is a Context method and also a method on routes, output types,
+     * locales and half the tree, so 241 ordinary calls were reported in the framework alone. A report
+     * nobody can work through is no better than silence.
+     *
+     * @since      4.0.0
+     */
+    private function recordLookalike(MethodCall $methodCall, string $filePath, string $accessor): void
+    {
+        if (!$this->isContextShapedReceiver($methodCall->var)) {
+            return;
+        }
+
+        // The receiver really is a Context, so what disqualified the call was the method name: a mock
+        // builder, or something else Context does not declare.
+        $reason = $this->contextCallAnalyzer->isContextExpr($methodCall->var)
+            ? ResidueReport::REASON_NOT_AN_ACCESSOR
+            : ResidueReport::REASON_FOREIGN_RECEIVER;
+
+        $this->residueReport->add($filePath, $methodCall->getStartLine(), $accessor, $reason);
+    }
+
+    /**
+     * Whether an expression is written the way a Context is usually reached, whatever it turns out to
+     * be: `$this->getContext()`, `$context`, or `$this->context`.
+     *
+     * @since      4.0.0
+     */
+    private function isContextShapedReceiver(Node\Expr $expr): bool
+    {
+        if ($expr instanceof MethodCall) {
+            return $expr->name instanceof Identifier && strcasecmp($expr->name->toString(), 'getContext') === 0;
+        }
+
+        if ($expr instanceof Node\Expr\Variable) {
+            return is_string($expr->name) && strcasecmp($expr->name, 'context') === 0;
+        }
+
+        if ($expr instanceof Node\Expr\PropertyFetch) {
+            return $expr->name instanceof Identifier && strcasecmp($expr->name->toString(), 'context') === 0;
+        }
+
+        return false;
     }
 
     private function recordStaticCall(StaticCall $staticCall, string $filePath, bool $injectable): void

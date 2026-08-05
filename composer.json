@@ -150,13 +150,15 @@
 		"test": "php -d apc.enable_cli=0 vendor/bin/phpunit --no-coverage",
 		"test:apcu": "php -d apc.enable_cli=1 vendor/bin/phpunit --no-coverage --group apcu",
 		"test:e2e": "vendor/bin/phpunit --no-coverage tests/e2e --group e2e",
-		"test:integration": "vendor/bin/phpunit --no-coverage packages/db-eloquent/tests packages/db-doctrine/tests packages/db-cycle/tests packages/queue-redis/tests packages/session-redis/tests packages/ratelimit/tests tests/tests/unit/cache tests/integration/worker --group integration"
+		"test:integration": "vendor/bin/phpunit --no-coverage packages/db-eloquent/tests packages/db-doctrine/tests packages/db-cycle/tests packages/queue-redis/tests packages/session-redis/tests packages/ratelimit/tests tests/tests/unit/cache tests/integration/worker --group integration",
+		"rector:census": "vendor/bin/rector process Quiote packages tests samples --dry-run --no-progress-bar --clear-cache"
 	},
 	"scripts-descriptions": {
 		"test": "Run the full test suite with APCu disabled (default, deterministic).",
 		"test:apcu": "Run only the APCu config-cache tests with apc.enable_cli=1.",
 		"test:e2e": "Run the Docker-based end-to-end tests (real OTel Collector + real FrankenPHP). Requires Docker; not run in CI.",
-		"test:integration": "Run the Docker-based integration tests against real DBs and Redis via Testcontainers (Doctrine, Eloquent, Cycle, queue-redis, session-redis, ratelimit, cache), plus the RoadRunner and Swoole worker runtimes against real servers via docker compose. Requires Docker; not run in CI."
+		"test:integration": "Run the Docker-based integration tests against real DBs and Redis via Testcontainers (Doctrine, Eloquent, Cycle, queue-redis, session-redis, ratelimit, cache), plus the RoadRunner and Swoole worker runtimes against real servers via docker compose. Requires Docker; not run in CI.",
+		"rector:census": "Dry-run the Context decomposition rules over the framework tree and refresh the residue report. --clear-cache is not optional: Rector caches results, so a second run without it reports nothing at all, which reads as \"no work left\" rather than \"not looked at\". Exits 2 when the dry-run finds rewritable sites: that is Rector's convention for \"changes would be made\", not a failure."
 	},
 	"autoload": {
 		"psr-4": {

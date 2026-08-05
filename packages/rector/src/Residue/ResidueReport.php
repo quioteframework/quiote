@@ -33,6 +33,22 @@ final class ResidueReport
     public const string REASON_UNHANDLED = 'unhandled-accessor';
 
     /**
+     * A call shaped exactly like a Context call whose receiver is something else -- an OpenTelemetry
+     * span context, a Playwright browser context, a dashboard render context. Reported rather than
+     * skipped: a rule correctly declining these is indistinguishable, in a report, from a file that
+     * had no sites at all, and "did the rules miss this?" is the question the report exists to
+     * answer. Nothing here is work to do; it is work confirmed not to be needed.
+     */
+    public const string REASON_FOREIGN_RECEIVER = 'foreign-receiver';
+
+    /**
+     * The receiver really is a Context, but the method is not one Context declares -- in practice a
+     * PHPUnit mock builder on a mocked Context (`$context->method('getName')`), where the receiver
+     * resolves to `MockObject&Context`. Named for the same reason as above.
+     */
+    public const string REASON_NOT_AN_ACCESSOR = 'not-an-accessor';
+
+    /**
      * @var        array<string, array{file: string, line: int, accessor: string, reason: string}>
      *             Keyed by file:line:accessor, so a rule and the reporter seeing the same site once
      *             each does not double-count it.

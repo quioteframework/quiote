@@ -16,6 +16,24 @@ use Rector\Config\RectorConfig;
  * explicitly, and start with --dry-run:
  *
  *     vendor/bin/rector process Quiote/Execution --dry-run
+ *
+ * ## Two things that make a census silently lie
+ *
+ * **Always pass `--clear-cache`.** Rector's result cache is on by default, so a second run over paths
+ * that have not changed reports *nothing at all* -- the rules never execute, and the residue reporter
+ * never sees a site. An empty report then reads as "no work left" when it means "not looked at".
+ * `composer rector:census` does this for you.
+ *
+ * **Running against an application, run the rules from here.** An application that depends on
+ * `quioteframework/rector` has its own vendored copy, and its autoloader wins over this one -- so
+ * `vendor/bin/rector` inside the application silently exercises the *published* rules, not the
+ * working tree's. Invoke this repo's binary with the application's autoloader added instead:
+ *
+ *     vendor/bin/rector process ../app/src/Modules/Thing \
+ *         --autoload-file ../app/vendor/autoload.php --dry-run --clear-cache
+ *
+ * If the application's vendored copy still wins, declare the working tree's rule classes in a shim
+ * passed to `--autoload-file`: a class already declared is never autoloaded over.
  */
 return RectorConfig::configure()
     ->withPaths([
