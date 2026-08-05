@@ -65,14 +65,14 @@ abstract class AbstractContextInjectionRector extends AbstractRector
         /** @var array<string, string> $injected class => property name */
         $injected = [];
 
-        $this->traverseNodesWithCallable($node->stmts, function (Node $subNode) use (&$injected): ?Expr {
+        $this->traverseNodesWithCallable($node->stmts, function (Node $subNode) use (&$injected, $node): ?Expr {
             if ($subNode instanceof StaticCall) {
                 $injectable = $this->resolveInjectableForStaticCall($subNode);
                 if ($injectable === null) {
                     return null;
                 }
 
-                $propertyName = $this->propertyNameFor($injectable, $injected);
+                $propertyName = $this->propertyNameFor($injectable, $injected, $node);
                 $injected[$injectable] = $propertyName;
 
                 return $this->buildReplacementForStaticCall($subNode, $propertyName);
@@ -87,7 +87,7 @@ abstract class AbstractContextInjectionRector extends AbstractRector
                 return null;
             }
 
-            $propertyName = $this->propertyNameFor($injectable, $injected);
+            $propertyName = $this->propertyNameFor($injectable, $injected, $node);
             $injected[$injectable] = $propertyName;
 
             return $this->buildReplacement($subNode, $propertyName);
@@ -394,10 +394,21 @@ abstract class AbstractContextInjectionRector extends AbstractRector
      * Reuses the name already chosen for the same class in this pass, so several call sites for one
      * collaborator share one injected property rather than adding one each.
      *
+     * Names the class already uses are avoided, and that is a correctness requirement rather than
+     * tidiness. Rector's dependency manipulator *reuses* an existing property of the same name: an
+     * action with its own `private ?string $user` had a `User` assigned into it and every one of its
+     * own `$this->user` reads silently repointed at the injected user. `user` is the likeliest
+     * collision of all the names these rules generate, but the same was true of `$routing` or
+     * `$controller` in any class that happened to have one.
+     *
+     * Parents are consulted too, through the declared parent that {@see isInjectableClass()} has
+     * already loaded: reusing an inherited name would shadow it rather than collide outright, which
+     * is harder to notice.
+     *
      * @param      array<string, string> $injected Already-assigned class => property name.
      * @since      4.0.0
      */
-    protected function propertyNameFor(string $injectableClass, array $injected): string
+    protected function propertyNameFor(string $injectableClass, array $injected, ?Class_ $class = null): string
     {
         if (isset($injected[$injectableClass])) {
             return $injected[$injectableClass];
@@ -408,7 +419,7 @@ abstract class AbstractContextInjectionRector extends AbstractRector
             : $injectableClass;
 
         $candidate = lcfirst($shortName);
-        $taken = array_values($injected);
+        $taken = [...array_values($injected), ...($class === null ? [] : $this->existingPropertyNames($class))];
 
         // Two distinct classes whose short names collide -- a TagService from two namespaces --
         // get separate properties rather than one quietly serving both.
@@ -419,5 +430,43 @@ abstract class AbstractContextInjectionRector extends AbstractRector
         }
 
         return $name;
+    }
+
+    /**
+     * Every property name this class already has: declared, promoted through its constructor, or
+     * inherited. See {@see propertyNameFor()} for why inherited ones count.
+     *
+     * @return     array<int, string>
+     * @since      4.0.0
+     */
+    private function existingPropertyNames(Class_ $class): array
+    {
+        $names = [];
+
+        foreach ($class->getProperties() as $property) {
+            foreach ($property->props as $propertyProperty) {
+                $names[] = (string) $propertyProperty->name;
+            }
+        }
+
+        $constructor = $class->getMethod('__construct');
+        if ($constructor !== null) {
+            foreach ($constructor->params as $param) {
+                if ($param->flags !== 0 && $param->var instanceof Variable && is_string($param->var->name)) {
+                    $names[] = $param->var->name;
+                }
+            }
+        }
+
+        if ($class->extends instanceof Name) {
+            $parent = $class->extends->toString();
+            if (class_exists($parent)) {
+                foreach ((new \ReflectionClass($parent))->getProperties() as $parentProperty) {
+                    $names[] = $parentProperty->getName();
+                }
+            }
+        }
+
+        return $names;
     }
 }
