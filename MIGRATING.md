@@ -8,7 +8,7 @@ This file covers each release that needs migration work, newest first.
 
 # Migrating to Quiote 4.0
 
-**4.0.0-RC2.** The breaking changes below are complete and the framework's suite is green
+**4.0.0-RC3.** The breaking changes below are complete and the framework's suite is green
 against them; the release candidate is for finding what this document does not cover yet.
 Install it explicitly — a release candidate is not what a default stability resolves to, and
 take the first-party packages with it:

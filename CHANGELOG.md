@@ -1,3 +1,15 @@
+## [4.0.0-RC3] - 2026-08-05
+
+### 🐛 Bug Fixes
+
+- *(testing)* Clear the shared models through the locator
+- *(composer)* [**breaking**] Require the CSRF package by version, not by stability alone
+- *(renderer)* [**breaking**] Resolve a snake_case assign against the camelCase container role
+
+### 📚 Documentation
+
+- *(migrating)* Note that output_types assigns resolve through the container
+
 ## [4.0.0-RC2] - 2026-08-05
 
 ### 🐛 Bug Fixes
