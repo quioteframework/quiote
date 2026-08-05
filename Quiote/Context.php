@@ -18,25 +18,22 @@ use Quiote\Validator\ValidationManager;
 use Symfony\Contracts\Service\ResetInterface;
 
 /**
- * Context provides information about the current application context,
- * such as the module and action names and the module directory.
- * It also serves as a gateway to the core pieces of the framework, allowing
- * objects with access to the context, to access other useful objects such as
- * the current controller, request, user, database manager etc.
+ * An execution profile -- web, console, a named one -- and the container its services resolve from.
+ *
+ * The context owns its own identity and lifecycle: it initializes the components the compiled
+ * factories configuration declares, binds them, arms and clears per-request state, and shuts them
+ * down in order. It does not hand out its collaborators; a class that needs the routing, the user or
+ * a service declares that in its constructor and the container supplies it. {@see ContextInterface}
+ * is what a collaborator should type-hint, and it is two methods wide for that reason.
  *
  * A subclass named by `core.context_implementation` must keep the constructor signature: the
  * registry builds it knowing only the profile name.
  *
  * @phpstan-consistent-constructor
  * @since      1.0.0
- * @version    1.0.0
  */
 class Context implements \Stringable, ResetInterface, ContextInterface
 {
-  // Debug: Log when this class version is loaded
-  /** @var bool */
-  static $debugLoaded = true;
-
   /**
    * @var        ?\Quiote\Runtime\ContextRequestHandler Serves requests against this context.
    *             Built on first use; see getRequestHandler().
@@ -44,53 +41,56 @@ class Context implements \Stringable, ResetInterface, ContextInterface
   private ?\Quiote\Runtime\ContextRequestHandler $requestHandler = null;
 
   /**
-   * @var        ?Controller A Controller instance.
+   * @var        ?Controller This profile's controller, memoized for the binding that answers it.
    */
-  protected $controller = null;
+  private ?Controller $controller = null;
 
   /**
-   * @var        ?\Quiote\Database\DatabaseManager A DatabaseManager instance.
+   * @var        ?\Quiote\Database\DatabaseManager This profile's database manager, or null when
+   *             `core.use_database` is off.
    */
-  protected $databaseManager = null;
+  private ?\Quiote\Database\DatabaseManager $databaseManager = null;
 
   /**
-   * @var        ?WebRequest A Request instance.
+   * @var        ?WebRequest The request being served, memoized for the request-scoped binding.
+   *             {@see installRequest()} replaces it and invalidates that binding's memo.
    */
-  protected $request = null;
+  private ?WebRequest $request = null;
 
   /**
-   * @var        ?Routing A Routing instance.
+   * @var        ?Routing This profile's routing, rebuilt on demand after a worker dropped it.
    */
-  protected $routing = null;
+  private ?Routing $routing = null;
 
 
 
   /**
-   * @var        ?TranslationManager A TranslationManager instance.
+   * @var        ?TranslationManager This profile's translation manager, or null when no
+   *             `translation` configuration was compiled.
    */
-  protected $translationManager = null;
+  private ?TranslationManager $translationManager = null;
 
   /**
-   * @var        ?User A User instance.
+   * @var        ?User The request's user, memoized for the request-scoped binding.
    */
-  protected $user = null;
+  private ?User $user = null;
 
   /**
    * @var        ShutdownSequence The components to shut down, in order.
    */
-  protected ShutdownSequence $shutdownSequence;
+  private readonly ShutdownSequence $shutdownSequence;
 
   /**
    * @var        ?\Quiote\Config\Factory\FactoryDefinitions What the compiled factories
    *             configuration declared. The source the lazy worker-mode rebuilds read from.
    */
-  protected ?\Quiote\Config\Factory\FactoryDefinitions $factoryDefinitions = null;
+  private ?\Quiote\Config\Factory\FactoryDefinitions $factoryDefinitions = null;
 
   /**
    * @var        ContextLifecycle This context's per-request state machine: the flush claim and the
    *             clears that run when a request ends. Populated by registerLifecycleClears().
    */
-  protected ContextLifecycle $lifecycle;
+  private readonly ContextLifecycle $lifecycle;
 
   /**
    * @var        ?\Quiote\Model\ModelLocator Resolves and hands out this context's models.
@@ -99,9 +99,9 @@ class Context implements \Stringable, ResetInterface, ContextInterface
   private ?\Quiote\Model\ModelLocator $modelLocator = null;
 
   /**
-   * @var        array<int, mixed> Reset instances for persistent worker runtimes
+   * @var        array<int, mixed> Components a persistent worker runtime resets between requests.
    */
-  protected $resetInstances = [];
+  private array $resetInstances = [];
 
 
 
@@ -109,11 +109,11 @@ class Context implements \Stringable, ResetInterface, ContextInterface
 
 
   /**
-   * @var        ?Container DI container.
-   *             Additive/observational for now: factories.xml remains the single
-   *             source of truth for construction of the core services below.
+   * @var        ?Container This profile's container, built on first use. Every collaborator this
+   *             context installs is bound in it, and it is the only way in for a caller that
+   *             cannot be wired statically.
    */
-  protected ?Container $container = null;
+  private ?Container $container = null;
 
   /**
    * Clone method, overridden to prevent cloning, there can be only one.
@@ -137,7 +137,7 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     /**
      * The name of the Context.
      */
-    protected string $name,
+    private readonly string $name,
   ) {
     $this->shutdownSequence = new ShutdownSequence();
     $this->lifecycle = new ContextLifecycle();
@@ -179,12 +179,13 @@ class Context implements \Stringable, ResetInterface, ContextInterface
 
 
   /**
-   * Retrieve (lazily create) the DI container.
-   * The core services created by factories.xml
-   * are registered here under their role name and concrete class name, so both
-   * `getContainer()->get(\Quiote\User\User::class)` and `getContainer()->get(RbacSecurityUser::class)`
-   * resolve to the same instance. factories.xml remains the sole construction path;
-   * nothing in the framework resolves services *through* the container yet.
+   * This profile's container, built on first use.
+   *
+   * Every component the compiled factories configuration declares is bound here under both its role
+   * name and its concrete class name, so `get(\Quiote\User\User::class)` and
+   * `get(RbacSecurityUser::class)` answer the same instance.
+   *
+   * @since      3.2.0
    */
   public function getContainer(): Container
   {
@@ -196,13 +197,12 @@ class Context implements \Stringable, ResetInterface, ContextInterface
 
 
   /**
-   * Bind the components whose accessors used to rebuild them on demand.
+   * Bind the components that are built or rebuilt on demand.
    *
-   * `getRouting()` did this with a `??=` and a rebuild from the factories declaration, which is how a
-   * worker that dropped the instance at a request boundary got it back. `getController()` did the
-   * opposite and threw, because a context without one has not finished initialize(). Both behaviours
-   * belong to the binding now, so a consumer resolving `Routing::class` gets the rebuild and one
-   * resolving `Controller::class` gets the explanation.
+   * A consumer resolving `Routing::class` gets a rebuild from the factories declaration, which is how
+   * a worker that dropped the instance at a request boundary gets it back. One resolving
+   * `Controller::class` gets an explanation instead, because a context without a controller has not
+   * finished initialize() and no rebuild can change that.
    *
    * Registered as factories rather than instances, so the closure -- and the property it memoizes into
    * -- decides what the answer is. The routing and the controller are transient in container terms

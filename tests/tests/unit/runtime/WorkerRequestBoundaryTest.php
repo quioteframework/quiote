@@ -88,16 +88,20 @@ class WorkerRequestBoundaryTest extends TestCase
         $sequence = $this->context->getShutdownSequence();
         $this->savedShutdownSequence ??= $sequence->all();
 
-        $faulty = new class($toThrow) {
+        // A DatabaseManager subclass, because the context's property is typed: the loop recognises
+        // its database manager by identity with that property, not by duck-typing a method.
+        $faulty = new class($toThrow) extends \Quiote\Database\DatabaseManager {
             public function __construct(private readonly \Throwable $toThrow)
             {
             }
 
+            #[\Override]
             public function recycleConnections(): void
             {
                 throw $this->toThrow;
             }
 
+            #[\Override]
             public function shutdown(): void
             {
                 throw $this->toThrow;

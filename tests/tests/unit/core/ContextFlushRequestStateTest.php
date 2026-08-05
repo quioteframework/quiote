@@ -270,16 +270,18 @@ class ContextFlushRequestStateTest extends UnitTestCase
  * Minimal user double recording into RecordingSessionBag's shared log, so user
  * and session activity are observable in one ordered sequence.
  */
-class RecordingUser
+class RecordingUser extends SecurityUser
 {
+    #[\Override]
     public function shutdown(): void
     {
         RecordingSessionBag::$log[] = 'user.shutdown';
     }
 }
 
-class ThrowingUser
+class ThrowingUser extends SecurityUser
 {
+    #[\Override]
     public function shutdown(): void
     {
         throw new \RuntimeException('user shutdown exploded');
