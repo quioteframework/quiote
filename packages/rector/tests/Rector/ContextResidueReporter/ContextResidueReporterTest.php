@@ -30,12 +30,15 @@ final class ContextResidueReporterTest extends AbstractRectorTestCase
         }
 
         $this->assertSame(ResidueReport::REASON_NOT_CONTAINER_BUILT, $reasons['getUser'] ?? null);
-        // Shaped like a Context call, receiver is a span: named, not silently skipped. The accessor
-        // recorded is the one called *on* the lookalike receiver, which is what a reader needs to
-        // recognise the site.
-        $this->assertSame(ResidueReport::REASON_FOREIGN_RECEIVER, $reasons['isValid'] ?? null);
+        // Shaped like a Context call, receiver is definitely something else: named, not silently
+        // skipped. The accessor recorded is the one called *on* the lookalike receiver, which is what
+        // a reader needs to recognise the site.
+        $this->assertSame(ResidueReport::REASON_FOREIGN_RECEIVER, $reasons['getMessage'] ?? null);
         // A real Context, a method it does not declare.
         $this->assertSame(ResidueReport::REASON_NOT_AN_ACCESSOR, $reasons['flushRequestState'] ?? null);
+        // An untyped $context = null parameter: unresolvable rather than foreign, which is a different
+        // answer for whoever works the list.
+        $this->assertSame(ResidueReport::REASON_UNRESOLVED_RECEIVER, $reasons['getRouting'] ?? null);
     }
 
     /** @return \Iterator<array<string>> */

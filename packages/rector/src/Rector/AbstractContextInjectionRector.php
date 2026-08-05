@@ -16,6 +16,7 @@ use PhpParser\Node\Stmt\Class_;
 use PhpParser\Node\Stmt\ClassMethod;
 use PHPStan\Type\ObjectType;
 use Quiote\Rector\NodeAnalyzer\ContextCallAnalyzer;
+use Quiote\Rector\NodeAnalyzer\ExtendedClassIndex;
 use Rector\NodeManipulator\ClassDependencyManipulator;
 use Rector\PostRector\ValueObject\PropertyMetadata;
 use Rector\Rector\AbstractRector;
@@ -38,6 +39,7 @@ abstract class AbstractContextInjectionRector extends AbstractRector
     public function __construct(
         protected readonly ContextCallAnalyzer $contextCallAnalyzer,
         private readonly ClassDependencyManipulator $classDependencyManipulator,
+        private readonly ExtendedClassIndex $extendedClassIndex,
     ) {}
 
     /**
@@ -57,6 +59,13 @@ abstract class AbstractContextInjectionRector extends AbstractRector
         }
 
         if (!$this->isInjectableClass($node)) {
+            return null;
+        }
+
+        if ($this->isExtendedByAnything($node)) {
+            // A constructor parameter added to a class others extend is not safe in either direction:
+            // a subclass with its own constructor never forwards to the new one, and a subclass that
+            // does forward breaks on the arity. See ExtendedClassIndex for the case that proved it.
             return null;
         }
 
@@ -322,6 +331,23 @@ abstract class AbstractContextInjectionRector extends AbstractRector
         \Quiote\Service\Service::class,
         \Quiote\Validator\Validator::class,
     ];
+
+    /**
+     * Whether something in the codebase extends the class being rewritten.
+     *
+     * Abstract classes are already declined in {@see refactor()}; this is about the concrete base
+     * class, which is the shape that actually appears in applications -- a `JakamoBaseAction` or
+     * `ApiBaseAction` sitting between the framework's class and the leaves, instantiable in principle
+     * and extended in practice.
+     *
+     * @since      4.0.0
+     */
+    private function isExtendedByAnything(Class_ $class): bool
+    {
+        $name = $this->getName($class);
+
+        return $name !== null && $this->extendedClassIndex->isExtended($name);
+    }
 
     /**
      * Hook for work a rule needs to do once per class, before any call is examined.

@@ -42,6 +42,15 @@ final class ResidueReport
     public const string REASON_FOREIGN_RECEIVER = 'foreign-receiver';
 
     /**
+     * Shaped like a Context call, and the receiver's type cannot be resolved at all -- in practice an
+     * untyped `$context = null` parameter, whose type is `mixed`. Distinct from `foreign-receiver` on
+     * purpose: a foreign receiver is confirmed not to be work, while this is work that cannot be
+     * decided without reading the call site. Letting the two share a label would hide a real site in
+     * the bucket a reader skips.
+     */
+    public const string REASON_UNRESOLVED_RECEIVER = 'unresolved-receiver';
+
+    /**
      * The receiver really is a Context, but the method is not one Context declares -- in practice a
      * PHPUnit mock builder on a mocked Context (`$context->method('getName')`), where the receiver
      * resolves to `MockObject&Context`. Named for the same reason as above.

@@ -50,8 +50,12 @@ use Rector\Rector\AbstractRector;
  * - `unhandled-accessor` — a Context accessor no rule covers yet. `getUser` stays on that list even
  *   though a rule handles it now: a site the rule rewrites is gone before this one sees it, so what
  *   remains is genuinely the sites it declined.
- * - `foreign-receiver` — shaped like a Context call, but the receiver is something else. Not work to
- *   do; work confirmed not to be needed, which a report has to distinguish from silence.
+ * - `foreign-receiver` — shaped like a Context call, but the receiver resolves to a definite other
+ *   class. Not work to do; work confirmed not to be needed, which a report has to distinguish from
+ *   silence.
+ * - `unresolved-receiver` — shaped like a Context call, and the receiver's type resolves to nothing at
+ *   all, which in practice means an untyped `$context = null` parameter. Unlike the above, this one
+ *   may well be work; it just cannot be decided without reading the call site.
  * - `not-an-accessor` — the receiver is a Context and the method is not one it declares, which in
  *   practice means a PHPUnit mock builder on a mocked Context.
  *
@@ -179,13 +183,28 @@ final class ContextResidueReporter extends AbstractRector
             return;
         }
 
-        // The receiver really is a Context, so what disqualified the call was the method name: a mock
-        // builder, or something else Context does not declare.
-        $reason = $this->contextCallAnalyzer->isContextExpr($methodCall->var)
-            ? ResidueReport::REASON_NOT_AN_ACCESSOR
-            : ResidueReport::REASON_FOREIGN_RECEIVER;
+        $this->residueReport->add($filePath, $methodCall->getStartLine(), $accessor, $this->lookalikeReason($methodCall));
+    }
 
-        $this->residueReport->add($filePath, $methodCall->getStartLine(), $accessor, $reason);
+    /**
+     * Which of the three lookalike answers applies.
+     *
+     * The receiver being a real Context means the method name is what disqualified the call -- a mock
+     * builder, or something else Context does not declare. Otherwise it comes down to whether the
+     * receiver resolves to a *definite* other class, which is confirmed not to be work, or to nothing
+     * resolvable, which nobody can decide from here.
+     *
+     * @since      4.0.0
+     */
+    private function lookalikeReason(MethodCall $methodCall): string
+    {
+        if ($this->contextCallAnalyzer->isContextExpr($methodCall->var)) {
+            return ResidueReport::REASON_NOT_AN_ACCESSOR;
+        }
+
+        return $this->contextCallAnalyzer->receiverClassNames($methodCall->var) === []
+            ? ResidueReport::REASON_UNRESOLVED_RECEIVER
+            : ResidueReport::REASON_FOREIGN_RECEIVER;
     }
 
     /**

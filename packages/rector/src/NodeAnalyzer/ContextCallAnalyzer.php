@@ -172,6 +172,21 @@ final readonly class ContextCallAnalyzer
     }
 
     /**
+     * The object classes a receiver expression resolves to, if any.
+     *
+     * Empty means the type names no class at all -- `mixed`, from an untyped parameter -- which is a
+     * different answer from "it resolves to some other class", and the residue report distinguishes
+     * them: one is confirmed not to be work, the other is unknown.
+     *
+     * @return     array<int, string>
+     * @since      4.0.0
+     */
+    public function receiverClassNames(Expr $expr): array
+    {
+        return $this->nodeTypeResolver->getType($expr)->getObjectClassNames();
+    }
+
+    /**
      * The class name a resolved type names, or null when it names none or more than one.
      *
      * Asked of the type rather than tested with instanceof: PHPStan deprecated inspecting its type
