@@ -72,10 +72,12 @@ XML;
         $doc = $this->makeEnvelope($inner, 'factories.xml');
         $handler = new FactoryConfigHandler();
         $handler->initialize(null, []);
-        $code = $handler->execute($doc);
-        $this->assertStringContainsString('ValidationManager', $code);
-        $this->assertStringContainsString("'op' => 'startup'", $code);
-        $this->assertStringContainsString("'shutdownOrder'", $code);
+        $declaration = $handler->execute($doc);
+        $this->assertIsArray($declaration);
+        $this->assertArrayHasKey('operations', $declaration);
+        $this->assertArrayHasKey('shutdownOrder', $declaration);
+        $this->assertStringContainsString('ValidationManager', var_export($declaration, true));
+        $this->assertStringContainsString("'op' => 'startup'", var_export($declaration['operations'], true));
     }
 
 }

@@ -61,7 +61,7 @@ class TranslationConfigHandler extends XmlConfigHandler implements IArrayConfigH
 	 *                                        improperly formatted.
 	 * @since      1.0.0
 	 */
-	public function execute(XmlConfigDomDocument $document): string
+	public function execute(XmlConfigDomDocument $document): mixed
 	{
 		return $this->executeArray($this->toCanonicalArray($document), $document->documentURI);
 	}
@@ -172,7 +172,7 @@ class TranslationConfigHandler extends XmlConfigHandler implements IArrayConfigH
 	 *     translators?: array<string, mixed>,
 	 * } $config
 	 */
-	public function executeArray(array $config, ?string $sourceRef = null): string
+	public function executeArray(array $config, ?string $sourceRef = null): mixed
 	{
 		$defaultDomain = $config['default_domain'] ?? '';
 		$defaultLocale = $config['default_locale'] ?? null;
@@ -216,18 +216,14 @@ class TranslationConfigHandler extends XmlConfigHandler implements IArrayConfigH
 			}
 		}
 
-		// Data, not statements. The compiled file returns a declaration that TranslationManager reads
-		// and builds its translators from; it cannot reach into whatever includes it.
-		return $this->generate(
-			'return ' . var_export([
-				'defaultDomain' => $defaultDomain,
-				'defaultLocale' => $defaultLocale,
-				'defaultTimeZone' => $defaultTimeZone,
-				'locales' => $locales,
-				'translators' => $translators,
-			], true) . ';',
-			$sourceRef
-		);
+		// A declaration TranslationManager reads and builds its translators from.
+		return [
+			'defaultDomain' => $defaultDomain,
+			'defaultLocale' => $defaultLocale,
+			'defaultTimeZone' => $defaultTimeZone,
+			'locales' => $locales,
+			'translators' => $translators,
+		];
 	}
 
 	/**

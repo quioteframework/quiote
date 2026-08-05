@@ -40,7 +40,7 @@ class ValidatorConfigHandlerUnknownParameterTest extends ConfigHandlerTestBase
 		return Context::getInstance(Config::getNullableString('core.default_context'));
 	}
 
-	private function compile(string $environment): string
+	private function compile(string $environment): mixed
 	{
 		$VCH = new ValidatorConfigHandler();
 		$document = $this->parseConfiguration(
@@ -49,6 +49,12 @@ class ValidatorConfigHandlerUnknownParameterTest extends ConfigHandlerTestBase
 			$environment
 		);
 		return $VCH->execute($document);
+	}
+
+	/** The compiled declaration, as text, for the "it compiled at all" assertions below. */
+	private function compiledText(string $environment): string
+	{
+		return var_export($this->compile($environment), true);
 	}
 
 	public function testDefaultModeThrowsOnUnknownParameter(): void
@@ -86,22 +92,19 @@ class ValidatorConfigHandlerUnknownParameterTest extends ConfigHandlerTestBase
 	public function testWarnModeCompilesAndLogsInsteadOfThrowing(): void
 	{
 		Config::set('validation.reject_unknown_parameters', 'warn', true);
-		$code = $this->compile('test-unknown-parameter');
-		$this->assertStringContainsString('StringValidator', $code);
+		$this->assertStringContainsString('StringValidator', $this->compiledText('test-unknown-parameter'));
 	}
 
 	public function testOffModeSkipsCheckEntirely(): void
 	{
 		Config::set('validation.reject_unknown_parameters', 'off', true);
-		$code = $this->compile('test-unknown-parameter');
-		$this->assertStringContainsString('StringValidator', $code);
+		$this->assertStringContainsString('StringValidator', $this->compiledText('test-unknown-parameter'));
 	}
 
 	public function testKnownParametersCompileCleanlyUnderThrowMode(): void
 	{
 		Config::set('validation.reject_unknown_parameters', 'throw', true);
-		$code = $this->compile('test-known-parameter');
-		$this->assertStringContainsString('StringValidator', $code);
+		$this->assertStringContainsString('StringValidator', $this->compiledText('test-known-parameter'));
 	}
 
 	public function testCustomValidatorSubclassWithoutOverrideIsStillChecked(): void
@@ -117,8 +120,7 @@ class ValidatorConfigHandlerUnknownParameterTest extends ConfigHandlerTestBase
 		Config::set('validation.reject_unknown_parameters', 'throw', true);
 		// The class doesn't exist, so it can't be introspected -- the check
 		// must not fail the build over something it cannot verify.
-		$code = $this->compile('test-unresolvable-class');
-		$this->assertStringContainsString('NoSuchValidatorClassAtAll', $code);
+		$this->assertStringContainsString('NoSuchValidatorClassAtAll', $this->compiledText('test-unresolvable-class'));
 	}
 }
 ?>

@@ -53,7 +53,7 @@ class DatabaseConfigHandler extends XmlConfigHandler implements IArrayConfigHand
 	 *                                        improperly formatted.
 	 * @since      1.0.0
 	 */
-	public function execute(XmlConfigDomDocument $document): string
+	public function execute(XmlConfigDomDocument $document): mixed
 	{
 		return $this->executeArray($this->toCanonicalArray($document), $document->documentURI);
 	}
@@ -201,7 +201,7 @@ class DatabaseConfigHandler extends XmlConfigHandler implements IArrayConfigHand
 	/**
 	 * @param array{default?: string|null, databases?: array<string, array{class: string, parameters: array<int|string, mixed>}>} $config
 	 */
-	public function executeArray(array $config, ?string $sourceRef = null): string
+	public function executeArray(array $config, ?string $sourceRef = null): mixed
 	{
 		$default = $config['default'] ?? null;
 		$databases = $config['databases'] ?? [];
@@ -236,12 +236,8 @@ class DatabaseConfigHandler extends XmlConfigHandler implements IArrayConfigHand
 			throw new ConfigurationException($error);
 		}
 
-		// Data, not statements. The compiled file returns a declaration that
-		// DatabaseManager reads; it cannot reach into whatever includes it.
-		return $this->generate(
-			'return ' . var_export(['databases' => $declared, 'default' => $default], true) . ';',
-			$sourceRef
-		);
+		// A declaration DatabaseManager reads and builds its connections from.
+		return ['databases' => $declared, 'default' => $default];
 	}
 }
 

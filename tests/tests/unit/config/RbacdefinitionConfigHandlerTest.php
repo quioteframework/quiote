@@ -15,7 +15,7 @@ class RbacDefinitionConfigHandlerTest extends ConfigHandlerTestBase
 		);
 		
 		$handler = new RbacDefinitionConfigHandler();
-		$cfg = $this->includeCode($handler->execute($document));
+		$cfg = $handler->execute($document);
 		
 		$expected = [
 			'administrator' => 

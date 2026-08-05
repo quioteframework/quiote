@@ -5,6 +5,7 @@ namespace Quiote\Config;
 use Quiote\Context;
 use Quiote\Config\Config;
 use Quiote\Config\ConfigCache;
+use Quiote\Exception\CacheException;
 use Quiote\Routing\Routing;
 
 /**
@@ -38,12 +39,6 @@ class APCuConfigCache extends ConfigCache
     private static $metaKey = 'quiote_warmup_meta';
 
     /**
-     * Suffix distinguishing a compiled config's cached *value* from its cached source. Appended to
-     * the source's own key so the two can never disagree about what they describe.
-     */
-    private const string VALUE_KEY_SUFFIX = ':value';
-    
-    /**
      * @var int Cache TTL (0 = never expire, good for immutable deployments)
      */
     private static $ttl = 0;
@@ -59,121 +54,75 @@ class APCuConfigCache extends ConfigCache
     private static $igbinaryAvailable = null;
     
     /**
-     * @var string|null Tracks the context for the currently active checkConfig()
-     * call so that writeCacheFile() (which has no context parameter) can store
-     * the compiled data under the correct APCu key.
+     * @var string|null Tracks the context for the currently active loadValue() cold compile so that
+     * writeCacheFile() (which has no context parameter) can store the value under the correct key.
      */
     private static ?string $pendingContext = null;
     
     
     
     /**
-     * Override writeCacheFile to store compiled PHP in APCu instead of filesystem
-     * @return void
+     * Keep the compiled configuration's value in shared memory instead of writing a file.
+     *
+     * A value, not PHP source: that is the whole difference this class is for. Source would have to be
+     * compiled again on every load -- eval()'d code is never opcache-cached -- so an unchanged config
+     * would pay a full lex/parse/compile per request, while a stored array is simply fetched. It also
+     * means a tampered entry can only produce wrong configuration, never execution.
+     *
+     * A value shared memory cannot reproduce faithfully ({@see isStorable()}) falls through to the file
+     * cache rather than being stored as a broken clone.
+     *
+     * @param      mixed $value The declaration the handler compiled.
+     * @param      ?string $generatedBy The handler class that compiled it; only the file cache records it.
+     * @return     void
      */
     #[\Override]
-    public static function writeCacheFile(string $config, string $cache, string $data, bool $append = false): void
+    public static function writeCacheFile(string $config, string $cache, mixed $value, ?string $generatedBy = null): void
     {
-        // If APCu is available, store ONLY in APCu (no filesystem writes)
-        if (self::isAvailable()) {
-            // Use the pending context set by checkConfig() so the key matches
-            $key = self::getConfigKey($config, self::$pendingContext);
-
-            if ($append && \apcu_exists($key)) {
-                $existingData = \apcu_fetch($key);
-                if (!is_string($existingData)) {
-                    throw new \Quiote\Exception\CacheException(sprintf(
-                        'APCu cache entry "%s" was expected to hold a compiled config string, got %s.',
-                        $key,
-                        get_debug_type($existingData)
-                    ));
-                }
-                $data = $existingData . $data;
-            }
-
-            \apcu_store($key, $data, self::$ttl);
-            return; // Don't write to filesystem
-        } else {
-            // Fallback to normal file-based cache only when APCu is not available
-            parent::writeCacheFile($config, $cache, $data, $append);
+        if (self::isAvailable() && self::isStorable($value)) {
+            // The pending context set by loadValue()'s cold path, so the key matches the one the
+            // fetch will use.
+            \apcu_store(self::getConfigKey($config, self::$pendingContext), $value, self::$ttl);
+            return;
         }
+
+        parent::writeCacheFile($config, $cache, $value, $generatedBy);
     }
-    
+
     /**
-     * Check (and compile if needed) a configuration file.
+     * Not a path on this cache: a compiled configuration is a value in shared memory here, so there is
+     * no file to hand back and nothing sensible to return.
      *
-     * A compiled config lives in shared memory here rather than in a file, which is the point of this
-     * cache -- writing a temp file for the caller to include would give back the file I/O the store
-     * exists to avoid. So the return value is one of two things:
-     *  - A file path, when APCu is unavailable — the caller includes it.
-     *  - 'APCU:' followed by the compiled source, which the caller has to compile itself.
+     * The base implementation's contract -- "returns the path of the compiled cache file" -- cannot be
+     * honoured, and returning a path that was never written would fail later as a missing include.
+     * {@see loadValue()}, reached through {@see CompiledConfig::value()}, is the read path.
      *
-     * Prefer {@see loadValue()} (through {@see CompiledConfig::value()}): it handles both shapes and
-     * hands back the value, so the storage format stays in here.
+     * @throws     CacheException Always, while APCu is in use.
      */
     #[\Override]
     public static function checkConfig($config, $context = null)
     {
-        if (self::isAvailable()) {
-            $key = self::getConfigKey($config, $context);
-            $content = \apcu_fetch($key);
-
-            if ($content !== false) {
-                return 'APCU:' . self::assertCachedContentIsString($key, $content);
-            }
+        if (!self::isAvailable()) {
+            return parent::checkConfig($config, $context);
         }
 
-        // Cold path: compile and store in APCu for next time.
-        // Track context so writeCacheFile() stores under the correct APCu key.
-        //
-        // SAVE/RESTORE (not reset-to-null): compiling a config can trigger nested
-        // checkConfig() calls (module.xml initialization, loadConfigHandlersFile(),
-        // etc.). Each level must restore the *previous* pending context on exit, or
-        // the inner call's finally would clobber the outer context to null — the
-        // outer config would then be stored under context null while its re-fetch
-        // uses the real context, missing, and falling back to a filesystem path that
-        // was never written (APCu stores in shared memory), causing
-        // "require(...): No such file or directory".
-        $previousPendingContext = self::$pendingContext;
-        self::$pendingContext = $context;
-        try {
-            // parent::checkConfig() compiles the config and calls writeCacheFile()
-            // via late static binding. When APCu is available, our override stores
-            // to APCu only (no filesystem write).
-            $result = parent::checkConfig($config, $context);
-
-            // After compilation, content is now in APCu. Return it directly.
-            if (self::isAvailable()) {
-                $key = self::getConfigKey($config, $context);
-                $content = \apcu_fetch($key);
-                if ($content !== false) {
-                    return 'APCU:' . self::assertCachedContentIsString($key, $content);
-                }
-            }
-
-            // APCu not available — return the file path from parent
-            return $result;
-        } finally {
-            self::$pendingContext = $previousPendingContext;
-        }
+        throw new CacheException(sprintf(
+            'A compiled configuration is held in shared memory, not in a file, so checkConfig() cannot '
+            . 'return a path for "%s". Read the value with CompiledConfig::value() instead.',
+            $config
+        ));
     }
-    
+
     /**
-     * The value a compiled configuration returns, served from shared memory as data.
+     * The value a compiled configuration returns, served from shared memory.
      *
-     * A compiled config reaches APCu as PHP source, so something has to compile it once. What this
-     * avoids is compiling it *again on every load*: eval()'d code is never opcache-cached, so the
-     * source path pays a full lex/parse/compile on each request for a config that has not changed.
-     * Storing the resulting value under its own key means the first caller after a flush compiles,
-     * and every caller after that reads an array.
+     * The stored entry *is* the value, so a hit costs a fetch. A miss compiles through the inherited
+     * {@see ConfigCache::checkConfig()}, whose call to {@see writeCacheFile()} stores it -- and if the
+     * value turned out not to be storable, that wrote a file instead, which the fallback below reads.
      *
-     * The value key is derived from the config key, so everything that invalidates the source
-     * invalidates the value with it -- the framework fingerprint, the resolved source format and the
-     * context are all already folded into {@see getConfigKey()} -- and {@see clear()} matches on the
-     * shared `quiote_` prefix, so it drops both.
-     *
-     * Only values that survive shared memory faithfully are stored; see {@see isStorable()}. A config
-     * that returns anything else still works, it simply keeps compiling.
+     * Everything that invalidates a compiled config is already folded into {@see getConfigKey()} --
+     * the framework fingerprint, the resolved source format, the context -- and {@see clear()} matches
+     * on the shared `quiote_` prefix.
      *
      * @param      string $config An absolute or relative filesystem path to a configuration file.
      * @param      string|null $context An optional context name.
@@ -187,28 +136,38 @@ class APCuConfigCache extends ConfigCache
             return parent::loadValue($config, $context);
         }
 
-        $valueKey = self::getConfigKey($config, $context) . self::VALUE_KEY_SUFFIX;
+        $key = self::getConfigKey($config, $context);
 
         // The out-parameter, not a false return: a compiled config is entitled to return null or
         // false, and treating that as a miss would recompile it on every single load.
         $found = false;
-        $value = \apcu_fetch($valueKey, $found);
+        $value = \apcu_fetch($key, $found);
         if ($found === true) {
             return $value;
         }
 
-        $result = self::checkConfig($config, $context);
-        if (str_starts_with($result, 'APCU:')) {
-            $value = eval('?>' . substr($result, 5));
-        } else {
-            $value = include $result;
+        // Cold path: compile, which stores the value under $key.
+        //
+        // SAVE/RESTORE (not reset-to-null) of the pending context: compiling a config can trigger
+        // nested loads (module.xml initialization, loadConfigHandlersFile(), etc.). Each level must
+        // restore the *previous* pending context on exit, or the inner call's finally would clobber the
+        // outer context to null -- the outer config would then be stored under context null while its
+        // re-fetch uses the real context, missing it every time.
+        $previousPendingContext = self::$pendingContext;
+        self::$pendingContext = $context;
+        try {
+            $cacheFile = parent::checkConfig($config, $context);
+        } finally {
+            self::$pendingContext = $previousPendingContext;
         }
 
-        if (self::isStorable($value)) {
-            \apcu_store($valueKey, $value);
+        $value = \apcu_fetch($key, $found);
+        if ($found === true) {
+            return $value;
         }
 
-        return $value;
+        // Not in shared memory: writeCacheFile() decided this value belongs in a file.
+        return include $cacheFile;
     }
 
     /**
@@ -304,57 +263,59 @@ class APCuConfigCache extends ConfigCache
     }
     
     /**
-     * Warm up a single configuration file
+     * Warm up a single configuration file: compile it and put its value in shared memory.
+     *
+     * Compilation runs with APCu treated as unavailable so it goes through the file cache, then the
+     * compiled file is read for its value and the file removed -- warmup exists so the first real
+     * request finds shared memory populated, not a file.
      */
     private static function warmupConfig(string $config, ?string $context): bool
     {
         $logger = self::getLoggerFor($context);
         $logger->debug('APCuConfigCache warmupConfig start', ['config' => basename($config), 'context' => $context]);
-        
-        // Temporarily disable APCu to force compilation without storing in APCu yet
+
         $apcuWasAvailable = self::$apcuAvailable;
         self::$apcuAvailable = false;
-        
+
         try {
-            // Get the compiled/cached version through normal Quiote process (will create temp file)
             $cacheFile = parent::checkConfig($config, $context);
-            
+
             if (!is_readable($cacheFile)) {
                 $logger->warning('APCuConfigCache warmupConfig cache file not readable', ['config' => basename($config)]);
                 return false;
             }
-            
-            // Read the compiled content
-            $content = file_get_contents($cacheFile);
-            if ($content === false) {
-                $logger->warning('APCuConfigCache warmupConfig failed reading cache file', ['config' => basename($config)]);
+
+            $value = include $cacheFile;
+
+            if (!self::isStorable($value)) {
+                // Leave the compiled file in place: it is the only form this value survives in, and
+                // loadValue() falls back to reading it.
+                $logger->warning(
+                    'APCuConfigCache warmupConfig value cannot live in shared memory; keeping the compiled file',
+                    ['config' => basename($config)]
+                );
                 return false;
             }
-            $logger->debug('APCuConfigCache warmupConfig read bytes', ['config' => basename($config), 'bytes' => strlen($content)]);
-            
-            // Store in APCu
-            $key = self::getConfigKey($config, $context);
-            $result = \apcu_store($key, $content, self::$ttl);
+
+            $result = \apcu_store(self::getConfigKey($config, $context), $value, self::$ttl);
             if ($result) {
                 $logger->debug('APCuConfigCache warmupConfig stored in APCu', ['config' => basename($config)]);
             } else {
                 $logger->warning('APCuConfigCache warmupConfig failed storing in APCu', ['config' => basename($config)]);
+                return false;
             }
-            
-            // Clean up the temporary file since we only need APCu storage
+
             if (file_exists($cacheFile)) {
                 unlink($cacheFile);
                 $logger->debug('APCuConfigCache warmupConfig cleaned temp file', ['config' => basename($config)]);
             }
-            
-            return $result;
-            
+
+            return true;
         } finally {
-            // Restore APCu availability
             self::$apcuAvailable = $apcuWasAvailable;
         }
     }
-    
+
     /**
      * Get APCu memory usage for Quiote keys
      */
@@ -445,23 +406,6 @@ class APCuConfigCache extends ConfigCache
      * is always the full absolute path).
      * Memoized to avoid repeated normalization and md5() hashing on the hot path.
      */
-    /**
-     * Validate that a value fetched from APCu under a config key is the
-     * compiled PHP string writeCacheFile() stored there.
-     * @throws \Quiote\Exception\CacheException If the stored value isn't a string.
-     */
-    private static function assertCachedContentIsString(string $key, mixed $content): string
-    {
-        if (!is_string($content)) {
-            throw new \Quiote\Exception\CacheException(sprintf(
-                'APCu cache entry "%s" was expected to hold a compiled config string, got %s.',
-                $key,
-                get_debug_type($content)
-            ));
-        }
-        return $content;
-    }
-
     /**
      * @var array<string, string>
      */

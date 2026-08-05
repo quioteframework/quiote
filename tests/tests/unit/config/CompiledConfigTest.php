@@ -51,14 +51,15 @@ class CompiledConfigTest extends PhpUnitTestCase
 	}
 
 	/**
-	 * The APCu store keeps a compiled config as PHP source, so the value has to be cached separately
-	 * for the source not to be recompiled on every load. Verifies the value entry actually appears,
-	 * rather than only that the returned data is right — the latter holds either way.
+	 * The APCu entry for a compiled config *is* its value, so a load costs a fetch rather than
+	 * compiling PHP. Verifies the entry actually appears, rather than only that the returned data is
+	 * right -- the latter holds either way.
 	 */
-	public function testApcuStoresTheValueBesideTheSourceSoItIsNotRecompiled(): void
+	#[\PHPUnit\Framework\Attributes\Group('apcu')]
+	public function testApcuKeepsTheCompiledValueSoItIsNotCompiledAgain(): void
 	{
 		if(!APCuConfigCache::isAvailable() || !class_exists('APCUIterator')) {
-			$this->markTestSkipped('APCu with APCUIterator is required to observe the value entry.');
+			$this->markTestSkipped('APCu with APCUIterator is required to observe the stored value.');
 		}
 
 		$path = $this->handlersConfigPath();
@@ -66,13 +67,13 @@ class CompiledConfigTest extends PhpUnitTestCase
 		$value = APCuConfigCache::loadValue($path);
 		$this->assertIsArray($value);
 
-		$valueKeys = [];
-		foreach(new \APCUIterator('/^quiote_config_.*:value$/') as $key => $ignored) {
-			$valueKeys[] = $key;
+		$stored = [];
+		foreach(new \APCUIterator('/^quiote_config_/') as $key => $entry) {
+			$stored[] = $key;
 		}
 
-		$this->assertNotEmpty($valueKeys, 'loading a compiled config under APCu must cache its value');
-		$this->assertSame($value, APCuConfigCache::loadValue($path), 'the cached value must match the compiled one');
+		$this->assertNotEmpty($stored, 'loading a compiled config under APCu must store its value');
+		$this->assertSame($value, APCuConfigCache::loadValue($path), 'the stored value must match the compiled one');
 	}
 
 	public function testMalformedArtifactIsRejectedRatherThanFedToTheHandlerPipeline(): void

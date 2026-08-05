@@ -45,7 +45,7 @@ class ModuleConfigHandler extends XmlConfigHandler implements IArrayConfigHandle
 	 *                                        improperly formatted.
 	 * @since      1.0.0
 	 */
-	public function execute(XmlConfigDomDocument $document): string
+	public function execute(XmlConfigDomDocument $document): mixed
 	{
 		return $this->executeArray($this->toCanonicalArray($document), $document->documentURI);
 	}
@@ -157,12 +157,12 @@ class ModuleConfigHandler extends XmlConfigHandler implements IArrayConfigHandle
 	/**
 	 * @param array{enabled?: bool, settings?: array<string, mixed>} $config
 	 */
-	public function executeArray(array $config, ?string $sourceRef = null): string
+	public function executeArray(array $config, ?string $sourceRef = null): mixed
 	{
-		return $this->generate('return ' . var_export([
+		return [
 			'enabled' => $config['enabled'] ?? false,
 			'settings' => $config['settings'] ?? [],
-		], true) . ';', $sourceRef);
+		];
 	}
 
 	/**

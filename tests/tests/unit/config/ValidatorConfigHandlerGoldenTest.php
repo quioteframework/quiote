@@ -2,6 +2,7 @@
 
 use Quiote\Context;
 use Quiote\Config\Config;
+use Quiote\Config\CompiledArtifact;
 use Quiote\Config\ValidatorConfigHandler;
 
 require_once(__DIR__ . '/ConfigHandlerTestBase.php');
@@ -36,7 +37,8 @@ class ValidatorConfigHandlerGoldenTest extends ConfigHandlerTestBase
 	{
 		$VCH = new ValidatorConfigHandler();
 		$document = $this->parseConfiguration($configFile, $xslFile, $environment);
-		$code = $VCH->execute($document);
+		// The handler returns a declaration; serializing it is the cache's job, and this pins down both.
+		$code = CompiledArtifact::source($VCH->execute($document), $document->documentURI, $VCH::class);
 		// preg_replace() only returns null on a regex engine error; fall back to
 		// the pre-replacement value in that (effectively unreachable) case
 		// rather than widening this method's return type.

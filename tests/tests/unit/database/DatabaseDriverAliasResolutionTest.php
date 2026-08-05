@@ -30,8 +30,8 @@ class DatabaseDriverAliasResolutionTest extends TestCase
         ], 'test');
 
         // The alias resolves at compile time, so the declaration names the concrete adapter.
-        $this->assertStringContainsString("'class' => 'Quiote\\\\Database\\\\PdoDatabase'", $code);
-        $this->assertStringNotContainsString('myorm', $code);
+        $this->assertStringContainsString("'class' => 'Quiote\\\\Database\\\\PdoDatabase'", var_export($code, true));
+        $this->assertStringNotContainsString('myorm', var_export($code, true));
     }
 
     public function testFullyQualifiedClassPassesThroughUnchanged(): void
@@ -46,6 +46,6 @@ class DatabaseDriverAliasResolutionTest extends TestCase
             ],
         ], 'test');
 
-        $this->assertStringContainsString("'class' => 'Quiote\\\\Database\\\\PdoDatabase'", $code);
+        $this->assertStringContainsString("'class' => 'Quiote\\\\Database\\\\PdoDatabase'", var_export($code, true));
     }
 }

@@ -10,7 +10,7 @@ class ImportTestOnceHandler extends ConfigHandler implements IDeclarationConfigH
 {
 	public function execute($config, $context = null)
 	{
-		return "<?php\nreturn " . var_export(['global' => 'ConfigCacheImportTestOnce_included'], true) . ";\n";
+		return ['global' => 'ConfigCacheImportTestOnce_included'];
 	}
 
 	public function apply(mixed $declaration, string $sourceRef): void

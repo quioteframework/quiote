@@ -11,7 +11,7 @@ class XmlConfigHandlerTest extends ConfigHandlerTestBase
 	{
 		$RACH = new ReturnArrayConfigHandler();
 		$document = $this->parseConfiguration(Config::getString('core.config_dir') . '/tests/xinclude_simple.xml');
-		$actual = $this->includeCode($RACH->execute($document));
+		$actual = $RACH->execute($document);
 		$expected = [
 			'Name' => 'A',
 		];
@@ -26,7 +26,7 @@ class XmlConfigHandlerTest extends ConfigHandlerTestBase
 		}
 		$RACH = new ReturnArrayConfigHandler();
 		$document = $this->parseConfiguration(Config::getString('core.config_dir') . '/tests/xinclude_glob_simple.xml');
-		$actual = $this->includeCode($RACH->execute($document));
+		$actual = $RACH->execute($document);
 		$expected = [
 			'Name' => 'C',
 		];
@@ -38,7 +38,7 @@ class XmlConfigHandlerTest extends ConfigHandlerTestBase
 	{
 		$RACH = new ReturnArrayConfigHandler();
 		$document = $this->parseConfiguration(Config::getString('core.config_dir') . '/tests/xinclude_glob_brace.xml');
-		$actual = $this->includeCode($RACH->execute($document));
+		$actual = $RACH->execute($document);
 		$expected = [
 			'Name' => 'B',
 		];
@@ -53,7 +53,7 @@ class XmlConfigHandlerTest extends ConfigHandlerTestBase
 		}
 		$RACH = new ReturnArrayConfigHandler();
 		$document = $this->parseConfiguration(Config::getString('core.config_dir') . '/tests/xinclude_encoding.xml');
-		$actual = $this->includeCode($RACH->execute($document));
+		$actual = $RACH->execute($document);
 		$expected = [
 			'Name' => 'C',
 		];
@@ -64,7 +64,7 @@ class XmlConfigHandlerTest extends ConfigHandlerTestBase
 	{
 		$RACH = new ReturnArrayConfigHandler();
 		$document = $this->parseConfiguration(Config::getString('core.config_dir') . '/tests/entities.xml');
-		$actual = $this->includeCode($RACH->execute($document));
+		$actual = $RACH->execute($document);
 		$expected = [
 			'Name' => 'bar',
 		];

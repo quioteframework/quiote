@@ -56,7 +56,7 @@ class MiddlewareConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 	 *                                        improperly formatted.
 	 * @since      1.0.0
 	 */
-	public function execute(XmlConfigDomDocument $document): string
+	public function execute(XmlConfigDomDocument $document): mixed
 	{
 		return $this->executeArray($this->toCanonicalArray($document), $document->documentURI);
 	}
@@ -143,7 +143,7 @@ class MiddlewareConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 	 *        omitted fields normalize to "don't override" (null), matching
 	 *        the XSD's own optional attributes.
 	 */
-	public function executeArray(array $config, ?string $sourceRef = null): string
+	public function executeArray(array $config, ?string $sourceRef = null): mixed
 	{
 		$normalized = array_map(static fn(array $entry): array => [
 			'class' => $entry['class'],
@@ -155,7 +155,7 @@ class MiddlewareConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 			'override_framework' => $entry['override_framework'] ?? false,
 		], $config);
 
-		return $this->generate('return ' . var_export($normalized, true) . ';', $sourceRef);
+		return $normalized;
 	}
 
 	/**

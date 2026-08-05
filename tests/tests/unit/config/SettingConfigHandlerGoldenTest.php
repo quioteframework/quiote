@@ -1,5 +1,6 @@
 <?php
 
+use Quiote\Config\CompiledArtifact;
 use Quiote\Config\Config;
 use Quiote\Config\SettingConfigHandler;
 use Quiote\Config\Util\DOM\XmlConfigDomDocument;
@@ -30,7 +31,7 @@ class SettingConfigHandlerGoldenTest extends ConfigHandlerTestBase
 			Config::getString('core.quiote_dir') . '/Config/xsl/settings.xsl',
 			$environment
 		);
-		$code = $h->execute($document);
+		$code = CompiledArtifact::source($h->execute($document), $document->documentURI, $h::class);
 		// preg_replace() only returns null on a regex engine error; fall back to
 		// the pre-replacement value in that (effectively unreachable) case
 		// rather than widening this method's return type.
@@ -122,9 +123,11 @@ XML;
 
 		$h = new SettingConfigHandler();
 		$h->initialize(null, []);
-		$code = $h->execute($this->wrapEnvelope($inner, 'settings_ok.xml'));
-		$this->assertStringContainsString('actions.ok_module', $code);
-		$this->assertStringContainsString('actions.ok_action', $code);
+		$declaration = $h->execute($this->wrapEnvelope($inner, 'settings_ok.xml'));
+		$this->assertSame(
+			['actions.ok_module' => 'default', 'actions.ok_action' => 'index'],
+			$declaration
+		);
 	}
 
 	private function wrapEnvelope(string $inner, string $uri): XmlConfigDomDocument

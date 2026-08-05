@@ -32,7 +32,7 @@ class ValidatorConfigHandlerTest extends ConfigHandlerTestBase
 		self::assertInstanceOf(ValidationManager::class, $vm);
 		// The compiled artifact is a declaration; the applier is what builds the validators from it.
 		ValidatorDeclarationApplier::apply(
-			$this->includeCode($VCH->execute($document)),
+			$VCH->execute($document),
 			$vm,
 			'',
 			$this->getContext(),

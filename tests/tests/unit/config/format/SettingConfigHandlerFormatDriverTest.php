@@ -52,11 +52,9 @@ PHP);
 		$config = $registry->load($this->dir . '/settings.php', 'test');
 		$code = $handler->executeArray($config, $this->dir . '/settings.php');
 
-		$this->assertStringContainsString("'core.app_name' => 'Demo'", $code);
-		$this->assertStringContainsString("'core.debug' => true", $code);
-		// Data, not statements: the artifact returns the settings map and nothing else.
-		$this->assertStringContainsString('return array (', $code);
-		$this->assertStringNotContainsString('Quiote\\Config\\Config::fromArray(', $code);
+		$this->assertSame($config, $code);
+		$this->assertSame('Demo', $code['core.app_name']);
+		$this->assertTrue($code['core.debug']);
 	}
 
 	public function testYamlSettingsFileCompilesThroughTheSameHandler(): void
@@ -74,7 +72,7 @@ YAML);
 		$code = $handler->executeArray($config, $this->dir . '/settings.yaml');
 
 		$this->assertSame(['core.app_name' => 'Demo', 'core.debug' => true], $config);
-		$this->assertStringContainsString("'core.app_name' => 'Demo'", $code);
+		$this->assertSame($config, $code);
 	}
 
 	public function testPhpArraySettingsCanHaveAnXmlParentDuringAStranglerMigration(): void

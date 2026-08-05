@@ -66,12 +66,12 @@ class SecurityConfigHandler extends XmlConfigHandler implements IArrayConfigHand
 
 	/**
 	 * @param      XmlConfigDomDocument $document The parsed `security.xml` document.
-	 * @return     string Compiled PHP code returning the canonical array (see toCanonicalArray()).
+	 * @return     mixed The canonical array (see toCanonicalArray()) as the declaration to be cached.
 	 * @throws     \Quiote\Exception\UnreadableException If a requested configuration file does not exist or is not readable.
 	 * @throws     ParseException If a requested configuration file is improperly formatted.
 	 * @since      1.0.0
 	 */
-	public function execute(XmlConfigDomDocument $document): string
+	public function execute(XmlConfigDomDocument $document): mixed
 	{
 		return $this->executeArray($this->toCanonicalArray($document), $document->documentURI);
 	}
@@ -116,13 +116,12 @@ class SecurityConfigHandler extends XmlConfigHandler implements IArrayConfigHand
 	/**
 	 * @param      array{password_hasher_algorithm: ?string, providers: array<string, array{type: string, connection: ?string, table: ?string, identifier_column: ?string, password_column: ?string}>, firewalls: array<string, array{pattern: string, stateless: bool, sessionless: bool, entry_point: ?string, provider: ?string, authenticators: array<int, string>}>} $config The canonical config array, matching the shape returned by toCanonicalArray().
 	 * @param      ?string $sourceRef Origin reference for the compiled cache file's header comment.
-	 * @return     string Compiled PHP code, exactly as execute() returns.
+	 * @return     mixed The declaration to be cached, exactly as execute() returns.
 	 * @since      1.0.0
 	 */
-	public function executeArray(array $config, ?string $sourceRef = null): string
+	public function executeArray(array $config, ?string $sourceRef = null): mixed
 	{
-		$code = "return " . var_export($config, true) . ";";
-		return $this->generate($code, $sourceRef);
+		return $config;
 	}
 
 	/**

@@ -51,7 +51,7 @@ XML;
         $h = new CachingConfigHandler();
         $h->initialize(null, []);
         $code = $h->execute($this->envelope($inner, 'caching.xml'));
-        $this->assertStringContainsString('grp', $code);
+        $this->assertStringContainsString('grp', var_export($code, true));
     }
 
     public function testCompileConfigHandlerAggregates(): void
@@ -69,9 +69,13 @@ XML;
 XML;
         $h = new CompileConfigHandler();
         $h->initialize(null, []);
-        $code = $h->execute($this->envelope($inner, 'compile.xml'));
-        // In non-debug mode formatted file contents are inlined; debug mode would use require(). We only need to see our echo statement.
-        $this->assertStringContainsString("echo 'X';", $code);
+        $declaration = $h->execute($this->envelope($inner, 'compile.xml'));
+        // In non-debug mode the declaration carries the formatted file contents keyed by path; debug
+        // mode would carry a require() instead. We only need to see our echo statement.
+        $this->assertIsArray($declaration);
+        $contents = array_values($declaration)[0] ?? null;
+        $this->assertIsString($contents);
+        $this->assertStringContainsString("echo 'X';", $contents);
     }
 
     public function testConfigHandlersConfigHandlerListsEntry(): void
@@ -85,7 +89,7 @@ XML;
         $h = new ConfigHandlersConfigHandler();
         $h->initialize(null, []);
         $code = $h->execute($this->envelope($inner, 'config_handlers.xml'));
-        $this->assertStringContainsString('FooHandler', $code);
+        $this->assertStringContainsString('FooHandler', var_export($code, true));
     }
 
     public function testReturnArrayConfigHandlerReturnsPhpArray(): void
@@ -103,7 +107,7 @@ XML;
         $h = new ReturnArrayConfigHandler();
         $h->initialize(null, ['namespace_uri' => $ns]);
         $code = $h->execute($this->envelope($inner, 'return_array.xml'));
-        $this->assertStringContainsString('simple', $code, $code);
-        $this->assertStringContainsString('two', $code);
+        $this->assertStringContainsString('simple', var_export($code, true));
+        $this->assertStringContainsString('two', var_export($code, true));
     }
 }

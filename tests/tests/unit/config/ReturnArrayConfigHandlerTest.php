@@ -12,7 +12,7 @@ class ReturnArrayConfigHandlerTest extends ConfigHandlerTestBase
 	{
 		$RACH = new ReturnArrayConfigHandler();
 		$document = $this->parseConfiguration(Config::getString('core.config_dir') . '/tests/rach_mixed.xml');
-		$actual = $this->includeCode($RACH->execute($document));
+		$actual = $RACH->execute($document);
 		$expected = [
 			'section1' => ['One' => 'A', 'Two' => 'B', 'Three' => 'C'], 
 			'section2' => ['Three' => 'Z', 'Two' => 'Y', 'One' => 'X', 'value' => ''],
@@ -26,7 +26,7 @@ class ReturnArrayConfigHandlerTest extends ConfigHandlerTestBase
 	{
 		$RACH = new ReturnArrayConfigHandler();
 		$document = $this->parseConfiguration(Config::getString('core.config_dir') . '/tests/rach_attributes.xml');
-		$actual = $this->includeCode($RACH->execute($document));
+		$actual = $RACH->execute($document);
 		$expected = [
 			'section1' => ['One' => 'A', 'Two' => 'B', 'Three' => 'C', 'value' => ''], 
 			'section2' => ['Three' => Config::getString('core.config_dir'), 'Two' => false, 'One' => true, 'value' => ''],
@@ -39,7 +39,7 @@ class ReturnArrayConfigHandlerTest extends ConfigHandlerTestBase
 	{
 		$RACH = new ReturnArrayConfigHandler();
 		$document = $this->parseConfiguration(Config::getString('core.config_dir') . '/tests/rach_tags.xml');
-		$actual = $this->includeCode($RACH->execute($document));
+		$actual = $RACH->execute($document);
 		$expected = [
 			'section1' => ['One' => 'A', 'Two' => 'B', 'Three' => 'C'], 
 			'section2' => ['Three' => 'Z', 'Two' => 'Y', 'One' => 'X'],
@@ -51,7 +51,7 @@ class ReturnArrayConfigHandlerTest extends ConfigHandlerTestBase
 	{
 		$RACH = new ReturnArrayConfigHandler();
 		$document = $this->parseConfiguration(Config::getString('core.config_dir') . '/tests/rach_complex.xml');
-		$actual = $this->includeCode($RACH->execute($document));
+		$actual = $RACH->execute($document);
 
 		$expected = [
 			'cachings' => [
@@ -111,7 +111,7 @@ class ReturnArrayConfigHandlerTest extends ConfigHandlerTestBase
 	{
 		$RACH = new ReturnArrayConfigHandler();
 		$document = $this->parseConfiguration(Config::getString('core.config_dir') . '/tests/rach_buckets.xml');
-		$actual = $this->includeCode($RACH->execute($document));
+		$actual = $RACH->execute($document);
 		$expected = [
 			'container' => [
 				'solo' => 'lonely',

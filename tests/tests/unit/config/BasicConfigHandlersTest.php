@@ -14,7 +14,7 @@ use Quiote\Config\Config;
 
 /**
  * Basic smoke tests for remaining config handlers. These ensure they can initialize and execute
- * against minimal envelopes without throwing. We explicitly avoid routing handler XML since routing
+ * against minimal envelopes without throwing, returning a declaration. We explicitly avoid routing handler XML since routing
  * now uses programmatic setup (no XML dependency expected in new tests).
  */
 class BasicConfigHandlersTest extends TestCase
@@ -47,8 +47,9 @@ XML;
 XML;
         $h = new ModuleConfigHandler();
         $h->initialize(null, []);
-        $code = $h->execute($this->wrap($inner, 'modules.xml'));
-    $this->assertStringContainsString('ModuleConfigHandler', $code);
+        $declaration = $h->execute($this->wrap($inner, 'modules.xml'));
+        $this->assertIsArray($declaration);
+        $this->assertArrayHasKey('enabled', $declaration);
     }
 
     public function testSettingConfigHandler(): void
@@ -61,8 +62,9 @@ XML;
 XML;
         $h = new SettingConfigHandler();
         $h->initialize(null, []);
-        $code = $h->execute($this->wrap($inner, 'settings.xml'));
-        $this->assertStringContainsString('core.use_logging', $code);
+        $declaration = $h->execute($this->wrap($inner, 'settings.xml'));
+        $this->assertIsArray($declaration);
+        $this->assertStringContainsString('core.use_logging', var_export($declaration, true));
     }
 
     public function testOutputTypeConfigHandler(): void
@@ -75,8 +77,9 @@ XML;
 XML;
         $h = new OutputTypeConfigHandler();
         $h->initialize(null, []);
-        $code = $h->execute($this->wrap($inner, 'output_types.xml'));
-        $this->assertStringContainsString('html', $code);
+        $declaration = $h->execute($this->wrap($inner, 'output_types.xml'));
+        $this->assertIsArray($declaration);
+        $this->assertStringContainsString('html', var_export($declaration, true));
     }
 
   public function testTranslationConfigHandler(): void
@@ -89,8 +92,9 @@ XML;
 XML;
         $h = new TranslationConfigHandler();
         $h->initialize(null, []);
-        $code = $h->execute($this->wrap($inner, 'translation.xml'));
-    $this->assertStringContainsString('TranslationConfigHandler', $code);
+        $declaration = $h->execute($this->wrap($inner, 'translation.xml'));
+        $this->assertIsArray($declaration);
+        $this->assertArrayHasKey('translators', $declaration);
     }
 
     public function testDatabaseConfigHandler(): void
@@ -103,8 +107,9 @@ XML;
 XML;
         $h = new DatabaseConfigHandler();
         $h->initialize(null, []);
-        $code = $h->execute($this->wrap($inner, 'databases.xml'));
-        $this->assertStringContainsString('main', $code);
+        $declaration = $h->execute($this->wrap($inner, 'databases.xml'));
+        $this->assertIsArray($declaration);
+        $this->assertStringContainsString('main', var_export($declaration, true));
     }
 
     public function testRbacDefinitionConfigHandler(): void
@@ -117,8 +122,8 @@ XML;
 XML;
         $h = new RbacDefinitionConfigHandler();
         $h->initialize(null, []);
-        $code = $h->execute($this->wrap($inner, 'rbac.xml'));
-        $this->assertStringContainsString('RbacDefinitionConfigHandler', $code);
+        $declaration = $h->execute($this->wrap($inner, 'rbac.xml'));
+        $this->assertIsArray($declaration);
     }
 
 
@@ -132,8 +137,8 @@ XML;
 XML;
         $h = new TestSuitesConfigHandler();
         $h->initialize(null, []);
-        $code = $h->execute($this->wrap($inner, 'testsuites.xml'));
-    $this->assertStringContainsString('TestSuitesConfigHandler', $code);
+        $declaration = $h->execute($this->wrap($inner, 'testsuites.xml'));
+        $this->assertIsArray($declaration);
     }
 
     public function testValidatorConfigHandler(): void
@@ -146,7 +151,8 @@ XML;
 XML;
         $h = new ValidatorConfigHandler();
         $h->initialize(null, []);
-        $code = $h->execute($this->wrap($inner, 'validators.xml'));
-        $this->assertStringContainsString('v1', $code);
+        $declaration = $h->execute($this->wrap($inner, 'validators.xml'));
+        $this->assertIsArray($declaration);
+        $this->assertStringContainsString('v1', var_export($declaration, true));
     }
 }

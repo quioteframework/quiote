@@ -101,8 +101,8 @@ class ConfigCache
 			throw new ConfigurationException($error);
 		}
 		
-		$data = self::executeHandler($config, $context, $handlerInfo);
-		static::writeCacheFile($config, $cache, $data, false);
+		$declaration = self::executeHandler($config, $context, $handlerInfo);
+		static::writeCacheFile($config, $cache, $declaration, $handlerInfo['class']);
 	}
 
 	/**
@@ -188,7 +188,7 @@ class ConfigCache
 	 *                   transformations: array<string,array<int,string>>,
 	 *                   validations: array<string,array<string,array<string,list<string>>>>
 	 *               } $handlerInfo The config handler info.
-	 * @return       string The compiled data.
+	 * @return       mixed The declaration the handler compiled.
 	 * @since        1.0.0
 	 */
 	protected static function executeHandler($config, $context, array $handlerInfo)
@@ -199,11 +199,10 @@ class ConfigCache
 			$extension = strtolower(pathinfo((string) $config, PATHINFO_EXTENSION));
 
 			if ($extension !== 'xml' && $extension !== '') {
-				// core.config_format / autodetect (see resolveConfigFormat()) resolved
-				// this logical config to a non-XML physical file. Only handlers migrated
-				// to the array contract (phase 2) can be fed from one -- everything else
-				// (currently only ValidatorConfigHandler, which has its own separate
-				// compiler) stays XML-only.
+				// core.config_format / autodetect (see resolveConfigFormat()) resolved this logical
+				// config to a non-XML physical file. Only a handler on the array contract can be fed
+				// from one -- everything else (currently only ValidatorConfigHandler, which has its own
+				// separate compiler) stays XML-only.
 				if (!$handler instanceof IArrayConfigHandler) {
 					throw new ConfigurationException(sprintf(
 						'"%s" does not support non-XML config sources (no IArrayConfigHandler implementation); "%s" cannot be used for it.',
@@ -982,17 +981,6 @@ class ConfigCache
 	}
 
 	/**
-	 * Write a cache file.
-	 * @param      string $config An absolute filesystem path to a configuration file.
-	 * @param      string $cache An absolute filesystem path to the cache file that
-	 *                    will be written.
-	 * @param      string $data Data to be written to the cache file.
-	 * @param      bool $append Should we append the data?
-	 * @return     void
-	 * @throws     \Quiote\Exception\CacheException If the cache file cannot be written.
-	 * @since      1.0.0
-	 */
-	/**
 	 * Directories already reported by {@see warnIfCacheDirectoryIsWorldWritable()}.
 	 * @var        array<string, true>
 	 */
@@ -1005,9 +993,9 @@ class ConfigCache
 	 * process creates. One that already exists -- typically from a `chmod -R
 	 * 777` during deployment -- keeps whatever mode it has, and silently
 	 * chmod()ing an operator's directory out from under them is not this code's
-	 * call to make. Saying so is, because the contents are PHP that gets
-	 * include()d and eval()d: any local user who can write this directory can
-	 * replace a cache entry and have the web process execute it.
+	 * call to make. Saying so is, because the contents are PHP that gets include()d: any local user
+	 * who can write this directory can replace a cache entry, and while an entry only ever returns
+	 * data, that data decides what the application does.
 	 *
 	 * Once per directory per process, not per write -- a warmup compiles many
 	 * files and would otherwise emit the same line for each.
@@ -1042,8 +1030,27 @@ class ConfigCache
 		self::$worldWritableWarned = [];
 	}
 
-	public static function writeCacheFile(string $config, string $cache, string $data, bool $append = false): void
+	/**
+	 * Write a compiled configuration to the cache.
+	 *
+	 * The value is serialized here rather than by the handler that produced it: what a compiled
+	 * configuration looks like in storage is the cache's business, and an implementation is free not to
+	 * store PHP at all -- {@see APCuConfigCache::writeCacheFile()} keeps the value itself in shared
+	 * memory.
+	 *
+	 * @param      string $config An absolute filesystem path to a configuration file.
+	 * @param      string $cache An absolute filesystem path to the cache file that will be written.
+	 * @param      mixed $value The declaration the handler compiled.
+	 * @param      ?string $generatedBy The handler class that compiled it, for the file's header.
+	 * @return     void
+	 * @throws     CacheException If the cache file cannot be written, or the declaration is not data a
+	 *                            PHP literal can express.
+	 * @since      1.0.0
+	 */
+	public static function writeCacheFile(string $config, string $cache, mixed $value, ?string $generatedBy = null): void
 	{
+		$data = CompiledArtifact::source($value, $config, $generatedBy);
+
 		$baseCacheDir = Config::getString('core.cache_dir');
 		if(empty($baseCacheDir)) {
 			$baseCacheDir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'quiote_cache';
@@ -1071,8 +1078,8 @@ class ConfigCache
 		// on its cache dir would otherwise propagate that here.
 		$dirPerms &= ~0002;
 
-		// File mode: cache files are PHP that gets include()'d (and eval()'d on the
-		// APCu path), so they must NEVER be group/other-writable — otherwise any
+		// File mode: cache files are PHP that gets include()'d, so they must NEVER be
+		// group/other-writable — otherwise any
 		// local user able to write the cache dir could inject code the web process
 		// executes — and need not be executable. Derive an owner-focused mode
 		// INDEPENDENT of the (possibly 0777) directory mode. Previously the file
@@ -1086,10 +1093,6 @@ class ConfigCache
 		// the compiled config lands outside the cache directory entirely.
 		Toolkit::mkdir($cacheDir, $dirPerms, true);
 		self::warnIfCacheDirectoryIsWorldWritable($cacheDir);
-
-		if($append && is_readable($cache)) {
-			$data = file_get_contents($cache) . $data;
-		}
 
 		$tmpName = tempnam($cacheDir, basename((string) $cache));
 		if(@file_put_contents($tmpName, $data) !== false) {

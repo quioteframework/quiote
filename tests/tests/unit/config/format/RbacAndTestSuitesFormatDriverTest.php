@@ -91,12 +91,11 @@ PHP);
 		$registry = FormatDriverRegistry::forHandler($handler);
 
 		$config = $this->shapeRbacConfig($registry->load($this->dir . '/rbac.php', 'test'));
-		$code = $handler->executeArray($config, $this->dir . '/rbac.php');
+		$declaration = $handler->executeArray($config, $this->dir . '/rbac.php');
 
-		$evaluated = eval(substr($code, strlen('<?php')));
-		self::assertIsArray($evaluated);
-		$this->assertSame($config, $evaluated);
-		$this->assertSame('guest', $evaluated['member']['parent']);
+		self::assertIsArray($declaration);
+		$this->assertSame($config, $declaration);
+		$this->assertSame('guest', $declaration['member']['parent']);
 	}
 
 	public function testTestSuitesPhpArrayFileCompilesThroughTheSameHandler(): void
@@ -113,10 +112,11 @@ PHP);
 		$registry = FormatDriverRegistry::forHandler($handler);
 
 		$config = $this->shapeTestSuitesConfig($registry->load($this->dir . '/testsuites.php', 'test'));
-		$code = $handler->executeArray($config, $this->dir . '/testsuites.php');
+		$declaration = $handler->executeArray($config, $this->dir . '/testsuites.php');
 
-		$this->assertStringContainsString("'unit'", $code);
-		$this->assertStringContainsString('TestSuite', $code);
+		$this->assertSame($config, $declaration);
+		$this->assertStringContainsString("'unit'", var_export($declaration, true));
+		$this->assertStringContainsString('TestSuite', var_export($declaration, true));
 	}
 }
 ?>

@@ -1,5 +1,6 @@
 <?php
 
+use Quiote\Config\CompiledArtifact;
 use PHPUnit\Framework\TestCase;
 use Quiote\Config\Schema\SchemaValidator;
 use Quiote\Config\Util\DOM\XmlConfigDomDocument;
@@ -93,10 +94,10 @@ class SecurityConfigHandlerTest extends TestCase
 		$handler = new SecurityConfigHandler();
 		$config = $handler->toCanonicalArray($this->document(self::XML));
 
-		$code = $handler->executeArray($config);
+		$declaration = $handler->executeArray($config);
 		$file = tempnam(sys_get_temp_dir(), 'security_config_handler_test');
 		$this->assertNotFalse($file);
-		file_put_contents($file, $code);
+		file_put_contents($file, CompiledArtifact::source($declaration, 'security.xml', $handler::class));
 		$decoded = include $file;
 		unlink($file);
 

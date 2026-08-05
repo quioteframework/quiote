@@ -1,5 +1,6 @@
 <?php
 
+use Quiote\Config\CompiledArtifact;
 use Quiote\Testing\PhpUnitTestCase;
 use Quiote\Config\OutputTypeConfigHandler;
 use Quiote\Exception\ConfigurationException;
@@ -36,9 +37,9 @@ class OutputTypeConfigHandlerFormatDriverTest extends PhpUnitTestCase
 
 		$code = $this->handler->executeArray($config, 'output_types.php');
 
-		$this->assertStringContainsString('html', $code);
-		$this->assertStringContainsString('PhpRenderer', $code);
-		$this->assertStringContainsString("'default' =>", $code);
+		$this->assertStringContainsString('html', var_export($code, true));
+		$this->assertStringContainsString('PhpRenderer', var_export($code, true));
+		$this->assertStringContainsString("'default' =>", var_export($code, true));
 	}
 
 	public function testAbsentOptionalKeysDefaultToEmptyArraysAndNulls(): void
@@ -58,11 +59,11 @@ class OutputTypeConfigHandlerFormatDriverTest extends PhpUnitTestCase
 		$code = $this->handler->executeArray($config, 'output_types.php');
 
 		// layouts defaults to []
-		$this->assertStringContainsString("array (", $code);
+		$this->assertStringContainsString("array (", var_export($code, true));
 		// default_layout defaults to null
-		$this->assertStringContainsString('NULL', $code);
+		$this->assertStringContainsString('NULL', var_export($code, true));
 		// exception_template defaults to null
-		$this->assertStringContainsString("'default' => 'json'", $code);
+		$this->assertStringContainsString("'default' => 'json'", var_export($code, true));
 	}
 
 	public function testRendererWithoutInstanceKeyGetsNullDefault(): void
@@ -82,7 +83,7 @@ class OutputTypeConfigHandlerFormatDriverTest extends PhpUnitTestCase
 		$code = $this->handler->executeArray($config, 'output_types.php');
 
 		// 'instance' key must appear in the compiled renderer array as NULL
-		$this->assertStringContainsString("'instance' => NULL", $code);
+		$this->assertStringContainsString("'instance' => NULL", var_export($code, true));
 	}
 
 	public function testLayerInLayoutDefaultsApplied(): void
@@ -110,9 +111,9 @@ class OutputTypeConfigHandlerFormatDriverTest extends PhpUnitTestCase
 		$code = $this->handler->executeArray($config, 'output_types.php');
 
 		// layer class defaults to FileTemplateLayer
-		$this->assertStringContainsString('FileTemplateLayer', $code);
+		$this->assertStringContainsString('FileTemplateLayer', var_export($code, true));
 		// slots defaults to empty array
-		$this->assertStringContainsString("'slots' =>", $code);
+		$this->assertStringContainsString("'slots' =>", var_export($code, true));
 	}
 
 	public function testUndefinedDefaultOutputTypeThrows(): void
@@ -161,9 +162,9 @@ class OutputTypeConfigHandlerFormatDriverTest extends PhpUnitTestCase
 
 		$code = $this->handler->executeArray($config, 'output_types.php');
 
-		$this->assertStringContainsString("'html'", $code);
-		$this->assertStringContainsString("'json'", $code);
-		$this->assertStringContainsString('text/html', $code);
+		$this->assertStringContainsString("'html'", var_export($code, true));
+		$this->assertStringContainsString("'json'", var_export($code, true));
+		$this->assertStringContainsString('text/html', var_export($code, true));
 	}
 
 	/**
@@ -183,9 +184,10 @@ class OutputTypeConfigHandlerFormatDriverTest extends PhpUnitTestCase
 			],
 		], 'output_types.php');
 
-		$this->assertStringNotContainsString('$this->', $code);
-		$this->assertStringNotContainsString('new Quiote\\Controller\\OutputType()', $code);
-		$this->assertStringContainsString('return ', $code);
+		$source = CompiledArtifact::source($code, 'output_types.php', $this->handler::class);
+		$this->assertStringNotContainsString('$this->', $source);
+		$this->assertStringNotContainsString('new Quiote\\Controller\\OutputType()', $source);
+		$this->assertStringContainsString('return ', $source);
 	}
 }
 ?>

@@ -1,6 +1,7 @@
 <?php
 
 use Quiote\Testing\PhpUnitTestCase;
+use Quiote\Config\CompiledArtifact;
 use Quiote\Config\Config;
 use Quiote\Config\PluginConfigHandler;
 use Quiote\Config\Format\FormatDriverRegistry;
@@ -61,7 +62,7 @@ class PluginConfigHandlerFormatDriverTest extends PhpUnitTestCase
 	 * its value back the way the config cache does and then applies it, which is where the `plugins`
 	 * key actually gets written.
 	 */
-	private function assertCompilesAndAppendsPlugins(string $code): void
+	private function assertCompilesAndAppendsPlugins(mixed $code): void
 	{
 		$declaration = $this->evaluateArtifact($code);
 		$this->assertSame(['App\\Plugin\\One', 'App\\Plugin\\Two'], $declaration);
@@ -73,11 +74,15 @@ class PluginConfigHandlerFormatDriverTest extends PhpUnitTestCase
 		$this->assertSame(['App\\Plugin\\One', 'App\\Plugin\\Two'], Config::getArray('plugins'));
 	}
 
-	private function evaluateArtifact(string $code): mixed
+	/**
+	 * The declaration through the cache's own serializer and back, which is how a compiled plugins file
+	 * is really read.
+	 */
+	private function evaluateArtifact(mixed $declaration): mixed
 	{
 		$file = tempnam($this->dir, 'compiled_');
 		rename($file, $file .= '.php');
-		file_put_contents($file, $code);
+		file_put_contents($file, CompiledArtifact::source($declaration, 'in-memory-test', PluginConfigHandler::class));
 		try {
 			return include $file;
 		} finally {

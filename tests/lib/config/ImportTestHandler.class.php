@@ -11,7 +11,7 @@ class ImportTestHandler extends ConfigHandler implements IDeclarationConfigHandl
 {
 	public function execute($config, $context = null)
 	{
-		return "<?php\nreturn " . var_export(['constant' => 'ConfigCacheImportTest_included'], true) . ";\n";
+		return ['constant' => 'ConfigCacheImportTest_included'];
 	}
 
 	public function apply(mixed $declaration, string $sourceRef): void

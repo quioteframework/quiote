@@ -1,5 +1,6 @@
 <?php
 
+use Quiote\Config\CompiledArtifact;
 use Quiote\Config\Config;
 use Quiote\Config\DatabaseConfigHandler;
 
@@ -28,7 +29,7 @@ class DatabaseConfigHandlerTest extends ConfigHandlerTestBase
 			$env
 		);
 
-		$compiled = $this->includeCode($DBCH->execute($document));
+		$compiled = $DBCH->execute($document);
 		$this->assertIsArray($compiled);
 		$this->assertArrayHasKey('databases', $compiled);
 		$this->assertArrayHasKey('default', $compiled);
@@ -114,8 +115,9 @@ class DatabaseConfigHandlerTest extends ConfigHandlerTestBase
 			],
 		], 'tests/databases.xml');
 
-		$this->assertStringNotContainsString('$this->', $code);
-		$this->assertStringNotContainsString('$database = new', $code);
-		$this->assertStringContainsString('return ', $code);
+		$source = CompiledArtifact::source($code, 'tests/databases.xml', $DBCH::class);
+		$this->assertStringNotContainsString('$this->', $source);
+		$this->assertStringNotContainsString('$database = new', $source);
+		$this->assertStringContainsString('return ', $source);
 	}
 }

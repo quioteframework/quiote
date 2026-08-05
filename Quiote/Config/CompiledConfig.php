@@ -7,10 +7,9 @@ namespace Quiote\Config;
 /**
  * Reads the value of a compiled configuration through whichever cache implementation is active.
  *
- * Every caller that needed a compiled config's value used to carry the same four lines: check the
- * APCu constant, call one cache class or the other, test the result for an `APCU:` marker, and
- * eval() the source when it found one. That put the cache's storage format in the hands of its
- * consumers -- five copies to keep in step, and five places that had to compile PHP at runtime.
+ * A caller wants the value, not the storage: whether the compiled configuration lives in a file on
+ * disk or as a value in shared memory is the cache's business, and reading it should not require the
+ * caller to know which.
  *
  * The choice of implementation lives here so the cache classes stay unaware of each other:
  * {@see ConfigCache} does not name its APCu subclass, and the subclass overrides one method rather

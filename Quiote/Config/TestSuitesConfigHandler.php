@@ -37,7 +37,7 @@ class TestSuitesConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 	 *                                        improperly formatted.
 	 * @since      1.0.0
 	 */
-	public function execute(XmlConfigDomDocument $document): string
+	public function execute(XmlConfigDomDocument $document): mixed
 	{
 		return $this->executeArray($this->toCanonicalArray($document), $document->documentURI);
 	}
@@ -166,10 +166,9 @@ class TestSuitesConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 	/**
 	 * @param array<string, array<string, mixed>> $config
 	 */
-	public function executeArray(array $config, ?string $sourceRef = null): string
+	public function executeArray(array $config, ?string $sourceRef = null): mixed
 	{
-		$code = 'return ' . var_export($config, true);
-		return $this->generate($code, $sourceRef);
+		return $config;
 	}
 }
 

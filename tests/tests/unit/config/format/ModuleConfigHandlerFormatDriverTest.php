@@ -1,6 +1,7 @@
 <?php
 
 use Quiote\Testing\PhpUnitTestCase;
+use Quiote\Config\CompiledArtifact;
 use Quiote\Config\Format\FormatDriverRegistry;
 use Quiote\Config\ModuleConfigHandler;
 
@@ -72,26 +73,21 @@ PHP);
 		$config = $this->shapeModuleConfig($registry->load($this->dir . '/module.php', 'test'));
 		$code = $handler->executeArray($config, $this->dir . '/module.php');
 
-		// Data, not statements: the artifact returns the declaration, and the module name it is
-		// applied for is the caller's to supply.
-		$this->assertStringNotContainsString('strtolower($moduleName)', $code);
-		$this->assertStringContainsString('return array (', $code);
-		$this->assertStringContainsString('modules.${moduleName}.some_setting', $code);
-
-		$this->assertSame(
-			['enabled' => true, 'settings' => ['modules.${moduleName}.some_setting' => 'value']],
-			$this->evaluateArtifact($code)
-		);
+		// Data, not statements: the declaration carries the ${moduleName} template, and the module name
+		// it is applied for is the caller's to supply.
+		$expected = ['enabled' => true, 'settings' => ['modules.${moduleName}.some_setting' => 'value']];
+		$this->assertSame($expected, $code);
+		// ...and it survives the cache's serializer unchanged.
+		$this->assertSame($expected, $this->roundTripThroughTheCache($code));
 	}
 
 	/**
-	 * The compiled declaration, read back the way the config cache reads it.
-	 * @return mixed
+	 * The declaration through the cache's own serializer and back.
 	 */
-	private function evaluateArtifact(string $code): mixed
+	private function roundTripThroughTheCache(mixed $declaration): mixed
 	{
 		$file = $this->dir . '/compiled.php';
-		file_put_contents($file, $code);
+		file_put_contents($file, CompiledArtifact::source($declaration, $this->dir . '/module.php', ModuleConfigHandler::class));
 		try {
 			return include $file;
 		} finally {

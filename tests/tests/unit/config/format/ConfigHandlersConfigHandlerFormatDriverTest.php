@@ -1,5 +1,6 @@
 <?php
 
+use Quiote\Config\CompiledArtifact;
 use Quiote\Testing\PhpUnitTestCase;
 use Quiote\Config\Config;
 use Quiote\Config\ConfigHandlersConfigHandler;
@@ -103,11 +104,12 @@ XML);
 
 		$handler = new ConfigHandlersConfigHandler();
 		$handler->initialize(null, []);
-		$code = $handler->executeArray($config, 'in-memory-test');
+		$declaration = $handler->executeArray($config, 'in-memory-test');
 
+		// Through the cache's own serializer and back, which is how the handler map is really read.
 		$file = tempnam($this->dir, 'compiled_');
 		rename($file, $file .= '.php');
-		file_put_contents($file, $code);
+		file_put_contents($file, CompiledArtifact::source($declaration, 'in-memory-test', $handler::class));
 		$loaded = include $file;
 		unlink($file);
 

@@ -9,7 +9,7 @@ use Quiote\Exception\UnreadableException;
 use Quiote\Util\Toolkit;
 
 /**
- * Extension-agnostic sibling of ConfigCache::checkConfig() (phase 3):
+ * Extension-agnostic sibling of ConfigCache::checkConfig():
  * given a base path with NO extension, resolves whichever of .php/.yaml/.yml/.xml actually exists
  * (via FormatDriverRegistry::locate(), priority PHP > YAML > XML),
  * compiles it through the given handler's array contract, and reuses
@@ -63,11 +63,11 @@ final class FormatAwareConfigCache
 		$cache = ConfigCache::getCacheName($resolved, $context);
 
 		if (ConfigCache::isModified($resolved, $cache)) {
-			$code = $handler->executeArray(
+			$declaration = $handler->executeArray(
 				$registry->load($resolved, $environment ?? Config::getNullableString('core.environment'), $context),
 				$resolved
 			);
-			ConfigCache::writeCacheFile($resolved, $cache, $code, false);
+			ConfigCache::writeCacheFile($resolved, $cache, $declaration, $handler::class);
 		}
 
 		return $cache;

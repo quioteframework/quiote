@@ -11,9 +11,7 @@ use Quiote\Util\Toolkit;
  * CachingConfigHandler compiles the per-action configuration files placed
  * in the "cache" subfolder of a module directory.
  *
- * Migrated to IArrayConfigHandler (phase 2). Canonical schema is exactly
- * the `$cachings` map execute() used
- * to build inline: request method (or '*') => ['lifetime' => ..., 'groups' => [...],
+ * Canonical schema: request method (or '*') => ['lifetime' => ..., 'groups' => [...],
  * 'views' => ..., 'action_attributes' => [...], 'output_types' => [...]].
  * @since      1.0.0
  * @version    1.0.0
@@ -68,7 +66,7 @@ class CachingConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 	 *                                        improperly formatted.
 	 * @since      1.0.0
 	 */
-	public function execute(XmlConfigDomDocument $document): string
+	public function execute(XmlConfigDomDocument $document): mixed
 	{
 		return $this->executeArray($this->toCanonicalArray($document), $document->documentURI);
 	}
@@ -238,43 +236,17 @@ class CachingConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 	}
 
 	/**
+	 * The declaration is the canonical map itself: the caching entries keyed by request method (or
+	 * '*'), for a caller to pick the matching one from.
+	 *
+	 * The `views` entries keep their `${viewName}`-style values unexpanded, since the action and view
+	 * being rendered are only known per request.
+	 *
 	 * @param array<string, mixed> $config
 	 */
-	public function executeArray(array $config, ?string $sourceRef = null): string
+	public function executeArray(array $config, ?string $sourceRef = null): mixed
 	{
-		$code = [
-			'$configs = ' . var_export($config, true) . ';',
-			'if(isset($configs[$index = $container->getRequestMethod()]) || isset($configs[$index = "*"])) {',
-			'	$isCacheable = true;',
-			'	$config = $configs[$index];',
-			'	if(is_array($config["views"])) {',
-			'		foreach($config["views"] as &$view) {',
-			'			if(!is_array($view)) {',
-			'				if($view === null) {',
-			'					$view = array(',
-			'						"module" => null,',
-			'						"name" => null',
-			'					);',
-			'				} else {',
-			'					$view = array(',
-			'						"module" => $moduleName,',
-			'						"name" => Quiote\\Util\\Toolkit::evaluateModuleDirective(',
-			'							$moduleName,',
-			'							"quiote.view.name",',
-			'							array(',
-			'								"actionName" => $actionName,',
-			'								"viewName" => $view,',
-			'							)',
-			'						)',
-			'					);',
-			'				}',
-			'			}',
-			'		}',
-			'	}',
-			'}',
-		];
-
-		return $this->generate($code, $sourceRef);
+		return $config;
 	}
 }
 

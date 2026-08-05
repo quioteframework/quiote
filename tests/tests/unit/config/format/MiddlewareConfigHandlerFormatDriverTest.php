@@ -1,6 +1,7 @@
 <?php
 
 use Quiote\Testing\PhpUnitTestCase;
+use Quiote\Config\CompiledArtifact;
 use Quiote\Config\Config;
 use Quiote\Config\MiddlewareConfigHandler;
 use Quiote\Config\Format\FormatDriverRegistry;
@@ -75,11 +76,11 @@ class MiddlewareConfigHandlerFormatDriverTest extends PhpUnitTestCase
 	 * Read the compiled declaration back the way the config cache does, then apply it -- which is
 	 * where the registry contribution (and its guard) actually happens.
 	 */
-	private function applyCompiled(string $code): void
+	private function applyCompiled(mixed $compiled): void
 	{
 		$file = tempnam($this->dir, 'compiled_');
 		rename($file, $file .= '.php');
-		file_put_contents($file, $code);
+		file_put_contents($file, CompiledArtifact::source($compiled, 'in-memory-test', MiddlewareConfigHandler::class));
 		try {
 			$declaration = include $file;
 		} finally {

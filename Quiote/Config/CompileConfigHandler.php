@@ -42,7 +42,7 @@ class CompileConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 	 *                                        improperly formatted.
 	 * @since      1.0.0
 	 */
-	public function execute(XmlConfigDomDocument $document): string
+	public function execute(XmlConfigDomDocument $document): mixed
 	{
 		return $this->executeArray($this->toCanonicalArray($document), $document->documentURI);
 	}
@@ -153,9 +153,9 @@ class CompileConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 		return ['data' => $data, 'positions' => $elementPositions];
 	}
 
-	public function executeArray(array $config, ?string $sourceRef = null): string
+	public function executeArray(array $config, ?string $sourceRef = null): mixed
 	{
-		return $this->generate($config, $sourceRef);
+		return $config;
 	}
 
 	/**

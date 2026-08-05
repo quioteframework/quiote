@@ -1,5 +1,6 @@
 <?php
 
+use Quiote\Config\CompiledArtifact;
 use Quiote\Config\TranslationConfigHandler;
 use Quiote\Exception\ConfigurationException;
 use Quiote\Testing\PhpUnitTestCase;
@@ -232,8 +233,9 @@ class TranslationDefinitionsTest extends PhpUnitTestCase
 			],
 		], 'translation.xml');
 
-		$this->assertStringNotContainsString('$this->', $code);
-		$this->assertStringNotContainsString('getContext()', $code);
-		$this->assertStringContainsString('return ', $code);
+		$source = CompiledArtifact::source($code, 'translation.xml', $handler::class);
+		$this->assertStringNotContainsString('$this->', $source);
+		$this->assertStringNotContainsString('getContext()', $source);
+		$this->assertStringContainsString('return ', $source);
 	}
 }

@@ -23,9 +23,13 @@ interface ILegacyConfigHandler
 	
 	/**
 	 * Execute this configuration handler.
+	 *
+	 * The return value is a declaration -- data -- not PHP source; see
+	 * {@see IXmlConfigHandler::execute()}.
+	 *
 	 * @param      string $config An absolute filesystem path to a configuration file.
 	 * @param      ?string $context Name of the executing context (if any).
-	 * @return     string Data to be written to a cache file.
+	 * @return     mixed The declaration to be cached.
 	 * @throws     \Quiote\Exception\UnreadableException If a requested configuration
 	 *                                             file does not exist or is not
 	 *                                             readable.

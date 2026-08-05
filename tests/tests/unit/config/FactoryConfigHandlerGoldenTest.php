@@ -1,5 +1,6 @@
 <?php
 
+use Quiote\Config\CompiledArtifact;
 use Quiote\Config\Config;
 use Quiote\Config\FactoryConfigHandler;
 
@@ -26,7 +27,7 @@ class FactoryConfigHandlerGoldenTest extends ConfigHandlerTestBase
 			null,
 			'testing'
 		);
-		$code = $h->execute($document);
+		$code = CompiledArtifact::source($h->execute($document), $document->documentURI, $h::class);
 		// preg_replace() only returns null on a regex engine error; fall back to
 		// the pre-replacement value in that (effectively unreachable) case.
 		$code = preg_replace('/^\/\/ Date: .*$/m', '// Date: <normalized>', $code) ?? $code;

@@ -41,7 +41,7 @@ class RbacDefinitionConfigHandler extends XmlConfigHandler implements IArrayConf
 	 *                                        improperly formatted.
 	 * @since      1.0.0
 	 */
-	public function execute(XmlConfigDomDocument $document): string
+	public function execute(XmlConfigDomDocument $document): mixed
 	{
 		return $this->executeArray($this->toCanonicalArray($document), $document->documentURI);
 	}
@@ -70,10 +70,9 @@ class RbacDefinitionConfigHandler extends XmlConfigHandler implements IArrayConf
 	/**
 	 * @param array<string, array{parent: ?string, permissions: array<int, mixed>}> $config
 	 */
-	public function executeArray(array $config, ?string $sourceRef = null): string
+	public function executeArray(array $config, ?string $sourceRef = null): mixed
 	{
-		$code = "return " . var_export($config, true) . ";";
-		return $this->generate($code, $sourceRef);
+		return $config;
 	}
 
 	/**

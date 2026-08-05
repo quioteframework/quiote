@@ -24,14 +24,14 @@ class ValidatorConfigHandler extends XmlConfigHandler
 {
 	const XML_NAMESPACE = 'http://quiote.dev/quiote/config/parts/validators/1.1';
 
-	public function execute(XmlConfigDomDocument $document): string
+	public function execute(XmlConfigDomDocument $document): mixed
 	{
 		$builder = new ValidatorPlanBuilder();
 		$plan = $builder->build($document, self::XML_NAMESPACE);
 
 		$emitter = new RuntimeDeclarationEmitter();
 
-		return $this->generate('return ' . var_export($emitter->emit($plan), true) . ';', $plan->sourceRef);
+		return $emitter->emit($plan);
 	}
 }
 

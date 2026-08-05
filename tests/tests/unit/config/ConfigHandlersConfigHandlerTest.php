@@ -23,7 +23,7 @@ class CHCHTestHandler extends ConfigHandler
 
 	public function execute($config, $context = null)
 	{
-		return '';
+		return [];
 	}
 }
 
@@ -40,15 +40,24 @@ class ConfigHandlersConfigHandlerTest extends ConfigHandlerTestBase
 			Config::getString('core.quiote_dir') . '/Config/xsl/config_handlers.xsl'
 		);
 
-		$file = $this->getIncludeFile($CHCH->execute($document));
-		$handlers = include($file);
-		unlink($file);
+		$handlers = $CHCH->execute($document);
 
+		$this->assertIsArray($handlers);
 		$this->assertCount(1, $handlers);
-		$this->assertTrue(isset($handlers[$hf]));
-		$this->assertSame('CHCHTestHandler', $handlers[$hf]['class']);
-		$this->assertSame(Config::getString('core.quiote_dir') . '/config/xsd/routing.xsd', $handlers[$hf]['validations']['single']['transformations_after']['xml_schema'][0]);
-		$this->assertSame(['foo' => 'bar', 'dir' => Config::getString('core.quiote_dir')] , $handlers[$hf]['parameters']);
+		$this->assertArrayHasKey($hf, $handlers);
+		$handler = $handlers[$hf];
+		$this->assertIsArray($handler);
+		$this->assertSame('CHCHTestHandler', $handler['class']);
+		$validations = $handler['validations'];
+		$this->assertIsArray($validations);
+		$single = $validations['single'] ?? null;
+		$this->assertIsArray($single);
+		$afterTransformations = $single['transformations_after'] ?? null;
+		$this->assertIsArray($afterTransformations);
+		$schemas = $afterTransformations['xml_schema'] ?? null;
+		$this->assertIsArray($schemas);
+		$this->assertSame(Config::getString('core.quiote_dir') . '/config/xsd/routing.xsd', $schemas[0]);
+		$this->assertSame(['foo' => 'bar', 'dir' => Config::getString('core.quiote_dir')], $handler['parameters']);
 	}
 
 }

@@ -81,7 +81,7 @@ class OutputTypeConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 	 *                                        improperly formatted.
 	 * @since      1.0.0
 	 */
-	public function execute(XmlConfigDomDocument $document): string
+	public function execute(XmlConfigDomDocument $document): mixed
 	{
 		return $this->executeArray($this->toCanonicalArray($document), $document->documentURI);
 	}
@@ -224,7 +224,7 @@ class OutputTypeConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 	/**
 	 * @param array{default?: string|null, output_types?: array<string, array<string, mixed>>} $config
 	 */
-	public function executeArray(array $config, ?string $sourceRef = null): string
+	public function executeArray(array $config, ?string $sourceRef = null): mixed
 	{
 		$defaultOt = $config['default'] ?? null;
 		$data = $config['output_types'] ?? [];
@@ -302,12 +302,8 @@ class OutputTypeConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 			];
 		}
 
-		// Data, not statements. The compiled file returns a declaration that Controller reads and
-		// builds from; it cannot reach into whatever includes it.
-		return $this->generate(
-			'return ' . var_export(['outputTypes' => $declared, 'default' => $defaultOt], true) . ';',
-			$sourceRef
-		);
+		// A declaration Controller reads and builds its output types from.
+		return ['outputTypes' => $declared, 'default' => $defaultOt];
 	}
 }
 

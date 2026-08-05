@@ -1,5 +1,6 @@
 <?php
 
+use Quiote\Config\CompiledArtifact;
 use Quiote\Config\Config;
 use Quiote\Config\Factory\FactoryDefinitions;
 use Quiote\Config\FactoryConfigHandler;
@@ -92,7 +93,7 @@ class FactoryConfigHandlerTest extends ConfigHandlerTestBase
 		// The compiled file returns its declaration. It no longer assigns into whatever included
 		// it, which is why this reads the value instead of inspecting properties on $this.
 		$definitions = FactoryDefinitions::fromCompiled(
-			$this->includeCode($FCH->execute($document)),
+			$FCH->execute($document),
 			'the test fixture',
 		);
 
@@ -145,7 +146,7 @@ class FactoryConfigHandlerTest extends ConfigHandlerTestBase
 		$FCH = new FactoryConfigHandler();
 
 		$definitions = FactoryDefinitions::fromCompiled(
-			$this->includeCode($FCH->executeArray($this->baseFactories(), 'tests/factories.xml')),
+			$FCH->executeArray($this->baseFactories(), 'tests/factories.xml'),
 			'the test fixture',
 		);
 
@@ -176,8 +177,9 @@ class FactoryConfigHandlerTest extends ConfigHandlerTestBase
 
 		$code = $FCH->executeArray($this->baseFactories(), 'tests/factories.xml');
 
-		$this->assertStringNotContainsString('$this->', $code);
-		$this->assertStringContainsString('return ', $code);
+		$source = CompiledArtifact::source($code, 'tests/factories.xml', $FCH::class);
+		$this->assertStringNotContainsString('$this->', $source);
+		$this->assertStringContainsString('return ', $source);
 	}
 
 	/**
@@ -232,18 +234,16 @@ class FactoryConfigHandlerTest extends ConfigHandlerTestBase
 
 		$code = $FCH->executeArray($this->baseFactories(), 'tests/factories.xml');
 
-		$this->assertStringNotContainsString("'session'", $code, 'a context with no session configures nothing');
+		$this->assertStringNotContainsString("'session'", var_export($code, true), 'a context with no session configures nothing');
 	}
 
 	public function testSessionSlotEmitsFactoryInfoForTheConfiguredBackend(): void
 	{
 		$FCH = new FactoryConfigHandler();
 
-		$definitions = FactoryDefinitions::fromCompiled($this->includeCode(
-			$FCH->executeArray($this->baseFactories() + [
-				'session' => ['class' => \Quiote\Session\FileSessionFactory::class, 'params' => ['dir' => '/tmp/quiote-sessions']],
-			], 'tests/factories.xml'),
-		), 'the test fixture');
+		$definitions = FactoryDefinitions::fromCompiled($FCH->executeArray($this->baseFactories() + [
+			'session' => ['class' => \Quiote\Session\FileSessionFactory::class, 'params' => ['dir' => '/tmp/quiote-sessions']],
+		], 'tests/factories.xml'), 'the test fixture');
 
 		// An on-demand slot, not an eagerly built component: no SessionPersistenceInterface has the
 		// initialize($context, $params) shape the build operation calls.

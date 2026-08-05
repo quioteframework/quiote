@@ -26,8 +26,13 @@ interface IXmlConfigHandler
 	
 	/**
 	 * Execute this configuration handler.
+	 *
+	 * The return value is a declaration -- data -- not PHP source: the cache serializes it (see
+	 * {@see CompiledArtifact}), and either the caller reads it back through
+	 * {@see CompiledConfig::value()} or {@see IDeclarationConfigHandler::apply()} applies it.
+	 *
 	 * @param      XmlConfigDomDocument $document The document to parse.
-	 * @return     string Data to be written to a cache file.
+	 * @return     mixed The declaration to be cached.
 	 * @throws     \Quiote\Exception\ParseException If a requested configuration file is
 	 *                                        improperly formatted.
 	 * @since      1.0.0

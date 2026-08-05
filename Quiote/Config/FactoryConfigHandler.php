@@ -135,7 +135,7 @@ class FactoryConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 	 *                                        improperly formatted.
 	 * @since      1.0.0
 	 */
-	public function execute(XmlConfigDomDocument $document): string
+	public function execute(XmlConfigDomDocument $document): mixed
 	{
 		return $this->executeArray($this->toCanonicalArray($document), $document->documentURI);
 	}
@@ -230,7 +230,7 @@ class FactoryConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 	/**
 	 * @param array<string, array{class: string|null, params: array<mixed>}> $config
 	 */
-	public function executeArray(array $config, ?string $sourceRef = null): string
+	public function executeArray(array $config, ?string $sourceRef = null): mixed
 	{
 		$factories = $this->getFactoryDefinitions();
 		$data = $config;
@@ -323,7 +323,7 @@ class FactoryConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 			'shutdownOrder' => $shutdownOrder,
 		];
 
-		return $this->generate('return ' . var_export($definitions, true) . ';', $sourceRef);
+		return $definitions;
 	}
 }
 

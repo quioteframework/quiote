@@ -58,131 +58,113 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 	// writeCacheFile stores in APCu (not filesystem)
 	// ---------------------------------------------------------------
 
-	public function testWriteCacheFileStoresInApcuNotFilesystem(): void
+	private function configKey(string $config, ?string $context = null): string
+	{
+		$method = new ReflectionMethod(APCuConfigCache::class, 'getConfigKey');
+		$key = $method->invoke(null, $config, $context);
+		self::assertIsString($key);
+
+		return $key;
+	}
+
+	public function testWriteCacheFileStoresTheValueInApcuNotAFileOfPhp(): void
 	{
 		$config = Config::getString('core.config_dir') . '/tests/importtest.xml';
 		$cacheName = ConfigCache::getCacheName($config);
-		$data = "<?php\n// test data\n\$GLOBALS['apcu_write_test'] = true;\n?>";
+		$declaration = ['core.app_name' => 'apcu test', 'nested' => [1, 2]];
 
-		// Remove any stale filesystem cache
 		if (file_exists($cacheName)) {
 			unlink($cacheName);
 		}
 
-		APCuConfigCache::writeCacheFile($config, $cacheName, $data);
+		APCuConfigCache::writeCacheFile($config, $cacheName, $declaration);
 
-		// Filesystem cache should NOT be written
-		$this->assertFileDoesNotExist($cacheName, 'APCu writeCacheFile should not write to filesystem');
-
-		// APCu should have the data — use the same key derivation as the class
-		// (null context since writeCacheFile is called from callHandler without context)
-		$reflection = new ReflectionClass(APCuConfigCache::class);
-		$method = $reflection->getMethod('getConfigKey');
-		// pendingContext will be set when called through checkConfig; for direct
-		// writeCacheFile calls it's null (verified by examining the static property)
-		$key = $method->invoke(null, $config, null);
-		self::assertIsString($key);
-
-		$stored = apcu_fetch($key);
-		$this->assertNotFalse($stored, 'Data should be stored in APCu');
-		$this->assertSame($data, $stored);
+		$this->assertFileDoesNotExist($cacheName, 'APCu writeCacheFile should not write to the filesystem');
+		// The entry is the value itself, so reading it costs a fetch rather than compiling PHP.
+		$this->assertSame($declaration, apcu_fetch($this->configKey($config)));
 	}
 
-	public function testWriteCacheFileAppendWorks(): void
+	/**
+	 * Shared memory serializes what it stores, so a value it cannot reproduce faithfully has to go to
+	 * the file cache instead of being served as a broken clone.
+	 */
+	public function testWriteCacheFileFallsBackToTheFileCacheForAValueSharedMemoryCannotHold(): void
 	{
 		$config = Config::getString('core.config_dir') . '/tests/importtest.xml';
 		$cacheName = ConfigCache::getCacheName($config);
-		$part1 = "<?php\n// part 1\n";
-		$part2 = "// part 2\n?>";
 
-		APCuConfigCache::writeCacheFile($config, $cacheName, $part1);
-		APCuConfigCache::writeCacheFile($config, $cacheName, $part2, true);
+		if (file_exists($cacheName)) {
+			unlink($cacheName);
+		}
 
-		$reflection = new ReflectionClass(APCuConfigCache::class);
-		$method = $reflection->getMethod('getConfigKey');
-		$key = $method->invoke(null, $config, null);
-		self::assertIsString($key);
+		try {
+			$this->expectException(CacheException::class);
+			APCuConfigCache::writeCacheFile($config, $cacheName, ['handler' => new \stdClass()]);
+		} finally {
+			$this->assertFalse(apcu_fetch($this->configKey($config)), 'nothing unstorable should reach APCu');
+			if (file_exists($cacheName)) {
+				unlink($cacheName);
+			}
+		}
+	}
 
-		$stored = apcu_fetch($key);
-		$this->assertSame($part1 . $part2, $stored, 'Appended data should be concatenated in APCu');
+	/**
+	 * The base cache's checkConfig() promises the path of a compiled file. There is no such file here,
+	 * so the promise is refused rather than answered with a path nothing ever wrote.
+	 */
+	public function testCheckConfigRefusesToInventAPathForAValueInSharedMemory(): void
+	{
+		$this->expectException(CacheException::class);
+		$this->expectExceptionMessageMatches('/held in shared memory, not in a file/');
+		APCuConfigCache::checkConfig(Config::getString('core.config_dir') . '/tests/importtest.xml');
 	}
 
 	// ---------------------------------------------------------------
-	// checkConfig — APCu hit path (eval from memory)
+	// loadValue() — the read path
 	// ---------------------------------------------------------------
 
-	public function testCheckConfigEvalsFromApcuOnHit(): void
+	public function testLoadValueServesAnAlreadyStoredValueFromSharedMemory(): void
 	{
 		$config = Config::getString('core.config_dir') . '/tests/importtest.xml';
+		apcu_store($this->configKey($config), ['seeded' => true]);
 
-		// Pre-seed APCu with known PHP content
-		$reflection = new ReflectionClass(APCuConfigCache::class);
-		$method = $reflection->getMethod('getConfigKey');
-		$key = $method->invoke(null, $config, null);
-		self::assertIsString($key);
-
-		$uniqueConst = 'APCU_CHECK_CONFIG_TEST_' . mt_rand();
-		$phpContent = "<?php\ndefine('{$uniqueConst}', true);\n?>";
-		apcu_store($key, $phpContent);
-
-		// checkConfig returns the 'APCU:' marker but does NOT eval — callers do that.
-		$result = APCuConfigCache::checkConfig($config);
-
-		$this->assertStringStartsWith('APCU:', $result, 'checkConfig should return APCU: marker on hit');
-		// Simulate what load() / ValidationService etc. do: eval in caller scope.
-		eval('?>' . substr($result, 5));
-		$this->assertTrue(defined($uniqueConst), 'caller-eval\'d PHP content from APCu should define the constant');
+		$this->assertSame(['seeded' => true], APCuConfigCache::loadValue($config));
 	}
 
-	public function testCheckConfigFallsBackToParentOnMiss(): void
+	/**
+	 * A compiled config may legitimately return null or false, and the fetch must not read that as a
+	 * miss -- otherwise such a config recompiles on every single load.
+	 */
+	public function testLoadValueTreatsAStoredFalseAsAHitNotAMiss(): void
 	{
 		$config = Config::getString('core.config_dir') . '/tests/importtest.xml';
+		apcu_store($this->configKey($config), false);
 
-		// Ensure nothing in APCu for this config
-		$reflection = new ReflectionClass(APCuConfigCache::class);
-		$method = $reflection->getMethod('getConfigKey');
-		$key = $method->invoke(null, $config, null);
-		self::assertIsString($key);
-		apcu_delete($key);
-
-		// Cold path: parent compiles the config, writeCacheFile() stores it in APCu
-		// (no filesystem write), then checkConfig re-fetches and returns the marker.
-		$result = APCuConfigCache::checkConfig($config);
-
-		$this->assertStringStartsWith('APCU:', $result, 'First call should compile, store in APCu, and return APCU: marker');
-
-		// Second call is a straightforward APCu hit — also returns the marker.
-		$result2 = APCuConfigCache::checkConfig($config);
-		$this->assertStringStartsWith('APCU:', $result2, 'Second call should hit APCu and return marker');
+		$this->assertFalse(APCuConfigCache::loadValue($config));
+		// Still the seeded entry: nothing recompiled over it.
+		$this->assertFalse(apcu_fetch($this->configKey($config)));
 	}
 
-	// ---------------------------------------------------------------
-	// checkConfig with context — verifies the pendingContext fix
-	// ---------------------------------------------------------------
+	public function testLoadValueCompilesOnAMissAndKeepsTheValueForNextTime(): void
+	{
+		$config = Config::getString('core.config_dir') . '/tests/importtest.xml';
+		apcu_delete($this->configKey($config));
 
-	public function testCheckConfigWithContextStoresUnderCorrectKey(): void
+		$value = APCuConfigCache::loadValue($config);
+
+		$this->assertSame(['constant' => 'ConfigCacheImportTest_included'], $value);
+		$this->assertSame($value, apcu_fetch($this->configKey($config)), 'the compiled value should now be in APCu');
+	}
+
+	public function testLoadValueWithAContextStoresUnderTheContextSpecificKey(): void
 	{
 		$config = Config::getString('core.config_dir') . '/tests/importtest.xml';
 		$context = 'testing';
 
-		// First call: compiles and stores in APCu via writeCacheFile with pendingContext
-		$result1 = APCuConfigCache::checkConfig($config, $context);
+		$value = APCuConfigCache::loadValue($config, $context);
 
-		// The key for this config+context should now exist in APCu
-		$reflection = new ReflectionClass(APCuConfigCache::class);
-		$method = $reflection->getMethod('getConfigKey');
-		$keyWithContext = $method->invoke(null, $config, $context);
-		self::assertIsString($keyWithContext);
-		$keyWithoutContext = $method->invoke(null, $config, null);
-
-		$this->assertNotFalse(
-			apcu_fetch($keyWithContext),
-			'Config should be stored under the context-specific APCu key'
-		);
-
-		// Second call should be an APCu hit
-		$result2 = APCuConfigCache::checkConfig($config, $context);
-		$this->assertStringStartsWith('APCU:', $result2, 'Second checkConfig with context should hit APCu');
+		$this->assertSame($value, apcu_fetch($this->configKey($config, $context)));
+		$this->assertFalse(apcu_fetch($this->configKey($config, null)), 'the context-less key must stay untouched');
 	}
 
 	public function testDifferentContextsUseDifferentKeys(): void
@@ -215,7 +197,7 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 		$key = $method->invoke(null, $config, null);
 		self::assertIsString($key);
 
-		apcu_store($key, "<?php\nreturn " . var_export(['global' => $globalKey], true) . ";\n");
+		apcu_store($key, ['global' => $globalKey]);
 	}
 
 	public function testLoadAppliesTheDeclarationHeldInApcu(): void
@@ -373,37 +355,6 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 	// misbehave (e.g. concatenating a non-string, or eval'ing garbage).
 	// ---------------------------------------------------------------
 
-	public function testWriteCacheFileAppendThrowsWhenExistingEntryIsNotAString(): void
-	{
-		$config = Config::getString('core.config_dir') . '/tests/importtest.xml';
-		$cacheName = ConfigCache::getCacheName($config);
-
-		$reflection = new ReflectionClass(APCuConfigCache::class);
-		$method = $reflection->getMethod('getConfigKey');
-		$key = $method->invoke(null, $config, null);
-		self::assertIsString($key);
-
-		apcu_store($key, ['not' => 'a string']);
-
-		$this->expectException(CacheException::class);
-		APCuConfigCache::writeCacheFile($config, $cacheName, '// more', true);
-	}
-
-	public function testCheckConfigThrowsWhenCachedEntryIsNotAString(): void
-	{
-		$config = Config::getString('core.config_dir') . '/tests/importtest.xml';
-
-		$reflection = new ReflectionClass(APCuConfigCache::class);
-		$method = $reflection->getMethod('getConfigKey');
-		$key = $method->invoke(null, $config, null);
-		self::assertIsString($key);
-
-		apcu_store($key, 12345);
-
-		$this->expectException(CacheException::class);
-		APCuConfigCache::checkConfig($config);
-	}
-
 	public function testGetStatusThrowsWhenWarmupMetadataIsMalformed(): void
 	{
 		apcu_store('quiote_warmup_meta', ['configs' => ['a.xml']]); // missing 'timestamp'
@@ -419,34 +370,21 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 	public function testFullRoundTripCompileStoreHit(): void
 	{
 		$config = Config::getString('core.config_dir') . '/tests/importtest.xml';
-
-		// Ensure nothing cached
-		$reflection = new ReflectionClass(APCuConfigCache::class);
-		$method = $reflection->getMethod('getConfigKey');
-		$key = $method->invoke(null, $config, null);
-		self::assertIsString($key);
+		$key = $this->configKey($config);
 		apcu_delete($key);
 
-		// Delete filesystem cache too
 		$cacheName = ConfigCache::getCacheName($config);
 		if (file_exists($cacheName)) {
 			unlink($cacheName);
 		}
 
-		// First call: compiles config, writeCacheFile stores in APCu
-		$result1 = APCuConfigCache::checkConfig($config);
-		// Parent returns a file path (since it compiled and cached on filesystem)
-		// But our writeCacheFile override stored in APCu instead
+		// First call compiles and stores the value; nothing is written to disk.
+		$first = APCuConfigCache::loadValue($config);
+		$this->assertSame($first, apcu_fetch($key));
+		$this->assertFileDoesNotExist($cacheName, 'a compiled config must not reach the filesystem when APCu holds it');
 
-		// Verify data is now in APCu
-		$stored = apcu_fetch($key);
-		$this->assertNotFalse($stored, 'After first checkConfig, compiled data should be in APCu');
-		self::assertIsString($stored);
-		$this->assertStringContainsString('<?php', $stored, 'Stored data should be valid PHP');
-
-		// Second call: should hit APCu directly
-		$result2 = APCuConfigCache::checkConfig($config);
-		$this->assertStringStartsWith('APCU:', $result2, 'Second checkConfig should return APCU: marker');
+		// Second call is a straight fetch, and returns the same value.
+		$this->assertSame($first, APCuConfigCache::loadValue($config));
 	}
 
 	// ---------------------------------------------------------------
@@ -457,7 +395,7 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 	{
 		$config = Config::getString('core.config_dir') . '/tests/importtest.xml';
 		$cacheName = ConfigCache::getCacheName($config);
-		$data = "<?php\n// fallback test\n?>";
+		$declaration = ['core.app_name' => 'fallback test'];
 
 		if (file_exists($cacheName)) {
 			unlink($cacheName);
@@ -469,10 +407,10 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 		$prop->setValue(null, false);
 
 		try {
-			APCuConfigCache::writeCacheFile($config, $cacheName, $data);
+			APCuConfigCache::writeCacheFile($config, $cacheName, $declaration, 'TestHandler');
 
 			$this->assertFileExists($cacheName, 'When APCu is unavailable, should fall back to filesystem');
-			$this->assertSame($data, file_get_contents($cacheName));
+			$this->assertSame($declaration, include $cacheName);
 		} finally {
 			// Restore
 			$prop->setValue(null, null); // null triggers re-detection
@@ -500,8 +438,10 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 
 		// Trigger a cold compile through the APCu entrypoint so late static binding
 		// is APCuConfigCache for the whole chain.
-		$result = APCuConfigCache::checkConfig(Config::getString('core.config_dir') . '/settings.xml');
-		$this->assertStringStartsWith('APCU:', $result, 'settings.xml should be served from APCu, not the filesystem');
+		$settings = Config::getString('core.config_dir') . '/settings.xml';
+		$value = APCuConfigCache::loadValue($settings);
+		$this->assertIsArray($value, 'settings.xml should compile to a declaration');
+		$this->assertSame($value, apcu_fetch($this->configKey($settings)), 'settings.xml should be served from APCu, not the filesystem');
 
 		// The bug: config_handlers.xml used to be written to the filesystem here.
 		// With LSB preserved it stays in APCu, so no config_handlers cache file
@@ -566,15 +506,14 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 		// Cold compile WITH a context. The compiled config must end up stored under
 		// that context in APCu, so checkConfig returns the marker (not a filesystem
 		// path that was never written).
-		$result = APCuConfigCache::checkConfig($config, $context);
-		$this->assertStringStartsWith(
-			'APCU:',
-			$result,
-			'cold compile with a nested handler load must still store/fetch under the correct context'
+		$value = APCuConfigCache::loadValue($config, $context);
+		$this->assertSame(
+			$value,
+			apcu_fetch($this->configKey($config, $context)),
+			'cold compile with a nested handler load must still store under the correct context'
 		);
 
 		// A second lookup under the same context must be a straight APCu hit.
-		$again = APCuConfigCache::checkConfig($config, $context);
-		$this->assertStringStartsWith('APCU:', $again);
+		$this->assertSame($value, APCuConfigCache::loadValue($config, $context));
 	}
 }

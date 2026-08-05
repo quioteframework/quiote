@@ -205,6 +205,35 @@ present used to exist solely as a generated string. It is
 `PluginConfigHandler::merge()`, with the same guarantees: declared order preserved,
 first occurrence across all contributing files wins, app before modules.
 
+## `execute()` returns the declaration; the cache serializes it
+
+The last step of the same change: a handler no longer produces PHP source at all.
+
+- `IXmlConfigHandler::execute()`, `IArrayConfigHandler::executeArray()` and
+  `ILegacyConfigHandler::execute()` return `mixed` — the declaration — instead of `string`.
+- `BaseConfigHandler::generate()` is **removed**. A handler that called it to wrap its
+  `var_export()` in a cache-file header now just returns the value. The serializing lives
+  in `Quiote\Config\CompiledArtifact::source()`, which the cache calls.
+- `ConfigCache::writeCacheFile()` takes the value and an optional handler-class label:
+  `writeCacheFile(string $config, string $cache, mixed $value, ?string $generatedBy = null)`.
+  The `$append` parameter is gone — appending fragments of source has no meaning for a
+  value, and nothing in the framework used it.
+- A declaration containing an object, closure or resource is refused at the write, naming
+  the offending key path, instead of producing a file that cannot reproduce it.
+
+**`APCuConfigCache` now stores the value itself**, not compiled source, which is what
+removes the last `eval()` from the configuration cache. Consequences:
+
+- The `'APCU:'` marker is gone. `APCuConfigCache::checkConfig()` no longer returns a path
+  or a marker — there is no file — and throws to say so; read compiled configuration with
+  `CompiledConfig::value()`.
+- A value shared memory cannot reproduce faithfully falls back to the file cache rather than
+  being served as a broken clone.
+- `cache:warmup` stores values, so a warmed worker never compiles at all.
+
+**What this changes for you.** Nothing, unless you ship a config handler or call
+`writeCacheFile()`/`APCuConfigCache::checkConfig()` directly.
+
 ## `Context` is growing seams, not losing accessors
 
 Three collaborators are now separate classes, each bound in the container so new

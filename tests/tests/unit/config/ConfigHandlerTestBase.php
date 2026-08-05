@@ -1,6 +1,7 @@
 <?php
 
 use Quiote\Testing\PhpUnitTestCase;
+use Quiote\Config\CompiledArtifact;
 use Quiote\Config\Config;
 use Quiote\Config\XmlConfigParser;
 
@@ -26,6 +27,21 @@ abstract class ConfigHandlerTestBase extends PhpUnitTestCase
 		$ret = include($file);
 		unlink($file);
 		return $ret;
+	}
+
+	/**
+	 * A handler's declaration as the framework reads it back: serialized into a compiled cache file and
+	 * included again. Use this where the round trip is the point; where only the declaration matters,
+	 * assert on the handler's return value directly.
+	 */
+	protected function roundTrip(mixed $declaration, ?string $path = null, ?string $generatedBy = null): mixed
+	{
+		$file = $this->getIncludeFile(CompiledArtifact::source($declaration, $path, $generatedBy));
+		try {
+			return include $file;
+		} finally {
+			unlink($file);
+		}
 	}
 
 	protected function parseConfiguration(string $configFile, ?string $xslFile = null, ?string $environment = null): \Quiote\Config\Util\DOM\XmlConfigDomDocument {

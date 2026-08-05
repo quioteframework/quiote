@@ -52,7 +52,7 @@ class PluginConfigHandler extends XmlConfigHandler implements IArrayConfigHandle
 	 *                                        improperly formatted.
 	 * @since      1.0.0
 	 */
-	public function execute(XmlConfigDomDocument $document): string
+	public function execute(XmlConfigDomDocument $document): mixed
 	{
 		return $this->executeArray($this->toCanonicalArray($document), $document->documentURI);
 	}
@@ -125,14 +125,14 @@ class PluginConfigHandler extends XmlConfigHandler implements IArrayConfigHandle
 	 *        PHP/YAML sources may omit `enabled` (defaults to true), matching
 	 *        the XSD's own default.
 	 */
-	public function executeArray(array $config, ?string $sourceRef = null): string
+	public function executeArray(array $config, ?string $sourceRef = null): mixed
 	{
 		$declared = array_values(array_map(
 			static fn(array $plugin): string => $plugin['class'],
 			array_filter($config, static fn(array $plugin): bool => $plugin['enabled'] ?? true),
 		));
 
-		return $this->generate('return ' . var_export($declared, true) . ';', $sourceRef);
+		return $declared;
 	}
 
 	/**
