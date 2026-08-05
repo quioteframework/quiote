@@ -271,6 +271,63 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 		return isset($this->parameters['timezone']) && is_string($this->parameters['timezone']) ? $this->parameters['timezone'] : null;
 	}
 
+	/**
+	 * Scripts written right to left, by ISO 15924 code.
+	 *
+	 * A script list rather than a language list, because the script is what decides direction and a
+	 * language can be written in more than one: `az_Cyrl` and `az_Latn` read left to right while
+	 * `az_Arab` does not, and a language list has to guess which one a bare `az` means. ICU answers
+	 * that question -- see {@see getCharacterOrientation()}.
+	 *
+	 * @var        array<int, string>
+	 * @since      4.0.0
+	 */
+	private const array RIGHT_TO_LEFT_SCRIPTS = [
+		'Adlm', 'Arab', 'Aran', 'Armi', 'Avst', 'Cprt', 'Egyp', 'Elym', 'Hatr', 'Hebr', 'Hung',
+		'Khar', 'Lydi', 'Mand', 'Mani', 'Mend', 'Merc', 'Mero', 'Narb', 'Nbat', 'Nkoo', 'Orkh',
+		'Palm', 'Phli', 'Phlp', 'Phnx', 'Prti', 'Rohg', 'Samr', 'Sarb', 'Sogd', 'Sogo', 'Syrc',
+		'Thaa', 'Yezi',
+	];
+
+	/**
+	 * Which way this locale's text runs: `left-to-right` or `right-to-left`.
+	 *
+	 * The answer a template needs to decide `dir="rtl"`, which is the only thing anything has ever
+	 * asked this for.
+	 *
+	 * Resolved from the locale's *script*, because that is what decides direction -- and asked of ICU
+	 * rather than of the identifier, since a bare `ar` or `ur` names no script. `addLikelySubtags()`
+	 * is how ICU says which script a language is written in by default, so `ur` resolves through
+	 * `ur_Arab_PK` and an explicit `az_Latn` is taken at its word.
+	 *
+	 * Left-to-right is the answer when the script cannot be determined at all. It is the direction of
+	 * the overwhelming majority of locales, and a page laid out left to right for a locale nobody could
+	 * identify is a smaller wrong than one laid out backwards.
+	 *
+	 * @return     string `left-to-right` or `right-to-left`.
+	 * @since      4.0.0
+	 */
+	public function getCharacterOrientation(): string
+	{
+		$script = $this->getLocaleScript();
+
+		if($script === null && class_exists(Locale::class)) {
+			try {
+				$likely = Locale::addLikelySubtags($this->getBaseLocaleIdentifier());
+				if(is_string($likely) && $likely !== '') {
+					$resolved = Locale::getScript($likely);
+					$script = is_string($resolved) && $resolved !== '' ? $resolved : null;
+				}
+			} catch(\Throwable $e) {
+				$this->logIcuProbeFailure('addLikelySubtags', $e);
+			}
+		}
+
+		return $script !== null && in_array($script, self::RIGHT_TO_LEFT_SCRIPTS, true)
+			? 'right-to-left'
+			: 'left-to-right';
+	}
+
 	private function getBaseLocaleIdentifier(): string
 	{
 		$identifier = (string) $this->identifier;
