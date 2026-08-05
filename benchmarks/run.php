@@ -173,6 +173,48 @@ final class BenchApcuValidatorRunner
 }
 
 /**
+ * The declaration path a compiled validators.xml takes now: the artifact returns data, and registering
+ * the validators is a plain loop over it (ValidatorDeclarationApplier). Kept at the same stub fidelity
+ * as BenchApcuValidatorRunner above so the three numbers are comparable -- the per-validator
+ * instantiate-and-initialize work is identical in all of them, and what differs is only how the
+ * registration itself is expressed: eval() per call, a cached closure, or a loop over an array.
+ */
+final class BenchValidatorDeclarationRunner
+{
+    /** @param array<string, mixed> $declaration */
+    public function __construct(private readonly array $declaration)
+    {
+    }
+
+    public function getContext(): string
+    {
+        return 'bench-context';
+    }
+
+    /** @param array<int, mixed> $validationManager */
+    public function apply(array $validationManager, string $method): void
+    {
+        /** @var array<string, mixed> $buckets */
+        $buckets = $this->declaration['buckets'] ?? [];
+        foreach ($method === '' ? [''] : ['', $method] as $bucketKey) {
+            $bucket = $buckets[$bucketKey] ?? null;
+            if (!is_array($bucket)) {
+                continue;
+            }
+            /** @var array<int, array<string, mixed>> $validators */
+            $validators = $bucket['validators'] ?? [];
+            foreach ($validators as $spec) {
+                $validator = new stdClass();
+                $validator->name = $spec['name'];
+                $validator->params = $spec['parameters'];
+                $validationManager[] = $validator;
+            }
+        }
+        $ctx = $this->getContext();
+    }
+}
+
+/**
  * Write a minimal valid little-endian .mo file with the given msgid => msgstr map.
  * @param array<string, string> $pairs
  */
@@ -245,6 +287,28 @@ if ($method == 'read') {
 }
 $ctx = $this->getContext();
 PHP;
+}
+
+/**
+ * The same three validators as apcuValidatorBenchSnippet(), as the declaration
+ * RuntimeDeclarationEmitter produces for them.
+ * @return array<string, mixed>
+ */
+function validatorBenchDeclaration(): array
+{
+    return [
+        'buckets' => [
+            '' => ['declaredParameters' => [], 'validators' => []],
+            'read' => [
+                'declaredParameters' => ['field_a', 'field_b', 'field_c'],
+                'validators' => [
+                    ['name' => 'field_a', 'class' => stdClass::class, 'parameters' => ['required' => true, 'min' => 1, 'max' => 255], 'parent' => null],
+                    ['name' => 'field_b', 'class' => stdClass::class, 'parameters' => ['required' => false, 'pattern' => '/^[a-z0-9_-]+$/'], 'parent' => null],
+                    ['name' => 'field_c', 'class' => stdClass::class, 'parameters' => ['required' => false], 'parent' => null],
+                ],
+            ],
+        ],
+    ];
 }
 
 // ---------------------------------------------------------------------------
@@ -376,6 +440,13 @@ function benchmarks(): array
             $content = apcuValidatorBenchSnippet();
             $runner = new BenchApcuValidatorRunner($content);
             return bench(static fn() => $runner->runCached('bench-key', ['field_a', 'field_b'], 'read'), 2000, 15, 500);
+        },
+
+        // The declaration contract: the artifact is data, so registering the
+        // validators is a loop over an array with no compile step at all.
+        'validator_declaration_apply' => static function (): array {
+            $runner = new BenchValidatorDeclarationRunner(validatorBenchDeclaration());
+            return bench(static fn() => $runner->apply(['field_a', 'field_b'], 'read'), 2000, 15, 500);
         },
 
         // Item 6: AttributeRouteScanner's live scan (recursive glob() per

@@ -36,8 +36,9 @@ php benchmarks/run.php compare baseline tier1
 | `header_normalize` | `WebResponse::normalizeHttpHeaderName()` over 5 header names |
 | `templatelayer_call` | two `TemplateLayer` magic accessor calls |
 | `locale_parse` | `QuioteLocale::parseLocaleIdentifier()` on a locale with options |
-| `apcu_validator_eval_per_call` | `ValidationService`'s old APCu path: `eval()` of a compiled validators.xml snippet on every call |
-| `apcu_validator_closure_cached` | new path: same snippet compiled into a `Closure` once, reused via `Closure::call()` |
+| `apcu_validator_eval_per_call` | registering validators by `eval()`ing a compiled validators.xml snippet on every call, as the APCu path once did |
+| `apcu_validator_closure_cached` | the same snippet compiled into a `Closure` once and reused via `Closure::call()` |
+| `validator_declaration_apply` | registering the same validators from a compiled *declaration* (`ValidatorDeclarationApplier`): a loop over an array, no compile step |
 | `routing_scan_live` | `AttributeRouteScanner::scan()`: recursive `glob()` + `require_once` + `ReflectionClass` per action, over the sandbox's module tree |
 | `routing_scan_compiled_ir` | `RoutingIrDumper::load()`: the same routes loaded from a pre-dumped `return [...]` PHP artifact |
 
@@ -50,7 +51,29 @@ php benchmarks/run.php compare baseline tier1
 | `view_render_layers` | 2695.5 | 2179.6 | −19.1% |
 | `gettext_read_mo` | 86639.0 | 634.0 | −99.3% |
 
+## Declaration contract results (PHP 8.5.8, min ns/op)
+
+Registering the validators a compiled `validators.xml` declares, per action dispatch.
+All three cases do the same per-validator instantiate-and-initialize work; what
+differs is how the registration is expressed.
+
+| benchmark | ns/op | vs `eval()` per call |
+|---|---:|---:|
+| `apcu_validator_eval_per_call` | 7680.3 | — |
+| `apcu_validator_closure_cached` | 560.6 | −92.7% |
+| `validator_declaration_apply` | 783.4 | −89.8% |
+
 Notes:
+- The declaration path costs ~0.22 µs/dispatch more than the cached closure it
+  replaced, and ~6.9 µs less than the `eval()`-per-call shape before that. The
+  closure had to be `eval()`'d once and rebound per call; the declaration is data,
+  so nothing compiles at any point.
+- All three are bench-local stubs of equal fidelity (a plain object per validator,
+  no real `ValidationManager`), so they compare the registration mechanism, not the
+  absolute cost of validation. The real applier also validates the declaration's
+  shape, which these do not.
+- The rest of the suite was unchanged by this work: measured against a same-machine
+  run of the preceding commit, every other case landed within ±5% (noise).
 - `config_resolve_format` / `gettext_read_mo` gains reflect worker-lifetime
   memoization eliminating repeated filesystem probes and .mo re-parsing.
 - `webresponse_construct` is modest because PHP already shares the literal-array
