@@ -85,11 +85,34 @@ final class ContextResidueReporter extends AbstractRector
         'getFactoryInfo' => ResidueReport::REASON_UNHANDLED,
         'setFactoryInfo' => ResidueReport::REASON_UNHANDLED,
         'getCurrentPsrRequest' => ResidueReport::REASON_UNHANDLED,
-        'getCorrelationId' => ResidueReport::REASON_UNHANDLED,
         'getSlotDispatcher' => ResidueReport::REASON_UNHANDLED,
         'getAssetRegistry' => ResidueReport::REASON_UNHANDLED,
         'getActionResolver' => ResidueReport::REASON_UNHANDLED,
         'getService' => ResidueReport::REASON_UNRESOLVABLE_ARGUMENT,
+    ];
+
+    /**
+     * Methods `Context` still declares, which are therefore never residue.
+     *
+     * `getContainer()` and `getModelLocator()` matter most: they are where a class the container does
+     * not build is *supposed* to end up, so reporting them would make the report describe the finished
+     * state as work remaining -- and a report that cannot reach zero cannot be worked to zero.
+     *
+     * @var        array<int, string>
+     */
+    private const array SURVIVING_METHODS = [
+        'getName',
+        'getContainer',
+        'getModelLocator',
+        'getCorrelationId',
+        'getLifecycle',
+        'getShutdownSequence',
+        'getRequestHandler',
+        'beginRequest',
+        'flushRequestState',
+        'initialize',
+        'shutdown',
+        'reset',
     ];
 
     public function __construct(
@@ -137,6 +160,12 @@ final class ContextResidueReporter extends AbstractRector
     private function recordMethodCall(MethodCall $methodCall, string $filePath, bool $injectable): void
     {
         $accessor = $methodCall->name instanceof Identifier ? $methodCall->name->toString() : '(dynamic)';
+
+        if (in_array($accessor, self::SURVIVING_METHODS, true)) {
+            // Before the receiver is even considered: whatever it turns out to be, a method Context
+            // still declares is not a site to migrate, so there is nothing for a reader to decide.
+            return;
+        }
 
         if (!$this->contextCallAnalyzer->isAnyContextCall($methodCall)) {
             $this->recordLookalike($methodCall, $filePath, $accessor);

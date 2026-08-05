@@ -35,7 +35,12 @@ final class ContextResidueReporterTest extends AbstractRectorTestCase
         // a reader needs to recognise the site.
         $this->assertSame(ResidueReport::REASON_FOREIGN_RECEIVER, $reasons['getMessage'] ?? null);
         // A real Context, a method it does not declare.
-        $this->assertSame(ResidueReport::REASON_NOT_AN_ACCESSOR, $reasons['flushRequestState'] ?? null);
+        $this->assertSame(ResidueReport::REASON_NOT_AN_ACCESSOR, $reasons['expects'] ?? null);
+        // A method Context still declares is never residue, whatever class it is called in -- there
+        // would be nothing for a reader to decide, and the destination of the migration cannot be on
+        // the list of work remaining.
+        $this->assertArrayNotHasKey('getContainer', $reasons);
+        $this->assertArrayNotHasKey('get', $reasons);
         // An untyped $context = null parameter: unresolvable rather than foreign, which is a different
         // answer for whoever works the list.
         $this->assertSame(ResidueReport::REASON_UNRESOLVED_RECEIVER, $reasons['getRouting'] ?? null);

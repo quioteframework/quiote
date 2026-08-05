@@ -27,8 +27,18 @@ final class HasEveryResidueShape
 
     public function notAnAccessor(Context $context): void
     {
-        // A real Context, and a method it does not declare.
-        $context->flushRequestState();
+        // A real Context, and a method it does not declare -- in practice a mock builder on a mocked
+        // one, which is the shape this reason exists to name.
+        $context->expects('getName');
+    }
+
+    /**
+     * Where a class the container does not build is supposed to end up. Not residue: the report has to
+     * be able to reach zero, and it cannot if the destination is on the list.
+     */
+    public function survivingMethods(Context $context): mixed
+    {
+        return $context->getContainer()->get(\Quiote\Routing\Routing::class);
     }
 
     /**
