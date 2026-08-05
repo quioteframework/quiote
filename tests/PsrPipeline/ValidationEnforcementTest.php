@@ -29,7 +29,7 @@ final class ValidationEnforcementTest extends TestCase
     public function testNonSimpleActionWithoutValidationMiddlewareFails(): void
     {
         $context = Quiote::context('web', true);
-        $controller = $context->getController();
+        $controller = $context->getContainer()->get(\Quiote\Controller\Controller::class);
         $module = 'Cache';
         $action = 'CacheComplex'; // non-simple action
         \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false, false, false);

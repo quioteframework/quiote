@@ -12,7 +12,7 @@ class SlotOutputTypeDispatchTest extends UnitTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $controller->initializeModule('Cache');
         // Force load of new multi-output view class via action execution once
         $controller->createActionInstance('Cache','Cache');

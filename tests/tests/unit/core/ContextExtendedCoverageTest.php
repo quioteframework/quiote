@@ -293,7 +293,7 @@ class ContextExtendedCoverageTest extends TestCase
         $routingProp = $ro->getProperty('routing');
 
         $routingProp->setValue($ctx, new TestRouting());
-        $routing = $ctx->getRouting();
+        $routing = $ctx->getContainer()->get(\Quiote\Routing\Routing::class);
         $this->assertInstanceOf(TestRouting::class, $routing);
         $name = $routing->addRoute('/extra', ['name' => 'extra', 'module' => 'Extra', 'action' => 'View']);
         $this->assertSame('extra', $name);

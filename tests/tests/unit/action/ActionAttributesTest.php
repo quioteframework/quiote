@@ -69,7 +69,7 @@ class ActionAttributesTest extends UnitTestCase
 			'read',
 			'html',
 			new WebRequest(),
-			$this->getContext()->getController()->getGlobalResponse()
+			$this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->getGlobalResponse()
 		);
 	}
 

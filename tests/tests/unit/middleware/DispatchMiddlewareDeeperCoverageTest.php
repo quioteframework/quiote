@@ -45,7 +45,7 @@ class DispatchMiddlewareDeeperCoverageTest extends TestCase
         $ctx = $this->ctx();
         $user = $ctx->getUser();
         if(method_exists($user,'setAuthenticated')) { $user->setAuthenticated(true); }
-        $mw = new DispatchMiddleware($ctx->getController());
+        $mw = new DispatchMiddleware($ctx->getContainer()->get(\Quiote\Controller\Controller::class));
         $desc = new ActionDescriptor('sample','SecureSimple','execute','html', true);
         $exec = new ExecutionState();
         $exec->validationDecision = ValidationDecision::passed();
@@ -61,7 +61,7 @@ class DispatchMiddlewareDeeperCoverageTest extends TestCase
     public function testForwardedPendingValidationSkips500(): void
     {
         $ctx = $this->ctx();
-        $mw = new DispatchMiddleware($ctx->getController());
+        $mw = new DispatchMiddleware($ctx->getContainer()->get(\Quiote\Controller\Controller::class));
         $desc = new ActionDescriptor('sample','SecureNonSimple','read','html', false);
         $exec = new ExecutionState();
         $exec->validationDecision = ValidationDecision::pending();

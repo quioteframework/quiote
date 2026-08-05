@@ -28,7 +28,7 @@ class RoutingMiddlewareTest extends TestCase
     private function controller(): \Quiote\Controller\Controller
     {
         $ctx = Context::getInstance('test');
-        return $ctx->getController();
+        return $ctx->getContainer()->get(\Quiote\Controller\Controller::class);
     }
 
     /**

@@ -27,7 +27,7 @@ class StatusOverrideFallbackAction extends Action
             throw new \RuntimeException('StatusOverrideFallbackAction requires an initialized Context.');
         }
 
-        $context->getController()->getGlobalResponse()->setHttpStatusCode(409);
+        $context->getContainer()->get(\Quiote\Controller\Controller::class)->getGlobalResponse()->setHttpStatusCode(409);
 
         return 'Success';
     }

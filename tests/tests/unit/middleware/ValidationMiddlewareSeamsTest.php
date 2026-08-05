@@ -15,7 +15,7 @@ class ValidationMiddlewareSeamsTest extends UnitTestCase
 {
     private function middleware(): ValidationMiddleware
     {
-        return new ValidationMiddleware($this->getContext()->getController());
+        return new ValidationMiddleware($this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class));
     }
 
     /** @param array<mixed> $args */
@@ -234,7 +234,7 @@ class ValidationMiddlewareSeamsTest extends UnitTestCase
     public function testFailureContentTypeUsesTheProblemMediaTypeForASynthesizedDocument(): void
     {
         $middleware = $this->middleware();
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
 
         $result = $this->invoke($middleware, 'failureContentType', [$controller, 'json', true]);
 
@@ -244,7 +244,7 @@ class ValidationMiddlewareSeamsTest extends UnitTestCase
     public function testFailureContentTypeHonoursAContentTypeTheViewSet(): void
     {
         $middleware = $this->middleware();
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $controller->getGlobalResponse()->setContentType('application/problem+json');
 
         try {
@@ -259,7 +259,7 @@ class ValidationMiddlewareSeamsTest extends UnitTestCase
     public function testFailureContentTypeFallsBackToTheOutputTypeMime(): void
     {
         $middleware = $this->middleware();
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $controller->getGlobalResponse()->setContentType('');
 
         $result = $this->invoke($middleware, 'failureContentType', [$controller, 'html', false]);

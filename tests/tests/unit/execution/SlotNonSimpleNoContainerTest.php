@@ -35,7 +35,7 @@ class SlotNonSimpleNoContainerTest extends UnitTestCase
     // Baseline: authenticated so credential removal path triggers secure (not login) forward
     if(method_exists($user,'setAuthenticated')) { $user->setAuthenticated(true); }
         // preload action class
-        $this->getContext()->getController()->createActionInstance('Cache','CacheComplex');
+        $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->createActionInstance('Cache','CacheComplex');
     }
     protected function tearDown(): void
     {

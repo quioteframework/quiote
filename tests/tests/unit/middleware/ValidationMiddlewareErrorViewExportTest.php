@@ -30,7 +30,7 @@ class ValidationMiddlewareErrorViewExportTest extends UnitTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->getContext()->getController()->initializeModule('Snapshot');
+        $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->initializeModule('Snapshot');
     }
 
     /**
@@ -58,7 +58,7 @@ class ValidationMiddlewareErrorViewExportTest extends UnitTestCase
 
     public function testHandleErrorExportedParameterReachesTheRenderedErrorView(): void
     {
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $actionDesc = new ActionDescriptor('Snapshot', 'ExportOnErrorAction', 'read', 'html', false);
 
         $request = (new ServerRequest('GET', '/snapshot/export-on-error'))
@@ -98,7 +98,7 @@ class ValidationMiddlewareErrorViewExportTest extends UnitTestCase
      */
     public function testHtmlErrorViewFallsBackToRenderLayersWhenExecuteReturnsNull(): void
     {
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $actionDesc = new ActionDescriptor('Snapshot', 'LayerFallbackAction', 'read', 'html', false);
 
         $request = (new ServerRequest('GET', '/snapshot/layer-fallback'))
@@ -140,7 +140,7 @@ class ValidationMiddlewareErrorViewExportTest extends UnitTestCase
      */
     public function testFailedFormRepopulatesSubmittedValueThatFailedOneOfSeveralValidators(): void
     {
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $actionDesc = new ActionDescriptor('Snapshot', 'FormRepopulationAction', 'write', 'html', false);
 
         $request = (new ServerRequest('POST', '/form-repopulation'))
@@ -182,7 +182,7 @@ class ValidationMiddlewareErrorViewExportTest extends UnitTestCase
      */
     public function testErrorViewCanRenderASlotEvenThoughSlotMiddlewareNeverRan(): void
     {
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $controller->initializeModule('Cache');
         $actionDesc = new ActionDescriptor('Snapshot', 'SlotInErrorViewAction', 'read', 'html', false);
 
@@ -227,7 +227,7 @@ class ValidationMiddlewareErrorViewExportTest extends UnitTestCase
      */
     public function testHandleErrorFallingBackToSuccessViewStillReturns400(): void
     {
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $actionDesc = new ActionDescriptor('Snapshot', 'SuccessFallbackAction', 'read', 'html', false);
 
         $request = (new ServerRequest('GET', '/snapshot/success-fallback'))
@@ -269,7 +269,7 @@ class ValidationMiddlewareErrorViewExportTest extends UnitTestCase
      */
     public function testHandleErrorCanExplicitlyOverrideStatusViaGlobalResponse(): void
     {
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $actionDesc = new ActionDescriptor('Snapshot', 'StatusOverrideFallbackAction', 'read', 'html', false);
 
         $request = (new ServerRequest('GET', '/snapshot/status-override-fallback'))

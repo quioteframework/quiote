@@ -39,7 +39,7 @@ final class ValidationFailureTest extends TestCase
     public function testValidationFailureInvokesHandleError(): void
     {
         $context = Quiote::context('web', true);
-        $controller = $context->getController();
+        $controller = $context->getContainer()->get(\Quiote\Controller\Controller::class);
     $module = 'Cache';
     $action = 'CacheComplex'; // has handleError implementation
     \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(true,false,false);
@@ -67,7 +67,7 @@ final class ValidationFailureTest extends TestCase
     public function testValidationFailureReturnsJsonWhenJsonNegotiated(): void
     {
         $context = Quiote::context('web', true);
-        $controller = $context->getController();
+        $controller = $context->getContainer()->get(\Quiote\Controller\Controller::class);
         $module = 'Cache';
         $action = 'CacheComplex';
         \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(true, false, false);

@@ -32,11 +32,11 @@ final class CsrfPlugin implements PluginInterface
     {
         $registrar->attributedMiddleware(
             CsrfInjectionMiddleware::class,
-            static fn(Context $context) => new CsrfInjectionMiddleware($context->getController()),
+            static fn(Context $context) => new CsrfInjectionMiddleware($context->getContainer()->get(\Quiote\Controller\Controller::class)),
         );
         $registrar->attributedMiddleware(
             CsrfValidationMiddleware::class,
-            static fn(Context $context) => new CsrfValidationMiddleware($context->getController()),
+            static fn(Context $context) => new CsrfValidationMiddleware($context->getContainer()->get(\Quiote\Controller\Controller::class)),
         );
     }
 }

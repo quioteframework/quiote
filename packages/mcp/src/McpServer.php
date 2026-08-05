@@ -177,7 +177,7 @@ final class McpServer
      */
     private function addActionTools(\Mcp\Server\Builder $builder, McpConfig $config): void
     {
-        $controller = Context::getInstance($this->contextName)->getController();
+        $controller = Context::getInstance($this->contextName)->getContainer()->get(\Quiote\Controller\Controller::class);
         $definitions = (new ActionToolScanner())->scan($controller, $config->moduleDirs ?: null);
 
         foreach ($definitions as $definition) {

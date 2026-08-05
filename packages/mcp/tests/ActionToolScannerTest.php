@@ -15,7 +15,7 @@ final class ActionToolScannerTest extends PhpUnitTestCase
 {
     public function testDiscoversAnActionCarryingBothRouteAndMcpTool(): void
     {
-        $controller = Context::getInstance('mcp-action-tool-test')->getController();
+        $controller = Context::getInstance('mcp-action-tool-test')->getContainer()->get(\Quiote\Controller\Controller::class);
         $definitions = (new ActionToolScanner())->scan($controller);
 
         $byName = [];
@@ -35,7 +35,7 @@ final class ActionToolScannerTest extends PhpUnitTestCase
     {
         // tests/sandbox/app/Modules/McpActionTool/Validate/Greet.xml declares a
         // StringValidator(min=2,max=50) on `name`, method-agnostic. GET -> read.
-        $controller = Context::getInstance('mcp-action-tool-test')->getController();
+        $controller = Context::getInstance('mcp-action-tool-test')->getContainer()->get(\Quiote\Controller\Controller::class);
         $definitions = (new ActionToolScanner())->scan($controller);
 
         $tool = null;
@@ -63,7 +63,7 @@ final class ActionToolScannerTest extends PhpUnitTestCase
         // MultiVerbAction declares methods: ['GET', 'POST']. Before the fix,
         // the tool bound to methods[0] unconditionally ('GET', the no-op
         // verb) -- see resolvePrimaryHttpMethod()'s docblock.
-        $controller = Context::getInstance('mcp-action-tool-test')->getController();
+        $controller = Context::getInstance('mcp-action-tool-test')->getContainer()->get(\Quiote\Controller\Controller::class);
         $definitions = (new ActionToolScanner())->scan($controller);
 
         $tool = null;
@@ -84,7 +84,7 @@ final class ActionToolScannerTest extends PhpUnitTestCase
         // registerWriteValidators() only -- no {module}/Validate/{action}.xml
         // file at all. Before the fix this always fell back to the
         // permissive `properties: {}` schema.
-        $controller = Context::getInstance('mcp-action-tool-test')->getController();
+        $controller = Context::getInstance('mcp-action-tool-test')->getContainer()->get(\Quiote\Controller\Controller::class);
         $definitions = (new ActionToolScanner())->scan($controller);
 
         $tool = null;
@@ -121,7 +121,7 @@ final class ActionToolScannerTest extends PhpUnitTestCase
         // lands in the exact same fluent-fallback ActionToolScanner already
         // uses for hand-written registerWriteValidators() -- no separate
         // schema-derivation code was needed for #[MapRequest].
-        $controller = Context::getInstance('mcp-action-tool-test')->getController();
+        $controller = Context::getInstance('mcp-action-tool-test')->getContainer()->get(\Quiote\Controller\Controller::class);
         $definitions = (new ActionToolScanner())->scan($controller);
 
         $tool = null;
@@ -150,7 +150,7 @@ final class ActionToolScannerTest extends PhpUnitTestCase
 
     public function testIgnoresRouteActionsWithoutMcpTool(): void
     {
-        $controller = Context::getInstance('mcp-action-tool-test')->getController();
+        $controller = Context::getInstance('mcp-action-tool-test')->getContainer()->get(\Quiote\Controller\Controller::class);
         $definitions = (new ActionToolScanner())->scan($controller);
 
         $routeNames = array_map(static fn($d) => $d->routeName, $definitions);
@@ -159,7 +159,7 @@ final class ActionToolScannerTest extends PhpUnitTestCase
 
     public function testReturnsEmptyForAModuleDirWithNoRoutedActionsAtAll(): void
     {
-        $controller = Context::getInstance('mcp-action-tool-test')->getController();
+        $controller = Context::getInstance('mcp-action-tool-test')->getContainer()->get(\Quiote\Controller\Controller::class);
         $definitions = (new ActionToolScanner())->scan($controller, [sys_get_temp_dir()]);
 
         $this->assertSame([], $definitions);

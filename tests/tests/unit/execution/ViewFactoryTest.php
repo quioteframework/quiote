@@ -12,13 +12,13 @@ class ViewFactoryTest extends UnitTestCase
 {
     private function makeFactory(): ViewFactory
     {
-        return new ViewFactory($this->getContext()->getController());
+        return new ViewFactory($this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class));
     }
 
     public function testCreateSimpleViewWithAttributesSnapshot(): void
     {
         // Use existing sandbox Cache/Cache action (simple) which returns Success view
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $descriptor = ActionDescriptor::fromController($controller,'Cache','Cache','GET','html');
     $req = (new ServerRequest('GET', '/'))->withQueryParams(['foo' => 'bar']);
         $execState = new ExecutionState();

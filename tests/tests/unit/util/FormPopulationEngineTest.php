@@ -331,7 +331,7 @@ class FormPopulationEngineTest extends UnitTestCase
 
 		$response = new WebResponse();
 		$response->initialize($context);
-		$response->setOutputType($context->getController()->getOutputType());
+		$response->setOutputType($context->getContainer()->get(\Quiote\Controller\Controller::class)->getOutputType());
 		$response->setContent($content);
 
 		$engine->populate($response, $request);

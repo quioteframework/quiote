@@ -25,7 +25,7 @@ class ValidationMiddlewareTest extends TestCase
     \Quiote\Config\Config::set('core.use_translation', false);
         $this->context = Context::getInstance('testing');
         // Force request/controller initialization for consistent sharing
-        $this->context->getController();
+        $this->context->getContainer()->get(\Quiote\Controller\Controller::class);
 
         // Start every test from a virgin request. The strict-validation
         // whitelist accumulates on the request object as validators declare
@@ -54,7 +54,7 @@ class ValidationMiddlewareTest extends TestCase
      */
     private function initializeAction(\Quiote\Action\Action $action, string $module, string $actionName, string $method, \Psr\Http\Message\ServerRequestInterface $request): void
     {
-        $controller = $this->context->getController();
+        $controller = $this->context->getContainer()->get(\Quiote\Controller\Controller::class);
         $action->initialize(new \Quiote\Execution\LightweightActionInitContext(
             $controller->getContext(),
             $module,
@@ -89,7 +89,7 @@ class ValidationMiddlewareTest extends TestCase
         };
         $this->initializeAction($action, 'Stub', 'Fail', 'read', $request);
         $request = $request->withAttribute('quiote.preinstantiated_action', $action);
-    $validation = new ValidationMiddleware($this->context->getController());
+    $validation = new ValidationMiddleware($this->context->getContainer()->get(\Quiote\Controller\Controller::class));
         $finalHandler = new class implements RequestHandlerInterface { public function handle(ServerRequestInterface $r): ResponseInterface { return new Psr7Response(200); } };
         $response = $validation->process($request, $finalHandler);
         $this->assertStringContainsString('error', strtolower((string)$response->getBody()));
@@ -115,7 +115,7 @@ class ValidationMiddlewareTest extends TestCase
             ->withAttribute('quiote.preinstantiated_action',$action)
             ->withAttribute('module','Stub')
             ->withAttribute('action','Pass');
-    $validation = new ValidationMiddleware($this->context->getController());
+    $validation = new ValidationMiddleware($this->context->getContainer()->get(\Quiote\Controller\Controller::class));
         $finalHandler = new class implements RequestHandlerInterface { public function handle(ServerRequestInterface $r): ResponseInterface { return new Psr7Response(204); } };
         $response = $validation->process($request, $finalHandler);
         // Since simple action returns immediately only validation middleware runs; ensure no validation error content produced.
@@ -143,7 +143,7 @@ class ValidationMiddlewareTest extends TestCase
             ->withAttribute('action','NoXml');
         $this->initializeAction($action, 'Stub', 'NoXml', 'read', $request);
         $request = $request->withAttribute('quiote.preinstantiated_action',$action);
-    $validation = new ValidationMiddleware($this->context->getController());
+    $validation = new ValidationMiddleware($this->context->getContainer()->get(\Quiote\Controller\Controller::class));
         $final = new class implements RequestHandlerInterface { public function handle(ServerRequestInterface $r): ResponseInterface { return new Psr7Response(204); } };
         $response = $validation->process($request, $final);
     $this->assertContains($response->getStatusCode(), [204,400], 'Expected pass-through or failure status when no XML present');
@@ -171,7 +171,7 @@ class ValidationMiddlewareTest extends TestCase
             ->withAttribute('action','FailRead');
         $this->initializeAction($action, 'Err', 'FailRead', 'read', $request);
         $request = $request->withAttribute('quiote.preinstantiated_action',$action);
-    $validation = new ValidationMiddleware($this->context->getController());
+    $validation = new ValidationMiddleware($this->context->getContainer()->get(\Quiote\Controller\Controller::class));
         $final = new class implements RequestHandlerInterface { public function handle(ServerRequestInterface $r): ResponseInterface { return new Psr7Response(200); } };
         $response = $validation->process($request, $final);
         $this->assertSame(400, $response->getStatusCode());
@@ -197,7 +197,7 @@ class ValidationMiddlewareTest extends TestCase
             ->withAttribute('action','FailGeneric');
         $this->initializeAction($action, 'Err2', 'FailGeneric', 'read', $request);
         $request = $request->withAttribute('quiote.preinstantiated_action',$action);
-    $validation = new ValidationMiddleware($this->context->getController());
+    $validation = new ValidationMiddleware($this->context->getContainer()->get(\Quiote\Controller\Controller::class));
         $final = new class implements RequestHandlerInterface { public function handle(ServerRequestInterface $r): ResponseInterface { return new Psr7Response(200); } };
         $response = $validation->process($request, $final);
         $this->assertSame(400, $response->getStatusCode());
@@ -221,7 +221,7 @@ class ValidationMiddlewareTest extends TestCase
             ->withAttribute('action','FailNone');
         $this->initializeAction($action, 'Err3', 'FailNone', 'read', $request);
         $request = $request->withAttribute('quiote.preinstantiated_action',$action);
-    $validation = new ValidationMiddleware($this->context->getController());
+    $validation = new ValidationMiddleware($this->context->getContainer()->get(\Quiote\Controller\Controller::class));
         $final = new class implements RequestHandlerInterface { public function handle(ServerRequestInterface $r): ResponseInterface { return new Psr7Response(200); } };
         $response = $validation->process($request, $final);
         $this->assertSame(400, $response->getStatusCode());
@@ -250,7 +250,7 @@ class ValidationMiddlewareTest extends TestCase
             ->withAttribute('action','Act');
         $this->initializeAction($action, 'Reuse', 'Act', 'read', $request1);
         $request1 = $request1->withAttribute('quiote.preinstantiated_action',$action);
-    $validation = new ValidationMiddleware($this->context->getController());
+    $validation = new ValidationMiddleware($this->context->getContainer()->get(\Quiote\Controller\Controller::class));
         $final = new class implements RequestHandlerInterface { public function handle(ServerRequestInterface $r): ResponseInterface { return new Psr7Response(204); } };
     $validation->process($request1, $final);
     $initialCalls = $action::$validateCalls;
@@ -292,7 +292,7 @@ class ValidationMiddlewareTest extends TestCase
             ->withAttribute('quiote.preinstantiated_action',$action)
             ->withAttribute('module','Routes')
             ->withAttribute('action','Show');
-    $validation = new ValidationMiddleware($this->context->getController());
+    $validation = new ValidationMiddleware($this->context->getContainer()->get(\Quiote\Controller\Controller::class));
         $final = new class implements RequestHandlerInterface { public function handle(ServerRequestInterface $r): ResponseInterface { return new Psr7Response(204); } };
         $validation->process($request, $final);
         $ctxReq = $this->context->getRequest();
@@ -324,7 +324,7 @@ class ValidationMiddlewareTest extends TestCase
             ->withAttribute('quiote.preinstantiated_action',$action)
             ->withAttribute('module','Default')
             ->withAttribute('action','Index');
-    $validation = new ValidationMiddleware($this->context->getController());
+    $validation = new ValidationMiddleware($this->context->getContainer()->get(\Quiote\Controller\Controller::class));
         $final = new class implements RequestHandlerInterface { public function handle(ServerRequestInterface $r): ResponseInterface { return new Psr7Response(204); } };
         $validation->process($request, $final);
         $ctxReq = $this->context->getRequest();
@@ -342,7 +342,7 @@ class ValidationMiddlewareTest extends TestCase
         \Quiote\Config\Config::fromArray([
             'modules.inputtest.enabled' => true,
         ]);
-        $controller = $this->context->getController();
+        $controller = $this->context->getContainer()->get(\Quiote\Controller\Controller::class);
         $actionDesc = new \Quiote\Execution\ActionDescriptor('InputTest', 'Submit', 'write', 'html', false);
         $action = new class extends \Quiote\Action\Action {
             public ?string $capturedName = null;
@@ -411,7 +411,7 @@ class ValidationMiddlewareTest extends TestCase
         \Quiote\Config\Config::fromArray([
             'modules.inputtest2.enabled' => true,
         ]);
-        $controller = $this->context->getController();
+        $controller = $this->context->getContainer()->get(\Quiote\Controller\Controller::class);
         $actionDesc = new \Quiote\Execution\ActionDescriptor('InputTest2', 'Submit', 'write', 'html', false);
         $action = new class extends \Quiote\Action\Action {
             public function getDefaultViewName() { return 'Input'; }
@@ -487,7 +487,7 @@ class ValidationMiddlewareTest extends TestCase
             ->withAttribute('action','Boom');
         $this->initializeAction($action, 'Exc', 'Boom', 'read', $request);
         $request = $request->withAttribute('quiote.preinstantiated_action',$action);
-    $validation = new ValidationMiddleware($this->context->getController());
+    $validation = new ValidationMiddleware($this->context->getContainer()->get(\Quiote\Controller\Controller::class));
         $final = new class implements RequestHandlerInterface { public function handle(ServerRequestInterface $r): ResponseInterface { return new Psr7Response(200); } };
         $response = $validation->process($request, $final);
         $this->assertSame(400, $response->getStatusCode());
@@ -506,7 +506,7 @@ class ValidationMiddlewareTest extends TestCase
         \Quiote\Config\Config::fromArray([
             'modules.routeparamgap.enabled' => true,
         ]);
-        $controller = $this->context->getController();
+        $controller = $this->context->getContainer()->get(\Quiote\Controller\Controller::class);
         $actionDesc = new \Quiote\Execution\ActionDescriptor('RouteParamGap', 'Show', 'write', 'html', false);
         $action = new class extends \Quiote\Action\Action {
             public ?string $capturedName = null;
@@ -589,7 +589,7 @@ class ValidationMiddlewareTest extends TestCase
         \Quiote\Config\Config::fromArray([
             'modules.routeparamok.enabled' => true,
         ]);
-        $controller = $this->context->getController();
+        $controller = $this->context->getContainer()->get(\Quiote\Controller\Controller::class);
         $actionDesc = new \Quiote\Execution\ActionDescriptor('RouteParamOk', 'Show', 'write', 'html', false);
         $action = new class extends \Quiote\Action\Action {
             public ?string $capturedId = null;

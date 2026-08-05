@@ -17,14 +17,14 @@ class SlotDispatcherTest extends UnitTestCase
     $this->previousCacheDir = \Quiote\Config\Config::getNullableString('core.cache_dir');
     Config::set('core.cache_dir', sys_get_temp_dir() . '/quiote_cache_test');
     $dir = Config::getString('core.cache_dir'); if(!is_dir($dir)) { @mkdir($dir, 0775, true); }
-        $this->getContext()->getController()->initializeModule('Cache');
+        $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->initializeModule('Cache');
     // Force action class load for tests (autoload bridging still in transition)
-    $this->getContext()->getController()->createActionInstance('Cache','Cache');
+    $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->createActionInstance('Cache','Cache');
     }
 
     public function testSimpleSlotDispatch(): void
     {
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
     // Ensure module initialization loads the action class
     $controller->initializeModule('Cache');
         $dispatcher = new SlotDispatcher($controller);
@@ -46,7 +46,7 @@ class SlotDispatcherTest extends UnitTestCase
      */
     public function testSimpleActionSlotDispatchNeverRunsExecute(): void
     {
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $controller->initializeModule('Snapshot');
         $dispatcher = new SlotDispatcher($controller);
         $req = (new ServerRequest('GET', 'http://localhost/'))
@@ -59,7 +59,7 @@ class SlotDispatcherTest extends UnitTestCase
 
     public function testRecursionLimit(): void
     {
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $dispatcher = new SlotDispatcher($controller);
         $stack = new SlotStack();
         // Pre-populate stack to simulate deep recursive chain

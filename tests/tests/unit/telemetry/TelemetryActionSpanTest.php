@@ -37,7 +37,7 @@ class TelemetryActionSpanTest extends UnitTestCase
         CacheManager::reset();
         putenv('QUIOTE_DISPATCH_CONTEXT=1');
         putenv('QUIOTE_DISPATCH_CONTEXT_SIMPLE=1');
-        $this->getContext()->getController()->initializeModule('Cache');
+        $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->initializeModule('Cache');
         TelemetryBootstrap::reset();
     }
 
@@ -70,7 +70,7 @@ class TelemetryActionSpanTest extends UnitTestCase
 
     private function buildPsr(): \Psr\Http\Message\ServerRequestInterface
     {
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $descriptor = ActionDescriptor::fromController($controller, 'Cache', 'Cache', 'GET', 'html');
         return (new ServerRequest('GET', 'http://localhost/cache'))
             ->withAttribute('module', 'Cache')
@@ -81,7 +81,7 @@ class TelemetryActionSpanTest extends UnitTestCase
 
     private function dispatchCacheAction(): void
     {
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $controller->createActionInstance('Cache', 'Cache');
         $mw = new DispatchMiddleware($controller);
         $state = new ExecutionState();
@@ -173,7 +173,7 @@ class TelemetryActionSpanTest extends UnitTestCase
     public function testExceptionDuringActionIsRecordedOnTheActionSpanAndRethrown(): void
     {
         $this->enable();
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $descriptor = ActionDescriptor::fromController($controller, 'Cache', 'Cache', 'GET', 'html');
 
         $throwingAction = new class extends \Sandbox\Modules\Cache\Actions\CacheAction {

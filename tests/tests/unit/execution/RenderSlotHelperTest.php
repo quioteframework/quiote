@@ -10,14 +10,14 @@ class RenderSlotHelperTest extends UnitTestCase
         parent::setUp();
     // Enable simple no-container slot execution path
     putenv('QUIOTE_SLOT_SIMPLE_NO_CONTAINER=1');
-        $this->getContext()->getController()->initializeModule('Cache');
-        $this->getContext()->getController()->createActionInstance('Cache','Cache');
+        $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->initializeModule('Cache');
+        $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->createActionInstance('Cache','Cache');
     }
 
     private function makeView(): View
     {
     $view = new class extends View { public function execute(WebRequest $request): mixed { return null; } };
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
     $descriptor = new \Quiote\Execution\ActionDescriptor('Cache','Cache','GET', strtolower($controller->getOutputType()->getName()), true);
         $view = new class extends View { public function execute(WebRequest $request): mixed { return null; } };
         $vic = new \Quiote\Execution\ImmutableViewInitContext($this->getContext(), 'Cache','CacheSuccess', strtolower($controller->getOutputType()->getName()), 'Cache','Cache', [], $controller->getGlobalResponse());

@@ -22,11 +22,9 @@ class DispatchMiddlewareTest extends TestCase
         foreach(['outputTypes'=>'outputTypes','defaultOutputType'=>'defaultOutputType','configuredDefaultOutputType'=>'configuredDefaultOutputType'] as $prop=>$name){
             if($ref->hasProperty($prop)) { $p=$ref->getProperty($prop); /*  */ if($prop==='outputTypes'){ $p->setValue($controller, ['html'=>$ot]); } else { $p->setValue($controller, 'html'); } }
         }
-        // Ensure context->getController() returns controller for downstream resolver usage
-        $ctx = $controller->getContext();
-        if($ctx instanceof PHPUnit\Framework\MockObject\MockObject) {
-            $ctx->method('getController')->willReturn($controller);
-        }
+        // The controller and routing are reached through the container now, so the stub context's
+        // container is what carries them for downstream resolver usage.
+        $controller->getContext()->getContainer()->set(\Quiote\Controller\Controller::class, $controller);
     }
     /**
      * @param array<string, array{value: mixed, lifetime: int|string|null, path: string|null, domain: string|null, secure: bool, httponly: bool, encode_callback: (callable(): mixed)|false, samesite: string|null}> $cookies
@@ -36,9 +34,11 @@ class DispatchMiddlewareTest extends TestCase
         $ctx = $this->createStub(\Quiote\Context::class);
         $webReq = new \Quiote\Request\WebRequest();
         $ctx->method('getRequest')->willReturn($webReq);
-        // Provide routing/basePath stub for cookie path logic
-        $routing = new class { public function getBasePath(): string { return '/'; } };
-        $ctx->method('getRouting')->willReturn($routing);
+        // Routing comes from the container now. A real Routing subclass rather than an anonymous
+        // look-alike, because the container refuses a binding that is not an instance of the id.
+        $container = new \Quiote\DI\Container();
+        $container->set(\Quiote\Routing\Routing::class, new DispatchMiddlewareTestRouting());
+        $ctx->method('getContainer')->willReturn($container);
         // Minimal concrete response implementing abstract contract
         $globalResp = new class($cookies) extends \Quiote\Response\WebResponse {
             private bool $hasRedirect = false;
@@ -459,5 +459,24 @@ class DispatchMiddlewareTest extends TestCase
         $this->assertSame('CONTENT', (string)$resp->getBody());
         $this->assertTrue($es->validationDecision->isPassed());
         $this->assertSame(SecurityDecision::Allow, $es->securityDecision);
+    }
+}
+
+/**
+ * Routing is abstract and the container type-checks its bindings, so the cookie-path logic gets a real
+ * subclass rather than an anonymous object that merely has getBasePath().
+ */
+final class DispatchMiddlewareTestRouting extends \Quiote\Routing\Routing
+{
+    #[\Override]
+    protected function build(): array
+    {
+        return [new \Symfony\Component\Routing\RouteCollection(), []];
+    }
+
+    #[\Override]
+    public function getBasePath(): string
+    {
+        return '/';
     }
 }

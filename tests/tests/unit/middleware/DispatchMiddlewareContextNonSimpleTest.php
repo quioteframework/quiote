@@ -39,7 +39,7 @@ class DispatchMiddlewareContextNonSimpleTest extends UnitTestCase
         putenv('QUIOTE_DISPATCH_CONTEXT=1');
         putenv('QUIOTE_DISPATCH_CONTEXT_NONSIMPLE=1');
         // Preload module + action class
-    $this->getContext()->getController()->createActionInstance('Cache','CacheComplex'); // namespaced Sandbox\Modules\Cache\Actions\CacheComplexAction
+    $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->createActionInstance('Cache','CacheComplex'); // namespaced Sandbox\Modules\Cache\Actions\CacheComplexAction
         // Ensure user baseline state
         $user = $this->getContext()->getUser();
         if(method_exists($user,'setAuthenticated')) { $user->setAuthenticated(true); }
@@ -64,7 +64,7 @@ class DispatchMiddlewareContextNonSimpleTest extends UnitTestCase
      */
     private function buildPsr(array $query = []): \Psr\Http\Message\ServerRequestInterface
     {
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $descriptor = ActionDescriptor::fromController($controller,'Cache','CacheComplex','GET','html');
         $req = (new ServerRequest('GET', 'http://localhost/cache/complex'))->withQueryParams($query);
         return $req
@@ -76,7 +76,7 @@ class DispatchMiddlewareContextNonSimpleTest extends UnitTestCase
 
     private function runMw(\Psr\Http\Message\ServerRequestInterface $psr, ExecutionState $state): string
     {
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $security = new \Quiote\Middleware\SecurityMiddleware($controller);
         $dispatch = new DispatchMiddleware($controller);
         $handler = new readonly class($dispatch) implements \Psr\Http\Server\RequestHandlerInterface {

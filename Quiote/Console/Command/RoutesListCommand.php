@@ -61,7 +61,7 @@ final class RoutesListCommand extends AbstractAppCommand
 
 		$context = self::stringOption($input->getOption('context'), Config::getString('core.default_context', 'web'));
 		try {
-			$routing = Context::getInstance($context)->getRouting();
+			$routing = Context::getInstance($context)->getContainer()->get(\Quiote\Routing\Routing::class);
 		} catch (\Throwable $e) {
 			$io->error(sprintf('Could not resolve the routing service for context "%s": %s', $context, $e->getMessage()));
 			return self::FAILURE;

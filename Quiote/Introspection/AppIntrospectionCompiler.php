@@ -72,12 +72,12 @@ final class AppIntrospectionCompiler
 
 		$entries = (new ModuleActionDiscovery())->discover($moduleDirs, $namespacePrefix);
 		$this->initializeModules($context, $entries);
-		$scannerController = Context::getInstance($context)->getController();
+		$scannerController = Context::getInstance($context)->getContainer()->get(\Quiote\Controller\Controller::class);
 		foreach ((new TriadDiagnosticsScanner($this->views, $scannerController))->scan($entries) as $diagnostic) {
 			$diagnostics[] = $diagnostic;
 		}
 
-		$routing = Context::getInstance($context)->getRouting();
+		$routing = Context::getInstance($context)->getContainer()->get(\Quiote\Routing\Routing::class);
 		$attributeRoutesByKey = $this->indexAttributeRoutes($plan->routes);
 
 		$routes = [];
@@ -138,7 +138,7 @@ final class AppIntrospectionCompiler
 	 */
 	private function initializeModules(string $context, array $entries): void
 	{
-		$controller = Context::getInstance($context)->getController();
+		$controller = Context::getInstance($context)->getContainer()->get(\Quiote\Controller\Controller::class);
 		$modules = [];
 		foreach ($entries as $entry) {
 			$modules[$entry->module] = true;

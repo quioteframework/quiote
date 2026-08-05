@@ -14,7 +14,7 @@ class SlotNonSimpleParityTest extends UnitTestCase
     {
         parent::setUp();
         // Preload action class to ensure legacy naming alias is registered
-        $this->getContext()->getController()->createActionInstance('Cache','CacheComplex');
+        $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->createActionInstance('Cache','CacheComplex');
         // Reset context request to avoid state pollution from prior tests
         $fresh = new \Quiote\Request\WebRequest();
         $fresh->initialize($this->getContext());

@@ -65,7 +65,7 @@ class DispatchMiddlewareSseTest extends UnitTestCase
 
     public function testNonSimpleActionStreamsInsteadOfRenderingAView(): void
     {
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $controller->initializeModule('Cache');
         $descriptor = ActionDescriptor::fromController($controller, 'Cache', 'Cache', 'GET', 'html');
         $this->assertFalse($descriptor->isSimple, 'Precondition: Cache:Cache is expected to be a non-simple action');
@@ -89,7 +89,7 @@ class DispatchMiddlewareSseTest extends UnitTestCase
 
     public function testSimpleActionStreamsInsteadOfRenderingAView(): void
     {
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $descriptor = ActionDescriptor::fromController($controller, 'ControllerTests', 'SimpleAction', 'GET', 'html');
         $this->assertTrue($descriptor->isSimple, 'Precondition: ControllerTests:SimpleAction is expected to be a simple action');
 

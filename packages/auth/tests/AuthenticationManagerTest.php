@@ -100,7 +100,7 @@ class AuthenticationManagerTest extends UnitTestCase
 
 	public function testAuthenticateReturnsNullWhenNoAuthenticatorSupportsTheRequest(): void
 	{
-		$manager = new AuthenticationManager($this->getContext()->getController());
+		$manager = new AuthenticationManager($this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class));
 		$firewall = new Firewall('main', '^/', [new NeverSupportsAuthenticator()], new LoginRedirectEntryPoint());
 
 		$this->assertNull($manager->authenticate($this->request(), $firewall));
@@ -112,7 +112,7 @@ class AuthenticationManagerTest extends UnitTestCase
 		$identity = new InMemoryUserIdentity('alice', 'hash', ['user']);
 		$passport = new Passport($identity, ['user'], stateless: false);
 		$authenticator = new AlwaysSupportsAuthenticator($passport);
-		$manager = new AuthenticationManager($this->getContext()->getController());
+		$manager = new AuthenticationManager($this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class));
 		$firewall = new Firewall('main', '^/', [$authenticator], new LoginRedirectEntryPoint());
 
 		$result = $manager->authenticate($this->request(), $firewall);
@@ -129,7 +129,7 @@ class AuthenticationManagerTest extends UnitTestCase
 		$identity = new InMemoryUserIdentity('service', 'hash', ['api']);
 		$passport = new Passport($identity, ['api'], stateless: true);
 		$authenticator = new AlwaysSupportsAuthenticator($passport);
-		$manager = new AuthenticationManager($this->getContext()->getController());
+		$manager = new AuthenticationManager($this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class));
 		$firewall = new Firewall('api', '^/api/', [$authenticator], new HttpChallengeEntryPoint(), stateless: true);
 
 		$manager->authenticate($this->request(), $firewall);
@@ -140,7 +140,7 @@ class AuthenticationManagerTest extends UnitTestCase
 	public function testAuthenticatePropagatesTheAuthenticationExceptionOnFailure(): void
 	{
 		$authenticator = new FailingAuthenticator(new AuthenticationException('bad credentials'));
-		$manager = new AuthenticationManager($this->getContext()->getController());
+		$manager = new AuthenticationManager($this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class));
 		$firewall = new Firewall('main', '^/', [$authenticator], new LoginRedirectEntryPoint());
 
 		try {

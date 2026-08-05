@@ -119,7 +119,7 @@ class CsrfExemptionAdversaryTest extends UnitTestCase
     private function middleware(): array
     {
         return [
-            new CsrfValidationMiddleware($this->getContext()->getController()),
+            new CsrfValidationMiddleware($this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)),
             new CsrfAdversaryHandler(),
         ];
     }

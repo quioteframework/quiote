@@ -94,7 +94,7 @@ final class ModelLocator implements ResetInterface
     private function initializeModule(string $moduleName): void
     {
         try {
-            $this->context->getController()->initializeModule($moduleName);
+            $this->context->getContainer()->get(\Quiote\Controller\Controller::class)->initializeModule($moduleName);
         } catch (DisabledModuleException $e) {
             Log::for($this)->debug(
                 '[ModelLocator] module "' . $moduleName . '" is disabled; its autoload is '

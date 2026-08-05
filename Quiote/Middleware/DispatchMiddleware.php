@@ -291,7 +291,7 @@ class DispatchMiddleware implements MiddlewareInterface
                         $rq = $quioteCtx->getRequest();
                         $location = $rq->getUrlScheme() . '://' . $rq->getUrlAuthority() . $location;
                     } else {
-                        $location = $quioteCtx->getRouting()->getBaseHref() . $location;
+                        $location = $quioteCtx->getContainer()->get(\Quiote\Routing\Routing::class)->getBaseHref() . $location;
                     }
                 }
                 if (\Quiote\Logging\Log::for($this)->isEnabled(\Quiote\Logging\Level::Debug)) {
@@ -308,7 +308,7 @@ class DispatchMiddleware implements MiddlewareInterface
         // Bridge any cookies scheduled on the legacy Quiote WebResponse into PSR response headers
         if (is_object($globalResp)) {
             try {
-                $routing = $this->controller->getContext()->getRouting();
+                $routing = $this->controller->getContext()->getContainer()->get(\Quiote\Routing\Routing::class);
                 $basePath = $routing->getBasePath();
                 $resp = \Quiote\Http\CookieSerializer::bridge($globalResp, $resp, $basePath);
             } catch (\Throwable $e) {

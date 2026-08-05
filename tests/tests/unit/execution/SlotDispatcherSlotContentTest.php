@@ -9,7 +9,7 @@ class SlotDispatcherSlotContentTest extends UnitTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $controller->initializeModule('Cache');
         $controller->createActionInstance('Cache','Cache');
     if(class_exists(\Sandbox\Modules\Cache\Actions\CacheAction::class)) { \Sandbox\Modules\Cache\Actions\CacheAction::$execCount = 0; }

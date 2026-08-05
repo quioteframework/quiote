@@ -24,7 +24,7 @@ final class TriadDiagnosticsScannerTest extends PhpUnitTestCase
 	protected function setUp(): void
 	{
 		parent::setUp();
-		Context::getInstance('web')->getController()->initializeModule('Widget');
+		Context::getInstance('web')->getContainer()->get(\Quiote\Controller\Controller::class)->initializeModule('Widget');
 		Config::set('modules.widget.quiote.template.directory', self::FIXTURE_MODULES . '/Widget/Templates');
 
 		// The fixture module lives outside core.module_dir, so neither
@@ -145,7 +145,7 @@ final class TriadDiagnosticsScannerTest extends PhpUnitTestCase
 
 	public function testResolvesTemplateExtensionsViaAnExplicitController(): void
 	{
-		$controller = Context::getInstance('web')->getController();
+		$controller = Context::getInstance('web')->getContainer()->get(\Quiote\Controller\Controller::class);
 
 		$this->assertNull($this->findFor($this->scan($controller), 'Widget.Good'));
 

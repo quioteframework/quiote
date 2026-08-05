@@ -41,7 +41,7 @@ final class ActionToolAdapter implements ToolHandlerInterface
     public function execute(array $arguments, ClientGateway $gateway): mixed
     {
         $context = Context::getInstance($this->contextName);
-        $routing = $context->getRouting();
+        $routing = $context->getContainer()->get(\Quiote\Routing\Routing::class);
 
         $route = $routing->getRouteCollection()->get($this->routeName);
         if ($route === null) {

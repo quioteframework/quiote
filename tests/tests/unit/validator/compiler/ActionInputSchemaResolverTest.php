@@ -17,7 +17,7 @@ final class ActionInputSchemaResolverTest extends PhpUnitTestCase
 {
     private function controller(): Controller
     {
-        return Context::getInstance('mcp-action-tool-test')->getController();
+        return Context::getInstance('mcp-action-tool-test')->getContainer()->get(\Quiote\Controller\Controller::class);
     }
 
     /**

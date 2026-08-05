@@ -26,7 +26,7 @@ final class OpenApiGeneratorTest extends PhpUnitTestCase
 
     private function controller(): Controller
     {
-        return Context::getInstance(self::CONTEXT)->getController();
+        return Context::getInstance(self::CONTEXT)->getContainer()->get(\Quiote\Controller\Controller::class);
     }
 
     /**
@@ -461,8 +461,8 @@ final class OpenApiGeneratorTest extends PhpUnitTestCase
         // service -> RouteCollectionIntrospector -> generator, with no
         // hand-built RouteDefinition anywhere.
         $context = Context::getInstance(self::CONTEXT);
-        $routes = (new RouteCollectionIntrospector())->toDefinitions($context->getRouting()->getRouteCollection());
-        $document = (new OpenApiGenerator())->generate($routes, $context->getController(), new OpenApiOptions(title: 'Sandbox'));
+        $routes = (new RouteCollectionIntrospector())->toDefinitions($context->getContainer()->get(\Quiote\Routing\Routing::class)->getRouteCollection());
+        $document = (new OpenApiGenerator())->generate($routes, $context->getContainer()->get(\Quiote\Controller\Controller::class), new OpenApiOptions(title: 'Sandbox'));
 
         $this->assertContains('/mcp-action-tool-test/greet/{name}', $this->pathNames($document));
         $this->assertSame(

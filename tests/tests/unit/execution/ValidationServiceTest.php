@@ -114,7 +114,7 @@ class ValidationServiceTest extends UnitTestCase
             'write',
             'html',
             $req,
-            $ctx->getController()->getGlobalResponse()
+            $ctx->getContainer()->get(\Quiote\Controller\Controller::class)->getGlobalResponse()
         );
         // register{Method}Validators() runs inside xmlOnlyValidate() itself (after the
         // manager is cleared), so the failing validator must be created from within it

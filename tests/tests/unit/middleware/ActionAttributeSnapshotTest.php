@@ -22,14 +22,14 @@ class ActionAttributeSnapshotTest extends UnitTestCase
         if(!is_dir($tmpCache)) { @mkdir($tmpCache, 0777, true); }
         $this->previousCacheDir = \Quiote\Config\Config::getNullableString('core.cache_dir');
         \Quiote\Config\Config::set('core.cache_dir', $tmpCache);
-        $this->getContext()->getController()->initializeModule('Snapshot');
+        $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->initializeModule('Snapshot');
     SnapshotAction::$initialAttributes = [];
     SnapshotAction::$postMutationAttributes = [];
     }
 
     private function req(): \Psr\Http\Message\ServerRequestInterface
     {
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $descriptor = ActionDescriptor::fromController($controller,'Snapshot','SnapshotAction','GET','html');
         // SnapshotAction is not isSimple() (it exercises a real execute() call),
         // so DispatchMiddleware requires a validation decision -- normally set
@@ -47,7 +47,7 @@ class ActionAttributeSnapshotTest extends UnitTestCase
 
     public function testSnapshotImmutable(): void
     {
-        $mw = new DispatchMiddleware($this->getContext()->getController());
+        $mw = new DispatchMiddleware($this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class));
         $handler = new class(new Psr17Factory) implements \Psr\Http\Server\RequestHandlerInterface { public function __construct(private Psr17Factory $f){} public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface { return $this->f->createResponse(200);} };
         $resp = $mw->process($this->req(), $handler);
         $this->assertSame('SNAPSHOT_OK', (string)$resp->getBody());

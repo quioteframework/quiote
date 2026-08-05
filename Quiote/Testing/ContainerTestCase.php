@@ -55,7 +55,7 @@ abstract class ContainerTestCase extends FragmentTestCase
 			}
 		}
 		// Response simulation: create an empty response equivalent.
-		$this->response = $context->getController()->getGlobalResponse();
+		$this->response = $context->getContainer()->get(\Quiote\Controller\Controller::class)->getGlobalResponse();
 	}
 
 	// Tag-based response assertions removed (legacy DOM matcher). Modern tests should inspect

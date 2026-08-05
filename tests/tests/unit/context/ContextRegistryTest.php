@@ -23,7 +23,7 @@ class ContextRegistryTest extends PhpUnitTestCase
 		$this->assertSame($first, $second);
 		$this->assertSame('registry_a', $first->getName());
 		// Reaching a component proves initialize() ran; an uninitialized context throws here.
-		$this->assertInstanceOf(\Quiote\Controller\Controller::class, $first->getController());
+		$this->assertInstanceOf(\Quiote\Controller\Controller::class, $first->getContainer()->get(\Quiote\Controller\Controller::class));
 	}
 
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]

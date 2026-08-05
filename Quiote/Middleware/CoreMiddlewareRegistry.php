@@ -78,8 +78,8 @@ final class CoreMiddlewareRegistry
      */
     public static function factories(Context $context): array
     {
-        $controller = $context->getController();
-        $routing = $context->getRouting();
+        $controller = $context->getContainer()->get(\Quiote\Controller\Controller::class);
+        $routing = $context->getContainer()->get(\Quiote\Routing\Routing::class);
 
         $factories = [
             ErrorHandlingMiddleware::class => static fn(): ErrorHandlingMiddleware => new ErrorHandlingMiddleware(

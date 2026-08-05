@@ -9,7 +9,7 @@ use Symfony\Component\Console\Tester\CommandTester;
  * sandbox app's "web" context routing (SandboxRouting) is file-based
  * (generated from routing.xml), not attribute-based -- this deliberately
  * proves routes:list reads the app's actual configured Routing service
- * (Context::getInstance($context)->getRouting()) rather than only scanning
+ * (Context::getInstance($context)->getContainer()->get(\Quiote\Routing\Routing::class)) rather than only scanning
  * #[Route] attributes.
  */
 final class RoutesListCommandTest extends PhpUnitTestCase

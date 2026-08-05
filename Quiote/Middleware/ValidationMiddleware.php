@@ -490,7 +490,7 @@ class ValidationMiddleware implements MiddlewareInterface
         if ($actionContext === null) {
             throw new \RuntimeException('Action must be initialized before an error view can be created.');
         }
-        $controller = $actionContext->getController();
+        $controller = $actionContext->getContainer()->get(\Quiote\Controller\Controller::class);
         $validationManager = $this->validationService->getValidationManager();
 
         // Render in the negotiated output type dispatch would have used, not the

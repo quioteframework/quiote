@@ -54,7 +54,7 @@ class TelemetryRoutingSpanTest extends TestCase
 
     private function controller(): \Quiote\Controller\Controller
     {
-        return Context::getInstance('test')->getController();
+        return Context::getInstance('test')->getContainer()->get(\Quiote\Controller\Controller::class);
     }
 
     /**

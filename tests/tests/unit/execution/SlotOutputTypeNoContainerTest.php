@@ -16,7 +16,7 @@ class SlotOutputTypeNoContainerTest extends UnitTestCase
         // Enable experimental no-container path
         putenv('QUIOTE_SLOT_SIMPLE_NO_CONTAINER=1');
         // Warm action class (ensures autoload)
-        $this->getContext()->getController()->createActionInstance('Cache','Cache');
+        $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->createActionInstance('Cache','Cache');
     }
 
     protected function tearDown(): void

@@ -11,7 +11,7 @@ class LegacyValidationServiceIntegrationTest extends UnitTestCase
     public function testSuccessPath(): void
     {
         \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false, false, false);
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $action = $controller->createActionInstance('Cache', 'CacheComplex');
         $descriptor = \Quiote\Execution\ActionDescriptor::fromController($controller, 'Cache', 'CacheComplex', 'GET', strtolower($controller->getOutputType()->getName()));
         $initRequest = new WebRequest();
@@ -31,7 +31,7 @@ class LegacyValidationServiceIntegrationTest extends UnitTestCase
     }
     public function testFailurePath(): void
     {
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $action = $controller->createActionInstance('Cache', 'CacheComplex');
         $descriptor = \Quiote\Execution\ActionDescriptor::fromController($controller, 'Cache', 'CacheComplex', 'GET', strtolower($controller->getOutputType()->getName()));
         $initRequest = new WebRequest();

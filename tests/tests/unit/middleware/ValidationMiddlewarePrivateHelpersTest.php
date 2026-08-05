@@ -49,7 +49,7 @@ class ValidationMiddlewarePrivateHelpersTest extends TestCase
 
     public function testResolveErrorOutputTypePrefersActionDescriptorOutputType(): void
     {
-        $middleware = new ValidationMiddleware(Context::getInstance('testing')->getController());
+        $middleware = new ValidationMiddleware(Context::getInstance('testing')->getContainer()->get(\Quiote\Controller\Controller::class));
         $descriptor = new ActionDescriptor('Stub', 'Fail', 'read', 'JSON', false);
         $request = (new ServerRequest('GET', '/stub/fail'))
             ->withAttribute(ActionDescriptor::class, $descriptor);
@@ -61,7 +61,7 @@ class ValidationMiddlewarePrivateHelpersTest extends TestCase
 
     public function testResolveErrorOutputTypeFallsBackToOutputTypeAttribute(): void
     {
-        $middleware = new ValidationMiddleware(Context::getInstance('testing')->getController());
+        $middleware = new ValidationMiddleware(Context::getInstance('testing')->getContainer()->get(\Quiote\Controller\Controller::class));
         $request = (new ServerRequest('GET', '/stub/fail'))
             ->withAttribute('output_type', 'XML');
 
@@ -72,10 +72,10 @@ class ValidationMiddlewarePrivateHelpersTest extends TestCase
 
     public function testResolveErrorOutputTypeFallsBackToControllerWhenNoAttributes(): void
     {
-        $middleware = new ValidationMiddleware(Context::getInstance('testing')->getController());
+        $middleware = new ValidationMiddleware(Context::getInstance('testing')->getContainer()->get(\Quiote\Controller\Controller::class));
         $request = new ServerRequest('GET', '/stub/fail');
 
-        $controller = Context::getInstance('testing')->getController();
+        $controller = Context::getInstance('testing')->getContainer()->get(\Quiote\Controller\Controller::class);
         $result = $this->invokePrivate($middleware, 'resolveErrorOutputType', [$request, $controller]);
 
         $this->assertIsString($result);
@@ -84,7 +84,7 @@ class ValidationMiddlewarePrivateHelpersTest extends TestCase
 
     public function testResolveErrorOutputTypeDefaultsToHtmlWhenControllerThrows(): void
     {
-        $middleware = new ValidationMiddleware(Context::getInstance('testing')->getController());
+        $middleware = new ValidationMiddleware(Context::getInstance('testing')->getContainer()->get(\Quiote\Controller\Controller::class));
         $request = new ServerRequest('GET', '/stub/fail');
         $brokenController = new class {
             public function getOutputType(): never
@@ -100,7 +100,7 @@ class ValidationMiddlewarePrivateHelpersTest extends TestCase
 
     public function testBuildValidationProblemDetailsUsesFallbackMessagesWhenNoIncidents(): void
     {
-        $middleware = new ValidationMiddleware(Context::getInstance('testing')->getController());
+        $middleware = new ValidationMiddleware(Context::getInstance('testing')->getContainer()->get(\Quiote\Controller\Controller::class));
         $request = new ServerRequest('GET', '/orders/offers/new');
 
         $decoded = $this->invokePrivateAndDecodeJson($middleware, 'buildValidationProblemDetails', [
@@ -121,7 +121,7 @@ class ValidationMiddlewarePrivateHelpersTest extends TestCase
 
     public function testBuildValidationProblemDetailsWithNoErrorsAtAll(): void
     {
-        $middleware = new ValidationMiddleware(Context::getInstance('testing')->getController());
+        $middleware = new ValidationMiddleware(Context::getInstance('testing')->getContainer()->get(\Quiote\Controller\Controller::class));
         $request = new ServerRequest('GET', '/orders/offers/new');
 
         $decoded = $this->invokePrivateAndDecodeJson($middleware, 'buildValidationProblemDetails', [null, [], $request]);

@@ -35,7 +35,7 @@ final class SecurityForwardValidationResetTest extends UnitTestCase
 
     private function buildPsr(): \Psr\Http\Message\ServerRequestInterface
     {
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $descriptor = ActionDescriptor::fromController($controller,'Cache','CacheComplex','GET','html');
         return (new ServerRequest('GET', 'http://localhost/cache/complex'))
             ->withAttribute(ActionDescriptor::class, $descriptor)
@@ -46,7 +46,7 @@ final class SecurityForwardValidationResetTest extends UnitTestCase
 
     public function testSecureForwardResetsValidation(): void
     {
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $security = new SecurityMiddleware($controller);
         $validation = new ValidationMiddleware($controller);
         $dispatch = new DispatchMiddleware($controller);

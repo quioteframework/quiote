@@ -103,8 +103,8 @@ class MiddlewarePipeline implements RequestHandlerInterface
                 $this->debugStack[] = $mw::class;
             }
         } else {
-            $controller = $context->getController();
-            $routing = $context->getRouting();
+            $controller = $context->getContainer()->get(\Quiote\Controller\Controller::class);
+            $routing = $context->getContainer()->get(\Quiote\Routing\Routing::class);
 
             // Per-middleware spans, opt-in and high-cardinality — computed once
             // per build (the stack itself is

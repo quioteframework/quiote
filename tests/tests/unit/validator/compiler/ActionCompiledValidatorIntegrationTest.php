@@ -29,7 +29,7 @@ class ActionCompiledValidatorIntegrationTest extends UnitTestCase
 	private function initialize(Action $action, string $method): void
 	{
 		$ctx = $this->getContext();
-		$resp = $ctx->getController()->getGlobalResponse();
+		$resp = $ctx->getContainer()->get(\Quiote\Controller\Controller::class)->getGlobalResponse();
 		$req = $ctx->getRequest();
 		$initContext = new LightweightActionInitContext($ctx, 'ControllerTests', 'CompiledFluentDemo', $method, 'html', $req, $resp);
 		$action->initialize($initContext);

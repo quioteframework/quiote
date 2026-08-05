@@ -25,7 +25,7 @@ class ViewAndActionResolverTest extends UnitTestCase
     public function testResolveScalarViewName(): void
     {
     // Ensure module directives loaded
-    $this->getContext()->getController()->initializeModule('Cache');
+    $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->initializeModule('Cache');
     [$vm, $vn] = $this->viewResolver->resolve('Cache','Cache','Success');
         $this->assertSame('Cache', $vm);
     // Directive ${actionName}${viewName} may expand to CacheSuccess or return canonical Success depending on initialization timing

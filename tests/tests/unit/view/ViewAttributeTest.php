@@ -27,7 +27,7 @@ class ViewAttributeTest extends UnitTestCase
     {
         $ctx = $this->getContext();
         $ctx->initialize();
-        $controller = $ctx->getController();
+        $controller = $ctx->getContainer()->get(\Quiote\Controller\Controller::class);
         $descriptor = new ActionDescriptor('Test', 'Test', 'GET', 'html', false);
         $init = new LightweightActionInitContext(
             $ctx,

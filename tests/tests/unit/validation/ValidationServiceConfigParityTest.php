@@ -7,7 +7,7 @@ class ValidationServiceConfigParityTest extends UnitTestCase
 {
     public function testParityWithContainerPerformValidation(): void
     {
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $descriptor = \Quiote\Execution\ActionDescriptor::fromController($controller, 'Cache', 'CacheComplex', 'GET', strtolower($controller->getOutputType()->getName()));
 
         $initRequest = new WebRequest();

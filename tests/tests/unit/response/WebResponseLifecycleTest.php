@@ -183,7 +183,7 @@ class WebResponseLifecycleTest extends UnitTestCase
 		$response->setHttpHeader('X-Kept', 'yes');
 		$response->setHttpStatusCode(201);
 		$response->setAttribute('kept', 'yes');
-		$response->setOutputType($this->getContext()->getController()->getOutputType('html'));
+		$response->setOutputType($this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->getOutputType('html'));
 
 		/** @var WebResponse $restored */
 		$restored = unserialize(serialize($response));
@@ -246,7 +246,7 @@ class WebResponseLifecycleTest extends UnitTestCase
 		$response->setCookie('leak', 'yes');
 		$response->setRedirect('/leak');
 		$response->setAttribute('leak', 'yes');
-		$response->setOutputType($this->getContext()->getController()->getOutputType('html'));
+		$response->setOutputType($this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->getOutputType('html'));
 
 		$response->reset();
 

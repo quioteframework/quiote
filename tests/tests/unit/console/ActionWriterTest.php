@@ -231,7 +231,7 @@ final class ActionWriterTest extends UnitTestCase
 
         // The sandbox app renders html with PhpRenderer, whose starter template
         // is a .php file -- the extension is the renderer's, not a hardcoded one.
-        $renderer = $this->getContext()->getController()->getOutputType('html')->getRenderer();
+        $renderer = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->getOutputType('html')->getRenderer();
         $this->assertNotNull($renderer, 'the sandbox app configures a renderer for html');
         $extension = $renderer->getDefaultExtension() ?: '.php';
         $this->assertFileExists($this->templatePath('Post', 'Blog', $extension));

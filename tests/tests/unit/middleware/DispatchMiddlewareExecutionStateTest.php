@@ -31,7 +31,7 @@ class DispatchMiddlewareExecutionStateTest extends UnitTestCase
             foreach ($rii as $file) { $file->isDir() ? @rmdir($file->getPathname()) : @unlink($file->getPathname()); }
             @rmdir($psrDir);
         }
-        $this->getContext()->getController()->initializeModule('Cache');
+        $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->initializeModule('Cache');
     }
 
     private function req(ActionDescriptor $descriptor, ExecutionState $state): \Psr\Http\Message\ServerRequestInterface {
@@ -55,7 +55,7 @@ class DispatchMiddlewareExecutionStateTest extends UnitTestCase
 
     public function testExecutionStateCacheHitFlag(): void
     {
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $controller->createActionInstance('Cache','Cache');
     $d1 = ActionDescriptor::fromController($controller,'Cache','Cache','GET', strtolower($controller->getOutputType()->getName()));
         $mw = new DispatchMiddleware($controller);

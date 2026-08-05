@@ -34,7 +34,7 @@ abstract class ViewTestCase extends FragmentTestCase
 	 */
 	protected function createViewInstance()
 	{
-		$controller = $this->getContext()->getController();
+		$controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
 		$controller->initializeModule($this->moduleName);
 		$viewName = $this->normalizeViewName($this->viewName);
 		$viewInstance = $controller->createViewInstance($this->moduleName, $viewName);
@@ -60,7 +60,7 @@ abstract class ViewTestCase extends FragmentTestCase
 	 */
 	protected function getViewResponse(): WebResponse
 	{
-		return $this->getContext()->getController()->getGlobalResponse();
+		return $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->getGlobalResponse();
 	}
 
 	/**
@@ -77,7 +77,7 @@ abstract class ViewTestCase extends FragmentTestCase
 		// Modern request no longer exposes a separate requestData holder; pass parameter array for legacy execute signatures if needed.
 		$req = $this->getContext()->getRequest();
 		$rd = $req->getParameters('parameters');
-		$method = 'execute' . ucfirst($otName ?? $this->getContext()->getController()->getOutputType()->getName());
+		$method = 'execute' . ucfirst($otName ?? $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->getOutputType()->getName());
 		if(!is_callable([$view,$method])) { $method = 'execute'; }
 		$this->viewResult = $view->$method($rd);
 	}

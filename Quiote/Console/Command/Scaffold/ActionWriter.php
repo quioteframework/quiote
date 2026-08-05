@@ -136,7 +136,7 @@ final class ActionWriter
     private function htmlRenderer(): ?Renderer
     {
         try {
-            return Context::getInstance()->getController()->getOutputType('html')->getRenderer();
+            return Context::getInstance()->getContainer()->get(\Quiote\Controller\Controller::class)->getOutputType('html')->getRenderer();
         } catch (\Throwable) {
             return null;
         }

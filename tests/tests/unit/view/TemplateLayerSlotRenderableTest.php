@@ -39,7 +39,7 @@ class TemplateLayerSlotRenderableTest extends UnitTestCase
     public function testMixedLegacyAndRenderableSlots(): void
     {
         // Ensure Cache module available for legacy container slot
-        $this->getContext()->getController()->initializeModule('Cache');
+        $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->initializeModule('Cache');
         $layer = new TestTemplateLayer();
         $layer->initialize($this->getContext(), []);
         $layer->setRenderer(new StubRenderer());

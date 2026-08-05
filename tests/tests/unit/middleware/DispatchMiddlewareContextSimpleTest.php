@@ -24,12 +24,12 @@ class DispatchMiddlewareContextSimpleTest extends UnitTestCase
         CacheManager::reset();
         putenv('QUIOTE_DISPATCH_CONTEXT=1');
         putenv('QUIOTE_DISPATCH_CONTEXT_SIMPLE=1');
-        $this->getContext()->getController()->initializeModule('Cache');
+        $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->initializeModule('Cache');
     }
 
     private function buildPsr(): \Psr\Http\Message\ServerRequestInterface
     {
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $descriptor = ActionDescriptor::fromController($controller,'Cache','Cache','GET','html');
         return (new ServerRequest('GET', 'http://localhost/cache'))
             ->withAttribute('module','Cache')
@@ -40,7 +40,7 @@ class DispatchMiddlewareContextSimpleTest extends UnitTestCase
 
     public function testSimpleActionExecutedViaActionExecutor(): void
     {
-    $controller = $this->getContext()->getController();
+    $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
     $controller->createActionInstance('Cache','Cache'); // ensure module loaded
         $mw = new DispatchMiddleware($controller);
     $state = new ExecutionState();

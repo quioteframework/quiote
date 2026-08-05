@@ -21,7 +21,7 @@ class ActionTest extends UnitTestCase
 	{
 		$this->_action = new SampleAction();
 		// Initialize action with lightweight initialization context (descriptor-less)
-		$controller = $this->getContext()->getController();
+		$controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
 		// Use synthetic descriptor (module/action need not exist for initialization tests)
 		$descriptor = new \Quiote\Execution\ActionDescriptor('Foo','Bar','GET','html', false);
 		$lw = new \Quiote\Execution\LightweightActionInitContext(

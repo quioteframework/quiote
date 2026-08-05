@@ -26,7 +26,7 @@ class ControllerTest extends PhpUnitTestCase
 	{
 		// ReInitialize the Context between tests to start fresh
 		$this->_context = Context::getInstance();
-		$this->_controller = $this->_context->getController();
+		$this->_controller = $this->_context->getContainer()->get(\Quiote\Controller\Controller::class);
 		$this->_controller->initialize($this->_context, []);
 	}
 
@@ -100,7 +100,7 @@ class ControllerTest extends PhpUnitTestCase
 
 	public function testGetContext(): void
 	{
-		$this->assertSame(Context::getInstance(), Context::getInstance()->getController()->getContext());
+		$this->assertSame(Context::getInstance(), Context::getInstance()->getContainer()->get(\Quiote\Controller\Controller::class)->getContext());
 	}
 
 	public function testCreateViewInstance(): void
@@ -381,7 +381,7 @@ class ControllerTest extends PhpUnitTestCase
 	// TODO: moved to Response
 	public function testsetContentType()
 	{
-		$controller = Context::getInstance('test')->getController();
+		$controller = Context::getInstance('test')->getContainer()->get(\Quiote\Controller\Controller::class);
 		$ctype = $controller->getContentType();
 		$controller->setContentType('image/jpeg');
 		$this->assertEquals($controller->getContentType(), 'image/jpeg');
@@ -390,20 +390,20 @@ class ControllerTest extends PhpUnitTestCase
 
 	public function testclearHTTPHeaders()
 	{
-		$controller = Context::getInstance('test')->getController();
+		$controller = Context::getInstance('test')->getContainer()->get(\Quiote\Controller\Controller::class);
 		$controller->clearHTTPHeaders();
 		$this->assertEquals($controller->getHTTPHeaders(), array());
 	}
 
 	public function testgetHTTPHeader()
 	{
-		$controller = Context::getInstance('test')->getController();
+		$controller = Context::getInstance('test')->getContainer()->get(\Quiote\Controller\Controller::class);
 		$this->assertEquals($controller->getHTTPHeader('unset'), null);
 	}
 
 	public function testhasHTTPHeader()
 	{
-		$controller = Context::getInstance('test')->getController();
+		$controller = Context::getInstance('test')->getContainer()->get(\Quiote\Controller\Controller::class);
 		$controller->clearHTTPHeaders();
 		$controller->setHTTPHeader('testme', 'whatever');
 		$this->assertTrue($controller->hasHTTPHeader('testme'));
@@ -412,7 +412,7 @@ class ControllerTest extends PhpUnitTestCase
 
 	public function testsetHTTPHeader()
 	{
-		$controller = Context::getInstance('test')->getController();
+		$controller = Context::getInstance('test')->getContainer()->get(\Quiote\Controller\Controller::class);
 		$controller->setHTTPHeader('sometest', 'fubar');
 		$this->assertEquals($controller->getHTTPHeader('sometest'), array('fubar'));
 		$controller->setHTTPHeader('sometest', 'foo');
@@ -425,13 +425,13 @@ class ControllerTest extends PhpUnitTestCase
 
 	public function testgetHTTPStatusCode()
 	{
-		$controller = Context::getInstance('test')->getController();
+		$controller = Context::getInstance('test')->getContainer()->get(\Quiote\Controller\Controller::class);
 		$this->assertEquals($controller->getHTTPStatusCode(), null);
 	}
 
 	public function testsetHTTPStatusCode()
 	{
-		$controller = Context::getInstance('test')->getController();
+		$controller = Context::getInstance('test')->getContainer()->get(\Quiote\Controller\Controller::class);
 		$controller->setHTTPStatusCode('404');
 		$this->assertEquals($controller->getHTTPStatusCode(), '404');
 		$controller->setHTTPStatusCode(403);
@@ -445,7 +445,7 @@ class ControllerTest extends PhpUnitTestCase
 	// TODO: moved to routing
 	function testgenURL()
 	{
-		$routing = Context::getInstance('test')->getRouting();
+		$routing = Context::getInstance('test')->getContainer()->get(\Quiote\Routing\Routing::class);
 		$this->assertEquals($controller->genURL('index.php', array('foo' =>'bar')), 'index.php?foo=bar');
 		$this->assertEquals($controller->genURL(null, array('foo' =>'bar')), $_SERVER['SCRIPT_NAME'] . '?foo=bar');
 		$this->assertEquals($controller->genURL(array('foo' =>'bar'), 'index.php'), 'index.php?foo=bar');

@@ -28,7 +28,7 @@ class ViewTest extends UnitTestCase
 		$ctx->initialize();
 
 		$this->_v = new SampleView();
-		$controller = $ctx->getController();
+		$controller = $ctx->getContainer()->get(\Quiote\Controller\Controller::class);
 		$descriptor = new \Quiote\Execution\ActionDescriptor('Test','Test','GET','html', false);
 		$init = new \Quiote\Execution\LightweightActionInitContext(
 			$ctx,
@@ -57,7 +57,7 @@ class ViewTest extends UnitTestCase
 	 */
 	public function testReturnProblemDetailsAppliesTheStatusToTheResponse(): void
 	{
-		$response = $this->getContext()->getController()->getGlobalResponse();
+		$response = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->getGlobalResponse();
 
 		$json = $this->_v->callReturnProblemDetails(422);
 
@@ -71,7 +71,7 @@ class ViewTest extends UnitTestCase
 
 	public function testReturnProblemDetailsAppliesRateLimitStatus(): void
 	{
-		$response = $this->getContext()->getController()->getGlobalResponse();
+		$response = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->getGlobalResponse();
 
 		$this->_v->callReturnProblemDetails(429);
 

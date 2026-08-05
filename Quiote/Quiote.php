@@ -185,7 +185,7 @@ final class Quiote
 				$createdContexts[$ctxName] = $ctx;
 				// Prime controller & output types (forces factories + output_types.xml load)
 				try {
-					$controller = $ctx->getController();
+					$controller = $ctx->getContainer()->get(\Quiote\Controller\Controller::class);
 					$controller->startup();
 					// Touch default output type to ensure it's in-memory
 					$controller->getOutputType();
@@ -338,7 +338,7 @@ final class Quiote
 		$ctx = Context::getInstance($name);
 		if($prime) {
 			try {
-				$controller = $ctx->getController();
+				$controller = $ctx->getContainer()->get(\Quiote\Controller\Controller::class);
 				$controller->startup();
 				$controller->getOutputType();
 			} catch(\Throwable $e) {

@@ -30,7 +30,7 @@ final class BasicPipelineTest extends TestCase
     public function testPipelineProducesResponse(): void
     {
         $context = Quiote::context('web', true);
-        $controller = $context->getController();
+        $controller = $context->getContainer()->get(\Quiote\Controller\Controller::class);
         $module = 'Cache';
         $action = 'CacheComplex';
         \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false, false, false);

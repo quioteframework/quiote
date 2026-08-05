@@ -36,7 +36,7 @@ final class PipelineOrderingTest extends TestCase
     public function testOrderingAndTrace(): void
     {
         $context = Quiote::context('web', true);
-        $controller = $context->getController();
+        $controller = $context->getContainer()->get(\Quiote\Controller\Controller::class);
         $module = 'Cache';
         $action = 'CacheComplex';
         \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false, false, false);

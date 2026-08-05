@@ -27,7 +27,7 @@ class LayoutSlotNoContainerTest extends UnitTestCase
 
     public function testLayoutSlotsAreSlotRenderable(): void
     {
-    $controller = $this->getContext()->getController();
+    $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
     // Ensure Cache module/action available
     $controller->initializeModule('Cache');
     $controller->createActionInstance('Cache','CacheComplex');

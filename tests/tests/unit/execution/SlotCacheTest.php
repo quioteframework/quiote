@@ -21,7 +21,7 @@ class SlotCacheTest extends UnitTestCase
         // Reset PSR cache (memory + backend) so exec counts predictable
         CacheManager::reset();
         // Initialize module and action class
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $controller->initializeModule('Cache');
         $controller->createActionInstance('Cache','Cache');
     if(class_exists(\Sandbox\Modules\Cache\Actions\CacheAction::class)) { \Sandbox\Modules\Cache\Actions\CacheAction::$execCount = 0; }

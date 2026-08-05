@@ -221,7 +221,7 @@ class WebResponse extends AttributeHolder implements ResetInterface, WebResponse
 		unset($this->contextName);
 
 		if(isset($this->outputTypeName)) {
-			$this->outputType = $this->context->getController()->getOutputType($this->outputTypeName);
+			$this->outputType = $this->context->getContainer()->get(\Quiote\Controller\Controller::class)->getOutputType($this->outputTypeName);
 			unset($this->outputTypeName);
 		}
 
@@ -576,7 +576,7 @@ class WebResponse extends AttributeHolder implements ResetInterface, WebResponse
 				$rq = $this->context->getRequest();
 				$location = $rq->getUrlScheme() . '://' . $rq->getUrlAuthority() . $location;
 			} else {
-				$location = $this->context->getRouting()->getBaseHref() . $location;
+				$location = $this->context->getContainer()->get(\Quiote\Routing\Routing::class)->getBaseHref() . $location;
 			}
 		}
 
@@ -955,7 +955,7 @@ class WebResponse extends AttributeHolder implements ResetInterface, WebResponse
 	{
 		$path = '/';
 		try {
-			$base = $this->context?->getRouting()?->getBasePath();
+			$base = $this->context?->getContainer()->get(\Quiote\Routing\Routing::class)?->getBasePath();
 			if(is_string($base) && $base !== '') {
 				$path = $base;
 			}

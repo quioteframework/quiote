@@ -64,8 +64,8 @@ final class OpenapiGenerateCommand extends AbstractAppCommand
 		$contextName = self::stringOption($input->getOption('context')) ?? Config::getString('core.default_context', 'web');
 		try {
 			$context = Context::getInstance($contextName);
-			$routing = $context->getRouting();
-			$controller = $context->getController();
+			$routing = $context->getContainer()->get(\Quiote\Routing\Routing::class);
+			$controller = $context->getContainer()->get(\Quiote\Controller\Controller::class);
 		} catch (\Throwable $e) {
 			$io->error(sprintf('Could not resolve the routing service for context "%s": %s', $contextName, $e->getMessage()));
 			return self::FAILURE;

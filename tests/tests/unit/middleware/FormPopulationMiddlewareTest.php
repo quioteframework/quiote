@@ -21,7 +21,7 @@ class FormPopulationMiddlewareTest extends UnitTestCase
     {
         parent::setUp();
         $this->context = $this->getContext();
-        $this->controller = $this->context->getController();
+        $this->controller = $this->context->getContainer()->get(\Quiote\Controller\Controller::class);
 
         $globalResponse = $this->controller->getGlobalResponse();
         $globalResponse->clear();

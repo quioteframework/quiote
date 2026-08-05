@@ -52,7 +52,7 @@ class HttpRedirectRoutingCallback extends RoutingCallback
 	#[\Override]
 	public function onMatched(array &$parameters, $legacyContainer = null)
 	{
-		$routing = $this->getContext()->getRouting();
+		$routing = $this->getContext()->getContainer()->get(\Quiote\Routing\Routing::class);
 		
 		if($this->hasParameter('route')) {
 			// generate a route

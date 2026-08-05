@@ -111,7 +111,7 @@ class CsrfTest extends UnitTestCase
 
     private function controller(): \Quiote\Controller\Controller
     {
-        return $this->getContext()->getController();
+        return $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
     }
 
     private function okHandler(): CsrfRecordingHandler

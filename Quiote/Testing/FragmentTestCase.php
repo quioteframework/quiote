@@ -130,7 +130,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	 */
 	protected function createActionInstance()
 	{
-		$actionInstance = $this->getContext()->getController()->createActionInstance($this->moduleName, $this->actionName);
+		$actionInstance = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->createActionInstance($this->moduleName, $this->actionName);
 		// Initialize with lightweight init context instead of legacy execution container.
 		// Use the request method captured via setRequestMethod (default 'read'). Map Quiote style
 		// semantic verbs (read/write/delete) onto HTTP verbs heuristically so downstream code
@@ -154,7 +154,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 			$httpMethod,
 			'html',
 			$canonicalRequest,
-			$this->getContext()->getController()->getGlobalResponse()
+			$this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->getGlobalResponse()
 		);
 		$actionInstance->initialize($lw);
 		return $actionInstance;
@@ -228,7 +228,7 @@ abstract class FragmentTestCase extends PhpUnitTestCase implements IFragmentTest
 	 */
 	protected function setOutputType(OutputType $outputType)
 	{
-		$this->getContext()->getController()->getGlobalResponse()->setOutputType($outputType);
+		$this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->getGlobalResponse()->setOutputType($outputType);
 	}
 
 	/**

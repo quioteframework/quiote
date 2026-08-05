@@ -63,7 +63,7 @@ class StatelessAuthenticationMiddlewareTest extends UnitTestCase
 
 	public function testNonMatchingPathPassesThroughUnchanged(): void
 	{
-		$middleware = new StatelessAuthenticationMiddleware($this->firewallMap(), new AuthenticationManager($this->getContext()->getController()));
+		$middleware = new StatelessAuthenticationMiddleware($this->firewallMap(), new AuthenticationManager($this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)));
 		$handler = $this->trackingHandler();
 
 		$response = $middleware->process((new Psr17Factory())->createServerRequest('GET', '/web/page'), $handler);
@@ -75,7 +75,7 @@ class StatelessAuthenticationMiddlewareTest extends UnitTestCase
 
 	public function testMatchingPathWithNoCredentialPassesThroughUnauthenticated(): void
 	{
-		$middleware = new StatelessAuthenticationMiddleware($this->firewallMap(), new AuthenticationManager($this->getContext()->getController()));
+		$middleware = new StatelessAuthenticationMiddleware($this->firewallMap(), new AuthenticationManager($this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)));
 		$handler = $this->trackingHandler();
 
 		$response = $middleware->process((new Psr17Factory())->createServerRequest('GET', '/api/resource'), $handler);
@@ -87,7 +87,7 @@ class StatelessAuthenticationMiddlewareTest extends UnitTestCase
 
 	public function testValidCredentialAuthenticatesAndCallsHandler(): void
 	{
-		$middleware = new StatelessAuthenticationMiddleware($this->firewallMap(), new AuthenticationManager($this->getContext()->getController()));
+		$middleware = new StatelessAuthenticationMiddleware($this->firewallMap(), new AuthenticationManager($this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)));
 		$handler = $this->trackingHandler();
 		$request = (new Psr17Factory())->createServerRequest('GET', '/api/resource')
 			->withHeader('Authorization', 'Basic ' . base64_encode('alice:secret'));
@@ -102,7 +102,7 @@ class StatelessAuthenticationMiddlewareTest extends UnitTestCase
 
 	public function testInvalidCredentialShortCircuitsWithTheEntryPointResponse(): void
 	{
-		$middleware = new StatelessAuthenticationMiddleware($this->firewallMap(), new AuthenticationManager($this->getContext()->getController()));
+		$middleware = new StatelessAuthenticationMiddleware($this->firewallMap(), new AuthenticationManager($this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)));
 		$handler = $this->trackingHandler();
 		$request = (new Psr17Factory())->createServerRequest('GET', '/api/resource')
 			->withHeader('Authorization', 'Basic ' . base64_encode('alice:wrong'));
@@ -116,7 +116,7 @@ class StatelessAuthenticationMiddlewareTest extends UnitTestCase
 
 	public function testSessionlessFirewallSetsTheAuthSessionlessAttribute(): void
 	{
-		$middleware = new StatelessAuthenticationMiddleware($this->firewallMap(sessionless: true), new AuthenticationManager($this->getContext()->getController()));
+		$middleware = new StatelessAuthenticationMiddleware($this->firewallMap(sessionless: true), new AuthenticationManager($this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)));
 		$handler = $this->trackingHandler();
 		$request = (new Psr17Factory())->createServerRequest('GET', '/api/resource')
 			->withHeader('Authorization', 'Basic ' . base64_encode('alice:secret'));

@@ -11,7 +11,7 @@ class SlotDispatcherContextTest extends UnitTestCase
     {
         parent::setUp();
         putenv('QUIOTE_SLOT_SIMPLE_NO_CONTAINER=1');
-        $this->getContext()->getController()->createActionInstance('Cache','Cache');
+        $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->createActionInstance('Cache','Cache');
     }
     protected function tearDown(): void
     {

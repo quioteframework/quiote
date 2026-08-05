@@ -47,7 +47,7 @@ class DispatchMiddlewareEdgeCasesTest extends TestCase
     public function testReturns404WhenNoActionDescriptor(): void
     {
         $ctx = $this->ctx();
-        $mw = new DispatchMiddleware($ctx->getController());
+        $mw = new DispatchMiddleware($ctx->getContainer()->get(\Quiote\Controller\Controller::class));
         $req = $this->makeReq(); // no ActionDescriptor attribute
     $resp = $mw->process($req, new class implements RequestHandlerInterface { public function handle(ServerRequestInterface $r): ResponseInterface { throw new RuntimeException('Handler invoked unexpectedly'); } });
         $this->assertSame(404, $resp->getStatusCode());
@@ -57,7 +57,7 @@ class DispatchMiddlewareEdgeCasesTest extends TestCase
     public function testNonSimpleActionMissingValidationMiddlewareProduces500(): void
     {
         $ctx = $this->ctx();
-        $mw = new DispatchMiddleware($ctx->getController());
+        $mw = new DispatchMiddleware($ctx->getContainer()->get(\Quiote\Controller\Controller::class));
         // Non-simple descriptor (isSimple = false) and no validationDecision present (ExecutionState pending but not forwarded)
         $desc = new ActionDescriptor('sample', 'MissingValidation', 'execute', 'html', false);
         $execState = new ExecutionState();
@@ -72,7 +72,7 @@ class DispatchMiddlewareEdgeCasesTest extends TestCase
     public function testNonSimpleActionFailedValidationReturns400(): void
     {
         $ctx = $this->ctx();
-        $mw = new DispatchMiddleware($ctx->getController());
+        $mw = new DispatchMiddleware($ctx->getContainer()->get(\Quiote\Controller\Controller::class));
         $desc = new ActionDescriptor('sample', 'FailedValidation', 'execute', 'html', false);
         $execState = new ExecutionState();
         $execState->validationDecision = ValidationDecision::failed(['e1']);
@@ -94,7 +94,7 @@ class DispatchMiddlewareEdgeCasesTest extends TestCase
     public function testNonSimpleActionFailedValidationWithJsonOutputTypeReturnsProblemDetails(): void
     {
         $ctx = $this->ctx();
-        $mw = new DispatchMiddleware($ctx->getController());
+        $mw = new DispatchMiddleware($ctx->getContainer()->get(\Quiote\Controller\Controller::class));
         $desc = new ActionDescriptor('sample', 'FailedValidation', 'execute', 'json', false);
         $execState = new ExecutionState();
         $execState->validationDecision = ValidationDecision::failed(['e1']);
@@ -119,7 +119,7 @@ class DispatchMiddlewareEdgeCasesTest extends TestCase
     public function testNonSimpleActionFailedValidationHonorsAcceptHeaderWhenOutputTypeUnresolved(): void
     {
         $ctx = $this->ctx();
-        $mw = new DispatchMiddleware($ctx->getController());
+        $mw = new DispatchMiddleware($ctx->getContainer()->get(\Quiote\Controller\Controller::class));
         $desc = new ActionDescriptor('sample', 'FailedValidation', 'execute', '', false);
         $execState = new ExecutionState();
         $execState->validationDecision = ValidationDecision::failed(['e1']);

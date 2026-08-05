@@ -44,7 +44,7 @@ class MapRequestActionResolverIntegrationTest extends UnitTestCase
 {
     private function initAction(MapRequestIntegrationAction $action, WebRequest $request): LightweightActionInitContext
     {
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $descriptor = new ActionDescriptor('MapRequestDto', 'Create', 'Write', 'html', false);
         $initCtx = new LightweightActionInitContext(
             $this->getContext(),

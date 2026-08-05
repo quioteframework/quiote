@@ -179,20 +179,6 @@ class Context implements \Stringable, ResetInterface, ContextInterface
 
 
 
-  /**
-   * Retrieve the controller.
-   * @return     Controller The current Controller implementation instance.
-   * @since      1.0.0
-   */
-  public function getController()
-  {
-    if ($this->controller === null) {
-      throw new QuioteException(
-        'Controller is not available: Context::initialize() has not run (or the "controller" factory failed) for context "' . $this->name . '"',
-      );
-    }
-    return $this->controller;
-  }
 
   /**
    * Retrieve (lazily create) the DI container.
@@ -210,6 +196,58 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     return $this->container;
   }
 
+
+  /**
+   * Bind the components whose accessors used to rebuild them on demand.
+   *
+   * `getRouting()` did this with a `??=` and a rebuild from the factories declaration, which is how a
+   * worker that dropped the instance at a request boundary got it back. `getController()` did the
+   * opposite and threw, because a context without one has not finished initialize(). Both behaviours
+   * belong to the binding now, so a consumer resolving `Routing::class` gets the rebuild and one
+   * resolving `Controller::class` gets the explanation.
+   *
+   * Registered as factories rather than instances so the closure runs per resolution, and the
+   * container memoizes the answer at singleton scope exactly as the property did.
+   *
+   * @since      4.0.0
+   */
+  private function registerLazyCoreComponents(): void
+  {
+    $container = $this->getContainer();
+
+    $container->setFactory(
+      Routing::class,
+      function (): Routing {
+        // Routing's constructor is its whole setup, so the initialize()/startup() pair is
+        // deliberately skipped here.
+        return $this->routing ??= $this->rebuildFromFactoryInfo(
+          'routing',
+          Routing::class,
+          Container::SCOPE_SINGLETON,
+          runLifecycle: false,
+        );
+      },
+      Container::SCOPE_SINGLETON,
+    );
+    $container->alias('routing', Routing::class);
+
+    $container->setFactory(
+      \Quiote\Controller\Controller::class,
+      function (): \Quiote\Controller\Controller {
+        if ($this->controller === null) {
+          throw new QuioteException(
+            'Controller is not available: Context::initialize() has not run (or the "controller" '
+              . 'factory failed) for context "' . $this->name . '"',
+          );
+        }
+
+        return $this->controller;
+      },
+      Container::SCOPE_SINGLETON,
+    );
+    $container->alias('controller', \Quiote\Controller\Controller::class);
+    $container->alias(\Quiote\Controller\ControllerInterface::class, \Quiote\Controller\Controller::class);
+  }
 
   /**
    * Bind the on-demand slots the factories configuration declares.
@@ -406,10 +444,12 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     $container->set(\Quiote\Config\ConfigRepository::class, Config::repository());
     $container->alias('config', \Quiote\Config\ConfigRepository::class);
 
-    $this->registerCoreService('controller', $this->controller);
+    // The controller and the routing are bound by registerLazyCoreComponents() instead, as factories:
+    // binding the instance here would win over the factory and pin whatever existed at initialize(),
+    // which is precisely what the lazy rebuild has to be able to replace.
+    $this->registerLazyCoreComponents();
     $this->registerCoreService('databaseManager', $this->databaseManager);
     $this->registerCoreService('translationManager', $this->translationManager);
-    $this->registerCoreService('routing', $this->routing);
     $this->registerCoreService('request', $this->request, Container::SCOPE_REQUEST);
     $this->registerCoreService('user', $this->user, Container::SCOPE_REQUEST);
     $this->registerTelemetryServicesInContainer();
@@ -505,7 +545,7 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     $container->setFactory(
       \Quiote\Execution\SlotDispatcher::class,
       fn(): \Quiote\Execution\SlotDispatcher => new \Quiote\Execution\SlotDispatcher(
-        $this->getController(),
+        $this->service(\Quiote\Controller\Controller::class),
         $this->service(\Quiote\Execution\ActionResolver::class),
       ),
       Container::SCOPE_REQUEST,
@@ -1339,24 +1379,6 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     return $this->request;
   }
 
-  /**
-   * Retrieve the routing.
-   * @return     Routing The current Routing implementation instance.
-   * @since      1.0.0
-   */
-  public function getRouting()
-  {
-    // Routing's constructor is its whole setup, so the initialize()/startup() pair is
-    // deliberately skipped here.
-    $this->routing ??= $this->rebuildFromFactoryInfo(
-      'routing',
-      Routing::class,
-      Container::SCOPE_SINGLETON,
-      runLifecycle: false,
-    );
-
-    return $this->routing;
-  }
 
 
 

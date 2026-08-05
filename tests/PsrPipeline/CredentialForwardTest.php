@@ -37,7 +37,7 @@ final class CredentialForwardTest extends TestCase
     public function testCredentialForward(): void
     {
         $context = Quiote::context('web', true);
-        $controller = $context->getController();
+        $controller = $context->getContainer()->get(\Quiote\Controller\Controller::class);
         $module = 'Cache';
         $action = 'CacheComplex';
         // Require a credential the user won't have.

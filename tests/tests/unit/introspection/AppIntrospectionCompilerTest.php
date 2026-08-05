@@ -44,7 +44,7 @@ final class AppIntrospectionCompilerTest extends PhpUnitTestCase
 	 */
 	public function testLocateViewAndTemplateResolvesAPerOutputTypeTemplateFile(): void
 	{
-		Context::getInstance('web')->getController()->initializeModule('Widget');
+		Context::getInstance('web')->getContainer()->get(\Quiote\Controller\Controller::class)->initializeModule('Widget');
 		Config::set('modules.widget.quiote.template.directory', self::FIXTURE_MODULES . '/Widget/Templates');
 
 		try {

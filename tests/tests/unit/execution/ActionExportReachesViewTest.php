@@ -33,12 +33,12 @@ class ActionExportReachesViewTest extends UnitTestCase
         if (!is_dir($tmpCache)) { @mkdir($tmpCache, 0777, true); }
         $this->previousCacheDir = \Quiote\Config\Config::getNullableString('core.cache_dir');
         \Quiote\Config\Config::set('core.cache_dir', $tmpCache);
-        $this->getContext()->getController()->initializeModule('Snapshot');
+        $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->initializeModule('Snapshot');
     }
 
     public function testParameterExportedByActionExecuteReachesTheRenderedView(): void
     {
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $descriptor = ActionDescriptor::fromController($controller, 'Snapshot', 'ExportParamAction', 'GET', 'html');
 
         $request = (new ServerRequest('GET', 'http://localhost/snapshot/export'))

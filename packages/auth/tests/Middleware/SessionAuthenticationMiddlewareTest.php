@@ -60,7 +60,7 @@ class SessionAuthenticationMiddlewareTest extends UnitTestCase
 
 	public function testANonLoginRequestPassesThroughUnauthenticated(): void
 	{
-		$middleware = new SessionAuthenticationMiddleware($this->firewallMap(), new AuthenticationManager($this->getContext()->getController()));
+		$middleware = new SessionAuthenticationMiddleware($this->firewallMap(), new AuthenticationManager($this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)));
 		$handler = $this->trackingHandler();
 
 		$response = $middleware->process((new Psr17Factory())->createServerRequest('GET', '/dashboard'), $handler);
@@ -72,7 +72,7 @@ class SessionAuthenticationMiddlewareTest extends UnitTestCase
 
 	public function testAValidLoginPostAuthenticatesAndCallsHandler(): void
 	{
-		$middleware = new SessionAuthenticationMiddleware($this->firewallMap(), new AuthenticationManager($this->getContext()->getController()));
+		$middleware = new SessionAuthenticationMiddleware($this->firewallMap(), new AuthenticationManager($this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)));
 		$handler = $this->trackingHandler();
 		$request = (new Psr17Factory())->createServerRequest('POST', '/login')
 			->withParsedBody(['username' => 'alice', 'password' => 'secret']);
@@ -87,7 +87,7 @@ class SessionAuthenticationMiddlewareTest extends UnitTestCase
 
 	public function testAnInvalidLoginPostShortCircuitsWithARedirect(): void
 	{
-		$middleware = new SessionAuthenticationMiddleware($this->firewallMap(), new AuthenticationManager($this->getContext()->getController()));
+		$middleware = new SessionAuthenticationMiddleware($this->firewallMap(), new AuthenticationManager($this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)));
 		$handler = $this->trackingHandler();
 		$request = (new Psr17Factory())->createServerRequest('POST', '/login')
 			->withParsedBody(['username' => 'alice', 'password' => 'wrong']);

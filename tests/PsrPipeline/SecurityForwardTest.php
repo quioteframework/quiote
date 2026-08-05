@@ -43,7 +43,7 @@ final class SecurityForwardTest extends TestCase
     public function testSecureActionForwardProducesContent(): void
     {
         $context = Quiote::context('web', true);
-        $controller = $context->getController();
+        $controller = $context->getContainer()->get(\Quiote\Controller\Controller::class);
         $module = 'Cache';
         $action = 'CacheComplex';
         // Require authentication; user is logged out -> login forward.

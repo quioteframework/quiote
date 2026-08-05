@@ -50,7 +50,7 @@ class SeamInterfaceResolutionTest extends PhpUnitTestCase
     {
         $ctx = Context::getInstance();
 
-        $this->assertSame($ctx->getController(), $ctx->getContainer()->get(ControllerInterface::class));
+        $this->assertSame($ctx->getContainer()->get(\Quiote\Controller\Controller::class), $ctx->getContainer()->get(ControllerInterface::class));
     }
 
     /**

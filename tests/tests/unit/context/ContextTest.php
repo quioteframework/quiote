@@ -149,7 +149,7 @@ class ContextTest extends PhpUnitTestCase
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
 	public function testGetController(): void
 	{
-		$this->assertInstanceOf(\Quiote\Controller\Controller::class, Context::getInstance()->getController());
+		$this->assertInstanceOf(\Quiote\Controller\Controller::class, Context::getInstance()->getContainer()->get(\Quiote\Controller\Controller::class));
 	}
 
 	/**
@@ -252,7 +252,7 @@ class ContextTest extends PhpUnitTestCase
 	{
 		$ctx = Context::getInstance('rebuild_routing_test');
 
-		$this->assertSame($ctx->getRouting(), $ctx->getRouting());
+		$this->assertSame($ctx->getContainer()->get(\Quiote\Routing\Routing::class), $ctx->getContainer()->get(\Quiote\Routing\Routing::class));
 	}
 
 	/**
@@ -298,7 +298,7 @@ class ContextTest extends PhpUnitTestCase
 	public function testGetRouting(): void
 	{
 		$ctx = Context::getInstance();
-		$this->assertInstanceOf(\Quiote\Routing\Routing::class, $ctx->getRouting());
+		$this->assertInstanceOf(\Quiote\Routing\Routing::class, $ctx->getContainer()->get(\Quiote\Routing\Routing::class));
 	}
 
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
@@ -319,10 +319,10 @@ class ContextTest extends PhpUnitTestCase
 		$ctx = Context::getInstance();
 		$container = $ctx->getContainer();
 
-		$this->assertSame($ctx->getController(), $container->get('controller'));
-		$this->assertSame($ctx->getController(), $container->get($ctx->getController()::class));
+		$this->assertSame($ctx->getContainer()->get(\Quiote\Controller\Controller::class), $container->get('controller'));
+		$this->assertSame($ctx->getContainer()->get(\Quiote\Controller\Controller::class), $container->get($ctx->getContainer()->get(\Quiote\Controller\Controller::class)::class));
 
-		$this->assertSame($ctx->getRouting(), $container->get('routing'));
+		$this->assertSame($ctx->getContainer()->get(\Quiote\Routing\Routing::class), $container->get('routing'));
 		$this->assertSame($ctx->getContainer()->get(\Quiote\Session\SessionBagInterface::class), $container->get('sessionBag'));
 		$this->assertSame($ctx->getUser(), $container->get('user'));
 		$this->assertSame($ctx->getRequest(), $container->get('request'));
@@ -361,7 +361,7 @@ class ContextTest extends PhpUnitTestCase
 	public function testGetServiceResolvesCoreServiceAndArbitraryClass(): void
 	{
 		$ctx = Context::getInstance();
-		$this->assertSame($ctx->getController(), $ctx->getContainer()->get('controller'));
+		$this->assertSame($ctx->getContainer()->get(\Quiote\Controller\Controller::class), $ctx->getContainer()->get('controller'));
 
 		$service = $ctx->getContainer()->get(ContextTestServiceFixture::class);
 		$this->assertInstanceOf(ContextTestServiceFixture::class, $service);

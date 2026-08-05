@@ -26,7 +26,7 @@ class SlotCacheableTraitTest extends UnitTestCase
         \Quiote\Config\Config::set('core.use_cache', true);
         putenv('QUIOTE_SLOT_CACHE=1');
         CacheManager::reset();
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $controller->initializeModule('Cache');
         $controller->createActionInstance('Cache', 'Ttl');
         $controller->createActionInstance('Cache', 'Tagged');

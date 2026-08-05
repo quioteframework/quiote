@@ -116,7 +116,7 @@ final class CacheWarmupCommand extends AbstractAppCommand
     private function dumpRoutingIr(string $context, SymfonyStyle $io): void
     {
         try {
-            $routing = Context::getInstance($context)->getRouting();
+            $routing = Context::getInstance($context)->getContainer()->get(\Quiote\Routing\Routing::class);
         } catch (\Throwable $e) {
             $io->warning('Skipped routing IR: ' . $e->getMessage());
             return;
@@ -149,7 +149,7 @@ final class CacheWarmupCommand extends AbstractAppCommand
     private function dumpCompiledMatcher(string $context, SymfonyStyle $io): void
     {
         try {
-            $routes = Context::getInstance($context)->getRouting()->getRouteCollection();
+            $routes = Context::getInstance($context)->getContainer()->get(\Quiote\Routing\Routing::class)->getRouteCollection();
         } catch (\Throwable $e) {
             $io->warning('Skipped compiled routing matcher: ' . $e->getMessage());
             return;
@@ -180,7 +180,7 @@ final class CacheWarmupCommand extends AbstractAppCommand
     private function checkRoutingDrift(string $context, SymfonyStyle $io): int
     {
         try {
-            $routes = Context::getInstance($context)->getRouting()->getRouteCollection();
+            $routes = Context::getInstance($context)->getContainer()->get(\Quiote\Routing\Routing::class)->getRouteCollection();
         } catch (\Throwable $e) {
             $io->error('Could not resolve routing service for context "' . $context . '": ' . $e->getMessage());
             return self::FAILURE;

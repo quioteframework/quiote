@@ -12,8 +12,8 @@ class SlotRequestInheritanceTest extends UnitTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->getContext()->getController()->initializeModule('Cache');
-        $this->getContext()->getController()->createActionInstance('Cache','Cache');
+        $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->initializeModule('Cache');
+        $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->createActionInstance('Cache','Cache');
     }
 
     public function testParentHeadersAndMethodPreserved(): void

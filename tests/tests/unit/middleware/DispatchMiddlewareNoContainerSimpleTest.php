@@ -17,14 +17,14 @@ class DispatchMiddlewareNoContainerSimpleTest extends UnitTestCase
         putenv('QUIOTE_DISPATCH_CONTEXT=1');
         putenv('QUIOTE_DISPATCH_CONTEXT_SIMPLE=1');
         putenv('QUIOTE_DISPATCH_CONTEXT_SIMPLE_NOCONTAINER=1');
-        $this->getContext()->getController()->initializeModule('Cache');
+        $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->initializeModule('Cache');
     // Ensure action view cache entry removed using ActionViewCache API
     try { (new \Quiote\Cache\ActionViewCache(\Quiote\Cache\CacheManager::getCache()))->delete('Cache','Cache','html'); } catch(\Throwable) {}
     }
 
     private function buildRequest(): \Psr\Http\Message\ServerRequestInterface
     {
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $descriptor = ActionDescriptor::fromController($controller,'Cache','Cache','GET','html');
         return (new ServerRequest('GET', 'http://localhost/cache'))
             ->withAttribute('module','Cache')
@@ -35,7 +35,7 @@ class DispatchMiddlewareNoContainerSimpleTest extends UnitTestCase
 
     public function testSimpleNoContainerHeaderAndAttribute(): void
     {
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $mw = new DispatchMiddleware($controller);
         $handler = new class(new Psr17Factory) implements \Psr\Http\Server\RequestHandlerInterface { public function __construct(private Psr17Factory $f){} public function handle(\Psr\Http\Message\ServerRequestInterface $r): \Psr\Http\Message\ResponseInterface { return $this->f->createResponse(200);} };
     // Cache is not isSimple() (it exercises a real execute() call), so

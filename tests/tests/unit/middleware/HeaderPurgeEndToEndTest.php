@@ -40,7 +40,7 @@ class HeaderPurgeEndToEndTest extends UnitTestCase
         $fresh = new \Quiote\Request\WebRequest();
         $fresh->initialize($this->getContext());
         $this->getContext()->setRequest($fresh);
-        $this->getContext()->getController()->initializeModule('Snapshot');
+        $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->initializeModule('Snapshot');
         // Cold-start this action's cache entry: the payload is keyed by
         // module/action and outlives the test, so one cached by another test using
         // the same Snapshot fixture would serve this request from cache -- the
@@ -52,7 +52,7 @@ class HeaderPurgeEndToEndTest extends UnitTestCase
 
     public function testUnvalidatedHeadersArePurgedBeforeExecuteRuns(): void
     {
-        $controller = $this->getContext()->getController();
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
         $descriptor = ActionDescriptor::fromController($controller, 'Snapshot', 'HeaderSnapshotAction', 'GET', 'html');
 
         $request = (new ServerRequest('GET', 'http://localhost/snapshot/header'))

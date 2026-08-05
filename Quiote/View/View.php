@@ -254,7 +254,7 @@ abstract class View implements ResetInterface
 	{
 		// Legacy execution container exposes getOutputType() returning OutputType directly.
 		$name = $this->initContext instanceof ActionInitContext ? $this->initContext->getOutputTypeName() : null;
-		return $this->requireContext()->getController()->getOutputType($name);
+		return $this->requireContext()->getContainer()->get(\Quiote\Controller\Controller::class)->getOutputType($name);
 	}
 
 	/**
@@ -655,8 +655,8 @@ abstract class View implements ResetInterface
 			}
 		}
 		try {
-			$fs = new ForwardService($context->getController());
-			[$view, $vm, $vn, $content] = $fs->createSystemForwardView($name, $outputType ?? $context->getController()->getOutputType()->getName(), $arguments);
+			$fs = new ForwardService($context->getContainer()->get(\Quiote\Controller\Controller::class));
+			[$view, $vm, $vn, $content] = $fs->createSystemForwardView($name, $outputType ?? $context->getContainer()->get(\Quiote\Controller\Controller::class)->getOutputType()->getName(), $arguments);
 			return (string)$content;
 		} catch (\Throwable $e) {
 			// There is no alternative forward path to fall back to, so surface

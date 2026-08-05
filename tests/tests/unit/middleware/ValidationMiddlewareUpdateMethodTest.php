@@ -48,7 +48,7 @@ class ValidationMiddlewareUpdateMethodTest extends UnitTestCase
     private function makeInitializedAction(Action $action, string $method, string $module, string $actionName): Action
     {
         $ctx  = $this->getContext();
-        $resp = $ctx->getController()->getGlobalResponse();
+        $resp = $ctx->getContainer()->get(\Quiote\Controller\Controller::class)->getGlobalResponse();
         $req  = $ctx->getRequest();
         $initCtx = new LightweightActionInitContext($ctx, $module, $actionName, $method, 'html', $req, $resp);
         $action->initialize($initCtx);
@@ -76,7 +76,7 @@ class ValidationMiddlewareUpdateMethodTest extends UnitTestCase
             ->withAttribute(ActionDescriptor::class, $actionDesc)
             ->withAttribute('quiote.preinstantiated_action', $action);
 
-        $validation = new ValidationMiddleware($this->getContext()->getController());
+        $validation = new ValidationMiddleware($this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class));
         $handler = $this->createStub(RequestHandlerInterface::class);
         $handler->method('handle')->willReturn(new \Nyholm\Psr7\Response(200));
 
@@ -102,7 +102,7 @@ class ValidationMiddlewareUpdateMethodTest extends UnitTestCase
             ->withAttribute(ActionDescriptor::class, $actionDesc)
             ->withAttribute('quiote.preinstantiated_action', $action);
 
-        $validation = new ValidationMiddleware($this->getContext()->getController());
+        $validation = new ValidationMiddleware($this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class));
         $handler = $this->createStub(RequestHandlerInterface::class);
         $handler->method('handle')->willReturn(new \Nyholm\Psr7\Response(200));
 
@@ -130,7 +130,7 @@ class ValidationMiddlewareUpdateMethodTest extends UnitTestCase
                 ->withAttribute(ActionDescriptor::class, $actionDesc)
                 ->withAttribute('quiote.preinstantiated_action', $action);
 
-            $validation = new ValidationMiddleware($this->getContext()->getController());
+            $validation = new ValidationMiddleware($this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class));
             $handler = $this->createStub(RequestHandlerInterface::class);
             $handler->method('handle')->willReturn(new \Nyholm\Psr7\Response(200));
 
