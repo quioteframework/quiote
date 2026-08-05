@@ -54,6 +54,7 @@
 - *(rector)* Never add a constructor to a class other classes extend
 - *(renderer)* Call the assign resolvers in the Twig and PHPTAL renderers
 - *(rector)* Stop reporting the methods Context still declares as residue
+- *(packages)* [**breaking**] Require the framework by version, not by "*"
 
 ### 💼 Other
 
@@ -126,6 +127,7 @@
 
 - Raise PHPStan baseline to level 9 across the repo
 - *(rector)* Register the package for the subtree split, and stop implying it is published
+- *(release)* Prepare 4.0.0-RC1
 ## [3.1.0] - 2026-07-29
 
 ### 🐛 Bug Fixes
