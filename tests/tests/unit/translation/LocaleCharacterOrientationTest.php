@@ -88,6 +88,54 @@ class LocaleCharacterOrientationTest extends TestCase
     }
 
     /**
+     * A currency's name in this locale, which is the other accessor an application turned out to be
+     * calling. ICU holds the data; there is no table here to go stale.
+     */
+    #[DataProvider('currencyNameProvider')]
+    public function testCurrencyDisplayNameComesFromTheLocalesOwnData(
+        string $identifier,
+        string $code,
+        string $expected,
+    ): void {
+        $this->assertSame($expected, $this->makeLocale($identifier)->getCurrencyDisplayName($code));
+    }
+
+    /** @return array<string, array{0: string, 1: string, 2: string}> */
+    public static function currencyNameProvider(): array
+    {
+        return [
+            'euro in english' => ['en', 'EUR', 'Euro'],
+            'euro in finnish' => ['fi', 'EUR', 'euro'],
+            'dollar in english' => ['en', 'USD', 'US Dollar'],
+            // A locale with no currency data of its own: ICU falls back to its parent rather than
+            // answering nothing.
+            'euro in a regional locale' => ['en_GB', 'EUR', 'Euro'],
+        ];
+    }
+
+    public function testAnUnknownCurrencyCodeIsNull(): void
+    {
+        $this->assertNull($this->makeLocale('en')->getCurrencyDisplayName('ZZZ'));
+    }
+
+    /**
+     * Declared data wins over ICU, so a caller that supplied its own name gets it back.
+     */
+    public function testADeclaredCurrencyNameWinsOverIcu(): void
+    {
+        $locale = new QuioteLocale();
+        (new ReflectionMethod($locale, 'initialize'))->invoke(
+            $locale,
+            $this->createStub(\Quiote\Context::class),
+            [],
+            'en',
+            ['numbers' => ['currencies' => ['EUR' => ['displayName' => 'Single Currency']]]],
+        );
+
+        $this->assertSame('Single Currency', $locale->getCurrencyDisplayName('EUR'));
+    }
+
+    /**
      * The declared script wins over ICU's guess, which is what makes an explicitly-tagged locale
      * trustworthy: the data a caller supplied is not overridden by a probe.
      */

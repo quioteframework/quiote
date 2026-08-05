@@ -272,6 +272,93 @@ class QuioteLocale extends ParameterHolder implements ResetInterface
 	}
 
 	/**
+	 * The name of a currency as this locale writes it: `EUR` as "Euro" in `en`, "euro" in `fi`.
+	 *
+	 * Read from ICU's own currency data, which is where the answer lives and which ext/intl exposes
+	 * directly -- so this needs no data of its own and no table to maintain. ICU falls back through the
+	 * locale's parents itself, so a locale with no currency names of its own still answers.
+	 *
+	 * Declared data wins, as everywhere else in this class: a caller that supplied
+	 * `numbers.currencies.EUR.displayName` gets that back rather than ICU's.
+	 *
+	 * @param      string $code An ISO 4217 code, e.g. `EUR`.
+	 * @return     ?string The localized name, or null when this locale's data does not name the code.
+	 * @since      4.0.0
+	 */
+	public function getCurrencyDisplayName(string $code): ?string
+	{
+		if(isset($this->data['numbers']) && is_array($this->data['numbers'])
+			&& isset($this->data['numbers']['currencies']) && is_array($this->data['numbers']['currencies'])
+			&& isset($this->data['numbers']['currencies'][$code])) {
+			$declared = $this->data['numbers']['currencies'][$code];
+			if(is_string($declared)) {
+				return $declared;
+			}
+			if(is_array($declared) && isset($declared['displayName']) && is_string($declared['displayName'])) {
+				return $declared['displayName'];
+			}
+		}
+
+		if(!class_exists(\ResourceBundle::class)) {
+			return null;
+		}
+
+		// Walked explicitly rather than left to ResourceBundle's own fallback, which resolves the
+		// *bundle* and not the individual key: `en_GB` has a Currencies table of its own -- it renames a
+		// few -- and no EUR entry in it, so asking it alone answers nothing where `en` answers "Euro".
+		foreach($this->getCurrencyLookupLocales() as $candidate) {
+			try {
+				$bundle = \ResourceBundle::create($candidate, 'ICUDATA-curr');
+				if($bundle === null) {
+					continue;
+				}
+
+				$currencies = $bundle['Currencies'];
+				if(!$currencies instanceof \ResourceBundle) {
+					continue;
+				}
+
+				// ICU stores each currency as [symbol, display name, ...]; the name is the second entry.
+				$entry = $currencies[$code];
+				if(!$entry instanceof \ResourceBundle) {
+					continue;
+				}
+
+				$name = $entry[1];
+				if(is_string($name) && $name !== '') {
+					return $name;
+				}
+			} catch(\Throwable $e) {
+				$this->logIcuProbeFailure('getCurrencyDisplayName', $e);
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * This locale and its parents, most specific first: `en_GB`, `en`, `root`.
+	 *
+	 * @return     array<int, string>
+	 * @since      4.0.0
+	 */
+	private function getCurrencyLookupLocales(): array
+	{
+		$identifier = $this->getBaseLocaleIdentifier();
+		$candidates = [];
+
+		while($identifier !== '') {
+			$candidates[] = $identifier;
+			$cut = strrpos($identifier, '_');
+			$identifier = $cut === false ? '' : substr($identifier, 0, $cut);
+		}
+
+		$candidates[] = 'root';
+
+		return $candidates;
+	}
+
+	/**
 	 * Scripts written right to left, by ISO 15924 code.
 	 *
 	 * A script list rather than a language list, because the script is what decides direction and a
