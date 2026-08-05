@@ -2,8 +2,10 @@
 namespace Quiote\User;
 
 use Quiote\Context;
+use Quiote\Config\CompiledConfig;
 use Quiote\Config\Config;
 use Quiote\Config\ConfigCache;
+use Quiote\Exception\ConfigurationException;
 use Symfony\Contracts\Service\ResetInterface;
 
 /**
@@ -38,10 +40,10 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 	/**
 	 * Per-worker cache of loaded RBAC definitions, keyed by "(resolved config
 	 * path)|(context name)". The user object is recreated every request
-	 * (Context.php), so loadDefinitions() otherwise pays is_readable() +
-	 * ConfigCache::checkConfig()'s own stat checks + a fresh include() of the
-	 * compiled definitions array on every single request for data that is
-	 * fixed for the life of the worker.
+	 * (Context.php), so loadDefinitions() otherwise pays the cache's own
+	 * existence/staleness checks plus a fresh read and shape check of the
+	 * compiled definitions on every single request, for data that is fixed
+	 * for the life of the worker.
 	 * @var        array<string, array<string, array{permissions: array<int, string>, parent?: string}>>
 	 */
 	private static array $definitionsCache = [];
@@ -217,7 +219,13 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 
 	/**
 	 * Load RBAC role and permission definitions.
+	 *
+	 * Read through {@see CompiledConfig::value()}, so the definitions come from whichever cache the
+	 * runtime is using -- under the APCu store that is shared memory rather than a file, which this
+	 * previously bypassed by naming {@see ConfigCache} directly.
+	 *
 	 * @return     void
+	 * @throws     ConfigurationException If the compiled definitions are not the shape RBAC needs.
 	 * @since      1.0.0
 	 */
 	protected function loadDefinitions()
@@ -234,10 +242,106 @@ class RbacSecurityUser extends SecurityUser implements ISecurityUser, ResetInter
 			return;
 		}
 
-		if(is_readable($cfg)) {
-			$this->definitions = include(ConfigCache::checkConfig($cfg, $this->getContext()->getName()));
+		// ConfigCache::exists(), not is_readable(): rbac_definitions may be a .php or .yaml file --
+		// RbacDefinitionConfigHandler compiles any of them -- and the configured path names the .xml.
+		if(ConfigCache::exists($cfg)) {
+			$this->definitions = self::assertDefinitions(
+				CompiledConfig::value($cfg, $this->getContext()->getName()),
+				$cfg
+			);
 			self::$definitionsCache[$cacheKey] = $this->definitions;
 		}
+	}
+
+	/**
+	 * Narrow compiled RBAC definitions to the role => permissions map this class walks.
+	 *
+	 * The value arrives from a cache entry, so this is a trust boundary: a role whose permissions are
+	 * not a list of strings, or whose parent is not a role name, would otherwise surface as a
+	 * credential of the wrong type or an endless parent walk, a long way from the file that caused it.
+	 *
+	 * @param      mixed $definitions The value the compiled configuration returned.
+	 * @param      string $sourceRef The definitions file, for diagnostics.
+	 * @return     array<string, array{permissions: array<int, string>, parent?: string}>
+	 * @throws     ConfigurationException If the value is not that map.
+	 * @since      4.0.0
+	 */
+	private static function assertDefinitions(mixed $definitions, string $sourceRef): array
+	{
+		if(!is_array($definitions)) {
+			throw new ConfigurationException(sprintf(
+				'The compiled RBAC definitions from "%s" must be a map of role name => definition, got %s.',
+				$sourceRef,
+				get_debug_type($definitions)
+			));
+		}
+
+		$roles = [];
+		foreach($definitions as $name => $definition) {
+			$role = (string) $name;
+
+			if(!is_array($definition)) {
+				throw new ConfigurationException(sprintf(
+					'Role "%s" in the compiled RBAC definitions from "%s" must be an array, got %s.',
+					$role,
+					$sourceRef,
+					get_debug_type($definition)
+				));
+			}
+
+			$entry = ['permissions' => self::assertPermissions($definition['permissions'] ?? [], $role, $sourceRef)];
+
+			// A null parent is how the compiler spells "top-level role", and every read guards with
+			// isset(), so it is dropped rather than carried.
+			$parent = $definition['parent'] ?? null;
+			if($parent !== null) {
+				if(!is_string($parent)) {
+					throw new ConfigurationException(sprintf(
+						'The parent of role "%s" in the compiled RBAC definitions from "%s" must be a role name, got %s.',
+						$role,
+						$sourceRef,
+						get_debug_type($parent)
+					));
+				}
+				$entry['parent'] = $parent;
+			}
+
+			$roles[$role] = $entry;
+		}
+
+		return $roles;
+	}
+
+	/**
+	 * @return     array<int, string>
+	 * @throws     ConfigurationException If the permissions are not a list of credential names.
+	 * @since      4.0.0
+	 */
+	private static function assertPermissions(mixed $permissions, string $role, string $sourceRef): array
+	{
+		if(!is_array($permissions)) {
+			throw new ConfigurationException(sprintf(
+				'The permissions of role "%s" in the compiled RBAC definitions from "%s" must be a list, got %s.',
+				$role,
+				$sourceRef,
+				get_debug_type($permissions)
+			));
+		}
+
+		$names = [];
+		foreach($permissions as $permission) {
+			if(!is_string($permission)) {
+				throw new ConfigurationException(sprintf(
+					'A permission of role "%s" in the compiled RBAC definitions from "%s" must be a string, got %s.',
+					$role,
+					$sourceRef,
+					get_debug_type($permission)
+				));
+			}
+			$names[] = $permission;
+		}
+
+		return $names;
 	}
 
 	/**

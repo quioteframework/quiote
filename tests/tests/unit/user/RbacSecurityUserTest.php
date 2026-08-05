@@ -175,5 +175,57 @@ class RbacSecurityUserTest extends UnitTestCase
 		$definitionsProp = new ReflectionProperty(RbacSecurityUser::class, 'definitions');
 		$this->assertSame($sentinel, $definitionsProp->getValue($u));
 	}
+
+	/**
+	 * The definitions arrive from a config cache entry, so their shape is checked at the boundary: a
+	 * malformed one names the file it came from instead of surfacing as a credential of the wrong type
+	 * or an endless parent walk.
+	 * @return array<string, array{mixed, string}>
+	 */
+	public static function malformedDefinitionsProvider(): array
+	{
+		return [
+			'not a map' => ['guest', 'must be a map of role name => definition'],
+			'role is not an array' => [['guest' => 'products.list'], 'Role "guest" .* must be an array'],
+			'permissions are not a list' => [['guest' => ['permissions' => 'products.list']], 'permissions of role "guest" .* must be a list'],
+			'permission is not a string' => [['guest' => ['permissions' => [['products.list']]]], 'permission of role "guest" .* must be a string'],
+			'parent is not a role name' => [['member' => ['permissions' => [], 'parent' => 42]], 'parent of role "member" .* must be a role name'],
+		];
+	}
+
+	#[\PHPUnit\Framework\Attributes\DataProvider('malformedDefinitionsProvider')]
+	public function testMalformedCompiledDefinitionsAreRejected(mixed $definitions, string $messagePattern): void
+	{
+		$this->expectException(\Quiote\Exception\ConfigurationException::class);
+		$this->expectExceptionMessageMatches('/' . $messagePattern . '/');
+		$this->assertDefinitions($definitions);
+	}
+
+	/**
+	 * A top-level role compiles with `parent => null`, and the parent walk stops on `isset()`, so the
+	 * key is dropped rather than carried as a null that later reads have to guard.
+	 */
+	public function testANullParentIsDroppedSoTheParentWalkTerminates(): void
+	{
+		$this->assertSame(
+			['guest' => ['permissions' => ['products.list']]],
+			$this->assertDefinitions(['guest' => ['parent' => null, 'permissions' => ['products.list']]])
+		);
+	}
+
+	public function testARoleWithNoPermissionsKeyIsAcceptedAsHavingNone(): void
+	{
+		$this->assertSame(
+			['guest' => ['permissions' => []]],
+			$this->assertDefinitions(['guest' => []])
+		);
+	}
+
+	private function assertDefinitions(mixed $definitions): mixed
+	{
+		$method = new ReflectionMethod(RbacSecurityUser::class, 'assertDefinitions');
+
+		return $method->invoke(null, $definitions, '/sandbox/rbac_definitions.xml');
+	}
 }
 ?>
