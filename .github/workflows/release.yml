@@ -67,3 +67,8 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           body_path: /tmp/release-notes.md
+          # A tag with a hyphen in it is a pre-release -- v4.0.0-RC1, and any
+          # beta or alpha after it. Without this the action publishes it as
+          # the latest release, so `composer require quioteframework/quiote`
+          # on a default stability would be pointed at a release candidate.
+          prerelease: ${{ contains(github.ref_name, '-') }}

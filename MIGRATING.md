@@ -8,11 +8,21 @@ This file covers each release that needs migration work, newest first.
 
 # Migrating to Quiote 4.0
 
-In progress. 4.0 breaks `Context` into the collaborators it was standing in for, and
-its accessors are deleted rather than deprecated — an application reaching a service
-through the context has to be migrated. See
-[`Context`'s accessors are gone](#breaking-contexts-accessors-are-gone) for the full
-table and the Rector rules that do most of it mechanically.
+**4.0.0-RC1.** The breaking changes below are complete and the framework's suite is green
+against them; the release candidate is for finding what this document does not cover yet.
+Install it explicitly — a release candidate is not what a default stability resolves to:
+
+```
+composer require quioteframework/quiote:^4.0@RC
+```
+
+4.0 breaks `Context` into the collaborators it was standing in for, and its accessors are
+deleted rather than deprecated — an application reaching a service through the context has
+to be migrated. See [`Context`'s accessors are gone](#breaking-contexts-accessors-are-gone)
+for the full table and the Rector rules that do most of it mechanically. Those rules were
+proven against a 3,000-site application before the accessors were deleted, and rewrote it across
+four passes to a residue of 29 sites, none of them mechanical; what a rule declines is written to
+a report rather than skipped silently.
 
 Clear the config cache once when upgrading; that item is first here because it fails
 hard.

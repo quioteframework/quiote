@@ -1,3 +1,131 @@
+## [4.0.0-RC1] - 2026-08-05
+
+### 🚀 Features
+
+- *(mcp)* Wire OAuth2 resource-server auth into the MCP HTTP endpoint
+- *(di)* Introduce contracts for the four core seams
+- *(validator)* Let validators declare constructor dependencies
+- *(rector)* Start the Context-decomposition rule set with rule 1 and its type-resolution foundation
+- *(rector)* Add rule 2, and the two guards the framework dry-run proved necessary
+- *(rector)* Rule 3's request half, written and then withheld as unsound
+- *(rector)* Rule 3's request half, corrected to target RequestState
+- *(rector)* Add rule 4, getModel() to an injected ModelLocator
+- *(rector)* Add rule 5, Context::getInstance() to an injected ContextRegistry
+- *(rector)* Add the residue reporter, unregistered pending a static-call gap
+- *(config)* [**breaking**] Config handlers return declarations that the framework applies
+- *(validator)* [**breaking**] Compile validators.xml to a declaration instead of registration statements
+- *(rector)* Rewrite Context::getUser() to an injected user
+- *(context)* [**breaking**] Delete Context::handle() in favour of the PSR-15 handler
+- *(context)* [**breaking**] Bind the optional components so their absence explains itself
+
+### 🐛 Bug Fixes
+
+- *(console)* Stop make:* leaking raw warnings before its own error
+- *(translation)* Restore the default locale on reset()
+- *(config)* Create the cache directory tree when writing a compiled config
+- *(plugin)* Clear middleware contributions in PluginManager::reset()
+- *(core)* Narrow mixed types across Quiote/ and tests/ for PHPStan level 9
+- *(packages)* Narrow mixed types across plugin packages and samples/app for PHPStan level 9
+- *(cache,translation)* Scope cache keys by locale, fix bypass and reset() bleed
+- *(mcp)* Stop dropping additionalProperties in tool schemas
+- *(security)* Close login CSRF, host-header poisoning and auth timing gaps
+- *(cors)* [**breaking**] Refuse a wildcard origin combined with credentials
+- *(security)* Harden cache dir, session expiry, proxy TLS detection and XSLT
+- *(validator)* Scrub a failed parameter whatever source it came from
+- *(cache)* [**breaking**] Bind a secure action's cached output to one identity
+- *(cache,runtime)* Clear per-request worker state at the request boundary
+- *(user)* Keep the surviving roles' permissions when revoking a role
+- *(cache,session,response)* Close conformance and consistency gaps
+- *(di)* [**breaking**] Stop a singleton capturing request-scoped state
+- *(cache)* Stop an evicted namespace version resurrecting retired entries
+- *(runtime,context)* Stop swallowing failures on the worker request path
+- *(response)* [**breaking**] Accept the full HTTP status range instead of a code whitelist
+- *(view)* Make the attribute facade answer from one coherent store
+- *(request)* [**breaking**] Keep the URL metadata and the wrapped PSR-7 URI in sync
+- *(http)* [**breaking**] Make PsrResponseAdapter a real immutable PSR-7 response
+- *(di)* [**breaking**] Bind core services under their base class, not only the concrete one
+- *(config)* Key the config cache on the framework build, not only on source mtimes
+- *(rector)* Merge the residue report across Rector workers, and register rule 6
+- *(rector)* Stop re-promoting a constructor property the parent owns
+- *(composer)* [**breaking**] Make the Rector migration rules a dev dependency
+- *(di)* [**breaking**] Default a bare #[Service] to transient scope
+- *(user)* Read RBAC definitions through the active config cache
+- *(rector)* Recognise a Context reached through a nullable getContext()
+- *(rector)* Never add a constructor to a class other classes extend
+- *(renderer)* Call the assign resolvers in the Twig and PHPTAL renderers
+- *(rector)* Stop reporting the methods Context still declares as residue
+
+### 💼 Other
+
+- *(composer)* Alias dev-main to 4.0.x-dev across the monorepo
+
+### 🚜 Refactor
+
+- *(execution)* [**breaking**] Remove the ExecutionContainer cluster
+- *(response)* [**breaking**] Fold Response into WebResponse, drop ConsoleResponse
+- *(response)* [**breaking**] Emit through the runtime emitter instead of the SAPI
+- *(request,diagnostics)* Drop two unreachable classes
+- *(context)* Rebuild lazy core components through one code path
+- *(middleware)* [**breaking**] Decompose ValidationMiddleware::process()
+- *(view,action,response)* Extract the shared attribute facade and split response concerns
+- *(config)* [**breaking**] Back the Config facade with an injectable repository
+- *(logging,middleware)* Stop swallowing failures silently on the dispatch path
+- *(middleware)* Declare the shipped middleware once
+- *(logging)* Finish the empty-catch sweep across the framework
+- *(packages)* Extend the empty-catch sweep to the first-party packages
+- *(session)* [**breaking**] Serialize session payloads through one codec
+- *(filesystem)* [**breaking**] Segregate listing from the filesystem contract
+- *(storage)* [**breaking**] Give the object stores one contract and one implementation
+- *(telemetry)* Split TelemetryBootstrap into config, exporters and providers
+- *(model)* Give model resolution and model lifetimes their own classes
+- *(context)* Give the per-profile instance registry its own class
+- *(context)* [**breaking**] Give the shutdown sequence its own class
+- *(context)* Make the request-boundary clears a declared, guarded sequence
+- *(config)* [**breaking**] Compile the factories configuration to data, not $this-mutating code
+- *(database)* [**breaking**] Compile the databases configuration to data, not $this-mutating code
+- *(controller)* [**breaking**] Compile the output_types configuration to data, not $this-mutating code
+- *(runtime)* [**breaking**] Give request handling its own class, and scope the execution helpers
+- *(context)* Rename RequestBoundaryCleanup to ContextLifecycle and give it the whole request state machine
+- *(translation)* [**breaking**] Compile the translation configuration to data, not $this-mutating code
+- *(config)* [**breaking**] Serialize a compiled configuration in the cache, not in the handler
+- *(context)* [**breaking**] Narrow ContextInterface to the profile and its container
+- *(context)* [**breaking**] Take seven accessors off Context, and let the container carry the types
+- *(context)* [**breaking**] Make the on-demand slots container bindings, not a factory-info bag
+- *(context)* [**breaking**] Bind the session manager and bag instead of accessing them off Context
+- *(context)* [**breaking**] Reach the translation and database managers through the container
+- *(context)* [**breaking**] Bind the routing and the controller as lazy factories
+- *(context)* [**breaking**] Bind the user, and let CurrentUser resolve it
+- *(context)* [**breaking**] RequestState owns the request, and Context stops accessing it
+- *(context)* [**breaking**] Make the context's state private and its docblocks current
+
+### 📚 Documentation
+
+- *(migrating)* Document the 3.2 breaking changes
+- *(migrating)* Document the package-level 3.2 breaking changes
+- *(rector)* Correct the rule-set config's installation and coverage notes
+- *(config)* State that loadValue() is only for configs that return data
+
+### ⚡ Performance
+
+- *(config)* [**breaking**] Serve a compiled config's value from shared memory instead of recompiling it
+
+### 🧪 Testing
+
+- *(csrf)* Run the CSRF suite against a real session manager
+- *(csrf)* State the CSRF guarantee as an adversary table
+- *(middleware)* Assert the guarded set and the ordering relations directly
+- *(worker)* Assert request-boundary isolation with faults injected
+- Cover the Action attribute facade, response lifecycle and CLI scaffolding
+- Stop tests leaking global state into each other
+- *(middleware)* Stop a leftover preinstantiated action hijacking a dispatch
+- *(db-propulsion)* Stop naming a connection class the adapter already picks
+- *(benchmarks)* Measure registering validators from a declaration
+- *(rector)* Name the sites the rules skip, and cover the reporter itself
+
+### ⚙️ Miscellaneous Tasks
+
+- Raise PHPStan baseline to level 9 across the repo
+- *(rector)* Register the package for the subtree split, and stop implying it is published
 ## [3.1.0] - 2026-07-29
 
 ### 🐛 Bug Fixes
