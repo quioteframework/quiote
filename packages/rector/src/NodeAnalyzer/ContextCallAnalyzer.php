@@ -9,6 +9,7 @@ use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Identifier;
 use PHPStan\Type\ObjectType;
 use PHPStan\Type\Type;
+use PHPStan\Type\TypeCombinator;
 use Rector\NodeTypeResolver\NodeTypeResolver;
 
 /**
@@ -142,10 +143,25 @@ final readonly class ContextCallAnalyzer
      * must be recognised as one -- the mock builder's `method()` call is excluded by name, not by
      * pretending the receiver is something else.
      *
+     * Null is removed first, and that is not a convenience. `Action`, `View` and `Validator` declare
+     * `getContext()` as `?Context`, so `$this->getContext()->getService(...)` -- the shape the
+     * overwhelming majority of real call sites use -- resolves to `Context|null`, which a
+     * non-nullable `ObjectType` accepts only as *maybe*. Without this, every rule declined those
+     * sites and the residue reporter recorded nothing, so they were invisible in both directions.
+     * The framework's own tree hid it: `Service::getContext()` is non-nullable and no framework
+     * `Action`/`View` reaches these accessors at all.
+     *
+     * Removing null cannot widen this wrongly: a genuinely unknown receiver (`mixed`) still fails,
+     * and a `?->` call is a different node type that no rule matches. Where the receiver really can
+     * be null, the rewrite replaces a call that would have fatalled with a property read that
+     * cannot.
+     *
      * @since      4.0.0
      */
     public function isContextType(Type $type): bool
     {
+        $type = TypeCombinator::removeNull($type);
+
         foreach (self::CONTEXT_TYPES as $contextType) {
             if ((new ObjectType($contextType))->isSuperTypeOf($type)->yes()) {
                 return true;
