@@ -25,7 +25,7 @@ use Quiote\Validator\XoroperatorValidator;
  * intervening XML file. This is the runtime counterpart to
  * FluentSourceEmitter's generated code: both target the exact same
  * addChild() call the XML path has always used
- * (ValidatorConfigHandler/RuntimeArrayEmitter), so a validator registered
+ * (ValidatorConfigHandler/ValidatorDeclarationApplier), so a validator registered
  * this way gets the same strict-mode whitelist/pruning guarantee as one
  * declared in validators.xml -- see Action::registerValidators() and
  * CompiledValidatorRegistry.

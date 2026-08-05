@@ -7,18 +7,16 @@ use Quiote\Config\ValidatorConfigHandler;
 require_once(__DIR__ . '/ConfigHandlerTestBase.php');
 
 /**
- * Locks in the compiled PHP that ValidatorConfigHandler produces for a
+ * Locks in the compiled declaration that ValidatorConfigHandler produces for a
  * representative corpus of validators.xml fixtures (operator nesting,
  * translation-domain inheritance, error message inheritance/override, and a
  * real runtime validator with arguments/errors/parameters).
  *
- * ValidatorConfigHandler::execute() is now a thin adapter over
- * ValidatorPlanBuilder (XML -> IR) and RuntimeArrayEmitter (IR -> runtime
- * snippets), phase 1. This test is
- * the parity guarantee that refactor promised: any future change to either
- * class that alters the compiled output for these fixtures must fail here
- * first, rather than surfacing as a silent behavior change in production
- * validator configs.
+ * ValidatorConfigHandler::execute() is a thin adapter over ValidatorPlanBuilder
+ * (XML -> IR) and RuntimeDeclarationEmitter (IR -> the declaration the artifact
+ * returns). Any change to either class that alters the compiled output for these
+ * fixtures must fail here first, rather than surfacing as a silent behavior
+ * change in production validator configs.
  *
  * The "// Date: ..." header line is non-deterministic (stamped per
  * compile) and is normalized before comparison; everything else, including

@@ -5,12 +5,12 @@ namespace Quiote\Execution;
 use Quiote\Action\Action;
 use Quiote\Validator\ValidationManager;
 use Quiote\Util\Toolkit;
-use Quiote\Config\ConfigCache;
-use Quiote\Config\APCuConfigCache;
+use Quiote\Config\CompiledConfig;
 use Quiote\Request\WebRequest;
 use Quiote\Exception\QuioteException;
 use Quiote\Context;
 use Quiote\Validator\Validator;
+use Quiote\Validator\Compiler\Runtime\ValidatorDeclarationApplier;
 
 /**
  * Tiny immutable description of what we validated (for debugging/parity tests).
@@ -35,7 +35,7 @@ final readonly class ValidationTrace
 class ValidationService
 {
     /**
-     * @var ?\Quiote\Context holds Context for compiled validator config
+     * @var ?\Quiote\Context The context of the action currently being validated.
      */
     private $currentContext = null;
 
@@ -52,22 +52,6 @@ class ValidationService
     private ?ValidationManager $activeManager = null;
 
     /**
-     * Per-worker cache of compiled validator-registration closures, keyed by
-     * "(configFile)|(context)". A validators.xml file compiles to a snippet of
-     * plain PHP statements (see RuntimeArrayEmitter) meant to run inline in the
-     * caller's scope, referencing the free variables $validationManager/$method
-     * and calling $this->getContext(). The APCu path used to re-eval() that raw
-     * source on every single dispatch -- eval()'d code is never opcache-cached,
-     * so every request paid a full lex/parse/compile of the same source. Wrapping
-     * it in a closure once and reusing the already-compiled Closure (rebinding
-     * $this per call via Closure::call() instead of relying on however it was
-     * bound when first compiled) keeps the per-request cost to just invoking an
-     * already-compiled closure.
-     * @var array<string, \Closure>
-     */
-    private static array $compiledApcuValidatorClosures = [];
-
-    /**
      * Per-instance cache for Log::for($this) -- avoids repeating the
      * class-name normalization + category cache lookup on every call within
      * the same validate()/xmlOnlyValidate() invocation.
@@ -82,28 +66,38 @@ class ValidationService
     }
 
     /**
-     * Run a compiled validator-registration snippet fetched from APCu (the raw
-     * PHP source following the 'APCU:' marker stripped by the caller), caching
-     * the compiled Closure per $cacheKey so only the first call for that key
-     * pays eval()'s lex/parse/compile cost.
+     * Build the validators a compiled validator config declares and register them on the manager.
+     *
+     * The compiled artifact is a declaration -- it cannot register anything itself -- so the value is
+     * read through the active config cache and
+     * {@see \Quiote\Validator\Compiler\Runtime\ValidatorDeclarationApplier} does the building. The
+     * APCu cache serves that value from shared memory, so a config that has not changed costs a
+     * fetch rather than compiling PHP again on every dispatch.
+     *
+     * @param      string $configFile The validator config for the action being validated.
+     * @param      ValidationManager $validationManager The manager to register against.
+     * @param      string $method The lowercase request method token the declaration is matched against.
+     * @return     void
+     * @throws     QuioteException If the action's context has not been captured yet.
+     * @since      4.0.0
      */
-    private function runCachedApcuValidatorSnippet(string $apcuContent, string $cacheKey, ValidationManager $validationManager, string $method): void
+    private function registerDeclaredValidators(string $configFile, ValidationManager $validationManager, string $method): void
     {
-        $closure = self::$compiledApcuValidatorClosures[$cacheKey] ?? null;
-        if (!$closure instanceof \Closure) {
-            $built = eval('return function($validationManager, $method) { ?>' . $apcuContent . ' };');
-            if (!$built instanceof \Closure) {
-                throw new QuioteException('Compiled validator config for "' . $cacheKey . '" did not evaluate to a closure.');
-            }
-            $closure = $built;
-            self::$compiledApcuValidatorClosures[$cacheKey] = $closure;
+        $context = $this->currentContext;
+        if ($context === null) {
+            throw new QuioteException(sprintf(
+                'Cannot register the validators declared in "%s": the action\'s Context has not been captured yet.',
+                $configFile
+            ));
         }
-        // Rebind to $this on every call: the closure is cached across requests
-        // (and across ValidationService instances), but the compiled snippet's
-        // $this->getContext() call must always resolve against the instance
-        // actually running *this* validation, not whichever instance happened
-        // to trigger the first, cache-populating eval().
-        $closure->call($this, $validationManager, $method);
+
+        ValidatorDeclarationApplier::apply(
+            CompiledConfig::value($configFile, $context->getName()),
+            $validationManager,
+            $method,
+            $context,
+            $configFile
+        );
     }
 
     public function getValidationManager(): ?ValidationManager
@@ -111,7 +105,7 @@ class ValidationService
         return $this->activeManager ?? $this->manager;
     }
 
-    // Expose context to compiled validator config (expects $this->getContext())
+    /** The context of the action being validated; validators are initialized with it. */
     public function getContext(): ?\Quiote\Context
     {
         return $this->currentContext;
@@ -231,12 +225,11 @@ class ValidationService
         $vd = $logger->isEnabled(\Quiote\Logging\Level::Debug);
 
         // Normalize method tokens:
-        //  - $xmlMethod (lowercase) is what compiled validator config compares against (if($method == 'read')).
+        //  - $xmlMethod (lowercase) is the token a compiled validator declaration buckets by.
         //  - $normalizedMethod (Ucfirst) is used to construct register/validate method names (validateRead, registerReadValidators).
         $xmlMethod = strtolower($method ?: 'read');
         $normalizedMethod = ucfirst($xmlMethod);
-        // Overwrite local $method variable so included compiled config sees lowercase variant.
-        $method = $xmlMethod; // variable name intentionally preserved for compiled config scope
+        $method = $xmlMethod;
         $validationManager = $this->manager;
         if (!$validationManager) {
             // Build a lightweight manager via context from action (container may be ActionInitContext or full container)
@@ -269,45 +262,14 @@ class ValidationService
                 try { $logger->debug('[ValidationService][probe] resolve configFile=' . $configFile . ' readable=' . ($configReadable?'1':'0') . ' methodToken=' . $method . ' module=' . $moduleName . ' action=' . $actionName); } catch(\Throwable $diagFailure) { $logger->debug('[diagnostics] debug line could not be assembled: ' . $diagFailure->getMessage()); }
             }
             if ($configReadable) {
-                // Provide expected variables & context for compiled config file
+                // The context validators are initialized with.
                 $this->currentContext = $this->requireActionContext($action);
-                if ($vd) { $logger->debug('[ValidationService][probe] including compiled validators (pre-checkCache)'); }
                 if ($vd) {
-                    try { $logger->debug('[ValidationService][probe] pre-checkCache methodHex=' . bin2hex((string)$method) . ' type=' . gettype($method)); } catch(\Throwable $diagFailure) { $logger->debug('[diagnostics] debug line could not be assembled: ' . $diagFailure->getMessage()); }
+                    try { $logger->debug('[ValidationService][probe] registering declared validators methodHex=' . bin2hex($method)); } catch(\Throwable $diagFailure) { $logger->debug('[diagnostics] debug line could not be assembled: ' . $diagFailure->getMessage()); }
                 }
-                if (defined('QUIOTE_USE_APCU_CONFIG_CACHE') && QUIOTE_USE_APCU_CONFIG_CACHE) {
-                    $incFile = APCuConfigCache::checkConfig($configFile, $this->currentContext->getName());
-                    if ($vd) { $logger->debug('[ValidationService][probe] APCu checkConfig returned ' . (str_starts_with($incFile, 'APCU:') ? 'APCU:...' : $incFile)); }
-                    if (str_starts_with($incFile, 'APCU:')) {
-                        $this->runCachedApcuValidatorSnippet(substr($incFile, 5), $configFile . '|' . $this->currentContext->getName(), $validationManager, $method);
-                    } else {
-                        require($incFile);
-                    }
-                    if ($vd) {
-                        try {
-                            $statLine = '[ValidationService][probe] post-require APCu childCount=' . count($validationManager->getChilds());
-                            if (file_exists($incFile)) { $statLine .= ' real=' . realpath($incFile) . ' mtime=' . filemtime($incFile) . ' size=' . filesize($incFile); }
-                            $logger->debug($statLine);
-                        } catch(\Throwable $diagFailure) { $logger->debug('[diagnostics] debug line could not be assembled: ' . $diagFailure->getMessage()); }
-                    }
-                } else {
-                    $incFile = ConfigCache::checkConfig($configFile, $this->currentContext->getName());
-                    if ($vd) { $logger->debug('[ValidationService][probe] disk checkConfig returned ' . $incFile . ' exists=' . (file_exists($incFile)?'1':'0')); }
-                    require($incFile);
-                    if ($vd) {
-                        try {
-                            $statLine = '[ValidationService][probe] post-require disk childCount=' . count($validationManager->getChilds());
-                            if (file_exists($incFile)) { 
-                                $real = realpath($incFile); $mtime = @filemtime($incFile); $size = @filesize($incFile);
-                                $contents = @file_get_contents($incFile);
-                                $hash = $contents !== false ? sha1($contents) : 'no-read';
-                                $snippet = $contents !== false ? substr($contents, 0, 180) : '';
-                                $snippet = str_replace(["\n","\r"], ['\\n',''], $snippet);
-                                $statLine .= ' real=' . $real . ' mtime=' . $mtime . ' size=' . $size . ' sha1=' . $hash . ' head=' . $snippet;
-                            }
-                            $logger->debug($statLine);
-                        } catch(\Throwable $diagFailure) { $logger->debug('[diagnostics] debug line could not be assembled: ' . $diagFailure->getMessage()); }
-                    }
+                $this->registerDeclaredValidators($configFile, $validationManager, $method);
+                if ($vd) {
+                    try { $logger->debug('[ValidationService][probe] post-apply childCount=' . count($validationManager->getChilds()) . ' file=' . $configFile); } catch(\Throwable $diagFailure) { $logger->debug('[diagnostics] debug line could not be assembled: ' . $diagFailure->getMessage()); }
                 }
                 $validatorsLoaded = $this->validatorNames($validationManager->getChilds());
                 if ($vd) {
@@ -418,17 +380,12 @@ class ValidationService
     public function xmlOnlyValidate(Action $action, WebRequest $request, string $moduleName, string $actionName, string $method = ''): ValidationResult
     {
         $logger = $this->getLogger();
-        // NOTE: Compiled validator configuration files gate validator registration using
-        //   if($method == 'write') { ... }
-        // The compiled config is included with a local $method variable in scope.
-        // The validate() method already does this, but
-        // xmlOnlyValidate previously forgot to normalize and overwrite the local $method.
-        // As a result, all validators with method attributes (e.g. method="write") were skipped
-        // because the condition evaluated against an empty or incorrect value.
-        // We replicate the logic from validate(): lowercase token for XML gating while preserving
-        // the passed argument semantics.
+        // A compiled validator declaration buckets its validators by a lowercase method token, so
+        // normalize here the same way validate() does: a validator carrying method="write" is only
+        // registered when the token matches, and an empty or differently-cased token would skip
+        // every one of them.
         $xmlMethod = strtolower($method ?: 'read');
-        $method = $xmlMethod; // expose lowercase token to included compiled config scope
+        $method = $xmlMethod;
 
         $vd = $logger->isEnabled(\Quiote\Logging\Level::Debug);
         if ($vd) {
@@ -464,22 +421,10 @@ class ValidationService
             if ($configReadable) {
                 $this->currentContext = $this->requireActionContext($action);
 
-                if (defined('QUIOTE_USE_APCU_CONFIG_CACHE') && QUIOTE_USE_APCU_CONFIG_CACHE) {
-                    if ($vd) {
-                        $logger->debug("[ValidationService] Loading " . $method . " validators from APCu");
-                    }
-                    $cacheResult = \Quiote\Config\APCuConfigCache::checkConfig($configFile, $this->currentContext->getName());
-                    if (str_starts_with($cacheResult, 'APCU:')) {
-                        $this->runCachedApcuValidatorSnippet(substr($cacheResult, 5), $configFile . '|' . $this->currentContext->getName(), $validationManager, $method);
-                    } else {
-                        require($cacheResult);
-                    }
-                } else {
-                    if ($vd) {
-                        $logger->debug("[ValidationService] Loading " . $method . " validators from disk");
-                    }
-                    require(\Quiote\Config\ConfigCache::checkConfig($configFile, $this->currentContext->getName()));
+                if ($vd) {
+                    $logger->debug("[ValidationService] Registering " . $method . " validators declared in " . $configFile);
                 }
+                $this->registerDeclaredValidators($configFile, $validationManager, $method);
                 $validatorsLoaded = $this->validatorNames($validationManager->getChilds());
                 if ($vd) {
                     $logger->debug('[ValidationService] Loaded validators: ');

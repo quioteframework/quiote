@@ -242,14 +242,9 @@ class ValidationServiceTest extends UnitTestCase
     }
 
     // ---------------------------------------------------------------
-    // runCachedApcuValidatorSnippet() -- item 3 of PERF_PLAN.md: the APCu
-    // path used to eval() the raw compiled-config source on every single
-    // dispatch (never opcache-cached). It's now compiled into a Closure once
-    // per (configFile, context) key and reused. These tests exercise the
-    // private helper directly via reflection with a synthetic compiled
-    // snippet, since driving this through the real APCu extension end-to-end
-    // would need it enabled for CLI (a separate, disabled-by-default group
-    // elsewhere in this suite).
+    // registerDeclaredValidators() -- a compiled validator config returns a declaration, and this is
+    // where the value is read and handed to ValidatorDeclarationApplier. What the applier itself does
+    // with a declaration is covered by ValidatorDeclarationTest.
     // ---------------------------------------------------------------
 
     private function setCurrentContext(ValidationService $svc, \Quiote\Context $context): void
@@ -258,113 +253,46 @@ class ValidationServiceTest extends UnitTestCase
         $prop->setValue($svc, $context);
     }
 
-    private function invokeRunCachedApcuValidatorSnippet(ValidationService $svc, string $content, string $cacheKey, ValidationManager $manager, string $method): void
+    private function invokeRegisterDeclaredValidators(ValidationService $svc, string $configFile, ValidationManager $manager, string $method): void
     {
-        $method2 = new ReflectionMethod(ValidationService::class, 'runCachedApcuValidatorSnippet');
-        $method2->invoke($svc, $content, $cacheKey, $manager, $method);
+        $method2 = new ReflectionMethod(ValidationService::class, 'registerDeclaredValidators');
+        $method2->invoke($svc, $configFile, $manager, $method);
     }
 
     /**
-     * Reads the cached Closure for $cacheKey from the static cache, so tests
-     * can assert on eval()-compilation identity directly instead of trying to
-     * infer it from execution counts -- the closure body legitimately runs on
-     * *every* call (registration must happen every request); only the
-     * eval()/compile step is meant to happen once per key.
+     * Validators are initialized with the context of the action being validated, so registering
+     * before that context has been captured is a caller bug worth naming -- rather than reaching for
+     * whatever context happens to be current.
      */
-    private function getCachedApcuValidatorClosure(string $cacheKey): ?\Closure
-    {
-        $prop = new ReflectionProperty(ValidationService::class, 'compiledApcuValidatorClosures');
-        /** @var array<string, \Closure> $cache */
-        $cache = $prop->getValue();
-        return $cache[$cacheKey] ?? null;
-    }
-
-    public function testRunCachedApcuValidatorSnippetReusesTheSameCompiledClosure(): void
-    {
-        $ctx = $this->getContext();
-        $manager = $ctx->createInstanceFor('validation_manager');
-        $svc = new ValidationService($manager);
-        $this->setCurrentContext($svc, $ctx);
-
-        $cacheKey = 'test-config-' . uniqid('', true) . '|testing';
-        $content = "<?php\n"
-            . "\$GLOBALS['rcavs_lastMethod'] = \$method;\n"
-            . "\$GLOBALS['rcavs_lastManager'] = \$validationManager;\n"
-            . "\$GLOBALS['rcavs_lastContext'] = \$this->getContext();\n";
-
-        $this->invokeRunCachedApcuValidatorSnippet($svc, $content, $cacheKey, $manager, 'read');
-        $this->assertSame('read', $GLOBALS['rcavs_lastMethod']);
-        $this->assertSame($manager, $GLOBALS['rcavs_lastManager']);
-        $this->assertSame($ctx, $GLOBALS['rcavs_lastContext']);
-
-        $compiledOnFirstCall = $this->getCachedApcuValidatorClosure($cacheKey);
-        $this->assertInstanceOf(\Closure::class, $compiledOnFirstCall);
-
-        // Second call, same cache key: the cached Closure instance must be
-        // reused as-is (no re-eval()/recompile), but it must still actually
-        // run with the fresh arguments given this time -- registration has
-        // to happen every request, only the compile step is meant to be
-        // once-per-key.
-        $this->invokeRunCachedApcuValidatorSnippet($svc, $content, $cacheKey, $manager, 'write');
-        $this->assertSame('write', $GLOBALS['rcavs_lastMethod'], 'the reused closure must still run with fresh arguments');
-        $this->assertSame(
-            $compiledOnFirstCall,
-            $this->getCachedApcuValidatorClosure($cacheKey),
-            'a second call with the same cache key must reuse the exact same compiled Closure, not rebuild it'
-        );
-
-        unset($GLOBALS['rcavs_lastMethod'], $GLOBALS['rcavs_lastManager'], $GLOBALS['rcavs_lastContext']);
-    }
-
-    public function testRunCachedApcuValidatorSnippetUsesDistinctClosuresPerCacheKey(): void
-    {
-        $ctx = $this->getContext();
-        $manager = $ctx->createInstanceFor('validation_manager');
-        $svc = new ValidationService($manager);
-        $this->setCurrentContext($svc, $ctx);
-
-        $content = "<?php\n// no-op compiled snippet\n";
-        $keyOne = 'key-one-' . uniqid('', true);
-        $keyTwo = 'key-two-' . uniqid('', true);
-
-        $this->invokeRunCachedApcuValidatorSnippet($svc, $content, $keyOne, $manager, 'read');
-        $this->invokeRunCachedApcuValidatorSnippet($svc, $content, $keyTwo, $manager, 'read');
-
-        $closureOne = $this->getCachedApcuValidatorClosure($keyOne);
-        $closureTwo = $this->getCachedApcuValidatorClosure($keyTwo);
-        $this->assertInstanceOf(\Closure::class, $closureOne);
-        $this->assertInstanceOf(\Closure::class, $closureTwo);
-        $this->assertNotSame($closureOne, $closureTwo, 'a different cache key must compile its own closure, not reuse an unrelated key\'s');
-    }
-
-    public function testRunCachedApcuValidatorSnippetRebindsGetContextPerCallingInstance(): void
+    public function testRegisterDeclaredValidatorsRequiresTheActionContext(): void
     {
         $manager = $this->getContext()->createInstanceFor('validation_manager');
-        $ctxA = $this->getContext();
-        $ctxB = \Quiote\Context::getInstance('quiote-session-storage-test::tests-lazy-retrieve');
-        $this->assertNotSame($ctxA, $ctxB, 'precondition: need two distinct Context instances');
+        self::assertInstanceOf(ValidationManager::class, $manager);
+        $svc = new ValidationService($manager);
 
-        $svcA = new ValidationService($manager);
-        $this->setCurrentContext($svcA, $ctxA);
-        $svcB = new ValidationService($manager);
-        $this->setCurrentContext($svcB, $ctxB);
+        $this->expectException(\Quiote\Exception\QuioteException::class);
+        $this->expectExceptionMessageMatches('/Context has not been captured yet/');
+        $this->invokeRegisterDeclaredValidators($svc, 'validators.xml', $manager, 'read');
+    }
 
-        $cacheKey = 'rebind-test-' . uniqid('', true);
-        $content = "<?php\n\$GLOBALS['rcavs_rebindContext'] = \$this->getContext();\n";
+    /**
+     * The happy path, end to end through the real config cache: the module's validators.xml compiles,
+     * its declaration is read back, and the validators it declares land on the manager.
+     */
+    public function testRegisterDeclaredValidatorsBuildsTheValidatorsTheConfigDeclares(): void
+    {
+        $context = $this->getContext();
+        $configFile = \Quiote\Config\Config::getString('core.module_dir') . '/Method/Validate/MethodHttp.xml';
+        $this->assertFileIsReadable($configFile);
 
-        $this->invokeRunCachedApcuValidatorSnippet($svcA, $content, $cacheKey, $manager, 'read');
-        $this->assertSame($ctxA, $GLOBALS['rcavs_rebindContext']);
+        $manager = $context->createInstanceFor('validation_manager');
+        self::assertInstanceOf(ValidationManager::class, $manager);
+        $svc = new ValidationService($manager);
+        $this->setCurrentContext($svc, $context);
 
-        // Same cache key (closure reused from svcA's call above), but invoked
-        // from a DIFFERENT ValidationService instance: $this->getContext()
-        // must resolve against svcB's context now, not stay latched to
-        // whichever instance happened to trigger the first, cache-populating
-        // eval() -- that would silently validate every subsequent request
-        // against a stale context.
-        $this->invokeRunCachedApcuValidatorSnippet($svcB, $content, $cacheKey, $manager, 'read');
-        $this->assertSame($ctxB, $GLOBALS['rcavs_rebindContext']);
+        $this->invokeRegisterDeclaredValidators($svc, $configFile, $manager, 'read');
 
-        unset($GLOBALS['rcavs_rebindContext']);
+        $this->assertArrayHasKey('fail_param', $manager->getChilds(), 'the declared validator should have been registered');
     }
 
     /**

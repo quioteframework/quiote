@@ -5,6 +5,7 @@ use Quiote\Config\Config;
 use Quiote\Config\ValidatorConfigHandler;
 use Quiote\Validator\OroperatorValidator;
 use Quiote\Validator\ValidationManager;
+use Quiote\Validator\Compiler\Runtime\ValidatorDeclarationApplier;
 
 require_once(__DIR__ . '/ConfigHandlerTestBase.php');
 
@@ -28,9 +29,15 @@ class ValidatorConfigHandlerTest extends ConfigHandlerTestBase
 		);
 
 		$vm = $this->getContext()->createInstanceFor('validation_manager');
-		$this->includeCode($VCH->execute($document), [
-			'validationManager' => $vm
-		]);
+		self::assertInstanceOf(ValidationManager::class, $vm);
+		// The compiled artifact is a declaration; the applier is what builds the validators from it.
+		ValidatorDeclarationApplier::apply(
+			$this->includeCode($VCH->execute($document)),
+			$vm,
+			'',
+			$this->getContext(),
+			Config::getString('core.config_dir') . '/tests/validators.xml'
+		);
 
 		return $vm;
 	}

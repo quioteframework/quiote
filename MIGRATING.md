@@ -177,6 +177,29 @@ to `ModuleConfigHandler::applyDeclaration()`. `${moduleName}` inside a setting *
 is a different mechanism and is unchanged: those sit alongside `${actionName}` and
 `${viewName}`, expanded per request when an action or view is resolved.
 
+**`validators.xml` compiles to a declaration too, and `ValidationService` applies it.** Its compiled
+file was a snippet of `new X(); ->initialize(...); ->addChild(...)` statements that ran inline in
+`ValidationService`'s own scope, reading the free variables `$validationManager`/`$method` and calling
+`$this->getContext()`. It now returns
+
+```php
+return ['buckets' => [
+    ''      => ['declaredParameters' => [...], 'validators' => [ /* specs, in registration order */ ]],
+    'write' => ['declaredParameters' => [...], 'validators' => [...]],
+]];
+```
+
+and `Quiote\Validator\Compiler\Runtime\ValidatorDeclarationApplier` builds the validators from it. The
+per-method `if ($method == '…')` blocks the artifact used to emit are buckets: the applier applies the
+methodless bucket and the one matching the request method. Nested (and/or/not/xor) children name their
+parent instead of relying on a generated variable being in scope.
+
+`Quiote\Validator\Compiler\RuntimeArrayEmitter` is gone, replaced by `RuntimeDeclarationEmitter`, which
+returns the declaration rather than snippet lines. `ValidatorPlan`/`ValidatorNode` — the IR both are
+built from — are unchanged, as is `FluentSourceEmitter`. The private closure cache in
+`ValidationService` that existed only to avoid re-`eval()`ing that snippet is gone with it; the APCu
+cache now serves the declaration's value from shared memory instead.
+
 **The `plugins` merge is testable code now.** Appending only classes not already
 present used to exist solely as a generated string. It is
 `PluginConfigHandler::merge()`, with the same guarantees: declared order preserved,
