@@ -19,7 +19,7 @@ class ViewAndActionResolverTest extends UnitTestCase
         parent::setUp();
     // Legacy getViewResolver() removed; instantiate stub directly (delegates to ViewNameResolver)
         $this->viewResolver = new ViewNameResolver();
-        $this->actionResolver = $this->getContext()->getActionResolver();
+        $this->actionResolver = $this->getContext()->getContainer()->get(\Quiote\Execution\ActionResolver::class);
     }
 
     public function testResolveScalarViewName(): void

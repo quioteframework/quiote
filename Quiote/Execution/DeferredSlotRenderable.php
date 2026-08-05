@@ -24,10 +24,10 @@ class DeferredSlotRenderable implements SlotRenderable, \Stringable
             return $this->rendered;
         }
 
-        $parentRequest = $this->context->getCurrentPsrRequest();
-        if (!$parentRequest) {
-            throw new \RuntimeException('No current PSR request available for deferred slot dispatch');
-        }
+        // getRequest() rather than the removed getCurrentPsrRequest(): the same object, and it
+        // rebuilds one if the request-scoped instance was cleared, which is strictly better here than
+        // the exception the null case used to raise.
+        $parentRequest = $this->context->getRequest();
         try {
             $pid = spl_object_id($parentRequest);
             $has = $parentRequest->getAttribute(\Quiote\Execution\SlotStack::class) ? '1' : '0';
@@ -36,7 +36,7 @@ class DeferredSlotRenderable implements SlotRenderable, \Stringable
             $logger->debug('[DeferredSlotRenderable] DeferredSlotRenderable parentRequest (no id available)');
         }
 
-        $dispatcher = $this->context->getSlotDispatcher();
+        $dispatcher = $this->context->getContainer()->get(\Quiote\Execution\SlotDispatcher::class);
         try {
             $slotContent = $dispatcher->dispatchSlotContent($parentRequest, $this->module, $this->action, $this->parameters, $this->outputType);
             $this->rendered = $slotContent->getContent();

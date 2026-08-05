@@ -163,9 +163,9 @@ class Context implements \Stringable, ResetInterface, ContextInterface
    */
   protected function __construct(
     /**
-     * @var        string The name of the Context.
+     * The name of the Context.
      */
-    protected $name,
+    protected string $name,
   ) {
     $this->shutdownSequence = new ShutdownSequence();
     $this->lifecycle = new ContextLifecycle();
@@ -303,19 +303,6 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     return $this->container;
   }
 
-  /**
-   * Retrieve a service from the container.
-   * The service-locator path, for call sites that cannot declare a dependency and for
-   * lazy/conditional access (the `IServiceProvider`-injection equivalent from .NET).
-   * The preferred path for new code is constructor injection; both resolve through the
-   * same container. Thin wrapper — exceptions from the container propagate as-is.
-   * Deliberately separate from {@see \Quiote\Model\ModelLocator}: services and models remain
-   * separate conventions.
-   */
-  public function getService(string $id): mixed
-  {
-    return $this->getContainer()->get($id);
-  }
 
   /**
    * Register an already-constructed core service instance into the container
@@ -495,7 +482,7 @@ class Context implements \Stringable, ResetInterface, ContextInterface
       \Quiote\Execution\SlotDispatcher::class,
       fn(): \Quiote\Execution\SlotDispatcher => new \Quiote\Execution\SlotDispatcher(
         $this->getController(),
-        $this->getActionResolver(),
+        $this->service(\Quiote\Execution\ActionResolver::class),
       ),
       Container::SCOPE_REQUEST,
     );
@@ -586,23 +573,6 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     $container->alias(\OpenTelemetry\API\Metrics\MeterProviderInterface::class, \OpenTelemetry\SDK\Metrics\MeterProviderInterface::class);
   }
 
-  /**
-   * Retrieve a database connection from the database manager.
-   * This is a shortcut to manually getting a connection from an existing
-   * database implementation instance.
-   * If the core.use_database setting is off, this will return null.
-   * @param      ?string $name A database name.
-   * @return     mixed A database connection.
-   * @throws     \Quiote\Exception\DatabaseException If the requested database name
-   *                                           does not exist.
-   * @since      1.0.0
-   */
-  public function getDatabaseConnection($name = null)
-  {
-    if ($this->databaseManager !== null) {
-      return $this->databaseManager->getDatabase($name)->getConnection();
-    }
-  }
 
   /**
    * Retrieve the database manager.
@@ -967,37 +937,9 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     return $this->requestHandler?->correlationId();
   }
 
-  /**
-   * Retrieve (lazily create) SlotDispatcher for sub-action (slot) execution.
-   */
-  public function getSlotDispatcher(): \Quiote\Execution\SlotDispatcher
-  {
-    return $this->service(\Quiote\Execution\SlotDispatcher::class);
-  }
 
-  /**
-   * Retrieve (lazily create) the AssetRegistry shared by the whole render
-   * tree for this request (the top-level View and every nested slot View).
-   */
-  public function getAssetRegistry(): \Quiote\Asset\AssetRegistry
-  {
-    return $this->service(\Quiote\Asset\AssetRegistry::class);
-  }
 
-  public function getActionResolver(): \Quiote\Execution\ActionResolver
-  {
-    return $this->service(\Quiote\Execution\ActionResolver::class);
-  }
 
-  /**
-   * Retrieve the current PSR-7 ServerRequest.
-   * Since WebRequest extends ServerRequest, this returns the same object as getRequest().
-   * May return null for legacy/CLI execution paths.
-   */
-  public function getCurrentPsrRequest(): ?ServerRequestInterface
-  {
-    return $this->request;
-  }
 
 
   /**
@@ -1252,28 +1194,6 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     );
   }
 
-  /**
-   * Retrieve a Model implementation instance.
-   * @param      string $modelName A model name or fully qualified class name.
-   * @param      string $moduleName A module name, if the requested model is a module model,
-   *                    or null for global models. (DEPRECATED with namespaces)
-   * @param      ?array<int, mixed> $parameters An array of parameters to be passed to initialize() or
-   *                    the constructor.
-   * @return     \Quiote\Model\Model A Model implementation instance.
-   * @throws     QuioteException if class is ultimately not found.
-   * @since      1.0.0
-   */
-  public function getModel(
-    $modelName,
-    $moduleName = null,
-    ?array $parameters = null,
-  ) {
-    return $this->getModelLocator()->get(
-      (string) $modelName,
-      $moduleName === null ? null : (string) $moduleName,
-      $parameters,
-    );
-  }
 
 
   /**

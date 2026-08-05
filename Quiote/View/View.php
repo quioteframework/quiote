@@ -605,11 +605,9 @@ abstract class View implements ResetInterface
 		// only when the renderer actually requests the content. This avoids
 		// eager dispatch during layout construction and prevents recursion.
 		$context = $this->requireContext();
-		$dispatcher = $context->getSlotDispatcher();
-		$parentRequest = $context->getCurrentPsrRequest();
-		if (!$parentRequest) {
-			throw new \RuntimeException('No current PSR request available for slot dispatch');
-		}
+		// getRequest() rather than the removed getCurrentPsrRequest(): the same object, and it rebuilds
+		// one if the request-scoped instance was cleared.
+		$parentRequest = $context->getRequest();
 		// Instead of dispatching now, return a deferred renderable that will
 		// dispatch during template rendering.
 		return new \Quiote\Execution\DeferredSlotRenderable($context, $moduleName, $actionName, $parameters, $outputType);
@@ -669,14 +667,26 @@ abstract class View implements ResetInterface
 
 	/**
 	 * Register a stylesheet for this page's render tree. Unlike
-	 * appendAttribute(), this reaches Context::getAssetRegistry() directly,
-	 * so it works from a top-level view or a slot-nested one alike, and is
+	 * appendAttribute(), this reaches the request's shared AssetRegistry
+	 * directly, so it works from a top-level view or a slot-nested one alike, and is
 	 * unaffected by the immutable-snapshot no-op that appendAttribute() hits
 	 * under the modern container-less execution path.
 	 */
+	/**
+	 * The asset registry shared by this request's whole render tree, or null before a context is set.
+	 *
+	 * Resolved from the container per call rather than held: the registry is request-scoped, and a view
+	 * that has no context yet has nowhere to get one from -- hence the nullable answer rather than a
+	 * property assigned at construction.
+	 */
+	private function assetRegistry(): ?\Quiote\Asset\AssetRegistry
+	{
+		return $this->getContext()?->getContainer()->get(\Quiote\Asset\AssetRegistry::class);
+	}
+
 	public function addCss(string $href): void
 	{
-		$this->getContext()?->getAssetRegistry()->addCss($href);
+		$this->assetRegistry()?->addCss($href);
 	}
 
 	/**
@@ -684,7 +694,7 @@ abstract class View implements ResetInterface
 	 */
 	public function addJavascript(string $src): void
 	{
-		$this->getContext()?->getAssetRegistry()->addJavascript($src);
+		$this->assetRegistry()?->addJavascript($src);
 	}
 
 	public function reset(): void

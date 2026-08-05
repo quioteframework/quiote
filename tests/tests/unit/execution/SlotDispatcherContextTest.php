@@ -23,7 +23,7 @@ class SlotDispatcherContextTest extends UnitTestCase
     {
         $req = (new ServerRequest('GET','http://localhost/'))
             ->withAttribute(SlotMiddleware::ATTR, new SlotStack());
-        $dispatcher = $this->getContext()->getSlotDispatcher();
+        $dispatcher = $this->getContext()->getContainer()->get(\Quiote\Execution\SlotDispatcher::class);
         $ctx = $dispatcher->dispatchWithContext($req,'Cache','Cache',[], 'Html');
         $this->assertInstanceOf(ActionExecutionContext::class, $ctx);
         $this->assertSame('Cache', $ctx->module);

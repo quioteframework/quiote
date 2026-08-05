@@ -29,7 +29,7 @@ class SlotNonSimpleParityTest extends UnitTestCase
         $configure(); // set static flags
         $parent = (new ServerRequest('GET','http://localhost/'))
             ->withAttribute(SlotMiddleware::ATTR, new SlotStack());
-        $dispatcher = $this->getContext()->getSlotDispatcher();
+        $dispatcher = $this->getContext()->getContainer()->get(\Quiote\Execution\SlotDispatcher::class);
         $slotReq = SlotRequestFactory::create($parent, 'Cache','CacheComplex', $params, null);
         // Re-apply configuration just before dispatch in case container path recreated action instance
         $configure();

@@ -24,7 +24,7 @@ class SlotExecutionContextTest extends UnitTestCase
         $parent = (new ServerRequest('GET','http://localhost/'))
             ->withAttribute(SlotMiddleware::ATTR, new SlotStack());
         $ctx = $this->getContext();
-        $dispatcher = $ctx->getSlotDispatcher();
+        $dispatcher = $ctx->getContainer()->get(\Quiote\Execution\SlotDispatcher::class);
     \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,false,false);
     $slotCtx = $dispatcher->dispatchSlotContext($parent,'Cache','CacheComplex');
     $this->assertSame('Cache', $slotCtx->module);

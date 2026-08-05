@@ -121,7 +121,7 @@ class ControllerTest extends PhpUnitTestCase
 		// Test that models can be loaded and implement Model interface
 		$context = $this->_context;
 
-		$model = $context->getModel('ControllerTest', 'ControllerTests');
+		$model = $context->getModelLocator()->get('ControllerTest', 'ControllerTests');
 		$this->assertInstanceOf(\Quiote\Model\Model::class, $model);
 
 		// Test that the model class exists and is loadable

@@ -204,22 +204,22 @@ class ContextRequestHandlerTest extends PhpUnitTestCase
 		$context = $this->ctx();
 		$container = $context->getContainer();
 
-		$this->assertSame($context->getActionResolver(), $container->get(ActionResolver::class));
-		$this->assertSame($context->getActionResolver(), $container->get('actionResolver'));
-		$this->assertSame($context->getAssetRegistry(), $container->get(AssetRegistry::class));
-		$this->assertSame($context->getSlotDispatcher(), $container->get(SlotDispatcher::class));
+		$this->assertSame($context->getContainer()->get(\Quiote\Execution\ActionResolver::class), $container->get(ActionResolver::class));
+		$this->assertSame($context->getContainer()->get(\Quiote\Execution\ActionResolver::class), $container->get('actionResolver'));
+		$this->assertSame($context->getContainer()->get(\Quiote\Asset\AssetRegistry::class), $container->get(AssetRegistry::class));
+		$this->assertSame($context->getContainer()->get(\Quiote\Execution\SlotDispatcher::class), $container->get(SlotDispatcher::class));
 	}
 
 	public function testTheAssetRegistryIsSharedWithinARequestAndDroppedAtTheBoundary(): void
 	{
 		$context = $this->ctx();
 
-		$registry = $context->getAssetRegistry();
-		$this->assertSame($registry, $context->getAssetRegistry(), 'shared by the whole render tree');
+		$registry = $context->getContainer()->get(\Quiote\Asset\AssetRegistry::class);
+		$this->assertSame($registry, $context->getContainer()->get(\Quiote\Asset\AssetRegistry::class), 'shared by the whole render tree');
 
 		$context->reset();
 
-		$this->assertNotSame($registry, $context->getAssetRegistry(), 'not carried across the boundary');
+		$this->assertNotSame($registry, $context->getContainer()->get(\Quiote\Asset\AssetRegistry::class), 'not carried across the boundary');
 	}
 
 	/**
@@ -229,36 +229,39 @@ class ContextRequestHandlerTest extends PhpUnitTestCase
 	public function testTheActionResolverSurvivesTheRequestBoundary(): void
 	{
 		$context = $this->ctx();
-		$resolver = $context->getActionResolver();
+		$resolver = $context->getContainer()->get(\Quiote\Execution\ActionResolver::class);
 
 		$context->reset();
 
-		$this->assertSame($resolver, $context->getActionResolver());
+		$this->assertSame($resolver, $context->getContainer()->get(\Quiote\Execution\ActionResolver::class));
 	}
 
 	public function testTheSlotDispatcherIsRebuiltPerRequest(): void
 	{
 		$context = $this->ctx();
-		$dispatcher = $context->getSlotDispatcher();
-		$this->assertSame($dispatcher, $context->getSlotDispatcher());
+		$dispatcher = $context->getContainer()->get(\Quiote\Execution\SlotDispatcher::class);
+		$this->assertSame($dispatcher, $context->getContainer()->get(\Quiote\Execution\SlotDispatcher::class));
 
 		$context->reset();
 
-		$this->assertNotSame($dispatcher, $context->getSlotDispatcher());
+		$this->assertNotSame($dispatcher, $context->getContainer()->get(\Quiote\Execution\SlotDispatcher::class));
 	}
 
 	/**
-	 * An application may rebind any of these. A rebinding to the wrong type is reported here rather
-	 * than as a type error in whatever called the accessor.
+	 * An application may rebind any of these, including to the wrong type. `Context`'s accessors used
+	 * to type-check the container's answer on the way past; with the accessors gone that check lives in
+	 * the container itself, which is the one place every resolution passes through -- so a consumer
+	 * asking for a class name never has to defend against getting something else.
 	 */
-	public function testAnAccessorRejectsARebindingOfTheWrongType(): void
+	public function testAMisboundServiceIsRefusedByTheContainer(): void
 	{
 		$context = $this->ctx();
 		$context->getContainer()->set(AssetRegistry::class, new stdClass(), Container::SCOPE_REQUEST);
 
-		$this->expectException(\Quiote\Exception\QuioteException::class);
+		$this->expectException(\Quiote\DI\ContainerException::class);
 		$this->expectExceptionMessage('which is not a');
 
-		$context->getAssetRegistry();
+		$context->getContainer()->get(AssetRegistry::class);
 	}
+
 }

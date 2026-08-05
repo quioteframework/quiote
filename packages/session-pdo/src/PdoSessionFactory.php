@@ -6,6 +6,7 @@ namespace Quiote\Session\Pdo;
 
 use PDO;
 use Quiote\Context;
+use Quiote\Database\DatabaseManager;
 use Quiote\Exception\StorageException;
 use Quiote\Session\SessionFactoryInterface;
 use Quiote\Session\SessionPersistenceInterface;
@@ -35,7 +36,7 @@ final class PdoSessionFactory implements SessionFactoryInterface
         $database = $parameters['database'] ?? null;
         $name = is_string($database) && $database !== '' ? $database : null;
 
-        $connection = $context->getDatabaseConnection($name);
+        $connection = self::connectionFor($context, $name);
         if (!$connection instanceof PDO) {
             throw new StorageException(sprintf(
                 'The session backend needs a PDO connection, but database "%s" resolved to %s. '
@@ -48,5 +49,26 @@ final class PdoSessionFactory implements SessionFactoryInterface
         $table = $parameters['table'] ?? null;
 
         return new PdoSessionPersistence($connection, is_string($table) && $table !== '' ? $table : 'session');
+    }
+
+    /**
+     * The PDO connection for a declared database, or null when there is none to be had.
+     *
+     * Resolved through the container rather than through a Context accessor: the accessors are being
+     * removed, and a session factory is exactly the kind of collaborator that should ask for what it
+     * needs by name. `has()` first, because a context with `core.use_database` off never binds a
+     * database manager at all -- and "no database configured" is a case this factory reports rather
+     * than an error to propagate from the container.
+     *
+     * @since      4.0.0
+     */
+    private static function connectionFor(Context $context, ?string $name): mixed
+    {
+        $container = $context->getContainer();
+        if (!$container->has(DatabaseManager::class)) {
+            return null;
+        }
+
+        return $container->get(DatabaseManager::class)->getDatabase($name)->getConnection();
     }
 }

@@ -50,7 +50,7 @@ class SlotNonSimpleNoContainerTest extends UnitTestCase
     {
         $parent = (new ServerRequest('GET', 'http://localhost/'))
             ->withAttribute(SlotMiddleware::ATTR, new SlotStack());
-        $dispatcher = $this->getContext()->getSlotDispatcher();
+        $dispatcher = $this->getContext()->getContainer()->get(\Quiote\Execution\SlotDispatcher::class);
         $slotReq = SlotRequestFactory::create($parent, 'Cache', 'CacheComplex', $params, $outputType);
         return $dispatcher->dispatchSlotContext($slotReq, 'Cache', 'CacheComplex', $params, $outputType);
     }

@@ -77,15 +77,37 @@ class Container implements ContainerInterface
         $this->set($id, $factory, $scope);
     }
 
+    /**
+     * Resolve a service.
+     *
+     * The conditional return type is what makes the container usable without a cast at every call
+     * site: asked for a class name, this answers that class, and asked for a role string
+     * (`'controller'`, `'user'`) it answers `mixed`, because nothing statically knows what a role is
+     * bound to. That distinction matters now that `Context`'s typed accessors are gone -- code that
+     * used to write `$context->getSlotDispatcher()` and get a `SlotDispatcher` writes
+     * `$container->get(SlotDispatcher::class)` and still gets one.
+     *
+     * A binding whose value does not match the requested class is refused here, which is what makes
+     * that conditional type a promise rather than a hope. `Context` used to run this check inside four
+     * typed accessors; with the accessors gone it belongs to the one place every resolution passes
+     * through, and it means a consumer that resolves a class name never has to defend against getting
+     * something else.
+     *
+     * @template T of object
+     * @param      string $id A class name, an interface name, or a role alias.
+     * @phpstan-param class-string<T>|string $id
+     * @return     mixed The resolved service.
+     * @phpstan-return ($id is class-string<T> ? T : mixed)
+     */
     public function get(string $id): mixed
     {
         $lookupId = $this->aliases[$id] ?? $id;
 
         if (array_key_exists($lookupId, $this->singletonResolved)) {
-            return $this->singletonResolved[$lookupId];
+            return $this->assertResolvedType($id, $this->singletonResolved[$lookupId]);
         }
         if (array_key_exists($lookupId, $this->requestResolved)) {
-            return $this->requestResolved[$lookupId];
+            return $this->assertResolvedType($id, $this->requestResolved[$lookupId]);
         }
 
         if (isset($this->resolvingStack[$lookupId])) {
@@ -110,7 +132,36 @@ class Container implements ContainerInterface
                 $this->singletonResolved[$lookupId] = $obj;
         }
 
-        return $obj;
+        return $this->assertResolvedType($id, $obj);
+    }
+
+    /**
+     * Hold {@see get()}'s side of the bargain: an id that names a class or interface resolves to one.
+     *
+     * Only checked when the id *is* a type name. A role alias (`'controller'`, `'user'`) promises
+     * nothing statically, so nothing is asserted for it -- the caller of a role lookup already gets
+     * `mixed` and has to decide for itself.
+     *
+     * @param      string $id The id as asked for, not the alias target: the message should name what
+     *                    the caller wrote.
+     * @since      4.0.0
+     */
+    private function assertResolvedType(string $id, mixed $resolved): mixed
+    {
+        if (!class_exists($id) && !interface_exists($id)) {
+            return $resolved;
+        }
+
+        if ($resolved instanceof $id) {
+            return $resolved;
+        }
+
+        throw new ContainerException(sprintf(
+            'The container resolves "%s" to %s, which is not a %s. Check what was bound for it.',
+            $id,
+            get_debug_type($resolved),
+            $id,
+        ));
     }
 
     /**

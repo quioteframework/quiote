@@ -81,14 +81,12 @@ class ContextExtendedCoverageTest extends TestCase
         $res1 = $ctx->handle($req); // first handle
         $cid1 = $ctx->getCorrelationId();
         $this->assertNotEmpty($cid1);
-        $this->assertNotNull($ctx->getCurrentPsrRequest());
         // Second request should generate a new correlation id
         $req2 = new ServerRequest('GET', '/bar');
         $res2 = $ctx->handle($req2);
         $cid2 = $ctx->getCorrelationId();
         $this->assertNotEmpty($cid2);
         $this->assertNotSame($cid1, $cid2, 'Correlation ID should refresh per handle call');
-        $this->assertNotNull($ctx->getCurrentPsrRequest());
     }
 
     public function testHandleAdoptsInboundCorrelationIdHeader(): void
@@ -188,10 +186,10 @@ class ContextExtendedCoverageTest extends TestCase
         $ctx = $this->ctx();
         $this->injectLogger($ctx);
 
-        $before = $ctx->getModel(\Sandbox\Models\ContextTestSingletonModel::class);
+        $before = $ctx->getModelLocator()->get(\Sandbox\Models\ContextTestSingletonModel::class);
         $this->assertSame(
             $before,
-            $ctx->getModel(\Sandbox\Models\ContextTestSingletonModel::class),
+            $ctx->getModelLocator()->get(\Sandbox\Models\ContextTestSingletonModel::class),
             'a singleton model is shared within the request',
         );
 
@@ -199,7 +197,7 @@ class ContextExtendedCoverageTest extends TestCase
 
         $this->assertNotSame(
             $before,
-            $ctx->getModel(\Sandbox\Models\ContextTestSingletonModel::class),
+            $ctx->getModelLocator()->get(\Sandbox\Models\ContextTestSingletonModel::class),
             'the singleton model cache should be cleared on reset',
         );
     }
@@ -398,27 +396,19 @@ class ContextExtendedCoverageTest extends TestCase
         $ctx->handle($req1);
         $cid1 = $ctx->getCorrelationId();
         $this->assertNotEmpty($cid1);
-        // Current PSR request should be the one passed to handle (identity may be same instance)
-        // Since WebRequest extends ServerRequest, getCurrentPsrRequest() returns the request
-        $current1 = $ctx->getCurrentPsrRequest();
-        $this->assertNotNull($current1);
-        // Allow frameworks/middleware to wrap the request; verify semantic consistency
-        if ($current1 !== $req1) {
-            $this->assertSame((string)$req1->getUri(), (string)$current1->getUri(), 'Current PSR request URI should match original even if instance was replaced');
-        } else {
-            $this->assertSame($req1, $current1, 'Expected request to reference req1 immediately after handle');
-        }
+        // The request the context answers is the one handle() was given, wrapped as a WebRequest --
+        // middleware is free to replace the instance, so the URI is what has to survive.
+        $current1 = $ctx->getRequest();
+        $this->assertSame((string)$req1->getUri(), (string)$current1->getUri(), 'the handled request URI should be what the context answers');
         // Simulate middleware replacing request (e.g., adding attribute)
         $req2 = $req1->withAttribute('x', 'y');
         $ctx->setRequest($req2);
         $this->assertNotSame($req1, $req2, 'Middleware modifications should produce a new immutable request instance');
-        $current2 = $ctx->getCurrentPsrRequest();
-        $this->assertNotNull($current2);
-        if ($current2 !== $req2) {
-            $this->assertSame((string)$req2->getUri(), (string)$current2->getUri(), 'Current request URI should match replaced request');
-        } else {
-            $this->assertSame($req2, $current2, 'Context should now reference the replaced PSR request');
-        }
+        // Not an identity assertion: setRequest() may wrap a plain PSR request as a WebRequest, so
+        // what has to hold is that the republished request's own state is what the context answers.
+        $current2 = $ctx->getRequest();
+        $this->assertSame((string)$req2->getUri(), (string)$current2->getUri());
+        $this->assertSame('y', $current2->getAttribute('x'), 'the middleware attribute should survive');
         // Correlation id remains the same for the same pipeline execution
         $this->assertSame($cid1, $ctx->getCorrelationId(), 'Correlation id should not change on setRequest');
         // A new handle() should regenerate correlation id
@@ -434,8 +424,8 @@ class ContextExtendedCoverageTest extends TestCase
         // Force controller + actionResolver creation paths
         $ro = new ReflectionObject($ctx);
         // Ensure controller factory info exists to avoid null controller (simplified assumption: already initialized by getInstance())
-        $sd1 = $ctx->getSlotDispatcher();
-        $sd2 = $ctx->getSlotDispatcher();
+        $sd1 = $ctx->getContainer()->get(\Quiote\Execution\SlotDispatcher::class);
+        $sd2 = $ctx->getContainer()->get(\Quiote\Execution\SlotDispatcher::class);
         $this->assertSame($sd1, $sd2, 'SlotDispatcher should be cached and identical');
         $this->assertInstanceOf(\Quiote\Execution\SlotDispatcher::class, $sd1);
     }

@@ -35,7 +35,7 @@ class SlotOutputTypeDispatchTest extends UnitTestCase
     {
         $parent = (new ServerRequest('GET','http://localhost/'))
             ->withAttribute(SlotMiddleware::ATTR, new SlotStack());
-        $dispatcher = $this->getContext()->getSlotDispatcher();
+        $dispatcher = $this->getContext()->getContainer()->get(\Quiote\Execution\SlotDispatcher::class);
         // Use factory to create request; we pass outputType explicitly to dispatcher
         $slotReq = SlotRequestFactory::create($parent, 'Cache','Cache', [], $outputType);
         $content = $dispatcher->dispatch($slotReq, 'Cache','Cache', [], $outputType);
@@ -54,7 +54,7 @@ class SlotOutputTypeDispatchTest extends UnitTestCase
     {
         $parent = (new ServerRequest('GET','http://localhost/'))
             ->withAttribute(SlotMiddleware::ATTR, new SlotStack());
-        $dispatcher = $this->getContext()->getSlotDispatcher();
+        $dispatcher = $this->getContext()->getContainer()->get(\Quiote\Execution\SlotDispatcher::class);
         $slotReq = SlotRequestFactory::create($parent, 'Cache','Cache');
         $content = $dispatcher->dispatch($slotReq, 'Cache','Cache');
     // With no explicit output type provided, framework default may map to Html output
@@ -65,7 +65,7 @@ class SlotOutputTypeDispatchTest extends UnitTestCase
     {
         $parent = (new ServerRequest('GET','http://localhost/'))
             ->withAttribute(SlotMiddleware::ATTR, new SlotStack());
-        $dispatcher = $this->getContext()->getSlotDispatcher();
+        $dispatcher = $this->getContext()->getContainer()->get(\Quiote\Execution\SlotDispatcher::class);
         // Request an output type that exists in the config? We pick one that does NOT exist: 'Xls'
         // Dispatcher will attempt executeXls(), not found, then fallback to execute().
         $slotReq = SlotRequestFactory::create($parent, 'Cache','Cache', [], 'Xls');

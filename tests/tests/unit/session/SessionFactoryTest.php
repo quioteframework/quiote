@@ -67,17 +67,21 @@ class SessionFactoryTest extends UnitTestCase
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->exec('CREATE TABLE session (sess_id VARCHAR(64) PRIMARY KEY, sess_data TEXT NOT NULL, sess_time TIMESTAMP NOT NULL)');
 
-        $context = new class ($pdo) extends Context {
-            public function __construct(private PDO $pdo)
+        // The factory resolves the database manager from the container, so that is what a stub binds.
+        $context = new class ('session-factory-test') extends Context {
+            /**
+             * Public only so the test can construct one; the parent's is protected. Nothing else is
+             * initialized, because the factory needs a container and nothing more.
+             */
+            public function __construct(string $name)
             {
-            }
-
-            #[\Override]
-            public function getDatabaseConnection($name = null): PDO
-            {
-                return $this->pdo;
+                parent::__construct($name);
             }
         };
+        $context->getContainer()->set(
+            \Quiote\Database\DatabaseManager::class,
+            new SessionFactoryTestDatabaseManager($pdo),
+        );
 
         $persistence = (new PdoSessionFactory())->createPersistence($context, []);
 
@@ -92,15 +96,15 @@ class SessionFactoryTest extends UnitTestCase
      */
     public function testPdoFactoryExplainsItselfWhenThereIsNoConnection(): void
     {
-        $context = new class extends Context {
-            public function __construct()
+        // Nothing bound: the shape a context with core.use_database off actually has.
+        $context = new class ('session-factory-test') extends Context {
+            /**
+             * Public only so the test can construct one; the parent's is protected. Nothing else is
+             * initialized, because the factory needs a container and nothing more.
+             */
+            public function __construct(string $name)
             {
-            }
-
-            #[\Override]
-            public function getDatabaseConnection($name = null): mixed
-            {
-                return null;
+                parent::__construct($name);
             }
         };
 
@@ -108,5 +112,46 @@ class SessionFactoryTest extends UnitTestCase
         $this->expectExceptionMessage('needs a PDO connection');
 
         (new PdoSessionFactory())->createPersistence($context, ['database' => 'sessions']);
+    }
+}
+
+/**
+ * Enough of a database manager to hand the session factory one connection. Extends the real class so
+ * the container's own type check passes, and overrides only the reach the factory makes.
+ */
+final class SessionFactoryTestDatabaseManager extends \Quiote\Database\DatabaseManager
+{
+    public function __construct(private readonly PDO $pdo)
+    {
+    }
+
+    #[\Override]
+    public function getDatabase($name = null): \Quiote\Database\Database
+    {
+        return new SessionFactoryTestDatabase($this->pdo);
+    }
+}
+
+final class SessionFactoryTestDatabase extends \Quiote\Database\Database
+{
+    public function __construct(private readonly PDO $pdo)
+    {
+    }
+
+    #[\Override]
+    public function getConnection()
+    {
+        return $this->pdo;
+    }
+
+    #[\Override]
+    public function connect()
+    {
+        // Already connected: the PDO handle is supplied ready-made.
+    }
+
+    #[\Override]
+    public function shutdown()
+    {
     }
 }

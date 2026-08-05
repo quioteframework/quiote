@@ -62,8 +62,8 @@ class ContextTest extends PhpUnitTestCase
 	public function testGetModel(string $modelName, string $className, bool $isSingleton, ?string $module = null): void
 	{
 		$ctx = Context::getInstance();
-		$model1 = $ctx->getModel($modelName, $module);
-		$model2 = $ctx->getModel($modelName, $module);
+		$model1 = $ctx->getModelLocator()->get($modelName, $module);
+		$model2 = $ctx->getModelLocator()->get($modelName, $module);
 		$this->assertInstanceOf($className, $model1);
 		$this->assertInstanceOf($className, $model2);
 		if($isSingleton) {
@@ -77,7 +77,7 @@ class ContextTest extends PhpUnitTestCase
 	public function testGetModelThrowsForAnUnresolvableModelName(): void
 	{
 		$this->expectException(\Quiote\Exception\QuioteException::class);
-		Context::getInstance()->getModel('ThisModelDoesNotExistAnywhere');
+		Context::getInstance()->getModelLocator()->get('ThisModelDoesNotExistAnywhere');
 	}
 
 	/**
@@ -94,7 +94,7 @@ class ContextTest extends PhpUnitTestCase
 		$this->assertSame($locator, $ctx->getContainer()->get(\Quiote\Model\ModelLocator::class));
 		$this->assertSame($locator, $ctx->getContainer()->get('modelLocator'));
 		$this->assertSame(
-			$ctx->getModel('ContextTestSingleton'),
+			$ctx->getModelLocator()->get('ContextTestSingleton'),
 			$locator->get('ContextTestSingleton'),
 			'both paths answer the same singleton instance',
 		);
@@ -108,11 +108,11 @@ class ContextTest extends PhpUnitTestCase
 	public function testResetDropsSingletonModelInstances(): void
 	{
 		$ctx = Context::getInstance();
-		$before = $ctx->getModel('ContextTestSingleton');
+		$before = $ctx->getModelLocator()->get('ContextTestSingleton');
 
 		$ctx->reset();
 
-		$this->assertNotSame($before, $ctx->getModel('ContextTestSingleton'));
+		$this->assertNotSame($before, $ctx->getModelLocator()->get('ContextTestSingleton'));
 	}
 
 	/** @return array<string, array{0: string, 1: class-string, 2: bool, 3?: string}> */
@@ -270,15 +270,15 @@ class ContextTest extends PhpUnitTestCase
 	public function testGetAssetRegistryReturnsSameInstanceUntilReset(): void
 	{
 		$ctx = Context::getInstance('asset_registry_test');
-		$registry1 = $ctx->getAssetRegistry();
+		$registry1 = $ctx->getContainer()->get(\Quiote\Asset\AssetRegistry::class);
 		$this->assertInstanceOf(\Quiote\Asset\AssetRegistry::class, $registry1);
-		$registry2 = $ctx->getAssetRegistry();
+		$registry2 = $ctx->getContainer()->get(\Quiote\Asset\AssetRegistry::class);
 		$this->assertSame($registry1, $registry2, 'Lazily created AssetRegistry must be a per-Context singleton within a request');
 
 		$registry1->addCss('css/one.css');
 		$ctx->reset();
 
-		$registry3 = $ctx->getAssetRegistry();
+		$registry3 = $ctx->getContainer()->get(\Quiote\Asset\AssetRegistry::class);
 		$this->assertNotSame($registry1, $registry3, 'reset() must rebuild the registry so assets never leak between requests in worker mode');
 		$this->assertSame([], $registry3->css(), 'A freshly rebuilt registry must start empty');
 	}
@@ -350,9 +350,9 @@ class ContextTest extends PhpUnitTestCase
 	public function testGetServiceResolvesCoreServiceAndArbitraryClass(): void
 	{
 		$ctx = Context::getInstance();
-		$this->assertSame($ctx->getController(), $ctx->getService('controller'));
+		$this->assertSame($ctx->getController(), $ctx->getContainer()->get('controller'));
 
-		$service = $ctx->getService(ContextTestServiceFixture::class);
+		$service = $ctx->getContainer()->get(ContextTestServiceFixture::class);
 		$this->assertInstanceOf(ContextTestServiceFixture::class, $service);
 		$this->assertSame($ctx, $service->getContext());
 	}
@@ -361,8 +361,8 @@ class ContextTest extends PhpUnitTestCase
 	public function testGetServiceDefaultsToTransientForQuioteServiceInterface(): void
 	{
 		$ctx = Context::getInstance();
-		$s1 = $ctx->getService(ContextTestServiceFixture::class);
-		$s2 = $ctx->getService(ContextTestServiceFixture::class);
+		$s1 = $ctx->getContainer()->get(ContextTestServiceFixture::class);
+		$s2 = $ctx->getContainer()->get(ContextTestServiceFixture::class);
 		$this->assertNotSame($s1, $s2);
 	}
 }

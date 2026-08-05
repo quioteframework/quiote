@@ -46,7 +46,7 @@ class SlotCacheTest extends UnitTestCase
 
     public function testCacheHitPreventsSecondExecution(): void
     {
-        $dispatcher = $this->getContext()->getSlotDispatcher();
+        $dispatcher = $this->getContext()->getContainer()->get(\Quiote\Execution\SlotDispatcher::class);
         $parent = (new ServerRequest('GET','http://localhost/'))
             ->withAttribute(SlotMiddleware::ATTR, new SlotStack());
     if(class_exists(\Sandbox\Modules\Cache\Actions\CacheAction::class)) { \Sandbox\Modules\Cache\Actions\CacheAction::$execCount = 0; }
@@ -62,7 +62,7 @@ class SlotCacheTest extends UnitTestCase
 
     public function testDifferentParametersProduceCacheMiss(): void
     {
-        $dispatcher = $this->getContext()->getSlotDispatcher();
+        $dispatcher = $this->getContext()->getContainer()->get(\Quiote\Execution\SlotDispatcher::class);
         $parent = (new ServerRequest('GET','http://localhost/'))
             ->withAttribute(SlotMiddleware::ATTR, new SlotStack());
     if(class_exists(\Sandbox\Modules\Cache\Actions\CacheAction::class)) { \Sandbox\Modules\Cache\Actions\CacheAction::$execCount = 0; }
@@ -75,7 +75,7 @@ class SlotCacheTest extends UnitTestCase
     {
         putenv('QUIOTE_SLOT_CACHE='); // disable
         CacheManager::reset();
-        $dispatcher = $this->getContext()->getSlotDispatcher();
+        $dispatcher = $this->getContext()->getContainer()->get(\Quiote\Execution\SlotDispatcher::class);
         $parent = (new ServerRequest('GET','http://localhost/'))
             ->withAttribute(SlotMiddleware::ATTR, new SlotStack());
     if(class_exists(\Sandbox\Modules\Cache\Actions\CacheAction::class)) { \Sandbox\Modules\Cache\Actions\CacheAction::$execCount = 0; }
@@ -95,7 +95,7 @@ class SlotCacheTest extends UnitTestCase
         $spy = new \Quiote\Test\Cache\Psr16KeyRecordingCache();
         CacheManager::setCache($spy, 'spy');
 
-        $dispatcher = $this->getContext()->getSlotDispatcher();
+        $dispatcher = $this->getContext()->getContainer()->get(\Quiote\Execution\SlotDispatcher::class);
         $parent = (new ServerRequest('GET', 'http://localhost/'))
             ->withAttribute(SlotMiddleware::ATTR, new SlotStack());
         $dispatcher->dispatch($parent, 'Cache', 'Cache', ['k' => 'v']);

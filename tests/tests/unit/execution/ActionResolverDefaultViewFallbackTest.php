@@ -12,7 +12,7 @@ class ActionResolverDefaultViewFallbackTest extends UnitTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->resolver = $this->getContext()->getActionResolver();
+        $this->resolver = $this->getContext()->getContainer()->get(\Quiote\Execution\ActionResolver::class);
     }
 
     public function testExecutesSpecificMethodWhenPresent(): void

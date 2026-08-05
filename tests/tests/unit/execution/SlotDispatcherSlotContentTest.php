@@ -23,7 +23,7 @@ class SlotDispatcherSlotContentTest extends UnitTestCase
         // Context::getRequest() always returns a WebRequest, so no instanceof guard is needed.
         $ctxReq = $this->getContext()->getRequest();
         $this->getContext()->setRequest($ctxReq->enforceValidatedParameters(['x']));
-        $dispatcher = $this->getContext()->getSlotDispatcher();
+        $dispatcher = $this->getContext()->getContainer()->get(\Quiote\Execution\SlotDispatcher::class);
         $sc = $dispatcher->dispatchSlotContent($req, 'Cache','Cache', ['x'=>1], 'html');
         $this->assertInstanceOf(\Quiote\Execution\SlotContent::class, $sc);
         $this->assertSame('Cache', $sc->getModule());

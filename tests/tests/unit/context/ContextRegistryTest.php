@@ -100,13 +100,13 @@ class ContextRegistryTest extends PhpUnitTestCase
 
 		// A shared singleton model is request-scoped state reset() must drop, so it is the
 		// observable for "this context was reset".
-		$modelA = $a->getModel(ContextTestSingletonModel::class);
-		$modelB = $b->getModel(ContextTestSingletonModel::class);
+		$modelA = $a->getModelLocator()->get(ContextTestSingletonModel::class);
+		$modelB = $b->getModelLocator()->get(ContextTestSingletonModel::class);
 
 		$registry->resetAll('registry_a');
 
-		$this->assertNotSame($modelA, $a->getModel(ContextTestSingletonModel::class));
-		$this->assertNotSame($modelB, $b->getModel(ContextTestSingletonModel::class));
+		$this->assertNotSame($modelA, $a->getModelLocator()->get(ContextTestSingletonModel::class));
+		$this->assertNotSame($modelB, $b->getModelLocator()->get(ContextTestSingletonModel::class));
 	}
 
 	/**
@@ -217,11 +217,11 @@ class ContextRegistryTest extends PhpUnitTestCase
 	public function testResetWorkerStateResetsTheSharedRegistrysContexts(): void
 	{
 		$context = Context::getInstance('registry_worker');
-		$before = $context->getModel(ContextTestSingletonModel::class);
+		$before = $context->getModelLocator()->get(ContextTestSingletonModel::class);
 
 		Context::resetWorkerState('registry_worker');
 
-		$this->assertNotSame($before, $context->getModel(ContextTestSingletonModel::class));
+		$this->assertNotSame($before, $context->getModelLocator()->get(ContextTestSingletonModel::class));
 		$this->assertSame($context, Context::getInstance('registry_worker'));
 	}
 }

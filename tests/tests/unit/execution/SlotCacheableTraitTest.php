@@ -56,7 +56,7 @@ class SlotCacheableTraitTest extends UnitTestCase
     public function testSlotCacheTtlSecondsControlsExpiry(): void
     {
         TtlAction::$ttlSeconds = 1;
-        $dispatcher = $this->getContext()->getSlotDispatcher();
+        $dispatcher = $this->getContext()->getContainer()->get(\Quiote\Execution\SlotDispatcher::class);
         $parent = $this->newParentRequest();
 
         $first = $dispatcher->dispatch($parent, 'Cache', 'Ttl');
@@ -80,7 +80,7 @@ class SlotCacheableTraitTest extends UnitTestCase
         // is still cached (subject to the backend's own default expiry), it's
         // just not given a bespoke short/long lifetime by the action.
         TtlAction::$ttlSeconds = null;
-        $dispatcher = $this->getContext()->getSlotDispatcher();
+        $dispatcher = $this->getContext()->getContainer()->get(\Quiote\Execution\SlotDispatcher::class);
         $parent = $this->newParentRequest();
 
         $dispatcher->dispatch($parent, 'Cache', 'Ttl');
@@ -90,7 +90,7 @@ class SlotCacheableTraitTest extends UnitTestCase
 
     public function testSlotCacheTagsIsolatesCacheKeysByTag(): void
     {
-        $dispatcher = $this->getContext()->getSlotDispatcher();
+        $dispatcher = $this->getContext()->getContainer()->get(\Quiote\Execution\SlotDispatcher::class);
         $parent = $this->newParentRequest();
 
         $groupA = $dispatcher->dispatch($parent, 'Cache', 'Tagged', ['group' => 'A']);
@@ -107,7 +107,7 @@ class SlotCacheableTraitTest extends UnitTestCase
 
     public function testBumpingSlotCacheTagInvalidatesOnlyThatTag(): void
     {
-        $dispatcher = $this->getContext()->getSlotDispatcher();
+        $dispatcher = $this->getContext()->getContainer()->get(\Quiote\Execution\SlotDispatcher::class);
         $parent = $this->newParentRequest();
 
         $dispatcher->dispatch($parent, 'Cache', 'Tagged', ['group' => 'A']);

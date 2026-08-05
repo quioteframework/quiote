@@ -49,7 +49,7 @@ class SlotOutputTypeNoContainerTest extends UnitTestCase
     {
         $parent = (new ServerRequest('GET','http://localhost/'))
             ->withAttribute(SlotMiddleware::ATTR, new SlotStack());
-        $dispatcher = $this->getContext()->getSlotDispatcher();
+        $dispatcher = $this->getContext()->getContainer()->get(\Quiote\Execution\SlotDispatcher::class);
         $slotReq = SlotRequestFactory::create($parent, 'Cache','Cache', [], $outputType);
         $content = $dispatcher->dispatch($slotReq, 'Cache','Cache', [], $outputType);
         if($expected instanceof \Closure) {
@@ -63,7 +63,7 @@ class SlotOutputTypeNoContainerTest extends UnitTestCase
     {
         $parent = (new ServerRequest('GET','http://localhost/'))
             ->withAttribute(SlotMiddleware::ATTR, new SlotStack());
-        $dispatcher = $this->getContext()->getSlotDispatcher();
+        $dispatcher = $this->getContext()->getContainer()->get(\Quiote\Execution\SlotDispatcher::class);
         $slotReq = SlotRequestFactory::create($parent, 'Cache','Cache');
         $content = $dispatcher->dispatch($slotReq, 'Cache','Cache');
         $this->assertSame('<div>CACHE_HTML</div>', $content);
@@ -73,7 +73,7 @@ class SlotOutputTypeNoContainerTest extends UnitTestCase
     {
         $parent = (new ServerRequest('GET','http://localhost/'))
             ->withAttribute(SlotMiddleware::ATTR, new SlotStack());
-        $dispatcher = $this->getContext()->getSlotDispatcher();
+        $dispatcher = $this->getContext()->getContainer()->get(\Quiote\Execution\SlotDispatcher::class);
         $slotReq = SlotRequestFactory::create($parent, 'Cache','Cache', [], 'Xls');
         $content = $dispatcher->dispatch($slotReq, 'Cache','Cache', [], 'Xls');
         $this->assertSame('CACHE_FALLBACK', $content);
