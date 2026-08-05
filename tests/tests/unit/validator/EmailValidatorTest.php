@@ -36,7 +36,7 @@ class EmailValidatorTest extends UnitTestCase
 	#[\Override]
     public function setUp(): void
 	{
-		$this->_vm = $this->getContext()->createInstanceFor('validation_manager');
+		$this->_vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 		$this->validator = $this->_vm->createValidator(EmailValidatorWrapper::class, []);
 	}
 

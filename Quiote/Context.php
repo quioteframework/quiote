@@ -51,15 +51,6 @@ class Context implements \Stringable, ResetInterface, ContextInterface
   protected $controller = null;
 
   /**
-   * @var        array<string, array<string, mixed>|null> An array of class names for frequently used factories.
-   */
-  protected $factories = [
-    // Legacy filters removed; only remaining non-var factories listed here
-    "response" => null,
-    "validation_manager" => null,
-  ];
-
-  /**
    * @var        ?\Quiote\Database\DatabaseManager A DatabaseManager instance.
    */
   protected $databaseManager = null;
@@ -202,75 +193,8 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     return $this->getName();
   }
 
-  /**
-   * Get information on a frequently used class.
-   * @param      string $for The factory identifier.
-   * @return     ?array<string, mixed> An associative array (keys 'class' and 'parameters'), or null if not found.
-   * @since      1.0.0
-   */
-  public function getFactoryInfo($for)
-  {
-    if (!isset($this->factories[$for])) {
-      return null;
-    }
-    $info = $this->factories[$for];
-    // New generated factories add a nested 'factory_info' key while legacy tests
-    // expect only ['class'=>..,'parameters'=>..]. Prefer the nested structure
-    // when present for forward compatibility, but return only the minimal
-    // shape to satisfy historical expectations (ContextTest).
-    if (
-      isset($info["factory_info"]) &&
-      is_array($info["factory_info"]) &&
-      isset($info["factory_info"]["class"])
-    ) {
-      $factoryInfo = [];
-      foreach ($info["factory_info"] as $key => $value) {
-        $factoryInfo[(string) $key] = $value;
-      }
-      return $factoryInfo;
-    }
-    // Fallback: normalize to expected shape.
-    return [
-      "class" => $info["class"] ?? null,
-      "parameters" => $info["parameters"] ?? [],
-    ];
-  }
 
-  /**
-   * Set information on a frequently used class.
-   * @param      string $for The factory identifier.
-   * @param      array<string, mixed> $info An associative array (keys 'class' and 'parameters').
-   * @return     void
-   * @since      1.0.0
-   */
-  public function setFactoryInfo($for, array $info): void
-  {
-    $this->factories[$for] = $info;
-  }
 
-  /**
-   * Factory for frequently used classes from factories.xml
-   * @template T of string
-   * @param      T $for The factory identifier.
-   * @return     (T is 'validation_manager' ? ValidationManager : (T is 'translation_manager' ? TranslationManager : (T is 'controller' ? Controller : (T is 'response' ? WebResponse : object))))
-   *             An instance, already initialized with parameters.
-   * @throws     QuioteException If no such identifier exists.
-   * @since      1.0.0
-   */
-  public function createInstanceFor($for)
-  {
-    $info = $this->getFactoryInfo($for);
-    if (null === $info) {
-      throw new QuioteException(sprintf('No factory info for "%s"', $for));
-    }
-
-    $class = new ($info["class"])();
-    if (!is_callable([$class, 'initialize'])) {
-      throw new QuioteException(sprintf('Factory class for "%s" has no initialize() method', $for));
-    }
-    $class->initialize($this, $info["parameters"]);
-    return $class;
-  }
 
   /**
    * Retrieve the controller.
@@ -303,6 +227,66 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     return $this->container;
   }
 
+
+  /**
+   * Bind the on-demand slots the factories configuration declares.
+   *
+   * A slot -- `response`, `validation_manager`, `session` -- is a class the application names and the
+   * framework instantiates *per request for it*, as against the components built once at initialize().
+   * `Context::createInstanceFor($role)` used to be that, reading a mirror of the declaration held on
+   * this class. Both are gone: a transient container binding is the same thing said in the language
+   * the rest of the framework already resolves through, and it answers a typed request rather than
+   * `object`.
+   *
+   * Bound under the role name, the declared class, and every ancestor of that class. The ancestors are
+   * the point: an application configuring its own `ValidationManager` subclass should still be
+   * reachable as `get(ValidationManager::class)`, which is what a consumer will type-hint. This is the
+   * same reasoning as {@see SEAM_CONTRACTS} for the eagerly-built components, resolved per class here
+   * rather than from a fixed list, because a slot's class is whatever the application named.
+   *
+   * `initialize($context, $parameters)` is called by the closure rather than left to autowiring: the
+   * slot classes take their configuration that way, and the container cannot know that.
+   *
+   * @since      4.0.0
+   */
+  private function registerOnDemandSlots(\Quiote\Config\Factory\FactoryDefinitions $definitions): void
+  {
+    $container = $this->getContainer();
+
+    foreach ($definitions->factories as $role => $info) {
+      $class = $info['class'];
+      $parameters = $info['parameters'];
+
+      if (!class_exists($class)) {
+        \Quiote\Logging\Log::for($this)->error(sprintf(
+          '[Context] the factories configuration declares class "%s" for the "%s" slot, which does '
+            . 'not exist; anything asking for that slot will fail to resolve.',
+          $class,
+          $role,
+        ));
+
+        continue;
+      }
+
+      $build = function () use ($class, $parameters, $role): object {
+        $instance = new $class();
+        if (!is_callable([$instance, 'initialize'])) {
+          throw new QuioteException(sprintf(
+            'The class declared for the "%s" slot, %s, has no initialize() method.',
+            $role,
+            $class,
+          ));
+        }
+        $instance->initialize($this, $parameters);
+
+        return $instance;
+      };
+
+      foreach ([$role, $class, ...array_keys(class_parents($class) ?: [])] as $id) {
+        $container->setFactory($id, $build, Container::SCOPE_TRANSIENT);
+      }
+    }
+  }
 
   /**
    * Register an already-constructed core service instance into the container
@@ -999,16 +983,10 @@ class Context implements \Stringable, ResetInterface, ContextInterface
       );
       $this->factoryDefinitions = $definitions;
 
-      // The on-demand slots (response, validation_manager, session), in the shape
-      // getFactoryInfo()/createInstanceFor() already read. Before the components are built, not
-      // after: Controller::initialize() reaches for the `response` slot while it is being built.
-      foreach ($definitions->factories as $role => $info) {
-        $this->factories[$role] = [
-          'class' => $info['class'],
-          'parameters' => $info['parameters'],
-          'factory_info' => ['class' => $info['class'], 'parameters' => $info['parameters']],
-        ];
-      }
+      // The on-demand slots (response, validation_manager, session) as transient container bindings.
+      // Before the components are built, not after: Controller::initialize() reaches for the
+      // `response` slot while it is being built.
+      $this->registerOnDemandSlots($definitions);
 
       // Build the components the definitions declare, then take them by role. Assigning here,
       // by name and against a declared type, is the point of the compiled file being data: a
@@ -1391,14 +1369,14 @@ class Context implements \Stringable, ResetInterface, ContextInterface
       return $this->sessionManager;
     }
 
-    $info = $this->factories['session']['factory_info'] ?? $this->factories['session'] ?? null;
+    $info = $this->factoryDefinitions?->factories['session'] ?? null;
     if (!is_array($info)) {
       return null;
     }
 
-    $className = $info['class'] ?? null;
-    $parameters = $info['parameters'] ?? [];
-    if (!is_string($className) || !class_exists($className) || !is_array($parameters)) {
+    $className = $info['class'];
+    $parameters = $info['parameters'];
+    if (!class_exists($className)) {
       return null;
     }
 

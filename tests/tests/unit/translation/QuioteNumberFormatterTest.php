@@ -25,19 +25,7 @@ class QuioteNumberFormatterTest extends UnitTestCase
         $ctx = Context::getInstance();
         $tm = $ctx->getTranslationManager();
         if ($tm === null) {
-            $info = $ctx->getFactoryInfo('translation_manager');
-            if ($info === null || empty($info['class'])) {
-                $ctx->setFactoryInfo('translation_manager', [
-                    'class' => TranslationManager::class,
-                    'parameters' => [],
-                ]);
-            }
-            /** @var TranslationManager $tm */
-            $tm = $ctx->createInstanceFor('translation_manager');
-            $ro = new ReflectionObject($ctx);
-            $prop = $ro->getProperty('translationManager');
-            $prop->setValue($ctx, $tm);
-            $ctx->getShutdownSequence()->append($tm);
+            $tm = $this->installTestTranslationManager();
             $tm->startup();
         }
         $this->tm = $tm;

@@ -36,7 +36,7 @@ class FluentSourceEmitterTest extends UnitTestCase
 		}
 		$this->assertIsCallable($registrar, "Generated source did not return a callable:\n" . $phpSource);
 
-		$vm = $this->getContext()->createInstanceFor('validation_manager');
+		$vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 		$builder = ValidatorBuilder::on($vm, $this->getContext(), $method);
 		$registrar($builder);
 

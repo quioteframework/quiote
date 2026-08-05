@@ -234,7 +234,7 @@ class ValidationService
         if (!$validationManager) {
             // Build a lightweight manager via context from action (container may be ActionInitContext or full container)
             $ctx = $this->requireActionContext($action);
-            $validationManager = $ctx->createInstanceFor('validation_manager');
+            $validationManager = $ctx->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         } else {
             $validationManager->clear();
         }
@@ -394,7 +394,7 @@ class ValidationService
         $validationManager = $this->manager;
         if (!$validationManager) {
             $ctx = $this->requireActionContext($action);
-            $validationManager = $ctx->createInstanceFor('validation_manager');
+            $validationManager = $ctx->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         } else {
             $validationManager->clear();
         }

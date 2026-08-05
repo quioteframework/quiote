@@ -16,7 +16,7 @@ class InarrayValidatorTest extends UnitTestCase
 	#[\Override]
     public function setUp(): void
 	{
-		$this->vm = $this->getContext()->createInstanceFor('validation_manager');
+		$this->vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 	}
 
 	public function testAcceptsValueInList(): void

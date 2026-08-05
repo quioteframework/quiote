@@ -22,7 +22,7 @@ class ValidationManagerTest extends UnitTestCase
     public function setUp(): void
 	{
 		$this->_context = $this->getContext();
-		$this->_vm = $this->_context->createInstanceFor('validation_manager');
+		$this->_vm = $this->_context->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 	}
 
 	public function testGetContext(): void

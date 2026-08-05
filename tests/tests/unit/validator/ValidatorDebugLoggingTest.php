@@ -45,7 +45,7 @@ class ValidatorDebugLoggingTest extends UnitTestCase
      */
     private function runValidator(string $class, mixed $value, array $params = []): array
     {
-        $vm = $this->getContext()->createInstanceFor('validation_manager');
+        $vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $validator = $vm->createValidator($class, ['value'], [], $params);
         $rd = $this->newWebRequest(['value' => $value]);
         $result = $validator->execute($rd);
@@ -84,7 +84,7 @@ class ValidatorDebugLoggingTest extends UnitTestCase
     public function testValidatorFailureWithDebugEnabled(): void
     {
         $this->enableDebug();
-        $vm = $this->getContext()->createInstanceFor('validation_manager');
+        $vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $validator = $vm->createValidator('DummyValidator', ['value'], ['' => 'bad']);
         $validator->val_result = false;
         $rd = $this->newWebRequest(['value' => 'test']);

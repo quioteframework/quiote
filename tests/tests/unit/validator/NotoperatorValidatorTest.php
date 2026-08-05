@@ -9,7 +9,7 @@ class NotoperatorValidatorTest extends UnitTestCase
 {
 	public function testvalidate(): void
 	{
-		$vm = $this->getContext()->createInstanceFor('validation_manager');
+		$vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 		$vm->clear();
 		$o = $vm->createValidator(NotoperatorValidator::class, [], [], ['severity' => 'error']);
 
@@ -38,7 +38,7 @@ class NotoperatorValidatorTest extends UnitTestCase
 
 	public function testcheckValidSetup(): void
 	{
-		$vm = $this->getContext()->createInstanceFor('validation_manager');
+		$vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 		$vm->clear();
 		$o = $vm->createValidator(NotoperatorValidator::class, [], [], ['severity' => 'error']);
 

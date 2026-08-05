@@ -40,21 +40,7 @@ class AdditionalValidatorEdgeCasesTest extends UnitTestCase
     {
         $context = $this->getContext();
         if ($context->getTranslationManager() === null) {
-            $info = $context->getFactoryInfo('translation_manager');
-            if ($info === null || empty($info['class'])) {
-                $context->setFactoryInfo('translation_manager', [
-                    'class' => TranslationManager::class,
-                    'parameters' => [],
-                ]);
-            }
-            /** @var TranslationManager $translationManager */
-            $translationManager = $context->createInstanceFor('translation_manager');
-            $reflection = new ReflectionObject($context);
-            $property = $reflection->getProperty('translationManager');
-            $property->setValue($context, $translationManager);
-
-            $context->getShutdownSequence()->append($translationManager);
-
+            $translationManager = $this->installTestTranslationManager();
             $translationManager->startup();
         }
     }
@@ -64,7 +50,7 @@ class AdditionalValidatorEdgeCasesTest extends UnitTestCase
      */
     private function vm(array $params = []): ValidationManager
     {
-        $vm = $this->getContext()->createInstanceFor('validation_manager');
+        $vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         foreach($params as $k=>$v){ $vm->setParameter($k,$v);} return $vm;
     }
 

@@ -8,7 +8,7 @@ class OroperatorValidatorTest extends UnitTestCase
 {
 	public function testvalidate(): void
 	{
-		$vm = $this->getContext()->createInstanceFor('validation_manager');
+		$vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 		$vm->clear();
 		$o = $vm->createValidator(OroperatorValidator::class, [], [], ['severity' => 'error']);
 

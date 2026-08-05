@@ -108,7 +108,7 @@ class ValidatorFactoryTest extends PhpUnitTestCase
 	public function testCreateValidatorResolvesDependenciesAndStillRegistersTheChild(): void
 	{
 		$ctx = Context::getInstance();
-		$manager = $ctx->createInstanceFor('validation_manager');
+		$manager = $ctx->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 
 		$validator = $manager->createValidator(
 			DependencyDeclaringValidator::class,
@@ -127,7 +127,7 @@ class ValidatorFactoryTest extends PhpUnitTestCase
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
 	public function testCreateValidatorStillWorksForAConstructorlessValidator(): void
 	{
-		$manager = Context::getInstance()->createInstanceFor('validation_manager');
+		$manager = Context::getInstance()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 
 		$validator = $manager->createValidator(
 			StringValidator::class,

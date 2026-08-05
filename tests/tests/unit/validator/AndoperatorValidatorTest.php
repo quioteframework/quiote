@@ -8,7 +8,7 @@ class AndoperatorValidatorTest extends UnitTestCase
 {
 	public function testExecute(): void
 	{
-		$vm = $this->getContext()->createInstanceFor('validation_manager');
+		$vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 		$vm->clear();
 		$o = $vm->createValidator(AndoperatorValidator::class, [], [], ['severity' => 'error']);
 

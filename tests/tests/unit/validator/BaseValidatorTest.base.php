@@ -16,7 +16,7 @@ class BaseValidatorTest extends UnitTestCase
 	 */
 	protected function executeValidator(string $class, mixed $value, array $errors = [], array $parameters = []): array
 	{
-		$vm = $this->getContext()->createInstanceFor('validation_manager');
+		$vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 		$validator = $vm->createValidator($class, ['value'], $errors, $parameters);
 		$rd = $this->newWebRequest(['value' => $value]);
 		$result = $validator->execute($rd);

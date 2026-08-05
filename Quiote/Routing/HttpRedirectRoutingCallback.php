@@ -136,7 +136,7 @@ class HttpRedirectRoutingCallback extends RoutingCallback
 		}
 		
 		// create response and set redirect
-		$response = $this->getContext()->createInstanceFor('response');
+		$response = $this->getContext()->getContainer()->get(\Quiote\Response\WebResponse::class);
 		$code = $this->getParameter('code', 302);
 		if(!is_int($code) && !is_string($code)) {
 			throw new ConfigurationException('HttpRedirectRoutingCallback parameter "code" must be an int or string.');

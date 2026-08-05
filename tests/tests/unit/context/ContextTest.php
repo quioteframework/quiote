@@ -127,12 +127,23 @@ class ContextTest extends PhpUnitTestCase
 		];
 	}	
 
+	/**
+	 * The `response` slot is declared by the factories configuration and resolved from the container,
+	 * transiently: an on-demand slot means a fresh instance per request for one, which is what
+	 * Context::createInstanceFor() used to promise.
+	 */
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
-	public function testGetFactoryInfo(): void
+	public function testAnOnDemandSlotResolvesFreshFromTheContainer(): void
 	{
 		$ctx = Context::getInstance('test');
-		$expected = ['class' => \Quiote\Response\WebResponse::class, 'parameters' => []];
-		$this->assertSame($expected, $ctx->getFactoryInfo('response'));
+
+		$first = $ctx->getContainer()->get(\Quiote\Response\WebResponse::class);
+		$second = $ctx->getContainer()->get(\Quiote\Response\WebResponse::class);
+
+		$this->assertInstanceOf(\Quiote\Response\WebResponse::class, $first);
+		$this->assertNotSame($first, $second, 'a slot is transient: one instance per ask');
+		// Reachable by role name as well, which is how the framework's own code asks for it.
+		$this->assertInstanceOf(\Quiote\Response\WebResponse::class, $ctx->getContainer()->get('response'));
 	}
 
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]

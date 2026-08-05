@@ -14,7 +14,7 @@ class ValidationManagerDuplicateNameTest extends UnitTestCase
             $this->markTestSkipped('Requires QUIOTE_TESTING environment');
         }
         /** @var ValidationManager $vm */
-        $vm = $this->getContext()->createInstanceFor('validation_manager');
+        $vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         /** @var DummyValidator $v1 */
         $v1 = $vm->createValidator('DummyValidator', [], [], ['name' => 'dup']);
         $v1->val_result = true;

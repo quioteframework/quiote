@@ -21,7 +21,7 @@ class BaseFileValidatorTest extends UnitTestCase
 	#[\Override]
     public function setUp(): void
 	{
-		$this->vm = $this->getContext()->createInstanceFor('validation_manager');
+		$this->vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 	}
 
 	/** @param array<string, array<int|string, mixed>|\Psr\Http\Message\UploadedFileInterface> $files */

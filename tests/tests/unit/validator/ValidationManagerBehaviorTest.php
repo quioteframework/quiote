@@ -19,7 +19,7 @@ class ValidationManagerBehaviorTest extends UnitTestCase
     private function newVm(array $params = []): ValidationManager
     {
         /** @var ValidationManager $vm */
-        $vm = $this->getContext()->createInstanceFor('validation_manager');
+        $vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         // override mode if provided
         if ($params) {
             foreach ($params as $k => $v) { $vm->setParameter($k, $v); }

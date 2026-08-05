@@ -62,6 +62,55 @@ abstract class UnitTestCase extends PhpUnitTestCase implements IUnitTestCase
 	}
 
 	/**
+	 * Install a translation manager on this test's context, and answer it.
+	 *
+	 * A suite whose subject formats or translates needs one, and a context built without
+	 * `core.use_translation` has none. Eight suites each carried the same six lines to arrange it --
+	 * read the factory declaration, declare one if absent, build it, assign it by reflection -- through
+	 * `Context::getFactoryInfo()`/`setFactoryInfo()`, which no longer exist: an on-demand slot is a
+	 * transient container binding now.
+	 *
+	 * Idempotent, and returns the manager the context will hand out, so a suite can configure it
+	 * further.
+	 *
+	 * @param      array<string, mixed> $parameters Passed to the manager's initialize().
+	 * @return     \Quiote\Translation\TranslationManager The installed manager.
+	 * @since      4.0.0
+	 */
+	protected function installTestTranslationManager(array $parameters = []): \Quiote\Translation\TranslationManager
+	{
+		$context = $this->getContext();
+		$existing = $context->getTranslationManager();
+		if ($existing !== null) {
+			return $existing;
+		}
+
+		$container = $context->getContainer();
+		if (!$container->has(\Quiote\Translation\TranslationManager::class)) {
+			$container->setFactory(
+				\Quiote\Translation\TranslationManager::class,
+				function () use ($context, $parameters): \Quiote\Translation\TranslationManager {
+					$manager = new \Quiote\Translation\TranslationManager();
+					$manager->initialize($context, $parameters);
+
+					return $manager;
+				},
+				\Quiote\DI\Container::SCOPE_TRANSIENT,
+			);
+		}
+
+		$manager = $container->get(\Quiote\Translation\TranslationManager::class);
+
+		// Assigned to the property as well: getTranslationManager() answers from there, and code under
+		// test reaches it that way rather than through the container.
+		$property = new \ReflectionProperty(\Quiote\Context::class, 'translationManager');
+		$property->setValue($context, $manager);
+		$context->getShutdownSequence()->append($manager);
+
+		return $manager;
+	}
+
+	/**
 	 * Fail unless this test's context actually has a session mechanism.
 	 *
 	 * A guard for suites that only mean anything with a session present: without

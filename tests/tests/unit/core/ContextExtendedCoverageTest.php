@@ -321,15 +321,22 @@ class ContextExtendedCoverageTest extends TestCase
         Config::set('core.use_translation', true, true);
         $tm = $ctx->getTranslationManager();
         if ($tm === null) {
-            $info = $ctx->getFactoryInfo('translation_manager');
-            if ($info === null || empty($info['class'])) {
-                $ctx->setFactoryInfo('translation_manager', [
-                    'class' => \Quiote\Translation\TranslationManager::class,
-                    'parameters' => [],
-                ]);
+            // An on-demand slot is a transient container binding now, so arranging one is a binding
+            // rather than a factory-info write.
+            $container = $ctx->getContainer();
+            if (!$container->has(\Quiote\Translation\TranslationManager::class)) {
+                $container->setFactory(
+                    \Quiote\Translation\TranslationManager::class,
+                    function () use ($ctx): \Quiote\Translation\TranslationManager {
+                        $manager = new \Quiote\Translation\TranslationManager();
+                        $manager->initialize($ctx, []);
+
+                        return $manager;
+                    },
+                    \Quiote\DI\Container::SCOPE_TRANSIENT,
+                );
             }
-            /** @var \Quiote\Translation\TranslationManager $tm */
-            $tm = $ctx->createInstanceFor('translation_manager');
+            $tm = $container->get(\Quiote\Translation\TranslationManager::class);
             (new ReflectionObject($ctx))->getProperty('translationManager')->setValue($ctx, $tm);
         }
         $this->assertInstanceOf(
@@ -442,7 +449,7 @@ class ContextExtendedCoverageTest extends TestCase
         if ($controller1 === null) {
             // Invoke createInstanceFor if factory info stored in factories array
             try {
-                $controller1 = $ctx->createInstanceFor('controller');
+                $controller1 = $ctx->getContainer()->get(\Quiote\Controller\Controller::class);
             } catch (\Throwable) {
             }
             // Fallback: direct instantiation

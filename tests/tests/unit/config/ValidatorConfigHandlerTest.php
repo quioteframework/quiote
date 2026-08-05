@@ -28,7 +28,7 @@ class ValidatorConfigHandlerTest extends ConfigHandlerTestBase
 			$environment
 		);
 
-		$vm = $this->getContext()->createInstanceFor('validation_manager');
+		$vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 		self::assertInstanceOf(ValidationManager::class, $vm);
 		// The compiled artifact is a declaration; the applier is what builds the validators from it.
 		ValidatorDeclarationApplier::apply(

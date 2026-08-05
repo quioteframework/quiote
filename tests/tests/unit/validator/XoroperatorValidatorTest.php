@@ -9,7 +9,7 @@ class XoroperatorValidatorTest extends UnitTestCase
 {
 	public function testvalidate(): void
 	{
-		$vm = $this->getContext()->createInstanceFor('validation_manager');
+		$vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 		$vm->clear();
 		$o = $vm->createValidator(XoroperatorValidator::class, [], [], ['severity' => 'error']);
 
@@ -77,7 +77,7 @@ class XoroperatorValidatorTest extends UnitTestCase
 
 	public function testcheckValidSetup(): void
 	{
-		$vm = $this->getContext()->createInstanceFor('validation_manager');
+		$vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 		$vm->clear();
 		$o = $vm->createValidator(XoroperatorValidator::class, [], [], ['severity' => 'error']);
 

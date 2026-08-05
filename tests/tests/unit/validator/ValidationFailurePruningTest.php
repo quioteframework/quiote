@@ -59,7 +59,7 @@ class ValidationFailurePruningTest extends UnitTestCase
     public function testActionCannotReadARouteParamThatFailedValidation(): void
     {
         $context = $this->getContext();
-        $manager = $context->createInstanceFor('validation_manager');
+        $manager = $context->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $manager->initialize($context, ['mode' => ValidationManager::MODE_STRICT]);
         $manager->createValidator(StringValidator::class, ['slug'], [], [
             'max' => 3,
@@ -90,7 +90,7 @@ class ValidationFailurePruningTest extends UnitTestCase
     public function testFailedQueryParamIsAlsoScrubbed(): void
     {
         $context = $this->getContext();
-        $manager = $context->createInstanceFor('validation_manager');
+        $manager = $context->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $manager->initialize($context, ['mode' => ValidationManager::MODE_STRICT]);
         $manager->createValidator(StringValidator::class, ['slug'], [], ['max' => 3, 'required' => true]);
 
@@ -105,7 +105,7 @@ class ValidationFailurePruningTest extends UnitTestCase
     public function testValidValueStillReachesTheAction(): void
     {
         $context = $this->getContext();
-        $manager = $context->createInstanceFor('validation_manager');
+        $manager = $context->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $manager->initialize($context, ['mode' => ValidationManager::MODE_STRICT]);
         $manager->createValidator(StringValidator::class, ['slug'], [], ['max' => 32, 'required' => true]);
 

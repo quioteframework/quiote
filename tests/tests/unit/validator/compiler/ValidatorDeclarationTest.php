@@ -45,7 +45,7 @@ class ValidatorDeclarationTest extends UnitTestCase
 
 	private function applyTo(mixed $declaration, string $method = ''): ValidationManager
 	{
-		$vm = $this->getContext()->createInstanceFor('validation_manager');
+		$vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 		self::assertInstanceOf(ValidationManager::class, $vm);
 		ValidatorDeclarationApplier::apply($declaration, $vm, $method, $this->getContext(), 'test://declaration');
 

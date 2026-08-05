@@ -12,7 +12,7 @@ class ValidationManagerConditionalModeTest extends UnitTestCase
     private function newVm(string $mode): ValidationManager
     {
         /** @var ValidationManager $vm */
-        $vm = $this->getContext()->createInstanceFor('validation_manager');
+        $vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $vm->setParameter('mode', $mode);
         return $vm;
     }

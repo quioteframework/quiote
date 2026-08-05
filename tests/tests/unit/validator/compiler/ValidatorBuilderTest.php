@@ -12,7 +12,7 @@ class ValidatorBuilderTest extends UnitTestCase
 {
 	private function newManager(): ValidationManager
 	{
-		return $this->getContext()->createInstanceFor('validation_manager');
+		return $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 	}
 
 	public function testStringRegistersImmediatelyWithChainedParameters(): void

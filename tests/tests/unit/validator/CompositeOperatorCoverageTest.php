@@ -25,7 +25,7 @@ class CompositeOperatorCoverageTest extends UnitTestCase
      */
     private function vm(array $params = []): ValidationManager
     {
-        $vm = $this->getContext()->createInstanceFor('validation_manager');
+        $vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         foreach($params as $k=>$v){ $vm->setParameter($k,$v);} return $vm;
     }
 

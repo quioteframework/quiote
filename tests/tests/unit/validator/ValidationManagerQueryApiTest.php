@@ -43,7 +43,7 @@ class ValidationManagerQueryApiTest extends BaseValidatorTest
 {
     public function testGetChildAndGetChilds(): void
     {
-        $vm = $this->getContext()->createInstanceFor('validation_manager');
+        $vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $passer = $vm->createValidator(AlwaysPassQMValidator::class, ['field_ok'], [], ['name' => 'passer']);
 
         $this->assertSame($passer, $vm->getChild('passer'));
@@ -62,7 +62,7 @@ class ValidationManagerQueryApiTest extends BaseValidatorTest
             $this->markTestSkipped('QUIOTE_TESTING is already defined in this process.');
         }
 
-        $vm = $this->getContext()->createInstanceFor('validation_manager');
+        $vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $vm->createValidator(AlwaysPassQMValidator::class, ['a'], [], ['name' => 'dup']);
 
         $this->expectException(InvalidArgumentException::class);
@@ -72,7 +72,7 @@ class ValidationManagerQueryApiTest extends BaseValidatorTest
     /** @return array{0: \Quiote\Validator\ValidationManager, 1: \Quiote\Request\WebRequest} */
     private function buildMixedResultManager(): array
     {
-        $vm = $this->getContext()->createInstanceFor('validation_manager');
+        $vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $pass = $vm->createValidator(AlwaysPassQMValidator::class, ['field_ok'], [], [
             'name' => 'passer',
             'severity' => 'notice',
@@ -172,7 +172,7 @@ class ValidationManagerQueryApiTest extends BaseValidatorTest
 
     public function testHappyPathHasNoErrors(): void
     {
-        $vm = $this->getContext()->createInstanceFor('validation_manager');
+        $vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $pass = $vm->createValidator(AlwaysPassQMValidator::class, ['field_ok'], [], ['name' => 'passer']);
         $rd = $this->newWebRequest(['field_ok' => 'x']);
         $pass->execute($rd);
@@ -185,7 +185,7 @@ class ValidationManagerQueryApiTest extends BaseValidatorTest
 
     public function testSetErrorManuallyInjectsAnIncident(): void
     {
-        $vm = $this->getContext()->createInstanceFor('validation_manager');
+        $vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $vm->setError('manual_field', 'Something went wrong manually.');
 
         $this->assertTrue($vm->hasError('manual_field'));
@@ -195,7 +195,7 @@ class ValidationManagerQueryApiTest extends BaseValidatorTest
 
     public function testSetErrorsInjectsErrorsForAllGivenFields(): void
     {
-        $vm = $this->getContext()->createInstanceFor('validation_manager');
+        $vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $vm->setErrors([
             'field_a' => 'Error A',
             'field_b' => 'Error B',
@@ -226,7 +226,7 @@ class ValidationManagerQueryApiTest extends BaseValidatorTest
 
     public function testShutdownDelegatesToChildren(): void
     {
-        $vm = $this->getContext()->createInstanceFor('validation_manager');
+        $vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $validator = $vm->createValidator(SampleShutdownTrackingValidator::class, ['a'], [], ['name' => 'tracked']);
 
         $vm->shutdown();
@@ -236,7 +236,7 @@ class ValidationManagerQueryApiTest extends BaseValidatorTest
 
     public function testGetDependencyManagerReturnsSameInstanceAsManager(): void
     {
-        $vm = $this->getContext()->createInstanceFor('validation_manager');
+        $vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $validator = $vm->createValidator(AlwaysPassQMValidator::class, ['a'], [], ['name' => 'passer']);
 
         $this->assertSame($vm->getDependencyManager(), $validator->getDependencyManager());

@@ -1,43 +1,49 @@
 <?php
 
-use Quiote\Testing\UnitTestCase;
 use Quiote\Context;
-use Quiote\Exception\QuioteException;
+use Quiote\DI\NotFoundException;
+use Quiote\Testing\UnitTestCase;
 
 /**
- * Tests for Context factory info normalization and error paths.
+ * The on-demand slots the factories configuration declares.
+ *
+ * This suite used to test `Context::getFactoryInfo()`'s normalization of two historical shapes for a
+ * factory declaration. Both the method and the mirror it read are gone: a slot is a transient container
+ * binding, so what is left worth asserting is that resolving one works, that it is transient, and that
+ * asking for a slot nobody declared fails as a container lookup error rather than answering null.
  */
 class ContextFactoryInfoTest extends UnitTestCase
 {
-    public function testGetFactoryInfoNormalization(): void
+    public function testADeclaredSlotResolvesAndIsTransient(): void
     {
-        $ctx = $this->getContext();
-        // Synthesize a legacy style info
-    // Use existing web response implementation class name (simplest stub present in factories normally)
-    $responseClass = \Quiote\Response\WebResponse::class; // base class acceptable for initialization
-    $ctx->setFactoryInfo('response', ['class' => $responseClass, 'parameters' => ['x' => 1]]);
-        $info = $ctx->getFactoryInfo('response');
-        $this->assertNotNull($info);
-        $this->assertArrayHasKey('class', $info);
-        $this->assertArrayHasKey('parameters', $info);
-    $this->assertSame($responseClass, $info['class']);
+        $container = $this->getContext()->getContainer();
 
-        // Now set nested style and ensure normalization still returns inner array
-        $ctx->setFactoryInfo('validation_manager', [
-            'factory_info' => ['class' => \Quiote\Validator\ValidationManager::class, 'parameters' => ['mode' => 'strict']],
-            'other' => 'ignored'
-        ]);
-        $info2 = $ctx->getFactoryInfo('validation_manager');
-        $this->assertIsArray($info2);
-        $this->assertSame(\Quiote\Validator\ValidationManager::class, $info2['class']);
-        $this->assertIsArray($info2['parameters']);
-        $this->assertSame('strict', $info2['parameters']['mode']);
+        $first = $container->get(\Quiote\Validator\ValidationManager::class);
+        $second = $container->get(\Quiote\Validator\ValidationManager::class);
+
+        $this->assertInstanceOf(\Quiote\Validator\ValidationManager::class, $first);
+        $this->assertNotSame($first, $second);
     }
 
-    public function testCreateInstanceForThrowsOnMissing(): void
+    /**
+     * A slot is reachable by the class its declaration names *and* by every ancestor of that class, so
+     * an application configuring its own subclass stays reachable as the base type a consumer
+     * type-hints.
+     */
+    public function testASlotIsReachableByRoleAndByType(): void
     {
-        $ctx = $this->getContext();
-        $this->expectException(QuioteException::class);
-        $ctx->createInstanceFor('no_such_factory');
+        $container = $this->getContext()->getContainer();
+
+        $this->assertInstanceOf(\Quiote\Validator\ValidationManager::class, $container->get('validation_manager'));
+        $this->assertInstanceOf(\Quiote\Response\WebResponse::class, $container->get('response'));
+    }
+
+    public function testAnUndeclaredSlotIsAContainerError(): void
+    {
+        // NotFoundException specifically: createInstanceFor() used to answer "No factory info for ..."
+        // and the container says the same thing in its own vocabulary.
+        $this->expectException(NotFoundException::class);
+
+        $this->getContext()->getContainer()->get('no_such_factory');
     }
 }

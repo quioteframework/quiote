@@ -80,7 +80,7 @@ class LightweightActionInitContext extends AttributeHolder implements ActionInit
             return $this->validationManager;
         }
         try {
-            $this->validationManager = $this->context->createInstanceFor('validation_manager');
+            $this->validationManager = $this->context->getContainer()->get(\Quiote\Validator\ValidationManager::class);
             return $this->validationManager;
         } catch (\Throwable) {
             return null;

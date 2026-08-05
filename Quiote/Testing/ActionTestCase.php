@@ -160,7 +160,7 @@ abstract class ActionTestCase extends FragmentTestCase
 		$module = $this->moduleName;
 		$actionName = $this->actionName;
 		try {
-			$vm = $this->getContext()->createInstanceFor('validation_manager');
+			$vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 			$this->validationManager = $vm;
 			if ($this->container) {
 				try {

@@ -30,22 +30,7 @@ class TranslationManagerIntlTest extends UnitTestCase
         $tm = $ctx->getTranslationManager();
         if ($tm === null) {
             // If factory info missing, register translation manager class
-            $info = $ctx->getFactoryInfo('translation_manager');
-            if ($info === null || empty($info['class'])) {
-                $ctx->setFactoryInfo('translation_manager', [
-                    'class' => TranslationManager::class,
-                    'parameters' => [],
-                ]);
-            }
-            // Create and inject instance via reflection (pattern used in other tests)
-            /** @var TranslationManager $tm */
-            $tm = $ctx->createInstanceFor('translation_manager');
-            $ro = new \ReflectionObject($ctx);
-            $prop = $ro->getProperty('translationManager');
-
-            $prop->setValue($ctx, $tm);
-            // Ensure added to shutdown sequence
-            $ctx->getShutdownSequence()->append($tm);
+            $tm = $this->installTestTranslationManager();
             $tm->startup();
         }
         $this->tm = $tm;

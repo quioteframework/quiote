@@ -46,7 +46,7 @@ class ValidatorAdditionalCoverageTest extends BaseValidatorTest
 
     public function testGetParentContainerReturnsTheAssignedManager(): void
     {
-        $vm = $this->getContext()->createInstanceFor('validation_manager');
+        $vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $validator = $this->createExposingValidator($vm, ['a'], ['name' => 'v1']);
 
         $this->assertSame($vm, $validator->getParentContainer());
@@ -54,7 +54,7 @@ class ValidatorAdditionalCoverageTest extends BaseValidatorTest
 
     public function testGetBaseKeysAndGetLastKeyForNestedBase(): void
     {
-        $vm = $this->getContext()->createInstanceFor('validation_manager');
+        $vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $validator = $this->createExposingValidator($vm, ['name'], [
             'name' => 'v1',
             'base' => 'User[5]',
@@ -70,7 +70,7 @@ class ValidatorAdditionalCoverageTest extends BaseValidatorTest
 
     public function testGetLastKeyReturnsNullForEmptyBase(): void
     {
-        $vm = $this->getContext()->createInstanceFor('validation_manager');
+        $vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $validator = $this->createExposingValidator($vm, ['field'], ['name' => 'v1']);
         $rd = $this->newWebRequest(['field' => 'x']);
         $validator->execute($rd);
@@ -81,7 +81,7 @@ class ValidatorAdditionalCoverageTest extends BaseValidatorTest
 
     public function testShutdownIsANoOpByDefault(): void
     {
-        $vm = $this->getContext()->createInstanceFor('validation_manager');
+        $vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $validator = $this->createExposingValidator($vm, ['a'], ['name' => 'v1']);
 
         // The base implementation does nothing and must not throw.
@@ -91,7 +91,7 @@ class ValidatorAdditionalCoverageTest extends BaseValidatorTest
 
     public function testSetAffectedArgumentsOverridesWhichFieldsReceiveTheResult(): void
     {
-        $vm = $this->getContext()->createInstanceFor('validation_manager');
+        $vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $validator = $this->createExposingValidator($vm, ['a'], ['name' => 'v1']);
         $validator->setAffectedArguments2(['custom_field']);
 
@@ -107,7 +107,7 @@ class ValidatorAdditionalCoverageTest extends BaseValidatorTest
 
     public function testResetClearsInternalState(): void
     {
-        $vm = $this->getContext()->createInstanceFor('validation_manager');
+        $vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $validator = $vm->createValidator(QMExposingValidator::class, ['a'], [], ['name' => 'v1']);
         $rd = $this->newWebRequest(['a' => 'x']);
         $validator->execute($rd);
@@ -121,7 +121,7 @@ class ValidatorAdditionalCoverageTest extends BaseValidatorTest
 
     public function testExecuteWithUnknownSourceThrowsConfigurationException(): void
     {
-        $vm = $this->getContext()->createInstanceFor('validation_manager');
+        $vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $validator = $vm->createValidator(QMExposingValidator::class, ['a'], [], [
             'name' => 'v1',
             'source' => 'bogus_source',
@@ -135,7 +135,7 @@ class ValidatorAdditionalCoverageTest extends BaseValidatorTest
 
     public function testWildcardBaseValidatesEachExistingKey(): void
     {
-        $vm = $this->getContext()->createInstanceFor('validation_manager');
+        $vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $validator = $vm->createValidator(QMExposingValidator::class, ['name'], [], [
             'name' => 'v1',
             'base' => 'Users[]',
@@ -155,7 +155,7 @@ class ValidatorAdditionalCoverageTest extends BaseValidatorTest
 
     public function testWildcardBaseWithNoMatchingKeysIsRequiredByDefault(): void
     {
-        $vm = $this->getContext()->createInstanceFor('validation_manager');
+        $vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $validator = $vm->createValidator(QMExposingValidator::class, ['name'], [], [
             'name' => 'v1',
             'base' => 'Users[]',
@@ -170,7 +170,7 @@ class ValidatorAdditionalCoverageTest extends BaseValidatorTest
 
     public function testWildcardBaseWithNoMatchingKeysAndNotRequiredIsNotProcessed(): void
     {
-        $vm = $this->getContext()->createInstanceFor('validation_manager');
+        $vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $validator = $vm->createValidator(QMExposingValidator::class, ['name'], [], [
             'name' => 'v1',
             'base' => 'Users[]',

@@ -27,7 +27,7 @@ class OperatorValidatorTest extends UnitTestCase
     public function setUp(): void
 	{
 		$this->context = $this->getContext();
-		$this->vm = $this->context->createInstanceFor('validation_manager');
+		$this->vm = $this->context->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 	}
 
 	public function testShutdown(): void

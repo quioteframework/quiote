@@ -26,25 +26,10 @@ class DateTimeValidatorTest extends UnitTestCase
         }
         $context = $this->getContext();
         if ($context->getTranslationManager() === null) {
-            $info = $context->getFactoryInfo('translation_manager');
-            if ($info === null || empty($info['class'])) {
-                $context->setFactoryInfo('translation_manager', [
-                    'class' => TranslationManager::class,
-                    'parameters' => [],
-                ]);
-            }
-            /** @var TranslationManager $translationManager */
-            $translationManager = $context->createInstanceFor('translation_manager');
-            $reflection = new ReflectionObject($context);
-            $property = $reflection->getProperty('translationManager');
-            
-            $property->setValue($context, $translationManager);
-
-            $context->getShutdownSequence()->append($translationManager);
-
+            $translationManager = $this->installTestTranslationManager();
             $translationManager->startup();
         }
-        $this->vm = $context->createInstanceFor('validation_manager');
+        $this->vm = $context->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         // Ensure a default locale has been instantiated so shortcut option identifiers work in downstream tests.
         $context->getTranslationManager()?->getCurrentLocale();
     }

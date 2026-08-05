@@ -19,7 +19,7 @@ class ValidationServiceTest extends UnitTestCase
             public function executeWrite(WebRequest $req): string { return 'Success'; }
             public function handleError(WebRequest $req): string { return 'Error'; }
             public function isSecure(): bool { return false; }
-            public function registerWriteValidators(): void { if($this->doRegister) { $context = $this->getContext(); if ($context === null) { throw new \RuntimeException('Action has no context'); } $vm = $this->regManager ?: $context->createInstanceFor('validation_manager'); $vm->createValidator('DummyValidator', ['alpha'], [], ['name'=>'manualReg']); } }
+            public function registerWriteValidators(): void { if($this->doRegister) { $context = $this->getContext(); if ($context === null) { throw new \RuntimeException('Action has no context'); } $vm = $this->regManager ?: $context->getContainer()->get(\Quiote\Validator\ValidationManager::class); $vm->createValidator('DummyValidator', ['alpha'], [], ['name'=>'manualReg']); } }
             public function validateWrite(WebRequest $req): bool { return $this->manualOk; }
             public function validate(WebRequest $req): bool { return $this->manualOk; }
         };
@@ -28,7 +28,7 @@ class ValidationServiceTest extends UnitTestCase
     public function testValidateManualRegistrationSuccess(): void
     {
     $ctx = $this->getContext();
-    $manager = $ctx->createInstanceFor('validation_manager');
+    $manager = $ctx->getContainer()->get(\Quiote\Validator\ValidationManager::class);
     $svc = new ValidationService($manager);
     $action = $this->newAction(true, true, $manager);
     $req = $this->newWebRequest(['alpha' => 'A']);
@@ -46,7 +46,7 @@ class ValidationServiceTest extends UnitTestCase
     public function testValidateFailureCapturesErrors(): void
     {
     $ctx = $this->getContext();
-    $manager = $ctx->createInstanceFor('validation_manager');
+    $manager = $ctx->getContainer()->get(\Quiote\Validator\ValidationManager::class);
     $svc = new ValidationService($manager);
     $action = $this->newAction(false, true, $manager); // manual validate returns false
         $req = $this->newWebRequest(['alpha' => 'A']);
@@ -82,7 +82,7 @@ class ValidationServiceTest extends UnitTestCase
         // never had them executed -> the argument stayed unwhitelisted and
         // getParameter() threw UnvalidatedParameterAccessException even on success.
         $ctx = $this->getContext();
-        $manager = $ctx->createInstanceFor('validation_manager');
+        $manager = $ctx->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $svc = new ValidationService($manager);
         $action = $this->newAction(true, true, $manager);
         $req = $this->newWebRequest(); // no pre-seeded whitelist
@@ -102,7 +102,7 @@ class ValidationServiceTest extends UnitTestCase
     public function testXmlOnlyValidateManualRegistrationFailureCapturesErrors(): void
     {
         $ctx = $this->getContext();
-        $manager = $ctx->createInstanceFor('validation_manager');
+        $manager = $ctx->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $svc = new ValidationService($manager);
         $req = $this->newWebRequest();
         $req = $req->withQueryParams(['alpha' => 'A']);
@@ -158,7 +158,7 @@ class ValidationServiceTest extends UnitTestCase
         // ValidationManager::execute()) never completed and the request could
         // otherwise be left in an unpruned, unsafe state.
         $ctx = $this->getContext();
-        $manager = $ctx->createInstanceFor('validation_manager');
+        $manager = $ctx->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $svc = new ValidationService($manager);
         $action = new class($ctx, $manager) extends Action {
             public function __construct(\Quiote\Context $ctx, private readonly ValidationManager $vm) { $this->context = $ctx; }
@@ -182,7 +182,7 @@ class ValidationServiceTest extends UnitTestCase
     public function testXmlOnlyValidateExceptionPathPropagatesAsCriticalFailure(): void
     {
         $ctx = $this->getContext();
-        $manager = $ctx->createInstanceFor('validation_manager');
+        $manager = $ctx->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $svc = new ValidationService($manager);
         $action = new class($ctx, $manager) extends Action {
             public function __construct(\Quiote\Context $ctx, private readonly ValidationManager $vm) { $this->context = $ctx; }
@@ -266,7 +266,7 @@ class ValidationServiceTest extends UnitTestCase
      */
     public function testRegisterDeclaredValidatorsRequiresTheActionContext(): void
     {
-        $manager = $this->getContext()->createInstanceFor('validation_manager');
+        $manager = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         self::assertInstanceOf(ValidationManager::class, $manager);
         $svc = new ValidationService($manager);
 
@@ -285,7 +285,7 @@ class ValidationServiceTest extends UnitTestCase
         $configFile = \Quiote\Config\Config::getString('core.module_dir') . '/Method/Validate/MethodHttp.xml';
         $this->assertFileIsReadable($configFile);
 
-        $manager = $context->createInstanceFor('validation_manager');
+        $manager = $context->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         self::assertInstanceOf(ValidationManager::class, $manager);
         $svc = new ValidationService($manager);
         $this->setCurrentContext($svc, $context);

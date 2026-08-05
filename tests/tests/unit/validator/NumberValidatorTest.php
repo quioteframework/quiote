@@ -18,22 +18,10 @@ class NumberValidatorTest extends UnitTestCase
 		// Ensure translation manager is initialized so numeric formatting side paths don't fail later.
 		$tm = $ctx->getTranslationManager();
 		if($tm === null) {
-			$info = $ctx->getFactoryInfo('translation_manager');
-			if ($info === null || empty($info['class'])) {
-				$ctx->setFactoryInfo('translation_manager', [
-					'class' => \Quiote\Translation\TranslationManager::class,
-					'parameters' => [],
-				]);
-			}
-			$tm = $ctx->createInstanceFor('translation_manager');
-			$ro = new \ReflectionObject($ctx);
-			$prop = $ro->getProperty('translationManager');
-
-			$prop->setValue($ctx, $tm);
-			$ctx->getShutdownSequence()->append($tm);
+			$tm = $this->installTestTranslationManager();
 			$tm->startup();
 		}
-		$this->vm = $ctx->createInstanceFor('validation_manager');
+		$this->vm = $ctx->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 	}
 
 	public function testNoCastOnFail(): void

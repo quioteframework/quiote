@@ -21,7 +21,7 @@ class EqualsValidatorTest extends BaseValidatorTest
 
 	public function testMatchesAnotherParameterWhenAsparamIsSet(): void
 	{
-		$vm = $this->getContext()->createInstanceFor('validation_manager');
+		$vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 		$validator = $vm->createValidator(EqualsValidator::class, ['value'], [], ['value' => 'reference', 'asparam' => true]);
 		$rd = $this->newWebRequest(['value' => 'foo', 'reference' => 'foo']);
 		$result = $validator->execute($rd);

@@ -163,7 +163,7 @@ final class ImmutableViewInitContext extends AttributeHolder implements ViewInit
             return $this->validationManager;
         }
         try {
-            return $this->context->createInstanceFor('validation_manager');
+            return $this->context->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         } catch (\Throwable) {
             return null;
         }

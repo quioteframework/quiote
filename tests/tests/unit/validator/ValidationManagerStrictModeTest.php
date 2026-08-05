@@ -22,7 +22,7 @@ class ValidationManagerStrictModeTest extends UnitTestCase
 
     public function testModeRelaxedConvertedToStrict(): void
     {
-        $vm = $this->_context->createInstanceFor('validation_manager');
+        $vm = $this->_context->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 
         // Initialize with MODE_RELAXED
         $vm->initialize($this->_context, ['mode' => ValidationManager::MODE_RELAXED]);
@@ -39,7 +39,7 @@ class ValidationManagerStrictModeTest extends UnitTestCase
 
     public function testModeConditionalStillAccepted(): void
     {
-        $vm = $this->_context->createInstanceFor('validation_manager');
+        $vm = $this->_context->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 
         // MODE_CONDITIONAL should still work; initialize() must not throw.
         $vm->initialize($this->_context, ['mode' => ValidationManager::MODE_CONDITIONAL]);
@@ -48,7 +48,7 @@ class ValidationManagerStrictModeTest extends UnitTestCase
 
     public function testModeStrictStillAccepted(): void
     {
-        $vm = $this->_context->createInstanceFor('validation_manager');
+        $vm = $this->_context->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 
         // MODE_STRICT should still work; initialize() must not throw.
         $vm->initialize($this->_context, ['mode' => ValidationManager::MODE_STRICT]);
@@ -57,7 +57,7 @@ class ValidationManagerStrictModeTest extends UnitTestCase
 
     public function testValidatorExportsAccessibleAfterValidation(): void
     {
-        $vm = $this->_context->createInstanceFor('validation_manager');
+        $vm = $this->_context->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $vm->initialize($this->_context, ['mode' => ValidationManager::MODE_STRICT]);
 
         $request = $this->_context->getRequest();
@@ -73,7 +73,7 @@ class ValidationManagerStrictModeTest extends UnitTestCase
 
     public function testRuntimeParameterKeysPreservedInWhitelist(): void
     {
-        $vm = $this->_context->createInstanceFor('validation_manager');
+        $vm = $this->_context->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $vm->initialize($this->_context, ['mode' => ValidationManager::MODE_STRICT]);
 
         $request = $this->_context->getRequest();
@@ -97,7 +97,7 @@ class ValidationManagerStrictModeTest extends UnitTestCase
 
     public function testExecutedValidatorsConditionStillWorks(): void
     {
-        $vm = $this->_context->createInstanceFor('validation_manager');
+        $vm = $this->_context->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $vm->initialize($this->_context, ['mode' => ValidationManager::MODE_STRICT]);
 
         // Create validator with a known argument and provide the value in the request
@@ -113,7 +113,7 @@ class ValidationManagerStrictModeTest extends UnitTestCase
 
     public function testPredeclaredExportsIncludedInWhitelist(): void
     {
-        $vm = $this->_context->createInstanceFor('validation_manager');
+        $vm = $this->_context->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $vm->initialize($this->_context, ['mode' => ValidationManager::MODE_STRICT]);
 
         // Set predeclared export names
@@ -132,7 +132,7 @@ class ValidationManagerStrictModeTest extends UnitTestCase
 
     public function testStrictModeEnforcesParameterWhitelisting(): void
     {
-        $vm = $this->_context->createInstanceFor('validation_manager');
+        $vm = $this->_context->getContainer()->get(\Quiote\Validator\ValidationManager::class);
         $vm->initialize($this->_context, ['mode' => ValidationManager::MODE_STRICT]);
 
         $request = $this->_context->getRequest();

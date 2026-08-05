@@ -476,7 +476,7 @@ class Controller extends ParameterHolder implements ResetInterface, ControllerIn
 
 		$this->setParameters($parameters);
 
-		$this->response = $context->createInstanceFor('response');
+		$this->response = $context->getContainer()->get(\Quiote\Response\WebResponse::class);
 
 		$definitions = OutputTypeDefinitions::fromCompiled($this->loadCompiledOutputTypes($context));
 
@@ -628,7 +628,7 @@ class Controller extends ParameterHolder implements ResetInterface, ControllerIn
 
 		// Reset the global response to a fresh instance
 		if ($this->context) {
-			$this->response = $this->context->createInstanceFor('response');
+			$this->response = $this->context->getContainer()->get(\Quiote\Response\WebResponse::class);
 		}
 		
 		// IMPORTANT: Do NOT null $defaultOutputType here. Doing so made the next

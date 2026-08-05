@@ -48,7 +48,7 @@ class CompiledValidatorRegistryTest extends UnitTestCase
 
 	public function testReturnsFalseWhenNoCandidateFileExists(): void
 	{
-		$vm = $this->getContext()->createInstanceFor('validation_manager');
+		$vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 		$registry = new CompiledValidatorRegistry();
 
 		$applied = $registry->apply($this->moduleDir, 'NoSuchModule', 'NoSuchAction', $vm, $this->getContext());
@@ -65,7 +65,7 @@ return static function (\Quiote\Validator\Compiler\Runtime\ValidatorBuilder $v):
 };
 PHP);
 
-		$vm = $this->getContext()->createInstanceFor('validation_manager');
+		$vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 		$registry = new CompiledValidatorRegistry();
 		$applied = $registry->apply($this->moduleDir, 'Demo', 'Create', $vm, $this->getContext(), 'write');
 
@@ -88,7 +88,7 @@ return static function (\Quiote\Validator\Compiler\Runtime\ValidatorBuilder $v):
 };
 PHP);
 
-		$vm = $this->getContext()->createInstanceFor('validation_manager');
+		$vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 		(new CompiledValidatorRegistry())->apply($this->moduleDir, 'Demo', 'Create', $vm, $this->getContext());
 
 		$childs = $vm->getChilds();
@@ -107,7 +107,7 @@ return static function (\Quiote\Validator\Compiler\Runtime\ValidatorBuilder $v):
 };
 PHP);
 
-		$vm = $this->getContext()->createInstanceFor('validation_manager');
+		$vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 		(new CompiledValidatorRegistry())->apply($this->moduleDir, 'Demo', 'Create', $vm, $this->getContext());
 
 		$childs = $vm->getChilds();
@@ -126,7 +126,7 @@ return static function (\Quiote\Validator\Compiler\Runtime\ValidatorBuilder $v):
 };
 PHP);
 
-		$vm = $this->getContext()->createInstanceFor('validation_manager');
+		$vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 		$applied = (new CompiledValidatorRegistry())->apply($this->moduleDir, 'Demo', 'Nested.Action', $vm, $this->getContext());
 		$this->assertTrue($applied);
 	}
@@ -141,18 +141,18 @@ return static function (\Quiote\Validator\Compiler\Runtime\ValidatorBuilder $v):
 PHP);
 		$registry = new CompiledValidatorRegistry();
 
-		$vm1 = $this->getContext()->createInstanceFor('validation_manager');
+		$vm1 = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 		$this->assertTrue($registry->apply($this->moduleDir, 'Demo', 'Create', $vm1, $this->getContext()));
 
 		// A second call for the same (moduleDir, module, action) hits the
 		// per-process memoization cache; it must still find the file (the
 		// cache re-verifies with is_file() rather than trusting blindly).
-		$vm2 = $this->getContext()->createInstanceFor('validation_manager');
+		$vm2 = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 		$this->assertTrue($registry->apply($this->moduleDir, 'Demo', 'Create', $vm2, $this->getContext()));
 
 		unlink($this->moduleDir . '/Demo/Validate/Create.generated.php');
 
-		$vm3 = $this->getContext()->createInstanceFor('validation_manager');
+		$vm3 = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 		$this->assertFalse(
 			$registry->apply($this->moduleDir, 'Demo', 'Create', $vm3, $this->getContext()),
 			'A resolved path must self-heal (re-check) rather than being trusted forever once the file disappears.'
@@ -170,7 +170,7 @@ PHP);
 		// that the cache is keyed per (moduleDir, module, action), so a
 		// *different* action is unaffected by another action's cached miss.
 		$registry = new CompiledValidatorRegistry();
-		$vmMiss = $this->getContext()->createInstanceFor('validation_manager');
+		$vmMiss = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 		$this->assertFalse($registry->apply($this->moduleDir, 'Demo', 'NeverExisted', $vmMiss, $this->getContext()));
 
 		$this->writeValidatorFile('Demo', 'DifferentAction', '.generated.php', <<<'PHP'
@@ -179,7 +179,7 @@ return static function (\Quiote\Validator\Compiler\Runtime\ValidatorBuilder $v):
     $v->isNotEmpty('y', false);
 };
 PHP);
-		$vmHit = $this->getContext()->createInstanceFor('validation_manager');
+		$vmHit = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 		$this->assertTrue($registry->apply($this->moduleDir, 'Demo', 'DifferentAction', $vmHit, $this->getContext()));
 	}
 
@@ -187,7 +187,7 @@ PHP);
 	{
 		$this->writeValidatorFile('Demo', 'Broken', '.generated.php', "<?php\nreturn 'not-a-callable';\n");
 
-		$vm = $this->getContext()->createInstanceFor('validation_manager');
+		$vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
 		$this->expectException(RuntimeException::class);
 		(new CompiledValidatorRegistry())->apply($this->moduleDir, 'Demo', 'Broken', $vm, $this->getContext());
 	}
