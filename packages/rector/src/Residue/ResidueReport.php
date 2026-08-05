@@ -51,6 +51,15 @@ final class ResidueReport
     public const string REASON_UNRESOLVED_RECEIVER = 'unresolved-receiver';
 
     /**
+     * A site in a file with no class in it: a template, or a script. There is no constructor anywhere
+     * for a rule to inject into, so this is `not-container-built`'s sibling rather than a variant of
+     * it -- naming it separately matters because the answer is different. A class the container does
+     * not build still has a constructor a human could thread a dependency through; a template has the
+     * container and nothing else.
+     */
+    public const string REASON_NO_CLASS = 'no-class-to-inject-into';
+
+    /**
      * The receiver really is a Context, but the method is not one Context declares -- in practice a
      * PHPUnit mock builder on a mocked Context (`$context->method('getName')`), where the receiver
      * resolves to `MockObject&Context`. Named for the same reason as above.

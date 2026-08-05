@@ -29,6 +29,19 @@ final class ContextResidueReporterTest extends AbstractRectorTestCase
             $reasons[$site['accessor']] = $site['reason'];
         }
 
+        // Keyed on the fixture, because each one is about a different set of answers and the report is
+        // per-run: asserting the union would pass for a fixture that recorded nothing.
+        match (basename($filePath)) {
+            'reports_template_scope.php.inc' => $this->assertTemplateScope($reasons),
+            default => $this->assertEveryResidueShape($reasons),
+        };
+    }
+
+    /**
+     * @param      array<string, string> $reasons
+     */
+    private function assertEveryResidueShape(array $reasons): void
+    {
         $this->assertSame(ResidueReport::REASON_NOT_CONTAINER_BUILT, $reasons['getUser'] ?? null);
         // Shaped like a Context call, receiver is definitely something else: named, not silently
         // skipped. The accessor recorded is the one called *on* the lookalike receiver, which is what
@@ -44,6 +57,17 @@ final class ContextResidueReporterTest extends AbstractRectorTestCase
         // An untyped $context = null parameter: unresolvable rather than foreign, which is a different
         // answer for whoever works the list.
         $this->assertSame(ResidueReport::REASON_UNRESOLVED_RECEIVER, $reasons['getRouting'] ?? null);
+    }
+
+    /**
+     * A file with no class in it is where both the rules and this reporter used to see nothing at all.
+     *
+     * @param      array<string, string> $reasons
+     */
+    private function assertTemplateScope(array $reasons): void
+    {
+        $this->assertSame(ResidueReport::REASON_NO_CLASS, $reasons['getTranslationManager'] ?? null);
+        $this->assertSame(ResidueReport::REASON_NO_CLASS, $reasons['getService'] ?? null);
     }
 
     /** @return \Iterator<array<string>> */
