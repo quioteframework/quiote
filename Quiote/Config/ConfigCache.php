@@ -786,6 +786,14 @@ class ConfigCache
 	 * Calls static::checkConfig(), not self::: the non-forwarding form resets late static binding to
 	 * this class, which would compile to disk even with APCu enabled.
 	 *
+	 * ONLY FOR A CONFIG WHOSE COMPILED ARTIFACT RETURNS DATA. An implementation is free to cache the
+	 * value -- {@see APCuConfigCache::loadValue()} does -- so an artifact that works by *executing*
+	 * statements would run on the first call and be skipped silently on every later one. Those configs
+	 * go through {@see load()}, which includes the artifact every time. Every config read through this
+	 * method today (config_handlers, factories, databases, output_types, translation) compiles to a
+	 * single `return <array>;`; a handler that starts emitting statements must not be added here
+	 * without moving its work into a declaration the caller applies.
+	 *
 	 * @param      string $config An absolute or relative filesystem path to a configuration file.
 	 * @param      string|null $context An optional context name.
 	 * @return     mixed The compiled configuration's return value.
