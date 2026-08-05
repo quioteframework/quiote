@@ -68,20 +68,18 @@ class SeamInterfaceResolutionTest extends PhpUnitTestCase
     }
 
     /**
-     * The interface surface is deliberately the reading surface: a consumer given the contract
-     * can reach the framework's other pieces, but not drive the context's own lifecycle.
+     * The contract is which profile this is and how to reach its services -- nothing else. The
+     * accessors are gone on purpose: a class that needs the routing or the user declares that in its
+     * constructor, where the container can see it, rather than reaching through the context, which
+     * works from anywhere and so hides every real dependency.
      */
-    public function testContextInterfaceExposesAccessorsButNotLifecycle(): void
+    public function testContextInterfaceIsTheProfileAndItsContainerOnly(): void
     {
         $reflection = new ReflectionClass(ContextInterface::class);
         $methods = array_map(static fn(ReflectionMethod $m): string => $m->getName(), $reflection->getMethods());
+        sort($methods);
 
-        foreach (['getRequest', 'getUser', 'getRouting', 'getController', 'getService', 'getModel'] as $expected) {
-            $this->assertContains($expected, $methods);
-        }
-        foreach (['initialize', 'shutdown', 'reset', 'handle', 'setRequest', 'setFactoryInfo'] as $excluded) {
-            $this->assertNotContains($excluded, $methods);
-        }
+        $this->assertSame(['getContainer', 'getName'], $methods);
     }
 
     public function testControllerInterfaceExposesDispatchSurfaceButNotLifecycle(): void
