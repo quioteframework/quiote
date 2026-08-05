@@ -41,7 +41,7 @@ class DispatchMiddlewareContextNonSimpleTest extends UnitTestCase
         // Preload module + action class
     $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class)->createActionInstance('Cache','CacheComplex'); // namespaced Sandbox\Modules\Cache\Actions\CacheComplexAction
         // Ensure user baseline state
-        $user = $this->getContext()->getUser();
+        $user = $this->getContext()->getContainer()->get(\Quiote\User\User::class);
         if(method_exists($user,'setAuthenticated')) { $user->setAuthenticated(true); }
         if(method_exists($user,'addCredential')) { $user->addCredential('complex_cred'); }
     }
@@ -121,7 +121,7 @@ class DispatchMiddlewareContextNonSimpleTest extends UnitTestCase
     public function testSecurityLoginForward(): void
     {
         \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,true,false); // require auth
-        $user = $this->getContext()->getUser();
+        $user = $this->getContext()->getContainer()->get(\Quiote\User\User::class);
         if(method_exists($user,'setAuthenticated')) { $user->setAuthenticated(false); }
     $state = new ExecutionState();
     // Simulate successful validation before security forward decision
@@ -134,7 +134,7 @@ class DispatchMiddlewareContextNonSimpleTest extends UnitTestCase
     public function testSecurityCredentialForward(): void
     {
         \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,false,true); // require credential
-        $user = $this->getContext()->getUser();
+        $user = $this->getContext()->getContainer()->get(\Quiote\User\User::class);
         if(method_exists($user,'removeCredential')) { $user->removeCredential('complex_cred'); }
     $state = new ExecutionState();
     $state->validationDecision = \Quiote\Execution\ValidationDecision::passed();

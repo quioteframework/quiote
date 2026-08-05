@@ -20,7 +20,7 @@ final class LoginAction extends Action
 
 	public function executeRead(WebRequest $rd): string
 	{
-		$user = $this->getContext()?->getUser();
+		$user = $this->getContext()?->getContainer()->get(\Quiote\User\ISecurityUser::class);
 
 		if ($user instanceof SecurityUser) {
 			$user->setAuthenticated(true);

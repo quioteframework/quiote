@@ -65,7 +65,7 @@ final class AuthenticationManager
 	 */
 	private function apply(Passport $passport, Firewall $firewall): void
 	{
-		$user = $this->controller->getContext()->getUser();
+		$user = $this->controller->getContext()->getContainer()->get(\Quiote\User\ISecurityUser::class);
 		if(!$user instanceof SecurityUser) {
 			return;
 		}

@@ -175,15 +175,15 @@ class ContextTest extends PhpUnitTestCase
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
 	public function testGetUserSecurityOff(): void
 	{
-		$this->assertInstanceOf(\Quiote\User\User::class, Context::getInstance()->getUser());
-		$this->assertNotInstanceOf(\Quiote\User\SecurityUser::class, Context::getInstance()->getUser());
+		$this->assertInstanceOf(\Quiote\User\User::class, Context::getInstance()->getContainer()->get(\Quiote\User\User::class));
+		$this->assertNotInstanceOf(\Quiote\User\SecurityUser::class, Context::getInstance()->getContainer()->get(\Quiote\User\User::class));
 	}
 
 	#[IsolationEnvironment('testing-use_security_on')]
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
 	public function testGetUserSecurityOn(): void
 	{
-		$this->assertInstanceOf(\Quiote\User\SecurityUser::class, Context::getInstance()->getUser());
+		$this->assertInstanceOf(\Quiote\User\SecurityUser::class, Context::getInstance()->getContainer()->get(\Quiote\User\User::class));
 	}
 
 	#[IsolationEnvironment('testing-use_translation_off')]
@@ -233,14 +233,14 @@ class ContextTest extends PhpUnitTestCase
 	public function testUserIsRebuiltAfterResetAndReRegisteredInTheContainer(): void
 	{
 		$ctx = Context::getInstance('rebuild_user_test');
-		$first = $ctx->getUser();
-		$this->assertSame($first, $ctx->getContainer()->get('user'));
+		$first = $ctx->getContainer()->get(\Quiote\User\User::class);
+		$this->assertSame($first, $ctx->getContainer()->get(\Quiote\User\User::class));
 
 		$ctx->reset();
 
-		$second = $ctx->getUser();
+		$second = $ctx->getContainer()->get(\Quiote\User\User::class);
 		$this->assertNotSame($first, $second);
-		$this->assertSame($second, $ctx->getContainer()->get('user'));
+		$this->assertSame($second, $ctx->getContainer()->get(\Quiote\User\User::class));
 	}
 
 	/**
@@ -324,7 +324,7 @@ class ContextTest extends PhpUnitTestCase
 
 		$this->assertSame($ctx->getContainer()->get(\Quiote\Routing\Routing::class), $container->get('routing'));
 		$this->assertSame($ctx->getContainer()->get(\Quiote\Session\SessionBagInterface::class), $container->get('sessionBag'));
-		$this->assertSame($ctx->getUser(), $container->get('user'));
+		$this->assertSame($ctx->getContainer()->get(\Quiote\User\User::class), $container->get('user'));
 		$this->assertSame($ctx->getRequest(), $container->get('request'));
 	}
 

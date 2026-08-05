@@ -61,7 +61,7 @@ class SlotNonSimpleParityTest extends UnitTestCase
     public function testRequiresAuthParity(): void
     {
         // Ensure user is logged out to trigger login forward in both paths
-        $user = $this->getContext()->getUser();
+        $user = $this->getContext()->getContainer()->get(\Quiote\User\User::class);
         if(method_exists($user,'setAuthenticated')) { $user->setAuthenticated(false); }
     $configure = function(): void{ \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,true,false); };
         $legacy = $this->dispatchWithFlag(false, $configure);
@@ -76,7 +76,7 @@ class SlotNonSimpleParityTest extends UnitTestCase
     public function testRequiresCredentialParity(): void
     {
         // User authenticated but missing credential should trigger secure forward parity
-        $user = $this->getContext()->getUser();
+        $user = $this->getContext()->getContainer()->get(\Quiote\User\User::class);
         if(method_exists($user,'setAuthenticated')) { $user->setAuthenticated(true); }
         if(method_exists($user,'removeCredential')) { $user->removeCredential('complex_cred'); }
     $configure = function(): void{ \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,false,true); };

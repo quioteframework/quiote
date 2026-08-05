@@ -142,13 +142,13 @@ class SeamInterfaceResolutionTest extends PhpUnitTestCase
         $ctx = Context::getInstance();
         // Force both components to exist, since they are built lazily.
         $ctx->getRequest();
-        $ctx->getUser();
+        $ctx->getContainer()->get(\Quiote\User\User::class);
 
         $resolved = $ctx->getContainer()->get($contract);
 
         $this->assertInstanceOf($contract, $resolved);
         $this->assertTrue(
-            $resolved === $ctx->getRequest() || $resolved === $ctx->getUser(),
+            $resolved === $ctx->getRequest() || $resolved === $ctx->getContainer()->get(\Quiote\User\User::class),
             "$contract must resolve to the request's own instance, not a freshly autowired one",
         );
     }

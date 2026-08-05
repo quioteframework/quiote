@@ -26,7 +26,7 @@ final class SecurityForwardValidationResetTest extends UnitTestCase
         if(!\Quiote\Config\Config::has('core.default_context')) { \Quiote\Config\Config::set('core.default_context', 'web'); }
         // Configure action to require auth so security triggers forward.
         \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,true,false);
-        $user = $this->getContext()->getUser();
+        $user = $this->getContext()->getContainer()->get(\Quiote\User\User::class);
         if(method_exists($user,'setAuthenticated')) { $user->setAuthenticated(false); }
         if(method_exists($user,'clearCredentials')) { try { $user->clearCredentials(); } catch(\Throwable) {} }
         // Ensure context has an WebRequest (required by ValidationMiddleware)

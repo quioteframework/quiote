@@ -45,7 +45,7 @@ final class CredentialForwardTest extends TestCase
         $desc = new ActionDescriptor($module, $action, 'GET', 'html', false);
 
         // Authenticated, but missing the 'complex_cred' credential.
-        $user = $context->getUser();
+        $user = $context->getContainer()->get(\Quiote\User\User::class);
         if (method_exists($user, 'setAuthenticated')) { $user->setAuthenticated(true); }
         if (method_exists($user, 'removeCredential')) { try { $user->removeCredential('complex_cred'); } catch (\Throwable) {} }
 

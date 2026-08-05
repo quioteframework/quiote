@@ -43,7 +43,7 @@ class DispatchMiddlewareDeeperCoverageTest extends TestCase
     public function testSecureSimpleActionHeuristicSetsSecurityDecisionAllow(): void
     {
         $ctx = $this->ctx();
-        $user = $ctx->getUser();
+        $user = $ctx->getContainer()->get(\Quiote\User\User::class);
         if(method_exists($user,'setAuthenticated')) { $user->setAuthenticated(true); }
         $mw = new DispatchMiddleware($ctx->getContainer()->get(\Quiote\Controller\Controller::class));
         $desc = new ActionDescriptor('sample','SecureSimple','execute','html', true);

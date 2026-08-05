@@ -234,7 +234,7 @@ class ContextExtendedCoverageTest extends TestCase
         $ro = new ReflectionObject($ctx);
 
         $req = $ctx->getRequest();
-        $user = $ctx->getUser();
+        $user = $ctx->getContainer()->get(\Quiote\User\User::class);
         $dbm = null;
         if (Config::getBool('core.use_database', false)) {
             $dbm = $ctx->getContainer()->tryGet(\Quiote\Database\DatabaseManager::class);
@@ -379,7 +379,7 @@ class ContextExtendedCoverageTest extends TestCase
         // Inject mock storage before user creation
         $ro = new ReflectionObject($ctx);
 
-        $user1 = $ctx->getUser();
+        $user1 = $ctx->getContainer()->get(\Quiote\User\User::class);
         $ctx->reset();
         $ro = new ReflectionObject($ctx);
         $userProp = $ro->getProperty('user');
@@ -390,7 +390,7 @@ class ContextExtendedCoverageTest extends TestCase
         // Remove any user entries from the sequence, so the recreation has to splice its own in.
         $sequence->remove(static fn(object $c): bool => $c instanceof \Quiote\User\User);
 
-        $user2 = $ctx->getUser();
+        $user2 = $ctx->getContainer()->get(\Quiote\User\User::class);
         $this->assertInstanceOf($user1::class, $user2);
         $this->assertNotSame($user1, $user2);
         $this->assertTrue(
@@ -472,7 +472,7 @@ class ContextExtendedCoverageTest extends TestCase
         }
         $this->assertInstanceOf(\Quiote\Controller\Controller::class, $controller1, 'Controller should be created');
         // Populate the sequence ordering by making the user exist.
-        $ctx->getUser();
+        $ctx->getContainer()->get(\Quiote\User\User::class);
         $ctx->reset();
         // After reset the controller object should remain (not nulled in reset) but may be reset()
         $controller2 = $controllerProp->getValue($ctx);
@@ -583,12 +583,12 @@ class ContextExtendedCoverageTest extends TestCase
         $this->injectLogger($ctx);
         $ro = new ReflectionObject($ctx);
 
-        $ctx->getUser();
+        $ctx->getContainer()->get(\Quiote\User\User::class);
 
         $ctx->reset();
-        $ctx->getUser(); // recreate user
+        $ctx->getContainer()->get(\Quiote\User\User::class); // recreate user
         $ctx->reset();
-        $ctx->getUser(); // recreate again
+        $ctx->getContainer()->get(\Quiote\User\User::class); // recreate again
 
         // Exactly one, not "not too many": replaceRole() removes every instance of the role before
         // splicing the replacement in, so a stale user can never sit alongside the live one and be

@@ -38,7 +38,7 @@ final class CurrentUser
      */
     public function get()
     {
-        return $this->context->getUser();
+        return $this->context->getContainer()->get(\Quiote\User\User::class);
     }
 
     /**

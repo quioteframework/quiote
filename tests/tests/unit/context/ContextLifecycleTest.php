@@ -206,11 +206,11 @@ class ContextLifecycleTest extends PhpUnitTestCase
 		);
 
 		$ctx = Context::getInstance('plugin_boundary_throw');
-		$user = $ctx->getUser();
+		$user = $ctx->getContainer()->get(\Quiote\User\User::class);
 
 		$ctx->reset();
 
-		$this->assertNotSame($user, $ctx->getUser(), 'the identity clears still happened');
+		$this->assertNotSame($user, $ctx->getContainer()->get(\Quiote\User\User::class), 'the identity clears still happened');
 	}
 
 	/**

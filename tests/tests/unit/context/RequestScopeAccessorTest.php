@@ -94,7 +94,7 @@ class RequestScopeAccessorTest extends PhpUnitTestCase
 	{
 		$ctx = Context::getInstance();
 
-		$this->assertSame($ctx->getUser(), (new CurrentUser($ctx))->get());
+		$this->assertSame($ctx->getContainer()->get(\Quiote\User\User::class), (new CurrentUser($ctx))->get());
 	}
 
 	/**
@@ -120,7 +120,7 @@ class RequestScopeAccessorTest extends PhpUnitTestCase
 			$secondRequestUser,
 			'a memoizing accessor would serve the previous request\'s user here',
 		);
-		$this->assertSame($ctx->getUser(), $secondRequestUser);
+		$this->assertSame($ctx->getContainer()->get(\Quiote\User\User::class), $secondRequestUser);
 	}
 
 	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
@@ -128,7 +128,7 @@ class RequestScopeAccessorTest extends PhpUnitTestCase
 	{
 		$ctx = Context::getInstance();
 		$accessor = new CurrentUser($ctx);
-		$user = $ctx->getUser();
+		$user = $ctx->getContainer()->get(\Quiote\User\User::class);
 
 		if (!$user instanceof ISecurityUser) {
 			$this->assertFalse(

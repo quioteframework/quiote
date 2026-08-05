@@ -184,7 +184,7 @@ class Context implements \Stringable, ResetInterface, ContextInterface
    * Retrieve (lazily create) the DI container.
    * The core services created by factories.xml
    * are registered here under their role name and concrete class name, so both
-   * `getContainer()->get('user')` and `getContainer()->get(RbacSecurityUser::class)`
+   * `getContainer()->get(\Quiote\User\User::class)` and `getContainer()->get(RbacSecurityUser::class)`
    * resolve to the same instance. factories.xml remains the sole construction path;
    * nothing in the framework resolves services *through* the container yet.
    */
@@ -247,6 +247,14 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     );
     $container->alias('controller', \Quiote\Controller\Controller::class);
     $container->alias(\Quiote\Controller\ControllerInterface::class, \Quiote\Controller\Controller::class);
+
+    // Request-scoped: the user belongs to one request, and the container drops it at the boundary
+    // exactly where the property was nulled. Bound under the base class and the security contract too,
+    // so an application's own subclass is reachable as the type a consumer type-hints -- the same
+    // reason SEAM_CONTRACTS exists for the eagerly-built components.
+    $container->setFactory('user', fn(): object => $this->buildUser(), Container::SCOPE_REQUEST);
+    $container->alias(User::class, 'user');
+    $container->alias(\Quiote\User\ISecurityUser::class, 'user');
   }
 
   /**
@@ -391,6 +399,18 @@ class Context implements \Stringable, ResetInterface, ContextInterface
   }
 
   /**
+   * Roles bound as container factories rather than as instances.
+   *
+   * These are the components whose accessor did more than read a property -- a rebuild, a guard -- so
+   * the behaviour lives in a factory closure. Binding an instance for one of them anywhere else would
+   * silently take precedence over the factory and pin whatever existed at that moment.
+   *
+   * @var        array<int, string>
+   * @since      4.0.0
+   */
+  private const array FACTORY_BOUND_ROLES = ['routing', 'controller', 'user'];
+
+  /**
    * Contracts a core service may satisfy, bound alongside it in the container by
    * {@see registerCoreService()}.
    *
@@ -451,7 +471,6 @@ class Context implements \Stringable, ResetInterface, ContextInterface
     $this->registerCoreService('databaseManager', $this->databaseManager);
     $this->registerCoreService('translationManager', $this->translationManager);
     $this->registerCoreService('request', $this->request, Container::SCOPE_REQUEST);
-    $this->registerCoreService('user', $this->user, Container::SCOPE_REQUEST);
     $this->registerTelemetryServicesInContainer();
     $this->registerHttpClientFactory();
     $this->registerModelLocator();
@@ -1334,7 +1353,13 @@ class Context implements \Stringable, ResetInterface, ContextInterface
       }
     }
 
-    $this->registerCoreService($role, $instance, $scope);
+    // Not for a role bound as a factory: registerCoreService() binds the *instance*, which would win
+    // over the factory and pin this rebuild for the rest of the process -- so the next request
+    // boundary would drop the resolved entry and the definition would hand the same object straight
+    // back. The factory already returns what this method built.
+    if (!in_array($role, self::FACTORY_BOUND_ROLES, true)) {
+      $this->registerCoreService($role, $instance, $scope);
+    }
 
     if ($vd) {
       $logger->debug(
@@ -1386,11 +1411,18 @@ class Context implements \Stringable, ResetInterface, ContextInterface
 
 
   /**
-   * Retrieve the user.
-   * @return     User|ISecurityUser The current User implementation instance.
-   * @since      1.0.0
+   * Build or reuse this request's user, for the container binding in
+   * {@see registerLazyCoreComponents()}.
+   *
+   * This was `getUser()`. Not a plain accessor and never was: a worker that dropped the user at a
+   * request boundary rebuilds it here, the database manager has to exist first because the user may
+   * read through to it, and the shutdown sequence has to be told about the new instance, or an
+   * outdated auth state is what gets persisted.
+   *
+   * @return     User|\Quiote\User\ISecurityUser
+   * @since      4.0.0
    */
-  public function getUser()
+  private function buildUser()
   {
     if ($this->user === null) {
       // The user may read through storage to the database, so the database manager has
@@ -1436,4 +1468,5 @@ class Context implements \Stringable, ResetInterface, ContextInterface
 
     return $this->user;
   }
+
 }

@@ -30,7 +30,7 @@ class SlotNonSimpleNoContainerTest extends UnitTestCase
         $this->getContext()->setRequest($fresh);
         putenv('QUIOTE_SLOT_NO_CONTAINER_ALL=1');
         // Ensure user has credential for baseline success
-        $user = $this->getContext()->getUser();
+        $user = $this->getContext()->getContainer()->get(\Quiote\User\User::class);
         if(method_exists($user,'addCredential')) { $user->addCredential('complex_cred'); }
     // Baseline: authenticated so credential removal path triggers secure (not login) forward
     if(method_exists($user,'setAuthenticated')) { $user->setAuthenticated(true); }
@@ -73,7 +73,7 @@ class SlotNonSimpleNoContainerTest extends UnitTestCase
     {
     \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,true,false);
         // ensure user logged out
-        $user = $this->getContext()->getUser();
+        $user = $this->getContext()->getContainer()->get(\Quiote\User\User::class);
         if(method_exists($user,'setAuthenticated')) { $user->setAuthenticated(false); }
     $ctx = $this->dispatchComplex();
     $this->assertSame('', $ctx->content, 'Security denial should suppress slot content');
@@ -84,7 +84,7 @@ class SlotNonSimpleNoContainerTest extends UnitTestCase
     {
     \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,false,true);
         // remove credential
-        $user = $this->getContext()->getUser();
+        $user = $this->getContext()->getContainer()->get(\Quiote\User\User::class);
         if(method_exists($user,'removeCredential')) { $user->removeCredential('complex_cred'); }
     $ctx = $this->dispatchComplex();
     $this->assertSame('', $ctx->content, 'Security denial should suppress slot content');

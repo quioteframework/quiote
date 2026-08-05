@@ -135,13 +135,13 @@ class WorkerRequestBoundaryTest extends TestCase
     /** Put the context into the state a request that authenticated someone leaves behind. */
     private function authenticateAUser(): void
     {
-        $user = $this->context->getUser();
+        $user = $this->context->getContainer()->get(\Quiote\User\User::class);
         $this->assertInstanceOf(ISecurityUser::class, $user, 'this test needs a SecurityUser-shaped user factory');
         $user->setAuthenticated(true);
 
         // Re-read through the accessor rather than trusting $user: the point of the
         // whole file is what a later caller observes via getContext()->getUser().
-        $reread = $this->context->getUser();
+        $reread = $this->context->getContainer()->get(\Quiote\User\User::class);
         $this->assertInstanceOf(ISecurityUser::class, $reread);
         $this->assertTrue($reread->isAuthenticated(), 'precondition: the user is authenticated');
     }
@@ -152,7 +152,7 @@ class WorkerRequestBoundaryTest extends TestCase
      */
     private function assertNextRequestSeesNoIdentity(string $because): void
     {
-        $user = $this->context->getUser();
+        $user = $this->context->getContainer()->get(\Quiote\User\User::class);
         if ($user instanceof ISecurityUser) {
             $this->assertFalse(
                 $user->isAuthenticated(),

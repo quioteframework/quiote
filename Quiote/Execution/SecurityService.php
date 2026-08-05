@@ -16,7 +16,7 @@ class SecurityService
     public function decide(Action $action): SecurityDecision
     {
         if(!$action->isSecure()) { return SecurityDecision::Allow; }
-        $user = $this->controller->getContext()->getUser();
+        $user = $this->controller->getContext()->getContainer()->get(\Quiote\User\User::class);
         // Context::getUser() is declared User|ISecurityUser; a plain User carries no
         // authentication/credential capability at all, so a secure action guarded by
         // one must be treated as unauthenticated rather than fatal-erroring at runtime.

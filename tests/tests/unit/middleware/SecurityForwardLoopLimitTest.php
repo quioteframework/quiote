@@ -25,7 +25,7 @@ final class SecurityForwardLoopLimitTest extends UnitTestCase
         if(!\Quiote\Config\Config::has('core.app_dir')) { \Quiote\Config\Config::set('core.app_dir', getcwd()); }
         if(!\Quiote\Config\Config::has('core.default_context')) { \Quiote\Config\Config::set('core.default_context', 'web'); }
         \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false,true,false);
-        $u = $this->getContext()->getUser();
+        $u = $this->getContext()->getContainer()->get(\Quiote\User\User::class);
         if(method_exists($u,'setAuthenticated')) { $u->setAuthenticated(false); }
         // Ensure context has an WebRequest (required by ValidationMiddleware)
         $this->getContext()->getRequest();

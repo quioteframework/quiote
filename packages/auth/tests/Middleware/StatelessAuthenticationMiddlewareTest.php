@@ -42,7 +42,7 @@ class StatelessAuthenticationMiddlewareTest extends UnitTestCase
 
 	private function securityUser(): SecurityUser
 	{
-		$user = $this->getContext()->getUser();
+		$user = $this->getContext()->getContainer()->get(\Quiote\User\ISecurityUser::class);
 		self::assertInstanceOf(SecurityUser::class, $user);
 		return $user;
 	}

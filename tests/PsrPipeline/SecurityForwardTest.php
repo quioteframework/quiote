@@ -35,7 +35,7 @@ final class SecurityForwardTest extends TestCase
         Config::set('actions.secure_module', 'Default');
         Config::set('actions.secure_action', 'Secure');
         try {
-            $user = Quiote::context('web', true)->getUser();
+            $user = Quiote::context('web', true)->getContainer()->get(\Quiote\User\User::class);
             if (method_exists($user, 'setAuthenticated')) { $user->setAuthenticated(false); }
         } catch (\Throwable) {}
     }
@@ -50,7 +50,7 @@ final class SecurityForwardTest extends TestCase
         \Sandbox\Modules\Cache\Actions\CacheComplexAction::configure(false, true, false);
         $desc = new ActionDescriptor($module, $action, 'GET', 'html', false);
 
-        $user = $context->getUser();
+        $user = $context->getContainer()->get(\Quiote\User\User::class);
         if (method_exists($user, 'setAuthenticated')) { $user->setAuthenticated(false); }
 
         $stack = [

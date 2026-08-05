@@ -23,7 +23,7 @@ trait IdentityPayload
     private function reportIdentity(Action $action): void
     {
         $context = $action->getContext();
-        $user = $context?->getUser();
+        $user = $context?->getContainer()->get(\Quiote\User\ISecurityUser::class);
 
         $action->setAttribute('authenticated', $user instanceof SecurityUser && $user->isAuthenticated());
         $action->setAttribute('roles', $user instanceof RbacSecurityUser ? $user->getRoles() : []);

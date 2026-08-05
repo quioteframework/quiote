@@ -50,7 +50,7 @@ trait RequestDiagnostics
     private function diagnosticAuthState(): string
     {
         try {
-            $user = $this->controller->getContext()->getUser();
+            $user = $this->controller->getContext()->getContainer()->get(\Quiote\User\User::class);
             if ($user instanceof \Quiote\User\ISecurityUser) {
                 return $user->isAuthenticated() ? '1' : '0';
             }

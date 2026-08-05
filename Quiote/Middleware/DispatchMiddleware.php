@@ -489,7 +489,7 @@ class DispatchMiddleware implements MiddlewareInterface
         if ($execState->securityDecision === null) {
             // Heuristic: presence of QUIOTE_SECURITY_DEBUG log decision=allow earlier isn't directly accessible; rely on user auth + secure action.
             try {
-                $usr = $this->controller->getContext()->getUser();
+                $usr = $this->controller->getContext()->getContainer()->get(\Quiote\User\User::class);
                 if ($actionInstance !== null && $actionInstance->isSecure() && method_exists($usr, 'isAuthenticated') && $usr->isAuthenticated()) {
                     $execState->securityDecision = SecurityDecision::Allow;
                 }
