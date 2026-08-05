@@ -4,6 +4,7 @@ namespace Quiote\Config;
 use Quiote\Config\Format\Xml\ElementPositionIndex;
 use Quiote\Config\Schema\Rule;
 use Quiote\Config\Util\DOM\XmlConfigDomDocument;
+use Quiote\Exception\ConfigurationException;
 use Quiote\Util\Toolkit;
 
 /**
@@ -12,7 +13,7 @@ use Quiote\Util\Toolkit;
  * override the placement or enabled state of any middleware (framework or
  * app) known to `#[Quiote\Middleware\Attribute\Middleware]` scanning.
  *
- * Each entry compiles to a contribution recorded on
+ * The compiled artifact returns the entry list; {@see apply()} records it as a contribution on
  * {@see \Quiote\Middleware\Config\MiddlewareConfigRegistry}, which
  * {@see \Quiote\Middleware\MiddlewarePipeline::doBuild()} merges with
  * attribute-scanned definitions before ordering the pipeline. Fields left
@@ -25,7 +26,7 @@ use Quiote\Util\Toolkit;
  * in document order.
  * @since      1.0.0
  */
-class MiddlewareConfigHandler extends XmlConfigHandler implements IArrayConfigHandler, ISchemaAwareConfigHandler, IPositionAwareConfigHandler
+class MiddlewareConfigHandler extends XmlConfigHandler implements IArrayConfigHandler, ISchemaAwareConfigHandler, IPositionAwareConfigHandler, IDeclarationConfigHandler
 {
 	const XML_NAMESPACE = 'http://quiote.dev/quiote/config/parts/middleware/1.1';
 
@@ -154,10 +155,112 @@ class MiddlewareConfigHandler extends XmlConfigHandler implements IArrayConfigHa
 			'override_framework' => $entry['override_framework'] ?? false,
 		], $config);
 
-		$code = [];
-		$code[] = '\Quiote\Middleware\Config\MiddlewareConfigRegistry::contribute('
-			. var_export($normalized, true) . ', ' . var_export($sourceRef ?? '(unknown)', true) . ');';
+		return $this->generate('return ' . var_export($normalized, true) . ';', $sourceRef);
+	}
 
-		return $this->generate($code, $sourceRef);
+	/**
+	 * Record the declared entries as contributions on the registry the pipeline builder reads.
+	 *
+	 * @param      mixed $declaration The normalized entry list {@see executeArray()} compiles.
+	 * @since      4.0.0
+	 */
+	public function apply(mixed $declaration, string $sourceRef): void
+	{
+		if (!is_array($declaration)) {
+			throw new ConfigurationException(sprintf(
+				'The compiled middleware declaration from "%s" must be a list of entries, got %s.',
+				$sourceRef,
+				get_debug_type($declaration)
+			));
+		}
+
+		\Quiote\Middleware\Config\MiddlewareConfigRegistry::contribute(
+			self::assertEntryList($declaration, $sourceRef),
+			$sourceRef
+		);
+	}
+
+	/**
+	 * Narrow a declaration read back from the cache (or from a hand-authored PHP/YAML source) to the
+	 * entry list the registry accepts.
+	 *
+	 * The registry checks that each class exists and implements the middleware interface; what it
+	 * cannot check is that the surrounding structure is an entry list at all, so that happens here --
+	 * a malformed declaration must name its source rather than surface as a type error deep inside
+	 * pipeline construction.
+	 *
+	 * @param      array<mixed> $declaration
+	 * @return     list<array{class: string, phase: ?string, priority: ?int, before: ?string, after: ?string, enabled: ?bool, override_framework: bool}>
+	 * @since      4.0.0
+	 */
+	private static function assertEntryList(array $declaration, string $sourceRef): array
+	{
+		$entries = [];
+		foreach ($declaration as $index => $entry) {
+			if (!is_array($entry) || !isset($entry['class']) || !is_string($entry['class'])) {
+				throw new ConfigurationException(sprintf(
+					'Entry %s of the compiled middleware declaration from "%s" must be an array with a string "class" key.',
+					var_export($index, true),
+					$sourceRef
+				));
+			}
+
+			$entries[] = [
+				'class' => $entry['class'],
+				'phase' => self::nullableString($entry, 'phase', $index, $sourceRef),
+				'priority' => self::nullableInt($entry, $index, $sourceRef),
+				'before' => self::nullableString($entry, 'before', $index, $sourceRef),
+				'after' => self::nullableString($entry, 'after', $index, $sourceRef),
+				'enabled' => isset($entry['enabled']) ? (bool) $entry['enabled'] : null,
+				'override_framework' => (bool) ($entry['override_framework'] ?? false),
+			];
+		}
+
+		return $entries;
+	}
+
+	/**
+	 * @param      array<mixed> $entry
+	 * @since      4.0.0
+	 */
+	private static function nullableString(array $entry, string $key, int|string $index, string $sourceRef): ?string
+	{
+		$value = $entry[$key] ?? null;
+		if ($value === null) {
+			return null;
+		}
+		if (!is_string($value)) {
+			throw new ConfigurationException(sprintf(
+				'The "%s" field of entry %s in the compiled middleware declaration from "%s" must be a string or null, got %s.',
+				$key,
+				var_export($index, true),
+				$sourceRef,
+				get_debug_type($value)
+			));
+		}
+
+		return $value;
+	}
+
+	/**
+	 * @param      array<mixed> $entry
+	 * @since      4.0.0
+	 */
+	private static function nullableInt(array $entry, int|string $index, string $sourceRef): ?int
+	{
+		$value = $entry['priority'] ?? null;
+		if ($value === null) {
+			return null;
+		}
+		if (!is_int($value) && !(is_string($value) && preg_match('/^-?\d+$/', $value) === 1)) {
+			throw new ConfigurationException(sprintf(
+				'The "priority" field of entry %s in the compiled middleware declaration from "%s" must be an int or null, got %s.',
+				var_export($index, true),
+				$sourceRef,
+				get_debug_type($value)
+			));
+		}
+
+		return (int) $value;
 	}
 }

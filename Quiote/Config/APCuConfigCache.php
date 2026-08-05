@@ -59,11 +59,6 @@ class APCuConfigCache extends ConfigCache
     private static $igbinaryAvailable = null;
     
     /**
-     * @var array<string, bool> Track loaded configs to prevent double loading
-     */
-    private static $loadedConfigs = [];
-
-    /**
      * @var string|null Tracks the context for the currently active checkConfig()
      * call so that writeCacheFile() (which has no context parameter) can store
      * the compiled data under the correct APCu key.
@@ -105,18 +100,16 @@ class APCuConfigCache extends ConfigCache
     }
     
     /**
-     * Override checkConfig to use APCu directly without temp files.
-     * When APCu has the content, we eval() it directly instead of writing
-     * a temp file (which would negate the benefit of caching in shared memory).
-     * Returns a special 'APCU:key' marker when content was found and executed
-     * from APCu, or falls back to the parent file-based cache.
-     */
-    /**
      * Check (and compile if needed) a configuration file.
-     * Returns either:
-     *  - A file path (string) when APCu is unavailable — caller should include() it.
-     *  - 'APCU:' followed by raw PHP content — caller must eval('?>' . substr($result, 5))
-     *    in its own scope so compiled code can reference caller-local variables.
+     *
+     * A compiled config lives in shared memory here rather than in a file, which is the point of this
+     * cache -- writing a temp file for the caller to include would give back the file I/O the store
+     * exists to avoid. So the return value is one of two things:
+     *  - A file path, when APCu is unavailable — the caller includes it.
+     *  - 'APCU:' followed by the compiled source, which the caller has to compile itself.
+     *
+     * Prefer {@see loadValue()} (through {@see CompiledConfig::value()}): it handles both shapes and
+     * hands back the value, so the storage format stays in here.
      */
     #[\Override]
     public static function checkConfig($config, $context = null)
@@ -245,40 +238,6 @@ class APCuConfigCache extends ConfigCache
         return true;
     }
 
-    /**
-     * Drop-in replacement for ConfigCache::load
-     * Loads directly from APCu if available, otherwise falls back to normal loading
-     * @return void
-     */
-    #[\Override]
-    public static function load($config, $context = null, $once = true)
-    {
-        $configKey = self::getConfigKey($config, $context);
-
-        if ($once && isset(self::$loadedConfigs[$configKey])) {
-            return;
-        }
-
-        $result = self::checkConfig($config, $context);
-
-        if (str_starts_with($result, 'APCU:')) {
-            // eval in load()'s scope — safe because configs loaded via load()
-            // (settings.xml, databases.xml, etc.) don't reference caller variables.
-            eval('?>' . substr($result, 5));
-        } else {
-            if ($once) {
-                include_once($result);
-            } else {
-                include($result);
-            }
-        }
-
-        if ($once) {
-            self::$loadedConfigs[$configKey] = true;
-        }
-    }
-    
-    
     /**
      * Warm up all configurations and routing data into APCu
      * @param array<int, string> $configs Array of config files to warm up (relative to config_dir)
@@ -597,10 +556,7 @@ class APCuConfigCache extends ConfigCache
             self::clearApcu();
         }
         
-        // Clear loaded configs tracking
-        self::$loadedConfigs = [];
-        
-        // Clear parent file cache
+        // Clear parent file cache (which also forgets which configs load() has applied)
         parent::clear();
     }
     

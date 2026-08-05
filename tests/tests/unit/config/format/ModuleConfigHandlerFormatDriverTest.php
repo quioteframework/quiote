@@ -6,7 +6,7 @@ use Quiote\Config\ModuleConfigHandler;
 
 /**
  * Proves a PHP-array file compiles through ModuleConfigHandler exactly
- * like the XML equivalent does -- phase 2.
+ * like the XML equivalent does.
  */
 class ModuleConfigHandlerFormatDriverTest extends PhpUnitTestCase
 {
@@ -72,9 +72,31 @@ PHP);
 		$config = $this->shapeModuleConfig($registry->load($this->dir . '/module.php', 'test'));
 		$code = $handler->executeArray($config, $this->dir . '/module.php');
 
-		$this->assertStringContainsString('$lcModuleName = strtolower($moduleName);', $code);
-		$this->assertStringContainsString('modules.${moduleName}.enabled', $code);
-		$this->assertStringContainsString('some_setting', $code);
+		// Data, not statements: the artifact returns the declaration, and the module name it is
+		// applied for is the caller's to supply.
+		$this->assertStringNotContainsString('strtolower($moduleName)', $code);
+		$this->assertStringContainsString('return array (', $code);
+		$this->assertStringContainsString('modules.${moduleName}.some_setting', $code);
+
+		$this->assertSame(
+			['enabled' => true, 'settings' => ['modules.${moduleName}.some_setting' => 'value']],
+			$this->evaluateArtifact($code)
+		);
+	}
+
+	/**
+	 * The compiled declaration, read back the way the config cache reads it.
+	 * @return mixed
+	 */
+	private function evaluateArtifact(string $code): mixed
+	{
+		$file = $this->dir . '/compiled.php';
+		file_put_contents($file, $code);
+		try {
+			return include $file;
+		} finally {
+			unlink($file);
+		}
 	}
 }
 ?>

@@ -159,22 +159,70 @@ class ModuleConfigHandler extends XmlConfigHandler implements IArrayConfigHandle
 	 */
 	public function executeArray(array $config, ?string $sourceRef = null): string
 	{
-		$enabled = $config['enabled'] ?? false;
-		$data = $config['settings'] ?? [];
-		$prefix = 'modules.${moduleName}.';
+		return $this->generate('return ' . var_export([
+			'enabled' => $config['enabled'] ?? false,
+			'settings' => $config['settings'] ?? [],
+		], true) . ';', $sourceRef);
+	}
 
-		$code = [];
-		$code[] = '$lcModuleName = strtolower($moduleName);';
-		$code[] = 'Quiote\Config\Config::set(Quiote\Util\Toolkit::expandVariables(' . var_export($prefix . 'enabled', true) . ', array(\'moduleName\' => $lcModuleName)), ' . var_export($enabled, true) . ', true, true);';
-		if (count($data)) {
-			$code[] = '$moduleConfig = ' . var_export($data, true) . ';';
-			$code[] = '$moduleConfigKeys = array_keys($moduleConfig);';
-			$code[] = 'foreach($moduleConfigKeys as &$value) $value = Quiote\Util\Toolkit::expandVariables($value, array(\'moduleName\' => $lcModuleName));';
-			$code[] = '$moduleConfig = array_combine($moduleConfigKeys, $moduleConfig);';
-			$code[] = 'Quiote\Config\Config::fromArray($moduleConfig);';
+	/**
+	 * Apply a module's compiled declaration for the module it belongs to.
+	 *
+	 * The module name is the caller's to supply: it is not in the declaration, and it cannot be -- the
+	 * wildcard module.xml handler compiles once per module but produces the same shape for all of
+	 * them, and `${moduleName}` in a setting *key* is what turns it into
+	 * `modules.bulletins.some_setting`. {@see \Quiote\Controller\Controller::initializeModule()} knows
+	 * the name, so it passes it in.
+	 *
+	 * `${moduleName}` in a setting *value* is a different mechanism and is deliberately left
+	 * unexpanded here: those sit alongside `${actionName}`/`${viewName}`, which are only knowable when
+	 * an action or view is being resolved.
+	 *
+	 * @param      mixed $declaration The declaration {@see executeArray()} compiles.
+	 * @param      string $moduleName The module the declaration belongs to; lowercased for the keys.
+	 * @param      string $sourceRef The module config file, for diagnostics.
+	 * @return     void
+	 * @throws     \Quiote\Exception\ConfigurationException If the declaration is not the compiled shape.
+	 * @since      4.0.0
+	 */
+	public static function applyDeclaration(mixed $declaration, string $moduleName, string $sourceRef): void
+	{
+		if (!is_array($declaration) || !array_key_exists('enabled', $declaration)) {
+			throw new \Quiote\Exception\ConfigurationException(sprintf(
+				'The compiled module declaration from "%s" must be an array with "enabled" and "settings" keys, got %s.',
+				$sourceRef,
+				get_debug_type($declaration)
+			));
 		}
 
-		return $this->generate($code, $sourceRef);
+		$variables = ['moduleName' => strtolower($moduleName)];
+
+		Config::set(
+			Toolkit::expandVariables('modules.${moduleName}.enabled', $variables),
+			(bool) $declaration['enabled'],
+			true,
+			true
+		);
+
+		$settings = $declaration['settings'] ?? [];
+		if (!is_array($settings)) {
+			throw new \Quiote\Exception\ConfigurationException(sprintf(
+				'The "settings" key of the compiled module declaration from "%s" must be an array, got %s.',
+				$sourceRef,
+				get_debug_type($settings)
+			));
+		}
+
+		if ($settings === []) {
+			return;
+		}
+
+		$expanded = [];
+		foreach ($settings as $key => $value) {
+			$expanded[Toolkit::expandVariables((string) $key, $variables)] = $value;
+		}
+
+		Config::fromArray($expanded);
 	}
 }
 

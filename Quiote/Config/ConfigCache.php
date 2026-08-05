@@ -64,6 +64,13 @@ class ConfigCache
 	private static array $cacheNameMemo = [];
 
 	/**
+	 * Configs already applied by {@see load()} in this process, keyed by path and context, so `$once`
+	 * holds even though the declaration's value may be served from a cache rather than re-included.
+	 * @var array<string,bool>
+	 */
+	private static array $appliedConfigs = [];
+
+	/**
 	 * Load a configuration handler.
 	 * @param      string $name The path of the originally requested configuration file.
 	 * @param      string $config An absolute filesystem path to a configuration file.
@@ -557,6 +564,7 @@ class ConfigCache
 		self::$modifiedCache = [];
 		self::$formatResolveMemo = [];
 		self::$cacheNameMemo = [];
+		self::$appliedConfigs = [];
 	}
 
 	/**
@@ -682,25 +690,87 @@ class ConfigCache
 	}
 
 	/**
-	 * Import a configuration file.
+	 * Apply a configuration file to runtime state.
 	 * If the configuration file path is relative, the path itself is relative
 	 * to the Quiote "core.app_dir" application setting.
+	 *
+	 * The compiled artifact is data: this reads its value and hands it to the handler's
+	 * {@see IDeclarationConfigHandler::apply()}, which is the code that acts on it. A cache entry
+	 * therefore cannot execute anything, only describe wrong configuration -- which is the whole point
+	 * of the declaration contract, and why a handler that does not implement it is rejected here
+	 * rather than having its artifact included for effect.
+	 *
 	 * @param      string $config A filesystem path to a configuration file.
 	 * @param      string $context A context name.
-	 * @param      bool $once Only allow this configuration file to be included once
-	 *                    per request?
+	 * @param      bool $once Only apply this configuration file once per request? Applying twice is
+	 *                    not generally harmless -- a contribution-style handler appends -- so this
+	 *                    defaults to true, as the include_once it replaces did.
 	 * @return     void
+	 * @throws     ConfigurationException If the file's handler does not implement
+	 *                                   {@see IDeclarationConfigHandler}.
 	 * @since      1.0.0
 	 */
 	public static function load($config, $context = null, $once = true)
 	{
-		$cache = self::checkConfig($config, $context);
+		$handler = self::declarationHandlerFor($config);
+
+		$appliedKey = Toolkit::normalizePath((string) $config) . '|' . ($context ?? '');
+		if($once && isset(self::$appliedConfigs[$appliedKey])) {
+			return;
+		}
+
+		$handler->apply(static::loadValue($config, $context), (string) $config);
 
 		if($once) {
-			include_once($cache);
-		} else {
-			include($cache);
+			self::$appliedConfigs[$appliedKey] = true;
 		}
+	}
+
+	/**
+	 * Test isolation and {@see clear()}: forget which configs {@see load()} has applied.
+	 * @return     void
+	 * @since      4.0.0
+	 */
+	public static function resetAppliedConfigs(): void
+	{
+		self::$appliedConfigs = [];
+	}
+
+	/**
+	 * The handler that knows how to apply the given config file's declaration.
+	 *
+	 * @param      string $config The path of the configuration file, as passed to {@see load()}.
+	 * @return     IDeclarationConfigHandler
+	 * @throws     ConfigurationException If the file has no registered handler, or its handler does
+	 *                                   not apply declarations.
+	 * @since      4.0.0
+	 */
+	private static function declarationHandlerFor(string $config): IDeclarationConfigHandler
+	{
+		self::setupHandlers();
+		$handlerInfo = self::getHandlerInfo($config);
+
+		if($handlerInfo === null) {
+			throw new ConfigurationException(sprintf(
+				'Configuration file "%s" does not have a registered handler.',
+				$config
+			));
+		}
+
+		$handler = new $handlerInfo['class']();
+		if(!$handler instanceof IDeclarationConfigHandler) {
+			throw new ConfigurationException(sprintf(
+				'"%s" cannot be loaded with ConfigCache::load(): its handler "%s" does not implement %s, so '
+				. 'there is nothing to apply its compiled declaration. A handler that has to act on its own '
+				. 'configuration implements that interface; a configuration that is only read belongs to '
+				. 'CompiledConfig::value().',
+				$config,
+				$handlerInfo['class'],
+				IDeclarationConfigHandler::class
+			));
+		}
+
+		return $handler;
 	}
 
 	/**
@@ -786,13 +856,11 @@ class ConfigCache
 	 * Calls static::checkConfig(), not self::: the non-forwarding form resets late static binding to
 	 * this class, which would compile to disk even with APCu enabled.
 	 *
-	 * ONLY FOR A CONFIG WHOSE COMPILED ARTIFACT RETURNS DATA. An implementation is free to cache the
-	 * value -- {@see APCuConfigCache::loadValue()} does -- so an artifact that works by *executing*
-	 * statements would run on the first call and be skipped silently on every later one. Those configs
-	 * go through {@see load()}, which includes the artifact every time. Every config read through this
-	 * method today (config_handlers, factories, databases, output_types, translation) compiles to a
-	 * single `return <array>;`; a handler that starts emitting statements must not be added here
-	 * without moving its work into a declaration the caller applies.
+	 * Every compiled artifact returns data, so this is the way to read any of them: an implementation
+	 * is free to cache the value -- {@see APCuConfigCache::loadValue()} does -- and there is nothing an
+	 * artifact could do by being included a second time. A config whose declaration has to be *applied*
+	 * to runtime state goes through {@see load()}, which reads it through this same method and hands it
+	 * to the handler.
 	 *
 	 * @param      string $config An absolute or relative filesystem path to a configuration file.
 	 * @param      string|null $context An optional context name.

@@ -49,7 +49,8 @@ class FormatAwareConfigCacheTest extends PhpUnitTestCase
 		$cacheFile = FormatAwareConfigCache::checkConfig($this->dir . '/settings', $handler, $this->newRegistry($handler), 'test');
 
 		$this->assertFileExists($cacheFile);
-		$compiled = require $cacheFile;
+		// The artifact is a declaration; the handler is what applies it.
+		$handler->apply(require $cacheFile, $cacheFile);
 		$this->assertSame('Demo', Config::getString('core.app_name'));
 	}
 
@@ -63,7 +64,7 @@ class FormatAwareConfigCacheTest extends PhpUnitTestCase
 		$handler->initialize(null, []);
 		$cacheFile = FormatAwareConfigCache::checkConfig($this->dir . '/settings', $handler, $this->newRegistry($handler), 'test');
 
-		require $cacheFile;
+		$handler->apply(require $cacheFile, $cacheFile);
 		$this->assertSame('FromPhp', Config::getString('core.app_name'));
 	}
 
@@ -75,7 +76,7 @@ class FormatAwareConfigCacheTest extends PhpUnitTestCase
 		$handler->initialize(null, []);
 		$cacheFile = FormatAwareConfigCache::checkConfig($this->dir . '/settings', $handler, $this->newRegistry($handler), 'test');
 
-		require $cacheFile;
+		$handler->apply(require $cacheFile, $cacheFile);
 		$this->assertSame('FromYaml', Config::getString('core.app_name'));
 	}
 

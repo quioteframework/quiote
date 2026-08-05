@@ -121,6 +121,67 @@ identifiers are still precomputed at compile time.
 **No config handler emits code that touches its includer any more.** Every compiled
 configuration is now data.
 
+## Config handlers return declarations: `IDeclarationConfigHandler`
+
+The conversions above covered the configs that are *read* — something asks for the
+value and builds from it. The remaining four (`settings`, `module`, `plugins`,
+`middleware`) are the configs that are *applied*: nothing reads them, they write into
+the config repository or a registry. Those compiled to statements, and
+`ConfigCache::load()` existed to execute them.
+
+They are declarations now, and the code that acts on a declaration is a real method
+on the handler:
+
+```php
+interface IDeclarationConfigHandler
+{
+    public function apply(mixed $declaration, string $sourceRef): void;
+}
+```
+
+`ConfigCache::load()` reads the artifact's value and calls `apply()`. The artifact
+never executes anything, so a poisoned cache entry can only produce wrong
+configuration — not code execution. That is the whole point: a cache entry that is
+*code* turns cache poisoning into RCE, and the APCu store is the worse half, because a
+poisoned entry there never touches disk (no file-integrity monitoring, no AV, no audit
+trail, and `eval`'d code is outside `open_basedir` and never appears in opcache).
+
+Secondary benefit, already measured on the configs converted earlier: `eval`'d code is
+never opcache-cached, so an unchanged config paid a full lex/parse/compile on every
+single request.
+
+**What this changes for you.** Nothing, unless you ship a config handler. The
+`settings`/`module`/`plugins`/`middleware` source formats are untouched.
+
+**If you ship a config handler**, and it is loaded with `ConfigCache::load()`, it must
+now implement `IDeclarationConfigHandler`: compile a `return <data>;` artifact and move
+what the generated statements did into `apply()`. A handler that does not implement it
+is rejected by `load()` with an error naming the interface, rather than having its
+artifact included for effect. A handler whose configuration is only *read* needs no
+interface — its caller uses `CompiledConfig::value()`.
+
+A handler that genuinely needs to *do* something at boot, rather than describe
+something, should be a plugin. That is the seam intended for behaviour.
+
+`apply()` is a trust boundary: the declaration reaches it from a cache entry or a
+hand-authored `.php`/`.yaml` source, so validate the shape and throw
+`ConfigurationException` rather than assuming what your own compiler produced. The
+four framework handlers do.
+
+**`module.xml` no longer reads `$moduleName` from its includer.** Its compiled file
+used to expand `modules.${moduleName}.` over its own keys using a variable from the
+scope it was included into. It now returns
+`['enabled' => bool, 'settings' => [key => value]]` with the `${moduleName}` template
+intact, and `Controller::initializeModule()` — which knows the module name — passes it
+to `ModuleConfigHandler::applyDeclaration()`. `${moduleName}` inside a setting *value*
+is a different mechanism and is unchanged: those sit alongside `${actionName}` and
+`${viewName}`, expanded per request when an action or view is resolved.
+
+**The `plugins` merge is testable code now.** Appending only classes not already
+present used to exist solely as a generated string. It is
+`PluginConfigHandler::merge()`, with the same guarantees: declared order preserved,
+first occurrence across all contributing files wins, app before modules.
+
 ## `Context` is growing seams, not losing accessors
 
 Three collaborators are now separate classes, each bound in the container so new

@@ -3,6 +3,7 @@
 use Quiote\Testing\PhpUnitTestCase;
 use Quiote\Config\Config;
 use Quiote\Config\ConfigCache;
+use Quiote\Config\SettingConfigHandler;
 use Quiote\Exception\ConfigurationException;
 use Quiote\Exception\UnreadableException;
 
@@ -160,7 +161,8 @@ class ConfigCacheFormatResolutionTest extends PhpUnitTestCase
 			// else resolved settings.xml earlier in the run.
 			ConfigCache::clear();
 			$cacheFile = ConfigCache::checkConfig($configDir . '/settings.xml', null);
-			require $cacheFile;
+			// The compiled artifact is the settings declaration; applying it is the handler's job.
+			(new SettingConfigHandler())->apply(require $cacheFile, $cacheFile);
 			$this->assertSame('FromSiblingPhp', Config::getString('core.app_name'));
 		} finally {
 			unlink($phpSibling);

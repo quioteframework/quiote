@@ -204,64 +204,61 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 	// load() — the primary entry point
 	// ---------------------------------------------------------------
 
-	public function testLoadExecutesConfigFromApcu(): void
+	/**
+	 * Seed APCu with a compiled artifact for the given config, as a warmup or an earlier cold compile
+	 * would have left it, and return the global its handler's apply() will set.
+	 */
+	private function seedDeclaration(string $config, string $globalKey): void
 	{
-		$config = Config::getString('core.config_dir') . '/tests/importtest.xml';
-
-		// Pre-seed APCu
 		$reflection = new ReflectionClass(APCuConfigCache::class);
 		$method = $reflection->getMethod('getConfigKey');
 		$key = $method->invoke(null, $config, null);
 		self::assertIsString($key);
 
+		apcu_store($key, "<?php\nreturn " . var_export(['global' => $globalKey], true) . ";\n");
+	}
+
+	public function testLoadAppliesTheDeclarationHeldInApcu(): void
+	{
+		$config = Config::getString('core.config_dir') . '/tests/importtest_once.xml';
 		$globalKey = 'apcu_load_test_' . mt_rand();
-		$phpContent = "<?php\n\$GLOBALS['{$globalKey}'] = 'loaded_from_apcu';\n?>";
-		apcu_store($key, $phpContent);
+		$this->seedDeclaration($config, $globalKey);
 
 		$this->assertArrayNotHasKey($globalKey, $GLOBALS);
 
 		APCuConfigCache::load($config);
 
-		$this->assertArrayHasKey($globalKey, $GLOBALS, 'load() should have eval\'d the PHP from APCu');
-		$this->assertSame('loaded_from_apcu', $GLOBALS[$globalKey]);
+		$this->assertTrue($GLOBALS[$globalKey] ?? false, 'load() should have applied the declaration from APCu');
 	}
 
-	public function testLoadOnceDoesNotReExecute(): void
+	public function testLoadOnceDoesNotReApply(): void
 	{
-		$config = Config::getString('core.config_dir') . '/tests/importtest.xml';
-
-		$reflection = new ReflectionClass(APCuConfigCache::class);
-		$method = $reflection->getMethod('getConfigKey');
-		$key = $method->invoke(null, $config, null);
-		self::assertIsString($key);
-
-		$globalKey = 'apcu_load_once_counter_' . mt_rand();
-		$phpContent = "<?php\nif(!isset(\$GLOBALS['{$globalKey}'])) \$GLOBALS['{$globalKey}']=0; \$GLOBALS['{$globalKey}']++;\n?>";
-		apcu_store($key, $phpContent);
+		$config = Config::getString('core.config_dir') . '/tests/importtest_once.xml';
+		$globalKey = 'apcu_load_once_' . mt_rand();
+		$this->seedDeclaration($config, $globalKey);
 
 		APCuConfigCache::load($config, null, true);
+		$this->assertTrue($GLOBALS[$globalKey]);
+
+		$GLOBALS[$globalKey] = false;
 		APCuConfigCache::load($config, null, true);
 
-		$this->assertSame(1, $GLOBALS[$globalKey], 'load($config, null, true) should only execute once');
+		$this->assertFalse($GLOBALS[$globalKey], 'load($config, null, true) should only apply once');
 	}
 
-	public function testLoadWithOnceFalseReExecutes(): void
+	public function testLoadWithOnceFalseReApplies(): void
 	{
-		$config = Config::getString('core.config_dir') . '/tests/importtest.xml';
-
-		$reflection = new ReflectionClass(APCuConfigCache::class);
-		$method = $reflection->getMethod('getConfigKey');
-		$key = $method->invoke(null, $config, null);
-		self::assertIsString($key);
-
-		$globalKey = 'apcu_load_multi_counter_' . mt_rand();
-		$phpContent = "<?php\nif(!isset(\$GLOBALS['{$globalKey}'])) \$GLOBALS['{$globalKey}']=0; \$GLOBALS['{$globalKey}']++;\n?>";
-		apcu_store($key, $phpContent);
+		$config = Config::getString('core.config_dir') . '/tests/importtest_once.xml';
+		$globalKey = 'apcu_load_multi_' . mt_rand();
+		$this->seedDeclaration($config, $globalKey);
 
 		APCuConfigCache::load($config, null, false);
+		$this->assertTrue($GLOBALS[$globalKey]);
+
+		$GLOBALS[$globalKey] = false;
 		APCuConfigCache::load($config, null, false);
 
-		$this->assertSame(2, $GLOBALS[$globalKey], 'load($config, null, false) should execute every time');
+		$this->assertTrue($GLOBALS[$globalKey], 'load($config, null, false) should apply every time');
 	}
 
 	// ---------------------------------------------------------------
@@ -282,29 +279,22 @@ class APCuConfigCacheTest extends PhpUnitTestCase
 		$this->assertFalse(apcu_fetch('quiote_config_testkey2'), 'clear() should remove quiote_ prefixed keys');
 	}
 
-	public function testClearResetsLoadedConfigsTracking(): void
+	public function testClearResetsAppliedConfigsTracking(): void
 	{
-		$config = Config::getString('core.config_dir') . '/tests/importtest.xml';
-
-		$reflection = new ReflectionClass(APCuConfigCache::class);
-		$method = $reflection->getMethod('getConfigKey');
-		$key = $method->invoke(null, $config, null);
-		self::assertIsString($key);
-
+		$config = Config::getString('core.config_dir') . '/tests/importtest_once.xml';
 		$globalKey = 'apcu_clear_reload_' . mt_rand();
-		$phpContent = "<?php\nif(!isset(\$GLOBALS['{$globalKey}'])) \$GLOBALS['{$globalKey}']=0; \$GLOBALS['{$globalKey}']++;\n?>";
-		apcu_store($key, $phpContent);
+		$this->seedDeclaration($config, $globalKey);
 
 		APCuConfigCache::load($config, null, true);
-		$this->assertSame(1, $GLOBALS[$globalKey]);
+		$this->assertTrue($GLOBALS[$globalKey]);
 
-		// Clear and re-seed
+		// Clear and re-seed: clear() drops both the source and the cached value.
 		APCuConfigCache::clear();
-		apcu_store($key, $phpContent);
+		$GLOBALS[$globalKey] = false;
+		$this->seedDeclaration($config, $globalKey);
 
-		// After clear, load($once=true) should execute again
 		APCuConfigCache::load($config, null, true);
-		$this->assertSame(2, $GLOBALS[$globalKey], 'After clear(), load() should execute again even with $once=true');
+		$this->assertTrue($GLOBALS[$globalKey], 'After clear(), load() should apply again even with $once=true');
 	}
 
 	// ---------------------------------------------------------------

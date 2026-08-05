@@ -56,15 +56,33 @@ class PluginConfigHandlerFormatDriverTest extends PhpUnitTestCase
 		return $result;
 	}
 
+	/**
+	 * The compiled artifact is a declaration -- the enabled classes and nothing else -- so this reads
+	 * its value back the way the config cache does and then applies it, which is where the `plugins`
+	 * key actually gets written.
+	 */
 	private function assertCompilesAndAppendsPlugins(string $code): void
+	{
+		$declaration = $this->evaluateArtifact($code);
+		$this->assertSame(['App\\Plugin\\One', 'App\\Plugin\\Two'], $declaration);
+
+		$handler = new PluginConfigHandler();
+		$handler->initialize(null, []);
+		$handler->apply($declaration, 'in-memory-test');
+
+		$this->assertSame(['App\\Plugin\\One', 'App\\Plugin\\Two'], Config::getArray('plugins'));
+	}
+
+	private function evaluateArtifact(string $code): mixed
 	{
 		$file = tempnam($this->dir, 'compiled_');
 		rename($file, $file .= '.php');
 		file_put_contents($file, $code);
-		include $file;
-		unlink($file);
-
-		$this->assertSame(['App\\Plugin\\One', 'App\\Plugin\\Two'], Config::getArray('plugins'));
+		try {
+			return include $file;
+		} finally {
+			unlink($file);
+		}
 	}
 
 	public function testXmlPluginsFileCompiles(): void
@@ -140,15 +158,50 @@ YAML);
 			['class' => 'App\\Plugin\\Two', 'enabled' => true],
 		], 'in-memory-test');
 
-		$file = tempnam($this->dir, 'compiled_');
-		rename($file, $file .= '.php');
-		file_put_contents($file, $code);
-		include $file;
-		unlink($file);
+		$handler->apply($this->evaluateArtifact($code), 'in-memory-test');
 
 		$this->assertSame(
 			['App\\Plugin\\Existing', 'App\\Plugin\\One', 'App\\Plugin\\Two'],
 			Config::getArray('plugins')
 		);
+	}
+
+	/**
+	 * The merge is real PHP now, so the cases that used to exist only inside a generated string can be
+	 * asserted directly.
+	 */
+	public function testMergeKeepsFirstOccurrenceAndCarriesArrayAndInstanceEntriesOver(): void
+	{
+		$instance = new \stdClass();
+
+		$this->assertSame(
+			['A', ['class' => 'B'], $instance, 'C'],
+			PluginConfigHandler::merge(['B', 'A', 'C'], ['A', ['class' => 'B'], $instance])
+		);
+	}
+
+	public function testMergeOfNothingDeclaredLeavesTheExistingListAlone(): void
+	{
+		$this->assertSame(['A'], PluginConfigHandler::merge([], ['A']));
+	}
+
+	public function testApplyRejectsADeclarationThatIsNotAList(): void
+	{
+		$handler = new PluginConfigHandler();
+		$handler->initialize(null, []);
+
+		$this->expectException(\Quiote\Exception\ConfigurationException::class);
+		$this->expectExceptionMessageMatches('/must be a list of class names/');
+		$handler->apply('App\\Plugin\\One', 'in-memory-test');
+	}
+
+	public function testApplyRejectsANonStringEntry(): void
+	{
+		$handler = new PluginConfigHandler();
+		$handler->initialize(null, []);
+
+		$this->expectException(\Quiote\Exception\ConfigurationException::class);
+		$this->expectExceptionMessageMatches('/must be a class name string/');
+		$handler->apply([['class' => 'App\\Plugin\\One']], 'in-memory-test');
 	}
 }

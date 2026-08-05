@@ -71,13 +71,24 @@ class MiddlewareConfigHandlerFormatDriverTest extends PhpUnitTestCase
 		return $result;
 	}
 
-	private function includeCompiled(string $code): void
+	/**
+	 * Read the compiled declaration back the way the config cache does, then apply it -- which is
+	 * where the registry contribution (and its guard) actually happens.
+	 */
+	private function applyCompiled(string $code): void
 	{
 		$file = tempnam($this->dir, 'compiled_');
 		rename($file, $file .= '.php');
 		file_put_contents($file, $code);
-		include $file;
-		unlink($file);
+		try {
+			$declaration = include $file;
+		} finally {
+			unlink($file);
+		}
+
+		$handler = new MiddlewareConfigHandler();
+		$handler->initialize(null, []);
+		$handler->apply($declaration, 'in-memory-test');
 	}
 
 	private function assertRegistryHasHealthzEntry(): void
@@ -107,7 +118,7 @@ XML);
 		$config = $registry->load($this->dir . '/middleware.xml', 'test');
 		$code = $handler->executeArray($this->asMiddlewareList($config), $this->dir . '/middleware.xml');
 
-		$this->includeCompiled($code);
+		$this->applyCompiled($code);
 		$this->assertRegistryHasHealthzEntry();
 	}
 
@@ -126,7 +137,7 @@ PHP);
 		$config = $registry->load($this->dir . '/middleware.php', 'test');
 		$code = $handler->executeArray($this->asMiddlewareList($config), $this->dir . '/middleware.php');
 
-		$this->includeCompiled($code);
+		$this->applyCompiled($code);
 		$this->assertRegistryHasHealthzEntry();
 	}
 
@@ -144,7 +155,7 @@ YAML);
 		$config = $registry->load($this->dir . '/middleware.yaml', 'test');
 		$code = $handler->executeArray($this->asMiddlewareList($config), $this->dir . '/middleware.yaml');
 
-		$this->includeCompiled($code);
+		$this->applyCompiled($code);
 		$this->assertRegistryHasHealthzEntry();
 	}
 
@@ -159,7 +170,7 @@ YAML);
 		], 'in-memory-test');
 
 		$this->expectException(ConfigurationException::class);
-		$this->includeCompiled($code);
+		$this->applyCompiled($code);
 	}
 
 	public function testGuardAllowsFrameworkOverrideWhenBothAuthorizationsPresent(): void
@@ -172,12 +183,58 @@ YAML);
 			['class' => ErrorHandlingMiddleware::class, 'enabled' => false, 'override_framework' => true],
 		], 'in-memory-test');
 
-		$this->includeCompiled($code);
+		$this->applyCompiled($code);
 
 		$entries = MiddlewareConfigRegistry::all();
 		$this->assertCount(1, $entries);
 		$this->assertSame(ErrorHandlingMiddleware::class, $entries[0]['class']);
 		$this->assertFalse($entries[0]['enabled']);
+	}
+
+	public function testApplyRejectsADeclarationThatIsNotAList(): void
+	{
+		$handler = new MiddlewareConfigHandler();
+		$handler->initialize(null, []);
+
+		$this->expectException(ConfigurationException::class);
+		$this->expectExceptionMessageMatches('/must be a list of entries/');
+		$handler->apply('nope', 'in-memory-test');
+	}
+
+	public function testApplyRejectsAnEntryWithoutAClass(): void
+	{
+		$handler = new MiddlewareConfigHandler();
+		$handler->initialize(null, []);
+
+		$this->expectException(ConfigurationException::class);
+		$this->expectExceptionMessageMatches('/must be an array with a string "class" key/');
+		$handler->apply([['phase' => 'pre_routing']], 'in-memory-test');
+	}
+
+	public function testApplyRejectsAPriorityThatIsNotAnInt(): void
+	{
+		$handler = new MiddlewareConfigHandler();
+		$handler->initialize(null, []);
+
+		$this->expectException(ConfigurationException::class);
+		$this->expectExceptionMessageMatches('/"priority" field of entry 0/');
+		$handler->apply(
+			[['class' => MiddlewareConfigHandlerFormatDriverTestFixtureMiddleware::class, 'priority' => 'soon']],
+			'in-memory-test'
+		);
+	}
+
+	public function testApplyRejectsAPhaseThatIsNotAString(): void
+	{
+		$handler = new MiddlewareConfigHandler();
+		$handler->initialize(null, []);
+
+		$this->expectException(ConfigurationException::class);
+		$this->expectExceptionMessageMatches('/"phase" field of entry 0/');
+		$handler->apply(
+			[['class' => MiddlewareConfigHandlerFormatDriverTestFixtureMiddleware::class, 'phase' => 42]],
+			'in-memory-test'
+		);
 	}
 }
 

@@ -4,6 +4,7 @@ namespace Quiote\Config;
 use Quiote\Config\Format\Xml\ElementPositionIndex;
 use Quiote\Config\Schema\Rule;
 use Quiote\Config\Util\DOM\XmlConfigDomDocument;
+use Quiote\Exception\ConfigurationException;
 use Quiote\Util\Toolkit;
 
 /**
@@ -20,17 +21,17 @@ use Quiote\Util\Toolkit;
  *
  * Multiple plugin config files can contribute (the app's own
  * `%core.config_dir%/plugins.xml` plus any module's
- * `%core.module_dir%/<name>/Config/plugins.xml`) -- each compiled file reads
- * the `plugins` key's current value and appends only classes not already
- * present, so declared order across files is preserved and the first
- * occurrence of a class (across all contributing files, compiled in
- * bootstrap order) wins if the same class is listed more than once.
+ * `%core.module_dir%/<name>/Config/plugins.xml`). Each compiled artifact returns just the classes it
+ * declares; {@see apply()} reads the `plugins` key's current value and appends only classes not
+ * already present, so declared order across files is preserved and the first occurrence of a class
+ * (across all contributing files, applied in bootstrap order) wins if the same class is listed more
+ * than once.
  *
  * Canonical schema: list<array{class: string, enabled: bool}>, in document
  * order.
  * @since      1.0.0
  */
-class PluginConfigHandler extends XmlConfigHandler implements IArrayConfigHandler, ISchemaAwareConfigHandler, IPositionAwareConfigHandler
+class PluginConfigHandler extends XmlConfigHandler implements IArrayConfigHandler, ISchemaAwareConfigHandler, IPositionAwareConfigHandler, IDeclarationConfigHandler
 {
 	const XML_NAMESPACE = 'http://quiote.dev/quiote/config/parts/plugins/1.1';
 
@@ -131,21 +132,99 @@ class PluginConfigHandler extends XmlConfigHandler implements IArrayConfigHandle
 			array_filter($config, static fn(array $plugin): bool => $plugin['enabled'] ?? true),
 		));
 
-		$code = [];
-		$code[] = '$quioteDeclaredPlugins = ' . var_export($declared, true) . ';';
-		$code[] = '$quioteExistingPlugins = \Quiote\Config\Config::getArray(\'plugins\', []);';
-		$code[] = '$quioteExistingPluginClasses = array_map(';
-		$code[] = '    static fn($plugin) => is_array($plugin) ? ($plugin[\'class\'] ?? $plugin) : $plugin,';
-		$code[] = '    $quioteExistingPlugins,';
-		$code[] = ');';
-		$code[] = 'foreach ($quioteDeclaredPlugins as $quioteDeclaredPlugin) {';
-		$code[] = '    if (!in_array($quioteDeclaredPlugin, $quioteExistingPluginClasses, true)) {';
-		$code[] = '        $quioteExistingPlugins[] = $quioteDeclaredPlugin;';
-		$code[] = '        $quioteExistingPluginClasses[] = $quioteDeclaredPlugin;';
-		$code[] = '    }';
-		$code[] = '}';
-		$code[] = '\Quiote\Config\Config::set(\'plugins\', $quioteExistingPlugins, true);';
+		return $this->generate('return ' . var_export($declared, true) . ';', $sourceRef);
+	}
 
-		return $this->generate($code, $sourceRef);
+	/**
+	 * Append the declared plugin classes to the `plugins` config key.
+	 *
+	 * @param      mixed $declaration The enabled classes, in declared order, that {@see executeArray()}
+	 *                    compiles.
+	 * @since      4.0.0
+	 */
+	public function apply(mixed $declaration, string $sourceRef): void
+	{
+		if (!is_array($declaration)) {
+			throw new ConfigurationException(sprintf(
+				'The compiled plugins declaration from "%s" must be a list of class names, got %s.',
+				$sourceRef,
+				get_debug_type($declaration)
+			));
+		}
+
+		$declared = [];
+		foreach ($declaration as $index => $class) {
+			if (!is_string($class)) {
+				throw new ConfigurationException(sprintf(
+					'Entry %s of the compiled plugins declaration from "%s" must be a class name string, got %s.',
+					var_export($index, true),
+					$sourceRef,
+					get_debug_type($class)
+				));
+			}
+			$declared[] = $class;
+		}
+
+		Config::set('plugins', self::merge($declared, Config::getArray('plugins', [])), true);
+	}
+
+	/**
+	 * Merge declared plugin classes into the classes already registered, appending only what is not
+	 * there yet.
+	 *
+	 * Declared order is preserved and the first occurrence of a class wins, across every contributing
+	 * file: the app's own `plugins.*` is applied before any module's, so an app listing the same class
+	 * as a module keeps the app's position.
+	 *
+	 * An already-registered entry may be a class name or a `['class' => ...]` array (a
+	 * {@see \Quiote\Plugin\PluginInterface} instance placed there directly by an app is left alone
+	 * too), so comparison happens on the class name while the existing entry is kept as it stands.
+	 *
+	 * @param      list<string> $declared Class names to append, in declared order.
+	 * @param      array<int|string, mixed> $existing The current `plugins` config value.
+	 * @return     list<mixed> The merged list.
+	 * @since      4.0.0
+	 */
+	public static function merge(array $declared, array $existing): array
+	{
+		$merged = array_values($existing);
+		$seen = [];
+		foreach ($merged as $plugin) {
+			$name = self::classNameOf($plugin);
+			if ($name !== null) {
+				$seen[$name] = true;
+			}
+		}
+
+		foreach ($declared as $class) {
+			if (isset($seen[$class])) {
+				continue;
+			}
+			$merged[] = $class;
+			$seen[$class] = true;
+		}
+
+		return $merged;
+	}
+
+	/**
+	 * The class name an existing `plugins` entry stands for, or null when it is something this merge
+	 * cannot compare (in which case it is carried over untouched rather than deduplicated).
+	 *
+	 * @since      4.0.0
+	 */
+	private static function classNameOf(mixed $plugin): ?string
+	{
+		if (is_string($plugin)) {
+			return $plugin;
+		}
+		if (is_array($plugin) && isset($plugin['class']) && is_string($plugin['class'])) {
+			return $plugin['class'];
+		}
+		if (is_object($plugin)) {
+			return $plugin::class;
+		}
+
+		return null;
 	}
 }

@@ -54,7 +54,9 @@ PHP);
 
 		$this->assertStringContainsString("'core.app_name' => 'Demo'", $code);
 		$this->assertStringContainsString("'core.debug' => true", $code);
-		$this->assertStringContainsString('Quiote\\Config\\Config::fromArray(', $code);
+		// Data, not statements: the artifact returns the settings map and nothing else.
+		$this->assertStringContainsString('return array (', $code);
+		$this->assertStringNotContainsString('Quiote\\Config\\Config::fromArray(', $code);
 	}
 
 	public function testYamlSettingsFileCompilesThroughTheSameHandler(): void

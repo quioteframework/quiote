@@ -12,7 +12,7 @@ use Quiote\Exception\ControllerException;
 use Quiote\Config\Config;
 use Quiote\Config\ConfigCache;
 use Quiote\Config\CompiledConfig;
-use Quiote\Config\APCuConfigCache;
+use Quiote\Config\ModuleConfigHandler;
 use Quiote\Exception\DisabledModuleException;
 use Quiote\Response\WebResponse;
 use Quiote\Exception\QuioteException;
@@ -176,24 +176,21 @@ class Controller extends ParameterHolder implements ResetInterface, ControllerIn
 		}
 
 		if(!Config::has('modules.' . $lowerModuleName . '.enabled')) {
-			// include the module configuration
-		// loaded only once due to the way load() (former import()) works
-		if(is_readable(Config::getString('core.module_dir') . '/' . $moduleName . '/Config/module.xml')) {
-			if(defined('QUIOTE_USE_APCU_CONFIG_CACHE') && QUIOTE_USE_APCU_CONFIG_CACHE) {
-				$cacheResult = APCuConfigCache::checkConfig(Config::getString('core.module_dir') . '/' . $moduleName . '/Config/module.xml');
-				if (str_starts_with($cacheResult, 'APCU:')) {
-					eval('?>' . substr($cacheResult, 5));
-				} else {
-					include_once($cacheResult);
-				}
+			// Apply the module's own configuration. The compiled artifact is a declaration with no
+			// module name in it -- the same shape for every module -- so the name, which only this
+			// caller knows, is what turns its setting keys into "modules.<name>.<setting>".
+			$moduleConfigFile = Config::getString('core.module_dir') . '/' . $moduleName . '/Config/module.xml';
+			if(is_readable($moduleConfigFile)) {
+				ModuleConfigHandler::applyDeclaration(
+					CompiledConfig::value($moduleConfigFile),
+					$lowerModuleName,
+					$moduleConfigFile
+				);
 			} else {
-				include_once(ConfigCache::checkConfig(Config::getString('core.module_dir') . '/' . $moduleName . '/Config/module.xml'));
+				Config::set('modules.' . $lowerModuleName . '.enabled', true);
 			}
-		} else {
-			Config::set('modules.' . $lowerModuleName . '.enabled', true);
-		}
-		
-		if(Config::getBool('modules.' . $lowerModuleName . '.enabled', false)) {
+
+			if(Config::getBool('modules.' . $lowerModuleName . '.enabled', false)) {
 				$moduleConfigHandlers = Config::getString('core.module_dir') . '/' . $moduleName . '/Config/config_handlers.xml';
 				if(is_readable($moduleConfigHandlers)) {
 					ConfigCache::addConfigHandlersFile($moduleConfigHandlers);

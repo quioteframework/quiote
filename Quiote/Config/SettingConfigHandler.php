@@ -7,14 +7,11 @@ use Quiote\Exception\ParseException;
 /**
  * SettingConfigHandler handles the settings.xml file.
  *
- * Pilot migration (phase 2): the
- * actual compilation logic (executeArray()) now consumes a plain array
- * instead of walking the DOM directly, so the exact same logic compiles a
- * settings.php or settings.yaml file too (via
+ * The compilation logic (executeArray()) consumes a plain array rather than walking the DOM, so the
+ * same logic compiles a settings.php or settings.yaml file (via
  * Quiote\Config\Format\FormatDriverRegistry::forHandler()), not just XML.
  *
- * The canonical array shape is a flat, dot-keyed map -- exactly what
- * execute() used to build inline before generating code from it:
+ * The canonical array shape is a flat, dot-keyed map:
  *   'actions.{name}_module'          => string   (from <system_action name="..."><module>)
  *   'actions.{name}_action'          => string   (from <system_action name="..."><action>)
  *   '{prefix}{setting_name}'         => mixed    (prefix defaults to 'core.'; a <settings prefix="...">
@@ -26,10 +23,12 @@ use Quiote\Exception\ParseException;
  * e.g. `return ['core.app_name' => 'Demo', 'core.debug' => true];` --
  * there is no XML-specific concept (system_actions/settings/prefix
  * wrappers) left to represent once you're at this shape.
+ *
+ * The compiled artifact returns that map; {@see apply()} is what feeds it to {@see Config}.
  * @since      1.0.0
  * @version    1.0.0
  */
-class SettingConfigHandler extends XmlConfigHandler implements IArrayConfigHandler
+class SettingConfigHandler extends XmlConfigHandler implements IArrayConfigHandler, IDeclarationConfigHandler
 {
 	const XML_NAMESPACE = 'http://quiote.dev/quiote/config/parts/settings/1.1';
 
@@ -100,8 +99,26 @@ class SettingConfigHandler extends XmlConfigHandler implements IArrayConfigHandl
 
 	public function executeArray(array $config, ?string $sourceRef = null): string
 	{
-		$code = 'Quiote\\Config\\Config::fromArray(' . var_export($config, true) . ');';
-		return $this->generate($code, $sourceRef);
+		return $this->generate('return ' . var_export($config, true) . ';', $sourceRef);
+	}
+
+	/**
+	 * Feed the declared settings into the configuration repository.
+	 *
+	 * @param      mixed $declaration The flat, dot-keyed map described in this class's summary.
+	 * @since      4.0.0
+	 */
+	public function apply(mixed $declaration, string $sourceRef): void
+	{
+		if (!is_array($declaration)) {
+			throw new \Quiote\Exception\ConfigurationException(sprintf(
+				'The compiled settings declaration from "%s" must be an array of setting name => value, got %s.',
+				$sourceRef,
+				get_debug_type($declaration)
+			));
+		}
+
+		Config::fromArray($declaration);
 	}
 }
 
