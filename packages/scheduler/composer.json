@@ -16,8 +16,8 @@
 	},
 	"require": {
 		"php": ">=8.5.0",
-		"quioteframework/quiote": "*",
-		"quioteframework/queue": "*",
+		"quioteframework/quiote": "^4.0",
+		"quioteframework/queue": "^4.0",
 		"dragonmantank/cron-expression": "^3.4"
 	},
 	"autoload": {

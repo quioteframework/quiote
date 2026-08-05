@@ -16,9 +16,9 @@
 	},
 	"require": {
 		"php": ">=8.5.0",
-		"quioteframework/quiote": "*",
-		"quioteframework/auth": "*",
-		"quioteframework/auth-jwt": "*",
+		"quioteframework/quiote": "^4.0",
+		"quioteframework/auth": "^4.0",
+		"quioteframework/auth-jwt": "^4.0",
 		"league/oauth2-client": "^2.9",
 		"psr/cache": "^3.0",
 		"psr/http-client": "^1.0",

@@ -16,7 +16,7 @@
 	},
 	"require": {
 		"php": ">=8.5.0",
-		"quioteframework/quiote": "*",
+		"quioteframework/quiote": "^4.0",
 		"cycle/orm": "^2.18",
 		"cycle/database": "^2.21"
 	},

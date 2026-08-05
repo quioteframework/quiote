@@ -17,8 +17,8 @@
 	"require": {
 		"php": ">=8.5.0",
 		"predis/predis": "^3.0",
-		"quioteframework/quiote": "*",
-		"quioteframework/queue": "*"
+		"quioteframework/quiote": "^4.0",
+		"quioteframework/queue": "^4.0"
 	},
 	"autoload": {
 		"psr-4": {

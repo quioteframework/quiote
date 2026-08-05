@@ -19,7 +19,7 @@
 		"ext-dom": "*",
 		"ext-xsl": "*",
 		"lib-libxml": "*",
-		"quioteframework/quiote": "*"
+		"quioteframework/quiote": "^4.0"
 	},
 	"autoload": {
 		"psr-4": {

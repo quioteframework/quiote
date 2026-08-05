@@ -16,8 +16,8 @@
 	},
 	"require": {
 		"php": ">=8.5.0",
-		"quioteframework/quiote": "*",
-		"quioteframework/propulsion": "*"
+		"quioteframework/quiote": "^4.0",
+		"quioteframework/propulsion": "^2.0"
 	},
 	"autoload": {
 		"psr-4": {

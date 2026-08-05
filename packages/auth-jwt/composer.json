@@ -16,8 +16,8 @@
 	},
 	"require": {
 		"php": ">=8.5.0",
-		"quioteframework/quiote": "*",
-		"quioteframework/auth": "*",
+		"quioteframework/quiote": "^4.0",
+		"quioteframework/auth": "^4.0",
 		"firebase/php-jwt": "^7.1",
 		"psr/cache": "^3.0",
 		"psr/http-client": "^1.0",

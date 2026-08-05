@@ -27,6 +27,41 @@ a report rather than skipped silently.
 Clear the config cache once when upgrading; that item is first here because it fails
 hard.
 
+## Upgrade the first-party packages in lockstep with the framework
+
+**This fails at runtime, on every request, and the error names a method rather than the mismatch:**
+
+```
+Error: Call to undefined method Quiote\Context::getController()
+  at vendor/quioteframework/csrf/src/CsrfPlugin.php:35
+```
+
+A `packages/` package is split to its own repo and tagged with the framework, but it is installed as
+its own Composer package — so an application that upgrades `quioteframework/quiote` to 4.0 and leaves
+`quioteframework/csrf` at a 3.x tag gets a 3.x package calling accessors 4.0 deleted. CSRF is the one
+that surfaces first because `Quiote::bootstrap()` registers its plugin unconditionally, so the failure
+is not limited to the requests that use the feature.
+
+Every first-party package now requires `"quioteframework/quiote": "^4.0"` instead of `"*"`, so
+Composer refuses the combination rather than installing it. That guard only exists from 4.0 onward:
+the packages already installed with `"*"` will happily pair with 4.0, and this is what that looks
+like when they do.
+
+**Upgrade them together.** Every package is tagged with the same version as the framework:
+
+```
+composer require quioteframework/quiote:^4.0@RC quioteframework/csrf:^4.0@RC
+```
+
+Or set the stability once, in the application's `composer.json`, and let each package follow:
+
+```json
+{
+    "minimum-stability": "RC",
+    "prefer-stable": true
+}
+```
+
 ## The config cache now invalidates itself on a framework change
 
 **Fixed, and it removes a whole class of upgrade hazard.** `ConfigCache` decided
@@ -916,6 +951,20 @@ Verified against real RoadRunner, Swoole and FrankenPHP servers.
 ---
 
 ## 1. Replace the `storage` slot with a `session` slot
+
+**A leftover `<storage>` element fails schema validation, not construction.** `factories.xsd` does not
+declare the element at all, so the whole `factories` configuration is rejected and
+`Context::initialize()` throws before anything is built:
+
+```
+Validation of configuration file ".../Config/factories.xml" failed:
+[Error #1871] Line 23: Element '{...parts/factories/1.1}storage': This element is not expected.
+```
+
+Everything downstream then reports the *consequence* rather than the cause -- in a test suite, every
+case erroring with "User object is null and no factory declaration is available for recreation in
+worker mode", because the context never finished initializing. Read the first failure, not the
+thousandth.
 
 **Before**
 

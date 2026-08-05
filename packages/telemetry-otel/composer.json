@@ -16,7 +16,7 @@
 	},
 	"require": {
 		"php": ">=8.5.0",
-		"quioteframework/quiote": "*",
+		"quioteframework/quiote": "^4.0",
 		"open-telemetry/api": "^1.9",
 		"open-telemetry/sdk": "^1.14",
 		"open-telemetry/sem-conv": "^1.38",

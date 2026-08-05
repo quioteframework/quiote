@@ -22,8 +22,8 @@
 	},
 	"require": {
 		"php": ">=8.5.0",
-		"quioteframework/quiote": "*",
-		"quioteframework/cloud-azure": "*"
+		"quioteframework/quiote": "^4.0",
+		"quioteframework/cloud-azure": "^4.0"
 	},
 	"autoload": {
 		"psr-4": {
