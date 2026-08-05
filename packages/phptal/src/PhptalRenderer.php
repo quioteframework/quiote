@@ -72,8 +72,8 @@ final class PhptalRenderer extends Renderer
 
         $engine->set($this->slotsVarName, $slots);
 
-        foreach ($this->assigns as $variable => $getter) {
-            $engine->set((string) $variable, $this->getContext()->$getter());
+        foreach ($this->assigns as $variable => $resolve) {
+            $engine->set((string) $variable, $resolve());
         }
 
         $extraAssigns = self::buildMoreAssigns($moreAssigns, $this->moreAssignNames);

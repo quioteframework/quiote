@@ -47,8 +47,8 @@ abstract class Renderer extends ParameterHolder implements ResetInterface
 	/**
 	 * How to resolve each template variable the `assigns` parameter names, keyed by the variable name.
 	 *
-	 * Closures rather than Context method names: the components these used to name are container
-	 * services now, so the two spellings resolve differently. See {@see resolverFor()}.
+	 * Closures rather than method names: a variable may name a Context method or a container binding,
+	 * and those are not the same call. See {@see resolverFor()}.
 	 *
 	 * @var        array<int|string, \Closure(): mixed>
 	 */
@@ -153,11 +153,11 @@ abstract class Renderer extends ParameterHolder implements ResetInterface
 	 * How to resolve one `assigns` entry, or null when the name means nothing here.
 	 *
 	 * The entry is a name from `output_types.*`: `'request' => 'req'` puts this request into a template
-	 * as `$req`. It used to be resolved as a Context getter -- `getRequest()` -- and the components
-	 * those getters answered are container services now, so a container id is tried too. Both
-	 * spellings keep working, and an application's existing output_types configuration does not change.
+	 * as `$req`. A Context getter is tried first -- `getCorrelationId()` for `correlation_id` -- and
+	 * then a container id, which is what the role names the configuration writes (`request`, `user`,
+	 * `routing`, `controller`) resolve through.
 	 *
-	 * A closure rather than a method name, because the two paths are not the same call.
+	 * A closure rather than a method name, because those two paths are not the same call.
 	 *
 	 * @return     ?\Closure(): mixed
 	 * @since      4.0.0

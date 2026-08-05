@@ -23,7 +23,7 @@ final class PhptalRendererTest extends UnitTestCase
     #[\Override]
     public function tearDown(): void
     {
-        foreach (['', '-extract', '-starter', '-starter-default', '-starter-extract'] as $suffix) {
+        foreach (['', '-extract', '-assigns', '-starter', '-starter-default', '-starter-extract'] as $suffix) {
             @unlink($this->templateBase . $suffix . '.tal');
         }
     }
@@ -150,4 +150,32 @@ final class PhptalRendererTest extends UnitTestCase
         $attributes = ['name' => 'Quiote'];
         $layer->execute($renderer, $attributes);
     }
+
+    /**
+     * An `assigns` entry names something to expose alongside the attributes. The base renderer
+     * resolves each one to a closure, so this renderer has to call it rather than treat the value as
+     * a Context method name.
+     */
+    public function testAnAssignedContainerServiceReachesTheTemplate(): void
+    {
+        $renderer = new PhptalRenderer();
+        $renderer->initialize($this->getContext(), ['assigns' => ['user' => 'currentUser']]);
+
+        $this->templateBase .= '-assigns';
+        file_put_contents(
+            $this->templateBase . '.tal',
+            '<p tal:content="php: currentUser.getAttribute(\'name\')">placeholder</p>',
+        );
+
+        $layer = new FileTemplateLayer(['template' => $this->templateBase]);
+        $layer->initialize($this->getContext());
+        $layer->setRenderer($renderer);
+
+        $user = $this->getContext()->getContainer()->get(\Quiote\User\User::class);
+        $user->setAttribute('name', 'Quiote');
+
+        $attributes = [];
+        $this->assertStringContainsString('Quiote', $layer->execute($renderer, $attributes));
+    }
+
 }

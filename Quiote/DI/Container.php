@@ -116,17 +116,14 @@ class Container implements ContainerInterface
      * Resolve a service.
      *
      * The conditional return type is what makes the container usable without a cast at every call
-     * site: asked for a class name, this answers that class, and asked for a role string
-     * (`'controller'`, `'user'`) it answers `mixed`, because nothing statically knows what a role is
-     * bound to. That distinction matters now that `Context`'s typed accessors are gone -- code that
-     * used to write `$context->getSlotDispatcher()` and get a `SlotDispatcher` writes
-     * `$container->get(SlotDispatcher::class)` and still gets one.
+     * site: asked for a class name, this answers that class, so `get(SlotDispatcher::class)` is as
+     * well typed as a dedicated accessor would be. Asked for a role string (`'controller'`, `'user'`)
+     * it answers `mixed`, because nothing statically knows what a role is bound to.
      *
      * A binding whose value does not match the requested class is refused here, which is what makes
-     * that conditional type a promise rather than a hope. `Context` used to run this check inside four
-     * typed accessors; with the accessors gone it belongs to the one place every resolution passes
-     * through, and it means a consumer that resolves a class name never has to defend against getting
-     * something else.
+     * that conditional type a promise rather than a hope. Checking it in the one place every
+     * resolution passes through means a consumer that resolves a class name never has to defend
+     * against getting something else.
      *
      * @template T of object
      * @param      string $id A class name, an interface name, or a role alias.

@@ -58,8 +58,8 @@ final class TwigRenderer extends Renderer implements IReusableRenderer
 
         $vars[$this->slotsVarName] = $slots;
 
-        foreach ($this->assigns as $name => $getter) {
-            $vars[$name] = $this->getContext()->$getter();
+        foreach ($this->assigns as $name => $resolve) {
+            $vars[$name] = $resolve();
         }
 
         foreach (self::buildMoreAssigns($moreAssigns, $this->moreAssignNames) as $name => $value) {
