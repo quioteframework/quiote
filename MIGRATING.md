@@ -17,8 +17,9 @@ take the first-party packages with it:
 composer require quioteframework/quiote:^4.0@RC quioteframework/csrf:^4.0@RC
 ```
 
-RC1 shipped without the constraint that makes a mismatched package a resolution error rather
-than a runtime one; see [the next section](#upgrade-the-first-party-packages-in-lockstep-with-the-framework).
+RC1 and RC2 need every first-party package named explicitly, because the framework's own
+requirement of `quioteframework/csrf` was unversioned until RC3; see
+[the next section](#upgrade-the-first-party-packages-in-lockstep-with-the-framework).
 
 4.0 breaks `Context` into the collaborators it was standing in for, and its accessors are
 deleted rather than deprecated — an application reaching a service through the context has
@@ -46,26 +47,43 @@ its own Composer package — so an application that upgrades `quioteframework/qu
 that surfaces first because `Quiote::bootstrap()` registers its plugin unconditionally, so the failure
 is not limited to the requests that use the feature.
 
-From 4.0.0-RC2 every first-party package requires `"quioteframework/quiote": "^4.0"` instead of
-`"*"`, so Composer refuses the combination rather than installing it. Two limits on that guard:
-4.0.0-RC1 shipped without it, and no constraint published in 3.x can be changed retroactively — a
-package already installed with `"*"` pairs happily with 4.0, and this is what that looks like when
-it does.
+### Why `composer update` does not fix it by itself
 
-**Upgrade them together.** Every package is tagged with the same version as the framework:
+The framework's own manifest required `"quioteframework/csrf": "@dev"`. That is a stability flag with
+no version constraint — it means *any* version — so Composer is free to pick the highest one it likes,
+and with `prefer-stable` that is the newest **stable** release. Against a published 4.0 release
+candidate, this is what resolves:
 
 ```
-composer require quioteframework/quiote:^4.0@RC quioteframework/csrf:^4.0@RC
+- Locking quioteframework/csrf (v3.1.0)
+- Locking quioteframework/quiote (v4.0.0-RC2)
 ```
 
-Or set the stability once, in the application's `composer.json`, and let each package follow:
+`minimum-stability: "RC"` does not change it: nothing in the graph says csrf has to be 4.x, so
+`prefer-stable` still prefers the stable 3.1.0. CSRF is the only package a consumer inherits this way
+— the other 35 are the monorepo's own dev dependencies.
+
+**From 4.0.0-RC3** the framework requires `"quioteframework/csrf": "^4.0"`, and each package requires
+`"quioteframework/quiote": "^4.0"` (that half landed in RC2). Composer then either resolves the
+matching version or says it cannot, rather than installing a pairing that fails per request.
+
+**On RC1 or RC2, name the version yourself.** A published constraint cannot be corrected
+retroactively, so require the packages explicitly in the application:
 
 ```json
 {
-    "minimum-stability": "RC",
-    "prefer-stable": true
+    "require": {
+        "quioteframework/quiote": "^4.0@RC",
+        "quioteframework/csrf": "^4.0@RC"
+    }
 }
 ```
+
+Do the same for every other first-party package the application requires. That is the whole fix — the
+explicit constraint is what excludes 3.1.0.
+
+Every package is tagged with the same version as the framework, so one stability flag per
+requirement is all it takes. Once 4.0.0 is released the `@RC` flags come off and `^4.0` is enough.
 
 ## The config cache now invalidates itself on a framework change
 
