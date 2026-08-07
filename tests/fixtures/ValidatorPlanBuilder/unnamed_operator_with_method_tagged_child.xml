@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ae:configurations xmlns="http://quiote.dev/quiote/config/parts/validators/1.1" xmlns:ae="http://quiote.dev/quiote/config/global/envelope/1.1">
+  <ae:configuration>
+    <validators>
+      <validator class="Quiote\Validator\NotoperatorValidator">
+        <validator class="Quiote\Validator\StringValidator" name="child_check" method="write" required="false">
+          <arguments>
+            <argument>field</argument>
+          </arguments>
+          <errors>
+            <error>Invalid field</error>
+          </errors>
+        </validator>
+      </validator>
+    </validators>
+  </ae:configuration>
+</ae:configurations>

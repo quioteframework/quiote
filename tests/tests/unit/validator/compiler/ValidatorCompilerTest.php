@@ -8,6 +8,8 @@ use Quiote\Support\Compiler\EmittedArtifact;
 use Quiote\Validator\Compiler\CompilationResult;
 use Quiote\Validator\Compiler\EmitterInterface;
 use Quiote\Validator\Compiler\Ir\ValidatorPlan;
+use Quiote\Validator\Compiler\RuntimeDeclarationEmitter;
+use Quiote\Validator\Compiler\Runtime\ValidatorDeclarationApplier;
 use Quiote\Validator\Compiler\ValidatorCompiler;
 use Quiote\Validator\Compiler\ValidatorSource;
 
@@ -43,6 +45,44 @@ class ValidatorCompilerTest extends PhpUnitTestCase
 
 		$this->expectException(ConfigurationException::class);
 		$compiler->parse($source);
+	}
+
+	/**
+	 * Regression guard: an unnamed validator (no "name" attribute -- common for operator wrappers
+	 * like <validator class="not">) gets a synthetic name from Toolkit::uniqid() at plan-build time,
+	 * used as the emitted declaration's node name and as any child's "parent" reference. That name
+	 * must also land in the node's own `parameters['name']`, or Validator::initialize() -- finding no
+	 * "name" parameter -- mints a SECOND, independent uniqid for the runtime instance's own getName(),
+	 * which can never match the compile-time name a child references as its parent.
+	 * ValidatorDeclarationApplier::apply() must not throw "not a validator declared before it" for a
+	 * config shape this ordinary: an unnamed wrapper (no method, so methodless bucket) around a named
+	 * child that carries its own method (a different bucket) -- the exact shape of an XML
+	 * <validator class="not"> with no method wrapping a method-tagged child.
+	 */
+	public function testApplyAttachesAMethodTaggedChildToItsUnnamedParent(): void
+	{
+		$compiler = new ValidatorCompiler();
+		$source = new ValidatorSource(
+			dirname(__DIR__, 4) . '/fixtures/ValidatorPlanBuilder/unnamed_operator_with_method_tagged_child.xml',
+			'test'
+		);
+
+		[$plan, ] = $compiler->parse($source);
+
+		$declaration = (new RuntimeDeclarationEmitter())->emit($plan);
+
+		$context = \Quiote\Context::getInstance();
+		$vm = $context->getContainer()->get(\Quiote\Validator\ValidationManager::class);
+		$vm->clear();
+
+		ValidatorDeclarationApplier::apply($declaration, $vm, 'write', $context, $source->path);
+
+		$children = $vm->getChilds();
+		$this->assertCount(1, $children, 'The unnamed "not" wrapper must itself be attached to the manager');
+		$notValidator = reset($children);
+		$this->assertInstanceOf(\Quiote\Validator\NotoperatorValidator::class, $notValidator);
+		$this->assertCount(1, $notValidator->getChilds(), 'Its method-tagged child must be attached to it, not orphaned');
+		$this->assertInstanceOf(\Quiote\Validator\StringValidator::class, $notValidator->getChild('child_check'));
 	}
 
 	public function testDiscoverDelegatesToLocatorWithDefaultRoots(): void

@@ -180,6 +180,13 @@ class ValidatorPlanBuilder
 		if ($name === null || $name === '') {
 			$name = Toolkit::uniqid();
 			$validator->setAttribute('name', $name);
+			// $parameters was captured from $validator->getAttributes() above, before this
+			// synthetic name existed, so it never picked it up -- without this, initialize()
+			// generates a SECOND, independent uniqid for the runtime instance's own getName(),
+			// which can never match the name this compile-time node (and any child naming it as
+			// "parent") actually uses, breaking ValidatorDeclarationApplier's parent lookup for
+			// every unnamed operator/container validator with a child that resolves it.
+			$parameters['name'] = $name;
 		}
 
 		// Compute the request parameter names this validator operates on so
