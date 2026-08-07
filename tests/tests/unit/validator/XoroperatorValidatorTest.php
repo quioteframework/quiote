@@ -4,6 +4,7 @@ use Quiote\Exception\ValidatorException;
 use Quiote\Testing\UnitTestCase;
 use Quiote\Validator\Validator;
 use Quiote\Validator\XoroperatorValidator;
+use Sandbox\Testing\ExportingDummyValidator;
 
 class XoroperatorValidatorTest extends UnitTestCase
 {
@@ -73,6 +74,33 @@ class XoroperatorValidatorTest extends UnitTestCase
 		$this->assertTrue($val2->validated);
 		$val1->clear();
 		$val2->clear();
+	}
+
+	/**
+	 * Regression guard: WebRequest is immutable, so a child's export() (see ExportingDummyValidator)
+	 * only replaces the CHILD's own copy of the request, not this operator's own -- getMutatedRequest()
+	 * must fold it back in, or ValidationManager::execute() (which only reads getMutatedRequest() off
+	 * its direct children, never a validator nested one level deeper inside an or/and/xor/not group)
+	 * never sees the export. The winning child here is the first of the two, so this also verifies
+	 * the fold-in happens even when the second child never itself exports anything.
+	 */
+	public function testExportFromTheWinningChildReachesTheOperatorsOwnMutatedRequest(): void
+	{
+		$vm = $this->getContext()->getContainer()->get(\Quiote\Validator\ValidationManager::class);
+		$vm->clear();
+		$o = $vm->createValidator(XoroperatorValidator::class, [], [], ['severity' => 'error']);
+
+		$val1 = $vm->createValidator(ExportingDummyValidator::class, [], [], ['severity' => 'error']);
+		$val2 = $vm->createValidator('DummyValidator', [], [], ['severity' => 'error']);
+		$o->registerValidators([$val1, $val2]);
+
+		$val1->val_result = true;
+		$val2->val_result = false;
+		$this->assertEquals(Validator::SUCCESS, $o->execute($this->newWebRequest()));
+
+		$mutated = $o->getMutatedRequest();
+		$this->assertNotNull($mutated);
+		$this->assertSame('exported-value', $mutated->getParameter('ExportedByChild'));
 	}
 
 	public function testcheckValidSetup(): void

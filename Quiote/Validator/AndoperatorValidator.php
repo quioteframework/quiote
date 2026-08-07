@@ -27,10 +27,15 @@ class AndoperatorValidator extends OperatorValidator implements ResetInterface
 	protected function validate()
 	{
 		$return = true;
-		$parameters = $this->requireValidationParameters();
 
 		foreach($this->children as $child) {
-			$result = $child->execute($parameters);
+			$result = $child->execute($this->requireValidationParameters());
+			// WebRequest is immutable: a child's export() (e.g. <ae:parameter name="export">)
+			// replaces only the child's own copy. Fold it back into this operator's own copy so
+			// ValidationManager::execute()'s getMutatedRequest() pickup -- which only looks at its
+			// direct children, i.e. this operator, never the child nested inside it -- sees the
+			// export, and so a later sibling sees an earlier one's export too.
+			$this->validationParameters = $child->getMutatedRequest() ?? $this->validationParameters;
 			$this->result = max($result, $this->result);
 			if($result > Validator::SUCCESS) {
 				// if one validator fails, the whole operator fails

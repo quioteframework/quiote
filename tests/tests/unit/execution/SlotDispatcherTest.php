@@ -5,6 +5,7 @@ use Quiote\Execution\SlotDispatcher;
 use Quiote\Middleware\SlotMiddleware;
 use Nyholm\Psr7\ServerRequest;
 use Quiote\Execution\SlotStack;
+use Sandbox\Modules\Snapshot\Actions\ExportViaValidatorAction;
 use Sandbox\Modules\Snapshot\Actions\ParamSnapshotAction;
 
 class SlotDispatcherTest extends UnitTestCase
@@ -55,6 +56,27 @@ class SlotDispatcherTest extends UnitTestCase
         $content = $dispatcher->dispatch($req, 'Snapshot', 'ParamSnapshotAction');
         $this->assertSame('PARAM_OK', $content, 'View must render via getDefaultViewName(), not execute()\'s return value');
         $this->assertSame([], ParamSnapshotAction::$seenParams, 'execute() must never run for a simple action dispatched as a slot');
+    }
+
+    /**
+     * Regression guard: WebRequest is immutable, so a validator's export() (see
+     * ExportingSlotValidator) only replaces ValidationManager's own copy of the request, not the
+     * $rd captured by SlotDispatcher before validate() ran. Without a re-fetch after validation --
+     * mirroring the one ActionExecutor performs after execute() -- the action would see a stale $rd
+     * and getParameter() would throw UnvalidatedParameterAccessException for a parameter that was,
+     * in fact, validated and exported.
+     */
+    public function testValidatorExportedParameterReachesTheSlotAction(): void
+    {
+        $controller = $this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class);
+        $controller->initializeModule('Snapshot');
+        $dispatcher = new SlotDispatcher($controller);
+        $req = (new ServerRequest('GET', 'http://localhost/'))
+            ->withAttribute(SlotMiddleware::ATTR, new SlotStack());
+        ExportViaValidatorAction::$observedValue = null;
+        $content = $dispatcher->dispatch($req, 'Snapshot', 'ExportViaValidatorAction');
+        $this->assertSame('from-validator', ExportViaValidatorAction::$observedValue, 'The action must see the value its own validator exported, not the pre-validation request');
+        $this->assertSame('VIEW:from-validator', $content, 'The rendered view must see it too');
     }
 
     public function testRecursionLimit(): void

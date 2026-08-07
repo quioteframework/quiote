@@ -27,10 +27,14 @@ class OroperatorValidator extends OperatorValidator implements ResetInterface
 	protected function validate()
 	{
 		$return = false;
-		$parameters = $this->requireValidationParameters();
 
 		foreach($this->children as $child) {
-			$result = $child->execute($parameters);
+			$result = $child->execute($this->requireValidationParameters());
+			// WebRequest is immutable: a child's export() (e.g. <ae:parameter name="export">)
+			// replaces only the child's own copy. Fold it back into this operator's own copy so
+			// ValidationManager::execute()'s getMutatedRequest() pickup -- which only looks at its
+			// direct children, i.e. this operator, never the child nested inside it -- sees the export.
+			$this->validationParameters = $child->getMutatedRequest() ?? $this->validationParameters;
 			$this->result = max($this->result, $result);
 
 			if($result == Validator::SUCCESS) {

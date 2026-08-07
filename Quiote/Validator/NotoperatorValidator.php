@@ -85,6 +85,11 @@ class NotoperatorValidator extends OperatorValidator implements ResetInterface
 			throw new ValidatorException('NOT operator has no child validator to execute (checkValidSetup() should have rejected this setup already)');
 		}
 		$result = $child->execute($this->requireValidationParameters());
+		// WebRequest is immutable: a child's export() (e.g. <ae:parameter name="export">)
+		// replaces only the child's own copy. Fold it back into this operator's own copy so
+		// ValidationManager::execute()'s getMutatedRequest() pickup -- which only looks at its
+		// direct children, i.e. this operator, never the child nested inside it -- sees it.
+		$this->validationParameters = $child->getMutatedRequest() ?? $this->validationParameters;
 		if($result == Validator::CRITICAL || $result == Validator::SUCCESS) {
 			$this->result = max(Validator::ERROR, $result);
 			$this->throwError(null, $child->getFullArgumentNames());

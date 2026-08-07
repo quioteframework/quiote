@@ -450,6 +450,21 @@ class SlotDispatcher
                     }
                     throw $e;
                 }
+                // WebRequest is immutable: a validator's export() (e.g. <ae:parameter name="export">)
+                // only replaces the container's published instance, not this local $rd captured before
+                // validation ran -- mirrors the re-fetch ActionExecutor performs after action execution.
+                // Re-read here so both the error handler below and the action execution further down see
+                // whatever validation exported, instead of a stale $rd missing every exported parameter.
+                try {
+                    $rd = $this->controller->getContext()->getContainer()->get(WebRequest::class);
+                } catch (\Throwable $e) {
+                    // Keeps the pre-validation $rd, so an export a validator made may not be visible
+                    // to the action or its error handler.
+                    $logger->warning(
+                        '[SlotDisp] could not re-read the request after validating slot ' . $key . '; '
+                        . 'the action may not see its exports: ' . $e->getMessage()
+                    );
+                }
                 if (!$vres->ok) {
                     try {
                         $rawViewName = $actionInstance->handleError($rd);

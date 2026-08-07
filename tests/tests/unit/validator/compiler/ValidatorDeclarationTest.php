@@ -1,6 +1,7 @@
 <?php
 
 use Quiote\Exception\ConfigurationException;
+use Quiote\Request\RequestState;
 use Quiote\Testing\UnitTestCase;
 use Quiote\Validator\Compiler\Ir\ValidatorNode;
 use Quiote\Validator\Compiler\Ir\ValidatorPlan;
@@ -10,6 +11,7 @@ use Quiote\Validator\OroperatorValidator;
 use Quiote\Validator\RegexValidator;
 use Quiote\Validator\StringValidator;
 use Quiote\Validator\ValidationManager;
+use Quiote\Validator\Validator;
 
 /**
  * A compiled validator config declares its validators; the applier builds them. Together these are
@@ -74,6 +76,33 @@ class ValidatorDeclarationTest extends UnitTestCase
 		$this->assertInstanceOf(StringValidator::class, $validator);
 		$this->assertSame(3, $validator->getParameter('min'));
 		$this->assertSame($this->getContext(), $validator->getContext());
+	}
+
+	/**
+	 * The applier used to build every declared validator with `new $class()`, so a validator.xml
+	 * entry naming a class with constructor dependencies failed at construction time with an
+	 * ArgumentCountError -- the fluent PHP builder path (ValidatorFactory) already supported this via
+	 * the container's make(), but the compiled XML/declaration path never went through it. Building
+	 * through ValidatorFactory here closes that gap: both construction paths now agree.
+	 */
+	public function testADeclaredValidatorWithConstructorDependenciesIsBuiltThroughTheContainer(): void
+	{
+		$node = new ValidatorNode(
+			'di_check',
+			DeclaredDependencyValidator::class,
+			['username'],
+			'',
+			['name' => 'di_check', 'severity' => 'error', 'required' => true],
+			[],
+			[''],
+			['username']
+		);
+
+		$vm = $this->applyTo($this->declare([$node]));
+
+		$validator = $vm->getChild('di_check');
+		$this->assertInstanceOf(DeclaredDependencyValidator::class, $validator);
+		$this->assertInstanceOf(RequestState::class, $validator->requestState);
 	}
 
 	/**
@@ -241,5 +270,18 @@ class ValidatorDeclarationTest extends UnitTestCase
 			'parameters' => ['name' => 'broken', 'pattern' => '/^x$/'],
 			'errors' => ['min' => ['domains' => []]],
 		]]]]]);
+	}
+}
+
+/** Declares an ordinary singleton-safe collaborator, mirroring ValidatorFactoryTest's fixture. */
+class DeclaredDependencyValidator extends Validator
+{
+	public function __construct(public readonly RequestState $requestState)
+	{
+	}
+
+	protected function validate(): bool
+	{
+		return true;
 	}
 }

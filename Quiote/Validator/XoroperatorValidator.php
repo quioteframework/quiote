@@ -37,13 +37,18 @@ class XoroperatorValidator extends OperatorValidator implements ResetInterface
 	protected function validate()
 	{
 		$children = $this->children;
-		$parameters = $this->requireValidationParameters();
 
 		$child1 = array_shift($children);
 		if ($child1 === null) {
 			throw new ValidatorException('XOR operator has no first child validator to execute (checkValidSetup() should have rejected this setup already)');
 		}
-		$result1 = $child1->execute($parameters);
+		$result1 = $child1->execute($this->requireValidationParameters());
+		// WebRequest is immutable: a child's export() (e.g. <ae:parameter name="export">)
+		// replaces only the child's own copy. Fold it back into this operator's own copy so
+		// ValidationManager::execute()'s getMutatedRequest() pickup -- which only looks at its
+		// direct children, i.e. this operator, never a child nested inside it -- sees the
+		// export, and so the second child sees the first one's export too.
+		$this->validationParameters = $child1->getMutatedRequest() ?? $this->validationParameters;
 		if($result1 == Validator::CRITICAL) {
 			$this->result = $result1;
 			$this->throwError();
@@ -54,7 +59,8 @@ class XoroperatorValidator extends OperatorValidator implements ResetInterface
 		if ($child2 === null) {
 			throw new ValidatorException('XOR operator has no second child validator to execute (checkValidSetup() should have rejected this setup already)');
 		}
-		$result2 = $child2->execute($parameters);
+		$result2 = $child2->execute($this->requireValidationParameters());
+		$this->validationParameters = $child2->getMutatedRequest() ?? $this->validationParameters;
 		if($result2 == Validator::CRITICAL) {
 			$this->result = $result2;
 			$this->throwError();

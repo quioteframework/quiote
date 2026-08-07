@@ -9,6 +9,7 @@ use Quiote\Exception\ConfigurationException;
 use Quiote\Validator\IValidatorContainer;
 use Quiote\Validator\ValidationManager;
 use Quiote\Validator\Validator;
+use Quiote\Validator\ValidatorFactory;
 
 /**
  * Builds the validators a compiled validator config declares and attaches them to a validation
@@ -181,7 +182,7 @@ final class ValidatorDeclarationApplier
             ));
         }
 
-        $validator = new $class();
+        $validator = (new ValidatorFactory($context))->create($class);
         $validator->initialize(
             $context,
             self::stringKeyed(self::arrayField($spec, 'parameters', $bucketKey, $sourceRef)),
