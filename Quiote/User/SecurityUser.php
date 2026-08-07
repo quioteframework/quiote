@@ -2,6 +2,7 @@
 namespace Quiote\User;
 
 use Quiote\Context;
+use Quiote\Security\Auth\TokenClaims;
 use Symfony\Contracts\Service\ResetInterface;
 
 /**
@@ -100,6 +101,14 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 	 * each request -- but session *attribute* storage stays live.
 	 */
 	protected bool $tokenDerived = false;
+
+	/**
+	 * The validated claims a token authenticator resolved this identity
+	 * from, when {@see $tokenDerived} is true. Request-scoped only -- unlike
+	 * credentials, claims are not written to the session, since a stateless
+	 * caller's identity is re-derived from its token on every request.
+	 */
+	protected ?TokenClaims $tokenClaims = null;
 
 	/**
 	 * Indicates an explicit downgrade to unauthenticated was requested (logout or forced).
@@ -282,6 +291,28 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 	public function isTokenDerived(): bool
 	{
 		return $this->tokenDerived;
+	}
+
+	/**
+	 * The validated claims this identity was resolved from, when
+	 * {@see isTokenDerived()} is true.
+	 * @since      1.0.0
+	 */
+	public function getTokenClaims(): ?TokenClaims
+	{
+		return $this->tokenClaims;
+	}
+
+	/**
+	 * Set (or clear) the validated claims this identity was resolved from.
+	 * Called by {@see \Quiote\Security\Auth\AuthenticationManager::apply()}
+	 * alongside {@see markTokenDerived()} once a token authenticator has
+	 * produced a successful passport.
+	 * @since      1.0.0
+	 */
+	public function setTokenClaims(?TokenClaims $claims): void
+	{
+		$this->tokenClaims = $claims;
 	}
 
 	/**
@@ -471,6 +502,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 		$this->authenticated = false;
 		$this->logoutIntent = true; // mark explicit downgrade
 		$this->tokenDerived = false;
+		$this->tokenClaims = null;
 		$this->dirty = true;
 		try {
 			$bag = $this->getContext()->getContainer()->get(\Quiote\Session\SessionBagInterface::class);
@@ -633,6 +665,7 @@ class SecurityUser extends User implements ISecurityUser, ResetInterface
 		$this->credentials = null;
 		$this->credentialIndex = null;
 		$this->tokenDerived = false;
+		$this->tokenClaims = null;
 		$this->context = null;
 		$this->parameters = [];
 		// reset parent

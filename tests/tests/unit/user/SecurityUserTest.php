@@ -4,6 +4,8 @@ use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use Quiote\Testing\UnitTestCase;
 use Quiote\User\SecurityUser;
 use Quiote\Context;
+use Quiote\Security\Auth\ClientType;
+use Quiote\Security\Auth\TokenClaims;
 
 class SampleSecurityUser extends SecurityUser
 {
@@ -208,6 +210,35 @@ class SecurityUserTest extends UnitTestCase
 		$this->_u->reset();
 
 		$this->assertFalse($this->_u->isTokenDerived());
+	}
+
+	public function testGetTokenClaimsReturnsWhatWasSet(): void
+	{
+		$claims = new TokenClaims('service', ['sub' => 'service'], ClientType::Service);
+
+		$this->assertNull($this->_u->getTokenClaims());
+
+		$this->_u->setTokenClaims($claims);
+
+		$this->assertSame($claims, $this->_u->getTokenClaims());
+	}
+
+	public function testSetAuthenticatedFalseClearsTokenClaims(): void
+	{
+		$this->_u->setTokenClaims(new TokenClaims('service', ['sub' => 'service'], ClientType::Service));
+		$this->_u->setAuthenticated(true);
+
+		$this->_u->setAuthenticated(false);
+
+		$this->assertNull($this->_u->getTokenClaims());
+	}
+
+	public function testResetClearsTokenClaims(): void
+	{
+		$this->_u->setTokenClaims(new TokenClaims('service', ['sub' => 'service'], ClientType::Service));
+		$this->_u->reset();
+
+		$this->assertNull($this->_u->getTokenClaims());
 	}
 
 	public function testRestoreIdentityFromStorageIsNoOpWithoutCoreIdentityKeys(): void

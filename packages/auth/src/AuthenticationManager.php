@@ -54,10 +54,10 @@ final class AuthenticationManager
 
 	/**
 	 * Populate the context's `SecurityUser`/`RbacSecurityUser` from a
-	 * successful passport: marks it token-derived for a stateless firewall,
-	 * marks it authenticated, and grants each of the passport's
-	 * credentials (as roles on a `RbacSecurityUser`, or as flat credentials
-	 * otherwise).
+	 * successful passport: marks it token-derived and stores the passport's
+	 * `TokenClaims` for a stateless firewall, marks it authenticated, and
+	 * grants each of the passport's credentials (as roles on a
+	 * `RbacSecurityUser`, or as flat credentials otherwise).
 	 * @param      Passport $passport The successful passport to apply.
 	 * @param      Firewall $firewall The firewall that produced $passport.
 	 * @return     void
@@ -75,6 +75,7 @@ final class AuthenticationManager
 			// stale session credentials must not be rehydrated (see
 			// SecurityUser::$tokenDerived).
 			$user->markTokenDerived(true);
+			$user->setTokenClaims($passport->getClaims());
 		}
 
 		$user->setAuthenticated(true);

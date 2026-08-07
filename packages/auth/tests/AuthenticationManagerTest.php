@@ -8,7 +8,9 @@ use Quiote\Security\Auth\EntryPoint\HttpChallengeEntryPoint;
 use Quiote\Security\Auth\EntryPoint\LoginRedirectEntryPoint;
 use Quiote\Security\Auth\Firewall;
 use Quiote\Security\Auth\Identity\InMemoryUserIdentity;
+use Quiote\Security\Auth\ClientType;
 use Quiote\Security\Auth\Passport;
+use Quiote\Security\Auth\TokenClaims;
 use Quiote\Testing\UnitTestCase;
 use Quiote\User\SecurityUser;
 use Psr\Http\Message\ResponseInterface;
@@ -135,6 +137,33 @@ class AuthenticationManagerTest extends UnitTestCase
 		$manager->authenticate($this->request(), $firewall);
 
 		$this->assertTrue($this->securityUser()->isTokenDerived());
+	}
+
+	public function testAuthenticateStoresThePassportsClaimsOnTheSecurityUserForAStatelessFirewall(): void
+	{
+		$identity = new InMemoryUserIdentity('service', 'hash', ['api']);
+		$claims = new TokenClaims('service', ['sub' => 'service'], ClientType::Service);
+		$passport = new Passport($identity, ['api'], stateless: true, claims: $claims);
+		$authenticator = new AlwaysSupportsAuthenticator($passport);
+		$manager = new AuthenticationManager($this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class));
+		$firewall = new Firewall('api', '^/api/', [$authenticator], new HttpChallengeEntryPoint(), stateless: true);
+
+		$manager->authenticate($this->request(), $firewall);
+
+		$this->assertSame($claims, $this->securityUser()->getTokenClaims());
+	}
+
+	public function testAuthenticateDoesNotSetClaimsForANonStatelessFirewall(): void
+	{
+		$identity = new InMemoryUserIdentity('alice', 'hash', ['user']);
+		$passport = new Passport($identity, ['user'], stateless: false);
+		$authenticator = new AlwaysSupportsAuthenticator($passport);
+		$manager = new AuthenticationManager($this->getContext()->getContainer()->get(\Quiote\Controller\Controller::class));
+		$firewall = new Firewall('main', '^/', [$authenticator], new LoginRedirectEntryPoint());
+
+		$manager->authenticate($this->request(), $firewall);
+
+		$this->assertNull($this->securityUser()->getTokenClaims());
 	}
 
 	public function testAuthenticatePropagatesTheAuthenticationExceptionOnFailure(): void
