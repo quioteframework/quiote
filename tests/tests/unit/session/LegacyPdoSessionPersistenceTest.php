@@ -85,6 +85,76 @@ class LegacyPdoSessionPersistenceTest extends TestCase
         $this->assertSame(['foo' => 'bar', 'n' => 7], $this->persistence->load('sid-json'));
     }
 
+    /**
+     * pdo_pgsql hands a bytea column back as a stream resource rather than a
+     * string, unconditionally and with no fetch-mode flag to opt out. No SQLite
+     * table can reproduce that -- pdo_sqlite returns a BLOB as a plain string
+     * even when it was bound as a LOB -- so the driver is stood in for here.
+     * Without the drain, load() sees a non-string and reports every existing
+     * session as absent.
+     */
+    public function testLoadDrainsALobColumnThatTheDriverReturnsAsAStream(): void
+    {
+        $persistence = new PdoSessionPersistence($this->pdoReturningLobStream((string) json_encode(['from' => 'stream'])));
+
+        $this->assertSame(['from' => 'stream'], $persistence->load('sid1'));
+    }
+
+    public function testLoadReturnsNullWhenAStreamedLobColumnIsEmpty(): void
+    {
+        $persistence = new PdoSessionPersistence($this->pdoReturningLobStream(''));
+
+        $this->assertNull($persistence->load('sid1'));
+    }
+
+    /** A dead handle is not a resource any more, so it must read as "no session". */
+    public function testLoadReturnsNullWhenTheColumnIsNeitherAStringNorALiveStream(): void
+    {
+        $stream = fopen('php://memory', 'r+');
+        $this->assertIsResource($stream);
+        fclose($stream);
+
+        $persistence = new PdoSessionPersistence($this->pdoReturningRow([0 => $stream]));
+
+        $this->assertNull($persistence->load('sid1'));
+    }
+
+    public function testLoadReturnsNullWhenTheDriverReturnsNoRow(): void
+    {
+        $persistence = new PdoSessionPersistence($this->pdoReturningRow(false));
+
+        $this->assertNull($persistence->load('sid1'));
+    }
+
+    private function pdoReturningLobStream(string $payload): PDO
+    {
+        $stream = fopen('php://memory', 'r+');
+        $this->assertIsResource($stream);
+        fwrite($stream, $payload);
+        rewind($stream);
+
+        return $this->pdoReturningRow([0 => $stream]);
+    }
+
+    /**
+     * A PDO whose prepared statement returns $row from fetch(), standing in for
+     * a driver this test environment does not have.
+     *
+     * @param array<int, mixed>|false $row
+     */
+    private function pdoReturningRow(array|false $row): PDO
+    {
+        $statement = $this->createStub(PDOStatement::class);
+        $statement->method('execute')->willReturn(true);
+        $statement->method('fetch')->willReturn($row);
+        $statement->method('closeCursor')->willReturn(true);
+
+        $pdo = $this->createStub(PDO::class);
+        $pdo->method('prepare')->willReturn($statement);
+
+        return $pdo;
+    }
+
     public function testPreparedStatementsAreCachedAndReusedAcrossCalls(): void
     {
         $this->persistence->save('sid1', ['a' => 1]);
@@ -148,7 +218,7 @@ class LegacyPdoSessionPersistenceTest extends TestCase
     }
 
     /**
-     * load() uses fetchColumn(), which does not exhaust the result set, so the
+     * load() fetches a single row, which does not exhaust the result set, so the
      * statement stays open and — on SQLite — keeps the connection inside an
      * implicit read transaction holding a shared lock. That blocks every other
      * connection from writing until the cursor is released, which in a worker

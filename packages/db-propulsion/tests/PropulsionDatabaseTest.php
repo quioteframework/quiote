@@ -71,6 +71,34 @@ class PropulsionDatabaseTest extends TestCase
         $this->assertSame($conn, $db->getPdo());
     }
 
+    /**
+     * PropulsionPDO is an interface, and only its concrete driver-specific
+     * implementations extend PDO, so a connection that satisfies the interface
+     * without being a PDO has to be reported rather than handed to a caller
+     * that asked for a raw PDO handle.
+     */
+    public function testGetPdoRejectsAPropulsionConnectionThatIsNotAPdo(): void
+    {
+        $fake = $this->createStub(\Propulsion\Connection\PropulsionPDO::class);
+
+        $db = new class ($fake) extends PropulsionDatabase {
+            public function __construct(private readonly \Propulsion\Connection\PropulsionPDO $fake)
+            {
+                parent::__construct();
+            }
+
+            #[\Override]
+            protected function connect()
+            {
+                $this->connection = $this->resource = $this->fake;
+            }
+        };
+
+        $this->expectException(\Quiote\Exception\DatabaseException::class);
+        $this->expectExceptionMessage('does not extend PDO');
+        $db->getPdo();
+    }
+
     public function testResetClearsRequestScopedSessionState(): void
     {
         $runtimeConfig = $this->writeRuntimeConfigFile();

@@ -98,8 +98,11 @@ class FormatAwareConfigCacheTest extends PhpUnitTestCase
 		$registry = $this->newRegistry($handler);
 
 		$cacheFile1 = FormatAwareConfigCache::checkConfig($this->dir . '/settings', $handler, $registry, 'test');
-		$mtime1 = filemtime($cacheFile1);
+		// clearstatcache first: checkConfig() stats the cache file while writing it, and a
+		// cached stat taken mid-write reports the second before the final mtime, which made
+		// the comparison below fail whenever the write straddled a second boundary.
 		clearstatcache(true, $cacheFile1);
+		$mtime1 = filemtime($cacheFile1);
 
 		// Second call: source file untouched, so the cache file must not be rewritten.
 		usleep(1100000); // ensure a rewrite (if it happened) would produce a detectably different mtime

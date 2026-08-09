@@ -9,6 +9,8 @@ class ExportViaValidatorActionSuccessView extends View
 {
     public function execute(WebRequest $rd)
     {
-        return 'VIEW:' . $rd->getParameter('ValidatorExported', 'MISSING');
+        $exported = $rd->getParameter('ValidatorExported', 'MISSING');
+
+        return 'VIEW:' . (\is_string($exported) ? $exported : 'MISSING');
     }
 }

@@ -94,4 +94,66 @@ PHP;
         $this->expectException(\Quiote\Http\Client\Exception\RequestException::class);
         $transport->sendRequest(new Request('GET', ''));
     }
+
+    /**
+     * PSR-7 types getMethod() as a plain string, so a hand-rolled request can
+     * hand back an empty one; curl would quietly downgrade that to a GET, so
+     * the transport refuses it instead.
+     */
+    public function testEmptyMethodThrowsRequestException(): void
+    {
+        $request = $this->createStub(\Psr\Http\Message\RequestInterface::class);
+        $request->method('getUri')->willReturn(new \Nyholm\Psr7\Uri('http://127.0.0.1:1/'));
+        $request->method('getMethod')->willReturn('');
+
+        $transport = new CurlTransport();
+
+        $this->expectException(\Quiote\Http\Client\Exception\RequestException::class);
+        $this->expectExceptionMessage('empty HTTP method');
+        $transport->sendRequest($request);
+    }
+
+    /**
+     * The happy path of the same guard: a non-empty method survives to the wire
+     * as CURLOPT_CUSTOMREQUEST rather than being replaced by curl's default.
+     */
+    public function testCustomMethodIsSentVerbatim(): void
+    {
+        $serverScript = <<<'PHP'
+$server = stream_socket_server('tcp://127.0.0.1:0', $errno, $errstr);
+if ($server === false) { fwrite(STDERR, "bind: $errstr\n"); exit(1); }
+$addr = stream_socket_get_name($server, false);
+echo substr($addr, strrpos($addr, ':') + 1) . "\n";
+$conn = @stream_socket_accept($server, 5);
+if ($conn !== false) {
+    $requestLine = trim((string) fgets($conn));
+    $method = strtok($requestLine, ' ');
+    fwrite($conn, "HTTP/1.1 200 OK\r\nContent-Length: " . strlen((string) $method) . "\r\n\r\n" . $method);
+    fclose($conn);
+}
+fclose($server);
+PHP;
+
+        $proc = proc_open(
+            [PHP_BINARY, '-r', $serverScript],
+            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes
+        );
+        $this->assertIsResource($proc, 'Failed to start one-shot server process');
+        fclose($pipes[0]);
+
+        $portLine = fgets($pipes[1]);
+        $this->assertNotFalse($portLine, 'Server process did not report its port');
+        $port = (int) trim($portLine);
+        $this->assertGreaterThan(0, $port, 'Server reported an invalid port');
+
+        $transport = new CurlTransport(connectTimeoutSeconds: 5.0);
+        $response = $transport->sendRequest(new Request('DELETE', "http://127.0.0.1:$port/"));
+
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        proc_close($proc);
+
+        $this->assertSame('DELETE', (string) $response->getBody());
+    }
 }

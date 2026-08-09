@@ -14,7 +14,7 @@ use Quiote\Test\Database\DatabaseContainers;
  */
 class PdoSessionPersistencePostgresTest extends TestCase
 {
-    private ?PDO $pdo = null;
+    private PDO $pdo;
 
     #[\Override]
     protected function setUp(): void
@@ -26,13 +26,7 @@ class PdoSessionPersistencePostgresTest extends TestCase
             $this->markTestSkipped('pdo_pgsql driver not available in test environment');
         }
 
-        $info = DatabaseContainers::postgres();
-        $this->pdo = new PDO(
-            sprintf('pgsql:host=%s;port=%d;dbname=%s', $info['host'], $info['port'], $info['database']),
-            $info['username'],
-            $info['password'],
-        );
-        $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $this->pdo = self::connect();
         $this->pdo->exec('DROP TABLE IF EXISTS session');
         $this->pdo->exec('CREATE TABLE session (sess_id VARCHAR(64) PRIMARY KEY, sess_data BYTEA NOT NULL, sess_time TIMESTAMP NOT NULL)');
     }
@@ -56,13 +50,7 @@ class PdoSessionPersistencePostgresTest extends TestCase
         $writer = new PdoSessionPersistence($this->pdo);
         $writer->save('sid-cross-conn', ['authenticated' => true]);
 
-        $info = DatabaseContainers::postgres();
-        $reader = new PDO(
-            sprintf('pgsql:host=%s;port=%d;dbname=%s', $info['host'], $info['port'], $info['database']),
-            $info['username'],
-            $info['password'],
-        );
-        $reader->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $reader = self::connect();
 
         $this->assertSame(
             ['authenticated' => true],
@@ -75,5 +63,19 @@ class PdoSessionPersistencePostgresTest extends TestCase
         $persistence = new PdoSessionPersistence($this->pdo);
 
         $this->assertNull($persistence->load('does-not-exist'));
+    }
+
+    /** Opens a connection to the container's Postgres, in exception mode. */
+    private static function connect(): PDO
+    {
+        $info = DatabaseContainers::postgres();
+        $pdo = new PDO(
+            sprintf('pgsql:host=%s;port=%d;dbname=%s', $info['host'], $info['port'], $info['database']),
+            $info['username'],
+            $info['password'],
+        );
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+        return $pdo;
     }
 }

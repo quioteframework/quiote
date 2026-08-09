@@ -18,9 +18,12 @@ final class S3SessionFactoryTest extends TestCase
 {
     private function contextWithHttpClient(?ClientInterface $client): Context
     {
-        return new class ($client) extends Context {
-            public function __construct(private ?ClientInterface $client)
+        $context = new class ('test') extends Context {
+            public ?ClientInterface $client = null;
+
+            public function __construct(string $name)
             {
+                parent::__construct($name);
             }
 
             #[\Override]
@@ -34,6 +37,9 @@ final class S3SessionFactoryTest extends TestCase
                 return $container;
             }
         };
+        $context->client = $client;
+
+        return $context;
     }
 
     private function httpClient(): ClientInterface

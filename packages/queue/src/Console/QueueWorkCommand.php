@@ -63,10 +63,6 @@ final class QueueWorkCommand extends AbstractAppCommand
         }
 
         $worker = $container->get(QueueWorker::class);
-        if (!$worker instanceof QueueWorker) {
-            $io->error(sprintf('Expected "%s" service to be a QueueWorker, got %s.', QueueWorker::class, get_debug_type($worker)));
-            return self::FAILURE;
-        }
 
         $maxJobsOption = $input->getOption('max-jobs');
         $maxJobs = is_string($maxJobsOption) && $maxJobsOption !== '' ? (int) $maxJobsOption : null;

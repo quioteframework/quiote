@@ -55,7 +55,8 @@ final class CurlTransport implements ClientInterface
      *
      * @throws NetworkException when curl reports a connectivity-level failure (DNS, connect,
      *                          timeout, TLS handshake, or a truncated exchange)
-     * @throws RequestException when the URI is empty, or curl fails for any other reason
+     * @throws RequestException when the URI or the HTTP method is empty, or curl fails for
+     *                          any other reason
      */
     public function sendRequest(RequestInterface $request): ResponseInterface
     {
@@ -64,12 +65,21 @@ final class CurlTransport implements ClientInterface
             throw new RequestException('Cannot send a request with an empty URI.', $request);
         }
 
+        // PSR-7 types getMethod() as a plain string, so an empty method is
+        // representable even though no conforming request produces one. curl
+        // silently falls back to GET for an empty CURLOPT_CUSTOMREQUEST, which
+        // would send a different request than the caller asked for; refuse instead.
+        $method = $request->getMethod();
+        if ($method === '') {
+            throw new RequestException('Cannot send a request with an empty HTTP method.', $request);
+        }
+
         $ch = curl_init();
         $responseHeaders = [];
 
         curl_setopt_array($ch, [
             \CURLOPT_URL => $uri,
-            \CURLOPT_CUSTOMREQUEST => $request->getMethod(),
+            \CURLOPT_CUSTOMREQUEST => $method,
             \CURLOPT_HTTPHEADER => $this->flattenHeaders($request),
             \CURLOPT_RETURNTRANSFER => true,
             \CURLOPT_FOLLOWLOCATION => false,

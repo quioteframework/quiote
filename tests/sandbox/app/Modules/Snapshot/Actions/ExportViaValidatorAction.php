@@ -48,7 +48,8 @@ class ExportViaValidatorAction extends Action
 
     public function execute(WebRequest $rd): string
     {
-        self::$observedValue = $rd->getParameter('ValidatorExported');
+        $exported = $rd->getParameter('ValidatorExported');
+        self::$observedValue = \is_string($exported) ? $exported : null;
 
         return 'Success';
     }

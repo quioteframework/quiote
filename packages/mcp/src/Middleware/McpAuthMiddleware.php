@@ -41,9 +41,6 @@ final class McpAuthMiddleware implements MiddlewareInterface
      * missing, empty or rejected token yields a 401 problem-details response
      * carrying `WWW-Authenticate: Bearer`, and the inner handler is never
      * called.
-     *
-     * @throws \RuntimeException if the service registered for
-     *         {@see McpAuthenticatorInterface} does not implement it
      */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
@@ -76,21 +73,12 @@ final class McpAuthMiddleware implements MiddlewareInterface
             return $this->authenticator;
         }
 
-        $resolved = Context::getInstance($this->contextName)
+        // The container refuses a binding whose value is not an instance of the
+        // requested id, so a wiring bug is reported there rather than surfacing
+        // as a TypeError from the authenticate() call.
+        return $this->authenticator = Context::getInstance($this->contextName)
             ->getContainer()
             ->get(McpAuthenticatorInterface::class);
-        if (!$resolved instanceof McpAuthenticatorInterface) {
-            // PSR-11 get() is typed mixed; a container registration that answers
-            // this id with something else is a wiring bug, and saying so beats a
-            // TypeError from the authenticate() call one line later.
-            throw new \RuntimeException(sprintf(
-                'The service registered for %s is a %s, which does not implement it.',
-                McpAuthenticatorInterface::class,
-                get_debug_type($resolved),
-            ));
-        }
-
-        return $this->authenticator = $resolved;
     }
 
     private function unauthorized(ServerRequestInterface $request, string $detail): ResponseInterface

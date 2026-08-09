@@ -178,13 +178,27 @@ class PropulsionDatabase extends Database
     /**
      * Returns the datasource connection as a plain PDO handle.
      *
-     * @throws DatabaseException If the connection could not be created or is
-     *                           not a PropulsionPDO.
+     * PropulsionPDO is an interface, and each concrete implementation extends
+     * the driver-specific PDO subclass rather than PDO itself, so the PDO
+     * instance is checked for here instead of being taken on trust.
+     *
+     * @throws DatabaseException If the connection could not be created, is not
+     *                           a PropulsionPDO, or is a PropulsionPDO that
+     *                           does not extend PDO.
      */
     #[\Override]
     public function getPdo(): \PDO
     {
-        return $this->getPropulsionConnection();
+        $connection = $this->getPropulsionConnection();
+        if ($connection instanceof \PDO) {
+            return $connection;
+        }
+
+        throw new DatabaseException(sprintf(
+            'PropulsionDatabase "%s" connection is a %s that does not extend PDO, so it cannot be used as a raw PDO handle.',
+            $this->getName(),
+            get_debug_type($connection)
+        ));
     }
 
     /**

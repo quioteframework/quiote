@@ -455,6 +455,40 @@ final class OpenApiGeneratorTest extends PhpUnitTestCase
         $this->assertArrayNotHasKey('components', $empty);
     }
 
+    /**
+     * A schema's `properties` map is only as well-formed as whatever produced
+     * it, so the generator narrows it: a usable property definition survives
+     * intact, while a numeric property name, a non-array definition, an empty
+     * name, and a numeric keyword inside an otherwise fine definition are all
+     * dropped rather than emitted into the document.
+     */
+    public function testMalformedPropertyEntriesAreDroppedWhileUsableOnesSurvive(): void
+    {
+        $resolver = new \Quiote\Validator\Compiler\JsonSchema\ActionInputSchemaResolver();
+        (new ReflectionProperty($resolver, 'cache'))->setValue($resolver, [
+            'McpActionTool/MultiVerb/read' => [
+                'type' => 'object',
+                'properties' => [
+                    'name' => ['type' => 'string', 0 => 'stray positional keyword'],
+                    7 => ['type' => 'string'],
+                    '' => ['type' => 'string'],
+                    'broken' => 'not-an-array',
+                ],
+                'required' => ['name'],
+            ],
+        ]);
+
+        $document = $this->generate(
+            [$this->route('multi_query', '/multi', 'McpActionTool', 'MultiVerb')],
+            null,
+            new OpenApiGenerator($resolver),
+        );
+
+        $this->assertSame([
+            ['name' => 'name', 'in' => 'query', 'required' => true, 'schema' => ['type' => 'string']],
+        ], $this->at($this->operation($document, '/multi', 'get'), 'parameters'));
+    }
+
     public function testGeneratesFromTheLiveRouteCollectionOfAnAttributeRoutedContext(): void
     {
         // End to end over the real thing: the context's configured Routing

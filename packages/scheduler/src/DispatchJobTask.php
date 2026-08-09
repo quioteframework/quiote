@@ -5,7 +5,6 @@ namespace Quiote\Scheduler;
 use Quiote\DI\Container;
 use Quiote\Queue\Job;
 use Quiote\Queue\QueueManager;
-use RuntimeException;
 
 /**
  * Pushes a {@see Job} onto {@see QueueManager} rather than running it
@@ -30,22 +29,10 @@ final readonly class DispatchJobTask implements ScheduledTaskAction
      * Resolves {@see QueueManager} from the container and enqueues the job
      * rather than executing it here, so the app's queue driver decides whether
      * it runs now or later.
-     *
-     * @throws RuntimeException if the container's `QueueManager` service is
-     *                          bound to something that is not a QueueManager.
      */
     public function run(Container $container): void
     {
-        $manager = $container->get(QueueManager::class);
-        if (!$manager instanceof QueueManager) {
-            throw new RuntimeException(sprintf(
-                'Expected "%s" service to be a QueueManager, got %s.',
-                QueueManager::class,
-                get_debug_type($manager),
-            ));
-        }
-
-        $manager->push($this->jobClass, $this->params);
+        $container->get(QueueManager::class)->push($this->jobClass, $this->params);
     }
 
     /** Returns the job's class name as the task's label. */

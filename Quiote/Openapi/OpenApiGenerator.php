@@ -565,6 +565,12 @@ final class OpenApiGenerator
     }
 
     /**
+     * The schema's `properties` map, narrowed to the shape the operation
+     * builders rely on: a non-empty property name to a keyword map. Anything
+     * that cannot be a JSON Schema property definition — a numeric property
+     * name, a non-array definition, a numeric keyword inside one — is dropped
+     * rather than carried into the document.
+     *
      * @param array<string, mixed>|null $schema
      * @return array<string, array<string, mixed>>
      */
@@ -577,9 +583,17 @@ final class OpenApiGenerator
 
         $typed = [];
         foreach ($properties as $name => $property) {
-            if (is_string($name) && $name !== '' && is_array($property)) {
-                $typed[$name] = $property;
+            if (!is_string($name) || $name === '' || !is_array($property)) {
+                continue;
             }
+
+            $definition = [];
+            foreach ($property as $keyword => $value) {
+                if (is_string($keyword)) {
+                    $definition[$keyword] = $value;
+                }
+            }
+            $typed[$name] = $definition;
         }
 
         return $typed;

@@ -3,7 +3,6 @@
 namespace Quiote\Telemetry\Dashboard;
 
 use Google\Protobuf\Internal\Message;
-use Google\Protobuf\Internal\RepeatedField;
 use Opentelemetry\Proto\Collector\Metrics\V1\ExportMetricsServiceRequest;
 use Opentelemetry\Proto\Collector\Trace\V1\ExportTraceServiceRequest;
 use Opentelemetry\Proto\Common\V1\AnyValue;
@@ -43,10 +42,10 @@ final class OtlpDecoder
         $this->merge($request, $body, $contentType, 'trace');
 
         $spans = [];
-        foreach ($this->resourceSpansOf($request->getResourceSpans()) as $resourceSpans) {
+        foreach ($this->itemsOf($request->getResourceSpans(), ResourceSpans::class) as $resourceSpans) {
             $resourceAttributes = $this->flattenAttributes($resourceSpans->getResource()?->getAttributes());
-            foreach ($this->scopeSpansOf($resourceSpans->getScopeSpans()) as $scopeSpans) {
-                foreach ($this->spansOf($scopeSpans->getSpans()) as $span) {
+            foreach ($this->itemsOf($resourceSpans->getScopeSpans(), ScopeSpans::class) as $scopeSpans) {
+                foreach ($this->itemsOf($scopeSpans->getSpans(), Span::class) as $span) {
                     $spans[] = $this->decodeSpan($span, $resourceAttributes);
                 }
             }
@@ -62,10 +61,10 @@ final class OtlpDecoder
         $this->merge($request, $body, $contentType, 'metrics');
 
         $metrics = [];
-        foreach ($this->resourceMetricsOf($request->getResourceMetrics()) as $resourceMetrics) {
+        foreach ($this->itemsOf($request->getResourceMetrics(), ResourceMetrics::class) as $resourceMetrics) {
             $resourceAttributes = $this->flattenAttributes($resourceMetrics->getResource()?->getAttributes());
-            foreach ($this->scopeMetricsOf($resourceMetrics->getScopeMetrics()) as $scopeMetrics) {
-                foreach ($this->metricsOf($scopeMetrics->getMetrics()) as $metric) {
+            foreach ($this->itemsOf($resourceMetrics->getScopeMetrics(), ScopeMetrics::class) as $scopeMetrics) {
+                foreach ($this->itemsOf($scopeMetrics->getMetrics(), Metric::class) as $metric) {
                     $decoded = $this->decodeMetric($metric, $resourceAttributes);
                     if ($decoded !== null) {
                         $metrics[] = $decoded;
@@ -78,57 +77,29 @@ final class OtlpDecoder
     }
 
     /**
-     * @param RepeatedField<ResourceSpans> $list
-     * @return ResourceSpans[]
+     * Materialises a protobuf repeated field as a list of a known message type.
+     *
+     * The generated OTLP accessors cannot tell a static analyser what a repeated
+     * field holds, so every element is checked rather than assumed. A payload
+     * that decodes to something other than the expected message yields a shorter
+     * list, which the depth- and shape-guarded callers already tolerate, instead
+     * of an array whose element type is a fiction.
+     *
+     * @template T of object
+     * @param iterable<mixed> $list
+     * @param class-string<T> $class
+     * @return list<T>
      */
-    private function resourceSpansOf(RepeatedField $list): array
+    private function itemsOf(iterable $list, string $class): array
     {
-        return iterator_to_array($list, false);
-    }
+        $items = [];
+        foreach ($list as $item) {
+            if ($item instanceof $class) {
+                $items[] = $item;
+            }
+        }
 
-    /**
-     * @param RepeatedField<ScopeSpans> $list
-     * @return ScopeSpans[]
-     */
-    private function scopeSpansOf(RepeatedField $list): array
-    {
-        return iterator_to_array($list, false);
-    }
-
-    /**
-     * @param RepeatedField<Span> $list
-     * @return Span[]
-     */
-    private function spansOf(RepeatedField $list): array
-    {
-        return iterator_to_array($list, false);
-    }
-
-    /**
-     * @param RepeatedField<ResourceMetrics> $list
-     * @return ResourceMetrics[]
-     */
-    private function resourceMetricsOf(RepeatedField $list): array
-    {
-        return iterator_to_array($list, false);
-    }
-
-    /**
-     * @param RepeatedField<ScopeMetrics> $list
-     * @return ScopeMetrics[]
-     */
-    private function scopeMetricsOf(RepeatedField $list): array
-    {
-        return iterator_to_array($list, false);
-    }
-
-    /**
-     * @param RepeatedField<Metric> $list
-     * @return Metric[]
-     */
-    private function metricsOf(RepeatedField $list): array
-    {
-        return iterator_to_array($list, false);
+        return $items;
     }
 
     private function merge(Message $message, string $body, string $contentType, string $kind): void
@@ -202,13 +173,13 @@ final class OtlpDecoder
     }
 
     /**
-     * @param RepeatedField<NumberDataPoint> $points
+     * @param iterable<mixed> $points
      * @return ReceivedDataPoint[]
      */
-    private function decodeNumberDataPoints(RepeatedField $points): array
+    private function decodeNumberDataPoints(iterable $points): array
     {
         $result = [];
-        foreach ($points as $point) {
+        foreach ($this->itemsOf($points, NumberDataPoint::class) as $point) {
             $value = $point->hasAsInt() ? (float) $point->getAsInt() : $point->getAsDouble();
             $result[] = new ReceivedDataPoint(
                 attributes: $this->flattenAttributes($point->getAttributes()),
@@ -222,13 +193,13 @@ final class OtlpDecoder
     }
 
     /**
-     * @param RepeatedField<HistogramDataPoint> $points
+     * @param iterable<mixed> $points
      * @return ReceivedDataPoint[]
      */
-    private function decodeHistogramDataPoints(RepeatedField $points): array
+    private function decodeHistogramDataPoints(iterable $points): array
     {
         $result = [];
-        foreach ($points as $point) {
+        foreach ($this->itemsOf($points, HistogramDataPoint::class) as $point) {
             $result[] = new ReceivedDataPoint(
                 attributes: $this->flattenAttributes($point->getAttributes()),
                 value: $point->getSum(),
@@ -241,17 +212,17 @@ final class OtlpDecoder
     }
 
     /**
-     * @param RepeatedField<KeyValue>|null $attributes
+     * @param iterable<mixed>|null $attributes
      * @return array<string,mixed>
      */
-    private function flattenAttributes(?RepeatedField $attributes): array
+    private function flattenAttributes(?iterable $attributes): array
     {
         if ($attributes === null) {
             return [];
         }
 
         $result = [];
-        foreach ($attributes as $keyValue) {
+        foreach ($this->itemsOf($attributes, KeyValue::class) as $keyValue) {
             $result[$keyValue->getKey()] = $this->anyValueToScalar($keyValue->getValue(), 0);
         }
 
@@ -283,7 +254,7 @@ final class OtlpDecoder
     private function flattenArrayValue(ArrayValue $arrayValue, int $depth): array
     {
         $result = [];
-        foreach ($this->anyValuesOf($arrayValue->getValues()) as $item) {
+        foreach ($this->itemsOf($arrayValue->getValues(), AnyValue::class) as $item) {
             $result[] = $this->anyValueToScalar($item, $depth);
         }
 
@@ -291,22 +262,13 @@ final class OtlpDecoder
     }
 
     /**
-     * @param RepeatedField<AnyValue> $list
-     * @return AnyValue[]
-     */
-    private function anyValuesOf(RepeatedField $list): array
-    {
-        return iterator_to_array($list, false);
-    }
-
-    /**
-     * @param RepeatedField<KeyValue> $values
+     * @param iterable<mixed> $values
      * @return array<string,mixed>
      */
-    private function flattenKvList(RepeatedField $values, int $depth): array
+    private function flattenKvList(iterable $values, int $depth): array
     {
         $result = [];
-        foreach ($values as $keyValue) {
+        foreach ($this->itemsOf($values, KeyValue::class) as $keyValue) {
             $result[$keyValue->getKey()] = $this->anyValueToScalar($keyValue->getValue(), $depth);
         }
 

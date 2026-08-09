@@ -9,6 +9,7 @@ parameters:
 	scanFiles:
 		- etc/phpstan/worker-runtime-functions.php
 		- etc/phpstan/swoole-classes.php
+		- etc/phpstan/protobuf-classes.php
 	dynamicConstantNames:
 		- QUIOTE_USE_APCU_CONFIG_CACHE
 	paths:

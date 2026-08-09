@@ -43,17 +43,9 @@ final readonly class JobExecutor
             ));
         }
 
+        // make() constructs the named class itself rather than consulting a
+        // binding, so the check above is what makes this a Job.
         $job = $this->container->make($payload->jobClass, $payload->params);
-        if (!$job instanceof Job) {
-            // The container is free to answer with a decorator/substitute, so the
-            // static check above does not make this redundant.
-            throw new \RuntimeException(sprintf(
-                'Queue job class "%s" must implement %s, got %s.',
-                $payload->jobClass,
-                Job::class,
-                get_debug_type($job),
-            ));
-        }
 
         try {
             $job->handle();

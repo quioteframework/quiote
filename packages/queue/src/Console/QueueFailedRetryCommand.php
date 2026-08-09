@@ -37,10 +37,6 @@ final class QueueFailedRetryCommand extends AbstractQueueFailedCommand
         }
 
         $queueManager = $container->get(QueueManager::class);
-        if (!$queueManager instanceof QueueManager) {
-            $io->error(sprintf('Expected "%s" service to be a QueueManager, got %s.', QueueManager::class, get_debug_type($queueManager)));
-            return self::FAILURE;
-        }
 
         $id = $input->getArgument('id');
         $all = (bool) $input->getOption('all');

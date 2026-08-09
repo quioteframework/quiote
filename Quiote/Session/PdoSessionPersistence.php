@@ -127,9 +127,9 @@ class PdoSessionPersistence implements SessionPersistenceInterface
      * Returns null when the id has no row or the stored blob is empty. A bytea
      * column comes back from pdo_pgsql as a stream resource rather than a
      * string, so the blob is drained before decoding. The cursor is always
-     * closed, including on failure: `fetchColumn()` leaves the cached statement
-     * open, which on SQLite holds a shared lock that a later {@see save()}
-     * upsert cannot upgrade.
+     * closed, including on failure: a fetched-but-unclosed statement leaves the
+     * cached statement open, which on SQLite holds a shared lock that a later
+     * {@see save()} upsert cannot upgrade.
      *
      * @throws StorageException if the query fails.
      */
@@ -140,17 +140,17 @@ class PdoSessionPersistence implements SessionPersistenceInterface
         try {
             $stmt = $this->loadStatement();
             $stmt->execute([$sid]);
-            $blob = $stmt->fetchColumn();
-            if (in_array($blob, [false, null, ''], true)) {
-                return null;
-            }
             // pdo_pgsql returns a bytea column as a stream resource, not a
             // string -- unconditionally, with no fetch-mode flag to opt out.
             // Every other supported driver (mysql, sqlite) returns a plain
-            // string. Without this, fetchColumn() on Postgres always came
-            // back as a resource, is_string() always failed, and load()
-            // treated every existing session as absent.
+            // string. fetchColumn() is declared as returning a scalar or false,
+            // which cannot express that; only the row form is typed loosely
+            // enough to keep the resource visible instead of having it mistaken
+            // for an absent session.
+            $row = $stmt->fetch(PDO::FETCH_NUM);
+            $blob = is_array($row) && array_key_exists(0, $row) ? $row[0] : null;
             if (is_resource($blob)) {
+                // Drain it while the cursor is still open.
                 $contents = stream_get_contents($blob);
                 $blob = $contents === false ? null : $contents;
             }
@@ -162,8 +162,8 @@ class PdoSessionPersistence implements SessionPersistenceInterface
         } catch (PDOException $e) {
             throw new StorageException('Failed loading session row: ' . $e->getMessage(), (int)$e->getCode(), $e);
         } finally {
-            // Release the cursor. fetchColumn() does not exhaust the result set, so the
-            // statement stays open and, on SQLite, keeps the connection inside an implicit
+            // Release the cursor. Fetching a single row does not exhaust the result set, so
+            // the statement stays open and, on SQLite, keeps the connection inside an implicit
             // read transaction holding a shared lock. save()'s upsert then has to upgrade
             // shared -> exclusive, which SQLite refuses immediately with SQLITE_BUSY
             // (busy_timeout deliberately does not apply to upgrades). The statement is

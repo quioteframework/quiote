@@ -8,7 +8,6 @@ use Quiote\DI\Container;
 use Quiote\Plugin\Attribute\Plugin as PluginAttribute;
 use Quiote\Plugin\PluginInterface;
 use Quiote\Plugin\PluginRegistrar;
-use RuntimeException;
 
 /**
  * Registers the filesystem subsystem: `filesystem.*` setting defaults (`local`
@@ -40,21 +39,12 @@ final class FilesystemPlugin implements PluginInterface
 
         $registrar->service(
             LocalFilesystemAdapter::class,
-            static fn(Container $container) => new LocalFilesystemAdapter(self::resolveFilesystemConfig($container)->localRoot),
+            static fn(Container $container) => new LocalFilesystemAdapter($container->get(FilesystemConfig::class)->localRoot),
         );
 
         $registrar->service(
             FilesystemManager::class,
-            static fn(Container $container) => new FilesystemManager($container, self::resolveFilesystemConfig($container)),
+            static fn(Container $container) => new FilesystemManager($container, $container->get(FilesystemConfig::class)),
         );
-    }
-
-    private static function resolveFilesystemConfig(Container $container): FilesystemConfig
-    {
-        $config = $container->get(FilesystemConfig::class);
-        if (!$config instanceof FilesystemConfig) {
-            throw new RuntimeException(sprintf('Expected "%s" service to be a FilesystemConfig, got %s.', FilesystemConfig::class, get_debug_type($config)));
-        }
-        return $config;
     }
 }
