@@ -49,8 +49,8 @@ class ValidationMiddleware implements MiddlewareInterface
      *
      * After validation, the canonical WebRequest — possibly replaced by
      * ValidationManager with a pruned instance — becomes the request carried
-     * downstream, with `_original_psr_request` reattached and the result stored
-     * as `quiote.request_data`. When no validators ran at all, every parameter
+     * downstream, and the result is stored as `quiote.request_data`. When no
+     * validators ran at all, every parameter
      * is cleared rather than passed through: nothing was vetted, so nothing is
      * exposed. This is why reading raw parameters from middleware ordered
      * before this one sees data that later disappears.
@@ -95,11 +95,7 @@ class ValidationMiddleware implements MiddlewareInterface
 
         // Carry the pipeline request forward as the canonical WebRequest, so downstream
         // middleware (FormPopulation among them) work on the pruned, whitelisted payload.
-        $originalPsr = $request->getAttribute('_original_psr_request');
         $request = $webRequest;
-        if ($originalPsr instanceof ServerRequestInterface) {
-            $request = $request->withAttribute('_original_psr_request', $originalPsr);
-        }
 
         if (!$outcome['hasValidators']) {
             // No validators ran at all, so no parameter has been vetted: expose none.

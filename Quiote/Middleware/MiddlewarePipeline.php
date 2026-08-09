@@ -32,10 +32,7 @@ class MiddlewarePipeline implements RequestHandlerInterface
      *
      * The built stack is cached on the instance for the life of the worker, so
      * only the first request pays for attribute scanning and order resolution;
-     * call {@see reset()} to force a rebuild. The request is given an
-     * `_original_psr_request` attribute holding itself before it enters the
-     * stack, so middleware running after ValidationMiddleware has pruned the
-     * parameters can still reach the untouched request.
+     * call {@see reset()} to force a rebuild.
      *
      * @throws \Quiote\Exception\QuioteException If building the stack produced no handler.
      */
@@ -48,9 +45,6 @@ class MiddlewarePipeline implements RequestHandlerInterface
         if ($handler === null) {
             throw new \Quiote\Exception\QuioteException('MiddlewarePipeline::doBuild() did not produce a handler.');
         }
-        // Save original request before validation pruning for slot parameter access
-        // Pass it through as an attribute so SlotMiddleware can inject it into SlotDispatcher
-        $request = $request->withAttribute('_original_psr_request', $request);
         return $handler->handle($request);
     }
 
